@@ -4,7 +4,7 @@
   "description": "Repo tooling for Marswalk Planner (NASA Space Apps 2026, team CheesySpace)",
   "license": "Apache-2.0",
   "scripts": {
-    "lint:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#graphify-out\" \"#.claude/skills\" \"#.venv\" \"#web/dist\"",
+    "lint:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#graphify-out\" \"#.claude/skills\" \"#.claude/agents\" \"#.claude/ecc/rules\" \"#.claude/commands/orch-*.md\" \"#.venv\" \"#web/dist\"",
     "docs:links": "python3 scripts/check_links.py docs README.md",
     "typecheck": "npm --workspace web run typecheck",
     "build": "npm --workspace web run build",
