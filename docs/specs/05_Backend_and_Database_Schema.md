@@ -73,6 +73,7 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `sources` | DataSource[] | ✓ | — | — | — |
 | `grid` | RoutingGrid | ✓ | — | — | — |
 | `env_constants` | EnvConstant[] | ✓ | — | — | — |
+| `assets` | Asset[] | ✓ | — | Every file the site uses; target of all `*_asset` / `asset_id` FKs | — |
 | `pois_asset` / `traverse_asset` | asset_id | ✓ | — | FK → Asset | — |
 
 ### DataSource
@@ -136,10 +137,11 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `origin_m` | number[2] | ✓ | top-left corner (x, y) | `[-3000, 3000]` |
 | `row_order` | enum | ✓ | `north_up` | `"north_up"` |
 | `elevation_asset` | FK | ✓ | f32, metres, bilinear-resampled mean of 1 m DEM | `"grid-elevation"` |
-| `slope_p90_asset` | FK | ✓ | u8, degrees × 4 (0.25° steps, 0–63.75°, 255 = no data) | `"grid-slope-p90"` |
+| `slope_p90_asset` | FK | ✓ | u8, degrees × 4 (0.25° steps, 0–63.5°, 255 = no data) | `"grid-slope-p90"` |
 | `slope_max_asset` | FK | ✓ | same encoding | `"grid-slope-max"` |
 | `flags_asset` | FK | ✓ | u8 bitfield (below) | `"grid-flags"` |
 | `ti_asset` | FK | | f32 tiu at 100 m, own small grid with `ti_cell_m: 100` | `"grid-ti"` |
+| `ti_cell_m` | number | cond. | Required with `ti_asset`; TI grid cell size, metres | `100` |
 
 #### Flag bits
 
@@ -187,6 +189,7 @@ GeoJSON Point features (+ one LineString). Properties: `sol` (int, ✓), `site_d
 | `conditions` | object | ✓ | `{"solar_phase":"max","location":"Gale crater floor","period":"2012-2013"}` |
 | `provenance` | enum | ✓ | `"measured"` |
 | `source_id` | FK | ✓ | `"hassler-2014-rad"` |
+| `note` | string | | `"reported range, Simonsen et al. 2024"` |
 
 Second record: `rad-gale-dose-eq-solar-min`, value `0.925` (midpoint, display as range), low `0.85`, high `1.0`, provenance `"measured"` with note "reported range, Simonsen et al. 2024".
 
@@ -231,9 +234,9 @@ All defaults carry provenance `assumed` in the UI.
 | `computed_utc` | ISO | |
 | `timing_ms` | object | diagnostics |
 
-**Leg:** `from`, `to`, `status` (`OK \| NO_ROUTE`), `reason` (if NO_ROUTE), `distance_m`, `walk_time_min`, `climb_m`, `descent_m`, `max_slope_deg`, `geometry` (array of `[x_m,y_m]`, simplified for display), `cell_path_length`, `nearest_reachable` (if NO_ROUTE), `profile` (arrays `dist_m[]`, `elev_m[]`, `slope_class[]` sampled every 5 m).
+**Leg:** `from`, `to`, `status` (`OK \| NO_ROUTE`), `reason` (if NO_ROUTE), `distance_m`, `walk_time_min`, `climb_m`, `descent_m`, `max_slope_deg`, `geometry` (array of `[x_m,y_m]`, simplified for display), `cell_path_length`, `nearest_reachable` (if NO_ROUTE), `profile` (arrays `dist_m[]`, `elev_m[]`, `slope_class[]` sampled every 5 m; `slope_class` ∈ `ok \| caution \| over_limit` against the scenario's current limits, 01 FR-08).
 
-**Warning:** `code` (`OVER_HARD_SLOPE`, `CAUTION_SLOPE`, `LOW_TI`, `TI_UNKNOWN`, `LOW_RES_DEM`, `NO_ROUTE`, `EVA_DURATION_EXCEEDED`, `WALKBACK_EXCEEDED`, `DARKNESS`), `severity` (`caution \| blocked \| unknown`), `leg` (index or null), `from_m`, `to_m` (along-leg distance), `at_utc` (for time warnings), `message`.
+**Warning:** `code` (`OVER_HARD_SLOPE`, `CAUTION_SLOPE`, `LOW_TI`, `TI_UNKNOWN`, `LOW_RES_DEM`, `NO_DATA_ADJACENT`, `NO_ROUTE`, `EVA_DURATION_EXCEEDED`, `WALKBACK_EXCEEDED`, `DARKNESS`), `severity` (`caution \| blocked \| unknown`), `leg` (index or null), `from_m`, `to_m` (along-leg distance; null when the warning has no location, e.g. `EVA_DURATION_EXCEEDED`), `at_utc` (for time warnings), `message`.
 
 ### PlanExport
 
@@ -305,7 +308,7 @@ erDiagram
 
 Single-user, local; no access control. Static bundle is public (Space Apps requires a public repository).
 
-### E.3 Referential integrity (validated by `pipeline/validate_manifest.py` and at app boot in dev builds)
+### E.3 Referential integrity (validated by the `validate-manifest` command and at app boot in dev builds)
 
 - Every `*_asset`/`asset_id` resolves to an Asset whose file exists and whose SHA-256 matches.
 - Every `source_ids` entry resolves to a DataSource.
@@ -383,7 +386,10 @@ Single-user, local; no access control. Static bundle is public (Space Apps requi
      "accuracy_note": "HRSC controlled to MOLA (~100 m horizontal, ~1 m vertical)"}
   ],
   "pois_asset": "vec-pois",
-  "traverse_asset": "vec-traverse"
+  "traverse_asset": "vec-traverse",
+  "assets": [
+    {"asset_id": "tiles-slope", "path": "tiles/slope", "format": "tiles"}
+  ]
 }
 ```
 

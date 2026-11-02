@@ -15,7 +15,7 @@
 | --- | --- |
 | Audience | EVA planner/crew (P1/P2) and judges (P3) — technically literate, not GIS experts |
 | Usage context | Habitat or mission-support desk display; dim room; also projected on a venue screen during judging |
-| Primary device | Desktop/laptop, mouse + keyboard, ≥ 1366 × 768. Secondary: tablet landscape ≥ 1024 × 768 (touch) |
+| Primary device | Desktop/laptop, mouse + keyboard, ≥ 1366 × 768. Secondary: tablet ≥ 768 px wide (touch; view + add/delete stops, layouts per §E) |
 | Visual character | "Instrument panel": calm, dark neutral chrome so Mars imagery is the brightest thing on screen; precise numerals; no decorative sci-fi effects |
 | Information hierarchy | 1) Is the plan OK? (status) → 2) Where are the problems? (map + profile highlights) → 3) How big are the margins? (metrics) → 4) Why should I trust this? (provenance chips → methods) |
 | Usability priorities | Never hide a constraint violation; every number explains itself in one click; core flow keyboard-operable; nothing requires reading a manual |
@@ -140,7 +140,7 @@ Single outline icon set (e.g., Lucide, MIT-licensed — verify licence in TASK-1
 | Profile chart | Elevation line + patterns | Cursor + tooltip | Faded previous profile under spinner | — | Hidden | Message in chart area |
 | Metric tile | Value + unit + chip | — | Previous value at 50 % opacity | — | "—" with tooltip "needs a plan" | `unknown` styling |
 | POI image | Image + credit | Click → full-size dialog | Blurred placeholder | — | — | "Image not available" + source link |
-| Briefing button | Enabled when plan exists | — | — | Disabled with tooltip when no stops | — | — |
+| Briefing button | Enabled when a plan is computed (OK, Over limits, Partial) | — | — | Disabled with tooltip when no stops or after a computation error | — | — |
 
 **Discoverability:** first-run coach marks (3 steps, dismissible, stored only in memory): "Turn on Slope", "Click a POI → Add as stop", "Open Briefing".
 

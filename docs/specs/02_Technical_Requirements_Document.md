@@ -122,7 +122,7 @@ AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **ins
 
 | Field | Value |
 | --- | --- |
-| Source | USGS *Mars MSL Gale Merged DEM 1 m* v3 (Parker & Calef 2016), 3.6 GB, 32-bit, 57,440 × 32,980 px — **Confirmed** |
+| Source | USGS *Mars MSL Gale Merged DEM 1 m* v3 (Parker & Calef 2016), 3.6 GB, 32-bit, 57,440 rows × 32,980 columns — **Confirmed** |
 | Composition | HiRISE DEMs where stereo exists; otherwise CTX, HRSC, then MOLA 128 ppd fill; HRSC controlled to MOLA (~100 m horizontal, ~1 m vertical accuracy) — **Confirmed** |
 | Key risk | Unknown which source fills the boxwork AOI → **TASK-01** compares DEM texture/hillshade and HiRISE stereo-pair footprints; if not HiRISE, either find a University of Arizona HiRISE DTM covering the AOI or switch site (Jezero: *Mars 2020 TRN HiRISE DTM Mosaic*, USGS) |
 | Effective resolution | Post spacing 1 m; effective resolution of photogrammetric DTMs is coarser than post spacing — features of a few metres (e.g., boxwork ridges ~1–2 m tall) may be smoothed (**Assumed**; state in methods panel) |
@@ -203,7 +203,7 @@ All functions live in `web/src/compute/` as pure functions (no DOM, no fetch), u
 ### D.1 Point sampling (FR-03, FR-08)
 
 - **Input:** working-projection x, y (m).
-- **Output:** `{lat, lonE, elevation_m, slope_deg, ti_tiu|null, cell:{i,j}}`.
+- **Output:** `{lat, lon_e, elevation_m, slope_p90_deg, ti_tiu|null, cell:{i,j}}` (field names as in §E.2 SAMPLE_RESULT).
 - **Algorithm:** nearest routing-grid cell for slope/flags; bilinear interpolation of elevation for profiles; TI nearest from a 100 m sidecar array.
 - **Failure:** outside AOI or NaN → `null` values with reason `OUTSIDE_AOI` / `NO_DATA`.
 
@@ -248,7 +248,7 @@ Test cases: 1 km flat → 18.18 min; 1 km at constant +10° gradient (horizontal
 
 - **Model:** `dose_mSv = rate_mSv_per_day × duration_h / 24`.
 - **Rates:** solar max 0.64 (±0.12) mSv/day → 7 h = 0.187 (range 0.152–0.222) mSv. Solar min range 0.85–1.0 mSv/day → 7 h = 0.248–0.292 mSv.
-- **Output:** `{dose_mSv, dose_low_mSv, dose_high_mSv, phase, source_id}`.
+- **Output:** `{dose_mSv, dose_low_mSv, dose_high_mSv, solar_phase, const_id}` (05 PlanResult.radiation).
 - **Excluded (stated on card):** solar energetic particle events, suit/habitat shielding, terrain sky-blocking, altitude differences within AOI.
 - **Label:** *measured background rate × planned duration (simplified)*.
 
@@ -296,15 +296,15 @@ All requests carry `request_id`; the worker processes only the **latest** `plan_
 Used by the inspector and by waypoint validation/snapping (FR-03, FR-06).
 
 ```json
-{"type": "SAMPLE_POINT", "request_id": "r-0041", "x_m": 3010.0, "y_m": -2595.0, "snap_radius_m": 50}
+{"type": "SAMPLE_POINT", "request_id": "r-0041", "x_m": 2990.0, "y_m": -2595.0, "snap_radius_m": 50}
 ```
 
 ```json
 {"type": "SAMPLE_RESULT", "request_id": "r-0041",
  "inside_aoi": true, "passable": false, "reason": "SLOPE_OVER_LIMIT",
- "lat": -4.74378, "lon_e": 137.43095, "elevation_m": -3912.4, "slope_p90_deg": 21.75,
+ "lat": -4.74378, "lon_e": 137.43061, "elevation_m": -3912.4, "slope_p90_deg": 21.75,
  "ti_tiu": 312.0, "flags": ["LOW_RES_DEM"],
- "snap": {"x_m": 3002.5, "y_m": -2612.5, "distance_m": 19.0}}
+ "snap": {"x_m": 2982.5, "y_m": -2612.5, "distance_m": 19.0}}
 ```
 
 `reason` ∈ {`OUTSIDE_AOI`, `NO_DATA`, `HARD_HAZARD`, `SLOPE_OVER_LIMIT`, `null`}; `snap` is `null` when no passable cell lies within `snap_radius_m`.
@@ -332,7 +332,7 @@ Used by the inspector and by waypoint validation/snapping (FR-03, FR-06).
   "waypoints": [
     {"id": "wp-0", "role": "start", "x_m": 1520.0, "y_m": -2210.0},
     {"id": "wp-1", "role": "stop", "x_m": 2410.5, "y_m": -1875.0, "poi_id": "poi-boxwork-ridge"},
-    {"id": "wp-2", "role": "stop", "x_m": 3020.0, "y_m": -2600.0}
+    {"id": "wp-2", "role": "stop", "x_m": 2980.0, "y_m": -2600.0}
   ]
 }
 ```
@@ -348,7 +348,7 @@ Used by the inspector and by waypoint validation/snapping (FR-03, FR-06).
   "legs": [
     {"from": "wp-0", "to": "wp-1", "status": "OK", "distance_m": 1184.2,
      "walk_time_min": 26.1, "max_slope_deg": 11.4, "climb_m": 38.0, "descent_m": 4.5,
-     "path_cells": 241, "geometry_ref": "leg-0"},
+     "cell_path_length": 241},
     {"from": "wp-1", "to": "wp-2", "status": "NO_ROUTE",
      "reason": "DISCONNECTED_BY_SLOPE", "nearest_reachable": {"x_m": 2905.0, "y_m": -2410.0}}
   ],
@@ -398,7 +398,7 @@ None. No user data leaves the browser.
 | --- | --- | --- | --- |
 | NFR-01 | Offline operation | 100 % of demo features work with network disabled | Rehearsal with Wi-Fi off; browser devtools "Offline" |
 | NFR-02 | Performance | First map paint ≤ 5 s from localhost; 3-stop route ≤ 2 s; layer toggle ≤ 300 ms; UI never blocks > 100 ms | Timing logged in diagnostics; test on the weakest team laptop |
-| NFR-03 | Browser/device | Latest Chrome, Edge, Firefox on desktop ≥ 1366 × 768 (primary); tablet ≥ 768 px wide (secondary, view + stop editing) | Manual matrix |
+| NFR-03 | Browser/device | Latest Chrome, Edge, Firefox on desktop ≥ 1366 × 768 (primary); tablet ≥ 768 px wide (secondary: view + add/delete stops, drag only if time permits — 03 U-07; layouts per 04 §E); < 768 px view-only | Manual matrix |
 | NFR-04 | Accessibility | WCAG 2.2 AA targets: contrast ≥ 4.5:1 text, keyboard operation of all controls, non-colour cues, text alternative for map content (stops table, warnings list) | axe-core scan + keyboard-only run-through |
 | NFR-05 | Scientific transparency | Every displayed value carries `data-provenance` ∈ {measured, derived, modelled, assumed} and a source id | Automated DOM test |
 | NFR-06 | Determinism/reproducibility | Same scenario + waypoints + `data_version` ⇒ identical results and identical `plan_hash` | Unit test runs plan twice; cross-browser check |

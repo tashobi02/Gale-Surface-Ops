@@ -65,6 +65,19 @@ One screen that turns scattered NASA products into an **excursion-scale go/no-go
 
 ---
 
+## Clarifications
+
+### Session 2026-11-02
+
+Recorded with `/speckit.clarify` after a `/speckit.analyze` pass over docs/specs.
+
+- Q: When is the 30-s global video due? → A: Upload by 14 Nov 09:00; hard cut-off 12:00 (as in 06 §A).
+- Q: Where does the site manifest list its assets? → A: In a required `assets: Asset[]` field on Site (05 §C); every `*_asset` / `asset_id` resolves against it.
+- Q: What is the MVP tablet scope? → A: Tablets ≥ 768 px wide can view and add/delete stops (drag only if time permits); layouts follow 04 §E; < 768 px is view-only (03 U-07, 02 NFR-03).
+- Q: When can the Briefing card be opened? → A: For any computed plan — OK, Over limits or Partial — with a banner for Over limits and Partial; disabled with no stops or after a computation error (03 SCR-08, 04 §D).
+
+---
+
 ## B. Goals and success criteria
 
 All numeric targets below are **Proposed** unless marked otherwise.
@@ -74,9 +87,9 @@ All numeric targets below are **Proposed** unless marked otherwise.
 | **User value** | Planner can evaluate one excursion end-to-end | From opening the app, a first-time user produces a briefing card for a 3-stop route in **≤ 5 minutes** without help (tested with ≥ 3 people outside the team) |
 | | Hazards are not hidden | 100 % of route segments that exceed the configured slope limit or cross no-data/hazard cells are flagged in the profile *and* the card |
 | **Core workflow completion** | Route computation is reliable | For 20 scripted waypoint pairs inside the AOI, the router returns either a valid route or an explicit "no feasible route" reason — **0 crashes, 0 silent failures** |
-| | Plan is editable | Moving, adding or deleting a stop recomputes all results in **≤ 2 s** on a mid-range laptop |
+| | Plan is editable | Moving, adding or deleting a stop recomputes all results in **≤ 2 s** on the weakest team laptop (NFR-02) |
 | **Demonstration readiness** | Demo runs with Wi-Fi off | Full core scenario (§E) runs from local files with network disabled, rehearsed ≥ 2 times |
-| | Videos and submission | 240-s local judging video by **13 Nov 18:30** and 30-s global video by **14 Nov 12:00** (**Confirmed** dates, Participants Guide run of show) |
+| | Videos and submission | 240-s local judging video by **13 Nov 18:30** and 30-s global video uploaded by **14 Nov 09:00** (hard cut-off 12:00) (**Confirmed** dates, Participants Guide run of show) |
 | **Technical / scientific credibility** | Every displayed number has provenance | Each metric on the briefing card carries a label (measured / derived / modelled / assumed) and a source link |
 | | Compute is tested | Unit tests pass for slope, routing, time model, radiation, and Mars24 solar functions (reference values listed in [02 §D](02_Technical_Requirements_Document.md#d-core-processing-and-simulation-behavior)) |
 | | Data are aligned | Curiosity traverse overlays the orthoimage tracks within the stated DEM/ortho registration tolerance (visual check at 5 locations) |
@@ -321,7 +334,7 @@ Screens referenced are defined in [03](03_App_Flow_and_Diagrams.md); compute in 
 | A-04 | Walkback limit 5 km route distance | **Assumed**; references: NASA lunar walkback test studied 10 km; Apollo 17 walking radius 3.1 km | Drives "exceeded" warning |
 | A-05 | Low thermal inertia indicates loose fines | **Assumed interpretation** at 100 m pixel scale (~20 % absolute accuracy, Confirmed) | Sand-caution warnings are coarse |
 | A-06 | RAD rate at Gale is representative for the AOI | **Assumed** (same crater, similar elevation range) | Radiation estimate |
-| A-07 | Team of 4, ~28 working hours during the event | **Assumed** | Scope feasibility |
+| A-07 | Team of 4; ~28-hour event window (13 Nov 07:00 → 14 Nov 11:00), ≈ 70 person-hours ([06 §A](06_High_Level_Implementation_Plan.md#a-planning-assumptions)) | **Assumed** | Scope feasibility |
 
 ### F.3 Risks
 

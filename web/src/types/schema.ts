@@ -46,6 +46,8 @@ export interface Site {
   sources: DataSource[];
   grid: RoutingGrid;
   env_constants: EnvConstant[];
+  /** Every file the site uses; target of all *_asset / asset_id FKs. */
+  assets: Asset[];
   /** FK → Asset. */
   pois_asset: string;
   /** FK → Asset. */
@@ -147,7 +149,7 @@ export interface RoutingGrid {
   flags_asset: string;
   /** f32 tiu at 100 m on its own small grid. */
   ti_asset?: string;
-  /** Appears in the 05 §F.1 example and the ti_asset rule; not a row of the 05 table. */
+  /** Required with ti_asset; TI grid cell size, metres. */
   ti_cell_m?: number;
 }
 
@@ -217,6 +219,7 @@ export interface EnvConstant {
   high: number;
   unit: string;
   conditions: Record<string, unknown>;
+  note?: string;
   provenance: Provenance;
   /** FK → DataSource. */
   source_id: string;
@@ -291,8 +294,8 @@ export interface Leg {
   cell_path_length: number;
   /** If NO_ROUTE; shape from 02 §E.2. */
   nearest_reachable?: { x_m: number; y_m: number };
-  /** Sampled every 5 m. slope_class values are not enumerated in 05 (01 FR-08: OK / caution / over-limit). */
-  profile: { dist_m: number[]; elev_m: number[]; slope_class: string[] };
+  /** Sampled every 5 m; slope_class against the scenario's current limits (01 FR-08). */
+  profile: { dist_m: number[]; elev_m: number[]; slope_class: ("ok" | "caution" | "over_limit")[] };
 }
 
 /** Hazard or constraint warning (05 §C Warning; FR-10). */
@@ -303,6 +306,7 @@ export interface Warning {
     | "LOW_TI"
     | "TI_UNKNOWN"
     | "LOW_RES_DEM"
+    | "NO_DATA_ADJACENT"
     | "NO_ROUTE"
     | "EVA_DURATION_EXCEEDED"
     | "WALKBACK_EXCEEDED"
@@ -310,9 +314,9 @@ export interface Warning {
   severity: "caution" | "blocked" | "unknown";
   /** Leg index or null. */
   leg: number | null;
-  /** Along-leg distance, metres. */
-  from_m: number;
-  to_m: number;
+  /** Along-leg distance, metres; null when the warning has no location (e.g. EVA_DURATION_EXCEEDED). */
+  from_m: number | null;
+  to_m: number | null;
   /** For time warnings. */
   at_utc?: string;
   message: string;

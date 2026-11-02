@@ -90,5 +90,6 @@ This project keeps a knowledge graph in `graphify-out/` (only `GRAPH_REPORT.md` 
 | `/trace <FR-id>` | project command | Screens, modules, entities, tasks and tests that reference an FR |
 | `/rehearse-offline` | project command | Offline rehearsal checklist (06 §D.6) |
 | `/orch-add-feature`, `/orch-fix-defect`, `/orch-change-feature`, `/orch-refine-code`, `/orch-review` | project (vendored from ECC) | Gated multi-agent pipeline: plan → GATE → TDD → review → GATE → commit, with the agents in `.claude/agents/` |
+| `/speckit.analyze`, `/speckit.clarify`, `/speckit.checklist` | project (vendored from spec-kit) | Read-only cross-spec analysis, ≤ 5 clarification questions written back to 01, requirement-quality checklists; checked against [.specify/memory/constitution.md](.specify/memory/constitution.md) |
 
-ECC files are listed in [.claude/ecc/README.md](.claude/ecc/README.md). Where they conflict with this file — the phase gate in §3, `it.todo` instead of the ECC ≥ 80 % coverage rule, the non-negotiables in §2 — this file wins.
+spec-kit files are listed in [.specify/README.md](.specify/README.md). ECC files are listed in [.claude/ecc/README.md](.claude/ecc/README.md). Where they conflict with this file — the phase gate in §3, `it.todo` instead of the ECC ≥ 80 % coverage rule, the non-negotiables in §2 — this file wins.

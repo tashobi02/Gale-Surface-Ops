@@ -295,7 +295,11 @@
             "slope_class": {
               "type": "array",
               "items": {
-                "type": "string"
+                "enum": [
+                  "ok",
+                  "caution",
+                  "over_limit"
+                ]
               }
             }
           },
@@ -314,6 +318,7 @@
             "LOW_TI",
             "TI_UNKNOWN",
             "LOW_RES_DEM",
+            "NO_DATA_ADJACENT",
             "NO_ROUTE",
             "EVA_DURATION_EXCEEDED",
             "WALKBACK_EXCEEDED",
@@ -334,10 +339,18 @@
           ]
         },
         "from_m": {
-          "type": "number"
+          "type": [
+            "number",
+            "null"
+          ],
+          "$comment": "null when the warning has no location"
         },
         "to_m": {
-          "type": "number"
+          "type": [
+            "number",
+            "null"
+          ],
+          "$comment": "null when the warning has no location"
         },
         "at_utc": {
           "type": "string",

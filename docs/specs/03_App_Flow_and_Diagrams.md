@@ -124,10 +124,10 @@ Routing is hash-based (`#/`, `#/map`, `#/briefing`, `#/sources`) so the static h
 | Field | Spec |
 | --- | --- |
 | Purpose | One-page excursion summary for print/PDF |
-| Entry | "Briefing" button (enabled only when status OK or Partial) |
+| Entry | "Briefing" button (enabled when status is OK, Over limits or Partial; disabled with no stops or after Error) |
 | Content | Header (site, plan name, data version, plan hash, generated time); route map snapshot; stops/timeline table; profile; metrics; warnings; conditions; assumptions; sources; disclaimer |
 | Actions | Print (browser), **Export plan JSON**, Back to map |
-| States | Partial plan → red banner "Plan incomplete — not valid for use" and totals omitted |
+| States | Partial plan → red banner "Plan incomplete — not valid for use" and totals omitted · Over limits → banner listing the exceeded limits |
 | Requirements | FR-14, FR-15 |
 
 ### SCR-09 — Sources & Methods
@@ -314,4 +314,4 @@ stateDiagram-v2
 | ID | Item | Recommendation |
 | --- | --- | --- |
 | U-06 | Should free placement be allowed in the demo, or POIs only? | Allow both; demo uses POIs for reliability |
-| U-07 | Tablet editing depth | View + stop add/delete only in MVP; drag on tablet if time permits |
+| U-07 | Tablet editing depth | View + stop add/delete only in MVP; drag on tablet if time permits — **resolved 2026-11-02** (01 Clarifications) |

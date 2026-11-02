@@ -1,7 +1,6 @@
 """Referential-integrity checks for a site bundle (docs/specs/05 §E.3).
 
-05 names this `pipeline/validate_manifest.py`; it lives in the package here and is exposed as
-the `validate-manifest` console script.
+Exposed as the `validate-manifest` console script (05 §E.3).
 """
 from __future__ import annotations
 

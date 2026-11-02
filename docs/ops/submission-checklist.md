@@ -12,7 +12,7 @@ The Participants Guide (source of the Bangladesh schedule, judging sheet and sub
 ## Deadlines (06 §A, Confirmed)
 
 - [ ] 240-s local-judging video — 13 Nov 18:30
-- [ ] 30-s video upload — 14 Nov 09:00; hard cut-off 12:00 (01 §B lists 12:00 as the due time)
+- [ ] 30-s video upload — 14 Nov 09:00; hard cut-off 12:00
 - [ ] Demo freeze — 14 Nov 06:00 (06 §D.3)
 - [ ] Local judging from 14 Nov 11:00
 

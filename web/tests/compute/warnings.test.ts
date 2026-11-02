@@ -4,6 +4,6 @@ import { describe, it } from "vitest";
 describe("warnings", () => {
   it.todo("status PARTIAL with totals null when any leg is NO_ROUTE");
   it.todo("flags 100 % of segments over the hard slope limit");
-  it.todo("emits CAUTION_SLOPE, LOW_TI, LOW_RES_DEM, EVA_DURATION_EXCEEDED, WALKBACK_EXCEEDED, DARKNESS");
+  it.todo("emits CAUTION_SLOPE, LOW_TI, LOW_RES_DEM, NO_DATA_ADJACENT, EVA_DURATION_EXCEEDED, WALKBACK_EXCEEDED, DARKNESS");
   it.todo("missing TI layer yields TI_UNKNOWN (unknown severity), never silence");
 });

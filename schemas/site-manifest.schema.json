@@ -124,6 +124,13 @@
     },
     "traverse_asset": {
       "type": "string"
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Asset"
+      },
+      "$comment": "target of all *_asset / asset_id FKs"
     }
   },
   "required": [
@@ -140,7 +147,8 @@
     "grid",
     "env_constants",
     "pois_asset",
-    "traverse_asset"
+    "traverse_asset",
+    "assets"
   ],
   "$defs": {
     "Provenance": {
@@ -462,7 +470,7 @@
         },
         "ti_cell_m": {
           "type": "number",
-          "$comment": "In 05 §F.1 example and ti_asset rule; not a row of the RoutingGrid table"
+          "$comment": "required with ti_asset; TI grid cell size, metres"
         }
       },
       "required": [
@@ -476,7 +484,12 @@
         "slope_max_asset",
         "flags_asset"
       ],
-      "$comment": "05: width*height <= 4e6 (not expressible in JSON Schema; checked by validate_manifest)"
+      "$comment": "05: width*height <= 4e6 (not expressible in JSON Schema; checked by validate_manifest)",
+      "dependentRequired": {
+        "ti_asset": [
+          "ti_cell_m"
+        ]
+      }
     },
     "EnvConstant": {
       "type": "object",
@@ -506,6 +519,9 @@
           "$ref": "#/$defs/Provenance"
         },
         "source_id": {
+          "type": "string"
+        },
+        "note": {
           "type": "string"
         }
       },
