@@ -26,7 +26,7 @@ The goal is to build a **map, tool, or interface that a Mars astronaut could use
 
 ## Repository Contents
 
-```
+```text
 .
 ├── README.md
 └── docs/
@@ -35,9 +35,9 @@ The goal is to build a **map, tool, or interface that a Mars astronaut could use
 ```
 
 | File | Purpose |
-|------|---------|
-| [docs/challenge-overview.md](docs/challenge-overview.md) | Challenge statement, objectives and optional considerations. |
-| [docs/mars_scientific_context.md](docs/mars_scientific_context.md) | A cited reference on Mars science. Its 14 sections cover planetary history, interior, geography, soil and regolith (including perchlorates), atmosphere and dust storms, water and ice, seasons and sunlight, radiation, the human perspective (pressure, partial gravity, thermal, dust, communications delay), habitability, open questions, a glossary and a bibliography. |
+| --- | --- |
+| [docs/reference/challenge-overview.md](docs/reference/challenge-overview.md) | Challenge statement, objectives and optional considerations. |
+| [docs/reference/mars-scientific-context.md](docs/reference/mars-scientific-context.md) | A cited reference on Mars science. Its 14 sections cover planetary history, interior, geography, soil and regolith (including perchlorates), atmosphere and dust storms, water and ice, seasons and sunlight, radiation, the human perspective (pressure, partial gravity, thermal, dust, communications delay), habitability, open questions, a glossary and a bibliography. |
 
 ## Status
 
@@ -53,7 +53,6 @@ The project is at the **research and planning stage**. The repository holds only
 
 ## References
 
-- [docs/challenge-overview.md](docs/challenge-overview.md) for the challenge text.
-- The bibliography in [docs/mars_scientific_context.md](docs/mars_scientific_context.md) lists NASA, ESA and USGS sources and peer-reviewed publications.
+- [docs/reference/challenge-overview.md](docs/reference/challenge-overview.md) for the challenge text.
+- The bibliography in [docs/reference/mars-scientific-context.md](docs/reference/mars-scientific-context.md) lists NASA, ESA and USGS sources and peer-reviewed publications.
 - Challenge resources: see the Resources tab on the NASA Space Apps Challenge page.
-

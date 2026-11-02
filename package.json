@@ -1,0 +1,13 @@
+{
+  "name": "cheesyspace-marswalk-planner",
+  "private": true,
+  "description": "Repo tooling for Marswalk Planner (NASA Space Apps 2026, team CheesySpace)",
+  "license": "Apache-2.0",
+  "scripts": {
+    "lint:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#graphify-out\" \"#.claude/skills\"",
+    "docs:links": "python3 scripts/check_links.py docs README.md"
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "^0.24.0"
+  }
+}

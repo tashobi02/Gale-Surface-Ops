@@ -1,18 +1,18 @@
 # 06 — High-Level Implementation Plan
 
 | | |
-|---|---|
+| --- | --- |
 | **Owner** | Delivery (this file owns order, dependencies and cut decisions) |
 | **Date** | 2026-11-02 (Monday) |
 | **Status** | Draft v1 — proposed |
-| **Inputs** | [01 PRD](01_Product_Requirements_Document.md) · [02 Technical](02_Technical_Requirements_Document.md) · [03 Flow](03_App_Flow_and_Diagrams.md) · [04 Design](04_Design_Brief.md) · [05 Schema](05_Backend_and_Database_Schema.md) |
+| **Related** | Inputs: [01 PRD](01_Product_Requirements_Document.md) · [02 Technical](02_Technical_Requirements_Document.md) · [03 Flow](03_App_Flow_and_Diagrams.md) · [04 Design](04_Design_Brief.md) · [05 Schema](05_Backend_and_Database_Schema.md) · [Docs index](../README.md) |
 
 ---
 
 ## A. Planning assumptions
 
 | Item | Value | Label |
-|---|---|---|
+| --- | --- | --- |
 | Team size | 4 (rules allow 1–6) | **Assumed** |
 | Roles | Data/GIS lead (Python, GDAL) · Compute engineer (TypeScript algorithms + tests) · Frontend engineer (OpenLayers/UI) · Design & story lead (UX, visuals, video, submission) | **Assumed** |
 | Calendar | Pre-event: 2–12 Nov. Bangladesh hackathon: Fri 13 Nov 07:00 – Sat 14 Nov. 240-s local-judging video due **13 Nov 18:30**; final 30-s video upload **14 Nov 09:00** (run of show) with hard cut-off **12:00**; local judging from **11:00** | **Confirmed** (Participants Guide) |
@@ -21,6 +21,7 @@
 | Pre-event work allowed | Participants Guide explicitly recommends downloading datasets offline, setting up and testing the environment, preparing a public repository, slide template and demo script before day one. Whether application **code** may be written before 13 Nov is **Unresolved** — check spaceappschallenge.org/legal and ask the Local Lead | **Confirmed** / **Unresolved** |
 
 Because of the unresolved rule, the plan has two tracks:
+
 - **Track S (strict):** before 13 Nov only data acquisition, data preprocessing outputs, environment setup, design, and documentation; all app code written during the event.
 - **Track P (permissive):** if allowed, the TASK-02 spike and TASK-05 compute core are also done before the event.
 
@@ -31,7 +32,7 @@ Effort ranges are person-hours, not promises.
 ## B. Milestones
 
 | Milestone | Window | Exit criteria | Tasks |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **M0 Feasibility & rules** | 2–5 Nov | AOI chosen inside DEM extent; DEM quality inside AOI judged (HiRISE vs. fill); site decision D-01 locked (Gale or Jezero); rules question answered | TASK-00, TASK-01, TASK-02 (Track P) |
 | **M1 Data ready** | 5–10 Nov | `site-manifest.json` validates; tiles, grid, vectors, images in place; checksums recorded; offline load of assets verified with a static server | TASK-03, TASK-04 |
 | **M2 Setup** | 10–12 Nov | Public repo with licence, environment files, design tokens, wireframe sketches, demo script draft; everyone can run the pipeline outputs locally | TASK-13 (tokens only), TASK-16 (skeleton) |
@@ -47,9 +48,9 @@ Uncertain, high-impact dependencies (DEM quality, projection rendering, router s
 ## C. Work packages
 
 | Task | Objective | Related reqs | Deliverable | Depends on | Owner | Effort | Done when | Main risk → fallback |
-|---|---|---|---|---|---|---|---|---|
-| **TASK-00** | Resolve rules + register | — | Written answer from rules page / Local Lead; team registered on NASA site and Bangladesh form | — | Story lead | 1–2 h | Answer recorded in repo `docs/rules.md` | No answer → follow Track S |
-| **TASK-01** | Feasibility: AOI, DEM quality, coverage checks | FR-01–03, FR-18, A-01 | `docs/feasibility.md`: AOI bounds, DEM source assessment, THEMIS tile id, CRISM coverage yes/no, DEM datum from PDS3 label, decision D-01 | — | Data lead | 4–8 h | AOI inside DEM extent; hillshade shows HiRISE-scale texture across ≥ 80 % of AOI | DEM is CTX-quality → switch to Jezero (USGS M2020 TRN HiRISE DTM mosaic) same day |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **TASK-00** | Resolve rules + register | — | Written answer from rules page / Local Lead; team registered on NASA site and Bangladesh form | — | Story lead | 1–2 h | Answer recorded in repo `docs/ops/rules.md` | No answer → follow Track S |
+| **TASK-01** | Feasibility: AOI, DEM quality, coverage checks | FR-01–03, FR-18, A-01 | `docs/ops/feasibility.md`: AOI bounds, DEM source assessment, THEMIS tile id, CRISM coverage yes/no, DEM datum from PDS3 label, decision D-01 | — | Data lead | 4–8 h | AOI inside DEM extent; hillshade shows HiRISE-scale texture across ≥ 80 % of AOI | DEM is CTX-quality → switch to Jezero (USGS M2020 TRN HiRISE DTM mosaic) same day |
 | **TASK-02** | Spike: OpenLayers custom Mars projection + custom tile grid | FR-01, D-03 | Minimal page showing test tiles + correct scale bar | TASK-01 (projection string) | Frontend | 2–4 h | Scale bar matches a DEM-measured feature within 2 % | Fails in 2 h → ImageStatic fallback (02 §B) |
 | **TASK-03** | Preprocessing pipeline | FR-01–03, FR-07, NFR-06 | `pipeline/` scripts → tiles (ortho 0.5 m; hillshade/slope/elevation/TI 2 m), routing grid 5 m (elevation, slope_p90, slope_max, flags, TI), `site-manifest.json`, `sources.lock.json`, `validate_manifest.py` | TASK-01 | Data lead | 8–14 h | Validator passes; sampled values match source rasters; total bundle ≤ 250 MB | Slow tiling → lower max zoom; grid too big → 10 m cells |
 | **TASK-04** | Vectors, POIs and images | FR-04, FR-17 | `traverse.geojson`, `pois.geojson` (5–8 POIs), `images/`, credits list | TASK-01 | Story lead + Data lead | 4–8 h | Traverse aligns with tracks at ≥ 3 checkpoints; every POI has credit + position source | PLACES parsing slow → MMGIS JSON (cached, labelled unofficial) |
@@ -91,7 +92,7 @@ flowchart LR
 ### D.2 Concurrent work
 
 | Stream | Can run in parallel with |
-|---|---|
+| --- | --- |
 | TASK-04 POIs/images | TASK-03 pipeline |
 | TASK-06 Mars24/radiation | Everything (no data dependency) |
 | TASK-05 compute on a **synthetic grid** | TASK-03 (swap in real grid later) |
@@ -100,7 +101,7 @@ flowchart LR
 ### D.3 Integration checkpoints
 
 | When | Checkpoint |
-|---|---|
+| --- | --- |
 | 5 Nov | D-01 site decision; AOI frozen |
 | 10 Nov | Manifest validates; assets load from static server offline |
 | 12 Nov | Full pipeline re-run from clean checkout reproduces checksums |
@@ -123,7 +124,7 @@ Never cut: provenance labels, disclaimer, offline mode, briefing card.
 ### D.5 Data and service fallbacks
 
 | Primary | Fallback |
-|---|---|
+| --- | --- |
 | Gale merged DEM (HiRISE-quality in AOI) | Jezero M2020 TRN HiRISE DTM mosaic (USGS) |
 | Colour HiRISE COG | Grayscale 25 cm ortho window / Mars Trek HiRISE tiles cached |
 | THEMIS quantitative TI | THEMIS Day IR 100 m (qualitative) |
@@ -157,7 +158,7 @@ Requirement's acceptance criteria met · unit tests (compute) or manual test not
 ## Unresolved items owned by this document
 
 | ID | Item | Owner | Due |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | U-12 | Pre-event code allowed? (Track S vs. P) | Story lead | 4 Nov |
 | U-13 | Actual team size and skills | Team | 3 Nov |
 | U-14 | Physical venue vs. virtual (affects Wi-Fi assumptions only; demo is offline regardless) | Story lead | 10 Nov |

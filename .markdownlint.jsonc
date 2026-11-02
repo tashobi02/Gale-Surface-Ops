@@ -1,0 +1,10 @@
+// markdownlint rules for this repo (read by markdownlint-cli2).
+{
+  "default": true,
+  // Specs use long table rows and one-paragraph lines; wrapping them would rewrite every line.
+  "MD013": false,
+  // Allow inline HTML (e.g. <br>, <details>) in docs.
+  "MD033": false,
+  // Specs end italic notes with ")" — e.g. *(Coordinates illustrative.)* — which are notes, not headings.
+  "MD036": { "punctuation": ".,;:!?)" }
+}

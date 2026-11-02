@@ -1,12 +1,11 @@
 # 02 — Technical Requirements Document
 
 | | |
-|---|---|
+| --- | --- |
 | **Owner** | Architecture (this file owns architecture, data handling and system behavior) |
 | **Date** | 2026-11-02 |
 | **Status** | Draft v1 — proposed; items marked *Spike* must be verified in TASK-01/TASK-02 before the event |
-| **Scope source** | [01 PRD](01_Product_Requirements_Document.md) (requirement IDs FR-xx) |
-| **Data structures** | [05 Schema](05_Backend_and_Database_Schema.md) |
+| **Related** | Scope source: [01 PRD](01_Product_Requirements_Document.md) (requirement IDs FR-xx) · Data structures: [05 Schema](05_Backend_and_Database_Schema.md) · [Docs index](../README.md) |
 
 ---
 
@@ -17,7 +16,7 @@
 The product is a **static single-page web application** plus an **offline Python preprocessing pipeline**. There is **no runtime backend and no database** (Proposed, decision D-02). All science computation that depends on user input runs in the browser inside a Web Worker; all heavy raster work runs once, before the demo, on a team laptop.
 
 | Component | Runs where | Responsibility |
-|---|---|---|
+| --- | --- | --- |
 | **Preprocessing pipeline** (`pipeline/`, Python) | Developer laptop, once per data version | Download/clip/reproject source rasters, derive slope and hazard grids, render map tiles, build routing grid, package POIs/traverse, write `site-manifest.json` with provenance and checksums |
 | **Static assets** (`web/public/sites/<site_id>/`) | Any static host or `localhost` | Tiles, routing grid binaries, GeoJSON, images, manifest |
 | **Map UI** (`web/src/ui`, TypeScript) | Browser main thread | Map rendering, layer control, waypoints, panels, briefing card |
@@ -58,7 +57,7 @@ flowchart LR
 ### A.3 Why no backend (Proposed)
 
 | Need | Satisfied by | Why a server is unnecessary |
-|---|---|---|
+| --- | --- | --- |
 | Raster processing | Pre-event pipeline | AOI is fixed; nothing is recomputed per user |
 | Routing | Worker on a 5 m grid (~1.44 M cells for 6 × 6 km) | A* on this size completes in well under 2 s in modern browsers (target NFR-02; verify in TASK-05) |
 | Persistence | JSON export + optional browser storage | No accounts or sharing in scope |
@@ -71,7 +70,7 @@ flowchart LR
 ## B. Technology choices
 
 | Area | Choice (Proposed) | Why it fits | Limitations | Alternative |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Map rendering | **OpenLayers** with a proj4-registered local Mars projection | Supports arbitrary projections and custom tile grids; scale line uses projection metres (Confirmed: OL custom-projection and COG examples) | Learning curve; no built-in 3D | **Leaflet + `CRS.Simple`** with tiles in AOI metres (simpler, but manual coordinate handling). **Not MapLibre GL**: it renders Web Mercator only, so Mars distances and scale bars would be wrong without hacks |
 | Projection math | **proj4js** | Mars sphere definitions are plain PROJ strings | Must keep the same string in pipeline and UI | Hand-written equirectangular formulas (trivial for eqc; acceptable fallback) |
 | UI framework | **TypeScript + Vite**, lightweight components (Preact or vanilla) | Small bundle; offline build | — | React if the team already knows it |
@@ -92,7 +91,7 @@ flowchart LR
 ### C.1 Coordinate reference conventions (applies to every layer)
 
 | Item | Convention | Label |
-|---|---|---|
+| --- | --- | --- |
 | Body and datum | Mars sphere, radius **3,396,190 m** (IAU_2015:49900 "Mars (2015) – Sphere") | **Confirmed** (USGS DEM metadata Radius A = C = 3396190; spatialreference.org) |
 | Latitude | Planetocentric (identical to planetographic on a sphere) | **Confirmed** (DEM metadata) |
 | Longitude | **East-positive**, domain −180…180 in USGS products; Gale ≈ 137.4°E is identical in 0–360 domain | **Confirmed** (DEM metadata) |
@@ -108,8 +107,9 @@ flowchart LR
 AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **inside** the DEM extent (lat −5.098652…−4.129605, lon 137.124167…137.680559 °E). Exact bounds are **Unresolved** — chosen in TASK-01 from the traverse (sols ≈ 4,450–4,750; boxwork campaign confirmed for 2025 by NASA mission blog posts and photojournal).
 
 #### L1 — Optical basemap (FR-01)
+
 | Field | Value |
-|---|---|
+| --- | --- |
 | Source | USGS *Mars MSL Gale Merged Orthophoto Mosaic 25 cm* v3 (Calef & Parker 2016), grayscale 23 GB lossless GeoTIFF; colour HiRISE LRGB COG (~1 GB) also published — **Confirmed** |
 | Type / format | Raster, 8-bit; COG for colour |
 | Resolution | 25 cm/px native; **downsample to 0.5 m** for the app (Proposed, keeps tiles ≈ tens of MB for the AOI) |
@@ -119,8 +119,9 @@ AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **ins
 | Fallback | Mars Trek WMTS HiRISE tiles cached pre-event (product-specific endpoint from GetCapabilities) |
 
 #### L2 — Topography: elevation, hillshade (FR-02, FR-03, FR-08)
+
 | Field | Value |
-|---|---|
+| --- | --- |
 | Source | USGS *Mars MSL Gale Merged DEM 1 m* v3 (Parker & Calef 2016), 3.6 GB, 32-bit, 57,440 × 32,980 px — **Confirmed** |
 | Composition | HiRISE DEMs where stereo exists; otherwise CTX, HRSC, then MOLA 128 ppd fill; HRSC controlled to MOLA (~100 m horizontal, ~1 m vertical accuracy) — **Confirmed** |
 | Key risk | Unknown which source fills the boxwork AOI → **TASK-01** compares DEM texture/hillshade and HiRISE stereo-pair footprints; if not HiRISE, either find a University of Arizona HiRISE DTM covering the AOI or switch site (Jezero: *Mars 2020 TRN HiRISE DTM Mosaic*, USGS) |
@@ -130,16 +131,18 @@ AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **ins
 | Fallback | Mars Trek elevation tiles (visual only, no routing) |
 
 #### L3 — Slope (FR-02, FR-07, FR-10)
+
 | Field | Value |
-|---|---|
+| --- | --- |
 | Derivation | Horn method on the 1 m reprojected DEM → `slope_1m` (degrees). Aggregated to the 5 m routing grid as **p90** (used for hard limit) and **max** (used for caution flag "micro-relief") |
 | Units | Degrees, 0–90 |
 | Validation | Synthetic ramp test (known 10° plane → 10.0° ± 0.05°) and comparison with Mars Trek slope where available |
 | Limitations | Slope at 1 m is noisy where DTM artifacts exist; p90 reduces single-pixel spikes but can hide short steps |
 
 #### L4 — Thermal inertia (FR-02, FR-10)
+
 | Field | Value |
-|---|---|
+| --- | --- |
 | Source | USGS *THEMIS Thermal Inertia Mosaic, Quantitative (32-bit), 100 m/px*, tile covering 0…30°S, 120…180°E (file name to confirm, pattern `30S120E`) — product family **Confirmed** (Fergason et al. 2006 method; absolute accuracy ~20 %) |
 | Units | tiu = J m⁻² K⁻¹ s⁻½ |
 | Use | Display layer + coarse caution flag: cells below a threshold flagged "possible loose fines" (threshold **Unresolved**, set from the AOI histogram and published interpretation; label as interpretive) |
@@ -148,16 +151,18 @@ AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **ins
 | Fallback | THEMIS Day IR 100 m mosaic (ASU) as qualitative thermal layer |
 
 #### L5 — Spectral (FR-18, desirable)
+
 | Field | Value |
-|---|---|
+| --- | --- |
 | Source | CRISM MTRDR (Map-projected Targeted RDR) summary parameters / browse products, PDS Geosciences Node — product **Confirmed**; AOI coverage **Unresolved** |
 | Resolution | ~18–20 m/px for FRT observations |
 | Labelling | "Spectral summary parameter — indicative, not a mineral identification" (wording follows CRISM label guidance) |
 | Fallback | Omit; three data types are already met without it |
 
 #### L6 — Mission vectors (FR-04, FR-17)
+
 | Field | Value |
-|---|---|
+| --- | --- |
 | Traverse source (preferred) | PDS PLACES archive (doi:10.17189/1520397), used by the PDS MSL Analyst's Notebook map — **Confirmed** as archive; field layout to verify |
 | Traverse source (fallback) | MMGIS JSON (`mars.nasa.gov/mmgis-maps/...`) — publicly reachable for M20; MSL path **unverified**; not an official API — cache once |
 | POIs | Curated by the team from NASA mission blog/photojournal descriptions; each POI stores the position source and confidence |
@@ -165,17 +170,18 @@ AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **ins
 | Alignment tolerance | Traverse vs. ortho visual tracks: ≤ 5 m (Proposed; record measured offset) |
 
 #### L7 — Environmental values (FR-11, FR-12, FR-13)
+
 | Value | Source | Type |
-|---|---|---|
-| Surface dose rate, solar max 2012–13 | Curiosity RAD at Gale: 0.21 ± 0.04 mGy/day; **0.64 ± 0.12 mSv/day** (Hassler et al. 2014, via project file *Mars Scientific Context.md*) | **Measured** |
-| Surface dose rate, solar min (~2019) | ~0.85–1.0 mSv/day (Simonsen et al. 2024, via project file) | Reported range |
+| --- | --- | --- |
+| Surface dose rate, solar max 2012–13 | Curiosity RAD at Gale: 0.21 ± 0.04 mGy/day; **0.64 ± 0.12 mSv/day** (Hassler et al. 2014, via [*Mars Scientific Context* §9](../reference/mars-scientific-context.md#9-radiation-and-space-environment)) | **Measured** |
+| Surface dose rate, solar min (~2019) | ~0.85–1.0 mSv/day (Simonsen et al. 2024, via [*Mars Scientific Context* §9](../reference/mars-scientific-context.md#9-radiation-and-space-environment)) | Reported range |
 | Solar time, L_s, sun elevation | Mars24 algorithm | **Computed** |
 | Seasonal temperature/pressure (desirable) | REMS RDR via PDS Atmospheres Node (sols covered to at least 3778 in RDR volume listing) | Measured, aggregated by team |
 
 ### C.3 Data volume budget (Proposed)
 
 | Asset | Approx. size for 6 × 6 km AOI |
-|---|---|
+| --- | --- |
 | Ortho tiles @0.5 m (JPEG) | 30–80 MB |
 | Hillshade/slope/TI tiles @2 m (PNG/WebP) | 10–30 MB each |
 | Routing grid 1200 × 1200: elevation Float32 + slope_p90 UInt8 + slope_max UInt8 + flags UInt8 | 5.76 + 1.44 + 1.44 + 1.44 ≈ 10 MB |
@@ -195,6 +201,7 @@ AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **ins
 All functions live in `web/src/compute/` as pure functions (no DOM, no fetch), unit-tested with Vitest. Numbers below were checked in Python on 2026-11-02.
 
 ### D.1 Point sampling (FR-03, FR-08)
+
 - **Input:** working-projection x, y (m).
 - **Output:** `{lat, lonE, elevation_m, slope_deg, ti_tiu|null, cell:{i,j}}`.
 - **Algorithm:** nearest routing-grid cell for slope/flags; bilinear interpolation of elevation for profiles; TI nearest from a 100 m sidecar array.
@@ -203,7 +210,7 @@ All functions live in `web/src/compute/` as pure functions (no DOM, no fetch), u
 ### D.2 Route planning (FR-06, FR-07, FR-10)
 
 | Item | Definition |
-|---|---|
+| --- | --- |
 | Graph | 8-connected 5 m grid; step length d = 5 m (orthogonal) or 7.071 m (diagonal) |
 | Impassable | `flags & NO_DATA`, `flags & HARD_HAZARD`, or `slope_p90 > hard_slope_limit_deg` |
 | Directional gradient | S = Δz / d between cell centres (signed; uphill positive) |
@@ -223,7 +230,7 @@ All functions live in `web/src/compute/` as pure functions (no DOM, no fetch), u
 Reference values (v₀ = 3.3 km/h), computed:
 
 | Slope | Tobler (unsuited, km/h) | Suited-scaled (km/h) |
-|---|---|---|
+| --- | --- | --- |
 | 0° | 5.04 | 3.30 |
 | +5° | 3.71 | 2.43 |
 | +10° | 2.72 | 1.78 |
@@ -271,7 +278,7 @@ There is no HTTP API. Contracts are (1) static files, (2) worker messages, (3) e
 ### E.1 Static asset contract
 
 | Path (relative to `sites/<site_id>/`) | Purpose | Consumer |
-|---|---|---|
+| --- | --- | --- |
 | `site-manifest.json` | Site, projection, layers, assets, sources, checksums, data version | UI on boot |
 | `tiles/<layer_id>/{z}/{x}/{y}.{ext}` | Map tiles in the working projection | OpenLayers |
 | `grid/elevation.f32`, `grid/slope_p90.u8`, `grid/slope_max.u8`, `grid/flags.u8`, `grid/ti_100m.f32` | Routing/sampling arrays (row-major, north-up) | Worker |
@@ -284,10 +291,14 @@ Boot validation: manifest `schema_version` must equal the app's expected major v
 
 All requests carry `request_id`; the worker processes only the **latest** `plan_revision`. A newer request cancels an older one (cooperative check every 50,000 expansions).
 
-**Request/response — sample point** (used by the inspector and by waypoint validation/snapping, FR-03, FR-06)
+#### Request/response — sample point
+
+Used by the inspector and by waypoint validation/snapping (FR-03, FR-06).
+
 ```json
 {"type": "SAMPLE_POINT", "request_id": "r-0041", "x_m": 3010.0, "y_m": -2595.0, "snap_radius_m": 50}
 ```
+
 ```json
 {"type": "SAMPLE_RESULT", "request_id": "r-0041",
  "inside_aoi": true, "passable": false, "reason": "SLOPE_OVER_LIMIT",
@@ -295,9 +306,11 @@ All requests carry `request_id`; the worker processes only the **latest** `plan_
  "ti_tiu": 312.0, "flags": ["LOW_RES_DEM"],
  "snap": {"x_m": 3002.5, "y_m": -2612.5, "distance_m": 19.0}}
 ```
+
 `reason` ∈ {`OUTSIDE_AOI`, `NO_DATA`, `HARD_HAZARD`, `SLOPE_OVER_LIMIT`, `null`}; `snap` is `null` when no passable cell lies within `snap_radius_m`.
 
-**Request — compute plan**
+#### Request — compute plan
+
 ```json
 {
   "type": "COMPUTE_PLAN",
@@ -324,7 +337,8 @@ All requests carry `request_id`; the worker processes only the **latest** `plan_
 }
 ```
 
-**Response — plan result (abridged)**
+#### Response — plan result (abridged)
+
 ```json
 {
   "type": "PLAN_RESULT",
@@ -345,18 +359,21 @@ All requests carry `request_id`; the worker processes only the **latest** `plan_
   "timing_ms": {"routing": 412, "estimates": 3}
 }
 ```
+
 Rule: if any leg is `NO_ROUTE`, `status = "PARTIAL"` and `totals = null` (no misleading totals). Full example with totals in [05 §plan export](05_Backend_and_Database_Schema.md#planexport).
 
-**Error response**
+#### Error response
+
 ```json
 {"type": "ERROR", "request_id": "r-0042", "code": "GRID_NOT_LOADED", "message": "Routing grid failed checksum or did not load."}
 ```
+
 Error codes: `GRID_NOT_LOADED`, `INVALID_INPUT`, `TIMEOUT`, `CANCELLED`, `INTERNAL`.
 
 ### E.3 Input validation rules
 
 | Field | Rule |
-|---|---|
+| --- | --- |
 | `eva_start_utc` | ISO-8601 UTC; year 2000–2100 (Mars24 fit range covers this) |
 | `max_eva_duration_h` | 0.5–10 |
 | `dwell_min_per_stop` | 0–180 |
@@ -378,7 +395,7 @@ None. No user data leaves the browser.
 ## F. Nonfunctional requirements and validation
 
 | ID | Requirement | Target (Proposed) | Verification |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | NFR-01 | Offline operation | 100 % of demo features work with network disabled | Rehearsal with Wi-Fi off; browser devtools "Offline" |
 | NFR-02 | Performance | First map paint ≤ 5 s from localhost; 3-stop route ≤ 2 s; layer toggle ≤ 300 ms; UI never blocks > 100 ms | Timing logged in diagnostics; test on the weakest team laptop |
 | NFR-03 | Browser/device | Latest Chrome, Edge, Firefox on desktop ≥ 1366 × 768 (primary); tablet ≥ 768 px wide (secondary, view + stop editing) | Manual matrix |
@@ -398,7 +415,7 @@ None. No user data leaves the browser.
 ### F.1 Test plan
 
 | Area | Tests |
-|---|---|
+| --- | --- |
 | Data alignment | Overlay traverse on ortho at 5 checkpoints; DEM hillshade vs. ortho edge alignment; measured offset recorded in manifest `known_offsets_m` |
 | Projection | Round-trip lat/lon ↔ x/y within 1 mm; scale bar vs. DEM-measured feature within 2 % |
 | Slope | Synthetic planes (0°, 10°, 30°) ± 0.05°; NaN edges produce NaN, not spikes |
@@ -413,29 +430,29 @@ None. No user data leaves the browser.
 
 ## Sources (accessed 2026-11-02)
 
-- USGS Astrogeology — Mars MSL Gale Merged DEM 1 m: https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_dem_1m
-- USGS Astrogeology — Mars MSL Gale Merged Orthophoto Mosaic 25 cm: https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_orthophoto_mosaic_25cm
-- USGS Astrogeology — THEMIS Thermal Inertia Mosaic Quantitative (example tile 30S060E): https://astrogeology.usgs.gov/search/map/themis_thermal_inertia_mosaic_quantitative_30s060e_100mpp
-- ASU Mars Global Data Sets (THEMIS Day/Night IR 100 m): https://www.mars.asu.edu/data
-- CRISM MTRDR bundle readme (PDS): https://pds.nasa.gov/data/pds4/releases/geo/mro_crism_mtrdr-20250413/readme.txt
-- HiRISE DTM README (artifact warnings): https://hirise.lpl.arizona.edu/PDS/EXTRAS/DTM/ESP/ORB_012800_012899/ESP_012873_2045_PSP_004052_2045/README.TXT
-- IAU_2015:49900 Mars sphere WKT: https://spatialreference.org/ref/iau_2015/49900/prettywkt2.txt
-- Mars Trek WMTS documentation: https://trek.nasa.gov/tiles/apidoc/trekAPI.html?body=mars
-- OpenLayers COG projection example: https://openlayers.org/en/latest/examples/cog-projection.html
-- Mars24 credits/algorithm references: https://www.giss.nasa.gov/tools/mars24/help/credits.html ; Allison & McEwen 2000, doi:10.1016/S0032-0633(99)00092-6
-- marstime library (Mars24 implementation): https://marstime.readthedocs.io/en/latest/marstime.html
-- Tobler's hiking function (formula): https://arxiv.org/pdf/2303.16065v6
-- Apollo 17 traverse planning consumables (walking 1,200 BTU/h at 3.3 km/h; 3.1 km walking radius): https://www.nasa.gov/wp-content/uploads/static/history/alsj/19790073512_1979073512.pdf
-- NASA lunar 10 km walkback test (summary): https://corpora.tika.apache.org/base/docs/govdocs1/515/515870.pdf
-- Mars Rover Photos API archived: https://github.com/nasa/api-docs/pull/243.patch
-- PDS Atmospheres Node — MSL REMS: https://atmos.nmsu.edu/data_and_services/atmospheres_data/MARS/curiosity/rems.html
-- PDS MSL Analyst's Notebook map tool / PLACES: https://pds-geosciences.wustl.edu/workshops/LPSC2023/2166.pdf
-- Radiation values: project file *Mars Scientific Context.md* §9 (Hassler et al. 2014; Simonsen et al. 2024)
+- USGS Astrogeology — Mars MSL Gale Merged DEM 1 m: <https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_dem_1m>
+- USGS Astrogeology — Mars MSL Gale Merged Orthophoto Mosaic 25 cm: <https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_orthophoto_mosaic_25cm>
+- USGS Astrogeology — THEMIS Thermal Inertia Mosaic Quantitative (example tile 30S060E): <https://astrogeology.usgs.gov/search/map/themis_thermal_inertia_mosaic_quantitative_30s060e_100mpp>
+- ASU Mars Global Data Sets (THEMIS Day/Night IR 100 m): <https://www.mars.asu.edu/data>
+- CRISM MTRDR bundle readme (PDS): <https://pds.nasa.gov/data/pds4/releases/geo/mro_crism_mtrdr-20250413/readme.txt>
+- HiRISE DTM README (artifact warnings): <https://hirise.lpl.arizona.edu/PDS/EXTRAS/DTM/ESP/ORB_012800_012899/ESP_012873_2045_PSP_004052_2045/README.TXT>
+- IAU_2015:49900 Mars sphere WKT: <https://spatialreference.org/ref/iau_2015/49900/prettywkt2.txt>
+- Mars Trek WMTS documentation: <https://trek.nasa.gov/tiles/apidoc/trekAPI.html?body=mars>
+- OpenLayers COG projection example: <https://openlayers.org/en/latest/examples/cog-projection.html>
+- Mars24 credits/algorithm references: <https://www.giss.nasa.gov/tools/mars24/help/credits.html> ; Allison & McEwen 2000, doi:10.1016/S0032-0633(99)00092-6
+- marstime library (Mars24 implementation): <https://marstime.readthedocs.io/en/latest/marstime.html>
+- Tobler's hiking function (formula): <https://arxiv.org/pdf/2303.16065v6>
+- Apollo 17 traverse planning consumables (walking 1,200 BTU/h at 3.3 km/h; 3.1 km walking radius): <https://www.nasa.gov/wp-content/uploads/static/history/alsj/19790073512_1979073512.pdf>
+- NASA lunar 10 km walkback test (summary): <https://corpora.tika.apache.org/base/docs/govdocs1/515/515870.pdf>
+- Mars Rover Photos API archived: <https://github.com/nasa/api-docs/pull/243.patch>
+- PDS Atmospheres Node — MSL REMS: <https://atmos.nmsu.edu/data_and_services/atmospheres_data/MARS/curiosity/rems.html>
+- PDS MSL Analyst's Notebook map tool / PLACES: <https://pds-geosciences.wustl.edu/workshops/LPSC2023/2166.pdf>
+- Radiation values: [*Mars Scientific Context* §9](../reference/mars-scientific-context.md#9-radiation-and-space-environment) (Hassler et al. 2014; Simonsen et al. 2024)
 
 ## Unresolved decisions owned by this document
 
 | ID | Item | Resolution path |
-|---|---|---|
+| --- | --- | --- |
 | D-02 | Static app vs. FastAPI backend | Keep static unless TASK-05 router benchmark > 2 s p95 |
 | D-03 | OpenLayers tiles vs. ImageStatic fallback | TASK-02 spike result |
 | U-01 | DEM source quality inside AOI | TASK-01 |

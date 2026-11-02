@@ -3,18 +3,18 @@
 *("Background Schema" in the brief is interpreted as Backend and Database Schema.)*
 
 | | |
-|---|---|
+| --- | --- |
 | **Owner** | Data (this file owns data structures and persistence) |
 | **Date** | 2026-11-02 |
 | **Status** | Draft v1 — proposed |
-| **Behavior** | [02 Technical](02_Technical_Requirements_Document.md) · **Requirements** [01 PRD](01_Product_Requirements_Document.md) |
+| **Related** | Behavior: [02 Technical](02_Technical_Requirements_Document.md) · Requirements: [01 PRD](01_Product_Requirements_Document.md) · [Docs index](../README.md) |
 
 ---
 
 ## A. Domain model
 
 | Entity | Purpose | Kind | Requirements |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Site** | The one mapped excursion area; root of the manifest | Static, versioned | FR-01 |
 | **DataSource** | A cited external product (dataset, paper, image) | Static | FR-15 |
 | **Layer** | A displayable data layer (raster tiles or vector) | Static | FR-02, FR-17, FR-18 |
@@ -38,7 +38,7 @@ Not modelled (out of scope): users, accounts, teams, sharing, billing, telemetry
 **No database** (Proposed D-02). Equivalent stores:
 
 | Store | Contents | Format | Lifetime |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Static files** (`web/public/sites/<site_id>/`) | Site manifest, DataSources, Layers, Assets, RoutingGrid arrays, POIs, traverse, EnvConstants, tiles, images | JSON, GeoJSON, raw little-endian binary arrays, JPEG/PNG/WebP tiles | Per `data_version`; immutable once released |
 | **Pipeline workspace** (`pipeline/work/`, git-ignored) | Downloaded source rasters, intermediate GeoTIFFs | GeoTIFF/COG, PDS labels | Developer machine only |
 | **Browser memory** | MissionScenario, Waypoints, PlanResult, UI state | JS objects | Session |
@@ -55,8 +55,9 @@ Large rasters are **never embedded in JSON**: the manifest references them by re
 Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (local Mars equirectangular, metres, origin at the AOI's projection centre, x east, y north). Geographic values are `lat` (planetocentric °, −90…90) and `lon_e` (east-positive °, −180…180). Elevations `*_m` are metres in the DEM's MOLA-tied datum. Times are ISO-8601 UTC strings; Mars local times are strings `HH:MM` LTST.
 
 ### Site
+
 | Field | Type | Req | Default | Rules / units | Example |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `schema_version` | string | ✓ | — | SemVer; app checks major | `"1.0.0"` |
 | `site_id` | string (PK) | ✓ | — | `^[a-z0-9_]+$`, unique | `"gale_boxwork"` |
 | `name` | string | ✓ | — | ≤ 80 chars | `"Mount Sharp boxwork, Gale crater"` |
@@ -75,8 +76,9 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `pois_asset` / `traverse_asset` | asset_id | ✓ | — | FK → Asset | — |
 
 ### DataSource
+
 | Field | Type | Req | Rules | Example |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `source_id` (PK) | string | ✓ | unique, kebab-case | `"usgs-gale-dem-1m-v3"` |
 | `title` | string | ✓ | | `"Mars MSL Gale Merged DEM 1m"` |
 | `publisher` | string | ✓ | | `"USGS Astrogeology Science Center"` |
@@ -92,8 +94,9 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `accuracy_note` | string | | | `"Controlled to MOLA: ~100 m horizontal, ~1 m vertical"` |
 
 ### Layer
+
 | Field | Type | Req | Default | Rules | Example |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `layer_id` (PK) | string | ✓ | | unique | `"slope"` |
 | `title` | string | ✓ | | | `"Slope"` |
 | `category` | enum | ✓ | | `optical \| topographic \| thermal \| spectral \| hazard \| mission` | `"topographic"` |
@@ -112,8 +115,9 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `limitations` | string | ✓ | | Shown in legend/methods | `"1 m posts; effective resolution coarser"` |
 
 ### Asset
+
 | Field | Type | Req | Rules | Example |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `asset_id` (PK) | string | ✓ | unique | `"grid-elevation"` |
 | `path` | string | ✓ | relative to site folder | `"grid/elevation.f32"` |
 | `format` | enum | ✓ | `f32 \| u8 \| geojson \| jpg \| png \| webp \| tiles` | `"f32"` |
@@ -124,8 +128,9 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `byte_order` | enum | cond. | `little` | `"little"` |
 
 ### RoutingGrid
+
 | Field | Type | Req | Rules | Example |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `cell_m` | number | ✓ | > 0 | `5` |
 | `width` / `height` | int | ✓ | `width*height ≤ 4e6` | `1200` / `1200` |
 | `origin_m` | number[2] | ✓ | top-left corner (x, y) | `[-3000, 3000]` |
@@ -136,10 +141,10 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `flags_asset` | FK | ✓ | u8 bitfield (below) | `"grid-flags"` |
 | `ti_asset` | FK | | f32 tiu at 100 m, own small grid with `ti_cell_m: 100` | `"grid-ti"` |
 
-**Flag bits**
+#### Flag bits
 
 | Bit | Name | Meaning | Source |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 0 | `NO_DATA` | DEM no-data | derived |
 | 1 | `HARD_HAZARD` | Team-digitised impassable feature (e.g., scarp) | assumed/interpreted |
 | 2 | `LOW_TI` | TI below threshold (possible loose fines) | derived, interpretive |
@@ -148,10 +153,11 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | 5–7 | reserved | | |
 
 ### POI
+
 GeoJSON Feature in working-projection metres; properties:
 
 | Field | Type | Req | Rules | Example |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `poi_id` (PK) | string | ✓ | unique | `"poi-boxwork-ridge"` |
 | `name` | string | ✓ | | `"Boxwork ridge"` |
 | `lat`, `lon_e` | number | ✓ | inside AOI | — |
@@ -166,11 +172,13 @@ GeoJSON Feature in working-projection metres; properties:
 | `provenance` | enum | ✓ | usually `assumed` for curated positions | `"assumed"` |
 
 ### TraversePoint
+
 GeoJSON Point features (+ one LineString). Properties: `sol` (int, ✓), `site_drive` (string), `lat`, `lon_e`, `elevation_m` (if provided), `source_id` (FK, ✓). Provenance: `measured` (rover localization).
 
 ### EnvConstant
+
 | Field | Type | Req | Example |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `const_id` (PK) | string | ✓ | `"rad-gale-dose-eq-solar-max"` |
 | `quantity` | string | ✓ | `"surface dose equivalent rate"` |
 | `value` | number | ✓ | `0.64` |
@@ -183,8 +191,9 @@ GeoJSON Point features (+ one LineString). Properties: `sol` (int, ✓), `site_d
 Second record: `rad-gale-dose-eq-solar-min`, value `0.925` (midpoint, display as range), low `0.85`, high `1.0`, provenance `"measured"` with note "reported range, Simonsen et al. 2024".
 
 ### MissionScenario (user input)
+
 | Field | Type | Req | Default | Range (see [02 §E.3](02_Technical_Requirements_Document.md#e3-input-validation-rules)) |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `eva_start_utc` | ISO string | ✓ | site default | 2000–2100 |
 | `max_eva_duration_h` | number | ✓ | 6.0 | 0.5–10 |
 | `dwell_min_per_stop` | number | ✓ | 20 | 0–180 |
@@ -198,8 +207,9 @@ Second record: `rad-gale-dose-eq-solar-min`, value `0.925` (midpoint, display as
 All defaults carry provenance `assumed` in the UI.
 
 ### Waypoint (user input)
+
 | Field | Type | Req | Rules |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `id` (PK within plan) | string | ✓ | `wp-<n>` |
 | `role` | enum | ✓ | exactly one `start`; ≤ 10 `stop` |
 | `x_m`, `y_m` | number | ✓ | inside AOI, passable after snapping |
@@ -208,8 +218,9 @@ All defaults carry provenance `assumed` in the UI.
 | `label` | string | | ≤ 40 chars |
 
 ### PlanResult (computed)
+
 | Field | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `status` | enum | `OK \| OVER_LIMITS \| PARTIAL \| ERROR` |
 | `legs` | Leg[] | one per consecutive waypoint pair (+ return leg if `loop`) |
 | `totals` | object \| null | null when `PARTIAL`: `distance_m, walk_time_min, dwell_time_min, eva_total_min, eva_margin_min, climb_m, descent_m, max_slope_deg, max_walkback_km` |
@@ -225,8 +236,9 @@ All defaults carry provenance `assumed` in the UI.
 **Warning:** `code` (`OVER_HARD_SLOPE`, `CAUTION_SLOPE`, `LOW_TI`, `TI_UNKNOWN`, `LOW_RES_DEM`, `NO_ROUTE`, `EVA_DURATION_EXCEEDED`, `WALKBACK_EXCEEDED`, `DARKNESS`), `severity` (`caution \| blocked \| unknown`), `leg` (index or null), `from_m`, `to_m` (along-leg distance), `at_utc` (for time warnings), `message`.
 
 ### PlanExport
+
 | Field | Type | Req |
-|---|---|---|
+| --- | --- | --- |
 | `export_schema_version` | string | ✓ |
 | `app_version` | string | ✓ |
 | `site_id`, `data_version` | string | ✓ |
@@ -269,7 +281,7 @@ erDiagram
 ### Distinctions the schema enforces
 
 | Distinction | How |
-|---|---|
+| --- | --- |
 | Source observations vs. derived values | `Layer.provenance` + `derived_from`; elevation/ortho/TI are `measured` products, slope/flags `derived`, LOW_TI and HARD_HAZARD are explicitly *interpretive* |
 | User inputs vs. computed outputs | `MissionScenario`/`Waypoint` vs. `PlanResult` — separate objects in the export; outputs never edited by the UI |
 | Historical data vs. scenario assumptions | `TraversePoint`, `EnvConstant` (historical/measured) vs. scenario defaults (`assumed`) |
@@ -282,7 +294,7 @@ erDiagram
 ### E.1 Access patterns ("queries") and indexes
 
 | Access | Implementation | "Index" |
-|---|---|---|
+| --- | --- | --- |
 | Value at (x, y) | `i = floor((origin_y − y)/cell)`, `j = floor((x − origin_x)/cell)` → array offset `i*width + j` | O(1) array addressing |
 | Neighbors in A* | offset ± 1, ± width | implicit grid |
 | POI by id | `Map<poi_id, POI>` built at boot | in-memory hash |
@@ -290,9 +302,11 @@ erDiagram
 | Layer by id / source by id | `Map` at boot | in-memory hash |
 
 ### E.2 Ownership and access
+
 Single-user, local; no access control. Static bundle is public (Space Apps requires a public repository).
 
 ### E.3 Referential integrity (validated by `pipeline/validate_manifest.py` and at app boot in dev builds)
+
 - Every `*_asset`/`asset_id` resolves to an Asset whose file exists and whose SHA-256 matches.
 - Every `source_ids` entry resolves to a DataSource.
 - All grids share `width`, `height`, `cell_m`, `origin_m`.
@@ -300,14 +314,17 @@ Single-user, local; no access control. Static bundle is public (Space Apps requi
 - `crs.proj4` string is byte-identical to the pipeline constant.
 
 ### E.4 Versioning and migration
+
 - `schema_version` (manifest structure) and `export_schema_version` (plan files) use SemVer; the app refuses a different **major** with a clear message.
 - `data_version` changes whenever any asset changes; old exports remain readable but show "computed with data_version X; current Y — results may differ" and can be recomputed.
 - No migrations beyond that are needed in MVP.
 
 ### E.5 Provenance required to reproduce a result
+
 `data_version` + `scenario` + `waypoints` + `app_version` → deterministic `PlanResult` (NFR-06). The export stores all four plus `plan_hash`. The pipeline commits `pipeline/sources.lock.json` with source URLs, versions, checksums and the exact GDAL/rasterio versions used.
 
 ### E.6 Unavailable or replaced source data
+
 - Optional layer asset missing → Layer status `unavailable`; dependent flags (e.g., `LOW_TI`) treated as `TI_UNKNOWN`, producing `unknown`-severity warnings rather than silence.
 - Upstream product replaced (e.g., USGS v4 DEM) → new `data_version`; never overwrite assets in place.
 - Rover image unavailable → POI still valid; image fields null; UI shows placeholder with source link.
@@ -394,6 +411,7 @@ Single-user, local; no access control. Static bundle is public (Space Apps requi
   }
 }
 ```
+
 *(Coordinates illustrative.)*
 
 ### F.3 Plan export (abridged, status OK)
@@ -428,11 +446,12 @@ Single-user, local; no access control. Static bundle is public (Space Apps requi
   "disclaimer": "Exploratory planning prototype — not validated for operations."
 }
 ```
+
 *(Metric values illustrative; the radiation numbers are internally consistent: 148 min × 0.64/1440 = 0.066 mSv, range 0.053–0.078.)*
 
 ## Unresolved items owned by this document
 
 | ID | Item | Recommendation |
-|---|---|---|
+| --- | --- | --- |
 | U-10 | Can a per-pixel DEM source map (HiRISE vs. fill) be obtained for `LOW_RES_DEM`? | Try stereo-pair footprints from the DEM metadata list; else hand-digitise coverage from hillshade texture and label it interpreted |
 | U-11 | Store profile arrays in export or recompute on import? | Store (small) — simplifies briefing rendering |

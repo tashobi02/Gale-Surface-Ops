@@ -1,18 +1,18 @@
 # 04 — Design Brief
 
 | | |
-|---|---|
+| --- | --- |
 | **Owner** | Design (this file owns visual and interaction design) |
 | **Date** | 2026-11-02 |
 | **Status** | Draft v1 — proposed |
-| **Screens** | Defined in [03 App Flow](03_App_Flow_and_Diagrams.md) (SCR-xx) · **Scope** [01 PRD](01_Product_Requirements_Document.md) |
+| **Related** | Screens: defined in [03 App Flow](03_App_Flow_and_Diagrams.md) (SCR-xx) · Scope: [01 PRD](01_Product_Requirements_Document.md) · [Docs index](../README.md) |
 
 ---
 
 ## A. Design objectives
 
 | Topic | Decision (Proposed) |
-|---|---|
+| --- | --- |
 | Audience | EVA planner/crew (P1/P2) and judges (P3) — technically literate, not GIS experts |
 | Usage context | Habitat or mission-support desk display; dim room; also projected on a venue screen during judging |
 | Primary device | Desktop/laptop, mouse + keyboard, ≥ 1366 × 768. Secondary: tablet landscape ≥ 1024 × 768 (touch) |
@@ -26,7 +26,7 @@
 
 Desktop layout (≥ 1280 px):
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ Top bar 48px: Logo/site name · data-version chip · [Briefing] [Sources] [?] │
 ├────────────┬───────────────────────────────────────────────┬─────────────────┤
@@ -43,7 +43,7 @@ Desktop layout (≥ 1280 px):
 ```
 
 | Element | Placement and behavior |
-|---|---|
+| --- | --- |
 | Map | Always visible; never covered by more than one drawer on screens < 1280 px |
 | Layer controls & legends | Left drawer "Layers" tab; legends inline under each enabled layer (not a separate floating legend) |
 | Mission inputs & stops | Left drawer "Plan" tab; inputs collapsed into "Constraints" accordion after first edit, stops list stays open |
@@ -58,10 +58,10 @@ Desktop layout (≥ 1280 px):
 
 ### C.1 Colour palette (contrast verified by computation, WCAG relative luminance)
 
-**Chrome (dark theme, default)**
+#### Chrome (dark theme, default)
 
 | Token | Hex | Use | Contrast on `panel` |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `bg` | `#0F141A` | App background, line casing | — |
 | `panel` | `#161D26` | Drawers, results panel | — |
 | `raised` | `#1E2733` | Cards, inputs | — |
@@ -71,10 +71,10 @@ Desktop layout (≥ 1280 px):
 | `accent` | `#4CC9F0` | Route line, primary buttons, selection | 8.82 : 1 |
 | `focus` | `#FFD84D` | Keyboard focus ring (2 px + 2 px offset) | 12.26 : 1 |
 
-**Semantic (status) — always paired with icon + pattern + text**
+#### Semantic (status) — always paired with icon + pattern + text
 
 | Token | Hex | Meaning | Icon | Map/profile pattern |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `ok` | `#3DD68C` | Within limits | ✓ circle | solid |
 | `caution` | `#F5A524` | Caution slope, possible loose fines, near limit | ▲ triangle | diagonal hatch |
 | `blocked` | `#FF6B6B` | Over hard limit, no route, limit exceeded | ⬣ octagon | cross-hatch |
@@ -86,7 +86,8 @@ All four ≥ 6.1 : 1 on `panel`.
 
 **Print theme (SCR-08):** text `#111827` on white (17.7 : 1); caution `#9A5B00` (5.43 : 1); blocked `#B42318` (6.57 : 1); ok `#0E7A4F` (5.36 : 1); patterns retained so black-and-white printing stays readable.
 
-**Map overlays**
+#### Map overlays
+
 - Route: 4 px `accent` line with **2 px `bg` casing on each side**. Reason: `accent` on mid-ochre imagery (`#B07A55`) is only 1.9 : 1, the casing raises edge contrast to 5.07 : 1 (both computed).
 - Slope ramp (sequential, colour-blind-safe): 0–5° transparent, 5–10° `#FDE7A9` 40 %, 10–15° `#F5A524` 55 %, 15–25° `#E4572E` 65 % + hatch, > 25° `#8B1E3F` 75 % + cross-hatch. Class edges follow the *current* caution/hard limits, not fixed values.
 - Elevation: perceptual sequential ramp (e.g., *batlow* or *viridis*), legend in metres.
@@ -95,7 +96,7 @@ All four ≥ 6.1 : 1 on `panel`.
 ### C.2 Typography
 
 | Role | Font | Size / weight |
-|---|---|---|
+| --- | --- | --- |
 | UI text | **Inter** (self-hosted, offline) | 14 px / 400, line-height 1.45 |
 | Panel headings | Inter | 16 px / 600 |
 | Screen titles | Inter | 20 px / 600 |
@@ -119,7 +120,7 @@ Single outline icon set (e.g., Lucide, MIT-licensed — verify licence in TASK-1
 ### C.5 Map annotations and selection states
 
 | Element | Default | Hover | Selected | Disabled/invalid |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Waypoint | `accent` fill, `bg` number | +2 px ring | `focus` ring 3 px | `blocked` outline + ⬣ |
 | POI | white pin, `bg` outline | label shown | `accent` pin + right drawer open | — |
 | Route leg | cased `accent` line | thicker 6 px | — | NO_ROUTE: dashed `unknown` to nearest reachable point |
@@ -131,7 +132,7 @@ Single outline icon set (e.g., Lucide, MIT-licensed — verify licence in TASK-1
 ## D. Interaction and component behavior
 
 | Component | Default | Selected/active | Loading | Disabled | Empty | Error |
-|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- |
 | Layer row | Toggle off, collapsed legend | Toggle on, legend expanded | Skeleton legend + spinner on toggle | Greyed with reason ("Unavailable in this build") | — | Inline `unknown` message |
 | Input field | Value + unit | Focus ring | — | Read-only during demo-lock (optional) | — | Red outline + range text below |
 | Stops list | Numbered rows | Row highlighted ↔ map marker | Row ETA shimmer | — | "Add a stop: click a POI or press A" | Row marked ⬣ with reason |
@@ -154,7 +155,7 @@ Single outline icon set (e.g., Lucide, MIT-licensed — verify licence in TASK-1
 ## E. Accessibility and responsive behavior
 
 | Requirement | Implementation |
-|---|---|
+| --- | --- |
 | Contrast | Tokens in C.1 (all text ≥ 4.5 : 1; status colours ≥ 6.1 : 1 on panels) |
 | Keyboard | Tab order: top bar → left drawer → map toolbar → map → results → right drawer. Map: arrow keys pan, `+`/`−` zoom, `A` add-stop mode, `Enter` places a stop at the **map-centre crosshair** (visible in add-stop mode), `Delete` removes selected stop, `B` briefing, `?` sources |
 | Focus | 2 px `focus` ring + 2 px offset on every interactive element, including waypoints |
@@ -169,21 +170,27 @@ Single outline icon set (e.g., Lucide, MIT-licensed — verify licence in TASK-1
 ## F. Wireframe guidance
 
 ### SCR-01 Mission Briefing
+
 Centered column (max 720 px) over a darkened, blurred site image: site title (20 px), one-sentence science objective, three-line "What this tool does", row of data badges, disclaimer box (`unknown` outline), primary button **Start planning**, secondary **Open demo plan**, text link **Sources & methods**.
 
 ### SCR-02 Map Workspace (with SCR-03/04/05/07 embedded)
+
 As in the layout in §B. Map toolbar top-left: Add-stop toggle, Fit AOI, Measure (optional). When Add-stop mode is on, crosshair appears at map centre and the toggle is `accent` filled.
 
 ### SCR-05 Results (bottom panel)
+
 Left 280 px: status banner (icon, word, one-line reason). Middle: metrics row (Distance · Walk time · EVA total / limit · Max slope · Max walkback / limit · Dose) above the profile (full width of middle area, 140 px tall). Right 300 px: warnings list, newest-severity first.
 
 ### SCR-06 POI Detail (right drawer)
+
 Image at top (16:9, click to enlarge), credit line under image (12 px), title, "Science objective" paragraph, "Why it matters" paragraph, position source with provenance chip, button **Add as stop**.
 
 ### SCR-08 Briefing Card (print)
+
 A4/Letter portrait, 12 mm margins. Row 1: header (site, plan name, data version, plan hash, timestamp). Row 2 (two columns): route map snapshot (left 60 %), metrics + status (right). Row 3: stops/timeline table (stop, arrival UTC/LTST, dwell, sun elevation, notes). Row 4: profile. Row 5: warnings + assumptions (two columns). Footer: sources (short form) + prototype disclaimer.
 
 ### SCR-09 Sources & Methods
+
 Full-screen overlay, left anchor list (Datasets · Processing · Models · Limitations · AI use · Diagnostics), right content with tables.
 
 An HTML wireframe is **not** produced: the layout above is simple enough to build directly, and time is better spent on the TASK-02 rendering spike.
@@ -191,6 +198,6 @@ An HTML wireframe is **not** produced: the layout above is simple enough to buil
 ## Unresolved items owned by this document
 
 | ID | Item | Recommendation |
-|---|---|---|
+| --- | --- | --- |
 | U-08 | Light theme for daylight venue projection | Add a high-contrast light variant only if the venue projector washes out dark UI (test at check-in) |
 | U-09 | Colour HiRISE vs. grayscale basemap | Prefer colour COG if it covers the AOI; grayscale gives better hazard-overlay contrast — make it a toggle |
