@@ -1,0 +1,494 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "plan-export.schema.json",
+  "title": "Plan export (docs/specs/05 §C PlanExport)",
+  "$comment": "Field names follow 05 §C; ranges follow 02 §E.3.",
+  "type": "object",
+  "properties": {
+    "export_schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "app_version": {
+      "type": "string"
+    },
+    "site_id": {
+      "type": "string"
+    },
+    "data_version": {
+      "type": "string"
+    },
+    "plan_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{12}$",
+      "$comment": "first 12 hex of SHA-256 over canonical JSON of {data_version, scenario, waypoints}"
+    },
+    "scenario": {
+      "$ref": "#/$defs/MissionScenario"
+    },
+    "waypoints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Waypoint"
+      },
+      "minItems": 2,
+      "maxItems": 11,
+      "$comment": "start + <= 10 stops (02 §E.3)"
+    },
+    "result": {
+      "$ref": "#/$defs/PlanResult"
+    },
+    "provenance_summary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value_path": {
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/$defs/Provenance"
+          },
+          "source_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "value_path",
+          "provenance",
+          "source_ids"
+        ]
+      }
+    },
+    "disclaimer": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "export_schema_version",
+    "app_version",
+    "site_id",
+    "data_version",
+    "plan_hash",
+    "scenario",
+    "waypoints",
+    "result",
+    "provenance_summary",
+    "disclaimer"
+  ],
+  "$defs": {
+    "Provenance": {
+      "enum": [
+        "measured",
+        "derived",
+        "modelled",
+        "assumed"
+      ]
+    },
+    "MissionScenario": {
+      "type": "object",
+      "properties": {
+        "eva_start_utc": {
+          "type": "string",
+          "format": "date-time",
+          "$comment": "ISO-8601 UTC; year 2000-2100 (02 §E.3)"
+        },
+        "max_eva_duration_h": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 10,
+          "default": 6.0
+        },
+        "dwell_min_per_stop": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 180,
+          "default": 20
+        },
+        "hard_slope_limit_deg": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 35,
+          "default": 15,
+          "$comment": "must be > caution_slope_deg (02 §E.3)"
+        },
+        "caution_slope_deg": {
+          "type": "number",
+          "minimum": 2,
+          "maximum": 30,
+          "default": 10
+        },
+        "walkback_limit_km": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 20,
+          "default": 5.0
+        },
+        "suited_flat_speed_kmh": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 6,
+          "default": 3.3
+        },
+        "solar_phase": {
+          "enum": [
+            "max",
+            "min"
+          ],
+          "default": "max"
+        },
+        "loop": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "eva_start_utc",
+        "max_eva_duration_h",
+        "dwell_min_per_stop",
+        "hard_slope_limit_deg",
+        "caution_slope_deg",
+        "walkback_limit_km",
+        "suited_flat_speed_kmh",
+        "solar_phase",
+        "loop"
+      ]
+    },
+    "Waypoint": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^wp-\\d+$"
+        },
+        "role": {
+          "enum": [
+            "start",
+            "stop"
+          ]
+        },
+        "x_m": {
+          "type": "number"
+        },
+        "y_m": {
+          "type": "number"
+        },
+        "poi_id": {
+          "type": "string"
+        },
+        "snapped_from": {
+          "type": "object",
+          "properties": {
+            "x_m": {
+              "type": "number"
+            },
+            "y_m": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "x_m",
+            "y_m"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "x_m",
+        "y_m"
+      ]
+    },
+    "Leg": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "OK",
+            "NO_ROUTE"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "START_BLOCKED",
+            "END_BLOCKED",
+            "DISCONNECTED_BY_SLOPE",
+            "DISCONNECTED_BY_HAZARD",
+            "DISCONNECTED_BY_NODATA"
+          ],
+          "$comment": "present if NO_ROUTE; values from 02 §D.2"
+        },
+        "distance_m": {
+          "type": "number"
+        },
+        "walk_time_min": {
+          "type": "number"
+        },
+        "climb_m": {
+          "type": "number"
+        },
+        "descent_m": {
+          "type": "number"
+        },
+        "max_slope_deg": {
+          "type": "number"
+        },
+        "geometry": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "$comment": "[x_m, y_m] pairs, simplified for display"
+        },
+        "cell_path_length": {
+          "type": "number"
+        },
+        "nearest_reachable": {
+          "type": "object",
+          "properties": {
+            "x_m": {
+              "type": "number"
+            },
+            "y_m": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "x_m",
+            "y_m"
+          ],
+          "$comment": "present if NO_ROUTE; shape from 02 §E.2"
+        },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "dist_m": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "elev_m": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "slope_class": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "$comment": "sampled every 5 m"
+        }
+      },
+      "$comment": "TODO(decision): 05 gives no Req column for PlanResult, Leg and Warning, so no field is marked required."
+    },
+    "Warning": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": [
+            "OVER_HARD_SLOPE",
+            "CAUTION_SLOPE",
+            "LOW_TI",
+            "TI_UNKNOWN",
+            "LOW_RES_DEM",
+            "NO_ROUTE",
+            "EVA_DURATION_EXCEEDED",
+            "WALKBACK_EXCEEDED",
+            "DARKNESS"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "caution",
+            "blocked",
+            "unknown"
+          ]
+        },
+        "leg": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "from_m": {
+          "type": "number"
+        },
+        "to_m": {
+          "type": "number"
+        },
+        "at_utc": {
+          "type": "string",
+          "format": "date-time",
+          "$comment": "for time warnings"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "$comment": "TODO(decision): 05 gives no Req column for PlanResult, Leg and Warning, so no field is marked required."
+    },
+    "PlanResult": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "OK",
+            "OVER_LIMITS",
+            "PARTIAL",
+            "ERROR"
+          ]
+        },
+        "legs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Leg"
+          }
+        },
+        "totals": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "$comment": "null when PARTIAL",
+          "properties": {
+            "distance_m": {
+              "type": "number"
+            },
+            "walk_time_min": {
+              "type": "number"
+            },
+            "dwell_time_min": {
+              "type": "number"
+            },
+            "eva_total_min": {
+              "type": "number"
+            },
+            "eva_margin_min": {
+              "type": "number"
+            },
+            "climb_m": {
+              "type": "number"
+            },
+            "descent_m": {
+              "type": "number"
+            },
+            "max_slope_deg": {
+              "type": "number"
+            },
+            "max_walkback_km": {
+              "type": "number"
+            }
+          }
+        },
+        "stops_timeline": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "arrive_utc": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "depart_utc": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "arrive_ltst": {
+                "type": "string",
+                "pattern": "^\\d{2}:\\d{2}$"
+              },
+              "sun_elevation_deg": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "conditions": {
+          "type": "object",
+          "properties": {
+            "mars_year": {
+              "type": "number"
+            },
+            "ls_deg": {
+              "type": "number"
+            },
+            "sunrise_ltst": {
+              "type": "string"
+            },
+            "sunset_ltst": {
+              "type": "string"
+            },
+            "sunrise_utc": {
+              "type": "string"
+            },
+            "sunset_utc": {
+              "type": "string"
+            }
+          },
+          "$comment": "flat horizon"
+        },
+        "radiation": {
+          "type": "object",
+          "properties": {
+            "dose_mSv": {
+              "type": "number"
+            },
+            "dose_low_mSv": {
+              "type": "number"
+            },
+            "dose_high_mSv": {
+              "type": "number"
+            },
+            "solar_phase": {
+              "enum": [
+                "max",
+                "min"
+              ]
+            },
+            "const_id": {
+              "type": "string"
+            }
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Warning"
+          }
+        },
+        "computed_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "timing_ms": {
+          "type": "object",
+          "$comment": "diagnostics"
+        }
+      },
+      "$comment": "TODO(decision): 05 gives no Req column for PlanResult, Leg and Warning, so no field is marked required."
+    }
+  }
+}

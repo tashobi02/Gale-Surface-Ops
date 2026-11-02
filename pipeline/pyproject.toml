@@ -1,0 +1,27 @@
+[project]
+name = "marswalk-pipeline"
+version = "0.1.0"
+description = "Offline preprocessing pipeline for Marswalk Planner (docs/specs/02 §A, §C; TASK-03, TASK-04)"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+# Geo stack from docs/specs/02 §B. Kept optional so CI can run the (skipped) tests without GDAL.
+# Install the full environment with environment.yml (conda) instead.
+geo = ["rasterio", "numpy", "pyproj>=3.4"]
+dev = ["pytest"]
+
+[project.scripts]
+validate-manifest = "marswalk_pipeline.validate_manifest:main"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

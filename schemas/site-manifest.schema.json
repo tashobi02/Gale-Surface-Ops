@@ -1,0 +1,625 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "site-manifest.schema.json",
+  "title": "Site manifest (docs/specs/05 §C Site)",
+  "$comment": "Field names and required flags follow 05 §C. Do not add fields here without updating 05 first.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "site_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "body": {
+      "enum": [
+        "mars"
+      ],
+      "default": "mars"
+    },
+    "data_version": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+-\\d{4}\\.\\d{2}\\.\\d{2}(\\.\\d+)?$"
+    },
+    "crs": {
+      "type": "object",
+      "properties": {
+        "proj4": {
+          "type": "string",
+          "$comment": "must equal the pipeline string exactly"
+        },
+        "base": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "proj4",
+        "base"
+      ]
+    },
+    "aoi": {
+      "type": "object",
+      "properties": {
+        "extent_m": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "bbox_geo": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        }
+      },
+      "required": [
+        "extent_m",
+        "bbox_geo"
+      ]
+    },
+    "default_start": {
+      "type": "object",
+      "properties": {
+        "x_m": {
+          "type": "number"
+        },
+        "y_m": {
+          "type": "number"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "x_m",
+        "y_m",
+        "label"
+      ]
+    },
+    "known_offsets_m": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "default": {}
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Layer"
+      },
+      "minItems": 1
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DataSource"
+      }
+    },
+    "grid": {
+      "$ref": "#/$defs/RoutingGrid"
+    },
+    "env_constants": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EnvConstant"
+      }
+    },
+    "pois_asset": {
+      "type": "string"
+    },
+    "traverse_asset": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "site_id",
+    "name",
+    "body",
+    "data_version",
+    "crs",
+    "aoi",
+    "default_start",
+    "layers",
+    "sources",
+    "grid",
+    "env_constants",
+    "pois_asset",
+    "traverse_asset"
+  ],
+  "$defs": {
+    "Provenance": {
+      "enum": [
+        "measured",
+        "derived",
+        "modelled",
+        "assumed"
+      ]
+    },
+    "DataSource": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "authors": {
+          "type": "string"
+        },
+        "missions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "instruments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "version": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https://"
+        },
+        "doi": {
+          "type": "string"
+        },
+        "credit": {
+          "type": "string"
+        },
+        "licence": {
+          "type": "string"
+        },
+        "accessed": {
+          "type": "string",
+          "format": "date"
+        },
+        "native_resolution_m": {
+          "type": "number"
+        },
+        "accuracy_note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "title",
+        "publisher",
+        "missions",
+        "instruments",
+        "version",
+        "url",
+        "credit",
+        "licence",
+        "accessed"
+      ]
+    },
+    "Layer": {
+      "type": "object",
+      "properties": {
+        "layer_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "optical",
+            "topographic",
+            "thermal",
+            "spectral",
+            "hazard",
+            "mission"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "raster_tiles",
+            "vector",
+            "image_static"
+          ]
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "derived_from": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "units": {
+          "type": "string"
+        },
+        "legend": {
+          "type": "object",
+          "$comment": "05: ramp/classes with values; structure not specified further"
+        },
+        "native_resolution_m": {
+          "type": "number"
+        },
+        "display_resolution_m": {
+          "type": "number"
+        },
+        "asset_id": {
+          "type": "string"
+        },
+        "tile_grid": {
+          "type": "object",
+          "properties": {
+            "origin_m": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "resolutions_m": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "tile_size_px": {
+              "type": "integer"
+            },
+            "format": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "origin_m",
+            "resolutions_m",
+            "tile_size_px",
+            "format"
+          ]
+        },
+        "default_visible": {
+          "type": "boolean",
+          "default": false
+        },
+        "optional": {
+          "type": "boolean",
+          "default": true,
+          "$comment": "false only for basemap"
+        },
+        "limitations": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer_id",
+        "title",
+        "category",
+        "kind",
+        "provenance",
+        "source_ids",
+        "legend",
+        "native_resolution_m",
+        "display_resolution_m",
+        "asset_id",
+        "default_visible",
+        "optional",
+        "limitations"
+      ],
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "raster_tiles"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "tile_grid"
+        ]
+      }
+    },
+    "Asset": {
+      "type": "object",
+      "properties": {
+        "asset_id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string",
+          "$comment": "relative to site folder"
+        },
+        "format": {
+          "enum": [
+            "f32",
+            "u8",
+            "geojson",
+            "jpg",
+            "png",
+            "webp",
+            "tiles"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "$comment": "tiles roots store hash of index file"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "nodata": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "$comment": "arrays: NaN for f32, 255 for u8"
+        },
+        "byte_order": {
+          "enum": [
+            "little"
+          ]
+        }
+      },
+      "required": [
+        "asset_id",
+        "path",
+        "format"
+      ],
+      "$comment": "05 marks sha256 and bytes as required for files; width/height/nodata/byte_order conditional (arrays/images)",
+      "if": {
+        "properties": {
+          "format": {
+            "not": {
+              "const": "tiles"
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "sha256",
+          "bytes"
+        ]
+      }
+    },
+    "RoutingGrid": {
+      "type": "object",
+      "properties": {
+        "cell_m": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "origin_m": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "row_order": {
+          "enum": [
+            "north_up"
+          ]
+        },
+        "elevation_asset": {
+          "type": "string"
+        },
+        "slope_p90_asset": {
+          "type": "string"
+        },
+        "slope_max_asset": {
+          "type": "string"
+        },
+        "flags_asset": {
+          "type": "string"
+        },
+        "ti_asset": {
+          "type": "string"
+        },
+        "ti_cell_m": {
+          "type": "number",
+          "$comment": "In 05 §F.1 example and ti_asset rule; not a row of the RoutingGrid table"
+        }
+      },
+      "required": [
+        "cell_m",
+        "width",
+        "height",
+        "origin_m",
+        "row_order",
+        "elevation_asset",
+        "slope_p90_asset",
+        "slope_max_asset",
+        "flags_asset"
+      ],
+      "$comment": "05: width*height <= 4e6 (not expressible in JSON Schema; checked by validate_manifest)"
+    },
+    "EnvConstant": {
+      "type": "object",
+      "properties": {
+        "const_id": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        },
+        "low": {
+          "type": "number"
+        },
+        "high": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "conditions": {
+          "type": "object"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "source_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "const_id",
+        "quantity",
+        "value",
+        "low",
+        "high",
+        "unit",
+        "conditions",
+        "provenance",
+        "source_id"
+      ]
+    },
+    "POI": {
+      "type": "object",
+      "properties": {
+        "poi_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "lat": {
+          "type": "number"
+        },
+        "lon_e": {
+          "type": "number"
+        },
+        "science_objective": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "why_it_matters": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "image_asset": {
+          "type": "string"
+        },
+        "image_credit": {
+          "type": "string"
+        },
+        "image_source_url": {
+          "type": "string"
+        },
+        "image_sol": {
+          "type": "integer"
+        },
+        "image_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "image_camera": {
+          "type": "string"
+        },
+        "position_source": {
+          "type": "string"
+        },
+        "position_uncertainty_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "poi_id",
+        "name",
+        "lat",
+        "lon_e",
+        "science_objective",
+        "why_it_matters",
+        "position_source",
+        "position_uncertainty_m",
+        "provenance"
+      ],
+      "$comment": "Properties of a GeoJSON Feature in vectors/pois.geojson (05 §C POI)",
+      "dependentRequired": {
+        "image_asset": [
+          "image_credit",
+          "image_source_url"
+        ]
+      }
+    },
+    "TraversePoint": {
+      "type": "object",
+      "properties": {
+        "sol": {
+          "type": "integer"
+        },
+        "site_drive": {
+          "type": "string"
+        },
+        "lat": {
+          "type": "number"
+        },
+        "lon_e": {
+          "type": "number"
+        },
+        "elevation_m": {
+          "type": "number"
+        },
+        "source_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sol",
+        "source_id"
+      ],
+      "$comment": "Properties of GeoJSON Point features in vectors/traverse.geojson (05 §C TraversePoint)"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$comment": "Template (docs/specs/05 §E.5): source URLs, versions, checksums and the exact GDAL/rasterio versions used for a data_version. Filled by TASK-03.",
+  "data_version": null,
+  "tools": {
+    "gdal": null,
+    "rasterio": null
+  },
+  "sources": [
+    {
+      "source_id": null,
+      "url": null,
+      "version": null,
+      "sha256": null
+    }
+  ]
+}

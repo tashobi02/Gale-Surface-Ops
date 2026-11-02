@@ -3,3 +3,15 @@ node_modules/
 # graphify: keep only the report in git
 graphify-out/*
 !graphify-out/GRAPH_REPORT.md
+# build and environments
+.venv/
+__pycache__/
+*.egg-info/
+web/dist/
+# pipeline workspace: downloads and intermediates never enter git (05 §B)
+pipeline/work/*
+!pipeline/work/.gitkeep
+# site binaries stay out of git until the LFS vs. release-asset decision (docs/ops/feasibility.md)
+web/public/sites/*/tiles/
+web/public/sites/*/grid/
+web/public/sites/*/images/
