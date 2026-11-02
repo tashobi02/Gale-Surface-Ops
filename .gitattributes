@@ -1,0 +1,13 @@
+* text=auto eol=lf
+
+# Binary data formats used by the site bundle (02 §E.1) and pipeline rasters.
+# Git LFS vs. release assets is undecided: TODO(decision) in docs/ops/feasibility.md.
+*.f32 binary
+*.u8 binary
+*.tif binary
+*.tiff binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.webp binary
+*.pdf binary

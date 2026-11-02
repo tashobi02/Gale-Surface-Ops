@@ -1,58 +1,46 @@
-# CheesySpace: Martian Map
+# Marswalk Planner — CheesySpace
 
-Our entry for the **NASA Space Apps Challenge**, in the challenge *Interplanetary Survival Guide: Martian Map*.
+*(working title)* Team CheesySpace's entry for the **NASA Space Apps Challenge 2026**, challenge *Interplanetary Survival Guide: Martian Map* (Bangladesh event, 13–14 Nov 2026).
 
-## The Challenge
-
-NASA has mapped and studied Mars robotically for decades. Existing tools such as JPL's Mars Trek and the USGS-NASA Planetary Geologic Mapping Program show regional and global views. They don't show the hyperlocal areas that astronauts would target on a single surface excursion.
-
-The goal is to build a **map, tool, or interface that a Mars astronaut could use during a surface exploration mission**. It should layer data from multiple NASA missions for a chosen location or route, so a crew can plan and carry out a safe and scientifically productive "Marswalk".
-
-### Requirements from the brief
-
-- **Layered, integrated view** of a specific location or route on Mars, built on NASA data and tools.
-- **At least three data types** are suggested. Examples are optical, thermal, spectral, topographic, geophysical, atmospheric, radiation and chemical.
-- **Safety first.** Consider radiation and space-weather context, terrain hazards, and suit and equipment mobility limits.
-- **Route planning** (if possible) that links the scientific objectives while avoiding major obstacles such as large rock formations.
-- **Scientific goals** that guide the choice of location. The brief's example is boxwork formations in the Mount Sharp region, where Curiosity made observations.
-
-### Optional ideas from the brief
-
-- Form factor: a crew-cabin or habitat display, a handheld tablet app, or a helmet HUD.
-- Output: a static snapshot, an interactive product, or a tool that generates maps for different locations and data types.
-- Time frame: past data, predicted conditions, or none (for stable data such as topography and geology).
-- Surface-mission point-of-view imagery, so the astronaut knows what to expect on arrival.
-- Crew logistics: rover support, or astronauts working in pairs.
-
-## Repository Contents
-
-```text
-.
-├── README.md
-└── docs/
-    ├── challenge-overview.md        # Official challenge description, objectives, considerations
-    └── mars_scientific_context.md   # Mars reference: geology, atmosphere, radiation, human factors, bibliography
-```
-
-| File | Purpose |
-| --- | --- |
-| [docs/reference/challenge-overview.md](docs/reference/challenge-overview.md) | Challenge statement, objectives and optional considerations. |
-| [docs/reference/mars-scientific-context.md](docs/reference/mars-scientific-context.md) | A cited reference on Mars science. Its 14 sections cover planetary history, interior, geography, soil and regolith (including perchlorates), atmosphere and dust storms, water and ice, seasons and sunlight, radiation, the human perspective (pressure, partial gravity, thermal, dust, communications delay), habitability, open questions, a glossary and a bibliography. |
+An offline, browser-based planning map for one hyperlocal Mars site (proposed: Curiosity's 2025 boxwork area on Mount Sharp, Gale crater). A planner places science stops on orbital imagery and terrain; the app computes a suited-walking route that respects slope limits and hazards, and reports the elevation profile, time and walkback margins, daylight window and an estimated radiation dose. Every number is labelled **measured, derived, modelled or assumed**.
 
 ## Status
 
-The project is at the **research and planning stage**. The repository holds only the challenge brief and the scientific background. It has no source code, dependencies, build steps or commits yet. This README will gain setup and usage instructions once the implementation exists.
+**Skeleton only.** Docs, schemas, configs and stub modules are in place; no functional code yet. Whether app code may be written before the event is still open (TASK-00, see [docs/ops/rules.md](docs/ops/rules.md)). All product decisions are *Proposed* ([docs/decisions/](docs/decisions/)).
 
-## Next Steps
+## Quickstart
 
-1. Choose the location or route and the science objective.
-2. Select at least three NASA data layers for that site and confirm where they come from.
-3. Decide the form factor (tablet, HUD, habitat display or other).
-4. Build the layered map, with hazard and route information.
-5. Document the data sources, setup and usage here.
+Requirements: Node.js LTS, Python ≥ 3.11, GNU Make.
 
-## References
+```sh
+make setup        # npm ci + .venv with pipeline[dev]
+make lint typecheck test docs-check
+make dev          # Vite dev server
+make demo         # production build + local static server on 127.0.0.1:8080 (works offline)
+```
 
-- [docs/reference/challenge-overview.md](docs/reference/challenge-overview.md) for the challenge text.
-- The bibliography in [docs/reference/mars-scientific-context.md](docs/reference/mars-scientific-context.md) lists NASA, ESA and USGS sources and peer-reviewed publications.
-- Challenge resources: see the Resources tab on the NASA Space Apps Challenge page.
+The full pipeline environment (GDAL ≥ 3.6, rasterio, numpy, pyproj) is in [pipeline/environment.yml](pipeline/environment.yml); it is not needed for the checks above.
+
+## Data is not in git
+
+Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are never committed. The offline pipeline (`make data`, TASK-03, not implemented yet) downloads into the git-ignored `pipeline/work/` and writes the site bundle to `web/public/sites/<site_id>/` (layout: [web/public/sites/gale_boxwork/README.md](web/public/sites/gale_boxwork/README.md)). Source URLs, versions and checksums go in `pipeline/sources.lock.json`. How the large tiles are shared (Git LFS or release assets) is undecided; see [docs/ops/feasibility.md](docs/ops/feasibility.md).
+
+## Documentation
+
+| Document | Contents |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Index, decisions, blockers, FR traceability |
+| [docs/specs/](docs/specs/) | 01 PRD · 02 Technical · 03 App flow · 04 Design · 05 Schema · 06 Plan |
+| [docs/reference/challenge-overview.md](docs/reference/challenge-overview.md) | Official challenge text |
+| [docs/reference/mars-scientific-context.md](docs/reference/mars-scientific-context.md) | Cited Mars science reference |
+| [docs/ops/](docs/ops/) | Rules check, feasibility, demo script, submission checklist |
+| [docs/AI_USE.md](docs/AI_USE.md) | How AI tools were used to build this |
+| [CLAUDE.md](CLAUDE.md) · [AGENTS.md](AGENTS.md) | Rules for coding agents |
+
+## Credits
+
+TODO: dataset and image credits (NFR-07), filled from each `DataSource.credit` in the site manifest. Planned sources are listed in [02 Sources](docs/specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02).
+
+## Licence
+
+Code: [Apache-2.0](LICENSE). Data and images keep their original credits and use constraints.
