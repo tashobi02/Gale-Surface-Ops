@@ -225,7 +225,7 @@
   - Given a scratch lock file with one reachable COG entry, when `fetch_sources` runs, then the window lands in `pipeline/work/` and the entry gains its `sha256`; a second run downloads nothing.
   - T03.03's round-trip (≤ 1 mm) and pipeline CRS-guard tests pass.
 - **Verify:** `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_clip_reproject.py` · manual: one `fetch_sources` run against a scratch copy of the lock file
-- **Agent brief:** Fill the working projection in `config.py` from T01.05's AOI centre and implement `fetch_sources` in `acquire.py` (GDAL `/vsicurl/` windows, checksums and tool versions written to the lock entries). Never commit `pipeline/sources.lock.json`; T03.19 owns its content. Never compute the AOI centre yourself — copy it from the feasibility record.
+- **Agent brief:** Fill the working projection in `config.py` from T01.05's AOI centre and implement `fetch_sources` in `acquire.py` (GDAL `/vsicurl/` windows, checksums and tool versions written to the lock entries). `pipeline/sources.lock.json` is a committed file (05 §E.5), but T03.19 owns its content and commits it with bundle v1; do not commit it from this subtask. Never compute the AOI centre yourself — copy it from the feasibility record.
 - **Conflict notes:** Stacked on T03.03 with T03.08 (map §h.3). `pipeline/sources.lock.json` is written only by T03.19's run. Fallbacks T03.23, T03.24 (`config.py`) and T03.26, T03.27 (`acquire.py`) may replace these files later, one at a time and never while this subtask is open.
 
 ### T03.08 — Implement clip/reproject and DEM no-data → NaN

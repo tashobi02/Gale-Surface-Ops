@@ -265,7 +265,7 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T16.04 | Complete the AI-use disclosure | story | pre-event-allowed | M6 | |
 | T16.05 | Verify every dataset and image is credited in SCR-09 and the README | story | pre-event-allowed | M6 | |
 | T16.06 | Fill the NASA project page fields; complete the submission checklist | story | event-only | M6 | |
-| T16.07 | Decide site-bundle hosting and the public link; test the link in a private window | story | pre-event-allowed | M2–M6 | |
+| T16.07 | Implement the release-asset fetch route and decide what the public link shows; test the link in a private window | story | pre-event-allowed | M2–M6 | |
 | T17.01 | Draft the 240-s and 30-s demo scripts | story | pre-event-allowed | M2 | |
 | T17.02 | Record and submit the 240-s video by Day 1 18:30 (dry-run capture first) | story | event-only | M4 | |
 | T17.03 | Record and upload the 30-s video by Day 2 09:00 | story | event-only | M6 | |

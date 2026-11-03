@@ -199,7 +199,7 @@ No contract (§d) or fixture (§e) is consumed.
 - **Agent brief:** Human task: fill and submit the NASA project page and complete `docs/ops/submission-checklist.md`. An agent may draft field texts from the README, demo script and AI-use disclosure, list which checklist items have evidence in the verification log, and flag field text that does not trace to the repo.
 - **Conflict notes:** `docs/ops/submission-checklist.md` is owned here; other subtasks put their evidence in `docs/ops/verification-log.md`. Merge last in M6, after T16.03–T16.05, T16.07 and the 30-s video (Spec question 4). Submitting the page is outward-facing: confirm with the team first.
 
-### T16.07 — Decide site-bundle hosting and the public link; test the link in a private window
+### T16.07 — Implement the release-asset fetch route and decide what the public link shows; test the link in a private window
 
 - **Type:** human
 - **Tag:** human-required · core
@@ -210,18 +210,18 @@ No contract (§d) or fixture (§e) is consumed.
 - **Depends on:** none
 - **Parallel with:** T16.01, T16.02, T14.01, T14.02
 - **Steps:**
-  1. List the options the docs name: Git LFS or a release asset for the site bundle, GitHub Pages for the public link (02 §B, `docs/ops/feasibility.md`), and the `CLAUDE.md` §2 rule against committing large binaries.
-  2. The team decides how the site bundle (tiles, grid, images) is shared and what the public link shows (`TODO(decision)`); note who decided and when.
+  1. Start from the decision in `docs/ops/feasibility.md`: the site bundle (tiles, grid, images) is shared as a GitHub release asset. Note the open option for the public link, GitHub Pages (02 §B), and the `CLAUDE.md` §2 rule against committing large binaries.
+  2. Implement the decision: record how a reader obtains the bundle from the release. The team still decides what the public link shows (`TODO(decision)`); note who decided and when.
   3. Write `docs/ops/hosting.md`: the decision, the reason, how a reader obtains the bundle, and the NFR-09 size limit it must respect.
   4. With the team's confirmation, make the repository public (06 §B M2), then open its link in a private browser window and record the result.
-  5. If the decision needs a deploy workflow, an LFS setup or a `.gitignore` change, hand it to the integration lane as a new subtask (§h.5); those paths are not owned here.
+  5. If the implementation needs a deploy workflow, a release-asset fetch script or a `.gitignore` change, hand it to the integration lane as a new subtask (§h.5); those paths are not owned here.
 - **Acceptance:**
   - Serves: NFR-07 · [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices), [06 §B](../specs/06_High_Level_Implementation_Plan.md#b-milestones)
   - `docs/ops/hosting.md` records the decision, its reason and the steps to obtain the bundle; no dataset or large binary is committed (`CLAUDE.md` §2).
   - Given the public repository link, when it is opened in a private window, then it loads without signing in.
-  - Map open point 13 is resolved, or `docs/ops/hosting.md` states why it stays open.
+  - Map open point 13 is closed (release asset), and `docs/ops/hosting.md` states what the public link shows, or why that stays open.
 - **Verify:** Manual: private-window check of the repository link; `make lint docs-check`.
-- **Agent brief:** Human task: the team chooses how the site bundle and the public link are hosted, and makes the repository public. An agent may compare the options in 02 §B and `docs/ops/feasibility.md` against NFR-09 and `CLAUDE.md` §2, and draft `docs/ops/hosting.md` for approval.
+- **Agent brief:** Human task with two jobs. (1) Implement the release-asset route from `docs/ops/feasibility.md`: an agent may draft in `docs/ops/hosting.md` how a reader obtains the bundle from the release (download, verify the SHA-256, extract), checked against NFR-09 and `CLAUDE.md` §2; a fetch script is a new integration subtask (step 5), not written here. (2) The team decides what the public link shows and makes the repository public.
 - **Conflict notes:** Do not edit `docs/ops/feasibility.md` (T01.05), `.gitignore` (append-only), `.github/` (T14.02) or `README.md` (T16.03, which reads this file). The decision lands in M2; T16.06 repeats the private-window check at M6. Making the repository public is outward-facing: confirm with the team first.
 
 ## Internal dependency graph
@@ -258,7 +258,7 @@ All internal edges are hard. T16.02 has no internal dependency; its upstream inp
 4. **Map change proposed: inputs without an edge.** T16.03 and T16.05 read the bundle-v1 manifest (T03.19) and the credits list (T04.06); T16.06 needs the 30-s video link (T17.03). None has a §f edge. All three land before T16.06 runs, so only the map's edge list would change.
 5. **Map change proposed: outcomes T16.02 does not list.** Other M0–M2 outcomes are missing from T16.02's register row: U-11 (decided in T03.01, contract C3), D-08 (T16.01) and A-01 (checked together with U-01). Add them to T16.02, or leave them for a later `spec-change:` subtask.
 6. **Working title.** The 01 header says "working title — rename before submission", but no subtask applies the D-08 name to files that carry the working title (`CLAUDE.md`, `AGENTS.md`, `docs/README.md`, the 01 header, the `web/index.html` title, the `package.json` descriptions; owners T00.04, T16.02, T07.03, T14.01 and the spec-change process). Owners that run after T16.01 can read ADR-008; the ones that run earlier need `follow-up:` subtasks — `TODO(decision)`.
-7. **Bundle hosting (map open point 13).** `docs/ops/feasibility.md` and 02 §B name Git LFS or a release asset, but `CLAUDE.md` §2 forbids committing large binaries, so choosing LFS would also change that rule. A GitHub Pages link (02 §B) would need a deploy workflow in `.github/` (T14.02), i.e. a new integration subtask — T16.07, `TODO(decision)`.
+7. **Bundle hosting (map open point 13).** Decided in `docs/ops/feasibility.md`: GitHub release asset, which keeps the `CLAUDE.md` §2 rule against committing large binaries. T16.07 implements it. What the public link shows is still open: a GitHub Pages link (02 §B) would need a deploy workflow in `.github/` (T14.02), i.e. a new integration subtask — T16.07, `TODO(decision)`.
 8. **AI-use log rows.** Earlier log rows have TODO and `TODO(verify)` cells. §c.2 keeps the log append-only, so T16.04 answers them with appended rows instead of editing the rows. Confirm that this is acceptable.
 9. **Icon licence.** 04 §C.4 says the icon set's licence is verified "in TASK-16", but no icon dependency has been chosen yet (T14.01). T16.05 checks whichever set is bundled.
 10. **Effort (map open point 18).** These seven subtasks are estimated above 06's 2–4 h for TASK-16.

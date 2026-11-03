@@ -248,4 +248,4 @@ All edges are hard. Outgoing hard edges (map §f): T01.05 → T03.07, T03.16, T1
 5. **Site-specific paths.** The map hard-codes `gale_boxwork` in many §c paths, so a Jezero switch needs a `coord:` PR (§h.5). This is a consequence of the fallback; no map change is proposed now.
 6. **ADR status word.** Every ADR says "Proposed"; no term is defined for a decided ADR — `TODO(decision)` in T01.05.
 7. **Projection-string format.** 05 §E.3 requires byte-identical strings, but no spec fixes how many decimals the AOI centre gets (05 §F.1 shows two, illustratively) — `TODO(decision)` in T01.02.
-8. **Large tiles.** The "Large tiles in the repo" section of `feasibility.md` stays open for T16.07 (map open point 13).
+8. **Large tiles.** The "Large tiles in the repo" section of `feasibility.md` is decided: GitHub release asset (map open point 13, closed). T16.07 implements it.

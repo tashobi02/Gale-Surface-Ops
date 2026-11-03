@@ -303,7 +303,7 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 | T16.04 | Complete the AI-use disclosure | story | human | human-required · core | pre-event-allowed | M6 | — |
 | T16.05 | Verify every dataset and image is credited in SCR-09 and the README | story | verify | agent-ready · core | pre-event-allowed | M6 | FR-15, NFR-07 |
 | T16.06 | Fill the NASA project page fields; complete the submission checklist | story | human | human-required · core | event-only | M6 | NFR-07 |
-| T16.07 | Decide site-bundle hosting and the public link; test the link in a private window | story | human | human-required · core | pre-event-allowed | M2–M6 | NFR-07 |
+| T16.07 | Implement the release-asset fetch route and decide what the public link shows; test the link in a private window | story | human | human-required · core | pre-event-allowed | M2–M6 | NFR-07 |
 
 #### TASK-17 — Videos
 
@@ -979,7 +979,7 @@ Gaps and contradictions found while building this map. None is resolved here; ea
 10. **TI threshold.** 02 assigns U-03 to TASK-04, 06 TASK-04 does not list it, and 05 has no manifest field for it — T04.07 keeps it in `ti_threshold.json` and the methods text.
 11. **Duplicate test.** The pipeline stub `test_scale_bar_vs_dem_measured_feature_within_2_percent` duplicates the F.1 case allocated to T02.04 — T03.03 removes it.
 12. **Solar-min source.** 05 gives the solar-min EnvConstant values and a note (Simonsen et al. 2024) but no `source_id` — T06.10, `TODO(verify)`.
-13. **Bundle hosting.** Git LFS vs release asset (`docs/ops/feasibility.md`) decides whether a public link can show data (02 §B) — T16.07, `TODO(decision)`.
+13. **Bundle hosting.** Closed: GitHub release asset, not Git LFS (`docs/ops/feasibility.md`). T16.07 implements it and still settles what the public link shows (02 §B).
 14. **D-09** (default slope, walkback and speed values; 01 §F.4 suggests the 11:30 mentor round) has no task in 06 — not planned.
 15. **Demo plan location.** 03 SCR-01 "Open demo plan" has no defined data file — T07.14 proposes `web/src/ui/demoPlan.json`, `TODO(decision)`.
 16. **Dependency choices** for T14.01: profile chart (02 §B: uPlot or Chart.js; plain SVG alternative), DOM test environment, axe tooling (NFR-04), JSON-Schema validator for `validate-manifest`, `marstime` version — `TODO(decision)`.

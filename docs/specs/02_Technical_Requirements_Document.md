@@ -78,7 +78,7 @@ flowchart LR
 | Compute | **TypeScript in a Web Worker**, pure functions, **Vitest** unit tests | Keeps UI responsive; testable; deterministic | Re-implementing A* and Mars24 | Python/FastAPI (A.3) |
 | Solar time | Port of **Mars24 algorithm** (Allison & McEwen 2000) | Published, citable; JS/Python implementations exist (marstime, BSD) for cross-checking | Longitude-sign convention pitfall (§C.4) | Use the `marstime` Python package in the pipeline to precompute a lookup table for the demo dates |
 | Pipeline | **Python 3.11+, GDAL ≥ 3.6, rasterio, numpy, pyproj ≥ 3.4** | Standard planetary GIS toolchain; IAU_2015 CRS codes available in recent PROJ (verify version) | GDAL install friction on Windows | Conda environment file committed |
-| Hosting | Local static server for the demo; GitHub Pages for the public link | Free; satisfies "public repository/link" scoring item | Large tiles may exceed comfortable Pages repo size → keep tiles < 500 MB or use Git LFS / release asset | Netlify/Vercel static |
+| Hosting | Local static server for the demo; GitHub Pages for the public link | Free; satisfies "public repository/link" scoring item | Large tiles may exceed comfortable Pages repo size → keep tiles < 500 MB or use Git LFS / release asset (release asset: **Decision (team confirmed 2026-11-03)**, see [docs/ops/feasibility.md](../ops/feasibility.md#large-tiles-in-the-repo)) | Netlify/Vercel static |
 
 **Cost:** $0 runtime; no paid APIs or keys.
 
