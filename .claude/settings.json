@@ -1,4 +1,24 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(make setup)",
+      "Bash(make lint)",
+      "Bash(make typecheck)",
+      "Bash(make test)",
+      "Bash(make docs-check)",
+      "Bash(make dev)",
+      "Bash(make demo)",
+      "Bash(make data)"
+    ],
+    "deny": [
+      "Read(pipeline/work/**)",
+      "Read(web/public/sites/**/tiles/**)",
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -23,29 +43,14 @@
       }
     ]
   },
-  "permissions": {
-    "allow": [
-      "Bash(make setup)",
-      "Bash(make lint)",
-      "Bash(make typecheck)",
-      "Bash(make test)",
-      "Bash(make docs-check)",
-      "Bash(make dev)",
-      "Bash(make demo)",
-      "Bash(make data)"
-    ],
-    "deny": [
-      "Read(pipeline/work/**)",
-      "Read(web/public/sites/**/tiles/**)",
-      "Bash(rm -rf *)",
-      "Bash(rm -fr *)",
-      "Bash(git push --force *)",
-      "Bash(git push -f *)"
-    ]
-  },
   "enabledPlugins": {
     "code-review@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": true,
-    "pyright-lsp@claude-plugins-official": true
+    "pyright-lsp@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "hookify@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true
   }
 }
