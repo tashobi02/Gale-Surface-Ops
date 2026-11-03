@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Delivery — mirrors [06](../specs/06_High_Level_Implementation_Plan.md), which owns order, dependencies and cut decisions |
 | **Date** | 2026-11-03 |
-| **Status** | Approved 2026-11-03 and frozen: task files must not contradict it; change this file first (§h.5) |
+| **Status** | Approved 2026-11-03 and frozen; amended the same day by one `coord:` change after Phase 2 (3 subtasks added; edges, paths and open points synced with the task files). Change this file first (§h.5) |
 | **Related** | [06 §C Work packages](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D Delivery strategy](../specs/06_High_Level_Implementation_Plan.md#d-delivery-strategy) · [Docs index](../README.md) · [CLAUDE.md](../../CLAUDE.md) |
 
 This file lets several people and AI agents work on the 19 work packages of 06 in parallel. It fixes subtask ids (§a), lanes (§b), who writes which file (§c), the interfaces that decouple lanes (§d), the fixtures that remove waiting (§e), the dependency graph (§f), what runs together per milestone (§g) and how branches and PRs work (§h). Task files `TASK-NN_<title>.md` expand each subtask listed here; they never add a subtask, path owner or cross-task dependency that is not in this file.
@@ -267,6 +267,7 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 | T13.08 | Implement the light theme (U-08) | design | implement | agent-ready · cut-2 | event-only | M5 | NFR-04, U-08 |
 | T13.09 | Verify the axe scan: 0 serious issues | design | verify | agent-ready · core | event-only | M5 | NFR-04 |
 | T13.10 | Verify a keyboard-only run of the core scenario | design | verify | human-required · core | event-only | M5 | NFR-04 |
+| T13.11 | Self-host the outline icon set and verify its licence | design | implement | agent-ready · core | pre-event-allowed | M2 | NFR-01, NFR-07 |
 
 #### TASK-14 — Integration + offline hardening + fault tests
 
@@ -282,6 +283,7 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 | T14.08 | Verify the browser/device matrix and cross-browser determinism | integration | verify | human-required · core | event-only | M5 | NFR-03, NFR-06 |
 | T14.09 | Verify release checks: CSP, network log, bundle sizes, `?debug=1` | integration | verify | agent-ready · core | event-only | M5 | NFR-08, NFR-09, NFR-11 |
 | T14.10 | Verify SCR-00 and worker-crash recovery by hand | integration | verify | human-required · core | event-only | M5 | NFR-10, SCR-00 |
+| T14.11 | follow-up: refresh the `CLAUDE.md` command rows after the pipeline entry point lands | integration | integrate | agent-ready · core | pre-event-allowed | M2 | — |
 
 #### TASK-15 — Usability test
 
@@ -323,6 +325,7 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 | T18.05 | Implement the illustrative O₂ estimate | compute | implement | agent-ready · desirable | event-only | M5–M6 | FR-19 |
 | T18.06 | follow-up: show the O₂ estimate labelled "illustrative" | frontend | implement | agent-ready · desirable | event-only | M5–M6 | FR-19 |
 | T18.07 | follow-up: save and restore the last plan in browser storage | frontend | implement | agent-ready · desirable | event-only | M5–M6 | FR-20 |
+| T18.08 | Cache the CRISM and REMS source files before 13 Nov | data | human | human-required · desirable | pre-event-allowed | M1–M2 | FR-13, FR-18 |
 
 FR-21 (space weather, 3D view, multi-site, AI narration) is post-MVP and has no subtask ([01 §C.3](../specs/01_Product_Requirements_Document.md#c3-post-mvp)).
 
@@ -351,6 +354,7 @@ Role names from [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-plannin
 4. **Append-only paths** follow the rule in their row: add lines or files only at the stated place; never edit, reorder or delete other subtasks' content. On a rebase conflict keep both sides.
 5. **Unlisted paths are read-only** for this plan. Writing one needs a new subtask and an edit to this table first (§h).
 6. Every subtask also appends one row to the `docs/AI_USE.md` log when AI helped (row c.6).
+7. A module owns its sibling stylesheet with the same base name (`metric.ts` → `metric.css`), as the screens do; no separate row is needed.
 
 ### c.2 Docs
 
@@ -383,7 +387,7 @@ Role names from [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-plannin
 | `docs/design/wireframes/` | T13.03 | — |
 | `docs/AI_USE.md` | T16.04 (header, Tools, Prompts location) | Log table append-only for every subtask: one row per PR, at the end |
 | `README.md` | T16.03 | — |
-| `CLAUDE.md`, `AGENTS.md` | T00.04 | — |
+| `CLAUDE.md`, `AGENTS.md` | T00.04 | T14.11 follows up on the `CLAUDE.md` §4 command rows |
 
 ### c.3 Pipeline
 
@@ -432,18 +436,19 @@ Role names from [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-plannin
 | `web/src/types/schema.ts` | T03.01 | Contract (§d, C1) |
 | `web/src/compute/protocol.ts` | T05.01 | Contract (§d, C6) |
 | `web/src/compute/grid.ts` | T05.16 | — |
-| `web/src/compute/sampling.ts` | T05.17 | — |
+| `web/src/compute/sampling.ts` | T05.17 | Stub edit by T05.01 (inputs for lat/lon) |
 | `web/src/compute/route.ts` | T05.18 | T05.01 moves `snapToPassable` and `toLeg` out (stub → T05.18) |
 | `web/src/compute/noRoute.ts` | T05.19 | New; stub by T05.01 |
 | `web/src/compute/snap.ts` | T05.20 | New; stub by T05.01 |
 | `web/src/compute/leg.ts` | T05.21 | New; stub by T05.01 |
 | `web/src/compute/timeModel.ts` | T05.22 | — |
 | `web/src/compute/walkback.ts` | T05.23 | — |
-| `web/src/compute/warnings.ts` | T05.24 | — |
+| `web/src/compute/warnings.ts` | T05.24 | Stub edit by T05.01 (access to grid flags) |
 | `web/src/compute/validate.ts` | T05.25 | New; stub by T05.01; also imported by the UI (T08.04) |
 | `web/src/compute/handler.ts` | T05.26 | New; stub by T05.01 (moves `handleMessage` out of `worker.ts`); T05.32 completes it (after T05.26) |
 | `web/src/compute/worker.ts` | T05.27 | Stub edit by T05.01 |
 | `web/src/compute/manualLeg.ts` | T05.30 | New; fallback |
+| `web/src/compute/sunTable.json` | T06.11 | New; fallback (cut 5) |
 | `web/src/compute/mars24.ts` | T06.06 | T06.01 moves the solar functions out (stub → T06.06) |
 | `web/src/compute/sun.ts` | T06.07 | New; stub by T06.01 |
 | `web/src/compute/radiation.ts` | T06.08 | — |
@@ -493,10 +498,11 @@ Role names from [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-plannin
 | `web/src/ui/coachMarks.ts` | T13.07 | New; desirable path for cut 2 |
 | `web/src/ui/content/methods.json` | T12.04 | New |
 | `web/src/ui/styles/tokens.css` | T13.01 | Contract C12; after T13.01, append-only: add new custom properties at the end of the matching block with a 04 §C reference; renames need a contract-change |
-| `web/src/ui/styles/base.css` | T13.04 | New |
-| `web/src/ui/styles/patterns.css` | T13.05 | New |
-| `web/src/ui/styles/light.css` | T13.08 | New |
+| `web/src/ui/styles/base.css` | T13.04 | New; stub by T13.01 (imported from `tokens.css`) |
+| `web/src/ui/styles/patterns.css` | T13.05 | New; stub by T13.01 |
+| `web/src/ui/styles/light.css` | T13.08 | New; stub by T13.01 |
 | `web/public/fonts/` | T13.02 | New |
+| `web/public/icons/` | T13.11 | New |
 | `web/public/sites/mock_site/` | T03.02 | Fixture F4; needs the `.gitignore` negation (c.6) |
 | `web/public/sites/gale_boxwork/README.md` | T03.01 | Static-asset layout doc |
 | `web/public/sites/gale_boxwork/` (everything else) | T03.19 | Generated by the pipeline run; binaries stay git-ignored; T18.01 follows up |
@@ -687,7 +693,6 @@ flowchart LR
   T03_12 --> T02_04
   T02_02 --> T02_04
   T02_04 --> T02_05
-  T02_05 --> T16_02
   T02_02 --> T07_S
   T04_IN --> T07_14
   T05_T --> T05_I
@@ -776,16 +781,31 @@ flowchart LR
 | T04.04 → T07.14 | The demo plan references curated POI ids |
 | T03.19, T03.21 → T05.28 | The benchmark and the rasterio comparison run on the real grid |
 | T02.02 → T07.06 | The map is built on the projection module |
-| T03.19, T05.16–T05.27, T07.02–T07.08, T08.03, T09.01–T09.02 → T09.06 | The M3 check is the real end-to-end slice |
+| T03.19, T05.16–T05.18, T05.21, T05.22, T05.26, T05.27, T07.02–T07.08, T08.03, T09.01–T09.02 → T09.06 | The M3 check is the real end-to-end slice (only the M3 compute subset of §g) |
 | T09.06 → T05.30, T09.08 | The fallbacks start only on a no-go |
 | T09.01–T09.02 → T11.03 | The briefing card renders the real profile (06: TASK-11 after TASK-09) |
 | T05.32 → T11.05 | "Reloading the export reproduces identical metrics" needs the real worker |
 | T06.09 → T10.03 | The pre-dawn daylight warning needs real conditions |
-| T14.01 → T06.02, T09.02, T08.02, T11.01, T12.02, T14.05, T03.14 | `marstime`, the chart library, the DOM test environment and the JSON-Schema validator arrive in the dependency batch (each choice is a `TODO(decision)` in T14.01) |
+| T14.01 → T06.02, T09.02, T08.02, T11.01, T12.02, T13.09, T14.05, T03.14 | `marstime`, the chart library, the DOM test environment and the JSON-Schema validator arrive in the dependency batch (each choice is a `TODO(decision)` in T14.01) |
 | Screens → T12.06, T13.09, T13.10, T14.03–T14.10 | Verification runs on the integrated app (06: TASK-14 after TASK-07…TASK-12) |
 | T14.06 → T15.02 | 06: TASK-15 after TASK-14 |
 | T12.03 → T16.03–T16.06 | 06: TASK-16 after TASK-12 |
 | Demo path → T17.02; freeze → T17.03; freeze criteria → T18.* | 06 §B M4, M6 and TASK-18 gate |
+| T00.03, T01.05 → T16.02 | The sync applies only recorded outcomes; D-03 joins only if ADR-003 already records it (under Track S the spike decides on Day 1) |
+| T01.05 → T04.01, T04.04, T04.05 | The cached traverse range and the POIs depend on the chosen AOI and site |
+| T01.04 → T03.17, T18.01, T18.08 | Source records and CRISM work need the coverage result |
+| T02.06, T03.25 → T07.16 | The ImageStatic fallback builds on both |
+| T03.19, T05.32, T08.04, T12.01 → T10.03 | The check needs real images, real `DARKNESS` warnings, the start-time input and labelled values |
+| T07.06 → T11.04 | The snapshot needs a rendered map |
+| T07.03 → T11.05 | The print check runs on the `#/briefing` route of the integrated app |
+| T12.01 → T09.07 | SCR-05 values need provenance labels (FR-15) |
+| T05.25 → T08.11 | The UI check needs the real validation rules |
+| T05.32 → T14.05 | Two fault cases run the real worker |
+| T03.19 → T12.06 | SCR-09 must list the real bundle's sources |
+| T14.03–T14.10 → T16.06 | The page and checklist record the verified build |
+| T16.01 → T17.02, T17.03 | The product name is said and shown on camera |
+| T00.04, T03.15, T14.01 → T14.11 | Follow-up on `CLAUDE.md` once the pipeline entry and `make data` exist |
+| T07.08 → T13.07; T03.19 → T18.01; T10.02 → T18.03; T09.03, T11.03 → T18.06; T08.03, T11.02 → T18.07 | `follow-up:` subtasks wait for the owner of the path they edit (§c.1 rule 3); T18.07 also stores the export T11.02 assembles |
 
 ## g. Parallel lanes board
 
@@ -794,8 +814,8 @@ Track S timing. Under **Track P**, the `pre-event-if-permitted` subtasks of TASK
 | Milestone | data | compute | frontend | design | story | integration |
 | --- | --- | --- | --- | --- | --- | --- |
 | **M0** 2–5 Nov | T01.01–T01.05, T03.01, T03.02 (T01.06 if triggered) | T05.01, T05.03, T06.01 | T02.01 | | T00.01–T00.03, T00.05 if triggered, T00.06 starts | T00.04 |
-| **M1** 5–10 Nov | T03.03–T03.21, T04.01–T04.03, T04.07, T04.08 (T03.23–T03.27, T04.09 if triggered) | T06.02, T06.10 | | | T04.04–T04.06, T12.05 | |
-| **M2** 10–12 Nov | T03.22 | | T07.01, T08.01 | T13.01–T13.03, T15.01 | T00.06 (U-14 due 10 Nov), T07.14, T12.04, T16.01, T16.07 (decision), T17.01 | T14.01, T14.02, T16.02 |
+| **M1** 5–10 Nov | T03.03–T03.21, T04.01–T04.03, T04.07, T04.08 (T03.23–T03.27, T04.09 if triggered; T18.08 if TASK-18 is planned) | T06.02, T06.10 | | | T04.04–T04.06, T12.05 | T14.01 (pulled forward: T06.02 needs it in M1) |
+| **M2** 10–12 Nov | T03.22 | | T07.01, T08.01 | T13.01–T13.03, T13.11, T15.01 | T00.06 (U-14 due 10 Nov), T07.14, T12.04, T16.01, T16.07 (decision), T17.01 | T14.02, T14.11, T16.02 |
 | **M3** Day 1 → 12:30 | | T05.02, T05.04–T05.07, T05.10, T05.11, T05.15–T05.18, T05.21, T05.22, T05.26, T05.27 (T05.30 if no-go) | T02.02–T02.05 (T02.06 if triggered), T07.02–T07.08, T08.02, T08.03, T08.06, T08.07, T09.01, T09.02 (T07.16, T09.08 if triggered) | | T12.01 | T09.06 |
 | **M4** Day 1 → 18:00 | | T05.08, T05.09, T05.12–T05.14, T05.19, T05.20, T05.23–T05.25, T05.28, T05.29, T05.32, T06.03–T06.09 (T05.31, T06.11 if triggered) | T07.09–T07.13, T07.15, T08.04, T08.05, T08.08–T08.11, T09.03–T09.05, T09.07, T10.01–T10.03, T11.01, T11.02, T11.04 (T11.06 if triggered) | T11.03, T11.05, T13.05 | T12.02, T12.03, T17.02 (18:30; T17.04 if triggered) | |
 | **M5** Day 1 19:00 → Day 2 06:00 | `follow-up:` fixes; T18.01, T18.02 only if freeze criteria met early | `follow-up:` fixes; T18.04, T18.05 likewise | `follow-up:` fixes; T18.03, T18.06, T18.07 likewise | T13.04, T13.06–T13.10, T15.02, T15.03 | T12.06 | T14.03–T14.10 |
@@ -965,3 +985,11 @@ Gaps and contradictions found while building this map. None is resolved here; ea
 16. **Dependency choices** for T14.01: profile chart (02 §B: uPlot or Chart.js; plain SVG alternative), DOM test environment, axe tooling (NFR-04), JSON-Schema validator for `validate-manifest`, `marstime` version — `TODO(decision)`.
 17. **Committed mock binaries.** `.gitignore` excludes `web/public/sites/*/tiles/` and `grid/`; whether a negation re-includes them for `mock_site` is `TODO(verify)` with `git check-ignore` in T03.02.
 18. **Effort.** Atomized estimates will exceed some 06 ranges (e.g. TASK-05: 8–12 h); Phase 3 reports per-lane totals against the ≈ 70 event person-hours.
+19. **SAMPLE_POINT has no slope limit.** Passability depends on the hard slope limit (02 §D.2), but the SAMPLE_POINT request (02 §E.2) carries none — T05.01; a fix needs a `spec-change:` to 02 §E.2.
+20. **SAMPLE_RESULT nullability.** 02 §D.1 returns `null` values with `OUTSIDE_AOI` / `NO_DATA`; the skeleton types them as numbers — T05.01 (C6).
+21. **Demo dose vs default EVA limit.** 01 §E step 8 expects 0.19 mSv for a 7 h EVA, but FR-05's default maximum is 6 h and the dose uses the planned EVA total (05 §F.3) — T07.14 and T17.01 must pick a scenario that matches; spec question for 01.
+22. **Missing TI tiles vs `LOW_TI` bits.** FR-16 expects "unknown" sand warnings when the TI tiles are deleted, but the grid still carries `LOW_TI` bits and the worker cannot tell that a layer is missing — T05.01, T14.05.
+23. **Moving a stop by keyboard.** Demo step 5 drags a stop; 04 §E gives no keyboard way to move one (NFR-04) — T08.08, T13.06, `TODO(decision)`.
+24. **Light theme and toasts.** 04 §C.1 defines no light-theme values (T13.08, cut 2), and no subtask owns the toast that 03 §D uses — T07.01 decides the toast; the light theme needs a `spec-change:` to 04 if kept.
+25. **REMS output path.** T18.02 has no bundle re-release unless CRISM triggers T18.01 — decide with TASK-18 if FR-13 is attempted.
+26. **POI field names.** 01 FR-04 says `source_url` and makes image credit mandatory; 05 uses `image_source_url` and makes image fields conditional — the plan follows 05 (T04.04, T10.01).
