@@ -11,7 +11,8 @@ web/dist/
 # pipeline workspace: downloads and intermediates never enter git (05 §B)
 pipeline/work/*
 !pipeline/work/.gitkeep
-# site binaries stay out of git until the LFS vs. release-asset decision (docs/ops/feasibility.md)
+# site binaries stay out of git; they ship as a GitHub release asset (docs/ops/feasibility.md)
 web/public/sites/*/tiles/
 web/public/sites/*/grid/
 web/public/sites/*/images/
+.releases/
