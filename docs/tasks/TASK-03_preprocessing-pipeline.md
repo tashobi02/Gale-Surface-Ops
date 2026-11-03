@@ -101,7 +101,7 @@
   - `git check-ignore` reports nothing under `web/public/sites/mock_site/` (map open point 17).
   - The manifest validates against C2; once T03.14 lands, `validate-manifest web/public/sites/mock_site` exits 0.
   - Every number is a spec example, a spec default or range limit, generator output, a typed placeholder or a declared synthetic parameter.
-- **Verify:** `.venv/bin/python pipeline/tests/fixtures/make_mock_site.py` (run twice from the repo root) · `git status --porcelain web/public/sites/mock_site` (empty after the second run) · `git check-ignore -v web/public/sites/mock_site/tiles web/public/sites/mock_site/grid` (no output) · `du -sh web/public/sites/mock_site`
+- **Verify:** `$(make -s pipeline-python) pipeline/tests/fixtures/make_mock_site.py` (run twice from the repo root) · `git status --porcelain web/public/sites/mock_site` (empty after the second run) · `git check-ignore -v web/public/sites/mock_site/tiles web/public/sites/mock_site/grid` (no output) · `du -sh web/public/sites/mock_site`
 - **Agent brief:** Write `pipeline/tests/fixtures/make_mock_site.py` (standard library only) that generates fixture F4 under `web/public/sites/mock_site/` from the 05 §F.1/§F.2 examples plus declared synthetic shapes. Make it deterministic, commit its output, add the `.gitignore` negation and the fixtures README section. No invented science values.
 - **Conflict notes:** F4 matches C1, C2, C4 and C9 v1; a contract-change to any of them lists T03.02 as a consumer to regenerate. `.gitignore` and `web/tests/fixtures/README.md` are append-only: add at the end, keep both sides on a rebase conflict. Never write mock data under `web/public/sites/gale_boxwork/`.
 
@@ -126,7 +126,7 @@
   - Serves: FR-01, FR-02, FR-03 · [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly)
   - Allocated cases, each one test: lat/lon ↔ x/y round trip within 1 mm (02 §F.1 Projection); no EPSG:3857/WGS84 path in the pipeline (02 §C.4.2); row 0 = north after reprojection (02 §C.4.3); DEM no-data → NaN before slope (02 §C.4.4).
   - Against the stubs the new tests fail; they pass once T03.07 and T03.08 land.
-- **Verify:** `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_clip_reproject.py` (red before T03.07 and T03.08, green after) · `make test` (skips cleanly without the geo stack)
+- **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_clip_reproject.py` (red before T03.07 and T03.08, green after) · `make test` (skips cleanly without the geo stack)
 - **Agent brief:** Turn the skipped stubs in `pipeline/tests/test_clip_reproject.py` into pytest cases for the four cases the map allocates to T03.03, using synthetic rasters only. Remove the scale-bar stub (T02.04 owns that case). Guard geo imports with `pytest.importorskip`.
 - **Conflict notes:** Tests first (map §h.3): this PR stays a draft; T03.07 and T03.08 branch from it, and the three merge back to back once both pass. Only this subtask edits the file.
 
@@ -152,7 +152,7 @@
   - Allocated cases: synthetic planes 0°, 10°, 30° within ±0.05° (02 §F.1 Slope, includes the 02 §C.2 L3 ramp); NaN edges give NaN, not spikes (02 §F.1 Slope).
   - Skeleton cases kept here (not allocated elsewhere): p90/max aggregation; a TI gap yields TI_UNKNOWN, not zero (02 §C.2 L4, 05 §E.6).
   - Red until T03.09 and T03.10 land.
-- **Verify:** `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_derive.py` · `make test`
+- **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_derive.py` · `make test`
 - **Agent brief:** Turn the skipped stubs in `pipeline/tests/test_derive.py` into pytest cases for Horn slope, NaN edges, p90/max aggregation, hillshade and the hazard-flag bitfield (imported from `flags.py`), using synthetic arrays whose answers follow from construction. Guard geo imports with `pytest.importorskip`.
 - **Conflict notes:** Tests first (map §h.3): T03.09 and T03.10 branch from this PR and merge back to back with it. One test file covers both `derive.py` and `flags.py`.
 
@@ -175,7 +175,7 @@
 - **Acceptance:**
   - Serves: FR-03, FR-07 · [05 RoutingGrid](../specs/05_Backend_and_Database_Schema.md#routinggrid)
   - The three skeleton cases pass once T03.11 lands: u8 slope is degrees × 4 with 255 no-data; flag bits match 05; arrays are little-endian, row-major, north-up.
-- **Verify:** `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_grid.py` · `make test`
+- **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_grid.py` · `make test`
 - **Agent brief:** Turn the skipped stubs in `pipeline/tests/test_grid.py` into pytest cases for the 05 RoutingGrid encoding, the flag bits (including a text check against `FLAG_BITS` in `schema.ts`) and the 02 §E.1 array layout. Guard numpy with `pytest.importorskip`.
 - **Conflict notes:** Tests first (map §h.3): T03.11 branches from this PR and merges right after it.
 
@@ -199,7 +199,7 @@
   - Serves: FR-01, FR-15, NFR-06, NFR-09 · [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds)
   - The eight skeleton cases are real tests: schema validity; every asset reference resolves and its SHA-256 matches; every source id resolves; all grids share width, height, cell and origin; POIs and default start inside the AOI and passable; `crs.proj4` byte-identical to the pipeline constant; sampled values match the source rasters (06 TASK-03 done-when); bundle ≤ 250 MB (NFR-09).
   - Red until T03.13 and T03.14 land; the real-bundle tests skip until T03.19.
-- **Verify:** `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_manifest.py` · `make test`
+- **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_manifest.py` · `make test`
 - **Agent brief:** Turn the skipped stubs in `pipeline/tests/test_manifest.py` into pytest cases for every 05 §E.3 integrity rule, using the F4 mock site and broken copies of it, plus real-bundle checks that skip while the bundle is absent. Guard geo and JSON-Schema imports with `pytest.importorskip`.
 - **Conflict notes:** Tests first (map §h.3): T03.13 and T03.14 branch from this PR; the three merge back to back once both pass. Never write into `web/public/sites/mock_site/` — copy it to a temporary folder for broken cases.
 
@@ -224,7 +224,7 @@
   - The projection string differs from the 02 §C.1 template only in the AOI-centre values, and those equal `docs/ops/feasibility.md`.
   - Given a scratch lock file with one reachable COG entry, when `fetch_sources` runs, then the window lands in `pipeline/work/` and the entry gains its `sha256`; a second run downloads nothing.
   - T03.03's round-trip (≤ 1 mm) and pipeline CRS-guard tests pass.
-- **Verify:** `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_clip_reproject.py` · manual: one `fetch_sources` run against a scratch copy of the lock file
+- **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_clip_reproject.py` · manual: one `fetch_sources` run against a scratch copy of the lock file
 - **Agent brief:** Fill the working projection in `config.py` from T01.05's AOI centre and implement `fetch_sources` in `acquire.py` (GDAL `/vsicurl/` windows, checksums and tool versions written to the lock entries). `pipeline/sources.lock.json` is a committed file (05 §E.5), but T03.19 owns its content and commits it with bundle v1; do not commit it from this subtask. Never compute the AOI centre yourself — copy it from the feasibility record.
 - **Conflict notes:** Stacked on T03.03 with T03.08 (map §h.3). `pipeline/sources.lock.json` is written only by T03.19's run. Fallbacks T03.23, T03.24 (`config.py`) and T03.26, T03.27 (`acquire.py`) may replace these files later, one at a time and never while this subtask is open.
 
@@ -248,7 +248,7 @@
   - Serves: FR-01, FR-02, FR-03 · [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly)
   - T03.03's "row 0 = north after reprojection" and "DEM no-data → NaN before slope" tests pass.
   - Output rasters carry the working CRS and exactly the requested extent and resolution.
-- **Verify:** `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_clip_reproject.py`
+- **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_clip_reproject.py`
 - **Agent brief:** Implement `clip_and_reproject` and `nodata_to_nan` in `clip_reproject.py` per 02 §C.1–§C.4 (warp to the given eqc string, north-up, bilinear/nearest as 02 §C.2 says, no-data → NaN). Make T03.03's raster tests pass; never use EPSG:3857 or WGS84.
 - **Conflict notes:** Stacked on T03.03 with T03.07. Outputs of local runs go to `pipeline/work/` (git-ignored) and feed T03.18, T03.20, T04.07 and T04.08.
 
@@ -270,7 +270,7 @@
 - **Acceptance:**
   - Serves: FR-02, FR-07 · [02 §C.2 L3](../specs/02_Technical_Requirements_Document.md#l3--slope-fr-02-fr-07-fr-10)
   - T03.04's synthetic-plane tests (0°, 10°, 30° within ±0.05°), NaN-edge test and aggregation tests pass.
-- **Verify:** `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_derive.py`
+- **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_derive.py`
 - **Agent brief:** Implement `horn_slope_deg`, `hillshade` and `aggregate_slope` in `derive.py` per 02 §C.2 L2–L3 and make T03.04's slope tests pass. Read the grid cell size from `config.py`; never hard-code it.
 - **Conflict notes:** Takes over `derive.py` after T03.01 moved the `hazard_flags` stub out. Stacked on T03.04 with T03.10; both merge back to back with the test PR.
 
@@ -294,7 +294,7 @@
   - Serves: FR-07, FR-10, FR-16 · [05 flag bits](../specs/05_Backend_and_Database_Schema.md#flag-bits)
   - T03.04's TI-gap test passes: a TI gap gives TI_UNKNOWN, not zero.
   - Given no threshold, no cell carries LOW_TI; given no TI grid, every cell carries TI_UNKNOWN (05 §E.6).
-- **Verify:** `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_derive.py`
+- **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_derive.py`
 - **Agent brief:** Implement `hazard_flags` in `flags.py` as the 05 flag bitfield: NO_DATA, TI_UNKNOWN, LOW_TI (only with a threshold), HARD_HAZARD and LOW_RES_DEM from input masks. Make T03.04's flag tests pass; a missing TI layer must yield TI_UNKNOWN, never silence.
 - **Conflict notes:** Takes over `flags.py` after T03.01's stub merges. Stacked on T03.04 with T03.09. Its real inputs come from T03.18 and T04.07 at T03.19's run.
 
@@ -318,7 +318,7 @@
   - Serves: FR-03, FR-07 · [05 RoutingGrid](../specs/05_Backend_and_Database_Schema.md#routinggrid)
   - T03.05's three skeleton cases pass.
   - A grid with the 05 §F.1 dimensions produces the array sizes listed in 02 §C.3.
-- **Verify:** `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_grid.py`
+- **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_grid.py`
 - **Agent brief:** Implement `encode_slope_u8` and `write_grid` in `grid.py` per 05 RoutingGrid and 02 §E.1 (u8 degrees × 4 with 255 no-data; little-endian, row-major, north-up arrays; TI sidecar). Make T03.05 pass.
 - **Conflict notes:** Stacked on T03.05. Fallback T03.24 changes only the cell constant in `config.py`, never this file.
 
@@ -368,7 +368,7 @@
   - Serves: FR-01, FR-15, NFR-06 · [05 Site](../specs/05_Backend_and_Database_Schema.md#site)
   - T03.06's writer tests pass; the mock inputs produce a manifest that validates against C2.
   - Two runs on the same inputs give byte-identical manifests.
-- **Verify:** `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_manifest.py`
+- **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_manifest.py`
 - **Agent brief:** Implement `sha256_file` and `write_manifest` in `manifest.py`: build `site-manifest.json` from the C5 site-config records and the produced assets with checksums, copying `crs.proj4` from `config.py` byte for byte. Output must be deterministic and valid against `schemas/site-manifest.schema.json`.
 - **Conflict notes:** Stacked on T03.06 with T03.14. The committed `web/public/sites/gale_boxwork/site-manifest.json` is written only by T03.19's run.
 
@@ -393,7 +393,7 @@
   - Serves: FR-16, NFR-06, NFR-10 · [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds)
   - T03.06's positive and negative cases pass.
   - `validate-manifest web/public/sites/mock_site` exits 0; a broken copy exits 1 and names the broken rule.
-- **Verify:** `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_manifest.py` · `conda run -n marswalk-pipeline validate-manifest web/public/sites/mock_site`
+- **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_manifest.py` · `make validate SITE=mock_site`
 - **Agent brief:** Implement `validate` and `main` in `validate_manifest.py` covering every 05 §E.3 integrity rule plus the schema-version major check; `validate-manifest <site_dir>` exits 1 on any problem. Use the JSON-Schema validator chosen in T14.01.
 - **Conflict notes:** Stacked on T03.06 with T03.13. The console-script name lives in `pipeline/pyproject.toml` (owned by T14.01). The app's dev boot check (T14.03) must agree with these rules.
 
@@ -416,7 +416,7 @@
   - Serves: FR-01 · [02 §A.1](../specs/02_Technical_Requirements_Document.md#a1-system-boundary)
   - `--help` exits 0 and lists the steps in order.
   - A run against the stubs stops at the first unimplemented step and names it; the full end-to-end run is T03.19.
-- **Verify:** `.venv/bin/python -m marswalk_pipeline --help`
+- **Verify:** `$(make -s pipeline-python) -m marswalk_pipeline --help`
 - **Agent brief:** Write `pipeline/src/marswalk_pipeline/__main__.py` that chains the existing pipeline functions for one site in the `CLAUDE.md` §5 order, writes intermediates to `pipeline/work/` and the bundle to `web/public/sites/<site_id>/`, and stops with the failing step's name. No network outside acquire.
 - **Conflict notes:** `make data` is wired to this entry point by T14.01 (Makefile owner). Fallback T03.25 may replace this file to route 2 m layers to static images.
 
@@ -512,7 +512,7 @@
   - Allocated case: measured offsets present in manifest `known_offsets_m` (02 §F.1 Data alignment).
   - Total bundle ≤ 250 MB (NFR-09).
   - With the network off, the bundle loads from a static server on localhost.
-- **Verify:** `conda run -n marswalk-pipeline validate-manifest web/public/sites/gale_boxwork` · `du -sh web/public/sites/gale_boxwork` · `git status --porcelain` (only the manifest, vectors and lock file staged)
+- **Verify:** `make validate SITE=gale_boxwork` · `du -sh web/public/sites/gale_boxwork` · `git status --porcelain` (only the manifest, vectors and lock file staged)
 - **Agent brief:** Human: run the full pipeline, judge the outputs and commit bundle v1. Agent may drive the commands, summarise validator output and check that no binary or downloaded file is staged.
 - **Conflict notes:** Sole writer of the committed bundle and the lock file; T18.01 later follows up with a new data version. T03.21 and T03.22 start after this merges. Unless cut 4 is called, wait for T04.07's threshold before the final run (Spec questions).
 
@@ -557,7 +557,7 @@
   - Serves: FR-03 · [01 FR-03](../specs/01_Product_Requirements_Document.md#fr-03--point-inspection)
   - Re-running the generator reproduces the JSON byte for byte.
   - Values equal the bundle arrays at the 05 §E.1 addresses.
-- **Verify:** `conda run -n marswalk-pipeline python pipeline/tests/fixtures/make_sample_cells.py` (run twice) · `git diff --exit-code web/tests/fixtures/real/sample_cells.json`
+- **Verify:** `$(make -s pipeline-python) pipeline/tests/fixtures/make_sample_cells.py` (run twice) · `git diff --exit-code web/tests/fixtures/real/sample_cells.json`
 - **Agent brief:** Write `pipeline/tests/fixtures/make_sample_cells.py` that reads 10 deterministically chosen cells from the preprocessed rasters with rasterio and writes fixture F5 for the TypeScript sampling check. Every value comes from the readout; document the selection rule.
 - **Conflict notes:** F5 matches C4 and the bundle v1 `data_version`; a new data version needs a `follow-up:` regeneration. Consumers: T05.28, T07.15. The fixtures README is append-only.
 
@@ -580,7 +580,7 @@
   - Serves: NFR-06, NFR-09 · [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints)
   - The clean re-run reproduces the checksums (06 §D.3, 12 Nov).
   - Bundle ≤ 250 MB; validator and pipeline tests green.
-- **Verify:** in the clone: `conda run -n marswalk-pipeline python -m marswalk_pipeline gale_boxwork` · `conda run -n marswalk-pipeline validate-manifest web/public/sites/gale_boxwork` · `conda run -n marswalk-pipeline python -m pytest -q pipeline` · `du -sh web/public/sites/gale_boxwork`
+- **Verify:** in the clone: `$(make -s pipeline-python) -m marswalk_pipeline gale_boxwork` · `make validate SITE=gale_boxwork` · `$(make -s pipeline-python) -m pytest -q pipeline` · `du -sh web/public/sites/gale_boxwork`
 - **Agent brief:** In a fresh clone, rebuild the pipeline environment, re-run the pipeline and compare every asset checksum with the committed manifest; run the pipeline tests and record the bundle size. Write results only to your section of `docs/ops/verification-log.md`.
 - **Conflict notes:** Read-only check in a separate clone; writes only its own verification-log section. A checksum mismatch becomes a `follow-up:` subtask on the owning step.
 
@@ -603,7 +603,7 @@
   - Serves: FR-01, NFR-09 · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages)
   - Manifest `tile_grid.resolutions_m` matches the tiles on disk; the validator passes.
   - Tiles still load in the T02.03 spike page.
-- **Verify:** `conda run -n marswalk-pipeline python -m marswalk_pipeline gale_boxwork` · `conda run -n marswalk-pipeline validate-manifest web/public/sites/gale_boxwork`
+- **Verify:** `$(make -s pipeline-python) -m marswalk_pipeline gale_boxwork` · `make validate SITE=gale_boxwork`
 - **Agent brief:** Only when tiling is too slow: remove the finest tile resolution from `config.py`, re-run tiling and the manifest, and confirm the validator and the spike page still work.
 - **Conflict notes:** Replaces part of T03.07's `config.py`; never open at the same time as T03.24, which edits the same file.
 
@@ -626,7 +626,7 @@
   - Serves: FR-07, NFR-02 · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages)
   - Manifest `grid.cell_m` is 10 and the validator passes.
   - The real-grid check (T05.28) is re-run on the new grid.
-- **Verify:** `conda run -n marswalk-pipeline validate-manifest web/public/sites/gale_boxwork` · `conda run -n marswalk-pipeline python -m pytest -q pipeline/tests/test_grid.py`
+- **Verify:** `make validate SITE=gale_boxwork` · `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_grid.py`
 - **Agent brief:** Only when the 5 m grid is too big or too slow: change the grid cell constant in `config.py` to 10 m, re-run the grid and manifest, validate, and report the spec sections that now say 5 m.
 - **Conflict notes:** Replaces part of T03.07's `config.py`; never open at the same time as T03.23. Produces a new `data_version`.
 
@@ -649,7 +649,7 @@
   - Serves: FR-01, FR-02 · [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices)
   - The validator passes and the bundle stays ≤ 250 MB.
   - The frontend ImageStatic path (T07.16, with T02.06) loads the images.
-- **Verify:** `conda run -n marswalk-pipeline python -m marswalk_pipeline gale_boxwork` · `conda run -n marswalk-pipeline validate-manifest web/public/sites/gale_boxwork`
+- **Verify:** `$(make -s pipeline-python) -m marswalk_pipeline gale_boxwork` · `make validate SITE=gale_boxwork`
 - **Agent brief:** Only on a failed spike or cut 7: add `static_images.py` that renders one PNG per 2 m layer (02 §B) and switch those layers to it in `__main__.py`; keep the ortho tiled. Validate the new bundle.
 - **Conflict notes:** Coordinate with T02.06 and T07.16 (frontend side of the same fallback). Produces a new `data_version`.
 
@@ -693,7 +693,7 @@
 - **Acceptance:**
   - Serves: FR-02 · [02 §C.2 L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10)
   - The thermal layer's legend says qualitative; no tiu value appears anywhere in the bundle.
-- **Verify:** `conda run -n marswalk-pipeline validate-manifest web/public/sites/gale_boxwork` · manual legend check
+- **Verify:** `make validate SITE=gale_boxwork` · manual legend check
 - **Agent brief:** Human: confirm the fallback. Agent may add Day IR acquisition and its source and layer records, and drop the TI sidecar so all cells read TI_UNKNOWN.
 - **Conflict notes:** Never open at the same time as T03.26 (same `acquire.py`). Effectively drops LOW_TI as cut 4 would.
 

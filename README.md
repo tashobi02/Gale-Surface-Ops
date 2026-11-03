@@ -10,16 +10,18 @@ An offline, browser-based planning map for one hyperlocal Mars site (proposed: C
 
 ## Quickstart
 
-Requirements: Node.js LTS, Python ≥ 3.11, GNU Make.
+Requirements: Node.js LTS, conda (Miniconda or Miniforge; the pipeline's only Python environment), GNU Make.
 
 ```sh
-make setup        # npm ci + .venv with pipeline[dev]
+make setup        # npm ci + conda environment marswalk-pipeline (pipeline/environment.yml)
+make check-env    # fails unless the pipeline interpreter, GDAL, rasterio and pyproj are right
 make lint typecheck test docs-check
+make test-web     # web tests only; needs no conda
 make dev          # Vite dev server
 make demo         # production build + local static server on 127.0.0.1:8080 (works offline)
 ```
 
-The full pipeline environment (GDAL ≥ 3.6, rasterio, numpy, pyproj) is in [pipeline/environment.yml](pipeline/environment.yml); it is not needed for the checks above.
+The full pipeline environment (GDAL ≥ 3.6, rasterio, numpy, pyproj) is in [pipeline/environment.yml](pipeline/environment.yml) and is created by `make setup`. `make test` and `make check-env` need it; `make lint`, `typecheck`, `docs-check` and `test-web` do not.
 
 ## Data is not in git
 

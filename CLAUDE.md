@@ -34,10 +34,14 @@ Every function body stays a stub (`throw new Error("TODO(TASK-xx): not implement
 
 | Command | What it does |
 | --- | --- |
-| `make setup` | `npm ci` + Python venv with `pipeline[dev]` |
+| `make setup` | `npm ci` + conda environment `marswalk-pipeline` from `pipeline/environment.yml` (the only pipeline environment; no `.venv`) |
+| `make check-env` | Fails unless the interpreter is that environment's and GDAL, rasterio, pyproj and `IAU_2015:49900` work |
+| `make -s pipeline-python` | Prints the pipeline interpreter's absolute path. Use `$(make -s pipeline-python) -m ...` in docs and Verify lines, never `conda run` or `.venv` |
+| `make validate SITE=<site_id>` | Manifest validator via that interpreter (stub until TASK-03) |
 | `make lint` | markdownlint over all Markdown |
 | `make typecheck` | `tsc --noEmit` in `web/` |
-| `make test` | Vitest (`web/`) + pytest (`pipeline/`) |
+| `make test-web` | Vitest only (`web/`); needs no conda |
+| `make test` | `check-env`, then Vitest (`web/`) + pytest (`pipeline/`); needs conda |
 | `make docs-check` | markdownlint + relative link/anchor check (`scripts/check_links.py`) |
 | `make dev` | Vite dev server |
 | `make demo` | Production build + local static server (works offline) |
@@ -85,7 +89,7 @@ This project keeps a knowledge graph in `graphify-out/` (only `GRAPH_REPORT.md` 
 | --- | --- | --- |
 | `code-review@claude-plugins-official` | project | Reviewing PRs against FR/TASK ids |
 | `claude-md-management@claude-plugins-official` | project | Auditing this file (`claude-md-improver`) |
-| `pyright-lsp@claude-plugins-official` | project | Type diagnostics in `pipeline/` |
+| `pyright-lsp@claude-plugins-official` | project | Type diagnostics in `pipeline/`. Finds rasterio/pyproj only if the conda env's `python` is first on PATH: run `conda activate marswalk-pipeline` before starting Claude Code or the editor |
 | `agent-skills@addy-agent-skills` | user (recommended) | ADRs, CI, spec-driven work; third-party marketplace, so not project-enabled |
 | `/trace <FR-id>` | project command | Screens, modules, entities, tasks and tests that reference an FR |
 | `/rehearse-offline` | project command | Offline rehearsal checklist (06 §D.6) |

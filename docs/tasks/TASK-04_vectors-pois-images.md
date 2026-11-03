@@ -91,7 +91,7 @@
   - `traverse.geojson` holds Point Features with an integer `sol` and a `source_id`, plus exactly one LineString (05 TraversePoint).
   - The same inputs packaged twice give byte-identical files (supports the T03.22 checksum re-run).
   - Not claimed here: POIs inside the AOI and passable (T03.06), projection round trip and CRS guard (T03.03).
-- **Verify:** `.venv/bin/python -m pytest pipeline/tests/test_vectors.py` (pyproj cases skip without the geo stack); with it, `conda run -n marswalk-pipeline python -m pytest pipeline/tests/test_vectors.py` (environment from `pipeline/environment.yml`).
+- **Verify:** `$(make -s pipeline-python) -m pytest pipeline/tests/test_vectors.py` (run `make check-env` first; environment from `pipeline/environment.yml`).
 - **Agent brief:** Write `pipeline/tests/test_vectors.py` for `package_traverse` and `package_pois` from 05 §C POI/TraversePoint and 02 §E.1. Use synthetic inputs only (map §e value rule) and the 05 §F.1 projection string. Tests fail against the stubs and pass once T04.03 lands.
 - **Conflict notes:** New file. Stacked PR with T04.03 (map §h.3); do not touch `test_manifest.py` (T03.06) or `test_clip_reproject.py` (T03.03). T04.09 may add an MMGIS case if its trigger fires.
 
@@ -116,7 +116,7 @@
   - Every T04.02 case passes.
   - Output names match 02 §E.1: `vectors/traverse.geojson` and `vectors/pois.geojson` under the site folder.
   - `package_traverse(src, proj4, out)` and `package_pois(curated, proj4, out)` keep their signatures, because T03.15 calls them.
-- **Verify:** `.venv/bin/python -m pytest pipeline/tests/test_vectors.py`; `conda run -n marswalk-pipeline python -m pytest pipeline/tests/test_vectors.py`; `make test`.
+- **Verify:** `$(make -s pipeline-python) -m pytest pipeline/tests/test_vectors.py`; `make test`.
 - **Agent brief:** Fill in `package_traverse` and `package_pois` in `vectors.py` until `pipeline/tests/test_vectors.py` passes. Use pyproj with the given Mars `proj4` string only; keep output stable and the signatures unchanged.
 - **Conflict notes:** Stacked on T04.02. Files outside `vectors.py` are not touched; the T03.19 run writes the bundle files. T04.09 may replace the traverse parser if its trigger fires.
 
@@ -264,7 +264,7 @@
   - The traverse comes from a single cached MMGIS file; nothing is fetched at runtime.
   - The UI-facing records label the source unofficial; the DataSource record has every required 05 field.
   - The T04.02 cases and the new MMGIS case pass.
-- **Verify:** `.venv/bin/python -m pytest pipeline/tests/test_vectors.py`; `python3 -m json.tool` on both records; manual repeat of the T04.08 checklist.
+- **Verify:** `$(make -s pipeline-python) -m pytest pipeline/tests/test_vectors.py`; `python3 -m json.tool` on both records; manual repeat of the T04.08 checklist.
 - **Agent brief:** Only after the data lead confirms the trigger: cache the MSL MMGIS traverse JSON once, switch the traverse records to it, label it unofficial and add its parser and test. The MMGIS path is unverified; never guess it.
 - **Conflict notes:** Writes files owned by T04.01, T04.02, T04.03 and T04.08 only after the trigger, never at the same time as them (map §c.1 rule 3). The new DataSource is a new file in the append-only-by-file `sources/` folder. T03.19 must run again if the bundle already exists.
 

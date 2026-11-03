@@ -10,7 +10,7 @@ Automatable (run and report output):
 
 - [ ] `make test` — all Vitest suites and pytest green (06 §D.6)
 - [ ] `make docs-check`
-- [ ] Manifest validator green: `.venv/bin/validate-manifest web/public/sites/<site_id>` (TASK-03; report "not implemented" until then)
+- [ ] Manifest validator green: `make validate SITE=<site_id>` (TASK-03; report "not implemented" until then)
 - [ ] `npm run -s build` succeeds from a clean clone with documented commands (06 §D.6)
 
 Manual (human, Wi-Fi off, `make demo`):

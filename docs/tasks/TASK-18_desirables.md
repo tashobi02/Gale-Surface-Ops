@@ -67,7 +67,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
   - Given no coverage, then nothing is built and SCR-03 shows no Spectral row ([03 SCR-03](../specs/03_App_Flow_and_Diagrams.md#scr-03--layers-panel): "only if built").
   - `validate-manifest` passes: every asset resolves with its SHA-256 and every `source_ids` entry resolves ([05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds)); the `data_version` is new.
   - Total site bundle ≤ 250 MB ([NFR-09](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation)); no runtime request leaves `localhost` (NFR-01).
-- **Verify:** `.venv/bin/validate-manifest web/public/sites/gale_boxwork`; `.venv/bin/python -m pytest pipeline/tests/test_manifest.py`; `make test`; manual: `make demo` with the network off — Spectral row and legend in SCR-03, CRISM source in SCR-09.
+- **Verify:** `make validate SITE=gale_boxwork`; `$(make -s pipeline-python) -m pytest pipeline/tests/test_manifest.py`; `make test`; manual: `make demo` with the network off — Spectral row and legend in SCR-03, CRISM source in SCR-09.
 - **Agent brief:** Only if `docs/ops/feasibility/coverage.md` records CRISM MTRDR coverage of the AOI: write `crism.py` to tile the cached summary-parameter product per `docs/contracts/tile-grid.md`, add one Layer and one DataSource record, and re-release the bundle under a new `data_version`. Label it "not a mineral identification"; download nothing; stop if no coverage.
 - **Conflict notes:** Writes the bundle and lock file only after T03.19 has merged (§c.1 rule 3) and is the only bundle writer at that time. `layers/` and `sources/` are append-only by file: add new files, never edit others. Binaries stay git-ignored; only `site-manifest.json` and vectors are committed. Does not touch `__main__.py` (T03.15).
 
@@ -94,7 +94,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
   - Every number comes from the RDR files through the script; none is typed by a person or an agent (`CLAUDE.md` §2).
   - Two runs on the same files give identical output (NFR-06).
   - The DataSource record has every required 05 §C DataSource field.
-- **Verify:** `.venv/bin/python -m marswalk_pipeline.rems` run twice, outputs compared with `cmp` (output path `TODO(decision)`); `.venv/bin/python -m pytest pipeline` stays green.
+- **Verify:** `$(make -s pipeline-python) -m marswalk_pipeline.rems` run twice, outputs compared with `cmp` (output path `TODO(decision)`); `$(make -s pipeline-python) -m pytest pipeline` stays green.
 - **Agent brief:** Write `pipeline/src/marswalk_pipeline/rems.py`: bin the cached REMS RDR air/ground temperature and pressure values by L_s, keep the source file names with every value, and add the REMS DataSource record. Bin width, statistic and output location are open decisions — ask before choosing; download nothing during the event.
 - **Conflict notes:** New module only; `sources/` is append-only by file. Not wired into `__main__.py` (T03.15). The output reaches the app only through a bundle re-release — see Spec questions 2.
 

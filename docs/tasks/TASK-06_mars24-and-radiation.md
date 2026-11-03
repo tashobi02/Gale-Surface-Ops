@@ -87,7 +87,7 @@
   - Given the pipeline environment from T14.01, when the generator runs twice, then the JSON is byte-identical.
   - Outputs come only from `marstime` through the generator; inputs come from the spec example or the recorded decision (map §e fixture value rule, items 1, 3 and 4).
   - The file covers at least 3 timestamps (02 §D.5) and states the longitude convention passed to `marstime` in each call.
-- **Verify:** `.venv/bin/python pipeline/tests/fixtures/make_mars24_reference.py` (twice), then `git diff --exit-code web/tests/fixtures/mars24-reference.json` and `python3 -m json.tool web/tests/fixtures/mars24-reference.json`.
+- **Verify:** `$(make -s pipeline-python) pipeline/tests/fixtures/make_mars24_reference.py` (twice), then `git diff --exit-code web/tests/fixtures/mars24-reference.json` and `python3 -m json.tool web/tests/fixtures/mars24-reference.json`.
 - **Agent brief:** Write a deterministic generator, `pipeline/tests/fixtures/make_mars24_reference.py`, that uses `marstime` to compute Mars24 reference values (MSD, L_s, Mars Year, LTST, solar elevation and azimuth, flat-horizon sunrise/sunset) for the recorded timestamps at the 05 §F.1 example site point, and writes `web/tests/fixtures/mars24-reference.json`. Never type an output number by hand; mark unknown API details `TODO(verify)`.
 - **Conflict notes:** The README is append-only (one `## F6` section at the end; keep both sides on a rebase conflict). The JSON matches C8 v1; if C8 changes, a `follow-up:` subtask regenerates it. T06.03 starts after this merges.
 
@@ -283,7 +283,7 @@
   - Every number is copied from 05 §C or §F.1; nothing is rounded, derived or guessed.
   - No URL, DOI, licence or credit text is invented: missing values are `TODO(verify)`.
   - After T03.19 runs, `validate-manifest` reports no problem with these records, and SCR-09 can credit the RAD source (FR-15).
-- **Verify:** `python3 -m json.tool` on each owned file; after T03.19, `.venv/bin/validate-manifest web/public/sites/gale_boxwork`.
+- **Verify:** `python3 -m json.tool` on each owned file; after T03.19, `make validate SITE=gale_boxwork`.
 - **Agent brief:** Create the two RAD EnvConstant JSON records and the `hassler-2014-rad` DataSource under `pipeline/sites/gale_boxwork/`, copying values verbatim from 05 §C/§F.1 and the citation from `docs/reference/mars-scientific-context.md`. Leave anything the sources do not state as `TODO(verify)`; the solar-min `source_id` is `TODO(decision)`.
 - **Conflict notes:** The `sources/` and `env_constants/` folders are append-only by file: one record per file, owned by its creator; never edit another subtask's record. T03.19 needs these files before it builds bundle v1 (map §f).
 
@@ -308,7 +308,7 @@
   - "Port bug → precompute LTST/sun table for demo dates in pipeline with `marstime`" (06 §C): the demo scenario shows LTST, sun elevation and sunrise/sunset from the table.
   - Running the table generator twice gives a byte-identical file; no value in it is typed by hand.
   - The demo path makes no live Mars24 call; the unmerged T06.03, T06.06 and T06.07 branches stay off `main`.
-- **Verify:** `.venv/bin/python -m marswalk_pipeline.sun_table` (twice), then `git diff --exit-code web/src/compute/sunTable.json`; `npx vitest run tests/compute/conditions.test.ts` (run in `web/`).
+- **Verify:** `$(make -s pipeline-python) -m marswalk_pipeline.sun_table` (twice), then `git diff --exit-code web/src/compute/sunTable.json`; `npx vitest run tests/compute/conditions.test.ts` (run in `web/`).
 - **Agent brief:** Fallback for cut 5: generate a sun table for the demo dates with `marstime` in `pipeline/src/marswalk_pipeline/sun_table.py`, write `web/src/compute/sunTable.json`, and switch `conditions.ts` to table lookups (explicit "not available" outside the table) while keeping the live radiation estimate. Deterministic output; nothing typed by hand.
 - **Conflict notes:** Writes `conditions.ts` and `conditions.test.ts` in place of T06.09 and T06.05 (map §c.1 rule 3); never at the same time as them. Needs `marstime` from T14.01, and `sunTable.json` is not yet in map §c (see Spec questions). The methods text belongs to T12.04: ask, don't edit.
 

@@ -1,10 +1,11 @@
-# Conda environment for the pipeline (docs/specs/02 §B: Python 3.11+, GDAL ≥ 3.6, rasterio, numpy, pyproj ≥ 3.4).
-# Not installed yet. Create with: mamba env create -f pipeline/environment.yml
+# The only environment for the pipeline (docs/specs/02 §B: GDAL ≥ 3.6, rasterio, numpy, pyproj ≥ 3.4).
+# Create or update with: make setup   (then: make check-env)
+# Python is pinned to 3.12; keep PYTHON in scripts/check_pipeline_env.py in step.
 name: marswalk-pipeline
 channels:
   - conda-forge
 dependencies:
-  - python>=3.11
+  - python=3.12
   - gdal>=3.6
   - rasterio
   - numpy

@@ -8,7 +8,11 @@
       "Bash(make docs-check)",
       "Bash(make dev)",
       "Bash(make demo)",
-      "Bash(make data)"
+      "Bash(make data)",
+      "Bash(make check-env)",
+      "Bash(make test-web)",
+      "Bash(make -s pipeline-python)",
+      "Bash(make validate *)"
     ],
     "deny": [
       "Read(pipeline/work/**)",

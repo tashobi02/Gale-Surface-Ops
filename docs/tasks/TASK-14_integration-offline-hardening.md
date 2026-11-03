@@ -59,7 +59,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
   1. Get each owning lane's choice and record it with its reason in the PR description: profile chart — uPlot, Chart.js or plain SVG (02 §B) `TODO(decision)`; DOM test environment for Vitest, package `TODO(decision)`; axe tooling for the NFR-04 "axe-core scan" `TODO(decision)`; JSON-Schema validator for `validate-manifest`, package `TODO(decision)`; `marstime` for T06.02 and T06.11 (02 §B, §D.5); icon set (04 §C.4 "e.g., Lucide") `TODO(decision)`. Versions are whatever the install pins (`TODO(verify)`); never choose them in this plan.
   2. Add the chosen web packages in one install in the `web` workspace so `package-lock.json` changes once; nothing loads from a CDN at runtime (NFR-01, NFR-08).
   3. Add the Python packages to the `pipeline/pyproject.toml` extras and mirror them in `pipeline/environment.yml`.
-  4. Point `make data` at `python -m marswalk_pipeline` (T03.15's entry point), using the interpreter the data lead picks (`TODO(decision)`: `.venv` with the `geo` extra or the conda environment); leave the other targets unchanged.
+  4. Point `make data` at `python -m marswalk_pipeline` (T03.15's entry point), using the conda environment's interpreter (`make -s pipeline-python`; `.venv` is retired); leave the other targets unchanged.
   5. List each new package's licence in the PR for the credits (NFR-07); flag any licence that is not permissive before merging (`TODO(verify)`).
   6. Note each new web package's size against the NFR-09 JS budget; the final measurement is T14.09's.
   7. Run the full check from a fresh clone.
@@ -210,7 +210,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
   - No console errors on the demo path (06 §D.6).
   - Both runs give the same `plan_hash` for the same inputs (NFR-06).
   - The 02 §F.1 UI case "offline mode" is recorded as passed ([Test-case allocation](_coordination.md#test-case-allocation)).
-- **Verify:** manual checklist above; `make demo`; `.venv/bin/validate-manifest web/public/sites/gale_boxwork`.
+- **Verify:** manual checklist above; `make demo`; `make validate SITE=gale_boxwork`.
 - **Agent brief:** A human runs two back-to-back offline rehearsals of the 01 §E scenario on the demo laptop (Wi-Fi off, devtools Offline) and logs console, network and `plan_hash` results in `docs/ops/verification-log.md`. An agent may prepare the checklist, run `make demo` and the validator, and compare the two exports.
 - **Conflict notes:** Append-only section in the verification log; keep other sections on rebase. Do not edit app files during a rehearsal; failures become `follow-up:` subtasks in the owning task. Site binaries never enter git ([CLAUDE.md](../../CLAUDE.md) §2).
 
@@ -382,7 +382,7 @@ All edges are hard; there are no soft edges inside TASK-14. T14.02, T14.07, T14.
 4. **Missing optional asset in production.** 03 §D finds an unavailable layer from "Tile 404 / asset missing at boot", while 02 §E.1 skips asset checks in production. Whether T14.03 probes optional assets in production or leaves it to tile errors (T07.07) is `TODO(decision)`.
 5. **README link on SCR-00.** 03 SCR-00 asks for a link to the README run instructions, but the app runs offline and the public repository URL is fixed only by T16.07 — target `TODO(decision)`.
 6. **CSP delivery.** NFR-08 names a "CSP header in hosting config", but the demo server (`make demo`, `python -m http.server`, 02 §F) cannot set headers, so the plan relies on T07.03's `<meta>` CSP. Whether that meets NFR-08, and whether it blocks the worker or OpenLayers styling in the production build, is `TODO(verify)` in T14.09.
-7. **`make data` interpreter.** The Makefile's `.venv` has no GDAL; the full pipeline environment is `pipeline/environment.yml` (conda) — `TODO(decision)` in T14.01.
+7. **`make data` interpreter.** Decided: the conda environment in `pipeline/environment.yml` is the only pipeline environment (the old `.venv` had no GDAL); `make -s pipeline-python` prints its interpreter. T14.01 step 4 follows it.
 8. **Dependency choices.** Map open point 16 plus the icon set (04 §C.4 "e.g., Lucide") are `TODO(decision)` in T14.01; versions are `TODO(verify)` at install time.
 9. **Worker test double.** T14.05 case 3 runs in a DOM test environment without real Web Workers, so the C10 worker-client interface (T07.01) must accept an injected Worker-like object — `TODO(decision)` for T07.01.
 10. **Test devices.** NFR-02 and 01 §B measure on "the weakest team laptop" and NFR-03 needs a tablet ≥ 768 px; neither device is recorded anywhere (T00.06 records roster and skills) — `TODO(verify)`.
