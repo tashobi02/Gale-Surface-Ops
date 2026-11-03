@@ -25,6 +25,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-02 | TODO(verify) | Drafting of `docs/specs/01–06` and `docs/README.md` (the context inventory names claude.ai Project attachments) | TODO(verify) | TODO | TODO |
 | 2026-11-02 | Claude Code | Moved and normalized docs (header tables, links, lint); fixed two export defects in the science reference; wrote ADR and ops templates from existing spec text; created stub-only project skeleton and tooling | Did not change requirement text, numbers, IDs or labels; wrote no application logic; generated no displayed values | TODO | TODO(decision) |
 | 2026-11-02 | Claude Code | Vendored ECC orch-* pipeline files and spec-kit review commands; ran `/speckit.analyze` + `/speckit.clarify` on docs/specs and applied the fixes listed in 01 Clarifications and the commit message; updated schemas and `schema.ts` to match | Did not change requirement ids or status labels; spec decisions (video deadline, manifest assets, tablet scope, briefing access) were chosen by the user | TODO | TODO(decision) |
+| 2026-11-03 | Claude Code | Drafted `docs/tasks/_coordination.md` (Phase 1 of the atomized task plans: subtask register, path ownership, contracts, fixtures, dependency graph, lanes board) from `docs/specs/01–06` and the repo skeleton | Did not change specs, code, schemas or tests; added no numbers beyond those quoted from the specs; left open choices as `TODO(decision)` / `TODO(verify)` | Approved by the user 2026-11-03 | TODO(decision) |
 
 ## Prompts location
 
