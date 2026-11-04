@@ -3,9 +3,20 @@
 | | |
 | --- | --- |
 | **Owner** | Architecture (this file owns architecture, data handling and system behavior) |
-| **Date** | 2026-11-02 |
-| **Status** | Draft v1 — proposed; items marked *Spike* must be verified in TASK-01/TASK-02 before the event |
-| **Related** | Scope source: [01 PRD](01_Product_Requirements_Document.md) (requirement IDs FR-xx) · Data structures: [05 Schema](05_Backend_and_Database_Schema.md) · [Docs index](../README.md) |
+| **Date** | 2026-11-04 |
+| **Status** | Draft v2 — supersedes v1 (2026-11-02). Sections marked *(v1, unchanged)* are carried over verbatim; *Spike* items must be verified in TASK-01/02/03 before the event |
+| **Related** | Scope source: [01 PRD](01_Product_Requirements_Document.md) (FR-xx, tiers T0–T2) · Data structures: [05 Schema](05_Backend_and_Database_Schema.md) · [Docs index](../README.md) |
+
+### Change log v1 → v2
+
+| Area | v1 | v2 |
+| --- | --- | --- |
+| Runtime | Static SPA, compute in a Web Worker, no backend (D-02) | Static SPA **plus Hab Core**, a local Node.js server on the habitat LAN. **D-02 reversed** |
+| Compute | `web/src/compute` | `packages/compute`: same pure TypeScript functions, imported by both the browser worker and the Hab Core |
+| Clients | One app | One web app with role routes: `#/planner`, `#/eva`, `#/hud`, `#/ops`, `#/earth` |
+| Network | None at runtime | Habitat LAN (real, for the demo) + **simulated** surface radio and Earth links |
+| New science/compute | — | Time to haven, rendezvous, comm coverage, Earth link geometry (SPICE, precomputed), space-weather replay, simulation engine, contingency options |
+| New data | — | DONKI, RAD event time series, SPICE kernels (NAIF + ESA), optional REMS/CRISM/orbiter weather |
 
 ---
 
@@ -13,57 +24,111 @@
 
 ### A.1 System boundary
 
-The product is a **static single-page web application** plus an **offline Python preprocessing pipeline**. There is **no runtime backend and no database** (Proposed, decision D-02). All science computation that depends on user input runs in the browser inside a Web Worker; all heavy raster work runs once, before the demo, on a team laptop.
+The product is a **local surface operations system**: an offline Python preprocessing pipeline, a shared TypeScript compute package, a **Hab Core** server and one web app serving five role views. There is **no internet dependency at runtime**. The only network is the habitat LAN (for the demo, a travel router with no WAN uplink).
 
 | Component | Runs where | Responsibility |
 | --- | --- | --- |
-| **Preprocessing pipeline** (`pipeline/`, Python) | Developer laptop, once per data version | Download/clip/reproject source rasters, derive slope and hazard grids, render map tiles, build routing grid, package POIs/traverse, write `site-manifest.json` with provenance and checksums |
-| **Static assets** (`web/public/sites/<site_id>/`) | Any static host or `localhost` | Tiles, routing grid binaries, GeoJSON, images, manifest |
-| **Map UI** (`web/src/ui`, TypeScript) | Browser main thread | Map rendering, layer control, waypoints, panels, briefing card |
-| **Compute worker** (`web/src/compute`, TypeScript) | Browser Web Worker | Routing, profile sampling, time/walkback model, warnings, radiation estimate, Mars24 solar functions |
-| **External sources** | Internet, pre-event only | USGS Astrogeology, PDS nodes, NASA image sites — never contacted at runtime |
+| **Preprocessing pipeline** (`pipeline/`, Python) | Developer laptop, before the event | v1 raster/vector work **plus**: hab-antenna coverage grid, SPICE geometry tables, DONKI event extraction, RAD event series, scenario assembly |
+| **Compute package** (`packages/compute/`, TypeScript) | Imported by Hab Core (Node) and by the browser worker | Pure, deterministic, unit-tested: sampling, routing, time model, Mars24, radiation, haven fields, rendezvous, viewshed, link availability, consumables |
+| **Protocol package** (`packages/protocol/`, TypeScript) | Imported by all | Message and entity types + JSON Schemas; one source of truth for the wire format |
+| **Hab Core** (`apps/hab-core/`, Node.js) | Habitat laptop | Serves the web app and site assets; session state; mission clock and simulation engine; command validation; event log; WebSocket fan-out; persistence |
+| **Web app** (`apps/web/`, TypeScript + Vite) | Browsers on laptops, phones, tablets | Role views: Planner (v1 UI), EVA tablet, HUD, Ops console, Earth view |
+| **Static site data** (`data/sites/gale_boxwork/`, large files git-ignored) | Served by Hab Core | Tiles, routing grid, vectors, images, manifest (v1 contract, §E.1) + new grids/tables (§C.5) |
+| **Scenarios** (`scenarios/*.json`) | Hab Core disk | Start time, plan, crew, assets, scheduled events, seed |
+| **External sources** | Internet, pre-event only | USGS, PDS, NAIF/ESA SPICE, DONKI, NASA image sites — never contacted at runtime |
+
+The **`packages/compute` boundary** is the one the organizer guide recommends pointing at during judging: "the model never computes a number; tested functions do."
 
 ### A.2 Architecture diagram
 
 ```mermaid
 flowchart LR
-  subgraph PRE["Pre-event: Python pipeline (offline after download)"]
-    SRC1["USGS Gale merged DEM 1 m"] --> CLIP["Clip to AOI + reproject to local Mars eqc"]
-    SRC2["USGS Gale HiRISE ortho / colour mosaic"] --> CLIP
-    SRC3["USGS THEMIS thermal inertia 100 m"] --> CLIP
-    SRC4["PDS PLACES / MMGIS traverse"] --> VEC["Vector packaging"]
-    SRC5["Curated POIs + rover images"] --> VEC
-    CLIP --> DER["Derive slope, hillshade, hazard flags"]
-    DER --> GRID["Routing grid 5 m: elevation, slope_p90, flags"]
-    DER --> TILES["Render map tiles per layer"]
-    CLIP --> TILES
-    GRID --> MAN["site-manifest.json + checksums"]
+  subgraph PRE["Pre-event: Python pipeline"]
+    DEM["USGS Gale DEM 1 m"] --> GR["Routing grid 5 m + slope + flags"]
+    ORTHO["HiRISE ortho / colour COG"] --> TILES["Map tiles"]
+    THEMIS["THEMIS TI 100 m"] --> GR
+    GR --> COMM["Hab antenna coverage grid"]
+    SPICE["SPICE kernels: NAIF + ESA"] --> LINK["earth_link.json: light time, passes, conjunction"]
+    DONKI["DONKI: FLR, CME, SEP, WSA-ENLIL"] --> EVT["Scenario events"]
+    RAD["Curiosity RAD event series"] --> EVT
+    POI["POIs, EZ types, images"] --> MAN["site-manifest.json + checksums"]
+    GR --> MAN
     TILES --> MAN
-    VEC --> MAN
+    COMM --> MAN
+    LINK --> SCN["scenarios/storm-sol4190.json"]
+    EVT --> SCN
   end
 
-  subgraph WEB["Runtime: static web app (no network needed)"]
-    MAN2["site-manifest.json"] --> UI["Map UI (OpenLayers, custom Mars projection)"]
-    UI <-->|"postMessage: route/estimate requests"| WK["Compute worker (TypeScript)"]
-    WK --> RES["Route, profile, estimates, warnings"]
-    RES --> UI
-    UI --> CARD["Briefing card (print) + plan JSON export"]
-    UI -.->|"optional"| LS["Browser storage: last plan"]
+  subgraph HAB["Runtime: habitat LAN (no internet)"]
+    CORE["Hab Core (Node.js)\nsession · clock · sim engine · event log"]
+    CMP["packages/compute"]
+    CORE --- CMP
+    CORE <-->|"WebSocket: snapshot, deltas, events, commands"| OPS["Ops console"]
+    CORE <-->|WebSocket| EVA1["EVA client EV1 (tablet/HUD)"]
+    CORE <-->|WebSocket| EVA2["EVA client EV2"]
+    CORE <-->|WebSocket| PLN["Planner"]
+    PLN --- WK["Browser worker (compute)"]
+    CORE -.->|"delayed queue (simulated Earth link)"| EARTH["Earth view"]
   end
 
-  MAN -->|"copy to web/public/sites/gale_boxwork/"| MAN2
+  MAN -->|"copy to data/sites/"| CORE
+  SCN --> CORE
 ```
 
-### A.3 Why no backend (Proposed)
+### A.3 Why a habitat server now (Proposed — reverses v1 D-02)
 
-| Need | Satisfied by | Why a server is unnecessary |
+| Need | Why a static app is no longer enough | Hab Core answer |
 | --- | --- | --- |
-| Raster processing | Pre-event pipeline | AOI is fixed; nothing is recomputed per user |
-| Routing | Worker on a 5 m grid (~1.44 M cells for 6 × 6 km) | A* on this size completes in well under 2 s in modern browsers (target NFR-02; verify in TASK-05) |
-| Persistence | JSON export + optional browser storage | No accounts or sharing in scope |
-| Offline demo | Static files on `localhost` | Fewer moving parts than a FastAPI process |
+| Several people see one mission state | Each browser would have its own state | Single authoritative state, broadcast to clients |
+| Mission clock and simulation | Must keep running when a phone sleeps | Clock and engine run server-side |
+| Commands between roles (summon, approve) | Needs routing between devices | Commands validated and logged centrally |
+| Realism | A Mars habitat would host local compute; Earth is minutes away | The server *is* the habitat edge computer; its absence from the internet is the point |
 
-**Alternative (if the team is Python-only):** FastAPI serving `/route` and `/estimate`, using `scikit-image` `MCP_Geometric` for least-cost paths. Cost: an extra process to keep alive during the demo and duplicated validation; benefit: reuse of numpy code. Switch only if TASK-05 shows the browser router is too slow.
+The planner keeps its **browser worker** so interactive editing stays fast and the planner still works if the Hab Core is down (degraded mode, FR-16).
+
+### A.4 Why Node.js + TypeScript for Hab Core (Proposed, D-12)
+
+| Option | For | Against |
+| --- | --- | --- |
+| **Node.js 20 LTS + TypeScript (Fastify + `ws`)** | Same `packages/compute` code in server and browser: one implementation, one test suite; one language for 4 of 6 roles | Raster work stays in Python (fine — it is pre-event) |
+| FastAPI (organizer guide default) | Matches guide; numpy for grids | Compute duplicated in Python and TS, or the planner loses its worker and every edit goes over HTTP |
+
+Choose FastAPI only if the team's TypeScript capacity is < 2 people (U-13).
+
+### A.5 Network model
+
+Three layers are kept strictly separate so the demo never confuses real networking with simulated radio.
+
+| Layer | Real or simulated | Model |
+| --- | --- | --- |
+| **L-net: demo LAN** | **Real** | Travel router, WAN disconnected. Hab Core binds `0.0.0.0:8080`; ops console shows a QR code with the join URL and role. Reconnect with exponential backoff (0.5 s → 5 s) |
+| **L-surf: surface radio** | **Simulated** | Nodes = hab mast, suits, rovers. An edge exists when line of sight holds (§D.11) and range ≤ node limit. A suit is "linked" when any path to the hab exists (direct, via buddy suit, or via relay rover). An unlinked suit's commands are queued on the device and its telemetry freezes on ops with a `STALE` badge |
+| **L-earth: Earth link** | **Simulated, geometry real** | Delivery time from precomputed SPICE tables (§D.12): light time + wait for relay pass; blackout near conjunction |
+
+**Rule:** L-surf and L-earth effects are applied by the Hab Core to messages *logically*; the physical LAN always stays up. When L-surf says EV1 is unlinked, EV1's device still receives a single `LINK_STATE` event so its UI can switch to "No hab link — operating on cached plan," which is what a real suit would do.
+
+### A.6 State model: commands → events → state
+
+```mermaid
+sequenceDiagram
+  participant C as Client (e.g. EVA EV1)
+  participant H as Hab Core
+  participant P as packages/compute
+  participant L as Event log (JSONL)
+  participant A as All subscribed clients
+
+  C->>H: COMMAND SUMMON_VEHICLE {crew: EV1}
+  H->>H: validate role, link state (L-surf), current state
+  H->>P: rendezvous(crew_pos, vehicle_pos, grids, params)
+  P-->>H: {point, eta_crew_s, eta_vehicle_s, vehicle_path}
+  H->>L: append EVENT VEHICLE_DISPATCHED (+ provenance, inputs hash)
+  H->>H: reduce event into state
+  H-->>A: EVENT + STATE_DELTA
+  H-->>C: COMMAND_RESULT ok
+```
+
+- **Event-sourced:** state = fold of the event log over the scenario's initial state. Persistence = append-only `session.jsonl` + periodic snapshot.
+- **Deterministic:** the engine uses sim time only, never wall-clock, and a seeded PRNG (`mulberry32`) if any randomness is enabled (none by default). Replay hash = SHA-256 of the canonical event log.
 
 ---
 
@@ -71,22 +136,27 @@ flowchart LR
 
 | Area | Choice (Proposed) | Why it fits | Limitations | Alternative |
 | --- | --- | --- | --- | --- |
-| Map rendering | **OpenLayers** with a proj4-registered local Mars projection | Supports arbitrary projections and custom tile grids; scale line uses projection metres (Confirmed: OL custom-projection and COG examples) | Learning curve; no built-in 3D | **Leaflet + `CRS.Simple`** with tiles in AOI metres (simpler, but manual coordinate handling). **Not MapLibre GL**: it renders Web Mercator only, so Mars distances and scale bars would be wrong without hacks |
-| Projection math | **proj4js** | Mars sphere definitions are plain PROJ strings | Must keep the same string in pipeline and UI | Hand-written equirectangular formulas (trivial for eqc; acceptable fallback) |
-| UI framework | **TypeScript + Vite**, lightweight components (Preact or vanilla) | Small bundle; offline build | — | React if the team already knows it |
-| Charts | **uPlot** or Chart.js for the profile | Fast line charts; keyboard handling added manually | Accessibility work needed | Plain SVG |
-| Compute | **TypeScript in a Web Worker**, pure functions, **Vitest** unit tests | Keeps UI responsive; testable; deterministic | Re-implementing A* and Mars24 | Python/FastAPI (A.3) |
-| Solar time | Port of **Mars24 algorithm** (Allison & McEwen 2000) | Published, citable; JS/Python implementations exist (marstime, BSD) for cross-checking | Longitude-sign convention pitfall (§C.4) | Use the `marstime` Python package in the pipeline to precompute a lookup table for the demo dates |
-| Pipeline | **Python 3.11+, GDAL ≥ 3.6, rasterio, numpy, pyproj ≥ 3.4** | Standard planetary GIS toolchain; IAU_2015 CRS codes available in recent PROJ (verify version) | GDAL install friction on Windows | Conda environment file committed |
-| Hosting | Local static server for the demo; GitHub Pages for the public link | Free; satisfies "public repository/link" scoring item | Large tiles may exceed comfortable Pages repo size → keep tiles < 500 MB or use Git LFS / release asset (release asset: **Decision (team confirmed 2026-11-03)**, see [docs/ops/feasibility.md](../ops/feasibility.md#large-tiles-in-the-repo)) | Netlify/Vercel static |
+| Map rendering | **OpenLayers** + proj4 local Mars projection *(v1)* | Arbitrary projections, correct metric scale | Learning curve | Leaflet `CRS.Simple`. **Not MapLibre** (Web-Mercator only; organizer guide suggests it, but Mars distances would be wrong) |
+| Web app | **TypeScript + Vite**, Preact (or vanilla) with hash routes per role | One build, five views, small bundle | — | React if the team knows it |
+| Charts | uPlot *(v1)* | Fast | Manual a11y | Plain SVG |
+| Hab Core | **Node.js 20 LTS, Fastify** (static + REST), **`ws`** (WebSocket) | Shares compute package; tiny dependency set | Single process (fine for a habitat of 4) | FastAPI (A.4) |
+| Shared compute | **`packages/compute`**, pure TS, **Vitest** | One implementation, tested once | Re-implementing A*, Dijkstra, viewshed in TS | — |
+| Message types | **`packages/protocol`**: TypeScript types + JSON Schema (generated with `ts-json-schema-generator` or hand-written) | Wire format checked in CI and at runtime | — | zod schemas |
+| Persistence | Append-only JSONL log + JSON snapshots on disk | Inspectable, replayable, no DB to install | Not concurrent-safe across processes (one process only) | SQLite |
+| Pipeline | Python 3.11+, GDAL ≥ 3.6, rasterio, numpy, pyproj *(v1)* **+ SpiceyPy, requests, pandas** | SPICE geometry is deterministic and citable ("computed from kernels, never estimated" — organizer guide) | Kernel management | Online WebGeocalc (light use only; not for the demo) |
+| Monorepo | **npm workspaces** (`apps/*`, `packages/*`; already used by the repo) + Python `pipeline/` in the conda env `marswalk-pipeline` | Shared packages without publishing; no new tool to install | `npm ci` needs internet once | pnpm |
+| Demo network | Own travel router (no WAN), static IP for the Hab Core laptop | Venue Wi-Fi independent | Phones must join the router | Single-laptop mode: all role views as windows on one machine |
+| Hosting (public link) | GitHub Pages: planner + **replay mode** (a recorded event log played back in the browser without Hab Core) | Satisfies "public link" for judges | No live multi-device on Pages | Release asset with a run script |
 
-**Cost:** $0 runtime; no paid APIs or keys.
+**Cost:** $0. No paid APIs or keys at runtime. Pre-event: optional free `api.nasa.gov` key for DONKI (DEMO_KEY limits: 30/h, 50/day — organizer guide).
 
-**Spike (TASK-02):** confirm OpenLayers renders XYZ tiles produced by the pipeline in the custom projection with correct scale bar, using a custom `TileGrid` whose origin and resolutions match the pipeline output. If the spike fails within 2 hours, use the fallback: one pre-rendered PNG per layer at 2 m/px displayed with `ol/source/ImageStatic` in the same projection (≈ 3000 × 3000 px each for a 6 km AOI) plus a 0.5 m tiled basemap only for the ortho.
+**Spikes (Track P, before 8 Nov):** TASK-02 projection (v1); **TASK-20 Hab Core skeleton** (two phones receive a broadcast within 500 ms over the travel router); **TASK-05b full-grid Dijkstra time field in Node ≤ 2 s** on the weakest laptop.
 
 ---
 
 ## C. Mars data and geospatial handling
+
+C.1–C.4 *(v1, unchanged)*; C.5 is new.
 
 ### C.1 Coordinate reference conventions (applies to every layer)
 
@@ -194,11 +264,66 @@ AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **ins
 3. **Raster orientation.** Row 0 = north; verify with a known feature after reprojection.
 4. **No-data values.** DEM no-data (check label; e.g., −3.4e38 or −32767) must become `NaN` before slope computation, or slopes explode at edges.
 
+### C.5 New data for v2
+
+#### L8 — Space weather records (FR-37)
+
+| Field | Value |
+| --- | --- |
+| Source | NASA CCMC **DONKI** (via `api.nasa.gov/DONKI/*` or the CCMC DONKI webservice): `FLR` (flares), `CME` + `CMEAnalysis`, `SEP`, `IPS`, `WSAEnlilSimulations` |
+| What we use | Event times, flare class, and the **WSA-ENLIL predicted shock arrival time at Mars**. DONKI simulation records list Mars among "other location impacts" with an estimated arrival time (**Confirmed**: e.g., the 15 May 2024 CME record predicts Mars arrival 2024-05-18T01:36Z) |
+| Caveat | DONKI products are labelled experimental research information by CCMC; we show them as `replayed` forecasts, never as truth |
+| Access | Pre-event fetch through the organizer guide's `fetch_json` wrapper → `pipeline/cache/donki/*.json` → committed `demo_fixtures/` |
+
+#### L9 — RAD event time series (FR-37)
+
+| Field | Value |
+| --- | --- |
+| Event | 20 May 2024 (sol 4190): largest surge measured by RAD since landing; about **8,100 µGy** total for a person next to the rover (NASA, June 2024, via secondary reports — **Confirmed**) |
+| Preferred source | PDS PPI node, MSL RAD derived dose-rate products covering sol 4190 — **availability Unresolved (U-15)** |
+| Fallback A | Digitise the dose-rate curve from NASA's published figure; label `replayed — digitised from published figure` |
+| Fallback B | Scale a stated onset/peak/decay template so its integral equals the published total; label `replayed (shape assumed)` |
+| Units | Absorbed dose **µGy** (event). Do **not** convert the event to Sv: the quality factor for SEP spectra differs from GCR and we would be inventing it. Background (v1) stays in mSv from Hassler et al. 2014 |
+
+#### L10 — SPICE geometry (FR-43)
+
+| Kernel type | File (verify names in TASK-04) | Source |
+| --- | --- | --- |
+| Leap seconds | `naif0012.tls` | NAIF generic |
+| Planetary ephemeris | `de440s.bsp` | NAIF generic |
+| Planetary constants | `pck00011.tpc` | NAIF generic |
+| MRO trajectory | reconstructed `mro_psp*.bsp` covering the scenario window | NAIF MRO archive |
+| MAVEN trajectory | `maven_orb_rec_*.bsp` | NAIF MAVEN archive |
+| TGO trajectory | `em16_tgo_*` SPK | **ESA** SPICE service — counts as partner-agency data |
+
+Outputs (pipeline, 1-min resolution over the scenario window ±2 days): one-way light time, Sun–Earth–Mars angle (conjunction proximity), Earth elevation at the site, and each orbiter's elevation at the site → pass windows. Stored as `scenarios/<id>/earth_link.json`. No SPICE at runtime.
+
+#### L11 — Hab antenna coverage grid (FR-42)
+
+| Field | Value |
+| --- | --- |
+| Derivation | Line-of-sight viewshed from the hab mast over the 1 m DEM aggregated to 5 m, with curvature drop d² / 2R (R = 3,396,190 m) |
+| Heights | Hab mast 10 m, suit antenna 2 m, rover mast 3 m (**Assumed**) |
+| Output | `grid/comm_hab.u8` (0 = no LOS, 1 = LOS) aligned to the routing grid |
+| Limitation | Binary LOS only: no Fresnel zone, diffraction, multipath or link budget. Stated in legend |
+
+#### L12 — Optional context (Tier 2)
+
+| Data | Use | Label |
+| --- | --- | --- |
+| REMS RDR climatology (v1 L7) | Temperature/pressure for the scenario L_s | `measured` (aggregated) |
+| CRISM MTRDR (v1 L5) | Resource layer: hydrated-mineral indicators | `derived`, "indicative, not a mineral identification" |
+| MRO MARCI daily global maps / orbiter weather reports | Qualitative dust advisory replay (FR-49) | `replayed`, qualitative only |
+
+#### Partner-agency data (NASA data usage criterion)
+
+State on the project page and in the video: **ESA Mars Express HRSC** (inside the USGS Gale merged DEM) and **ESA TGO** trajectory (relay geometry). Solar Orbiter (ESA/NASA) is the source of the 20 May 2024 flare-class estimate.
+
 ---
 
 ## D. Core processing and simulation behavior
 
-All functions live in `web/src/compute/` as pure functions (no DOM, no fetch), unit-tested with Vitest. Numbers below were checked in Python on 2026-11-02.
+D.1–D.6 *(v1, unchanged)*; D.7 revised; D.8–D.16 new. All functions live in `packages/compute/` as pure functions (no DOM, no fetch, no wall-clock), unit-tested with Vitest. v1 numbers were checked in Python on 2026-11-02; v2 numbers on 2026-11-04.
 
 ### D.1 Point sampling (FR-03, FR-08)
 
@@ -267,13 +392,123 @@ Test cases: 1 km flat → 18.18 min; 1 km at constant +10° gradient (horizontal
 
 ### D.7 AI
 
-**Not in MVP** (Proposed D-06). No requirement needs it, and the scoring guide rewards deterministic, explainable science. If added post-MVP: narration only, input = the plan JSON, output blocked if it contains any number absent from the JSON; fallback = static template text.
+**Not in Tier 0–2** (D-06 retained). No requirement needs it, and both the challenge and the organizer guide reward deterministic science. If added post-MVP: narration of the event log only, input = logged events, output blocked if it contains any number absent from the log; fallback = template text. Coding assistants used to build the system are disclosed in `docs/AI_USE.md` from day one.
+
+### D.8 Time to safe haven (FR-39)
+
+Definitions (all times in seconds of sim time):
+
+- `T_hab(x)`: suited walking time from cell *x* to the hab entrance cell = **reverse Dijkstra** from the hab over the suited cost (v1 D.2 step cost, but with gradient sign flipped because travel is *toward* the hab). One full-grid field per plan/scenario (data or limits change ⇒ recompute).
+- `T_veh(x)`: pressurized-rover driving time from its current position to *x* (forward Dijkstra over the vehicle cost, §D.9). Computed on a **10 m** aggregate grid (360 k cells for 6 × 6 km) for speed.
+- `t_ingress`: 5 min to enter hab or vehicle (**Assumed**; suitport-style).
+
+**Live (exact, 1–2 crew positions):**
+
+```
+haven_hab(p)  = T_hab(p) + t_ingress
+haven_veh(p)  = min over q reachable by both of max(T_crew_p(q), T_veh(q)) + t_ingress
+haven(p)      = min(haven_hab(p), haven_veh(p), haven_refuge(p) [T2])
+```
+
+`T_crew_p` is a **bounded** Dijkstra from *p*, stopped at 30 min (the haven rule), so it costs ~50 k expansions.
+
+**Planning (approximate, every 50 m along the route):** `haven_veh(p) ≈ min over q within 300 m of p of max(dist_walk(p,q), T_veh(q))`, with `dist_walk` = straight-line distance / v₀ for cells whose straight segment is passable. Labelled `modelled (approximation)`; live mode uses the exact form.
+
+**Validation:** synthetic grid: hab at origin, vehicle 2 km away on flat ground, crew 1 km from hab → hand-computed values; blocked wall forcing detour; vehicle slower than walking (must choose hab).
+
+### D.9 Crew and vehicle parameter sets (FR-40, FR-41) — all **Assumed**, shown in the UI (05 ParamSet)
+
+| Parameter | Suited crew | Pressurized rover | Robotic utility rover |
+| --- | --- | --- | --- |
+| Flat speed | 3.3 km/h (v1) | 10 km/h | 2 km/h |
+| Speed vs. slope | Tobler-scaled (v1 D.3) | v = v_max · max(0.3, 1 − \|θ\| / θ_lim) | same form |
+| Hard slope limit | 15° | 20° | 25° |
+| Caution slope | 10° | 15° | 20° |
+| Low-TI cells | ×1.3 cost | ×2.0 cost (sinkage risk) | ×1.5 cost |
+| Capacity | — | 2 crew + 2 rescued (4) | 50 kg payload |
+| Consumable | O₂ 8 h nominal (A-10) | Not limiting in demo | Battery 5 kWh |
+| Energy model | Metabolic (v1 D.6) | Not modelled | E = P_base · t + m · g · Δh⁺ / η, P_base 200 W, m 300 kg, g 3.721 m/s², η 0.5 |
+| Antenna height | 2 m | 3 m | 3 m |
+
+The robotic-rover energy form matches the organizer guide's route-cost snippet (`climb_cost_j_per_m_kg = 3.72` = Mars g) so judges recognise it.
+
+### D.10 Rendezvous (FR-40)
+
+```
+input: crew position p, vehicle position v, grids, parameter sets, time limit L
+T_c = bounded Dijkstra from p (suited cost), limit L
+T_v = Dijkstra from v (vehicle cost, 10 m grid; sample to 5 m)
+candidates = cells with both finite and vehicle-passable
+q* = argmin over candidates of max(T_c(q), T_v(q)); tie-break: min T_c, then cell index
+output: q*, eta_crew = T_c(q*), eta_vehicle = T_v(q*), paths by back-pointers
+```
+
+- If no candidate exists within L: return `NO_RENDEZVOUS` and fall back to hab.
+- Two crew: run with each crew member, then choose the **vehicle path visiting both** in the order that minimises the later arrival (2 permutations — exhaustive, deterministic).
+- Validation: crew on a ridge the vehicle cannot climb ⇒ rendezvous at the ridge foot; vehicle blocked entirely ⇒ `NO_RENDEZVOUS`.
+
+### D.11 Line-of-sight comm coverage (FR-42)
+
+- **Static (pipeline):** hab mast viewshed on the 5 m grid (§C.5 L11), ray-cast from mast to every cell; the target is visible if no intermediate sample's terrain height + curvature drop exceeds the sight line.
+- **Dynamic (Hab Core):** relay rover viewsheds on a **20 m** grid (90 k cells) within 4 km of the rover; ≤ 1 s in Node (TASK-05b benchmark).
+- **Link graph (each sim tick for crew/rovers only, not every cell):** nodes = hab, suits, rovers; edge if mutual LOS and distance ≤ range (hab–suit 10 km, suit–suit 2 km, rover–any 5 km, **Assumed**). Linked = path to hab exists (BFS).
+- **Curvature check:** horizon distance √(2Rh): 2 m → 3.69 km, 10 m → 8.24 km (computed); a unit test asserts these.
+- **Validation:** flat synthetic plane with a single wall: shadow begins exactly behind the wall; curvature test on a perfect sphere-sampled grid.
+
+### D.12 Earth link model (FR-43)
+
+Precomputed table rows (1 min): `t_utc, light_time_s, sep_angle_deg, earth_elev_deg, {mro,maven,tgo}_elev_deg`.
+
+- **Relay pass:** orbiter elevation at the site ≥ 10° (**Assumed** minimum elevation).
+- **Conjunction blackout:** Sun–Earth–Mars angle < 3° (**Assumed** threshold).
+- **Mars → Earth delivery:** `t_deliver = next_pass_start(t_send) + light_time` (orbiter store-and-forward; orbiter-to-Earth downlink scheduling simplified to "at the pass"). Labelled *simplified DTN model*.
+- **Earth → Mars delivery:** `t_deliver = next_pass_start(t_send_earth + light_time)`.
+- **Direct-to-Earth from hab:** disabled by default; optional toggle uses `earth_elev_deg ≥ 10°`.
+- **Validation:** light time for the scenario date matches a WebGeocalc or `spiceypy` spot check within 1 s; a message sent mid-pass is delivered immediately + light time; one sent between passes waits.
+
+### D.13 Space-weather event model (FR-37, FR-38)
+
+**Timeline construction (pipeline, from DONKI + RAD):**
+
+| Event | Time | Basis |
+| --- | --- | --- |
+| Flare photons reach Mars | t_flare + d_Sun–Mars / c (11.5–13.9 min for 1.38–1.67 AU, computed) | Geometry |
+| Earth learns of the flare | t_flare + d_Sun–Earth / c (~8.3 min) **if** the region is visible from Earth or a relay observer (the 20 May 2024 X-class estimate came from Solar Orbiter — Confirmed) | DONKI FLR record time |
+| Earth forecast reaches Mars | Earth issue time + D.12 delivery rule | Geometry + scenario |
+| SEP onset at Gale | First RAD sample above threshold | RAD series (L9) |
+| CME shock at Mars | WSA-ENLIL predicted arrival (forecast) | DONKI |
+
+**Key behaviour to demonstrate:** for fast SEPs the **local trigger fires before or close to the Earth forecast**, so the habitat must act on its own sensors. This is a property of the geometry, not a scripted effect.
+
+**Dose integration:** `dose_i = Σ_t r(t) · s(loc_i(t)) · Δt`, with r = replayed surface rate (µGy/h), s = shielding factor: EVA suit 1.0, pressurized rover 0.6, hab 0.4 (**Assumed**, A-11; physical shielding not modelled), terrain refuge = sky-view factor (D.16, T2). Output per crew: received, and the counterfactual "if unsheltered", both labelled.
+
+**Trigger:** `RADIATION_ALERT` when r(t) > k · r_bg for 2 consecutive samples, k = 10 (**Assumed**). Cleared when r(t) < 2 · r_bg for 30 min.
+
+### D.14 Simulation engine (FR-34, FR-35)
+
+| Item | Definition |
+| --- | --- |
+| Clock | Fixed step Δt = 1 s sim time; speed multipliers 1×, 10×, 60×; pause; jump-to-next-event |
+| Crew motion | Position interpolated along the planned cell path by cumulative leg time (v1 D.3); dwell at stops; on re-plan, follow the new path from the current cell |
+| Consumables | O₂ fraction decreases at `rate = P_met / P_ref / 8 h` with P_met 351.7 W walking, 250 W at stops (**Assumed**), P_ref 300 W; dose per D.13 |
+| Vehicles/rovers | Move along their computed paths at parameter-set speed; arrive ⇒ event |
+| Alerts | Evaluated each tick in fixed order: radiation → consumables → haven time → comm link → buddy distance |
+| Broadcast | State deltas coalesced to ≤ 10 Hz per client; semantic events sent immediately |
+| Determinism | No wall-clock, no unseeded randomness; floating point kept in compute functions with fixed iteration order |
+
+### D.15 Contingency options (FR-44)
+
+For each crew member on alert: candidate actions = {abort to hab, vehicle rendezvous, terrain refuge (T2), continue with remaining stops skipped}. For each: ETA to shelter, expected event dose until sheltered (D.13 with the projected path), stops dropped, constraint violations. Rank by expected dose, then ETA. Shown to EVA and ops; executing one emits `PLAN_REVISED` with a new `plan_revision`.
+
+### D.16 Sky-view factor refuge (FR-47, T2)
+
+For each cell, horizon elevation angles in 16 azimuths (max over 2 km); SVF ≈ mean over azimuths of cos²(h_az) (isotropic, horizontal-surface approximation). Refuge dose factor = SVF / SVF_flat. Labelled *simplified isotropic model; real SEP fluxes are anisotropic*. Candidate refuges = local SVF minima reachable within the haven rule.
 
 ---
 
 ## E. Interfaces and contracts
 
-There is no HTTP API. Contracts are (1) static files, (2) worker messages, (3) export JSON. Full field definitions are in [05](05_Backend_and_Database_Schema.md); this section defines behavior.
+Contracts are (1) static files served by the Hab Core, (2) planner worker messages *(v1, unchanged)*, (3) Hab Core HTTP and WebSocket messages (§E.5–E.6), (4) scenario files (§E.7) and (5) export JSON. Field definitions are in [05](05_Backend_and_Database_Schema.md) (v1) and §E.8 (v2 entities).
 
 ### E.1 Static asset contract
 
@@ -383,12 +618,99 @@ Error codes: `GRID_NOT_LOADED`, `INVALID_INPUT`, `TIMEOUT`, `CANCELLED`, `INTERN
 | `suited_flat_speed_kmh` | 0.5–6 |
 | `solar_phase` | `max` \| `min` |
 | waypoints | 2–11 (start + ≤ 10 stops), all inside AOI |
+| `max_haven_min` (v2) | 5–120, default 30 |
+| `crew_count` (v2) | 1–2 |
+| `vehicle_available` (v2) | boolean |
+| `clock_speed` (v2) | 1 \| 10 \| 60 |
 
-Validation runs in the UI (inline messages) **and** in the worker (defence in depth → `INVALID_INPUT`).
+Validation runs in the UI (inline messages) **and** in the worker and Hab Core (defence in depth → `INVALID_INPUT`).
 
-### E.4 Authentication
+### E.4 Authentication and roles
 
-None. No user data leaves the browser.
+No accounts. A client joins with a **role** and a display name; the Hab Core trusts the LAN (the router has no WAN and a WPA2 password). Role permissions:
+
+| Command | planner | eva:EVn | ops | earth |
+| --- | --- | --- | --- | --- |
+| `LOAD_SCENARIO`, `SET_CLOCK`, `JUMP_NEXT_EVENT` | — | — | ✓ | — |
+| `PUBLISH_PLAN` | ✓ | — | ✓ | — |
+| `START_EVA`, `APPROVE_OPTION` | — | — | ✓ | — |
+| `SUMMON_VEHICLE`, `ABORT`, `ACK_ALERT` | — | ✓ (self) | ✓ (any crew) | — |
+| `TASK_ROVER` (T2) | — | ✓ | ✓ | — |
+| `SEND_MESSAGE` | — | ✓ | ✓ | ✓ (delayed) |
+
+### E.5 Hab Core HTTP endpoints
+
+| Method + path | Purpose |
+| --- | --- |
+| `GET /` and `/assets/*` | Web app |
+| `GET /sites/<site_id>/*` | Site data (v1 §E.1 contract) |
+| `GET /api/health` | `{status, data_version, session_id, sim_time, uptime_s}` |
+| `GET /api/session` | Full snapshot (same body as WS `SNAPSHOT`) |
+| `POST /api/session` | Load scenario `{scenario_id, seed?}` (ops only, via header `X-Role: ops`) |
+| `GET /api/log?after=<seq>` | Event log page (JSON lines) |
+| `GET /api/report` | Post-EVA report data (FR-46) |
+| `GET /api/join-qr?role=` | SVG QR code for the join URL |
+
+### E.6 WebSocket protocol (`/ws`)
+
+Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (monotonic) and `sim_time`.
+
+```json
+{"v":1,"type":"HELLO","role":"eva:EV1","client_id":"c-7f3a","last_seq":0}
+```
+
+```json
+{"v":1,"type":"SNAPSHOT","seq":412,"sim_time":"2024-05-20T13:05:00Z",
+ "session":{"session_id":"s-0007","scenario_id":"storm-sol4190","data_version":"gale_boxwork-2026.11.08","clock":{"speed":60,"paused":false}},
+ "plan":{"plan_revision":3,"legs":["…"]},
+ "crew":[{"crew_id":"EV1","x_m":2410.5,"y_m":-1875.0,"o2_frac":0.71,"dose_event_ugy":0,"linked":true,"haven_min":18.4,"haven_kind":"vehicle"}],
+ "vehicles":[{"vehicle_id":"PR1","kind":"pressurized_rover","x_m":-1800,"y_m":-1500,"state":"PARKED"}],
+ "alerts":[],"link":{"earth":{"light_time_s":"…","next_pass_utc":"…","blackout":false}},
+ "provenance":{"crew.o2_frac":"simulated","crew.haven_min":"modelled","link.earth.light_time_s":"derived"}}
+```
+
+```json
+{"v":1,"type":"STATE_DELTA","seq":413,"sim_time":"2024-05-20T13:05:01Z",
+ "changes":[{"path":"crew/EV1/x_m","value":2411.2},{"path":"crew/EV1/o2_frac","value":0.7099}]}
+```
+
+```json
+{"v":1,"type":"EVENT","seq":420,"sim_time":"2024-05-20T13:12:00Z",
+ "event":{"kind":"ALERT_RAISED","code":"RADIATION_ALERT","severity":"blocked",
+ "data":{"rate_ugy_h":"…","threshold_ugy_h":"…","source":"replayed:rad-sol4190"}}}
+```
+
+```json
+{"v":1,"type":"COMMAND","command_id":"k-0091","role":"eva:EV1",
+ "command":{"kind":"SUMMON_VEHICLE","crew":["EV1","EV2"]}}
+```
+
+```json
+{"v":1,"type":"COMMAND_RESULT","command_id":"k-0091","ok":true,"event_seq":421}
+```
+
+- Rejections: `{"ok":false,"code":"FORBIDDEN_ROLE"|"NO_LINK"|"INVALID"|"NO_RENDEZVOUS"|"BUSY","message":"…"}`.
+- `NO_LINK`: the issuing suit is unlinked on L-surf; the client keeps the command queued and resends on `LINK_STATE linked=true`.
+- Reconnect: client sends `last_seq`; server replays events after it or sends a fresh `SNAPSHOT` if the gap is > 1,000.
+- Heartbeat: server `PING` every 2 s; client shows "HAB LINK LOST" after 3 s without one (FR-32).
+
+### E.7 Scenario file (`scenarios/<id>/scenario.json`)
+
+| Field | Content |
+| --- | --- |
+| `scenario_id`, `title`, `seed` | Identity and determinism |
+| `site_id`, `data_version` | Must match the loaded site |
+| `start_utc` | Default `2024-05-20T…Z` (D-10; exact LTST chosen in TASK-21) |
+| `plan` | PlanExport (05) produced by the planner |
+| `crew` | `[{id, start_offset_s, suit_params}]` |
+| `vehicles` | `[{vehicle_id, kind, param_set, start_x_m, start_y_m}]` |
+| `events` | Scheduled inputs: `[{t_utc, kind: "DOSE_SERIES"|"EARTH_MESSAGE"|"DONKI_RECORD"|"ADVISORY", ref, source_id}]` |
+| `tables` | Paths to `earth_link.json`, `dose_series.json` |
+| `provenance` | Source IDs for every table (05 DataSource) |
+
+### E.8 New entities (field definitions: [05 §C.2](05_Backend_and_Database_Schema.md#c2-runtime-entities-hab-core-v2))
+
+`Session`, `ClientConnection`, `Crew` (id, position, consumables, dose, link state), `Vehicle` (kind ∈ {pressurized_rover, utility_rover}, params, state, path; named Vehicle because 05 already uses Asset for files), `Alert` (code, severity, raised/acked/cleared times), `Command`, `Event` (seq, sim_time, kind, actor, data, provenance, inputs_hash), `ContingencyOption`, `EarthMessage` (direction, sent_utc, deliver_utc, body), `Scenario`, `LinkState`.
 
 ---
 
@@ -396,19 +718,22 @@ None. No user data leaves the browser.
 
 | ID | Requirement | Target (Proposed) | Verification |
 | --- | --- | --- | --- |
-| NFR-01 | Offline operation | 100 % of demo features work with network disabled | Rehearsal with Wi-Fi off; browser devtools "Offline" |
-| NFR-02 | Performance | First map paint ≤ 5 s from localhost; 3-stop route ≤ 2 s; layer toggle ≤ 300 ms; UI never blocks > 100 ms | Timing logged in diagnostics; test on the weakest team laptop |
-| NFR-03 | Browser/device | Latest Chrome, Edge, Firefox on desktop ≥ 1366 × 768 (primary); tablet ≥ 768 px wide (secondary: view + add/delete stops, drag only if time permits — 03 U-07; layouts per 04 §E); < 768 px view-only | Manual matrix |
-| NFR-04 | Accessibility | WCAG 2.2 AA targets: contrast ≥ 4.5:1 text, keyboard operation of all controls, non-colour cues, text alternative for map content (stops table, warnings list) | axe-core scan + keyboard-only run-through |
-| NFR-05 | Scientific transparency | Every displayed value carries `data-provenance` ∈ {measured, derived, modelled, assumed} and a source id | Automated DOM test |
-| NFR-06 | Determinism/reproducibility | Same scenario + waypoints + `data_version` ⇒ identical results and identical `plan_hash` | Unit test runs plan twice; cross-browser check |
-| NFR-07 | Licensing/attribution | All data credits in UI and README; code Apache-2.0 (Space Apps default) | Checklist in TASK-16 |
-| NFR-08 | Security/privacy | No accounts, no analytics, no third-party requests at runtime; Content-Security-Policy `default-src 'self'` | CSP header in hosting config; devtools network check |
-| NFR-09 | Size budget | Total site bundle ≤ 250 MB; JS bundle ≤ 500 KB gzipped | Build report |
-| NFR-10 | Reliability | Missing optional layer never breaks routing; worker crash shows retry | Fault-injection tests (delete layer folder; throw in worker) |
-| NFR-11 | Debuggability | `?debug=1` shows FPS, worker timings, grid cell under cursor, data version | Manual |
+| NFR-01 | No internet at runtime | 100 % of features work on a router with WAN unplugged | Rehearsal; devtools network log shows only the Hab Core host |
+| NFR-02 | Performance | v1 targets **plus**: full-grid haven field ≤ 2 s; rendezvous ≤ 1 s; relay viewshed ≤ 1 s; engine tick at 60× uses ≤ 30 % of one core | Diagnostics timings on the weakest laptop |
+| NFR-03 | Devices | Desktop Chrome/Edge/Firefox (planner, ops); **Android Chrome and iOS Safari** on phones ≥ 360 px (EVA/HUD) | Device matrix with the team's own phones |
+| NFR-04 | Accessibility | v1 WCAG 2.2 AA targets; HUD contrast ≥ 7 : 1; EVA touch targets ≥ 56 px | axe scan; glove test (thick gloves on a touchscreen-compatible phone) |
+| NFR-05 | Scientific transparency | Every value has `data-provenance` ∈ {measured, derived, modelled, assumed, replayed, simulated} + source id | DOM test on all role views |
+| NFR-06 | Determinism | Same scenario + seed + data version ⇒ identical event-log hash; same plan inputs ⇒ identical plan hash (v1) | CI test runs the scenario headless twice |
+| NFR-07 | Licensing/attribution | v1, plus DONKI/CCMC, NAIF, ESA SPICE credits | TASK-30 checklist |
+| NFR-08 | Security/privacy | No accounts, analytics or third-party requests; LAN-only; CSP `default-src 'self'; connect-src 'self' ws:` | Header check |
+| NFR-09 | Size budget | Site bundle ≤ 250 MB (v1); JS ≤ 600 KB gzipped (all roles) | Build report |
+| NFR-10 | Reliability | Missing optional layer never breaks routing (v1); Hab Core crash → clients degrade (FR-32) and session resumes from disk on restart | Fault injection |
+| NFR-11 | Debuggability | `?debug=1` (v1) plus engine tick time, connected clients, last seq | Manual |
+| NFR-12 **(new)** | Latency | Event emitted → visible on all clients ≤ 500 ms on the demo LAN | Timestamped screen recording of 3 devices |
+| NFR-13 **(new)** | Recovery | Client reconnect restores correct state ≤ 2 s | Toggle phone Wi-Fi mid-scenario |
+| NFR-14 **(new)** | Headless replay | Scenario can run with no clients and write the event log (CI and video fallback) | `npm run hab:replay -- scenarios/storm-sol4190` |
 
-**Secrets/deployment:** no runtime secrets. Pipeline needs none (USGS/PDS are public). Deployment: `npm run build` → `dist/` + `sites/` copied to static host; demo via `npx serve dist` (or `python -m http.server`, which suffices because tiles are plain files).
+**Secrets/deployment:** no runtime secrets. Pipeline needs none (USGS/PDS are public). Deployment (v2): `npm run build` → `apps/web/dist` served by the Hab Core (`npm run hab:start -- --site gale_boxwork --scenario storm-sol4190`); public link = GitHub Pages build of the planner + replay mode.
 
 **External limits/costs:** none at runtime. Pre-event: the 23 GB ortho and 3.6 GB DEM need ~30 GB disk and a stable connection — download on campus network, not venue Wi-Fi.
 
@@ -425,6 +750,18 @@ None. No user data leaves the browser.
 | Mars24 | 3 timestamps vs. `marstime`; longitude-sign test |
 | UI | Keyboard path through core scenario; print preview one page; offline mode |
 | Recovery | Missing TI layer; corrupted grid checksum; worker exception; impossible stop placement |
+
+### F.2 Test plan additions (v2)
+
+| Area | Tests |
+| --- | --- |
+| Haven / rendezvous | D.8 and D.10 synthetic cases; 5 real-grid positions vs. an independent Python (`scikit-image` MCP) computation |
+| Comm | D.11 wall and curvature tests; 5 real points vs. a GDAL `gdal_viewshed` run |
+| Earth link | Light time vs. spot check; queued vs. immediate delivery cases |
+| Space weather | Timeline table reproduces source times; trigger fires on the right sample; dose integral matches hand calculation for a 3-step series |
+| Engine | 60× run of the full scenario finishes; event-log hash stable across two runs and two machines |
+| Network | 3 devices on the travel router; Wi-Fi toggle; Hab Core kill/restart; single-laptop mode |
+| Usability | 3 non-team users: HUD 3-s glance test; "summon vehicle" without instruction |
 
 ---
 
@@ -449,14 +786,28 @@ None. No user data leaves the browser.
 - PDS MSL Analyst's Notebook map tool / PLACES: <https://pds-geosciences.wustl.edu/workshops/LPSC2023/2166.pdf>
 - Radiation values: [*Mars Scientific Context* §9](../reference/mars-scientific-context.md#9-radiation-and-space-environment) (Hassler et al. 2014; Simonsen et al. 2024)
 
+### Sources added in v2 (accessed 2026-11-04)
+
+- NASA CCMC DONKI — WSA-ENLIL simulation record listing Mars arrival (example, 15 May 2024 CME): <https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/WSA-ENLIL/30907/1>
+- 20 May 2024 solar event at Mars (RAD 8,100 µGy; X12 estimate from Solar Orbiter; MAVEN largest SEP event; cliffsides/lava tubes as shielding): NASA release mirrored at <https://phys.org/news/2024-06-nasa-mars-epic-solar-storm.html> — **replace with the nasa.gov URL in TASK-04**
+- NAIF SPICE toolkit and generic kernels: <https://naif.jpl.nasa.gov/naif/> ; ESA SPICE service (TGO kernels): <https://www.cosmos.esa.int/web/spice>
+- SpiceyPy: <https://spiceypy.readthedocs.io/>
+- Organizer Build Guide, Space Apps 2026 Bangladesh (score sheet, architecture rules, challenge 11 page) — team copy in Claude artifact; cite as "Local organizer build guide"
+- `gdal_viewshed` (validation of D.11): <https://gdal.org/programs/gdal_viewshed.html>
+
 ## Unresolved decisions owned by this document
 
 | ID | Item | Resolution path |
 | --- | --- | --- |
-| D-02 | Static app vs. FastAPI backend | Keep static unless TASK-05 router benchmark > 2 s p95 |
-| D-03 | OpenLayers tiles vs. ImageStatic fallback | TASK-02 spike result |
-| U-01 | DEM source quality inside AOI | TASK-01 |
-| U-02 | Elevation datum wording (areoid) | Read PDS3 label in TASK-01 |
-| U-03 | Thermal-inertia "loose fines" threshold | Histogram + literature check in TASK-04; label interpretive |
-| U-04 | Traverse source (PLACES vs. MMGIS) | TASK-04 |
-| U-05 | CRISM coverage of AOI | TASK-01 |
+| D-02 | Static vs. backend | **Resolved 2026-11-04: Hab Core (local server) added**; planner keeps its worker |
+| D-03 | OpenLayers tiles vs. ImageStatic fallback | TASK-02 spike (v1) |
+| D-12 | Hab Core language | Node.js + TS unless TS capacity < 2 people (U-13) |
+| U-01 | DEM quality inside AOI | TASK-01 (v1) |
+| U-02 | Elevation datum wording | TASK-01 (v1) |
+| U-03 | TI "loose fines" threshold | TASK-04 (v1) |
+| U-04 | Traverse source | TASK-04 (v1) |
+| U-05 | CRISM coverage of AOI | TASK-01 (v1) |
+| U-15 | RAD sol-4190 time series in PDS | TASK-04; fallbacks in §C.5 L9 |
+| U-18 | Exact SPICE kernel files covering May 2024 for MRO, MAVEN, TGO | TASK-04 |
+| U-19 | Shielding factors (A-11), alert threshold k, relay min elevation, conjunction angle | Keep as labelled assumptions; ask mentor; cite any found value |
+| U-20 | Pressurized rover speed/slope values (D.9) | Look for NASA Space Exploration Vehicle concept figures; otherwise keep as assumptions |

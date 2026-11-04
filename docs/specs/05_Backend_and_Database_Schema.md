@@ -5,9 +5,19 @@
 | | |
 | --- | --- |
 | **Owner** | Data (this file owns data structures and persistence) |
-| **Date** | 2026-11-02 |
-| **Status** | Draft v1 — proposed |
-| **Related** | Behavior: [02 Technical](02_Technical_Requirements_Document.md) · Requirements: [01 PRD](01_Product_Requirements_Document.md) · [Docs index](../README.md) |
+| **Date** | 2026-11-04 |
+| **Status** | Draft v2 — supersedes v1 (2026-11-02). Static site entities (§C.1) are v1 with marked additions; Hab Core runtime entities (§C.2) are new |
+| **Related** | Behavior: [02 Technical](02_Technical_Requirements_Document.md) · Requirements: [01 PRD](01_Product_Requirements_Document.md) · Screens: [03 App Flow](03_App_Flow_and_Diagrams.md) · [Docs index](../README.md) |
+
+### Change log v1 → v2
+
+| Area | Change |
+| --- | --- |
+| Persistence | Still no database. Hab Core adds an append-only event log, snapshots and scenario folders on disk (§B) |
+| Provenance enum | `measured \| derived \| modelled \| assumed` **+ `replayed \| simulated`** everywhere a provenance field exists |
+| Static entities | POI gains `stop_type`, `evidence`; MissionScenario gains haven, crew and vehicle fields; RoutingGrid gains `comm_hab_asset`; new Warning codes; new `ParamSet` |
+| Runtime entities | Scenario, ScenarioEvent, DoseSeries, EarthLinkTable, Session, ClientConnection, Crew, Vehicle, Alert, ContingencyOption, Command, LogEvent, EarthMessage, LinkState, PostEvaReport |
+| Naming | v1 **Asset** stays "a file on disk". Rovers and the pressurized vehicle are **Vehicle** (02 uses the same names) |
 
 ---
 
@@ -28,23 +38,40 @@
 | **PlanResult** | Computed legs, totals, conditions, warnings | Runtime, computed | FR-07–FR-12 |
 | **Leg** / **Warning** | Parts of PlanResult | Runtime, computed | FR-07, FR-10 |
 | **PlanExport** | Serialised scenario + waypoints + result + provenance | File, exported | FR-14 |
+| **ParamSet** *(v2)* | A named set of assumed or cited parameters (suit, vehicle, link, alert, shielding) | Static | FR-35, FR-38–FR-42 |
+| **Scenario** *(v2)* | A reproducible EVA run: start time, plan, crew, vehicles, scheduled inputs, seed | File, curated | FR-34 |
+| **ScenarioEvent** *(v2)* | A scheduled input (dose series, Earth message, DONKI record, advisory) | File | FR-37, FR-43 |
+| **DoseSeries** / **EarthLinkTable** *(v2)* | Time tables built by the pipeline (replayed dose; SPICE link geometry) | File, derived | FR-37, FR-43 |
+| **Session** *(v2)* | One running instance of a scenario on the Hab Core | Runtime | FR-30 |
+| **ClientConnection** *(v2)* | A connected device and its role | Runtime | FR-31 |
+| **Crew** *(v2)* | EV1/EV2 state: position, consumables, dose, link, haven | Runtime, simulated | FR-35, FR-39 |
+| **Vehicle** *(v2)* | Pressurized rover or utility rover: position, state, path, battery | Runtime, simulated | FR-40, FR-41 |
+| **Alert** *(v2)* | Raised condition with lifecycle (raised → acked → cleared) | Runtime, computed | FR-37, FR-38, FR-10 |
+| **ContingencyOption** *(v2)* | A ranked response to an alert | Runtime, computed | FR-44 |
+| **Command** / **LogEvent** *(v2)* | Requested action / immutable record of what happened | Runtime | FR-30, FR-46 |
+| **EarthMessage** *(v2)* | A message on the delayed Earth link | Runtime, simulated | FR-43 |
+| **LinkState** *(v2)* | Surface-radio connectivity per node | Runtime, derived + simulated | FR-42 |
+| **PostEvaReport** *(v2)* | Planned vs. actual summary built from the log | Runtime, computed | FR-46 |
 
-Not modelled (out of scope): users, accounts, teams, sharing, billing, telemetry.
+Not modelled (out of scope): users, accounts, teams, sharing, billing, real telemetry.
 
 ---
 
 ## B. Persistence strategy
 
-**No database** (Proposed D-02). Equivalent stores:
+**No database** (v2: still none — the Hab Core persists an append-only event log and snapshots as files; 02 §A.6). Equivalent stores:
 
 | Store | Contents | Format | Lifetime |
 | --- | --- | --- | --- |
-| **Static files** (`web/public/sites/<site_id>/`) | Site manifest, DataSources, Layers, Assets, RoutingGrid arrays, POIs, traverse, EnvConstants, tiles, images | JSON, GeoJSON, raw little-endian binary arrays, JPEG/PNG/WebP tiles | Per `data_version`; immutable once released |
+| **Static files** (`data/sites/<site_id>/`, served by the Hab Core; v1 path was `web/public/sites/`) | Site manifest, DataSources, Layers, Assets, RoutingGrid arrays, POIs, traverse, EnvConstants, tiles, images | JSON, GeoJSON, raw little-endian binary arrays, JPEG/PNG/WebP tiles | Per `data_version`; immutable once released |
 | **Pipeline workspace** (`pipeline/work/`, git-ignored) | Downloaded source rasters, intermediate GeoTIFFs | GeoTIFF/COG, PDS labels | Developer machine only |
 | **Browser memory** | MissionScenario, Waypoints, PlanResult, UI state | JS objects | Session |
 | **Browser storage** (FR-20, optional) | Last PlanExport | JSON string under key `mwp:lastPlan:v1` | Until cleared; failures ignored |
 | **Exported file** | PlanExport | `.json` download | User-controlled |
-| **External sources** | USGS, PDS, NASA image archives | Original products | Contacted only by the pipeline, pre-event |
+| **Scenario folders** *(v2)* (`scenarios/<scenario_id>/`) | `scenario.json`, `dose_series.json`, `earth_link.json`, provenance | JSON | Per `scenario_id` + `data_version`; immutable once released |
+| **Session store** *(v2)* (`apps/hab-core/var/sessions/<session_id>/`, git-ignored) | `session.jsonl` (append-only LogEvents), `snapshot-<seq>.json` every 500 events, `meta.json` | JSON Lines / JSON | Until deleted; replayable |
+| **Published plans** *(v2)* | PlanExport received via `PUBLISH_PLAN` | JSON in session folder | Per session |
+| **External sources** | USGS, PDS, NASA image archives, NAIF/ESA SPICE, DONKI | Original products | Contacted only by the pipeline, pre-event |
 
 Large rasters are **never embedded in JSON**: the manifest references them by relative path + SHA-256 + dimensions.
 
@@ -53,6 +80,8 @@ Large rasters are **never embedded in JSON**: the manifest references them by re
 ## C. Entity definitions
 
 Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (local Mars equirectangular, metres, origin at the AOI's projection centre, x east, y north). Geographic values are `lat` (planetocentric °, −90…90) and `lon_e` (east-positive °, −180…180). Elevations `*_m` are metres in the DEM's MOLA-tied datum. Times are ISO-8601 UTC strings; Mars local times are strings `HH:MM` LTST.
+
+## C.1 Static site entities
 
 ### Site
 
@@ -102,7 +131,7 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `title` | string | ✓ | | | `"Slope"` |
 | `category` | enum | ✓ | | `optical \| topographic \| thermal \| spectral \| hazard \| mission` | `"topographic"` |
 | `kind` | enum | ✓ | | `raster_tiles \| vector \| image_static` | `"raster_tiles"` |
-| `provenance` | enum | ✓ | | `measured \| derived \| modelled \| assumed` | `"derived"` |
+| `provenance` | enum | ✓ | | `measured \| derived \| modelled \| assumed` (+ `replayed \| simulated` in v2, never used by static layers) | `"derived"` |
 | `source_ids` | string[] | ✓ | | FK → DataSource, ≥ 1 | `["usgs-gale-dem-1m-v3"]` |
 | `derived_from` | string[] | | `[]` | FK → Layer | `["elevation"]` |
 | `units` | string | | | | `"deg"` |
@@ -142,6 +171,8 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `flags_asset` | FK | ✓ | u8 bitfield (below) | `"grid-flags"` |
 | `ti_asset` | FK | | f32 tiu at 100 m, own small grid with `ti_cell_m: 100` | `"grid-ti"` |
 | `ti_cell_m` | number | cond. | Required with `ti_asset`; TI grid cell size, metres | `100` |
+| `comm_hab_asset` *(v2)* | FK | ✓ | u8, 1 = line of sight to the hab mast, 0 = none, 255 = no data (02 §C.5 L11) | `"grid-comm-hab"` |
+| `hab_mast` *(v2)* | `{x_m, y_m, height_m}` | ✓ | Mast used for `comm_hab` | `{"x_m":-1800,"y_m":-1500,"height_m":10}` |
 
 #### Flag bits
 
@@ -172,6 +203,9 @@ GeoJSON Feature in working-projection metres; properties:
 | `position_source` | string | ✓ | how coordinates were obtained | `"Traverse waypoint at sol 4611 (PLACES)"` |
 | `position_uncertainty_m` | number | ✓ | ≥ 0 | `10` |
 | `provenance` | enum | ✓ | usually `assumed` for curated positions | `"assumed"` |
+| `stop_type` *(v2)* | enum | ✓ | `science \| resource \| engineering` (01 §A.4) | `"resource"` |
+| `ez_theme` *(v2)* | string | ✓ | short label shown as the POI's kicker | `"Hydrated sulfates — ISRU water"` |
+| `evidence` *(v2)* | array of `{text, source_id}` | ✓ | ≥ 1 item; each cites a DataSource | `[{"text":"Sulfate-bearing unit identified by Curiosity", "source_id":"msl-sulfate-unit"}]` |
 
 ### TraversePoint
 
@@ -206,6 +240,10 @@ Second record: `rad-gale-dose-eq-solar-min`, value `0.925` (midpoint, display as
 | `suited_flat_speed_kmh` | number | ✓ | 3.3 | 0.5–6 |
 | `solar_phase` | enum | ✓ | `"max"` | `max \| min` |
 | `loop` | bool | ✓ | `true` | — |
+| `max_haven_min` *(v2)* | number | ✓ | 30 | 5–120 |
+| `crew_count` *(v2)* | int | ✓ | 2 | 1–2 |
+| `vehicle_available` *(v2)* | bool | ✓ | `true` | — |
+| `vehicle_param_set` *(v2)* | FK → ParamSet | cond. | `"pr1-assumed"` | required when `vehicle_available` |
 
 All defaults carry provenance `assumed` in the UI.
 
@@ -234,9 +272,9 @@ All defaults carry provenance `assumed` in the UI.
 | `computed_utc` | ISO | |
 | `timing_ms` | object | diagnostics |
 
-**Leg:** `from`, `to`, `status` (`OK \| NO_ROUTE`), `reason` (if NO_ROUTE), `distance_m`, `walk_time_min`, `climb_m`, `descent_m`, `max_slope_deg`, `geometry` (array of `[x_m,y_m]`, simplified for display), `cell_path_length`, `nearest_reachable` (if NO_ROUTE), `profile` (arrays `dist_m[]`, `elev_m[]`, `slope_class[]` sampled every 5 m; `slope_class` ∈ `ok \| caution \| over_limit` against the scenario's current limits, 01 FR-08).
+**Leg:** `from`, `to`, `status` (`OK \| NO_ROUTE`), `reason` (if NO_ROUTE), `distance_m`, `walk_time_min`, `climb_m`, `descent_m`, `max_slope_deg`, `geometry` (array of `[x_m,y_m]`, simplified for display), `cell_path_length`, `nearest_reachable` (if NO_ROUTE), `profile` (arrays `dist_m[]`, `elev_m[]`, `slope_class[]` sampled every 5 m; `slope_class` ∈ `ok \| caution \| over_limit` against the scenario's current limits, 01 FR-08). v2 adds `comm[]` (0/1 LOS per sample) and `haven_min[]` (planning approximation, 02 §D.8).
 
-**Warning:** `code` (`OVER_HARD_SLOPE`, `CAUTION_SLOPE`, `LOW_TI`, `TI_UNKNOWN`, `LOW_RES_DEM`, `NO_DATA_ADJACENT`, `NO_ROUTE`, `EVA_DURATION_EXCEEDED`, `WALKBACK_EXCEEDED`, `DARKNESS`), `severity` (`caution \| blocked \| unknown`), `leg` (index or null), `from_m`, `to_m` (along-leg distance; null when the warning has no location, e.g. `EVA_DURATION_EXCEEDED`), `at_utc` (for time warnings), `message`.
+**Warning:** `code` (`OVER_HARD_SLOPE`, `CAUTION_SLOPE`, `LOW_TI`, `TI_UNKNOWN`, `LOW_RES_DEM`, `NO_DATA_ADJACENT`, `NO_ROUTE`, `EVA_DURATION_EXCEEDED`, `WALKBACK_EXCEEDED`, `DARKNESS`; v2: `COMM_SHADOW`, `HAVEN_TIME_EXCEEDED`, `RADIATION_ALERT`, `CONSUMABLES_LOW`), `severity` (`caution \| blocked \| unknown`), `leg` (index or null), `from_m`, `to_m` (along-leg distance; null when the warning has no location, e.g. `EVA_DURATION_EXCEEDED`), `at_utc` (for time warnings), `message`.
 
 ### PlanExport
 
@@ -251,6 +289,188 @@ All defaults carry provenance `assumed` in the UI.
 | `result` | PlanResult | ✓ |
 | `provenance_summary` | array of `{value_path, provenance, source_ids}` | ✓ |
 | `disclaimer` | string | ✓ |
+
+### ParamSet *(v2)*
+
+Every number the simulation uses that is not data. Shown in the UI next to whatever it drives.
+
+| Field | Type | Req | Rules | Example |
+| --- | --- | --- | --- | --- |
+| `param_set_id` (PK) | string | ✓ | unique | `"pr1-assumed"` |
+| `kind` | enum | ✓ | `suit \| pressurized_rover \| utility_rover \| link \| alert \| shielding` | `"pressurized_rover"` |
+| `title` | string | ✓ | | `"Pressurized rover (SEV-class concept)"` |
+| `values` | object | ✓ | keys per kind (table below) | `{"flat_speed_kmh": 10, "hard_slope_deg": 20}` |
+| `provenance` | enum | ✓ | `assumed` unless every value is cited | `"assumed"` |
+| `source_ids` | string[] | | cited sources for any value | `[]` |
+| `note` | string | | | `"Values from 02 §D.9; replace with cited figures (U-20)"` |
+
+| `kind` | Required `values` keys (02 reference) |
+| --- | --- |
+| `suit` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, o2_nominal_h, p_walk_w, p_rest_w, p_ref_w, antenna_m` (§D.3, §D.14) |
+| `pressurized_rover` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, low_ti_cost, min_speed_frac, capacity, ingress_min, antenna_m` (§D.9) |
+| `utility_rover` | as above + `battery_wh, p_base_w, mass_kg, climb_eff` |
+| `link` | `range_hab_suit_m, range_suit_suit_m, range_rover_m, hab_mast_m, relay_min_elev_deg, conjunction_deg, dte_enabled` (§D.11–D.12) |
+| `alert` | `rad_k_background, rad_clear_k, rad_clear_min, buddy_max_m, o2_caution_frac, o2_warning_frac` (§D.13–D.14) |
+| `shielding` | `suit, pressurized_rover, hab` factors (§D.13) |
+
+## C.2 Runtime entities (Hab Core) *(v2)*
+
+Conventions as §C. In addition: `sim_time` is ISO-8601 UTC of the **mission clock** (never wall-clock); `seq` is the Hab Core's monotonic event number; every computed or simulated number travels with a provenance entry (`provenance` map keyed by field path, as in 02 §E.6).
+
+### Scenario
+
+| Field | Type | Req | Rules | Example |
+| --- | --- | --- | --- | --- |
+| `scenario_schema_version` | string | ✓ | SemVer | `"1.0.0"` |
+| `scenario_id` (PK) | string | ✓ | `^[a-z0-9-]+$` | `"storm-sol4190"` |
+| `title` | string | ✓ | | `"Storm at sol 4190"` |
+| `site_id`, `data_version` | string | ✓ | must equal the loaded Site | `"gale_boxwork"` |
+| `seed` | int | ✓ | 32-bit | `4190` |
+| `start_utc` | ISO | ✓ | | `"2024-05-20T…Z"` (TASK-21) |
+| `plan` | PlanExport | ✓ | `plan_hash` must verify | — |
+| `crew` | array of `{crew_id, suit_param_set, start_offset_s}` | ✓ | 1–2 entries, ids `EV1`/`EV2` | — |
+| `vehicles` | array of `{vehicle_id, kind, param_set, start_x_m, start_y_m}` | ✓ | start on a passable cell for its kind | — |
+| `param_sets` | FK[] → ParamSet | ✓ | must include one `link`, `alert`, `shielding` | — |
+| `events` | ScenarioEvent[] | ✓ | sorted by `t_utc` | — |
+| `tables` | `{dose_series, earth_link}` | ✓ | relative paths + SHA-256 | — |
+| `source_ids` | string[] | ✓ | every source the scenario draws on | `["rad-sol4190", "donki-2024-05", "naif-de440s"]` |
+
+### ScenarioEvent
+
+| Field | Type | Req | Rules |
+| --- | --- | --- | --- |
+| `event_id` | string | ✓ | unique in scenario |
+| `t_utc` | ISO | ✓ | Mars-side time at which the event *exists* (e.g., Earth issue time for an Earth message) |
+| `kind` | enum | ✓ | `EARTH_MESSAGE \| DONKI_RECORD \| ADVISORY \| INJECT` |
+| `payload` | object | ✓ | per kind; `EARTH_MESSAGE`: `{body, sent_earth_utc}`; `DONKI_RECORD`: `{donki_type, donki_id, summary, predicted_mars_arrival_utc?}` |
+| `provenance` | enum | ✓ | `replayed` for DONKI and published records; `simulated` for `INJECT` and invented messages |
+| `source_id` | FK | cond. | required unless `simulated` |
+
+### DoseSeries (`dose_series.json`)
+
+| Field | Type | Req | Rules |
+| --- | --- | --- | --- |
+| `series_id` | string | ✓ | `"rad-sol4190"` |
+| `quantity` | string | ✓ | `"surface absorbed dose rate"` |
+| `unit` | string | ✓ | `"uGy/h"` — absorbed dose; never Sv for the event (02 §C.5 L9) |
+| `samples` | array of `[t_utc, rate]` | ✓ | strictly increasing time; gaps allowed (rate = null) |
+| `background_rate` | number | ✓ | same unit; used for the trigger |
+| `method` | enum | ✓ | `archive \| digitised \| template_scaled` |
+| `provenance` | enum | ✓ | `replayed` |
+| `source_id` | FK | ✓ | |
+| `integral_check` | `{expected_ugy, computed_ugy}` | ✓ | for `digitised`/`template_scaled`, expected = published total (8,100 µGy) |
+
+### EarthLinkTable (`earth_link.json`)
+
+| Field | Type | Req | Rules |
+| --- | --- | --- | --- |
+| `step_s` | int | ✓ | 60 |
+| `rows` | array of `{t_utc, light_time_s, sep_angle_deg, earth_elev_deg, orbiters: {mro, maven, tgo}}` | ✓ | orbiter values = elevation in degrees at the site |
+| `passes` | array of `{orbiter, start_utc, end_utc, max_elev_deg}` | ✓ | precomputed with `link.relay_min_elev_deg` |
+| `kernels` | array of `{file, sha256, source_id}` | ✓ | SPICE files used |
+| `provenance` | enum | ✓ | `derived` |
+
+### Session
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `session_id` (PK) | string | `s-<n>` |
+| `scenario_id`, `data_version`, `seed` | — | copied from Scenario |
+| `status` | enum | `LOADED \| RUNNING \| PAUSED \| ENDED` |
+| `clock` | `{sim_time, speed: 1\|10\|60, paused}` | |
+| `plan_revision` | int | increments on every `PLAN_REVISED` |
+| `last_seq` | int | |
+| `log_hash` | string | running SHA-256 over canonical LogEvents (NFR-06) |
+
+### ClientConnection
+
+`client_id`, `role` (`planner \| eva:EV1 \| eva:EV2 \| ops \| earth`), `display_name`, `connected_since` (wall-clock, diagnostics only — never logged into `session.jsonl`), `last_seq_acked`. Not persisted.
+
+### Crew
+
+| Field | Type | Provenance | Notes |
+| --- | --- | --- | --- |
+| `crew_id` | `EV1 \| EV2` | — | |
+| `x_m`, `y_m` | number | `simulated` | |
+| `activity` | enum | `simulated` | `IN_HAB \| WALKING \| AT_STOP \| TO_HAVEN \| SHELTERED` |
+| `stop_index` | int \| null | `simulated` | |
+| `o2_frac` | 0–1 | `simulated` (rate `modelled`) | |
+| `eva_elapsed_s` | int | `simulated` | |
+| `dose_event_ugy` | number | `simulated` (from `replayed` rate × `assumed` shielding) | |
+| `dose_event_unsheltered_ugy` | number | same | counterfactual |
+| `haven` | `{minutes, kind: hab\|vehicle\|refuge, target_x_m, target_y_m}` | `modelled` | 02 §D.8 |
+| `linked` | bool | `simulated` (from `derived` LOS) | |
+| `link_path` | string[] | `simulated` | e.g. `["EV1","EV2","HAB"]` |
+| `stale` | bool | — | true when unlinked: ops shows last known values with age |
+
+### Vehicle
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `vehicle_id` | string | `PR1` (pressurized), `UR1` (utility) |
+| `kind` | `pressurized_rover \| utility_rover` | |
+| `param_set` | FK → ParamSet | |
+| `x_m`, `y_m` | number | `simulated` |
+| `state` | enum | `PARKED \| DISPATCHED \| EN_ROUTE \| ARRIVED \| RETURNING \| TASKED` |
+| `task` | `{kind: SUMMON\|SCOUT\|CARRY\|RELAY\|RETURN, target, crew_ids?}` \| null | |
+| `path` | `[x_m,y_m][]` | display-simplified |
+| `eta_s` | int \| null | `modelled` |
+| `battery_wh` | number \| null | utility rover only, `simulated` |
+
+### Alert
+
+| Field | Type | Rules |
+| --- | --- | --- |
+| `alert_id` | string | `a-<seq>` |
+| `code` | enum | `RADIATION_ALERT \| HAVEN_TIME_EXCEEDED \| CONSUMABLES_LOW \| COMM_SHADOW \| LINK_LOST \| BUDDY_SEPARATION \| EARTH_FORECAST \| ADVISORY \| INJECTED` |
+| `level` | enum | `warning \| caution \| advisory` (04 §C alert hierarchy) |
+| `subjects` | string[] | crew/vehicle ids |
+| `raised_seq` / `acked_seq` / `cleared_seq` | int \| null | lifecycle |
+| `acked_by` | role \| null | |
+| `message` | string | action-first, ≤ 60 chars (04 §D.4) |
+| `data` | object | values + provenance map |
+
+### ContingencyOption
+
+`option_id`, `alert_id`, `kind` (`ABORT_TO_HAB \| VEHICLE_RENDEZVOUS \| TERRAIN_REFUGE \| CONTINUE_SKIP`), `crew_ids`, `eta_shelter_min` (`modelled`), `expected_dose_ugy` (`modelled`), `stops_dropped` (int[]), `violations` (Warning codes), `rank` (1 = best), `path_preview` (`[x_m,y_m][]`), `rendezvous` (`{x_m, y_m, eta_crew_s, eta_vehicle_s}` \| null).
+
+### Command
+
+| Field | Type | Rules |
+| --- | --- | --- |
+| `command_id` | string | client-generated, unique per client |
+| `role` | role | must have permission (02 §E.4) |
+| `kind` | enum | `LOAD_SCENARIO \| SET_CLOCK \| JUMP_NEXT_EVENT \| START_EVA \| PUBLISH_PLAN \| SUMMON_VEHICLE \| ABORT \| ACK_ALERT \| APPROVE_OPTION \| TASK_ROVER \| SEND_MESSAGE \| INJECT_EVENT` |
+| `args` | object | per kind |
+| `queued_offline` | bool | set by an EVA client that resends after `LINK_STATE linked=true` |
+
+Commands are **not** logged themselves; the LogEvent they produce (or a `COMMAND_REJECTED` event) is.
+
+### LogEvent (one line of `session.jsonl`)
+
+| Field | Type | Rules |
+| --- | --- | --- |
+| `seq` | int | monotonic, gap-free |
+| `sim_time` | ISO | |
+| `kind` | enum | `SESSION_LOADED, EVA_STARTED, ARRIVED_STOP, LEFT_STOP, ALERT_RAISED, ALERT_ACKED, ALERT_CLEARED, OPTIONS_PROPOSED, PLAN_REVISED, VEHICLE_DISPATCHED, VEHICLE_ARRIVED, CREW_SHELTERED, LINK_LOST, LINK_RESTORED, EARTH_MSG_QUEUED, EARTH_MSG_DELIVERED, COMMAND_REJECTED, CLOCK_CHANGED, EVA_ENDED` |
+| `actor` | role \| `system` | |
+| `data` | object | values needed to reduce state without recomputation |
+| `provenance` | object | field path → class |
+| `inputs_hash` | string | SHA-256 of the compute inputs when the event carries a computed value |
+
+Per-tick position updates are **not** logged; they are re-derived on replay from the plan and the logged events (determinism, NFR-06).
+
+### EarthMessage
+
+`message_id`, `direction` (`to_earth \| to_mars`), `body`, `sent_utc` (sender's clock), `deliver_utc` (02 §D.12), `via` (`mro \| maven \| tgo \| dte`), `state` (`QUEUED \| IN_TRANSIT \| DELIVERED`), `provenance` (`simulated`; delivery time `derived`).
+
+### LinkState
+
+`node_id` (`HAB`, `EV1`, `EV2`, `PR1`, `UR1`), `neighbors` (node ids with LOS and in range), `linked_to_hab` (bool), `since_sim_time`. Recomputed each tick for mobile nodes; LOS uses `comm_hab` (static) and relay viewsheds (dynamic).
+
+### PostEvaReport
+
+Built from the log on demand (`GET /api/report`): planned vs. actual per stop (arrive/depart), alerts with response time (raised → acked → sheltered), dose received vs. unsheltered vs. planned background, stops completed/dropped, plan revisions, provenance summary, `log_hash`, disclaimer.
 
 ---
 
@@ -290,6 +510,38 @@ erDiagram
 | Historical data vs. scenario assumptions | `TraversePoint`, `EnvConstant` (historical/measured) vs. scenario defaults (`assumed`) |
 | Data versions vs. analysis runs | `data_version` (immutable static bundle) vs. `plan_hash` + `computed_utc` (one run) |
 
+### Runtime relationships *(v2)*
+
+```mermaid
+erDiagram
+  SCENARIO }o--|| SITE : "valid for data_version"
+  SCENARIO ||--|| PLAN_EXPORT : "carries"
+  SCENARIO ||--o{ SCENARIO_EVENT : "schedules"
+  SCENARIO ||--|| DOSE_SERIES : "replays"
+  SCENARIO ||--|| EARTH_LINK_TABLE : "uses"
+  SCENARIO }o--|{ PARAM_SET : "parameterised by"
+  SESSION }o--|| SCENARIO : "runs"
+  SESSION ||--|{ LOG_EVENT : "appends"
+  SESSION ||--|{ CREW : "tracks"
+  SESSION ||--o{ VEHICLE : "tracks"
+  SESSION ||--o{ ALERT : "raises"
+  SESSION ||--o{ EARTH_MESSAGE : "queues"
+  SESSION ||--o{ CLIENT_CONNECTION : "serves"
+  ALERT ||--o{ CONTINGENCY_OPTION : "proposes"
+  CONTINGENCY_OPTION }o--o| VEHICLE : "dispatches"
+  CREW }o--|| PARAM_SET : "suit"
+  VEHICLE }o--|| PARAM_SET : "vehicle"
+  CLIENT_CONNECTION ||--o{ COMMAND : "sends"
+  COMMAND ||--o| LOG_EVENT : "results in"
+  SESSION ||--o| POST_EVA_REPORT : "summarised by"
+```
+
+| Distinction (v2) | How |
+| --- | --- |
+| Replayed history vs. simulation | `DoseSeries`, DONKI `ScenarioEvent`s → `replayed`; crew/vehicle state, invented messages, injects → `simulated` |
+| Assumptions vs. data | Every non-data number lives in a `ParamSet` with `provenance` and optional `source_ids` |
+| Requests vs. facts | `Command` (may be rejected) vs. `LogEvent` (immutable) |
+
 ---
 
 ## E. Integrity and access patterns
@@ -306,7 +558,7 @@ erDiagram
 
 ### E.2 Ownership and access
 
-Single-user, local; no access control. Static bundle is public (Space Apps requires a public repository).
+v1: single-user, local; no access control. v2: Hab Core enforces **role** permissions per command (02 §E.4) on a LAN without WAN; still no accounts. Static bundle is public (Space Apps requires a public repository).
 
 ### E.3 Referential integrity (validated by the `validate-manifest` command and at app boot in dev builds)
 
@@ -331,6 +583,29 @@ Single-user, local; no access control. Static bundle is public (Space Apps requi
 - Optional layer asset missing → Layer status `unavailable`; dependent flags (e.g., `LOW_TI`) treated as `TI_UNKNOWN`, producing `unknown`-severity warnings rather than silence.
 - Upstream product replaced (e.g., USGS v4 DEM) → new `data_version`; never overwrite assets in place.
 - Rover image unavailable → POI still valid; image fields null; UI shows placeholder with source link.
+
+### E.7 Runtime integrity and access *(v2)*
+
+| Rule | Enforced by |
+| --- | --- |
+| Scenario `site_id`/`data_version` equal the loaded Site; `plan_hash` verifies; table SHA-256s match | Hab Core on `LOAD_SCENARIO` (reject with reason) |
+| Every vehicle and crew start is passable for its kind | Hab Core on load |
+| `seq` gap-free; `session.jsonl` append-only; snapshot `seq` ≤ last line | Hab Core writer; checked on resume |
+| Replay: snapshot + events after it reproduce state; full log reproduces `log_hash` | `npm run hab:replay` / CI (NFR-06, NFR-14) |
+| Role permissions | 02 §E.4 matrix, checked per Command |
+| No wall-clock in logged data | Lint rule + test (no `Date.now()` in `apps/hab-core/src/engine`) |
+
+| Access | Implementation |
+| --- | --- |
+| Current state | In-memory reducer state; `SNAPSHOT` on connect |
+| Events after `seq` | Offset index (`seq → byte offset`) built while appending |
+| Next scenario event | Pointer into the sorted `events` array |
+| Earth link at time t | Binary search on `rows` (60 s step); `passes` linear (few dozen) |
+| Dose rate at time t | Binary search on `samples`; step-hold between samples (no interpolation across `null` gaps) |
+
+### E.8 Versioning *(v2)*
+
+`scenario_schema_version` and `protocol` version `v` (02 §E.6) follow the same major-version refusal rule as §E.4. A scenario is valid only for one `data_version`; regenerate it when the site bundle changes.
 
 ---
 
@@ -455,9 +730,63 @@ Single-user, local; no access control. Static bundle is public (Space Apps requi
 
 *(Metric values illustrative; the radiation numbers are internally consistent: 148 min × 0.64/1440 = 0.066 mSv, range 0.053–0.078.)*
 
+### F.4 Scenario (abridged) *(v2; times illustrative until TASK-21)*
+
+```json
+{
+  "scenario_schema_version": "1.0.0",
+  "scenario_id": "storm-sol4190",
+  "title": "Storm at sol 4190",
+  "site_id": "gale_boxwork",
+  "data_version": "gale_boxwork-2026.11.08",
+  "seed": 4190,
+  "start_utc": "2024-05-20T00:00:00Z",
+  "plan": {"plan_hash": "…", "scenario": {"max_haven_min": 30, "crew_count": 2, "vehicle_available": true, "vehicle_param_set": "pr1-assumed"}},
+  "crew": [{"crew_id": "EV1", "suit_param_set": "suit-assumed", "start_offset_s": 0},
+           {"crew_id": "EV2", "suit_param_set": "suit-assumed", "start_offset_s": 0}],
+  "vehicles": [{"vehicle_id": "PR1", "kind": "pressurized_rover", "param_set": "pr1-assumed", "start_x_m": -1800, "start_y_m": -1500}],
+  "param_sets": ["suit-assumed", "pr1-assumed", "link-assumed", "alert-assumed", "shielding-assumed"],
+  "events": [
+    {"event_id": "e1", "t_utc": "2024-05-20T…Z", "kind": "DONKI_RECORD", "provenance": "replayed", "source_id": "donki-2024-05",
+     "payload": {"donki_type": "FLR", "donki_id": "…", "summary": "X-class flare (far side from Earth; class estimated from Solar Orbiter)"}},
+    {"event_id": "e2", "t_utc": "2024-05-20T…Z", "kind": "EARTH_MESSAGE", "provenance": "simulated",
+     "payload": {"sent_earth_utc": "2024-05-20T…Z", "body": "SEP event in progress. Recommend shelter."}}
+  ],
+  "tables": {"dose_series": {"path": "dose_series.json", "sha256": "…"}, "earth_link": {"path": "earth_link.json", "sha256": "…"}},
+  "source_ids": ["rad-sol4190", "donki-2024-05", "naif-de440s", "esa-tgo-spk"]
+}
+```
+
+### F.5 ParamSet *(v2)*
+
+```json
+{"param_set_id": "pr1-assumed", "kind": "pressurized_rover", "title": "Pressurized rover (SEV-class concept)",
+ "values": {"flat_speed_kmh": 10, "hard_slope_deg": 20, "caution_slope_deg": 15, "low_ti_cost": 2.0,
+            "min_speed_frac": 0.3, "capacity": 4, "ingress_min": 5, "antenna_m": 3},
+ "provenance": "assumed", "source_ids": [], "note": "02 §D.9; replace with cited figures (U-20)"}
+```
+
+### F.6 LogEvent lines *(v2; numeric values left `null` until TASK-21 fixes the scenario)*
+
+```json
+{"seq": 420, "sim_time": "2024-05-20T…Z", "kind": "ALERT_RAISED", "actor": "system",
+ "data": {"alert_id": "a-420", "code": "RADIATION_ALERT", "level": "warning", "subjects": ["EV1", "EV2"],
+          "message": "Radiation surge — shelter now", "rate_ugy_h": null, "threshold_ugy_h": null},
+ "provenance": {"data.rate_ugy_h": "replayed", "data.threshold_ugy_h": "assumed"}, "inputs_hash": "…"}
+{"seq": 421, "sim_time": "2024-05-20T…Z", "kind": "OPTIONS_PROPOSED", "actor": "system",
+ "data": {"alert_id": "a-420", "options": [{"option_id": "o1", "kind": "VEHICLE_RENDEZVOUS", "rank": 1},
+                                           {"option_id": "o2", "kind": "ABORT_TO_HAB", "rank": 2}]},
+ "provenance": {"data.options[].eta_shelter_min": "modelled"}, "inputs_hash": "…"}
+{"seq": 422, "sim_time": "2024-05-20T…Z", "kind": "VEHICLE_DISPATCHED", "actor": "eva:EV1",
+ "data": {"vehicle_id": "PR1", "option_id": "o1", "rendezvous": {"x_m": null, "y_m": null, "eta_crew_s": null, "eta_vehicle_s": null}},
+ "provenance": {"data.rendezvous": "modelled"}, "inputs_hash": "…"}
+```
+
 ## Unresolved items owned by this document
 
 | ID | Item | Recommendation |
 | --- | --- | --- |
 | U-10 | Can a per-pixel DEM source map (HiRISE vs. fill) be obtained for `LOW_RES_DEM`? | Try stereo-pair footprints from the DEM metadata list; else hand-digitise coverage from hillshade texture and label it interpreted |
 | U-11 | Store profile arrays in export or recompute on import? | Store (small) — simplifies briefing rendering |
+| U-23 | Snapshot cadence vs. demo restart time | 500 events; measure resume time in TASK-22 |
+| U-24 | Store per-tick crew positions for the post-EVA map trace? | No — re-derive on replay; store only a 30 s-decimated trace in the report |

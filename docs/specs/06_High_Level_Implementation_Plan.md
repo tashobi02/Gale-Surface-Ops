@@ -3,9 +3,13 @@
 | | |
 | --- | --- |
 | **Owner** | Delivery (this file owns order, dependencies and cut decisions) |
-| **Date** | 2026-11-02 (Monday) |
-| **Status** | Draft v1 — proposed |
-| **Related** | Inputs: [01 PRD](01_Product_Requirements_Document.md) · [02 Technical](02_Technical_Requirements_Document.md) · [03 Flow](03_App_Flow_and_Diagrams.md) · [04 Design](04_Design_Brief.md) · [05 Schema](05_Backend_and_Database_Schema.md) · [Docs index](../README.md) |
+| **Date** | 2026-11-04 (Wednesday) |
+| **Status** | Draft v2 — supersedes v1 (2026-11-02) |
+| **Related** | [01 PRD](01_Product_Requirements_Document.md) (tiers T0–T2, killer demo §E.1) · [02 Technical](02_Technical_Requirements_Document.md) · [03 Flow](03_App_Flow_and_Diagrams.md) · [04 Design](04_Design_Brief.md) · [05 Schema](05_Backend_and_Database_Schema.md) · [Docs index](../README.md) |
+
+### Change log v1 → v2
+
+Team 4 → **6**; scope = surface operations system in three tiers; new tasks TASK-20…TASK-30; milestone added for the organizer guide's **12 Nov full offline dry run**; cut list rewritten around the killer demo.
 
 ---
 
@@ -13,61 +17,94 @@
 
 | Item | Value | Label |
 | --- | --- | --- |
-| Team size | 6 (rules allow 1–6; roster in [ops/team.md](../ops/team.md)) | **Confirmed** (team owner, 2026-11-04) |
-| Roles | Data/GIS lead (Python, GDAL) · Compute engineer (TypeScript algorithms + tests) · Frontend engineer (OpenLayers/UI) · Design & story lead (UX, visuals, video, submission) | **Assumed** |
-| Calendar | Pre-event: 2–12 Nov. Bangladesh hackathon: Fri 13 Nov 07:00 – Sat 14 Nov. 240-s local-judging video due **13 Nov 18:30**; final 30-s video upload **14 Nov 09:00** (run of show) with hard cut-off **12:00**; local judging from **11:00** | **Confirmed** (Participants Guide) |
-| Event working time | ≈ 16–20 focused hours per person (ceremonies, mentor rounds, meals, sleep removed) → ≈ 96–120 person-hours for 6 people | **Assumed** |
-| Budget / infrastructure | $0; team laptops; ≥ 40 GB free disk on the data laptop; campus internet for downloads before the event | **Assumed** |
-| Pre-event work allowed | Participants Guide explicitly recommends downloading datasets offline, setting up and testing the environment, preparing a public repository, slide template and demo script before day one. Application **code** may be written before 13 Nov: Dhaka Local Lead answered yes on 2026-11-04 ([ops/rules.md](../ops/rules.md)); re-check against the 2026 Project Submission and Judging guides on 13 Nov | **Confirmed** |
+| Team | 6: Obidit Islam (owner), Sadman Shaharier Mahim, Saba Atharique, Mishkat Ahmed Khan, Anjim Hossain, Ridita Alam ([ops/team.md](../ops/team.md)) | **Confirmed** |
+| Roles | Six owned roles R1–R6 (§A.1), proposed from the skills in [ops/team.md](../ops/team.md); sign-off at the 5 Nov kickoff | **Proposed** (`TODO(decision)`) |
+| Calendar | Today Wed 4 Nov. Pre-event: 4–12 Nov. Bangladesh hackathon: Fri 13 Nov 07:00 → Sat 14 Nov. 240-s local video **13 Nov 18:30**; 30-s global video **14 Nov 09:00** (hard cut-off 12:00); local judging from 11:00 | **Confirmed** (Participants Guide; organizer Build Guide) |
+| Pre-event capacity | ≈ 3 h/day/person × 8 days × 6 ≈ **140 person-hours** (classes and exams continue) | **Assumed** |
+| Event capacity | ≈ 16–18 focused h/person ≈ **100 person-hours** | **Assumed** |
+| Pre-event building | **Track P**: the Dhaka Local Lead allowed pre-event application code on 2026-11-04 ([ops/rules.md](../ops/rules.md)); the organizer Build Guide also expects a full offline dry run by 12 Nov. Re-check against the 2026 guides on 13 Nov | **Confirmed** |
+| Hardware | ≥ 3 laptops (one ≥ 16 GB RAM for the Hab Core + data), ≥ 2 phones (one Android, one iOS if possible), **one travel router owned by the team** (U-21) | **Assumed** |
+| Budget | $0 runtime; router if not owned (~BDT 2–3k) | **Assumed** |
 
-Because of the unresolved rule, the plan has two tracks:
+### A.1 Roles
 
-- **Track S (strict):** before 13 Nov only data acquisition, data preprocessing outputs, environment setup, design, and documentation; all app code written during the event.
-- **Track P (permissive):** if allowed, the TASK-02 spike and TASK-05 compute core are also done before the event.
+| Role | Proposed lead (support) | Owns | Packages / folders | Primary tasks |
+| --- | --- | --- | --- | --- |
+| **R1 Data & GIS** | Obidit (Mishkat) | Every byte of site data and scenario tables | `pipeline/`, `data/sites/`, `scenarios/*/` | TASK-01, 03, 21 (data half) |
+| **R2 Compute** | Mishkat (Anjim) | All numbers | `packages/compute/` + tests | TASK-05, 05b, 06 |
+| **R3 Map & Planner UI** | Saba | The map component (shared by planner, ops, EVA) and the planner | `apps/web/src/map`, `apps/web/src/ui/screens/scr0*` | TASK-02, 07–11 |
+| **R4 Hab Core** | Sadman (Anjim) | Server, protocol, engine, network kit | `apps/hab-core/`, `packages/protocol/` | TASK-20, 22, 23, 26, 28 |
+| **R5 EVA & Ops UI** | Ridita (Saba) | Suit tablet, HUD, ops console, report view | `apps/web/src/ui/screens/scr1*`, `apps/web/src/net/` | TASK-24, 25, 27 (UI) |
+| **R6 Science, Story & Design** | Obidit for story/submission; Ridita for the design system | POI science content, EZ framing, design system, usability, videos, submission | `docs/`, `data/sites/*/vectors`, `apps/web/src/ui/styles/` | TASK-00 (done), 04 (content), 12, 13, 15, 16, 17, 30 |
 
-Effort ranges are person-hours, not promises.
+Anjim floats between R2 and R4 because compute v2 (TASK-05b) and the engine (TASK-22) are the two heaviest packages.
+
+Pairing rule: R2↔R4 own `packages/protocol` jointly; R3↔R5 share the map component; R1↔R6 co-own POIs (R1 geometry, R6 content).
 
 ---
 
 ## B. Milestones
 
-| Milestone | Window | Exit criteria | Tasks |
+| Milestone | Window | Exit criteria | Gate for |
 | --- | --- | --- | --- |
-| **M0 Feasibility & rules** | 2–5 Nov | AOI chosen inside DEM extent; DEM quality inside AOI judged (HiRISE vs. fill); site decision D-01 locked (Gale or Jezero); rules question answered | TASK-00, TASK-01, TASK-02 (Track P) |
-| **M1 Data ready** | 5–10 Nov | `site-manifest.json` validates; tiles, grid, vectors, images in place; checksums recorded; offline load of assets verified with a static server | TASK-03, TASK-04 |
-| **M2 Setup** | 10–12 Nov | Public repo with licence, environment files, design tokens, wireframe sketches, demo script draft; everyone can run the pipeline outputs locally | TASK-13 (tokens only), TASK-16 (skeleton) |
-| **M3 Walking skeleton** | Day 1, by 12:30 | Map renders AOI in correct projection; clicking two points draws a routed line and an elevation profile (end-to-end slice) | TASK-07 (min), TASK-05 (min), TASK-09 (min) |
-| **M4 MVP features** | Day 1, by 18:00 | All M-priority FRs functional at least roughly; 240-s video recorded with live demo by 18:30 | TASK-05…TASK-12 |
-| **M5 Design integration & validation** | Day 1 19:00 → Day 2 06:00 | Visual system applied; accessibility pass; offline rehearsal ×2; usability test ×3 people | TASK-13, TASK-14, TASK-15 |
-| **M6 Demo freeze & submission** | Day 2, 06:00 → 11:00 | Freeze at 06:00; 30-s video uploaded by 09:00; NASA page complete; repo public and tested in private window | TASK-16, TASK-17 |
+| **M0 Kickoff & feasibility** | 4–5 Nov | Roles signed off; v2 restructure merged; U-12 ✓ (Track P, 4 Nov); AOI and **hab position** chosen inside DEM extent; source checks started (U-15, U-18) | Everything |
+| **M1 Spikes** | 5–8 Nov | TASK-02 projection renders with correct scale; **TASK-20** two phones receive a Hab Core broadcast ≤ 500 ms on the travel router; **TASK-05b** full-grid Dijkstra ≤ 2 s on the weakest laptop | Architecture locked (else fallbacks in §D.5) |
+| **M2 Data & scenario ready** | 5–10 Nov | Manifest validates; grids incl. `comm_hab`; `earth_link.json`, dose series and `scenario.json` for sol 4190 built and checksummed | Tier 1 build |
+| **M3 Walking skeleton (pre-event)** | by 11 Nov | Headless replay of the storm scenario writes a stable event log; planner computes a 3-stop route; ops map shows crew moving; EVA shows margins | Tier 1 polish |
+| **M4 Offline dry run** | **12 Nov** | Killer demo (01 §E.1) runs on 3 devices over the travel router, WAN unplugged, **3 times in a row**; fallback screen recording saved | Event plan |
+| **M5 Event: demo path green** | Day 1 by 12:30 | Same as M4 at the venue on the team's router; any regressions fixed | 240-s recording |
+| **M6 Event: 240-s video** | Day 1 by 18:30 | Video uploaded with datasets named on camera | — |
+| **M7 Polish & Tier 2** | Day 1 19:00 → Day 2 05:00 | Tier 1 exit criteria met before any Tier 2 work; design pass; 3-person usability test | — |
+| **M8 Freeze & submit** | Day 2 06:00 → 09:00 | Freeze 06:00; 30-s video by 09:00; project page complete; repo tested in a private window | Judging 11:00 |
 
-Uncertain, high-impact dependencies (DEM quality, projection rendering, router speed) are all scheduled in M0–M3.
+**Tier gates (from 01 §C):** Tier 1 work starts only after Tier 0 routing works on the real grid (M1/M2). Tier 2 work starts only after M4 passes.
 
 ---
 
 ## C. Work packages
 
-| Task | Objective | Related reqs | Deliverable | Depends on | Owner | Effort | Done when | Main risk → fallback |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **TASK-00** | Resolve rules + register | — | Written answer from rules page / Local Lead; team registered on NASA site and Bangladesh form | — | Story lead | 1–2 h | Answer recorded in repo `docs/ops/rules.md` | No answer → follow Track S |
-| **TASK-01** | Feasibility: AOI, DEM quality, coverage checks | FR-01–03, FR-18, A-01 | `docs/ops/feasibility.md`: AOI bounds, DEM source assessment, THEMIS tile id, CRISM coverage yes/no, DEM datum from PDS3 label, decision D-01 | — | Data lead | 4–8 h | AOI inside DEM extent; hillshade shows HiRISE-scale texture across ≥ 80 % of AOI | DEM is CTX-quality → switch to Jezero (USGS M2020 TRN HiRISE DTM mosaic) same day |
-| **TASK-02** | Spike: OpenLayers custom Mars projection + custom tile grid | FR-01, D-03 | Minimal page showing test tiles + correct scale bar | TASK-01 (projection string) | Frontend | 2–4 h | Scale bar matches a DEM-measured feature within 2 % | Fails in 2 h → ImageStatic fallback (02 §B) |
-| **TASK-03** | Preprocessing pipeline | FR-01–03, FR-07, NFR-06 | `pipeline/` scripts → tiles (ortho 0.5 m; hillshade/slope/elevation/TI 2 m), routing grid 5 m (elevation, slope_p90, slope_max, flags, TI), `site-manifest.json`, `sources.lock.json`, `validate_manifest.py` | TASK-01 | Data lead | 8–14 h | Validator passes; sampled values match source rasters; total bundle ≤ 250 MB | Slow tiling → lower max zoom; grid too big → 10 m cells |
-| **TASK-04** | Vectors, POIs and images | FR-04, FR-17 | `traverse.geojson`, `pois.geojson` (5–8 POIs), `images/`, credits list | TASK-01 | Story lead + Data lead | 4–8 h | Traverse aligns with tracks at ≥ 3 checkpoints; every POI has credit + position source | PLACES parsing slow → MMGIS JSON (cached, labelled unofficial) |
-| **TASK-05** | Compute core: grid loader, sampling, A*, profile, time model, walkback, warnings | FR-03, FR-06–FR-10, NFR-02, NFR-06 | `web/src/compute/*` + Vitest suite (cases in 02 §D) | TASK-03 grid (synthetic grid OK for tests) | Compute | 8–12 h | Tests green; real-grid p95 3-stop route ≤ 2 s | Too slow → coarser grid / FastAPI alternative (02 §A.3) |
-| **TASK-06** | Mars24 solar functions + radiation estimate | FR-11, FR-12 | `compute/mars24.ts`, `compute/radiation.ts` + tests vs. `marstime` | — | Compute | 3–5 h | 3 reference timestamps within tolerance; radiation examples exact | Port bug → precompute LTST/sun table for demo dates in pipeline with `marstime` |
-| **TASK-07** | App shell + map workspace + layers panel + inspector | FR-01–03, FR-15–17, NFR-11 | Routes `#/`, `#/map`; SCR-01, SCR-02, SCR-03, inspector | TASK-02, TASK-03 | Frontend | 6–10 h | All layers toggle; inspector values match grid | Projection issues → ImageStatic |
-| **TASK-08** | Plan panel + waypoint editing | FR-05, FR-06 | SCR-04 with validation, snapping, reorder, undo | TASK-05 (sample API) | Frontend | 4–6 h | All E.3 validation rules enforced in UI | Drag complex → buttons only |
-| **TASK-09** | Results panel + profile | FR-07–FR-10 | SCR-05, profile ↔ map linking | TASK-05 | Frontend + Compute | 4–6 h | Partial/over-limit states render per 03 §D | Linking slips → profile without linking |
-| **TASK-10** | POI detail + Conditions panel | FR-04, FR-11, FR-12 | SCR-06, SCR-07 | TASK-04, TASK-06 | Frontend | 3–5 h | Images with credits; daylight warning appears for pre-dawn start | — |
-| **TASK-11** | Briefing card + JSON export | FR-14 | SCR-08 print CSS, export | TASK-09 | Design lead + Frontend | 3–5 h | One-page print in Chrome; export reproduces `plan_hash` | Map snapshot hard → static AOI thumbnail with route drawn as SVG |
-| **TASK-12** | Sources & Methods + provenance attributes | FR-15, NFR-05 | SCR-09; `data-provenance` on every metric; DOM test | TASK-03 (sources), TASK-07 | Story lead | 2–4 h | Automated check finds no unlabelled metric | — |
-| **TASK-13** | Visual system + accessibility | NFR-04 | Tokens (04 §C), patterns, focus styles, keyboard map controls, axe scan | TASK-07 | Design lead | 3–6 h | axe: 0 serious issues; keyboard-only run of core scenario | Time short → keep tokens + focus + patterns, drop coach marks |
-| **TASK-14** | Integration + offline hardening + fault tests | FR-16, NFR-01, NFR-10, NFR-03, NFR-08, NFR-09 | Offline rehearsal log; fault-injection results | TASK-07…12 | Compute | 3–5 h | Two clean offline rehearsals; fault cases in 02 §F.1 pass | — |
-| **TASK-15** | Usability test | PRD §B | Notes from 3 non-team users; fixes | TASK-14 | Design lead | 2–3 h | ≥ 2 of 3 finish briefing in ≤ 5 min | — |
-| **TASK-16** | Submission package | Scoring items, NFR-07 | README, Apache-2.0 LICENSE, `docs/AI_USE.md`, credits, NASA project page fields, repo public | TASK-12 | Story lead | 2–4 h | Repo link opens in a private window; every page field filled | — |
-| **TASK-17** | Videos | Judging | 240-s (Day 1 18:30) and 30-s (Day 2 09:00) with English subtitles, datasets named on camera, no under-18 likeness | M4 / M6 | Story lead | 3–5 h | Uploaded; links tested | Live demo fails → screen recording from rehearsal |
-| **TASK-18** | Desirables (only after freeze criteria met early) | FR-13, FR-18–20 | Any of: CRISM layer, REMS context, O₂ estimate, local save | Freeze criteria | Any | 2–6 h each | Feature labelled and tested | Skip |
+Effort is person-hours (ranges, not promises). **P** = pre-event (Track P), **E** = event.
+
+### C.1 Retained from v1 (planning spine, Tier 0)
+
+| Task | Objective | Owner | When | Effort | Done when | Risk → fallback |
+| --- | --- | --- | --- | --- | --- | --- |
+| **TASK-00** | Rules, registration, U-12 in writing | R6 | **Done 4 Nov** (T00.06 venue still open) | 1–2 | Answer in `docs/ops/rules.md`; all 6 registered | — |
+| **TASK-01** | Feasibility: AOI, DEM quality, coverage; **choose hab site** (flat, passable, near science + resource stops, with interesting comm shadows behind ridges) | R1 | P 4–6 Nov | 5–8 | `docs/ops/feasibility.md` with AOI bounds, hab position, DEM assessment | DEM poor → Jezero data fallback (keep design) |
+| **TASK-02** | OpenLayers Mars projection spike | R3 | P 5–7 Nov | 2–4 | Scale bar within 2 % | ImageStatic fallback |
+| **TASK-03** | Pipeline: tiles, routing grid, **`comm_hab` viewshed grid** | R1 | P 5–9 Nov | 10–16 | Validator passes; viewshed matches `gdal_viewshed` at 5 points | Grid too big → 10 m |
+| **TASK-04** | POIs, images, **EZ content**, source verification (U-15 RAD series, U-16 EZ citation, U-17 dust record, U-18 SPICE kernels) | R1 + R6 | P 5–9 Nov | 6–10 | 6–8 POIs with `stop_type`, objective, evidence, credit; sources table complete | RAD series missing → digitise figure (02 §C.5 L9) |
+| **TASK-05** | Compute core v1: sampling, A*, profile, time model, walkback, warnings | R2 | P 5–9 Nov | 8–12 | v1 tests green; 3-stop p95 ≤ 2 s | Coarser grid |
+| **TASK-06** | Mars24 + background radiation | R2 | P 6–9 Nov | 3–5 | 3 reference timestamps vs. `marstime` | Precomputed sun table |
+| **TASK-07** | App shell, map workspace, layers, inspector | R3 | P 7–10 Nov | 6–10 | Layers toggle; inspector matches grid | ImageStatic |
+| **TASK-08** | Plan panel + waypoint editing (+ haven rule input) | R3 | P 9–11 Nov | 4–6 | Validation rules enforced | Buttons only |
+| **TASK-09** | Results panel + profile (+ haven and comm bands) | R3 + R2 | P 10–11 Nov / E | 4–6 | Partial/over-limit states render | No linking |
+| **TASK-10** | POI detail (stop types) + conditions panel | R3 | E | 3–4 | Images with credits | — |
+| **TASK-11** | Briefing card + export → **`PUBLISH_PLAN` to Hab Core** | R3 | E | 3–5 | Plan appears in ops; `plan_hash` stable | Static thumbnail |
+| **TASK-12** | Sources & methods + provenance (6 classes) | R6 | P/E | 3–4 | DOM test: no unlabelled number in any role view | — |
+| **TASK-13** | Design system + **HUD tokens** + a11y | R6 | P 6–10 Nov | 4–6 | Tokens applied; HUD contrast ≥ 7 : 1 | Keep tokens + focus + patterns only |
+| **TASK-14** | Integration, offline hardening, fault tests | R4 (lead) + all | P 11–12 Nov / E | 4–6 | 02 §F.1 + §F.2 fault cases pass | — |
+| **TASK-15** | Usability test (3 non-team users) incl. HUD glance + summon without instruction | R6 | E night | 2–3 | ≥ 2 of 3 pass each criterion (01 §B.2) | — |
+| **TASK-16** | Submission package: README, LICENSE, AI_USE, credits, project page fields | R6 | P/E | 3–4 | Private-window check passes | — |
+| **TASK-17** | Videos: 240 s and 30 s (§F) | R6 + one helper | E | 4–6 | Uploaded, subtitled, datasets named, no under-18 likeness | Use M4 recording |
+| **TASK-18** | Tier 2 desirables (CRISM, REMS, dust, SVF refuge, Earth view) | Any | E after M7 gate | 2–6 each | Labelled and tested | Skip |
+
+### C.2 New in v2 (surface ops, Tier 1 unless marked)
+
+| Task | Objective | Owner | When | Effort | Done when | Risk → fallback |
+| --- | --- | --- | --- | --- | --- | --- |
+| **TASK-05b** | Compute v2: haven fields, rendezvous, dynamic viewshed, link graph, Earth delivery rule, event dose integral, contingency ranking (02 §D.8–D.15) | R2 | P 6–11 Nov | 12–18 | Synthetic tests green; benchmarks within NFR-02 | Planning approximation everywhere; static hab coverage only |
+| **TASK-20** | Hab Core skeleton: Fastify static + `/ws`, `packages/protocol`, HELLO/SNAPSHOT/DELTA/EVENT, reconnect, heartbeat | R4 | P 5–7 Nov | 6–8 | **Spike:** 2 phones + 1 laptop get broadcasts ≤ 500 ms on the router | Single-laptop multi-window mode |
+| **TASK-21** | Scenario builder: SPICE `earth_link.json`, DONKI timeline, RAD dose series, `scenario.json`; final EVA start time and demo numbers | R1 (data) + R6 (script) | P 6–10 Nov | 8–12 | Scenario loads; timeline table reproduces source times; final script numbers written into 01 §E.1 | Digitised dose curve; fixed light time for the date |
+| **TASK-22** | Simulation engine: clock, crew motion, consumables, alert evaluation, event log, persistence, headless replay | R4 | P 7–11 Nov | 10–14 | Two runs ⇒ same log hash; 60× full run completes | Drop consumables detail to O₂ only |
+| **TASK-23** | Safety ops in Hab Core: haven per tick, `SUMMON_VEHICLE` + rendezvous, contingency options, `APPROVE_OPTION`, `ABORT` | R4 + R2 | P 9–11 Nov / E | 6–10 | Killer demo steps 0:30–1:10 work headless | Rendezvous = vehicle drives to crew's nearest vehicle-passable cell |
+| **TASK-24** | EVA client + HUD mode (01 FR-32/33) | R5 | P 8–12 Nov / E | 8–12 | 3-s glance test passes; actions ≤ 2 taps + confirm; link-lost state | HUD only, no map |
+| **TASK-25** | Ops console: shared map with crew/assets/coverage, alerts, options approval, clock control, join QR | R5 (+ R3 map) | P 9–12 Nov / E | 8–12 | Ops can run the whole demo without a terminal | Clock control via keyboard shortcuts |
+| **TASK-26** | Links: L-surf link graph + `LINK_STATE`, comm-shadow warnings, Earth link widget and delayed queue | R4 + R2 | P 10–12 Nov / E | 4–6 | Shadow on the demo route appears and clears; forecast arrives at the computed time | Static hab coverage + fixed delay |
+| **TASK-27** | Event log view, post-EVA report, **replay mode** for GitHub Pages | R5 + R3 | E | 4–6 | Report ≤ 2 pages; Pages link replays the recorded log | Report = printed log table |
+| **TASK-28** | Network kit & rehearsal: router config, static IP, QR join, device matrix, venue checklist | R4 | P 8–12 Nov | 3–4 | M4 passes; checklist in `docs/ops/demo-kit.md` | Single-laptop mode |
+| **TASK-29** | *(Tier 2)* Robotic rover tasking: SCOUT, RELAY, RETURN | R4 + R5 | E after M7 gate | 4–8 | RELAY closes the demo shadow | Skip |
+| **TASK-30** | Score-sheet single points on day one of the build: challenge named, repo public, page drafted; `docs/AI_USE.md` kept current | R6 | P 4–5 Nov, then continuous | 1–2 | All three single points verifiable | — |
 
 ---
 
@@ -77,88 +114,141 @@ Uncertain, high-impact dependencies (DEM quality, projection rendering, router s
 
 ```mermaid
 flowchart LR
-  T01["TASK-01 Feasibility + AOI"] --> T03["TASK-03 Pipeline: grid + tiles"]
-  T01 --> T02["TASK-02 Projection spike"]
-  T02 --> T07["TASK-07 Map workspace"]
-  T03 --> T05["TASK-05 Compute core"]
-  T03 --> T07
-  T05 --> T09["TASK-09 Results + profile"]
-  T07 --> T09
-  T09 --> T11["TASK-11 Briefing card"]
-  T11 --> T14["TASK-14 Integration + offline"]
-  T14 --> T17["TASK-17 Videos + submission"]
+  T01["TASK-01 AOI + hab site"] --> T03["TASK-03 Grids + comm grid"]
+  T03 --> T05["TASK-05 / 05b Compute"]
+  T04["TASK-04 Sources verified"] --> T21["TASK-21 Scenario tables"]
+  T20["TASK-20 Hab Core skeleton"] --> T22["TASK-22 Sim engine"]
+  T05 --> T23["TASK-23 Safety ops"]
+  T21 --> T22
+  T22 --> T23
+  T23 --> T24["TASK-24 EVA + HUD"]
+  T23 --> T25["TASK-25 Ops console"]
+  T24 --> M4["M4 Offline dry run 12 Nov"]
+  T25 --> M4
+  T28["TASK-28 Network kit"] --> M4
+  M4 --> T17["TASK-17 Videos"]
 ```
 
-### D.2 Concurrent work
+The **planner (TASK-07…11) is off the critical path** for the killer demo: the scenario file carries a precomputed plan, so the storm demo works even if the planner UI is late. The planner remains essential for the E.2 segment and for Tier 0 scoring.
 
-| Stream | Can run in parallel with |
-| --- | --- |
-| TASK-04 POIs/images | TASK-03 pipeline |
-| TASK-06 Mars24/radiation | Everything (no data dependency) |
-| TASK-05 compute on a **synthetic grid** | TASK-03 (swap in real grid later) |
-| TASK-13 design tokens, TASK-16 docs skeleton | All build tasks |
+### D.2 Parallel streams
+
+| Stream | Starts on | Unblocked by |
+| --- | --- | --- |
+| R2 compute on **synthetic grids** | 5 Nov | Nothing (swap real grid in on 9 Nov) |
+| R4 Hab Core on a **fake scenario** (straight-line route, stepped dose curve) | 5 Nov | Nothing |
+| R5 EVA/ops on **mock WebSocket fixtures** from `packages/protocol` | 7 Nov | Protocol types (TASK-20, 6 Nov) |
+| R3 map/planner | 5 Nov | Projection string (TASK-01) |
+| R1 data | 4 Nov | — |
+| R6 content, design, video script | 4 Nov | — |
 
 ### D.3 Integration checkpoints
 
 | When | Checkpoint |
 | --- | --- |
-| 5 Nov | D-01 site decision; AOI frozen |
-| 10 Nov | Manifest validates; assets load from static server offline |
-| 12 Nov | Full pipeline re-run from clean checkout reproduces checksums |
-| Day 1 12:30 | **Walking skeleton** (M3) — go/no-go on auto-routing |
-| Day 1 17:30 | Demo path works end-to-end for the 240-s recording |
+| Thu 5 Nov | Kickoff: roles, repo, AOI and hab site proposal; U-12 sent |
+| Fri 6 Nov | `packages/protocol` v0 frozen (types for SNAPSHOT/DELTA/EVENT/COMMAND) |
+| Sun 8 Nov | **M1 spikes** go/no-go: projection, LAN broadcast, Dijkstra speed |
+| Tue 10 Nov | **M2** manifest + scenario tables validated |
+| Wed 11 Nov | **M3** headless replay stable; all role views connected |
+| Thu 12 Nov | **M4** offline dry run ×3 on 3 devices; record fallback video |
+| Day 1 12:30 | **M5** demo path green at venue |
+| Day 1 17:30 | Rehearse and record 240 s |
 | Day 2 06:00 | **Freeze** |
 
 ### D.4 Cut list (cut in this order when behind)
 
-1. All desirables (TASK-18).
-2. Coach marks, light theme, tablet drag.
-3. Free placement → POIs-only stops.
-4. `LOW_TI` warnings → keep TI as a display layer only.
-5. Live Mars24 → precomputed sun table for the demo date.
-6. **Auto-routing → manual polyline + validation** (user draws legs; tool checks slope/hazards and computes profile and time). *Keep this fallback implementable in < 2 h by reusing the profile and warning code.*
-7. Tiled layers → ImageStatic images.
+Mirrors the organizer guide's rule — drop scope before the killer moment.
 
-Never cut: provenance labels, disclaimer, offline mode, briefing card.
+1. All Tier 2 (TASK-18, TASK-29): rover tasking, terrain refuge, Earth view, CRISM, REMS, dust.
+2. Second crew device (EV2 stays simulated and visible on ops only).
+3. Planner polish: coach marks, drag, free placement → POI-only stops.
+4. Dynamic relay viewshed → static hab coverage only.
+5. Exact rendezvous → vehicle drives to the crew's nearest vehicle-passable cell.
+6. Live planner routing in the demo → scenario's precomputed plan.
+7. Multi-device → single-laptop multi-window demo.
+8. Live engine in the video → headless replay rendered on ops.
 
-### D.5 Data and service fallbacks
+**Never cut:** the storm moment (alert → options → summon → shelter), real replayed event data, provenance labels, prototype disclaimer, no-internet operation, the three single score points.
 
-| Primary | Fallback |
-| --- | --- |
-| Gale merged DEM (HiRISE-quality in AOI) | Jezero M2020 TRN HiRISE DTM mosaic (USGS) |
-| Colour HiRISE COG | Grayscale 25 cm ortho window / Mars Trek HiRISE tiles cached |
-| THEMIS quantitative TI | THEMIS Day IR 100 m (qualitative) |
-| PDS PLACES traverse | MMGIS JSON cached once (labelled unofficial) |
-| Mars Rover Photos API | **Not used** (archived) — images saved manually from NASA raw-image/photojournal pages |
-| Browser router | FastAPI + scikit-image least-cost path |
+### D.5 Spike fallbacks
 
-### D.6 Demo freeze criteria (Day 2 06:00)
+| Spike fails | Fallback | Cost |
+| --- | --- | --- |
+| Projection (TASK-02) | ImageStatic per layer (v1) | Lower zoom detail |
+| LAN broadcast (TASK-20) | Single-laptop mode; phones only shown in video via screen mirroring | Less physical demo |
+| Dijkstra ≤ 2 s (TASK-05b) | 10 m grid for all fields; precompute `T_hab` in the pipeline | Coarser haven values |
+| RAD series (U-15) | Digitised published figure | Label changes to "digitised" |
+| SPICE kernels (U-18) | Light time from DE ephemeris only; relay passes from a published MRO pass schedule pattern, labelled assumed | Weaker validity on passes |
 
-- Core scenario (PRD §E) runs offline twice in a row without intervention.
-- All Vitest suites green; manifest validator green.
-- No console errors on the demo path.
-- Briefing prints on one page.
-- Repo builds from a clean clone with documented commands.
+### D.6 Track S (kept for reference — not needed: Track P confirmed 4 Nov)
 
-### D.7 Definition of done (per feature)
+If the 13 Nov guides restrict pre-event code after all, pre-event becomes: data pipeline outputs, scenario tables, POI content, design files, docs, network kit, demo script. At the event, build in this order: Hab Core + engine on precomputed plan → ops console → EVA HUD → alert + summon (rendezvous fallback) → planner last. Tier 0 planner shrinks to "show the precomputed plan + profile + briefing card."
 
-Requirement's acceptance criteria met · unit tests (compute) or manual test note (UI) committed · provenance label present · keyboard reachable · works offline · credited sources listed in SCR-09.
+### D.7 Demo freeze criteria (Day 2 06:00)
+
+- Killer demo runs offline on the router 2× consecutively at the venue.
+- Headless replay hash matches the committed reference.
+- All Vitest suites and the manifest validator green.
+- No console errors on any role view along the demo path.
+- Briefing card and post-EVA report print correctly.
+- Repo builds from a clean clone with the README commands.
+
+### D.8 Definition of done (per feature)
+
+Acceptance criteria met · compute tests or UI test note committed · provenance class present on every number · works with WAN unplugged · keyboard (planner/ops) or ≤ 2-tap (EVA) operable · sources listed in Sources & methods · AI use (if any) logged in `docs/AI_USE.md`.
 
 ---
 
-## E. First concrete actions (today → 5 Nov)
+## E. Pre-event schedule (4–12 Nov)
 
-1. **TASK-00:** read spaceappschallenge.org/legal for pre-event building rules; message the Dhaka Local Lead; confirm all members registered (NASA + Bangladesh form).
-2. **TASK-01 (data lead):** download the 1 m Gale DEM (3.6 GB) on campus internet and open its PDS3 label; generate a hillshade of the boxwork area and compare texture with the listed HiRISE stereo pairs; propose AOI bounds from Curiosity's 2025 traverse.
-3. **TASK-01:** check whether the colour HiRISE COG and a THEMIS quantitative TI tile cover the AOI (read windows via GDAL `/vsicurl/` to avoid full downloads).
-4. **Decide D-01 by 5 Nov:** Gale boxwork if DEM passes, else Jezero.
-5. **Design lead:** sketch SCR-02 and SCR-08 on paper from 04 §F; draft the 240-s demo script around PRD §E.
-6. **Compute engineer (Track P only):** implement A* + time model against a synthetic grid with the test cases in 02 §D.
+| Day | R1 Data | R2 Compute | R3 Map/Planner | R4 Hab Core | R5 EVA/Ops | R6 Science/Story |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Wed 4** | Start DEM download (campus net) | Read 02 §D; port v1 test stubs in `packages/compute` | Read 03/04 v2; `apps/web` builds | Merge the v2 restructure; CI green | Sketch EVA/HUD layouts on paper | TASK-00 ✓; TASK-30; draft kickoff agenda |
+| **Thu 5** | AOI + hab site proposal | A* on synthetic grid | Projection spike start | Hab Core skeleton | HUD wireframe | Kickoff; POI shortlist (science/resource) |
+| **Fri 6** | Pipeline: clip, reproject, slope | Dijkstra field + benchmark | Projection spike done | Protocol v0 frozen | EVA screens on mock fixtures | Source checks U-15–U-18 |
+| **Sat 7** | Grids + tiles | Haven + rendezvous | Map workspace | LAN spike with phones | EVA actions + link-lost state | Design tokens + HUD tokens |
+| **Sun 8** | `comm_hab` viewshed | Viewshed + link graph | Layers + inspector | Engine: clock, crew motion | Ops console map (shared component) | **M1 go/no-go**; demo script v1 |
+| **Mon 9** | SPICE + DONKI + RAD tables | Earth delivery + dose integral | Plan panel | Engine: alerts, log, persistence | Ops alerts + options | POI content written |
+| **Tue 10** | `scenario.json` + validator (**M2**) | Contingency ranking; real-grid tests | Results + profile | Safety ops wiring | Clock control, QR join | Sources & methods content |
+| **Wed 11** | Fix data issues | Perf tuning | Briefing + PUBLISH_PLAN | Headless replay (**M3**) | Report view | Video storyboard; venue checklist |
+| **Thu 12** | All hands: **M4 offline dry run ×3**, fix, record fallback video, pack the network kit | | | | | |
+
+---
+
+## F. Video plan (TASK-17)
+
+### F.1 240-s local judging video (Day 1, 18:30)
+
+| Time | Segment | Content |
+| --- | --- | --- |
+| 0:00–0:20 | Team & problem | Team name, all six members by name, challenge name; "Earth is 3–22 light-minutes away" |
+| 0:20–1:00 | Planning (01 §E.2) | Science + resource stops, routing, time-to-haven band, briefing card |
+| 1:00–2:30 | **Killer demo** (01 §E.1) | Three devices on screen; storm alert; options; summon; comm shadow; shelter; report |
+| 2:30–3:20 | Data & validity | Datasets named aloud: HiRISE, MOLA/HRSC (ESA) DEM, THEMIS, RAD, DONKI, SPICE (NAIF + ESA TGO); `packages/compute` boundary and tests; provenance classes |
+| 3:20–4:00 | Impact & close | Works for any site with a DEM; habitat-local by design; disclaimer |
+
+### F.2 30-s global video (Day 2, 09:00)
+
+Team → problem (one line) → storm alert on the HUD → summon → crew sheltered → "NASA HiRISE, RAD, DONKI + ESA data" on screen → impact line. English subtitles. No under-18 likeness.
+
+---
+
+## G. First concrete actions (today → 5 Nov)
+
+1. **R6:** ~~U-12 and registration~~ (done 4 Nov). Ask the Local Lead about the venue (U-14); keep `docs/AI_USE.md` current (this v2 overhaul is logged).
+2. **R1:** start the 3.6 GB DEM download on campus internet; open the PDS3 label; propose AOI and hab position by Thursday.
+3. **R4:** pull the restructured monorepo (`apps/web`, `apps/hab-core`, `packages/compute`, `packages/protocol`, `pipeline/`, `scenarios/`, `data/sites/`) and run `make setup`; confirm someone owns or can borrow a travel router (U-21).
+4. **R2:** port the v1 A* test cases to `packages/compute` on a synthetic grid; write the Dijkstra benchmark.
+5. **R5 + R6:** paper sketches of HUD, EVA tablet and ops console; agree the three HUD numbers (time to haven, O₂ margin, next stop).
+6. **Everyone:** read 01 §E.1 (killer demo) — every task should serve that 90 seconds first.
 
 ## Unresolved items owned by this document
 
 | ID | Item | Owner | Due |
 | --- | --- | --- | --- |
-| U-12 | Pre-event code allowed? (Track S vs. P) — **Resolved 2026-11-04**: Track P ([ops/rules.md](../ops/rules.md)) | Story lead | 4 Nov |
-| U-13 | Actual team size and skills — **Resolved 2026-11-04**: 6 members ([ops/team.md](../ops/team.md)) | Team | 3 Nov |
-| U-14 | Physical venue vs. virtual (affects Wi-Fi assumptions only; demo is offline regardless) | Story lead | 10 Nov |
+| U-12 | Pre-event code allowed? — **Resolved 2026-11-04: Track P** ([ops/rules.md](../ops/rules.md)) | R6 | 4 Nov |
+| U-13 | Team size and skills — **Resolved 2026-11-04** ([ops/team.md](../ops/team.md)); role sign-off and Node vs. FastAPI (02 D-12) at kickoff. Four members list TypeScript/JavaScript, so Node stands | Team | 5 Nov |
+| U-14 | Venue details (power, table space, projector input) | R6 | 10 Nov |
+| U-21 | Travel router availability | R4 | 6 Nov |
+| U-22 | Phone models for the device matrix (Android/iOS) | R5 | 7 Nov |
