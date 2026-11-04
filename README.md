@@ -1,12 +1,14 @@
-# Marswalk Planner — CheesySpace
+# Marswalk Surface Ops — CheesySpace
 
 *(working title)* Team CheesySpace's entry for the **NASA Space Apps Challenge 2026**, challenge *Interplanetary Survival Guide: Martian Map* (Bangladesh event, 13–14 Nov 2026).
 
-An offline, browser-based planning map for one hyperlocal Mars site (proposed: Curiosity's 2025 boxwork area on Mount Sharp, Gale crater). A planner places science stops on orbital imagery and terrain; the app computes a suited-walking route that respects slope limits and hazards, and reports the elevation profile, time and walkback margins, daylight window and an estimated radiation dose. Every number is labelled **measured, derived, modelled or assumed**.
+A habitat-local surface operations system for one Mars **Exploration Zone** at Gale crater (Mount Sharp). Before the walk, a planner builds a suit-safe EVA through science and resource-prospecting stops on real HiRISE terrain. During the walk, a **Hab Core** server inside the habitat runs the mission clock: two simulated astronauts follow the plan on their suit tablets and HUDs while an ops console watches everyone. Then the real solar particle event of **20 May 2024 (sol 4190)**, recorded by Curiosity's RAD, is replayed — the habitat detects it before Earth's warning can arrive, and the crew summon a pressurized rover to shelter.
+
+Every number is labelled **measured, derived, modelled, assumed, replayed or simulated**. Nothing needs the internet at runtime, because nothing on Mars would have it.
 
 ## Status
 
-**Skeleton, with application code now allowed.** Docs, schemas, configs and stub modules are in place; no functional code yet. The Dhaka Local Lead allowed application code before the event on 2026-11-04 (Track P, TASK-00; see [docs/ops/rules.md](docs/ops/rules.md)), so implementation can start; the progress bar below tracks it. All product decisions are *Proposed* ([docs/decisions/](docs/decisions/)).
+**v2 skeleton (surface ops reframe, 2026-11-04).** Specs v2, monorepo layout, types, stubs and design tokens are in place; no functional code yet. Application code is allowed before the event (Track P, [docs/ops/rules.md](docs/ops/rules.md)). The progress bar below counts the v1 atomized subtasks; v2 tasks (TASK-05b, TASK-20–30) are listed in [06 §C.2](docs/specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) and are not yet atomized.
 
 ## Progress
 
@@ -44,13 +46,28 @@ Generated, do not edit by hand. Record finished subtasks in [docs/tasks/status.m
 Requirements: Node.js LTS, conda (Miniconda or Miniforge; the pipeline's only Python environment), GNU Make.
 
 ```sh
-make setup        # npm ci + conda environment marswalk-pipeline (pipeline/environment.yml)
+make setup        # npm ci (all workspaces) + conda environment marswalk-pipeline
 make check-env    # fails unless the pipeline interpreter, GDAL, rasterio and pyproj are right
 make lint typecheck test docs-check
-make test-web     # web tests only; needs no conda
-make dev          # Vite dev server
-make demo         # production build + local static server on 127.0.0.1:8080 (works offline)
+make test-web     # Vitest in every workspace; needs no conda
+make hab          # Hab Core on 0.0.0.0:8080 (habitat LAN) — stub until TASK-20
+make dev          # Vite dev server; proxies /sites, /api, /ws to the Hab Core
+make demo         # production build served by the Hab Core (no internet needed)
+make replay       # headless scenario replay, prints the event-log hash — stub until TASK-22
 ```
+
+Demo setup (06 §D.3, TASK-28): one laptop runs `make demo`; phones join the same offline travel router and open the role URL (ops shows QR codes).
+
+### Layout
+
+| Path | What |
+| --- | --- |
+| `apps/web` | One web app, five role views: planner, ops, EVA tablet, HUD, Earth |
+| `apps/hab-core` | Habitat server: session, mission clock, simulation engine, event log, WebSocket |
+| `packages/compute` | All deterministic science, shared by the planner worker and the Hab Core |
+| `packages/protocol` | Shared types and wire format |
+| `pipeline/` | Offline Python preprocessing (GDAL, rasterio; SPICE and DONKI tables in TASK-21) |
+| `data/sites/`, `scenarios/` | Site bundles and replay scenarios |
 
 The full pipeline environment (GDAL ≥ 3.6, rasterio, numpy, pyproj) is in [pipeline/environment.yml](pipeline/environment.yml) and is created by `make setup`. `make test` and `make check-env` need it; `make lint`, `typecheck`, `docs-check` and `test-web` do not.
 
@@ -63,16 +80,16 @@ Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are 
 | Document | Contents |
 | --- | --- |
 | [docs/README.md](docs/README.md) | Index, decisions, blockers, FR traceability |
-| [docs/specs/](docs/specs/) | 01 PRD · 02 Technical · 03 App flow · 04 Design · 05 Schema · 06 Plan |
+| [docs/specs/](docs/specs/) | v2: 01 PRD · 02 Technical · 03 App flow · 04 Design · 05 Schema · 06 Plan |
 | [docs/reference/challenge-overview.md](docs/reference/challenge-overview.md) | Official challenge text |
 | [docs/reference/mars-scientific-context.md](docs/reference/mars-scientific-context.md) | Cited Mars science reference |
-| [docs/ops/](docs/ops/) | Rules check, feasibility, demo script, submission checklist |
+| [docs/ops/](docs/ops/) | Rules check (Track P), team roster, feasibility, demo script, submission checklist |
 | [docs/AI_USE.md](docs/AI_USE.md) | How AI tools were used to build this |
 | [CLAUDE.md](CLAUDE.md) · [AGENTS.md](AGENTS.md) | Rules for coding agents |
 
 ## Credits
 
-TODO: dataset and image credits (NFR-07), filled from each `DataSource.credit` in the site manifest. Planned sources are listed in [02 Sources](docs/specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02).
+TODO: dataset and image credits (NFR-07), filled from each `DataSource.credit` in the site manifest. Planned sources are listed in [02 Sources](docs/specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02). Partner-agency data: ESA Mars Express HRSC (in the Gale DEM) and ESA TGO trajectories (relay geometry).
 
 ## Licence
 

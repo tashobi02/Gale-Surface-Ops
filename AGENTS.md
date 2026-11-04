@@ -1,8 +1,8 @@
-# Agent instructions — Marswalk Planner
+# Agent instructions — Marswalk Surface Ops
 
 For any coding agent (Codex, Cursor, Gemini CLI, …). Claude Code users also get [CLAUDE.md](CLAUDE.md).
 
-**Project.** Team CheesySpace's NASA Space Apps 2026 entry: an offline, browser-based Marswalk planning map for one Mars site. Static web app in `apps/web/` (TypeScript, Vite, OpenLayers, proj4) plus an offline Python pipeline in `pipeline/`. Start at [docs/README.md](docs/README.md); `docs/specs/01–06` are the source of truth.
+**Project.** Team CheesySpace's NASA Space Apps 2026 entry: a habitat-local Mars surface operations system for one Exploration Zone at Gale crater — planner, Hab Core server, EVA tablet/HUD, ops console, with a replayed real solar particle event. npm workspaces: `apps/web` (TypeScript, Vite, OpenLayers, proj4), `apps/hab-core` (Node.js, Fastify, ws), `packages/compute`, `packages/protocol`; offline Python pipeline in `pipeline/`. Start at [docs/README.md](docs/README.md); `docs/specs/01–06` are the source of truth.
 
 ## Phase gate
 
@@ -10,9 +10,9 @@ For any coding agent (Codex, Cursor, Gemini CLI, …). Claude Code users also ge
 
 ## Rules
 
-1. Offline-first: no runtime network requests; all assets local.
-2. Science is deterministic and lives only in `packages/compute/src/` and `pipeline/`. No AI-generated numbers anywhere.
-3. Every displayed value has a provenance label (`measured | derived | modelled | assumed`) and a source id.
+1. No internet at runtime: clients talk only to the Hab Core on the LAN; all assets local.
+2. Science is deterministic and lives only in `packages/compute/` and `pipeline/`. No AI-generated numbers anywhere. The Hab Core engine never reads wall-clock time.
+3. Every displayed value has a provenance label (`measured | derived | modelled | assumed | replayed | simulated`) and a source id. Status colours mean status only (04 §A.3).
 4. Mars CRS: `IAU_2015:49900` sphere (R = 3,396,190 m), planetocentric latitude, east-positive longitude, local `+proj=eqc` working projection. Never use EPSG:3857/WGS84 code paths or Earth-radius distance helpers (`ol/sphere`). Mars24 needs `west = (360 − east) mod 360`.
 5. No under-18 likeness in media. Code is Apache-2.0; credit every dataset and image.
 6. Log AI-assisted work in [docs/AI_USE.md](docs/AI_USE.md).

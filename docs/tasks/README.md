@@ -9,6 +9,8 @@
 
 The 19 work packages of [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), split into subtasks of 0.5–3 h that people and agents can take in parallel. Read [`_coordination.md`](_coordination.md) first: it fixes subtask ids, path owners, contracts, fixtures, the dependency graph and the branch and PR rules. Each task file below expands its subtasks with steps, acceptance criteria, a verify command and an agent brief.
 
+> **v2 note (2026-11-04).** The specs moved to v2 (surface ops). These 19 task files are the **v1 atomized plan**; they remain valid for the Tier 0 planner, with file paths updated to the new monorepo layout (`apps/web`, `packages/compute`, `packages/protocol`, `data/sites`). The v2 work packages **TASK-05b and TASK-20…TASK-30** are defined in [06 §C.2](../specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) but are **not yet atomized** into subtasks here; until they are, claim them at the work-package level and record progress in [status.md](status.md) as notes, not subtask ids.
+
 ## Tasks
 
 | Task | Title | Lanes | Milestones | Windows | Subtasks | Estimate (h) |

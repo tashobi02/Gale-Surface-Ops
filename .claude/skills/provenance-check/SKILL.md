@@ -1,14 +1,14 @@
 ---
 name: provenance-check
-description: Audit UI code for displayed metrics that break NFR-05 / FR-15 — every shown value needs data-provenance set to measured, derived, modelled or assumed plus a source id. Use when editing apps/web/src/ui, before a demo freeze, or when asked to check provenance labels.
+description: Audit UI code for displayed metrics that break NFR-05 / FR-15 — every shown value needs data-provenance set to measured, derived, modelled, assumed, replayed or simulated plus a source id. Use when editing apps/web/src/ui, before a demo freeze, or when asked to check provenance labels.
 paths: ["apps/web/src/ui/**"]
 ---
 Read-only audit. Edit nothing unless the user asks. Owners: [01 FR-15](../../../docs/specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [02 §F NFR-05](../../../docs/specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation), [05 Layer and "Distinctions the schema enforces"](../../../docs/specs/05_Backend_and_Database_Schema.md#distinctions-the-schema-enforces), [TASK-12](../../../docs/tasks/TASK-12_sources-methods-provenance.md).
 
 ## 1. Static review
-Scan `apps/web/src/ui/screens/*.ts` (SCR-00…09) and any other file under `apps/web/src/ui/` that renders numbers (template strings, `textContent`, `innerHTML`, units like `km`, `min`, `°`, `mSv`).
+Scan `apps/web/src/ui/screens/*.ts` (SCR-00…18) and any other file under `apps/web/src/ui/` that renders numbers (template strings, `textContent`, `innerHTML`, units like `km`, `min`, `°`, `mSv`, `µGy`, `%`).
 For each rendered value check:
-- the element has `data-provenance` ∈ {measured, derived, modelled, assumed} (type: `Provenance` in `packages/protocol/src/schema.ts`);
+- the element has `data-provenance` ∈ {measured, derived, modelled, assumed, replayed, simulated} (type: `Provenance` in `packages/protocol/src/schema.ts`);
 - it has a source id (attribute name is set by contract C10 in `apps/web/src/ui/context.ts`; TODO: confirm, file does not exist yet);
 - the label is not hard-coded where the value comes from a manifest/result field that already carries `provenance` or `source_ids`.
 

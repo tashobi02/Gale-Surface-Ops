@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tashobi02/CheesySpace-NasaSpaceAppChallenge/schemas/param-set.schema.json",
+  "title": "ParamSet (docs/specs/05 §C.1 ParamSet)",
+  "$comment": "Every non-data number the simulation uses. Required value keys per kind are listed in 05 and checked by the Hab Core loader (TASK-22).",
+  "type": "object",
+  "properties": {
+    "param_set_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "kind": {
+      "enum": [
+        "suit",
+        "pressurized_rover",
+        "utility_rover",
+        "link",
+        "alert",
+        "shielding"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "values": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "number",
+          "boolean"
+        ]
+      }
+    },
+    "provenance": {
+      "enum": [
+        "measured",
+        "derived",
+        "modelled",
+        "assumed",
+        "replayed",
+        "simulated"
+      ]
+    },
+    "source_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "param_set_id",
+    "kind",
+    "title",
+    "values",
+    "provenance"
+  ],
+  "additionalProperties": false
+}

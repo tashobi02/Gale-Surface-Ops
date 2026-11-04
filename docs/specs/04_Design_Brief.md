@@ -528,6 +528,7 @@ Superseded by [§E.9](#e9-scr-09-sources--methods-brief).
 
 | ID | Item | Recommendation |
 | --- | --- | --- |
+| D-13 | Design language (this document) | **Proposed 2026-11-04**: mission brutalism with BRIEF/OPS/HUD/PRINT modes ([ADR-010](../decisions/ADR-010-mission-brutalist-design-language.md)) |
 | U-08 | Light OPS variant for a washed-out venue projector | BRIEF mode already covers judge-facing screens; add an OPS high-contrast variant only if the projector test fails |
 | U-09 | Colour vs. grayscale HiRISE basemap | Toggle; grayscale default in OPS (better hazard-overlay contrast), colour in BRIEF slabs |
 | U-25 | Visual mockups of key screens | Produce before 7 Nov so R3/R5 build from a shared picture |

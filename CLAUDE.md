@@ -1,18 +1,20 @@
-# Marswalk Planner — Claude Code instructions
+# Marswalk Surface Ops — Claude Code instructions
 
 ## 1. Project
 
 Team CheesySpace's NASA Space Apps 2026 entry for *Interplanetary Survival Guide: Martian Map* (Bangladesh event, 13–14 Nov 2026).
-An offline, browser-based planning map for one hyperlocal Mars site (proposed: Mount Sharp boxwork, Gale crater) that computes a suited-walking route and labels every number.
-Static web app (`apps/web/`) + offline Python preprocessing pipeline (`pipeline/`); no backend, no database.
+**Marswalk Surface Ops** *(working title)*: a habitat-local surface operations system for one Mars Exploration Zone at Gale crater (Mount Sharp). A planner builds a suit-safe EVA; during the walk a **Hab Core** server runs the mission clock and simulation, EVA crew use a suit tablet / HUD, an ops console watches everyone, and a real solar particle event (20 May 2024, sol 4190) is replayed so the crew can shelter. Every number is labelled.
 
-Start at [docs/README.md](docs/README.md): index, traceability table, decisions, blockers. The specs in `docs/specs/` are the source of truth.
+Layout (02 §A): `apps/web` (one web app, role views planner / ops / EVA / HUD / Earth) · `apps/hab-core` (Node.js server on the habitat LAN) · `packages/compute` (all deterministic science) · `packages/protocol` (shared types and wire format) · `pipeline/` (offline Python preprocessing) · `data/sites/` · `scenarios/`. No database; the Hab Core keeps an append-only event log.
+
+Start at [docs/README.md](docs/README.md): index, traceability table, decisions, blockers. The specs in `docs/specs/` are the source of truth; the killer demo is [01 §E.1](docs/specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video).
 
 ## 2. Non-negotiables
 
-- **Offline-first.** No network request leaves `localhost` at runtime; all assets are local (NFR-01, NFR-08). External sources are contacted only by the pipeline, before the event.
-- **Deterministic science lives only in `packages/compute/src/` and `pipeline/`.** No LLM-computed or LLM-generated numbers anywhere, in code, data or docs ([ADR-006](docs/decisions/ADR-006-no-ai-in-mvp.md), 01 §C.4).
-- **Every displayed value carries a provenance label** — `measured | derived | modelled | assumed` via `data-provenance` — and a source id (FR-15, NFR-05).
+- **No internet at runtime.** Clients talk only to the Hab Core on the habitat LAN (or `localhost`); all assets are local (NFR-01, NFR-08). External sources are contacted only by the pipeline, before the event.
+- **Deterministic science lives only in `packages/compute/` and `pipeline/`.** The Hab Core engine uses sim time only — no `Date.now()` in `apps/hab-core/src/engine` (NFR-06). No LLM-computed or LLM-generated numbers anywhere, in code, data or docs ([ADR-006](docs/decisions/ADR-006-no-ai-in-mvp.md), 01 §C.4).
+- **Every displayed value carries a provenance label** — `measured | derived | modelled | assumed | replayed | simulated` via `data-provenance` — and a source id (FR-15, NFR-05). Never call anything "live": replayed history is `replayed`, crew/vehicle state is `simulated`.
+- **Status colours mean status only** ([04 §A.3](docs/specs/04_Design_Brief.md#a3-mission-critical-principles-non-negotiable)): every status has colour + shape + word + fixed position; brand orange never appears in OPS/HUD views.
 - **Mars CRS** ([02 §C.1, §C.4](docs/specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer)):
   - Base `IAU_2015:49900` sphere, R = 3,396,190 m; planetocentric latitude; **east-positive** longitude.
   - Working projection is the local `+proj=eqc` string; pipeline and UI use the byte-identical string.
@@ -34,34 +36,42 @@ Work follows the task windows and dependency order in [docs/tasks/_coordination.
 
 | Command | What it does |
 | --- | --- |
-| `make setup` | `npm ci` + conda environment `marswalk-pipeline` from `pipeline/environment.yml` (the only pipeline environment; no `.venv`) |
+| `make setup` | `npm ci` (all workspaces) + conda environment `marswalk-pipeline` from `pipeline/environment.yml` (the only pipeline environment; no `.venv`) |
 | `make check-env` | Fails unless the interpreter is that environment's and GDAL, rasterio, pyproj and `IAU_2015:49900` work |
 | `make -s pipeline-python` | Prints the pipeline interpreter's absolute path. Use `$(make -s pipeline-python) -m ...` in docs and Verify lines, never `conda run` or `.venv` |
-| `make validate SITE=<site_id>` | Manifest validator via that interpreter (stub until TASK-03) |
+| `make validate SITE=<site_id>` | Manifest validator on `data/sites/<site_id>` via that interpreter (stub until TASK-03) |
 | `make lint` | markdownlint over all Markdown |
-| `make typecheck` | `tsc --noEmit` in `apps/web/` |
-| `make test-web` | Vitest only (`apps/web/`); needs no conda |
-| `make test` | `check-env`, then Vitest (`apps/web/`) + pytest (`pipeline/`); needs conda |
+| `make typecheck` | `tsc --noEmit` in every workspace (`packages/*`, `apps/*`) |
+| `make test-web` | Vitest in every workspace; needs no conda |
+| `make test` | `check-env`, then Vitest (all workspaces) + pytest (`pipeline/`); needs conda |
 | `make docs-check` | markdownlint + relative link/anchor check (`scripts/check_links.py`) + README progress block freshness |
 | `make progress` | Regenerates the README progress bar from `docs/tasks/status.md` |
-| `make dev` | Vite dev server |
-| `make demo` | Production build + local static server (works offline) |
+| `make dev` | Vite dev server for all role views; proxies `/sites`, `/api`, `/ws` to a running Hab Core |
+| `make hab` | Hab Core on `0.0.0.0:8080` with the `storm-sol4190` scenario (stub until TASK-20) |
+| `make replay` | Headless scenario replay; prints the event-log hash (stub until TASK-22) |
+| `make demo` | Production build, then the Hab Core serves it on the habitat LAN |
 | `make data` | Pipeline entry; not implemented yet (TASK-03) |
 
 ## 5. Repo map
 
 | Path | Contents |
 | --- | --- |
-| `docs/specs/01–06` | PRD, technical requirements, app flow, design brief, data schema, implementation plan |
-| `docs/decisions/` | ADR-001…007 mirroring D-01…D-07 (Proposed) |
+| `docs/specs/01–06` | PRD, technical requirements, app flow, design brief, data schema, implementation plan (v2) |
+| `docs/decisions/` | ADR-001…011 mirroring D-01…D-12 |
 | `docs/reference/` | Official challenge text (verbatim), Mars science reference |
-| `docs/ops/` | Rules check, feasibility, demo script, submission checklist |
-| `schemas/` | JSON Schemas for `site-manifest.json` and plan export (from 05) |
-| `packages/protocol/src/schema.ts` | TypeScript mirror of every 05 entity |
-| `packages/compute/src/` | Worker protocol (02 §E.2) and pure compute functions |
-| `apps/web/src/ui/screens/` | One module per SCR-00…SCR-09 (03 §B) |
-| `data/sites/<site_id>/` | Pipeline output (not in git yet) |
-| `pipeline/src/marswalk_pipeline/` | Acquire → clip/reproject → derive → tiles/grid/vectors → manifest → validate |
+| `docs/ops/` | Rules check (Track P), team roster, feasibility, demo script, submission checklist |
+| `docs/tasks/` | Atomized v1 task plans (TASK-00…18) + coordination map; v2 tasks listed in 06 §C.2 |
+| `schemas/` | JSON Schemas: site manifest, plan export, scenario, param set (from 05) |
+| `packages/protocol/src/` | `schema.ts` (05 §C.1), `worker.ts` (02 §E.2), `runtime.ts` (05 §C.2), `ws.ts` (02 §E.6) |
+| `packages/compute/src/` | Pure science: v1 routing/time/radiation/Mars24 + v2 haven, rendezvous, viewshed, link graph, Earth link, event dose, consumables, contingency |
+| `apps/web/src/ui/screens/` | One module per SCR-00…SCR-18 (03 §B) |
+| `apps/web/src/worker/` | Planner worker (thin wrapper over `@marswalk/compute`) |
+| `apps/web/src/net/` | Hab Core WebSocket client |
+| `apps/web/src/ui/styles/tokens.css` | Design tokens from 04 §C (modes via `<html data-mode>`) |
+| `apps/hab-core/src/` | Server, session, scenario loader, event log, commands, engine (clock, reducer, tick), replay CLI |
+| `data/sites/<site_id>/` | Pipeline output (binaries git-ignored; release asset) |
+| `scenarios/<scenario_id>/` | Scenario files for the Hab Core (05 §C.2) |
+| `pipeline/src/marswalk_pipeline/` | Acquire → clip/reproject → derive → tiles/grid/vectors → manifest → validate (+ v2: comm grid, SPICE tables, DONKI/RAD extraction — TASK-21) |
 
 ## 6. Workflow
 

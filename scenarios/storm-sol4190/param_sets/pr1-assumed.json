@@ -1,0 +1,18 @@
+{
+  "param_set_id": "pr1-assumed",
+  "kind": "pressurized_rover",
+  "title": "Pressurized rover (SEV-class concept)",
+  "values": {
+    "flat_speed_kmh": 10,
+    "hard_slope_deg": 20,
+    "caution_slope_deg": 15,
+    "low_ti_cost": 2.0,
+    "min_speed_frac": 0.3,
+    "capacity": 4,
+    "ingress_min": 5,
+    "antenna_m": 3
+  },
+  "provenance": "assumed",
+  "source_ids": [],
+  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20)."
+}
