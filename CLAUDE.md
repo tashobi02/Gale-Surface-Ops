@@ -42,7 +42,8 @@ Work follows the task windows and dependency order in [docs/tasks/_coordination.
 | `make typecheck` | `tsc --noEmit` in `web/` |
 | `make test-web` | Vitest only (`web/`); needs no conda |
 | `make test` | `check-env`, then Vitest (`web/`) + pytest (`pipeline/`); needs conda |
-| `make docs-check` | markdownlint + relative link/anchor check (`scripts/check_links.py`) |
+| `make docs-check` | markdownlint + relative link/anchor check (`scripts/check_links.py`) + README progress block freshness |
+| `make progress` | Regenerates the README progress bar from `docs/tasks/status.md` |
 | `make dev` | Vite dev server |
 | `make demo` | Production build + local static server (works offline) |
 | `make data` | Pipeline entry; not implemented yet (TASK-03) |
@@ -70,6 +71,7 @@ Work follows the task windows and dependency order in [docs/tasks/_coordination.
 - Never change requirement text, numbers, ids or Confirmed/Assumed/Proposed/Unresolved labels in a docs refactor; report factual problems instead.
 - Unknown tool behaviour or data properties: check `--help`/docs, otherwise write `TODO(verify)`. Open choices: `TODO(decision)`.
 - Run `make lint typecheck test docs-check` before committing.
+- **Progress bar.** The README progress block is generated from [docs/tasks/status.md](docs/tasks/status.md). For every commit: add or update the row of each subtask the commit finishes (`done`) or starts (`wip`; id from [_coordination.md](docs/tasks/_coordination.md#a3-register), with the evidence link), run `make progress`, and stage `docs/tasks/status.md` and `README.md` in that same commit, so the bar always matches `HEAD` (a separate "update progress" commit after each commit would never converge). Mark `done` only when the subtask's acceptance criteria are met; never edit the README block by hand. `make docs-check` fails when the block is stale.
 
 ## 7. Tooling
 

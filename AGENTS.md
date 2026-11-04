@@ -24,3 +24,4 @@ For any coding agent (Codex, Cursor, Gemini CLI, …). Claude Code users also ge
 - Keep ids (FR-, NFR-, SCR-, TASK-, D-, U-, A-) in commits and PRs. Do not alter requirement text, numbers, ids or status labels.
 - Mark unknowns `TODO(verify)` and open choices `TODO(decision)`; never invent URLs, dataset properties or flags.
 - Before committing: `make lint typecheck test docs-check`.
+- **Progress bar.** The README progress block is generated from [docs/tasks/status.md](docs/tasks/status.md). For every commit: add or update the row of each subtask the commit finishes (`done`) or starts (`wip`; id from [_coordination.md](docs/tasks/_coordination.md#a3-register), with the evidence link), run `make progress`, and stage `docs/tasks/status.md` and `README.md` in that same commit, so the bar always matches `HEAD`. Mark `done` only when the subtask's acceptance criteria are met; never edit the README block by hand. `make docs-check` fails when the block is stale.

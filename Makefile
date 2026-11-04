@@ -7,7 +7,7 @@ CONDA_ENV ?= marswalk-pipeline
 CONDA_BIN ?= $(if $(CONDA_EXE),$(CONDA_EXE),conda)
 
 .PHONY: setup setup-web setup-pipeline lint typecheck test test-web docs-check dev demo data \
-	conda-check check-env pipeline-python validate
+	conda-check check-env pipeline-python validate progress
 
 setup: setup-web setup-pipeline
 
@@ -36,6 +36,11 @@ test-web:
 
 docs-check: lint
 	python3 scripts/check_links.py docs README.md CLAUDE.md AGENTS.md
+	python3 scripts/update_progress.py --check
+
+# Regenerate the README progress bar from docs/tasks/status.md.
+progress:
+	python3 scripts/update_progress.py
 
 dev:
 	npm --workspace web run dev
