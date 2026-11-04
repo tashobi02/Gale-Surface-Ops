@@ -9,11 +9,11 @@
 
 ## Context
 
-The team asked for a space sci-fi brutalist look drawing on a reference board (orange slabs, chamfers, mono microcopy), Anduril, Anthropic, Colossal Biosciences and Starfield, while staying usable in mission-critical moments.
+The team asked for a space sci-fi brutalist look drawing on a reference board (orange slabs, chamfers, mono microcopy), Anduril, Anthropic, Colossal Biosciences and Starfield, while staying usable in mission-critical moments. On 2026-11-04 these sources were researched along with the NASA Graphics Standards Manual (1975), the Guidelines for Brutalist Web Design and an accessibility review of Starfield's in-game screens; findings and the twelve adopted patterns are in [04 §B.1–B.4](../specs/04_Design_Brief.md#b3-patterns-adopted-from-the-research).
 
 ## Decision
 
-"Brutalism is for chrome, never for data." Four modes: **BRIEF** (light editorial, signal orange) for judge-facing pages; **OPS** (dark instrument) for planner, ops and EVA; **HUD** (black, ≥ 7 : 1); **PRINT**. Status colours mean status only; brand orange never appears in OPS/HUD. Every status has colour, shape, word and fixed position. Critical actions use hold-to-confirm. Fonts: Chakra Petch (display), Inter (UI), IBM Plex Mono (all numbers).
+"Brutalism is for chrome, never for data." Four modes: **BRIEF** (light editorial, signal orange) for judge-facing pages; **OPS** (dark instrument) for planner, ops and EVA; **HUD** (black, ≥ 7 : 1); **PRINT**. Status colours mean status only; brand orange never appears in OPS/HUD. Every status has colour, shape, word and fixed position. Critical actions use hold-to-confirm. Fonts: Chakra Petch at weight 500 (display, never bold), Inter (UI), IBM Plex Mono (all numbers, catalogue codes), Source Serif 4 (long-form reading). Catalogue codes and specimen cards (from Colossal) use real ids only. Starfield's documented UI failures (colour-only focus, hidden scroll, decoration that mimics controls) are explicit anti-patterns.
 
 ## Consequences
 

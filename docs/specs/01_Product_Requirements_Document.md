@@ -433,7 +433,7 @@ The v1 planning walkthrough below is retained; task files cite its step numbers.
 | A-06 | RAD rate at Curiosity's location represents the AOI | **Assumed** | Dose |
 | A-07 | Team of **6** (roster in [ops/team.md](../ops/team.md)); ~28 h event window; 16–20 focused h/person ≈ 96–120 person-hours; **Track P** pre-event build ([ops/rules.md](../ops/rules.md)) | Team size and Track P **Confirmed** (2026-11-04); focused hours **Assumed** | Scope |
 | A-08 | Max time to haven 30 min | **Assumed** | Drives plan feasibility in Tier 1 |
-| A-09 | Pressurized rover: see 02 D.9 parameter set (speed, slope limit, crew capacity) | **Assumed**, documented in UI | Rendezvous ETA |
+| A-09 | Pressurized rover: see 02 D.9 parameter set (speed, slope limit, crew capacity) | Speed and capacity **Confirmed** from the NASA SEV concept; slope limit and ingress time **Assumed** | Rendezvous ETA |
 | A-10 | Suit O₂ capacity 8 h nominal | **Assumed** | Consumables margin |
 | A-11 | Habitat and pressurized rover reduce event dose by stated factors | **Assumed** (shielding not modelled physically) | Dose comparison in demo |
 | A-12 | Surface radio is line-of-sight; no multipath/diffraction | **Assumed** | Comm shadows |

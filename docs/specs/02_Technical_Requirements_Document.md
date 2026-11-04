@@ -416,16 +416,16 @@ haven(p)      = min(haven_hab(p), haven_veh(p), haven_refuge(p) [T2])
 
 **Validation:** synthetic grid: hab at origin, vehicle 2 km away on flat ground, crew 1 km from hab → hand-computed values; blocked wall forcing detour; vehicle slower than walking (must choose hab).
 
-### D.9 Crew and vehicle parameter sets (FR-40, FR-41) — all **Assumed**, shown in the UI (05 ParamSet)
+### D.9 Crew and vehicle parameter sets (FR-40, FR-41) — **Assumed** unless cited, shown in the UI (05 ParamSet)
 
 | Parameter | Suited crew | Pressurized rover | Robotic utility rover |
 | --- | --- | --- | --- |
-| Flat speed | 3.3 km/h (v1) | 10 km/h | 2 km/h |
+| Flat speed | 3.3 km/h (v1) | 10 km/h (**cited**: NASA Space Exploration Vehicle concept top speed) | 2 km/h |
 | Speed vs. slope | Tobler-scaled (v1 D.3) | v = v_max · max(0.3, 1 − \|θ\| / θ_lim) | same form |
-| Hard slope limit | 15° | 20° | 25° |
+| Hard slope limit | 15° | 20° (assumed operating limit; the SEV chassis is reported to climb 40° slopes, a secondary source — we keep a conservative margin for loose Martian regolith) | 25° |
 | Caution slope | 10° | 15° | 20° |
 | Low-TI cells | ×1.3 cost | ×2.0 cost (sinkage risk) | ×1.5 cost |
-| Capacity | — | 2 crew + 2 rescued (4) | 50 kg payload |
+| Capacity | — | 2 crew, 4 in an emergency (**cited**: SEV concept) | 50 kg payload |
 | Consumable | O₂ 8 h nominal (A-10) | Not limiting in demo | Battery 5 kWh |
 | Energy model | Metabolic (v1 D.6) | Not modelled | E = P_base · t + m · g · Δh⁺ / η, P_base 200 W, m 300 kg, g 3.721 m/s², η 0.5 |
 | Antenna height | 2 m | 3 m | 3 m |
@@ -795,6 +795,8 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
 - Organizer Build Guide, Space Apps 2026 Bangladesh (score sheet, architecture rules, challenge 11 page) — team copy in Claude artifact; cite as "Local organizer build guide"
 - `gdal_viewshed` (validation of D.11): <https://gdal.org/programs/gdal_viewshed.html>
 
+- NASA Space Exploration Vehicle concept — NASA fact sheet FS-2011-08-045-JSC: <https://www.nasa.gov/wp-content/uploads/2015/08/464826main_sev_factsheet_508.pdf>; specifications summary (10 km/h, 125 km range, 2 crew / 4 emergency): <https://en.wikipedia.org/wiki/Space_Exploration_Vehicle>
+
 ## Unresolved decisions owned by this document
 
 | ID | Item | Resolution path |
@@ -810,4 +812,4 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
 | U-15 | RAD sol-4190 time series in PDS | TASK-04; fallbacks in §C.5 L9 |
 | U-18 | Exact SPICE kernel files covering May 2024 for MRO, MAVEN, TGO | TASK-04 |
 | U-19 | Shielding factors (A-11), alert threshold k, relay min elevation, conjunction angle | Keep as labelled assumptions; ask mentor; cite any found value |
-| U-20 | Pressurized rover speed/slope values (D.9) | Look for NASA Space Exploration Vehicle concept figures; otherwise keep as assumptions |
+| U-20 | Pressurized rover speed/slope values (D.9) | **Partly resolved 2026-11-04**: speed 10 km/h, range 125 km, 2 crew (4 emergency) and suitport ingress taken from the NASA SEV concept (NASA fact sheet FS-2011-08-045-JSC; Wikipedia "Space Exploration Vehicle"). Slope limit and ingress time remain assumptions |

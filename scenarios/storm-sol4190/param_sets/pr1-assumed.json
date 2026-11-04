@@ -13,6 +13,8 @@
     "antenna_m": 3
   },
   "provenance": "assumed",
-  "source_ids": [],
-  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20)."
+  "source_ids": [
+    "nasa-sev-factsheet-2011"
+  ],
+  "note": "flat_speed_kmh (10) and capacity (2 crew, 4 emergency) follow the NASA Space Exploration Vehicle concept (FS-2011-08-045-JSC); hard_slope_deg, caution_slope_deg, low_ti_cost, min_speed_frac and ingress_min are assumptions (docs/specs/02 \u00a7D.9, U-20)."
 }

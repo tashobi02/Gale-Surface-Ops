@@ -15,7 +15,8 @@
 | Modes | One dark theme + print | **BRIEF** (light editorial), **OPS** (dark instrument), **HUD** (black visor) + print |
 | Surfaces | Planner only | Planner, ops console, EVA tablet, HUD, alert sheet, post-EVA report |
 | Alerts | Status banner | Three-level alert system (warning / caution / advisory), latching, acknowledged |
-| Type | Inter + IBM Plex Mono | **Chakra Petch** (display) + Inter (UI) + IBM Plex Mono (data) |
+| Type | Inter + IBM Plex Mono | **Chakra Petch** (display) + Inter (UI) + IBM Plex Mono (data) + Source Serif 4 (long-form) |
+| References | — | Researched 2026-11-04: Colossal, Anduril, Anthropic, Starfield (and its accessibility critique), NASA Graphics Standards Manual, Brutalist Web Design guidelines (§B.1–B.4) |
 | Shape | Rounded-free cards | Chamfered (45° cut-corner) panels, hairline construction grid, registration marks |
 | Focus colour | `#FFD84D` (too close to caution amber) | White ring with dark gap |
 
@@ -66,17 +67,21 @@ Exposed structure, heavy type, honest materials, nothing ornamental pretending t
 
 ## B. Design language
 
-### B.1 Influences: what we take and what we leave
+### B.1 Influences: what we observed and what we take
 
-| Source | Take | Leave |
-| --- | --- | --- |
-| **Reference board (team image, "GravixPoint")** | Chamfered slabs; signal-orange blocks against paper and charcoal; hairline construction grid; monospace microcopy; giant stat tiles ("250+"); metadata labels ("EST. 2026", "VOL. 01-A"); black-and-white architectural photography | Its marketing tone; orange as an all-purpose accent (we fence it to BRIEF) |
-| **Anduril** | Stark dark surfaces; product-as-hero; huge confident headlines; restraint; technical credibility through precision | Militaristic framing |
-| **Anthropic** | Warm paper neutrals; editorial calm; humane, plain-spoken copy; generous whitespace; clay-warm accent | Soft illustration style |
-| **Colossal Biosciences** | Cinematic scientific storytelling; full-bleed imagery with data captions; dark editorial sections that make science feel monumental | Ultra-thin type, low-contrast captions |
-| **Starfield (NASA-punk)** | Functional industrial UI; chamfered panels; livery stripes; hazard bands; utilitarian labels; ship-system readouts that feel built, not drawn | Decorative HUD clutter; fantasy glyphs |
+Researched 2026-11-04 (sources in §B.4). "Observed" is what the source actually shows or states; third-party interpretations are marked as such.
 
-**Never:** glow/bloom, scanlines, film grain over data, animated noise, fake scrolling telemetry, decorative gauges, gradients on data, rounded "app" cards, emoji.
+| Source | Observed | Take | Leave |
+| --- | --- | --- | --- |
+| **Reference board (team image, "GravixPoint")** | Chamfered orange slabs on paper and charcoal; hairline construction grid; mono microcopy; giant stat tiles; metadata labels ("EST. 2026", "VOL. 01-A") | Slabs, chamfers, stat tiles, metadata strip; signal orange sampled from the image (#E7553D) | Orange as an all-purpose accent (fenced to BRIEF) |
+| **Anduril** | Site set in Helvetica Now; clear, minimal black-and-white palette where the only colour comes from product photography (Fonts In Use). A third-party "Anduril-style" design system adds: sharp corners, no shadows or gradients, headings at weight 400 never bold, uppercase letter-spaced labels, tabular numerals, one accent per view (unofficial) | Neutral chrome where **Mars imagery supplies the colour**; light-weight headlines; uppercase spaced labels; tabular numbers; one accent per view; zero radius, no shadows | Military framing; reliance on product photography we don't have |
+| **Anthropic** | Identity by Geist: minimalism and precision, clean typography, muted palette, modular layouts. Styrene (Berton Hasebe) for headlines, Tiempos (Klim) for body text (type.today) | **An editorial serif for long reading** next to a precise sans; muted warm neutrals; modular sections; calm, plain-spoken copy | Licensed typefaces (we use open substitutes) |
+| **Colossal Biosciences** (dire wolf page) | An **archival indexing system everywhere**: numbered nav ("01 de-extinction"), catalogue codes ("002E-00 dire wolf", "CSL—LBS"), bracketed record IDs ("[ DW—PUP 001 ]"), exposed module labels ("[ COLOSSAL LABS /// video module ]", "QUOTATION MODULE"), gallery counters ("01 / 27"); specimen cards with labelled fields (SPECIES, AGE / SEX); a phase timeline (neonatal → adult); "+" as the expand affordance | Catalogue codes and module labels that **match our real IDs** (SCR-, POI, crew); specimen-style data cards for POIs, crew and vehicles; a phase timeline for the EVA; "+" only ever means expand | Image-heavy scroll effects, decorative dot fields, thin captions over photos |
+| **Starfield (NASA-punk)** | Art director's term for a grounded sci-fi look drawn from 1970s NASA, function over style, few holograms, physical buttons you want to press (Starfield Wiki, Destructoid). Accessibility review of its in-game screens (Vandehey): focus shown only by a colour change, a scrollbar as thin and grey as the decorative lines so content hides off-screen, decorative dots that read as an ellipsis, page indicators by colour only, low-contrast controls | Grounded, tactile, button-like controls; industrial labelling; **its documented failures become our anti-pattern list (§B.3)** | Clutter; decorative lines that compete with controls |
+| **NASA Graphics Standards Manual (Danne & Blackburn, 1975)** | One typeface (Helvetica) used throughout, strict grids, a single red (PMS 179), a binder of rules covering everything from vehicles to stationery | Discipline: few typefaces, a fixed grid, one brand red, rules written down (this document) | **NASA insignia** — we never use the meatball or worm in the UI; NASA appears only as a data credit |
+| **Guidelines for Brutalist Web Design (Copeland)** | Content readable on all reasonable screens; only links and buttons respond to clicks; links underlined and buttons look like buttons; back button works; view content by scrolling; decoration only when needed; performance is a feature | All seven, as rules (§B.3) | — |
+
+**Never:** glow/bloom, scanlines, film grain over data, animated noise, fake scrolling telemetry, decorative gauges, gradients or drop shadows on data, rounded "app" cards, emoji, NASA insignia.
 
 ### B.2 Modes
 
@@ -88,6 +93,32 @@ Exposed structure, heavy type, honest materials, nothing ornamental pretending t
 | **PRINT** | White, black, patterns | SCR-08 briefing card, SCR-17 post-EVA report | Black |
 
 Mode is set on `<html data-mode="brief|ops|hud|print">`. The mode never changes inside a screen.
+
+### B.3 Patterns adopted from the research
+
+| # | Pattern | Rule | Where |
+| --- | --- | --- | --- |
+| P1 | **Catalogue codes** (Colossal) | Every screen, panel and record carries a mono code that is a real ID, never decoration: `SCR-11 / OPS`, `[ EZ—RES 02 ]` for POIs, `[ EV1 ]`, `[ PR1 ]`, gallery counters `03 / 08`. Codes match 03 SCR ids and 05 ids | Panel headers, POI cards, crew and vehicle cards, image viewers |
+| P2 | **Module labels** (Colossal) | Major regions are labelled with their function: `[ HAB CORE /// EVENT LOG ]`, `[ ORBITAL /// EARTH LINK ]`. Max one per region, `text-3`, 11 px mono | Ops console regions, Sources & methods sections |
+| P3 | **Specimen cards** (Colossal) | Record cards show a code, a name, then label/value pairs in a fixed order (labels uppercase mono, values sentence case or numbers) | SCR-06 POI detail (TYPE · OBJECTIVE · EVIDENCE · POSITION SOURCE), crew cards, vehicle cards |
+| P4 | **Phase timeline** (Colossal) | The EVA is a horizontal strip of phases (EGRESS · TRAVERSE · STOP 1 … · INGRESS); the current phase is marked by a filled block **and** a bold label **and** a ▼ marker, never colour alone | Ops top bar, EVA metadata strip, post-EVA report |
+| P5 | **Imagery carries the colour** (Anduril) | Chrome stays neutral; Mars imagery provides warmth; at most **one accent per view** in BRIEF (the signal orange) | BRIEF pages |
+| P6 | **Light headlines** (Anduril, Anthropic) | Display and headings at weight 500 (was 600); never bold headlines; uppercase spaced labels | All modes |
+| P7 | **Editorial serif for reading** (Anthropic) | Paragraphs longer than three lines in BRIEF and PRINT use a serif; short captions stay mono | Sources & methods, report narrative, POI "why it matters" |
+| P8 | **Buttons look like buttons** (Copeland; Starfield's physical buttons) | Every control has a visible `edge` boundary, a text label and a pressed state; only controls respond to clicks; links are underlined; the browser back button follows the hash route | All modes |
+| P9 | **No decoration that mimics a control** (Starfield anti-pattern) | Decorative lines are hairline and never adjacent to controls; no decorative dots, chevrons, "+" or "…" unless they do what they look like | All modes |
+| P10 | **Focus and selection never by colour alone** (Starfield anti-pattern) | Focus = white ring + gap; selection = outline + weight or marker; current page/step = larger marker + label | All modes |
+| P11 | **Hidden content is announced** (Starfield anti-pattern) | Overflowing lists show a scroll shadow **and** a count ("+2 more"); scrollbars are on the right and at least 8 px wide; prefer showing everything when it fits | Alert list, event log, options sheet |
+| P12 | **Performance is a feature** (Copeland) | Self-hosted fonts subset to Latin; no video; images sized to their slot; JS budget per NFR-09 | All |
+
+### B.4 Research sources (accessed 2026-11-04)
+
+- Colossal Biosciences, dire wolf page — <https://colossal.com/direwolf/>
+- Anduril typography and palette — Fonts In Use, "Anduril Industries": <https://fontsinuse.com/uses/32662/anduril-industries>; unofficial "Anduril Design System" skill (third-party interpretation): <https://skills.sh/adisinghstudent/anduril/anduril>
+- Anthropic identity — type.today, "Styrene in use: Anthropic": <https://type.today/en/journal/anthropic>; Abduzeedo on Geist's identity: <https://www.abduzeedo.com/seamlessly-crafting-ai-branding-and-visual-identity-anthropic>
+- Starfield NASA-punk — Starfield Wiki: <https://starfieldwiki.net/wiki/General:Nasapunk>; Scott Vandehey, "Starfield's Accessibility Problems": <https://spaceninja.com/blog/2023/starfield-accessibility/>
+- NASA Graphics Standards Manual (1975) — We Are The Mutants: <https://wearethemutants.com/2020/01/09/unity-precision-thrust-the-nasa-graphics-standards-manual-1975/>; Inkbot Design: <https://inkbotdesign.com/?p=22452>
+- David Bryant Copeland, "Guidelines for Brutalist Web Design" — <https://brutalist-web.design/>
 
 ---
 
@@ -183,15 +214,16 @@ Chip: Plex Mono 11 px uppercase on `raised` (OPS) or `concrete` (BRIEF), `text-2
 
 | Role | Font | Size / weight | Where |
 | --- | --- | --- | --- |
-| Display | **Chakra Petch** (OFL — verify, TASK-13) | 40–96 px / 600, uppercase, tracking −1 % | BRIEF headlines, OPS screen titles ≥ 20 px |
-| Headings | Chakra Petch | 20–28 px / 600 uppercase | Panel titles |
+| Display | **Chakra Petch** (OFL — verify, TASK-13) | 40–96 px / 500, uppercase, tracking −1 % (P6) | BRIEF headlines, OPS screen titles ≥ 20 px |
+| Headings | Chakra Petch | 20–28 px / 500 uppercase | Panel titles |
 | UI text | **Inter** | 14 px / 400, line-height 1.45 | Labels, body (OPS) |
 | Microcopy | **IBM Plex Mono** | 11–13 px / 500 uppercase, tracking +4 % | Metadata strips, chips, kickers (the reference image's small mono copy) |
-| Body (BRIEF) | IBM Plex Mono | 15 px / 400, line-height 1.6 | Editorial paragraphs (reference image) |
+| Captions (BRIEF) | IBM Plex Mono | 13–15 px / 400, line-height 1.6 | Short editorial copy ≤ 3 lines (reference image) |
+| Long-form (BRIEF, PRINT) | **Source Serif 4** (OFL — verify, TASK-13) | 17 px / 400, line-height 1.6, max 68 characters per line | Paragraphs > 3 lines (P7): Sources & methods, report narrative, POI "why it matters" |
 | Values | **IBM Plex Mono**, tabular, slashed zero | 20 px (OPS) · 32–56 px (EVA) · 48–72 px (HUD) / 500 | Every number |
 | Alert text | Inter | 18 px (OPS) · 22 px (EVA) / 700, sentence case | Alert bar |
 
-Rules: never Chakra Petch for digits or for text under 20 px. Uppercase only for labels ≤ 4 words and headlines; messages and alerts are sentence case. Minimum 12 px anywhere; 16 px on EVA. All fonts self-hosted (offline).
+Rules: never Chakra Petch for digits or for text under 20 px; never bold headlines (P6). Uppercase only for labels ≤ 4 words and headlines; messages and alerts are sentence case. Minimum 12 px anywhere; 16 px on EVA. All fonts self-hosted (offline).
 
 ### C.3 Shape, grid and structure
 
@@ -252,6 +284,8 @@ Sound is never the only cue; ops has a mute toggle with a visible "SOUND OFF" in
 | Earth link widget | Light time, next relay pass, queue count | — | — | `CONJUNCTION` | — | — |
 | Clock control (ops) | Sim time, speed buttons 1×/10×/60×, pause, next event | Active speed filled | — | — | — | — |
 | Event log row | Time, actor, event, provenance | Click → map jumps | — | — | — | — |
+| Specimen card (P3) | Code `[ EZ—RES 02 ]`, name, label/value pairs in fixed order | `route` outline | Skeleton rows | — | Grey values + age | `unknown` row with reason |
+| Phase timeline (P4) | Phase blocks, past = filled `text-3`, current = filled `text-1` + bold label + ▼, future = outline | — | — | — | Dashed when unlinked | — |
 
 ### D.2 Alert system
 
@@ -345,6 +379,13 @@ v1 layout retained ([Appendix A](#b-layout-and-navigation): top bar 48 px, left 
 
 On a warning, the Options panel expands and takes focus; the map auto-frames the affected crew, nearest vehicle and candidate shelters.
 
+Research patterns applied: each region carries a module label (P2), e.g. `[ HAB CORE /// CREW ]`, `[ ORBITAL /// EARTH LINK ]`, `[ HAB CORE /// EVENT LOG ]`; crew and vehicle cards are specimen cards with codes `[ EV1 ]`, `[ PR1 ]` (P3); the EVA phase timeline (P4) runs under the top bar:
+
+```text
+EGRESS ▸ TRAVERSE ▸ STOP 1 ▸ TRAVERSE ▸ ■ STOP 2 ▸ TRAVERSE ▸ STOP 3 ▸ INGRESS
+                                         ▼ now (bold label + filled block)
+```
+
 ### E.5 SCR-12 EVA tablet (OPS, phone/tablet portrait, ≥ 360 px)
 
 ```text
@@ -393,7 +434,28 @@ v1 briefing grid retained ([Appendix A](#scr-08-briefing-card-print)). Post-EVA 
 
 ### E.9 SCR-09 Sources & methods (BRIEF)
 
-Editorial long-form page: left index (Datasets · Processing · Models · Assumptions (ParamSets) · Replay sources · Limitations · AI use · Diagnostics), right content in mono body with tables; each dataset row has a black-and-white thumbnail slab.
+Long-form paragraphs use Source Serif 4 (P7); dataset entries are specimen cards with catalogue codes matching DataSource ids (P1, P3).
+
+Editorial long-form page: left index (Datasets · Processing · Models · Assumptions (ParamSets) · Replay sources · Limitations · AI use · Diagnostics), right content with tables; each dataset row has a black-and-white thumbnail slab.
+
+### E.10 Specimen card (SCR-06 POI detail, crew and vehicle cards)
+
+```text
+┌─[ EZ—RES 02 ]────────────────────────────────┐
+│ HYDRATED SULFATE LEDGE                       │  Chakra Petch 20 px / 500
+│ ──────────────────────────────────────────── │
+│ TYPE           Resource — ISRU water         │  labels: Plex Mono 11 px uppercase
+│ OBJECTIVE      Sample sulfate-bearing unit   │  values: Inter 14 px
+│ WHY IT MATTERS (serif paragraph, P7)         │
+│ EVIDENCE   +   2 sources                     │  "+" expands, nothing else does
+│ POSITION       ±15 m · assumed △             │  provenance glyph
+│ IMAGE          03 / 08  Mastcam · sol 4171   │  gallery counter (P1)
+│                                              │
+│ [ ADD AS STOP ]                              │  bordered, labelled button (P8)
+└──────────────────────────────────────────────┘
+```
+
+Codes: `EZ—SCI nn` (science), `EZ—RES nn` (resource), `EZ—ENG nn` (engineering); the number is the POI's order in `pois.geojson`. Values shown are illustrative.
 
 ---
 
@@ -533,4 +595,4 @@ Superseded by [§E.9](#e9-scr-09-sources--methods-brief).
 | U-09 | Colour vs. grayscale HiRISE basemap | Toggle; grayscale default in OPS (better hazard-overlay contrast), colour in BRIEF slabs |
 | U-25 | Visual mockups of key screens | Produce before 7 Nov so R3/R5 build from a shared picture |
 | U-26 | Product name and logo mark (D-08) | Chamfered-hexagon mark in the reference image's style; name decided at kickoff |
-| U-27 | Chakra Petch and Lucide licences | Verify in TASK-13; fallback display face: Space Grotesk (OFL) |
+| U-27 | Chakra Petch, Source Serif 4 and Lucide licences | Verify in TASK-13; fallback display face: Space Grotesk (OFL) |

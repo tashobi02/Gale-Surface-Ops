@@ -763,7 +763,7 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
 {"param_set_id": "pr1-assumed", "kind": "pressurized_rover", "title": "Pressurized rover (SEV-class concept)",
  "values": {"flat_speed_kmh": 10, "hard_slope_deg": 20, "caution_slope_deg": 15, "low_ti_cost": 2.0,
             "min_speed_frac": 0.3, "capacity": 4, "ingress_min": 5, "antenna_m": 3},
- "provenance": "assumed", "source_ids": [], "note": "02 §D.9; replace with cited figures (U-20)"}
+ "provenance": "assumed", "source_ids": ["nasa-sev-factsheet-2011"], "note": "Speed and capacity from the NASA SEV concept; slope limit and ingress are assumptions (02 §D.9, U-20)"}
 ```
 
 ### F.6 LogEvent lines *(v2; numeric values left `null` until TASK-21 fixes the scenario)*

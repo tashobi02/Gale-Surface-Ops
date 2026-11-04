@@ -66,6 +66,7 @@
   --font-display: "Chakra Petch", "Space Grotesk", sans-serif;
   --font-ui: "Inter", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-serif: "Source Serif 4", Georgia, serif;   /* long-form BRIEF/PRINT paragraphs (04 P7) */
   --text-ui: 14px;
   --line-height-ui: 1.45;
   --text-micro: 12px;
@@ -202,7 +203,7 @@ html {
 
 .display {
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: 500;                 /* light headlines, never bold (04 P6) */
   text-transform: uppercase;
   letter-spacing: -0.01em;
   line-height: 0.95;
@@ -234,6 +235,43 @@ html {
 .alert-bar[data-level="advisory"] { background: var(--surface-2); color: var(--fg-1); border-left: 4px solid var(--status-advisory); }
 
 [data-mode="hud"] .alert-bar { background: transparent; color: var(--status-warning); }
+
+/* Long-form reading (04 P7) */
+.prose {
+  font: 400 17px / 1.6 var(--font-serif);
+  max-width: 68ch;
+}
+
+/* Catalogue codes and module labels (04 P1, P2) — real ids only, never decoration */
+.code,
+.module-label {
+  font: 500 11px / 1.2 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* Buttons look like buttons (04 P8): visible edge, label, pressed state. No radius, no shadow. */
+button,
+.btn {
+  border: 1px solid var(--control-edge);
+  border-radius: 0;
+  box-shadow: none;
+  min-height: var(--target-mouse);
+}
+button:active,
+.btn:active { filter: invert(1); }
+a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Hidden content is announced (04 P11): scroll shadow + count label. */
+.scroll-list {
+  overflow-y: auto;
+  scrollbar-width: auto;
+  background:
+    linear-gradient(var(--surface-1) 30%, transparent) top / 100% 24px no-repeat local,
+    linear-gradient(transparent, var(--surface-1) 70%) bottom / 100% 24px no-repeat local,
+    radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.5), transparent) bottom / 100% 12px no-repeat scroll;
+}
 
 /* Stale values (04 §D.5) */
 .is-stale { color: var(--fg-3); }
