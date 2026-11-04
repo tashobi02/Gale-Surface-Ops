@@ -72,10 +72,10 @@ Owners: assumptions A-01–A-07 in [01 §F.2](specs/01_Product_Requirements_Docu
 
 | Type | Item |
 | --- | --- |
-| **Blocker** | Is pre-event application code allowed? (U-12 → Track S vs. P in 06) |
+| Resolved | Pre-event application code is allowed: Track P, Local Lead answer of 2026-11-04 ([ops/rules.md](ops/rules.md)); re-check against the 2026 guides on 13 Nov |
 | **Blocker** | DEM quality inside the AOI (A-01, TASK-01) decides the site |
 | Assumption | Slope limit 15°/10°, walkback 5 km, suited speed 3.3 km/h — illustrative, editable |
-| Assumption | Team of 4, ~70 person-hours during the event |
+| Assumption | Team of 6 ([ops/team.md](ops/team.md)), ~96–120 person-hours during the event |
 | Assumption | DEM elevations are MOLA-areoid-referenced (verify label) |
 | Unresolved | AOI exact bounds; TI "loose fines" threshold; CRISM coverage; traverse source |
 

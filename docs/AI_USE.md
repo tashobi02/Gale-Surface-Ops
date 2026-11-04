@@ -16,7 +16,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | Tool | Model / version | Used for | Used by |
 | --- | --- | --- | --- |
 | Claude Code | claude-opus-5-5 | Repo organization, doc normalization, skeleton stubs | TODO |
-| TODO | | | |
+| Antigravity | Gemini | Drafted `docs/ops/team.md` from team screenshots and public GitHub profiles | Obidit Islam (`@tashobi02`) |
 
 ## Log
 
@@ -27,6 +27,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-02 | Claude Code | Vendored ECC orch-* pipeline files and spec-kit review commands; ran `/speckit.analyze` + `/speckit.clarify` on docs/specs and applied the fixes listed in 01 Clarifications and the commit message; updated schemas and `schema.ts` to match | Did not change requirement ids or status labels; spec decisions (video deadline, manifest assets, tablet scope, briefing access) were chosen by the user | TODO | TODO(decision) |
 | 2026-11-03 | Claude Code | Drafted `docs/tasks/_coordination.md` (Phase 1 of the atomized task plans: subtask register, path ownership, contracts, fixtures, dependency graph, lanes board) from `docs/specs/01–06` and the repo skeleton | Did not change specs, code, schemas or tests; added no numbers beyond those quoted from the specs; left open choices as `TODO(decision)` / `TODO(verify)` | Approved by the user 2026-11-03 | TODO(decision) |
 | 2026-11-03 | Claude Code (19 parallel sub-agents, one per task file) | Wrote the 19 task files `docs/tasks/TASK-00…18_*.md` from the frozen coordination map; amended the map once (3 subtasks, extra cross-task edges, paths, open points); wrote `scripts/check_tasks.py` and the `docs/tasks/README.md` index, whose hour totals the script computes | Did not change specs, code, schemas or tests; chose no dataset, URL or science number (only effort estimates); left open choices as `TODO(decision)` / `TODO(verify)` | TODO | TODO(decision) |
+| 2026-11-04 | Antigravity (Gemini) | Wrote `docs/ops/team.md` (T00.06 / U-13) from the NASA Space Apps team page and GitHub collaborator screenshots, plus public GitHub profile/repository metadata for all 6 team members | Did not alter specs, requirement IDs, code or tests; kept final lane sign-off as `TODO(decision)` and venue mode (`U-14`) as `TODO(verify)` | Reviewed by Obidit Islam | TODO(decision) |
+| 2026-11-04 | Claude Code | Recorded the team owner's U-12 answer and Track P in `docs/ops/rules.md` (T00.03); rewrote the phase-gate line in `CLAUDE.md` and `AGENTS.md` (T00.04); updated 01 A-07 to a team of 6; ran a partial T16.02 sync (U-12, U-13) across 01, 06, `docs/README.md` and the capacity notes in `docs/tasks/` | Did not change requirement ids; ticked registration, the sources checked and the Local Lead as source, and quoted the Lead's message, only after the team owner confirmed each; did not edit 06 §A, `docs/README.md` or `_coordination.md` (T16.02 sync) | Instructed by Obidit Islam; review TODO | TODO(decision) |
 
 ## Prompts location
 

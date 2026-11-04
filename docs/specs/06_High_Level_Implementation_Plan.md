@@ -13,12 +13,12 @@
 
 | Item | Value | Label |
 | --- | --- | --- |
-| Team size | 4 (rules allow 1–6) | **Assumed** |
+| Team size | 6 (rules allow 1–6; roster in [ops/team.md](../ops/team.md)) | **Confirmed** (team owner, 2026-11-04) |
 | Roles | Data/GIS lead (Python, GDAL) · Compute engineer (TypeScript algorithms + tests) · Frontend engineer (OpenLayers/UI) · Design & story lead (UX, visuals, video, submission) | **Assumed** |
 | Calendar | Pre-event: 2–12 Nov. Bangladesh hackathon: Fri 13 Nov 07:00 – Sat 14 Nov. 240-s local-judging video due **13 Nov 18:30**; final 30-s video upload **14 Nov 09:00** (run of show) with hard cut-off **12:00**; local judging from **11:00** | **Confirmed** (Participants Guide) |
-| Event working time | ≈ 16–20 focused hours per person (ceremonies, mentor rounds, meals, sleep removed) → ≈ 70 person-hours | **Assumed** |
+| Event working time | ≈ 16–20 focused hours per person (ceremonies, mentor rounds, meals, sleep removed) → ≈ 96–120 person-hours for 6 people | **Assumed** |
 | Budget / infrastructure | $0; team laptops; ≥ 40 GB free disk on the data laptop; campus internet for downloads before the event | **Assumed** |
-| Pre-event work allowed | Participants Guide explicitly recommends downloading datasets offline, setting up and testing the environment, preparing a public repository, slide template and demo script before day one. Whether application **code** may be written before 13 Nov is **Unresolved** — check spaceappschallenge.org/legal and ask the Local Lead | **Confirmed** / **Unresolved** |
+| Pre-event work allowed | Participants Guide explicitly recommends downloading datasets offline, setting up and testing the environment, preparing a public repository, slide template and demo script before day one. Application **code** may be written before 13 Nov: Dhaka Local Lead answered yes on 2026-11-04 ([ops/rules.md](../ops/rules.md)); re-check against the 2026 Project Submission and Judging guides on 13 Nov | **Confirmed** |
 
 Because of the unresolved rule, the plan has two tracks:
 
@@ -159,6 +159,6 @@ Requirement's acceptance criteria met · unit tests (compute) or manual test not
 
 | ID | Item | Owner | Due |
 | --- | --- | --- | --- |
-| U-12 | Pre-event code allowed? (Track S vs. P) | Story lead | 4 Nov |
-| U-13 | Actual team size and skills | Team | 3 Nov |
+| U-12 | Pre-event code allowed? (Track S vs. P) — **Resolved 2026-11-04**: Track P ([ops/rules.md](../ops/rules.md)) | Story lead | 4 Nov |
+| U-13 | Actual team size and skills — **Resolved 2026-11-04**: 6 members ([ops/team.md](../ops/team.md)) | Team | 3 Nov |
 | U-14 | Physical venue vs. virtual (affects Wi-Fi assumptions only; demo is offline regardless) | Story lead | 10 Nov |

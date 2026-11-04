@@ -334,7 +334,7 @@ Screens referenced are defined in [03](03_App_Flow_and_Diagrams.md); compute in 
 | A-04 | Walkback limit 5 km route distance | **Assumed**; references: NASA lunar walkback test studied 10 km; Apollo 17 walking radius 3.1 km | Drives "exceeded" warning |
 | A-05 | Low thermal inertia indicates loose fines | **Assumed interpretation** at 100 m pixel scale (~20 % absolute accuracy, Confirmed) | Sand-caution warnings are coarse |
 | A-06 | RAD rate at Gale is representative for the AOI | **Assumed** (same crater, similar elevation range) | Radiation estimate |
-| A-07 | Team of 4; ~28-hour event window (13 Nov 07:00 → 14 Nov 11:00), ≈ 70 person-hours ([06 §A](06_High_Level_Implementation_Plan.md#a-planning-assumptions)) | **Assumed** | Scope feasibility |
+| A-07 | Team of 6 (roster in [ops/team.md](../ops/team.md); more members may be added later); ~28-hour event window (13 Nov 07:00 → 14 Nov 11:00); 16–20 focused hours per person → ≈ 96–120 person-hours ([06 §A](06_High_Level_Implementation_Plan.md#a-planning-assumptions)) | Team size **Confirmed** (team owner, 2026-11-04); focused hours per person **Assumed** | Scope feasibility |
 
 ### F.3 Risks
 
@@ -343,7 +343,7 @@ Screens referenced are defined in [03](03_App_Flow_and_Diagrams.md); compute in 
 | DEM in AOI is not HiRISE-quality | Routing meaningless at walking scale | TASK-01 check; fallback to Jezero M2020 TRN HiRISE DTM mosaic |
 | Custom Mars projection rendering issues in the map library | Map does not render | Fallback: pre-rendered static images in a local metric frame (see [02 §B](02_Technical_Requirements_Document.md#b-technology-choices)) |
 | Router too slow in browser | Laggy demo | 5 m routing grid; Web Worker; precomputed demo route as last resort |
-| Pre-event building may be restricted by Space Apps rules | Disqualification risk | **Unresolved** — check spaceappschallenge.org/legal; pre-event work limited to data and design unless rules allow more |
+| Pre-event building may be restricted by Space Apps rules | Disqualification risk | **Confirmed** — Dhaka Local Lead allowed pre-event application code on 2026-11-04 (Track P, [ops/rules.md](../ops/rules.md)); re-check against the 2026 guides on 13 Nov |
 | Over-claiming science | Validity score loss | Provenance labels, methods panel, prototype disclaimer |
 
 ### F.4 Unresolved decisions owned by this document

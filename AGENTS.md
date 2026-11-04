@@ -6,7 +6,7 @@ For any coding agent (Codex, Cursor, Gemini CLI, …). Claude Code users also ge
 
 ## Phase gate
 
-**Skeleton only until TASK-00 resolves; do not implement.** Function bodies stay stubs that throw/raise with a `TASK-xx` id; tests stay `it.todo` / `@pytest.mark.skip`. See [docs/ops/rules.md](docs/ops/rules.md).
+**Track P recorded 2026-11-04: application code may be written before 13 Nov.** See [docs/ops/rules.md](docs/ops/rules.md) for the Local Lead's answer and the open scope question. Work follows the task windows and dependency order in [docs/tasks/_coordination.md](docs/tasks/_coordination.md); `pre-event-if-permitted` subtasks may start now. Re-check against the 2026 Project Submission and Judging guides on 13 Nov.
 
 ## Rules
 

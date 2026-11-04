@@ -821,7 +821,7 @@ Track S timing. Under **Track P**, the `pre-event-if-permitted` subtasks of TASK
 | **M5** Day 1 19:00 → Day 2 06:00 | `follow-up:` fixes; T18.01, T18.02 only if freeze criteria met early | `follow-up:` fixes; T18.04, T18.05 likewise | `follow-up:` fixes; T18.03, T18.06, T18.07 likewise | T13.04, T13.06–T13.10, T15.02, T15.03 | T12.06 | T14.03–T14.10 |
 | **M6** Day 2 06:00 → 11:00 | Freeze | Freeze | Freeze | Freeze | T16.03–T16.07, T17.03 | Freeze |
 
-Capacity: 06 assumes ≈ 70 person-hours at the event (A-07). Phase 3 sums the task-file estimates per lane and window; if event-only work exceeds that, the cut list (§h.6) applies from the top.
+Capacity: 06 assumes ≈ 96–120 person-hours at the event for a team of 6 (A-07). Phase 3 sums the task-file estimates per lane and window; if event-only work exceeds that, the cut list (§h.6) applies from the top.
 
 ## h. Working conventions
 

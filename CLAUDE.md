@@ -26,9 +26,9 @@ Start at [docs/README.md](docs/README.md): index, traceability table, decisions,
 
 ## 3. Phase gate
 
-**Skeleton only until TASK-00 resolves; do not implement.**
+**Track P recorded 2026-11-04: application code may be written before 13 Nov.** See [docs/ops/rules.md](docs/ops/rules.md) for the Local Lead's answer and the open scope question.
 
-Every function body stays a stub (`throw new Error("TODO(TASK-xx): not implemented")` / `raise NotImplementedError("TASK-xx")`); tests stay `it.todo` / `@pytest.mark.skip`. See [docs/ops/rules.md](docs/ops/rules.md).
+Work follows the task windows and dependency order in [docs/tasks/_coordination.md](docs/tasks/_coordination.md); `pre-event-if-permitted` subtasks may start now. Re-check against the 2026 Project Submission and Judging guides on 13 Nov. The rules in §2 still apply to all code.
 
 ## 4. Commands
 

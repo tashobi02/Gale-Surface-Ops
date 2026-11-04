@@ -47,7 +47,7 @@ Estimates are the sums of the subtasks' low and high estimates, computed by `scr
 | integration | 5–7.5 | — | 11–18.5 | — | — | 16–26 |
 | all | 81.5–126.5 | 34.5–52 | 93.5–147 | 25–37.5 | 9.5–14.5 | 244–377.5 |
 
-**Capacity.** 06 §A assumes ≈ 70 person-hours at the event (*Assumed*). Under Track S, the work left for the event (`pre-event-if-permitted` plus `event-only`, without fallbacks and desirables) is 128–199 h; 110–170.5 h of it is `agent-ready` and 18–28.5 h `human-required`. Under Track P, 93.5–147 h remains for the event. Either way the plan only fits if agents carry most of the agent-ready work and the cut list ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)) is applied from the top when behind.
+**Capacity.** 06 §A assumes ≈ 96–120 person-hours at the event for a team of 6 (*Assumed*; the earlier team-of-4 figure was ≈ 70). Under Track S, the work left for the event (`pre-event-if-permitted` plus `event-only`, without fallbacks and desirables) is 128–199 h; 110–170.5 h of it is `agent-ready` and 18–28.5 h `human-required`. Under Track P, 93.5–147 h remains for the event. Either way the plan only fits if agents carry most of the agent-ready work and the cut list ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)) is applied from the top when behind.
 
 ## Start here
 
