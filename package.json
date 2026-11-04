@@ -1,19 +1,25 @@
 {
-  "name": "cheesyspace-marswalk-planner",
+  "name": "cheesyspace-marswalk",
   "private": true,
-  "description": "Repo tooling for Marswalk Planner (NASA Space Apps 2026, team CheesySpace)",
+  "description": "Marswalk Surface Ops (NASA Space Apps 2026, team CheesySpace): planner, Hab Core, EVA/HUD/ops clients",
   "license": "Apache-2.0",
   "scripts": {
-    "lint:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#graphify-out\" \"#.claude/skills\" \"#.claude/agents\" \"#.claude/ecc/rules\" \"#.claude/commands/orch-*.md\" \"#.claude/commands/speckit.*.md\" \"#.claude/hookify.*.local.md\" \"#.specify/templates\" \"#.venv\" \"#web/dist\"",
+    "lint:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#graphify-out\" \"#.claude/skills\" \"#.claude/agents\" \"#.claude/ecc/rules\" \"#.claude/commands/orch-*.md\" \"#.claude/commands/speckit.*.md\" \"#.claude/hookify.*.local.md\" \"#.specify/templates\" \"#.venv\" \"#apps/*/dist\" \"#apps/hab-core/var\"",
     "docs:links": "python3 scripts/check_links.py docs README.md",
-    "typecheck": "npm --workspace web run typecheck",
-    "build": "npm --workspace web run build",
-    "test:web": "npm --workspace web run test"
+    "typecheck": "npm run --workspaces --if-present typecheck",
+    "build": "npm --workspace @marswalk/web run build",
+    "test:web": "npm run --workspaces --if-present test",
+    "dev": "npm --workspace @marswalk/web run dev",
+    "hab:start": "npm --workspace @marswalk/hab-core run start --",
+    "hab:replay": "npm --workspace @marswalk/hab-core run replay --"
   },
   "devDependencies": {
-    "markdownlint-cli2": "^0.24.0"
+    "markdownlint-cli2": "^0.24.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
   },
   "workspaces": [
-    "web"
+    "packages/*",
+    "apps/*"
   ]
 }

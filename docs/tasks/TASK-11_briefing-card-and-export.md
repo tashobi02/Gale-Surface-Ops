@@ -10,20 +10,20 @@
 | Effort (doc 06) | 3–5 h |
 | Done when (doc 06) | One-page print in Chrome; export reproduces `plan_hash` |
 | Main risk → fallback | Map snapshot hard → static AOI thumbnail with route drawn as SVG |
-| Spec sections | [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export) · [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods) · [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) · [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video) · [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12) · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) · [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) · [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card) · [04 §C.1](../specs/04_Design_Brief.md#c1-colour-palette-contrast-verified-by-computation-wcag-relative-luminance) · [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print) · [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport) · [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok) · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) |
+| Spec sections | [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export) · [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods) · [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) · [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video) · [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12) · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) · [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) · [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card) · [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens) · [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print) · [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport) · [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok) · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) |
 
 ## Inputs this task consumes
 
 | Input | Kind | Owner | Dependency |
 | --- | --- | --- | --- |
-| C1 TypeScript mirror: `PlanExport`, `PlanResult`, `MissionScenario`, `Waypoint` in `web/src/types/schema.ts` | contract | T03.01 | soft |
+| C1 TypeScript mirror: `PlanExport`, `PlanResult`, `MissionScenario`, `Waypoint` in `packages/protocol/src/schema.ts` | contract | T03.01 | soft |
 | C3 plan-export JSON Schema `schemas/plan-export.schema.json` (U-11 still open) | contract | T03.01 | soft |
-| C10 UI app context and the stubs `web/src/export/planExport.ts`, `web/src/ui/briefing/mapSnapshot.ts`, `web/src/ui/components/metric.ts`, `web/src/ui/components/statusIcon.ts`, `web/src/ui/results/profileChart.ts` | contract | T07.01 | soft |
+| C10 UI app context and the stubs `apps/web/src/export/planExport.ts`, `apps/web/src/ui/briefing/mapSnapshot.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/components/statusIcon.ts`, `apps/web/src/ui/results/profileChart.ts` | contract | T07.01 | soft |
 | C11 plan-store state: scenario, waypoints, result, status | contract | T08.01 | soft |
-| C12 token names, print theme and status classes in `web/src/ui/styles/tokens.css` | contract | T13.01 | soft |
-| F2 canned PLAN_RESULT messages (OK, PARTIAL, OVER_LIMITS) in `web/tests/fixtures/plan-results/` | fixture | T05.03 | soft |
-| F4 mock site bundle `web/public/sites/mock_site/` (site name, sources, AOI, data version) | fixture | T03.02 | soft |
-| Real profile chart and route layer (`web/src/ui/results/profileChart.ts`, `web/src/ui/map/routeLayer.ts`) | upstream output | T09.01–T09.02 | hard (T11.03) |
+| C12 token names, print theme and status classes in `apps/web/src/ui/styles/tokens.css` | contract | T13.01 | soft |
+| F2 canned PLAN_RESULT messages (OK, PARTIAL, OVER_LIMITS) in `apps/web/tests/fixtures/plan-results/` | fixture | T05.03 | soft |
+| F4 mock site bundle `data/sites/mock_site/` (site name, sources, AOI, data version) | fixture | T03.02 | soft |
+| Real profile chart and route layer (`apps/web/src/ui/results/profileChart.ts`, `apps/web/src/ui/map/routeLayer.ts`) | upstream output | T09.01–T09.02 | hard (T11.03) |
 | Full PLAN_RESULT from the real worker | upstream output | T05.32 | hard (T11.05) |
 | JSON-Schema validator for the web tests (choice is a `TODO(decision)` in the dependency batch) | upstream output | T14.01 | hard (T11.01) |
 
@@ -31,10 +31,10 @@
 
 | Output | Path | Consumers |
 | --- | --- | --- |
-| Plan hash and PlanExport builder with a local JSON download | `web/src/export/planExport.ts` | T11.03, T11.05, T14.08, T18.07 |
-| Export and hash tests | `web/tests/export/planExport.test.ts` | T11.02 (stacked pair) |
-| SCR-08 Briefing card and print CSS | `web/src/ui/screens/scr08BriefingCard.ts`, `web/src/ui/screens/scr08BriefingCard.css` | T07.03 (route `#/briefing`), T12.02, T12.06, T13.09, T13.10, T14.06, T17.02, T18.06 |
-| Route map snapshot | `web/src/ui/briefing/mapSnapshot.ts` | T11.03 |
+| Plan hash and PlanExport builder with a local JSON download | `apps/web/src/export/planExport.ts` | T11.03, T11.05, T14.08, T18.07 |
+| Export and hash tests | `apps/web/tests/export/planExport.test.ts` | T11.02 (stacked pair) |
+| SCR-08 Briefing card and print CSS | `apps/web/src/ui/screens/scr08BriefingCard.ts`, `apps/web/src/ui/screens/scr08BriefingCard.css` | T07.03 (route `#/briefing`), T12.02, T12.06, T13.09, T13.10, T14.06, T17.02, T18.06 |
+| Route map snapshot | `apps/web/src/ui/briefing/mapSnapshot.ts` | T11.03 |
 | Print and export verification record | `docs/ops/verification-log.md` (T11.05 section) | T14.06, T16.06 |
 
 ## Subtasks
@@ -45,8 +45,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1–1.5 h
-- **Owns (writes):** `web/tests/export/planExport.test.ts`
-- **Reads:** `web/src/export/planExport.ts` (stub signature from T07.01), `web/src/types/schema.ts`, `schemas/plan-export.schema.json`, `web/tests/fixtures/plan-results/`, `web/tests/fixtures/README.md`, [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [02 §F NFR-06](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation)
+- **Owns (writes):** `apps/web/tests/export/planExport.test.ts`
+- **Reads:** `apps/web/src/export/planExport.ts` (stub signature from T07.01), `packages/protocol/src/schema.ts`, `schemas/plan-export.schema.json`, `apps/web/tests/fixtures/plan-results/`, `apps/web/tests/fixtures/README.md`, [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [02 §F NFR-06](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation)
 - **Depends on:** T03.01 (soft), T07.01 (soft), T05.03 (soft), T14.01 (hard: the JSON-Schema validator arrives in the dependency batch)
 - **Parallel with:** T11.03, T11.04, T09.03–T09.05, T10.01–T10.02
 - **Steps:**
@@ -63,8 +63,8 @@
   - Every fixture export passes `schemas/plan-export.schema.json`.
   - No expected value is typed by hand: expectations come from 05 §C rules or from comparing two runs (fixture value rule, map [§e](_coordination.md#e-fixtures-and-mocks)).
   - The tests fail against the stub and pass after T11.02.
-- **Verify:** `npx vitest run tests/export/planExport.test.ts` (run in `web/`)
-- **Agent brief:** Write `web/tests/export/planExport.test.ts` for `web/src/export/planExport.ts` (stub signature from T07.01). Cover 05 §C PlanExport: `plan_hash` is the first 12 hex of SHA-256 over sorted-key canonical JSON of `{data_version, scenario, waypoints}`; same input twice gives the same hash; key order does not matter; exports built from the F2 fixtures validate against the schema. No hand-typed hashes.
+- **Verify:** `npx vitest run tests/export/planExport.test.ts` (run in `apps/web/`)
+- **Agent brief:** Write `apps/web/tests/export/planExport.test.ts` for `apps/web/src/export/planExport.ts` (stub signature from T07.01). Cover 05 §C PlanExport: `plan_hash` is the first 12 hex of SHA-256 over sorted-key canonical JSON of `{data_version, scenario, waypoints}`; same input twice gives the same hash; key order does not matter; exports built from the F2 fixtures validate against the schema. No hand-typed hashes.
 - **Conflict notes:** Writes only the test file. Stacked with T11.02 (map [§h.3](_coordination.md#h3-tests-first-merge-order)): T11.02 branches from this branch and the two merge back to back. Never edit the fixtures (T05.03) or the schema (T03.01); a mismatch with them is a `contract-change:` request to their owner.
 
 ### T11.02 — Implement the plan hash and PlanExport assembly
@@ -73,8 +73,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1.5–2 h
-- **Owns (writes):** `web/src/export/planExport.ts`
-- **Reads:** `web/tests/export/planExport.test.ts`, `web/src/types/schema.ts`, `web/src/state/planStore.ts` (C11 interfaces), `web/src/ui/context.ts` (C10), `schemas/plan-export.schema.json`, [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [05 §E.5](../specs/05_Backend_and_Database_Schema.md#e5-provenance-required-to-reproduce-a-result), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok), [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export), [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video), [03 §C.5](../specs/03_App_Flow_and_Diagrams.md#c5-saving--exporting-in-scope-export-storage-desirable)
+- **Owns (writes):** `apps/web/src/export/planExport.ts`
+- **Reads:** `apps/web/tests/export/planExport.test.ts`, `packages/protocol/src/schema.ts`, `apps/web/src/state/planStore.ts` (C11 interfaces), `apps/web/src/ui/context.ts` (C10), `schemas/plan-export.schema.json`, [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [05 §E.5](../specs/05_Backend_and_Database_Schema.md#e5-provenance-required-to-reproduce-a-result), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok), [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export), [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video), [03 §C.5](../specs/03_App_Flow_and_Diagrams.md#c5-saving--exporting-in-scope-export-storage-desirable)
 - **Depends on:** T11.01 (hard: tests-first pair), T07.01 (soft), T03.01 (soft), T08.01 (soft)
 - **Parallel with:** T11.03, T11.04
 - **Steps:**
@@ -90,8 +90,8 @@
   - Given a PARTIAL result, when it is exported, then `result.totals` is null (02 §E.2).
   - The export carries `data_version`, `scenario`, `waypoints`, `app_version` and `plan_hash`, which 05 §E.5 needs to reproduce the result.
   - The download works with the network disabled; no request leaves `localhost` (NFR-01, NFR-08).
-- **Verify:** `npx vitest run tests/export/planExport.test.ts` (run in `web/`); `make typecheck`
-- **Agent brief:** Implement `web/src/export/planExport.ts` against its T07.01 stub: canonical sorted-key JSON of `{data_version, scenario, waypoints}`, SHA-256 through Web Crypto, first 12 hex characters; assemble the 05 §C PlanExport (result without the message fields, `provenance_summary`, `disclaimer`) and a local JSON download. Make the stacked T11.01 tests pass; add no dependency.
+- **Verify:** `npx vitest run tests/export/planExport.test.ts` (run in `apps/web/`); `make typecheck`
+- **Agent brief:** Implement `apps/web/src/export/planExport.ts` against its T07.01 stub: canonical sorted-key JSON of `{data_version, scenario, waypoints}`, SHA-256 through Web Crypto, first 12 hex characters; assemble the 05 §C PlanExport (result without the message fields, `provenance_summary`, `disclaimer`) and a local JSON download. Make the stacked T11.01 tests pass; add no dependency.
 - **Conflict notes:** Owns only `planExport.ts`, created as a stub by T07.01. Branch stacked on T11.01; merge right after it. Callers in SCR-08 (T11.03) code against the stub signature, so do not change it here.
 
 ### T11.03 — Implement the SCR-08 layout and print CSS
@@ -100,8 +100,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2.5–3 h
-- **Owns (writes):** `web/src/ui/screens/scr08BriefingCard.ts`, `web/src/ui/screens/scr08BriefingCard.css`
-- **Reads:** `web/src/ui/context.ts`, `web/src/state/planStore.ts`, `web/src/export/planExport.ts`, `web/src/ui/briefing/mapSnapshot.ts`, `web/src/ui/results/profileChart.ts`, `web/src/ui/components/metric.ts`, `web/src/ui/components/statusIcon.ts`, `web/src/ui/styles/tokens.css`, `web/tests/fixtures/plan-results/`, `web/tests/fixtures/mockWorker.ts`, `web/public/sites/mock_site/`, `docs/design/wireframes/`, [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-palette-contrast-verified-by-computation-wcag-relative-luminance), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior), [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate), [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export), [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video), [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12)
+- **Owns (writes):** `apps/web/src/ui/screens/scr08BriefingCard.ts`, `apps/web/src/ui/screens/scr08BriefingCard.css`
+- **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/export/planExport.ts`, `apps/web/src/ui/briefing/mapSnapshot.ts`, `apps/web/src/ui/results/profileChart.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/components/statusIcon.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/tests/fixtures/plan-results/`, `apps/web/tests/fixtures/mockWorker.ts`, `data/sites/mock_site/`, `docs/design/wireframes/`, [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate), [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export), [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video), [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12)
 - **Depends on:** T09.01–T09.02 (hard: the briefing card renders the real profile, 06 TASK-11 after TASK-09), T07.01 (soft), T08.01 (soft), T13.01 (soft), T05.03 (soft), T03.02 (soft)
 - **Parallel with:** T11.01, T11.02, T11.04
 - **Steps:**
@@ -128,8 +128,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1.5–2 h
-- **Owns (writes):** `web/src/ui/briefing/mapSnapshot.ts`
-- **Reads:** `web/src/ui/context.ts` (MapHandle, C10), `web/src/ui/map/projection.ts`, `web/src/ui/map/routeLayer.ts`, `docs/contracts/tile-grid.md`, `web/public/sites/mock_site/`, [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print), [04 map overlays](../specs/04_Design_Brief.md#map-overlays), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly)
+- **Owns (writes):** `apps/web/src/ui/briefing/mapSnapshot.ts`
+- **Reads:** `apps/web/src/ui/context.ts` (MapHandle, C10), `apps/web/src/ui/map/projection.ts`, `apps/web/src/ui/map/routeLayer.ts`, `docs/contracts/tile-grid.md`, `data/sites/mock_site/`, [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print), [04 map overlays](../specs/04_Design_Brief.md#map-overlays), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly)
 - **Depends on:** T07.01 (soft), T03.02 (soft), T07.06 (hard: the snapshot needs a rendered map)
 - **Parallel with:** T11.01, T11.02, T11.03
 - **Steps:**
@@ -144,7 +144,7 @@
   - Taking the snapshot makes no request beyond `localhost` (NFR-01).
   - A failed capture shows as an explicit error on the card, never as a blank or stale image.
 - **Verify:** `make typecheck`; manual: on `?site=mock_site` with the mock worker, open the card, compare the snapshot with the map, and check devtools Network shows only `localhost`.
-- **Agent brief:** Implement `web/src/ui/briefing/mapSnapshot.ts` against its T07.01 stub: fit the map handle's view to the route extent in the working projection, capture the rendered canvases as one printable image, then restore the view. No Earth-projection helpers and no network requests. Report failures explicitly so the T11.06 fallback can take over.
+- **Agent brief:** Implement `apps/web/src/ui/briefing/mapSnapshot.ts` against its T07.01 stub: fit the map handle's view to the route extent in the working projection, capture the rendered canvases as one printable image, then restore the view. No Earth-projection helpers and no network requests. Report failures explicitly so the T11.06 fallback can take over.
 - **Conflict notes:** Writes only `mapSnapshot.ts`, created as a stub by T07.01. Never edit `routeLayer.ts` (T09.01) or `createMap.ts` (T07.06). Needs a rendered map to check, see Spec questions (proposed T07.06 edge). If T11.06 is triggered, it replaces this file.
 
 ### T11.05 — Verify one-page print in Chrome and plan_hash reproduction
@@ -154,7 +154,7 @@
 - **Window:** event-only
 - **Estimate:** 1 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
-- **Reads:** [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario), [01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications), [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan), [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-palette-contrast-verified-by-computation-wcag-relative-luminance), [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print), [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), `web/tests/fixtures/plan-results/`
+- **Reads:** [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario), [01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications), [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan), [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens), [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print), [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), `apps/web/tests/fixtures/plan-results/`
 - **Depends on:** T11.02 (hard: the real export and hash are checked), T11.03 (hard: the real card is printed), T11.04 (hard: the real snapshot is printed), T05.32 (hard: reloading the export reproduces identical metrics needs the real worker), T07.03 (hard: the checks run on the `#/briefing` route of the integrated app)
 - **Parallel with:** T09.07, T10.03, T12.02
 - **Steps:**
@@ -181,8 +181,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1–1.5 h
-- **Owns (writes):** `web/src/ui/briefing/mapSnapshot.ts` (replaces T11.04)
-- **Reads:** `web/src/ui/context.ts`, `web/src/types/schema.ts` (`Site.aoi.extent_m`, `Leg.geometry`), `web/public/sites/mock_site/`, [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [04 map overlays](../specs/04_Design_Brief.md#map-overlays), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract)
+- **Owns (writes):** `apps/web/src/ui/briefing/mapSnapshot.ts` (replaces T11.04)
+- **Reads:** `apps/web/src/ui/context.ts`, `packages/protocol/src/schema.ts` (`Site.aoi.extent_m`, `Leg.geometry`), `data/sites/mock_site/`, [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [04 map overlays](../specs/04_Design_Brief.md#map-overlays), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract)
 - **Depends on:** T07.01 (soft), T03.02 (soft)
 - **Parallel with:** T11.03
 - **Steps:**
@@ -232,7 +232,7 @@ T11.03 and T11.04 also code against the T11.02 stub signature (soft, through T07
 6. **Fallback thumbnail.** No thumbnail asset exists in 02 §E.1 or 05 Asset for the 06 fallback — `TODO(decision)` (a T03.25 PNG or the SCR-01 context thumbnail).
 7. **Header and table sources.** 03's "generated time" (`computed_utc` or print time?) and the 04 §F "notes" column have no defined source — `TODO(decision)`.
 8. **Direct `#/briefing`.** 03 SCR-08 defines when the Briefing button is disabled but not what the route shows with no computed plan — `TODO(decision)`.
-9. **Version strings.** 05 §F.3 gives `export_schema_version` "1.0.0" and `app_version` "0.1.0" as examples only; whether `app_version` follows `web/package.json` is `TODO(decision)`.
+9. **Version strings.** 05 §F.3 gives `export_schema_version` "1.0.0" and `app_version` "0.1.0" as examples only; whether `app_version` follows `apps/web/package.json` is `TODO(decision)`.
 10. **U-11** (store profile arrays in the export or recompute them) is open in contract C3 (map [§d](_coordination.md#d-contracts-registry)); it changes the export size, not the card.
 11. **Web Crypto.** SHA-256 through Web Crypto needs a secure context — `TODO(verify)` for `make demo` on 127.0.0.1 and for any LAN or projector address used at the venue.
 12. **Map change proposed — two cross-task hard edges not in map §f:** T07.06 → T11.04 (a snapshot needs a rendered map) and T07.03 → T11.05 (print and export are checked on the `#/briefing` route of the integrated app). Both are already ordered by the milestones (M3 before M4).

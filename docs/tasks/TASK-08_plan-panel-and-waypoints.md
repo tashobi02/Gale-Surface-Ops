@@ -10,35 +10,35 @@
 | Effort (doc 06) | 4–6 h |
 | Done when (doc 06) | All E.3 validation rules enforced in UI |
 | Main risk → fallback | Drag complex → buttons only |
-| Spec sections | [01 FR-05](../specs/01_Product_Requirements_Document.md#fr-05--mission-inputs-with-validated-defaults) · [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing) · [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10) · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) · [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules) · [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel) · [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating) · [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows) · [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable) · [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states) · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) · [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior) · [05 MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input) · [05 Waypoint](../specs/05_Backend_and_Database_Schema.md#waypoint-user-input) |
+| Spec sections | [01 FR-05](../specs/01_Product_Requirements_Document.md#fr-05--mission-inputs-with-validated-defaults) · [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing) · [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10) · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) · [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules) · [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel) · [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating) · [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows) · [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable) · [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states) · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) · [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior) · [05 MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input) · [05 Waypoint](../specs/05_Backend_and_Database_Schema.md#waypoint-user-input) |
 
 ## Inputs this task consumes
 
 | Input | Kind | Owner | Dependency |
 | --- | --- | --- | --- |
-| C1 TypeScript entity mirror: MissionScenario, Waypoint, PlanResult (`web/src/types/schema.ts`) | contract | T03.01 | soft |
-| C6 worker protocol: SAMPLE_POINT, COMPUTE_PLAN, PLAN_RESULT, ERROR (`web/src/compute/protocol.ts`) | contract | T05.01 | soft |
-| C7 `validate.ts` signature (02 §E.3 rules); `MAX_STOPS` and `SNAP_RADIUS_M` in `web/src/compute/route.ts` | contract | T05.01 | soft |
-| C8 `localTrueSolarTime` signature for the LTST preview (`web/src/compute/mars24.ts`) | contract | T06.01 | soft |
+| C1 TypeScript entity mirror: MissionScenario, Waypoint, PlanResult (`packages/protocol/src/schema.ts`) | contract | T03.01 | soft |
+| C6 worker protocol: SAMPLE_POINT, COMPUTE_PLAN, PLAN_RESULT, ERROR (`packages/protocol/src/worker.ts`) | contract | T05.01 | soft |
+| C7 `validate.ts` signature (02 §E.3 rules); `MAX_STOPS` and `SNAP_RADIUS_M` in `packages/compute/src/route.ts` | contract | T05.01 | soft |
+| C8 `localTrueSolarTime` signature for the LTST preview (`packages/compute/src/mars24.ts`) | contract | T06.01 | soft |
 | C10 app context, screen renderer, worker-client interface, map handle, provenance attributes; stubs for `stopsList.ts`, `waypointLayer.ts`, `addStopMode.ts`, `waypointDrag.ts`, `touchInput.ts` | contract | T07.01 | soft |
-| C12 token names and status classes (`web/src/ui/styles/tokens.css`) | contract | T13.01 | soft |
-| F2 canned PLAN_RESULT messages (`web/tests/fixtures/plan-results/`) | fixture | T05.03 | soft |
-| F3 mock worker (`web/tests/fixtures/mockWorker.ts`) | fixture | T05.04 | soft |
-| F4 mock site bundle (`web/public/sites/mock_site/`) | fixture | T03.02 | soft |
+| C12 token names and status classes (`apps/web/src/ui/styles/tokens.css`) | contract | T13.01 | soft |
+| F2 canned PLAN_RESULT messages (`apps/web/tests/fixtures/plan-results/`) | fixture | T05.03 | soft |
+| F3 mock worker (`apps/web/tests/fixtures/mockWorker.ts`) | fixture | T05.04 | soft |
+| F4 mock site bundle (`data/sites/mock_site/`) | fixture | T03.02 | soft |
 | Dependency batch with the DOM test environment | upstream output | T14.01 | hard (T08.02 only) |
 
 ## Outputs this task provides
 
 | Output | Path | Consumers |
 | --- | --- | --- |
-| C11 plan-store contract (state, status, actions, selection, hover) | `web/src/state/planStore.ts` (interfaces) | T07.04, T07.05, T08.02–T08.10, T09.01–T09.05, T10.01, T10.02, T11.02–T11.04, T13.06, T18.07 |
-| Plan store implementation | `web/src/state/planStore.ts` | T07.03, T07.05, T09.06, T10.01, T18.07 |
-| SCR-04 panel and mission-inputs form | `web/src/ui/screens/scr04PlanPanel.ts`, `web/src/ui/screens/scr04PlanPanel.css` | T07.08, T08.11, T13.09, T13.10, T14.06 |
-| Stops list (reorder, delete, undo, accessible stops table) | `web/src/ui/plan/stopsList.ts` | T08.04, T08.08, T08.11, T13.10 |
-| Waypoint markers and the placement function (validation + snap offer) | `web/src/ui/map/waypointLayer.ts` | T07.08, T08.07–T08.10, T09.06, T10.01 |
-| Add-stop mode (free placement, `A`, crosshair `Enter`) | `web/src/ui/map/addStopMode.ts` | T07.08, T09.06, T13.06 |
-| Desktop drag (map markers, list rows) | `web/src/ui/map/waypointDrag.ts` | T07.08, T17.01 (demo step 5) |
-| Tablet touch input | `web/src/ui/map/touchInput.ts` | T07.08 |
+| C11 plan-store contract (state, status, actions, selection, hover) | `apps/web/src/state/planStore.ts` (interfaces) | T07.04, T07.05, T08.02–T08.10, T09.01–T09.05, T10.01, T10.02, T11.02–T11.04, T13.06, T18.07 |
+| Plan store implementation | `apps/web/src/state/planStore.ts` | T07.03, T07.05, T09.06, T10.01, T18.07 |
+| SCR-04 panel and mission-inputs form | `apps/web/src/ui/screens/scr04PlanPanel.ts`, `apps/web/src/ui/screens/scr04PlanPanel.css` | T07.08, T08.11, T13.09, T13.10, T14.06 |
+| Stops list (reorder, delete, undo, accessible stops table) | `apps/web/src/ui/plan/stopsList.ts` | T08.04, T08.08, T08.11, T13.10 |
+| Waypoint markers and the placement function (validation + snap offer) | `apps/web/src/ui/map/waypointLayer.ts` | T07.08, T08.07–T08.10, T09.06, T10.01 |
+| Add-stop mode (free placement, `A`, crosshair `Enter`) | `apps/web/src/ui/map/addStopMode.ts` | T07.08, T09.06, T13.06 |
+| Desktop drag (map markers, list rows) | `apps/web/src/ui/map/waypointDrag.ts` | T07.08, T17.01 (demo step 5) |
+| Tablet touch input | `apps/web/src/ui/map/touchInput.ts` | T07.08 |
 | Verification evidence for 06 TASK-08 done-when | `docs/ops/verification-log.md` (section T08.11) | T14.06, T16.06 |
 
 ## Subtasks
@@ -49,15 +49,15 @@
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
 - **Estimate:** 1.5–2 h
-- **Owns (writes):** `web/src/state/planStore.ts` (stub → T08.03)
-- **Reads:** `web/src/state/planStore.ts`, `web/src/types/schema.ts`, `web/src/compute/protocol.ts`, [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating), [03 §E.3](../specs/03_App_Flow_and_Diagrams.md#e3-sequence--compute-plan), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel) (linking), [05 MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input), [05 Waypoint](../specs/05_Backend_and_Database_Schema.md#waypoint-user-input), map §d C11
+- **Owns (writes):** `apps/web/src/state/planStore.ts` (stub → T08.03)
+- **Reads:** `apps/web/src/state/planStore.ts`, `packages/protocol/src/schema.ts`, `packages/protocol/src/worker.ts`, [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating), [03 §E.3](../specs/03_App_Flow_and_Diagrams.md#e3-sequence--compute-plan), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel) (linking), [05 MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input), [05 Waypoint](../specs/05_Backend_and_Database_Schema.md#waypoint-user-input), map §d C11
 - **Depends on:** T03.01 (soft), T05.01 (soft)
 - **Parallel with:** T07.01, T13.01, T12.04, T14.01, T16.02
 - **Steps:**
   1. Compare the existing `PlanState` and `PlanStore` with the 03 §C.3 edits and the 03 §E.4 states (Empty, Computing, OK, OverLimits, Partial, Error).
   2. Add to `PlanState`: plan status, the last worker error code (02 §E.2), whether an undo is available, the selected waypoint, and the hover position shared by map, stops list and profile (the C11 decision "selection and hover shape").
   3. Add to `PlanStore` the actions the specs name: add, move and delete a waypoint; reorder stops; single-level undo; set scenario fields (debounced, 03 SCR-04); reset defaults; load a plan (demo plan for T07.05, FR-20 restore for T18.07); select; hover; retry after an error.
-  4. Type the worker side with C6 message types only (`ComputePlanRequest`, `PlanResultMessage`, `WorkerError`), so C11 never imports `web/src/ui/context.ts`.
+  4. Type the worker side with C6 message types only (`ComputePlanRequest`, `PlanResultMessage`, `WorkerError`), so C11 never imports `apps/web/src/ui/context.ts`.
   5. Leave `createPlanStore` as a stub that throws `TODO(T08.03)`; record choices the specs leave open as `TODO(decision)` doc comments.
   6. Run `make typecheck`; list the C11 consumers from map §d in the PR.
 - **Acceptance:**
@@ -65,9 +65,9 @@
   - Every 03 §E.4 state and every 03 §C.3 edit maps to a state field or an action.
   - Scenario and waypoint shapes are the C1 types from 05 §C, not new copies.
   - Types only: `createPlanStore` still throws `TODO(T08.03)`; no other file changes.
-  - The file imports only `web/src/types/schema.ts` and `web/src/compute/protocol.ts`; `make typecheck` passes; C11 is marked v1 (freeze M2).
-- **Verify:** `make typecheck`; `grep -n "TODO(T08.03)" web/src/state/planStore.ts`
-- **Agent brief:** Freeze contract C11 in `web/src/state/planStore.ts`: extend the interfaces to cover the 03 §E.4 states, the 03 §C.3 edits, single-level undo, selection and hover, using only C1 and C6 types. Keep `createPlanStore` throwing `TODO(T08.03)`. Mark open choices `TODO(decision)`; check with `make typecheck`.
+  - The file imports only `packages/protocol/src/schema.ts` and `packages/protocol/src/worker.ts`; `make typecheck` passes; C11 is marked v1 (freeze M2).
+- **Verify:** `make typecheck`; `grep -n "TODO(T08.03)" apps/web/src/state/planStore.ts`
+- **Agent brief:** Freeze contract C11 in `apps/web/src/state/planStore.ts`: extend the interfaces to cover the 03 §E.4 states, the 03 §C.3 edits, single-level undo, selection and hover, using only C1 and C6 types. Keep `createPlanStore` throwing `TODO(T08.03)`. Mark open choices `TODO(decision)`; check with `make typecheck`.
 - **Conflict notes:** Interface edits only; T08.03 owns the file after this merges (stub handover). No import of `context.ts`: T07.01 may import the `PlanStore` type, and the reverse import would create a C10 ↔ C11 cycle. Changes after M2 need a `contract-change:` subtask listing the C11 consumers (map §d).
 
 ### T08.02 — Tests: plan store (revisions, undo, debounce, stale results)
@@ -76,8 +76,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1.5–2 h
-- **Owns (writes):** `web/tests/state/planStore.test.ts`
-- **Reads:** `web/src/state/planStore.ts` (C11), `web/tests/fixtures/plan-results/` (F2), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules), [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating), [03 §E.3](../specs/03_App_Flow_and_Diagrams.md#e3-sequence--compute-plan), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing)
+- **Owns (writes):** `apps/web/tests/state/planStore.test.ts`
+- **Reads:** `apps/web/src/state/planStore.ts` (C11), `apps/web/tests/fixtures/plan-results/` (F2), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules), [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating), [03 §E.3](../specs/03_App_Flow_and_Diagrams.md#e3-sequence--compute-plan), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing)
 - **Depends on:** T08.01 (soft), T05.03 (soft), T14.01 (hard: the DOM test environment arrives in the dependency batch)
 - **Parallel with:** T07.02–T07.08, T09.01, T09.02, T05.16–T05.27
 - **Steps:**
@@ -96,8 +96,8 @@
   - Given a delete, when undo runs, then the previous list returns and a recompute is sent; a second undo does nothing.
   - Given 10 stops, when an 11th is added, then it is refused.
   - Claims no case from the map's Test-case allocation table.
-- **Verify:** `npx vitest run tests/state/planStore.test.ts` (run in `web/`); fails until T08.03 lands
-- **Agent brief:** Write `web/tests/state/planStore.test.ts` against contract C11 in `web/src/state/planStore.ts`: revision bump per edit, 300 ms debounce vs immediate reorder/delete, stale results ignored, single-level undo, 03 §E.4 states, 10-stop limit. Use a fake worker side and F2 fixtures; no DOM needed. Open the PR as a draft.
+- **Verify:** `npx vitest run tests/state/planStore.test.ts` (run in `apps/web/`); fails until T08.03 lands
+- **Agent brief:** Write `apps/web/tests/state/planStore.test.ts` against contract C11 in `apps/web/src/state/planStore.ts`: revision bump per edit, 300 ms debounce vs immediate reorder/delete, stale results ignored, single-level undo, 03 §E.4 states, 10-stop limit. Use a fake worker side and F2 fixtures; no DOM needed. Open the PR as a draft.
 - **Conflict notes:** Owns only the test file. The PR stays a draft until T08.03 passes it; T08.03 branches from this branch and the two merge back to back (map §h.3).
 
 ### T08.03 — Implement the plan store
@@ -106,8 +106,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `web/src/state/planStore.ts`
-- **Reads:** `web/src/state/planStore.ts` (C11), `web/tests/state/planStore.test.ts`, `web/src/types/schema.ts`, `web/src/compute/protocol.ts`, `web/src/compute/route.ts` (`MAX_STOPS`), `web/src/ui/context.ts` (C10 worker client), [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating), [03 §E.3](../specs/03_App_Flow_and_Diagrams.md#e3-sequence--compute-plan), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules)
+- **Owns (writes):** `apps/web/src/state/planStore.ts`
+- **Reads:** `apps/web/src/state/planStore.ts` (C11), `apps/web/tests/state/planStore.test.ts`, `packages/protocol/src/schema.ts`, `packages/protocol/src/worker.ts`, `packages/compute/src/route.ts` (`MAX_STOPS`), `apps/web/src/ui/context.ts` (C10 worker client), [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating), [03 §E.3](../specs/03_App_Flow_and_Diagrams.md#e3-sequence--compute-plan), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules)
 - **Depends on:** T08.02 (hard: tests first, stacked PR), T08.01 (soft), T07.01 (soft), T05.01 (soft), T05.04 (soft), T03.01 (soft)
 - **Parallel with:** T08.06, T07.02–T07.08, T09.01, T09.02
 - **Steps:**
@@ -122,8 +122,8 @@
   - All T08.02 tests pass; the C11 interfaces are unchanged.
   - No request with fewer than two waypoints is sent (02 §E.3: waypoints 2–11); the status stays Empty (03 §E.4).
   - No DOM access and no network use (NFR-01).
-- **Verify:** `npx vitest run tests/state/planStore.test.ts` (run in `web/`); `make typecheck`
-- **Agent brief:** Implement `createPlanStore` in `web/src/state/planStore.ts` to the frozen C11 interfaces until `web/tests/state/planStore.test.ts` passes: revisions, 300 ms debounce, latest-revision results only, single-level undo, 10-stop limit. Branch from the T08.02 branch; do not change the interfaces.
+- **Verify:** `npx vitest run tests/state/planStore.test.ts` (run in `apps/web/`); `make typecheck`
+- **Agent brief:** Implement `createPlanStore` in `apps/web/src/state/planStore.ts` to the frozen C11 interfaces until `apps/web/tests/state/planStore.test.ts` passes: revisions, 300 ms debounce, latest-revision results only, single-level undo, 10-stop limit. Branch from the T08.02 branch; do not change the interfaces.
 - **Conflict notes:** Stacked on T08.02; merge right after it. Interface changes need a `contract-change:` on C11. T18.07 later edits this file as a `follow-up:` (after T08.03).
 
 ### T08.04 — Implement the SCR-04 panel and mission-inputs form
@@ -132,12 +132,12 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `web/src/ui/screens/scr04PlanPanel.ts`, `web/src/ui/screens/scr04PlanPanel.css`
-- **Reads:** `web/src/ui/context.ts` (C10), `web/src/state/planStore.ts` (C11), `web/src/compute/validate.ts` (C7), `web/src/compute/mars24.ts` (C8), `web/src/ui/plan/stopsList.ts`, `web/src/ui/components/metric.ts`, `web/src/ui/styles/tokens.css`, [01 FR-05](../specs/01_Product_Requirements_Document.md#fr-05--mission-inputs-with-validated-defaults), [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [05 MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input)
+- **Owns (writes):** `apps/web/src/ui/screens/scr04PlanPanel.ts`, `apps/web/src/ui/screens/scr04PlanPanel.css`
+- **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/state/planStore.ts` (C11), `packages/compute/src/validate.ts` (C7), `packages/compute/src/mars24.ts` (C8), `apps/web/src/ui/plan/stopsList.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/styles/tokens.css`, [01 FR-05](../specs/01_Product_Requirements_Document.md#fr-05--mission-inputs-with-validated-defaults), [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [05 MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input)
 - **Depends on:** T08.03 (hard: input edits recompute through the store), T08.01 (soft), T07.01 (soft), T05.01 (soft), T06.01 (soft), T13.01 (soft)
 - **Parallel with:** T08.05, T08.08, T09.03, T10.01, T10.02
 - **Steps:**
-  1. Change `renderPlanPanel` to the C10 screen signature; mount the inputs form and the stops list from `web/src/ui/plan/stopsList.ts`, with an inline placeholder while that module is still a stub.
+  1. Change `renderPlanPanel` to the C10 screen signature; mount the inputs form and the stops list from `apps/web/src/ui/plan/stopsList.ts`, with an inline placeholder while that module is still a stub.
   2. One field per MissionScenario input (05 §C), each with its unit (04 §C.2): start time UTC with an LTST preview, max EVA duration, dwell per stop, hard and caution slope, walkback limit, suited speed, solar phase, loop toggle (03 SCR-04).
   3. Check every change with `validate.ts`; show the allowed range inline; keep the last valid value in effect until corrected; never pass an invalid value to the store (03 SCR-04, §C.3, §D).
   4. Show the badge "Defaults are assumptions — not flight rules." and a Reset defaults action; default values carry provenance `assumed` with the C10 attributes (05 §C MissionScenario).
@@ -151,7 +151,7 @@
   - The panel states Empty (only start), Editing, Invalid input and Computing render (03 SCR-04).
   - Every displayed value carries `data-provenance` and a source id (NFR-05).
 - **Verify:** Manual checklist with `make dev`, the F4 mock site and the F3 mock worker: each 02 §E.3 field rejects an out-of-range value with its range; hard slope ≤ caution slope is rejected; one recompute 300 ms after an edit; badge visible; Tab reaches every field. Then `make lint typecheck`.
-- **Agent brief:** Implement SCR-04 in `web/src/ui/screens/scr04PlanPanel.ts` (+ `.css`): the 05 §C MissionScenario inputs with units, inline 02 §E.3 validation through `validate.ts`, the defaults badge, Reset defaults, the LTST preview and the 04 §B accordion; mount the stops list. Use only C10, C11 and C12 interfaces; no science in the UI.
+- **Agent brief:** Implement SCR-04 in `apps/web/src/ui/screens/scr04PlanPanel.ts` (+ `.css`): the 05 §C MissionScenario inputs with units, inline 02 §E.3 validation through `validate.ts`, the defaults badge, Reset defaults, the LTST preview and the 04 §B accordion; mount the stops list. Use only C10, C11 and C12 interfaces; no science in the UI.
 - **Conflict notes:** Owns the two scr04 files only. Imports `stopsList.ts` (T08.05) and `validate.ts` (T05.25) without editing them. Uses existing C12 tokens; a missing token goes through the `tokens.css` append-only rule, not an edit here. The UI check T08.11 needs the real `validate.ts` (Spec questions 8).
 
 ### T08.05 — Implement the stops list (reorder buttons, delete, undo)
@@ -160,8 +160,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `web/src/ui/plan/stopsList.ts`
-- **Reads:** `web/src/ui/context.ts` (C10), `web/src/state/planStore.ts` (C11), `web/tests/fixtures/plan-results/` (F2), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [01 FR-09](../specs/01_Product_Requirements_Document.md#fr-09--traverse-time-distance-and-return-estimates), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer) (display format), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
+- **Owns (writes):** `apps/web/src/ui/plan/stopsList.ts`
+- **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/state/planStore.ts` (C11), `apps/web/tests/fixtures/plan-results/` (F2), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [01 FR-09](../specs/01_Product_Requirements_Document.md#fr-09--traverse-time-distance-and-return-estimates), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer) (display format), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
 - **Depends on:** T08.03 (hard: reorder, delete and undo go through the store), T08.01 (soft), T07.01 (soft), T05.03 (soft), T13.01 (soft)
 - **Parallel with:** T08.04, T08.06, T09.03, T10.01
 - **Steps:**
@@ -176,7 +176,7 @@
   - Arrival LTST and sun elevation come only from the latest PLAN_RESULT and carry provenance attributes (NFR-05).
   - All row controls work by keyboard; status shows icon and text, not colour alone (NFR-04).
 - **Verify:** Manual checklist with `make dev` and F2 results through F3: reorder ↑/↓, delete, undo, empty text, error row, accessible names on every button. Then `make lint typecheck`.
-- **Agent brief:** Implement the stops list in `web/src/ui/plan/stopsList.ts` per 03 SCR-04 and 04 §D: numbered rows with coordinates, arrival LTST and sun elevation, ↑/↓, Delete and Undo through the C11 store, keyboard and screen-reader access. Render drag handles and `data-` attributes but no drag logic.
+- **Agent brief:** Implement the stops list in `apps/web/src/ui/plan/stopsList.ts` per 03 SCR-04 and 04 §D: numbered rows with coordinates, arrival LTST and sun elevation, ↑/↓, Delete and Undo through the C11 store, keyboard and screen-reader access. Render drag handles and `data-` attributes but no drag logic.
 - **Conflict notes:** Owns only `stopsList.ts` (stub from T07.01). T08.08 attaches drag by event delegation and never edits this file. A sibling stylesheet is not in map §c (Spec questions 6).
 
 ### T08.06 — Implement waypoint markers and placement validation with a snap offer
@@ -185,8 +185,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `web/src/ui/map/waypointLayer.ts`
-- **Reads:** `web/src/ui/context.ts` (C10 map handle, worker client, provenance attributes), `web/src/state/planStore.ts` (C11), `web/src/compute/protocol.ts` (C6), `web/src/compute/route.ts` (`SNAP_RADIUS_M`), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.1](../specs/03_App_Flow_and_Diagrams.md#e1-overall-user-flow), [04 §C.3](../specs/04_Design_Brief.md#c3-spacing-and-sizing), [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states), [05 Waypoint](../specs/05_Backend_and_Database_Schema.md#waypoint-user-input), [05 Site](../specs/05_Backend_and_Database_Schema.md#site)
+- **Owns (writes):** `apps/web/src/ui/map/waypointLayer.ts`
+- **Reads:** `apps/web/src/ui/context.ts` (C10 map handle, worker client, provenance attributes), `apps/web/src/state/planStore.ts` (C11), `packages/protocol/src/worker.ts` (C6), `packages/compute/src/route.ts` (`SNAP_RADIUS_M`), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.1](../specs/03_App_Flow_and_Diagrams.md#e1-overall-user-flow), [04 §C.3](../specs/04_Design_Brief.md#c3-shape-grid-and-structure), [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states), [05 Waypoint](../specs/05_Backend_and_Database_Schema.md#waypoint-user-input), [05 Site](../specs/05_Backend_and_Database_Schema.md#site)
 - **Depends on:** T08.03 (hard: placements become store edits), T08.01 (soft), T07.01 (soft), T05.01 (soft), T05.04 (soft), T03.02 (soft), T13.01 (soft)
 - **Parallel with:** T08.07, T09.01, T09.02, T07.10–T07.12
 - **Steps:**
@@ -202,7 +202,7 @@
   - The impassable message names the cause in the 03 §D form ("Not walkable here (slope 22° > 15° limit)"), with values taken from the SAMPLE_RESULT and the scenario.
   - Markers follow 04 §C.3 sizes and 04 §C.5 states; waypoints take the 04 §E focus ring.
 - **Verify:** Manual checklist with `make dev`, the F4 mock site and the F3 mock worker returning the 02 §E.2 SAMPLE_RESULT example: click outside the AOI, impassable with snap, refusal without snap, accepted snap stored with `snapped_from`. Then `make lint typecheck`.
-- **Agent brief:** Implement `web/src/ui/map/waypointLayer.ts`: start and numbered stop markers with the 04 §C.5 states, and the single placement function (SAMPLE_POINT, 50 m snap offer, "Outside mapped area", refusal with reason) that every placement path uses. Projected metres only; signatures from the T07.01 stub.
+- **Agent brief:** Implement `apps/web/src/ui/map/waypointLayer.ts`: start and numbered stop markers with the 04 §C.5 states, and the single placement function (SAMPLE_POINT, 50 m snap offer, "Outside mapped area", refusal with reason) that every placement path uses. Projected metres only; signatures from the T07.01 stub.
 - **Conflict notes:** Owns `waypointLayer.ts` (stub from T07.01); T07.08 mounts it. T08.07–T08.10 and T10.01 call the placement function, so its signature changes only through a `contract-change:` on C10. SAMPLE_POINT has no slope-limit field (Spec questions 1).
 
 ### T08.07 — Implement Add-stop mode (free placement, `A`, crosshair `Enter`)
@@ -211,8 +211,8 @@
 - **Tag:** agent-ready · cut-3
 - **Window:** event-only
 - **Estimate:** 1–2 h
-- **Owns (writes):** `web/src/ui/map/addStopMode.ts`
-- **Reads:** `web/src/ui/context.ts` (C10), `web/src/ui/map/waypointLayer.ts`, [03 SCR-02](../specs/03_App_Flow_and_Diagrams.md#scr-02--map-workspace), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior), [04 §F SCR-02](../specs/04_Design_Brief.md#scr-02-map-workspace-with-scr-03040507-embedded), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), map §h.6
+- **Owns (writes):** `apps/web/src/ui/map/addStopMode.ts`
+- **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/map/waypointLayer.ts`, [03 SCR-02](../specs/03_App_Flow_and_Diagrams.md#scr-02--map-workspace), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [04 §F SCR-02](../specs/04_Design_Brief.md#scr-02-map-workspace-with-scr-03040507-embedded), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), map §h.6
 - **Depends on:** T08.06 (hard: places stops through the placement function), T07.01 (soft)
 - **Parallel with:** T08.03, T09.01, T09.02, T07.08
 - **Steps:**
@@ -221,12 +221,12 @@
   3. Bind `A` to toggle the mode and `Enter` to place a stop at the crosshair (04 §E); ignore both keys while a text field has focus.
   4. Announce mode changes politely for screen readers (04 §E `aria-live`).
 - **Acceptance:**
-  - Serves: FR-06, NFR-04 · [03 SCR-02](../specs/03_App_Flow_and_Diagrams.md#scr-02--map-workspace), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior)
+  - Serves: FR-06, NFR-04 · [03 SCR-02](../specs/03_App_Flow_and_Diagrams.md#scr-02--map-workspace), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior)
   - In Add-stop mode, `Enter` places a stop at the map-centre crosshair, which is visible only in that mode (04 §E).
   - Placements use the same validation and snap flow as T08.06 (01 FR-06).
   - Typing in an input never toggles the mode.
 - **Verify:** Manual: toggle by button and by `A`; place by click; place by `Enter` at the crosshair using the keyboard only. Then `make lint typecheck`.
-- **Agent brief:** Implement `web/src/ui/map/addStopMode.ts`: the Add-stop toggle, the map-centre crosshair, click placement and the `A` / `Enter` keys of 04 §E, all placing through the T08.06 placement function. The toolbar button itself belongs to T07.08.
+- **Agent brief:** Implement `apps/web/src/ui/map/addStopMode.ts`: the Add-stop toggle, the map-centre crosshair, click placement and the `A` / `Enter` keys of 04 §E, all placing through the T08.06 placement function. The toolbar button itself belongs to T07.08.
 - **Conflict notes:** Cut 3 drops this subtask (map §h.6): stops then come from SCR-06 "Add as stop" (T10.01), and the M3 check uses the demo plan (T07.14) if this is not done by M3. T13.06 also covers 04 §E keys (Spec questions 7). Owns only `addStopMode.ts` (stub from T07.01).
 
 ### T08.08 — Implement desktop drag: waypoints on the map, rows in the stops list
@@ -235,8 +235,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `web/src/ui/map/waypointDrag.ts`
-- **Reads:** `web/src/ui/context.ts` (C10), `web/src/state/planStore.ts` (C11), `web/src/ui/map/waypointLayer.ts`, `web/src/ui/plan/stopsList.ts`, [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) (step 5), [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel)
+- **Owns (writes):** `apps/web/src/ui/map/waypointDrag.ts`
+- **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/state/planStore.ts` (C11), `apps/web/src/ui/map/waypointLayer.ts`, `apps/web/src/ui/plan/stopsList.ts`, [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) (step 5), [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel)
 - **Depends on:** T08.06 (hard: dropped positions go through the placement function), T08.05 (hard: drags the list rows and their handles), T07.01 (soft)
 - **Parallel with:** T08.04, T08.09, T09.03–T09.05
 - **Steps:**
@@ -251,7 +251,7 @@
   - Given a valid drop, then exactly one recompute is sent with a new `plan_revision` (03 §C.3).
   - Reordering by drag gives the same order as the ↑/↓ buttons.
 - **Verify:** Manual checklist with `make dev` and F3: valid drag, drag onto an impassable cell, refused drop returns, row drag reorders. Then `make lint typecheck`.
-- **Agent brief:** Implement `web/src/ui/map/waypointDrag.ts`: marker drag that validates on drop through the T08.06 placement function, and handle-based row reorder on the stops list via event delegation. Pointer Events only; do not edit `stopsList.ts` or `waypointLayer.ts`.
+- **Agent brief:** Implement `apps/web/src/ui/map/waypointDrag.ts`: marker drag that validates on drop through the T08.06 placement function, and handle-based row reorder on the stops list via event delegation. Pointer Events only; do not edit `stopsList.ts` or `waypointLayer.ts`.
 - **Conflict notes:** Owns `waypointDrag.ts` (stub from T07.01). If drag does not work at the Day 1 17:30 checkpoint, the fallback T08.10 replaces this file; the two never run at the same time.
 
 ### T08.09 — Implement tablet touch: long-press placement and drag
@@ -260,8 +260,8 @@
 - **Tag:** agent-ready · cut-2
 - **Window:** event-only
 - **Estimate:** 1.5–2.5 h
-- **Owns (writes):** `web/src/ui/map/touchInput.ts`
-- **Reads:** `web/src/ui/context.ts` (C10), `web/src/ui/map/waypointLayer.ts`, `web/src/ui/map/waypointDrag.ts`, [01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-03), [04 §C.3](../specs/04_Design_Brief.md#c3-spacing-and-sizing), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior)
+- **Owns (writes):** `apps/web/src/ui/map/touchInput.ts`
+- **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/map/waypointLayer.ts`, `apps/web/src/ui/map/waypointDrag.ts`, [01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-03), [04 §C.3](../specs/04_Design_Brief.md#c3-shape-grid-and-structure), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior)
 - **Depends on:** T08.06 (hard: long-press places through the placement function), T08.08 (hard: touch drag reuses the desktop drag), T07.01 (soft)
 - **Parallel with:** T08.10, T08.11, T09.07, T10.03
 - **Steps:**
@@ -269,12 +269,12 @@
   2. Check that the T08.08 Pointer Events drag works for touch on markers and on the 44 px row handles (04 §E); report gaps to T08.08's owner instead of editing its file.
   3. On a viewport at least 768 px wide (NFR-03), check that touch targets are at least 44 × 44 px (04 §C.3) and that stops can be added and deleted (01 Clarifications).
 - **Acceptance:**
-  - Serves: FR-06, NFR-03 · [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior), [01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications)
+  - Serves: FR-06, NFR-03 · [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications)
   - Long-press places a stop with the same validation and snap flow as a click (01 FR-06).
   - Touch targets are at least 44 × 44 px (04 §C.3).
   - With this subtask cut, tablets still view and add or delete stops through POI "Add as stop" and the list Delete button (01 Clarifications).
 - **Verify:** Manual on a touch device or emulator at 768 px width: long-press placement, touch drag of a marker and a row, target sizes. Then `make lint typecheck`.
-- **Agent brief:** Implement long-press placement in `web/src/ui/map/touchInput.ts` through the T08.06 placement function, and verify touch drag and 44 px targets on a tablet-width viewport. Do not edit `waypointDrag.ts`; report drag gaps to its owner.
+- **Agent brief:** Implement long-press placement in `apps/web/src/ui/map/touchInput.ts` through the T08.06 placement function, and verify touch drag and 44 px targets on a tablet-width viewport. Do not edit `waypointDrag.ts`; report drag gaps to its owner.
 - **Conflict notes:** Cut 2 drops this subtask (map §h.6). Owns only `touchInput.ts` (stub from T07.01). Bottom-sheet layout for 768–1023 px belongs to T07.08 (04 §E).
 
 ### T08.10 — Fallback — start only if T08.08 is not working at the Day 1 17:30 checkpoint: buttons-only stop move
@@ -283,8 +283,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1–1.5 h
-- **Owns (writes):** `web/src/ui/map/waypointDrag.ts` (replaces T08.08)
-- **Reads:** `web/src/ui/context.ts` (C10), `web/src/state/planStore.ts` (C11), `web/src/ui/map/waypointLayer.ts`, [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) (TASK-08 fallback), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) (step 5)
+- **Owns (writes):** `apps/web/src/ui/map/waypointDrag.ts` (replaces T08.08)
+- **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/state/planStore.ts` (C11), `apps/web/src/ui/map/waypointLayer.ts`, [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) (TASK-08 fallback), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) (step 5)
 - **Depends on:** T08.06 (hard: moves go through the placement function), T08.03 (hard: uses the store's move action), T07.01 (soft)
 - **Parallel with:** T08.09, T08.11, T09.07
 - **Steps:**
@@ -297,7 +297,7 @@
   - A stop can be moved without drag, with the same refusal and snap behaviour as a placement (01 FR-06).
   - 01 §E step 5 can be shown with the Move control.
 - **Verify:** Manual: select stop 2, Move, click a steep cell → refusal or snap offer; click a valid cell → one recompute. Then `make lint typecheck`.
-- **Agent brief:** Fallback: rewrite `web/src/ui/map/waypointDrag.ts` as a buttons-only move (select a waypoint, Move, click the target) through the T08.06 placement function; reorder stays on the ↑/↓ buttons. Start only on the 17:30 trigger.
+- **Agent brief:** Fallback: rewrite `apps/web/src/ui/map/waypointDrag.ts` as a buttons-only move (select a waypoint, Move, click the target) through the T08.06 placement function; reorder stays on the ↑/↓ buttons. Start only on the 17:30 trigger.
 - **Conflict notes:** Overwrites T08.08's file only after the trigger; never concurrent with T08.08. `stopsList.ts` (T08.05) is not touched.
 
 ### T08.11 — Verify the 02 §E.3 rules and SCR-04 states in the UI

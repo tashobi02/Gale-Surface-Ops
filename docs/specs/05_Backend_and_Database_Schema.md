@@ -9,7 +9,7 @@
 | **Status** | Draft v2 — supersedes v1 (2026-11-02). Static site entities (§C.1) are v1 with marked additions; Hab Core runtime entities (§C.2) are new |
 | **Related** | Behavior: [02 Technical](02_Technical_Requirements_Document.md) · Requirements: [01 PRD](01_Product_Requirements_Document.md) · Screens: [03 App Flow](03_App_Flow_and_Diagrams.md) · [Docs index](../README.md) |
 
-### Change log v1 → v2
+## Change log v1 → v2
 
 | Area | Change |
 | --- | --- |

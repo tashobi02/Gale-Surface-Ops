@@ -7,7 +7,7 @@
 | **Status** | Draft v2 — supersedes v1 (2026-11-02). Sections marked *(v1, unchanged)* are carried over verbatim; *Spike* items must be verified in TASK-01/02/03 before the event |
 | **Related** | Scope source: [01 PRD](01_Product_Requirements_Document.md) (FR-xx, tiers T0–T2) · Data structures: [05 Schema](05_Backend_and_Database_Schema.md) · [Docs index](../README.md) |
 
-### Change log v1 → v2
+## Change log v1 → v2
 
 | Area | v1 | v2 |
 | --- | --- | --- |
@@ -404,7 +404,7 @@ Definitions (all times in seconds of sim time):
 
 **Live (exact, 1–2 crew positions):**
 
-```
+```text
 haven_hab(p)  = T_hab(p) + t_ingress
 haven_veh(p)  = min over q reachable by both of max(T_crew_p(q), T_veh(q)) + t_ingress
 haven(p)      = min(haven_hab(p), haven_veh(p), haven_refuge(p) [T2])
@@ -434,7 +434,7 @@ The robotic-rover energy form matches the organizer guide's route-cost snippet (
 
 ### D.10 Rendezvous (FR-40)
 
-```
+```text
 input: crew position p, vehicle position v, grids, parameter sets, time limit L
 T_c = bounded Dijkstra from p (suited cost), limit L
 T_v = Dijkstra from v (vehicle cost, 10 m grid; sample to 5 m)
@@ -704,7 +704,7 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
 | `plan` | PlanExport (05) produced by the planner |
 | `crew` | `[{id, start_offset_s, suit_params}]` |
 | `vehicles` | `[{vehicle_id, kind, param_set, start_x_m, start_y_m}]` |
-| `events` | Scheduled inputs: `[{t_utc, kind: "DOSE_SERIES"|"EARTH_MESSAGE"|"DONKI_RECORD"|"ADVISORY", ref, source_id}]` |
+| `events` | Scheduled inputs (05 ScenarioEvent): `t_utc`, `kind` ∈ {`EARTH_MESSAGE`, `DONKI_RECORD`, `ADVISORY`, `INJECT`}, `payload`, `provenance`, `source_id`; the dose curve is a table, not an event |
 | `tables` | Paths to `earth_link.json`, `dose_series.json` |
 | `provenance` | Source IDs for every table (05 DataSource) |
 

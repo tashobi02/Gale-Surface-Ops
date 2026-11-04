@@ -16,7 +16,7 @@
     ],
     "deny": [
       "Read(pipeline/work/**)",
-      "Read(web/public/sites/**/tiles/**)",
+      "Read(data/sites/**/tiles/**)",
       "Bash(rm -rf *)",
       "Bash(rm -fr *)",
       "Bash(git push --force *)",

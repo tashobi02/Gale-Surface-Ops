@@ -18,24 +18,24 @@
 
 | Input | Kind | Owner | Dependency |
 | --- | --- | --- | --- |
-| C1 TypeScript types `Site`, `Layer`, `TileGrid` in `web/src/types/schema.ts` | contract | T03.01 | soft (T02.02) |
+| C1 TypeScript types `Site`, `Layer`, `TileGrid` in `packages/protocol/src/schema.ts` | contract | T03.01 | soft (T02.02) |
 | C9 tile-grid contract `docs/contracts/tile-grid.md` | contract | T02.01 | soft (T02.02, T02.03, T02.06) |
-| F4 mock site `web/public/sites/mock_site/` | fixture | T03.02 | soft (T02.03, T02.06) |
+| F4 mock site `data/sites/mock_site/` | fixture | T03.02 | soft (T02.03, T02.06) |
 | Reference feature and its DEM-measured length in `docs/ops/feasibility/dem-quality.md` | upstream output | T01.03 | hard (T02.04) |
 | Real AOI tiles from the pipeline tiler, rendered locally and git-ignored | upstream output | T03.12 | hard (T02.04) |
-| `ol` and `proj4`, already in `web/package.json` | upstream output | — | none |
+| `ol` and `proj4`, already in `apps/web/package.json` | upstream output | — | none |
 
 ## Outputs this task provides
 
 | Output | Path | Consumers |
 | --- | --- | --- |
 | Contract C9 v1: tile grid and tile pixel encoding | `docs/contracts/tile-grid.md` | T02.02, T02.03, T02.06, T03.02, T03.12, T07.07 |
-| Mars projection module | `web/src/ui/map/projection.ts` | T07.06 (hard), T02.03, T02.06 |
-| Web CRS-guard test (02 §C.4.2) | `web/tests/ui/projection.test.ts` | Every web subtask must keep it green |
-| Spike page | `web/spike/` | T02.04, T02.06 |
+| Mars projection module | `apps/web/src/ui/map/projection.ts` | T07.06 (hard), T02.03, T02.06 |
+| Web CRS-guard test (02 §C.4.2) | `apps/web/tests/ui/projection.test.ts` | Every web subtask must keep it green |
+| Spike page | `apps/web/spike/` | T02.04, T02.06 |
 | Scale-bar check record | `docs/ops/verification-log.md` (section T02.04) | T02.05, T16.02 |
 | D-03 outcome | `docs/decisions/ADR-003-openlayers-mars-projection.md` | T03.25, T07.07, T07.16, T16.02 |
-| ImageStatic layer factory (fallback only) | `web/src/ui/map/imageStatic.ts` | T07.16 |
+| ImageStatic layer factory (fallback only) | `apps/web/src/ui/map/imageStatic.ts` | T07.16 |
 
 ## Subtasks
 
@@ -46,7 +46,7 @@
 - **Window:** pre-event-allowed
 - **Estimate:** 1 h
 - **Owns (writes):** `docs/contracts/tile-grid.md`
-- **Reads:** [05 Layer](../specs/05_Backend_and_Database_Schema.md#layer) (`tile_grid`, `kind`), [05 §F.1](../specs/05_Backend_and_Database_Schema.md#f1-site-manifest-abridged-aoi-values-illustrative-until-task-01), [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices) (spike and fallback), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), [02 §C.2 L1](../specs/02_Technical_Requirements_Document.md#l1--optical-basemap-fr-01) and [L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10) (missing data), [04 §C.1 Map overlays](../specs/04_Design_Brief.md#map-overlays), `web/src/types/schema.ts` (`TileGrid`), `schemas/site-manifest.schema.json`, `pipeline/src/marswalk_pipeline/tiles.py` (`render_tiles` signature), [map §d C9](_coordination.md#d-contracts-registry)
+- **Reads:** [05 Layer](../specs/05_Backend_and_Database_Schema.md#layer) (`tile_grid`, `kind`), [05 §F.1](../specs/05_Backend_and_Database_Schema.md#f1-site-manifest-abridged-aoi-values-illustrative-until-task-01), [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices) (spike and fallback), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), [02 §C.2 L1](../specs/02_Technical_Requirements_Document.md#l1--optical-basemap-fr-01) and [L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10) (missing data), [04 §C.1 Map overlays](../specs/04_Design_Brief.md#map-overlays), `packages/protocol/src/schema.ts` (`TileGrid`), `schemas/site-manifest.schema.json`, `pipeline/src/marswalk_pipeline/tiles.py` (`render_tiles` signature), [map §d C9](_coordination.md#d-contracts-registry)
 - **Depends on:** none
 - **Parallel with:** T00.01–T00.03, T01.01–T01.05, T03.01, T05.01, T06.01
 - **Steps:**
@@ -72,8 +72,8 @@
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
-- **Owns (writes):** `web/src/ui/map/projection.ts`, `web/tests/ui/projection.test.ts`
-- **Reads:** `docs/contracts/tile-grid.md`, `web/src/types/schema.ts` (`Site.crs`, `Site.aoi`, `TileGrid`), [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) items 2–3, [05 Site](../specs/05_Backend_and_Database_Schema.md#site), [05 §F.1](../specs/05_Backend_and_Database_Schema.md#f1-site-manifest-abridged-aoi-values-illustrative-until-task-01), `web/package.json`
+- **Owns (writes):** `apps/web/src/ui/map/projection.ts`, `apps/web/tests/ui/projection.test.ts`
+- **Reads:** `docs/contracts/tile-grid.md`, `packages/protocol/src/schema.ts` (`Site.crs`, `Site.aoi`, `TileGrid`), [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) items 2–3, [05 Site](../specs/05_Backend_and_Database_Schema.md#site), [05 §F.1](../specs/05_Backend_and_Database_Schema.md#f1-site-manifest-abridged-aoi-values-illustrative-until-task-01), `apps/web/package.json`
 - **Depends on:** T02.01 (soft), T03.01 (soft)
 - **Parallel with:** T03.02, T03.03–T03.06, T05.02–T05.04
 - **Steps:**
@@ -81,7 +81,7 @@
   2. Create the OpenLayers projection in metres with extent `aoi.extent_m`.
   3. Build an OpenLayers tile grid from a layer's `tile_grid` as C9 defines it.
   4. Check how OpenLayers computes point resolution for this projection. If it would estimate through EPSG:4326 on the Earth sphere (the 02 §C.4.2 pitfall), give the projection a point-resolution function in projection metres (`TODO(verify)`).
-  5. Write the test file: the web CRS guard (no `EPSG:3857`, `EPSG:4326` or `ol/sphere` anywhere under `web/src/`), and a check that the registered definition is the manifest string unchanged (use the 05 §F.1 example string).
+  5. Write the test file: the web CRS guard (no `EPSG:3857`, `EPSG:4326` or `ol/sphere` anywhere under `apps/web/src/`), and a check that the registered definition is the manifest string unchanged (use the 05 §F.1 example string).
   6. Run the test and the type check.
 - **Acceptance:**
   - Serves: FR-01, D-03 · [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer)
@@ -89,9 +89,9 @@
   - The projection's units are metres and its extent is `aoi.extent_m`; tile grids come from the manifest `tile_grid`, never from hard-coded values.
   - Test case allocated here: no EPSG:3857 view or `ol/sphere` in the web app (02 §C.4.2). The round-trip case belongs to T03.03.
   - `make typecheck` passes.
-- **Verify:** `npx vitest run tests/ui/projection.test.ts` (run in `web/`); `make typecheck`.
-- **Agent brief:** Create `web/src/ui/map/projection.ts`: register the manifest's `crs.proj4` with proj4js and OpenLayers (metres, AOI extent) and build tile grids from `tile_grid` per `docs/contracts/tile-grid.md`. Add `web/tests/ui/projection.test.ts` with the web CRS guard (02 §C.4.2). Confirm the scale line will use projection metres; mark anything unconfirmed `TODO(verify)`.
-- **Conflict notes:** New files only. T07.06 builds on this module (hard), so keep its exported names stable once T07.06 starts; later changes go through a `follow-up:` subtask. The guard test scans all of `web/src/`, so every web lane must keep it green.
+- **Verify:** `npx vitest run tests/ui/projection.test.ts` (run in `apps/web/`); `make typecheck`.
+- **Agent brief:** Create `apps/web/src/ui/map/projection.ts`: register the manifest's `crs.proj4` with proj4js and OpenLayers (metres, AOI extent) and build tile grids from `tile_grid` per `docs/contracts/tile-grid.md`. Add `apps/web/tests/ui/projection.test.ts` with the web CRS guard (02 §C.4.2). Confirm the scale line will use projection metres; mark anything unconfirmed `TODO(verify)`.
+- **Conflict notes:** New files only. T07.06 builds on this module (hard), so keep its exported names stable once T07.06 starts; later changes go through a `follow-up:` subtask. The guard test scans all of `apps/web/src/`, so every web lane must keep it green.
 
 ### T02.03 — Build the spike page: mock-site tiles in the Mars projection with a metric scale bar
 
@@ -99,12 +99,12 @@
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
 - **Estimate:** 0.5–1 h
-- **Owns (writes):** `web/spike/`
-- **Reads:** `web/src/ui/map/projection.ts`, `docs/contracts/tile-grid.md`, `web/public/sites/mock_site/` (F4), [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices) (spike), [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation) (scale bar position)
+- **Owns (writes):** `apps/web/spike/`
+- **Reads:** `apps/web/src/ui/map/projection.ts`, `docs/contracts/tile-grid.md`, `data/sites/mock_site/` (F4), [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices) (spike), [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation) (scale bar position)
 - **Depends on:** T02.02 (hard: the page uses the projection module), T02.01 (soft), T03.02 (soft)
 - **Parallel with:** T03.03–T03.06, T05.02, T05.04
 - **Steps:**
-  1. Add a minimal page (HTML entry and script) under `web/spike/`, served by the Vite dev server.
+  1. Add a minimal page (HTML entry and script) under `apps/web/spike/`, served by the Vite dev server.
   2. Load `sites/mock_site/site-manifest.json` (F4) and register its projection through `projection.ts`.
   3. Add one XYZ tile layer per mock raster layer, with a tile grid from its `tile_grid`, and fit the view to the AOI extent.
   4. Add an OpenLayers scale line in metric units at the bottom left (04 §B). Zoom through every resolution and check for gaps or shifts between levels. Record the observed x/y direction for C9.
@@ -117,8 +117,8 @@
   - The page reads origin, resolutions and tile size from the manifest; it hard-codes none of them.
   - The observed tile addressing is written down for C9 (a `contract-change:` subtask if it differs from v1).
 - **Verify:** `make typecheck`; manual: `make dev`, open the spike page with devtools set to Offline, zoom through every level, read the network log.
-- **Agent brief:** Build a throwaway page under `web/spike/` that loads the mock site (F4), registers the Mars projection via `web/src/ui/map/projection.ts`, shows its XYZ tiles with tile grids from the manifest, and adds a metric scale line. Check alignment at every zoom level and offline loading. Timebox: 2 h together with T02.02 (02 §B).
-- **Conflict notes:** `web/spike/` is throwaway: nothing in `web/src/` imports it, and it must not enter the production build (`TODO(verify)`: Vite builds only `web/index.html` by default). T02.06 may replace the page if the fallback is triggered.
+- **Agent brief:** Build a throwaway page under `apps/web/spike/` that loads the mock site (F4), registers the Mars projection via `apps/web/src/ui/map/projection.ts`, shows its XYZ tiles with tile grids from the manifest, and adds a metric scale line. Check alignment at every zoom level and offline loading. Timebox: 2 h together with T02.02 (02 §B).
+- **Conflict notes:** `apps/web/spike/` is throwaway: nothing in `apps/web/src/` imports it, and it must not enter the production build (`TODO(verify)`: Vite builds only `apps/web/index.html` by default). T02.06 may replace the page if the fallback is triggered.
 
 ### T02.04 — Verify the scale bar against a DEM-measured feature within 2 % on real AOI tiles
 
@@ -127,7 +127,7 @@
 - **Window:** pre-event-if-permitted
 - **Estimate:** 1 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
-- **Reads:** `docs/ops/feasibility/dem-quality.md` (reference feature from T01.03), real AOI tiles rendered locally with the T03.12 tiler, `web/spike/`, [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) (Projection row), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer)
+- **Reads:** `docs/ops/feasibility/dem-quality.md` (reference feature from T01.03), real AOI tiles rendered locally with the T03.12 tiler, `apps/web/spike/`, [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) (Projection row), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer)
 - **Depends on:** T02.03 (hard: the check runs on the spike page), T01.03 (hard: the 2 % check needs the DEM-measured reference feature), T03.12 (hard: the 2 % check runs on real AOI tiles)
 - **Parallel with:** T03.19–T03.21, T04.04–T04.06
 - **Steps:**
@@ -174,12 +174,12 @@
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
 - **Estimate:** 1–2 h
-- **Owns (writes):** `web/src/ui/map/imageStatic.ts`, `web/spike/` (replaces T02.03)
-- **Reads:** [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices) (fallback), [05 Layer](../specs/05_Backend_and_Database_Schema.md#layer) (`kind: image_static`), `web/src/ui/map/projection.ts`, `docs/contracts/tile-grid.md` (encoding), `web/public/sites/mock_site/` (F4)
+- **Owns (writes):** `apps/web/src/ui/map/imageStatic.ts`, `apps/web/spike/` (replaces T02.03)
+- **Reads:** [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices) (fallback), [05 Layer](../specs/05_Backend_and_Database_Schema.md#layer) (`kind: image_static`), `apps/web/src/ui/map/projection.ts`, `docs/contracts/tile-grid.md` (encoding), `data/sites/mock_site/` (F4)
 - **Depends on:** T02.02 (hard: the fallback uses the same projection module), T02.01 (soft), T03.02 (soft)
 - **Parallel with:** T03.25
 - **Steps:**
-  1. Create `web/src/ui/map/imageStatic.ts`: a factory that turns a manifest layer with `kind: image_static` into an `ol/source/ImageStatic` image layer in the Mars projection, with the image extent set to `aoi.extent_m` (02 §B).
+  1. Create `apps/web/src/ui/map/imageStatic.ts`: a factory that turns a manifest layer with `kind: image_static` into an `ol/source/ImageStatic` image layer in the Mars projection, with the image extent set to `aoi.extent_m` (02 §B).
   2. Switch the spike page to show a stand-in PNG (a mock-site tile, F4) through the factory, with the metric scale line.
   3. Check alignment and the scale line as in T02.03, including the offline network check.
   4. Write down for T02.05 and T07.16 that 02 §B keeps a 0.5 m tiled ortho in this fallback (spec question 2).
@@ -189,7 +189,7 @@
   - The image uses the pixel encoding of C9; no request leaves `localhost` (01 FR-01).
   - The trigger (the spike failed within 2 h) is recorded for ADR-003 by T02.05.
 - **Verify:** `make typecheck`; manual: `make dev`, open the spike page offline and check that the stand-in image is aligned to the AOI with a metric scale line.
-- **Agent brief:** Only if the spike failed within 2 h: create `web/src/ui/map/imageStatic.ts`, which wraps `ol/source/ImageStatic` for `image_static` layers in the Mars projection over `aoi.extent_m` (02 §B). Prove it on the spike page with a mock-site PNG and a metric scale line, offline.
+- **Agent brief:** Only if the spike failed within 2 h: create `apps/web/src/ui/map/imageStatic.ts`, which wraps `ol/source/ImageStatic` for `image_static` layers in the Mars projection over `aoi.extent_m` (02 §B). Prove it on the spike page with a mock-site PNG and a metric scale line, offline.
 - **Conflict notes:** Starts only on the trigger. It replaces the T02.03 page and never runs at the same time as T02.03. T03.25 renders the real PNGs in parallel; T07.16 consumes the factory.
 
 ## Internal dependency graph
@@ -211,7 +211,7 @@ T02.06 starts only if T02.03 fails within the 2 h timebox; T02.04 then checks th
 
 - [06 §D.7](../specs/06_High_Level_Implementation_Plan.md#d7-definition-of-done-per-feature): the FR-01 scale check passed and is logged (T02.04); the CRS-guard test is committed. Provenance labels, keyboard reach and SCR-09 credits do not apply to the throwaway spike page; the production scale bar is T07.06. The page works offline: it loads only local files.
 - C9 v1 is merged before T03.02, T03.12 and T07.07 start; any spike-driven change is merged as a `contract-change:` before the C9 freeze (end of M1, 10 Nov).
-- `npx vitest run tests/ui/projection.test.ts` (in `web/`) and `make typecheck` pass.
+- `npx vitest run tests/ui/projection.test.ts` (in `apps/web/`) and `make typecheck` pass.
 - ADR-003 records D-03 (tiled layers or ImageStatic) with the T02.04 evidence.
 - Done when (06 §C): scale bar matches a DEM-measured feature within 2 %.
 

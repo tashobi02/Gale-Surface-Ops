@@ -7,7 +7,7 @@
 | **Status** | Template — keep updated with every AI-assisted change |
 | **Related** | [ADR-006 No AI in MVP](decisions/ADR-006-no-ai-in-mvp.md) · [03 SCR-09 AI-use statement](specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods) · [Submission checklist](ops/submission-checklist.md) |
 
-The app itself uses no AI: no AI computes or generates values ([02 §D.7](specs/02_Technical_Requirements_Document.md#d7-ai), [01 §C.4](specs/01_Product_Requirements_Document.md#c4-explicitly-out-of-scope)). This log covers AI tools used to *build* the project.
+The app itself uses no AI: no AI computes or generates values ([02 §D.7](specs/02_Technical_Requirements_Document.md#d7-ai), [01 §C.4](specs/01_Product_Requirements_Document.md#c5-out-of-scope)). This log covers AI tools used to *build* the project.
 
 Final disclosure wording: TODO(verify) against the 2026 Project Submission / Judging guides (not yet published; due 13 Nov).
 

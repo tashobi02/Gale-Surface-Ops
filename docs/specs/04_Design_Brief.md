@@ -7,7 +7,7 @@
 | **Status** | Draft v2 — supersedes v1 (2026-11-02) |
 | **Related** | Screens: [03 App Flow](03_App_Flow_and_Diagrams.md) (SCR-xx) · Scope: [01 PRD](01_Product_Requirements_Document.md) · Behavior: [02 Technical](02_Technical_Requirements_Document.md) · [Docs index](../README.md) |
 
-### Change log v1 → v2
+## Change log v1 → v2
 
 | Area | v1 | v2 |
 | --- | --- | --- |
@@ -315,7 +315,7 @@ Five chamfered tiles: PLANNER · OPS · EV1 · EV2 · EARTH (T2). Each shows wha
 
 ### E.3 SCR-02 Planner workspace (OPS)
 
-v1 layout retained (top bar 48 px, left drawer 320 px, map, right drawer 320 px, results panel 220 px) with the v2 skin: livery stripe, metadata strip under the top bar, chamfered drawers, Chakra Petch panel titles, Plex Mono values. Results panel adds a **time-to-haven band** and a **comm band** under the elevation profile.
+v1 layout retained ([Appendix A](#b-layout-and-navigation): top bar 48 px, left drawer 320 px, map, right drawer 320 px, results panel 220 px) with the v2 skin: livery stripe, metadata strip under the top bar, chamfered drawers, Chakra Petch panel titles, Plex Mono values. Results panel adds a **time-to-haven band** and a **comm band** under the elevation profile.
 
 ### E.4 SCR-11 Ops console (OPS, ≥ 1280 px, projector)
 
@@ -389,7 +389,7 @@ Bottom sheet covering 70 % of the screen on a warning: alert text, then option c
 
 ### E.8 SCR-08 Briefing card and SCR-17 Post-EVA report (PRINT)
 
-v1 briefing grid retained. Post-EVA report page 1 opens with four stat slabs (dose received vs. unsheltered, time to shelter, stops completed, plan revisions), then the planned-vs-actual timeline, the alert table and the map trace; page 2 the event log and sources. A4/Letter, 12 mm margins, patterns kept.
+v1 briefing grid retained ([Appendix A](#scr-08-briefing-card-print)). Post-EVA report page 1 opens with four stat slabs (dose received vs. unsheltered, time to shelter, stops completed, plan revisions), then the planned-vs-actual timeline, the alert table and the map trace; page 2 the event log and sources. A4/Letter, 12 mm margins, patterns kept.
 
 ### E.9 SCR-09 Sources & methods (BRIEF)
 
@@ -430,6 +430,99 @@ Editorial long-form page: left index (Datasets · Processing · Models · Assump
 - **Numbers:** `font-variant-numeric: tabular-nums slashed-zero` on all values.
 - **Status rendering:** a single `<status-icon level>` component draws shape + pattern so no screen hand-rolls status colours.
 - **No HTML wireframes are produced in this doc;** visual mockups of SCR-01, SCR-11, SCR-12 and SCR-13 are a separate design deliverable (U-25).
+
+---
+
+## Appendix A — v1 planner layout reference (retained, restyled)
+
+The planner (SCR-02–SCR-08) keeps the v1 layout, component states and wireframes below; task files cite these sections. Apply the v2 visual system (§C) on top, with these token renames: `accent` → `route`, `ok` → `nominal`, `blocked` → `warning`, `bg` → `void`, `text-primary/secondary/muted` → `text-1/2/3`, and the focus ring is the v2 white ring (§C.1), not yellow. Where this appendix and §A–§G disagree, §A–§G win.
+
+### B. Layout and navigation
+
+Desktop layout (≥ 1280 px):
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Top bar 48px: Logo/site name · data-version chip · [Briefing] [Sources] [?] │
+├────────────┬───────────────────────────────────────────────┬─────────────────┤
+│ Left drawer│                                               │ Right drawer    │
+│ 320px      │                MAP (fills)                     │ 320px           │
+│ Tabs:      │  scale bar ▸ bottom-left                       │ Tabs:           │
+│  Layers    │  north arrow ▸ top-right of map                │  POI detail     │
+│  Plan      │  coordinate readout ▸ bottom-right             │  Conditions     │
+│            │  Add-stop toggle ▸ map toolbar (top-left)      │                 │
+├────────────┴───────────────────────────────────────────────┴─────────────────┤
+│ Results panel 220px (collapsible to 48px status strip):                      │
+│ [Status banner] [metrics row] [elevation/slope profile]  [warnings list]     │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Element | Placement and behavior |
+| --- | --- |
+| Map | Always visible; never covered by more than one drawer on screens < 1280 px |
+| Layer controls & legends | Left drawer "Layers" tab; legends inline under each enabled layer (not a separate floating legend) |
+| Mission inputs & stops | Left drawer "Plan" tab; inputs collapsed into "Constraints" accordion after first edit, stops list stays open |
+| POIs | Map markers; detail in right drawer |
+| Route results | Bottom panel; status strip remains when collapsed |
+| Warnings | Bottom panel list + map symbols + profile highlights (three synchronised views) |
+| Uncertainty & sources | Provenance chip next to every value; Sources overlay full-screen with anchors |
+
+### C.5 Map annotations and selection states
+
+| Element | Default | Hover | Selected | Disabled/invalid |
+| --- | --- | --- | --- | --- |
+| Waypoint | `accent` fill, `bg` number | +2 px ring | `focus` ring 3 px | `blocked` outline + ⬣ |
+| POI | white pin, `bg` outline | label shown | `accent` pin + right drawer open | — |
+| Route leg | cased `accent` line | thicker 6 px | — | NO_ROUTE: dashed `unknown` to nearest reachable point |
+| Hazard segment | — | tooltip | — | overlay of `caution`/`blocked` hatch along route |
+| Traverse | thin `#E8EDF2` 60 % dashed | sol label | — | — |
+
+### D. Interaction and component behavior
+
+| Component | Default | Selected/active | Loading | Disabled | Empty | Error |
+| --- | --- | --- | --- | --- | --- | --- |
+| Layer row | Toggle off, collapsed legend | Toggle on, legend expanded | Skeleton legend + spinner on toggle | Greyed with reason ("Unavailable in this build") | — | Inline `unknown` message |
+| Input field | Value + unit | Focus ring | — | Read-only during demo-lock (optional) | — | Red outline + range text below |
+| Stops list | Numbered rows | Row highlighted ↔ map marker | Row ETA shimmer | — | "Add a stop: click a POI or press A" | Row marked ⬣ with reason |
+| Status banner | — | OK / Over limits / Partial | "Computing…" (no layout jump) | — | "No plan yet" | "Computation failed — Retry" |
+| Profile chart | Elevation line + patterns | Cursor + tooltip | Faded previous profile under spinner | — | Hidden | Message in chart area |
+| Metric tile | Value + unit + chip | — | Previous value at 50 % opacity | — | "—" with tooltip "needs a plan" | `unknown` styling |
+| POI image | Image + credit | Click → full-size dialog | Blurred placeholder | — | — | "Image not available" + source link |
+| Briefing button | Enabled when a plan is computed (OK, Over limits, Partial) | — | — | Disabled with tooltip when no stops or after a computation error | — | — |
+
+**Discoverability:** first-run coach marks (3 steps, dismissible, stored only in memory): "Turn on Slope", "Click a POI → Add as stop", "Open Briefing".
+
+**Feedback:** every recompute updates the status banner within 100 ms ("Computing…") and finishes within the NFR-02 target.
+
+**Progressive disclosure:** metrics row shows 6 headline values; "Details" expands per-leg table; equations live only in Sources & Methods.
+
+**Information overload guard:** max two scientific overlays visible at once (third toggle auto-dims the oldest and tells the user).
+
+### F. Wireframe guidance
+
+#### SCR-01 Mission Briefing
+
+Superseded by [§E.1](#e1-scr-01-mission-briefing-brief).
+
+#### SCR-02 Map Workspace (with SCR-03/04/05/07 embedded)
+
+As in the layout in §B. Map toolbar top-left: Add-stop toggle, Fit AOI, Measure (optional). When Add-stop mode is on, crosshair appears at map centre and the toggle is `accent` filled.
+
+#### SCR-05 Results (bottom panel)
+
+Left 280 px: status banner (icon, word, one-line reason). Middle: metrics row (Distance · Walk time · EVA total / limit · Max slope · Max walkback / limit · Dose) above the profile (full width of middle area, 140 px tall). Right 300 px: warnings list, newest-severity first.
+
+#### SCR-06 POI Detail (right drawer)
+
+Image at top (16:9, click to enlarge), credit line under image (12 px), title, "Science objective" paragraph, "Why it matters" paragraph, position source with provenance chip, button **Add as stop**.
+
+#### SCR-08 Briefing Card (print)
+
+A4/Letter portrait, 12 mm margins. Row 1: header (site, plan name, data version, plan hash, timestamp). Row 2 (two columns): route map snapshot (left 60 %), metrics + status (right). Row 3: stops/timeline table (stop, arrival UTC/LTST, dwell, sun elevation, notes). Row 4: profile. Row 5: warnings + assumptions (two columns). Footer: sources (short form) + prototype disclaimer.
+
+#### SCR-09 Sources & Methods
+
+Superseded by [§E.9](#e9-scr-09-sources--methods-brief).
 
 ## Unresolved items owned by this document
 

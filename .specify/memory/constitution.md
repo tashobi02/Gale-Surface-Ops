@@ -10,7 +10,7 @@ The demo and every core feature MUST run with the network disabled; no request m
 
 ### II. Deterministic Science, No AI-Generated Numbers (NON-NEGOTIABLE)
 
-All computed values MUST come from deterministic code in `web/src/compute/` or `pipeline/`. No AI model may compute or generate a displayed number. Same inputs + same `data_version` MUST give identical results. (01 §C.4; 02 §D.7, NFR-06; ADR-006)
+All computed values MUST come from deterministic code in `packages/compute/src/` or `pipeline/`. No AI model may compute or generate a displayed number. Same inputs + same `data_version` MUST give identical results. (01 §C.4; 02 §D.7, NFR-06; ADR-006)
 
 ### III. Provenance on Every Displayed Value (NON-NEGOTIABLE)
 

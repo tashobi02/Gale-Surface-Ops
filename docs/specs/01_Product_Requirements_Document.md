@@ -123,7 +123,9 @@ One habitat-local system that turns scattered NASA products into **real-time go/
 
 ## Clarifications
 
-### Session 2026-11-02 (v1, still valid for Tier 0)
+### Session 2026-11-02
+
+*(v1 session; still valid for Tier 0.)*
 
 - Q: When is the 30-s global video due? → A: Upload by 14 Nov 09:00; hard cut-off 12:00 (06 §A).
 - Q: Where does the site manifest list its assets? → A: In a required `assets: Asset[]` field on Site (05 §C).
@@ -225,6 +227,8 @@ Tiers replace v1's single MVP list. A tier is not started until the one above it
 Priority: **M** = Must, **S** = Should, **C** = Could. Tier in brackets.
 
 ### D.1 Retained from v1
+
+The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendix A](#appendix-a--v1-requirement-text-fr-01fr-21). Where the table below says **Modified**, the note here wins over the appendix.
 
 | FR | Title | Status in v2 |
 | --- | --- | --- |
@@ -368,7 +372,7 @@ Priority: **M** = Must, **S** = Should, **C** = Could. Tier in brackets.
 
 ---
 
-## E. Demonstration scenarios
+## E. Core demonstration scenario
 
 ### E.1 Killer demo — "Storm at sol 4190" (target 90 s of the 240-s video)
 
@@ -389,13 +393,31 @@ Times, ETAs and slope values in this table are **illustrative**; the real ones c
 
 ### E.2 Supporting scenario — planning (the v1 flow, condensed to ~40 s)
 
-Open planner → toggle slope and thermal inertia → add a science stop (boxwork) and a resource stop (sulfates) → route computes → drag a stop onto a steep slope (honest failure) → time-to-haven band on profile → briefing card. This sets up E.1.
+The v1 planning walkthrough below is retained; task files cite its step numbers. In the video it is cut to ~40 s.
+
+**Starting conditions:** Laptop, local static server running, Wi-Fi off. App opens on the Mission Briefing screen (SCR-01) for the Mount Sharp boxwork site (D-01). Default mission inputs loaded.
+
+| Step | User action | What is displayed | Value demonstrated |
+| --- | --- | --- | --- |
+| 1 | Reads the brief, clicks **Start planning** | Map workspace: HiRISE basemap, start marker ("Habitat/rover"), POIs, Curiosity traverse | Hyperlocal, multi-mission view |
+| 2 | Toggles **Slope**, then **Thermal inertia** | Slope classes; low-TI areas as possible loose sand; legends with units and sources | Layered data types |
+| 3 | Opens POI "Boxwork ridge" | Science objective; Curiosity Navcam image of the ridge; credit | Ground-truth POV |
+| 4 | Clicks **Add as stop** for 3 POIs | Route computed; profile appears; metrics update | Constraint-aware routing |
+| 5 | Drags stop 2 onto a steep slope | Leg turns "blocked/no feasible route" with reason; nearest reachable point shown | Honest failure behavior |
+| 6 | Moves stop 2 back; changes hard slope limit 15° → 12° | Route re-routes around a ridge; time increases | Explicit trade-off |
+| 7 | Sets EVA start to early morning | Daylight warning on first leg; sun elevation shown | Conditions integration |
+| 8 | Opens **Briefing card** | One-page summary: route, timeline, radiation 0.19 mSv (7 h, solar max), warnings, assumptions, sources | Usable output |
+| 9 | Opens **Sources & methods** | Dataset list, versions, processing steps, labels | Credibility |
+
+**Result produced:** an exportable plan and briefing card for a 3-stop Marswalk with explicit constraints and uncertainty.
+
+**Condensed for v2:** Open planner → toggle slope and thermal inertia → add a science stop (boxwork) and a resource stop (sulfates) → route computes → drag a stop onto a steep slope (honest failure) → time-to-haven band on profile → briefing card. This sets up E.1.
 
 ---
 
 ## F. Prototype boundary, assumptions and risks
 
-### F.1 Prototype boundary (must appear in the app and the videos)
+### F.1 Prototype boundary (must appear in the app and the video)
 
 > Marswalk Surface Ops is an exploratory hackathon prototype. It is **not** astronaut operations software. Crew, suit, rover and vehicle states are **simulated**. Solar events are **real historical records replayed** on a simulated clock — not a live feed from Mars. Slope limits, speeds, consumables and shelter values are illustrative assumptions from Earth and Apollo-era references. Radio coverage is line-of-sight only.
 
@@ -438,3 +460,160 @@ Open planner → toggle slope and thermal inertia → add a science stop (boxwor
 | U-15 | RAD time series availability for sol 4190 | Check PDS PPI MSL RAD archive in TASK-04 |
 | U-16 | NASA Exploration Zone terminology citation | Find the human landing site workshop source in TASK-04 |
 | U-17 | Usable orbiter dust-storm record in the scenario window | Check in TASK-04; otherwise drop FR-49 |
+
+---
+
+## Appendix A — v1 requirement text (FR-01–FR-21)
+
+Carried over verbatim from v1 (2026-11-02) so the acceptance criteria stay citable. Read with §D.1: rows marked Modified or Promoted there override this text. Priorities here are v1 priorities; tiers are in §C.
+
+### FR-01 — Load site and optical basemap offline
+
+- **User story:** As a planner, I open the app and immediately see the excursion site in high-resolution orbital imagery.
+- **Priority / release:** M / MVP
+- **Behavior:** On launch, load `site-manifest.json`, initialise the local Mars projection, render the HiRISE-based basemap at the AOI extent.
+- **Inputs / outputs:** Site manifest → rendered map, scale bar in metres, north arrow.
+- **Dependencies:** TASK-01 (AOI), TASK-03 (tiles).
+- **Acceptance criteria:**
+  - *Given* the network is disabled, *when* the app is opened from the local server, *then* the basemap renders within 5 s and no network request leaves `localhost`.
+  - *Given* the map at any zoom, *then* the scale bar length agrees with a measured feature (e.g., known crater diameter in the DEM) within 2 %.
+
+### FR-02 — Scientific layers with legend and opacity
+
+- **User story:** As a planner, I toggle elevation, slope and thermal-inertia layers to understand terrain and surface materials.
+- **Priority:** M (optical, hillshade, elevation, slope, thermal inertia); S (CRISM spectral — FR-18)
+- **Behavior:** Layer panel lists each layer with on/off, opacity (0–100 %), legend with units, resolution, and provenance label.
+- **Acceptance criteria:**
+  - *Given* any layer is on, *then* its legend shows units (m, °, tiu) and native resolution.
+  - Toggling a layer updates the map within 300 ms (tiles cached).
+  - Layer order is fixed: basemap < hillshade < scientific overlay < hazards < route < POIs.
+
+### FR-03 — Point inspection
+
+- **User story:** As a planner, I click a spot to read its exact position and values.
+- **Priority:** M
+- **Behavior:** Click/tap (or the keyboard crosshair, see NFR-04 and [04 §E](04_Design_Brief.md#f-accessibility-and-responsive-behavior)) shows a popover: planetocentric latitude, east-positive longitude (°, 5 decimals), elevation (m relative to the DEM's MOLA-tied datum), slope (°), thermal inertia (tiu or "no data"), each with source.
+- **Acceptance criteria:**
+  - Values match the preprocessed rasters at that cell (test: 10 sampled cells against Python `rasterio` readout, tolerance: exact for elevation at routing-grid cell, ±0.1° slope).
+  - Clicking outside the AOI shows "Outside mapped area" and no values.
+
+### FR-04 — Points of interest with ground imagery
+
+- **User story:** As a crew member, I see what a science stop looks like from the ground before I go.
+- **Priority:** M
+- **Behavior:** POI markers (5–8 curated) open a detail panel (SCR-06): name, science objective, why it matters, a locally stored Curiosity Navcam/Mastcam image with credit, sol/date, approximate look direction if known, and "Add as stop" button.
+- **Acceptance criteria:**
+  - Every POI has `image_credit`, `source_url`, and `position_source` fields populated (see [05](05_Backend_and_Database_Schema.md#poi)).
+  - "Add as stop" appends the POI as the next waypoint and triggers recomputation.
+
+### FR-05 — Mission inputs with validated defaults
+
+- **User story:** As a planner, I set EVA constraints so the plan reflects my mission rules.
+- **Priority:** M
+- **Inputs (defaults are Assumed, editable):** EVA start (UTC date-time or local true solar time), max EVA duration (h, default 6), dwell time per stop (min, default 20), hard slope limit (°, default 15), caution slope (°, default 10), walkback limit (km of route distance from start, default 5), flat-ground suited speed (km/h, default 3.3 — Apollo 17 planning value), solar-cycle phase for radiation (max / min).
+- **Acceptance criteria:**
+  - Out-of-range inputs are rejected inline with the valid range shown (ranges in [02 §E.3](02_Technical_Requirements_Document.md#e3-input-validation-rules)).
+  - Changing any input recomputes results without page reload.
+  - A visible badge says "Defaults are assumptions — not flight rules."
+
+### FR-06 — Waypoint placement and editing
+
+- **User story:** As a planner, I place a start point and science stops, then drag, reorder or delete them.
+- **Priority:** M
+- **Behavior:** Start point = habitat/rover position (default from manifest, movable). Up to 10 stops. Stops are numbered; list in panel supports reorder (drag + keyboard up/down buttons) and delete. Route returns to start by default ("loop" on; toggle to one-way).
+- **Acceptance criteria:**
+  - Placing a waypoint on a no-data or impassable cell is refused with a message and the nearest passable cell offered (snap within 50 m).
+  - Undo of the last waypoint action is available (single-level is sufficient).
+
+### FR-07 — Constraint-aware route computation
+
+- **User story:** As a planner, I want the tool to find a walkable path between my stops that avoids slopes I cannot climb and known hazards.
+- **Priority:** M
+- **Behavior:** For each consecutive waypoint pair, run least-time search on the routing grid (algorithm and cost model in [02 §D.2](02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10)). Cells above the hard slope limit, no-data cells and hard-hazard cells are impassable; caution cells cost more.
+- **Outputs:** Polyline per leg, total distance, total time, max slope, list of flagged segments.
+- **Acceptance criteria:**
+  - *Given* two passable points connected by passable cells, *when* routing runs, *then* a route is returned whose every step satisfies the hard slope limit (verified by re-sampling the result).
+  - *Given* no passable connection, *then* the leg is marked "No feasible route" with the reason (e.g., "all paths exceed 15° slope") and the nearest reachable point toward the target is shown.
+  - Routing a 3-stop loop completes in ≤ 2 s (NFR-02).
+  - Same inputs + same data version ⇒ identical route (NFR-06).
+
+### FR-08 — Elevation and slope profile
+
+- **User story:** As a planner, I see where the climbs and dangerous sections are.
+- **Priority:** M
+- **Behavior:** Profile chart under the map: elevation vs. cumulative distance, segments coloured *and patterned* by slope class (OK / caution / over-limit), stop markers. Hover/keyboard focus on the chart highlights the corresponding map location and vice versa.
+- **Acceptance criteria:** Total climb and descent shown in metres; chart remains readable in grayscale (pattern + label, not colour only).
+
+### FR-09 — Traverse time, distance and return estimates
+
+- **User story:** As a planner, I know how long the excursion takes and whether I stay within limits.
+- **Priority:** M
+- **Behavior:** Compute walking time per leg (slope-dependent speed model), add dwell times, compute EVA timeline, remaining margin vs. max duration, and maximum route distance from start (walkback check).
+- **Acceptance criteria:** Reference cases in [02 §D.3](02_Technical_Requirements_Document.md#d3-walking-time-model-fr-09) reproduce exactly in unit tests (e.g., 1 km flat at 3.3 km/h = 18.2 min).
+
+### FR-10 — Hazard and constraint warnings
+
+- **Priority:** M
+- **Warning types:** over hard slope (blocked), caution slope, low-thermal-inertia "possible loose sand" (caution, interpretive), no-data cell adjacency, walkback limit exceeded, EVA duration exceeded, segment in darkness (sun below horizon).
+- **Acceptance criteria:** Each warning shows severity icon + text + affected segment/time, appears in the results panel and on the briefing card, and can be clicked to zoom to the location.
+
+### FR-11 — Daylight and sun conditions
+
+- **User story:** As a planner, I want to finish the walk in daylight.
+- **Priority:** M
+- **Behavior:** Compute local true solar time, solar elevation and azimuth at the site for the EVA window using the Mars24 algorithm (Allison & McEwen 2000); show sunrise/sunset (local, ignoring terrain), L_s (season), Mars Year.
+- **Acceptance criteria:** Unit tests match reference values from a trusted Mars24 implementation for ≥ 3 timestamps within 0.1° (solar elevation) and 1 min (LTST). Terrain shadowing is explicitly stated as not modelled.
+
+### FR-12 — Radiation dose estimate
+
+- **User story:** As a planner, I see the expected surface radiation dose for this excursion and how solid that number is.
+- **Priority:** M
+- **Behavior:** Dose equivalent = measured Gale surface rate × EVA duration, for selected solar-cycle phase. Show rate source (Curiosity RAD), uncertainty, and caveats (no suit shielding, no SEP events, no terrain shielding).
+- **Acceptance criteria:** For a 7 h EVA at solar-maximum rate 0.64 mSv/day the card shows 0.19 mSv (verified arithmetic: 0.64 × 7/24 = 0.187). Label: "measured rate × planned duration (simplified)."
+
+### FR-13 — Environmental context (seasonal weather)
+
+- **Priority:** S
+- **Behavior:** Show REMS-derived typical air/ground temperature and pressure ranges for the L_s bin of the EVA date.
+- **Acceptance criteria:** Values trace to named REMS RDR files and the binning script; if not prepared, the panel shows "Not included in this build" rather than placeholder numbers.
+
+### FR-14 — Briefing card and plan export
+
+- **User story:** As a crew member, I take a one-page summary of the excursion with me.
+- **Priority:** M
+- **Behavior:** Print-optimised view (SCR-08): map thumbnail with route, stops table, timeline, profile, constraints, warnings, conditions, assumptions, sources, data version, plan hash. Export plan as JSON (schema in [05](05_Backend_and_Database_Schema.md#planexport)).
+- **Acceptance criteria:** Prints to one A4/Letter page in Chrome without clipping; re-importing exported JSON (if FR-20 built) or reloading it in a test reproduces identical metrics.
+
+### FR-15 — Provenance and methods
+
+- **Priority:** M
+- **Behavior:** Every layer and computed value has a provenance label and a link into the Sources & Methods panel (SCR-09), which lists datasets, versions, resolution, licence/credit, processing steps and known limitations.
+- **Acceptance criteria:** No numeric value is displayed without a provenance label (automated UI test checks `data-provenance` attribute on every metric element).
+
+### FR-16 — Offline and degraded operation
+
+- **Priority:** M
+- **Behavior:** All demo assets are local. If a layer fails to load, the layer row shows an error state and the rest of the app works; routing requires only the routing grid.
+- **Acceptance criteria:** Deleting the thermal-inertia tiles results in a visible "Layer unavailable" state and routing still succeeds (sand-caution warnings then show "unknown").
+
+### FR-17 — Curiosity traverse overlay
+
+- **Priority:** M
+- **Behavior:** Show Curiosity's historical traverse and waypoints in/near the AOI with sol labels; clicking shows sol and source.
+- **Acceptance criteria:** Overlay aligns with visible rover tracks on the HiRISE basemap at ≥ 3 checked locations (tolerance stated in [02 §C](02_Technical_Requirements_Document.md#c-mars-data-and-geospatial-handling)).
+
+### FR-18 — Spectral (CRISM) layer — S
+
+- Shown only if TASK-01 confirms MTRDR coverage of the AOI. Labelled as summary-parameter browse product, "not a mineral identification."
+
+### FR-19 — Illustrative consumables estimate — S
+
+- Metabolic-rate-based oxygen estimate from historical planning values; labelled **illustrative**, never shown as a limit.
+
+### FR-20 — Save/restore plan locally — S
+
+- Last plan in browser storage, wrapped in error handling; app works if storage is unavailable.
+
+### FR-21 — Post-MVP items — C
+
+- Space-weather status, 3D view, multi-site, AI narration (see C.3).

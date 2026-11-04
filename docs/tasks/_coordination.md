@@ -327,7 +327,7 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 | T18.07 | follow-up: save and restore the last plan in browser storage | frontend | implement | agent-ready · desirable | event-only | M5–M6 | FR-20 |
 | T18.08 | Cache the CRISM and REMS source files before 13 Nov | data | human | human-required · desirable | pre-event-allowed | M1–M2 | FR-13, FR-18 |
 
-FR-21 (space weather, 3D view, multi-site, AI narration) is post-MVP and has no subtask ([01 §C.3](../specs/01_Product_Requirements_Document.md#c3-post-mvp)).
+FR-21 (space weather, 3D view, multi-site, AI narration) is post-MVP and has no subtask ([01 §C.3](../specs/01_Product_Requirements_Document.md#c4-post-mvp)).
 
 ## b. Lanes
 
@@ -433,121 +433,121 @@ Role names from [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-plannin
 
 | Path | Owner | Rule |
 | --- | --- | --- |
-| `web/src/types/schema.ts` | T03.01 | Contract (§d, C1) |
-| `web/src/compute/protocol.ts` | T05.01 | Contract (§d, C6) |
-| `web/src/compute/grid.ts` | T05.16 | — |
-| `web/src/compute/sampling.ts` | T05.17 | Stub edit by T05.01 (inputs for lat/lon) |
-| `web/src/compute/route.ts` | T05.18 | T05.01 moves `snapToPassable` and `toLeg` out (stub → T05.18) |
-| `web/src/compute/noRoute.ts` | T05.19 | New; stub by T05.01 |
-| `web/src/compute/snap.ts` | T05.20 | New; stub by T05.01 |
-| `web/src/compute/leg.ts` | T05.21 | New; stub by T05.01 |
-| `web/src/compute/timeModel.ts` | T05.22 | — |
-| `web/src/compute/walkback.ts` | T05.23 | — |
-| `web/src/compute/warnings.ts` | T05.24 | Stub edit by T05.01 (access to grid flags) |
-| `web/src/compute/validate.ts` | T05.25 | New; stub by T05.01; also imported by the UI (T08.04) |
-| `web/src/compute/handler.ts` | T05.26 | New; stub by T05.01 (moves `handleMessage` out of `worker.ts`); T05.32 completes it (after T05.26) |
-| `web/src/compute/worker.ts` | T05.27 | Stub edit by T05.01 |
-| `web/src/compute/manualLeg.ts` | T05.30 | New; fallback |
-| `web/src/compute/sunTable.json` | T06.11 | New; fallback (cut 5) |
-| `web/src/compute/mars24.ts` | T06.06 | T06.01 moves the solar functions out (stub → T06.06) |
-| `web/src/compute/sun.ts` | T06.07 | New; stub by T06.01 |
-| `web/src/compute/radiation.ts` | T06.08 | — |
-| `web/src/compute/conditions.ts` | T06.09 | New; stub by T06.01 (contract C8); T06.11 may replace it |
-| `web/src/compute/consumables.ts` | T18.05 | New; desirable |
-| `web/src/state/planStore.ts` | T08.03 | Interfaces frozen by T08.01 (stub → T08.03, contract C11); T18.07 follows up |
-| `web/src/state/persist.ts` | T18.07 | New; desirable |
-| `web/src/ui/context.ts` | T07.01 | New; contract C10 |
-| `web/src/boot/loadSite.ts` | T07.02 | New; stub by T07.01 |
-| `web/src/boot/validateSite.ts` | T14.03 | New; stub by T07.01 |
-| `web/src/ui/router.ts`, `web/src/main.ts`, `web/index.html` | T07.03 | Route registry: all four hash routes registered by T07.03; screens never edit it |
-| `web/src/ui/workerClient.ts` | T07.04 | New; stub by T07.01 |
-| `web/src/ui/debug.ts` | T07.13 | New; stub by T07.01 |
-| `web/src/ui/demoPlan.json` | T07.14 | New |
-| `web/src/ui/screens/scr00BootError.ts` (+ `.css`) | T14.04 | — |
-| `web/src/ui/screens/scr01MissionBriefing.ts` (+ `.css`) | T07.05 | — |
-| `web/src/ui/screens/scr02MapWorkspace.ts` (+ `.css`) | T07.08 | T13.07 follows up (coach marks) |
-| `web/src/ui/screens/scr03LayersPanel.ts` (+ `.css`) | T07.09 | — |
-| `web/src/ui/screens/scr04PlanPanel.ts` (+ `.css`) | T08.04 | — |
-| `web/src/ui/screens/scr05RouteResults.ts` (+ `.css`) | T09.03 | T18.06 follows up |
-| `web/src/ui/screens/scr06PoiDetail.ts` (+ `.css`) | T10.01 | — |
-| `web/src/ui/screens/scr07Conditions.ts` (+ `.css`) | T10.02 | T18.03 follows up |
-| `web/src/ui/screens/scr08BriefingCard.ts` (+ `.css`) | T11.03 | T18.06 follows up |
-| `web/src/ui/screens/scr09SourcesMethods.ts` (+ `.css`) | T12.03 | — |
-| `web/src/ui/map/projection.ts` | T02.02 | New |
-| `web/src/ui/map/imageStatic.ts` | T02.06 | New; fallback |
-| `web/src/ui/map/createMap.ts` | T07.06 | New; stub by T07.01 |
-| `web/src/ui/map/rasterLayers.ts` | T07.07 | New; stub by T07.01; T07.16 may replace it |
-| `web/src/ui/map/traverseLayer.ts` | T07.10 | New; stub by T07.01 |
-| `web/src/ui/map/poiLayer.ts` | T07.11 | New; stub by T07.01 |
-| `web/src/ui/map/inspector.ts` | T07.12 | New; stub by T07.01 |
-| `web/src/ui/map/waypointLayer.ts` | T08.06 | New; stub by T07.01 |
-| `web/src/ui/map/addStopMode.ts` | T08.07 | New; stub by T07.01 |
-| `web/src/ui/map/waypointDrag.ts` | T08.08 | New; stub by T07.01; T08.10 may replace it |
-| `web/src/ui/map/touchInput.ts` | T08.09 | New; stub by T07.01 |
-| `web/src/ui/map/routeLayer.ts` | T09.01 | New; stub by T07.01 |
-| `web/src/ui/map/drawLegs.ts` | T09.08 | New; fallback |
-| `web/src/ui/map/keyboard.ts` | T13.06 | New; stub by T07.01 |
-| `web/src/ui/plan/stopsList.ts` | T08.05 | New; stub by T07.01 |
-| `web/src/ui/results/profileChart.ts` | T09.02 | New; stub by T07.01 (SCR-05 and SCR-08 both use it) |
-| `web/src/ui/results/warningsList.ts` | T09.04 | New; stub by T07.01 |
-| `web/src/ui/results/profileLink.ts` | T09.05 | New; stub by T07.01 |
-| `web/src/ui/briefing/mapSnapshot.ts` | T11.04 | New; stub by T07.01; T11.06 may replace it |
-| `web/src/export/planExport.ts` | T11.02 | New; stub by T07.01 |
-| `web/src/ui/components/metric.ts` | T12.01 | New; stub by T07.01 |
-| `web/src/ui/components/statusIcon.ts` | T13.05 | New; stub by T07.01 |
-| `web/src/ui/coachMarks.ts` | T13.07 | New; desirable path for cut 2 |
-| `web/src/ui/content/methods.json` | T12.04 | New |
-| `web/src/ui/styles/tokens.css` | T13.01 | Contract C12; after T13.01, append-only: add new custom properties at the end of the matching block with a 04 §C reference; renames need a contract-change |
-| `web/src/ui/styles/base.css` | T13.04 | New; stub by T13.01 (imported from `tokens.css`) |
-| `web/src/ui/styles/patterns.css` | T13.05 | New; stub by T13.01 |
-| `web/src/ui/styles/light.css` | T13.08 | New; stub by T13.01 |
-| `web/public/fonts/` | T13.02 | New |
-| `web/public/icons/` | T13.11 | New |
-| `web/public/sites/mock_site/` | T03.02 | Fixture F4; needs the `.gitignore` negation (c.6) |
-| `web/public/sites/gale_boxwork/README.md` | T03.01 | Static-asset layout doc |
-| `web/public/sites/gale_boxwork/` (everything else) | T03.19 | Generated by the pipeline run; binaries stay git-ignored; T18.01 follows up |
-| `web/spike/` | T02.03 | New; throwaway spike page |
+| `packages/protocol/src/schema.ts` | T03.01 | Contract (§d, C1) |
+| `packages/protocol/src/worker.ts` | T05.01 | Contract (§d, C6) |
+| `packages/compute/src/grid.ts` | T05.16 | — |
+| `packages/compute/src/sampling.ts` | T05.17 | Stub edit by T05.01 (inputs for lat/lon) |
+| `packages/compute/src/route.ts` | T05.18 | T05.01 moves `snapToPassable` and `toLeg` out (stub → T05.18) |
+| `packages/compute/src/noRoute.ts` | T05.19 | New; stub by T05.01 |
+| `packages/compute/src/snap.ts` | T05.20 | New; stub by T05.01 |
+| `packages/compute/src/leg.ts` | T05.21 | New; stub by T05.01 |
+| `packages/compute/src/timeModel.ts` | T05.22 | — |
+| `packages/compute/src/walkback.ts` | T05.23 | — |
+| `packages/compute/src/warnings.ts` | T05.24 | Stub edit by T05.01 (access to grid flags) |
+| `packages/compute/src/validate.ts` | T05.25 | New; stub by T05.01; also imported by the UI (T08.04) |
+| `packages/compute/src/handler.ts` | T05.26 | New; stub by T05.01 (moves `handleMessage` out of `worker.ts`); T05.32 completes it (after T05.26) |
+| `apps/web/src/worker/planWorker.ts` | T05.27 | Stub edit by T05.01 |
+| `packages/compute/src/manualLeg.ts` | T05.30 | New; fallback |
+| `packages/compute/src/sunTable.json` | T06.11 | New; fallback (cut 5) |
+| `packages/compute/src/mars24.ts` | T06.06 | T06.01 moves the solar functions out (stub → T06.06) |
+| `packages/compute/src/sun.ts` | T06.07 | New; stub by T06.01 |
+| `packages/compute/src/radiation.ts` | T06.08 | — |
+| `packages/compute/src/conditions.ts` | T06.09 | New; stub by T06.01 (contract C8); T06.11 may replace it |
+| `packages/compute/src/consumables.ts` | T18.05 | New; desirable |
+| `apps/web/src/state/planStore.ts` | T08.03 | Interfaces frozen by T08.01 (stub → T08.03, contract C11); T18.07 follows up |
+| `apps/web/src/state/persist.ts` | T18.07 | New; desirable |
+| `apps/web/src/ui/context.ts` | T07.01 | New; contract C10 |
+| `apps/web/src/boot/loadSite.ts` | T07.02 | New; stub by T07.01 |
+| `apps/web/src/boot/validateSite.ts` | T14.03 | New; stub by T07.01 |
+| `apps/web/src/ui/router.ts`, `apps/web/src/main.ts`, `apps/web/index.html` | T07.03 | Route registry: all four hash routes registered by T07.03; screens never edit it |
+| `apps/web/src/ui/workerClient.ts` | T07.04 | New; stub by T07.01 |
+| `apps/web/src/ui/debug.ts` | T07.13 | New; stub by T07.01 |
+| `apps/web/src/ui/demoPlan.json` | T07.14 | New |
+| `apps/web/src/ui/screens/scr00BootError.ts` (+ `.css`) | T14.04 | — |
+| `apps/web/src/ui/screens/scr01MissionBriefing.ts` (+ `.css`) | T07.05 | — |
+| `apps/web/src/ui/screens/scr02MapWorkspace.ts` (+ `.css`) | T07.08 | T13.07 follows up (coach marks) |
+| `apps/web/src/ui/screens/scr03LayersPanel.ts` (+ `.css`) | T07.09 | — |
+| `apps/web/src/ui/screens/scr04PlanPanel.ts` (+ `.css`) | T08.04 | — |
+| `apps/web/src/ui/screens/scr05RouteResults.ts` (+ `.css`) | T09.03 | T18.06 follows up |
+| `apps/web/src/ui/screens/scr06PoiDetail.ts` (+ `.css`) | T10.01 | — |
+| `apps/web/src/ui/screens/scr07Conditions.ts` (+ `.css`) | T10.02 | T18.03 follows up |
+| `apps/web/src/ui/screens/scr08BriefingCard.ts` (+ `.css`) | T11.03 | T18.06 follows up |
+| `apps/web/src/ui/screens/scr09SourcesMethods.ts` (+ `.css`) | T12.03 | — |
+| `apps/web/src/ui/map/projection.ts` | T02.02 | New |
+| `apps/web/src/ui/map/imageStatic.ts` | T02.06 | New; fallback |
+| `apps/web/src/ui/map/createMap.ts` | T07.06 | New; stub by T07.01 |
+| `apps/web/src/ui/map/rasterLayers.ts` | T07.07 | New; stub by T07.01; T07.16 may replace it |
+| `apps/web/src/ui/map/traverseLayer.ts` | T07.10 | New; stub by T07.01 |
+| `apps/web/src/ui/map/poiLayer.ts` | T07.11 | New; stub by T07.01 |
+| `apps/web/src/ui/map/inspector.ts` | T07.12 | New; stub by T07.01 |
+| `apps/web/src/ui/map/waypointLayer.ts` | T08.06 | New; stub by T07.01 |
+| `apps/web/src/ui/map/addStopMode.ts` | T08.07 | New; stub by T07.01 |
+| `apps/web/src/ui/map/waypointDrag.ts` | T08.08 | New; stub by T07.01; T08.10 may replace it |
+| `apps/web/src/ui/map/touchInput.ts` | T08.09 | New; stub by T07.01 |
+| `apps/web/src/ui/map/routeLayer.ts` | T09.01 | New; stub by T07.01 |
+| `apps/web/src/ui/map/drawLegs.ts` | T09.08 | New; fallback |
+| `apps/web/src/ui/map/keyboard.ts` | T13.06 | New; stub by T07.01 |
+| `apps/web/src/ui/plan/stopsList.ts` | T08.05 | New; stub by T07.01 |
+| `apps/web/src/ui/results/profileChart.ts` | T09.02 | New; stub by T07.01 (SCR-05 and SCR-08 both use it) |
+| `apps/web/src/ui/results/warningsList.ts` | T09.04 | New; stub by T07.01 |
+| `apps/web/src/ui/results/profileLink.ts` | T09.05 | New; stub by T07.01 |
+| `apps/web/src/ui/briefing/mapSnapshot.ts` | T11.04 | New; stub by T07.01; T11.06 may replace it |
+| `apps/web/src/export/planExport.ts` | T11.02 | New; stub by T07.01 |
+| `apps/web/src/ui/components/metric.ts` | T12.01 | New; stub by T07.01 |
+| `apps/web/src/ui/components/statusIcon.ts` | T13.05 | New; stub by T07.01 |
+| `apps/web/src/ui/coachMarks.ts` | T13.07 | New; desirable path for cut 2 |
+| `apps/web/src/ui/content/methods.json` | T12.04 | New |
+| `apps/web/src/ui/styles/tokens.css` | T13.01 | Contract C12; after T13.01, append-only: add new custom properties at the end of the matching block with a 04 §C reference; renames need a contract-change |
+| `apps/web/src/ui/styles/base.css` | T13.04 | New; stub by T13.01 (imported from `tokens.css`) |
+| `apps/web/src/ui/styles/patterns.css` | T13.05 | New; stub by T13.01 |
+| `apps/web/src/ui/styles/light.css` | T13.08 | New; stub by T13.01 |
+| `apps/web/public/fonts/` | T13.02 | New |
+| `apps/web/public/icons/` | T13.11 | New |
+| `data/sites/mock_site/` | T03.02 | Fixture F4; needs the `.gitignore` negation (c.6) |
+| `data/sites/gale_boxwork/README.md` | T03.01 | Static-asset layout doc |
+| `data/sites/gale_boxwork/` (everything else) | T03.19 | Generated by the pipeline run; binaries stay git-ignored; T18.01 follows up |
+| `apps/web/spike/` | T02.03 | New; throwaway spike page |
 
 ### c.5 Web tests and fixtures
 
 | Path | Owner | Rule |
 | --- | --- | --- |
-| `web/tests/compute/grid.test.ts` | T05.05 | — |
-| `web/tests/compute/sampling.test.ts` | T05.06 | — |
-| `web/tests/compute/route.test.ts` | T05.07 | Moves the `snapToPassable` todos to `snap.test.ts` |
-| `web/tests/compute/noRoute.test.ts` | T05.08 | New |
-| `web/tests/compute/snap.test.ts` | T05.09 | New |
-| `web/tests/compute/leg.test.ts` | T05.10 | New |
-| `web/tests/compute/timeModel.test.ts` | T05.11 | — |
-| `web/tests/compute/walkback.test.ts` | T05.12 | — |
-| `web/tests/compute/warnings.test.ts` | T05.13 | — |
-| `web/tests/compute/validate.test.ts` | T05.14 | New |
-| `web/tests/compute/worker.test.ts` | T05.15 | New |
-| `web/tests/compute/realGrid.test.ts` | T05.28 | New; skips when the real bundle is absent |
-| `web/tests/compute/mars24.test.ts`, `web/tests/compute/sun.test.ts` | T06.03 | `sun.test.ts` is new |
-| `web/tests/compute/radiation.test.ts` | T06.04 | — |
-| `web/tests/compute/conditions.test.ts` | T06.05 | New |
-| `web/tests/compute/consumables.test.ts` | T18.04 | New; desirable |
-| `web/tests/state/planStore.test.ts` | T08.02 | New |
-| `web/tests/export/planExport.test.ts` | T11.01 | New |
-| `web/tests/ui/projection.test.ts` | T02.02 | New |
-| `web/tests/ui/provenance.test.ts` | T12.02 | New |
-| `web/tests/integration/faults.test.ts` | T14.05 | New |
-| `web/tests/fixtures/grids.ts` | T05.02 | Fixture F1 |
-| `web/tests/fixtures/plan-results/` | T05.03 | Fixture F2 |
-| `web/tests/fixtures/mockWorker.ts` | T05.04 | Fixture F3 |
-| `web/tests/fixtures/real/sample_cells.json` | T03.21 | Fixture F5 |
-| `web/tests/fixtures/mars24-reference.json` | T06.02 | Fixture F6 |
-| `web/tests/fixtures/README.md` | every fixture subtask | Append-only: one `## Fn — <name>` section per fixture with its value sources (§e) |
+| `packages/compute/tests/grid.test.ts` | T05.05 | — |
+| `packages/compute/tests/sampling.test.ts` | T05.06 | — |
+| `packages/compute/tests/route.test.ts` | T05.07 | Moves the `snapToPassable` todos to `snap.test.ts` |
+| `packages/compute/tests/noRoute.test.ts` | T05.08 | New |
+| `packages/compute/tests/snap.test.ts` | T05.09 | New |
+| `packages/compute/tests/leg.test.ts` | T05.10 | New |
+| `packages/compute/tests/timeModel.test.ts` | T05.11 | — |
+| `packages/compute/tests/walkback.test.ts` | T05.12 | — |
+| `packages/compute/tests/warnings.test.ts` | T05.13 | — |
+| `packages/compute/tests/validate.test.ts` | T05.14 | New |
+| `packages/compute/tests/worker.test.ts` | T05.15 | New |
+| `packages/compute/tests/realGrid.test.ts` | T05.28 | New; skips when the real bundle is absent |
+| `packages/compute/tests/mars24.test.ts`, `packages/compute/tests/sun.test.ts` | T06.03 | `sun.test.ts` is new |
+| `packages/compute/tests/radiation.test.ts` | T06.04 | — |
+| `packages/compute/tests/conditions.test.ts` | T06.05 | New |
+| `packages/compute/tests/consumables.test.ts` | T18.04 | New; desirable |
+| `apps/web/tests/state/planStore.test.ts` | T08.02 | New |
+| `apps/web/tests/export/planExport.test.ts` | T11.01 | New |
+| `apps/web/tests/ui/projection.test.ts` | T02.02 | New |
+| `apps/web/tests/ui/provenance.test.ts` | T12.02 | New |
+| `apps/web/tests/integration/faults.test.ts` | T14.05 | New |
+| `apps/web/tests/fixtures/grids.ts` | T05.02 | Fixture F1 |
+| `apps/web/tests/fixtures/plan-results/` | T05.03 | Fixture F2 |
+| `apps/web/tests/fixtures/mockWorker.ts` | T05.04 | Fixture F3 |
+| `apps/web/tests/fixtures/real/sample_cells.json` | T03.21 | Fixture F5 |
+| `apps/web/tests/fixtures/mars24-reference.json` | T06.02 | Fixture F6 |
+| `apps/web/tests/fixtures/README.md` | every fixture subtask | Append-only: one `## Fn — <name>` section per fixture with its value sources (§e) |
 
 ### c.6 Shared and build files
 
 | Path | Owner | Rule |
 | --- | --- | --- |
-| `package.json`, `package-lock.json`, `web/package.json` | T14.01 | Single integration owner: every planned dependency lands in one batch; a later need is a new integration subtask |
+| `package.json`, `package-lock.json`, `apps/web/package.json` | T14.01 | Single integration owner: every planned dependency lands in one batch; a later need is a new integration subtask |
 | `pipeline/pyproject.toml`, `pipeline/environment.yml` | T14.01 | Same |
 | `Makefile` | T14.01 | Same (wires `make data` to `python -m marswalk_pipeline`) |
-| `web/vite.config.ts`, `web/tsconfig.json` | T14.01 | Same; DOM tests choose their environment per file, so no config edit is expected |
+| `apps/web/vite.config.ts`, `apps/web/tsconfig.json` | T14.01 | Same; DOM tests choose their environment per file, so no config edit is expected |
 | `.github/` | T14.02 | — |
 | `.gitignore` | — | Append-only: add lines at the end under `# Txx.yy`; never edit existing lines (T03.02 adds the `mock_site` negation) |
 | `docs/AI_USE.md` log | every subtask | See c.2 |
@@ -560,18 +560,18 @@ Lanes code against these interfaces, not against each other's implementations. A
 
 | ID | Contract | Path(s) | Owner | Freeze | Main consumers | Decisions the owner must record |
 | --- | --- | --- | --- | --- | --- | --- |
-| C1 | TypeScript mirror of every 05 entity | `web/src/types/schema.ts` | T03.01 | End of M0 (5 Nov) | All web subtasks | Required vs optional PlanResult/Leg/Warning fields (existing `TODO(decision)`), including whether `conditions`, `radiation` and `stops_timeline` may be absent for the M3 slice |
+| C1 | TypeScript mirror of every 05 entity | `packages/protocol/src/schema.ts` | T03.01 | End of M0 (5 Nov) | All web subtasks | Required vs optional PlanResult/Leg/Warning fields (existing `TODO(decision)`), including whether `conditions`, `radiation` and `stops_timeline` may be absent for the M3 slice |
 | C2 | Site-manifest JSON Schema | `schemas/site-manifest.schema.json` | T03.01 | End of M0 | T03.13, T03.14, T03.02, T07.02, T14.03 | Legend structure (05 leaves it open) |
 | C3 | Plan-export JSON Schema | `schemas/plan-export.schema.json` | T03.01 | End of M0 | T11.01, T11.02, T05.03 | U-11 (store profile arrays in the export) |
-| C4 | Routing-grid binary layout | Spec: 05 §C RoutingGrid and Flag bits, 05 §E.1. Mirrors: `pipeline/src/marswalk_pipeline/config.py` constants, `FLAG_BITS` in `schema.ts`, `LoadedGrid` in `web/src/compute/grid.ts` | T03.01 (freeze by review; no write to `config.py` or `grid.ts`) | End of M0 | T03.10, T03.11, T03.02, T05.02, T05.16 | Code never hard-codes 5 m: it reads `cell_m` (T03.24 fallback) |
+| C4 | Routing-grid binary layout | Spec: 05 §C RoutingGrid and Flag bits, 05 §E.1. Mirrors: `pipeline/src/marswalk_pipeline/config.py` constants, `FLAG_BITS` in `schema.ts`, `LoadedGrid` in `packages/compute/src/grid.ts` | T03.01 (freeze by review; no write to `config.py` or `grid.ts`) | End of M0 | T03.10, T03.11, T03.02, T05.02, T05.16 | Code never hard-codes 5 m: it reads `cell_m` (T03.24 fallback) |
 | C5 | Site-config input layout (one JSON file per DataSource, Layer, EnvConstant, POI, offset) | `pipeline/sites/README.md` | T03.01 | End of M0 | T03.13, T03.16, T03.17, T04.*, T06.10, T12.05 | Layer ids; where the TI threshold lives (05 has no field) |
-| C6 | Worker message protocol (02 §E.2) | `web/src/compute/protocol.ts` | T05.01 | End of M0 (Track P) or M2 (Track S) | T05.04, T05.15, T05.26, T05.27, T07.04, T08.03 | How the worker receives the grid (02 §E.2 defines no load message); cancellation mechanism (02 §E.2 needs the search to yield) |
-| C7 | Compute module layout and exported signatures | Stubs in `web/src/compute/` (`noRoute.ts`, `snap.ts`, `leg.ts`, `validate.ts`, `handler.ts`) | T05.01 | Same as C6 | Compute lane; T08.04 (`validate.ts`) | Projection maths in the worker (proj4 or hand-written eqc, 02 §B) |
-| C8 | Conditions interface (timeline LTST, sun elevation, conditions, radiation) | `web/src/compute/conditions.ts`, `web/src/compute/sun.ts` stubs | T06.01 | M2 | T05.32, T06.05, T06.09, T06.11 | — |
+| C6 | Worker message protocol (02 §E.2) | `packages/protocol/src/worker.ts` | T05.01 | End of M0 (Track P) or M2 (Track S) | T05.04, T05.15, T05.26, T05.27, T07.04, T08.03 | How the worker receives the grid (02 §E.2 defines no load message); cancellation mechanism (02 §E.2 needs the search to yield) |
+| C7 | Compute module layout and exported signatures | Stubs in `packages/compute/src/` (`noRoute.ts`, `snap.ts`, `leg.ts`, `validate.ts`, `handler.ts`) | T05.01 | Same as C6 | Compute lane; T08.04 (`validate.ts`) | Projection maths in the worker (proj4 or hand-written eqc, 02 §B) |
+| C8 | Conditions interface (timeline LTST, sun elevation, conditions, radiation) | `packages/compute/src/conditions.ts`, `packages/compute/src/sun.ts` stubs | T06.01 | M2 | T05.32, T06.05, T06.09, T06.11 | — |
 | C9 | Tile grid and tile pixel encoding | `docs/contracts/tile-grid.md` | T02.01 | v1 at M0; v1.1 after T02.04 if the spike changes it; frozen end of M1 (10 Nov) | T02.02, T02.03, T03.02, T03.12, T07.07 | z/x/y addressing and y direction (`TODO(verify)` in the spike); data-encoded slope tiles, because 04 §C.1 slope classes follow the current limits |
-| C10 | UI app context: screen renderer signature, worker-client interface, map handle, fixed layer order, provenance attribute names; UI module stubs | `web/src/ui/context.ts` + stubs listed in c.4 | T07.01 | M2 | All frontend, design and story code | Where traverse and waypoints sit in the FR-02 layer order; attribute name for the source id (NFR-05) |
-| C11 | Plan-store state and events | Interfaces in `web/src/state/planStore.ts` | T08.01 | M2 | T07.04, T08.*, T09.*, T10.*, T11.*, T13.06 | Selection and hover shape for map ↔ list ↔ profile linking |
-| C12 | CSS token names and status classes | `web/src/ui/styles/tokens.css` | T13.01 | M2 | All UI CSS | Pattern class names for ok / caution / blocked / unknown |
+| C10 | UI app context: screen renderer signature, worker-client interface, map handle, fixed layer order, provenance attribute names; UI module stubs | `apps/web/src/ui/context.ts` + stubs listed in c.4 | T07.01 | M2 | All frontend, design and story code | Where traverse and waypoints sit in the FR-02 layer order; attribute name for the source id (NFR-05) |
+| C11 | Plan-store state and events | Interfaces in `apps/web/src/state/planStore.ts` | T08.01 | M2 | T07.04, T08.*, T09.*, T10.*, T11.*, T13.06 | Selection and hover shape for map ↔ list ↔ profile linking |
+| C12 | CSS token names and status classes | `apps/web/src/ui/styles/tokens.css` | T13.01 | M2 | All UI CSS | Pattern class names for ok / caution / blocked / unknown |
 
 **Change process.**
 
@@ -587,12 +587,12 @@ These let consumers start before the real upstream output exists.
 
 | ID | Fixture | Path | Owner | Matches | Window | Consumers |
 | --- | --- | --- | --- | --- | --- | --- |
-| F1 | Synthetic routing grids: 10° plane, wall with one gap, uniform 20° ramp, NaN island, hazard wall, variant without TI (02 §D.2 validation cases) | `web/tests/fixtures/grids.ts` | T05.02 | C1, C4 v1 | pre-event-if-permitted | T05.05–T05.15, T05.30 |
-| F2 | Canned PLAN_RESULT messages: OK, PARTIAL (NO_ROUTE leg), OVER_LIMITS | `web/tests/fixtures/plan-results/{ok,partial,over-limits}.json` | T05.03 | C1, C6 v1 | pre-event-allowed | T05.04, T09.*, T10.*, T11.*, T12.02 |
-| F3 | Mock worker: answers SAMPLE_POINT and COMPUTE_PLAN from F2, selectable in dev builds | `web/tests/fixtures/mockWorker.ts` | T05.04 | C6 v1 + F2 | pre-event-if-permitted | T07.04, T07.12, T08.*, T09.* |
-| F4 | Mock site bundle `mock_site`: manifest, placeholder tiles, tiny grid, sample POI and traverse GeoJSON | `web/public/sites/mock_site/` (generator `pipeline/tests/fixtures/make_mock_site.py`) | T03.02 | C1, C2, C4, C9 v1 | pre-event-allowed | T02.03, T07.*, T08.06, T10.01, T14.05 |
-| F5 | Real-grid sample cells (10 cells read with `rasterio`) | `web/tests/fixtures/real/sample_cells.json` (generator `pipeline/tests/fixtures/make_sample_cells.py`) | T03.21 | C4 + bundle v1 `data_version` | pre-event-allowed | T05.28, T07.15 |
-| F6 | Mars24 reference values from `marstime` (≥ 3 timestamps at the site) | `web/tests/fixtures/mars24-reference.json` (generator `pipeline/tests/fixtures/make_mars24_reference.py`) | T06.02 | C8 | pre-event-allowed | T06.03 |
+| F1 | Synthetic routing grids: 10° plane, wall with one gap, uniform 20° ramp, NaN island, hazard wall, variant without TI (02 §D.2 validation cases) | `apps/web/tests/fixtures/grids.ts` | T05.02 | C1, C4 v1 | pre-event-if-permitted | T05.05–T05.15, T05.30 |
+| F2 | Canned PLAN_RESULT messages: OK, PARTIAL (NO_ROUTE leg), OVER_LIMITS | `apps/web/tests/fixtures/plan-results/{ok,partial,over-limits}.json` | T05.03 | C1, C6 v1 | pre-event-allowed | T05.04, T09.*, T10.*, T11.*, T12.02 |
+| F3 | Mock worker: answers SAMPLE_POINT and COMPUTE_PLAN from F2, selectable in dev builds | `apps/web/tests/fixtures/mockWorker.ts` | T05.04 | C6 v1 + F2 | pre-event-if-permitted | T07.04, T07.12, T08.*, T09.* |
+| F4 | Mock site bundle `mock_site`: manifest, placeholder tiles, tiny grid, sample POI and traverse GeoJSON | `data/sites/mock_site/` (generator `pipeline/tests/fixtures/make_mock_site.py`) | T03.02 | C1, C2, C4, C9 v1 | pre-event-allowed | T02.03, T07.*, T08.06, T10.01, T14.05 |
+| F5 | Real-grid sample cells (10 cells read with `rasterio`) | `apps/web/tests/fixtures/real/sample_cells.json` (generator `pipeline/tests/fixtures/make_sample_cells.py`) | T03.21 | C4 + bundle v1 `data_version` | pre-event-allowed | T05.28, T07.15 |
+| F6 | Mars24 reference values from `marstime` (≥ 3 timestamps at the site) | `apps/web/tests/fixtures/mars24-reference.json` (generator `pipeline/tests/fixtures/make_mars24_reference.py`) | T06.02 | C8 | pre-event-allowed | T06.03 |
 
 **Fixture value rule** (`CLAUDE.md` §2, ADR-006: no LLM-generated numbers in code, data or docs). Fixtures are synthetic test inputs, never science. Every value is either:
 
@@ -981,9 +981,9 @@ Gaps and contradictions found while building this map. None is resolved here; ea
 12. **Solar-min source.** 05 gives the solar-min EnvConstant values and a note (Simonsen et al. 2024) but no `source_id` — T06.10, `TODO(verify)`.
 13. **Bundle hosting.** Closed: GitHub release asset, not Git LFS (`docs/ops/feasibility.md`). T16.07 implements it and still settles what the public link shows (02 §B).
 14. **D-09** (default slope, walkback and speed values; 01 §F.4 suggests the 11:30 mentor round) has no task in 06 — not planned.
-15. **Demo plan location.** 03 SCR-01 "Open demo plan" has no defined data file — T07.14 proposes `web/src/ui/demoPlan.json`, `TODO(decision)`.
+15. **Demo plan location.** 03 SCR-01 "Open demo plan" has no defined data file — T07.14 proposes `apps/web/src/ui/demoPlan.json`, `TODO(decision)`.
 16. **Dependency choices** for T14.01: profile chart (02 §B: uPlot or Chart.js; plain SVG alternative), DOM test environment, axe tooling (NFR-04), JSON-Schema validator for `validate-manifest`, `marstime` version — `TODO(decision)`.
-17. **Committed mock binaries.** `.gitignore` excludes `web/public/sites/*/tiles/` and `grid/`; whether a negation re-includes them for `mock_site` is `TODO(verify)` with `git check-ignore` in T03.02.
+17. **Committed mock binaries.** `.gitignore` excludes `data/sites/*/tiles/` and `grid/`; whether a negation re-includes them for `mock_site` is `TODO(verify)` with `git check-ignore` in T03.02.
 18. **Effort.** Atomized estimates will exceed some 06 ranges (e.g. TASK-05: 8–12 h); Phase 3 reports per-lane totals against the ≈ 70 event person-hours.
 19. **SAMPLE_POINT has no slope limit.** Passability depends on the hard slope limit (02 §D.2), but the SAMPLE_POINT request (02 §E.2) carries none — T05.01; a fix needs a `spec-change:` to 02 §E.2.
 20. **SAMPLE_RESULT nullability.** 02 §D.1 returns `null` values with `OUTSIDE_AOI` / `NO_DATA`; the skeleton types them as numbers — T05.01 (C6).

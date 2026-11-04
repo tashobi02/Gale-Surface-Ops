@@ -2,7 +2,7 @@
 
 For any coding agent (Codex, Cursor, Gemini CLI, …). Claude Code users also get [CLAUDE.md](CLAUDE.md).
 
-**Project.** Team CheesySpace's NASA Space Apps 2026 entry: an offline, browser-based Marswalk planning map for one Mars site. Static web app in `web/` (TypeScript, Vite, OpenLayers, proj4) plus an offline Python pipeline in `pipeline/`. Start at [docs/README.md](docs/README.md); `docs/specs/01–06` are the source of truth.
+**Project.** Team CheesySpace's NASA Space Apps 2026 entry: an offline, browser-based Marswalk planning map for one Mars site. Static web app in `apps/web/` (TypeScript, Vite, OpenLayers, proj4) plus an offline Python pipeline in `pipeline/`. Start at [docs/README.md](docs/README.md); `docs/specs/01–06` are the source of truth.
 
 ## Phase gate
 
@@ -11,7 +11,7 @@ For any coding agent (Codex, Cursor, Gemini CLI, …). Claude Code users also ge
 ## Rules
 
 1. Offline-first: no runtime network requests; all assets local.
-2. Science is deterministic and lives only in `web/src/compute/` and `pipeline/`. No AI-generated numbers anywhere.
+2. Science is deterministic and lives only in `packages/compute/src/` and `pipeline/`. No AI-generated numbers anywhere.
 3. Every displayed value has a provenance label (`measured | derived | modelled | assumed`) and a source id.
 4. Mars CRS: `IAU_2015:49900` sphere (R = 3,396,190 m), planetocentric latitude, east-positive longitude, local `+proj=eqc` working projection. Never use EPSG:3857/WGS84 code paths or Earth-radius distance helpers (`ol/sphere`). Mars24 needs `west = (360 − east) mod 360`.
 5. No under-18 likeness in media. Code is Apache-2.0; credit every dataset and image.

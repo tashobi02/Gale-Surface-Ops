@@ -20,7 +20,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 | --- | --- | --- | --- |
 | C1 TypeScript mirror of 05 (Site, Asset, PlanResult) | contract | T03.01 | soft |
 | C2 site-manifest JSON Schema (`schema_version`, `assets`) | contract | T03.01 | soft |
-| C10 UI app context: screen signature, worker-client interface, boot-problem shape; `web/src/boot/validateSite.ts` stub | contract | T07.01 | soft |
+| C10 UI app context: screen signature, worker-client interface, boot-problem shape; `apps/web/src/boot/validateSite.ts` stub | contract | T07.01 | soft |
 | C12 CSS token names and status classes | contract | T13.01 | soft |
 | F4 mock site bundle `mock_site` | fixture | T03.02 | soft |
 | Pipeline entry-point name `python -m marswalk_pipeline` ([map §c.3](_coordination.md#c3-pipeline)) | contract (name only) | T03.15 | none — the name is fixed by the map |
@@ -35,12 +35,12 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 
 | Output | Path | Consumers |
 | --- | --- | --- |
-| One dependency batch: chart library, DOM test environment, axe tooling, JSON-Schema validator, `marstime`, icon set | `package.json`, `web/package.json`, `package-lock.json`, `pipeline/pyproject.toml`, `pipeline/environment.yml` | T03.14, T06.02, T08.02, T09.02, T11.01, T12.02, T14.05; T13.05 and T13.09 if they use a chosen package |
+| One dependency batch: chart library, DOM test environment, axe tooling, JSON-Schema validator, `marstime`, icon set | `package.json`, `apps/web/package.json`, `package-lock.json`, `pipeline/pyproject.toml`, `pipeline/environment.yml` | T03.14, T06.02, T08.02, T09.02, T11.01, T12.02, T14.05; T13.05 and T13.09 if they use a chosen package |
 | `make data` wired to the pipeline entry point | `Makefile` | T03.19, T03.22 |
 | PR template subtask field; CI step running `check_tasks.py` | `.github/` | Every PR after M2 |
-| Boot validation | `web/src/boot/validateSite.ts` | T07.03 (calls it), T14.04, T14.06, T14.10 |
-| SCR-00 Boot error | `web/src/ui/screens/scr00BootError.ts` | T07.03 (boot-failure route), T14.10 |
-| Fault-injection suite | `web/tests/integration/faults.test.ts` | T14.10; 06 §D.6 "All Vitest suites green" |
+| Boot validation | `apps/web/src/boot/validateSite.ts` | T07.03 (calls it), T14.04, T14.06, T14.10 |
+| SCR-00 Boot error | `apps/web/src/ui/screens/scr00BootError.ts` | T07.03 (boot-failure route), T14.10 |
+| Fault-injection suite | `apps/web/tests/integration/faults.test.ts` | T14.10; 06 §D.6 "All Vitest suites green" |
 | Rehearsal, timing, matrix, release and SCR-00 records | `docs/ops/verification-log.md` | T15.02, T16.06, T17.03, the 06 §D.6 freeze decision |
 
 ## Subtasks
@@ -51,7 +51,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
 - **Estimate:** 2–3 h
-- **Owns (writes):** `package.json`, `package-lock.json`, `web/package.json`, `pipeline/pyproject.toml`, `pipeline/environment.yml`, `Makefile`, `web/vite.config.ts`, `web/tsconfig.json`
+- **Owns (writes):** `package.json`, `package-lock.json`, `apps/web/package.json`, `pipeline/pyproject.toml`, `pipeline/environment.yml`, `Makefile`, `apps/web/vite.config.ts`, `apps/web/tsconfig.json`
 - **Reads:** [map §c.6](_coordination.md#c6-shared-and-build-files) and [open point 16](_coordination.md#open-points); [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices); [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11); [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-01, NFR-04, NFR-07, NFR-09); [04 §C.4](../specs/04_Design_Brief.md#c4-iconography); `pipeline/src/marswalk_pipeline/validate_manifest.py`; [README.md](../../README.md) quickstart; [CLAUDE.md](../../CLAUDE.md) §4
 - **Depends on:** none
 - **Parallel with:** T14.02, T07.01, T08.01, T13.01, T16.02, T03.22
@@ -105,8 +105,8 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1.5–2.5 h
-- **Owns (writes):** `web/src/boot/validateSite.ts`
-- **Reads:** `web/src/types/schema.ts` (Site, Asset), `web/src/ui/context.ts` (C10 boot-problem shape), `schemas/site-manifest.schema.json`, `docs/contracts/tile-grid.md`, [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), [05 Asset](../specs/05_Backend_and_Database_Schema.md#asset), [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows)
+- **Owns (writes):** `apps/web/src/boot/validateSite.ts`
+- **Reads:** `packages/protocol/src/schema.ts` (Site, Asset), `apps/web/src/ui/context.ts` (C10 boot-problem shape), `schemas/site-manifest.schema.json`, `docs/contracts/tile-grid.md`, [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), [05 Asset](../specs/05_Backend_and_Database_Schema.md#asset), [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows)
 - **Depends on:** T14.05 (hard: tests-first pair; its boot cases define done), T07.01 (soft), T03.01 (soft), T03.02 (soft)
 - **Parallel with:** T14.04, T14.07, T14.08, T14.09
 - **Steps:**
@@ -115,7 +115,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
   3. In development builds only, fetch each Asset that has a `sha256`, hash it with the Web Crypto API and compare; tiles roots hash their index file (05 Asset; index file name from the tile-grid contract, `TODO(verify)`). Skip hashing in production builds (02 §E.1).
   4. A missing or mismatching required asset (grid arrays, the non-optional basemap) is a boot problem that names the file (03 §D "Boot asset failure").
   5. A missing optional layer asset is not fatal: report the layer as unavailable for SCR-03 (05 §E.6; FR-16). Whether production builds probe optional assets is Spec question 4.
-  6. Make the boot cases of `web/tests/integration/faults.test.ts` pass.
+  6. Make the boot cases of `apps/web/tests/integration/faults.test.ts` pass.
 - **Acceptance:**
   - Serves: FR-16, NFR-10 · [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration)
   - Given a manifest whose `schema_version` major differs from the app's, then boot stops and "the app refuses a different major with a clear message" (05 §E.4).
@@ -123,9 +123,9 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
   - Given a production build, then no SHA-256 is computed ("skipped in production for speed", 02 §E.1).
   - Given an optional layer's asset is missing, then boot continues and that layer is reported unavailable (05 §E.6).
   - No request leaves `localhost` (NFR-01).
-- **Verify:** `npx vitest run tests/integration/faults.test.ts` (run in `web/`); `make typecheck`.
-- **Agent brief:** Implement `web/src/boot/validateSite.ts` against the T07.01 stub signature: refuse a different manifest major version, check asset SHA-256 in development builds only, name a missing or corrupted required asset, and report a missing optional layer as unavailable. Make the boot cases of `tests/integration/faults.test.ts` (T14.05) pass. Write only this file.
-- **Conflict notes:** Stub created by T07.01; changing its exported signature is a `contract-change:` on C10. Branch stacked on T14.05's branch; merge right after it ([map §h.3](_coordination.md#h3-tests-first-merge-order)). `web/src/main.ts` (T07.03) calls this function; do not edit the boot sequence, and T07.03 must not depend on this subtask (that would close a cycle through T14.05).
+- **Verify:** `npx vitest run tests/integration/faults.test.ts` (run in `apps/web/`); `make typecheck`.
+- **Agent brief:** Implement `apps/web/src/boot/validateSite.ts` against the T07.01 stub signature: refuse a different manifest major version, check asset SHA-256 in development builds only, name a missing or corrupted required asset, and report a missing optional layer as unavailable. Make the boot cases of `tests/integration/faults.test.ts` (T14.05) pass. Write only this file.
+- **Conflict notes:** Stub created by T07.01; changing its exported signature is a `contract-change:` on C10. Branch stacked on T14.05's branch; merge right after it ([map §h.3](_coordination.md#h3-tests-first-merge-order)). `apps/web/src/main.ts` (T07.03) calls this function; do not edit the boot sequence, and T07.03 must not depend on this subtask (that would close a cycle through T14.05).
 
 ### T14.04 — Implement SCR-00 Boot error
 
@@ -133,8 +133,8 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1–2 h
-- **Owns (writes):** `web/src/ui/screens/scr00BootError.ts`, `web/src/ui/screens/scr00BootError.css`
-- **Reads:** [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.1](../specs/03_App_Flow_and_Diagrams.md#e1-overall-user-flow), [04 §C.1 semantic status](../specs/04_Design_Brief.md#semantic-status--always-paired-with-icon--pattern--text), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior), `web/src/ui/context.ts`, `web/src/ui/styles/tokens.css`, `web/src/ui/components/statusIcon.ts`
+- **Owns (writes):** `apps/web/src/ui/screens/scr00BootError.ts`, `apps/web/src/ui/screens/scr00BootError.css`
+- **Reads:** [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.1](../specs/03_App_Flow_and_Diagrams.md#e1-overall-user-flow), [04 §C.1 semantic status](../specs/04_Design_Brief.md#status-and-alert-colours-ops), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), `apps/web/src/ui/context.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/src/ui/components/statusIcon.ts`
 - **Depends on:** T14.05 (hard: tests-first pair), T07.01 (soft), T13.01 (soft)
 - **Parallel with:** T14.03, T14.07, T14.08, T14.09
 - **Steps:**
@@ -143,7 +143,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
   3. Wire Retry to re-run boot through the C10 context (03 SCR-00 Exit: "Retry → boot").
   4. Show the failure with icon and text, never colour alone (04 §C.1), using the status-icon component and C12 tokens only.
   5. Move focus to the screen heading on render; Retry is keyboard-reachable and shows the focus ring (04 §E).
-  6. Make the SCR-00 assertions of `web/tests/integration/faults.test.ts` pass.
+  6. Make the SCR-00 assertions of `apps/web/tests/integration/faults.test.ts` pass.
 - **Acceptance:**
   - Serves: SCR-00, FR-16, NFR-10 · [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error)
   - Given boot fails — manifest missing or invalid, routing grid failed, or no Web Worker (03 SCR-00 Entry) — then SCR-00 shows the cause in plain language and the missing file name (03 §D).
@@ -151,7 +151,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
   - Status uses icon and text, not colour only (04 §C.1, NFR-04).
   - The screen loads no remote asset and works offline (NFR-01).
   - No numeric value is shown without the C10 provenance attributes (FR-15 check in T12.02).
-- **Verify:** `npx vitest run tests/integration/faults.test.ts` (run in `web/`); manual: in a build with `site-manifest.json` renamed, SCR-00 appears and Tab reaches Retry.
+- **Verify:** `npx vitest run tests/integration/faults.test.ts` (run in `apps/web/`); manual: in a build with `site-manifest.json` renamed, SCR-00 appears and Tab reaches Retry.
 - **Agent brief:** Implement SCR-00 in `scr00BootError.ts` and its `.css` per 03 §B SCR-00: cause, missing asset name, Retry that re-runs boot through the C10 context, README link, icon plus text, focus on the heading. Follow the C10 screen signature and make the SCR-00 assertions of T14.05 pass.
 - **Conflict notes:** Screen files owned only here. The screen signature comes from C10 (T07.01); a change is a `contract-change:` there. Use existing C12 tokens; adding one means appending to `tokens.css` under its append-only rule in a separate change. Branch stacked on T14.05.
 
@@ -161,8 +161,8 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `web/tests/integration/faults.test.ts`
-- **Reads:** [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) Recovery row, [01 FR-16](../specs/01_Product_Requirements_Document.md#fr-16--offline-and-degraded-operation), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10) Snapping, [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data), `web/public/sites/mock_site/`, `web/tests/fixtures/README.md`, `web/src/ui/context.ts`, `web/src/compute/protocol.ts`
+- **Owns (writes):** `apps/web/tests/integration/faults.test.ts`
+- **Reads:** [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) Recovery row, [01 FR-16](../specs/01_Product_Requirements_Document.md#fr-16--offline-and-degraded-operation), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10) Snapping, [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data), `data/sites/mock_site/`, `apps/web/tests/fixtures/README.md`, `apps/web/src/ui/context.ts`, `packages/protocol/src/worker.ts`
 - **Depends on:** T14.01 (hard: the DOM test environment arrives in the dependency batch), T07.03–T07.04 (hard: verification runs on the integrated app; 06 puts TASK-14 after TASK-07 to TASK-12), T07.09 (hard: same reason, the unavailable layer row), T08.06 (hard: same reason, placement refusal and snap offer), T09.03–T09.04 (hard: same reason, error banner and warnings list), T03.02 (soft), T05.32 (hard: two fault cases run the real worker)
 - **Parallel with:** T14.07, T14.08, T14.09, T13.09, T13.10, T12.06
 - **Steps:**
@@ -181,8 +181,8 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
   - Case 4: Given a stop placed on an impassable cell with a passable cell within 50 m, then "Not walkable here (…)" is shown and the snapped position is offered; with none within 50 m it is refused with its reason; given a click outside the AOI, then "Outside mapped area" is shown and no waypoint is added (FR-06; 02 §D.2; 03 §D).
   - Supporting: a manifest with a different major `schema_version` ends on SCR-00 with a clear message (05 §E.4).
   - Claims only the four 02 §F.1 Recovery cases of the [Test-case allocation](_coordination.md#test-case-allocation) plus the supporting check; test data follows the [fixture value rule](_coordination.md#e-fixtures-and-mocks).
-- **Verify:** `npx vitest run tests/integration/faults.test.ts` (run in `web/`); `make test`.
-- **Agent brief:** Write `web/tests/integration/faults.test.ts` with the four 02 §F.1 Recovery cases (missing TI layer, corrupted grid checksum, worker exception, impossible stop placement) and the schema-major check, injecting faults into the `mock_site` fixture inside the test. Assert the 03 §D behaviours with spec wording; change no app code.
+- **Verify:** `npx vitest run tests/integration/faults.test.ts` (run in `apps/web/`); `make test`.
+- **Agent brief:** Write `apps/web/tests/integration/faults.test.ts` with the four 02 §F.1 Recovery cases (missing TI layer, corrupted grid checksum, worker exception, impossible stop placement) and the schema-major check, injecting faults into the `mock_site` fixture inside the test. Assert the 03 §D behaviours with spec wording; change no app code.
 - **Conflict notes:** Writes only this file and reads F4 without changing it. Paired with T14.03 and T14.04: their branches stack on this one and merge right after it ([map §h.3](_coordination.md#h3-tests-first-merge-order)). A case that fails because of another task's code is fixed by a `follow-up:` subtask in that task (via a `coord:` PR); never weaken an assertion to go green.
 
 ### T14.06 — Verify two clean offline rehearsals of the core scenario
@@ -192,11 +192,11 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Window:** event-only
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
-- **Reads:** [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario), [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria), [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-01, NFR-06), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [06 §D.6](../specs/06_High_Level_Implementation_Plan.md#d6-demo-freeze-criteria-day-2-0600), [demo script](../ops/demo-script.md), [Makefile](../../Makefile), `web/public/sites/gale_boxwork/`
+- **Reads:** [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario), [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria), [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-01, NFR-06), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [06 §D.6](../specs/06_High_Level_Implementation_Plan.md#d6-demo-freeze-criteria-day-2-0600), [demo script](../ops/demo-script.md), [Makefile](../../Makefile), `data/sites/gale_boxwork/`
 - **Depends on:** T07.15 (hard: verification runs on the integrated app; 06 puts TASK-14 after TASK-07 to TASK-12), T08.11 (hard: same reason), T09.07 (hard: same reason), T10.03 (hard: same reason), T11.05 (hard: same reason; 06 §D.1 runs TASK-11 before TASK-14), T12.03 (hard: same reason; demo step 9 opens SCR-09), T14.03–T14.04 (hard: the rehearsed build includes boot validation and SCR-00)
 - **Parallel with:** T14.07, T14.08, T14.09, T14.10, T13.09, T13.10, T12.06
 - **Steps:**
-  1. On the demo laptop, copy the git-ignored bundle v1 binaries into `web/public/sites/gale_boxwork/` (hosting per T16.07) and run `validate-manifest` on it (06 §D.6 "manifest validator green").
+  1. On the demo laptop, copy the git-ignored bundle v1 binaries into `data/sites/gale_boxwork/` (hosting per T16.07) and run `validate-manifest` on it (06 §D.6 "manifest validator green").
   2. Build and serve with `make demo`; turn Wi-Fi off and set devtools to Offline (01 §E starting conditions; NFR-01).
   3. Run 01 §E steps 1–9 from SCR-01 with default inputs and no intervention; screen-record this run as a backup for the videos (06 TASK-17 fallback).
   4. Run it again immediately (06 §D.6 "twice in a row without intervention").
@@ -221,7 +221,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Window:** event-only
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
-- **Reads:** [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-02), [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria), [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [01 FR-02](../specs/01_Product_Requirements_Document.md#fr-02--scientific-layers-with-legend-and-opacity), [01 FR-07](../specs/01_Product_Requirements_Document.md#fr-07--constraint-aware-route-computation), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), `web/src/ui/debug.ts`
+- **Reads:** [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-02), [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria), [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [01 FR-02](../specs/01_Product_Requirements_Document.md#fr-02--scientific-layers-with-legend-and-opacity), [01 FR-07](../specs/01_Product_Requirements_Document.md#fr-07--constraint-aware-route-computation), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), `apps/web/src/ui/debug.ts`
 - **Depends on:** T07.13 (hard: verification runs on the integrated app; timings come from `?debug=1`), T07.15 (hard: verification runs on the integrated app; 06 puts TASK-14 after TASK-07 to TASK-12), T09.07 (hard: same reason), T11.05 (hard: same reason)
 - **Parallel with:** T14.03, T14.04, T14.05, T14.06, T14.08, T14.09, T14.10
 - **Steps:**
@@ -248,7 +248,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Window:** event-only
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
-- **Reads:** [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-03, NFR-06), [01 Clarifications](../specs/01_Product_Requirements_Document.md#session-2026-11-02), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior), [05 §E.5](../specs/05_Backend_and_Database_Schema.md#e5-provenance-required-to-reproduce-a-result), [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport)
+- **Reads:** [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-03, NFR-06), [01 Clarifications](../specs/01_Product_Requirements_Document.md#session-2026-11-02), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [05 §E.5](../specs/05_Backend_and_Database_Schema.md#e5-provenance-required-to-reproduce-a-result), [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport)
 - **Depends on:** T07.15 (hard: verification runs on the integrated app; 06 puts TASK-14 after TASK-07 to TASK-12), T08.11 (hard: same reason), T09.07 (hard: same reason), T11.05 (hard: same reason)
 - **Parallel with:** T14.03, T14.04, T14.05, T14.06, T14.07, T14.09, T14.10
 - **Steps:**
@@ -274,14 +274,14 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Window:** event-only
 - **Estimate:** 1–2 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
-- **Reads:** [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-08, NFR-09, NFR-11, "Secrets/deployment"), `web/index.html`, `web/dist/`, [Makefile](../../Makefile)
-- **Depends on:** T07.03 (hard: verification runs on the integrated app; the CSP meta tag lives in `web/index.html`), T07.13 (hard: verification runs on the integrated app; `?debug=1`), T11.05 (hard: verification runs on the integrated app; 06 puts TASK-14 after TASK-07 to TASK-12)
+- **Reads:** [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-08, NFR-09, NFR-11, "Secrets/deployment"), `apps/web/index.html`, `apps/web/dist/`, [Makefile](../../Makefile)
+- **Depends on:** T07.03 (hard: verification runs on the integrated app; the CSP meta tag lives in `apps/web/index.html`), T07.13 (hard: verification runs on the integrated app; `?debug=1`), T11.05 (hard: verification runs on the integrated app; 06 puts TASK-14 after TASK-07 to TASK-12)
 - **Parallel with:** T14.03, T14.04, T14.05, T14.06, T14.07, T14.08, T14.10
 - **Steps:**
-  1. Run `npm run -s build`; confirm `web/dist/index.html` carries the Content-Security-Policy `default-src 'self'` and the demo path raises no CSP violation in the console.
+  1. Run `npm run -s build`; confirm `apps/web/dist/index.html` carries the Content-Security-Policy `default-src 'self'` and the demo path raises no CSP violation in the console.
   2. With the devtools network panel open, run the demo path and confirm every request goes to `localhost` — no third-party, analytics or account traffic.
-  3. Search `web/dist` for absolute `http` or `https` URLs and review each hit.
-  4. Measure the gzipped JS bundle (`gzip -c` on each file in `web/dist/assets`, then `wc -c`) and the total site bundle (`du -sh`).
+  3. Search `apps/web/dist` for absolute `http` or `https` URLs and review each hit.
+  4. Measure the gzipped JS bundle (`gzip -c` on each file in `apps/web/dist/assets`, then `wc -c`) and the total site bundle (`du -sh`).
   5. Open `?debug=1` and check its four items.
   6. Append the results to the verification log.
 - **Acceptance:**
@@ -290,9 +290,9 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
   - "Total site bundle ≤ 250 MB; JS bundle ≤ 500 KB gzipped" (NFR-09).
   - "?debug=1 shows FPS, worker timings, grid cell under cursor, data version" (NFR-11).
   - Results recorded in the verification log.
-- **Verify:** `npm run -s build`; `du -sh web/dist web/public/sites/gale_boxwork`; `gzip -c <file> | wc -c` for each JS file in `web/dist/assets`; devtools console and network checks.
-- **Agent brief:** On the production build, check the CSP meta tag and violations, confirm the network panel shows only `localhost`, scan `web/dist` for absolute URLs, measure gzipped JS against 500 KB and the site bundle against 250 MB, and check the `?debug=1` panel; log the results. Change no code; file `follow-up:` subtasks for failures.
-- **Conflict notes:** Append-only verification log. The CSP lives in `web/index.html` (T07.03); a change there is a `follow-up:` on T07.03. The pipeline's 250 MB test belongs to T03.06 and T03.22; this is the release-time re-check.
+- **Verify:** `npm run -s build`; `du -sh apps/web/dist data/sites/gale_boxwork`; `gzip -c <file> | wc -c` for each JS file in `apps/web/dist/assets`; devtools console and network checks.
+- **Agent brief:** On the production build, check the CSP meta tag and violations, confirm the network panel shows only `localhost`, scan `apps/web/dist` for absolute URLs, measure gzipped JS against 500 KB and the site bundle against 250 MB, and check the `?debug=1` panel; log the results. Change no code; file `follow-up:` subtasks for failures.
+- **Conflict notes:** Append-only verification log. The CSP lives in `apps/web/index.html` (T07.03); a change there is a `follow-up:` on T07.03. The pipeline's 250 MB test belongs to T03.06 and T03.22; this is the release-time re-check.
 
 ### T14.10 — Verify SCR-00 and worker-crash recovery by hand
 
@@ -301,11 +301,11 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Window:** event-only
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
-- **Reads:** [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.1](../specs/03_App_Flow_and_Diagrams.md#e1-overall-user-flow), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-10), [01 FR-16](../specs/01_Product_Requirements_Document.md#fr-16--offline-and-degraded-operation), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior), `web/src/ui/screens/scr00BootError.ts`
+- **Reads:** [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.1](../specs/03_App_Flow_and_Diagrams.md#e1-overall-user-flow), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-10), [01 FR-16](../specs/01_Product_Requirements_Document.md#fr-16--offline-and-degraded-operation), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), `apps/web/src/ui/screens/scr00BootError.ts`
 - **Depends on:** T14.04 (hard: SCR-00 must exist), T14.05 (hard: the automated recovery cases pass first), T07.15 (hard: verification runs on the integrated app; 06 puts TASK-14 after TASK-07 to TASK-12), T09.07 (hard: same reason)
 - **Parallel with:** T14.06, T14.07, T14.08, T14.09
 - **Steps:**
-  1. Work on a scratch copy of `web/dist` and the bundle, never on `web/public/sites/gale_boxwork/` itself.
+  1. Work on a scratch copy of `apps/web/dist` and the bundle, never on `data/sites/gale_boxwork/` itself.
   2. Rename `site-manifest.json`: SCR-00 names the missing file; restore it and press Retry: the app boots.
   3. Delete the thermal-inertia tiles folder (NFR-10 "delete layer folder"): the layer row is unavailable and a 3-stop plan still routes.
   4. Make the worker throw (NFR-10 "throw in worker"; mechanism `TODO(verify)`): the results panel shows "Computation failed — Retry", the map stays usable and Retry recomputes.
@@ -319,7 +319,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
   - Results recorded in the verification log.
 - **Verify:** manual checklist above, run with `make demo` against the scratch copy.
 - **Agent brief:** A human injects faults into a scratch copy of the production build (missing manifest, deleted TI tiles, worker exception, corrupted grid in development and production builds), confirms SCR-00 content, Retry, keyboard access and NFR-10 behaviour, and logs the results. An agent may prepare the scratch copies and the checklist.
-- **Conflict notes:** Never edit or delete files in `web/public/sites/gale_boxwork/` (owned by T03.19; deleting them loses the only local bundle). Append-only verification log. The automated F.1 Recovery cases are T14.05's; this is NFR-10's manual check on the real build.
+- **Conflict notes:** Never edit or delete files in `data/sites/gale_boxwork/` (owned by T03.19; deleting them loses the only local bundle). Append-only verification log. The automated F.1 Recovery cases are T14.05's; this is NFR-10's manual check on the real build.
 
 ### T14.11 — follow-up: refresh the `CLAUDE.md` command rows after the pipeline entry point lands
 

@@ -10,7 +10,7 @@ Run each as a separate command, exactly as written (they match the allow rules i
 5. If pipeline code or site assets changed: `make validate SITE=<site_id>`
    (runs the `validate-manifest` console script from `pipeline/pyproject.toml` in the conda environment; same command as `.claude/commands/rehearse-offline.md`).
    Until TASK-03 lands it is a stub and raises `NotImplementedError`: report "not implemented", not a pass.
-   Do not read `pipeline/work/` or `web/public/sites/*/tiles/**` (denied in settings).
+   Do not read `pipeline/work/` or `data/sites/*/tiles/**` (denied in settings).
 
 Phase gate (CLAUDE.md §3): while TASK-00 is open, skipped tests (`it.todo`, `@pytest.mark.skip`) are expected. Report the count; do not unskip them.
 

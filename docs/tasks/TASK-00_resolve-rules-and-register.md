@@ -136,7 +136,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
   - Both files state the same track and link `docs/ops/rules.md`; their headings are unchanged.
 - **Verify:** `make lint docs-check`; `git diff --stat main` lists only `CLAUDE.md` and `AGENTS.md`; manual read: both paragraphs state the same track.
 - **Agent brief:** After T00.03 merges, rewrite the phase-gate paragraph in `CLAUDE.md` §3 and in `AGENTS.md` for the track recorded in `docs/ops/rules.md`, using the 06 §A wording for Track S or Track P and the map's §a.2 windows. Link `docs/ops/rules.md` and `docs/tasks/_coordination.md`, keep the headings, change nothing else, and run `make lint docs-check`.
-- **Conflict notes:** Single owner of `CLAUDE.md` and `AGENTS.md` (map §c.2). Do not edit other files that mention the gate: `README.md` belongs to T16.03, `docs/README.md` to T16.02, the PR template to T14.02, and the `web/src/main.ts` comment to T07.03.
+- **Conflict notes:** Single owner of `CLAUDE.md` and `AGENTS.md` (map §c.2). Do not edit other files that mention the gate: `README.md` belongs to T16.03, `docs/README.md` to T16.02, the PR template to T14.02, and the `apps/web/src/main.ts` comment to T07.03.
 
 ### T00.05 — Fallback — start only if no answer by 4 Nov (U-12 due date): declare Track S
 

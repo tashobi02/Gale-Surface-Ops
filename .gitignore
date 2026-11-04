@@ -7,12 +7,16 @@ graphify-out/*
 .venv/
 __pycache__/
 *.egg-info/
-web/dist/
+apps/*/dist/
 # pipeline workspace: downloads and intermediates never enter git (05 §B)
 pipeline/work/*
 !pipeline/work/.gitkeep
 # site binaries stay out of git; they ship as a GitHub release asset (docs/ops/feasibility.md)
-web/public/sites/*/tiles/
-web/public/sites/*/grid/
-web/public/sites/*/images/
+data/sites/*/tiles/
+data/sites/*/grid/
+data/sites/*/images/
 .releases/
+# Hab Core session store (05 §B)
+apps/hab-core/var/*
+!apps/hab-core/var/README.md
+.DS_Store

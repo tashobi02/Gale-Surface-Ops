@@ -18,7 +18,7 @@
 
 | Input | Kind | Owner | Dependency |
 | --- | --- | --- | --- |
-| C1–C2: POI, TraversePoint, Layer and DataSource field names (`web/src/types/schema.ts`, `schemas/site-manifest.schema.json`) | contract | T03.01 | soft |
+| C1–C2: POI, TraversePoint, Layer and DataSource field names (`packages/protocol/src/schema.ts`, `schemas/site-manifest.schema.json`) | contract | T03.01 | soft |
 | C5: site-config input layout (`pipeline/sites/README.md`) | contract | T03.01 | soft |
 | Chosen AOI and site (D-01) in `docs/ops/feasibility.md` | upstream output | T01.05 | read only; M0 ends before M1 (see Spec questions) |
 | THEMIS tile id and coverage note `docs/ops/feasibility/coverage.md` | upstream output | T01.04 | read only (T04.06, T04.07) |
@@ -32,7 +32,7 @@
 | Curated POI records and the POI layer record | `pipeline/sites/gale_boxwork/pois/`, `pipeline/sites/gale_boxwork/layers/pois.json` | T03.19, T07.14 |
 | POI images, saved by hand (git-ignored) | `pipeline/work/images/` | T03.19 |
 | Packaging code | `pipeline/src/marswalk_pipeline/vectors.py` | T03.15, T03.19 |
-| Packaged vectors (written by the T03.19 run) | `web/public/sites/gale_boxwork/vectors/traverse.geojson`, `web/public/sites/gale_boxwork/vectors/pois.geojson` | T07.10, T07.11, T10.01 |
+| Packaged vectors (written by the T03.19 run) | `data/sites/gale_boxwork/vectors/traverse.geojson`, `data/sites/gale_boxwork/vectors/pois.geojson` | T07.10, T07.11, T10.01 |
 | Dataset and image credits list | `docs/ops/credits.md` | T12.03, T16.03, T16.05 |
 | TI threshold (cut 4) | `pipeline/sites/gale_boxwork/ti_threshold.json`, `docs/ops/ti-threshold.md` | T03.10, T12.04, T16.02 |
 | Measured traverse offset | `pipeline/sites/gale_boxwork/known_offsets/traverse.json` | T03.13, T03.19 |

@@ -7,7 +7,7 @@
 | **Status** | Draft v2 — supersedes v1 (2026-11-02) |
 | **Related** | [01 PRD](01_Product_Requirements_Document.md) (tiers T0–T2, killer demo §E.1) · [02 Technical](02_Technical_Requirements_Document.md) · [03 Flow](03_App_Flow_and_Diagrams.md) · [04 Design](04_Design_Brief.md) · [05 Schema](05_Backend_and_Database_Schema.md) · [Docs index](../README.md) |
 
-### Change log v1 → v2
+## Change log v1 → v2
 
 Team 4 → **6**; scope = surface operations system in three tiers; new tasks TASK-20…TASK-30; milestone added for the organizer guide's **12 Nov full offline dry run**; cut list rewritten around the killer demo.
 
@@ -86,7 +86,7 @@ Effort is person-hours (ranges, not promises). **P** = pre-event (Track P), **E*
 | **TASK-14** | Integration, offline hardening, fault tests | R4 (lead) + all | P 11–12 Nov / E | 4–6 | 02 §F.1 + §F.2 fault cases pass | — |
 | **TASK-15** | Usability test (3 non-team users) incl. HUD glance + summon without instruction | R6 | E night | 2–3 | ≥ 2 of 3 pass each criterion (01 §B.2) | — |
 | **TASK-16** | Submission package: README, LICENSE, AI_USE, credits, project page fields | R6 | P/E | 3–4 | Private-window check passes | — |
-| **TASK-17** | Videos: 240 s and 30 s (§F) | R6 + one helper | E | 4–6 | Uploaded, subtitled, datasets named, no under-18 likeness | Use M4 recording |
+| **TASK-17** | Videos: 240 s and 30 s (§G) | R6 + one helper | E | 4–6 | Uploaded, subtitled, datasets named, no under-18 likeness | Use M4 recording |
 | **TASK-18** | Tier 2 desirables (CRISM, REMS, dust, SVF refuge, Earth view) | Any | E after M7 gate | 2–6 each | Labelled and tested | Skip |
 
 ### C.2 New in v2 (surface ops, Tier 1 unless marked)
@@ -171,7 +171,20 @@ Mirrors the organizer guide's rule — drop scope before the killer moment.
 
 **Never cut:** the storm moment (alert → options → summon → shelter), real replayed event data, provenance labels, prototype disclaimer, no-internet operation, the three single score points.
 
-### D.5 Spike fallbacks
+### D.5 Data and service fallbacks
+
+**Data (v1, retained):**
+
+| Primary | Fallback |
+| --- | --- |
+| Gale merged DEM (HiRISE-quality in AOI) | Jezero M2020 TRN HiRISE DTM mosaic (USGS) |
+| Colour HiRISE COG | Grayscale 25 cm ortho window / Mars Trek HiRISE tiles cached |
+| THEMIS quantitative TI | THEMIS Day IR 100 m (qualitative) |
+| PDS PLACES traverse | MMGIS JSON cached once (labelled unofficial) |
+| Mars Rover Photos API | **Not used** (archived) — images saved manually from NASA raw-image/photojournal pages |
+| Browser router | FastAPI + scikit-image least-cost path |
+
+**Spikes (v2):**
 
 | Spike fails | Fallback | Cost |
 | --- | --- | --- |
@@ -181,11 +194,7 @@ Mirrors the organizer guide's rule — drop scope before the killer moment.
 | RAD series (U-15) | Digitised published figure | Label changes to "digitised" |
 | SPICE kernels (U-18) | Light time from DE ephemeris only; relay passes from a published MRO pass schedule pattern, labelled assumed | Weaker validity on passes |
 
-### D.6 Track S (kept for reference — not needed: Track P confirmed 4 Nov)
-
-If the 13 Nov guides restrict pre-event code after all, pre-event becomes: data pipeline outputs, scenario tables, POI content, design files, docs, network kit, demo script. At the event, build in this order: Hab Core + engine on precomputed plan → ops console → EVA HUD → alert + summon (rendezvous fallback) → planner last. Tier 0 planner shrinks to "show the precomputed plan + profile + briefing card."
-
-### D.7 Demo freeze criteria (Day 2 06:00)
+### D.6 Demo freeze criteria (Day 2 06:00)
 
 - Killer demo runs offline on the router 2× consecutively at the venue.
 - Headless replay hash matches the committed reference.
@@ -194,13 +203,28 @@ If the 13 Nov guides restrict pre-event code after all, pre-event becomes: data 
 - Briefing card and post-EVA report print correctly.
 - Repo builds from a clean clone with the README commands.
 
-### D.8 Definition of done (per feature)
+### D.7 Definition of done (per feature)
 
 Acceptance criteria met · compute tests or UI test note committed · provenance class present on every number · works with WAN unplugged · keyboard (planner/ops) or ≤ 2-tap (EVA) operable · sources listed in Sources & methods · AI use (if any) logged in `docs/AI_USE.md`.
 
+### D.8 Track S (kept for reference — not needed: Track P confirmed 4 Nov)
+
+If the 13 Nov guides restrict pre-event code after all, pre-event becomes: data pipeline outputs, scenario tables, POI content, design files, docs, network kit, demo script. At the event, build in this order: Hab Core + engine on precomputed plan → ops console → EVA HUD → alert + summon (rendezvous fallback) → planner last. Tier 0 planner shrinks to "show the precomputed plan + profile + briefing card."
+
 ---
 
-## E. Pre-event schedule (4–12 Nov)
+## E. First concrete actions (today → 5 Nov)
+
+1. **R6:** ~~U-12 and registration~~ (done 4 Nov). Ask the Local Lead about the venue (U-14); keep `docs/AI_USE.md` current (this v2 overhaul is logged).
+2. **R1:** start the 3.6 GB DEM download on campus internet; open the PDS3 label; propose AOI and hab position by Thursday.
+3. **R4:** pull the restructured monorepo (`apps/web`, `apps/hab-core`, `packages/compute`, `packages/protocol`, `pipeline/`, `scenarios/`, `data/sites/`) and run `make setup`; confirm someone owns or can borrow a travel router (U-21).
+4. **R2:** port the v1 A* test cases to `packages/compute` on a synthetic grid; write the Dijkstra benchmark.
+5. **R5 + R6:** paper sketches of HUD, EVA tablet and ops console; agree the three HUD numbers (time to haven, O₂ margin, next stop).
+6. **Everyone:** read 01 §E.1 (killer demo) — every task should serve that 90 seconds first.
+
+---
+
+## F. Pre-event schedule (4–12 Nov)
 
 | Day | R1 Data | R2 Compute | R3 Map/Planner | R4 Hab Core | R5 EVA/Ops | R6 Science/Story |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -216,9 +240,9 @@ Acceptance criteria met · compute tests or UI test note committed · provenance
 
 ---
 
-## F. Video plan (TASK-17)
+## G. Video plan (TASK-17)
 
-### F.1 240-s local judging video (Day 1, 18:30)
+### G.1 240-s local judging video (Day 1, 18:30)
 
 | Time | Segment | Content |
 | --- | --- | --- |
@@ -228,20 +252,9 @@ Acceptance criteria met · compute tests or UI test note committed · provenance
 | 2:30–3:20 | Data & validity | Datasets named aloud: HiRISE, MOLA/HRSC (ESA) DEM, THEMIS, RAD, DONKI, SPICE (NAIF + ESA TGO); `packages/compute` boundary and tests; provenance classes |
 | 3:20–4:00 | Impact & close | Works for any site with a DEM; habitat-local by design; disclaimer |
 
-### F.2 30-s global video (Day 2, 09:00)
+### G.2 30-s global video (Day 2, 09:00)
 
 Team → problem (one line) → storm alert on the HUD → summon → crew sheltered → "NASA HiRISE, RAD, DONKI + ESA data" on screen → impact line. English subtitles. No under-18 likeness.
-
----
-
-## G. First concrete actions (today → 5 Nov)
-
-1. **R6:** ~~U-12 and registration~~ (done 4 Nov). Ask the Local Lead about the venue (U-14); keep `docs/AI_USE.md` current (this v2 overhaul is logged).
-2. **R1:** start the 3.6 GB DEM download on campus internet; open the PDS3 label; propose AOI and hab position by Thursday.
-3. **R4:** pull the restructured monorepo (`apps/web`, `apps/hab-core`, `packages/compute`, `packages/protocol`, `pipeline/`, `scenarios/`, `data/sites/`) and run `make setup`; confirm someone owns or can borrow a travel router (U-21).
-4. **R2:** port the v1 A* test cases to `packages/compute` on a synthetic grid; write the Dijkstra benchmark.
-5. **R5 + R6:** paper sketches of HUD, EVA tablet and ops console; agree the three HUD numbers (time to haven, O₂ margin, next stop).
-6. **Everyone:** read 01 §E.1 (killer demo) — every task should serve that 90 seconds first.
 
 ## Unresolved items owned by this document
 

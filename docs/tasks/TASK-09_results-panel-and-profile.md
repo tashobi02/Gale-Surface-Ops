@@ -10,17 +10,17 @@
 | Effort (doc 06) | 4–6 h |
 | Done when (doc 06) | Partial/over-limit states render per 03 §D |
 | Main risk → fallback | Linking slips → profile without linking |
-| Spec sections | [01 FR-07](../specs/01_Product_Requirements_Document.md#fr-07--constraint-aware-route-computation) · [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile) · [01 FR-09](../specs/01_Product_Requirements_Document.md#fr-09--traverse-time-distance-and-return-estimates) · [01 FR-10](../specs/01_Product_Requirements_Document.md#fr-10--hazard-and-constraint-warnings) · [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate) · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) · [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel) · [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows) · [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable) · [04 §C.1](../specs/04_Design_Brief.md#c1-colour-palette-contrast-verified-by-computation-wcag-relative-luminance) · [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states) · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) · [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior) · [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel) · [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed) · [06 §B M3](../specs/06_High_Level_Implementation_Plan.md#b-milestones) · [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints) · [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind) |
+| Spec sections | [01 FR-07](../specs/01_Product_Requirements_Document.md#fr-07--constraint-aware-route-computation) · [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile) · [01 FR-09](../specs/01_Product_Requirements_Document.md#fr-09--traverse-time-distance-and-return-estimates) · [01 FR-10](../specs/01_Product_Requirements_Document.md#fr-10--hazard-and-constraint-warnings) · [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate) · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) · [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel) · [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows) · [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable) · [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens) · [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states) · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) · [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior) · [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel) · [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed) · [06 §B M3](../specs/06_High_Level_Implementation_Plan.md#b-milestones) · [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints) · [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind) |
 
 ## Inputs this task consumes
 
 | Input | Kind | Owner | Dependency |
 | --- | --- | --- | --- |
 | C10 UI app context, map handle, fixed layer order, provenance attribute names; stubs for `routeLayer.ts`, `profileChart.ts`, `warningsList.ts`, `profileLink.ts`, `metric.ts`, `statusIcon.ts` | contract | T07.01 | soft |
-| C11 plan-store state, status, actions, selection and hover (`web/src/state/planStore.ts`) | contract | T08.01 | soft |
-| C12 token names and status classes (`web/src/ui/styles/tokens.css`) | contract | T13.01 | soft |
-| C1 `PlanResult`, `Leg`, `Warning` types (`web/src/types/schema.ts`) | contract | T03.01 | soft (through C10 and C11) |
-| C6 `PLAN_RESULT` and `ERROR` messages (`web/src/compute/protocol.ts`) | contract | T05.01 | soft (through C10) |
+| C11 plan-store state, status, actions, selection and hover (`apps/web/src/state/planStore.ts`) | contract | T08.01 | soft |
+| C12 token names and status classes (`apps/web/src/ui/styles/tokens.css`) | contract | T13.01 | soft |
+| C1 `PlanResult`, `Leg`, `Warning` types (`packages/protocol/src/schema.ts`) | contract | T03.01 | soft (through C10 and C11) |
+| C6 `PLAN_RESULT` and `ERROR` messages (`packages/protocol/src/worker.ts`) | contract | T05.01 | soft (through C10) |
 | F2 canned PLAN_RESULT messages (OK, PARTIAL, OVER_LIMITS) | fixture | T05.03 | soft |
 | F3 mock worker | fixture | T05.04 | soft |
 | Profile-chart library from the dependency batch | upstream output | T14.01 | hard (T09.02) |
@@ -31,14 +31,14 @@
 
 | Output | Path | Consumers |
 | --- | --- | --- |
-| Route layer (cased legs, NO_ROUTE line, hazard hatch, hover hooks) | `web/src/ui/map/routeLayer.ts` | T07.08 (mounts it), T09.05, T09.06, T11.04 |
-| Profile chart | `web/src/ui/results/profileChart.ts` | T09.03, T09.05, T09.06, T11.03 |
-| SCR-05 Route Results panel | `web/src/ui/screens/scr05RouteResults.ts`, `web/src/ui/screens/scr05RouteResults.css` | T07.08 (mounts it), T12.02, T13.09, T13.10, T14.06, T18.06 |
-| Warnings list with click-to-zoom | `web/src/ui/results/warningsList.ts` | T09.03, T11.03 |
-| Profile ↔ map linking | `web/src/ui/results/profileLink.ts` | T09.03 |
+| Route layer (cased legs, NO_ROUTE line, hazard hatch, hover hooks) | `apps/web/src/ui/map/routeLayer.ts` | T07.08 (mounts it), T09.05, T09.06, T11.04 |
+| Profile chart | `apps/web/src/ui/results/profileChart.ts` | T09.03, T09.05, T09.06, T11.03 |
+| SCR-05 Route Results panel | `apps/web/src/ui/screens/scr05RouteResults.ts`, `apps/web/src/ui/screens/scr05RouteResults.css` | T07.08 (mounts it), T12.02, T13.09, T13.10, T14.06, T18.06 |
+| Warnings list with click-to-zoom | `apps/web/src/ui/results/warningsList.ts` | T09.03, T11.03 |
+| Profile ↔ map linking | `apps/web/src/ui/results/profileLink.ts` | T09.03 |
 | Auto-routing go/no-go (D-04) | `docs/decisions/ADR-004-least-time-routing.md` | T05.30, T09.08 (fallback triggers) |
 | SCR-05 state check record | `docs/ops/verification-log.md` | T14.06 |
-| Hand-drawn legs (fallback only) | `web/src/ui/map/drawLegs.ts` | T09.06 (on no-go), T14.06 |
+| Hand-drawn legs (fallback only) | `apps/web/src/ui/map/drawLegs.ts` | T09.06 (on no-go), T14.06 |
 
 ## Subtasks
 
@@ -48,8 +48,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `web/src/ui/map/routeLayer.ts`
-- **Reads:** `web/src/ui/context.ts`, `web/src/state/planStore.ts`, `web/src/types/schema.ts`, `web/src/ui/styles/tokens.css`, `web/tests/fixtures/plan-results/`, [04 §C.1 Map overlays](../specs/04_Design_Brief.md#map-overlays), [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
+- **Owns (writes):** `apps/web/src/ui/map/routeLayer.ts`
+- **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `packages/protocol/src/schema.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/tests/fixtures/plan-results/`, [04 §C.1 Map overlays](../specs/04_Design_Brief.md#map-overlays), [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
 - **Depends on:** T07.01 (soft), T08.01 (soft), T05.03 (soft), T13.01 (soft)
 - **Parallel with:** T09.02, T09.03, T09.04, T08.06
 - **Steps:**
@@ -66,7 +66,7 @@
   - Given warnings with `from_m`/`to_m`, then a `caution` or `blocked` hatch overlays that stretch of the leg (04 §C.5 hazard segment).
   - The layer sits at its fixed FR-02 position: below POIs, above hazards.
 - **Verify:** `make typecheck`; manual check with `make dev`, the mock site (`?site=mock_site`) and the F3 mock worker (dev switch from T05.04/T07.04) answering with each F2 fixture: OK legs cased, PARTIAL dashed line, hatch on located warnings, hover widens the line.
-- **Agent brief:** Implement `web/src/ui/map/routeLayer.ts` (replacing the T07.01 stub): an OpenLayers vector layer that draws PlanResult legs as cased `accent` lines, NO_ROUTE legs dashed to `nearest_reachable`, and caution/blocked hatch on located warnings, per 04 §C.1 and §C.5. Read the result from the C11 store, attach through the C10 map handle, use only projected metres. Check against the F2 fixtures.
+- **Agent brief:** Implement `apps/web/src/ui/map/routeLayer.ts` (replacing the T07.01 stub): an OpenLayers vector layer that draws PlanResult legs as cased `accent` lines, NO_ROUTE legs dashed to `nearest_reachable`, and caution/blocked hatch on located warnings, per 04 §C.1 and §C.5. Read the result from the C11 store, attach through the C10 map handle, use only projected metres. Check against the F2 fixtures.
 - **Conflict notes:** Writes only `routeLayer.ts`, after T07.01's stub merges (stub handover, §c.1 rule 2). Never edit `context.ts`, `createMap.ts` or `tokens.css`; a missing hook or token is a `contract-change:` in TASK-07 or TASK-13. T09.05 builds on the hover hooks, so merge T09.01 before T09.05.
 
 ### T09.02 — Implement the elevation/slope profile chart
@@ -75,8 +75,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `web/src/ui/results/profileChart.ts`
-- **Reads:** `web/src/ui/context.ts`, `web/src/types/schema.ts`, `web/src/ui/styles/tokens.css`, `web/tests/fixtures/plan-results/`, `web/package.json`, [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile), [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria), [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices), [04 §C.1 Semantic](../specs/04_Design_Brief.md#semantic-status--always-paired-with-icon--pattern--text), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
+- **Owns (writes):** `apps/web/src/ui/results/profileChart.ts`
+- **Reads:** `apps/web/src/ui/context.ts`, `packages/protocol/src/schema.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/tests/fixtures/plan-results/`, `apps/web/package.json`, [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile), [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria), [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices), [04 §C.1 Semantic](../specs/04_Design_Brief.md#status-and-alert-colours-ops), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
 - **Depends on:** T07.01 (soft), T05.03 (soft), T13.01 (soft), T14.01 (hard: the chart library arrives in the dependency batch)
 - **Parallel with:** T09.01, T09.03, T09.04
 - **Steps:**
@@ -93,7 +93,7 @@
   - Given the F2 OK fixture, then elevation is plotted against cumulative distance with stop markers; given PARTIAL, then no totals are shown (02 §E.2).
   - The cursor moves by keyboard and shows a tooltip (04 §D profile chart, selected/active).
 - **Verify:** `make typecheck`; manual check with `make dev` and the F2 fixtures: patterns and labels visible in a grayscale view, keyboard cursor works, empty/computing/error states as in 04 §D, print preview of the chart readable in black and white.
-- **Agent brief:** Implement `web/src/ui/results/profileChart.ts` (replacing the T07.01 stub) with the chart library from T14.01: elevation vs. cumulative distance, slope classes coloured and patterned per 04 §C.1, stop markers, total climb/descent, keyboard cursor, and the 04 §D states. Use F2 fixtures; do not compute new values beyond plotting what PlanResult provides.
+- **Agent brief:** Implement `apps/web/src/ui/results/profileChart.ts` (replacing the T07.01 stub) with the chart library from T14.01: elevation vs. cumulative distance, slope classes coloured and patterned per 04 §C.1, stop markers, total climb/descent, keyboard cursor, and the 04 §D states. Use F2 fixtures; do not compute new values beyond plotting what PlanResult provides.
 - **Conflict notes:** Writes only `profileChart.ts`. Shared by SCR-05 (T09.03) and SCR-08 (T11.03): keep the stub's exported signature; changing it is a `contract-change:` in TASK-07. No `package.json` edits here — the library comes only through T14.01.
 
 ### T09.03 — Implement SCR-05: status banner and metrics row
@@ -102,8 +102,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `web/src/ui/screens/scr05RouteResults.ts`, `web/src/ui/screens/scr05RouteResults.css`
-- **Reads:** `web/src/ui/context.ts`, `web/src/state/planStore.ts`, `web/src/ui/components/metric.ts`, `web/src/ui/components/statusIcon.ts`, `web/src/ui/results/profileChart.ts`, `web/src/ui/results/warningsList.ts`, `web/src/ui/results/profileLink.ts`, `web/src/ui/styles/tokens.css`, `web/tests/fixtures/plan-results/`, [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior), [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok)
+- **Owns (writes):** `apps/web/src/ui/screens/scr05RouteResults.ts`, `apps/web/src/ui/screens/scr05RouteResults.css`
+- **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/components/statusIcon.ts`, `apps/web/src/ui/results/profileChart.ts`, `apps/web/src/ui/results/warningsList.ts`, `apps/web/src/ui/results/profileLink.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/tests/fixtures/plan-results/`, [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok)
 - **Depends on:** T07.01 (soft), T08.01 (soft), T05.03 (soft), T13.01 (soft)
 - **Parallel with:** T09.01, T09.02, T09.04, T10.01, T10.02
 - **Steps:**
@@ -120,8 +120,8 @@
   - Given a worker error, then the panel shows "Computation failed" with Retry and the map stays usable (03 §D "Worker timeout/crash").
   - Every metric carries a provenance label and source id through the metric component (FR-15, NFR-05); every number carries its unit (04 §C.2).
   - A status change is announced, e.g. "Plan updated: Over limits, 2 warnings" (04 §E).
-- **Verify:** `make typecheck`; manual check with `make dev` and the F3 mock worker returning each F2 fixture plus an `ERROR`: all 03 SCR-05 states, collapse to the status strip, aria-live announcement (screen reader or devtools accessibility pane); once T12.02 exists, `npx vitest run tests/ui/provenance.test.ts` (run in `web/`) stays green.
-- **Agent brief:** Implement SCR-05 in `web/src/ui/screens/scr05RouteResults.ts` and its `.css`: status banner, metrics row (via the metric component), per-leg Details table, collapsible strip and aria-live status, mounting the profile chart, warnings list and linking. Follow 03 SCR-05, 03 §D and 04 §D/§F; never show totals for a PARTIAL plan. Build against the F2 fixtures through the F3 mock worker.
+- **Verify:** `make typecheck`; manual check with `make dev` and the F3 mock worker returning each F2 fixture plus an `ERROR`: all 03 SCR-05 states, collapse to the status strip, aria-live announcement (screen reader or devtools accessibility pane); once T12.02 exists, `npx vitest run tests/ui/provenance.test.ts` (run in `apps/web/`) stays green.
+- **Agent brief:** Implement SCR-05 in `apps/web/src/ui/screens/scr05RouteResults.ts` and its `.css`: status banner, metrics row (via the metric component), per-leg Details table, collapsible strip and aria-live status, mounting the profile chart, warnings list and linking. Follow 03 SCR-05, 03 §D and 04 §D/§F; never show totals for a PARTIAL plan. Build against the F2 fixtures through the F3 mock worker.
 - **Conflict notes:** Writes only the two SCR-05 files; T07.08 mounts the panel (never edit `scr02MapWorkspace.ts`). Uses `metric.ts` (T12.01) and `statusIcon.ts` (T13.05) as provided. T18.06 follows up on this file after it merges.
 
 ### T09.04 — Implement the warnings list with click-to-zoom
@@ -130,8 +130,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1–2 h
-- **Owns (writes):** `web/src/ui/results/warningsList.ts`
-- **Reads:** `web/src/ui/context.ts`, `web/src/state/planStore.ts`, `web/src/ui/components/statusIcon.ts`, `web/src/types/schema.ts`, `web/tests/fixtures/plan-results/`, [01 FR-10](../specs/01_Product_Requirements_Document.md#fr-10--hazard-and-constraint-warnings), [04 §C.1 Semantic](../specs/04_Design_Brief.md#semantic-status--always-paired-with-icon--pattern--text), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior), [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
+- **Owns (writes):** `apps/web/src/ui/results/warningsList.ts`
+- **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/components/statusIcon.ts`, `packages/protocol/src/schema.ts`, `apps/web/tests/fixtures/plan-results/`, [01 FR-10](../specs/01_Product_Requirements_Document.md#fr-10--hazard-and-constraint-warnings), [04 §C.1 Semantic](../specs/04_Design_Brief.md#status-and-alert-colours-ops), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
 - **Depends on:** T07.01 (soft), T08.01 (soft), T05.03 (soft), T13.01 (soft)
 - **Parallel with:** T09.01, T09.02, T09.03
 - **Steps:**
@@ -146,7 +146,7 @@
   - Status is never shown by colour alone: icon and text accompany every severity (04 §E non-colour cues).
   - The list is readable by screen readers as the text alternative for map warnings (04 §E).
 - **Verify:** `make typecheck`; manual check with `make dev` and the F2 fixtures: icon and text per warning, click and Enter zoom to the stretch, items without a location do not zoom, keyboard-only operation.
-- **Agent brief:** Implement `web/src/ui/results/warningsList.ts` (replacing the T07.01 stub): a keyboard-operable list of PlanResult warnings with severity icon, message and location or time; clicking a located warning zooms the map through the C10 map handle. Follow 01 FR-10 and 04 §C.1/§E/§F; test against the F2 fixtures.
+- **Agent brief:** Implement `apps/web/src/ui/results/warningsList.ts` (replacing the T07.01 stub): a keyboard-operable list of PlanResult warnings with severity icon, message and location or time; clicking a located warning zooms the map through the C10 map handle. Follow 01 FR-10 and 04 §C.1/§E/§F; test against the F2 fixtures.
 - **Conflict notes:** Writes only `warningsList.ts`; SCR-05 (T09.03) and SCR-08 (T11.03) import it, so keep the stub's exported signature (changes are a `contract-change:` in TASK-07).
 
 ### T09.05 — Implement profile ↔ map linking (06 fallback: ship the profile without it)
@@ -155,8 +155,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1.5–2.5 h
-- **Owns (writes):** `web/src/ui/results/profileLink.ts`
-- **Reads:** `web/src/ui/results/profileChart.ts`, `web/src/ui/map/routeLayer.ts`, `web/src/state/planStore.ts`, `web/src/ui/context.ts`, [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile), [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior)
+- **Owns (writes):** `apps/web/src/ui/results/profileLink.ts`
+- **Reads:** `apps/web/src/ui/results/profileChart.ts`, `apps/web/src/ui/map/routeLayer.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/context.ts`, [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile), [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior)
 - **Depends on:** T09.01 (hard: needs the route layer's hover hooks), T09.02 (hard: needs the chart's cursor events), T08.01 (soft), T07.01 (soft)
 - **Parallel with:** T09.03, T09.04, T09.07
 - **Steps:**
@@ -170,7 +170,7 @@
   - 01 FR-08: "Hover/keyboard focus on the chart highlights the corresponding map location and vice versa."
   - Keyboard focus alone (no pointer) moves the map marker.
 - **Verify:** `make typecheck`; manual check with `make dev` and the F2 OK fixture: hover and arrow keys on the chart move the map marker; hovering the route moves the chart cursor.
-- **Agent brief:** Implement `web/src/ui/results/profileLink.ts` (replacing the T07.01 stub): two-way linking between the profile cursor (T09.02) and a marker on the route layer (T09.01) via the C11 hover state, including keyboard focus. If it cannot be finished in time, stop: the 06 fallback ships the profile without linking.
+- **Agent brief:** Implement `apps/web/src/ui/results/profileLink.ts` (replacing the T07.01 stub): two-way linking between the profile cursor (T09.02) and a marker on the route layer (T09.01) via the C11 hover state, including keyboard focus. If it cannot be finished in time, stop: the 06 fallback ships the profile without linking.
 - **Conflict notes:** Writes only `profileLink.ts`; never edits the chart, route layer or store — a missing hook is a `follow-up:` to T09.01/T09.02 or a `contract-change:` to C11 (TASK-08). Starts after T09.01 and T09.02 merge.
 
 ### T09.06 — Run the M3 walking-skeleton check; decide auto-routing go/no-go in ADR-004
@@ -180,7 +180,7 @@
 - **Window:** event-only
 - **Estimate:** 0.5–1 h
 - **Owns (writes):** `docs/decisions/ADR-004-least-time-routing.md`
-- **Reads:** [06 §B M3](../specs/06_High_Level_Implementation_Plan.md#b-milestones), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind), [ADR-004](../decisions/ADR-004-least-time-routing.md), [map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4), [map §h.7](_coordination.md#h7-fallbacks-06-c-d5), `web/public/sites/gale_boxwork/`
+- **Reads:** [06 §B M3](../specs/06_High_Level_Implementation_Plan.md#b-milestones), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind), [ADR-004](../decisions/ADR-004-least-time-routing.md), [map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4), [map §h.7](_coordination.md#h7-fallbacks-06-c-d5), `data/sites/gale_boxwork/`
 - **Depends on:** T03.19 (hard: the M3 check is the real end-to-end slice), T05.16–T05.18 (hard: the M3 check is the real end-to-end slice), T05.21–T05.22 (hard: the M3 check is the real end-to-end slice), T05.26–T05.27 (hard: the M3 check is the real end-to-end slice), T07.02–T07.08 (hard: the M3 check is the real end-to-end slice), T08.03 (hard: the M3 check is the real end-to-end slice), T09.01–T09.02 (hard: the M3 check is the real end-to-end slice)
 - **Parallel with:** T12.01
 - **Steps:**
@@ -204,7 +204,7 @@
 - **Window:** event-only
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
-- **Reads:** `web/tests/fixtures/plan-results/`, `web/tests/fixtures/mockWorker.ts`, [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile), [01 FR-10](../specs/01_Product_Requirements_Document.md#fr-10--hazard-and-constraint-warnings)
+- **Reads:** `apps/web/tests/fixtures/plan-results/`, `apps/web/tests/fixtures/mockWorker.ts`, [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile), [01 FR-10](../specs/01_Product_Requirements_Document.md#fr-10--hazard-and-constraint-warnings)
 - **Depends on:** T09.01 (hard: verifies the real route layer), T09.02 (hard: verifies the real profile), T09.03 (hard: verifies the real panel), T09.04 (hard: verifies the real warnings list), T05.03 (soft), T05.04 (soft), T12.01 (hard: SCR-05 values need provenance labels, FR-15)
 - **Parallel with:** T09.05, T10.03, T11.05
 - **Steps:**
@@ -228,8 +228,8 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1.5–2 h
-- **Owns (writes):** `web/src/ui/map/drawLegs.ts`
-- **Reads:** `docs/decisions/ADR-004-least-time-routing.md`, `web/src/ui/context.ts`, `web/src/state/planStore.ts`, `web/src/ui/map/routeLayer.ts`, `web/src/compute/manualLeg.ts`, [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind), [01 FR-07](../specs/01_Product_Requirements_Document.md#fr-07--constraint-aware-route-computation), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior)
+- **Owns (writes):** `apps/web/src/ui/map/drawLegs.ts`
+- **Reads:** `docs/decisions/ADR-004-least-time-routing.md`, `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/map/routeLayer.ts`, `packages/compute/src/manualLeg.ts`, [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind), [01 FR-07](../specs/01_Product_Requirements_Document.md#fr-07--constraint-aware-route-computation), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior)
 - **Depends on:** T09.06 (hard: the fallbacks start only on a no-go), T07.01 (soft), T08.01 (soft)
 - **Parallel with:** T05.30
 - **Steps:**
@@ -242,7 +242,7 @@
   - Given a no-go in ADR-004, when the user draws a leg between consecutive stops, then the tool checks slope and hazards and shows profile and time for it (06 §D.4 item 6: "user draws legs; tool checks slope/hazards and computes profile and time").
   - Together with T05.30 it stays within the 06 budget: "implementable in < 2 h by reusing the profile and warning code".
 - **Verify:** `make typecheck`; manual check with `make dev`: draw a leg, see the validation result in the route layer, profile and warnings.
-- **Agent brief:** Only after ADR-004 records a no-go. Implement `web/src/ui/map/drawLegs.ts`: a draw interaction for per-leg polylines between consecutive waypoints that sends them for validation and reuses the existing route layer, profile and warnings. Do not edit other files; the needed protocol/client/store additions come first as contract changes.
+- **Agent brief:** Only after ADR-004 records a no-go. Implement `apps/web/src/ui/map/drawLegs.ts`: a draw interaction for per-leg polylines between consecutive waypoints that sends them for validation and reuses the existing route layer, profile and warnings. Do not edit other files; the needed protocol/client/store additions come first as contract changes.
 - **Conflict notes:** Writes only the new `drawLegs.ts`. Sending drawn legs needs `contract-change:` subtasks on C6 (TASK-05), C10 (TASK-07) and C11 (TASK-08) first (Spec questions). Pair it with T05.30, which owns `manualLeg.ts`.
 
 ## Internal dependency graph

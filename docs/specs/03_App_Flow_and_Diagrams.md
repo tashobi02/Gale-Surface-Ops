@@ -7,7 +7,7 @@
 | **Status** | Draft v2 — supersedes v1 (2026-11-02). SCR-00–SCR-09 are v1 with marked changes; SCR-10–SCR-18 are new |
 | **Related** | Requirements: [01 PRD](01_Product_Requirements_Document.md) · Behavior: [02 Technical](02_Technical_Requirements_Document.md) · Visuals: [04 Design](04_Design_Brief.md) · Data: [05 Schema](05_Backend_and_Database_Schema.md) · [Docs index](../README.md) |
 
-### Change log v1 → v2
+## Change log v1 → v2
 
 One app, five roles. New screens for ops, EVA, HUD, alerts, rover tasking, Earth view, report and connection loss; new journeys for the killer demo; new state machines for session, alerts, crew, vehicles and links. The v1 planner flow is unchanged apart from route names and the publish step.
 
@@ -259,7 +259,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
 
 ## C. User journeys
 
-### C.1 Planning journey (v1; matches PRD §E.2)
+### C.1 Primary end-to-end journey (matches PRD §E)
 
 1. Open → SCR-01 → **Start planning**.
 2. SCR-02 loads with start marker and POIs; user opens Layers, turns on Slope and Thermal inertia.
@@ -348,7 +348,9 @@ Hab Core process killed → SCR-18 banner on all clients within 3 s → EVA keep
 
 ## E. Diagrams
 
-### E.1 Planner user flow (v1)
+E.1–E.4 are the v1 planner diagrams (planner only; v2 role routes are in §A). E.5–E.10 are new.
+
+### E.1 Overall user flow
 
 ```mermaid
 flowchart TD
@@ -374,7 +376,7 @@ flowchart TD
   BR --> X["Print / export JSON"]
 ```
 
-### E.2 Screen navigation (v1 planner; v2 role routes in §A)
+### E.2 Screen navigation
 
 ```mermaid
 flowchart LR
@@ -407,7 +409,7 @@ flowchart LR
 
 (Undirected links = panels embedded in SCR-02.)
 
-### E.3 Sequence — compute plan (v1)
+### E.3 Sequence — compute plan
 
 ```mermaid
 sequenceDiagram
@@ -436,7 +438,7 @@ sequenceDiagram
   UI-->>U: Status OK / Partial / Over limits
 ```
 
-### E.4 State — plan computation (v1, asynchronous, cancellable)
+### E.4 State — plan computation (asynchronous, cancellable)
 
 ```mermaid
 stateDiagram-v2

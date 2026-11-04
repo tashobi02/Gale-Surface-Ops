@@ -33,18 +33,18 @@
 
 | Output | Path | Consumers |
 | --- | --- | --- |
-| C1 TypeScript mirror of the 05 entities | `web/src/types/schema.ts` | All web subtasks (T05.*, T07.*–T12.*, T14.*) |
+| C1 TypeScript mirror of the 05 entities | `packages/protocol/src/schema.ts` | All web subtasks (T05.*, T07.*–T12.*, T14.*) |
 | C2 site-manifest JSON Schema | `schemas/site-manifest.schema.json` | T03.02, T03.13, T03.14, T07.02, T14.03 |
 | C3 plan-export JSON Schema | `schemas/plan-export.schema.json` | T05.03, T11.01, T11.02 |
 | C4 routing-grid binary layout (frozen by review) | 05 §C mirrors in `config.py`, `schema.ts`, `grid.ts` | T03.10, T03.11, T03.02, T05.02, T05.16 |
 | C5 site-config input layout | `pipeline/sites/README.md` | T03.13, T03.16, T03.17, T04.01, T04.04, T04.05, T04.07, T04.08, T06.10, T12.05 |
-| F4 mock site bundle | `web/public/sites/mock_site/` | T02.03, T07.*, T08.06, T10.01, T14.05 |
+| F4 mock site bundle | `data/sites/mock_site/` | T02.03, T07.*, T08.06, T10.01, T14.05 |
 | AOI intermediates (clipped DEM, ortho, TI; hillshade) | `pipeline/work/` (git-ignored, local runs) | T03.18, T03.20, T04.07, T04.08 |
 | Tiler | `pipeline/src/marswalk_pipeline/tiles.py` | T02.04, T03.19 |
 | `validate-manifest` | `pipeline/src/marswalk_pipeline/validate_manifest.py` | T03.19, T03.22, 06 §D.6 freeze check |
 | Pipeline entry point | `pipeline/src/marswalk_pipeline/__main__.py` | T14.01 (`make data`), T03.19, T03.22 |
-| Bundle v1 and lock file | `web/public/sites/gale_boxwork/`, `pipeline/sources.lock.json` | T05.28, T09.06, T07.*, T14.*, T16.03 |
-| F5 real-grid sample cells | `web/tests/fixtures/real/sample_cells.json` | T05.28, T07.15 |
+| Bundle v1 and lock file | `data/sites/gale_boxwork/`, `pipeline/sources.lock.json` | T05.28, T09.06, T07.*, T14.*, T16.03 |
+| F5 real-grid sample cells | `apps/web/tests/fixtures/real/sample_cells.json` | T05.28, T07.15 |
 | Static PNG layers (fallback) | `pipeline/src/marswalk_pipeline/static_images.py` | T07.16 |
 
 ## Subtasks
@@ -55,18 +55,18 @@
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
 - **Estimate:** 2–3 h
-- **Owns (writes):** `web/src/types/schema.ts`, `schemas/site-manifest.schema.json`, `schemas/plan-export.schema.json`, `pipeline/sites/README.md`, `web/public/sites/gale_boxwork/README.md`, `pipeline/src/marswalk_pipeline/derive.py` (stub → T03.09), `pipeline/src/marswalk_pipeline/flags.py` (stub → T03.10)
-- **Reads:** [05 §A–§F](../specs/05_Backend_and_Database_Schema.md#c-entity-definitions) (every entity, [flag bits](../specs/05_Backend_and_Database_Schema.md#flag-bits), §E.1, §E.3, §F.1–§F.3), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), `pipeline/src/marswalk_pipeline/config.py`, `web/src/compute/grid.ts`, `web/src/compute/protocol.ts`, [map §d C1–C5](_coordination.md#d-contracts-registry)
+- **Owns (writes):** `packages/protocol/src/schema.ts`, `schemas/site-manifest.schema.json`, `schemas/plan-export.schema.json`, `pipeline/sites/README.md`, `data/sites/gale_boxwork/README.md`, `pipeline/src/marswalk_pipeline/derive.py` (stub → T03.09), `pipeline/src/marswalk_pipeline/flags.py` (stub → T03.10)
+- **Reads:** [05 §A–§F](../specs/05_Backend_and_Database_Schema.md#c-entity-definitions) (every entity, [flag bits](../specs/05_Backend_and_Database_Schema.md#flag-bits), §E.1, §E.3, §F.1–§F.3), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), `pipeline/src/marswalk_pipeline/config.py`, `packages/compute/src/grid.ts`, `packages/protocol/src/worker.ts`, [map §d C1–C5](_coordination.md#d-contracts-registry)
 - **Depends on:** none
 - **Parallel with:** T00.01–T00.03, T01.01–T01.05, T02.01, T05.01, T05.03, T06.01
 - **Steps:**
   1. Diff every field of `schema.ts` and both JSON Schemas against 05 §C (names, types, required flags, enums, defaults); fix each mismatch in favour of 05.
   2. C1: record the decision on required PlanResult, Leg and Warning fields (the existing `TODO(decision)`), including whether `conditions`, `radiation` and `stops_timeline` may be absent in the M3 slice (map open point 3). Keep it a visible `TODO(decision)` until the data lead signs off, and list the 05 wording it needs under Spec questions.
   3. C2/C3: model `legend` on the 05 §F.1 example (`type`, `breaks_follow_scenario`, `classes`); record U-11 (store profile arrays in the export; 05 recommends storing) as `TODO(decision)`.
-  4. C4 by review only: compare the `config.py` constants, `FLAG_BITS` in `schema.ts` and `LoadedGrid` in `web/src/compute/grid.ts` with 05 RoutingGrid and flag bits. Report any mismatch to its owner (T03.07, T05.16); do not edit those files.
+  4. C4 by review only: compare the `config.py` constants, `FLAG_BITS` in `schema.ts` and `LoadedGrid` in `packages/compute/src/grid.ts` with 05 RoutingGrid and flag bits. Report any mismatch to its owner (T03.07, T05.16); do not edit those files.
   5. C5: write `pipeline/sites/README.md` — one JSON file per DataSource, Layer, EnvConstant, POI and known offset under `pipeline/sites/<site_id>/`, plus `site.json`, `hazards.geojson`, `low_res_dem.geojson` and `ti_threshold.json`; record the layer ids (`TODO(decision)`; 05 §F.1 uses `slope` and `elevation`).
   6. Move the `hazard_flags` stub from `derive.py` into a new `flags.py`, adding inputs for the HARD_HAZARD and LOW_RES_DEM masks (its docstring says they come from inputs); it keeps raising `NotImplementedError`.
-  7. Check `web/public/sites/gale_boxwork/README.md` still matches 02 §E.1; state contract versions C1–C5 = v1 in the PR description.
+  7. Check `data/sites/gale_boxwork/README.md` still matches 02 §E.1; state contract versions C1–C5 = v1 in the PR description.
 - **Acceptance:**
   - Serves: FR-01, FR-03, FR-07, FR-15, NFR-06 · [05 §C](../specs/05_Backend_and_Database_Schema.md#c-entity-definitions)
   - Every 05 entity (Site, DataSource, Layer, Asset, RoutingGrid, POI, TraversePoint, EnvConstant, MissionScenario, Waypoint, PlanResult, Leg, Warning, PlanExport) has one TypeScript definition and its JSON Schema definition, with field names copied from 05.
@@ -75,7 +75,7 @@
   - Every decision the map lists for C1–C5 is either recorded or left as a visible `TODO(decision)`.
   - The stubs still import: `make test` reports only skipped or todo tests.
 - **Verify:** `make typecheck` · `python3 -m json.tool schemas/site-manifest.schema.json` · `python3 -m json.tool schemas/plan-export.schema.json` · `make test` · `make lint`
-- **Agent brief:** Freeze data contracts C1–C5 from `docs/tasks/_coordination.md` §d. Diff `web/src/types/schema.ts` and `schemas/*.schema.json` against 05 §C and fix them in favour of 05; write `pipeline/sites/README.md`; move the `hazard_flags` stub into `flags.py`. Invent no fields; leave open choices as `TODO(decision)`.
+- **Agent brief:** Freeze data contracts C1–C5 from `docs/tasks/_coordination.md` §d. Diff `packages/protocol/src/schema.ts` and `schemas/*.schema.json` against 05 §C and fix them in favour of 05; write `pipeline/sites/README.md`; move the `hazard_flags` stub into `flags.py`. Invent no fields; leave open choices as `TODO(decision)`.
 - **Conflict notes:** Blocking — merge before T03.02 and before any TASK-03 test or implement PR. Afterwards C1–C3 change only through `contract-change:` subtasks (map §d), and 05 itself only through a `spec-change:` subtask. `derive.py` passes to T03.09 and `flags.py` to T03.10 when this PR merges. This subtask never writes `config.py` or `grid.ts`.
 
 ### T03.02 — Fixture: mock site bundle (manifest, placeholder tiles, tiny grid, sample POI and traverse GeoJSON)
@@ -84,26 +84,26 @@
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
 - **Estimate:** 2–3 h
-- **Owns (writes):** `pipeline/tests/fixtures/make_mock_site.py`, `web/public/sites/mock_site/`, `.gitignore` (append-only), `web/tests/fixtures/README.md` (append-only)
+- **Owns (writes):** `pipeline/tests/fixtures/make_mock_site.py`, `data/sites/mock_site/`, `.gitignore` (append-only), `apps/web/tests/fixtures/README.md` (append-only)
 - **Reads:** [05 §F.1](../specs/05_Backend_and_Database_Schema.md#f1-site-manifest-abridged-aoi-values-illustrative-until-task-01), [05 §F.2](../specs/05_Backend_and_Database_Schema.md#f2-poi-feature), [05 §C](../specs/05_Backend_and_Database_Schema.md#c-entity-definitions) (Site, Asset, RoutingGrid, flag bits, EnvConstant), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10) validation cases, `docs/contracts/tile-grid.md` (C9), [map §e](_coordination.md#e-fixtures-and-mocks) fixture value rule
 - **Depends on:** T03.01 (soft), T02.01 (soft)
 - **Parallel with:** T03.03, T03.04, T03.05, T05.02, T05.03, T02.02
 - **Steps:**
-  1. Write a standard-library-only generator that rebuilds `web/public/sites/mock_site/` byte for byte on every run (fixed `data_version` in the 05 §C Site pattern, sorted JSON keys).
+  1. Write a standard-library-only generator that rebuilds `data/sites/mock_site/` byte for byte on every run (fixed `data_version` in the 05 §C Site pattern, sorted JSON keys).
   2. Manifest values: `crs`, `aoi`, `default_start`, the slope Layer, the DataSource and the solar-max EnvConstant copied verbatim from 05 §F.1; the solar-min EnvConstant from 05 §C EnvConstant; `site_id` `mock_site`.
   3. A tiny routing grid covering `aoi.extent_m`: flat ground, one 20° wall with a single gap (02 §D.2 cases), one no-data patch, one HARD_HAZARD cell and one TI gap; little-endian, row-major, north-up arrays (02 §E.1). Grid dimensions and cell size are declared synthetic parameters.
   4. Placeholder tiles for the coarsest levels of the 05 §F.1 `tile_grid`, laid out and encoded as C9 v1 says.
   5. Sample vectors: the 05 §F.2 POI feature without its image fields (exercises SCR-06's image-missing state, 05 §E.6) and a few traverse points whose sols come from 02 §C.2 and 05 §F.2; any extra POI carries placeholder text.
-  6. Assets with `sha256`, `bytes`, `width`, `height`, `nodata` and `byte_order` computed by the generator; append the `mock_site` negation to `.gitignore` under `# T03.02`; append the F4 section to `web/tests/fixtures/README.md` naming the source of every non-placeholder value.
+  6. Assets with `sha256`, `bytes`, `width`, `height`, `nodata` and `byte_order` computed by the generator; append the `mock_site` negation to `.gitignore` under `# T03.02`; append the F4 section to `apps/web/tests/fixtures/README.md` naming the source of every non-placeholder value.
 - **Acceptance:**
   - Serves: FR-01, FR-02, FR-03, FR-04, FR-17 · [map §e F4](_coordination.md#e-fixtures-and-mocks)
   - Running the generator twice leaves `git status` clean.
-  - `git check-ignore` reports nothing under `web/public/sites/mock_site/` (map open point 17).
-  - The manifest validates against C2; once T03.14 lands, `validate-manifest web/public/sites/mock_site` exits 0.
+  - `git check-ignore` reports nothing under `data/sites/mock_site/` (map open point 17).
+  - The manifest validates against C2; once T03.14 lands, `validate-manifest data/sites/mock_site` exits 0.
   - Every number is a spec example, a spec default or range limit, generator output, a typed placeholder or a declared synthetic parameter.
-- **Verify:** `$(make -s pipeline-python) pipeline/tests/fixtures/make_mock_site.py` (run twice from the repo root) · `git status --porcelain web/public/sites/mock_site` (empty after the second run) · `git check-ignore -v web/public/sites/mock_site/tiles web/public/sites/mock_site/grid` (no output) · `du -sh web/public/sites/mock_site`
-- **Agent brief:** Write `pipeline/tests/fixtures/make_mock_site.py` (standard library only) that generates fixture F4 under `web/public/sites/mock_site/` from the 05 §F.1/§F.2 examples plus declared synthetic shapes. Make it deterministic, commit its output, add the `.gitignore` negation and the fixtures README section. No invented science values.
-- **Conflict notes:** F4 matches C1, C2, C4 and C9 v1; a contract-change to any of them lists T03.02 as a consumer to regenerate. `.gitignore` and `web/tests/fixtures/README.md` are append-only: add at the end, keep both sides on a rebase conflict. Never write mock data under `web/public/sites/gale_boxwork/`.
+- **Verify:** `$(make -s pipeline-python) pipeline/tests/fixtures/make_mock_site.py` (run twice from the repo root) · `git status --porcelain data/sites/mock_site` (empty after the second run) · `git check-ignore -v data/sites/mock_site/tiles data/sites/mock_site/grid` (no output) · `du -sh data/sites/mock_site`
+- **Agent brief:** Write `pipeline/tests/fixtures/make_mock_site.py` (standard library only) that generates fixture F4 under `data/sites/mock_site/` from the 05 §F.1/§F.2 examples plus declared synthetic shapes. Make it deterministic, commit its output, add the `.gitignore` negation and the fixtures README section. No invented science values.
+- **Conflict notes:** F4 matches C1, C2, C4 and C9 v1; a contract-change to any of them lists T03.02 as a consumer to regenerate. `.gitignore` and `apps/web/tests/fixtures/README.md` are append-only: add at the end, keep both sides on a rebase conflict. Never write mock data under `data/sites/gale_boxwork/`.
 
 ### T03.03 — Tests: projection and raster handling (02 §C.1, §C.4)
 
@@ -163,12 +163,12 @@
 - **Window:** pre-event-allowed
 - **Estimate:** 1 h
 - **Owns (writes):** `pipeline/tests/test_grid.py`
-- **Reads:** [05 RoutingGrid](../specs/05_Backend_and_Database_Schema.md#routinggrid), [05 flag bits](../specs/05_Backend_and_Database_Schema.md#flag-bits), [05 Asset](../specs/05_Backend_and_Database_Schema.md#asset), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), `pipeline/src/marswalk_pipeline/grid.py`, `pipeline/src/marswalk_pipeline/config.py`, `web/src/types/schema.ts`
+- **Reads:** [05 RoutingGrid](../specs/05_Backend_and_Database_Schema.md#routinggrid), [05 flag bits](../specs/05_Backend_and_Database_Schema.md#flag-bits), [05 Asset](../specs/05_Backend_and_Database_Schema.md#asset), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), `pipeline/src/marswalk_pipeline/grid.py`, `pipeline/src/marswalk_pipeline/config.py`, `packages/protocol/src/schema.ts`
 - **Depends on:** T03.01 (soft)
 - **Parallel with:** T03.02, T03.03, T03.04, T03.06
 - **Steps:**
   1. `encode_slope_u8`: degrees × 4 in 0.25° steps, NaN → 255; slopes steeper than the encodable range follow the T03.11 decision (Spec questions).
-  2. Flag bit positions equal 05 (NO_DATA 0 … LOW_RES_DEM 4) and match `FLAG_BITS` in `web/src/types/schema.ts`, read as text (C4 mirror check).
+  2. Flag bit positions equal 05 (NO_DATA 0 … LOW_RES_DEM 4) and match `FLAG_BITS` in `packages/protocol/src/schema.ts`, read as text (C4 mirror check).
   3. `write_grid`: the five 02 §E.1 files, little-endian, row-major, north-up; byte sizes equal width × height × item size; f32 no-data NaN and u8 no-data 255 (05 Asset); no TI file when TI is absent.
   4. A grid larger than the 05 limit (`width*height ≤ 4e6`) is refused.
   5. Guard numpy imports with `pytest.importorskip`.
@@ -186,14 +186,14 @@
 - **Window:** pre-event-allowed
 - **Estimate:** 2–3 h
 - **Owns (writes):** `pipeline/tests/test_manifest.py`
-- **Reads:** [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds), [05 Site](../specs/05_Backend_and_Database_Schema.md#site), [05 Asset](../specs/05_Backend_and_Database_Schema.md#asset), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) NFR-09, [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) TASK-03 done-when, `schemas/site-manifest.schema.json`, `web/public/sites/mock_site/` (F4)
+- **Reads:** [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds), [05 Site](../specs/05_Backend_and_Database_Schema.md#site), [05 Asset](../specs/05_Backend_and_Database_Schema.md#asset), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) NFR-09, [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) TASK-03 done-when, `schemas/site-manifest.schema.json`, `data/sites/mock_site/` (F4)
 - **Depends on:** T03.01 (soft), T03.02 (soft)
 - **Parallel with:** T03.03, T03.04, T03.05
 - **Steps:**
   1. Positive case: the F4 mock site passes `validate()` with no problems.
   2. One broken copy per 05 §E.3 rule in a temporary folder — missing asset file, wrong SHA-256, unknown `source_ids`, mismatched grid dimensions, a POI or default start outside the AOI or on an impassable cell, an altered `crs.proj4` — each reported.
   3. `write_manifest` output validates against `schemas/site-manifest.schema.json`.
-  4. Real-bundle tests that skip while `web/public/sites/gale_boxwork/site-manifest.json` is absent: grid values match the 5 m source rasters in `pipeline/work/` at a deterministic set of cells; the site bundle is ≤ 250 MB.
+  4. Real-bundle tests that skip while `data/sites/gale_boxwork/site-manifest.json` is absent: grid values match the 5 m source rasters in `pipeline/work/` at a deterministic set of cells; the site bundle is ≤ 250 MB.
   5. Guard geo and JSON-Schema imports with `pytest.importorskip`.
 - **Acceptance:**
   - Serves: FR-01, FR-15, NFR-06, NFR-09 · [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds)
@@ -201,7 +201,7 @@
   - Red until T03.13 and T03.14 land; the real-bundle tests skip until T03.19.
 - **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_manifest.py` · `make test`
 - **Agent brief:** Turn the skipped stubs in `pipeline/tests/test_manifest.py` into pytest cases for every 05 §E.3 integrity rule, using the F4 mock site and broken copies of it, plus real-bundle checks that skip while the bundle is absent. Guard geo and JSON-Schema imports with `pytest.importorskip`.
-- **Conflict notes:** Tests first (map §h.3): T03.13 and T03.14 branch from this PR; the three merge back to back once both pass. Never write into `web/public/sites/mock_site/` — copy it to a temporary folder for broken cases.
+- **Conflict notes:** Tests first (map §h.3): T03.13 and T03.14 branch from this PR; the three merge back to back once both pass. Never write into `data/sites/mock_site/` — copy it to a temporary folder for broken cases.
 
 ### T03.07 — Implement config (working projection for the AOI) and source acquisition
 
@@ -370,7 +370,7 @@
   - Two runs on the same inputs give byte-identical manifests.
 - **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_manifest.py`
 - **Agent brief:** Implement `sha256_file` and `write_manifest` in `manifest.py`: build `site-manifest.json` from the C5 site-config records and the produced assets with checksums, copying `crs.proj4` from `config.py` byte for byte. Output must be deterministic and valid against `schemas/site-manifest.schema.json`.
-- **Conflict notes:** Stacked on T03.06 with T03.14. The committed `web/public/sites/gale_boxwork/site-manifest.json` is written only by T03.19's run.
+- **Conflict notes:** Stacked on T03.06 with T03.14. The committed `data/sites/gale_boxwork/site-manifest.json` is written only by T03.19's run.
 
 ### T03.14 — Implement `validate-manifest`
 
@@ -392,7 +392,7 @@
 - **Acceptance:**
   - Serves: FR-16, NFR-06, NFR-10 · [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds)
   - T03.06's positive and negative cases pass.
-  - `validate-manifest web/public/sites/mock_site` exits 0; a broken copy exits 1 and names the broken rule.
+  - `validate-manifest data/sites/mock_site` exits 0; a broken copy exits 1 and names the broken rule.
 - **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_manifest.py` · `make validate SITE=mock_site`
 - **Agent brief:** Implement `validate` and `main` in `validate_manifest.py` covering every 05 §E.3 integrity rule plus the schema-version major check; `validate-manifest <site_dir>` exits 1 on any problem. Use the JSON-Schema validator chosen in T14.01.
 - **Conflict notes:** Stacked on T03.06 with T03.13. The console-script name lives in `pipeline/pyproject.toml` (owned by T14.01). The app's dev boot check (T14.03) must agree with these rules.
@@ -409,7 +409,7 @@
 - **Parallel with:** T03.07, T03.08, T03.09, T03.10, T03.11, T03.12, T03.13, T03.14
 - **Steps:**
   1. `python -m marswalk_pipeline <site_id>` reads `pipeline/sites/<site_id>/` and runs acquire → clip/reproject → derive → flags → grid → tiles → vectors → manifest → validate (`CLAUDE.md` §5).
-  2. Intermediates go to `pipeline/work/`; the bundle goes to `web/public/sites/<site_id>/`.
+  2. Intermediates go to `pipeline/work/`; the bundle goes to `data/sites/<site_id>/`.
   3. Stop at the first failing step and name it.
   4. `--help` lists the steps in order; import step modules lazily so `--help` works without the geo stack.
 - **Acceptance:**
@@ -417,7 +417,7 @@
   - `--help` exits 0 and lists the steps in order.
   - A run against the stubs stops at the first unimplemented step and names it; the full end-to-end run is T03.19.
 - **Verify:** `$(make -s pipeline-python) -m marswalk_pipeline --help`
-- **Agent brief:** Write `pipeline/src/marswalk_pipeline/__main__.py` that chains the existing pipeline functions for one site in the `CLAUDE.md` §5 order, writes intermediates to `pipeline/work/` and the bundle to `web/public/sites/<site_id>/`, and stops with the failing step's name. No network outside acquire.
+- **Agent brief:** Write `pipeline/src/marswalk_pipeline/__main__.py` that chains the existing pipeline functions for one site in the `CLAUDE.md` §5 order, writes intermediates to `pipeline/work/` and the bundle to `data/sites/<site_id>/`, and stops with the failing step's name. No network outside acquire.
 - **Conflict notes:** `make data` is wired to this entry point by T14.01 (Makefile owner). Fallback T03.25 may replace this file to route 2 m layers to static images.
 
 ### T03.16 — Write the site record (AOI, default start, data version)
@@ -496,14 +496,14 @@
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
 - **Estimate:** 2–3 h
-- **Owns (writes):** `pipeline/sources.lock.json`, `web/public/sites/gale_boxwork/`
+- **Owns (writes):** `pipeline/sources.lock.json`, `data/sites/gale_boxwork/`
 - **Reads:** `pipeline/sites/gale_boxwork/`, `docs/ops/feasibility/coverage.md`, [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds), [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), `.gitignore`
 - **Depends on:** T03.07–T03.18 (hard: every pipeline step and site-config input), T03.20 (hard: the DEM offset goes into this bundle), T04.01 (hard: manifest checksums must cover the vectors and images, 05 §E.3), T04.03–T04.05 (hard: manifest checksums must cover the vectors and images, 05 §E.3), T04.08 (hard: manifest checksums must cover the vectors and images, 05 §E.3), T06.10 (hard: the manifest carries the EnvConstants and model DataSources), T12.05 (hard: the manifest carries the EnvConstants and model DataSources)
 - **Parallel with:** none
 - **Steps:**
   1. Add the source URLs and versions from `docs/ops/feasibility/coverage.md` to `pipeline/sources.lock.json`.
   2. Run `python -m marswalk_pipeline gale_boxwork` in the pipeline environment; acquisition fills checksums and tool versions.
-  3. Check `validate-manifest web/public/sites/gale_boxwork` exits 0 and, with Wi-Fi off, `python -m http.server` on localhost serves the manifest and a tile (06 §D.3, 10 Nov).
+  3. Check `validate-manifest data/sites/gale_boxwork` exits 0 and, with Wi-Fi off, `python -m http.server` on localhost serves the manifest and a tile (06 §D.3, 10 Nov).
   4. Commit only `site-manifest.json`, `vectors/` and the lock file; tiles, grid and images stay git-ignored (`CLAUDE.md` §2).
   5. Any later asset change is a new `data_version`; never overwrite assets in place (05 §E.6).
 - **Acceptance:**
@@ -512,7 +512,7 @@
   - Allocated case: measured offsets present in manifest `known_offsets_m` (02 §F.1 Data alignment).
   - Total bundle ≤ 250 MB (NFR-09).
   - With the network off, the bundle loads from a static server on localhost.
-- **Verify:** `make validate SITE=gale_boxwork` · `du -sh web/public/sites/gale_boxwork` · `git status --porcelain` (only the manifest, vectors and lock file staged)
+- **Verify:** `make validate SITE=gale_boxwork` · `du -sh data/sites/gale_boxwork` · `git status --porcelain` (only the manifest, vectors and lock file staged)
 - **Agent brief:** Human: run the full pipeline, judge the outputs and commit bundle v1. Agent may drive the commands, summarise validator output and check that no binary or downloaded file is staged.
 - **Conflict notes:** Sole writer of the committed bundle and the lock file; T18.01 later follows up with a new data version. T03.21 and T03.22 start after this merges. Unless cut 4 is called, wait for T04.07's threshold before the final run (Spec questions).
 
@@ -545,19 +545,19 @@
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
 - **Estimate:** 1 h
-- **Owns (writes):** `pipeline/tests/fixtures/make_sample_cells.py`, `web/tests/fixtures/real/sample_cells.json`, `web/tests/fixtures/README.md` (append-only)
+- **Owns (writes):** `pipeline/tests/fixtures/make_sample_cells.py`, `apps/web/tests/fixtures/real/sample_cells.json`, `apps/web/tests/fixtures/README.md` (append-only)
 - **Reads:** [01 FR-03](../specs/01_Product_Requirements_Document.md#fr-03--point-inspection) acceptance, [05 RoutingGrid](../specs/05_Backend_and_Database_Schema.md#routinggrid), [05 §E.1](../specs/05_Backend_and_Database_Schema.md#e1-access-patterns-queries-and-indexes), bundle v1 grid, 5 m intermediates in `pipeline/work/`, [map §e](_coordination.md#e-fixtures-and-mocks)
 - **Depends on:** T03.19 (hard: needs the real bundle)
 - **Parallel with:** T03.22
 - **Steps:**
   1. Choose 10 cells by a deterministic rule stated in the README section; no hand-picked values.
   2. Read elevation and slope p90 at those cells with rasterio from the preprocessed rasters; write `x_m`, `y_m`, cell indices, values and the bundle `data_version`.
-  3. Commit the small JSON and append the F5 section to `web/tests/fixtures/README.md`.
+  3. Commit the small JSON and append the F5 section to `apps/web/tests/fixtures/README.md`.
 - **Acceptance:**
   - Serves: FR-03 · [01 FR-03](../specs/01_Product_Requirements_Document.md#fr-03--point-inspection)
   - Re-running the generator reproduces the JSON byte for byte.
   - Values equal the bundle arrays at the 05 §E.1 addresses.
-- **Verify:** `$(make -s pipeline-python) pipeline/tests/fixtures/make_sample_cells.py` (run twice) · `git diff --exit-code web/tests/fixtures/real/sample_cells.json`
+- **Verify:** `$(make -s pipeline-python) pipeline/tests/fixtures/make_sample_cells.py` (run twice) · `git diff --exit-code apps/web/tests/fixtures/real/sample_cells.json`
 - **Agent brief:** Write `pipeline/tests/fixtures/make_sample_cells.py` that reads 10 deterministically chosen cells from the preprocessed rasters with rasterio and writes fixture F5 for the TypeScript sampling check. Every value comes from the readout; document the selection rule.
 - **Conflict notes:** F5 matches C4 and the bundle v1 `data_version`; a new data version needs a `follow-up:` regeneration. Consumers: T05.28, T07.15. The fixtures README is append-only.
 
@@ -580,7 +580,7 @@
   - Serves: NFR-06, NFR-09 · [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints)
   - The clean re-run reproduces the checksums (06 §D.3, 12 Nov).
   - Bundle ≤ 250 MB; validator and pipeline tests green.
-- **Verify:** in the clone: `$(make -s pipeline-python) -m marswalk_pipeline gale_boxwork` · `make validate SITE=gale_boxwork` · `$(make -s pipeline-python) -m pytest -q pipeline` · `du -sh web/public/sites/gale_boxwork`
+- **Verify:** in the clone: `$(make -s pipeline-python) -m marswalk_pipeline gale_boxwork` · `make validate SITE=gale_boxwork` · `$(make -s pipeline-python) -m pytest -q pipeline` · `du -sh data/sites/gale_boxwork`
 - **Agent brief:** In a fresh clone, rebuild the pipeline environment, re-run the pipeline and compare every asset checksum with the committed manifest; run the pipeline tests and record the bundle size. Write results only to your section of `docs/ops/verification-log.md`.
 - **Conflict notes:** Read-only check in a separate clone; writes only its own verification-log section. A checksum mismatch becomes a `follow-up:` subtask on the owning step.
 

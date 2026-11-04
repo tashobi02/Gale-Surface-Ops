@@ -1,0 +1,12 @@
+{
+  "name": "@marswalk/protocol",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Shared types: site entities, worker messages, Hab Core runtime entities, WebSocket protocol (docs/specs/02, 05)",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}
