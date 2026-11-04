@@ -13,7 +13,7 @@
 
 A habitat-local **surface operations system** for one Mars Exploration Zone at **Gale crater, Mount Sharp** (science stops on the wet-to-dry climate record and boxwork; resource stops on hydrated minerals). Before the EVA, a planner builds a suit-safe route on HiRISE imagery and a 1 m terrain model. During the EVA, a **Hab Core** server in the habitat runs the mission clock and simulation; two crew follow the plan on suit tablets and a HUD; an ops console watches crew, vehicles, comm shadows and the delayed Earth link. The killer demo replays the real **20 May 2024 (sol 4190)** solar particle event: the habitat's own trigger fires before Earth's forecast arrives, and the crew summon a pressurized rover to shelter. Every number is labelled **measured, derived, modelled, assumed, replayed or simulated**. No internet at runtime, no AI-generated numbers.
 
-v2 (2026-11-04) supersedes the v1 planner-only scope; the v1 planner is Tier 0 of v2.
+v2 (2026-11-04) supersedes the v1 planner-only scope; the v1 planner is Tier 0 of v2. The reframe was conceived and directed by Sadman Shaharier Mahim (product & systems lead); Obidit Islam is team lead ([06 §A.1](specs/06_High_Level_Implementation_Plan.md#a1-roles)).
 
 ## Documents
 

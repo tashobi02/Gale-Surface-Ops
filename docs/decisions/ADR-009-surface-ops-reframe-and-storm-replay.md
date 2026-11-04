@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Product — owning spec: [01 §E.1 Killer demo](../specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video) |
 | **Date** | 2026-11-04 |
-| **Status** | Proposed (team decision in the planning chat, 2026-11-04) |
+| **Status** | Proposed by Sadman Shaharier Mahim (product & systems lead), 2026-11-04 |
 | **Related** | [01 §A.4 Exploration Zone framing](../specs/01_Product_Requirements_Document.md#a4-exploration-zone-framing-decided-2026-11-04) · [02 §D.13 Space-weather model](../specs/02_Technical_Requirements_Document.md#d13-space-weather-event-model-fr-37-fr-38) · [ADR-001 Site](ADR-001-site-selection.md) · [Docs index](../README.md#major-proposed-decisions) |
 
 ## Context

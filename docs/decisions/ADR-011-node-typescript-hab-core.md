@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Architecture — owning spec: [02 §A.4](../specs/02_Technical_Requirements_Document.md#a4-why-nodejs--typescript-for-hab-core-proposed-d-12) |
 | **Date** | 2026-11-04 |
-| **Status** | Proposed |
+| **Status** | Proposed by Sadman Shaharier Mahim (product & systems lead), 2026-11-04 |
 | **Related** | [ADR-008 Hab Core](ADR-008-hab-core-local-server.md) · [ops/team.md](../ops/team.md) · [Docs index](../README.md#major-proposed-decisions) |
 
 ## Decision

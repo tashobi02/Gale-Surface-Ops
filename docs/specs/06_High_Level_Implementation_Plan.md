@@ -28,6 +28,13 @@ Team 4 → **6**; scope = surface operations system in three tiers; new tasks TA
 
 ### A.1 Roles
 
+**Leadership (Proposed — sign-off at kickoff, `TODO(decision)`):**
+
+| Position | Person | Responsibilities |
+| --- | --- | --- |
+| **Team lead** | Obidit Islam | Overall lead and team owner: registration, rules and Local Lead contact, final calls, submission, data pipeline (R1) |
+| **Product & systems lead** | Sadman Shaharier Mahim | Conceived and directed the v2 surface-ops reframe (Hab Core, EVA tablet/HUD, rover and vehicle tasking, replayed solar storm, Exploration Zone framing, design direction); owns the killer-demo story and the coherence of specs 01–06; architecture calls between packages; leads the Hab Core (R4) |
+
 | Role | Proposed lead (support) | Owns | Packages / folders | Primary tasks |
 | --- | --- | --- | --- | --- |
 | **R1 Data & GIS** | Obidit (Mishkat) | Every byte of site data and scenario tables | `pipeline/`, `data/sites/`, `scenarios/*/` | TASK-01, 03, 21 (data half) |
@@ -35,7 +42,7 @@ Team 4 → **6**; scope = surface operations system in three tiers; new tasks TA
 | **R3 Map & Planner UI** | Saba | The map component (shared by planner, ops, EVA) and the planner | `apps/web/src/map`, `apps/web/src/ui/screens/scr0*` | TASK-02, 07–11 |
 | **R4 Hab Core** | Sadman (Anjim) | Server, protocol, engine, network kit | `apps/hab-core/`, `packages/protocol/` | TASK-20, 22, 23, 26, 28 |
 | **R5 EVA & Ops UI** | Ridita (Saba) | Suit tablet, HUD, ops console, report view | `apps/web/src/ui/screens/scr1*`, `apps/web/src/net/` | TASK-24, 25, 27 (UI) |
-| **R6 Science, Story & Design** | Obidit for story/submission; Ridita for the design system | POI science content, EZ framing, design system, usability, videos, submission | `docs/`, `data/sites/*/vectors`, `apps/web/src/ui/styles/` | TASK-00 (done), 04 (content), 12, 13, 15, 16, 17, 30 |
+| **R6 Science, Story & Design** | Sadman for the demo story and script; Obidit for submission and the project page; Ridita for the design system | POI science content, EZ framing, design system, usability, videos, submission | `docs/`, `data/sites/*/vectors`, `apps/web/src/ui/styles/` | TASK-00 (done), 04 (content), 12, 13, 15, 16, 17, 30 |
 
 Anjim floats between R2 and R4 because compute v2 (TASK-05b) and the engine (TASK-22) are the two heaviest packages.
 

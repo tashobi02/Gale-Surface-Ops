@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Owner** | Story lead ([06 §C TASK-17](../specs/06_High_Level_Implementation_Plan.md#c-work-packages)) |
+| **Owner** | Sadman Shaharier Mahim, product & systems lead — demo story ([06 §A.1](../specs/06_High_Level_Implementation_Plan.md#a1-roles)); recording with the story lane ([06 §C TASK-17](../specs/06_High_Level_Implementation_Plan.md#c-work-packages)) |
 | **Date** | TODO |
 | **Status** | Skeleton v2 (killer demo) — time slots are Proposed |
 | **Related** | [01 §E Core demonstration scenario](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) · [01 §F.1 Prototype boundary](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video) · [Submission checklist](submission-checklist.md) |

@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Architecture — owning spec: [02 §A.3 Why a habitat server now](../specs/02_Technical_Requirements_Document.md#a3-why-a-habitat-server-now-proposed--reverses-v1-d-02) |
 | **Date** | 2026-11-04 |
-| **Status** | Proposed (team decision in the planning chat, 2026-11-04) |
+| **Status** | Proposed by Sadman Shaharier Mahim (product & systems lead), 2026-11-04 |
 | **Related** | [ADR-002 (superseded)](ADR-002-static-app-no-backend.md) · [02 §A.5 Network model](../specs/02_Technical_Requirements_Document.md#a5-network-model) · [05 §B Persistence](../specs/05_Backend_and_Database_Schema.md#b-persistence-strategy) · [Docs index](../README.md#major-proposed-decisions) |
 
 This record mirrors D-02 v2. The owning spec is the source of truth.

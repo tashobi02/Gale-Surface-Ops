@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Design — owning spec: [04 §A.2 Visual character](../specs/04_Design_Brief.md#a2-visual-character-mission-brutalism) |
 | **Date** | 2026-11-04 |
-| **Status** | Proposed (direction from the team, 2026-11-04) |
+| **Status** | Proposed by Sadman Shaharier Mahim (product & systems lead), 2026-11-04 |
 | **Related** | [04 §A.3 Mission-critical principles](../specs/04_Design_Brief.md#a3-mission-critical-principles-non-negotiable) · [04 §B Design language](../specs/04_Design_Brief.md#b-design-language) · [04 §C.1 Colour tokens](../specs/04_Design_Brief.md#c1-colour-tokens) · [Docs index](../README.md#major-proposed-decisions) |
 
 ## Context

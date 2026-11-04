@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Owner** | Product (this file owns scope and acceptance criteria) |
+| **Owner** | Product (this file owns scope and acceptance criteria) — v2 reframe led by Sadman Shaharier Mahim, product & systems lead; team lead Obidit Islam |
 | **Date** | 2026-11-04 |
 | **Status** | Draft v2 — supersedes v1 (2026-11-02); pending team review |
 | **Related** | [Docs index](../README.md) · [02 Technical](02_Technical_Requirements_Document.md) · [03 App Flow](03_App_Flow_and_Diagrams.md) · [04 Design](04_Design_Brief.md) · [05 Schema](05_Backend_and_Database_Schema.md) · [06 Plan](06_High_Level_Implementation_Plan.md) |
