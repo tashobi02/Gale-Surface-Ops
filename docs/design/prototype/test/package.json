@@ -1,0 +1,15 @@
+{
+  "name": "marswalk-prototype-tests",
+  "private": true,
+  "type": "module",
+  "description": "Chromium tests for the design handoff prototype (layout, audits, interactions). Not part of the product build.",
+  "devDependencies": {
+    "@fontsource/chakra-petch": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/source-serif-4": "^5.3.1",
+    "@sparticuz/chromium": "^153.0.0",
+    "markdownlint-cli2": "^0.24.0",
+    "playwright-core": "^1.64.1"
+  }
+}

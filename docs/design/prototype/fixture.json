@@ -1,0 +1,3232 @@
+{
+ "meta": {
+  "fixture_version": "0.1.0-proto",
+  "date": "2026-11-05",
+  "banner": "PROTOTYPE — illustrative values",
+  "title": "Marswalk Surface Ops (working title)",
+  "team": "CheesySpace",
+  "challenge": "Interplanetary Survival Guide: Martian Map",
+  "disclaimer": "Marswalk Surface Ops is an exploratory hackathon prototype. It is not astronaut operations software. Crew, suit, rover and vehicle states are simulated. Solar events are real historical records replayed on a simulated clock — not a live feed from Mars. Slope limits, speeds, consumables and shelter values are illustrative assumptions from Earth and Apollo-era references. Radio coverage is line-of-sight only.",
+  "disclaimer_src": "01 §F.1",
+  "data_version": "gale_boxwork-2026.11.08",
+  "data_version_src": "04 §C.3 / 05 §F.4",
+  "crs": "IAU_2015:49900 sphere, east-positive, local eqc projection",
+  "crs_proj4": "+proj=eqc +lat_ts=-4.70 +lat_0=-4.70 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs",
+  "schematic": "SCHEMATIC — not real terrain",
+  "ai_use": "No AI computes or generates values in this app."
+ },
+ "nums": {
+  "sol": {
+   "v": 4190,
+   "unit": "sol",
+   "prov": "replayed",
+   "src": "01 §E.1 / D-10"
+  },
+  "ltst_alert": {
+   "v": "13:05",
+   "unit": "LTST",
+   "prov": "simulated",
+   "src": "04 §C.3 / §E.4"
+  },
+  "ltst_k0": {
+   "v": "13:04",
+   "unit": "LTST",
+   "prov": "simulated",
+   "src": "04 §E.4 (event log: EV1 arrived stop 2)"
+  },
+  "ltst_ph": {
+   "v": null,
+   "unit": "LTST",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-21",
+   "fmt": "##:##"
+  },
+  "plan_rev": {
+   "v": 3,
+   "unit": "rev",
+   "prov": "derived",
+   "src": "04 §C.3"
+  },
+  "plan_rev_new": {
+   "v": null,
+   "unit": "rev",
+   "prov": "derived",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "##"
+  },
+  "speed": {
+   "v": 60,
+   "unit": "×",
+   "prov": "simulated",
+   "src": "04 §C.3 / §E.4"
+  },
+  "haven_ev1": {
+   "v": 14,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "04 §E.4 / 04 §E.5 / 04 §E.6"
+  },
+  "o2_ev1": {
+   "v": 71,
+   "unit": "%",
+   "prov": "simulated",
+   "src": "04 §E.4; 02 §E.6 o2_frac 0.71"
+  },
+  "o2_left_ev1": {
+   "v": "5:41",
+   "unit": "h:mm",
+   "prov": "simulated",
+   "src": "04 §E.5"
+  },
+  "eva_ev1": {
+   "v": "2:14",
+   "unit": "h:mm",
+   "prov": "simulated",
+   "src": "04 §E.5"
+  },
+  "dose_ev1_0": {
+   "v": 0.0,
+   "unit": "mGy",
+   "prov": "simulated",
+   "src": "04 §E.4",
+   "disp": "0.0"
+  },
+  "dose_ev1_1": {
+   "v": 0.1,
+   "unit": "mGy",
+   "prov": "simulated",
+   "src": "04 §E.5",
+   "disp": "0.1"
+  },
+  "bearing": {
+   "v": "040",
+   "unit": "°",
+   "prov": "derived",
+   "src": "04 §E.5 / 04 §E.6"
+  },
+  "dist_next": {
+   "v": 0.42,
+   "unit": "km",
+   "prov": "derived",
+   "src": "04 §E.5 / 04 §E.6",
+   "disp": "0.42"
+  },
+  "eta_next": {
+   "v": 9,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "04 §E.5"
+  },
+  "stale_age": {
+   "v": "0:42",
+   "unit": "m:ss",
+   "prov": "simulated",
+   "src": "04 §C.1 (crew markers)"
+  },
+  "link_bars": {
+   "v": 3,
+   "unit": "bars",
+   "prov": "simulated",
+   "src": "04 §E.4 / 04 §E.5"
+  },
+  "haven_ev2": {
+   "v": null,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-05b / TASK-22",
+   "fmt": "##"
+  },
+  "o2_ev2": {
+   "v": null,
+   "unit": "%",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "##"
+  },
+  "o2_left_ev2": {
+   "v": null,
+   "unit": "h:mm",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "#:##"
+  },
+  "dose_ev2": {
+   "v": null,
+   "unit": "mGy",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "#.#"
+  },
+  "eva_ev2": {
+   "v": null,
+   "unit": "h:mm",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "#:##"
+  },
+  "dist_ev2": {
+   "v": null,
+   "unit": "km",
+   "prov": "derived",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "#.##"
+  },
+  "bearing_ev2": {
+   "v": null,
+   "unit": "°",
+   "prov": "derived",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "###"
+  },
+  "eta_ev2": {
+   "v": null,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "##"
+  },
+  "opt1_eta": {
+   "v": 14,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "01 §E.1 (illustrative)"
+  },
+  "opt2_eta": {
+   "v": 41,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "01 §E.1 (illustrative)"
+  },
+  "opt3_eta": {
+   "v": null,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-05b / TASK-21",
+   "fmt": "##"
+  },
+  "opt_dose": {
+   "v": null,
+   "unit": "µGy",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-05b / TASK-21",
+   "fmt": "####"
+  },
+  "opt_drops": {
+   "v": null,
+   "unit": "stops",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-05b / TASK-21",
+   "fmt": "#"
+  },
+  "slope_avoid": {
+   "v": 17,
+   "unit": "°",
+   "prov": "derived",
+   "src": "01 §E.1 (illustrative: rendezvous avoids a 17° slope)"
+  },
+  "eta_summon": {
+   "v": 14,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "01 §E.1 (04 §D.3 example copy says 12; see G-07)"
+  },
+  "light_time": {
+   "v": "14:02",
+   "unit": "mm:ss",
+   "prov": "derived",
+   "src": "04 §E.4"
+  },
+  "next_pass": {
+   "v": 9,
+   "unit": "min",
+   "prov": "derived",
+   "src": "04 §E.4 (MRO)"
+  },
+  "q_up": {
+   "v": 1,
+   "unit": "msg",
+   "prov": "simulated",
+   "src": "04 §E.4"
+  },
+  "q_down": {
+   "v": 0,
+   "unit": "msg",
+   "prov": "simulated",
+   "src": "04 §E.4"
+  },
+  "earth_sent_ago": {
+   "v": 14,
+   "unit": "min",
+   "prov": "derived",
+   "src": "04 §D.2 (advisory example text)"
+  },
+  "lt_range_min": {
+   "v": 3,
+   "unit": "min",
+   "prov": "derived",
+   "src": "01 §A.2 (0.37 AU)"
+  },
+  "lt_range_max": {
+   "v": 22,
+   "unit": "min",
+   "prov": "derived",
+   "src": "01 §A.2 (2.68 AU)"
+  },
+  "asof_ph": {
+   "v": null,
+   "unit": "HH:MM",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-21",
+   "fmt": "##:##"
+  },
+  "rate_now": {
+   "v": null,
+   "unit": "µGy/h",
+   "prov": "replayed",
+   "src": "PLACEHOLDER",
+   "unblocks": "U-15 (RAD sol-4190 series)",
+   "fmt": "####"
+  },
+  "rate_bg": {
+   "v": null,
+   "unit": "µGy/h",
+   "prov": "replayed",
+   "src": "PLACEHOLDER",
+   "unblocks": "U-15 (RAD sol-4190 series)",
+   "fmt": "###"
+  },
+  "sun_elev": {
+   "v": null,
+   "unit": "°",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-06 (Mars24)",
+   "fmt": "##.#"
+  },
+  "event_total": {
+   "v": 8100,
+   "unit": "µGy",
+   "prov": "replayed",
+   "src": "01 FR-37 (NASA, June 2024; published total next to the rover)"
+  },
+  "bg_dose_mSv_day": {
+   "v": 0.64,
+   "unit": "mSv/day",
+   "prov": "measured",
+   "src": "05 §F.1 env_constants (Hassler 2014; solar max)",
+   "disp": "0.64"
+  },
+  "alert_k": {
+   "v": 10,
+   "unit": "× background",
+   "prov": "assumed",
+   "src": "01 FR-38 / 02 §D.13"
+  },
+  "shield_suit": {
+   "v": 1.0,
+   "unit": "factor",
+   "prov": "assumed",
+   "src": "02 §D.13 (A-11)",
+   "disp": "1.0"
+  },
+  "shield_pr": {
+   "v": 0.6,
+   "unit": "factor",
+   "prov": "assumed",
+   "src": "02 §D.13 (A-11)",
+   "disp": "0.6"
+  },
+  "shield_hab": {
+   "v": 0.4,
+   "unit": "factor",
+   "prov": "assumed",
+   "src": "02 §D.13 (A-11)",
+   "disp": "0.4"
+  },
+  "buddy_max": {
+   "v": 200,
+   "unit": "m",
+   "prov": "assumed",
+   "src": "01 FR-35"
+  },
+  "comm_shadow_m": {
+   "v": 120,
+   "unit": "m",
+   "prov": "derived",
+   "src": "04 §D.2 (alert text example)"
+  },
+  "haven_rule": {
+   "v": 30,
+   "unit": "min",
+   "prov": "assumed",
+   "src": "01 D.1 FR-05 / A-08"
+  },
+  "ingress": {
+   "v": 5,
+   "unit": "min",
+   "prov": "assumed",
+   "src": "02 §D.8"
+  },
+  "p_dist": {
+   "v": 6120,
+   "unit": "m",
+   "prov": "modelled",
+   "src": "05 §F.3 (illustrative)"
+  },
+  "p_walk": {
+   "v": 128,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "05 §F.3 (illustrative)"
+  },
+  "p_dwell": {
+   "v": 20,
+   "unit": "min",
+   "prov": "assumed",
+   "src": "05 §F.3 (illustrative)"
+  },
+  "p_total": {
+   "v": 148,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "05 §F.3 (illustrative)"
+  },
+  "p_limit": {
+   "v": 6.0,
+   "unit": "h",
+   "prov": "assumed",
+   "src": "05 §C.1 MissionScenario default",
+   "disp": "6.0"
+  },
+  "p_margin": {
+   "v": 212,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "05 §F.3 (illustrative)"
+  },
+  "p_climb": {
+   "v": 74,
+   "unit": "m",
+   "prov": "derived",
+   "src": "05 §F.3 (illustrative)"
+  },
+  "p_descent": {
+   "v": 74,
+   "unit": "m",
+   "prov": "derived",
+   "src": "05 §F.3 (illustrative)"
+  },
+  "p_maxslope": {
+   "v": 12.6,
+   "unit": "°",
+   "prov": "derived",
+   "src": "05 §F.3 (illustrative)",
+   "disp": "12.6"
+  },
+  "p_walkback": {
+   "v": 3.06,
+   "unit": "km",
+   "prov": "modelled",
+   "src": "05 §F.3 (illustrative)",
+   "disp": "3.06"
+  },
+  "p_walkback_lim": {
+   "v": 5.0,
+   "unit": "km",
+   "prov": "assumed",
+   "src": "05 §C.1 MissionScenario default",
+   "disp": "5.0"
+  },
+  "p_dose": {
+   "v": 0.066,
+   "unit": "mSv",
+   "prov": "modelled",
+   "src": "05 §F.3 (148 min × 0.64 mSv/day)",
+   "disp": "0.066"
+  },
+  "p_dose_lo": {
+   "v": 0.053,
+   "unit": "mSv",
+   "prov": "modelled",
+   "src": "05 §F.3",
+   "disp": "0.053"
+  },
+  "p_dose_hi": {
+   "v": 0.078,
+   "unit": "mSv",
+   "prov": "modelled",
+   "src": "05 §F.3",
+   "disp": "0.078"
+  },
+  "p_dose7": {
+   "v": 0.19,
+   "unit": "mSv",
+   "prov": "modelled",
+   "src": "01 FR-12 (7 h, solar max; 0.187)",
+   "disp": "0.19"
+  },
+  "p_hash": {
+   "v": "3f9a1c07be42",
+   "unit": "hash",
+   "prov": "derived",
+   "src": "05 §F.3 (illustrative)"
+  },
+  "slope_hard": {
+   "v": 15,
+   "unit": "°",
+   "prov": "assumed",
+   "src": "05 §C.1 MissionScenario default"
+  },
+  "slope_hard_new": {
+   "v": 12,
+   "unit": "°",
+   "prov": "assumed",
+   "src": "01 §E.2 step 6"
+  },
+  "slope_caut": {
+   "v": 10,
+   "unit": "°",
+   "prov": "assumed",
+   "src": "05 §C.1 MissionScenario default"
+  },
+  "speed_suit": {
+   "v": 3.3,
+   "unit": "km/h",
+   "prov": "assumed",
+   "src": "01 A-02 (Apollo 17 planning value)",
+   "disp": "3.3"
+  },
+  "dwell_def": {
+   "v": 20,
+   "unit": "min",
+   "prov": "assumed",
+   "src": "05 §C.1 MissionScenario default"
+  },
+  "caut_len": {
+   "v": 80,
+   "unit": "m",
+   "prov": "derived",
+   "src": "05 §F.3 warning CAUTION_SLOPE 1210–1290 m"
+  },
+  "w_from": {
+   "v": 1210,
+   "unit": "m",
+   "prov": "derived",
+   "src": "05 §F.3"
+  },
+  "w_to": {
+   "v": 1290,
+   "unit": "m",
+   "prov": "derived",
+   "src": "05 §F.3"
+  },
+  "stops_n": {
+   "v": 3,
+   "unit": "stops",
+   "prov": "assumed",
+   "src": "03 §C.1 / 01 §E.2 (3-stop demo plan)"
+  },
+  "x_dist": {
+   "v": 1184.2,
+   "unit": "m",
+   "prov": "modelled",
+   "src": "02 §E.2",
+   "disp": "1184.2"
+  },
+  "x_walk": {
+   "v": 26.1,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "02 §E.2",
+   "disp": "26.1"
+  },
+  "x_slope": {
+   "v": 11.4,
+   "unit": "°",
+   "prov": "derived",
+   "src": "02 §E.2",
+   "disp": "11.4"
+  },
+  "x_climb": {
+   "v": 38.0,
+   "unit": "m",
+   "prov": "derived",
+   "src": "02 §E.2",
+   "disp": "38.0"
+  },
+  "x_desc": {
+   "v": 4.5,
+   "unit": "m",
+   "prov": "derived",
+   "src": "02 §E.2",
+   "disp": "4.5"
+  },
+  "x_near_x": {
+   "v": 2905.0,
+   "unit": "m",
+   "prov": "derived",
+   "src": "02 §E.2",
+   "disp": "2905.0"
+  },
+  "x_near_y": {
+   "v": -2410.0,
+   "unit": "m",
+   "prov": "derived",
+   "src": "02 §E.2",
+   "disp": "-2410.0"
+  },
+  "x_t_route": {
+   "v": 412,
+   "unit": "ms",
+   "prov": "measured",
+   "src": "02 §E.2 (timing diagnostic)"
+  },
+  "x_t_est": {
+   "v": 3,
+   "unit": "ms",
+   "prov": "measured",
+   "src": "02 §E.2"
+  },
+  "x_wf": {
+   "v": 610,
+   "unit": "m",
+   "prov": "derived",
+   "src": "02 §E.2"
+  },
+  "x_wt": {
+   "v": 690,
+   "unit": "m",
+   "prov": "derived",
+   "src": "02 §E.2"
+  },
+  "s_x": {
+   "v": 2990.0,
+   "unit": "m",
+   "prov": "assumed",
+   "src": "02 §E.2",
+   "disp": "2990.0"
+  },
+  "s_y": {
+   "v": -2595.0,
+   "unit": "m",
+   "prov": "assumed",
+   "src": "02 §E.2",
+   "disp": "-2595.0"
+  },
+  "s_lat": {
+   "v": -4.74378,
+   "unit": "°",
+   "prov": "derived",
+   "src": "02 §E.2 (illustrative)",
+   "disp": "-4.74378"
+  },
+  "s_lon": {
+   "v": 137.43061,
+   "unit": "°E",
+   "prov": "derived",
+   "src": "02 §E.2 (illustrative)",
+   "disp": "137.43061"
+  },
+  "s_elev": {
+   "v": -3912.4,
+   "unit": "m",
+   "prov": "derived",
+   "src": "02 §E.2 (illustrative)",
+   "disp": "-3912.4"
+  },
+  "s_slope": {
+   "v": 21.75,
+   "unit": "°",
+   "prov": "derived",
+   "src": "02 §E.2",
+   "disp": "21.75"
+  },
+  "s_ti": {
+   "v": 312.0,
+   "unit": "tiu",
+   "prov": "derived",
+   "src": "02 §E.2",
+   "disp": "312.0"
+  },
+  "s_snap": {
+   "v": 19.0,
+   "unit": "m",
+   "prov": "derived",
+   "src": "02 §E.2",
+   "disp": "19.0"
+  },
+  "snap_r": {
+   "v": 50,
+   "unit": "m",
+   "prov": "assumed",
+   "src": "02 §E.2 / FR-06"
+  },
+  "p_sunel": {
+   "v": null,
+   "unit": "°",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-06",
+   "fmt": "##.#"
+  },
+  "p_ltst_start": {
+   "v": null,
+   "unit": "LTST",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-06",
+   "fmt": "##:##"
+  },
+  "p_over_a": {
+   "v": null,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-05",
+   "fmt": "###"
+  },
+  "p_over_b": {
+   "v": null,
+   "unit": "min",
+   "prov": "assumed",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-05",
+   "fmt": "###"
+  },
+  "p_ls": {
+   "v": null,
+   "unit": "°",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-06",
+   "fmt": "###.#"
+  },
+  "p_my": {
+   "v": null,
+   "unit": "MY",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-06",
+   "fmt": "##"
+  },
+  "p_t_haven": {
+   "v": null,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-05b",
+   "fmt": "##"
+  },
+  "r_recv": {
+   "v": null,
+   "unit": "µGy",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22 / TASK-21",
+   "fmt": "####"
+  },
+  "r_unsh": {
+   "v": null,
+   "unit": "µGy",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22 / TASK-21",
+   "fmt": "####"
+  },
+  "r_tshel": {
+   "v": null,
+   "unit": "mm:ss",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "##:##"
+  },
+  "r_stops": {
+   "v": null,
+   "unit": "stops",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "#"
+  },
+  "r_resp": {
+   "v": null,
+   "unit": "mm:ss",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "##:##"
+  },
+  "log_hash": {
+   "v": null,
+   "unit": "sha256",
+   "prov": "derived",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22 (NFR-06)",
+   "fmt": "############"
+  },
+  "ur_battery": {
+   "v": null,
+   "unit": "Wh",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-29",
+   "fmt": "####"
+  },
+  "ur_eta": {
+   "v": null,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-29",
+   "fmt": "##"
+  },
+  "ur_cap": {
+   "v": 5,
+   "unit": "kWh",
+   "prov": "assumed",
+   "src": "02 §D.9 (utility rover battery)"
+  },
+  "hb_ping": {
+   "v": 2,
+   "unit": "s",
+   "prov": "assumed",
+   "src": "02 §E.6 (server PING every 2 s)"
+  },
+  "hb_loss": {
+   "v": 3,
+   "unit": "s",
+   "prov": "assumed",
+   "src": "02 §E.6 / 03 SCR-18 (3 s without PING)"
+  },
+  "reconn": {
+   "v": null,
+   "unit": "s",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-24",
+   "fmt": "#"
+  },
+  "seq": {
+   "v": 412,
+   "unit": "seq",
+   "prov": "simulated",
+   "src": "02 §E.6 SNAPSHOT example"
+  },
+  "stat_missions": {
+   "v": 7,
+   "unit": "missions",
+   "prov": "measured",
+   "src": "04 §E.1 (MRO, Mars Express, MGS, Odyssey, MSL, MAVEN, TGO)"
+  },
+  "stat_types": {
+   "v": 3,
+   "unit": "types",
+   "prov": "assumed",
+   "src": "04 §E.1 / 01 §A.4"
+  },
+  "dem_res": {
+   "v": 1,
+   "unit": "m",
+   "prov": "measured",
+   "src": "05 §F.1 (usgs-gale-dem-1m-v3)"
+  },
+  "ortho_res": {
+   "v": 25,
+   "unit": "cm",
+   "prov": "measured",
+   "src": "00 Docs index (USGS Gale orthophoto 25 cm)"
+  },
+  "grid_cell": {
+   "v": 5,
+   "unit": "m",
+   "prov": "derived",
+   "src": "05 §F.1 grid.cell_m"
+  },
+  "ti_cell": {
+   "v": 100,
+   "unit": "m",
+   "prov": "derived",
+   "src": "05 §F.1 grid.ti_cell_m"
+  },
+  "disp_res": {
+   "v": 2,
+   "unit": "m",
+   "prov": "derived",
+   "src": "05 §F.1 slope layer"
+  },
+  "aoi_half": {
+   "v": 3000,
+   "unit": "m",
+   "prov": "assumed",
+   "src": "05 §F.1 aoi.extent_m (illustrative until TASK-01)"
+  },
+  "mast_h": {
+   "v": 10,
+   "unit": "m",
+   "prov": "assumed",
+   "src": "02 §C.5 L11"
+  },
+  "suit_ant": {
+   "v": 2,
+   "unit": "m",
+   "prov": "assumed",
+   "src": "02 §D.9"
+  },
+  "rover_ant": {
+   "v": 3,
+   "unit": "m",
+   "prov": "assumed",
+   "src": "02 §D.9"
+  },
+  "horizon_2m": {
+   "v": 3.69,
+   "unit": "km",
+   "prov": "derived",
+   "src": "02 §D.11 √(2Rh)",
+   "disp": "3.69"
+  },
+  "horizon_10m": {
+   "v": 8.24,
+   "unit": "km",
+   "prov": "derived",
+   "src": "02 §D.11 √(2Rh)",
+   "disp": "8.24"
+  },
+  "pr_speed": {
+   "v": 10,
+   "unit": "km/h",
+   "prov": "assumed",
+   "src": "02 §D.9 (cited: NASA SEV concept)"
+  },
+  "pr_hard": {
+   "v": 20,
+   "unit": "°",
+   "prov": "assumed",
+   "src": "02 §D.9"
+  },
+  "pr_caut": {
+   "v": 15,
+   "unit": "°",
+   "prov": "assumed",
+   "src": "02 §D.9"
+  },
+  "ur_speed": {
+   "v": 2,
+   "unit": "km/h",
+   "prov": "assumed",
+   "src": "02 §D.9"
+  },
+  "ur_hard": {
+   "v": 25,
+   "unit": "°",
+   "prov": "assumed",
+   "src": "02 §D.9"
+  },
+  "ur_caut": {
+   "v": 20,
+   "unit": "°",
+   "prov": "assumed",
+   "src": "02 §D.9"
+  },
+  "rng_hab": {
+   "v": 10,
+   "unit": "km",
+   "prov": "assumed",
+   "src": "02 §D.11"
+  },
+  "rng_suit": {
+   "v": 2,
+   "unit": "km",
+   "prov": "assumed",
+   "src": "02 §D.11"
+  },
+  "rng_rover": {
+   "v": 5,
+   "unit": "km",
+   "prov": "assumed",
+   "src": "02 §D.11"
+  },
+  "haven_ph1": {
+   "v": null,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-05b / TASK-22",
+   "fmt": "##"
+  },
+  "o2_ph1": {
+   "v": null,
+   "unit": "%",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "##"
+  },
+  "o2left_ph1": {
+   "v": null,
+   "unit": "h:mm",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "#:##"
+  },
+  "eva_ph1": {
+   "v": null,
+   "unit": "h:mm",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "#:##"
+  },
+  "dose_ph1": {
+   "v": null,
+   "unit": "mGy",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "#.#"
+  },
+  "bearing_ph1": {
+   "v": null,
+   "unit": "°",
+   "prov": "derived",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "###"
+  },
+  "dist_ph1": {
+   "v": null,
+   "unit": "km",
+   "prov": "derived",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "#.##"
+  },
+  "eta_ph1": {
+   "v": null,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "##"
+  },
+  "dwell_ph": {
+   "v": null,
+   "unit": "mm:ss",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "##:##"
+  },
+  "rdv_eta_ph": {
+   "v": null,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-05b",
+   "fmt": "##"
+  },
+  "scale_bar": {
+   "v": 200,
+   "unit": "m",
+   "prov": "derived",
+   "src": "05 §F.1 grid.cell_m (1 map unit = 5 m; schematic)"
+  },
+  "pr_eta": {
+   "v": null,
+   "unit": "min",
+   "prov": "modelled",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-05b",
+   "fmt": "##"
+  },
+  "pr_bat": {
+   "v": null,
+   "unit": "Wh",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "not modelled for PR1 (02 §D.9)",
+   "fmt": "—"
+  },
+  "coord_ph": {
+   "v": null,
+   "unit": "°",
+   "prov": "derived",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-02",
+   "fmt": "-#.#####"
+  },
+  "coord_ph2": {
+   "v": null,
+   "unit": "°E",
+   "prov": "derived",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-02",
+   "fmt": "###.#####"
+  },
+  "stale1": {
+   "v": "0:42",
+   "unit": "m:ss",
+   "prov": "simulated",
+   "src": "04 §C.1 (STALE 0:42)"
+  },
+  "ack_t": {
+   "v": null,
+   "unit": "mm:ss",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "##:##"
+  },
+  "sev_dist_ph": {
+   "v": null,
+   "unit": "m",
+   "prov": "derived",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-05b",
+   "fmt": "###"
+  },
+  "rev_ph": {
+   "v": null,
+   "unit": "rev",
+   "prov": "derived",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-22",
+   "fmt": "##"
+  },
+  "relay_el": {
+   "v": 10,
+   "unit": "°",
+   "prov": "assumed",
+   "src": "02 §D.12"
+  },
+  "conj_deg": {
+   "v": 3,
+   "unit": "°",
+   "prov": "assumed",
+   "src": "02 §D.12"
+  }
+ },
+ "site": {
+  "schema_version": "1.0.0",
+  "site_id": "gale_boxwork",
+  "name": "Mount Sharp boxwork, Gale crater",
+  "body": "mars",
+  "data_version": "gale_boxwork-2026.11.05",
+  "crs": {
+   "base": "IAU_2015:49900",
+   "proj4": "+proj=eqc +lat_ts=-4.70 +lat_0=-4.70 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs"
+  },
+  "aoi": {
+   "extent_m": [
+    -3000,
+    -3000,
+    3000,
+    3000
+   ],
+   "src": "05 §F.1 (illustrative until TASK-01)"
+  },
+  "default_start": {
+   "x_m": {
+    "v": -1800,
+    "unit": "m",
+    "prov": "assumed",
+    "src": "05 §F.1"
+   },
+   "y_m": {
+    "v": -1500,
+    "unit": "m",
+    "prov": "assumed",
+    "src": "05 §F.1"
+   },
+   "label": "Habitat / rover"
+  },
+  "hab_mast": {
+   "x_m": {
+    "v": -1800,
+    "unit": "m",
+    "prov": "assumed",
+    "src": "05 §F.1"
+   },
+   "y_m": {
+    "v": -1500,
+    "unit": "m",
+    "prov": "assumed",
+    "src": "05 §F.1"
+   },
+   "height_m": {
+    "v": 10,
+    "unit": "m",
+    "prov": "assumed",
+    "src": "05 §F.1"
+   }
+  },
+  "layers": [
+   {
+    "layer_id": "ortho",
+    "title": "Orthoimage",
+    "category": "optical",
+    "provenance": "measured",
+    "units": "—",
+    "res": "ortho_res",
+    "default_visible": true,
+    "src_ids": [
+     "usgs-gale-ortho-25cm"
+    ],
+    "limitations": "Prototype draws a schematic, not imagery (real basemap after TASK-01/03).",
+    "legend": {
+     "type": "none"
+    }
+   },
+   {
+    "layer_id": "hillshade",
+    "title": "Hillshade",
+    "category": "topographic",
+    "provenance": "derived",
+    "units": "—",
+    "res": "dem_res",
+    "default_visible": true,
+    "src_ids": [
+     "usgs-gale-dem-1m-v3"
+    ],
+    "derived_from": [
+     "elevation"
+    ],
+    "limitations": "Neutral relief; sun azimuth is cosmetic.",
+    "legend": {
+     "type": "none"
+    }
+   },
+   {
+    "layer_id": "elevation",
+    "title": "Elevation",
+    "category": "topographic",
+    "provenance": "measured",
+    "units": "m",
+    "res": "dem_res",
+    "default_visible": false,
+    "src_ids": [
+     "usgs-gale-dem-1m-v3"
+    ],
+    "limitations": "Referenced to MOLA areoid (assumed — verify U-02).",
+    "legend": {
+     "type": "ramp",
+     "lo": {
+      "v": null,
+      "unit": "m",
+      "prov": "measured",
+      "src": "PLACEHOLDER",
+      "unblocks": "TASK-01",
+      "fmt": "####"
+     },
+     "hi": {
+      "v": null,
+      "unit": "m",
+      "prov": "measured",
+      "src": "PLACEHOLDER",
+      "unblocks": "TASK-01",
+      "fmt": "####"
+     }
+    }
+   },
+   {
+    "layer_id": "slope",
+    "title": "Slope",
+    "category": "topographic",
+    "provenance": "derived",
+    "units": "°",
+    "res": "dem_res",
+    "default_visible": false,
+    "src_ids": [
+     "usgs-gale-dem-1m-v3"
+    ],
+    "derived_from": [
+     "elevation"
+    ],
+    "limitations": "Horn slope on 1 m posts; effective DTM resolution is coarser; artifacts possible.",
+    "legend": {
+     "type": "classes",
+     "breaks_follow_scenario": true,
+     "classes": [
+      [
+       0,
+       5,
+       "flat"
+      ],
+      [
+       5,
+       10,
+       "gentle"
+      ],
+      [
+       10,
+       15,
+       "caution"
+      ],
+      [
+       15,
+       25,
+       "over limit"
+      ],
+      [
+       25,
+       90,
+       "steep"
+      ]
+     ]
+    },
+    "src": "05 §F.1"
+   },
+   {
+    "layer_id": "ti",
+    "title": "Thermal inertia",
+    "category": "thermal",
+    "provenance": "derived",
+    "units": "tiu",
+    "res": "ti_cell",
+    "default_visible": false,
+    "src_ids": [
+     "themis-ti-100m"
+    ],
+    "limitations": "Low TI read as 'possible loose fines' (assumed interpretation A-05; threshold U-03).",
+    "legend": {
+     "type": "ramp",
+     "lo": {
+      "v": null,
+      "unit": "tiu",
+      "prov": "derived",
+      "src": "PLACEHOLDER",
+      "unblocks": "U-03",
+      "fmt": "###"
+     },
+     "hi": {
+      "v": null,
+      "unit": "tiu",
+      "prov": "derived",
+      "src": "PLACEHOLDER",
+      "unblocks": "U-03",
+      "fmt": "###"
+     }
+    }
+   },
+   {
+    "layer_id": "comm",
+    "title": "Comm coverage",
+    "category": "hazard",
+    "provenance": "derived",
+    "units": "LOS 0/1",
+    "res": "grid_cell",
+    "default_visible": false,
+    "src_ids": [
+     "usgs-gale-dem-1m-v3"
+    ],
+    "limitations": "Binary line of sight only: no Fresnel zone, diffraction, multipath or link budget (02 §C.5 L11).",
+    "legend": {
+     "type": "hatch",
+     "text": "NO SIGNAL — line of sight only"
+    }
+   },
+   {
+    "layer_id": "haven",
+    "title": "Haven isochrones",
+    "category": "hazard",
+    "provenance": "modelled",
+    "units": "min",
+    "res": "grid_cell",
+    "default_visible": false,
+    "src_ids": [
+     "usgs-gale-dem-1m-v3"
+    ],
+    "limitations": "Planning approximation every 50 m (02 §D.8).",
+    "legend": {
+     "type": "bands",
+     "bands": [
+      "10",
+      "20",
+      "30"
+     ]
+    }
+   },
+   {
+    "layer_id": "traverse",
+    "title": "Curiosity traverse",
+    "category": "mission",
+    "provenance": "measured",
+    "units": "sol",
+    "res": "dem_res",
+    "default_visible": true,
+    "src_ids": [
+     "msl-places"
+    ],
+    "limitations": "Source and tolerance Unresolved (U-04).",
+    "legend": {
+     "type": "line"
+    }
+   },
+   {
+    "layer_id": "pois",
+    "title": "Exploration Zone POIs",
+    "category": "mission",
+    "provenance": "assumed",
+    "units": "—",
+    "res": "grid_cell",
+    "default_visible": true,
+    "src_ids": [
+     "msl-sulfate-unit"
+    ],
+    "limitations": "Curated positions ±15 m (assumed).",
+    "legend": {
+     "type": "poi"
+    }
+   }
+  ],
+  "env_constants": [
+   {
+    "const_id": "rad-gale-dose-eq-solar-max",
+    "quantity": "surface dose equivalent rate",
+    "value": {
+     "v": 0.64,
+     "unit": "mSv/day",
+     "prov": "measured",
+     "src": "05 §F.1 env_constants (Hassler 2014; solar max)",
+     "disp": "0.64"
+    },
+    "low": {
+     "v": 0.52,
+     "unit": "mSv/day",
+     "prov": "measured",
+     "src": "05 §F.1",
+     "disp": "0.52"
+    },
+    "high": {
+     "v": 0.76,
+     "unit": "mSv/day",
+     "prov": "measured",
+     "src": "05 §F.1",
+     "disp": "0.76"
+    },
+    "conditions": {
+     "solar_phase": "max",
+     "location": "Gale crater floor",
+     "period": "2012-2013"
+    },
+    "source_id": "hassler-2014-rad"
+   }
+  ]
+ },
+ "pois": [
+  {
+   "poi_id": "poi-boxwork-ridge",
+   "code": "EZ—SCI 01",
+   "name": "Boxwork ridge",
+   "stop_type": "science",
+   "ez_theme": "Boxwork — groundwater history",
+   "stop_no": 3,
+   "science_objective": "Examine a mineral-cemented ridge and the sandy hollow beside it.",
+   "obj_src": "05 §F.2",
+   "why_it_matters": "Ridges record groundwater moving through fractures as Mars dried.",
+   "why_src": "05 §F.2",
+   "image": {
+    "credit": "NASA/JPL-Caltech",
+    "sol": {
+     "v": 4611,
+     "unit": "sol",
+     "prov": "measured",
+     "src": "05 §F.2"
+    },
+    "date": "2025-07-27",
+    "camera": "Navcam",
+    "counter": "01 / 01",
+    "src": "05 §F.2"
+   },
+   "lat": {
+    "v": -4.6945,
+    "unit": "°",
+    "prov": "assumed",
+    "src": "05 §F.2 (illustrative)",
+    "disp": "-4.6945"
+   },
+   "lon_e": {
+    "v": 137.3869,
+    "unit": "°E",
+    "prov": "assumed",
+    "src": "05 §F.2 (illustrative)",
+    "disp": "137.3869"
+   },
+   "position_source": "Nearest Curiosity waypoint to the imaged ridge (to be confirmed in TASK-04)",
+   "uncertainty": {
+    "v": 15,
+    "unit": "m",
+    "prov": "assumed",
+    "src": "05 §F.2"
+   },
+   "provenance": "assumed",
+   "evidence": [
+    {
+     "text": "Curiosity 2025 boxwork campaign images",
+     "source_id": "msl-places",
+     "src": "01 §A.4"
+    }
+   ]
+  },
+  {
+   "poi_id": "poi-sulfate-ledge",
+   "code": "EZ—RES 02",
+   "name": "Hydrated sulfate ledge",
+   "stop_type": "resource",
+   "ez_theme": "Hydrated sulfates — ISRU water",
+   "stop_no": 2,
+   "science_objective": "Sample sulfate-bearing unit",
+   "obj_src": "04 §E.10",
+   "why_it_matters": "Water for life support and propellant is the first resource a base needs. Hydrated minerals yield less than ice, but Gale has no shallow ice.",
+   "why_src": "01 §A.4",
+   "image": {
+    "credit": "NASA/JPL-Caltech",
+    "sol": {
+     "v": 4171,
+     "unit": "sol",
+     "prov": "measured",
+     "src": "04 §E.10 (illustrative)"
+    },
+    "date": "TODO(verify)",
+    "camera": "Mastcam",
+    "counter": "03 / 08",
+    "src": "04 §E.10"
+   },
+   "lat": {
+    "v": null,
+    "unit": "°",
+    "prov": "assumed",
+    "src": "PLACEHOLDER",
+    "unblocks": "TASK-04",
+    "fmt": "-#.####"
+   },
+   "lon_e": {
+    "v": null,
+    "unit": "°E",
+    "prov": "assumed",
+    "src": "PLACEHOLDER",
+    "unblocks": "TASK-04",
+    "fmt": "###.####"
+   },
+   "position_source": "TODO(verify) — TASK-04",
+   "uncertainty": {
+    "v": 15,
+    "unit": "m",
+    "prov": "assumed",
+    "src": "04 §E.10"
+   },
+   "provenance": "assumed",
+   "evidence": [
+    {
+     "text": "Sulfate-bearing unit identified by Curiosity",
+     "source_id": "msl-sulfate-unit",
+     "src": "05 §C.1 POI example"
+    },
+    {
+     "text": "CRISM summary parameters, if covered (indicative, not a mineral identification)",
+     "source_id": "crism-mtrdr",
+     "src": "01 FR-18"
+    }
+   ]
+  },
+  {
+   "poi_id": "poi-eng-01",
+   "code": "EZ—ENG 01",
+   "name": null,
+   "name_ph": "Name set in TASK-04",
+   "stop_type": "engineering",
+   "ez_theme": "Terrain — loose fines and slopes",
+   "stop_no": 1,
+   "science_objective": "Sand/loose-fines patches, slopes, rock fields near the hab",
+   "obj_src": "01 §A.4",
+   "why_it_matters": "Trafficability for future vehicles and construction.",
+   "why_src": "01 §A.4",
+   "image": null,
+   "lat": {
+    "v": null,
+    "unit": "°",
+    "prov": "assumed",
+    "src": "PLACEHOLDER",
+    "unblocks": "TASK-04",
+    "fmt": "-#.####"
+   },
+   "lon_e": {
+    "v": null,
+    "unit": "°E",
+    "prov": "assumed",
+    "src": "PLACEHOLDER",
+    "unblocks": "TASK-04",
+    "fmt": "###.####"
+   },
+   "position_source": "TODO(verify) — TASK-04",
+   "uncertainty": {
+    "v": null,
+    "unit": "m",
+    "prov": "assumed",
+    "src": "PLACEHOLDER",
+    "unblocks": "TASK-04",
+    "fmt": "##"
+   },
+   "provenance": "assumed",
+   "evidence": [
+    {
+     "text": "Thermal inertia, slope, rover scout images",
+     "source_id": "themis-ti-100m",
+     "src": "01 §A.4"
+    }
+   ]
+  }
+ ],
+ "stops_note": "Stop 2 = resource and stop 3 = Boxwork ridge are fixed by 01 §E.1 and 04 §E.5. Stop 1 = EZ—ENG 01 is Proposed (G-12).",
+ "param_sets": [
+  {
+   "param_set_id": "suit-assumed",
+   "kind": "suit",
+   "title": "EVA suit (assumed)",
+   "provenance": "assumed",
+   "note": "02 §D.9; O₂ 8 h nominal is A-10",
+   "values": [
+    [
+     "Flat speed",
+     "speed_suit"
+    ],
+    [
+     "Hard slope",
+     "slope_hard"
+    ],
+    [
+     "Caution slope",
+     "slope_caut"
+    ],
+    [
+     "Antenna height",
+     "suit_ant"
+    ]
+   ]
+  },
+  {
+   "param_set_id": "pr1-assumed",
+   "kind": "pressurized_rover",
+   "title": "Pressurized rover (SEV-class concept)",
+   "provenance": "assumed",
+   "source_ids": [
+    "nasa-sev-factsheet-2011"
+   ],
+   "note": "Speed and capacity from the NASA SEV concept; slope limit and ingress are assumptions (02 §D.9, U-20)",
+   "values": [
+    [
+     "Flat speed",
+     "pr_speed"
+    ],
+    [
+     "Hard slope",
+     "pr_hard"
+    ],
+    [
+     "Caution slope",
+     "pr_caut"
+    ],
+    [
+     "Ingress",
+     "ingress"
+    ],
+    [
+     "Antenna height",
+     "rover_ant"
+    ]
+   ]
+  },
+  {
+   "param_set_id": "ur1-assumed",
+   "kind": "utility_rover",
+   "title": "Robotic utility rover (T2)",
+   "provenance": "assumed",
+   "note": "02 §D.9",
+   "values": [
+    [
+     "Flat speed",
+     "ur_speed"
+    ],
+    [
+     "Hard slope",
+     "ur_hard"
+    ],
+    [
+     "Caution slope",
+     "ur_caut"
+    ],
+    [
+     "Battery",
+     "ur_cap"
+    ]
+   ]
+  },
+  {
+   "param_set_id": "link-assumed",
+   "kind": "link",
+   "title": "Surface link (assumed)",
+   "provenance": "assumed",
+   "note": "02 §D.11–D.12; U-19",
+   "values": [
+    [
+     "Hab–suit range",
+     "rng_hab"
+    ],
+    [
+     "Suit–suit range",
+     "rng_suit"
+    ],
+    [
+     "Rover–any range",
+     "rng_rover"
+    ],
+    [
+     "Hab mast",
+     "mast_h"
+    ],
+    [
+     "Relay min. elevation",
+     "relay_el"
+    ],
+    [
+     "Conjunction angle",
+     "conj_deg"
+    ]
+   ]
+  },
+  {
+   "param_set_id": "alert-assumed",
+   "kind": "alert",
+   "title": "Alert thresholds (assumed)",
+   "provenance": "assumed",
+   "note": "02 §D.13–D.14; U-19",
+   "values": [
+    [
+     "Trigger",
+     "alert_k"
+    ],
+    [
+     "Buddy max",
+     "buddy_max"
+    ],
+    [
+     "Haven rule",
+     "haven_rule"
+    ]
+   ]
+  },
+  {
+   "param_set_id": "shielding-assumed",
+   "kind": "shielding",
+   "title": "Shielding factors (assumed)",
+   "provenance": "assumed",
+   "note": "A-11: physical shielding is not modelled",
+   "values": [
+    [
+     "EVA suit",
+     "shield_suit"
+    ],
+    [
+     "Pressurized rover",
+     "shield_pr"
+    ],
+    [
+     "Hab",
+     "shield_hab"
+    ]
+   ]
+  }
+ ],
+ "scenario": {
+  "scenario_schema_version": "1.0.0",
+  "scenario_id": "storm-sol4190",
+  "title": "Storm at sol 4190",
+  "site_id": "gale_boxwork",
+  "data_version": "gale_boxwork-2026.11.08",
+  "seed": {
+   "v": 4190,
+   "unit": "seed",
+   "prov": "assumed",
+   "src": "05 §F.4"
+  },
+  "start_utc": "2024-05-20T00:00:00Z",
+  "start_src": "05 §F.4 (illustrative until TASK-21)",
+  "crew": [
+   {
+    "crew_id": "EV1",
+    "suit_param_set": "suit-assumed",
+    "start_offset_s": {
+     "v": 0,
+     "unit": "s",
+     "prov": "assumed",
+     "src": "05 §F.4"
+    }
+   },
+   {
+    "crew_id": "EV2",
+    "suit_param_set": "suit-assumed",
+    "start_offset_s": {
+     "v": 0,
+     "unit": "s",
+     "prov": "assumed",
+     "src": "05 §F.4"
+    }
+   }
+  ],
+  "vehicles": [
+   {
+    "vehicle_id": "PR1",
+    "kind": "pressurized_rover",
+    "param_set": "pr1-assumed",
+    "start_x_m": {
+     "v": -1800,
+     "unit": "m",
+     "prov": "assumed",
+     "src": "05 §F.4"
+    },
+    "start_y_m": {
+     "v": -1500,
+     "unit": "m",
+     "prov": "assumed",
+     "src": "05 §F.4"
+    }
+   }
+  ],
+  "events": [
+   {
+    "event_id": "e1",
+    "t_utc": "2024-05-20T…Z",
+    "kind": "DONKI_RECORD",
+    "provenance": "replayed",
+    "source_id": "donki-2024-05",
+    "payload": {
+     "donki_type": "FLR",
+     "summary": "X-class flare (far side from Earth; class estimated from Solar Orbiter)"
+    },
+    "src": "05 §F.4"
+   },
+   {
+    "event_id": "e2",
+    "t_utc": "2024-05-20T…Z",
+    "kind": "EARTH_MESSAGE",
+    "provenance": "simulated",
+    "payload": {
+     "body": "SEP event in progress. Recommend shelter."
+    },
+    "src": "05 §F.4"
+   }
+  ],
+  "source_ids": [
+   "rad-sol4190",
+   "donki-2024-05",
+   "naif-de440s",
+   "esa-tgo-spk"
+  ]
+ },
+ "dose_series": {
+  "series_id": "rad-sol4190",
+  "quantity": "surface absorbed dose rate",
+  "unit": "µGy/h",
+  "samples": null,
+  "samples_src": "PLACEHOLDER (U-15)",
+  "method": "TBD: archive | digitised | template_scaled (02 §C.5 L9)",
+  "provenance": "replayed",
+  "source_id": "rad-sol4190",
+  "label": "replayed — Curiosity RAD, 20 May 2024",
+  "shape_note": "Shape is a placeholder until U-15 is resolved.",
+  "integral_check": {
+   "expected_ugy": {
+    "v": 8100,
+    "unit": "µGy",
+    "prov": "replayed",
+    "src": "01 FR-37 (NASA, June 2024; published total next to the rover)"
+   },
+   "computed_ugy": {
+    "v": null,
+    "unit": "µGy",
+    "prov": "replayed",
+    "src": "PLACEHOLDER",
+    "unblocks": "U-15",
+    "fmt": "####"
+   }
+  }
+ },
+ "earth_link": {
+  "step_s": {
+   "v": 60,
+   "unit": "s",
+   "prov": "derived",
+   "src": "05 §C.2 EarthLinkTable"
+  },
+  "rows": null,
+  "rows_src": "PLACEHOLDER (U-18 / TASK-21)",
+  "kernels": [
+   "naif0012.tls",
+   "de440s.bsp",
+   "pck00011.tpc",
+   "mro_psp*.bsp (TODO verify)",
+   "maven_orb_rec_*.bsp (TODO verify)",
+   "em16_tgo_* (ESA, TODO verify)"
+  ],
+  "kernels_src": "02 §C.5 L10 — names unverified (U-18)",
+  "passes": [
+   {
+    "orbiter": "mro",
+    "start_utc": "…",
+    "end_utc": "…",
+    "max_elev_deg": {
+     "v": null,
+     "unit": "°",
+     "prov": "derived",
+     "src": "PLACEHOLDER",
+     "unblocks": "U-18",
+     "fmt": "##"
+    }
+   }
+  ]
+ },
+ "options": [
+  {
+   "option_id": "o1",
+   "kind": "VEHICLE_RENDEZVOUS",
+   "label": "Rendezvous with PR1",
+   "rank": 1,
+   "crew_ids": [
+    "EV1",
+    "EV2"
+   ],
+   "eta": "opt1_eta",
+   "dose": "opt_dose",
+   "drops": "opt_drops",
+   "violations": [],
+   "approval": false,
+   "note": "Rendezvous point avoids a 17° slope.",
+   "note_src": "01 §E.1"
+  },
+  {
+   "option_id": "o2",
+   "kind": "ABORT_TO_HAB",
+   "label": "Abort to hab",
+   "rank": 2,
+   "crew_ids": [
+    "EV1",
+    "EV2"
+   ],
+   "eta": "opt2_eta",
+   "dose": "opt_dose",
+   "drops": "opt_drops",
+   "violations": [],
+   "approval": false,
+   "note": "On foot to the hab; no vehicle needed.",
+   "note_src": "02 §D.8"
+  },
+  {
+   "option_id": "o3",
+   "kind": "CONTINUE_SKIP",
+   "label": "Continue — skip stops",
+   "rank": 3,
+   "crew_ids": [
+    "EV1",
+    "EV2"
+   ],
+   "eta": "opt3_eta",
+   "dose": "opt_dose",
+   "drops": "opt_drops",
+   "violations": [
+    "HAVEN_TIME_EXCEEDED?"
+   ],
+   "approval": true,
+   "note": "Needs ops approval (03 SCR-14).",
+   "note_src": "03 SCR-14"
+  }
+ ],
+ "alerts": {
+  "RADIATION_ALERT": {
+   "level": "warning",
+   "text": "Shelter now — radiation surge",
+   "src": "04 §D.2"
+  },
+  "COMM_SHADOW": {
+   "level": "caution",
+   "text": "Comm shadow in 120 m — stay with EV2",
+   "src": "04 §D.2"
+  },
+  "LINK_LOST": {
+   "level": "caution",
+   "text": "No hab link — operating on cached plan",
+   "src": "03 §D / 04 §D.5"
+  },
+  "EARTH_FORECAST": {
+   "level": "advisory",
+   "text": "Earth forecast received (sent 14 min ago)",
+   "src": "04 §D.2"
+  },
+  "RELAY_PASS": {
+   "level": "advisory",
+   "text": "Relay pass starting",
+   "src": "04 §D.2"
+  },
+  "CONSUMABLES_LOW": {
+   "level": "caution",
+   "text": "Return to hab soon — oxygen low",
+   "src": "PROPOSED copy (04 §D.4 grammar)"
+  },
+  "BUDDY_SEPARATION": {
+   "level": "caution",
+   "text": "Rejoin EV2 — buddy separation",
+   "src": "PROPOSED copy"
+  },
+  "HAVEN_TIME_EXCEEDED": {
+   "level": "warning",
+   "text": "Head to hab now — haven time exceeded",
+   "src": "PROPOSED copy"
+  }
+ },
+ "reject": {
+  "FORBIDDEN_ROLE": "Not allowed for this role — ask ops",
+  "NO_LINK": "Queued — sends when link returns",
+  "INVALID": "Command not valid now — check the option",
+  "NO_RENDEZVOUS": "Rover can't reach you here — moving rendezvous to ridge foot",
+  "BUSY": "Rover is busy — wait for the current task"
+ },
+ "log": [
+  {
+   "seq": {
+    "v": 412,
+    "unit": "seq",
+    "prov": "simulated",
+    "src": "02 §E.6 SNAPSHOT example"
+   },
+   "t": "ltst_k0",
+   "kind": "ARRIVED_STOP",
+   "actor": "system",
+   "text": "EV1 arrived stop 2",
+   "prov": "simulated",
+   "src": "04 §E.4"
+  },
+  {
+   "seq": {
+    "v": 420,
+    "unit": "seq",
+    "prov": "simulated",
+    "src": "05 §F.6"
+   },
+   "t": "ltst_alert",
+   "kind": "ALERT_RAISED",
+   "actor": "system",
+   "text": "Radiation alert",
+   "prov": "replayed",
+   "src": "04 §E.4 / 05 §F.6"
+  },
+  {
+   "seq": {
+    "v": 421,
+    "unit": "seq",
+    "prov": "simulated",
+    "src": "05 §F.6"
+   },
+   "t": "ltst_ph",
+   "kind": "OPTIONS_PROPOSED",
+   "actor": "system",
+   "text": "Options proposed (rendezvous, abort)",
+   "prov": "modelled",
+   "src": "05 §F.6"
+  },
+  {
+   "seq": {
+    "v": 422,
+    "unit": "seq",
+    "prov": "simulated",
+    "src": "05 §F.6"
+   },
+   "t": "ltst_ph",
+   "kind": "VEHICLE_DISPATCHED",
+   "actor": "eva:EV1",
+   "text": "PR1 dispatched",
+   "prov": "modelled",
+   "src": "05 §F.6"
+  },
+  {
+   "seq": {
+    "v": null,
+    "unit": "seq",
+    "prov": "simulated",
+    "src": "PLACEHOLDER",
+    "unblocks": "TASK-22",
+    "fmt": "###"
+   },
+   "t": "ltst_ph",
+   "kind": "ALERT_RAISED",
+   "actor": "system",
+   "text": "Comm shadow ahead",
+   "prov": "derived",
+   "src": "03 §C.6 step 7"
+  },
+  {
+   "seq": {
+    "v": null,
+    "unit": "seq",
+    "prov": "simulated",
+    "src": "PLACEHOLDER",
+    "unblocks": "TASK-22",
+    "fmt": "###"
+   },
+   "t": "ltst_ph",
+   "kind": "EARTH_MSG_DELIVERED",
+   "actor": "system",
+   "text": "Earth forecast delivered",
+   "prov": "simulated",
+   "src": "03 §C.6 step 8"
+  },
+  {
+   "seq": {
+    "v": null,
+    "unit": "seq",
+    "prov": "simulated",
+    "src": "PLACEHOLDER",
+    "unblocks": "TASK-22",
+    "fmt": "###"
+   },
+   "t": "ltst_ph",
+   "kind": "CREW_SHELTERED",
+   "actor": "system",
+   "text": "EV1, EV2 sheltered — PR1",
+   "prov": "simulated",
+   "src": "03 §C.6 step 9"
+  },
+  {
+   "seq": {
+    "v": null,
+    "unit": "seq",
+    "prov": "simulated",
+    "src": "PLACEHOLDER",
+    "unblocks": "TASK-22",
+    "fmt": "###"
+   },
+   "t": "ltst_ph",
+   "kind": "EVA_ENDED",
+   "actor": "ops",
+   "text": "EVA ended",
+   "prov": "simulated",
+   "src": "03 §C.6 step 10"
+  }
+ ],
+ "snapshot_example": {
+  "v": 1,
+  "type": "SNAPSHOT",
+  "seq": {
+   "v": 412,
+   "unit": "seq",
+   "prov": "simulated",
+   "src": "02 §E.6 SNAPSHOT example"
+  },
+  "sim_time": "2024-05-20T13:05:00Z",
+  "sim_time_src": "02 §E.6 (UTC; NOT the LTST in 04 §C.3 — G-14)",
+  "session": {
+   "session_id": "s-0007",
+   "scenario_id": "storm-sol4190",
+   "data_version": "gale_boxwork-2026.11.08",
+   "clock": {
+    "speed": {
+     "v": 60,
+     "unit": "×",
+     "prov": "simulated",
+     "src": "04 §C.3 / §E.4"
+    },
+    "paused": false
+   }
+  },
+  "plan": {
+   "plan_revision": {
+    "v": 3,
+    "unit": "rev",
+    "prov": "derived",
+    "src": "04 §C.3"
+   }
+  },
+  "crew": [
+   {
+    "crew_id": "EV1",
+    "x_m": {
+     "v": 2410.5,
+     "unit": "m",
+     "prov": "simulated",
+     "src": "02 §E.6",
+     "disp": "2410.5"
+    },
+    "y_m": {
+     "v": -1875.0,
+     "unit": "m",
+     "prov": "simulated",
+     "src": "02 §E.6",
+     "disp": "-1875.0"
+    },
+    "o2_frac": {
+     "v": 0.71,
+     "unit": "fraction",
+     "prov": "simulated",
+     "src": "02 §E.6",
+     "disp": "0.71"
+    },
+    "dose_event_ugy": {
+     "v": 0,
+     "unit": "µGy",
+     "prov": "simulated",
+     "src": "02 §E.6"
+    },
+    "linked": true,
+    "haven_min": {
+     "v": 18.4,
+     "unit": "min",
+     "prov": "modelled",
+     "src": "02 §E.6 (04 §E.4 shows 14: G-14)",
+     "disp": "18.4"
+    },
+    "haven_kind": "vehicle"
+   }
+  ],
+  "vehicles": [
+   {
+    "vehicle_id": "PR1",
+    "kind": "pressurized_rover",
+    "x_m": {
+     "v": -1800,
+     "unit": "m",
+     "prov": "simulated",
+     "src": "02 §E.6"
+    },
+    "y_m": {
+     "v": -1500,
+     "unit": "m",
+     "prov": "simulated",
+     "src": "02 §E.6"
+    },
+    "state": "PARKED"
+   }
+  ],
+  "alerts": [],
+  "link": {
+   "earth": {
+    "light_time_s": {
+     "v": null,
+     "unit": "s",
+     "prov": "derived",
+     "src": "PLACEHOLDER",
+     "unblocks": "U-18",
+     "fmt": "###"
+    },
+    "blackout": false
+   }
+  },
+  "provenance": {
+   "crew.o2_frac": "simulated",
+   "crew.haven_min": "modelled",
+   "link.earth.light_time_s": "derived"
+  }
+ },
+ "sources": [
+  {
+   "id": "usgs-gale-dem-1m-v3",
+   "code": "DS—01",
+   "title": "Mars MSL Gale Merged DEM 1m",
+   "publisher": "USGS Astrogeology Science Center",
+   "authors": "Parker, T.; Calef III, F. J.",
+   "missions": "MRO, Mars Express (ESA), MGS",
+   "instr": "HiRISE, CTX, HRSC, MOLA",
+   "version": "v3",
+   "res": "dem_res",
+   "credit": "Please credit authors",
+   "licence": "Use constraints: none",
+   "url": "https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_dem_1m",
+   "acc": "2026-11-02",
+   "note": "HRSC controlled to MOLA (~100 m horizontal, ~1 m vertical)",
+   "layer": "elevation",
+   "src": "05 §F.1"
+  },
+  {
+   "id": "usgs-gale-ortho-25cm",
+   "code": "DS—02",
+   "title": "Mars MSL Gale Merged Orthophoto Mosaic 25 cm",
+   "publisher": "USGS Astrogeology Science Center",
+   "missions": "MRO",
+   "instr": "HiRISE",
+   "version": "TODO(verify)",
+   "res": "ortho_res",
+   "credit": "NASA/JPL/UArizona/USGS (TODO verify wording)",
+   "licence": "TODO(verify)",
+   "url": "https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_orthophoto_mosaic_25cm",
+   "acc": "2026-11-02",
+   "layer": "ortho",
+   "src": "02 Sources"
+  },
+  {
+   "id": "themis-ti-100m",
+   "code": "DS—03",
+   "title": "THEMIS Thermal Inertia Mosaic (quantitative, 100 m)",
+   "publisher": "USGS Astrogeology / ASU",
+   "missions": "Mars Odyssey",
+   "instr": "THEMIS",
+   "version": "TODO(verify)",
+   "res": "ti_cell",
+   "credit": "TODO(verify)",
+   "licence": "TODO(verify)",
+   "url": "https://astrogeology.usgs.gov/search/map/themis_thermal_inertia_mosaic_quantitative_30s060e_100mpp",
+   "acc": "2026-11-02",
+   "layer": "ti",
+   "src": "02 Sources"
+  },
+  {
+   "id": "hassler-2014-rad",
+   "code": "DS—04",
+   "title": "Hassler et al. 2014 — MSL RAD surface radiation (background dose equivalent)",
+   "publisher": "Science (journal)",
+   "missions": "MSL",
+   "instr": "RAD",
+   "version": "—",
+   "credit": "Hassler et al. 2014; Simonsen et al. 2024",
+   "licence": "—",
+   "url": "",
+   "acc": "2026-11-02",
+   "note": "Via Mars Scientific Context §9; add DOI in TASK-04",
+   "layer": "",
+   "src": "02 Sources"
+  },
+  {
+   "id": "rad-sol4190",
+   "code": "DS—05",
+   "title": "MSL RAD dose rate, sol 4190 (20 May 2024 solar particle event)",
+   "publisher": "NASA PDS PPI (availability Unresolved U-15)",
+   "missions": "MSL",
+   "instr": "RAD",
+   "version": "PLACEHOLDER",
+   "credit": "NASA/JPL-Caltech/SwRI (TODO verify)",
+   "licence": "TODO(verify)",
+   "url": "",
+   "acc": "2026-11-04",
+   "note": "Event total about 8,100 µGy (NASA, June 2024; replace secondary URL with nasa.gov in TASK-04)",
+   "layer": "",
+   "src": "01 FR-37"
+  },
+  {
+   "id": "donki-2024-05",
+   "code": "DS—06",
+   "title": "NASA CCMC DONKI — FLR, CME, SEP, WSA-ENLIL records (May 2024)",
+   "publisher": "NASA CCMC",
+   "missions": "—",
+   "instr": "—",
+   "version": "experimental research information (CCMC label)",
+   "credit": "NASA CCMC DONKI",
+   "licence": "TODO(verify)",
+   "url": "https://webtools.ccmc.gsfc.nasa.gov/DONKI/",
+   "acc": "2026-11-04",
+   "layer": "",
+   "src": "02 §C.5 L8"
+  },
+  {
+   "id": "naif-de440s",
+   "code": "DS—07",
+   "title": "NAIF SPICE generic kernels (de440s, naif0012, pck00011)",
+   "publisher": "NASA NAIF / JPL",
+   "missions": "—",
+   "instr": "—",
+   "version": "TODO(verify)",
+   "credit": "NASA NAIF",
+   "licence": "TODO(verify)",
+   "url": "https://naif.jpl.nasa.gov/naif/",
+   "acc": "2026-11-04",
+   "layer": "",
+   "src": "02 §C.5 L10"
+  },
+  {
+   "id": "esa-tgo-spk",
+   "code": "DS—08",
+   "title": "ESA SPICE service — ExoMars TGO trajectory kernels",
+   "publisher": "ESA",
+   "missions": "TGO (ESA)",
+   "instr": "—",
+   "version": "TODO(verify) — U-18",
+   "credit": "ESA SPICE service",
+   "licence": "TODO(verify)",
+   "url": "https://www.cosmos.esa.int/web/spice",
+   "acc": "2026-11-04",
+   "layer": "",
+   "src": "02 §C.5 L10"
+  },
+  {
+   "id": "nasa-sev-factsheet-2011",
+   "code": "DS—09",
+   "title": "NASA Space Exploration Vehicle concept fact sheet FS-2011-08-045-JSC",
+   "publisher": "NASA JSC",
+   "missions": "—",
+   "instr": "—",
+   "version": "2011",
+   "credit": "NASA",
+   "licence": "—",
+   "url": "https://www.nasa.gov/wp-content/uploads/2015/08/464826main_sev_factsheet_508.pdf",
+   "acc": "2026-11-04",
+   "layer": "",
+   "src": "02 Sources v2"
+  },
+  {
+   "id": "msl-places",
+   "code": "DS—10",
+   "title": "PDS MSL Analyst's Notebook / PLACES traverse",
+   "publisher": "NASA PDS Geosciences",
+   "missions": "MSL",
+   "instr": "—",
+   "version": "TODO(verify) — U-04",
+   "credit": "NASA/JPL-Caltech",
+   "licence": "TODO(verify)",
+   "url": "https://pds-geosciences.wustl.edu/workshops/LPSC2023/2166.pdf",
+   "acc": "2026-11-02",
+   "layer": "traverse",
+   "src": "02 Sources"
+  }
+ ],
+ "team": [
+  {
+   "name": "Obidit Islam",
+   "role": "Team lead · data"
+  },
+  {
+   "name": "Sadman Shaharier Mahim",
+   "role": "Product & systems lead · Hab Core"
+  },
+  {
+   "name": "Saba Atharique",
+   "role": "Frontend · design"
+  },
+  {
+   "name": "Mishkat Ahmed Khan",
+   "role": "Compute · data"
+  },
+  {
+   "name": "Anjim Hossain",
+   "role": "Compute · integration"
+  },
+  {
+   "name": "Ridita Alam",
+   "role": "Design · frontend"
+  }
+ ],
+ "handoff": {
+  "gaps": [
+   [
+    "G-01",
+    "04 §E.5, §F Responsive row; 01 FR-32",
+    "EVA is portrait-only in the specs; the team now wants landscape.",
+    "Added as a **Proposed** deviation with draft patch text (see Deviations) and Unresolved U-30."
+   ],
+   [
+    "G-02",
+    "04 §D.1 vs §A.3 #4 / §E.5",
+    "Alert bar is \"hidden\" when nominal, but fixed geography says top and \"fixed, 64 px\".",
+    "The 64 px slot is always reserved. On the EVA tablet it shows a quiet status line when there is no alert (team feedback 2026-11-05, DV-03); ops and HUD keep it empty. The alert bar replaces the line in the same slot, so nothing shifts."
+   ],
+   [
+    "G-03",
+    "02 §E.6 EVENT; 05 Warning.severity vs 04 §C.1",
+    "`severity:\"blocked\"` and `caution|blocked|unknown` versus the rename `blocked → warning`; 05 Alert.level uses warning/caution/advisory.",
+    "Runtime alerts use 05 `level`; planner warnings keep 05's enum and render as the ⬣ warning icon."
+   ],
+   [
+    "G-04",
+    "05 §F.6 vs 04 §D.2",
+    "Log example \"Radiation surge — shelter now\" vs the action — reason grammar.",
+    "04 wins: \"Shelter now — radiation surge\". 05 §F.6 should be corrected."
+   ],
+   [
+    "G-05",
+    "04 §E.4/E.5 vs 05 Crew, 02 §C.5 L9",
+    "Dose shown in mGy; the schema stores µGy and forbids Sv conversion.",
+    "Literal example strings in the prototype; the unit formatter is a TASK-24 item."
+   ],
+   [
+    "G-06",
+    "04 §E.4 vs §E.5",
+    "EV1 dose 0.0 mGy vs 0.1 mGy at apparently the same moment.",
+    "0.0 before the alert, 0.1 from the alert; both cited."
+   ],
+   [
+    "G-07",
+    "04 §D.3 vs 01 §E.1",
+    "Confirmation copy says \"ETA 12 min\"; the rendezvous option is 14 min.",
+    "14 min used."
+   ],
+   [
+    "G-08",
+    "04 §D.2 vs 03 §C.6 step 7",
+    "\"Comm shadow in 120 m — stay with EV2\" vs \"Comm shadow ahead — …\".",
+    "First is the caution-bar text; second is the journey label."
+   ],
+   [
+    "G-09",
+    "03 §B, 04 §B.2",
+    "No mode named for SCR-00 or SCR-18.",
+    "SCR-00 = OPS (**Proposed**); SCR-18 inherits the host mode."
+   ],
+   [
+    "G-10",
+    "03 §B SCR-05",
+    "States row omits Over limits although the content and 03 §E.4 include it.",
+    "Added."
+   ],
+   [
+    "G-11",
+    "04 §E.10 vs team codes",
+    "\"Number is the POI's order in pois.geojson\" vs codes SCI 01 / RES 02 / ENG 01 that look per-type.",
+    "The three codes used as given. Unresolved U-34."
+   ],
+   [
+    "G-12",
+    "01 §E.1 + 04 §E.5",
+    "Only stop 2 (resource) and stop 3 (Boxwork ridge) are fixed.",
+    "Stop 1 = EZ—ENG 01 with a placeholder name (**Proposed**)."
+   ],
+   [
+    "G-13",
+    "02 §E.2 / §E.6 vs 05 §F.1–F.3",
+    "Illustrative coordinates disagree (boxwork at 2410/−1875 vs 410/325; hab −1800/−1500).",
+    "Map is schematic; metre coordinates only for the 02 §E.2 sample and the 05 §F.1 hab."
+   ],
+   [
+    "G-14",
+    "02 §E.6 vs 04",
+    "Snapshot haven 18.4 min vs 14 min; `sim_time` 13:05Z vs LTST 13:05 (different clocks).",
+    "14 min used; UTC and LTST kept separate and labelled."
+   ],
+   [
+    "G-15",
+    "04 §C.1",
+    "PRINT defines only four colours.",
+    "Neutral print tokens added as **Proposed** (text-2, edge, hairline, advisory, unknown). Unresolved U-33."
+   ],
+   [
+    "G-16",
+    "04 §C.1",
+    "\"⬣ octagon\": U+2B23 is a hexagon.",
+    "An octagon is drawn, per the word."
+   ],
+   [
+    "G-17",
+    "03 SCR-13 vs 04 §E.6",
+    "\"Five values\" vs a diagram that also shows STOP 3, 5:41 LEFT, SIM.",
+    "Those are sub-labels of the five values (**Proposed** reading)."
+   ],
+   [
+    "G-18",
+    "Artifact host vs 03 §A",
+    "The host only passes plain `#name` hashes, not `#/path`.",
+    "Router accepts both; links use `#scr-12-walking-landscape`; the UI shows the 03 §A route."
+   ],
+   [
+    "G-19",
+    "04 §G vs prototype brief",
+    "Google Fonts in a prototype vs offline self-hosted WOFF2 in product.",
+    "Prototype only. Product self-hosts WOFF2; licences pending (U-27, U-40)."
+   ],
+   [
+    "G-20",
+    "04 §F",
+    "\"ops < 1024 shows a notice\" vs a requested 1024 preview.",
+    "1024 shows one-drawer mode; a 900 px frame shows the notice."
+   ],
+   [
+    "G-21",
+    "04 §C.6 / §D.5",
+    "The brief's own prose says \"live values\".",
+    "Documentation wording only; UI copy says replayed / simulated / computed."
+   ],
+   [
+    "G-22",
+    "04 §E.7 vs landscape SCR-14",
+    "A right panel at 60 % width would have covered the O₂ block (first landscape layout).",
+    "Superseded by landscape v2: the panel covers only the map column (about 53 %), so HAVEN, O₂ and NEXT stay visible and no echo is used."
+   ],
+   [
+    "G-23",
+    "Unresolved numbering",
+    "04's last ID is U-27, but U-28 and U-29 are used by 03.",
+    "New items start at U-30."
+   ],
+   [
+    "G-24",
+    "EVA landscape \"quadrant\" invariance",
+    "With the two compact cards top-left and the map on the whole right column, strict screen quadrants cannot hold for O₂, NEXT and the mini-map.",
+    "Exact for alert slot, HAVEN (top-left), metadata strip and action row. O₂ moves from top-right (portrait) to beside HAVEN (landscape) but stays immediately right of HAVEN on the same row in both; NEXT and the map reflow. Measured on the Orientation compare page. U-30."
+   ],
+   [
+    "G-25",
+    "03 §C.6 steps 7–8 vs 04 §D.2",
+    "Crew are said to see the caution and the advisory, but there is one bar slot and the highest level wins.",
+    "A latched warning hides them behind \"+N\"; the demo auto-opens the alert list. Unresolved U-32."
+   ],
+   [
+    "G-26",
+    "04 §E.6 vs §D.2 / §C.2",
+    "HUD alert shown in uppercase; alerts are sentence case and must read the same on every device.",
+    "Sentence case. **Proposed**."
+   ],
+   [
+    "G-27",
+    "04 §C.1",
+    "Advisory and unknown share the dotted diamond.",
+    "They differ by inner glyph (i vs ?) and word. Check in TASK-15 (U-41)."
+   ],
+   [
+    "G-28",
+    "04 §C.2",
+    "Microcopy is 11 px but the rule says minimum 12 px anywhere.",
+    "11 px for chips and module labels only; values and body never below 12 px (EVA 16 px)."
+   ],
+   [
+    "G-29",
+    "04 §F vs §E.5",
+    "An EVA high-contrast toggle is required but the layout has no slot for it.",
+    "Prototype: toggle in the frame chrome. Product placement Unresolved U-31."
+   ]
+  ],
+  "deviations": [
+   [
+    "DV-01",
+    "EVA tablet orientation",
+    "04 §E.5 portrait only; 04 §F \"EVA 360–1024 px portrait\"; 01 FR-32 \"in portrait\"",
+    "Portrait **or** landscape; default landscape. Landscape v2: HAVEN and O₂ are two compact cards top-left, NEXT sits under them, and the mini-map takes the whole right column. Budget at 844×390: alert 64 · body 230 · strip 24 · one action row 72 = 390 px.",
+    "Proposed — ratify via U-30"
+   ],
+   [
+    "DV-02",
+    "SCR-14 in landscape",
+    "04 §E.7 \"bottom sheet covering 70 % of the screen\"",
+    "Right-side panel over the map column (about 53 % of the width, not 60 %, so that both cards and NEXT stay visible), below the alert bar; \"Go — option N\" hold button at the panel bottom. No O₂ echo is needed (G-22 superseded).",
+    "Proposed"
+   ],
+   [
+    "DV-03",
+    "EVA alert slot when there is no alert",
+    "04 §D.1 \"Hidden (dark cockpit)\"; 04 §A.3 \"nominal is quiet\"",
+    "The 64 px slot stays reserved and shows a quiet status line on the EVA tablet: status icon + word (NOMINAL, STANDBY, EVA ENDED) + detail + current phase. The alert bar replaces it in the same slot the moment an alert is raised. Ops and HUD still leave the slot empty (G-02).",
+    "Proposed — U-43"
+   ],
+   [
+    "DV-04",
+    "HUD alert casing",
+    "04 §E.6 uppercase",
+    "Sentence case, identical words on ops, EVA and HUD (G-26).",
+    "Proposed"
+   ],
+   [
+    "DV-05",
+    "High-contrast alert bars",
+    "04 §F: HC switches to the HUD palette",
+    "White on warning-fill is 6.54 : 1 (< 7 : 1), so HC bars are black with a 4 px status-colour outline and status-colour text.",
+    "Proposed — U-37"
+   ],
+   [
+    "DV-06",
+    "EVA high-contrast toggle location",
+    "04 §F requires the toggle; §E.5 has no slot",
+    "Frame-chrome toggle in the prototype (G-29).",
+    "Unresolved — U-31"
+   ],
+   [
+    "DV-07",
+    "PRINT neutral tokens",
+    "04 §C.1 lists four PRINT colours",
+    "Added text-2 #4B5563, edge #6B7280, hairline #D1D5DB, advisory #1D4ED8, unknown #6D28D9 (G-15).",
+    "Proposed — U-33"
+   ],
+   [
+    "DV-08",
+    "Comm-shadow layer in the prototype",
+    "02 §C.5 L11 / §D.11 viewshed",
+    "Hand-placed schematic polygons; the real layer comes from comm_hab.u8 (TASK-03).",
+    "Prototype only"
+   ],
+   [
+    "DV-09",
+    "Route hash forms",
+    "03 §A `#/planner` …",
+    "Plain `#name` forms accepted and used in links (G-18).",
+    "Prototype only"
+   ],
+   [
+    "DV-10",
+    "Sound default",
+    "04 §C.7 mute toggle with SOUND OFF indicator",
+    "Prototype starts muted so many frames do not alarm; toggle shows SOUND ON / SOUND OFF.",
+    "Prototype only — U-38"
+   ],
+   [
+    "DV-11",
+    "Fonts and icons",
+    "04 §G self-hosted WOFF2; Lucide",
+    "Google Fonts with fallback stacks and an own icon set in the prototype (G-19).",
+    "Prototype only — U-27, U-40"
+   ]
+  ],
+  "unresolved": [
+   [
+    "U-30",
+    "Ratify the EVA landscape layout (compact HAVEN and O₂ cards top-left, NEXT below, map on the whole right column) and the SCR-14 right panel over the map column (04 §E.5, §E.7, §F; 01 FR-32); confirm that O₂, NEXT and the mini-map may change place between orientations while HAVEN, alert, strip and actions do not (G-24).",
+    "Sadman / Obidit",
+    "Before 10 Nov (TASK-24 start)"
+   ],
+   [
+    "U-31",
+    "Where does the EVA high-contrast toggle live on the real tablet? Proposal: a fifth compact action-row button or a system quick-setting.",
+    "Design (R6) + R5",
+    "TASK-13"
+   ],
+   [
+    "U-32",
+    "Should lower-level alerts interrupt a latched warning bar briefly, or stay behind \"+N\" (03 §C.6 steps 7–8 vs 04 §D.2)?",
+    "Sadman",
+    "TASK-24"
+   ],
+   [
+    "U-33",
+    "Ratify the added PRINT neutral tokens (G-15).",
+    "Design (R6)",
+    "TASK-13"
+   ],
+   [
+    "U-34",
+    "EZ code numbering: global order in pois.geojson or per stop type (04 §E.10)?",
+    "R1 + R6",
+    "TASK-04"
+   ],
+   [
+    "U-35",
+    "Final content for stop 1 (EZ—ENG 01): name, objective, image.",
+    "R1 + R6",
+    "TASK-04"
+   ],
+   [
+    "U-36",
+    "Dose display unit rule (mGy in 04 §E.4/E.5; µGy in 05; no Sv for the event).",
+    "R2 + R5",
+    "TASK-24"
+   ],
+   [
+    "U-37",
+    "High-contrast alert bars: confirm the outlined variant (white on warning-fill is 6.54 : 1).",
+    "Design (R6)",
+    "TASK-13"
+   ],
+   [
+    "U-38",
+    "Product sound default (prototype starts muted).",
+    "R5",
+    "TASK-25"
+   ],
+   [
+    "U-39",
+    "Replace the schematic map with the real basemap, slope, TI and comm_hab layers; recheck all overlay contrast on real imagery.",
+    "R1 + R3",
+    "TASK-03 / TASK-07"
+   ],
+   [
+    "U-40",
+    "Self-host WOFF2 and verify Chakra Petch, Inter, IBM Plex Mono, Source Serif 4 and Lucide licences (extends U-27).",
+    "R6",
+    "TASK-13"
+   ],
+   [
+    "U-41",
+    "Usability check that advisory (i) and unknown (?) are distinguishable in grayscale (G-27).",
+    "R6",
+    "TASK-15"
+   ],
+   [
+    "U-42",
+    "Wire messages carry raw numbers plus a provenance map; the fixture wraps every number as {v, unit, prov, src}. Decide the production adapter.",
+    "R4 + R5",
+    "TASK-20"
+   ],
+   [
+    "U-43",
+    "Ops and HUD still leave the idle alert slot empty. Decide whether ops should also show a status line, and whether an always-on NOMINAL line on the EVA tablet is compatible with \"nominal is quiet\" (04 §A.3); check with UT-7.",
+    "Design (R6) + R5",
+    "TASK-15"
+   ]
+  ],
+  "components": [
+   [
+    "StatusIcon / StatusLabel",
+    "ui/status/StatusIcon.tsx",
+    "level: warning|caution|advisory|nominal|unknown; word?; slot",
+    "all five levels",
+    "warning, caution, advisory, nominal, unknown",
+    "A.3 #2; shape + pattern + word + slot"
+   ],
+   [
+    "ProvenanceChip",
+    "ui/ProvenanceChip.tsx",
+    "prov; mode: full|glyph; src?",
+    "full, glyph-only (EVA/HUD)",
+    "text-2, edge, raised",
+    "FR-15"
+   ],
+   [
+    "Value",
+    "ui/Value.tsx",
+    "num {v, unit, prov, src}; size; stale?; grey?",
+    "default, loading, disabled (—), stale (age), error, placeholder (##.#)",
+    "text-1, text-3, Plex Mono tabular slashed-zero",
+    "FR-15; data-provenance required"
+   ],
+   [
+    "Panel / SpecimenCard",
+    "ui/Panel.tsx",
+    "code; mod; title; selected; loading",
+    "default, selected, loading, stale, error",
+    "panel, raised, edge, route, livery stripe",
+    "P1–P3"
+   ],
+   [
+    "Button / ToggleSwitch / Segmented",
+    "ui/Button.tsx",
+    "kind: primary|critical-warn|critical-caution|ghost; size; pressed; disabledReason",
+    "default, pressed, loading, disabled, error",
+    "btn-fill, edge, text-3, cut-s",
+    "P8"
+   ],
+   [
+    "HoldButton",
+    "ui/HoldButton.tsx",
+    "label; icon; kind; onConfirm; outcome; disabledReason; tapConfirm",
+    "idle, holding (0–800 ms), cancelled, done (300 ms), confirm (5 s), disabled",
+    "warning-fill, caution-fill, text-1",
+    "D.3; keyboard hold Enter/Space"
+   ],
+   [
+    "AlertBar / AlertList / AlertCounter",
+    "ui/alerts/AlertBar.tsx",
+    "alerts[]; onAck; onOpenList; device",
+    "none (slot reserved), warning (flash ×2), caution (pulse ×1), advisory (10 s), acked, +N",
+    "warning-fill, caution-fill, raised, advisory",
+    "D.2; aria-live assertive/polite"
+   ],
+   [
+    "PhaseTimeline",
+    "ui/ops/PhaseTimeline.tsx",
+    "phases[]; current; unlinked",
+    "past, current (■ + bold + ▼), future, dashed",
+    "text-1, text-3",
+    "P4"
+   ],
+   [
+    "CrewCard / VehicleCard",
+    "ui/ops/CrewCard.tsx",
+    "crew; selected; stale",
+    "default, selected, stale (dashed, grey, age), sheltered",
+    "panel, route, text-3",
+    "D.1"
+   ],
+   [
+    "LinkIndicator",
+    "ui/LinkIndicator.tsx",
+    "linked; bars; age?",
+    "linked, NO LINK + age (dashed)",
+    "caution, text-1",
+    "D.5"
+   ],
+   [
+    "EarthLinkWidget",
+    "ui/ops/EarthLinkWidget.tsx",
+    "lightTime; nextPass; queue; state",
+    "link, waiting, conjunction",
+    "unknown, advisory",
+    "FR-43"
+   ],
+   [
+    "ClockControl",
+    "ui/ops/ClockControl.tsx",
+    "speed; paused; onSpeed; onNext",
+    "default, active speed",
+    "text-1 fill when active",
+    "FR-34; keys Space 1/2/3 N"
+   ],
+   [
+    "EventLogRow / EventLog",
+    "ui/ops/EventLog.tsx",
+    "event; onJump",
+    "default, active",
+    "hairline, text-2",
+    "FR-46; scroll count (P11)"
+   ],
+   [
+    "OpsConsole (SCR-11)",
+    "ui/screens/scr11/OpsConsole.tsx",
+    "session; world",
+    "no session, loaded, running, paused, alerting, ended; w1280, w1024, notice",
+    "void, panel, hairline",
+    "04 §E.4"
+   ],
+   [
+    "EvaTablet (SCR-12)",
+    "ui/screens/scr12/EvaTablet.tsx",
+    "orientation: portrait|landscape; crew",
+    "waiting, walking, at stop, alerting, to haven, sheltered, no hab link, ended",
+    "text-1, panel, caution-fill, warning-fill",
+    "04 §E.5 + landscape (Proposed)"
+   ],
+   [
+    "Hud (SCR-13)",
+    "ui/screens/scr13/Hud.tsx",
+    "crew; alert",
+    "nominal, caution, warning, no link",
+    "hud-* tokens",
+    "FR-33; hold 2 s to exit"
+   ],
+   [
+    "OptionsSheet / OptionsPanel (SCR-14)",
+    "ui/screens/scr14/OptionsSheet.tsx",
+    "options[]; selected; orientation; role",
+    "computing, ready, executing, superseded, approval pending, no rendezvous",
+    "raised, route",
+    "FR-40, 44"
+   ],
+   [
+    "OptionCard",
+    "ui/OptionCard.tsx",
+    "option; selected; disabledReason",
+    "default, selected, loading, disabled",
+    "raised, route",
+    "D.1"
+   ],
+   [
+    "MapView",
+    "map/MapView.tsx (OpenLayers)",
+    "layers; route; crew; vehicles; overlays",
+    "loading, idle, add-stop, error",
+    "route, text-1, void casing",
+    "TASK-02/07; schematic SVG replaced by real tiles (U-39)"
+   ],
+   [
+    "DoseChart",
+    "ui/ops/DoseChart.tsx",
+    "series; cursor",
+    "placeholder shape (until U-15), replayed",
+    "text-1, text-2",
+    "FR-37; label \"replayed — Curiosity RAD, 20 May 2024\""
+   ],
+   [
+    "LayerRow / LayersPanel (SCR-03)",
+    "ui/planner/LayersPanel.tsx",
+    "layer; on; opacity",
+    "default, loading, unavailable, out of range",
+    "raised, edge",
+    "FR-02; max two scientific overlays"
+   ],
+   [
+    "PlanPanel (SCR-04)",
+    "ui/planner/PlanPanel.tsx",
+    "scenario; stops; errors",
+    "empty, editing, invalid, computing",
+    "raised, warning outline",
+    "FR-05, 06; 300 ms debounce"
+   ],
+   [
+    "ResultsPanel / ProfileChart (SCR-05)",
+    "ui/planner/ResultsPanel.tsx",
+    "plan; status",
+    "empty, computing, OK, over limits, partial, error",
+    "nominal, caution, warning",
+    "FR-07–12"
+   ],
+   [
+    "PoiDetail (SCR-06)",
+    "ui/planner/PoiDetail.tsx",
+    "poi; imageState",
+    "image shown, loading, missing",
+    "panel",
+    "FR-04, 45"
+   ],
+   [
+    "ConditionsPanel (SCR-07)",
+    "ui/planner/ConditionsPanel.tsx",
+    "conditions",
+    "computed, daylight warning, not available",
+    "caution",
+    "FR-11–13"
+   ],
+   [
+    "BriefingCard (SCR-08) / PostEvaReport (SCR-17)",
+    "ui/print/BriefingCard.tsx",
+    "plan; status",
+    "OK, over limits, partial; report pages 1–2",
+    "print tokens",
+    "FR-14, 46"
+   ],
+   [
+    "SourcesPage (SCR-09)",
+    "ui/brief/SourcesPage.tsx",
+    "sources; paramSets",
+    "default; anchors layer-*",
+    "brief tokens",
+    "FR-15"
+   ],
+   [
+    "JoinPage (SCR-10) / BriefingPage (SCR-01)",
+    "ui/brief/JoinPage.tsx",
+    "roles; hab status",
+    "connecting, ready, role taken, unreachable",
+    "brief tokens",
+    "FR-30, 31"
+   ],
+   [
+    "LinkOverlay (SCR-18) / BootError (SCR-00)",
+    "ui/overlays/LinkOverlay.tsx",
+    "state; cached values",
+    "connecting, lost (EVA), lost (ops), restored",
+    "caution, advisory",
+    "FR-16, NFR-13"
+   ],
+   [
+    "RoverTasking (SCR-15, T2) / EarthView (SCR-16, T2)",
+    "ui/t2/RoverTasking.tsx",
+    "task; target; state",
+    "choosing … failed; link, waiting, blackout",
+    "caution, unknown",
+    "FR-41, 43, 48"
+   ]
+  ],
+  "interactions": [
+   [
+    "Hold-to-confirm",
+    "04 §D.3",
+    "Press and hold 800 ms; a progress line runs along the chamfered edge; releasing early cancels (\"Released early — hold 0.8 s\"); on completion a 300 ms outcome state (\"PR1 dispatched — ETA 14 min\") then the command is issued. Keyboard: hold Enter/Space. Accessibility fallback (toggle): tap, then a Confirm button replaces it for 5 s."
+   ],
+   [
+    "Alert bar",
+    "04 §D.2, §C.6",
+    "One bar slot, highest level wins, \"+N\" counter opens the alert list. Warning flashes twice (2 Hz, < 3 Hz) then holds; caution pulses once; advisory auto-dismisses after 10 s and stays in the log. Acknowledge silences and marks seen; it does not clear the condition; warnings and cautions latch until acknowledged and cleared."
+   ],
+   [
+    "EVA status line",
+    "DV-03",
+    "With no active alert the 64 px alert slot on the EVA tablet shows STATUS plus a word: NOMINAL (nominal icon), STANDBY or EVA ENDED (advisory icon), with a detail text and the current EVA phase on the right (portrait: word and phase only). The alert bar replaces it in the same slot when an alert is raised and the line returns when the alert is acknowledged and cleared. It is not a live region, so it never announces itself. Ops and HUD keep the slot empty."
+   ],
+   [
+    "Same words everywhere",
+    "04 §D.2",
+    "One alert store drives ops, EVA and HUD; the Stage page reads the text from each frame and shows IDENTICAL or DIFFER."
+   ],
+   [
+    "Staleness and link loss",
+    "04 §D.5",
+    "Values older than 5 s turn text-3 with an age stamp. Unlinked: EVA shows the caution bar \"No hab link — operating on cached plan\"; ops shows the crew card dashed with last-known values and age; commands show \"Queued — sends when link returns\" and are resent on reconnection."
+   ],
+   [
+    "HUD exit",
+    "03 SCR-13",
+    "Tap and hold anywhere for 2 s; a thin progress line appears at the bottom edge; release cancels."
+   ],
+   [
+    "EVA high contrast",
+    "04 §F Glare",
+    "Switches the EVA frame to the HUD palette; alert bars become outlined (DV-05)."
+   ],
+   [
+    "Ops mute",
+    "04 §C.7",
+    "Toggle with a visible SOUND OFF / SOUND ON indicator; warning two-tone repeats every 5 s until acknowledged; vibration pattern 3 × 200 ms where the Vibration API exists."
+   ],
+   [
+    "Ops keys",
+    "04 §F",
+    "Space pause · 1/2/3 speed · N next event · K acknowledge · O focus options."
+   ],
+   [
+    "Planner",
+    "04 §F, App. A",
+    "A add-stop mode · Enter place at crosshair · Delete remove selected · B briefing · ? sources · arrows pan · +/− zoom. Drag stops; on drop validate → snap offer (≤ 50 m) or refuse; max two scientific overlays (a third dims the oldest and says so); inputs recompute after a 300 ms debounce and an invalid value is never sent."
+   ],
+   [
+    "Demo player",
+    "01 §E.1, §E.2, 10",
+    "Beats hold between keyframes; markers tween visually only; 60× plays at the pace of the recorded table, 10× and 1× are slower; next event, previous, scrub. Commands from the Stage (hold Summon) advance the replay."
+   ]
+  ],
+  "a11y": [
+   "Contrast: BRIEF/OPS text ≥ 4.5 : 1, non-text ≥ 3 : 1, HUD ≥ 7 : 1; the Design system page computes every pair live and compares it with the 04 §C.1 value.",
+   "The EVA status line is a status like any other: nominal icon (circle with check), the word NOMINAL, and the fixed alert slot; it is not an aria-live region so nothing is announced while it is idle.",
+   "Four cues per status: colour + shape + word + fixed slot. The Grayscale toggle applies a grayscale filter and the badge counts statuses that have all four cues.",
+   "Focus: white 2 px ring with a 2 px void gap on every control; chamfered controls draw the ring on a wrapper because clip-path clips outlines.",
+   "Targets: EVA ≥ 56 px with ≥ 8 px gaps (measured in Chromium for all 32 EVA state × device combinations); ops mouse ≥ 32 px.",
+   "Live regions: warnings role=alert + aria-live=assertive; cautions and advisories role=status + polite; crew cards and options are lists with full text.",
+   "No hamburger menus, no hover-only actions, no gesture-only paths in OPS/EVA; hidden content shows a count (alert \"+N\", log \"n / m\").",
+   "Reduced motion: no flashes (static bar) and no marker interpolation; animations and transitions are disabled.",
+   "Never colour alone for focus, selection or current step (P10): ring + outline + marker + label."
+  ],
+  "fixture_map": [
+   [
+    "meta",
+    "—",
+    "Prototype banner, disclaimer (01 §F.1), CRS string, data version"
+   ],
+   [
+    "nums",
+    "02 §E.6 `provenance` map; 05 Crew / Vehicle / PlanResult fields",
+    "Every displayed number as {v, unit, prov, src}; src is a spec section or PLACEHOLDER"
+   ],
+   [
+    "site",
+    "05 §C.1 Site, Layer, RoutingGrid, EnvConstant",
+    "Subset: layers with legends, default start, hab mast, env constants"
+   ],
+   [
+    "pois",
+    "05 §C.1 POI (+ v2 stop_type, ez_theme, evidence)",
+    "Three EZ POIs with catalogue codes"
+   ],
+   [
+    "param_sets",
+    "05 §C.1 ParamSet",
+    "Suit, PR1, UR1, link, alert, shielding"
+   ],
+   [
+    "scenario",
+    "05 §C.2 Scenario, ScenarioEvent; 02 §E.7",
+    "storm-sol4190 with events e1 (DONKI) and e2 (Earth message)"
+   ],
+   [
+    "dose_series",
+    "05 §C.2 DoseSeries",
+    "Shape placeholder until U-15; integral check expected 8,100 µGy"
+   ],
+   [
+    "earth_link",
+    "05 §C.2 EarthLinkTable",
+    "Rows and passes PLACEHOLDER until U-18"
+   ],
+   [
+    "options",
+    "05 §C.2 ContingencyOption",
+    "Rendezvous, abort, continue-skip"
+   ],
+   [
+    "alerts",
+    "05 §C.2 Alert (code, level, message)",
+    "Copy for each alert code; sources cited"
+   ],
+   [
+    "log",
+    "05 §C.2 LogEvent",
+    "Eight events with seq, kind, actor, provenance"
+   ],
+   [
+    "snapshot_example",
+    "02 §E.6 SNAPSHOT",
+    "Same shape; numbers wrapped for the audit"
+   ],
+   [
+    "sources",
+    "05 §C.1 DataSource",
+    "Ten dataset records with DS codes"
+   ]
+  ],
+  "usability": [
+   [
+    "UT-1",
+    "3-s glance: from the HUD read haven, O₂ and next stop (Warning state).",
+    "≥ 2 of 3 users read all three within 3 s",
+    "04 §F.1; 01 §B.2"
+   ],
+   [
+    "UT-2",
+    "Summon rover with gloves, no instruction, on the EVA tablet in **landscape**.",
+    "≥ 2 of 3 users, < 15 s",
+    "04 §F.1"
+   ],
+   [
+    "UT-3",
+    "Ops: identify who is in danger and approve an option.",
+    "≥ 2 of 3 users, < 20 s",
+    "04 §F.1"
+   ],
+   [
+    "UT-4",
+    "Grayscale screenshots of warning, caution, advisory, nominal, unknown: name each level.",
+    "100 % of alert levels",
+    "04 §F.1"
+   ],
+   [
+    "UT-5",
+    "**Added:** glove test, landscape vs portrait. Each tester summons the rover and aborts on the same phone in both orientations (order alternated), gloves on, in the Alerting state.",
+    "Record time and mis-taps per orientation; target: landscape no worse than portrait by more than 2 s and ≤ 1 mis-tap per run. Result decides U-30.",
+    "New"
+   ],
+   [
+    "UT-6",
+    "**Added:** rotate the phone mid-alert; point to haven and O₂ before and after rotating.",
+    "Both found again without searching (≥ 2 of 3): HAVEN is top-left in both, O₂ is the card right of it",
+    "New (G-24)"
+   ],
+   [
+    "UT-7",
+    "**Added:** Nominal state on the EVA tablet with and without the status line in the alert slot: read haven, O₂ and next stop, then say what the top line means.",
+    "Reading time no worse than without the line by more than 0.5 s; ≥ 2 of 3 testers say what the line means",
+    "New (DV-03, U-43)"
+   ]
+  ],
+  "patch_f": "| Responsive | BRIEF fluid 360–1920 px. Planner/ops ≥ 1280 three-column; 1024–1279 one drawer at a time; ops < 1024 shows a \"use a larger screen\" notice. **EVA: phone or tablet, portrait (360–1024 px wide) or landscape (≥ 844 × 390 px); default landscape; the same fixed geography in both.** HUD landscape ≥ 640 px |",
+  "patch_fr32": "- Works on a phone/tablet ≥ 360 px wide in portrait **or ≥ 844 × 390 px in landscape**; touch targets ≥ 56 px (glove use, **Assumed**); the alert bar, HAVEN (top-left), O₂, metadata strip and action row keep their positions in both orientations."
+ },
+ "provenance_classes": [
+  {
+   "k": "measured",
+   "label": "MEASURED",
+   "meaning": "Instrument value from a NASA/partner archive",
+   "ex": "RAD background dose rate"
+  },
+  {
+   "k": "derived",
+   "label": "DERIVED",
+   "meaning": "Deterministically computed from measured data",
+   "ex": "Slope from the DEM; comm coverage"
+  },
+  {
+   "k": "modelled",
+   "label": "MODELLED",
+   "meaning": "Output of a published model with our parameters",
+   "ex": "Tobler walking speed; Mars24 sun elevation"
+  },
+  {
+   "k": "assumed",
+   "label": "ASSUMED",
+   "meaning": "A parameter we chose",
+   "ex": "15° hard slope limit; rover speed"
+  },
+  {
+   "k": "replayed",
+   "label": "REPLAYED",
+   "meaning": "Real measured history played back on the mission clock",
+   "ex": "The 20 May 2024 solar particle event"
+  },
+  {
+   "k": "simulated",
+   "label": "SIMULATED",
+   "meaning": "Generated by our simulation engine; not a measurement",
+   "ex": "Crew position, O₂, rover battery"
+  }
+ ]
+}
