@@ -17,4 +17,5 @@
 - [ ] Mars CRS rules kept (no EPSG:3857/WGS84, no `ol/sphere`, east-positive longitude)
 - [ ] Tests added or updated (`it.todo` / skipped while the TASK-00 phase gate holds)
 - [ ] `make lint typecheck test docs-check` passes
-- [ ] `docs/AI_USE.md` updated if AI tools helped
+- [ ] `docs/AI_USE.md` updated if AI tools helped (coding agent and model: ___)
+- [ ] UI change: Impeccable critique or `make design-check` run; findings that contradict 04 ignored with a reason

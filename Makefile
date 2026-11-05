@@ -7,9 +7,9 @@ CONDA_ENV ?= marswalk-pipeline
 CONDA_BIN ?= $(if $(CONDA_EXE),$(CONDA_EXE),conda)
 
 .PHONY: setup setup-web setup-pipeline lint typecheck test test-web docs-check dev demo data \
-	conda-check check-env pipeline-python validate progress hab replay
+	conda-check check-env pipeline-python validate progress hab replay agent-skills design-check
 
-setup: setup-web setup-pipeline
+setup: setup-web setup-pipeline agent-skills
 
 setup-web:
 	npm ci
@@ -87,3 +87,14 @@ validate: check-env
 	@case "$(SITE)" in ""|*[!a-z0-9_]*) echo "usage: make validate SITE=<site_id> (a-z, 0-9, _)" >&2; exit 2;; esac; \
 	py=$$($(MAKE) -s --no-print-directory pipeline-python) || exit 1; \
 	"$$(dirname "$$py")/validate-manifest" data/sites/$(SITE)
+
+# Mirror project skills from .claude/skills/ (the source) into .agents/skills/ (Codex) and .gemini/skills/ (Gemini).
+# Impeccable has its own per-tool builds there and is left alone. Copies are git-ignored (docs/ops/agentic-workflow.md).
+agent-skills:
+	@for d in .claude/skills/*/; do n=$$(basename "$$d"); [ "$$n" = impeccable ] && continue; \
+	  for t in .agents/skills .gemini/skills; do mkdir -p "$$t"; rm -rf "$$t/$$n"; cp -R "$$d" "$$t/$$n"; done; done
+	@echo "skills mirrored into .agents/skills and .gemini/skills"
+
+# Impeccable's deterministic design detector over the web app (needs internet once to fetch the engine).
+design-check:
+	npx -y impeccable@4.8.0 detect apps/web/src

@@ -1,0 +1,30 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [
+      "docs/design/prototype/test/**",
+      "node_modules/**"
+    ],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "Inter",
+        "createdAt": "2026-11-05T00:00:00.000Z",
+        "reason": "Inter is the UI face chosen in docs/specs/04 \u00a7C.2 (ADR-010); 04 wins over Impeccable defaults"
+      },
+      {
+        "rule": "overused-font",
+        "value": "Helvetica",
+        "createdAt": "2026-11-05T00:00:00.000Z",
+        "reason": "Fallback stack entry in docs/specs/04 \u00a7C.2 (NASA 1975 manual lineage, 04 \u00a7B)"
+      }
+    ]
+  },
+  "hook": {
+    "enabled": true,
+    "limits": {
+      "maxFindings": 5,
+      "maxChars": 8000
+    }
+  }
+}
