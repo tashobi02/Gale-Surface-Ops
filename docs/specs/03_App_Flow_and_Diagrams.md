@@ -176,8 +176,8 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
 | --- | --- |
 | Purpose | One screen to run and watch the whole EVA |
 | Entry | `#/ops` |
-| Content | Top bar with clock control and metadata strip; alert bar; crew cards; vehicle cards; map (route, crew, vehicles, comm shadow, haven isochrones); conditions; Earth link widget; options panel (on alert); event log; join QR codes (drawer) |
-| Primary actions | Load scenario, Start EVA, set clock speed, jump to next event, acknowledge alert, approve option, summon on behalf of crew, inject event (T2) |
+| Content | Top bar with clock control and metadata strip; alert bar; crew cards (with each crew member's stop-task progress, FR-50); vehicle cards; map (route, crew, vehicles, comm shadow, haven isochrones); conditions; Earth link widget; options panel (on alert); event log; join QR codes (drawer) |
+| Primary actions | Load scenario, Start EVA, set clock speed, jump to next event, acknowledge alert, approve option, summon on behalf of crew, add a stop task to a crew member (FR-50), inject event (T2) |
 | States | No session · Loaded (ready) · Running · Paused · Alerting · Ended (→ report) |
 | Requirements | FR-30–FR-38, FR-40, FR-42–FR-46 |
 
@@ -187,10 +187,10 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
 | --- | --- |
 | Purpose | Tell one crew member where to go, how much margin is left, and how to get safe |
 | Entry | `#/eva/EV1` or `#/eva/EV2` |
-| Content | Alert bar; haven and O₂ (largest); next stop with bearing/distance/ETA; mini-map; metadata strip (EVA time, dose, link); action row: Summon rover, Abort, Task rover (T2), HUD |
-| Primary actions | Summon rover (hold), Abort to hab (hold), Acknowledge alert, Open HUD |
+| Content | Alert bar; haven and O₂ (largest); next stop with bearing/distance/ETA and its task count; stop task list at a stop (FR-50); mini-map; metadata strip (EVA time, dose, link); action row: Summon rover, Abort, Task rover (T2), HUD |
+| Primary actions | Summon rover (hold), Abort to hab (hold), Acknowledge alert, tick or skip a stop task (one tap, 5-s undo), Open HUD |
 | States | Waiting for EVA start · Walking · At stop (dwell countdown) · Alerting (→ SCR-14) · To haven · Sheltered · No hab link (cached plan; commands queued) · EVA ended |
-| Requirements | FR-32, FR-35, FR-39, FR-40, FR-44 |
+| Requirements | FR-32, FR-35, FR-39, FR-40, FR-44, FR-50 |
 
 ### SCR-13 — HUD *(v2)*
 

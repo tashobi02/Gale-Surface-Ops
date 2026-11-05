@@ -10,7 +10,7 @@
 | Effort (doc 06) | 1–2 h |
 | Done when (doc 06) | Answer recorded in repo `docs/ops/rules.md` |
 | Main risk → fallback | No answer → follow Track S |
-| Spec sections | [06 §A Planning assumptions](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions) · [06 §C Work packages](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §E First concrete actions](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov) · [06 Unresolved items](../specs/06_High_Level_Implementation_Plan.md#unresolved-items-owned-by-this-document) · [01 §F.3 Risks](../specs/01_Product_Requirements_Document.md#f3-risks) · [Rules check](../ops/rules.md) · [Map §a.2 windows and phase gate](_coordination.md#a2-field-vocabulary) |
+| Spec sections | [06 §A Planning assumptions](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions) · [06 §C Work packages](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §E First concrete actions](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) · [06 Unresolved items](../specs/06_High_Level_Implementation_Plan.md#unresolved-items-owned-by-this-document) · [01 §F.3 Risks](../specs/01_Product_Requirements_Document.md#f3-risks) · [Rules check](../ops/rules.md) · [Map §a.2 windows and phase gate](_coordination.md#a2-field-vocabulary) |
 
 TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or `implement` subtask starts before T00.03 records the track ([map §a.2](_coordination.md#a2-field-vocabulary)).
 
@@ -68,7 +68,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
 - **Window:** pre-event-allowed
 - **Estimate:** 0.5 h
 - **Owns (writes):** none — the reply and the registration status go to T00.03, which records them in `docs/ops/rules.md`
-- **Reads:** `docs/ops/rules.md` (Question, Registration); [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions); [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov) item 1; [06 Unresolved items](../specs/06_High_Level_Implementation_Plan.md#unresolved-items-owned-by-this-document) (U-12, U-14)
+- **Reads:** `docs/ops/rules.md` (Question, Registration); [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions); [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) item 1; [06 Unresolved items](../specs/06_High_Level_Implementation_Plan.md#unresolved-items-owned-by-this-document) (U-12, U-14)
 - **Depends on:** none
 - **Parallel with:** T00.01, T00.06
 - **Steps:**
@@ -78,7 +78,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
   4. Ask each member to confirm their registration on the NASA Space Apps site and on the Bangladesh form; note yes or no per member, not their email addresses.
   5. Hand the reply, verbatim, and the registration status to T00.03; if there is no reply by 4 Nov, hand "no reply" to T00.05.
 - **Acceptance:**
-  - Serves: U-12 (and the U-14 question for T00.06) · [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov)
+  - Serves: U-12 (and the U-14 question for T00.06) · [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov)
   - The message is sent before the U-12 due date (4 Nov) and asks about application code, tests, type and stub files, data-preprocessing scripts, and the venue type.
   - Every member's registration on the NASA site and the Bangladesh form is confirmed yes or no (06 §C deliverable: "team registered on NASA site and Bangladesh form").
   - No personal data (email addresses, screenshots of confirmations) enters the repository.

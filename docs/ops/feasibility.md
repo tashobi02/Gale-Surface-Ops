@@ -5,7 +5,7 @@
 | **Owner** | Data lead ([06 §C TASK-01](../specs/06_High_Level_Implementation_Plan.md#c-work-packages)) |
 | **Date** | TODO |
 | **Status** | Open — decides D-01 ([ADR-001](../decisions/ADR-001-site-selection.md)) |
-| **Related** | [02 §C Mars data and geospatial handling](../specs/02_Technical_Requirements_Document.md#c-mars-data-and-geospatial-handling) · [01 §F.2 A-01](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) · [06 §E First concrete actions](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov) |
+| **Related** | [02 §C Mars data and geospatial handling](../specs/02_Technical_Requirements_Document.md#c-mars-data-and-geospatial-handling) · [01 §F.2 A-01](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) · [06 §E First concrete actions](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) |
 
 Done when (06 §C): AOI inside DEM extent; hillshade shows HiRISE-scale texture across ≥ 80 % of AOI.
 

@@ -5,9 +5,9 @@
 | | |
 | --- | --- |
 | **Owner** | Team CheesySpace — documentation index |
-| **Date** | 2026-11-04 |
+| **Date** | 2026-11-05 |
 | **Status** | Draft v2 (surface ops reframe) for team review |
-| **Related** | [Specs 01–06](#documents) · [Decisions (ADRs)](decisions/) · [Reference](reference/) · [Ops templates](ops/) · [AI use](AI_USE.md) |
+| **Related** | [Specs 01–06](#documents) · [Decisions (ADRs)](decisions/) · [Reference](reference/) · [Ops templates](ops/) · [Design handoff](design/mockup-handoff.md) · [Agentic workflow](ops/agentic-workflow.md) · [Data downloads](ops/data-downloads.md) · [AI use](AI_USE.md) |
 
 ## Summary
 
@@ -24,7 +24,9 @@ v2 (2026-11-04) supersedes the v1 planner-only scope; the v1 planner is Tier 0 o
 | 03 | [App Flow and Diagrams](specs/03_App_Flow_and_Diagrams.md) | Role routes, screens SCR-00–SCR-18, killer-demo journey, error flows, sequence and state diagrams |
 | 04 | [Design Brief](specs/04_Design_Brief.md) | Mission-brutalist design language, BRIEF/OPS/HUD/PRINT modes, verified-contrast tokens, alert system, layouts for every surface, accessibility |
 | 05 | [Backend and Database Schema](specs/05_Backend_and_Database_Schema.md) | Static site entities, ParamSet, Hab Core runtime entities (Scenario, Crew, Vehicle, Alert, LogEvent…), event-log persistence, ER diagrams, examples |
-| 06 | [High-Level Implementation Plan](specs/06_High_Level_Implementation_Plan.md) | Roles R1–R6, milestones M0–M8 (offline dry run 12 Nov), TASK-00–TASK-30, critical path, cut list, video plan |
+| 06 | [High-Level Implementation Plan](specs/06_High_Level_Implementation_Plan.md) | Roles R1–R6 and per-person assignments (§A.2), milestones M0–M8 (team dry run 11 Nov, buffer 12 Nov), TASK-00–TASK-31, critical path, cut list, video plan |
+
+Design handoff: [design/mockup-handoff.md](design/mockup-handoff.md) and the clickable prototype in `design/prototype/` (a design artefact, not product code; every number is a cited spec example or a visible `PLACEHOLDER`).
 
 ## Context inventory
 
@@ -80,7 +82,7 @@ Owners: assumptions A-01–A-07 in [01 §F.2](specs/01_Product_Requirements_Docu
 | --- | --- |
 | Resolved | Pre-event application code is allowed: Track P, Local Lead answer of 2026-11-04 ([ops/rules.md](ops/rules.md)); re-check against the 2026 guides on 13 Nov |
 | **Blocker** | DEM quality inside the AOI (A-01, TASK-01) decides whether Gale data is usable at walking scale |
-| **Blocker** | RAD time series for sol 4190 (U-15) and SPICE kernels for May 2024 (U-18) decide replay fidelity (TASK-21) |
+| **Blocker** | RAD time series for sol 4190 (U-15: public sources found 5 Nov, coverage to verify) and SPICE kernels for May 2024 (U-18) decide replay fidelity (TASK-21). Exact files: [ops/data-downloads.md](ops/data-downloads.md) |
 | Assumption | Vehicle, suit, link, alert and shielding parameters (05 ParamSet) are illustrative until cited (U-19, U-20) |
 | Assumption | Slope limit 15°/10°, walkback 5 km, suited speed 3.3 km/h — illustrative, editable |
 | Assumption | Team of 6 ([ops/team.md](ops/team.md)), ~96–120 person-hours during the event |

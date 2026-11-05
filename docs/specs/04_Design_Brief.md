@@ -409,6 +409,8 @@ EGRESS ▸ TRAVERSE ▸ STOP 1 ▸ TRAVERSE ▸ ■ STOP 2 ▸ TRAVERSE ▸ STOP
 └──────────────────────────────┘
 ```
 
+**Stop task list (FR-50, added 2026-11-05, Proposed).** While walking, the NEXT card ends with a task count (`TASKS 0/3`). At a stop, the NEXT card becomes the task list: up to four rows of at least 56 px, each a neutral square check box, the task text and a SKIP control. States use neutral chrome only — `□` to do, `■` done, `⊘` skipped or dropped — with the word beside each; task progress is not a safety status, so no status colour is used. An unsynced change shows "not synced" in the metadata strip. During an alert the list collapses back to its count; the alert slot, HAVEN, O₂ and the action row never move. The landscape variant follows the same rules inside the NEXT position of the mockup handoff's landscape layout (U-30, [design/mockup-handoff.md](../design/mockup-handoff.md)). The prototype does not show the task list yet (U-47).
+
 ### E.6 SCR-13 HUD (black, landscape)
 
 ```text
@@ -596,3 +598,4 @@ Superseded by [§E.9](#e9-scr-09-sources--methods-brief).
 | U-25 | Visual mockups of key screens | Produce before 7 Nov so R3/R5 build from a shared picture |
 | U-26 | Product name and logo mark (D-08) | Chamfered-hexagon mark in the reference image's style; name decided at kickoff |
 | U-27 | Chakra Petch, Source Serif 4 and Lucide licences | Verify in TASK-13; fallback display face: Space Grotesk (OFL) |
+| U-47 | Add the FR-50 stop task list to the prototype (SCR-12 at-stop state, SCR-11 crew card progress, SCR-08 and SCR-17 task rows) | Before TASK-24 starts (7 Nov); R5 + design |

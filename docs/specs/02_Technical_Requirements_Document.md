@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Owner** | Architecture (this file owns architecture, data handling and system behavior) |
-| **Date** | 2026-11-04 |
+| **Date** | 2026-11-05 |
 | **Status** | Draft v2 — supersedes v1 (2026-11-02). Sections marked *(v1, unchanged)* are carried over verbatim; *Spike* items must be verified in TASK-01/02/03 before the event |
 | **Related** | Scope source: [01 PRD](01_Product_Requirements_Document.md) (FR-xx, tiers T0–T2) · Data structures: [05 Schema](05_Backend_and_Database_Schema.md) · [Docs index](../README.md) |
 
@@ -280,7 +280,7 @@ AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **ins
 | Field | Value |
 | --- | --- |
 | Event | 20 May 2024 (sol 4190): largest surge measured by RAD since landing; about **8,100 µGy** total for a person next to the rover (NASA, June 2024, via secondary reports — **Confirmed**) |
-| Preferred source | PDS PPI node, MSL RAD derived dose-rate products covering sol 4190 — **availability Unresolved (U-15)** |
+| Preferred source | MSL RAD E-detector dose-rate series curated by the RAD team at Kiel (Zenodo, doi:10.5281/zenodo.20536564, CC BY 4.0), cross-checked against the PDS PPI RAD RDR / NASA SPDF level-2 files for sol 4190 — sources **Confirmed** 2026-11-05; sol-4190 coverage and detector choice still to verify (U-15, U-45; [ops/data-downloads.md](../ops/data-downloads.md) D8–D9) |
 | Fallback A | Digitise the dose-rate curve from NASA's published figure; label `replayed — digitised from published figure` |
 | Fallback B | Scale a stated onset/peak/decay template so its integral equals the published total; label `replayed (shape assumed)` |
 | Units | Absorbed dose **µGy** (event). Do **not** convert the event to Sv: the quality factor for SEP spectra differs from GCR and we would be inventing it. Background (v1) stays in mSv from Hassler et al. 2014 |
@@ -637,6 +637,8 @@ No accounts. A client joins with a **role** and a display name; the Hab Core tru
 | `SUMMON_VEHICLE`, `ABORT`, `ACK_ALERT` | — | ✓ (self) | ✓ (any crew) | — |
 | `TASK_ROVER` (T2) | — | ✓ | ✓ | — |
 | `SEND_MESSAGE` | — | ✓ | ✓ | ✓ (delayed) |
+| `UPDATE_STOP_TASK` (FR-50) | — | ✓ (own tasks) | ✓ (any crew) | — |
+| `ADD_STOP_TASK` (FR-50) | — | — | ✓ | — |
 
 ### E.5 Hab Core HTTP endpoints
 
@@ -688,6 +690,13 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
 ```json
 {"v":1,"type":"COMMAND_RESULT","command_id":"k-0091","ok":true,"event_seq":421}
 ```
+
+```json
+{"v":1,"type":"COMMAND","command_id":"k-0102","role":"eva:EV1",
+ "command":{"kind":"UPDATE_STOP_TASK","task_id":"t-s2-02","state":"DONE"}}
+```
+
+The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state, reason}`; ops and the HUD count read it from the event, never from the command (FR-50).
 
 - Rejections: `{"ok":false,"code":"FORBIDDEN_ROLE"|"NO_LINK"|"INVALID"|"NO_RENDEZVOUS"|"BUSY","message":"…"}`.
 - `NO_LINK`: the issuing suit is unlinked on L-surf; the client keeps the command queued and resends on `LINK_STATE linked=true`.
@@ -790,6 +799,9 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
 
 - NASA CCMC DONKI — WSA-ENLIL simulation record listing Mars arrival (example, 15 May 2024 CME): <https://webtools.ccmc.gsfc.nasa.gov/DONKI/view/WSA-ENLIL/30907/1>
 - 20 May 2024 solar event at Mars (RAD 8,100 µGy; X12 estimate from Solar Orbiter; MAVEN largest SEP event; cliffsides/lava tubes as shielding): NASA release mirrored at <https://phys.org/news/2024-06-nasa-mars-epic-solar-storm.html> — **replace with the nasa.gov URL in TASK-04**
+- NASA release on the 20 May 2024 event (original of the phys.org mirror above): <https://www.nasa.gov/solar-system/planets/mars/nasa-watches-mars-light-up-during-epic-solar-storm> (accessed 2026-11-05)
+- MSL/RAD dose rates, Kiel University / SPEARHEAD (Zenodo): <https://zenodo.org/records/20536564> (accessed 2026-11-05)
+- Full download list with exact file URLs: [ops/data-downloads.md](../ops/data-downloads.md)
 - NAIF SPICE toolkit and generic kernels: <https://naif.jpl.nasa.gov/naif/> ; ESA SPICE service (TGO kernels): <https://www.cosmos.esa.int/web/spice>
 - SpiceyPy: <https://spiceypy.readthedocs.io/>
 - Organizer Build Guide, Space Apps 2026 Bangladesh (score sheet, architecture rules, challenge 11 page) — team copy in Claude artifact; cite as "Local organizer build guide"
@@ -809,7 +821,7 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
 | U-03 | TI "loose fines" threshold | TASK-04 (v1) |
 | U-04 | Traverse source | TASK-04 (v1) |
 | U-05 | CRISM coverage of AOI | TASK-01 (v1) |
-| U-15 | RAD sol-4190 time series in PDS | TASK-04; fallbacks in §C.5 L9 |
+| U-15 | RAD sol-4190 time series — sources found 2026-11-05 ([ops/data-downloads.md](../ops/data-downloads.md) D8–D9); coverage of sol 4190 to verify on download | TASK-04; fallbacks in §C.5 L9 |
 | U-18 | Exact SPICE kernel files covering May 2024 for MRO, MAVEN, TGO | TASK-04 |
 | U-19 | Shielding factors (A-11), alert threshold k, relay min elevation, conjunction angle | Keep as labelled assumptions; ask mentor; cite any found value |
 | U-20 | Pressurized rover speed/slope values (D.9) | **Partly resolved 2026-11-04**: speed 10 km/h, range 125 km, 2 crew (4 emergency) and suitport ingress taken from the NASA SEV concept (NASA fact sheet FS-2011-08-045-JSC; Wikipedia "Space Exploration Vehicle"). Slope limit and ingress time remain assumptions |

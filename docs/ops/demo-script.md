@@ -9,7 +9,7 @@
 
 The scenario steps are owned by [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) (v2: E.1 killer demo, E.2 planning); the segment plan is [06 §G](../specs/06_High_Level_Implementation_Plan.md#g-video-plan-task-17). This file adds timing and narration slots. Starting conditions (v2): Hab Core laptop on the offline travel router, ops console on the projector, EV1 (and optionally EV2) phones joined, scenario `storm-sol4190` loaded, clock at 60×.
 
-Video rules from 06 TASK-17: English subtitles, datasets named on camera (NASA **and ESA**), no under-18 likeness. Fallback if the live demo fails: the M4 dry-run recording (12 Nov) or a headless replay rendered on ops.
+Video rules from 06 TASK-17: English subtitles, datasets named on camera (NASA **and ESA**), no under-18 likeness. Fallback if the live demo fails: the M4 dry-run recording (11 Nov; final take on 12 Nov) or a headless replay rendered on ops.
 
 ## 240-s local judging video (due 13 Nov 18:30)
 

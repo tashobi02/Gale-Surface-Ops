@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Owner** | Product (this file owns scope and acceptance criteria) — v2 reframe led by Sadman Shaharier Mahim, product & systems lead; team lead Obidit Islam |
-| **Date** | 2026-11-04 |
+| **Date** | 2026-11-05 |
 | **Status** | Draft v2 — supersedes v1 (2026-11-02); pending team review |
 | **Related** | [Docs index](../README.md) · [02 Technical](02_Technical_Requirements_Document.md) · [03 App Flow](03_App_Flow_and_Diagrams.md) · [04 Design](04_Design_Brief.md) · [05 Schema](05_Backend_and_Database_Schema.md) · [06 Plan](06_High_Level_Implementation_Plan.md) |
 | **Product** | Marswalk Surface Ops *(working title — rename before submission, D-08)* |
@@ -162,7 +162,7 @@ One habitat-local system that turns scattered NASA products into **real-time go/
 
 | Category | Goal | Success criterion |
 | --- | --- | --- |
-| **Killer demo** | The storm scenario runs reliably | §E runs end to end on 3 devices over the offline router **3 times in a row** without intervention by 12 Nov (dry run) and again before recording |
+| **Killer demo** | The storm scenario runs reliably | §E runs end to end on 3 devices over the offline router **3 times in a row** without intervention by 11 Nov (team dry run, M4; organizer deadline 12 Nov) and again before recording |
 | | Decisions are correct | During the replayed event, every crew member's computed time to haven matches a hand-checked value within 1 min; dose comparison (sheltered vs. not) matches the stated model exactly |
 | **Planning (Tier 0)** | v1 criteria retained | First-time user makes a 3-stop briefing in ≤ 5 min; 0 silent routing failures over 20 scripted pairs; recompute ≤ 2 s |
 | **In-EVA use** | Glanceable | In a usability test, ≥ 2 of 3 people read "time to haven", "next stop" and "O₂ margin" from the HUD within 3 s each |
@@ -198,6 +198,7 @@ Tiers replace v1's single MVP list. A tier is not started until the one above it
 - Earth link model (light time, conjunction, relay pass windows) shown as a status widget.
 - Contingency re-plan (abort to haven, skip remaining stops).
 - Event log and post-EVA report.
+- Stop task list on the EVA tablet, synced to ops (FR-50, added 2026-11-05).
 
 ### C.3 Tier 2 — Should (only after Tier 1 exit criteria)
 
@@ -245,7 +246,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 | FR-11 | Daylight and sun conditions | Retained [T0] |
 | FR-12 | Radiation dose estimate | **Modified** [T0/T1]: background estimate (v1) plus event dose during replay (FR-37) |
 | FR-13 | Seasonal weather context | Retained [T2] |
-| FR-14 | Briefing card and export | Retained [T0]; post-EVA report extends it (FR-46) |
+| FR-14 | Briefing card and export | Retained [T0] — the v1 "exploration card": the one-page plan the crew carries. v2 adds each stop's tasks (FR-50); the post-EVA report extends it after the walk (FR-46) |
 | FR-15 | Provenance and methods | **Modified** [T0]: adds `replayed` and `simulated` classes |
 | FR-16 | Offline and degraded operation | **Modified** [T0/T1]: no internet at runtime; clients degrade gracefully when the Hab Core is unreachable (FR-30) |
 | FR-17 | Curiosity traverse overlay | Retained [T0] |
@@ -372,6 +373,25 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 
 ---
 
+#### FR-50 — Stop task list on the EVA tablet, synced to ops [T1, M]
+
+*(Added 2026-11-05 at the product & systems lead's request; **Proposed** until team sign-off.)*
+
+- **User story:** As an EVA crew member, I see the short list of things to do at the stop I am at, tick them off with gloves on, and know that ops sees the same list. As ops, I see each crew member's progress per stop and can add a task to a crew member's current or next stop.
+- **Behavior:**
+  - Each planned stop carries 1–4 **stop tasks** (05 StopTask): a kind (`observe | image | sample | measure | deploy | other`) and one line of text written by the team from the POI's objective (FR-45). Task text is authored content, not computed; any number in it must cite its source like any other number.
+  - The EVA tablet shows the current stop's tasks while the crew member is at the stop, and a count (for example "Stop 2 · tasks 1/3") while walking. A task goes `TODO → DONE` or `TODO → SKIPPED` (reason: time, terrain, alert, other) with one tap and a 5-s undo; no hold-to-confirm, because it is not a safety action.
+  - Each change is a command to the Hab Core (`UPDATE_STOP_TASK`), logged as an event and broadcast, so ops, the HUD count and the post-EVA report all show the same state. Without a hab link the change is queued like other commands (02 §E.6) and marked "not synced".
+  - Ops can add a task (`ADD_STOP_TASK`) to a crew member's current or next stop; it appears on that tablet with an "added by ops" tag.
+  - When a plan revision drops a stop (abort, skip remaining stops, FR-44), its open tasks become `DROPPED` automatically (actor `system`). A crew member not driven by a person (for example EV2 in the demo) completes tasks at the end of each dwell, so headless replays stay deterministic (NFR-06).
+  - The briefing card (FR-14) lists each stop's tasks; the post-EVA report (FR-46) shows done, skipped and dropped tasks per stop.
+- **Provenance:** task state is `simulated` (crew actions inside a simulated EVA); task text carries its author and the POI source.
+- **Acceptance criteria:**
+  - A tap on the tablet appears on the ops console and on the other devices within the LAN broadcast budget of the TASK-20 spike (≤ 500 ms).
+  - Abort during the killer demo turns the remaining stops' open tasks into `DROPPED` on every device.
+  - The report's task counts equal the counts reduced from the event log.
+  - Task controls never move the alert slot, HAVEN, O₂ or the action row (04 §A.3 fixed geography); during an alert the list collapses to its count.
+
 ## E. Core demonstration scenario
 
 ### E.1 Killer demo — "Storm at sol 4190" (target 90 s of the 240-s video)
@@ -460,6 +480,7 @@ The v1 planning walkthrough below is retained; task files cite its step numbers.
 | U-15 | RAD time series availability for sol 4190 | Check PDS PPI MSL RAD archive in TASK-04 |
 | U-16 | NASA Exploration Zone terminology citation | Find the human landing site workshop source in TASK-04 |
 | U-17 | Usable orbiter dust-storm record in the scenario window | Check in TASK-04; otherwise drop FR-49 |
+| U-46 | FR-50 sign-off: Tier 1 (in the dry run) as proposed, and whether ops may add tasks during an active alert | Tier 1; ops adds tasks only when no warning is latched |
 
 ---
 

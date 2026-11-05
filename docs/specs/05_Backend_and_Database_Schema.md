@@ -440,11 +440,30 @@ Conventions as §C. In addition: `sim_time` is ISO-8601 UTC of the **mission clo
 | --- | --- | --- |
 | `command_id` | string | client-generated, unique per client |
 | `role` | role | must have permission (02 §E.4) |
-| `kind` | enum | `LOAD_SCENARIO \| SET_CLOCK \| JUMP_NEXT_EVENT \| START_EVA \| PUBLISH_PLAN \| SUMMON_VEHICLE \| ABORT \| ACK_ALERT \| APPROVE_OPTION \| TASK_ROVER \| SEND_MESSAGE \| INJECT_EVENT` |
+| `kind` | enum | `LOAD_SCENARIO \| SET_CLOCK \| JUMP_NEXT_EVENT \| START_EVA \| PUBLISH_PLAN \| SUMMON_VEHICLE \| ABORT \| ACK_ALERT \| APPROVE_OPTION \| TASK_ROVER \| SEND_MESSAGE \| INJECT_EVENT \| UPDATE_STOP_TASK \| ADD_STOP_TASK` |
 | `args` | object | per kind |
 | `queued_offline` | bool | set by an EVA client that resends after `LINK_STATE linked=true` |
 
 Commands are **not** logged themselves; the LogEvent they produce (or a `COMMAND_REJECTED` event) is.
+
+### StopTask *(FR-50, added 2026-11-05)*
+
+One thing to do at one planned stop. Initial tasks come from the plan in `scenario.json` (authored by the team from the POI objective); ops may add more at runtime.
+
+| Field | Type | Rules |
+| --- | --- | --- |
+| `task_id` | string | unique per session, e.g. `t-s2-02` |
+| `stop_id` | string | the plan stop (POI id) it belongs to |
+| `crew_id` | `EV1 \| EV2 \| null` | `null` = either crew member |
+| `kind` | enum | `observe \| image \| sample \| measure \| deploy \| other` |
+| `text` | string | ≤ 60 characters, imperative ("Image the ridge crest"); any number cites its source |
+| `state` | enum | `TODO \| DONE \| SKIPPED \| DROPPED` |
+| `reason` | enum \| null | for SKIPPED: `time \| terrain \| alert \| other`; DROPPED is set by `system` on plan revision |
+| `origin` | `plan \| ops` | `ops` shows the "added by ops" tag |
+| `updated_sim_time`, `updated_by` | ISO, role | from the event that last changed it |
+| `provenance` | — | state `simulated`; text `assumed` (team-authored content) with the POI source id |
+
+State is reduced from `TASK_ADDED`, `TASK_UPDATED` and `TASK_DROPPED` events; it is never stored outside the log and snapshots.
 
 ### LogEvent (one line of `session.jsonl`)
 
@@ -452,7 +471,7 @@ Commands are **not** logged themselves; the LogEvent they produce (or a `COMMAND
 | --- | --- | --- |
 | `seq` | int | monotonic, gap-free |
 | `sim_time` | ISO | |
-| `kind` | enum | `SESSION_LOADED, EVA_STARTED, ARRIVED_STOP, LEFT_STOP, ALERT_RAISED, ALERT_ACKED, ALERT_CLEARED, OPTIONS_PROPOSED, PLAN_REVISED, VEHICLE_DISPATCHED, VEHICLE_ARRIVED, CREW_SHELTERED, LINK_LOST, LINK_RESTORED, EARTH_MSG_QUEUED, EARTH_MSG_DELIVERED, COMMAND_REJECTED, CLOCK_CHANGED, EVA_ENDED` |
+| `kind` | enum | `SESSION_LOADED, EVA_STARTED, ARRIVED_STOP, LEFT_STOP, ALERT_RAISED, ALERT_ACKED, ALERT_CLEARED, OPTIONS_PROPOSED, PLAN_REVISED, VEHICLE_DISPATCHED, VEHICLE_ARRIVED, CREW_SHELTERED, LINK_LOST, LINK_RESTORED, EARTH_MSG_QUEUED, EARTH_MSG_DELIVERED, COMMAND_REJECTED, CLOCK_CHANGED, EVA_ENDED, TASK_ADDED, TASK_UPDATED, TASK_DROPPED` |
 | `actor` | role \| `system` | |
 | `data` | object | values needed to reduce state without recomputation |
 | `provenance` | object | field path → class |
@@ -470,7 +489,7 @@ Per-tick position updates are **not** logged; they are re-derived on replay from
 
 ### PostEvaReport
 
-Built from the log on demand (`GET /api/report`): planned vs. actual per stop (arrive/depart), alerts with response time (raised → acked → sheltered), dose received vs. unsheltered vs. planned background, stops completed/dropped, plan revisions, provenance summary, `log_hash`, disclaimer.
+Built from the log on demand (`GET /api/report`): planned vs. actual per stop (arrive/depart), alerts with response time (raised → acked → sheltered), dose received vs. unsheltered vs. planned background, stops completed/dropped, stop tasks done/skipped/dropped per stop (FR-50), plan revisions, provenance summary, `log_hash`, disclaimer.
 
 ---
 
@@ -790,3 +809,4 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
 | U-11 | Store profile arrays in export or recompute on import? | Store (small) — simplifies briefing rendering |
 | U-23 | Snapshot cadence vs. demo restart time | 500 events; measure resume time in TASK-22 |
 | U-24 | Store per-tick crew positions for the post-EVA map trace? | No — re-derive on replay; store only a 30 s-decimated trace in the report |
+| U-48 | Do initial stop tasks live in `scenario.json` (plan) or in `pois.geojson` (site data)? | `scenario.json`: tasks belong to a plan, not to the place; update `schemas/scenario.schema.json` in TASK-31 |

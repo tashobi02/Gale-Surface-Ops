@@ -10,7 +10,7 @@
 | Effort (doc 06) | 4–8 h |
 | Done when (doc 06) | AOI inside DEM extent; hillshade shows HiRISE-scale texture across ≥ 80 % of AOI |
 | Main risk → fallback | DEM is CTX-quality → switch to Jezero (USGS M2020 TRN HiRISE DTM mosaic) same day |
-| Spec sections | [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov) · [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer) · [02 §C.2](../specs/02_Technical_Requirements_Document.md#c2-data-layers) · [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) · [01 §F.2](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) · [05 §C Site](../specs/05_Backend_and_Database_Schema.md#site) · [feasibility.md](../ops/feasibility.md) · [ADR-001](../decisions/ADR-001-site-selection.md) |
+| Spec sections | [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) · [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer) · [02 §C.2](../specs/02_Technical_Requirements_Document.md#c2-data-layers) · [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) · [01 §F.2](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) · [05 §C Site](../specs/05_Backend_and_Database_Schema.md#site) · [feasibility.md](../ops/feasibility.md) · [ADR-001](../decisions/ADR-001-site-selection.md) |
 
 ## Inputs this task consumes
 
@@ -44,7 +44,7 @@ No subtask of this task depends on another task (map §f).
 - **Window:** pre-event-allowed
 - **Estimate:** 1–2 h
 - **Owns (writes):** `docs/ops/feasibility/dem-label.md`
-- **Reads:** [02 §C.2 L2](../specs/02_Technical_Requirements_Document.md#l2--topography-elevation-hillshade-fr-02-fr-03-fr-08), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer) (elevation row), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) item 4, [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (external limits), [02 Sources](../specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02), [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions), [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov) item 2, [feasibility.md — Elevation datum](../ops/feasibility.md#elevation-datum-u-02)
+- **Reads:** [02 §C.2 L2](../specs/02_Technical_Requirements_Document.md#l2--topography-elevation-hillshade-fr-02-fr-03-fr-08), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer) (elevation row), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) item 4, [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (external limits), [02 Sources](../specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02), [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions), [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) item 2, [feasibility.md — Elevation datum](../ops/feasibility.md#elevation-datum-u-02)
 - **Depends on:** none
 - **Parallel with:** T01.02, T02.01, T03.01, T03.02
 - **Steps:**
@@ -103,7 +103,7 @@ No subtask of this task depends on another task (map §f).
 - **Window:** pre-event-allowed
 - **Estimate:** 2–3 h
 - **Owns (writes):** `docs/ops/feasibility/dem-quality.md`
-- **Reads:** `docs/ops/feasibility/dem-label.md`, `docs/ops/feasibility/aoi.md`, [02 §C.2 L2](../specs/02_Technical_Requirements_Document.md#l2--topography-elevation-hillshade-fr-02-fr-03-fr-08), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) item 2, [01 §F.2](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) A-01, [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [05 Unresolved](../specs/05_Backend_and_Database_Schema.md#unresolved-items-owned-by-this-document) U-10, [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov) item 2, [feasibility.md — DEM quality](../ops/feasibility.md#dem-quality-check-u-01-a-01)
+- **Reads:** `docs/ops/feasibility/dem-label.md`, `docs/ops/feasibility/aoi.md`, [02 §C.2 L2](../specs/02_Technical_Requirements_Document.md#l2--topography-elevation-hillshade-fr-02-fr-03-fr-08), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) item 2, [01 §F.2](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) A-01, [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [05 Unresolved](../specs/05_Backend_and_Database_Schema.md#unresolved-items-owned-by-this-document) U-10, [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) item 2, [feasibility.md — DEM quality](../ops/feasibility.md#dem-quality-check-u-01-a-01)
 - **Depends on:** T01.01 (hard: needs the downloaded DEM), T01.02 (hard: needs the AOI bounds)
 - **Parallel with:** T01.04
 - **Steps:**
@@ -134,7 +134,7 @@ No subtask of this task depends on another task (map §f).
 - **Window:** pre-event-allowed
 - **Estimate:** 1–2 h
 - **Owns (writes):** `docs/ops/feasibility/coverage.md`, `docs/ops/verification-log.md` (append-only)
-- **Reads:** `docs/ops/feasibility/aoi.md`, [02 §C.2 L1](../specs/02_Technical_Requirements_Document.md#l1--optical-basemap-fr-01), [02 §C.2 L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10), [02 §C.2 L5](../specs/02_Technical_Requirements_Document.md#l5--spectral-fr-18-desirable), [02 Sources](../specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02), [01 FR-18](../specs/01_Product_Requirements_Document.md#fr-18--spectral-crism-layer--s), [04 Unresolved](../specs/04_Design_Brief.md#unresolved-items-owned-by-this-document) U-09, [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov) item 3
+- **Reads:** `docs/ops/feasibility/aoi.md`, [02 §C.2 L1](../specs/02_Technical_Requirements_Document.md#l1--optical-basemap-fr-01), [02 §C.2 L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10), [02 §C.2 L5](../specs/02_Technical_Requirements_Document.md#l5--spectral-fr-18-desirable), [02 Sources](../specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02), [01 FR-18](../specs/01_Product_Requirements_Document.md#fr-18--spectral-crism-layer--s), [04 Unresolved](../specs/04_Design_Brief.md#unresolved-items-owned-by-this-document) U-09, [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) item 3
 - **Depends on:** T01.02 (hard: window reads need the AOI bounds)
 - **Parallel with:** T01.03
 - **Steps:**
@@ -163,7 +163,7 @@ No subtask of this task depends on another task (map §f).
 - **Window:** pre-event-allowed
 - **Estimate:** 1 h
 - **Owns (writes):** `docs/ops/feasibility.md`, `docs/decisions/ADR-001-site-selection.md`
-- **Reads:** `docs/ops/feasibility/dem-label.md`, `docs/ops/feasibility/aoi.md`, `docs/ops/feasibility/dem-quality.md`, `docs/ops/feasibility/coverage.md`, [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) TASK-01, [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov) item 4, [01 §F.4](../specs/01_Product_Requirements_Document.md#f4-unresolved-decisions-owned-by-this-document) D-01, [ADR-001](../decisions/ADR-001-site-selection.md), [docs index — decisions](../README.md#major-proposed-decisions)
+- **Reads:** `docs/ops/feasibility/dem-label.md`, `docs/ops/feasibility/aoi.md`, `docs/ops/feasibility/dem-quality.md`, `docs/ops/feasibility/coverage.md`, [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) TASK-01, [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) item 4, [01 §F.4](../specs/01_Product_Requirements_Document.md#f4-unresolved-decisions-owned-by-this-document) D-01, [ADR-001](../decisions/ADR-001-site-selection.md), [docs index — decisions](../README.md#major-proposed-decisions)
 - **Depends on:** T01.01 (hard: label facts), T01.02 (hard: AOI bounds), T01.03 (hard: DEM-quality verdict), T01.04 (hard: coverage results)
 - **Parallel with:** T03.01, T03.02, T05.01
 - **Steps:**
@@ -173,7 +173,7 @@ No subtask of this task depends on another task (map §f).
   4. Record the decision, date and evidence links in ADR-001; the status word is `TODO(decision)`, since the ADRs use only "Proposed" so far.
   5. Tell the data lane the AOI is frozen (06 §D.3, 5 Nov): T03.07, T03.16 and T16.02 may start; if the decision is Jezero, start T01.06 the same day.
 - **Acceptance:**
-  - Serves: D-01 · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov)
+  - Serves: D-01 · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov)
   - Given the four notes, when the team applies the 06 §E rule, then D-01 is recorded in `docs/ops/feasibility.md` and ADR-001 by 5 Nov (06 §D.3).
   - Either the 06 done-when holds ("AOI inside DEM extent; hillshade shows HiRISE-scale texture across ≥ 80 % of AOI") or D-01 is Jezero.
   - Every value in `feasibility.md` equals its note (copied, not retyped); no `TODO` is left without a reason and an owner.
