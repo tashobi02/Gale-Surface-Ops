@@ -1,0 +1,31 @@
+[
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 0,
+    "sim_time": "",
+    "event": {
+      "seq": 0,
+      "sim_time": "",
+      "kind": "TASK_UPDATED",
+      "actor": "eva:EV1",
+      "data": {
+        "task_id": "t-s2-02",
+        "stop_id": "wp-2",
+        "crew_id": "EV1",
+        "state": "DONE",
+        "reason": null
+      },
+      "provenance": {
+        "data.state": "simulated"
+      }
+    }
+  },
+  {
+    "v": 1,
+    "type": "COMMAND_RESULT",
+    "command_id": "k-0102",
+    "ok": true,
+    "event_seq": 0
+  }
+]
