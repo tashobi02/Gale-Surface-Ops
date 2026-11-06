@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`█░░░░░░░░░░░░░░░░░░░` **4 %** — 13 of 299 subtasks done, 3 in progress.
+`█░░░░░░░░░░░░░░░░░░░` **6 %** — 17 of 299 subtasks done, 3 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -35,9 +35,9 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 4 |
 | [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
 | [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 3 |
-| [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `████░░░░░░` 38 % | 3 | 2 | 8 |
+| [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `██████░░░░` 62 % | 5 | 2 | 8 |
 | [TASK-21 Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers](docs/tasks/TASK-21_scenario-builder.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 12 |
-| [TASK-22 Simulation engine: clock, crew motion, consumables, alerts, event log, replay](docs/tasks/TASK-22_simulation-engine.md) | `█░░░░░░░░░` 13 % | 2 | 0 | 15 |
+| [TASK-22 Simulation engine: clock, crew motion, consumables, alerts, event log, replay](docs/tasks/TASK-22_simulation-engine.md) | `███░░░░░░░` 27 % | 4 | 0 | 15 |
 | [TASK-23 Safety ops in the Hab Core: commands, haven per tick, summon and rendezvous, contingency options, abort](docs/tasks/TASK-23_safety-ops.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 8 |
 | [TASK-24 EVA client and HUD: SCR-12 tablet, SCR-13 HUD, SCR-14 options sheet, SCR-18 link lost, full-screen map](docs/tasks/TASK-24_eva-client-and-hud.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 11 |
 | [TASK-25 Ops console: SCR-11 with the shared map, alerts, options approval, clock control, SCR-10 join](docs/tasks/TASK-25_ops-console.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 9 |
@@ -85,7 +85,7 @@ The full pipeline environment (GDAL ≥ 3.6, rasterio, numpy, pyproj) is in [pip
 
 ## Data is not in git
 
-Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are never committed. The only site binaries in git are the small synthetic fixture `data/sites/mock_site/`. The offline pipeline (`make data`, TASK-03, not implemented yet) downloads into the git-ignored `pipeline/work/` and writes the site bundle to `data/sites/<site_id>/` (layout: [data/sites/gale_boxwork/README.md](data/sites/gale_boxwork/README.md)). Source URLs, versions and checksums go in `pipeline/sources.lock.json`. The large tiles, grid and images are shared as a GitHub release asset (chosen route, not Git LFS); see [docs/ops/feasibility.md](docs/ops/feasibility.md).
+Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are never committed. The offline pipeline (`make data`, TASK-03, not implemented yet) downloads into the git-ignored `pipeline/work/` and writes the site bundle to `data/sites/<site_id>/` (layout: [data/sites/gale_boxwork/README.md](data/sites/gale_boxwork/README.md)). Source URLs, versions and checksums go in `pipeline/sources.lock.json`. The large tiles, grid and images are shared as a GitHub release asset (chosen route, not Git LFS); see [docs/ops/feasibility.md](docs/ops/feasibility.md).
 
 ## Documentation
 
