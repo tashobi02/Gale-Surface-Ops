@@ -19,4 +19,5 @@ After editing this file run `make progress`. Do not edit the README progress blo
 | T00.04 | done | 2026-11-04 | Phase-gate line in [CLAUDE.md](../../CLAUDE.md) and [AGENTS.md](../../AGENTS.md) |
 | T00.06 | wip | 2026-11-04 | Roster in [team.md](../ops/team.md); venue (U-14) still `TODO(verify)` |
 | T20.01 | wip | 2026-11-06 | FR-50 types added to `runtime.ts` and `ws.ts` (commit `28ff78e`); the field-by-field review against 05 §C.2 and the 7 Nov freeze are still to do ([TASK-20](TASK-20_hab-core-skeleton.md)) |
+| T22.01 | done | 2026-11-06 | Engine contract C14: `EngineState`, `reduce`, `tick` with `MODULE_ORDER`, one stub module per concern with its owner, scenario/log/session APIs; module map in [engine/README.md](../../apps/hab-core/src/engine/README.md); `make typecheck` green ([TASK-22](TASK-22_simulation-engine.md)) |
 | T31.01 | done | 2026-11-06 | StopTask types, commands, events, permissions, `SNAPSHOT.tasks`, scenario `stop_tasks`, UI stubs and `it.todo` tests: commits `28ff78e`, `099dc17`, `d43d5b1`, `d39aa0f` ([TASK-31](TASK-31_stop-task-list.md)) |
