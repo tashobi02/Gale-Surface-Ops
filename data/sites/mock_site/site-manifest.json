@@ -1,0 +1,339 @@
+{
+  "aoi": {
+    "bbox_geo": [
+      137.3292,
+      -4.7506,
+      137.4308,
+      -4.6494
+    ],
+    "extent_m": [
+      -3000,
+      -3000,
+      3000,
+      3000
+    ]
+  },
+  "assets": [
+    {
+      "asset_id": "grid-comm-hab",
+      "byte_order": "little",
+      "bytes": 3600,
+      "format": "u8",
+      "height": 60,
+      "nodata": 255,
+      "path": "grid/comm_hab.u8",
+      "sha256": "4b88af692c702c382910cf6fa70281dc0ba8cc8a11d0bfd93d1fc93954332c73",
+      "width": 60
+    },
+    {
+      "asset_id": "grid-elevation",
+      "byte_order": "little",
+      "bytes": 14400,
+      "format": "f32",
+      "height": 60,
+      "nodata": null,
+      "path": "grid/elevation.f32",
+      "sha256": "80e27096c82dfb8e732a1e9c81d60948ea25523ad3992405c7eb6be7ddc05275",
+      "width": 60
+    },
+    {
+      "asset_id": "grid-flags",
+      "byte_order": "little",
+      "bytes": 3600,
+      "format": "u8",
+      "height": 60,
+      "nodata": 255,
+      "path": "grid/flags.u8",
+      "sha256": "c412084faae478e3e814bc46206ea67f6a6706bfaf3709fb6001db0ac25595b1",
+      "width": 60
+    },
+    {
+      "asset_id": "grid-slope-max",
+      "byte_order": "little",
+      "bytes": 3600,
+      "format": "u8",
+      "height": 60,
+      "nodata": 255,
+      "path": "grid/slope_max.u8",
+      "sha256": "ed671c1d1235e2028c4160dd4eae9c617cce4a7471fc19ac90257ae92d7dd10f",
+      "width": 60
+    },
+    {
+      "asset_id": "grid-slope-p90",
+      "byte_order": "little",
+      "bytes": 3600,
+      "format": "u8",
+      "height": 60,
+      "nodata": 255,
+      "path": "grid/slope_p90.u8",
+      "sha256": "ed671c1d1235e2028c4160dd4eae9c617cce4a7471fc19ac90257ae92d7dd10f",
+      "width": 60
+    },
+    {
+      "asset_id": "grid-ti",
+      "byte_order": "little",
+      "bytes": 14400,
+      "format": "f32",
+      "height": 60,
+      "nodata": null,
+      "path": "grid/ti_100m.f32",
+      "sha256": "1e457bf6217a097b9e75b04f5ab31c4874cf0b9784883e5b466dbd8ce962794e",
+      "width": 60
+    },
+    {
+      "asset_id": "tiles-elevation",
+      "format": "tiles",
+      "path": "tiles/elevation",
+      "sha256": "abf1e2555fa8ccc2a8f907c1aaf582c0f8b27387d1c32702a177f30c522fe998"
+    },
+    {
+      "asset_id": "tiles-slope",
+      "format": "tiles",
+      "path": "tiles/slope",
+      "sha256": "abf1e2555fa8ccc2a8f907c1aaf582c0f8b27387d1c32702a177f30c522fe998"
+    },
+    {
+      "asset_id": "vec-pois",
+      "bytes": 919,
+      "format": "geojson",
+      "path": "vectors/pois.geojson",
+      "sha256": "e42b27728824fde1347c77b019d4881999f091dde443b2eaef1b284abb394342"
+    },
+    {
+      "asset_id": "vec-traverse",
+      "bytes": 1623,
+      "format": "geojson",
+      "path": "vectors/traverse.geojson",
+      "sha256": "6b2f0d75ce2d34c618208538437f8622c793aa007d90d658cc3bd771acb1a6e9"
+    }
+  ],
+  "body": "mars",
+  "crs": {
+    "base": "IAU_2015:49900",
+    "proj4": "+proj=eqc +lat_ts=-4.70 +lat_0=-4.70 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs"
+  },
+  "data_version": "mock_site-2026.11.05",
+  "default_start": {
+    "label": "Habitat / rover",
+    "x_m": -1800,
+    "y_m": -1500
+  },
+  "env_constants": [
+    {
+      "conditions": {
+        "location": "Gale crater floor",
+        "period": "2012-2013",
+        "solar_phase": "max"
+      },
+      "const_id": "rad-gale-dose-eq-solar-max",
+      "high": 0.76,
+      "low": 0.52,
+      "provenance": "measured",
+      "quantity": "surface dose equivalent rate",
+      "source_id": "hassler-2014-rad",
+      "unit": "mSv/day",
+      "value": 0.64
+    },
+    {
+      "conditions": {
+        "location": "Gale crater floor",
+        "solar_phase": "min"
+      },
+      "const_id": "rad-gale-dose-eq-solar-min",
+      "high": 1.0,
+      "low": 0.85,
+      "note": "reported range, Simonsen et al. 2024",
+      "provenance": "measured",
+      "quantity": "surface dose equivalent rate",
+      "source_id": "simonsen-2024-rad",
+      "unit": "mSv/day",
+      "value": 0.925
+    }
+  ],
+  "grid": {
+    "cell_m": 100,
+    "comm_hab_asset": "grid-comm-hab",
+    "elevation_asset": "grid-elevation",
+    "flags_asset": "grid-flags",
+    "hab_mast": {
+      "height_m": 10,
+      "x_m": -1800,
+      "y_m": -1500
+    },
+    "height": 60,
+    "origin_m": [
+      -3000,
+      3000
+    ],
+    "row_order": "north_up",
+    "slope_max_asset": "grid-slope-max",
+    "slope_p90_asset": "grid-slope-p90",
+    "ti_asset": "grid-ti",
+    "ti_cell_m": 100,
+    "width": 60
+  },
+  "known_offsets_m": {
+    "traverse": null
+  },
+  "layers": [
+    {
+      "asset_id": "tiles-slope",
+      "category": "topographic",
+      "default_visible": false,
+      "derived_from": [
+        "elevation"
+      ],
+      "display_resolution_m": 2,
+      "kind": "raster_tiles",
+      "layer_id": "slope",
+      "legend": {
+        "breaks_follow_scenario": true,
+        "classes": [
+          [
+            0,
+            5,
+            "flat"
+          ],
+          [
+            5,
+            10,
+            "gentle"
+          ],
+          [
+            10,
+            15,
+            "caution"
+          ],
+          [
+            15,
+            25,
+            "over limit"
+          ],
+          [
+            25,
+            90,
+            "steep"
+          ]
+        ],
+        "type": "classes"
+      },
+      "limitations": "Horn slope on 1 m posts; effective DTM resolution is coarser; artifacts possible.",
+      "native_resolution_m": 1,
+      "optional": true,
+      "provenance": "derived",
+      "source_ids": [
+        "usgs-gale-dem-1m-v3"
+      ],
+      "tile_grid": {
+        "format": "png",
+        "origin_m": [
+          -3000,
+          3000
+        ],
+        "resolutions_m": [
+          32,
+          16,
+          8,
+          4,
+          2
+        ],
+        "tile_size_px": 256
+      },
+      "title": "Slope",
+      "units": "deg"
+    },
+    {
+      "asset_id": "tiles-elevation",
+      "category": "topographic",
+      "default_visible": false,
+      "derived_from": [],
+      "display_resolution_m": 2,
+      "kind": "raster_tiles",
+      "layer_id": "elevation",
+      "legend": {
+        "type": "none"
+      },
+      "limitations": "Synthetic flat placeholder; not a downloaded DEM.",
+      "native_resolution_m": 1,
+      "optional": true,
+      "provenance": "assumed",
+      "source_ids": [
+        "usgs-gale-dem-1m-v3"
+      ],
+      "tile_grid": {
+        "format": "png",
+        "origin_m": [
+          -3000,
+          3000
+        ],
+        "resolutions_m": [
+          32,
+          16,
+          8,
+          4,
+          2
+        ],
+        "tile_size_px": 256
+      },
+      "title": "Elevation (placeholder)",
+      "units": "m"
+    }
+  ],
+  "name": "Mock site (synthetic fixture F4)",
+  "pois_asset": "vec-pois",
+  "schema_version": "1.0.0",
+  "site_id": "mock_site",
+  "sources": [
+    {
+      "accessed": "2026-11-02",
+      "accuracy_note": "HRSC controlled to MOLA (~100 m horizontal, ~1 m vertical)",
+      "authors": "Parker, T.; Calef III, F. J.",
+      "credit": "Please credit authors",
+      "instruments": [
+        "HiRISE",
+        "CTX",
+        "HRSC",
+        "MOLA"
+      ],
+      "licence": "Use constraints: none",
+      "missions": [
+        "MRO",
+        "Mars Express",
+        "MGS"
+      ],
+      "native_resolution_m": 1,
+      "publisher": "USGS Astrogeology Science Center",
+      "source_id": "usgs-gale-dem-1m-v3",
+      "title": "Mars MSL Gale Merged DEM 1m",
+      "url": "https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_dem_1m",
+      "version": "v3"
+    },
+    {
+      "accessed": "2026-11-02",
+      "accuracy_note": "Fixture bibliography from local reference \u00a79; accessed date copied from F.1, not a retrieval. TODO(verify): complete metadata; TODO(decision): canonical solar-min source id (map open point 12).",
+      "credit": "Hassler et al., 2014",
+      "instruments": [],
+      "licence": "TODO(verify)",
+      "missions": [],
+      "publisher": "",
+      "source_id": "hassler-2014-rad",
+      "title": "Hassler et al., 2014",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/24324275/",
+      "version": ""
+    },
+    {
+      "accessed": "2026-11-02",
+      "accuracy_note": "Fixture bibliography from local reference \u00a79; accessed date copied from F.1, not a retrieval. TODO(verify): complete metadata; TODO(decision): canonical solar-min source id (map open point 12).",
+      "credit": "Simonsen et al., 2024",
+      "instruments": [],
+      "licence": "TODO(verify)",
+      "missions": [],
+      "publisher": "",
+      "source_id": "simonsen-2024-rad",
+      "title": "Simonsen et al., 2024",
+      "url": "https://ntrs.nasa.gov/api/citations/20240009831/downloads/NAS%20BPS%20Simonsen%20v4%20strives.pdf",
+      "version": ""
+    }
+  ],
+  "traverse_asset": "vec-traverse"
+}

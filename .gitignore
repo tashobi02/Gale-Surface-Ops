@@ -51,3 +51,8 @@ docs/design/prototype/test/node_modules/
 .gemini/skills/*
 !.gemini/skills/impeccable/
 docs/design/prototype/test/*.png
+# T03.02 — F4 is a small, generated fixture; real site binaries stay excluded.
+!data/sites/mock_site/tiles/
+!data/sites/mock_site/tiles/**
+!data/sites/mock_site/grid/
+!data/sites/mock_site/grid/**
