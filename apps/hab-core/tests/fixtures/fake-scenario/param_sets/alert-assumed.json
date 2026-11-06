@@ -1,0 +1,16 @@
+{
+  "param_set_id": "alert-assumed",
+  "kind": "alert",
+  "title": "Alert thresholds",
+  "values": {
+    "rad_k_background": 10,
+    "rad_clear_k": 2,
+    "rad_clear_min": 30,
+    "buddy_max_m": 200,
+    "o2_caution_frac": 0.3,
+    "o2_warning_frac": 0.15
+  },
+  "provenance": "assumed",
+  "source_ids": [],
+  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20)."
+}
