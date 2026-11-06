@@ -15,7 +15,7 @@
 | Lat, lon °E | −4.83787, 137.39756 | −4.82100, 137.38744 |
 | Source `E, N` | 8144199, −286764 | 8143599, −285764 |
 | Elevation | −3323 m | −3515 m |
-| Rover track in line of sight | **42 %** | 92 % |
+| Rover track in line of sight | **35–69 %**, by method | 89–94 %, by method |
 | Distance to the rover track | 914 m | 82 m |
 | Slope on the 50 m pad, largest 5 m p90 | 12.5° | 13.8° |
 | Share of ground within about 100 m with p90 under 15° | 77 % | 79 % |
@@ -24,9 +24,9 @@
 
 The data lead chose the first choice and alternative from the candidates below on 2026-11-07.
 
-**First choice.** 06 §C.1 asks for a flat, passable site near the stops with ridges that cast interesting comm shadows. Ridges and knobs surround it, and 42 % of the track is in line of sight, so a crew walking the track moves in and out of comm shadow. That is what FR-42's warnings need.
+**First choice.** 06 §C.1 asks for a flat, passable site near the stops with ridges that cast interesting comm shadows. Ridges and knobs surround it, and only part of the track is in line of sight, so a crew walking the track moves in and out of comm shadow. That is what FR-42's warnings need.
 
-**Alternative.** A smooth open plain next to the track, and the safer site. At 92 % line of sight, comm shadows would rarely appear. Dark sand and small dunes lie just to its south-west.
+**Alternative.** A smooth open plain next to the track, and the safer site. With most of the track in line of sight, comm shadows would rarely appear. Dark sand and small dunes lie just to its south-west.
 
 **Trade-off.** No site is both properly flat and in good line of sight. Both sites pass the 15° hard-limit default in 05 MissionScenario, but neither meets the 10° caution default on the whole pad. Of 3,540 sites tested, none with a pad under 10° sees more than 17 % of the track.
 
@@ -36,7 +36,15 @@ The agent ran these tools on the data lead's request. The numbers are tool outpu
 
 - **Slope:** `horn_slope_deg` and `aggregate_slope` from `pipeline/src/marswalk_pipeline/derive.py`, on the 1 m AOI window aggregated to 5 m. The window is in the DEM's own grid, whose scale differs from the working projection by about 0.4 %. T03.19's grid replaces these values.
 - **Candidates:** sites every 100 m across the box.
-- **Line of sight:** from a mast of `hab_mast_m` in `scenarios/storm-sol4190/param_sets/link-assumed.json` to a receiver of `antenna_m` in `suit-assumed.json`, over the 5 m elevation, with curvature drop d²/2R, to the 127 track points of sols 4,534–5,045. The check passed synthetic flat-plane and wall cases. It is a quick check, not the `comm_hab` grid: T03.29 and T03.30 produce and verify that.
+- **Line of sight:** from a mast of `hab_mast_m` in `scenarios/storm-sol4190/param_sets/link-assumed.json` to a receiver of `antenna_m` in `suit-assumed.json`, over the 5 m elevation, with curvature drop d²/2R, to the 127 track points of sols 4,534–5,045. The check passed synthetic flat-plane and wall cases. It chose the candidates, and its 42 % and 92 % remain in the table below.
+- **Line of sight, re-checked after T03.29** on the same 127 points:
+
+  | Site | `comm_hab` (T03.29) | `gdal_viewshed`, curvature 1.0 | Agreement over the box |
+  | --- | --- | --- | --- |
+  | First choice | 34.6 % | 68.5 % | 98.8 % |
+  | Alternative | 89.0 % | 93.7 % | 99.7 % |
+
+  The methods agree across the box but differ along the track, where sight lines graze the slope. T03.30 checks this. Both still put the first choice in comm shadow for part of the track and the alternative for little of it.
 - **Low-detail areas:** neither site lies within 50 m of an area kept in [dem-quality.md](dem-quality.md#patches).
 
 ## Candidates compared
