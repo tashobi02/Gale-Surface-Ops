@@ -12,6 +12,9 @@
 /** v2 adds `replayed` (real history on the mission clock) and `simulated` (engine output); 01 legend, 05 change log. */
 export type Provenance = "measured" | "derived" | "modelled" | "assumed" | "replayed" | "simulated";
 
+/** 05 §C Layer: `replayed` and `simulated` are never used by static layers. */
+export type StaticProvenance = Exclude<Provenance, "replayed" | "simulated">;
+
 // ---------------------------------------------------------------------------
 // Static entities (site manifest and its assets)
 // ---------------------------------------------------------------------------
@@ -28,7 +31,7 @@ export interface Site {
   /** <site_id>-YYYY.MM.DD[.n] */
   data_version: string;
   crs: {
-    /** Must equal the pipeline string exactly. */
+    /** Byte-identical to the pipeline's working-projection constant in config.py (05 §E.3). */
     proj4: string;
     /** IAU code of geographic base, e.g. "IAU_2015:49900". */
     base: string;
@@ -85,20 +88,45 @@ export interface TileGrid {
   format: string;
 }
 
+// C2 legend structure, decided 2026-11-06 by the data lead (T03.01). 05 says only "ramp/classes with
+// values". `classes` copies the 05 §F.1 example. `ramp` and `none` were added because elevation and TI
+// have no classes, and ortho, hillshade and vector layers have no scale.
+
+/** Discrete classes, [min, max, label] (05 §F.1). */
+export interface ClassesLegend {
+  type: "classes";
+  /** True when class edges follow the scenario's current limits (04 §C.1). */
+  breaks_follow_scenario?: boolean;
+  classes: [number, number, string][];
+}
+
+/** Continuous scale, [value, label] stops, ≥ 2. Values come from the pipeline, never typed by hand. */
+export interface RampLegend {
+  type: "ramp";
+  stops: [number, string][];
+}
+
+/** No value scale to show. */
+export interface NoLegend {
+  type: "none";
+}
+
+export type LayerLegend = ClassesLegend | RampLegend | NoLegend;
+
 /** A displayable data layer (05 §C Layer; FR-02, FR-17, FR-18). */
 export interface Layer {
   layer_id: string;
   title: string;
   category: "optical" | "topographic" | "thermal" | "spectral" | "hazard" | "mission";
   kind: "raster_tiles" | "vector" | "image_static";
-  provenance: Provenance;
+  provenance: StaticProvenance;
   /** FK → DataSource, ≥ 1. */
   source_ids: string[];
   /** FK → Layer. Default []. */
   derived_from?: string[];
   units?: string;
-  /** Ramp/classes with values; 05 does not fix the structure. */
-  legend: Record<string, unknown>;
+  /** Ramp/classes with values. */
+  legend: LayerLegend;
   native_resolution_m: number;
   display_resolution_m: number;
   /** FK → Asset (tiles root). */
@@ -118,14 +146,14 @@ export interface Asset {
   /** Relative to site folder. */
   path: string;
   format: "f32" | "u8" | "geojson" | "jpg" | "png" | "webp" | "tiles";
-  /** 64 hex; required for files; tiles roots store hash of index file. */
-  sha256?: string;
+  /** 64 hex; tiles roots store the hash of their index file, so every Asset has one (05 §C, §E.3). */
+  sha256: string;
   /** Required for files. */
   bytes?: number;
   /** Arrays/images. */
   width?: number;
   height?: number;
-  /** Arrays: NaN for f32, 255 for u8. */
+  /** Arrays: NaN for f32 (JSON has no NaN, so null in the manifest, as in the 05 example), 255 for u8. */
   nodata?: number | null;
   byte_order?: "little";
 }
@@ -142,7 +170,7 @@ export interface RoutingGrid {
   row_order: "north_up";
   /** f32, metres, bilinear-resampled mean of 1 m DEM. */
   elevation_asset: string;
-  /** u8, degrees × 4 (0.25° steps), 255 = no data. */
+  /** u8, degrees × 4 (0.25° steps, 0–63.5°), 255 = no data. */
   slope_p90_asset: string;
   /** Same encoding as slope_p90_asset. */
   slope_max_asset: string;
@@ -179,15 +207,15 @@ export interface POI {
   science_objective: string;
   /** ≤ 300 chars. */
   why_it_matters: string;
-  /** FK → Asset (jpg). */
-  image_asset?: string;
+  /** FK → Asset (jpg). Image fields are absent or null when the image is unavailable (05 §E.6). */
+  image_asset?: string | null;
   /** Required if image. */
-  image_credit?: string;
+  image_credit?: string | null;
   /** Required if image. */
-  image_source_url?: string;
-  image_sol?: number;
-  image_date?: string;
-  image_camera?: string;
+  image_source_url?: string | null;
+  image_sol?: number | null;
+  image_date?: string | null;
+  image_camera?: string | null;
   /** How coordinates were obtained. */
   position_source: string;
   /** ≥ 0, metres. */
@@ -264,7 +292,7 @@ export interface MissionScenario {
   crew_count: 1 | 2;
   /** v2: default true. */
   vehicle_available: boolean;
-  /** v2: FK → ParamSet; required when vehicle_available. */
+  /** v2: FK → ParamSet; required when vehicle_available; default "pr1-assumed". */
   vehicle_param_set?: string;
 }
 
@@ -284,9 +312,16 @@ export interface Waypoint {
   label?: string;
 }
 
-// TODO(decision): 05 has no Req column for PlanResult, Leg and Warning. Fields below are
-// required unless 05 marks them conditional ("if NO_ROUTE", "null when PARTIAL",
-// "for time warnings"); the JSON Schema marks none required.
+// Required fields of PlanResult, Leg and Warning, decided 2026-11-06 by the data lead (T03.01; map open
+// point 3). 05 has no Req column for them, so its wording still needs a `spec-change:` subtask:
+// - Leg: `from`, `to`, `status` always. An OK leg has every metric, `geometry` and `profile`. A NO_ROUTE
+//   leg has `reason` and no metrics (02 §E.2 example). `nearest_reachable` stays optional because
+//   START_BLOCKED explores no cell, so 02 §D.2 cannot supply one there.
+// - Warning: everything except `at_utc` ("for time warnings").
+// - PlanResult: `conditions` and `radiation` may be absent, and `stops_timeline` may be empty, in the
+//   legs-only M3 slice (T05.26) until T05.32 and T06.09 fill them; the UI shows "—" (TASK-09).
+// - Exports (schemas/plan-export.schema.json) are looser: `computed_utc`, `timing_ms`, `cell_path_length`
+//   and, pending U-11, `profile` may be absent, because a plan can be embedded without a worker run (T22.02).
 
 /** NO_ROUTE reasons from 02 §D.2 (05 says only "reason (if NO_ROUTE)"). */
 export type NoRouteReason =
@@ -296,13 +331,22 @@ export type NoRouteReason =
   | "DISCONNECTED_BY_HAZARD"
   | "DISCONNECTED_BY_NODATA";
 
-/** One leg between consecutive waypoints (05 §C Leg; FR-07, FR-08). */
-export interface Leg {
+/** Sampled every 5 m; slope_class against the scenario's current limits (01 FR-08). */
+export interface LegProfile {
+  dist_m: number[];
+  elev_m: number[];
+  slope_class: ("ok" | "caution" | "over_limit")[];
+  /** v2: 0/1 line of sight to the hab per sample. */
+  comm?: (0 | 1)[];
+  /** v2: planning approximation of minutes to haven per sample (02 §D.8). */
+  haven_min?: number[];
+}
+
+/** A leg with a route (05 §C Leg; FR-07, FR-08). */
+export interface OkLeg {
   from: string;
   to: string;
-  status: "OK" | "NO_ROUTE";
-  /** If NO_ROUTE. */
-  reason?: NoRouteReason;
+  status: "OK";
   distance_m: number;
   walk_time_min: number;
   climb_m: number;
@@ -311,19 +355,21 @@ export interface Leg {
   /** [x_m, y_m] pairs, simplified for display. */
   geometry: [number, number][];
   cell_path_length: number;
-  /** If NO_ROUTE; shape from 02 §E.2. */
-  nearest_reachable?: { x_m: number; y_m: number };
-  /** Sampled every 5 m; slope_class against the scenario's current limits (01 FR-08). */
-  profile: {
-    dist_m: number[];
-    elev_m: number[];
-    slope_class: ("ok" | "caution" | "over_limit")[];
-    /** v2: 0/1 line of sight to the hab per sample. */
-    comm?: (0 | 1)[];
-    /** v2: planning approximation of minutes to haven per sample (02 §D.8). */
-    haven_min?: number[];
-  };
+  profile: LegProfile;
 }
+
+/** A leg without a route (05 §C Leg; 02 §D.2, §E.2). */
+export interface NoRouteLeg {
+  from: string;
+  to: string;
+  status: "NO_ROUTE";
+  reason: NoRouteReason;
+  /** Shape from 02 §E.2; absent when no cell was explored (START_BLOCKED). */
+  nearest_reachable?: { x_m: number; y_m: number };
+}
+
+/** One leg between consecutive waypoints (05 §C Leg). */
+export type Leg = OkLeg | NoRouteLeg;
 
 /** Hazard or constraint warning (05 §C Warning; FR-10). */
 export interface Warning {
@@ -373,14 +419,15 @@ export interface PlanResult {
   /** One per consecutive waypoint pair (+ return leg if loop). */
   legs: Leg[];
   totals: PlanTotals | null;
+  /** Per waypoint; empty in the M3 slice. */
   stops_timeline: {
     arrive_utc: string;
     depart_utc: string;
     arrive_ltst: string;
     sun_elevation_deg: number;
   }[];
-  /** Flat horizon. */
-  conditions: {
+  /** Flat horizon. May be absent in the M3 slice. */
+  conditions?: {
     mars_year: number;
     ls_deg: number;
     sunrise_ltst: string;
@@ -388,7 +435,8 @@ export interface PlanResult {
     sunrise_utc: string;
     sunset_utc: string;
   };
-  radiation: {
+  /** May be absent in the M3 slice. */
+  radiation?: {
     dose_mSv: number;
     dose_low_mSv: number;
     dose_high_mSv: number;

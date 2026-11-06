@@ -168,7 +168,8 @@
         },
         "vehicle_param_set": {
           "type": "string",
-          "$comment": "v2; FK → ParamSet; required when vehicle_available"
+          "$comment": "v2; FK → ParamSet; required when vehicle_available",
+          "default": "pr1-assumed"
         }
       },
       "required": [
@@ -364,10 +365,55 @@
               "$comment": "v2, planning approximation (02 §D.8)"
             }
           },
-          "$comment": "sampled every 5 m"
+          "$comment": "sampled every 5 m. TODO(decision): U-11, store profile arrays in the export or recompute on import. 05 recommends storing; until decided, profile is optional in the export.",
+          "required": [
+            "dist_m",
+            "elev_m",
+            "slope_class"
+          ]
         }
       },
-      "$comment": "TODO(decision): 05 gives no Req column for PlanResult, Leg and Warning, so no field is marked required."
+      "$comment": "Required fields decided 2026-11-06 by the data lead (T03.01; map open point 3). 05 has no Req column for PlanResult, Leg and Warning, so its wording still needs a spec-change subtask. An OK leg has every metric and geometry; a NO_ROUTE leg has reason and no metrics (02 §E.2). nearest_reachable stays optional because START_BLOCKED explores no cell. computed_utc, timing_ms and cell_path_length describe one worker run, so they are required on worker output (schema.ts) but optional in an export: the T22.02 fake scenario embeds a plan no search produced.",
+      "required": [
+        "from",
+        "to",
+        "status"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "OK"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "distance_m",
+              "walk_time_min",
+              "climb_m",
+              "descent_m",
+              "max_slope_deg",
+              "geometry"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "NO_ROUTE"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reason"
+            ]
+          }
+        }
+      ]
     },
     "Warning": {
       "type": "object",
@@ -426,7 +472,15 @@
           "type": "string"
         }
       },
-      "$comment": "TODO(decision): 05 gives no Req column for PlanResult, Leg and Warning, so no field is marked required."
+      "$comment": "Required fields decided 2026-11-06 by the data lead (T03.01; map open point 3). 05 has no Req column for PlanResult, Leg and Warning, so its wording still needs a spec-change subtask. Everything except at_utc is required.",
+      "required": [
+        "code",
+        "severity",
+        "leg",
+        "from_m",
+        "to_m",
+        "message"
+      ]
     },
     "PlanResult": {
       "type": "object",
@@ -479,7 +533,18 @@
             "max_walkback_km": {
               "type": "number"
             }
-          }
+          },
+          "required": [
+            "distance_m",
+            "walk_time_min",
+            "dwell_time_min",
+            "eva_total_min",
+            "eva_margin_min",
+            "climb_m",
+            "descent_m",
+            "max_slope_deg",
+            "max_walkback_km"
+          ]
         },
         "stops_timeline": {
           "type": "array",
@@ -501,7 +566,13 @@
               "sun_elevation_deg": {
                 "type": "number"
               }
-            }
+            },
+            "required": [
+              "arrive_utc",
+              "depart_utc",
+              "arrive_ltst",
+              "sun_elevation_deg"
+            ]
           }
         },
         "conditions": {
@@ -526,7 +597,15 @@
               "type": "string"
             }
           },
-          "$comment": "flat horizon"
+          "$comment": "flat horizon",
+          "required": [
+            "mars_year",
+            "ls_deg",
+            "sunrise_ltst",
+            "sunset_ltst",
+            "sunrise_utc",
+            "sunset_utc"
+          ]
         },
         "radiation": {
           "type": "object",
@@ -549,7 +628,14 @@
             "const_id": {
               "type": "string"
             }
-          }
+          },
+          "required": [
+            "dose_mSv",
+            "dose_low_mSv",
+            "dose_high_mSv",
+            "solar_phase",
+            "const_id"
+          ]
         },
         "warnings": {
           "type": "array",
@@ -566,7 +652,28 @@
           "$comment": "diagnostics"
         }
       },
-      "$comment": "TODO(decision): 05 gives no Req column for PlanResult, Leg and Warning, so no field is marked required."
+      "$comment": "Required fields decided 2026-11-06 by the data lead (T03.01; map open point 3). 05 has no Req column for PlanResult, Leg and Warning, so its wording still needs a spec-change subtask. conditions and radiation may be absent, and stops_timeline may be empty, in the legs-only M3 slice (T05.26) until T05.32 and T06.09 fill them. computed_utc, timing_ms and cell_path_length describe one worker run, so they are required on worker output (schema.ts) but optional in an export: the T22.02 fake scenario embeds a plan no search produced.",
+      "required": [
+        "status",
+        "legs",
+        "totals",
+        "stops_timeline",
+        "warnings"
+      ],
+      "if": {
+        "properties": {
+          "status": {
+            "const": "PARTIAL"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "totals": {
+            "const": null
+          }
+        }
+      }
     }
   }
 }

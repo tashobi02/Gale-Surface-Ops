@@ -1,4 +1,4 @@
-"""Derived rasters: slope, hillshade, hazard flags (docs/specs/02 §C.2 L2–L4). FR-02, FR-07, FR-10."""
+"""Derived rasters: slope and hillshade (docs/specs/02 §C.2 L2–L3). FR-02, FR-07. Hazard flags live in flags.py."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -19,12 +19,4 @@ def hillshade(dem: np.ndarray, cell_m: float, azimuth_deg: float = 315, altitude
 
 def aggregate_slope(slope_1m: np.ndarray, factor: int) -> tuple[np.ndarray, np.ndarray]:
     """Aggregate 1 m slope to the 5 m grid as (p90, max), degrees (02 §C.2 L3). TASK-03."""
-    raise NotImplementedError("TASK-03")
-
-
-def hazard_flags(elevation: np.ndarray, ti: np.ndarray | None, ti_threshold_tiu: float | None) -> np.ndarray:
-    """u8 flag bitfield per 05 §C (NO_DATA, LOW_TI, TI_UNKNOWN; HARD_HAZARD and LOW_RES_DEM from inputs).
-
-    TI threshold is Unresolved (U-03); flags are interpretive. TASK-03.
-    """
     raise NotImplementedError("TASK-03")

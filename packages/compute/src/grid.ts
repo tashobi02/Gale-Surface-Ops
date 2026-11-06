@@ -16,6 +16,11 @@ export interface LoadedGrid {
   flags: Uint8Array;
   /** tiu on the 100 m sidecar grid; absent if the TI layer is unavailable (05 §E.6). */
   ti?: Float32Array;
+  /**
+   * v2: 1 = line of sight to the hab mast, 0 = none, 255 = no data (05 RoutingGrid comm_hab_asset).
+   * Added by Obidit Islam for Mishkat Ahmed Khan (T05.16 owner) after the T03.01 C4 review.
+   */
+  commHab: Uint8Array;
 }
 
 /**
@@ -24,7 +29,7 @@ export interface LoadedGrid {
  */
 export function loadGrid(
   meta: RoutingGrid,
-  buffers: { elevation: ArrayBuffer; slopeP90: ArrayBuffer; slopeMax: ArrayBuffer; flags: ArrayBuffer; ti?: ArrayBuffer },
+  buffers: { elevation: ArrayBuffer; slopeP90: ArrayBuffer; slopeMax: ArrayBuffer; flags: ArrayBuffer; ti?: ArrayBuffer; commHab: ArrayBuffer },
 ): LoadedGrid {
   throw new Error("TODO(TASK-05): not implemented");
 }

@@ -32,7 +32,7 @@
       "properties": {
         "proj4": {
           "type": "string",
-          "$comment": "must equal the pipeline string exactly"
+          "$comment": "byte-identical to the pipeline's working-projection constant in config.py (05 §E.3)"
         },
         "base": {
           "type": "string"
@@ -165,7 +165,9 @@
       "type": "object",
       "properties": {
         "source_id": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "$comment": "05: unique, kebab-case"
         },
         "title": {
           "type": "string"
@@ -255,7 +257,13 @@
           ]
         },
         "provenance": {
-          "$ref": "#/$defs/Provenance"
+          "enum": [
+            "measured",
+            "derived",
+            "modelled",
+            "assumed"
+          ],
+          "$comment": "05: replayed and simulated are never used by static layers"
         },
         "source_ids": {
           "type": "array",
@@ -275,8 +283,7 @@
           "type": "string"
         },
         "legend": {
-          "type": "object",
-          "$comment": "05: ramp/classes with values; structure not specified further"
+          "$ref": "#/$defs/LayerLegend"
         },
         "native_resolution_m": {
           "type": "number"
@@ -382,8 +389,7 @@
         },
         "sha256": {
           "type": "string",
-          "pattern": "^[0-9a-f]{64}$",
-          "$comment": "tiles roots store hash of index file"
+          "pattern": "^[0-9a-f]{64}$"
         },
         "bytes": {
           "type": "integer"
@@ -399,7 +405,7 @@
             "number",
             "null"
           ],
-          "$comment": "arrays: NaN for f32, 255 for u8"
+          "$comment": "arrays: NaN for f32 (JSON has no NaN, so null here, as in the 05 example), 255 for u8"
         },
         "byte_order": {
           "enum": [
@@ -410,24 +416,89 @@
       "required": [
         "asset_id",
         "path",
-        "format"
+        "format",
+        "sha256"
       ],
-      "$comment": "05 marks sha256 and bytes as required for files; width/height/nodata/byte_order conditional (arrays/images)",
-      "if": {
-        "properties": {
-          "format": {
-            "not": {
-              "const": "tiles"
+      "$comment": "05: sha256 on every asset (tiles roots store the hash of their index file); bytes on files; width/height on arrays and images; nodata and byte_order on arrays",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "format": {
+                "not": {
+                  "const": "tiles"
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "bytes"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "format": {
+                "enum": [
+                  "f32",
+                  "u8",
+                  "jpg",
+                  "png",
+                  "webp"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "width",
+              "height"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "format": {
+                "const": "f32"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "nodata",
+              "byte_order"
+            ],
+            "properties": {
+              "nodata": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "format": {
+                "const": "u8"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "nodata",
+              "byte_order"
+            ],
+            "properties": {
+              "nodata": {
+                "const": 255
+              }
             }
           }
         }
-      },
-      "then": {
-        "required": [
-          "sha256",
-          "bytes"
-        ]
-      }
+      ]
     },
     "RoutingGrid": {
       "type": "object",
@@ -459,10 +530,12 @@
           "type": "string"
         },
         "slope_p90_asset": {
-          "type": "string"
+          "type": "string",
+          "$comment": "u8, degrees × 4 (0.25° steps, 0–63.5°), 255 = no data"
         },
         "slope_max_asset": {
-          "type": "string"
+          "type": "string",
+          "$comment": "same encoding as slope_p90_asset"
         },
         "flags_asset": {
           "type": "string"
@@ -590,23 +663,41 @@
           "maxLength": 300
         },
         "image_asset": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "image_credit": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "image_source_url": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "image_sol": {
-          "type": "integer"
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "image_date": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date"
         },
         "image_camera": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "position_source": {
           "type": "string"
@@ -664,12 +755,30 @@
         "ez_theme",
         "evidence"
       ],
-      "$comment": "Properties of a GeoJSON Feature in vectors/pois.geojson (05 §C POI)",
-      "dependentRequired": {
-        "image_asset": [
+      "$comment": "Properties of a GeoJSON Feature in vectors/pois.geojson (05 §C POI). Image fields are absent or null when the image is unavailable (05 §E.6).",
+      "if": {
+        "properties": {
+          "image_asset": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "image_asset"
+        ]
+      },
+      "then": {
+        "required": [
           "image_credit",
           "image_source_url"
-        ]
+        ],
+        "properties": {
+          "image_credit": {
+            "type": "string"
+          },
+          "image_source_url": {
+            "type": "string"
+          }
+        }
       }
     },
     "TraversePoint": {
@@ -699,6 +808,89 @@
         "source_id"
       ],
       "$comment": "Properties of GeoJSON Point features in vectors/traverse.geojson (05 §C TraversePoint)"
+    },
+    "LayerLegend": {
+      "$comment": "C2 legend structure, decided 2026-11-06 by the data lead (T03.01). 05 says only 'ramp/classes with values'. `classes` copies the 05 §F.1 example; `ramp` and `none` were added for layers without classes or a scale.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "classes"
+            },
+            "breaks_follow_scenario": {
+              "type": "boolean"
+            },
+            "classes": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "items": false,
+                "minItems": 3
+              }
+            }
+          },
+          "required": [
+            "type",
+            "classes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "ramp"
+            },
+            "stops": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "items": false,
+                "minItems": 2
+              }
+            }
+          },
+          "required": [
+            "type",
+            "stops"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "none"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        }
+      ]
     }
   }
 }
