@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`█░░░░░░░░░░░░░░░░░░░` **3 %** — 8 of 299 subtasks done, 2 in progress.
+`█░░░░░░░░░░░░░░░░░░░` **4 %** — 11 of 299 subtasks done, 3 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -35,7 +35,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 4 |
 | [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
 | [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 3 |
-| [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `░░░░░░░░░░` 0 % | 0 | 1 | 8 |
+| [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `████░░░░░░` 38 % | 3 | 2 | 8 |
 | [TASK-21 Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers](docs/tasks/TASK-21_scenario-builder.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 12 |
 | [TASK-22 Simulation engine: clock, crew motion, consumables, alerts, event log, replay](docs/tasks/TASK-22_simulation-engine.md) | `█░░░░░░░░░` 13 % | 2 | 0 | 15 |
 | [TASK-23 Safety ops in the Hab Core: commands, haven per tick, summon and rendezvous, contingency options, abort](docs/tasks/TASK-23_safety-ops.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 8 |

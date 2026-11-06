@@ -1,0 +1,54 @@
+[
+  {
+    "v": 1,
+    "type": "LINK_STATE",
+    "seq": 0,
+    "sim_time": "",
+    "crew_id": "EV1",
+    "linked": false
+  },
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 0,
+    "sim_time": "",
+    "event": {
+      "seq": 0,
+      "sim_time": "",
+      "kind": "LINK_LOST",
+      "actor": "system",
+      "data": {
+        "node_id": "EV1"
+      },
+      "provenance": {
+        "data.node_id": "simulated"
+      }
+    }
+  },
+  {
+    "v": 1,
+    "type": "LINK_STATE",
+    "seq": 0,
+    "sim_time": "",
+    "crew_id": "EV1",
+    "linked": true
+  },
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 0,
+    "sim_time": "",
+    "event": {
+      "seq": 0,
+      "sim_time": "",
+      "kind": "LINK_RESTORED",
+      "actor": "system",
+      "data": {
+        "node_id": "EV1"
+      },
+      "provenance": {
+        "data.node_id": "simulated"
+      }
+    }
+  }
+]
