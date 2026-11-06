@@ -4,7 +4,8 @@
  * Value sources: README.md in this folder (02 §E.6 examples or placeholders).
  *
  * JSON imports widen string literals, so the cast below cannot catch drift by itself;
- * fixtures.test.ts checks every message against key tables typed from protocol v0.
+ * fixtures.test.ts checks message, entity and enum shapes against tables typed from protocol v0
+ * (see its header for what is and is not covered).
  */
 import type { ServerMessage } from "@marswalk/protocol";
 
@@ -14,6 +15,7 @@ export const BEATS = [
   "radiation-alert",
   "options-proposed",
   "summon-accepted",
+  "comm-shadow",
   "link-lost-restored",
   "stop-task-ticked",
 ] as const;

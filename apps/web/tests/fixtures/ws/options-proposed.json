@@ -2,10 +2,10 @@
   {
     "v": 1,
     "type": "EVENT",
-    "seq": 0,
+    "seq": 421,
     "sim_time": "",
     "event": {
-      "seq": 0,
+      "seq": 421,
       "sim_time": "",
       "kind": "OPTIONS_PROPOSED",
       "actor": "system",
@@ -13,7 +13,7 @@
         "alert_id": "a-420",
         "options": [
           {
-            "option_id": "o-1",
+            "option_id": "o1",
             "alert_id": "a-420",
             "kind": "VEHICLE_RENDEZVOUS",
             "crew_ids": [
@@ -34,7 +34,7 @@
             }
           },
           {
-            "option_id": "o-2",
+            "option_id": "o2",
             "alert_id": "a-420",
             "kind": "ABORT_TO_HAB",
             "crew_ids": [
@@ -52,8 +52,7 @@
         ]
       },
       "provenance": {
-        "data.options.eta_shelter_min": "modelled",
-        "data.options.expected_dose_ugy": "modelled"
+        "data.options[].eta_shelter_min": "modelled"
       }
     }
   }

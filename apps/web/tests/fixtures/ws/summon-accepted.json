@@ -2,24 +2,21 @@
   {
     "v": 1,
     "type": "EVENT",
-    "seq": 421,
+    "seq": 422,
     "sim_time": "",
     "event": {
-      "seq": 421,
+      "seq": 422,
       "sim_time": "",
       "kind": "VEHICLE_DISPATCHED",
       "actor": "eva:EV1",
       "data": {
         "vehicle_id": "PR1",
-        "crew_ids": [
-          "EV1",
-          "EV2"
-        ],
+        "option_id": "o1",
         "rendezvous": {
-          "x_m": 0,
-          "y_m": 0,
-          "eta_crew_s": 0,
-          "eta_vehicle_s": 0
+          "x_m": null,
+          "y_m": null,
+          "eta_crew_s": null,
+          "eta_vehicle_s": null
         }
       },
       "provenance": {
@@ -32,6 +29,6 @@
     "type": "COMMAND_RESULT",
     "command_id": "k-0091",
     "ok": true,
-    "event_seq": 421
+    "event_seq": 422
   }
 ]

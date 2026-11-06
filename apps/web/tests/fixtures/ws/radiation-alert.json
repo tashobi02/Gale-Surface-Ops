@@ -23,7 +23,8 @@
         "source": "replayed:rad-sol4190"
       },
       "provenance": {
-        "data.rate_ugy_h": "replayed"
+        "data.rate_ugy_h": "replayed",
+        "data.threshold_ugy_h": "assumed"
       }
     }
   }
