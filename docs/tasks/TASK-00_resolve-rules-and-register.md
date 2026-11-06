@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Resolve rules + register |
 | Requirements | None listed in 06 §C; serves U-12 (06), and U-13, U-14 (06 Unresolved items, placed here by the coordination map) |
-| Lane / owner role | story — Design & story lead (06 §C owner: Story lead); T00.04 is integration — Compute engineer |
-| Milestone | M0 (2–5 Nov); T00.06 runs to M2 (U-14 due 10 Nov) |
+| Lane / owner role | story — R6: Obidit Islam (team lead); T00.04 integration |
+| Milestone | M0 (done 4 Nov); T00.06 runs to M2 (venue, U-14) |
 | Window | pre-event-allowed |
 | Effort (doc 06) | 1–2 h |
 | Done when (doc 06) | Answer recorded in repo `docs/ops/rules.md` |
 | Main risk → fallback | No answer → follow Track S |
-| Spec sections | [06 §A Planning assumptions](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions) · [06 §C Work packages](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §E First concrete actions](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov) · [06 Unresolved items](../specs/06_High_Level_Implementation_Plan.md#unresolved-items-owned-by-this-document) · [01 §F.3 Risks](../specs/01_Product_Requirements_Document.md#f3-risks) · [Rules check](../ops/rules.md) · [Map §a.2 windows and phase gate](_coordination.md#a2-field-vocabulary) |
+| Spec sections | [06 §A Planning assumptions](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions) · [06 §C Work packages](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §E First concrete actions](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) · [06 Unresolved items](../specs/06_High_Level_Implementation_Plan.md#unresolved-items-owned-by-this-document) · [01 §F.3 Risks](../specs/01_Product_Requirements_Document.md#f3-risks) · [Rules check](../ops/rules.md) · [Map §a.2 windows and phase gate](_coordination.md#a2-field-vocabulary) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or `implement` subtask starts before T00.03 records the track ([map §a.2](_coordination.md#a2-field-vocabulary)).
 
@@ -38,6 +40,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
 
 ### T00.01 — Check the Space Apps rules page and Participants Guide for the pre-event code rule
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -63,12 +66,13 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
 
 ### T00.02 — Ask the Dhaka Local Lead; confirm every member is registered (NASA site + Bangladesh form)
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
 - **Estimate:** 0.5 h
 - **Owns (writes):** none — the reply and the registration status go to T00.03, which records them in `docs/ops/rules.md`
-- **Reads:** `docs/ops/rules.md` (Question, Registration); [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions); [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov) item 1; [06 Unresolved items](../specs/06_High_Level_Implementation_Plan.md#unresolved-items-owned-by-this-document) (U-12, U-14)
+- **Reads:** `docs/ops/rules.md` (Question, Registration); [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions); [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) item 1; [06 Unresolved items](../specs/06_High_Level_Implementation_Plan.md#unresolved-items-owned-by-this-document) (U-12, U-14)
 - **Depends on:** none
 - **Parallel with:** T00.01, T00.06
 - **Steps:**
@@ -78,7 +82,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
   4. Ask each member to confirm their registration on the NASA Space Apps site and on the Bangladesh form; note yes or no per member, not their email addresses.
   5. Hand the reply, verbatim, and the registration status to T00.03; if there is no reply by 4 Nov, hand "no reply" to T00.05.
 - **Acceptance:**
-  - Serves: U-12 (and the U-14 question for T00.06) · [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--5-nov)
+  - Serves: U-12 (and the U-14 question for T00.06) · [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov)
   - The message is sent before the U-12 due date (4 Nov) and asks about application code, tests, type and stub files, data-preprocessing scripts, and the venue type.
   - Every member's registration on the NASA site and the Bangladesh form is confirmed yes or no (06 §C deliverable: "team registered on NASA site and Bangladesh form").
   - No personal data (email addresses, screenshots of confirmations) enters the repository.
@@ -88,6 +92,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
 
 ### T00.03 — Record the answer, registration status and Track S or P in `docs/ops/rules.md`
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -115,6 +120,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
 
 ### T00.04 — Update the phase-gate line in `CLAUDE.md` and `AGENTS.md` for the recorded track
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** integrate
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -136,10 +142,11 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
   - Both files state the same track and link `docs/ops/rules.md`; their headings are unchanged.
 - **Verify:** `make lint docs-check`; `git diff --stat main` lists only `CLAUDE.md` and `AGENTS.md`; manual read: both paragraphs state the same track.
 - **Agent brief:** After T00.03 merges, rewrite the phase-gate paragraph in `CLAUDE.md` §3 and in `AGENTS.md` for the track recorded in `docs/ops/rules.md`, using the 06 §A wording for Track S or Track P and the map's §a.2 windows. Link `docs/ops/rules.md` and `docs/tasks/_coordination.md`, keep the headings, change nothing else, and run `make lint docs-check`.
-- **Conflict notes:** Single owner of `CLAUDE.md` and `AGENTS.md` (map §c.2). Do not edit other files that mention the gate: `README.md` belongs to T16.03, `docs/README.md` to T16.02, the PR template to T14.02, and the `web/src/main.ts` comment to T07.03.
+- **Conflict notes:** Single owner of `CLAUDE.md` and `AGENTS.md` (map §c.2). Do not edit other files that mention the gate: `README.md` belongs to T16.03, `docs/README.md` to T16.02, the PR template to T14.02, and the `apps/web/src/main.ts` comment to T07.03.
 
 ### T00.05 — Fallback — start only if no answer by 4 Nov (U-12 due date): declare Track S
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** fallback
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -163,6 +170,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
 
 ### T00.06 — Record team roster and skills (U-13) and venue type (U-14)
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed

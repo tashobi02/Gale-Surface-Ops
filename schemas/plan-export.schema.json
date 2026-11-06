@@ -85,7 +85,9 @@
         "measured",
         "derived",
         "modelled",
-        "assumed"
+        "assumed",
+        "replayed",
+        "simulated"
       ]
     },
     "MissionScenario": {
@@ -143,6 +145,30 @@
         "loop": {
           "type": "boolean",
           "default": true
+        },
+        "max_haven_min": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 120,
+          "default": 30,
+          "$comment": "v2 (02 §E.3, A-08)"
+        },
+        "crew_count": {
+          "enum": [
+            1,
+            2
+          ],
+          "default": 2,
+          "$comment": "v2"
+        },
+        "vehicle_available": {
+          "type": "boolean",
+          "default": true,
+          "$comment": "v2"
+        },
+        "vehicle_param_set": {
+          "type": "string",
+          "$comment": "v2; FK → ParamSet; required when vehicle_available"
         }
       },
       "required": [
@@ -154,8 +180,26 @@
         "walkback_limit_km",
         "suited_flat_speed_kmh",
         "solar_phase",
-        "loop"
-      ]
+        "loop",
+        "max_haven_min",
+        "crew_count",
+        "vehicle_available"
+      ],
+      "if": {
+        "properties": {
+          "vehicle_available": {
+            "const": true
+          }
+        },
+        "required": [
+          "vehicle_available"
+        ]
+      },
+      "then": {
+        "required": [
+          "vehicle_param_set"
+        ]
+      }
     },
     "Waypoint": {
       "type": "object",
@@ -301,6 +345,23 @@
                   "over_limit"
                 ]
               }
+            },
+            "comm": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              "$comment": "v2"
+            },
+            "haven_min": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "$comment": "v2, planning approximation (02 §D.8)"
             }
           },
           "$comment": "sampled every 5 m"
@@ -322,7 +383,11 @@
             "NO_ROUTE",
             "EVA_DURATION_EXCEEDED",
             "WALKBACK_EXCEEDED",
-            "DARKNESS"
+            "DARKNESS",
+            "COMM_SHADOW",
+            "HAVEN_TIME_EXCEEDED",
+            "RADIATION_ALERT",
+            "CONSUMABLES_LOW"
           ]
         },
         "severity": {

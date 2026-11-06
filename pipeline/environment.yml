@@ -1,4 +1,5 @@
-# The only environment for the pipeline (docs/specs/02 §B: GDAL ≥ 3.6, rasterio, numpy, pyproj ≥ 3.4).
+# The only environment for the pipeline (docs/specs/02 §B: GDAL ≥ 3.6, rasterio, numpy, pyproj ≥ 3.4;
+# spiceypy for the SPICE geometry tables in 02 §C.5 L10, TASK-21).
 # Create or update with: make setup   (then: make check-env)
 # Python is pinned to 3.12; keep PYTHON in scripts/check_pipeline_env.py in step.
 name: marswalk-pipeline
@@ -10,6 +11,7 @@ dependencies:
   - rasterio
   - numpy
   - pyproj>=3.4
+  - spiceypy
   - pytest
   - pip
   - pip:

@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Sources & Methods + provenance attributes |
 | Requirements | FR-15, NFR-05 (06 §C); the subtasks also serve SCR-09, NFR-04, NFR-07 |
-| Lane / owner role | story — Design & story lead (06 §C owner: Story lead) |
-| Milestone | M4 (06 §B); subtasks run M1–M5 |
-| Window | Mixed: T12.04, T12.05 `pre-event-allowed`; T12.01–T12.03, T12.06 `event-only` |
+| Lane / owner role | story — an R6 task done by Mishkat Ahmed Khan (06 §A.2) |
+| Milestone | M2 (records, metric component) · M3–M4 (DOM tests) · M4b (SCR-09 verify); 06 §C.1 *When*: P/E |
+| Window | pre-event-if-permitted; T12.04 and T12.05 are pre-event-allowed |
 | Effort (doc 06) | 2–4 h |
 | Done when (doc 06) | Automated check finds no unlabelled metric |
 | Main risk → fallback | — |
-| Spec sections | [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods) · [02 §F NFR-05](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) · [02 §D](../specs/02_Technical_Requirements_Document.md#d-core-processing-and-simulation-behavior) · [02 Sources](../specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02) · [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods) · [04 §C.1](../specs/04_Design_Brief.md#c1-colour-palette-contrast-verified-by-computation-wcag-relative-luminance) · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) · [04 §F SCR-09](../specs/04_Design_Brief.md#scr-09-sources--methods) · [05 DataSource](../specs/05_Backend_and_Database_Schema.md#datasource) · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) |
+| Spec sections | [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods) · [02 §F NFR-05](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) · [02 §D](../specs/02_Technical_Requirements_Document.md#d-core-processing-and-simulation-behavior) · [02 Sources](../specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02) · [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods) · [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens) · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) · [04 §F SCR-09](../specs/04_Design_Brief.md#scr-09-sources--methods) · [05 DataSource](../specs/05_Backend_and_Database_Schema.md#datasource) · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 
@@ -30,10 +32,10 @@
 
 | Output | Path | Consumers |
 | --- | --- | --- |
-| Metric and provenance-chip component | `web/src/ui/components/metric.ts` | T07.06, T07.09, T07.10, T07.12, T08.04, T08.05, T09.02–T09.04, T10.01, T10.02, T11.03, T12.03 |
-| DOM provenance test | `web/tests/ui/provenance.test.ts` | T12.06, T14.06 (06 §D.6: all Vitest suites green) |
-| SCR-09 Sources & Methods | `web/src/ui/screens/scr09SourcesMethods.ts`, `web/src/ui/screens/scr09SourcesMethods.css` | T07.03 (route registry), T12.06, T16.03–T16.06, T17.02 (demo step 9) |
-| Methods, models and limitations content | `web/src/ui/content/methods.json` | T12.03 |
+| Metric and provenance-chip component | `apps/web/src/ui/components/metric.ts` | T07.06, T07.09, T07.10, T07.12, T08.04, T08.05, T09.02–T09.04, T10.01, T10.02, T11.03, T12.03 |
+| DOM provenance test | `apps/web/tests/ui/provenance.test.ts` | T12.06, T14.06 (06 §D.6: all Vitest suites green) |
+| SCR-09 Sources & Methods | `apps/web/src/ui/screens/scr09SourcesMethods.tsx`, `apps/web/src/ui/screens/scr09SourcesMethods.css` | T07.03 (route registry), T12.06, T16.03–T16.06, T17.02 (demo step 9) |
+| Methods, models and limitations content | `apps/web/src/ui/content/methods.json` | T12.03 |
 | Model DataSource records | `pipeline/sites/gale_boxwork/sources/` (three files) | T03.13, T03.19, T11.02 (`provenance_summary` source ids), T12.03 |
 | Verification record | `docs/ops/verification-log.md` (section T12.06) | T16.05 |
 
@@ -41,12 +43,13 @@
 
 ### T12.01 — Implement the metric and provenance-chip component
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
-- **Owns (writes):** `web/src/ui/components/metric.ts`
-- **Reads:** `web/src/ui/context.ts` (C10: component signature, provenance and source-id attribute names, anchor scheme), `web/src/ui/styles/tokens.css` (C12), `web/src/types/schema.ts` (`Provenance`), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-palette-contrast-verified-by-computation-wcag-relative-luminance), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior), [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [02 §F NFR-05](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation)
+- **Owns (writes):** `apps/web/src/ui/components/metric.ts`
+- **Reads:** `apps/web/src/ui/context.ts` (C10: component signature, provenance and source-id attribute names, anchor scheme), `apps/web/src/ui/styles/tokens.css` (C12), `packages/protocol/src/schema.ts` (`Provenance`), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [02 §F NFR-05](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation)
 - **Depends on:** T07.01 (soft), T13.01 (soft)
 - **Parallel with:** T07.02–T07.08, T08.02, T08.03, T09.01, T09.02
 - **Steps:**
@@ -57,7 +60,7 @@
   5. Make the chip a link into SCR-09 (`#/sources#<anchor>`, anchor scheme from C10, spec question 4), reachable by Tab with the focus ring (04 §E).
   6. Implement the metric-tile states of 04 §D: default, loading (previous value at 50 % opacity), empty ("—" with tooltip "needs a plan"), error (`unknown` styling).
 - **Acceptance:**
-  - Serves: FR-15, NFR-05, NFR-04 · [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-palette-contrast-verified-by-computation-wcag-relative-luminance)
+  - Serves: FR-15, NFR-05, NFR-04 · [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens)
   - Given any value rendered with the component, then its element has `data-provenance` ∈ {measured, derived, modelled, assumed} and a non-empty source-id attribute (02 NFR-05).
   - Every value shows its unit (04 §C.2: "numbers always carry units").
   - The chip shows the 04 §C.1 symbol and word and uses no status colour.
@@ -65,17 +68,18 @@
   - The four 04 §D metric-tile states render as specified.
   - `make typecheck` passes with the stub's signature unchanged.
 - **Verify:** `make typecheck`; manual check in `make dev` with `?site=mock_site`: inspect one value per label in devtools for both attributes, tab to its chip, follow the link.
-- **Agent brief:** Implement `web/src/ui/components/metric.ts` against the signature T07.01 stubbed (C10). Render value and unit, set `data-provenance` and the C10 source-id attribute, and add the 04 §C.1 provenance chip as a keyboard-reachable link into SCR-09, with the 04 §D metric-tile states. Do not change the signature; write no other file.
+- **Agent brief:** Implement `apps/web/src/ui/components/metric.ts` against the signature T07.01 stubbed (C10). Render value and unit, set `data-provenance` and the C10 source-id attribute, and add the 04 §C.1 provenance chip as a keyboard-reachable link into SCR-09, with the 04 §D metric-tile states. Do not change the signature; write no other file.
 - **Conflict notes:** Stub handover: T07.01 creates the file; start after it merges. A signature change is a `contract-change:` in TASK-07 (C10). The map gives this component no stylesheet (spec question 8): until it does, use C12 classes only. Screens call it from M3, so merge early in M3.
 
 ### T12.02 — Tests: DOM provenance check across screens
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
-- **Owns (writes):** `web/tests/ui/provenance.test.ts`
-- **Reads:** `web/src/ui/context.ts` (C10), `web/src/state/planStore.ts` (C11), `web/src/ui/components/metric.ts`, `web/src/ui/screens/`, `web/src/ui/map/inspector.ts`, `web/src/ui/plan/stopsList.ts`, `web/src/ui/results/`, `web/tests/fixtures/plan-results/` (F2), `web/public/sites/mock_site/site-manifest.json` (F4), `web/tests/fixtures/README.md`, [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation), [03 §B](../specs/03_App_Flow_and_Diagrams.md#b-screen-specification)
+- **Owns (writes):** `apps/web/tests/ui/provenance.test.ts`
+- **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/state/planStore.ts` (C11), `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/screens/`, `apps/web/src/ui/map/inspector.ts`, `apps/web/src/ui/plan/stopsList.ts`, `apps/web/src/ui/results/`, `apps/web/tests/fixtures/plan-results/` (F2), `data/sites/mock_site/site-manifest.json` (F4), `apps/web/tests/fixtures/README.md`, [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation), [03 §B](../specs/03_App_Flow_and_Diagrams.md#b-screen-specification)
 - **Depends on:** T12.01 (hard: the component under test must exist), T14.01 (hard: the DOM test environment arrives in the dependency batch), T07.01 (soft), T08.01 (soft), T05.03 (soft), T03.02 (soft)
 - **Parallel with:** T12.03, T09.03–T09.05, T10.01, T10.02, T11.01–T11.04
 - **Steps:**
@@ -93,18 +97,19 @@
   - Case 4: the metric component sets both attributes for each of the four labels and links into SCR-09.
   - The test makes no network request and runs inside `make test`.
   - No 02 §D or §F.1 case is claimed here (map Test-case allocation).
-- **Verify:** `npx vitest run tests/ui/provenance.test.ts` (run in `web/`); `make test`
-- **Agent brief:** Write `web/tests/ui/provenance.test.ts`. Render every screen and value-showing module with the mock site (F4) and the three canned results (F2). Fail on any metric element without `data-provenance` in {measured, derived, modelled, assumed} plus the C10 source-id attribute, or on numeric text outside a labelled element (allowlist only as decided). Report stub screens as skipped; write no other file.
-- **Conflict notes:** Test file only; never fix a screen here. Failures become `follow-up:` subtasks in the owning task (map §c.1, §h.5). Use a per-file environment comment; `web/vite.config.ts` belongs to T14.01. Merges after T12.01; it can merge while other screens are still stubs, because they show as skipped.
+- **Verify:** `npx vitest run tests/ui/provenance.test.ts` (run in `apps/web/`); `make test`
+- **Agent brief:** Write `apps/web/tests/ui/provenance.test.ts`. Render every screen and value-showing module with the mock site (F4) and the three canned results (F2). Fail on any metric element without `data-provenance` in {measured, derived, modelled, assumed} plus the C10 source-id attribute, or on numeric text outside a labelled element (allowlist only as decided). Report stub screens as skipped; write no other file.
+- **Conflict notes:** Test file only; never fix a screen here. Failures become `follow-up:` subtasks in the owning task (map §c.1, §h.5). Use a per-file environment comment; `apps/web/vite.config.ts` belongs to T14.01. Merges after T12.01; it can merge while other screens are still stubs, because they show as skipped.
 
 ### T12.03 — Implement SCR-09 Sources & Methods
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
-- **Owns (writes):** `web/src/ui/screens/scr09SourcesMethods.ts`, `web/src/ui/screens/scr09SourcesMethods.css`
-- **Reads:** `web/src/ui/context.ts` (C10), `web/src/ui/content/methods.json`, `web/src/ui/components/metric.ts`, `web/src/types/schema.ts` (`DataSource`, `Layer`, `EnvConstant`), `web/src/ui/styles/tokens.css` (C12), `web/public/sites/mock_site/site-manifest.json` (F4), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [03 §E.2](../specs/03_App_Flow_and_Diagrams.md#e2-screen-navigation), [04 §F SCR-09](../specs/04_Design_Brief.md#scr-09-sources--methods), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-palette-contrast-verified-by-computation-wcag-relative-luminance), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract)
+- **Owns (writes):** `apps/web/src/ui/screens/scr09SourcesMethods.tsx`, `apps/web/src/ui/screens/scr09SourcesMethods.css`
+- **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/content/methods.json`, `apps/web/src/ui/components/metric.ts`, `packages/protocol/src/schema.ts` (`DataSource`, `Layer`, `EnvConstant`), `apps/web/src/ui/styles/tokens.css` (C12), `data/sites/mock_site/site-manifest.json` (F4), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [03 §E.2](../specs/03_App_Flow_and_Diagrams.md#e2-screen-navigation), [04 §F SCR-09](../specs/04_Design_Brief.md#scr-09-sources--methods), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract)
 - **Depends on:** T12.01 (hard: values render through the metric component), T12.04 (hard: renders the methods content), T07.01 (soft), T13.01 (soft), T03.01 (soft), T03.02 (soft)
 - **Parallel with:** T12.02, T10.01, T10.02, T11.03
 - **Steps:**
@@ -123,17 +128,18 @@
   - Every number on the screen carries a provenance label (01 FR-15).
   - All controls and anchors are keyboard reachable with the focus ring, and text uses the 04 §C.1 tokens (NFR-04).
   - Source links are plain anchors; opening SCR-09 fetches nothing (NFR-01, NFR-08).
-- **Verify:** `make typecheck`; once T12.02 is merged, `npx vitest run tests/ui/provenance.test.ts` (run in `web/`) shows SCR-09 not skipped; manual check in `make dev` with `?site=mock_site`: open `#/sources` and `#/sources#layer-slope`, tab through every anchor, repeat with devtools Offline.
-- **Agent brief:** Implement SCR-09 in `web/src/ui/screens/scr09SourcesMethods.ts` and its `.css`: a full-screen overlay with the 03 SCR-09 sections in the 04 §F layout. Datasets come from the manifest `sources`, methods from `web/src/ui/content/methods.json`, values through the metric component, plus deep-link anchors such as `#layer-slope`. Do not touch the router (T07.03) or other screens.
+- **Verify:** `make typecheck`; once T12.02 is merged, `npx vitest run tests/ui/provenance.test.ts` (run in `apps/web/`) shows SCR-09 not skipped; manual check in `make dev` with `?site=mock_site`: open `#/sources` and `#/sources#layer-slope`, tab through every anchor, repeat with devtools Offline.
+- **Agent brief:** Implement SCR-09 in `apps/web/src/ui/screens/scr09SourcesMethods.tsx` and its `.css`: a full-screen overlay with the 03 SCR-09 sections in the 04 §F layout. Datasets come from the manifest `sources`, methods from `apps/web/src/ui/content/methods.json`, values through the metric component, plus deep-link anchors such as `#layer-slope`. Do not touch the router (T07.03) or other screens.
 - **Conflict notes:** T07.03 registers `#/sources`; screens never edit the router. The anchor scheme is shared with T12.01 through C10 (spec question 4). Methods text and equations come only from `methods.json`, never hard-coded. Needs no new token; if one is missing, raise it instead of defining local CSS variables.
 
 ### T12.04 — Write the methods, models and limitations content from 02 §C–§D
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
 - **Estimate:** 1.5–2 h
-- **Owns (writes):** `web/src/ui/content/methods.json`
+- **Owns (writes):** `apps/web/src/ui/content/methods.json`
 - **Reads:** [02 §A.2](../specs/02_Technical_Requirements_Document.md#a2-architecture-diagram), [02 §C.2](../specs/02_Technical_Requirements_Document.md#c2-data-layers), [02 §D.1](../specs/02_Technical_Requirements_Document.md#d1-point-sampling-fr-03-fr-08), [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10), [02 §D.3](../specs/02_Technical_Requirements_Document.md#d3-walking-time-model-fr-09), [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12), [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11), [02 §D.7](../specs/02_Technical_Requirements_Document.md#d7-ai), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods), [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate), `pipeline/sites/gale_boxwork/sources/` (model source ids from T12.05)
 - **Depends on:** T12.05 (hard: cites the model source ids it records)
 - **Parallel with:** T07.01, T08.01, T13.01–T13.03, T14.01, T16.01
@@ -150,12 +156,13 @@
   - Every entry carries a spec reference, and every number in it appears in that section (no new numbers, `CLAUDE.md` §2).
   - The speed label matches 02 §D.3 verbatim ("modelled — Earth hiking function scaled to an Apollo lunar planning speed; not validated for Mars suits or 0.38 g"); the radiation label uses the wording decided for spec question 10.
   - Every source id named exists under `pipeline/sites/gale_boxwork/sources/` or in a 05 example (`hassler-2014-rad`).
-- **Verify:** `python3 -m json.tool web/src/ui/content/methods.json`; manual checklist: compare every entry with its cited 02 or 03 section.
-- **Agent brief:** Write `web/src/ui/content/methods.json` for SCR-09: processing steps, models (speed, radiation, solar) with equations and labels, known limitations and the AI-use statement. Quote each entry from 02 §A.2, §C.2 or §D.1–§D.5 (or 03 SCR-09) with its section reference and the model source ids from T12.05. Copy text and numbers verbatim; add no new number.
+- **Verify:** `python3 -m json.tool apps/web/src/ui/content/methods.json`; manual checklist: compare every entry with its cited 02 or 03 section.
+- **Agent brief:** Write `apps/web/src/ui/content/methods.json` for SCR-09: processing steps, models (speed, radiation, solar) with equations and labels, known limitations and the AI-use statement. Quote each entry from 02 §A.2, §C.2 or §D.1–§D.5 (or 03 SCR-09) with its section reference and the model source ids from T12.05. Copy text and numbers verbatim; add no new number.
 - **Conflict notes:** Single owner. T12.03 renders the shape this file fixes, so settle it here and change it only before T12.03 starts. RAD rates are not duplicated here; SCR-09 reads them from `env_constants`. If 02 changes, the spec changes first (`spec-change:`), then this file.
 
 ### T12.05 — Write DataSource records for the models (Tobler, Apollo 17, Mars24)
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -181,12 +188,13 @@
 
 ### T12.06 — Verify no unlabelled metric on the demo path and every credited source in SCR-09
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** verify
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
-- **Reads:** `web/tests/ui/provenance.test.ts`, `web/public/sites/gale_boxwork/site-manifest.json`, [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods), [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [06 §D.7](../specs/06_High_Level_Implementation_Plan.md#d7-definition-of-done-per-feature)
+- **Reads:** `apps/web/tests/ui/provenance.test.ts`, `data/sites/gale_boxwork/site-manifest.json`, [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods), [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [06 §D.7](../specs/06_High_Level_Implementation_Plan.md#d7-definition-of-done-per-feature)
 - **Depends on:** T12.02 (hard: the automated check), T12.03 (hard: SCR-09 is under verification), T03.19 (hard: SCR-09 must list the real bundle's sources), T07.03 (hard: verification runs on the integrated app), T07.05–T07.06 (hard: verification runs on the integrated app), T07.08–T07.10 (hard: verification runs on the integrated app), T07.12 (hard: verification runs on the integrated app), T08.04–T08.05 (hard: verification runs on the integrated app), T09.02–T09.04 (hard: verification runs on the integrated app), T10.01–T10.02 (hard: verification runs on the integrated app), T11.03 (hard: verification runs on the integrated app)
 - **Parallel with:** T13.09, T13.10, T14.06–T14.09, T15.02
 - **Steps:**
@@ -201,9 +209,30 @@
   - Every number seen on the 01 §E demo path carries a provenance label or is on the decided allowlist.
   - Every DataSource in the bundle manifest is listed in SCR-09 (06 §D.7: "credited sources listed in SCR-09").
   - The log section records the date, the bundle `data_version` and the results.
-- **Verify:** `npx vitest run tests/ui/provenance.test.ts` (run in `web/`); `make demo`, then the manual checklist above with the network disabled.
+- **Verify:** `npx vitest run tests/ui/provenance.test.ts` (run in `apps/web/`); `make demo`, then the manual checklist above with the network disabled.
 - **Agent brief:** On the integrated offline build (`make demo`, real bundle), run `tests/ui/provenance.test.ts` with zero skips, walk the 01 §E demo path checking every number for a provenance label, and check that SCR-09 lists every manifest DataSource. Append the results as a `## T12.06 — …` section to `docs/ops/verification-log.md`; report failures as follow-up subtasks.
 - **Conflict notes:** Append-only log: add one section at the end and never edit other sections. Fixes are `follow-up:` subtasks in the owning task, filed through a `coord:` PR (map §h.5). Image and README credits are checked by T16.05 (NFR-07), not here.
+
+### T12.07 — follow-up: provenance DOM checks on the v2 role views (SCR-11–SCR-14, SCR-17)
+
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
+- **Type:** test
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1 h
+- **Owns (writes):** `apps/web/tests/ui/provenance.test.ts` (after T12.02)
+- **Reads:** [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) NFR-05, [01 FR-36](../specs/01_Product_Requirements_Document.md#fr-36--conditions-feed-t1-m), `apps/web/tests/fixtures/ws/`
+- **Depends on:** T12.02 (hard: owner of the test file), T24.04 (hard: SCR-12), T25.01 (hard: SCR-11)
+- **Parallel with:** T12.06
+- **Steps:**
+  1. Make the existing SCR-11–SCR-14 and SCR-17 todos real: every numeric element has `data-provenance` (six classes) and a source id; HUD glyphs keep the attribute.
+  2. No element says "live".
+- **Acceptance:**
+  - Serves: NFR-05, FR-36
+  - Each role view has a named test.
+- **Verify:** `npm --workspace @marswalk/web test -- provenance`.
+- **Agent brief:** Extend the provenance DOM test to the v2 views on the mock fixtures.
+- **Conflict notes:** Edits after T12.02 (follow-up).
 
 ## Internal dependency graph
 
@@ -222,7 +251,7 @@ All internal edges are hard. External soft inputs (C10, C11, C12, C1/C5, F2, F4)
 ## Definition of done (task level)
 
 - [06 §D.7](../specs/06_High_Level_Implementation_Plan.md#d7-definition-of-done-per-feature): FR-15 and NFR-05 acceptance criteria met; the DOM test is committed and the manual test note is the T12.06 section of the verification log; provenance labels present; chips and SCR-09 anchors keyboard reachable; works offline; credited sources listed in SCR-09.
-- 06 TASK-12 done when: "Automated check finds no unlabelled metric" — `web/tests/ui/provenance.test.ts` passes on the integrated build with no skipped screen.
+- 06 TASK-12 done when: "Automated check finds no unlabelled metric" — `apps/web/tests/ui/provenance.test.ts` passes on the integrated build with no skipped screen.
 - The three model DataSource records are in bundle v1 and pass `validate-manifest` (T03.19).
 - `make lint typecheck test docs-check` passes.
 
@@ -235,7 +264,7 @@ All internal edges are hard. External soft inputs (C10, C11, C12, C1/C5, F2, F4)
 5. **Model source ids.** 05 §F.3 names `tobler-1993` and `apollo17-planning`; the Mars24 record (GISS Mars24, Allison & McEwen 2000) has no id (`TODO(decision)`). 02 Sources links Tobler's function through arXiv 2303.16065v6, not Tobler 1993 itself; which work the `tobler-1993` record cites is `TODO(verify)`.
 6. **Required DataSource fields for papers.** 05 §C requires `missions`, `instruments`, `version`, `credit` and `licence`, with no fallback for sources that lack them. Allowed placeholder values are `TODO(decision)`; T12.05 invents none.
 7. **Number formatting.** 04 §C.2 gives examples (1.18 km, 26 min, 11.4°, 0.19 mSv) and 01 FR-12 expects 0.19 mSv for 0.187, but no general precision rule exists. `TODO(decision)` in C10 (T07.01) or per caller.
-8. **Map change proposed:** §c gives the metric component no stylesheet (`metric.ts` only). Add `web/src/ui/components/metric.css` owned by T12.01, or style the chip in `base.css` (T13.04).
+8. **Map change proposed:** §c gives the metric component no stylesheet (`metric.ts` only). Add `apps/web/src/ui/components/metric.css` owned by T12.01, or style the chip in `base.css` (T13.04).
 9. **Map change proposed:** the §f row "Screens → T12.06" should also name T07.03 (router for `#/sources#…` deep links) and T03.19 (SCR-09 must list the real bundle's sources); T12.06 depends on both (hard).
 10. **Radiation label wording differs.** 01 FR-12 says "measured rate × planned duration (simplified)"; 02 §D.4 says "measured background rate × planned duration (simplified)". Which one SCR-09 and the cards show is `TODO(decision)`.
 11. **AI-use statement.** The in-app text is fixed by 03 SCR-09 ("No AI computes or generates values in this app"); the final disclosure wording is still `TODO(verify)` against the 2026 guides (`docs/AI_USE.md`). A change would be a `spec-change:` of 03 first.

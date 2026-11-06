@@ -156,7 +156,9 @@
         "measured",
         "derived",
         "modelled",
-        "assumed"
+        "assumed",
+        "replayed",
+        "simulated"
       ]
     },
     "DataSource": {
@@ -471,6 +473,31 @@
         "ti_cell_m": {
           "type": "number",
           "$comment": "required with ti_asset; TI grid cell size, metres"
+        },
+        "comm_hab_asset": {
+          "type": "string",
+          "$comment": "v2: u8 LOS to hab mast (1/0, 255 no data)"
+        },
+        "hab_mast": {
+          "type": "object",
+          "properties": {
+            "x_m": {
+              "type": "number"
+            },
+            "y_m": {
+              "type": "number"
+            },
+            "height_m": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "x_m",
+            "y_m",
+            "height_m"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -482,7 +509,9 @@
         "elevation_asset",
         "slope_p90_asset",
         "slope_max_asset",
-        "flags_asset"
+        "flags_asset",
+        "comm_hab_asset",
+        "hab_mast"
       ],
       "$comment": "05: width*height <= 4e6 (not expressible in JSON Schema; checked by validate_manifest)",
       "dependentRequired": {
@@ -588,6 +617,37 @@
         },
         "provenance": {
           "$ref": "#/$defs/Provenance"
+        },
+        "stop_type": {
+          "enum": [
+            "science",
+            "resource",
+            "engineering"
+          ],
+          "$comment": "v2 (01 §A.4)"
+        },
+        "ez_theme": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "source_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "text",
+              "source_id"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -599,7 +659,10 @@
         "why_it_matters",
         "position_source",
         "position_uncertainty_m",
-        "provenance"
+        "provenance",
+        "stop_type",
+        "ez_theme",
+        "evidence"
       ],
       "$comment": "Properties of a GeoJSON Feature in vectors/pois.geojson (05 §C POI)",
       "dependentRequired": {

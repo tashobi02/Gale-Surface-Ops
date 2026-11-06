@@ -1,0 +1,21 @@
+{
+  "param_set_id": "suit-assumed",
+  "kind": "suit",
+  "title": "Suited crew member",
+  "values": {
+    "flat_speed_kmh": 3.3,
+    "hard_slope_deg": 15,
+    "caution_slope_deg": 10,
+    "o2_nominal_h": 8,
+    "p_walk_w": 351.7,
+    "p_rest_w": 250,
+    "p_ref_w": 300,
+    "antenna_m": 2
+  },
+  "provenance": "assumed",
+  "source_ids": [
+    "apollo17-planning",
+    "tobler-1993"
+  ],
+  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20). Speed and metabolic values follow the cited Apollo-era and Tobler sources; the rest are assumed."
+}

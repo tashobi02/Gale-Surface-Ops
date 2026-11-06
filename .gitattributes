@@ -11,3 +11,4 @@
 *.png binary
 *.webp binary
 *.pdf binary
+*.cmd text eol=crlf

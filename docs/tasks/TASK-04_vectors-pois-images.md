@@ -3,14 +3,16 @@
 | Field | Value |
 | --- | --- |
 | Objective | Vectors, POIs and images |
-| Requirements | FR-04, FR-17 (06 §C); also FR-10 (T04.07, cut 4), NFR-07 (T04.06), U-03, U-04 |
-| Lane / owner role | data — Data/GIS lead (T04.01–T04.03, T04.07–T04.09); story — Design & story lead (T04.04–T04.06). 06 §C owner: Story lead + Data lead |
-| Milestone | M1 (5–10 Nov) |
-| Window | pre-event-allowed (T04.02 and T04.03 start only after the phase gate, [map §a.2](_coordination.md#a2-field-vocabulary)) |
+| Requirements | FR-04, FR-17 (06 §C); also FR-10 (T04.07, v1 cut 4, no v2 cut item), NFR-07 (T04.06), U-03, U-04 |
+| Lane / owner role | data — R1 support: Mishkat Ahmed Khan (data half); story — R6: Sadman Shaharier Mahim (content half) |
+| Milestone | M2 (06 §C.1 *When*: P 6–9 Nov) |
+| Window | pre-event-allowed |
 | Effort (doc 06) | 4–8 h |
 | Done when (doc 06) | Traverse aligns with tracks at ≥ 3 checkpoints; every POI has credit + position source |
 | Main risk → fallback | PLACES parsing slow → MMGIS JSON (cached, labelled unofficial) |
 | Spec sections | [01 FR-04](../specs/01_Product_Requirements_Document.md#fr-04--points-of-interest-with-ground-imagery) · [01 FR-17](../specs/01_Product_Requirements_Document.md#fr-17--curiosity-traverse-overlay) · [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria) · [02 §C.2 L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10) · [02 §C.2 L6](../specs/02_Technical_Requirements_Document.md#l6--mission-vectors-fr-04-fr-17) · [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract) · [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) · [05 POI](../specs/05_Backend_and_Database_Schema.md#poi) · [05 TraversePoint](../specs/05_Backend_and_Database_Schema.md#traversepoint) · [05 §F.2](../specs/05_Backend_and_Database_Schema.md#f2-poi-feature) · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D.5](../specs/06_High_Level_Implementation_Plan.md#d5-data-and-service-fallbacks) · [ADR-007](../decisions/ADR-007-pov-imagery.md) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 06 §C deliverable: `traverse.geojson`, `pois.geojson` (5–8 POIs), `images/`, credits list. This task writes the curated inputs and the packaging code; the T03.19 pipeline run writes the bundle files.
 
@@ -18,7 +20,7 @@
 
 | Input | Kind | Owner | Dependency |
 | --- | --- | --- | --- |
-| C1–C2: POI, TraversePoint, Layer and DataSource field names (`web/src/types/schema.ts`, `schemas/site-manifest.schema.json`) | contract | T03.01 | soft |
+| C1–C2: POI, TraversePoint, Layer and DataSource field names (`packages/protocol/src/schema.ts`, `schemas/site-manifest.schema.json`) | contract | T03.01 | soft |
 | C5: site-config input layout (`pipeline/sites/README.md`) | contract | T03.01 | soft |
 | Chosen AOI and site (D-01) in `docs/ops/feasibility.md` | upstream output | T01.05 | read only; M0 ends before M1 (see Spec questions) |
 | THEMIS tile id and coverage note `docs/ops/feasibility/coverage.md` | upstream output | T01.04 | read only (T04.06, T04.07) |
@@ -32,15 +34,16 @@
 | Curated POI records and the POI layer record | `pipeline/sites/gale_boxwork/pois/`, `pipeline/sites/gale_boxwork/layers/pois.json` | T03.19, T07.14 |
 | POI images, saved by hand (git-ignored) | `pipeline/work/images/` | T03.19 |
 | Packaging code | `pipeline/src/marswalk_pipeline/vectors.py` | T03.15, T03.19 |
-| Packaged vectors (written by the T03.19 run) | `web/public/sites/gale_boxwork/vectors/traverse.geojson`, `web/public/sites/gale_boxwork/vectors/pois.geojson` | T07.10, T07.11, T10.01 |
+| Packaged vectors (written by the T03.19 run) | `data/sites/gale_boxwork/vectors/traverse.geojson`, `data/sites/gale_boxwork/vectors/pois.geojson` | T07.10, T07.11, T10.01 |
 | Dataset and image credits list | `docs/ops/credits.md` | T12.03, T16.03, T16.05 |
-| TI threshold (cut 4) | `pipeline/sites/gale_boxwork/ti_threshold.json`, `docs/ops/ti-threshold.md` | T03.10, T12.04, T16.02 |
+| TI threshold (v1 cut 4; no v2 cut item) | `pipeline/sites/gale_boxwork/ti_threshold.json`, `docs/ops/ti-threshold.md` | T03.10, T12.04, T16.02 |
 | Measured traverse offset | `pipeline/sites/gale_boxwork/known_offsets/traverse.json` | T03.13, T03.19 |
 
 ## Subtasks
 
 ### T04.01 — Choose and cache the traverse source (U-04); write its DataSource and Layer records
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -67,6 +70,7 @@
 
 ### T04.02 — Tests: traverse and POI packaging
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -97,6 +101,7 @@
 
 ### T04.03 — Implement traverse and POI packaging
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -122,13 +127,14 @@
 
 ### T04.04 — Curate POIs 1–4 with images, credits and position sources; write the POI layer record
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
 - **Estimate:** 2–3 h
 - **Owns (writes):** `pipeline/sites/gale_boxwork/pois/poi-boxwork-ridge.json`, `pipeline/sites/gale_boxwork/pois/<poi_id_2>.json`, `pipeline/sites/gale_boxwork/pois/<poi_id_3>.json`, `pipeline/sites/gale_boxwork/pois/<poi_id_4>.json`, `pipeline/sites/gale_boxwork/layers/pois.json`
 - **Reads:** [01 FR-04](../specs/01_Product_Requirements_Document.md#fr-04--points-of-interest-with-ground-imagery), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) (step 3), [03 SCR-06](../specs/03_App_Flow_and_Diagrams.md#scr-06--poi-detail-panel), [05 POI](../specs/05_Backend_and_Database_Schema.md#poi), [05 §F.2](../specs/05_Backend_and_Database_Schema.md#f2-poi-feature), [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data), [02 §C.2 L6](../specs/02_Technical_Requirements_Document.md#l6--mission-vectors-fr-04-fr-17), [06 §D.5](../specs/06_High_Level_Implementation_Plan.md#d5-data-and-service-fallbacks), [ADR-007](../decisions/ADR-007-pov-imagery.md), `docs/ops/feasibility.md`, `pipeline/sites/README.md`, the traverse cached by T04.01
-- **Depends on:** T03.01 (soft), T04.01 (hard: positions come from the cached traverse), T01.05 (hard: POIs must lie inside the chosen AOI)
+- **Depends on:** T03.01 (soft), T04.01 (hard: positions come from the cached traverse), T01.05 (hard: POIs must lie inside the chosen AOI), T04.10 (soft: stop-type list, v2)
 - **Parallel with:** T04.02, T04.03, T04.05, T04.07
 - **Steps:**
   1. Choose four POIs from NASA mission blog and photojournal descriptions of the boxwork campaign (02 §C.2 L6), including "Boxwork ridge" (01 §E step 3). Ids other than `poi-boxwork-ridge` are `TODO(decision)`.
@@ -137,6 +143,7 @@
   4. Record `image_credit` ("NASA/JPL-Caltech", with MSSS for Mastcam, 02 §C.2 L6), the exact `image_source_url`, `image_sol`, `image_date`, `image_camera` and the `image_asset` id (05 example style `img-boxwork-ridge`).
   5. Check each POI against the AOI recorded by T01.05; replace any that falls outside.
   6. Write the POI Layer record: category `mission`, kind `vector`, provenance `assumed`, visible by default (03 SCR-03 "POIs (on)"), asset id `vec-pois` (05 §F.1); legend and resolution fields per C2 and C5.
+  7. (v2, FR-45) Give each POI a `stop_type`, an objective and its evidence, using the stop-type list in `docs/ops/exploration-zone.md` (T04.10).
 - **Acceptance:**
   - Serves: FR-04 · [01 FR-04](../specs/01_Product_Requirements_Document.md#fr-04--points-of-interest-with-ground-imagery), [05 POI](../specs/05_Backend_and_Database_Schema.md#poi)
   - Four POI records exist, one of them `poi-boxwork-ridge`.
@@ -149,19 +156,21 @@
 
 ### T04.05 — Curate POIs 5–8 (at least one, to reach the 5-POI minimum)
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
 - **Estimate:** 1.5–3 h
 - **Owns (writes):** `pipeline/sites/gale_boxwork/pois/<poi_id_5>.json`, `pipeline/sites/gale_boxwork/pois/<poi_id_6>.json`, `pipeline/sites/gale_boxwork/pois/<poi_id_7>.json`, `pipeline/sites/gale_boxwork/pois/<poi_id_8>.json`
 - **Reads:** same as T04.04
-- **Depends on:** T03.01 (soft), T04.01 (hard: positions come from the cached traverse), T01.05 (hard: POIs must lie inside the chosen AOI)
+- **Depends on:** T03.01 (soft), T04.01 (hard: positions come from the cached traverse), T01.05 (hard: POIs must lie inside the chosen AOI), T04.10 (soft: stop-type list, v2)
 - **Parallel with:** T04.02, T04.03, T04.04, T04.07
 - **Steps:**
   1. Choose one to four further POIs so the site has 5–8 (01 FR-04); ids are `TODO(decision)`.
   2. Fill the 05 POI fields as in T04.04 steps 2–4, saving each image by hand to `pipeline/work/images/<poi_id>.jpg`.
   3. Check each POI against the AOI recorded by T01.05.
   4. Drop the unused placeholder files from the PR; only curated POIs are committed.
+  5. (v2, FR-45) Give each POI a `stop_type`, an objective and its evidence, using the stop-type list in `docs/ops/exploration-zone.md` (T04.10).
 - **Acceptance:**
   - Serves: FR-04 · [01 FR-04](../specs/01_Product_Requirements_Document.md#fr-04--points-of-interest-with-ground-imagery), [05 POI](../specs/05_Backend_and_Database_Schema.md#poi)
   - With T04.04, the site has 5–8 POIs.
@@ -172,6 +181,7 @@
 
 ### T04.06 — Write the dataset and image credits list
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -196,8 +206,9 @@
 
 ### T04.07 — Resolve U-03: TI "loose fines" threshold from the AOI histogram and literature
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** human
-- **Tag:** human-required · cut-4
+- **Tag:** human-required · core
 - **Window:** pre-event-allowed
 - **Estimate:** 1–2 h
 - **Owns (writes):** `pipeline/sites/gale_boxwork/ti_threshold.json`, `docs/ops/ti-threshold.md`
@@ -213,14 +224,15 @@
 - **Acceptance:**
   - Serves: FR-10, U-03 · [02 §C.2 L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10)
   - The threshold traces to the recorded histogram and a cited interpretation, and is labelled interpretive.
-  - If no threshold is chosen, the note says so and `ti_threshold.json` is not written; T03.10 then sets no `LOW_TI` bits (cut 4, map §h.6).
+  - If no threshold is chosen, the note says so and `ti_threshold.json` is not written; T03.10 then sets no `LOW_TI` bits (v1 cut 4, no v2 cut item, map §h.6).
   - TI gaps stay "unknown", never zero (02 §C.2 L4).
 - **Verify:** re-run the recorded command and compare its output with the note; `python3 -m json.tool pipeline/sites/gale_boxwork/ti_threshold.json` if written; manual review of the citation.
 - **Agent brief:** An agent may run the histogram command and draft `docs/ops/ti-threshold.md`. The data lead chooses the threshold; the agent never proposes a number.
-- **Conflict notes:** T03.10 reads `ti_threshold.json` (an absent file means no `LOW_TI`). Cut 4 drops this subtask; T16.02 copies the U-03 outcome into the spec tables.
+- **Conflict notes:** T03.10 reads `ti_threshold.json` (an absent file means no `LOW_TI`). V1 cut 4 (no v2 cut item) drops this subtask; T16.02 copies the U-03 outcome into the spec tables.
 
 ### T04.08 — Verify traverse alignment with HiRISE tracks at the checkpoints; record the offset
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -245,6 +257,7 @@
 
 ### T04.09 — Fallback — start only if PLACES parsing is too slow: MMGIS JSON cached once, labelled unofficial
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** fallback
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -268,6 +281,48 @@
 - **Agent brief:** Only after the data lead confirms the trigger: cache the MSL MMGIS traverse JSON once, switch the traverse records to it, label it unofficial and add its parser and test. The MMGIS path is unverified; never guess it.
 - **Conflict notes:** Writes files owned by T04.01, T04.02, T04.03 and T04.08 only after the trigger, never at the same time as them (map §c.1 rule 3). The new DataSource is a new file in the append-only-by-file `sources/` folder. T03.19 must run again if the bundle already exists.
 
+### T04.10 — Write the Exploration Zone framing and the stop-type list (v2, FR-45, U-16)
+
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
+- **Type:** human
+- **Tag:** human-required · core
+- **Window:** pre-event-allowed
+- **Estimate:** 1–1.5 h
+- **Owns (writes):** `docs/ops/exploration-zone.md`
+- **Reads:** [01 FR-45](../specs/01_Product_Requirements_Document.md#fr-45--exploration-zone-layer-t0-m), [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-04, [docs/reference](../reference/)
+- **Depends on:** T01.05 (hard: AOI and site)
+- **Parallel with:** T04.04
+- **Steps:**
+  1. Write the Exploration Zone framing for Gale (one paragraph) with its citation (U-16), or `TODO(verify)` if none is found.
+  2. Define the stop types (science, resource and any others 01 FR-45 names) with one line each; T04.04 and T04.05 give every POI a `stop_type`, an objective and its evidence.
+- **Acceptance:**
+  - Serves: FR-45 · U-16
+  - Every claim cites a source; the stop-type list matches 01 FR-45.
+- **Verify:** `make docs-check`; a second person checks each citation.
+- **Agent brief:** The product & systems lead writes it; an agent may collect candidate citations. No invented facts.
+- **Conflict notes:** New file.
+
+### T04.11 — Check the dust-record source for the scenario window (v2, U-17)
+
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
+- **Type:** human
+- **Tag:** human-required · desirable
+- **Window:** pre-event-allowed
+- **Estimate:** 0.5–1 h
+- **Owns (writes):** `docs/ops/dust-record.md`
+- **Reads:** [01 FR-49](../specs/01_Product_Requirements_Document.md#fr-49--dust-advisory-replay-t2-s), [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-04
+- **Depends on:** none
+- **Parallel with:** T21.06
+- **Steps:**
+  1. Look for an orbiter weather-imagery record of dust activity near Gale in the scenario window (U-17).
+  2. Record what was found with its source, or that nothing suitable exists; FR-49 is qualitative only.
+- **Acceptance:**
+  - Serves: FR-49 · U-17
+  - The note states found or not found, with sources.
+- **Verify:** `make docs-check`.
+- **Agent brief:** A person searches; an agent may list candidate archives. Never quantify dust.
+- **Conflict notes:** New file. Feeds T18.13 only.
+
 ## Internal dependency graph
 
 Cross-task edges (T03.01 soft; T03.08 hard into T04.07 and T04.08; this task into T03.19 and T07.14) are in the Inputs and Outputs tables and in [map §f](_coordination.md#f-dependency-graph).
@@ -284,7 +339,7 @@ flowchart LR
   T04_05 --> T04_06
   T04_03 --> T04_08["T04.08 traverse alignment"]
   T04_01 --> T04_09["T04.09 fallback: MMGIS"]
-  T04_07["T04.07 TI threshold (cut 4)"]
+  T04_07["T04.07 TI threshold (v1 cut 4; no v2 cut item)"]
 ```
 
 ## Definition of done (task level)
@@ -292,7 +347,7 @@ flowchart LR
 - [06 §D.7](../specs/06_High_Level_Implementation_Plan.md#d7-definition-of-done-per-feature): acceptance criteria of FR-04 and FR-17 met; packaging unit tests committed (T04.02); provenance set on every record (POIs `assumed`, traverse `measured`); every source credited and listed for SCR-09 (T04.06); everything is a local file, so it works offline. Keyboard reachability does not apply (no UI here).
 - 06 done-when: the traverse aligns with tracks at ≥ 3 checkpoints (T04.08); every POI has a credit and a position source (T04.04, T04.05).
 - 5–8 POIs, including Boxwork ridge (01 FR-04, 01 §E step 3).
-- U-04 is recorded; U-03 is recorded, or cut 4 is invoked.
+- U-04 is recorded; U-03 is recorded, or v1 cut 4 (no v2 cut item) is invoked.
 - No downloaded data or images are committed (`CLAUDE.md` §2).
 - `make test` and `python3 scripts/check_tasks.py` pass.
 

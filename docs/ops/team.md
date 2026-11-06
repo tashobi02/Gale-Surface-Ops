@@ -23,7 +23,7 @@
 | # | Name | NASA Space Apps Handle | GitHub Profile | 06 §A Role (Proposed — `TODO(decision)`) | Map §b Lanes (Proposed — `TODO(decision)`) | Primary Skills & Stack |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | **Obidit Islam** *(Team Owner / Lead)* | `@tashobi02` | [tashobi02](https://github.com/tashobi02) | Team Lead · Data/GIS lead & Story lead | `data`, `story` | Python, C++, HTML/JS, Jupyter, AI/ML, reinforcement learning, algorithms, data pipelines |
-| 2 | **Sadman Shaharier Mahim** | `@deatrax` | [Deatrax](https://github.com/Deatrax) | Compute engineer · Frontend engineer | `compute`, `integration`, `frontend` | TypeScript, JavaScript, Python, Java, full-stack web & native apps, system development |
+| 2 | **Sadman Shaharier Mahim** *(Product & systems lead, v2)* | `@deatrax` | [Deatrax](https://github.com/Deatrax) | Product & systems lead (v2 reframe) · Hab Core lead · Demo story | `integration`, `story`, `compute`, `frontend` | TypeScript, JavaScript, Python, Java, full-stack web & native apps, system development |
 | 3 | **Saba Atharique** | `@saba03` | [sabaatharique](https://github.com/sabaatharique) | Frontend engineer · Design & story lead | `frontend`, `design` | JavaScript, Python, HTML/CSS, C/C++, SDL2, p5.js, interactive web apps, simulation & modelling |
 | 4 | **Mishkat Ahmed Khan** | `@mishkat17` | [MishkatAhmedKhan](https://github.com/MishkatAhmedKhan) | Compute engineer · Data/GIS co-lead | `compute`, `data` | C++, Python, JavaScript, scientific/orbital simulation, network simulation, algorithms |
 | 5 | **Anjim Hossain** | `@lazymeow` | [anjim-hossain](https://github.com/anjim-hossain) | Compute engineer · Integration | `compute`, `integration` | C++, object-oriented programming, data structures, algorithmic problem solving |
@@ -33,7 +33,8 @@
 
 - **Obidit Islam** (**Team Owner / Lead** — `@tashobi02` · [https://github.com/tashobi02](https://github.com/tashobi02))
   Computer Science & Engineering junior at the Islamic University of Technology (IUT), Dhaka, Bangladesh, focused on AI/ML, reinforcement learning, competitive programming, and full-stack web development (Python, C++, HTML/JS, Jupyter).
-- **Sadman Shaharier Mahim** (`@deatrax` · [https://github.com/Deatrax](https://github.com/Deatrax))
+- **Sadman Shaharier Mahim** (**Product & systems lead, v2** — `@deatrax` · [https://github.com/Deatrax](https://github.com/Deatrax))
+  Conceived and directed the v2 surface-ops reframe on 2026-11-04 (habitat server, in-EVA tablet/HUD, rover and vehicle tasking, replayed solar storm, Exploration Zone framing, design direction) and owns the killer-demo story; proposed lead of the Hab Core (06 §A.1).
   Developer focused on full-stack web and native applications, game development, AI/ML, and cybersecurity, working across TypeScript, JavaScript, Python, and Java.
 - **Saba Atharique** (`@saba03` · [https://github.com/sabaatharique](https://github.com/sabaatharique))
   Computer Science & Engineering undergraduate at IUT experienced in web development, simulation and modelling, classical machine learning, and interactive graphics across Python, JavaScript, HTML/CSS, and C/C++ (SDL2, p5.js).
@@ -54,7 +55,7 @@ Every lane in [map §b](../tasks/_coordination.md#b-lanes) has named coverage (f
 | `compute` | Compute engineer | Sadman Shaharier Mahim (`@deatrax`), Mishkat Ahmed Khan (`@mishkat17`), Anjim Hossain (`@lazymeow`) | Staffed |
 | `frontend` | Frontend engineer | Sadman Shaharier Mahim (`@deatrax`), Saba Atharique (`@saba03`), Ridita Alam (`@r_a110`) | Staffed |
 | `design` | Design & story lead | Saba Atharique (`@saba03`), Ridita Alam (`@r_a110`) | Staffed |
-| `story` | Design & story lead | Obidit Islam (`@tashobi02`), Ridita Alam (`@r_a110`) | Staffed |
+| `story` | Design & story lead | Sadman Shaharier Mahim (`@deatrax`, demo story), Obidit Islam (`@tashobi02`, submission), Ridita Alam (`@r_a110`) | Staffed |
 | `integration` | Compute engineer | Sadman Shaharier Mahim (`@deatrax`), Anjim Hossain (`@lazymeow`), Obidit Islam (`@tashobi02`) | Staffed |
 
 ## Venue type (U-14, due 10 Nov)

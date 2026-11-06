@@ -1,4 +1,4 @@
-# Marswalk Planner — common tasks. See CLAUDE.md §4.
+# Marswalk Surface Ops — common tasks. See CLAUDE.md §4.
 # The pipeline runs only in the conda environment below. Its interpreter is looked up by name
 # when a target needs it (never at parse time), so lint, typecheck, test-web and docs-check
 # work without conda. An active .venv or the PATH order does not change which interpreter is used.
@@ -7,9 +7,9 @@ CONDA_ENV ?= marswalk-pipeline
 CONDA_BIN ?= $(if $(CONDA_EXE),$(CONDA_EXE),conda)
 
 .PHONY: setup setup-web setup-pipeline lint typecheck test test-web docs-check dev demo data \
-	conda-check check-env pipeline-python validate progress
+	conda-check check-env pipeline-python validate progress hab replay agent-skills design-check
 
-setup: setup-web setup-pipeline
+setup: setup-web setup-pipeline agent-skills
 
 setup-web:
 	npm ci
@@ -42,13 +42,22 @@ docs-check: lint
 progress:
 	python3 scripts/update_progress.py
 
+# Vite dev server for all role views; proxies /sites, /api and /ws to a running Hab Core (`make hab`).
 dev:
-	npm --workspace web run dev
+	npm run -s dev
 
-# Production build served from local files only (02 §F: python http.server suffices offline).
+# Hab Core on 0.0.0.0:8080 (02 §A.5): serves apps/web/dist, data/sites and /ws on the habitat LAN.
+hab:
+	npm run -s hab:start -- --site gale_boxwork --scenario storm-sol4190
+
+# Headless scenario replay; prints the event-log hash (NFR-06, NFR-14).
+replay:
+	npm run -s hab:replay -- scenarios/storm-sol4190
+
+# Production build served by the Hab Core on the habitat LAN, no internet (02 §F deployment, NFR-01).
 demo:
 	npm run -s build
-	python3 -m http.server --bind 127.0.0.1 --directory web/dist 8080
+	npm run -s hab:start -- --site gale_boxwork --scenario storm-sol4190
 
 data:
 	@echo "not implemented — see TASK-03"
@@ -77,4 +86,15 @@ check-env:
 validate: check-env
 	@case "$(SITE)" in ""|*[!a-z0-9_]*) echo "usage: make validate SITE=<site_id> (a-z, 0-9, _)" >&2; exit 2;; esac; \
 	py=$$($(MAKE) -s --no-print-directory pipeline-python) || exit 1; \
-	"$$(dirname "$$py")/validate-manifest" web/public/sites/$(SITE)
+	"$$(dirname "$$py")/validate-manifest" data/sites/$(SITE)
+
+# Mirror project skills from .claude/skills/ (the source) into .agents/skills/ (Codex) and .gemini/skills/ (Gemini).
+# Impeccable has its own per-tool builds there and is left alone. Copies are git-ignored (docs/ops/agentic-workflow.md).
+agent-skills:
+	@for d in .claude/skills/*/; do n=$$(basename "$$d"); [ "$$n" = impeccable ] && continue; \
+	  for t in .agents/skills .gemini/skills; do mkdir -p "$$t"; rm -rf "$$t/$$n"; cp -R "$$d" "$$t/$$n"; done; done
+	@echo "skills mirrored into .agents/skills and .gemini/skills"
+
+# Impeccable's deterministic design detector over the web app (needs internet once to fetch the engine).
+design-check:
+	npx -y impeccable@4.8.0 detect apps/web/src

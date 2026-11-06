@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tashobi02/CheesySpace-NasaSpaceAppChallenge/schemas/scenario.schema.json",
+  "title": "Scenario (docs/specs/05 §C.2 Scenario, ScenarioEvent)",
+  "$comment": "plan must validate against plan-export.schema.json and its plan_hash must verify; table checksums are checked by the Hab Core loader (05 §E.7).",
+  "type": "object",
+  "$defs": {
+    "Provenance": {
+      "enum": [
+        "measured",
+        "derived",
+        "modelled",
+        "assumed",
+        "replayed",
+        "simulated"
+      ]
+    },
+    "ScenarioEvent": {
+      "type": "object",
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "t_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "kind": {
+          "enum": [
+            "EARTH_MESSAGE",
+            "DONKI_RECORD",
+            "ADVISORY",
+            "INJECT"
+          ]
+        },
+        "payload": {
+          "type": "object"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "source_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "t_utc",
+        "kind",
+        "payload",
+        "provenance"
+      ],
+      "if": {
+        "properties": {
+          "provenance": {
+            "not": {
+              "const": "simulated"
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "source_id"
+        ]
+      },
+      "additionalProperties": false
+    },
+    "Table": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "StopTaskSeed": {
+      "type": "object",
+      "$comment": "Authored fields of 05 StopTask (FR-50). state, reason, origin, updated_* and provenance are set by the Hab Core. 1-4 tasks per stop and stop_id existing in plan are checked by the Hab Core loader.",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stop_id": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "id of a stop Waypoint in plan (U-61)"
+        },
+        "crew_id": {
+          "enum": [
+            "EV1",
+            "EV2",
+            null
+          ]
+        },
+        "kind": {
+          "enum": [
+            "observe",
+            "image",
+            "sample",
+            "measure",
+            "deploy",
+            "other"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        }
+      },
+      "required": [
+        "task_id",
+        "stop_id",
+        "crew_id",
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "scenario_schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "site_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "data_version": {
+      "type": "string"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "start_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "plan": {
+      "type": "object",
+      "$comment": "PlanExport — validate with plan-export.schema.json"
+    },
+    "stop_tasks": {
+      "type": "array",
+      "$comment": "Optional (05 Scenario, FR-50); beside plan so plan_hash is unchanged (U-48)",
+      "items": {
+        "$ref": "#/$defs/StopTaskSeed"
+      }
+    },
+    "crew": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "properties": {
+          "crew_id": {
+            "enum": [
+              "EV1",
+              "EV2"
+            ]
+          },
+          "suit_param_set": {
+            "type": "string"
+          },
+          "start_offset_s": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "crew_id",
+          "suit_param_set",
+          "start_offset_s"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "vehicles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "vehicle_id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "pressurized_rover",
+              "utility_rover"
+            ]
+          },
+          "param_set": {
+            "type": "string"
+          },
+          "start_x_m": {
+            "type": "number"
+          },
+          "start_y_m": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "vehicle_id",
+          "kind",
+          "param_set",
+          "start_x_m",
+          "start_y_m"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "param_sets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "$comment": "must include one link, alert and shielding set"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ScenarioEvent"
+      }
+    },
+    "tables": {
+      "type": "object",
+      "properties": {
+        "dose_series": {
+          "$ref": "#/$defs/Table"
+        },
+        "earth_link": {
+          "$ref": "#/$defs/Table"
+        }
+      },
+      "required": [
+        "dose_series",
+        "earth_link"
+      ],
+      "additionalProperties": false
+    },
+    "source_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "scenario_schema_version",
+    "scenario_id",
+    "title",
+    "site_id",
+    "data_version",
+    "seed",
+    "start_utc",
+    "plan",
+    "crew",
+    "vehicles",
+    "param_sets",
+    "events",
+    "tables",
+    "source_ids"
+  ],
+  "additionalProperties": false
+}

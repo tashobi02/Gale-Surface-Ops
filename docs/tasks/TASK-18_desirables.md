@@ -3,14 +3,16 @@
 | Field | Value |
 | --- | --- |
 | Objective | Desirables (only after freeze criteria met early) |
-| Requirements | FR-13, FR-18, FR-19, FR-20 (all Should); FR-21 is post-MVP — note only ([01 §C.3](../specs/01_Product_Requirements_Document.md#c3-post-mvp)) |
-| Lane / owner role | Any (06 §C). Per subtask: data — Data/GIS lead (T18.01, T18.02); compute — Compute engineer (T18.04, T18.05); frontend — Frontend engineer (T18.03, T18.06, T18.07) |
-| Milestone | Only after the [06 §D.6](../specs/06_High_Level_Implementation_Plan.md#d6-demo-freeze-criteria-day-2-0600) freeze criteria are met early; merge before the Day 2 06:00 freeze (M5; see Spec questions 9) |
-| Window | event-only (every subtask) |
+| Requirements | FR-13, FR-18, FR-19, FR-20 (all Should); FR-21 is post-MVP — note only ([01 §C.3](../specs/01_Product_Requirements_Document.md#c4-post-mvp)) |
+| Lane / owner role | data, compute, frontend — unassigned: whoever finishes their own tasks, only after M3 passes (06 §A.2) |
+| Milestone | M4b–M7: only after M3 passes on 10 Nov, cheapest first (06 §C.1 *When*: P 10–12 Nov, otherwise E after the M7 gate); T18.08 caching in M2 |
+| Window | pre-event-if-permitted (T18.08, T18.13 pre-event-allowed) |
 | Effort (doc 06) | 2–6 h each |
 | Done when (doc 06) | Feature labelled and tested |
 | Main risk → fallback | Skip |
 | Spec sections | [06 §C TASK-18](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D.4 item 1](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind) · [01 FR-13](../specs/01_Product_Requirements_Document.md#fr-13--environmental-context-seasonal-weather) · [01 FR-18](../specs/01_Product_Requirements_Document.md#fr-18--spectral-crism-layer--s) · [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s) · [01 FR-20](../specs/01_Product_Requirements_Document.md#fr-20--saverestore-plan-locally--s) · [02 §C.2 L5](../specs/02_Technical_Requirements_Document.md#l5--spectral-fr-18-desirable) · [02 §C.2 L7](../specs/02_Technical_Requirements_Document.md#l7--environmental-values-fr-11-fr-12-fr-13) · [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable) · [05 §B](../specs/05_Backend_and_Database_Schema.md#b-persistence-strategy) · [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration) · [03 §C.5](../specs/03_App_Flow_and_Diagrams.md#c5-saving--exporting-in-scope-export-storage-desirable) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind): they are the first work dropped and start only once the freeze criteria hold. 06 lists the deliverable as "Any of: CRISM layer, REMS context, O₂ estimate, local save" — each one ships on its own or not at all.
 
@@ -35,22 +37,23 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 
 | Output | Path | Consumers |
 | --- | --- | --- |
-| CRISM spectral layer in a re-released bundle with a new `data_version` | `web/public/sites/gale_boxwork/`, `pipeline/sites/gale_boxwork/layers/`, `pipeline/sites/gale_boxwork/sources/` | SCR-03 renders it from the manifest (T07.09); SCR-09 lists its source (T12.03); T16.03, T16.05 (credits) |
+| CRISM spectral layer in a re-released bundle with a new `data_version` | `data/sites/gale_boxwork/`, `pipeline/sites/gale_boxwork/layers/`, `pipeline/sites/gale_boxwork/sources/` | SCR-03 renders it from the manifest (T07.09); SCR-09 lists its source (T12.03); T16.03, T16.05 (credits) |
 | REMS L_s-bin context | `pipeline/src/marswalk_pipeline/rems.py`; output location `TODO(decision)` | T18.03 |
-| Seasonal-weather section of SCR-07 | `web/src/ui/screens/scr07Conditions.ts` | T12.02 (DOM provenance test must still pass) |
-| Illustrative O₂ function | `web/src/compute/consumables.ts` | T18.06 |
-| Illustrative O₂ display | `web/src/ui/screens/scr05RouteResults.ts`, `web/src/ui/screens/scr08BriefingCard.ts` | T12.02; one-page print check of T11.05 |
-| Last-plan save and restore | `web/src/state/persist.ts`, `web/src/state/planStore.ts` | SCR-01 return path ([03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step)) |
+| Seasonal-weather section of SCR-07 | `apps/web/src/ui/screens/scr07Conditions.tsx` | T12.02 (DOM provenance test must still pass) |
+| Illustrative O₂ function | `packages/compute/src/consumables.ts` | T18.06 |
+| Illustrative O₂ display | `apps/web/src/ui/screens/scr05RouteResults.tsx`, `apps/web/src/ui/screens/scr08BriefingCard.tsx` | T12.02; one-page print check of T11.05 |
+| Last-plan save and restore | `apps/web/src/state/persist.ts`, `apps/web/src/state/planStore.ts` | SCR-01 return path ([03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step)) |
 
 ## Subtasks
 
 ### T18.01 — follow-up: CRISM layer and bundle re-release (only if T01.04 finds MTRDR coverage)
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
-- **Owns (writes):** `pipeline/src/marswalk_pipeline/crism.py`, `pipeline/sites/gale_boxwork/layers/` (append-only), `pipeline/sites/gale_boxwork/sources/` (append-only), `web/public/sites/gale_boxwork/` (after T03.19), `pipeline/sources.lock.json` (after T03.19)
+- **Owns (writes):** `pipeline/src/marswalk_pipeline/crism.py`, `pipeline/sites/gale_boxwork/layers/` (append-only), `pipeline/sites/gale_boxwork/sources/` (append-only), `data/sites/gale_boxwork/` (after T03.19), `pipeline/sources.lock.json` (after T03.19)
 - **Reads:** `docs/ops/feasibility/coverage.md` (T01.04), `docs/contracts/tile-grid.md` (C9), `pipeline/sites/README.md` (C5), `schemas/site-manifest.schema.json` (C2), `pipeline/src/marswalk_pipeline/clip_reproject.py`, `pipeline/src/marswalk_pipeline/tiles.py`, `pipeline/src/marswalk_pipeline/manifest.py`, `pipeline/src/marswalk_pipeline/validate_manifest.py`; [01 FR-18](../specs/01_Product_Requirements_Document.md#fr-18--spectral-crism-layer--s), [02 §C.2 L5](../specs/02_Technical_Requirements_Document.md#l5--spectral-fr-18-desirable), [02 Sources](../specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02), [05 §C Layer](../specs/05_Backend_and_Database_Schema.md#layer), [05 §C DataSource](../specs/05_Backend_and_Database_Schema.md#datasource), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data)
 - **Depends on:** T14.06 (hard: 06 TASK-18 gate, freeze criteria met early), T01.04 (hard: needs the CRISM coverage finding), T03.19 (hard: follow-up on the bundle it owns, §c.1 rule 3), T03.01 (soft), T02.01 (soft), T18.08 (hard: the source files must be cached before the event)
 - **Parallel with:** T18.02, T18.04, T18.05, T18.07
@@ -73,9 +76,10 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 
 ### T18.02 — Build REMS L_s-bin temperature and pressure context from named RDR files
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `pipeline/src/marswalk_pipeline/rems.py`, `pipeline/sites/gale_boxwork/sources/` (append-only)
 - **Reads:** `pipeline/sites/README.md` (C5), `schemas/site-manifest.schema.json` (C2); [01 FR-13](../specs/01_Product_Requirements_Document.md#fr-13--environmental-context-seasonal-weather), [02 §C.2 L7](../specs/02_Technical_Requirements_Document.md#l7--environmental-values-fr-11-fr-12-fr-13), [02 Sources](../specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02) (PDS Atmospheres Node — MSL REMS), [05 §C DataSource](../specs/05_Backend_and_Database_Schema.md#datasource), [05 §E.5](../specs/05_Backend_and_Database_Schema.md#e5-provenance-required-to-reproduce-a-result)
@@ -100,12 +104,13 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 
 ### T18.03 — follow-up: seasonal-weather section in SCR-07
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
-- **Owns (writes):** `web/src/ui/screens/scr07Conditions.ts` (after T10.02)
-- **Reads:** `web/src/ui/screens/scr07Conditions.ts`, `web/src/ui/context.ts` (C10), `web/src/ui/components/metric.ts`, the T18.02 output; [01 FR-13](../specs/01_Product_Requirements_Document.md#fr-13--environmental-context-seasonal-weather), [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel), [05 §C PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed) (`conditions.ls_deg`), [04 §E](../specs/04_Design_Brief.md#e-accessibility-and-responsive-behavior)
+- **Owns (writes):** `apps/web/src/ui/screens/scr07Conditions.tsx` (after T10.02)
+- **Reads:** `apps/web/src/ui/screens/scr07Conditions.tsx`, `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/components/metric.ts`, the T18.02 output; [01 FR-13](../specs/01_Product_Requirements_Document.md#fr-13--environmental-context-seasonal-weather), [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel), [05 §C PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed) (`conditions.ls_deg`), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior)
 - **Depends on:** T18.02 (hard: needs the REMS context output), T10.02 (hard: follow-up on the panel it owns, §c.1 rule 3), T14.06 (hard: 06 TASK-18 gate, freeze criteria met early), T07.01 (soft)
 - **Parallel with:** T18.01, T18.04, T18.05, T18.06, T18.07
 - **Steps:**
@@ -119,23 +124,24 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
   - Given REMS context for the EVA date's L_s bin, when SCR-07 opens, then air/ground temperature and pressure ranges show with units, a provenance label and a source link (01 FR-13, NFR-05).
   - Given no REMS context, then the panel shows "Not included in this build" rather than placeholder numbers (01 FR-13).
   - `tests/ui/provenance.test.ts` still passes ([01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods)).
-- **Verify:** `npx vitest run tests/ui/provenance.test.ts` (run in `web/`); manual offline check of SCR-07 with and without the REMS output.
-- **Agent brief:** In `web/src/ui/screens/scr07Conditions.ts`, add a seasonal-weather section that shows the REMS ranges for the plan's L_s bin through the metric component, with provenance and source link, and keeps "Not included in this build" when no REMS data exists. Edit nothing else.
+- **Verify:** `npx vitest run tests/ui/provenance.test.ts` (run in `apps/web/`); manual offline check of SCR-07 with and without the REMS output.
+- **Agent brief:** In `apps/web/src/ui/screens/scr07Conditions.tsx`, add a seasonal-weather section that shows the REMS ranges for the plan's L_s bin through the metric component, with provenance and source link, and keeps "Not included in this build" when no REMS data exists. Edit nothing else.
 - **Conflict notes:** Edits SCR-07 only after T10.02 has merged; no other planned writer at the same time. Styling uses existing tokens; a `.css` change would need its own `follow-up:` entry in the map.
 
-### T18.04 — Tests: illustrative O₂ estimate (02 §D.6)
+### T18.04 — follow-up: tests for the planner's illustrative O₂ estimate (02 §D.6)
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** test
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 0.5 h
-- **Owns (writes):** `web/tests/compute/consumables.test.ts`
+- **Owns (writes):** `packages/compute/tests/consumables.test.ts` (after T05b.16)
 - **Reads:** [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable), [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s), [Test-case allocation](_coordination.md#test-case-allocation)
-- **Depends on:** T14.06 (hard: 06 TASK-18 gate, freeze criteria met early)
+- **Depends on:** T05b.16 (hard: owner of the test file; the engine's suit-consumables cases come first), T14.06 (hard: 06 TASK-18 gate, freeze criteria met early)
 - **Parallel with:** T18.01, T18.02, T18.03, T18.07
 - **Steps:**
-  1. Create `web/tests/compute/consumables.test.ts`.
-  2. Import `o2LitresPerMinute(metabolicW)` from `src/compute/consumables.ts` (signature fixed here; T18.05 creates the module).
+  1. Create `packages/compute/tests/consumables.test.ts`.
+  2. Import `o2LitresPerMinute(metabolicW)` from `packages/compute/src/consumables.ts` (the module exists since T05b.17; this subtask adds the planner estimate's signature beside the suit-consumables functions).
   3. Encode the one allocated case: 351.7 W → ≈ 1.03 L/min, compared at the two decimals the spec writes (tolerance `TODO(verify)`).
   4. Open the PR as a draft; T18.05 stacks on it ([§h.3](_coordination.md#h3-tests-first-merge-order)).
 - **Acceptance:**
@@ -143,22 +149,23 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
   - The test holds exactly the case the map allocates: metabolic rate while walking 1,200 BTU/h = 351.7 W (Apollo 17 planning value) → O₂ ≈ 1.03 L/min.
   - The expected value is copied from 02 §D.6, not calculated in the test.
   - It fails before T18.05 and passes after.
-- **Verify:** `npx vitest run tests/compute/consumables.test.ts` (run in `web/`).
-- **Agent brief:** Write `web/tests/compute/consumables.test.ts` with one Vitest case from 02 §D.6: `o2LitresPerMinute(351.7)` rounds to 1.03 L/min. Copy the numbers from the spec; add no other cases.
-- **Conflict notes:** Owns only the test file. Stays a draft until T18.05 makes it pass; the two merge back to back.
+- **Verify:** `npx vitest run tests/compute/consumables.test.ts` (run in `apps/web/`).
+- **Agent brief:** Write `packages/compute/tests/consumables.test.ts` with one Vitest case from 02 §D.6: `o2LitresPerMinute(351.7)` rounds to 1.03 L/min. Copy the numbers from the spec; add no other cases.
+- **Conflict notes:** Edits the test file after its owner T05b.16 (follow-up); add cases, never change the suit-consumables cases. Stays a draft until T18.05 makes it pass; the two merge back to back.
 
-### T18.05 — Implement the illustrative O₂ estimate
+### T18.05 — follow-up: implement the planner's illustrative O₂ estimate
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 0.5–1 h
-- **Owns (writes):** `web/src/compute/consumables.ts`
-- **Reads:** `web/tests/compute/consumables.test.ts`; [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable), [02 §D](../specs/02_Technical_Requirements_Document.md#d-core-processing-and-simulation-behavior), [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s)
-- **Depends on:** T18.04 (hard: tests first, paired test), T14.06 (hard: 06 TASK-18 gate, freeze criteria met early)
+- **Owns (writes):** `packages/compute/src/consumables.ts` (after T05b.17)
+- **Reads:** `packages/compute/tests/consumables.test.ts`; [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable), [02 §D](../specs/02_Technical_Requirements_Document.md#d-core-processing-and-simulation-behavior), [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s)
+- **Depends on:** T05b.17 (hard: owner of `consumables.ts` since v2, FR-35), T18.04 (hard: tests first, paired test), T14.06 (hard: 06 TASK-18 gate, freeze criteria met early)
 - **Parallel with:** T18.01, T18.02, T18.03, T18.07
 - **Steps:**
-  1. Create `web/src/compute/consumables.ts` as a pure module: no DOM, no fetch (02 §D).
+  1. Create `packages/compute/src/consumables.ts` as a pure module: no DOM, no fetch (02 §D).
   2. Export the walking metabolic rate 351.7 W (1,200 BTU/h, Apollo 17 planning value) and the O₂ energy equivalent ≈ 20.4 kJ/L (RER 0.85, Weir relation — Assumed), each with a comment citing 02 §D.6 and its label.
   3. Export `o2LitresPerMinute(metabolicW)` = metabolic power ÷ energy equivalent of O₂ (02 §D.6).
   4. Do not add litres over the walk or EVA time until the team decides (`TODO(decision)`, Spec questions 6).
@@ -169,18 +176,19 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
   - Constants match 02 §D.6 verbatim and keep their labels.
   - No routing, warning or status code imports the module (02 §D.6: "never used to block a route").
   - `make typecheck` passes.
-- **Verify:** `npx vitest run tests/compute/consumables.test.ts` (run in `web/`); `make typecheck`; `grep -rn consumables web/src/compute` lists no import from `route.ts`, `warnings.ts` or `handler.ts`.
-- **Agent brief:** Create `web/src/compute/consumables.ts` exporting `o2LitresPerMinute(metabolicW)` and the two 02 §D.6 constants with their labels, so `tests/compute/consumables.test.ts` passes. Pure function; nothing in routing or warnings may use it.
-- **Conflict notes:** New file. Branch stacked on T18.04; merge right after it.
+- **Verify:** `npx vitest run tests/compute/consumables.test.ts` (run in `apps/web/`); `make typecheck`; `grep -rn consumables packages/compute/src` lists no import from `route.ts`, `warnings.ts` or `handler.ts`.
+- **Agent brief:** Create `packages/compute/src/consumables.ts` exporting `o2LitresPerMinute(metabolicW)` and the two 02 §D.6 constants with their labels, so `tests/compute/consumables.test.ts` passes. Pure function; nothing in routing or warnings may use it.
+- **Conflict notes:** Edits `consumables.ts` after its owner T05b.17 (follow-up): add the planner estimate, never change the suit-consumables functions. Branch stacked on T18.04; merge right after it.
 
 ### T18.06 — follow-up: show the O₂ estimate labelled "illustrative"
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
-- **Owns (writes):** `web/src/ui/screens/scr05RouteResults.ts` (after T09.03), `web/src/ui/screens/scr08BriefingCard.ts` (after T11.03)
-- **Reads:** `web/src/compute/consumables.ts`, `web/src/ui/context.ts` (C10), `web/src/ui/components/metric.ts`, both screen files; [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s), [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok)
+- **Owns (writes):** `apps/web/src/ui/screens/scr05RouteResults.tsx` (after T09.03), `apps/web/src/ui/screens/scr08BriefingCard.tsx` (after T11.03)
+- **Reads:** `packages/compute/src/consumables.ts`, `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/components/metric.ts`, both screen files; [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s), [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok)
 - **Depends on:** T18.05 (hard: needs the O₂ function), T09.03 (hard: follow-up on the panel it owns, §c.1 rule 3), T11.03 (hard: follow-up on the card it owns, §c.1 rule 3), T14.06 (hard: 06 TASK-18 gate, freeze criteria met early), T07.01 (soft)
 - **Parallel with:** T18.01, T18.02, T18.03, T18.07
 - **Steps:**
@@ -196,18 +204,19 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
   - It carries `data-provenance` and a source id (NFR-05); `tests/ui/provenance.test.ts` passes.
   - The briefing card still prints on one A4/Letter page in Chrome without clipping ([01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export)).
   - Status banner, warnings and limits are unchanged with and without the estimate.
-- **Verify:** `npx vitest run tests/ui/provenance.test.ts` (run in `web/`); manual: Chrome print preview of SCR-08 fits one page; SCR-05 "Details" shows the labelled value offline.
-- **Agent brief:** Show the illustrative O₂ rate from `web/src/compute/consumables.ts` in SCR-05's Details expansion and on the SCR-08 card through the metric component, labelled "illustrative" with provenance and source id. It must never act as a limit, and the card must still print on one page.
+- **Verify:** `npx vitest run tests/ui/provenance.test.ts` (run in `apps/web/`); manual: Chrome print preview of SCR-08 fits one page; SCR-05 "Details" shows the labelled value offline.
+- **Agent brief:** Show the illustrative O₂ rate from `packages/compute/src/consumables.ts` in SCR-05's Details expansion and on the SCR-08 card through the metric component, labelled "illustrative" with provenance and source id. It must never act as a limit, and the card must still print on one page.
 - **Conflict notes:** Edits SCR-05 after T09.03 and SCR-08 after T11.03 have merged; one writer per file at a time. Styling uses existing tokens; a `.css` change would need its own `follow-up:` entry in the map.
 
 ### T18.07 — follow-up: save and restore the last plan in browser storage
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2 h
-- **Owns (writes):** `web/src/state/persist.ts`, `web/src/state/planStore.ts` (after T08.03)
-- **Reads:** `web/src/state/planStore.ts` (C11 interfaces), `web/src/export/planExport.ts`, `schemas/plan-export.schema.json` (C3); [01 FR-20](../specs/01_Product_Requirements_Document.md#fr-20--saverestore-plan-locally--s), [05 §B](../specs/05_Backend_and_Database_Schema.md#b-persistence-strategy), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [03 §C.5](../specs/03_App_Flow_and_Diagrams.md#c5-saving--exporting-in-scope-export-storage-desirable)
+- **Owns (writes):** `apps/web/src/state/persist.ts`, `apps/web/src/state/planStore.ts` (after T08.03)
+- **Reads:** `apps/web/src/state/planStore.ts` (C11 interfaces), `apps/web/src/export/planExport.ts`, `schemas/plan-export.schema.json` (C3); [01 FR-20](../specs/01_Product_Requirements_Document.md#fr-20--saverestore-plan-locally--s), [05 §B](../specs/05_Backend_and_Database_Schema.md#b-persistence-strategy), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [03 §C.5](../specs/03_App_Flow_and_Diagrams.md#c5-saving--exporting-in-scope-export-storage-desirable)
 - **Depends on:** T08.03 (hard: follow-up on the store it owns, §c.1 rule 3), T11.02 (hard: stores the PlanExport it assembles), T14.06 (hard: 06 TASK-18 gate, freeze criteria met early), T08.01 (soft), T03.01 (soft)
 - **Parallel with:** T18.01–T18.06
 - **Steps:**
@@ -224,11 +233,12 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
   - A stored export with a different major `export_schema_version` is not restored (05 §E.4).
   - Nothing leaves the browser ([NFR-08](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation)); `make typecheck test` passes.
 - **Verify:** `make typecheck test`; manual checklist in a normal window, in a private window with site storage blocked, and with a corrupted `mwp:lastPlan:v1` value set in devtools.
-- **Agent brief:** Create `web/src/state/persist.ts` to save the last PlanExport under `mwp:lastPlan:v1` and restore its scenario and waypoints on load, with every storage call wrapped so failures are ignored; call it from `createPlanStore` without changing the store's interfaces.
+- **Agent brief:** Create `apps/web/src/state/persist.ts` to save the last PlanExport under `mwp:lastPlan:v1` and restore its scenario and waypoints on load, with every storage call wrapped so failures are ignored; call it from `createPlanStore` without changing the store's interfaces.
 - **Conflict notes:** Edits `planStore.ts` only after T08.03 has merged and keeps the C11 interfaces; an interface change would be a `contract-change:` subtask in TASK-08. `persist.ts` is new. No other planned writer of `planStore.ts`.
 
 ### T18.08 — Cache the CRISM and REMS source files before 13 Nov
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** human
 - **Tag:** human-required · desirable
 - **Window:** pre-event-allowed
@@ -250,6 +260,108 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 - **Verify:** manual: with the network off, list the cached files in `pipeline/work/` and compare their SHA-256 with the recorded values.
 - **Agent brief:** Before 13 Nov, cache the CRISM MTRDR summary products (only if `coverage.md` shows AOI coverage) and the REMS RDR files FR-13 needs into `pipeline/work/`; record URLs, versions and checksums for the T18.01/T18.02 PRs. An agent may script the downloads after a human picks the exact files; never guess URLs.
 - **Conflict notes:** Writes only the git-ignored `pipeline/work/`, so it opens no PR; its record travels with T18.01 and T18.02. Skip it if the team has no pre-event time: TASK-18 is cut first.
+
+### T18.09 — Tests: sky-view factor and refuge dose factor (v2, FR-47)
+
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
+- **Type:** test
+- **Tag:** agent-ready · desirable
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1 h
+- **Owns (writes):** `packages/compute/tests/skyView.test.ts`
+- **Reads:** [02 §D.16](../specs/02_Technical_Requirements_Document.md#d16-sky-view-factor-refuge-fr-47-t2), [01 FR-47](../specs/01_Product_Requirements_Document.md#fr-47--terrain-radiation-refuge-t2-s)
+- **Depends on:** T23.08 (hard: 06 Tier 2 gate, M3 passes)
+- **Parallel with:** T18.12
+- **Steps:**
+  1. Flat plane → SVF equals the flat value; a cell at the foot of a synthetic cliff has a lower SVF.
+  2. Refuge dose factor = SVF / SVF_flat; labelled "simplified isotropic model".
+- **Acceptance:**
+  - Serves: FR-47 · [02 §D.16](../specs/02_Technical_Requirements_Document.md#d16-sky-view-factor-refuge-fr-47-t2)
+  - Each rule above is one named test.
+- **Verify:** `npm --workspace @marswalk/compute test -- skyView` fails before T18.10 and passes after.
+- **Agent brief:** Write SVF tests from 02 §D.16 on synthetic grids.
+- **Conflict notes:** New file. Pair T18.09 → T18.10.
+
+### T18.10 — Implement the sky-view factor (v2, FR-47)
+
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
+- **Type:** implement
+- **Tag:** agent-ready · desirable
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1.5–2 h
+- **Owns (writes):** `packages/compute/src/skyView.ts`
+- **Reads:** `packages/compute/tests/skyView.test.ts`, [02 §D.16](../specs/02_Technical_Requirements_Document.md#d16-sky-view-factor-refuge-fr-47-t2)
+- **Depends on:** T18.09 (hard: tests first), T23.08 (hard: Tier 2 gate)
+- **Parallel with:** T18.12
+- **Steps:**
+  1. Horizon angles in 16 azimuths up to 2 km; SVF as 02 §D.16; candidate refuges reachable within the haven rule.
+- **Acceptance:**
+  - Serves: FR-47
+  - T18.09 passes.
+- **Verify:** `npm --workspace @marswalk/compute test -- skyView`.
+- **Agent brief:** Implement `skyView.ts` until the tests pass.
+- **Conflict notes:** Single owner.
+
+### T18.11 — follow-up: terrain refuge as a contingency option (v2, FR-47)
+
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
+- **Type:** implement
+- **Tag:** agent-ready · desirable
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1 h
+- **Owns (writes):** `packages/compute/src/contingency.ts` (after T05b.19)
+- **Reads:** [01 FR-47](../specs/01_Product_Requirements_Document.md#fr-47--terrain-radiation-refuge-t2-s), [02 §D.15](../specs/02_Technical_Requirements_Document.md#d15-contingency-options-fr-44)
+- **Depends on:** T05b.19 (hard: owner of `contingency.ts`), T18.10 (hard: SVF)
+- **Parallel with:** T18.12
+- **Steps:**
+  1. Add `TERRAIN_REFUGE` candidates with their reduction factor and the "simplified isotropic model" label.
+- **Acceptance:**
+  - Serves: FR-47, FR-44
+  - The refuge option appears with its factor and label; T05b.18 still passes.
+- **Verify:** `npm --workspace @marswalk/compute test -- contingency`.
+- **Agent brief:** Add one option kind; ranking rules stay as 02 §D.15.
+- **Conflict notes:** Edits after T05b.19 (follow-up).
+
+### T18.12 — Implement SCR-16 Earth support view (v2, FR-48)
+
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
+- **Type:** implement
+- **Tag:** agent-ready · desirable
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1.5–2 h
+- **Owns (writes):** `apps/web/src/ui/screens/scr16EarthView.tsx`
+- **Reads:** [03 SCR-16](../specs/03_App_Flow_and_Diagrams.md#scr-16--earth-view-v2-t2), [01 FR-48](../specs/01_Product_Requirements_Document.md#fr-48--earth-support-view-t2-s)
+- **Depends on:** T26.04 (hard: Earth messages), T23.08 (hard: Tier 2 gate)
+- **Parallel with:** T18.10
+- **Steps:**
+  1. Delayed telemetry and a message composer; everything sent waits in the FR-43 queue; states link, waiting, blackout.
+- **Acceptance:**
+  - Serves: FR-48 · [03 SCR-16](../specs/03_App_Flow_and_Diagrams.md#scr-16--earth-view-v2-t2)
+  - Messages from the Earth view arrive at Mars at the rule's time.
+- **Verify:** `npm --workspace @marswalk/web test`; manual on the fake scenario.
+- **Agent brief:** Build SCR-16 from 03; nothing is called "live".
+- **Conflict notes:** Single owner.
+
+### T18.13 — follow-up: dust advisory replay events (v2, FR-49; only if T04.11 found a record)
+
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
+- **Type:** implement
+- **Tag:** human-required · desirable
+- **Window:** pre-event-allowed
+- **Estimate:** 0.5–1 h
+- **Owns (writes):** `scenarios/storm-sol4190/scenario.json` (after T21.08)
+- **Reads:** [01 FR-49](../specs/01_Product_Requirements_Document.md#fr-49--dust-advisory-replay-t2-s), `docs/ops/dust-record.md`
+- **Depends on:** T21.08 (hard: owner of `scenario.json`), T04.11 (hard: record found), T23.08 (hard: Tier 2 gate)
+- **Parallel with:** T18.12
+- **Steps:**
+  1. Add qualitative `ADVISORY` events at the record's times with `replayed` provenance and the source id; never quantitative.
+  2. Re-run the scenario build so checksums update.
+- **Acceptance:**
+  - Serves: FR-49
+  - The advisory shows on ops with its source; `log_hash` reference updated.
+- **Verify:** Schema check; `make replay`.
+- **Agent brief:** Only if a record exists; text only, no dust numbers.
+- **Conflict notes:** Edits after T21.08 (follow-up); the reference hash changes, so tell the team.
 
 ## Internal dependency graph
 
@@ -290,7 +402,7 @@ flowchart LR
 5. **CRISM details missing from the specs.** Which summary parameter or browse product, layer and source ids, display resolution (native ~18–20 m/px), provenance label, and whether the C9 tile encoding covers a pre-coloured browse product (if not, a C9 `contract-change:`) — `TODO(decision)`.
 6. **O₂ estimate.** 02 §D.6 writes "≈ 1.03 L/min" without a tolerance (`TODO(verify)`). It also gives 1,440 BTU/h = 422.0 W with a 20 % walkback pad, but the map's test-case allocation names only the 351.7 W case, so that value is not tested. Open: rate only or litres over the walk or EVA time; provenance label (modelled or assumed); SCR-05 placement given the six headline metrics of 04 §D — `TODO(decision)`. The ≈ 20.4 kJ/L constant has no DataSource — `TODO(verify)`.
 7. **Cross-task hard dependencies missing from the map's §f table.** T01.04 → T18.01 (coverage finding); T11.02 → T18.07 (05 §B stores the last PlanExport); and the `follow-up:` handovers that §c.1 rule 3 requires: T03.19 → T18.01, T10.02 → T18.03, T09.03 and T11.03 → T18.06, T08.03 → T18.07. Map change proposed: add them to §f.
-8. **Committed manual test notes.** 06 §D.7 asks for a committed manual test note for UI features, but TASK-18 has no verify subtask and §c lets only verify subtasks append to `docs/ops/verification-log.md`. There is also no test path for `persist.ts`. Map change proposed: let T18.03, T18.06 and T18.07 append their note to the verification log (or add a TASK-18 verify subtask), and add `web/tests/state/persist.test.ts` for T18.07.
+8. **Committed manual test notes.** 06 §D.7 asks for a committed manual test note for UI features, but TASK-18 has no verify subtask and §c lets only verify subtasks append to `docs/ops/verification-log.md`. There is also no test path for `persist.ts`. Map change proposed: let T18.03, T18.06 and T18.07 append their note to the verification log (or add a TASK-18 verify subtask), and add `apps/web/tests/state/persist.test.ts` for T18.07.
 9. **Milestone.** The register gives TASK-18 M5–M6, but 06 §B freezes the demo at Day 2 06:00 (M6) and §g shows no build work in M6. This file treats Day 2 06:00 as the last merge time.
 10. **Restoring a plan from another data version.** 05 §E.4 says old exports "show 'computed with data_version X; current Y — results may differ' and can be recomputed", but the C11 store has no field for such a message. Showing it needs a C11 `contract-change:`; the alternative is to skip the restore — `TODO(decision)`.
-11. **FR-21** (space weather, 3D view, multi-site, AI narration) is post-MVP ([01 FR-21](../specs/01_Product_Requirements_Document.md#fr-21--post-mvp-items--c), [01 §C.3](../specs/01_Product_Requirements_Document.md#c3-post-mvp)): no subtask.
+11. **FR-21** (space weather, 3D view, multi-site, AI narration) is post-MVP ([01 FR-21](../specs/01_Product_Requirements_Document.md#fr-21--post-mvp-items--c), [01 §C.3](../specs/01_Product_Requirements_Document.md#c4-post-mvp)): no subtask.

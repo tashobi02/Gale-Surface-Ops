@@ -1,28 +1,32 @@
-# Marswalk Planner — Documentation Package
+# Marswalk Surface Ops — Documentation Package
 
 *(working title)* · NASA Space Apps 2026 · Challenge: **Interplanetary Survival Guide: Martian Map** · Team: CheesySpace
 
 | | |
 | --- | --- |
 | **Owner** | Team CheesySpace — documentation index |
-| **Date** | 2026-11-02 |
-| **Status** | Draft v1 for team review |
-| **Related** | [Specs 01–06](#documents) · [Decisions (ADRs)](decisions/) · [Reference](reference/) · [Ops templates](ops/) · [AI use](AI_USE.md) |
+| **Date** | 2026-11-05 |
+| **Status** | Draft v2 (surface ops reframe) for team review |
+| **Related** | [Specs 01–06](#documents) · [Decisions (ADRs)](decisions/) · [Reference](reference/) · [Ops templates](ops/) · [Design handoff](design/mockup-handoff.md) · [Agentic workflow](ops/agentic-workflow.md) · [Data downloads](ops/data-downloads.md) · [AI use](AI_USE.md) |
 
 ## Summary
 
-An offline, browser-based planning map for one hyperlocal Mars site — proposed: **Curiosity's 2025 boxwork area on Mount Sharp, Gale crater**. The planner places science stops on HiRISE imagery and a 1 m terrain model; the app computes a suited-walking route that respects slope limits and hazards, and reports the elevation profile, time and walkback margins, daylight window (Mars24) and an estimated radiation dose based on Curiosity RAD measurements. Output is a one-page Marswalk briefing card where every number is labelled **measured, derived, modelled or assumed**. Static web app, no backend, no AI-generated numbers.
+A habitat-local **surface operations system** for one Mars Exploration Zone at **Gale crater, Mount Sharp** (science stops on the wet-to-dry climate record and boxwork; resource stops on hydrated minerals). Before the EVA, a planner builds a suit-safe route on HiRISE imagery and a 1 m terrain model. During the EVA, a **Hab Core** server in the habitat runs the mission clock and simulation; two crew follow the plan on suit tablets and a HUD; an ops console watches crew, vehicles, comm shadows and the delayed Earth link. The killer demo replays the real **20 May 2024 (sol 4190)** solar particle event: the habitat's own trigger fires before Earth's forecast arrives, and the crew summon a pressurized rover to shelter. Every number is labelled **measured, derived, modelled, assumed, replayed or simulated**. No internet at runtime, no AI-generated numbers.
+
+v2 (2026-11-04) supersedes the v1 planner-only scope; the v1 planner is Tier 0 of v2. The reframe was conceived and directed by Sadman Shaharier Mahim (product & systems lead); Obidit Islam is team lead ([06 §A.1](specs/06_High_Level_Implementation_Plan.md#a1-roles)).
 
 ## Documents
 
 | # | Document | Owns |
 | --- | --- | --- |
-| 01 | [Product Requirements](specs/01_Product_Requirements_Document.md) | Scope, users, FR-01–FR-21, acceptance criteria, demo scenario, risks |
-| 02 | [Technical Requirements](specs/02_Technical_Requirements_Document.md) | Architecture, stack, Mars data layers and coordinates, algorithms, worker contracts, NFR-01–NFR-11, tests |
-| 03 | [App Flow and Diagrams](specs/03_App_Flow_and_Diagrams.md) | Screens SCR-00–SCR-09, journeys, error flows, Mermaid flow/navigation/sequence/state diagrams |
-| 04 | [Design Brief](specs/04_Design_Brief.md) | Layout, verified-contrast palette, typography, component states, accessibility, wireframe guidance |
-| 05 | [Backend and Database Schema](specs/05_Backend_and_Database_Schema.md) | Entities, static-file persistence, ER diagram, integrity, versioning, JSON examples |
-| 06 | [High-Level Implementation Plan](specs/06_High_Level_Implementation_Plan.md) | Milestones M0–M6, TASK-00–TASK-18, critical path, cut list, first actions |
+| 01 | [Product Requirements](specs/01_Product_Requirements_Document.md) | Scope tiers T0–T2, personas, FR-01–FR-21 (v1, appendix) and FR-30–FR-49, killer demo, risks |
+| 02 | [Technical Requirements](specs/02_Technical_Requirements_Document.md) | Architecture (Hab Core, network model, event sourcing), stack, Mars data incl. DONKI/RAD/SPICE, algorithms D.1–D.16, HTTP/WebSocket/scenario contracts, NFR-01–NFR-14 |
+| 03 | [App Flow and Diagrams](specs/03_App_Flow_and_Diagrams.md) | Role routes, screens SCR-00–SCR-18, killer-demo journey, error flows, sequence and state diagrams |
+| 04 | [Design Brief](specs/04_Design_Brief.md) | Mission-brutalist design language, BRIEF/OPS/HUD/PRINT modes, verified-contrast tokens, alert system, layouts for every surface, accessibility |
+| 05 | [Backend and Database Schema](specs/05_Backend_and_Database_Schema.md) | Static site entities, ParamSet, Hab Core runtime entities (Scenario, Crew, Vehicle, Alert, LogEvent…), event-log persistence, ER diagrams, examples |
+| 06 | [High-Level Implementation Plan](specs/06_High_Level_Implementation_Plan.md) | Roles R1–R6 and per-person assignments (§A.2), milestones M0–M8 (team dry run 11 Nov, buffer 12 Nov), TASK-00–TASK-31, critical path, cut list, video plan |
+
+Design handoff: [design/mockup-handoff.md](design/mockup-handoff.md) and the clickable prototype in `design/prototype/` (a design artefact, not product code; every number is a cited spec example or a visible `PLACEHOLDER`).
 
 ## Context inventory
 
@@ -30,7 +34,7 @@ An offline, browser-based planning map for one hyperlocal Mars site — proposed
 | --- | --- | --- |
 | [`challenge-overview.md`](reference/challenge-overview.md) | Official challenge statement (objectives, optional considerations) | Fully |
 | [`Mars Scientific Context.md`](reference/mars-scientific-context.md) | Team's Mars science reference (radiation, atmosphere, terrain, human factors) | Fully; used for RAD rates and environmental context |
-| `Space Apps 2026 Bangladesh — Build Guide (Copy).html` | Shared build kit + per-challenge suggestions (Challenge 11: traverse planner) | Fully |
+| `Space Apps 2026 Bangladesh — Build Guide (Copy).html` | Shared build kit + per-challenge suggestions (Challenge 11: traverse planner); score sheet; *Best Mission Concept* target | Fully (re-read 2026-11-04 for v2) |
 | `Space Apps Challenge Participants Guide-1.pdf` | Bangladesh schedule, videos, judging sheet, submission fields | Fully |
 | `Gemini Notebook` (link) | NotebookLM notebook | **Not accessible** — extension bridge disconnected |
 | Official challenge page Resources tab | NASA-listed datasets | **Not accessible** — site blocks automated access; team should check manually |
@@ -38,7 +42,7 @@ An offline, browser-based planning map for one hyperlocal Mars site — proposed
 
 Unlinked items were claude.ai Project attachments and are not in this repository.
 
-No prior product decisions, team handoffs, or existing implementation were found; all product choices below are **proposed**.
+v2 (2026-11-04) adds the team's own direction from the planning chat: in-EVA use on a suit tablet and HUD, rover and vehicle tasking, reacting to solar events, a habitat server instead of internet, and the Exploration Zone framing. Product choices below remain **proposed** unless marked.
 
 ### Contradictions and outdated items found
 
@@ -59,12 +63,17 @@ USGS Gale merged DEM 1 m and orthophoto 25 cm (Astropedia) · USGS THEMIS therma
 | ID | Decision | Alternative / trigger |
 | --- | --- | --- |
 | [D-01](decisions/ADR-001-site-selection.md) | Site = Mount Sharp boxwork, Gale crater (challenge's own example; only site with surface radiation measurements) | Jezero (M2020 TRN HiRISE DTM) if the Gale DEM is not HiRISE-quality in the AOI |
-| [D-02](decisions/ADR-002-static-app-no-backend.md) | Static web app + offline Python pipeline; no backend, no database | FastAPI if browser routing p95 > 2 s |
+| [D-02](decisions/ADR-002-static-app-no-backend.md) | ~~Static web app, no backend~~ — **superseded 2026-11-04** by D-02 v2 below | — |
 | [D-03](decisions/ADR-003-openlayers-mars-projection.md) | OpenLayers with local Mars equirectangular projection (IAU_2015:49900 sphere) and custom tile grid | ImageStatic images if the spike fails |
 | [D-04](decisions/ADR-004-least-time-routing.md) | Least-time A* on a 5 m grid between user-ordered stops; hard slope limit; caution multipliers | Manual polyline + validation (cut-list item 6) |
 | [D-05](decisions/ADR-005-estimate-models.md) | Estimates: Tobler speed scaled to 3.3 km/h, RAD rate × duration, Mars24 sun — all labelled | — |
 | [D-06](decisions/ADR-006-no-ai-in-mvp.md) | No AI in MVP | Post-MVP narration grounded in plan JSON only |
 | [D-07](decisions/ADR-007-pov-imagery.md) | POV imagery = curated, locally stored Curiosity images | — |
+| [D-02 v2](decisions/ADR-008-hab-core-local-server.md) | **Hab Core**: local server on the habitat LAN (session, clock, simulation, event log, WebSocket); planner keeps its worker | Single-laptop multi-window mode if multi-device fails |
+| [D-10](decisions/ADR-009-surface-ops-reframe-and-storm-replay.md) | Surface-ops reframe; killer demo = replay of the real 20 May 2024 (sol 4190) SEP event; Exploration Zone framing at Gale | Shape-scaled dose curve if the RAD series is not archived |
+| [D-13](decisions/ADR-010-mission-brutalist-design-language.md) | Mission-brutalist design language: BRIEF/OPS/HUD/PRINT modes, status colours only for status | Keep v1 dark theme for the planner if time runs out |
+| [D-12](decisions/ADR-011-node-typescript-hab-core.md) | Hab Core in Node.js + TypeScript sharing `packages/compute` | FastAPI if TypeScript capacity < 2 people |
+| [D-14](decisions/ADR-012-react-vite-web-app.md) | `apps/web` in React + Vite (static build served by the Hab Core); no Next.js | Preact (same components) if bundle size becomes a problem |
 
 ## Key assumptions and blockers
 
@@ -73,7 +82,9 @@ Owners: assumptions A-01–A-07 in [01 §F.2](specs/01_Product_Requirements_Docu
 | Type | Item |
 | --- | --- |
 | Resolved | Pre-event application code is allowed: Track P, Local Lead answer of 2026-11-04 ([ops/rules.md](ops/rules.md)); re-check against the 2026 guides on 13 Nov |
-| **Blocker** | DEM quality inside the AOI (A-01, TASK-01) decides the site |
+| **Blocker** | DEM quality inside the AOI (A-01, TASK-01) decides whether Gale data is usable at walking scale |
+| **Blocker** | RAD time series for sol 4190 (U-15: public sources found 5 Nov, coverage to verify) and SPICE kernels for May 2024 (U-18) decide replay fidelity (TASK-21). Exact files: [ops/data-downloads.md](ops/data-downloads.md) |
+| Assumption | Vehicle, suit, link, alert and shielding parameters (05 ParamSet) are illustrative until cited (U-19, U-20) |
 | Assumption | Slope limit 15°/10°, walkback 5 km, suited speed 3.3 km/h — illustrative, editable |
 | Assumption | Team of 6 ([ops/team.md](ops/team.md)), ~96–120 person-hours during the event |
 | Assumption | DEM elevations are MOLA-areoid-referenced (verify label) |
@@ -101,3 +112,28 @@ Owners: assumptions A-01–A-07 in [01 §F.2](specs/01_Product_Requirements_Docu
 | FR-17 Traverse | SCR-02, SCR-03 | Vector layer | TraversePoint | TASK-04, 07 |
 
 Desirable FR-13, FR-18–FR-20 → TASK-18 only after freeze criteria (06 §D.6).
+
+## Traceability (v2 surface ops requirements)
+
+| FR | Screen(s) | Technical component | Data entities | Task(s) |
+| --- | --- | --- | --- | --- |
+| FR-30 Hab Core session | SCR-10, SCR-11, SCR-18 | `apps/hab-core` server, session, log (02 §A, §E.5–E.6) | Session, LogEvent | TASK-20, 22 |
+| FR-31 Client roles | SCR-10 | Permissions (02 §E.4) | ClientConnection, Command | TASK-20, 23 |
+| FR-32 EVA client | SCR-12, SCR-18 | `habClient`, cached plan | Crew | TASK-24 |
+| FR-33 HUD | SCR-13 | HUD mode (04 §E.6) | Crew, Alert | TASK-24 |
+| FR-34 Mission clock and replay | SCR-11 | Engine clock (02 §D.14) | Scenario, Session | TASK-21, 22 |
+| FR-35 Crew progress and consumables | SCR-11, SCR-12 | Engine tick, `consumables` | Crew, ParamSet | TASK-05b, 22 |
+| FR-36 Conditions feed | SCR-11, SCR-12 | Engine, Mars24 | DoseSeries, EarthLinkTable | TASK-22, 25 |
+| FR-37 Space-weather replay | SCR-11, SCR-12, SCR-13 | `eventDose` (02 §D.13) | DoseSeries, ScenarioEvent | TASK-05b, 21 |
+| FR-38 Local radiation trigger | SCR-11–SCR-14 | `eventDose.triggerState` | Alert, ParamSet | TASK-05b, 22 |
+| FR-39 Time to safe haven | SCR-05, SCR-12, SCR-13 | `haven` (02 §D.8) | Crew.haven | TASK-05b, 23 |
+| FR-40 Vehicle summon and rendezvous | SCR-12, SCR-14 | `rendezvous` (02 §D.10) | Vehicle, ContingencyOption | TASK-05b, 23 |
+| FR-41 Robotic rover tasking (T1 since 2026-11-05) | SCR-15 | Vehicle tasks | Vehicle | TASK-29 |
+| FR-42 Comm coverage | SCR-02, SCR-11, SCR-12 | `viewshed`, `linkGraph` (02 §D.11) | RoutingGrid.comm_hab_asset, LinkState | TASK-03, 05b, 26 |
+| FR-43 Earth link | SCR-11, SCR-16 | `earthLink` (02 §D.12) | EarthLinkTable, EarthMessage | TASK-05b, 21, 26 |
+| FR-44 Contingency re-plan | SCR-14 | `contingency` (02 §D.15) | ContingencyOption | TASK-05b, 23 |
+| FR-45 Exploration Zone layer | SCR-02, SCR-06 | POI layer | POI.stop_type, POI.evidence | TASK-04 |
+| FR-46 Event log and report | SCR-11, SCR-17 | Log, report endpoint | LogEvent, PostEvaReport | TASK-22, 27 |
+| FR-47 Terrain refuge (T2) | SCR-14 | `skyView` (02 §D.16) | — | TASK-18 |
+| FR-48 Earth support view (T2) | SCR-16 | Delayed queue | EarthMessage | TASK-18 |
+| FR-49 Dust advisory (T2) | SCR-11 | Scenario events | ScenarioEvent | TASK-18 |

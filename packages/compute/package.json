@@ -1,0 +1,16 @@
+{
+  "name": "@marswalk/compute",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Deterministic science functions shared by the planner worker and the Hab Core (docs/specs/02 §D)",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@marswalk/protocol": "0.2.0"
+  }
+}

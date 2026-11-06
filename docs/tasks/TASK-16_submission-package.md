@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Submission package |
 | Requirements | Scoring items, NFR-07 (06 §C); also FR-15 (T16.05), D-08 (T16.01) and the status ids synced by T16.02: D-01, D-03, U-01–U-05, U-09, U-10, U-12–U-14 |
-| Lane / owner role | story — Design & story lead (06 §C owner: Story lead); T16.02 is integration — Compute engineer |
-| Milestone | M2 skeleton (T16.01, T16.02, T16.07); M6 final (T16.03–T16.06) — [06 §B](../specs/06_High_Level_Implementation_Plan.md#b-milestones) |
+| Lane / owner role | story — R6: Obidit Islam (submission); T16.02 spec sync: Sadman Shaharier Mahim |
+| Milestone | M2 (skeleton: T16.01, T16.02, T16.07) · M8 (final, Day 2 06:00 → 09:00) |
 | Window | pre-event-allowed, except T16.06 (event-only) |
 | Effort (doc 06) | 2–4 h |
 | Done when (doc 06) | Repo link opens in a private window; every page field filled |
 | Main risk → fallback | — |
 | Spec sections | [06 §C TASK-16](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §B M2, M6](../specs/06_High_Level_Implementation_Plan.md#b-milestones) · [06 §D.6](../specs/06_High_Level_Implementation_Plan.md#d6-demo-freeze-criteria-day-2-0600) · [02 §B Hosting](../specs/02_Technical_Requirements_Document.md#b-technology-choices) · [02 §F NFR-07](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) · [01 §F.4 D-08](../specs/01_Product_Requirements_Document.md#f4-unresolved-decisions-owned-by-this-document) · [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods) · [04 §C.4](../specs/04_Design_Brief.md#c4-iconography) · [Submission checklist](../ops/submission-checklist.md) · [AI use log](../AI_USE.md) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 
@@ -44,6 +46,7 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.01 — Decide the final product name (D-08); record ADR-008
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -69,6 +72,7 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.02 — spec-change: sync spec status rows and the docs index with the M0–M1 outcomes
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** integrate
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -96,12 +100,13 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.03 — Finalize the README: run instructions, data credits, licence
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `README.md`
-- **Reads:** `README.md`, `docs/ops/hosting.md`, `docs/decisions/ADR-008-product-name.md`, `web/public/sites/gale_boxwork/site-manifest.json`, `web/public/sites/gale_boxwork/vectors/pois.geojson`, `docs/ops/credits.md`, `Makefile`, [`CLAUDE.md`](../../CLAUDE.md) §4, [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-07; *Secrets/deployment* line), [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video), [LICENSE](../../LICENSE)
+- **Reads:** `README.md`, `docs/ops/hosting.md`, `docs/decisions/ADR-008-product-name.md`, `data/sites/gale_boxwork/site-manifest.json`, `data/sites/gale_boxwork/vectors/pois.geojson`, `docs/ops/credits.md`, `Makefile`, [`CLAUDE.md`](../../CLAUDE.md) §4, [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-07; *Secrets/deployment* line), [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video), [LICENSE](../../LICENSE)
 - **Depends on:** T12.03 (hard: 06: TASK-16 after TASK-12), T16.01 (hard: the final product name), T16.07 (hard: bundle hosting and the public link)
 - **Parallel with:** T16.04, T17.03
 - **Steps:**
@@ -122,12 +127,13 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.04 — Complete the AI-use disclosure
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/AI_USE.md`
-- **Reads:** [`docs/AI_USE.md`](../AI_USE.md), [ADR-006](../decisions/ADR-006-no-ai-in-mvp.md), [02 §D.7](../specs/02_Technical_Requirements_Document.md#d7-ai), [01 §C.4](../specs/01_Product_Requirements_Document.md#c4-explicitly-out-of-scope), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods) (AI-use statement), the 2026 Project Submission / Judging guides (not in the repo; `TODO(verify)`), `git log`
+- **Reads:** [`docs/AI_USE.md`](../AI_USE.md), [ADR-006](../decisions/ADR-006-no-ai-in-mvp.md), [02 §D.7](../specs/02_Technical_Requirements_Document.md#d7-ai), [01 §C.4](../specs/01_Product_Requirements_Document.md#c5-out-of-scope), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods) (AI-use statement), the 2026 Project Submission / Judging guides (not in the repo; `TODO(verify)`), `git log`
 - **Depends on:** T12.03 (hard: 06: TASK-16 after TASK-12)
 - **Parallel with:** T16.03, T16.05
 - **Steps:**
@@ -147,12 +153,13 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.05 — Verify every dataset and image is credited in SCR-09 and the README
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** verify
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
 - **Estimate:** 0.5–1 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
-- **Reads:** `web/public/sites/gale_boxwork/site-manifest.json`, `web/public/sites/gale_boxwork/vectors/pois.geojson`, `README.md`, `docs/ops/credits.md`, SCR-09 and SCR-06 in the built app, [04 §C.4](../specs/04_Design_Brief.md#c4-iconography), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-07)
+- **Reads:** `data/sites/gale_boxwork/site-manifest.json`, `data/sites/gale_boxwork/vectors/pois.geojson`, `README.md`, `docs/ops/credits.md`, SCR-09 and SCR-06 in the built app, [04 §C.4](../specs/04_Design_Brief.md#c4-iconography), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-07)
 - **Depends on:** T12.03 (hard: 06: TASK-16 after TASK-12), T16.03 (hard: the README credits section to check)
 - **Parallel with:** T16.04
 - **Steps:**
@@ -167,14 +174,15 @@ No contract (§d) or fixture (§e) is consumed.
   - The icon set's licence, if one is bundled, is recorded (04 §C.4).
   - The `## T16.05 — …` section of the verification log lists what was checked and every gap found.
 - **Verify:**
-  - `python3 -c "import json,sys; m=json.load(open('web/public/sites/gale_boxwork/site-manifest.json')); r=open('README.md',encoding='utf-8').read(); miss=[s['source_id'] for s in m['sources'] if s['title'] not in r or s['credit'] not in r]; print(miss or 'all sources credited'); sys.exit(bool(miss))"`
-  - `python3 -c "import json,sys; f=json.load(open('web/public/sites/gale_boxwork/vectors/pois.geojson'))['features']; r=open('README.md',encoding='utf-8').read(); miss=sorted({p['properties']['image_credit'] for p in f if p['properties'].get('image_credit') and p['properties']['image_credit'] not in r}); print(miss or 'all image credits in README'); sys.exit(bool(miss))"`
+  - `python3 -c "import json,sys; m=json.load(open('data/sites/gale_boxwork/site-manifest.json')); r=open('README.md',encoding='utf-8').read(); miss=[s['source_id'] for s in m['sources'] if s['title'] not in r or s['credit'] not in r]; print(miss or 'all sources credited'); sys.exit(bool(miss))"`
+  - `python3 -c "import json,sys; f=json.load(open('data/sites/gale_boxwork/vectors/pois.geojson'))['features']; r=open('README.md',encoding='utf-8').read(); miss=sorted({p['properties']['image_credit'] for p in f if p['properties'].get('image_credit') and p['properties']['image_credit'] not in r}); print(miss or 'all image credits in README'); sys.exit(bool(miss))"`
   - Manual: SCR-09 and SCR-06 checks in `make demo` with the network off.
 - **Agent brief:** Cross-check credits: every DataSource and POI image credit in the site bundle must appear in `README.md` and in SCR-09. Run the two commands in *Verify*, open SCR-09 in `make demo`, confirm the licence of any bundled icon set (04 §C.4), and append the result to `docs/ops/verification-log.md`.
 - **Conflict notes:** Append one section at the end of `docs/ops/verification-log.md`; on a rebase conflict keep both sections. Writes nothing else: fixes go to the owners of `README.md` (T16.03) or SCR-09 (T12.03) as `follow-up:` subtasks.
 
 ### T16.06 — Fill the NASA project page fields; complete the submission checklist
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -201,6 +209,7 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.07 — Implement the release-asset fetch route and decide what the public link shows; test the link in a private window
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -257,7 +266,7 @@ All internal edges are hard. T16.02 has no internal dependency; its upstream inp
 3. **Map change proposed: missing §f table rows.** The §f graph draws T00.03, T01.05, T02.05 → T16.02 and T14.03–T14.10 → T16.06 as hard edges, but the cross-task hard-dependency table has no rows for them.
 4. **Map change proposed: inputs without an edge.** T16.03 and T16.05 read the bundle-v1 manifest (T03.19) and the credits list (T04.06); T16.06 needs the 30-s video link (T17.03). None has a §f edge. All three land before T16.06 runs, so only the map's edge list would change.
 5. **Map change proposed: outcomes T16.02 does not list.** Other M0–M2 outcomes are missing from T16.02's register row: U-11 (decided in T03.01, contract C3), D-08 (T16.01) and A-01 (checked together with U-01). Add them to T16.02, or leave them for a later `spec-change:` subtask.
-6. **Working title.** The 01 header says "working title — rename before submission", but no subtask applies the D-08 name to files that carry the working title (`CLAUDE.md`, `AGENTS.md`, `docs/README.md`, the 01 header, the `web/index.html` title, the `package.json` descriptions; owners T00.04, T16.02, T07.03, T14.01 and the spec-change process). Owners that run after T16.01 can read ADR-008; the ones that run earlier need `follow-up:` subtasks — `TODO(decision)`.
+6. **Working title.** The 01 header says "working title — rename before submission", but no subtask applies the D-08 name to files that carry the working title (`CLAUDE.md`, `AGENTS.md`, `docs/README.md`, the 01 header, the `apps/web/index.html` title, the `package.json` descriptions; owners T00.04, T16.02, T07.03, T14.01 and the spec-change process). Owners that run after T16.01 can read ADR-008; the ones that run earlier need `follow-up:` subtasks — `TODO(decision)`.
 7. **Bundle hosting (map open point 13).** Decided in `docs/ops/feasibility.md`: GitHub release asset, which keeps the `CLAUDE.md` §2 rule against committing large binaries. T16.07 implements it. What the public link shows is still open: a GitHub Pages link (02 §B) would need a deploy workflow in `.github/` (T14.02), i.e. a new integration subtask — T16.07, `TODO(decision)`.
 8. **AI-use log rows.** Earlier log rows have TODO and `TODO(verify)` cells. §c.2 keeps the log append-only, so T16.04 answers them with appended rows instead of editing the rows. Confirm that this is acceptable.
 9. **Icon licence.** 04 §C.4 says the icon set's licence is verified "in TASK-16", but no icon dependency has been chosen yet (T14.01). T16.05 checks whichever set is bundled.

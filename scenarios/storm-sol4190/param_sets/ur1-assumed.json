@@ -1,0 +1,22 @@
+{
+  "param_set_id": "ur1-assumed",
+  "kind": "utility_rover",
+  "title": "Robotic utility rover",
+  "values": {
+    "flat_speed_kmh": 2,
+    "hard_slope_deg": 25,
+    "caution_slope_deg": 20,
+    "low_ti_cost": 1.5,
+    "min_speed_frac": 0.3,
+    "capacity": 0,
+    "ingress_min": 0,
+    "antenna_m": 3,
+    "battery_wh": 5000,
+    "p_base_w": 200,
+    "mass_kg": 300,
+    "climb_eff": 0.5
+  },
+  "provenance": "assumed",
+  "source_ids": [],
+  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20)."
+}

@@ -7,12 +7,47 @@ graphify-out/*
 .venv/
 __pycache__/
 *.egg-info/
-web/dist/
+apps/*/dist/
 # pipeline workspace: downloads and intermediates never enter git (05 §B)
 pipeline/work/*
 !pipeline/work/.gitkeep
 # site binaries stay out of git; they ship as a GitHub release asset (docs/ops/feasibility.md)
-web/public/sites/*/tiles/
-web/public/sites/*/grid/
-web/public/sites/*/images/
+data/sites/*/tiles/
+data/sites/*/grid/
+data/sites/*/images/
 .releases/
+# Hab Core session store (05 §B)
+apps/hab-core/var/*
+!apps/hab-core/var/README.md
+.DS_Store
+# impeccable-ignore-start (vendored from pbakaus/impeccable README; shared config stays tracked)
+**/.impeccable/config.local.json
+**/.impeccable/hook.cache.json
+**/.impeccable/hook.pending.json
+**/.impeccable/*.png
+**/.impeccable/review/
+**/.impeccable/questions/
+**/.impeccable/live/server.json
+**/.impeccable/live/sessions/
+**/.impeccable/live/previews/
+**/.impeccable/live/annotations/
+**/.impeccable/live/cache/
+**/.impeccable/live/manual-edit-apply-transaction.json
+**/.impeccable/live/manual-edit-events.jsonl
+**/.impeccable/live/manual-edit-evidence/
+**/.impeccable/live/pending-manual-edits.json
+**/.impeccable/live/deferred-svelte-component-accepts.json
+**/.impeccable/live/*.png
+# impeccable engine binaries are downloaded per machine, never committed
+.claude/skills/impeccable/scripts/bin/
+.agents/skills/impeccable/scripts/bin/
+.gemini/skills/impeccable/scripts/bin/
+# impeccable-ignore-end
+# prototype test deps
+docs/design/prototype/test/node_modules/
+# Project skills mirrored for Codex and Gemini by `make agent-skills`; .claude/skills/ is the source
+.agents/skills/*
+!.agents/skills/impeccable/
+.gemini/skills/*
+!.gemini/skills/impeccable/
+docs/design/prototype/test/*.png

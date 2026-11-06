@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Videos |
 | Requirements | Judging (06 §C). Deliverable (06 §C): 240-s (Day 1 18:30) and 30-s (Day 2 09:00) with English subtitles, datasets named on camera, no under-18 likeness. Prototype boundary statement must appear in the video ([01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video)) |
-| Lane / owner role | story — Design & story lead (06 §C owner: Story lead) |
-| Milestone | M2 (scripts), M4 (240-s video), M6 (30-s video) |
+| Lane / owner role | story — R6: Sadman Shaharier Mahim (Obidit Islam helps) |
+| Milestone | M3 (scripts and storyboard, 10 Nov) · M6 (240-s video, Day 1 18:30) · M8 (30-s video, Day 2 09:00) |
 | Window | pre-event-allowed (T17.01); event-only (T17.02–T17.04) |
 | Effort (doc 06) | 3–5 h |
 | Done when (doc 06) | Uploaded; links tested |
 | Main risk → fallback | Live demo fails → screen recording from rehearsal |
 | Spec sections | [06 §C TASK-17](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §A calendar](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions) · [06 §B M4, M6](../specs/06_High_Level_Implementation_Plan.md#b-milestones) · [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints) · [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria) · [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) · [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video) · [Demo script](../ops/demo-script.md) · [Map §h.7](_coordination.md#h7-fallbacks-06-c-d5) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 
@@ -37,6 +39,7 @@
 
 ### T17.01 — Draft the 240-s and 30-s demo scripts
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -66,6 +69,7 @@
 
 ### T17.02 — Record and submit the 240-s video by Day 1 18:30 (dry-run capture first)
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story) — Obidit Islam helps (06 §A.2)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -95,6 +99,7 @@
 
 ### T17.03 — Record and upload the 30-s video by Day 2 09:00
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story) — Obidit Islam helps (06 §A.2)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -121,6 +126,7 @@
 
 ### T17.04 — Fallback — start only if the live demo fails on camera: cut the 240-s video from the dry-run capture
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** fallback
 - **Tag:** human-required · core
 - **Window:** event-only
