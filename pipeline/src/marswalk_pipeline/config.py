@@ -31,3 +31,23 @@ FLAG_BITS = {
     "TI_UNKNOWN": 3,
     "LOW_RES_DEM": 4,
 }
+
+# D-01 remains open; the data lead directed work to proceed on the proposed AOI.
+WORKING_PROJ = (
+    "+proj=eqc +lat_ts=-4.81 +lat_0=-4.81 +lon_0=137.38 "
+    "+x_0=0 +y_0=0 +R=3396190 +units=m +no_defs"
+)
+
+# Site projections: data lead decision 2026-11-06; mock uses 05 §F.1.
+PROJ4_BY_SITE = {
+    "gale_boxwork": WORKING_PROJ,
+    "mock_site": (
+        "+proj=eqc +lat_ts=-4.70 +lat_0=-4.70 +lon_0=137.38 "
+        "+x_0=0 +y_0=0 +R=3396190 +units=m +no_defs"
+    ),
+}
+
+# TODO(verify): provisional 05 §F.1 ladder until C9 is frozen.
+TILE_RESOLUTIONS_M = [32, 16, 8, 4, 2]
+# TODO(verify): 06 §C TASK-03 ortho finest level until C9 is frozen.
+ORTHO_TILE_RESOLUTIONS_M = [*TILE_RESOLUTIONS_M, 0.5]
