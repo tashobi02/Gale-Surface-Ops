@@ -73,6 +73,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T01.03: cut the AOI window, made the hillshade, computed the detail scores, read HiRISE footprints from PDS, drafted `dem-quality.md`; selected the patches and measured the crater on the data lead's delegation | Numbers are tool output with commands shown; cut-offs set between the data lead's three verdicts and shown with a sensitivity table; selection and measurement disclosed in the note | Method and verdict by Obidit Islam | This Claude Code session |
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T01.01: read the DEM header with GDAL and both labels; drafted `dem-label.md` | Label lines quoted verbatim; numbers from tools or labels; no dataset committed; SHA-256 still open | Approved by Obidit Islam | This Claude Code session |
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T01.07: ranked hab candidates by stated slope and line-of-sight rules; drafted `hab-site.md` | Numbers are tool output; heights read from the ParamSets; line-of-sight check passed synthetic cases; second check still open | Approved by Obidit Islam | This Claude Code session |
+| 2026-11-07 | Claude Code (Opus 5.5, local session) | T01.05: copied values from the T01.01–T01.04 notes into `feasibility.md` | No value retyped from memory; decided nothing: D-01 and FR-18 stay open | Approved by Obidit Islam | This Claude Code session |
 
 ## Prompts location
 
