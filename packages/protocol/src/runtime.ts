@@ -155,6 +155,22 @@ export interface Vehicle {
   battery_wh: number | null;
 }
 
+/** Utility rover goal-level tasks (FR-41). SUMMON is the pressurized rover's (FR-39). */
+export type RoverTaskKind = "SCOUT" | "CARRY" | "RELAY" | "RETURN";
+
+/**
+ * `TASK_ROVER` args. Shape follows FR-41 (SCOUT(point), CARRY(item, to), RELAY(point), RETURN);
+ * 02 §E.6 gives no example. Proposed 2026-11-06 for the protocol freeze; TASK-29.
+ */
+export interface TaskRoverArgs {
+  vehicle_id: string;
+  task: RoverTaskKind;
+  /** Required for SCOUT, CARRY and RELAY; absent for RETURN. Working-projection metres. */
+  target?: { x_m: number; y_m: number };
+  /** CARRY only. TODO(decision): the item list (FR-41 names none). */
+  item?: string;
+}
+
 export type AlertCode =
   | "RADIATION_ALERT"
   | "HAVEN_TIME_EXCEEDED"
