@@ -137,7 +137,7 @@ sequenceDiagram
 | Area | Choice (Proposed) | Why it fits | Limitations | Alternative |
 | --- | --- | --- | --- | --- |
 | Map rendering | **OpenLayers** + proj4 local Mars projection *(v1)* | Arbitrary projections, correct metric scale | Learning curve | Leaflet `CRS.Simple`. **Not MapLibre** (Web-Mercator only; organizer guide suggests it, but Mars distances would be wrong) |
-| Web app | **TypeScript + Vite**, Preact (or vanilla) with hash routes per role | One build, five views, small bundle | — | React if the team knows it |
+| Web app | **TypeScript + Vite**, Preact (or vanilla) with hash routes per role. **2026-11-06: React chosen** (D-14, [ADR-012](../decisions/ADR-012-react-vite-web-app.md)); still Vite, no Next.js | One build, five views, small bundle | — | React if the team knows it |
 | Charts | uPlot *(v1)* | Fast | Manual a11y | Plain SVG |
 | Hab Core | **Node.js 20 LTS, Fastify** (static + REST), **`ws`** (WebSocket) | Shares compute package; tiny dependency set | Single process (fine for a habitat of 4) | FastAPI (A.4) |
 | Shared compute | **`packages/compute`**, pure TS, **Vitest** | One implementation, tested once | Re-implementing A*, Dijkstra, viewshed in TS | — |
@@ -698,6 +698,8 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
 
 The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state, reason}`; ops and the HUD count read it from the event, never from the command (FR-50).
 
+`SNAPSHOT` also carries `tasks` (05 StopTask[]; FR-50, added 2026-11-06), so a client that joins or reconnects mid-EVA gets the current task list without replaying the log.
+
 - Rejections: `{"ok":false,"code":"FORBIDDEN_ROLE"|"NO_LINK"|"INVALID"|"NO_RENDEZVOUS"|"BUSY","message":"…"}`.
 - `NO_LINK`: the issuing suit is unlinked on L-surf; the client keeps the command queued and resends on `LINK_STATE linked=true`.
 - Reconnect: client sends `last_seq`; server replays events after it or sends a fresh `SNAPSHOT` if the gap is > 1,000.
@@ -711,6 +713,7 @@ The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state,
 | `site_id`, `data_version` | Must match the loaded site |
 | `start_utc` | Default `2024-05-20T…Z` (D-10; exact LTST chosen in TASK-21) |
 | `plan` | PlanExport (05) produced by the planner |
+| `stop_tasks` | Optional initial stop tasks (05 Scenario, FR-50): authored fields only, beside `plan` so `plan_hash` is unchanged |
 | `crew` | `[{id, start_offset_s, suit_params}]` |
 | `vehicles` | `[{vehicle_id, kind, param_set, start_x_m, start_y_m}]` |
 | `events` | Scheduled inputs (05 ScenarioEvent): `t_utc`, `kind` ∈ {`EARTH_MESSAGE`, `DONKI_RECORD`, `ADVISORY`, `INJECT`}, `payload`, `provenance`, `source_id`; the dose curve is a table, not an event |
@@ -816,6 +819,7 @@ The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state,
 | D-02 | Static vs. backend | **Resolved 2026-11-04: Hab Core (local server) added**; planner keeps its worker |
 | D-03 | OpenLayers tiles vs. ImageStatic fallback | TASK-02 spike (v1) |
 | D-12 | Hab Core language | Node.js + TS unless TS capacity < 2 people (U-13) |
+| D-14 | Web UI library | React + Vite chosen 2026-11-06 by the product & systems lead ([ADR-012](../decisions/ADR-012-react-vite-web-app.md)); kickoff sign-off |
 | U-01 | DEM quality inside AOI | TASK-01 (v1) |
 | U-02 | Elevation datum wording | TASK-01 (v1) |
 | U-03 | TI "loose fines" threshold | TASK-04 (v1) |

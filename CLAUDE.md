@@ -57,7 +57,7 @@ Work follows the task windows and dependency order in [docs/tasks/_coordination.
 | Path | Contents |
 | --- | --- |
 | `docs/specs/01–06` | PRD, technical requirements, app flow, design brief, data schema, implementation plan (v2) |
-| `docs/decisions/` | ADR-001…011 mirroring D-01…D-12 |
+| `docs/decisions/` | ADR-001…012 mirroring D-01…D-14 |
 | `docs/reference/` | Official challenge text (verbatim), Mars science reference |
 | `docs/ops/` | Rules check (Track P), team roster, feasibility, demo script, submission checklist |
 | `docs/tasks/` | Atomized v1 task plans (TASK-00…18) + coordination map; v2 tasks listed in 06 §C.2 |

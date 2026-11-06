@@ -328,6 +328,7 @@ Conventions as §C. In addition: `sim_time` is ISO-8601 UTC of the **mission clo
 | `seed` | int | ✓ | 32-bit | `4190` |
 | `start_utc` | ISO | ✓ | | `"2024-05-20T…Z"` (TASK-21) |
 | `plan` | PlanExport | ✓ | `plan_hash` must verify | — |
+| `stop_tasks` *(FR-50, added 2026-11-06, Proposed)* | array of `{task_id, stop_id, crew_id, kind, text}` | — | the authored [StopTask](#stoptask-fr-50-added-2026-11-05) fields only; `stop_id` must name a stop in `plan` (U-61); 1–4 per stop (FR-50), checked by the Hab Core loader; kept beside `plan`, not inside it, so `plan_hash` is unchanged (U-48) | — |
 | `crew` | array of `{crew_id, suit_param_set, start_offset_s}` | ✓ | 1–2 entries, ids `EV1`/`EV2` | — |
 | `vehicles` | array of `{vehicle_id, kind, param_set, start_x_m, start_y_m}` | ✓ | start on a passable cell for its kind | — |
 | `param_sets` | FK[] → ParamSet | ✓ | must include one `link`, `alert`, `shielding` | — |
@@ -810,3 +811,4 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
 | U-23 | Snapshot cadence vs. demo restart time | 500 events; measure resume time in TASK-22 |
 | U-24 | Store per-tick crew positions for the post-EVA map trace? | No — re-derive on replay; store only a 30 s-decimated trace in the report |
 | U-48 | Do initial stop tasks live in `scenario.json` (plan) or in `pois.geojson` (site data)? | `scenario.json`: tasks belong to a plan, not to the place; update `schemas/scenario.schema.json` in TASK-31 |
+| U-61 | StopTask `stop_id` is "the plan stop (POI id)", but a plan Waypoint's `poi_id` is optional. Key tasks on the POI id or on the Waypoint `id`? | Waypoint `id` works for every stop; decide in TASK-31 before the first `scenario.json` is written |

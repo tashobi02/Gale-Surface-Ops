@@ -73,6 +73,7 @@ USGS Gale merged DEM 1 m and orthophoto 25 cm (Astropedia) · USGS THEMIS therma
 | [D-10](decisions/ADR-009-surface-ops-reframe-and-storm-replay.md) | Surface-ops reframe; killer demo = replay of the real 20 May 2024 (sol 4190) SEP event; Exploration Zone framing at Gale | Shape-scaled dose curve if the RAD series is not archived |
 | [D-13](decisions/ADR-010-mission-brutalist-design-language.md) | Mission-brutalist design language: BRIEF/OPS/HUD/PRINT modes, status colours only for status | Keep v1 dark theme for the planner if time runs out |
 | [D-12](decisions/ADR-011-node-typescript-hab-core.md) | Hab Core in Node.js + TypeScript sharing `packages/compute` | FastAPI if TypeScript capacity < 2 people |
+| [D-14](decisions/ADR-012-react-vite-web-app.md) | `apps/web` in React + Vite (static build served by the Hab Core); no Next.js | Preact (same components) if bundle size becomes a problem |
 
 ## Key assumptions and blockers
 
