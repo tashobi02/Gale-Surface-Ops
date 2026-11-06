@@ -41,6 +41,7 @@
 
 ### T02.01 — Write the tile-grid and tile-encoding contract v1
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** contract
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -68,6 +69,7 @@
 
 ### T02.02 — Implement the Mars projection module with a web CRS-guard test
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -95,6 +97,7 @@
 
 ### T02.03 — Build the spike page: mock-site tiles in the Mars projection with a metric scale bar
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -122,6 +125,7 @@
 
 ### T02.04 — Verify the scale bar against a DEM-measured feature within 2 % on real AOI tiles
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** pre-event-if-permitted
@@ -147,6 +151,7 @@
 
 ### T02.05 — Record the spike outcome in ADR-003 (D-03)
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -170,6 +175,7 @@
 
 ### T02.06 — Fallback — start only if the spike fails within 2 h: ImageStatic layer factory in the Mars projection
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** fallback
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted

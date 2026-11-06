@@ -45,6 +45,7 @@
 
 ### T08.01 — Freeze the plan-store contract v1 (state, status, actions, selection)
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** contract
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -72,6 +73,7 @@
 
 ### T08.02 — Tests: plan store (revisions, undo, debounce, stale results)
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -102,6 +104,7 @@
 
 ### T08.03 — Implement the plan store
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -128,6 +131,7 @@
 
 ### T08.04 — Implement the SCR-04 panel and mission-inputs form
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -156,6 +160,7 @@
 
 ### T08.05 — Implement the stops list (reorder buttons, delete, undo)
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -181,6 +186,7 @@
 
 ### T08.06 — Implement waypoint markers and placement validation with a snap offer
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -207,6 +213,7 @@
 
 ### T08.07 — Implement Add-stop mode (free placement, `A`, crosshair `Enter`)
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · cut-3
 - **Window:** event-only
@@ -231,6 +238,7 @@
 
 ### T08.08 — Implement desktop drag: waypoints on the map, rows in the stops list
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -256,6 +264,7 @@
 
 ### T08.09 — Implement tablet touch: long-press placement and drag
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · cut-2
 - **Window:** event-only
@@ -279,6 +288,7 @@
 
 ### T08.10 — Fallback — start only if T08.08 is not working at the Day 1 17:30 checkpoint: buttons-only stop move
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** fallback
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -302,6 +312,7 @@
 
 ### T08.11 — Verify the 02 §E.3 rules and SCR-04 states in the UI
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** event-only

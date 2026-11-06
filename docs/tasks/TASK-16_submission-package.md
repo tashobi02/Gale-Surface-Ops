@@ -44,6 +44,7 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.01 — Decide the final product name (D-08); record ADR-008
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -69,6 +70,7 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.02 — spec-change: sync spec status rows and the docs index with the M0–M1 outcomes
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** integrate
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -96,6 +98,7 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.03 — Finalize the README: run instructions, data credits, licence
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -122,6 +125,7 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.04 — Complete the AI-use disclosure
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -147,6 +151,7 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.05 — Verify every dataset and image is credited in SCR-09 and the README
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** verify
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -175,6 +180,7 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.06 — Fill the NASA project page fields; complete the submission checklist
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -201,6 +207,7 @@ No contract (§d) or fixture (§e) is consumed.
 
 ### T16.07 — Implement the release-asset fetch route and decide what the public link shows; test the link in a private window
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed

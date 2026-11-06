@@ -41,6 +41,7 @@
 
 ### T12.01 — Implement the metric and provenance-chip component
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -70,6 +71,7 @@
 
 ### T12.02 — Tests: DOM provenance check across screens
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -99,6 +101,7 @@
 
 ### T12.03 — Implement SCR-09 Sources & Methods
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -129,6 +132,7 @@
 
 ### T12.04 — Write the methods, models and limitations content from 02 §C–§D
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -156,6 +160,7 @@
 
 ### T12.05 — Write DataSource records for the models (Tobler, Apollo 17, Mars24)
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -181,6 +186,7 @@
 
 ### T12.06 — Verify no unlabelled metric on the demo path and every credited source in SCR-09
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** verify
 - **Tag:** agent-ready · core
 - **Window:** event-only

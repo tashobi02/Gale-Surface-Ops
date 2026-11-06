@@ -47,6 +47,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 
 ### T14.01 — Integrate dependencies and build wiring (one dependency batch, `make data`)
 
+- **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** integrate
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -76,6 +77,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 
 ### T14.02 — Integrate CI and the PR template (subtask id, `check_tasks.py`)
 
+- **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** integrate
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -101,6 +103,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 
 ### T14.03 — Implement boot validation (schema major version, dev-build SHA-256)
 
+- **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -129,6 +132,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 
 ### T14.04 — Implement SCR-00 Boot error
 
+- **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -157,6 +161,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 
 ### T14.05 — Tests: fault injection (02 §F.1 Recovery)
 
+- **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -187,6 +192,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 
 ### T14.06 — Verify two clean offline rehearsals of the core scenario
 
+- **Owner:** Anjim Hossain (R2/R4 float · integration lead) — the dry runs are all-hands (06 §A.2)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -216,6 +222,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 
 ### T14.07 — Verify NFR-02 timings on the weakest team laptop
 
+- **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -243,6 +250,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 
 ### T14.08 — Verify the browser/device matrix and cross-browser determinism
 
+- **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -269,6 +277,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 
 ### T14.09 — Verify release checks: CSP, network log, bundle sizes, `?debug=1`
 
+- **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** verify
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -296,6 +305,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 
 ### T14.10 — Verify SCR-00 and worker-crash recovery by hand
 
+- **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -323,6 +333,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 
 ### T14.11 — follow-up: refresh the `CLAUDE.md` command rows after the pipeline entry point lands
 
+- **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** integrate
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed

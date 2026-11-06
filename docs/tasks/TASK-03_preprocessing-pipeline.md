@@ -51,6 +51,7 @@
 
 ### T03.01 — Freeze data contracts v1: 05 entity mirror, grid binary layout, site-config input layout
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** contract
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -80,6 +81,7 @@
 
 ### T03.02 — Fixture: mock site bundle (manifest, placeholder tiles, tiny grid, sample POI and traverse GeoJSON)
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** fixture
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -107,6 +109,7 @@
 
 ### T03.03 — Tests: projection and raster handling (02 §C.1, §C.4)
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -132,6 +135,7 @@
 
 ### T03.04 — Tests: slope, hillshade, aggregation and hazard flags
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -158,6 +162,7 @@
 
 ### T03.05 — Tests: routing-grid encoding
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -181,6 +186,7 @@
 
 ### T03.06 — Tests: manifest integrity, sampled values, bundle size
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -205,6 +211,7 @@
 
 ### T03.07 — Implement config (working projection for the AOI) and source acquisition
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -230,6 +237,7 @@
 
 ### T03.08 — Implement clip/reproject and DEM no-data → NaN
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -254,6 +262,7 @@
 
 ### T03.09 — Implement Horn slope, hillshade and p90/max aggregation
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -276,6 +285,7 @@
 
 ### T03.10 — Implement the hazard-flag bitfield
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -300,6 +310,7 @@
 
 ### T03.11 — Implement the routing-grid writer (u8 slope encoding, little-endian arrays, TI sidecar)
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -324,6 +335,7 @@
 
 ### T03.12 — Implement tile rendering per the tile-grid contract
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -349,6 +361,7 @@
 
 ### T03.13 — Implement the manifest writer from site-config records and assets
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -374,6 +387,7 @@
 
 ### T03.14 — Implement `validate-manifest`
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -399,6 +413,7 @@
 
 ### T03.15 — Implement the pipeline entry point (`python -m marswalk_pipeline`)
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -422,6 +437,7 @@
 
 ### T03.16 — Write the site record (AOI, default start, data version)
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -445,6 +461,7 @@
 
 ### T03.17 — Write DataSource and Layer records for the DEM, ortho and THEMIS layers
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -469,6 +486,7 @@
 
 ### T03.18 — Digitise HARD_HAZARD features and LOW_RES_DEM coverage
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -492,6 +510,7 @@
 
 ### T03.19 — Run the pipeline; commit bundle v1 (manifest, vectors, lock file)
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** integrate
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -518,6 +537,7 @@
 
 ### T03.20 — Verify DEM hillshade vs ortho alignment; record the offset
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -541,6 +561,7 @@
 
 ### T03.21 — Fixture: real-grid sample cells from a `rasterio` readout
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** fixture
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -563,6 +584,7 @@
 
 ### T03.22 — Verify a clean-checkout re-run reproduces checksums; bundle ≤ 250 MB
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** verify
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -586,6 +608,7 @@
 
 ### T03.23 — Fallback — start only if tiling is too slow: lower the max zoom
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** fallback
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -609,6 +632,7 @@
 
 ### T03.24 — Fallback — start only if the 5 m grid is too big or slow: 10 m cells
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** fallback
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -632,6 +656,7 @@
 
 ### T03.25 — Fallback — start only if T02 spike fails or cut 7 is called: one PNG per 2 m layer for ImageStatic
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** fallback
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -655,6 +680,7 @@
 
 ### T03.26 — Fallback — start only if the colour COG misses the AOI: grayscale 25 cm window or cached Mars Trek HiRISE tiles
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** fallback
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -677,6 +703,7 @@
 
 ### T03.27 — Fallback — start only if quantitative TI misses the AOI: THEMIS Day IR 100 m (qualitative)
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** fallback
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed

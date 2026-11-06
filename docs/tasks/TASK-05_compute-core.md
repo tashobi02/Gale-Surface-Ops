@@ -47,6 +47,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.01 — Freeze compute contracts v1: worker protocol and compute module layout
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** contract
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -73,6 +74,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.02 — Fixture: synthetic routing grids
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** fixture
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -96,6 +98,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.03 — Fixture: canned PLAN_RESULT messages (OK, PARTIAL, OVER_LIMITS)
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** fixture
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -119,6 +122,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.04 — Fixture: mock worker answering from the canned fixtures
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** fixture
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -142,6 +146,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.05 — Tests: grid loader and addressing
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -166,6 +171,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.06 — Tests: point and profile sampling
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -189,6 +195,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.07 — Tests: A* core (gap, re-sample, determinism, TIMEOUT)
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · cut-6
 - **Window:** pre-event-if-permitted
@@ -213,6 +220,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.08 — Tests: no-route reasons and nearest reachable cell
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · cut-6
 - **Window:** pre-event-if-permitted
@@ -237,6 +245,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.09 — Tests: snapping
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -260,6 +269,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.10 — Tests: leg assembly (metrics, simplification, profile)
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -283,6 +293,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.11 — Tests: walking-time model
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -306,6 +317,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.12 — Tests: walkback
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -328,6 +340,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.13 — Tests: warnings and plan status
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -352,6 +365,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.14 — Tests: input validation (02 §E.3)
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -374,6 +388,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.15 — Tests: worker handler and cancellation
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -398,6 +413,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.16 — Implement the grid loader
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -421,6 +437,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.17 — Implement point and profile sampling
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -444,6 +461,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.18 — Implement the A* least-time search
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · cut-6
 - **Window:** pre-event-if-permitted
@@ -468,6 +486,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.19 — Implement no-route reasons and nearest reachable cell
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · cut-6
 - **Window:** pre-event-if-permitted
@@ -491,6 +510,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.20 — Implement snapping
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -513,6 +533,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.21 — Implement leg assembly
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -535,6 +556,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.22 — Implement the walking-time model
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -557,6 +579,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.23 — Implement walkback
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -578,6 +601,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.24 — Implement warnings and plan status
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -601,6 +625,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.25 — Implement input validation
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -623,6 +648,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.26 — Implement the worker handler, minimum slice: SAMPLE_POINT and legs-only PLAN_RESULT
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -647,6 +673,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.27 — Implement the worker entry: grid initialisation, latest-revision cancellation
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -670,6 +697,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.28 — Verify on the real grid: 10 sampled cells; 20 pairs p50/p95; 3-stop loop ≤ 2 s
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** verify
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -694,6 +722,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.29 — Record D-02 from the benchmark in ADR-002
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -716,6 +745,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.30 — Fallback — start only if T09.06 says no-go: manual polyline validation (compute side)
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** fallback
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -740,6 +770,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.31 — Fallback — start only if T05.29 records p95 > 2 s: FastAPI `/route` with a scikit-image least-cost path
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** fallback
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -764,6 +795,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 ### T05.32 — follow-up: complete PLAN_RESULT assembly (totals, timeline, warnings, status, conditions)
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted

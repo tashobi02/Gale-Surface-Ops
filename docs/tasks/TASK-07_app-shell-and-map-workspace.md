@@ -56,6 +56,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.01 — Freeze UI contracts v1: app context, screen interface, map handle, layer order, provenance attributes; create UI module stubs
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** contract
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -85,6 +86,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.02 — Implement site loading (manifest fetch, `?site=` override, lookup maps)
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -110,6 +112,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.03 — Implement the app shell: hash router, boot sequence, CSP meta tag
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -136,6 +139,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.04 — Implement the worker client (request ids, latest revision, crash → retry)
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -162,6 +166,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.05 — Implement SCR-01 Mission Briefing
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -188,6 +193,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.06 — Implement the map: view, metric scale bar, north arrow, coordinate readout
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -213,6 +219,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.07 — Implement tiled raster layers with slope classes that follow the current limits
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · cut-7
 - **Window:** event-only
@@ -239,6 +246,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.08 — Implement the SCR-02 workspace layout (top bar, drawers, toolbar, responsive)
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -266,6 +274,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.09 — Implement SCR-03 Layers panel
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -293,6 +302,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.10 — Implement the Curiosity traverse layer
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -316,6 +326,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.11 — Implement the POI layer and POI selection
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -339,6 +350,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.12 — Implement the point-inspector popover
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -364,6 +376,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.13 — Implement `?debug=1` diagnostics
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -385,6 +398,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.14 — Author the demo plan (three POI stops)
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -409,6 +423,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.15 — Verify SCR-01, SCR-02, SCR-03: toggles ≤ 300 ms, inspector values match the grid
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -436,6 +451,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 ### T07.16 — Fallback — start only if projection issues persist or cut 7 is called: ImageStatic layers
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** fallback
 - **Tag:** agent-ready · core
 - **Window:** event-only

@@ -6,8 +6,9 @@ Usage: python3 scripts/check_tasks.py [DIR] [--file TASK_FILE] [--summary]   (de
 Exits 1 and prints one line per problem: a duplicate subtask id; an id, title, Type, Tag or Window
 that differs from the register in DIR/_coordination.md; a missing template field or section; an
 estimate over 3 h; a dependency on an unknown id or without (hard)/(soft); a dependency cycle; two
-subtasks owning the same path outside the annotations of _coordination.md §c.1; an FR-01…FR-17 or
-SCR-00…SCR-09 id cited by no subtask. --file checks one task file alone (no cross-file rules).
+subtasks owning the same path outside the annotations of _coordination.md §c.1; an FR-01…FR-17,
+FR-30…FR-50 or SCR-00…SCR-18 id cited by no subtask. Task codes are two digits with an optional
+letter (TASK-05b, ids T05b.01). --file checks one task file alone (no cross-file rules).
 --summary prints Markdown tables: per task, hours per lane and window, start-here list, cross-task
 edges. Standard library only.
 """
@@ -16,7 +17,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-FIELDS = ["Type", "Tag", "Window", "Estimate", "Owns (writes)", "Reads", "Depends on", "Parallel with",
+FIELDS = ["Owner", "Type", "Tag", "Window", "Estimate", "Owns (writes)", "Reads", "Depends on", "Parallel with",
           "Steps", "Acceptance", "Verify", "Agent brief", "Conflict notes"]
 TASK_ROWS = ["Objective", "Requirements", "Lane / owner role", "Milestone", "Window", "Effort (doc 06)",
              "Done when (doc 06)", "Main risk → fallback", "Spec sections"]
@@ -25,13 +26,28 @@ SECTIONS = ["Inputs this task consumes", "Outputs this task provides", "Subtasks
 CHANGE_TITLES = ("contract-change:", "spec-change:", "follow-up:")
 WINDOWS = ["pre-event-allowed", "pre-event-if-permitted", "event-only"]
 
-SUB = re.compile(r"^### (T\d\d\.\d\d) — (.+)$")
+SUB = re.compile(r"^### (T\d\d[a-z]?\.\d\d) — (.+)$")
 FIELD = re.compile(r"^- \*\*(.+?):\*\*\s*(.*)$")
 ROW = re.compile(r"^\| (.+?) \| (.*) \|$")
-ID_RANGE = re.compile(r"\b(T\d\d)\.(\d\d)(?:\s*[–-]\s*(?:\1\.)?(\d\d)\b)?")
+ID_RANGE = re.compile(r"\b(T\d\d[a-z]?)\.(\d\d)(?:\s*[–-]\s*(?:\1\.)?(\d\d)\b)?")
 REQ_RANGE = re.compile(r"\b(FR|NFR|SCR)-(\d\d)(?:\s*[–-]\s*(?:\1-)?(\d\d)\b)?")
-DEP = re.compile(r"(T\d\d\.\d\d(?:\s*[–-]\s*(?:T\d\d\.)?\d\d)?)\s*\(((hard|soft)\b[^)]*)\)")
+DEP = re.compile(r"(T\d\d[a-z]?\.\d\d(?:\s*[–-]\s*(?:T\d\d[a-z]?\.)?\d\d)?)\s*\(((hard|soft)\b[^)]*)\)")
 PATH = re.compile(r"`([^`]+)`(?:\s*\(([^)]*)\))?")
+
+
+LANES = ["data", "compute", "frontend", "design", "story", "integration", "hab-core"]
+TASK_CODE = re.compile(r"TASK-(\d\d[a-z]?)_")
+
+
+def code_of_file(path):
+    """'05b' for TASK-05b_compute-v2.md."""
+    m = TASK_CODE.match(path.name)
+    return m[1] if m else path.name[5:7]
+
+
+def code_of_id(i):
+    """'05b' for T05b.01."""
+    return i[1:].split(".")[0]
 
 
 def ids(text, pattern=ID_RANGE, sep="."):
@@ -51,7 +67,7 @@ def register(coord):
     reg = {}
     for line in coord.split("\n## b. ")[0].splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) == 8 and re.fullmatch(r"T\d\d\.\d\d", cells[0]):
+        if len(cells) == 8 and re.fullmatch(r"T\d\d[a-z]?\.\d\d", cells[0]):
             reg[cells[0]] = dict(zip(("title", "lane", "type", "tag", "window", "m", "reqs"), cells[1:]))
     return reg
 
@@ -97,22 +113,23 @@ def annotation(text):
         return "own", None
     if text in ("append-only", "spec-change"):
         return text, None
-    m = re.fullmatch(r"(stub →|after|replaces) (T\d\d\.\d\d)", text)
+    m = re.fullmatch(r"(stub →|after|replaces) (T\d\d[a-z]?\.\d\d)", text)
     return (m[1].split()[0], m[2]) if m else (None, None)
 
 
 def check_task(t, problems):
     where = str(t["path"])
-    if not re.fullmatch(r"TASK-\d\d_[a-z0-9-]+\.md", t["path"].name):
-        problems.append(f"{where}: file name must be TASK-NN_<kebab-title>.md")
-    if not t["h1"].startswith(t["path"].name[:7] + " — "):
-        problems.append(f"{where}: H1 must be '# {t['path'].name[:7]} — <title>'")
+    if not re.fullmatch(r"TASK-\d\d[a-z]?_[a-z0-9-]+\.md", t["path"].name):
+        problems.append(f"{where}: file name must be TASK-NN_<kebab-title>.md (NN may end in one letter)")
+    head = "TASK-" + code_of_file(t["path"])
+    if not t["h1"].startswith(head + " — "):
+        problems.append(f"{where}: H1 must be '# {head} — <title>'")
     problems += [f"{where}: header table lacks '{r}'" for r in TASK_ROWS if r not in t["rows"]]
     problems += [f"{where}: missing section '## {s}'" for s in SECTIONS if s not in t["sections"]]
     if not t["subtasks"]:
         problems.append(f"{where}: no subtasks")
     for s in t["subtasks"]:
-        if s["id"][1:3] != t["path"].name[5:7]:
+        if code_of_id(s["id"]) != code_of_file(t["path"]):
             problems.append(f"{where}:{s['line']}: {s['id']} belongs to another task file")
 
 
@@ -218,7 +235,8 @@ def check_all(subs, reg, aonly, problems):
     if found := cycle(by_id):
         problems.append("dependency cycle: " + " → ".join(found))
     cited = {r for s in subs for r in ids(s["text"], REQ_RANGE, "-")}
-    wanted = [f"FR-{n:02d}" for n in range(1, 18)] + [f"SCR-{n:02d}" for n in range(10)]
+    wanted = ([f"FR-{n:02d}" for n in range(1, 18)] + [f"FR-{n:02d}" for n in range(30, 51)]
+              + [f"SCR-{n:02d}" for n in range(19)])
     problems += [f"{r}: cited by no subtask" for r in wanted if r not in cited]
     return by_id
 
@@ -234,7 +252,7 @@ def summary(tasks, reg, by_id):
     for t in tasks:
         r = t["rows"]
         title = t["h1"].split(" — ", 1)[-1]
-        print(f"| {t['path'].name[:7]} | [{title}]({t['path'].name}) | {r.get('Lane / owner role', '')} "
+        print(f"| TASK-{code_of_file(t['path'])} | [{title}]({t['path'].name}) | {r.get('Lane / owner role', '')} "
               f"| {r.get('Milestone', '')} | {r.get('Window', '')} | {len(t['subtasks'])} | {hours(t['subtasks'])} |")
 
     def kind(s):
@@ -249,7 +267,7 @@ def summary(tasks, reg, by_id):
         groups[(reg.get(s["id"], {}).get("lane", "?"), kind(s))].append(s)
     print("\n| Lane | " + " | ".join(cols) + " | All |")
     print("| --- | " + " | ".join("---" for _ in cols) + " | --- |")
-    for lane in ["data", "compute", "frontend", "design", "story", "integration"]:
+    for lane in LANES:
         cells = [hours(groups[(lane, c)]) for c in cols]
         everything = [s for c in cols for s in groups[(lane, c)]]
         print(f"| {lane} | " + " | ".join(cells) + f" | {hours(everything)} |")
@@ -273,7 +291,8 @@ def summary(tasks, reg, by_id):
     for lane, items in today.items():
         print(f"- {lane}: {', '.join(sorted(items))}")
 
-    edges = [(s["id"], d, k, s["why"][d]) for s in by_id.values() for d, k in s["deps"].items() if d[:3] != s["id"][:3]]
+    edges = [(s["id"], d, k, s["why"][d]) for s in by_id.values() for d, k in s["deps"].items()
+             if code_of_id(d) != code_of_id(s["id"])]
     print(f"\nCross-task dependencies: {sum(k == 'hard' for *_, k, _ in edges)} hard, "
           f"{sum(k == 'soft' for *_, k, _ in edges)} soft. Hard ones:")
     for i, d, k, why in sorted(edges):
@@ -302,7 +321,7 @@ def main(argv):
     for s in subs:
         check_subtask(s, reg, known, problems)
     if not only:
-        missing = sorted({i[1:3] for i in reg} - {t["path"].name[5:7] for t in tasks})
+        missing = sorted({code_of_id(i) for i in reg} - {code_of_file(t["path"]) for t in tasks})
         problems += [f"TASK-{n}: no task file" for n in missing]
         by_id = check_all(subs, reg, aonly, problems)
         if want_summary:

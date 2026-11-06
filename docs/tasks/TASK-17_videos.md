@@ -37,6 +37,7 @@
 
 ### T17.01 — Draft the 240-s and 30-s demo scripts
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -66,6 +67,7 @@
 
 ### T17.02 — Record and submit the 240-s video by Day 1 18:30 (dry-run capture first)
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story) — Obidit Islam helps (06 §A.2)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -95,6 +97,7 @@
 
 ### T17.03 — Record and upload the 30-s video by Day 2 09:00
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story) — Obidit Islam helps (06 §A.2)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -121,6 +124,7 @@
 
 ### T17.04 — Fallback — start only if the live demo fails on camera: cut the 240-s video from the dry-run capture
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** fallback
 - **Tag:** human-required · core
 - **Window:** event-only

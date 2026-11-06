@@ -3,11 +3,11 @@
 | | |
 | --- | --- |
 | **Owner** | Delivery — mirrors [06](../specs/06_High_Level_Implementation_Plan.md), which owns order, dependencies and cut decisions |
-| **Date** | 2026-11-03 |
-| **Status** | Approved 2026-11-03 and frozen; amended the same day by one `coord:` change after Phase 2 (3 subtasks added; edges, paths and open points synced with the task files). Change this file first (§h.5) |
+| **Date** | 2026-11-03; v2 additions 2026-11-06 |
+| **Status** | Approved 2026-11-03 and frozen; amended the same day by one `coord:` change after Phase 2 (3 subtasks added; edges, paths and open points synced with the task files). **`coord:` v2 change 2026-11-06** (session handoff §F.2, approved by Sadman Shaharier Mahim): TASK-05b and TASK-20–TASK-31 atomized, an Owner on every subtask, v1 subtasks re-dated to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 milestones, windows and cut list. Change this file first (§h.5) |
 | **Related** | [06 §C Work packages](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D Delivery strategy](../specs/06_High_Level_Implementation_Plan.md#d-delivery-strategy) · [Docs index](../README.md) · [CLAUDE.md](../../CLAUDE.md) |
 
-This file lets several people and AI agents work on the 19 work packages of 06 in parallel. It fixes subtask ids (§a), lanes (§b), who writes which file (§c), the interfaces that decouple lanes (§d), the fixtures that remove waiting (§e), the dependency graph (§f), what runs together per milestone (§g) and how branches and PRs work (§h). Task files `TASK-NN_<title>.md` expand each subtask listed here; they never add a subtask, path owner or cross-task dependency that is not in this file.
+This file lets several people and AI agents work on the work packages of 06 in parallel: the 19 v1 packages (planner, Tier 0) and the 13 v2 packages (TASK-05b, TASK-20–TASK-31: surface ops, Tier 1). It fixes subtask ids (§a), lanes (§b), who writes which file (§c), the interfaces that decouple lanes (§d), the fixtures that remove waiting (§e), the dependency graph (§f), what runs together per milestone (§g) and how branches and PRs work (§h). Task files `TASK-NN_<title>.md` expand each subtask listed here; they never add a subtask, path owner or cross-task dependency that is not in this file.
 
 The specs are the source of truth. Nothing here changes a requirement, id, number or label; gaps found while building this map are in [Open points](#open-points).
 
@@ -15,7 +15,7 @@ The specs are the source of truth. Nothing here changes a requirement, id, numbe
 
 ### a.1 Scheme
 
-- Format `T05.03` = TASK-05, subtask 03. Ids are stable once published: new subtasks get the next free number in their task; nothing is ever renumbered or reused.
+- Format `T05.03` = TASK-05, subtask 03. A task code may end in one letter: `T05b.03` = TASK-05b, subtask 03 (file `TASK-05b_compute-v2.md`). Ids are stable once published: new subtasks get the next free number in their task; nothing is ever renumbered or reused.
 - A contract subtask is `.01` in its owning task and is **blocking — do first**. One contract subtask may freeze several contract files (§d).
 - Titles starting `contract-change:`, `spec-change:` or `follow-up:` mark subtasks that edit a path after its owner has merged (§c.1).
 
@@ -23,13 +23,14 @@ The specs are the source of truth. Nothing here changes a requirement, id, numbe
 
 | Field | Values |
 | --- | --- |
+| Owner | The person who does or delegates the subtask, from [06 §A.2](../specs/06_High_Level_Implementation_Plan.md#a2-assignment-by-person-proposed-2026-11-05--sign-off-at-the-6-nov-kickoff), with their position. Shared tasks are split by subtask. *Proposed* with 06 §A.2 until the kickoff signs it off |
 | Type | `contract` · `fixture` · `test` · `implement` · `integrate` · `verify` · `human` · `fallback` |
 | Tag (who) | `agent-ready` (clear spec and an automated or scripted check) · `human-required` (registration, contacting people, filming, user sessions, choosing the AOI, judging trade-offs, curating content) |
-| Tag (cut) | `core` · `cut-2` … `cut-7` (06 §D.4 item that drops it) · `desirable` (= cut-1, TASK-18). Fallbacks are `core`: once triggered they are needed |
-| Window | `pre-event-allowed` — data, design, docs, setup (06 §A Track S) · `pre-event-if-permitted` — application code allowed before 13 Nov only under Track P (TASK-02 spike, TASK-05 compute core) · `event-only` — all other application code |
-| M | Milestone from [06 §B](../specs/06_High_Level_Implementation_Plan.md#b-milestones), Track S timing. Under Track P, TASK-02 and TASK-05 code moves to M0–M2 |
+| Tag (cut) | `core` · `cut-2` … `cut-9` (the [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind) v2 item that drops it; re-mapped from the v1 list on 2026-11-06, §h.6) · `desirable` (= cut-1, TASK-18). Fallbacks are `core`: once triggered they are needed. 06 §D.4 is a contingency list only: the team decided on 5 Nov not to cut scope |
+| Window | `pre-event-allowed` — data, design, docs, setup (06 §D.8 Track S) · `pre-event-if-permitted` — application code before 13 Nov, allowed because Track P was recorded on 2026-11-04 ([ops/rules.md](../ops/rules.md)) · `event-only` — work that [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) schedules at the event (**E**), such as TASK-10, TASK-17 and TASK-27 |
+| M | Milestone from [06 §B](../specs/06_High_Level_Implementation_Plan.md#b-milestones) v2.2: M0 kickoff 5–6 Nov · M1 spikes 6–7 Nov · M2 data and scenario 6–9 Nov · M3 walking skeleton by 10 Nov · M3b first dry run 10 Nov evening · M4 offline dry run 11 Nov · M4b buffer 12 Nov · M5 demo path green Day 1 12:30 · M6 240-s video Day 1 18:30 · M7 polish and Tier 2 Day 1 19:00 → Day 2 05:00 · M8 freeze and submit Day 2 06:00 → 09:00. v1 subtasks were re-dated from the v1 milestones on 2026-11-06 using the *When* column of 06 §C.1 |
 
-Window interpretations this map relies on (confirm with the TASK-00 answer; see [Open points](#open-points)):
+Window interpretations this map relies on (TASK-00 recorded Track P on 2026-11-04, so `pre-event-if-permitted` work may start now):
 
 - Contract subtasks edit only types, JSON Schemas and throwing stubs — the skeleton level `CLAUDE.md` §3 already allows — so they are `pre-event-allowed`.
 - Pipeline code (TASK-03, TASK-04) produces "data preprocessing outputs" (06 §A Track S) and sits in M1 (5–10 Nov) on both tracks, so it is `pre-event-allowed` once TASK-00 resolves.
@@ -321,28 +322,112 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 | T18.01 | follow-up: CRISM layer and bundle re-release (only if T01.04 finds MTRDR coverage) | data | implement | agent-ready · desirable | event-only | M5–M6 | FR-18 |
 | T18.02 | Build REMS L_s-bin temperature and pressure context from named RDR files | data | implement | agent-ready · desirable | event-only | M5–M6 | FR-13 |
 | T18.03 | follow-up: seasonal-weather section in SCR-07 | frontend | implement | agent-ready · desirable | event-only | M5–M6 | FR-13, SCR-07 |
-| T18.04 | Tests: illustrative O₂ estimate (02 §D.6) | compute | test | agent-ready · desirable | event-only | M5–M6 | FR-19 |
-| T18.05 | Implement the illustrative O₂ estimate | compute | implement | agent-ready · desirable | event-only | M5–M6 | FR-19 |
+| T18.04 | follow-up: tests for the planner's illustrative O₂ estimate (02 §D.6) | compute | test | agent-ready · desirable | event-only | M5–M6 | FR-19 |
+| T18.05 | follow-up: implement the planner's illustrative O₂ estimate | compute | implement | agent-ready · desirable | event-only | M5–M6 | FR-19 |
 | T18.06 | follow-up: show the O₂ estimate labelled "illustrative" | frontend | implement | agent-ready · desirable | event-only | M5–M6 | FR-19 |
 | T18.07 | follow-up: save and restore the last plan in browser storage | frontend | implement | agent-ready · desirable | event-only | M5–M6 | FR-20 |
 | T18.08 | Cache the CRISM and REMS source files before 13 Nov | data | human | human-required · desirable | pre-event-allowed | M1–M2 | FR-13, FR-18 |
 
 FR-21 (space weather, 3D view, multi-site, AI narration) is post-MVP and has no subtask ([01 §C.3](../specs/01_Product_Requirements_Document.md#c4-post-mvp)).
 
+<!-- v2-register:begin -->
+
+#### TASK-05b — Compute v2: haven, rendezvous, viewshed, link graph, Earth delivery, event dose, consumables, contingency
+
+| ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T05b.01 | Freeze the v2 compute signatures | compute | contract | agent-ready · core | pre-event-allowed | M1 | FR-39, FR-40, FR-42, FR-43, FR-44, NFR-06 |
+| T05b.02 | Fixture: synthetic v2 grids | compute | fixture | agent-ready · core | pre-event-allowed | M1 | FR-39, FR-40, FR-42 |
+| T05b.03 | Tests: time to haven (02 §D.8 cases) | compute | test | agent-ready · core | pre-event-if-permitted | M1 | FR-39 |
+| T05b.04 | Implement haven fields (reverse Dijkstra, bounded Dijkstra, live and planning forms) | compute | implement | agent-ready · core | pre-event-if-permitted | M1 | FR-39, NFR-06 |
+| T05b.05 | Verify the full-grid Dijkstra benchmark on the weakest laptop (M1 go/no-go) | compute | verify | agent-ready · core | pre-event-if-permitted | M1 | FR-39, NFR-02 |
+| T05b.06 | Tests: rendezvous (02 §D.10 cases) | compute | test | agent-ready · cut-6 | pre-event-if-permitted | M2 | FR-40, NFR-06 |
+| T05b.07 | Implement the rendezvous search | compute | implement | agent-ready · cut-6 | pre-event-if-permitted | M2 | FR-40, NFR-06 |
+| T05b.08 | Tests: line of sight, curvature and dynamic viewshed (02 §D.11) | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-42 |
+| T05b.09 | Implement line of sight and the 20 m dynamic viewshed | compute | implement | agent-ready · cut-5 | pre-event-if-permitted | M2 | FR-42 |
+| T05b.10 | Tests: surface link graph | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-42 |
+| T05b.11 | Implement the surface link graph | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-42 |
+| T05b.12 | Tests: Earth delivery rule | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-43 |
+| T05b.13 | Implement the Earth delivery rule | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-43 |
+| T05b.14 | Tests: radiation trigger and event dose integral | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-38 |
+| T05b.15 | Implement the radiation trigger and event dose integral | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-38 |
+| T05b.16 | Tests: suit consumables (02 §D.14) | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-35 |
+| T05b.17 | Implement suit consumables | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-35 |
+| T05b.18 | Tests: contingency options and ranking (02 §D.15) | compute | test | agent-ready · core | pre-event-if-permitted | M3 | FR-44 |
+| T05b.19 | Implement contingency options and ranking | compute | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-44, NFR-06 |
+| T05b.20 | Verify on the real grid: haven, rendezvous and viewshed vs independent checks; NFR-02 timings | compute | verify | agent-ready · core | pre-event-if-permitted | M3 | FR-39, FR-40, FR-42, NFR-02 |
+| T05b.21 | Fallback — start only if T05b.05 says no-go: 10 m grid for all fields; `T_hab` precomputed in the pipeline | compute | fallback | agent-ready · core | pre-event-if-permitted | M1–M2 | FR-39, NFR-02 |
+
+#### TASK-20 — Hab Core skeleton: server, protocol v0, LAN spike
+
+| ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T20.01 | Freeze `packages/protocol` v0: runtime entities, wire messages, permissions | hab-core | contract | agent-ready · core | pre-event-allowed | M1 | FR-30, FR-31 |
+| T20.02 | Fixture: mock WebSocket message sequences for the demo beats | hab-core | fixture | agent-ready · core | pre-event-allowed | M1 | FR-30, FR-32, FR-50 |
+| T20.03 | Tests: server handshake, fan-out, reconnect and heartbeat | hab-core | test | agent-ready · core | pre-event-if-permitted | M1 | FR-30, FR-31, NFR-13 |
+| T20.04 | Implement the HTTP + WebSocket server | hab-core | implement | agent-ready · core | pre-event-if-permitted | M1 | FR-30, FR-31, NFR-08, NFR-12 |
+| T20.05 | Tests: web client handshake, ordering, reconnect and link-lost | hab-core | test | agent-ready · core | pre-event-if-permitted | M2 | FR-31, FR-32, NFR-13 |
+| T20.06 | Implement the web client for the Hab Core | hab-core | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-31, FR-32, NFR-01, NFR-13 |
+| T20.07 | Build the LAN spike page and script | hab-core | implement | agent-ready · core | pre-event-if-permitted | M1 | NFR-12 |
+| T20.08 | Verify the LAN spike: 2 phones + 1 laptop ≤ 500 ms on the router (M1 go/no-go) | hab-core | verify | human-required · core | pre-event-if-permitted | M1 | NFR-12, NFR-01 |
+| T20.09 | Fallback — start only if T20.08 says no-go: single-laptop multi-window mode | hab-core | fallback | agent-ready · core | pre-event-if-permitted | M1–M3 | FR-30, NFR-01 |
+
+#### TASK-21 — Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers
+
+| ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T21.01 | Freeze the scenario folder layout and the table formats | data | contract | agent-ready · core | pre-event-allowed | M1 | FR-34, FR-43, FR-37 |
+| T21.02 | Download the SPICE kernels for 18–22 May 2024; record exact files (U-18) | data | human | human-required · core | pre-event-allowed | M2 | FR-43, NFR-07 |
+| T21.03 | Tests: SPICE table, DONKI extraction and RAD series | data | test | agent-ready · core | pre-event-allowed | M2 | FR-37, FR-43 |
+| T21.04 | Implement the SPICE Earth-link table | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-43 |
+| T21.05 | Decide the DONKI window (U-44); implement DONKI extraction | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-37 |
+| T21.06 | Download the RAD series; verify sol-4190 coverage (U-15) and the product (U-45) | data | human | human-required · core | pre-event-allowed | M2 | FR-37, FR-38, NFR-07 |
+| T21.07 | Implement the RAD dose-series extraction | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-37, FR-38 |
+| T21.08 | Assemble `scenario.json` with checksums and initial stop tasks | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-34, FR-50, NFR-06 |
+| T21.09 | spec-change: choose the EVA start time; write the final demo numbers into 01 §E.1 and the demo script | story | human | human-required · core | pre-event-allowed | M2 | FR-34, FR-37 |
+| T21.10 | Verify: the timeline table reproduces source times (M2) | data | verify | agent-ready · core | pre-event-allowed | M2 | FR-37, FR-43 |
+| T21.11 | Fixture: real-scenario excerpt for engine tests | data | fixture | agent-ready · core | pre-event-if-permitted | M2 | FR-38, NFR-06 |
+| T21.12 | Build the demo `PlanExport` headlessly from the demo plan stops | compute | implement | agent-ready · core | pre-event-allowed | M2 | FR-34, NFR-06 |
+| T21.13 | Fallback — start only if T21.06 finds no sol-4190 series: digitised dose curve | data | fallback | human-required · core | pre-event-allowed | M2 | FR-37 |
+| T21.14 | Fallback — start only if T21.02 cannot get the kernels: fixed light time for the date | data | fallback | agent-ready · core | pre-event-allowed | M2 | FR-43 |
+
+#### TASK-22 — Simulation engine: clock, crew motion, consumables, alerts, event log, replay
+
+| ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T22.01 | Freeze engine interfaces; create the engine-module stubs | hab-core | contract | agent-ready · core | pre-event-allowed | M1 | FR-34, NFR-06 |
+| T22.02 | Fixture: fake scenario with a straight-line route and a stepped dose curve | hab-core | fixture | agent-ready · core | pre-event-allowed | M1 | FR-34, NFR-14 |
+| T22.03 | Tests: mission clock | hab-core | test | agent-ready · core | pre-event-if-permitted | M2 | FR-34, NFR-06 |
+| T22.04 | Implement the mission clock | hab-core | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-34, NFR-06 |
+| T22.05 | Tests: reducer, event log, `log_hash`, snapshots and determinism | hab-core | test | agent-ready · core | pre-event-if-permitted | M2 | FR-34, NFR-06, NFR-10, NFR-14 |
+| T22.06 | Implement the reducer | hab-core | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-34, NFR-06 |
+| T22.07 | Implement the append-only event log, `log_hash` and snapshots | hab-core | implement | agent-ready · core | pre-event-if-permitted | M2 | NFR-06, NFR-10 |
+| T22.08 | Tests: tick — crew motion, dwell, consumables, dose and alert order | hab-core | test | agent-ready · core | pre-event-if-permitted | M2 | FR-35, FR-37, FR-38 |
+| T22.09 | Implement tick: crew motion, dwell, consumables and dose | hab-core | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-35, NFR-06 |
+| T22.10 | Implement alert evaluation: radiation, consumables, buddy distance | hab-core | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-37, FR-38 |
+| T22.11 | Implement the scenario loader and its checks | hab-core | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-34, NFR-10 |
+| T22.12 | Implement the session manager: load, commands, persistence, resume | hab-core | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-30, FR-34, NFR-10 |
+| T22.13 | Implement headless replay and the CLI (`make replay`, `make hab`) | hab-core | implement | agent-ready · core | pre-event-if-permitted | M3 | NFR-14 |
+| T22.14 | Verify: two runs give the same hash; 60× full run; tick cost (M3) | hab-core | verify | agent-ready · core | pre-event-if-permitted | M3 | NFR-02, NFR-06, NFR-14 |
+| T22.15 | Fallback — start only if consumables slip past M3: O₂ only | hab-core | fallback | agent-ready · core | pre-event-if-permitted | M3 | FR-35 |
+
+<!-- v2-register:end -->
+
 ## b. Lanes
 
-Role names from [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions). The role owns the lane: it reviews and merges the lane's PRs, whoever (person or agent) does the work.
+Each subtask's *Lane* (the register column) groups related work for the checker's hour totals; the subtask's **Owner** field names the person. Roles R1–R6 come from [06 §A.1](../specs/06_High_Level_Implementation_Plan.md#a1-roles), people from [06 §A.2](../specs/06_High_Level_Implementation_Plan.md#a2-assignment-by-person-proposed-2026-11-05--sign-off-at-the-6-nov-kickoff) (*Proposed* until the kickoff signs it off). The role lead reviews and merges the PRs of their group, whoever (person or agent) does the work.
 
-| Lane | Owner role | Scope |
+| Lane | Role · people | Scope |
 | --- | --- | --- |
-| `data` | Data/GIS lead | TASK-01, TASK-03, data side of TASK-04 and TASK-18; site-config records |
-| `compute` | Compute engineer | TASK-05, TASK-06, compute side of TASK-18 |
-| `frontend` | Frontend engineer | TASK-02, TASK-07–TASK-11 screens and map modules |
-| `design` | Design & story lead | TASK-13, TASK-15, SCR-08 layout and print |
-| `story` | Design & story lead | TASK-00, TASK-12, TASK-16, TASK-17, POI curation, demo plan |
-| `integration` | Compute engineer (06 §C names Compute as TASK-14 owner) | Shared files, dependency batch, CI, walking-skeleton check, spec sync, offline hardening |
+| `data` | R1 Data & GIS · Obidit Islam (Mishkat Ahmed Khan supports) | TASK-01, TASK-03, data side of TASK-04, TASK-21 and TASK-18; site-config records; scenario tables |
+| `compute` | R2 Compute · Mishkat Ahmed Khan (Anjim Hossain supports) | TASK-05, TASK-05b, TASK-06, compute side of TASK-23, TASK-26, TASK-29 and TASK-18 |
+| `hab-core` | R4 Hab Core · Sadman Shaharier Mahim (Anjim Hossain supports) | TASK-20, TASK-22, Hab Core side of TASK-23, TASK-26, TASK-29 and TASK-31; `packages/protocol` jointly with R2 |
+| `frontend` | R3 Map & Planner UI · Saba Atharique; R5 EVA & Ops UI · Ridita Alam | TASK-02, TASK-07–TASK-11 (R3); TASK-24, TASK-25, TASK-27, UI side of TASK-29 and TASK-31 (R5, with R3 on the shared map) |
+| `design` | R6 design system · Ridita Alam | TASK-13, TASK-15, SCR-08 layout and print |
+| `story` | R6 Science, Story & Design · Sadman (demo story, script, task text), Obidit (submission, project page) | TASK-00, TASK-12, TASK-16, TASK-17, TASK-30, POI curation, demo plan, script half of TASK-21 |
+| `integration` | Integration lead · Anjim Hossain | Shared files, dependency batch, CI, walking-skeleton check, spec sync, offline hardening (TASK-14), network kit (TASK-28) |
 
-06 §C names "Story lead" and "Design lead" separately; 06 §A has one "Design & story lead", so both lanes map to that role. Each person's names go in `docs/ops/team.md` (T00.06).
+The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has no owner: whoever has finished their own tasks takes an item, only after M3 passes.
 
 ## c. Path ownership
 
@@ -453,7 +538,7 @@ Role names from [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-plannin
 | `packages/compute/src/sun.ts` | T06.07 | New; stub by T06.01 |
 | `packages/compute/src/radiation.ts` | T06.08 | — |
 | `packages/compute/src/conditions.ts` | T06.09 | New; stub by T06.01 (contract C8); T06.11 may replace it |
-| `packages/compute/src/consumables.ts` | T18.05 | New; desirable |
+| `packages/compute/src/consumables.ts` | T05b.17 | Suit consumables (FR-35, core since v2); T18.05 follows up with the planner's illustrative estimate (FR-19) |
 | `apps/web/src/state/planStore.ts` | T08.03 | Interfaces frozen by T08.01 (stub → T08.03, contract C11); T18.07 follows up |
 | `apps/web/src/state/persist.ts` | T18.07 | New; desirable |
 | `apps/web/src/ui/context.ts` | T07.01 | New; contract C10 |

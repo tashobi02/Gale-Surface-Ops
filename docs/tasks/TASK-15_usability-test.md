@@ -31,6 +31,7 @@
 
 ### T15.01 — Write the usability-test script (3 non-team users, briefing in ≤ 5 min)
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -59,6 +60,7 @@
 
 ### T15.02 — Run three sessions; record times and issues
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -86,6 +88,7 @@
 
 ### T15.03 — Triage the findings into follow-up subtasks
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** event-only

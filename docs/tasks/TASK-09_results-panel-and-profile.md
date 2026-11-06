@@ -44,6 +44,7 @@
 
 ### T09.01 — Implement the route layer (cased legs, dashed NO_ROUTE line, hazard hatch)
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -71,6 +72,7 @@
 
 ### T09.02 — Implement the elevation/slope profile chart
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -98,6 +100,7 @@
 
 ### T09.03 — Implement SCR-05: status banner and metrics row
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -126,6 +129,7 @@
 
 ### T09.04 — Implement the warnings list with click-to-zoom
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -151,6 +155,7 @@
 
 ### T09.05 — Implement profile ↔ map linking (06 fallback: ship the profile without it)
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -175,6 +180,7 @@
 
 ### T09.06 — Run the M3 walking-skeleton check; decide auto-routing go/no-go in ADR-004
 
+- **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** integrate
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -199,6 +205,7 @@
 
 ### T09.07 — Verify SCR-05 states against the OK, PARTIAL and OVER_LIMITS fixtures
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -224,6 +231,7 @@
 
 ### T09.08 — Fallback — start only if T09.06 says no-go: draw legs by hand on the map
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** fallback
 - **Tag:** agent-ready · core
 - **Window:** event-only

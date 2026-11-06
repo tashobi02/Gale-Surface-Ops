@@ -41,6 +41,7 @@
 
 ### T06.01 — Freeze the conditions interface; move the solar functions to `sun.ts`
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** contract
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -67,6 +68,7 @@
 
 ### T06.02 — Fixture: Mars24 reference values generated with `marstime`
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** fixture
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -93,6 +95,7 @@
 
 ### T06.03 — Tests: Mars24 time and sun functions vs `marstime`
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · cut-5
 - **Window:** event-only
@@ -119,6 +122,7 @@
 
 ### T06.04 — Tests: radiation estimate
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -144,6 +148,7 @@
 
 ### T06.05 — Tests: conditions assembly
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -169,6 +174,7 @@
 
 ### T06.06 — Implement the Mars24 time functions (MSD, L_s, LTST, east → west longitude)
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · cut-5
 - **Window:** event-only
@@ -193,6 +199,7 @@
 
 ### T06.07 — Implement solar position and flat-horizon sunrise/sunset
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · cut-5
 - **Window:** event-only
@@ -217,6 +224,7 @@
 
 ### T06.08 — Implement the radiation estimate
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -240,6 +248,7 @@
 
 ### T06.09 — Implement conditions assembly (timeline LTST, sun elevation, radiation)
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -264,6 +273,7 @@
 
 ### T06.10 — Write the RAD EnvConstant and DataSource records (05 §C values verbatim)
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -289,6 +299,7 @@
 
 ### T06.11 — Fallback — start only if Mars24 tests fail or cut 5 is called: precomputed sun table for the demo dates
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** fallback
 - **Tag:** agent-ready · core
 - **Window:** event-only

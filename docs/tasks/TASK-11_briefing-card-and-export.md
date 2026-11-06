@@ -41,6 +41,7 @@
 
 ### T11.01 — Tests: plan hash and export (canonical JSON, schema-valid, reproducible)
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -69,6 +70,7 @@
 
 ### T11.02 — Implement the plan hash and PlanExport assembly
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -96,6 +98,7 @@
 
 ### T11.03 — Implement the SCR-08 layout and print CSS
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -124,6 +127,7 @@
 
 ### T11.04 — Implement the route map snapshot
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -149,6 +153,7 @@
 
 ### T11.05 — Verify one-page print in Chrome and plan_hash reproduction
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -177,6 +182,7 @@
 
 ### T11.06 — Fallback — start only if the map snapshot cannot be made to work: static AOI thumbnail with the route as SVG
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** fallback
 - **Tag:** agent-ready · core
 - **Window:** event-only

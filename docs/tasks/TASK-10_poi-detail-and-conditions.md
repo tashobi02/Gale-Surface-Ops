@@ -40,6 +40,7 @@
 
 ### T10.01 — Implement SCR-06 POI Detail
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -69,6 +70,7 @@
 
 ### T10.02 — Implement SCR-07 Conditions
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -97,6 +99,7 @@
 
 ### T10.03 — Verify POI images with credits and the daylight warning for a pre-dawn start
 
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** event-only

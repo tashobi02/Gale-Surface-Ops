@@ -39,6 +39,7 @@ No subtask of this task depends on another task (map §f).
 
 ### T01.01 — Download the 1 m Gale DEM; record its PDS3 label datum and no-data value
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -69,6 +70,7 @@ No subtask of this task depends on another task (map §f).
 
 ### T01.02 — Propose AOI bounds from Curiosity's 2025 traverse, inside the DEM extent
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -98,6 +100,7 @@ No subtask of this task depends on another task (map §f).
 
 ### T01.03 — Judge DEM quality in the AOI from a hillshade; measure one reference feature
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -129,6 +132,7 @@ No subtask of this task depends on another task (map §f).
 
 ### T01.04 — Check THEMIS TI tile, colour HiRISE COG and CRISM coverage of the AOI by window reads
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** verify
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -158,6 +162,7 @@ No subtask of this task depends on another task (map §f).
 
 ### T01.05 — Decide D-01; write the feasibility summary and ADR-001
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -187,6 +192,7 @@ No subtask of this task depends on another task (map §f).
 
 ### T01.06 — Fallback — start only if T01.05 finds the AOI DEM is not HiRISE-quality: spec-change to Jezero and re-plan
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** fallback
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed

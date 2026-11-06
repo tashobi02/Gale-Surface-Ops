@@ -41,6 +41,7 @@
 
 ### T04.01 — Choose and cache the traverse source (U-04); write its DataSource and Layer records
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -67,6 +68,7 @@
 
 ### T04.02 — Tests: traverse and POI packaging
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -97,6 +99,7 @@
 
 ### T04.03 — Implement traverse and POI packaging
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -122,6 +125,7 @@
 
 ### T04.04 — Curate POIs 1–4 with images, credits and position sources; write the POI layer record
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -149,6 +153,7 @@
 
 ### T04.05 — Curate POIs 5–8 (at least one, to reach the 5-POI minimum)
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -172,6 +177,7 @@
 
 ### T04.06 — Write the dataset and image credits list
 
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -196,6 +202,7 @@
 
 ### T04.07 — Resolve U-03: TI "loose fines" threshold from the AOI histogram and literature
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** human
 - **Tag:** human-required · cut-4
 - **Window:** pre-event-allowed
@@ -221,6 +228,7 @@
 
 ### T04.08 — Verify traverse alignment with HiRISE tracks at the checkpoints; record the offset
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -245,6 +253,7 @@
 
 ### T04.09 — Fallback — start only if PLACES parsing is too slow: MMGIS JSON cached once, labelled unofficial
 
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** fallback
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed

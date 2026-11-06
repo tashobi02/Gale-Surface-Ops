@@ -42,6 +42,7 @@
 
 ### T13.01 — Freeze CSS token and status-class names v1 against 04 §C
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** contract
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -69,6 +70,7 @@
 
 ### T13.02 — Self-host Inter and IBM Plex Mono; verify their licences
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -94,6 +96,7 @@
 
 ### T13.03 — Sketch SCR-02 and SCR-08 wireframes on paper (04 §F)
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -119,6 +122,7 @@
 
 ### T13.04 — Implement base styles: typography, focus ring, reduced motion
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -146,6 +150,7 @@
 
 ### T13.05 — Implement status icons and patterns
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -172,6 +177,7 @@
 
 ### T13.06 — Implement keyboard map controls (04 §E)
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -201,6 +207,7 @@
 
 ### T13.07 — follow-up: first-run coach marks
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** implement
 - **Tag:** agent-ready · cut-2
 - **Window:** event-only
@@ -227,6 +234,7 @@
 
 ### T13.08 — Implement the light theme (U-08)
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** implement
 - **Tag:** agent-ready · cut-2
 - **Window:** event-only
@@ -253,6 +261,7 @@
 
 ### T13.09 — Verify the axe scan: 0 serious issues
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** verify
 - **Tag:** agent-ready · core
 - **Window:** event-only
@@ -278,6 +287,7 @@
 
 ### T13.10 — Verify a keyboard-only run of the core scenario
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** verify
 - **Tag:** human-required · core
 - **Window:** event-only
@@ -304,6 +314,7 @@
 
 ### T13.11 — Self-host the outline icon set and verify its licence
 
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed

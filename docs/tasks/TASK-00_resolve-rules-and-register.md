@@ -38,6 +38,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
 
 ### T00.01 — Check the Space Apps rules page and Participants Guide for the pre-event code rule
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -63,6 +64,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
 
 ### T00.02 — Ask the Dhaka Local Lead; confirm every member is registered (NASA site + Bangladesh form)
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -88,6 +90,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
 
 ### T00.03 — Record the answer, registration status and Track S or P in `docs/ops/rules.md`
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -115,6 +118,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
 
 ### T00.04 — Update the phase-gate line in `CLAUDE.md` and `AGENTS.md` for the recorded track
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** integrate
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -140,6 +144,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
 
 ### T00.05 — Fallback — start only if no answer by 4 Nov (U-12 due date): declare Track S
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** fallback
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -163,6 +168,7 @@ TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or 
 
 ### T00.06 — Record team roster and skills (U-13) and venue type (U-14)
 
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed

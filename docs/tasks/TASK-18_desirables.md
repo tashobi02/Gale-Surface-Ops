@@ -46,6 +46,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 
 ### T18.01 — follow-up: CRISM layer and bundle re-release (only if T01.04 finds MTRDR coverage)
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
 - **Window:** event-only
@@ -73,6 +74,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 
 ### T18.02 — Build REMS L_s-bin temperature and pressure context from named RDR files
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
 - **Window:** event-only
@@ -100,6 +102,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 
 ### T18.03 — follow-up: seasonal-weather section in SCR-07
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
 - **Window:** event-only
@@ -123,19 +126,20 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 - **Agent brief:** In `apps/web/src/ui/screens/scr07Conditions.tsx`, add a seasonal-weather section that shows the REMS ranges for the plan's L_s bin through the metric component, with provenance and source link, and keeps "Not included in this build" when no REMS data exists. Edit nothing else.
 - **Conflict notes:** Edits SCR-07 only after T10.02 has merged; no other planned writer at the same time. Styling uses existing tokens; a `.css` change would need its own `follow-up:` entry in the map.
 
-### T18.04 — Tests: illustrative O₂ estimate (02 §D.6)
+### T18.04 — follow-up: tests for the planner's illustrative O₂ estimate (02 §D.6)
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** test
 - **Tag:** agent-ready · desirable
 - **Window:** event-only
 - **Estimate:** 0.5 h
-- **Owns (writes):** `packages/compute/tests/consumables.test.ts`
+- **Owns (writes):** `packages/compute/tests/consumables.test.ts` (after T05b.16)
 - **Reads:** [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable), [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s), [Test-case allocation](_coordination.md#test-case-allocation)
-- **Depends on:** T14.06 (hard: 06 TASK-18 gate, freeze criteria met early)
+- **Depends on:** T05b.16 (hard: owner of the test file; the engine's suit-consumables cases come first), T14.06 (hard: 06 TASK-18 gate, freeze criteria met early)
 - **Parallel with:** T18.01, T18.02, T18.03, T18.07
 - **Steps:**
   1. Create `packages/compute/tests/consumables.test.ts`.
-  2. Import `o2LitresPerMinute(metabolicW)` from `src/compute/consumables.ts` (signature fixed here; T18.05 creates the module).
+  2. Import `o2LitresPerMinute(metabolicW)` from `packages/compute/src/consumables.ts` (the module exists since T05b.17; this subtask adds the planner estimate's signature beside the suit-consumables functions).
   3. Encode the one allocated case: 351.7 W → ≈ 1.03 L/min, compared at the two decimals the spec writes (tolerance `TODO(verify)`).
   4. Open the PR as a draft; T18.05 stacks on it ([§h.3](_coordination.md#h3-tests-first-merge-order)).
 - **Acceptance:**
@@ -145,17 +149,18 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
   - It fails before T18.05 and passes after.
 - **Verify:** `npx vitest run tests/compute/consumables.test.ts` (run in `apps/web/`).
 - **Agent brief:** Write `packages/compute/tests/consumables.test.ts` with one Vitest case from 02 §D.6: `o2LitresPerMinute(351.7)` rounds to 1.03 L/min. Copy the numbers from the spec; add no other cases.
-- **Conflict notes:** Owns only the test file. Stays a draft until T18.05 makes it pass; the two merge back to back.
+- **Conflict notes:** Edits the test file after its owner T05b.16 (follow-up); add cases, never change the suit-consumables cases. Stays a draft until T18.05 makes it pass; the two merge back to back.
 
-### T18.05 — Implement the illustrative O₂ estimate
+### T18.05 — follow-up: implement the planner's illustrative O₂ estimate
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
 - **Window:** event-only
 - **Estimate:** 0.5–1 h
-- **Owns (writes):** `packages/compute/src/consumables.ts`
+- **Owns (writes):** `packages/compute/src/consumables.ts` (after T05b.17)
 - **Reads:** `packages/compute/tests/consumables.test.ts`; [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable), [02 §D](../specs/02_Technical_Requirements_Document.md#d-core-processing-and-simulation-behavior), [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s)
-- **Depends on:** T18.04 (hard: tests first, paired test), T14.06 (hard: 06 TASK-18 gate, freeze criteria met early)
+- **Depends on:** T05b.17 (hard: owner of `consumables.ts` since v2, FR-35), T18.04 (hard: tests first, paired test), T14.06 (hard: 06 TASK-18 gate, freeze criteria met early)
 - **Parallel with:** T18.01, T18.02, T18.03, T18.07
 - **Steps:**
   1. Create `packages/compute/src/consumables.ts` as a pure module: no DOM, no fetch (02 §D).
@@ -171,10 +176,11 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
   - `make typecheck` passes.
 - **Verify:** `npx vitest run tests/compute/consumables.test.ts` (run in `apps/web/`); `make typecheck`; `grep -rn consumables packages/compute/src` lists no import from `route.ts`, `warnings.ts` or `handler.ts`.
 - **Agent brief:** Create `packages/compute/src/consumables.ts` exporting `o2LitresPerMinute(metabolicW)` and the two 02 §D.6 constants with their labels, so `tests/compute/consumables.test.ts` passes. Pure function; nothing in routing or warnings may use it.
-- **Conflict notes:** New file. Branch stacked on T18.04; merge right after it.
+- **Conflict notes:** Edits `consumables.ts` after its owner T05b.17 (follow-up): add the planner estimate, never change the suit-consumables functions. Branch stacked on T18.04; merge right after it.
 
 ### T18.06 — follow-up: show the O₂ estimate labelled "illustrative"
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
 - **Window:** event-only
@@ -202,6 +208,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 
 ### T18.07 — follow-up: save and restore the last plan in browser storage
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
 - **Window:** event-only
@@ -229,6 +236,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 
 ### T18.08 — Cache the CRISM and REMS source files before 13 Nov
 
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** human
 - **Tag:** human-required · desirable
 - **Window:** pre-event-allowed

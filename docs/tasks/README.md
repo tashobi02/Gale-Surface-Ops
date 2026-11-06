@@ -275,8 +275,70 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T18.01 | follow-up: CRISM layer and bundle re-release (only if T01.04 finds MTRDR coverage) | data | event-only | M5–M6 | |
 | T18.02 | Build REMS L_s-bin temperature and pressure context from named RDR files | data | event-only | M5–M6 | |
 | T18.03 | follow-up: seasonal-weather section in SCR-07 | frontend | event-only | M5–M6 | |
-| T18.04 | Tests: illustrative O₂ estimate (02 §D.6) | compute | event-only | M5–M6 | |
-| T18.05 | Implement the illustrative O₂ estimate | compute | event-only | M5–M6 | |
+| T18.04 | follow-up: tests for the planner's illustrative O₂ estimate (02 §D.6) | compute | event-only | M5–M6 | |
+| T18.05 | follow-up: implement the planner's illustrative O₂ estimate | compute | event-only | M5–M6 | |
 | T18.06 | follow-up: show the O₂ estimate labelled "illustrative" | frontend | event-only | M5–M6 | |
 | T18.07 | follow-up: save and restore the last plan in browser storage | frontend | event-only | M5–M6 | |
 | T18.08 | Cache the CRISM and REMS source files before 13 Nov | data | pre-event-allowed | M1–M2 | |
+
+<!-- v2-claims:begin -->
+| T05b.01 | Freeze the v2 compute signatures | compute | pre-event-allowed | M1 | |
+| T05b.02 | Fixture: synthetic v2 grids | compute | pre-event-allowed | M1 | |
+| T05b.03 | Tests: time to haven (02 §D.8 cases) | compute | pre-event-if-permitted | M1 | |
+| T05b.04 | Implement haven fields (reverse Dijkstra, bounded Dijkstra, live and planning forms) | compute | pre-event-if-permitted | M1 | |
+| T05b.05 | Verify the full-grid Dijkstra benchmark on the weakest laptop (M1 go/no-go) | compute | pre-event-if-permitted | M1 | |
+| T05b.06 | Tests: rendezvous (02 §D.10 cases) | compute | pre-event-if-permitted | M2 | |
+| T05b.07 | Implement the rendezvous search | compute | pre-event-if-permitted | M2 | |
+| T05b.08 | Tests: line of sight, curvature and dynamic viewshed (02 §D.11) | compute | pre-event-if-permitted | M2 | |
+| T05b.09 | Implement line of sight and the 20 m dynamic viewshed | compute | pre-event-if-permitted | M2 | |
+| T05b.10 | Tests: surface link graph | compute | pre-event-if-permitted | M2 | |
+| T05b.11 | Implement the surface link graph | compute | pre-event-if-permitted | M2 | |
+| T05b.12 | Tests: Earth delivery rule | compute | pre-event-if-permitted | M2 | |
+| T05b.13 | Implement the Earth delivery rule | compute | pre-event-if-permitted | M2 | |
+| T05b.14 | Tests: radiation trigger and event dose integral | compute | pre-event-if-permitted | M2 | |
+| T05b.15 | Implement the radiation trigger and event dose integral | compute | pre-event-if-permitted | M2 | |
+| T05b.16 | Tests: suit consumables (02 §D.14) | compute | pre-event-if-permitted | M2 | |
+| T05b.17 | Implement suit consumables | compute | pre-event-if-permitted | M2 | |
+| T05b.18 | Tests: contingency options and ranking (02 §D.15) | compute | pre-event-if-permitted | M3 | |
+| T05b.19 | Implement contingency options and ranking | compute | pre-event-if-permitted | M3 | |
+| T05b.20 | Verify on the real grid: haven, rendezvous and viewshed vs independent checks; NFR-02 timings | compute | pre-event-if-permitted | M3 | |
+| T05b.21 | Fallback — start only if T05b.05 says no-go: 10 m grid for all fields; `T_hab` precomputed in the pipeline | compute | pre-event-if-permitted | M1–M2 | |
+| T20.01 | Freeze `packages/protocol` v0: runtime entities, wire messages, permissions | hab-core | pre-event-allowed | M1 | |
+| T20.02 | Fixture: mock WebSocket message sequences for the demo beats | hab-core | pre-event-allowed | M1 | |
+| T20.03 | Tests: server handshake, fan-out, reconnect and heartbeat | hab-core | pre-event-if-permitted | M1 | |
+| T20.04 | Implement the HTTP + WebSocket server | hab-core | pre-event-if-permitted | M1 | |
+| T20.05 | Tests: web client handshake, ordering, reconnect and link-lost | hab-core | pre-event-if-permitted | M2 | |
+| T20.06 | Implement the web client for the Hab Core | hab-core | pre-event-if-permitted | M2 | |
+| T20.07 | Build the LAN spike page and script | hab-core | pre-event-if-permitted | M1 | |
+| T20.08 | Verify the LAN spike: 2 phones + 1 laptop ≤ 500 ms on the router (M1 go/no-go) | hab-core | pre-event-if-permitted | M1 | |
+| T20.09 | Fallback — start only if T20.08 says no-go: single-laptop multi-window mode | hab-core | pre-event-if-permitted | M1–M3 | |
+| T21.01 | Freeze the scenario folder layout and the table formats | data | pre-event-allowed | M1 | |
+| T21.02 | Download the SPICE kernels for 18–22 May 2024; record exact files (U-18) | data | pre-event-allowed | M2 | |
+| T21.03 | Tests: SPICE table, DONKI extraction and RAD series | data | pre-event-allowed | M2 | |
+| T21.04 | Implement the SPICE Earth-link table | data | pre-event-allowed | M2 | |
+| T21.05 | Decide the DONKI window (U-44); implement DONKI extraction | data | pre-event-allowed | M2 | |
+| T21.06 | Download the RAD series; verify sol-4190 coverage (U-15) and the product (U-45) | data | pre-event-allowed | M2 | |
+| T21.07 | Implement the RAD dose-series extraction | data | pre-event-allowed | M2 | |
+| T21.08 | Assemble `scenario.json` with checksums and initial stop tasks | data | pre-event-allowed | M2 | |
+| T21.09 | spec-change: choose the EVA start time; write the final demo numbers into 01 §E.1 and the demo script | story | pre-event-allowed | M2 | |
+| T21.10 | Verify: the timeline table reproduces source times (M2) | data | pre-event-allowed | M2 | |
+| T21.11 | Fixture: real-scenario excerpt for engine tests | data | pre-event-if-permitted | M2 | |
+| T21.12 | Build the demo `PlanExport` headlessly from the demo plan stops | compute | pre-event-allowed | M2 | |
+| T21.13 | Fallback — start only if T21.06 finds no sol-4190 series: digitised dose curve | data | pre-event-allowed | M2 | |
+| T21.14 | Fallback — start only if T21.02 cannot get the kernels: fixed light time for the date | data | pre-event-allowed | M2 | |
+| T22.01 | Freeze engine interfaces; create the engine-module stubs | hab-core | pre-event-allowed | M1 | |
+| T22.02 | Fixture: fake scenario with a straight-line route and a stepped dose curve | hab-core | pre-event-allowed | M1 | |
+| T22.03 | Tests: mission clock | hab-core | pre-event-if-permitted | M2 | |
+| T22.04 | Implement the mission clock | hab-core | pre-event-if-permitted | M2 | |
+| T22.05 | Tests: reducer, event log, `log_hash`, snapshots and determinism | hab-core | pre-event-if-permitted | M2 | |
+| T22.06 | Implement the reducer | hab-core | pre-event-if-permitted | M2 | |
+| T22.07 | Implement the append-only event log, `log_hash` and snapshots | hab-core | pre-event-if-permitted | M2 | |
+| T22.08 | Tests: tick — crew motion, dwell, consumables, dose and alert order | hab-core | pre-event-if-permitted | M2 | |
+| T22.09 | Implement tick: crew motion, dwell, consumables and dose | hab-core | pre-event-if-permitted | M3 | |
+| T22.10 | Implement alert evaluation: radiation, consumables, buddy distance | hab-core | pre-event-if-permitted | M3 | |
+| T22.11 | Implement the scenario loader and its checks | hab-core | pre-event-if-permitted | M2 | |
+| T22.12 | Implement the session manager: load, commands, persistence, resume | hab-core | pre-event-if-permitted | M3 | |
+| T22.13 | Implement headless replay and the CLI (`make replay`, `make hab`) | hab-core | pre-event-if-permitted | M3 | |
+| T22.14 | Verify: two runs give the same hash; 60× full run; tick cost (M3) | hab-core | pre-event-if-permitted | M3 | |
+| T22.15 | Fallback — start only if consumables slip past M3: O₂ only | hab-core | pre-event-if-permitted | M3 | |
+<!-- v2-claims:end -->
