@@ -1,0 +1,16 @@
+{
+  "layer_id": "ortho",
+  "title": "Orthoimage",
+  "category": "optical",
+  "kind": "raster_tiles",
+  "provenance": "measured",
+  "source_ids": ["usgs-gale-ortho-25cm-v3"],
+  "legend": {"type": "none"},
+  "native_resolution_m": 0.25,
+  "display_resolution_m": 0.5,
+  "asset_id": "tiles-ortho",
+  "tile_grid": {"origin_m": [-3000, 3000], "resolutions_m": [32, 16, 8, 4, 2], "tile_size_px": 256, "format": "png"},
+  "default_visible": true,
+  "optional": false,
+  "limitations": "Missing data is transparent. The colour COG has about 7.74% real greyscale strips in the AOI window (nearest-neighbour sample); valid-mask black RGB pixels are TODO(verify)."
+}

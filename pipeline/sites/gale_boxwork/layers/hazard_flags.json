@@ -1,0 +1,16 @@
+{
+  "layer_id": "hazard_flags",
+  "title": "Hazard flags",
+  "category": "hazard",
+  "kind": "raster_tiles",
+  "provenance": "assumed",
+  "source_ids": ["usgs-gale-dem-1m-v3", "usgs-themis-ti-30s120e"],
+  "legend": {"type": "none"},
+  "native_resolution_m": 5,
+  "display_resolution_m": 5,
+  "asset_id": "tiles-hazard_flags",
+  "tile_grid": {"origin_m": [-3000, 3000], "resolutions_m": [32, 16, 8, 4, 2], "tile_size_px": 256, "format": "png"},
+  "default_visible": false,
+  "optional": true,
+  "limitations": "Interpretive flags: HARD_HAZARD is team-digitised; LOW_TI marks TI below an unresolved threshold as possible loose fines; TI_UNKNOWN marks missing TI coverage; LOW_RES_DEM identifies cells filled by lower-resolution DEM sources when source mapping is available."
+}

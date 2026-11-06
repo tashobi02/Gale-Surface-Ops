@@ -1,0 +1,17 @@
+{
+  "layer_id": "comm_hab",
+  "title": "Hab antenna coverage",
+  "category": "mission",
+  "kind": "raster_tiles",
+  "provenance": "derived",
+  "source_ids": ["usgs-gale-dem-1m-v3"],
+  "derived_from": ["elevation"],
+  "legend": {"type": "classes", "classes": [[0, 0, "not visible"], [1, 1, "visible"]]},
+  "native_resolution_m": 5,
+  "display_resolution_m": 5,
+  "asset_id": "tiles-comm_hab",
+  "tile_grid": {"origin_m": [-3000, 3000], "resolutions_m": [32, 16, 8, 4, 2], "tile_size_px": 256, "format": "png"},
+  "default_visible": false,
+  "optional": true,
+  "limitations": "Binary LOS only: no Fresnel zone, diffraction, multipath or link budget"
+}
