@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | Plan hash and PlanExport builder with a local JSON download | `apps/web/src/export/planExport.ts` | T11.03, T11.05, T14.08, T18.07 |
 | Export and hash tests | `apps/web/tests/export/planExport.test.ts` | T11.02 (stacked pair) |
-| SCR-08 Briefing card and print CSS | `apps/web/src/ui/screens/scr08BriefingCard.ts`, `apps/web/src/ui/screens/scr08BriefingCard.css` | T07.03 (route `#/briefing`), T12.02, T12.06, T13.09, T13.10, T14.06, T17.02, T18.06 |
+| SCR-08 Briefing card and print CSS | `apps/web/src/ui/screens/scr08BriefingCard.tsx`, `apps/web/src/ui/screens/scr08BriefingCard.css` | T07.03 (route `#/briefing`), T12.02, T12.06, T13.09, T13.10, T14.06, T17.02, T18.06 |
 | Route map snapshot | `apps/web/src/ui/briefing/mapSnapshot.ts` | T11.03 |
 | Print and export verification record | `docs/ops/verification-log.md` (T11.05 section) | T14.06, T16.06 |
 
@@ -100,7 +100,7 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2.5–3 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr08BriefingCard.ts`, `apps/web/src/ui/screens/scr08BriefingCard.css`
+- **Owns (writes):** `apps/web/src/ui/screens/scr08BriefingCard.tsx`, `apps/web/src/ui/screens/scr08BriefingCard.css`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/export/planExport.ts`, `apps/web/src/ui/briefing/mapSnapshot.ts`, `apps/web/src/ui/results/profileChart.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/components/statusIcon.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/tests/fixtures/plan-results/`, `apps/web/tests/fixtures/mockWorker.ts`, `data/sites/mock_site/`, `docs/design/wireframes/`, [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate), [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export), [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video), [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12)
 - **Depends on:** T09.01–T09.02 (hard: the briefing card renders the real profile, 06 TASK-11 after TASK-09), T07.01 (soft), T08.01 (soft), T13.01 (soft), T05.03 (soft), T03.02 (soft)
 - **Parallel with:** T11.01, T11.02, T11.04
@@ -119,7 +119,7 @@
   - Every displayed value carries `data-provenance` and a source id (FR-15, NFR-05; checked by T12.02).
   - Print preview in Chrome fits one page without clipping for all three fixtures (confirmed in T11.05).
 - **Verify:** `make typecheck`; manual: in `make dev` with the mock worker on `?site=mock_site`, open `#/briefing` for each F2 fixture and check Chrome print preview shows one page.
-- **Agent brief:** Implement SCR-08 in `scr08BriefingCard.ts` and `.css` from 03 SCR-08 and 04 §F: header, map snapshot, stops/timeline table, profile (T09.02), metrics, warnings, conditions, constraints and assumptions, sources, disclaimer; PARTIAL and OVER_LIMITS banners; print CSS that fits one A4 or Letter page with the 04 §C.1 print theme. Every value goes through the metric component with provenance. Check against the F2 fixtures via the mock worker.
+- **Agent brief:** Implement SCR-08 in `scr08BriefingCard.tsx` and `.css` from 03 SCR-08 and 04 §F: header, map snapshot, stops/timeline table, profile (T09.02), metrics, warnings, conditions, constraints and assumptions, sources, disclaimer; PARTIAL and OVER_LIMITS banners; print CSS that fits one A4 or Letter page with the 04 §C.1 print theme. Every value goes through the metric component with provenance. Check against the F2 fixtures via the mock worker.
 - **Conflict notes:** Writes only the two `scr08BriefingCard` files. `tokens.css` is append-only after T13.01: add a missing print token there with a 04 §C reference, never here. Uses the T07.01 stubs (`planExport.ts`, `mapSnapshot.ts`, `metric.ts`, `statusIcon.ts`, `profileChart.ts`) without editing them. Merge after T09.01–T09.02; T18.06 follows up on this file later.
 
 ### T11.04 — Implement the route map snapshot

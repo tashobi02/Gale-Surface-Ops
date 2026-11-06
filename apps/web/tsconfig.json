@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "WebWorker"],
+    "jsx": "react-jsx",
     "types": ["vite/client"]
   },
   "include": ["src", "tests", "vite.config.ts"]

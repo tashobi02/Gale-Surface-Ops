@@ -32,7 +32,7 @@
 | --- | --- | --- |
 | Metric and provenance-chip component | `apps/web/src/ui/components/metric.ts` | T07.06, T07.09, T07.10, T07.12, T08.04, T08.05, T09.02–T09.04, T10.01, T10.02, T11.03, T12.03 |
 | DOM provenance test | `apps/web/tests/ui/provenance.test.ts` | T12.06, T14.06 (06 §D.6: all Vitest suites green) |
-| SCR-09 Sources & Methods | `apps/web/src/ui/screens/scr09SourcesMethods.ts`, `apps/web/src/ui/screens/scr09SourcesMethods.css` | T07.03 (route registry), T12.06, T16.03–T16.06, T17.02 (demo step 9) |
+| SCR-09 Sources & Methods | `apps/web/src/ui/screens/scr09SourcesMethods.tsx`, `apps/web/src/ui/screens/scr09SourcesMethods.css` | T07.03 (route registry), T12.06, T16.03–T16.06, T17.02 (demo step 9) |
 | Methods, models and limitations content | `apps/web/src/ui/content/methods.json` | T12.03 |
 | Model DataSource records | `pipeline/sites/gale_boxwork/sources/` (three files) | T03.13, T03.19, T11.02 (`provenance_summary` source ids), T12.03 |
 | Verification record | `docs/ops/verification-log.md` (section T12.06) | T16.05 |
@@ -103,7 +103,7 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr09SourcesMethods.ts`, `apps/web/src/ui/screens/scr09SourcesMethods.css`
+- **Owns (writes):** `apps/web/src/ui/screens/scr09SourcesMethods.tsx`, `apps/web/src/ui/screens/scr09SourcesMethods.css`
 - **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/content/methods.json`, `apps/web/src/ui/components/metric.ts`, `packages/protocol/src/schema.ts` (`DataSource`, `Layer`, `EnvConstant`), `apps/web/src/ui/styles/tokens.css` (C12), `data/sites/mock_site/site-manifest.json` (F4), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [03 §E.2](../specs/03_App_Flow_and_Diagrams.md#e2-screen-navigation), [04 §F SCR-09](../specs/04_Design_Brief.md#scr-09-sources--methods), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract)
 - **Depends on:** T12.01 (hard: values render through the metric component), T12.04 (hard: renders the methods content), T07.01 (soft), T13.01 (soft), T03.01 (soft), T03.02 (soft)
 - **Parallel with:** T12.02, T10.01, T10.02, T11.03
@@ -124,7 +124,7 @@
   - All controls and anchors are keyboard reachable with the focus ring, and text uses the 04 §C.1 tokens (NFR-04).
   - Source links are plain anchors; opening SCR-09 fetches nothing (NFR-01, NFR-08).
 - **Verify:** `make typecheck`; once T12.02 is merged, `npx vitest run tests/ui/provenance.test.ts` (run in `apps/web/`) shows SCR-09 not skipped; manual check in `make dev` with `?site=mock_site`: open `#/sources` and `#/sources#layer-slope`, tab through every anchor, repeat with devtools Offline.
-- **Agent brief:** Implement SCR-09 in `apps/web/src/ui/screens/scr09SourcesMethods.ts` and its `.css`: a full-screen overlay with the 03 SCR-09 sections in the 04 §F layout. Datasets come from the manifest `sources`, methods from `apps/web/src/ui/content/methods.json`, values through the metric component, plus deep-link anchors such as `#layer-slope`. Do not touch the router (T07.03) or other screens.
+- **Agent brief:** Implement SCR-09 in `apps/web/src/ui/screens/scr09SourcesMethods.tsx` and its `.css`: a full-screen overlay with the 03 SCR-09 sections in the 04 §F layout. Datasets come from the manifest `sources`, methods from `apps/web/src/ui/content/methods.json`, values through the metric component, plus deep-link anchors such as `#layer-slope`. Do not touch the router (T07.03) or other screens.
 - **Conflict notes:** T07.03 registers `#/sources`; screens never edit the router. The anchor scheme is shared with T12.01 through C10 (spec question 4). Methods text and equations come only from `methods.json`, never hard-coded. Needs no new token; if one is missing, raise it instead of defining local CSS variables.
 
 ### T12.04 — Write the methods, models and limitations content from 02 §C–§D

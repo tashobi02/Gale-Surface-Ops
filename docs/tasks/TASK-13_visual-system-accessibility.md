@@ -19,7 +19,7 @@
 | C12 token and status-class names (`apps/web/src/ui/styles/tokens.css` v1) | contract | T13.01 | soft (T13.04, T13.05, T13.07, T13.08) |
 | C10 UI app context and map handle; stubs `apps/web/src/ui/components/statusIcon.ts`, `apps/web/src/ui/map/keyboard.ts` | contract | T07.01 | soft (T13.05, T13.06) |
 | C11 plan-store state and actions (selected stop, delete, status) | contract | T08.01 | soft (T13.06) |
-| SCR-02 workspace `apps/web/src/ui/screens/scr02MapWorkspace.ts` and `.css` | upstream output | T07.08 | hard (T13.07 follow-up) |
+| SCR-02 workspace `apps/web/src/ui/screens/scr02MapWorkspace.tsx` and `.css` | upstream output | T07.08 | hard (T13.07 follow-up) |
 | Integrated screens on the real bundle: SCR-00 (T14.04), SCR-01 (T07.05), SCR-02 (T07.08), SCR-03 (T07.09), SCR-04 (T08.04, T08.05), SCR-05 (T09.03, T09.04), SCR-06 (T10.01), SCR-07 (T10.02), SCR-08 (T11.03), SCR-09 (T12.03) | upstream output | those subtasks | hard (T13.09, T13.10) |
 | Axe tooling decision and any dependency it needs | upstream output | T14.01 | hard (T13.09; map change proposed, Spec question 5) |
 
@@ -197,7 +197,7 @@
   - No shortcut fires while typing in an input; `A` and `Enter` are not bound here.
 - **Verify:** `make lint typecheck`; manual keyboard-only check on `make dev` (mock site or real bundle) of each key above; note appended to the verification log.
 - **Agent brief:** Fill `apps/web/src/ui/map/keyboard.ts` (stub from T07.01): arrow-key pan, `+`/`−` zoom, `Delete` for the selected stop, `B` for the briefing (only when enabled) and `?` for sources, per 04 §E, through the C10 map handle and C11 store. Do not bind `A` or `Enter` (T08.07). Prefer OpenLayers' built-in keyboard interactions where they fit (verify first).
-- **Conflict notes:** `keyboard.ts` is a T07.01 stub; signature changes need `contract-change:` on C10. Key ownership: `A`/`Enter` → T08.07; the other 04 §E map keys → here. The workspace (T07.08) mounts the stub entry, so no edit to `scr02MapWorkspace.ts` is needed. Verification log is append-only.
+- **Conflict notes:** `keyboard.ts` is a T07.01 stub; signature changes need `contract-change:` on C10. Key ownership: `A`/`Enter` → T08.07; the other 04 §E map keys → here. The workspace (T07.08) mounts the stub entry, so no edit to `scr02MapWorkspace.tsx` is needed. Verification log is append-only.
 
 ### T13.07 — follow-up: first-run coach marks
 
@@ -205,8 +205,8 @@
 - **Tag:** agent-ready · cut-2
 - **Window:** event-only
 - **Estimate:** 1–1.5 h
-- **Owns (writes):** `apps/web/src/ui/coachMarks.ts`, `apps/web/src/ui/screens/scr02MapWorkspace.ts` (after T07.08), `apps/web/src/ui/screens/scr02MapWorkspace.css` (after T07.08), `docs/ops/verification-log.md` (append-only)
-- **Reads:** [04 §D Discoverability](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), `apps/web/src/ui/styles/tokens.css`, `apps/web/src/ui/screens/scr02MapWorkspace.ts` (Layers tab, map area, top-bar Briefing button), [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind) cut 2
+- **Owns (writes):** `apps/web/src/ui/coachMarks.ts`, `apps/web/src/ui/screens/scr02MapWorkspace.tsx` (after T07.08), `apps/web/src/ui/screens/scr02MapWorkspace.css` (after T07.08), `docs/ops/verification-log.md` (append-only)
+- **Reads:** [04 §D Discoverability](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), `apps/web/src/ui/styles/tokens.css`, `apps/web/src/ui/screens/scr02MapWorkspace.tsx` (Layers tab, map area, top-bar Briefing button), [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind) cut 2
 - **Depends on:** T07.08 (hard: follow-up edit of the SCR-02 workspace after its owner merges), T13.01 (soft)
 - **Parallel with:** T13.06, T13.08, T13.09
 - **Steps:**
@@ -214,7 +214,7 @@
   2. Implement the three 04 §D steps — "Turn on Slope", "Click a POI → Add as stop", "Open Briefing" — dismissible and kept in memory only (no browser storage).
   3. Anchor them to elements of the SCR-02 workspace itself (Layers tab, map area, top-bar Briefing button), so no other screen is needed.
   4. Make them keyboard operable: focus moves to the mark, Dismiss or `Escape` closes it, focus returns; no animation under reduced motion (04 §E).
-  5. Add one call in `scr02MapWorkspace.ts` that starts the marks on first render, plus their styles in `scr02MapWorkspace.css` using C12 tokens only.
+  5. Add one call in `scr02MapWorkspace.tsx` that starts the marks on first render, plus their styles in `scr02MapWorkspace.css` using C12 tokens only.
   6. Append a manual test note to the verification log.
 - **Acceptance:**
   - Serves: 04 §D discoverability, NFR-04 · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior)
@@ -223,7 +223,7 @@
   - Removing the one call leaves SCR-02 unchanged, so cut 2 stays a clean drop.
 - **Verify:** `make lint typecheck`; manual on `make dev`: reload → three steps in order → dismiss with the keyboard → devtools Application tab shows no stored keys; note appended to the verification log.
 - **Agent brief:** Add the 04 §D first-run coach marks ("Turn on Slope", "Click a POI → Add as stop", "Open Briefing"; dismissible; memory only) in `apps/web/src/ui/coachMarks.ts`, started by one call in the SCR-02 workspace after T07.08 has merged. Keyboard operable, C12 tokens only. Skip entirely if cut 2 is called.
-- **Conflict notes:** `follow-up:` on T07.08's `scr02MapWorkspace.ts` and `.css` (§c.1 rule 3): start after T07.08 merges, rebase, and limit the edit to one call plus coach-mark styles. Cut 2: nothing depends on this subtask.
+- **Conflict notes:** `follow-up:` on T07.08's `scr02MapWorkspace.tsx` and `.css` (§c.1 rule 3): start after T07.08 merges, rebase, and limit the edit to one call plus coach-mark styles. Cut 2: nothing depends on this subtask.
 
 ### T13.08 — Implement the light theme (U-08)
 

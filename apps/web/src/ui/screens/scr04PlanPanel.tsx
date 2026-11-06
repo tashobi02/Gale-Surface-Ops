@@ -5,7 +5,9 @@
  * Implemented by TASK-08.
  */
 
-/** Render SCR-04 into `root`. TASK-08. */
-export function renderPlanPanel(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-04 view (React, ADR-012). The owning task adds its props. TASK-08. */
+export function PlanPanel(): ReactElement {
   throw new Error("TODO(TASK-08): not implemented");
 }

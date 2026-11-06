@@ -5,7 +5,9 @@
  * Implemented by TASK-12.
  */
 
-/** Render SCR-09 into `root`. TASK-12. */
-export function renderSourcesMethods(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-09 view (React, ADR-012). The owning task adds its props. TASK-12. */
+export function SourcesMethods(): ReactElement {
   throw new Error("TODO(TASK-12): not implemented");
 }

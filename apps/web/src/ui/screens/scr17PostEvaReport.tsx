@@ -5,7 +5,9 @@
  * Implemented by TASK-27.
  */
 
-/** Render SCR-17 into `root`. TASK-27. */
-export function renderPostEvaReport(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-17 view (React, ADR-012). The owning task adds its props. TASK-27. */
+export function PostEvaReport(): ReactElement {
   throw new Error("TODO(TASK-27): not implemented");
 }

@@ -37,9 +37,9 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 | --- | --- | --- |
 | CRISM spectral layer in a re-released bundle with a new `data_version` | `data/sites/gale_boxwork/`, `pipeline/sites/gale_boxwork/layers/`, `pipeline/sites/gale_boxwork/sources/` | SCR-03 renders it from the manifest (T07.09); SCR-09 lists its source (T12.03); T16.03, T16.05 (credits) |
 | REMS L_s-bin context | `pipeline/src/marswalk_pipeline/rems.py`; output location `TODO(decision)` | T18.03 |
-| Seasonal-weather section of SCR-07 | `apps/web/src/ui/screens/scr07Conditions.ts` | T12.02 (DOM provenance test must still pass) |
+| Seasonal-weather section of SCR-07 | `apps/web/src/ui/screens/scr07Conditions.tsx` | T12.02 (DOM provenance test must still pass) |
 | Illustrative O₂ function | `packages/compute/src/consumables.ts` | T18.06 |
-| Illustrative O₂ display | `apps/web/src/ui/screens/scr05RouteResults.ts`, `apps/web/src/ui/screens/scr08BriefingCard.ts` | T12.02; one-page print check of T11.05 |
+| Illustrative O₂ display | `apps/web/src/ui/screens/scr05RouteResults.tsx`, `apps/web/src/ui/screens/scr08BriefingCard.tsx` | T12.02; one-page print check of T11.05 |
 | Last-plan save and restore | `apps/web/src/state/persist.ts`, `apps/web/src/state/planStore.ts` | SCR-01 return path ([03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step)) |
 
 ## Subtasks
@@ -104,8 +104,8 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 - **Tag:** agent-ready · desirable
 - **Window:** event-only
 - **Estimate:** 1–1.5 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr07Conditions.ts` (after T10.02)
-- **Reads:** `apps/web/src/ui/screens/scr07Conditions.ts`, `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/components/metric.ts`, the T18.02 output; [01 FR-13](../specs/01_Product_Requirements_Document.md#fr-13--environmental-context-seasonal-weather), [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel), [05 §C PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed) (`conditions.ls_deg`), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior)
+- **Owns (writes):** `apps/web/src/ui/screens/scr07Conditions.tsx` (after T10.02)
+- **Reads:** `apps/web/src/ui/screens/scr07Conditions.tsx`, `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/components/metric.ts`, the T18.02 output; [01 FR-13](../specs/01_Product_Requirements_Document.md#fr-13--environmental-context-seasonal-weather), [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel), [05 §C PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed) (`conditions.ls_deg`), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior)
 - **Depends on:** T18.02 (hard: needs the REMS context output), T10.02 (hard: follow-up on the panel it owns, §c.1 rule 3), T14.06 (hard: 06 TASK-18 gate, freeze criteria met early), T07.01 (soft)
 - **Parallel with:** T18.01, T18.04, T18.05, T18.06, T18.07
 - **Steps:**
@@ -120,7 +120,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
   - Given no REMS context, then the panel shows "Not included in this build" rather than placeholder numbers (01 FR-13).
   - `tests/ui/provenance.test.ts` still passes ([01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods)).
 - **Verify:** `npx vitest run tests/ui/provenance.test.ts` (run in `apps/web/`); manual offline check of SCR-07 with and without the REMS output.
-- **Agent brief:** In `apps/web/src/ui/screens/scr07Conditions.ts`, add a seasonal-weather section that shows the REMS ranges for the plan's L_s bin through the metric component, with provenance and source link, and keeps "Not included in this build" when no REMS data exists. Edit nothing else.
+- **Agent brief:** In `apps/web/src/ui/screens/scr07Conditions.tsx`, add a seasonal-weather section that shows the REMS ranges for the plan's L_s bin through the metric component, with provenance and source link, and keeps "Not included in this build" when no REMS data exists. Edit nothing else.
 - **Conflict notes:** Edits SCR-07 only after T10.02 has merged; no other planned writer at the same time. Styling uses existing tokens; a `.css` change would need its own `follow-up:` entry in the map.
 
 ### T18.04 — Tests: illustrative O₂ estimate (02 §D.6)
@@ -179,7 +179,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 - **Tag:** agent-ready · desirable
 - **Window:** event-only
 - **Estimate:** 1–1.5 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr05RouteResults.ts` (after T09.03), `apps/web/src/ui/screens/scr08BriefingCard.ts` (after T11.03)
+- **Owns (writes):** `apps/web/src/ui/screens/scr05RouteResults.tsx` (after T09.03), `apps/web/src/ui/screens/scr08BriefingCard.tsx` (after T11.03)
 - **Reads:** `packages/compute/src/consumables.ts`, `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/components/metric.ts`, both screen files; [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s), [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok)
 - **Depends on:** T18.05 (hard: needs the O₂ function), T09.03 (hard: follow-up on the panel it owns, §c.1 rule 3), T11.03 (hard: follow-up on the card it owns, §c.1 rule 3), T14.06 (hard: 06 TASK-18 gate, freeze criteria met early), T07.01 (soft)
 - **Parallel with:** T18.01, T18.02, T18.03, T18.07

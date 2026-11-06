@@ -5,7 +5,9 @@
  * Implemented by TASK-09.
  */
 
-/** Render SCR-05 into `root`. TASK-09. */
-export function renderRouteResults(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-05 view (React, ADR-012). The owning task adds its props. TASK-09. */
+export function RouteResults(): ReactElement {
   throw new Error("TODO(TASK-09): not implemented");
 }

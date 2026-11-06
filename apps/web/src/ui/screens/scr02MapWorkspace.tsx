@@ -5,7 +5,9 @@
  * Implemented by TASK-07.
  */
 
-/** Render SCR-02 into `root`. TASK-07. */
-export function renderMapWorkspace(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-02 view (React, ADR-012). The owning task adds its props. TASK-07. */
+export function MapWorkspace(): ReactElement {
   throw new Error("TODO(TASK-07): not implemented");
 }

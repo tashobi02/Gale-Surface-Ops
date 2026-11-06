@@ -5,7 +5,9 @@
  * Implemented by TASK-18.
  */
 
-/** Render SCR-16 into `root`. TASK-18. */
-export function renderEarthView(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-16 view (React, ADR-012). The owning task adds its props. TASK-18. */
+export function EarthView(): ReactElement {
   throw new Error("TODO(TASK-18): not implemented");
 }

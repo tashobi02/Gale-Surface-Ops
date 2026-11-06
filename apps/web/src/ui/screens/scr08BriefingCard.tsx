@@ -5,7 +5,9 @@
  * Implemented by TASK-11.
  */
 
-/** Render SCR-08 into `root`. TASK-11. */
-export function renderBriefingCard(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-08 view (React, ADR-012). The owning task adds its props. TASK-11. */
+export function BriefingCard(): ReactElement {
   throw new Error("TODO(TASK-11): not implemented");
 }

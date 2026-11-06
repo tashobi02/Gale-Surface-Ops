@@ -28,6 +28,7 @@ describe("ADD_STOP_TASK", () => {
   it.todo("eva:EV1, eva:EV2, planner and earth get FORBIDDEN_ROLE");
   it.todo("ops adding to the crew member's current or next stop emits TASK_ADDED with origin ops");
   it.todo("a stop other than the current or next one is INVALID");
+  // TODO(decision): U-52 — the 1–4 limit per stop or per crew member at a stop (the prototype counts per crew).
   it.todo("a fifth task on a stop is INVALID (1–4 per stop)");
   it.todo("empty text or text over 60 characters is INVALID");
   // TODO(decision): U-46 proposes "ops adds tasks only when no warning is latched"; reject code not chosen.

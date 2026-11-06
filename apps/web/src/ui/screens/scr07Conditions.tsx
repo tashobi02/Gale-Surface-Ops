@@ -5,7 +5,9 @@
  * Implemented by TASK-10.
  */
 
-/** Render SCR-07 into `root`. TASK-10. */
-export function renderConditions(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-07 view (React, ADR-012). The owning task adds its props. TASK-10. */
+export function Conditions(): ReactElement {
   throw new Error("TODO(TASK-10): not implemented");
 }

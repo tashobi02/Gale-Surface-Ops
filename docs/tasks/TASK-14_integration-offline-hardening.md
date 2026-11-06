@@ -39,7 +39,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 | `make data` wired to the pipeline entry point | `Makefile` | T03.19, T03.22 |
 | PR template subtask field; CI step running `check_tasks.py` | `.github/` | Every PR after M2 |
 | Boot validation | `apps/web/src/boot/validateSite.ts` | T07.03 (calls it), T14.04, T14.06, T14.10 |
-| SCR-00 Boot error | `apps/web/src/ui/screens/scr00BootError.ts` | T07.03 (boot-failure route), T14.10 |
+| SCR-00 Boot error | `apps/web/src/ui/screens/scr00BootError.tsx` | T07.03 (boot-failure route), T14.10 |
 | Fault-injection suite | `apps/web/tests/integration/faults.test.ts` | T14.10; 06 §D.6 "All Vitest suites green" |
 | Rehearsal, timing, matrix, release and SCR-00 records | `docs/ops/verification-log.md` | T15.02, T16.06, T17.03, the 06 §D.6 freeze decision |
 
@@ -133,7 +133,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1–2 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr00BootError.ts`, `apps/web/src/ui/screens/scr00BootError.css`
+- **Owns (writes):** `apps/web/src/ui/screens/scr00BootError.tsx`, `apps/web/src/ui/screens/scr00BootError.css`
 - **Reads:** [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.1](../specs/03_App_Flow_and_Diagrams.md#e1-overall-user-flow), [04 §C.1 semantic status](../specs/04_Design_Brief.md#status-and-alert-colours-ops), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), `apps/web/src/ui/context.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/src/ui/components/statusIcon.ts`
 - **Depends on:** T14.05 (hard: tests-first pair), T07.01 (soft), T13.01 (soft)
 - **Parallel with:** T14.03, T14.07, T14.08, T14.09
@@ -152,7 +152,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
   - The screen loads no remote asset and works offline (NFR-01).
   - No numeric value is shown without the C10 provenance attributes (FR-15 check in T12.02).
 - **Verify:** `npx vitest run tests/integration/faults.test.ts` (run in `apps/web/`); manual: in a build with `site-manifest.json` renamed, SCR-00 appears and Tab reaches Retry.
-- **Agent brief:** Implement SCR-00 in `scr00BootError.ts` and its `.css` per 03 §B SCR-00: cause, missing asset name, Retry that re-runs boot through the C10 context, README link, icon plus text, focus on the heading. Follow the C10 screen signature and make the SCR-00 assertions of T14.05 pass.
+- **Agent brief:** Implement SCR-00 in `scr00BootError.tsx` and its `.css` per 03 §B SCR-00: cause, missing asset name, Retry that re-runs boot through the C10 context, README link, icon plus text, focus on the heading. Follow the C10 screen signature and make the SCR-00 assertions of T14.05 pass.
 - **Conflict notes:** Screen files owned only here. The screen signature comes from C10 (T07.01); a change is a `contract-change:` there. Use existing C12 tokens; adding one means appending to `tokens.css` under its append-only rule in a separate change. Branch stacked on T14.05.
 
 ### T14.05 — Tests: fault injection (02 §F.1 Recovery)
@@ -301,7 +301,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Window:** event-only
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
-- **Reads:** [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.1](../specs/03_App_Flow_and_Diagrams.md#e1-overall-user-flow), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-10), [01 FR-16](../specs/01_Product_Requirements_Document.md#fr-16--offline-and-degraded-operation), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), `apps/web/src/ui/screens/scr00BootError.ts`
+- **Reads:** [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.1](../specs/03_App_Flow_and_Diagrams.md#e1-overall-user-flow), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-10), [01 FR-16](../specs/01_Product_Requirements_Document.md#fr-16--offline-and-degraded-operation), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), `apps/web/src/ui/screens/scr00BootError.tsx`
 - **Depends on:** T14.04 (hard: SCR-00 must exist), T14.05 (hard: the automated recovery cases pass first), T07.15 (hard: verification runs on the integrated app; 06 puts TASK-14 after TASK-07 to TASK-12), T09.07 (hard: same reason)
 - **Parallel with:** T14.06, T14.07, T14.08, T14.09
 - **Steps:**

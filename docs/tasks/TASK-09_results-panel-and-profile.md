@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | Route layer (cased legs, NO_ROUTE line, hazard hatch, hover hooks) | `apps/web/src/ui/map/routeLayer.ts` | T07.08 (mounts it), T09.05, T09.06, T11.04 |
 | Profile chart | `apps/web/src/ui/results/profileChart.ts` | T09.03, T09.05, T09.06, T11.03 |
-| SCR-05 Route Results panel | `apps/web/src/ui/screens/scr05RouteResults.ts`, `apps/web/src/ui/screens/scr05RouteResults.css` | T07.08 (mounts it), T12.02, T13.09, T13.10, T14.06, T18.06 |
+| SCR-05 Route Results panel | `apps/web/src/ui/screens/scr05RouteResults.tsx`, `apps/web/src/ui/screens/scr05RouteResults.css` | T07.08 (mounts it), T12.02, T13.09, T13.10, T14.06, T18.06 |
 | Warnings list with click-to-zoom | `apps/web/src/ui/results/warningsList.ts` | T09.03, T11.03 |
 | Profile ↔ map linking | `apps/web/src/ui/results/profileLink.ts` | T09.03 |
 | Auto-routing go/no-go (D-04) | `docs/decisions/ADR-004-least-time-routing.md` | T05.30, T09.08 (fallback triggers) |
@@ -102,7 +102,7 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr05RouteResults.ts`, `apps/web/src/ui/screens/scr05RouteResults.css`
+- **Owns (writes):** `apps/web/src/ui/screens/scr05RouteResults.tsx`, `apps/web/src/ui/screens/scr05RouteResults.css`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/components/statusIcon.ts`, `apps/web/src/ui/results/profileChart.ts`, `apps/web/src/ui/results/warningsList.ts`, `apps/web/src/ui/results/profileLink.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/tests/fixtures/plan-results/`, [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok)
 - **Depends on:** T07.01 (soft), T08.01 (soft), T05.03 (soft), T13.01 (soft)
 - **Parallel with:** T09.01, T09.02, T09.04, T10.01, T10.02
@@ -121,8 +121,8 @@
   - Every metric carries a provenance label and source id through the metric component (FR-15, NFR-05); every number carries its unit (04 §C.2).
   - A status change is announced, e.g. "Plan updated: Over limits, 2 warnings" (04 §E).
 - **Verify:** `make typecheck`; manual check with `make dev` and the F3 mock worker returning each F2 fixture plus an `ERROR`: all 03 SCR-05 states, collapse to the status strip, aria-live announcement (screen reader or devtools accessibility pane); once T12.02 exists, `npx vitest run tests/ui/provenance.test.ts` (run in `apps/web/`) stays green.
-- **Agent brief:** Implement SCR-05 in `apps/web/src/ui/screens/scr05RouteResults.ts` and its `.css`: status banner, metrics row (via the metric component), per-leg Details table, collapsible strip and aria-live status, mounting the profile chart, warnings list and linking. Follow 03 SCR-05, 03 §D and 04 §D/§F; never show totals for a PARTIAL plan. Build against the F2 fixtures through the F3 mock worker.
-- **Conflict notes:** Writes only the two SCR-05 files; T07.08 mounts the panel (never edit `scr02MapWorkspace.ts`). Uses `metric.ts` (T12.01) and `statusIcon.ts` (T13.05) as provided. T18.06 follows up on this file after it merges.
+- **Agent brief:** Implement SCR-05 in `apps/web/src/ui/screens/scr05RouteResults.tsx` and its `.css`: status banner, metrics row (via the metric component), per-leg Details table, collapsible strip and aria-live status, mounting the profile chart, warnings list and linking. Follow 03 SCR-05, 03 §D and 04 §D/§F; never show totals for a PARTIAL plan. Build against the F2 fixtures through the F3 mock worker.
+- **Conflict notes:** Writes only the two SCR-05 files; T07.08 mounts the panel (never edit `scr02MapWorkspace.tsx`). Uses `metric.ts` (T12.01) and `statusIcon.ts` (T13.05) as provided. T18.06 follows up on this file after it merges.
 
 ### T09.04 — Implement the warnings list with click-to-zoom
 

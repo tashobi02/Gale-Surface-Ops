@@ -5,7 +5,9 @@
  * Implemented by TASK-07.
  */
 
-/** Render SCR-03 into `root`. TASK-07. */
-export function renderLayersPanel(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-03 view (React, ADR-012). The owning task adds its props. TASK-07. */
+export function LayersPanel(): ReactElement {
   throw new Error("TODO(TASK-07): not implemented");
 }

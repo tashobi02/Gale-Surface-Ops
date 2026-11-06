@@ -5,7 +5,9 @@
  * Implemented by TASK-25.
  */
 
-/** Render SCR-10 into `root`. TASK-25. */
-export function renderJoin(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-10 view (React, ADR-012). The owning task adds its props. TASK-25. */
+export function Join(): ReactElement {
   throw new Error("TODO(TASK-25): not implemented");
 }

@@ -5,7 +5,9 @@
  * Implemented by TASK-24.
  */
 
-/** Render SCR-13 into `root`. TASK-24. */
-export function renderHud(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-13 view (React, ADR-012). The owning task adds its props. TASK-24. */
+export function Hud(): ReactElement {
   throw new Error("TODO(TASK-24): not implemented");
 }

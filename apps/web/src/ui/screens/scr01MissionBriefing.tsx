@@ -5,7 +5,9 @@
  * Implemented by TASK-07.
  */
 
-/** Render SCR-01 into `root`. TASK-07. */
-export function renderMissionBriefing(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-01 view (React, ADR-012). The owning task adds its props. TASK-07. */
+export function MissionBriefing(): ReactElement {
   throw new Error("TODO(TASK-07): not implemented");
 }

@@ -41,11 +41,11 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 | Site loading and boot lookup maps | `apps/web/src/boot/loadSite.ts` | T07.03, T07.06, T07.09, T07.11, T10.01, T12.03 |
 | Hash router, boot sequence, CSP meta tag | `apps/web/src/ui/router.ts`, `apps/web/src/main.ts`, `apps/web/index.html` | T11.03, T12.03, T14.03, T14.04, T14.09 |
 | Worker client | `apps/web/src/ui/workerClient.ts` | T07.12, T08.03, T08.06, T09.03, T09.06, T14.05, T14.10 |
-| SCR-01 Mission Briefing | `apps/web/src/ui/screens/scr01MissionBriefing.ts` | T07.15, T13.10, T17.02 |
+| SCR-01 Mission Briefing | `apps/web/src/ui/screens/scr01MissionBriefing.tsx` | T07.15, T13.10, T17.02 |
 | Map and map handle | `apps/web/src/ui/map/createMap.ts` | T07.07, T07.10–T07.13, T08.06–T08.09, T09.01, T09.05, T11.04, T13.06 |
 | Raster layers with layer state | `apps/web/src/ui/map/rasterLayers.ts` | T07.09, T07.15, T07.16, T14.05 |
-| SCR-02 workspace layout and mount points | `apps/web/src/ui/screens/scr02MapWorkspace.ts` | T08.04, T09.03, T10.01, T10.02, T13.07, T13.10 |
-| SCR-03 Layers panel | `apps/web/src/ui/screens/scr03LayersPanel.ts` | T07.15, T13.09, T14.05 |
+| SCR-02 workspace layout and mount points | `apps/web/src/ui/screens/scr02MapWorkspace.tsx` | T08.04, T09.03, T10.01, T10.02, T13.07, T13.10 |
+| SCR-03 Layers panel | `apps/web/src/ui/screens/scr03LayersPanel.tsx` | T07.15, T13.09, T14.05 |
 | Traverse and POI map layers | `apps/web/src/ui/map/traverseLayer.ts`, `apps/web/src/ui/map/poiLayer.ts` | T07.09, T10.01 |
 | Point inspector | `apps/web/src/ui/map/inspector.ts` | T07.15, T13.06 |
 | `?debug=1` overlay | `apps/web/src/ui/debug.ts` | T14.09 |
@@ -61,7 +61,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Window:** pre-event-allowed
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/context.ts`, `apps/web/src/boot/loadSite.ts` (stub → T07.02), `apps/web/src/boot/validateSite.ts` (stub → T14.03), `apps/web/src/ui/workerClient.ts` (stub → T07.04), `apps/web/src/ui/debug.ts` (stub → T07.13), `apps/web/src/ui/map/createMap.ts` (stub → T07.06), `apps/web/src/ui/map/rasterLayers.ts` (stub → T07.07), `apps/web/src/ui/map/traverseLayer.ts` (stub → T07.10), `apps/web/src/ui/map/poiLayer.ts` (stub → T07.11), `apps/web/src/ui/map/inspector.ts` (stub → T07.12), `apps/web/src/ui/map/waypointLayer.ts` (stub → T08.06), `apps/web/src/ui/map/addStopMode.ts` (stub → T08.07), `apps/web/src/ui/map/waypointDrag.ts` (stub → T08.08), `apps/web/src/ui/map/touchInput.ts` (stub → T08.09), `apps/web/src/ui/map/routeLayer.ts` (stub → T09.01), `apps/web/src/ui/map/keyboard.ts` (stub → T13.06), `apps/web/src/ui/plan/stopsList.ts` (stub → T08.05), `apps/web/src/ui/results/profileChart.ts` (stub → T09.02), `apps/web/src/ui/results/warningsList.ts` (stub → T09.04), `apps/web/src/ui/results/profileLink.ts` (stub → T09.05), `apps/web/src/ui/briefing/mapSnapshot.ts` (stub → T11.04), `apps/web/src/export/planExport.ts` (stub → T11.02), `apps/web/src/ui/components/metric.ts` (stub → T12.01), `apps/web/src/ui/components/statusIcon.ts` (stub → T13.05)
-- **Reads:** `docs/tasks/_coordination.md` §c.4 and §d (C10); [03 §A](../specs/03_App_Flow_and_Diagrams.md#a-information-architecture), [03 §B](../specs/03_App_Flow_and_Diagrams.md#b-screen-specification), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [01 FR-02](../specs/01_Product_Requirements_Document.md#fr-02--scientific-layers-with-legend-and-opacity), [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), `apps/web/src/main.ts`, `apps/web/src/ui/screens/*.ts`, `apps/web/src/state/planStore.ts`, `packages/protocol/src/worker.ts`, `packages/protocol/src/schema.ts`
+- **Reads:** `docs/tasks/_coordination.md` §c.4 and §d (C10); [03 §A](../specs/03_App_Flow_and_Diagrams.md#a-information-architecture), [03 §B](../specs/03_App_Flow_and_Diagrams.md#b-screen-specification), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [01 FR-02](../specs/01_Product_Requirements_Document.md#fr-02--scientific-layers-with-legend-and-opacity), [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), `apps/web/src/main.ts`, `apps/web/src/ui/screens/*.tsx`, `apps/web/src/state/planStore.ts`, `packages/protocol/src/worker.ts`, `packages/protocol/src/schema.ts`
 - **Depends on:** T03.01 (soft), T05.01 (soft)
 - **Parallel with:** T03.01, T05.01, T08.01, T13.01, T07.14
 - **Steps:**
@@ -115,7 +115,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Window:** event-only
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/router.ts`, `apps/web/src/main.ts`, `apps/web/index.html`
-- **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/ui/screens/*.ts`, `apps/web/src/boot/validateSite.ts`, `apps/web/src/state/planStore.ts`, [03 §A](../specs/03_App_Flow_and_Diagrams.md#a-information-architecture), [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-01, NFR-08)
+- **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/ui/screens/*.tsx`, `apps/web/src/boot/validateSite.ts`, `apps/web/src/state/planStore.ts`, [03 §A](../specs/03_App_Flow_and_Diagrams.md#a-information-architecture), [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-01, NFR-08)
 - **Depends on:** T07.01 (soft), T08.01 (soft), T03.02 (soft), T07.02 (hard: the boot sequence loads the site through it), T07.04 (hard: the boot sequence starts the worker client)
 - **Parallel with:** T07.05, T07.06, T08.03
 - **Steps:**
@@ -166,7 +166,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1–2 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr01MissionBriefing.ts`, `apps/web/src/ui/screens/scr01MissionBriefing.css`
+- **Owns (writes):** `apps/web/src/ui/screens/scr01MissionBriefing.tsx`, `apps/web/src/ui/screens/scr01MissionBriefing.css`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/ui/demoPlan.json`, `apps/web/src/ui/styles/tokens.css`, [03 SCR-01](../specs/03_App_Flow_and_Diagrams.md#scr-01--mission-briefing), [04 §F SCR-01](../specs/04_Design_Brief.md#scr-01-mission-briefing), [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video), [05 §C MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input)
 - **Depends on:** T07.01 (soft), T08.01 (soft), T13.01 (soft), T03.02 (soft), T07.03 (hard: the screen is reached through the router), T07.14 (hard: imports the demo plan file)
 - **Parallel with:** T07.06, T07.07, T07.08
@@ -183,7 +183,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
   - **Start planning**, **Open demo plan** and **Sources & methods** work by mouse and by keyboard.
   - Any number shown on SCR-01 carries a provenance label (FR-15).
 - **Verify:** `make typecheck`; manual in `make dev` with `?site=mock_site`: read the screen, tab through every control, trigger all three actions.
-- **Agent brief:** Implement SCR-01 in `apps/web/src/ui/screens/scr01MissionBriefing.ts` and its `.css` from 03 SCR-01 and 04 §F: title from the manifest, the 01 §F.1 disclaimer verbatim, **Start planning** (defaults), **Open demo plan** (loads `apps/web/src/ui/demoPlan.json` into the store), **Sources & methods**. Copy with no defined source stays `TODO(decision)`. Keyboard-reachable; C12 tokens only.
+- **Agent brief:** Implement SCR-01 in `apps/web/src/ui/screens/scr01MissionBriefing.tsx` and its `.css` from 03 SCR-01 and 04 §F: title from the manifest, the 01 §F.1 disclaimer verbatim, **Start planning** (defaults), **Open demo plan** (loads `apps/web/src/ui/demoPlan.json` into the store), **Sources & methods**. Copy with no defined source stays `TODO(decision)`. Keyboard-reachable; C12 tokens only.
 - **Conflict notes:** The screen file adopts the C10 `(root, ctx)` signature itself; the router table accepts it unchanged. Styles stay in this screen's own `.css` file; new tokens are appended to `tokens.css` only under its append-only rule.
 
 ### T07.06 — Implement the map: view, metric scale bar, north arrow, coordinate readout
@@ -243,7 +243,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr02MapWorkspace.ts`, `apps/web/src/ui/screens/scr02MapWorkspace.css`
+- **Owns (writes):** `apps/web/src/ui/screens/scr02MapWorkspace.tsx`, `apps/web/src/ui/screens/scr02MapWorkspace.css`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/styles/tokens.css`, [03 SCR-02](../specs/03_App_Flow_and_Diagrams.md#scr-02--map-workspace), [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [04 §F SCR-02](../specs/04_Design_Brief.md#scr-02-map-workspace-with-scr-03040507-embedded), [01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications)
 - **Depends on:** T07.01 (soft), T08.01 (soft), T13.01 (soft), T03.02 (soft), T07.03 (hard: the workspace is the `#/map` route), T07.06 (hard: the workspace hosts the map)
 - **Parallel with:** T07.07, T07.10, T07.11, T07.12
@@ -261,7 +261,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
   - A panel or map module that fails, or is still a stub, never blanks the workspace.
   - Below 768 px the view-only message shows (01 Clarifications, NFR-03).
 - **Verify:** `make typecheck`; manual in `make dev` at widths 1366, 1280, 1024, 768 and below 768; keyboard-only tab through the workspace.
-- **Agent brief:** Implement the SCR-02 layout in `apps/web/src/ui/screens/scr02MapWorkspace.ts` and its `.css` per 04 §B, §D and §E: top bar, two drawers, results panel, map toolbar, isolated mount points for SCR-03 to SCR-07 and the map modules, Briefing-button rules, tab order, responsive breakpoints. No panel content here, only slots.
+- **Agent brief:** Implement the SCR-02 layout in `apps/web/src/ui/screens/scr02MapWorkspace.tsx` and its `.css` per 04 §B, §D and §E: top bar, two drawers, results panel, map toolbar, isolated mount points for SCR-03 to SCR-07 and the map modules, Briefing-button rules, tab order, responsive breakpoints. No panel content here, only slots.
 - **Conflict notes:** Panels and map modules are mounted, never edited, by this file. T13.07 later follows up on this file for coach marks (`after T07.08`). The class names for map controls and popovers are listed in the PR so T07.06 and T07.12 can use them.
 
 ### T07.09 — Implement SCR-03 Layers panel
@@ -270,7 +270,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr03LayersPanel.ts`, `apps/web/src/ui/screens/scr03LayersPanel.css`
+- **Owns (writes):** `apps/web/src/ui/screens/scr03LayersPanel.tsx`, `apps/web/src/ui/screens/scr03LayersPanel.css`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/ui/map/rasterLayers.ts`, `apps/web/src/ui/map/traverseLayer.ts`, `apps/web/src/ui/map/poiLayer.ts`, `apps/web/src/ui/components/metric.ts`, `schemas/site-manifest.schema.json`, [01 FR-02](../specs/01_Product_Requirements_Document.md#fr-02--scientific-layers-with-legend-and-opacity), [01 FR-16](../specs/01_Product_Requirements_Document.md#fr-16--offline-and-degraded-operation), [03 SCR-03](../specs/03_App_Flow_and_Diagrams.md#scr-03--layers-panel), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §C.1 Map overlays](../specs/04_Design_Brief.md#map-overlays), [05 §C Layer](../specs/05_Backend_and_Database_Schema.md#layer)
 - **Depends on:** T07.01 (soft), T03.01 (soft), T13.01 (soft), T03.02 (soft), T07.07 (hard: rows drive the raster layers), T07.08 (hard: mounted in the left drawer), T07.10 (hard: the traverse row drives that layer), T07.11 (hard: the POI row drives that layer)
 - **Parallel with:** T07.12, T07.13, T08.04
@@ -288,7 +288,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
   - Given a layer whose asset is missing, then its row is disabled with "Unavailable in this build" (03 SCR-03); the full F.1 recovery case is T14.05's.
   - The 300 ms toggle time (FR-02) is measured in T07.15.
 - **Verify:** `make typecheck`; manual in `make dev` on `mock_site`: toggle every row, move each opacity slider, turn on a third scientific overlay, remove one layer folder in a local copy and check its row state.
-- **Agent brief:** Implement SCR-03 in `apps/web/src/ui/screens/scr03LayersPanel.ts` and its `.css` per 03 SCR-03 and 04 §D: one row per manifest layer in FR-02 order with toggle, opacity, inline legend (units, native resolution), provenance chip, SCR-09 link and the four row states; at most two scientific overlays at once. Drive layers only through their public APIs.
+- **Agent brief:** Implement SCR-03 in `apps/web/src/ui/screens/scr03LayersPanel.tsx` and its `.css` per 03 SCR-03 and 04 §D: one row per manifest layer in FR-02 order with toggle, opacity, inline legend (units, native resolution), provenance chip, SCR-09 link and the four row states; at most two scientific overlays at once. Drive layers only through their public APIs.
 - **Conflict notes:** Uses the layer APIs of T07.07, T07.10 and T07.11 and never edits those files. The provenance chip comes from `metric.ts` (T12.01); until it merges, its stub placeholder shows. Legend structure follows the C2 decision of T03.01.
 
 ### T07.10 — Implement the Curiosity traverse layer

@@ -5,7 +5,9 @@
  * Implemented by TASK-23, TASK-24, TASK-25.
  */
 
-/** Render SCR-14 into `root`. TASK-23. */
-export function renderOptions(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-14 view (React, ADR-012). The owning task adds its props. TASK-23. */
+export function Options(): ReactElement {
   throw new Error("TODO(TASK-23): not implemented");
 }

@@ -5,7 +5,9 @@
  * Implemented by TASK-14.
  */
 
-/** Render SCR-00 into `root`. TASK-14. */
-export function renderBootError(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-00 view (React, ADR-012). The owning task adds its props. TASK-14. */
+export function BootError(): ReactElement {
   throw new Error("TODO(TASK-14): not implemented");
 }

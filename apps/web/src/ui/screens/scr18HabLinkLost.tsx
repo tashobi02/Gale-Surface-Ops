@@ -5,7 +5,9 @@
  * Implemented by TASK-20, TASK-24.
  */
 
-/** Render SCR-18 into `root`. TASK-20. */
-export function renderHabLinkLost(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-18 view (React, ADR-012). The owning task adds its props. TASK-20. */
+export function HabLinkLost(): ReactElement {
   throw new Error("TODO(TASK-20): not implemented");
 }

@@ -5,7 +5,9 @@
  * Implemented by TASK-10.
  */
 
-/** Render SCR-06 into `root`. TASK-10. */
-export function renderPoiDetail(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-06 view (React, ADR-012). The owning task adds its props. TASK-10. */
+export function PoiDetail(): ReactElement {
   throw new Error("TODO(TASK-10): not implemented");
 }

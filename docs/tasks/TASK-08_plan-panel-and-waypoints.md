@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | C11 plan-store contract (state, status, actions, selection, hover) | `apps/web/src/state/planStore.ts` (interfaces) | T07.04, T07.05, T08.02–T08.10, T09.01–T09.05, T10.01, T10.02, T11.02–T11.04, T13.06, T18.07 |
 | Plan store implementation | `apps/web/src/state/planStore.ts` | T07.03, T07.05, T09.06, T10.01, T18.07 |
-| SCR-04 panel and mission-inputs form | `apps/web/src/ui/screens/scr04PlanPanel.ts`, `apps/web/src/ui/screens/scr04PlanPanel.css` | T07.08, T08.11, T13.09, T13.10, T14.06 |
+| SCR-04 panel and mission-inputs form | `apps/web/src/ui/screens/scr04PlanPanel.tsx`, `apps/web/src/ui/screens/scr04PlanPanel.css` | T07.08, T08.11, T13.09, T13.10, T14.06 |
 | Stops list (reorder, delete, undo, accessible stops table) | `apps/web/src/ui/plan/stopsList.ts` | T08.04, T08.08, T08.11, T13.10 |
 | Waypoint markers and the placement function (validation + snap offer) | `apps/web/src/ui/map/waypointLayer.ts` | T07.08, T08.07–T08.10, T09.06, T10.01 |
 | Add-stop mode (free placement, `A`, crosshair `Enter`) | `apps/web/src/ui/map/addStopMode.ts` | T07.08, T09.06, T13.06 |
@@ -132,7 +132,7 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 2–3 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr04PlanPanel.ts`, `apps/web/src/ui/screens/scr04PlanPanel.css`
+- **Owns (writes):** `apps/web/src/ui/screens/scr04PlanPanel.tsx`, `apps/web/src/ui/screens/scr04PlanPanel.css`
 - **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/state/planStore.ts` (C11), `packages/compute/src/validate.ts` (C7), `packages/compute/src/mars24.ts` (C8), `apps/web/src/ui/plan/stopsList.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/styles/tokens.css`, [01 FR-05](../specs/01_Product_Requirements_Document.md#fr-05--mission-inputs-with-validated-defaults), [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [05 MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input)
 - **Depends on:** T08.03 (hard: input edits recompute through the store), T08.01 (soft), T07.01 (soft), T05.01 (soft), T06.01 (soft), T13.01 (soft)
 - **Parallel with:** T08.05, T08.08, T09.03, T10.01, T10.02
@@ -151,7 +151,7 @@
   - The panel states Empty (only start), Editing, Invalid input and Computing render (03 SCR-04).
   - Every displayed value carries `data-provenance` and a source id (NFR-05).
 - **Verify:** Manual checklist with `make dev`, the F4 mock site and the F3 mock worker: each 02 §E.3 field rejects an out-of-range value with its range; hard slope ≤ caution slope is rejected; one recompute 300 ms after an edit; badge visible; Tab reaches every field. Then `make lint typecheck`.
-- **Agent brief:** Implement SCR-04 in `apps/web/src/ui/screens/scr04PlanPanel.ts` (+ `.css`): the 05 §C MissionScenario inputs with units, inline 02 §E.3 validation through `validate.ts`, the defaults badge, Reset defaults, the LTST preview and the 04 §B accordion; mount the stops list. Use only C10, C11 and C12 interfaces; no science in the UI.
+- **Agent brief:** Implement SCR-04 in `apps/web/src/ui/screens/scr04PlanPanel.tsx` (+ `.css`): the 05 §C MissionScenario inputs with units, inline 02 §E.3 validation through `validate.ts`, the defaults badge, Reset defaults, the LTST preview and the 04 §B accordion; mount the stops list. Use only C10, C11 and C12 interfaces; no science in the UI.
 - **Conflict notes:** Owns the two scr04 files only. Imports `stopsList.ts` (T08.05) and `validate.ts` (T05.25) without editing them. Uses existing C12 tokens; a missing token goes through the `tokens.css` append-only rule, not an edit here. The UI check T08.11 needs the real `validate.ts` (Spec questions 8).
 
 ### T08.05 — Implement the stops list (reorder buttons, delete, undo)

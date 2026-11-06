@@ -5,7 +5,9 @@
  * Implemented by TASK-24.
  */
 
-/** Render SCR-12 into `root`. TASK-24. */
-export function renderEvaTablet(root: HTMLElement): void {
+import type { ReactElement } from "react";
+
+/** SCR-12 view (React, ADR-012). The owning task adds its props. TASK-24. */
+export function EvaTablet(): ReactElement {
   throw new Error("TODO(TASK-24): not implemented");
 }

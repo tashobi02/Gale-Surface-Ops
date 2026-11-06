@@ -463,16 +463,16 @@ Role names from [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-plannin
 | `apps/web/src/ui/workerClient.ts` | T07.04 | New; stub by T07.01 |
 | `apps/web/src/ui/debug.ts` | T07.13 | New; stub by T07.01 |
 | `apps/web/src/ui/demoPlan.json` | T07.14 | New |
-| `apps/web/src/ui/screens/scr00BootError.ts` (+ `.css`) | T14.04 | — |
-| `apps/web/src/ui/screens/scr01MissionBriefing.ts` (+ `.css`) | T07.05 | — |
-| `apps/web/src/ui/screens/scr02MapWorkspace.ts` (+ `.css`) | T07.08 | T13.07 follows up (coach marks) |
-| `apps/web/src/ui/screens/scr03LayersPanel.ts` (+ `.css`) | T07.09 | — |
-| `apps/web/src/ui/screens/scr04PlanPanel.ts` (+ `.css`) | T08.04 | — |
-| `apps/web/src/ui/screens/scr05RouteResults.ts` (+ `.css`) | T09.03 | T18.06 follows up |
-| `apps/web/src/ui/screens/scr06PoiDetail.ts` (+ `.css`) | T10.01 | — |
-| `apps/web/src/ui/screens/scr07Conditions.ts` (+ `.css`) | T10.02 | T18.03 follows up |
-| `apps/web/src/ui/screens/scr08BriefingCard.ts` (+ `.css`) | T11.03 | T18.06 follows up |
-| `apps/web/src/ui/screens/scr09SourcesMethods.ts` (+ `.css`) | T12.03 | — |
+| `apps/web/src/ui/screens/scr00BootError.tsx` (+ `.css`) | T14.04 | — |
+| `apps/web/src/ui/screens/scr01MissionBriefing.tsx` (+ `.css`) | T07.05 | — |
+| `apps/web/src/ui/screens/scr02MapWorkspace.tsx` (+ `.css`) | T07.08 | T13.07 follows up (coach marks) |
+| `apps/web/src/ui/screens/scr03LayersPanel.tsx` (+ `.css`) | T07.09 | — |
+| `apps/web/src/ui/screens/scr04PlanPanel.tsx` (+ `.css`) | T08.04 | — |
+| `apps/web/src/ui/screens/scr05RouteResults.tsx` (+ `.css`) | T09.03 | T18.06 follows up |
+| `apps/web/src/ui/screens/scr06PoiDetail.tsx` (+ `.css`) | T10.01 | — |
+| `apps/web/src/ui/screens/scr07Conditions.tsx` (+ `.css`) | T10.02 | T18.03 follows up |
+| `apps/web/src/ui/screens/scr08BriefingCard.tsx` (+ `.css`) | T11.03 | T18.06 follows up |
+| `apps/web/src/ui/screens/scr09SourcesMethods.tsx` (+ `.css`) | T12.03 | — |
 | `apps/web/src/ui/map/projection.ts` | T02.02 | New |
 | `apps/web/src/ui/map/imageStatic.ts` | T02.06 | New; fallback |
 | `apps/web/src/ui/map/createMap.ts` | T07.06 | New; stub by T07.01 |

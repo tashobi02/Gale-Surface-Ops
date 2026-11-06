@@ -6,7 +6,7 @@ paths: ["apps/web/src/ui/**"]
 Read-only audit. Edit nothing unless the user asks. Owners: [01 FR-15](../../../docs/specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [02 §F NFR-05](../../../docs/specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation), [05 Layer and "Distinctions the schema enforces"](../../../docs/specs/05_Backend_and_Database_Schema.md#distinctions-the-schema-enforces), [TASK-12](../../../docs/tasks/TASK-12_sources-methods-provenance.md).
 
 ## 1. Static review
-Scan `apps/web/src/ui/screens/*.ts` (SCR-00…18) and any other file under `apps/web/src/ui/` that renders numbers (template strings, `textContent`, `innerHTML`, units like `km`, `min`, `°`, `mSv`, `µGy`, `%`).
+Scan `apps/web/src/ui/screens/*.tsx` (SCR-00…18) and any other file under `apps/web/src/ui/` that renders numbers (JSX text and attributes, template strings, `textContent`, `innerHTML`, units like `km`, `min`, `°`, `mSv`, `µGy`, `%`).
 For each rendered value check:
 - the element has `data-provenance` ∈ {measured, derived, modelled, assumed, replayed, simulated} (type: `Provenance` in `packages/protocol/src/schema.ts`);
 - it has a source id (attribute name is set by contract C10 in `apps/web/src/ui/context.ts`; TODO: confirm, file does not exist yet);

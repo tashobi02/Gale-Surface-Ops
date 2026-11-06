@@ -32,8 +32,8 @@
 
 | Output | Path | Consumers |
 | --- | --- | --- |
-| SCR-06 POI Detail panel | `apps/web/src/ui/screens/scr06PoiDetail.ts`, `apps/web/src/ui/screens/scr06PoiDetail.css` | T07.08 (right-drawer mount), T07.11 (POI selection opens it), T12.02, T12.06, T13.09, T13.10, T14.06, T17.02 (demo step 3) |
-| SCR-07 Conditions panel | `apps/web/src/ui/screens/scr07Conditions.ts`, `apps/web/src/ui/screens/scr07Conditions.css` | T07.08, T12.02, T12.06, T13.09, T13.10, T14.06, T17.02 (demo step 7), T18.03 (follow-up) |
+| SCR-06 POI Detail panel | `apps/web/src/ui/screens/scr06PoiDetail.tsx`, `apps/web/src/ui/screens/scr06PoiDetail.css` | T07.08 (right-drawer mount), T07.11 (POI selection opens it), T12.02, T12.06, T13.09, T13.10, T14.06, T17.02 (demo step 3) |
+| SCR-07 Conditions panel | `apps/web/src/ui/screens/scr07Conditions.tsx`, `apps/web/src/ui/screens/scr07Conditions.css` | T07.08, T12.02, T12.06, T13.09, T13.10, T14.06, T17.02 (demo step 7), T18.03 (follow-up) |
 | Manual test note for both screens | `docs/ops/verification-log.md` (T10.03 section) | T14.06, T16.06 |
 
 ## Subtasks
@@ -44,7 +44,7 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1.5–2.5 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr06PoiDetail.ts`, `apps/web/src/ui/screens/scr06PoiDetail.css`
+- **Owns (writes):** `apps/web/src/ui/screens/scr06PoiDetail.tsx`, `apps/web/src/ui/screens/scr06PoiDetail.css`
 - **Reads:** `packages/protocol/src/schema.ts`, `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/components/statusIcon.ts`, `apps/web/src/ui/styles/tokens.css`, `data/sites/mock_site/`; [01 FR-04](../specs/01_Product_Requirements_Document.md#fr-04--points-of-interest-with-ground-imagery), [03 SCR-06](../specs/03_App_Flow_and_Diagrams.md#scr-06--poi-detail-panel), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [04 §F SCR-06](../specs/04_Design_Brief.md#scr-06-poi-detail-right-drawer), [05 POI](../specs/05_Backend_and_Database_Schema.md#poi), [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract)
 - **Depends on:** T03.01 (soft), T03.02 (soft), T07.01 (soft), T08.01 (soft), T13.01 (soft)
 - **Parallel with:** T10.02, T09.03, T09.04, T11.03, T12.03
@@ -64,7 +64,7 @@
   - Every numeric value carries `data-provenance` and a source id (01 FR-15; 02 NFR-05); all controls are keyboard-operable with visible focus (04 §E).
   - Images come from local site assets only; no request leaves `localhost` (02 NFR-01, NFR-08).
 - **Verify:** `make typecheck lint`; manual: `make dev`, open the app with `?site=mock_site`, select each sample POI and tick the Acceptance items; mock POIs without images must show the Image missing state; devtools Network shows only `localhost` requests.
-- **Agent brief:** Implement SCR-06 POI Detail in `apps/web/src/ui/screens/scr06PoiDetail.ts` and its `.css` per 03 SCR-06, 04 §D/§F and 05 POI, rendering only POI fields from the site manifest. Wire Add/Remove stop to the C11 store actions, handle image loading and missing states per 05 §E.6, and route every value through the metric component with provenance. Touch no other file; run `make typecheck lint`.
+- **Agent brief:** Implement SCR-06 POI Detail in `apps/web/src/ui/screens/scr06PoiDetail.tsx` and its `.css` per 03 SCR-06, 04 §D/§F and 05 POI, rendering only POI fields from the site manifest. Wire Add/Remove stop to the C11 store actions, handle image loading and missing states per 05 §E.6, and route every value through the metric component with provenance. Touch no other file; run `make typecheck lint`.
 - **Conflict notes:** Owns only the two SCR-06 files. `metric.ts` (T12.01) and `statusIcon.ts` (T13.05) are called through their T07.01 stubs and never edited here; by schedule both merge at M3–M4 before the visual check. T07.08 mounts the panel in the right drawer and T07.11 sets the POI selection; neither file is edited here. Use existing C12 tokens; a missing token goes to the design lane owner. No intra-task merge order.
 
 ### T10.02 — Implement SCR-07 Conditions
@@ -73,7 +73,7 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1.5–2.5 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr07Conditions.ts`, `apps/web/src/ui/screens/scr07Conditions.css`
+- **Owns (writes):** `apps/web/src/ui/screens/scr07Conditions.tsx`, `apps/web/src/ui/screens/scr07Conditions.css`
 - **Reads:** `packages/protocol/src/schema.ts`, `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/components/statusIcon.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/tests/fixtures/plan-results/`, `apps/web/tests/fixtures/mockWorker.ts`, `data/sites/mock_site/`; [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel), [01 FR-11](../specs/01_Product_Requirements_Document.md#fr-11--daylight-and-sun-conditions), [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate), [01 FR-13](../specs/01_Product_Requirements_Document.md#fr-13--environmental-context-seasonal-weather), [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12), [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11), [02 §C.2 L7](../specs/02_Technical_Requirements_Document.md#l7--environmental-values-fr-11-fr-12-fr-13), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed), [05 EnvConstant](../specs/05_Backend_and_Database_Schema.md#envconstant)
 - **Depends on:** T03.01 (soft), T03.02 (soft), T05.03 (soft), T05.04 (soft), T07.01 (soft), T08.01 (soft), T13.01 (soft)
 - **Parallel with:** T10.01, T06.06–T06.09, T09.03
@@ -92,7 +92,7 @@
   - With FR-13 not built, the seasonal-weather block shows "Not included in this build", never placeholder numbers (01 FR-13 acceptance).
   - Values are shown exactly as PlanResult and the manifest provide them; nothing is recomputed in the UI (`CLAUDE.md` §2). Each carries `data-provenance` and a source id (01 FR-15; 02 NFR-05).
 - **Verify:** `make typecheck lint`; manual: `make dev` with `?site=mock_site` and the F3 mock worker; load the OK, PARTIAL and OVER_LIMITS fixtures and tick the Acceptance items and the three 03 SCR-07 states; devtools Network shows only `localhost` requests.
-- **Agent brief:** Implement SCR-07 Conditions in `apps/web/src/ui/screens/scr07Conditions.ts` and its `.css` per 03 SCR-07, 01 FR-11–FR-13 and 02 §D.4–§D.5. Render PlanResult `conditions`, `stops_timeline`, `radiation` and `DARKNESS` warnings exactly as given (no science in the UI), with verbatim labels and caveats, provenance on every value and "Not included in this build" for seasonal weather. Touch no other file; run `make typecheck lint`.
+- **Agent brief:** Implement SCR-07 Conditions in `apps/web/src/ui/screens/scr07Conditions.tsx` and its `.css` per 03 SCR-07, 01 FR-11–FR-13 and 02 §D.4–§D.5. Render PlanResult `conditions`, `stops_timeline`, `radiation` and `DARKNESS` warnings exactly as given (no science in the UI), with verbatim labels and caveats, provenance on every value and "Not included in this build" for seasonal weather. Touch no other file; run `make typecheck lint`.
 - **Conflict notes:** Owns only the two SCR-07 files. Keep the seasonal-weather block self-contained: T18.03 later edits this file as a `follow-up:` (after T10.02) and replaces only that block. Radiation and Mars24 long-form methods text belongs to T12.04 (`apps/web/src/ui/content/methods.json`); copy the short label and exclusions from 02 §D.4 here instead of writing that file. Stubs as in T10.01.
 
 ### T10.03 — Verify POI images with credits and the daylight warning for a pre-dawn start
@@ -102,7 +102,7 @@
 - **Window:** event-only
 - **Estimate:** 0.5–1 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
-- **Reads:** `apps/web/src/ui/screens/scr06PoiDetail.ts`, `apps/web/src/ui/screens/scr07Conditions.ts`, `data/sites/gale_boxwork/`, `data/sites/mock_site/`, `docs/ops/demo-script.md`; [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario), [03 SCR-06](../specs/03_App_Flow_and_Diagrams.md#scr-06--poi-detail-panel), [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel), [06 §D.7](../specs/06_High_Level_Implementation_Plan.md#d7-definition-of-done-per-feature)
+- **Reads:** `apps/web/src/ui/screens/scr06PoiDetail.tsx`, `apps/web/src/ui/screens/scr07Conditions.tsx`, `data/sites/gale_boxwork/`, `data/sites/mock_site/`, `docs/ops/demo-script.md`; [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario), [03 SCR-06](../specs/03_App_Flow_and_Diagrams.md#scr-06--poi-detail-panel), [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel), [06 §D.7](../specs/06_High_Level_Implementation_Plan.md#d7-definition-of-done-per-feature)
 - **Depends on:** T10.01 (hard: verifies its screen), T10.02 (hard: verifies its screen), T06.09 (hard: the pre-dawn daylight warning needs real conditions), T03.19 (hard: real POI images), T05.32 (hard: real DARKNESS warnings), T08.04 (hard: a pre-dawn start is set in the inputs form), T12.01 (hard: provenance labels on the shown values)
 - **Parallel with:** T07.15, T08.11, T09.07, T11.05
 - **Steps:**
