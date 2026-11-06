@@ -63,6 +63,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-06 | Gemini 3.8 Flash via agy, Codex (Luna 6), Claude Code (Opus 5.5) | T03.11: wrote the routing-grid writer | Clamp from the data lead's decision; sizes checked against 02 §C.3; Luna 6 and Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
 | 2026-11-06 | Claude Code (Haiku 5.5, Opus 5.5), Codex (Terra 6.1) | T03.13: wrote the manifest writer | Numbers come from input files, assets, `config.py` or a cited spec value (`TI_CELL_M`); reproduces F4; Terra 6.1 found one bug, fixed; Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
 | 2026-11-06 | Claude Code (Opus 5.5, local session) | T01.02: ran PROJ and a waypoint summary on the data lead's rule; read the Analyst's Notebook map anonymously; drafted `aoi.md` | Every number is tool output or a spec value; the data lead chose the rule and the decimals; the sol dates from NASA's blog are marked unverified | Decisions and approval by Obidit Islam | This Claude Code session |
+| 2026-11-06 | Claude Code (Sonnet 5.5, Opus 5.5, local session) | T01.04: found product URLs, ran GDAL window reads over the AOI and read the CRISM index; wrote `coverage.md` and the verification log | Every figure comes from `gdalinfo -stats`, `rasterio` or the footprint index, with commands shown; Opus 5.5 re-ran the HiRISE and THEMIS stats and added the greyscale-strip note | Approved by Obidit Islam | This Claude Code session |
 
 ## Prompts location
 
