@@ -1,0 +1,34 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          410.0,
+          325.0
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "evidence": [
+          {
+            "source_id": "usgs-gale-dem-1m-v3",
+            "text": ""
+          }
+        ],
+        "ez_theme": "",
+        "lat": -4.6945,
+        "lon_e": 137.3869,
+        "name": "Boxwork ridge",
+        "poi_id": "poi-boxwork-ridge",
+        "position_source": "Nearest Curiosity waypoint to the imaged ridge (to be confirmed in TASK-04)",
+        "position_uncertainty_m": 15,
+        "provenance": "assumed",
+        "science_objective": "Examine a mineral-cemented ridge and the sandy hollow beside it.",
+        "stop_type": "science",
+        "why_it_matters": "Ridges record groundwater moving through fractures as Mars dried."
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}
