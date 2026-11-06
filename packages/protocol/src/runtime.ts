@@ -54,6 +54,8 @@ export interface Scenario {
   seed: number;
   start_utc: string;
   plan: PlanExport;
+  /** Initial stop tasks, authored fields only; beside `plan` so `plan_hash` is unchanged (05 Scenario, FR-50, U-48). */
+  stop_tasks?: StopTaskSeed[];
   crew: { crew_id: CrewId; suit_param_set: string; start_offset_s: number }[];
   vehicles: { vehicle_id: string; kind: VehicleKind; param_set: string; start_x_m: number; start_y_m: number }[];
   param_sets: string[];
@@ -196,6 +198,39 @@ export interface ContingencyOption {
   rendezvous: { x_m: number; y_m: number; eta_crew_s: number; eta_vehicle_s: number } | null;
 }
 
+// ---------------------------------------------------------------------------
+// Stop tasks (FR-50; 05 StopTask)
+// ---------------------------------------------------------------------------
+
+export type StopTaskKind = "observe" | "image" | "sample" | "measure" | "deploy" | "other";
+export type StopTaskState = "TODO" | "DONE" | "SKIPPED" | "DROPPED";
+/** Reason for SKIPPED. DROPPED is set by `system` on plan revision. */
+export type StopTaskReason = "time" | "terrain" | "alert" | "other";
+
+/** One thing to do at one planned stop (05 StopTask). State is reduced from TASK_* events only. */
+export interface StopTask {
+  /** Unique per session, e.g. `t-s2-02`. */
+  task_id: string;
+  /** The plan stop it belongs to (05: "POI id"; U-61). */
+  stop_id: string;
+  /** null = either crew member. */
+  crew_id: CrewId | null;
+  kind: StopTaskKind;
+  /** ≤ 60 characters, imperative; any number cites its source. */
+  text: string;
+  state: StopTaskState;
+  reason: StopTaskReason | null;
+  /** `ops` shows the "added by ops" tag. */
+  origin: "plan" | "ops";
+  updated_sim_time: string;
+  updated_by: Role | "system";
+  /** State `simulated`; text `assumed` with the POI source id (05 StopTask). */
+  provenance: ProvenanceMap;
+}
+
+/** The authored fields of a StopTask, as written in `scenario.json` `stop_tasks`. */
+export type StopTaskSeed = Pick<StopTask, "task_id" | "stop_id" | "crew_id" | "kind" | "text">;
+
 export type CommandKind =
   | "LOAD_SCENARIO"
   | "SET_CLOCK"
@@ -208,7 +243,9 @@ export type CommandKind =
   | "APPROVE_OPTION"
   | "TASK_ROVER"
   | "SEND_MESSAGE"
-  | "INJECT_EVENT";
+  | "INJECT_EVENT"
+  | "UPDATE_STOP_TASK"
+  | "ADD_STOP_TASK";
 
 export interface Command {
   command_id: string;
@@ -238,7 +275,10 @@ export type LogEventKind =
   | "EARTH_MSG_DELIVERED"
   | "COMMAND_REJECTED"
   | "CLOCK_CHANGED"
-  | "EVA_ENDED";
+  | "EVA_ENDED"
+  | "TASK_ADDED"
+  | "TASK_UPDATED"
+  | "TASK_DROPPED";
 
 /** One line of session.jsonl (05 LogEvent). Immutable. */
 export interface LogEvent {

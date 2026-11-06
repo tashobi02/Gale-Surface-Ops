@@ -82,6 +82,51 @@
         "sha256"
       ],
       "additionalProperties": false
+    },
+    "StopTaskSeed": {
+      "type": "object",
+      "$comment": "Authored fields of 05 StopTask (FR-50). state, reason, origin, updated_* and provenance are set by the Hab Core. 1-4 tasks per stop and stop_id existing in plan are checked by the Hab Core loader.",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stop_id": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "POI id or Waypoint id: U-61"
+        },
+        "crew_id": {
+          "enum": [
+            "EV1",
+            "EV2",
+            null
+          ]
+        },
+        "kind": {
+          "enum": [
+            "observe",
+            "image",
+            "sample",
+            "measure",
+            "deploy",
+            "other"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        }
+      },
+      "required": [
+        "task_id",
+        "stop_id",
+        "crew_id",
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false
     }
   },
   "properties": {
@@ -115,6 +160,13 @@
     "plan": {
       "type": "object",
       "$comment": "PlanExport — validate with plan-export.schema.json"
+    },
+    "stop_tasks": {
+      "type": "array",
+      "$comment": "Optional (05 Scenario, FR-50); beside plan so plan_hash is unchanged (U-48)",
+      "items": {
+        "$ref": "#/$defs/StopTaskSeed"
+      }
     },
     "crew": {
       "type": "array",

@@ -13,6 +13,7 @@ import type {
   ProvenanceMap,
   Role,
   Session,
+  StopTask,
   Vehicle,
 } from "./runtime";
 import type { PlanExport } from "./schema";
@@ -43,6 +44,8 @@ export interface Snapshot {
   vehicles: Vehicle[];
   alerts: Alert[];
   options: ContingencyOption[];
+  /** Current stop tasks (02 §E.6, FR-50). */
+  tasks: StopTask[];
   earth: { light_time_s: number; next_pass_utc: string | null; blackout: boolean; queue: EarthMessage[] };
   clients: Pick<ClientConnection, "client_id" | "role" | "display_name">[];
   provenance: ProvenanceMap;
@@ -99,11 +102,14 @@ export interface Ping {
 export type ClientMessage = Hello | CommandMessage;
 export type ServerMessage = Snapshot | StateDelta | EventMessage | LinkStateMessage | CommandResult | Ping;
 
-/** Role → allowed command kinds (02 §E.4). `self` restrictions are checked by the Hab Core. */
+/**
+ * Role → allowed command kinds (02 §E.4). `self` restrictions are checked by the Hab Core,
+ * including UPDATE_STOP_TASK "own tasks" for EVA roles (FR-50).
+ */
 export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
   planner: ["PUBLISH_PLAN"],
-  "eva:EV1": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE"],
-  "eva:EV2": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE"],
+  "eva:EV1": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
+  "eva:EV2": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
   ops: [
     "LOAD_SCENARIO",
     "SET_CLOCK",
@@ -117,6 +123,8 @@ export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
     "TASK_ROVER",
     "SEND_MESSAGE",
     "INJECT_EVENT",
+    "UPDATE_STOP_TASK",
+    "ADD_STOP_TASK",
   ],
   earth: ["SEND_MESSAGE"],
 };
