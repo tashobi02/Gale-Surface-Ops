@@ -71,6 +71,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-06 | Codex (Luna 6), Gemini 3.8 Flash via agy, Claude Code (Opus 5.5) | T03.17: wrote the DataSource and Layer records | Values copied from 05 §F.1, 02 §C.2, `coverage.md` and the USGS pages; no value from memory; Flash found three defects, Opus 5.5 fixed them | Approved by Obidit Islam, including the 5 m hazard-flags display resolution | This Claude Code session |
 | 2026-11-07 | Codex (Terra 6.1), Claude Code (Haiku 5.5, Opus 5.5) | T03.12: wrote the tile renderer | No numbers typed; synthetic-raster checks; Haiku 5.5 and Opus 5.5 found four defects, all fixed; layout provisional until C9 | Approved by Obidit Islam | This Claude Code session |
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T01.03: cut the AOI window, made the hillshade, computed the detail scores, read HiRISE footprints from PDS, drafted `dem-quality.md`; selected the patches and measured the crater on the data lead's delegation | Numbers are tool output with commands shown; cut-offs set between the data lead's three verdicts and shown with a sensitivity table; selection and measurement disclosed in the note | Method and verdict by Obidit Islam | This Claude Code session |
+| 2026-11-07 | Claude Code (Opus 5.5, local session) | T01.01: read the DEM header with GDAL and both labels; drafted `dem-label.md` | Label lines quoted verbatim; numbers from tools or labels; no dataset committed; SHA-256 still open | Approved by Obidit Islam | This Claude Code session |
 
 ## Prompts location
 
