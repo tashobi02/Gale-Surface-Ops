@@ -127,7 +127,7 @@ Desirable FR-13, FR-18–FR-20 → TASK-18 only after freeze criteria (06 §D.6)
 | FR-38 Local radiation trigger | SCR-11–SCR-14 | `eventDose.triggerState` | Alert, ParamSet | TASK-05b, 22 |
 | FR-39 Time to safe haven | SCR-05, SCR-12, SCR-13 | `haven` (02 §D.8) | Crew.haven | TASK-05b, 23 |
 | FR-40 Vehicle summon and rendezvous | SCR-12, SCR-14 | `rendezvous` (02 §D.10) | Vehicle, ContingencyOption | TASK-05b, 23 |
-| FR-41 Robotic rover tasking (T2) | SCR-15 | Vehicle tasks | Vehicle | TASK-29 |
+| FR-41 Robotic rover tasking (T1 since 2026-11-05) | SCR-15 | Vehicle tasks | Vehicle | TASK-29 |
 | FR-42 Comm coverage | SCR-02, SCR-11, SCR-12 | `viewshed`, `linkGraph` (02 §D.11) | RoutingGrid.comm_hab_asset, LinkState | TASK-03, 05b, 26 |
 | FR-43 Earth link | SCR-11, SCR-16 | `earthLink` (02 §D.12) | EarthLinkTable, EarthMessage | TASK-05b, 21, 26 |
 | FR-44 Contingency re-plan | SCR-14 | `contingency` (02 §D.15) | ContingencyOption | TASK-05b, 23 |

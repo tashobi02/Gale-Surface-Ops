@@ -635,7 +635,7 @@ No accounts. A client joins with a **role** and a display name; the Hab Core tru
 | `PUBLISH_PLAN` | ✓ | — | ✓ | — |
 | `START_EVA`, `APPROVE_OPTION` | — | — | ✓ | — |
 | `SUMMON_VEHICLE`, `ABORT`, `ACK_ALERT` | — | ✓ (self) | ✓ (any crew) | — |
-| `TASK_ROVER` (T2) | — | ✓ | ✓ | — |
+| `TASK_ROVER` | — | ✓ | ✓ | — |
 | `SEND_MESSAGE` | — | ✓ | ✓ | ✓ (delayed) |
 | `UPDATE_STOP_TASK` (FR-50) | — | ✓ (own tasks) | ✓ (any crew) | — |
 | `ADD_STOP_TASK` (FR-50) | — | — | ✓ | — |

@@ -27,13 +27,13 @@ Marswalk Surface Ops (one web app, served by Hab Core; mode per 04 §B.2)
 ├── OPS role                                #/ops           OPS
 │   ├── SCR-11 Ops console
 │   ├── SCR-14 Options panel (on alert)
-│   ├── SCR-15 Rover tasking (T2)
+│   ├── SCR-15 Rover tasking
 │   └── SCR-17 Post-EVA report              #/report        PRINT
 ├── EVA role                                #/eva/EV1 · #/eva/EV2   OPS
 │   ├── SCR-12 EVA tablet
 │   ├── SCR-13 HUD                          #/hud/EV1 · #/hud/EV2   HUD
 │   ├── SCR-14 Options sheet (on alert)
-│   └── SCR-15 Rover tasking (T2)
+│   └── SCR-15 Rover tasking
 ├── EARTH role (T2)                         #/earth         OPS
 │   └── SCR-16 Earth view
 ├── SCR-09 Sources & Methods                #/sources       BRIEF (from every screen)
@@ -187,7 +187,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
 | --- | --- |
 | Purpose | Tell one crew member where to go, how much margin is left, and how to get safe |
 | Entry | `#/eva/EV1` or `#/eva/EV2` |
-| Content | Alert bar; haven and O₂ (largest); next stop with bearing/distance/ETA and its task count; stop task list at a stop (FR-50); mini-map; metadata strip (EVA time, dose, link); action row: Summon rover, Abort, Task rover (T2), HUD |
+| Content | Alert bar; haven and O₂ (largest); next stop with bearing/distance/ETA and its task count; stop task list at a stop (FR-50); mini-map; metadata strip (EVA time, dose, link); action row: Summon rover, Abort, Task rover, HUD |
 | Primary actions | Summon rover (hold), Abort to hab (hold), Acknowledge alert, tick or skip a stop task (one tap, 5-s undo), Open HUD |
 | States | Waiting for EVA start · Walking · At stop (dwell countdown) · Alerting (→ SCR-14) · To haven · Sheltered · No hab link (cached plan; commands queued) · EVA ended |
 | Requirements | FR-32, FR-35, FR-39, FR-40, FR-44, FR-50 |
@@ -215,7 +215,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
 | States | Computing options · Ready · Executing (shows dispatched vehicle + ETAs) · Superseded (a newer alert) |
 | Requirements | FR-40, FR-44 |
 
-### SCR-15 — Rover tasking *(v2, T2)*
+### SCR-15 — Rover tasking *(v2, T1 since 2026-11-05)*
 
 | Field | Spec |
 | --- | --- |
@@ -311,7 +311,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
 | 9 | Crew cards turn SHELTERED; dose received vs. unsheltered | "Sheltered — PR1" | Same | `CREW_SHELTERED` |
 | 10 | End EVA → SCR-17 report | EVA ended | EVA ended | `EVA_ENDED` |
 
-### C.7 Rover tasking (T2)
+### C.7 Rover tasking
 
 EV1 taps Task rover → Relay → accepts suggested ridge → UR1 drives → comm-shadow caution clears on the remaining route.
 
@@ -337,7 +337,7 @@ Hab Core process killed → SCR-18 banner on all clients within 3 s → EVA keep
 | Boot asset failure | Manifest/grid checksum | SCR-00 with missing file name | Fix deployment; retry |
 | *(v2)* Hab Core unreachable at load | HTTP/WS connect fails | SCR-18 "Connecting to hab…" with the address being tried | Check router; retry; single-laptop mode |
 | *(v2)* Hab Core lost during EVA | No heartbeat 3 s | SCR-18 banner; cached plan, aged values | Wait for reconnect; ops restarts Hab Core |
-| *(v2)* Simulated comm shadow | Link graph: suit not linked | Caution bar "No hab link — operating on cached plan"; commands "Queued" | Move to coverage; stay with buddy; rover relay (T2) |
+| *(v2)* Simulated comm shadow | Link graph: suit not linked | Caution bar "No hab link — operating on cached plan"; commands "Queued" | Move to coverage; stay with buddy; rover relay (FR-41) |
 | *(v2)* Command rejected | `COMMAND_RESULT ok:false` | Inline message with reason (`FORBIDDEN_ROLE`, `NO_LINK`, `INVALID`, `NO_RENDEZVOUS`, `BUSY`) | Follow the reason |
 | *(v2)* No rendezvous possible | `NO_RENDEZVOUS` | Option removed with reason; abort to hab becomes option 1 | Abort to hab |
 | *(v2)* Role already taken | HELLO with an occupied role | SCR-10 "EV1 is connected on another device — take over?" | Take over (demo) or pick another role |

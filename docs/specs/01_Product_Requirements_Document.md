@@ -200,11 +200,10 @@ Tiers replace v1's single MVP list. A tier is not started until the one above it
 - Event log and post-EVA report.
 - Stop task list on the EVA tablet, synced to ops (FR-50, added 2026-11-05).
 - Full-screen map on the EVA tablet with on-screen map controls, and zoom/pan buttons on the ops and planner maps (FR-32, added 2026-11-05).
+- Robotic rover tasking — scout, carry, relay, return — including the rover as a comm relay that closes a shadow (FR-41; moved from Tier 2 on 2026-11-05).
 
 ### C.3 Tier 2 — Should (only after Tier 1 exit criteria)
 
-- Robotic rover tasking: scout, carry, relay, return (FR-41).
-- Rover as comm relay that closes a shadow.
 - Terrain radiation refuge (sky-view factor) as a third shelter option.
 - Earth support view with store-and-forward queue.
 - CRISM resource layer (if AOI coverage exists); REMS seasonal context.
@@ -275,7 +274,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 
 - **User story:** As an EVA crew member, I see where to go next, how much margin I have, and what to do if something changes, on a small screen with gloves on.
 - **Full-screen map** *(added 2026-11-05, Tier 1, product & systems lead's decision)*: tapping the mini-map or FULL opens a full-screen map with labelled on-screen controls (+, −, FIT, FOLLOW, LAYERS, CLOSE) and up to two scientific layers at once (slope, thermal inertia, comm shadow, haven bands). HAVEN and O₂ stay on screen, the alert slot and action row never move, and a warning closes it. Layout: 04 §E.5; prototype: [mockup handoff](../design/mockup-handoff.md) DV-13, G-42, G-43.
-- **Content:** next stop (name, bearing, distance, ETA), mini-map with route and my position, margins strip (time to haven, O₂ remaining, EVA time remaining, dose so far), alert banner, three primary actions: **Summon vehicle**, **Task rover** (T2), **Abort to haven**.
+- **Content:** next stop (name, bearing, distance, ETA), mini-map with route and my position, margins strip (time to haven, O₂ remaining, EVA time remaining, dose so far), alert banner, three primary actions: **Summon vehicle**, **Task rover**, **Abort to haven**.
 - **Acceptance criteria:**
   - Works on a phone/tablet ≥ 360 px wide in portrait; touch targets ≥ 56 px (glove use, **Assumed**).
   - Each primary action is ≤ 2 taps + confirm.
@@ -328,7 +327,9 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 - **Behavior:** The rover routes on the grid with its own parameters (02 D.9). The rendezvous point minimises the time until both crew and rover are there. The EVA client shows the rendezvous point, both ETAs and the vehicle's route; ops sees the same. The rover moves only after the crew confirms (or ops confirms on their behalf).
 - **Acceptance:** rendezvous is reachable by both; the rover's path never violates its slope limit; ETA is shown with its assumptions (speed, slope limit).
 
-#### FR-41 — Robotic rover tasking [T2, S]
+#### FR-41 — Robotic rover tasking [T1, M]
+
+*(Moved from Tier 2 on 2026-11-05 by the product & systems lead so the relay moment is in the dry run and the 240-s video.)*
 
 - **Tasks:** `SCOUT(point)` (drive, capture curated imagery, report terrain class), `CARRY(item, to)`, `RELAY(point)` (park to extend radio coverage), `RETURN`.
 - **Behavior:** goal-level commands only; the rover routes autonomously; battery is its consumable. Tasks queue and show ETA.
@@ -407,7 +408,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 | 0:20 | Earth status: forecast message is still in transit / waiting for relay pass | Earth link widget: light time X min (SPICE), next relay pass in Y min | Earth can't help in time |
 | 0:30 | System proposes options | Abort to hab 41 min vs. rover rendezvous 14 min; expected event dose for each | Decision support |
 | 0:40 | EV1 taps **Summon vehicle** → confirm | Rover route draws; rendezvous point avoids a 17° slope; ETAs converge | Vehicle summon, realistic routing |
-| 0:55 | Route to rendezvous crosses a comm shadow | `COMM_SHADOW` warning; (T2) robotic rover tasked to relay closes it | Terrain-aware comms |
+| 0:55 | Route to rendezvous crosses a comm shadow | `COMM_SHADOW` warning; robotic rover tasked to relay closes it (FR-41) | Terrain-aware comms |
 | 1:10 | Crew reach the rover | Dose received vs. unsheltered estimate; event log | Outcome |
 | 1:20 | Ops opens post-EVA report | Planned vs. actual, alerts, dose, provenance | Credible output |
 

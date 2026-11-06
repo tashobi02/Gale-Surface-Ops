@@ -11,7 +11,7 @@
 
 Team 4 → **6**; scope = surface operations system in three tiers; new tasks TASK-20…TASK-30; milestone added for the organizer guide's **12 Nov full offline dry run**; cut list rewritten around the killer demo.
 
-**v2 → v2.1 (2026-11-05).** Coding starts Fri 6 Nov (planning review on 5 Nov). The team's own target for the full offline dry run (M4) moves from 12 Nov to **Wed 11 Nov**, and 12 Nov becomes a buffer day (M4b: fixes, second dry run, fallback recording). Scope is not cut: the team decided on 5 Nov not to cut anything, so §D.4 is a contingency list only. Added the same day: **TASK-31** stop task list (FR-50, 6–9 person-hours), TASK-11 briefing card moved from the event to pre-event, and per-person assignments in §A.2. Later the same day the full-screen EVA map and shared map controls became Tier 1 (product & systems lead's decision): +3–4 h on TASK-24 and +2–3 h on TASK-07 (Proposed estimates, confirm at kickoff). Task windows in §C, the checkpoints in §D.3 and the schedule in §F are re-dated to match; the capacity check is in §A.
+**v2 → v2.1 (2026-11-05).** Coding starts Fri 6 Nov (planning review on 5 Nov). The team's own target for the full offline dry run (M4) moves from 12 Nov to **Wed 11 Nov**, and 12 Nov becomes a buffer day (M4b: fixes, second dry run, fallback recording). Scope is not cut: the team decided on 5 Nov not to cut anything, so §D.4 is a contingency list only. Added the same day: **TASK-31** stop task list (FR-50, 6–9 person-hours), TASK-11 briefing card moved from the event to pre-event, and per-person assignments in §A.2. Later the same day the full-screen EVA map and shared map controls became Tier 1 (product & systems lead's decision): +3–4 h on TASK-24 and +2–3 h on TASK-07 (Proposed estimates, confirm at kickoff). Rover tasking (TASK-29, 4–8 h) also moved from Tier 2 into the pre-event plan (Mishkat + Saba), so the relay moment is in the dry run and the 240-s video. Task windows in §C, the checkpoints in §D.3 and the schedule in §F are re-dated to match; the capacity check is in §A.
 
 ---
 
@@ -22,7 +22,7 @@ Team 4 → **6**; scope = surface operations system in three tiers; new tasks TA
 | Team | 6: Obidit Islam (owner), Sadman Shaharier Mahim, Saba Atharique, Mishkat Ahmed Khan, Anjim Hossain, Ridita Alam ([ops/team.md](../ops/team.md)) | **Confirmed** |
 | Roles | Six owned roles R1–R6 (§A.1), proposed from the skills in [ops/team.md](../ops/team.md); sign-off at the 6 Nov kickoff | **Proposed** (`TODO(decision)`) |
 | Calendar | Today Thu 5 Nov (final plan review). Coding starts Fri 6 Nov. Pre-event build: 6–11 Nov; **team dry run Wed 11 Nov**; 12 Nov buffer. Bangladesh hackathon: Fri 13 Nov 07:00 → Sat 14 Nov. 240-s local video **13 Nov 18:30**; 30-s global video **14 Nov 09:00** (hard cut-off 12:00); local judging from 11:00 | **Confirmed** (Participants Guide; organizer Build Guide) |
-| Pre-event capacity | 6 build days (6–11 Nov) × 6 people. At ≈ 3 h/day/person: **108 person-hours**; at ≈ 5 h/day/person: **180 person-hours**; 12 Nov buffer adds ≈ 18–30. Total effort in §C excluding Tier 2 (TASK-18, TASK-29) is **156–237 person-hours** (TASK-00 and TASK-31 included); §A.2 assigns **139–212** of it to the pre-event days. So the pre-event plan fits only at about **5 h/day/person**, and at the top of the range it needs most of the 12 Nov buffer too; at 3 h/day it slips and §D.4 applies | **Assumed** — commitment of ≈ 5 h/day to confirm at kickoff (`TODO(decision)`) |
+| Pre-event capacity | 6 build days (6–11 Nov) × 6 people. At ≈ 3 h/day/person: **108 person-hours**; at ≈ 5 h/day/person: **180 person-hours**; 12 Nov buffer adds ≈ 18–30. Total effort in §C excluding Tier 2 (TASK-18) is **160–245 person-hours** (TASK-00, TASK-29 and TASK-31 included); §A.2 assigns **143–220** of it to the pre-event days. So the pre-event plan fits only at about **5 h/day/person**; at the top of the range it exceeds 180 + the 12 Nov buffer (18–30) by up to ≈ 10–20 person-hours, and the §D.4 contingency list (item 1 first) is how that gap closes; at 3 h/day it slips and §D.4 applies | **Assumed** — commitment of ≈ 5 h/day to confirm at kickoff (`TODO(decision)`) |
 | Event capacity | ≈ 16–18 focused h/person ≈ **100 person-hours** | **Assumed** |
 | Pre-event building | **Track P**: the Dhaka Local Lead allowed pre-event application code on 2026-11-04 ([ops/rules.md](../ops/rules.md)); the organizer Build Guide expects a full offline dry run by 12 Nov; the team targets 11 Nov (M4). Re-check against the 2026 guides on 13 Nov | **Confirmed** |
 | Hardware | ≥ 3 laptops (one ≥ 16 GB RAM for the Hab Core + data), ≥ 2 phones (one Android, one iOS if possible), **one travel router owned by the team** (U-21) | **Assumed** |
@@ -57,14 +57,14 @@ Each task's effort comes from §C; where two people share a task, the range is s
 | Person | Position | Pre-event tasks (person-hours) | Pre-event total | Event tasks | Event total | Coding agent |
 | --- | --- | --- | --- | --- | --- | --- |
 | Obidit Islam | Team lead · R1 Data & GIS | TASK-01 5–8, TASK-03 10–16, TASK-21 (data) 6–9, TASK-30 1–2 | 22–35 | TASK-16 3–4, TASK-17 (helper) 1–2 | 4–6 | `TODO(decision)` |
-| Mishkat Ahmed Khan | R2 Compute lead · R1 support | TASK-05 8–12, TASK-06 3–5, TASK-05b (half) 6–9, TASK-04 (data half) 3–5, TASK-12 3–4 | 23–35 | — | 0–0 | `TODO(decision)` |
+| Mishkat Ahmed Khan | R2 Compute lead · R1 support | TASK-05 8–12, TASK-06 3–5, TASK-05b (half) 6–9, TASK-04 (data half) 3–5, TASK-12 3–4, TASK-29 (compute + engine) 2–4 | 25–39 | — | 0–0 | `TODO(decision)` |
 | Anjim Hossain | R2/R4 float · integration lead | TASK-05b (half) 6–9, TASK-23 (compute half) 3–5, TASK-26 4–6, TASK-28 3–4, TASK-14 (lead) 4–6, TASK-31 (engine) 2–3 | 22–33 | — | 0–0 | `TODO(decision)` |
 | Sadman Shaharier Mahim | Product & systems lead · R4 Hab Core · demo story | TASK-20 6–8, TASK-22 10–14, TASK-23 (Hab Core half) 3–5, TASK-21 (script) 2–3, TASK-04 (content half) 3–5, TASK-31 (task content) 1–2 | 25–37 | TASK-17 3–4 | 3–4 | `TODO(decision)` |
-| Saba Atharique | R3 Map & Planner UI | TASK-02 2–4, TASK-07 8–13, TASK-08 4–6, TASK-09 4–6, TASK-11 3–5 | 21–34 | TASK-10 3–4, TASK-27 (half) 2–3 | 5–7 | `TODO(decision)` |
+| Saba Atharique | R3 Map & Planner UI | TASK-02 2–4, TASK-07 8–13, TASK-08 4–6, TASK-09 4–6, TASK-11 3–5, TASK-29 (UI) 2–4 | 23–38 | TASK-10 3–4, TASK-27 (half) 2–3 | 5–7 | `TODO(decision)` |
 | Ridita Alam | R5 EVA & Ops UI · design system | TASK-13 4–6, TASK-24 11–16, TASK-25 8–12, TASK-31 (UI) 3–4 | 26–38 | TASK-15 2–3, TASK-27 (half) 2–3 | 4–6 | `TODO(decision)` |
-| **Team** | | | **139–212** | | **16–23** | |
+| **Team** | | | **143–220** | | **16–23** | |
 
-TASK-14 (integration) and the M4 dry runs are all-hands on 11–12 Nov even though Anjim leads TASK-14. TASK-18 and TASK-29 (Tier 2) stay unassigned until M4 passes.
+TASK-14 (integration) and the M4 dry runs are all-hands on 11–12 Nov even though Anjim leads TASK-14. TASK-18 (Tier 2) stays unassigned until Tier 1 exit criteria are met at M7.
 
 ---
 
@@ -130,7 +130,7 @@ Effort is person-hours (ranges, not promises). **P** = pre-event (Track P), **E*
 | **TASK-27** | Event log view, post-EVA report, **replay mode** for GitHub Pages | R5 + R3 | E | 4–6 | Report ≤ 2 pages; Pages link replays the recorded log | Report = printed log table |
 | **TASK-31** | Stop task list (FR-50): `StopTask` in protocol and scenario schema, `UPDATE_STOP_TASK`/`ADD_STOP_TASK`, auto-complete for simulated crew, drop on plan revision; EVA list + ops progress; task text per stop | R5 (UI) + R4 (engine) + R6 (content) | P 8–10 Nov | 6–9 | Tap on tablet shows on ops ≤ 500 ms; abort drops open tasks; report counts match the log | Ops view-only (no `ADD_STOP_TASK`) |
 | **TASK-28** | Network kit & rehearsal: router config, static IP, QR join, device matrix, venue checklist | R4 | P 8–11 Nov | 3–4 | M4 passes; checklist in `docs/ops/demo-kit.md` | Single-laptop mode |
-| **TASK-29** | *(Tier 2)* Robotic rover tasking: SCOUT, RELAY, RETURN | R4 + R5 | E after M7 gate | 4–8 | RELAY closes the demo shadow | Skip |
+| **TASK-29** | Robotic rover tasking: SCOUT, CARRY, RELAY, RETURN (moved to Tier 1 on 5 Nov) | R2 (rover routing, relay coverage, Hab Core handlers with R4) + R3 (SCR-15 tasking on the map, EVA and ops entry points) | P 9–10 Nov | 4–8 | RELAY closes the demo shadow; queue shows ETA and battery | RELAY only |
 | **TASK-30** | Score-sheet single points on day one of the build: challenge named, repo public, page drafted; `docs/AI_USE.md` kept current | R6 | P 5–6 Nov, then continuous | 1–2 | All three single points verifiable | — |
 
 ---
@@ -190,14 +190,15 @@ Mirrors the organizer guide's rule — drop scope before the killer moment.
 
 **Not planned.** On 5 Nov the team decided not to cut scope (6 people, 6 build days). This list is a contingency only: it is invoked jointly by the team lead and the product & systems lead if M3 (10 Nov) is missed, starting from item 1.
 
-1. All Tier 2 (TASK-18, TASK-29): rover tasking, terrain refuge, Earth view, CRISM, REMS, dust.
-2. Second crew device (EV2 stays simulated and visible on ops only).
-3. Planner polish: coach marks, drag, free placement → POI-only stops.
-4. Dynamic relay viewshed → static hab coverage only.
-5. Exact rendezvous → vehicle drives to the crew's nearest vehicle-passable cell.
-6. Live planner routing in the demo → scenario's precomputed plan.
-7. Multi-device → single-laptop multi-window demo.
-8. Live engine in the video → headless replay rendered on ops.
+1. All Tier 2 (TASK-18): terrain refuge, Earth view, CRISM, REMS, dust.
+2. Rover tasking down to RELAY only (TASK-29 fallback), keeping the relay moment.
+3. Second crew device (EV2 stays simulated and visible on ops only).
+4. Planner polish: coach marks, drag, free placement → POI-only stops.
+5. Dynamic relay viewshed → static hab coverage only.
+6. Exact rendezvous → vehicle drives to the crew's nearest vehicle-passable cell.
+7. Live planner routing in the demo → scenario's precomputed plan.
+8. Multi-device → single-laptop multi-window demo.
+9. Live engine in the video → headless replay rendered on ops.
 
 **Never cut:** the storm moment (alert → options → summon → shelter), real replayed event data, provenance labels, prototype disclaimer, no-internet operation, the three single score points.
 

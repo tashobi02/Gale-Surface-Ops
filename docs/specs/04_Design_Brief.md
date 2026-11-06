@@ -405,7 +405,7 @@ EGRESS ▸ TRAVERSE ▸ STOP 1 ▸ TRAVERSE ▸ ■ STOP 2 ▸ TRAVERSE ▸ STOP
 │ EVA 2:14 · DOSE 0.1 mGy · ▮▮▮│  metadata strip
 ├──────────────────────────────┤
 │ [ SUMMON ROVER ] [ ABORT ]   │  56–72 px, hold-to-confirm
-│ [ TASK ROVER (T2) ]  [ HUD ] │
+│ [ TASK ROVER ]       [ HUD ] │
 └──────────────────────────────┘
 ```
 
