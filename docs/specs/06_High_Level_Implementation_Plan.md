@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Delivery (this file owns order, dependencies and cut decisions) |
 | **Date** | 2026-11-05 (Thursday) |
-| **Status** | Draft v2.1 — re-dated for an 11 Nov dry run (2026-11-05); v2 superseded v1 (2026-11-02) |
+| **Status** | Draft v2.2 — 8–10 h/day capacity, extra dry run on 10 Nov (2026-11-05); v2.1 re-dated for an 11 Nov dry run; v2 superseded v1 (2026-11-02) |
 | **Related** | [01 PRD](01_Product_Requirements_Document.md) (tiers T0–T2, killer demo §E.1) · [02 Technical](02_Technical_Requirements_Document.md) · [03 Flow](03_App_Flow_and_Diagrams.md) · [04 Design](04_Design_Brief.md) · [05 Schema](05_Backend_and_Database_Schema.md) · [Docs index](../README.md) |
 
 ## Change log v1 → v2
@@ -12,6 +12,8 @@
 Team 4 → **6**; scope = surface operations system in three tiers; new tasks TASK-20…TASK-30; milestone added for the organizer guide's **12 Nov full offline dry run**; cut list rewritten around the killer demo.
 
 **v2 → v2.1 (2026-11-05).** Coding starts Fri 6 Nov (planning review on 5 Nov). The team's own target for the full offline dry run (M4) moves from 12 Nov to **Wed 11 Nov**, and 12 Nov becomes a buffer day (M4b: fixes, second dry run, fallback recording). Scope is not cut: the team decided on 5 Nov not to cut anything, so §D.4 is a contingency list only. Added the same day: **TASK-31** stop task list (FR-50, 6–9 person-hours), TASK-11 briefing card moved from the event to pre-event, and per-person assignments in §A.2. Later the same day the full-screen EVA map and shared map controls became Tier 1 (product & systems lead's decision): +3–4 h on TASK-24 and +2–3 h on TASK-07 (Proposed estimates, confirm at kickoff). Rover tasking (TASK-29, 4–8 h) also moved from Tier 2 into the pre-event plan (Mishkat + Saba), so the relay moment is in the dry run and the 240-s video. Task windows in §C, the checkpoints in §D.3 and the schedule in §F are re-dated to match; the capacity check is in §A.
+
+**v2.1 → v2.2 (2026-11-05).** The team committed to **8–10 h/day each**. Capacity rises from about 180 to **288–360 person-hours** over the 6 build days, which covers the pre-event plan with 68–217 person-hours spare. The spare time goes, in order, to: a first dry run on the evening of **Tue 10 Nov** (M3b), so 11 Nov is the second attempt and 12 Nov the third; the usability test (TASK-15) moved from the event to 10–11 Nov; and Tier 2 (TASK-18) allowed before the event, but only after M3 passes. The binding constraints are now the dependencies in §D.3, not hours.
 
 ---
 
@@ -22,7 +24,7 @@ Team 4 → **6**; scope = surface operations system in three tiers; new tasks TA
 | Team | 6: Obidit Islam (owner), Sadman Shaharier Mahim, Saba Atharique, Mishkat Ahmed Khan, Anjim Hossain, Ridita Alam ([ops/team.md](../ops/team.md)) | **Confirmed** |
 | Roles | Six owned roles R1–R6 (§A.1), proposed from the skills in [ops/team.md](../ops/team.md); sign-off at the 6 Nov kickoff | **Proposed** (`TODO(decision)`) |
 | Calendar | Today Thu 5 Nov (final plan review). Coding starts Fri 6 Nov. Pre-event build: 6–11 Nov; **team dry run Wed 11 Nov**; 12 Nov buffer. Bangladesh hackathon: Fri 13 Nov 07:00 → Sat 14 Nov. 240-s local video **13 Nov 18:30**; 30-s global video **14 Nov 09:00** (hard cut-off 12:00); local judging from 11:00 | **Confirmed** (Participants Guide; organizer Build Guide) |
-| Pre-event capacity | 6 build days (6–11 Nov) × 6 people. At ≈ 3 h/day/person: **108 person-hours**; at ≈ 5 h/day/person: **180 person-hours**; 12 Nov buffer adds ≈ 18–30. Total effort in §C excluding Tier 2 (TASK-18) is **160–245 person-hours** (TASK-00, TASK-29 and TASK-31 included); §A.2 assigns **143–220** of it to the pre-event days. So the pre-event plan fits only at about **5 h/day/person**; at the top of the range it exceeds 180 + the 12 Nov buffer (18–30) by up to ≈ 10–20 person-hours, and the §D.4 contingency list (item 1 first) is how that gap closes; at 3 h/day it slips and §D.4 applies | **Assumed** — commitment of ≈ 5 h/day to confirm at kickoff (`TODO(decision)`) |
+| Pre-event capacity | 6 build days (6–11 Nov) × 6 people × **8–10 h/day = 288–360 person-hours**; the 12 Nov buffer adds 48–60. Total effort in §C excluding Tier 2 (TASK-18) is **160–245 person-hours** (TASK-00, TASK-29 and TASK-31 included); §A.2 assigns **145–223** to the pre-event days, leaving **≈ 65–215 person-hours** of slack before the buffer (worst case: lowest capacity against highest effort). Per person the heaviest load (Ridita, 28–41) takes 2.8–5.1 working days. Caveats: §C ranges are estimates, not measurements, and output per hour drops over 6 long days, so treat the slack as an upper bound. Hours no longer limit the plan; the dependencies in §D.3 do (DEM and AOI, protocol freeze on 7 Nov, scenario data on 9 Nov, all-hands integration) | **Assumed** — 8–10 h/day committed by the team on 5 Nov; classes and exams may reduce it for some people |
 | Event capacity | ≈ 16–18 focused h/person ≈ **100 person-hours** | **Assumed** |
 | Pre-event building | **Track P**: the Dhaka Local Lead allowed pre-event application code on 2026-11-04 ([ops/rules.md](../ops/rules.md)); the organizer Build Guide expects a full offline dry run by 12 Nov; the team targets 11 Nov (M4). Re-check against the 2026 guides on 13 Nov | **Confirmed** |
 | Hardware | ≥ 3 laptops (one ≥ 16 GB RAM for the Hab Core + data), ≥ 2 phones (one Android, one iOS if possible), **one travel router owned by the team** (U-21) | **Assumed** |
@@ -52,7 +54,7 @@ Pairing rule: R2↔R4 own `packages/protocol` jointly; R3↔R5 share the map com
 
 ### A.2 Assignment by person *(Proposed 2026-11-05 — sign-off at the 6 Nov kickoff)*
 
-Each task's effort comes from §C; where two people share a task, the range is split between them. Pre-event load per person is about 3–6 h/day over the 6 build days, which matches the capacity row in §A. "Coding agent" records each person's tool (Claude Code, Codex, Gemini CLI or more than one); the shared rules for every tool are in [ops/agentic-workflow.md](../ops/agentic-workflow.md).
+Each task's effort comes from §C; where two people share a task, the range is split between them. Pre-event load per person is 22–41 person-hours, about 2.2–5.1 working days at 8–10 h/day, so everyone's pre-event tasks can be finished before the 11 Nov dry run (capacity row in §A). "Coding agent" records each person's tool (Claude Code, Codex, Gemini CLI or more than one); the shared rules for every tool are in [ops/agentic-workflow.md](../ops/agentic-workflow.md).
 
 | Person | Position | Pre-event tasks (person-hours) | Pre-event total | Event tasks | Event total | Coding agent |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -61,10 +63,10 @@ Each task's effort comes from §C; where two people share a task, the range is s
 | Anjim Hossain | R2/R4 float · integration lead | TASK-05b (half) 6–9, TASK-23 (compute half) 3–5, TASK-26 4–6, TASK-28 3–4, TASK-14 (lead) 4–6, TASK-31 (engine) 2–3 | 22–33 | — | 0–0 | `TODO(decision)` |
 | Sadman Shaharier Mahim | Product & systems lead · R4 Hab Core · demo story | TASK-20 6–8, TASK-22 10–14, TASK-23 (Hab Core half) 3–5, TASK-21 (script) 2–3, TASK-04 (content half) 3–5, TASK-31 (task content) 1–2 | 25–37 | TASK-17 3–4 | 3–4 | `TODO(decision)` |
 | Saba Atharique | R3 Map & Planner UI | TASK-02 2–4, TASK-07 8–13, TASK-08 4–6, TASK-09 4–6, TASK-11 3–5, TASK-29 (UI) 2–4 | 23–38 | TASK-10 3–4, TASK-27 (half) 2–3 | 5–7 | `TODO(decision)` |
-| Ridita Alam | R5 EVA & Ops UI · design system | TASK-13 4–6, TASK-24 11–16, TASK-25 8–12, TASK-31 (UI) 3–4 | 26–38 | TASK-15 2–3, TASK-27 (half) 2–3 | 4–6 | `TODO(decision)` |
-| **Team** | | | **143–220** | | **16–23** | |
+| Ridita Alam | R5 EVA & Ops UI · design system | TASK-13 4–6, TASK-24 11–16, TASK-25 8–12, TASK-31 (UI) 3–4, TASK-15 2–3 | 28–41 | TASK-27 (half) 2–3 | 2–3 | `TODO(decision)` |
+| **Team** | | | **145–223** | | **14–20** | |
 
-TASK-14 (integration) and the M4 dry runs are all-hands on 11–12 Nov even though Anjim leads TASK-14. TASK-18 (Tier 2) stays unassigned until Tier 1 exit criteria are met at M7.
+TASK-14 (integration) and the M4 dry runs are all-hands on 11–12 Nov even though Anjim leads TASK-14. TASK-18 (Tier 2) has no owner: whoever has finished their own tasks picks up an item, and only after M3 passes on 10 Nov.
 
 ---
 
@@ -76,6 +78,7 @@ TASK-14 (integration) and the M4 dry runs are all-hands on 11–12 Nov even thou
 | **M1 Spikes** | 6–7 Nov | TASK-02 projection renders with correct scale; **TASK-20** two phones receive a Hab Core broadcast ≤ 500 ms on the travel router; **TASK-05b** full-grid Dijkstra ≤ 2 s on the weakest laptop | Architecture locked (else fallbacks in §D.5) |
 | **M2 Data & scenario ready** | 6–9 Nov | Manifest validates; grids incl. `comm_hab`; `earth_link.json`, dose series and `scenario.json` for sol 4190 built and checksummed | Tier 1 build |
 | **M3 Walking skeleton (pre-event)** | by 10 Nov | Headless replay of the storm scenario writes a stable event log; planner computes a 3-stop route; ops map shows crew moving; EVA shows margins | Tier 1 polish |
+| **M3b First dry run** | 10 Nov, evening | Killer demo once end to end on 3 devices over the router; every failure logged as an issue for 11 Nov | M4 |
 | **M4 Offline dry run** | **11 Nov** | Killer demo (01 §E.1) runs on 3 devices over the travel router, WAN unplugged, **3 times in a row**; fallback screen recording saved | Event plan |
 | **M4b Buffer** | 12 Nov | M4 regressions fixed; dry run repeated twice; final fallback recording; network kit packed (organizer's 12 Nov dry-run deadline met with a day to spare) | Event plan |
 | **M5 Event: demo path green** | Day 1 by 12:30 | Same as M4 at the venue on the team's router; any regressions fixed | 240-s recording |
@@ -110,10 +113,10 @@ Effort is person-hours (ranges, not promises). **P** = pre-event (Track P), **E*
 | **TASK-12** | Sources & methods + provenance (6 classes) | R6 | P/E | 3–4 | DOM test: no unlabelled number in any role view | — |
 | **TASK-13** | Design system + **HUD tokens** + a11y | R6 | P 6–9 Nov | 4–6 | Tokens applied; HUD contrast ≥ 7 : 1 | Keep tokens + focus + patterns only |
 | **TASK-14** | Integration, offline hardening, fault tests | R4 (lead) + all | P 10–12 Nov / E | 4–6 | 02 §F.1 + §F.2 fault cases pass | — |
-| **TASK-15** | Usability test (3 non-team users) incl. HUD glance + summon without instruction | R6 | E night | 2–3 | ≥ 2 of 3 pass each criterion (01 §B.2) | — |
+| **TASK-15** | Usability test (3 non-team users) incl. HUD glance + summon without instruction | R6 | P 10–11 Nov (moved from the event, v2.2) | 2–3 | ≥ 2 of 3 pass each criterion (01 §B.2) | — |
 | **TASK-16** | Submission package: README, LICENSE, AI_USE, credits, project page fields | R6 | P/E | 3–4 | Private-window check passes | — |
 | **TASK-17** | Videos: 240 s and 30 s (§G) | R6 + one helper | E | 4–6 | Uploaded, subtitled, datasets named, no under-18 likeness | Use M4 recording |
-| **TASK-18** | Tier 2 desirables (CRISM, REMS, dust, SVF refuge, Earth view) | Any | E after M7 gate | 2–6 each | Labelled and tested | Skip |
+| **TASK-18** | Tier 2 desirables (CRISM, REMS, dust, SVF refuge, Earth view) | Any | After M3 passes (P 10–12 Nov), cheapest first (REMS, dust); otherwise E after the M7 gate | 2–6 each | Labelled and tested | Skip |
 
 ### C.2 New in v2 (surface ops, Tier 1 unless marked)
 
@@ -177,8 +180,8 @@ The **planner (TASK-07…11) is off the critical path** for the killer demo: the
 | Fri 6 Nov | Kickoff: roles signed off, AOI and hab site proposal; coding starts |
 | Sat 7 Nov | `packages/protocol` v0 frozen (types for SNAPSHOT/DELTA/EVENT/COMMAND); **M1 spikes** go/no-go in the evening: projection, LAN broadcast, Dijkstra speed |
 | Mon 9 Nov | **M2** manifest + scenario tables validated |
-| Tue 10 Nov | **M3** headless replay stable; all role views connected |
-| Wed 11 Nov | **M4** offline dry run ×3 on 3 devices; record fallback video |
+| Tue 10 Nov | **M3** headless replay stable; all role views connected. Evening: **M3b** first dry run; usability test (TASK-15) starts |
+| Wed 11 Nov | **M4** offline dry run ×3 on 3 devices (second attempt); record fallback video; usability test findings fixed |
 | Thu 12 Nov | **M4b** buffer: fix regressions, dry run ×2, final fallback recording, pack the network kit |
 | Day 1 12:30 | **M5** demo path green at venue |
 | Day 1 17:30 | Rehearse and record 240 s |
@@ -248,7 +251,7 @@ If the 13 Nov guides restrict pre-event code after all, pre-event becomes: data 
 
 1. **R4 (Sadman), tonight:** push `v2-surface-ops` to GitHub and open the PR into `main`; everyone clones it and runs `make setup` before the kickoff ([ops/agentic-workflow.md](../ops/agentic-workflow.md) §B).
 2. **R1, tonight:** start the downloads in [ops/data-downloads.md](../ops/data-downloads.md) §B (the 3.6 GB DEM first) on campus internet; open the PDS3 label; propose AOI and hab position at the kickoff.
-3. **Everyone, kickoff Fri 6 Nov:** sign off roles (§A.1), confirm the ≈ 5 h/day commitment (§A), agree each lane's first ECC pipeline run.
+3. **Everyone, kickoff Fri 6 Nov:** sign off roles (§A.1), confirm the 8–10 h/day commitment and who has classes or exams that week (§A), agree which task each person runs through the ECC pipeline first.
 4. **R4:** Hab Core skeleton (TASK-20); confirm someone owns or can borrow a travel router (U-21).
 5. **R2:** port the v1 A* test cases to `packages/compute` on a synthetic grid; write the Dijkstra benchmark.
 6. **R5 + R6:** HUD, EVA tablet and ops console start from the design prototype in [`docs/design/prototype/`](../design/mockup-handoff.md) (U-25: handoff landed 5 Nov; task list still to add, U-47); agree the three HUD numbers (time to haven, O₂ margin, next stop). Run `/impeccable init` once so the design skill reads 01 and 04.
@@ -265,7 +268,8 @@ If the 13 Nov guides restrict pre-event code after all, pre-event becomes: data 
 | **Sat 7** | Slope, grids + tiles | Dijkstra field + benchmark | Projection spike done; map workspace | Protocol v0 frozen; LAN spike with phones | EVA screens on mock fixtures | Design + HUD tokens; **M1 go/no-go** |
 | **Sun 8** | `comm_hab` viewshed; SPICE tables | Haven + rendezvous | Layers + inspector | Engine: clock, crew motion | EVA actions + link-lost state; ops console map | Demo script v1; POI content |
 | **Mon 9** | DONKI + RAD tables; `scenario.json` + validator (**M2**) | Viewshed + link graph; Earth delivery + dose integral | Plan panel | Engine: alerts, log, persistence; stop-task events (TASK-31) | Ops alerts + options; stop task list on EVA + ops (TASK-31) | Sources & methods content |
-| **Tue 10** | Fix data issues | Contingency ranking; real-grid tests; perf | Results + profile | Safety ops wiring; headless replay (**M3**) | Clock control, QR join | Video storyboard; venue checklist |
+| **Tue 10** | Fix data issues | Contingency ranking; real-grid tests; perf | Results + profile | Safety ops wiring; headless replay (**M3**) | Clock control, QR join; usability test (TASK-15) | Video storyboard; venue checklist |
+| **Tue 10 evening** | All hands: **M3b** first dry run on 3 devices; log every failure | | | | | |
 | **Wed 11** | All hands: **M4 offline dry run ×3**, fix, record fallback video | | Briefing + `PUBLISH_PLAN` | Network kit | Report view | |
 | **Thu 12** | All hands: **M4b** buffer — fixes, dry run ×2, final fallback recording, pack the network kit | | | | | |
 

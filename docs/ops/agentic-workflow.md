@@ -30,7 +30,7 @@ The team uses different coding agents: Claude Code, Codex, Gemini CLI, and some 
 ## C. Branches, pull requests and ownership
 
 - Follow [_coordination.md §h.1](../tasks/_coordination.md#h1-branches-prs-and-commits): one subtask = one branch = one PR, branch `t05.18-astar-core`. v2 tasks that are not atomized yet (TASK-05b, TASK-20 to TASK-31) use the task id until they are: `t20-hab-skeleton`.
-- Only edit the paths your lane owns ([_coordination.md §c](../tasks/_coordination.md#c-path-ownership) and 06 §A.1). `packages/protocol` changes need a review from both R2 and R4.
+- Only edit the folders and files your role owns ([_coordination.md §c](../tasks/_coordination.md#c-path-ownership) and 06 §A.1). `packages/protocol` changes need a review from both R2 and R4.
 - Never push to `main` directly and never force-push. Rebase on `main` at least once a day.
 - Every PR fills the template, including the AI-use line: which agent, which model, what it wrote.
 
