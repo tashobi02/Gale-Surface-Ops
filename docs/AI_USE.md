@@ -57,6 +57,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-06 | Gemini 4 Argon via agy, Codex (Sol 6.1), Claude Code (Opus 5.5) | T03.05: wrote the routing-grid encoding tests; Sol audited them and added the clamp test | Values from 05 and 02 §E.2 examples; passes against a throwaway reference; Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
 | 2026-11-06 | Claude Code (Sonnet 5.5), Codex (Sol 6.1), Claude Code (Opus 5.5) | T03.06: wrote the manifest integrity tests; Sol audited them and fixed two helpers | Synthetic broken copies of F4; passes against a throwaway reference; Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
 | 2026-11-06 | Claude Code (Sonnet 5.5), Codex (Sol 6.1), Claude Code (Opus 5.5) | T03.28: wrote the viewshed tests; Sol audited them and added the receiver test | Heights read from the ParamSets; synthetic grids declared; passes against a throwaway reference; Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
+| 2026-11-06 | Codex (Terra 6.1), Claude Code (Haiku 5.5, Opus 5.5) | T03.08: wrote the windowed warp and the no-data conversion | No numbers typed; synthetic raster checks; Haiku 5.5 and Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
 
 ## Prompts location
 
