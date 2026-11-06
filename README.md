@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`█░░░░░░░░░░░░░░░░░░░` **3 %** — 8 of 299 subtasks done, 2 in progress.
+`█░░░░░░░░░░░░░░░░░░░` **3 %** — 9 of 299 subtasks done, 2 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -37,7 +37,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 3 |
 | [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `██░░░░░░░░` 25 % | 2 | 1 | 8 |
 | [TASK-21 Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers](docs/tasks/TASK-21_scenario-builder.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 12 |
-| [TASK-22 Simulation engine: clock, crew motion, consumables, alerts, event log, replay](docs/tasks/TASK-22_simulation-engine.md) | `█░░░░░░░░░` 7 % | 1 | 0 | 15 |
+| [TASK-22 Simulation engine: clock, crew motion, consumables, alerts, event log, replay](docs/tasks/TASK-22_simulation-engine.md) | `█░░░░░░░░░` 13 % | 2 | 0 | 15 |
 | [TASK-23 Safety ops in the Hab Core: commands, haven per tick, summon and rendezvous, contingency options, abort](docs/tasks/TASK-23_safety-ops.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 8 |
 | [TASK-24 EVA client and HUD: SCR-12 tablet, SCR-13 HUD, SCR-14 options sheet, SCR-18 link lost, full-screen map](docs/tasks/TASK-24_eva-client-and-hud.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 11 |
 | [TASK-25 Ops console: SCR-11 with the shared map, alerts, options approval, clock control, SCR-10 join](docs/tasks/TASK-25_ops-console.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 9 |
