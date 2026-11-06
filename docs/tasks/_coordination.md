@@ -776,6 +776,156 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | `scripts/check_tasks.py` | this plan | Phase 3 of the planning task |
 | `scripts/check_links.py`, `LICENSE`, `.editorconfig`, `.gitattributes`, `.markdownlint.jsonc`, `.claude/`, `.specify/` | — | Read-only |
 
+<!-- v2-paths:begin -->
+
+### c.7 v2 paths (generated from the task files on 2026-11-06)
+
+Paths created or taken over by the v2 subtasks. Append-only paths are listed in §c.2–§c.6 and keep their rules (`docs/ops/verification-log.md`, `docs/AI_USE.md`, `pipeline/sites/gale_boxwork/layers/`, `tokens.css`).
+
+| Path | Owner | Rule |
+| --- | --- | --- |
+| `apps/hab-core/scripts/build-demo-plan.ts` | T21.12 | — |
+| `apps/hab-core/spike/` | T20.07 | — |
+| `apps/hab-core/src/cli.ts` | T22.13 | — |
+| `apps/hab-core/src/commands.ts` | T23.02 | — |
+| `apps/hab-core/src/engine/README.md` | T22.01 | — |
+| `apps/hab-core/src/engine/alerts.ts` | T22.10 | stub by T22.01 |
+| `apps/hab-core/src/engine/clock.ts` | T22.04 | — |
+| `apps/hab-core/src/engine/conditions.ts` | T22.16 | stub by T22.01 |
+| `apps/hab-core/src/engine/contingencyOps.ts` | T23.07 | stub by T22.01 |
+| `apps/hab-core/src/engine/earth.ts` | T26.04 | stub by T22.01 |
+| `apps/hab-core/src/engine/haven.ts` | T23.03 | stub by T22.01 |
+| `apps/hab-core/src/engine/links.ts` | T26.01 | stub by T22.01; fallback T26.08 may replace it |
+| `apps/hab-core/src/engine/reducer.ts` | T22.06 | stub by T22.01 |
+| `apps/hab-core/src/engine/rovers.ts` | T29.03 | stub by T22.01 |
+| `apps/hab-core/src/engine/tasks.ts` | T31.04 | stub by T22.01 |
+| `apps/hab-core/src/engine/tick.ts` | T22.09 | stub by T22.01; fallback T22.15 may replace it |
+| `apps/hab-core/src/engine/vehicles.ts` | T23.05 | stub by T22.01; fallback T23.09 may replace it |
+| `apps/hab-core/src/localMode.ts` | T20.09 | — |
+| `apps/hab-core/src/log.ts` | T22.07 | stub by T22.01 |
+| `apps/hab-core/src/replay.ts` | T22.13 | — |
+| `apps/hab-core/src/report.ts` | T27.01 | — |
+| `apps/hab-core/src/rover.ts` | T29.02 | fallback T29.07 may replace it |
+| `apps/hab-core/src/scenario.ts` | T22.11 | stub by T22.01 |
+| `apps/hab-core/src/server.ts` | T20.04 | T26.02, T27.01, T28.02 follow up (one at a time) |
+| `apps/hab-core/src/session.ts` | T22.12 | stub by T22.01 |
+| `apps/hab-core/tests/clock.test.ts` | T22.03 | — |
+| `apps/hab-core/tests/commands.test.ts` | T23.01 | — |
+| `apps/hab-core/tests/conditions.test.ts` | T22.16 | — |
+| `apps/hab-core/tests/contingencyOps.test.ts` | T23.06 | — |
+| `apps/hab-core/tests/earth.test.ts` | T26.03 | — |
+| `apps/hab-core/tests/engine.test.ts` | T22.05 | — |
+| `apps/hab-core/tests/fixtures/fake-scenario/` | T22.02 | — |
+| `apps/hab-core/tests/fixtures/storm-excerpt/` | T21.11 | — |
+| `apps/hab-core/tests/havenTick.test.ts` | T23.03 | — |
+| `apps/hab-core/tests/killerDemo.test.ts` | T23.08 | — |
+| `apps/hab-core/tests/links.test.ts` | T26.06 | — |
+| `apps/hab-core/tests/report.test.ts` | T27.02 | — |
+| `apps/hab-core/tests/rover.test.ts` | T29.01 | — |
+| `apps/hab-core/tests/scenario.test.ts` | T22.11 | — |
+| `apps/hab-core/tests/server.test.ts` | T20.03 | — |
+| `apps/hab-core/tests/stopTasks.test.ts` | T31.03 | — |
+| `apps/hab-core/tests/summon.test.ts` | T23.04 | — |
+| `apps/hab-core/tests/tick.test.ts` | T22.08 | — |
+| `apps/web/src/net/habClient.ts` | T20.06 | — |
+| `apps/web/src/net/replaySource.ts` | T27.05 | — |
+| `apps/web/src/ui/briefing/publishPlan.ts` | T11.07 | — |
+| `apps/web/src/ui/eva/HoldToConfirm.tsx` | T24.05 | — |
+| `apps/web/src/ui/eva/viewModel.ts` | T24.03 | stub by T24.01 |
+| `apps/web/src/ui/map/FullScreenMap.tsx` | T24.09 | stub by T31.01 |
+| `apps/web/src/ui/map/MapControls.tsx` | T07.17 | stub by T31.01 |
+| `apps/web/src/ui/map/ezLayer.ts` | T07.18 | — |
+| `apps/web/src/ui/map/opsLayers.ts` | T25.02 | — |
+| `apps/web/src/ui/ops/AddTaskPopover.tsx` | T31.06 | fallback T31.09 may replace it |
+| `apps/web/src/ui/ops/AlertStack.tsx` | T25.03 | — |
+| `apps/web/src/ui/ops/ClockControl.tsx` | T25.05 | fallback T25.09 may replace it |
+| `apps/web/src/ui/ops/ConditionsPanel.tsx` | T25.10 | — |
+| `apps/web/src/ui/ops/EarthLinkWidget.tsx` | T26.05 | — |
+| `apps/web/src/ui/ops/EventLog.tsx` | T27.04 | — |
+| `apps/web/src/ui/ops/OptionsPanel.tsx` | T25.04 | — |
+| `apps/web/src/ui/ops/RoverQueue.tsx` | T29.05 | — |
+| `apps/web/src/ui/ops/TaskProgress.tsx` | T31.06 | stub by T31.01 |
+| `apps/web/src/ui/screens/scr04PlanPanel.tsx` | T08.04 | T08.12 follow up (one at a time) |
+| `apps/web/src/ui/screens/scr05RouteResults.tsx` | T09.03 | T09.09, T18.06 follow up (one at a time) |
+| `apps/web/src/ui/screens/scr06PoiDetail.tsx` | T10.01 | T10.04 follow up (one at a time) |
+| `apps/web/src/ui/screens/scr08BriefingCard.tsx` | T11.03 | T11.08, T18.06 follow up (one at a time) |
+| `apps/web/src/ui/screens/scr10Join.tsx` | T25.06 | — |
+| `apps/web/src/ui/screens/scr11OpsConsole.tsx` | T25.01 | — |
+| `apps/web/src/ui/screens/scr12/StopTaskList.tsx` | T31.05 | stub by T31.01 |
+| `apps/web/src/ui/screens/scr12/TasksButton.tsx` | T31.05 | — |
+| `apps/web/src/ui/screens/scr12EvaTablet.tsx` | T24.04 | fallback T24.12 may replace it |
+| `apps/web/src/ui/screens/scr13Hud.tsx` | T24.08 | — |
+| `apps/web/src/ui/screens/scr14Options.tsx` | T24.06 | — |
+| `apps/web/src/ui/screens/scr15RoverTask.tsx` | T29.04 | — |
+| `apps/web/src/ui/screens/scr16EarthView.tsx` | T18.12 | — |
+| `apps/web/src/ui/screens/scr17PostEvaReport.tsx` | T27.03 | fallback T27.07 may replace it |
+| `apps/web/src/ui/screens/scr18HabLinkLost.tsx` | T24.07 | — |
+| `apps/web/tests/fixtures/ws/` | T20.02 | — |
+| `apps/web/tests/net/habClient.test.ts` | T20.05 | — |
+| `apps/web/tests/ui/eva.test.ts` | T24.10 | — |
+| `apps/web/tests/ui/evaViewModel.test.ts` | T24.02 | — |
+| `apps/web/tests/ui/map/fullScreenMap.test.ts` | T24.10 | — |
+| `apps/web/tests/ui/ops.test.ts` | T25.07 | — |
+| `apps/web/tests/ui/provenance.test.ts` | T12.02 | T12.07 follow up (one at a time) |
+| `apps/web/tests/ui/stopTasks.test.ts` | T31.07 | — |
+| `docs/ops/data-downloads.md` | T21.02 | — |
+| `docs/ops/demo-kit.md` | T28.01 | T28.04 follow up (one at a time) |
+| `docs/ops/demo-script.md` | T17.01 | T21.09 follow up (one at a time) |
+| `docs/ops/dust-record.md` | T04.11 | — |
+| `docs/ops/exploration-zone.md` | T04.10 | — |
+| `docs/ops/feasibility/hab-site.md` | T01.07 | — |
+| `docs/ops/rad-series.md` | T21.06 | — |
+| `docs/ops/usability-script.md` | T15.01 | T15.04 follow up (one at a time) |
+| `packages/compute/bench/haven.bench.ts` | T05b.05 | — |
+| `packages/compute/src/consumables.ts` | T05b.17 | stub by T05b.01; T18.05 follow up (one at a time) |
+| `packages/compute/src/contingency.ts` | T05b.19 | stub by T05b.01; T18.11 follow up (one at a time) |
+| `packages/compute/src/earthLink.ts` | T05b.13 | stub by T05b.01 |
+| `packages/compute/src/eventDose.ts` | T05b.15 | stub by T05b.01 |
+| `packages/compute/src/haven.ts` | T05b.04 | stub by T05b.01; fallback T05b.21 may replace it |
+| `packages/compute/src/index.ts` | T05b.01 | — |
+| `packages/compute/src/linkGraph.ts` | T05b.11 | stub by T05b.01 |
+| `packages/compute/src/rendezvous.ts` | T05b.07 | stub by T05b.01 |
+| `packages/compute/src/skyView.ts` | T18.10 | — |
+| `packages/compute/src/viewshed.ts` | T05b.09 | stub by T05b.01 |
+| `packages/compute/tests/consumables.test.ts` | T05b.16 | T18.04 follow up (one at a time) |
+| `packages/compute/tests/contingency.test.ts` | T05b.18 | — |
+| `packages/compute/tests/earthLink.test.ts` | T05b.12 | — |
+| `packages/compute/tests/eventDose.test.ts` | T05b.14 | — |
+| `packages/compute/tests/fixtures/v2grids.ts` | T05b.02 | — |
+| `packages/compute/tests/haven.test.ts` | T05b.03 | — |
+| `packages/compute/tests/linkGraph.test.ts` | T05b.10 | — |
+| `packages/compute/tests/realGridV2.test.ts` | T05b.20 | — |
+| `packages/compute/tests/rendezvous.test.ts` | T05b.06 | — |
+| `packages/compute/tests/skyView.test.ts` | T18.09 | — |
+| `packages/compute/tests/viewshed.test.ts` | T05b.08 | — |
+| `packages/protocol/src/index.ts` | T20.01 | — |
+| `packages/protocol/src/runtime.ts` | T20.01 | stub by T31.01 |
+| `packages/protocol/src/ws.ts` | T20.01 | stub by T31.01 |
+| `pipeline/cache/donki/` | T21.05 | — |
+| `pipeline/spice/kernels.lock.json` | T21.02 | — |
+| `pipeline/src/marswalk_pipeline/comm_grid.py` | T03.29 | — |
+| `pipeline/src/marswalk_pipeline/donki.py` | T21.05 | — |
+| `pipeline/src/marswalk_pipeline/rad.py` | T21.07 | — |
+| `pipeline/src/marswalk_pipeline/scenario_build.py` | T21.08 | — |
+| `pipeline/src/marswalk_pipeline/spice_tables.py` | T21.04 | — |
+| `pipeline/tests/check_v2_independent.py` | T05b.20 | — |
+| `pipeline/tests/test_comm_grid.py` | T03.28 | — |
+| `pipeline/tests/test_donki.py` | T21.03 | — |
+| `pipeline/tests/test_rad.py` | T21.03 | — |
+| `pipeline/tests/test_spice_tables.py` | T21.03 | — |
+| `scenarios/storm-sol4190/README.md` | T21.01 | — |
+| `scenarios/storm-sol4190/dose_series.json` | T21.07 | fallback T21.13 may replace it |
+| `scenarios/storm-sol4190/earth_link.json` | T21.04 | fallback T21.14 may replace it |
+| `scenarios/storm-sol4190/param_sets/` | T21.01 | — |
+| `scenarios/storm-sol4190/plan.json` | T21.12 | — |
+| `scenarios/storm-sol4190/scenario.json` | T21.08 | T18.13 follow up (one at a time) |
+| `scenarios/storm-sol4190/stop_tasks.json` | T31.02 | — |
+| `schemas/dose-series.schema.json` | T21.01 | — |
+| `schemas/earth-link.schema.json` | T21.01 | — |
+| `schemas/scenario.schema.json` | T31.01 | — |
+
+<!-- v2-paths:end -->
+
 ## d. Contracts registry
 
 Lanes code against these interfaces, not against each other's implementations. All start at **v1**.
@@ -794,6 +944,12 @@ Lanes code against these interfaces, not against each other's implementations. A
 | C10 | UI app context: screen renderer signature, worker-client interface, map handle, fixed layer order, provenance attribute names; UI module stubs | `apps/web/src/ui/context.ts` + stubs listed in c.4 | T07.01 | M2 | All frontend, design and story code | Where traverse and waypoints sit in the FR-02 layer order; attribute name for the source id (NFR-05) |
 | C11 | Plan-store state and events | Interfaces in `apps/web/src/state/planStore.ts` | T08.01 | M2 | T07.04, T08.*, T09.*, T10.*, T11.*, T13.06 | Selection and hover shape for map ↔ list ↔ profile linking |
 | C12 | CSS token names and status classes | `apps/web/src/ui/styles/tokens.css` | T13.01 | M2 | All UI CSS | Pattern class names for ok / caution / blocked / unknown |
+| C13 *(v2)* | Protocol v0: runtime entities, wire messages, permissions (05 §C.2, 02 §E.4, §E.6) | `packages/protocol/src/runtime.ts`, `packages/protocol/src/ws.ts` | T20.01 (FR-50 parts by T31.01) | M1 (Sat 7 Nov, 06 §D.3) | Every v2 subtask | Command body shape (flat or `args`); `TaskRoverArgs`; the accepted-rover-task event kind |
+| C14 *(v2)* | Engine interfaces and engine-module split (`reduce`, `tick`, session, log; one module per concern) | `apps/hab-core/src/engine/`, `scenario.ts`, `session.ts`, `log.ts` | T22.01 | M1 | TASK-22, TASK-23, TASK-26, TASK-29, TASK-31 | Module call order inside `tick` (02 §D.14) |
+| C15 *(v2)* | Compute v2 signatures (haven, rendezvous, viewshed, link graph, Earth delivery, event dose, consumables, contingency) | `packages/compute/src/` v2 modules | T05b.01 | M1 | TASK-22, TASK-23, TASK-26, TASK-29, T09.09 | Which spec constants are code constants and which come from ParamSets |
+| C16 *(v2)* | Scenario tables: `dose_series.json`, `earth_link.json` formats; scenario folder layout | `schemas/dose-series.schema.json`, `schemas/earth-link.schema.json`, `scenarios/storm-sol4190/README.md` | T21.01 | M1 | T05b.12, T05b.14, T21.*, T22.11 | Sample step of the dose series (`TODO(verify)` on download) |
+| C17 *(v2)* | EVA view model (selectors from the client store) | `apps/web/src/ui/eva/viewModel.ts` | T24.01 | M1 | TASK-24, T31.05 | — |
+| C18 *(v2)* | FR-50 stop tasks: `StopTask`, task commands and events, `scenario.json` `stop_tasks` | `packages/protocol/src/runtime.ts` (part), `schemas/scenario.schema.json` | T31.01 (**done** 6 Nov) | M1 | TASK-31, T21.08, T11.08, T27.01 | U-46, U-52, U-56, U-58, undo |
 
 **Change process.**
 
@@ -815,6 +971,10 @@ These let consumers start before the real upstream output exists.
 | F4 | Mock site bundle `mock_site`: manifest, placeholder tiles, tiny grid, sample POI and traverse GeoJSON | `data/sites/mock_site/` (generator `pipeline/tests/fixtures/make_mock_site.py`) | T03.02 | C1, C2, C4, C9 v1 | pre-event-allowed | T02.03, T07.*, T08.06, T10.01, T14.05 |
 | F5 | Real-grid sample cells (10 cells read with `rasterio`) | `apps/web/tests/fixtures/real/sample_cells.json` (generator `pipeline/tests/fixtures/make_sample_cells.py`) | T03.21 | C4 + bundle v1 `data_version` | pre-event-allowed | T05.28, T07.15 |
 | F6 | Mars24 reference values from `marstime` (≥ 3 timestamps at the site) | `apps/web/tests/fixtures/mars24-reference.json` (generator `pipeline/tests/fixtures/make_mars24_reference.py`) | T06.02 | C8 | pre-event-allowed | T06.03 |
+| F7 *(v2)* | Mock WebSocket message sequences for the demo beats (02 §E.6 example values or placeholders) | `apps/web/tests/fixtures/ws/` | T20.02 | C13 | pre-event-allowed | T20.05, T24.*, T25.*, T31.07, T12.07 |
+| F8 *(v2)* | Fake scenario: straight-line route, stepped synthetic dose curve (06 §D.2) | `apps/hab-core/tests/fixtures/fake-scenario/` | T22.02 | C14, C16 | pre-event-allowed | T22.*, T23.*, T26.*, T27.02, T29.01, T31.03 |
+| F9 *(v2)* | Synthetic v2 grids for the 02 §D.8, §D.10, §D.11 validation cases | `packages/compute/tests/fixtures/v2grids.ts` | T05b.02 | C15 | pre-event-allowed | T05b.03–T05b.18 |
+| F10 *(v2)* | Real-scenario excerpt (dose onset hour, matching Earth-link rows) cut by a script | `apps/hab-core/tests/fixtures/storm-excerpt/` | T21.11 | C16 | pre-event-if-permitted | engine tests that need real shapes |
 
 **Fixture value rule** (`CLAUDE.md` §2, ADR-006: no LLM-generated numbers in code, data or docs). Fixtures are synthetic test inputs, never science. Every value is either:
 
@@ -1029,6 +1189,105 @@ flowchart LR
 | T00.04, T03.15, T14.01 → T14.11 | Follow-up on `CLAUDE.md` once the pipeline entry and `make data` exist |
 | T07.08 → T13.07; T03.19 → T18.01; T10.02 → T18.03; T09.03, T11.03 → T18.06; T08.03, T11.02 → T18.07 | `follow-up:` subtasks wait for the owner of the path they edit (§c.1 rule 3); T18.07 also stores the export T11.02 assembles |
 
+<!-- v2-edges:begin -->
+
+**v2 cross-task hard dependencies** (generated from the task files on 2026-11-06; the reason is the text after `hard:` in the subtask):
+
+| From → To | Why the real output is needed |
+| --- | --- |
+| T01.05 → T04.10 | AOI and site |
+| T01.07 → T03.29 | hab position |
+| T01.07 → T21.04 | hab position for elevations |
+| T01.07 → T21.08 | start positions |
+| T03.19 → T05b.20 | real grid |
+| T03.19 → T21.12 | real grid |
+| T03.29 → T05b.20 | `comm_hab` grid |
+| T04.04 → T31.02 | POI objectives |
+| T04.11 → T18.13 | record found |
+| T05.16 → T05b.04 | grid loader |
+| T05.18 → T05b.04 | shares the least-time step cost |
+| T05.18 → T29.02 | route search |
+| T05.32 → T21.12 | complete PLAN_RESULT |
+| T05b.04 → T09.09 | planning haven values |
+| T05b.04 → T23.03 | haven fields |
+| T05b.07 → T23.05 | rendezvous |
+| T05b.11 → T26.01 | link graph |
+| T05b.11 → T29.03 | link graph |
+| T05b.13 → T22.16 | Earth link status |
+| T05b.13 → T26.04 | delivery rule |
+| T05b.15 → T22.09 | real dose integral |
+| T05b.15 → T22.16 | event dose rate |
+| T05b.16 → T18.04 | owner of the test file; the engine's suit-consumables cases come first |
+| T05b.17 → T18.05 | owner of `consumables.ts` since v2, FR-35 |
+| T05b.17 → T22.09 | real consumables |
+| T05b.19 → T18.11 | owner of `contingency.ts` |
+| T05b.19 → T23.07 | ranking |
+| T06.06 → T22.16 | Mars24 time functions |
+| T06.07 → T22.16 | sun elevation |
+| T07.06 → T24.09 | map module |
+| T07.06 → T25.02 | map module |
+| T07.14 → T21.12 | demo stops |
+| T07.14 → T31.02 | the demo plan's stops |
+| T07.17 → T24.09 | shared map controls |
+| T07.17 → T25.02 | shared controls |
+| T14.01 → T28.02 | QR library |
+| T16.07 → T27.06 | hosting of the public link |
+| T17.01 → T21.09 | owner of the demo script |
+| T20.04 → T26.02 | owner of `server.ts` |
+| T20.04 → T27.01 | owner of `server.ts` |
+| T20.04 → T28.02 | owner of `server.ts` |
+| T20.06 → T11.07 | client store |
+| T20.06 → T24.03 | client store |
+| T20.06 → T24.05 | commands are sent through the client |
+| T20.06 → T25.01 | client store |
+| T20.06 → T25.02 | client store |
+| T20.06 → T25.03 | client store |
+| T20.06 → T25.05 | client store |
+| T20.06 → T25.06 | client store |
+| T20.06 → T25.10 | client store |
+| T20.06 → T26.05 | client store |
+| T20.06 → T27.04 | client store |
+| T20.06 → T27.05 | client store interface |
+| T20.06 → T29.04 | client store |
+| T20.06 → T29.05 | client store |
+| T20.06 → T31.06 | client store |
+| T20.08 → T31.08 | LAN latency method |
+| T21.08 → T18.13 | owner of `scenario.json` |
+| T21.08 → T22.14 | the real sol-4190 scenario |
+| T21.08 → T23.08 | real scenario |
+| T21.08 → T26.07 | real scenario |
+| T21.08 → T29.06 | real scenario |
+| T22.07 → T27.01 | log |
+| T22.12 → T23.08 | session |
+| T22.12 → T28.05 | resume from disk |
+| T22.14 → T27.05 | recorded log |
+| T22.16 → T25.10 | conditions in state |
+| T23.02 → T29.02 | dispatch |
+| T23.02 → T31.04 | dispatch |
+| T23.05 → T29.03 | motion helper |
+| T23.07 → T24.11 | real options from the Hab Core |
+| T23.07 → T31.08 | abort |
+| T23.08 → T18.09 | 06 Tier 2 gate, M3 passes |
+| T23.08 → T18.10 | Tier 2 gate |
+| T23.08 → T18.12 | Tier 2 gate |
+| T23.08 → T18.13 | Tier 2 gate |
+| T23.08 → T25.08 | the demo works headless |
+| T24.03 → T31.05 | view model |
+| T24.04 → T12.07 | SCR-12 |
+| T24.04 → T28.03 | EVA view |
+| T24.05 → T25.04 | hold-to-confirm |
+| T24.06 → T25.04 | options component |
+| T24.07 → T28.05 | link-lost view |
+| T25.01 → T12.07 | SCR-11 |
+| T25.01 → T28.03 | ops view |
+| T25.02 → T29.04 | ops map layers |
+| T26.01 → T29.06 | comm shadow in the engine |
+| T26.04 → T18.12 | Earth messages |
+| T27.01 → T31.08 | report counts |
+| T28.01 → T20.08 | a configured travel router |
+
+<!-- v2-edges:end -->
+
 ## g. Parallel lanes board
 
 Track S timing. Under **Track P**, the `pre-event-if-permitted` subtasks of TASK-02 and TASK-05 move into M0–M2 and M3 keeps only integration. A blank cell means the lane supports others or fixes follow-ups.
@@ -1159,6 +1418,30 @@ Every test case named in [02 §D](../specs/02_Technical_Requirements_Document.md
 | Grid addressing `i = floor((origin_y − y)/cell)` | 05 §E.1 | T05.05 |
 | DEM no-data → NaN before slope | 02 §C.4.4 | T03.03 |
 
+### Test-case allocation — v2
+
+Every v2 validation case named in [02 §D.8–§D.16](../specs/02_Technical_Requirements_Document.md#d8-time-to-safe-haven-fr-39) and [02 §F.2](../specs/02_Technical_Requirements_Document.md#f2-test-plan-additions-v2) has one `test` or `verify` subtask.
+
+| Case | Source | Subtask |
+| --- | --- | --- |
+| Hab at origin, vehicle 2 km away, crew 1 km from hab; wall detour; vehicle slower than walking | 02 §D.8 | T05b.03 |
+| Ridge the vehicle cannot climb → rendezvous at the foot; vehicle blocked → `NO_RENDEZVOUS`; two-crew permutation | 02 §D.10 | T05b.06 |
+| Horizon distances for 2 m and 10 m; shadow behind a single wall; sphere-sampled grid | 02 §D.11 | T05b.08 (compute), T03.28 (pipeline) |
+| Light time vs `spiceypy` spot check within 1 s | 02 §D.12 | T21.03 |
+| Message sent mid-pass vs between passes; blackout | 02 §D.12 | T05b.12 (rule), T26.03 (engine) |
+| Timeline table reproduces source times | 02 §F.2 Space weather | T21.10 |
+| Trigger fires on the right sample; dose integral for a 3-step series | 02 §D.13, §F.2 | T05b.14 |
+| Contingency ranking by dose, then ETA | 02 §D.15 | T05b.18 |
+| Sky-view factor on a flat plane and below a cliff | 02 §D.16 | T18.09 |
+| Haven and rendezvous at 5 real-grid positions vs scikit-image; viewshed at 5 points vs `gdal_viewshed`; NFR-02 timings | 02 §F.2 Haven / rendezvous, Comm | T05b.20 |
+| `comm_hab` vs `gdal_viewshed` at 5 points | 06 §C.1 TASK-03 | T03.30 |
+| 60× full run finishes; log hash stable across two runs and two machines | 02 §F.2 Engine | T22.14 |
+| 3 devices on the router; Wi-Fi toggle; Hab Core kill/restart; single-laptop mode | 02 §F.2 Network | T20.08, T28.05 |
+| HUD 3-s glance; "summon vehicle" without instruction | 02 §F.2 Usability | T15.04 (script), T15.02 (sessions) |
+| Killer demo 0:30–1:10 headless | 06 §C.2 TASK-23 | T23.08 |
+| Tablet tap on ops ≤ 500 ms; abort drops open tasks; report counts = log | 01 FR-50 | T31.08 |
+| RELAY closes the demo comm shadow; queue shows ETA and battery | 01 FR-41 | T29.06 |
+
 ## Requirement coverage
 
 | Req | Implemented by | Tested or verified by |
@@ -1184,6 +1467,50 @@ Every test case named in [02 §D](../specs/02_Technical_Requirements_Document.md
 | NFR-01…NFR-11 | — | NFR-01 T14.06 · NFR-02 T05.28, T14.07 · NFR-03 T14.08 · NFR-04 T13.09, T13.10 · NFR-05 T12.06 · NFR-06 T03.22, T14.08 · NFR-07 T16.05 · NFR-08 T14.09 · NFR-09 T03.22, T14.09 · NFR-10 T14.10 · NFR-11 T14.09 |
 | SCR-00…SCR-09 | SCR-00 T14.04 · SCR-01 T07.05 · SCR-02 T07.08 · SCR-03 T07.09 · SCR-04 T08.04, T08.05 · SCR-05 T09.03 · SCR-06 T10.01 · SCR-07 T10.02 · SCR-08 T11.03 · SCR-09 T12.03 | SCR-00 T14.10 · SCR-01–SCR-03 T07.15 · SCR-04 T08.11 · SCR-05 T09.07 · SCR-06, SCR-07 T10.03 · SCR-08 T11.05 · SCR-09 T12.06 |
 | 05 entities | All 14 (Site, DataSource, Layer, Asset, RoutingGrid, POI, TraversePoint, EnvConstant, MissionScenario, Waypoint, PlanResult, Leg, Warning, PlanExport) are created by one contract subtask, T03.01 (C1–C3) | `make typecheck`; T03.06; T11.01 |
+
+<!-- v2-coverage:begin -->
+
+### Requirement coverage — v2 (generated from the task files on 2026-11-06)
+
+From each subtask's *Serves* line. Implemented by: `contract`, `fixture`, `implement`, `integrate`, `human` and `fallback` subtasks; tested by: `test` and `verify` subtasks.
+
+| Req | Implemented by | Tested or verified by |
+| --- | --- | --- |
+| FR-30 | T20.01, T20.02, T20.04, T20.09, T22.12, T25.01, T25.02 | T20.03, T25.08 |
+| FR-31 | T11.07, T20.01, T20.04, T20.06, T23.02, T25.01, T25.03, T25.06, T28.02 | T20.03, T20.05, T23.01, T25.07 |
+| FR-32 | T07.17, T20.02, T20.06, T24.01, T24.03, T24.04, T24.05, T24.07, T24.09, T24.12, T26.02 | T20.05, T24.02, T24.10, T24.11 |
+| FR-33 | T13.12, T15.04, T24.01, T24.08, T24.12 | T24.10, T24.11 |
+| FR-34 | T21.01, T21.08, T21.09, T21.12, T22.01, T22.02, T22.04, T22.06, T22.11, T22.12, T25.05, T25.09, T27.05 | T22.03, T22.05, T25.07, T25.08, T27.06 |
+| FR-35 | T05b.17, T22.09, T22.15 | T05b.16, T22.08 |
+| FR-36 | T22.16, T25.10 | T12.07 |
+| FR-37 | T21.01, T21.05, T21.06, T21.07, T21.09, T21.13, T22.10, T25.03 | T21.03, T21.10, T22.08, T26.03 |
+| FR-38 | T05b.15, T21.06, T21.07, T21.11, T22.10, T25.03 | T05b.14, T22.08, T23.08 |
+| FR-39 | T01.07, T05b.01, T05b.02, T05b.04, T05b.21, T08.12, T09.09, T23.03, T25.02 | T05b.03, T05b.05, T05b.20 |
+| FR-40 | T05b.01, T05b.02, T05b.07, T15.04, T23.05, T23.09, T24.05 | T05b.06, T05b.20, T23.04, T23.08 |
+| FR-41 | T29.02, T29.03, T29.04, T29.05, T29.07 | T29.01, T29.06 |
+| FR-42 | T01.07, T03.29, T05b.01, T05b.02, T05b.09, T05b.11, T09.09, T25.02, T26.01, T26.02, T26.08, T29.03 | T03.28, T03.30, T05b.08, T05b.10, T05b.20, T26.06, T26.07, T29.01, T29.06 |
+| FR-43 | T05b.01, T05b.13, T21.01, T21.02, T21.04, T21.14, T26.04, T26.05, T26.08 | T05b.12, T21.03, T21.10, T26.03, T26.07 |
+| FR-44 | T05b.01, T05b.19, T18.11, T23.07, T24.05, T24.06, T25.04 | T05b.18, T23.06, T23.08, T25.07 |
+| FR-45 | T01.07, T04.10, T07.18, T10.04, T31.02 | — |
+| FR-46 | T27.01, T27.03, T27.04, T27.05, T27.07 | T27.02, T27.06 |
+| FR-47 | T18.10, T18.11 | T18.09 |
+| FR-48 | T18.12 | — |
+| FR-49 | T04.11, T18.13 | — |
+| FR-50 | T11.08, T20.02, T21.08, T27.01, T31.01, T31.02, T31.04, T31.05, T31.06, T31.09 | T27.02, T31.03, T31.07, T31.08 |
+| NFR-01 | T20.06, T20.09, T28.01, T28.02, T28.04 | T20.08 |
+| NFR-02 | T05b.21 | T05b.05, T05b.20, T22.14 |
+| NFR-03 | — | T24.11, T28.03 |
+| NFR-04 | T13.12, T24.04, T24.08, T25.01, T31.05 | T24.10, T25.07, T31.07 |
+| NFR-05 | T24.01, T24.03, T24.04, T24.06, T25.01, T25.10, T26.05, T29.05 | T12.07, T24.02 |
+| NFR-06 | T05b.01, T05b.04, T05b.07, T05b.19, T21.08, T21.11, T21.12, T22.01, T22.04, T22.06, T22.07, T22.09, T23.02, T23.05, T23.07, T31.04 | T05b.06, T22.03, T22.05, T22.14, T31.03 |
+| NFR-07 | T21.02, T21.06, T30.01, T30.02 | T30.03 |
+| NFR-08 | T20.04, T28.01 | — |
+| NFR-10 | T22.07, T22.11, T22.12 | T22.05, T28.05 |
+| NFR-12 | T20.04, T20.07 | T20.08, T31.08 |
+| NFR-13 | T20.06, T24.07 | T20.03, T20.05, T28.05 |
+| NFR-14 | T22.02, T22.13 | T22.05, T22.14 |
+
+<!-- v2-coverage:end -->
 
 ## Open points
 
