@@ -75,6 +75,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T01.07: ranked hab candidates by stated slope and line-of-sight rules; drafted `hab-site.md` | Numbers are tool output; heights read from the ParamSets; line-of-sight check passed synthetic cases; second check still open | Approved by Obidit Islam | This Claude Code session |
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T01.05: copied values from the T01.01–T01.04 notes into `feasibility.md` | No value retyped from memory; decided nothing: D-01 and FR-18 stay open | Approved by Obidit Islam | This Claude Code session |
 | 2026-11-07 | Codex (Terra 6.1), Claude Code (Haiku 5.5, Opus 5.5) | T03.07: wrote the working-projection constants and `fetch_sources` | Strings compared byte for byte with `aoi.md` and 05 §F.1; real remote window matches T01.04; Haiku 5.5 and Opus 5.5 found five defects, all fixed | Approved by Obidit Islam | This Claude Code session |
+| 2026-11-07 | Codex (Terra 6.1), Claude Code (Haiku 5.5, Opus 5.5) | T03.14: wrote `validate()` and `validate-manifest` | Tested on broken copies of the mock site; the 35° limit comes from 02 §E.3 and is flagged for the data lead; Haiku 5.5 and Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
 
 ## Prompts location
 
