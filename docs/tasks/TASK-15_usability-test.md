@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Usability test |
 | Requirements | PRD §B ([01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria), User value row) |
-| Lane / owner role | design — Design & story lead (06 §C owner: Design lead) |
-| Milestone | M5 (script T15.01 in M2) |
-| Window | event-only (T15.01 is pre-event-allowed) |
+| Lane / owner role | design — R6 design system: Ridita Alam |
+| Milestone | M3 (script, 10 Nov) · M3b–M4 (sessions and fixes, 10–11 Nov; moved from the event in 06 v2.2) |
+| Window | pre-event-allowed |
 | Effort (doc 06) | 2–3 h |
 | Done when (doc 06) | ≥ 2 of 3 finish briefing in ≤ 5 min |
 | Main risk → fallback | — |
 | Spec sections | [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria) · [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) · [01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications) · [03 §C.1](../specs/03_App_Flow_and_Diagrams.md#c1-primary-end-to-end-journey-matches-prd-e) · [06 §B](../specs/06_High_Level_Implementation_Plan.md#b-milestones) · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 
@@ -42,7 +44,7 @@
 - **Parallel with:** T13.01, T13.03, T16.01, T17.01
 - **Steps:**
   1. Quote the 01 §B User value criterion and the 06 §C TASK-15 done-when at the top of the script, with links; do not reword them.
-  2. Write the participant task as an outcome only — a briefing card for a 3-stop route, starting on SCR-01 with the default inputs (01 §E starting conditions) — without naming controls, so it still works if cut 3 removes free placement. Participants use "Start planning", not "Open demo plan", which preloads the stops (03 SCR-01).
+  2. Write the participant task as an outcome only — a briefing card for a 3-stop route, starting on SCR-01 with the default inputs (01 §E starting conditions) — without naming controls, so it still works if cut 4 removes free placement. Participants use "Start planning", not "Open demo plan", which preloads the stops (03 SCR-01).
   3. Define timing: start when the app is opened (01 §B "From opening the app"), stop at the end condition; the end condition is `TODO(decision)` (spec question 2).
   4. Write the facilitator rules: what counts as help (`TODO(decision)`, 01 §B "without help"), and when a session stops.
   5. Add recording rules: participants are labelled P1–P3; notes only; no names, photos or video of people (06 §C TASK-17 rule: no under-18 likeness).
@@ -51,7 +53,7 @@
   - Serves: PRD §B (User value) · [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria)
   - Given a reader outside the team, when they read the script, then the task, the 5-minute limit, the start and end of timing and the help rules are clear without asking.
   - The criterion is quoted from 01 §B and 06 §C, not paraphrased.
-  - The task wording holds with and without free placement (06 §D.4 cut 3).
+  - The task wording holds with and without free placement (06 §D.4 cut 4).
   - The recording rules exclude names, faces and any under-18 likeness.
   - Open choices are marked `TODO(decision)`, not decided silently.
 - **Verify:** `npx --no-install markdownlint-cli2 docs/ops/usability-script.md` and `python3 scripts/check_links.py docs/ops/usability-script.md`; manual read-through by a second team member against the acceptance list.
@@ -63,7 +65,7 @@
 - **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** verify
 - **Tag:** human-required · core
-- **Window:** event-only
+- **Window:** pre-event-allowed
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** `docs/ops/usability-script.md`, the T14.06 section of `docs/ops/verification-log.md`, [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria), [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) TASK-15
@@ -91,7 +93,7 @@
 - **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** human
 - **Tag:** human-required · core
-- **Window:** event-only
+- **Window:** pre-event-allowed
 - **Estimate:** 0.5–1 h
 - **Owns (writes):** none — accepted fixes are appended as `follow-up:` subtasks to the owning task files through one `coord:` PR (§h.5 of the coordination map)
 - **Reads:** the T15.02 section of `docs/ops/verification-log.md`, [coordination map §c](_coordination.md#c1-rules) and [§h.5](_coordination.md#h5-changing-this-map), the owning task files, [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind), [06 §D.6](../specs/06_High_Level_Implementation_Plan.md#d6-demo-freeze-criteria-day-2-0600)

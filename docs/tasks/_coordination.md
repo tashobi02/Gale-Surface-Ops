@@ -69,44 +69,44 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T02.01 | Write the tile-grid and tile-encoding contract v1 | frontend | contract | agent-ready · core | pre-event-allowed | M0 | FR-01, FR-02, D-03 |
-| T02.02 | Implement the Mars projection module with a web CRS-guard test | frontend | implement | agent-ready · core | pre-event-if-permitted | M0 | FR-01, D-03 |
-| T02.03 | Build the spike page: mock-site tiles in the Mars projection with a metric scale bar | frontend | implement | agent-ready · core | pre-event-if-permitted | M0 | FR-01, D-03 |
+| T02.01 | Write the tile-grid and tile-encoding contract v1 | frontend | contract | agent-ready · core | pre-event-allowed | M1 | FR-01, FR-02, D-03 |
+| T02.02 | Implement the Mars projection module with a web CRS-guard test | frontend | implement | agent-ready · core | pre-event-if-permitted | M1 | FR-01, D-03 |
+| T02.03 | Build the spike page: mock-site tiles in the Mars projection with a metric scale bar | frontend | implement | agent-ready · core | pre-event-if-permitted | M1 | FR-01, D-03 |
 | T02.04 | Verify the scale bar against a DEM-measured feature within 2 % on real AOI tiles | frontend | verify | human-required · core | pre-event-if-permitted | M1 | FR-01 |
 | T02.05 | Record the spike outcome in ADR-003 (D-03) | frontend | human | human-required · core | pre-event-allowed | M1 | D-03 |
-| T02.06 | Fallback — start only if the spike fails within 2 h: ImageStatic layer factory in the Mars projection | frontend | fallback | agent-ready · core | pre-event-if-permitted | M0–M1 | FR-01, FR-02, D-03 |
+| T02.06 | Fallback — start only if the spike fails within 2 h: ImageStatic layer factory in the Mars projection | frontend | fallback | agent-ready · core | pre-event-if-permitted | M1 | FR-01, FR-02, D-03 |
 
 #### TASK-03 — Preprocessing pipeline
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T03.01 | Freeze data contracts v1: 05 entity mirror, grid binary layout, site-config input layout | data | contract | agent-ready · core | pre-event-allowed | M0 | FR-01, FR-03, FR-07, FR-15, NFR-06 |
-| T03.02 | Fixture: mock site bundle (manifest, placeholder tiles, tiny grid, sample POI and traverse GeoJSON) | data | fixture | agent-ready · core | pre-event-allowed | M0 | FR-01–FR-04, FR-17 |
-| T03.03 | Tests: projection and raster handling (02 §C.1, §C.4) | data | test | agent-ready · core | pre-event-allowed | M1 | FR-01–FR-03 |
-| T03.04 | Tests: slope, hillshade, aggregation and hazard flags | data | test | agent-ready · core | pre-event-allowed | M1 | FR-02, FR-07, FR-10 |
-| T03.05 | Tests: routing-grid encoding | data | test | agent-ready · core | pre-event-allowed | M1 | FR-03, FR-07 |
-| T03.06 | Tests: manifest integrity, sampled values, bundle size | data | test | agent-ready · core | pre-event-allowed | M1 | FR-01, FR-15, NFR-06, NFR-09 |
-| T03.07 | Implement config (working projection for the AOI) and source acquisition | data | implement | agent-ready · core | pre-event-allowed | M1 | FR-01–FR-03, NFR-06 |
-| T03.08 | Implement clip/reproject and DEM no-data → NaN | data | implement | agent-ready · core | pre-event-allowed | M1 | FR-01–FR-03 |
-| T03.09 | Implement Horn slope, hillshade and p90/max aggregation | data | implement | agent-ready · core | pre-event-allowed | M1 | FR-02, FR-07 |
-| T03.10 | Implement the hazard-flag bitfield | data | implement | agent-ready · core | pre-event-allowed | M1 | FR-07, FR-10, FR-16 |
-| T03.11 | Implement the routing-grid writer (u8 slope encoding, little-endian arrays, TI sidecar) | data | implement | agent-ready · core | pre-event-allowed | M1 | FR-03, FR-07 |
-| T03.12 | Implement tile rendering per the tile-grid contract | data | implement | agent-ready · core | pre-event-allowed | M1 | FR-01, FR-02 |
-| T03.13 | Implement the manifest writer from site-config records and assets | data | implement | agent-ready · core | pre-event-allowed | M1 | FR-01, FR-15, NFR-06 |
-| T03.14 | Implement `validate-manifest` | data | implement | agent-ready · core | pre-event-allowed | M1 | FR-16, NFR-06, NFR-10 |
-| T03.15 | Implement the pipeline entry point (`python -m marswalk_pipeline`) | data | implement | agent-ready · core | pre-event-allowed | M1 | FR-01 |
-| T03.16 | Write the site record (AOI, default start, data version) | data | human | human-required · core | pre-event-allowed | M1 | FR-01, FR-06 |
-| T03.17 | Write DataSource and Layer records for the DEM, ortho and THEMIS layers | data | implement | agent-ready · core | pre-event-allowed | M1 | FR-02, FR-15, NFR-07 |
-| T03.18 | Digitise HARD_HAZARD features and LOW_RES_DEM coverage | data | human | human-required · core | pre-event-allowed | M1 | FR-07, FR-10, U-10 |
-| T03.19 | Run the pipeline; commit bundle v1 (manifest, vectors, lock file) | data | integrate | human-required · core | pre-event-allowed | M1 | FR-01–FR-03, FR-07, NFR-06, NFR-09 |
-| T03.20 | Verify DEM hillshade vs ortho alignment; record the offset | data | verify | human-required · core | pre-event-allowed | M1 | FR-01, FR-17 |
-| T03.21 | Fixture: real-grid sample cells from a `rasterio` readout | data | fixture | agent-ready · core | pre-event-allowed | M1 | FR-03 |
+| T03.01 | Freeze data contracts v1: 05 entity mirror, grid binary layout, site-config input layout | data | contract | agent-ready · core | pre-event-allowed | M1 | FR-01, FR-03, FR-07, FR-15, NFR-06 |
+| T03.02 | Fixture: mock site bundle (manifest, placeholder tiles, tiny grid, sample POI and traverse GeoJSON) | data | fixture | agent-ready · core | pre-event-allowed | M1 | FR-01–FR-04, FR-17 |
+| T03.03 | Tests: projection and raster handling (02 §C.1, §C.4) | data | test | agent-ready · core | pre-event-allowed | M2 | FR-01–FR-03 |
+| T03.04 | Tests: slope, hillshade, aggregation and hazard flags | data | test | agent-ready · core | pre-event-allowed | M2 | FR-02, FR-07, FR-10 |
+| T03.05 | Tests: routing-grid encoding | data | test | agent-ready · core | pre-event-allowed | M2 | FR-03, FR-07 |
+| T03.06 | Tests: manifest integrity, sampled values, bundle size | data | test | agent-ready · core | pre-event-allowed | M2 | FR-01, FR-15, NFR-06, NFR-09 |
+| T03.07 | Implement config (working projection for the AOI) and source acquisition | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-01–FR-03, NFR-06 |
+| T03.08 | Implement clip/reproject and DEM no-data → NaN | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-01–FR-03 |
+| T03.09 | Implement Horn slope, hillshade and p90/max aggregation | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-02, FR-07 |
+| T03.10 | Implement the hazard-flag bitfield | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-07, FR-10, FR-16 |
+| T03.11 | Implement the routing-grid writer (u8 slope encoding, little-endian arrays, TI sidecar) | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-03, FR-07 |
+| T03.12 | Implement tile rendering per the tile-grid contract | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-01, FR-02 |
+| T03.13 | Implement the manifest writer from site-config records and assets | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-01, FR-15, NFR-06 |
+| T03.14 | Implement `validate-manifest` | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-16, NFR-06, NFR-10 |
+| T03.15 | Implement the pipeline entry point (`python -m marswalk_pipeline`) | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-01 |
+| T03.16 | Write the site record (AOI, default start, data version) | data | human | human-required · core | pre-event-allowed | M2 | FR-01, FR-06 |
+| T03.17 | Write DataSource and Layer records for the DEM, ortho and THEMIS layers | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-02, FR-15, NFR-07 |
+| T03.18 | Digitise HARD_HAZARD features and LOW_RES_DEM coverage | data | human | human-required · core | pre-event-allowed | M2 | FR-07, FR-10, U-10 |
+| T03.19 | Run the pipeline; commit bundle v1 (manifest, vectors, lock file) | data | integrate | human-required · core | pre-event-allowed | M2 | FR-01–FR-03, FR-07, NFR-06, NFR-09 |
+| T03.20 | Verify DEM hillshade vs ortho alignment; record the offset | data | verify | human-required · core | pre-event-allowed | M2 | FR-01, FR-17 |
+| T03.21 | Fixture: real-grid sample cells from a `rasterio` readout | data | fixture | agent-ready · core | pre-event-allowed | M2 | FR-03 |
 | T03.22 | Verify a clean-checkout re-run reproduces checksums; bundle ≤ 250 MB | data | verify | agent-ready · core | pre-event-allowed | M2 | NFR-06, NFR-09 |
-| T03.23 | Fallback — start only if tiling is too slow: lower the max zoom | data | fallback | agent-ready · core | pre-event-allowed | M1 | FR-01, NFR-09 |
-| T03.24 | Fallback — start only if the 5 m grid is too big or slow: 10 m cells | data | fallback | agent-ready · core | pre-event-allowed | M1 | FR-07, NFR-02 |
-| T03.25 | Fallback — start only if T02 spike fails or cut 7 is called: one PNG per 2 m layer for ImageStatic | data | fallback | agent-ready · core | pre-event-allowed | M1 | FR-01, FR-02 |
-| T03.26 | Fallback — start only if the colour COG misses the AOI: grayscale 25 cm window or cached Mars Trek HiRISE tiles | data | fallback | human-required · core | pre-event-allowed | M1 | FR-01 |
-| T03.27 | Fallback — start only if quantitative TI misses the AOI: THEMIS Day IR 100 m (qualitative) | data | fallback | human-required · core | pre-event-allowed | M1 | FR-02 |
+| T03.23 | Fallback — start only if tiling is too slow: lower the max zoom | data | fallback | agent-ready · core | pre-event-allowed | M2 | FR-01, NFR-09 |
+| T03.24 | Fallback — start only if the 5 m grid is too big or slow: 10 m cells | data | fallback | agent-ready · core | pre-event-allowed | M2 | FR-07, NFR-02 |
+| T03.25 | Fallback — start only if the T02 spike fails: one PNG per 2 m layer for ImageStatic | data | fallback | agent-ready · core | pre-event-allowed | M2 | FR-01, FR-02 |
+| T03.26 | Fallback — start only if the colour COG misses the AOI: grayscale 25 cm window or cached Mars Trek HiRISE tiles | data | fallback | human-required · core | pre-event-allowed | M2 | FR-01 |
+| T03.27 | Fallback — start only if quantitative TI misses the AOI: THEMIS Day IR 100 m (qualitative) | data | fallback | human-required · core | pre-event-allowed | M2 | FR-02 |
 | T03.28 | Tests: `comm_hab` viewshed grid (v2) | data | test | agent-ready · core | pre-event-allowed | M2 | FR-42 |
 | T03.29 | Implement the `comm_hab` viewshed grid and its layer record (v2) | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-42 |
 | T03.30 | Verify `comm_hab` against `gdal_viewshed` at 5 points (v2) | data | verify | agent-ready · core | pre-event-allowed | M2 | FR-42 |
@@ -115,15 +115,15 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T04.01 | Choose and cache the traverse source (U-04); write its DataSource and Layer records | data | human | human-required · core | pre-event-allowed | M1 | FR-17, U-04 |
-| T04.02 | Tests: traverse and POI packaging | data | test | agent-ready · core | pre-event-allowed | M1 | FR-04, FR-17 |
-| T04.03 | Implement traverse and POI packaging | data | implement | agent-ready · core | pre-event-allowed | M1 | FR-04, FR-17 |
-| T04.04 | Curate POIs 1–4 with images, credits and position sources; write the POI layer record | story | human | human-required · core | pre-event-allowed | M1 | FR-04 |
-| T04.05 | Curate POIs 5–8 (at least one, to reach the 5-POI minimum) | story | human | human-required · core | pre-event-allowed | M1 | FR-04 |
-| T04.06 | Write the dataset and image credits list | story | human | human-required · core | pre-event-allowed | M1 | FR-04, NFR-07 |
-| T04.07 | Resolve U-03: TI "loose fines" threshold from the AOI histogram and literature | data | human | human-required · cut-4 | pre-event-allowed | M1 | FR-10, U-03 |
-| T04.08 | Verify traverse alignment with HiRISE tracks at the checkpoints; record the offset | data | verify | human-required · core | pre-event-allowed | M1 | FR-17 |
-| T04.09 | Fallback — start only if PLACES parsing is too slow: MMGIS JSON cached once, labelled unofficial | data | fallback | human-required · core | pre-event-allowed | M1 | FR-17 |
+| T04.01 | Choose and cache the traverse source (U-04); write its DataSource and Layer records | data | human | human-required · core | pre-event-allowed | M2 | FR-17, U-04 |
+| T04.02 | Tests: traverse and POI packaging | data | test | agent-ready · core | pre-event-allowed | M2 | FR-04, FR-17 |
+| T04.03 | Implement traverse and POI packaging | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-04, FR-17 |
+| T04.04 | Curate POIs 1–4 with images, credits and position sources; write the POI layer record | story | human | human-required · core | pre-event-allowed | M2 | FR-04 |
+| T04.05 | Curate POIs 5–8 (at least one, to reach the 5-POI minimum) | story | human | human-required · core | pre-event-allowed | M2 | FR-04 |
+| T04.06 | Write the dataset and image credits list | story | human | human-required · core | pre-event-allowed | M2 | FR-04, NFR-07 |
+| T04.07 | Resolve U-03: TI "loose fines" threshold from the AOI histogram and literature | data | human | human-required · core | pre-event-allowed | M2 | FR-10, U-03 |
+| T04.08 | Verify traverse alignment with HiRISE tracks at the checkpoints; record the offset | data | verify | human-required · core | pre-event-allowed | M2 | FR-17 |
+| T04.09 | Fallback — start only if PLACES parsing is too slow: MMGIS JSON cached once, labelled unofficial | data | fallback | human-required · core | pre-event-allowed | M2 | FR-17 |
 | T04.10 | Write the Exploration Zone framing and the stop-type list (v2, FR-45, U-16) | story | human | human-required · core | pre-event-allowed | M2 | FR-45 |
 | T04.11 | Check the dust-record source for the scenario window (v2, U-17) | data | human | human-required · desirable | pre-event-allowed | M2 | FR-49 |
 
@@ -131,75 +131,75 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T05.01 | Freeze compute contracts v1: worker protocol and compute module layout | compute | contract | agent-ready · core | pre-event-allowed | M0 | FR-03, FR-06, FR-07, NFR-06 |
-| T05.02 | Fixture: synthetic routing grids | compute | fixture | agent-ready · core | pre-event-if-permitted | M0 | FR-07 |
-| T05.03 | Fixture: canned PLAN_RESULT messages (OK, PARTIAL, OVER_LIMITS) | compute | fixture | agent-ready · core | pre-event-allowed | M0 | FR-07–FR-12 |
-| T05.04 | Fixture: mock worker answering from the canned fixtures | compute | fixture | agent-ready · core | pre-event-if-permitted | M0 | FR-03, FR-07 |
-| T05.05 | Tests: grid loader and addressing | compute | test | agent-ready · core | pre-event-if-permitted | M3 | FR-03, FR-07 |
-| T05.06 | Tests: point and profile sampling | compute | test | agent-ready · core | pre-event-if-permitted | M3 | FR-03, FR-08 |
-| T05.07 | Tests: A* core (gap, re-sample, determinism, TIMEOUT) | compute | test | agent-ready · cut-6 | pre-event-if-permitted | M3 | FR-07, NFR-06 |
-| T05.08 | Tests: no-route reasons and nearest reachable cell | compute | test | agent-ready · cut-6 | pre-event-if-permitted | M4 | FR-07 |
-| T05.09 | Tests: snapping | compute | test | agent-ready · core | pre-event-if-permitted | M4 | FR-06 |
-| T05.10 | Tests: leg assembly (metrics, simplification, profile) | compute | test | agent-ready · core | pre-event-if-permitted | M3 | FR-07, FR-08 |
-| T05.11 | Tests: walking-time model | compute | test | agent-ready · core | pre-event-if-permitted | M3 | FR-09 |
-| T05.12 | Tests: walkback | compute | test | agent-ready · core | pre-event-if-permitted | M4 | FR-09 |
-| T05.13 | Tests: warnings and plan status | compute | test | agent-ready · core | pre-event-if-permitted | M4 | FR-10, FR-16 |
-| T05.14 | Tests: input validation (02 §E.3) | compute | test | agent-ready · core | pre-event-if-permitted | M4 | FR-05 |
-| T05.15 | Tests: worker handler and cancellation | compute | test | agent-ready · core | pre-event-if-permitted | M3 | FR-07, NFR-02, NFR-06, NFR-10 |
-| T05.16 | Implement the grid loader | compute | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-03, FR-07 |
-| T05.17 | Implement point and profile sampling | compute | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-03, FR-08 |
-| T05.18 | Implement the A* least-time search | compute | implement | agent-ready · cut-6 | pre-event-if-permitted | M3 | FR-07, NFR-02, NFR-06 |
-| T05.19 | Implement no-route reasons and nearest reachable cell | compute | implement | agent-ready · cut-6 | pre-event-if-permitted | M4 | FR-07 |
-| T05.20 | Implement snapping | compute | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-06 |
-| T05.21 | Implement leg assembly | compute | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-07, FR-08 |
-| T05.22 | Implement the walking-time model | compute | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-09 |
-| T05.23 | Implement walkback | compute | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-09 |
-| T05.24 | Implement warnings and plan status | compute | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-10, FR-16 |
-| T05.25 | Implement input validation | compute | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-05 |
-| T05.26 | Implement the worker handler, minimum slice: SAMPLE_POINT and legs-only PLAN_RESULT | compute | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-03, FR-07, FR-08 |
-| T05.27 | Implement the worker entry: grid initialisation, latest-revision cancellation | compute | implement | agent-ready · core | pre-event-if-permitted | M3 | NFR-02, NFR-10 |
-| T05.28 | Verify on the real grid: 10 sampled cells; 20 pairs p50/p95; 3-stop loop ≤ 2 s | compute | verify | agent-ready · core | pre-event-if-permitted | M4 | FR-03, FR-07, NFR-02 |
-| T05.29 | Record D-02 from the benchmark in ADR-002 | compute | human | human-required · core | pre-event-allowed | M4 | D-02 |
-| T05.30 | Fallback — start only if T09.06 says no-go: manual polyline validation (compute side) | compute | fallback | agent-ready · core | pre-event-if-permitted | M3 | FR-07, FR-08, FR-10 |
-| T05.31 | Fallback — start only if T05.29 records p95 > 2 s: FastAPI `/route` with a scikit-image least-cost path | compute | fallback | agent-ready · core | pre-event-if-permitted | M4 | FR-07, NFR-02 |
-| T05.32 | follow-up: complete PLAN_RESULT assembly (totals, timeline, warnings, status, conditions) | compute | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-07–FR-12 |
+| T05.01 | Freeze compute contracts v1: worker protocol and compute module layout | compute | contract | agent-ready · core | pre-event-allowed | M1 | FR-03, FR-06, FR-07, NFR-06 |
+| T05.02 | Fixture: synthetic routing grids | compute | fixture | agent-ready · core | pre-event-if-permitted | M1 | FR-07 |
+| T05.03 | Fixture: canned PLAN_RESULT messages (OK, PARTIAL, OVER_LIMITS) | compute | fixture | agent-ready · core | pre-event-allowed | M1 | FR-07–FR-12 |
+| T05.04 | Fixture: mock worker answering from the canned fixtures | compute | fixture | agent-ready · core | pre-event-if-permitted | M1 | FR-03, FR-07 |
+| T05.05 | Tests: grid loader and addressing | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-03, FR-07 |
+| T05.06 | Tests: point and profile sampling | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-03, FR-08 |
+| T05.07 | Tests: A* core (gap, re-sample, determinism, TIMEOUT) | compute | test | agent-ready · cut-7 | pre-event-if-permitted | M2 | FR-07, NFR-06 |
+| T05.08 | Tests: no-route reasons and nearest reachable cell | compute | test | agent-ready · cut-7 | pre-event-if-permitted | M2 | FR-07 |
+| T05.09 | Tests: snapping | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-06 |
+| T05.10 | Tests: leg assembly (metrics, simplification, profile) | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-07, FR-08 |
+| T05.11 | Tests: walking-time model | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-09 |
+| T05.12 | Tests: walkback | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-09 |
+| T05.13 | Tests: warnings and plan status | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-10, FR-16 |
+| T05.14 | Tests: input validation (02 §E.3) | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-05 |
+| T05.15 | Tests: worker handler and cancellation | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-07, NFR-02, NFR-06, NFR-10 |
+| T05.16 | Implement the grid loader | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-03, FR-07 |
+| T05.17 | Implement point and profile sampling | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-03, FR-08 |
+| T05.18 | Implement the A* least-time search | compute | implement | agent-ready · cut-7 | pre-event-if-permitted | M2 | FR-07, NFR-02, NFR-06 |
+| T05.19 | Implement no-route reasons and nearest reachable cell | compute | implement | agent-ready · cut-7 | pre-event-if-permitted | M2 | FR-07 |
+| T05.20 | Implement snapping | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-06 |
+| T05.21 | Implement leg assembly | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-07, FR-08 |
+| T05.22 | Implement the walking-time model | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-09 |
+| T05.23 | Implement walkback | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-09 |
+| T05.24 | Implement warnings and plan status | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-10, FR-16 |
+| T05.25 | Implement input validation | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-05 |
+| T05.26 | Implement the worker handler, minimum slice: SAMPLE_POINT and legs-only PLAN_RESULT | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-03, FR-07, FR-08 |
+| T05.27 | Implement the worker entry: grid initialisation, latest-revision cancellation | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | NFR-02, NFR-10 |
+| T05.28 | Verify on the real grid: 10 sampled cells; 20 pairs p50/p95; 3-stop loop ≤ 2 s | compute | verify | agent-ready · core | pre-event-if-permitted | M2 | FR-03, FR-07, NFR-02 |
+| T05.29 | Record D-02 from the benchmark in ADR-002 | compute | human | human-required · core | pre-event-allowed | M2 | D-02 |
+| T05.30 | Fallback — start only if T09.06 says no-go: manual polyline validation (compute side) | compute | fallback | agent-ready · core | pre-event-if-permitted | M2 | FR-07, FR-08, FR-10 |
+| T05.31 | Fallback — start only if T05.29 records p95 > 2 s: FastAPI `/route` with a scikit-image least-cost path | compute | fallback | agent-ready · core | pre-event-if-permitted | M2 | FR-07, NFR-02 |
+| T05.32 | follow-up: complete PLAN_RESULT assembly (totals, timeline, warnings, status, conditions) | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-07–FR-12 |
 
 #### TASK-06 — Mars24 solar functions + radiation estimate
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T06.01 | Freeze the conditions interface; move the solar functions to `sun.ts` | compute | contract | agent-ready · core | pre-event-allowed | M0 | FR-11, FR-12 |
+| T06.01 | Freeze the conditions interface; move the solar functions to `sun.ts` | compute | contract | agent-ready · core | pre-event-allowed | M1 | FR-11, FR-12 |
 | T06.02 | Fixture: Mars24 reference values generated with `marstime` | compute | fixture | agent-ready · core | pre-event-allowed | M1 | FR-11 |
-| T06.03 | Tests: Mars24 time and sun functions vs `marstime` | compute | test | agent-ready · cut-5 | event-only | M4 | FR-11 |
-| T06.04 | Tests: radiation estimate | compute | test | agent-ready · core | event-only | M4 | FR-12 |
-| T06.05 | Tests: conditions assembly | compute | test | agent-ready · core | event-only | M4 | FR-10, FR-11, FR-12 |
-| T06.06 | Implement the Mars24 time functions (MSD, L_s, LTST, east → west longitude) | compute | implement | agent-ready · cut-5 | event-only | M4 | FR-11 |
-| T06.07 | Implement solar position and flat-horizon sunrise/sunset | compute | implement | agent-ready · cut-5 | event-only | M4 | FR-11 |
-| T06.08 | Implement the radiation estimate | compute | implement | agent-ready · core | event-only | M4 | FR-12 |
-| T06.09 | Implement conditions assembly (timeline LTST, sun elevation, radiation) | compute | implement | agent-ready · core | event-only | M4 | FR-10, FR-11, FR-12 |
+| T06.03 | Tests: Mars24 time and sun functions vs `marstime` | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-11 |
+| T06.04 | Tests: radiation estimate | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-12 |
+| T06.05 | Tests: conditions assembly | compute | test | agent-ready · core | pre-event-if-permitted | M2 | FR-10, FR-11, FR-12 |
+| T06.06 | Implement the Mars24 time functions (MSD, L_s, LTST, east → west longitude) | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-11 |
+| T06.07 | Implement solar position and flat-horizon sunrise/sunset | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-11 |
+| T06.08 | Implement the radiation estimate | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-12 |
+| T06.09 | Implement conditions assembly (timeline LTST, sun elevation, radiation) | compute | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-10, FR-11, FR-12 |
 | T06.10 | Write the RAD EnvConstant and DataSource records (05 §C values verbatim) | compute | implement | agent-ready · core | pre-event-allowed | M1 | FR-12, FR-15 |
-| T06.11 | Fallback — start only if Mars24 tests fail or cut 5 is called: precomputed sun table for the demo dates | compute | fallback | agent-ready · core | event-only | M4 | FR-11 |
+| T06.11 | Fallback — start only if Mars24 tests fail: precomputed sun table for the demo dates | compute | fallback | agent-ready · core | pre-event-if-permitted | M2 | FR-11 |
 
 #### TASK-07 — App shell + map workspace + layers panel + inspector
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T07.01 | Freeze UI contracts v1: app context, screen interface, map handle, layer order, provenance attributes; create UI module stubs | frontend | contract | agent-ready · core | pre-event-allowed | M2 | FR-01–FR-03, FR-15, FR-17, NFR-05 |
-| T07.02 | Implement site loading (manifest fetch, `?site=` override, lookup maps) | frontend | implement | agent-ready · core | event-only | M3 | FR-01, FR-16 |
-| T07.03 | Implement the app shell: hash router, boot sequence, CSP meta tag | frontend | implement | agent-ready · core | event-only | M3 | FR-01, FR-16, NFR-01, NFR-08 |
-| T07.04 | Implement the worker client (request ids, latest revision, crash → retry) | frontend | implement | agent-ready · core | event-only | M3 | FR-03, FR-07, NFR-10 |
-| T07.05 | Implement SCR-01 Mission Briefing | frontend | implement | agent-ready · core | event-only | M3 | FR-01, FR-15, SCR-01 |
-| T07.06 | Implement the map: view, metric scale bar, north arrow, coordinate readout | frontend | implement | agent-ready · core | event-only | M3 | FR-01, SCR-02 |
-| T07.07 | Implement tiled raster layers with slope classes that follow the current limits | frontend | implement | agent-ready · cut-7 | event-only | M3 | FR-01, FR-02 |
-| T07.08 | Implement the SCR-02 workspace layout (top bar, drawers, toolbar, responsive) | frontend | implement | agent-ready · core | event-only | M3 | FR-01, FR-16, NFR-03, SCR-02 |
-| T07.09 | Implement SCR-03 Layers panel | frontend | implement | agent-ready · core | event-only | M4 | FR-02, FR-15, FR-16, FR-17, SCR-03 |
-| T07.10 | Implement the Curiosity traverse layer | frontend | implement | agent-ready · core | event-only | M4 | FR-17 |
-| T07.11 | Implement the POI layer and POI selection | frontend | implement | agent-ready · core | event-only | M4 | FR-04 |
-| T07.12 | Implement the point-inspector popover | frontend | implement | agent-ready · core | event-only | M4 | FR-03 |
-| T07.13 | Implement `?debug=1` diagnostics | frontend | implement | agent-ready · core | event-only | M4 | NFR-11 |
-| T07.14 | Author the demo plan (three POI stops) | story | human | human-required · core | pre-event-allowed | M2 | FR-06, SCR-01 |
-| T07.15 | Verify SCR-01, SCR-02, SCR-03: toggles ≤ 300 ms, inspector values match the grid | frontend | verify | human-required · core | event-only | M4 | FR-02, FR-03, SCR-01, SCR-02, SCR-03 |
-| T07.16 | Fallback — start only if projection issues persist or cut 7 is called: ImageStatic layers | frontend | fallback | agent-ready · core | event-only | M3 | FR-01, FR-02 |
+| T07.01 | Freeze UI contracts v1: app context, screen interface, map handle, layer order, provenance attributes; create UI module stubs | frontend | contract | agent-ready · core | pre-event-allowed | M1 | FR-01–FR-03, FR-15, FR-17, NFR-05 |
+| T07.02 | Implement site loading (manifest fetch, `?site=` override, lookup maps) | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-01, FR-16 |
+| T07.03 | Implement the app shell: hash router, boot sequence, CSP meta tag | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-01, FR-16, NFR-01, NFR-08 |
+| T07.04 | Implement the worker client (request ids, latest revision, crash → retry) | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-03, FR-07, NFR-10 |
+| T07.05 | Implement SCR-01 Mission Briefing | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-01, FR-15, SCR-01 |
+| T07.06 | Implement the map: view, metric scale bar, north arrow, coordinate readout | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-01, SCR-02 |
+| T07.07 | Implement tiled raster layers with slope classes that follow the current limits | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-01, FR-02 |
+| T07.08 | Implement the SCR-02 workspace layout (top bar, drawers, toolbar, responsive) | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-01, FR-16, NFR-03, SCR-02 |
+| T07.09 | Implement SCR-03 Layers panel | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-02, FR-15, FR-16, FR-17, SCR-03 |
+| T07.10 | Implement the Curiosity traverse layer | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-17 |
+| T07.11 | Implement the POI layer and POI selection | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-04 |
+| T07.12 | Implement the point-inspector popover | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-03 |
+| T07.13 | Implement `?debug=1` diagnostics | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | NFR-11 |
+| T07.14 | Author the demo plan (three POI stops) | story | human | human-required · core | pre-event-allowed | M1 | FR-06, SCR-01 |
+| T07.15 | Verify SCR-01, SCR-02, SCR-03: toggles ≤ 300 ms, inspector values match the grid | frontend | verify | human-required · core | pre-event-if-permitted | M2 | FR-02, FR-03, SCR-01, SCR-02, SCR-03 |
+| T07.16 | Fallback — start only if projection issues persist: ImageStatic layers | frontend | fallback | agent-ready · core | pre-event-if-permitted | M2 | FR-01, FR-02 |
 | T07.17 | Implement the shared map controls (+, −, FIT for planner and ops; EVA full-screen set) (v2) | frontend | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-32, FR-02 |
 | T07.18 | Implement the Exploration Zone layer: POI stop types on the map (v2, FR-45) | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-45 |
 
@@ -208,51 +208,51 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T08.01 | Freeze the plan-store contract v1 (state, status, actions, selection) | frontend | contract | agent-ready · core | pre-event-allowed | M2 | FR-05, FR-06 |
-| T08.02 | Tests: plan store (revisions, undo, debounce, stale results) | frontend | test | agent-ready · core | event-only | M3 | FR-05, FR-06 |
-| T08.03 | Implement the plan store | frontend | implement | agent-ready · core | event-only | M3 | FR-05, FR-06 |
-| T08.04 | Implement the SCR-04 panel and mission-inputs form | frontend | implement | agent-ready · core | event-only | M4 | FR-05, SCR-04 |
-| T08.05 | Implement the stops list (reorder buttons, delete, undo) | frontend | implement | agent-ready · core | event-only | M4 | FR-06, FR-09, SCR-04 |
-| T08.06 | Implement waypoint markers and placement validation with a snap offer | frontend | implement | agent-ready · core | event-only | M3 | FR-06 |
-| T08.07 | Implement Add-stop mode (free placement, `A`, crosshair `Enter`) | frontend | implement | agent-ready · cut-3 | event-only | M3 | FR-06, NFR-04 |
-| T08.08 | Implement desktop drag: waypoints on the map, rows in the stops list | frontend | implement | agent-ready · core | event-only | M4 | FR-06 |
-| T08.09 | Implement tablet touch: long-press placement and drag | frontend | implement | agent-ready · cut-2 | event-only | M4 | FR-06, NFR-03 |
-| T08.10 | Fallback — start only if T08.08 is not working at the Day 1 17:30 checkpoint: buttons-only stop move | frontend | fallback | agent-ready · core | event-only | M4 | FR-06 |
-| T08.11 | Verify the 02 §E.3 rules and SCR-04 states in the UI | frontend | verify | human-required · core | event-only | M4 | FR-05, FR-06, SCR-04 |
+| T08.02 | Tests: plan store (revisions, undo, debounce, stale results) | frontend | test | agent-ready · core | pre-event-if-permitted | M3 | FR-05, FR-06 |
+| T08.03 | Implement the plan store | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-05, FR-06 |
+| T08.04 | Implement the SCR-04 panel and mission-inputs form | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-05, SCR-04 |
+| T08.05 | Implement the stops list (reorder buttons, delete, undo) | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-06, FR-09, SCR-04 |
+| T08.06 | Implement waypoint markers and placement validation with a snap offer | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-06 |
+| T08.07 | Implement Add-stop mode (free placement, `A`, crosshair `Enter`) | frontend | implement | agent-ready · cut-4 | pre-event-if-permitted | M3 | FR-06, NFR-04 |
+| T08.08 | Implement desktop drag: waypoints on the map, rows in the stops list | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-06 |
+| T08.09 | Implement tablet touch: long-press placement and drag | frontend | implement | agent-ready · cut-4 | pre-event-if-permitted | M3 | FR-06, NFR-03 |
+| T08.10 | Fallback — start only if T08.08 is not working at the Day 1 17:30 checkpoint: buttons-only stop move | frontend | fallback | agent-ready · core | pre-event-if-permitted | M3 | FR-06 |
+| T08.11 | Verify the 02 §E.3 rules and SCR-04 states in the UI | frontend | verify | human-required · core | pre-event-if-permitted | M3 | FR-05, FR-06, SCR-04 |
 | T08.12 | follow-up: haven rule input in the plan panel (v2, FR-39) | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-39 |
 
 #### TASK-09 — Results panel + profile
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T09.01 | Implement the route layer (cased legs, dashed NO_ROUTE line, hazard hatch) | frontend | implement | agent-ready · core | event-only | M3 | FR-07, FR-10 |
-| T09.02 | Implement the elevation/slope profile chart | frontend | implement | agent-ready · core | event-only | M3 | FR-08 |
-| T09.03 | Implement SCR-05: status banner and metrics row | frontend | implement | agent-ready · core | event-only | M4 | FR-07, FR-09, FR-12, SCR-05 |
-| T09.04 | Implement the warnings list with click-to-zoom | frontend | implement | agent-ready · core | event-only | M4 | FR-10 |
-| T09.05 | Implement profile ↔ map linking (06 fallback: ship the profile without it) | frontend | implement | agent-ready · core | event-only | M4 | FR-08 |
-| T09.06 | Run the M3 walking-skeleton check; decide auto-routing go/no-go in ADR-004 | integration | integrate | human-required · core | event-only | M3 | FR-07, FR-08, D-04 |
-| T09.07 | Verify SCR-05 states against the OK, PARTIAL and OVER_LIMITS fixtures | frontend | verify | human-required · core | event-only | M4 | FR-07–FR-10, SCR-05 |
-| T09.08 | Fallback — start only if T09.06 says no-go: draw legs by hand on the map | frontend | fallback | agent-ready · core | event-only | M3 | FR-07 |
+| T09.01 | Implement the route layer (cased legs, dashed NO_ROUTE line, hazard hatch) | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-07, FR-10 |
+| T09.02 | Implement the elevation/slope profile chart | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-08 |
+| T09.03 | Implement SCR-05: status banner and metrics row | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-07, FR-09, FR-12, SCR-05 |
+| T09.04 | Implement the warnings list with click-to-zoom | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-10 |
+| T09.05 | Implement profile ↔ map linking (06 fallback: ship the profile without it) | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-08 |
+| T09.06 | Run the M3 walking-skeleton check; decide auto-routing go/no-go in ADR-004 | integration | integrate | human-required · core | pre-event-if-permitted | M3 | FR-07, FR-08, D-04 |
+| T09.07 | Verify SCR-05 states against the OK, PARTIAL and OVER_LIMITS fixtures | frontend | verify | human-required · core | pre-event-if-permitted | M3 | FR-07–FR-10, SCR-05 |
+| T09.08 | Fallback — start only if T09.06 says no-go: draw legs by hand on the map | frontend | fallback | agent-ready · core | pre-event-if-permitted | M3 | FR-07 |
 | T09.09 | follow-up: haven and comm bands in the results panel and profile (v2, FR-39, FR-42) | frontend | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-39, FR-42 |
 
 #### TASK-10 — POI detail + Conditions panel
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T10.01 | Implement SCR-06 POI Detail | frontend | implement | agent-ready · core | event-only | M4 | FR-04, SCR-06 |
-| T10.02 | Implement SCR-07 Conditions | frontend | implement | agent-ready · core | event-only | M4 | FR-11, FR-12, FR-13, SCR-07 |
-| T10.03 | Verify POI images with credits and the daylight warning for a pre-dawn start | frontend | verify | human-required · core | event-only | M4 | FR-04, FR-11, FR-12, SCR-06, SCR-07 |
+| T10.01 | Implement SCR-06 POI Detail | frontend | implement | agent-ready · core | event-only | M5 | FR-04, SCR-06 |
+| T10.02 | Implement SCR-07 Conditions | frontend | implement | agent-ready · core | event-only | M5 | FR-11, FR-12, FR-13, SCR-07 |
+| T10.03 | Verify POI images with credits and the daylight warning for a pre-dawn start | frontend | verify | human-required · core | event-only | M5 | FR-04, FR-11, FR-12, SCR-06, SCR-07 |
 | T10.04 | follow-up: stop types on the POI detail (v2, FR-45) | frontend | implement | agent-ready · core | event-only | M7 | FR-45, FR-04 |
 
 #### TASK-11 — Briefing card + JSON export
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T11.01 | Tests: plan hash and export (canonical JSON, schema-valid, reproducible) | frontend | test | agent-ready · core | event-only | M4 | FR-14, NFR-06 |
-| T11.02 | Implement the plan hash and PlanExport assembly | frontend | implement | agent-ready · core | event-only | M4 | FR-14, NFR-06 |
-| T11.03 | Implement the SCR-08 layout and print CSS | design | implement | agent-ready · core | event-only | M4 | FR-14, FR-15, SCR-08 |
-| T11.04 | Implement the route map snapshot | frontend | implement | agent-ready · core | event-only | M4 | FR-14 |
-| T11.05 | Verify one-page print in Chrome and plan_hash reproduction | design | verify | human-required · core | event-only | M4 | FR-14, SCR-08 |
-| T11.06 | Fallback — start only if the map snapshot cannot be made to work: static AOI thumbnail with the route as SVG | frontend | fallback | agent-ready · core | event-only | M4 | FR-14 |
+| T11.01 | Tests: plan hash and export (canonical JSON, schema-valid, reproducible) | frontend | test | agent-ready · core | pre-event-if-permitted | M4 | FR-14, NFR-06 |
+| T11.02 | Implement the plan hash and PlanExport assembly | frontend | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-14, NFR-06 |
+| T11.03 | Implement the SCR-08 layout and print CSS | design | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-14, FR-15, SCR-08 |
+| T11.04 | Implement the route map snapshot | frontend | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-14 |
+| T11.05 | Verify one-page print in Chrome and plan_hash reproduction | design | verify | human-required · core | pre-event-if-permitted | M4 | FR-14, SCR-08 |
+| T11.06 | Fallback — start only if the map snapshot cannot be made to work: static AOI thumbnail with the route as SVG | frontend | fallback | agent-ready · core | pre-event-if-permitted | M4 | FR-14 |
 | T11.07 | Implement `PUBLISH_PLAN` from the briefing card to the Hab Core (v2) | frontend | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-14, FR-31 |
 | T11.08 | follow-up: the briefing card lists each stop's tasks (v2, FR-50) | frontend | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-50, FR-14 |
 
@@ -260,54 +260,54 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T12.01 | Implement the metric and provenance-chip component | story | implement | agent-ready · core | event-only | M3 | FR-15, NFR-05 |
-| T12.02 | Tests: DOM provenance check across screens | story | test | agent-ready · core | event-only | M4 | FR-15, NFR-05 |
-| T12.03 | Implement SCR-09 Sources & Methods | story | implement | agent-ready · core | event-only | M4 | FR-15, SCR-09 |
+| T12.01 | Implement the metric and provenance-chip component | story | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-15, NFR-05 |
+| T12.02 | Tests: DOM provenance check across screens | story | test | agent-ready · core | pre-event-if-permitted | M4 | FR-15, NFR-05 |
+| T12.03 | Implement SCR-09 Sources & Methods | story | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-15, SCR-09 |
 | T12.04 | Write the methods, models and limitations content from 02 §C–§D | story | implement | agent-ready · core | pre-event-allowed | M2 | FR-15 |
-| T12.05 | Write DataSource records for the models (Tobler, Apollo 17, Mars24) | story | implement | agent-ready · core | pre-event-allowed | M1 | FR-15, NFR-07 |
-| T12.06 | Verify no unlabelled metric on the demo path and every credited source in SCR-09 | story | verify | agent-ready · core | event-only | M5 | FR-15, NFR-05, SCR-09 |
+| T12.05 | Write DataSource records for the models (Tobler, Apollo 17, Mars24) | story | implement | agent-ready · core | pre-event-allowed | M2 | FR-15, NFR-07 |
+| T12.06 | Verify no unlabelled metric on the demo path and every credited source in SCR-09 | story | verify | agent-ready · core | pre-event-if-permitted | M4b | FR-15, NFR-05, SCR-09 |
 | T12.07 | follow-up: provenance DOM checks on the v2 role views (SCR-11–SCR-14, SCR-17) | story | test | agent-ready · core | pre-event-if-permitted | M3–M4 | NFR-05, FR-36 |
 
 #### TASK-13 — Visual system + accessibility
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T13.01 | Freeze CSS token and status-class names v1 against 04 §C | design | contract | agent-ready · core | pre-event-allowed | M2 | NFR-04 |
-| T13.02 | Self-host Inter and IBM Plex Mono; verify their licences | design | implement | agent-ready · core | pre-event-allowed | M2 | NFR-01, NFR-07 |
-| T13.03 | Sketch SCR-02 and SCR-08 wireframes on paper (04 §F) | design | human | human-required · core | pre-event-allowed | M2 | SCR-02, SCR-08 |
-| T13.04 | Implement base styles: typography, focus ring, reduced motion | design | implement | agent-ready · core | event-only | M5 | NFR-04 |
-| T13.05 | Implement status icons and patterns | design | implement | agent-ready · core | event-only | M4 | NFR-04, FR-08, FR-10 |
-| T13.06 | Implement keyboard map controls (04 §E) | design | implement | agent-ready · core | event-only | M5 | NFR-04 |
-| T13.07 | follow-up: first-run coach marks | design | implement | agent-ready · cut-2 | event-only | M5 | — |
-| T13.08 | Implement the light theme (U-08) | design | implement | agent-ready · cut-2 | event-only | M5 | NFR-04, U-08 |
-| T13.09 | Verify the axe scan: 0 serious issues | design | verify | agent-ready · core | event-only | M5 | NFR-04 |
-| T13.10 | Verify a keyboard-only run of the core scenario | design | verify | human-required · core | event-only | M5 | NFR-04 |
-| T13.11 | Self-host the outline icon set and verify its licence | design | implement | agent-ready · core | pre-event-allowed | M2 | NFR-01, NFR-07 |
+| T13.01 | Freeze CSS token and status-class names v1 against 04 §C | design | contract | agent-ready · core | pre-event-allowed | M1 | NFR-04 |
+| T13.02 | Self-host Inter and IBM Plex Mono; verify their licences | design | implement | agent-ready · core | pre-event-allowed | M1 | NFR-01, NFR-07 |
+| T13.03 | Sketch SCR-02 and SCR-08 wireframes on paper (04 §F) | design | human | human-required · core | pre-event-allowed | M1 | SCR-02, SCR-08 |
+| T13.04 | Implement base styles: typography, focus ring, reduced motion | design | implement | agent-ready · core | pre-event-if-permitted | M4 | NFR-04 |
+| T13.05 | Implement status icons and patterns | design | implement | agent-ready · core | pre-event-if-permitted | M2 | NFR-04, FR-08, FR-10 |
+| T13.06 | Implement keyboard map controls (04 §E) | design | implement | agent-ready · core | pre-event-if-permitted | M4 | NFR-04 |
+| T13.07 | follow-up: first-run coach marks | design | implement | agent-ready · cut-4 | pre-event-if-permitted | M4 | — |
+| T13.08 | Implement the light theme (U-08) | design | implement | agent-ready · cut-4 | pre-event-if-permitted | M4 | NFR-04, U-08 |
+| T13.09 | Verify the axe scan: 0 serious issues | design | verify | agent-ready · core | pre-event-if-permitted | M4 | NFR-04 |
+| T13.10 | Verify a keyboard-only run of the core scenario | design | verify | human-required · core | pre-event-if-permitted | M4 | NFR-04 |
+| T13.11 | Self-host the outline icon set and verify its licence | design | implement | agent-ready · core | pre-event-allowed | M1 | NFR-01, NFR-07 |
 | T13.12 | HUD tokens: contrast ≥ 7 : 1 (v2) | design | implement | agent-ready · core | pre-event-allowed | M2 | FR-33, NFR-04 |
 
 #### TASK-14 — Integration + offline hardening + fault tests
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T14.01 | Integrate dependencies and build wiring (one dependency batch, `make data`) | integration | integrate | agent-ready · core | pre-event-allowed | M2 | NFR-01, NFR-07, NFR-09 |
-| T14.02 | Integrate CI and the PR template (subtask id, `check_tasks.py`) | integration | integrate | agent-ready · core | pre-event-allowed | M2 | — |
-| T14.03 | Implement boot validation (schema major version, dev-build SHA-256) | integration | implement | agent-ready · core | event-only | M5 | FR-16, NFR-10 |
-| T14.04 | Implement SCR-00 Boot error | integration | implement | agent-ready · core | event-only | M5 | FR-16, NFR-10, SCR-00 |
-| T14.05 | Tests: fault injection (02 §F.1 Recovery) | integration | test | agent-ready · core | event-only | M5 | FR-16, NFR-10 |
-| T14.06 | Verify two clean offline rehearsals of the core scenario | integration | verify | human-required · core | event-only | M5 | FR-16, NFR-01 |
-| T14.07 | Verify NFR-02 timings on the weakest team laptop | integration | verify | human-required · core | event-only | M5 | NFR-02 |
-| T14.08 | Verify the browser/device matrix and cross-browser determinism | integration | verify | human-required · core | event-only | M5 | NFR-03, NFR-06 |
-| T14.09 | Verify release checks: CSP, network log, bundle sizes, `?debug=1` | integration | verify | agent-ready · core | event-only | M5 | NFR-08, NFR-09, NFR-11 |
-| T14.10 | Verify SCR-00 and worker-crash recovery by hand | integration | verify | human-required · core | event-only | M5 | NFR-10, SCR-00 |
-| T14.11 | follow-up: refresh the `CLAUDE.md` command rows after the pipeline entry point lands | integration | integrate | agent-ready · core | pre-event-allowed | M2 | — |
+| T14.01 | Integrate dependencies and build wiring (one dependency batch, `make data`) | integration | integrate | agent-ready · core | pre-event-allowed | M1 | NFR-01, NFR-07, NFR-09 |
+| T14.02 | Integrate CI and the PR template (subtask id, `check_tasks.py`) | integration | integrate | agent-ready · core | pre-event-allowed | M1 | — |
+| T14.03 | Implement boot validation (schema major version, dev-build SHA-256) | integration | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-16, NFR-10 |
+| T14.04 | Implement SCR-00 Boot error | integration | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-16, NFR-10, SCR-00 |
+| T14.05 | Tests: fault injection (02 §F.1 Recovery) | integration | test | agent-ready · core | pre-event-if-permitted | M4 | FR-16, NFR-10 |
+| T14.06 | Verify two clean offline rehearsals of the core scenario | integration | verify | human-required · core | pre-event-if-permitted | M4 | FR-16, NFR-01 |
+| T14.07 | Verify NFR-02 timings on the weakest team laptop | integration | verify | human-required · core | pre-event-if-permitted | M4 | NFR-02 |
+| T14.08 | Verify the browser/device matrix and cross-browser determinism | integration | verify | human-required · core | pre-event-if-permitted | M4 | NFR-03, NFR-06 |
+| T14.09 | Verify release checks: CSP, network log, bundle sizes, `?debug=1` | integration | verify | agent-ready · core | pre-event-if-permitted | M4 | NFR-08, NFR-09, NFR-11 |
+| T14.10 | Verify SCR-00 and worker-crash recovery by hand | integration | verify | human-required · core | pre-event-if-permitted | M4 | NFR-10, SCR-00 |
+| T14.11 | follow-up: refresh the `CLAUDE.md` command rows after the pipeline entry point lands | integration | integrate | agent-ready · core | pre-event-allowed | M1 | — |
 
 #### TASK-15 — Usability test
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T15.01 | Write the usability-test script (3 non-team users, briefing in ≤ 5 min) | design | human | human-required · core | pre-event-allowed | M2 | PRD §B |
-| T15.02 | Run three sessions; record times and issues | design | verify | human-required · core | event-only | M5 | PRD §B |
-| T15.03 | Triage the findings into follow-up subtasks | design | human | human-required · core | event-only | M5 | PRD §B |
+| T15.01 | Write the usability-test script (3 non-team users, briefing in ≤ 5 min) | design | human | human-required · core | pre-event-allowed | M3 | PRD §B |
+| T15.02 | Run three sessions; record times and issues | design | verify | human-required · core | pre-event-allowed | M3b–M4 | PRD §B |
+| T15.03 | Triage the findings into follow-up subtasks | design | human | human-required · core | pre-event-allowed | M3b–M4 | PRD §B |
 | T15.04 | follow-up: add the v2 criteria to the usability script (HUD glance, summon, landscape cards) | design | human | human-required · core | pre-event-allowed | M3 | FR-33, FR-40 |
 
 #### TASK-16 — Submission package
@@ -316,33 +316,33 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T16.01 | Decide the final product name (D-08); record ADR-008 | story | human | human-required · core | pre-event-allowed | M2 | D-08 |
 | T16.02 | spec-change: sync spec status rows and the docs index with the M0–M1 outcomes | integration | integrate | agent-ready · core | pre-event-allowed | M2 | D-01, D-03, U-01–U-05, U-09, U-10, U-12–U-14 |
-| T16.03 | Finalize the README: run instructions, data credits, licence | story | implement | agent-ready · core | pre-event-allowed | M6 | NFR-07 |
-| T16.04 | Complete the AI-use disclosure | story | human | human-required · core | pre-event-allowed | M6 | — |
-| T16.05 | Verify every dataset and image is credited in SCR-09 and the README | story | verify | agent-ready · core | pre-event-allowed | M6 | FR-15, NFR-07 |
-| T16.06 | Fill the NASA project page fields; complete the submission checklist | story | human | human-required · core | event-only | M6 | NFR-07 |
-| T16.07 | Implement the release-asset fetch route and decide what the public link shows; test the link in a private window | story | human | human-required · core | pre-event-allowed | M2–M6 | NFR-07 |
+| T16.03 | Finalize the README: run instructions, data credits, licence | story | implement | agent-ready · core | pre-event-allowed | M8 | NFR-07 |
+| T16.04 | Complete the AI-use disclosure | story | human | human-required · core | pre-event-allowed | M8 | — |
+| T16.05 | Verify every dataset and image is credited in SCR-09 and the README | story | verify | agent-ready · core | pre-event-allowed | M8 | FR-15, NFR-07 |
+| T16.06 | Fill the NASA project page fields; complete the submission checklist | story | human | human-required · core | event-only | M8 | NFR-07 |
+| T16.07 | Implement the release-asset fetch route and decide what the public link shows; test the link in a private window | story | human | human-required · core | pre-event-allowed | M2–M8 | NFR-07 |
 
 #### TASK-17 — Videos
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T17.01 | Draft the 240-s and 30-s demo scripts | story | human | human-required · core | pre-event-allowed | M2 | — |
-| T17.02 | Record and submit the 240-s video by Day 1 18:30 (dry-run capture first) | story | human | human-required · core | event-only | M4 | — |
-| T17.03 | Record and upload the 30-s video by Day 2 09:00 | story | human | human-required · core | event-only | M6 | — |
-| T17.04 | Fallback — start only if the live demo fails on camera: cut the 240-s video from the dry-run capture | story | fallback | human-required · core | event-only | M4 | — |
+| T17.01 | Draft the 240-s and 30-s demo scripts | story | human | human-required · core | pre-event-allowed | M3 | — |
+| T17.02 | Record and submit the 240-s video by Day 1 18:30 (dry-run capture first) | story | human | human-required · core | event-only | M6 | — |
+| T17.03 | Record and upload the 30-s video by Day 2 09:00 | story | human | human-required · core | event-only | M8 | — |
+| T17.04 | Fallback — start only if the live demo fails on camera: cut the 240-s video from the dry-run capture | story | fallback | human-required · core | event-only | M6 | — |
 
 #### TASK-18 — Desirables (only after the freeze criteria are met early)
 
 | ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T18.01 | follow-up: CRISM layer and bundle re-release (only if T01.04 finds MTRDR coverage) | data | implement | agent-ready · desirable | event-only | M5–M6 | FR-18 |
-| T18.02 | Build REMS L_s-bin temperature and pressure context from named RDR files | data | implement | agent-ready · desirable | event-only | M5–M6 | FR-13 |
-| T18.03 | follow-up: seasonal-weather section in SCR-07 | frontend | implement | agent-ready · desirable | event-only | M5–M6 | FR-13, SCR-07 |
-| T18.04 | follow-up: tests for the planner's illustrative O₂ estimate (02 §D.6) | compute | test | agent-ready · desirable | event-only | M5–M6 | FR-19 |
-| T18.05 | follow-up: implement the planner's illustrative O₂ estimate | compute | implement | agent-ready · desirable | event-only | M5–M6 | FR-19 |
-| T18.06 | follow-up: show the O₂ estimate labelled "illustrative" | frontend | implement | agent-ready · desirable | event-only | M5–M6 | FR-19 |
-| T18.07 | follow-up: save and restore the last plan in browser storage | frontend | implement | agent-ready · desirable | event-only | M5–M6 | FR-20 |
-| T18.08 | Cache the CRISM and REMS source files before 13 Nov | data | human | human-required · desirable | pre-event-allowed | M1–M2 | FR-13, FR-18 |
+| T18.01 | follow-up: CRISM layer and bundle re-release (only if T01.04 finds MTRDR coverage) | data | implement | agent-ready · desirable | pre-event-if-permitted | M4b–M7 | FR-18 |
+| T18.02 | Build REMS L_s-bin temperature and pressure context from named RDR files | data | implement | agent-ready · desirable | pre-event-if-permitted | M4b–M7 | FR-13 |
+| T18.03 | follow-up: seasonal-weather section in SCR-07 | frontend | implement | agent-ready · desirable | pre-event-if-permitted | M4b–M7 | FR-13, SCR-07 |
+| T18.04 | follow-up: tests for the planner's illustrative O₂ estimate (02 §D.6) | compute | test | agent-ready · desirable | pre-event-if-permitted | M4b–M7 | FR-19 |
+| T18.05 | follow-up: implement the planner's illustrative O₂ estimate | compute | implement | agent-ready · desirable | pre-event-if-permitted | M4b–M7 | FR-19 |
+| T18.06 | follow-up: show the O₂ estimate labelled "illustrative" | frontend | implement | agent-ready · desirable | pre-event-if-permitted | M4b–M7 | FR-19 |
+| T18.07 | follow-up: save and restore the last plan in browser storage | frontend | implement | agent-ready · desirable | pre-event-if-permitted | M4b–M7 | FR-20 |
+| T18.08 | Cache the CRISM and REMS source files before 13 Nov | data | human | human-required · desirable | pre-event-allowed | M2 | FR-13, FR-18 |
 | T18.09 | Tests: sky-view factor and refuge dose factor (v2, FR-47) | compute | test | agent-ready · desirable | pre-event-if-permitted | M4b–M7 | FR-47 |
 | T18.10 | Implement the sky-view factor (v2, FR-47) | compute | implement | agent-ready · desirable | pre-event-if-permitted | M4b–M7 | FR-47 |
 | T18.11 | follow-up: terrain refuge as a contingency option (v2, FR-47) | compute | implement | agent-ready · desirable | pre-event-if-permitted | M4b–M7 | FR-47, FR-44 |
@@ -1290,19 +1290,23 @@ flowchart LR
 
 ## g. Parallel lanes board
 
-Track S timing. Under **Track P**, the `pre-event-if-permitted` subtasks of TASK-02 and TASK-05 move into M0–M2 and M3 keeps only integration. A blank cell means the lane supports others or fixes follow-ups.
+Generated from the register's *M* column on 2026-11-06 (06 v2.2). A subtask spanning milestones sits in its first one; fallbacks are in brackets and run only if triggered. TASK-14 and the dry runs are all-hands on 10–12 Nov.
 
-| Milestone | data | compute | frontend | design | story | integration |
-| --- | --- | --- | --- | --- | --- | --- |
-| **M0** 2–5 Nov | T01.01–T01.05, T03.01, T03.02 (T01.06 if triggered) | T05.01, T05.03, T06.01 | T02.01 | | T00.01–T00.03, T00.05 if triggered, T00.06 starts | T00.04 |
-| **M1** 5–10 Nov | T03.03–T03.21, T04.01–T04.03, T04.07, T04.08 (T03.23–T03.27, T04.09 if triggered; T18.08 if TASK-18 is planned) | T06.02, T06.10 | | | T04.04–T04.06, T12.05 | T14.01 (pulled forward: T06.02 needs it in M1) |
-| **M2** 10–12 Nov | T03.22 | | T07.01, T08.01 | T13.01–T13.03, T13.11, T15.01 | T00.06 (U-14 due 10 Nov), T07.14, T12.04, T16.01, T16.07 (decision), T17.01 | T14.02, T14.11, T16.02 |
-| **M3** Day 1 → 12:30 | | T05.02, T05.04–T05.07, T05.10, T05.11, T05.15–T05.18, T05.21, T05.22, T05.26, T05.27 (T05.30 if no-go) | T02.02–T02.05 (T02.06 if triggered), T07.02–T07.08, T08.02, T08.03, T08.06, T08.07, T09.01, T09.02 (T07.16, T09.08 if triggered) | | T12.01 | T09.06 |
-| **M4** Day 1 → 18:00 | | T05.08, T05.09, T05.12–T05.14, T05.19, T05.20, T05.23–T05.25, T05.28, T05.29, T05.32, T06.03–T06.09 (T05.31, T06.11 if triggered) | T07.09–T07.13, T07.15, T08.04, T08.05, T08.08–T08.11, T09.03–T09.05, T09.07, T10.01–T10.03, T11.01, T11.02, T11.04 (T11.06 if triggered) | T11.03, T11.05, T13.05 | T12.02, T12.03, T17.02 (18:30; T17.04 if triggered) | |
-| **M5** Day 1 19:00 → Day 2 06:00 | `follow-up:` fixes; T18.01, T18.02 only if freeze criteria met early | `follow-up:` fixes; T18.04, T18.05 likewise | `follow-up:` fixes; T18.03, T18.06, T18.07 likewise | T13.04, T13.06–T13.10, T15.02, T15.03 | T12.06 | T14.03–T14.10 |
-| **M6** Day 2 06:00 → 11:00 | Freeze | Freeze | Freeze | Freeze | T16.03–T16.07, T17.03 | Freeze |
+| Milestone | data | compute | frontend | design | story | integration | hab-core |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **M0** kickoff 5–6 Nov | T01.01–05, (T01.06), T01.07 | — | — | — | T00.01–03, (T00.05), T00.06, T30.01, T30.02 | T00.04 | — |
+| **M1** spikes 6–7 Nov | T03.01, T03.02, T21.01 | T05.01–04, T05b.01–05, (T05b.21), T06.01, T06.02, T06.10 | T02.01–05, (T02.06), T07.01, T24.01 | T13.01–03, T13.11 | T07.14 | T14.01, T14.02, T14.11, T28.01 | T20.01–04, T20.07, T20.08, (T20.09), T22.01, T22.02, T31.01 |
+| **M2** data and scenario 6–9 Nov | T03.03–22, (T03.23), (T03.24), (T03.25), (T03.26), (T03.27), T03.28–30, T04.01–03, T04.07, T04.08, (T04.09), T04.11, T18.08, T21.02–08, T21.10, T21.11, (T21.13), (T21.14) | T05.05–29, (T05.30), (T05.31), T05.32, T05b.06–17, T06.03–09, (T06.11), T21.12 | T07.02–13, T07.15, (T07.16), T07.17, T08.01, T24.02–05, T24.07, T24.10, T25.01, T25.02, T25.07, T31.07 | T13.05, T13.12 | T04.04–06, T04.10, T12.04, T12.05, T16.01, T16.07, T21.09, T31.02 | T16.02 | T20.05, T20.06, T22.03–08, T22.11, T23.01, T23.02, T23.04, T23.06, T31.03 |
+| **M3** walking skeleton by 10 Nov | — | T05b.18–20, T23.03, T26.01–07, (T26.08), T29.01–03, T29.06, (T29.07) | T07.18, T08.02–09, (T08.10), T08.11, T08.12, T09.01–05, T09.07, (T09.08), T09.09, T24.06, T24.08, T24.09, T25.03–06, (T25.09), T25.10, T27.01, T27.02, T29.04, T29.05, T31.05, T31.06, (T31.09) | T15.01, T15.04 | T12.01, T12.07, T17.01 | T09.06, T28.02, T28.03 | T22.09, T22.10, T22.12–14, (T22.15), T22.16, T23.05, T23.07, T23.08, (T23.09), T31.04 |
+| **M3b** first dry run 10 Nov evening | — | — | T24.11, (T24.12), T25.08 | T15.02, T15.03 | — | T31.08 | — |
+| **M4** offline dry run 11 Nov | — | — | T11.01, T11.02, T11.04, (T11.06), T11.07, T11.08, T27.04 | T11.03, T11.05, T13.04, T13.06–10 | T12.02, T12.03 | T14.03–10, T28.05 | — |
+| **M4b** buffer 12 Nov | T18.01, T18.02, T18.13 | T18.04, T18.05, T18.09–11 | T18.03, T18.06, T18.07, T18.12 | — | T12.06 | T28.04 | — |
+| **M5** Day 1 → 12:30 | — | — | T10.01–03 | — | — | — | — |
+| **M6** Day 1 → 18:30 | — | — | — | — | T17.02, (T17.04) | — | — |
+| **M7** Day 1 19:00 → Day 2 05:00 | — | — | T10.04, T27.03, T27.05, T27.06, (T27.07) | — | — | — | — |
+| **M8** Day 2 06:00 → 09:00 | — | — | — | — | T16.03–06, T17.03, T30.03 | — | — |
 
-Capacity: 06 assumes ≈ 96–120 person-hours at the event for a team of 6 (A-07). Phase 3 sums the task-file estimates per lane and window; if event-only work exceeds that, the cut list (§h.6) applies from the top.
+Capacity: 06 §A v2.2 assumes 288–360 person-hours over the 6 build days (8–10 h/day each) and ≈ 100 person-hours at the event; `scripts/check_tasks.py --summary` gives the subtask totals per group and window.
 
 ## h. Working conventions
 
@@ -1334,17 +1338,21 @@ After approval this file is frozen. A change (new subtask, new path, new cross-t
 
 ### h.6 Cut list → subtasks ([06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind))
 
-| Cut | 06 item | Drop | Then |
-| --- | --- | --- | --- |
-| 1 | All desirables | T18.01–T18.07 | — |
-| 2 | Coach marks, light theme, tablet drag | T13.07, T13.08, T08.09 | — |
-| 3 | Free placement → POIs-only stops | T08.07 | Stops come from SCR-06 *Add as stop* (T10.01); the M3 check uses the demo plan (T07.14) |
-| 4 | `LOW_TI` warnings → TI as a display layer only | T04.07 | No threshold file, so T03.10 sets no `LOW_TI` bits and the compute rules stay dormant |
-| 5 | Live Mars24 → precomputed sun table | T06.03, T06.06, T06.07 | Start T06.11 |
-| 6 | Auto-routing → manual polyline + validation | T05.07, T05.08, T05.18, T05.19 | Start T05.30 and T09.08 (06: implementable in < 2 h by reusing profile and warning code) |
-| 7 | Tiled layers → ImageStatic | T07.07 | Start T07.16 with T03.25 and T02.06 |
+**Contingency only.** The team decided on 5 Nov not to cut scope; the team lead and the product & systems lead invoke this list together only if M3 (10 Nov) is missed, from item 1. Re-mapped from the v1 list on 2026-11-06: v1 cuts 2 and 3 became cut 4, v1 cut 6 became cut 7; v1 cuts 4 (sand warnings), 5 (live Mars24) and 7 (tiled layers) have no v2 item, so T04.07, T06.03, T06.06, T06.07 and T07.07 are `core` and their fallbacks (T06.11, T07.16 with T02.06 and T03.25) stay available as fallbacks.
 
-Never cut: provenance labels (T12.01–T12.03, T12.06), the disclaimer (T07.05, T11.03), offline mode (T14.06), the briefing card (TASK-11).
+| Cut | 06 §D.4 item (v2) | Drop | Then |
+| --- | --- | --- | --- |
+| 1 | All Tier 2 (TASK-18) | T18.01–T18.13 | — |
+| 2 | Rover tasking down to RELAY only | SCOUT, CARRY, RETURN in T29.02 and T29.04 | Start T29.07 |
+| 3 | Second crew device | EV2's tablet in T24.11 and T28.03 | EV2 stays simulated and visible on ops only (T31.04 auto-complete keeps the log deterministic) |
+| 4 | Planner polish: coach marks, drag, free placement → POI-only stops | T13.07, T13.08, T08.09, T08.07 | Stops come from SCR-06 *Add as stop* (T10.01); the demo uses the scenario's plan (T21.12) |
+| 5 | Dynamic relay viewshed → static hab coverage only | dynamic part of T05b.09 | Start T26.08 |
+| 6 | Exact rendezvous → nearest vehicle-passable cell | T05b.06, T05b.07 | Start T23.09 |
+| 7 | Live planner routing in the demo → scenario's precomputed plan | T05.07, T05.08, T05.18, T05.19 | The demo loads `plan.json` (T21.12); the planner keeps T05.30 and T09.08 as its manual-polyline fallback |
+| 8 | Multi-device → single-laptop multi-window demo | — | Start T20.09 |
+| 9 | Live engine in the video → headless replay rendered on ops | — | T17.02 records a `make replay` run shown in replay mode (T27.05) |
+
+**Never cut** (06 §D.4): the storm moment (alert → options → summon → shelter: T22.10, T23.*, T24.04–T24.06, T25.03–T25.04), real replayed event data (T21.*), provenance labels (T12.01–T12.03, T12.06, T12.07), the prototype disclaimer (T07.05, T11.03), no-internet operation (T14.06, T28.*), the three single score points (TASK-30).
 
 ### h.7 Fallbacks ([06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [§D.5](../specs/06_High_Level_Implementation_Plan.md#d5-data-and-service-fallbacks))
 
@@ -1360,10 +1368,22 @@ Never cut: provenance labels (T12.01–T12.03, T12.06), the disclaimer (T07.05, 
 | T04.09 | PDS PLACES parsing is too slow | Traverse source |
 | T05.30 + T09.08 | T09.06 records no-go, or cut 6 | Auto-routing |
 | T05.31 | T05.29 records browser p95 > 2 s after T03.24 | Browser router |
-| T06.11 | Mars24 tests fail, or cut 5 | Live Mars24 |
+| T06.11 | Fallback — start only if Mars24 tests fail: precomputed sun table for the demo dates | Live Mars24 |
 | T08.10 | Drag does not work at the Day 1 17:30 checkpoint | Drag |
 | T11.06 | The map snapshot cannot be made to work | Map snapshot |
 | T17.04 | The live demo fails on camera | Live 240-s recording |
+| T05b.21 | T05b.05 records a full-grid Dijkstra over 2 s | Haven fields on the 5 m grid |
+| T20.09 | T20.08 records LAN broadcast over 500 ms, or cut 8 | Multi-device demo |
+| T21.13 | T21.06 finds no RAD series for sol 4190 | Archived dose series |
+| T21.14 | T21.02 cannot get the orbiter kernels | SPICE Earth-link table |
+| T22.15 | Consumables slip past M3 | Full consumables |
+| T23.09 | Exact rendezvous fails by M3, or cut 6 | Exact rendezvous |
+| T24.12 | SCR-12 is not usable by M3b | Tablet layout |
+| T25.09 | Clock control is not ready by M3 | Clock-control UI |
+| T26.08 | Cut 5 | Dynamic relay coverage |
+| T27.07 | SCR-17 is not ready by M7 | Report layout |
+| T29.07 | Cut 2 | SCOUT, CARRY, RETURN |
+| T31.09 | TASK-31 runs late at M3 | `ADD_STOP_TASK` |
 
 Fallbacks that only drop work are marked on the dropped subtask instead: profile ↔ map linking (T09.05), coach marks (T13.07), desirables (TASK-18). The Mars Rover Photos API row of 06 §D.5 needs no subtask: images are saved by hand from the start (T04.04, T04.05).
 
@@ -1542,3 +1562,18 @@ Gaps and contradictions found while building this map. None is resolved here; ea
 24. **Light theme and toasts.** 04 §C.1 defines no light-theme values (T13.08, cut 2), and no subtask owns the toast that 03 §D uses — T07.01 decides the toast; the light theme needs a `spec-change:` to 04 if kept.
 25. **REMS output path.** T18.02 has no bundle re-release unless CRISM triggers T18.01 — decide with TASK-18 if FR-13 is attempted.
 26. **POI field names.** 01 FR-04 says `source_url` and makes image credit mandatory; 05 uses `image_source_url` and makes image fields conditional — the plan follows 05 (T04.04, T10.01).
+
+### v2 open points (2026-11-06)
+
+Found while atomizing the v2 packages and re-dating v1. Each has an owner subtask or a decision owner.
+
+1. **Estimates above 06.** Without fallbacks and desirables the subtasks sum to 341.5–511 h, against 160–245 h in 06 §C for the same packages and 288–360 h of pre-event capacity (06 §A v2.2). The subtask estimates are planning guesses; re-check them at the kickoff ([task index](README.md#hours-per-group-and-window)).
+2. **Open points 1 and 2 above are settled** by Track P (recorded 4 Nov) and 06 v2.2 (TASK-06 is pre-event, P 7–9 Nov); the windows in the register follow them.
+3. **No test or verify subtask for FR-45, FR-48 and FR-49** (v2 coverage table). FR-48 and FR-49 are Tier 2; FR-45 is Tier 0 and may need a check — `TODO(decision)`.
+4. **Command body shape.** The 02 §E.6 examples put command fields beside `kind`; `CommandMessage` nests them in `args` — T20.01.
+5. **TASK-27 timing.** 06 §C.2 says event, but 06 §F lists the report view on 11 Nov and TASK-31's done-when needs report counts before M4; this plan builds the report data before the event (T27.01, T27.02) — confirm.
+6. **Committed scenario tables.** `earth_link.json`, `dose_series.json` and the DONKI cache are small derived files and are committed; `CLAUDE.md` forbids committing downloaded datasets, not derived tables — confirm with the team lead (T21.01).
+7. **Repo public date** for the score-sheet single point — T30.01, `TODO(decision)`.
+8. **Rover relay beat in the 240-s video** — the product & systems lead's call (session handoff §F.4); not planned as a subtask.
+9. **Dependency batch.** T14.01 (M1) now also has to bring a DOM test environment for React components and a local QR library (T28.02); React itself landed on 6 Nov (ADR-012).
+10. **v1 step texts** still name v1 times ("Day 1", v1 milestones) in places; the register and each file's header are authoritative (re-dating note in every v1 file).

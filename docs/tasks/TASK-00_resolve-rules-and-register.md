@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Resolve rules + register |
 | Requirements | None listed in 06 §C; serves U-12 (06), and U-13, U-14 (06 Unresolved items, placed here by the coordination map) |
-| Lane / owner role | story — Design & story lead (06 §C owner: Story lead); T00.04 is integration — Compute engineer |
-| Milestone | M0 (2–5 Nov); T00.06 runs to M2 (U-14 due 10 Nov) |
+| Lane / owner role | story — R6: Obidit Islam (team lead); T00.04 integration |
+| Milestone | M0 (done 4 Nov); T00.06 runs to M2 (venue, U-14) |
 | Window | pre-event-allowed |
 | Effort (doc 06) | 1–2 h |
 | Done when (doc 06) | Answer recorded in repo `docs/ops/rules.md` |
 | Main risk → fallback | No answer → follow Track S |
 | Spec sections | [06 §A Planning assumptions](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions) · [06 §C Work packages](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §E First concrete actions](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) · [06 Unresolved items](../specs/06_High_Level_Implementation_Plan.md#unresolved-items-owned-by-this-document) · [01 §F.3 Risks](../specs/01_Product_Requirements_Document.md#f3-risks) · [Rules check](../ops/rules.md) · [Map §a.2 windows and phase gate](_coordination.md#a2-field-vocabulary) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 TASK-00 has no upstream subtasks. Its output lifts the phase gate: no `test` or `implement` subtask starts before T00.03 records the track ([map §a.2](_coordination.md#a2-field-vocabulary)).
 

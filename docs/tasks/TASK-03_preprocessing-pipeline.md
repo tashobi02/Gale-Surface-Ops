@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Preprocessing pipeline. Deliverable (06 §C): `pipeline/` scripts → tiles (ortho 0.5 m; hillshade/slope/elevation/TI 2 m), routing grid 5 m (elevation, slope_p90, slope_max, flags, TI), `site-manifest.json`, `sources.lock.json`, `validate_manifest.py` |
 | Requirements | 06: FR-01–FR-03, FR-07, NFR-06. Subtasks also serve FR-04, FR-06, FR-10, FR-15–FR-17, NFR-02, NFR-07, NFR-09, NFR-10, U-10 |
-| Lane / owner role | data — Data/GIS lead |
-| Milestone | M0 (contracts, mock site) · M1 (pipeline, bundle v1) · M2 (clean re-run check) |
-| Window | pre-event-allowed (every subtask; code subtasks start once T00.03 lifts the phase gate) |
+| Lane / owner role | data — R1 Data & GIS: Obidit Islam |
+| Milestone | M1 (contracts, mock site) · M2 (pipeline, bundle v1, `comm_hab`, clean re-run; by Mon 9 Nov) |
+| Window | pre-event-allowed |
 | Effort (doc 06) | 8–14 h |
 | Done when (doc 06) | Validator passes; sampled values match source rasters; total bundle ≤ 250 MB |
 | Main risk → fallback | Slow tiling → lower max zoom; grid too big → 10 m cells |
 | Spec sections | [02 §A.1](../specs/02_Technical_Requirements_Document.md#a1-system-boundary) · [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer) · [02 §C.2](../specs/02_Technical_Requirements_Document.md#c2-data-layers) · [02 §C.3](../specs/02_Technical_Requirements_Document.md#c3-data-volume-budget-proposed) · [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) · [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract) · [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) · [05 §C](../specs/05_Backend_and_Database_Schema.md#c-entity-definitions) · [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds) · [05 §E.5](../specs/05_Backend_and_Database_Schema.md#e5-provenance-required-to-reproduce-a-result) · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints) · [Map §c.3](_coordination.md#c3-pipeline) · [Map §d](_coordination.md#d-contracts-registry) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 
@@ -23,7 +25,7 @@
 | Tile-grid and tile-encoding contract C9 (`docs/contracts/tile-grid.md`) | contract | T02.01 | soft for T03.02, T03.12, T03.25 |
 | Traverse source and records, vector packaging code, POI records and images | upstream output | T04.01, T04.03, T04.04, T04.05 | hard for T03.19 |
 | Traverse offset (`pipeline/sites/gale_boxwork/known_offsets/traverse.json`) | upstream output | T04.08 | hard for T03.19 |
-| TI threshold (`pipeline/sites/gale_boxwork/ti_threshold.json`; dropped by cut 4) | upstream output | T04.07 | optional input of T03.19's run; see Spec questions |
+| TI threshold (`pipeline/sites/gale_boxwork/ti_threshold.json`; dropped by v1 cut 4, no v2 cut item) | upstream output | T04.07 | optional input of T03.19's run; see Spec questions |
 | RAD EnvConstant and DataSource records | upstream output | T06.10 | hard for T03.19 |
 | Model DataSource records (Tobler, Apollo 17, Mars24) | upstream output | T12.05 | hard for T03.19 |
 | JSON-Schema validator in the pipeline dependencies | upstream output | T14.01 | hard for T03.14 |
@@ -297,7 +299,7 @@
 - **Steps:**
   1. Bit 0 NO_DATA where elevation is NaN.
   2. Bit 3 TI_UNKNOWN where the TI grid is absent or NaN — "unknown", never zero (02 §C.2 L4, 05 §E.6).
-  3. Bit 2 LOW_TI only when a threshold is given (U-03); with no `ti_threshold.json` (cut 4) no LOW_TI bit is set. The flag is interpretive.
+  3. Bit 2 LOW_TI only when a threshold is given (U-03); with no `ti_threshold.json` (v1 cut 4; no v2 cut item) no LOW_TI bit is set. The flag is interpretive.
   4. Bits 1 HARD_HAZARD and 4 LOW_RES_DEM from masks rasterised from the C5 GeoJSON inputs, nearest resampling (02 §C.2 L4); bits 5–7 stay zero.
   5. Make the T03.04 flag tests pass.
 - **Acceptance:**
@@ -357,7 +359,7 @@
   - No paired test subtask: tile addressing is verified on real tiles by T02.04.
 - **Verify:** manual: render a small synthetic raster into a temporary folder, compare the paths with C9, open them in the T02.03 spike page
 - **Agent brief:** Implement `render_tiles` in `tiles.py` exactly as the C9 tile-grid contract specifies (paths, origin, resolutions, tile size, addressing, pixel encoding, index file). Formats from 02 §C.3; missing data transparent. Leave anything C9 has not settled as `TODO(verify)`.
-- **Conflict notes:** T02.04 depends on this subtask (cross-task hard). Cut 7 or a failed spike adds static PNGs through T03.25 instead of editing this file; T03.23 lowers the max zoom through `config.py`, not here.
+- **Conflict notes:** T02.04 depends on this subtask (cross-task hard). V1 cut 7 (no v2 cut item) or a failed spike adds static PNGs through T03.25 instead of editing this file; T03.23 lowers the max zoom through `config.py`, not here.
 
 ### T03.13 — Implement the manifest writer from site-config records and assets
 
@@ -533,7 +535,7 @@
   - With the network off, the bundle loads from a static server on localhost.
 - **Verify:** `make validate SITE=gale_boxwork` · `du -sh data/sites/gale_boxwork` · `git status --porcelain` (only the manifest, vectors and lock file staged)
 - **Agent brief:** Human: run the full pipeline, judge the outputs and commit bundle v1. Agent may drive the commands, summarise validator output and check that no binary or downloaded file is staged.
-- **Conflict notes:** Sole writer of the committed bundle and the lock file; T18.01 later follows up with a new data version. T03.21 and T03.22 start after this merges. Unless cut 4 is called, wait for T04.07's threshold before the final run (Spec questions).
+- **Conflict notes:** Sole writer of the committed bundle and the lock file; T18.01 later follows up with a new data version. T03.21 and T03.22 start after this merges. Unless v1 cut 4 (no v2 cut item) is called, wait for T04.07's threshold before the final run (Spec questions).
 
 ### T03.20 — Verify DEM hillshade vs ortho alignment; record the offset
 
@@ -654,7 +656,7 @@
 - **Agent brief:** Only when the 5 m grid is too big or too slow: change the grid cell constant in `config.py` to 10 m, re-run the grid and manifest, validate, and report the spec sections that now say 5 m.
 - **Conflict notes:** Replaces part of T03.07's `config.py`; never open at the same time as T03.23. Produces a new `data_version`.
 
-### T03.25 — Fallback — start only if T02 spike fails or cut 7 is called: one PNG per 2 m layer for ImageStatic
+### T03.25 — Fallback — start only if the T02 spike fails: one PNG per 2 m layer for ImageStatic
 
 - **Owner:** Obidit Islam (team lead · R1 Data & GIS)
 - **Type:** fallback
@@ -666,7 +668,7 @@
 - **Depends on:** T03.09 (hard: renders the derived rasters), T03.13 (hard: the writer must emit image_static layers), T03.15 (hard: replaces its step order), T02.01 (soft)
 - **Parallel with:** none
 - **Steps:**
-  1. Confirm the trigger: the T02 spike failed within 2 h, or cut 7 was called.
+  1. Confirm the trigger: the T02 spike failed within 2 h, or v1 cut 7 (no v2 cut item) was called.
   2. Render one PNG per 2 m layer at 2 m/px with the C9 pixel encoding; the ortho stays a 0.5 m tiled basemap (02 §B).
   3. Route those layers through the new step in the entry point.
   4. Re-run; the manifest lists them as `image_static` layers.
@@ -675,7 +677,7 @@
   - The validator passes and the bundle stays ≤ 250 MB.
   - The frontend ImageStatic path (T07.16, with T02.06) loads the images.
 - **Verify:** `$(make -s pipeline-python) -m marswalk_pipeline gale_boxwork` · `make validate SITE=gale_boxwork`
-- **Agent brief:** Only on a failed spike or cut 7: add `static_images.py` that renders one PNG per 2 m layer (02 §B) and switch those layers to it in `__main__.py`; keep the ortho tiled. Validate the new bundle.
+- **Agent brief:** Only on a failed spike or v1 cut 7 (no v2 cut item): add `static_images.py` that renders one PNG per 2 m layer (02 §B) and switch those layers to it in `__main__.py`; keep the ortho tiled. Validate the new bundle.
 - **Conflict notes:** Coordinate with T02.06 and T07.16 (frontend side of the same fallback). Produces a new `data_version`.
 
 ### T03.26 — Fallback — start only if the colour COG misses the AOI: grayscale 25 cm window or cached Mars Trek HiRISE tiles
@@ -722,7 +724,7 @@
   - The thermal layer's legend says qualitative; no tiu value appears anywhere in the bundle.
 - **Verify:** `make validate SITE=gale_boxwork` · manual legend check
 - **Agent brief:** Human: confirm the fallback. Agent may add Day IR acquisition and its source and layer records, and drop the TI sidecar so all cells read TI_UNKNOWN.
-- **Conflict notes:** Never open at the same time as T03.26 (same `acquire.py`). Effectively drops LOW_TI as cut 4 would.
+- **Conflict notes:** Never open at the same time as T03.26 (same `acquire.py`). Effectively drops LOW_TI as v1 cut 4 (no v2 cut item) would.
 
 ### T03.28 — Tests: `comm_hab` viewshed grid (v2)
 
@@ -854,7 +856,7 @@ flowchart LR
 1. **PlanResult required fields (map open point 3).** 05 has no *Req* column for PlanResult, Leg and Warning; T03.01 can record a proposal but 05 must change through a `spec-change:` subtask. Map change proposed: append a `spec-change:` subtask for that 05 wording and U-11 after T03.01, or widen T16.02's scope to include it.
 2. **CI and the geo stack.** `make setup` installs only `pipeline[dev]` (no GDAL, rasterio, numpy or pyproj), so real pipeline tests would fail in CI. This plan guards them with `pytest.importorskip`; whether CI should install the geo stack instead is `TODO(decision)` for T14.01 and T14.02.
 3. **THEMIS and ortho records need T01.04.** 02 Sources gives the THEMIS page only for example tile 30S060E; the AOI tile (pattern `30S120E`) and colour-COG coverage come from T01.04. Map change proposed: add T01.04 → T03.17 (hard: the exact THEMIS tile and ortho product come from the coverage check).
-4. **TI threshold before bundle v1.** If cut 4 is not called, the LOW_TI bits need T04.07's threshold before T03.19 runs. Map change proposed: add T04.07 → T03.19 (hard unless cut 4 is called).
+4. **TI threshold before bundle v1.** If v1 cut 4 (no v2 cut item) is not called, the LOW_TI bits need T04.07's threshold before T03.19 runs. Map change proposed: add T04.07 → T03.19 (hard unless v1 cut 4 (no v2 cut item) is called).
 5. **TI threshold has no manifest field (map open point 10).** It lives in `pipeline/sites/gale_boxwork/ti_threshold.json` (C5) and the methods text.
 6. **Slope tile encoding (map open point 6).** Slope classes follow the current limits (04 §C.1, 05 §F.1), so T03.12 depends on C9's encoding decision.
 7. **Duplicate test (map open point 11).** T03.03 deletes the pipeline stub `test_scale_bar_vs_dem_measured_feature_within_2_percent`; the case belongs to T02.04.

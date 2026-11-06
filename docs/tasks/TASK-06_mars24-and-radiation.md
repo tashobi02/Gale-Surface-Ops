@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Mars24 solar functions + radiation estimate |
 | Requirements | FR-11, FR-12 (06 §C); also FR-10 (darkness inputs) and FR-15 (EnvConstant and DataSource records), per the map register |
-| Lane / owner role | compute — Compute engineer |
-| Milestone | M4 (06 §B lists TASK-05…TASK-12); contract T06.01 in M0; fixture T06.02 and records T06.10 in M1 |
-| Window | event-only for code (T06.03–T06.09, T06.11); pre-event-allowed for T06.01, T06.02 and T06.10 |
+| Lane / owner role | compute — R2 Compute: Mishkat Ahmed Khan |
+| Milestone | M1 (contract, fixture, records) · M2 (code; 06 §C.1 *When*: P 7–9 Nov) |
+| Window | pre-event-if-permitted (Track P code); T06.01, T06.02 and T06.10 are pre-event-allowed |
 | Effort (doc 06) | 3–5 h |
 | Done when (doc 06) | 3 reference timestamps within tolerance; radiation examples exact |
 | Main risk → fallback | Port bug → precompute LTST/sun table for demo dates in pipeline with `marstime` |
 | Spec sections | [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11) · [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12) · [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) · [02 §C.2 L7](../specs/02_Technical_Requirements_Document.md#l7--environmental-values-fr-11-fr-12-fr-13) · [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) · [01 FR-11](../specs/01_Product_Requirements_Document.md#fr-11--daylight-and-sun-conditions) · [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate) · [05 EnvConstant](../specs/05_Backend_and_Database_Schema.md#envconstant) · [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed) · [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel) · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [Map §d](_coordination.md#d-contracts-registry) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 
@@ -97,8 +99,8 @@
 
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
-- **Tag:** agent-ready · cut-5
-- **Window:** event-only
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–2 h
 - **Owns (writes):** `packages/compute/tests/mars24.test.ts`, `packages/compute/tests/sun.test.ts`
 - **Reads:** `apps/web/tests/fixtures/mars24-reference.json`, `packages/compute/src/mars24.ts`, `packages/compute/src/sun.ts`, [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly), [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan), [01 FR-11](../specs/01_Product_Requirements_Document.md#fr-11--daylight-and-sun-conditions), [Map test-case allocation](_coordination.md#test-case-allocation)
@@ -118,14 +120,14 @@
   - Given the stubs, when the suite runs, then every case fails; the PR stays a draft until T06.06 and T06.07 make it pass.
 - **Verify:** `npx vitest run tests/compute/mars24.test.ts tests/compute/sun.test.ts` (run in `apps/web/`).
 - **Agent brief:** Write the Vitest cases for the Mars24 port against fixture F6: LTST within 1 min and solar elevation within 0.1° at every reference timestamp, the east-to-west longitude conversion at Gale, and flat-horizon sunrise/sunset. Expected values come only from F6 or the spec. Leave the PR as a draft for T06.06 and T06.07.
-- **Conflict notes:** Stacked PRs (map §h.3): T06.06 branches from this branch and T06.07 from T06.06; merge T06.03, T06.06 and T06.07 back to back once T06.07's branch is green. If cut 5 is called first, this PR is never merged, so `main` never carries failing tests.
+- **Conflict notes:** Stacked PRs (map §h.3): T06.06 branches from this branch and T06.07 from T06.06; merge T06.03, T06.06 and T06.07 back to back once T06.07's branch is green. If v1 cut 5 (no v2 cut item) is called first, this PR is never merged, so `main` never carries failing tests.
 
 ### T06.04 — Tests: radiation estimate
 
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 0.5–1 h
 - **Owns (writes):** `packages/compute/tests/radiation.test.ts`
 - **Reads:** `packages/compute/src/radiation.ts`, `packages/protocol/src/schema.ts`, [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12), [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan), [05 EnvConstant](../specs/05_Backend_and_Database_Schema.md#envconstant), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok), [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate)
@@ -151,14 +153,14 @@
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `packages/compute/tests/conditions.test.ts`
 - **Reads:** `packages/compute/src/conditions.ts`, `packages/compute/src/timeModel.ts`, `packages/protocol/src/schema.ts`, [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed), [05 §C conventions](../specs/05_Backend_and_Database_Schema.md#c-entity-definitions), [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12), [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11), [01 FR-10](../specs/01_Product_Requirements_Document.md#fr-10--hazard-and-constraint-warnings)
 - **Depends on:** T06.01 (soft)
 - **Parallel with:** T06.03, T06.04
 - **Steps:**
-  1. Mock `mars24.ts` and `sun.ts` with `vi.mock`, so the cases test assembly only and stay valid under cut 5.
+  1. Mock `mars24.ts` and `sun.ts` with `vi.mock`, so the cases test assembly only and stay valid under v1 cut 5 (no v2 cut item).
   2. Case: each `stops_timeline` entry receives `arrive_ltst` ("HH:MM", 05 §C) and `sun_elevation_deg` from the solar functions at its `arrive_utc`.
   3. Case: `conditions` carries `mars_year`, `ls_deg`, `sunrise_ltst`, `sunset_ltst`, `sunrise_utc` and `sunset_utc` for the EVA sol (flat horizon).
   4. Case: `radiation` uses the EnvConstant whose `conditions.solar_phase` equals the scenario's `solar_phase` and returns its `const_id`.
@@ -176,8 +178,8 @@
 
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
-- **Tag:** agent-ready · cut-5
-- **Window:** event-only
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `packages/compute/src/mars24.ts`
 - **Reads:** `packages/compute/tests/mars24.test.ts`, `apps/web/tests/fixtures/mars24-reference.json`, [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer), [02 Sources](../specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02) (GISS Mars24 notes, Allison & McEwen 2000, `marstime`)
@@ -201,8 +203,8 @@
 
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
-- **Tag:** agent-ready · cut-5
-- **Window:** event-only
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `packages/compute/src/sun.ts`
 - **Reads:** `packages/compute/src/mars24.ts`, `packages/compute/tests/sun.test.ts`, `apps/web/tests/fixtures/mars24-reference.json`, [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer)
@@ -227,7 +229,7 @@
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 0.5 h
 - **Owns (writes):** `packages/compute/src/radiation.ts`
 - **Reads:** `packages/compute/tests/radiation.test.ts`, `packages/protocol/src/schema.ts`, [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12), [05 EnvConstant](../specs/05_Backend_and_Database_Schema.md#envconstant), [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate)
@@ -251,7 +253,7 @@
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–2 h
 - **Owns (writes):** `packages/compute/src/conditions.ts`
 - **Reads:** `packages/compute/tests/conditions.test.ts`, `packages/compute/src/mars24.ts`, `packages/compute/src/sun.ts`, `packages/compute/src/radiation.ts`, `packages/compute/src/timeModel.ts`, `packages/compute/src/warnings.ts`, [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed), [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12), [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11), [01 FR-10](../specs/01_Product_Requirements_Document.md#fr-10--hazard-and-constraint-warnings)
@@ -297,12 +299,12 @@
 - **Agent brief:** Create the two RAD EnvConstant JSON records and the `hassler-2014-rad` DataSource under `pipeline/sites/gale_boxwork/`, copying values verbatim from 05 §C/§F.1 and the citation from `docs/reference/mars-scientific-context.md`. Leave anything the sources do not state as `TODO(verify)`; the solar-min `source_id` is `TODO(decision)`.
 - **Conflict notes:** The `sources/` and `env_constants/` folders are append-only by file: one record per file, owned by its creator; never edit another subtask's record. T03.19 needs these files before it builds bundle v1 (map §f).
 
-### T06.11 — Fallback — start only if Mars24 tests fail or cut 5 is called: precomputed sun table for the demo dates
+### T06.11 — Fallback — start only if Mars24 tests fail: precomputed sun table for the demo dates
 
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** fallback
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `pipeline/src/marswalk_pipeline/sun_table.py`, `packages/compute/src/sunTable.json`, `packages/compute/src/conditions.ts` (replaces T06.09), `packages/compute/tests/conditions.test.ts` (replaces T06.05)
 - **Reads:** `packages/compute/src/conditions.ts`, `packages/compute/src/radiation.ts`, `pipeline/tests/fixtures/make_mars24_reference.py`, [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind), [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices), [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11), [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel)
@@ -320,7 +322,7 @@
   - Running the table generator twice gives a byte-identical file; no value in it is typed by hand.
   - The demo path makes no live Mars24 call; the unmerged T06.03, T06.06 and T06.07 branches stay off `main`.
 - **Verify:** `$(make -s pipeline-python) -m marswalk_pipeline.sun_table` (twice), then `git diff --exit-code packages/compute/src/sunTable.json`; `npx vitest run tests/compute/conditions.test.ts` (run in `apps/web/`).
-- **Agent brief:** Fallback for cut 5: generate a sun table for the demo dates with `marstime` in `pipeline/src/marswalk_pipeline/sun_table.py`, write `packages/compute/src/sunTable.json`, and switch `conditions.ts` to table lookups (explicit "not available" outside the table) while keeping the live radiation estimate. Deterministic output; nothing typed by hand.
+- **Agent brief:** Fallback for v1 cut 5 (no v2 cut item): generate a sun table for the demo dates with `marstime` in `pipeline/src/marswalk_pipeline/sun_table.py`, write `packages/compute/src/sunTable.json`, and switch `conditions.ts` to table lookups (explicit "not available" outside the table) while keeping the live radiation estimate. Deterministic output; nothing typed by hand.
 - **Conflict notes:** Writes `conditions.ts` and `conditions.test.ts` in place of T06.09 and T06.05 (map §c.1 rule 3); never at the same time as them. Needs `marstime` from T14.01, and `sunTable.json` is not yet in map §c (see Spec questions). The methods text belongs to T12.04: ask, don't edit.
 
 ## Internal dependency graph

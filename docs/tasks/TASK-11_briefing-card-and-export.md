@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Briefing card + JSON export |
 | Requirements | FR-14 (06 §C); the register adds FR-15, NFR-06, SCR-08 |
-| Lane / owner role | frontend (T11.01, T11.02, T11.04, T11.06) — Frontend engineer; design (T11.03, T11.05) — Design & story lead. 06 §C owner: Design lead + Frontend |
-| Milestone | M4 (Day 1, by 18:00) |
-| Window | event-only |
+| Lane / owner role | frontend and design — R3 Map & Planner UI: Saba Atharique |
+| Milestone | M4 (06 §C.1 *When*: P 10–11 Nov, moved from the event) |
+| Window | pre-event-if-permitted |
 | Effort (doc 06) | 3–5 h |
 | Done when (doc 06) | One-page print in Chrome; export reproduces `plan_hash` |
 | Main risk → fallback | Map snapshot hard → static AOI thumbnail with route drawn as SVG |
 | Spec sections | [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export) · [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods) · [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) · [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video) · [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12) · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) · [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) · [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card) · [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens) · [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print) · [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport) · [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok) · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 
@@ -44,7 +46,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** test
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `apps/web/tests/export/planExport.test.ts`
 - **Reads:** `apps/web/src/export/planExport.ts` (stub signature from T07.01), `packages/protocol/src/schema.ts`, `schemas/plan-export.schema.json`, `apps/web/tests/fixtures/plan-results/`, `apps/web/tests/fixtures/README.md`, [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [02 §F NFR-06](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation)
@@ -73,7 +75,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2 h
 - **Owns (writes):** `apps/web/src/export/planExport.ts`
 - **Reads:** `apps/web/tests/export/planExport.test.ts`, `packages/protocol/src/schema.ts`, `apps/web/src/state/planStore.ts` (C11 interfaces), `apps/web/src/ui/context.ts` (C10), `schemas/plan-export.schema.json`, [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [05 §E.5](../specs/05_Backend_and_Database_Schema.md#e5-provenance-required-to-reproduce-a-result), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok), [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export), [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video), [03 §C.5](../specs/03_App_Flow_and_Diagrams.md#c5-saving--exporting-in-scope-export-storage-desirable)
@@ -101,7 +103,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2.5–3 h
 - **Owns (writes):** `apps/web/src/ui/screens/scr08BriefingCard.tsx`, `apps/web/src/ui/screens/scr08BriefingCard.css`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/export/planExport.ts`, `apps/web/src/ui/briefing/mapSnapshot.ts`, `apps/web/src/ui/results/profileChart.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/components/statusIcon.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/tests/fixtures/plan-results/`, `apps/web/tests/fixtures/mockWorker.ts`, `data/sites/mock_site/`, `docs/design/wireframes/`, [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate), [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export), [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video), [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12)
@@ -130,7 +132,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2 h
 - **Owns (writes):** `apps/web/src/ui/briefing/mapSnapshot.ts`
 - **Reads:** `apps/web/src/ui/context.ts` (MapHandle, C10), `apps/web/src/ui/map/projection.ts`, `apps/web/src/ui/map/routeLayer.ts`, `docs/contracts/tile-grid.md`, `data/sites/mock_site/`, [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print), [04 map overlays](../specs/04_Design_Brief.md#map-overlays), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly)
@@ -156,7 +158,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** verify
 - **Tag:** human-required · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario), [01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications), [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan), [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens), [04 §F SCR-08](../specs/04_Design_Brief.md#scr-08-briefing-card-print), [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), `apps/web/tests/fixtures/plan-results/`
@@ -185,7 +187,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** fallback
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `apps/web/src/ui/briefing/mapSnapshot.ts` (replaces T11.04)
 - **Reads:** `apps/web/src/ui/context.ts`, `packages/protocol/src/schema.ts` (`Site.aoi.extent_m`, `Leg.geometry`), `data/sites/mock_site/`, [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [04 map overlays](../specs/04_Design_Brief.md#map-overlays), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract)

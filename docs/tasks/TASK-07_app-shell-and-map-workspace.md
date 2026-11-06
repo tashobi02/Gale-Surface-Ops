@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | App shell + map workspace + layers panel + inspector |
 | Requirements | FR-01–03, FR-15–17, NFR-11 (06 §C); subtasks also serve FR-04, FR-06, NFR-01, NFR-03, NFR-05, NFR-08, NFR-10 · screens SCR-01, SCR-02, SCR-03 |
-| Lane / owner role | frontend — Frontend engineer (T07.14: story — Design & story lead) |
-| Milestone | M2 (T07.01, T07.14) · M3 (T07.02–T07.08; T07.16 if triggered) · M4 (T07.09–T07.13, T07.15) |
-| Window | event-only; T07.01 and T07.14 are pre-event-allowed |
+| Lane / owner role | frontend — R3 Map & Planner UI: Saba Atharique (T07.14 story: Sadman Shaharier Mahim) |
+| Milestone | M1 (contract T07.01, demo plan T07.14) · M2 (everything else, incl. T07.17) · M3 (T07.18); 06 §C.1 *When*: P 7–9 Nov |
+| Window | pre-event-if-permitted; T07.01 and T07.14 are pre-event-allowed |
 | Effort (doc 06) | 6–10 h |
 | Done when (doc 06) | All layers toggle; inspector values match grid |
 | Main risk → fallback | Projection issues → ImageStatic |
 | Spec sections | [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [03 §A](../specs/03_App_Flow_and_Diagrams.md#a-information-architecture) · [03 SCR-01](../specs/03_App_Flow_and_Diagrams.md#scr-01--mission-briefing) · [03 SCR-02](../specs/03_App_Flow_and_Diagrams.md#scr-02--map-workspace) · [03 SCR-03](../specs/03_App_Flow_and_Diagrams.md#scr-03--layers-panel) · [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows) · [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer) · [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) · [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract) · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) · [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) · [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation) · [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens) · [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states) · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) · [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior) · [05 §C Layer](../specs/05_Backend_and_Database_Schema.md#layer) · [05 §E.1](../specs/05_Backend_and_Database_Schema.md#e1-access-patterns-queries-and-indexes) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SCR-01, the SCR-02 workspace with its map, SCR-03 and the point inspector. Its contract subtask (T07.01) also creates the UI module stubs other tasks fill in, so frontend work in TASK-08 to TASK-14 can start in parallel ([map §d](_coordination.md#d-contracts-registry), C10).
 
@@ -89,7 +91,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `apps/web/src/boot/loadSite.ts`
 - **Reads:** `apps/web/src/ui/context.ts`, `packages/protocol/src/schema.ts`, `schemas/site-manifest.schema.json`, `data/sites/mock_site/`, [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), [05 §C Site](../specs/05_Backend_and_Database_Schema.md#site), [05 §C Asset](../specs/05_Backend_and_Database_Schema.md#asset), [05 §E.1](../specs/05_Backend_and_Database_Schema.md#e1-access-patterns-queries-and-indexes), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows)
@@ -115,7 +117,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/router.ts`, `apps/web/src/main.ts`, `apps/web/index.html`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/ui/screens/*.tsx`, `apps/web/src/boot/validateSite.ts`, `apps/web/src/state/planStore.ts`, [03 §A](../specs/03_App_Flow_and_Diagrams.md#a-information-architecture), [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-01, NFR-08)
@@ -142,7 +144,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `apps/web/src/ui/workerClient.ts`
 - **Reads:** `apps/web/src/ui/context.ts`, `packages/protocol/src/worker.ts`, `apps/web/src/worker/planWorker.ts`, `apps/web/tests/fixtures/mockWorker.ts`, [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-10)
@@ -169,7 +171,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–2 h
 - **Owns (writes):** `apps/web/src/ui/screens/scr01MissionBriefing.tsx`, `apps/web/src/ui/screens/scr01MissionBriefing.css`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/ui/demoPlan.json`, `apps/web/src/ui/styles/tokens.css`, [03 SCR-01](../specs/03_App_Flow_and_Diagrams.md#scr-01--mission-briefing), [04 §F SCR-01](../specs/04_Design_Brief.md#scr-01-mission-briefing), [01 §F.1](../specs/01_Product_Requirements_Document.md#f1-prototype-boundary-must-appear-in-the-app-and-the-video), [05 §C MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input)
@@ -196,7 +198,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `apps/web/src/ui/map/createMap.ts`
 - **Reads:** `apps/web/src/ui/map/projection.ts`, `apps/web/src/ui/context.ts`, `data/sites/mock_site/`, [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior)
@@ -221,8 +223,8 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
-- **Tag:** agent-ready · cut-7
-- **Window:** event-only
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/map/rasterLayers.ts`
 - **Reads:** `docs/contracts/tile-grid.md`, `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/styles/tokens.css`, `data/sites/mock_site/`, [01 FR-02](../specs/01_Product_Requirements_Document.md#fr-02--scientific-layers-with-legend-and-opacity), [01 FR-16](../specs/01_Product_Requirements_Document.md#fr-16--offline-and-degraded-operation), [04 §C.1 Map overlays](../specs/04_Design_Brief.md#map-overlays), [05 §C Layer](../specs/05_Backend_and_Database_Schema.md#layer), [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract)
@@ -242,14 +244,14 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
   - No tile request leaves `localhost`.
 - **Verify:** `make typecheck`; manual in `make dev` on `mock_site`: show and hide every layer, change the hard limit in the store and watch the slope classes, remove one layer folder in a local copy and see the unavailable state.
 - **Agent brief:** Implement `apps/web/src/ui/map/rasterLayers.ts`: tile layers built from the manifest `tile_grid` and the C9 contract, the slope layer coloured in the browser by the current caution and hard limits (04 §C.1 ramp and hatches), elevation and thermal-inertia ramps, FR-02 order slots, and per-layer state (loading, unavailable, out of range) for SCR-03.
-- **Conflict notes:** Stub handover from T07.01. Cut 7 drops this subtask; T07.16 then replaces this file (§h.6). Ramp colours come from C12 tokens; a new token is appended to `tokens.css` under its append-only rule.
+- **Conflict notes:** Stub handover from T07.01. V1 cut 7 (no v2 cut item) drops this subtask; T07.16 then replaces this file (§h.6). Ramp colours come from C12 tokens; a new token is appended to `tokens.css` under its append-only rule.
 
 ### T07.08 — Implement the SCR-02 workspace layout (top bar, drawers, toolbar, responsive)
 
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/screens/scr02MapWorkspace.tsx`, `apps/web/src/ui/screens/scr02MapWorkspace.css`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/styles/tokens.css`, [03 SCR-02](../specs/03_App_Flow_and_Diagrams.md#scr-02--map-workspace), [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [04 §F SCR-02](../specs/04_Design_Brief.md#scr-02-map-workspace-with-scr-03040507-embedded), [01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications)
@@ -277,7 +279,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/screens/scr03LayersPanel.tsx`, `apps/web/src/ui/screens/scr03LayersPanel.css`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/ui/map/rasterLayers.ts`, `apps/web/src/ui/map/traverseLayer.ts`, `apps/web/src/ui/map/poiLayer.ts`, `apps/web/src/ui/components/metric.ts`, `schemas/site-manifest.schema.json`, [01 FR-02](../specs/01_Product_Requirements_Document.md#fr-02--scientific-layers-with-legend-and-opacity), [01 FR-16](../specs/01_Product_Requirements_Document.md#fr-16--offline-and-degraded-operation), [03 SCR-03](../specs/03_App_Flow_and_Diagrams.md#scr-03--layers-panel), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §C.1 Map overlays](../specs/04_Design_Brief.md#map-overlays), [05 §C Layer](../specs/05_Backend_and_Database_Schema.md#layer)
@@ -305,7 +307,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `apps/web/src/ui/map/traverseLayer.ts`
 - **Reads:** `apps/web/src/ui/context.ts`, `data/sites/mock_site/`, `apps/web/src/ui/styles/tokens.css`, [01 FR-17](../specs/01_Product_Requirements_Document.md#fr-17--curiosity-traverse-overlay), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states), [05 §C TraversePoint](../specs/05_Backend_and_Database_Schema.md#traversepoint)
@@ -329,7 +331,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `apps/web/src/ui/map/poiLayer.ts`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/boot/loadSite.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/styles/tokens.css`, [01 FR-04](../specs/01_Product_Requirements_Document.md#fr-04--points-of-interest-with-ground-imagery), [03 SCR-06](../specs/03_App_Flow_and_Diagrams.md#scr-06--poi-detail-panel), [04 §C.3](../specs/04_Design_Brief.md#c3-shape-grid-and-structure), [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states)
@@ -353,7 +355,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2 h
 - **Owns (writes):** `apps/web/src/ui/map/inspector.ts`
 - **Reads:** `apps/web/src/ui/context.ts`, `packages/protocol/src/worker.ts`, `apps/web/src/ui/workerClient.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/tests/fixtures/mockWorker.ts`, [01 FR-03](../specs/01_Product_Requirements_Document.md#fr-03--point-inspection), [02 §D.1](../specs/02_Technical_Requirements_Document.md#d1-point-sampling-fr-03-fr-08), [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior)
@@ -379,7 +381,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1 h
 - **Owns (writes):** `apps/web/src/ui/debug.ts`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-11), [05 §E.1](../specs/05_Backend_and_Database_Schema.md#e1-access-patterns-queries-and-indexes), [05 §C PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
@@ -426,7 +428,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** verify
 - **Tag:** human-required · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** `apps/web/tests/fixtures/real/sample_cells.json`, `data/sites/gale_boxwork/`, [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [01 FR-02](../specs/01_Product_Requirements_Document.md#fr-02--scientific-layers-with-legend-and-opacity), [01 FR-03](../specs/01_Product_Requirements_Document.md#fr-03--point-inspection), [03 SCR-01](../specs/03_App_Flow_and_Diagrams.md#scr-01--mission-briefing), [03 SCR-02](../specs/03_App_Flow_and_Diagrams.md#scr-02--map-workspace), [03 SCR-03](../specs/03_App_Flow_and_Diagrams.md#scr-03--layers-panel), [06 §D.7](../specs/06_High_Level_Implementation_Plan.md#d7-definition-of-done-per-feature)
@@ -449,12 +451,12 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Agent brief:** Human runs the checklist on the real bundle offline; an agent may draft the log section and compare popover values with `apps/web/tests/fixtures/real/sample_cells.json`.
 - **Conflict notes:** Append-only log: add one section at the end; on a rebase conflict keep both sides. Findings become `follow-up:` subtasks in the owning task (§c.1 rule 3).
 
-### T07.16 — Fallback — start only if projection issues persist or cut 7 is called: ImageStatic layers
+### T07.16 — Fallback — start only if projection issues persist: ImageStatic layers
 
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** fallback
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/map/rasterLayers.ts` (replaces T07.07)
 - **Reads:** `apps/web/src/ui/map/imageStatic.ts`, `apps/web/src/ui/context.ts`, [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices), [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind), [04 §C.1 Map overlays](../specs/04_Design_Brief.md#map-overlays)
@@ -464,14 +466,14 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
   1. Replace the 2 m tiled layers with one ImageStatic image per layer from T03.25, built with the T02.06 factory in the same Mars projection; keep the 0.5 m tiled basemap for the ortho (02 §B fallback).
   2. Keep the layer API SCR-03 uses (show/hide, opacity, state), the FR-02 order and the 04 §C.1 legends.
   3. Keep slope classes following the current limits; browser recolouring of an ImageStatic source is `TODO(verify)`.
-  4. Record which trigger fired (06 TASK-07 risk or cut 7) in the PR.
+  4. Record which trigger fired (06 TASK-07 risk or v1 cut 7, no v2 cut item) in the PR.
 - **Acceptance:**
   - Serves: FR-01, FR-02 · [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices), [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind)
   - SCR-03 works unchanged against the ImageStatic layers; order and legends are unchanged.
   - No request leaves `localhost`.
 - **Verify:** `make typecheck`; manual in `make demo` offline: toggle every layer, change the hard limit and check the slope classes.
 - **Agent brief:** Only if triggered: rewrite `apps/web/src/ui/map/rasterLayers.ts` to use one ImageStatic image per 2 m layer (T03.25 PNGs, T02.06 factory), keeping the 0.5 m tiled ortho and the same API for SCR-03.
-- **Conflict notes:** Replaces T07.07's file; never runs at the same time as T07.07. Starts in the cut-7 wave with T02.06 and T03.25 (§h.6); the two hard edges are not in the map's §f table yet (Spec questions).
+- **Conflict notes:** Replaces T07.07's file; never runs at the same time as T07.07. Starts in the v1 cut 7 (no v2 cut item) wave with T02.06 and T03.25 (§h.6); the two hard edges are not in the map's §f table yet (Spec questions).
 
 ### T07.17 — Implement the shared map controls (+, −, FIT for planner and ops; EVA full-screen set) (v2)
 
@@ -596,5 +598,5 @@ The graph omits T07.15's transitive edges (it hard-depends on T07.05–T07.12).
 9. OpenLayers may compute scale through a geographic transform with an Earth radius unless the projection provides its own point resolution (02 §C.4.2); the spike (T02.02–T02.04) must confirm the scale bar uses projection metres — `TODO(verify)`; T07.06 relies on it.
 10. FR-15 says no numeric value without a provenance label; whether the scale bar, coordinate readout, data-version chip and debug overlay count is T12.02's rule — `TODO(decision)`.
 11. 04 §D limits visible "scientific overlays" to two but does not say which layers count — `TODO(decision)` (T07.09).
-12. Map change proposed: add T02.06 → T07.16 and T03.25 → T07.16 to the §f cross-task hard table; they are the cut-7 chain of §h.6 and T07.16 cannot work without them.
+12. Map change proposed: add T02.06 → T07.16 and T03.25 → T07.16 to the §f cross-task hard table; they are the v1 cut 7 (no v2 cut item) chain of §h.6 and T07.16 cannot work without them.
 13. Map change proposed: §c.5 gives TASK-07 no test files, so request matching and revision dropping (T07.04), site loading (T07.02) and slope class edges (T07.07) are checked only by hand; proposed `apps/web/tests/ui/workerClient.test.ts`, `apps/web/tests/ui/loadSite.test.ts` and `apps/web/tests/ui/rasterLayers.test.ts`, owned by those subtasks.

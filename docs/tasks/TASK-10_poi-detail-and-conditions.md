@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | POI detail + Conditions panel |
 | Requirements | FR-04, FR-11, FR-12 (06 §C); also FR-13 (state only), FR-15, NFR-01, NFR-04, NFR-05; SCR-06, SCR-07 |
-| Lane / owner role | frontend — Frontend engineer |
-| Milestone | M4 |
+| Lane / owner role | frontend — R3 Map & Planner UI: Saba Atharique |
+| Milestone | M5 (at the event, Day 1 by 12:30; 06 §C.1 *When*: E) · T10.04 in M7 |
 | Window | event-only |
 | Effort (doc 06) | 3–5 h |
 | Done when (doc 06) | Images with credits; daylight warning appears for pre-dawn start |
 | Main risk → fallback | — |
 | Spec sections | [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [01 FR-04](../specs/01_Product_Requirements_Document.md#fr-04--points-of-interest-with-ground-imagery) · [01 FR-11](../specs/01_Product_Requirements_Document.md#fr-11--daylight-and-sun-conditions) · [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate) · [01 FR-13](../specs/01_Product_Requirements_Document.md#fr-13--environmental-context-seasonal-weather) · [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12) · [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11) · [03 SCR-06](../specs/03_App_Flow_and_Diagrams.md#scr-06--poi-detail-panel) · [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel) · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) · [04 §F SCR-06](../specs/04_Design_Brief.md#scr-06-poi-detail-right-drawer) · [05 POI](../specs/05_Backend_and_Database_Schema.md#poi) · [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 

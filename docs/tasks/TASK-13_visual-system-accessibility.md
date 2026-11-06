@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Visual system + accessibility |
 | Requirements | NFR-04 (06 §C); subtasks also serve NFR-01, NFR-07 (T13.02), FR-08, FR-10 (T13.05), SCR-02, SCR-08 (T13.03) and U-08 (T13.08) |
-| Lane / owner role | design — Design & story lead (06 §C: Design lead) |
-| Milestone | M2 (tokens only, 06 §B; also fonts and wireframes) · M4 (status icons and patterns) · M5 (the rest) |
-| Window | pre-event-allowed (T13.01–T13.03) · event-only (T13.04–T13.10) |
+| Lane / owner role | design — R6 design system: Ridita Alam |
+| Milestone | M1 (tokens, fonts, wireframes) · M2 (components, HUD tokens) · M4 (accessibility checks); 06 §C.1 *When*: P 6–9 Nov |
+| Window | pre-event-if-permitted; T13.01–T13.03, T13.11 and T13.12 are pre-event-allowed |
 | Effort (doc 06) | 3–6 h |
 | Done when (doc 06) | axe: 0 serious issues; keyboard-only run of core scenario |
 | Main risk → fallback | Time short → keep tokens + focus + patterns, drop coach marks |
 | Spec sections | [04 §C Visual system](../specs/04_Design_Brief.md#c-visual-system) · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) · [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior) · [04 §F](../specs/04_Design_Brief.md#f-wireframe-guidance) · [04 U-08](../specs/04_Design_Brief.md#unresolved-items-owned-by-this-document) · [02 §F NFR-04](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) · [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) · [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind) · [Coordination map](_coordination.md) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 
@@ -34,8 +36,8 @@
 | Base styles (typography, focus ring, reduced motion) | `apps/web/src/ui/styles/base.css` | All screens |
 | Status icon component and pattern classes | `apps/web/src/ui/components/statusIcon.ts`, `apps/web/src/ui/styles/patterns.css` | T07.09, T09.03, T09.04, T10.02, T11.03 |
 | Keyboard map controls | `apps/web/src/ui/map/keyboard.ts` | T07.08 (mounts the stub entry), T13.10 |
-| First-run coach marks (cut 2) | `apps/web/src/ui/coachMarks.ts` | — |
-| Light theme (cut 2, only if U-08 needs it) | `apps/web/src/ui/styles/light.css` | T14.06, T17.02 (venue demo) |
+| First-run coach marks (cut 4) | `apps/web/src/ui/coachMarks.ts` | — |
+| Light theme (cut 4, only if U-08 needs it) | `apps/web/src/ui/styles/light.css` | T14.06, T17.02 (venue demo) |
 | Axe and keyboard-run results | `docs/ops/verification-log.md` | T14.06, T16.06 |
 
 ## Subtasks
@@ -125,7 +127,7 @@
 - **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2 h
 - **Owns (writes):** `apps/web/src/ui/styles/base.css`, `docs/ops/verification-log.md` (append-only)
 - **Reads:** `apps/web/src/ui/styles/tokens.css` (C12), `apps/web/public/fonts/README.md`, `apps/web/vite.config.ts` (`base: "./"`), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §C.3](../specs/04_Design_Brief.md#c3-shape-grid-and-structure), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior) (Contrast, Focus, Motion)
@@ -153,7 +155,7 @@
 - **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `apps/web/src/ui/components/statusIcon.ts`, `apps/web/src/ui/styles/patterns.css`, `docs/ops/verification-log.md` (append-only)
 - **Reads:** `apps/web/src/ui/styles/tokens.css` (C12 class names), `apps/web/src/ui/context.ts` (C10), the `statusIcon.ts` stub signature, [04 §C.1 semantic status](../specs/04_Design_Brief.md#status-and-alert-colours-ops), [04 §C.1 map overlays](../specs/04_Design_Brief.md#map-overlays), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior) (non-colour cues), [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile), [01 FR-10](../specs/01_Product_Requirements_Document.md#fr-10--hazard-and-constraint-warnings)
@@ -180,7 +182,7 @@
 - **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/map/keyboard.ts`, `docs/ops/verification-log.md` (append-only)
 - **Reads:** `apps/web/src/ui/context.ts` (C10 map handle), `apps/web/src/state/planStore.ts` (C11 selection, delete action, status), the `keyboard.ts` stub signature, `apps/web/src/ui/map/addStopMode.ts` (T08.07 owns `A` and `Enter`), [04 §E Keyboard](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) (Briefing button rule), [03 §A](../specs/03_App_Flow_and_Diagrams.md#a-information-architecture) (hash routes), [03 SCR-02](../specs/03_App_Flow_and_Diagrams.md#scr-02--map-workspace), [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating)
@@ -190,7 +192,7 @@
   1. Bind the 04 §E map keys: arrow keys pan and `+`/`−` zoom while the map has focus; reuse OpenLayers' built-in keyboard pan and zoom interactions if they match 04 §E (`TODO(verify)` their keys and focus target) instead of writing new ones.
   2. Bind `Delete` to the C11 delete action for the selected stop, `B` to `#/briefing` and `?` to `#/sources` (03 §A hash routes).
   3. Make `B` do nothing while the Briefing button is disabled — no stops, or after a computation error (03 SCR-08 entry, 04 §D).
-  4. Leave `A` and crosshair `Enter` to T08.07; if cut 3 drops T08.07, those keys are simply absent.
+  4. Leave `A` and crosshair `Enter` to T08.07; if cut 4 drops T08.07, those keys are simply absent.
   5. Ignore shortcuts while focus is in a text field, and keep the 04 §E tab order (top bar → left drawer → map toolbar → map → results → right drawer); use the C10 map handle's keyboard target, and request a `contract-change:` on C10 if it has none.
   6. Use instant view changes when `prefers-reduced-motion` is set (04 §E Motion).
   7. Append a manual test note to the verification log.
@@ -209,15 +211,15 @@
 
 - **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** implement
-- **Tag:** agent-ready · cut-2
-- **Window:** event-only
+- **Tag:** agent-ready · cut-4
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `apps/web/src/ui/coachMarks.ts`, `apps/web/src/ui/screens/scr02MapWorkspace.tsx` (after T07.08), `apps/web/src/ui/screens/scr02MapWorkspace.css` (after T07.08), `docs/ops/verification-log.md` (append-only)
-- **Reads:** [04 §D Discoverability](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), `apps/web/src/ui/styles/tokens.css`, `apps/web/src/ui/screens/scr02MapWorkspace.tsx` (Layers tab, map area, top-bar Briefing button), [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind) cut 2
+- **Reads:** [04 §D Discoverability](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), `apps/web/src/ui/styles/tokens.css`, `apps/web/src/ui/screens/scr02MapWorkspace.tsx` (Layers tab, map area, top-bar Briefing button), [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind) cut 4
 - **Depends on:** T07.08 (hard: follow-up edit of the SCR-02 workspace after its owner merges), T13.01 (soft)
 - **Parallel with:** T13.06, T13.08, T13.09
 - **Steps:**
-  1. Start only if cut 2 has not been called (06 §D.4; 06 TASK-13 fallback "drop coach marks"); otherwise drop this subtask.
+  1. Start only if cut 4 has not been called (06 §D.4; 06 TASK-13 fallback "drop coach marks"); otherwise drop this subtask.
   2. Implement the three 04 §D steps — "Turn on Slope", "Click a POI → Add as stop", "Open Briefing" — dismissible and kept in memory only (no browser storage).
   3. Anchor them to elements of the SCR-02 workspace itself (Layers tab, map area, top-bar Briefing button), so no other screen is needed.
   4. Make them keyboard operable: focus moves to the mark, Dismiss or `Escape` closes it, focus returns; no animation under reduced motion (04 §E).
@@ -227,24 +229,24 @@
   - Serves: 04 §D discoverability, NFR-04 · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior)
   - Exactly three steps with the 04 §D texts, dismissible, held only in memory: nothing is written to localStorage or sessionStorage, and a reload shows them again.
   - A keyboard-only user can read and dismiss every step, with the focus ring visible (04 §E).
-  - Removing the one call leaves SCR-02 unchanged, so cut 2 stays a clean drop.
+  - Removing the one call leaves SCR-02 unchanged, so cut 4 stays a clean drop.
 - **Verify:** `make lint typecheck`; manual on `make dev`: reload → three steps in order → dismiss with the keyboard → devtools Application tab shows no stored keys; note appended to the verification log.
-- **Agent brief:** Add the 04 §D first-run coach marks ("Turn on Slope", "Click a POI → Add as stop", "Open Briefing"; dismissible; memory only) in `apps/web/src/ui/coachMarks.ts`, started by one call in the SCR-02 workspace after T07.08 has merged. Keyboard operable, C12 tokens only. Skip entirely if cut 2 is called.
-- **Conflict notes:** `follow-up:` on T07.08's `scr02MapWorkspace.tsx` and `.css` (§c.1 rule 3): start after T07.08 merges, rebase, and limit the edit to one call plus coach-mark styles. Cut 2: nothing depends on this subtask.
+- **Agent brief:** Add the 04 §D first-run coach marks ("Turn on Slope", "Click a POI → Add as stop", "Open Briefing"; dismissible; memory only) in `apps/web/src/ui/coachMarks.ts`, started by one call in the SCR-02 workspace after T07.08 has merged. Keyboard operable, C12 tokens only. Skip entirely if cut 4 is called.
+- **Conflict notes:** `follow-up:` on T07.08's `scr02MapWorkspace.tsx` and `.css` (§c.1 rule 3): start after T07.08 merges, rebase, and limit the edit to one call plus coach-mark styles. Cut 4: nothing depends on this subtask.
 
 ### T13.08 — Implement the light theme (U-08)
 
 - **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** implement
-- **Tag:** agent-ready · cut-2
-- **Window:** event-only
+- **Tag:** agent-ready · cut-4
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–2 h
 - **Owns (writes):** `apps/web/src/ui/styles/light.css`, `apps/web/src/ui/styles/tokens.css` (append-only), `docs/ops/verification-log.md` (append-only)
 - **Reads:** [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens) (dark chrome; print-theme values), [04 U-08](../specs/04_Design_Brief.md#unresolved-items-owned-by-this-document), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior) (Contrast), `apps/web/src/ui/styles/tokens.css` (C12)
 - **Depends on:** T13.01 (soft)
 - **Parallel with:** T13.04, T13.06, T13.07
 - **Steps:**
-  1. Start only if the venue projector washes out the dark UI at check-in (04 U-08) and cut 2 has not been called; otherwise skip.
+  1. Start only if the venue projector washes out the dark UI at check-in (04 U-08) and cut 4 has not been called; otherwise skip.
   2. Use only colours 04 states with verified contrast: the 04 §C.1 print-theme values (text `#111827` on white; caution `#9A5B00`; blocked `#B42318`; ok `#0E7A4F`). Stop for tokens 04 gives no light value (for example `accent`, `focus`, `unknown`, `panel`): they need a 04 §C.1 change with computed contrast first (`TODO(decision)`, Spec question 1).
   3. Write the variant in `light.css` as overrides of the C12 token names under one selector; the switch that activates it is `TODO(decision)` (Spec question 9).
   4. Append any new token at the end of the matching block in `tokens.css` with a 04 §C reference (append-only rule).
@@ -257,14 +259,14 @@
   - Icons and patterns are unchanged, and the dark theme stays the default (04 §C.1).
 - **Verify:** manual on the venue projector with both themes side by side; `make lint typecheck`; note appended to the verification log.
 - **Agent brief:** Only if the U-08 projector check fails: add a light variant in `apps/web/src/ui/styles/light.css` (stub from T13.01, imported through `tokens.css`) using only colour values 04 states — the 04 §C.1 print-theme set. Values 04 lacks are `TODO(decision)` and need a 04 spec change with computed contrast. Keep dark as the default.
-- **Conflict notes:** `tokens.css` is append-only after T13.01 (add at the end of the matching block). `light.css` is a T13.01 stub. A visible theme switch outside these files needs a `follow-up:` subtask on its owner (T07.03 or T07.08). Cut 2.
+- **Conflict notes:** `tokens.css` is append-only after T13.01 (add at the end of the matching block). `light.css` is a T13.01 stub. A visible theme switch outside these files needs a `follow-up:` subtask on its owner (T07.03 or T07.08). Cut 4.
 
 ### T13.09 — Verify the axe scan: 0 serious issues
 
 - **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** verify
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–2 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** [02 §F NFR-04](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) ("axe-core scan + keyboard-only run-through"), [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) TASK-13 done-when, [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario), the T14.01 record of the axe tooling
@@ -290,7 +292,7 @@
 - **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
 - **Type:** verify
 - **Tag:** human-required · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) (nine steps), [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) UI row, [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior) (Keyboard, Focus, Motion, map content outside the map), [03 SCR-02](../specs/03_App_Flow_and_Diagrams.md#scr-02--map-workspace), [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card)
@@ -299,7 +301,7 @@
 - **Steps:**
   1. With mouse and touchpad unused, run 01 §E steps 1–9 on `make demo` using the keyboard only, in the 04 §E tab order.
   2. At each step check that focus is visible, the action is possible, and the result is announced or readable outside the map (stops table, warnings list, per-leg table — 04 §E).
-  3. Check the 04 §E map keys: arrows, `+`/`−`, `Delete`, `B`, `?`, and `A`/`Enter` only if T08.07 was built (cut 3).
+  3. Check the 04 §E map keys: arrows, `+`/`−`, `Delete`, `B`, `?`, and `A`/`Enter` only if T08.07 was built (cut 4).
   4. Repeat the route-changing steps with reduced motion switched on and confirm there is no animated fly-to (04 §E Motion).
   5. Log pass or fail per step with the blocking element; file `follow-up:` fixes through a `coord:` PR and re-run the failed steps after they land.
 - **Acceptance:**
@@ -368,8 +370,8 @@ flowchart LR
   T13_04["T13.04 base styles"]
   T13_05["T13.05 status icons + patterns"]
   T13_06["T13.06 keyboard map controls"]
-  T13_07["T13.07 coach marks, cut 2"]
-  T13_08["T13.08 light theme, cut 2"]
+  T13_07["T13.07 coach marks, cut 4"]
+  T13_08["T13.08 light theme, cut 4"]
   T13_09["T13.09 axe scan"]
   T13_10["T13.10 keyboard-only run"]
 
@@ -392,7 +394,7 @@ T13.03 has no internal edges; its sketches feed T07.08 and T11.03.
 - [06 §D.7](../specs/06_High_Level_Implementation_Plan.md#d7-definition-of-done-per-feature): NFR-04's targets are met (text contrast ≥ 4.5 : 1, keyboard operation of all controls, non-colour cues, text alternatives for map content); a manual test note is committed for every UI subtask (verification log); keyboard reachable; works offline (fonts are local). TASK-13 shows no numeric values, so no provenance label is added here; font licences are recorded in `apps/web/public/fonts/README.md`.
 - 06 TASK-13 done-when: axe reports 0 serious issues (T13.09) and the core scenario runs keyboard-only (T13.10).
 - Every token value matches 04 §C; every status shows icon + pattern + text; no external font or icon URL exists in `apps/web/`.
-- The cut-2 subtasks (T13.07, T13.08) can be dropped without editing any other file.
+- The cut-4 subtasks (T13.07, T13.08) can be dropped without editing any other file.
 - `python3 scripts/check_tasks.py` and `make lint typecheck test docs-check` pass.
 
 ## Spec questions
@@ -402,7 +404,7 @@ T13.03 has no internal edges; its sketches feed T07.08 and T11.03.
 3. **Canvas and SVG patterns.** 04 §C.1 patterns also appear on the map (slope classes above 15°, hazard segments) and in the profile, but T13.05 delivers CSS classes only; T07.07, T09.01 and T09.02 must draw the same patterns from 04 §C.1, which risks drift. `TODO(decision)`: should T13.05 also export a shared canvas or SVG pattern definition? This depends on the chart-library choice (map open point 16).
 4. **Importing the new CSS files.** `apps/web/src/main.ts` (owned by T07.03) imports only `tokens.css`, so `base.css`, `patterns.css` and `light.css` need an import somewhere. This file has T13.01 create them as stubs imported from `tokens.css`. Map change proposed: the §c.4 rows for these three paths should read "New; stub by T13.01 (imported from `tokens.css`)".
 5. **Axe tooling dependency.** T13.09 hard-depends on T14.01 because the axe tooling is a T14.01 `TODO(decision)` (map open point 16), but the §f cross-task table does not list T14.01 → T13.09. Map change proposed: add it. `TODO(verify)`: whether axe-core under jsdom can evaluate colour contrast; if it cannot, the contrast part of NFR-04 needs a browser run.
-6. **Keyboard equivalent of dragging.** 01 §E step 5 drags stop 2 onto a steep slope, but 04 §E names no keyboard way to move a stop (only `Delete`, and crosshair `Enter` placement, which cut 3 can drop). `TODO(decision)`: how T13.10 performs step 5 — for example delete and re-place in Add-stop mode, or the T08.10 buttons-only move.
+6. **Keyboard equivalent of dragging.** 01 §E step 5 drags stop 2 onto a steep slope, but 04 §E names no keyboard way to move a stop (only `Delete`, and crosshair `Enter` placement, which cut 4 can drop). `TODO(decision)`: how T13.10 performs step 5 — for example delete and re-place in Add-stop mode, or the T08.10 buttons-only move.
 7. **Follow-up dependency not in §f.** T13.07 hard-depends on T07.08, as §c.1 rule 3 requires for a `follow-up:` edit and §c.4 names, but the §f cross-task table does not list it. Map change proposed: add T07.08 → T13.07.
 8. **Font URLs.** How Vite resolves `apps/web/public/` font URLs under `base: "./"` (`apps/web/vite.config.ts`) so they load from `make demo` offline — `TODO(verify)` in T13.04.
 9. **Light-theme activation.** `prefers-color-scheme` needs no other file but would change the default for viewers whose system is set to light, against 04 §C.1's dark default; an explicit switch needs a `follow-up:` on T07.03 or T07.08. `TODO(decision)`.

@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Integration + offline hardening + fault tests |
 | Requirements | FR-16, NFR-01, NFR-10, NFR-03, NFR-08, NFR-09 (06 §C); the register adds NFR-02, NFR-06, NFR-07, NFR-11, SCR-00 |
-| Lane / owner role | integration — Compute engineer (06 §C names Compute as TASK-14 owner) |
-| Milestone | M5; T14.01 and T14.02 in M2 |
-| Window | event-only; T14.01 and T14.02 are pre-event-allowed (setup) |
+| Lane / owner role | integration — Integration lead: Anjim Hossain (the dry runs are all-hands) |
+| Milestone | M1 (dependency batch, CI) · M4 (hardening and fault tests, 11 Nov dry run); 06 §C.1 *When*: P 10–12 Nov / E |
+| Window | pre-event-if-permitted; T14.01 and T14.02 are pre-event-allowed |
 | Effort (doc 06) | 3–5 h |
 | Done when (doc 06) | Two clean offline rehearsals; fault cases in 02 §F.1 pass |
 | Main risk → fallback | — |
 | Spec sections | [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D.6](../specs/06_High_Level_Implementation_Plan.md#d6-demo-freeze-criteria-day-2-0600) · [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract) · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) · [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) · [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) · [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error) · [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows) · [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration) · [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data) · [01 FR-16](../specs/01_Product_Requirements_Document.md#fr-16--offline-and-degraded-operation) · [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration subtasks for the shared build files ([map §c.6](_coordination.md#c6-shared-and-build-files)); the rest runs in M5 on the integrated app.
 
@@ -106,7 +108,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `apps/web/src/boot/validateSite.ts`
 - **Reads:** `packages/protocol/src/schema.ts` (Site, Asset), `apps/web/src/ui/context.ts` (C10 boot-problem shape), `schemas/site-manifest.schema.json`, `docs/contracts/tile-grid.md`, [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract), [05 Asset](../specs/05_Backend_and_Database_Schema.md#asset), [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows)
@@ -135,7 +137,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–2 h
 - **Owns (writes):** `apps/web/src/ui/screens/scr00BootError.tsx`, `apps/web/src/ui/screens/scr00BootError.css`
 - **Reads:** [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.1](../specs/03_App_Flow_and_Diagrams.md#e1-overall-user-flow), [04 §C.1 semantic status](../specs/04_Design_Brief.md#status-and-alert-colours-ops), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), `apps/web/src/ui/context.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/src/ui/components/statusIcon.ts`
@@ -164,7 +166,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** test
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/tests/integration/faults.test.ts`
 - **Reads:** [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) Recovery row, [01 FR-16](../specs/01_Product_Requirements_Document.md#fr-16--offline-and-degraded-operation), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10) Snapping, [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data), `data/sites/mock_site/`, `apps/web/tests/fixtures/README.md`, `apps/web/src/ui/context.ts`, `packages/protocol/src/worker.ts`
@@ -195,7 +197,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Owner:** Anjim Hossain (R2/R4 float · integration lead) — the dry runs are all-hands (06 §A.2)
 - **Type:** verify
 - **Tag:** human-required · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario), [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria), [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-01, NFR-06), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [06 §D.6](../specs/06_High_Level_Implementation_Plan.md#d6-demo-freeze-criteria-day-2-0600), [demo script](../ops/demo-script.md), [Makefile](../../Makefile), `data/sites/gale_boxwork/`
@@ -225,7 +227,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** verify
 - **Tag:** human-required · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-02), [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria), [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline), [01 FR-02](../specs/01_Product_Requirements_Document.md#fr-02--scientific-layers-with-legend-and-opacity), [01 FR-07](../specs/01_Product_Requirements_Document.md#fr-07--constraint-aware-route-computation), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), `apps/web/src/ui/debug.ts`
@@ -253,7 +255,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** verify
 - **Tag:** human-required · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-03, NFR-06), [01 Clarifications](../specs/01_Product_Requirements_Document.md#session-2026-11-02), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [05 §E.5](../specs/05_Backend_and_Database_Schema.md#e5-provenance-required-to-reproduce-a-result), [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport)
@@ -280,7 +282,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** verify
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–2 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-08, NFR-09, NFR-11, "Secrets/deployment"), `apps/web/index.html`, `apps/web/dist/`, [Makefile](../../Makefile)
@@ -308,7 +310,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** verify
 - **Tag:** human-required · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** [03 SCR-00](../specs/03_App_Flow_and_Diagrams.md#scr-00--boot-error), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.1](../specs/03_App_Flow_and_Diagrams.md#e1-overall-user-flow), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-10), [01 FR-16](../specs/01_Product_Requirements_Document.md#fr-16--offline-and-degraded-operation), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), `apps/web/src/ui/screens/scr00BootError.tsx`

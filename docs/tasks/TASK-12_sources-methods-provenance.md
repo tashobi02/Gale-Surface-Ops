@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Sources & Methods + provenance attributes |
 | Requirements | FR-15, NFR-05 (06 §C); the subtasks also serve SCR-09, NFR-04, NFR-07 |
-| Lane / owner role | story — Design & story lead (06 §C owner: Story lead) |
-| Milestone | M4 (06 §B); subtasks run M1–M5 |
-| Window | Mixed: T12.04, T12.05 `pre-event-allowed`; T12.01–T12.03, T12.06 `event-only` |
+| Lane / owner role | story — an R6 task done by Mishkat Ahmed Khan (06 §A.2) |
+| Milestone | M2 (records, metric component) · M3–M4 (DOM tests) · M4b (SCR-09 verify); 06 §C.1 *When*: P/E |
+| Window | pre-event-if-permitted; T12.04 and T12.05 are pre-event-allowed |
 | Effort (doc 06) | 2–4 h |
 | Done when (doc 06) | Automated check finds no unlabelled metric |
 | Main risk → fallback | — |
 | Spec sections | [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods) · [02 §F NFR-05](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) · [02 §D](../specs/02_Technical_Requirements_Document.md#d-core-processing-and-simulation-behavior) · [02 Sources](../specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02) · [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods) · [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens) · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) · [04 §F SCR-09](../specs/04_Design_Brief.md#scr-09-sources--methods) · [05 DataSource](../specs/05_Backend_and_Database_Schema.md#datasource) · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 
@@ -44,7 +46,7 @@
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `apps/web/src/ui/components/metric.ts`
 - **Reads:** `apps/web/src/ui/context.ts` (C10: component signature, provenance and source-id attribute names, anchor scheme), `apps/web/src/ui/styles/tokens.css` (C12), `packages/protocol/src/schema.ts` (`Provenance`), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [02 §F NFR-05](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation)
@@ -74,7 +76,7 @@
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `apps/web/tests/ui/provenance.test.ts`
 - **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/state/planStore.ts` (C11), `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/screens/`, `apps/web/src/ui/map/inspector.ts`, `apps/web/src/ui/plan/stopsList.ts`, `apps/web/src/ui/results/`, `apps/web/tests/fixtures/plan-results/` (F2), `data/sites/mock_site/site-manifest.json` (F4), `apps/web/tests/fixtures/README.md`, [01 FR-15](../specs/01_Product_Requirements_Document.md#fr-15--provenance-and-methods), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation), [03 §B](../specs/03_App_Flow_and_Diagrams.md#b-screen-specification)
@@ -104,7 +106,7 @@
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/screens/scr09SourcesMethods.tsx`, `apps/web/src/ui/screens/scr09SourcesMethods.css`
 - **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/content/methods.json`, `apps/web/src/ui/components/metric.ts`, `packages/protocol/src/schema.ts` (`DataSource`, `Layer`, `EnvConstant`), `apps/web/src/ui/styles/tokens.css` (C12), `data/sites/mock_site/site-manifest.json` (F4), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [03 §E.2](../specs/03_App_Flow_and_Diagrams.md#e2-screen-navigation), [04 §F SCR-09](../specs/04_Design_Brief.md#scr-09-sources--methods), [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract)
@@ -189,7 +191,7 @@
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** verify
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** `apps/web/tests/ui/provenance.test.ts`, `data/sites/gale_boxwork/site-manifest.json`, [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario), [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods), [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [06 §D.7](../specs/06_High_Level_Implementation_Plan.md#d7-definition-of-done-per-feature)

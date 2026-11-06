@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Spike: OpenLayers custom Mars projection + custom tile grid |
 | Requirements | FR-01, D-03 (06 §C); FR-02 through the tile pixel encoding (T02.01, T02.06) |
-| Lane / owner role | frontend — Frontend engineer |
-| Milestone | M0 (06 §B, Track P); T02.04 and T02.05 close in M1. Under Track S the code subtasks run on Day 1 before M3 (map §g) |
-| Window | T02.01, T02.05 pre-event-allowed; T02.02–T02.04, T02.06 pre-event-if-permitted (06 §A Track P) |
+| Lane / owner role | frontend — R3 Map & Planner UI: Saba Atharique |
+| Milestone | M1 (spike go/no-go Sat 7 Nov; 06 §C.1 *When*: P 6–7 Nov) |
+| Window | T02.01, T02.05 pre-event-allowed; the code subtasks pre-event-if-permitted (Track P) |
 | Effort (doc 06) | 2–4 h |
 | Done when (doc 06) | Scale bar matches a DEM-measured feature within 2 % |
 | Main risk → fallback | Fails in 2 h → ImageStatic fallback (02 §B) |
 | Spec sections | [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices) · [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer) · [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) · [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract) · [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) · [05 Layer](../specs/05_Backend_and_Database_Schema.md#layer) · [05 §F.1](../specs/05_Backend_and_Database_Schema.md#f1-site-manifest-abridged-aoi-values-illustrative-until-task-01) · [01 FR-01](../specs/01_Product_Requirements_Document.md#fr-01--load-site-and-optical-basemap-offline) · [04 §C.1 Map overlays](../specs/04_Design_Brief.md#map-overlays) · [ADR-003](../decisions/ADR-003-openlayers-mars-projection.md) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 06 §C deliverable: "Minimal page showing test tiles + correct scale bar". The spike proves the rendering path on the mock site first (T02.02, T02.03), then checks the scale on real AOI tiles (T02.04).
 

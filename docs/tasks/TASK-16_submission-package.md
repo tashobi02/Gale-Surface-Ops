@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Submission package |
 | Requirements | Scoring items, NFR-07 (06 §C); also FR-15 (T16.05), D-08 (T16.01) and the status ids synced by T16.02: D-01, D-03, U-01–U-05, U-09, U-10, U-12–U-14 |
-| Lane / owner role | story — Design & story lead (06 §C owner: Story lead); T16.02 is integration — Compute engineer |
-| Milestone | M2 skeleton (T16.01, T16.02, T16.07); M6 final (T16.03–T16.06) — [06 §B](../specs/06_High_Level_Implementation_Plan.md#b-milestones) |
+| Lane / owner role | story — R6: Obidit Islam (submission); T16.02 spec sync: Sadman Shaharier Mahim |
+| Milestone | M2 (skeleton: T16.01, T16.02, T16.07) · M8 (final, Day 2 06:00 → 09:00) |
 | Window | pre-event-allowed, except T16.06 (event-only) |
 | Effort (doc 06) | 2–4 h |
 | Done when (doc 06) | Repo link opens in a private window; every page field filled |
 | Main risk → fallback | — |
 | Spec sections | [06 §C TASK-16](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §B M2, M6](../specs/06_High_Level_Implementation_Plan.md#b-milestones) · [06 §D.6](../specs/06_High_Level_Implementation_Plan.md#d6-demo-freeze-criteria-day-2-0600) · [02 §B Hosting](../specs/02_Technical_Requirements_Document.md#b-technology-choices) · [02 §F NFR-07](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) · [01 §F.4 D-08](../specs/01_Product_Requirements_Document.md#f4-unresolved-decisions-owned-by-this-document) · [03 SCR-09](../specs/03_App_Flow_and_Diagrams.md#scr-09--sources--methods) · [04 §C.4](../specs/04_Design_Brief.md#c4-iconography) · [Submission checklist](../ops/submission-checklist.md) · [AI use log](../AI_USE.md) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 

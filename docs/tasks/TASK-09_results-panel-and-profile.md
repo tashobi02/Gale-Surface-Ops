@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Results panel + profile |
 | Requirements | FR-07–FR-10 (06 §C); also FR-12 (dose metric), SCR-05, D-04 |
-| Lane / owner role | frontend — Frontend engineer (06 §C owner: Frontend + Compute); T09.06 is integration — Compute engineer |
-| Milestone | M3 (min: T09.01, T09.02, T09.06), M4 (T09.03–T09.05, T09.07) |
-| Window | event-only |
+| Lane / owner role | frontend — R3 Map & Planner UI: Saba Atharique (T09.06 integration: Anjim Hossain) |
+| Milestone | M3 (06 §C.1 *When*: P 9–10 Nov / E) |
+| Window | pre-event-if-permitted |
 | Effort (doc 06) | 4–6 h |
 | Done when (doc 06) | Partial/over-limit states render per 03 §D |
 | Main risk → fallback | Linking slips → profile without linking |
 | Spec sections | [01 FR-07](../specs/01_Product_Requirements_Document.md#fr-07--constraint-aware-route-computation) · [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile) · [01 FR-09](../specs/01_Product_Requirements_Document.md#fr-09--traverse-time-distance-and-return-estimates) · [01 FR-10](../specs/01_Product_Requirements_Document.md#fr-10--hazard-and-constraint-warnings) · [01 FR-12](../specs/01_Product_Requirements_Document.md#fr-12--radiation-dose-estimate) · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) · [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel) · [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows) · [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable) · [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens) · [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states) · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) · [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior) · [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel) · [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed) · [06 §B M3](../specs/06_High_Level_Implementation_Plan.md#b-milestones) · [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints) · [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 
@@ -47,7 +49,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/map/routeLayer.ts`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `packages/protocol/src/schema.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/tests/fixtures/plan-results/`, [04 §C.1 Map overlays](../specs/04_Design_Brief.md#map-overlays), [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
@@ -75,7 +77,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/results/profileChart.ts`
 - **Reads:** `apps/web/src/ui/context.ts`, `packages/protocol/src/schema.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/tests/fixtures/plan-results/`, `apps/web/package.json`, [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile), [01 §B](../specs/01_Product_Requirements_Document.md#b-goals-and-success-criteria), [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices), [04 §C.1 Semantic](../specs/04_Design_Brief.md#status-and-alert-colours-ops), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
@@ -103,7 +105,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/screens/scr05RouteResults.tsx`, `apps/web/src/ui/screens/scr05RouteResults.css`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/components/statusIcon.ts`, `apps/web/src/ui/results/profileChart.ts`, `apps/web/src/ui/results/warningsList.ts`, `apps/web/src/ui/results/profileLink.ts`, `apps/web/src/ui/styles/tokens.css`, `apps/web/tests/fixtures/plan-results/`, [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok)
@@ -132,7 +134,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–2 h
 - **Owns (writes):** `apps/web/src/ui/results/warningsList.ts`
 - **Reads:** `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/components/statusIcon.ts`, `packages/protocol/src/schema.ts`, `apps/web/tests/fixtures/plan-results/`, [01 FR-10](../specs/01_Product_Requirements_Document.md#fr-10--hazard-and-constraint-warnings), [04 §C.1 Semantic](../specs/04_Design_Brief.md#status-and-alert-colours-ops), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [04 §F SCR-05](../specs/04_Design_Brief.md#scr-05-results-bottom-panel), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
@@ -158,7 +160,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `apps/web/src/ui/results/profileLink.ts`
 - **Reads:** `apps/web/src/ui/results/profileChart.ts`, `apps/web/src/ui/map/routeLayer.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/context.ts`, [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile), [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior)
@@ -183,7 +185,7 @@
 - **Owner:** Anjim Hossain (R2/R4 float · integration lead)
 - **Type:** integrate
 - **Tag:** human-required · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 0.5–1 h
 - **Owns (writes):** `docs/decisions/ADR-004-least-time-routing.md`
 - **Reads:** [06 §B M3](../specs/06_High_Level_Implementation_Plan.md#b-milestones), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind), [ADR-004](../decisions/ADR-004-least-time-routing.md), [map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4), [map §h.7](_coordination.md#h7-fallbacks-06-c-d5), `data/sites/gale_boxwork/`
@@ -191,14 +193,14 @@
 - **Parallel with:** T12.01
 - **Steps:**
   1. At Day 1 12:30 (06 §D.3), build `main` with `make demo` against the real bundle, with the network off.
-  2. Check the 06 §B M3 exit: the map renders the AOI in the correct projection; two points produce a routed line and an elevation profile. Place the points with Add-stop mode if T08.07 has merged, else open the demo plan from SCR-01 (map §h.6, cut 3).
+  2. Check the 06 §B M3 exit: the map renders the AOI in the correct projection; two points produce a routed line and an elevation profile. Place the points with Add-stop mode if T08.07 has merged, else open the demo plan from SCR-01 (map §h.6, cut 4).
   3. The checkpoint is time-boxed: whatever has merged by then is what is judged.
   4. Decide go or no-go on auto-routing (06 §D.3) and record decision, date, evidence and who decided in ADR-004 (D-04).
-  5. On no-go, announce cut 6 (06 §D.4 item 6): T05.07, T05.08, T05.18 and T05.19 stop; T05.30 and T09.08 start.
+  5. On no-go, announce cut 7 (06 §D.4 item 7): T05.07, T05.08, T05.18 and T05.19 stop; T05.30 and T09.08 start.
 - **Acceptance:**
   - Serves: FR-07, FR-08, D-04 · [06 §B](../specs/06_High_Level_Implementation_Plan.md#b-milestones), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [ADR-004](../decisions/ADR-004-least-time-routing.md#resolution-path)
   - Given the real bundle and the merged M3 slice, when two points are placed, then a routed line and an elevation profile appear (06 §B M3 exit criteria) — or the failure is recorded.
-  - ADR-004 states go or no-go with date and evidence; on no-go the cut-6 fallbacks are claimed in `docs/tasks/README.md`.
+  - ADR-004 states go or no-go with date and evidence; on no-go the cut-7 fallbacks are claimed in `docs/tasks/README.md`.
 - **Verify:** Manual checklist at the checkpoint: `make demo`, network disabled, AOI renders, scale bar in metres, two points routed, profile drawn; ADR-004 updated; on no-go, T05.30 and T09.08 have owners.
 - **Agent brief:** Human decision at the Day 1 12:30 checkpoint. The team runs the walking skeleton offline and decides auto-routing go/no-go. An agent may prepare the checklist and draft the ADR-004 entry from the team's observations, but the decision and evidence are recorded by a person.
 - **Conflict notes:** Writes only ADR-004. The D-04 status in the specs is not edited here; that needs a later `spec-change:` subtask. A no-go triggers T05.30 and T09.08 (map §h.7).
@@ -208,7 +210,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** verify
 - **Tag:** human-required · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** `apps/web/tests/fixtures/plan-results/`, `apps/web/tests/fixtures/mockWorker.ts`, [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [01 FR-08](../specs/01_Product_Requirements_Document.md#fr-08--elevation-and-slope-profile), [01 FR-10](../specs/01_Product_Requirements_Document.md#fr-10--hazard-and-constraint-warnings)
@@ -234,7 +236,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** fallback
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2 h
 - **Owns (writes):** `apps/web/src/ui/map/drawLegs.ts`
 - **Reads:** `docs/decisions/ADR-004-least-time-routing.md`, `apps/web/src/ui/context.ts`, `apps/web/src/state/planStore.ts`, `apps/web/src/ui/map/routeLayer.ts`, `packages/compute/src/manualLeg.ts`, [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind), [01 FR-07](../specs/01_Product_Requirements_Document.md#fr-07--constraint-aware-route-computation), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior)
@@ -242,8 +244,8 @@
 - **Parallel with:** T05.30
 - **Steps:**
   1. Add an OpenLayers draw interaction, through the C10 map handle, for one polyline per leg between consecutive waypoints, with the ends snapped to the waypoints.
-  2. Hand the drawn legs to the worker for the cut-6 validation (T05.30) — the message and store field do not exist yet (Spec questions).
-  3. Show the results with the existing route layer, profile and warnings: the tool checks slope and hazards and computes profile and time (06 §D.4 item 6).
+  2. Hand the drawn legs to the worker for the cut-7 validation (T05.30) — the message and store field do not exist yet (Spec questions).
+  3. Show the results with the existing route layer, profile and warnings: the tool checks slope and hazards and computes profile and time (06 §D.4 item 7).
   4. Provide a keyboard path for leg entry (NFR-04); the design is `TODO(decision)`.
 - **Acceptance:**
   - Serves: FR-07 · [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind)
@@ -322,6 +324,6 @@ All dependencies inside this task are hard. The soft ones (contracts C10, C11, C
 8. **Provenance per metric**: only walk time and dose have labels and source ids in the specs (05 §F.3: `modelled`; `tobler-1993`, `apollo17-planning`, `hassler-2014-rad`). Distance, max slope, EVA total, max walkback and climb/descent are `TODO(decision)` with T12.04; the attribute name is map open point 8.
 9. **Number formats** beyond the 04 §C.2 examples (`1.18 km`, `26 min`, `11.4°`, `0.19 mSv`): `TODO(decision)`, shared with T12.01.
 10. **Map change proposed — §f row for T09.06**: §f lists T05.16–T05.27 → T09.06, but §g schedules T05.19, T05.20 and T05.23–T05.25 in M4; T09.06 depends only on the M3 subset (T05.16–T05.18, T05.21, T05.22, T05.26, T05.27). The placement path for the check (T08.06/T08.07, or the T07.14 demo plan) is not in the row either.
-11. **Map change proposed — cut-6 plumbing**: there is no way to send drawn legs to the worker (no message in 02 §E.2 / C6, no worker-client method in C10, no store field in C11) and no edge T05.30 → T09.08. Add `contract-change:` subtasks to TASK-05, TASK-07 and TASK-08 before T05.30 and T09.08 can start.
+11. **Map change proposed — cut-7 plumbing**: there is no way to send drawn legs to the worker (no message in 02 §E.2 / C6, no worker-client method in C10, no store field in C11) and no edge T05.30 → T09.08. Add `contract-change:` subtasks to TASK-05, TASK-07 and TASK-08 before T05.30 and T09.08 can start.
 12. **Map change proposed — T12.01 → T09.07**: SCR-05 cannot show numbers without the metric component's provenance label (FR-15), so T09.07 needs T12.01 implemented. Add the hard edge to §f, or rely on the board order (T12.01 in M3).
 13. **Keyboard path for drawn legs** (NFR-04: keyboard operation of all controls): drawing by hand is pointer-only. `TODO(decision)`.

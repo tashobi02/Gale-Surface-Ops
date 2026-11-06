@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Desirables (only after freeze criteria met early) |
 | Requirements | FR-13, FR-18, FR-19, FR-20 (all Should); FR-21 is post-MVP — note only ([01 §C.3](../specs/01_Product_Requirements_Document.md#c4-post-mvp)) |
-| Lane / owner role | Any (06 §C). Per subtask: data — Data/GIS lead (T18.01, T18.02); compute — Compute engineer (T18.04, T18.05); frontend — Frontend engineer (T18.03, T18.06, T18.07) |
-| Milestone | Only after the [06 §D.6](../specs/06_High_Level_Implementation_Plan.md#d6-demo-freeze-criteria-day-2-0600) freeze criteria are met early; merge before the Day 2 06:00 freeze (M5; see Spec questions 9) |
-| Window | event-only (every subtask) |
+| Lane / owner role | data, compute, frontend — unassigned: whoever finishes their own tasks, only after M3 passes (06 §A.2) |
+| Milestone | M4b–M7: only after M3 passes on 10 Nov, cheapest first (06 §C.1 *When*: P 10–12 Nov, otherwise E after the M7 gate); T18.08 caching in M2 |
+| Window | pre-event-if-permitted (T18.08, T18.13 pre-event-allowed) |
 | Effort (doc 06) | 2–6 h each |
 | Done when (doc 06) | Feature labelled and tested |
 | Main risk → fallback | Skip |
 | Spec sections | [06 §C TASK-18](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D.4 item 1](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind) · [01 FR-13](../specs/01_Product_Requirements_Document.md#fr-13--environmental-context-seasonal-weather) · [01 FR-18](../specs/01_Product_Requirements_Document.md#fr-18--spectral-crism-layer--s) · [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s) · [01 FR-20](../specs/01_Product_Requirements_Document.md#fr-20--saverestore-plan-locally--s) · [02 §C.2 L5](../specs/02_Technical_Requirements_Document.md#l5--spectral-fr-18-desirable) · [02 §C.2 L7](../specs/02_Technical_Requirements_Document.md#l7--environmental-values-fr-11-fr-12-fr-13) · [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable) · [05 §B](../specs/05_Backend_and_Database_Schema.md#b-persistence-strategy) · [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration) · [03 §C.5](../specs/03_App_Flow_and_Diagrams.md#c5-saving--exporting-in-scope-export-storage-desirable) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_High_Level_Implementation_Plan.md#d4-cut-list-cut-in-this-order-when-behind): they are the first work dropped and start only once the freeze criteria hold. 06 lists the deliverable as "Any of: CRISM layer, REMS context, O₂ estimate, local save" — each one ships on its own or not at all.
 
@@ -49,7 +51,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 - **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `pipeline/src/marswalk_pipeline/crism.py`, `pipeline/sites/gale_boxwork/layers/` (append-only), `pipeline/sites/gale_boxwork/sources/` (append-only), `data/sites/gale_boxwork/` (after T03.19), `pipeline/sources.lock.json` (after T03.19)
 - **Reads:** `docs/ops/feasibility/coverage.md` (T01.04), `docs/contracts/tile-grid.md` (C9), `pipeline/sites/README.md` (C5), `schemas/site-manifest.schema.json` (C2), `pipeline/src/marswalk_pipeline/clip_reproject.py`, `pipeline/src/marswalk_pipeline/tiles.py`, `pipeline/src/marswalk_pipeline/manifest.py`, `pipeline/src/marswalk_pipeline/validate_manifest.py`; [01 FR-18](../specs/01_Product_Requirements_Document.md#fr-18--spectral-crism-layer--s), [02 §C.2 L5](../specs/02_Technical_Requirements_Document.md#l5--spectral-fr-18-desirable), [02 Sources](../specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02), [05 §C Layer](../specs/05_Backend_and_Database_Schema.md#layer), [05 §C DataSource](../specs/05_Backend_and_Database_Schema.md#datasource), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [05 §E.6](../specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data)
@@ -77,7 +79,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 - **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `pipeline/src/marswalk_pipeline/rems.py`, `pipeline/sites/gale_boxwork/sources/` (append-only)
 - **Reads:** `pipeline/sites/README.md` (C5), `schemas/site-manifest.schema.json` (C2); [01 FR-13](../specs/01_Product_Requirements_Document.md#fr-13--environmental-context-seasonal-weather), [02 §C.2 L7](../specs/02_Technical_Requirements_Document.md#l7--environmental-values-fr-11-fr-12-fr-13), [02 Sources](../specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02) (PDS Atmospheres Node — MSL REMS), [05 §C DataSource](../specs/05_Backend_and_Database_Schema.md#datasource), [05 §E.5](../specs/05_Backend_and_Database_Schema.md#e5-provenance-required-to-reproduce-a-result)
@@ -105,7 +107,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 - **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `apps/web/src/ui/screens/scr07Conditions.tsx` (after T10.02)
 - **Reads:** `apps/web/src/ui/screens/scr07Conditions.tsx`, `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/components/metric.ts`, the T18.02 output; [01 FR-13](../specs/01_Product_Requirements_Document.md#fr-13--environmental-context-seasonal-weather), [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel), [05 §C PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed) (`conditions.ls_deg`), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior)
@@ -131,7 +133,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 - **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** test
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 0.5 h
 - **Owns (writes):** `packages/compute/tests/consumables.test.ts` (after T05b.16)
 - **Reads:** [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable), [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s), [Test-case allocation](_coordination.md#test-case-allocation)
@@ -156,7 +158,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 - **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 0.5–1 h
 - **Owns (writes):** `packages/compute/src/consumables.ts` (after T05b.17)
 - **Reads:** `packages/compute/tests/consumables.test.ts`; [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable), [02 §D](../specs/02_Technical_Requirements_Document.md#d-core-processing-and-simulation-behavior), [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s)
@@ -183,7 +185,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 - **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `apps/web/src/ui/screens/scr05RouteResults.tsx` (after T09.03), `apps/web/src/ui/screens/scr08BriefingCard.tsx` (after T11.03)
 - **Reads:** `packages/compute/src/consumables.ts`, `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/components/metric.ts`, both screen files; [01 FR-19](../specs/01_Product_Requirements_Document.md#fr-19--illustrative-consumables-estimate--s), [02 §D.6](../specs/02_Technical_Requirements_Document.md#d6-illustrative-consumables-fr-19-desirable), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [03 SCR-05](../specs/03_App_Flow_and_Diagrams.md#scr-05--route-results-panel), [03 SCR-08](../specs/03_App_Flow_and_Diagrams.md#scr-08--briefing-card), [05 §F.3](../specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok)
@@ -211,7 +213,7 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 - **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
 - **Type:** implement
 - **Tag:** agent-ready · desirable
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2 h
 - **Owns (writes):** `apps/web/src/state/persist.ts`, `apps/web/src/state/planStore.ts` (after T08.03)
 - **Reads:** `apps/web/src/state/planStore.ts` (C11 interfaces), `apps/web/src/export/planExport.ts`, `schemas/plan-export.schema.json` (C3); [01 FR-20](../specs/01_Product_Requirements_Document.md#fr-20--saverestore-plan-locally--s), [05 §B](../specs/05_Backend_and_Database_Schema.md#b-persistence-strategy), [05 §E.4](../specs/05_Backend_and_Database_Schema.md#e4-versioning-and-migration), [03 §C.4](../specs/03_App_Flow_and_Diagrams.md#c4-returning-to-an-earlier-step), [03 §C.5](../specs/03_App_Flow_and_Diagrams.md#c5-saving--exporting-in-scope-export-storage-desirable)

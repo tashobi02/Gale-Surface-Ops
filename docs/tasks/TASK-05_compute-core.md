@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Compute core: grid loader, sampling, A*, profile, time model, walkback, warnings |
 | Requirements | 06 §C: FR-03, FR-06–FR-10, NFR-02, NFR-06. Also served by subtasks here: FR-05, FR-11, FR-12, FR-16, NFR-10 |
-| Lane / owner role | compute — Compute engineer |
-| Milestone | M0 (contracts, fixtures), M3 (minimum slice for the walking skeleton), M4 (rest); under Track P the code moves to M0–M2 |
-| Window | pre-event-if-permitted (Track P code); contract T05.01, fixture T05.03 and ADR record T05.29 are pre-event-allowed |
+| Lane / owner role | compute — R2 Compute: Mishkat Ahmed Khan |
+| Milestone | M1 (contracts, fixtures) · M2 (everything else; 06 §C.1 *When*: P 6–9 Nov) |
+| Window | pre-event-if-permitted (Track P code); T05.01, T05.03 and T05.29 are pre-event-allowed |
 | Effort (doc 06) | 8–12 h |
 | Done when (doc 06) | Tests green; real-grid p95 3-stop route ≤ 2 s |
 | Main risk → fallback | Too slow → coarser grid / FastAPI alternative (02 §A.3) |
 | Spec sections | [02 §D.1](../specs/02_Technical_Requirements_Document.md#d1-point-sampling-fr-03-fr-08) · [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10) · [02 §D.3](../specs/02_Technical_Requirements_Document.md#d3-walking-time-model-fr-09) · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) · [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules) · [02 §F.1](../specs/02_Technical_Requirements_Document.md#f1-test-plan) · [05 RoutingGrid](../specs/05_Backend_and_Database_Schema.md#routinggrid) · [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed) · [05 §E.1](../specs/05_Backend_and_Database_Schema.md#e1-access-patterns-queries-and-indexes) · [01 FR-07](../specs/01_Product_Requirements_Document.md#fr-07--constraint-aware-route-computation) · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 06 §C deliverable: `packages/compute/src/*` plus a Vitest suite with the cases in 02 §D; depends on the TASK-03 grid, "synthetic grid OK for tests". Contracts, fixtures and paths follow the frozen [coordination map](_coordination.md): [§c.4](_coordination.md#c4-web-app), [§c.5](_coordination.md#c5-web-tests-and-fixtures), [§d](_coordination.md#d-contracts-registry), [§e](_coordination.md#e-fixtures-and-mocks), [Test-case allocation](_coordination.md#test-case-allocation).
 
@@ -197,7 +199,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
-- **Tag:** agent-ready · cut-6
+- **Tag:** agent-ready · cut-7
 - **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `packages/compute/tests/route.test.ts`
@@ -216,13 +218,13 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
   - FR-07: "a route is returned whose every step satisfies the hard slope limit (verified by re-sampling the result)".
 - **Verify:** `npx vitest run tests/compute/route.test.ts` (run in `apps/web/`).
 - **Agent brief:** Rewrite `packages/compute/tests/route.test.ts` as the A* core suite: gap, re-sample, determinism and TIMEOUT cases from 02 §D.2 on F1 grids. Remove the todos that the map's Test-case allocation sends to snap, no-route and real-grid files.
-- **Conflict notes:** Draft until T05.18 passes it; T05.18 stacks on this branch. Cut 6 drops this subtask with T05.08, T05.18 and T05.19 (map §h.6).
+- **Conflict notes:** Draft until T05.18 passes it; T05.18 stacks on this branch. Cut 7 drops this subtask with T05.08, T05.18 and T05.19 (map §h.6).
 
 ### T05.08 — Tests: no-route reasons and nearest reachable cell
 
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** test
-- **Tag:** agent-ready · cut-6
+- **Tag:** agent-ready · cut-7
 - **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `packages/compute/tests/noRoute.test.ts`
@@ -463,7 +465,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
-- **Tag:** agent-ready · cut-6
+- **Tag:** agent-ready · cut-7
 - **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `packages/compute/src/route.ts`
@@ -482,13 +484,13 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
   - FR-07: "a route is returned whose every step satisfies the hard slope limit (verified by re-sampling the result)"; "Same inputs + same data version ⇒ identical route (NFR-06)".
 - **Verify:** `npx vitest run tests/compute/route.test.ts` (run in `apps/web/`).
 - **Agent brief:** Implement `searchLeg` in `packages/compute/src/route.ts` exactly as 02 §D.2 defines it (impassable rule, Tobler step cost with multipliers, admissible heuristic, cell-index tie-break, expansion limit, cancellation hook) until `packages/compute/tests/route.test.ts` passes.
-- **Conflict notes:** Stacks on T05.07's branch. T05.01's stub edit removed `snapToPassable` and `toLeg` from this file before this subtask starts. Cut 6 drops it; the fallbacks are T05.30 and T09.08.
+- **Conflict notes:** Stacks on T05.07's branch. T05.01's stub edit removed `snapToPassable` and `toLeg` from this file before this subtask starts. Cut 7 drops it; the fallbacks are T05.30 and T09.08.
 
 ### T05.19 — Implement no-route reasons and nearest reachable cell
 
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
 - **Type:** implement
-- **Tag:** agent-ready · cut-6
+- **Tag:** agent-ready · cut-7
 - **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `packages/compute/src/noRoute.ts`
@@ -506,7 +508,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
   - FR-07: "Given no passable connection, then the leg is marked 'No feasible route' with the reason … and the nearest reachable point toward the target is shown" (compute part).
 - **Verify:** `npx vitest run tests/compute/noRoute.test.ts` (run in `apps/web/`).
 - **Agent brief:** Implement the no-route pre-checks, barrier classification and nearest reachable cell in `packages/compute/src/noRoute.ts` until `packages/compute/tests/noRoute.test.ts` passes. Leave the mixed-barrier rule as a `TODO(decision)` unless the lane owner has decided it.
-- **Conflict notes:** Stacks on T05.08's branch and rebases on T05.18. Cut 6 drops it.
+- **Conflict notes:** Stacks on T05.08's branch and rebases on T05.18. Cut 7 drops it.
 
 ### T05.20 — Implement snapping
 
@@ -621,7 +623,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
   - FR-10 (compute part): each warning carries severity, the affected segment or time and a message.
 - **Verify:** `npx vitest run tests/compute/warnings.test.ts` (run in `apps/web/`).
 - **Agent brief:** Implement `collectWarnings` and `planStatus` in `packages/compute/src/warnings.ts` from 01 FR-10, 05 §C Warning, 05 §E.6 and 03 §E.4 until `packages/compute/tests/warnings.test.ts` passes. Keep undecided severities as `TODO(decision)`.
-- **Conflict notes:** Stacks on T05.13's branch. The 1.3 LOW_TI cost and the LOW_TI warning stay dormant under cut 4 (no threshold, map §h.6).
+- **Conflict notes:** Stacks on T05.13's branch. The 1.3 LOW_TI cost and the LOW_TI warning stay dormant under v1 cut 4 (no v2 cut item) (no threshold, map §h.6).
 
 ### T05.25 — Implement input validation
 
@@ -755,7 +757,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Depends on:** T09.06 (hard: the fallbacks start only on a no-go), T05.17 (hard: reuses the profile code), T05.21 (hard: reuses leg assembly), T05.22 (hard: reuses the time model)
 - **Parallel with:** T09.08
 - **Steps:**
-  1. Start only when ADR-004 records a no-go, or cut 6 is called (map §h.6).
+  1. Start only when ADR-004 records a no-go, or cut 7 is called (map §h.6).
   2. Ask for the C6 `contract-change:` that lets COMPUTE_PLAN carry hand-drawn leg vertices (02 §E.2 has no such field; spec question 15).
   3. `manualLeg.ts`: resample each drawn leg, flag over-limit, no-data and hazard samples instead of refusing them, and build legs with the leg-assembly and profile code.
   4. In `handler.ts`, route COMPUTE_PLAN through manual legs when they are present; warnings come from `collectWarnings` once T05.24 has merged.

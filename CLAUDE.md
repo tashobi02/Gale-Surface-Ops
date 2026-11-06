@@ -60,7 +60,7 @@ Work follows the task windows and dependency order in [docs/tasks/_coordination.
 | `docs/decisions/` | ADR-001…012 mirroring D-01…D-14 |
 | `docs/reference/` | Official challenge text (verbatim), Mars science reference |
 | `docs/ops/` | Rules check (Track P), team roster, feasibility, demo script, submission checklist |
-| `docs/tasks/` | Atomized v1 task plans (TASK-00…18) + coordination map; v2 tasks listed in 06 §C.2 |
+| `docs/tasks/` | Atomized task plans: v1 TASK-00…18 (re-dated to 06 v2.2) and v2 TASK-05b, TASK-20…31; coordination map; `scripts/check_tasks.py` checks them |
 | `schemas/` | JSON Schemas: site manifest, plan export, scenario, param set (from 05) |
 | `packages/protocol/src/` | `schema.ts` (05 §C.1), `worker.ts` (02 §E.2), `runtime.ts` (05 §C.2), `ws.ts` (02 §E.6) |
 | `packages/compute/src/` | Pure science: v1 routing/time/radiation/Mars24 + v2 haven, rendezvous, viewshed, link graph, Earth link, event dose, consumables, contingency |

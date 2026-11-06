@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Plan panel + waypoint editing |
 | Requirements | FR-05, FR-06 (06 §C); also FR-09, NFR-03, NFR-04, SCR-04 (register) |
-| Lane / owner role | frontend — Frontend engineer |
-| Milestone | M2 (contract T08.01) · M3 (store, markers, Add-stop mode) · M4 (rest) |
-| Window | pre-event-allowed (T08.01) · event-only (all others) |
+| Lane / owner role | frontend — R3 Map & Planner UI: Saba Atharique |
+| Milestone | M2 (contract T08.01) · M3 (everything else; 06 §C.1 *When*: P 8–10 Nov) |
+| Window | pre-event-if-permitted; T08.01 is pre-event-allowed |
 | Effort (doc 06) | 4–6 h |
 | Done when (doc 06) | All E.3 validation rules enforced in UI |
 | Main risk → fallback | Drag complex → buttons only |
 | Spec sections | [01 FR-05](../specs/01_Product_Requirements_Document.md#fr-05--mission-inputs-with-validated-defaults) · [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing) · [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10) · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) · [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules) · [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel) · [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating) · [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows) · [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable) · [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states) · [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior) · [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior) · [05 MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input) · [05 Waypoint](../specs/05_Backend_and_Database_Schema.md#waypoint-user-input) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 
@@ -76,7 +78,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** test
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2 h
 - **Owns (writes):** `apps/web/tests/state/planStore.test.ts`
 - **Reads:** `apps/web/src/state/planStore.ts` (C11), `apps/web/tests/fixtures/plan-results/` (F2), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules), [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating), [03 §E.3](../specs/03_App_Flow_and_Diagrams.md#e3-sequence--compute-plan), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing)
@@ -107,7 +109,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/state/planStore.ts`
 - **Reads:** `apps/web/src/state/planStore.ts` (C11), `apps/web/tests/state/planStore.test.ts`, `packages/protocol/src/schema.ts`, `packages/protocol/src/worker.ts`, `packages/compute/src/route.ts` (`MAX_STOPS`), `apps/web/src/ui/context.ts` (C10 worker client), [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating), [03 §E.3](../specs/03_App_Flow_and_Diagrams.md#e3-sequence--compute-plan), [03 §E.4](../specs/03_App_Flow_and_Diagrams.md#e4-state--plan-computation-asynchronous-cancellable), [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules)
@@ -134,7 +136,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/screens/scr04PlanPanel.tsx`, `apps/web/src/ui/screens/scr04PlanPanel.css`
 - **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/state/planStore.ts` (C11), `packages/compute/src/validate.ts` (C7), `packages/compute/src/mars24.ts` (C8), `apps/web/src/ui/plan/stopsList.ts`, `apps/web/src/ui/components/metric.ts`, `apps/web/src/ui/styles/tokens.css`, [01 FR-05](../specs/01_Product_Requirements_Document.md#fr-05--mission-inputs-with-validated-defaults), [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [04 §B](../specs/04_Design_Brief.md#b-layout-and-navigation), [04 §C.2](../specs/04_Design_Brief.md#c2-typography), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [05 MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input)
@@ -145,7 +147,7 @@
   2. One field per MissionScenario input (05 §C), each with its unit (04 §C.2): start time UTC with an LTST preview, max EVA duration, dwell per stop, hard and caution slope, walkback limit, suited speed, solar phase, loop toggle (03 SCR-04).
   3. Check every change with `validate.ts`; show the allowed range inline; keep the last valid value in effect until corrected; never pass an invalid value to the store (03 SCR-04, §C.3, §D).
   4. Show the badge "Defaults are assumptions — not flight rules." and a Reset defaults action; default values carry provenance `assumed` with the C10 attributes (05 §C MissionScenario).
-  5. Fill the LTST preview from `localTrueSolarTime`; show "—" with a tooltip while it is unavailable (stub, or cut 5).
+  5. Fill the LTST preview from `localTrueSolarTime`; show "—" with a tooltip while it is unavailable (stub, or v1 cut 5, no v2 cut item).
   6. Collapse the inputs into a "Constraints" accordion after the first edit while the stops list stays open (04 §B); field states per 04 §D Input field.
 - **Acceptance:**
   - Serves: FR-05, SCR-04 · [01 FR-05](../specs/01_Product_Requirements_Document.md#fr-05--mission-inputs-with-validated-defaults), [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel)
@@ -163,7 +165,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/plan/stopsList.ts`
 - **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/state/planStore.ts` (C11), `apps/web/tests/fixtures/plan-results/` (F2), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [01 FR-09](../specs/01_Product_Requirements_Document.md#fr-09--traverse-time-distance-and-return-estimates), [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer) (display format), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [04 §D](../specs/04_Design_Brief.md#d-interaction-and-component-behavior), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
@@ -189,7 +191,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/map/waypointLayer.ts`
 - **Reads:** `apps/web/src/ui/context.ts` (C10 map handle, worker client, provenance attributes), `apps/web/src/state/planStore.ts` (C11), `packages/protocol/src/worker.ts` (C6), `packages/compute/src/route.ts` (`SNAP_RADIUS_M`), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10), [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows), [03 §E.1](../specs/03_App_Flow_and_Diagrams.md#e1-overall-user-flow), [04 §C.3](../specs/04_Design_Brief.md#c3-shape-grid-and-structure), [04 §C.5](../specs/04_Design_Brief.md#c5-map-annotations-and-selection-states), [05 Waypoint](../specs/05_Backend_and_Database_Schema.md#waypoint-user-input), [05 Site](../specs/05_Backend_and_Database_Schema.md#site)
@@ -215,8 +217,8 @@
 
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
-- **Tag:** agent-ready · cut-3
-- **Window:** event-only
+- **Tag:** agent-ready · cut-4
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–2 h
 - **Owns (writes):** `apps/web/src/ui/map/addStopMode.ts`
 - **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/map/waypointLayer.ts`, [03 SCR-02](../specs/03_App_Flow_and_Diagrams.md#scr-02--map-workspace), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior), [04 §F SCR-02](../specs/04_Design_Brief.md#scr-02-map-workspace-with-scr-03040507-embedded), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), map §h.6
@@ -234,14 +236,14 @@
   - Typing in an input never toggles the mode.
 - **Verify:** Manual: toggle by button and by `A`; place by click; place by `Enter` at the crosshair using the keyboard only. Then `make lint typecheck`.
 - **Agent brief:** Implement `apps/web/src/ui/map/addStopMode.ts`: the Add-stop toggle, the map-centre crosshair, click placement and the `A` / `Enter` keys of 04 §E, all placing through the T08.06 placement function. The toolbar button itself belongs to T07.08.
-- **Conflict notes:** Cut 3 drops this subtask (map §h.6): stops then come from SCR-06 "Add as stop" (T10.01), and the M3 check uses the demo plan (T07.14) if this is not done by M3. T13.06 also covers 04 §E keys (Spec questions 7). Owns only `addStopMode.ts` (stub from T07.01).
+- **Conflict notes:** Cut 4 drops this subtask (map §h.6): stops then come from SCR-06 "Add as stop" (T10.01), and the M3 check uses the demo plan (T07.14) if this is not done by M3. T13.06 also covers 04 §E keys (Spec questions 7). Owns only `addStopMode.ts` (stub from T07.01).
 
 ### T08.08 — Implement desktop drag: waypoints on the map, rows in the stops list
 
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
 - **Owns (writes):** `apps/web/src/ui/map/waypointDrag.ts`
 - **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/state/planStore.ts` (C11), `apps/web/src/ui/map/waypointLayer.ts`, `apps/web/src/ui/plan/stopsList.ts`, [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) (step 5), [03 §C.3](../specs/03_App_Flow_and_Diagrams.md#c3-editing-and-recalculating), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel)
@@ -266,8 +268,8 @@
 
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** implement
-- **Tag:** agent-ready · cut-2
-- **Window:** event-only
+- **Tag:** agent-ready · cut-4
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2.5 h
 - **Owns (writes):** `apps/web/src/ui/map/touchInput.ts`
 - **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/ui/map/waypointLayer.ts`, `apps/web/src/ui/map/waypointDrag.ts`, [01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) (NFR-03), [04 §C.3](../specs/04_Design_Brief.md#c3-shape-grid-and-structure), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior)
@@ -284,14 +286,14 @@
   - With this subtask cut, tablets still view and add or delete stops through POI "Add as stop" and the list Delete button (01 Clarifications).
 - **Verify:** Manual on a touch device or emulator at 768 px width: long-press placement, touch drag of a marker and a row, target sizes. Then `make lint typecheck`.
 - **Agent brief:** Implement long-press placement in `apps/web/src/ui/map/touchInput.ts` through the T08.06 placement function, and verify touch drag and 44 px targets on a tablet-width viewport. Do not edit `waypointDrag.ts`; report drag gaps to its owner.
-- **Conflict notes:** Cut 2 drops this subtask (map §h.6). Owns only `touchInput.ts` (stub from T07.01). Bottom-sheet layout for 768–1023 px belongs to T07.08 (04 §E).
+- **Conflict notes:** Cut 4 drops this subtask (map §h.6). Owns only `touchInput.ts` (stub from T07.01). Bottom-sheet layout for 768–1023 px belongs to T07.08 (04 §E).
 
 ### T08.10 — Fallback — start only if T08.08 is not working at the Day 1 17:30 checkpoint: buttons-only stop move
 
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** fallback
 - **Tag:** agent-ready · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `apps/web/src/ui/map/waypointDrag.ts` (replaces T08.08)
 - **Reads:** `apps/web/src/ui/context.ts` (C10), `apps/web/src/state/planStore.ts` (C11), `apps/web/src/ui/map/waypointLayer.ts`, [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) (TASK-08 fallback), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [01 §E](../specs/01_Product_Requirements_Document.md#e-core-demonstration-scenario) (step 5)
@@ -315,7 +317,7 @@
 - **Owner:** Saba Atharique (R3 Map & Planner UI)
 - **Type:** verify
 - **Tag:** human-required · core
-- **Window:** event-only
+- **Window:** pre-event-if-permitted
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules), [03 SCR-04](../specs/03_App_Flow_and_Diagrams.md#scr-04--plan-panel), [01 FR-05](../specs/01_Product_Requirements_Document.md#fr-05--mission-inputs-with-validated-defaults), [01 FR-06](../specs/01_Product_Requirements_Document.md#fr-06--waypoint-placement-and-editing), [06 §D.7](../specs/06_High_Level_Implementation_Plan.md#d7-definition-of-done-per-feature), map Test-case allocation
@@ -366,9 +368,9 @@ flowchart LR
   T08_04["T08.04 SCR-04 + inputs"]
   T08_05["T08.05 stops list"]
   T08_06["T08.06 markers + placement"]
-  T08_07["T08.07 Add-stop mode (cut 3)"]
+  T08_07["T08.07 Add-stop mode (cut 4)"]
   T08_08["T08.08 desktop drag"]
-  T08_09["T08.09 tablet touch (cut 2)"]
+  T08_09["T08.09 tablet touch (cut 4)"]
   T08_10["T08.10 fallback: buttons-only move"]
   T08_11["T08.11 verify E.3 + SCR-04"]
 
@@ -413,6 +415,6 @@ flowchart LR
 7. **`A` and `Enter` keys.** The T08.07 title assigns `A` and crosshair `Enter` to Add-stop mode, while T13.06 implements the 04 §E key map that also lists them. One subtask must own each binding; this file keeps `A` and `Enter` in T08.07.
 8. **Map change proposed: T05.25 → T08.11 (hard).** The UI check needs the real 02 §E.3 validation that T08.04 imports from `validate.ts`; this cross-task hard dependency is not in map §f.
 9. **Map wiring of TASK-08 modules.** Who calls the attach functions of `waypointLayer.ts`, `addStopMode.ts`, `waypointDrag.ts` and `touchInput.ts`, and how a cut module (T08.07, T08.09) or an unfinished stub stays harmless (e.g. the toolbar hides the Add-stop toggle), should be fixed in C10 by T07.01.
-10. **Keyboard move.** 04 §E gives keyboard users no way to move a placed stop (only delete and re-add at the crosshair, which cut 3 removes); NFR-04 asks for keyboard operation of all controls. Note for T13.06 and T13.10.
+10. **Keyboard move.** 04 §E gives keyboard users no way to move a placed stop (only delete and re-add at the crosshair, which cut 4 removes); NFR-04 asks for keyboard operation of all controls. Note for T13.06 and T13.10.
 11. **Effort.** 06 gives 4–6 h for TASK-08; the eleven subtasks are estimated higher (map open point 18).
 12. **T14.01 → T08.02.** The store tests may not need a DOM environment, so the map's hard edge T14.01 → T08.02 could be soft; kept hard here to match map §f.

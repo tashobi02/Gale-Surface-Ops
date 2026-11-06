@@ -4,13 +4,15 @@
 | --- | --- |
 | Objective | Feasibility: AOI, DEM quality, coverage checks |
 | Requirements | FR-01–03, FR-18, A-01 (06 §C); U-01, U-02, U-05, U-09, U-10, D-01 |
-| Lane / owner role | data — Data/GIS lead (06 §C owner: Data lead) |
-| Milestone | M0 (2–5 Nov); D-01 checkpoint 5 Nov ([06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints)) |
+| Lane / owner role | data — R1 Data & GIS: Obidit Islam |
+| Milestone | M0 (kickoff 6 Nov: AOI and hab position proposed); 06 §C.1 *When*: P 6–7 Nov |
 | Window | pre-event-allowed |
 | Effort (doc 06) | 4–8 h |
 | Done when (doc 06) | AOI inside DEM extent; hillshade shows HiRISE-scale texture across ≥ 80 % of AOI |
 | Main risk → fallback | DEM is CTX-quality → switch to Jezero (USGS M2020 TRN HiRISE DTM mosaic) same day |
 | Spec sections | [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) · [02 §C.1](../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer) · [02 §C.2](../specs/02_Technical_Requirements_Document.md#c2-data-layers) · [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) · [01 §F.2](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) · [05 §C Site](../specs/05_Backend_and_Database_Schema.md#site) · [feasibility.md](../ops/feasibility.md) · [ADR-001](../decisions/ADR-001-site-selection.md) |
+
+> **Re-dated 2026-11-06** to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 (session handoff §F.2): milestones follow 06 §B v2, windows follow Track P (recorded 4 Nov), cut tags follow the v2 cut list in 06 §D.4 ([map §h.6](_coordination.md#h6-cut-list--subtasks-06-d4)), and every subtask names its Owner from 06 §A.2. Step texts that still mention v1 times (for example "Day 1" or "M5") refer to the v1 plan; the register in the [coordination map](_coordination.md#a3-register) is authoritative.
 
 ## Inputs this task consumes
 
