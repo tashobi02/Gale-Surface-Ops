@@ -658,7 +658,7 @@ IDs continue after U-29 (04 ends at U-27, but U-28 and U-29 are used in 03). U-4
 | U-54 | Allow a task count on the HUD as a sixth value, or fold it into the STOP sub-label (G-35)? | Design (R6) + R5 | TASK-15 |
 | U-55 | Skip-reason capture: one tap records `other`, then one REASON control in the 5-s undo strip (G-33). Acceptable with gloves? | Design (R6) | UT-8 |
 | U-56 | On abort or rendezvous, do open tasks at the current stop also become DROPPED (G-39)? | R2 | TASK-31 |
-| U-57 | Ratify the full-screen map: scope (EVA, ops, planner), layer set, close-on-warning, and drag/wheel/pinch as extras (G-42, G-43). Pinch needs a touch-hardware test. | Sadman + R3 | TASK-07 / TASK-15 |
+| U-57 | Full-screen map — **scope decided 2026-11-05: Tier 1**, on the EVA tablet with shared controls on ops and planner (01 FR-32, 04 §E.5, 06 TASK-07/TASK-24). Still open: final layer set and a pinch test on touch hardware (pinch stays an extra). | Sadman + R3 | TASK-07 / TASK-15 |
 | U-58 | Who writes the final task text, in which file, and who may add tasks from ops (limit, audit)? Prototype text is PROPOSED copy from the POI objectives. | R1 + R6 | TASK-31 |
 | U-59 | List collapse during an alert: collapse while the options sheet is open or a warning is unacknowledged, then allow a read-only list (G-40)? | Sadman | TASK-24 |
 | U-60 | Ratify, for the landscape full-screen map only, the stacked HAVEN / O₂ cards at 40 px (48 px on tablets), below the 56 px rule and with O₂ below HAVEN rather than beside it (G-48); or keep 56 px values and accept a smaller map. | Sadman + Design (R6) | UT-9 |

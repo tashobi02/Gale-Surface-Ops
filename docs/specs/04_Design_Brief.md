@@ -411,6 +411,15 @@ EGRESS ▸ TRAVERSE ▸ STOP 1 ▸ TRAVERSE ▸ ■ STOP 2 ▸ TRAVERSE ▸ STOP
 
 **Stop task list (FR-50, added 2026-11-05, Proposed).** While walking, the NEXT card ends with a task count (`TASKS 0/3`). At a stop, the NEXT card becomes the task list: up to four rows of at least 56 px, each a neutral square check box, the task text and a SKIP control. States use neutral chrome only — an empty square for to do, a square with a check mark drawn in it for done (not a filled `■`, which §C.1 gives to the MEASURED provenance chip; mockup handoff G-32), `⊘` for skipped or dropped — with the word beside each; task progress is not a safety status, so no status colour is used. An unsynced change shows "not synced" in the metadata strip. During an alert the list collapses back to its count; the alert slot, HAVEN, O₂ and the action row never move. The landscape variant follows the same rules inside the NEXT position of the mockup handoff's landscape layout (U-30, [design/mockup-handoff.md](../design/mockup-handoff.md)). The prototype shows it (SCR-08, SCR-11, SCR-12, SCR-17); open layout questions are U-51 to U-58 in the [mockup handoff](../design/mockup-handoff.md#unresolved-items).
 
+**Full-screen map (Tier 1, added 2026-11-05).** Tapping the mini-map or a FULL button opens the map over the body area.
+
+- **Fixed geography holds:** the alert slot, the metadata strip and the action row do not move; HAVEN and O₂ stay visible. In portrait they keep their row. In landscape they stack at the left as smaller cards so the map gets at least 80 % of the width; HAVEN keeps the top-left origin.
+- **Controls are buttons, not gestures:** +, −, FIT, FOLLOW, LAYERS and CLOSE, each at least 56 px and labelled with a word (§A.3 #9). Drag, wheel and pinch are extras only.
+- **Layers:** slope, thermal inertia, comm shadow and haven bands; at most two scientific overlays at once, and a third turns the oldest off and says so.
+- **Warnings win:** a warning closes the full-screen map and returns the normal layout.
+- **Exception under review:** the landscape stacked cards show HAVEN and O₂ at 40 px on phones (48 px on tablets), below the 56 px rule in §A.3. This applies only inside the landscape full-screen map and stands until U-60 and usability test UT-9 decide.
+- **Ops and planner maps** get the same on-screen + / − / FIT buttons, plus drag and wheel; ops adds Slope and Thermal inertia toggles (handoff DV-14).
+
 ### E.6 SCR-13 HUD (black, landscape)
 
 ```text

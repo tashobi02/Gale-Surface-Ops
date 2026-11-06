@@ -199,6 +199,7 @@ Tiers replace v1's single MVP list. A tier is not started until the one above it
 - Contingency re-plan (abort to haven, skip remaining stops).
 - Event log and post-EVA report.
 - Stop task list on the EVA tablet, synced to ops (FR-50, added 2026-11-05).
+- Full-screen map on the EVA tablet with on-screen map controls, and zoom/pan buttons on the ops and planner maps (FR-32, added 2026-11-05).
 
 ### C.3 Tier 2 — Should (only after Tier 1 exit criteria)
 
@@ -273,6 +274,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 #### FR-32 — EVA client (suit tablet) [T1, M]
 
 - **User story:** As an EVA crew member, I see where to go next, how much margin I have, and what to do if something changes, on a small screen with gloves on.
+- **Full-screen map** *(added 2026-11-05, Tier 1, product & systems lead's decision)*: tapping the mini-map or FULL opens a full-screen map with labelled on-screen controls (+, −, FIT, FOLLOW, LAYERS, CLOSE) and up to two scientific layers at once (slope, thermal inertia, comm shadow, haven bands). HAVEN and O₂ stay on screen, the alert slot and action row never move, and a warning closes it. Layout: 04 §E.5; prototype: [mockup handoff](../design/mockup-handoff.md) DV-13, G-42, G-43.
 - **Content:** next stop (name, bearing, distance, ETA), mini-map with route and my position, margins strip (time to haven, O₂ remaining, EVA time remaining, dose so far), alert banner, three primary actions: **Summon vehicle**, **Task rover** (T2), **Abort to haven**.
 - **Acceptance criteria:**
   - Works on a phone/tablet ≥ 360 px wide in portrait; touch targets ≥ 56 px (glove use, **Assumed**).
