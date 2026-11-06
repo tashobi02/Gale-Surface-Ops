@@ -1,0 +1,5 @@
+/* Spike page only; not the product design (04 does not apply). */
+body { margin: 0; background: #000; color: #fff; font-family: system-ui, sans-serif; }
+main { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+#seq { font-size: 40vw; font-variant-numeric: tabular-nums; line-height: 1; margin: 0; }
+#status, #arrived, #device { font-size: 5vw; margin: 0.5em; font-variant-numeric: tabular-nums; }

@@ -1,0 +1,17 @@
+{
+  "param_set_id": "link-assumed",
+  "kind": "link",
+  "title": "Surface radio and Earth link",
+  "values": {
+    "range_hab_suit_m": 10000,
+    "range_suit_suit_m": 2000,
+    "range_rover_m": 5000,
+    "hab_mast_m": 10,
+    "relay_min_elev_deg": 10,
+    "conjunction_deg": 3,
+    "dte_enabled": false
+  },
+  "provenance": "assumed",
+  "source_ids": [],
+  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20)."
+}

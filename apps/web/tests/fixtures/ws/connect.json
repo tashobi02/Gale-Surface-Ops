@@ -1,0 +1,92 @@
+[
+  {
+    "v": 1,
+    "type": "SNAPSHOT",
+    "seq": 412,
+    "sim_time": "2024-05-20T13:05:00Z",
+    "session": {
+      "session_id": "s-0007",
+      "scenario_id": "storm-sol4190",
+      "data_version": "gale_boxwork-2026.11.08",
+      "seed": 4190,
+      "status": "RUNNING",
+      "clock": {
+        "sim_time": "2024-05-20T13:05:00Z",
+        "speed": 60,
+        "paused": false
+      },
+      "plan_revision": 3,
+      "last_seq": 412,
+      "log_hash": ""
+    },
+    "plan": null,
+    "crew": [
+      {
+        "crew_id": "EV1",
+        "x_m": 2410.5,
+        "y_m": -1875.0,
+        "activity": "WALKING",
+        "stop_index": null,
+        "o2_frac": 0.71,
+        "eva_elapsed_s": 0,
+        "dose_event_ugy": 0,
+        "dose_event_unsheltered_ugy": 0,
+        "haven": {
+          "minutes": 18.4,
+          "kind": "vehicle",
+          "target_x_m": 0,
+          "target_y_m": 0
+        },
+        "linked": true,
+        "link_path": [],
+        "stale": false
+      }
+    ],
+    "vehicles": [
+      {
+        "vehicle_id": "PR1",
+        "kind": "pressurized_rover",
+        "param_set": "pr1-assumed",
+        "x_m": -1800,
+        "y_m": -1500,
+        "state": "PARKED",
+        "task": null,
+        "path": [],
+        "eta_s": null,
+        "battery_wh": null
+      }
+    ],
+    "alerts": [],
+    "options": [],
+    "tasks": [
+      {
+        "task_id": "t-s2-02",
+        "stop_id": "wp-2",
+        "crew_id": "EV1",
+        "kind": "image",
+        "text": "Image the ridge crest",
+        "state": "TODO",
+        "reason": null,
+        "origin": "plan",
+        "updated_sim_time": "2024-05-20T13:05:00Z",
+        "updated_by": "system",
+        "provenance": {
+          "state": "simulated",
+          "text": "assumed"
+        }
+      }
+    ],
+    "earth": {
+      "light_time_s": 0,
+      "next_pass_utc": null,
+      "blackout": false,
+      "queue": []
+    },
+    "clients": [],
+    "provenance": {
+      "crew.o2_frac": "simulated",
+      "crew.haven.minutes": "modelled",
+      "earth.light_time_s": "derived"
+    }
+  }
+]

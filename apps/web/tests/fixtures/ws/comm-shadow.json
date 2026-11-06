@@ -1,0 +1,24 @@
+[
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 0,
+    "sim_time": "",
+    "event": {
+      "seq": 0,
+      "sim_time": "",
+      "kind": "ALERT_RAISED",
+      "actor": "system",
+      "data": {
+        "alert_id": "",
+        "code": "COMM_SHADOW",
+        "level": "caution",
+        "subjects": [
+          "EV1"
+        ],
+        "message": "Comm shadow in 120 m — stay with EV2"
+      },
+      "provenance": {}
+    }
+  }
+]

@@ -2,6 +2,9 @@
  * Hab Core runtime entities (docs/specs/05 §C.2, ParamSet in §C.1). Field names are copied from 05;
  * 05 owns them. Change 05 first, then this file and schemas/*.schema.json together.
  *
+ * Protocol v0 — freeze date 2026-11-07 (M1; T20.01, contract C13). After the freeze, changes go through a
+ * `contract-change:` subtask in TASK-20. The wire version stays `v: 1` (02 §E.6); "v0" names the freeze.
+ *
  * Conventions: `sim_time` is ISO-8601 UTC on the mission clock (never wall-clock); `seq` is the
  * Hab Core's monotonic event number; positions are working-projection metres.
  */
@@ -160,7 +163,9 @@ export type RoverTaskKind = "SCOUT" | "CARRY" | "RELAY" | "RETURN";
 
 /**
  * `TASK_ROVER` args. Shape follows FR-41 (SCOUT(point), CARRY(item, to), RELAY(point), RETURN);
- * 02 §E.6 gives no example. Proposed 2026-11-06 for the protocol freeze; TASK-29.
+ * 02 §E.6 gives no example. CARRY's "to" is `target`. An accepted task emits `VEHICLE_DISPATCHED`
+ * with `{vehicle_id, task, target}` in `data`; no new LogEventKind (decided 2026-11-06, T20.01).
+ * TODO(verify): confirmed by the TASK-29 owners (Mishkat Ahmed Khan, Saba Atharique) in the T20.01 PR.
  */
 export interface TaskRoverArgs {
   vehicle_id: string;
@@ -267,6 +272,10 @@ export interface Command {
   command_id: string;
   role: Role;
   kind: CommandKind;
+  /**
+   * Per-kind fields, nested here on the wire too (05 Command; decided 2026-11-06, T20.01).
+   * The 02 §E.6 COMMAND examples still show them beside `kind`; a 02 spec-change aligns them.
+   */
   args: Record<string, unknown>;
   /** Set by an EVA client resending after LINK_STATE linked=true. */
   queued_offline?: boolean;
@@ -282,6 +291,7 @@ export type LogEventKind =
   | "ALERT_CLEARED"
   | "OPTIONS_PROPOSED"
   | "PLAN_REVISED"
+  /** Also emitted for an accepted `TASK_ROVER` (data `{vehicle_id, task, target}`). */
   | "VEHICLE_DISPATCHED"
   | "VEHICLE_ARRIVED"
   | "CREW_SHELTERED"
@@ -316,7 +326,8 @@ export interface EarthMessage {
   deliver_utc: string;
   via: "mro" | "maven" | "tgo" | "dte";
   state: "QUEUED" | "IN_TRANSIT" | "DELIVERED";
-  provenance: "simulated";
+  /** 05 EarthMessage: `simulated`, delivery time `derived`, e.g. {"state": "simulated", "deliver_utc": "derived"}. */
+  provenance: ProvenanceMap;
 }
 
 export interface LinkState {
@@ -325,3 +336,9 @@ export interface LinkState {
   linked_to_hab: boolean;
   since_sim_time: string;
 }
+
+/*
+ * PostEvaReport (05 §C.2) has no type in v0: 05 lists its contents in prose but defines no field
+ * names, so a type here would invent them. TODO(decision): add a field table to 05 PostEvaReport,
+ * then the type, in T27.01 (`GET /api/report`).
+ */

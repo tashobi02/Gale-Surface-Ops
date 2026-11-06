@@ -1,0 +1,13 @@
+{
+  "param_set_id": "shielding-assumed",
+  "kind": "shielding",
+  "title": "Event dose shielding factors (not physically modelled)",
+  "values": {
+    "suit": 1.0,
+    "pressurized_rover": 0.6,
+    "hab": 0.4
+  },
+  "provenance": "assumed",
+  "source_ids": [],
+  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20)."
+}
