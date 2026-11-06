@@ -1,0 +1,15 @@
+{
+  "source_id": "usgs-themis-ti-30s120e",
+  "title": "THEMIS Thermal Inertia Mosaic Quantitative 30S120E 100mpp",
+  "publisher": "USGS Astrogeology Science Center",
+  "authors": "Fergason",
+  "missions": ["Mars Odyssey"],
+  "instruments": ["THEMIS"],
+  "version": "Edition 1; Fergason (2014-05-30)",
+  "url": "https://astrogeology.usgs.gov/search/map/themis_thermal_inertia_mosaic_quantitative_30s120e_100mpp",
+  "credit": "Please cite authors",
+  "licence": "Access constraints: public domain; use constraints: please cite authors",
+  "accessed": "2026-11-06",
+  "native_resolution_m": 100,
+  "accuracy_note": "The product page states absolute accuracy of approximately 20%. The cube's unit is TODO(verify) against its ISIS label; 02 §C.2 L4 specifies tiu (J m⁻² K⁻¹ s⁻½)."
+}

@@ -1,0 +1,15 @@
+{
+  "source_id": "usgs-gale-dem-1m-v3",
+  "title": "Mars MSL Gale Merged DEM 1m",
+  "publisher": "USGS Astrogeology Science Center",
+  "authors": "Parker, T.; Calef III, F. J.",
+  "missions": ["MRO", "Mars Express", "MGS"],
+  "instruments": ["HiRISE", "CTX", "HRSC", "MOLA"],
+  "version": "v3",
+  "url": "https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_dem_1m",
+  "credit": "Please credit authors",
+  "licence": "Use constraints: none",
+  "accessed": "2026-11-02",
+  "native_resolution_m": 1,
+  "accuracy_note": "HRSC controlled to MOLA (~100 m horizontal, ~1 m vertical)"
+}

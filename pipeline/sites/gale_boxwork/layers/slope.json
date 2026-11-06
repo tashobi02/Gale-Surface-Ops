@@ -1,0 +1,18 @@
+{
+  "layer_id": "slope",
+  "title": "Slope",
+  "category": "topographic",
+  "kind": "raster_tiles",
+  "provenance": "derived",
+  "source_ids": ["usgs-gale-dem-1m-v3"],
+  "derived_from": ["elevation"],
+  "units": "deg",
+  "native_resolution_m": 1,
+  "display_resolution_m": 2,
+  "legend": {"type": "classes", "breaks_follow_scenario": true, "classes": [[0, 5, "flat"], [5, 10, "gentle"], [10, 15, "caution"], [15, 25, "over limit"], [25, 90, "steep"]]},
+  "asset_id": "tiles-slope",
+  "tile_grid": {"origin_m": [-3000, 3000], "resolutions_m": [32, 16, 8, 4, 2], "tile_size_px": 256, "format": "png"},
+  "default_visible": false,
+  "optional": true,
+  "limitations": "Horn slope on 1 m posts; effective DTM resolution is coarser; artifacts possible."
+}

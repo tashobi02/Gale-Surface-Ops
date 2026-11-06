@@ -1,0 +1,17 @@
+{
+  "layer_id": "elevation",
+  "title": "Elevation",
+  "category": "topographic",
+  "kind": "raster_tiles",
+  "provenance": "derived",
+  "source_ids": ["usgs-gale-dem-1m-v3"],
+  "units": "m",
+  "legend": {"type": "ramp", "stops": "TODO(verify)"},
+  "native_resolution_m": 1,
+  "display_resolution_m": 2,
+  "asset_id": "tiles-elevation",
+  "tile_grid": {"origin_m": [-3000, 3000], "resolutions_m": [32, 16, 8, 4, 2], "tile_size_px": 256, "format": "png"},
+  "default_visible": false,
+  "optional": true,
+  "limitations": "Post spacing 1 m; effective resolution of photogrammetric DTMs is coarser than post spacing; features of a few metres may be smoothed. HiRISE DTM artifacts include boxes, CCD seams and faceted low-contrast areas; inspect hillshade before use."
+}
