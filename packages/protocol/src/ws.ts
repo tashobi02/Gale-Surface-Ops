@@ -1,6 +1,16 @@
 /**
- * Hab Core WebSocket protocol, version 1 (docs/specs/02 §E.6). Every message carries `v`;
- * server messages carry `seq` and `sim_time`. Roles and permissions: 02 §E.4.
+ * Hab Core WebSocket protocol, wire version 1 (docs/specs/02 §E.6). Every message carries `v`;
+ * server messages carry `seq` and `sim_time` (COMMAND_RESULT excepted, as in the 02 §E.6 example).
+ * Roles and permissions: 02 §E.4.
+ *
+ * Protocol v0 — freeze date 2026-11-07 (M1; T20.01, contract C13). After the freeze, changes go
+ * through a `contract-change:` subtask in TASK-20. Differences from the 02 §E.6 examples, decided
+ * 2026-11-06 (a 02 spec-change aligns the examples):
+ * - COMMAND per-kind fields nested in `command.args` (05 Command);
+ * - HELLO carries `display_name` (02 §E.4);
+ * - SNAPSHOT crew `haven` is nested (05 Crew), not `haven_min`/`haven_kind`;
+ * - SNAPSHOT `earth` is top level with `queue` (02 shows `link.earth`; 05 defines no SNAPSHOT);
+ * - EVENT alert fields sit in `event.data` with `level` (05 Alert), not `code`/`severity` on the event.
  */
 import type {
   Alert,
@@ -8,6 +18,7 @@ import type {
   Command,
   ContingencyOption,
   Crew,
+  CrewId,
   EarthMessage,
   LogEvent,
   ProvenanceMap,
@@ -30,6 +41,8 @@ export interface Hello {
   type: "HELLO";
   role: Role;
   client_id: string;
+  /** 02 §E.4: a client joins with a role and a display name (shown in SNAPSHOT `clients`). */
+  display_name: string;
   last_seq: number;
 }
 
@@ -60,6 +73,7 @@ export interface StateDelta {
   changes: { path: string; value: unknown }[];
 }
 
+/** `event.data` carries the event's values; for `ALERT_RAISED` the Alert fields (`code`, `level`, …; 05 Alert). */
 export interface EventMessage {
   v: typeof PROTOCOL_VERSION;
   type: "EVENT";
@@ -74,7 +88,7 @@ export interface LinkStateMessage {
   type: "LINK_STATE";
   seq: number;
   sim_time: string;
-  crew_id: string;
+  crew_id: CrewId;
   linked: boolean;
 }
 
@@ -122,6 +136,7 @@ export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
     "ACK_ALERT",
     "TASK_ROVER",
     "SEND_MESSAGE",
+    // Not in the 02 §E.4 table; ops-only per 05 Command and TASK-23. The 02 spec-change adds the row.
     "INJECT_EVENT",
     "UPDATE_STOP_TASK",
     "ADD_STOP_TASK",
