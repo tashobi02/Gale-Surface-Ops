@@ -1,0 +1,19 @@
+{
+  "step_s": 60,
+  "rows": [
+    {
+      "t_utc": "2024-05-20T00:00:00Z",
+      "light_time_s": 0,
+      "sep_angle_deg": 0,
+      "earth_elev_deg": 0,
+      "orbiters": {
+        "mro": 0,
+        "maven": 0,
+        "tgo": 0
+      }
+    }
+  ],
+  "passes": [],
+  "kernels": [],
+  "provenance": "derived"
+}

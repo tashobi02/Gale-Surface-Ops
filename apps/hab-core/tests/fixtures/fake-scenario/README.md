@@ -1,0 +1,41 @@
+# Fake scenario fixture (F8)
+
+| | |
+| --- | --- |
+| **Owner** | T22.02 (Sadman Shaharier Mahim, R4 Hab Core) |
+| **Date** | 2026-11-06 |
+| **Status** | Test fixture. Synthetic shapes, not data; `site_id` `mock_site`; the demo never loads it |
+| **Related** | [06 §D.2](../../../../../docs/specs/06_High_Level_Implementation_Plan.md#d2-parallel-streams) · [05 Scenario](../../../../../docs/specs/05_Backend_and_Database_Schema.md#scenario) · [fixture value rule](../../../../../docs/tasks/_coordination.md#e-fixtures-and-mocks) · [TASK-22](../../../../../docs/tasks/TASK-22_simulation-engine.md) |
+
+A small scenario so the engine and server can run before TASK-21 delivers `storm-sol4190`: two crew, one pressurized rover, a straight-line plan with two stops, two stop tasks, a stepped synthetic dose curve and one constant Earth-link row.
+
+**Do not edit the JSON by hand.** Change `make_fake_scenario.py` and run it:
+
+```sh
+python3 apps/hab-core/tests/fixtures/fake-scenario/make_fake_scenario.py
+```
+
+`fixture.test.ts` validates `scenario.json` against `schemas/scenario.schema.json`, the plan against `schemas/plan-export.schema.json` and each ParamSet against `schemas/param-set.schema.json`, and recomputes the table SHA-256s and `plan_hash`.
+
+## Value sources
+
+| Value | Source |
+| --- | --- |
+| `scenario_schema_version` 1.0.0, `start_utc` 2024-05-20T00:00:00Z, `seed` 4190, crew `EV1`/`EV2` with `suit-assumed` and `start_offset_s` 0, `param_sets` list, Earth message body | 05 §F.4 scenario example |
+| `export_schema_version` 1.0.0, `app_version` 0.1.0, `max_eva_duration_h` 6, `dwell_min_per_stop` 20, `hard_slope_limit_deg` 15, `caution_slope_deg` 10, `walkback_limit_km` 5, `solar_phase` max, `loop` true, disclaimer | 05 §F.3 plan export example (6.0 and 5.0 written as 6 and 5, see below) |
+| `max_haven_min` 30, `crew_count` 2, `vehicle_available` true, `vehicle_param_set` `pr1-assumed` | 05 §F.4 `plan.scenario` |
+| `suited_flat_speed_kmh`, all ParamSet values | `param_sets/*.json`, copied unchanged from `scenarios/storm-sol4190/param_sets/` (each file cites its sources) |
+| Task text "Image the ridge crest", kind `image` | 05 StopTask example; the second task's text "Fixture task" is a placeholder |
+| `step_s` 60 | 05 EarthLinkTable rule |
+| Waypoints at x = 0, 1000, 2000 m on y = 0; rover start at the plan start | declared shape: `STOP_SPACING_M` 1000, `N_STOPS` 2 |
+| Dose curve: 1 µGy/h background, then `STEP_FACTOR` × `rad_k_background` × background for 1 h, then background; samples every 600 s | declared shape: `BACKGROUND_UGY_H` 1, `STEP_FACTOR` 2, `PHASE_S` 3600, `SAMPLE_STEP_S` 600; `rad_k_background` from `alert-assumed` |
+| Earth message time = step onset | declared shape: `EARTH_MESSAGE_OFFSET_S` = `PHASE_S` |
+| Leg `walk_time_min`, `distance_m`, `geometry`, dose `integral_check`, `plan_hash`, table `sha256` | computed by `make_fake_scenario.py` from the values above |
+| Earth-link row values 0, `passes` [], `kernels` [], `totals` null, `stops_timeline` [], `warnings` [] | placeholders |
+| `data_version` `mock_site-fixture`, `scenario_id` `fake-straight-line`, `source_id` `fixture-synthetic` | fixture identifiers |
+
+## Known limits
+
+- `DoseSeries.provenance` must be `replayed` (05 DoseSeries); here the curve is synthetic and is marked by `source_id` `fixture-synthetic` and `method` `template_scaled`. It is never shown as real data.
+- `plan_hash` hashes canonical JSON "with numbers as written" (05 PlanExport). Python writes `6.0` where JavaScript writes `6`, so the fixture writes whole numbers without a decimal point. `TODO(verify)`: how T22.11 and the planner export (T11) canonicalise numbers, so both agree on one hash.
+- `grid` and `comm` in `LoadedScenario` are null for this fixture: `mock_site` has no site data yet (F4, T03.02).

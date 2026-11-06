@@ -1,0 +1,170 @@
+{
+  "scenario_schema_version": "1.0.0",
+  "scenario_id": "fake-straight-line",
+  "title": "Fake scenario: straight line, stepped dose (test fixture, not data)",
+  "site_id": "mock_site",
+  "data_version": "mock_site-fixture",
+  "seed": 4190,
+  "start_utc": "2024-05-20T00:00:00Z",
+  "plan": {
+    "export_schema_version": "1.0.0",
+    "app_version": "0.1.0",
+    "site_id": "mock_site",
+    "data_version": "mock_site-fixture",
+    "plan_hash": "7bbcc76e5f80",
+    "scenario": {
+      "eva_start_utc": "2024-05-20T00:00:00Z",
+      "max_eva_duration_h": 6,
+      "dwell_min_per_stop": 20,
+      "hard_slope_limit_deg": 15,
+      "caution_slope_deg": 10,
+      "walkback_limit_km": 5,
+      "suited_flat_speed_kmh": 3.3,
+      "solar_phase": "max",
+      "loop": true,
+      "max_haven_min": 30,
+      "crew_count": 2,
+      "vehicle_available": true,
+      "vehicle_param_set": "pr1-assumed"
+    },
+    "waypoints": [
+      {
+        "id": "wp-0",
+        "role": "start",
+        "x_m": 0,
+        "y_m": 0
+      },
+      {
+        "id": "wp-1",
+        "role": "stop",
+        "x_m": 1000,
+        "y_m": 0
+      },
+      {
+        "id": "wp-2",
+        "role": "stop",
+        "x_m": 2000,
+        "y_m": 0
+      }
+    ],
+    "result": {
+      "status": "OK",
+      "legs": [
+        {
+          "from": "wp-0",
+          "to": "wp-1",
+          "status": "OK",
+          "distance_m": 1000,
+          "walk_time_min": 18.181818181818183,
+          "climb_m": 0,
+          "descent_m": 0,
+          "max_slope_deg": 0,
+          "geometry": [
+            [
+              0,
+              0
+            ],
+            [
+              1000,
+              0
+            ]
+          ]
+        },
+        {
+          "from": "wp-1",
+          "to": "wp-2",
+          "status": "OK",
+          "distance_m": 1000,
+          "walk_time_min": 18.181818181818183,
+          "climb_m": 0,
+          "descent_m": 0,
+          "max_slope_deg": 0,
+          "geometry": [
+            [
+              1000,
+              0
+            ],
+            [
+              2000,
+              0
+            ]
+          ]
+        }
+      ],
+      "totals": null,
+      "stops_timeline": [],
+      "warnings": []
+    },
+    "provenance_summary": [],
+    "disclaimer": "Exploratory planning prototype — not validated for operations."
+  },
+  "stop_tasks": [
+    {
+      "task_id": "t-s1-01",
+      "stop_id": "wp-1",
+      "crew_id": "EV1",
+      "kind": "image",
+      "text": "Image the ridge crest"
+    },
+    {
+      "task_id": "t-s2-01",
+      "stop_id": "wp-2",
+      "crew_id": null,
+      "kind": "other",
+      "text": "Fixture task"
+    }
+  ],
+  "crew": [
+    {
+      "crew_id": "EV1",
+      "suit_param_set": "suit-assumed",
+      "start_offset_s": 0
+    },
+    {
+      "crew_id": "EV2",
+      "suit_param_set": "suit-assumed",
+      "start_offset_s": 0
+    }
+  ],
+  "vehicles": [
+    {
+      "vehicle_id": "PR1",
+      "kind": "pressurized_rover",
+      "param_set": "pr1-assumed",
+      "start_x_m": 0,
+      "start_y_m": 0
+    }
+  ],
+  "param_sets": [
+    "suit-assumed",
+    "pr1-assumed",
+    "link-assumed",
+    "alert-assumed",
+    "shielding-assumed"
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "t_utc": "2024-05-20T01:00:00Z",
+      "kind": "EARTH_MESSAGE",
+      "provenance": "simulated",
+      "payload": {
+        "sent_earth_utc": "2024-05-20T01:00:00Z",
+        "body": "SEP event in progress. Recommend shelter."
+      }
+    }
+  ],
+  "tables": {
+    "dose_series": {
+      "path": "dose_series.json",
+      "sha256": "a3d0d97da52c93b764e8a1ff63e0a211e5c4490e241e0f4a2c26c5fea954585d"
+    },
+    "earth_link": {
+      "path": "earth_link.json",
+      "sha256": "870c6ba1f663b591400c8333928501a54d094c08840cc83fb35e82f61adc9f81"
+    }
+  },
+  "source_ids": [
+    "fixture-synthetic"
+  ]
+}
