@@ -336,6 +336,26 @@
 - **Agent brief:** A person runs this check. An agent may prepare the checklist table from 02 §E.3 and the SCR-04 states, and draft the verification-log section for the person to complete.
 - **Conflict notes:** Append-only file: add one section at the end; on a rebase conflict keep both sides. Needs the real `validate.ts` (T05.25) merged first (Spec questions 8).
 
+### T08.12 — follow-up: haven rule input in the plan panel (v2, FR-39)
+
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1 h
+- **Owns (writes):** `apps/web/src/ui/screens/scr04PlanPanel.tsx` (after T08.04)
+- **Reads:** [01 FR-39](../specs/01_Product_Requirements_Document.md#fr-39--time-to-safe-haven-t0t1-m), [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules), [05 MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input)
+- **Depends on:** T08.04 (hard: owner of the plan panel)
+- **Parallel with:** T09.09
+- **Steps:**
+  1. Add the haven-rule input (`max_haven_min`) and the vehicle-available toggle from 05 MissionScenario, with the 02 §E.3 range check.
+- **Acceptance:**
+  - Serves: FR-39 · [05 MissionScenario](../specs/05_Backend_and_Database_Schema.md#missionscenario-user-input)
+  - Out-of-range values show the 02 §E.3 message; the value reaches the worker.
+- **Verify:** `npm --workspace @marswalk/web test`.
+- **Agent brief:** Add one input group to the plan panel; ranges come from 02 §E.3.
+- **Conflict notes:** Edits after T08.04 (follow-up).
+
 ## Internal dependency graph
 
 ```mermaid

@@ -211,6 +211,27 @@
 - **Agent brief:** On the integrated offline build (`make demo`, real bundle), run `tests/ui/provenance.test.ts` with zero skips, walk the 01 §E demo path checking every number for a provenance label, and check that SCR-09 lists every manifest DataSource. Append the results as a `## T12.06 — …` section to `docs/ops/verification-log.md`; report failures as follow-up subtasks.
 - **Conflict notes:** Append-only log: add one section at the end and never edit other sections. Fixes are `follow-up:` subtasks in the owning task, filed through a `coord:` PR (map §h.5). Image and README credits are checked by T16.05 (NFR-07), not here.
 
+### T12.07 — follow-up: provenance DOM checks on the v2 role views (SCR-11–SCR-14, SCR-17)
+
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
+- **Type:** test
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1 h
+- **Owns (writes):** `apps/web/tests/ui/provenance.test.ts` (after T12.02)
+- **Reads:** [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) NFR-05, [01 FR-36](../specs/01_Product_Requirements_Document.md#fr-36--conditions-feed-t1-m), `apps/web/tests/fixtures/ws/`
+- **Depends on:** T12.02 (hard: owner of the test file), T24.04 (hard: SCR-12), T25.01 (hard: SCR-11)
+- **Parallel with:** T12.06
+- **Steps:**
+  1. Make the existing SCR-11–SCR-14 and SCR-17 todos real: every numeric element has `data-provenance` (six classes) and a source id; HUD glyphs keep the attribute.
+  2. No element says "live".
+- **Acceptance:**
+  - Serves: NFR-05, FR-36
+  - Each role view has a named test.
+- **Verify:** `npm --workspace @marswalk/web test -- provenance`.
+- **Agent brief:** Extend the provenance DOM test to the v2 views on the mock fixtures.
+- **Conflict notes:** Edits after T12.02 (follow-up).
+
 ## Internal dependency graph
 
 ```mermaid

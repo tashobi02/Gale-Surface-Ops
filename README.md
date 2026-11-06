@@ -13,33 +13,42 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`░░░░░░░░░░░░░░░░░░░░` **2 %** — 4 of 220 subtasks done, 1 in progress.
+`░░░░░░░░░░░░░░░░░░░░` **2 %** — 5 of 299 subtasks done, 2 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
 | [TASK-00 Resolve rules + register](docs/tasks/TASK-00_resolve-rules-and-register.md) | `████████░░` 80 % | 4 | 1 | 5 |
-| [TASK-01 Feasibility: AOI, DEM quality, coverage checks](docs/tasks/TASK-01_feasibility.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 5 |
+| [TASK-01 Feasibility: AOI, DEM quality, coverage checks](docs/tasks/TASK-01_feasibility.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 6 |
 | [TASK-02 Spike: OpenLayers custom Mars projection + custom tile grid](docs/tasks/TASK-02_projection-spike.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 5 |
-| [TASK-03 Preprocessing pipeline](docs/tasks/TASK-03_preprocessing-pipeline.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 22 |
-| [TASK-04 Vectors, POIs and images](docs/tasks/TASK-04_vectors-pois-images.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 8 |
+| [TASK-03 Preprocessing pipeline](docs/tasks/TASK-03_preprocessing-pipeline.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 25 |
+| [TASK-04 Vectors, POIs and images](docs/tasks/TASK-04_vectors-pois-images.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 9 |
 | [TASK-05 Compute core: grid loader, sampling, A*, profile, time model, walkback, warnings](docs/tasks/TASK-05_compute-core.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 50 |
 | [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 10 |
-| [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 15 |
-| [TASK-08 Plan panel + waypoint editing](docs/tasks/TASK-08_plan-panel-and-waypoints.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 10 |
-| [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
-| [TASK-10 POI detail + Conditions panel](docs/tasks/TASK-10_poi-detail-and-conditions.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 3 |
-| [TASK-11 Briefing card + JSON export](docs/tasks/TASK-11_briefing-card-and-export.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 5 |
-| [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 6 |
-| [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 11 |
+| [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 17 |
+| [TASK-08 Plan panel + waypoint editing](docs/tasks/TASK-08_plan-panel-and-waypoints.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 11 |
+| [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 8 |
+| [TASK-10 POI detail + Conditions panel](docs/tasks/TASK-10_poi-detail-and-conditions.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 4 |
+| [TASK-11 Briefing card + JSON export](docs/tasks/TASK-11_briefing-card-and-export.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
+| [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
+| [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 12 |
 | [TASK-14 Integration + offline hardening + fault tests](docs/tasks/TASK-14_integration-offline-hardening.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 11 |
-| [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 3 |
+| [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 4 |
 | [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
 | [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 3 |
-| [TASK-20](docs/tasks/TASK-20_hab-core-skeleton.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 8 |
+| [TASK-20](docs/tasks/TASK-20_hab-core-skeleton.md) | `░░░░░░░░░░` 0 % | 0 | 1 | 8 |
 | [TASK-21](docs/tasks/TASK-21_scenario-builder.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 12 |
-| [TASK-22](docs/tasks/TASK-22_simulation-engine.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 14 |
+| [TASK-22](docs/tasks/TASK-22_simulation-engine.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 15 |
+| [TASK-23](docs/tasks/TASK-23_safety-ops.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 8 |
+| [TASK-24](docs/tasks/TASK-24_eva-client-and-hud.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 11 |
+| [TASK-25](docs/tasks/TASK-25_ops-console.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 9 |
+| [TASK-26](docs/tasks/TASK-26_links.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
+| [TASK-27](docs/tasks/TASK-27_report-and-replay.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 6 |
+| [TASK-28](docs/tasks/TASK-28_network-kit.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 5 |
+| [TASK-29](docs/tasks/TASK-29_rover-tasking.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 6 |
+| [TASK-30](docs/tasks/TASK-30_score-sheet-points.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 3 |
+| [TASK-31](docs/tasks/TASK-31_stop-task-list.md) | `█░░░░░░░░░` 12 % | 1 | 0 | 8 |
 
-Totals leave out 30 fallback and desirable subtasks (they may never run); 0 of them done. Source: [docs/tasks/status.md](docs/tasks/status.md), regenerated by `make progress`.
+Totals leave out 43 fallback and desirable subtasks (they may never run); 0 of them done. Source: [docs/tasks/status.md](docs/tasks/status.md), regenerated by `make progress`.
 <!-- progress:end -->
 
 Generated, do not edit by hand. Record finished subtasks in [docs/tasks/status.md](docs/tasks/status.md), then run `make progress`.

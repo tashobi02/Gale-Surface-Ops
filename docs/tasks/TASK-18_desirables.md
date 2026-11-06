@@ -259,6 +259,108 @@ All seven subtasks are `desirable`, which is cut 1 of [06 §D.4](../specs/06_Hig
 - **Agent brief:** Before 13 Nov, cache the CRISM MTRDR summary products (only if `coverage.md` shows AOI coverage) and the REMS RDR files FR-13 needs into `pipeline/work/`; record URLs, versions and checksums for the T18.01/T18.02 PRs. An agent may script the downloads after a human picks the exact files; never guess URLs.
 - **Conflict notes:** Writes only the git-ignored `pipeline/work/`, so it opens no PR; its record travels with T18.01 and T18.02. Skip it if the team has no pre-event time: TASK-18 is cut first.
 
+### T18.09 — Tests: sky-view factor and refuge dose factor (v2, FR-47)
+
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
+- **Type:** test
+- **Tag:** agent-ready · desirable
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1 h
+- **Owns (writes):** `packages/compute/tests/skyView.test.ts`
+- **Reads:** [02 §D.16](../specs/02_Technical_Requirements_Document.md#d16-sky-view-factor-refuge-fr-47-t2), [01 FR-47](../specs/01_Product_Requirements_Document.md#fr-47--terrain-radiation-refuge-t2-s)
+- **Depends on:** T23.08 (hard: 06 Tier 2 gate, M3 passes)
+- **Parallel with:** T18.12
+- **Steps:**
+  1. Flat plane → SVF equals the flat value; a cell at the foot of a synthetic cliff has a lower SVF.
+  2. Refuge dose factor = SVF / SVF_flat; labelled "simplified isotropic model".
+- **Acceptance:**
+  - Serves: FR-47 · [02 §D.16](../specs/02_Technical_Requirements_Document.md#d16-sky-view-factor-refuge-fr-47-t2)
+  - Each rule above is one named test.
+- **Verify:** `npm --workspace @marswalk/compute test -- skyView` fails before T18.10 and passes after.
+- **Agent brief:** Write SVF tests from 02 §D.16 on synthetic grids.
+- **Conflict notes:** New file. Pair T18.09 → T18.10.
+
+### T18.10 — Implement the sky-view factor (v2, FR-47)
+
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
+- **Type:** implement
+- **Tag:** agent-ready · desirable
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1.5–2 h
+- **Owns (writes):** `packages/compute/src/skyView.ts`
+- **Reads:** `packages/compute/tests/skyView.test.ts`, [02 §D.16](../specs/02_Technical_Requirements_Document.md#d16-sky-view-factor-refuge-fr-47-t2)
+- **Depends on:** T18.09 (hard: tests first), T23.08 (hard: Tier 2 gate)
+- **Parallel with:** T18.12
+- **Steps:**
+  1. Horizon angles in 16 azimuths up to 2 km; SVF as 02 §D.16; candidate refuges reachable within the haven rule.
+- **Acceptance:**
+  - Serves: FR-47
+  - T18.09 passes.
+- **Verify:** `npm --workspace @marswalk/compute test -- skyView`.
+- **Agent brief:** Implement `skyView.ts` until the tests pass.
+- **Conflict notes:** Single owner.
+
+### T18.11 — follow-up: terrain refuge as a contingency option (v2, FR-47)
+
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
+- **Type:** implement
+- **Tag:** agent-ready · desirable
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1 h
+- **Owns (writes):** `packages/compute/src/contingency.ts` (after T05b.19)
+- **Reads:** [01 FR-47](../specs/01_Product_Requirements_Document.md#fr-47--terrain-radiation-refuge-t2-s), [02 §D.15](../specs/02_Technical_Requirements_Document.md#d15-contingency-options-fr-44)
+- **Depends on:** T05b.19 (hard: owner of `contingency.ts`), T18.10 (hard: SVF)
+- **Parallel with:** T18.12
+- **Steps:**
+  1. Add `TERRAIN_REFUGE` candidates with their reduction factor and the "simplified isotropic model" label.
+- **Acceptance:**
+  - Serves: FR-47, FR-44
+  - The refuge option appears with its factor and label; T05b.18 still passes.
+- **Verify:** `npm --workspace @marswalk/compute test -- contingency`.
+- **Agent brief:** Add one option kind; ranking rules stay as 02 §D.15.
+- **Conflict notes:** Edits after T05b.19 (follow-up).
+
+### T18.12 — Implement SCR-16 Earth support view (v2, FR-48)
+
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
+- **Type:** implement
+- **Tag:** agent-ready · desirable
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1.5–2 h
+- **Owns (writes):** `apps/web/src/ui/screens/scr16EarthView.tsx`
+- **Reads:** [03 SCR-16](../specs/03_App_Flow_and_Diagrams.md#scr-16--earth-view-v2-t2), [01 FR-48](../specs/01_Product_Requirements_Document.md#fr-48--earth-support-view-t2-s)
+- **Depends on:** T26.04 (hard: Earth messages), T23.08 (hard: Tier 2 gate)
+- **Parallel with:** T18.10
+- **Steps:**
+  1. Delayed telemetry and a message composer; everything sent waits in the FR-43 queue; states link, waiting, blackout.
+- **Acceptance:**
+  - Serves: FR-48 · [03 SCR-16](../specs/03_App_Flow_and_Diagrams.md#scr-16--earth-view-v2-t2)
+  - Messages from the Earth view arrive at Mars at the rule's time.
+- **Verify:** `npm --workspace @marswalk/web test`; manual on the fake scenario.
+- **Agent brief:** Build SCR-16 from 03; nothing is called "live".
+- **Conflict notes:** Single owner.
+
+### T18.13 — follow-up: dust advisory replay events (v2, FR-49; only if T04.11 found a record)
+
+- **Owner:** Unassigned — whoever has finished their own tasks takes it, only after M3 passes (06 §A.2)
+- **Type:** implement
+- **Tag:** human-required · desirable
+- **Window:** pre-event-allowed
+- **Estimate:** 0.5–1 h
+- **Owns (writes):** `scenarios/storm-sol4190/scenario.json` (after T21.08)
+- **Reads:** [01 FR-49](../specs/01_Product_Requirements_Document.md#fr-49--dust-advisory-replay-t2-s), `docs/ops/dust-record.md`
+- **Depends on:** T21.08 (hard: owner of `scenario.json`), T04.11 (hard: record found), T23.08 (hard: Tier 2 gate)
+- **Parallel with:** T18.12
+- **Steps:**
+  1. Add qualitative `ADVISORY` events at the record's times with `replayed` provenance and the source id; never quantitative.
+  2. Re-run the scenario build so checksums update.
+- **Acceptance:**
+  - Serves: FR-49
+  - The advisory shows on ops with its source; `log_hash` reference updated.
+- **Verify:** Schema check; `make replay`.
+- **Agent brief:** Only if a record exists; text only, no dust numbers.
+- **Conflict notes:** Edits after T21.08 (follow-up); the reference hash changes, so tell the team.
+
 ## Internal dependency graph
 
 Every subtask also depends hard on T14.06 (TASK-18 gate), and each `follow-up:` on the §c owner of the path it edits; those edges leave this task and are listed per subtask.

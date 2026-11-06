@@ -473,6 +473,48 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
 - **Agent brief:** Only if triggered: rewrite `apps/web/src/ui/map/rasterLayers.ts` to use one ImageStatic image per 2 m layer (T03.25 PNGs, T02.06 factory), keeping the 0.5 m tiled ortho and the same API for SCR-03.
 - **Conflict notes:** Replaces T07.07's file; never runs at the same time as T07.07. Starts in the cut-7 wave with T02.06 and T03.25 (§h.6); the two hard edges are not in the map's §f table yet (Spec questions).
 
+### T07.17 — Implement the shared map controls (+, −, FIT for planner and ops; EVA full-screen set) (v2)
+
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1.5–2.5 h
+- **Owns (writes):** `apps/web/src/ui/map/MapControls.tsx`
+- **Reads:** [04 §E.5](../specs/04_Design_Brief.md#e5-scr-12-eva-tablet-ops-phonetablet-portrait--360-px) full-screen map, [01 FR-32](../specs/01_Product_Requirements_Document.md#fr-32--eva-client-suit-tablet-t1-m), [Mockup handoff](../design/mockup-handoff.md#stop-task-list-and-full-screen-map-fr-50-g-30-to-g-43) G-42, G-43, DV-14, `apps/web/tests/ui/map/fullScreenMap.test.ts`
+- **Depends on:** T07.06 (hard: map module), T31.01 (soft: stub created on 6 Nov)
+- **Parallel with:** T07.07
+- **Steps:**
+  1. `planner` and `ops` variants: + / − / FIT buttons beside drag and wheel (06 §C.1 TASK-07, added 5 Nov).
+  2. `eva-full` variant: +, −, FIT, FOLLOW, LAYERS, CLOSE, each ≥ 56 px with a word.
+- **Acceptance:**
+  - Serves: FR-32, FR-02 · [04 §E.5](../specs/04_Design_Brief.md#e5-scr-12-eva-tablet-ops-phonetablet-portrait--360-px)
+  - The `MapControls` cases of `fullScreenMap.test.ts` pass (written by T24.10).
+- **Verify:** `npm --workspace @marswalk/web test -- fullScreenMap`.
+- **Agent brief:** Implement the button sets on the shared map; actions call the map handle, not OpenLayers directly from screens.
+- **Conflict notes:** Single owner; FullScreenMap (T24.09) and the ops map (T25.02) use it.
+
+### T07.18 — Implement the Exploration Zone layer: POI stop types on the map (v2, FR-45)
+
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1 h
+- **Owns (writes):** `apps/web/src/ui/map/ezLayer.ts`
+- **Reads:** [01 FR-45](../specs/01_Product_Requirements_Document.md#fr-45--exploration-zone-layer-t0-m), `docs/ops/exploration-zone.md`, [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens)
+- **Depends on:** T07.11 (hard: POI layer), T04.10 (soft: stop types)
+- **Parallel with:** T07.12
+- **Steps:**
+  1. Style POIs by `stop_type` with shape and word, never status colours (04 §A.3).
+  2. Add the layer to the layer order and the legend.
+- **Acceptance:**
+  - Serves: FR-45
+  - Each stop type has a shape and a word in the legend.
+- **Verify:** `npm --workspace @marswalk/web test`; manual check on the mock site.
+- **Agent brief:** Add one vector layer on the POI source.
+- **Conflict notes:** New file.
+
 ## Internal dependency graph
 
 ```mermaid

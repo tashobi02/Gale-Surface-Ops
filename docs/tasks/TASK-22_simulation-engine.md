@@ -40,7 +40,7 @@
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
 - **Estimate:** 1–1.5 h
-- **Owns (writes):** `apps/hab-core/src/engine/reducer.ts` (stub → T22.06), `apps/hab-core/src/engine/tick.ts` (stub → T22.09), `apps/hab-core/src/engine/alerts.ts` (stub → T22.10), `apps/hab-core/src/engine/haven.ts` (stub → T23.03), `apps/hab-core/src/engine/vehicles.ts` (stub → T23.05), `apps/hab-core/src/engine/contingencyOps.ts` (stub → T23.07), `apps/hab-core/src/engine/links.ts` (stub → T26.01), `apps/hab-core/src/engine/earth.ts` (stub → T26.04), `apps/hab-core/src/engine/rovers.ts` (stub → T29.03), `apps/hab-core/src/engine/tasks.ts` (stub → T31.04), `apps/hab-core/src/scenario.ts` (stub → T22.11), `apps/hab-core/src/session.ts` (stub → T22.12), `apps/hab-core/src/log.ts` (stub → T22.07), `apps/hab-core/src/engine/README.md`
+- **Owns (writes):** `apps/hab-core/src/engine/reducer.ts` (stub → T22.06), `apps/hab-core/src/engine/tick.ts` (stub → T22.09), `apps/hab-core/src/engine/alerts.ts` (stub → T22.10), `apps/hab-core/src/engine/haven.ts` (stub → T23.03), `apps/hab-core/src/engine/vehicles.ts` (stub → T23.05), `apps/hab-core/src/engine/contingencyOps.ts` (stub → T23.07), `apps/hab-core/src/engine/links.ts` (stub → T26.01), `apps/hab-core/src/engine/earth.ts` (stub → T26.04), `apps/hab-core/src/engine/rovers.ts` (stub → T29.03), `apps/hab-core/src/engine/tasks.ts` (stub → T31.04), `apps/hab-core/src/engine/conditions.ts` (stub → T22.16), `apps/hab-core/src/scenario.ts` (stub → T22.11), `apps/hab-core/src/session.ts` (stub → T22.12), `apps/hab-core/src/log.ts` (stub → T22.07), `apps/hab-core/src/engine/README.md`
 - **Reads:** [02 §A.6](../specs/02_Technical_Requirements_Document.md#a6-state-model-commands--events--state), [02 §D.14](../specs/02_Technical_Requirements_Document.md#d14-simulation-engine-fr-34-fr-35), [05 §C.2](../specs/05_Backend_and_Database_Schema.md#c2-runtime-entities-hab-core-v2), `packages/protocol/src/runtime.ts`
 - **Depends on:** T20.01 (soft: protocol v0)
 - **Parallel with:** T20.01, T05b.01, T21.01
@@ -364,6 +364,27 @@
 - **Agent brief:** Only if consumables slip: reduce to O₂. Do not change the protocol.
 - **Conflict notes:** Replaces part of T22.09's file; never at the same time.
 
+### T22.16 — Implement the conditions feed values in the engine (FR-36)
+
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1–1.5 h
+- **Owns (writes):** `apps/hab-core/src/engine/conditions.ts`, `apps/hab-core/tests/conditions.test.ts`
+- **Reads:** [01 FR-36](../specs/01_Product_Requirements_Document.md#fr-36--conditions-feed-t1-m), `packages/compute/src/mars24.ts`, `packages/compute/src/eventDose.ts`, `packages/compute/src/earthLink.ts`
+- **Depends on:** T06.06 (hard: Mars24 time functions), T06.07 (hard: sun elevation), T05b.15 (hard: event dose rate), T05b.13 (hard: Earth link status), T22.01 (soft: stub)
+- **Parallel with:** T22.10
+- **Steps:**
+  1. Tests first in the same branch: each value FR-36 lists is present in state with its provenance class.
+  2. Each tick: local solar time and sun elevation at the hab (Mars24, east-positive longitude converted for Mars24), background and current event dose rate, Earth link status; temperature and pressure "not included in this build" unless FR-13 is built.
+- **Acceptance:**
+  - Serves: FR-36 · [01 FR-36](../specs/01_Product_Requirements_Document.md#fr-36--conditions-feed-t1-m)
+  - Every value has its provenance class; nothing is labelled "live".
+- **Verify:** `npm --workspace @marswalk/hab-core test -- conditions`.
+- **Agent brief:** Call compute for every value; the engine only collects them into state.
+- **Conflict notes:** Single owner of both files.
+
 ## Internal dependency graph
 
 ```mermaid
@@ -384,6 +405,7 @@ flowchart LR
   T22_12 --> T22_13["T22.13 replay + CLI"]
   T22_13 --> T22_14["T22.14 verify M3"]
   T22_09 --> T22_15["T22.15 fallback: O2 only"]
+  T22_01 -.-> T22_16["T22.16 conditions feed"]
 ```
 
 ## Definition of done (task level)

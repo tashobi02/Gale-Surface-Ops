@@ -337,6 +337,27 @@
 - **Agent brief:** Self-host the outline icon set of 04 §C.4 (Lucide unless the design lead picks another, `TODO(decision)`): copy only the listed icons as SVG into `apps/web/public/icons/`, add a README with set, version and licence, and record the licence URL in the PR. No CDN references.
 - **Conflict notes:** New folder, owned here only. T13.05 (`statusIcon.ts`) may reuse these files. The credits entry for the set goes into `docs/ops/credits.md` through its owner T04.06, not here.
 
+### T13.12 — HUD tokens: contrast ≥ 7 : 1 (v2)
+
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 0.5–1 h
+- **Owns (writes):** `apps/web/src/ui/styles/tokens.css` (append-only)
+- **Reads:** [04 §C.1](../specs/04_Design_Brief.md#c1-colour-tokens), [04 §E.6](../specs/04_Design_Brief.md#e6-scr-13-hud-black-landscape), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) NFR-04
+- **Depends on:** T13.01 (hard: token names frozen)
+- **Parallel with:** T13.02
+- **Steps:**
+  1. Check the `[data-mode="hud"]` block against 04 §C.1; add any missing HUD token at the end of the block with its 04 reference.
+  2. Run the prototype contrast script on the HUD pairs; every text pair ≥ 7 : 1.
+- **Acceptance:**
+  - Serves: FR-33, NFR-04 · [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-13 ("HUD contrast ≥ 7 : 1")
+  - The contrast results are recorded in the PR.
+- **Verify:** The prototype contrast script; `make lint`.
+- **Agent brief:** Append HUD tokens from 04 only; never rename an existing token.
+- **Conflict notes:** `tokens.css` is append-only after T13.01 (map §c.4).
+
 ## Internal dependency graph
 
 ```mermaid

@@ -101,6 +101,7 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T01.04 | Check THEMIS TI tile, colour HiRISE COG and CRISM coverage of the AOI by window reads | data | pre-event-allowed | M0 | |
 | T01.05 | Decide D-01; write the feasibility summary and ADR-001 | data | pre-event-allowed | M0 | |
 | T01.06 | Fallback — start only if T01.05 finds the AOI DEM is not HiRISE-quality: spec-change to Jezero and re-plan | data | pre-event-allowed | M0 | |
+| T01.07 | Choose the hab site inside the AOI (v2) | data | pre-event-allowed | M0 | |
 | T02.01 | Write the tile-grid and tile-encoding contract v1 | frontend | pre-event-allowed | M0 | |
 | T02.02 | Implement the Mars projection module with a web CRS-guard test | frontend | pre-event-if-permitted | M0 | |
 | T02.03 | Build the spike page: mock-site tiles in the Mars projection with a metric scale bar | frontend | pre-event-if-permitted | M0 | |
@@ -134,6 +135,9 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T03.25 | Fallback — start only if T02 spike fails or cut 7 is called: one PNG per 2 m layer for ImageStatic | data | pre-event-allowed | M1 | |
 | T03.26 | Fallback — start only if the colour COG misses the AOI: grayscale 25 cm window or cached Mars Trek HiRISE tiles | data | pre-event-allowed | M1 | |
 | T03.27 | Fallback — start only if quantitative TI misses the AOI: THEMIS Day IR 100 m (qualitative) | data | pre-event-allowed | M1 | |
+| T03.28 | Tests: `comm_hab` viewshed grid (v2) | data | pre-event-allowed | M2 | |
+| T03.29 | Implement the `comm_hab` viewshed grid and its layer record (v2) | data | pre-event-allowed | M2 | |
+| T03.30 | Verify `comm_hab` against `gdal_viewshed` at 5 points (v2) | data | pre-event-allowed | M2 | |
 | T04.01 | Choose and cache the traverse source (U-04); write its DataSource and Layer records | data | pre-event-allowed | M1 | |
 | T04.02 | Tests: traverse and POI packaging | data | pre-event-allowed | M1 | |
 | T04.03 | Implement traverse and POI packaging | data | pre-event-allowed | M1 | |
@@ -143,6 +147,8 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T04.07 | Resolve U-03: TI "loose fines" threshold from the AOI histogram and literature | data | pre-event-allowed | M1 | |
 | T04.08 | Verify traverse alignment with HiRISE tracks at the checkpoints; record the offset | data | pre-event-allowed | M1 | |
 | T04.09 | Fallback — start only if PLACES parsing is too slow: MMGIS JSON cached once, labelled unofficial | data | pre-event-allowed | M1 | |
+| T04.10 | Write the Exploration Zone framing and the stop-type list (v2, FR-45, U-16) | story | pre-event-allowed | M2 | |
+| T04.11 | Check the dust-record source for the scenario window (v2, U-17) | data | pre-event-allowed | M2 | |
 | T05.01 | Freeze compute contracts v1: worker protocol and compute module layout | compute | pre-event-allowed | M0 | |
 | T05.02 | Fixture: synthetic routing grids | compute | pre-event-if-permitted | M0 | |
 | T05.03 | Fixture: canned PLAN_RESULT messages (OK, PARTIAL, OVER_LIMITS) | compute | pre-event-allowed | M0 | |
@@ -202,6 +208,8 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T07.14 | Author the demo plan (three POI stops) | story | pre-event-allowed | M2 | |
 | T07.15 | Verify SCR-01, SCR-02, SCR-03: toggles ≤ 300 ms, inspector values match the grid | frontend | event-only | M4 | |
 | T07.16 | Fallback — start only if projection issues persist or cut 7 is called: ImageStatic layers | frontend | event-only | M3 | |
+| T07.17 | Implement the shared map controls (+, −, FIT for planner and ops; EVA full-screen set) (v2) | frontend | pre-event-if-permitted | M2 | |
+| T07.18 | Implement the Exploration Zone layer: POI stop types on the map (v2, FR-45) | frontend | pre-event-if-permitted | M3 | |
 | T08.01 | Freeze the plan-store contract v1 (state, status, actions, selection) | frontend | pre-event-allowed | M2 | |
 | T08.02 | Tests: plan store (revisions, undo, debounce, stale results) | frontend | event-only | M3 | |
 | T08.03 | Implement the plan store | frontend | event-only | M3 | |
@@ -213,6 +221,7 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T08.09 | Implement tablet touch: long-press placement and drag | frontend | event-only | M4 | |
 | T08.10 | Fallback — start only if T08.08 is not working at the Day 1 17:30 checkpoint: buttons-only stop move | frontend | event-only | M4 | |
 | T08.11 | Verify the 02 §E.3 rules and SCR-04 states in the UI | frontend | event-only | M4 | |
+| T08.12 | follow-up: haven rule input in the plan panel (v2, FR-39) | frontend | pre-event-if-permitted | M3 | |
 | T09.01 | Implement the route layer (cased legs, dashed NO_ROUTE line, hazard hatch) | frontend | event-only | M3 | |
 | T09.02 | Implement the elevation/slope profile chart | frontend | event-only | M3 | |
 | T09.03 | Implement SCR-05: status banner and metrics row | frontend | event-only | M4 | |
@@ -221,21 +230,26 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T09.06 | Run the M3 walking-skeleton check; decide auto-routing go/no-go in ADR-004 | integration | event-only | M3 | |
 | T09.07 | Verify SCR-05 states against the OK, PARTIAL and OVER_LIMITS fixtures | frontend | event-only | M4 | |
 | T09.08 | Fallback — start only if T09.06 says no-go: draw legs by hand on the map | frontend | event-only | M3 | |
+| T09.09 | follow-up: haven and comm bands in the results panel and profile (v2, FR-39, FR-42) | frontend | pre-event-if-permitted | M3 | |
 | T10.01 | Implement SCR-06 POI Detail | frontend | event-only | M4 | |
 | T10.02 | Implement SCR-07 Conditions | frontend | event-only | M4 | |
 | T10.03 | Verify POI images with credits and the daylight warning for a pre-dawn start | frontend | event-only | M4 | |
+| T10.04 | follow-up: stop types on the POI detail (v2, FR-45) | frontend | event-only | M7 | |
 | T11.01 | Tests: plan hash and export (canonical JSON, schema-valid, reproducible) | frontend | event-only | M4 | |
 | T11.02 | Implement the plan hash and PlanExport assembly | frontend | event-only | M4 | |
 | T11.03 | Implement the SCR-08 layout and print CSS | design | event-only | M4 | |
 | T11.04 | Implement the route map snapshot | frontend | event-only | M4 | |
 | T11.05 | Verify one-page print in Chrome and plan_hash reproduction | design | event-only | M4 | |
 | T11.06 | Fallback — start only if the map snapshot cannot be made to work: static AOI thumbnail with the route as SVG | frontend | event-only | M4 | |
+| T11.07 | Implement `PUBLISH_PLAN` from the briefing card to the Hab Core (v2) | frontend | pre-event-if-permitted | M4 | |
+| T11.08 | follow-up: the briefing card lists each stop's tasks (v2, FR-50) | frontend | pre-event-if-permitted | M4 | |
 | T12.01 | Implement the metric and provenance-chip component | story | event-only | M3 | |
 | T12.02 | Tests: DOM provenance check across screens | story | event-only | M4 | |
 | T12.03 | Implement SCR-09 Sources & Methods | story | event-only | M4 | |
 | T12.04 | Write the methods, models and limitations content from 02 §C–§D | story | pre-event-allowed | M2 | |
 | T12.05 | Write DataSource records for the models (Tobler, Apollo 17, Mars24) | story | pre-event-allowed | M1 | |
 | T12.06 | Verify no unlabelled metric on the demo path and every credited source in SCR-09 | story | event-only | M5 | |
+| T12.07 | follow-up: provenance DOM checks on the v2 role views (SCR-11–SCR-14, SCR-17) | story | pre-event-if-permitted | M3–M4 | |
 | T13.01 | Freeze CSS token and status-class names v1 against 04 §C | design | pre-event-allowed | M2 | |
 | T13.02 | Self-host Inter and IBM Plex Mono; verify their licences | design | pre-event-allowed | M2 | |
 | T13.03 | Sketch SCR-02 and SCR-08 wireframes on paper (04 §F) | design | pre-event-allowed | M2 | |
@@ -247,6 +261,7 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T13.09 | Verify the axe scan: 0 serious issues | design | event-only | M5 | |
 | T13.10 | Verify a keyboard-only run of the core scenario | design | event-only | M5 | |
 | T13.11 | Self-host the outline icon set and verify its licence | design | pre-event-allowed | M2 | |
+| T13.12 | HUD tokens: contrast ≥ 7 : 1 (v2) | design | pre-event-allowed | M2 | |
 | T14.01 | Integrate dependencies and build wiring (one dependency batch, `make data`) | integration | pre-event-allowed | M2 | |
 | T14.02 | Integrate CI and the PR template (subtask id, `check_tasks.py`) | integration | pre-event-allowed | M2 | |
 | T14.03 | Implement boot validation (schema major version, dev-build SHA-256) | integration | event-only | M5 | |
@@ -261,6 +276,7 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T15.01 | Write the usability-test script (3 non-team users, briefing in ≤ 5 min) | design | pre-event-allowed | M2 | |
 | T15.02 | Run three sessions; record times and issues | design | event-only | M5 | |
 | T15.03 | Triage the findings into follow-up subtasks | design | event-only | M5 | |
+| T15.04 | follow-up: add the v2 criteria to the usability script (HUD glance, summon, landscape cards) | design | pre-event-allowed | M3 | |
 | T16.01 | Decide the final product name (D-08); record ADR-008 | story | pre-event-allowed | M2 | |
 | T16.02 | spec-change: sync spec status rows and the docs index with the M0–M1 outcomes | integration | pre-event-allowed | M2 | |
 | T16.03 | Finalize the README: run instructions, data credits, licence | story | pre-event-allowed | M6 | |
@@ -280,6 +296,11 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T18.06 | follow-up: show the O₂ estimate labelled "illustrative" | frontend | event-only | M5–M6 | |
 | T18.07 | follow-up: save and restore the last plan in browser storage | frontend | event-only | M5–M6 | |
 | T18.08 | Cache the CRISM and REMS source files before 13 Nov | data | pre-event-allowed | M1–M2 | |
+| T18.09 | Tests: sky-view factor and refuge dose factor (v2, FR-47) | compute | pre-event-if-permitted | M4b–M7 | |
+| T18.10 | Implement the sky-view factor (v2, FR-47) | compute | pre-event-if-permitted | M4b–M7 | |
+| T18.11 | follow-up: terrain refuge as a contingency option (v2, FR-47) | compute | pre-event-if-permitted | M4b–M7 | |
+| T18.12 | Implement SCR-16 Earth support view (v2, FR-48) | frontend | pre-event-if-permitted | M4b–M7 | |
+| T18.13 | follow-up: dust advisory replay events (v2, FR-49; only if T04.11 found a record) | data | pre-event-allowed | M4b–M7 | |
 
 <!-- v2-claims:begin -->
 | T05b.01 | Freeze the v2 compute signatures | compute | pre-event-allowed | M1 | |
@@ -341,4 +362,75 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T22.13 | Implement headless replay and the CLI (`make replay`, `make hab`) | hab-core | pre-event-if-permitted | M3 | |
 | T22.14 | Verify: two runs give the same hash; 60× full run; tick cost (M3) | hab-core | pre-event-if-permitted | M3 | |
 | T22.15 | Fallback — start only if consumables slip past M3: O₂ only | hab-core | pre-event-if-permitted | M3 | |
+| T22.16 | Implement the conditions feed values in the engine (FR-36) | hab-core | pre-event-if-permitted | M3 | |
+| T23.01 | Tests: command validation and rejections | hab-core | pre-event-if-permitted | M2 | |
+| T23.02 | Implement command validation and dispatch | hab-core | pre-event-if-permitted | M2 | |
+| T23.03 | Implement haven per tick and `HAVEN_TIME_EXCEEDED` | compute | pre-event-if-permitted | M3 | |
+| T23.04 | Tests: summon, rendezvous, vehicle motion and sheltering | hab-core | pre-event-if-permitted | M2 | |
+| T23.05 | Implement summon, rendezvous dispatch and vehicle motion | hab-core | pre-event-if-permitted | M3 | |
+| T23.06 | Tests: contingency options, approval and abort | hab-core | pre-event-if-permitted | M2 | |
+| T23.07 | Implement contingency options, `APPROVE_OPTION` and `ABORT` | hab-core | pre-event-if-permitted | M3 | |
+| T23.08 | Verify: killer demo steps 0:30–1:10 run headless (M3) | hab-core | pre-event-if-permitted | M3 | |
+| T23.09 | Fallback — start only if exact rendezvous fails by M3 or cut 6 is called: drive to the nearest vehicle-passable cell | hab-core | pre-event-if-permitted | M3 | |
+| T24.01 | Freeze the EVA view model and component props | frontend | pre-event-allowed | M1 | |
+| T24.02 | Tests: EVA view model on the mock fixtures | frontend | pre-event-if-permitted | M2 | |
+| T24.03 | Implement the EVA view model | frontend | pre-event-if-permitted | M2 | |
+| T24.04 | Implement SCR-12 EVA tablet layout with fixed geography | frontend | pre-event-if-permitted | M2 | |
+| T24.05 | Implement hold-to-confirm and wire SUMMON, ABORT and TASK ROVER | frontend | pre-event-if-permitted | M2 | |
+| T24.06 | Implement SCR-14 options sheet (EVA) | frontend | pre-event-if-permitted | M3 | |
+| T24.07 | Implement SCR-18 hab-link-lost overlay with cached, stale-labelled values | frontend | pre-event-if-permitted | M2 | |
+| T24.08 | Implement SCR-13 HUD | frontend | pre-event-if-permitted | M3 | |
+| T24.09 | Implement the full-screen EVA map with its controls | frontend | pre-event-if-permitted | M3 | |
+| T24.10 | Tests: EVA DOM tests (fixed geography, targets, hold-to-confirm, HUD, link lost, full-screen map) | frontend | pre-event-if-permitted | M2 | |
+| T24.11 | Verify on phones: ≤ 2 taps + confirm, link-lost, glance check, device matrix (M3–M4) | frontend | pre-event-if-permitted | M3b–M4 | |
+| T24.12 | Fallback — start only if SCR-12 is not usable by M3b: HUD only, no map | frontend | pre-event-if-permitted | M3b | |
+| T25.01 | Implement the SCR-11 layout: crew and vehicle cards, metadata strip, slots | frontend | pre-event-if-permitted | M2 | |
+| T25.02 | Implement the ops map layers: crew, vehicles, coverage, haven bands | frontend | pre-event-if-permitted | M2 | |
+| T25.03 | Implement the alert stack with acknowledgement | frontend | pre-event-if-permitted | M3 | |
+| T25.04 | Implement the ops options panel with `APPROVE_OPTION` | frontend | pre-event-if-permitted | M3 | |
+| T25.05 | Implement clock control and scenario load | frontend | pre-event-if-permitted | M3 | |
+| T25.06 | Implement SCR-10 join / role select | frontend | pre-event-if-permitted | M3 | |
+| T25.07 | Tests: ops and join DOM tests | frontend | pre-event-if-permitted | M2 | |
+| T25.08 | Verify: ops runs the whole demo without a terminal (M3b–M4) | frontend | pre-event-if-permitted | M3b–M4 | |
+| T25.09 | Fallback — start only if clock control is not ready by M3: keyboard shortcuts | frontend | pre-event-if-permitted | M3 | |
+| T25.10 | Implement the ops conditions panel and the EVA conditions strip values (FR-36) | frontend | pre-event-if-permitted | M3 | |
+| T26.01 | Implement the link graph per tick, link events and `COMM_SHADOW` on the remaining route | compute | pre-event-if-permitted | M3 | |
+| T26.02 | follow-up: send `LINK_STATE` to the suit's device; queue its commands while unlinked | compute | pre-event-if-permitted | M3 | |
+| T26.03 | Tests: Earth messages, forecasts and blackout in the engine | compute | pre-event-if-permitted | M3 | |
+| T26.04 | Implement Earth messages and forecasts in the engine | compute | pre-event-if-permitted | M3 | |
+| T26.05 | Implement the Earth link widget on ops | compute | pre-event-if-permitted | M3 | |
+| T26.06 | Tests: link graph per tick and comm-shadow warnings | compute | pre-event-if-permitted | M3 | |
+| T26.07 | Verify: the demo shadow appears and clears; the forecast arrives at the computed time | compute | pre-event-if-permitted | M3–M4 | |
+| T26.08 | Fallback — start only if cut 5 is called: static hab coverage and a fixed delay | compute | pre-event-if-permitted | M3 | |
+| T27.01 | follow-up: report builder and `GET /api/report` | frontend | pre-event-if-permitted | M3–M4 | |
+| T27.02 | Tests: report values equal the counts reduced from the log | frontend | pre-event-if-permitted | M3 | |
+| T27.03 | Implement SCR-17 post-EVA report (print, ≤ 2 pages) | frontend | event-only | M7 | |
+| T27.04 | Implement the event log view on ops | frontend | pre-event-if-permitted | M4 | |
+| T27.05 | Implement replay mode for GitHub Pages (`#/replay`, recorded log, no Hab Core) | frontend | event-only | M7 | |
+| T27.06 | Verify: report ≤ 2 pages; the Pages link replays the recorded log | frontend | event-only | M7 | |
+| T27.07 | Fallback — start only if SCR-17 is not ready by M7: report = printed log table | frontend | event-only | M7 | |
+| T28.01 | Set up the travel router: SSID, WPA2, no WAN, fixed address for the Hab Core laptop (U-21) | integration | pre-event-allowed | M1 | |
+| T28.02 | follow-up: join QR endpoint `/api/join-qr` | integration | pre-event-if-permitted | M3 | |
+| T28.03 | Device matrix: Android Chrome, iOS Safari, laptops | integration | pre-event-allowed | M3–M4 | |
+| T28.04 | follow-up: write the venue checklist and pack list | integration | pre-event-allowed | M4b | |
+| T28.05 | Verify network faults: Wi-Fi toggle, Hab Core kill and restart, single-laptop mode | integration | pre-event-if-permitted | M4 | |
+| T29.01 | Tests: `TASK_ROVER` handler, queue, battery and relay | compute | pre-event-if-permitted | M3 | |
+| T29.02 | Implement the `TASK_ROVER` handler and queue | compute | pre-event-if-permitted | M3 | |
+| T29.03 | Implement rover motion, battery and the relay node | compute | pre-event-if-permitted | M3 | |
+| T29.04 | Implement SCR-15 rover tasking on the map | frontend | pre-event-if-permitted | M3 | |
+| T29.05 | Implement the rover queue display (ETA and battery) | frontend | pre-event-if-permitted | M3 | |
+| T29.06 | Verify: RELAY closes the demo shadow; queue shows ETA and battery | compute | pre-event-if-permitted | M3–M4 | |
+| T29.07 | Fallback — start only if cut 2 is called: RELAY only | compute | pre-event-if-permitted | M3 | |
+| T30.01 | Name the challenge on the project page and in the README; draft the page; decide when the repo goes public | story | pre-event-allowed | M0 | |
+| T30.02 | Keep `docs/AI_USE.md` current (weekly sweep) | story | pre-event-allowed | M0–M8 | |
+| T30.03 | Verify the three single points and record the evidence | story | pre-event-allowed | M8 | |
+| T31.01 | Contract: FR-50 types, scenario schema field and the 6 Nov UI stubs | hab-core | pre-event-allowed | M1 | |
+| T31.02 | Write the task text for each stop of the demo plan (U-58) | story | pre-event-allowed | M2 | |
+| T31.03 | Tests: stop task commands, events and engine behaviour | hab-core | pre-event-if-permitted | M2 | |
+| T31.04 | Implement the task engine: commands, seeding, DROPPED on revision, auto-complete | hab-core | pre-event-if-permitted | M3 | |
+| T31.05 | Implement the EVA task list and TASKS button | frontend | pre-event-if-permitted | M3 | |
+| T31.06 | Implement ops task progress and the add-task popover | frontend | pre-event-if-permitted | M3 | |
+| T31.07 | Tests: EVA list and ops progress DOM tests | frontend | pre-event-if-permitted | M2 | |
+| T31.08 | Verify: tap on tablet shows on ops ≤ 500 ms; abort drops open tasks; report counts match the log | integration | pre-event-if-permitted | M3b–M4 | |
+| T31.09 | Fallback — start only if TASK-31 runs late at M3: ops view-only, no `ADD_STOP_TASK` | frontend | pre-event-if-permitted | M3 | |
 <!-- v2-claims:end -->

@@ -206,6 +206,46 @@
 - **Agent brief:** Fallback — start only if T11.04 cannot work. Rewrite `mapSnapshot.ts` with the same signature to return the AOI image with the route drawn as SVG, mapping working-projection metres to pixels from `aoi.extent_m` (row 0 north). Use the 04 §C.1 route style, dashed NO_ROUTE legs, no network.
 - **Conflict notes:** Replaces T11.04's file wholesale and never runs at the same time as T11.04. If the AOI image needs a new asset, that is a `contract-change:` on C2 (T03.01) or a `follow-up:` on the pipeline (T03.25); do not add assets here.
 
+### T11.07 — Implement `PUBLISH_PLAN` from the briefing card to the Hab Core (v2)
+
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1 h
+- **Owns (writes):** `apps/web/src/ui/briefing/publishPlan.ts`
+- **Reads:** [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-11, [02 §E.4](../specs/02_Technical_Requirements_Document.md#e4-authentication-and-roles), `apps/web/src/net/habClient.ts`
+- **Depends on:** T11.02 (hard: the export), T20.06 (hard: client store)
+- **Parallel with:** T11.08
+- **Steps:**
+  1. A "Publish to Hab Core" action sends `PUBLISH_PLAN` with the export; show the result code.
+- **Acceptance:**
+  - Serves: FR-14, FR-31 · [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) ("plan appears in ops; `plan_hash` stable")
+  - The plan appears on ops with the same `plan_hash`.
+- **Verify:** Manual: publish from the planner, check ops; `npm --workspace @marswalk/web test`.
+- **Agent brief:** Send the existing export over the client; no new plan format.
+- **Conflict notes:** New file; SCR-08 (T11.03) mounts the button.
+
+### T11.08 — follow-up: the briefing card lists each stop's tasks (v2, FR-50)
+
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
+- **Estimate:** 0.5–1 h
+- **Owns (writes):** `apps/web/src/ui/screens/scr08BriefingCard.tsx` (after T11.03)
+- **Reads:** [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export), [01 FR-50](../specs/01_Product_Requirements_Document.md#fr-50--stop-task-list-on-the-eva-tablet-synced-to-ops-t1-m), `scenarios/storm-sol4190/stop_tasks.json`
+- **Depends on:** T11.03 (hard: owner of SCR-08), T31.02 (soft: task text)
+- **Parallel with:** T11.07
+- **Steps:**
+  1. Under each stop, list its tasks (kind, text, crew) in PRINT mode; the card still fits one page.
+- **Acceptance:**
+  - Serves: FR-50, FR-14
+  - Print preview stays one page with the demo plan's tasks.
+- **Verify:** Manual print preview.
+- **Agent brief:** Add the task list to the card.
+- **Conflict notes:** Edits after T11.03 (follow-up; T18.06 also follows up, one at a time).
+
 ## Internal dependency graph
 
 ```mermaid

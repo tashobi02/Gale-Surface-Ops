@@ -124,6 +124,26 @@
 - **Agent brief:** Human: run the checklist on the integrated app with Wi-Fi off and append the T10.03 section to `docs/ops/verification-log.md`. An agent may prepare the checklist from this file and turn the human's notes into the log entry; it does not judge the visual results.
 - **Conflict notes:** `docs/ops/verification-log.md` is append-only: add one section at the end; on a rebase conflict keep both sides. Run after T10.01, T10.02 and T06.09 have merged, plus the upstreams listed under Spec questions (map change proposed).
 
+### T10.04 — follow-up: stop types on the POI detail (v2, FR-45)
+
+- **Owner:** Saba Atharique (R3 Map & Planner UI)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** event-only
+- **Estimate:** 0.5 h
+- **Owns (writes):** `apps/web/src/ui/screens/scr06PoiDetail.tsx` (after T10.01)
+- **Reads:** [01 FR-45](../specs/01_Product_Requirements_Document.md#fr-45--exploration-zone-layer-t0-m), `docs/ops/exploration-zone.md`
+- **Depends on:** T10.01 (hard: owner of the POI detail)
+- **Parallel with:** T10.02
+- **Steps:**
+  1. Show the POI's stop type, objective and evidence with their sources.
+- **Acceptance:**
+  - Serves: FR-45, FR-04
+  - Every field shown has its source.
+- **Verify:** `npm --workspace @marswalk/web test`.
+- **Agent brief:** Add three fields to SCR-06.
+- **Conflict notes:** Edits after T10.01 (follow-up).
+
 ## Internal dependency graph
 
 ```mermaid

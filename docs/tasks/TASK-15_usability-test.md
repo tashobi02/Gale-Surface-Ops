@@ -112,6 +112,27 @@
 - **Agent brief:** The design lead decides which usability findings get fixed before the Day 2 06:00 freeze. An agent may draft the `follow-up:` subtask entries in the task-file template and run `scripts/check_tasks.py`; the lead approves the list and opens the `coord:` PR.
 - **Conflict notes:** No PR of its own. All fixes go into one `coord:` PR (map first, then task files, §h.5) to avoid repeated map edits; the fixes themselves are separate subtasks owned by their lanes. Fixes compete with M5 hardening (TASK-14) for the same time before the freeze.
 
+### T15.04 — follow-up: add the v2 criteria to the usability script (HUD glance, summon, landscape cards)
+
+- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
+- **Type:** human
+- **Tag:** human-required · core
+- **Window:** pre-event-allowed
+- **Estimate:** 0.5–1 h
+- **Owns (writes):** `docs/ops/usability-script.md` (after T15.01)
+- **Reads:** [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-15, [02 §F.2](../specs/02_Technical_Requirements_Document.md#f2-test-plan-additions-v2) Usability, [01 FR-33](../specs/01_Product_Requirements_Document.md#fr-33--hud-mode-t1-m), [Mockup handoff](../design/mockup-handoff.md#unresolved-items) U-55, U-60
+- **Depends on:** T15.01 (hard: owner of the script)
+- **Parallel with:** T15.02
+- **Steps:**
+  1. Add the HUD 3-s glance test and "summon vehicle" without instruction (02 §F.2) with their pass rule (≥ 2 of 3 per criterion, 06 §C.1).
+  2. Add UT-9 (landscape full-screen map cards, U-60) and the glove skip-reason check (U-55).
+- **Acceptance:**
+  - Serves: FR-33, FR-40 · [02 §F.2](../specs/02_Technical_Requirements_Document.md#f2-test-plan-additions-v2)
+  - Each new criterion is quoted from its spec and has a pass rule.
+- **Verify:** `make docs-check`.
+- **Agent brief:** Extend the script; quote the specs, add no numbers of your own.
+- **Conflict notes:** Edits after T15.01 (follow-up).
+
 ## Internal dependency graph
 
 ```mermaid

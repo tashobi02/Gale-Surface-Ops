@@ -221,6 +221,27 @@ No subtask of this task depends on another task (map §f).
 - **Agent brief:** Human-led, because it judges trade-offs. An agent may find every Gale-specific passage in `docs/specs/` (search for Gale, Curiosity, boxwork, RAD), draft the spec-change with `TODO(verify)` markers and draft the `coord:` PR for review.
 - **Conflict notes:** Spec files change only through spec-change subtasks, one open PR at a time (map §c.2); T16.02 rebases on it. ADR-001 and `feasibility.md` are replaced only because this is the T01.05 fallback. T03.07 and T03.16 wait for the `coord:` PR.
 
+### T01.07 — Choose the hab site inside the AOI (v2)
+
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
+- **Type:** human
+- **Tag:** human-required · core
+- **Window:** pre-event-allowed
+- **Estimate:** 1–1.5 h
+- **Owns (writes):** `docs/ops/feasibility/hab-site.md`
+- **Reads:** [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-01, [01 FR-39](../specs/01_Product_Requirements_Document.md#fr-39--time-to-safe-haven-t0t1-m), [01 FR-42](../specs/01_Product_Requirements_Document.md#fr-42--comm-coverage-and-comm-shadows-t1-m), [01 FR-45](../specs/01_Product_Requirements_Document.md#fr-45--exploration-zone-layer-t0-m), `docs/ops/feasibility/aoi.md`
+- **Depends on:** T01.02 (hard: AOI bounds), T01.03 (soft: DEM quality judgement)
+- **Parallel with:** T01.04, T21.02
+- **Steps:**
+  1. Propose a hab position that is flat and passable, near the planned science and resource stops, with ridges that cast interesting comm shadows behind them (06 §C.1 TASK-01).
+  2. Record its working-projection coordinates, the reasons and one alternative; propose it at the kickoff with the AOI.
+- **Acceptance:**
+  - Serves: FR-39, FR-42, FR-45 · [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-01 done-when ("hab position")
+  - The note gives the position, the passability check on the DEM and the reason for the choice.
+- **Verify:** `make docs-check`; a second person checks the position on the hillshade.
+- **Agent brief:** A person chooses the site; an agent may read slope and coverage values at candidate cells from the grid. No position is invented.
+- **Conflict notes:** New file; T01.05 links it from `docs/ops/feasibility.md`.
+
 ## Internal dependency graph
 
 ```mermaid

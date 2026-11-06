@@ -724,6 +724,70 @@
 - **Agent brief:** Human: confirm the fallback. Agent may add Day IR acquisition and its source and layer records, and drop the TI sidecar so all cells read TI_UNKNOWN.
 - **Conflict notes:** Never open at the same time as T03.26 (same `acquire.py`). Effectively drops LOW_TI as cut 4 would.
 
+### T03.28 — Tests: `comm_hab` viewshed grid (v2)
+
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
+- **Type:** test
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 1 h
+- **Owns (writes):** `pipeline/tests/test_comm_grid.py`
+- **Reads:** [02 L11](../specs/02_Technical_Requirements_Document.md#l11--hab-antenna-coverage-grid-fr-42), [02 §D.11](../specs/02_Technical_Requirements_Document.md#d11-line-of-sight-comm-coverage-fr-42)
+- **Depends on:** T03.01 (soft: grid layout)
+- **Parallel with:** T03.05
+- **Steps:**
+  1. On a synthetic flat plane with one wall, the shadow begins exactly behind the wall.
+  2. Cells beyond the curvature horizon of the mast height are not visible.
+  3. The output grid has the routing grid's origin, cell size and row order (row 0 = north).
+- **Acceptance:**
+  - Serves: FR-42 · [02 L11](../specs/02_Technical_Requirements_Document.md#l11--hab-antenna-coverage-grid-fr-42)
+  - Each rule above is one named pytest case.
+- **Verify:** `$(make -s pipeline-python) -m pytest pipeline/tests/test_comm_grid.py` fails before T03.29 and passes after.
+- **Agent brief:** Write viewshed tests for the pipeline on synthetic rasters.
+- **Conflict notes:** New file. Pair T03.28 → T03.29.
+
+### T03.29 — Implement the `comm_hab` viewshed grid and its layer record (v2)
+
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 1.5–2.5 h
+- **Owns (writes):** `pipeline/src/marswalk_pipeline/comm_grid.py`, `pipeline/sites/gale_boxwork/layers/` (append-only)
+- **Reads:** `pipeline/tests/test_comm_grid.py`, [02 L11](../specs/02_Technical_Requirements_Document.md#l11--hab-antenna-coverage-grid-fr-42), `scenarios/storm-sol4190/param_sets/link-assumed.json`
+- **Depends on:** T03.28 (hard: tests first), T03.08 (hard: clipped DEM with NaN), T01.07 (hard: hab position)
+- **Parallel with:** T03.12
+- **Steps:**
+  1. Ray-cast from the mast (height from the link ParamSet) to every 5 m cell with the curvature drop; write a `u8` visibility grid beside the routing grid.
+  2. Add one `comm_hab.json` layer record (`derived`, "radio propagation not modelled beyond line of sight").
+- **Acceptance:**
+  - Serves: FR-42 · [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-03
+  - T03.28 passes; the manifest lists the grid with its checksum after T03.19.
+- **Verify:** `$(make -s pipeline-python) -m pytest pipeline/tests/test_comm_grid.py`.
+- **Agent brief:** Implement the static hab viewshed in the pipeline; the browser and Hab Core only read it.
+- **Conflict notes:** The layers folder is append-only by file: add `comm_hab.json` only.
+
+### T03.30 — Verify `comm_hab` against `gdal_viewshed` at 5 points (v2)
+
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
+- **Type:** verify
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 0.5–1 h
+- **Owns (writes):** `docs/ops/verification-log.md` (append-only)
+- **Reads:** [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-03 done-when, [02 L11](../specs/02_Technical_Requirements_Document.md#l11--hab-antenna-coverage-grid-fr-42)
+- **Depends on:** T03.29 (hard: the grid)
+- **Parallel with:** T03.20
+- **Steps:**
+  1. Run `gdal_viewshed` from the same mast position and height; compare visibility at five points spread across the AOI.
+  2. Append a section with the points, both results and pass or fail.
+- **Acceptance:**
+  - Serves: FR-42 · [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) ("viewshed matches `gdal_viewshed` at 5 points")
+  - Five points recorded; any mismatch has an explanation.
+- **Verify:** Manual: the T03.30 section of the verification log.
+- **Agent brief:** Run the independent check and record results only.
+- **Conflict notes:** Append-only log.
+
 ## Internal dependency graph
 
 ```mermaid

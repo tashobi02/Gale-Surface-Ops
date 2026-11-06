@@ -253,6 +253,26 @@
 - **Agent brief:** Only after ADR-004 records a no-go. Implement `apps/web/src/ui/map/drawLegs.ts`: a draw interaction for per-leg polylines between consecutive waypoints that sends them for validation and reuses the existing route layer, profile and warnings. Do not edit other files; the needed protocol/client/store additions come first as contract changes.
 - **Conflict notes:** Writes only the new `drawLegs.ts`. Sending drawn legs needs `contract-change:` subtasks on C6 (TASK-05), C10 (TASK-07) and C11 (TASK-08) first (Spec questions). Pair it with T05.30, which owns `manualLeg.ts`.
 
+### T09.09 — follow-up: haven and comm bands in the results panel and profile (v2, FR-39, FR-42)
+
+- **Owner:** Saba Atharique (R3 Map & Planner UI), with Mishkat Ahmed Khan (R2) for the planning values
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
+- **Estimate:** 1–1.5 h
+- **Owns (writes):** `apps/web/src/ui/screens/scr05RouteResults.tsx` (after T09.03)
+- **Reads:** [02 §D.8](../specs/02_Technical_Requirements_Document.md#d8-time-to-safe-haven-fr-39) planning approximation, [02 §D.11](../specs/02_Technical_Requirements_Document.md#d11-line-of-sight-comm-coverage-fr-42), [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-09
+- **Depends on:** T09.03 (hard: owner of the results panel), T05b.04 (hard: planning haven values)
+- **Parallel with:** T08.12
+- **Steps:**
+  1. Show haven minutes along the route as bands (labelled `modelled (approximation)`) and comm-shadow segments from `comm_hab` (`derived`).
+- **Acceptance:**
+  - Serves: FR-39, FR-42
+  - Partial and over-limit states still render (06 TASK-09 done-when).
+- **Verify:** `npm --workspace @marswalk/web test`.
+- **Agent brief:** Add two bands to the results panel; values come from the worker.
+- **Conflict notes:** Edits after T09.03 (follow-up; T18.06 also follows up, one at a time).
+
 ## Internal dependency graph
 
 ```mermaid

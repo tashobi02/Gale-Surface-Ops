@@ -277,6 +277,48 @@
 - **Agent brief:** Only after the data lead confirms the trigger: cache the MSL MMGIS traverse JSON once, switch the traverse records to it, label it unofficial and add its parser and test. The MMGIS path is unverified; never guess it.
 - **Conflict notes:** Writes files owned by T04.01, T04.02, T04.03 and T04.08 only after the trigger, never at the same time as them (map §c.1 rule 3). The new DataSource is a new file in the append-only-by-file `sources/` folder. T03.19 must run again if the bundle already exists.
 
+### T04.10 — Write the Exploration Zone framing and the stop-type list (v2, FR-45, U-16)
+
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
+- **Type:** human
+- **Tag:** human-required · core
+- **Window:** pre-event-allowed
+- **Estimate:** 1–1.5 h
+- **Owns (writes):** `docs/ops/exploration-zone.md`
+- **Reads:** [01 FR-45](../specs/01_Product_Requirements_Document.md#fr-45--exploration-zone-layer-t0-m), [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-04, [docs/reference](../reference/)
+- **Depends on:** T01.05 (hard: AOI and site)
+- **Parallel with:** T04.04
+- **Steps:**
+  1. Write the Exploration Zone framing for Gale (one paragraph) with its citation (U-16), or `TODO(verify)` if none is found.
+  2. Define the stop types (science, resource and any others 01 FR-45 names) with one line each; T04.04 and T04.05 give every POI a `stop_type`, an objective and its evidence.
+- **Acceptance:**
+  - Serves: FR-45 · U-16
+  - Every claim cites a source; the stop-type list matches 01 FR-45.
+- **Verify:** `make docs-check`; a second person checks each citation.
+- **Agent brief:** The product & systems lead writes it; an agent may collect candidate citations. No invented facts.
+- **Conflict notes:** New file.
+
+### T04.11 — Check the dust-record source for the scenario window (v2, U-17)
+
+- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
+- **Type:** human
+- **Tag:** human-required · desirable
+- **Window:** pre-event-allowed
+- **Estimate:** 0.5–1 h
+- **Owns (writes):** `docs/ops/dust-record.md`
+- **Reads:** [01 FR-49](../specs/01_Product_Requirements_Document.md#fr-49--dust-advisory-replay-t2-s), [06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-04
+- **Depends on:** none
+- **Parallel with:** T21.06
+- **Steps:**
+  1. Look for an orbiter weather-imagery record of dust activity near Gale in the scenario window (U-17).
+  2. Record what was found with its source, or that nothing suitable exists; FR-49 is qualitative only.
+- **Acceptance:**
+  - Serves: FR-49 · U-17
+  - The note states found or not found, with sources.
+- **Verify:** `make docs-check`.
+- **Agent brief:** A person searches; an agent may list candidate archives. Never quantify dust.
+- **Conflict notes:** New file. Feeds T18.13 only.
+
 ## Internal dependency graph
 
 Cross-task edges (T03.01 soft; T03.08 hard into T04.07 and T04.08; this task into T03.19 and T07.14) are in the Inputs and Outputs tables and in [map §f](_coordination.md#f-dependency-graph).
