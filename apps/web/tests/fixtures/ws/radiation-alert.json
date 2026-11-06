@@ -1,0 +1,30 @@
+[
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 420,
+    "sim_time": "2024-05-20T13:12:00Z",
+    "event": {
+      "seq": 420,
+      "sim_time": "2024-05-20T13:12:00Z",
+      "kind": "ALERT_RAISED",
+      "actor": "system",
+      "data": {
+        "alert_id": "a-420",
+        "code": "RADIATION_ALERT",
+        "level": "warning",
+        "subjects": [
+          "EV1",
+          "EV2"
+        ],
+        "message": "Shelter now — radiation surge",
+        "rate_ugy_h": null,
+        "threshold_ugy_h": null,
+        "source": "replayed:rad-sol4190"
+      },
+      "provenance": {
+        "data.rate_ugy_h": "replayed"
+      }
+    }
+  }
+]
