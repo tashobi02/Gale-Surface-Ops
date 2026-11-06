@@ -186,14 +186,14 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
   });
 
   it("the server sends PING every HEARTBEAT_MS (02 §E.6, FR-32)", async () => {
+    // Fake only the interval timers, before the server starts, so its heartbeat runs on the fake clock.
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const { server } = await setup();
     const c = await client(server.url);
     c.send(hello(0));
     await c.waitFor((m) => m.type === "SNAPSHOT");
-    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const before = c.received.filter((m) => m.type === "PING").length;
     vi.advanceTimersByTime(HEARTBEAT_MS * 2);
-    vi.useRealTimers();
     await c.waitFor((m) => m.type === "PING", before + 2);
   });
 
