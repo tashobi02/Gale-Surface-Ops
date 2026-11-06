@@ -1,0 +1,24 @@
+[
+  {
+    "v": 1,
+    "type": "STATE_DELTA",
+    "seq": 413,
+    "sim_time": "2024-05-20T13:05:01Z",
+    "changes": [
+      {
+        "path": "crew/EV1/x_m",
+        "value": 2411.2
+      },
+      {
+        "path": "crew/EV1/o2_frac",
+        "value": 0.7099
+      }
+    ]
+  },
+  {
+    "v": 1,
+    "type": "PING",
+    "seq": 413,
+    "sim_time": "2024-05-20T13:05:01Z"
+  }
+]

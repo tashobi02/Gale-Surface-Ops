@@ -1,0 +1,59 @@
+[
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 421,
+    "sim_time": "",
+    "event": {
+      "seq": 421,
+      "sim_time": "",
+      "kind": "OPTIONS_PROPOSED",
+      "actor": "system",
+      "data": {
+        "alert_id": "a-420",
+        "options": [
+          {
+            "option_id": "o1",
+            "alert_id": "a-420",
+            "kind": "VEHICLE_RENDEZVOUS",
+            "crew_ids": [
+              "EV1",
+              "EV2"
+            ],
+            "eta_shelter_min": 14,
+            "expected_dose_ugy": 0,
+            "stops_dropped": [],
+            "violations": [],
+            "rank": 1,
+            "path_preview": [],
+            "rendezvous": {
+              "x_m": 0,
+              "y_m": 0,
+              "eta_crew_s": 0,
+              "eta_vehicle_s": 0
+            }
+          },
+          {
+            "option_id": "o2",
+            "alert_id": "a-420",
+            "kind": "ABORT_TO_HAB",
+            "crew_ids": [
+              "EV1",
+              "EV2"
+            ],
+            "eta_shelter_min": 41,
+            "expected_dose_ugy": 0,
+            "stops_dropped": [],
+            "violations": [],
+            "rank": 2,
+            "path_preview": [],
+            "rendezvous": null
+          }
+        ]
+      },
+      "provenance": {
+        "data.options[].eta_shelter_min": "modelled"
+      }
+    }
+  }
+]
