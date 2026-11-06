@@ -54,6 +54,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-06 | Codex (Luna 6), Gemini 3.8 Flash via agy, Claude Code (Opus 5.5) | T03.15: wrote the pipeline entry point | No numbers; `--help`, unknown-site and stub runs checked; Gemini 3.8 Flash and Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
 | 2026-11-06 | Gemini 4 Argon via agy, Codex (Sol 6.1), Claude Code (Opus 5.5) | T03.03: wrote the projection and raster tests; Sol audited them | Synthetic rasters only; the no-data value and projection strings come from 02 §C.4 and 05 §F.1; passes against a throwaway reference; Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
 | 2026-11-06 | Claude Code (Sonnet 5.5), Codex (Sol 6.1), Claude Code (Opus 5.5) | T03.04: wrote the slope, hillshade, aggregation and flag tests; Sol audited and strengthened them | Synthetic arrays; tolerances from 02 §C.2 L3; passes against a throwaway reference; Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
+| 2026-11-06 | Gemini 4 Argon via agy, Codex (Sol 6.1), Claude Code (Opus 5.5) | T03.05: wrote the routing-grid encoding tests; Sol audited them and added the clamp test | Values from 05 and 02 §E.2 examples; passes against a throwaway reference; Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
 
 ## Prompts location
 
