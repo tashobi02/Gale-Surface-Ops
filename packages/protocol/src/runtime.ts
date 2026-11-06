@@ -227,7 +227,7 @@ export type StopTaskReason = "time" | "terrain" | "alert" | "other";
 export interface StopTask {
   /** Unique per session, e.g. `t-s2-02`. */
   task_id: string;
-  /** The plan stop it belongs to (05: "POI id"; U-61). */
+  /** `id` of the plan stop Waypoint it belongs to, e.g. `wp-2` (05 StopTask, U-61). */
   stop_id: string;
   /** null = either crew member. */
   crew_id: CrewId | null;

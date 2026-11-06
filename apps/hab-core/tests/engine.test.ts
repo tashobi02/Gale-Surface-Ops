@@ -17,6 +17,7 @@ describe("stop tasks", () => {
   it.todo("scenario stop_tasks become TASK_ADDED events with origin plan, state TODO, actor system");
   it.todo("TASK_ADDED / TASK_UPDATED / TASK_DROPPED reduce to the tasks in SNAPSHOT");
   it.todo("a plan revision that drops stops turns their TODO tasks into DROPPED (actor system); DONE and SKIPPED stay");
+  it.todo("a plan revision keeps the surviving stops' Waypoint ids, so tasks keep their stop (U-61)");
   it.todo("abort in the killer demo turns the remaining stops' open tasks into DROPPED");
   // TODO(decision): U-56 — open tasks at the current stop on abort or rendezvous.
   it.todo("open tasks at the current stop on abort follow the U-56 decision");
