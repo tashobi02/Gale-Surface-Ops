@@ -7,7 +7,7 @@
 | **Status** | Test fixture. Synthetic shapes, not data; `site_id` `mock_site`; the demo never loads it |
 | **Related** | [06 §D.2](../../../../../docs/specs/06_High_Level_Implementation_Plan.md#d2-parallel-streams) · [05 Scenario](../../../../../docs/specs/05_Backend_and_Database_Schema.md#scenario) · [fixture value rule](../../../../../docs/tasks/_coordination.md#e-fixtures-and-mocks) · [TASK-22](../../../../../docs/tasks/TASK-22_simulation-engine.md) |
 
-A small scenario so the engine and server can run before TASK-21 delivers `storm-sol4190`: two crew, one pressurized rover, a straight-line plan with two stops, two stop tasks, a stepped synthetic dose curve and one constant Earth-link row.
+A small scenario so the engine and server can run before TASK-21 delivers `storm-sol4190`: two crew, one pressurized rover, a straight-line loop plan (out to two stops and back), two stop tasks, a stepped synthetic dose curve and one constant Earth-link row.
 
 **Do not edit the JSON by hand.** Change `make_fake_scenario.py` and run it:
 
@@ -30,12 +30,17 @@ python3 apps/hab-core/tests/fixtures/fake-scenario/make_fake_scenario.py
 | Waypoints at x = 0, 1000, 2000 m on y = 0; rover start at the plan start | declared shape: `STOP_SPACING_M` 1000, `N_STOPS` 2 |
 | Dose curve: 1 µGy/h background, then `STEP_FACTOR` × `rad_k_background` × background for 1 h, then background; samples every 600 s | declared shape: `BACKGROUND_UGY_H` 1, `STEP_FACTOR` 2, `PHASE_S` 3600, `SAMPLE_STEP_S` 600; `rad_k_background` from `alert-assumed` |
 | Earth message time = step onset | declared shape: `EARTH_MESSAGE_OFFSET_S` = `PHASE_S` |
-| Leg `walk_time_min`, `distance_m`, `geometry`, dose `integral_check`, `plan_hash`, table `sha256` | computed by `make_fake_scenario.py` from the values above |
-| Earth-link row values 0, `passes` [], `kernels` [], `totals` null, `stops_timeline` [], `warnings` [] | placeholders |
-| `data_version` `mock_site-fixture`, `scenario_id` `fake-straight-line`, `source_id` `fixture-synthetic` | fixture identifiers |
+| Leg `walk_time_min`, `distance_m`, `geometry` (including the return leg `loop` requires), `totals`, dose `integral_check`, `plan_hash`, table `sha256` | computed by `make_fake_scenario.py` from the values above; `max_walkback_km` = max over waypoints of min(cumulative, total − cumulative) along the loop |
+| `eva_start_utc` | equals `start_utc` |
+| Earth-link row values 0, `passes` [], `kernels` [], `stops_timeline` [], `warnings` [], `provenance_summary` [] | placeholders |
+| Second task `crew_id` null (either crew) and `kind` `other` | placeholders within the 05 StopTask enums |
+| `data_version` `mock_site-fixture`, `scenario_id` `fake-straight-line`, `title`, `source_id` `fixture-synthetic`, task ids `t-s1-01`/`t-s2-01`, event id `e1`, waypoint ids `wp-0`…`wp-2` | fixture identifiers |
 
 ## Known limits
 
 - `DoseSeries.provenance` must be `replayed` (05 DoseSeries); here the curve is synthetic and is marked by `source_id` `fixture-synthetic` and `method` `template_scaled`. It is never shown as real data.
 - `plan_hash` hashes canonical JSON "with numbers as written" (05 PlanExport). Python writes `6.0` where JavaScript writes `6`, so the fixture writes whole numbers without a decimal point. `TODO(verify)`: how T22.11 and the planner export (T11) canonicalise numbers, so both agree on one hash.
+- `integral_check.expected_ugy` equals `computed_ugy`: 05 sets `expected` to the published event total, and a synthetic shape has none. The test recomputes the integral from the samples independently instead.
+- `earth_link.json` is labelled `derived` (05 EarthLinkTable) but holds one placeholder row at `start_utc`: light time 0 s, Earth and every orbiter at 0° elevation, no passes. Engine code that looks up later times must treat the last row as holding, and must not read anything into the zeros.
+- `stops_timeline` is empty, so nothing gives arrive/depart times; the engine derives motion from the legs.
 - `grid` and `comm` in `LoadedScenario` are null for this fixture: `mock_site` has no site data yet (F4, T03.02).

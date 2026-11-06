@@ -30,7 +30,8 @@ function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 
-const ajv = new Ajv2020({ allErrors: true, strict: false });
+// Strict, except two rules that reject valid schema patterns used in schemas/ (if/then required, union types).
+const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false, allowUnionTypes: true });
 addFormats(ajv);
 const validator = (schema: string) => ajv.compile(readJson(join(root, "schemas", schema)));
 
@@ -82,12 +83,35 @@ describe("fake scenario fixture (T22.02, F8)", () => {
     }
   });
 
+  it("every referenced ParamSet is listed, events are sorted (05 Scenario)", () => {
+    const listed = new Set(scenario.param_sets);
+    for (const c of scenario.crew) expect(listed.has(c.suit_param_set), c.crew_id).toBe(true);
+    for (const v of scenario.vehicles) expect(listed.has(v.param_set), v.vehicle_id).toBe(true);
+    const vps = scenario.plan.scenario.vehicle_param_set;
+    if (vps) expect(listed.has(vps)).toBe(true);
+    const times = scenario.events.map((e) => Date.parse(e.t_utc));
+    expect(times).toEqual([...times].sort((a, b) => a - b));
+  });
+
+  it("a loop plan has one leg per waypoint pair plus the return leg, and OK has totals (05 PlanResult)", () => {
+    const { result, waypoints, scenario: mission } = scenario.plan;
+    expect(result.legs.length).toBe(waypoints.length - 1 + (mission.loop ? 1 : 0));
+    if (result.status === "OK") expect(result.totals).not.toBeNull();
+  });
+
   it("is mock data: site_id mock_site, synthetic source, dose integral consistent", () => {
     expect(scenario.site_id).toBe("mock_site");
     expect(scenario.plan.site_id).toBe("mock_site");
     const dose = readJson<DoseSeries>(join(here, "dose_series.json"));
     expect(dose.source_id).toBe("fixture-synthetic");
-    expect(dose.integral_check.computed_ugy).toBe(dose.integral_check.expected_ugy);
+    // Independent recompute: each sample's rate holds until the next sample (piecewise constant).
+    let integral = 0;
+    for (let i = 0; i + 1 < dose.samples.length; i++) {
+      const dt_h = (Date.parse(dose.samples[i + 1][0]) - Date.parse(dose.samples[i][0])) / 3_600_000;
+      expect(dt_h, "dose samples strictly increasing (05 DoseSeries)").toBeGreaterThan(0);
+      integral += (dose.samples[i][1] ?? 0) * dt_h;
+    }
+    expect(dose.integral_check.computed_ugy).toBeCloseTo(integral, 9);
     const earth = readJson<EarthLinkTable>(join(here, "earth_link.json"));
     expect(earth.rows.length).toBe(1);
   });

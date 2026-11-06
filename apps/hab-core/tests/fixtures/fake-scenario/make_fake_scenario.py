@@ -32,7 +32,7 @@ DISCLAIMER = "Exploratory planning prototype — not validated for operations." 
 
 
 def load_param(pid):
-    return json.loads((HERE / "param_sets" / f"{pid}.json").read_text())
+    return json.loads((HERE / "param_sets" / f"{pid}.json").read_text(encoding="utf-8"))
 
 
 def canonical(value):
@@ -46,8 +46,9 @@ def iso(t):
 
 def write(name, obj):
     text = json.dumps(obj, indent=2, ensure_ascii=False) + "\n"
-    (HERE / name).write_text(text)
-    return hashlib.sha256(text.encode()).hexdigest()
+    with open(HERE / name, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def main():
@@ -89,8 +90,9 @@ def main():
     waypoints = [{"id": "wp-0", "role": "start", "x_m": 0, "y_m": 0}]
     waypoints += [{"id": f"wp-{i}", "role": "stop", "x_m": i * STOP_SPACING_M, "y_m": 0} for i in range(1, N_STOPS + 1)]
     legs = []
-    for a, b in zip(waypoints, waypoints[1:]):
-        dist = b["x_m"] - a["x_m"]
+    # One leg per consecutive pair, plus the return leg because `loop` is true (05 PlanResult).
+    for a, b in list(zip(waypoints, waypoints[1:])) + [(waypoints[-1], waypoints[0])]:
+        dist = abs(b["x_m"] - a["x_m"])
         legs.append({"from": a["id"], "to": b["id"], "status": "OK", "distance_m": dist,
                      "walk_time_min": dist / 1000 / suit["flat_speed_kmh"] * 60,
                      "climb_m": 0, "descent_m": 0, "max_slope_deg": 0,
@@ -104,6 +106,19 @@ def main():
         "suited_flat_speed_kmh": suit["flat_speed_kmh"], "solar_phase": "max", "loop": True,
         "max_haven_min": 30, "crew_count": 2, "vehicle_available": True, "vehicle_param_set": "pr1-assumed",
     }
+    # Totals (05 PlanResult) computed from the legs. Walkback on a loop: at each waypoint the shorter
+    # way back to the start along the route, min(cumulative, total - cumulative); max over waypoints.
+    total_m = sum(l["distance_m"] for l in legs)
+    walk_min = sum(l["walk_time_min"] for l in legs)
+    dwell_min = mission["dwell_min_per_stop"] * N_STOPS
+    cum, walkback_m = 0, 0
+    for l in legs[:-1]:
+        cum += l["distance_m"]
+        walkback_m = max(walkback_m, min(cum, total_m - cum))
+    totals = {"distance_m": total_m, "walk_time_min": walk_min, "dwell_time_min": dwell_min,
+              "eva_total_min": walk_min + dwell_min,
+              "eva_margin_min": mission["max_eva_duration_h"] * 60 - (walk_min + dwell_min),
+              "climb_m": 0, "descent_m": 0, "max_slope_deg": 0, "max_walkback_km": walkback_m / 1000}
     plan_hash = hashlib.sha256(
         canonical({"data_version": DATA_VERSION, "scenario": mission, "waypoints": waypoints}).encode()
     ).hexdigest()[:12]
@@ -111,7 +126,7 @@ def main():
         "export_schema_version": "1.0.0", "app_version": "0.1.0",  # 05 §F.3
         "site_id": SITE_ID, "data_version": DATA_VERSION, "plan_hash": plan_hash,
         "scenario": mission, "waypoints": waypoints,
-        "result": {"status": "OK", "legs": legs, "totals": None, "stops_timeline": [], "warnings": []},
+        "result": {"status": "OK", "legs": legs, "totals": totals, "stops_timeline": [], "warnings": []},
         "provenance_summary": [], "disclaimer": DISCLAIMER,
     }
 

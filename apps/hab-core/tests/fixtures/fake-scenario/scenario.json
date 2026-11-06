@@ -89,9 +89,39 @@
               0
             ]
           ]
+        },
+        {
+          "from": "wp-2",
+          "to": "wp-0",
+          "status": "OK",
+          "distance_m": 2000,
+          "walk_time_min": 36.36363636363637,
+          "climb_m": 0,
+          "descent_m": 0,
+          "max_slope_deg": 0,
+          "geometry": [
+            [
+              2000,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
         }
       ],
-      "totals": null,
+      "totals": {
+        "distance_m": 4000,
+        "walk_time_min": 72.72727272727273,
+        "dwell_time_min": 40,
+        "eva_total_min": 112.72727272727273,
+        "eva_margin_min": 247.27272727272725,
+        "climb_m": 0,
+        "descent_m": 0,
+        "max_slope_deg": 0,
+        "max_walkback_km": 2.0
+      },
       "stops_timeline": [],
       "warnings": []
     },
