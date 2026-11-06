@@ -1,0 +1,53 @@
+# Hab Core engine
+
+| | |
+| --- | --- |
+| **Owner** | T22.01 (contract C14); each module's owner is listed below |
+| **Date** | 2026-11-06 |
+| **Status** | Interfaces frozen with protocol v0 (M1, 7 Nov). All modules are throwing stubs until their owner subtask lands |
+| **Related** | [02 §A.6](../../../../docs/specs/02_Technical_Requirements_Document.md#a6-state-model-commands--events--state) · [02 §D.14](../../../../docs/specs/02_Technical_Requirements_Document.md#d14-simulation-engine-fr-34-fr-35) · [05 §C.2](../../../../docs/specs/05_Backend_and_Database_Schema.md#c2-runtime-entities-hab-core-v2) · [TASK-22](../../../../docs/tasks/TASK-22_simulation-engine.md) |
+
+## The one rule
+
+Nothing under `src/engine/` reads wall-clock time: no `Date.now()`, no `new Date()` without an argument, no timers (NFR-06). Time is `state.session.clock.sim_time`. The server (`src/server.ts`) turns real elapsed time into a number of fixed 1-s sim steps and calls `SessionHandle.advance`. Randomness, if ever enabled, uses the seeded PRNG from the scenario (02 §A.6); none is used by default.
+
+## State model
+
+State is a fold of the event log over the scenario's initial state (02 §A.6):
+
+- `reducer.ts`: `EngineState`, `initialState(scenario, session_id)`, `reduce(state, event)`. Shared types `PendingEvent` (a LogEvent before its `seq`), `StateChange` (one STATE_DELTA entry) and `CommandOutcome`.
+- Commands are never logged; the events they produce are (05 Command). A command handler returns `CommandOutcome` = `{result, events}` and never changes state directly.
+- Per-tick positions are STATE_DELTAs, not LogEvents; replay and resume re-derive them by re-running ticks (05 LogEvent), so resuming is snapshot + re-run ticks + tail events, never "reduce the tail" alone.
+- **State rule for modules:** a module changes only never-logged state (positions, O₂, dose, haven, links, conditions, Earth status, paths and ETAs) directly; anything a LogEvent describes (alerts, options, tasks, plan, activity changes) changes only by returning the event. `tick.ts` reduces each module's events, with seqs from `ctx.next_seq`, before the next module runs, so later modules see them. The state `tick()` returns already includes its events: the session appends them (the log must assign the same seqs) and does not reduce them again. Command events are the opposite: the session appends and then reduces them.
+
+## Tick and module map
+
+`tick(state, scenario, dt_s, next_seq)` first moves crew along the plan, handles dwell, and updates O₂ and dose through `@marswalk/compute` (T22.09). It then calls each `EngineModule` (`(state, ctx) → {state, events, deltas}`) in `MODULE_ORDER`:
+
+| # | Module function | Concern | Owner |
+| --- | --- | --- | --- |
+| 1 | `vehicles.vehiclesTick` | Pressurized rover motion, arrival, sheltering | T23.05 |
+| 2 | `rovers.roversTick` | Utility rover motion, battery, relay node | T29.03 |
+| 3 | `conditions.conditionsTick` | FR-36 conditions feed | T22.16 |
+| 4 | `earth.earthTick` | Earth message delivery and forecasts | T26.04 |
+| 5 | `tasks.tasksTick` | Simulated crew completes tasks at dwell end | T31.04 |
+| 6 | `alerts.radiationTick` | `RADIATION_ALERT` | T22.10 |
+| 7 | `alerts.consumablesTick` | `CONSUMABLES_LOW` | T22.10 |
+| 8 | `haven.havenTick` | Haven per crew, `HAVEN_TIME_EXCEEDED` | T23.03 |
+| 9 | `links.linksTick` | Link graph, `LINK_LOST`/`LINK_RESTORED`, `COMM_SHADOW` | T26.01 (fallback T26.08) |
+| 10 | `alerts.buddyTick` | `BUDDY_SEPARATION` | T22.10 |
+| 11 | `contingencyOps.contingencyTick` | `OPTIONS_PROPOSED` on a new warning | T23.07 |
+
+Rows 6–10 keep the fixed alert order of 02 §D.14: radiation → consumables → haven time → comm link → buddy distance. The order of rows 1–5 and 11 is proposed by T22.01 (`TODO(decision)` in `tick.ts`).
+
+Command handlers in the modules: `vehicles.handleSummon`, `contingencyOps.handleApproveOption`, `contingencyOps.handleAbort`, `earth.handleSendMessage`, `tasks.handleUpdateStopTask`, `tasks.handleAddStopTask`. `src/commands.ts` (T23.02) checks roles and dispatches to them; `TASK_ROVER` goes to `src/rover.ts` (T29.01–T29.02). `tasks.ts` also provides `seedTasks` and `onPlanRevised`, which `src/session.ts` (T22.12) calls after `SESSION_LOADED` and after each `PLAN_REVISED`, and the reducer case `reduceTaskEvent`, which `reduce` (T22.06) calls. `vehiclesTick` moves only the pressurized rover and `roversTick` only the utility rover.
+
+## Outside `src/engine/`
+
+| File | API | Owner |
+| --- | --- | --- |
+| `src/scenario.ts` | `readScenario(dir, site)` → `LoadedScenario`; `ScenarioCheckError` | T22.11 |
+| `src/log.ts` | `openLog`, `resumeLog`, `EventLog` (`append`, `after`, `lastSeq`, `hash`, `snapshot`), `canonicalJson` | T22.07 |
+| `src/session.ts` | `loadSession`, `resumeSession`, `SessionHandle` (`snapshot`, `apply`, `advance`, `eventsAfter`) | T22.12 |
+
+Changing any signature here after the freeze is a `contract-change:` subtask in TASK-22.
