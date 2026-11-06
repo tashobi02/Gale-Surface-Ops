@@ -13,18 +13,20 @@ Specs 01–06 are frozen at Draft v2 (2026-11-04). This file is the design hando
 
 - **Prototype:** [Marswalk Surface Ops design handoff prototype](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt) — one self-contained HTML page (`docs/design/prototype/marswalk-prototype.html`), all 19 screens (SCR-00 to SCR-18), a state switcher on every screen, device frames per 04 §F, flows, a demo player and a three-device Stage.
 - **Honesty rules held:** every displayed number is `{v, unit, prov, src}` from a spec example or a `PLACEHOLDER` (shown as `##.#` with a dotted underline); nothing is computed; nothing is called live; coordinates are the IAU_2015:49900 sphere, east-positive; no external tiles or images; no logos or photos.
-- **Scale:** 162 fixture numbers, 50 of them `PLACEHOLDER`; 19 screens; 219 screen × state × frame combinations.
+- **Scale:** 164 fixture numbers, 52 of them `PLACEHOLDER`; 19 screens; 227 screen × state × frame combinations.
+- **Stop task list (FR-50, Proposed 2026-11-05), resolves U-47:** shown on the EVA tablet (SCR-12, new states Undo window and Ops-added task), the ops crew cards with an Add task popover (SCR-11), the briefing card (SCR-08), the report (SCR-17) and the Stage (new beat at 0:05). Task counts are never computed in the prototype: they are looked up from the fixture (G-34).
+- **Full-screen map:** the EVA mini-map expands to a full-screen map with labelled controls and layers (landscape: HAVEN and O₂ stacked smaller at the left, map at least 80 % of the width: DV-13, G-48); the planner and ops maps gained on-screen zoom buttons, drag and wheel (DV-14).
 - **Open decision for the team:** the EVA landscape layout is a **Proposed** deviation (DV-01). Ratify it as U-30 before TASK-24 starts.
 - **Hosting note:** the artifact host only passes plain `#name` hashes, so prototype links look like `#scr-12-alerting-landscape`; the prototype also accepts the 03 §A forms (`#/planner`, `#/ops`, `#/eva/EV1`, `#/hud/EV1`, `#/report`).
 
 ## Screen inventory
 
-Modes and routes follow 03 §A and 04 §B.2. States are copied from each 03 §B "States" row; additions are listed in the gaps table (G-10).
+Modes and routes follow 03 §A and 04 §B.2. States are copied from each 03 §B "States" row; additions are listed in the gaps table (G-10, and G-30 onward for FR-50).
 
 | SCR | Route (03 §A) | Mode | States | FRs | Tier |
 | --- | --- | --- | --- | --- | --- |
 | SCR-11 Ops console | `#/ops` | OPS | No session · Loaded · Running · Paused · Alerting · Ended | FR-30–38, 40, 42–46 | T1 |
-| SCR-12 EVA tablet | `#/eva/EV1` | OPS | Waiting for EVA start · Walking · At stop · Alerting · To haven · Sheltered · No hab link · EVA ended | FR-32, 35, 39, 40, 44 | T1 |
+| SCR-12 EVA tablet | `#/eva/EV1` | OPS | Waiting for EVA start · Walking · At stop · Undo window · Ops-added task · Alerting · To haven · Sheltered · No hab link (not synced) · EVA ended | FR-32, 35, 39, 40, 44 | T1 |
 | SCR-13 HUD | `#/hud/EV1` | HUD | Nominal · Caution · Warning · No link | FR-33 | T1 |
 | SCR-14 Options sheet / panel | `(on alert)` | OPS | Computing options · Ready · Executing · Superseded · Ops approval pending · No rendezvous | FR-40, 44 | T1 |
 | SCR-02 Map workspace | `#/planner` | OPS | Loading tiles · Idle · Add-stop mode · Computing · Results OK · Results partial · Error (worker) | FR-01–10, 16, 17 | T0 |
@@ -60,10 +62,12 @@ Each state links to the prototype ([open the prototype](https://claude.ai/artifa
 | SCR-12 | Waiting for EVA start | [`#scr-12-waiting-for-eva-start-landscape`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-12-waiting-for-eva-start-landscape) |
 | SCR-12 | Walking | [`#scr-12-walking-landscape`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-12-walking-landscape) |
 | SCR-12 | At stop | [`#scr-12-at-stop-landscape`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-12-at-stop-landscape) |
+| SCR-12 | Undo window | [`#scr-12-undo-window-landscape`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-12-undo-window-landscape) |
+| SCR-12 | Ops-added task | [`#scr-12-ops-added-task-landscape`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-12-ops-added-task-landscape) |
 | SCR-12 | Alerting | [`#scr-12-alerting-landscape`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-12-alerting-landscape) |
 | SCR-12 | To haven | [`#scr-12-to-haven-landscape`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-12-to-haven-landscape) |
 | SCR-12 | Sheltered | [`#scr-12-sheltered-landscape`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-12-sheltered-landscape) |
-| SCR-12 | No hab link | [`#scr-12-no-hab-link-landscape`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-12-no-hab-link-landscape) |
+| SCR-12 | No hab link (not synced) | [`#scr-12-no-hab-link-not-synced-landscape`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-12-no-hab-link-not-synced-landscape) |
 | SCR-12 | EVA ended | [`#scr-12-eva-ended-landscape`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-12-eva-ended-landscape) |
 | SCR-13 | Nominal | [`#scr-13-nominal`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-13-nominal) |
 | SCR-13 | Caution | [`#scr-13-caution`](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt#scr-13-caution) |
@@ -164,6 +168,12 @@ Proposed React components in `apps/web` (names and paths are suggestions; props 
 | JoinPage (SCR-10) / BriefingPage (SCR-01) | ui/brief/JoinPage.tsx | roles; hab status | connecting, ready, role taken, unreachable | brief tokens | FR-30, 31 |
 | LinkOverlay (SCR-18) / BootError (SCR-00) | ui/overlays/LinkOverlay.tsx | state; cached values | connecting, lost (EVA), lost (ops), restored | caution, advisory | FR-16, NFR-13 |
 | RoverTasking (SCR-15, T2) / EarthView (SCR-16, T2) | ui/t2/RoverTasking.tsx | task; target; state | choosing … failed; link, waiting, blackout | caution, unknown | FR-41, 43, 48 |
+| StopTaskList / StopTaskRow | ui/screens/scr12/StopTaskList.tsx | tasks[]; crewId; stopId; readOnly; undo; onTick; onSkip; onUndo; onReason | to do, done, skipped, dropped; undo window; not synced; added by ops; read only; collapsed to a count during an alert | panel, raised, hairline, text-1/2/3, edge (neutral chrome only) | FR-50; rows ≥ 56 px |
+| TasksButton / TaskCountPill | ui/screens/scr12/TasksButton.tsx | count; active; locked | idle, active (MAP / NEXT), locked (non-interactive pill during an alert) | raised, edge, text-1 | FR-50; ≥ 56 px, icon + word + count |
+| TaskProgress | ui/ops/TaskProgress.tsx | stopCount; total; onAdd | default | text-1, text-3, hairline | FR-50; ops crew card |
+| AddTaskPopover | ui/ops/AddTaskPopover.tsx | crew; stop; kind; text; maxReached | default, empty text (disabled), max reached | panel, raised, edge | FR-50 ADD_STOP_TASK |
+| MapControls | map/MapControls.tsx | zoom; pan; follow; fit; layersOpen; onClose | default, layers open | edge, raised, text-1 | G-42, G-43; buttons ≥ 56 px on EVA |
+| FullScreenMap | map/FullScreenMap.tsx | crew; view; layers; orientation | open (landscape: cards stacked at the left; portrait: cards in their row), closed, auto-closed by a warning | route, text-1, void casing | G-42, G-48; map ≥ 80 % of the width in landscape |
 
 ## Token table
 
@@ -338,6 +348,8 @@ Fonts: Chakra Petch (display), Inter (UI), IBM Plex Mono (all numbers, tabular, 
 | Ops keys | 04 §F | Space pause · 1/2/3 speed · N next event · K acknowledge · O focus options. |
 | Planner | 04 §F, App. A | A add-stop mode · Enter place at crosshair · Delete remove selected · B briefing · ? sources · arrows pan · +/− zoom. Drag stops; on drop validate → snap offer (≤ 50 m) or refuse; max two scientific overlays (a third dims the oldest and says so); inputs recompute after a 300 ms debounce and an invalid value is never sent. |
 | Demo player | 01 §E.1, §E.2, 10 | Beats hold between keyframes; markers tween visually only; 60× plays at the pace of the recorded table, 10× and 1× are slower; next event, previous, scrub. Commands from the Stage (hold Summon) advance the replay. |
+| Stop tasks (FR-50) | FR-50; 04 §E.5 addition | Rows are at least 56 px with a neutral check box, the task text and SKIP. One tap marks DONE or SKIPPED (no hold-to-confirm: not a safety action) and opens a 5-s undo strip with a shrinking bar (no number); the REASON control cycles time → terrain → alert → other. Without a hab link the change is queued and marked NOT SYNCED in the row and the strip, and clears when the link returns. Ops can add a task (ops-added rows list first, tagged ADDED BY OPS). Open tasks become DROPPED when a plan revision cuts the stop. During an alert the list collapses to a non-interactive count. Counts are looked up, never computed. |
+| Full-screen map and map controls | G-42, G-43 | Tap the mini-map or press FULL. In landscape HAVEN and O₂ stack at the left as smaller cards and the map takes at least 80 % of the width; in portrait the cards stay in their row. The alert slot, strip and action row do not move. Buttons: +, −, FIT, FOLLOW, LAYERS, CLOSE. Extras: drag to pan, wheel or pinch to zoom. Layers: slope, thermal inertia, comm shadow, haven bands (at most two scientific overlays; a third turns the oldest off and says so). A warning closes the full map. The planner has + / − buttons, drag and wheel; ops has + / − / FIT, drag, wheel, and Slope and Thermal inertia toggles. |
 
 ## EVA orientation spec
 
@@ -386,8 +398,8 @@ Measured for all 8 EVA states on all 4 device sizes (32 combinations): no scroll
 | Alert slot (top, full width) | TC (50%, 4%) | TC (50%, 8%) | ✓ same quadrant |
 | HAVEN | TL (26%, 16%) | TL (12%, 31%) | ✓ same quadrant |
 | O₂ | TR (74%, 16%) | TL (35%, 31%) | ⚠ moves from top-right to beside HAVEN (landscape cards are compact, top-left); see the same-row check below |
-| NEXT stop | TC (50%, 31%) | BL (24%, 60%) | ⚠ reflows: under the two cards in landscape, under the safety row in portrait |
-| Mini-map | BC (50%, 60%) | MR (73%, 46%) | ⚠ reflows: whole right column in landscape, band below NEXT in portrait |
+| NEXT stop | TC (50%, 32%) | BL (24%, 60%) | ⚠ reflows: under the two cards in landscape, under the safety row in portrait |
+| Mini-map | BC (50%, 61%) | MR (73%, 46%) | ⚠ reflows: whole right column in landscape, band below NEXT in portrait |
 | Metadata strip | BC (50%, 82%) | BC (50%, 78%) | ✓ same quadrant |
 | Action row | BC (50%, 92%) | BC (50%, 91%) | ✓ same quadrant |
 | O₂ immediately right of HAVEN, same row | yes | yes | ✓ holds in both orientations |
@@ -398,6 +410,14 @@ Measured for all 8 EVA states on all 4 device sizes (32 combinations): no scroll
 
 - **Portrait:** bottom sheet, 70 % of the height ([04 §E.7](../specs/04_Design_Brief.md#e7-scr-14-alert-options-sheet-eva)); alert bar, HAVEN and O₂ stay visible above it.
 - **Landscape:** right-side panel over the map column (about 53 % of the width, not the 60 % first proposed), below the alert bar. HAVEN, O₂ and NEXT stay visible in the left column, so no echo is needed (G-22 superseded). One hold-to-confirm "Go — option N" at the panel bottom. The panel body fits three option cards at 844×390 without scrolling.
+
+### Stop task list and full-screen map (FR-50, G-30 to G-43)
+
+- **Budget unchanged at 844 × 390:** 64 + 230 + 24 + 72 = 390 px. The task list and the full-screen map live inside the existing body; nothing outside it changes size.
+- **Where the list goes:** phone landscape: the map column (the NEXT card stays, with a labelled TASKS n/m button that toggles to MAP); tablet landscape and portrait: the NEXT position. Up to four rows, each at least 56 px (64 px on tablets); on a phone three rows fit and a "more below" cue appears whenever the list scrolls.
+- **Fixed geography:** measured to the half pixel, the alert slot, HAVEN, O₂, metadata strip and action row do not move between Walking, At stop, Undo window, Ops-added task, Alerting, No hab link and To haven, on all four device sizes.
+- **During an alert** the list collapses to a non-interactive count pill (options sheet open or a warning unacknowledged); in To haven a read-only list shows the remaining tasks as DROPPED (G-40).
+- **Full-screen map:** in landscape HAVEN and O₂ stack at the left as smaller cards and the map takes at least 80 % of the width (measured 80.7 % on the phone and 81.3 % on the tablet); on the phone the cards go from 185 × 100 to 131 × 79 px and the values from 56 to 40 px, on the tablet from 226 × 120 to 159 × 87 px and 64 to 48 px (below the 56 px rule: G-48). Portrait is unchanged (map 93.8 % of the width). The alert slot, strip and action row do not move (measured). Six labelled controls, each at least 56 px; a warning closes it. On a phone the controls and the layers sheet still cover part of the map, so close the sheet to see terrain.
 
 ### Keeping the EVA tablet distinct from the HUD
 
@@ -422,6 +442,7 @@ One `<script type="application/json" id="fixture">` block in the page (also `doc
 | log | 05 §C.2 LogEvent | Eight events with seq, kind, actor, provenance |
 | snapshot_example | 02 §E.6 SNAPSHOT | Same shape; numbers wrapped for the audit |
 | sources | 05 §C.1 DataSource | Ten dataset records with DS codes |
+| tasks | 05 StopTask (FR-50, Proposed); 02 UPDATE_STOP_TASK / ADD_STOP_TASK; log events TASK_ADDED, TASK_UPDATED, TASK_DROPPED | 14 plan tasks (per crew and stop), one ops-added example, declared scenarios per screen state, count objects `n`, and the build-time lookup tables `counts`, `done_total`, `total_all`; text is PROPOSED copy |
 
 [02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws) messages (`HELLO`, `SNAPSHOT`, `STATE_DELTA`, `EVENT`, `COMMAND`, `COMMAND_RESULT`) and [05 §C.2](../specs/05_Backend_and_Database_Schema.md#c2-runtime-entities-hab-core-v2) entities are reflected in `snapshot_example`, `log`, `options`, `alerts` and `scenario`; field names are the 05 names so they can be bound to real data later.
 
@@ -444,6 +465,7 @@ Every `PLACEHOLDER` and what unblocks it (counts are fixture numbers):
 | TASK-22 / TASK-21 | 2 | `r_recv`, `r_unsh` |
 | TASK-24 | 1 | `reconn` |
 | TASK-29 | 2 | `ur_battery`, `ur_eta` |
+| TASK-31 | 2 | `ltst_task`, `seq_task` |
 | U-15 (RAD sol-4190 series) | 2 | `rate_now`, `rate_bg` |
 | not modelled for PR1 (02 §D.9) | 1 | `pr_bat` |
 
@@ -460,6 +482,8 @@ Text placeholders (not numbers): the EZ—ENG 01 name, dataset versions and lice
 - No hamburger menus, no hover-only actions, no gesture-only paths in OPS/EVA; hidden content shows a count (alert "+N", log "n / m").
 - Reduced motion: no flashes (static bar) and no marker interpolation; animations and transitions are disabled.
 - Never colour alone for focus, selection or current step (P10): ring + outline + marker + label.
+- Task rows are at least 56 px; each check box is a button with a label such as "Mark done: Observe the sulfate ledge face"; the undo strip is a status region; task state never uses a status colour, so it reads in grayscale (shape + word).
+- Map: buttons are the primary path and every control has a word (icon + word on EVA); drag, wheel and pinch are extras; the planner keeps its keyboard keys (arrows pan, +/− zoom). The Add task button carries aria-disabled and it is kept in step with the field.
 
 ## Deviations from spec
 
@@ -476,6 +500,11 @@ Text placeholders (not numbers): the EZ—ENG 01 name, dataset versions and lice
 | DV-09 | Route hash forms | 03 §A `#/planner` … | Plain `#name` forms accepted and used in links (G-18). | Prototype only |
 | DV-10 | Sound default | 04 §C.7 mute toggle with SOUND OFF indicator | Prototype starts muted so many frames do not alarm; toggle shows SOUND ON / SOUND OFF. | Prototype only — U-38 |
 | DV-11 | Fonts and icons | 04 §G self-hosted WOFF2; Lucide | Google Fonts with fallback stacks and an own icon set in the prototype (G-19). | Prototype only — U-27, U-40 |
+| DV-12 | Task list placement on a phone in landscape | 04 §E.5 addition: the NEXT card becomes the list | TASKS button in the NEXT header; the list takes the map column on phone landscape, the NEXT position on tablets and in portrait (G-30, G-31). | Proposed — U-51 |
+| DV-13 | Full-screen map and map controls | 04 §E.5 mini-map only | Tap or FULL expands the map with labelled controls and layers. Landscape: HAVEN and O₂ stack at the left as smaller cards (values 40 px on phones, 48 px on tablets, below the 56 px rule) and the map takes at least 80 % of the width; portrait is unchanged; the alert slot, strip and action row never move; a warning closes it (G-42, G-43, G-48). | Proposed — U-57, U-60 |
+| DV-14 | Map zoom, pan and layers on ops and planner | 04 §F keyboard row only | On-screen zoom buttons, drag, wheel, and Slope / Thermal inertia on ops (G-44). | Proposed |
+| DV-15 | Task rows use neutral chrome only | 04 §C.1 provenance chips; status colours | Check-in-square, ⊘ and words instead of a green tick (G-32); one REASON control instead of four chips (G-33). | Proposed — U-55 |
+| DV-16 | Briefing card trims | 03 SCR-08 one A4 page | Map snapshot, profile and the tasks table were made smaller to keep one page (G-45). | Proposed |
 
 ### Draft patch text
 
@@ -526,6 +555,10 @@ The text below is a **Proposal** for the owners of the specs. It does not edit t
 ```
 
 Height budget at 844 × 390: 64 + 230 + 24 + 72 = 390 px, no scrolling. The body is 230 px: cards row 100 px, 8 px gap, NEXT card 110 px, 12 px padding. The left column is 46 % of the width. HAVEN and O₂ values are at least 56 px (56 px on phones, 64 px on tablets); NEXT values are at least 32 px (48 px on tablets, stacked). On rotation the alert bar stays at the top, HAVEN stays top-left, the strip stays above the actions and the actions stay at the bottom; O₂ stays immediately right of HAVEN on the same row, and NEXT and the mini-map change place.
+
+**Stop task list (FR-50).** While walking, the NEXT card header carries a labelled TASKS n/m button for the next stop. At a stop the list opens: up to four rows, each at least 56 px, with a neutral check box, the task text and SKIP; one tap marks DONE or SKIPPED and opens a 5-s undo strip. States use neutral chrome only (to do, check-in-square, ⊘ with the word beside each; no status colour). On tablets and in portrait the list takes the NEXT position; on a phone in landscape it takes the map column and the NEXT card stays, and the button toggles back to the map. During an alert the list collapses to its count. The alert slot, HAVEN, O₂, the metadata strip and the action row never move.
+
+**Full-screen map.** Tapping the mini-map or its labelled FULL button expands the map. In landscape HAVEN and O₂ stack at the left as smaller cards (HAVEN keeps the top-left origin) and the map takes at least 80 % of the width; in portrait the cards stay in their row. Buttons (+, −, FIT, FOLLOW, LAYERS, CLOSE, each at least 56 px with a word) are the primary path, and drag, wheel and pinch are extras. The alert slot, strip and action row never move, and a warning closes it.
 
 **SCR-14 in landscape:** a right-side panel over the map column (about 53 % of the width) below the alert bar replaces the 70 %-height bottom sheet. HAVEN, O₂ and NEXT stay visible in the left column; the "Go — option N" hold button sits at the bottom of the panel.
 
@@ -578,10 +611,29 @@ Every conflict or gap found while building, with how it was handled. None was re
 | G-27 | 04 §C.1 | Advisory and unknown share the dotted diamond. | They differ by inner glyph (i vs ?) and word. Check in TASK-15 (U-41). |
 | G-28 | 04 §C.2 | Microcopy is 11 px but the rule says minimum 12 px anywhere. | 11 px for chips and module labels only; values and body never below 12 px (EVA 16 px). |
 | G-29 | 04 §F vs §E.5 | An EVA high-contrast toggle is required but the layout has no slot for it. | Prototype: toggle in the frame chrome. Product placement Unresolved U-31. |
+| G-30 | 04 §E.5 addition (FR-50) vs landscape layout | "At a stop the NEXT card becomes the task list", but on a phone in landscape the NEXT card is 110 px high and four 56 px rows need about 260 px. | A labelled TASKS button in the NEXT card header toggles the list into the map column (phone landscape); the NEXT card stays. On tablets and in portrait the list takes the NEXT position as specified. U-51. |
+| G-31 | Team suggestion vs 04 §A.3 #9 | A hamburger icon to open the list; 04 §A.3 #9 says no hamburger menus or hidden controls in OPS/EVA, and replacing the left column would hide HAVEN and O₂ (FR-50: tasks never move them). | A labelled button (icon + word + count) instead; the list never replaces HAVEN or O₂. U-51. |
+| G-32 | 04 §E.5 addition vs 04 §C.1 | "■ done" uses the same filled square that 04 §C.1 assigns to the MEASURED provenance chip. | Done is a square with a check mark drawn in it, plus the word DONE; skipped and dropped are ⊘ plus the word. No status colour. |
+| G-33 | FR-50 | Skip needs a reason (time \| terrain \| alert \| other) but is "one tap" with no hold. | One tap on SKIP records reason `other`; the 5-s undo strip has one REASON control that cycles time → terrain → alert → other. U-55. |
+| G-34 | FR-50 honesty rule vs interactive ticks | Counts must come from declared states and not be computed, yet a tap changes them. | The fixture declares a number object for every count and build-time lookup tables (`counts`, `done_total`, `total_all`) keyed by the task-state strings; the runtime only looks values up. The product will compute counts from the task list. U-53. |
+| G-35 | 03 SCR-13 / 04 §E.6 five-value rule vs FR-50 | A task count would be a sixth HUD value. | Left off the HUD, which keeps its five values. It could become part of the "STOP 3" sub-label if G-17 is accepted. U-54. |
+| G-36 | FR-50 vs 04 §E.5 strip | "Not synced" must show in the metadata strip, which is already full in portrait. | A NOT SYNCED pill replaces the NO LINK + age pill (the age stays on the HAVEN card and the alert slot says no hab link). |
+| G-37 | FR-50 vs 04 §E.5 addition | FR-50 shows "Stop 2 · tasks 1/3" while walking; 04 shows TASKS 0/3. | Walking shows the count for the next stop (0/3). |
+| G-38 | FR-50 | 1–4 tasks per stop vs ops ADD_STOP_TASK. | Add task is disabled when the stop already has four tasks for that crew, with the reason shown. |
+| G-39 | FR-50 | Only dropped stops drop their open tasks, but an abort cuts the current stop short. | Open tasks at the current stop and at later stops become DROPPED when the rendezvous plan revision is made (**Proposed**). U-56. |
+| G-40 | FR-50 vs 04 §D.2 | "During an alert the list collapses to its count", but a warning stays latched after acknowledgement. | The list collapses while the options sheet is open or a warning is unacknowledged; once acknowledged and executing (To haven) a read-only list is available. U-59. |
+| G-41 | 01 §E.1 | The killer-demo table has no beat for a task tick. | A new beat at 0:05 (Proposed slot; 1:05 in the 240-s track). The timing of every existing beat is unchanged (tested). |
+| G-42 | Team request vs 04 §E.5 | 04 §E.5 has a mini-map only; the team wants a full-screen map, and full screen must not hide the fixed geography. | The map fills the body. Landscape: HAVEN and O₂ stack at the left as smaller cards (HAVEN keeps the top-left origin) and the map takes at least 80 % of the width; portrait keeps the cards in their row. The alert slot, strip and action row never move (measured). A warning closes the full map. U-57, U-60. |
+| G-43 | 04 §A.3 #9 | Pan and zoom are naturally gestures; gesture-only paths are forbidden. | On-screen +, −, FIT, FOLLOW, LAYERS and CLOSE buttons (≥ 56 px, with words) are the primary path; drag, wheel and pinch are extras. Pinch is implemented but not tested on touch hardware. |
+| G-44 | 04 §F keyboard row | The planner zoom and pan were keyboard-only and the ops map had no zoom or pan (found by the team). | Zoom buttons, drag pan and wheel zoom added to the planner; zoom buttons, drag, wheel and Slope / Thermal inertia toggles added to the ops map. |
+| G-45 | 03 SCR-08 | Adding each stop's tasks pushed the briefing card past one A4 page. | Trimmed to fit all three states: map snapshot 300 → 235 px, profile 70 → 56 px, tasks table set compact (10 px). Nothing was removed. |
+| G-46 | Found while building | The Partial briefing banner's status icon was unconstrained and made the page 713 px taller. | Fixed: every status icon now has a default size. |
+| G-47 | FR-50 | The text promises "a total" on the ops crew card without saying a total of what. | Total = tasks done of tasks planned for that crew across the whole plan, looked up from `done_total` and `total_all`; there is no grand total across crews. |
+| G-48 | 04 §A.3 #4 and #5 vs the team request | The team asked for the cards stacked at the left and smaller in the landscape full-screen map: O₂ is no longer beside HAVEN there, and the values fall from 56 px (64 px on tablets) to 40 px (48 px), below the 56 px minimum for HAVEN and O₂. They stay above the 32 px EVA minimum and remain the biggest numbers on screen. | Applied to the landscape full-screen map only; the normal layout and portrait are unchanged. HAVEN keeps the top-left origin. U-60. |
 
 ## Unresolved items
 
-IDs continue after U-29 (04 ends at U-27, but U-28 and U-29 are used in 03).
+IDs continue after U-29 (04 ends at U-27, but U-28 and U-29 are used in 03). U-44 to U-50 live in other repository files (01, 04, 05, ops/data-downloads.md, ops/agentic-workflow.md); new items from this update start at U-51.
 
 | ID | Item | Owner | Due |
 | --- | --- | --- | --- |
@@ -599,6 +651,17 @@ IDs continue after U-29 (04 ends at U-27, but U-28 and U-29 are used in 03).
 | U-41 | Usability check that advisory (i) and unknown (?) are distinguishable in grayscale (G-27). | R6 | TASK-15 |
 | U-42 | Wire messages carry raw numbers plus a provenance map; the fixture wraps every number as {v, unit, prov, src}. Decide the production adapter. | R4 + R5 | TASK-20 |
 | U-43 | Ops and HUD still leave the idle alert slot empty. Decide whether ops should also show a status line, and whether an always-on NOMINAL line on the EVA tablet is compatible with "nominal is quiet" (04 §A.3); check with UT-7. | Design (R6) + R5 | TASK-15 |
+| U-47 | **Resolved by FR-50** (stop task list on the EVA tablet, synced to ops). U-47 was "Add the FR-50 stop task list to the prototype" (04); closed in 04 on 2026-11-05. Prototyped in SCR-12, SCR-11, SCR-08, SCR-17 and the Stage beat at 0:05. | Sadman | Resolved 2026-11-05 |
+| U-51 | Ratify the TASKS button, the phone-landscape list in the map column and the NEXT-position list on tablets and in portrait (G-30, G-31, DV-12). | Sadman + Design (R6) | TASK-13 |
+| U-52 | Per-crew task model: tasks belong to EV1 or EV2 (`crew_id`), EV2 is simulated and completes tasks at the end of each dwell, so a dwell cut short by the storm leaves EV2's tasks open and later dropped. Confirm. | R2 | TASK-31 |
+| U-53 | Ratify the prototype rule that counts are looked up from build-time tables; the product computes counts from the task list (G-34). | Sadman + R2 | TASK-31 |
+| U-54 | Allow a task count on the HUD as a sixth value, or fold it into the STOP sub-label (G-35)? | Design (R6) + R5 | TASK-15 |
+| U-55 | Skip-reason capture: one tap records `other`, then one REASON control in the 5-s undo strip (G-33). Acceptable with gloves? | Design (R6) | UT-8 |
+| U-56 | On abort or rendezvous, do open tasks at the current stop also become DROPPED (G-39)? | R2 | TASK-31 |
+| U-57 | Ratify the full-screen map: scope (EVA, ops, planner), layer set, close-on-warning, and drag/wheel/pinch as extras (G-42, G-43). Pinch needs a touch-hardware test. | Sadman + R3 | TASK-07 / TASK-15 |
+| U-58 | Who writes the final task text, in which file, and who may add tasks from ops (limit, audit)? Prototype text is PROPOSED copy from the POI objectives. | R1 + R6 | TASK-31 |
+| U-59 | List collapse during an alert: collapse while the options sheet is open or a warning is unacknowledged, then allow a read-only list (G-40)? | Sadman | TASK-24 |
+| U-60 | Ratify, for the landscape full-screen map only, the stacked HAVEN / O₂ cards at 40 px (48 px on tablets), below the 56 px rule and with O₂ below HAVEN rather than beside it (G-48); or keep 56 px values and accept a smaller map. | Sadman + Design (R6) | UT-9 |
 
 ## Usability test script for TASK-15
 
@@ -613,6 +676,8 @@ Extends [04 §F.1](../specs/04_Design_Brief.md#f1-mission-critical-usability-che
 | UT-5 | **Added:** glove test, landscape vs portrait. Each tester summons the rover and aborts on the same phone in both orientations (order alternated), gloves on, in the Alerting state. | Record time and mis-taps per orientation; target: landscape no worse than portrait by more than 2 s and ≤ 1 mis-tap per run. Result decides U-30. | New |
 | UT-6 | **Added:** rotate the phone mid-alert; point to haven and O₂ before and after rotating. | Both found again without searching (≥ 2 of 3): HAVEN is top-left in both, O₂ is the card right of it | New (G-24) |
 | UT-7 | **Added:** Nominal state on the EVA tablet with and without the status line in the alert slot: read haven, O₂ and next stop, then say what the top line means. | Reading time no worse than without the line by more than 0.5 s; ≥ 2 of 3 testers say what the line means | New (DV-03, U-43) |
+| UT-8 | **Added:** with gloves on a phone in landscape at a stop, tick the middle task, then skip the last, then undo; count mis-taps between the box, SKIP and UNDO. | ≥ 2 of 3 testers complete it in under 15 s with ≤ 1 mis-tap | New (FR-50, U-55) |
+| UT-9 | **Added:** open the full-screen map on a phone in landscape, zoom in once, then say HAVEN and O₂ without closing the map. | Both read within 3 s by ≥ 2 of 3 testers (the stacked cards stay at the left; check that 40 px is enough with gloves and glare) | New (G-42, G-48) |
 
 Procedure for UT-5: alternate the starting orientation between testers; record time to a completed hold and the number of mis-taps; repeat for Abort. If landscape is worse than portrait by more than the margin, keep landscape optional and fix the layout before adopting it (U-30).
 
@@ -622,10 +687,14 @@ Run with headless Chromium and the real fonts (local copies), using real pointer
 
 | Check | Result |
 | --- | --- |
-| Every screen × state × frame size renders (219 combinations) | pass, 0 errors, 0 missing fixture keys |
-| EVA layout: 8 states × 4 devices | pass, 32 of 32 (no scroll, no overflow, ≥ 56 px values and targets, ≥ 8 px gaps) |
-| Provenance on every displayed value, all 219 frames | pass, 2,802 values, 0 without provenance (856 are placeholders) |
-| Four cues (word + shape + slot) on every status, all 219 frames | pass, 378 statuses, 0 failing |
+| Every screen × state × frame size renders (227 combinations) | pass, 0 errors, 0 missing fixture keys |
+| EVA layout: 10 states × 4 devices (adds Undo window and Ops-added task) | pass, 40 of 40: no scroll, no overlap, no overflow; HAVEN top-left and O₂ immediately right of it; landscape map in the right column; ≥ 56 px values, rows, targets and map controls; ≥ 8 px gaps |
+| Fixed geography: alert slot, HAVEN, O₂, strip and action row between Walking, At stop, Undo window, Ops-added task, Alerting, No hab link and To haven, 4 devices | pass, boxes identical to the half pixel (t27) |
+| Provenance on every displayed value, all 227 frames | pass, 3,028 values, 0 without provenance (871 are placeholders) |
+| Four cues (word + shape + slot) on every status, all 227 frames | pass, 386 statuses, 0 failing |
+| Stop tasks: counts by lookup, tick / undo / skip / reason / 5-s expiry, collapse during an alert, TASKS toggle, tablet and portrait placement, not synced and relink, ops sync (0/3 → 1/3, total), Add task, dropped, beat timing, data rules | pass, 26 of 26 (t27) |
+| Map: full-screen open and close on 3 devices (landscape: stacked smaller cards, map ≥ 80 % of the width, values ≥ 32 px; alert slot, strip and action row unchanged; portrait unchanged; CLOSE restores the layout exactly), buttons, drag, wheel, FIT, FOLLOW, layers and the two-overlay rule, warning closes the full map; planner and ops zoom, drag, wheel, layers | pass, 56 of 56 (t28). Pinch is implemented but not tested (no touch hardware) |
+| Briefing card on one A4 page in OK, Over limits and Partial | pass, after the trims in G-45 (t31) |
 | Interactions (hold-to-confirm, tap fallback, alerts, stale, queued, HUD exit, high contrast, mute, keys, planner, drag-to-failure, Stage, player) | pass, 42 of 42 |
 | EVA status line (swap with the alert bar in the same slot, 3 devices, return after acknowledge + clear, standby / ended / no-link / sheltered) | pass, 17 of 17 |
 | Review toggles (annotations, grayscale, reduced motion, placeholders) | pass, 7 of 7 |
@@ -648,7 +717,7 @@ docs/design/prototype/
   test/                        Chromium tests and the contrast script
 ```
 
-Rebuild: `python3 build.py`. Run tests: `cd test && npm install && node t3.mjs` (and `t6`, `t9`, `t12`, `t18`, `t26`). The fixture and the prototype are design artefacts: they are not part of the product build, and no value in them is computed.
+Rebuild: `python3 build.py`. Run tests: `cd test && npm install && node t3.mjs` (and `t6`, `t9`, `t12`, `t18`, `t26`, `t27`, `t28`, `t31`). The fixture and the prototype are design artefacts: they are not part of the product build, and no value in them is computed.
 
 ## Credits
 

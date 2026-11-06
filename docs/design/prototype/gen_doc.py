@@ -58,12 +58,15 @@ w('Specs 01–06 are frozen at Draft v2 (2026-11-04). This file is the design ha
 w('## Summary\n')
 w(f'- **Prototype:** [Marswalk Surface Ops design handoff prototype]({ART}) — one self-contained HTML page (`docs/design/prototype/marswalk-prototype.html`), all 19 screens (SCR-00 to SCR-18), a state switcher on every screen, device frames per 04 §F, flows, a demo player and a three-device Stage.')
 w('- **Honesty rules held:** every displayed number is `{v, unit, prov, src}` from a spec example or a `PLACEHOLDER` (shown as `##.#` with a dotted underline); nothing is computed; nothing is called live; coordinates are the IAU_2015:49900 sphere, east-positive; no external tiles or images; no logos or photos.')
-w(f"- **Scale:** {D['nNums']} fixture numbers, {D['nPh']} of them `PLACEHOLDER`; 19 screens; 219 screen × state × frame combinations.")
+w(f"- **Scale:** {D['nNums']} fixture numbers, {D['nPh']} of them `PLACEHOLDER`; 19 screens; 227 screen × state × frame combinations.")
+w('- **Stop task list (FR-50, Proposed 2026-11-05), resolves U-47:** shown on the EVA tablet (SCR-12, new states Undo window and Ops-added task), the ops crew cards with an Add task popover (SCR-11), the briefing card (SCR-08), the report (SCR-17) and the Stage (new beat at 0:05). Task counts are never computed in the prototype: they are looked up from the fixture (G-34).')
+w('- **Full-screen map:** the EVA mini-map expands to a full-screen map with labelled controls and layers (landscape: HAVEN and O₂ stacked smaller at the left, map at least 80 % of the width: DV-13, G-48); the planner and ops maps gained on-screen zoom buttons, drag and wheel (DV-14).')
+w('- **Merge warning:** this file was regenerated without seeing the repository copy, so U-44 to U-50 are not reproduced; merge by hand instead of overwriting (see Unresolved items).')
 w('- **Open decision for the team:** the EVA landscape layout is a **Proposed** deviation (DV-01). Ratify it as U-30 before TASK-24 starts.')
 w('- **Hosting note:** the artifact host only passes plain `#name` hashes, so prototype links look like `#scr-12-alerting-landscape`; the prototype also accepts the 03 §A forms (`#/planner`, `#/ops`, `#/eva/EV1`, `#/hud/EV1`, `#/report`).\n')
 
 w('## Screen inventory\n')
-w('Modes and routes follow 03 §A and 04 §B.2. States are copied from each 03 §B "States" row; additions are listed in the gaps table (G-10).\n')
+w('Modes and routes follow 03 §A and 04 §B.2. States are copied from each 03 §B "States" row; additions are listed in the gaps table (G-10, and G-30 onward for FR-50).\n')
 w(table(['SCR', 'Route (03 §A)', 'Mode', 'States', 'FRs', 'Tier'], [[f"{s['id']} {s['name']}", f"`{s['route']}`", s['mode'].upper(), ' · '.join(x[1] for x in s['states']), s['frs'], s['tier'] + (' (T2 SCOPE tag)' if s['tier'] == 'T2' else '')] for s in D['screens']]))
 w('')
 w('Frames: projector 1440×900 (ops, planner) with 1280 and 1024 previews and a 900 px "use a larger screen" notice; EVA phone landscape 844×390, tablet landscape 1024×768, phone portrait 390×844, tablet portrait 768×1024; HUD 844×390; A4 794×1123 px (two pages for the report); BRIEF fluid at 360, 768 and 1440 px.\n')
@@ -109,16 +112,22 @@ w('Portrait follows 04 §E.5 and is repeated in the draft patch text below. Land
 w('```text\n' + blocks[1] + '\n```\n')
 w('Landscape history: the first landscape layout split the screen into four parts (HAVEN | O₂ across the top, NEXT | map below). Team feedback on 2026-11-05 called that a waste of space, so landscape v2 puts HAVEN and O₂ in two compact cards top-left, NEXT under them, and gives the map the whole right column. The measurements below are for v2.\n')
 w('### Height budget (measured in Chromium, 844×390)\n')
-w(table(D['budget'][0], D['budget'][1:]))
+w(table(D['budget'][0], [r + [''] * (len(D['budget'][0]) - len(r)) for r in D['budget'][1:]]))
 w('')
 w('Measured for all 8 EVA states on all 4 device sizes (32 combinations): no scrolling and no overflow; HAVEN, O₂, NEXT and the map never overlap one another; HAVEN is top-left and O₂ is immediately right of it on the same row in every combination; in landscape the map starts right of both cards and spans the full body height; HAVEN and O₂ values are 56 px on phones and 64 px on tablets (limit ≥ 56 px); NEXT values are 32 px on phones and 48 px on tablets (limit ≥ 32 px); every action target is ≥ 56 px high with ≥ 8 px gaps.\n')
 w('### Rotation behaviour (measured on the Orientation compare page)\n')
-w(table(D['cmp'][0], D['cmp'][1:]))
+w(table(D['cmp'][0], [r + [''] * (len(D['cmp'][0]) - len(r)) for r in D['cmp'][1:]]))
 w('')
 w('"Quadrant" is the zone of the frame centre (L/C/R × T/M/B; C = spans the middle). The alert slot, HAVEN (top-left), the metadata strip and the action row stay put exactly. **O₂ no longer keeps its quadrant:** it is top-right in portrait and sits beside HAVEN in landscape, but it is immediately right of HAVEN on the same row in both. NEXT and the mini-map also change place. This is the price of the compact-card layout; whether it is acceptable is part of U-30, and UT-6 tests it with people.\n')
 w('### SCR-14 options sheet\n')
 w('- **Portrait:** bottom sheet, 70 % of the height ([04 §E.7](../specs/04_Design_Brief.md#e7-scr-14-alert-options-sheet-eva)); alert bar, HAVEN and O₂ stay visible above it.')
 w('- **Landscape:** right-side panel over the map column (about 53 % of the width, not the 60 % first proposed), below the alert bar. HAVEN, O₂ and NEXT stay visible in the left column, so no echo is needed (G-22 superseded). One hold-to-confirm "Go — option N" at the panel bottom. The panel body fits three option cards at 844×390 without scrolling.\n')
+w('### Stop task list and full-screen map (FR-50, G-30 to G-43)\n')
+w('- **Budget unchanged at 844 × 390:** 64 + 230 + 24 + 72 = 390 px. The task list and the full-screen map live inside the existing body; nothing outside it changes size.')
+w('- **Where the list goes:** phone landscape: the map column (the NEXT card stays, with a labelled TASKS n/m button that toggles to MAP); tablet landscape and portrait: the NEXT position. Up to four rows, each at least 56 px (64 px on tablets); on a phone three rows fit and a "more below" cue appears whenever the list scrolls.')
+w('- **Fixed geography:** measured to the half pixel, the alert slot, HAVEN, O₂, metadata strip and action row do not move between Walking, At stop, Undo window, Ops-added task, Alerting, No hab link and To haven, on all four device sizes.')
+w('- **During an alert** the list collapses to a non-interactive count pill (options sheet open or a warning unacknowledged); in To haven a read-only list shows the remaining tasks as DROPPED (G-40).')
+w('- **Full-screen map:** in landscape HAVEN and O₂ stack at the left as smaller cards and the map takes at least 80 % of the width (measured 80.7 % on the phone and 81.3 % on the tablet); on the phone the cards go from 185 × 100 to 131 × 79 px and the values from 56 to 40 px, on the tablet from 226 × 120 to 159 × 87 px and 64 to 48 px (below the 56 px rule: G-48). Portrait is unchanged (map 93.8 % of the width). The alert slot, strip and action row do not move (measured). Six labelled controls, each at least 56 px; a warning closes it. On a phone the controls and the layers sheet still cover part of the map, so close the sheet to see terrain.\n')
 w('### Keeping the EVA tablet distinct from the HUD\n')
 w('The HUD (SCR-13) is pure black, read-only, shows at most five values (haven, bearing + distance, O₂, alert line, link), no map, values 56–72 px, exit by a 2 s hold. The landscape EVA tablet is OPS mode with a map and four actions. They share the geography (haven top-left) but never the layout: the HUD has no actions, no strip and no map.\n')
 
@@ -156,8 +165,8 @@ w(table(['ID', 'Where', 'Conflict or gap', 'How it was handled'], [list(g) for g
 w('')
 
 w('## Unresolved items\n')
-w('IDs continue after U-29 (04 ends at U-27, but U-28 and U-29 are used in 03).\n')
-w(table(['ID', 'Item', 'Owner', 'Due'], [list(u) for u in H.UNRESOLVED]))
+w('IDs continue after U-29 (04 ends at U-27, but U-28 and U-29 are used in 03). U-44 to U-50 are taken in the repository; new items from this update start at U-51.\n')
+w(table(['ID', 'Item', 'Owner', 'Due'], [list(u) for u in sorted(H.UNRESOLVED, key=lambda u: int(re.search(r'\d+', u[0]).group()))]))
 w('')
 
 w('## Usability test script for TASK-15\n')
@@ -169,10 +178,14 @@ w('Procedure for UT-5: alternate the starting orientation between testers; recor
 w('## Verification\n')
 w('Run with headless Chromium and the real fonts (local copies), using real pointer events. Scripts are in `docs/design/prototype/test/`.\n')
 w(table(['Check', 'Result'], [
- ['Every screen × state × frame size renders (219 combinations)', 'pass, 0 errors, 0 missing fixture keys'],
- ['EVA layout: 8 states × 4 devices', 'pass, 32 of 32 (no scroll, no overflow, ≥ 56 px values and targets, ≥ 8 px gaps)'],
- ['Provenance on every displayed value, all 219 frames', 'pass, 2,802 values, 0 without provenance (856 are placeholders)'],
- ['Four cues (word + shape + slot) on every status, all 219 frames', 'pass, 378 statuses, 0 failing'],
+ ['Every screen × state × frame size renders (227 combinations)', 'pass, 0 errors, 0 missing fixture keys'],
+ ['EVA layout: 10 states × 4 devices (adds Undo window and Ops-added task)', 'pass, 40 of 40: no scroll, no overlap, no overflow; HAVEN top-left and O₂ immediately right of it; landscape map in the right column; ≥ 56 px values, rows, targets and map controls; ≥ 8 px gaps'],
+ ['Fixed geography: alert slot, HAVEN, O₂, strip and action row between Walking, At stop, Undo window, Ops-added task, Alerting, No hab link and To haven, 4 devices', 'pass, boxes identical to the half pixel (t27)'],
+ ['Provenance on every displayed value, all 227 frames', 'pass, 3,028 values, 0 without provenance (871 are placeholders)'],
+ ['Four cues (word + shape + slot) on every status, all 227 frames', 'pass, 386 statuses, 0 failing'],
+ ['Stop tasks: counts by lookup, tick / undo / skip / reason / 5-s expiry, collapse during an alert, TASKS toggle, tablet and portrait placement, not synced and relink, ops sync (0/3 → 1/3, total), Add task, dropped, beat timing, data rules', 'pass, 26 of 26 (t27)'],
+ ['Map: full-screen open and close on 3 devices (landscape: stacked smaller cards, map ≥ 80 % of the width, values ≥ 32 px; alert slot, strip and action row unchanged; portrait unchanged; CLOSE restores the layout exactly), buttons, drag, wheel, FIT, FOLLOW, layers and the two-overlay rule, warning closes the full map; planner and ops zoom, drag, wheel, layers', 'pass, 56 of 56 (t28). Pinch is implemented but not tested (no touch hardware)'],
+ ['Briefing card on one A4 page in OK, Over limits and Partial', 'pass, after the trims in G-45 (t31)'],
  ['Interactions (hold-to-confirm, tap fallback, alerts, stale, queued, HUD exit, high contrast, mute, keys, planner, drag-to-failure, Stage, player)', 'pass, 42 of 42'],
  ['EVA status line (swap with the alert bar in the same slot, 3 devices, return after acknowledge + clear, standby / ended / no-link / sheltered)', 'pass, 17 of 17'],
  ['Review toggles (annotations, grayscale, reduced motion, placeholders)', 'pass, 7 of 7'],
@@ -185,7 +198,7 @@ w('**Not verified:** behaviour in the hosted artifact (hash links, Google Fonts)
 
 w('## Prototype source and rebuild\n')
 w('```text\ndocs/design/prototype/\n  marswalk-prototype.html      built page (self-contained)\n  fixture.json                 the fixture block\n  build.py                     assembles CSS + fixture + JS into the page\n  src/fixture.py               fixture generator (numbers with src / PLACEHOLDER)\n  src/handoff_data.py          single source for the tables in this file\n  src/css/, src/js/            tokens, components, screens\n  test/                        Chromium tests and the contrast script\n```\n')
-w('Rebuild: `python3 build.py`. Run tests: `cd test && npm install && node t3.mjs` (and `t6`, `t9`, `t12`, `t18`). The fixture and the prototype are design artefacts: they are not part of the product build, and no value in them is computed.\n')
+w('Rebuild: `python3 build.py`. Run tests: `cd test && npm install && node t3.mjs` (and `t6`, `t9`, `t12`, `t18`, `t26`, `t27`, `t28`, `t31`). The fixture and the prototype are design artefacts: they are not part of the product build, and no value in them is computed.\n')
 w('## Credits\n')
 w('Data credit shown in the prototype (SCR-09 and SCR-17): NASA/JPL-Caltech (MSL RAD, Curiosity), NASA CCMC (DONKI), NASA NAIF (SPICE), USGS Astrogeology (Gale merged DEM, orthophoto, THEMIS), ESA (Mars Express HRSC inside the DEM; ExoMars TGO kernels). No NASA or other agency logos or insignia are used. The prototype and this file were produced with an AI coding assistant; see [AI use](../AI_USE.md).\n')
 open('docs_out/mockup-handoff.md', 'w', encoding='utf-8').write('\n'.join(o))

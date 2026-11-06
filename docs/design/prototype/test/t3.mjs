@@ -1,6 +1,6 @@
 import { open, URL } from './harness.mjs';
 const { browser, page, errors } = await open({ width: 1700, height: 1200 });
-const states = ['waiting','walking','atStop','alerting','toHaven','sheltered','noLink','ended'];
+const states = ['waiting','walking','atStop','undo','opsTask','alerting','toHaven','sheltered','noLink','ended'];
 const devs = ['evaPhoneL','evaTabL','evaPhoneP','evaTabP'];
 const out = [];
 await page.goto(URL + '#scr-12'); await page.waitForTimeout(400);
@@ -11,7 +11,7 @@ for (const dev of devs) for (const st of states) {
     const el = fr.el, eva = el.querySelector('.eva'), fb = el.getBoundingClientRect(), land = fr.orient() === 'landscape';
     const q = s => el.querySelector(s);
     const rel = n => { if (!n) return null; const b = n.getBoundingClientRect(); return { x: b.left - fb.left, y: b.top - fb.top, w: b.width, h: b.height, r: b.right - fb.left, b: b.bottom - fb.top }; };
-    const R = { alert: rel(q('.alertslot')), haven: rel(q('[data-slot=haven]')), o2: rel(q('[data-slot=o2]')), next: rel(q('.next')), mini: rel(q('.mini')), strip: rel(q('.strip')), acts: rel(q('.acts')), body: rel(q('.body')), safety: rel(q('.safety')) };
+    const R = { alert: rel(q('.alertslot')), haven: rel(q('[data-slot=haven]')), o2: rel(q('[data-slot=o2]')), next: rel(q('.leftcol > .next, .leftcol > .tasks, .nav > .next, .nav > .tasks')), mini: rel(q('.mapcol, .nav > .mini')), strip: rel(q('.strip')), acts: rel(q('.acts')), body: rel(q('.body')), safety: rel(q('.safety')) };
     const fs = sel => { const n = q(sel); return n ? parseFloat(getComputedStyle(n).fontSize) : null; };
     const btns = [...el.querySelectorAll('.acts .btn')].map(b => { const r = b.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
     let minGap = 999; for (let i = 1; i < btns.length; i++) if (btns[i].y === btns[i - 1].y) minGap = Math.min(minGap, btns[i].x - (btns[i - 1].x + btns[i - 1].w));

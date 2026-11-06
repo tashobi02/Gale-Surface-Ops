@@ -49,7 +49,7 @@ ok('stale: dashed boxes on link loss', await page.evaluate(() => document.queryS
 b = await box('[data-hold-key$="-summon"]'); await page.mouse.move(b.x + b.width/2, b.y + b.height/2); await page.mouse.down(); await page.waitForTimeout(950);
 ok('queued: outcome copy says Queued — sends when link returns', await page.evaluate(() => /Queued — sends when link returns/.test(document.querySelector('.fframe').innerText)));
 await page.mouse.up(); await page.waitForTimeout(700);
-ok('queued: command waits on the device (queue length 1, PR1 still parked)', await page.evaluate(() => { const w=Object.values(WORLDS)[0]; return w.evs.EV1.queue.length === 1 && w.veh.PR1 === 'parked'; }));
+ok('queued: command waits on the device beside the queued task tick (PR1 still parked)', await page.evaluate(() => { const w=Object.values(WORLDS)[0]; return w.evs.EV1.queue.some(q => q.kind === 'SUMMON_VEHICLE') && w.evs.EV1.queue.some(q => q.kind === 'UPDATE_STOP_TASK') && w.veh.PR1 === 'parked'; }));
 await page.evaluate(() => { const w=Object.values(WORLDS)[0]; ACT.relink(null,{w}); }); await page.waitForTimeout(200);
 ok('queued: link returns → queue delivered', await page.evaluate(() => { const w=Object.values(WORLDS)[0]; return w.evs.EV1.queue.length === 0 && w.evs.EV1.linked; }));
 // ---- ops stale card dashed
@@ -100,7 +100,7 @@ await page.click('[data-act="plSnap"][data-arg="no"]'); await page.waitForTimeou
 ok('planner: declining shows PARTIAL, totals hidden, reason + nearest point', await page.evaluate(() => { const t=document.querySelector('.res').innerText; return /PARTIAL/.test(t) && /DISCONNECTED_BY_SLOPE/.test(t) && /2,905/.test(t) && !/6,120/.test(t); }));
 // ---- Stage: player and cross-device words
 await go('stage'); await page.waitForTimeout(500);
-await page.click('[data-pl="goto"][data-arg="1"]'); await page.waitForTimeout(600);
+await page.click('[data-pl="goto"][data-arg="2"]'); await page.waitForTimeout(600);
 ok('stage: alert words identical on ops, EV1, HUD, EV2', await page.evaluate(() => /IDENTICAL/.test(document.getElementById('wordscheck').innerText)), await page.evaluate(() => document.getElementById('wordscheck').innerText.slice(0,160)));
 await page.click('[data-pl="goto"][data-arg="3"]'); await page.waitForTimeout(500);
 const sb = await page.locator('[data-hold-key]').first().boundingBox();

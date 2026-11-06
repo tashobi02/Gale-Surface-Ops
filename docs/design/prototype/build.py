@@ -6,7 +6,7 @@ import importlib, fixture
 importlib.reload(fixture)
 F = fixture.F
 css = ''.join(open(f'src/css/{n}.css', encoding='utf-8').read() + '\n' for n in ['tokens', 'components', 'screens'])
-order = ['a_core', 'b_comp', 'd_map', 'c_world', 'i_frames', 'e_ops', 'f_eva', 'g_planner', 'h_misc', 'j_pages', 'k_player', 'm_flows', 'n_handoff', 'l_main']
+order = ['a_core', 'b_comp', 'd_map', 'c_world', 'o_tasks', 'i_frames', 'e_ops', 'f_eva', 'g_planner', 'h_misc', 'j_pages', 'k_player', 'm_flows', 'n_handoff', 'l_main']
 js = ''
 for n in order:
     p = f'src/js/{n}.js'

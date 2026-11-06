@@ -4,21 +4,23 @@
    Values HOLD between keyframes. Markers tween visually; NO arithmetic is done on any displayed value.
    Speed: 60× plays the beat table at the pace of the recorded video (the table in 01 §E.1 is written for 60×); 10× and 1× are slower. */
 const KB = {
-  k0: w => { PRE.base(w); w.log = 1; },
-  k1: w => { PRE.alerting(w); raise(w, 'RADIATION_ALERT'); w.opt.state = 'computing'; w.log = 2; w.earth = { state: 'link', fc: 'none' }; },
-  k2: w => { PRE.alerting(w); w.opt.state = 'computing'; w.earth = { state: 'waiting', fc: 'transit' }; w.focus = 'earth'; w.log = 2; },
-  k3: w => { PRE.alerting(w); w.opt.state = 'ready'; w.log = 3; w.earth = { state: 'waiting', fc: 'transit' }; },
-  k4: w => { PRE.toHaven(w); w.alerts = w.alerts.filter(a => a.code !== 'COMM_SHADOW'); w.sheet = true; w.log = 4; w.mk.EV1.t = .12; w.mk.EV2.t = .1; w.mk.PR1.t = .2; },
-  k5: w => { PRE.toHaven(w); w.sheet = false; w.listOpen = true; w.log = 5; w.mk.EV1.t = .55; w.mk.EV2.t = .5; w.mk.PR1.t = .85; },
-  k5b: w => { PRE.toHaven(w); w.sheet = false; raise(w, 'EARTH_FORECAST'); w.earth = { state: 'link', fc: 'delivered' }; w.listOpen = true; w.log = 6; w.mk.EV1.t = .8; w.mk.EV2.t = .76; w.mk.PR1.t = .95; },
-  k6: w => { PRE.sheltered(w); w.log = 7; },
-  k7: w => { PRE.ended(w); w.log = 8; },
+  k0: w => { PRE.base(w); tasksLoad(w, 'k0'); w.log = 1; },
+  k0b: w => { PRE.base(w); tasksLoad(w, 'k0b'); w.undo = { crew: 'EV1', id: 't-s2-02', prev: { state: 'TODO', reason: null }, kind: 'DONE', pinned: true }; w.log = 2; },
+  k1: w => { PRE.alerting(w); raise(w, 'RADIATION_ALERT'); w.opt.state = 'computing'; w.log = 3; w.earth = { state: 'link', fc: 'none' }; },
+  k2: w => { PRE.alerting(w); w.opt.state = 'computing'; w.earth = { state: 'waiting', fc: 'transit' }; w.focus = 'earth'; w.log = 3; },
+  k3: w => { PRE.alerting(w); w.opt.state = 'ready'; w.log = 4; w.earth = { state: 'waiting', fc: 'transit' }; },
+  k4: w => { PRE.toHaven(w); w.alerts = w.alerts.filter(a => a.code !== 'COMM_SHADOW'); w.sheet = true; w.tv = { EV1: 'next', EV2: 'next' }; w.log = 6; w.mk.EV1.t = .12; w.mk.EV2.t = .1; w.mk.PR1.t = .2; },
+  k5: w => { PRE.toHaven(w); w.sheet = false; w.listOpen = true; w.tv = { EV1: 'next', EV2: 'next' }; w.log = 7; w.mk.EV1.t = .55; w.mk.EV2.t = .5; w.mk.PR1.t = .85; },
+  k5b: w => { PRE.toHaven(w); w.sheet = false; raise(w, 'EARTH_FORECAST'); w.earth = { state: 'link', fc: 'delivered' }; w.listOpen = true; w.tv = { EV1: 'next', EV2: 'next' }; w.log = 8; w.mk.EV1.t = .8; w.mk.EV2.t = .76; w.mk.PR1.t = .95; },
+  k6: w => { PRE.sheltered(w); w.log = 9; },
+  k7: w => { PRE.ended(w); w.log = 10; },
 };
 const sec = s => ({ v: s, unit: 's (video)', prov: 'assumed', src: 'Proposed slot' });
 const B = (id, at, s, title, cite, caption, view) => ({ id, at, s, title, cite, caption, view });
 const TRACKS = {
   killer: { name: 'Killer demo — Storm at sol 4190', cite: '01 §E.1 · 03 §C.6', beats: [
     B('k0', '0:00', 0, 'Crew at stop 2 (resource stop)', '01 §E.1 · 0:00 · 03 §C.6 step 3', 'Ops map: EV1/EV2 markers, route, rover parked at hab. HUD: next stop, margins.', { k: 'stage', beat: 'k0' }),
+    B('k0b', '0:05', 5, 'EV1 ticks a task at stop 2 — ops shows it', 'FR-50 (slot Proposed, G-41)', 'One tap on the EV1 tablet marks “Sample the sulfate-bearing unit” done; the undo strip is open; the ops crew card moves from 0/3 to 1/3 and the event log gains a task line. No timing of the existing beats changes.', { k: 'stage', beat: 'k0b' }),
     B('k1', '0:10', 10, 'Local radiation trigger fires', '01 §E.1 · 0:10 · 03 §C.6 step 4', 'Warning bar on every device at once, same words; dose-rate chart labelled replayed — Curiosity RAD, 20 May 2024.', { k: 'stage', beat: 'k1' }),
     B('k2', '0:20', 20, 'Earth cannot help in time', '01 §E.1 · 0:20 · 03 §C.6 step 5', 'Forecast still in transit; light time and next relay pass shown (04 §E.4 example values).', { k: 'stage', beat: 'k2' }),
     B('k3', '0:30', 30, 'System proposes options', '01 §E.1 · 0:30 · 03 §C.6 step 6', 'Rendezvous 14 min vs abort to hab 41 min (illustrative, 01 §E.1). Expected dose per option is a PLACEHOLDER.', { k: 'stage', beat: 'k3' }),
@@ -47,6 +49,7 @@ const TRACKS = {
     B('m3', '0:50', 50, 'Honest failure', '10 · 0:50–1:00 · 01 §E.2 step 5', 'No feasible route with reason.', { k: 'scr', scr: 'SCR-05', state: 'partial' }),
     B('m3b', '0:56', 56, 'Briefing card, publish to Hab Core', '10 · 0:50–1:00', 'PUBLISH_PLAN.', { k: 'scr', scr: 'SCR-08', state: 'ok' }),
     B('m4', '1:00', 60, 'Ops + phones: EVA under way', '10 · 1:00–1:10 · 01 §E.1 0:00', 'Crew at the resource stop.', { k: 'stage', beat: 'k0' }),
+    B('m4b', '1:05', 65, 'EV1 ticks a task; ops shows it', 'FR-50 (slot Proposed, G-41)', 'Before the storm alert: one tap on the tablet, one line on ops.', { k: 'stage', beat: 'k0b' }),
     B('m5', '1:10', 70, 'Radiation alert on every device', '10 · 1:10–1:30 · 01 §E.1 0:10', 'Dose curve labelled replayed — Curiosity RAD, 20 May 2024.', { k: 'stage', beat: 'k1' }),
     B('m5b', '1:20', 80, 'Earth forecast still in transit', '10 · 1:10–1:30 · 01 §E.1 0:20', 'Light time and relay pass.', { k: 'stage', beat: 'k2' }),
     B('m6', '1:30', 90, 'Options', '10 · 1:30–2:00 · 01 §E.1 0:30', 'Rendezvous vs abort.', { k: 'stage', beat: 'k3' }),
@@ -165,10 +168,10 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-trk]
 
 /* ---- orientation compare (the “fixed geography” proof) ---- */
 function pageOrientation() {
-  const wid = 'cmp'; delete WORLDS[wid]; const w = newWorld(wid); PRE.atStop(w); const sts = EVA_STATES.filter(s => ['waiting', 'atStop', 'alerting', 'toHaven', 'noLink'].includes(s[0]));
+  const wid = 'cmp'; delete WORLDS[wid]; const w = newWorld(wid); PRE.walking(w); const sts = EVA_STATES.filter(s => ['waiting', 'walking', 'atStop', 'alerting', 'toHaven', 'noLink'].includes(s[0]));
   return { title: 'EVA orientation compare', route: '#/eva/EV1 (portrait vs landscape)', html: `<h1>EVA orientation compare</h1><p class="lead">One world, two frames: portrait (04 §E.5) and landscape v2 (Proposed, G-01: compact HAVEN and O₂ cards top-left, map on the whole right column). Crosshair = frame quadrants. The table is measured from the DOM after every render, so it proves — or disproves — that rotating does not move a value relative to its quadrant.</p>
     <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:12px" role="group">${sts.map(([k, l]) => `<button class="shellbtn" data-cmp="${k}">${esc(l)}</button>`).join('')}</div>
-    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start"><div style="width:390px">${fhost({ screen: 'SCR-12', dev: 'evaPhoneP', wid, state: 'atStop', cell: true, compact: true, quad: true, label: 'PORTRAIT 390×844' })}</div><div style="width:844px;max-width:100%">${fhost({ screen: 'SCR-12', dev: 'evaPhoneL', wid, state: 'atStop', cell: true, compact: true, quad: true, label: 'LANDSCAPE 844×390' })}</div></div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start"><div style="width:390px">${fhost({ screen: 'SCR-12', dev: 'evaPhoneP', wid, state: 'walking', cell: true, compact: true, quad: true, label: 'PORTRAIT 390×844' })}</div><div style="width:844px;max-width:100%">${fhost({ screen: 'SCR-12', dev: 'evaPhoneL', wid, state: 'walking', cell: true, compact: true, quad: true, label: 'LANDSCAPE 844×390' })}</div></div>
     <h2>Measured zone positions</h2><div id="cmp-table"></div><h2>Landscape height budget @ 844×390</h2><div id="cmp-budget"></div>`,
     mount(root) { const run = () => setTimeout(measureCompare, 60); w.subs.add(run); run(); } };
 }

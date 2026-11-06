@@ -85,6 +85,7 @@ svg{display:block}
 .status[data-status="nominal"] .sicon{color:var(--nominal)}.status[data-status="caution"] .sicon{color:var(--caution)}
 .status[data-status="warning"] .sicon{color:var(--warning)}.status[data-status="advisory"] .sicon{color:var(--advisory)}
 .status[data-status="unknown"] .sicon{color:var(--unknown)}
+.sicon{flex:none;width:20px;height:20px}
 .sicon .sh{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:miter}
 .sicon .pt{fill:currentColor;fill-opacity:.35}
 .sicon .sy{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:square}
@@ -174,3 +175,5 @@ svg{display:block}
 @media print{
   body.printing>*:not(.print-target){display:none!important}
 }
+
+.tbl.tight td,.tbl.tight th{padding:2px 6px;line-height:1.25}

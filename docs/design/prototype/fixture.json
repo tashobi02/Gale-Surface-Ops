@@ -1109,6 +1109,22 @@
    "unblocks": "TASK-22",
    "fmt": "##"
   },
+  "ltst_task": {
+   "v": null,
+   "unit": "LTST",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-31",
+   "fmt": "##:##"
+  },
+  "seq_task": {
+   "v": null,
+   "unit": "seq",
+   "prov": "simulated",
+   "src": "PLACEHOLDER",
+   "unblocks": "TASK-31",
+   "fmt": "###"
+  },
   "relay_el": {
    "v": 10,
    "unit": "°",
@@ -1120,6 +1136,3216 @@
    "unit": "°",
    "prov": "assumed",
    "src": "02 §D.12"
+  }
+ },
+ "tasks": {
+  "note": "FR-50 stop tasks (Proposed 2026-11-05). Counts are looked up from `n` through the generated tables `counts`, `done_total`, `total_all`; the prototype never adds or counts.",
+  "kinds": [
+   "observe",
+   "image",
+   "sample",
+   "measure",
+   "deploy",
+   "other"
+  ],
+  "reasons": [
+   "time",
+   "terrain",
+   "alert",
+   "other"
+  ],
+  "states": [
+   "TODO",
+   "DONE",
+   "SKIPPED",
+   "DROPPED"
+  ],
+  "list": [
+   {
+    "task_id": "t-s1-01",
+    "stop_id": "wp-1",
+    "stop": "s1",
+    "crew_id": "EV1",
+    "kind": "observe",
+    "text": "Observe the loose-fines patch",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "themis-ti-100m"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s1-02",
+    "stop_id": "wp-1",
+    "stop": "s1",
+    "crew_id": "EV1",
+    "kind": "image",
+    "text": "Image the slope face",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "themis-ti-100m"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s1-11",
+    "stop_id": "wp-1",
+    "stop": "s1",
+    "crew_id": "EV2",
+    "kind": "measure",
+    "text": "Measure the rock field edge",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "themis-ti-100m"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s1-12",
+    "stop_id": "wp-1",
+    "stop": "s1",
+    "crew_id": "EV2",
+    "kind": "observe",
+    "text": "Observe the surface texture",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "themis-ti-100m"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s2-01",
+    "stop_id": "wp-2",
+    "stop": "s2",
+    "crew_id": "EV1",
+    "kind": "observe",
+    "text": "Observe the sulfate ledge face",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "msl-sulfate-unit"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s2-02",
+    "stop_id": "wp-2",
+    "stop": "s2",
+    "crew_id": "EV1",
+    "kind": "sample",
+    "text": "Sample the sulfate-bearing unit",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "msl-sulfate-unit"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s2-03",
+    "stop_id": "wp-2",
+    "stop": "s2",
+    "crew_id": "EV1",
+    "kind": "image",
+    "text": "Image the sampled spot",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "msl-sulfate-unit"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s2-11",
+    "stop_id": "wp-2",
+    "stop": "s2",
+    "crew_id": "EV2",
+    "kind": "image",
+    "text": "Image the ledge in context",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "msl-sulfate-unit"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s2-12",
+    "stop_id": "wp-2",
+    "stop": "s2",
+    "crew_id": "EV2",
+    "kind": "deploy",
+    "text": "Deploy the marker flag",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "msl-sulfate-unit"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s3-01",
+    "stop_id": "wp-3",
+    "stop": "s3",
+    "crew_id": "EV1",
+    "kind": "observe",
+    "text": "Observe the cemented ridge",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "msl-places"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s3-02",
+    "stop_id": "wp-3",
+    "stop": "s3",
+    "crew_id": "EV1",
+    "kind": "image",
+    "text": "Image the sandy hollow",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "msl-places"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s3-03",
+    "stop_id": "wp-3",
+    "stop": "s3",
+    "crew_id": "EV1",
+    "kind": "sample",
+    "text": "Sample a ridge fragment",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "msl-places"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s3-11",
+    "stop_id": "wp-3",
+    "stop": "s3",
+    "crew_id": "EV2",
+    "kind": "measure",
+    "text": "Measure the ridge crest",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "msl-places"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   },
+   {
+    "task_id": "t-s3-12",
+    "stop_id": "wp-3",
+    "stop": "s3",
+    "crew_id": "EV2",
+    "kind": "other",
+    "text": "Note loose rock near the ridge",
+    "state": "TODO",
+    "reason": null,
+    "origin": "plan",
+    "updated_sim_time": null,
+    "updated_by": null,
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "msl-places"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   }
+  ],
+  "ops_added": [
+   {
+    "task_id": "t-s2-21",
+    "stop_id": "wp-2",
+    "stop": "s2",
+    "crew_id": "EV1",
+    "kind": "image",
+    "text": "Image the ledge base",
+    "state": "TODO",
+    "reason": null,
+    "origin": "ops",
+    "updated_sim_time": null,
+    "updated_by": "ops",
+    "provenance": {
+     "state": "simulated",
+     "text": "assumed",
+     "source_id": "msl-sulfate-unit"
+    },
+    "text_src": "PROPOSED copy (FR-50)"
+   }
+  ],
+  "scenarios": {
+   "start": {
+    "EV1": {},
+    "EV2": {}
+   },
+   "k0": {
+    "EV1": {
+     "t-s1-01": {
+      "state": "DONE"
+     },
+     "t-s1-02": {
+      "state": "SKIPPED",
+      "reason": "time"
+     }
+    },
+    "EV2": {
+     "t-s1-11": {
+      "state": "DONE"
+     },
+     "t-s1-12": {
+      "state": "DONE"
+     }
+    }
+   },
+   "walking": {
+    "EV1": {
+     "t-s1-01": {
+      "state": "DONE"
+     },
+     "t-s1-02": {
+      "state": "SKIPPED",
+      "reason": "time"
+     }
+    },
+    "EV2": {
+     "t-s1-11": {
+      "state": "DONE"
+     },
+     "t-s1-12": {
+      "state": "DONE"
+     }
+    }
+   },
+   "atStop": {
+    "EV1": {
+     "t-s1-01": {
+      "state": "DONE"
+     },
+     "t-s1-02": {
+      "state": "SKIPPED",
+      "reason": "time"
+     },
+     "t-s2-01": {
+      "state": "DONE"
+     },
+     "t-s2-03": {
+      "state": "SKIPPED",
+      "reason": "terrain"
+     }
+    },
+    "EV2": {
+     "t-s1-11": {
+      "state": "DONE"
+     },
+     "t-s1-12": {
+      "state": "DONE"
+     }
+    }
+   },
+   "k0b": {
+    "EV1": {
+     "t-s1-01": {
+      "state": "DONE"
+     },
+     "t-s1-02": {
+      "state": "SKIPPED",
+      "reason": "time"
+     },
+     "t-s2-02": {
+      "state": "DONE"
+     }
+    },
+    "EV2": {
+     "t-s1-11": {
+      "state": "DONE"
+     },
+     "t-s1-12": {
+      "state": "DONE"
+     }
+    }
+   },
+   "noLink": {
+    "EV1": {
+     "t-s1-01": {
+      "state": "DONE"
+     },
+     "t-s1-02": {
+      "state": "SKIPPED",
+      "reason": "time"
+     },
+     "t-s2-01": {
+      "state": "DONE"
+     },
+     "t-s2-02": {
+      "state": "DONE",
+      "unsynced": true
+     },
+     "t-s2-03": {
+      "state": "SKIPPED",
+      "reason": "terrain"
+     }
+    },
+    "EV2": {
+     "t-s1-11": {
+      "state": "DONE"
+     },
+     "t-s1-12": {
+      "state": "DONE"
+     }
+    }
+   },
+   "opsTask": {
+    "EV1": {
+     "t-s1-01": {
+      "state": "DONE"
+     },
+     "t-s1-02": {
+      "state": "SKIPPED",
+      "reason": "time"
+     },
+     "t-s2-01": {
+      "state": "DONE"
+     },
+     "t-s2-03": {
+      "state": "SKIPPED",
+      "reason": "terrain"
+     }
+    },
+    "EV2": {
+     "t-s1-11": {
+      "state": "DONE"
+     },
+     "t-s1-12": {
+      "state": "DONE"
+     }
+    }
+   },
+   "dropped": {
+    "EV1": {
+     "t-s1-01": {
+      "state": "DONE"
+     },
+     "t-s1-02": {
+      "state": "SKIPPED",
+      "reason": "time"
+     },
+     "t-s2-01": {
+      "state": "DROPPED"
+     },
+     "t-s2-02": {
+      "state": "DONE"
+     },
+     "t-s2-03": {
+      "state": "DROPPED"
+     },
+     "t-s3-01": {
+      "state": "DROPPED"
+     },
+     "t-s3-02": {
+      "state": "DROPPED"
+     },
+     "t-s3-03": {
+      "state": "DROPPED"
+     }
+    },
+    "EV2": {
+     "t-s1-11": {
+      "state": "DONE"
+     },
+     "t-s1-12": {
+      "state": "DONE"
+     },
+     "t-s2-11": {
+      "state": "DROPPED"
+     },
+     "t-s2-12": {
+      "state": "DROPPED"
+     },
+     "t-s3-11": {
+      "state": "DROPPED"
+     },
+     "t-s3-12": {
+      "state": "DROPPED"
+     }
+    }
+   },
+   "undo": {
+    "EV1": {
+     "t-s1-01": {
+      "state": "DONE"
+     },
+     "t-s1-02": {
+      "state": "SKIPPED",
+      "reason": "time"
+     },
+     "t-s2-02": {
+      "state": "DONE"
+     }
+    },
+    "EV2": {
+     "t-s1-11": {
+      "state": "DONE"
+     },
+     "t-s1-12": {
+      "state": "DONE"
+     }
+    }
+   },
+   "alerting": {
+    "EV1": {
+     "t-s1-01": {
+      "state": "DONE"
+     },
+     "t-s1-02": {
+      "state": "SKIPPED",
+      "reason": "time"
+     },
+     "t-s2-02": {
+      "state": "DONE"
+     }
+    },
+    "EV2": {
+     "t-s1-11": {
+      "state": "DONE"
+     },
+     "t-s1-12": {
+      "state": "DONE"
+     }
+    }
+   },
+   "final": {
+    "EV1": {
+     "t-s1-01": {
+      "state": "DONE"
+     },
+     "t-s1-02": {
+      "state": "SKIPPED",
+      "reason": "time"
+     },
+     "t-s2-01": {
+      "state": "DROPPED"
+     },
+     "t-s2-02": {
+      "state": "DONE"
+     },
+     "t-s2-03": {
+      "state": "DROPPED"
+     },
+     "t-s3-01": {
+      "state": "DROPPED"
+     },
+     "t-s3-02": {
+      "state": "DROPPED"
+     },
+     "t-s3-03": {
+      "state": "DROPPED"
+     }
+    },
+    "EV2": {
+     "t-s1-11": {
+      "state": "DONE"
+     },
+     "t-s1-12": {
+      "state": "DONE"
+     },
+     "t-s2-11": {
+      "state": "DROPPED"
+     },
+     "t-s2-12": {
+      "state": "DROPPED"
+     },
+     "t-s3-11": {
+      "state": "DROPPED"
+     },
+     "t-s3-12": {
+      "state": "DROPPED"
+     }
+    }
+   }
+  },
+  "n": {
+   "0": {
+    "v": 0,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   },
+   "1": {
+    "v": 1,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   },
+   "2": {
+    "v": 2,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   },
+   "3": {
+    "v": 3,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   },
+   "4": {
+    "v": 4,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   },
+   "5": {
+    "v": 5,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   },
+   "6": {
+    "v": 6,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   },
+   "7": {
+    "v": 7,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   },
+   "8": {
+    "v": 8,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   },
+   "9": {
+    "v": 9,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   },
+   "10": {
+    "v": 10,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   },
+   "11": {
+    "v": 11,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   },
+   "12": {
+    "v": 12,
+    "unit": "tasks",
+    "prov": "simulated",
+    "src": "FR-50 (declared in the fixture, looked up, never computed)"
+   }
+  },
+  "counts": {
+   "TODO,TODO": [
+    "0",
+    "0",
+    "0",
+    "2",
+    "2"
+   ],
+   "TODO,DONE": [
+    "1",
+    "0",
+    "0",
+    "1",
+    "2"
+   ],
+   "TODO,SKIPPED": [
+    "0",
+    "1",
+    "0",
+    "1",
+    "2"
+   ],
+   "TODO,DROPPED": [
+    "0",
+    "0",
+    "1",
+    "1",
+    "2"
+   ],
+   "DONE,TODO": [
+    "1",
+    "0",
+    "0",
+    "1",
+    "2"
+   ],
+   "DONE,DONE": [
+    "2",
+    "0",
+    "0",
+    "0",
+    "2"
+   ],
+   "DONE,SKIPPED": [
+    "1",
+    "1",
+    "0",
+    "0",
+    "2"
+   ],
+   "DONE,DROPPED": [
+    "1",
+    "0",
+    "1",
+    "0",
+    "2"
+   ],
+   "SKIPPED,TODO": [
+    "0",
+    "1",
+    "0",
+    "1",
+    "2"
+   ],
+   "SKIPPED,DONE": [
+    "1",
+    "1",
+    "0",
+    "0",
+    "2"
+   ],
+   "SKIPPED,SKIPPED": [
+    "0",
+    "2",
+    "0",
+    "0",
+    "2"
+   ],
+   "SKIPPED,DROPPED": [
+    "0",
+    "1",
+    "1",
+    "0",
+    "2"
+   ],
+   "DROPPED,TODO": [
+    "0",
+    "0",
+    "1",
+    "1",
+    "2"
+   ],
+   "DROPPED,DONE": [
+    "1",
+    "0",
+    "1",
+    "0",
+    "2"
+   ],
+   "DROPPED,SKIPPED": [
+    "0",
+    "1",
+    "1",
+    "0",
+    "2"
+   ],
+   "DROPPED,DROPPED": [
+    "0",
+    "0",
+    "2",
+    "0",
+    "2"
+   ],
+   "TODO,TODO,TODO": [
+    "0",
+    "0",
+    "0",
+    "3",
+    "3"
+   ],
+   "TODO,TODO,DONE": [
+    "1",
+    "0",
+    "0",
+    "2",
+    "3"
+   ],
+   "TODO,TODO,SKIPPED": [
+    "0",
+    "1",
+    "0",
+    "2",
+    "3"
+   ],
+   "TODO,TODO,DROPPED": [
+    "0",
+    "0",
+    "1",
+    "2",
+    "3"
+   ],
+   "TODO,DONE,TODO": [
+    "1",
+    "0",
+    "0",
+    "2",
+    "3"
+   ],
+   "TODO,DONE,DONE": [
+    "2",
+    "0",
+    "0",
+    "1",
+    "3"
+   ],
+   "TODO,DONE,SKIPPED": [
+    "1",
+    "1",
+    "0",
+    "1",
+    "3"
+   ],
+   "TODO,DONE,DROPPED": [
+    "1",
+    "0",
+    "1",
+    "1",
+    "3"
+   ],
+   "TODO,SKIPPED,TODO": [
+    "0",
+    "1",
+    "0",
+    "2",
+    "3"
+   ],
+   "TODO,SKIPPED,DONE": [
+    "1",
+    "1",
+    "0",
+    "1",
+    "3"
+   ],
+   "TODO,SKIPPED,SKIPPED": [
+    "0",
+    "2",
+    "0",
+    "1",
+    "3"
+   ],
+   "TODO,SKIPPED,DROPPED": [
+    "0",
+    "1",
+    "1",
+    "1",
+    "3"
+   ],
+   "TODO,DROPPED,TODO": [
+    "0",
+    "0",
+    "1",
+    "2",
+    "3"
+   ],
+   "TODO,DROPPED,DONE": [
+    "1",
+    "0",
+    "1",
+    "1",
+    "3"
+   ],
+   "TODO,DROPPED,SKIPPED": [
+    "0",
+    "1",
+    "1",
+    "1",
+    "3"
+   ],
+   "TODO,DROPPED,DROPPED": [
+    "0",
+    "0",
+    "2",
+    "1",
+    "3"
+   ],
+   "DONE,TODO,TODO": [
+    "1",
+    "0",
+    "0",
+    "2",
+    "3"
+   ],
+   "DONE,TODO,DONE": [
+    "2",
+    "0",
+    "0",
+    "1",
+    "3"
+   ],
+   "DONE,TODO,SKIPPED": [
+    "1",
+    "1",
+    "0",
+    "1",
+    "3"
+   ],
+   "DONE,TODO,DROPPED": [
+    "1",
+    "0",
+    "1",
+    "1",
+    "3"
+   ],
+   "DONE,DONE,TODO": [
+    "2",
+    "0",
+    "0",
+    "1",
+    "3"
+   ],
+   "DONE,DONE,DONE": [
+    "3",
+    "0",
+    "0",
+    "0",
+    "3"
+   ],
+   "DONE,DONE,SKIPPED": [
+    "2",
+    "1",
+    "0",
+    "0",
+    "3"
+   ],
+   "DONE,DONE,DROPPED": [
+    "2",
+    "0",
+    "1",
+    "0",
+    "3"
+   ],
+   "DONE,SKIPPED,TODO": [
+    "1",
+    "1",
+    "0",
+    "1",
+    "3"
+   ],
+   "DONE,SKIPPED,DONE": [
+    "2",
+    "1",
+    "0",
+    "0",
+    "3"
+   ],
+   "DONE,SKIPPED,SKIPPED": [
+    "1",
+    "2",
+    "0",
+    "0",
+    "3"
+   ],
+   "DONE,SKIPPED,DROPPED": [
+    "1",
+    "1",
+    "1",
+    "0",
+    "3"
+   ],
+   "DONE,DROPPED,TODO": [
+    "1",
+    "0",
+    "1",
+    "1",
+    "3"
+   ],
+   "DONE,DROPPED,DONE": [
+    "2",
+    "0",
+    "1",
+    "0",
+    "3"
+   ],
+   "DONE,DROPPED,SKIPPED": [
+    "1",
+    "1",
+    "1",
+    "0",
+    "3"
+   ],
+   "DONE,DROPPED,DROPPED": [
+    "1",
+    "0",
+    "2",
+    "0",
+    "3"
+   ],
+   "SKIPPED,TODO,TODO": [
+    "0",
+    "1",
+    "0",
+    "2",
+    "3"
+   ],
+   "SKIPPED,TODO,DONE": [
+    "1",
+    "1",
+    "0",
+    "1",
+    "3"
+   ],
+   "SKIPPED,TODO,SKIPPED": [
+    "0",
+    "2",
+    "0",
+    "1",
+    "3"
+   ],
+   "SKIPPED,TODO,DROPPED": [
+    "0",
+    "1",
+    "1",
+    "1",
+    "3"
+   ],
+   "SKIPPED,DONE,TODO": [
+    "1",
+    "1",
+    "0",
+    "1",
+    "3"
+   ],
+   "SKIPPED,DONE,DONE": [
+    "2",
+    "1",
+    "0",
+    "0",
+    "3"
+   ],
+   "SKIPPED,DONE,SKIPPED": [
+    "1",
+    "2",
+    "0",
+    "0",
+    "3"
+   ],
+   "SKIPPED,DONE,DROPPED": [
+    "1",
+    "1",
+    "1",
+    "0",
+    "3"
+   ],
+   "SKIPPED,SKIPPED,TODO": [
+    "0",
+    "2",
+    "0",
+    "1",
+    "3"
+   ],
+   "SKIPPED,SKIPPED,DONE": [
+    "1",
+    "2",
+    "0",
+    "0",
+    "3"
+   ],
+   "SKIPPED,SKIPPED,SKIPPED": [
+    "0",
+    "3",
+    "0",
+    "0",
+    "3"
+   ],
+   "SKIPPED,SKIPPED,DROPPED": [
+    "0",
+    "2",
+    "1",
+    "0",
+    "3"
+   ],
+   "SKIPPED,DROPPED,TODO": [
+    "0",
+    "1",
+    "1",
+    "1",
+    "3"
+   ],
+   "SKIPPED,DROPPED,DONE": [
+    "1",
+    "1",
+    "1",
+    "0",
+    "3"
+   ],
+   "SKIPPED,DROPPED,SKIPPED": [
+    "0",
+    "2",
+    "1",
+    "0",
+    "3"
+   ],
+   "SKIPPED,DROPPED,DROPPED": [
+    "0",
+    "1",
+    "2",
+    "0",
+    "3"
+   ],
+   "DROPPED,TODO,TODO": [
+    "0",
+    "0",
+    "1",
+    "2",
+    "3"
+   ],
+   "DROPPED,TODO,DONE": [
+    "1",
+    "0",
+    "1",
+    "1",
+    "3"
+   ],
+   "DROPPED,TODO,SKIPPED": [
+    "0",
+    "1",
+    "1",
+    "1",
+    "3"
+   ],
+   "DROPPED,TODO,DROPPED": [
+    "0",
+    "0",
+    "2",
+    "1",
+    "3"
+   ],
+   "DROPPED,DONE,TODO": [
+    "1",
+    "0",
+    "1",
+    "1",
+    "3"
+   ],
+   "DROPPED,DONE,DONE": [
+    "2",
+    "0",
+    "1",
+    "0",
+    "3"
+   ],
+   "DROPPED,DONE,SKIPPED": [
+    "1",
+    "1",
+    "1",
+    "0",
+    "3"
+   ],
+   "DROPPED,DONE,DROPPED": [
+    "1",
+    "0",
+    "2",
+    "0",
+    "3"
+   ],
+   "DROPPED,SKIPPED,TODO": [
+    "0",
+    "1",
+    "1",
+    "1",
+    "3"
+   ],
+   "DROPPED,SKIPPED,DONE": [
+    "1",
+    "1",
+    "1",
+    "0",
+    "3"
+   ],
+   "DROPPED,SKIPPED,SKIPPED": [
+    "0",
+    "2",
+    "1",
+    "0",
+    "3"
+   ],
+   "DROPPED,SKIPPED,DROPPED": [
+    "0",
+    "1",
+    "2",
+    "0",
+    "3"
+   ],
+   "DROPPED,DROPPED,TODO": [
+    "0",
+    "0",
+    "2",
+    "1",
+    "3"
+   ],
+   "DROPPED,DROPPED,DONE": [
+    "1",
+    "0",
+    "2",
+    "0",
+    "3"
+   ],
+   "DROPPED,DROPPED,SKIPPED": [
+    "0",
+    "1",
+    "2",
+    "0",
+    "3"
+   ],
+   "DROPPED,DROPPED,DROPPED": [
+    "0",
+    "0",
+    "3",
+    "0",
+    "3"
+   ],
+   "TODO,TODO,TODO,TODO": [
+    "0",
+    "0",
+    "0",
+    "4",
+    "4"
+   ],
+   "TODO,TODO,TODO,DONE": [
+    "1",
+    "0",
+    "0",
+    "3",
+    "4"
+   ],
+   "TODO,TODO,TODO,SKIPPED": [
+    "0",
+    "1",
+    "0",
+    "3",
+    "4"
+   ],
+   "TODO,TODO,TODO,DROPPED": [
+    "0",
+    "0",
+    "1",
+    "3",
+    "4"
+   ],
+   "TODO,TODO,DONE,TODO": [
+    "1",
+    "0",
+    "0",
+    "3",
+    "4"
+   ],
+   "TODO,TODO,DONE,DONE": [
+    "2",
+    "0",
+    "0",
+    "2",
+    "4"
+   ],
+   "TODO,TODO,DONE,SKIPPED": [
+    "1",
+    "1",
+    "0",
+    "2",
+    "4"
+   ],
+   "TODO,TODO,DONE,DROPPED": [
+    "1",
+    "0",
+    "1",
+    "2",
+    "4"
+   ],
+   "TODO,TODO,SKIPPED,TODO": [
+    "0",
+    "1",
+    "0",
+    "3",
+    "4"
+   ],
+   "TODO,TODO,SKIPPED,DONE": [
+    "1",
+    "1",
+    "0",
+    "2",
+    "4"
+   ],
+   "TODO,TODO,SKIPPED,SKIPPED": [
+    "0",
+    "2",
+    "0",
+    "2",
+    "4"
+   ],
+   "TODO,TODO,SKIPPED,DROPPED": [
+    "0",
+    "1",
+    "1",
+    "2",
+    "4"
+   ],
+   "TODO,TODO,DROPPED,TODO": [
+    "0",
+    "0",
+    "1",
+    "3",
+    "4"
+   ],
+   "TODO,TODO,DROPPED,DONE": [
+    "1",
+    "0",
+    "1",
+    "2",
+    "4"
+   ],
+   "TODO,TODO,DROPPED,SKIPPED": [
+    "0",
+    "1",
+    "1",
+    "2",
+    "4"
+   ],
+   "TODO,TODO,DROPPED,DROPPED": [
+    "0",
+    "0",
+    "2",
+    "2",
+    "4"
+   ],
+   "TODO,DONE,TODO,TODO": [
+    "1",
+    "0",
+    "0",
+    "3",
+    "4"
+   ],
+   "TODO,DONE,TODO,DONE": [
+    "2",
+    "0",
+    "0",
+    "2",
+    "4"
+   ],
+   "TODO,DONE,TODO,SKIPPED": [
+    "1",
+    "1",
+    "0",
+    "2",
+    "4"
+   ],
+   "TODO,DONE,TODO,DROPPED": [
+    "1",
+    "0",
+    "1",
+    "2",
+    "4"
+   ],
+   "TODO,DONE,DONE,TODO": [
+    "2",
+    "0",
+    "0",
+    "2",
+    "4"
+   ],
+   "TODO,DONE,DONE,DONE": [
+    "3",
+    "0",
+    "0",
+    "1",
+    "4"
+   ],
+   "TODO,DONE,DONE,SKIPPED": [
+    "2",
+    "1",
+    "0",
+    "1",
+    "4"
+   ],
+   "TODO,DONE,DONE,DROPPED": [
+    "2",
+    "0",
+    "1",
+    "1",
+    "4"
+   ],
+   "TODO,DONE,SKIPPED,TODO": [
+    "1",
+    "1",
+    "0",
+    "2",
+    "4"
+   ],
+   "TODO,DONE,SKIPPED,DONE": [
+    "2",
+    "1",
+    "0",
+    "1",
+    "4"
+   ],
+   "TODO,DONE,SKIPPED,SKIPPED": [
+    "1",
+    "2",
+    "0",
+    "1",
+    "4"
+   ],
+   "TODO,DONE,SKIPPED,DROPPED": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "TODO,DONE,DROPPED,TODO": [
+    "1",
+    "0",
+    "1",
+    "2",
+    "4"
+   ],
+   "TODO,DONE,DROPPED,DONE": [
+    "2",
+    "0",
+    "1",
+    "1",
+    "4"
+   ],
+   "TODO,DONE,DROPPED,SKIPPED": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "TODO,DONE,DROPPED,DROPPED": [
+    "1",
+    "0",
+    "2",
+    "1",
+    "4"
+   ],
+   "TODO,SKIPPED,TODO,TODO": [
+    "0",
+    "1",
+    "0",
+    "3",
+    "4"
+   ],
+   "TODO,SKIPPED,TODO,DONE": [
+    "1",
+    "1",
+    "0",
+    "2",
+    "4"
+   ],
+   "TODO,SKIPPED,TODO,SKIPPED": [
+    "0",
+    "2",
+    "0",
+    "2",
+    "4"
+   ],
+   "TODO,SKIPPED,TODO,DROPPED": [
+    "0",
+    "1",
+    "1",
+    "2",
+    "4"
+   ],
+   "TODO,SKIPPED,DONE,TODO": [
+    "1",
+    "1",
+    "0",
+    "2",
+    "4"
+   ],
+   "TODO,SKIPPED,DONE,DONE": [
+    "2",
+    "1",
+    "0",
+    "1",
+    "4"
+   ],
+   "TODO,SKIPPED,DONE,SKIPPED": [
+    "1",
+    "2",
+    "0",
+    "1",
+    "4"
+   ],
+   "TODO,SKIPPED,DONE,DROPPED": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "TODO,SKIPPED,SKIPPED,TODO": [
+    "0",
+    "2",
+    "0",
+    "2",
+    "4"
+   ],
+   "TODO,SKIPPED,SKIPPED,DONE": [
+    "1",
+    "2",
+    "0",
+    "1",
+    "4"
+   ],
+   "TODO,SKIPPED,SKIPPED,SKIPPED": [
+    "0",
+    "3",
+    "0",
+    "1",
+    "4"
+   ],
+   "TODO,SKIPPED,SKIPPED,DROPPED": [
+    "0",
+    "2",
+    "1",
+    "1",
+    "4"
+   ],
+   "TODO,SKIPPED,DROPPED,TODO": [
+    "0",
+    "1",
+    "1",
+    "2",
+    "4"
+   ],
+   "TODO,SKIPPED,DROPPED,DONE": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "TODO,SKIPPED,DROPPED,SKIPPED": [
+    "0",
+    "2",
+    "1",
+    "1",
+    "4"
+   ],
+   "TODO,SKIPPED,DROPPED,DROPPED": [
+    "0",
+    "1",
+    "2",
+    "1",
+    "4"
+   ],
+   "TODO,DROPPED,TODO,TODO": [
+    "0",
+    "0",
+    "1",
+    "3",
+    "4"
+   ],
+   "TODO,DROPPED,TODO,DONE": [
+    "1",
+    "0",
+    "1",
+    "2",
+    "4"
+   ],
+   "TODO,DROPPED,TODO,SKIPPED": [
+    "0",
+    "1",
+    "1",
+    "2",
+    "4"
+   ],
+   "TODO,DROPPED,TODO,DROPPED": [
+    "0",
+    "0",
+    "2",
+    "2",
+    "4"
+   ],
+   "TODO,DROPPED,DONE,TODO": [
+    "1",
+    "0",
+    "1",
+    "2",
+    "4"
+   ],
+   "TODO,DROPPED,DONE,DONE": [
+    "2",
+    "0",
+    "1",
+    "1",
+    "4"
+   ],
+   "TODO,DROPPED,DONE,SKIPPED": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "TODO,DROPPED,DONE,DROPPED": [
+    "1",
+    "0",
+    "2",
+    "1",
+    "4"
+   ],
+   "TODO,DROPPED,SKIPPED,TODO": [
+    "0",
+    "1",
+    "1",
+    "2",
+    "4"
+   ],
+   "TODO,DROPPED,SKIPPED,DONE": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "TODO,DROPPED,SKIPPED,SKIPPED": [
+    "0",
+    "2",
+    "1",
+    "1",
+    "4"
+   ],
+   "TODO,DROPPED,SKIPPED,DROPPED": [
+    "0",
+    "1",
+    "2",
+    "1",
+    "4"
+   ],
+   "TODO,DROPPED,DROPPED,TODO": [
+    "0",
+    "0",
+    "2",
+    "2",
+    "4"
+   ],
+   "TODO,DROPPED,DROPPED,DONE": [
+    "1",
+    "0",
+    "2",
+    "1",
+    "4"
+   ],
+   "TODO,DROPPED,DROPPED,SKIPPED": [
+    "0",
+    "1",
+    "2",
+    "1",
+    "4"
+   ],
+   "TODO,DROPPED,DROPPED,DROPPED": [
+    "0",
+    "0",
+    "3",
+    "1",
+    "4"
+   ],
+   "DONE,TODO,TODO,TODO": [
+    "1",
+    "0",
+    "0",
+    "3",
+    "4"
+   ],
+   "DONE,TODO,TODO,DONE": [
+    "2",
+    "0",
+    "0",
+    "2",
+    "4"
+   ],
+   "DONE,TODO,TODO,SKIPPED": [
+    "1",
+    "1",
+    "0",
+    "2",
+    "4"
+   ],
+   "DONE,TODO,TODO,DROPPED": [
+    "1",
+    "0",
+    "1",
+    "2",
+    "4"
+   ],
+   "DONE,TODO,DONE,TODO": [
+    "2",
+    "0",
+    "0",
+    "2",
+    "4"
+   ],
+   "DONE,TODO,DONE,DONE": [
+    "3",
+    "0",
+    "0",
+    "1",
+    "4"
+   ],
+   "DONE,TODO,DONE,SKIPPED": [
+    "2",
+    "1",
+    "0",
+    "1",
+    "4"
+   ],
+   "DONE,TODO,DONE,DROPPED": [
+    "2",
+    "0",
+    "1",
+    "1",
+    "4"
+   ],
+   "DONE,TODO,SKIPPED,TODO": [
+    "1",
+    "1",
+    "0",
+    "2",
+    "4"
+   ],
+   "DONE,TODO,SKIPPED,DONE": [
+    "2",
+    "1",
+    "0",
+    "1",
+    "4"
+   ],
+   "DONE,TODO,SKIPPED,SKIPPED": [
+    "1",
+    "2",
+    "0",
+    "1",
+    "4"
+   ],
+   "DONE,TODO,SKIPPED,DROPPED": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "DONE,TODO,DROPPED,TODO": [
+    "1",
+    "0",
+    "1",
+    "2",
+    "4"
+   ],
+   "DONE,TODO,DROPPED,DONE": [
+    "2",
+    "0",
+    "1",
+    "1",
+    "4"
+   ],
+   "DONE,TODO,DROPPED,SKIPPED": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "DONE,TODO,DROPPED,DROPPED": [
+    "1",
+    "0",
+    "2",
+    "1",
+    "4"
+   ],
+   "DONE,DONE,TODO,TODO": [
+    "2",
+    "0",
+    "0",
+    "2",
+    "4"
+   ],
+   "DONE,DONE,TODO,DONE": [
+    "3",
+    "0",
+    "0",
+    "1",
+    "4"
+   ],
+   "DONE,DONE,TODO,SKIPPED": [
+    "2",
+    "1",
+    "0",
+    "1",
+    "4"
+   ],
+   "DONE,DONE,TODO,DROPPED": [
+    "2",
+    "0",
+    "1",
+    "1",
+    "4"
+   ],
+   "DONE,DONE,DONE,TODO": [
+    "3",
+    "0",
+    "0",
+    "1",
+    "4"
+   ],
+   "DONE,DONE,DONE,DONE": [
+    "4",
+    "0",
+    "0",
+    "0",
+    "4"
+   ],
+   "DONE,DONE,DONE,SKIPPED": [
+    "3",
+    "1",
+    "0",
+    "0",
+    "4"
+   ],
+   "DONE,DONE,DONE,DROPPED": [
+    "3",
+    "0",
+    "1",
+    "0",
+    "4"
+   ],
+   "DONE,DONE,SKIPPED,TODO": [
+    "2",
+    "1",
+    "0",
+    "1",
+    "4"
+   ],
+   "DONE,DONE,SKIPPED,DONE": [
+    "3",
+    "1",
+    "0",
+    "0",
+    "4"
+   ],
+   "DONE,DONE,SKIPPED,SKIPPED": [
+    "2",
+    "2",
+    "0",
+    "0",
+    "4"
+   ],
+   "DONE,DONE,SKIPPED,DROPPED": [
+    "2",
+    "1",
+    "1",
+    "0",
+    "4"
+   ],
+   "DONE,DONE,DROPPED,TODO": [
+    "2",
+    "0",
+    "1",
+    "1",
+    "4"
+   ],
+   "DONE,DONE,DROPPED,DONE": [
+    "3",
+    "0",
+    "1",
+    "0",
+    "4"
+   ],
+   "DONE,DONE,DROPPED,SKIPPED": [
+    "2",
+    "1",
+    "1",
+    "0",
+    "4"
+   ],
+   "DONE,DONE,DROPPED,DROPPED": [
+    "2",
+    "0",
+    "2",
+    "0",
+    "4"
+   ],
+   "DONE,SKIPPED,TODO,TODO": [
+    "1",
+    "1",
+    "0",
+    "2",
+    "4"
+   ],
+   "DONE,SKIPPED,TODO,DONE": [
+    "2",
+    "1",
+    "0",
+    "1",
+    "4"
+   ],
+   "DONE,SKIPPED,TODO,SKIPPED": [
+    "1",
+    "2",
+    "0",
+    "1",
+    "4"
+   ],
+   "DONE,SKIPPED,TODO,DROPPED": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "DONE,SKIPPED,DONE,TODO": [
+    "2",
+    "1",
+    "0",
+    "1",
+    "4"
+   ],
+   "DONE,SKIPPED,DONE,DONE": [
+    "3",
+    "1",
+    "0",
+    "0",
+    "4"
+   ],
+   "DONE,SKIPPED,DONE,SKIPPED": [
+    "2",
+    "2",
+    "0",
+    "0",
+    "4"
+   ],
+   "DONE,SKIPPED,DONE,DROPPED": [
+    "2",
+    "1",
+    "1",
+    "0",
+    "4"
+   ],
+   "DONE,SKIPPED,SKIPPED,TODO": [
+    "1",
+    "2",
+    "0",
+    "1",
+    "4"
+   ],
+   "DONE,SKIPPED,SKIPPED,DONE": [
+    "2",
+    "2",
+    "0",
+    "0",
+    "4"
+   ],
+   "DONE,SKIPPED,SKIPPED,SKIPPED": [
+    "1",
+    "3",
+    "0",
+    "0",
+    "4"
+   ],
+   "DONE,SKIPPED,SKIPPED,DROPPED": [
+    "1",
+    "2",
+    "1",
+    "0",
+    "4"
+   ],
+   "DONE,SKIPPED,DROPPED,TODO": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "DONE,SKIPPED,DROPPED,DONE": [
+    "2",
+    "1",
+    "1",
+    "0",
+    "4"
+   ],
+   "DONE,SKIPPED,DROPPED,SKIPPED": [
+    "1",
+    "2",
+    "1",
+    "0",
+    "4"
+   ],
+   "DONE,SKIPPED,DROPPED,DROPPED": [
+    "1",
+    "1",
+    "2",
+    "0",
+    "4"
+   ],
+   "DONE,DROPPED,TODO,TODO": [
+    "1",
+    "0",
+    "1",
+    "2",
+    "4"
+   ],
+   "DONE,DROPPED,TODO,DONE": [
+    "2",
+    "0",
+    "1",
+    "1",
+    "4"
+   ],
+   "DONE,DROPPED,TODO,SKIPPED": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "DONE,DROPPED,TODO,DROPPED": [
+    "1",
+    "0",
+    "2",
+    "1",
+    "4"
+   ],
+   "DONE,DROPPED,DONE,TODO": [
+    "2",
+    "0",
+    "1",
+    "1",
+    "4"
+   ],
+   "DONE,DROPPED,DONE,DONE": [
+    "3",
+    "0",
+    "1",
+    "0",
+    "4"
+   ],
+   "DONE,DROPPED,DONE,SKIPPED": [
+    "2",
+    "1",
+    "1",
+    "0",
+    "4"
+   ],
+   "DONE,DROPPED,DONE,DROPPED": [
+    "2",
+    "0",
+    "2",
+    "0",
+    "4"
+   ],
+   "DONE,DROPPED,SKIPPED,TODO": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "DONE,DROPPED,SKIPPED,DONE": [
+    "2",
+    "1",
+    "1",
+    "0",
+    "4"
+   ],
+   "DONE,DROPPED,SKIPPED,SKIPPED": [
+    "1",
+    "2",
+    "1",
+    "0",
+    "4"
+   ],
+   "DONE,DROPPED,SKIPPED,DROPPED": [
+    "1",
+    "1",
+    "2",
+    "0",
+    "4"
+   ],
+   "DONE,DROPPED,DROPPED,TODO": [
+    "1",
+    "0",
+    "2",
+    "1",
+    "4"
+   ],
+   "DONE,DROPPED,DROPPED,DONE": [
+    "2",
+    "0",
+    "2",
+    "0",
+    "4"
+   ],
+   "DONE,DROPPED,DROPPED,SKIPPED": [
+    "1",
+    "1",
+    "2",
+    "0",
+    "4"
+   ],
+   "DONE,DROPPED,DROPPED,DROPPED": [
+    "1",
+    "0",
+    "3",
+    "0",
+    "4"
+   ],
+   "SKIPPED,TODO,TODO,TODO": [
+    "0",
+    "1",
+    "0",
+    "3",
+    "4"
+   ],
+   "SKIPPED,TODO,TODO,DONE": [
+    "1",
+    "1",
+    "0",
+    "2",
+    "4"
+   ],
+   "SKIPPED,TODO,TODO,SKIPPED": [
+    "0",
+    "2",
+    "0",
+    "2",
+    "4"
+   ],
+   "SKIPPED,TODO,TODO,DROPPED": [
+    "0",
+    "1",
+    "1",
+    "2",
+    "4"
+   ],
+   "SKIPPED,TODO,DONE,TODO": [
+    "1",
+    "1",
+    "0",
+    "2",
+    "4"
+   ],
+   "SKIPPED,TODO,DONE,DONE": [
+    "2",
+    "1",
+    "0",
+    "1",
+    "4"
+   ],
+   "SKIPPED,TODO,DONE,SKIPPED": [
+    "1",
+    "2",
+    "0",
+    "1",
+    "4"
+   ],
+   "SKIPPED,TODO,DONE,DROPPED": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "SKIPPED,TODO,SKIPPED,TODO": [
+    "0",
+    "2",
+    "0",
+    "2",
+    "4"
+   ],
+   "SKIPPED,TODO,SKIPPED,DONE": [
+    "1",
+    "2",
+    "0",
+    "1",
+    "4"
+   ],
+   "SKIPPED,TODO,SKIPPED,SKIPPED": [
+    "0",
+    "3",
+    "0",
+    "1",
+    "4"
+   ],
+   "SKIPPED,TODO,SKIPPED,DROPPED": [
+    "0",
+    "2",
+    "1",
+    "1",
+    "4"
+   ],
+   "SKIPPED,TODO,DROPPED,TODO": [
+    "0",
+    "1",
+    "1",
+    "2",
+    "4"
+   ],
+   "SKIPPED,TODO,DROPPED,DONE": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "SKIPPED,TODO,DROPPED,SKIPPED": [
+    "0",
+    "2",
+    "1",
+    "1",
+    "4"
+   ],
+   "SKIPPED,TODO,DROPPED,DROPPED": [
+    "0",
+    "1",
+    "2",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DONE,TODO,TODO": [
+    "1",
+    "1",
+    "0",
+    "2",
+    "4"
+   ],
+   "SKIPPED,DONE,TODO,DONE": [
+    "2",
+    "1",
+    "0",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DONE,TODO,SKIPPED": [
+    "1",
+    "2",
+    "0",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DONE,TODO,DROPPED": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DONE,DONE,TODO": [
+    "2",
+    "1",
+    "0",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DONE,DONE,DONE": [
+    "3",
+    "1",
+    "0",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DONE,DONE,SKIPPED": [
+    "2",
+    "2",
+    "0",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DONE,DONE,DROPPED": [
+    "2",
+    "1",
+    "1",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DONE,SKIPPED,TODO": [
+    "1",
+    "2",
+    "0",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DONE,SKIPPED,DONE": [
+    "2",
+    "2",
+    "0",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DONE,SKIPPED,SKIPPED": [
+    "1",
+    "3",
+    "0",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DONE,SKIPPED,DROPPED": [
+    "1",
+    "2",
+    "1",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DONE,DROPPED,TODO": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DONE,DROPPED,DONE": [
+    "2",
+    "1",
+    "1",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DONE,DROPPED,SKIPPED": [
+    "1",
+    "2",
+    "1",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DONE,DROPPED,DROPPED": [
+    "1",
+    "1",
+    "2",
+    "0",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,TODO,TODO": [
+    "0",
+    "2",
+    "0",
+    "2",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,TODO,DONE": [
+    "1",
+    "2",
+    "0",
+    "1",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,TODO,SKIPPED": [
+    "0",
+    "3",
+    "0",
+    "1",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,TODO,DROPPED": [
+    "0",
+    "2",
+    "1",
+    "1",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,DONE,TODO": [
+    "1",
+    "2",
+    "0",
+    "1",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,DONE,DONE": [
+    "2",
+    "2",
+    "0",
+    "0",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,DONE,SKIPPED": [
+    "1",
+    "3",
+    "0",
+    "0",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,DONE,DROPPED": [
+    "1",
+    "2",
+    "1",
+    "0",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,SKIPPED,TODO": [
+    "0",
+    "3",
+    "0",
+    "1",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,SKIPPED,DONE": [
+    "1",
+    "3",
+    "0",
+    "0",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,SKIPPED,SKIPPED": [
+    "0",
+    "4",
+    "0",
+    "0",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,SKIPPED,DROPPED": [
+    "0",
+    "3",
+    "1",
+    "0",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,DROPPED,TODO": [
+    "0",
+    "2",
+    "1",
+    "1",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,DROPPED,DONE": [
+    "1",
+    "2",
+    "1",
+    "0",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,DROPPED,SKIPPED": [
+    "0",
+    "3",
+    "1",
+    "0",
+    "4"
+   ],
+   "SKIPPED,SKIPPED,DROPPED,DROPPED": [
+    "0",
+    "2",
+    "2",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DROPPED,TODO,TODO": [
+    "0",
+    "1",
+    "1",
+    "2",
+    "4"
+   ],
+   "SKIPPED,DROPPED,TODO,DONE": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DROPPED,TODO,SKIPPED": [
+    "0",
+    "2",
+    "1",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DROPPED,TODO,DROPPED": [
+    "0",
+    "1",
+    "2",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DROPPED,DONE,TODO": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DROPPED,DONE,DONE": [
+    "2",
+    "1",
+    "1",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DROPPED,DONE,SKIPPED": [
+    "1",
+    "2",
+    "1",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DROPPED,DONE,DROPPED": [
+    "1",
+    "1",
+    "2",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DROPPED,SKIPPED,TODO": [
+    "0",
+    "2",
+    "1",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DROPPED,SKIPPED,DONE": [
+    "1",
+    "2",
+    "1",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DROPPED,SKIPPED,SKIPPED": [
+    "0",
+    "3",
+    "1",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DROPPED,SKIPPED,DROPPED": [
+    "0",
+    "2",
+    "2",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DROPPED,DROPPED,TODO": [
+    "0",
+    "1",
+    "2",
+    "1",
+    "4"
+   ],
+   "SKIPPED,DROPPED,DROPPED,DONE": [
+    "1",
+    "1",
+    "2",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DROPPED,DROPPED,SKIPPED": [
+    "0",
+    "2",
+    "2",
+    "0",
+    "4"
+   ],
+   "SKIPPED,DROPPED,DROPPED,DROPPED": [
+    "0",
+    "1",
+    "3",
+    "0",
+    "4"
+   ],
+   "DROPPED,TODO,TODO,TODO": [
+    "0",
+    "0",
+    "1",
+    "3",
+    "4"
+   ],
+   "DROPPED,TODO,TODO,DONE": [
+    "1",
+    "0",
+    "1",
+    "2",
+    "4"
+   ],
+   "DROPPED,TODO,TODO,SKIPPED": [
+    "0",
+    "1",
+    "1",
+    "2",
+    "4"
+   ],
+   "DROPPED,TODO,TODO,DROPPED": [
+    "0",
+    "0",
+    "2",
+    "2",
+    "4"
+   ],
+   "DROPPED,TODO,DONE,TODO": [
+    "1",
+    "0",
+    "1",
+    "2",
+    "4"
+   ],
+   "DROPPED,TODO,DONE,DONE": [
+    "2",
+    "0",
+    "1",
+    "1",
+    "4"
+   ],
+   "DROPPED,TODO,DONE,SKIPPED": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "DROPPED,TODO,DONE,DROPPED": [
+    "1",
+    "0",
+    "2",
+    "1",
+    "4"
+   ],
+   "DROPPED,TODO,SKIPPED,TODO": [
+    "0",
+    "1",
+    "1",
+    "2",
+    "4"
+   ],
+   "DROPPED,TODO,SKIPPED,DONE": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "DROPPED,TODO,SKIPPED,SKIPPED": [
+    "0",
+    "2",
+    "1",
+    "1",
+    "4"
+   ],
+   "DROPPED,TODO,SKIPPED,DROPPED": [
+    "0",
+    "1",
+    "2",
+    "1",
+    "4"
+   ],
+   "DROPPED,TODO,DROPPED,TODO": [
+    "0",
+    "0",
+    "2",
+    "2",
+    "4"
+   ],
+   "DROPPED,TODO,DROPPED,DONE": [
+    "1",
+    "0",
+    "2",
+    "1",
+    "4"
+   ],
+   "DROPPED,TODO,DROPPED,SKIPPED": [
+    "0",
+    "1",
+    "2",
+    "1",
+    "4"
+   ],
+   "DROPPED,TODO,DROPPED,DROPPED": [
+    "0",
+    "0",
+    "3",
+    "1",
+    "4"
+   ],
+   "DROPPED,DONE,TODO,TODO": [
+    "1",
+    "0",
+    "1",
+    "2",
+    "4"
+   ],
+   "DROPPED,DONE,TODO,DONE": [
+    "2",
+    "0",
+    "1",
+    "1",
+    "4"
+   ],
+   "DROPPED,DONE,TODO,SKIPPED": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "DROPPED,DONE,TODO,DROPPED": [
+    "1",
+    "0",
+    "2",
+    "1",
+    "4"
+   ],
+   "DROPPED,DONE,DONE,TODO": [
+    "2",
+    "0",
+    "1",
+    "1",
+    "4"
+   ],
+   "DROPPED,DONE,DONE,DONE": [
+    "3",
+    "0",
+    "1",
+    "0",
+    "4"
+   ],
+   "DROPPED,DONE,DONE,SKIPPED": [
+    "2",
+    "1",
+    "1",
+    "0",
+    "4"
+   ],
+   "DROPPED,DONE,DONE,DROPPED": [
+    "2",
+    "0",
+    "2",
+    "0",
+    "4"
+   ],
+   "DROPPED,DONE,SKIPPED,TODO": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "DROPPED,DONE,SKIPPED,DONE": [
+    "2",
+    "1",
+    "1",
+    "0",
+    "4"
+   ],
+   "DROPPED,DONE,SKIPPED,SKIPPED": [
+    "1",
+    "2",
+    "1",
+    "0",
+    "4"
+   ],
+   "DROPPED,DONE,SKIPPED,DROPPED": [
+    "1",
+    "1",
+    "2",
+    "0",
+    "4"
+   ],
+   "DROPPED,DONE,DROPPED,TODO": [
+    "1",
+    "0",
+    "2",
+    "1",
+    "4"
+   ],
+   "DROPPED,DONE,DROPPED,DONE": [
+    "2",
+    "0",
+    "2",
+    "0",
+    "4"
+   ],
+   "DROPPED,DONE,DROPPED,SKIPPED": [
+    "1",
+    "1",
+    "2",
+    "0",
+    "4"
+   ],
+   "DROPPED,DONE,DROPPED,DROPPED": [
+    "1",
+    "0",
+    "3",
+    "0",
+    "4"
+   ],
+   "DROPPED,SKIPPED,TODO,TODO": [
+    "0",
+    "1",
+    "1",
+    "2",
+    "4"
+   ],
+   "DROPPED,SKIPPED,TODO,DONE": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "DROPPED,SKIPPED,TODO,SKIPPED": [
+    "0",
+    "2",
+    "1",
+    "1",
+    "4"
+   ],
+   "DROPPED,SKIPPED,TODO,DROPPED": [
+    "0",
+    "1",
+    "2",
+    "1",
+    "4"
+   ],
+   "DROPPED,SKIPPED,DONE,TODO": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "4"
+   ],
+   "DROPPED,SKIPPED,DONE,DONE": [
+    "2",
+    "1",
+    "1",
+    "0",
+    "4"
+   ],
+   "DROPPED,SKIPPED,DONE,SKIPPED": [
+    "1",
+    "2",
+    "1",
+    "0",
+    "4"
+   ],
+   "DROPPED,SKIPPED,DONE,DROPPED": [
+    "1",
+    "1",
+    "2",
+    "0",
+    "4"
+   ],
+   "DROPPED,SKIPPED,SKIPPED,TODO": [
+    "0",
+    "2",
+    "1",
+    "1",
+    "4"
+   ],
+   "DROPPED,SKIPPED,SKIPPED,DONE": [
+    "1",
+    "2",
+    "1",
+    "0",
+    "4"
+   ],
+   "DROPPED,SKIPPED,SKIPPED,SKIPPED": [
+    "0",
+    "3",
+    "1",
+    "0",
+    "4"
+   ],
+   "DROPPED,SKIPPED,SKIPPED,DROPPED": [
+    "0",
+    "2",
+    "2",
+    "0",
+    "4"
+   ],
+   "DROPPED,SKIPPED,DROPPED,TODO": [
+    "0",
+    "1",
+    "2",
+    "1",
+    "4"
+   ],
+   "DROPPED,SKIPPED,DROPPED,DONE": [
+    "1",
+    "1",
+    "2",
+    "0",
+    "4"
+   ],
+   "DROPPED,SKIPPED,DROPPED,SKIPPED": [
+    "0",
+    "2",
+    "2",
+    "0",
+    "4"
+   ],
+   "DROPPED,SKIPPED,DROPPED,DROPPED": [
+    "0",
+    "1",
+    "3",
+    "0",
+    "4"
+   ],
+   "DROPPED,DROPPED,TODO,TODO": [
+    "0",
+    "0",
+    "2",
+    "2",
+    "4"
+   ],
+   "DROPPED,DROPPED,TODO,DONE": [
+    "1",
+    "0",
+    "2",
+    "1",
+    "4"
+   ],
+   "DROPPED,DROPPED,TODO,SKIPPED": [
+    "0",
+    "1",
+    "2",
+    "1",
+    "4"
+   ],
+   "DROPPED,DROPPED,TODO,DROPPED": [
+    "0",
+    "0",
+    "3",
+    "1",
+    "4"
+   ],
+   "DROPPED,DROPPED,DONE,TODO": [
+    "1",
+    "0",
+    "2",
+    "1",
+    "4"
+   ],
+   "DROPPED,DROPPED,DONE,DONE": [
+    "2",
+    "0",
+    "2",
+    "0",
+    "4"
+   ],
+   "DROPPED,DROPPED,DONE,SKIPPED": [
+    "1",
+    "1",
+    "2",
+    "0",
+    "4"
+   ],
+   "DROPPED,DROPPED,DONE,DROPPED": [
+    "1",
+    "0",
+    "3",
+    "0",
+    "4"
+   ],
+   "DROPPED,DROPPED,SKIPPED,TODO": [
+    "0",
+    "1",
+    "2",
+    "1",
+    "4"
+   ],
+   "DROPPED,DROPPED,SKIPPED,DONE": [
+    "1",
+    "1",
+    "2",
+    "0",
+    "4"
+   ],
+   "DROPPED,DROPPED,SKIPPED,SKIPPED": [
+    "0",
+    "2",
+    "2",
+    "0",
+    "4"
+   ],
+   "DROPPED,DROPPED,SKIPPED,DROPPED": [
+    "0",
+    "1",
+    "3",
+    "0",
+    "4"
+   ],
+   "DROPPED,DROPPED,DROPPED,TODO": [
+    "0",
+    "0",
+    "3",
+    "1",
+    "4"
+   ],
+   "DROPPED,DROPPED,DROPPED,DONE": [
+    "1",
+    "0",
+    "3",
+    "0",
+    "4"
+   ],
+   "DROPPED,DROPPED,DROPPED,SKIPPED": [
+    "0",
+    "1",
+    "3",
+    "0",
+    "4"
+   ],
+   "DROPPED,DROPPED,DROPPED,DROPPED": [
+    "0",
+    "0",
+    "4",
+    "0",
+    "4"
+   ]
+  },
+  "count_cols": [
+   "done",
+   "skipped",
+   "dropped",
+   "todo",
+   "total"
+  ],
+  "done_total": {
+   "0,0,0": "0",
+   "0,0,1": "1",
+   "0,0,2": "2",
+   "0,0,3": "3",
+   "0,0,4": "4",
+   "0,1,0": "1",
+   "0,1,1": "2",
+   "0,1,2": "3",
+   "0,1,3": "4",
+   "0,1,4": "5",
+   "0,2,0": "2",
+   "0,2,1": "3",
+   "0,2,2": "4",
+   "0,2,3": "5",
+   "0,2,4": "6",
+   "0,3,0": "3",
+   "0,3,1": "4",
+   "0,3,2": "5",
+   "0,3,3": "6",
+   "0,3,4": "7",
+   "0,4,0": "4",
+   "0,4,1": "5",
+   "0,4,2": "6",
+   "0,4,3": "7",
+   "0,4,4": "8",
+   "1,0,0": "1",
+   "1,0,1": "2",
+   "1,0,2": "3",
+   "1,0,3": "4",
+   "1,0,4": "5",
+   "1,1,0": "2",
+   "1,1,1": "3",
+   "1,1,2": "4",
+   "1,1,3": "5",
+   "1,1,4": "6",
+   "1,2,0": "3",
+   "1,2,1": "4",
+   "1,2,2": "5",
+   "1,2,3": "6",
+   "1,2,4": "7",
+   "1,3,0": "4",
+   "1,3,1": "5",
+   "1,3,2": "6",
+   "1,3,3": "7",
+   "1,3,4": "8",
+   "1,4,0": "5",
+   "1,4,1": "6",
+   "1,4,2": "7",
+   "1,4,3": "8",
+   "1,4,4": "9",
+   "2,0,0": "2",
+   "2,0,1": "3",
+   "2,0,2": "4",
+   "2,0,3": "5",
+   "2,0,4": "6",
+   "2,1,0": "3",
+   "2,1,1": "4",
+   "2,1,2": "5",
+   "2,1,3": "6",
+   "2,1,4": "7",
+   "2,2,0": "4",
+   "2,2,1": "5",
+   "2,2,2": "6",
+   "2,2,3": "7",
+   "2,2,4": "8",
+   "2,3,0": "5",
+   "2,3,1": "6",
+   "2,3,2": "7",
+   "2,3,3": "8",
+   "2,3,4": "9",
+   "2,4,0": "6",
+   "2,4,1": "7",
+   "2,4,2": "8",
+   "2,4,3": "9",
+   "2,4,4": "10",
+   "3,0,0": "3",
+   "3,0,1": "4",
+   "3,0,2": "5",
+   "3,0,3": "6",
+   "3,0,4": "7",
+   "3,1,0": "4",
+   "3,1,1": "5",
+   "3,1,2": "6",
+   "3,1,3": "7",
+   "3,1,4": "8",
+   "3,2,0": "5",
+   "3,2,1": "6",
+   "3,2,2": "7",
+   "3,2,3": "8",
+   "3,2,4": "9",
+   "3,3,0": "6",
+   "3,3,1": "7",
+   "3,3,2": "8",
+   "3,3,3": "9",
+   "3,3,4": "10",
+   "3,4,0": "7",
+   "3,4,1": "8",
+   "3,4,2": "9",
+   "3,4,3": "10",
+   "3,4,4": "11",
+   "4,0,0": "4",
+   "4,0,1": "5",
+   "4,0,2": "6",
+   "4,0,3": "7",
+   "4,0,4": "8",
+   "4,1,0": "5",
+   "4,1,1": "6",
+   "4,1,2": "7",
+   "4,1,3": "8",
+   "4,1,4": "9",
+   "4,2,0": "6",
+   "4,2,1": "7",
+   "4,2,2": "8",
+   "4,2,3": "9",
+   "4,2,4": "10",
+   "4,3,0": "7",
+   "4,3,1": "8",
+   "4,3,2": "9",
+   "4,3,3": "10",
+   "4,3,4": "11",
+   "4,4,0": "8",
+   "4,4,1": "9",
+   "4,4,2": "10",
+   "4,4,3": "11",
+   "4,4,4": "12"
+  },
+  "total_all": {
+   "2,2,2": "6",
+   "2,2,3": "7",
+   "2,2,4": "8",
+   "2,3,2": "7",
+   "2,3,3": "8",
+   "2,3,4": "9",
+   "2,4,2": "8",
+   "2,4,3": "9",
+   "2,4,4": "10",
+   "3,2,2": "7",
+   "3,2,3": "8",
+   "3,2,4": "9",
+   "3,3,2": "8",
+   "3,3,3": "9",
+   "3,3,4": "10",
+   "3,4,2": "9",
+   "3,4,3": "10",
+   "3,4,4": "11",
+   "4,2,2": "8",
+   "4,2,3": "9",
+   "4,2,4": "10",
+   "4,3,2": "9",
+   "4,3,3": "10",
+   "4,3,4": "11",
+   "4,4,2": "10",
+   "4,4,3": "11",
+   "4,4,4": "12"
+  },
+  "undo_ms": {
+   "v": 5000,
+   "unit": "ms",
+   "prov": "assumed",
+   "src": "FR-50 (5-s undo)"
+  },
+  "stop_names": {
+   "s1": "EZ—ENG 01",
+   "s2": "EZ—RES 02",
+   "s3": "EZ—SCI 01"
   }
  },
  "site": {
@@ -2022,6 +5248,22 @@
   },
   {
    "seq": {
+    "v": null,
+    "unit": "seq",
+    "prov": "simulated",
+    "src": "PLACEHOLDER",
+    "unblocks": "TASK-31",
+    "fmt": "###"
+   },
+   "t": "ltst_task",
+   "kind": "TASK_UPDATED",
+   "actor": "eva:EV1",
+   "text": "EV1 marked a stop 2 task done",
+   "prov": "simulated",
+   "src": "FR-50 / 05 StopTask (new log event)"
+  },
+  {
+   "seq": {
     "v": 420,
     "unit": "seq",
     "prov": "simulated",
@@ -2061,6 +5303,22 @@
    "text": "PR1 dispatched",
    "prov": "modelled",
    "src": "05 §F.6"
+  },
+  {
+   "seq": {
+    "v": null,
+    "unit": "seq",
+    "prov": "simulated",
+    "src": "PLACEHOLDER",
+    "unblocks": "TASK-31",
+    "fmt": "###"
+   },
+   "t": "ltst_task",
+   "kind": "TASK_DROPPED",
+   "actor": "system",
+   "text": "Open tasks dropped — plan revised",
+   "prov": "simulated",
+   "src": "FR-50 / 05 StopTask (new log event)"
   },
   {
    "seq": {
@@ -2600,6 +5858,120 @@
     "04 §F vs §E.5",
     "An EVA high-contrast toggle is required but the layout has no slot for it.",
     "Prototype: toggle in the frame chrome. Product placement Unresolved U-31."
+   ],
+   [
+    "G-30",
+    "04 §E.5 addition (FR-50) vs landscape layout",
+    "\"At a stop the NEXT card becomes the task list\", but on a phone in landscape the NEXT card is 110 px high and four 56 px rows need about 260 px.",
+    "A labelled TASKS button in the NEXT card header toggles the list into the map column (phone landscape); the NEXT card stays. On tablets and in portrait the list takes the NEXT position as specified. U-51."
+   ],
+   [
+    "G-31",
+    "Team suggestion vs 04 §A.3 #9",
+    "A hamburger icon to open the list; 04 §A.3 #9 says no hamburger menus or hidden controls in OPS/EVA, and replacing the left column would hide HAVEN and O₂ (FR-50: tasks never move them).",
+    "A labelled button (icon + word + count) instead; the list never replaces HAVEN or O₂. U-51."
+   ],
+   [
+    "G-32",
+    "04 §E.5 addition vs 04 §C.1",
+    "\"■ done\" uses the same filled square that 04 §C.1 assigns to the MEASURED provenance chip.",
+    "Done is a square with a check mark drawn in it, plus the word DONE; skipped and dropped are ⊘ plus the word. No status colour."
+   ],
+   [
+    "G-33",
+    "FR-50",
+    "Skip needs a reason (time | terrain | alert | other) but is \"one tap\" with no hold.",
+    "One tap on SKIP records reason `other`; the 5-s undo strip has one REASON control that cycles time → terrain → alert → other. U-55."
+   ],
+   [
+    "G-34",
+    "FR-50 honesty rule vs interactive ticks",
+    "Counts must come from declared states and not be computed, yet a tap changes them.",
+    "The fixture declares a number object for every count and build-time lookup tables (`counts`, `done_total`, `total_all`) keyed by the task-state strings; the runtime only looks values up. The product will compute counts from the task list. U-53."
+   ],
+   [
+    "G-35",
+    "03 SCR-13 / 04 §E.6 five-value rule vs FR-50",
+    "A task count would be a sixth HUD value.",
+    "Left off the HUD, which keeps its five values. It could become part of the \"STOP 3\" sub-label if G-17 is accepted. U-54."
+   ],
+   [
+    "G-36",
+    "FR-50 vs 04 §E.5 strip",
+    "\"Not synced\" must show in the metadata strip, which is already full in portrait.",
+    "A NOT SYNCED pill replaces the NO LINK + age pill (the age stays on the HAVEN card and the alert slot says no hab link)."
+   ],
+   [
+    "G-37",
+    "FR-50 vs 04 §E.5 addition",
+    "FR-50 shows \"Stop 2 · tasks 1/3\" while walking; 04 shows TASKS 0/3.",
+    "Walking shows the count for the next stop (0/3)."
+   ],
+   [
+    "G-38",
+    "FR-50",
+    "1–4 tasks per stop vs ops ADD_STOP_TASK.",
+    "Add task is disabled when the stop already has four tasks for that crew, with the reason shown."
+   ],
+   [
+    "G-39",
+    "FR-50",
+    "Only dropped stops drop their open tasks, but an abort cuts the current stop short.",
+    "Open tasks at the current stop and at later stops become DROPPED when the rendezvous plan revision is made (**Proposed**). U-56."
+   ],
+   [
+    "G-40",
+    "FR-50 vs 04 §D.2",
+    "\"During an alert the list collapses to its count\", but a warning stays latched after acknowledgement.",
+    "The list collapses while the options sheet is open or a warning is unacknowledged; once acknowledged and executing (To haven) a read-only list is available. U-59."
+   ],
+   [
+    "G-41",
+    "01 §E.1",
+    "The killer-demo table has no beat for a task tick.",
+    "A new beat at 0:05 (Proposed slot; 1:05 in the 240-s track). The timing of every existing beat is unchanged (tested)."
+   ],
+   [
+    "G-42",
+    "Team request vs 04 §E.5",
+    "04 §E.5 has a mini-map only; the team wants a full-screen map, and full screen must not hide the fixed geography.",
+    "The map fills the body. Landscape: HAVEN and O₂ stack at the left as smaller cards (HAVEN keeps the top-left origin) and the map takes at least 80 % of the width; portrait keeps the cards in their row. The alert slot, strip and action row never move (measured). A warning closes the full map. U-57, U-60."
+   ],
+   [
+    "G-43",
+    "04 §A.3 #9",
+    "Pan and zoom are naturally gestures; gesture-only paths are forbidden.",
+    "On-screen +, −, FIT, FOLLOW, LAYERS and CLOSE buttons (≥ 56 px, with words) are the primary path; drag, wheel and pinch are extras. Pinch is implemented but not tested on touch hardware."
+   ],
+   [
+    "G-44",
+    "04 §F keyboard row",
+    "The planner zoom and pan were keyboard-only and the ops map had no zoom or pan (found by the team).",
+    "Zoom buttons, drag pan and wheel zoom added to the planner; zoom buttons, drag, wheel and Slope / Thermal inertia toggles added to the ops map."
+   ],
+   [
+    "G-45",
+    "03 SCR-08",
+    "Adding each stop's tasks pushed the briefing card past one A4 page.",
+    "Trimmed to fit all three states: map snapshot 300 → 235 px, profile 70 → 56 px, tasks table set compact (10 px). Nothing was removed."
+   ],
+   [
+    "G-46",
+    "Found while building",
+    "The Partial briefing banner's status icon was unconstrained and made the page 713 px taller.",
+    "Fixed: every status icon now has a default size."
+   ],
+   [
+    "G-47",
+    "FR-50",
+    "The text promises \"a total\" on the ops crew card without saying a total of what.",
+    "Total = tasks done of tasks planned for that crew across the whole plan, looked up from `done_total` and `total_all`; there is no grand total across crews."
+   ],
+   [
+    "G-48",
+    "04 §A.3 #4 and #5 vs the team request",
+    "The team asked for the cards stacked at the left and smaller in the landscape full-screen map: O₂ is no longer beside HAVEN there, and the values fall from 56 px (64 px on tablets) to 40 px (48 px), below the 56 px minimum for HAVEN and O₂. They stay above the 32 px EVA minimum and remain the biggest numbers on screen.",
+    "Applied to the landscape full-screen map only; the normal layout and portrait are unchanged. HAVEN keeps the top-left origin. U-60."
    ]
   ],
   "deviations": [
@@ -2679,6 +6051,41 @@
     "04 §G self-hosted WOFF2; Lucide",
     "Google Fonts with fallback stacks and an own icon set in the prototype (G-19).",
     "Prototype only — U-27, U-40"
+   ],
+   [
+    "DV-12",
+    "Task list placement on a phone in landscape",
+    "04 §E.5 addition: the NEXT card becomes the list",
+    "TASKS button in the NEXT header; the list takes the map column on phone landscape, the NEXT position on tablets and in portrait (G-30, G-31).",
+    "Proposed — U-51"
+   ],
+   [
+    "DV-13",
+    "Full-screen map and map controls",
+    "04 §E.5 mini-map only",
+    "Tap or FULL expands the map with labelled controls and layers. Landscape: HAVEN and O₂ stack at the left as smaller cards (values 40 px on phones, 48 px on tablets, below the 56 px rule) and the map takes at least 80 % of the width; portrait is unchanged; the alert slot, strip and action row never move; a warning closes it (G-42, G-43, G-48).",
+    "Proposed — U-57, U-60"
+   ],
+   [
+    "DV-14",
+    "Map zoom, pan and layers on ops and planner",
+    "04 §F keyboard row only",
+    "On-screen zoom buttons, drag, wheel, and Slope / Thermal inertia on ops (G-44).",
+    "Proposed"
+   ],
+   [
+    "DV-15",
+    "Task rows use neutral chrome only",
+    "04 §C.1 provenance chips; status colours",
+    "Check-in-square, ⊘ and words instead of a green tick (G-32); one REASON control instead of four chips (G-33).",
+    "Proposed — U-55"
+   ],
+   [
+    "DV-16",
+    "Briefing card trims",
+    "03 SCR-08 one A4 page",
+    "Map snapshot, profile and the tasks table were made smaller to keep one page (G-45).",
+    "Proposed"
    ]
   ],
   "unresolved": [
@@ -2765,6 +6172,78 @@
     "Ops and HUD still leave the idle alert slot empty. Decide whether ops should also show a status line, and whether an always-on NOMINAL line on the EVA tablet is compatible with \"nominal is quiet\" (04 §A.3); check with UT-7.",
     "Design (R6) + R5",
     "TASK-15"
+   ],
+   [
+    "U-47",
+    "**Resolved by FR-50** (stop task list on the EVA tablet, synced to ops). The wording of U-47 itself was not available to the assistant; confirm it can be closed. Prototyped in SCR-12, SCR-11, SCR-08, SCR-17 and the Stage beat at 0:05.",
+    "Sadman",
+    "Resolved 2026-11-05"
+   ],
+   [
+    "U-44–U-50",
+    "Held in the repository copy of this file, which the assistant could not see. They are not reproduced here: merge this file by hand, do not overwrite.",
+    "Sadman",
+    "Before merging"
+   ],
+   [
+    "U-51",
+    "Ratify the TASKS button, the phone-landscape list in the map column and the NEXT-position list on tablets and in portrait (G-30, G-31, DV-12).",
+    "Sadman + Design (R6)",
+    "TASK-13"
+   ],
+   [
+    "U-52",
+    "Per-crew task model: tasks belong to EV1 or EV2 (`crew_id`), EV2 is simulated and completes tasks at the end of each dwell, so a dwell cut short by the storm leaves EV2's tasks open and later dropped. Confirm.",
+    "R2",
+    "TASK-31"
+   ],
+   [
+    "U-53",
+    "Ratify the prototype rule that counts are looked up from build-time tables; the product computes counts from the task list (G-34).",
+    "Sadman + R2",
+    "TASK-31"
+   ],
+   [
+    "U-54",
+    "Allow a task count on the HUD as a sixth value, or fold it into the STOP sub-label (G-35)?",
+    "Design (R6) + R5",
+    "TASK-15"
+   ],
+   [
+    "U-55",
+    "Skip-reason capture: one tap records `other`, then one REASON control in the 5-s undo strip (G-33). Acceptable with gloves?",
+    "Design (R6)",
+    "UT-8"
+   ],
+   [
+    "U-56",
+    "On abort or rendezvous, do open tasks at the current stop also become DROPPED (G-39)?",
+    "R2",
+    "TASK-31"
+   ],
+   [
+    "U-57",
+    "Ratify the full-screen map: scope (EVA, ops, planner), layer set, close-on-warning, and drag/wheel/pinch as extras (G-42, G-43). Pinch needs a touch-hardware test.",
+    "Sadman + R3",
+    "TASK-07 / TASK-15"
+   ],
+   [
+    "U-58",
+    "Who writes the final task text, in which file, and who may add tasks from ops (limit, audit)? Prototype text is PROPOSED copy from the POI objectives.",
+    "R1 + R6",
+    "TASK-31"
+   ],
+   [
+    "U-59",
+    "List collapse during an alert: collapse while the options sheet is open or a warning is unacknowledged, then allow a read-only list (G-40)?",
+    "Sadman",
+    "TASK-24"
+   ],
+   [
+    "U-60",
+    "Ratify, for the landscape full-screen map only, the stacked HAVEN / O₂ cards at 40 px (48 px on tablets), below the 56 px rule and with O₂ below HAVEN rather than beside it (G-48); or keep 56 px values and accept a smaller map.",
+    "Sadman + Design (R6)",
+    "UT-9"
    ]
   ],
   "components": [
@@ -3007,6 +6486,54 @@
     "choosing … failed; link, waiting, blackout",
     "caution, unknown",
     "FR-41, 43, 48"
+   ],
+   [
+    "StopTaskList / StopTaskRow",
+    "ui/screens/scr12/StopTaskList.tsx",
+    "tasks[]; crewId; stopId; readOnly; undo; onTick; onSkip; onUndo; onReason",
+    "to do, done, skipped, dropped; undo window; not synced; added by ops; read only; collapsed to a count during an alert",
+    "panel, raised, hairline, text-1/2/3, edge (neutral chrome only)",
+    "FR-50; rows ≥ 56 px"
+   ],
+   [
+    "TasksButton / TaskCountPill",
+    "ui/screens/scr12/TasksButton.tsx",
+    "count; active; locked",
+    "idle, active (MAP / NEXT), locked (non-interactive pill during an alert)",
+    "raised, edge, text-1",
+    "FR-50; ≥ 56 px, icon + word + count"
+   ],
+   [
+    "TaskProgress",
+    "ui/ops/TaskProgress.tsx",
+    "stopCount; total; onAdd",
+    "default",
+    "text-1, text-3, hairline",
+    "FR-50; ops crew card"
+   ],
+   [
+    "AddTaskPopover",
+    "ui/ops/AddTaskPopover.tsx",
+    "crew; stop; kind; text; maxReached",
+    "default, empty text (disabled), max reached",
+    "panel, raised, edge",
+    "FR-50 ADD_STOP_TASK"
+   ],
+   [
+    "MapControls",
+    "map/MapControls.tsx",
+    "zoom; pan; follow; fit; layersOpen; onClose",
+    "default, layers open",
+    "edge, raised, text-1",
+    "G-42, G-43; buttons ≥ 56 px on EVA"
+   ],
+   [
+    "FullScreenMap",
+    "map/FullScreenMap.tsx",
+    "crew; view; layers; orientation",
+    "open (landscape: cards stacked at the left; portrait: cards in their row), closed, auto-closed by a warning",
+    "route, text-1, void casing",
+    "G-42, G-48; map ≥ 80 % of the width in landscape"
    ]
   ],
   "interactions": [
@@ -3064,6 +6591,16 @@
     "Demo player",
     "01 §E.1, §E.2, 10",
     "Beats hold between keyframes; markers tween visually only; 60× plays at the pace of the recorded table, 10× and 1× are slower; next event, previous, scrub. Commands from the Stage (hold Summon) advance the replay."
+   ],
+   [
+    "Stop tasks (FR-50)",
+    "FR-50; 04 §E.5 addition",
+    "Rows are at least 56 px with a neutral check box, the task text and SKIP. One tap marks DONE or SKIPPED (no hold-to-confirm: not a safety action) and opens a 5-s undo strip with a shrinking bar (no number); the REASON control cycles time → terrain → alert → other. Without a hab link the change is queued and marked NOT SYNCED in the row and the strip, and clears when the link returns. Ops can add a task (ops-added rows list first, tagged ADDED BY OPS). Open tasks become DROPPED when a plan revision cuts the stop. During an alert the list collapses to a non-interactive count. Counts are looked up, never computed."
+   ],
+   [
+    "Full-screen map and map controls",
+    "G-42, G-43",
+    "Tap the mini-map or press FULL. In landscape HAVEN and O₂ stack at the left as smaller cards and the map takes at least 80 % of the width; in portrait the cards stay in their row. The alert slot, strip and action row do not move. Buttons: +, −, FIT, FOLLOW, LAYERS, CLOSE. Extras: drag to pan, wheel or pinch to zoom. Layers: slope, thermal inertia, comm shadow, haven bands (at most two scientific overlays; a third turns the oldest off and says so). A warning closes the full map. The planner has + / − buttons, drag and wheel; ops has + / − / FIT, drag, wheel, and Slope and Thermal inertia toggles."
    ]
   ],
   "a11y": [
@@ -3075,7 +6612,9 @@
    "Live regions: warnings role=alert + aria-live=assertive; cautions and advisories role=status + polite; crew cards and options are lists with full text.",
    "No hamburger menus, no hover-only actions, no gesture-only paths in OPS/EVA; hidden content shows a count (alert \"+N\", log \"n / m\").",
    "Reduced motion: no flashes (static bar) and no marker interpolation; animations and transitions are disabled.",
-   "Never colour alone for focus, selection or current step (P10): ring + outline + marker + label."
+   "Never colour alone for focus, selection or current step (P10): ring + outline + marker + label.",
+   "Task rows are at least 56 px; each check box is a button with a label such as \"Mark done: Observe the sulfate ledge face\"; the undo strip is a status region; task state never uses a status colour, so it reads in grayscale (shape + word).",
+   "Map: buttons are the primary path and every control has a word (icon + word on EVA); drag, wheel and pinch are extras; the planner keeps its keyboard keys (arrows pan, +/− zoom). The Add task button carries aria-disabled and it is kept in step with the field."
   ],
   "fixture_map": [
    [
@@ -3142,6 +6681,11 @@
     "sources",
     "05 §C.1 DataSource",
     "Ten dataset records with DS codes"
+   ],
+   [
+    "tasks",
+    "05 StopTask (FR-50, Proposed); 02 UPDATE_STOP_TASK / ADD_STOP_TASK; log events TASK_ADDED, TASK_UPDATED, TASK_DROPPED",
+    "14 plan tasks (per crew and stop), one ops-added example, declared scenarios per screen state, count objects `n`, and the build-time lookup tables `counts`, `done_total`, `total_all`; text is PROPOSED copy"
    ]
   ],
   "usability": [
@@ -3186,6 +6730,18 @@
     "**Added:** Nominal state on the EVA tablet with and without the status line in the alert slot: read haven, O₂ and next stop, then say what the top line means.",
     "Reading time no worse than without the line by more than 0.5 s; ≥ 2 of 3 testers say what the line means",
     "New (DV-03, U-43)"
+   ],
+   [
+    "UT-8",
+    "**Added:** with gloves on a phone in landscape at a stop, tick the middle task, then skip the last, then undo; count mis-taps between the box, SKIP and UNDO.",
+    "≥ 2 of 3 testers complete it in under 15 s with ≤ 1 mis-tap",
+    "New (FR-50, U-55)"
+   ],
+   [
+    "UT-9",
+    "**Added:** open the full-screen map on a phone in landscape, zoom in once, then say HAVEN and O₂ without closing the map.",
+    "Both read within 3 s by ≥ 2 of 3 testers (the stacked cards stay at the left; check that 40 px is enough with gloves and glare)",
+    "New (G-42, G-48)"
    ]
   ],
   "patch_f": "| Responsive | BRIEF fluid 360–1920 px. Planner/ops ≥ 1280 three-column; 1024–1279 one drawer at a time; ops < 1024 shows a \"use a larger screen\" notice. **EVA: phone or tablet, portrait (360–1024 px wide) or landscape (≥ 844 × 390 px); default landscape; the same fixed geography in both.** HUD landscape ≥ 640 px |",

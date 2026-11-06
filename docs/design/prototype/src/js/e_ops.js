@@ -16,6 +16,22 @@ function metaStrip(w) {
   const pre = w.session === 'noSession';
   return `<div class="meta" data-slot="meta" data-ann="id:04 §C.3|px:24 high|note:Catalogue strip: SOL · LTST · site · plan rev · data version · replay speed"><span>SOL ${pre ? '—' : N('sol', { chip: 'g', unit: false })}</span><span>LTST ${pre ? '—' : N(w.session === 'loaded' ? 'ltst_ph' : 'ltst_alert', { chip: 'g', unit: false })}</span><span>GALE / MT SHARP</span><span>PLAN REV ${pre ? '—' : N('plan_rev', { chip: 'g', unit: false })}</span><span>DATA ${T(FX.meta.data_version, 'derived', FX.meta.data_version_src)}</span><span>REPLAY ${pre ? '—' : N('speed', { chip: 'g' })}</span><span style="margin-left:auto">PROTOTYPE — ILLUSTRATIVE VALUES</span></div>`;
 }
+/* FR-50: per-crew task progress (current stop + total). Counts are looked up, never computed. */
+function taskProgress(w, id) {
+  const sNo = curStopOf(w, id), t = tTotals(w, id), pre = w.session === 'noSession';
+  if (pre) return '';
+  return `<div class="tprog" data-slot="taskprog" style="grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--hairline);padding-top:6px"><span class="lbl">TASKS</span><span style="font:500 15px var(--f-mono)">STOP ${tStopNo(sNo)} ${tCount(w, id, sNo, { size: 15 })}</span><span class="t3">·</span><span style="font:500 15px var(--f-mono)">TOTAL ${cN(t.done, { size: 15 })}/${cN(t.total, { size: 15 })}</span>${chip('simulated', 'g', 'FR-50')}<span class="sp"></span><span class="cutw"><button class="btn sm" data-act="addOpen" data-crew="${id}" title="Add a task for ${id} (ADD_STOP_TASK, ops only)">+ TASK</button></span></div>`;
+}
+function addTaskPopover(w) {
+  const a = w.ui && w.ui.add; if (!a || !a.open) return '';
+  const L = tList(w, a.crew, a.stop), full = L.length >= 4, bad = !(a.text || '').trim() || full;
+  const seg = (key, items) => `<div class="row" style="gap:4px;flex-wrap:wrap">${items.map(([k, l]) => btn(l, { size: 'seg', act: 'addSet', data: { key, arg: k }, cls: a[key] === k ? 'on' : '', pressed: a[key] === k })).join('')}</div>`;
+  return `<div class="cut cut-m" role="dialog" aria-label="Add a task" style="position:absolute;z-index:9;left:316px;top:200px;width:390px;padding:12px 14px;--fill:var(--panel)" data-ann="id:FR-50|note:ADD_STOP_TASK (ops only): crew, stop, kind, text (≤ 60 characters). Shows on that tablet tagged ADDED BY OPS. Disabled when the stop already has the maximum number of tasks"><div class="row"><b class="h-sm">Add task</b><span class="sp"></span>${btn(ico('x'), { size: 'sm', act: 'addClose', title: 'Close' })}</div>
+    <div class="col" style="gap:8px;margin-top:8px"><div class="field"><span class="lbl">CREW</span>${seg('crew', [['EV1', 'EV1'], ['EV2', 'EV2']])}</div><div class="field"><span class="lbl">STOP</span>${seg('stop', [['s1', '1 · ENG'], ['s2', '2 · RES'], ['s3', '3 · SCI']])}</div><div class="field"><span class="lbl">KIND</span>${seg('kind', FX.tasks.kinds.map(k => [k, k.toUpperCase()]))}</div>
+      <div class="field"><span class="lbl">TASK TEXT (IMPERATIVE, ≤ 60 CHARACTERS)</span><div class="inp"><input data-tinp="1" value="${esc(a.text || '')}" maxlength="60" aria-label="Task text" placeholder="Image the ledge base"></div></div>
+      ${full ? `<span class="errtxt">${sicon('caution')}<span>This stop already has the maximum number of tasks for ${a.crew}</span></span>` : ''}
+      <div class="row" style="gap:8px">${btn('Add task', { act: 'addSubmit', kind: 'primary', size: 'tall', disabled: bad })}${btn('Cancel', { act: 'addClose', size: 'tall' })}</div></div></div>`;
+}
 function crewCardOps(w, id) {
   const ev = w.evs[id], v = evv(w, id), unl = !ev.linked, st = unl ? ev.stale : false, sel = w.focus === id;
   const val = (k, o) => v ? N(k, Object.assign({ size: 22, chip: 'g', stale: st }, o)) : '<span class="num t3" data-provenance="derived" title="needs EVA start">—</span>';
@@ -25,7 +41,7 @@ function crewCardOps(w, id) {
     <div class="pb"><div><span class="lbl">HAVEN</span><div class="mini-v">${sheltered ? status('nominal', { slot: 'crew', word: 'SHELTERED' }) : val(v && v.haven, { unitText: 'min' })}</div></div>
       <div><span class="lbl">O₂</span><div class="mini-v">${val(v && v.o2, { unitText: '%' })}</div></div>
       <div><span class="lbl">DOSE (EVENT)</span><div class="mini-v">${val(v && v.dose)}</div></div>
-      <div><span class="lbl">LINK</span><div class="mini-v row" style="gap:6px">${unl ? status('caution', { slot: 'crew-link', word: 'NO LINK' }) : `${linkBars(true)}`}</div></div></div></section>`;
+      <div><span class="lbl">LINK</span><div class="mini-v row" style="gap:6px">${unl ? status('caution', { slot: 'crew-link', word: 'NO LINK' }) : `${linkBars(true)}`}</div></div>${taskProgress(w, id)}</div></section>`;
 }
 function vehCard(w, id) {
   const pr = id === 'PR1', stw = pr ? { parked: 'PARKED', enRoute: 'EN ROUTE', arrived: 'ARRIVED', returning: 'RETURNING', dispatched: 'DISPATCHED' }[w.veh.PR1] : 'PARKED';
@@ -73,8 +89,8 @@ function optionsPanel(w, ctx) {
    <div class="pb">${o.noRdv ? `<div class="errtxt" style="margin-bottom:6px">${sicon('caution')}<span>${esc(FX.reject.NO_RENDEZVOUS)}</span></div>` : ''}${cards}${act}</div></section>`;
 }
 function eventLog(w) {
-  const rows = FX.log.slice(0, w.log);
-  return `<section class="panel cut cut-m log" aria-label="Event log"><i class="stripe"></i><header class="ph-h"><span class="code">[ HAB CORE /// EVENT LOG ]</span><span class="sp"></span><span class="scroll-ct">${rows.length} / ${FX.log.length}</span></header>
+  const rows = FX.log.slice(0, w.log).concat(w.xlog || []);
+  return `<section class="panel cut cut-m log" aria-label="Event log"><i class="stripe"></i><header class="ph-h"><span class="code">[ HAB CORE /// EVENT LOG ]</span><span class="sp"></span><span class="scroll-ct">${rows.length} / ${FX.log.length + (w.xlog || []).length}</span></header>
    <div class="pb" style="padding:0;overflow:auto;max-height:84px">${rows.map(r => `<button class="logrow" data-act="jump" data-arg="${r.kind === 'ARRIVED_STOP' ? 'EV1' : 'alert'}"><span class="t">${N(r.t, { chip: false, unit: false })}</span><span class="t">${esc(r.actor)}</span><span>${esc(r.text)}</span>${chip(r.prov, 'g', r.src)}</button>`).join('') || '<span class="t3" style="padding:8px 12px;display:block">No events yet</span>'}</div></section>`;
 }
 function qrBlock(role, label) {
@@ -100,11 +116,13 @@ function renderOps(w, ctx) {
     const mapSize = [Math.max(400, W - (W < 1280 ? 0 : W < 1440 ? 272 + 296 : 300 + 320) - 40), Math.max(300, H - 48 - 32 - 24 - 64 - 128 - 24)];
     const frame = alerting;
     const crew = ['EV1', 'EV2'].map(id => { const p = mkXY(w, id), ev = w.evs[id]; return { id, x: p.x, y: p.y, hdg: p.hdg, stale: !ev.linked ? ev.stale : null }; });
-    const pr = mkXY(w, 'PR1'); const L = { comm: w.ui.comm !== false, haven: w.ui.haven !== false, pois: true };
-    const vb = frame ? [210, 520, 520, 520 * mapSize[1] / mapSize[0]] : [120, 450, 640, 640 * mapSize[1] / mapSize[0]];
+    const pr = mkXY(w, 'PR1'); const L = { comm: w.ui.comm !== false, haven: w.ui.haven !== false, pois: true, slope: !!w.ui.slope, ti: !!w.ui.ti };
+    const vb0 = frame ? [210, 520, 520, 520 * mapSize[1] / mapSize[0]] : [120, 450, 640, 640 * mapSize[1] / mapSize[0]];
+    const mv = (w.ui.mv = w.ui.mv || { pan: [0, 0], zoom: 1 }), vw = vb0[2] / mv.zoom, vh = vb0[3] / mv.zoom, vb = [vb0[0] + vb0[2] / 2 - vw / 2 + mv.pan[0], vb0[1] + vb0[3] / 2 - vh / 2 + mv.pan[1], vw, vh];
     const svg = mapSVG({ w: mapSize[0], h: mapSize[1], vb, L, route: 'ok', loop: s !== 'loaded', stops: STOPS.map(x => ({ n: x.n, x: x.p[0], y: x.p[1], code: x.code })), poiLabels: true, crew: s === 'loaded' ? [] : crew, veh: [{ id: 'PR1', x: pr.x, y: pr.y, state: w.veh.PR1 }], rdv: w.rdv, pr1Path: w.veh.PR1 !== 'parked' });
-    centre = `<div class="mapbox cut cut-m" style="flex:1;min-height:0;--fill:var(--map-out)" data-ann="id:FR-42|token:route · text-1|note:Hab · route · EV chevrons · PR1 · comm shadow hatch · haven isochrones. SCHEMATIC">${svg}
-      <div style="position:absolute;left:8px;top:8px;z-index:3;display:flex;gap:6px;flex-direction:column" class="legend">${tog('Comm shadow', L.comm, 'layerOps', { arg: 'comm' })}${tog('Haven bands', L.haven, 'layerOps', { arg: 'haven' })}</div>
+    centre = `<div class="mapbox cut cut-m" data-panhost="ops" style="flex:1;min-height:0;--fill:var(--map-out)" data-ann="id:FR-42|token:route · text-1|note:Hab · route · EV chevrons · PR1 · comm shadow hatch · haven isochrones. SCHEMATIC">${svg}
+      <div style="position:absolute;left:8px;top:8px;z-index:3;display:flex;gap:6px;flex-direction:column" class="legend">${tog('Comm shadow', L.comm, 'layerOps', { arg: 'comm' })}${tog('Haven bands', L.haven, 'layerOps', { arg: 'haven' })}${tog('Slope', L.slope, 'layerOn', { arg: 'slope' })}${tog('Thermal inertia', L.ti, 'layerOn', { arg: 'ti' })}
+        <div class="row" style="gap:6px" role="group" aria-label="Map zoom">${btn('+', { size: 'sm', act: 'mapZoom', data: { k: 'ops', arg: 'in' }, title: 'Zoom in' })}${btn('−', { size: 'sm', act: 'mapZoom', data: { k: 'ops', arg: 'out' }, title: 'Zoom out' })}${btn('FIT', { size: 'sm', act: 'mapFit', data: { k: 'ops' } })}</div></div>
       <div class="legend" style="position:absolute;left:8px;bottom:36px;z-index:3;background:var(--bg);border:1px solid var(--edge);padding:4px 8px;font:500 11px var(--f-mono)"><span><span class="sw hatch-c" style="color:var(--text-2)"></span>NO SIGNAL — line of sight only</span><span><span class="sw" style="background:repeating-linear-gradient(45deg,var(--caution) 0 2px,transparent 2px 6px)"></span>Beyond haven rule (${N('haven_rule', { chip: false, size: 11 })})</span></div>
       <div class="scalebar"><i style="width:${Math.round(40 * mapSize[0] / vb[2])}px"></i>${N('scale_bar', { chip: 'g', size: 11 })}</div><span class="north">N ↑</span><span class="maptag">SCHEMATIC — not real terrain</span>${s === 'loaded' ? `<div class="toast cut cut-s" style="top:auto;bottom:60px;left:auto;right:8px;transform:none">${sicon('advisory')}<span>Loaded — press START EVA</span></div>` : ''}</div>`;
     left = `<div class="col" style="gap:8px"><span class="mod" style="padding:0 2px">[ HAB CORE /// CREW ]</span>${crewCardOps(w, 'EV1')}${crewCardOps(w, 'EV2')}<span class="mod" style="padding:0 2px">VEHICLES</span>${vehCard(w, 'PR1')}${vehCard(w, 'UR1')}</div>`;
@@ -118,8 +136,9 @@ function renderOps(w, ctx) {
   const body = W < 1280 ? `<div class="main"><div class="colM">${centre}</div></div>` : `<div class="main"><div class="colL">${left}</div><div class="colM">${centre}</div><div class="colR">${right}</div></div>`;
   const drawerNote = W < 1280 ? `<div class="row" style="padding:4px 12px;gap:6px;background:var(--panel);border-bottom:1px solid var(--hairline)">${btn('Crew', { size: 'seg', act: 'drawer', data: { arg: 'L' }, cls: w.ui.dr === 'L' ? 'on' : '' })}${btn('Conditions', { size: 'seg', act: 'drawer', data: { arg: 'R' }, cls: w.ui.dr === 'R' ? 'on' : '' })}<span class="t3" style="font:500 11px var(--f-mono)">1024–1279: ONE DRAWER AT A TIME (04 §F)</span></div>` : '';
   let drawer = ''; if (W < 1280 && w.ui.dr) drawer = `<div style="position:absolute;z-index:7;top:${48 + 32 + 24 + 64 + 28}px;bottom:136px;${w.ui.dr === 'L' ? 'left' : 'right'}:8px;width:330px;overflow:auto;background:var(--bg);border:1px solid var(--edge);padding:8px">${w.ui.dr === 'L' ? left : right}</div>`;
-  return `<div class="ops ${cls} ${!w.evs.EV1.linked ? 'unl' : ''}" data-ann="id:SCR-11|token:void · panel · hairline|note:OPS, ≥1280 projector. Keys: Space · 1/2/3 · N · K · O">${top}${phaseTimeline(w)}${metaStrip(w)}${alertSlot(w, { dev: 'ops' })}${drawerNote}${body}${eventLog(w)}${drawer}</div>`;
+  return `<div class="ops ${cls} ${!w.evs.EV1.linked ? 'unl' : ''}" data-ann="id:SCR-11|token:void · panel · hairline|note:OPS, ≥1280 projector. Keys: Space · 1/2/3 · N · K · O">${top}${phaseTimeline(w)}${metaStrip(w)}${alertSlot(w, { dev: 'ops' })}${drawerNote}${body}${eventLog(w)}${drawer}${addTaskPopover(w)}</div>`;
 }
+ACT.layerOn = (el, c) => { if (c.w) { c.w.ui[el.dataset.arg] = !c.w.ui[el.dataset.arg]; touch(c.w); } };
 ACT.layerOps = (el, c) => { if (c.w) { c.w.ui[el.dataset.arg] = c.w.ui[el.dataset.arg] === false; touch(c.w); } };
 ACT.drawer = (el, c) => { if (c.w) { c.w.ui.dr = c.w.ui.dr === el.dataset.arg ? null : el.dataset.arg; touch(c.w); } };
 ACT.goto = (el) => { location.hash = '#' + el.dataset.arg; };

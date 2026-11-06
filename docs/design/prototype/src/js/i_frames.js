@@ -55,7 +55,7 @@ function mountFrame(host, spec) {
     const flag = (['SCR-12', 'SCR-13', 'SCR-14', 'SCR-11', 'SCR-02', 'SCR-03', 'SCR-04', 'SCR-05', 'SCR-06', 'SCR-07', 'SCR-15', 'SCR-16', 'SCR-18', 'SCR-00'].includes(S.id)) ? '' : `<div class="protoflag">PROTOTYPE — illustrative values</div>`;
     const t2 = '';
     fr.el.innerHTML = html + (mode === 'print' ? '' : alertListPanel(w)) + flag + t2 + (fr.quad ? '<div style="position:absolute;inset:0;z-index:40;pointer-events:none"><i style="position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed #FF3DF5"></i><i style="position:absolute;top:50%;left:0;right:0;border-top:1px dashed #FF3DF5"></i></div>' : '');
-    typo(fr.el); layoutHolds(fr.el); if (w.focus === 'alert') { const o = $('#opts', fr.el); if (o && !fr._focused) { fr._focused = true; } } else fr._focused = false;
+    typo(fr.el); layoutHolds(fr.el); $$('.tasks', fr.el).forEach(t => { const l = $('.tlist', t); if (l) t.dataset.more = (l.scrollHeight > l.clientHeight + 1) ? '1' : '0'; }); if (w.focus === 'alert') { const o = $('#opts', fr.el); if (o && !fr._focused) { fr._focused = true; } } else fr._focused = false;
     if (UI.ann) annotate(fr); if (S.after) S.after(fr, w);
     fr.pending = false;
   };

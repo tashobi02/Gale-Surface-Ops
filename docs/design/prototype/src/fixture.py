@@ -149,8 +149,60 @@ nums = {
   "coord_ph": ph("°", "derived", "TASK-02", "-#.#####"), "coord_ph2": ph("°E", "derived", "TASK-02", "###.#####"),
   "stale1": n("0:42", "m:ss", "simulated", "04 §C.1 (STALE 0:42)"), "ack_t": ph("mm:ss", "simulated", "TASK-22", "##:##"),
   "sev_dist_ph": ph("m", "derived", "TASK-05b", "###"), "rev_ph": ph("rev", "derived", "TASK-22", "##"),
+  "ltst_task": ph("LTST", "simulated", "TASK-31", "##:##"), "seq_task": ph("seq", "simulated", "TASK-31", "###"),
   "relay_el": n(10, "°", "assumed", "02 §D.12"), "conj_deg": n(3, "°", "assumed", "02 §D.12"),
 }
+
+
+# ================= FR-50 stop tasks (Proposed, 2026-11-05) =================
+# Task text is team-authored PROPOSED copy: imperative, <= 60 chars, no numbers. Task state is "simulated"; text is "assumed" and carries the POI source id.
+# COUNTS ARE NEVER COMPUTED IN THE PROTOTYPE: every count shown on screen is a number object looked up from `n`, via tables generated HERE at build time.
+TK_STATES = ["TODO", "DONE", "SKIPPED", "DROPPED"]
+TK_SRC = {"s1": "themis-ti-100m", "s2": "msl-sulfate-unit", "s3": "msl-places"}
+TK_TEXT = {
+  "s1": {"EV1": [("t-s1-01", "observe", "Observe the loose-fines patch"), ("t-s1-02", "image", "Image the slope face")],
+         "EV2": [("t-s1-11", "measure", "Measure the rock field edge"), ("t-s1-12", "observe", "Observe the surface texture")]},
+  "s2": {"EV1": [("t-s2-01", "observe", "Observe the sulfate ledge face"), ("t-s2-02", "sample", "Sample the sulfate-bearing unit"), ("t-s2-03", "image", "Image the sampled spot")],
+         "EV2": [("t-s2-11", "image", "Image the ledge in context"), ("t-s2-12", "deploy", "Deploy the marker flag")]},
+  "s3": {"EV1": [("t-s3-01", "observe", "Observe the cemented ridge"), ("t-s3-02", "image", "Image the sandy hollow"), ("t-s3-03", "sample", "Sample a ridge fragment")],
+         "EV2": [("t-s3-11", "measure", "Measure the ridge crest"), ("t-s3-12", "other", "Note loose rock near the ridge")]},
+}
+TK_STOP = {"s1": "wp-1", "s2": "wp-2", "s3": "wp-3"}
+def _task(sid, crew, t):
+    tid, kind, text = t
+    return {"task_id": tid, "stop_id": TK_STOP[sid], "stop": sid, "crew_id": crew, "kind": kind, "text": text, "state": "TODO", "reason": None, "origin": "plan",
+            "updated_sim_time": None, "updated_by": None, "provenance": {"state": "simulated", "text": "assumed", "source_id": TK_SRC[sid]}, "text_src": "PROPOSED copy (FR-50)"}
+TK_LIST = [_task(sid, crew, t) for sid in TK_TEXT for crew in ("EV1", "EV2") for t in TK_TEXT[sid][crew]]
+TK_OPS_ADDED = [{"task_id": "t-s2-21", "stop_id": "wp-2", "stop": "s2", "crew_id": "EV1", "kind": "image", "text": "Image the ledge base", "state": "TODO", "reason": None, "origin": "ops",
+                 "updated_sim_time": None, "updated_by": "ops", "provenance": {"state": "simulated", "text": "assumed", "source_id": "msl-sulfate-unit"}, "text_src": "PROPOSED copy (FR-50)"}]
+def _sc(ev1=None, ev2=None): return {"EV1": ev1 or {}, "EV2": ev2 or {}}
+_K0_1 = {"t-s1-01": {"state": "DONE"}, "t-s1-02": {"state": "SKIPPED", "reason": "time"}}
+_K0_2 = {"t-s1-11": {"state": "DONE"}, "t-s1-12": {"state": "DONE"}}
+TK_SCEN = {
+  "start": _sc(),
+  "k0": _sc(_K0_1, _K0_2),
+  "walking": _sc(_K0_1, _K0_2),
+  "atStop": _sc({**_K0_1, "t-s2-01": {"state": "DONE"}, "t-s2-03": {"state": "SKIPPED", "reason": "terrain"}}, _K0_2),
+  "k0b": _sc({**_K0_1, "t-s2-02": {"state": "DONE"}}, _K0_2),
+  "noLink": _sc({**_K0_1, "t-s2-01": {"state": "DONE"}, "t-s2-02": {"state": "DONE", "unsynced": True}, "t-s2-03": {"state": "SKIPPED", "reason": "terrain"}}, _K0_2),
+  "opsTask": _sc({**_K0_1, "t-s2-01": {"state": "DONE"}, "t-s2-03": {"state": "SKIPPED", "reason": "terrain"}}, _K0_2),
+  # after the rendezvous plan revision: the current stop is cut short and later stops are dropped (G-39)
+  "dropped": _sc({**_K0_1, "t-s2-01": {"state": "DROPPED"}, "t-s2-02": {"state": "DONE"}, "t-s2-03": {"state": "DROPPED"}, "t-s3-01": {"state": "DROPPED"}, "t-s3-02": {"state": "DROPPED"}, "t-s3-03": {"state": "DROPPED"}},
+                 {**_K0_2, "t-s2-11": {"state": "DROPPED"}, "t-s2-12": {"state": "DROPPED"}, "t-s3-11": {"state": "DROPPED"}, "t-s3-12": {"state": "DROPPED"}}),
+}
+TK_SCEN["undo"] = TK_SCEN["k0b"]; TK_SCEN["alerting"] = TK_SCEN["k0b"]; TK_SCEN["final"] = TK_SCEN["dropped"]
+TK_N = {str(i): n(i, "tasks", "simulated", "FR-50 (declared in the fixture, looked up, never computed)") for i in range(0, 13)}
+import itertools
+TK_COUNTS = {}
+for L in (2, 3, 4):
+    for combo in itertools.product(TK_STATES, repeat=L):
+        TK_COUNTS[",".join(combo)] = [str(combo.count("DONE")), str(combo.count("SKIPPED")), str(combo.count("DROPPED")), str(combo.count("TODO")), str(L)]   # build time only
+TK_DONE_TOTAL = {f"{a},{b},{c}": str(a + b + c) for a in range(5) for b in range(5) for c in range(5)}
+TK_TOTAL_ALL = {f"{a},{b},{c}": str(a + b + c) for a in (2, 3, 4) for b in (2, 3, 4) for c in (2, 3, 4)}
+TASKS = {"note": "FR-50 stop tasks (Proposed 2026-11-05). Counts are looked up from `n` through the generated tables `counts`, `done_total`, `total_all`; the prototype never adds or counts.",
+         "kinds": ["observe", "image", "sample", "measure", "deploy", "other"], "reasons": ["time", "terrain", "alert", "other"], "states": TK_STATES,
+         "list": TK_LIST, "ops_added": TK_OPS_ADDED, "scenarios": TK_SCEN, "n": TK_N, "counts": TK_COUNTS, "count_cols": ["done", "skipped", "dropped", "todo", "total"],
+         "done_total": TK_DONE_TOTAL, "total_all": TK_TOTAL_ALL, "undo_ms": n(5000, "ms", "assumed", "FR-50 (5-s undo)"), "stop_names": {"s1": "EZ—ENG 01", "s2": "EZ—RES 02", "s3": "EZ—SCI 01"}}
 
 SRC_STAMP = "PROTOTYPE — illustrative values"
 
@@ -168,6 +220,7 @@ F = {
     "ai_use": "No AI computes or generates values in this app.",
   },
   "nums": nums,
+  "tasks": TASKS,
   "site": {  # 05 §C.1 Site (abridged)
     "schema_version": "1.0.0", "site_id": "gale_boxwork", "name": "Mount Sharp boxwork, Gale crater", "body": "mars",
     "data_version": "gale_boxwork-2026.11.05",
@@ -283,9 +336,11 @@ F = {
   },
   "log": [  # 05 §C.2 LogEvent; seq values from 05 §F.6; times from 04 §E.4 where given
     {"seq": nums["seq"], "t": "ltst_k0", "kind": "ARRIVED_STOP", "actor": "system", "text": "EV1 arrived stop 2", "prov": "simulated", "src": S4},
+    {"seq": nums["seq_task"], "t": "ltst_task", "kind": "TASK_UPDATED", "actor": "eva:EV1", "text": "EV1 marked a stop 2 task done", "prov": "simulated", "src": "FR-50 / 05 StopTask (new log event)"},
     {"seq": n(420, "seq", "simulated", "05 §F.6"), "t": "ltst_alert", "kind": "ALERT_RAISED", "actor": "system", "text": "Radiation alert", "prov": "replayed", "src": S4 + " / 05 §F.6"},
     {"seq": n(421, "seq", "simulated", "05 §F.6"), "t": "ltst_ph", "kind": "OPTIONS_PROPOSED", "actor": "system", "text": "Options proposed (rendezvous, abort)", "prov": "modelled", "src": "05 §F.6"},
     {"seq": n(422, "seq", "simulated", "05 §F.6"), "t": "ltst_ph", "kind": "VEHICLE_DISPATCHED", "actor": "eva:EV1", "text": "PR1 dispatched", "prov": "modelled", "src": "05 §F.6"},
+    {"seq": nums["seq_task"], "t": "ltst_task", "kind": "TASK_DROPPED", "actor": "system", "text": "Open tasks dropped — plan revised", "prov": "simulated", "src": "FR-50 / 05 StopTask (new log event)"},
     {"seq": ph("seq", "simulated", "TASK-22", "###"), "t": "ltst_ph", "kind": "ALERT_RAISED", "actor": "system", "text": "Comm shadow ahead", "prov": "derived", "src": "03 §C.6 step 7"},
     {"seq": ph("seq", "simulated", "TASK-22", "###"), "t": "ltst_ph", "kind": "EARTH_MSG_DELIVERED", "actor": "system", "text": "Earth forecast delivered", "prov": "simulated", "src": "03 §C.6 step 8"},
     {"seq": ph("seq", "simulated", "TASK-22", "###"), "t": "ltst_ph", "kind": "CREW_SHELTERED", "actor": "system", "text": "EV1, EV2 sheltered — PR1", "prov": "simulated", "src": "03 §C.6 step 9"},

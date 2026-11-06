@@ -50,3 +50,4 @@ docs/design/prototype/test/node_modules/
 !.agents/skills/impeccable/
 .gemini/skills/*
 !.gemini/skills/impeccable/
+docs/design/prototype/test/*.png

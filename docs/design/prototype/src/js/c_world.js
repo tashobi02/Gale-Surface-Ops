@@ -25,12 +25,12 @@ const PRE = {
     w.mk = { EV1: { p: 'route', t: RF.s2 }, EV2: { p: 'route', t: RF.s2 - 0.025 }, PR1: { p: 'hab', t: 0 } }; w.disp = JSON.parse(JSON.stringify(w.mk)); w.ui = {}; w.rover = 'none'; return w;
   },
   noSession(w) { PRE.base(w); w.session = 'noSession'; w.vals = 'pre'; w.log = 0; w.phase = -1; w.evs.EV1.act = w.evs.EV2.act = 'waiting'; w.mk.EV1 = w.mk.EV2 = { p: 'hab', t: 0 }; w.disp = JSON.parse(JSON.stringify(w.mk)); },
-  loaded(w) { PRE.base(w); w.session = 'loaded'; w.vals = 'pre'; w.log = 1; w.phase = -1; w.evs.EV1.act = w.evs.EV2.act = 'waiting'; w.mk.EV1 = { p: 'hab', t: 0 }; w.mk.EV2 = { p: 'hab', t: 0 }; w.disp = JSON.parse(JSON.stringify(w.mk)); },
+  loaded(w) { PRE.base(w); w.session = 'loaded'; w.vals = 'pre'; w.log = 0; w.phase = -1; w.evs.EV1.act = w.evs.EV2.act = 'waiting'; w.mk.EV1 = { p: 'hab', t: 0 }; w.mk.EV2 = { p: 'hab', t: 0 }; w.disp = JSON.parse(JSON.stringify(w.mk)); },
   waiting(w) { PRE.loaded(w); },
-  walking(w) { PRE.base(w); w.vals = 'walking'; w.phase = 3; w.evs.EV1.act = w.evs.EV2.act = 'walking'; w.log = 1; w.mk.EV1 = { p: 'route', t: RF.s1 + (RF.s2 - RF.s1) * .55 }; w.mk.EV2 = { p: 'route', t: RF.s1 + (RF.s2 - RF.s1) * .5 }; w.disp = JSON.parse(JSON.stringify(w.mk)); },
+  walking(w) { PRE.base(w); w.vals = 'walking'; w.phase = 3; w.evs.EV1.act = w.evs.EV2.act = 'walking'; w.log = 0; w.mk.EV1 = { p: 'route', t: RF.s1 + (RF.s2 - RF.s1) * .55 }; w.mk.EV2 = { p: 'route', t: RF.s1 + (RF.s2 - RF.s1) * .5 }; w.disp = JSON.parse(JSON.stringify(w.mk)); },
   running(w) { PRE.base(w); }, atStop(w) { PRE.base(w); },
   paused(w) { PRE.base(w); w.paused = true; w.session = 'paused'; },
-  alerting(w) { PRE.base(w); w.vals = 'alert'; raise(w, 'RADIATION_ALERT', { silent: true }); w.opt.state = 'ready'; w.log = 3; w.earth = { state: 'waiting', fc: 'transit' }; w.focus = 'alert'; },
+  alerting(w) { PRE.base(w); w.vals = 'alert'; raise(w, 'RADIATION_ALERT', { silent: true }); w.opt.state = 'ready'; w.log = 4; w.earth = { state: 'waiting', fc: 'transit' }; w.focus = 'alert'; },
   computing(w) { PRE.alerting(w); w.opt.state = 'computing'; },
   ready(w) { PRE.alerting(w); },
   executing(w) { PRE.toHaven(w); w.opt.state = 'executing'; w.sheet = true; },
@@ -38,15 +38,15 @@ const PRE = {
   approval(w) { PRE.alerting(w); w.opt.sel = 3; w.opt.approval = 'pending'; },
   noRdv(w) { PRE.alerting(w); w.opt.noRdv = true; w.opt.sel = 2; },
   toHaven(w) {
-    PRE.alerting(w); w.vals = 'enroute'; w.phase = 5; w.veh.PR1 = 'enRoute'; w.opt.state = 'executing'; w.rdv = true; w.log = 5; w.earth = { state: 'waiting', fc: 'transit' };
+    PRE.alerting(w); w.vals = 'enroute'; w.phase = 5; w.veh.PR1 = 'enRoute'; w.opt.state = 'executing'; w.rdv = true; w.log = 7; w.earth = { state: 'waiting', fc: 'transit' };
     w.evs.EV1.act = w.evs.EV2.act = 'toHaven'; w.sheet = false; w.alerts.forEach(a => a.acked = true); raise(w, 'COMM_SHADOW', { silent: true });
     w.mk = { EV1: { p: 'rdv', t: .3 }, EV2: { p: 'rdv', t: .26 }, PR1: { p: 'pr1', t: .6 } }; w.disp = JSON.parse(JSON.stringify(w.mk));
   },
   sheltered(w) {
-    PRE.toHaven(w); w.vals = 'sheltered'; w.phase = 6; w.veh.PR1 = 'arrived'; w.evs.EV1.act = w.evs.EV2.act = 'sheltered'; w.opt.state = 'none'; w.log = 7; w.earth = { state: 'link', fc: 'delivered' };
+    PRE.toHaven(w); w.vals = 'sheltered'; w.phase = 6; w.veh.PR1 = 'arrived'; w.evs.EV1.act = w.evs.EV2.act = 'sheltered'; w.opt.state = 'none'; w.log = 9; w.earth = { state: 'link', fc: 'delivered' };
     w.alerts.forEach(a => { a.acked = true; }); clearAlert(w, 'COMM_SHADOW'); w.mk = { EV1: { p: 'rdv', t: 1 }, EV2: { p: 'rdv', t: 1 }, PR1: { p: 'pr1', t: 1 } }; w.disp = JSON.parse(JSON.stringify(w.mk));
   },
-  ended(w) { PRE.sheltered(w); w.session = 'ended'; w.phase = 7; w.evs.EV1.act = w.evs.EV2.act = 'ended'; w.log = 8; w.veh.PR1 = 'returning'; w.alerts.forEach(a => { a.acked = true; a.gone = true; }); },   // EVA over: alerts are closed out and stay in the log
+  ended(w) { PRE.sheltered(w); w.session = 'ended'; w.phase = 7; w.evs.EV1.act = w.evs.EV2.act = 'ended'; w.log = 10; w.veh.PR1 = 'returning'; w.alerts.forEach(a => { a.acked = true; a.gone = true; }); },   // EVA over: alerts are closed out and stay in the log
   noLink(w) { PRE.base(w); w.evs.EV1.linked = false; w.evs.EV1.stale = '0:42'; raise(w, 'LINK_LOST', { silent: true }); w.log = 2; },
   rejected(w) { PRE.alerting(w); w.toast = FX.reject.FORBIDDEN_ROLE + ' (FORBIDDEN_ROLE)'; },
   mismatch(w) { PRE.noSession(w); w.ui.err = true; },
@@ -61,13 +61,13 @@ HOLDACT.summon = (w, arg) => {
   if (!w) return; const ev = w.evs.EV1;
   if (!ev.linked) { ev.queue.push({ kind: 'SUMMON_VEHICLE', option: arg }); w.toast = FX.reject.NO_LINK; touch(w); return; }   // NO_LINK: queued on device, resent on LINK_STATE linked=true
   if (w.onCmd && w.onCmd('summon', arg)) return;
-  w.opt.sel = +arg || 1; w.opt.state = 'executing'; w.veh.PR1 = 'enRoute'; w.evs.EV1.act = w.evs.EV2.act = 'toHaven'; w.vals = 'enroute'; w.phase = 5; w.rdv = true; w.log = 5;
+  w.opt.sel = +arg || 1; w.opt.state = 'executing'; w.veh.PR1 = 'enRoute'; w.evs.EV1.act = w.evs.EV2.act = 'toHaven'; w.vals = 'enroute'; w.phase = 5; w.rdv = true; w.log = 7;
   w.mk = { EV1: { p: 'rdv', t: .3 }, EV2: { p: 'rdv', t: .26 }, PR1: { p: 'pr1', t: .6 } }; touch(w); startTween(w);
 };
 HOLDACT.abort = (w) => {
   if (!w) return; if (!w.evs.EV1.linked) { w.evs.EV1.queue.push({ kind: 'ABORT' }); w.toast = FX.reject.NO_LINK; touch(w); return; }
   if (w.onCmd && w.onCmd('abort')) return;
-  w.opt.sel = 2; w.opt.state = 'executing'; w.evs.EV1.act = w.evs.EV2.act = 'toHaven'; w.vals = 'enroute'; w.phase = 5; w.log = 5; touch(w);
+  w.opt.sel = 2; w.opt.state = 'executing'; w.evs.EV1.act = w.evs.EV2.act = 'toHaven'; w.vals = 'enroute'; w.phase = 5; w.log = 6; touch(w);
 };
 HOLDACT.approve = (w, arg) => { if (!w) return; w.opt.approval = 'none'; w.opt.state = 'executing'; w.opt.sel = +arg || 3; touch(w); };
 ACT.setOpt = (el, c) => { if (!c.w) return; const n = +el.dataset.arg; if (c.w.opt.state === 'executing') return; c.w.opt.sel = n; c.w.opt.approval = n === 3 ? 'pending' : 'none'; touch(c.w); };
