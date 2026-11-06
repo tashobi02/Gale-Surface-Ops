@@ -51,6 +51,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-06 | Claude Code (Opus 5.5, local session) | T20.07: wrote the LAN spike (spike session emitting one event per second through the real server, a framework-free page showing seq and arrival time, README with phone-join and measuring steps) | No numbers beyond the 1 event/s rate the subtask asks for; did not run the phone test (T20.08, human) | Sadman Shaharier Mahim (runs T20.08) | This Claude Code session |
 | 2026-11-06 | Claude Code (Opus 5.5, local session) | T20.02: wrote seven mock WebSocket fixture files for the killer-demo beats, a typed loader and a structural test in `apps/web/tests/fixtures/ws/` | Invented no numbers: values are 02 §E.6, 04 §D.2, 05 examples or the 01 §E.1 illustrative ETAs (cited in the README), otherwise placeholders | Sadman Shaharier Mahim (PR review); Ridita Alam consumes | This Claude Code session |
 | 2026-11-06 | Codex (Sol 6.1) and Claude Code (Opus 5.5) | T03.02: wrote the F4 mock-site generator and bundle | Values copied from 05 §F or declared synthetic per the map's fixture value rule; manifest validated with ajv; Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
+| 2026-11-06 | Codex (Luna 6), Gemini 3.8 Flash via agy, Claude Code (Opus 5.5) | T03.15: wrote the pipeline entry point | No numbers; `--help`, unknown-site and stub runs checked; Gemini 3.8 Flash and Opus 5.5 reviewed | Approved by Obidit Islam | This Claude Code session |
 
 ## Prompts location
 
