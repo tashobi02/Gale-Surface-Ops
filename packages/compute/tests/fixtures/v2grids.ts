@@ -26,8 +26,8 @@
  * | Crew east (+1000, 0), vehicle west (-2000, 0) | Proposed. Opposite sides, so one geometry serves both D.8 vehicle cases and only the vehicle speed decides: a vehicle east of the crew would stay near the crew and could win even when slower than walking. Consumers derive the times in the test |
  * | Haven cell size 5 m | 02 §D.2 "8-connected 5 m grid". The 10 m vehicle aggregate (02 §D.8) is then a real step |
  * | Haven extent x -2200..+1200, y -600..+600 m | Proposed: 200 m margin past the vehicle and the crew, 600 m either side (681 x 241 cells at 5 m) |
- * | Detour wall: x = +500, |y| <= 300, 1 cell thick, HARD_HAZARD, elevation 0 | Proposed: halfway between hab and crew; "blocked wall forcing detour" is 02 §D.8. A 1-cell axis-aligned wall cannot be crossed by a diagonal step (the blocked ring check proves it) |
- * | Slow vehicle: flat_speed_kmh 2 | 02 §D.9 utility-rover flat speed (2 km/h), below the suited 3.3 km/h. The rest of the set is the 05 §F.5 pr1-assumed set. Proposed as a stand-in for "vehicle slower than walking" |
+ * | Detour wall: x = +500, |y| <= 300, 1 cell thick, HARD_HAZARD, elevation 0 | Proposed: halfway between hab and crew; "blocked wall forcing detour" is 02 §D.8. A 1-cell axis-aligned wall cannot be crossed by a diagonal step (the self-check floods the grid with 8 moves to prove it) |
+ * | Slow vehicle: flat_speed_kmh 2 | 02 §D.9 utility-rover flat speed (2 km/h), below the suited 3.3 km/h. The rest of the set is the 05 §F.5 pr1-assumed set; `source_ids` is empty because 2 km/h is not from the SEV fact sheet. Proposed as a stand-in for "vehicle slower than walking" |
  * | Scenario | 05 §F.3 example scenario verbatim (loop true is also the 05 default) plus the v2 defaults of 05 §C: max_haven_min 30, crew_count 2, vehicle_available true, vehicle_param_set "pr1-assumed" |
  * | pr1Params | 05 §F.5 verbatim |
  * | Ridge cell size 10 m | Proposed: the vehicle aggregate (02 §D.8, D.10) is the identity, so the case isolates the ridge |
@@ -44,11 +44,21 @@
  * | R = 3,396,190 m | 02 §D.11, imported as MARS_RADIUS_M; the self-check asserts the literal |
  * | Sphere elevation 0 m everywhere | Proposed, confirm with the T05b.08 owner. Heights are above the IAU_2015:49900 sphere, so a perfect sphere sampled in the working projection has height 0; the curvature comes from the d^2 / 2R drop in `lineOfSight`. Putting it into the elevations too would count it twice |
  *
+ * 10 m CELL CENTRES: the declared points (hab, crew, vehicle) are cell centres at 5 m, and at 10 m when a grid is
+ * built natively at 10 m (`havenFlat(10)`). They are NOT 10 m centres of a 2 x 2 aggregate of the default 5 m
+ * haven grid: that grid has odd width 681 and height 241 and origin x -2202.5 m, and with the origin cell
+ * centred on (0, 0) any 2 x 2 block has its centre on a 5 m cell corner, 2.5 m from a declared point. (An even
+ * size does not help: the points cannot be centres at both 5 m and the 2 x 2 aggregate lattice.) T05b.04's
+ * aggregation rule must handle that offset, and its tests need a tolerance of at least 2.5 m there.
+ *
  * SPEC GAP (reported, not fixed here; TODO(decision) for the 02 §D.10 owner): at the default limits
  * (suit 15 deg, 02 §D.9 and §E.3; pressurized rover 20 deg) the D.10 validation "crew on a ridge the vehicle
  * cannot climb" cannot be built: any flank steeper than 20 deg is also above the crew's 15 deg, so the crew
  * could not stand on, or leave, the ridge. The fixture keeps the 25 deg flank and relies on `ridgeScenario()`
- * (crew hard limit 35 deg, the 02 §E.3 maximum). Exact boundary cells of a horizon are unreliable in Float32:
+ * (crew hard limit 35 deg, the 02 §E.3 maximum). TODO(decision) option for the D.10 owner: keep the default crew
+ * limits (15 deg) and give the vehicle a low-limit ParamSet instead (hard limit below the crew's, for example
+ * under 15 deg), so the crew climbs the ridge and the vehicle cannot; the current 35 deg design is kept until
+ * decided. Exact boundary cells of a horizon are unreliable in Float32:
  * LOS tests should assert cells clearly inside and outside it.
  */
 import { FLAG_BITS } from "@marswalk/protocol";
@@ -140,7 +150,7 @@ export interface RidgeShape {
   plateau: { xMin: number; xMax: number };
   /** Centre x of the first flat column west of the west flank. */
   westFootX_m: number;
-  /** The foot cell on row 0 (the northern edge row). */
+  /** The foot cell on the crew/hab row (y = 0), in the first flat column west of the flank. */
   footCell: XY;
 }
 
@@ -323,6 +333,7 @@ export const slowVehicleParams: ParamSet = Object.freeze({
   ...pr1Params,
   param_set_id: "pr-slow-fixture",
   title: "Pressurized rover, slowed to 2 km/h (test fixture)",
+  source_ids: [],
   values: Object.freeze({ ...pr1Params.values, flat_speed_kmh: 2 }),
   provenance: "assumed",
   note: "Test fixture: flat speed 2 km/h = 02 §D.9 utility rover; all other values from pr1-assumed",
@@ -410,7 +421,7 @@ export function rendezvousRidge(cell_m: number = RIDGE_CELL_M): V2Fixture<RidgeS
       flankCells: F,
       plateau: { xMin: -P * cell_m, xMax: P * cell_m },
       westFootX_m: footX,
-      footCell: { x_m: footX, y_m: north * cell_m },
+      footCell: { x_m: footX, y_m: 0 },
     },
   };
 }

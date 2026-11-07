@@ -58,3 +58,10 @@ the projection template, so equality with a finalized pipeline CRS remains
 `TODO(verify)` for T03.13. T03.14's `validate-manifest` is currently a stub.
 The orchestrator validates the manifest against C2 with ajv; this generator has
 no jsonschema dependency. Git status/ignore checks belong to the orchestrator.
+
+## F9 — T05b.02 synthetic v2 grids
+
+The fixture is `packages/compute/tests/fixtures/v2grids.ts`, with a self-check in `packages/compute/tests/v2grids.test.ts`.
+The source of every non-placeholder value, and every choice marked Proposed, is in the table in the header comment of
+`v2grids.ts`; this section only points to it so that the fixture value rule of
+[_coordination.md §e](../../../../docs/tasks/_coordination.md#e-fixtures-and-mocks) finds it from here.

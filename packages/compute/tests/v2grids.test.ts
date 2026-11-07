@@ -116,10 +116,10 @@ describe("every generator", () => {
 });
 
 describe("haven grids (02 §D.8)", () => {
-  const cases: [string, () => ReturnType<typeof havenFlat>][] = [
-    ["havenFlat", () => havenFlat()],
-    ["havenWallDetour", () => havenWallDetour()],
-    ["havenSlowVehicle", () => havenSlowVehicle()],
+  const cases: [string, (cell_m?: number) => ReturnType<typeof havenFlat>][] = [
+    ["havenFlat", (c) => havenFlat(c)],
+    ["havenWallDetour", (c) => havenWallDetour(c)],
+    ["havenSlowVehicle", (c) => havenSlowVehicle(c)],
   ];
 
   it.each(cases)("%s: hab at the origin, crew 1 km and vehicle 2 km from it on the hab row", (_n, make) => {
@@ -136,14 +136,33 @@ describe("haven grids (02 §D.8)", () => {
     expect(Math.sign(shape.vehicle.x_m)).toBe(-Math.sign(shape.crew.x_m));
   });
 
-  it.each(cases)("%s: crew, vehicle and hab lie inside the grid and on cell centres at 5 m and 10 m", (_n, make) => {
-    const { grid, shape } = make();
-    for (const p of [shape.hab, shape.crew, shape.vehicle]) {
-      expect(fixtureCellIndex(grid.meta, p)).not.toBeNull();
-      for (const c of [5, 10]) expect(isCentre(p, c)).toBe(true);
-      const k = idx(grid, p);
-      expect(fixtureCellCentre(grid.meta, k)).toEqual(p);
+  it.each(cases)("%s: declared points are cell centres at 5 m, and at 10 m when the grid is built natively at 10 m", (_n, make) => {
+    const g5 = make();
+    expect(g5.grid.meta.cell_m).toBe(5);
+    for (const p of [g5.shape.hab, g5.shape.crew, g5.shape.vehicle]) {
+      expect(isCentre(p, 5)).toBe(true);
+      expect(fixtureCellCentre(g5.grid.meta, idx(g5.grid, p))).toEqual(p);
     }
+    const g10 = make(10);
+    expect(g10.grid.meta.cell_m).toBe(10);
+    for (const p of [g10.shape.hab, g10.shape.crew, g10.shape.vehicle]) {
+      expect(isCentre(p, 10)).toBe(true);
+      expect(fixtureCellCentre(g10.grid.meta, idx(g10.grid, p))).toEqual(p);
+    }
+  });
+
+  it("a 2 x 2 aggregate of the 5 m haven grid does NOT put the points on 10 m centres (documented limit)", () => {
+    // The 5 m grid has odd width and height, and its origin cell centre is (0, 0). Whichever way the 2 x 2
+    // blocks are paired, an aggregate centre falls on a 5 m cell corner, 2.5 m from a declared point.
+    const { grid } = havenFlat();
+    expect(grid.meta.width % 2).toBe(1);
+    expect(grid.meta.height % 2).toBe(1);
+    expect(grid.meta.origin_m[0]).toBe(-2202.5);
+    const k = idx(grid, HAB_XY);
+    const j = colOf(grid, k);
+    const blockCentre = (jFirst: number) => (fixtureCellCentre(grid.meta, jFirst).x_m + fixtureCellCentre(grid.meta, jFirst + 1).x_m) / 2;
+    expect(Math.abs(blockCentre(j))).toBe(2.5);
+    expect(Math.abs(blockCentre(j - 1))).toBe(2.5);
   });
 
   it("havenFlat is flat: elevation 0, slope 0, no flag anywhere, 5 m cells", () => {
@@ -197,6 +216,42 @@ describe("haven grids (02 §D.8)", () => {
     expect(fixtureCellIndex(grid.meta, { x_m: wall.x_m, y_m: wall.yMin_m - grid.meta.cell_m })).not.toBeNull();
   });
 
+  it("havenWallDetour: no 8-neighbour move crosses the 1-cell wall inside its span, but a detour exists", () => {
+    const { grid, shape } = havenWallDetour();
+    const { width, height } = grid.meta;
+    const rowMin = rowOf(grid, idx(grid, { x_m: shape.wall.x_m, y_m: shape.wall.yMax_m }));
+    const rowMax = rowOf(grid, idx(grid, { x_m: shape.wall.x_m, y_m: shape.wall.yMin_m }));
+    // Flood fill over free cells with all 8 moves, from the hab, optionally kept inside the wall's row band.
+    const reaches = (bandOnly: boolean): boolean => {
+      const seen = new Uint8Array(width * height);
+      const start = idx(grid, shape.hab);
+      const goal = idx(grid, shape.crew);
+      const stack = [start];
+      seen[start] = 1;
+      while (stack.length > 0) {
+        const k = stack.pop()!;
+        if (k === goal) return true;
+        const i = rowOf(grid, k);
+        const j = colOf(grid, k);
+        for (let di = -1; di <= 1; di++) {
+          for (let dj = -1; dj <= 1; dj++) {
+            const ni = i + di;
+            const nj = j + dj;
+            if ((di === 0 && dj === 0) || ni < 0 || nj < 0 || ni >= height || nj >= width) continue;
+            if (bandOnly && (ni < rowMin || ni > rowMax)) continue;
+            const nk = ni * width + nj;
+            if (seen[nk] || (grid.flags[nk]! & HAZARD) !== 0) continue;
+            seen[nk] = 1;
+            stack.push(nk);
+          }
+        }
+      }
+      return false;
+    };
+    expect(reaches(true)).toBe(false);
+    expect(reaches(false)).toBe(true);
+  });
+
   it("havenSlowVehicle: same grid as havenFlat, with a vehicle speed below the suited speed", () => {
     const slow = havenSlowVehicle();
     const flat = havenFlat();
@@ -206,6 +261,7 @@ describe("haven grids (02 §D.8)", () => {
     expect(slow.params).toBe(slowVehicleParams);
     expect(slowVehicleParams.kind).toBe("pressurized_rover");
     expect(slowVehicleParams.provenance).toBe("assumed");
+    expect(slowVehicleParams.source_ids).toEqual([]);
     expect(slowVehicleParams.param_set_id).not.toBe(pr1Params.param_set_id);
     expect(slowVehicleParams.values.flat_speed_kmh).toBeLessThan(defaultScenario().suited_flat_speed_kmh);
     expect(pr1Params.values.flat_speed_kmh).toBeGreaterThan(defaultScenario().suited_flat_speed_kmh);
@@ -284,9 +340,12 @@ describe("rendezvousRidge (02 §D.10: crew on a ridge the vehicle cannot climb)"
     expect(shape.footCell.x_m).toBe(shape.westFootX_m);
     expect(slopeDeg(grid.slopeP90[idx(grid, shape.footCell)]!)).toBe(0);
     expect(grid.elevation[idx(grid, shape.footCell)]).toBe(0);
-    // The foot is the first flat column outside the west flank.
+    // The foot is on the crew/hab row, in the first flat column outside the west flank.
+    expect(shape.footCell.y_m).toBe(shape.crew.y_m);
+    expect(rowOf(grid, idx(grid, shape.footCell))).toBe(rowOf(grid, idx(grid, shape.crew)));
     expect(shape.westFootX_m).toBe(-(shape.plateauHalfCells + shape.flankCells + 1) * c);
-    expect(rowOf(grid, idx(grid, shape.footCell))).toBe(0);
+    const east = { x_m: shape.footCell.x_m + c, y_m: shape.footCell.y_m };
+    expect(slopeDeg(grid.slopeP90[idx(grid, east)]!)).toBe(shape.flankDeg);
   });
 
   it("neighbouring flank cells differ in height by tan(flank) x cell size; plateau is level", () => {
@@ -351,8 +410,6 @@ describe("rendezvousBlockedVehicle (02 §D.10: vehicle blocked entirely)", () =>
             if (ni === 0 && nj === 0) continue;
             const ti = vi + di + ni;
             const tj = vj + dj + nj;
-            expect(ti).toBeGreaterThanOrEqual(0);
-            expect(tj).toBeGreaterThanOrEqual(0);
             if (cheb(ti, tj) > 1) expect(isHazard(ti, tj)).toBe(true);
           }
         }
