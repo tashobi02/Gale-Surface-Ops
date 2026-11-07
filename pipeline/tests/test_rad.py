@@ -330,6 +330,16 @@ def test_write_dose_series_returns_sha256_of_the_exact_bytes_and_is_deterministi
     assert json.loads(a.read_text(encoding="utf-8")) == series  # null gap survives the round trip
 
 
+def test_written_fractional_rates_integrate_to_the_stored_computed_total_exactly(tmp_path: Path):
+    mod = _mod()
+    # SYNTHETIC fractional uGy/day rates exercise conversion and JSON float precision.
+    series = _build([(_t(0), 1 / 3), (_t(1440), 0.001), (_t(2880), 0.0)], input_unit=PER_DAY)
+    path = tmp_path / "fractional.json"
+    mod.write_dose_series(series, path)
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert mod.step_hold_integral_ugy(saved["samples"]) == saved["integral_check"]["computed_ugy"]
+
+
 # ---------------------------------------------------------------------------------------------
 # Committed table (scenarios/storm-sol4190/dose_series.json), once T21.07 (or T21.13) has written it
 # ---------------------------------------------------------------------------------------------
