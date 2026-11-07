@@ -176,7 +176,8 @@ describe("real compute: dispatch on the ridge (02 §D.10)", () => {
     const { out } = summonRidge();
     const rv = (out.events[0]!.data as LogEventData["VEHICLE_DISPATCHED"]).rendezvous!;
     expect({ x_m: rv.x_m, y_m: rv.y_m }).toEqual({ x_m: ridgeOracle.x_m, y_m: ridgeOracle.y_m });
-    expect({ x_m: rv.x_m, y_m: rv.y_m }).toEqual(ridge.shape.footCell);
+    // The foot column; the row is the compute tie-break (open foot-row tie question in TASK-05b, T05b.07).
+    expect(rv.x_m).toBe(ridge.shape.westFootX_m);
     expect(Number.isInteger(rv.eta_crew_s) && Number.isInteger(rv.eta_vehicle_s), JSON.stringify(rv)).toBe(true);
     expect(Math.abs(rv.eta_crew_s - ridgeOracle.eta_crew_s)).toBeLessThanOrEqual(0.5);
     expect(Math.abs(rv.eta_vehicle_s - ridgeOracle.eta_vehicle_s)).toBeLessThanOrEqual(0.5);
