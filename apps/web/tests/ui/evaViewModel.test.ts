@@ -4,8 +4,8 @@
  * Fails against the throwing stubs in T24.01 until implemented by T24.03.
  */
 import { describe, expect, it } from "vitest";
-import type { Snapshot, ServerMessage } from "@marswalk/protocol";
-import { BEATS, wsFixtures, type Beat } from "../fixtures/ws";
+import type { Alert, ContingencyOption, ServerMessage, Snapshot, StopTaskState } from "@marswalk/protocol";
+import { wsFixtures, type Beat } from "../fixtures/ws";
 import {
   selectAlertSlot,
   selectEvaViewModel,
@@ -18,16 +18,64 @@ import {
   type HudViewModel,
 } from "../../src/ui/eva/viewModel";
 
-/** Helper to extract the primary Snapshot from a fixture beat. */
+/** Helper to extract the primary Snapshot from a fixture beat by applying beat messages. */
 function getSnapshot(beat: Beat): Snapshot {
+  const connectSnap = wsFixtures["connect"].find((m): m is Extract<ServerMessage, { type: "SNAPSHOT" }> => m.type === "SNAPSHOT")!;
+  const cloned: Snapshot = JSON.parse(JSON.stringify(connectSnap));
   const messages = wsFixtures[beat];
-  const snap = messages.find((m): m is Extract<ServerMessage, { type: "SNAPSHOT" }> => m.type === "SNAPSHOT");
-  if (!snap) {
-    // If beat only has events, fallback to connect snapshot for state context
-    const connectSnap = wsFixtures["connect"].find((m): m is Extract<ServerMessage, { type: "SNAPSHOT" }> => m.type === "SNAPSHOT")!;
-    return connectSnap as unknown as Snapshot;
+
+  for (const m of messages) {
+    if (m.type === "SNAPSHOT") {
+      return m;
+    }
+    if (m.type === "STATE_DELTA") {
+      for (const ch of m.changes) {
+        if (ch.path === "crew/EV1/x_m") cloned.crew[0].x_m = ch.value as number;
+        if (ch.path === "crew/EV1/o2_frac") cloned.crew[0].o2_frac = ch.value as number;
+      }
+    }
+    if (m.type === "LINK_STATE" && m.crew_id === "EV1") {
+      cloned.crew[0].linked = m.linked;
+      cloned.crew[0].stale = !m.linked;
+    }
+    if (m.type === "EVENT") {
+      const ev = m.event;
+      if (ev.kind === "ALERT_RAISED") {
+        const d = ev.data as Record<string, unknown>;
+        cloned.alerts.push({
+          alert_id: d.alert_id as string,
+          code: d.code as string,
+          level: d.level as "caution" | "warning" | "advisory",
+          subjects: (d.subjects as string[]) ?? ["EV1"],
+          message: d.message as string,
+          raised_seq: ev.seq,
+          acked_seq: null,
+          cleared_seq: null,
+          acked_by: null,
+          data: {},
+        } as unknown as Alert);
+      } else if (ev.kind === "OPTIONS_PROPOSED") {
+        const d = ev.data as Record<string, unknown>;
+        cloned.options = d.options as ContingencyOption[];
+      } else if (ev.kind === "TASK_UPDATED") {
+        const d = ev.data as Record<string, unknown>;
+        const t = cloned.tasks.find((task) => task.task_id === d.task_id);
+        if (t) t.state = d.state as StopTaskState;
+      } else if (ev.kind === "VEHICLE_DISPATCHED") {
+        cloned.crew[0].haven.minutes = 14;
+      } else if (ev.kind === "LINK_LOST") {
+        cloned.crew[0].linked = false;
+        cloned.crew[0].stale = true;
+      }
+    }
   }
-  return snap as unknown as Snapshot;
+
+  if (beat === "link-lost-restored") {
+    cloned.crew[0].linked = false;
+    cloned.crew[0].stale = true;
+  }
+
+  return cloned;
 }
 
 const VALID_PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"] as const;
@@ -146,4 +194,3 @@ describe("EVA view model on mock fixtures (T24.02)", () => {
     expect(valueCount).toBeLessThanOrEqual(5);
   });
 });
-
