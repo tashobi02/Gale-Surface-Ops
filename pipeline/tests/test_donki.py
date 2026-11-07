@@ -48,11 +48,15 @@ because no response was fetched for this task; they follow the public DONKI sche
     WSAEnlilSimulations  modelCompletionTime  simulationID   (impactList: [{location, arrivalTime}])
 
 Every record below is SYNTHETIC: invented ids, times and values, written to exercise the rules. They
-are not DONKI data. Expected values come from these inputs only.
+are not DONKI data. Expected values come from these inputs only. While `marswalk_pipeline.donki` is
+absent (before T21.05 merges), a module-level `pytestmark` marks `ImportError` as an expected failure
+(`xfail(strict=True)`) so CI stays green on PRs without T21.05; once the module exists, the guard is
+inert.
 """
 from __future__ import annotations
 
 import copy
+import importlib.util
 import json
 import random
 import re
@@ -60,6 +64,14 @@ import socket
 from pathlib import Path
 
 import pytest
+
+_MISSING = importlib.util.find_spec("marswalk_pipeline.donki") is None
+pytestmark = pytest.mark.xfail(
+    _MISSING,
+    raises=ImportError,
+    strict=True,
+    reason="tests-first (map §h.3): marswalk_pipeline.donki lands in T21.05",
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENARIO_SCHEMA = REPO_ROOT / "schemas" / "scenario.schema.json"
