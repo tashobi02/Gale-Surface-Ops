@@ -23,6 +23,7 @@ import type { Crew, Vehicle, Alert, Provenance } from "@marswalk/protocol";
 import { AlertStack } from "../ops/AlertStack";
 import { OptionsPanel } from "../ops/OptionsPanel";
 import { ClockControl } from "../ops/ClockControl";
+import { ConditionsPanel } from "../ops/ConditionsPanel";
 
 export interface OpsConsoleProps {
   scenarioName?: string;
@@ -524,50 +525,7 @@ export function OpsConsole({
           <div className="module-label" style={moduleLabelStyle}>
             [ ENVIRONMENT /// CONDITIONS ]
           </div>
-          <div
-            className="conditions-panel"
-            style={{
-              ...cardStyle,
-              fontSize: "13px",
-              fontFamily: "var(--font-mono, monospace)",
-            }}
-          >
-            <div>
-              Dose rate:{" "}
-              <span className="value" data-provenance="replayed">
-                0.21 mGy/h {PROVENANCE_GLYPHS.replayed}
-              </span>
-            </div>
-            <div>
-              Background:{" "}
-              <span className="value" data-provenance="replayed">
-                NOMINAL {PROVENANCE_GLYPHS.replayed}
-              </span>
-            </div>
-            <div>
-              Sun elev:{" "}
-              <span className="value" data-provenance="modelled">
-                42.5° {PROVENANCE_GLYPHS.modelled}
-              </span>
-            </div>
-          </div>
-
-          {/* Module Label: EARTH LINK */}
-          <div className="module-label" style={{ ...moduleLabelStyle, marginTop: "12px" }}>
-            [ ORBITAL /// EARTH LINK ]
-          </div>
-          <div
-            className="earth-link-panel"
-            style={{
-              ...cardStyle,
-              fontSize: "13px",
-              fontFamily: "var(--font-mono, monospace)",
-            }}
-          >
-            <div>Light time: 14:02</div>
-            <div>Next pass: MRO 9m</div>
-            <div>Queue: ↑1 ↓0</div>
-          </div>
+          <ConditionsPanel variant="ops" />
 
           {/* Module Label: OPTIONS (04 §D.3, §E.4) */}
           <div className="module-label" style={{ ...moduleLabelStyle, marginTop: "12px" }}>

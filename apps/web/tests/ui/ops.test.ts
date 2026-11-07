@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { OpsConsole } from "../../src/ui/screens/scr11OpsConsole";
 import { Join } from "../../src/ui/screens/scr10Join";
 import { ClockControl } from "../../src/ui/ops/ClockControl";
+import { ConditionsPanel } from "../../src/ui/ops/ConditionsPanel";
 import { wsFixtures, type Beat } from "../fixtures/ws";
 
 describe("SCR-11 Ops console layout (04 §E.4, FR-31, FR-34)", () => {
@@ -123,6 +124,47 @@ describe("Mission clock controls and Join screen (04 §E.4, FR-30, FR-31)", () =
 
     expect(html).toMatch(/role/i);
     expect(html).toMatch(/<button/);
+  });
+});
+
+describe("Conditions feed (01 FR-36, NFR-05, 04 §E.4, §E.5)", () => {
+  it("ConditionsPanel (ops variant) displays LTST, sun elevation, dose rates, earth link with data-provenance", () => {
+    const html = renderToStaticMarkup(createElement(ConditionsPanel, { variant: "ops" }));
+
+    // Values have data-provenance attributes
+    expect(html).toContain('data-provenance="modelled"');
+    expect(html).toContain('data-provenance="replayed"');
+    expect(html).toContain('data-provenance="derived"');
+    expect(html).toContain('data-provenance="assumed"');
+
+    // Expected fields
+    expect(html).toMatch(/LTST/i);
+    expect(html).toMatch(/Sun Elevation/i);
+    expect(html).toMatch(/Background Dose/i);
+    expect(html).toMatch(/Event Dose Rate/i);
+    expect(html).toMatch(/Light Time/i);
+    expect(html).toMatch(/not included in this build/i);
+
+    // FR-36 rule: nothing says "live"
+    expect(html).not.toMatch(/\blive\b/i);
+  });
+
+  it("ConditionsPanel (eva variant) displays compact strip for EVA tablet metadata with data-provenance", () => {
+    const html = renderToStaticMarkup(createElement(ConditionsPanel, { variant: "eva" }));
+
+    expect(html).toContain('data-testid="conditions-strip-eva"');
+    expect(html).toContain("LTST");
+    expect(html).toContain("SUN");
+    expect(html).toContain("BG");
+    expect(html).toContain("EVENT");
+    expect(html).toContain("EARTH");
+
+    // Every value has data-provenance
+    expect(html).toContain('data-provenance="modelled"');
+    expect(html).toContain('data-provenance="replayed"');
+
+    // Never says "live"
+    expect(html).not.toMatch(/\blive\b/i);
   });
 });
 
