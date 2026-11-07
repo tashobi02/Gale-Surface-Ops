@@ -20,6 +20,7 @@ import {
   type ReactElement,
 } from "react";
 import type { Crew, Vehicle, Alert, Provenance } from "@marswalk/protocol";
+import { AlertStack } from "../ops/AlertStack";
 
 export interface OpsConsoleProps {
   scenarioName?: string;
@@ -335,47 +336,10 @@ export function OpsConsole({
       </nav>
 
       {/* ------------------------------------- Alert Slot / Bar (04 §D.2, §E.4) */}
-      {highestAlert && (
-        <section
-          className="alert-slot alert-bar"
-          data-level={highestAlert.level}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "8px 16px",
-            backgroundColor:
-              highestAlert.level === "warning"
-                ? "var(--warning-fill, #B3261E)"
-                : "var(--caution-fill, #FFB020)",
-            color: highestAlert.level === "warning" ? "#FFFFFF" : "#000000",
-            fontWeight: 700,
-          }}
-          aria-live="assertive"
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span>⬣</span>
-            <span>{highestAlert.message}</span>
-            <span style={{ fontSize: "12px", opacity: 0.85 }}>[+{alerts.length}]</span>
-          </div>
-
-          {hasUnacked && (
-            <button
-              style={{
-                ...buttonStyle,
-                backgroundColor: "#FFFFFF",
-                color: "#000000",
-                fontWeight: 700,
-                border: "none",
-              }}
-              onClick={() => onAcknowledgeAlert?.(highestAlert.raised_seq)}
-              aria-label="Acknowledge active alert"
-            >
-              ACK
-            </button>
-          )}
-        </section>
-      )}
+      <AlertStack
+        alerts={alerts}
+        onAcknowledge={(_id, seq) => onAcknowledgeAlert?.(seq)}
+      />
 
       {/* ---------------------------------------------------- Main Body Grid */}
       <main style={bodyGridStyle}>
