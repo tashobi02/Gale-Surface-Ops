@@ -151,6 +151,13 @@
 - **Agent brief:** Implement the vehicle module until the tests pass.
 - **Conflict notes:** Single owner; `engine/rovers.ts` (T29.03) imports the motion helper and never edits this file.
 
+**Proposed 2026-11-08 — TODO(decision)** (T23.05 implementation notes):
+- `SUMMON_VEHICLE`: Dispatches the pressurized rover (`PR1`). If not in `PARKED` state, returns `BUSY` before compute calls.
+- `VEHICLE_DISPATCHED`: Emits with `{"data.rendezvous": "modelled"}` provenance; `option_id` included only when provided in command args.
+- Motion progression: First tick computes path via `rendezvous` and sets vehicle `state: "EN_ROUTE"`. Subsequent ticks advance vehicle by `speed_ms * dt_s`. On reaching the rendezvous point, emits `VEHICLE_ARRIVED` without directly setting state to `ARRIVED` (conforming to the tick state rule).
+- Sheltering: Evaluated on subsequent ticks when vehicle is `ARRIVED`. Crew within `SHELTER_REACH_M` (1 m) receive `CREW_SHELTERED` with current dose values without directly setting crew state to `SHELTERED`.
+
+
 ### T23.06 — Tests: contingency options, approval and abort
 
 - **Owner:** Sadman Shaharier Mahim (R4 Hab Core)
