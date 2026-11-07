@@ -354,6 +354,16 @@ export interface LogEventData {
     rate_ugy_h?: number | null;
     threshold_ugy_h?: number | null;
     source?: string;
+    /** CONSUMABLES_LOW values (02 §D.14, decided 2026-11-07; 05 Proposed). */
+    o2_remaining_min?: number;
+    /** null when no haven can be reached. */
+    haven_min?: number | null;
+    haven_kind?: Crew["haven"]["kind"];
+    margin?: number;
+    threshold_margin?: number;
+    /** BUDDY_SEPARATION values (05 Proposed). */
+    distance_m?: number;
+    threshold_m?: number;
   };
   ALERT_ACKED: { alert_id: string; acked_by: Role };
   ALERT_CLEARED: { alert_id: string };

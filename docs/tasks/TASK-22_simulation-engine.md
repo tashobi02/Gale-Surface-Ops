@@ -253,7 +253,7 @@
   - Serves: FR-37, FR-38 · [02 §D.13](../specs/02_Technical_Requirements_Document.md#d13-space-weather-event-model-fr-37-fr-38)
   - The alert cases of T22.08 pass; no threshold number appears in the source.
 - **Verify:** `npm --workspace @marswalk/hab-core test -- tick`; `grep -nE "[0-9]{2,}" apps/hab-core/src/engine/alerts.ts` shows no threshold literals.
-- **Agent brief:** Implement the three alert rules from ParamSets. Messages are action-first and ≤ 60 characters (04 §D.2); their wording is `TODO(decision)` unless 04 gives it.
+- **Agent brief:** Implement the three alert rules from ParamSets. Messages are action-first and ≤ 60 characters (04 §D.2); their wording was decided on 2026-11-07 (spec question 1).
 - **Conflict notes:** Single owner.
 
 ### T22.11 — Implement the scenario loader and its checks
@@ -439,6 +439,6 @@ flowchart LR
 
 ## Spec questions
 
-1. **Alert message wording.** 04 §D.2 sets "action first, ≤ 60 characters" but gives few exact strings; T22.10 leaves the wording `TODO(decision)` for the product & systems lead.
-2. **Clear rule for consumables and buddy alerts.** 02 §D.13 gives a clear rule only for the radiation alert. `TODO(decision)` in T22.10.
+1. **Alert message wording.** 04 §D.2 sets "action first, ≤ 60 characters" but gives few exact strings. *Decided 2026-11-07 by the product & systems lead:* the O₂ message says whether to return to the hab or restock at the pressurized rover; buddy: "Buddy too far — close up".
+2. **Clear rule for consumables and buddy alerts.** 02 §D.13 gives a clear rule only for the radiation alert. *Decided 2026-11-07:* each clears once safe again (02 §D.14 "O₂ and buddy alerts"); the O₂ alert compares O₂ time left with the time to the nearest haven.
 3. **Effort.** Fifteen subtasks sum above 06's 10–14 h range; the extra is the split into tests and implementation. Hours are not the limit in 06 §A v2.2.
