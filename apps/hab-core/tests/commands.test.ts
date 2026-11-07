@@ -171,6 +171,32 @@ describe("handleCommand: results and events (02 §E.6, 05 Command)", () => {
     ]);
   });
 
+  it("PUBLISH_PLAN logs PLAN_REVISED with the whole plan and its waypoints and legs (decided 2026-11-07)", () => {
+    const plan = structuredClone(fake.scenario.plan);
+    const out = handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan }), ctx(loaded));
+    expect(out.result.ok).toBe(true);
+    expect(out.events.map((e) => [e.kind, e.data])).toEqual([
+      ["PLAN_REVISED", { plan_revision: loaded.session.plan_revision + 1, option_id: null, stops_dropped: [], waypoints: plan.waypoints, legs: plan.result.legs, plan }],
+    ]);
+    expect(reduce(loaded, logged(out.events[0], 1)).plan).toEqual(plan);
+  });
+
+  it("rejects PUBLISH_PLAN whose plan_hash does not verify, or that fails the plan schema, with INVALID", () => {
+    const tampered = { ...fake.scenario.plan, waypoints: fake.scenario.plan.waypoints.slice(0, 2) };
+    const out = handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan: tampered }), ctx(loaded));
+    expect(rejected(out.result)).toBe("INVALID");
+    expect((out.result as { message: string }).message).toMatch(/plan_hash/);
+    const noDisclaimer = { ...fake.scenario.plan, disclaimer: undefined };
+    expect(rejected(handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan: noDisclaimer }), ctx(loaded)).result)).toBe("INVALID");
+  });
+
+  it("rejects PUBLISH_PLAN without waypoints or legs with INVALID", () => {
+    const noLegs = { ...fake.scenario.plan, result: { ...fake.scenario.plan.result, legs: undefined } };
+    expect(rejected(handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan: noLegs }), ctx(loaded)).result)).toBe("INVALID");
+    const noWaypoints = { ...fake.scenario.plan, waypoints: undefined };
+    expect(rejected(handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan: noWaypoints }), ctx(loaded)).result)).toBe("INVALID");
+  });
+
   it("LOAD_SCENARIO and JUMP_NEXT_EVENT are accepted with a session effect and no events of their own", () => {
     const load = handleCommand(loaded, cmd("ops", "LOAD_SCENARIO", { scenario_id: "fake-straight-line" }), ctx(loaded));
     expect(load.events).toEqual([]);

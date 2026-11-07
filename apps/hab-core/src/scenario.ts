@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import Ajv2020, { type ErrorObject, type ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import type { LoadedGrid } from "@marswalk/compute";
-import type { DoseSeries, EarthLinkTable, ParamSet, Scenario } from "@marswalk/protocol";
+import type { DoseSeries, EarthLinkTable, ParamSet, PlanExport, Scenario } from "@marswalk/protocol";
 import { canonicalJson } from "./log";
 
 export interface LoadedScenario {
@@ -56,7 +56,7 @@ export function readScenario(dir: string, site: SiteRef): LoadedScenario {
   const scenario = readJsonFile<Scenario>(join(dir, "scenario.json"), "read");
 
   check(validators().scenario, scenario, "schema", "scenario.json");
-  check(validators().plan, scenario.plan, "plan_schema", "scenario.json plan");
+  checkPlan(scenario.plan, "scenario.json plan");
 
   if (scenario.site_id !== site.site_id || scenario.plan.site_id !== site.site_id) {
     throw new ScenarioCheckError("site_id", `scenario site_id ${scenario.site_id} (plan ${scenario.plan.site_id}) is not the loaded site ${site.site_id}`);
@@ -65,11 +65,6 @@ export function readScenario(dir: string, site: SiteRef): LoadedScenario {
     throw new ScenarioCheckError("data_version", `scenario data_version ${scenario.data_version} (plan ${scenario.plan.data_version}) is not the loaded site's ${site.data_version}`);
   }
 
-  const { data_version, scenario: mission, waypoints } = scenario.plan;
-  const planHash = sha256(canonicalJson({ data_version, scenario: mission, waypoints })).slice(0, 12);
-  if (planHash !== scenario.plan.plan_hash) {
-    throw new ScenarioCheckError("plan_hash", `plan_hash ${scenario.plan.plan_hash} does not verify (computed ${planHash}, 05 PlanExport)`);
-  }
 
   const dose = readTable<DoseSeries>(dir, "dose_series", scenario.tables.dose_series);
   const earthLink = readTable<EarthLinkTable>(dir, "earth_link", scenario.tables.earth_link);
@@ -180,6 +175,18 @@ function validators(): Validators {
   const compile = (file: string) => ajv.compile(JSON.parse(readFileSync(join(schemasDir, file), "utf8")) as object);
   cached = { scenario: compile("scenario.schema.json"), plan: compile("plan-export.schema.json"), paramSet: compile("param-set.schema.json") };
   return cached;
+}
+
+/**
+ * A PlanExport against schemas/plan-export.schema.json and its own `plan_hash` (first 12 hex of
+ * SHA-256 over the RFC 8785 JSON of {data_version, scenario, waypoints}; 05 PlanExport). Used at
+ * load and for PUBLISH_PLAN. Throws ScenarioCheckError `plan_schema` or `plan_hash`.
+ */
+export function checkPlan(plan: unknown, where = "plan"): asserts plan is PlanExport {
+  check(validators().plan, plan, "plan_schema", where);
+  const { data_version, scenario: mission, waypoints, plan_hash } = plan as PlanExport;
+  const computed = sha256(canonicalJson({ data_version, scenario: mission, waypoints })).slice(0, 12);
+  if (computed !== plan_hash) throw new ScenarioCheckError("plan_hash", `plan_hash ${plan_hash} does not verify (computed ${computed}, 05 PlanExport)`);
 }
 
 function check(validate: ValidateFunction, value: unknown, failCheck: string, where: string): void {
