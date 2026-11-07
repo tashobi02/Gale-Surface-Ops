@@ -74,6 +74,12 @@
 - **Verify:** `make typecheck`; `npm --workspace @marswalk/compute test`.
 - **Agent brief:** Build deterministic synthetic grids for the 02 §D.8, §D.10 and §D.11 validation cases. No real data.
 - **Conflict notes:** Single owner; v1 synthetic grids (F1) stay with T05.02.
+- **Proposed 2026-11-07** (done by Sadman Shaharier Mahim, taken over from Mishkat Ahmed Khan by agreement; every value and its source is in the header of `v2grids.ts`; none is a science value):
+  - Crew 1 km east and vehicle 2 km west of the hab, so one geometry serves both D.8 vehicle cases and only the vehicle speed decides. 5 m haven cells, extent x -2200..+1200 m, y +-600 m.
+  - Detour wall at x = +500 m, |y| <= 300 m, 1 cell thick, `HARD_HAZARD`. Slow vehicle: `pr1-assumed` with `flat_speed_kmh` 2 (the 02 §D.9 utility-rover speed).
+  - Ridge on 10 m cells: 10-cell plateau, 10-cell flanks at 25 deg, same profile in every row; crew on the plateau, vehicle at x = -400 m. Blocked vehicle: closed 1-cell `HARD_HAZARD` ring at Chebyshev distance 2.
+  - LOS wall at x = +500 m, 20 m high, as elevation (not a flag). Sphere strip: 20 m cells, 3 rows, 1.25 x combined horizon, elevation 0 (curvature comes from the d^2/2R drop in `lineOfSight`; confirm with the T05b.08 owner). `commHab` all 255, no TI layer, no no-data cells.
+  - **Spec gap, `TODO(decision)` for the 02 §D.10 owner:** at the default limits (suit 15 deg, rover 20 deg) the D.10 ridge case "crew on a ridge the vehicle cannot climb" cannot be built, since a flank above 20 deg is also above the crew's 15 deg. The fixture uses a 25 deg flank and `ridgeScenario()` (crew hard limit 35 deg, the 02 §E.3 maximum). 02 is unchanged.
 
 ### T05b.03 — Tests: time to haven (02 §D.8 cases)
 
