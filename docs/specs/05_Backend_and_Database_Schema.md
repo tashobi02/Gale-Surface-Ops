@@ -310,7 +310,7 @@ Every number the simulation uses that is not data. Shown in the UI next to whate
 | `pressurized_rover` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, low_ti_cost, min_speed_frac, capacity, ingress_min, antenna_m` (§D.9) |
 | `utility_rover` | as above + `battery_wh, p_base_w, mass_kg, climb_eff` |
 | `link` | `range_hab_suit_m, range_suit_suit_m, range_rover_m, hab_mast_m, relay_min_elev_deg, conjunction_deg, dte_enabled` (§D.11–D.12) |
-| `alert` | `rad_k_background, rad_clear_k, rad_clear_min, buddy_max_m, o2_caution_frac, o2_warning_frac` (§D.13–D.14) |
+| `alert` | `rad_k_background, rad_clear_k, rad_clear_min, buddy_max_m, o2_caution_margin, o2_warning_margin` (§D.13–D.14; the O₂ margins replaced `o2_caution_frac, o2_warning_frac` on 2026-11-07: O₂ time left ÷ time to the nearest haven) |
 | `shielding` | `suit, pressurized_rover, hab` factors (§D.13) |
 
 ## C.2 Runtime entities (Hab Core) *(v2)*
@@ -490,7 +490,7 @@ Source column: where the fields are stated. **Proposed** fields are not stated i
 | `SESSION_LOADED` | `session_id, scenario_id, data_version, seed, plan_hash` | **Proposed** (Session fields) |
 | `EVA_STARTED` | `crew_ids, plan_revision` | **Proposed** |
 | `ARRIVED_STOP`, `LEFT_STOP` | `crew_id, stop_id, stop_index` | **Proposed** (Crew, StopTask) |
-| `ALERT_RAISED` | `alert_id, code, level, subjects, message`, plus the code's values (`RADIATION_ALERT`: `rate_ugy_h, threshold_ugy_h, source`) | §F.6, fixtures `radiation-alert`, `comm-shadow`, 02 §E.6 |
+| `ALERT_RAISED` | `alert_id, code, level, subjects, message`, plus the code's values (`RADIATION_ALERT`: `rate_ugy_h, threshold_ugy_h, source`; `CONSUMABLES_LOW`: `o2_remaining_min, haven_min, haven_kind, margin, threshold_margin`; `BUDDY_SEPARATION`: `distance_m, threshold_m`) | §F.6, fixtures `radiation-alert`, `comm-shadow`, 02 §E.6; `CONSUMABLES_LOW` and `BUDDY_SEPARATION` values **Proposed** (02 §D.14 rule decided 2026-11-07) |
 | `ALERT_ACKED` | `alert_id, acked_by` | **Proposed** (Alert) |
 | `ALERT_CLEARED` | `alert_id` | **Proposed** (Alert) |
 | `OPTIONS_PROPOSED` | `alert_id, options` (ContingencyOption[]) | §F.6, fixture `options-proposed` |

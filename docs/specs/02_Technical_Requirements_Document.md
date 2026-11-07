@@ -493,6 +493,7 @@ Precomputed table rows (1 min): `t_utc, light_time_s, sep_angle_deg, earth_elev_
 | Consumables | O₂ fraction decreases at `rate = P_met / P_ref / 8 h` with P_met 351.7 W walking, 250 W at stops (**Assumed**), P_ref 300 W; dose per D.13 |
 | Vehicles/rovers | Move along their computed paths at parameter-set speed; arrive ⇒ event |
 | Alerts | Evaluated each tick in fixed order: radiation → consumables → haven time → comm link → buddy distance |
+| O₂ and buddy alerts *(decided 2026-11-07)* | `CONSUMABLES_LOW` per crew member on EVA: margin = O₂ time left at the walking rate ÷ time to the nearest haven (D.8). Caution at margin ≤ `o2_caution_margin`, warning (replacing the caution) at ≤ `o2_warning_margin` (alert ParamSet). The message says where to go: return to the hab, or restock at the pressurized rover when that is the nearest haven. Cleared when the margin is above the caution margin again or the crew member is in the hab. `BUDDY_SEPARATION` when two crew on EVA are more than `buddy_max_m` apart; cleared when they are within it again or fewer than two are out |
 | Broadcast | State deltas coalesced to ≤ 10 Hz per client; semantic events sent immediately |
 | Determinism | No wall-clock, no unseeded randomness; floating point kept in compute functions with fixed iteration order |
 

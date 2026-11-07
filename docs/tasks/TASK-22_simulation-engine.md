@@ -439,6 +439,6 @@ flowchart LR
 
 ## Spec questions
 
-1. **Alert message wording.** 04 §D.2 sets "action first, ≤ 60 characters" but gives few exact strings; T22.10 leaves the wording `TODO(decision)` for the product & systems lead.
-2. **Clear rule for consumables and buddy alerts.** 02 §D.13 gives a clear rule only for the radiation alert. `TODO(decision)` in T22.10.
+1. **Alert message wording.** 04 §D.2 sets "action first, ≤ 60 characters" but gives few exact strings. *Decided 2026-11-07 by the product & systems lead:* the O₂ message says whether to return to the hab or restock at the pressurized rover; buddy: "Buddy too far — close up".
+2. **Clear rule for consumables and buddy alerts.** 02 §D.13 gives a clear rule only for the radiation alert. *Decided 2026-11-07:* each clears once safe again (02 §D.14 "O₂ and buddy alerts"); the O₂ alert compares O₂ time left with the time to the nearest haven.
 3. **Effort.** Fifteen subtasks sum above 06's 10–14 h range; the extra is the split into tests and implementation. Hours are not the limit in 06 §A v2.2.

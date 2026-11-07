@@ -7,10 +7,10 @@
     "rad_clear_k": 2,
     "rad_clear_min": 30,
     "buddy_max_m": 200,
-    "o2_caution_frac": 0.3,
-    "o2_warning_frac": 0.15
+    "o2_caution_margin": 1.5,
+    "o2_warning_margin": 1.2
   },
   "provenance": "assumed",
   "source_ids": [],
-  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20)."
+  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20). O\u2082 margins (decided 2026-11-07) are O\u2082 time left \u00f7 time to the nearest haven: warning 1.2 from the 20 % walkback pad of 02 \u00a7D.6, caution 1.5 assumed."
 }

@@ -10,6 +10,11 @@
  * The engine part under test is: raise once on the nominal → alert change, clear once on the change
  * back, and the event fields.
  *
+ * Consumables (decided 2026-11-07): the O₂ alert compares the O₂ time left (compute `o2RemainingS`,
+ * T05b.17, replaced here by o2_frac × o2_nominal_h) with the time to the nearest haven
+ * (`crew.haven`, T23.03). The message says where to go: the hab, or a pressurized rover to restock.
+ * Both the O₂ and the buddy alert clear once the condition is safe again.
+ *
  * Crew-motion, consumables and dose cases (todo): they need tick.ts (T22.09), which is blocked on
  * the compute dose integral and consumables (T05b.15, T05b.17). Their expected values will come from
  * the fixture legs and the compute functions, never typed in by hand.
@@ -51,6 +56,8 @@ vi.mock("@marswalk/compute", async () => {
       for (const [ts, r] of series.samples) if (Date.parse(ts) <= t) rate = r;
       return rate;
     },
+    // Stand-in for T05b.17: O₂ time left at the walking rate is o2_frac × o2_nominal_h.
+    o2RemainingS: (o2_frac: number, _activity: string, suit: ParamSet) => o2_frac * (suit.values as Record<string, number>).o2_nominal_h * 3600,
     triggerState: (_series: unknown, t_utc: string) => {
       const t = Date.parse(t_utc);
       return t >= RAISE_AT && t < CLEAR_AT ? "alert" : "nominal";
@@ -144,41 +151,104 @@ describe("radiation alert (02 §D.13; T22.10)", () => {
   });
 });
 
-describe("consumables alert (02 §D.14; T22.10)", () => {
-  it("CONSUMABLES_LOW is a caution at o2_caution_frac and a warning at o2_warning_frac, once each per crew member", () => {
-    let s = withCrew(onEva(), "EV1", { o2_frac: v.o2_caution_frac });
+const suit = Object.values(fake.params).find((p) => p.kind === "suit")!;
+const O2_FULL_S = (suit.values as Record<string, number>).o2_nominal_h * 3600;
+type HavenKind = EngineState["crew"][number]["haven"]["kind"];
+
+/** EV1 on EVA with O₂ time left `margin` × its time to the haven (`haven_min` minutes away). */
+function o2Margin(margin: number, haven_min = 40, kind: HavenKind = "hab", from = onEva()): EngineState {
+  const c = from.crew.find((x) => x.crew_id === "EV1")!;
+  return withCrew(from, "EV1", { o2_frac: (margin * haven_min * 60) / O2_FULL_S, haven: { ...c.haven, minutes: haven_min, kind } });
+}
+
+const raisedData = (events: PendingEvent[]) => events.filter((e) => e.kind === "ALERT_RAISED").map((e) => e.data as LogEventData["ALERT_RAISED"]);
+
+describe("consumables alert: O₂ left against the time to a haven (02 §D.14; T22.10, decided 2026-11-07)", () => {
+  it("a caution at o2_caution_margin, then a warning at o2_warning_margin, once each per crew member", () => {
+    let s = o2Margin(v.o2_caution_margin);
     const caution = consumablesTick(s, ctx(s)).events;
-    expect(caution.map((e) => [e.kind, (e.data as LogEventData["ALERT_RAISED"]).level, (e.data as LogEventData["ALERT_RAISED"]).subjects])).toEqual([["ALERT_RAISED", "caution", ["EV1"]]]);
+    expect(raisedData(caution).map((d) => [d.code, d.level, d.subjects])).toEqual([["CONSUMABLES_LOW", "caution", ["EV1"]]]);
     s = applyEvents(s, caution);
     expect(consumablesTick(s, ctx(s)).events).toEqual([]);
-    s = withCrew(s, "EV1", { o2_frac: v.o2_warning_frac });
+    s = o2Margin(v.o2_warning_margin, 40, "hab", s);
     const warning = consumablesTick(s, ctx(s)).events;
-    expect(warning.map((e) => [(e.data as LogEventData["ALERT_RAISED"]).code, (e.data as LogEventData["ALERT_RAISED"]).level])).toEqual([["CONSUMABLES_LOW", "warning"]]);
+    expect(raisedData(warning).map((d) => [d.code, d.level])).toEqual([["CONSUMABLES_LOW", "warning"]]);
     s = applyEvents(s, warning);
     expect(consumablesTick(s, ctx(s)).events).toEqual([]);
   });
 
-  it("a drop straight past the warning level raises only the warning", () => {
-    const s = withCrew(onEva(), "EV2", { o2_frac: v.o2_warning_frac / 2 });
-    expect(consumablesTick(s, ctx(s)).events.map((e) => (e.data as LogEventData["ALERT_RAISED"]).level)).toEqual(["warning"]);
+  it("the warning replaces the caution: the caution is cleared when the warning is raised", () => {
+    let s = o2Margin(v.o2_caution_margin);
+    s = applyEvents(s, consumablesTick(s, ctx(s)).events);
+    const cautionId = s.alerts[0].alert_id;
+    s = o2Margin(v.o2_warning_margin, 40, "hab", s);
+    const events = consumablesTick(s, ctx(s)).events;
+    expect(events.map((e) => e.kind)).toEqual(["ALERT_CLEARED", "ALERT_RAISED"]);
+    expect((events[0].data as LogEventData["ALERT_CLEARED"]).alert_id).toBe(cautionId);
   });
 
-  it("no consumables alert above the caution level, or for crew in the hab", () => {
-    const above = withCrew(onEva(), "EV1", { o2_frac: (1 + v.o2_caution_frac) / 2 });
+  it("the same O₂ fraction alerts far from a haven and not close to one", () => {
+    const far = o2Margin(v.o2_caution_margin, 60);
+    const near = withCrew(far, "EV1", { haven: { ...far.crew[0].haven, minutes: 60 / (2 * v.o2_caution_margin) } });
+    expect(raisedData(consumablesTick(far, ctx(far)).events)).toHaveLength(1);
+    expect(consumablesTick(near, ctx(near)).events).toEqual([]);
+  });
+
+  it("the message says where to go: return to the hab, or restock at a pressurized rover; at most 60 characters", () => {
+    const messages = (["hab", "vehicle"] as const).flatMap((kind) =>
+      [v.o2_caution_margin, v.o2_warning_margin].map((m) => {
+        const s = o2Margin(m, 40, kind);
+        return raisedData(consumablesTick(s, ctx(s)).events)[0].message;
+      }),
+    );
+    expect(messages.map((m) => /rover/i.test(m))).toEqual([false, false, true, true]);
+    expect(messages.map((m) => /hab/i.test(m))).toEqual([true, true, false, false]);
+    for (const m of messages) expect(m.length).toBeLessThanOrEqual(60);
+    expect(new Set(messages).size).toBe(4);
+  });
+
+  it("the raised event carries the O₂ time left, the haven time and kind, the margin and its threshold", () => {
+    const s = o2Margin(v.o2_caution_margin, 40, "vehicle");
+    const [d] = raisedData(consumablesTick(s, ctx(s)).events) as (LogEventData["ALERT_RAISED"] & Record<string, unknown>)[];
+    expect(d).toMatchObject({ o2_remaining_min: v.o2_caution_margin * 40, haven_min: 40, haven_kind: "vehicle", threshold_margin: v.o2_caution_margin });
+    expect(d.margin).toBeCloseTo(v.o2_caution_margin, 9);
+  });
+
+  it("clears when O₂ is back to a safe margin (decided 2026-11-07)", () => {
+    let s = o2Margin(v.o2_warning_margin);
+    s = applyEvents(s, consumablesTick(s, ctx(s)).events);
+    s = o2Margin(v.o2_caution_margin * 2, 40, "hab", s);
+    const events = consumablesTick(s, ctx(s)).events;
+    expect(events.map((e) => e.kind)).toEqual(["ALERT_CLEARED"]);
+    expect((events[0].data as LogEventData["ALERT_CLEARED"]).alert_id).toBe(s.alerts[0].alert_id);
+  });
+
+  it("clears when the crew member is back in the hab", () => {
+    let s = o2Margin(v.o2_warning_margin);
+    s = applyEvents(s, consumablesTick(s, ctx(s)).events);
+    s = withCrew(s, "EV1", { activity: "IN_HAB" });
+    expect(consumablesTick(s, ctx(s)).events.map((e) => e.kind)).toEqual(["ALERT_CLEARED"]);
+  });
+
+  it("no consumables alert above the caution margin, at the haven, or for crew in the hab", () => {
+    const above = o2Margin(v.o2_caution_margin * 2);
     expect(consumablesTick(above, ctx(above)).events).toEqual([]);
-    const inHab = withCrew(initialState(fake, "s-0001"), "EV1", { o2_frac: v.o2_warning_frac / 2 });
+    const atHaven = o2Margin(v.o2_warning_margin / 2, 0);
+    expect(consumablesTick(atHaven, ctx(atHaven)).events).toEqual([]);
+    const inHab = withCrew(o2Margin(v.o2_warning_margin / 2), "EV1", { activity: "IN_HAB" });
     expect(consumablesTick(inHab, ctx(inHab)).events).toEqual([]);
   });
 });
 
 describe("buddy separation alert (02 §D.14; T22.10)", () => {
-  const apart = (d: number): EngineState => withCrew(withCrew(onEva(), "EV1", { x_m: 0, y_m: 0 }), "EV2", { x_m: d, y_m: 0 });
+  const apart = (d: number, from = onEva()): EngineState => withCrew(withCrew(from, "EV1", { x_m: 0, y_m: 0 }), "EV2", { x_m: d, y_m: 0 });
 
   it("BUDDY_SEPARATION fires once when the crew are farther apart than buddy_max_m", () => {
     let s = apart(v.buddy_max_m + 1);
     const events = buddyTick(s, ctx(s)).events;
     expect(codes(events)).toEqual([["ALERT_RAISED", "BUDDY_SEPARATION"]]);
     expect((events[0].data as LogEventData["ALERT_RAISED"]).subjects).toEqual(["EV1", "EV2"]);
+    expect((events[0].data as LogEventData["ALERT_RAISED"]).message).toBe("Buddy too far — close up");
     s = applyEvents(s, events);
     expect(buddyTick(s, ctx(s)).events).toEqual([]);
   });
@@ -188,11 +258,27 @@ describe("buddy separation alert (02 §D.14; T22.10)", () => {
     expect(buddyTick(s, ctx(s)).events).toEqual([]);
   });
 
+  it("clears once the crew are back within buddy_max_m (decided 2026-11-07)", () => {
+    let s = apart(v.buddy_max_m + 1);
+    s = applyEvents(s, buddyTick(s, ctx(s)).events);
+    s = apart(v.buddy_max_m, s);
+    const events = buddyTick(s, ctx(s)).events;
+    expect(events.map((e) => e.kind)).toEqual(["ALERT_CLEARED"]);
+    expect((events[0].data as LogEventData["ALERT_CLEARED"]).alert_id).toBe(s.alerts[0].alert_id);
+  });
+
+  it("clears when fewer than two crew are out on the EVA", () => {
+    let s = apart(v.buddy_max_m + 1);
+    s = applyEvents(s, buddyTick(s, ctx(s)).events);
+    s = withCrew(s, "EV2", { activity: "IN_HAB" });
+    expect(buddyTick(s, ctx(s)).events.map((e) => e.kind)).toEqual(["ALERT_CLEARED"]);
+  });
+
   it("every threshold comes from the alert ParamSet", () => {
     const s = apart(v.buddy_max_m + 1);
     expect(buddyTick(s, ctx(s, scenarioWith({ buddy_max_m: v.buddy_max_m * 2 }))).events).toEqual([]);
-    const low = withCrew(onEva(), "EV1", { o2_frac: v.o2_caution_frac });
-    expect(consumablesTick(low, ctx(low, scenarioWith({ o2_caution_frac: v.o2_caution_frac / 2, o2_warning_frac: v.o2_caution_frac / 4 }))).events).toEqual([]);
+    const low = o2Margin(v.o2_caution_margin);
+    expect(consumablesTick(low, ctx(low, scenarioWith({ o2_caution_margin: v.o2_caution_margin / 2, o2_warning_margin: v.o2_caution_margin / 4 }))).events).toEqual([]);
   });
 });
 
