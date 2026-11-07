@@ -14,9 +14,18 @@ export type RendezvousResult =
       y_m: number;
       eta_crew_s: number;
       eta_vehicle_s: number;
-      /** From the crew start to q* (`rendezvous` reverses the `pathTo` output, which runs from q* back to the start). */
+      /**
+       * From the crew start to q*: cell centres of the 5 m crew field (the `pathTo` walk, reversed so it
+       * runs start to q*). Its last vertex is q* itself. Empty if the back-pointer chain is cyclic (a
+       * corrupt field; `status` stays "OK", Proposed 2026-11-08).
+       */
       crew_path: [number, number][];
-      /** From the vehicle start to q* (reversed `pathTo` output, as `crew_path`). */
+      /**
+       * From the vehicle start to q*: cell centres of the 10 m vehicle field (the reversed `pathTo` walk),
+       * so the first vertex is the centre of the vehicle's 10 m cell, up to half a cell from the vehicle
+       * position. The exact point (x_m, y_m) is appended as the last vertex unless it already is the last
+       * centre (Proposed 2026-11-08), so the path ends at q* itself. Empty if the chain is cyclic.
+       */
       vehicle_path: [number, number][];
     }
   | { status: "NO_RENDEZVOUS" };
@@ -30,6 +39,8 @@ export interface RendezvousPair {
   later_arrival_s: number;
 }
 
+// TODO(verify): duplicates the private `centreOfCell` in haven.ts (owned by T05b.04). Keep the two in sync,
+// or export one of them once T05b.04 and this branch are both on main.
 function centreOfCell(field: TimeField, k: number): [number, number] {
   const row = Math.floor(k / field.width);
   const col = k - row * field.width;
@@ -40,12 +51,32 @@ function centreOfCell(field: TimeField, k: number): [number, number] {
   ];
 }
 
+function checkField(who: string, f: TimeField): void {
+  if (!(Number.isFinite(f.cell_m) && f.cell_m > 0)) {
+    throw new RangeError(`rendezvous: ${who} field cell_m must be a finite number > 0, got ${f.cell_m}`);
+  }
+  if (!(Number.isInteger(f.width) && Number.isInteger(f.height) && f.width > 0 && f.height > 0)) {
+    throw new RangeError(`rendezvous: ${who} field width and height must be integers > 0, got ${f.width} x ${f.height}`);
+  }
+  const cells = f.width * f.height;
+  if (f.seconds.length !== cells || f.prev.length !== cells) {
+    throw new RangeError(
+      `rendezvous: ${who} field has ${f.seconds.length} seconds and ${f.prev.length} prev for ${f.width} x ${f.height} = ${cells} cells`,
+    );
+  }
+}
+
 /**
  * Single crew member. `passable` is the `vehiclePassable` mask (haven.ts), indexed on the crew
  * field's 5 m grid; the vehicle field (10 m) is sampled to 5 m inside the function (02 §D.10).
- * The result's paths run from each start to q*. TASK-05b.
+ * The result's paths run from each start to q* (see the field docs on `RendezvousResult`).
+ * Throws RangeError if a field is internally inconsistent (cell size, or array lengths against
+ * width x height) or the mask length differs from the crew cell count; a mask is a bare array, so its
+ * length is all that can be checked against the crew frame. TASK-05b.
  */
 export function rendezvous(crew: TimeField, vehicle: TimeField, passable: Uint8Array): RendezvousResult {
+  checkField("crew", crew);
+  checkField("vehicle", vehicle);
   const n = crew.seconds.length;
   if (passable.length !== n) {
     throw new RangeError(`rendezvous: passable mask length ${passable.length} does not match crew field cell count ${n}`);
@@ -78,8 +109,13 @@ export function rendezvous(crew: TimeField, vehicle: TimeField, passable: Uint8A
   const [qx, qy] = centreOfCell(crew, bestQ);
   const etaCrew = crew.seconds[bestQ]!;
   const etaVehicle = timeAt(vehicle, qx, qy);
-  const crewPath = pathTo(crew, qx, qy).slice().reverse();
-  const vehiclePath = pathTo(vehicle, qx, qy).slice().reverse();
+  // `pathTo` returns a fresh array, so reversing in place is safe.
+  const crewPath = pathTo(crew, qx, qy).reverse();
+  const vehiclePath = pathTo(vehicle, qx, qy).reverse();
+  // The vehicle walk ends at the centre of the 10 m parent cell, up to ~3.5 m from q* on a 5 m crew grid:
+  // finish at q* itself (T23.05 needs the path to end at the target).
+  const lastV = vehiclePath[vehiclePath.length - 1];
+  if (lastV !== undefined && (lastV[0] !== qx || lastV[1] !== qy)) vehiclePath.push([qx, qy]);
 
   return {
     status: "OK",
@@ -102,6 +138,10 @@ export function rendezvous(crew: TimeField, vehicle: TimeField, passable: Uint8A
  *   meeting point and that crew member is there too. It is measured from now (the alert) and
  *   excludes ingress.
  * - Tie rule: when both orders give the same `later_arrival_s`, the order is [0, 1].
+ * - Throws RangeError if any of the four arrival times is not finite, if a transit time is NaN, or if
+ *   the vehicle cannot drive between the two points in either direction (both transits Infinity): the
+ *   caller falls back to separate rendezvous. If only one direction is unreachable, the other order wins.
+ *   The result is always JSON-safe (finite `later_arrival_s`).
  * TASK-05b.
  */
 export function rendezvousPair(
@@ -110,6 +150,15 @@ export function rendezvousPair(
   vehicleFromA: TimeField,
   vehicleFromB: TimeField,
 ): RendezvousPair {
+  for (const [who, v] of [
+    ["a.eta_crew_s", a.eta_crew_s],
+    ["a.eta_vehicle_s", a.eta_vehicle_s],
+    ["b.eta_crew_s", b.eta_crew_s],
+    ["b.eta_vehicle_s", b.eta_vehicle_s],
+  ] as const) {
+    if (!Number.isFinite(v)) throw new RangeError(`rendezvousPair: ${who} must be finite, got ${v}`);
+  }
+
   // Permutation [0, 1]: visit member A first, then member B
   const tFirst0 = Math.max(a.eta_vehicle_s, a.eta_crew_s);
   const tTransitAB = timeAt(vehicleFromA, b.x_m, b.y_m);
@@ -121,6 +170,14 @@ export function rendezvousPair(
   const tTransitBA = timeAt(vehicleFromB, a.x_m, a.y_m);
   const tVehAtA = tFirst1 + tTransitBA;
   const later10 = Math.max(tVehAtA, a.eta_crew_s);
+
+  // A NaN transit (a corrupt field) would fail every comparison and silently flip the order.
+  if (Number.isNaN(later01) || Number.isNaN(later10)) {
+    throw new RangeError("rendezvousPair: a vehicle transit time is NaN");
+  }
+  if (later01 === Infinity && later10 === Infinity) {
+    throw new RangeError("rendezvousPair: the vehicle cannot reach either meeting point from the other");
+  }
 
   // Tie rule: [0, 1] wins when equal
   if (later01 <= later10) {
