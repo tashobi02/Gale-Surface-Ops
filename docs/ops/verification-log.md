@@ -50,3 +50,24 @@ Each section records what was run, the result, and what it hands on. Detailed no
 | Target sizes (04 §C.3) | **Verified** | Minimum mouse ≥ 32 px, touch ≥ 44 px via `@media (pointer: coarse)`, EVA ≥ 56 px with `[data-surface="eva"]` / `.eva-target` |
 
 - Hands on to: T13.09 (axe scan), T13.10 (keyboard-only run).
+
+## T13.06 — Keyboard map controls and global shortcuts
+
+| | |
+| --- | --- |
+| **Owner** | Ridita Alam (R5 EVA & Ops UI · design system) |
+| **Date** | 2026-11-08 |
+| **Status** | Done: keyboard shortcuts implemented and verified |
+| **Inputs** | [04 §E Keyboard, Motion](../specs/04_Design_Brief.md); [04 §D Briefing](../specs/04_Design_Brief.md#d-interaction-and-component-behavior); [03 §A, SCR-02, SCR-08](../specs/03_App_Flow_and_Diagrams.md); [keyboard.ts](../../apps/web/src/ui/map/keyboard.ts) |
+
+| Key / Shortcut | Action | Condition / Result |
+| --- | --- | --- |
+| Arrow keys (`↑`, `↓`, `←`, `→`) | Pan map view by step | Active when map has focus; instant when `prefers-reduced-motion` |
+| `+` / `−` | Zoom in / zoom out | Active when map has focus |
+| `Delete` | Remove selected stop and recompute plan (03 §C.3) | Requires active stop selection |
+| `B` | Navigate to Briefing (`#/briefing`) | Enabled only when plan is computed; does nothing if no stops or on error (03 SCR-08, 04 §D) |
+| `?` | Navigate to Sources & Methods (`#/sources`) | Active globally outside text inputs (03 SCR-02) |
+| Inputs / contentEditable | Text typing preserved | All shortcuts ignored when focus is within an editable element |
+| `A`, `Enter` | Omitted | Reserved for T08.07 crosshair mode; not bound here |
+
+- Hands on to: T13.10 (keyboard-only run of core scenario), T08.07 (add-stop mode).
