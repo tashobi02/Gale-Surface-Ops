@@ -17,7 +17,7 @@ import { contingencyTick } from "./contingencyOps";
 import { earthTick } from "./earth";
 import { havenTick } from "./haven";
 import { linksTick } from "./links";
-import { logged, reduce, type CrewMotion, type EngineState, type PendingEvent, type StateChange } from "./reducer";
+import { isWaiting, logged, reduce, type CrewMotion, type EngineState, type PendingEvent, type StateChange } from "./reducer";
 import { roversTick } from "./rovers";
 import { tasksTick } from "./tasks";
 import { vehiclesTick } from "./vehicles";
@@ -108,7 +108,8 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
       x_m: walked.x_m,
       y_m: walked.y_m,
       o2_frac: mode.o2 === null ? c.o2_frac : clean(stepO2(c.o2_frac, mode.o2, dt_s, suit)),
-      eva_elapsed_s: c.activity === "IN_HAB" ? c.eva_elapsed_s : clean(c.eva_elapsed_s + dt_s),
+      // IN_HAB does not count; neither does time spent waiting out start_offset_s (S4, S6).
+      eva_elapsed_s: c.activity === "IN_HAB" ? c.eva_elapsed_s : clean(c.eva_elapsed_s + dt_s - walked.waited_s),
       dose_event_ugy: clean(c.dose_event_ugy + dose.received_ugy),
       dose_event_unsheltered_ugy: clean(c.dose_event_unsheltered_ugy + dose.unsheltered_ugy),
     };
@@ -142,6 +143,11 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
     apply(r.events);
     deltas.push(...r.deltas);
   }
+
+  // Running → Ended: all crew sheltered or in the hab (03 §E.6). The reducer then sets ENDED, so this fires once.
+  if (current.session.status === "RUNNING" && current.crew.length > 0 && current.crew.every((c) => c.activity === "IN_HAB" || c.activity === "SHELTERED")) {
+    apply([{ sim_time: current.session.clock.sim_time, kind: "EVA_ENDED", actor: "system", data: { crew_ids: current.crew.map((c) => c.crew_id) }, provenance: {} }]);
+  }
   return { state: current, events, deltas };
 }
 
@@ -164,11 +170,12 @@ function stepMode(c: Crew, m: CrewMotion | undefined, offset_s: number): { shelt
     case "IN_HAB":
       return { shelter: "hab", o2: null };
     case "WALKING":
-      return (m === undefined ? offset_s > 0 : m.phase === "wait") ? { shelter: "hab", o2: null } : { shelter: "suit", o2: "walking" };
+    case "TO_HAVEN":
+      if (isWaiting(c, m, offset_s)) return { shelter: "hab", o2: null };
+      // Holding (the route ended, or waiting at a vehicle rendezvous) rests in the suit.
+      return { shelter: "suit", o2: m?.phase === "hold" ? "resting" : "walking" };
     case "AT_STOP":
       return { shelter: "suit", o2: "resting" };
-    case "TO_HAVEN":
-      return { shelter: "suit", o2: "walking" };
     case "SHELTERED":
       // A terrain refuge has no factor before T2: conservative suit shielding at the resting rate.
       return c.haven.kind === "hab" ? { shelter: "hab", o2: null } : c.haven.kind === "vehicle" ? { shelter: "pressurized_rover", o2: null } : { shelter: "suit", o2: "resting" };
@@ -184,6 +191,13 @@ function segmentLengths(geometry: Point[]): number[] {
     lengthCache.set(geometry, lengths);
   }
   return lengths;
+}
+
+/** Seconds a leg takes; a NaN, infinite or negative `walk_time_min` is a plan error (S11), never an instant arrival. */
+function legSeconds(leg: OkLeg): number {
+  const s = leg.walk_time_min * 60;
+  if (!Number.isFinite(s) || s < 0) throw new Error(`tick: leg ${leg.from}→${leg.to} has an invalid walk_time_min (${leg.walk_time_min})`);
+  return s;
 }
 
 /** The point `d_m` metres along the polyline (the end point from its length on). */
@@ -225,6 +239,8 @@ interface Walked {
   motion: CrewMotion | undefined;
   /** Motion events, built once the crew member's doses after this step are known (CREW_SHELTERED copies them). */
   events: (after: Crew) => PendingEvent[];
+  /** Seconds of this step spent waiting out `start_offset_s`; they do not count as EVA time. */
+  waited_s: number;
 }
 
 /**
@@ -232,7 +248,7 @@ interface Walked {
  * after an arrival or the end of a dwell carries into the next phase, so there is no drift.
  */
 function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewMotion | undefined, dt_s: number, offset_s: number): Walked {
-  const hold = (motion: CrewMotion | undefined): Walked => ({ x_m: c.x_m, y_m: c.y_m, motion, events: () => [] });
+  const hold = (motion: CrewMotion | undefined): Walked => ({ x_m: c.x_m, y_m: c.y_m, motion, events: () => [], waited_s: 0 });
   const plan = state.plan;
   const moving = c.activity === "WALKING" || c.activity === "AT_STOP" || c.activity === "TO_HAVEN";
   if (!moving || !plan) return hold(undefined);
@@ -256,6 +272,7 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
   let x = c.x_m;
   let y = c.y_m;
   let budget = dt_s;
+  let waited_s = 0;
   const pending: ((after: Crew) => PendingEvent)[] = [];
   const stopIndex = (id: string): number | null => {
     const i = waypoints.filter((w) => w.role === "stop").findIndex((w) => w.id === id);
@@ -274,9 +291,11 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
     if (cur.phase === "wait") {
       const need = offset_s - cur.t_s;
       if (need > budget) {
+        waited_s += budget;
         cur = { ...cur, t_s: cur.t_s + budget };
         break;
       }
+      waited_s += need;
       budget -= need;
       cur = { ...cur, phase: "walk", t_s: 0 };
     } else if (cur.phase === "walk") {
@@ -285,7 +304,7 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
         cur = { ...cur, phase: "hold" }; // end of the route, or no route for the next leg (S5)
         break;
       }
-      const leg_s = leg.walk_time_min * 60;
+      const leg_s = legSeconds(leg);
       const total_m = segmentLengths(leg.geometry).reduce((a, b) => a + b, 0);
       const remaining = leg_s > 0 && total_m > 0 ? leg_s - cur.t_s : 0;
       if (remaining > budget) {
@@ -325,22 +344,25 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
         break;
       }
       budget -= need;
-      const index = stopIndex(cur.last_wp_id);
-      if (index !== null) pending.push(system("LEFT_STOP", cur.last_wp_id, index));
+      // Always leave the stop; one the plan no longer has (a revision dropped it) keeps the crew member's own stop_index.
+      const index = stopIndex(cur.last_wp_id) ?? c.stop_index;
+      if (index === null) throw new Error(`tick: crew ${c.crew_id} ends a dwell at ${cur.last_wp_id} with no stop index`);
+      pending.push(system("LEFT_STOP", cur.last_wp_id, index));
       cur = { ...cur, phase: "walk", t_s: 0 };
     } else break; // hold
   }
-  return { x_m: clean(x), y_m: clean(y), motion: { ...cur, t_s: clean(cur.t_s) }, events: (after) => pending.map((p) => p(after)) };
+  return { x_m: clean(x), y_m: clean(y), motion: { ...cur, t_s: clean(cur.t_s) }, events: (after) => pending.map((p) => p(after)), waited_s };
 }
 
 /**
  * The plan was revised: put the crew member on the new legs (S7). Candidates are the legs from the
  * first whose `from` is the last waypoint reached (else all of them); the closest point wins, ties to
  * the earliest leg or segment. TODO(verify) with T23.07: assumes the new first leg starts near the crew
- * member and that abort legs end at the start waypoint.
+ * member and that abort legs end at the start waypoint. A held crew member is re-anchored too: it resumes
+ * walking unless the closest point is the end of its leg (then it stays held, so it does not arrive twice).
  */
 function reanchor(m: CrewMotion, legs: Leg[], c: Crew, revision: number, toHaven: boolean): CrewMotion {
-  if (m.phase === "wait" || (m.phase === "hold" && !toHaven)) return { ...m, plan_revision: revision };
+  if (m.phase === "wait") return { ...m, plan_revision: revision };
   const first = Math.max(
     legs.findIndex((l) => l.from === m.last_wp_id),
     0,
@@ -352,10 +374,11 @@ function reanchor(m: CrewMotion, legs: Leg[], c: Crew, revision: number, toHaven
     const hit = closest(leg.geometry, c.x_m, c.y_m);
     if (best === null || hit.dist < best.dist) best = { leg_index: i, ...hit };
   }
-  if (best === null) return { ...m, plan_revision: revision, phase: "hold", leg_index: legs.length };
+  if (best === null) return m.phase === "hold" ? { ...m, plan_revision: revision } : { ...m, plan_revision: revision, phase: "hold", leg_index: legs.length };
   const leg = legs[best.leg_index] as OkLeg;
   if (m.phase === "dwell" && !toHaven) return { ...m, plan_revision: revision, leg_index: best.leg_index }; // finish the dwell first (S8)
   const total_m = segmentLengths(leg.geometry).reduce((a, b) => a + b, 0);
-  const t_s = total_m > 0 ? (best.along_m / total_m) * leg.walk_time_min * 60 : 0;
+  if (m.phase === "hold" && best.along_m >= total_m) return { ...m, plan_revision: revision }; // at the end of a leg: nothing left to walk
+  const t_s = total_m > 0 ? (best.along_m / total_m) * legSeconds(leg) : 0;
   return { plan_revision: revision, phase: "walk", leg_index: best.leg_index, t_s, last_wp_id: leg.from };
 }

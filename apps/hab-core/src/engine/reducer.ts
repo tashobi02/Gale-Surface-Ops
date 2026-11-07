@@ -9,8 +9,9 @@
  * - Each case reads only `event.data` and the current state; no science is recomputed (05 LogEvent).
  * - Every event sets `session.last_seq` and `session.clock.sim_time`. `session.log_hash` belongs to
  *   the session manager (T22.12), which copies it from the log.
- * - CREW_SHELTERED with `haven_kind "hab"` sets IN_HAB (03 §E.8 "plan complete"; proposed 2026-11-07,
- *   T22.09); any other kind sets SHELTERED.
+ * - CREW_SHELTERED with `haven_kind "hab"` sets IN_HAB only from WALKING or AT_STOP (03 §E.8 "Walking →
+ *   InHab: plan complete"; proposed 2026-11-07, T22.09); from TO_HAVEN, and for any other kind, it
+ *   sets SHELTERED (03 §E.8 "ToHaven → Sheltered").
  * - Warnings and cautions latch: an alert leaves `alerts` once it is both acknowledged and cleared;
  *   an advisory leaves on clear (03 §E.7).
  * - Executing an option (PLAN_REVISED with an `option_id`) sends that option's crew TO_HAVEN unless
@@ -71,6 +72,14 @@ export interface CrewMotion {
   leg_index: number;
   t_s: number;
   last_wp_id: string;
+}
+
+/**
+ * True while a crew member waits out `start_offset_s` at the start (S4): still `WALKING` by activity,
+ * but not out yet. Without a motion record the scenario's offset decides.
+ */
+export function isWaiting(c: Crew, m: CrewMotion | undefined, offset_s: number): boolean {
+  return c.activity === "WALKING" && (m === undefined ? offset_s > 0 : m.phase === "wait");
 }
 
 /** A LogEvent before the log assigns its `seq`. */
@@ -241,8 +250,9 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
       return {
         ...next,
         crew: updateCrew(next.crew, [e.data.crew_id], (c) => ({
-          // Back in the hab at the end of the plan is "plan complete" (03 §E.8); vehicle and refuge stay SHELTERED.
-          activity: e.data.haven_kind === "hab" ? "IN_HAB" : "SHELTERED",
+          // Back in the hab at the end of the plan is "plan complete" (03 §E.8) for a crew member who
+          // walked or stood at a stop; one sent to a haven is Sheltered (ToHaven → Sheltered), as is any other kind.
+          activity: e.data.haven_kind === "hab" && (c.activity === "WALKING" || c.activity === "AT_STOP") ? "IN_HAB" : "SHELTERED",
           dose_event_ugy: e.data.dose_event_ugy,
           dose_event_unsheltered_ugy: e.data.dose_event_unsheltered_ugy,
           haven: { ...c.haven, kind: e.data.haven_kind },

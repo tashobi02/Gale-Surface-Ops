@@ -34,8 +34,12 @@
  * - Events: ARRIVED_STOP, LEFT_STOP and CREW_SHELTERED only; positions, O₂, elapsed time and doses are
  *   STATE_DELTAs, sent only when the value changed.
  *
- * Not yet covered (it.todo at the end): the end of a non-loop route, a NO_ROUTE next leg, and
- * refuge or vehicle shelter dose.
+ * Review-fix rules (proposed 2026-11-07, docs/tasks/TASK-22 T22.09 S4, S5, S7, S8, S9, S11): EVA_ENDED
+ * once all crew are IN_HAB or SHELTERED; a waiting crew member is not out; LEFT_STOP always; a held
+ * crew member rests and resumes after a revision; a bad walk_time_min throws. The last describe pins
+ * the interpolation and re-anchoring with hand-computed geometry.
+ *
+ * Not yet covered (it.todo at the end): refuge or vehicle shelter dose.
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -98,8 +102,8 @@ function applyEvents(state: EngineState, events: PendingEvent[]): EngineState {
   return events.reduce((s, e) => reduce(s, logged(e, s.session.last_seq + 1)), state);
 }
 
-function onEva(): EngineState {
-  const s = initialState(fake, "s-0001");
+function onEva(scenario: LoadedScenario = fake): EngineState {
+  const s = initialState(scenario, "s-0001");
   return reduce(s, { seq: 1, sim_time: fake.scenario.start_utc, kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, provenance: {}, command_ref: { client_id: "c-1", command_id: "k-1" } });
 }
 
@@ -599,7 +603,7 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
 
   it("per-tick positions are STATE_DELTAs, never LogEvents", () => {
     const trace = baseRun();
-    const allowed: LogEventKind[] = ["ARRIVED_STOP", "LEFT_STOP", "CREW_SHELTERED", "ALERT_RAISED", "ALERT_CLEARED"];
+    const allowed: LogEventKind[] = ["ARRIVED_STOP", "LEFT_STOP", "CREW_SHELTERED", "EVA_ENDED", "ALERT_RAISED", "ALERT_CLEARED"];
     for (const events of trace.events) for (const e of events) expect(allowed).toContain(e.kind);
     // The first tick moves both crew by a delta carrying the new value, and logs nothing.
     expect(trace.events[1]).toEqual([]);
@@ -650,7 +654,8 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
       expect(crewOf(trace.states[half], id).activity).toBe("TO_HAVEN");
       expect(eventsOf(trace, "CREW_SHELTERED", id).map((e) => e.tick)).toEqual([Math.ceil(back_s)]);
       expect(eventsOf(trace, "CREW_SHELTERED", id)[0].event.data).toMatchObject({ haven_kind: "hab" });
-      expect(crewOf(trace.states.at(-1)!, id)).toMatchObject({ activity: "IN_HAB", x_m: wp0.x_m, y_m: wp0.y_m });
+      // ToHaven → Sheltered (03 §E.8), not InHab: that step is for a crew member who walked the plan to its end.
+      expect(crewOf(trace.states.at(-1)!, id)).toMatchObject({ activity: "SHELTERED", x_m: wp0.x_m, y_m: wp0.y_m, haven: expect.objectContaining({ kind: "hab" }) });
     }
   });
 
@@ -724,7 +729,299 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
     }
   });
 
-  it.todo("the end of a non-loop route holds at the last waypoint with no event (TODO(decision) S5)");
-  it.todo("a NO_ROUTE next leg holds the crew member where they are, with no event (TODO(decision) S5)");
   it.todo("a SHELTERED crew member in a vehicle uses the pressurized_rover factor and no O₂; in a refuge, the suit factor at the resting rate (S9, with T23.05)");
+});
+
+// ---------------------------------------------------------------------------------------------
+// Review fixes (T22.09, proposed 2026-11-07): EVA end, waiting crew, LEFT_STOP, holds, bad legs
+// ---------------------------------------------------------------------------------------------
+
+const wpStart = plan.waypoints[0];
+const suitSet = fake.params[fake.scenario.crew[0].suit_param_set];
+type AnyLeg = (typeof plan.result.legs)[number];
+const send = (s: EngineState, kind: LogEventKind, data: object): EngineState =>
+  reduce(s, logged({ kind, data, sim_time: s.session.clock.sim_time, actor: "system", provenance: {} } as PendingEvent, s.session.last_seq + 1));
+const revise = (s: EngineState, waypoints: typeof plan.waypoints, legs: AnyLeg[], extra: object = {}): EngineState =>
+  send(s, "PLAN_REVISED", { plan_revision: s.session.plan_revision + 1, option_id: null, stops_dropped: [], waypoints, legs, ...extra });
+
+/** A scenario whose plan is `waypoints` and `legs` with this dwell; crew, ParamSets and dose stay the fixture's. */
+function planOf(waypoints: typeof plan.waypoints, legs: AnyLeg[], dwell_min = plan.scenario.dwell_min_per_stop): LoadedScenario {
+  return { ...fake, scenario: { ...fake.scenario, plan: { ...plan, waypoints, scenario: { ...plan.scenario, dwell_min_per_stop: dwell_min }, result: { ...plan.result, legs } } } };
+}
+/** An OK leg with this geometry; the test numbers are hand-picked so the speed is 1 m/s. */
+const legOf = (from: string, to: string, geometry: [number, number][], walk_time_min: number): OkLeg => ({ ...okLegs[0], from, to, geometry, walk_time_min });
+const noRoute = (from: string, to: string): AnyLeg => ({ from, to, status: "NO_ROUTE", reason: "DISCONNECTED_BY_SLOPE" });
+const stopAt = (id: string, x_m: number, y_m: number) => ({ id, role: "stop" as const, x_m, y_m });
+
+describe("tick: the EVA ends when every crew member is IN_HAB or SHELTERED (03 §E.6; proposed 2026-11-07)", () => {
+  it("logs one system EVA_ENDED {crew_ids} after the CREW_SHELTERED events of that tick, then the session is ENDED", () => {
+    const trace = baseRun();
+    const ended = eventsOf(trace, "EVA_ENDED");
+    expect(ended.map((e) => e.tick)).toEqual([END_TICK]);
+    expect(ended[0].event).toMatchObject({ actor: "system", data: { crew_ids: ["EV1", "EV2"] }, sim_time: trace.states[END_TICK].session.clock.sim_time });
+    expect(trace.events[END_TICK].map((e) => e.kind)).toEqual(["CREW_SHELTERED", "CREW_SHELTERED", "EVA_ENDED"]);
+    expect(trace.states[END_TICK - 1].session.status).toBe("RUNNING");
+    expect(trace.states[END_TICK].session.status).toBe("ENDED");
+    expect(trace.states[END_TICK].session.last_seq).toBe(trace.states[END_TICK - 1].session.last_seq + 3);
+  });
+
+  it("waits for the last crew member: EV1 sheltered alone does not end it", () => {
+    const offset = 100;
+    const delayed: LoadedScenario = { ...fake, scenario: { ...fake.scenario, crew: fake.scenario.crew.map((c) => (c.crew_id === "EV2" ? { ...c, start_offset_s: offset } : c)) } };
+    const trace = run(onEva(delayed), END_TICK + offset + 3, delayed);
+    expect(eventsOf(trace, "CREW_SHELTERED", "EV1").map((e) => e.tick)).toEqual([END_TICK]);
+    expect(eventsOf(trace, "EVA_ENDED").map((e) => e.tick)).toEqual([tickOf(phases.length - 1, offset)]);
+    expect(trace.states[END_TICK + 1].session.status).toBe("RUNNING");
+  });
+
+  it("does not end a session that is not running (the EVA has not started)", () => {
+    const loaded = initialState(fake, "s-0001");
+    expect(loaded.crew.every((c) => c.activity === "IN_HAB")).toBe(true);
+    expect(step(loaded).events.filter((e) => e.kind === "EVA_ENDED")).toEqual([]);
+  });
+});
+
+describe("tick: a crew member waiting out start_offset_s is not out (S4; proposed 2026-11-07)", () => {
+  const offset = 300;
+  const delayed: LoadedScenario = { ...fake, scenario: { ...fake.scenario, crew: fake.scenario.crew.map((c) => (c.crew_id === "EV2" ? { ...c, start_offset_s: offset } : c)) } };
+
+  it("no BUDDY_SEPARATION while EV2 waits and EV1 is walking beyond buddy_max_m; it fires once EV2 starts", () => {
+    const trace = run(onEva(delayed), offset + 3, delayed);
+    const [x, y] = pos(trace.states[offset - 1], "EV1");
+    expect(Math.hypot(x - wpStart.x_m, y - wpStart.y_m), "EV1 is beyond buddy_max_m of the waiting EV2").toBeGreaterThan(v.buddy_max_m);
+    // EV2 is out from the tick on which its offset has elapsed, not before.
+    const buddy = eventsOf(trace, "ALERT_RAISED").filter((e) => (e.event.data as { code?: string }).code === "BUDDY_SEPARATION");
+    expect(buddy.map((e) => e.tick)).toEqual([offset]);
+  });
+
+  it("eva_elapsed_s does not grow while waiting, and counts only the time after the offset in a long step", () => {
+    const trace = run(onEva(delayed), offset + 2, delayed);
+    expect(crewOf(trace.states[offset], "EV2").eva_elapsed_s).toBe(0);
+    expect(crewOf(trace.states[offset], "EV1").eva_elapsed_s).toBe(offset);
+    expect(crewOf(trace.states[offset + 2], "EV2").eva_elapsed_s).toBe(2);
+    const start = onEva(delayed);
+    const dt = 90;
+    const short: LoadedScenario = { ...fake, scenario: { ...fake.scenario, crew: fake.scenario.crew.map((c) => (c.crew_id === "EV2" ? { ...c, start_offset_s: 30 } : c)) } };
+    const r = tick(at(start, Date.parse(start.session.clock.sim_time) + dt * 1000), short, dt, start.session.last_seq + 1);
+    expect(crewOf(r.state, "EV1").eva_elapsed_s).toBe(dt);
+    expect(crewOf(r.state, "EV2").eva_elapsed_s).toBe(dt - 30);
+  });
+
+  it("the alert modules treat a waiting crew member as not out, with or without a motion record", () => {
+    const base = onEva(delayed);
+    const waiting = { plan_revision: 1, phase: "wait" as const, leg_index: 0, t_s: 0, last_wp_id: wpStart.id };
+    const low = withCrew(base, "EV2", { o2_frac: (v.o2_warning_margin * 40 * 60) / O2_FULL_S, haven: { ...base.crew[1].haven, minutes: 40 } });
+    for (const s of [low, { ...low, motion: { EV2: waiting } }]) {
+      expect(consumablesTick(s, ctx(s, delayed)).events, "a waiting crew member is safe in the hab").toEqual([]);
+      const apart = withCrew(withCrew(s, "EV1", { x_m: 0, y_m: 0 }), "EV2", { x_m: v.buddy_max_m + 1, y_m: 0 });
+      expect(buddyTick(apart, ctx(apart, delayed)).events).toEqual([]);
+    }
+    // The same state without the offset: both are out, so the O2 alert applies.
+    expect(raisedData(consumablesTick(low, ctx(low)).events)).toHaveLength(1);
+  });
+});
+
+describe("tick: LEFT_STOP when a dwell ends, even if the plan dropped the stop (S8; proposed 2026-11-07)", () => {
+  it("a CONTINUE_SKIP revision that drops the stop being dwelt at: LEFT_STOP carries the crew member's stop_index", () => {
+    const stopTick = tickOf(0) + 10;
+    const before = run(onEva(), stopTick).states[stopTick];
+    expect(crewOf(before, "EV1")).toMatchObject({ activity: "AT_STOP", stop_index: 1 });
+    const [wp0, , wp2] = plan.waypoints;
+    let s = send(before, "OPTIONS_PROPOSED", {
+      alert_id: "a-skip",
+      options: [{ option_id: "o-skip", alert_id: "a-skip", kind: "CONTINUE_SKIP", crew_ids: CREW, eta_shelter_min: 0, expected_dose_ugy: 0, stops_dropped: [1], violations: [], rank: 1, path_preview: [], rendezvous: null }],
+    });
+    s = revise(s, [wp0, wp2], [okLegs[1], okLegs[2]], { option_id: "o-skip", stops_dropped: [1] });
+    expect(CREW.map((id) => crewOf(s, id).activity)).toEqual(["AT_STOP", "AT_STOP"]);
+    const trace = run(s, tickOf(2) - stopTick + 2);
+    const left = eventsOf(trace, "LEFT_STOP").map((e) => ({ tick: e.tick + stopTick, data: e.event.data }));
+    expect(left).toEqual(CREW.map((crew_id) => ({ tick: tickOf(1), data: { crew_id, stop_id: stopIds[0], stop_index: 1 } })));
+    // The next stop is wp-2, now the only stop of the revised plan: index 1.
+    expect(eventsOf(trace, "ARRIVED_STOP", "EV1").map((e) => ({ tick: e.tick + stopTick, data: e.event.data }))).toEqual([{ tick: tickOf(2), data: { crew_id: "EV1", stop_id: stopIds[1], stop_index: 1 } }]);
+  });
+});
+
+describe("tick: holding rests, and a revision with a reachable next leg resumes the walk (S5, S7, S9; proposed 2026-11-07)", () => {
+  const dwell_min = 0.5;
+  const dwellEnd = (leg_s: number): number => Math.ceil(leg_s + dwell_min * 60);
+  const wp1 = plan.waypoints[1];
+  const wp2 = plan.waypoints[2];
+  const blocked = planOf([wpStart, wp1, wp2], [okLegs[0], noRoute(wp1.id, wp2.id)], dwell_min);
+
+  it("a crew member held behind a NO_ROUTE leg stays put with no event and rests (O₂ at the resting rate)", () => {
+    const h = dwellEnd(legSeconds(okLegs[0]));
+    const trace = run(onEva(blocked), h + 6, blocked);
+    expect(eventsOf(trace, "LEFT_STOP", "EV1").map((e) => e.tick)).toEqual([h]);
+    expect(trace.events.slice(h + 1).flat()).toEqual([]);
+    for (let n = h + 1; n <= h + 6; n++) {
+      for (const id of CREW) {
+        expect(pos(trace.states[n], id)).toEqual([wp1.x_m, wp1.y_m]);
+        expect(crewOf(trace.states[n], id).o2_frac, `tick ${n} ${id}`).toBe(actual.stepO2(crewOf(trace.states[n - 1], id).o2_frac, "resting", 1, suitSet));
+      }
+    }
+  });
+
+  it("a revision that replaces the NO_ROUTE leg with an OK one makes the held crew resume walking from where they stand", () => {
+    const h = dwellEnd(legSeconds(okLegs[0]));
+    const held = run(onEva(blocked), h + 4, blocked).states[h + 4];
+    const resumed = revise(held, [wpStart, wp1, wp2], [okLegs[0], okLegs[1]]);
+    const trace = run(resumed, 30);
+    for (const id of CREW) {
+      for (const k of [1, 10, 30]) expectPosition(pos(trace.states[k], id), along(okLegs[1].geometry, k / legSeconds(okLegs[1])), `resumed ${id} +${k}`);
+      expect(crewOf(trace.states[1], id).activity).toBe("WALKING");
+    }
+    // A revision that leaves the leg blocked keeps them held.
+    const still = run(revise(held, [wpStart, wp1, wp2], [okLegs[0], noRoute(wp1.id, wp2.id)]), 5);
+    for (const id of CREW) expect(pos(still.states[5], id)).toEqual([wp1.x_m, wp1.y_m]);
+  });
+
+  it("the end of a non-loop route holds at the last waypoint with no event, and a revision there does not arrive again", () => {
+    const oneWay = planOf([wpStart, wp1], [okLegs[0]], dwell_min);
+    const h = dwellEnd(legSeconds(okLegs[0]));
+    const trace = run(onEva(oneWay), h + 5, oneWay);
+    expect(trace.events.slice(h + 1).flat()).toEqual([]);
+    expect(eventsOf(trace, "CREW_SHELTERED")).toEqual([]);
+    expect(eventsOf(trace, "EVA_ENDED")).toEqual([]);
+    const again = run(revise(trace.states[h + 5], [wpStart, wp1], [okLegs[0]]), 5);
+    expect(again.events.flat()).toEqual([]);
+    expect(pos(again.states[5], "EV1")).toEqual([wp1.x_m, wp1.y_m]);
+    expect(crewOf(again.states[5], "EV1").activity).toBe("WALKING");
+  });
+
+  it("a TO_HAVEN crew member waiting at a rendezvous (the route ends away from the start) rests and is not sheltered by tick", () => {
+    const stopTick = tickOf(0) + 10;
+    const before = run(onEva(), stopTick).states[stopTick];
+    const rendezvous = legOf(wp1.id, "wp-r", [[wp1.x_m, wp1.y_m], [wp1.x_m - 100, wp1.y_m]], 0.5);
+    let s = send(before, "OPTIONS_PROPOSED", {
+      alert_id: "a-pr",
+      options: [{ option_id: "o-pr", alert_id: "a-pr", kind: "RENDEZVOUS_PR", crew_ids: CREW, eta_shelter_min: 1, expected_dose_ugy: 0, stops_dropped: [2], violations: [], rank: 1, path_preview: rendezvous.geometry, rendezvous: null }],
+    });
+    s = revise(s, [wpStart, wp1], [okLegs[0], rendezvous], { option_id: "o-pr", stops_dropped: [2] });
+    expect(crewOf(s, "EV1").activity).toBe("TO_HAVEN");
+    const trace = run(s, 40);
+    expect(eventsOf(trace, "CREW_SHELTERED")).toEqual([]);
+    expect(eventsOf(trace, "EVA_ENDED")).toEqual([]);
+    expect(pos(trace.states[40], "EV1")).toEqual([wp1.x_m - 100, wp1.y_m]);
+    for (let n = 36; n <= 40; n++) expect(crewOf(trace.states[n], "EV1").o2_frac).toBe(actual.stepO2(crewOf(trace.states[n - 1], "EV1").o2_frac, "resting", 1, suitSet));
+  });
+});
+
+describe("tick: a plan error throws instead of arriving instantly (S11; proposed 2026-11-07)", () => {
+  it.each([Number.NaN, -1, Number.POSITIVE_INFINITY])("walk_time_min %s on the leg being walked", (walk_time_min) => {
+    const bad = planOf(plan.waypoints, [{ ...okLegs[0], walk_time_min }, okLegs[1], okLegs[2]]);
+    expect(() => step(onEva(bad), bad)).toThrow(/walk_time_min/);
+  });
+
+  it("zero stays an instant arrival (S2)", () => {
+    const zero = planOf(plan.waypoints, [{ ...okLegs[0], walk_time_min: 0 }, okLegs[1], okLegs[2]]);
+    const r = step(onEva(zero), zero);
+    expect(r.events.map((e) => e.kind)).toEqual(["ARRIVED_STOP", "ARRIVED_STOP"]);
+    expect(pos(r.state, "EV1")).toEqual([okLegs[0].geometry.at(-1)![0], okLegs[0].geometry.at(-1)![1]]);
+  });
+});
+
+describe("tick: interpolation and re-anchoring pinned by hand-computed geometry", () => {
+  const origin = { ...wpStart, x_m: 0, y_m: 0 };
+
+  it("a zig-zag leg of 20 + 30 + 10 m walked in 1 min (1 m/s) puts the crew at the hand-computed points", () => {
+    const zig: [number, number][] = [[0, 0], [20, 0], [20, 30], [10, 30]];
+    const sc = planOf([origin, stopAt("wp-1", 10, 30)], [legOf("wp-0", "wp-1", zig, 1)]);
+    const trace = run(onEva(sc), 60, sc);
+    const expected: [number, [number, number]][] = [
+      [1, [1, 0]],
+      [10, [10, 0]],
+      [20, [20, 0]],
+      [21, [20, 1]],
+      [35, [20, 15]],
+      [50, [20, 30]],
+      [55, [15, 30]],
+      [60, [10, 30]],
+    ];
+    for (const [n, point] of expected) expectPosition(pos(trace.states[n], "EV1"), point, `tick ${n}`);
+    expect(eventsOf(trace, "ARRIVED_STOP", "EV1").map((e) => e.tick)).toEqual([60]);
+  });
+
+  it("a zero-length segment inside a leg is stepped over without a NaN", () => {
+    const geometry: [number, number][] = [[0, 0], [10, 0], [10, 0], [10, 20]];
+    const sc = planOf([origin, stopAt("wp-1", 10, 20)], [legOf("wp-0", "wp-1", geometry, 0.5)]);
+    const trace = run(onEva(sc), 30, sc);
+    const expected: [number, [number, number]][] = [[5, [5, 0]], [10, [10, 0]], [11, [10, 1]], [20, [10, 10]], [30, [10, 20]]];
+    for (const [n, point] of expected) expectPosition(pos(trace.states[n], "EV1"), point, `tick ${n}`);
+    for (const s of trace.states) for (const id of CREW) expect(Number.isFinite(crewOf(s, id).x_m + crewOf(s, id).y_m)).toBe(true);
+  });
+
+  it("a leg of zero length is walked in no time: arrival, dwell and the next leg in the same step", () => {
+    const sc = planOf(
+      [origin, stopAt("wp-1", 0, 0), stopAt("wp-2", 0, 30)],
+      [legOf("wp-0", "wp-1", [[0, 0], [0, 0]], 1), legOf("wp-1", "wp-2", [[0, 0], [0, 30]], 0.5)],
+      0,
+    );
+    const r = step(onEva(sc), sc);
+    const kinds = r.events.filter((e) => e.data && (e.data as { crew_id?: string }).crew_id === "EV1").map((e) => [e.kind, (e.data as { stop_id: string }).stop_id]);
+    expect(kinds).toEqual([["ARRIVED_STOP", "wp-1"], ["LEFT_STOP", "wp-1"]]);
+    expectPosition(pos(r.state, "EV1"), [0, 1], "one second into the 30 m, 30 s leg");
+  });
+
+  /** Both crew mid-walk on the fixture, standing at (x, y) when the plan is revised to `legs`; EV1's position after the next tick. */
+  function snapTo(x: number, y: number, legs: AnyLeg[]): [number, number] {
+    const walking = run(onEva(), 1).states[1];
+    const placed = { ...walking, crew: walking.crew.map((c) => ({ ...c, x_m: x, y_m: y })) };
+    return pos(step(revise(placed, plan.waypoints, legs)).state, "EV1");
+  }
+
+  it("closest() over several segments: the crew snap to the nearest segment, and the arc length to it carries on", () => {
+    // A U of 10 + 10 + 10 m in 30 s (1 m/s). (12, 7) is 2 m from the middle segment, 7.28 m from the first and 3.6 m from the last: arc length 17, so 18 m one second later.
+    const u: [number, number][] = [[0, 0], [10, 0], [10, 10], [0, 10]];
+    expectPosition(snapTo(12, 7, [legOf("wp-0", "wp-1", u, 0.5)]), [10, 8], "middle segment");
+  });
+
+  it("closest() ties go to the earliest segment, then the earliest leg; a strictly closer later leg wins", () => {
+    const u: [number, number][] = [[0, 0], [10, 0], [10, 10], [0, 10]];
+    // (5, 5) is 5 m from all three segments: the first wins (arc length 5, then 6 m on).
+    expectPosition(snapTo(5, 5, [legOf("wp-0", "wp-1", u, 0.5)]), [6, 0], "first of three equal segments");
+    // Two legs 5 m from (5, 5): the first leg (10 m in 30 s: arc 5 is t = 15 s, one second on is 16/30 of 10 m).
+    const a = legOf("wp-0", "wp-1", [[0, 0], [10, 0]], 0.5);
+    const b = legOf("wp-1", "wp-2", [[0, 10], [10, 10]], 0.5);
+    expectPosition(snapTo(5, 5, [a, b]), [(16 / 30) * 10, 0], "first of two equal legs");
+    // (5, 8) is 2 m from the second leg and 8 m from the first.
+    expectPosition(snapTo(5, 8, [a, b]), [(16 / 30) * 10, 10], "the strictly closer later leg");
+  });
+
+  it("a revision while WALKING keeps the crew where they are and walks the revised leg, then dwells at the stop", () => {
+    const mid = Math.floor(legSeconds(okLegs[0]) / 2);
+    const walking = run(onEva(), mid).states[mid];
+    const slower: OkLeg = { ...okLegs[0], walk_time_min: okLegs[0].walk_time_min * 2 };
+    const revised = revise(walking, plan.waypoints, [slower, okLegs[1], okLegs[2]]);
+    expect(CREW.map((id) => crewOf(revised, id).activity)).toEqual(["WALKING", "WALKING"]);
+    const newLeg = legSeconds(slower);
+    const arrive = Math.ceil(newLeg - 2 * mid);
+    const trace = run(revised, arrive + 3);
+    for (const k of [1, Math.floor(arrive / 2), arrive - 1]) {
+      for (const id of CREW) expectPosition(pos(trace.states[k], id), along(slower.geometry, (2 * mid + k) / newLeg), `+${k} ${id}`);
+    }
+    expect(eventsOf(trace, "ARRIVED_STOP", "EV1").map((e) => [e.tick, e.event.data])).toEqual([[arrive, { crew_id: "EV1", stop_id: stopIds[0], stop_index: 1 }]]);
+    expect(crewOf(trace.states[arrive + 3], "EV1").activity).toBe("AT_STOP");
+  });
+
+  it("one 90-s step spanning the arrival, the dwell and the walk on gives the carried-over position", () => {
+    const quick = planOf(plan.waypoints, okLegs, 0.5);
+    const leg0_s = legSeconds(okLegs[0]);
+    const n0 = Math.floor(leg0_s) - 10;
+    const s0 = run(onEva(quick), n0, quick).states[n0];
+    const dt = 90;
+    stepO2Spy.mockClear();
+    integrateDoseSpy.mockClear();
+    const r = tick(at(s0, Date.parse(s0.session.clock.sim_time) + dt * 1000), quick, dt, s0.session.last_seq + 1);
+    expect(r.events.map((e) => [e.kind, (e.data as { crew_id: string }).crew_id])).toEqual([["ARRIVED_STOP", "EV1"], ["LEFT_STOP", "EV1"], ["ARRIVED_STOP", "EV2"], ["LEFT_STOP", "EV2"]]);
+    expect(r.state.session.last_seq).toBe(s0.session.last_seq + 4);
+    const walked = dt - (leg0_s - n0) - quick.scenario.plan.scenario.dwell_min_per_stop * 60;
+    expect(walked).toBeGreaterThan(0);
+    for (const id of CREW) {
+      expectPosition(pos(r.state, id), along(okLegs[1].geometry, walked / legSeconds(okLegs[1])), `${id} after the long step`);
+      expect(crewOf(r.state, id).activity).toBe("WALKING");
+      expect(crewOf(r.state, id).eva_elapsed_s).toBe(n0 + dt);
+    }
+    expect(stepO2Spy.mock.calls.map((c) => [c[1], c[2]])).toEqual([["walking", dt], ["walking", dt]]);
+    expect(integrateDoseSpy.mock.calls.map((c) => [c[1][0].dt_s, c[1][0].shelter])).toEqual([[dt, "suit"], [dt, "suit"]]);
+  });
 });

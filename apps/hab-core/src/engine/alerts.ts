@@ -22,7 +22,7 @@
  */
 import { o2RemainingS, rateAt, triggerState } from "@marswalk/compute";
 import type { Alert, AlertCode, AlertLevel, CrewId, LogEventData, ParamSet, ProvenanceMap } from "@marswalk/protocol";
-import type { EngineState, PendingEvent } from "./reducer";
+import { isWaiting, type EngineState, type PendingEvent } from "./reducer";
 import type { TickContext, TickResult } from "./tick";
 
 const MESSAGES = {
@@ -63,7 +63,11 @@ function raise(
   return { sim_time: state.session.clock.sim_time, kind: "ALERT_RAISED", actor: "system", data, provenance };
 }
 
-const onEva = (state: EngineState) => state.crew.filter((c) => c.activity !== "IN_HAB");
+/** A crew member waiting out `start_offset_s` is at the hab and not out yet (T22.09 S4). */
+const waiting = (state: EngineState, ctx: TickContext, c: EngineState["crew"][number]): boolean =>
+  isWaiting(c, state.motion[c.crew_id], ctx.scenario.scenario.crew.find((x) => x.crew_id === c.crew_id)?.start_offset_s ?? 0);
+
+const onEva = (state: EngineState, ctx: TickContext) => state.crew.filter((c) => c.activity !== "IN_HAB" && !waiting(state, ctx, c));
 
 /** RADIATION_ALERT raise and clear from the replayed rate (02 §D.13). */
 export function radiationTick(state: EngineState, ctx: TickContext): TickResult {
@@ -126,7 +130,7 @@ export function consumablesTick(state: EngineState, ctx: TickContext): TickResul
   for (const c of state.crew) {
     const mine = open.filter((a) => a.subjects.includes(c.crew_id));
     if (Number.isNaN(c.o2_frac) || Number.isNaN(c.haven.minutes)) throw new Error(`consumablesTick: crew ${c.crew_id} has a NaN O₂ fraction or haven time`);
-    const safe = c.activity === "IN_HAB" || c.haven.minutes <= 0;
+    const safe = c.activity === "IN_HAB" || waiting(state, ctx, c) || c.haven.minutes <= 0;
     const o2_s = safe ? Infinity : o2RemainingS(c.o2_frac, "walking", suitParams(ctx, c.crew_id));
     const reachable = Number.isFinite(c.haven.minutes);
     const margin = safe ? Infinity : reachable ? o2_s / (c.haven.minutes * 60) : 0;
@@ -163,10 +167,11 @@ export function consumablesTick(state: EngineState, ctx: TickContext): TickResul
 
 /**
  * BUDDY_SEPARATION from `buddy_max_m` in the alert ParamSet; distance in projected metres.
- * Cleared once the two are within `buddy_max_m` again or fewer than two crew are out.
+ * Cleared once the two are within `buddy_max_m` again or fewer than two crew are out; a crew member
+ * still waiting out `start_offset_s` is not out.
  */
 export function buddyTick(state: EngineState, ctx: TickContext): TickResult {
-  const crew = onEva(state);
+  const crew = onEva(state, ctx);
   const open = active(state, "BUDDY_SEPARATION");
   const clearAll = (): TickResult => ({ state, events: open.map((a) => cleared(state, a.alert_id)), deltas: [] });
   if (crew.length < 2) return clearAll();
