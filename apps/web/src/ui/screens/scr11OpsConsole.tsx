@@ -22,6 +22,7 @@ import {
 import type { Crew, Vehicle, Alert, Provenance } from "@marswalk/protocol";
 import { AlertStack } from "../ops/AlertStack";
 import { OptionsPanel } from "../ops/OptionsPanel";
+import { ClockControl } from "../ops/ClockControl";
 
 export interface OpsConsoleProps {
   scenarioName?: string;
@@ -282,44 +283,20 @@ export function OpsConsole({
 
         {/* Mission clock controls: ⏸ 1× 10× [60×] ⏭ */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <button
-            style={{
-              ...buttonStyle,
-              backgroundColor: paused ? "var(--edge, #5C6670)" : "var(--raised, #1C2128)",
+          <ClockControl
+            speed={activeSpeed as 1 | 10 | 60}
+            isPaused={paused}
+            activeScenarioId={scenarioName}
+            onSetSpeed={(s) => {
+              setActiveSpeed(s);
+              onClockCommand?.("SET_SPEED", s);
             }}
-            onClick={() => {
-              const next = !paused;
-              setPaused(next);
-              onClockCommand?.(next ? "PAUSE" : "RESUME");
+            onPauseResume={(p) => {
+              setPaused(p);
+              onClockCommand?.(p ? "PAUSE" : "RESUME");
             }}
-            aria-label="Pause or resume mission clock"
-          >
-            {paused ? "▶" : "⏸"}
-          </button>
-          {[1, 10, 60].map((spd) => (
-            <button
-              key={spd}
-              style={{
-                ...buttonStyle,
-                backgroundColor:
-                  activeSpeed === spd ? "var(--edge, #5C6670)" : "var(--raised, #1C2128)",
-              }}
-              onClick={() => {
-                setActiveSpeed(spd);
-                onClockCommand?.("SET_SPEED", spd);
-              }}
-              aria-label={`Set clock speed to ${spd}x`}
-            >
-              {spd}×
-            </button>
-          ))}
-          <button
-            style={buttonStyle}
-            onClick={() => onClockCommand?.("STEP")}
-            aria-label="Step clock forward by one tick"
-          >
-            ⏭
-          </button>
+            onJumpNextEvent={() => onClockCommand?.("STEP")}
+          />
           <span style={{ marginLeft: "8px", cursor: "pointer" }} aria-label="Sound status">
             🔊
           </span>

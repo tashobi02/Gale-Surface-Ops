@@ -8,6 +8,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { OpsConsole } from "../../src/ui/screens/scr11OpsConsole";
 import { Join } from "../../src/ui/screens/scr10Join";
+import { ClockControl } from "../../src/ui/ops/ClockControl";
 import { wsFixtures, type Beat } from "../fixtures/ws";
 
 describe("SCR-11 Ops console layout (04 §E.4, FR-31, FR-34)", () => {
@@ -89,6 +90,31 @@ describe("Mission clock controls and Join screen (04 §E.4, FR-30, FR-31)", () =
     expect(html).toMatch(/1×|1x/i);
     expect(html).toMatch(/10×|10x/i);
     expect(html).toMatch(/60×|60x/i);
+  });
+
+  it("ClockControl component supports pause/resume, speed buttons, scenario loading and start EVA", () => {
+    const htmlRunning = renderToStaticMarkup(
+      createElement(ClockControl, {
+        speed: 60,
+        isPaused: false,
+        sessionState: "RUNNING",
+        activeScenarioId: "storm-sol4190",
+      })
+    );
+
+    expect(htmlRunning).toContain("60×");
+    expect(htmlRunning).toContain("aria-pressed=\"true\"");
+    expect(htmlRunning).toContain("⏸");
+    expect(htmlRunning).toContain("storm-sol4190");
+
+    const htmlLoaded = renderToStaticMarkup(
+      createElement(ClockControl, {
+        sessionState: "LOADED",
+        isPaused: true,
+      })
+    );
+    expect(htmlLoaded).toContain("START EVA");
+    expect(htmlLoaded).toContain("▶");
   });
 
   it("join screen (SCR-10) displays available roles, role-taken state, and connecting/unreachable states", () => {
