@@ -1,11 +1,37 @@
 /*
- * Design tokens — docs/specs/04 §C (v2, "mission brutalism"). Contrast ratios are computed in 04.
- * Change 04 first, then this file. Components use the semantic tokens (--surface-*, --text-*,
- * --status-*), never the primitives, so a mode switch on <html data-mode> restyles everything.
+ * Design tokens — contract C12 v1 — docs/specs/04 §C (v2, "mission brutalism").
+ * Contract version: C12 v1  (frozen T13.01, 2026-11-07)
+ * Append-only after this merge: add new properties at the END of their section block with a 04 §C
+ * reference. Renames need a `contract-change:` commit that updates all consumers simultaneously.
+ *
+ * HOW TO CONSUME
+ * - Use semantic tokens (--surface-*, --fg-*, --status-*) only; never copy hex values into
+ *   component CSS. JS/Canvas consumers: read colours with getComputedStyle() (never hard-code hex).
+ *
+ * STATUS CLASS NAMES (C12) — used in patterns.css and statusIcon.ts (T13.05):
+ *   .status-nominal   ok / within limits (--status-nominal, ✓ circle, solid fill)
+ *   .status-caution   act soon / near limit (--status-caution, ▲ triangle, diagonal hatch)
+ *   .status-warning   act now / limit exceeded (--status-warning, ⬣ octagon, cross-hatch)
+ *   .status-unknown   no data / not modelled (--status-unknown, ? diamond, dotted)
+ * Note: v1 names ok/caution/blocked/unknown map to nominal/caution/warning/unknown (04 Appendix A).
+ * Pattern classes in patterns.css use the same names (T13.05).
+ *
+ * PRINT THEME MECHANISM (C12 decision):
+ * Screen token names are re-mapped inside `@media print` using the --print-* primitives already
+ * declared below. No separate --print-* class is needed; the mode stays what it was before print.
+ *
+ * IMPORTED CSS FILES (must stay imported here so main.ts needs no edit — Spec question 4):
+ * @import base.css     — typography defaults, focus ring, reduced-motion (T13.04)
+ * @import patterns.css — status pattern classes and statusIcon styles (T13.05)
+ * @import light.css    — light-theme token overrides, only if U-08 projector check fails (T13.08)
  *
  * Rule (04 §A.3.1): status colours mean status only. Brand orange never appears in OPS or HUD
  * except the logo mark.
  */
+
+@import "./base.css";
+@import "./patterns.css";
+@import "./light.css";
 
 /* ---------------------------------------------------------------- primitives */
 :root {
@@ -61,6 +87,16 @@
   --slope-15-25: #E4572E;  /* 65 % + hatch */
   --slope-gt-25: #8B1E3F;  /* 75 % + cross-hatch */
   --traverse: #E8EDF2;     /* 60 % dashed */
+  /* Route widths (04 §C.1 Map overlays): 4 px route + 2 px void casing ≥ 5 : 1 on ochre */
+  --route-width: 4px;        /* 04 §C.1 */
+  --route-casing: 2px;       /* 04 §C.1 */
+  /* Slope-class opacities (04 §C.1 slope ramp) */
+  --slope-opacity-5-10: 0.40;   /* 04 §C.1 */
+  --slope-opacity-10-15: 0.55;  /* 04 §C.1 */
+  --slope-opacity-15-25: 0.65;  /* 04 §C.1 */
+  --slope-opacity-gt-25: 0.75;  /* 04 §C.1 */
+  /* Comm shadow (04 §C.1 v2): 45° hatch, text-3 at 35 % */
+  --comm-shadow-opacity: 0.35;  /* 04 §C.1 v2 */
 
   /* Typography (04 §C.2) — self-hosted, offline; licences verified in TASK-13 */
   --font-display: "Chakra Petch", "Space Grotesk", sans-serif;
@@ -94,6 +130,10 @@
   --topbar-height: 48px;
   --meta-strip-height: 24px;
   --alert-bar-height: 64px;
+  /* Narrow-viewport results panel height 1024–1279 px (04 §F Responsive) */
+  --results-height-narrow: 180px;  /* 04 §F */
+  /* Selection outline width (04 §C.5; not a colour — route colour used) */
+  --selection-width: 2px;          /* 04 §C.5 */
 
   /* Motion (04 §C.6) */
   --motion-fast: 150ms;
@@ -275,6 +315,29 @@ a { text-decoration: underline; text-underline-offset: 2px; }
 
 /* Stale values (04 §D.5) */
 .is-stale { color: var(--fg-3); }
+
+/* ------------------------------------------------- print theme (04 §C.1 PRINT)
+ * Remap screen semantic tokens to print-theme primitives inside @media print.
+ * Decision (C12): @media print override — no separate class or data-mode switch needed.
+ * Patterns kept for black-and-white printers (04 §C.1). */
+@media print {
+  :root,
+  [data-mode] {
+    --surface-0: #FFFFFF;
+    --surface-1: #FFFFFF;
+    --surface-2: #F3F4F6;
+    --line: #D1D5DB;
+    --fg-1: var(--print-text);
+    --fg-2: var(--print-text);
+    --fg-3: #4B5563;
+    --accent: var(--print-text);
+    --status-nominal: var(--print-nominal);
+    --status-caution: var(--print-caution);
+    --status-warning: var(--print-warning);
+    --status-advisory: var(--print-text);
+    --status-unknown: var(--print-text);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
