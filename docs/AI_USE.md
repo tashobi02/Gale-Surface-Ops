@@ -93,6 +93,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T20.13: changed the web client's reconnect (1 s backoff cap; a SNAPSHOT keeps the event feed; replayed EVENTs join it without changing state) and its tests, tests first | No numbers beyond the 1 s cap from the 7 Nov decision and NFR-13; new cases red before the change | Decisions by Sadman Shaharier Mahim (2026-11-07); PR review | This Claude Code session |
 | 2026-11-07 | Claude Code (Sonnet 5.5, subagent) | T22.17: made the fake-scenario generator hash RFC 8785 canonical JSON (JavaScript number format in pure Python) | Expected number strings taken from Node output; regenerated fixture files byte-identical; `fixture.test.ts` recomputes the hash in JavaScript | Decision by Sadman Shaharier Mahim (2026-11-07); code review pending | This Claude Code session |
 
+| 2026-11-07 | Antigravity (Gemini) | T13.11: self-hosted Lucide outline SVG icons (v1.70.0, ISC licence) under apps/web/public/icons/ for 04 §C.4 and §C.1 requirements; added README.md and LICENSE; verified no CDN references | Downloaded exact upstream Lucide static package; invented no icons; licence file preserved verbatim | Ridita Alam | This Antigravity session (conversation 56455a5c) |
+
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).
