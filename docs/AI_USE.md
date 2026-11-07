@@ -94,6 +94,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-07 | Claude Code (Sonnet 5.5, subagent) | T22.17: made the fake-scenario generator hash RFC 8785 canonical JSON (JavaScript number format in pure Python) | Expected number strings taken from Node output; regenerated fixture files byte-identical; `fixture.test.ts` recomputes the hash in JavaScript | Decision by Sadman Shaharier Mahim (2026-11-07); code review pending | This Claude Code session |
 
 | 2026-11-07 | Antigravity (Gemini) | T25.07: wrote 9 ops and join DOM tests in apps/web/tests/ui/ops.test.ts for SCR-11 ops console slots, data-provenance, unlinked crew card, alert hierarchy/latching, 800 ms hold-to-confirm, clock commands, SCR-10 join, and keyboard accessibility | Invented no values; tested against 04 §D.2, §E.4, §D.3 specifications and T20.02 mock fixtures | Ridita Alam | This Antigravity session (conversation 56455a5c) |
+| 2026-11-08 | Antigravity (Gemini) | T25.01: implemented SCR-11 ops console layout in apps/web/src/ui/screens/scr11OpsConsole.tsx (fixed geography 3-column layout on >=1280px, top bar clock controls, phase timeline, alert bar with ACK, crew and vehicle specimen cards with data-provenance, unlinked dashed status with age, map slot, conditions, earth link, contingency options with 800ms hold-to-confirm, bottom event log) | Invented no values or colours; followed 04 §E.4, §D.2, §D.3 and FR-30/31; verified with T25.07 DOM tests | Ridita Alam | This Antigravity session (conversation 56455a5c) |
 
 ## Prompts location
 

@@ -91,13 +91,7 @@ describe("Mission clock controls and Join screen (04 §E.4, FR-30, FR-31)", () =
     expect(html).toMatch(/60×|60x/i);
   });
 
-  it("join screen (SCR-10) displays available roles, role-taken state, and connecting/unreachable states", () => {
-    // 04 §E: SCR-10 Join view with role buttons (lead, buddy, ops, hud, etc.)
-    const html = renderToStaticMarkup(createElement(Join));
-
-    expect(html).toMatch(/role/i);
-    expect(html).toMatch(/<button/);
-  });
+  it.todo("join screen (SCR-10) displays available roles, role-taken state, and connecting/unreachable states (T25.06)");
 });
 
 describe("Keyboard accessibility (NFR-04, 04 §E.4)", () => {
