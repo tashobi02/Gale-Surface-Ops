@@ -132,11 +132,11 @@ describe("Hab Core web client (T20.05 → T20.06)", () => {
     expect(c.lastSeq()).toBe(420);
   });
 
-  it("reconnects with backoff 0.5 s → 5 s and sends HELLO with the last applied seq (NFR-13)", () => {
+  it("reconnects with backoff 0.5 s → 1 s cap and sends HELLO with the last applied seq (NFR-13)", () => {
     const c = start();
     latest().open();
     latest().receive(snapshot);
-    const delays = [500, 1000, 2000, 4000, 5000, 5000];
+    const delays = [500, 1000, 1000, 1000, 1000];
     for (const d of delays) {
       const before = sockets.length;
       latest().drop();
@@ -148,6 +148,54 @@ describe("Hab Core web client (T20.05 → T20.06)", () => {
     latest().open();
     expect(latest().sent[0]).toMatchObject({ type: "HELLO", last_seq: c.lastSeq() });
     expect(c.lastSeq()).toBe(412);
+  });
+
+  it("never waits longer than 1 s before a retry, however long the outage (NFR-13 reconnect <= 2 s)", () => {
+    start();
+    for (let i = 0; i < 12; i++) {
+      const before = sockets.length;
+      if (i === 0) latest().open();
+      latest().drop();
+      vi.advanceTimersByTime(1000);
+      expect(sockets.length, `retry ${i + 1} within 1000 ms`).toBe(before + 1);
+    }
+  });
+
+  it("keeps the event feed when a SNAPSHOT arrives on reconnect (T20.13, 02 §E.6)", () => {
+    const c = start();
+    latest().open();
+    latest().receive(snapshot, wsFixtures["radiation-alert"][0]);
+    expect(c.events().map((e) => e.seq)).toEqual([420]);
+    latest().drop();
+    vi.advanceTimersByTime(500);
+    latest().open();
+    latest().receive({ ...snapshot, seq: 430 });
+    expect(c.events().map((e) => e.seq)).toEqual([420]);
+    expect(c.lastSeq()).toBe(430);
+    expect(c.state()?.seq).toBe(430);
+  });
+
+  it("adds replayed EVENTs at or below the SNAPSHOT seq to the feed, deduped by seq, without changing state (T20.13)", () => {
+    const c = start();
+    latest().open();
+    latest().receive(snapshot, wsFixtures["radiation-alert"][0]); // seq 420 in the feed
+    latest().drop();
+    vi.advanceTimersByTime(500);
+    latest().open();
+    const fresh = { ...snapshot, seq: 430 };
+    latest().receive(fresh);
+    const stateBefore = c.state();
+    const alert = wsFixtures["radiation-alert"][0] as Extract<ServerMessage, { type: "EVENT" }>;
+    const at = (n: number): ServerMessage => ({ ...alert, seq: n, event: { ...alert.event, seq: n } });
+    // Replay after last_seq 420: 421 and 425 are new and sit below the SNAPSHOT's 430; 420 repeats.
+    latest().receive(at(421), at(420), at(425), at(421));
+    expect(c.events().map((e) => e.seq)).toEqual([420, 421, 425]);
+    expect(c.state()).toBe(stateBefore); // same reference: state did not change
+    expect(c.lastSeq()).toBe(430);
+    // A new live event above the SNAPSHOT still advances seq.
+    latest().receive(at(431));
+    expect(c.events().map((e) => e.seq)).toEqual([420, 421, 425, 431]);
+    expect(c.lastSeq()).toBe(431);
   });
 
   it("raises HAB LINK LOST after LINK_LOST_AFTER_MS without a PING and clears it on the next PING (FR-32)", () => {
