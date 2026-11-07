@@ -169,7 +169,7 @@
 - **Acceptance:**
   - Serves: FR-44 · [02 §D.15](../specs/02_Technical_Requirements_Document.md#d15-contingency-options-fr-44)
   - Each rule above is one named test.
-- **Verify:** `npm --workspace @marswalk/hab-core test -- contingencyOps` fails before T23.07 and passes after.
+- **Verify:** `PENDING_RED=1 npm --workspace @marswalk/hab-core test -- contingencyOps` fails before T23.07 and passes after (without `PENDING_RED` the suite skips itself while `contingencyOps.ts` is the stub).
 - **Agent brief:** Write option and approval tests following 03 §E.5.
 - **Conflict notes:** Pair T23.06 → T23.07.
 
