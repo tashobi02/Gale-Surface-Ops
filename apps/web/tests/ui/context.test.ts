@@ -58,7 +58,6 @@ describe("T07.01 UI Context and Module Stubs (Contract C10)", () => {
 
   it("stubs throw TODO(<owner id>) per the C10 stub convention", async () => {
     expect(() => validateSite({} as any)).toThrow("TODO(T14.03)");
-    expect(() => createWorkerClient()).toThrow("TODO(T07.04)");
     expect(() => initDebugOverlay({} as any, {} as any)).toThrow("TODO(T07.13)");
     expect(() => createMap({} as any)).toThrow("TODO(T07.06)");
     expect(() => createRasterLayers({} as any)).toThrow("TODO(T07.07)");
