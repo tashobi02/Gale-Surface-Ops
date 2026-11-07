@@ -670,23 +670,27 @@ describe("vehicleTimeField (T_veh)", () => {
     expect(timeAt(veh, fx.shape.hab.x_m, fx.shape.hab.y_m)).toBeCloseTo(fx.shape.vehicleToHab_m / vvOf(pr1Params), 6);
   });
 
-  it("aggregation (Proposed): a 10 m cell is passable only if all its 5 m children are, so one hazard child blocks the parent", () => {
-    const fx = havenFlat();
-    const g = geoOf(fx.grid);
-    const hazard = { x_m: -1000, y_m: 0 };
-    fx.grid.flags[mustCell(g, hazard)]! |= HARD_BIT;
-    const veh = vehicleTimeField(fx.grid, fx.shape.vehicle, pr1Params);
-    const parent = mustCell(veh, hazard);
-    let children = 0;
-    for (let k = 0; k < fx.grid.flags.length; k++) {
-      const c = centreOf(g, k);
-      if (mustCell(veh, c) !== parent) continue;
-      children++;
-      expect(timeAt(veh, c.x_m, c.y_m), `child (${c.x_m}, ${c.y_m})`).toBe(Infinity); // free on the 5 m grid, blocked here
+  it("aggregation (Proposed): a 10 m cell is passable only if all its 5 m children are, whichever single child is a hazard", () => {
+    const probe = { x_m: -1000, y_m: 0 };
+    const base = havenFlat();
+    const g = geoOf(base.grid);
+    const parentOf = (veh: TimeField) => mustCell(veh, probe);
+    const children: number[] = [];
+    const veh0 = vehicleTimeField(base.grid, base.shape.vehicle, pr1Params);
+    for (let k = 0; k < base.grid.flags.length; k++) if (mustCell(veh0, centreOf(g, k)) === parentOf(veh0)) children.push(k);
+    expect(children.length).toBe(4);
+    expect(timeAt(veh0, probe.x_m, probe.y_m)).toBeLessThan(Infinity); // free without the hazard
+    for (const hazardChild of children) {
+      const fx = havenFlat();
+      fx.grid.flags[hazardChild]! |= HARD_BIT;
+      const veh = vehicleTimeField(fx.grid, fx.shape.vehicle, pr1Params);
+      for (const k of children) {
+        const c = centreOf(g, k);
+        expect(timeAt(veh, c.x_m, c.y_m), `hazard ${hazardChild}, child ${k}`).toBe(Infinity); // free on the 5 m grid, blocked here
+      }
+      expect(timeAt(veh, probe.x_m + 20, probe.y_m)).toBeLessThan(Infinity);
+      expect(timeAt(veh, probe.x_m - 20, probe.y_m)).toBeLessThan(Infinity);
     }
-    expect(children).toBe(4);
-    expect(timeAt(veh, hazard.x_m + 20, hazard.y_m)).toBeLessThan(Infinity);
-    expect(timeAt(veh, hazard.x_m - 20, hazard.y_m)).toBeLessThan(Infinity);
   });
 
   it("aggregation: the 1-cell-thick 5 m wall becomes a 10 m obstacle, including the free half of its parent", () => {
