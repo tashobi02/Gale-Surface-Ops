@@ -1,7 +1,7 @@
 /**
  * HTTP + WebSocket server (docs/specs/02 §E.5–E.6; FR-30, FR-31, NFR-08, NFR-12, NFR-13). T20.04.
- * Fastify serves the web app and site data; `ws` handles /ws: HELLO → SNAPSHOT or replay after
- * `last_seq`, EVENTs fanned out immediately, STATE_DELTAs coalesced to ≤ 10 Hz per client
+ * Fastify serves the web app and site data; `ws` handles /ws: HELLO → SNAPSHOT, then the EVENTs after
+ * `last_seq` on a reconnect, EVENTs fanned out immediately, STATE_DELTAs coalesced to ≤ 10 Hz per client
  * (02 §D.14), COMMAND → exactly one COMMAND_RESULT, PING every HEARTBEAT_MS.
  * Binds 0.0.0.0 by default so phones on the habitat LAN can join. No outbound network requests,
  * ever (NFR-01, NFR-08).
@@ -173,11 +173,14 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     if (typeof last_seq !== "number" || !Number.isInteger(last_seq) || last_seq < 0) return;
     Object.assign(client, { role, client_id, display_name, joined: true });
     if (!session) return;
-    const gap = head().seq - last_seq;
+    // Always a fresh SNAPSHOT first: state changed only by STATE_DELTA during the gap is otherwise
+    // lost (NFR-13). On a reconnect (last_seq > 0) with a small gap, the missed EVENTs follow it;
+    // a gap above MAX_REPLAY_GAP gets the SNAPSHOT only (02 §E.6).
+    const snapshot = session.snapshot(clientList(clients));
+    send(client, snapshot);
+    const gap = snapshot.seq - last_seq;
     if (last_seq > 0 && gap >= 0 && gap <= MAX_REPLAY_GAP) {
       for (const event of session.eventsAfter(last_seq)) send(client, eventMessage(event));
-    } else {
-      send(client, session.snapshot(clientList(clients)));
     }
   }
 
