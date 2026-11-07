@@ -9,6 +9,9 @@
  * - Each case reads only `event.data` and the current state; no science is recomputed (05 LogEvent).
  * - Every event sets `session.last_seq` and `session.clock.sim_time`. `session.log_hash` belongs to
  *   the session manager (T22.12), which copies it from the log.
+ * - CREW_SHELTERED with `haven_kind "hab"` sets IN_HAB only from WALKING or AT_STOP (03 §E.8 "Walking →
+ *   InHab: plan complete"; proposed 2026-11-07, T22.09); from TO_HAVEN, and for any other kind, it
+ *   sets SHELTERED (03 §E.8 "ToHaven → Sheltered").
  * - Warnings and cautions latch: an alert leaves `alerts` once it is both acknowledged and cleared;
  *   an advisory leaves on clear (03 §E.7).
  * - Executing an option (PLAN_REVISED with an `option_id`) sends that option's crew TO_HAVEN unless
@@ -20,6 +23,7 @@ import type {
   CommandResult,
   ContingencyOption,
   Crew,
+  CrewId,
   EarthMessage,
   LinkState,
   LogEvent,
@@ -50,10 +54,41 @@ export interface EngineState {
   earthQueue: EarthMessage[];
   /** FR-36 conditions feed values. TASK-22 (T22.16). */
   conditions: ConditionsState;
+  /**
+   * Walk progress per crew member, written only by tick.ts (T22.09; `TODO(decision)` S1). Engine-only:
+   * it is saved in snapshots so resume continues the walk, and never sent to clients.
+   */
+  motion: Partial<Record<CrewId, CrewMotion>>;
+}
+
+/**
+ * Where a crew member is on the plan's legs. `phase` "wait" counts `t_s` toward `start_offset_s`;
+ * "walk" is `t_s` seconds into leg `leg_index`; "dwell" is `t_s` seconds into the stop dwell before
+ * leg `leg_index`; "hold" is the end of the route. `last_wp_id` is the last waypoint reached.
+ */
+export interface CrewMotion {
+  plan_revision: number;
+  phase: "wait" | "walk" | "dwell" | "hold";
+  leg_index: number;
+  t_s: number;
+  last_wp_id: string;
+}
+
+/**
+ * True while a crew member waits out `start_offset_s` at the start (S4): still `WALKING` by activity,
+ * but not out yet. Without a motion record the scenario's offset decides.
+ */
+export function isWaiting(c: Crew, m: CrewMotion | undefined, offset_s: number): boolean {
+  return c.activity === "WALKING" && (m === undefined ? offset_s > 0 : m.phase === "wait");
 }
 
 /** A LogEvent before the log assigns its `seq`. */
-export type PendingEvent = Omit<LogEvent, "seq">;
+export type PendingEvent = Omit<LogEvent, "seq" | "command_ref"> & { command_ref?: LogEvent["command_ref"] };
+
+/** The LogEvent a pending event becomes at `seq`; engine modules leave `command_ref` out, so it is null. */
+export function logged(pending: PendingEvent, seq: number): LogEvent {
+  return { ...pending, command_ref: pending.command_ref ?? null, seq };
+}
 
 /** What a command handler returns; commands.ts (T23.02) answers COMMAND_RESULT from it. */
 export interface CommandOutcome {
@@ -80,7 +115,7 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
       data_version: s.data_version,
       seed: s.seed,
       status: "LOADED",
-      // TODO(decision): 05 gives no initial speed; 1× until the first SET_CLOCK (CLOCK_CHANGED).
+      // 1× and not paused until the first SET_CLOCK (CLOCK_CHANGED); decided 2026-11-07 (05 Session clock).
       clock: { sim_time: s.start_utc, speed: 1, paused: false },
       // The published plan is revision 1; each PLAN_REVISED carries the new number (05 Session).
       plan_revision: 1,
@@ -125,6 +160,7 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
     earth: { light_time_s: firstEarthRow?.light_time_s ?? 0, next_pass_utc: null, blackout: false },
     earthQueue: [],
     conditions: { ltst: null, sun_elevation_deg: null, dose_rate_background_ugy_h: null, dose_rate_event_ugy_h: null, provenance: {} },
+    motion: {},
   };
 }
 
@@ -171,13 +207,16 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
     case "OPTIONS_PROPOSED":
       return { ...next, options: [...next.options.filter((o) => o.alert_id !== e.data.alert_id), ...e.data.options] };
     case "PLAN_REVISED": {
-      // TODO(decision): 05 gives PLAN_REVISED no waypoints (fields Proposed), so `plan` keeps the
-      // published waypoints until the data carries the revised ones (T23.07).
+      // The revised waypoints and legs replace the plan's, so the map shows the new route; a
+      // published plan arrives whole in `plan` (decided 2026-11-07).
       const option = next.options.find((o) => o.option_id === e.data.option_id);
       const toHaven = option && option.kind !== "CONTINUE_SKIP" ? option.crew_ids : [];
+      const base = e.data.plan ?? next.plan;
       return {
         ...next,
         session: { ...next.session, plan_revision: e.data.plan_revision },
+        // `?? base…` keeps logs written before 2026-11-07 (no waypoints/legs in the data) readable.
+        plan: base && { ...base, waypoints: e.data.waypoints ?? base.waypoints, result: { ...base.result, legs: e.data.legs ?? base.result.legs } },
         options: option ? next.options.filter((o) => o.alert_id !== option.alert_id) : next.options,
         crew: updateCrew(next.crew, toHaven, () => ({ activity: "TO_HAVEN" })),
       };
@@ -211,7 +250,9 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
       return {
         ...next,
         crew: updateCrew(next.crew, [e.data.crew_id], (c) => ({
-          activity: "SHELTERED",
+          // Back in the hab at the end of the plan is "plan complete" (03 §E.8) for a crew member who
+          // walked or stood at a stop; one sent to a haven is Sheltered (ToHaven → Sheltered), as is any other kind.
+          activity: e.data.haven_kind === "hab" && (c.activity === "WALKING" || c.activity === "AT_STOP") ? "IN_HAB" : "SHELTERED",
           dose_event_ugy: e.data.dose_event_ugy,
           dose_event_unsheltered_ugy: e.data.dose_event_unsheltered_ugy,
           haven: { ...c.haven, kind: e.data.haven_kind },

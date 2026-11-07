@@ -45,7 +45,7 @@ const MESSAGE_KEYS: { [K in Exclude<ServerMessage["type"], "COMMAND_RESULT">]: K
 };
 const RESULT_OK_KEYS: Keys<Extract<CommandResult, { ok: true }>> = { v: true, type: true, command_id: true, ok: true, event_seq: true };
 const RESULT_FAIL_KEYS: Keys<Extract<CommandResult, { ok: false }>> = { v: true, type: true, command_id: true, ok: true, code: true, message: true };
-const LOG_EVENT_KEYS: KeySpec<LogEvent> = { seq: "req", sim_time: "req", kind: "req", actor: "req", data: "req", provenance: "req", inputs_hash: "opt", command_ref: "opt" };
+const LOG_EVENT_KEYS: KeySpec<LogEvent> = { seq: "req", sim_time: "req", kind: "req", actor: "req", data: "req", provenance: "req", inputs_hash: "opt", command_ref: "req" };
 const COMMAND_REF_KEYS: Keys<NonNullable<LogEvent["command_ref"]>> = { client_id: true, command_id: true };
 const STOP = { crew_id: "req", stop_id: "req", stop_index: "req" } as const;
 const LOG_EVENT_DATA_KEYS: { [K in LogEventKind]: KeySpec<LogEventData[K]> } = {
@@ -53,11 +53,12 @@ const LOG_EVENT_DATA_KEYS: { [K in LogEventKind]: KeySpec<LogEventData[K]> } = {
   EVA_STARTED: { crew_ids: "req", plan_revision: "req" },
   ARRIVED_STOP: STOP,
   LEFT_STOP: STOP,
-  ALERT_RAISED: { alert_id: "req", code: "req", level: "req", subjects: "req", message: "req", rate_ugy_h: "opt", threshold_ugy_h: "opt", source: "opt" },
+  ALERT_RAISED: { alert_id: "req", code: "req", level: "req", subjects: "req", message: "req", rate_ugy_h: "opt", threshold_ugy_h: "opt", source: "opt",
+    o2_remaining_min: "opt", haven_min: "opt", haven_kind: "opt", margin: "opt", threshold_margin: "opt", distance_m: "opt", threshold_m: "opt" },
   ALERT_ACKED: { alert_id: "req", acked_by: "req" },
   ALERT_CLEARED: { alert_id: "req" },
   OPTIONS_PROPOSED: { alert_id: "req", options: "req" },
-  PLAN_REVISED: { plan_revision: "req", option_id: "req", stops_dropped: "req" },
+  PLAN_REVISED: { plan_revision: "req", option_id: "req", stops_dropped: "req", waypoints: "req", legs: "req", plan: "opt" },
   VEHICLE_DISPATCHED: { vehicle_id: "req", option_id: "opt", rendezvous: "opt", task: "opt", target: "opt", item: "opt" },
   VEHICLE_ARRIVED: { vehicle_id: "req", x_m: "req", y_m: "req" },
   CREW_SHELTERED: { crew_id: "req", haven_kind: "req", dose_event_ugy: "req", dose_event_unsheltered_ugy: "req" },
