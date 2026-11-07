@@ -4,7 +4,7 @@
 | --- | --- |
 | Objective | The v2 science in `packages/compute`: time-to-haven fields, crew–vehicle rendezvous, dynamic relay viewshed, surface link graph, Earth delivery rule, event dose integral and trigger, suit consumables, contingency ranking (02 §D.8–§D.15); pure, deterministic, tested on synthetic grids, then checked on the real grid |
 | Requirements | FR-35, FR-38, FR-39, FR-40, FR-42, FR-43, FR-44, NFR-02, NFR-06 |
-| Lane / owner role | compute — R2 Compute: Mishkat Ahmed Khan (haven, rendezvous, contingency, benchmarks) and Anjim Hossain (viewshed, link graph, Earth delivery, event dose, consumables) |
+| Lane / owner role | compute — R2 Compute: Mishkat Ahmed Khan (haven, rendezvous, contingency, benchmarks) and Anjim Hossain (viewshed, link graph, Earth delivery, event dose, consumables). T05b.01–T05b.07, T05b.18 and T05b.19: Sadman Shaharier Mahim (R4 Hab Core) — taken over from Mishkat Ahmed Khan on 7 Nov, by agreement; T05b.20 and T05b.21 stay with Mishkat |
 | Milestone | M1 (Dijkstra benchmark go/no-go Sat 7 Nov) → M3 (real-grid checks, 10 Nov) |
 | Window | pre-event-if-permitted (T05b.01 and T05b.02 are pre-event-allowed) |
 | Effort (doc 06) | 12–18 h (Mishkat 6–9, Anjim 6–9) |
@@ -34,7 +34,7 @@
 
 ### T05b.01 — Freeze the v2 compute signatures
 
-- **Owner:** Mishkat Ahmed Khan (R2 Compute lead), with Anjim Hossain
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core) — taken over from Mishkat Ahmed Khan on 7 Nov, by agreement
 - **Type:** contract
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -56,7 +56,7 @@
 
 ### T05b.02 — Fixture: synthetic v2 grids
 
-- **Owner:** Mishkat Ahmed Khan (R2 Compute lead)
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core) — taken over from Mishkat Ahmed Khan on 7 Nov, by agreement
 - **Type:** fixture
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -77,7 +77,7 @@
 
 ### T05b.03 — Tests: time to haven (02 §D.8 cases)
 
-- **Owner:** Mishkat Ahmed Khan (R2 Compute lead)
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core) — taken over from Mishkat Ahmed Khan on 7 Nov, by agreement
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -100,7 +100,7 @@
 
 ### T05b.04 — Implement haven fields (reverse Dijkstra, bounded Dijkstra, live and planning forms)
 
-- **Owner:** Mishkat Ahmed Khan (R2 Compute lead)
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core) — taken over from Mishkat Ahmed Khan on 7 Nov, by agreement
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -122,7 +122,7 @@
 
 ### T05b.05 — Verify the full-grid Dijkstra benchmark on the weakest laptop (M1 go/no-go)
 
-- **Owner:** Mishkat Ahmed Khan (R2 Compute lead)
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core) — taken over from Mishkat Ahmed Khan on 7 Nov, by agreement
 - **Type:** verify
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -143,7 +143,7 @@
 
 ### T05b.06 — Tests: rendezvous (02 §D.10 cases)
 
-- **Owner:** Mishkat Ahmed Khan (R2 Compute lead)
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core) — taken over from Mishkat Ahmed Khan on 7 Nov, by agreement
 - **Type:** test
 - **Tag:** agent-ready · cut-6
 - **Window:** pre-event-if-permitted
@@ -165,7 +165,7 @@
 
 ### T05b.07 — Implement the rendezvous search
 
-- **Owner:** Mishkat Ahmed Khan (R2 Compute lead)
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core) — taken over from Mishkat Ahmed Khan on 7 Nov, by agreement
 - **Type:** implement
 - **Tag:** agent-ready · cut-6
 - **Window:** pre-event-if-permitted
@@ -396,7 +396,7 @@
 
 ### T05b.18 — Tests: contingency options and ranking (02 §D.15)
 
-- **Owner:** Mishkat Ahmed Khan (R2 Compute lead)
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core) — taken over from Mishkat Ahmed Khan on 7 Nov, by agreement
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -418,7 +418,7 @@
 
 ### T05b.19 — Implement contingency options and ranking
 
-- **Owner:** Mishkat Ahmed Khan (R2 Compute lead)
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core) — taken over from Mishkat Ahmed Khan on 7 Nov, by agreement
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
