@@ -346,6 +346,7 @@
 - **Parallel with:** T05b.17
 - **Steps:**
   1. Trigger and clear rules from the alert ParamSet; integral Σ r(t)·s(loc)·Δt with gaps handled as the DoseSeries rule says.
+  2. *(2026-11-07, contract note)* `integrateDose` returns `{received_ugy, unsheltered_ugy, gap_s}` instead of one number, so the caller gets both doses (step 3 of T05b.14) and the seconds that fell in a gap. `rateAt` holds the last sample; a gap (null) neither raises nor clears the trigger and adds no dose. First consumer: T22.09.
 - **Acceptance:**
   - Serves: FR-38
   - T05b.14 passes.
