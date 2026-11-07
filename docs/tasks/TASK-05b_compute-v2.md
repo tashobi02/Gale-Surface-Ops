@@ -54,17 +54,65 @@
 - **Agent brief:** Review and freeze the existing v2 stubs against 02 §D.8–§D.15. Types only. Spec constants that are not labelled `Assumed` ParamSet values (horizon radius, `t_ingress`) are named constants with their section cited.
 - **Conflict notes:** Each module's owner takes it over after this merges; later signature changes are `contract-change:` subtasks here.
 
-**Proposed 2026-11-07** (T05b.01 taken over from Mishkat Ahmed Khan by agreement; frozen for `haven.ts`, `rendezvous.ts`, `contingency.ts`; the other modules are proposals for Anjim Hossain):
+**Proposed 2026-11-07** (T05b.01 taken over from Mishkat Ahmed Khan by agreement). `haven.ts`, `rendezvous.ts` and `contingency.ts` are frozen (contract C15, pinned by `packages/compute/tests/contracts.test.ts`). Anjim Hossain's five modules (`viewshed.ts`, `linkGraph.ts`, `earthLink.ts`, `eventDose.ts`, `consumables.ts`) are not frozen: the proposals below wait for his accept or reject, then become `contract-change:` subtasks.
 
-- New stubs in `haven.ts`: `vehiclePassable(grid, params)`, `timeAt(field, x_m, y_m)`, `pathTo(field, x_m, y_m)`, `liveHaven(hab, crew, vehicle, passable, ingress, p)`. `TimeField` gains `origin_m` and `prev`; `havenAlongRoute` takes `ingress: {hab_s, vehicle_s}`.
-- `rendezvous.ts`: `RendezvousOk`; `rendezvousPair(a, b, vehicleFromA, vehicleFromB)` returns `{order, later_arrival_s}` (was `total_s`).
-- `contingency.ts`: `ContingencyInputs` gains `plan`, `scenario` and `ingress`; `ingress_s` is removed.
+Frozen items:
+
+- `haven.ts`: `TimeField` gains `origin_m` and `prev` (`prev` points toward the field's start). New stubs `vehiclePassable(grid, params)`, `timeAt(field, x_m, y_m)`, `pathTo(field, x_m, y_m)` (cell first, start last) and `liveHaven(hab, crew, vehicle, passable, ingress, crew_at)`, which returns `LiveHaven | null` (null = no haven reachable; hab wins a tie). `havenAlongRoute(grid, samples, hab, vehicle, scenario, ingress)` takes the grid so the vehicle branch can test "straight segment is passable" (02 §D.8), and `ingress: {hab_s, vehicle_s}`.
+- `rendezvous.ts`: `RendezvousOk`, `RendezvousPair`; the `rendezvous` parameter is `passable` (the old name shadowed the exported `vehiclePassable`); `crew_path` and `vehicle_path` run from each start to q*. `rendezvousPair(a, b, vehicleFromA, vehicleFromB)` returns `{order, later_arrival_s}` (was `total_s`). Proposed: `later_arrival_s` is the time the vehicle is at the second-visited member's meeting point with that member there, measured from now, excluding ingress (02 §D.10; NFR-06); tie rule `[0, 1]`.
+- `contingency.ts`: `ContingencyInputs` gains `plan`, `scenario`, `ingress` and optional `pair`; `ingress_s` is removed. Proposed: `option_id` is `${alert_id}:${kind}`. A two-crew `VEHICLE_RENDEZVOUS` option reports the first-visited point in `ContingencyOption.rendezvous`; `TODO(decision)`: 05 has a single rendezvous point per option.
 - Named constants (02 §D.8): `HAB_INGRESS_S` (300 s, Assumed; `TODO(decision)`), `VEHICLE_GRID_CELL_M` (10), `HAVEN_SAMPLE_SPACING_M` (50), `HAVEN_PLANNING_RADIUS_M` (300).
-- Open spec questions (no doc edits in T05b.01):
-  1. Hab ingress is labelled Assumed in 02 §D.8, but no ParamSet kind has a key for it (05 says every non-data number lives in a ParamSet).
-  2. The planner's `havenAlongRoute` needs a vehicle start, but 05 `MissionScenario` has only `vehicle_param_set`; `Scenario.vehicles[].start_x_m` exists only on the Hab Core side (T09.09).
-  3. The suit ParamSet's `flat_speed_kmh`, `hard_slope_deg` and `caution_slope_deg` duplicate the `MissionScenario` limits that the crew and hab fields use. Proposed: the published plan's `MissionScenario` wins, plus a loader check that they agree (T22.11). `TODO(decision)`.
-  4. The rule that aggregates the 5 m grid to the 10 m vehicle grid (for example, passable only if all four children are) is not in the spec; T05b.04 decides it.
+
+Open spec questions (no doc edits in T05b.01):
+
+1. `TODO(decision)`: hab ingress is labelled Assumed in 02 §D.8, but no ParamSet kind has a key for it (05 says every non-data number lives in a ParamSet).
+2. `TODO(decision)`: the planner's `havenAlongRoute` needs a vehicle start, but 05 `MissionScenario` has only `vehicle_param_set`; `Scenario.vehicles[].start_x_m` exists only on the Hab Core side (T09.09).
+3. The suit ParamSet's `flat_speed_kmh`, `hard_slope_deg` and `caution_slope_deg` duplicate the `MissionScenario` limits that the crew and hab fields use. Proposed: the published plan's `MissionScenario` wins, plus a loader check that they agree (T22.11). `TODO(decision)`.
+4. `TODO(decision)`: the rule that aggregates the 5 m grid to the 10 m vehicle grid (for example, passable only if all four children are) is not in the spec; T05b.04 decides it.
+
+Proposed signature changes in Anjim Hossain's modules (not frozen; each is forced by 02 or by a consumer):
+
+**viewshed.ts (T05b.09)**
+
+| Item | Current | Proposed | Why |
+| --- | --- | --- | --- |
+| `MARS_RADIUS_M` | `3_396_190` | unchanged; add a JSDoc citing 02 §C.1 (`IAU_2015:49900`) and §D.11 | Named constant, source cited |
+| `horizonDistanceM(height_m)`, `lineOfSight(grid, from, to)` | as is | unchanged | §D.11. Heights are above local terrain; the link graph uses `lineOfSight` |
+| `viewshed(grid, from, target_height_m, radius_m, cell_m)` | returns `Uint8Array` | same arguments; returns `CoverageGrid { cell_m; width; height; origin_m: [number, number]; visible: Uint8Array }` | A bare `Uint8Array` has no geometry. `links.ts` (COMM_SHADOW on the remaining route) and the T29 relay must look up positions. The caller passes `RELAY_VIEWSHED_RADIUS_M` and `RELAY_VIEWSHED_CELL_M`; the arguments stay so tests can use small grids |
+| NEW `RELAY_VIEWSHED_RADIUS_M` | — | `4000` (02 §D.11, "horizon radius") | Named constant |
+| NEW `RELAY_VIEWSHED_CELL_M` | — | `20` (02 §D.11) | Named constant |
+
+**linkGraph.ts (T05b.11)**
+
+| Item | Current | Proposed | Why |
+| --- | --- | --- | --- |
+| `LinkNode` | `{node_id, kind: "hab" \| "suit" \| "rover", x_m, y_m, antenna_m}` | unchanged. The engine fills `antenna_m` from the suit or rover ParamSet `antenna_m`, and the hab from link `hab_mast_m` | ParamSet keys from 05 |
+| `linkStates` | `(nodes, los, params, sim_time): LinkState[]` | `(nodes, los, params, sim_time, previous: readonly LinkState[]): LinkNodeState[]`, where `LinkNodeState extends LinkState { path_to_hab: string[] }` (empty when unlinked) | `since_sim_time` cannot be produced purely without the previous states. `Crew.link_path` (05, e.g. `["EV1","EV2","HAB"]`) needs the BFS path. Ranges come from `range_hab_suit_m`, `range_suit_suit_m`, `range_rover_m` |
+| NEW `HAB_NODE_ID` | — | `"HAB"` (05 Crew `link_path` example) | Named constant |
+
+**earthLink.ts (T05b.13)**
+
+| Item | Current | Proposed | Why |
+| --- | --- | --- | --- |
+| `linkAt` | `(table, t_utc): row` | `(table, t_utc): EarthLinkRow \| null` (null before the first row) | No row exists before the table starts |
+| `nextPassStart` | `(table, t_utc): string \| null` | `(table, t_utc): { start_utc: string; orbiter: "mro" \| "maven" \| "tgo" } \| null` | `EarthMessage.via` needs the orbiter |
+| `inConjunction` | `(table, t_utc, params)` | unchanged (`conjunction_deg`) | §D.12 |
+| `deliveryTime` | `(table, direction, t_send_utc, params): string \| null` | `(…): { deliver_utc: string; via: "mro" \| "maven" \| "tgo" \| "dte"; light_time_s: number } \| null` (null = blackout or no pass). JSDoc: for `to_mars`, `t_send_utc` is the Earth send time (`sent_earth_utc`) | `EARTH_MSG_QUEUED` needs `deliver_utc` and `via` (05 EarthMessage). DTE is used when `params.dte_enabled` |
+| NEW `DTE_MIN_ELEV_DEG` | — | `10` (02 §D.12) | Named constant. A constant rather than reusing `relay_min_elev_deg` |
+
+**eventDose.ts (implemented in T05b.15)**
+
+| Item | Proposed | Note |
+| --- | --- | --- |
+| `rateAt(series, t_utc): number \| null` | as implemented; JSDoc "µGy/h" | |
+| `triggerState(series, t_utc, alertParams)` | as implemented. Replace the literal `highs >= 2` with a named `TRIGGER_CONSECUTIVE_SAMPLES = 2` (02 §D.13) | Behaviour unchanged. The only code change proposed in this module |
+| `integrateDose(series, steps, shielding): EventDose` | as implemented; `EventDose` is already exported | Already matches `tick.ts` and `tick.test.ts`. Also covers contingency's projected dose (future steps along a path) |
+
+`consumables.ts` (`stepO2`, `o2RemainingS`): no change; every coefficient already comes from the suit ParamSet.
+
+**Consumers (all Anjim's)**
+
+T23.03 `havenTick` consumes `liveHaven` from `haven.ts` (frozen in this PR; please confirm the return shape `{haven_s, kind, target_x_m, target_y_m}`). T26.01, T26.04 and T29.03 consume the viewshed, link graph and Earth link changes above.
 
 ### T05b.02 — Fixture: synthetic v2 grids
 

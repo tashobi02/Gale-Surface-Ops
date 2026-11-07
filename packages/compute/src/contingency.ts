@@ -5,7 +5,7 @@
  */
 import type { ContingencyOption, Crew, CrewId, DoseSeries, Leg, MissionScenario, ParamSet, Waypoint } from "@marswalk/protocol";
 import type { HavenIngress, TimeField } from "./haven";
-import type { RendezvousResult } from "./rendezvous";
+import type { RendezvousPair, RendezvousResult } from "./rendezvous";
 
 export interface ContingencyInputs {
   alert_id: string;
@@ -19,6 +19,14 @@ export interface ContingencyInputs {
   rendezvous: Partial<Record<CrewId, RendezvousResult>>;
   /** Hab and vehicle ingress, seconds (HAB_INGRESS_S; rover ParamSet `ingress_min` × 60). */
   ingress: HavenIngress;
+  /**
+   * For two crew with a vehicle: the visiting order and later arrival, precomputed by the caller
+   * with `rendezvousPair`. Absent for one crew member or when either rendezvous is NO_RENDEZVOUS.
+   * A two-crew VEHICLE_RENDEZVOUS option reports the first-visited point in
+   * `ContingencyOption.rendezvous`.
+   * TODO(decision): 05 has a single rendezvous point per option.
+   */
+  pair?: RendezvousPair;
   /** The plan being walked: "continue with skips" needs the dropped stops and the remaining legs (§D.15). */
   plan: { waypoints: Waypoint[]; legs: Leg[] };
   /** User limits, e.g. `max_haven_min`, to report violations. */
@@ -28,7 +36,11 @@ export interface ContingencyInputs {
   shielding: ParamSet;
 }
 
-/** Deterministic ranked options. TASK-05b. */
+/**
+ * Deterministic ranked options (02 §D.15). Proposed: `option_id` is `${alert_id}:${kind}`, so the
+ * same inputs always give the same ids (NFR-06). Ranked by expected dose, then ETA; `rank` 1 = best.
+ * TASK-05b.
+ */
 export function proposeOptions(inputs: ContingencyInputs): ContingencyOption[] {
   throw new Error("TODO(TASK-05b): not implemented");
 }

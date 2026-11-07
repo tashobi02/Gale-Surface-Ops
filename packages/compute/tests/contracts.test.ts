@@ -1,21 +1,23 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import type { Crew, CrewId, DoseSeries, Leg, MissionScenario, ParamSet, Waypoint } from "@marswalk/protocol";
+import type { ContingencyOption, Crew, CrewId, DoseSeries, Leg, MissionScenario, ParamSet, Waypoint } from "@marswalk/protocol";
 import * as compute from "../src";
 import type {
   ContingencyInputs,
-  EventDose,
   HavenIngress,
   LiveHaven,
   LoadedGrid,
   RendezvousOk,
+  RendezvousPair,
   RendezvousResult,
   TimeField,
 } from "../src";
 
 // Contract C15 (docs/tasks/_coordination.md): the frozen signatures of the v2 compute modules
-// (docs/specs/02 §D.8–§D.15). T05b.01. Types and names only: nothing here calls a stub, because
-// every stub throws `TODO(TASK-05b): not implemented` until its own subtask replaces it.
-// `expectTypeOf` is checked by `tsc` (make typecheck); the runtime half checks the names exist.
+// haven.ts, rendezvous.ts and contingency.ts (docs/specs/02 §D.8, §D.10, §D.15). T05b.01.
+// Anjim Hossain's modules (viewshed, linkGraph, earthLink, eventDose, consumables) are NOT frozen:
+// they only get "exists as a function" checks until he accepts or rejects the proposals.
+// Types and names only: no test here calls a stub, except the one that proves each frozen stub
+// still throws `TODO(TASK-05b): not implemented`. `expectTypeOf` is checked by `tsc` (make typecheck).
 
 type XY = { x_m: number; y_m: number };
 
@@ -32,28 +34,41 @@ const FROZEN_FUNCTIONS = [
   // 02 §D.10
   "rendezvous",
   "rendezvousPair",
-  // 02 §D.11
+  // 02 §D.15
+  "proposeOptions",
+] as const;
+
+const NOT_FROZEN_ANJIM_FUNCTIONS = [
+  // viewshed.ts, 02 §D.11
   "horizonDistanceM",
   "lineOfSight",
   "viewshed",
-  // 02 §D.11 link graph, §D.12 Earth link
+  // linkGraph.ts, 02 §D.11; earthLink.ts, 02 §D.12
   "linkStates",
   "linkAt",
   "nextPassStart",
   "inConjunction",
   "deliveryTime",
-  // 02 §D.13, §D.14
+  // eventDose.ts, 02 §D.13; consumables.ts, 02 §D.14
   "rateAt",
   "triggerState",
   "integrateDose",
   "stepO2",
   "o2RemainingS",
-  // 02 §D.15
-  "proposeOptions",
 ] as const;
 
-describe("C15 exported names", () => {
+describe("C15 exported names (frozen: haven, rendezvous, contingency)", () => {
   it.each(FROZEN_FUNCTIONS)("%s is exported as a function", (name) => {
+    expect(typeof (compute as Record<string, unknown>)[name]).toBe("function");
+  });
+  it.each(FROZEN_FUNCTIONS)("%s is still a stub that throws", (name) => {
+    const stub = (compute as unknown as Record<string, () => unknown>)[name];
+    expect(() => stub()).toThrow("TODO(TASK-05b): not implemented");
+  });
+});
+
+describe("C15 not frozen (Anjim's modules): exported names only", () => {
+  it.each(NOT_FROZEN_ANJIM_FUNCTIONS)("%s is exported as a function", (name) => {
     expect(typeof (compute as Record<string, unknown>)[name]).toBe("function");
   });
 });
@@ -88,12 +103,12 @@ describe("C15 haven signatures (02 §D.8)", () => {
     expectTypeOf(compute.crewTimeField).parameters.toEqualTypeOf<[LoadedGrid, XY, MissionScenario, number]>();
     expectTypeOf(compute.crewTimeField).returns.toEqualTypeOf<TimeField>();
   });
-  it("havenAlongRoute takes the ingress split and returns seconds per sample", () => {
-    expectTypeOf(compute.havenAlongRoute).parameters.toEqualTypeOf<[XY[], TimeField, TimeField | null, MissionScenario, HavenIngress]>();
+  it("havenAlongRoute takes the grid and the ingress split and returns seconds per sample", () => {
+    expectTypeOf(compute.havenAlongRoute).parameters.toEqualTypeOf<[LoadedGrid, XY[], TimeField, TimeField | null, MissionScenario, HavenIngress]>();
     expectTypeOf(compute.havenAlongRoute).returns.toEqualTypeOf<number[]>();
     expectTypeOf<HavenIngress>().toEqualTypeOf<{ hab_s: number; vehicle_s: number }>();
   });
-  it("vehiclePassable, timeAt, pathTo, liveHaven", () => {
+  it("vehiclePassable, timeAt, pathTo, liveHaven (null = no haven reachable)", () => {
     expectTypeOf(compute.vehiclePassable).parameters.toEqualTypeOf<[LoadedGrid, ParamSet]>();
     expectTypeOf(compute.vehiclePassable).returns.toEqualTypeOf<Uint8Array>();
     expectTypeOf(compute.timeAt).parameters.toEqualTypeOf<[TimeField, number, number]>();
@@ -101,7 +116,7 @@ describe("C15 haven signatures (02 §D.8)", () => {
     expectTypeOf(compute.pathTo).parameters.toEqualTypeOf<[TimeField, number, number]>();
     expectTypeOf(compute.pathTo).returns.toEqualTypeOf<[number, number][]>();
     expectTypeOf(compute.liveHaven).parameters.toEqualTypeOf<[TimeField, TimeField, TimeField | null, Uint8Array | null, HavenIngress, XY]>();
-    expectTypeOf(compute.liveHaven).returns.toEqualTypeOf<LiveHaven>();
+    expectTypeOf(compute.liveHaven).returns.toEqualTypeOf<LiveHaven | null>();
     expectTypeOf<LiveHaven>().toEqualTypeOf<{ haven_s: number; kind: "hab" | "vehicle"; target_x_m: number; target_y_m: number }>();
   });
 });
@@ -111,48 +126,42 @@ describe("C15 rendezvous signatures (02 §D.10)", () => {
     expectTypeOf(compute.rendezvous).parameters.toEqualTypeOf<[TimeField, TimeField, Uint8Array]>();
     expectTypeOf(compute.rendezvous).returns.toEqualTypeOf<RendezvousResult>();
   });
+  it("RendezvousResult has an OK arm with every field and a bare NO_RENDEZVOUS arm", () => {
+    expectTypeOf<RendezvousResult>().toEqualTypeOf<
+      | { status: "OK"; x_m: number; y_m: number; eta_crew_s: number; eta_vehicle_s: number; crew_path: [number, number][]; vehicle_path: [number, number][] }
+      | { status: "NO_RENDEZVOUS" }
+    >();
+    expectTypeOf<Extract<RendezvousResult, { status: "NO_RENDEZVOUS" }>>().toEqualTypeOf<{ status: "NO_RENDEZVOUS" }>();
+  });
   it("RendezvousOk is the OK arm of the result", () => {
     expectTypeOf<RendezvousOk>().toEqualTypeOf<Extract<RendezvousResult, { status: "OK" }>>();
     expectTypeOf<RendezvousOk>().toHaveProperty("crew_path").toEqualTypeOf<[number, number][]>();
   });
   it("rendezvousPair compares both visiting orders and reports the later arrival", () => {
     expectTypeOf(compute.rendezvousPair).parameters.toEqualTypeOf<[RendezvousOk, RendezvousOk, TimeField, TimeField]>();
-    expectTypeOf(compute.rendezvousPair).returns.toEqualTypeOf<{ order: [0, 1] | [1, 0]; later_arrival_s: number }>();
-  });
-});
-
-describe("C15 event dose and consumables (implemented, pinned)", () => {
-  it("integrateDose returns EventDose", () => {
-    expectTypeOf(compute.integrateDose).returns.toEqualTypeOf<EventDose>();
-    expectTypeOf<EventDose>().toEqualTypeOf<{ received_ugy: number; unsheltered_ugy: number; gap_s: number }>();
-  });
-  it("rateAt, triggerState, stepO2, o2RemainingS", () => {
-    expectTypeOf(compute.rateAt).parameters.toEqualTypeOf<[DoseSeries, string]>();
-    expectTypeOf(compute.rateAt).returns.toEqualTypeOf<number | null>();
-    expectTypeOf(compute.triggerState).parameters.toEqualTypeOf<[DoseSeries, string, ParamSet]>();
-    expectTypeOf(compute.triggerState).returns.toEqualTypeOf<"nominal" | "alert">();
-    expectTypeOf(compute.stepO2).parameters.toEqualTypeOf<[number, "walking" | "resting", number, ParamSet]>();
-    expectTypeOf(compute.o2RemainingS).parameters.toEqualTypeOf<[number, "walking" | "resting", ParamSet]>();
+    expectTypeOf(compute.rendezvousPair).returns.toEqualTypeOf<RendezvousPair>();
+    expectTypeOf<RendezvousPair>().toEqualTypeOf<{ order: [0, 1] | [1, 0]; later_arrival_s: number }>();
   });
 });
 
 describe("C15 contingency signatures (02 §D.15)", () => {
-  it("ContingencyInputs keeps the three names the Hab Core tests read", () => {
-    expectTypeOf<ContingencyInputs>().toHaveProperty("alert_id").toEqualTypeOf<string>();
-    expectTypeOf<ContingencyInputs>().toHaveProperty("crew").toEqualTypeOf<Crew[]>();
-    expectTypeOf<ContingencyInputs>().toHaveProperty("now_utc").toEqualTypeOf<string>();
-  });
-  it("ContingencyInputs carries the plan, limits and ingress split §D.15 needs", () => {
-    expectTypeOf<ContingencyInputs>().toHaveProperty("hab").toEqualTypeOf<TimeField>();
-    expectTypeOf<ContingencyInputs>().toHaveProperty("rendezvous").toEqualTypeOf<Partial<Record<CrewId, RendezvousResult>>>();
-    expectTypeOf<ContingencyInputs>().toHaveProperty("ingress").toEqualTypeOf<HavenIngress>();
-    expectTypeOf<ContingencyInputs>().toHaveProperty("plan").toEqualTypeOf<{ waypoints: Waypoint[]; legs: Leg[] }>();
-    expectTypeOf<ContingencyInputs>().toHaveProperty("scenario").toEqualTypeOf<MissionScenario>();
-    expectTypeOf<ContingencyInputs>().toHaveProperty("series").toEqualTypeOf<DoseSeries>();
-    expectTypeOf<ContingencyInputs>().toHaveProperty("shielding").toEqualTypeOf<ParamSet>();
-    expectTypeOf<ContingencyInputs>().not.toHaveProperty("ingress_s");
+  it("ContingencyInputs is exactly the frozen shape", () => {
+    expectTypeOf<ContingencyInputs>().toEqualTypeOf<{
+      alert_id: string;
+      crew: Crew[];
+      now_utc: string;
+      hab: TimeField;
+      rendezvous: Partial<Record<CrewId, RendezvousResult>>;
+      ingress: HavenIngress;
+      pair?: RendezvousPair;
+      plan: { waypoints: Waypoint[]; legs: Leg[] };
+      scenario: MissionScenario;
+      series: DoseSeries;
+      shielding: ParamSet;
+    }>();
   });
   it("proposeOptions", () => {
     expectTypeOf(compute.proposeOptions).parameters.toEqualTypeOf<[ContingencyInputs]>();
+    expectTypeOf(compute.proposeOptions).returns.toEqualTypeOf<ContingencyOption[]>();
   });
 });

@@ -35,6 +35,7 @@ export interface HavenIngress {
  * `seconds[i]` is the travel time of cell `i` from the field's start (for a hab field, to the hab),
  * `Infinity` where unreachable. `prev[i]` is the predecessor cell index on the least-time path,
  * -1 for the start cell and for unreached cells ("paths by back-pointers", §D.10).
+ * `prev` points toward the field's start, so following it from a cell walks back to the start.
  */
 export interface TimeField {
   /** Cell size in metres: the routing grid's 5 m for crew and hab fields, VEHICLE_GRID_CELL_M for vehicles. */
@@ -87,9 +88,12 @@ export function crewTimeField(grid: LoadedGrid, from: { x_m: number; y_m: number
  * Planning approximation along a route, every HAVEN_SAMPLE_SPACING_M:
  * min(T_hab, min over q within HAVEN_PLANNING_RADIUS_M of max(walk(p,q), T_veh(q))) + ingress,
  * with `ingress.hab_s` added to the hab branch and `ingress.vehicle_s` to the vehicle branch.
- * Returns seconds per sample, in sample order. Labelled `modelled (approximation)`. TASK-05b.
+ * The vehicle branch only considers cells q "whose straight segment from p is passable" (02 §D.8),
+ * which is why the 5 m `grid` (slope and flags) is an argument. Returns seconds per sample, in
+ * sample order; Infinity if no haven is reachable. Labelled `modelled (approximation)`. TASK-05b.
  */
 export function havenAlongRoute(
+  grid: LoadedGrid,
   samples: { x_m: number; y_m: number }[],
   hab: TimeField,
   vehicle: TimeField | null,
@@ -118,7 +122,7 @@ export function timeAt(field: TimeField, x_m: number, y_m: number): number {
 
 /**
  * Least-time path by back-pointers: cell centres in projected metres, ordered from the cell
- * containing (x_m, y_m) back to the field's start cell (02 §D.10). Empty if the cell is outside or
+ * containing (x_m, y_m) back to the field's start cell (02 §D.10), i.e. cell first, start last. Empty if the cell is outside or
  * unreachable. For a hab field this is the walk to the hab (`path_preview`). TASK-05b.
  */
 export function pathTo(field: TimeField, x_m: number, y_m: number): [number, number][] {
@@ -126,10 +130,15 @@ export function pathTo(field: TimeField, x_m: number, y_m: number): [number, num
 }
 
 /**
- * The live haven time for one crew position `p` (02 §D.8, "live form"):
- * min(haven_hab, haven_veh) + ingress, with haven_hab = T_hab(p) and haven_veh = the best of
- * max(T_crew(q), T_veh(q)) over cells q that are `passable` (null when there is no vehicle).
- * "refuge" is out of scope (T2). The engine divides `haven_s` by 60 for `Crew.haven.minutes`. TASK-05b.
+ * The live haven time for one crew member (02 §D.8, "live form"):
+ * min(haven_hab, haven_veh) + ingress, with haven_hab = T_hab(crew_at) + ingress.hab_s and
+ * haven_veh = the best of max(T_crew(q), T_veh(q)) over cells q that are `passable` (null when
+ * there is no vehicle) + ingress.vehicle_s. "refuge" is out of scope (T2).
+ * Returns null when no haven can be reached (both times Infinity); the engine then reports
+ * `haven_min` null, as `ALERT_RAISED` does. Proposed tie rule: when the hab and vehicle times are
+ * equal the hab wins (NFR-06, deterministic). The engine divides `haven_s` by 60 for
+ * `Crew.haven.minutes`. `crew_at` is the crew position, which must be the start of the `crew`
+ * field; it is passed so T_hab can be read without scanning the crew field for its start cell. TASK-05b.
  */
 export function liveHaven(
   hab: TimeField,
@@ -137,7 +146,7 @@ export function liveHaven(
   vehicle: TimeField | null,
   passable: Uint8Array | null,
   ingress: HavenIngress,
-  p: { x_m: number; y_m: number },
-): LiveHaven {
+  crew_at: { x_m: number; y_m: number },
+): LiveHaven | null {
   throw new Error("TODO(TASK-05b): not implemented");
 }
