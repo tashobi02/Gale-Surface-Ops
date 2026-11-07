@@ -93,6 +93,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T20.13: changed the web client's reconnect (1 s backoff cap; a SNAPSHOT keeps the event feed; replayed EVENTs join it without changing state) and its tests, tests first | No numbers beyond the 1 s cap from the 7 Nov decision and NFR-13; new cases red before the change | Decisions by Sadman Shaharier Mahim (2026-11-07); PR review | This Claude Code session |
 | 2026-11-07 | Claude Code (Sonnet 5.5, subagent) | T22.17: made the fake-scenario generator hash RFC 8785 canonical JSON (JavaScript number format in pure Python) | Expected number strings taken from Node output; regenerated fixture files byte-identical; `fixture.test.ts` recomputes the hash in JavaScript | Decision by Sadman Shaharier Mahim (2026-11-07); code review pending | This Claude Code session |
 
+| 2026-11-07 | Antigravity (Gemini) | T24.10: wrote 18 EVA DOM tests in apps/web/tests/ui/eva.test.ts and apps/web/tests/ui/map/fullScreenMap.test.ts for fixed geography, controls ≥ 56 px, 4-cue status, 800 ms hold-to-confirm, HUD contrast ≥ 7:1, and full-screen map | Invented no values; tested against 04 §A.3, §D.3, §E.5, §E.6 specifications and T20.02 mock fixtures | Ridita Alam | This Antigravity session (conversation 56455a5c) |
+
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).
