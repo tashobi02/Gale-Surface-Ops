@@ -15,7 +15,7 @@ export function snapToPassable(
   grid: LoadedGrid,
   x_m: number,
   y_m: number,
-  scenario: MissionScenario,
+  scenario: MissionScenario | { hard_slope_limit_deg: number },
   snapRadiusM = SNAP_RADIUS_M,
 ): { x_m: number; y_m: number; distance_m: number } | null {
   throw new Error("TODO(TASK-05): not implemented");
