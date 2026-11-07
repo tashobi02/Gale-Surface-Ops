@@ -31,22 +31,6 @@ import {
 // field-shape guards, the vehicle_path end point, the cyclic back-pointer case, the second-crew
 // wait and the `rendezvousPair` input guards.
 //
-// When PENDING_RED is not set, the suites are skipped while compute stubs throw
-// "TODO(TASK-05b): not implemented", keeping make test-web green during TDD red phase.
-const PENDING =
-  !process.env.PENDING_RED &&
-  ([
-    () => rendezvous(undefined as never, undefined as never, undefined as never),
-    () => rendezvousPair(undefined as never, undefined as never, undefined as never, undefined as never),
-  ] as (() => unknown)[]).some((probe) => {
-    try {
-      probe();
-      return false;
-    } catch (err) {
-      return /TODO\(TASK-05b\): not implemented/.test(String(err));
-    }
-  });
-
 /** 05 §C RoutingGrid: the slope rasters store degrees x 4 as u8. */
 const SLOPE_U8_PER_DEG = 4;
 const decodeSlopeDeg = (u8: number): number => u8 / SLOPE_U8_PER_DEG;
@@ -160,7 +144,7 @@ function ridgeCase(crewCell_m: number) {
   return { fix, crewField, vehicleField, passable, oracle, res };
 }
 
-describe.skipIf(PENDING)("rendezvous", () => {
+describe("rendezvous", () => {
   // 10 m: the vehicle lattice equals the crew grid. 5 m (the real routing grid, 02 §D.2): the
   // 10 m vehicle field is sampled at the 5 m crew cell centres (02 §D.10 "sample to 5 m").
   it.each([RIDGE_CELL_M, HAVEN_CELL_M])(
@@ -381,6 +365,26 @@ describe.skipIf(PENDING)("rendezvous", () => {
     expect(() => rendezvous(good, shortVehicle, Uint8Array.of(1, 1, 1, 1))).toThrow(RangeError);
   });
 
+  it("throws RangeError when a field's prev length is not width x height", () => {
+    const good = makeField({ width: 2, height: 2, cell_m: 5, seconds: [10, 20, 30, 40] });
+    // seconds and the mask are consistent; only prev is short.
+    const shortPrev = { ...good, prev: new Int32Array([-1, 0, 1]) };
+    expect(() => rendezvous(shortPrev, good, Uint8Array.of(1, 1, 1, 1))).toThrow(RangeError);
+    expect(() => rendezvous(good, shortPrev, Uint8Array.of(1, 1, 1, 1))).toThrow(RangeError);
+  });
+
+  it("throws RangeError when a field's width or height is not a positive integer", () => {
+    // 1.5 x 2 = 3 cells, so seconds, prev and a 3-cell mask all agree with the product: only the
+    // integer check can reject it; so does -1 x -3 = 3 cells, which only the > 0 check rejects.
+    const good = makeField({ width: 2, height: 2, cell_m: 5, seconds: [10, 20, 30, 40] });
+    const three = makeField({ width: 3, height: 1, cell_m: 5, seconds: [10, 20, 30] });
+    for (const bad of [{ width: 1.5, height: 2 }, { width: 2, height: 1.5 }, { width: 0, height: 3 }, { width: -1, height: -3 }]) {
+      const odd = { ...three, ...bad };
+      expect(() => rendezvous(odd, good, new Uint8Array(3).fill(1))).toThrow(RangeError);
+      expect(() => rendezvous(good, odd, Uint8Array.of(1, 1, 1, 1))).toThrow(RangeError);
+    }
+  });
+
   it("throws RangeError when a field's cell size is not a positive finite number", () => {
     const good = makeField({ width: 2, height: 1, cell_m: 5, seconds: [10, 20] });
     for (const bad of [0, -5, NaN, Infinity]) {
@@ -390,7 +394,7 @@ describe.skipIf(PENDING)("rendezvous", () => {
   });
 });
 
-describe.skipIf(PENDING)("rendezvousPair", () => {
+describe("rendezvousPair", () => {
   // Member A meets the vehicle at (0, 0), member B at (100, 0); both inside the 1 x 1 transit fields.
   function member(x_m: number, eta_crew_s: number, eta_vehicle_s: number): RendezvousOk {
     return { status: "OK", x_m, y_m: 0, eta_crew_s, eta_vehicle_s, crew_path: [[x_m, 0]], vehicle_path: [[x_m, 0]] };
