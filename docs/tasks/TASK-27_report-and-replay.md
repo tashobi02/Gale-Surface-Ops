@@ -12,6 +12,13 @@
 | Main risk → fallback | Report layout slips → report = printed log table (T27.07) |
 | Spec sections | [01 FR-46](../specs/01_Product_Requirements_Document.md#fr-46--event-log-and-post-eva-report-t1-m) · [03 SCR-17](../specs/03_App_Flow_and_Diagrams.md#scr-17--post-eva-report-v2) · [04 §E.8](../specs/04_Design_Brief.md#e8-scr-08-briefing-card-and-scr-17-post-eva-report-print) · [05 PostEvaReport](../specs/05_Backend_and_Database_Schema.md#postevareport) · [02 §E.5](../specs/02_Technical_Requirements_Document.md#e5-hab-core-http-endpoints) |
 
+> **Protocol v0 update, 7 Nov 2026 (R4, Sadman Shaharier Mahim).** Decided by the product & systems lead; build on it without waiting for a review, and adapt existing work to it:
+>
+> 1. Every LogEvent kind has a fixed `data` shape: the table in [05 LogEvent](../specs/05_Backend_and_Database_Schema.md#logevent-one-line-of-sessionjsonl) (T20.10) and `LogEventData` in `packages/protocol/src/runtime.ts` (T20.11).
+> 2. On reconnect the Hab Core sends a fresh `SNAPSHOT`, then the missed `EVENT`s ([02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws)).
+> 3. A repeated `command_id` from the same client that was accepted is answered with the first `COMMAND_RESULT` and not run again ([05 Command](../specs/05_Backend_and_Database_Schema.md#command)).
+> 4. `plan_hash` and `log_hash` use RFC 8785 canonical JSON ([05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport)).
+
 ## Inputs this task consumes
 
 | Input | Kind | Owner | Dependency |

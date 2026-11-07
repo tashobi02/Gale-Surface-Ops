@@ -392,6 +392,10 @@ FR-21 (space weather, 3D view, multi-site, AI narration) is post-MVP and has no 
 | T20.07 | Build the LAN spike page and script | hab-core | implement | agent-ready · core | pre-event-if-permitted | M1 | NFR-12 |
 | T20.08 | Verify the LAN spike: 2 phones + 1 laptop ≤ 500 ms on the router (M1 go/no-go) | hab-core | verify | human-required · core | pre-event-if-permitted | M1 | NFR-12, NFR-01 |
 | T20.09 | Fallback — start only if T20.08 says no-go: single-laptop multi-window mode | hab-core | fallback | agent-ready · core | pre-event-if-permitted | M1–M3 | FR-30, NFR-01 |
+| T20.10 | spec-change: protocol v0 decisions of 7 Nov (reconnect, command dedupe, event `data` by kind, canonical JSON, 02 §E examples) | hab-core | contract | agent-ready · core | pre-event-allowed | M1 | FR-30, FR-31, FR-34, NFR-06, NFR-13 |
+| T20.11 | contract-change: protocol v0 event `data` types, `command_ref` and rover-task shape (C13) | hab-core | contract | agent-ready · core | pre-event-allowed | M1 | FR-30, FR-31, FR-41, NFR-06 |
+| T20.12 | follow-up: server sends SNAPSHOT, then the missed EVENTs, on reconnect | hab-core | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-30, NFR-13 |
+| T20.13 | follow-up: client reconnect within NFR-13 (1 s backoff cap, SNAPSHOT then replay) | hab-core | implement | agent-ready · core | pre-event-if-permitted | M2 | FR-31, FR-32, NFR-13 |
 
 #### TASK-21 — Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers
 
@@ -432,6 +436,7 @@ FR-21 (space weather, 3D view, multi-site, AI narration) is post-MVP and has no 
 | T22.14 | Verify: two runs give the same hash; 60× full run; tick cost (M3) | hab-core | verify | agent-ready · core | pre-event-if-permitted | M3 | NFR-02, NFR-06, NFR-14 |
 | T22.15 | Fallback — start only if consumables slip past M3: O₂ only | hab-core | fallback | agent-ready · core | pre-event-if-permitted | M3 | FR-35 |
 | T22.16 | Implement the conditions feed values in the engine (FR-36) | hab-core | implement | agent-ready · core | pre-event-if-permitted | M3 | FR-36 |
+| T22.17 | follow-up: fake-scenario `plan_hash` with RFC 8785 canonical JSON | hab-core | fixture | agent-ready · core | pre-event-allowed | M2 | FR-34, NFR-06 |
 
 #### TASK-23 — Safety ops in the Hab Core: commands, haven per tick, summon and rendezvous, contingency options, abort
 
@@ -584,7 +589,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | --- | --- | --- |
 | `docs/tasks/_coordination.md`, `docs/tasks/TASK-*.md` | this plan | Change-process only (§h); T15.03 and later triage may append subtasks at the end of a task file |
 | `docs/tasks/README.md` | this plan | Claims: one PR edits only the *Claimed by* cell of one row |
-| `docs/specs/**` | — | `spec-change:` subtasks only: T16.02, T01.06 (fallback). One open spec-change PR at a time |
+| `docs/specs/**` | — | `spec-change:` subtasks only: T16.02, T20.10, T01.06 (fallback). One open spec-change PR at a time |
 | `docs/README.md` | T16.02 | — |
 | `docs/contracts/tile-grid.md` | T02.01 | Contract (§d) |
 | `docs/ops/rules.md` | T00.03 | — |
@@ -807,7 +812,7 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `apps/hab-core/src/report.ts` | T27.01 | — |
 | `apps/hab-core/src/rover.ts` | T29.02 | fallback T29.07 may replace it |
 | `apps/hab-core/src/scenario.ts` | T22.11 | stub by T22.01 |
-| `apps/hab-core/src/server.ts` | T20.04 | T26.02, T27.01, T28.02 follow up (one at a time) |
+| `apps/hab-core/src/server.ts` | T20.04 | T20.12, T26.02, T27.01, T28.02 follow up (one at a time) |
 | `apps/hab-core/src/session.ts` | T22.12 | stub by T22.01 |
 | `apps/hab-core/tests/clock.test.ts` | T22.03 | — |
 | `apps/hab-core/tests/commands.test.ts` | T23.01 | — |
@@ -815,7 +820,7 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `apps/hab-core/tests/contingencyOps.test.ts` | T23.06 | — |
 | `apps/hab-core/tests/earth.test.ts` | T26.03 | — |
 | `apps/hab-core/tests/engine.test.ts` | T22.05 | — |
-| `apps/hab-core/tests/fixtures/fake-scenario/` | T22.02 | — |
+| `apps/hab-core/tests/fixtures/fake-scenario/` | T22.02 | T22.17 follows up |
 | `apps/hab-core/tests/fixtures/storm-excerpt/` | T21.11 | — |
 | `apps/hab-core/tests/havenTick.test.ts` | T23.03 | — |
 | `apps/hab-core/tests/killerDemo.test.ts` | T23.08 | — |
@@ -823,11 +828,11 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `apps/hab-core/tests/report.test.ts` | T27.02 | — |
 | `apps/hab-core/tests/rover.test.ts` | T29.01 | — |
 | `apps/hab-core/tests/scenario.test.ts` | T22.11 | — |
-| `apps/hab-core/tests/server.test.ts` | T20.03 | — |
+| `apps/hab-core/tests/server.test.ts` | T20.03 | T20.12 follows up |
 | `apps/hab-core/tests/stopTasks.test.ts` | T31.03 | — |
 | `apps/hab-core/tests/summon.test.ts` | T23.04 | — |
 | `apps/hab-core/tests/tick.test.ts` | T22.08 | — |
-| `apps/web/src/net/habClient.ts` | T20.06 | — |
+| `apps/web/src/net/habClient.ts` | T20.06 | T20.13 follows up |
 | `apps/web/src/net/replaySource.ts` | T27.05 | — |
 | `apps/web/src/ui/briefing/publishPlan.ts` | T11.07 | — |
 | `apps/web/src/ui/eva/HoldToConfirm.tsx` | T24.05 | — |
@@ -860,8 +865,8 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `apps/web/src/ui/screens/scr16EarthView.tsx` | T18.12 | — |
 | `apps/web/src/ui/screens/scr17PostEvaReport.tsx` | T27.03 | fallback T27.07 may replace it |
 | `apps/web/src/ui/screens/scr18HabLinkLost.tsx` | T24.07 | — |
-| `apps/web/tests/fixtures/ws/` | T20.02 | — |
-| `apps/web/tests/net/habClient.test.ts` | T20.05 | — |
+| `apps/web/tests/fixtures/ws/` | T20.02 | T20.11 follows up |
+| `apps/web/tests/net/habClient.test.ts` | T20.05 | T20.13 follows up |
 | `apps/web/tests/ui/eva.test.ts` | T24.10 | — |
 | `apps/web/tests/ui/evaViewModel.test.ts` | T24.02 | — |
 | `apps/web/tests/ui/map/fullScreenMap.test.ts` | T24.10 | — |
@@ -899,8 +904,8 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `packages/compute/tests/skyView.test.ts` | T18.09 | — |
 | `packages/compute/tests/viewshed.test.ts` | T05b.08 | — |
 | `packages/protocol/src/index.ts` | T20.01 | — |
-| `packages/protocol/src/runtime.ts` | T20.01 | stub by T31.01 |
-| `packages/protocol/src/ws.ts` | T20.01 | stub by T31.01 |
+| `packages/protocol/src/runtime.ts` | T20.01 | stub by T31.01; T20.11 contract-change |
+| `packages/protocol/src/ws.ts` | T20.01 | stub by T31.01; T20.11 contract-change |
 | `pipeline/cache/donki/` | T21.05 | — |
 | `pipeline/spice/kernels.lock.json` | T21.02 | — |
 | `pipeline/src/marswalk_pipeline/comm_grid.py` | T03.29 | — |
@@ -944,7 +949,7 @@ Lanes code against these interfaces, not against each other's implementations. A
 | C10 | UI app context: screen renderer signature, worker-client interface, map handle, fixed layer order, provenance attribute names; UI module stubs | `apps/web/src/ui/context.ts` + stubs listed in c.4 | T07.01 | M2 | All frontend, design and story code | Where traverse and waypoints sit in the FR-02 layer order; attribute name for the source id (NFR-05) |
 | C11 | Plan-store state and events | Interfaces in `apps/web/src/state/planStore.ts` | T08.01 | M2 | T07.04, T08.*, T09.*, T10.*, T11.*, T13.06 | Selection and hover shape for map ↔ list ↔ profile linking |
 | C12 | CSS token names and status classes | `apps/web/src/ui/styles/tokens.css` | T13.01 | M2 | All UI CSS | Pattern class names for ok / caution / blocked / unknown |
-| C13 *(v2)* | Protocol v0: runtime entities, wire messages, permissions (05 §C.2, 02 §E.4, §E.6) | `packages/protocol/src/runtime.ts`, `packages/protocol/src/ws.ts` | T20.01 (FR-50 parts by T31.01) | M1 (Sat 7 Nov, 06 §D.3) | Every v2 subtask | Command body shape (flat or `args`); `TaskRoverArgs`; the accepted-rover-task event kind |
+| C13 *(v2)* | Protocol v0: runtime entities, wire messages, permissions (05 §C.2, 02 §E.4, §E.6) | `packages/protocol/src/runtime.ts`, `packages/protocol/src/ws.ts` | T20.01 (FR-50 parts by T31.01); T20.11 completes v0 with the 7 Nov decisions (T20.10) | M1 (Sat 7 Nov, 06 §D.3) | Every v2 subtask | Command body shape (flat or `args`); `TaskRoverArgs`; the accepted-rover-task event kind |
 | C14 *(v2)* | Engine interfaces and engine-module split (`reduce`, `tick`, session, log; one module per concern) | `apps/hab-core/src/engine/`, `scenario.ts`, `session.ts`, `log.ts` | T22.01 | M1 | TASK-22, TASK-23, TASK-26, TASK-29, TASK-31 | Module call order inside `tick` (02 §D.14) |
 | C15 *(v2)* | Compute v2 signatures (haven, rendezvous, viewshed, link graph, Earth delivery, event dose, consumables, contingency) | `packages/compute/src/` v2 modules | T05b.01 | M1 | TASK-22, TASK-23, TASK-26, TASK-29, T09.09 | Which spec constants are code constants and which come from ParamSets |
 | C16 *(v2)* | Scenario tables: `dose_series.json`, `earth_link.json` formats; scenario folder layout | `schemas/dose-series.schema.json`, `schemas/earth-link.schema.json`, `scenarios/storm-sol4190/README.md` | T21.01 | M1 | T05b.12, T05b.14, T21.*, T22.11 | Sample step of the dose series (`TODO(verify)` on download) |
@@ -1234,6 +1239,7 @@ flowchart LR
 | T16.07 → T27.06 | hosting of the public link |
 | T17.01 → T21.09 | owner of the demo script |
 | T20.04 → T26.02 | owner of `server.ts` |
+| T20.10 → T22.17 | canonical JSON rule (05 PlanExport) |
 | T20.04 → T27.01 | owner of `server.ts` |
 | T20.04 → T28.02 | owner of `server.ts` |
 | T20.06 → T11.07 | client store |
