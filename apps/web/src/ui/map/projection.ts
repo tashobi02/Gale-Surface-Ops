@@ -1,0 +1,70 @@
+/**
+ * Mars projection and custom tile grid registration (02 §B, 02 §C.1; C9 contract; FR-01, D-03).
+ *
+ * Implements T02.02:
+ * - Registers site.crs.proj4 with proj4js using a Mars-specific code (never EPSG:3857 or EPSG:4326).
+ * - Creates an OpenLayers Projection in metres bounded by aoi.extent_m.
+ * - Sets point resolution to identity (1 projected metre = 1 ground metre at standard parallel),
+ *   preventing OpenLayers from estimating point resolution via Earth-radius geodesics (02 §C.4.2).
+ * - Builds custom OpenLayers TileGrid instances from manifest tile_grid configurations.
+ */
+
+import proj4 from "proj4";
+import { register } from "ol/proj/proj4.js";
+import { addProjection, get as getProjection, Projection } from "ol/proj.js";
+import TileGrid from "ol/tilegrid/TileGrid.js";
+import type { Site, TileGrid as TileGridSpec } from "@marswalk/protocol";
+
+/**
+ * Returns the authority:code identifier for a site's local working projection.
+ * Always Mars-specific; never EPSG:3857 or EPSG:4326 (02 §C.1).
+ */
+export function getMarsProjectionCode(siteOrId: Site | string): string {
+  const siteId = typeof siteOrId === "string" ? siteOrId : siteOrId.site_id;
+  return `MARS_LOCAL:${siteId}`;
+}
+
+/**
+ * Registers a site's local working projection with proj4 and OpenLayers.
+ *
+ * @param site Site manifest entity providing crs.proj4 and aoi.extent_m.
+ * @returns Configured OpenLayers Projection instance in metres.
+ */
+export function registerMarsProjection(site: Site): Projection {
+  const code = getMarsProjectionCode(site);
+
+  // 1. Register with proj4js using the exact manifest string byte-for-byte
+  proj4.defs(code, site.crs.proj4);
+
+  // 2. Synchronize OpenLayers projection registry with proj4
+  register(proj4);
+
+  // 3. Obtain or construct the OpenLayers Projection with local metric properties
+  // Point resolution is set directly to nominal resolution to avoid Earth-sphere conversions (02 §C.4.2)
+  const projection = new Projection({
+    code,
+    extent: site.aoi.extent_m,
+    units: "m",
+    metersPerUnit: 1,
+    worldExtent: site.aoi.extent_m,
+    getPointResolution: (resolution: number): number => resolution,
+  });
+
+  addProjection(projection);
+
+  return projection;
+}
+
+/**
+ * Builds an OpenLayers TileGrid from a manifest tile_grid specification (C9 contract).
+ *
+ * @param tileGridSpec Manifest tile_grid specification.
+ * @returns OpenLayers TileGrid configured with origin, resolutions, and tile size.
+ */
+export function createTileGrid(tileGridSpec: TileGridSpec): TileGrid {
+  return new TileGrid({
+    origin: tileGridSpec.origin_m,
+    resolutions: tileGridSpec.resolutions_m,
+    tileSize: tileGridSpec.tile_size_px,
+  });
+}
