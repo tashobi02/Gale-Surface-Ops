@@ -17,11 +17,18 @@ export function triggerState(series: DoseSeries, t_utc: string, alertParams: Par
   throw new Error("TODO(TASK-05b): not implemented");
 }
 
+/** Received and "if unsheltered" event dose, µGy, and the seconds that fell in a gap (02 §D.13). */
+export interface EventDose {
+  received_ugy: number;
+  unsheltered_ugy: number;
+  gap_s: number;
+}
+
 /** dose = Σ rate(t) × shielding(location(t)) × Δt, with Δt in hours. TASK-05b. */
 export function integrateDose(
   series: DoseSeries,
   steps: { t_utc: string; dt_s: number; shelter: "suit" | "pressurized_rover" | "hab" | "refuge"; refuge_factor?: number }[],
   shielding: ParamSet,
-): number {
+): EventDose {
   throw new Error("TODO(TASK-05b): not implemented");
 }
