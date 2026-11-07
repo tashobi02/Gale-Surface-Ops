@@ -15,7 +15,7 @@
 import { describe, expect, it } from "vitest";
 import type { Command, CommandResult, LogEvent, LogEventData, LogEventKind, Role } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand, type CommandContext } from "../src/commands";
-import { initialState, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
+import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
 import { readScenario } from "../src/scenario";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,7 +34,7 @@ function ctx(state: EngineState, accepted = new AcceptedCommands(), client_id = 
 }
 
 function apply(state: EngineState, kind: LogEventKind, data: LogEventData[LogEventKind], actor: Role | "system" = "system"): EngineState {
-  const event: LogEvent = { seq: state.session.last_seq + 1, sim_time: T0, kind, actor, data: data as Record<string, unknown>, provenance: {} };
+  const event: LogEvent = { seq: state.session.last_seq + 1, sim_time: T0, kind, actor, data: data as Record<string, unknown>, provenance: {}, command_ref: null };
   return reduce(state, event);
 }
 
@@ -218,7 +218,7 @@ describe("handleCommand: repeated command_id (05 Command, decided 2026-11-07)", 
       { sim_time: T0, kind: "COMMAND_REJECTED", actor: "ops", data: { code: "BUSY", message: "EVA already started" }, provenance: {}, command_ref: { client_id: "c-1", command_id: "k-b" } },
       { sim_time: T0, kind: "LINK_LOST", actor: "system", data: { node_id: "EV1" }, provenance: {}, command_ref: null },
     ];
-    const log: LogEvent[] = pending.map((p, i) => ({ ...p, seq: 10 + i }));
+    const log: LogEvent[] = pending.map((p, i) => logged(p, 10 + i));
     const accepted = AcceptedCommands.fromLog(log);
     expect(accepted.get("c-1", "k-a")).toEqual({ v: 1, type: "COMMAND_RESULT", command_id: "k-a", ok: true, event_seq: 10 });
     expect(accepted.get("c-1", "k-b")).toBeUndefined();

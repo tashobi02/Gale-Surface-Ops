@@ -171,6 +171,8 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     const display_name = msg.display_name ?? "";
     if (!isRole(role) || !isShortString(client_id) || !isShortString(display_name)) return;
     if (typeof last_seq !== "number" || !Number.isInteger(last_seq) || last_seq < 0) return;
+    // One client_id per connection: it keys command dedupe (05 Command), so a second HELLO may not change it.
+    if (client.joined && client.client_id !== client_id) return;
     Object.assign(client, { role, client_id, display_name, joined: true });
     if (!session) return;
     // Always a fresh SNAPSHOT first: state changed only by STATE_DELTA during the gap is otherwise
@@ -204,7 +206,7 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     };
     let outcome: ReturnType<SessionHandle["apply"]>;
     try {
-      outcome = session.apply(cmd);
+      outcome = session.apply(cmd, client.client_id);
     } catch (err) {
       app.log.error(err);
       return send(client, reject(command_id, "INVALID", "command failed"));

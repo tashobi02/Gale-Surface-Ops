@@ -45,7 +45,7 @@ const MESSAGE_KEYS: { [K in Exclude<ServerMessage["type"], "COMMAND_RESULT">]: K
 };
 const RESULT_OK_KEYS: Keys<Extract<CommandResult, { ok: true }>> = { v: true, type: true, command_id: true, ok: true, event_seq: true };
 const RESULT_FAIL_KEYS: Keys<Extract<CommandResult, { ok: false }>> = { v: true, type: true, command_id: true, ok: true, code: true, message: true };
-const LOG_EVENT_KEYS: KeySpec<LogEvent> = { seq: "req", sim_time: "req", kind: "req", actor: "req", data: "req", provenance: "req", inputs_hash: "opt", command_ref: "opt" };
+const LOG_EVENT_KEYS: KeySpec<LogEvent> = { seq: "req", sim_time: "req", kind: "req", actor: "req", data: "req", provenance: "req", inputs_hash: "opt", command_ref: "req" };
 const COMMAND_REF_KEYS: Keys<NonNullable<LogEvent["command_ref"]>> = { client_id: true, command_id: true };
 const STOP = { crew_id: "req", stop_id: "req", stop_index: "req" } as const;
 const LOG_EVENT_DATA_KEYS: { [K in LogEventKind]: KeySpec<LogEventData[K]> } = {

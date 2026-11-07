@@ -24,7 +24,7 @@ import { join } from "node:path";
 import { PROTOCOL_VERSION, type Command, type CommandResult, type LogEvent, type LogEventData, type ProvenanceMap, type Snapshot } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand } from "./commands";
 import { SIM_STEP_S } from "./engine/clock";
-import { initialState, reduce, type EngineState, type PendingEvent, type StateChange } from "./engine/reducer";
+import { initialState, logged, reduce, type EngineState, type PendingEvent, type StateChange } from "./engine/reducer";
 import { seedTasks } from "./engine/tasks";
 import { tick } from "./engine/tick";
 import { canonicalJson, openLog, resumeLog, SNAPSHOT_EVERY, type EventLog } from "./log";
@@ -35,9 +35,8 @@ export interface SessionHandle {
   snapshot(clients: Snapshot["clients"]): Snapshot;
   /**
    * Validate and apply one command; exactly one COMMAND_RESULT per command (02 §E.6).
-   * `client_id` keys the 05 Command dedupe rule and `command_ref`. TODO(T20.12 follow-up): server.ts
-   * passes it once the open server.ts PR merges (one server.ts follow-up at a time, map §c); until
-   * then the role stands in for the client.
+   * `client_id` keys the 05 Command dedupe rule and `command_ref`; server.ts passes the HELLO
+   * `client_id`. Without one (tests, headless replay) the role stands in for the client.
    */
   apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[] };
   /** Run `steps` fixed 1-s sim steps; events go out immediately, deltas are coalesced by the server. */
@@ -240,9 +239,9 @@ export function resumeSession(sessionDir: string, scenario: LoadedScenario, opti
     if (Date.parse(e.sim_time) > Date.parse(state.session.clock.sim_time) && state.session.status === "RUNNING") {
       const r = stepOnce(state, scenario, state.session.last_seq + 1);
       for (const produced of r.events) {
-        const logged = tail[i];
-        if (!logged || canonicalJson({ ...produced, seq: logged.seq }) !== canonicalJson(logged)) {
-          throw new Error(`resumeSession: re-run tick at ${r.state.session.clock.sim_time} gave ${produced.kind}, the log has ${logged?.kind ?? "nothing"} (seq ${logged?.seq ?? "-"})`);
+        const line = tail[i];
+        if (!line || canonicalJson(logged(produced, line.seq)) !== canonicalJson(line)) {
+          throw new Error(`resumeSession: re-run tick at ${r.state.session.clock.sim_time} gave ${produced.kind}, the log has ${line?.kind ?? "nothing"} (seq ${line?.seq ?? "-"})`);
         }
         i++;
       }
