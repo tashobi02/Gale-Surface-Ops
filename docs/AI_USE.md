@@ -83,6 +83,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T22.05: wrote the reducer, event-log and determinism tests on the fake scenario | Event values are made up for the test and say so; the `log_hash` = SHA-256-of-file rule and the alert latch rule are written in the test header as proposals | Decisions by Sadman Shaharier Mahim (2026-11-07) | This Claude Code session |
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T22.07: wrote the append-only log, canonical JSON, `log_hash`, snapshots and resume | Canonical JSON checked against RFC 8785 number and key-order cases in the T22.05 tests; `meta.json` fields proposed | Decisions by Sadman Shaharier Mahim (2026-11-07) | This Claude Code session |
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T22.06: wrote `initialState` and the reducer from the 03 §E state machines | No science recomputed; initial clock speed and plan revision marked as choices; dispatch-before-revision order written into the test header | Decisions by Sadman Shaharier Mahim (2026-11-07) | This Claude Code session |
+| 2026-11-07 | Claude Code (Opus 5.5, local session) | T22.11: wrote the scenario loader checks and one test per rejection | Checks taken from 05 §E.7 and the T22.11 steps; the passable-start check is left for TASK-05 and says so | Decisions by Sadman Shaharier Mahim (2026-11-07) | This Claude Code session |
 
 ## Prompts location
 
