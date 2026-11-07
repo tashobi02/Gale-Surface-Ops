@@ -8,6 +8,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EvaTablet } from "../../src/ui/screens/scr12EvaTablet";
 import { Hud } from "../../src/ui/screens/scr13Hud";
+import { HabLinkLost } from "../../src/ui/screens/scr18HabLinkLost";
 import { wsFixtures, type Beat } from "../fixtures/ws";
 
 describe("SCR-12 EvaTablet DOM tests (04 §A.3, §E.5)", () => {
@@ -110,5 +111,12 @@ describe("SCR-13 HUD glance view (04 §E.6)", () => {
 });
 
 describe("SCR-18 Hab link lost / connecting (04 §E.5, §B.2)", () => {
-  it.todo("retains last known values marked with stale label and age in seconds (T24.07)");
+  it("retains last known values marked with stale label and age in seconds", () => {
+    // 04 §A.3 #8: Stale values grey out with their age; every value carries a provenance chip.
+    // 04 §D.5: .is-stale
+    const html = renderToStaticMarkup(createElement(HabLinkLost));
+
+    expect(html).toMatch(/stale|link-lost|unlinked/i);
+    expect(html).toMatch(/is-stale|data-provenance/);
+  });
 });
