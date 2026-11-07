@@ -1,0 +1,67 @@
+{
+  "type": "PLAN_RESULT",
+  "request_id": "r-0042",
+  "plan_revision": 17,
+  "status": "OVER_LIMITS",
+  "legs": [
+    {
+      "from": "wp-0",
+      "to": "wp-1",
+      "status": "OK",
+      "distance_m": 6120,
+      "walk_time_min": 128,
+      "climb_m": 74,
+      "descent_m": 74,
+      "max_slope_deg": 12.6,
+      "geometry": [],
+      "cell_path_length": 1224,
+      "profile": {
+        "dist_m": [],
+        "elev_m": [],
+        "slope_class": []
+      }
+    }
+  ],
+  "totals": {
+    "distance_m": 6120,
+    "walk_time_min": 128,
+    "dwell_time_min": 20,
+    "eva_total_min": 148,
+    "eva_margin_min": 212,
+    "climb_m": 74,
+    "descent_m": 74,
+    "max_slope_deg": 12.6,
+    "max_walkback_km": 3.06
+  },
+  "stops_timeline": [],
+  "radiation": {
+    "dose_mSv": 0.066,
+    "dose_low_mSv": 0.053,
+    "dose_high_mSv": 0.078,
+    "solar_phase": "max",
+    "const_id": "rad-gale-dose-eq-solar-max"
+  },
+  "warnings": [
+    {
+      "code": "CAUTION_SLOPE",
+      "severity": "caution",
+      "leg": 0,
+      "from_m": 1210,
+      "to_m": 1290,
+      "message": "Slope 12.6° exceeds caution 10° for 80 m"
+    },
+    {
+      "code": "WALKBACK_EXCEEDED",
+      "severity": "blocked",
+      "leg": null,
+      "from_m": null,
+      "to_m": null,
+      "message": "Max walkback 3.06 km exceeds walkback limit 0.5 km"
+    }
+  ],
+  "computed_utc": "2026-11-14T08:00:00Z",
+  "timing_ms": {
+    "routing": 412,
+    "estimates": 3
+  }
+}
