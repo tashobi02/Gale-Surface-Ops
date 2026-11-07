@@ -236,6 +236,26 @@ describe.skipIf(PENDING)("rendezvous", () => {
     }
   });
 
+  it("cells with passable !== 1 are not candidates even if crew and vehicle times are finite", () => {
+    // 2x1 grid: cell 0 has (Tc=10, Tv=10), but passable[0] = 0
+    //           cell 1 has (Tc=50, Tv=50), and passable[1] = 1
+    // Cell 0 has lower max(Tc, Tv), but is impassable for vehicle, so cell 1 must be selected.
+    const crew = makeField({ width: 2, height: 1, cell_m: 5, seconds: [10, 50] });
+    const veh = makeField({ width: 2, height: 1, cell_m: 5, seconds: [10, 50] });
+    const pass = Uint8Array.of(0, 1);
+
+    const res = rendezvous(crew, veh, pass);
+    expect(res.status).toBe("OK");
+    if (res.status === "OK") {
+      expect(res.eta_crew_s).toBe(50);
+      expect(res.x_m).toBe(7.5); // cell 1 centre
+    }
+
+    // All impassable -> NO_RENDEZVOUS
+    const resNone = rendezvous(crew, veh, Uint8Array.of(0, 0));
+    expect(resNone.status).toBe("NO_RENDEZVOUS");
+  });
+
   it("throws RangeError when passable array length does not match crew field cells", () => {
     const crew = makeField({ width: 2, height: 2, cell_m: 5, seconds: [10, 20, 30, 40] });
     const veh = makeField({ width: 2, height: 2, cell_m: 5, seconds: [10, 20, 30, 40] });

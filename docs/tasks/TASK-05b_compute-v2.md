@@ -276,6 +276,13 @@ T23.03 `havenTick` consumes `liveHaven` from `haven.ts` (frozen in this PR; plea
 - **Agent brief:** Implement `rendezvous.ts` until the tests pass; deterministic tie-breaks only.
 - **Conflict notes:** Single owner.
 
+**Proposed 2026-11-08 — TODO(decision)** (T05b.07 implementation notes):
+- `passable` mask length validation: `passable.length` must equal `crew.seconds.length` (the 5 m routing grid size); throws `RangeError` on mismatch.
+- Path orientation: `crew_path` and `vehicle_path` reverse the back-pointer array returned by `pathTo(field, x_m, y_m)`, so that each path runs forward from its start position to the meeting cell `q*`.
+- Vehicle arrival time at meeting cell: `eta_vehicle_s` is evaluated via `timeAt(vehicle, qx, qy)` on the 10 m vehicle time field.
+- `rendezvousPair` later arrival definition (02 §D.10 silent): For visiting order `[0, 1]`, vehicle arrives at A's rendezvous point and both crew A and vehicle are present at `t_first = max(a.eta_vehicle_s, a.eta_crew_s)`. The vehicle then travels from A's point to B's meeting point with transit time `timeAt(vehicleFromA, b.x_m, b.y_m)`, arriving at `t_veh = t_first + transit`. The rendezvous at B occurs when both vehicle and crew B are present: `later_arrival_s = max(t_veh, b.eta_crew_s)`. When both `[0, 1]` and `[1, 0]` produce equal `later_arrival_s`, the tie rule deterministically selects `[0, 1]`.
+
+
 ### T05b.08 — Tests: line of sight, curvature and dynamic viewshed (02 §D.11)
 
 - **Owner:** Anjim Hossain (R2/R4 float)
