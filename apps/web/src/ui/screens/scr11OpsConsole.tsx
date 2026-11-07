@@ -21,6 +21,7 @@ import {
 } from "react";
 import type { Crew, Vehicle, Alert, Provenance } from "@marswalk/protocol";
 import { AlertStack } from "../ops/AlertStack";
+import { OptionsPanel } from "../ops/OptionsPanel";
 
 export interface OpsConsoleProps {
   scenarioName?: string;
@@ -595,55 +596,13 @@ export function OpsConsole({
           <div className="module-label" style={{ ...moduleLabelStyle, marginTop: "12px" }}>
             [ SAFETY /// OPTIONS ]
           </div>
-          <div className="options-panel" style={cardStyle}>
-            <div style={{ fontWeight: 600 }}>CONTINGENCY OPTIONS</div>
-            <div
-              style={{
-                fontSize: "13px",
-                fontFamily: "var(--font-mono, monospace)",
-                color: "var(--text-2, #A9B3BE)",
+          <div className="options-panel">
+            <OptionsPanel
+              onApproveOption={(opt) => {
+                setOptionApproved(true);
+                onApproveOption?.(opt.option_id);
               }}
-            >
-              1 Rendezvous PR1 (ETA 14m)
-              <br />
-              2 Abort to Hab (ETA 41m)
-            </div>
-
-            <button
-              style={{
-                ...buttonStyle,
-                marginTop: "8px",
-                minHeight: "44px",
-                fontWeight: 600,
-                backgroundColor: optionApproved
-                  ? "var(--status-nominal, #3DDC84)"
-                  : "var(--warning-fill, #B3261E)",
-                color: "#FFFFFF",
-                position: "relative",
-                overflow: "hidden",
-              }}
-              onMouseDown={handleHoldStart}
-              onMouseUp={handleHoldEnd}
-              onMouseLeave={handleHoldEnd}
-              onTouchStart={handleHoldStart}
-              onTouchEnd={handleHoldEnd}
-              aria-label="Hold to approve option 1"
-            >
-              {optionApproved ? "OPTION 1 APPROVED" : "HOLD TO APPROVE OPTION 1"}
-              {pressProgress > 0 && !optionApproved && (
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    height: "4px",
-                    width: `${pressProgress * 100}%`,
-                    backgroundColor: "#FFFFFF",
-                    transition: "width 50ms linear",
-                  }}
-                />
-              )}
-            </button>
+            />
           </div>
         </aside>
       </main>
