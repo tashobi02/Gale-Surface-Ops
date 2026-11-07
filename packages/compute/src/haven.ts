@@ -3,7 +3,7 @@
  * TASK-05b. Signatures frozen by T05b.01 (contract C15); later changes are `contract-change:` subtasks.
  * All positions are working-projection metres (`x_m`, `y_m`); a cell index is row-major, row 0 = north.
  */
-import type { MissionScenario, ParamSet } from "@marswalk/protocol";
+import type { MissionScenario, ParamSet, Provenance } from "@marswalk/protocol";
 import type { LoadedGrid } from "./grid";
 
 /**
@@ -23,6 +23,12 @@ export const HAVEN_SAMPLE_SPACING_M = 50;
 
 /** Radius around a route sample searched for a rendezvous cell in the planning form (02 §D.8). */
 export const HAVEN_PLANNING_RADIUS_M = 300;
+
+/**
+ * Label of the planning form `havenAlongRoute`: `modelled (approximation)` (02 §D.8). Additive export,
+ * Proposed by T05b.03 so the label is testable and the UI can show it from one place.
+ */
+export const HAVEN_PLANNING_LABEL: { provenance: Provenance; note: string } = { provenance: "modelled", note: "approximation" };
 
 /** Seconds to become sheltered once at the hab and once at the vehicle (02 §D.8). */
 export interface HavenIngress {
