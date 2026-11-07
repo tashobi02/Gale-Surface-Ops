@@ -12,7 +12,9 @@
  * - tick() returns a state that already contains its events (tick.ts "State rule"); the session
  *   appends them and checks that the log gives the seqs tick used. Command events are reduced here.
  * - A snapshot is written after any append batch that crosses a multiple of SNAPSHOT_EVERY, so a
- *   snapshot never splits one tick's or one command's events.
+ *   snapshot never splits one tick's or one command's events. The tick's state is stored before its
+ *   events are appended, so the snapshot holds the state after the tick and the current `log_hash`
+ *   (tests: tests/sessionTick.test.ts).
  * - Resume: state from the latest snapshot (or the initial state), then the tail is merged with
  *   re-run ticks: ticks step sim time up to each tail event; events a tick produces must equal the
  *   next tail events (else the resume fails), and the other tail events (load, commands) are
@@ -158,9 +160,10 @@ class Session implements SessionHandle {
     const deltas: StateChange[] = [];
     for (let i = 0; i < steps && this.state.session.status === "RUNNING"; i++) {
       const r = stepOnce(this.state, this.scenario, this.log.lastSeq() + 1);
-      // tick's state already contains its events; append them with the seqs tick used.
-      events.push(...this.appendAll(r.events, () => {}));
+      // tick's state already contains its events. Store it first: appendAll fills in `log_hash` and
+      // writes the snapshot from `this.state`, which must be the state after the tick (T22.12).
       this.state = r.state;
+      events.push(...this.appendAll(r.events, () => {}));
       deltas.push(...r.deltas);
       if (untilEvent && r.events.length > 0) break;
     }
