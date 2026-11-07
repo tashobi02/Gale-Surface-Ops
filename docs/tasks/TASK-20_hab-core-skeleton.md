@@ -244,6 +244,96 @@
 - **Agent brief:** Only if the LAN spike failed: make the demo work on one laptop with several windows. Do not change the protocol.
 - **Conflict notes:** New file; it does not replace `server.ts`, which still runs on `localhost`.
 
+### T20.10 — spec-change: protocol v0 decisions of 7 Nov (reconnect, command dedupe, event `data` by kind, canonical JSON, 02 §E examples)
+
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core)
+- **Type:** contract
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 1–1.5 h
+- **Owns (writes):** `docs/specs/02_Technical_Requirements_Document.md` (spec-change), `docs/specs/05_Backend_and_Database_Schema.md` (spec-change)
+- **Reads:** [02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws), [02 §E.4](../specs/02_Technical_Requirements_Document.md#e4-authentication-and-roles), [05 §C.2](../specs/05_Backend_and_Database_Schema.md#c2-runtime-entities-hab-core-v2), `packages/protocol/src/runtime.ts`, `apps/web/tests/fixtures/ws/`
+- **Depends on:** T20.01 (soft: the T20.01 decisions of 6 Nov)
+- **Parallel with:** T22.03, T22.04
+- **Steps:**
+  1. 02 §E.4/§E.6: align the examples with 05 and the T20.01 decisions (`args`, `display_name`, nested `haven`, `earth`, alert fields in `data`, `COMMAND_RESULT.event_seq`); add the `INJECT_EVENT` permission row.
+  2. 02 §E.6 reconnect: the Hab Core sends a fresh `SNAPSHOT`, then the EVENTs after `last_seq` (none if the gap is > 1,000), so state changed only by STATE_DELTA during the gap is correct (NFR-13).
+  3. 05 Command: a repeated `command_id` from the same client that was accepted is answered with the first `COMMAND_RESULT` and not run again; a rejected one may be retried. 05 LogEvent gains `command_ref` so the rule survives a restart.
+  4. 05 LogEvent: a table of `data` fields for every LogEvent kind, taken from 02, 03, 05 and the T20.02 fixtures; anything not stated there is marked Proposed.
+  5. 05 PlanExport and Session: canonical JSON is RFC 8785 (JCS) for `plan_hash` and `log_hash`.
+  6. 05 Vehicle and TASK_ROVER: `task.item` for CARRY is a free-text label (FR-41 names no item list).
+- **Acceptance:**
+  - Serves: FR-30, FR-31, FR-34, NFR-06, NFR-13 · [02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws) · [05 LogEvent](../specs/05_Backend_and_Database_Schema.md#logevent-one-line-of-sessionjsonl)
+  - Each decision above is in 02 or 05 with the date 2026-11-07; no requirement id, number or label changes.
+- **Verify:** `make docs-check`.
+- **Agent brief:** Write the 7 Nov protocol decisions into 02 §E and 05 §C.2. Change examples and add rules; do not change requirement text, numbers or labels.
+- **Conflict notes:** One open spec-change PR at a time (map §c). Decided by the product & systems lead on 2026-11-07; R2 adapts without a blocking review.
+
+### T20.11 — contract-change: protocol v0 event `data` types, `command_ref` and rover-task shape (C13)
+
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core)
+- **Type:** contract
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 1–1.5 h
+- **Owns (writes):** `packages/protocol/src/runtime.ts` (after T20.01), `packages/protocol/src/ws.ts` (after T20.01), `apps/web/tests/fixtures/ws/` (after T20.02)
+- **Reads:** [05 LogEvent](../specs/05_Backend_and_Database_Schema.md#logevent-one-line-of-sessionjsonl), [05 Command](../specs/05_Backend_and_Database_Schema.md#command), [02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws)
+- **Depends on:** T20.01 (hard: owner), T20.02 (hard: owner of the fixtures), T20.10 (hard: spec first)
+- **Parallel with:** T22.17
+- **Steps:**
+  1. Add `LogEventData`, one interface per LogEvent kind from the 05 table, and `LogEvent.command_ref`.
+  2. Make `Vehicle.task` and `TaskRoverArgs` match 05 (`item` free text) and remove the T20.01 `TODO(verify)` on the rover shape.
+  3. Update the `ws.ts` reconnect comment (SNAPSHOT, then replay).
+  4. Update the F7 fixtures whose event `data` changed and add a fixture test that every fixture event has the keys of its `LogEventData` entry.
+- **Acceptance:**
+  - Serves: FR-30, FR-31, FR-41, NFR-06 · [05 LogEvent](../specs/05_Backend_and_Database_Schema.md#logevent-one-line-of-sessionjsonl)
+  - `make typecheck test-web` passes; every LogEvent kind has a `data` type with 05 field names.
+- **Verify:** `make typecheck test-web`.
+- **Agent brief:** Types and fixtures only, following 05 as changed by T20.10.
+- **Conflict notes:** Completes protocol v0 (C13) on 7 Nov; consumers rebase after it merges.
+
+### T20.12 — follow-up: server sends SNAPSHOT, then the missed EVENTs, on reconnect
+
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
+- **Estimate:** 0.5–1 h
+- **Owns (writes):** `apps/hab-core/tests/server.test.ts` (after T20.03), `apps/hab-core/src/server.ts` (after T20.04)
+- **Reads:** [02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws)
+- **Depends on:** T20.03 (hard: owner of the tests), T20.04 (hard: owner of the server), T20.11 (hard: protocol)
+- **Parallel with:** T20.13
+- **Steps:**
+  1. Change the reconnect test first: HELLO with `last_seq` > 0 gets a SNAPSHOT, then the EVENTs after `last_seq`; a gap > 1,000 gets the SNAPSHOT only.
+  2. Change `server.ts` to pass it.
+- **Acceptance:**
+  - Serves: FR-30, NFR-13 · [02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws)
+  - The server tests pass, with the reconnect case red before the change.
+- **Verify:** `npm --workspace @marswalk/hab-core test -- server`.
+- **Agent brief:** Change only the HELLO reply order in `server.ts`; tests first.
+- **Conflict notes:** One `server.ts` follow-up at a time (map §c).
+
+### T20.13 — follow-up: client reconnect within NFR-13 (1 s backoff cap, SNAPSHOT then replay)
+
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-if-permitted
+- **Estimate:** 0.5–1 h
+- **Owns (writes):** `apps/web/tests/net/habClient.test.ts` (after T20.05), `apps/web/src/net/habClient.ts` (after T20.06)
+- **Reads:** [02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws), [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) NFR-13
+- **Depends on:** T20.05 (hard: owner of the tests), T20.06 (hard: owner of the client), T20.11 (hard: protocol)
+- **Parallel with:** T20.12
+- **Steps:**
+  1. Tests first: the retry delay never exceeds 1 s; a SNAPSHOT on reconnect keeps the event feed, and replayed EVENTs at or below its seq join the feed without changing state.
+  2. Change `habClient.ts` to pass them and remove the two T20.06 `TODO(decision)`s this settles.
+- **Acceptance:**
+  - Serves: FR-31, FR-32, NFR-13 · [02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws)
+  - The client tests pass, with the new cases red before the change.
+- **Verify:** `npm --workspace @marswalk/web test -- habClient`.
+- **Agent brief:** Change the backoff cap and the SNAPSHOT/replay handling only; tests first.
+- **Conflict notes:** The store API (`state`, `events`, `lastSeq`) keeps its shape for T24.03 and T25.01.
+
 ## Internal dependency graph
 
 ```mermaid
@@ -256,6 +346,13 @@ flowchart LR
   T20_04 --> T20_07["T20.07 spike page"]
   T20_07 --> T20_08["T20.08 LAN spike go/no-go"]
   T20_08 --> T20_09["T20.09 fallback: single laptop"]
+  T20_01 -.-> T20_10["T20.10 spec-change 7 Nov"]
+  T20_10 --> T20_11["T20.11 contract-change C13"]
+  T20_02 --> T20_11
+  T20_11 --> T20_12["T20.12 server reconnect"]
+  T20_04 --> T20_12
+  T20_11 --> T20_13["T20.13 client reconnect"]
+  T20_06 --> T20_13
 ```
 
 ## Definition of done (task level)

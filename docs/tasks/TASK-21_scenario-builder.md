@@ -12,6 +12,14 @@
 | Main risk → fallback | RAD series misses sol 4190 → digitised dose curve (T21.13); kernels unavailable → fixed light time for the date (T21.14) |
 | Spec sections | [02 L8](../specs/02_Technical_Requirements_Document.md#l8--space-weather-records-fr-37) · [02 L9](../specs/02_Technical_Requirements_Document.md#l9--rad-event-time-series-fr-37) · [02 L10](../specs/02_Technical_Requirements_Document.md#l10--spice-geometry-fr-43) · [02 §D.12](../specs/02_Technical_Requirements_Document.md#d12-earth-link-model-fr-43) · [02 §D.13](../specs/02_Technical_Requirements_Document.md#d13-space-weather-event-model-fr-37-fr-38) · [02 §E.7](../specs/02_Technical_Requirements_Document.md#e7-scenario-file-scenariosidscenariojson) · [05 Scenario](../specs/05_Backend_and_Database_Schema.md#scenario) · [05 DoseSeries](../specs/05_Backend_and_Database_Schema.md#doseseries-dose_seriesjson) · [05 EarthLinkTable](../specs/05_Backend_and_Database_Schema.md#earthlinktable-earth_linkjson) · [01 §E.1](../specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video) · [Data downloads](../ops/data-downloads.md) |
 
+> **Protocol v0 update, 7 Nov 2026 (R4, Sadman Shaharier Mahim).** Decided by the product & systems lead; build on it without waiting for a review, and adapt existing work to it:
+>
+> 1. Every LogEvent kind has a fixed `data` shape: the table in [05 LogEvent](../specs/05_Backend_and_Database_Schema.md#logevent-one-line-of-sessionjsonl) (T20.10) and `LogEventData` in `packages/protocol/src/runtime.ts` (T20.11).
+> 2. On reconnect the Hab Core sends a fresh `SNAPSHOT`, then the missed `EVENT`s ([02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws)).
+> 3. A repeated `command_id` from the same client that was accepted is answered with the first `COMMAND_RESULT` and not run again ([05 Command](../specs/05_Backend_and_Database_Schema.md#command)).
+> 4. `plan_hash` and `log_hash` use RFC 8785 canonical JSON ([05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport)).
+> 5. **TASK-21:** a scenario written from Python must hash `plan` with RFC 8785 number formatting (`6`, not `6.0`), or the Hab Core rejects it.
+
 ## Inputs this task consumes
 
 | Input | Kind | Owner | Dependency |

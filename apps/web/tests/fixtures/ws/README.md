@@ -54,3 +54,4 @@ Every value is a spec example (cited), a typed placeholder (`0`, `""`, `[]`, `nu
 | Event provenance `data.node_id`, `data.state` simulated | `link-lost-restored`, `stop-task-ticked` | 05 Crew `linked` and StopTask `state` provenance rules |
 | `PING` `seq` 413 | `walking` | fixture convention: a heartbeat carries the current `seq` (02 §E.6 says server messages carry `seq`, without a PING example) |
 | `alert_id` `""` in `comm-shadow`; every other number not listed above is 0 and every other time `""` | various | placeholders |
+| `command_ref` `{client_id: c-7f3a, command_id: k-0091 / k-0102}` | `summon-accepted`, `stop-task-ticked` | 05 LogEvent `command_ref` (added 2026-11-07, T20.11); `client_id` from the 02 §E.6 HELLO example, `command_id` from the matching COMMAND_RESULT |

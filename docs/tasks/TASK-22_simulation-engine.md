@@ -180,7 +180,7 @@
 - **Parallel with:** T22.06
 - **Steps:**
   1. Append one JSON line per event to `apps/hab-core/var/sessions/<session_id>/session.jsonl`; keep `seq` gap-free.
-  2. Running SHA-256 over canonical JSON (sorted keys) gives `log_hash`.
+  2. Running SHA-256 over canonical JSON (RFC 8785: sorted keys, JavaScript number format; 05 Session, decided 2026-11-07) gives `log_hash`.
   3. Write `snapshot-<seq>.json` every 500 events and `meta.json`; resume reads the latest snapshot and the lines after it.
 - **Acceptance:**
   - Serves: NFR-06, NFR-10 · [05 §B](../specs/05_Backend_and_Database_Schema.md#b-persistence-strategy)
@@ -269,7 +269,7 @@
 - **Parallel with:** T22.09
 - **Steps:**
   1. Validate `scenario.json` against the schema; reject with a reason on failure.
-  2. Check `site_id` and `data_version` against the loaded site, `plan_hash`, table SHA-256s, that every `stop_tasks[].stop_id` names a stop Waypoint (U-61) and 1–4 tasks per stop (FR-50).
+  2. Check `site_id` and `data_version` against the loaded site, `plan_hash` (RFC 8785 canonical JSON, 05 PlanExport), table SHA-256s, that every `stop_tasks[].stop_id` names a stop Waypoint (U-61) and 1–4 tasks per stop (FR-50).
   3. Load the ParamSets the scenario lists.
 - **Acceptance:**
   - Serves: FR-34, NFR-10 · [05 §E](../specs/05_Backend_and_Database_Schema.md#e-integrity-and-access-patterns)
@@ -385,6 +385,27 @@
 - **Agent brief:** Call compute for every value; the engine only collects them into state.
 - **Conflict notes:** Single owner of both files.
 
+### T22.17 — follow-up: fake-scenario `plan_hash` with RFC 8785 canonical JSON
+
+- **Owner:** Sadman Shaharier Mahim (R4 Hab Core)
+- **Type:** fixture
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 0.5 h
+- **Owns (writes):** `apps/hab-core/tests/fixtures/fake-scenario/` (after T22.02)
+- **Reads:** [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport)
+- **Depends on:** T22.02 (hard: owner), T20.10 (hard: the canonical JSON rule)
+- **Parallel with:** T20.11
+- **Steps:**
+  1. Make `make_fake_scenario.py` hash with RFC 8785 number formatting (JavaScript's), so any float, not only whole numbers, gives the hash the Hab Core computes.
+  2. Remove the `TODO(verify)` on number canonicalisation from the fixture README; `fixture.test.ts` still recomputes the hash in JavaScript.
+- **Acceptance:**
+  - Serves: FR-34, NFR-06 · [05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport)
+  - `fixture.test.ts` passes on the regenerated files; regenerating twice gives identical bytes.
+- **Verify:** `npm --workspace @marswalk/hab-core test -- fixture`.
+- **Agent brief:** Change only the generator's canonical JSON and its README; the backend's canonical JSON (T22.07) is RFC 8785 already in JavaScript terms.
+- **Conflict notes:** The fixture's values do not change, so consumers need not rebase.
+
 ## Internal dependency graph
 
 ```mermaid
@@ -406,6 +427,7 @@ flowchart LR
   T22_13 --> T22_14["T22.14 verify M3"]
   T22_09 --> T22_15["T22.15 fallback: O2 only"]
   T22_01 -.-> T22_16["T22.16 conditions feed"]
+  T22_02 --> T22_17["T22.17 fixture: RFC 8785 hash"]
 ```
 
 ## Definition of done (task level)

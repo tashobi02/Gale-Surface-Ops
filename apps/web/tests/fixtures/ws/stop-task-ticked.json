@@ -18,6 +18,10 @@
       },
       "provenance": {
         "data.state": "simulated"
+      },
+      "command_ref": {
+        "client_id": "c-7f3a",
+        "command_id": "k-0102"
       }
     }
   },

@@ -12,6 +12,14 @@
 | Main risk → fallback | Too little time → RELAY only (T29.07; 06 §D.4 cut 2) |
 | Spec sections | [01 FR-41](../specs/01_Product_Requirements_Document.md#fr-41--robotic-rover-tasking-t1-m) · [01 FR-42](../specs/01_Product_Requirements_Document.md#fr-42--comm-coverage-and-comm-shadows-t1-m) · [02 §D.9](../specs/02_Technical_Requirements_Document.md#d9-crew-and-vehicle-parameter-sets-fr-40-fr-41--assumed-unless-cited-shown-in-the-ui-05-paramset) · [02 §D.11](../specs/02_Technical_Requirements_Document.md#d11-line-of-sight-comm-coverage-fr-42) · [02 §E.4](../specs/02_Technical_Requirements_Document.md#e4-authentication-and-roles) · [03 SCR-15](../specs/03_App_Flow_and_Diagrams.md#scr-15--rover-tasking-v2-t1-since-2026-11-05) · [03 §C.7](../specs/03_App_Flow_and_Diagrams.md#c7-rover-tasking) · [05 Vehicle](../specs/05_Backend_and_Database_Schema.md#vehicle) |
 
+> **Protocol v0 update, 7 Nov 2026 (R4, Sadman Shaharier Mahim).** Decided by the product & systems lead; build on it without waiting for a review, and adapt existing work to it:
+>
+> 1. Every LogEvent kind has a fixed `data` shape: the table in [05 LogEvent](../specs/05_Backend_and_Database_Schema.md#logevent-one-line-of-sessionjsonl) (T20.10) and `LogEventData` in `packages/protocol/src/runtime.ts` (T20.11).
+> 2. On reconnect the Hab Core sends a fresh `SNAPSHOT`, then the missed `EVENT`s ([02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws)).
+> 3. A repeated `command_id` from the same client that was accepted is answered with the first `COMMAND_RESULT` and not run again ([05 Command](../specs/05_Backend_and_Database_Schema.md#command)).
+> 4. `plan_hash` and `log_hash` use RFC 8785 canonical JSON ([05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport)).
+> 5. **TASK-29 (Mishkat, Saba):** `TaskRoverArgs` is final as `{vehicle_id, task, target?, item?}`; `item` (CARRY only) is a free-text label, not a fixed list, because FR-41 names no items. An accepted task logs `VEHICLE_DISPATCHED` with the same `data` shape as a summon (see the 05 table). The T20.01 confirmation step is closed.
+
 ## Inputs this task consumes
 
 | Input | Kind | Owner | Dependency |

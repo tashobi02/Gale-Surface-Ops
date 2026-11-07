@@ -12,6 +12,13 @@
 | Main risk → fallback | Tablet layout slips → HUD only, no map (T24.12) |
 | Spec sections | [01 FR-32](../specs/01_Product_Requirements_Document.md#fr-32--eva-client-suit-tablet-t1-m) · [01 FR-33](../specs/01_Product_Requirements_Document.md#fr-33--hud-mode-t1-m) · [03 SCR-12](../specs/03_App_Flow_and_Diagrams.md#scr-12--eva-tablet-v2) · [03 SCR-13](../specs/03_App_Flow_and_Diagrams.md#scr-13--hud-v2) · [03 SCR-14](../specs/03_App_Flow_and_Diagrams.md#scr-14--options-sheet-eva--options-panel-ops-v2) · [03 SCR-18](../specs/03_App_Flow_and_Diagrams.md#scr-18--hab-link-lost--connecting-v2-overlay) · [04 §A.3](../specs/04_Design_Brief.md#a3-mission-critical-principles-non-negotiable) · [04 §D.3](../specs/04_Design_Brief.md#d3-hold-to-confirm-critical-actions) · [04 §E.5](../specs/04_Design_Brief.md#e5-scr-12-eva-tablet-ops-phonetablet-portrait--360-px) · [04 §E.6](../specs/04_Design_Brief.md#e6-scr-13-hud-black-landscape) · [04 §E.7](../specs/04_Design_Brief.md#e7-scr-14-alert-options-sheet-eva) · [Mockup handoff](../design/mockup-handoff.md) |
 
+> **Protocol v0 update, 7 Nov 2026 (R4, Sadman Shaharier Mahim).** Decided by the product & systems lead; build on it without waiting for a review, and adapt existing work to it:
+>
+> 1. Every LogEvent kind has a fixed `data` shape: the table in [05 LogEvent](../specs/05_Backend_and_Database_Schema.md#logevent-one-line-of-sessionjsonl) (T20.10) and `LogEventData` in `packages/protocol/src/runtime.ts` (T20.11).
+> 2. On reconnect the Hab Core sends a fresh `SNAPSHOT`, then the missed `EVENT`s ([02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws)).
+> 3. A repeated `command_id` from the same client that was accepted is answered with the first `COMMAND_RESULT` and not run again ([05 Command](../specs/05_Backend_and_Database_Schema.md#command)).
+> 4. `plan_hash` and `log_hash` use RFC 8785 canonical JSON ([05 PlanExport](../specs/05_Backend_and_Database_Schema.md#planexport)).
+
 ## Inputs this task consumes
 
 | Input | Kind | Owner | Dependency |

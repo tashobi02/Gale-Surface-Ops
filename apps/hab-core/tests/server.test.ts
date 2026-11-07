@@ -168,20 +168,23 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
     }
   });
 
-  it("a reconnect with last_seq gets the events after it, without a SNAPSHOT (02 §E.6)", async () => {
+  it("a reconnect with last_seq gets a fresh SNAPSHOT first, then the EVENTs after it (02 §E.6, NFR-13)", async () => {
     const { server, session } = await setup();
     const c = await client(server.url);
     c.send(hello(session.lastSeq - 2));
-    const events = await c.waitFor((m) => m.type === "EVENT", 2);
-    expect(events.map(seqOf)).toEqual([session.lastSeq - 1, session.lastSeq]);
-    expect(c.received.some((m) => m.type === "SNAPSHOT")).toBe(false);
+    await c.waitFor((m) => m.type === "EVENT", 2);
+    // SNAPSHOT first, so state changed only by STATE_DELTA during the gap is correct again.
+    expect(c.received.map((m) => m.type)).toEqual(["SNAPSHOT", "EVENT", "EVENT"]);
+    expect(seqOf(c.received[0])).toBe(session.lastSeq);
+    expect(c.received.slice(1).map(seqOf)).toEqual([session.lastSeq - 1, session.lastSeq]);
   });
 
-  it("a reconnect with a gap above MAX_REPLAY_GAP gets a fresh SNAPSHOT instead (02 §E.6)", async () => {
+  it("a reconnect with a gap above MAX_REPLAY_GAP gets the SNAPSHOT only (02 §E.6)", async () => {
     const { server, session } = await setup(MAX_REPLAY_GAP + 10);
     const c = await client(server.url);
     c.send(hello(session.lastSeq - MAX_REPLAY_GAP - 1));
     await c.waitFor((m) => m.type === "SNAPSHOT");
+    await new Promise((r) => setTimeout(r, 50));
     expect(c.received.some((m) => m.type === "EVENT")).toBe(false);
   });
 

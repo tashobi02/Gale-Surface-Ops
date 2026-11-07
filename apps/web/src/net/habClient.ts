@@ -16,20 +16,18 @@
  * `state()` returns a new object whenever it changes (deltas are applied by copying along the
  * path), so React views can compare by reference (useSyncExternalStore).
  *
- * Rules: messages apply in seq order (older STATE_DELTAs and already-seen EVENTs are ignored);
- * reconnect with backoff 0.5 s → 1 → 2 → 4 → 5 s cap, reset after a successful open; a command sent
+ * Rules: messages apply in seq order (older STATE_DELTAs are ignored; an EVENT already in the feed is
+ * ignored); reconnect with backoff 0.5 s → 1 s cap (NFR-13), reset after a successful open. On
+ * reconnect the server sends a fresh SNAPSHOT, then the EVENTs after `last_seq` (SNAPSHOT only if
+ * the gap is > 1,000; decision of 2026-11-07, 02 §E.6): the SNAPSHOT replaces `state()` and keeps
+ * `events()`; replayed EVENTs at or below the SNAPSHOT's seq join `events()` (sorted, no duplicates)
+ * without changing `state()` or `lastSeq()`. A command sent
  * while the socket is down, or rejected NO_LINK, stays queued and is resent once with
  * `queued_offline: true` (on reconnect, or on LINK_STATE linked=true for this suit). No hard-coded
  * or external host: the default URL is the page's own host (NFR-01). Path syntax for deltas:
  * "crew/EV1/x_m" — array items are matched by their `*_id` field.
  *
  * Open points for the product & systems lead:
- * - TODO(decision): NFR-13 asks reconnect to restore correct state ≤ 2 s, but the backoff cap above
- *   (5 s, from the T20.05 task text) can delay the first retry after an outage by up to 5 s.
- * - TODO(decision): on reconnect 02 §E.6 replays EVENTs only; state that changed by STATE_DELTA
- *   during the gap (positions, O₂) or by events this store does not reduce (alert acks, task
- *   states in `state()`) stays stale until the next SNAPSHOT. Views should read event-driven facts
- *   from `events()`; a protocol change (SNAPSHOT after replay) would close the gap.
  * - TODO(verify): a command in flight when the socket drops is resent flagged `queued_offline`; it
  *   may already have run. The Hab Core should ignore a repeated `command_id` (T23.02).
  */
@@ -77,7 +75,8 @@ export interface HabClient {
 
 const SOCKET_OPEN = 1;
 const BACKOFF_START_MS = 500;
-const BACKOFF_MAX_MS = 5000;
+/** NFR-13: reconnect restores correct state <= 2 s, so no retry waits longer than 1 s. */
+const BACKOFF_MAX_MS = 1000;
 
 interface Pending {
   message: Extract<ClientMessage, { type: "COMMAND" }>;
@@ -202,8 +201,7 @@ export function connectHab(options: HabClientOptions): HabClient {
   function apply(msg: ServerMessage): void {
     switch (msg.type) {
       case "SNAPSHOT":
-        snapshot = msg;
-        events = [];
+        snapshot = msg; // the event feed is kept: the replay after it fills any gap (T20.13)
         seq = msg.seq;
         break;
       case "STATE_DELTA": {
@@ -215,9 +213,10 @@ export function connectHab(options: HabClientOptions): HabClient {
         break;
       }
       case "EVENT":
-        if (msg.seq <= seq) return; // duplicate or older
-        events = [...events, msg.event];
-        seq = msg.seq;
+        if (events.some((e) => e.seq === msg.seq)) return; // duplicate
+        events = insertBySeq(events, msg.event);
+        // A replayed EVENT at or below the SNAPSHOT's seq joins the feed and leaves seq alone.
+        if (msg.seq > seq) seq = msg.seq;
         break;
       case "LINK_STATE":
         // A NO_LINK result arriving after linked=true waits for the next LINK_STATE or reconnect
@@ -280,6 +279,13 @@ export function connectHab(options: HabClientOptions): HabClient {
       listeners.clear();
     },
   };
+}
+
+/** Insert `event` keeping seq order; the common case (newest) appends. */
+function insertBySeq(list: LogEvent[], event: LogEvent): LogEvent[] {
+  if (list.length === 0 || list[list.length - 1].seq < event.seq) return [...list, event];
+  const i = list.findIndex((e) => e.seq > event.seq);
+  return [...list.slice(0, i), event, ...list.slice(i)];
 }
 
 const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);

@@ -283,7 +283,7 @@ All defaults carry provenance `assumed` in the UI.
 | `export_schema_version` | string | ✓ |
 | `app_version` | string | ✓ |
 | `site_id`, `data_version` | string | ✓ |
-| `plan_hash` | string | ✓ — first 12 hex of SHA-256 over canonical JSON of `{data_version, scenario, waypoints}` (sorted keys, numbers as written) |
+| `plan_hash` | string | ✓ — first 12 hex of SHA-256 over canonical JSON of `{data_version, scenario, waypoints}` (sorted keys, numbers as written). *Canonical JSON is RFC 8785 (JCS), decided 2026-11-07*: keys sorted by UTF-16 code units, no whitespace, numbers as ECMAScript `Number::toString` writes them (`1.0` → `1`, `1e21` → `1e+21`) |
 | `scenario` | MissionScenario | ✓ |
 | `waypoints` | Waypoint[] | ✓ |
 | `result` | PlanResult | ✓ |
@@ -381,7 +381,7 @@ Conventions as §C. In addition: `sim_time` is ISO-8601 UTC of the **mission clo
 | `clock` | `{sim_time, speed: 1\|10\|60, paused}` | |
 | `plan_revision` | int | increments on every `PLAN_REVISED` |
 | `last_seq` | int | |
-| `log_hash` | string | running SHA-256 over canonical LogEvents (NFR-06) |
+| `log_hash` | string | running SHA-256 over canonical LogEvents (NFR-06); canonical JSON is RFC 8785 (JCS), as for `plan_hash` *(decided 2026-11-07)* |
 
 ### ClientConnection
 
@@ -413,7 +413,7 @@ Conventions as §C. In addition: `sim_time` is ISO-8601 UTC of the **mission clo
 | `param_set` | FK → ParamSet | |
 | `x_m`, `y_m` | number | `simulated` |
 | `state` | enum | `PARKED \| DISPATCHED \| EN_ROUTE \| ARRIVED \| RETURNING \| TASKED` |
-| `task` | `{kind: SUMMON\|SCOUT\|CARRY\|RELAY\|RETURN, target, crew_ids?}` \| null | |
+| `task` | `{kind: SUMMON\|SCOUT\|CARRY\|RELAY\|RETURN, target, crew_ids?, item?}` \| null | `item`: CARRY only, a free-text label (FR-41 names no item list; decided 2026-11-07). `TASK_ROVER` args are `{vehicle_id, task: SCOUT\|CARRY\|RELAY\|RETURN, target?, item?}` with the same rule (`target` absent for RETURN) |
 | `path` | `[x_m,y_m][]` | display-simplified |
 | `eta_s` | int \| null | `modelled` |
 | `battery_wh` | number \| null | utility rover only, `simulated` |
@@ -447,6 +447,8 @@ Conventions as §C. In addition: `sim_time` is ISO-8601 UTC of the **mission clo
 
 Commands are **not** logged themselves; the LogEvent they produce (or a `COMMAND_REJECTED` event) is.
 
+**Repeated `command_id`** *(decided 2026-11-07)*: a command whose `command_id` the same client already sent and the Hab Core accepted is answered with the first `COMMAND_RESULT` (same `event_seq`) and not run again. A rejected `command_id` may be retried and is evaluated afresh. The LogEvent's `command_ref` keeps the rule true after a Hab Core restart: on load, the accepted `command_id`s are rebuilt from the log.
+
 ### StopTask *(FR-50, added 2026-11-05)*
 
 One thing to do at one planned stop. Initial tasks come from the plan in `scenario.json` (authored by the team from the POI objective); ops may add more at runtime.
@@ -477,6 +479,34 @@ State is reduced from `TASK_ADDED`, `TASK_UPDATED` and `TASK_DROPPED` events; it
 | `data` | object | values needed to reduce state without recomputation |
 | `provenance` | object | field path → class |
 | `inputs_hash` | string | SHA-256 of the compute inputs when the event carries a computed value |
+| `command_ref` *(added 2026-11-07)* | `{client_id, command_id}` \| null | the command that produced the event (including `COMMAND_REJECTED`); `null` for `system` events. Lets the Hab Core rebuild the accepted `command_id`s after a restart (see Command) |
+
+#### LogEvent `data` by kind *(added 2026-11-07)*
+
+Source column: where the fields are stated. **Proposed** fields are not stated in 02, 03, 05 or the T20.02 fixtures (`apps/web/tests/fixtures/ws/`) and may change in TASK-22 without a spec change; their names follow the 05 entity they describe.
+
+| `kind` | `data` fields | Source |
+| --- | --- | --- |
+| `SESSION_LOADED` | `session_id, scenario_id, data_version, seed, plan_hash` | **Proposed** (Session fields) |
+| `EVA_STARTED` | `crew_ids, plan_revision` | **Proposed** |
+| `ARRIVED_STOP`, `LEFT_STOP` | `crew_id, stop_id, stop_index` | **Proposed** (Crew, StopTask) |
+| `ALERT_RAISED` | `alert_id, code, level, subjects, message`, plus the code's values (`RADIATION_ALERT`: `rate_ugy_h, threshold_ugy_h, source`) | §F.6, fixtures `radiation-alert`, `comm-shadow`, 02 §E.6 |
+| `ALERT_ACKED` | `alert_id, acked_by` | **Proposed** (Alert) |
+| `ALERT_CLEARED` | `alert_id` | **Proposed** (Alert) |
+| `OPTIONS_PROPOSED` | `alert_id, options` (ContingencyOption[]) | §F.6, fixture `options-proposed` |
+| `PLAN_REVISED` | `plan_revision` (02 §D.13); `option_id \| null, stops_dropped` | `plan_revision`: 02; rest **Proposed** |
+| `VEHICLE_DISPATCHED` | summon: `vehicle_id, option_id, rendezvous`; `TASK_ROVER`: `vehicle_id, task, target`, plus `item` for CARRY | summon: §F.6, fixture `summon-accepted`; rover: decided 2026-11-06 (T20.01) |
+| `VEHICLE_ARRIVED` | `vehicle_id, x_m, y_m` | **Proposed** (Vehicle) |
+| `CREW_SHELTERED` | `crew_id, haven_kind, dose_event_ugy, dose_event_unsheltered_ugy` | dose received vs. unsheltered: 03 §C; names from Crew; `haven_kind` **Proposed** |
+| `LINK_LOST`, `LINK_RESTORED` | `node_id` | fixture `link-lost-restored` |
+| `EARTH_MSG_QUEUED` | `message_id, direction, body, sent_utc, deliver_utc, via` | **Proposed** (EarthMessage) |
+| `EARTH_MSG_DELIVERED` | `message_id` | **Proposed** (EarthMessage) |
+| `COMMAND_REJECTED` | `code, message` (the 02 §E.6 rejection codes) | **Proposed** (02 §E.6 rejection shape) |
+| `CLOCK_CHANGED` | `speed, paused` | **Proposed** (Session `clock`) |
+| `EVA_ENDED` | `crew_ids` | **Proposed** |
+| `TASK_ADDED` | `task_id, stop_id, crew_id, kind, text, origin` | **Proposed** (StopTask) |
+| `TASK_UPDATED` | `task_id, stop_id, crew_id, state, reason` | 02 §E.6, fixture `stop-task-ticked` |
+| `TASK_DROPPED` | `task_id, stop_id, plan_revision` | **Proposed** (StopTask: DROPPED is set on plan revision) |
 
 Per-tick position updates are **not** logged; they are re-derived on replay from the plan and the logged events (determinism, NFR-06).
 

@@ -9,6 +9,7 @@
  * Hab Core's monotonic event number; positions are working-projection metres.
  */
 import type { PlanExport, Provenance } from "./schema";
+import type { RejectCode } from "./ws";
 
 /** Provenance map keyed by field path, e.g. {"crew.o2_frac": "simulated"} (02 §E.6). */
 export type ProvenanceMap = Record<string, Provenance>;
@@ -151,7 +152,13 @@ export interface Vehicle {
   x_m: number;
   y_m: number;
   state: VehicleState;
-  task: { kind: "SUMMON" | "SCOUT" | "CARRY" | "RELAY" | "RETURN"; target: { x_m: number; y_m: number }; crew_ids?: CrewId[] } | null;
+  task: {
+    kind: "SUMMON" | "SCOUT" | "CARRY" | "RELAY" | "RETURN";
+    target: { x_m: number; y_m: number };
+    crew_ids?: CrewId[];
+    /** CARRY only: a free-text label (05 Vehicle; FR-41 names no item list; decided 2026-11-07). */
+    item?: string;
+  } | null;
   path: [number, number][];
   eta_s: number | null;
   /** Utility rover only. */
@@ -164,15 +171,15 @@ export type RoverTaskKind = "SCOUT" | "CARRY" | "RELAY" | "RETURN";
 /**
  * `TASK_ROVER` args. Shape follows FR-41 (SCOUT(point), CARRY(item, to), RELAY(point), RETURN);
  * 02 §E.6 gives no example. CARRY's "to" is `target`. An accepted task emits `VEHICLE_DISPATCHED`
- * with `{vehicle_id, task, target}` in `data`; no new LogEventKind (decided 2026-11-06, T20.01).
- * TODO(verify): confirmed by the TASK-29 owners (Mishkat Ahmed Khan, Saba Atharique) in the T20.01 PR.
+ * with `{vehicle_id, task, target}` (plus `item` for CARRY) in `data`; no new LogEventKind (decided
+ * 2026-11-06, T20.01; written into 05 Vehicle on 2026-11-07, T20.10).
  */
 export interface TaskRoverArgs {
   vehicle_id: string;
   task: RoverTaskKind;
   /** Required for SCOUT, CARRY and RELAY; absent for RETURN. Working-projection metres. */
   target?: { x_m: number; y_m: number };
-  /** CARRY only. TODO(decision): the item list (FR-41 names none). */
+  /** CARRY only: a free-text label (05 Vehicle; FR-41 names no item list; decided 2026-11-07). */
   item?: string;
 }
 
@@ -291,7 +298,7 @@ export type LogEventKind =
   | "ALERT_CLEARED"
   | "OPTIONS_PROPOSED"
   | "PLAN_REVISED"
-  /** Also emitted for an accepted `TASK_ROVER` (data `{vehicle_id, task, target}`). */
+  /** Also emitted for an accepted `TASK_ROVER` (data `{vehicle_id, task, target, item?}`). */
   | "VEHICLE_DISPATCHED"
   | "VEHICLE_ARRIVED"
   | "CREW_SHELTERED"
@@ -306,6 +313,12 @@ export type LogEventKind =
   | "TASK_UPDATED"
   | "TASK_DROPPED";
 
+/** The command that produced a LogEvent (05 LogEvent `command_ref`, added 2026-11-07). */
+export interface CommandRef {
+  client_id: string;
+  command_id: string;
+}
+
 /** One line of session.jsonl (05 LogEvent). Immutable. */
 export interface LogEvent {
   seq: number;
@@ -316,7 +329,66 @@ export interface LogEvent {
   provenance: ProvenanceMap;
   /** SHA-256 of compute inputs when the event carries a computed value. */
   inputs_hash?: string;
+  /**
+   * The command that produced the event, including COMMAND_REJECTED; null for `system` events.
+   * Lets the Hab Core rebuild the accepted `command_id`s after a restart (05 Command dedupe rule).
+   * Optional in v0 so producers written before T20.11 still type-check. TODO(decision): make it
+   * required (absent and `null` hash differently in `log_hash`) when T22.07 writes the log.
+   */
+  command_ref?: CommandRef | null;
 }
+
+/*
+ * `data` of each LogEvent kind (05 "LogEvent `data` by kind", added 2026-11-07). Fields marked
+ * Proposed in 05 may change in TASK-22 without a spec change; field names follow the 05 entity.
+ * `LogEvent.data` stays an open record; read a typed view with `TypedLogEvent<K>`.
+ */
+type Point = { x_m: number; y_m: number };
+
+export interface LogEventData {
+  SESSION_LOADED: Pick<Session, "session_id" | "scenario_id" | "data_version" | "seed"> & { plan_hash: string };
+  EVA_STARTED: { crew_ids: CrewId[]; plan_revision: number };
+  ARRIVED_STOP: { crew_id: CrewId; stop_id: string; stop_index: number };
+  LEFT_STOP: { crew_id: CrewId; stop_id: string; stop_index: number };
+  ALERT_RAISED: Pick<Alert, "alert_id" | "code" | "level" | "subjects" | "message"> & {
+    /** RADIATION_ALERT values (05 §F.6, fixture `radiation-alert`); other codes add their own. */
+    rate_ugy_h?: number | null;
+    threshold_ugy_h?: number | null;
+    source?: string;
+  };
+  ALERT_ACKED: { alert_id: string; acked_by: Role };
+  ALERT_CLEARED: { alert_id: string };
+  OPTIONS_PROPOSED: { alert_id: string; options: ContingencyOption[] };
+  PLAN_REVISED: { plan_revision: number; option_id: string | null; stops_dropped: number[] };
+  /** Summon: `option_id` + `rendezvous`. Accepted TASK_ROVER: `task` + `target` (+ `item` for CARRY). */
+  VEHICLE_DISPATCHED: {
+    vehicle_id: string;
+    option_id?: string;
+    rendezvous?: ContingencyOption["rendezvous"];
+    task?: RoverTaskKind;
+    target?: Point;
+    item?: string;
+  };
+  VEHICLE_ARRIVED: { vehicle_id: string } & Point;
+  CREW_SHELTERED: Pick<Crew, "crew_id" | "dose_event_ugy" | "dose_event_unsheltered_ugy"> & {
+    haven_kind: Crew["haven"]["kind"];
+  };
+  LINK_LOST: { node_id: string };
+  LINK_RESTORED: { node_id: string };
+  EARTH_MSG_QUEUED: Pick<EarthMessage, "message_id" | "direction" | "body" | "sent_utc" | "deliver_utc" | "via">;
+  EARTH_MSG_DELIVERED: { message_id: string };
+  COMMAND_REJECTED: { code: RejectCode; message: string };
+  CLOCK_CHANGED: Pick<Session["clock"], "speed" | "paused">;
+  EVA_ENDED: { crew_ids: CrewId[] };
+  TASK_ADDED: Pick<StopTask, "task_id" | "stop_id" | "crew_id" | "kind" | "text" | "origin">;
+  TASK_UPDATED: Pick<StopTask, "task_id" | "stop_id" | "crew_id" | "state" | "reason">;
+  TASK_DROPPED: { task_id: string; stop_id: string; plan_revision: number };
+}
+
+/** A LogEvent of one kind with its `data` typed. */
+export type TypedLogEvent<K extends LogEventKind = LogEventKind> = K extends LogEventKind
+  ? Omit<LogEvent, "kind" | "data"> & { kind: K; data: LogEventData[K] }
+  : never;
 
 export interface EarthMessage {
   message_id: string;

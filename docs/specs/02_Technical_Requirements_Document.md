@@ -639,6 +639,7 @@ No accounts. A client joins with a **role** and a display name; the Hab Core tru
 | `SEND_MESSAGE` | — | ✓ | ✓ | ✓ (delayed) |
 | `UPDATE_STOP_TASK` (FR-50) | — | ✓ (own tasks) | ✓ (any crew) | — |
 | `ADD_STOP_TASK` (FR-50) | — | — | ✓ | — |
+| `INJECT_EVENT` | — | — | ✓ | — |
 
 ### E.5 Hab Core HTTP endpoints
 
@@ -655,20 +656,20 @@ No accounts. A client joins with a **role** and a display name; the Hab Core tru
 
 ### E.6 WebSocket protocol (`/ws`)
 
-Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (monotonic) and `sim_time`.
+Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (monotonic) and `sim_time`, except `COMMAND_RESULT`, which carries the `event_seq` it produced. Entity shapes are the 05 §C.2 runtime entities; the examples below are abbreviated.
 
 ```json
-{"v":1,"type":"HELLO","role":"eva:EV1","client_id":"c-7f3a","last_seq":0}
+{"v":1,"type":"HELLO","role":"eva:EV1","client_id":"c-7f3a","display_name":"…","last_seq":0}
 ```
 
 ```json
 {"v":1,"type":"SNAPSHOT","seq":412,"sim_time":"2024-05-20T13:05:00Z",
  "session":{"session_id":"s-0007","scenario_id":"storm-sol4190","data_version":"gale_boxwork-2026.11.08","clock":{"speed":60,"paused":false}},
  "plan":{"plan_revision":3,"legs":["…"]},
- "crew":[{"crew_id":"EV1","x_m":2410.5,"y_m":-1875.0,"o2_frac":0.71,"dose_event_ugy":0,"linked":true,"haven_min":18.4,"haven_kind":"vehicle"}],
+ "crew":[{"crew_id":"EV1","x_m":2410.5,"y_m":-1875.0,"o2_frac":0.71,"dose_event_ugy":0,"linked":true,"haven":{"minutes":18.4,"kind":"vehicle","target_x_m":"…","target_y_m":"…"}}],
  "vehicles":[{"vehicle_id":"PR1","kind":"pressurized_rover","x_m":-1800,"y_m":-1500,"state":"PARKED"}],
- "alerts":[],"link":{"earth":{"light_time_s":"…","next_pass_utc":"…","blackout":false}},
- "provenance":{"crew.o2_frac":"simulated","crew.haven_min":"modelled","link.earth.light_time_s":"derived"}}
+ "alerts":[],"options":[],"tasks":[],"earth":{"light_time_s":"…","next_pass_utc":"…","blackout":false,"queue":[]},"clients":[],
+ "provenance":{"crew.o2_frac":"simulated","crew.haven.minutes":"modelled","earth.light_time_s":"derived"}}
 ```
 
 ```json
@@ -678,13 +679,14 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
 
 ```json
 {"v":1,"type":"EVENT","seq":420,"sim_time":"2024-05-20T13:12:00Z",
- "event":{"kind":"ALERT_RAISED","code":"RADIATION_ALERT","severity":"blocked",
- "data":{"rate_ugy_h":"…","threshold_ugy_h":"…","source":"replayed:rad-sol4190"}}}
+ "event":{"seq":420,"sim_time":"2024-05-20T13:12:00Z","kind":"ALERT_RAISED","actor":"system",
+ "data":{"code":"RADIATION_ALERT","level":"warning","rate_ugy_h":"…","threshold_ugy_h":"…","source":"replayed:rad-sol4190"},
+ "provenance":{"data.rate_ugy_h":"replayed"}}}
 ```
 
 ```json
 {"v":1,"type":"COMMAND","command_id":"k-0091","role":"eva:EV1",
- "command":{"kind":"SUMMON_VEHICLE","crew":["EV1","EV2"]}}
+ "command":{"kind":"SUMMON_VEHICLE","args":{"crew":["EV1","EV2"]}}}
 ```
 
 ```json
@@ -693,7 +695,7 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
 
 ```json
 {"v":1,"type":"COMMAND","command_id":"k-0102","role":"eva:EV1",
- "command":{"kind":"UPDATE_STOP_TASK","task_id":"t-s2-02","state":"DONE"}}
+ "command":{"kind":"UPDATE_STOP_TASK","args":{"task_id":"t-s2-02","state":"DONE"}}}
 ```
 
 The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state, reason}`; ops and the HUD count read it from the event, never from the command (FR-50).
@@ -702,7 +704,8 @@ The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state,
 
 - Rejections: `{"ok":false,"code":"FORBIDDEN_ROLE"|"NO_LINK"|"INVALID"|"NO_RENDEZVOUS"|"BUSY","message":"…"}`.
 - `NO_LINK`: the issuing suit is unlinked on L-surf; the client keeps the command queued and resends on `LINK_STATE linked=true`.
-- Reconnect: client sends `last_seq`; server replays events after it or sends a fresh `SNAPSHOT` if the gap is > 1,000.
+- Reconnect *(changed 2026-11-07)*: client sends `last_seq`; server always sends a fresh `SNAPSHOT` first, then the `EVENT`s after `last_seq` (none if the gap is > 1,000). The SNAPSHOT makes state changed only by `STATE_DELTA` during the gap correct (NFR-13); the replayed EVENTs, all at or below the SNAPSHOT's `seq`, only fill the client's event feed and do not change state.
+- Command dedupe *(added 2026-11-07)*: a repeated `command_id` from the same client that was accepted is answered with the first `COMMAND_RESULT` and not run again; a rejected one may be retried (05 Command).
 - Heartbeat: server `PING` every 2 s; client shows "HAB LINK LOST" after 3 s without one (FR-32).
 
 ### E.7 Scenario file (`scenarios/<id>/scenario.json`)

@@ -21,6 +21,10 @@
       },
       "provenance": {
         "data.rendezvous": "modelled"
+      },
+      "command_ref": {
+        "client_id": "c-7f3a",
+        "command_id": "k-0091"
       }
     }
   },
