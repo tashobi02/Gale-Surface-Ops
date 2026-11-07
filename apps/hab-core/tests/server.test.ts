@@ -36,13 +36,14 @@ const start = startServer as unknown as StartUnderTest;
 const SIM_TIME = "2024-05-20T13:05:00Z"; // 02 §E.6 SNAPSHOT example
 
 function logEvent(seq: number): LogEvent {
-  return { seq, sim_time: SIM_TIME, kind: "ARRIVED_STOP", actor: "system", data: {}, provenance: {} };
+  return { seq, sim_time: SIM_TIME, kind: "ARRIVED_STOP", actor: "system", data: {}, provenance: {}, command_ref: null };
 }
 
 class StubSession implements SessionHandle {
   lastSeq: number;
   pending: LogEvent[] = [];
   applied: Command[] = [];
+  clientIds: (string | undefined)[] = [];
   constructor(lastSeq: number) {
     this.lastSeq = lastSeq;
   }
@@ -55,8 +56,9 @@ class StubSession implements SessionHandle {
       earth: { light_time_s: 0, next_pass_utc: null, blackout: false, queue: [] }, clients, provenance: {},
     };
   }
-  apply(command: Command): { result: CommandResult; events: LogEvent[] } {
+  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[] } {
     this.applied.push(command);
+    this.clientIds.push(client_id);
     const ev = logEvent(++this.lastSeq);
     return { result: { v: 1, type: "COMMAND_RESULT", command_id: command.command_id, ok: true, event_seq: ev.seq }, events: [ev] };
   }
@@ -212,6 +214,21 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
     expect(c.received.filter((m) => m.type === "COMMAND_RESULT")).toHaveLength(1);
     expect(result).toMatchObject({ command_id: "k-0091", ok: true });
     expect(session.applied.map((cmd) => cmd.command_id)).toEqual(["k-0091"]);
+  });
+
+  it("a COMMAND is applied with its connection's HELLO client_id, the key of the 05 Command dedupe rule", async () => {
+    const { server, session } = await setup();
+    const a = await client(server.url);
+    const b = await client(server.url);
+    a.send(hello(0, "c-aaaa"));
+    b.send(hello(0, "c-bbbb"));
+    await a.waitFor((m) => m.type === "SNAPSHOT");
+    await b.waitFor((m) => m.type === "SNAPSHOT");
+    for (const c of [a, b]) {
+      c.send({ v: 1, type: "COMMAND", command_id: "k-0001", role: "eva:EV1", command: { kind: "ACK_ALERT", args: { alert_id: "a-1" } } });
+      await c.waitFor((m) => m.type === "COMMAND_RESULT");
+    }
+    expect(session.clientIds).toEqual(["c-aaaa", "c-bbbb"]);
   });
 
   it("GET /api/health returns {status, data_version, session_id, sim_time, uptime_s} (02 §E.5)", async () => {

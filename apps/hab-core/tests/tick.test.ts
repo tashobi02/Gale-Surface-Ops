@@ -21,7 +21,7 @@ import type { AlertCode, CrewId, LogEventData, ParamSet } from "@marswalk/protoc
 import { buddyTick, consumablesTick, radiationTick } from "../src/engine/alerts";
 import { havenTick } from "../src/engine/haven";
 import { linksTick } from "../src/engine/links";
-import { initialState, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
+import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
 import { MODULE_ORDER, type TickContext } from "../src/engine/tick";
 import { readScenario, type LoadedScenario } from "../src/scenario";
 
@@ -71,12 +71,12 @@ const ctx = (state: EngineState, scenario = fake): TickContext => ({ scenario, d
 
 /** Reduce a module's events the way tick.ts does (seqs from ctx.next_seq). */
 function applyEvents(state: EngineState, events: PendingEvent[]): EngineState {
-  return events.reduce((s, e) => reduce(s, { ...e, seq: s.session.last_seq + 1 }), state);
+  return events.reduce((s, e) => reduce(s, logged(e, s.session.last_seq + 1)), state);
 }
 
 function onEva(): EngineState {
   const s = initialState(fake, "s-0001");
-  return reduce(s, { seq: 1, sim_time: fake.scenario.start_utc, kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, provenance: {} });
+  return reduce(s, { seq: 1, sim_time: fake.scenario.start_utc, kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, provenance: {}, command_ref: { client_id: "c-1", command_id: "k-1" } });
 }
 
 const withCrew = (s: EngineState, id: CrewId, patch: Partial<EngineState["crew"][number]>): EngineState => ({

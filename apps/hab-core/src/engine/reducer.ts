@@ -53,7 +53,12 @@ export interface EngineState {
 }
 
 /** A LogEvent before the log assigns its `seq`. */
-export type PendingEvent = Omit<LogEvent, "seq">;
+export type PendingEvent = Omit<LogEvent, "seq" | "command_ref"> & { command_ref?: LogEvent["command_ref"] };
+
+/** The LogEvent a pending event becomes at `seq`; engine modules leave `command_ref` out, so it is null. */
+export function logged(pending: PendingEvent, seq: number): LogEvent {
+  return { ...pending, command_ref: pending.command_ref ?? null, seq };
+}
 
 /** What a command handler returns; commands.ts (T23.02) answers COMMAND_RESULT from it. */
 export interface CommandOutcome {
@@ -80,7 +85,7 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
       data_version: s.data_version,
       seed: s.seed,
       status: "LOADED",
-      // TODO(decision): 05 gives no initial speed; 1× until the first SET_CLOCK (CLOCK_CHANGED).
+      // 1× and not paused until the first SET_CLOCK (CLOCK_CHANGED); decided 2026-11-07 (05 Session clock).
       clock: { sim_time: s.start_utc, speed: 1, paused: false },
       // The published plan is revision 1; each PLAN_REVISED carries the new number (05 Session).
       plan_revision: 1,

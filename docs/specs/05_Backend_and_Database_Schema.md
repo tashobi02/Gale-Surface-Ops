@@ -378,7 +378,7 @@ Conventions as §C. In addition: `sim_time` is ISO-8601 UTC of the **mission clo
 | `session_id` (PK) | string | `s-<n>` |
 | `scenario_id`, `data_version`, `seed` | — | copied from Scenario |
 | `status` | enum | `LOADED \| RUNNING \| PAUSED \| ENDED` |
-| `clock` | `{sim_time, speed: 1\|10\|60, paused}` | |
+| `clock` | `{sim_time, speed: 1\|10\|60, paused}` | a loaded session starts at `speed` 1, not paused, until `SET_CLOCK` *(decided 2026-11-07)* |
 | `plan_revision` | int | increments on every `PLAN_REVISED` |
 | `last_seq` | int | |
 | `log_hash` | string | running SHA-256 over canonical LogEvents (NFR-06); canonical JSON is RFC 8785 (JCS), as for `plan_hash` *(decided 2026-11-07)* |
@@ -479,7 +479,7 @@ State is reduced from `TASK_ADDED`, `TASK_UPDATED` and `TASK_DROPPED` events; it
 | `data` | object | values needed to reduce state without recomputation |
 | `provenance` | object | field path → class |
 | `inputs_hash` | string | SHA-256 of the compute inputs when the event carries a computed value |
-| `command_ref` *(added 2026-11-07)* | `{client_id, command_id}` \| null | the command that produced the event (including `COMMAND_REJECTED`); `null` for `system` events. Lets the Hab Core rebuild the accepted `command_id`s after a restart (see Command) |
+| `command_ref` *(added 2026-11-07)* | `{client_id, command_id}` \| null | required (decided 2026-11-07: never absent, so `log_hash` has one form). The command that produced the event (including `COMMAND_REJECTED`); `null` for `system` events. Lets the Hab Core rebuild the accepted `command_id`s after a restart (see Command) |
 
 #### LogEvent `data` by kind *(added 2026-11-07)*
 
@@ -822,14 +822,15 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
 {"seq": 420, "sim_time": "2024-05-20T…Z", "kind": "ALERT_RAISED", "actor": "system",
  "data": {"alert_id": "a-420", "code": "RADIATION_ALERT", "level": "warning", "subjects": ["EV1", "EV2"],
           "message": "Radiation surge — shelter now", "rate_ugy_h": null, "threshold_ugy_h": null},
- "provenance": {"data.rate_ugy_h": "replayed", "data.threshold_ugy_h": "assumed"}, "inputs_hash": "…"}
+ "provenance": {"data.rate_ugy_h": "replayed", "data.threshold_ugy_h": "assumed"}, "inputs_hash": "…", "command_ref": null}
 {"seq": 421, "sim_time": "2024-05-20T…Z", "kind": "OPTIONS_PROPOSED", "actor": "system",
  "data": {"alert_id": "a-420", "options": [{"option_id": "o1", "kind": "VEHICLE_RENDEZVOUS", "rank": 1},
                                            {"option_id": "o2", "kind": "ABORT_TO_HAB", "rank": 2}]},
- "provenance": {"data.options[].eta_shelter_min": "modelled"}, "inputs_hash": "…"}
+ "provenance": {"data.options[].eta_shelter_min": "modelled"}, "inputs_hash": "…", "command_ref": null}
 {"seq": 422, "sim_time": "2024-05-20T…Z", "kind": "VEHICLE_DISPATCHED", "actor": "eva:EV1",
  "data": {"vehicle_id": "PR1", "option_id": "o1", "rendezvous": {"x_m": null, "y_m": null, "eta_crew_s": null, "eta_vehicle_s": null}},
- "provenance": {"data.rendezvous": "modelled"}, "inputs_hash": "…"}
+ "provenance": {"data.rendezvous": "modelled"}, "inputs_hash": "…",
+ "command_ref": {"client_id": "c-7f3a", "command_id": "k-0091"}}
 ```
 
 ## Unresolved items owned by this document

@@ -36,7 +36,7 @@ import type {
   Scenario,
 } from "@marswalk/protocol";
 import { canonicalJson, openLog, resumeLog, SNAPSHOT_EVERY } from "../src/log";
-import { initialState, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
+import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
 import type { LoadedScenario } from "../src/scenario";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -165,7 +165,7 @@ describe("event log (05 §B session store, LogEvent)", () => {
     const appended = scriptedRun().map((p) => log.append(p));
     expect(log.after(5)).toEqual(appended.slice(5));
     expect(log.after(log.lastSeq())).toEqual([]);
-    expect(appended[3]).toMatchObject({ ...scriptedRun()[3], seq: 4 });
+    expect(appended[3]).toEqual(logged(scriptedRun()[3], 4));
   });
 
   it("writes one canonical JSON line per event to session.jsonl", () => {
@@ -283,7 +283,7 @@ describe("engine determinism (02 §A.6, NFR-06, NFR-14)", () => {
   it("reduce is pure: it does not change its input state or event", () => {
     const state = initialState(fake, SESSION_ID);
     const before = structuredClone(state);
-    const event: LogEvent = { ...scriptedRun()[2], seq: 1 };
+    const event: LogEvent = logged(scriptedRun()[2], 1);
     const eventBefore = structuredClone(event);
     const next = reduce(state, event);
     expect(state).toEqual(before);
@@ -303,7 +303,7 @@ describe("engine determinism (02 §A.6, NFR-06, NFR-14)", () => {
 
 describe("reducer state transitions (03 §E.6–§E.10)", () => {
   /** State after the first `n` scripted events. */
-  const after = (n: number): EngineState => fold(scriptedRun().slice(0, n).map((p, i) => ({ ...p, seq: i + 1 })));
+  const after = (n: number): EngineState => fold(scriptedRun().slice(0, n).map((p, i) => logged(p, i + 1)));
 
   it("initial state: session LOADED at start_utc, crew IN_HAB at the plan start, vehicles PARKED at their starts", () => {
     const s = initialState(fake, SESSION_ID);
@@ -363,7 +363,7 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
     const base = after(3);
     const tasked = reduce(
       { ...base, vehicles: [...base.vehicles, { vehicle_id: "UR1", kind: "utility_rover", param_set: "ur1-assumed", x_m: 0, y_m: 0, state: "PARKED", task: null, path: [], eta_s: null, battery_wh: null }] },
-      { ...ev("VEHICLE_DISPATCHED", at(10), { vehicle_id: "UR1", task: "CARRY", target: { x_m: 900, y_m: 10 }, item: "sample bag" }, "ops"), seq: 4 },
+      logged(ev("VEHICLE_DISPATCHED", at(10), { vehicle_id: "UR1", task: "CARRY", target: { x_m: 900, y_m: 10 }, item: "sample bag" }, "ops"), 4),
     );
     expect(tasked.vehicles[1]).toMatchObject({ state: "TASKED", task: { kind: "CARRY", target: { x_m: 900, y_m: 10 }, item: "sample bag" } });
   });
@@ -385,10 +385,10 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
   it("a warning latches until it is acknowledged and cleared (03 §E.7)", () => {
     expect(after(18).alerts).toEqual([]); // acked at 9, cleared at 18
     const unacked = fold(
-      [scriptedRun()[6], ev("ALERT_CLEARED", at(3700), { alert_id: "a-7" })].map((p, i) => ({ ...p, seq: i + 1 })),
+      [scriptedRun()[6], ev("ALERT_CLEARED", at(3700), { alert_id: "a-7" })].map((p, i) => logged(p, i + 1)),
     );
     expect(unacked.alerts).toEqual([expect.objectContaining({ alert_id: "a-7", cleared_seq: 2, acked_seq: null })]);
-    const acked = reduce(unacked, { ...ev("ALERT_ACKED", at(3710), { alert_id: "a-7", acked_by: "ops" }, "ops"), seq: 3 });
+    const acked = reduce(unacked, logged(ev("ALERT_ACKED", at(3710), { alert_id: "a-7", acked_by: "ops" }, "ops"), 3));
     expect(acked.alerts).toEqual([]);
   });
 
@@ -397,7 +397,7 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
       [
         ev("ALERT_RAISED", at(10), { alert_id: "a-1", code: "ADVISORY", level: "advisory", subjects: [], message: "Earth forecast received" }),
         ev("ALERT_CLEARED", at(20), { alert_id: "a-1" }),
-      ].map((p, i) => ({ ...p, seq: i + 1 })),
+      ].map((p, i) => logged(p, i + 1)),
     );
     expect(s.alerts).toEqual([]);
   });
@@ -412,7 +412,7 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
       [
         ev("EARTH_MSG_QUEUED", at(3600), { message_id: "m-1", direction: "to_mars", body: "SEP event in progress. Recommend shelter.", sent_utc: at(3600), deliver_utc: at(4800), via: "dte" }, "system", { deliver_utc: "derived" }),
         ev("EARTH_MSG_DELIVERED", at(4800), { message_id: "m-1" }),
-      ].map((p, i) => ({ ...p, seq: i + 1 })),
+      ].map((p, i) => logged(p, i + 1)),
     );
     expect(s.earthQueue).toEqual([expect.objectContaining({ message_id: "m-1", state: "DELIVERED", via: "dte", deliver_utc: at(4800) })]);
   });

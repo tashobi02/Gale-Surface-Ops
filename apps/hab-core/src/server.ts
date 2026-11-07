@@ -204,7 +204,7 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     };
     let outcome: ReturnType<SessionHandle["apply"]>;
     try {
-      outcome = session.apply(cmd);
+      outcome = session.apply(cmd, client.client_id);
     } catch (err) {
       app.log.error(err);
       return send(client, reject(command_id, "INVALID", "command failed"));

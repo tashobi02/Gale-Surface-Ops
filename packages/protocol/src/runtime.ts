@@ -332,10 +332,9 @@ export interface LogEvent {
   /**
    * The command that produced the event, including COMMAND_REJECTED; null for `system` events.
    * Lets the Hab Core rebuild the accepted `command_id`s after a restart (05 Command dedupe rule).
-   * Optional in v0 so producers written before T20.11 still type-check. TODO(decision): make it
-   * required (absent and `null` hash differently in `log_hash`) when T22.07 writes the log.
+   * Required, decided 2026-11-07: an absent field and `null` would hash differently in `log_hash`.
    */
-  command_ref?: CommandRef | null;
+  command_ref: CommandRef | null;
 }
 
 /*
