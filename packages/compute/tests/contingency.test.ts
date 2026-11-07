@@ -28,10 +28,12 @@ import {
 // Every expected value below is derived in the test from the fixtures (closed forms), never typed in.
 // The shielding factors, ingress seconds, dose rates and rendezvous seconds are TEST-ONLY stub values.
 //
-// Why no "lower dose, higher ETA" case: every option starts at now_utc and the replayed rate is never
-// negative, so the dose until sheltered cannot decrease as the ETA grows. Dose-first and ETA-first
-// ranking therefore only differ in how equal doses are ordered. The piecewise-rate test below covers
-// that: options past the end of the burst share one dose and are ordered by ETA.
+// Why no "lower dose, higher ETA" case: it holds while every option counts the whole walk at the suit
+// factor from now_utc and the replayed rate is not negative; then the dose until sheltered cannot
+// decrease as the ETA grows, and dose-first and ETA-first ranking only differ in how equal doses are
+// ordered. A terrain refuge (T2, its own factor) or ingress counted at the shelter factor would break
+// the premise, and a case must be added then. The piecewise-rate test below covers the present model:
+// options past the end of the burst share one dose and are ordered by ETA.
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -346,6 +348,51 @@ describe("proposeOptions", () => {
     expect(skip.path_preview).toEqual([[750, 0], [1000, 0], [1500, 0], [0, 0]]);
   });
 
+  it("projects onto the current leg only, even when a later (return) leg passes closer", () => {
+    // Out and back: start -> stop 1 -> stop 2 -> return to a point 1 m from the start. The crew
+    // member is at the first stop (2 m off the current leg's end), 1 m from the return leg's middle.
+    const outAndBack: Waypoint[] = [
+      { id: "wp-0", role: "start", x_m: 0, y_m: 0 },
+      { id: "wp-1", role: "stop", x_m: 500, y_m: 0 },
+      { id: "wp-2", role: "stop", x_m: 1000, y_m: 0 },
+    ];
+    const plan = {
+      waypoints: outAndBack,
+      legs: [
+        okLeg("wp-0", "wp-1", 10, [[0, 0], [500, 0]]),
+        okLeg("wp-1", "wp-2", 10, [[500, 0], [1000, 0]]),
+        okLeg("wp-2", "wp-0", 30, [[1000, 0], [500, 1], [0, 1]]),
+      ],
+    };
+    const crew = [makeCrew("EV1", 500, 2, 0)];
+    const skip = byKind(proposeOptions(baseInputs({ crew, plan, rendezvous: {} })), "CONTINUE_SKIP");
+    // Current leg = the one from the start waypoint (stop_index 0). The crew member is at its end:
+    // none of it is left, then the other two legs whole.
+    const expectedMin = 0 + plan.legs[1].walk_time_min + plan.legs[2].walk_time_min;
+    expect(plan.legs[0].geometry[1][0]).toBe(crew[0].x_m);
+    expectClose(skip.eta_shelter_min, (expectedMin * 60 + ingress.hab_s) / 60);
+    expect(skip.path_preview[0]).toEqual([500, 0]);
+  });
+
+  it("finds the start waypoint by its role, not by its position in the list", () => {
+    const reordered = [waypoints[1], waypoints[0], waypoints[2], waypoints[3]];
+    const crew = [makeCrew("EV1", 100, 0, 0)];
+    const skip = byKind(proposeOptions(baseInputs({ crew, plan: { waypoints: reordered, legs: makeLegs() }, rendezvous: {} })), "CONTINUE_SKIP");
+    // 100 m along the first leg (500 m, 10 min): 4/5 of it is left, then the other three legs whole.
+    const leftMin = 0.8 * legs[0].walk_time_min + legs[1].walk_time_min + legs[2].walk_time_min + legs[3].walk_time_min;
+    expectClose(skip.eta_shelter_min, (leftMin * 60 + ingress.hab_s) / 60);
+  });
+
+  it("rejects a stop_index that is not a stop of the plan", () => {
+    for (const bad of [4, -1, 1.5]) {
+      expect(() => proposeOptions(baseInputs({ crew: [makeCrew("EV1", 500, 0, bad)] }))).toThrow(RangeError);
+    }
+    // The last stop (3) and a null stop_index (not yet at a stop: the start) are valid.
+    expect(() => proposeOptions(baseInputs({ crew: [makeCrew("EV1", 1500, 0, 3)] }))).not.toThrow();
+    const atStart = { ...makeCrew("EV1", 100, 0, 0), stop_index: null };
+    expect(() => proposeOptions(baseInputs({ crew: [atStart] }))).not.toThrow();
+  });
+
   it("drops continue-with-skips when a remaining leg has no route", () => {
     const broken: Leg = { from: "wp-2", to: "wp-3", status: "NO_ROUTE", reason: "DISCONNECTED_BY_SLOPE" };
     const plan = { waypoints, legs: [legs[0], legs[1], broken, legs[3]] };
@@ -434,12 +481,39 @@ describe("proposeOptions", () => {
     expect(byKind(options, "ABORT_TO_HAB").violations).toEqual(["EVA_DURATION_EXCEEDED"]);
   });
 
+  it("EVA_DURATION_EXCEEDED is strict: elapsed + ETA equal to the limit is not exceeded (Proposed)", () => {
+    // 05 names the code but not the comparison; "exceeded" is read as strictly over.
+    const limitS = defaultScenario.max_eva_duration_h * 3600;
+    const atLimit = proposeOptions(baseInputs({ crew: [makeCrew("EV1", 500, 0, 1, limitS - VEHICLE_ETA_S)] }));
+    expect(byKind(atLimit, "VEHICLE_RENDEZVOUS").violations).toEqual([]);
+    const oneOver = proposeOptions(baseInputs({ crew: [makeCrew("EV1", 500, 0, 1, limitS - VEHICLE_ETA_S + 1)] }));
+    expect(byKind(oneOver, "VEHICLE_RENDEZVOUS").violations).toEqual(["EVA_DURATION_EXCEEDED"]);
+  });
+
+  it("rejects three crew who all have a vehicle rendezvous (pair covers exactly two)", () => {
+    const crew = [makeCrew("EV1", 500, 0, 1), makeCrew("EV2", 500, 0, 1), makeCrew("EV1", 500, 0, 1)];
+    const inputs = baseInputs({ crew, pair: { order: [0, 1], later_arrival_s: 450 } });
+    expect(() => proposeOptions(inputs)).toThrow(RangeError);
+  });
+
   it("returns no options for an empty crew", () => {
     expect(proposeOptions(baseInputs({ crew: [] }))).toEqual([]);
   });
 
-  it("rejects an invalid now_utc", () => {
+  it("rejects an invalid now_utc, and one without an explicit Z or offset (host time zone, NFR-06)", () => {
     expect(() => proposeOptions(baseInputs({ now_utc: "not a time" }))).toThrow(RangeError);
+    // A zone-less time would be read in the host time zone by Date.parse.
+    expect(() => proposeOptions(baseInputs({ now_utc: "2026-11-14T08:00:00" }))).toThrow(RangeError);
+    expect(() => proposeOptions(baseInputs({ now_utc: "2026-11-14" }))).toThrow(RangeError);
+  });
+
+  it("accepts an explicit offset and gives the same options as the equivalent Z time", () => {
+    const series = makeSeries([[T0, 0], [isoAt(100), 3600], [isoAt(3600), 3600]]);
+    // 13:00+05:00 is 08:00Z; 100 s later.
+    const withOffset = proposeOptions(baseInputs({ series, now_utc: "2026-11-14T13:01:40+05:00" }));
+    const withZ = proposeOptions(baseInputs({ series, now_utc: isoAt(100) }));
+    expect(withOffset).toEqual(withZ);
+    expect(withZ[0].expected_dose_ugy).toBeGreaterThan(0);
   });
 
   describe("unreachable crew (no non-finite numbers on the wire)", () => {
