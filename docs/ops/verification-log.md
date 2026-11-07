@@ -31,3 +31,22 @@ Each section records what was run, the result, and what it hands on. Detailed no
 - Disagreements with the specs: the grayscale orthophoto file is 50,404,480,837 bytes, not 23 GB; the CRISM data and index are on the PDS Geosciences Node, not under the `pds.nasa.gov` release folder named in 02 Sources.
 - Hands on to: T01.05; T03.07 and T03.19 (product URLs, tile id); T03.26 and T03.27 (fallback triggers, none triggered for L1 or L4); T18.01 (CRISM trigger).
 - Not run: `make lint` and `make docs-check`, because `node_modules` is absent in this worktree. `python3 scripts/check_links.py` was run on its own (result in the subtask report).
+
+## T13.04 — Base styles: typography defaults, focus ring, reduced motion
+
+| | |
+| --- | --- |
+| **Owner** | Ridita Alam (R5 EVA & Ops UI · design system) |
+| **Date** | 2026-11-08 |
+| **Status** | Done: base styles verified offline; zero external network requests |
+| **Inputs** | [04 §C.1, §C.2, §C.3, §E](../specs/04_Design_Brief.md); [base.css](../../apps/web/src/ui/styles/base.css); self-hosted fonts in `apps/web/public/fonts/` (T13.02) |
+
+| Feature | Result | Evidence |
+| --- | --- | --- |
+| Fonts offline (NFR-01, NFR-07) | **Verified offline**, zero external requests | `@font-face` rules in `base.css` reference `/fonts/...`; Vite production build (`base: "./"`) rebases to `../fonts/...`; bundle passes offline verification |
+| Typography defaults (04 §C.2) | **Verified** against 04 §C.2 specs | Body 14 px / 400 Inter (line-height 1.45), panel headings 16 px / 600, screen titles 20 px / 600, microcopy 12 px mono, no text renders below 12 px |
+| Focus ring (04 §E, 04 P10) | **Verified** | 2 px white outline with 2 px offset and box-shadow gap on `:focus-visible`, never removed |
+| Reduced motion (04 §E Motion) | **Verified** | `@media (prefers-reduced-motion: reduce)` zeroes animation and transition durations and forces `scroll-behavior: auto` |
+| Target sizes (04 §C.3) | **Verified** | Minimum mouse ≥ 32 px, touch ≥ 44 px via `@media (pointer: coarse)`, EVA ≥ 56 px with `[data-surface="eva"]` / `.eva-target` |
+
+- Hands on to: T13.09 (axe scan), T13.10 (keyboard-only run).
