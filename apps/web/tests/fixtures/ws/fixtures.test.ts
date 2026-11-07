@@ -58,7 +58,7 @@ const LOG_EVENT_DATA_KEYS: { [K in LogEventKind]: KeySpec<LogEventData[K]> } = {
   ALERT_ACKED: { alert_id: "req", acked_by: "req" },
   ALERT_CLEARED: { alert_id: "req" },
   OPTIONS_PROPOSED: { alert_id: "req", options: "req" },
-  PLAN_REVISED: { plan_revision: "req", option_id: "req", stops_dropped: "req" },
+  PLAN_REVISED: { plan_revision: "req", option_id: "req", stops_dropped: "req", waypoints: "req", legs: "req", plan: "opt" },
   VEHICLE_DISPATCHED: { vehicle_id: "req", option_id: "opt", rendezvous: "opt", task: "opt", target: "opt", item: "opt" },
   VEHICLE_ARRIVED: { vehicle_id: "req", x_m: "req", y_m: "req" },
   CREW_SHELTERED: { crew_id: "req", haven_kind: "req", dose_event_ugy: "req", dose_event_unsheltered_ugy: "req" },

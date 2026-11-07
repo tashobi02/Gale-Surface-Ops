@@ -186,7 +186,7 @@
 - **Parallel with:** T23.05
 - **Steps:**
   1. On a new warning, build options with `@marswalk/compute` and log `OPTIONS_PROPOSED`.
-  2. Approval and abort revise the plan and log `PLAN_REVISED`; `engine/tasks.ts` (T31.04) reacts to it for dropped stops.
+  2. Approval and abort revise the plan and log `PLAN_REVISED`; `engine/tasks.ts` (T31.04) reacts to it for dropped stops. *(2026-11-07)* `PLAN_REVISED` carries the revised `waypoints` and `legs` (05 "LogEvent `data` by kind"): drop the option's `stops_dropped`, and build the new leg from the option's route.
 - **Acceptance:**
   - Serves: FR-44, NFR-06
   - T23.06 passes.

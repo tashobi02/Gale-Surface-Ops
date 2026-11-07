@@ -176,13 +176,15 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
     case "OPTIONS_PROPOSED":
       return { ...next, options: [...next.options.filter((o) => o.alert_id !== e.data.alert_id), ...e.data.options] };
     case "PLAN_REVISED": {
-      // TODO(decision): 05 gives PLAN_REVISED no waypoints (fields Proposed), so `plan` keeps the
-      // published waypoints until the data carries the revised ones (T23.07).
+      // The revised waypoints and legs replace the plan's, so the map shows the new route; a
+      // published plan arrives whole in `plan` (decided 2026-11-07).
       const option = next.options.find((o) => o.option_id === e.data.option_id);
       const toHaven = option && option.kind !== "CONTINUE_SKIP" ? option.crew_ids : [];
+      const base = e.data.plan ?? next.plan;
       return {
         ...next,
         session: { ...next.session, plan_revision: e.data.plan_revision },
+        plan: base && { ...base, waypoints: e.data.waypoints, result: { ...base.result, legs: e.data.legs } },
         options: option ? next.options.filter((o) => o.alert_id !== option.alert_id) : next.options,
         crew: updateCrew(next.crew, toHaven, () => ({ activity: "TO_HAVEN" })),
       };
