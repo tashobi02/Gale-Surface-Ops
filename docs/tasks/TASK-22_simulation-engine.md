@@ -253,7 +253,7 @@
   - Serves: FR-37, FR-38 · [02 §D.13](../specs/02_Technical_Requirements_Document.md#d13-space-weather-event-model-fr-37-fr-38)
   - The alert cases of T22.08 pass; no threshold number appears in the source.
 - **Verify:** `npm --workspace @marswalk/hab-core test -- tick`; `grep -nE "[0-9]{2,}" apps/hab-core/src/engine/alerts.ts` shows no threshold literals.
-- **Agent brief:** Implement the three alert rules from ParamSets. Messages are action-first and ≤ 60 characters (04 §D.2); their wording is `TODO(decision)` unless 04 gives it.
+- **Agent brief:** Implement the three alert rules from ParamSets. Messages are action-first and ≤ 60 characters (04 §D.2); their wording was decided on 2026-11-07 (spec question 1).
 - **Conflict notes:** Single owner.
 
 ### T22.11 — Implement the scenario loader and its checks

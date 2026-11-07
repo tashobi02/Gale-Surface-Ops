@@ -12,5 +12,5 @@
   },
   "provenance": "assumed",
   "source_ids": [],
-  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20). O\u2082 margins (decided 2026-11-07) are O\u2082 time left \u00f7 time to the nearest haven: warning 1.2 from the 20 % walkback pad of 02 \u00a7D.6, caution 1.5 assumed."
+  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20). O\u2082 margins (decided 2026-11-07) are O\u2082 time left \u00f7 time to the nearest haven: both assumed (U-19); warning 1.2 chosen by analogy with the 20 % walkback pad of 02 \u00a7D.6, caution 1.5."
 }

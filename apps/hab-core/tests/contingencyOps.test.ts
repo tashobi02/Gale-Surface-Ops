@@ -56,7 +56,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ContingencyInputs } from "@marswalk/compute";
 import type { Command, CommandResult, ContingencyOption, LogEvent, LogEventData, LogEventKind, Role, Waypoint } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand, type CommandContext } from "../src/commands";
-import { contingencyTick } from "../src/engine/contingencyOps";
+import { contingencyTick, handleAbort, handleApproveOption } from "../src/engine/contingencyOps";
 import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
 import type { TickContext } from "../src/engine/tick";
 import { readScenario } from "../src/scenario";
@@ -175,15 +175,18 @@ beforeEach(() => {
  * suites are skipped so `make test` stays green on main; they run by themselves once T23.07 lands.
  * To see them fail now: `PENDING_RED=1 npm --workspace @marswalk/hab-core test -- contingencyOps`.
  */
-const PENDING = (() => {
-  if (process.env.PENDING_RED) return false;
+const PENDING = !process.env.PENDING_RED && ([
+  () => contingencyTick(undefined as never, undefined as never),
+  () => handleApproveOption(undefined as never, undefined as never, undefined as never),
+  () => handleAbort(undefined as never, undefined as never, undefined as never),
+] as (() => unknown)[]).some((probe) => {
   try {
-    contingencyTick(undefined as never, undefined as never);
+    probe();
     return false;
   } catch (err) {
-    return /not implemented/.test(String(err));
+    return /T23\.07 not implemented/.test(String(err));
   }
-})();
+});
 
 describe.skipIf(PENDING)("contingencyTick: options for a new warning (02 §D.15, 03 §E.5; FR-44)", () => {
   it("a RADIATION_ALERT produces one OPTIONS_PROPOSED for that alert, by system at the sim time", () => {

@@ -15,14 +15,32 @@ function num(p: ParamSet, key: string): number {
   return value;
 }
 
-/** Index of the last sample at or before t (ms), or -1. Samples are strictly increasing (05 DoseSeries). */
-function lastAtOrBefore(series: DoseSeries, t_ms: number): number {
+/** Sample times in ms, parsed once per series (derived data; the series is never changed). */
+const timesCache = new WeakMap<DoseSeries, Float64Array>();
+function times(series: DoseSeries): Float64Array {
+  let out = timesCache.get(series);
+  if (!out) {
+    out = Float64Array.from(series.samples, ([ts]) => parseUtc(ts));
+    timesCache.set(series, out);
+  }
+  return out;
+}
+
+/** ISO time with an explicit Z or offset, so parsing never depends on the host time zone. */
+function parseUtc(t_utc: string): number {
+  const ms = /(Z|[+-]\d{2}:\d{2})$/.test(t_utc) ? Date.parse(t_utc) : NaN;
+  if (Number.isNaN(ms)) throw new Error(`eventDose: ${t_utc} is not an ISO time with Z or an offset`);
+  return ms;
+}
+
+/** Index of the last time ≤ t, or -1 (binary search; samples are strictly increasing, 05 DoseSeries). */
+function lastAtOrBefore(ts: ArrayLike<number>, t_ms: number): number {
   let lo = 0;
-  let hi = series.samples.length - 1;
+  let hi = ts.length - 1;
   let found = -1;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    if (Date.parse(series.samples[mid][0]) <= t_ms) {
+    if (ts[mid] <= t_ms) {
       found = mid;
       lo = mid + 1;
     } else hi = mid - 1;
@@ -32,27 +50,33 @@ function lastAtOrBefore(series: DoseSeries, t_ms: number): number {
 
 /** Replayed rate at t; step-hold between samples; null before the first sample and inside a gap. */
 export function rateAt(series: DoseSeries, t_utc: string): number | null {
-  const i = lastAtOrBefore(series, Date.parse(t_utc));
+  const i = lastAtOrBefore(times(series), parseUtc(t_utc));
   return i < 0 ? null : series.samples[i][1];
 }
 
 /**
- * Trigger state: alert when rate > k × background for 2 consecutive samples; clear when
- * rate < clear_k × background for clear_min minutes (05 ParamSet kind `alert`).
+ * Alert intervals [start, end) in ms for one series and one set of thresholds, found in a single
+ * pass and cached, so `triggerState` is a binary search per tick. `end` is Infinity when the alert
+ * never clears within the series (a trailing high or gap keeps it, the conservative side).
  */
-export function triggerState(series: DoseSeries, t_utc: string, alertParams: ParamSet): "nominal" | "alert" {
-  const trigger = num(alertParams, "rad_k_background") * series.background_rate;
-  const clearLevel = num(alertParams, "rad_clear_k") * series.background_rate;
-  const clearMs = num(alertParams, "rad_clear_min") * 60_000;
-  const t = Date.parse(t_utc);
-  const last = lastAtOrBefore(series, t);
+const intervalCache = new WeakMap<DoseSeries, Map<string, { starts: number[]; ends: number[] }>>();
+function alertIntervals(series: DoseSeries, trigger: number, clearLevel: number, clearMs: number): { starts: number[]; ends: number[] } {
+  const key = `${trigger}|${clearLevel}|${clearMs}`;
+  let byKey = intervalCache.get(series);
+  if (!byKey) intervalCache.set(series, (byKey = new Map()));
+  const hit = byKey.get(key);
+  if (hit) return hit;
+  const ts = times(series);
+  const starts: number[] = [];
+  const ends: number[] = [];
   let alert = false;
   let highs = 0;
   let lowSince: number | null = null;
-  for (let i = 0; i <= last; i++) {
-    const [ts, rate] = series.samples[i];
-    const at = Date.parse(ts);
+  for (let i = 0; i < ts.length; i++) {
+    const at = ts[i];
+    const rate = series.samples[i][1];
     if (alert && lowSince !== null && at - lowSince >= clearMs) {
+      ends.push(lowSince + clearMs);
       alert = false;
       lowSince = null;
     }
@@ -66,13 +90,30 @@ export function triggerState(series: DoseSeries, t_utc: string, alertParams: Par
       if (highs >= 2) {
         alert = true;
         highs = 0;
+        starts.push(at);
       }
     } else {
       lowSince = rate < clearLevel ? (lowSince ?? at) : null;
     }
   }
-  if (alert && lowSince !== null && t - lowSince >= clearMs) alert = false;
-  return alert ? "alert" : "nominal";
+  if (alert) ends.push(lowSince !== null ? lowSince + clearMs : Infinity);
+  const out = { starts, ends };
+  byKey.set(key, out);
+  return out;
+}
+
+/**
+ * Trigger state: alert when rate > k × background for 2 consecutive samples; clear when
+ * rate < clear_k × background for clear_min minutes (05 ParamSet kind `alert`).
+ */
+export function triggerState(series: DoseSeries, t_utc: string, alertParams: ParamSet): "nominal" | "alert" {
+  if (!(series.background_rate > 0)) throw new Error(`eventDose: series ${series.series_id} needs a positive background_rate`);
+  const trigger = num(alertParams, "rad_k_background") * series.background_rate;
+  const clearLevel = num(alertParams, "rad_clear_k") * series.background_rate;
+  const clearMs = num(alertParams, "rad_clear_min") * 60_000;
+  const { starts, ends } = alertIntervals(series, trigger, clearLevel, clearMs);
+  const i = lastAtOrBefore(starts, parseUtc(t_utc));
+  return i >= 0 && parseUtc(t_utc) < ends[i] ? "alert" : "nominal";
 }
 
 /** Received and "if unsheltered" event dose, µGy, and the seconds that fell in a gap (02 §D.13). */

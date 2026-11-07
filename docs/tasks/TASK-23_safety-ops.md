@@ -125,7 +125,7 @@
 - **Acceptance:**
   - Serves: FR-40 · [02 §D.10](../specs/02_Technical_Requirements_Document.md#d10-rendezvous-fr-40)
   - Each rule above is one named test on the fake scenario.
-- **Verify:** `npm --workspace @marswalk/hab-core test -- summon` fails before T23.05 and passes after.
+- **Verify:** `PENDING_RED=1 npm --workspace @marswalk/hab-core test -- summon` fails before T23.05 and passes after (without `PENDING_RED` the suite skips itself while `vehicles.ts` is the stub, so `make test` stays green).
 - **Agent brief:** Write summon tests following the 03 §E.9 vehicle state machine.
 - **Conflict notes:** Pair T23.04 → T23.05.
 
@@ -169,7 +169,7 @@
 - **Acceptance:**
   - Serves: FR-44 · [02 §D.15](../specs/02_Technical_Requirements_Document.md#d15-contingency-options-fr-44)
   - Each rule above is one named test.
-- **Verify:** `npm --workspace @marswalk/hab-core test -- contingencyOps` fails before T23.07 and passes after.
+- **Verify:** `PENDING_RED=1 npm --workspace @marswalk/hab-core test -- contingencyOps` fails before T23.07 and passes after (without `PENDING_RED` the suite skips itself while `contingencyOps.ts` is the stub).
 - **Agent brief:** Write option and approval tests following 03 §E.5.
 - **Conflict notes:** Pair T23.06 → T23.07.
 

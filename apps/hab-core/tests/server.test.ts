@@ -216,6 +216,18 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
     expect(session.applied.map((cmd) => cmd.command_id)).toEqual(["k-0091"]);
   });
 
+  it("a second HELLO on the same connection cannot change its client_id", async () => {
+    const { server, session } = await setup();
+    const a = await client(server.url);
+    a.send(hello(0, "c-aaaa"));
+    await a.waitFor((m) => m.type === "SNAPSHOT");
+    a.send(hello(0, "c-other"));
+    await new Promise((r) => setTimeout(r, 50));
+    a.send({ v: 1, type: "COMMAND", command_id: "k-0001", role: "eva:EV1", command: { kind: "ACK_ALERT", args: { alert_id: "a-1" } } });
+    await a.waitFor((m) => m.type === "COMMAND_RESULT");
+    expect(session.clientIds).toEqual(["c-aaaa"]);
+  });
+
   it("a COMMAND is applied with its connection's HELLO client_id, the key of the 05 Command dedupe rule", async () => {
     const { server, session } = await setup();
     const a = await client(server.url);

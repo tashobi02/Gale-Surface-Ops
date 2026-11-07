@@ -831,5 +831,5 @@ The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state,
 | U-05 | CRISM coverage of AOI | TASK-01 (v1) |
 | U-15 | RAD sol-4190 time series — sources found 2026-11-05 ([ops/data-downloads.md](../ops/data-downloads.md) D8–D9); coverage of sol 4190 to verify on download | TASK-04; fallbacks in §C.5 L9 |
 | U-18 | Exact SPICE kernel files covering May 2024 for MRO, MAVEN, TGO | TASK-04 |
-| U-19 | Shielding factors (A-11), alert threshold k, relay min elevation, conjunction angle | Keep as labelled assumptions; ask mentor; cite any found value |
+| U-19 | Shielding factors (A-11), alert threshold k, relay min elevation, conjunction angle, O₂ alert margins `o2_caution_margin` / `o2_warning_margin` (added 2026-11-07) | Keep as labelled assumptions; ask mentor; cite any found value |
 | U-20 | Pressurized rover speed/slope values (D.9) | **Partly resolved 2026-11-04**: speed 10 km/h, range 125 km, 2 crew (4 emergency) and suitport ingress taken from the NASA SEV concept (NASA fact sheet FS-2011-08-045-JSC; Wikipedia "Space Exploration Vehicle"). Slope limit and ingress time remain assumptions |

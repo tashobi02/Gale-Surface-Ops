@@ -36,7 +36,7 @@ import type { CommandOutcome, EngineState, PendingEvent } from "./engine/reducer
 import { handleAddStopTask, handleUpdateStopTask } from "./engine/tasks";
 import { handleSummon } from "./engine/vehicles";
 import { handleTaskRover } from "./rover";
-import type { LoadedScenario } from "./scenario";
+import { checkPlan, type LoadedScenario } from "./scenario";
 
 export interface CommandContext {
   scenario: LoadedScenario;
@@ -201,9 +201,13 @@ function dispatch(state: EngineState, command: Command, ctx: CommandContext): Ha
       return ok(state, command, "EVA_STARTED", { crew_ids: state.crew.map((c) => c.crew_id), plan_revision: state.session.plan_revision });
     case "PUBLISH_PLAN": {
       const plan = a.plan as Partial<PlanExport> | undefined;
-      if (!plan || typeof plan !== "object" || typeof plan.plan_hash !== "string") reject("INVALID", "PUBLISH_PLAN needs args.plan (a PlanExport)");
+      if (!plan || typeof plan !== "object") reject("INVALID", "PUBLISH_PLAN needs args.plan (a PlanExport)");
+      try {
+        checkPlan(plan, "PUBLISH_PLAN plan"); // schema and plan_hash, as at load (05 PlanExport)
+      } catch (err) {
+        reject("INVALID", err instanceof Error ? err.message : String(err));
+      }
       if (plan!.data_version !== state.session.data_version) reject("INVALID", `plan data_version ${String(plan!.data_version)} is not the session's ${state.session.data_version}`);
-      if (!Array.isArray(plan!.waypoints) || !Array.isArray(plan!.result?.legs)) reject("INVALID", "PUBLISH_PLAN plan needs waypoints and result.legs");
       requireState(state, ["LOADED"], "Publishing a plan");
       // The new plan comes whole; its waypoints and legs are the route the map shows (decided 2026-11-07).
       const p = plan as PlanExport;

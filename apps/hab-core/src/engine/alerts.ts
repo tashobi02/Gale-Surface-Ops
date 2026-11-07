@@ -107,7 +107,10 @@ function suitParams(ctx: TickContext, crew_id: CrewId): ParamSet {
  * CONSUMABLES_LOW from the O₂ margin = O₂ time left ÷ time to the nearest haven: a caution at
  * `o2_caution_margin`, a warning (which replaces the caution) at `o2_warning_margin`. Cleared once
  * the margin is above the caution margin again or the crew member is back in the hab.
- * A haven 0 min away means the crew member is there, so nothing is raised.
+ * A haven 0 min away (or less) means the crew member is there, so nothing is raised. A haven that
+ * cannot be reached (`minutes` Infinity) gives margin 0, a warning with `haven_min` null. A NaN
+ * O₂ fraction or haven time is an engine error and throws, so it can never clear a live alert.
+ * TODO(decision): no hysteresis; raise and clear share `o2_caution_margin` (02 §D.14).
  * TODO(verify): a terrain refuge (T2) gives shelter but no O₂; until T2 the haven is the hab or a
  * pressurized rover, and a refuge haven is worded as the hab.
  */
@@ -119,9 +122,11 @@ export function consumablesTick(state: EngineState, ctx: TickContext): TickResul
   const events: PendingEvent[] = [];
   for (const c of state.crew) {
     const mine = open.filter((a) => a.subjects.includes(c.crew_id));
-    const haven_s = c.haven.minutes * 60;
-    const o2_s = c.activity === "IN_HAB" || haven_s <= 0 ? Infinity : o2RemainingS(c.o2_frac, "walking", suitParams(ctx, c.crew_id));
-    const margin = o2_s / haven_s;
+    if (Number.isNaN(c.o2_frac) || Number.isNaN(c.haven.minutes)) throw new Error(`consumablesTick: crew ${c.crew_id} has a NaN O₂ fraction or haven time`);
+    const safe = c.activity === "IN_HAB" || c.haven.minutes <= 0;
+    const o2_s = safe ? Infinity : o2RemainingS(c.o2_frac, "walking", suitParams(ctx, c.crew_id));
+    const reachable = Number.isFinite(c.haven.minutes);
+    const margin = safe ? Infinity : reachable ? o2_s / (c.haven.minutes * 60) : 0;
     const level: AlertLevel | null = margin <= warning ? "warning" : margin <= caution ? "caution" : null;
     if (level === null) {
       for (const a of mine) events.push(cleared(state, a.alert_id));
@@ -141,7 +146,7 @@ export function consumablesTick(state: EngineState, ctx: TickContext): TickResul
         message,
         {
           o2_remaining_min: o2_s / 60,
-          haven_min: c.haven.minutes,
+          haven_min: reachable ? c.haven.minutes : null,
           haven_kind: c.haven.kind,
           margin,
           threshold_margin: level === "warning" ? warning : caution,

@@ -10,8 +10,8 @@
  * The engine part under test is: raise once on the nominal → alert change, clear once on the change
  * back, and the event fields.
  *
- * Consumables (decided 2026-11-07): the O₂ alert compares the O₂ time left (compute `o2RemainingS`,
- * T05b.17, replaced here by o2_frac × o2_nominal_h) with the time to the nearest haven
+ * Consumables (decided 2026-11-07): the O₂ alert compares the O₂ time left (the real compute
+ * `o2RemainingS`, T05b.17) with the time to the nearest haven
  * (`crew.haven`, T23.03). The message says where to go: the hab, or a pressurized rover to restock.
  * Both the O₂ and the buddy alert clear once the condition is safe again.
  *
@@ -23,6 +23,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import type { AlertCode, CrewId, LogEventData, ParamSet } from "@marswalk/protocol";
+import { o2RemainingS } from "@marswalk/compute";
 import { buddyTick, consumablesTick, radiationTick } from "../src/engine/alerts";
 import { havenTick } from "../src/engine/haven";
 import { linksTick } from "../src/engine/links";
@@ -56,8 +57,6 @@ vi.mock("@marswalk/compute", async () => {
       for (const [ts, r] of series.samples) if (Date.parse(ts) <= t) rate = r;
       return rate;
     },
-    // Stand-in for T05b.17: O₂ time left at the walking rate is o2_frac × o2_nominal_h.
-    o2RemainingS: (o2_frac: number, _activity: string, suit: ParamSet) => o2_frac * (suit.values as Record<string, number>).o2_nominal_h * 3600,
     triggerState: (_series: unknown, t_utc: string) => {
       const t = Date.parse(t_utc);
       return t >= RAISE_AT && t < CLEAR_AT ? "alert" : "nominal";
@@ -152,7 +151,8 @@ describe("radiation alert (02 §D.13; T22.10)", () => {
 });
 
 const suit = Object.values(fake.params).find((p) => p.kind === "suit")!;
-const O2_FULL_S = (suit.values as Record<string, number>).o2_nominal_h * 3600;
+/** O₂ time left on a full suit at the walking rate (compute, T05b.17); time left is linear in o2_frac. */
+const O2_FULL_S = o2RemainingS(1, "walking", suit);
 type HavenKind = EngineState["crew"][number]["haven"]["kind"];
 
 /** EV1 on EVA with O₂ time left `margin` × its time to the haven (`haven_min` minutes away). */
@@ -210,8 +210,43 @@ describe("consumables alert: O₂ left against the time to a haven (02 §D.14; T
   it("the raised event carries the O₂ time left, the haven time and kind, the margin and its threshold", () => {
     const s = o2Margin(v.o2_caution_margin, 40, "vehicle");
     const [d] = raisedData(consumablesTick(s, ctx(s)).events) as (LogEventData["ALERT_RAISED"] & Record<string, unknown>)[];
-    expect(d).toMatchObject({ o2_remaining_min: v.o2_caution_margin * 40, haven_min: 40, haven_kind: "vehicle", threshold_margin: v.o2_caution_margin });
+    expect(d).toMatchObject({ haven_min: 40, haven_kind: "vehicle", threshold_margin: v.o2_caution_margin });
+    expect(d.o2_remaining_min).toBeCloseTo(v.o2_caution_margin * 40, 9);
     expect(d.margin).toBeCloseTo(v.o2_caution_margin, 9);
+  });
+
+  it("two crew crossing on the same tick get distinct alert_ids a-<seq> in log order (05 Alert)", () => {
+    const s = withCrew(o2Margin(v.o2_caution_margin), "EV2", { o2_frac: o2Margin(v.o2_caution_margin).crew[0].o2_frac, haven: o2Margin(v.o2_caution_margin).crew[0].haven });
+    const c = ctx(s);
+    const ids = raisedData(consumablesTick(s, c).events).map((d) => [d.subjects, d.alert_id]);
+    expect(ids).toEqual([[["EV1"], `a-${c.next_seq}`], [["EV2"], `a-${c.next_seq + 1}`]]);
+    const after = applyEvents(s, consumablesTick(s, c).events);
+    expect(after.alerts.map((a) => [a.alert_id, a.raised_seq])).toEqual([[`a-${c.next_seq}`, c.next_seq], [`a-${c.next_seq + 1}`, c.next_seq + 1]]);
+  });
+
+  it("a warning that replaces a caution has the alert_id of its own seq, after the clear", () => {
+    let s = o2Margin(v.o2_caution_margin);
+    s = applyEvents(s, consumablesTick(s, ctx(s)).events);
+    s = o2Margin(v.o2_warning_margin, 40, "hab", s);
+    const c = ctx(s);
+    s = applyEvents(s, consumablesTick(s, c).events);
+    const warning = s.alerts.find((a) => a.level === "warning")!;
+    expect([warning.alert_id, warning.raised_seq]).toEqual([`a-${c.next_seq + 1}`, c.next_seq + 1]);
+  });
+
+  it("no alert when the haven time is 0 or less; an unreachable haven (Infinity) is a warning with haven_min null", () => {
+    const neg = withCrew(o2Margin(v.o2_warning_margin / 2), "EV1", { haven: { ...onEva().crew[0].haven, minutes: -5 } });
+    expect(consumablesTick(neg, ctx(neg)).events).toEqual([]);
+    const none = withCrew(onEva(), "EV1", { haven: { ...onEva().crew[0].haven, minutes: Infinity } });
+    const [d] = raisedData(consumablesTick(none, ctx(none)).events);
+    expect([d.level, d.haven_min, d.margin]).toEqual(["warning", null, 0]);
+  });
+
+  it("a NaN O₂ fraction or haven time throws instead of clearing a live alert", () => {
+    let s = o2Margin(v.o2_warning_margin);
+    s = applyEvents(s, consumablesTick(s, ctx(s)).events);
+    const bad = withCrew(s, "EV1", { o2_frac: Number.NaN });
+    expect(() => consumablesTick(bad, ctx(bad))).toThrow(/NaN/);
   });
 
   it("clears when O₂ is back to a safe margin (decided 2026-11-07)", () => {

@@ -282,15 +282,17 @@ const kinds = (events: PendingEvent[]): string[] => events.map((e) => e.kind);
  * suites are skipped so `make test` stays green on main; they run by themselves once T23.05 lands.
  * To see them fail now: `PENDING_RED=1 npm --workspace @marswalk/hab-core test -- summon`.
  */
-const PENDING = (() => {
-  if (process.env.PENDING_RED) return false;
+const PENDING = !process.env.PENDING_RED && ([
+  () => handleSummon(undefined as never, undefined as never, undefined as never),
+  () => vehiclesTick(undefined as never, undefined as never),
+] as (() => unknown)[]).some((probe) => {
   try {
-    handleSummon(undefined as never, undefined as never, undefined as never);
+    probe();
     return false;
   } catch (err) {
-    return /not implemented/.test(String(err));
+    return /T23\.05 not implemented/.test(String(err));
   }
-})();
+});
 
 describe.skipIf(PENDING)("SUMMON_VEHICLE → VEHICLE_DISPATCHED (02 §D.10; FR-40)", () => {
   it("logs VEHICLE_DISPATCHED with the rendezvous point and both ETAs", () => {

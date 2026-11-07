@@ -184,7 +184,8 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
       return {
         ...next,
         session: { ...next.session, plan_revision: e.data.plan_revision },
-        plan: base && { ...base, waypoints: e.data.waypoints, result: { ...base.result, legs: e.data.legs } },
+        // `?? base…` keeps logs written before 2026-11-07 (no waypoints/legs in the data) readable.
+        plan: base && { ...base, waypoints: e.data.waypoints ?? base.waypoints, result: { ...base.result, legs: e.data.legs ?? base.result.legs } },
         options: option ? next.options.filter((o) => o.alert_id !== option.alert_id) : next.options,
         crew: updateCrew(next.crew, toHaven, () => ({ activity: "TO_HAVEN" })),
       };

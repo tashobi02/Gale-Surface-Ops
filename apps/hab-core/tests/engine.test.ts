@@ -314,7 +314,7 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
   it("initial state: session LOADED at start_utc, crew IN_HAB at the plan start, vehicles PARKED at their starts", () => {
     const s = initialState(fake, SESSION_ID);
     expect(s.session).toMatchObject({ session_id: SESSION_ID, scenario_id: "fake-straight-line", data_version: "mock_site-fixture", seed: 4190, status: "LOADED", last_seq: 0 });
-    expect(s.session.clock.sim_time).toBe(T0);
+    expect(s.session.clock).toEqual({ sim_time: T0, speed: 1, paused: false }); // decision D, 2026-11-07
     expect(s.plan).toEqual(fake.scenario.plan);
     expect(s.crew.map((c) => [c.crew_id, c.activity, c.x_m, c.y_m, c.stop_index, c.linked])).toEqual([
       ["EV1", "IN_HAB", 0, 0, null, true],

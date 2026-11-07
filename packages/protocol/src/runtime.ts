@@ -356,7 +356,8 @@ export interface LogEventData {
     source?: string;
     /** CONSUMABLES_LOW values (02 §D.14, decided 2026-11-07; 05 Proposed). */
     o2_remaining_min?: number;
-    haven_min?: number;
+    /** null when no haven can be reached. */
+    haven_min?: number | null;
     haven_kind?: Crew["haven"]["kind"];
     margin?: number;
     threshold_margin?: number;
