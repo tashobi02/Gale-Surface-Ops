@@ -1,0 +1,252 @@
+{
+  "$comment": "SPICE kernels for the Earth-link table (T21.02, U-18; consumed by T21.04). Files live in pipeline/work/spice/ (git-ignored) and are never committed. Coverage is what spiceypy spkobj/spkcov report (et2utc ISOC, UTC); covers_window means one coverage interval spans the whole window. Unknowns are TODO(verify).",
+  "task": "T21.02",
+  "unresolved_item": "U-18",
+  "access_date": "2026-11-07",
+  "window_utc": {
+    "start": "2024-05-18T00:00:00Z",
+    "stop": "2024-05-23T00:00:00Z",
+    "note": "18-22 May 2024 inclusive (2024-05-22T24:00Z = 2024-05-23T00:00Z)"
+  },
+  "verified_with": {
+    "spiceypy": "8.3.0",
+    "cspice": "CSPICE_N0067",
+    "leapseconds": "naif0012.tls"
+  },
+  "kernels": [
+    {
+      "file": "naif0012.tls",
+      "role": "lsk",
+      "local_path": "pipeline/work/spice/generic/naif0012.tls",
+      "source_id": "naif-lsk",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/naif0012.tls",
+      "access_date": "2026-11-07",
+      "size_bytes": 5257,
+      "sha256": "678e32bdb5a744117a467cd9601cd6b373f0e9bc9bbde1371d5eee39600a039b",
+      "notes": "Newest leap-seconds kernel in the lsk/ listing on 2026-11-07 (latest_leapseconds.tls has the same date and size); not superseded."
+    },
+    {
+      "file": "de440s.bsp",
+      "role": "spk-planets",
+      "local_path": "pipeline/work/spice/generic/de440s.bsp",
+      "source_id": "naif-de440s",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440s.bsp",
+      "access_date": "2026-11-07",
+      "size_bytes": 32726016,
+      "sha256": "c1c7feeab882263fc493a9d5a5b2ddd71b54826cdf65d8d17a76126b260a49f2",
+      "coverage": [
+        {
+          "body_id": 4,
+          "body_name": "MARS BARYCENTER",
+          "intervals": 1,
+          "start_utc": "1849-12-25T23:59:18.816Z",
+          "stop_utc": "2150-01-21T23:58:50.816Z",
+          "covers_window": true
+        },
+        {
+          "body_id": 10,
+          "body_name": "SUN",
+          "intervals": 1,
+          "start_utc": "1849-12-25T23:59:18.816Z",
+          "stop_utc": "2150-01-21T23:58:50.816Z",
+          "covers_window": true
+        },
+        {
+          "body_id": 399,
+          "body_name": "EARTH",
+          "intervals": 1,
+          "start_utc": "1849-12-25T23:59:18.816Z",
+          "stop_utc": "2150-01-21T23:58:50.816Z",
+          "covers_window": true
+        }
+      ],
+      "notes": "Earth (399), Mars barycentre (4) and Sun (10) are the bodies the Earth-link table needs. de440s has no Mars body centre (499); that comes from mar099s.bsp."
+    },
+    {
+      "file": "pck00011.tpc",
+      "role": "pck",
+      "local_path": "pipeline/work/spice/generic/pck00011.tpc",
+      "source_id": "naif-pck00011",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc",
+      "access_date": "2026-11-07",
+      "size_bytes": 131226,
+      "sha256": "3dff7b1dbeceaa01f25467767d3fa25816051c85d162d1edf04acb310ee28bb1",
+      "notes": "Newest generic text PCK in the pck/ listing on 2026-11-07 (pck00011_n0066.tpc is the same constants for older toolkits)."
+    },
+    {
+      "file": "mar099s.bsp",
+      "role": "spk-mars",
+      "local_path": "pipeline/work/spice/generic/mar099s.bsp",
+      "source_id": "naif-mar099s",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/mar099s.bsp",
+      "access_date": "2026-11-07",
+      "size_bytes": 67594240,
+      "sha256": "997dc93ba640e476da7a494d2237dcdeb145e528db37be8ccee588c615e4e1ff",
+      "coverage": [
+        {
+          "body_id": 499,
+          "body_name": "MARS",
+          "intervals": 1,
+          "start_utc": "1994-12-31T23:58:58.816Z",
+          "stop_utc": "2049-12-31T23:58:50.816Z",
+          "covers_window": true
+        }
+      ],
+      "notes": "Added beyond 02 L10: the MRO and MAVEN SPKs are centred on the Mars barycentre (4), the TGO SPKs on Mars (499), and the site is fixed to Mars (499) in IAU_MARS; de440s has no 499, so SPICE needs the 499-relative-to-4 segment to connect them to each other and to Earth. The MRO and TGO meta-kernels load a Mars satellite SPK (mar097) for the same reason."
+    },
+    {
+      "file": "mro_psp71_ssd_mro95a.bsp",
+      "role": "spk-mro",
+      "local_path": "pipeline/work/spice/mro/mro_psp71_ssd_mro95a.bsp",
+      "source_id": "naif-mro-spk",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/pds/data/mro-m-spice-6-v1.0/mrosp_1000/data/spk/mro_psp71_ssd_mro95a.bsp",
+      "access_date": "2026-11-07",
+      "size_bytes": 44354560,
+      "sha256": "6701433ec64cb8ff7b3a554935d9728c7bd5fe08a60957bd3b927fd5d2bdf5b1",
+      "selected_via": "https://naif.jpl.nasa.gov/pub/naif/pds/data/mro-m-spice-6-v1.0/mrosp_1000/extras/mk/mro_2024_v07.tm",
+      "coverage": [
+        {
+          "body_id": -74,
+          "body_name": "MARS RECON ORBITER",
+          "intervals": 1,
+          "start_utc": "2024-04-01T00:00:00.000Z",
+          "stop_utc": "2024-07-01T01:00:00.000Z",
+          "covers_window": true
+        }
+      ],
+      "notes": "Named in mro_2024_v07.tm after mro_psp71.bsp, so it takes priority where both cover a time. Load order for T21.04: mro_psp71.bsp, then this file."
+    },
+    {
+      "file": "mro_psp71.bsp",
+      "role": "spk-mro",
+      "local_path": "pipeline/work/spice/mro/mro_psp71.bsp",
+      "source_id": "naif-mro-spk",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/pds/data/mro-m-spice-6-v1.0/mrosp_1000/data/spk/mro_psp71.bsp",
+      "access_date": "2026-11-07",
+      "size_bytes": 144504832,
+      "sha256": "4a2eec4e051fdb661a5bdb65dd9366ba4410ca33d71b80e21c6ed7207b20757b",
+      "selected_via": "https://naif.jpl.nasa.gov/pub/naif/pds/data/mro-m-spice-6-v1.0/mrosp_1000/extras/mk/mro_2024_v07.tm",
+      "coverage": [
+        {
+          "body_id": -74,
+          "body_name": "MARS RECON ORBITER",
+          "intervals": 1,
+          "start_utc": "2024-04-01T00:00:00.814Z",
+          "stop_utc": "2024-07-01T01:00:00.000Z",
+          "covers_window": true
+        }
+      ],
+      "notes": "Named in mro_2024_v07.tm; label START 2024-04-01T00:00:01, STOP 2024-07-01T01:00:00 (mro_psp71.lbl). Load before mro_psp71_ssd_mro95a.bsp."
+    },
+    {
+      "file": "maven_orb_rec_240401_240701_v1.bsp",
+      "role": "spk-maven",
+      "local_path": "pipeline/work/spice/maven/maven_orb_rec_240401_240701_v1.bsp",
+      "source_id": "naif-maven-spk",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/MAVEN/kernels/spk/maven_orb_rec_240401_240701_v1.bsp",
+      "access_date": "2026-11-07",
+      "size_bytes": 42890240,
+      "sha256": "7567ade6fd714eceda3cb1a230427a69b4dbaa1ec006985e5536f3c2e9b1b3f2",
+      "selected_via": "https://naif.jpl.nasa.gov/pub/naif/MAVEN/kernels/spk/ (directory listing)",
+      "coverage": [
+        {
+          "body_id": -202,
+          "body_name": "MAVEN",
+          "intervals": 1,
+          "start_utc": "2024-04-01T00:00:00.000Z",
+          "stop_utc": "2024-07-01T01:00:00.000Z",
+          "covers_window": true
+        }
+      ],
+      "notes": "Reconstructed orbit; the only maven_orb_rec_* file in the operational listing whose name spans the window. Not taken from the PDS4 maven_spice bundle."
+    },
+    {
+      "file": "em16_tgo_fsp_335_01_20240113_20240706_v01.bsp",
+      "role": "spk-tgo",
+      "local_path": "pipeline/work/spice/tgo/em16_tgo_fsp_335_01_20240113_20240706_v01.bsp",
+      "source_id": "esa-tgo-spk",
+      "url": "https://spiftp.esac.esa.int/data/SPICE/ExoMars2016/kernels/spk/em16_tgo_fsp_335_01_20240113_20240706_v01.bsp",
+      "access_date": "2026-11-07",
+      "size_bytes": 62406656,
+      "sha256": "adb3654289c8c140874e4b9a19b76fe7d8ff4de97acf46a4fc90e5ddaf27c448",
+      "selected_via": "https://spiftp.esac.esa.int/data/SPICE/ExoMars2016/kernels/mk/em16_ops.tm",
+      "coverage": [
+        {
+          "body_id": -143,
+          "body_name": "EXOMARS 2016 TGO",
+          "intervals": 1,
+          "start_utc": "2024-01-12T23:58:50.816Z",
+          "stop_utc": "2024-07-06T15:20:03.803Z",
+          "covers_window": true
+        }
+      ],
+      "notes": "Named in the ESA operational meta-kernel em16_ops.tm (fetched 2026-11-07). Segment centre Mars (499), frame J2000. Internal comments: delivered by Flight Dynamics on 17 May 2024 (source OEMS_DS_335_01_______00741.EXM). ESA spk/aareadme.txt: fsp files hold reconstructed and predicted data, and prediction starts around the day before delivery. So in this set the span 2024-05-18T00:00Z to 2024-05-20T22:45:10Z (where fsp_352 starts) probably comes from predicted data: TODO(verify). The listing also has fsp_336 to fsp_351, which em16_ops.tm does not name; whether one of them holds reconstructed data for 18-20 May is TODO(verify) (not downloaded). Load before em16_tgo_fsp_352."
+    },
+    {
+      "file": "em16_tgo_fsp_352_01_20240520_20241102_v01.bsp",
+      "role": "spk-tgo",
+      "local_path": "pipeline/work/spice/tgo/em16_tgo_fsp_352_01_20240520_20241102_v01.bsp",
+      "source_id": "esa-tgo-spk",
+      "url": "https://spiftp.esac.esa.int/data/SPICE/ExoMars2016/kernels/spk/em16_tgo_fsp_352_01_20240520_20241102_v01.bsp",
+      "access_date": "2026-11-07",
+      "size_bytes": 63609856,
+      "sha256": "aaeae06d60a676969446b338b3d23d8062daa34c3eee584bc79ac212871fd411",
+      "selected_via": "https://spiftp.esac.esa.int/data/SPICE/ExoMars2016/kernels/mk/em16_ops.tm",
+      "coverage": [
+        {
+          "body_id": -143,
+          "body_name": "EXOMARS 2016 TGO",
+          "intervals": 1,
+          "start_utc": "2024-05-20T22:45:10.000Z",
+          "stop_utc": "2024-11-02T16:37:25.540Z",
+          "covers_window": false
+        }
+      ],
+      "notes": "Named in em16_ops.tm after fsp_335, so it takes priority from its start onward. Segment centre Mars (499), frame J2000. Internal comments: delivered by Flight Dynamics on 23 September 2024 (source OEMS_DS_352_01_______00762.EXM), so its 20-22 May 2024 part comes from well before the delivery date (reconstructed, by the aareadme rule). It alone does not cover the window: it starts 2024-05-20T22:45:10Z. Load after fsp_335."
+    }
+  ],
+  "load_order": [
+    "naif0012.tls",
+    "pck00011.tpc",
+    "de440s.bsp",
+    "mar099s.bsp",
+    "mro_psp71.bsp",
+    "mro_psp71_ssd_mro95a.bsp",
+    "maven_orb_rec_240401_240701_v1.bsp",
+    "em16_tgo_fsp_335_01_20240113_20240706_v01.bsp",
+    "em16_tgo_fsp_352_01_20240520_20241102_v01.bsp"
+  ],
+  "orbiter_summary": {
+    "mro": {
+      "naif_id": -74,
+      "window_covered": true,
+      "by": [
+        "mro_psp71_ssd_mro95a.bsp",
+        "mro_psp71.bsp"
+      ],
+      "data_kind": "reconstructed (NAIF PDS archive mrosp_1000)"
+    },
+    "maven": {
+      "naif_id": -202,
+      "window_covered": true,
+      "by": [
+        "maven_orb_rec_240401_240701_v1.bsp"
+      ],
+      "data_kind": "reconstructed (orb_rec, NAIF operational area)"
+    },
+    "tgo": {
+      "naif_id": -143,
+      "window_covered": true,
+      "by": [
+        "em16_tgo_fsp_335_01_20240113_20240706_v01.bsp",
+        "em16_tgo_fsp_352_01_20240520_20241102_v01.bsp"
+      ],
+      "data_kind": "from 2024-05-20T22:45:10Z: fsp_352 (delivered 2024-09-23, reconstructed); before that: fsp_335 (delivered 2024-05-17), probably predicted: TODO(verify)"
+    }
+  },
+  "meta_kernels_read": {
+    "mro": "https://naif.jpl.nasa.gov/pub/naif/pds/data/mro-m-spice-6-v1.0/mrosp_1000/extras/mk/mro_2024_v07.tm",
+    "tgo": "https://spiftp.esac.esa.int/data/SPICE/ExoMars2016/kernels/mk/em16_ops.tm",
+    "note": "Read on 2026-11-07, not kept in pipeline/work. mro_2024_v07.tm (created 27 May 2026) is the newest 2024 MRO meta-kernel in extras/mk/; mro_2024_v03.tm (named in data-downloads D13) names the same two psp71 files. em16_ops.tm is ESA's moving operational meta-kernel, so it may list other files on another day."
+  }
+}
