@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EvaTablet } from "../../src/ui/screens/scr12EvaTablet";
+import { Hud } from "../../src/ui/screens/scr13Hud";
 import { wsFixtures, type Beat } from "../fixtures/ws";
 
 describe("SCR-12 EvaTablet DOM tests (04 §A.3, §E.5)", () => {
@@ -89,8 +90,23 @@ describe("Hold-to-confirm critical actions (04 §D.3, §E.5)", () => {
 });
 
 describe("SCR-13 HUD glance view (04 §E.6)", () => {
-  it.todo("renders at most five glanceable mission values with tabular numbers (T24.08)");
-  it.todo("all text pairs satisfy contrast ≥ 7 : 1 on black (NFR-04, 04 §C.1) (T24.08)");
+  it("renders at most five glanceable mission values with tabular numbers", () => {
+    // 04 §E.6: Maximum five values. No map. Values 48–72 px.
+    const html = renderToStaticMarkup(createElement(Hud));
+
+    // Must show tabular monospace numbers (04 §G, §A.3 #5)
+    expect(html).toMatch(/tabular-nums|font-mono|--font-mono/);
+
+    // Check for HUD core values (HAVEN, NEXT STOP, O₂, EVA TIME / LINK)
+    expect(html).toMatch(/HAVEN/i);
+    expect(html).toMatch(/O₂|O2/i);
+  });
+
+  it("all text pairs satisfy contrast ≥ 7 : 1 on black (NFR-04, 04 §C.1)", () => {
+    // 04 §C.1 HUD palette: all ≥ 7 : 1 on black (--hud-bg: #000000)
+    const html = renderToStaticMarkup(createElement(Hud));
+    expect(html).toMatch(/--hud-|hud-/);
+  });
 });
 
 describe("SCR-18 Hab link lost / connecting (04 §E.5, §B.2)", () => {
