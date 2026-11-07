@@ -94,6 +94,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-07 | Claude Code (Sonnet 5.5, subagent) | T22.17: made the fake-scenario generator hash RFC 8785 canonical JSON (JavaScript number format in pure Python) | Expected number strings taken from Node output; regenerated fixture files byte-identical; `fixture.test.ts` recomputes the hash in JavaScript | Decision by Sadman Shaharier Mahim (2026-11-07); code review pending | This Claude Code session |
 
 | 2026-11-07 | Antigravity (Gemini) | T13.01: added C12 v1 contract header to `tokens.css` (status-class names, print-theme decision, import list); added 9 tokens missing from 04 §C (route widths, slope opacities, comm-shadow, results-height-narrow, selection-width); created `base.css`, `patterns.css`, `light.css` stubs imported from `tokens.css` | Invented no colours, sizes or tokens; every value copied from 04 §C with its section reference; open choices left as `TODO(decision)` / `TODO(verify)` | Ridita Alam | This Antigravity session (conversation 56455a5c) |
+| 2026-11-08 | Antigravity (Gemini) | T13.12: verified HUD tokens against 04 §C.1/§E.6 in `tokens.css` (appended HUD font & value size bounds `--font-hud`, `--text-hud-min`, `--text-hud-max`); contrast verified with prototype contrast script (all HUD text pairs ≥ 7:1 on #000000 per NFR-04) | Invented no colours or contrast numbers; values copied from 04 §C.1 and §E.6; contrast verified by prototype script | Ridita Alam | This Antigravity session (conversation 56455a5c) |
 
 ## Prompts location
 
