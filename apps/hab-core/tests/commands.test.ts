@@ -3,7 +3,8 @@
  * FR-50 command cases live in stopTasks.test.ts (T31.03); summon cases in T23.04.
  *
  * Rules fixed here for T23.02 (proposed 2026-11-07 by the owner where 02 is silent):
- * - Checks run in the order role → link → args → state; the first failure is the result.
+ * - Checks run in the order role → link → args → state; the first failure is the result. An
+ *   unknown command kind is malformed and INVALID before any other check.
  * - "self" (02 §E.4) for an EVA role: SUMMON_VEHICLE `args.crew` must include its own crew id;
  *   ACK_ALERT needs its crew id among the alert's `subjects`.
  * - NO_LINK applies to EVA roles only, when their suit is unlinked (02 §E.6).

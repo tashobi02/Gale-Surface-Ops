@@ -85,6 +85,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T22.06: wrote `initialState` and the reducer from the 03 §E state machines | No science recomputed; initial clock speed and plan revision marked as choices; dispatch-before-revision order written into the test header | Decisions by Sadman Shaharier Mahim (2026-11-07) | This Claude Code session |
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T22.11: wrote the scenario loader checks and one test per rejection | Checks taken from 05 §E.7 and the T22.11 steps; the passable-start check is left for TASK-05 and says so | Decisions by Sadman Shaharier Mahim (2026-11-07) | This Claude Code session |
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T23.01: wrote the command validation tests and the widened `handleCommand` interface | Rules where 02 is silent (check order, the self rules, INJECT_EVENT args) are written in the test header as proposals | Decisions by Sadman Shaharier Mahim (2026-11-07) | This Claude Code session |
+| 2026-11-07 | Claude Code (Opus 5.5, local session) | T23.02: wrote command validation, the dispatch table and the `command_id` memory | Delegated commands left in their owners' modules; nothing computed here | Decisions by Sadman Shaharier Mahim (2026-11-07) | This Claude Code session |
 
 ## Prompts location
 
