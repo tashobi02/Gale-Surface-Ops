@@ -18,6 +18,8 @@ import {
 } from "../eva/viewModel";
 import { EvaActionRow } from "../eva/HoldToConfirm";
 import { StatusIcon } from "../components/statusIcon";
+import { TasksButton } from "./scr12/TasksButton";
+import { StopTaskList } from "./scr12/StopTaskList";
 
 export interface EvaTabletProps {
   /** Optional Hab Core WebSocket client. */
@@ -298,23 +300,12 @@ export function EvaTablet({
               NEXT {vm.nextStop ? `· ${vm.nextStop.stopName}` : "· In transit"}
             </span>
             {/* TASKS button (U-51 ratified) */}
-            <button
-              id="eva-tasks-toggle-btn"
-              type="button"
-              className="btn"
-              aria-expanded={showTasksList}
-              aria-label={`Toggle tasks list (${vm.nextStop?.taskCount.done ?? 0} of ${vm.nextStop?.taskCount.total ?? 0} done)`}
+            <TasksButton
+              doneCount={vm.nextStop?.taskCount.done ?? 0}
+              totalCount={vm.nextStop?.taskCount.total ?? 0}
+              active={showTasksList}
               onClick={() => setTasksExpanded(!tasksExpanded)}
-              style={{
-                minHeight: "56px",
-                padding: "8px 12px",
-                fontSize: "13px",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              TASKS {vm.nextStop ? `${vm.nextStop.taskCount.done}/${vm.nextStop.taskCount.total}` : "0/0"}
-            </button>
+            />
           </div>
 
           <div
@@ -344,28 +335,39 @@ export function EvaTablet({
                 paddingTop: "8px",
               }}
             >
-              <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
-                {(activeSnapshot?.tasks ?? []).map((t) => (
-                  <li
-                    key={t.task_id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      minHeight: "56px",
-                      padding: "8px",
-                      background: "var(--surface-2, #1C2128)",
-                      border: "1px solid var(--control-edge, #5C6670)",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ fontSize: "18px" }}>{t.state === "DONE" ? "☑" : "☐"}</span>
-                      <span style={{ fontSize: "14px" }}>{t.text}</span>
-                    </div>
-                    <span className="micro" style={{ color: "var(--text-3, #8592A0)" }}>{t.state}</span>
-                  </li>
-                ))}
-              </ul>
+              <StopTaskList
+                tasks={activeSnapshot?.tasks ?? []}
+                crewId={crewId}
+                stopId={vm.nextStop?.stopId ?? ""}
+                readOnly={false}
+                undo={null}
+                collapsed={false}
+                notSyncedTaskIds={[]}
+                onTick={(taskId) => {
+                  client?.send?.({
+                    kind: "UPDATE_STOP_TASK",
+                    args: { task_id: taskId, state: "DONE" },
+                  });
+                }}
+                onSkip={(taskId) => {
+                  client?.send?.({
+                    kind: "UPDATE_STOP_TASK",
+                    args: { task_id: taskId, state: "SKIPPED" },
+                  });
+                }}
+                onUndo={(taskId) => {
+                  client?.send?.({
+                    kind: "UPDATE_STOP_TASK",
+                    args: { task_id: taskId, state: "TODO" },
+                  });
+                }}
+                onReason={(taskId, reason) => {
+                  client?.send?.({
+                    kind: "UPDATE_STOP_TASK",
+                    args: { task_id: taskId, state: "SKIPPED", reason },
+                  });
+                }}
+              />
             </div>
           )}
         </div>
