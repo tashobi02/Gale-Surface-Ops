@@ -1,9 +1,18 @@
 /**
- * Append-only event log (docs/specs/05 LogEvent; NFR-06). Contract C14, frozen by T22.01;
- * implementation T22.07. One JSON line per event in `var/sessions/<session_id>/session.jsonl`,
- * gap-free `seq`, running SHA-256 over canonical JSON (sorted keys) = `log_hash`.
- * A snapshot every 500 events (U-23) plus `meta.json`; resume = latest snapshot + the lines after it.
+ * Append-only event log (docs/specs/05 §B, LogEvent; NFR-06, NFR-10). Contract C14, frozen by
+ * T22.01; implementation T22.07. One JSON line per event in `var/sessions/<session_id>/session.jsonl`,
+ * gap-free `seq` from 1. Each line is the RFC 8785 canonical JSON of the event (05 Session, decided
+ * 2026-11-07) followed by "\n", and `log_hash` is the SHA-256 (hex) of the file's bytes, kept as a
+ * running hash (02 §A.6 "SHA-256 of the canonical event log"; rule proposed in T22.05).
+ * `snapshot-<seq>.json` (every SNAPSHOT_EVERY events, called by the session) plus `meta.json`;
+ * resume = latest snapshot + the lines after it.
+ *
+ * Writes are synchronous so an event is on disk before its COMMAND_RESULT goes out. Nothing here
+ * reads wall-clock time.
  */
+import { createHash, type Hash } from "node:crypto";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { LogEvent } from "@marswalk/protocol";
 import type { EngineState, PendingEvent } from "./engine/reducer";
 
@@ -34,16 +43,138 @@ export interface ResumedLog {
   tail: LogEvent[];
 }
 
+const LOG_FILE = "session.jsonl";
+const META_FILE = "meta.json";
+const SNAPSHOT_RE = /^snapshot-(\d+)\.json$/;
+
+/** `meta.json`: what resume needs to find the latest snapshot (05 §B; fields proposed in T22.07). */
+export interface LogMeta {
+  format: "marswalk-session-log";
+  version: 1;
+  snapshot_every: number;
+  latest_snapshot_seq: number | null;
+}
+
+class FileEventLog implements EventLog {
+  private readonly hasher: Hash;
+
+  constructor(
+    private readonly dir: string,
+    private readonly events: LogEvent[],
+    text: string,
+    private latestSnapshot: number | null,
+  ) {
+    this.hasher = createHash("sha256").update(text, "utf8");
+  }
+
+  append(pending: PendingEvent): LogEvent {
+    if ("seq" in pending) throw new Error("append: a pending event must not carry a seq");
+    const event = { ...pending, seq: this.lastSeq() + 1 } as LogEvent;
+    const line = `${canonicalJson(event)}\n`;
+    appendFileSync(join(this.dir, LOG_FILE), line, "utf8");
+    this.hasher.update(line, "utf8");
+    this.events.push(event);
+    return event;
+  }
+
+  after(seq: number): LogEvent[] {
+    // seq is gap-free from 1, so the event with seq n is at index n - 1.
+    return this.events.slice(Math.max(0, seq));
+  }
+
+  lastSeq(): number {
+    return this.events.length;
+  }
+
+  hash(): string {
+    return this.hasher.copy().digest("hex");
+  }
+
+  snapshot(state: EngineState): void {
+    const seq = this.lastSeq();
+    writeAtomic(join(this.dir, `snapshot-${seq}.json`), `${JSON.stringify(state)}\n`);
+    this.latestSnapshot = seq;
+    writeMeta(this.dir, seq);
+  }
+}
+
+/** Write via a temporary file and rename, so a crash never leaves a half-written snapshot. */
+function writeAtomic(path: string, text: string): void {
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, text, "utf8");
+  renameSync(tmp, path);
+}
+
+function writeMeta(dir: string, latest: number | null): void {
+  const meta: LogMeta = { format: "marswalk-session-log", version: 1, snapshot_every: SNAPSHOT_EVERY, latest_snapshot_seq: latest };
+  writeAtomic(join(dir, META_FILE), `${JSON.stringify(meta)}\n`);
+}
+
+/** Start a new, empty log in `sessionDir` (created if missing). */
 export function openLog(sessionDir: string): EventLog {
-  throw new Error("TODO(TASK-22): T22.07 not implemented");
+  mkdirSync(sessionDir, { recursive: true });
+  const path = join(sessionDir, LOG_FILE);
+  if (existsSync(path) && readFileSync(path, "utf8").length > 0) {
+    throw new Error(`openLog: ${path} already has events; use resumeLog`);
+  }
+  writeFileSync(path, "", "utf8");
+  writeMeta(sessionDir, null);
+  return new FileEventLog(sessionDir, [], "", null);
 }
 
-/** Reopen an existing session directory after a restart (NFR-10). T22.07. */
+/**
+ * Reopen an existing session directory after a restart (NFR-10). A last line without its "\n"
+ * (a crash mid-write) is dropped from the file, since it was never acknowledged to any client.
+ */
 export function resumeLog(sessionDir: string): ResumedLog {
-  throw new Error("TODO(TASK-22): T22.07 not implemented");
+  const path = join(sessionDir, LOG_FILE);
+  let text = readFileSync(path, "utf8");
+  const end = text.lastIndexOf("\n") + 1;
+  if (end !== text.length) {
+    text = text.slice(0, end);
+    writeFileSync(path, text, "utf8");
+  }
+  const events = text.length === 0 ? [] : text.slice(0, -1).split("\n").map((line) => JSON.parse(line) as LogEvent);
+  events.forEach((e, i) => {
+    if (e.seq !== i + 1) throw new Error(`resumeLog: line ${i + 1} has seq ${e.seq}; the log must be gap-free`);
+  });
+
+  const latest = latestSnapshotSeq(sessionDir, events.length);
+  const state = latest === null ? null : (JSON.parse(readFileSync(join(sessionDir, `snapshot-${latest}.json`), "utf8")) as EngineState);
+  const log = new FileEventLog(sessionDir, events, text, latest);
+  return { log, state, tail: events.slice(latest ?? 0) };
 }
 
-/** Canonical JSON used for hashing: sorted keys, no whitespace. T22.07. */
+/** The highest snapshot seq on disk that the log reaches (meta.json can lag a crash; files decide). */
+function latestSnapshotSeq(dir: string, lastSeq: number): number | null {
+  const seqs = readdirSync(dir)
+    .map((f) => SNAPSHOT_RE.exec(f))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => Number(m[1]))
+    .filter((seq) => seq <= lastSeq);
+  return seqs.length === 0 ? null : Math.max(...seqs);
+}
+
+/**
+ * Canonical JSON (RFC 8785, JCS; 05 PlanExport and Session, decided 2026-11-07): object keys sorted
+ * by UTF-16 code units (JavaScript's default sort), no whitespace, strings and numbers as
+ * JSON.stringify writes them (ECMAScript Number::toString). Properties whose value is undefined are
+ * left out and undefined array items become null, as in JSON.stringify. Non-finite numbers throw.
+ */
 export function canonicalJson(value: unknown): string {
-  throw new Error("TODO(TASK-22): T22.07 not implemented");
+  if (value === null || typeof value === "boolean" || typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error(`canonicalJson: ${value} is not a JSON number`);
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return `[${value.map((v) => (v === undefined ? "null" : canonicalJson(v))).join(",")}]`;
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const parts = Object.keys(obj)
+      .filter((k) => obj[k] !== undefined)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`);
+    return `{${parts.join(",")}}`;
+  }
+  throw new Error(`canonicalJson: cannot encode a ${typeof value}`);
 }
