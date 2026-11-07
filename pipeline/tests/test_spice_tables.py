@@ -528,6 +528,9 @@ class _IndependentSpice:
 
     def __enter__(self):
         self.sp.kclear()
+        if self.with_orbiters:
+            for f in sorted((self.kernel_dir / "generic").glob("mar*.bsp")):
+                self.sp.furnsh(str(f))
         for role, files in _kernel_files_by_role(self.kernel_dir).items():
             if self.with_orbiters or role not in ORBITERS:
                 # Load every matching file: orbiter SPKs may split the scenario window.
