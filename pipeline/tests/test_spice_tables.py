@@ -34,9 +34,9 @@ Pure functions (no SPICE, no kernels):
 
 SPICE-backed functions (need spiceypy and the kernels; the tests that call them skip when either is
 missing). `kernel_dir` is a folder searched recursively for the kernels (02 L10). Each call loads what
-it needs and does not rely on kernels left in the pool by an earlier call. Mars is taken as the Mars
-barycenter (NAIF 4), which is in de440s.bsp (that it agrees with the body centre to metres is unverified,
-see the TODO(verify) below).
+it needs and does not rely on kernels left in the pool by an earlier call. Earth geometry takes Mars
+as the Mars barycenter (NAIF 4), which is in de440s.bsp (that it agrees with the body centre to metres
+is unverified, see the TODO(verify) below). Orbiter geometry uses the Mars body centre (NAIF 499).
 
     light_time_s(t_utc, kernel_dir) -> float
         One-way Mars-Earth light time at t_utc (02 §D.12).
@@ -66,20 +66,21 @@ not in the conda env yet (T14.01 adds it): every schema check lives in its own `
 test, so its skip never hides another assertion.
 
 Committed tables. When `scenarios/storm-sol4190/earth_link.json` exists (written by T21.04), the
-`committed_*` tests check its order, 60 s step, elevation bounds, schema and its SHA-256 against
+`committed_*` tests check its order, 60 s step, elevation bounds, kernel manifest, schema and its SHA-256 against
 `scenario.json` `tables.earth_link` if that file exists; they skip with a reason while it is absent.
 
-TODO(decision): the pass rules here (a pass is a maximal run of samples with elevation >= minimum,
-start/end = first/last such sample, a run touching either end of the series is kept) and the sort
-order (start_utc, orbiter) are not written in 05 EarthLinkTable. They are listed as a "05 EarthLinkTable
-doc change" for the product & systems lead; change these tests together with that decision.
+Decided by the data lead (Obidit Islam), 2026-11-07: a pass is a maximal run of samples with
+elevation >= minimum, start/end = first/last such sample on the 60 s grid (no interpolated
+crossings), a run touching either end of the series is kept, and passes sort by (start_utc, orbiter).
+05 EarthLinkTable does not state this yet: it needs a "05 EarthLinkTable doc change".
 
-TODO(verify): orbiter SPKs (MRO, MAVEN, TGO) are usually centred on Mars (499) and need a Mars-system SPK
-(for example mar097.bsp from NAIF generic_kernels/spk/satellites) to chain 499 -> 4 (Mars barycenter)
-in de440s.bsp. 02 L10 and data-downloads D12-D15 list no such file. Until it is added to
-kernels.lock.json (T21.02), the orbiter checks below fail with a message that names the gap; they do
-not hide it. Treating "Mars" as the barycenter (NAIF 4) and the claim that this agrees with the body
-centre to metres are UNVERIFIED (Phobos and Deimos masses are tiny, but no number was checked).
+TODO(verify): orbiter SPKs (MRO, MAVEN, TGO) are usually centred on Mars (499). The independent
+orbiter checks request positions relative to MARS (499) in IAU_MARS, matching the site vector's
+origin and frame, so they do not need a Mars-system SPK to chain 499 -> 4 (Mars barycenter).
+Such a bridge is needed only if an implementation asks for barycentric orbiter states; 02 L10 and
+data-downloads D12-D15 list no such kernel. For Earth geometry, treating Mars as the barycenter
+(NAIF 4) and the claim that this agrees with the body centre to metres remain UNVERIFIED
+(Phobos and Deimos masses are tiny, but no number was checked).
 """
 from __future__ import annotations
 
@@ -279,7 +280,7 @@ def test_assemble_table_rejects_unsorted_or_duplicate_rows():
 def test_derive_passes_from_synthetic_elevation_series():
     """Pass windows are runs with elevation >= min_elev; the sample at exactly min_elev is inside.
 
-    TODO(decision): pass start/end/edge rules are not in 05 EarthLinkTable (05 EarthLinkTable doc change).
+    Pass start/end/edge rules: decided 2026-11-07 (module docstring); 05 EarthLinkTable doc change pending.
     """
     min_elev = _link_values()["relay_min_elev_deg"]
     times = _times(CHECK_UTC, len(SYNTH_OFFSETS))
@@ -349,7 +350,7 @@ def test_assemble_table_passes_use_relay_min_elev_deg_from_link_paramset():
 def test_assemble_table_passes_are_per_orbiter_and_sorted():
     """Each orbiter gets its own passes; the list is sorted by (start_utc, orbiter).
 
-    TODO(decision): the sort order is not in 05 EarthLinkTable (05 EarthLinkTable doc change).
+    Sort order: decided 2026-11-07 (module docstring); 05 EarthLinkTable doc change pending.
     """
     values = _link_values()
     min_elev = values["relay_min_elev_deg"]
@@ -434,6 +435,42 @@ def _find(kernel_dir: Path, pattern: str) -> list[Path]:
     return sorted(p for p in kernel_dir.rglob(pattern) if p.is_file())
 
 
+KERNEL_PATTERNS = {
+    "lsk": ("*.tls",),
+    "pck": ("*.tpc",),
+    "planets": ("de*.bsp",),
+    "mro": ("mro*.bsp",),
+    "maven": ("maven*.bsp",),
+    "tgo": ("em16_tgo*.bsp", "*tgo*.bsp"),
+}
+
+
+def _kernel_files_by_role(kernel_dir: Path) -> dict[str, list[Path]]:
+    return {
+        role: sorted({f for pattern in patterns for f in _find(kernel_dir, pattern)})
+        for role, patterns in KERNEL_PATTERNS.items()
+    }
+
+
+def _assert_kernel_manifest(table: dict, kernel_dir: Path, require_files: bool = False) -> None:
+    """All six kernel roles, all discovered files, and verifiable provenance even without SPICE."""
+    listed = {Path(k["file"]).name for k in table["kernels"]}
+    for role, patterns in KERNEL_PATTERNS.items():
+        assert any(Path(name).match(pattern) for name in listed for pattern in patterns), (
+            f"kernel manifest is missing the {role} kernel"
+        )
+    expected = {f.name for files in _kernel_files_by_role(kernel_dir).values() for f in files}
+    assert expected <= listed, f"kernel manifest is missing {sorted(expected - listed)}"
+    for k in table["kernels"]:
+        assert re.fullmatch(r"[0-9a-f]{64}", k["sha256"]), k["file"]
+        assert isinstance(k["source_id"], str) and k["source_id"].strip(), k["file"]
+        files = _find(kernel_dir, k["file"])
+        if require_files:
+            assert files, f"listed kernel {k['file']} is not in the kernel folder"
+        for f in files:
+            assert hashlib.sha256(f.read_bytes()).hexdigest() == k["sha256"], k["file"]
+
+
 def _skip_or_fail(reason: str) -> None:
     """Skip, unless MARSWALK_REQUIRE_SPICE=1, in which case a missing prerequisite is a failure."""
     if os.environ.get(REQUIRE_SPICE_ENV) == "1":
@@ -453,10 +490,11 @@ def _kernel_dir(need_orbiters: bool = False) -> Path:
     """Kernel folder for the kernel-backed tests; skip (or fail under MARSWALK_REQUIRE_SPICE=1) if absent."""
     _require_spiceypy()
     kernel_dir = Path(os.environ.get(SPICE_DIR_ENV) or DEFAULT_SPICE_DIR)
-    needed = ["naif0012.tls", "pck00011.tpc", "de440s.bsp"]
-    if need_orbiters:
-        needed += ["mro*.bsp", "maven*.bsp", "em16_tgo*.bsp"]
-    missing = [p for p in needed if not (kernel_dir.is_dir() and _find(kernel_dir, p))]
+    files_by_role = _kernel_files_by_role(kernel_dir)
+    missing = [
+        role for role, files in files_by_role.items()
+        if (need_orbiters or role not in ORBITERS) and not files
+    ]
     if missing:
         _skip_or_fail(
             f"SPICE kernels not found under {kernel_dir} (missing {', '.join(missing)}); "
@@ -490,13 +528,10 @@ class _IndependentSpice:
 
     def __enter__(self):
         self.sp.kclear()
-        for pattern in ("naif0012.tls", "pck00011.tpc", "de440s.bsp"):
-            self.sp.furnsh(str(_find(self.kernel_dir, pattern)[0]))
-        if self.with_orbiters:
-            # Every orbiter SPK found (several files may split the window) and any Mars-system SPK
-            # (mar*.bsp), which may be needed to chain 499 -> 4. TODO(verify): see module docstring.
-            for pattern in ("mro*.bsp", "maven*.bsp", "em16_tgo*.bsp", "mar*.bsp"):
-                for f in _find(self.kernel_dir, pattern):
+        for role, files in _kernel_files_by_role(self.kernel_dir).items():
+            if self.with_orbiters or role not in ORBITERS:
+                # Load every matching file: orbiter SPKs may split the scenario window.
+                for f in files:
                     self.sp.furnsh(str(f))
         return self
 
@@ -504,15 +539,13 @@ class _IndependentSpice:
         """Orbiter elevation at the site, same up-vector method as `earth_elev_deg`."""
         et = self.et(t_utc)
         try:
-            pos, _ = self.sp.spkpos(self.NAIF_ID[orbiter], et, "J2000", "NONE", "MARS BARYCENTER")
-        except self.sp.SpiceyError as exc:  # no coverage, or no 499 -> 4 chain
+            fixed, _ = self.sp.spkpos(self.NAIF_ID[orbiter], et, "IAU_MARS", "NONE", "MARS")
+        except self.sp.SpiceyError as exc:
             pytest.fail(
-                f"spiceypy cannot place {orbiter} relative to the Mars barycenter at {t_utc}: {exc}. "
-                "TODO(verify): the kernel set may lack a Mars-system SPK (e.g. mar097.bsp) to chain 499 -> 4, "
-                "or the orbiter SPK does not cover this time (02 L10 lists no such file).",
+                f"spiceypy cannot place {orbiter} relative to MARS (499) in IAU_MARS at {t_utc}: {exc}. "
+                "TODO(verify): check the orbiter SPK coverage and the LSK/PCK for 02 L10.",
                 pytrace=False,
             )
-        fixed = self.sp.mxv(self.sp.pxform("J2000", "IAU_MARS", et), pos)
         lat, lon = math.radians(lat_deg), math.radians(lon_east_deg)
         up = (math.cos(lat) * math.cos(lon), math.cos(lat) * math.sin(lon), math.sin(lat))
         site = [_mod_radius_km() * c for c in up]
@@ -624,13 +657,7 @@ def test_built_table_rows_match_independent_spiceypy_including_orbiter_elevation
 def test_built_table_kernels_are_listed_with_matching_sha256():
     mod, kernel_dir = _prepare(need_orbiters=True)
     table, _ = _build_real_table(mod, kernel_dir)
-    for k in table["kernels"]:
-        files = _find(kernel_dir, k["file"])
-        assert files, f"listed kernel {k['file']} is not in the kernel folder"
-        assert hashlib.sha256(files[0].read_bytes()).hexdigest() == k["sha256"]
-        assert k["source_id"]
-    listed = {k["file"] for k in table["kernels"]}
-    assert {"naif0012.tls", "de440s.bsp"} <= listed  # the kernels every row depends on are recorded
+    _assert_kernel_manifest(table, kernel_dir, require_files=True)
 
 
 def test_built_table_validates_against_schema():
@@ -683,6 +710,12 @@ def test_committed_earth_link_passes_follow_the_link_paramset():
 def test_committed_earth_link_validates_against_schema():
     table = _committed_table()
     _assert_valid_against_schema(table)
+
+
+def test_committed_earth_link_kernels_are_listed_with_matching_sha256():
+    table = _committed_table()
+    kernel_dir = Path(os.environ.get(SPICE_DIR_ENV) or DEFAULT_SPICE_DIR)
+    _assert_kernel_manifest(table, kernel_dir)
 
 
 def test_committed_earth_link_sha256_matches_scenario_json():
