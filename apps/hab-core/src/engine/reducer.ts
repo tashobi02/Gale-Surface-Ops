@@ -251,7 +251,9 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
               target: rv ? { x_m: rv.x_m, y_m: rv.y_m } : { x_m: v.x_m, y_m: v.y_m },
               ...(option ? { crew_ids: [...option.crew_ids] } : {}),
             },
-            eta_s: rv ? rv.eta_vehicle_s : null,
+            // Whole seconds (05 Vehicle `eta_s` is an int). Math.ceil: a no-op on T23.05's rounded ETAs, and a
+            // precomputed (T23.07) fractional ETA > 0 never becomes 0, which would stop the vehicle (Proposed 2026-11-08).
+            eta_s: rv ? Math.ceil(rv.eta_vehicle_s) : null,
           };
         }),
       };

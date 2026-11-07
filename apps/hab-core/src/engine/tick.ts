@@ -20,7 +20,7 @@ import { linksTick } from "./links";
 import { isWaiting, logged, reduce, type CrewMotion, type EngineState, type PendingEvent, type StateChange } from "./reducer";
 import { roversTick } from "./rovers";
 import { tasksTick } from "./tasks";
-import { vehiclesTick } from "./vehicles";
+import { SHELTER_REACH_M, vehiclesTick } from "./vehicles";
 
 export interface TickContext {
   scenario: LoadedScenario;
@@ -254,7 +254,8 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
   if (!moving || !plan) return hold(undefined);
   const legs = plan.result.legs;
   const waypoints = plan.waypoints;
-  const startId = waypoints.find((w) => w.role === "start")?.id;
+  const start = waypoints.find((w) => w.role === "start");
+  const startId = start?.id;
   const toHaven = c.activity === "TO_HAVEN";
   const revision = state.session.plan_revision;
 
@@ -325,8 +326,12 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
         cur = { ...next, phase: "walk" };
       } else {
         // End of the route. A loop (back at the start waypoint) shelters in the hab; otherwise hold (S5, S8).
+        // Only at the start waypoint's position (within SHELTER_REACH_M, the reach vehiclesTick uses): a
+        // VEHICLE_RENDEZVOUS revision's last leg has `to` = start but ends at the meeting point, where the
+        // crew hold until vehiclesTick shelters them in the vehicle (T23.07 rework, Proposed 2026-11-08).
+        // TODO(decision): a dedicated 05 Waypoint role ("rendezvous") would be cleaner; the spec owner's call.
         cur = { ...next, phase: "hold" };
-        if (leg.to === startId) {
+        if (leg.to === startId && start !== undefined && Math.hypot(x - start.x_m, y - start.y_m) <= SHELTER_REACH_M) {
           pending.push((after) => ({
             sim_time,
             kind: "CREW_SHELTERED",

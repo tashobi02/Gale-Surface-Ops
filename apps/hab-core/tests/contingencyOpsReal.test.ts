@@ -390,6 +390,20 @@ describe("tick rule S5 with a revised plan (T22.09 rule tightened for T23.07)", 
   });
 });
 
+describe("a hab-bound leg ends on the start waypoint (so S5 can shelter it in the hab)", () => {
+  it("an ABORT_TO_HAB path ending at the hab cell's centre, off the waypoint, gets the start waypoint as its last vertex", () => {
+    const base = proposed();
+    const abort = base.options.find((o) => o.kind === "ABORT_TO_HAB")!;
+    const last = abort.path_preview[abort.path_preview.length - 1]!;
+    // A cell centre offset from the waypoint by more than the reach (a declared test input, not science).
+    const off: [number, number] = [last[0] + 3 * SHELTER_REACH_M, last[1]];
+    const s = { ...base, options: base.options.map((o) => (o === abort ? { ...o, path_preview: [...o.path_preview.slice(0, -1), off] } : o)) };
+    const leg = newLeg(handleCommand(s, cmd("ops", "APPROVE_OPTION", { option_id: abort.option_id }), cctx(s)).events);
+    expect(leg.geometry[leg.geometry.length - 2]).toEqual(off);
+    expect(leg.geometry[leg.geometry.length - 1]).toEqual([START.x_m, START.y_m]);
+  });
+});
+
 // ---- dispatchVehicle with a precomputed rendezvous (T23.05 extension for T23.07) --------------------------
 
 describe("dispatchVehicle with a precomputed rendezvous", () => {

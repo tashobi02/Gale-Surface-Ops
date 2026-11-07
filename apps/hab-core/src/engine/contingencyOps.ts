@@ -24,6 +24,9 @@
  *   max slope and profile cannot be derived yet (compute `toLeg` / `sampleProfile` are TASK-05
  *   stubs, and slope science may not live here, CLAUDE.md §2): 0 and an empty profile, labelled
  *   `assumed`. TODO(decision).
+ * - A hab-bound new leg ends on the start waypoint; a VEHICLE_RENDEZVOUS leg ends at the meeting
+ *   point (tick rule S5 then holds the crew there, and vehiclesTick shelters them in the vehicle).
+ * - APPROVE_OPTION for VEHICLE_RENDEZVOUS dispatches through `dispatchVehicle` with the option's point.
  * - Events carry `command_ref: null` / `event_seq: 0` placeholders here; handleCommand (commands.ts)
  *   fills in both.
  */
@@ -60,6 +63,7 @@ import {
 import type { LoadedScenario } from "../scenario";
 import type { CommandOutcome, EngineState, PendingEvent } from "./reducer";
 import type { TickContext, TickResult } from "./tick";
+import { dispatchVehicle } from "./vehicles";
 
 type Point = [number, number];
 
@@ -218,9 +222,14 @@ function buildPlanRevision(state: EngineState, scenario: LoadedScenario, option:
     if (kept) legs.push(kept);
   }
   const geometry: Point[] = option.path_preview.map(([x, y]) => [x, y]);
-  // TODO(decision): a VEHICLE_RENDEZVOUS leg should end at the meeting point, not the start waypoint
-  // (tick rule S5 shelters a crew member reaching the start in the hab), but 05 Waypoint `role` has
-  // only start|stop and T23.06 asserts `to` = start. Needs a spec change; reported 2026-11-08.
+  // A hab-bound route ends on the start waypoint itself: compute's hab path ends at the hab cell's
+  // centre, which may lie farther than SHELTER_REACH_M from the waypoint, and tick rule S5 shelters in
+  // the hab only at the waypoint (Proposed 2026-11-08).
+  // A VEHICLE_RENDEZVOUS leg keeps `to` = start (05 Waypoint `role` is start|stop; T23.06 asserts it)
+  // but ends at the meeting point, so S5 holds the crew there and vehiclesTick shelters them in the
+  // vehicle. TODO(decision): a dedicated 05 Waypoint role ("rendezvous") would be cleaner.
+  const end = geometry[geometry.length - 1];
+  if (option.kind !== "VEHICLE_RENDEZVOUS" && (!end || end[0] !== start.x_m || end[1] !== start.y_m)) geometry.push([start.x_m, start.y_m]);
   const leg: OkLeg = {
     from: waypoints[waypoints.length - 1]!.id,
     to: start.id,
@@ -272,9 +281,8 @@ const alertActive = (state: EngineState, alert_id: string): boolean => state.ale
 /**
  * APPROVE_OPTION `{option_id}`: revise the plan; log PLAN_REVISED. A VEHICLE_RENDEZVOUS option logs
  * VEHICLE_DISPATCHED first, to the option's own rendezvous point (the point its crew route leads to;
- * T23.06 asserts the option's `rendezvous` verbatim), so it does not call `dispatchVehicle`, which
- * recomputes the point. Same check order as `dispatchVehicle`: INVALID (no pressurized rover), BUSY
- * (the rover is not PARKED). TODO(decision): reuse `dispatchVehicle` once it accepts a precomputed point.
+ * T23.06 asserts the option's `rendezvous` verbatim), through T23.05's shared `dispatchVehicle` with
+ * that point precomputed: its INVALID / BUSY / ParamSet checks apply, and its rejection is the answer.
  */
 export function handleApproveOption(state: EngineState, scenario: LoadedScenario, command: Command): CommandOutcome {
   const option_id: unknown = command.args?.option_id;
@@ -286,11 +294,9 @@ export function handleApproveOption(state: EngineState, scenario: LoadedScenario
   const events: PendingEvent[] = [];
   if (option.kind === "VEHICLE_RENDEZVOUS") {
     if (!option.rendezvous) return reject(command, "INVALID", `option ${option_id} has no rendezvous point`);
-    const vehicle = state.vehicles.find((v) => v.kind === "pressurized_rover");
-    if (!vehicle) return reject(command, "INVALID", "the scenario has no pressurized rover");
-    if (vehicle.state !== "PARKED") return reject(command, "BUSY", `${vehicle.vehicle_id} is ${vehicle.state}`);
-    const data: LogEventData["VEHICLE_DISPATCHED"] = { vehicle_id: vehicle.vehicle_id, option_id: option.option_id, rendezvous: { ...option.rendezvous } };
-    events.push({ kind: "VEHICLE_DISPATCHED", actor: command.role, sim_time: state.session.clock.sim_time, data: data as Record<string, unknown>, provenance: { "data.rendezvous": "modelled" }, command_ref: null });
+    const out = dispatchVehicle(state, scenario, { crew_ids: option.crew_ids, option_id: option.option_id, actor: command.role, rendezvous: option.rendezvous });
+    if (!out.ok) return reject(command, out.code, out.message);
+    events.push(...out.events);
   }
 
   const revised = planRevised(state, scenario, command, option);

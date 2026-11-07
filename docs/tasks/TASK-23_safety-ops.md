@@ -250,18 +250,21 @@
   For now they are 0 and an empty profile, labelled `assumed` in the PLAN_REVISED provenance. Replace this once TASK-05 lands.
 - **Provenance.** OPTIONS_PROPOSED labels `data.options.eta_shelter_min`, `data.options.expected_dose_ugy` and `data.options.rendezvous` `modelled` (05). VEHICLE_DISPATCHED labels `data.rendezvous` `modelled`.
   PLAN_REVISED labels the new leg by index: `data.legs.<i>.walk_time_min` `modelled`, `distance_m` `derived`, and the three blocked metrics `assumed`.
-- **APPROVE_OPTION for VEHICLE_RENDEZVOUS** does not call `dispatchVehicle`.
-  T23.06 asserts that VEHICLE_DISPATCHED carries the option's own `rendezvous` verbatim, with the compute rendezvous mocked as NO_RENDEZVOUS. `dispatchVehicle` recomputes the point and rounds the ETAs, so it cannot meet that.
-  Dispatching to the option's point also keeps the vehicle target and the crew route together. The checks run in `dispatchVehicle`'s order: INVALID (no pressurized rover), then BUSY (not PARKED).
-  TODO(decision): give `dispatchVehicle` a precomputed point, then reuse it. The logged ETAs are not rounded to whole seconds here.
-- **Blocked (needs a spec change): the VEHICLE_RENDEZVOUS revision still ends at the start waypoint.** Tick rule S5 then logs `CREW_SHELTERED {haven_kind: "hab"}` at the meeting point.
-  A meeting-point waypoint needs a new 05 Waypoint `role` (today only `start | stop`), and T23.06 asserts `to` = the start waypoint. Not changed.
+- **APPROVE_OPTION for VEHICLE_RENDEZVOUS** calls T23.05's `dispatchVehicle` with the option's own point as a precomputed `rendezvous` (orchestrator decision, 8 Nov).
+  This edits `vehicles.ts`, which belongs to T23.05 (same owner). A new optional `DispatchRequest.rendezvous` skips the compute call and is logged verbatim, after the same INVALID, BUSY and ParamSet checks; a non-finite or negative value is INVALID.
+  T23.06 asserts the verbatim point, and the vehicle target stays on the crew route. The local dispatch copy is deleted.
+  `Vehicle.eta_s` stays a whole number: the reducer (`reducer.ts`, T22.06, same owner) applies Math.ceil when it sets `eta_s` from VEHICLE_DISPATCHED. That is a no-op on T23.05's rounded ETAs, and a fractional ETA above 0 never becomes 0, which would stop the vehicle.
+- **Rendezvous end: tick rule S5 tightened** (orchestrator decision, 8 Nov). This edits `tick.ts`, which belongs to T22.09 (same owner); the rule is recorded under T22.09 in TASK-22.
+  A route whose last leg has `to` = the start waypoint shelters in the hab only if the crew member ends within `SHELTER_REACH_M` of the start waypoint's position. I used the reach rather than exact coordinates; both keep every T22.08/T22.09 tick test green.
+  So the VEHICLE_RENDEZVOUS leg keeps `to` = start (05 Waypoint roles and the T23.06 shape are unchanged) but ends at the meeting point. The crew hold there in the suit, and `vehiclesTick` shelters them in the vehicle (`haven_kind: "vehicle"`) when it arrives within reach.
+  A hab-bound leg (ABORT_TO_HAB, CONTINUE_SKIP) gets the start waypoint as its last vertex when compute's path ends elsewhere, for example at the hab cell's centre.
+  TODO(decision): a dedicated 05 Waypoint role ("rendezvous") would be cleaner; that is the spec owner's call.
 - **ABORT.** The EVA self rule takes the crew id from the role (`eva:<id>`); `selfOf` in `commands.ts` is private.
   With ABORT_TO_HAB options of several active alerts, ABORT executes the newest alert's (highest `raised_seq`), ties to the lower `option_id`. Options of a cleared alert are skipped.
 - **Shared path for two crew.** TODO(decision): `path_preview` is crew[0]'s, so under rule S7 EV2 snaps onto EV1's path. The leg's walk time is the slowest member's (the option's ETA).
 - **CONTINUE_SKIP path.** The return leg follows the planned legs (compute's `remainingPlan`), so it passes the dropped stops' places, but with no waypoint there it has no dwell and no ARRIVED_STOP. TODO(decision) for the compute owner.
 - **Warning alerts only.** TODO(decision): an O₂ or buddy warning also gets radiation-style options; 02 §D.15 does not restrict this.
-- **Tests.** The new [contingencyOpsReal.test.ts](../../apps/hab-core/tests/contingencyOpsReal.test.ts) runs 18 tests on the real compute and the F9 `havenFlat` grid.
+- **Tests.** The new [contingencyOpsReal.test.ts](../../apps/hab-core/tests/contingencyOpsReal.test.ts) runs 25 tests on the real compute and the F9 `havenFlat` grid, including whole-`tick()` runs of a rendezvous (vehicle shelter) and an abort (hab shelter), and `dispatchVehicle` with a precomputed point.
   In `contingencyOps.test.ts` only the fixture and mock shape changed (a stand-in grid and a `vehiclePassable` mock); no assertion changed.
 
 ### T23.08 — Verify: killer demo steps 0:30–1:10 run headless (M3)
