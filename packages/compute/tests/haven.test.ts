@@ -264,6 +264,8 @@ describe("habTimeField (T_hab, reverse Dijkstra)", () => {
 
   it("flat: 1 km takes 18.18 min, the 02 §D.3 test case", () => {
     const { hab, shape } = flatCase();
+    // The literals 1000 and 18.18 are the spec's own hand case, quoted from 02 §D.3 ("Test cases: 1 km flat -> 18.18
+    // min", v0 = 3.3 km/h). They are not computed here, so this test also catches a change of the fixture or of v0.
     expect(shape.crewToHab_m).toBe(1000);
     expect(timeAt(hab, shape.crew.x_m, shape.crew.y_m) / 60).toBeCloseTo(18.18, 2);
   });
@@ -932,6 +934,11 @@ describe("liveHaven", () => {
     const oracle = flatVehicleOracle(vvOf(pr1Params));
     const habBranch = shape.crewToHab_m / v0 + ingress.hab_s;
     expect(oracle.best + ingress.vehicle_s).toBeLessThan(habBranch); // precondition: the vehicle really is faster
+    // Independent closed form: crew and rover approach each other along the row, so they meet after
+    // (crew-to-vehicle distance) / (v0 + vv). The grid answer differs by the cell quantisation: 5 m crew cells and
+    // the 2.5 m aggregate offset of the 10 m rover cell (v2grids.ts header), converted at the slower speed.
+    const meet_s = (shape.crewToHab_m + shape.vehicleToHab_m) / (v0 + vvOf(pr1Params));
+    expect(Math.abs(oracle.best - meet_s)).toBeLessThanOrEqual((2 * 2.5 + 5) / v0);
     const r = liveHaven(hab, crew, veh, pass, ingress, shape.crew);
     expect(r).not.toBeNull();
     expect(r!.kind).toBe("vehicle");
@@ -1071,6 +1078,29 @@ describe("liveHaven", () => {
       expect(() => liveHaven(hab, manual([20, 0], [1, -1]), veh, allPass, ingress, at)).toThrow(RangeError);
       expect(() => liveHaven(hab, crew, veh, Uint8Array.from([1, 1]), ingress, at)).toThrow(RangeError);
     });
+
+    it("throws a RangeError when the fields have the same length but another geometry (transposed, other cell size or origin)", () => {
+      const crew = manual([40, 20, 0], [1, 2, -1]);
+      const veh = manual([100, 100, 100], [-1, 0, 1]);
+      const transposed: TimeField = { ...crew, width: 1, height: 3 };
+      expect(() => liveHaven(hab, transposed, veh, allPass, ingress, at)).toThrow(RangeError);
+      expect(() => liveHaven({ ...hab, width: 1, height: 3 }, crew, veh, allPass, ingress, at)).toThrow(RangeError);
+      expect(() => liveHaven(hab, { ...crew, cell_m: 10 }, veh, allPass, ingress, at)).toThrow(RangeError);
+      expect(() => liveHaven({ ...hab, origin_m: [5, 2.5] }, crew, veh, allPass, ingress, at)).toThrow(RangeError);
+      // The mask is a bare array, so only its length can be compared.
+      expect(liveHaven(hab, crew, veh, allPass, ingress, at)).not.toBeNull();
+    });
+
+    it("throws a RangeError for an ingress value that is NaN, negative or not finite", () => {
+      const crew = manual([40, 20, 0], [1, 2, -1]);
+      const veh = manual([100, 100, 100], [-1, 0, 1]);
+      for (const bad of [Number.NaN, -1, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+        expect(() => liveHaven(hab, crew, veh, allPass, { hab_s: bad, vehicle_s: 50 }, at), `hab_s ${bad}`).toThrow(RangeError);
+        expect(() => liveHaven(hab, crew, veh, allPass, { hab_s: 30, vehicle_s: bad }, at), `vehicle_s ${bad}`).toThrow(RangeError);
+        expect(() => liveHaven(hab, crew, null, null, { hab_s: 30, vehicle_s: bad }, at), `vehicle_s ${bad}, no rover`).toThrow(RangeError);
+      }
+      expect(liveHaven(hab, crew, veh, allPass, { hab_s: 0, vehicle_s: 0 }, at)).not.toBeNull(); // zero is allowed
+    });
   });
 });
 
@@ -1204,13 +1234,84 @@ describe("havenAlongRoute (planning approximation)", () => {
     expect(sealed).toEqual([Infinity]);
   });
 
-  it("is labelled modelled (approximation)", () => {
-    expect(HAVEN_PLANNING_LABEL).toEqual({ provenance: "modelled", note: "approximation" });
+  it("throws a RangeError for an ingress value that is NaN, negative or not finite", () => {
+    const { grid, hab, veh } = flatCase();
+    for (const bad of [Number.NaN, -1, Number.POSITIVE_INFINITY]) {
+      expect(() => havenAlongRoute(grid, samples, hab, veh, scenario, { hab_s: bad, vehicle_s: 50 }), `hab_s ${bad}`).toThrow(RangeError);
+      expect(() => havenAlongRoute(grid, samples, hab, null, scenario, { hab_s: 30, vehicle_s: bad }), `vehicle_s ${bad}`).toThrow(RangeError);
+    }
+  });
+
+  it("the label constant is frozen, so no caller can relabel the planning form", () => {
+    // havenAlongRoute returns number[], so the caller (T23.03 / the planner UI) applies this label to the values.
+    expect(Object.isFrozen(HAVEN_PLANNING_LABEL)).toBe(true);
+    expect(HAVEN_PLANNING_LABEL.provenance).toBe("modelled");
+    expect(HAVEN_PLANNING_LABEL.note).toBe("approximation");
+    expect(() => {
+      (HAVEN_PLANNING_LABEL as { provenance: string }).provenance = "measured";
+    }).toThrow(TypeError); // modules are strict mode
   });
 
   it("is deterministic: two runs give identical values", () => {
     const { grid, hab, veh } = flatCase();
     expect(havenAlongRoute(grid, samples, hab, veh, scenario, ingress)).toEqual(havenAlongRoute(grid, samples, hab, veh, scenario, ingress));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lattice cache (repeated calls with the same grid and ParamSet / scenario objects reuse the per-cell arrays)
+// ---------------------------------------------------------------------------
+
+describe("lattice cache", () => {
+  it("repeated calls with the same objects give byte-identical fields", () => {
+    const grid = bumpyGrid();
+    const from = { x_m: 20, y_m: -30 };
+    for (const make of [
+      () => habTimeField(grid, { x_m: 0, y_m: 0 }, scenario),
+      () => crewTimeField(grid, from, scenario, Infinity),
+      () => vehicleTimeField(grid, from, pr1Params),
+    ]) {
+      const a = make();
+      const b = make();
+      expect(Array.from(b.seconds)).toEqual(Array.from(a.seconds));
+      expect(Array.from(b.prev)).toEqual(Array.from(a.prev));
+    }
+  });
+
+  it("another scenario object is not served the cached lattice; an edit in place is noticed", () => {
+    const grid = bumpyGrid();
+    const k = mustCell(geoOf(grid), { x_m: 10, y_m: 0 });
+    grid.slopeP90[k] = 52; // 13 deg: passable at 15, not at 12
+    const sc = defaultScenario();
+    const first = crewTimeField(grid, { x_m: 0, y_m: 0 }, sc, Infinity);
+    const strict = { ...sc, hard_slope_limit_deg: 12 };
+    const second = crewTimeField(grid, { x_m: 0, y_m: 0 }, strict, Infinity);
+    expect(first.seconds[k]).toBeLessThan(Infinity);
+    expect(second.seconds[k]).toBe(Infinity);
+    sc.hard_slope_limit_deg = 12; // the same object, edited
+    expect(crewTimeField(grid, { x_m: 0, y_m: 0 }, sc, Infinity).seconds[k]).toBe(Infinity);
+  });
+
+  it("another ParamSet object is not served the cached lattice; an edit in place is noticed", () => {
+    const fx = havenFlat(10);
+    markBox(fx.grid, { x0: -1500, x1: -1400, y0: -1e6, y1: 1e6 }, LOW_TI_BIT);
+    const target = { x_m: -1000, y_m: 0 };
+    const t1 = timeAt(vehicleTimeField(fx.grid, fx.shape.vehicle, pr1Params), target.x_m, target.y_m);
+    const costly: ParamSet = { ...pr1Params, values: { ...pr1Params.values, low_ti_cost: 3 } };
+    const t3 = timeAt(vehicleTimeField(fx.grid, fx.shape.vehicle, costly), target.x_m, target.y_m);
+    expect(t3).toBeGreaterThan(t1);
+    const again = timeAt(vehicleTimeField(fx.grid, fx.shape.vehicle, pr1Params), target.x_m, target.y_m);
+    expect(again).toBe(t1);
+    (costly.values as Record<string, number>).low_ti_cost = 2; // the same object, edited back to the pr1 value
+    expect(timeAt(vehicleTimeField(fx.grid, fx.shape.vehicle, costly), target.x_m, target.y_m)).toBeCloseTo(t1, 9);
+  });
+
+  it("vehiclePassable returns a fresh array each time, so a caller may mutate it", () => {
+    const { grid } = flatCase();
+    const a = vehiclePassable(grid, pr1Params);
+    a.fill(0);
+    expect(vehiclePassable(grid, pr1Params).every((v) => v === 1)).toBe(true);
+    expect(vehicleTimeField(grid, { x_m: -2000, y_m: 0 }, pr1Params).seconds.some((t) => t > 0 && t < Infinity)).toBe(true);
   });
 });
 

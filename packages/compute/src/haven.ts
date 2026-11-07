@@ -27,9 +27,13 @@ export const HAVEN_PLANNING_RADIUS_M = 300;
 
 /**
  * Label of the planning form `havenAlongRoute`: `modelled (approximation)` (02 §D.8). Additive export,
- * Proposed by T05b.03 so the label is testable and the UI can show it from one place.
+ * Proposed by T05b.03 so the label is testable and the UI can show it from one place. Frozen. `havenAlongRoute`
+ * returns a bare `number[]`, so the caller (T23.03 / the planner UI) applies this label to the values it shows.
  */
-export const HAVEN_PLANNING_LABEL: { provenance: Provenance; note: string } = { provenance: "modelled", note: "approximation" };
+export const HAVEN_PLANNING_LABEL: Readonly<{ provenance: Provenance; note: string }> = Object.freeze({
+  provenance: "modelled" as Provenance,
+  note: "approximation",
+});
 
 /** Seconds to become sheltered once at the hab and once at the vehicle (02 §D.8). */
 export interface HavenIngress {
@@ -116,7 +120,33 @@ interface Lattice {
   mult: Float64Array;
 }
 
+/**
+ * Per-cell arrays are rebuilt only when needed: cached per grid object, then per scenario / ParamSet object
+ * (nested WeakMaps, so nothing is kept alive). The entry also records the numbers it was built from, so editing a
+ * scenario in place is noticed. A grid is treated as immutable once it has been passed to this module: editing its
+ * arrays afterwards is not detected. The cached arrays are never handed out (fields copy what they need).
+ */
+interface SuitedEntry {
+  hard: number;
+  caution: number;
+  lat: Lattice;
+}
+const suitedCache = new WeakMap<LoadedGrid, WeakMap<MissionScenario, SuitedEntry>>();
+
 function suitedLattice(grid: LoadedGrid, scenario: MissionScenario): Lattice {
+  let per = suitedCache.get(grid);
+  if (per === undefined) {
+    per = new WeakMap();
+    suitedCache.set(grid, per);
+  }
+  const hit = per.get(scenario);
+  if (hit !== undefined && hit.hard === scenario.hard_slope_limit_deg && hit.caution === scenario.caution_slope_deg) return hit.lat;
+  const lat = buildSuitedLattice(grid, scenario);
+  per.set(scenario, { hard: scenario.hard_slope_limit_deg, caution: scenario.caution_slope_deg, lat });
+  return lat;
+}
+
+function buildSuitedLattice(grid: LoadedGrid, scenario: MissionScenario): Lattice {
   const { width, height, cell_m, origin_m } = grid.meta;
   const n = width * height;
   const pass = new Uint8Array(n);
@@ -390,7 +420,7 @@ function vehicleLattice(grid: LoadedGrid, vp: VehicleParams, childPass: Uint8Arr
  */
 export function vehicleTimeField(grid: LoadedGrid, from: { x_m: number; y_m: number }, params: ParamSet): TimeField {
   const vp = readVehicleParams(params);
-  const lat = vehicleLattice(grid, vp, vehiclePassable(grid, params));
+  const lat = cachedVehicleLattice(grid, params, vp);
   const start = cellOf(lat.origin_m, lat.cell_m, lat.width, lat.height, from.x_m, from.y_m);
   if (start < 0) throw new RangeError(`vehicleTimeField: the vehicle (${from.x_m}, ${from.y_m}) is outside the grid`);
   return toField(lat, dijkstra(lat, start, false, Infinity, MODE_VEHICLE, vp.vv, vp.hardDeg, vp.minFrac));
@@ -420,8 +450,45 @@ export function crewTimeField(grid: LoadedGrid, from: { x_m: number; y_m: number
  * `rendezvous` and by the loader's "vehicle start passable for its kind" check (05 §E.7). TASK-05b.
  */
 export function vehiclePassable(grid: LoadedGrid, params: ParamSet): Uint8Array {
+  return sharedVehiclePassable(grid, params).slice(); // the caller owns the copy; the cached mask stays untouched
+}
+
+interface VehicleEntry {
+  hard: number;
+  lowTi: number | null;
+  pass: Uint8Array;
+  lat: Lattice | null;
+}
+const vehicleCache = new WeakMap<LoadedGrid, WeakMap<ParamSet, VehicleEntry>>();
+
+function vehicleEntry(grid: LoadedGrid, params: ParamSet, hard: number): VehicleEntry {
+  let per = vehicleCache.get(grid);
+  if (per === undefined) {
+    per = new WeakMap();
+    vehicleCache.set(grid, per);
+  }
+  const hit = per.get(params);
+  if (hit !== undefined && hit.hard === hard) return hit;
+  const entry: VehicleEntry = { hard, lowTi: null, pass: computeVehiclePassable(grid, hard), lat: null };
+  per.set(params, entry);
+  return entry;
+}
+
+function sharedVehiclePassable(grid: LoadedGrid, params: ParamSet): Uint8Array {
   ensureVehicleKind(params);
-  const hard = paramNumber(params, "hard_slope_deg", hardSlopeOk, "in (0, 90]");
+  return vehicleEntry(grid, params, paramNumber(params, "hard_slope_deg", hardSlopeOk, "in (0, 90]")).pass;
+}
+
+function cachedVehicleLattice(grid: LoadedGrid, params: ParamSet, vp: VehicleParams): Lattice {
+  const entry = vehicleEntry(grid, params, vp.hardDeg);
+  if (entry.lat === null || entry.lowTi !== vp.lowTi) {
+    entry.lat = vehicleLattice(grid, vp, entry.pass);
+    entry.lowTi = vp.lowTi;
+  }
+  return entry.lat;
+}
+
+function computeVehiclePassable(grid: LoadedGrid, hard: number): Uint8Array {
   const n = grid.meta.width * grid.meta.height;
   const out = new Uint8Array(n);
   for (let k = 0; k < n; k++) {
@@ -475,6 +542,17 @@ export function pathTo(field: TimeField, x_m: number, y_m: number): [number, num
 // Live and planning forms
 // ---------------------------------------------------------------------------
 
+function checkIngress(ingress: HavenIngress, who: string): void {
+  for (const key of ["hab_s", "vehicle_s"] as const) {
+    const v = ingress[key];
+    if (!(Number.isFinite(v) && v >= 0)) throw new RangeError(`${who}: ingress.${key} must be a finite number >= 0, got ${v}`);
+  }
+}
+
+function sameGeometry(a: TimeField, b: TimeField): boolean {
+  return a.width === b.width && a.height === b.height && a.cell_m === b.cell_m && a.origin_m[0] === b.origin_m[0] && a.origin_m[1] === b.origin_m[1];
+}
+
 /**
  * The live haven time for one crew member (02 §D.8, "live form"):
  * min(haven_hab, haven_veh) + ingress, with haven_hab = T_hab(crew_at) + ingress.hab_s and
@@ -488,7 +566,8 @@ export function pathTo(field: TimeField, x_m: number, y_m: number): [number, num
  *
  * The meeting cell q* minimises max(T_crew, T_veh), ties by smaller T_crew, then by cell index (02 §D.10 rule,
  * shared with `rendezvous`). T_veh (10 m) is read at the 10 m cell containing the centre of the 5 m cell q.
- * Throws RangeError when `hab`, `crew` and `passable` differ in size.
+ * Throws RangeError when `hab` and `crew` differ in width, height, cell size or origin, when `passable` differs in
+ * length (a bare array has no geometry to compare), or when an ingress value is NaN, negative or not finite.
  */
 export function liveHaven(
   hab: TimeField,
@@ -498,7 +577,9 @@ export function liveHaven(
   ingress: HavenIngress,
   crew_at: { x_m: number; y_m: number },
 ): LiveHaven | null {
+  checkIngress(ingress, "liveHaven");
   const n = crew.seconds.length;
+  if (!sameGeometry(hab, crew)) throw new RangeError("liveHaven: the hab and crew fields differ in width, height, cell size or origin");
   if (hab.seconds.length !== n) throw new RangeError(`liveHaven: hab field has ${hab.seconds.length} cells, crew field ${n}`);
   if (passable !== null && passable.length !== n) throw new RangeError(`liveHaven: passable mask has ${passable.length} cells, crew field ${n}`);
 
@@ -558,7 +639,11 @@ function segmentWalkable(grid: LoadedGrid, scenario: MissionScenario, px: number
  *
  * walk(p, q) = straight-line distance / v0; the segment is tested every half grid cell against the suited
  * impassability of 02 §D.2 (Proposed rule). The vehicle branch is skipped when `vehicle` is null or
- * `scenario.vehicle_available` is false.
+ * `scenario.vehicle_available` is false. Throws RangeError for an ingress value that is NaN, negative or not finite.
+ *
+ * Unreachable samples are `Infinity` (the frozen return type is `number[]`). Callers must map `Infinity` to null
+ * before a value reaches JSON or state (`JSON.stringify(Infinity)` is `null`, silently), and must apply
+ * `HAVEN_PLANNING_LABEL` to what they show.
  */
 export function havenAlongRoute(
   grid: LoadedGrid,
@@ -568,6 +653,7 @@ export function havenAlongRoute(
   scenario: MissionScenario,
   ingress: HavenIngress,
 ): number[] {
+  checkIngress(ingress, "havenAlongRoute");
   const v0 = 1 / suitedInvSpeed(scenario); // metres per second; also validates the speed
   const veh = vehicle !== null && scenario.vehicle_available ? vehicle : null;
   const R = HAVEN_PLANNING_RADIUS_M;
