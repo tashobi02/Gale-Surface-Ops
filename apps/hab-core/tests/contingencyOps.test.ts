@@ -169,7 +169,23 @@ beforeEach(() => {
 
 // ---- contingencyTick: OPTIONS_PROPOSED --------------------------------------------------------------------
 
-describe("contingencyTick: options for a new warning (02 §D.15, 03 §E.5; FR-44)", () => {
+
+/**
+ * Red until T23.07: while the module is still the T22.01 stub (it throws "not implemented"), these
+ * suites are skipped so `make test` stays green on main; they run by themselves once T23.07 lands.
+ * To see them fail now: `PENDING_RED=1 npm --workspace @marswalk/hab-core test -- contingencyOps`.
+ */
+const PENDING = (() => {
+  if (process.env.PENDING_RED) return false;
+  try {
+    contingencyTick(undefined as never, undefined as never);
+    return false;
+  } catch (err) {
+    return /not implemented/.test(String(err));
+  }
+})();
+
+describe.skipIf(PENDING)("contingencyTick: options for a new warning (02 §D.15, 03 §E.5; FR-44)", () => {
   it("a RADIATION_ALERT produces one OPTIONS_PROPOSED for that alert, by system at the sim time", () => {
     const r = contingencyTick(alerted, tctx(alerted));
     expect(r.events).toHaveLength(1);
@@ -247,7 +263,7 @@ describe("contingencyTick: options for a new warning (02 §D.15, 03 §E.5; FR-44
 
 // ---- APPROVE_OPTION -----------------------------------------------------------------------------------------
 
-describe("APPROVE_OPTION (02 §D.15, 03 §E.5; FR-44)", () => {
+describe.skipIf(PENDING)("APPROVE_OPTION (02 §D.15, 03 §E.5; FR-44)", () => {
   it("ops approving the rendezvous option logs VEHICLE_DISPATCHED, then PLAN_REVISED with the next plan_revision, the dropped stops, the waypoints and the legs", () => {
     const command = cmd("ops", "APPROVE_OPTION", { option_id: rendezvousOpt.option_id });
     const out = handleCommand(proposed, command, cctx(proposed));
@@ -321,7 +337,7 @@ describe("APPROVE_OPTION (02 §D.15, 03 §E.5; FR-44)", () => {
 
 // ---- ABORT --------------------------------------------------------------------------------------------------
 
-describe("ABORT (02 §D.15, §E.4; FR-44)", () => {
+describe.skipIf(PENDING)("ABORT (02 §D.15, §E.4; FR-44)", () => {
   it("an EVA role aborting for itself logs the abort-to-haven revision: the ABORT_TO_HAB option's PLAN_REVISED, no vehicle", () => {
     const command = cmd("eva:EV1", "ABORT", { crew: ["EV1"] });
     const out = handleCommand(proposed, command, cctx(proposed));

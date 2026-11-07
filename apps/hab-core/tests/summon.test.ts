@@ -16,7 +16,7 @@
  * The fake scenario has no site grid (`grid` is null), so the tests pass an opaque stand-in grid;
  * the mocked compute never looks inside it.
  *
- * Rules these tests fix for T23.05 (proposed 2026-11-07 by the owner where 02, 03 and 05 are
+ * Rules these tests fix for T23.05 (proposed 2026-11-07 by this test file where 02, 03 and 05 are
  * silent). Each is marked TODO(decision) until the team confirms it:
  * - TODO(decision) Compute calls: `handleSummon` builds the crew and vehicle time fields with
  *   `crewTimeField` and `vehicleTimeField` from the crew member's and the vehicle's positions and
@@ -276,7 +276,23 @@ function drive(start: EngineState, ticks: number): { state: EngineState; steps: 
 
 const kinds = (events: PendingEvent[]): string[] => events.map((e) => e.kind);
 
-describe("SUMMON_VEHICLE → VEHICLE_DISPATCHED (02 §D.10; FR-40)", () => {
+
+/**
+ * Red until T23.05: while the module is still the T22.01 stub (it throws "not implemented"), these
+ * suites are skipped so `make test` stays green on main; they run by themselves once T23.05 lands.
+ * To see them fail now: `PENDING_RED=1 npm --workspace @marswalk/hab-core test -- summon`.
+ */
+const PENDING = (() => {
+  if (process.env.PENDING_RED) return false;
+  try {
+    handleSummon(undefined as never, undefined as never, undefined as never);
+    return false;
+  } catch (err) {
+    return /not implemented/.test(String(err));
+  }
+})();
+
+describe.skipIf(PENDING)("SUMMON_VEHICLE → VEHICLE_DISPATCHED (02 §D.10; FR-40)", () => {
   it("logs VEHICLE_DISPATCHED with the rendezvous point and both ETAs", () => {
     const before = onEva();
     const callsBefore = standIn.rendezvousCalls;
@@ -318,7 +334,7 @@ describe("SUMMON_VEHICLE → VEHICLE_DISPATCHED (02 §D.10; FR-40)", () => {
   });
 });
 
-describe("the vehicle follows its path (03 §E.9; 02 §D.9)", () => {
+describe.skipIf(PENDING)("the vehicle follows its path (03 §E.9; 02 §D.9)", () => {
   it("goes EN_ROUTE on the first tick after the dispatch, with a path that ends at the rendezvous point", () => {
     const { state: dispatched } = summon(onEva());
     const target = pr1(dispatched).task!.target;
@@ -355,7 +371,7 @@ describe("the vehicle follows its path (03 §E.9; 02 §D.9)", () => {
   });
 });
 
-describe("VEHICLE_ARRIVED (03 §E.9 EnRoute → Arrived)", () => {
+describe.skipIf(PENDING)("VEHICLE_ARRIVED (03 §E.9 EnRoute → Arrived)", () => {
   it("logs one VEHICLE_ARRIVED at the rendezvous point when the path is covered, then stops", () => {
     const { state: dispatched } = summon(onEva());
     const target = pr1(dispatched).task!.target;
@@ -387,7 +403,7 @@ function arrivedState(): { state: EngineState; point: { x_m: number; y_m: number
   return { state, point };
 }
 
-describe("CREW_SHELTERED (03 §E.5 step 9, §E.8; FR-37)", () => {
+describe.skipIf(PENDING)("CREW_SHELTERED (03 §E.5 step 9, §E.8; FR-37)", () => {
   // Opaque dose values taken from the fixture; they are copied through, never recomputed here.
   const dose = { dose_event_ugy: fake.dose.background_rate, dose_event_unsheltered_ugy: fake.dose.integral_check.computed_ugy };
 
@@ -433,7 +449,7 @@ describe("CREW_SHELTERED (03 §E.5 step 9, §E.8; FR-37)", () => {
   it.todo("with the crew aboard PR1 returns to the hab: RETURNING, then PARKED, and the crew are IN_HAB (03 §E.8, §E.9)");
 });
 
-describe("rejections: NO_RENDEZVOUS and BUSY (02 §D.10, §E.6)", () => {
+describe.skipIf(PENDING)("rejections: NO_RENDEZVOUS and BUSY (02 §D.10, §E.6)", () => {
   it("returns NO_RENDEZVOUS when no cell is reachable by both, and changes nothing", () => {
     const before = onEva();
     standIn.mode = "none";
