@@ -15,6 +15,8 @@
  *   `session.log_hash` is filled by the session manager (T22.12), not by the reducer.
  * - Warnings and cautions latch: an alert leaves `alerts` only when it is both acknowledged and
  *   cleared; an advisory leaves on clear (03 §E.7).
+ * - Executing a rendezvous option logs VEHICLE_DISPATCHED, then PLAN_REVISED: the dispatch reads the
+ *   option's crew, and the revision removes the alert's options.
  */
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -108,8 +110,8 @@ function scriptedRun(): PendingEvent[] {
       ],
     }),
     ev("ALERT_ACKED", at(3610), { alert_id: "a-7", acked_by: "eva:EV1" }, "eva:EV1"),
-    ev("PLAN_REVISED", at(3615), { plan_revision: 2, option_id: "o1", stops_dropped: [2] }, "eva:EV1"),
     ev("VEHICLE_DISPATCHED", at(3615), { vehicle_id: "PR1", option_id: "o1", rendezvous: { x_m: 500, y_m: 0, eta_crew_s: 600, eta_vehicle_s: 540 } }, "eva:EV1"),
+    ev("PLAN_REVISED", at(3615), { plan_revision: 2, option_id: "o1", stops_dropped: [2] }, "eva:EV1"),
     ev("VEHICLE_ARRIVED", at(4155), { vehicle_id: "PR1", x_m: 500, y_m: 0 }),
     ev("CREW_SHELTERED", at(4215), { crew_id: "EV1", haven_kind: "vehicle", dose_event_ugy: 0.08, dose_event_unsheltered_ugy: 0.5 }),
     ev("CREW_SHELTERED", at(4215), { crew_id: "EV2", haven_kind: "vehicle", dose_event_ugy: 0.09, dose_event_unsheltered_ugy: 0.5 }),
@@ -346,14 +348,14 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
 
   it("OPTIONS_PROPOSED replaces the alert's options; executing one (PLAN_REVISED) sets plan_revision, sends its crew TO_HAVEN and clears the options", () => {
     expect(after(8).options.map((o) => o.option_id)).toEqual(["o1", "o2"]);
-    const s = after(10);
+    const s = after(11);
     expect(s.session.plan_revision).toBe(2);
     expect(s.options).toEqual([]);
     expect(s.crew.map((c) => c.activity)).toEqual(["TO_HAVEN", "TO_HAVEN"]);
   });
 
   it("VEHICLE_DISPATCHED dispatches the vehicle to the rendezvous; VEHICLE_ARRIVED places it there", () => {
-    expect(after(11).vehicles[0]).toMatchObject({ state: "DISPATCHED", task: { kind: "SUMMON", target: { x_m: 500, y_m: 0 }, crew_ids: ["EV1", "EV2"] }, eta_s: 540 });
+    expect(after(10).vehicles[0]).toMatchObject({ state: "DISPATCHED", task: { kind: "SUMMON", target: { x_m: 500, y_m: 0 }, crew_ids: ["EV1", "EV2"] }, eta_s: 540 });
     expect(after(12).vehicles[0]).toMatchObject({ state: "ARRIVED", x_m: 500, y_m: 0 });
   });
 

@@ -4,6 +4,16 @@
  * implementation T22.06. TASK_* cases are delegated to `./tasks` (T31.04).
  *
  * Nothing under src/engine/ reads wall-clock time (NFR-06): time is `session.clock.sim_time`.
+ *
+ * Rules (tests: tests/engine.test.ts, T22.05):
+ * - Each case reads only `event.data` and the current state; no science is recomputed (05 LogEvent).
+ * - Every event sets `session.last_seq` and `session.clock.sim_time`. `session.log_hash` belongs to
+ *   the session manager (T22.12), which copies it from the log.
+ * - Warnings and cautions latch: an alert leaves `alerts` once it is both acknowledged and cleared;
+ *   an advisory leaves on clear (03 §E.7).
+ * - Executing an option (PLAN_REVISED with an `option_id`) sends that option's crew TO_HAVEN unless
+ *   it is CONTINUE_SKIP, and removes the alert's options (03 §E.8, 02 §D.15). A rendezvous option
+ *   logs VEHICLE_DISPATCHED first, so the summon task takes the option's crew (`crew_ids`).
  */
 import type {
   Alert,
@@ -16,10 +26,12 @@ import type {
   PlanExport,
   Session,
   StopTask,
+  TypedLogEvent,
   Vehicle,
 } from "@marswalk/protocol";
 import type { LoadedScenario } from "../scenario";
 import type { ConditionsState } from "./conditions";
+import { reduceTaskEvent } from "./tasks";
 
 export interface EngineState {
   session: Session;
@@ -57,10 +69,195 @@ export interface StateChange {
 
 /** State at `scenario.start_utc` before any event: crew in the hab, vehicles at their starts. T22.06. */
 export function initialState(scenario: LoadedScenario, session_id: string): EngineState {
-  throw new Error("TODO(TASK-22): T22.06 not implemented");
+  const s = scenario.scenario;
+  const start = s.plan.waypoints.find((w) => w.role === "start") ?? s.plan.waypoints[0];
+  const hab = { x_m: start?.x_m ?? 0, y_m: start?.y_m ?? 0 };
+  const firstEarthRow = scenario.earthLink.rows[0];
+  return {
+    session: {
+      session_id,
+      scenario_id: s.scenario_id,
+      data_version: s.data_version,
+      seed: s.seed,
+      status: "LOADED",
+      // TODO(decision): 05 gives no initial speed; 1× until the first SET_CLOCK (CLOCK_CHANGED).
+      clock: { sim_time: s.start_utc, speed: 1, paused: false },
+      // The published plan is revision 1; each PLAN_REVISED carries the new number (05 Session).
+      plan_revision: 1,
+      last_seq: 0,
+      log_hash: "",
+    },
+    plan: s.plan,
+    crew: s.crew.map(
+      (c): Crew => ({
+        crew_id: c.crew_id,
+        ...hab,
+        activity: "IN_HAB",
+        stop_index: null,
+        o2_frac: 1,
+        eva_elapsed_s: 0,
+        dose_event_ugy: 0,
+        dose_event_unsheltered_ugy: 0,
+        haven: { minutes: 0, kind: "hab", target_x_m: hab.x_m, target_y_m: hab.y_m },
+        linked: true,
+        link_path: [c.crew_id, "HAB"],
+        stale: false,
+      }),
+    ),
+    vehicles: s.vehicles.map(
+      (v): Vehicle => ({
+        vehicle_id: v.vehicle_id,
+        kind: v.kind,
+        param_set: v.param_set,
+        x_m: v.start_x_m,
+        y_m: v.start_y_m,
+        state: "PARKED",
+        task: null,
+        path: [],
+        eta_s: null,
+        battery_wh: null,
+      }),
+    ),
+    alerts: [],
+    options: [],
+    tasks: [],
+    links: [],
+    earth: { light_time_s: firstEarthRow?.light_time_s ?? 0, next_pass_utc: null, blackout: false },
+    earthQueue: [],
+    conditions: { ltst: null, sun_elevation_deg: null, dose_rate_background_ugy_h: null, dose_rate_event_ugy_h: null, provenance: {} },
+  };
 }
 
 /** Apply one logged event. TASK_* events go to `reduceTaskEvent` (T31.04). T22.06. */
 export function reduce(state: EngineState, event: LogEvent): EngineState {
-  throw new Error("TODO(TASK-22): T22.06 not implemented");
+  const next: EngineState = {
+    ...state,
+    session: { ...state.session, last_seq: event.seq, clock: { ...state.session.clock, sim_time: event.sim_time } },
+  };
+  const e = event as TypedLogEvent;
+  switch (e.kind) {
+    case "SESSION_LOADED":
+      return { ...next, session: { ...next.session, status: "LOADED" } };
+    case "EVA_STARTED":
+      return {
+        ...next,
+        session: { ...next.session, status: "RUNNING", plan_revision: e.data.plan_revision },
+        crew: updateCrew(next.crew, e.data.crew_ids, () => ({ activity: "WALKING" })),
+      };
+    case "ARRIVED_STOP":
+      return { ...next, crew: updateCrew(next.crew, [e.data.crew_id], () => ({ activity: "AT_STOP", stop_index: e.data.stop_index })) };
+    case "LEFT_STOP":
+      return { ...next, crew: updateCrew(next.crew, [e.data.crew_id], () => ({ activity: "WALKING", stop_index: e.data.stop_index })) };
+    case "ALERT_RAISED": {
+      const { alert_id, code, level, subjects, message, ...values } = e.data;
+      const alert: Alert = {
+        alert_id,
+        code,
+        level,
+        subjects: [...subjects],
+        message,
+        raised_seq: e.seq,
+        acked_seq: null,
+        cleared_seq: null,
+        acked_by: null,
+        data: { ...values, provenance: { ...e.provenance } },
+      };
+      return { ...next, alerts: [...next.alerts.filter((a) => a.alert_id !== alert_id), alert] };
+    }
+    case "ALERT_ACKED":
+      return { ...next, alerts: settle(next.alerts, e.data.alert_id, { acked_seq: e.seq, acked_by: e.data.acked_by }) };
+    case "ALERT_CLEARED":
+      return { ...next, alerts: settle(next.alerts, e.data.alert_id, { cleared_seq: e.seq }) };
+    case "OPTIONS_PROPOSED":
+      return { ...next, options: [...next.options.filter((o) => o.alert_id !== e.data.alert_id), ...e.data.options] };
+    case "PLAN_REVISED": {
+      // TODO(decision): 05 gives PLAN_REVISED no waypoints (fields Proposed), so `plan` keeps the
+      // published waypoints until the data carries the revised ones (T23.07).
+      const option = next.options.find((o) => o.option_id === e.data.option_id);
+      const toHaven = option && option.kind !== "CONTINUE_SKIP" ? option.crew_ids : [];
+      return {
+        ...next,
+        session: { ...next.session, plan_revision: e.data.plan_revision },
+        options: option ? next.options.filter((o) => o.alert_id !== option.alert_id) : next.options,
+        crew: updateCrew(next.crew, toHaven, () => ({ activity: "TO_HAVEN" })),
+      };
+    }
+    case "VEHICLE_DISPATCHED": {
+      const d = e.data;
+      return {
+        ...next,
+        vehicles: updateVehicle(next.vehicles, d.vehicle_id, (v): Partial<Vehicle> => {
+          if (d.task) {
+            const target = d.target ?? { x_m: v.x_m, y_m: v.y_m };
+            return { state: "TASKED", task: { kind: d.task, target: { ...target }, ...(d.item === undefined ? {} : { item: d.item }) } };
+          }
+          const option = state.options.find((o) => o.option_id === d.option_id);
+          const rv = d.rendezvous ?? null;
+          return {
+            state: "DISPATCHED",
+            task: {
+              kind: "SUMMON",
+              target: rv ? { x_m: rv.x_m, y_m: rv.y_m } : { x_m: v.x_m, y_m: v.y_m },
+              ...(option ? { crew_ids: [...option.crew_ids] } : {}),
+            },
+            eta_s: rv ? rv.eta_vehicle_s : null,
+          };
+        }),
+      };
+    }
+    case "VEHICLE_ARRIVED":
+      return { ...next, vehicles: updateVehicle(next.vehicles, e.data.vehicle_id, () => ({ state: "ARRIVED", x_m: e.data.x_m, y_m: e.data.y_m, eta_s: 0 })) };
+    case "CREW_SHELTERED":
+      return {
+        ...next,
+        crew: updateCrew(next.crew, [e.data.crew_id], (c) => ({
+          activity: "SHELTERED",
+          dose_event_ugy: e.data.dose_event_ugy,
+          dose_event_unsheltered_ugy: e.data.dose_event_unsheltered_ugy,
+          haven: { ...c.haven, kind: e.data.haven_kind },
+        })),
+      };
+    case "LINK_LOST":
+      return { ...next, crew: updateCrew(next.crew, [e.data.node_id], () => ({ linked: false, stale: true })) };
+    case "LINK_RESTORED":
+      return { ...next, crew: updateCrew(next.crew, [e.data.node_id], () => ({ linked: true, stale: false })) };
+    case "EARTH_MSG_QUEUED":
+      return { ...next, earthQueue: [...next.earthQueue, { ...e.data, state: "QUEUED", provenance: { ...e.provenance } }] };
+    case "EARTH_MSG_DELIVERED":
+      return { ...next, earthQueue: next.earthQueue.map((m) => (m.message_id === e.data.message_id ? { ...m, state: "DELIVERED" } : m)) };
+    case "COMMAND_REJECTED":
+      return next;
+    case "CLOCK_CHANGED": {
+      const status = next.session.status;
+      const running = status === "RUNNING" || status === "PAUSED" ? (e.data.paused ? "PAUSED" : "RUNNING") : status;
+      return { ...next, session: { ...next.session, status: running, clock: { ...next.session.clock, speed: e.data.speed, paused: e.data.paused } } };
+    }
+    case "EVA_ENDED":
+      return { ...next, session: { ...next.session, status: "ENDED" } };
+    case "TASK_ADDED":
+    case "TASK_UPDATED":
+    case "TASK_DROPPED":
+      return reduceTaskEvent(next, event);
+    default:
+      return assertNever(e);
+  }
+}
+
+function updateCrew(crew: Crew[], ids: readonly string[], patch: (c: Crew) => Partial<Crew>): Crew[] {
+  return crew.map((c) => (ids.includes(c.crew_id) ? { ...c, ...patch(c) } : c));
+}
+
+function updateVehicle(vehicles: Vehicle[], id: string, patch: (v: Vehicle) => Partial<Vehicle>): Vehicle[] {
+  return vehicles.map((v) => (v.vehicle_id === id ? { ...v, ...patch(v) } : v));
+}
+
+/** Apply an ack or clear, then drop the alert if its latch is released (03 §E.7). */
+function settle(alerts: Alert[], alert_id: string, patch: Partial<Alert>): Alert[] {
+  return alerts
+    .map((a) => (a.alert_id === alert_id ? { ...a, ...patch } : a))
+    .filter((a) => a.alert_id !== alert_id || !(a.cleared_seq !== null && (a.level === "advisory" || a.acked_seq !== null)));
+}
+
+function assertNever(event: never): never {
+  throw new Error(`reduce: unknown LogEvent kind ${(event as LogEvent).kind}`);
 }
