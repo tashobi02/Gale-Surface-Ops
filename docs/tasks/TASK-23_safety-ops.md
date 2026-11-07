@@ -230,6 +230,40 @@
   4. Plan revision (`buildPlanRevision`): retains all legs between consecutive kept waypoints; the new return leg connects the last kept waypoint to start waypoint `wp-0` using `option.path_preview`.
 - **Conflict notes:** Single owner.
 
+**Proposed 2026-11-08 — TODO(decision)** (T23.07 review rework of Gemini's branch; these replace decisions 1 and 4 above where they differ):
+
+- **Answered once.** An alert gets one OPTIONS_PROPOSED, ever. The new engine-only, JSON-safe field `EngineState.proposed_alerts?: string[]` is reduced from OPTIONS_PROPOSED.
+  This is a small edit to `reducer.ts` (T22.06, same owner). It replaces the `TO_HAVEN` guard: after an approved CONTINUE_SKIP the crew stay WALKING, and Gemini's version proposed again on every tick.
+  The proposal goes only to the crew still out (WALKING or AT_STOP). An empty option list is still logged once, so a re-try does not run every tick.
+- **Missing inputs.** No grid (the scenario loader gives null until TASK-05), no `shielding` ParamSet, or no start waypoint: no events and no throw. This fixed the 11 `tick.test.ts` failures.
+- **Inputs to compute:**
+  - hab = the plan's `role: "start"` waypoint;
+  - ingress = `HAB_INGRESS_S`, and the rover's own ParamSet (`Vehicle.param_set`) `ingress_min` × 60;
+  - crew fields bounded at L = `max_haven_min` × 60 s, as in `vehicles.ts`;
+  - the vehicle field starts at the rover's position;
+  - `pair` = `rendezvousPair` for two crew with OK rendezvous. If it throws a RangeError there is no vehicle option.
+  - No vehicle option either unless the rover is PARKED and its ParamSet has `ingress_min` ≥ 0.
+- **Finite options.** Options with a non-finite number are dropped and the rest re-ranked 1..n (defensive; compute already drops them).
+- **New leg.** `walk_time_min` excludes ingress: ETA − `HAB_INGRESS_S`, or `rendezvous.eta_crew_s` for VEHICLE_RENDEZVOUS. `distance_m` = polyline length in projected metres. `cell_path_length` = the vertex count of `path_preview`.
+  That count is the cell count for ABORT_TO_HAB and VEHICLE_RENDEZVOUS, but not for CONTINUE_SKIP, whose path is display geometry. TODO(decision).
+- **Blocked: climb, descent, max slope and profile.** These can't be derived. Compute `toLeg` and `sampleProfile` are TASK-05 stubs, and slope or elevation sampling may not live in hab-core (CLAUDE.md §2).
+  For now they are 0 and an empty profile, labelled `assumed` in the PLAN_REVISED provenance. Replace this once TASK-05 lands.
+- **Provenance.** OPTIONS_PROPOSED labels `data.options.eta_shelter_min`, `data.options.expected_dose_ugy` and `data.options.rendezvous` `modelled` (05). VEHICLE_DISPATCHED labels `data.rendezvous` `modelled`.
+  PLAN_REVISED labels the new leg by index: `data.legs.<i>.walk_time_min` `modelled`, `distance_m` `derived`, and the three blocked metrics `assumed`.
+- **APPROVE_OPTION for VEHICLE_RENDEZVOUS** does not call `dispatchVehicle`.
+  T23.06 asserts that VEHICLE_DISPATCHED carries the option's own `rendezvous` verbatim, with the compute rendezvous mocked as NO_RENDEZVOUS. `dispatchVehicle` recomputes the point and rounds the ETAs, so it cannot meet that.
+  Dispatching to the option's point also keeps the vehicle target and the crew route together. The checks run in `dispatchVehicle`'s order: INVALID (no pressurized rover), then BUSY (not PARKED).
+  TODO(decision): give `dispatchVehicle` a precomputed point, then reuse it. The logged ETAs are not rounded to whole seconds here.
+- **Blocked (needs a spec change): the VEHICLE_RENDEZVOUS revision still ends at the start waypoint.** Tick rule S5 then logs `CREW_SHELTERED {haven_kind: "hab"}` at the meeting point.
+  A meeting-point waypoint needs a new 05 Waypoint `role` (today only `start | stop`), and T23.06 asserts `to` = the start waypoint. Not changed.
+- **ABORT.** The EVA self rule takes the crew id from the role (`eva:<id>`); `selfOf` in `commands.ts` is private.
+  With ABORT_TO_HAB options of several active alerts, ABORT executes the newest alert's (highest `raised_seq`), ties to the lower `option_id`. Options of a cleared alert are skipped.
+- **Shared path for two crew.** TODO(decision): `path_preview` is crew[0]'s, so under rule S7 EV2 snaps onto EV1's path. The leg's walk time is the slowest member's (the option's ETA).
+- **CONTINUE_SKIP path.** The return leg follows the planned legs (compute's `remainingPlan`), so it passes the dropped stops' places, but with no waypoint there it has no dwell and no ARRIVED_STOP. TODO(decision) for the compute owner.
+- **Warning alerts only.** TODO(decision): an O₂ or buddy warning also gets radiation-style options; 02 §D.15 does not restrict this.
+- **Tests.** The new [contingencyOpsReal.test.ts](../../apps/hab-core/tests/contingencyOpsReal.test.ts) runs 18 tests on the real compute and the F9 `havenFlat` grid.
+  In `contingencyOps.test.ts` only the fixture and mock shape changed (a stand-in grid and a `vehiclePassable` mock); no assertion changed.
+
 ### T23.08 — Verify: killer demo steps 0:30–1:10 run headless (M3)
 
 - **Owner:** Sadman Shaharier Mahim (R4 Hab Core)

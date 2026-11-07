@@ -221,7 +221,9 @@ describe("contingencyTick on the real compute (02 §D.15; FR-44)", () => {
   it("drops an option with a non-finite number and re-ranks the rest 1..n", () => {
     hook.extra = (out) => {
       const [first, ...rest] = out as ContingencyOption[];
-      return [first!, { ...first!, option_id: `${ALERT_ID}:BAD`, eta_shelter_min: Infinity }, { ...first!, option_id: `${ALERT_ID}:NAN`, rendezvous: { x_m: 0, y_m: 0, eta_crew_s: NaN, eta_vehicle_s: 0 } }, ...rest];
+      // Ranked by the stand-in as compute would rank them, so the bad ones hold ranks 2 and 3.
+      const all = [first!, { ...first!, option_id: `${ALERT_ID}:BAD`, eta_shelter_min: Infinity }, { ...first!, option_id: `${ALERT_ID}:NAN`, rendezvous: { x_m: 0, y_m: 0, eta_crew_s: NaN, eta_vehicle_s: 0 } }, ...rest];
+      return all.map((o, i) => ({ ...o, rank: i + 1 }));
     };
     const { options } = dataOf(contingencyTick(alerted, tctx(alerted)).events, "OPTIONS_PROPOSED");
     expect(options.map((o) => o.option_id)).toEqual(EXPECTED.map((o) => o.option_id));
@@ -323,5 +325,15 @@ describe("ABORT on the real compute (02 §E.4 self rule; FR-44)", () => {
       const out = handleCommand(state, cmd("ops", "ABORT", { crew: ["EV1"] }), cctx(state));
       expect(dataOf(out.events, "PLAN_REVISED").option_id).toBe(want);
     }
+  });
+
+  it("ABORT skips the options of a cleared alert: the older active alert's ABORT_TO_HAB is executed", () => {
+    const olderId = proposed().alerts[0]!.alert_id;
+    let s = apply(proposed(), "ALERT_RAISED", { alert_id: `a-${proposed().session.last_seq + 1}`, code: "RADIATION_ALERT", level: "warning", subjects: ["EV1", "EV2"], message: "Radiation surge — shelter now" });
+    s = proposedState(s);
+    s = apply(s, "ALERT_CLEARED", { alert_id: s.alerts[1]!.alert_id });
+    const out = handleCommand(s, cmd("ops", "ABORT", { crew: ["EV1"] }), cctx(s));
+    expect(out.result.ok).toBe(true);
+    expect(dataOf(out.events, "PLAN_REVISED").option_id).toBe(s.options.find((o) => o.kind === "ABORT_TO_HAB" && o.alert_id === olderId)!.option_id);
   });
 });
