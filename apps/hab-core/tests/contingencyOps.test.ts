@@ -106,7 +106,14 @@ function standIn(inputs: Pick<ContingencyInputs, "alert_id" | "crew">): Continge
     .map((o, i): ContingencyOption => ({ ...o, path_preview: [...o.path_preview] as [number, number][], alert_id: inputs.alert_id, crew_ids, stops_dropped, violations: [], rank: i + 1 }));
 }
 
-const field = { cell_m: 1, width: 1, height: 1, seconds: new Float64Array(1) };
+const field = {
+  cell_m: 1,
+  width: 1,
+  height: 1,
+  origin_m: [0, 0] as [number, number],
+  seconds: new Float64Array(1),
+  prev: new Int32Array(1),
+};
 vi.mock("@marswalk/compute", async () => {
   const actual = await vi.importActual<typeof import("@marswalk/compute")>("@marswalk/compute");
   return {
