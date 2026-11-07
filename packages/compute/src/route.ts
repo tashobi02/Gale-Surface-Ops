@@ -8,7 +8,6 @@ import type { LoadedGrid } from "./grid";
 
 /** Limits from 02 §D.2. */
 export const MAX_STOPS = 10;
-export const SNAP_RADIUS_M = 50;
 export const MAX_NODE_EXPANSIONS = 3_000_000;
 
 /** Result of one leg search, before profile/time post-processing. */
@@ -33,7 +32,3 @@ export function searchLeg(
 ): LegSearch {
   throw new Error("TODO(TASK-05): not implemented");
 }
-
-// Re-export extracted stubs for backwards compatibility with existing callers (T05.01)
-export { snapToPassable } from "./snap";
-export { toLeg } from "./leg";
