@@ -36,14 +36,21 @@ const PENDING =
     }
   });
 
-function makeField(seconds: number, path: [number, number][] = [[0, 0]]): TimeField {
+function makeField(seconds: number): TimeField {
+  const width = 400;
+  const height = 200;
+  const n = width * height;
+  const arr = new Float64Array(n);
+  arr.fill(seconds);
+  const prev = new Int32Array(n);
+  prev.fill(-1);
   return {
     cell_m: 5,
-    width: 1,
-    height: 1,
-    origin_m: [0, 0],
-    seconds: new Float64Array([seconds]),
-    prev: new Int32Array([-1]),
+    width,
+    height,
+    origin_m: [0, 500],
+    seconds: arr,
+    prev,
   };
 }
 
@@ -234,6 +241,13 @@ describe.skipIf(PENDING)("proposeOptions", () => {
       }
       expect(curr.rank).toBe(i + 1);
     }
+
+    // When dose is identical (rate = 0), ETA strictly breaks the tie (VEHICLE 10m < HAB 15m < CONTINUE 55m)
+    const zeroDoseInputs = createTestInputs({ rateUgyH: 0 });
+    const zeroDoseOptions = proposeOptions(zeroDoseInputs);
+    expect(zeroDoseOptions[0].kind).toBe("VEHICLE_RENDEZVOUS");
+    expect(zeroDoseOptions[1].kind).toBe("ABORT_TO_HAB");
+    expect(zeroDoseOptions[2].kind).toBe("CONTINUE_SKIP");
   });
 
   it("vehicle rendezvous absent when NO_RENDEZVOUS", () => {

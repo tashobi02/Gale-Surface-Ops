@@ -537,6 +537,14 @@ T23.03 `havenTick` consumes `liveHaven` from `haven.ts` (frozen in this PR; plea
 - **Agent brief:** Implement `contingency.ts` until the tests pass.
 - **Conflict notes:** Single owner.
 
+**Proposed 2026-11-08 — TODO(decision)** (T05b.19 implementation notes):
+- `option_id` format: `${alert_id}:${kind}` ensures deterministic identification for identical inputs across ticks (NFR-06).
+- Dose projection (`projectDose`): projected over `eta_shelter_s` using 60-second steps via `integrateDose` with `shelter: "suit"`. Infinite ETA returns `Infinity` dose.
+- `VEHICLE_RENDEZVOUS`: Proposed only when every crew member has an `OK` rendezvous result. For a two-crew alert with `pair`, uses the first visited meeting point (`pair.order[0]`) for rendezvous coordinates and `pair.later_arrival_s + ingress.vehicle_s` for shelter ETA.
+- `CONTINUE_SKIP`: Traces remaining planned legs from current stop without dwell, concatenating leg geometries for `path_preview`.
+- Deterministic tie-breaking: candidates sorted by `expected_dose_ugy` ascending, then `eta_shelter_min` ascending, with ties broken deterministically by `option_id.localeCompare`. Ranks assigned strictly 1..N.
+
+
 ### T05b.20 — Verify on the real grid: haven, rendezvous and viewshed vs independent checks; NFR-02 timings
 
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead), with Anjim Hossain for the viewshed points
