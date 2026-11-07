@@ -492,8 +492,11 @@ describe("proposeOptions", () => {
 
   it("rejects three crew who all have a vehicle rendezvous (pair covers exactly two)", () => {
     const crew = [makeCrew("EV1", 500, 0, 1), makeCrew("EV2", 500, 0, 1), makeCrew("EV1", 500, 0, 1)];
-    const inputs = baseInputs({ crew, pair: { order: [0, 1], later_arrival_s: 450 } });
+    const rendezvous = { EV1: makeRendezvous(250, 0, 300, 200, [500, 0]), EV2: makeRendezvous(250, 0, 300, 200, [500, 0]) };
+    const inputs = baseInputs({ crew, rendezvous, pair: { order: [0, 1], later_arrival_s: 450 } });
     expect(() => proposeOptions(inputs)).toThrow(RangeError);
+    // Without a vehicle rendezvous for everyone, three crew still get abort and skip options.
+    expect(proposeOptions(baseInputs({ crew })).map((o) => o.kind).sort()).toEqual(["ABORT_TO_HAB", "CONTINUE_SKIP"]);
   });
 
   it("returns no options for an empty crew", () => {

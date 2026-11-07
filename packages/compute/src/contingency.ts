@@ -52,6 +52,33 @@ export interface ContingencyInputs {
 
 type Point = [number, number];
 
+/** Sample times in ms, parsed once per series (derived data; the series is never changed). */
+const sampleTimesCache = new WeakMap<DoseSeries, number[]>();
+function sampleTimesMs(series: DoseSeries): number[] {
+  let out = sampleTimesCache.get(series);
+  if (!out) {
+    out = series.samples.map(([t_utc]) => Date.parse(t_utc));
+    sampleTimesCache.set(series, out);
+  }
+  return out;
+}
+
+/** ISO time with an explicit Z or offset, as `eventDose` requires, so parsing never uses the host time zone. */
+function parseUtcMs(t_utc: string): number {
+  const ms = /(Z|[+-]\d{2}:\d{2})$/.test(t_utc) ? Date.parse(t_utc) : NaN;
+  if (Number.isNaN(ms)) throw new RangeError(`proposeOptions: now_utc ${t_utc} is not an ISO time with Z or an offset`);
+  return ms;
+}
+
+/** The crew member's last stop passed: 0 = still at the start, else 1..stop count (RangeError otherwise). */
+function stopIndexOf(c: Crew, stopCount: number): number {
+  const idx = c.stop_index ?? 0;
+  if (!Number.isInteger(idx) || idx < 0 || idx > stopCount) {
+    throw new RangeError(`proposeOptions: ${c.crew_id} stop_index ${idx} is not in 0..${stopCount} (the plan has ${stopCount} stops)`);
+  }
+  return idx;
+}
+
 /**
  * Expected event dose, µGy, for `durationS` seconds in a suit from `startMs` (02 §D.13). The walk is
  * cut at every dose-series sample time inside it, so each piece sees one constant replayed rate and
@@ -62,8 +89,7 @@ function projectDose(series: DoseSeries, startMs: number, durationS: number, shi
   if (!(durationS > 0)) return 0;
   const endMs = startMs + durationS * 1000;
   const cuts = [startMs];
-  for (const [t_utc] of series.samples) {
-    const ms = Date.parse(t_utc);
+  for (const ms of sampleTimesMs(series)) {
     if (ms > startMs && ms < endMs) cuts.push(ms);
   }
   cuts.sort((a, b) => a - b);
@@ -139,15 +165,16 @@ function nearestOnLeg(leg: OkLeg, x: number, y: number): { dist2: number; segIdx
 
 /**
  * The rest of the plan for one crew member, walked from where they are, without dwell (Proposed): the
- * share of the nearest leg still ahead (of that leg's `walk_time_min`, by polyline length) plus the
+ * share of the current leg (the one from the last stop passed) still ahead (of that leg's
+ * `walk_time_min`, by polyline length) plus the
  * later legs whole. Null when a leg from the last stop passed onward has no route, or no leg has
  * geometry; the option is then left out. A crew member with no leg from their last stop falls back to
  * the hab field (the plan has nothing left for them).
  */
 function remainingPlan(inputs: ContingencyInputs, c: Crew): { walkS: number; path: Point[] } | null {
   const stops = inputs.plan.waypoints.filter((w) => w.role === "stop");
-  const idx = c.stop_index ?? 0;
-  const startWpId = idx > 0 && idx <= stops.length ? stops[idx - 1].id : inputs.plan.waypoints[0]?.id;
+  const idx = stopIndexOf(c, stops.length);
+  const startWpId = idx > 0 ? stops[idx - 1].id : inputs.plan.waypoints.find((w) => w.role === "start")?.id;
   const first = inputs.plan.legs.findIndex((l) => l.from === startWpId);
   if (first < 0) return { walkS: timeAt(inputs.hab, c.x_m, c.y_m), path: pathTo(inputs.hab, c.x_m, c.y_m) };
 
@@ -157,15 +184,10 @@ function remainingPlan(inputs: ContingencyInputs, c: Crew): { walkS: number; pat
     if (!isOkLeg(leg)) return null;
     okLegs.push(leg);
   }
-  let pick = -1;
-  let hit: NonNullable<ReturnType<typeof nearestOnLeg>> | null = null;
-  for (let i = 0; i < okLegs.length; i++) {
-    const n = nearestOnLeg(okLegs[i], c.x_m, c.y_m);
-    if (n !== null && (hit === null || n.dist2 < hit.dist2)) {
-      hit = n;
-      pick = i;
-    }
-  }
+  // Only the current leg (the one from the last stop passed) is projected onto: a later leg that
+  // passes closer, such as the return leg of an out-and-back plan, must not win.
+  const pick = 0;
+  const hit = nearestOnLeg(okLegs[pick], c.x_m, c.y_m);
   if (hit === null) return null;
 
   let walkMin = okLegs[pick].walk_time_min * hit.leftShare;
@@ -188,18 +210,20 @@ function remainingPlan(inputs: ContingencyInputs, c: Crew): { walkS: number; pat
  */
 export function proposeOptions(inputs: ContingencyInputs): ContingencyOption[] {
   if (inputs.crew.length === 0) return [];
-  const startMs = Date.parse(inputs.now_utc);
-  if (!Number.isFinite(startMs)) throw new RangeError(`proposeOptions: now_utc ${inputs.now_utc} is not an ISO time`);
+  const startMs = parseUtcMs(inputs.now_utc);
 
   const crewIds = inputs.crew.map((c) => c.crew_id);
   const stops = inputs.plan.waypoints.filter((w) => w.role === "stop");
-  const currentStop = Math.max(0, ...inputs.crew.map((c) => c.stop_index ?? 0));
+  const currentStop = Math.max(...inputs.crew.map((c) => stopIndexOf(c, stops.length)));
   const droppedStops = stops.map((_, idx) => idx + 1).filter((stopNum) => stopNum > currentStop);
   const maxElapsedS = Math.max(...inputs.crew.map((c) => c.eva_elapsed_s));
 
   const oks = inputs.crew.map((c) => okRendezvous(inputs.rendezvous[c.crew_id])).filter((r): r is RendezvousOk => r !== null);
   const vehicleOk = oks.length === inputs.crew.length;
-  if (vehicleOk && inputs.crew.length >= 2 && !inputs.pair) {
+  if (vehicleOk && inputs.crew.length > 2) {
+    throw new RangeError("proposeOptions: `pair` covers exactly two crew; three or more with a vehicle rendezvous are not supported");
+  }
+  if (vehicleOk && inputs.crew.length === 2 && !inputs.pair) {
     throw new RangeError("proposeOptions: two crew on alert with a vehicle rendezvous need inputs.pair (rendezvousPair)");
   }
 
