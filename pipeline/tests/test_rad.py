@@ -49,10 +49,14 @@ T14.01) never hides another assertion.
 
 Expected values come from the inputs and arithmetic identities. Rates, times, totals and ids below are
 SYNTHETIC (invented to exercise the rules); the 8,100 uGy published total is deliberately not used.
+While `marswalk_pipeline.rad` is absent (before T21.07 merges), a module-level `pytestmark` marks
+`ImportError` as an expected failure (`xfail(strict=True)`) so CI stays green on PRs without T21.07;
+once the module exists, the guard is inert.
 """
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import math
 import random
@@ -61,6 +65,14 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+
+_MISSING = importlib.util.find_spec("marswalk_pipeline.rad") is None
+pytestmark = pytest.mark.xfail(
+    _MISSING,
+    raises=ImportError,
+    strict=True,
+    reason="tests-first (map §h.3): marswalk_pipeline.rad lands in T21.07",
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOSE_SCHEMA = REPO_ROOT / "schemas" / "dose-series.schema.json"

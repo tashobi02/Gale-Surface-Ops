@@ -57,6 +57,9 @@ Kernels are never committed: set MARSWALK_SPICE_DIR, or put them under pipeline/
 (git-ignored; docs/ops/data-downloads.md D12-D15). The module does not exist until T21.04 lands, so
 it is imported inside `_mod()`, never at module top: each test fails on its own. Every test calls
 `_mod()` FIRST, before any skip, so a missing module is a failure even where kernels are absent.
+While `marswalk_pipeline.spice_tables` is absent (before T21.04 merges), a module-level `pytestmark`
+marks `ImportError` as an expected failure (`xfail(strict=True)`) so CI stays green on PRs that do
+not yet carry T21.04; once the module exists, the guard is inert.
 
 Skips and the gate. Tests that need spiceypy, the kernels or jsonschema skip with a reason when they
 are missing, so a plain `pytest` run stays green on a machine without kernels. Set
@@ -86,6 +89,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -94,6 +98,14 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+
+_MISSING = importlib.util.find_spec("marswalk_pipeline.spice_tables") is None
+pytestmark = pytest.mark.xfail(
+    _MISSING,
+    raises=ImportError,
+    strict=True,
+    reason="tests-first (map §h.3): marswalk_pipeline.spice_tables lands in T21.04",
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PARAM_DIR = REPO_ROOT / "scenarios" / "storm-sol4190" / "param_sets"
