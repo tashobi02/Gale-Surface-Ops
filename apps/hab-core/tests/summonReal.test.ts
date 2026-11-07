@@ -4,7 +4,9 @@
  *
  * Proposed 2026-11-08 — TODO(decision): this file is new. `summon.test.ts` (T23.04) mocks compute
  * with a 1-D stand-in, so it cannot see what the engine does with a real path (cell centres, a path
- * that bends, a 5 m crew grid over the 10 m vehicle field). This file uses no `vi.mock`: the grids
+ * that bends, a 5 m crew grid over the 10 m vehicle field). The only `vi.mock` is a pass-through of
+ * `rendezvousPair` that one test makes throw (its RangeError path cannot be reached on a real grid,
+ * where every meeting point the vehicle reaches is reachable from the other); the grids
  * are the synthetic F9 fixtures (`packages/compute/tests/fixtures/v2grids.ts`), and every expected
  * value is derived here from the same compute functions (the "oracle") or from the fixture's
  * declared shape. Nothing is typed in as a science number.
@@ -27,7 +29,7 @@
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   crewTimeField,
   rendezvous,
@@ -55,6 +57,19 @@ import {
   VEHICLE_XY,
   type XY,
 } from "../../../packages/compute/tests/fixtures/v2grids";
+
+/** Pass-through of the real `rendezvousPair`; `throwPair` makes it throw its documented RangeError. */
+const pairSwitch = vi.hoisted(() => ({ throwPair: false }));
+vi.mock("@marswalk/compute", async () => {
+  const actual = await vi.importActual<typeof import("@marswalk/compute")>("@marswalk/compute");
+  return {
+    ...actual,
+    rendezvousPair: (...a: Parameters<typeof actual.rendezvousPair>) => {
+      if (pairSwitch.throwPair) throw new RangeError("rendezvousPair: the vehicle cannot reach either meeting point from the other");
+      return actual.rendezvousPair(...a);
+    },
+  };
+});
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
@@ -120,12 +135,12 @@ interface Tick {
 }
 
 /** Run vehiclesTick for up to `max` ticks, applying its events, until `stop` says so. */
-function drive(start: EngineState, sc: LoadedScenario, max: number, stop: (t: Tick) => boolean = () => false): Tick[] {
+function drive(start: EngineState, sc: LoadedScenario, max: number, stop: (t: Tick) => boolean = () => false, dt_s = DT_S): Tick[] {
   const out: Tick[] = [];
   let state = start;
   for (let k = 1; k <= max; k++) {
-    const before = at(state, T0_MS + k * DT_S * 1000);
-    const ctx: TickContext = { scenario: sc, dt_s: DT_S, next_seq: before.session.last_seq + 1 };
+    const before = at(state, T0_MS + k * dt_s * 1000);
+    const ctx: TickContext = { scenario: sc, dt_s, next_seq: before.session.last_seq + 1 };
     const r = vehiclesTick(before, ctx);
     state = applyEvents(r.state, r.events);
     const t = { k, before, after: state, moduleState: r.state, events: r.events, deltas: r.deltas };
@@ -153,6 +168,27 @@ function distToPolyline(x: number, y: number, p: [number, number][]): number {
     best = Math.min(best, Math.hypot(x - (ax + t * dx), y - (ay + t * dy)));
   }
   return best;
+}
+/** Arc length along `p` of the polyline point closest to (x, y). */
+function arcAt(x: number, y: number, p: [number, number][]): number {
+  let best = Infinity;
+  let arc = 0;
+  let at = 0;
+  for (let i = 1; i < p.length; i++) {
+    const [ax, ay] = p[i - 1]!;
+    const [bx, by] = p[i]!;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len = Math.hypot(dx, dy);
+    const t = len === 0 ? 0 : Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (len * len)));
+    const d = Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
+    if (d < best) {
+      best = d;
+      at = arc + t * len;
+    }
+    arc += len;
+  }
+  return at;
 }
 const jsonSafe = (v: unknown): void => expect(JSON.parse(JSON.stringify(v))).toEqual(v);
 
@@ -188,7 +224,8 @@ describe("real compute: dispatch on the ridge (02 §D.10)", () => {
     const { state: dispatched } = summonRidge();
     const target = pr1(dispatched).task!.target;
     const eta0 = pr1(dispatched).eta_s!;
-    expect(Number.isInteger(eta0) && eta0 > 4, `eta0 ${eta0}`).toBe(true);
+    expect(Number.isInteger(eta0), `eta0 ${eta0}`).toBe(true);
+    expect(eta0, "set-up: the drive takes more than one tick").toBeGreaterThan(DT_S);
     const route: [number, number][] = [[ridge.shape.vehicle.x_m, ridge.shape.vehicle.y_m], ...ridgeOracle.vehicle_path];
     const perTick = (polylineLength(route) / eta0) * DT_S;
 
@@ -436,5 +473,122 @@ describe("CREW_SHELTERED reach and provenance", () => {
   it("does not shelter a crew member twice the reach away", () => {
     const [t] = drive(arrivedAt(2 * DECIDED_REACH_M), ridgeSc, 1);
     expect(t!.events).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Re-review round (8 Nov): pair fallback, one unreachable crew member, zero ETA, dt_s, crew state
+// ---------------------------------------------------------------------------
+
+describe("two crew: fallbacks (Proposed 2026-11-08)", () => {
+  const sc = scenarioWith(flat.grid, defaultScenario(), [pr1Params]);
+  const meet = (r: RendezvousOk): number => Math.max(r.eta_crew_s, r.eta_vehicle_s);
+
+  it("when rendezvousPair throws, goes to the earlier meeting point", () => {
+    const a = ok(oracle(sc, CREW_XY, VEHICLE_XY, pr1Params));
+    const b = ok(oracle(sc, HAB_XY, VEHICLE_XY, pr1Params));
+    expect(meet(b), "set-up: the second-named crew member meets earlier").toBeLessThan(meet(a));
+    const s = setUp(sc, { EV1: CREW_XY, EV2: HAB_XY }, VEHICLE_XY, pr1Params.param_set_id);
+    pairSwitch.throwPair = true;
+    let out: ReturnType<typeof handleSummon>;
+    try {
+      out = handleSummon(s, sc, summonCmd({ crew: ["EV1", "EV2"] }));
+    } finally {
+      pairSwitch.throwPair = false;
+    }
+    expect(out.result.ok, JSON.stringify(out.result)).toBe(true);
+    const rv = (out.events[0]!.data as LogEventData["VEHICLE_DISPATCHED"]).rendezvous!;
+    expect({ x_m: rv.x_m, y_m: rv.y_m }).toEqual({ x_m: b.x_m, y_m: b.y_m });
+  });
+
+  it("when only one of two crew has a rendezvous, dispatches to that one (the other is not served)", () => {
+    const blocked = rendezvousBlockedVehicle(5);
+    const bsc = scenarioWith(blocked.grid, defaultScenario(), [pr1Params]);
+    // EV1 stands inside the hazard ring; EV2 outside; PR1 halfway between them, outside the ring.
+    const inside = blocked.shape.vehicle;
+    const outside = blocked.shape.crew;
+    const vehicle = { x_m: (inside.x_m + outside.x_m) / 2, y_m: outside.y_m };
+    expect(oracle(bsc, inside, vehicle, pr1Params).status, "set-up: EV1 cannot be met").toBe("NO_RENDEZVOUS");
+    const reachable = ok(oracle(bsc, outside, vehicle, pr1Params));
+    const s = setUp(bsc, { EV1: inside, EV2: outside }, vehicle, pr1Params.param_set_id);
+    for (const crew of [["EV1", "EV2"], ["EV2", "EV1"]]) {
+      const out = handleSummon(s, bsc, summonCmd({ crew }));
+      expect(out.result.ok, JSON.stringify(out.result)).toBe(true);
+      const rv = (out.events[0]!.data as LogEventData["VEHICLE_DISPATCHED"]).rendezvous!;
+      expect({ x_m: rv.x_m, y_m: rv.y_m }).toEqual({ x_m: reachable.x_m, y_m: reachable.y_m });
+    }
+  });
+});
+
+describe("no teleport: zero ETA and missing ETA (Proposed 2026-11-08)", () => {
+  it("logs eta_vehicle_s of at least 1 s when the path has length, and arrives on tick 1 without a jump", () => {
+    const sc = scenarioWith(flat.grid, defaultScenario(), [pr1Params]);
+    const rv0 = ok(oracle(sc, HAB_XY, HAB_XY, pr1Params));
+    const route: [number, number][] = [[HAB_XY.x_m, HAB_XY.y_m], ...rv0.vehicle_path];
+    expect(Math.round(rv0.eta_vehicle_s), "set-up: compute's vehicle ETA rounds to 0 s").toBe(0);
+    expect(polylineLength(route), "set-up: but the path has length").toBeGreaterThan(0);
+
+    const s = setUp(sc, { EV1: HAB_XY }, HAB_XY, pr1Params.param_set_id);
+    const out = handleSummon(s, sc, summonCmd({ crew: ["EV1"] }));
+    const rv = (out.events[0]!.data as LogEventData["VEHICLE_DISPATCHED"]).rendezvous!;
+    expect(rv.eta_vehicle_s).toBe(DT_S);
+    const ticks = drive(applyEvents(s, out.events), sc, 2);
+    expect(arrivedTick(ticks)!.k).toBe(1);
+    expect(pr1(ticks[0]!.after)).toMatchObject({ state: "ARRIVED", x_m: rv.x_m, y_m: rv.y_m });
+  });
+
+  it.each([0, -1, null])("an EN_ROUTE vehicle with path ahead and eta_s %s stays put and does not arrive", (eta) => {
+    const s = withPr1(ridgeStart(), { state: "EN_ROUTE", path: ridgeOracle.vehicle_path, eta_s: eta, task: { kind: "SUMMON", target: { x_m: ridgeOracle.x_m, y_m: ridgeOracle.y_m } } });
+    const [t] = drive(s, ridgeSc, 1);
+    expect(t!.events).toEqual([]);
+    expect(t!.deltas).toEqual([]);
+    expect(pr1(t!.after)).toMatchObject({ state: "EN_ROUTE", x_m: ridge.shape.vehicle.x_m, y_m: ridge.shape.vehicle.y_m, eta_s: eta });
+  });
+
+  it("a VEHICLE_DISPATCHED without a rendezvous (eta_s null) stays DISPATCHED with no path and no motion", () => {
+    const s = apply(ridgeStart(), "VEHICLE_DISPATCHED", { vehicle_id: PR1_ID });
+    expect(pr1(s)).toMatchObject({ state: "DISPATCHED", eta_s: null });
+    for (const t of drive(s, ridgeSc, 3)) {
+      expect(t.events).toEqual([]);
+      expect(t.deltas).toEqual([]);
+      expect(pr1(t.after)).toMatchObject({ state: "DISPATCHED", path: [], x_m: ridge.shape.vehicle.x_m, y_m: ridge.shape.vehicle.y_m });
+    }
+  });
+});
+
+describe("motion with dt_s = 2", () => {
+  it("covers remaining length × dt_s ÷ eta_s per tick, counts eta_s down by dt_s, arrives on tick ceil(eta_s ÷ dt_s)", () => {
+    const dt = 2 * DT_S;
+    const { state: dispatched } = summonRidge();
+    const target = pr1(dispatched).task!.target;
+    const eta0 = pr1(dispatched).eta_s!;
+    const route: [number, number][] = [[ridge.shape.vehicle.x_m, ridge.shape.vehicle.y_m], ...ridgeOracle.vehicle_path];
+    const perTick = (polylineLength(route) / eta0) * dt;
+    const arriveK = Math.ceil(eta0 / dt);
+    expect(arriveK, "set-up: several ticks of motion").toBeGreaterThan(DT_S);
+
+    const ticks = drive(dispatched, ridgeSc, arriveK + 2, undefined, dt);
+    expect(arrivedTick(ticks)!.k).toBe(arriveK);
+    let prev: [number, number] = [ridge.shape.vehicle.x_m, ridge.shape.vehicle.y_m];
+    for (const t of ticks.filter((t) => t.k < arriveK)) {
+      const v = pr1(t.after);
+      const step = Math.hypot(v.x_m - prev[0], v.y_m - prev[1]);
+      expect(step, `tick ${t.k}`).toBeLessThanOrEqual(perTick + 1e-6);
+      expect(distToPolyline(v.x_m, v.y_m, route)).toBeLessThanOrEqual(1e-6);
+      expect(v.eta_s, `tick ${t.k}`).toBe(eta0 - t.k * dt);
+      expect(arcAt(v.x_m, v.y_m, route), `tick ${t.k}: progress along the path`).toBeCloseTo(t.k * perTick, 6);
+      prev = [v.x_m, v.y_m];
+    }
+    expect(pr1(ticks[arriveK - 1]!.after)).toMatchObject({ state: "ARRIVED", x_m: target.x_m, y_m: target.y_m, eta_s: 0 });
+  });
+});
+
+describe("crew who are already safe (Proposed 2026-11-08)", () => {
+  it.each(["SHELTERED", "IN_HAB"] as const)("answers INVALID when a named crew member is %s", (activity) => {
+    const s = withCrew(ridgeStart(), "EV1", { activity });
+    const out = handleSummon(s, ridgeSc, summonCmd({ crew: ["EV1"] }));
+    expect(out.result).toMatchObject({ ok: false, code: "INVALID" });
+    expect(out.events).toEqual([]);
+    expect(dispatchVehicle(s, ridgeSc, { crew_ids: ["EV1"], actor: "ops" })).toMatchObject({ ok: false, code: "INVALID" });
   });
 });

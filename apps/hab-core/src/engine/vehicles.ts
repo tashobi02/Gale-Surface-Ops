@@ -81,16 +81,22 @@ function ownParams(scenario: LoadedScenario, vehicle: Vehicle): ParamSet | strin
 /**
  * Dispatch the scenario's pressurized rover to the crew (02 §D.10). Shared by `handleSummon` and by
  * T23.07's APPROVE_OPTION for a VEHICLE_RENDEZVOUS option. Checks, in order: INVALID (no pressurized
- * rover; crew ids not 1–2 distinct known ids; unknown option, or crew that differ from the option's),
+ * rover; crew ids not 1–2 distinct known ids; a crew member already SHELTERED or IN_HAB;
+ * unknown option, or crew that differ from the option's),
  * BUSY (the rover is not PARKED; before any compute call), INVALID (the rover's own ParamSet is
  * missing, of the wrong kind or has no positive `flat_speed_kmh`), NO_RENDEZVOUS (no grid, or no
  * candidate for any of the crew within L). Never changes state; returns one VEHICLE_DISPATCHED
  * `{vehicle_id, rendezvous, option_id?}` with provenance `{"data.rendezvous": "modelled"}`.
  *
  * Two crew: both rendezvous, then `rendezvousPair`; the event carries the first meeting point of the
- * chosen order. If only one crew member has a rendezvous it is that one's; if `rendezvousPair` throws
- * (the vehicle cannot drive between the two points) the one with the earlier meeting, ties to the
- * first named (Proposed 2026-11-08). The second meeting is not driven yet: TODO(decision).
+ * chosen order. If `rendezvousPair` throws (the vehicle cannot drive between the two points) the one
+ * with the earlier meeting, ties to the first named (Proposed 2026-11-08). The second meeting is not
+ * driven yet: TODO(decision).
+ * If only one of two crew has a rendezvous, the vehicle goes to that one: a rover reaching one person
+ * in a storm is still useful (Proposed 2026-11-08). TODO(decision): the unreachable crew member is not
+ * served, and the event cannot say so because T23.04 pins the VEHICLE_DISPATCHED data keys.
+ * `eta_vehicle_s` is at least 1 s whenever the path from the vehicle has length, so the vehicle never
+ * covers a path in zero time (Proposed 2026-11-08).
  */
 export function dispatchVehicle(state: EngineState, scenario: LoadedScenario, req: DispatchRequest): DispatchOutcome {
   const vehicle = state.vehicles.find((v) => v.kind === "pressurized_rover");
@@ -102,6 +108,8 @@ export function dispatchVehicle(state: EngineState, scenario: LoadedScenario, re
   const crew = ids.map((id) => state.crew.find((c) => c.crew_id === id));
   const unknown = ids.filter((_, i) => crew[i] === undefined);
   if (unknown.length > 0) return reject("INVALID", `unknown crew ${unknown.join(", ")}`);
+  const safe = crew.filter((c) => c!.activity === "SHELTERED" || c!.activity === "IN_HAB");
+  if (safe.length > 0) return reject("INVALID", safe.map((c) => `${c!.crew_id} is already ${c!.activity}`).join(", "));
 
   if (req.option_id !== undefined) {
     const option = state.options.find((o) => o.option_id === req.option_id);
@@ -142,13 +150,22 @@ export function dispatchVehicle(state: EngineState, scenario: LoadedScenario, re
     }
   }
 
+  // The drive starts at the vehicle itself, then follows the compute path (cell centres, then the point).
+  let pathLength = 0;
+  let from: readonly [number, number] = [vehicle.x_m, vehicle.y_m];
+  for (const p of first.vehicle_path) {
+    pathLength += Math.hypot(p[0] - from[0], p[1] - from[1]);
+    from = p;
+  }
+  const etaVehicle = Math.round(first.eta_vehicle_s);
+
   const data: LogEventData["VEHICLE_DISPATCHED"] = {
     vehicle_id: vehicle.vehicle_id,
     rendezvous: {
       x_m: first.x_m,
       y_m: first.y_m,
       eta_crew_s: Math.round(first.eta_crew_s),
-      eta_vehicle_s: Math.round(first.eta_vehicle_s),
+      eta_vehicle_s: pathLength > 0 ? Math.max(1, etaVehicle) : etaVehicle,
     },
     ...(req.option_id === undefined ? {} : { option_id: req.option_id }),
   };
@@ -207,7 +224,9 @@ function replaceVehicle(state: EngineState, next: Vehicle): EngineState {
  * `path` holds the vertices still ahead (not the current position) and ends at the target; `eta_s`
  * is the whole seconds left. Speed = remaining path length ÷ `eta_s`, so the vehicle reaches the last
  * vertex on the tick `eta_s` runs out, and `eta_s` counts down as an integer. Whoever sets `path`
- * sets `eta_s` with it. Without a path or a finite `eta_s` the vehicle does not move.
+ * sets `eta_s` with it. Without a path or a finite `eta_s` the vehicle does not move; with path left
+ * and `eta_s` ≤ 0 it does not move or arrive either (no teleport; Proposed 2026-11-08). A path with no
+ * length left arrives at once.
  * On reaching the end: `path` [], `eta_s` 0, one VEHICLE_ARRIVED `{vehicle_id, x_m, y_m}` (actor
  * system). It does not set `state` ARRIVED: the reducer does when the event is applied (tick.ts rule).
  * Returns the changed fields as STATE_DELTAs.
@@ -226,7 +245,8 @@ export function moveAlongPath(state: EngineState, vehicle_id: string, ctx: TickC
     prev = p;
   }
 
-  let arrived = v.eta_s <= ctx.dt_s || remaining === 0;
+  if (remaining > 0 && v.eta_s <= 0) return { state, events: [], deltas: [] };
+  let arrived = remaining === 0 || v.eta_s <= ctx.dt_s;
   if (!arrived) {
     let left = (remaining * ctx.dt_s) / v.eta_s;
     while (i < ahead.length) {
@@ -303,8 +323,8 @@ function shelterEvents(state: EngineState, v: Vehicle): PendingEvent[] {
 
 /**
  * Move `pressurized_rover` vehicles along their paths; VEHICLE_ARRIVED, CREW_SHELTERED. Skips
- * `utility_rover` (rovers.ts). DISPATCHED: derive the path to the logged target (no path ⇒ stays
- * DISPATCHED and does not move), set EN_ROUTE and move for this tick. EN_ROUTE: move. ARRIVED: one
+ * `utility_rover` (rovers.ts). DISPATCHED: derive the path to the logged target (no path, or no
+ * logged `eta_s` ⇒ stays DISPATCHED and does not move), set EN_ROUTE and move for this tick. EN_ROUTE: move. ARRIVED: one
  * CREW_SHELTERED per SUMMON crew member within SHELTER_REACH_M. Returns events, never applies them.
  */
 export function vehiclesTick(state: EngineState, ctx: TickContext): TickResult {
@@ -319,6 +339,8 @@ export function vehiclesTick(state: EngineState, ctx: TickContext): TickResult {
     if (v.state === "DISPATCHED" || v.state === "EN_ROUTE") {
       let moving = v;
       if (v.state === "DISPATCHED") {
+        // No logged ETA (a VEHICLE_DISPATCHED without a rendezvous): nothing to time the drive by, so stay put.
+        if (v.eta_s === null || !Number.isFinite(v.eta_s)) continue;
         const path = pathToTarget(ctx.scenario, v);
         // TODO(decision): with no path the vehicle stays DISPATCHED and the tick retries; no event exists for "cannot go".
         if (!path) continue;
