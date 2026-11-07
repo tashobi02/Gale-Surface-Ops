@@ -88,6 +88,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T23.02: wrote command validation, the dispatch table and the `command_id` memory | Delegated commands left in their owners' modules; nothing computed here | Decisions by Sadman Shaharier Mahim (2026-11-07) | This Claude Code session |
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T22.12: wrote the session manager and its tests | Ticks and seeded tasks replaced by declared stand-ins in the test until T22.09/T31.04; resume rule and its limit (restart at the last event's sim time) written in the module header | Decisions by Sadman Shaharier Mahim (2026-11-07) | This Claude Code session |
 | 2026-11-07 | Claude Code (Opus 5.5, local session) | T22.08/T22.10: wrote the alert tests and the three alert modules | Thresholds read from the ParamSet; the radiation trigger is left to compute and replaced in the test by a schedule from the fixture's declared shape; alert wording marked `TODO(decision)` | Decisions by Sadman Shaharier Mahim (2026-11-07) | This Claude Code session |
+| 2026-11-07 | Claude Code (Opus 5.5, local session) | T22.13: wrote headless replay, the CLI and their tests | Smoke-tested `start` against `/api/health`; `make replay` not yet runnable (no storm scenario, tick stub) and recorded as wip | Decisions by Sadman Shaharier Mahim (2026-11-07) | This Claude Code session |
 
 ## Prompts location
 
