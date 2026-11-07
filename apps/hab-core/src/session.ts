@@ -15,8 +15,8 @@
  *   snapshot never splits one tick's or one command's events. The tick's state is stored before its
  *   events are appended, so the snapshot holds the state after the tick and the current `log_hash`
  *   (tests: tests/sessionTick.test.ts).
- * - Resume: state from the latest snapshot (or the initial state), then the tail is merged with
- *   re-run ticks: ticks step sim time up to each tail event; events a tick produces must equal the
+ * - Resume: state from the latest snapshot (or the initial state; a snapshot without `motion`, written
+ *   before T22.09, gets `{}`), then the tail is merged with re-run ticks: ticks step sim time up to each tail event; events a tick produces must equal the
  *   next tail events (else the resume fails), and the other tail events (load, commands) are
  *   reduced as read. Ticks after the last logged event are not re-run, so a resumed session
  *   restarts at the sim time of its last event.
@@ -159,11 +159,18 @@ class Session implements SessionHandle {
     const events: LogEvent[] = [];
     const deltas: StateChange[] = [];
     for (let i = 0; i < steps && this.state.session.status === "RUNNING"; i++) {
-      const r = stepOnce(this.state, this.scenario, this.log.lastSeq() + 1);
+      const next_seq = this.log.lastSeq() + 1;
+      const r = stepOnce(this.state, this.scenario, next_seq);
       // tick's state already contains its events. Store it first: appendAll fills in `log_hash` and
       // writes the snapshot from `this.state`, which must be the state after the tick (T22.12).
       this.state = r.state;
-      events.push(...this.appendAll(r.events, () => {}));
+      let expected = next_seq;
+      events.push(
+        ...this.appendAll(r.events, (e) => {
+          if (e.seq !== expected) throw new Error(`runTicks: the log gave seq ${e.seq} to an event tick numbered ${expected}`);
+          expected++;
+        }),
+      );
       deltas.push(...r.deltas);
       if (untilEvent && r.events.length > 0) break;
     }
@@ -234,7 +241,8 @@ export function resumeSession(sessionDir: string, scenario: LoadedScenario, opti
   const first = log.after(0)[0];
   if (!first || first.kind !== "SESSION_LOADED") throw new Error(`resumeSession: ${sessionDir} does not start with SESSION_LOADED`);
   const session_id = (first.data as LogEventData["SESSION_LOADED"]).session_id;
-  let state = snap ?? initialState(scenario, session_id);
+  // A snapshot written before T22.09 has no `motion`: start from none (the walk restarts from the plan's first leg).
+  let state: EngineState = snap ? { ...snap, motion: snap.motion ?? {} } : initialState(scenario, session_id);
 
   let i = 0;
   while (i < tail.length) {

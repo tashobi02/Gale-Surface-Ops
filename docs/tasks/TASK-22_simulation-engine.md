@@ -299,7 +299,7 @@
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2 h
-- **Owns (writes):** `apps/hab-core/src/session.ts`
+- **Owns (writes):** `apps/hab-core/src/session.ts`, `apps/hab-core/tests/sessionTick.test.ts`
 - **Reads:** [05 Session](../specs/05_Backend_and_Database_Schema.md#session), [02 §A.6](../specs/02_Technical_Requirements_Document.md#a6-state-model-commands--events--state), `apps/hab-core/src/server.ts`
 - **Depends on:** T22.06 (hard: reducer), T22.07 (hard: log), T22.11 (hard: loader), T22.01 (soft: stub), T20.04 (soft: server calls it)
 - **Parallel with:** T22.13
@@ -310,7 +310,7 @@
 - **Acceptance:**
   - Serves: FR-30, FR-34, NFR-10 · [05 Session](../specs/05_Backend_and_Database_Schema.md#session)
   - Killing and restarting the Hab Core mid-scenario resumes with the same `last_seq` and `log_hash`.
-- **Verify:** `npm --workspace @marswalk/hab-core test -- engine`; manual kill and restart noted in the PR.
+- **Verify:** `npm --workspace @marswalk/hab-core test -- engine`; `npm --workspace @marswalk/hab-core test -- sessionTick` (real tick: snapshot after the tick, seq drift throws, old snapshot without `motion`, resume with a tail of tick events); manual kill and restart noted in the PR.
 - **Agent brief:** Wire clock, tick, log and reducer into one authoritative session. Wall-clock enters only as elapsed milliseconds from the server.
 - **Conflict notes:** Single owner.
 

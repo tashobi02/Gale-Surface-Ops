@@ -15,7 +15,7 @@
  * SNAPSHOT_EVERY: one tick batch that crosses the boundary exactly.
  */
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,27 @@ import type { Command, Role, Snapshot } from "@marswalk/protocol";
 import { SNAPSHOT_EVERY } from "../src/log";
 import { readScenario } from "../src/scenario";
 import { loadSession, resumeSession, type SessionHandle } from "../src/session";
+
+// A log whose next append can be made to drift: it first appends a copy, so the event gets the next seq but one.
+const drift = vi.hoisted(() => ({ next: false }));
+vi.mock("../src/log", async () => {
+  const actual = await vi.importActual<typeof import("../src/log")>("../src/log");
+  return {
+    ...actual,
+    openLog: (dir: string) => {
+      const log = actual.openLog(dir);
+      const append = log.append.bind(log);
+      log.append = (p) => {
+        if (drift.next) {
+          drift.next = false;
+          append(p);
+        }
+        return append(p);
+      };
+      return log;
+    },
+  };
+});
 
 vi.mock("../src/engine/tasks", async () => {
   const actual = await vi.importActual<typeof import("../src/engine/tasks")>("../src/engine/tasks");
@@ -45,6 +66,7 @@ function varDir(): string {
   return d;
 }
 afterEach(() => {
+  drift.next = false;
   while (dirs.length) rmSync(dirs.pop()!, { recursive: true, force: true });
 });
 
@@ -111,5 +133,47 @@ describe("session with the real tick (T22.12, T22.09)", () => {
     expect(b.deltas).toEqual(a.deltas);
     expect(snap(resumed)).toEqual(snap(reference));
     expect(a.events.length).toBeGreaterThan(0);
+  });
+});
+
+describe("session with the real tick: drift, old snapshots and a tail of tick events (T22.12 review fixes)", () => {
+  const leg0_s = firstLeg.walk_time_min * 60;
+  const dwell_s = fake.scenario.plan.scenario.dwell_min_per_stop * 60;
+  /** Ticks from the start of the walk to the tick that logs LEFT_STOP (the end of the first dwell). */
+  const LEFT_TICKS = Math.ceil(leg0_s + dwell_s);
+
+  it("throws when the log gives an event another seq than the one tick used", () => {
+    const s = loadSession(fake, varDir());
+    expect(s.apply(cmd("ops", "START_EVA"), "c-ops").result.ok).toBe(true);
+    s.advance(ARRIVAL_TICKS - 1);
+    drift.next = true;
+    expect(() => s.advance(1)).toThrow(/seq/);
+  });
+
+  it("resumes from an old snapshot that has no `motion` (written before T22.09) by starting from an empty motion", () => {
+    const dir = varDir();
+    const live = snap(runToBoundary(dir).session);
+    const file = join(sessionDir(dir), `snapshot-${SNAPSHOT_EVERY}.json`);
+    const old = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+    expect(old.motion, "the snapshot of a real run has motion").toBeDefined();
+    delete old.motion;
+    writeFileSync(file, `${JSON.stringify(old)}\n`, "utf8");
+    const resumed = resumeSession(sessionDir(dir), fake);
+    expect(snap(resumed)).toEqual(live);
+    expect(() => resumed.advance(1)).not.toThrow();
+  });
+
+  it("run past a snapshot with real tick events after it, kill, resume: same last_seq, log_hash, crew and full snapshot", () => {
+    const dir = varDir();
+    const { session } = runToBoundary(dir);
+    const tail = session.advance(LEFT_TICKS - ARRIVAL_TICKS);
+    expect(tail.events.map((e) => e.kind)).toEqual(["LEFT_STOP", "LEFT_STOP"]);
+    expect(tail.events.every((e) => e.seq > SNAPSHOT_EVERY)).toBe(true);
+    const live = snap(session);
+    const resumed = snap(resumeSession(sessionDir(dir), fake));
+    expect(resumed.session.last_seq).toBe(live.session.last_seq);
+    expect(resumed.session.log_hash).toBe(live.session.log_hash);
+    expect(resumed.crew).toEqual(live.crew);
+    expect(resumed).toEqual(live);
   });
 });
