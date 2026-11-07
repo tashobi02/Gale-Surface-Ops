@@ -2,12 +2,10 @@
  * T22.08: tick — crew motion, dwell, consumables, dose and alert order (docs/specs/02 §D.13, §D.14;
  * FR-35, FR-37, FR-38). Runs on the fake scenario (F8, T22.02).
  *
- * Alert cases (real now, for T22.10): the alert modules are called directly. The radiation trigger
- * itself is science and lives in @marswalk/compute (`triggerState`, `rateAt`; T05b.15, still a
- * stub), so this file replaces those two functions with a schedule built from the fixture's
- * declared shape: the dose step starts at PHASE_S and lasts PHASE_S, samples every SAMPLE_STEP_S,
- * and 02 §D.13 needs 2 consecutive high samples to raise and `rad_clear_min` low minutes to clear.
- * The engine part under test is: raise once on the nominal → alert change, clear once on the change
+ * Alert cases (T22.10): the alert modules are called directly. @marswalk/compute is real now
+ * (`rateAt`, `triggerState`, `stepO2`, `integrateDose`; T05b.15, T05b.17); only `stepO2` and
+ * `integrateDose` are wrapped in spies so the tick tests can see who calls them. The engine part
+ * under test for alerts is: raise once on the nominal → alert change, clear once on the change
  * back, and the event fields.
  *
  * Consumables (decided 2026-11-07): the O₂ alert compares the O₂ time left (the real compute
@@ -15,20 +13,43 @@
  * (`crew.haven`, T23.03). The message says where to go: the hab, or a pressurized rover to restock.
  * Both the O₂ and the buddy alert clear once the condition is safe again.
  *
- * Crew-motion, consumables and dose cases (todo): they need tick.ts (T22.09), which is blocked on
- * the compute dose integral and consumables (T05b.15, T05b.17). Their expected values will come from
- * the fixture legs and the compute functions, never typed in by hand.
+ * Tick cases (T22.09): every expected number is derived from the fixture (leg `walk_time_min`,
+ * `dwell_min_per_stop`, geometry, the dose series) or from the real compute functions, never typed
+ * in. With leg times `leg_s[i]` and dwell `dwell_s`, the phases are leg 0, dwell, leg 1, dwell, leg 2;
+ * an event at the end of phase k (cumulative time B_k) lands at tick ceil(B_k), because tick adds
+ * whole 1-s steps and carries the overshoot into the next phase.
+ *
+ * Rules these tests fix for T22.09 (proposed 2026-11-07, TODO(decision); docs/tasks/TASK-22 T22.09):
+ * - Constant speed within a leg; position is the arc-length fraction along `leg.geometry`.
+ * - `stop_index` is 1-based among the plan's `role: "stop"` waypoints.
+ * - `start_offset_s` holds the crew member at the start (shielding hab, no O₂ used) until it elapses.
+ * - End of a loop route: CREW_SHELTERED `haven_kind: "hab"` with this tick's doses; the reducer sets IN_HAB.
+ * - `eva_elapsed_s` grows by dt_s in every activity except IN_HAB.
+ * - After PLAN_REVISED a TO_HAVEN crew member snaps to the closest point of the revised legs (from the
+ *   last waypoint reached) and walks them with no dwell and no ARRIVED_STOP/LEFT_STOP.
+ * - O₂ and dose use the activity at the start of the step: WALKING and TO_HAVEN walk in the suit,
+ *   AT_STOP rests in the suit, IN_HAB uses the hab factor and no O₂.
+ * - A module whose body is still a `TODO(TASK-nn): Tnn.nn not implemented` stub is skipped; any
+ *   other error propagates.
+ * - Events: ARRIVED_STOP, LEFT_STOP and CREW_SHELTERED only; positions, O₂, elapsed time and doses are
+ *   STATE_DELTAs, sent only when the value changed.
+ *
+ * Not yet covered (it.todo at the end): the end of a non-loop route, a NO_ROUTE next leg, and
+ * refuge or vehicle shelter dose.
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it, vi } from "vitest";
-import type { AlertCode, CrewId, LogEventData, ParamSet } from "@marswalk/protocol";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AlertCode, CrewId, LogEventData, LogEventKind, OkLeg, ParamSet } from "@marswalk/protocol";
+import * as compute from "@marswalk/compute";
 import { o2RemainingS } from "@marswalk/compute";
 import { buddyTick, consumablesTick, radiationTick } from "../src/engine/alerts";
 import { havenTick } from "../src/engine/haven";
 import { linksTick } from "../src/engine/links";
-import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
-import { MODULE_ORDER, type TickContext } from "../src/engine/tick";
+import { earthTick } from "../src/engine/earth";
+import { initialState, logged, reduce, type EngineState, type PendingEvent, type StateChange } from "../src/engine/reducer";
+import { MODULE_ORDER, tick, type TickContext } from "../src/engine/tick";
+import { canonicalJson } from "../src/log";
 import { readScenario, type LoadedScenario } from "../src/scenario";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -47,21 +68,18 @@ const stepEnd = samples.find(([t, r]) => t > stepStart && r === samples[0][1])![
 const RAISE_AT = stepStart + SAMPLE_STEP_MS;
 const CLEAR_AT = stepEnd + v.rad_clear_min * 60_000;
 
+const actual = await vi.importActual<typeof import("@marswalk/compute")>("@marswalk/compute");
+
+// The real compute functions, wrapped so the tick tests can see every call (T22.08 "through compute").
 vi.mock("@marswalk/compute", async () => {
-  const actual = await vi.importActual<typeof import("@marswalk/compute")>("@marswalk/compute");
-  return {
-    ...actual,
-    rateAt: (series: { samples: [string, number | null][] }, t_utc: string) => {
-      const t = Date.parse(t_utc);
-      let rate: number | null = null;
-      for (const [ts, r] of series.samples) if (Date.parse(ts) <= t) rate = r;
-      return rate;
-    },
-    triggerState: (_series: unknown, t_utc: string) => {
-      const t = Date.parse(t_utc);
-      return t >= RAISE_AT && t < CLEAR_AT ? "alert" : "nominal";
-    },
-  };
+  const real = await vi.importActual<typeof import("@marswalk/compute")>("@marswalk/compute");
+  return { ...real, stepO2: vi.fn(real.stepO2), integrateDose: vi.fn(real.integrateDose) };
+});
+
+// earthTick keeps its T22.01 stub body by default; the stub-guard test injects other errors.
+vi.mock("../src/engine/earth", async () => {
+  const real = await vi.importActual<typeof import("../src/engine/earth")>("../src/engine/earth");
+  return { ...real, earthTick: vi.fn(real.earthTick) };
 });
 
 const scenarioWith = (values: Record<string, number>): LoadedScenario => ({
@@ -339,11 +357,374 @@ describe("alert order (02 §D.14)", () => {
   });
 });
 
-// Blocked on T22.09 (tick.ts), which needs the compute dose integral and consumables (T05b.15, T05b.17).
-describe("tick: crew motion, dwell, consumables and dose (T22.09)", () => {
-  it.todo("crew position follows the planned path by cumulative leg time (fixture legs' walk_time_min)");
-  it.todo("crew dwell dwell_min_per_stop at each stop; ARRIVED_STOP and LEFT_STOP fire once each");
-  it.todo("O₂ fraction changes only through compute stepO2 (consumables.ts)");
-  it.todo("event dose changes only through compute integrateDose (eventDose.ts), received and unsheltered");
-  it.todo("per-tick positions are STATE_DELTAs, never LogEvents");
+// ---------------------------------------------------------------------------------------------
+// tick (T22.09): crew motion, dwell, O₂ and dose through compute, seqs, stub guard, determinism
+// ---------------------------------------------------------------------------------------------
+
+const stepO2Spy = vi.mocked(compute.stepO2);
+const integrateDoseSpy = vi.mocked(compute.integrateDose);
+beforeEach(() => {
+  stepO2Spy.mockClear();
+  integrateDoseSpy.mockClear();
+});
+
+/** What the session's `stepOnce` does: sim time + 1 s, then tick with the next free seq. */
+function step(state: EngineState, scenario: LoadedScenario = fake): ReturnType<typeof tick> {
+  const stepped = at(state, Date.parse(state.session.clock.sim_time) + 1000);
+  return tick(stepped, scenario, 1, state.session.last_seq + 1);
+}
+
+/** `states[n]`, `events[n]` and `deltas[n]` are the state after tick n and that tick's output; index 0 is the start. */
+interface Trace {
+  states: EngineState[];
+  events: PendingEvent[][];
+  deltas: StateChange[][];
+}
+
+function run(start: EngineState, ticks: number, scenario: LoadedScenario = fake): Trace {
+  const trace: Trace = { states: [start], events: [[]], deltas: [[]] };
+  for (let n = 1; n <= ticks; n++) {
+    const r = step(trace.states[n - 1], scenario);
+    trace.states.push(r.state);
+    trace.events.push(r.events);
+    trace.deltas.push(r.deltas);
+  }
+  return trace;
+}
+
+const memo = <T,>(make: () => T): (() => T) => {
+  let value: T | undefined;
+  return () => (value ??= make());
+};
+
+// Plan constants, all from the fixture.
+const plan = fake.scenario.plan;
+const okLegs = plan.result.legs.map((l): OkLeg => {
+  if (l.status !== "OK") throw new Error("the fixture's legs are all OK");
+  return l;
+});
+const legSeconds = (l: OkLeg): number => l.walk_time_min * 60;
+const dwell_s = plan.scenario.dwell_min_per_stop * 60;
+const stopIds = plan.waypoints.filter((w) => w.role === "stop").map((w) => w.id);
+const startWp = plan.waypoints.find((w) => w.role === "start")!;
+
+/** Phases of the walk in order, with their cumulative start and end times (seconds since the walk began). */
+interface Phase {
+  kind: "leg" | "dwell";
+  leg: number;
+  start: number;
+  end: number;
+}
+const phases: Phase[] = [];
+{
+  let acc = 0;
+  okLegs.forEach((l, i) => {
+    phases.push({ kind: "leg", leg: i, start: acc, end: (acc += legSeconds(l)) });
+    if (stopIds.includes(l.to)) phases.push({ kind: "dwell", leg: i, start: acc, end: (acc += dwell_s) });
+  });
+}
+/** The tick on which the end of phase k is first reached (`delay_s` = a start offset). */
+const tickOf = (k: number, delay_s = 0): number => Math.ceil(phases[k].end + delay_s);
+const END_TICK = tickOf(phases.length - 1);
+
+/** Test-side interpolation along a polyline by arc-length fraction (projected metres). */
+function along(geometry: [number, number][], f: number): [number, number] {
+  const lengths = geometry.slice(1).map((p, i) => Math.hypot(p[0] - geometry[i][0], p[1] - geometry[i][1]));
+  let d = Math.min(Math.max(f, 0), 1) * lengths.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < lengths.length; i++) {
+    if (d <= lengths[i] || i === lengths.length - 1) {
+      const g = lengths[i] === 0 ? 1 : Math.min(d / lengths[i], 1);
+      return [geometry[i][0] + (geometry[i + 1][0] - geometry[i][0]) * g, geometry[i][1] + (geometry[i + 1][1] - geometry[i][1]) * g];
+    }
+    d -= lengths[i];
+  }
+  return geometry[0];
+}
+
+/** Where a crew member who started walking `t` seconds ago must be on the fixture's plan. */
+function expectedPosition(t: number): [number, number] {
+  const phase = phases.find((p) => t < p.end) ?? phases[phases.length - 1];
+  const geometry = okLegs[phase.leg].geometry;
+  if (phase.kind === "dwell" || t >= phase.end) return geometry[geometry.length - 1];
+  return along(geometry, (t - phase.start) / (phase.end - phase.start));
+}
+
+const crewOf = (s: EngineState, id: CrewId) => s.crew.find((c) => c.crew_id === id)!;
+const pos = (s: EngineState, id: CrewId): [number, number] => [crewOf(s, id).x_m, crewOf(s, id).y_m];
+const expectPosition = (actualPos: [number, number], expected: [number, number], label: string): void => {
+  expect(actualPos[0], `${label} x_m`).toBeCloseTo(expected[0], 6);
+  expect(actualPos[1], `${label} y_m`).toBeCloseTo(expected[1], 6);
+};
+
+/** Events of one kind (for one crew member) with the tick they came on. */
+function eventsOf(trace: Trace, kind: LogEventKind, crew_id?: CrewId): { tick: number; event: PendingEvent }[] {
+  return trace.events.flatMap((list, n) =>
+    list.filter((e) => e.kind === kind && (crew_id === undefined || (e.data as { crew_id?: string }).crew_id === crew_id)).map((event) => ({ tick: n, event })),
+  );
+}
+
+const baseRun = memo(() => run(onEva(), END_TICK + 5));
+const CREW: CrewId[] = ["EV1", "EV2"];
+
+describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () => {
+  it("crew position follows the planned path by cumulative leg time (fixture legs' walk_time_min)", () => {
+    const { states } = baseRun();
+    // Mid-leg and leg boundaries, named, then every tick of the whole walk.
+    for (const k of [0, 2, 4]) {
+      const mid = Math.floor((phases[k].start + phases[k].end) / 2);
+      expectPosition(pos(states[mid], "EV1"), expectedPosition(mid), `mid-leg phase ${k}`);
+    }
+    expectPosition(pos(states[tickOf(0)], "EV1"), okLegs[0].geometry.at(-1)!, "arrival at stop 1");
+    expectPosition(pos(states[END_TICK], "EV1"), okLegs.at(-1)!.geometry.at(-1)!, "back at the start");
+    for (let n = 0; n < states.length; n++) {
+      for (const id of CREW) expectPosition(pos(states[n], id), n === 0 ? [startWp.x_m, startWp.y_m] : expectedPosition(n), `tick ${n} ${id}`);
+      expect(pos(states[n], "EV1"), `tick ${n}: EV1 and EV2 have the same position`).toEqual(pos(states[n], "EV2"));
+    }
+  });
+
+  it("crew dwell dwell_min_per_stop at each stop; ARRIVED_STOP and LEFT_STOP fire once each", () => {
+    const trace = baseRun();
+    const dwells = phases.map((p, k) => ({ p, k })).filter(({ p }) => p.kind === "dwell");
+    expect(dwells).toHaveLength(stopIds.length);
+    for (const id of CREW) {
+      const arrived = eventsOf(trace, "ARRIVED_STOP", id);
+      const left = eventsOf(trace, "LEFT_STOP", id);
+      expect(arrived.map((a) => a.tick)).toEqual(dwells.map(({ k }) => tickOf(k - 1)));
+      expect(left.map((a) => a.tick)).toEqual(dwells.map(({ k }) => tickOf(k)));
+      const data = stopIds.map((stop_id, i) => ({ crew_id: id, stop_id, stop_index: i + 1 }));
+      expect(arrived.map((a) => a.event.data)).toEqual(data);
+      expect(left.map((a) => a.event.data)).toEqual(data);
+      expect(arrived.every((a) => a.event.actor === "system")).toBe(true);
+      expect(arrived.map((a) => a.event.sim_time)).toEqual(arrived.map((a) => trace.states[a.tick].session.clock.sim_time));
+      // Between ARRIVED_STOP and LEFT_STOP the crew member is AT_STOP and stands still.
+      for (const { k } of dwells) {
+        const stopPos = okLegs[phases[k].leg].geometry.at(-1)!;
+        for (let n = tickOf(k - 1); n < tickOf(k); n++) {
+          expect(crewOf(trace.states[n], id).activity, `tick ${n} ${id}`).toBe("AT_STOP");
+          expect(pos(trace.states[n], id), `tick ${n} ${id}`).toEqual(stopPos);
+        }
+        expect(crewOf(trace.states[tickOf(k)], id).activity).toBe("WALKING");
+      }
+    }
+    // The dwell lasts dwell_min_per_stop: the gap between the two events is that long to within one step.
+    for (const { k } of dwells) expect(Math.abs(tickOf(k) - tickOf(k - 1) - dwell_s)).toBeLessThan(1);
+  });
+
+  it("at the end of a loop route the crew are back at the start, sheltered in the hab once, IN_HAB, and stop moving", () => {
+    const trace = baseRun();
+    for (const id of CREW) {
+      const sheltered = eventsOf(trace, "CREW_SHELTERED", id);
+      expect(sheltered.map((s) => s.tick)).toEqual([END_TICK]);
+      const end = trace.states[END_TICK];
+      expect(sheltered[0].event.data).toEqual({
+        crew_id: id,
+        haven_kind: "hab",
+        dose_event_ugy: crewOf(end, id).dose_event_ugy,
+        dose_event_unsheltered_ugy: crewOf(end, id).dose_event_unsheltered_ugy,
+      });
+      expect(sheltered[0].event.actor).toBe("system");
+      expect(crewOf(trace.states[END_TICK - 1], id).activity).toBe("WALKING");
+      expect(crewOf(end, id)).toMatchObject({ activity: "IN_HAB", x_m: startWp.x_m, y_m: startWp.y_m, haven: expect.objectContaining({ kind: "hab" }) });
+      // Frozen afterwards: position, O₂ and elapsed time stop (the doses keep adding up at the hab factor).
+      const last = trace.states[trace.states.length - 1];
+      expect(crewOf(last, id)).toMatchObject({ activity: "IN_HAB", x_m: crewOf(end, id).x_m, y_m: crewOf(end, id).y_m, o2_frac: crewOf(end, id).o2_frac, eva_elapsed_s: crewOf(end, id).eva_elapsed_s });
+      expect(crewOf(end, id).eva_elapsed_s).toBe(END_TICK);
+    }
+  });
+
+  it("start_offset_s delays a crew member's walk by its offset", () => {
+    const offset = Math.ceil(legSeconds(okLegs[0]) / 2);
+    const delayed: LoadedScenario = { ...fake, scenario: { ...fake.scenario, crew: fake.scenario.crew.map((c) => (c.crew_id === "EV2" ? { ...c, start_offset_s: offset } : c)) } };
+    const trace = run(onEva(), END_TICK + offset + 5, delayed);
+    for (let n = 1; n < trace.states.length; n++) {
+      expectPosition(pos(trace.states[n], "EV1"), expectedPosition(n), `EV1 tick ${n}`);
+      expectPosition(pos(trace.states[n], "EV2"), n <= offset ? [startWp.x_m, startWp.y_m] : expectedPosition(n - offset), `EV2 tick ${n}`);
+    }
+    // Waiting at the start uses no O₂; the first step of the walk does.
+    expect(crewOf(trace.states[offset], "EV2").o2_frac).toBe(1);
+    expect(crewOf(trace.states[offset + 1], "EV2").o2_frac).toBeLessThan(1);
+    expect(crewOf(trace.states[offset], "EV1").o2_frac).toBeLessThan(1);
+    expect(eventsOf(trace, "ARRIVED_STOP", "EV1")[0].tick).toBe(tickOf(0));
+    expect(eventsOf(trace, "ARRIVED_STOP", "EV2")[0].tick).toBe(tickOf(0, offset));
+    expect(eventsOf(trace, "CREW_SHELTERED", "EV2").map((e) => e.tick)).toEqual([tickOf(phases.length - 1, offset)]);
+  });
+
+  it("O₂ fraction changes only through compute stepO2: one call per crew per tick on the EVA, none in the hab", () => {
+    const trace = run(onEva(), END_TICK + 5);
+    const suitParams = fake.params[fake.scenario.crew[0].suit_param_set];
+    const expected: unknown[][] = [];
+    const folded: Record<string, number> = { EV1: 1, EV2: 1 };
+    for (let n = 1; n < trace.states.length; n++) {
+      for (const id of CREW) {
+        const activity = crewOf(trace.states[n - 1], id).activity;
+        if (activity === "IN_HAB") continue; // no O₂ in the hab
+        const mode = activity === "AT_STOP" ? "resting" : "walking";
+        expected.push([folded[id], mode, 1, suitParams]);
+        folded[id] = actual.stepO2(folded[id], mode, 1, suitParams);
+      }
+    }
+    expect(stepO2Spy.mock.calls).toEqual(expected);
+    expect(expected.length).toBe(2 * END_TICK);
+    for (const id of CREW) expect(crewOf(trace.states.at(-1)!, id).o2_frac).toBe(folded[id]);
+    expect(folded.EV1).toBeLessThan(1);
+  });
+
+  it("event dose changes only through compute integrateDose (received and unsheltered): one step per call", () => {
+    const trace = run(onEva(), END_TICK + 5);
+    const shielding = Object.values(fake.params).find((p) => p.kind === "shielding")!;
+    const schedule: Record<string, { t_utc: string; dt_s: number; shelter: "suit" | "hab" }[]> = { EV1: [], EV2: [] };
+    for (let n = 1; n < trace.states.length; n++) {
+      for (const id of CREW) {
+        const activity = crewOf(trace.states[n - 1], id).activity;
+        schedule[id].push({ t_utc: iso(Date.parse(trace.states[n].session.clock.sim_time) - 1000), dt_s: 1, shelter: activity === "IN_HAB" ? "hab" : "suit" });
+      }
+    }
+    expect(integrateDoseSpy).toHaveBeenCalledTimes(2 * (trace.states.length - 1));
+    for (const [series, steps, set] of integrateDoseSpy.mock.calls) {
+      expect(series).toBe(fake.dose);
+      expect(steps).toHaveLength(1);
+      expect(set).toBe(shielding);
+    }
+    const called = integrateDoseSpy.mock.calls.map(([, steps]) => steps[0]);
+    expect(called).toEqual(trace.states.slice(1).flatMap((_, i) => CREW.map((id) => schedule[id][i])));
+    for (const id of CREW) {
+      const total = actual.integrateDose(fake.dose, schedule[id], shielding);
+      const end = crewOf(trace.states.at(-1)!, id);
+      expect(end.dose_event_ugy).toBeCloseTo(total.received_ugy, 10);
+      expect(end.dose_event_unsheltered_ugy).toBeCloseTo(total.unsheltered_ugy, 10);
+      expect(total.received_ugy).toBeGreaterThan(0);
+      expect(total.unsheltered_ugy).toBeGreaterThan(total.received_ugy);
+    }
+  });
+
+  it("per-tick positions are STATE_DELTAs, never LogEvents", () => {
+    const trace = baseRun();
+    const allowed: LogEventKind[] = ["ARRIVED_STOP", "LEFT_STOP", "CREW_SHELTERED", "ALERT_RAISED", "ALERT_CLEARED"];
+    for (const events of trace.events) for (const e of events) expect(allowed).toContain(e.kind);
+    // The first tick moves both crew by a delta carrying the new value, and logs nothing.
+    expect(trace.events[1]).toEqual([]);
+    for (const id of CREW) expect(trace.deltas[1]).toContainEqual({ path: `crew/${id}/x_m`, value: crewOf(trace.states[1], id).x_m });
+    // A delta is sent only when the value changed: standing in a dwell moves nothing but O₂, time and dose.
+    const inDwell = tickOf(0) + 10;
+    const dwellPaths = CREW.flatMap((id) => [`crew/${id}/dose_event_ugy`, `crew/${id}/dose_event_unsheltered_ugy`, `crew/${id}/eva_elapsed_s`, `crew/${id}/o2_frac`]);
+    expect(trace.deltas[inDwell].map((d) => d.path).sort()).toEqual(dwellPaths.sort());
+    expect(trace.deltas.flat().every((d) => /^crew\/(EV1|EV2)\/(x_m|y_m|o2_frac|eva_elapsed_s|dose_event_ugy|dose_event_unsheltered_ugy)$/.test(d.path))).toBe(true);
+    // Applying the deltas to the start reproduces the end state (what a client does).
+    const folded = new Map<string, unknown>();
+    for (const d of trace.deltas.flat()) folded.set(d.path, d.value);
+    for (const id of CREW) {
+      const end = crewOf(trace.states.at(-1)!, id);
+      const start = crewOf(trace.states[0], id);
+      for (const key of ["x_m", "y_m", "o2_frac", "eva_elapsed_s", "dose_event_ugy", "dose_event_unsheltered_ugy"] as const) {
+        expect(folded.get(`crew/${id}/${key}`) ?? start[key], `${id} ${key}`).toBe(end[key]);
+      }
+    }
+  });
+
+  it("after PLAN_REVISED a TO_HAVEN crew follows the revised legs from its current position, with no LEFT_STOP", () => {
+    const stopTick = tickOf(0) + 10;
+    const before = run(onEva(), stopTick).states[stopTick];
+    expect(crewOf(before, "EV1").activity).toBe("AT_STOP");
+    const [wp0, wp1] = plan.waypoints;
+    const leg0 = okLegs[0];
+    const back: OkLeg = { ...leg0, from: wp1.id, to: wp0.id, geometry: [...leg0.geometry].reverse() };
+    const back_s = legSeconds(back);
+    const send = (s: EngineState, e: { kind: LogEventKind; data: object }): EngineState =>
+      reduce(s, logged({ ...e, sim_time: s.session.clock.sim_time, actor: "system", provenance: {} } as PendingEvent, s.session.last_seq + 1));
+    let revised = send(before, {
+      kind: "OPTIONS_PROPOSED",
+      data: {
+        alert_id: "a-abort",
+        options: [{ option_id: "o-abort", alert_id: "a-abort", kind: "ABORT_TO_HAB", crew_ids: CREW, eta_shelter_min: back.walk_time_min, expected_dose_ugy: 0, stops_dropped: [2], violations: [], rank: 1, path_preview: back.geometry, rendezvous: null }],
+      },
+    });
+    revised = send(revised, { kind: "PLAN_REVISED", data: { plan_revision: 2, option_id: "o-abort", stops_dropped: [2], waypoints: [wp0, wp1], legs: [leg0, back] } });
+    expect(CREW.map((id) => crewOf(revised, id).activity)).toEqual(["TO_HAVEN", "TO_HAVEN"]);
+
+    const trace = run(revised, Math.ceil(back_s) + 5);
+    expect(eventsOf(trace, "LEFT_STOP")).toEqual([]);
+    expect(eventsOf(trace, "ARRIVED_STOP")).toEqual([]);
+    const half = Math.ceil(back_s / 2);
+    for (const id of CREW) {
+      expectPosition(pos(trace.states[half], id), along(back.geometry, half / back_s), `midpoint of the way back ${id}`);
+      expect(crewOf(trace.states[half], id).activity).toBe("TO_HAVEN");
+      expect(eventsOf(trace, "CREW_SHELTERED", id).map((e) => e.tick)).toEqual([Math.ceil(back_s)]);
+      expect(eventsOf(trace, "CREW_SHELTERED", id)[0].event.data).toMatchObject({ haven_kind: "hab" });
+      expect(crewOf(trace.states.at(-1)!, id)).toMatchObject({ activity: "IN_HAB", x_m: wp0.x_m, y_m: wp0.y_m });
+    }
+  });
+
+  it("tick events and module events get consecutive seqs from next_seq and are already reduced into the state", () => {
+    // Shift the clock so that the radiation trigger (RAISE_AT) falls on the tick where the crew reach stop 1.
+    const start = at(onEva(), RAISE_AT - tickOf(0) * 1000);
+    const n = tickOf(0);
+    const trace = run(start, n);
+    const prev = trace.states[n - 1];
+    const next_seq = prev.session.last_seq + 1;
+    const events = trace.events[n];
+    expect(events.map((e) => [e.kind, (e.data as { crew_id?: string; code?: string }).crew_id ?? (e.data as { code?: string }).code])).toEqual([
+      ["ARRIVED_STOP", "EV1"],
+      ["ARRIVED_STOP", "EV2"],
+      ["ALERT_RAISED", "RADIATION_ALERT"],
+    ]);
+    const state = trace.states[n];
+    expect(state.session.last_seq).toBe(next_seq + events.length - 1);
+    expect((events[2].data as LogEventData["ALERT_RAISED"]).alert_id).toBe(`a-${next_seq + 2}`);
+    expect(state.alerts).toEqual([expect.objectContaining({ alert_id: `a-${next_seq + 2}`, raised_seq: next_seq + 2, code: "RADIATION_ALERT" })]);
+    expect(CREW.map((id) => crewOf(state, id).activity)).toEqual(["AT_STOP", "AT_STOP"]);
+    // The session appends these events with the same seqs; folding them over the previous state agrees.
+    const folded = events.reduce((s, e, i) => reduce(s, logged(e, next_seq + i)), prev);
+    expect(folded.session.last_seq).toBe(state.session.last_seq);
+    expect(folded.alerts).toEqual(state.alerts);
+  });
+
+  it("a module that is still a T22.01 stub is skipped; any other module error propagates", () => {
+    const s = onEva();
+    expect(() => earthTick(s, ctx(s))).toThrow(/^TODO\(TASK-26\): T26\.04 not implemented$/); // the stub the guard must skip
+    expect(() => step(s)).not.toThrow();
+    const earth = vi.mocked(earthTick);
+    earth.mockImplementationOnce(() => {
+      throw new Error("boom");
+    });
+    expect(() => step(s)).toThrow("boom");
+    // The guard is narrow: a stub-looking message with other text, or another prefix, is a real error.
+    earth.mockImplementationOnce(() => {
+      throw new Error("TODO(TASK-26): T26.04 not implemented yet");
+    });
+    expect(() => step(s)).toThrow(/not implemented yet/);
+    earth.mockImplementationOnce(() => {
+      throw new Error("TODO(verify): T26.04 not implemented");
+    });
+    expect(() => step(s)).toThrow(/TODO\(verify\)/);
+    // Skipped on every call, nothing cached: the guard still works afterwards.
+    expect(() => step(s)).not.toThrow();
+  });
+
+  it("the same input gives the same events and deltas (determinism, NFR-06)", () => {
+    const start = at(onEva(), RAISE_AT - tickOf(0) * 1000);
+    const a = run(start, tickOf(0) + 30);
+    const b = run(start, tickOf(0) + 30);
+    expect(canonicalJson(b.events)).toBe(canonicalJson(a.events));
+    expect(canonicalJson(b.deltas)).toBe(canonicalJson(a.deltas));
+    expect(canonicalJson(b.states.at(-1))).toBe(canonicalJson(a.states.at(-1)));
+    expect(a.events.flat().length).toBeGreaterThan(0);
+  });
+
+  it("a JSON round trip of the state mid-run gives the same later events, byte for byte (snapshot and resume)", () => {
+    for (const mid of [Math.floor(legSeconds(okLegs[0]) / 2), tickOf(0) + 100, tickOf(1) + 100]) {
+      const live = run(onEva(), mid).states[mid];
+      const restored: EngineState = JSON.parse(JSON.stringify(live));
+      expect(restored, `tick ${mid}: nothing lost in JSON (no undefined, NaN, Infinity or -0)`).toStrictEqual(live);
+      const ahead = tickOf(1) - mid + 60;
+      const a = run(live, ahead);
+      const b = run(restored, ahead);
+      expect(canonicalJson(b.events)).toBe(canonicalJson(a.events));
+      expect(canonicalJson(b.deltas)).toBe(canonicalJson(a.deltas));
+      expect(canonicalJson(b.states.at(-1))).toBe(canonicalJson(a.states.at(-1)));
+    }
+  });
+
+  it.todo("the end of a non-loop route holds at the last waypoint with no event (TODO(decision) S5)");
+  it.todo("a NO_ROUTE next leg holds the crew member where they are, with no event (TODO(decision) S5)");
+  it.todo("a SHELTERED crew member in a vehicle uses the pressurized_rover factor and no O₂; in a refuge, the suit factor at the resting rate (S9, with T23.05)");
 });

@@ -56,6 +56,7 @@
 - **Verify:** `make typecheck`; `npm --workspace @marswalk/hab-core test`.
 - **Agent brief:** Create typed throwing stubs only. The module split exists so four teammates can work on the engine without touching the same file.
 - **Conflict notes:** Each module's owner takes it over after this merges. Changing a signature later is a `contract-change:` in this task.
+- **Contract change (T22.09, 2026-11-07):** `EngineState` gains `motion: Record<CrewId, CrewMotion>`, engine-only progress state for tick.ts (see the T22.09 rules); it is not part of SNAPSHOT.
 
 ### T22.02 — Fixture: fake scenario with a straight-line route and a stepped dose curve
 
@@ -233,6 +234,18 @@
 - **Verify:** `npm --workspace @marswalk/hab-core test -- tick`.
 - **Agent brief:** Implement `tick.ts` as an orchestrator: motion here, everything else through the engine modules and `@marswalk/compute`.
 - **Conflict notes:** Single owner; the other engine modules are owned by TASK-23, TASK-26, TASK-29 and TASK-31.
+- **Rules (proposed 2026-11-07, `TODO(decision)`; tests: `tick.test.ts`, T22.08):**
+  - S1: engine-only progress state `EngineState.motion: Record<CrewId, CrewMotion>` (`initialState` gives `{}`). It is never sent to clients: `Session.snapshot()` picks fields explicitly.
+  - S2: constant speed within a leg. Position is the arc-length fraction `leg_t_s / leg_s` along `leg.geometry`, in projected metres; `leg_s = walk_time_min * 60`. Overshoot carries into the next phase, so there is no drift. A zero leg time or zero length means arrival at once.
+  - S3: `stop_index` is the 1-based position among the current plan's `role: "stop"` waypoints.
+  - S4: while `start_offset_s` has not elapsed the crew member stays at the start: shielding `hab`, no O₂ used, no motion.
+  - S5: at the end of a loop route (the last leg's `to` is the start waypoint) tick emits `CREW_SHELTERED {haven_kind: "hab"}` with the doses of this tick's dose step; the reducer sets `IN_HAB` (03 §E.8 "Walking → InHab: plan complete"). Any other end, or a `NO_ROUTE` next leg, holds with no event.
+  - S6: `eva_elapsed_s` grows by `dt_s` for every activity except `IN_HAB`.
+  - S7: on re-plan (`plan_revision` differs from the crew member's) re-anchor on the new legs: candidates are the legs from the first whose `from` is the last waypoint reached, else all legs; snap to the closest point (ties to the earliest leg or segment). `TODO(verify)` with T23.07: assumes the new first leg starts near the crew member and abort legs end at the start waypoint.
+  - S8: `TO_HAVEN` crew follow the revised legs with no dwell and no `ARRIVED_STOP`/`LEFT_STOP`; at the end `CREW_SHELTERED` hab if the route ends at the start waypoint, otherwise hold (T23.05 logs a vehicle shelter). An `AT_STOP` crew member that is not `TO_HAVEN` finishes its dwell, emits `LEFT_STOP`, then continues.
+  - S9: O₂ and dose use the activity at the start of the step: `WALKING` and `TO_HAVEN` use shielding `suit` and `walking`; `AT_STOP` uses `suit` and `resting`; `IN_HAB` and a crew member waiting for its offset use `hab` and no O₂; `SHELTERED` in the hab or a vehicle uses `hab` or `pressurized_rover` and no O₂; `SHELTERED` in a refuge uses `suit` and `resting` (conservative; no refuge factor before T2). Dose runs for all crew every tick.
+  - S10: a module whose body is still a stub is skipped by a narrow per-call guard (`/^TODO\(TASK-\d+\): T\d+\.\d+ not implemented$/`); any other error propagates.
+  - Order inside `tick`: per crew (dose, O₂, `eva_elapsed_s`, motion); reduce the motion events with seqs from `next_seq`; then `MODULE_ORDER`, each module's events reduced before the next runs. STATE_DELTAs only when a value changed; LogEvents only `ARRIVED_STOP`, `LEFT_STOP`, `CREW_SHELTERED` from tick itself.
 
 ### T22.10 — Implement alert evaluation: radiation, consumables, buddy distance
 

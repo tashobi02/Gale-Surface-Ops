@@ -396,6 +396,14 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
     expect(after(13).crew[0]).toMatchObject({ activity: "SHELTERED", dose_event_ugy: 0.08, dose_event_unsheltered_ugy: 0.5, haven: expect.objectContaining({ kind: "vehicle" }) });
   });
 
+  it("CREW_SHELTERED with haven_kind hab sets IN_HAB, the plan-complete step of 03 §E.8 (proposed 2026-11-07, T22.09)", () => {
+    const walking = after(3);
+    expect(walking.crew[0].activity).toBe("WALKING");
+    const home = reduce(walking, logged(ev("CREW_SHELTERED", at(6764), { crew_id: "EV1", haven_kind: "hab", dose_event_ugy: 0.12, dose_event_unsheltered_ugy: 0.3 }), 4));
+    expect(home.crew[0]).toMatchObject({ activity: "IN_HAB", dose_event_ugy: 0.12, dose_event_unsheltered_ugy: 0.3, haven: expect.objectContaining({ kind: "hab" }) });
+    expect(home.crew[1].activity).toBe("WALKING");
+  });
+
   it("LINK_LOST marks the crew member unlinked and stale; LINK_RESTORED reverses it (03 §E.10)", () => {
     expect(after(15).crew[1]).toMatchObject({ linked: false, stale: true });
     expect(after(16).crew[1]).toMatchObject({ linked: true, stale: false });
