@@ -97,6 +97,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 
 | 2026-11-07 | Antigravity (Gemini) | T24.01: defined C17 EVA view model contract in apps/web/src/ui/eva/viewModel.ts with ProvenanceValue {v, unit, prov, src} and selector types for HAVEN, O₂, next stop, alert slot, metadata strip, EvaViewModel, HudViewModel; throwing stubs | Invented no values; types derived strictly from 03 SCR-12/13, 04 §E.5/§E.6 and packages/protocol | Ridita Alam | This Antigravity session (conversation 56455a5c) |
 
+| 2026-11-07 | Antigravity (Gemini) | T24.02: wrote 10 EVA view model tests in apps/web/tests/ui/evaViewModel.test.ts exercising C17 selectors against all 8 mock WebSocket fixture beats (HAVEN kind, alert slot, stale age on link loss, data-provenance on all values, HUD <= 5 values) | Invented no values; tested against 03 SCR-12/13, 04 §E.5/§E.6 specifications and T20.02 mock fixtures | Ridita Alam | This Antigravity session (conversation 56455a5c) |
+
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).
