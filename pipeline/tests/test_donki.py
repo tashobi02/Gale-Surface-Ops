@@ -238,6 +238,28 @@ def test_event_ids_are_unique_deterministic_and_duplicates_collapse():
     assert first == second
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_conflicting_duplicates_report_type_id_and_differing_fields(reverse):
+    first = _record("FLR", "SYNTH-CONFLICT", "2024-05-20T01:23Z", classType="M1.0", note="first")
+    second = {**first, "classType": "X1.0", "note": "second"}
+    records = [first, second]
+    if reverse:
+        records.reverse()
+    with pytest.raises(ValueError) as exc:
+        _mod().donki_events({"FLR": records}, SOURCE_ID)
+    for expected in ("FLR", "SYNTH-CONFLICT", "classType", "note"):
+        assert expected in str(exc.value)
+
+
+def test_exact_repeats_collapse_identically_in_reverse_order():
+    first = _record("FLR", "SYNTH-REPEAT", "2024-05-20T01:23Z", classType="M1.0")
+    second = copy.deepcopy(first)
+    forward = _mod().donki_events({"FLR": [first, second]}, SOURCE_ID)
+    backward = _mod().donki_events({"FLR": [second, first]}, SOURCE_ID)
+    assert len(forward) == 1
+    assert forward == backward
+
+
 def test_donki_events_does_not_modify_its_input_or_touch_the_network(monkeypatch):
     mod = _mod()
 
