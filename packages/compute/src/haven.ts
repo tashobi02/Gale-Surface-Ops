@@ -1,16 +1,61 @@
 /**
  * Time to safe haven (docs/specs/02 §D.8; FR-39). Pure, deterministic; sim time in seconds.
- * TASK-05b.
+ * TASK-05b. Signatures frozen by T05b.01 (contract C15); later changes are `contract-change:` subtasks.
+ * All positions are working-projection metres (`x_m`, `y_m`); a cell index is row-major, row 0 = north.
  */
 import type { MissionScenario, ParamSet } from "@marswalk/protocol";
 import type { LoadedGrid } from "./grid";
 
-/** A full-grid travel-time field: seconds per cell, Infinity where unreachable. */
+/**
+ * Time to enter the hab and be sheltered: 5 min (02 §D.8 `t_ingress`, labelled **Assumed**).
+ * A named constant because no ParamSet kind has a hab-ingress key. The vehicle's ingress comes from
+ * the rover ParamSet (`ingress_min` × 60).
+ * TODO(decision): 05 says every non-data number lives in a ParamSet, so a `hab_ingress_min` key
+ * may be wanted (in `suit` or `link`?). Raised in the T05b.01 PR; 05 is not edited here.
+ */
+export const HAB_INGRESS_S = 5 * 60;
+
+/** Cell size of the vehicle time field, an aggregate of the 5 m routing grid (02 §D.8). */
+export const VEHICLE_GRID_CELL_M = 10;
+
+/** Spacing of the samples along a planned route for the planning haven time (02 §D.8). */
+export const HAVEN_SAMPLE_SPACING_M = 50;
+
+/** Radius around a route sample searched for a rendezvous cell in the planning form (02 §D.8). */
+export const HAVEN_PLANNING_RADIUS_M = 300;
+
+/** Seconds to become sheltered once at the hab and once at the vehicle (02 §D.8). */
+export interface HavenIngress {
+  hab_s: number;
+  vehicle_s: number;
+}
+
+/**
+ * A full-grid travel-time field, row-major, row 0 = north (02 §D.8, §D.10).
+ * `seconds[i]` is the travel time of cell `i` from the field's start (for a hab field, to the hab),
+ * `Infinity` where unreachable. `prev[i]` is the predecessor cell index on the least-time path,
+ * -1 for the start cell and for unreached cells ("paths by back-pointers", §D.10).
+ */
 export interface TimeField {
+  /** Cell size in metres: the routing grid's 5 m for crew and hab fields, VEHICLE_GRID_CELL_M for vehicles. */
   cell_m: number;
   width: number;
   height: number;
+  /** Projected metres of the top-left corner, as `RoutingGrid.origin_m`. */
+  origin_m: [number, number];
+  /** Seconds per cell; Infinity = unreachable. */
   seconds: Float64Array;
+  /** Predecessor cell index; -1 = start or unreached. */
+  prev: Int32Array;
+}
+
+/** The live haven result, mapped by the engine into `Crew.haven` (05 Crew; minutes = haven_s / 60). */
+export interface LiveHaven {
+  /** min(haven_hab, haven_veh) + ingress, in seconds. */
+  haven_s: number;
+  kind: "hab" | "vehicle";
+  target_x_m: number;
+  target_y_m: number;
 }
 
 /**
@@ -22,28 +67,77 @@ export function habTimeField(grid: LoadedGrid, hab: { x_m: number; y_m: number }
 }
 
 /**
- * Forward Dijkstra from a vehicle's position over its own cost (02 §D.9), on a 10 m aggregate
- * grid for speed. TASK-05b.
+ * Forward Dijkstra from a vehicle's position over its own cost (02 §D.9), on a
+ * VEHICLE_GRID_CELL_M aggregate grid for speed. Reads `flat_speed_kmh`, `hard_slope_deg`,
+ * `min_speed_frac` and `low_ti_cost` from the rover ParamSet. TASK-05b.
  */
 export function vehicleTimeField(grid: LoadedGrid, from: { x_m: number; y_m: number }, params: ParamSet): TimeField {
   throw new Error("TODO(TASK-05b): not implemented");
 }
 
-/** Bounded suited Dijkstra from a crew position, stopped at `limit_s` (≈ 50 k expansions). TASK-05b. */
+/**
+ * Bounded suited Dijkstra from a crew position, stopped at `limit_s` (≈ 50 k expansions). The
+ * caller passes `limit_s = scenario.max_haven_min * 60`; the 30 min haven rule is user data. TASK-05b.
+ */
 export function crewTimeField(grid: LoadedGrid, from: { x_m: number; y_m: number }, scenario: MissionScenario, limit_s: number): TimeField {
   throw new Error("TODO(TASK-05b): not implemented");
 }
 
 /**
- * Planning approximation along a route, every 50 m: min(T_hab, min over q within 300 m of
- * max(walk(p,q), T_veh(q))) + ingress. Labelled `modelled (approximation)`. TASK-05b.
+ * Planning approximation along a route, every HAVEN_SAMPLE_SPACING_M:
+ * min(T_hab, min over q within HAVEN_PLANNING_RADIUS_M of max(walk(p,q), T_veh(q))) + ingress,
+ * with `ingress.hab_s` added to the hab branch and `ingress.vehicle_s` to the vehicle branch.
+ * Returns seconds per sample, in sample order. Labelled `modelled (approximation)`. TASK-05b.
  */
 export function havenAlongRoute(
   samples: { x_m: number; y_m: number }[],
   hab: TimeField,
   vehicle: TimeField | null,
   scenario: MissionScenario,
-  ingress_s: number,
+  ingress: HavenIngress,
 ): number[] {
+  throw new Error("TODO(TASK-05b): not implemented");
+}
+
+/**
+ * Per-cell vehicle passability on the routing grid (5 m, indexed like `grid`): 1 = passable,
+ * 0 = not. Slope against the rover ParamSet `hard_slope_deg` plus the grid flags (02 §D.9). Used by
+ * `rendezvous` and by the loader's "vehicle start passable for its kind" check (05 §E.7). TASK-05b.
+ */
+export function vehiclePassable(grid: LoadedGrid, params: ParamSet): Uint8Array {
+  throw new Error("TODO(TASK-05b): not implemented");
+}
+
+/**
+ * Travel time of the cell containing (x_m, y_m), in seconds; Infinity outside the field or where
+ * unreachable. The live form reads `T_hab(p)` with this (02 §D.8). TASK-05b.
+ */
+export function timeAt(field: TimeField, x_m: number, y_m: number): number {
+  throw new Error("TODO(TASK-05b): not implemented");
+}
+
+/**
+ * Least-time path by back-pointers: cell centres in projected metres, ordered from the cell
+ * containing (x_m, y_m) back to the field's start cell (02 §D.10). Empty if the cell is outside or
+ * unreachable. For a hab field this is the walk to the hab (`path_preview`). TASK-05b.
+ */
+export function pathTo(field: TimeField, x_m: number, y_m: number): [number, number][] {
+  throw new Error("TODO(TASK-05b): not implemented");
+}
+
+/**
+ * The live haven time for one crew position `p` (02 §D.8, "live form"):
+ * min(haven_hab, haven_veh) + ingress, with haven_hab = T_hab(p) and haven_veh = the best of
+ * max(T_crew(q), T_veh(q)) over cells q that are `passable` (null when there is no vehicle).
+ * "refuge" is out of scope (T2). The engine divides `haven_s` by 60 for `Crew.haven.minutes`. TASK-05b.
+ */
+export function liveHaven(
+  hab: TimeField,
+  crew: TimeField,
+  vehicle: TimeField | null,
+  passable: Uint8Array | null,
+  ingress: HavenIngress,
+  p: { x_m: number; y_m: number },
+): LiveHaven {
   throw new Error("TODO(TASK-05b): not implemented");
 }

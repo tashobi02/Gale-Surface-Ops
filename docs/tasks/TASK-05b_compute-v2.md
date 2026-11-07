@@ -54,6 +54,18 @@
 - **Agent brief:** Review and freeze the existing v2 stubs against 02 §D.8–§D.15. Types only. Spec constants that are not labelled `Assumed` ParamSet values (horizon radius, `t_ingress`) are named constants with their section cited.
 - **Conflict notes:** Each module's owner takes it over after this merges; later signature changes are `contract-change:` subtasks here.
 
+**Proposed 2026-11-07** (T05b.01 taken over from Mishkat Ahmed Khan by agreement; frozen for `haven.ts`, `rendezvous.ts`, `contingency.ts`; the other modules are proposals for Anjim Hossain):
+
+- New stubs in `haven.ts`: `vehiclePassable(grid, params)`, `timeAt(field, x_m, y_m)`, `pathTo(field, x_m, y_m)`, `liveHaven(hab, crew, vehicle, passable, ingress, p)`. `TimeField` gains `origin_m` and `prev`; `havenAlongRoute` takes `ingress: {hab_s, vehicle_s}`.
+- `rendezvous.ts`: `RendezvousOk`; `rendezvousPair(a, b, vehicleFromA, vehicleFromB)` returns `{order, later_arrival_s}` (was `total_s`).
+- `contingency.ts`: `ContingencyInputs` gains `plan`, `scenario` and `ingress`; `ingress_s` is removed.
+- Named constants (02 §D.8): `HAB_INGRESS_S` (300 s, Assumed; `TODO(decision)`), `VEHICLE_GRID_CELL_M` (10), `HAVEN_SAMPLE_SPACING_M` (50), `HAVEN_PLANNING_RADIUS_M` (300).
+- Open spec questions (no doc edits in T05b.01):
+  1. Hab ingress is labelled Assumed in 02 §D.8, but no ParamSet kind has a key for it (05 says every non-data number lives in a ParamSet).
+  2. The planner's `havenAlongRoute` needs a vehicle start, but 05 `MissionScenario` has only `vehicle_param_set`; `Scenario.vehicles[].start_x_m` exists only on the Hab Core side (T09.09).
+  3. The suit ParamSet's `flat_speed_kmh`, `hard_slope_deg` and `caution_slope_deg` duplicate the `MissionScenario` limits that the crew and hab fields use. Proposed: the published plan's `MissionScenario` wins, plus a loader check that they agree (T22.11). `TODO(decision)`.
+  4. The rule that aggregates the 5 m grid to the 10 m vehicle grid (for example, passable only if all four children are) is not in the spec; T05b.04 decides it.
+
 ### T05b.02 — Fixture: synthetic v2 grids
 
 - **Owner:** Mishkat Ahmed Khan (R2 Compute lead)
