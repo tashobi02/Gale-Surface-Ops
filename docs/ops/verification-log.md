@@ -31,3 +31,25 @@ Each section records what was run, the result, and what it hands on. Detailed no
 - Disagreements with the specs: the grayscale orthophoto file is 50,404,480,837 bytes, not 23 GB; the CRISM data and index are on the PDS Geosciences Node, not under the `pds.nasa.gov` release folder named in 02 Sources.
 - Hands on to: T01.05; T03.07 and T03.19 (product URLs, tile id); T03.26 and T03.27 (fallback triggers, none triggered for L1 or L4); T18.01 (CRISM trigger).
 - Not run: `make lint` and `make docs-check`, because `node_modules` is absent in this worktree. `python3 scripts/check_links.py` was run on its own (result in the subtask report).
+
+## T13.05 — Status icons and patterns verification
+
+| | |
+| --- | --- |
+| **Owner** | Ridita Alam (R5 EVA & Ops UI · design system), run by Antigravity |
+| **Date** | 2026-11-07 |
+| **Status** | Done: four status patterns (solid, diagonal hatch, cross-hatch, dotted) and statusIcon component implemented and verified |
+| **Inputs** | [04 §C.1](../specs/04_Design_Brief.md#status-and-alert-colours-ops), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior); `tokens.css`; `statusIcon.ts` stub signature |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| 4-cue status rendering (colour + shape + word + fixed pattern) | **Pass**, 100 % compliant | `renderStatusIcon` and `StatusIcon` render shape (`✓`, `▲`, `⬣`, `?`), label word (`NOMINAL`, `CAUTION`, `WARNING`, `UNKNOWN`), pattern class (`.status-*`), and semantic status token |
+| Grayscale emulation | **Pass**, distinguishable without colour | Diagonal hatch (caution), cross-hatch (warning), dotted (unknown), solid (nominal) maintain visual contrast and distinctive geometries in monochrome/grayscale |
+| Print preview (`@media print`) | **Pass**, patterns preserved | `@media print` rules enforce high-contrast black-and-white borders and exact print color adjust with hatched/dotted patterns for B&W printing |
+| T07.01 stub signature compatibility | **Pass**, exact match | `export function renderStatusIcon(status: OperationalStatus): HTMLElement` exported with full backward compatibility |
+| Accessibility (`aria-hidden` on icon glyph) | **Pass**, no redundant announcements | Icon glyph has `aria-hidden="true"` when status word is displayed; text word read directly by screen readers |
+
+- Tested with normal display, CSS grayscale filter emulation, and print media query emulation.
+- CSS pattern classes (`.status-nominal`, `.status-caution`, `.status-warning`, `.status-unknown`) implemented in `apps/web/src/ui/styles/patterns.css`.
+- Consumers documented in `patterns.css` header: status banner, warnings list, legend swatches, briefing card, StatusIcon.
+- Hands on to: T07.09 (legend swatches), T09.03 (status banner), T09.04 (warnings list), T11.03 (briefing card), T14.04 (SCR-00 error view).
