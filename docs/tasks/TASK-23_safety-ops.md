@@ -192,6 +192,11 @@
   - T23.06 passes.
 - **Verify:** `npm --workspace @marswalk/hab-core test -- contingencyOps`.
 - **Agent brief:** Implement the options module until the tests pass.
+- **Decisions (Proposed 2026-11-08 — TODO(decision)):**
+  1. `contingencyTick`: evaluated for active un-cleared `warning` alerts where options do not already stand in `state.options` and crew subjects are not already en route to a haven (`TO_HAVEN`), `SHELTERED`, or `IN_HAB`.
+  2. `APPROVE_OPTION`: if approving a `VEHICLE_RENDEZVOUS` option, emits `VEHICLE_DISPATCHED` first for the vehicle and rendezvous point, followed immediately by `PLAN_REVISED`.
+  3. `handleAbort`: requires non-empty `args.crew`, checks that EVA roles can only abort for themselves (`FORBIDDEN_ROLE`), finds matching `ABORT_TO_HAB` option, and logs `PLAN_REVISED` without dispatching a vehicle.
+  4. Plan revision (`buildPlanRevision`): retains all legs between consecutive kept waypoints; the new return leg connects the last kept waypoint to start waypoint `wp-0` using `option.path_preview`.
 - **Conflict notes:** Single owner.
 
 ### T23.08 — Verify: killer demo steps 0:30–1:10 run headless (M3)
