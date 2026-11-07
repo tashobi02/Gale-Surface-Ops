@@ -26,6 +26,7 @@ import {
   type LogEvent,
   type LogEventData,
   type LogEventKind,
+  type PlanExport,
   type RejectCode,
   type Role,
 } from "@marswalk/protocol";
@@ -35,7 +36,7 @@ import type { CommandOutcome, EngineState, PendingEvent } from "./engine/reducer
 import { handleAddStopTask, handleUpdateStopTask } from "./engine/tasks";
 import { handleSummon } from "./engine/vehicles";
 import { handleTaskRover } from "./rover";
-import type { LoadedScenario } from "./scenario";
+import { checkPlan, type LoadedScenario } from "./scenario";
 
 export interface CommandContext {
   scenario: LoadedScenario;
@@ -199,13 +200,18 @@ function dispatch(state: EngineState, command: Command, ctx: CommandContext): Ha
       requireState(state, ["LOADED"], "Starting the EVA");
       return ok(state, command, "EVA_STARTED", { crew_ids: state.crew.map((c) => c.crew_id), plan_revision: state.session.plan_revision });
     case "PUBLISH_PLAN": {
-      const plan = a.plan as { plan_hash?: unknown; data_version?: unknown } | undefined;
-      if (!plan || typeof plan !== "object" || typeof plan.plan_hash !== "string") reject("INVALID", "PUBLISH_PLAN needs args.plan (a PlanExport)");
+      const plan = a.plan as Partial<PlanExport> | undefined;
+      if (!plan || typeof plan !== "object") reject("INVALID", "PUBLISH_PLAN needs args.plan (a PlanExport)");
+      try {
+        checkPlan(plan, "PUBLISH_PLAN plan"); // schema and plan_hash, as at load (05 PlanExport)
+      } catch (err) {
+        reject("INVALID", err instanceof Error ? err.message : String(err));
+      }
       if (plan!.data_version !== state.session.data_version) reject("INVALID", `plan data_version ${String(plan!.data_version)} is not the session's ${state.session.data_version}`);
       requireState(state, ["LOADED"], "Publishing a plan");
-      // TODO(decision): PLAN_REVISED data has no waypoints (05, Proposed), so the reducer keeps the
-      // published plan; the planner's new plan is not yet applied to state (see reducer.ts, T23.07).
-      return ok(state, command, "PLAN_REVISED", { plan_revision: state.session.plan_revision + 1, option_id: null, stops_dropped: [] });
+      // The new plan comes whole; its waypoints and legs are the route the map shows (decided 2026-11-07).
+      const p = plan as PlanExport;
+      return ok(state, command, "PLAN_REVISED", { plan_revision: state.session.plan_revision + 1, option_id: null, stops_dropped: [], waypoints: p.waypoints, legs: p.result.legs, plan: p });
     }
     case "ACK_ALERT": {
       if (typeof a.alert_id !== "string") reject("INVALID", "ACK_ALERT needs args.alert_id");

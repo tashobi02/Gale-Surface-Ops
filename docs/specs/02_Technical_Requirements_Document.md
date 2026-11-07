@@ -499,7 +499,7 @@ Precomputed table rows (1 min): `t_utc, light_time_s, sep_angle_deg, earth_elev_
 
 ### D.15 Contingency options (FR-44)
 
-For each crew member on alert: candidate actions = {abort to hab, vehicle rendezvous, terrain refuge (T2), continue with remaining stops skipped}. For each: ETA to shelter, expected event dose until sheltered (D.13 with the projected path), stops dropped, constraint violations. Rank by expected dose, then ETA. Shown to EVA and ops; executing one emits `PLAN_REVISED` with a new `plan_revision`.
+For each crew member on alert: candidate actions = {abort to hab, vehicle rendezvous, terrain refuge (T2), continue with remaining stops skipped}. For each: ETA to shelter, expected event dose until sheltered (D.13 with the projected path), stops dropped, constraint violations. Rank by expected dose, then ETA. Shown to EVA and ops; executing one emits `PLAN_REVISED` with a new `plan_revision` and, when stops or the route change, the revised waypoints and legs, which every view's map then shows *(decided 2026-11-07)*.
 
 ### D.16 Sky-view factor refuge (FR-47, T2)
 

@@ -8,7 +8,7 @@
  * Conventions: `sim_time` is ISO-8601 UTC on the mission clock (never wall-clock); `seq` is the
  * Hab Core's monotonic event number; positions are working-projection metres.
  */
-import type { PlanExport, Provenance } from "./schema";
+import type { Leg, PlanExport, Provenance, Waypoint } from "./schema";
 import type { RejectCode } from "./ws";
 
 /** Provenance map keyed by field path, e.g. {"crew.o2_frac": "simulated"} (02 §E.6). */
@@ -368,7 +368,11 @@ export interface LogEventData {
   ALERT_ACKED: { alert_id: string; acked_by: Role };
   ALERT_CLEARED: { alert_id: string };
   OPTIONS_PROPOSED: { alert_id: string; options: ContingencyOption[] };
-  PLAN_REVISED: { plan_revision: number; option_id: string | null; stops_dropped: number[] };
+  /**
+   * `waypoints` and `legs` are the revised plan's and replace the current ones, so the map shows the
+   * new route (decided 2026-11-07). `plan` is present only when the planner publishes a new plan.
+   */
+  PLAN_REVISED: { plan_revision: number; option_id: string | null; stops_dropped: number[]; waypoints: Waypoint[]; legs: Leg[]; plan?: PlanExport };
   /** Summon: `option_id` + `rendezvous`. Accepted TASK_ROVER: `task` + `target` (+ `item` for CARRY). */
   VEHICLE_DISPATCHED: {
     vehicle_id: string;
