@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`███░░░░░░░░░░░░░░░░░` **16 %** — 48 of 304 subtasks done, 8 in progress.
+`███░░░░░░░░░░░░░░░░░` **16 %** — 50 of 304 subtasks done, 7 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -22,7 +22,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-02 Spike: OpenLayers custom Mars projection + custom tile grid](docs/tasks/TASK-02_projection-spike.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 5 |
 | [TASK-03 Preprocessing pipeline](docs/tasks/TASK-03_preprocessing-pipeline.md) | `███████░░░` 72 % | 18 | 0 | 25 |
 | [TASK-04 Vectors, POIs and images](docs/tasks/TASK-04_vectors-pois-images.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 9 |
-| [TASK-05 Compute core: grid loader, sampling, A*, profile, time model, walkback, warnings](docs/tasks/TASK-05_compute-core.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 50 |
+| [TASK-05 Compute core: grid loader, sampling, A*, profile, time model, walkback, warnings](docs/tasks/TASK-05_compute-core.md) | `░░░░░░░░░░` 2 % | 1 | 0 | 50 |
 | [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 10 |
 | [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 17 |
 | [TASK-08 Plan panel + waypoint editing](docs/tasks/TASK-08_plan-panel-and-waypoints.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 11 |
@@ -35,7 +35,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 4 |
 | [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
 | [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 3 |
-| [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `████████░░` 75 % | 9 | 2 | 12 |
+| [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `████████░░` 83 % | 10 | 1 | 12 |
 | [TASK-21 Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers](docs/tasks/TASK-21_scenario-builder.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 12 |
 | [TASK-22 Simulation engine: clock, crew motion, consumables, alerts, event log, replay](docs/tasks/TASK-22_simulation-engine.md) | `███████░░░` 69 % | 11 | 2 | 16 |
 | [TASK-23 Safety ops in the Hab Core: commands, haven per tick, summon and rendezvous, contingency options, abort](docs/tasks/TASK-23_safety-ops.md) | `██░░░░░░░░` 25 % | 2 | 0 | 8 |
