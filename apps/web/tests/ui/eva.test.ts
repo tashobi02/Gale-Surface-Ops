@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { EvaTablet } from "../../src/ui/screens/scr12EvaTablet";
 import { Hud } from "../../src/ui/screens/scr13Hud";
 import { HabLinkLost } from "../../src/ui/screens/scr18HabLinkLost";
+import { Options } from "../../src/ui/screens/scr14Options";
 import { wsFixtures, type Beat } from "../fixtures/ws";
 
 describe("SCR-12 EvaTablet DOM tests (04 §A.3, §E.5)", () => {
@@ -118,5 +119,22 @@ describe("SCR-18 Hab link lost / connecting (04 §E.5, §B.2)", () => {
 
     expect(html).toMatch(/stale|link-lost|unlinked/i);
     expect(html).toMatch(/is-stale|data-provenance/);
+  });
+});
+
+describe("SCR-14 Alert options sheet (04 §E.7)", () => {
+  it("renders ranked options with ETA to shelter, expected dose, and hold-to-confirm", () => {
+    const html = renderToStaticMarkup(createElement(Options));
+    expect(html).toMatch(/option/i);
+    expect(html).toMatch(/eta|shelter|dose/i);
+    expect(html).toMatch(/800ms|--hold-to-confirm|data-hold/);
+  });
+
+  it("supports both eva bottom-sheet and ops side-panel variants", () => {
+    const evaHtml = renderToStaticMarkup(createElement(Options, { variant: "eva" }));
+    const opsHtml = renderToStaticMarkup(createElement(Options, { variant: "ops" }));
+
+    expect(evaHtml).toMatch(/data-variant="eva"/);
+    expect(opsHtml).toMatch(/data-variant="ops"/);
   });
 });
