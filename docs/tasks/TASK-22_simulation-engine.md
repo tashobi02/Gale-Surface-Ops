@@ -56,7 +56,7 @@
 - **Verify:** `make typecheck`; `npm --workspace @marswalk/hab-core test`.
 - **Agent brief:** Create typed throwing stubs only. The module split exists so four teammates can work on the engine without touching the same file.
 - **Conflict notes:** Each module's owner takes it over after this merges. Changing a signature later is a `contract-change:` in this task.
-- **Contract change (T22.09, 2026-11-07):** `EngineState` gains `motion: Record<CrewId, CrewMotion>`, engine-only progress state for tick.ts (see the T22.09 rules); it is not part of SNAPSHOT.
+- **Contract change (T22.09, 2026-11-07):** `EngineState` gains `motion: Partial<Record<CrewId, CrewMotion>>`, engine-only progress state for tick.ts (see the T22.09 rules); it is not part of SNAPSHOT.
 
 ### T22.02 — Fixture: fake scenario with a straight-line route and a stepped dose curve
 
@@ -235,7 +235,7 @@
 - **Agent brief:** Implement `tick.ts` as an orchestrator: motion here, everything else through the engine modules and `@marswalk/compute`.
 - **Conflict notes:** Single owner; the other engine modules are owned by TASK-23, TASK-26, TASK-29 and TASK-31.
 - **Rules (proposed 2026-11-07, `TODO(decision)`; tests: `tick.test.ts`, T22.08):**
-  - S1: engine-only progress state `EngineState.motion: Record<CrewId, CrewMotion>` (`initialState` gives `{}`). It is never sent to clients: `Session.snapshot()` picks fields explicitly.
+  - S1: engine-only progress state `EngineState.motion: Partial<Record<CrewId, CrewMotion>>` (`initialState` gives `{}`). It is never sent to clients: `Session.snapshot()` picks fields explicitly.
   - S2: constant speed within a leg. Position is the arc-length fraction `leg_t_s / leg_s` along `leg.geometry`, in projected metres; `leg_s = walk_time_min * 60`. Overshoot carries into the next phase, so there is no drift. A zero leg time or zero length means arrival at once.
   - S3: `stop_index` is the 1-based position among the current plan's `role: "stop"` waypoints.
   - S4: while `start_offset_s` has not elapsed the crew member stays at the start: shielding `hab`, no O₂ used, no motion.

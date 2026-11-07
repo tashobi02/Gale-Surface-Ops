@@ -9,6 +9,8 @@
  * - Each case reads only `event.data` and the current state; no science is recomputed (05 LogEvent).
  * - Every event sets `session.last_seq` and `session.clock.sim_time`. `session.log_hash` belongs to
  *   the session manager (T22.12), which copies it from the log.
+ * - CREW_SHELTERED with `haven_kind "hab"` sets IN_HAB (03 §E.8 "plan complete"; proposed 2026-11-07,
+ *   T22.09); any other kind sets SHELTERED.
  * - Warnings and cautions latch: an alert leaves `alerts` once it is both acknowledged and cleared;
  *   an advisory leaves on clear (03 §E.7).
  * - Executing an option (PLAN_REVISED with an `option_id`) sends that option's crew TO_HAVEN unless
@@ -20,6 +22,7 @@ import type {
   CommandResult,
   ContingencyOption,
   Crew,
+  CrewId,
   EarthMessage,
   LinkState,
   LogEvent,
@@ -50,6 +53,24 @@ export interface EngineState {
   earthQueue: EarthMessage[];
   /** FR-36 conditions feed values. TASK-22 (T22.16). */
   conditions: ConditionsState;
+  /**
+   * Walk progress per crew member, written only by tick.ts (T22.09; `TODO(decision)` S1). Engine-only:
+   * it is saved in snapshots so resume continues the walk, and never sent to clients.
+   */
+  motion: Partial<Record<CrewId, CrewMotion>>;
+}
+
+/**
+ * Where a crew member is on the plan's legs. `phase` "wait" counts `t_s` toward `start_offset_s`;
+ * "walk" is `t_s` seconds into leg `leg_index`; "dwell" is `t_s` seconds into the stop dwell before
+ * leg `leg_index`; "hold" is the end of the route. `last_wp_id` is the last waypoint reached.
+ */
+export interface CrewMotion {
+  plan_revision: number;
+  phase: "wait" | "walk" | "dwell" | "hold";
+  leg_index: number;
+  t_s: number;
+  last_wp_id: string;
 }
 
 /** A LogEvent before the log assigns its `seq`. */
@@ -130,6 +151,7 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
     earth: { light_time_s: firstEarthRow?.light_time_s ?? 0, next_pass_utc: null, blackout: false },
     earthQueue: [],
     conditions: { ltst: null, sun_elevation_deg: null, dose_rate_background_ugy_h: null, dose_rate_event_ugy_h: null, provenance: {} },
+    motion: {},
   };
 }
 
@@ -219,7 +241,8 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
       return {
         ...next,
         crew: updateCrew(next.crew, [e.data.crew_id], (c) => ({
-          activity: "SHELTERED",
+          // Back in the hab at the end of the plan is "plan complete" (03 §E.8); vehicle and refuge stay SHELTERED.
+          activity: e.data.haven_kind === "hab" ? "IN_HAB" : "SHELTERED",
           dose_event_ugy: e.data.dose_event_ugy,
           dose_event_unsheltered_ugy: e.data.dose_event_unsheltered_ugy,
           haven: { ...c.haven, kind: e.data.haven_kind },
