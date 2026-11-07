@@ -26,6 +26,12 @@
  * - Provenance: options' ETA and dose `modelled` (05), VEHICLE_DISPATCHED rendezvous `modelled`.
  * - APPROVE_OPTION for a rendezvous when the rover is not PARKED: BUSY, no events.
  * - ABORT: EVA self rule for EV2 too; with two warnings the newest alert's ABORT_TO_HAB is executed.
+ * - Tick rule S5, tightened (decided by the orchestrator 2026-11-08, Proposed): a route whose last leg
+ *   ends at the start waypoint shelters in the hab only if the crew member ends within
+ *   SHELTER_REACH_M of the start waypoint's position. A VEHICLE_RENDEZVOUS revision ends at the meeting
+ *   point, so the crew hold there and vehiclesTick shelters them in the vehicle when it arrives.
+ * - APPROVE_OPTION dispatches through T23.05's `dispatchVehicle` with the option's own rendezvous
+ *   (precomputed, logged verbatim); the reducer keeps `Vehicle.eta_s` an integer (Math.ceil).
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,7 +52,8 @@ import type { Command, ContingencyOption, CrewId, LogEvent, LogEventData, LogEve
 import { AcceptedCommands, handleCommand, type CommandContext } from "../src/commands";
 import { contingencyTick } from "../src/engine/contingencyOps";
 import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
-import type { TickContext } from "../src/engine/tick";
+import { tick, type TickContext } from "../src/engine/tick";
+import { dispatchVehicle, SHELTER_REACH_M } from "../src/engine/vehicles";
 import { readScenario, type LoadedScenario } from "../src/scenario";
 import { havenFlat } from "../../../packages/compute/tests/fixtures/v2grids";
 
@@ -335,5 +342,88 @@ describe("ABORT on the real compute (02 §E.4 self rule; FR-44)", () => {
     const out = handleCommand(s, cmd("ops", "ABORT", { crew: ["EV1"] }), cctx(s));
     expect(out.result.ok).toBe(true);
     expect(dataOf(out.events, "PLAN_REVISED").option_id).toBe(s.options.find((o) => o.kind === "ABORT_TO_HAB" && o.alert_id === olderId)!.option_id);
+  });
+});
+
+// ---- the whole engine: rendezvous end and hab end (tick rule S5) ------------------------------------------
+
+/** Run `tick()` (all modules) every `dt_s` until `stop` or `max` ticks; returns every event logged. */
+function runTicks(start: EngineState, dt_s: number, max: number, stop: (s: EngineState) => boolean): { state: EngineState; events: PendingEvent[] } {
+  let s = start;
+  const events: PendingEvent[] = [];
+  for (let k = 0; k < max && !stop(s); k++) {
+    const stepped = at(s, new Date(Date.parse(s.session.clock.sim_time) + dt_s * 1000).toISOString().replace(".000Z", "Z"));
+    const r = tick(stepped, sc, dt_s, stepped.session.last_seq + 1);
+    events.push(...r.events);
+    s = r.state;
+  }
+  return { state: s, events };
+}
+const sheltered = (events: PendingEvent[]) => events.filter((e) => e.kind === "CREW_SHELTERED").map((e) => e.data as LogEventData["CREW_SHELTERED"]);
+
+describe("tick rule S5 with a revised plan (T22.09 rule tightened for T23.07)", () => {
+  /** Ticks of 10 s keep the run short; the vehicle and the crew both need several minutes. */
+  const DT = 10;
+  const MAX = 400;
+  const allSafe = (s: EngineState): boolean => s.crew.every((c) => c.activity === "SHELTERED" || c.activity === "IN_HAB");
+
+  it("VEHICLE_RENDEZVOUS: the crew walk to the meeting point and hold (no hab shelter), then shelter in the vehicle when it arrives", () => {
+    const out = handleCommand(proposed(), cmd("ops", "APPROVE_OPTION", { option_id: optionOf("VEHICLE_RENDEZVOUS").option_id }), cctx(proposed()));
+    expect(out.result.ok).toBe(true);
+    const start = applyAll(proposed(), out.events);
+    const { state, events } = runTicks(start, DT, MAX, allSafe);
+    const kinds = sheltered(events);
+    expect(kinds.filter((d) => d.haven_kind === "hab")).toEqual([]);
+    expect(kinds.filter((d) => d.haven_kind === "vehicle").map((d) => d.crew_id).sort()).toEqual(["EV1", "EV2"]);
+    expect(events.some((e) => e.kind === "VEHICLE_ARRIVED")).toBe(true);
+    const meet = optionOf("VEHICLE_RENDEZVOUS").rendezvous!;
+    for (const c of state.crew) expect(Math.hypot(c.x_m - meet.x_m, c.y_m - meet.y_m)).toBeLessThanOrEqual(SHELTER_REACH_M);
+  });
+
+  it("ABORT_TO_HAB: the route ends at the start waypoint's position, so the crew shelter in the hab", () => {
+    const out = handleCommand(proposed(), cmd("ops", "ABORT", { crew: ["EV1", "EV2"] }), cctx(proposed()));
+    const { events } = runTicks(applyAll(proposed(), out.events), DT, MAX, allSafe);
+    expect(sheltered(events).map((d) => [d.crew_id, d.haven_kind]).sort()).toEqual([
+      ["EV1", "hab"],
+      ["EV2", "hab"],
+    ]);
+  });
+});
+
+// ---- dispatchVehicle with a precomputed rendezvous (T23.05 extension for T23.07) --------------------------
+
+describe("dispatchVehicle with a precomputed rendezvous", () => {
+  const point = { x_m: STOP1.x_m / 2, y_m: STOP1.y_m, eta_crew_s: 100.4, eta_vehicle_s: 200.2 };
+
+  it("skips compute (works with no grid) and logs the given rendezvous verbatim, labelled modelled", () => {
+    const s = alertedOn(fake);
+    const out = dispatchVehicle(s, fake, { crew_ids: ["EV1"], actor: "ops", rendezvous: point });
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.events).toHaveLength(1);
+    expect(out.events[0]).toMatchObject({ kind: "VEHICLE_DISPATCHED", actor: "ops", provenance: { "data.rendezvous": "modelled" } });
+    expect(out.events[0]!.data).toEqual({ vehicle_id: PR.vehicle_id, rendezvous: point });
+  });
+
+  it("keeps the BUSY and INVALID checks", () => {
+    const s = alertedOn(fake);
+    expect(dispatchVehicle(withPr(s, { state: "EN_ROUTE" }), fake, { crew_ids: ["EV1"], actor: "ops", rendezvous: point })).toMatchObject({ ok: false, code: "BUSY" });
+    expect(dispatchVehicle(s, fake, { crew_ids: ["EV9"], actor: "ops", rendezvous: point })).toMatchObject({ ok: false, code: "INVALID" });
+    expect(dispatchVehicle(s, fake, { crew_ids: ["EV1"], actor: "ops", rendezvous: { ...point, eta_vehicle_s: Infinity } })).toMatchObject({ ok: false, code: "INVALID" });
+  });
+
+  it("the reduced vehicle has a whole-second eta_s (05 Vehicle eta_s is an int)", () => {
+    const s = alertedOn(fake);
+    const out = dispatchVehicle(s, fake, { crew_ids: ["EV1"], actor: "ops", rendezvous: point });
+    if (!out.ok) throw new Error(out.message);
+    const v = applyAll(s, out.events).vehicles.find((x) => x.vehicle_id === PR.vehicle_id)!;
+    expect(Number.isInteger(v.eta_s)).toBe(true);
+    expect(v.eta_s).toBe(Math.ceil(point.eta_vehicle_s));
+  });
+
+  it("APPROVE_OPTION goes through dispatchVehicle: a crew member already SHELTERED makes the rendezvous INVALID", () => {
+    const s = withCrew(proposed(), "EV2", { activity: "SHELTERED" });
+    const out = handleCommand(s, cmd("ops", "APPROVE_OPTION", { option_id: optionOf("VEHICLE_RENDEZVOUS").option_id }), cctx(s));
+    expect(out.result).toMatchObject({ ok: false, code: "INVALID" });
   });
 });
