@@ -23,6 +23,7 @@
  * | Slope P90 = slope max = the analytic gradient angle | Assumed, bench-only (a real grid has P90 below max) |
  * | Hazard bars: 8 cells wide, every 53rd column, on every 61st row (row 30) | Assumed, bench-only. About 0.25 % of cells |
  * | Low-TI band: cells with (row + column) mod 97 < 10 | Assumed, bench-only. About 10 % of cells; exercises the 1.3 cost multiplier |
+ * | `hab_mast.height_m` = 0 | Assumed, bench-only (placeholder; haven does not read it) |
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -45,7 +46,7 @@ export interface BenchSite {
   hab: { x_m: number; y_m: number };
 }
 
-/** Mast height of the hab for `RoutingGrid.hab_mast.height_m`: unused by the haven, so a plain 0 placeholder. */
+/** Assumed, bench-only (placeholder; haven does not read it): `RoutingGrid.hab_mast.height_m`. */
 const HAB_MAST_HEIGHT_PLACEHOLDER_M = 0;
 
 const HAZARD_BIT = 1 << FLAG_BITS.HARD_HAZARD;
@@ -66,10 +67,12 @@ const LOW_TI_CELLS = 10;
 
 /** Read the AOI extent and the hab from a site file. Throws if the file or a field is missing or not finite. */
 export function readBenchSite(path: string = DEFAULT_SITE_PATH): BenchSite {
-  const raw = JSON.parse(readFileSync(path, "utf8")) as {
-    aoi?: { extent_m?: unknown };
-    hab_mast?: { x_m?: unknown; y_m?: unknown };
-  };
+  let raw: { aoi?: { extent_m?: unknown }; hab_mast?: { x_m?: unknown; y_m?: unknown } };
+  try {
+    raw = JSON.parse(readFileSync(path, "utf8")) as typeof raw;
+  } catch (e) {
+    throw new Error(`${path}: cannot read or parse the site file (${e instanceof Error ? e.message : String(e)})`, { cause: e });
+  }
   const ext = raw.aoi?.extent_m;
   if (!Array.isArray(ext) || ext.length !== 4 || !ext.every((v) => typeof v === "number" && Number.isFinite(v))) {
     throw new Error(`${path}: aoi.extent_m must be four finite numbers`);

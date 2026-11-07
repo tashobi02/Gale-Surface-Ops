@@ -239,6 +239,7 @@ T23.03 `havenTick` consumes `liveHaven` from `haven.ts` (frozen in this PR; plea
   - **Grid size.** Derived, never typed: `aoi.extent_m` of `pipeline/sites/gale_boxwork/site.json` divided by the haven cell (`HAVEN_CELL_M`, 5 m, 02 §D.2); the builder throws if the extent is not a whole number of cells. The hab is `hab_mast` from the same file. `TODO(decision)`: the 5 m cell lives in a test fixture today; a shared `ROUTING_CELL_M` constant in `src` (for T05.16, T05b.04 and the bench) would remove the copy.
   - **Secondary cases (context, not the decision).** `crewTimeField` with a 30 min bound, `vehicleTimeField`, and `liveHaven` on the fields just built.
   - **Verify (needs `--run`, else Vitest bench waits for file changes).** `npx --no-install vitest bench --run --reporter=verbose --root packages/compute` (`--reporter=verbose` because the default reporter hides the bench's printed report), or `npm --workspace @marswalk/compute run bench`. The bench is outside `test.include`, so `make test-web` and CI never time anything. A grid-builder unit test, `packages/compute/tests/benchGrid.test.ts`, runs there.
+  - **Also touches (Proposed):** `bench/grid.ts`, `tests/benchGrid.test.ts`, `packages/compute/package.json` script `bench`, `packages/compute/tsconfig.json` include `bench`.
   - **Not done by this note.** The verification-log section needs a person to run the bench on the weakest laptop; status stays `wip` until then. Times from other machines go in the PR body, not in the log.
 
 ### T05b.06 — Tests: rendezvous (02 §D.10 cases)

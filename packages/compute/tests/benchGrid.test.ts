@@ -42,6 +42,11 @@ describe("readBenchSite", () => {
   it("throws on a missing file", () => {
     expect(() => readBenchSite(join(here, "no-such-site.json"))).toThrow();
   });
+
+  it("names the file when it is not valid JSON", () => {
+    const notJson = join(here, "benchGrid.test.ts");
+    expect(() => readBenchSite(notJson)).toThrow(notJson);
+  });
 });
 
 describe("benchGridSize", () => {

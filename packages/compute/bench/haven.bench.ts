@@ -29,8 +29,8 @@ import type { Bench } from "vitest";
 import type { LoadedGrid } from "../src/grid";
 import { crewTimeField, habTimeField, liveHaven, vehicleTimeField, vehiclePassable } from "../src/haven";
 import type { TimeField } from "../src/haven";
-import { defaultScenario, pr1Params } from "../tests/fixtures/v2grids";
-import { buildBenchGrid, readBenchSite } from "./grid";
+import { HAVEN_CELL_M, defaultScenario, pr1Params } from "../tests/fixtures/v2grids";
+import { benchGridSize, buildBenchGrid, readBenchSite } from "./grid";
 import type { Terrain } from "./grid";
 
 /** Proposed: "go (≤ 2 s)" in TASK-05b T05b.05 (NFR-02). */
@@ -50,6 +50,8 @@ interface Row {
   min_ms: number;
   median_ms: number;
   max_ms: number;
+  /** First call of the case (the warm-up iteration, JIT included). Informational only. */
+  first_ms: number;
 }
 const rows: Row[] = [];
 
@@ -65,14 +67,24 @@ function stats(samples: number[]): { min: number; median: number; max: number } 
  */
 async function runCase<I>(bench: Bench, name: string, kind: Row["kind"], prepare: () => I, timed: (input: I) => unknown): Promise<Row> {
   let input!: I;
-  const reg = bench(name, { beforeEach: () => void (input = prepare()), retainSamples: true }, () => void timed(input));
+  let first_ms = NaN;
+  const reg = bench(name, { beforeEach: () => void (input = prepare()), retainSamples: true }, () => {
+    if (Number.isNaN(first_ms)) {
+      // The first call is the warm-up iteration (JIT included); it is not one of the five timed samples.
+      const t0 = performance.now();
+      timed(input);
+      first_ms = performance.now() - t0;
+    } else {
+      timed(input);
+    }
+  });
   const res = await reg.run(RUN_OPTIONS);
   const samples = res.latency.samples;
   if (!Array.isArray(samples) || samples.length !== RUN_OPTIONS.iterations) {
     throw new Error(`${name}: expected ${RUN_OPTIONS.iterations} retained samples, got ${samples?.length}`);
   }
   const st = stats(samples);
-  const row: Row = { name, kind, runs_ms: [...samples], min_ms: st.min, median_ms: st.median, max_ms: st.max };
+  const row: Row = { name, kind, runs_ms: [...samples], min_ms: st.min, median_ms: st.median, max_ms: st.max, first_ms };
   rows.push(row);
   return row;
 }
@@ -82,12 +94,13 @@ const fixed = (x: number): string => x.toFixed(0).padStart(6);
 function printReport(): void {
   const cold = rows.filter((r) => r.kind === "cold");
   const worst = Math.max(...cold.map((r) => r.max_ms));
-  const g = buildBenchGrid(site, "flat");
+  const size = benchGridSize(site.extent_m, HAVEN_CELL_M);
+  const firstRough = rows.find((r) => r.name === "habTimeField, cold, rough");
   const lines = [
     "",
     "T05b.05 haven benchmark",
-    `  machine : ${cpus()[0]?.model ?? "unknown CPU"} x${cpus().length}, ${(totalmem() / 2 ** 30).toFixed(0)} GiB RAM, ${platform()} ${release()}, node ${process.version}`,
-    `  grid    : ${g.meta.width} x ${g.meta.height} cells at ${g.meta.cell_m} m (derived from site.json aoi.extent_m), hab (${site.hab.x_m}, ${site.hab.y_m})`,
+    `  machine : ${cpus()[0]?.model ?? "unknown CPU"} x${cpus().length}, ${(totalmem() / 2 ** 30).toFixed(0)} GiB RAM, ${platform()} ${release()}, node ${process.version} via Vitest, not the browser worker`,
+    `  grid    : ${size.width} x ${size.height} cells at ${HAVEN_CELL_M} m (derived from site.json aoi.extent_m), hab (${site.hab.x_m}, ${site.hab.y_m})`,
     `  runs    : 1 warm-up + ${RUN_OPTIONS.iterations} timed per case; cold = fresh grid per iteration`,
     "",
     `  ${"case".padEnd(46)} ${"kind".padEnd(8)} ${"min".padStart(6)} ${"median".padStart(6)} ${"max".padStart(6)}   runs (ms)`,
@@ -96,6 +109,7 @@ function printReport(): void {
         `  ${r.name.padEnd(46)} ${r.kind.padEnd(8)} ${fixed(r.min_ms)} ${fixed(r.median_ms)} ${fixed(r.max_ms)}   ${r.runs_ms.map((v) => v.toFixed(0)).join(" ")}`,
     ),
     "",
+    `  info    : first call of "habTimeField, cold, rough" (the warm-up, JIT included): ${firstRough ? firstRough.first_ms.toFixed(0) : "n/a"} ms; not part of the verdict`,
     `  worst cold run: ${worst.toFixed(0)} ms (limit ${GO_LIMIT_MS} ms, Proposed)`,
     `  VERDICT (this machine): ${worst <= GO_LIMIT_MS ? "GO" : "NO-GO (T05b.21 fallback)"}; only the weakest team laptop counts`,
     "",
@@ -107,6 +121,7 @@ describe("T05b.05 haven benchmark", () => {
   test(
     "one full-grid T_hab field on an AOI-size grid",
     async ({ bench }) => {
+      rows.length = 0; // a retry must not duplicate rows
       for (const terrain of ["flat", "rough"] as Terrain[]) {
         await runCase(bench, `habTimeField, cold, ${terrain}`, "cold", () => buildBenchGrid(site, terrain), (g) =>
           habTimeField(g, site.hab, scenario),
