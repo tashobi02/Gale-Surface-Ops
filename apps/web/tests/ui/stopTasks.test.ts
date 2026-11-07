@@ -3,6 +3,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { StopTaskList, StopTaskRow } from "../../src/ui/screens/scr12/StopTaskList";
 import { TasksButton } from "../../src/ui/screens/scr12/TasksButton";
+import { TaskProgress } from "../../src/ui/ops/TaskProgress";
+import { AddTaskPopover } from "../../src/ui/ops/AddTaskPopover";
 import type { StopTask } from "@marswalk/protocol";
 
 // docs/specs/01 FR-50; 04 §E.5; mockup handoff G-30–G-34, G-40. TASK-24, TASK-31.
@@ -322,7 +324,95 @@ describe("StopTaskList (EVA tablet)", () => {
 });
 
 describe("TaskProgress (ops crew card)", () => {
-  it.todo("shows STOP n done/total and TOTAL done/total with a simulated provenance chip");
-  it.todo("counts equal the counts computed from the task list (U-53)");
-  it.todo("+ TASK calls onAdd with the crew id");
+  it("shows STOP n done/total and TOTAL done/total with a simulated provenance chip", () => {
+    const html = renderToStaticMarkup(
+      createElement(TaskProgress, {
+        crewId: "EV1",
+        stopCount: { stopNo: 2, done: 1, total: 3 },
+        total: { done: 3, total: 8 },
+        onAdd: () => {},
+      })
+    );
+
+    expect(html).toContain("STOP 2");
+    expect(html).toContain("1/3");
+    expect(html).toContain("TOTAL");
+    expect(html).toContain("3/8");
+    expect(html).toContain('data-provenance="simulated"');
+  });
+
+  it("counts equal the counts computed from the task list (U-53)", () => {
+    const ev1Tasks = mockTasks.filter((t) => t.crew_id === "EV1" || t.crew_id === null);
+    const stop2Tasks = ev1Tasks.filter((t) => t.stop_id === "wp-2");
+    const stopDone = stop2Tasks.filter((t) => t.state === "DONE").length;
+    const totalDone = ev1Tasks.filter((t) => t.state === "DONE").length;
+
+    const html = renderToStaticMarkup(
+      createElement(TaskProgress, {
+        crewId: "EV1",
+        stopCount: { stopNo: 2, done: stopDone, total: stop2Tasks.length },
+        total: { done: totalDone, total: ev1Tasks.length },
+        onAdd: () => {},
+      })
+    );
+
+    expect(html).toContain(`${stopDone}/${stop2Tasks.length}`);
+    expect(html).toContain(`${totalDone}/${ev1Tasks.length}`);
+  });
+
+  it("+ TASK calls onAdd with the crew id and honors disabled state", () => {
+    const htmlActive = renderToStaticMarkup(
+      createElement(TaskProgress, {
+        crewId: "EV1",
+        stopCount: { stopNo: 2, done: 1, total: 3 },
+        total: { done: 2, total: 5 },
+        onAdd: () => {},
+        disabled: false,
+      })
+    );
+    expect(htmlActive).toContain("+ TASK");
+    expect(htmlActive).not.toContain("disabled");
+
+    const htmlDisabled = renderToStaticMarkup(
+      createElement(TaskProgress, {
+        crewId: "EV1",
+        stopCount: { stopNo: 2, done: 1, total: 4 },
+        total: { done: 2, total: 6 },
+        onAdd: () => {},
+        disabled: true,
+      })
+    );
+    expect(htmlDisabled).toMatch(/disabled/i);
+  });
+
+  it("AddTaskPopover renders crew, stop, kind dropdown, text limit, and max reached state", () => {
+    const html = renderToStaticMarkup(
+      createElement(AddTaskPopover, {
+        crewId: "EV1",
+        stopId: "wp-2",
+        availableStops: [
+          { stopId: "wp-2", stopNo: 2, label: "Stop 2 · Boxwork Ridge" },
+          { stopId: "wp-3", stopNo: 3, label: "Stop 3 · Clay Outcrop" },
+        ],
+        maxReached: false,
+        onAdd: () => {},
+      })
+    );
+
+    expect(html).toContain("EV1");
+    expect(html).toContain("Stop 2");
+    expect(html).toContain("<select");
+    expect(html).toContain("<input");
+    expect(html).toContain("60"); // 60 chars limit indicator
+
+    const htmlMax = renderToStaticMarkup(
+      createElement(AddTaskPopover, {
+        crewId: "EV1",
+        stopId: "wp-2",
+        maxReached: true,
+        onAdd: () => {},
+      })
+    );
+    expect(htmlMax).toMatch(/max reached|maximum/i);
+  });
 });

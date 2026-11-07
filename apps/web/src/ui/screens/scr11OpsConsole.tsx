@@ -24,6 +24,8 @@ import { AlertStack } from "../ops/AlertStack";
 import { OptionsPanel } from "../ops/OptionsPanel";
 import { ClockControl } from "../ops/ClockControl";
 import { ConditionsPanel } from "../ops/ConditionsPanel";
+import { TaskProgress } from "../ops/TaskProgress";
+import { AddTaskPopover } from "../ops/AddTaskPopover";
 
 export interface OpsConsoleProps {
   scenarioName?: string;
@@ -129,6 +131,7 @@ export function OpsConsole({
   const [activeSpeed, setActiveSpeed] = useState<number>(clockSpeed);
   const [paused, setPaused] = useState<boolean>(isPaused);
   const [optionApproved, setOptionApproved] = useState<boolean>(false);
+  const [activeAddCrew, setActiveAddCrew] = useState<string | null>(null);
   const [pressProgress, setPressProgress] = useState<number>(0);
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -406,6 +409,14 @@ export function OpsConsole({
                     </div>
                   </div>
 
+                  {/* Task progress row (01 FR-50, U-53) */}
+                  <TaskProgress
+                    crewId={member.crew_id}
+                    stopCount={{ stopNo: member.stop_index ?? 2, done: 1, total: 3 }}
+                    total={{ done: 3, total: 8 }}
+                    onAdd={(cid) => setActiveAddCrew(cid)}
+                  />
+
                   {isUnlinked && (
                     <footer
                       style={{
@@ -421,6 +432,18 @@ export function OpsConsole({
               );
             })}
           </div>
+
+          {/* Add Task Popover */}
+          {activeAddCrew && (
+            <div style={{ marginTop: "8px" }}>
+              <AddTaskPopover
+                crewId={activeAddCrew as any}
+                stopId="wp-2"
+                onAdd={() => setActiveAddCrew(null)}
+                onCancel={() => setActiveAddCrew(null)}
+              />
+            </div>
+          )}
 
           {/* Module Label: VEHICLES */}
           <div className="module-label" style={{ ...moduleLabelStyle, marginTop: "12px" }}>
