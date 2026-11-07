@@ -258,6 +258,20 @@ describe("consumables alert: O₂ left against the time to a haven (02 §D.14; T
     expect((events[0].data as LogEventData["ALERT_CLEARED"]).alert_id).toBe(s.alerts[0].alert_id);
   });
 
+  it("hysteresis: once raised, it clears only above o2_clear_margin, not just above the caution margin (decided 2026-11-07)", () => {
+    let s = o2Margin(v.o2_caution_margin);
+    s = applyEvents(s, consumablesTick(s, ctx(s)).events);
+    const between = o2Margin((v.o2_caution_margin + v.o2_clear_margin) / 2, 40, "hab", s);
+    expect(consumablesTick(between, ctx(between)).events).toEqual([]);
+    const above = o2Margin(v.o2_clear_margin * 1.01, 40, "hab", s);
+    expect(consumablesTick(above, ctx(above)).events.map((e) => e.kind)).toEqual(["ALERT_CLEARED"]);
+  });
+
+  it("an o2_clear_margin below the caution margin is a ParamSet error", () => {
+    const s = o2Margin(v.o2_caution_margin);
+    expect(() => consumablesTick(s, ctx(s, scenarioWith({ o2_clear_margin: v.o2_caution_margin / 2 })))).toThrow(/o2_clear_margin/);
+  });
+
   it("clears when the crew member is back in the hab", () => {
     let s = o2Margin(v.o2_warning_margin);
     s = applyEvents(s, consumablesTick(s, ctx(s)).events);

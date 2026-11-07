@@ -15,7 +15,8 @@
  *   the nearest haven (`crew.haven`, T23.03). The message says where to go: back to the hab, or to
  *   a pressurized rover to restock. Margins `o2_caution_margin` and `o2_warning_margin` come from
  *   the alert ParamSet.
- * - CONSUMABLES_LOW clears when the margin is safe again or the crew member is in the hab;
+ * - CONSUMABLES_LOW clears when the margin is above `o2_clear_margin` (a little above the caution
+ *   margin, so it cannot flicker at the threshold) or the crew member is in the hab;
  *   BUDDY_SEPARATION clears when the crew are within `buddy_max_m` again or fewer than two are out.
  * - Wording is action first, at most 60 characters (04 §D.2); the radiation text is 05 §F.6's.
  */
@@ -106,11 +107,11 @@ function suitParams(ctx: TickContext, crew_id: CrewId): ParamSet {
 /**
  * CONSUMABLES_LOW from the O₂ margin = O₂ time left ÷ time to the nearest haven: a caution at
  * `o2_caution_margin`, a warning (which replaces the caution) at `o2_warning_margin`. Cleared once
- * the margin is above the caution margin again or the crew member is back in the hab.
+ * the margin is above `o2_clear_margin` (hysteresis, decided 2026-11-07) or the crew member is back
+ * in the hab; between the caution and clear margins an open alert stays and none is raised.
  * A haven 0 min away (or less) means the crew member is there, so nothing is raised. A haven that
  * cannot be reached (`minutes` Infinity) gives margin 0, a warning with `haven_min` null. A NaN
  * O₂ fraction or haven time is an engine error and throws, so it can never clear a live alert.
- * TODO(decision): no hysteresis; raise and clear share `o2_caution_margin` (02 §D.14).
  * TODO(verify): a terrain refuge (T2) gives shelter but no O₂; until T2 the haven is the hab or a
  * pressurized rover, and a refuge haven is worded as the hab.
  */
@@ -118,6 +119,8 @@ export function consumablesTick(state: EngineState, ctx: TickContext): TickResul
   const params = alertParams(ctx);
   const caution = num(params, "o2_caution_margin");
   const warning = num(params, "o2_warning_margin");
+  const clearAbove = num(params, "o2_clear_margin");
+  if (clearAbove < caution) throw new Error(`alerts: ParamSet ${params.param_set_id} o2_clear_margin ${clearAbove} is below o2_caution_margin ${caution}`);
   const open = active(state, "CONSUMABLES_LOW");
   const events: PendingEvent[] = [];
   for (const c of state.crew) {
@@ -129,8 +132,8 @@ export function consumablesTick(state: EngineState, ctx: TickContext): TickResul
     const margin = safe ? Infinity : reachable ? o2_s / (c.haven.minutes * 60) : 0;
     const level: AlertLevel | null = margin <= warning ? "warning" : margin <= caution ? "caution" : null;
     if (level === null) {
-      for (const a of mine) events.push(cleared(state, a.alert_id));
-      continue;
+      if (margin > clearAbove) for (const a of mine) events.push(cleared(state, a.alert_id));
+      continue; // between the caution and clear margins: keep what is open, raise nothing
     }
     if (mine.some((a) => a.level === "warning") || (level === "caution" && mine.length > 0)) continue;
     for (const a of mine) events.push(cleared(state, a.alert_id)); // the warning replaces the caution
