@@ -35,9 +35,70 @@ def load_param(pid):
     return json.loads((HERE / "param_sets" / f"{pid}.json").read_text(encoding="utf-8"))
 
 
+def js_number(x):
+    """ECMAScript Number::toString (RFC 8785 section 3.2.2.3): 1.0 -> "1", 1e21 -> "1e+21", -0.0 -> "0".
+
+    Shortest round-trip digits come from repr(float); they are laid out by the ECMAScript rules.
+    """
+    if isinstance(x, int):
+        x = float(x)  # JSON numbers are IEEE 754 doubles (RFC 8785); big ints round like JavaScript
+    if x != x or x in (float("inf"), float("-inf")):
+        raise ValueError("NaN and Infinity cannot be canonicalised")
+    if x == 0:
+        return "0"
+    sign = "-" if x < 0 else ""
+    mant, _, exp = repr(abs(x)).partition("e")
+    whole, _, frac = mant.partition(".")
+    all_digits = whole + frac
+    leading_zeros = len(all_digits) - len(all_digits.lstrip("0"))
+    digits = all_digits.strip("0")
+    # value = 0.DIGITS x 10^n
+    n = len(whole) + int(exp or 0) - leading_zeros
+    k = len(digits)
+    if k <= n <= 21:
+        out = digits + "0" * (n - k)
+    elif 0 < n <= 21:
+        out = digits[:n] + "." + digits[n:]
+    elif -6 < n <= 0:
+        out = "0." + "0" * -n + digits
+    else:
+        e = n - 1
+        out = digits[0] + ("." + digits[1:] if k > 1 else "") + "e" + ("+" if e >= 0 else "-") + str(abs(e))
+    return sign + out
+
+
 def canonical(value):
-    """Canonical JSON: sorted keys, no whitespace, numbers as written (05 PlanExport plan_hash)."""
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    """RFC 8785 (JCS) canonical JSON: keys sorted by UTF-16 code units, no whitespace, numbers as
+    JavaScript prints them, strings as JSON.stringify (05 PlanExport plan_hash)."""
+    if isinstance(value, bool) or value is None:
+        return json.dumps(value)
+    if isinstance(value, (int, float)):
+        return js_number(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(canonical(v) for v in value) + "]"
+    keys = sorted(value, key=lambda k: k.encode("utf-16-be"))
+    return "{" + ",".join(json.dumps(k, ensure_ascii=False) + ":" + canonical(value[k]) for k in keys) + "}"
+
+
+# Expected values are JavaScript's own output (String(x)), checked with Node when this was written.
+_JS_NUMBERS = [
+    (0.1, "0.1"), (1.0, "1"), (-0.0, "0"), (0, "0"), (1e21, "1e+21"), (1e-7, "1e-7"),
+    (123456789012345680000.0, "123456789012345680000"), (1.5e-7, "1.5e-7"), (0.000001, "0.000001"),
+    (5e-324, "5e-324"), (1.7976931348623157e308, "1.7976931348623157e+308"), (-2.5, "-2.5"),
+    (100, "100"), (1e20, "100000000000000000000"), (123.456, "123.456"), (20 / 3, "6.666666666666667"),
+    (2**53 + 2, "9007199254740994"), (0.1 + 0.2, "0.30000000000000004"),
+]
+
+
+def self_check():
+    for x, want in _JS_NUMBERS:
+        got = js_number(x)
+        assert got == want, f"js_number({x!r}) = {got!r}, JavaScript prints {want!r}"
+    # Keys sort by UTF-16 code units: U+FF5E (BMP) sorts after U+1F600 (surrogates D83D DE00).
+    assert canonical({"b": [1.0, True, None], "a": "x", "～": 2, "\U0001F600": 3}) == \
+        '{"a":"x","b":[1,true,null],"\U0001F600":3,"～":2}'
 
 
 def iso(t):
@@ -52,6 +113,7 @@ def write(name, obj):
 
 
 def main():
+    self_check()
     suit = load_param("suit-assumed")["values"]
     alert = load_param("alert-assumed")["values"]
     t0 = datetime.strptime(START_UTC, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
@@ -97,9 +159,8 @@ def main():
                      "walk_time_min": dist / 1000 / suit["flat_speed_kmh"] * 60,
                      "climb_m": 0, "descent_m": 0, "max_slope_deg": 0,
                      "geometry": [[a["x_m"], a["y_m"]], [b["x_m"], b["y_m"]]]})
-    # 05 §F.3 scenario (6.0 and 5.0 written as 6 and 5: same values, but Python and JS print floats
-    # differently and plan_hash hashes "numbers as written"; TODO(verify) for T22.11 and the planner)
-    # + 05 §F.4 plan.scenario v2 fields; eva_start = scenario start.
+    # 05 §F.3 scenario (6.0 and 5.0 are written as 6 and 5; the hash is the same either way, as
+    # RFC 8785 prints 6.0 as 6) + 05 §F.4 plan.scenario v2 fields; eva_start = scenario start.
     mission = {
         "eva_start_utc": START_UTC, "max_eva_duration_h": 6, "dwell_min_per_stop": 20,
         "hard_slope_limit_deg": 15, "caution_slope_deg": 10, "walkback_limit_km": 5,

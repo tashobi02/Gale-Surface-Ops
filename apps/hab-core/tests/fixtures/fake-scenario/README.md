@@ -39,7 +39,7 @@ python3 apps/hab-core/tests/fixtures/fake-scenario/make_fake_scenario.py
 ## Known limits
 
 - `DoseSeries.provenance` must be `replayed` (05 DoseSeries); here the curve is synthetic and is marked by `source_id` `fixture-synthetic` and `method` `template_scaled`. It is never shown as real data.
-- `plan_hash` hashes canonical JSON "with numbers as written" (05 PlanExport). Python writes `6.0` where JavaScript writes `6`, so the fixture writes whole numbers without a decimal point. `TODO(verify)`: how T22.11 and the planner export (T11) canonicalise numbers, so both agree on one hash.
+- `plan_hash` hashes RFC 8785 (JCS) canonical JSON (decision of 2026-11-07, 05 PlanExport): keys sorted by UTF-16 code units, no whitespace, numbers as JavaScript prints them (`6.0` is `6`, `1e21` is `1e+21`). The generator implements that number format in pure Python (`js_number`) and checks it against known JavaScript outputs on every run; `fixture.test.ts` recomputes the hash in JavaScript.
 - `integral_check.expected_ugy` equals `computed_ugy`: 05 sets `expected` to the published event total, and a synthetic shape has none. The test recomputes the integral from the samples independently instead.
 - `earth_link.json` is labelled `derived` (05 EarthLinkTable) but holds one placeholder row at `start_utc`: light time 0 s, Earth and every orbiter at 0° elevation, no passes. Engine code that looks up later times must treat the last row as holding, and must not read anything into the zeros.
 - `stops_timeline` is empty, so nothing gives arrive/depart times; the engine derives motion from the legs.
