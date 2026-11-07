@@ -156,8 +156,8 @@ function makeLegs(): OkLeg[] {
 
 const legs = makeLegs();
 
-/** Test-only ingress seconds. */
-const ingress: HavenIngress = { hab_s: 300, vehicle_s: 300 };
+/** Test-only ingress seconds; different, so that using one for the other changes an ETA. */
+const ingress: HavenIngress = { hab_s: 300, vehicle_s: 240 };
 
 function makeCrew(id: CrewId, x_m: number, y_m: number, stopIndex: number, evaElapsedS = 3600): Crew {
   return {
@@ -403,6 +403,12 @@ describe("proposeOptions", () => {
     expect(options.map((o) => o.rank)).toEqual([1, 2, 3]);
   });
 
+  it("lists as dropped the stops after the stop furthest along (Proposed: max stop_index of the crew)", () => {
+    const crew = [makeCrew("EV1", 1000, 0, 2), makeCrew("EV2", 500, 0, 1)];
+    const options = proposeOptions(baseInputs({ crew, rendezvous: {} }));
+    for (const o of options) expect(o.stops_dropped).toEqual([3]);
+  });
+
   it("flags HAVEN_TIME_EXCEEDED only when the ETA is strictly over max_haven_min", () => {
     const vehicleMin = VEHICLE_ETA_S / 60;
     const scenario = { ...defaultScenario, max_haven_min: vehicleMin };
@@ -458,6 +464,20 @@ describe("proposeOptions", () => {
     it("a non-finite rendezvous time drops the vehicle option", () => {
       const bad = makeRendezvous(250, 0, Infinity, 200, [500, 0]);
       const options = proposeOptions(baseInputs({ rendezvous: { EV1: bad } }));
+      expect(options.some((o) => o.kind === "VEHICLE_RENDEZVOUS")).toBe(false);
+      for (const n of allNumbers(options)) expect(Number.isFinite(n)).toBe(true);
+    });
+
+    it("a non-finite number inside the chosen meeting point drops the vehicle option (pair)", () => {
+      // The pair's later arrival is finite, but the first-visited point carries an infinite time.
+      const first = makeRendezvous(200, 0, 250, Infinity, [100, 0]);
+      const second = makeRendezvous(400, 0, 300, 500, [300, 0]);
+      const inputs = baseInputs({
+        crew: [makeCrew("EV1", 100, 0, 1), makeCrew("EV2", 300, 0, 1)],
+        rendezvous: { EV1: first, EV2: second },
+        pair: { order: [0, 1], later_arrival_s: 450 },
+      });
+      const options = proposeOptions(inputs);
       expect(options.some((o) => o.kind === "VEHICLE_RENDEZVOUS")).toBe(false);
       for (const n of allNumbers(options)) expect(Number.isFinite(n)).toBe(true);
     });

@@ -543,13 +543,19 @@ T23.03 `havenTick` consumes `liveHaven` from `haven.ts` (frozen in this PR; plea
 - **Agent brief:** Implement `contingency.ts` until the tests pass.
 - **Conflict notes:** Single owner.
 
-**Proposed 2026-11-08 — TODO(decision)** (T05b.19 implementation notes):
-- `option_id` format: `${alert_id}:${kind}` ensures deterministic identification for identical inputs across ticks (NFR-06).
-- Dose projection (`projectDose`): projected over `eta_shelter_s` using 60-second steps via `integrateDose` with `shelter: "suit"`. Infinite ETA returns `Infinity` dose.
-- `VEHICLE_RENDEZVOUS`: Proposed only when every crew member has an `OK` rendezvous result. For a two-crew alert with `pair`, uses the first visited meeting point (`pair.order[0]`) for rendezvous coordinates and `pair.later_arrival_s + ingress.vehicle_s` for shelter ETA.
-- `CONTINUE_SKIP`: Traces remaining planned legs from current stop without dwell, concatenating leg geometries for `path_preview`.
-- Deterministic tie-breaking: candidates sorted by `expected_dose_ugy` ascending, then `eta_shelter_min` ascending, with ties broken deterministically by `option_id.localeCompare`. Ranks assigned strictly 1..N.
+**Proposed 2026-11-08 — TODO(decision)** (T05b.19 implementation notes; none is in 02 §D.15):
 
+- `option_id` is `${alert_id}:${kind}`, so identical inputs give identical ids across ticks (NFR-06).
+- Options are joint over all crew on alert (02 §D.15 says "for each crew member on alert"): the ETA is the slowest member's, `path_preview` is crew[0]'s walk (or, for a pair, the first-visited member's `crew_path`), and `stops_dropped` are the stops after the largest `stop_index` of the crew. Per-member options would need a spec change to 05 `ContingencyOption`.
+- Finite options only: an option whose ETA or dose is not finite (an off-grid or unreachable crew member, an infinite rendezvous time) is left out, so nothing becomes `null` in the JSON event log (T23.07); the result is `[]` when none is left.
+- Two crew with an OK rendezvous each need `inputs.pair`: `proposeOptions` throws RangeError without it (T23.07 must pass the `rendezvousPair` result). When either member has no rendezvous the pair cannot be built and is not needed. A `pair.order` that does not index the crew throws RangeError.
+- Dose until sheltered: the whole walk plus ingress is counted in the suit (`integrateDose` with `shelter: "suit"`), split at each dose-series sample time inside it, so the sum is exact (no step constant). This is the conservative side: the ingress seconds may already be in the shelter.
+- The future replayed series is used from `now_utc` onward (the tick has not happened yet when the options are proposed), and `gap_s` from `integrateDose` is dropped, so seconds in a gap add no dose. Both are oracle knowledge; the Hab Core may not know the future rate. A conservative gap rule (and a forecast-only series) are open.
+- `VEHICLE_RENDEZVOUS` exists only when every crew member has an `OK` rendezvous. One member: shelter ETA = max(`eta_crew_s`, `eta_vehicle_s`) + `ingress.vehicle_s`. Two: `pair.later_arrival_s + ingress.vehicle_s`, with the first-visited point (`pair.order[0]`) in `rendezvous` and its `crew_path` as `path_preview`.
+- `CONTINUE_SKIP` follows the planned route without dwell (the dropped stops are passed, not visited) from the crew position: the share of the nearest leg still ahead (by polyline length, applied to that leg's `walk_time_min`) plus the later legs whole, then `ingress.hab_s`. It assumes the plan ends at the hab and can be slower than `ABORT_TO_HAB`. It is left out when any leg from the member's last stop onward is not OK (a gap would understate the ETA), and a member with no leg from the last stop falls back to the walk to the hab.
+- Violations are Warning codes: `HAVEN_TIME_EXCEEDED` when the ETA is over `max_haven_min` (strictly), and `EVA_DURATION_EXCEEDED` when the longest `eva_elapsed_s` of the crew plus the ETA is over `max_eva_duration_h`; both can apply, in that order.
+- Ranking: `expected_dose_ugy` ascending, then `eta_shelter_min`, then `option_id` in code-point order (not `localeCompare`, which depends on the host locale; NFR-06). Ranks are 1..N. Because every option starts at `now_utc` and the rate is not negative, a longer ETA never has a lower dose, so the dose key and the ETA key only differ in how equal doses are ordered.
+- Terrain refuge (T2) is not proposed until TASK-18 adds it.
 
 ### T05b.20 — Verify on the real grid: haven, rendezvous and viewshed vs independent checks; NFR-02 timings
 
