@@ -73,9 +73,7 @@ const standIn = vi.hoisted(() => {
     cell_m: number;
     width: number;
     height: number;
-    origin_m: [number, number];
     seconds: Float64Array;
-    prev: Int32Array;
     from_x_m: number;
     speed_ms: number;
   }
@@ -93,16 +91,7 @@ const standIn = vi.hoisted(() => {
         const t = Math.abs(i * STAND_IN_CELL_M - from_x_m) / speed_ms;
         seconds[i] = t <= limit_s ? t : Infinity;
       }
-      return {
-        cell_m: STAND_IN_CELL_M,
-        width,
-        height: 1,
-        origin_m: [0, 0],
-        seconds,
-        prev: new Int32Array(width).fill(-1),
-        from_x_m,
-        speed_ms,
-      };
+      return { cell_m: STAND_IN_CELL_M, width, height: 1, seconds, from_x_m, speed_ms };
     },
     vehiclePassable(_grid: unknown, _params: unknown): Uint8Array {
       const width = Math.round(s.extent_m / STAND_IN_CELL_M) + 1;
