@@ -70,7 +70,6 @@ describe("T07.01 UI Context and Module Stubs (Contract C10)", () => {
     expect(() => initAddStopMode({} as any, {} as any)).toThrow("TODO(T08.07)");
     expect(() => initWaypointDrag({} as any, {} as any)).toThrow("TODO(T08.08)");
     expect(() => initTouchInput({} as any)).toThrow("TODO(T08.09)");
-    expect(() => createRouteLayer({} as any)).toThrow("TODO(T09.01)");
     expect(() => initMapKeyboard({} as any)).toThrow("TODO(T13.06)");
     expect(() => renderStopsList({} as any, {} as any)).toThrow("TODO(T08.05)");
     expect(() => renderProfileChart({} as any, {} as any)).toThrow("TODO(T09.02)");
