@@ -33,7 +33,11 @@ export const PROTOCOL_VERSION = 1 as const;
 /** Server heartbeat interval and client "HAB LINK LOST" threshold (02 §E.6, FR-32). */
 export const HEARTBEAT_MS = 2000;
 export const LINK_LOST_AFTER_MS = 3000;
-/** Above this many missed events the server sends a fresh SNAPSHOT instead of replaying. */
+/**
+ * Reconnect (02 §E.6, changed 2026-11-07): the server always sends a fresh SNAPSHOT first, then the
+ * EVENTs after the HELLO `last_seq`; above this many missed events it sends the SNAPSHOT only.
+ * Replayed EVENTs are at or below the SNAPSHOT's seq: they fill the event feed, not state.
+ */
 export const MAX_REPLAY_GAP = 1000;
 
 export interface Hello {
