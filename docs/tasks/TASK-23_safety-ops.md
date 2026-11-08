@@ -151,6 +151,37 @@
 - **Agent brief:** Implement the vehicle module until the tests pass.
 - **Conflict notes:** Single owner; `engine/rovers.ts` (T29.03) imports the motion helper and never edits this file.
 
+**Proposed 2026-11-08 — TODO(decision)** (T23.05 implementation notes; Gemini's first version reworked after review and re-review on 8 Nov):
+
+- **Shared dispatch helper** in `vehicles.ts`, used by `handleSummon` and to be reused by T23.07 for APPROVE_OPTION on a VEHICLE_RENDEZVOUS option:
+  `dispatchVehicle(state: EngineState, scenario: LoadedScenario, req: DispatchRequest): DispatchOutcome`, with
+  `DispatchRequest = {crew_ids: readonly string[]; option_id?: string; actor: LogEvent["actor"]}` and
+  `DispatchOutcome = {ok: true; events: PendingEvent[]} | {ok: false; code: RejectCode; message: string}`.
+  It never changes state, and its one VEHICLE_DISPATCHED has no `command_ref` (handleCommand adds it).
+  Checks, in order: INVALID (no pressurized rover; crew not 1–2 distinct known ids; a named crew member already SHELTERED or IN_HAB; unknown option, or crew that differ from the option's), BUSY (the rover is not PARKED, before any compute call), INVALID (the rover's own ParamSet `Vehicle.param_set` is missing, of another kind, or has no `flat_speed_kmh` > 0; no default speed), NO_RENDEZVOUS (no grid, or no candidate for any crew member).
+- `handleSummon` checks the arg types (`crew` a list of strings, `option_id` a string if present), then calls `dispatchVehicle`. A missing PR1 is INVALID, not BUSY.
+- Bound L of 02 §D.10 = `max_haven_min` × 60 s (the 02 §D.8 haven rule; the `crewTimeField` doc in haven.ts).
+- The logged `eta_crew_s` and `eta_vehicle_s` are Math.round of the compute values, so `Vehicle.eta_s` is an int (05 Vehicle). Math.round rather than Math.ceil because T23.04 accepts ±0.5 s.
+  `eta_vehicle_s` is at least 1 s whenever the drive (vehicle position, then the compute `vehicle_path`) has length, so no path is covered in zero time.
+- Two crew: both rendezvous, then `rendezvousPair`; the event carries the first meeting point of the chosen order.
+  If `rendezvousPair` throws (RangeError), the earlier meeting (max of the two ETAs) wins, ties to the first named.
+  If only one of the two has a rendezvous, the vehicle goes to that one: a rover reaching one person in a storm is still useful.
+  TODO(decision): the unreachable crew member is not served, and the event cannot say so because T23.04 pins the VEHICLE_DISPATCHED data keys.
+  TODO(decision): the second meeting is not driven yet.
+- The path is not carried in VEHICLE_DISPATCHED: 05 and `runtime.ts` have no field for it, and T23.04 pins the data keys. `vehiclesTick` rebuilds it on the first tick after the dispatch from logged state only: the vehicle's own position (unchanged since PARKED) and the logged target.
+  It calls compute `rendezvous` with a crew field from the target bounded at 0 s, so the only candidate is the target cell and the result is the same `vehicle_path` the dispatch computed, ending exactly at the target. It never reads the crew's current position, so there is no jump and no straight-line fallback. The cost is one vehicle Dijkstra, down from Gemini's two plus a crew field.
+  Carrying the path in the event would need a 05 / protocol change and a T23.04 change.
+- No path at the DISPATCHED tick, or no logged `eta_s` (a VEHICLE_DISPATCHED without a rendezvous): the vehicle stays DISPATCHED with no path, does not move and logs nothing; the tick retries. TODO(decision): no event kind exists for "cannot go".
+- Motion (`moveAlongPath`, shared with T29.03): `path` holds the vertices still ahead, ending at the target. Speed = remaining path length ÷ `eta_s` × `dt_s` per tick, so the vehicle arrives on tick ceil(`eta_s` ÷ `dt_s`) (within 0.5 s of the compute `eta_vehicle_s` at 1 s steps).
+  This departs from Step 2's "at the ParamSet speed", so that the arrival matches the compute ETA, which includes the slope and terrain costs.
+  `eta_s` counts down as an integer (Math.ceil, never Infinity or NaN). It moves on the DISPATCHED tick as well. With no path or no finite `eta_s` it does not move. With path left and `eta_s` ≤ 0 it neither moves nor arrives (no teleport); a path with no length left arrives at once. Whoever sets `path` sets `eta_s`.
+  On arrival `path` [] and `eta_s` 0, plus one VEHICLE_ARRIVED with provenance `simulated` for `x_m` and `y_m`. The reducer, not the module, sets ARRIVED.
+- STATE_DELTAs: `vehicles/<id>/state`, `x_m`, `y_m`, `path` and `eta_s`, each when it changed. DISPATCHED → EN_ROUTE has no LogEvent kind, so it is a never-logged change plus a delta.
+- Sheltering: `SHELTER_REACH_M = 1` m is the T23.04 TODO(decision) value. CREW_SHELTERED labels both dose fields `simulated`, as tick.ts does for the hab.
+- Tests: [summonReal.test.ts](../../apps/hab-core/tests/summonReal.test.ts) is a Proposed addition outside this subtask's Owns (T23.04 owns `summon.test.ts`). It runs on the real compute and the F9 grids; its only `vi.mock` is a pass-through of `rendezvousPair` that one test makes throw. In `summon.test.ts`, Gemini's `origin_m` / `prev` stand-in edits were reverted; only the `vehiclePassable` mock entry stays.
+- Recorded, not fixed: a bare summon (no option) never shelters anyone, because the reducer sets `task.crew_ids` only from an option and nothing walks the crew to the meeting point. TODO(decision), inherited from T23.04 / T22.06.
+- Recorded, not fixed: re-targeting when the crew move after the summon. TODO(decision).
+
 ### T23.06 — Tests: contingency options, approval and abort
 
 - **Owner:** Sadman Shaharier Mahim (R4 Hab Core)
