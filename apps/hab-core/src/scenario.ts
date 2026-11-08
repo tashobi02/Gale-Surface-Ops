@@ -11,7 +11,8 @@
  */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import os from "node:os";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020, { type ErrorObject, type ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
@@ -84,18 +85,27 @@ export function readScenario(dir: string, site: SiteRef): LoadedScenario {
   return { scenario, dose, earthLink, params, grid: loaded?.grid ?? null, comm: loaded?.comm ?? null };
 }
 
-const GRID_ASSET_KEYS = ["elevation_asset", "slope_p90_asset", "slope_max_asset", "flags_asset", "comm_hab_asset"] as const;
-
 /**
  * Load `<siteDir>` routing grid and hab comm coverage (05 RoutingGrid, §E.3; 02 §E.1). Reads
  * `site-manifest.json` (schema, `site_id`, `data_version`), then every grid asset the manifest names:
  * SHA-256 and dimensions are checked here, array lengths by compute `loadGrid`. All file reads happen
- * here so `@marswalk/compute` stays browser-safe. Throws ScenarioCheckError `site_manifest`,
- * `site_id`, `data_version`, `grid_asset`, `grid_missing`, `grid_sha256` or `grid_dims`.
- * TODO(verify): `loadGrid` wraps the files in host-order typed arrays; the manifest says little-endian
- * (x86 and Apple ARM both are). `loadGrid` checks the TI file only for a multiple of 4 bytes.
+ * here so `@marswalk/compute` stays browser-safe. Throws ScenarioCheckError `grid_endian`,
+ * `site_manifest`, `site_id`, `data_version`, `grid_asset` (unlisted, or a path outside the site
+ * folder), `grid_missing`, `grid_sha256` or `grid_dims`.
+ *
+ * Per asset: `format` is the array's type (f32 elevation and TI, u8 the rest) and `bytes` is the
+ * file length. The five 5 m arrays also have the grid's width and height. The TI sidecar is its own
+ * coarse grid (`ti_cell_m`, 05 RoutingGrid), so only its own width x height x 4 must equal its file
+ * length. TODO(decision): 05 gives no rule tying the TI width/height to `ti_cell_m` and the extent,
+ * so none is enforced; `loadGrid` checks the TI file only for a multiple of 4 bytes.
+ *
+ * `loadGrid` wraps the files in host-order typed arrays and the manifest says little-endian, so a
+ * big-endian host is refused (x86 and Apple ARM are little-endian).
  */
 export function loadSite(siteDir: string, site_id: string, data_version: string): { grid: LoadedGrid; comm: NonNullable<LoadedScenario["comm"]> } {
+  if (os.endianness() !== "LE") {
+    throw new ScenarioCheckError("grid_endian", "site grids are little-endian and this host is big-endian (05 RoutingGrid)");
+  }
   const manifestPath = join(siteDir, "site-manifest.json");
   const manifest = readJsonFile<Site>(manifestPath, "site_manifest");
   check(validators().site, manifest, "site_manifest", manifestPath);
@@ -107,31 +117,50 @@ export function loadSite(siteDir: string, site_id: string, data_version: string)
   }
 
   const meta = manifest.grid;
-  const read = (assetId: string): ArrayBuffer => {
+  const root = resolve(siteDir);
+  const read = (assetId: string, format: "f32" | "u8", onGrid: boolean): ArrayBuffer => {
     const asset = manifest.assets.find((a) => a.asset_id === assetId);
     if (!asset) throw new ScenarioCheckError("grid_asset", `grid asset ${assetId} is not listed in the manifest's assets (05 §E.3)`);
+    const file = resolve(root, asset.path);
+    if (!file.startsWith(root + sep)) {
+      throw new ScenarioCheckError("grid_asset", `grid asset ${assetId}: path ${asset.path} is outside the site folder`);
+    }
     let bytes: Buffer;
     try {
-      bytes = readFileSync(join(siteDir, asset.path));
+      bytes = readFileSync(file);
     } catch {
-      throw new ScenarioCheckError("grid_missing", `grid asset ${assetId}: ${join(siteDir, asset.path)} is missing; run the pipeline or fetch the site bundle`);
+      throw new ScenarioCheckError("grid_missing", `grid asset ${assetId}: ${file} is missing; run the pipeline or fetch the site bundle`);
     }
     if (createHash("sha256").update(bytes).digest("hex") !== asset.sha256) {
       throw new ScenarioCheckError("grid_sha256", `grid asset ${assetId} (${asset.path}) does not match its SHA-256 in the manifest`);
     }
-    if (asset.width !== undefined && asset.height !== undefined && (asset.width !== meta.width || asset.height !== meta.height)) {
-      throw new ScenarioCheckError("grid_dims", `grid asset ${assetId} is ${asset.width}x${asset.height}, the grid is ${meta.width}x${meta.height}`);
+    if (asset.format !== format) {
+      throw new ScenarioCheckError("grid_dims", `grid asset ${assetId} has format ${asset.format}, expected ${format}`);
+    }
+    if (asset.bytes !== undefined && asset.bytes !== bytes.length) {
+      throw new ScenarioCheckError("grid_dims", `grid asset ${assetId} records ${asset.bytes} bytes, its file has ${bytes.length}`);
+    }
+    if (asset.width !== undefined && asset.height !== undefined) {
+      if (onGrid && (asset.width !== meta.width || asset.height !== meta.height)) {
+        throw new ScenarioCheckError("grid_dims", `grid asset ${assetId} is ${asset.width}x${asset.height}, the grid is ${meta.width}x${meta.height}`);
+      }
+      // The TI sidecar has its own size: width x height elements must fill its file.
+      if (!onGrid && asset.width * asset.height * Float32Array.BYTES_PER_ELEMENT !== bytes.length) {
+        throw new ScenarioCheckError("grid_dims", `grid asset ${assetId} is ${asset.width}x${asset.height} but its file has ${bytes.length} bytes`);
+      }
     }
     // An exact copy: a Node Buffer can be a view into a larger pooled ArrayBuffer, so `bytes.buffer` is not the file.
-    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const copy = new Uint8Array(bytes.byteLength);
+    copy.set(bytes);
+    return copy.buffer;
   };
 
-  const elevation = read(meta.elevation_asset);
-  const slopeP90 = read(meta.slope_p90_asset);
-  const slopeMax = read(meta.slope_max_asset);
-  const flags = read(meta.flags_asset);
-  const commHab = read(meta.comm_hab_asset);
-  const ti = meta.ti_asset === undefined ? undefined : read(meta.ti_asset);
+  const elevation = read(meta.elevation_asset, "f32", true);
+  const slopeP90 = read(meta.slope_p90_asset, "u8", true);
+  const slopeMax = read(meta.slope_max_asset, "u8", true);
+  const flags = read(meta.flags_asset, "u8", true);
+  const commHab = read(meta.comm_hab_asset, "u8", true);
+  const ti = meta.ti_asset === undefined ? undefined : read(meta.ti_asset, "f32", false);
   let grid: LoadedGrid;
   try {
     grid = loadGrid(meta, { elevation, slopeP90, slopeMax, flags, commHab, ...(ti === undefined ? {} : { ti }) });
@@ -144,7 +173,8 @@ export function loadSite(siteDir: string, site_id: string, data_version: string)
 /**
  * Crew start at the plan's start waypoint (the hab) and each vehicle at its own `start_*_m`; every
  * start must be on a passable cell (05 §E.7). Crew use the plan's `hard_slope_limit_deg`; a vehicle
- * uses its ParamSet's `hard_slope_deg` (compute `vehiclePassable`). Throws `start_blocked`.
+ * uses its ParamSet's `hard_slope_deg` (compute `vehiclePassable`). Throws `start_missing` (no start
+ * waypoint), `start_blocked`, `param_set_unlisted` or `vehicle_params` (not a rover ParamSet).
  */
 export function checkStarts(scenario: Scenario, params: Record<string, ParamSet>, grid: LoadedGrid): void {
   // cellIndex returns null outside the grid, and NaN (not null) for non-finite coordinates.
@@ -153,11 +183,10 @@ export function checkStarts(scenario: Scenario, params: Record<string, ParamSet>
     return k === null || !Number.isFinite(k) ? null : k;
   };
   const start = scenario.plan.waypoints.find((w) => w.role === "start");
-  if (start) {
-    const k = cellAt(start.x_m, start.y_m);
-    if (k === null || !isCellPassable(grid, k, scenario.plan.scenario.hard_slope_limit_deg)) {
-      throw new ScenarioCheckError("start_blocked", `crew start ${start.id} (${start.x_m}, ${start.y_m}) is not on a passable cell of the site grid (05 §E.7)`);
-    }
+  if (!start) throw new ScenarioCheckError("start_missing", "the plan has no start waypoint, so the crew start cannot be checked (05 §E.7)");
+  const startCell = cellAt(start.x_m, start.y_m);
+  if (startCell === null || !isCellPassable(grid, startCell, scenario.plan.scenario.hard_slope_limit_deg)) {
+    throw new ScenarioCheckError("start_blocked", `crew start ${start.id} (${start.x_m}, ${start.y_m}) is not on a passable cell of the site grid (05 §E.7)`);
   }
   for (const v of scenario.vehicles) {
     const p = params[v.param_set];
@@ -166,7 +195,7 @@ export function checkStarts(scenario: Scenario, params: Record<string, ParamSet>
     try {
       passable = vehiclePassable(grid, p);
     } catch (err) {
-      throw new ScenarioCheckError("start_blocked", `vehicle ${v.vehicle_id}: ParamSet ${v.param_set} cannot give a passability mask: ${(err as Error).message}`);
+      throw new ScenarioCheckError("vehicle_params", `vehicle ${v.vehicle_id}: ParamSet ${v.param_set} cannot give a passability mask: ${(err as Error).message}`);
     }
     const k = cellAt(v.start_x_m, v.start_y_m);
     if (k === null || passable[k] !== 1) {

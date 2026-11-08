@@ -4,11 +4,12 @@
  * temporary folder and breaks one thing; the fixture itself is never edited.
  */
 import { createHash } from "node:crypto";
+import os from "node:os";
 import { cpSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cellIndex, isCellPassable, vehiclePassable } from "@marswalk/compute";
 import type { LogEventData, Scenario, Site } from "@marswalk/protocol";
 import { initialState, reduce, type EngineState } from "../src/engine/reducer";
@@ -434,5 +435,120 @@ describe("the engine on a loaded site grid (T22.11 follow-up)", () => {
     const proposed = r.events.find((e) => e.kind === "OPTIONS_PROPOSED");
     expect(proposed, `events: ${kinds.join(", ")}`).toBeDefined();
     expect((proposed!.data as LogEventData["OPTIONS_PROPOSED"]).options.length).toBeGreaterThan(0);
+  });
+});
+
+// ---- review round (9 Nov): TI sidecar on its own grid, path containment, asset format and bytes, start rules ----
+
+/** Rewrite the TI asset as a coarser grid: `factor` times larger cells, so width/height shrink by `factor` (derived from the manifest). */
+function coarseTi(m: Site, dir: string, factor: number): { width: number; height: number } {
+  const ti = assetOf(m, m.grid.ti_asset!);
+  const width = m.grid.width / factor;
+  const height = m.grid.height / factor;
+  const bytes = Buffer.alloc(width * height * Float32Array.BYTES_PER_ELEMENT);
+  writeFileSync(join(dir, ti.path), bytes);
+  Object.assign(ti, { width, height, bytes: bytes.length, sha256: sha256Bytes(bytes) });
+  m.grid.ti_cell_m = m.grid.cell_m * factor;
+  return { width, height };
+}
+
+describe("loadSite: the TI sidecar is its own coarse grid (05 RoutingGrid ti_asset, ti_cell_m)", () => {
+  it("loads a TI asset whose width and height are not the grid's", () => {
+    let ti = { width: 0, height: 0 };
+    const dir = siteCopy((m, d) => {
+      ti = coarseTi(m, d, 2);
+    });
+    expect(ti.width).toBeLessThan(MOCK.grid.width);
+    const { grid } = loadSite(dir, MOCK.site_id, MOCK.data_version);
+    expect(grid.ti!.length).toBe(ti.width * ti.height);
+    expect(grid.elevation.length).toBe(MOCK.grid.width * MOCK.grid.height);
+  });
+
+  it("rejects a TI asset whose width x height does not match its file", () => {
+    const dir = siteCopy((m, d) => {
+      coarseTi(m, d, 2);
+      assetOf(m, m.grid.ti_asset!).width! += 1;
+    });
+    const err = siteRejection(dir);
+    expect(err.check).toBe("grid_dims");
+    expect(err.message).toContain(MOCK.grid.ti_asset!);
+  });
+});
+
+describe("loadSite: asset paths, format and bytes (review)", () => {
+  it("rejects an asset path that leaves the site folder, relative or absolute", () => {
+    for (const path of ["../outside.u8", join(tmpdir(), "outside.u8")]) {
+      const dir = siteCopy((m) => {
+        assetOf(m, m.grid.flags_asset).path = path;
+      });
+      const err = siteRejection(dir);
+      expect(err.check, path).toBe("grid_asset");
+      expect(err.message).toContain(MOCK.grid.flags_asset);
+    }
+  });
+
+  it("rejects a path into a sibling folder whose name starts with the site folder's", () => {
+    const dir = siteCopy((m, d) => {
+      assetOf(m, m.grid.flags_asset).path = `../${basename(d)}-evil/flags.u8`;
+    });
+    expect(siteRejection(dir).check).toBe("grid_asset");
+  });
+
+  it("rejects an asset whose format is not the array's type", () => {
+    const dir = siteCopy((m) => {
+      Object.assign(assetOf(m, m.grid.flags_asset), { format: "f32", nodata: null }); // as the site schema allows an f32 array
+    });
+    const err = siteRejection(dir);
+    expect(err.check).toBe("grid_dims");
+    expect(err.message).toContain(MOCK.grid.flags_asset);
+  });
+
+  it("rejects an asset whose recorded bytes differ from its file", () => {
+    const dir = siteCopy((m) => {
+      assetOf(m, m.grid.comm_hab_asset).bytes! += 1;
+    });
+    const err = siteRejection(dir);
+    expect(err.check).toBe("grid_dims");
+    expect(err.message).toContain(MOCK.grid.comm_hab_asset);
+  });
+
+  it("refuses to run on a big-endian host (the manifest and typed-array views are little-endian)", () => {
+    const spy = vi.spyOn(os, "endianness").mockReturnValue("BE");
+    try {
+      expect(siteRejection(MOCK_SITE_DIR).check).toBe("grid_endian");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("checkStarts rules (review)", () => {
+  const params = () => ({ "pr1-assumed": JSON.parse(readFileSync(join(fixtureDir, "param_sets", "pr1-assumed.json"), "utf8")) });
+
+  it("a plan without a start waypoint is an error, not a skipped check", () => {
+    const base = fakeScenarioJson();
+    const noStart = { ...base, plan: { ...base.plan, waypoints: base.plan.waypoints.filter((w) => w.role !== "start") } };
+    let err: unknown;
+    try {
+      checkStarts(noStart, params(), loadMock().grid);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(ScenarioCheckError);
+    expect((err as ScenarioCheckError).check).toBe("start_missing");
+  });
+
+  it("a vehicle whose ParamSet is not a rover's has its own reason, not start_blocked", () => {
+    const base = fakeScenarioJson();
+    const suit = JSON.parse(readFileSync(join(fixtureDir, "param_sets", "suit-assumed.json"), "utf8"));
+    let err: unknown;
+    try {
+      checkStarts(base, { "pr1-assumed": suit }, loadMock().grid);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(ScenarioCheckError);
+    expect((err as ScenarioCheckError).check).toBe("vehicle_params");
+    expect((err as ScenarioCheckError).message).toContain(base.vehicles[0]!.vehicle_id);
   });
 });
