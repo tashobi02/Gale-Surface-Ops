@@ -21,7 +21,7 @@ import { readScenario } from "../src/scenario";
 import { loadSession, resumeSession, type SessionHandle } from "../src/session";
 
 vi.mock("../src/engine/tick", async () => {
-  const { reduce } = await vi.importActual<typeof import("../src/engine/reducer")>("../src/engine/reducer");
+  const { logged, reduce } = await vi.importActual<typeof import("../src/engine/reducer")>("../src/engine/reducer");
   return {
     tick(state: EngineState, scenario: unknown, dt_s: number, next_seq: number): TickResult {
       const t_s = (Date.parse(state.session.clock.sim_time) - Date.parse("2024-05-20T00:00:00Z")) / 1000;
@@ -35,7 +35,7 @@ vi.mock("../src/engine/tick", async () => {
       const events = [];
       if (t_s === 30 && ev1.activity === "WALKING") {
         const pending = { sim_time: state.session.clock.sim_time, kind: "ARRIVED_STOP" as const, actor: "system" as const, data: { crew_id: "EV1", stop_id: "wp-1", stop_index: 1 }, provenance: {} };
-        next = reduce(next, { ...pending, seq: next_seq });
+        next = reduce(next, logged(pending, next_seq));
         events.push(pending);
       }
       return { state: next, events, deltas };

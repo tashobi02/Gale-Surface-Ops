@@ -15,7 +15,7 @@
 import { describe, expect, it } from "vitest";
 import type { Command, CommandResult, LogEvent, LogEventData, LogEventKind, Role } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand, type CommandContext } from "../src/commands";
-import { initialState, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
+import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
 import { readScenario } from "../src/scenario";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,7 +34,7 @@ function ctx(state: EngineState, accepted = new AcceptedCommands(), client_id = 
 }
 
 function apply(state: EngineState, kind: LogEventKind, data: LogEventData[LogEventKind], actor: Role | "system" = "system"): EngineState {
-  const event: LogEvent = { seq: state.session.last_seq + 1, sim_time: T0, kind, actor, data: data as Record<string, unknown>, provenance: {} };
+  const event: LogEvent = { seq: state.session.last_seq + 1, sim_time: T0, kind, actor, data: data as Record<string, unknown>, provenance: {}, command_ref: null };
   return reduce(state, event);
 }
 
@@ -171,6 +171,32 @@ describe("handleCommand: results and events (02 §E.6, 05 Command)", () => {
     ]);
   });
 
+  it("PUBLISH_PLAN logs PLAN_REVISED with the whole plan and its waypoints and legs (decided 2026-11-07)", () => {
+    const plan = structuredClone(fake.scenario.plan);
+    const out = handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan }), ctx(loaded));
+    expect(out.result.ok).toBe(true);
+    expect(out.events.map((e) => [e.kind, e.data])).toEqual([
+      ["PLAN_REVISED", { plan_revision: loaded.session.plan_revision + 1, option_id: null, stops_dropped: [], waypoints: plan.waypoints, legs: plan.result.legs, plan }],
+    ]);
+    expect(reduce(loaded, logged(out.events[0], 1)).plan).toEqual(plan);
+  });
+
+  it("rejects PUBLISH_PLAN whose plan_hash does not verify, or that fails the plan schema, with INVALID", () => {
+    const tampered = { ...fake.scenario.plan, waypoints: fake.scenario.plan.waypoints.slice(0, 2) };
+    const out = handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan: tampered }), ctx(loaded));
+    expect(rejected(out.result)).toBe("INVALID");
+    expect((out.result as { message: string }).message).toMatch(/plan_hash/);
+    const noDisclaimer = { ...fake.scenario.plan, disclaimer: undefined };
+    expect(rejected(handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan: noDisclaimer }), ctx(loaded)).result)).toBe("INVALID");
+  });
+
+  it("rejects PUBLISH_PLAN without waypoints or legs with INVALID", () => {
+    const noLegs = { ...fake.scenario.plan, result: { ...fake.scenario.plan.result, legs: undefined } };
+    expect(rejected(handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan: noLegs }), ctx(loaded)).result)).toBe("INVALID");
+    const noWaypoints = { ...fake.scenario.plan, waypoints: undefined };
+    expect(rejected(handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan: noWaypoints }), ctx(loaded)).result)).toBe("INVALID");
+  });
+
   it("LOAD_SCENARIO and JUMP_NEXT_EVENT are accepted with a session effect and no events of their own", () => {
     const load = handleCommand(loaded, cmd("ops", "LOAD_SCENARIO", { scenario_id: "fake-straight-line" }), ctx(loaded));
     expect(load.events).toEqual([]);
@@ -218,7 +244,7 @@ describe("handleCommand: repeated command_id (05 Command, decided 2026-11-07)", 
       { sim_time: T0, kind: "COMMAND_REJECTED", actor: "ops", data: { code: "BUSY", message: "EVA already started" }, provenance: {}, command_ref: { client_id: "c-1", command_id: "k-b" } },
       { sim_time: T0, kind: "LINK_LOST", actor: "system", data: { node_id: "EV1" }, provenance: {}, command_ref: null },
     ];
-    const log: LogEvent[] = pending.map((p, i) => ({ ...p, seq: 10 + i }));
+    const log: LogEvent[] = pending.map((p, i) => logged(p, 10 + i));
     const accepted = AcceptedCommands.fromLog(log);
     expect(accepted.get("c-1", "k-a")).toEqual({ v: 1, type: "COMMAND_RESULT", command_id: "k-a", ok: true, event_seq: 10 });
     expect(accepted.get("c-1", "k-b")).toBeUndefined();
