@@ -1,5 +1,5 @@
 {
-  "offset_m": 1.2,
-  "method": "Zero-mean normalized cross-correlation of 33 m box-high-pass DEM hillshade and mean-RGB ortho on the same 1 m working-projection grid; nine 512 m tiles, +/-64 m search, quadratic peak refinement; median of per-tile hypot(dx,dy), rounded to 0.01 m; provisional, tool-measured, data lead to confirm in a GIS",
-  "evidence": "docs/ops/verification-log.md#t0320--dem-hillshade-vs-ortho-tool-measurement-awaiting-gis-confirmation"
+  "offset_m": 1.92,
+  "method": "Median of 36 accepted per-tile displacement magnitudes pooled across three independent algorithms: 33 m high-pass ZNCC (nine 512 m tiles, 1 m grid), multi-scale gradient-magnitude FFT phase correlation (1 m and 2 m grids, original nine plus nine fixed offset tiles; one combined vector per tile), and symmetric Sobel-edge distance-transform chamfer search (+/-10 m). Predeclared input, boundary and quality rejection; rounded to 0.01 m; IQR and full methods in evidence; tool-confirmed by three independent methods (decided by the orchestrating session under the data lead's delegation, 2026-11-08); not GIS-checked",
+  "evidence": "docs/ops/verification-log.md#t0320--dem-hillshade-vs-ortho-offset-confirmed-by-three-tool-methods"
 }
