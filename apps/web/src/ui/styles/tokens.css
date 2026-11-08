@@ -193,6 +193,11 @@
   --status-advisory: var(--hud-advisory);
   --status-unknown: var(--hud-text-2);
   --focus-ring: none;
+  /* HUD typography & sizing tokens (04 §C.1, 04 §E.6, NFR-04) */
+  --font-hud: var(--font-mono);
+  --text-hud-min: 48px;
+  --text-hud-max: 72px;
+  --text-value-hud-default: var(--text-value-hud);
   color-scheme: dark;
 }
 
