@@ -285,6 +285,20 @@ T23.03 `havenTick` consumes `liveHaven` from `haven.ts` (frozen in this PR; plea
 - **Agent brief:** Implement `rendezvous.ts` until the tests pass; deterministic tie-breaks only.
 - **Conflict notes:** Single owner.
 
+**Proposed 2026-11-08 — TODO(decision)** (T05b.07 implementation notes; the items from the `vehicle_path` end point onward are the review decisions of 8 Nov):
+
+- `passable` mask length validation: `passable.length` must equal `crew.seconds.length` (the 5 m routing grid size); throws `RangeError` on mismatch.
+- Path orientation: `crew_path` and `vehicle_path` reverse the back-pointer array returned by `pathTo(field, x_m, y_m)`, so that each path runs forward from its start position to the meeting cell `q*`.
+- Vehicle arrival time at meeting cell: `eta_vehicle_s` is evaluated via `timeAt(vehicle, qx, qy)` on the 10 m vehicle time field.
+- `rendezvousPair` later arrival definition (02 §D.10 silent): For visiting order `[0, 1]`, vehicle arrives at A's rendezvous point and both crew A and vehicle are present at `t_first = max(a.eta_vehicle_s, a.eta_crew_s)`. The vehicle then travels from A's point to B's meeting point with transit time `timeAt(vehicleFromA, b.x_m, b.y_m)`, arriving at `t_veh = t_first + transit`. The rendezvous at B occurs when both vehicle and crew B are present: `later_arrival_s = max(t_veh, b.eta_crew_s)`. When both `[0, 1]` and `[1, 0]` produce equal `later_arrival_s`, the tie rule deterministically selects `[0, 1]`.
+- `vehicle_path` ends at q*: the vehicle walk ends at the centre of the 10 m parent cell, up to about 3.5 m from q* on a 5 m crew grid, so the exact point (`x_m`, `y_m`) is appended as the last vertex unless it already is the last centre. The first vertex stays the centre of the vehicle's 10 m cell (up to half a cell from the vehicle position); this is documented on the result type. T23.05 relies on the path ending at the target (`SHELTER_REACH_M` = 1 m). Decision by the orchestrating session.
+- `rendezvousPair` throws `RangeError` when any of the four arrival times is not finite, when a transit time is NaN, or when both visiting orders are unreachable (both transits `Infinity`); with only one order unreachable the other wins. The result is therefore always JSON-safe. A caller that gets the error falls back to two separate rendezvous. Decision by the orchestrating session.
+- `rendezvous` also throws `RangeError` when a field is internally inconsistent (`cell_m` not a finite number above 0; `width`, `height` not positive integers; `seconds` or `prev` length not `width x height`). The mask is a bare `Uint8Array`, so its length against the crew cell count is the only mask check; the vehicle field's frame (a 10 m aggregate over the same origin) cannot be compared with the mask.
+- A cyclic back-pointer chain (a corrupt field) makes `pathTo` return an empty path; `rendezvous` passes that through, so `status` stays "OK" with an empty `crew_path` or `vehicle_path` (documented, pinned by a test) rather than returning `NO_RENDEZVOUS`. Proposed; revisit if the Hab Core wants a hard failure.
+- `rendezvous` and `rendezvousPair` left the stub list in `packages/compute/tests/contracts.test.ts` (outside this subtask's Owns, as T05b.04 did for `haven.ts`).
+- Duplicate helper: `centreOfCell` in `rendezvous.ts` copies the private one in `haven.ts` (T05b.04); `haven.ts` is not edited here. TODO(verify): export one of them after both branches are on main.
+- TODO(decision) for the 02 §D.10 owner: the tie-break "min T_c, then cell index" leaves a band of foot cells tied on the ridge fixture (the crew time alternates with the row parity, so rows 0, 20, 100, -100 m and others tie with the foot row y = 0 at 10 m), and the lowest index is the north-most of them (y = 100 m at 10 m, 50 m at 5 m), although the vehicle would reach the foot row y = 0 sooner. Should `T_v` break the tie before the cell index? The code and tests keep the spec text as written.
+
 ### T05b.08 — Tests: line of sight, curvature and dynamic viewshed (02 §D.11)
 
 - **Owner:** Anjim Hossain (R2/R4 float)
