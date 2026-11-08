@@ -32,6 +32,11 @@
  *   point, so the crew hold there and vehiclesTick shelters them in the vehicle when it arrives.
  * - APPROVE_OPTION dispatches through T23.05's `dispatchVehicle` with the option's own rendezvous
  *   (precomputed, logged verbatim); the reducer keeps `Vehicle.eta_s` an integer (Math.ceil).
+ * - Final round (orchestrator decisions, 8 Nov): S5 holds a crew member for the vehicle only while a
+ *   rover's SUMMON task names them and they ended off the start waypoint; otherwise a route ending at
+ *   the start waypoint shelters in the hab as before. A compute RangeError never stops the engine:
+ *   no vehicle option if the vehicle side throws, no options if the hab side throws; NO_RENDEZVOUS
+ *   from dispatchVehicle.
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -123,7 +128,7 @@ const ALERT_ID = alerted.alerts[0]!.alert_id;
 
 /** The oracle: the inputs 02 §D.15 needs, built here from compute and the fixture alone. */
 function oracleInputs(state: EngineState): ContingencyInputs {
-  const scen = plan.scenario;
+  const scen = (state.plan ?? plan).scenario;
   const L = scen.max_haven_min * 60;
   const crew = state.crew.filter((c) => c.activity === "WALKING" || c.activity === "AT_STOP");
   const pr = state.vehicles.find((v) => v.vehicle_id === PR.vehicle_id)!;
@@ -439,5 +444,94 @@ describe("dispatchVehicle with a precomputed rendezvous", () => {
     const s = withCrew(proposed(), "EV2", { activity: "SHELTERED" });
     const out = handleCommand(s, cmd("ops", "APPROVE_OPTION", { option_id: optionOf("VEHICLE_RENDEZVOUS").option_id }), cctx(s));
     expect(out.result).toMatchObject({ ok: false, code: "INVALID" });
+  });
+});
+
+// ---- final round: S5 without a vehicle task, compute RangeErrors, the two pinned mutants -----------------
+
+describe("tick rule S5: a loop ending off the start waypoint still shelters in the hab unless a vehicle is coming", () => {
+  /** The fake plan with its last (loop) leg ending 3 × SHELTER_REACH_M east of the start waypoint (a declared offset). */
+  function offLoop(): EngineState {
+    const s = apply(initialState(fake, "s-0001"), "EVA_STARTED", { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, "ops");
+    const legs = s.plan!.result.legs.map((l, i, all) => {
+      if (i !== all.length - 1 || l.status !== "OK") return l;
+      const g = l.geometry.map(([x, y]) => [x, y] as [number, number]);
+      g[g.length - 1] = [START.x_m + 3 * SHELTER_REACH_M, START.y_m];
+      return { ...l, geometry: g };
+    });
+    return { ...s, plan: { ...s.plan!, result: { ...s.plan!.result, legs } } };
+  }
+  function runFake(start: EngineState, dt: number, max: number): PendingEvent[] {
+    let s = start;
+    const events: PendingEvent[] = [];
+    for (let k = 0; k < max && s.session.status === "RUNNING"; k++) {
+      const stepped = at(s, new Date(Date.parse(s.session.clock.sim_time) + dt * 1000).toISOString().replace(".000Z", "Z"));
+      const r = tick(stepped, fake, dt, stepped.session.last_seq + 1);
+      events.push(...r.events);
+      s = r.state;
+    }
+    return events;
+  }
+
+  it("with no vehicle task, both crew shelter in the hab and the EVA ends", () => {
+    const events = runFake(offLoop(), 30, 600);
+    expect(sheltered(events).map((d) => [d.crew_id, d.haven_kind]).sort()).toEqual([
+      ["EV1", "hab"],
+      ["EV2", "hab"],
+    ]);
+    expect(events.some((e) => e.kind === "EVA_ENDED")).toBe(true);
+  });
+
+  it("a crew member named by a dispatched rover's SUMMON task holds instead; the other shelters in the hab", () => {
+    const s0 = offLoop();
+    const s = withPr(s0, { state: "DISPATCHED", task: { kind: "SUMMON", target: { x_m: START.x_m, y_m: START.y_m }, crew_ids: ["EV1"] } });
+    const events = runFake(s, 30, 600);
+    expect(sheltered(events).map((d) => [d.crew_id, d.haven_kind])).toEqual([["EV2", "hab"]]);
+  });
+});
+
+describe("compute RangeErrors never stop the engine", () => {
+  const FAR = 1e7; // far outside any grid: a declared position, not a science number
+
+  it("hab off the grid: no options and no events, no throw", () => {
+    const s = { ...alerted, plan: { ...alerted.plan!, waypoints: alerted.plan!.waypoints.map((w) => (w.role === "start" ? { ...w, x_m: FAR } : w)) } };
+    expect(() => contingencyTick(s, tctx(s))).not.toThrow();
+    expect(contingencyTick(s, tctx(s)).events).toEqual([]);
+  });
+
+  it("rover off the grid: options without a vehicle rendezvous", () => {
+    const s = withPr(alerted, { x_m: FAR });
+    const { options } = dataOf(contingencyTick(s, tctx(s)).events, "OPTIONS_PROPOSED");
+    expect(options.map((o) => o.kind)).not.toContain("VEHICLE_RENDEZVOUS");
+    expect(options.map((o) => o.kind)).toContain("ABORT_TO_HAB");
+  });
+
+  it("malformed rover ParamSet (flat_speed_kmh not > 0): options without a vehicle rendezvous", () => {
+    const bad: LoadedScenario = { ...sc, params: { ...sc.params, [PR.param_set]: { ...PR_PARAMS, values: { ...PR_PARAMS.values, flat_speed_kmh: -1 } } } };
+    const { options } = dataOf(contingencyTick(alerted, tctx(alerted, bad)).events, "OPTIONS_PROPOSED");
+    expect(options.map((o) => o.kind)).not.toContain("VEHICLE_RENDEZVOUS");
+    expect(options.length).toBeGreaterThan(0);
+  });
+
+  it("dispatchVehicle maps a compute RangeError (rover off the grid) to NO_RENDEZVOUS", () => {
+    const s = withPr(alerted, { x_m: FAR });
+    expect(dispatchVehicle(s, sc, { crew_ids: ["EV1"], actor: "ops" })).toMatchObject({ ok: false, code: "NO_RENDEZVOUS" });
+  });
+});
+
+describe("pinned rules (surviving mutants of the review)", () => {
+  it("a cleared warning gets no OPTIONS_PROPOSED", () => {
+    const cleared = apply(alerted, "ALERT_CLEARED", { alert_id: ALERT_ID });
+    expect(contingencyTick(cleared, tctx(cleared)).events).toEqual([]);
+  });
+
+  it("the crew field is bounded at max_haven_min x 60 s: with a bound that cuts it, the rendezvous moves", () => {
+    // max_haven_min = 2 is a declared scenario input, chosen below the unbounded meeting time.
+    const tight = { ...alerted, plan: { ...alerted.plan!, scenario: { ...alerted.plan!.scenario, max_haven_min: 2 } } };
+    const { options } = dataOf(contingencyTick(tight, tctx(tight)).events, "OPTIONS_PROPOSED");
+    expect(options).toEqual(proposeOptions(oracleInputs(tight)));
+    const rv = options.find((o) => o.kind === "VEHICLE_RENDEZVOUS")?.rendezvous ?? null;
+    expect(rv).not.toEqual(optionOf("VEHICLE_RENDEZVOUS").rendezvous);
+    expect(optionOf("VEHICLE_RENDEZVOUS").rendezvous!.eta_crew_s).toBeGreaterThan(tight.plan.scenario.max_haven_min * 60);
   });
 });
