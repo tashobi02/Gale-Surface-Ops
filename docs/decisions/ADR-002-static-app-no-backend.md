@@ -22,3 +22,11 @@ FastAPI if browser routing p95 > 2 s.
 ## Resolution path
 
 - 02 Unresolved table: "Keep static unless TASK-05 router benchmark > 2 s p95".
+
+## Outcome (2026-11-08)
+
+D-02 benchmark measurement recorded by T05.28:
+
+- **Evidence:** `packages/compute/tests/realGrid.test.ts` measured 20 seeded pairs inside the AOI (p50 = 1.22 ms, p95 = 8.79 ms) and a 4-leg 3-stop loop route through the compute worker (10.19 ms) on Node.js v22.18.0 (Windows x64). Full log in [verification-log.md](../ops/verification-log.md#t0528--verify-on-the-real-grid-10-sampled-cells-20-pairs-p50p95-3-stop-loop--2-s).
+- **Result:** p95 is 8.79 ms ≪ 2.0 s threshold (NFR-02 compliant).
+- **Decision:** Confirmed static Web Worker routing. Fallback T05.31 (FastAPI `/route` backend) is **not triggered**. Signed off for the compute lane by Mishkat Ahmed Khan.
