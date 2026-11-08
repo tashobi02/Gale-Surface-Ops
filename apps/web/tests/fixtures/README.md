@@ -108,3 +108,33 @@ The fixture is `packages/compute/tests/fixtures/v2grids.ts`, with a self-check i
 The source of every non-placeholder value, and every choice marked Proposed, is in the table in the header comment of
 `v2grids.ts`; this section only points to it so that the fixture value rule of
 [_coordination.md §e](../../../../docs/tasks/_coordination.md#e-fixtures-and-mocks) finds it from here.
+
+## F6 — Mars24 reference values
+
+`apps/web/tests/fixtures/mars24-reference.json` provides deterministic Mars24 reference
+values generated with the Python `marstime` package for compute core unit tests and validation
+cases (contract C8). Implemented by T06.02 (FR-11, 02 §D.5).
+
+Rebuild from the worktree root:
+
+```sh
+python pipeline/tests/fixtures/make_mars24_reference.py
+```
+
+Per the fixture value rule (`CLAUDE.md` §2, ADR-006), no output number is typed by hand;
+all values are computed by `marstime` from the declared synthetic site coordinates and
+spec-derived reference timestamps.
+
+| Field / Value | Source |
+| --- | --- |
+| Site coordinates (`lat: -4.70`, `lon_e: 137.38`) | [05 §F.1](../../../../docs/specs/05_Backend_and_Database_Schema.md#f1-site-manifest-abridged-aoi-values-illustrative-until-task-01) `crs.proj4` center (`+lat_ts=-4.70`, `+lon_0=137.38`), declared synthetic |
+| West longitude (`lon_w: 222.62`) | [02 §C.4.1](../../../../docs/specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly): `west = (360 - east) mod 360` passed to `marstime` |
+| Timestamp `2026-11-14T08:00:00Z` | [02 §E.2](../../../../docs/specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) and [05 §F.3](../../../../docs/specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok) `eva_start_utc` example |
+| Timestamp `2026-11-14T12:00:00Z` | High-sun sample on the same EVA sol (midday elevation check) |
+| Timestamp `2024-05-18T06:00:00Z` | Sol 4190 solar storm scenario start instant (`scenarios/storm-sol4190/`) |
+| Timestamp `2012-08-06T05:17:57Z` | MSL Curiosity touchdown instant at Gale Crater (historic landing epoch) |
+| Mars Sol Date (`msd`), Areocentric longitude (`ls_deg`), Mars Year (`mars_year`), Equation of Time (`equation_of_time_deg`) | Computed directly by `marstime.Mars_Solar_Date`, `Mars_Ls`, `Mars_Year`, and `equation_of_time` from J2000 offset TT |
+| Local True Solar Time (`ltst`, `ltst_hours`) | Computed by `marstime.Local_True_Solar_Time(lon_w, j2000_ott)` |
+| Solar elevation (`solar_elevation_deg`) | Computed by `marstime.solar_elevation(lon_w, lat, j2000_ott)` |
+| Solar azimuth (`solar_azimuth_marstime_deg`, `solar_azimuth_standard_deg`) | `marstime.solar_azimuth` and Allison & McEwen 2000 Eq. 41 using radian latitude |
+| Sunrise and sunset (`sunrise_utc`, `sunset_utc`, `sunrise_ltst`, `sunset_ltst`) | Derived by bisection of elevation zero crossings on a flat horizon ($0^\circ$) for the sol containing the timestamp |
