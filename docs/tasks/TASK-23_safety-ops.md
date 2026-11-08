@@ -247,10 +247,20 @@
 - **Finite options.** Options with a non-finite number are dropped and the rest re-ranked 1..n (defensive; compute already drops them).
 - **New leg.** `walk_time_min` excludes ingress: ETA − `HAB_INGRESS_S`, or `rendezvous.eta_crew_s` for VEHICLE_RENDEZVOUS. `distance_m` = polyline length in projected metres. `cell_path_length` = the vertex count of `path_preview`.
   That count is the cell count for ABORT_TO_HAB and VEHICLE_RENDEZVOUS, but not for CONTINUE_SKIP, whose path is display geometry. TODO(decision).
-- **Blocked: climb, descent, max slope and profile.** These can't be derived. Compute `toLeg` and `sampleProfile` are TASK-05 stubs, and slope or elevation sampling may not live in hab-core (CLAUDE.md §2).
-  For now they are 0 and an empty profile, labelled `assumed` in the PLAN_REVISED provenance. Replace this once TASK-05 lands.
+- **Climb, descent, max slope and profile** (Proposed 2026-11-09 — TODO(decision); replaces the 8 Nov "blocked" note). `buildPlanRevision` (run on approval and abort, never per tick) keeps `geometry`, `walk_time_min` and `distance_m` as above and takes only these four fields from compute. The Hab Core does no slope or elevation maths (CLAUDE.md §2):
+  - **ABORT_TO_HAB and VEHICLE_RENDEZVOUS:** `path_preview` is a cell-centre path from `pathTo`. Its vertices go through `cellIndex` (repeats collapsed) into `toLeg(grid, from, to, {status: "OK", cells}, scenario)`; the four fields are copied.
+    A vertex outside the grid (`cellIndex` gives `null`, or NaN for a NaN coordinate) or an empty path keeps 0 and an empty profile, labelled `assumed`.
+  - **Contained metrics step** (Proposed 2026-11-09 — TODO(decision), review decision): a display-metric problem never blocks a safety command. Zeros and an empty profile, all four labelled `assumed`, for that leg only, and the revision proceeds normally, when:
+    - a value is non-finite (bilinear elevation next to no-data);
+    - `toLeg` or `sampleProfile` throws any error;
+    - the path guard fails. Options carry no field, so the "field `cell_m`" check is indirect: if `toLeg`'s `distance_m` differs from the path's own length, its vertices are not the centres of this grid's cells (a field of another `cell_m` or origin). The check is approximate: a straight path with half-cell steps happens to map onto a same-length run of centres and passes.
+    Only the metrics step is contained: errors in the geometry, legs or waypoints still surface.
+  - **What the numbers cover.** For ABORT_TO_HAB and VEHICLE_RENDEZVOUS, `profile`, `climb_m`, `descent_m` and `max_slope_deg` cover `path_preview` only. `distance_m` and `geometry` also include the final hop to the start waypoint (at most about one cell) for a hab-bound leg. For CONTINUE_SKIP, `profile` is derived from the display polyline while climb, descent and max slope are assumed 0.
+  - **No grid at approval** (`scenario.grid` null): the revision fails, INVALID. This is the only rejection left: options only exist when a tick had a grid.
+  - **CONTINUE_SKIP:** `path_preview` is a display polyline, not a cell path. `profile` = `sampleProfile(grid, geometry, caution_slope_deg, hard_slope_limit_deg)`, labelled `derived`. `climb_m`, `descent_m` and `max_slope_deg` stay 0, labelled `assumed`.
+    TODO(decision), request to TASK-05 (Mishkat Ahmed Khan, `packages/compute`): a helper that maps a polyline to the grid cells it crosses (for example `cellsAlongPath(grid, polyline)`), so `toLeg` can serve CONTINUE_SKIP too. Until then these three numbers are the only gap of T23.07.
 - **Provenance.** OPTIONS_PROPOSED labels `data.options.eta_shelter_min`, `data.options.expected_dose_ugy` and `data.options.rendezvous` `modelled` (05). VEHICLE_DISPATCHED labels `data.rendezvous` `modelled`.
-  PLAN_REVISED labels the new leg by index: `data.legs.<i>.walk_time_min` `modelled`, `distance_m` `derived`, and the three blocked metrics `assumed`.
+  PLAN_REVISED labels the new leg by index: `data.legs.<i>.walk_time_min` `modelled`, `distance_m` `derived`, and `climb_m`, `descent_m`, `max_slope_deg` and `profile` `derived` when they come from compute. `assumed` remains only where there is no derivable value: CONTINUE_SKIP's three scalars, and a leg whose result was not finite or whose path left the grid.
 - **APPROVE_OPTION for VEHICLE_RENDEZVOUS** calls T23.05's `dispatchVehicle` with the option's own point as a precomputed `rendezvous` (orchestrator decision, 8 Nov).
   This edits `vehicles.ts`, which belongs to T23.05 (same owner). A new optional `DispatchRequest.rendezvous` skips the compute call and is logged verbatim, after the same INVALID, BUSY and ParamSet checks; a non-finite or negative value is INVALID.
   T23.06 asserts the verbatim point, and the vehicle target stays on the crew route. The local dispatch copy is deleted.
@@ -272,8 +282,8 @@
 - **Shared path for two crew.** TODO(decision): `path_preview` is crew[0]'s, so under rule S7 EV2 snaps onto EV1's path. The leg's walk time is the slowest member's (the option's ETA).
 - **CONTINUE_SKIP path.** The return leg follows the planned legs (compute's `remainingPlan`), so it passes the dropped stops' places, but with no waypoint there it has no dwell and no ARRIVED_STOP. TODO(decision) for the compute owner.
 - **Warning alerts only.** TODO(decision): an O₂ or buddy warning also gets radiation-style options; 02 §D.15 does not restrict this.
-- **Tests.** The new [contingencyOpsReal.test.ts](../../apps/hab-core/tests/contingencyOpsReal.test.ts) runs 36 tests on the real compute and the F9 `havenFlat` grid, including whole-`tick()` runs of a rendezvous (vehicle shelter) and an abort (hab shelter), and `dispatchVehicle` with a precomputed point.
-  In `contingencyOps.test.ts` only the fixture and mock shape changed (a stand-in grid and a `vehiclePassable` mock); no assertion changed.
+- **Tests.** The new [contingencyOpsReal.test.ts](../../apps/hab-core/tests/contingencyOpsReal.test.ts) runs 36 tests on the real compute and the F9 `havenFlat` grid (tilted 5° since 9 Nov so climb, descent and slope are not 0; 18 more tests cover the revised leg's metrics), including whole-`tick()` runs of a rendezvous (vehicle shelter) and an abort (hab shelter), and `dispatchVehicle` with a precomputed point.
+  In `contingencyOps.test.ts` only the fixture and mock shape changed (a stand-in grid, a `vehiclePassable` mock, and since 9 Nov `cellIndex`, `toLeg` and `sampleProfile` mocks); no assertion changed.
 
 ### T23.08 — Verify: killer demo steps 0:30–1:10 run headless (M3)
 
@@ -294,7 +304,7 @@
   - Serves: FR-38, FR-40, FR-44 · [06 §C.2](../specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) TASK-23 done-when
   - The test passes headless; the event order matches 01 §E.1.
 - **Verify:** `npm --workspace @marswalk/hab-core test -- killerDemo` (skips without the real scenario).
-- **Blocker (Proposed 2026-11-08 — TODO(decision)):** the T23.07 revised leg's `climb_m`, `descent_m`, `max_slope_deg` and `profile` are 0 and labelled `assumed` until TASK-05 `toLeg`/`sampleProfile` land. They must be real before the headless demo check and the video.
+- **Blocker (Proposed 2026-11-08, updated 2026-11-09 — TODO(decision)):** the revised leg's `climb_m`, `descent_m`, `max_slope_deg` and `profile` are now real (compute `toLeg`) for ABORT_TO_HAB and VEHICLE_RENDEZVOUS, so the demo's legs carry real numbers. Only CONTINUE_SKIP's `climb_m`, `descent_m` and `max_slope_deg` still wait (0, `assumed`) for a TASK-05 polyline-to-cells helper. The killer demo [01 §E.1](../specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video) and [docs/ops/demo-script.md](../ops/demo-script.md) never use CONTINUE_SKIP (options at 0:30 are abort to hab and rover rendezvous; the crew summon the rover at 0:40), so this gap does not block T23.08 or the video.
 - **Agent brief:** Script the demo's commands and assert the event order; never change the scenario to make it pass.
 - **Conflict notes:** New test file; append-only log.
 

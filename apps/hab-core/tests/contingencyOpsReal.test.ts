@@ -8,8 +8,8 @@
  * shielding, positions, `pair`) or what it does with a null grid. Here compute is the real one; the
  * only hook is a pass-through on `proposeOptions` that records its inputs and, for one test, adds a
  * non-finite option. The grid is the synthetic F9 `havenFlat` fixture
- * (`packages/compute/tests/fixtures/v2grids.ts`), whose hab is at the origin like the fake scenario's
- * start waypoint. Expected values come from the same compute functions (the oracle), the fixture
+ * (`packages/compute/tests/fixtures/v2grids.ts`) tilted 5° (see `tilted` below), whose hab is at the
+ * origin like the fake scenario's start waypoint. Expected values come from the same compute functions (the oracle), the fixture
  * scenario, or `HAB_INGRESS_S`; nothing is typed in as a science number.
  *
  * Rules checked here (TASK-23 T23.07, Proposed 2026-11-08):
@@ -42,15 +42,19 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  cellIndex,
   crewTimeField,
   habTimeField,
   HAB_INGRESS_S,
   proposeOptions,
   rendezvous,
   rendezvousPair,
+  sampleProfile,
+  toLeg,
   vehiclePassable,
   vehicleTimeField,
   type ContingencyInputs,
+  type LoadedGrid,
   type RendezvousOk,
 } from "@marswalk/compute";
 import type { Command, ContingencyOption, CrewId, LogEvent, LogEventData, LogEventKind, OkLeg, Role, Vehicle } from "@marswalk/protocol";
@@ -67,6 +71,11 @@ import { havenFlat } from "../../../packages/compute/tests/fixtures/v2grids";
 const hook = vi.hoisted(() => ({
   calls: [] as unknown[],
   extra: null as null | ((options: unknown[]) => unknown[]),
+  /** Cell lists handed to `toLeg` (T23.07 follow-up). */
+  toLegCells: [] as number[][],
+  /** When set, `toLeg` / `sampleProfile` throw it (a forced compute failure). */
+  toLegThrows: null as null | Error,
+  sampleProfileThrows: null as null | Error,
 }));
 vi.mock("@marswalk/compute", async () => {
   const actual = await vi.importActual<typeof import("@marswalk/compute")>("@marswalk/compute");
@@ -77,19 +86,54 @@ vi.mock("@marswalk/compute", async () => {
       const out = actual.proposeOptions(inputs);
       return hook.extra ? hook.extra(out) : out;
     },
+    toLeg: (...args: Parameters<typeof actual.toLeg>) => {
+      const search = args[3];
+      if (search.status === "OK") hook.toLegCells.push([...search.cells]);
+      if (hook.toLegThrows) throw hook.toLegThrows;
+      return actual.toLeg(...args);
+    },
+    sampleProfile: (...args: Parameters<typeof actual.sampleProfile>) => {
+      if (hook.sampleProfileThrows) throw hook.sampleProfileThrows;
+      return actual.sampleProfile(...args);
+    },
   };
 });
 beforeEach(() => {
   hook.calls.length = 0;
   hook.extra = null;
+  hook.toLegCells.length = 0;
+  hook.toLegThrows = null;
+  hook.sampleProfileThrows = null;
 });
 
 // ---- scenario and states ----------------------------------------------------------------------------------
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
-/** Coarser than the 5 m default only to keep the Dijkstra runs short; the shape is the same. */
-const grid = havenFlat(10).grid;
+/**
+ * The F9 `havenFlat` shape at 10 m (coarser than the 5 m default only to keep the Dijkstra runs short), tilted
+ * for the leg-metric tests (T23.07 follow-up, 9 Nov): elevation = x · tan(5°) at each cell centre, and the slope
+ * bands encoded from it with the 05 ×4 u8 rule. On the flat grid every climb, descent and slope is 0, so
+ * "0 === 0" would prove nothing. 5° is below the fake plan's caution limit (10°) and hard limit (15°), so
+ * routes stay the F9 straight lines. A declared test shape, not a science value.
+ */
+const TILT_DEG = 5;
+function tilted(base: LoadedGrid): LoadedGrid {
+  const { width, height, cell_m, origin_m } = base.meta;
+  const g: LoadedGrid = { ...base, elevation: new Float32Array(base.elevation), slopeP90: new Uint8Array(base.slopeP90), slopeMax: new Uint8Array(base.slopeMax) };
+  const rise = cell_m * Math.tan((TILT_DEG * Math.PI) / 180);
+  const slopeU8 = Math.round(((Math.atan(rise / cell_m) * 180) / Math.PI) * 4);
+  for (let i = 0; i < height; i++) {
+    for (let j = 0; j < width; j++) {
+      const k = i * width + j;
+      g.elevation[k] = ((origin_m[0] + (j + 0.5) * cell_m) / cell_m) * rise;
+      g.slopeP90[k] = slopeU8;
+      g.slopeMax[k] = slopeU8;
+    }
+  }
+  return g;
+}
+const grid = tilted(havenFlat(10).grid);
 const sc: LoadedScenario = { ...fake, grid };
 const plan = sc.scenario.plan;
 const START = plan.waypoints.find((w) => w.role === "start")!;
@@ -400,8 +444,10 @@ describe("a hab-bound leg ends on the start waypoint (so S5 can shelter it in th
     const base = proposed();
     const abort = base.options.find((o) => o.kind === "ABORT_TO_HAB")!;
     const last = abort.path_preview[abort.path_preview.length - 1]!;
-    // A cell centre offset from the waypoint by more than the reach (a declared test input, not science).
-    const off: [number, number] = [last[0] + 3 * SHELTER_REACH_M, last[1]];
+    // The neighbouring cell centre, farther from the waypoint than the reach (a declared test input, not science).
+    // It stays on the grid's cell centres, which the leg-metric guard (T23.07 follow-up) requires.
+    const off: [number, number] = [last[0] + grid.meta.cell_m, last[1]];
+    expect(grid.meta.cell_m).toBeGreaterThan(SHELTER_REACH_M);
     const s = { ...base, options: base.options.map((o) => (o === abort ? { ...o, path_preview: [...o.path_preview.slice(0, -1), off] } : o)) };
     const leg = newLeg(handleCommand(s, cmd("ops", "APPROVE_OPTION", { option_id: abort.option_id }), cctx(s)).events);
     expect(leg.geometry[leg.geometry.length - 2]).toEqual(off);
@@ -554,5 +600,232 @@ describe("pinned rules (surviving mutants of the review)", () => {
     const rv = options.find((o) => o.kind === "VEHICLE_RENDEZVOUS")?.rendezvous ?? null;
     expect(rv).not.toEqual(optionOf("VEHICLE_RENDEZVOUS").rendezvous);
     expect(optionOf("VEHICLE_RENDEZVOUS").rendezvous!.eta_crew_s).toBeGreaterThan(tight.plan.scenario.max_haven_min * 60);
+  });
+});
+
+// ---- T23.07 follow-up (9 Nov): climb, descent, max slope and profile of the revised leg ------------------------
+
+/**
+ * Proposed 2026-11-09 — TODO(decision), listed in TASK-23 under T23.07. The new leg keeps today's `geometry`,
+ * `walk_time_min` and `distance_m` (T23.06 and ops depend on them); only `climb_m`, `descent_m`,
+ * `max_slope_deg` and `profile` come from compute, and the Hab Core does no slope or elevation maths:
+ * - ABORT_TO_HAB and VEHICLE_RENDEZVOUS: `path_preview` is a cell-centre path, so its cells go to `toLeg`
+ *   and the four fields are copied; labelled `derived`.
+ * - CONTINUE_SKIP: `path_preview` is a display polyline, not a cell path. `profile` is `sampleProfile` of it
+ *   (`derived`); climb, descent and max slope stay 0, `assumed`, until TASK-05 offers a polyline-to-cells helper.
+ * - A non-finite result (elevation next to no-data) keeps zeros and an empty profile, all `assumed`, for that
+ *   leg only: a display metric never blocks a safety abort.
+ * - No grid at approval: INVALID, the only rejection (options exist only when a tick had a grid).
+ * - The metrics are a contained step (decided 9 Nov, review): a path not on the grid's cell centres (a field
+ *   of another `cell_m`: `toLeg`'s distance differs from the path's own length), an error thrown by
+ *   `toLeg` / `sampleProfile`, or a non-finite value gives 0 and an empty profile, all `assumed`, and
+ *   the revision proceeds: a display metric never blocks a safety command.
+ * Expected values are compute's own `toLeg` / `sampleProfile` on the same inputs, never typed numbers.
+ */
+describe("the revised leg's climb, descent, max slope and profile (T23.07 follow-up; 05 Leg)", () => {
+  const approve = (kind: ContingencyOption["kind"], s: EngineState = proposed(), scenario: LoadedScenario = sc) =>
+    handleCommand(s, cmd("ops", "APPROVE_OPTION", { option_id: optionOf(kind).option_id }), cctx(s, scenario));
+  const scen = plan.scenario;
+  const METRICS = ["climb_m", "descent_m", "max_slope_deg", "profile"] as const;
+  const pick = (leg: OkLeg) => Object.fromEntries(METRICS.map((k) => [k, leg[k]]));
+  const EMPTY_PROFILE = { dist_m: [], elev_m: [], slope_class: [] };
+  /** Compute's own answer for a cell path: the path's vertices, as cells, repeated cells collapsed. */
+  function oracleLeg(path: [number, number][]): OkLeg {
+    const cells: number[] = [];
+    for (const [x, y] of path) {
+      const c = cellIndex(grid, x, y);
+      if (c === null) throw new Error("set-up: the path leaves the grid");
+      if (cells[cells.length - 1] !== c) cells.push(c);
+    }
+    const leg = toLeg(grid, "from", "to", { status: "OK", cells }, scen);
+    if (leg.status !== "OK") throw new Error("set-up: toLeg gave no route");
+    return leg;
+  }
+  const provOf = (out: { events: PendingEvent[] }): Record<string, string> => out.events.find((e) => e.kind === "PLAN_REVISED")!.provenance as Record<string, string>;
+  const lastIndex = (out: { events: PendingEvent[] }): number => dataOf(out.events, "PLAN_REVISED").legs!.length - 1;
+
+  for (const kind of ["ABORT_TO_HAB", "VEHICLE_RENDEZVOUS"] as const) {
+    describe(kind, () => {
+      it("takes climb, descent, max slope and profile from compute's toLeg on the path's cells", () => {
+        const leg = newLeg(approve(kind).events);
+        expect(pick(leg)).toEqual(pick(oracleLeg(optionOf(kind).path_preview)));
+      });
+
+      it("the tilt makes them real: a slope, a climb or descent, and a profile with samples", () => {
+        const leg = newLeg(approve(kind).events);
+        expect(leg.max_slope_deg).toBeGreaterThan(0);
+        expect(leg.climb_m + leg.descent_m).toBeGreaterThan(0);
+        expect(leg.profile.dist_m.length).toBeGreaterThan(1);
+        expect(leg.profile.elev_m).toHaveLength(leg.profile.dist_m.length);
+        expect(leg.profile.slope_class).toHaveLength(leg.profile.dist_m.length);
+      });
+
+      it("labels the four fields derived, walk time modelled and distance derived; nothing is assumed", () => {
+        const out = approve(kind);
+        const i = lastIndex(out);
+        expect(provOf(out)).toEqual({
+          [`data.legs.${i}.walk_time_min`]: "modelled",
+          [`data.legs.${i}.distance_m`]: "derived",
+          [`data.legs.${i}.climb_m`]: "derived",
+          [`data.legs.${i}.descent_m`]: "derived",
+          [`data.legs.${i}.max_slope_deg`]: "derived",
+          [`data.legs.${i}.profile`]: "derived",
+        });
+      });
+
+      it("keeps geometry (the option's path), walk_time_min and distance_m as before", () => {
+        const o = optionOf(kind);
+        const leg = newLeg(approve(kind).events);
+        // The option's path already ends on the start waypoint (ABORT) or at the meeting point (rendezvous).
+        expect(leg.geometry).toEqual(o.path_preview);
+        expect(leg.distance_m).toBeCloseTo(polylineLength(o.path_preview), 9);
+        const walk_s = kind === "VEHICLE_RENDEZVOUS" ? o.rendezvous!.eta_crew_s : o.eta_shelter_min * 60 - HAB_INGRESS_S;
+        expect(leg.walk_time_min * 60).toBeCloseTo(walk_s, 6);
+      });
+
+      it("PLAN_REVISED survives a JSON round trip unchanged", () => {
+        const data = dataOf(approve(kind).events, "PLAN_REVISED");
+        expect(JSON.parse(JSON.stringify(data))).toEqual(data);
+      });
+    });
+  }
+
+  describe("CONTINUE_SKIP (its path_preview is a display polyline, not a cell path)", () => {
+    it("profile is sampleProfile of the leg's polyline with the scenario's slope limits", () => {
+      const leg = newLeg(approve("CONTINUE_SKIP").events);
+      expect(leg.profile).toEqual(sampleProfile(grid, leg.geometry, scen.caution_slope_deg, scen.hard_slope_limit_deg));
+      expect(leg.profile.dist_m.length).toBeGreaterThan(1);
+      expect(leg.profile.elev_m.every(Number.isFinite)).toBe(true);
+    });
+
+    it("climb, descent and max slope stay 0, labelled assumed (they wait for a TASK-05 polyline-to-cells helper); profile derived", () => {
+      const out = approve("CONTINUE_SKIP");
+      const leg = newLeg(out.events);
+      const i = lastIndex(out);
+      expect([leg.climb_m, leg.descent_m, leg.max_slope_deg]).toEqual([0, 0, 0]);
+      expect(provOf(out)).toMatchObject({
+        [`data.legs.${i}.climb_m`]: "assumed",
+        [`data.legs.${i}.descent_m`]: "assumed",
+        [`data.legs.${i}.max_slope_deg`]: "assumed",
+        [`data.legs.${i}.profile`]: "derived",
+        [`data.legs.${i}.walk_time_min`]: "modelled",
+        [`data.legs.${i}.distance_m`]: "derived",
+      });
+    });
+
+    it("PLAN_REVISED survives a JSON round trip unchanged", () => {
+      const data = dataOf(approve("CONTINUE_SKIP").events, "PLAN_REVISED");
+      expect(JSON.parse(JSON.stringify(data))).toEqual(data);
+    });
+  });
+
+  describe("ABORT through handleCommand", () => {
+    it("the abort's revised leg carries the same compute metrics as approving ABORT_TO_HAB", () => {
+      const out = handleCommand(proposed(), cmd("ops", "ABORT", { crew: ["EV1", "EV2"] }), cctx(proposed()));
+      expect(pick(newLeg(out.events))).toEqual(pick(oracleLeg(optionOf("ABORT_TO_HAB").path_preview)));
+    });
+  });
+
+  describe("a non-finite metric never blocks the abort", () => {
+    /** The same grid with one cell of the abort path set to no-data (NaN elevation), as bilinear sampling meets it. */
+    function nanGrid(): LoadedGrid {
+      const path = optionOf("ABORT_TO_HAB").path_preview;
+      const mid = path[Math.floor(path.length / 2)]!;
+      const k = cellIndex(grid, mid[0], mid[1])!;
+      const elevation = new Float32Array(grid.elevation);
+      elevation[k] = Number.NaN;
+      return { ...grid, elevation };
+    }
+
+    it("keeps zeros and an empty profile, all four labelled assumed, and still accepts", () => {
+      const bad: LoadedScenario = { ...sc, grid: nanGrid() };
+      let out!: ReturnType<typeof approve>;
+      expect(() => (out = approve("ABORT_TO_HAB", proposed(), bad))).not.toThrow();
+      expect(out.result.ok).toBe(true);
+      const leg = newLeg(out.events);
+      expect([leg.climb_m, leg.descent_m, leg.max_slope_deg]).toEqual([0, 0, 0]);
+      expect(leg.profile).toEqual(EMPTY_PROFILE);
+      const i = lastIndex(out);
+      expect(provOf(out)).toMatchObject(Object.fromEntries(METRICS.map((k) => [`data.legs.${i}.${k}`, "assumed"])));
+      expect(leg.walk_time_min * 60).toBeCloseTo(optionOf("ABORT_TO_HAB").eta_shelter_min * 60 - HAB_INGRESS_S, 6);
+      const data = dataOf(out.events, "PLAN_REVISED");
+      expect(JSON.parse(JSON.stringify(data))).toEqual(data);
+    });
+
+    it("the same for CONTINUE_SKIP: an empty profile labelled assumed", () => {
+      const bad: LoadedScenario = { ...sc, grid: { ...grid, elevation: new Float32Array(grid.elevation).fill(Number.NaN) } };
+      const out = approve("CONTINUE_SKIP", proposed(), bad);
+      expect(out.result.ok).toBe(true);
+      expect(newLeg(out.events).profile).toEqual(EMPTY_PROFILE);
+      expect(provOf(out)[`data.legs.${lastIndex(out)}.profile`]).toBe("assumed");
+    });
+  });
+
+  describe("grid guards at approval", () => {
+    it("no grid (null until TASK-05): INVALID, no events but the rejection", () => {
+      const out = approve("ABORT_TO_HAB", proposed(), fake);
+      expect(out.result).toMatchObject({ ok: false, code: "INVALID" });
+      expect(out.events.map((e) => e.kind)).toEqual(["COMMAND_REJECTED"]);
+    });
+
+    /** The ABORT option with its path replaced by `path`, in a state ready for the ABORT command. */
+    const withAbortPath = (path: [number, number][]): EngineState => {
+      const base = proposed();
+      const abort = base.options.find((o) => o.kind === "ABORT_TO_HAB")!;
+      return { ...base, options: base.options.map((o) => (o === abort ? { ...o, path_preview: path } : o)) };
+    };
+    const abortOf = (s: EngineState) => handleCommand(s, cmd("ops", "ABORT", { crew: ["EV1"] }), cctx(s));
+    const expectAssumedAccepted = (out: ReturnType<typeof abortOf>): void => {
+      expect(out.result.ok).toBe(true);
+      expect(out.events.map((e) => e.kind)).toEqual(["PLAN_REVISED"]);
+      const leg = newLeg(out.events);
+      expect([leg.climb_m, leg.descent_m, leg.max_slope_deg]).toEqual([0, 0, 0]);
+      expect(leg.profile).toEqual(EMPTY_PROFILE);
+      const i = lastIndex(out);
+      expect(provOf(out)).toMatchObject(Object.fromEntries(METRICS.map((k) => [`data.legs.${i}.${k}`, "assumed"])));
+      expect(provOf(out)).toMatchObject({ [`data.legs.${i}.walk_time_min`]: "modelled", [`data.legs.${i}.distance_m`]: "derived" });
+    };
+
+    it("a path not on the grid's cell centres (a field of another cell_m): the abort still goes through, metrics assumed", () => {
+      // A diagonal run of half-cell steps (5 m on the 10 m grid), as a field of half the cell_m would give; a
+      // declared test input. Its vertices fall on cells whose centres are farther apart than the steps.
+      const half = grid.meta.cell_m / 2;
+      const path: [number, number][] = Array.from({ length: 11 }, (_, k) => [k * half, k * half]);
+      let out!: ReturnType<typeof abortOf>;
+      expect(() => (out = abortOf(withAbortPath(path)))).not.toThrow();
+      expectAssumedAccepted(out);
+      expect(newLeg(out.events).geometry.slice(0, path.length)).toEqual(path);
+    });
+
+    it("an error thrown by toLeg: the abort still goes through, metrics assumed", () => {
+      hook.toLegThrows = new Error("forced toLeg failure");
+      expectAssumedAccepted(abortOf(proposed()));
+    });
+
+    it("an error thrown by sampleProfile: a CONTINUE_SKIP approval still goes through, profile assumed", () => {
+      hook.sampleProfileThrows = new TypeError("forced sampleProfile failure");
+      const out = approve("CONTINUE_SKIP");
+      expect(out.result.ok).toBe(true);
+      expect(newLeg(out.events).profile).toEqual(EMPTY_PROFILE);
+      expect(provOf(out)[`data.legs.${lastIndex(out)}.profile`]).toBe("assumed");
+    });
+
+    it("errors outside the metrics step still surface (a plan whose legs cannot be read)", () => {
+      const s = proposed();
+      const broken = { ...s, plan: { ...s.plan!, result: undefined as never } };
+      expect(() => abortOf(broken)).toThrow(TypeError);
+    });
+
+    it("repeated vertices are collapsed before toLeg (consecutive duplicate cells are not passed on)", () => {
+      const base = optionOf("ABORT_TO_HAB").path_preview;
+      // Every vertex twice, and the first three times: a declared test input.
+      const doubled: [number, number][] = [base[0]!, ...base.flatMap((p): [number, number][] => [p, p])];
+      const out = abortOf(withAbortPath(doubled));
+      expect(out.result.ok).toBe(true);
+      const want = base.map(([x, y]) => cellIndex(grid, x, y)!);
+      expect(hook.toLegCells).toEqual([want]);
+      expect(want.some((c, i) => i > 0 && c === want[i - 1])).toBe(false);
+      expect(pick(newLeg(out.events))).toEqual(pick(oracleLeg(base)));
+    });
   });
 });
