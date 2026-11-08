@@ -273,6 +273,7 @@ No T03.19 bundle or lock file is changed. This section closes only the delegated
 - `make CONDA_BIN=/home/obidit/miniconda3/bin/conda test`: passed with loopback access. The first sandboxed run stopped at seven server tests because socket binding returned `EPERM`; the rerun outside the sandbox passed all seven. Hab Core: 118 passed, 41 todo; web: 20 passed, 27 todo; compute: 75 todo. Environment checks include the Mars sphere and pipeline interpreter.
 - `$(make -s pipeline-python) -m pytest -q pipeline`, also run directly with the pipeline interpreter: **73 passed, 5 skipped, 48 warnings**. The existing warnings report unavailable `jsonschema`, so manifest schema validation remains skipped; this confirmation does not close that environment limitation.
 - `git diff --check`: passed. Full local check output is in `t03/confirmation_docs_checks.txt`, `confirmation_typecheck.txt`, `confirmation_tasks_check.txt`, `confirmation_tests_unsandboxed.txt` and `confirmation_pytest.txt`. The temporary `node_modules` symlink is removed before the local commit; `.serena/` and downloaded data are not staged.
+
 ## T03.30 — Verify `comm_hab` against `gdal_viewshed` at 5 points
 
 | **Owner** | Obidit Islam (R1 Data & GIS), run by Claude Code on the data lead's instruction |
