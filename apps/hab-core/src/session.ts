@@ -12,9 +12,11 @@
  * - tick() returns a state that already contains its events (tick.ts "State rule"); the session
  *   appends them and checks that the log gives the seqs tick used. Command events are reduced here.
  * - A snapshot is written after any append batch that crosses a multiple of SNAPSHOT_EVERY, so a
- *   snapshot never splits one tick's or one command's events.
- * - Resume: state from the latest snapshot (or the initial state), then the tail is merged with
- *   re-run ticks: ticks step sim time up to each tail event; events a tick produces must equal the
+ *   snapshot never splits one tick's or one command's events. The tick's state is stored before its
+ *   events are appended, so the snapshot holds the state after the tick and the current `log_hash`
+ *   (tests: tests/sessionTick.test.ts).
+ * - Resume: state from the latest snapshot (or the initial state; a snapshot without `motion`, written
+ *   before T22.09, gets `{}`), then the tail is merged with re-run ticks: ticks step sim time up to each tail event; events a tick produces must equal the
  *   next tail events (else the resume fails), and the other tail events (load, commands) are
  *   reduced as read. Ticks after the last logged event are not re-run, so a resumed session
  *   restarts at the sim time of its last event.
@@ -24,7 +26,7 @@ import { join } from "node:path";
 import { PROTOCOL_VERSION, type Command, type CommandResult, type LogEvent, type LogEventData, type ProvenanceMap, type Snapshot } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand } from "./commands";
 import { SIM_STEP_S } from "./engine/clock";
-import { initialState, reduce, type EngineState, type PendingEvent, type StateChange } from "./engine/reducer";
+import { initialState, logged, reduce, type EngineState, type PendingEvent, type StateChange } from "./engine/reducer";
 import { seedTasks } from "./engine/tasks";
 import { tick } from "./engine/tick";
 import { canonicalJson, openLog, resumeLog, SNAPSHOT_EVERY, type EventLog } from "./log";
@@ -35,9 +37,8 @@ export interface SessionHandle {
   snapshot(clients: Snapshot["clients"]): Snapshot;
   /**
    * Validate and apply one command; exactly one COMMAND_RESULT per command (02 §E.6).
-   * `client_id` keys the 05 Command dedupe rule and `command_ref`. TODO(T20.12 follow-up): server.ts
-   * passes it once the open server.ts PR merges (one server.ts follow-up at a time, map §c); until
-   * then the role stands in for the client.
+   * `client_id` keys the 05 Command dedupe rule and `command_ref`; server.ts passes the HELLO
+   * `client_id`. Without one (tests, headless replay) the role stands in for the client.
    */
   apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[] };
   /** Run `steps` fixed 1-s sim steps; events go out immediately, deltas are coalesced by the server. */
@@ -158,10 +159,18 @@ class Session implements SessionHandle {
     const events: LogEvent[] = [];
     const deltas: StateChange[] = [];
     for (let i = 0; i < steps && this.state.session.status === "RUNNING"; i++) {
-      const r = stepOnce(this.state, this.scenario, this.log.lastSeq() + 1);
-      // tick's state already contains its events; append them with the seqs tick used.
-      events.push(...this.appendAll(r.events, () => {}));
+      const next_seq = this.log.lastSeq() + 1;
+      const r = stepOnce(this.state, this.scenario, next_seq);
+      // tick's state already contains its events. Store it first: appendAll fills in `log_hash` and
+      // writes the snapshot from `this.state`, which must be the state after the tick (T22.12).
       this.state = r.state;
+      let expected = next_seq;
+      events.push(
+        ...this.appendAll(r.events, (e) => {
+          if (e.seq !== expected) throw new Error(`runTicks: the log gave seq ${e.seq} to an event tick numbered ${expected}`);
+          expected++;
+        }),
+      );
       deltas.push(...r.deltas);
       if (untilEvent && r.events.length > 0) break;
     }
@@ -232,7 +241,8 @@ export function resumeSession(sessionDir: string, scenario: LoadedScenario, opti
   const first = log.after(0)[0];
   if (!first || first.kind !== "SESSION_LOADED") throw new Error(`resumeSession: ${sessionDir} does not start with SESSION_LOADED`);
   const session_id = (first.data as LogEventData["SESSION_LOADED"]).session_id;
-  let state = snap ?? initialState(scenario, session_id);
+  // A snapshot written before T22.09 has no `motion`: start from none (the walk restarts from the plan's first leg).
+  let state: EngineState = snap ? { ...snap, motion: snap.motion ?? {} } : initialState(scenario, session_id);
 
   let i = 0;
   while (i < tail.length) {
@@ -240,9 +250,9 @@ export function resumeSession(sessionDir: string, scenario: LoadedScenario, opti
     if (Date.parse(e.sim_time) > Date.parse(state.session.clock.sim_time) && state.session.status === "RUNNING") {
       const r = stepOnce(state, scenario, state.session.last_seq + 1);
       for (const produced of r.events) {
-        const logged = tail[i];
-        if (!logged || canonicalJson({ ...produced, seq: logged.seq }) !== canonicalJson(logged)) {
-          throw new Error(`resumeSession: re-run tick at ${r.state.session.clock.sim_time} gave ${produced.kind}, the log has ${logged?.kind ?? "nothing"} (seq ${logged?.seq ?? "-"})`);
+        const line = tail[i];
+        if (!line || canonicalJson(logged(produced, line.seq)) !== canonicalJson(line)) {
+          throw new Error(`resumeSession: re-run tick at ${r.state.session.clock.sim_time} gave ${produced.kind}, the log has ${line?.kind ?? "nothing"} (seq ${line?.seq ?? "-"})`);
         }
         i++;
       }

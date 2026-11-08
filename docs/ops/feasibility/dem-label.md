@@ -3,8 +3,8 @@
 | | |
 | --- | --- |
 | **Owner** | Obidit Islam, R1 Data & GIS ([T01.01](../../tasks/TASK-01_feasibility.md#t0101--download-the-1-m-gale-dem-record-its-pds3-label-datum-and-no-data-value)); file download by Mishkat Ahmed Khan |
-| **Date** | 2026-11-06 |
-| **Status** | Draft: the SHA-256 waits for the full file |
+| **Date** | 2026-11-06; checksum 2026-11-07 |
+| **Status** | Complete: label facts recorded, full-file SHA-256 taken 2026-11-07 |
 | **Related** | [02 §C.1](../../specs/02_Technical_Requirements_Document.md#c1-coordinate-reference-conventions-applies-to-every-layer) · [02 §C.2 L2](../../specs/02_Technical_Requirements_Document.md#l2--topography-elevation-hillshade-fr-02-fr-03-fr-08) · [02 §C.4](../../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly) · [Feasibility check](../feasibility.md#elevation-datum-u-02) |
 
 ## Result
@@ -32,8 +32,9 @@
 | Size | 3,868,256,546 bytes (`Content-Length`) |
 | Last modified | Wed, 09 Nov 2022 15:50:28 GMT |
 | ETag | `746836824e520f8f0a7fb3987bdef0ff-462` |
-| SHA-256 | `TODO(verify)`: needs the full file; T01.01 stays open until then |
-| Team copy | `TODO(verify)`: Drive path, once Mishkat has uploaded it |
+| SHA-256 | `c481ae885b4827af68fbdb428e9fac8a824d6828aebfba492577ba39bf55e42e` (`sha256sum`, full file downloaded 2026-11-07; 3,868,256,546 bytes, equal to `Content-Length`) |
+| Local copy | `pipeline/work/dem/MSL_Gale_DEM_Mosaic_1m_v3.tif` (git-ignored) |
+| Team copy | `TODO(verify)`: Drive path, once Mishkat has uploaded it (Mishkat Ahmed Khan; not needed for the acceptance criteria) |
 
 ## `gdalinfo` summary
 
@@ -94,5 +95,19 @@ USGS product page, verbatim, accessed 2026-11-06:
 
 ## Still open
 
-- SHA-256 of the full file and its Drive path.
-- `make docs-check` and `git status` once the file is in `pipeline/work/`: no dataset may be staged.
+- Drive path of the team copy (Mishkat Ahmed Khan).
+
+The full-file check of 2026-11-07, run on the downloaded file:
+
+```text
+$ stat -c %s pipeline/work/dem/MSL_Gale_DEM_Mosaic_1m_v3.tif
+3868256546
+$ sha256sum pipeline/work/dem/MSL_Gale_DEM_Mosaic_1m_v3.tif
+c481ae885b4827af68fbdb428e9fac8a824d6828aebfba492577ba39bf55e42e  pipeline/work/dem/MSL_Gale_DEM_Mosaic_1m_v3.tif
+$ gdalinfo pipeline/work/dem/MSL_Gale_DEM_Mosaic_1m_v3.tif
+Size is 32980, 57440
+            ELLIPSOID["Mars_2000_Sphere_IAU_IAG",3396190,0,
+  NoData Value=-32767
+```
+
+`git status --short` shows no dataset file.
