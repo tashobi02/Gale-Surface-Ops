@@ -58,3 +58,53 @@ the projection template, so equality with a finalized pipeline CRS remains
 `TODO(verify)` for T03.13. T03.14's `validate-manifest` is currently a stub.
 The orchestrator validates the manifest against C2 with ajv; this generator has
 no jsonschema dependency. Git status/ignore checks belong to the orchestrator.
+
+## F1 — Synthetic routing grids
+
+`apps/web/tests/fixtures/grids.ts` provides synthetic `LoadedGrid` builders for
+compute core unit tests and validation cases (contract C4 v1). Implemented by
+T05.02 (FR-07, 02 §D.2).
+
+Per the fixture value rule (`CLAUDE.md` §2, ADR-006), no slope or elevation
+number is typed by hand; all arrays are derived programmatically in code from
+declared geometric shape parameters and spec constants. All builders accept
+`width`, `height`, `cell_m`, and `origin_m` as parameters without assuming 5 m
+cells.
+
+| Shape | Builder | Parameters | Spec case served | Contract | Sources of values |
+| --- | --- | --- | --- | --- | --- |
+| 10° plane | `makePlaneGrid` | `slope_deg` (default 10°), `direction` | [02 §D.3](../../../../docs/specs/02_Technical_Requirements_Document.md#d3-walking-time-model-fr-09) walking time test case (1 km at constant +10° gradient) | C4 v1 | 02 §D.3 reference gradient; 05 §C slope encoding ($10 \times 4 = 40$ u8); elevation derived from $col \times cell\_m \times \tan(10^\circ)$ |
+| Wall with gap | `makeWallWithGapGrid` | `wall_col`, `gap_row`, `wall_slope_deg` (default 20°) | [02 §D.2](../../../../docs/specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10) Validation case 1 (wall with one gap $\rightarrow$ route passes through gap) | C4 v1 | 02 §D.2 validation case; wall slope ($20 \times 4 = 80$ u8) exceeds 15° hard limit; single passable opening ($0^\circ$) at `gap_row` |
+| 20° ramp | `makeRampGrid` | `ramp_slope_deg` (default 20°), `direction` | [02 §D.2](../../../../docs/specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10) Validation case 2 (uniform 20° ramp with 15° limit $\rightarrow$ `NO_ROUTE / DISCONNECTED_BY_SLOPE`) | C4 v1 | 02 §D.2 validation case; uniform slope ($20 \times 4 = 80$ u8); elevation derived from $col \times cell\_m \times \tan(20^\circ)$ |
+| NaN island | `makeNanIslandGrid` | `island_row`, `island_col`, `island_width`, `island_height` | [02 §D.1](../../../../docs/specs/02_Technical_Requirements_Document.md#d1-point-sampling-fr-03-fr-08) & [02 §D.2](../../../../docs/specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10) (NaN barrier around target / `NO_DATA` handling) | C4 v1 | 05 §C Asset/RoutingGrid: `NaN` elevation, `255` u8 no-data slope, `1 << FLAG_BITS.NO_DATA` |
+| Hazard wall | `makeHazardWallGrid` | `wall_col`, `gap_row` (optional) | [02 §D.2](../../../../docs/specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10) (`HARD_HAZARD` impassability check) | C4 v1 | 05 §C Flag bits: `1 << FLAG_BITS.HARD_HAZARD` |
+| No-TI variant | `withoutTi` / `includeTi: false` | `grid: LoadedGrid` or builder option | [05 §E.6](../../../../docs/specs/05_Backend_and_Database_Schema.md#e6-unavailable-or-replaced-source-data) (unavailable TI sidecar) | C4 v1 | 05 §C RoutingGrid: `ti` and `ti_asset` omitted |
+
+## F2 — Canned PLAN_RESULT messages
+
+`apps/web/tests/fixtures/plan-results/` provides static `PlanResultMessage`
+fixtures for dev builds, UI testing, and mock workers (contract C1, C6 v1).
+Implemented by T05.03 (FR-07–FR-12, 02 §E.2).
+
+Per the fixture value rule (`CLAUDE.md` §2, ADR-006), every number is copied
+verbatim from spec examples or spec range limits, or is a typed placeholder.
+
+| File | Status | Scenario / trigger | Spec sources |
+| --- | --- | --- | --- |
+| `ok.json` | `OK` | Complete successful route computation | [05 §F.3](../../../../docs/specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok) `result` verbatim; `request_id` and `plan_revision` from [02 §E.2](../../../../docs/specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) |
+| `partial.json` | `PARTIAL` | Second leg blocked by steep slope; `totals: null` | [02 §E.2](../../../../docs/specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol) example verbatim; rule in 02 §E.2 and 05 §C |
+| `over-limits.json` | `OVER_LIMITS` | `max_walkback_km` (3.06 km) exceeds `walkback_limit_km` (0.5 km minimum) | [05 §F.3](../../../../docs/specs/05_Backend_and_Database_Schema.md#f3-plan-export-abridged-status-ok) totals; [02 §E.3](../../../../docs/specs/02_Technical_Requirements_Document.md#e3-input-validation-rules) limit; [04 §C.1](../../../../docs/specs/04_Design_Brief.md#status-and-alert-colours-ops) `WALKBACK_EXCEEDED` severity `blocked` |
+
+Typed placeholders used for fields omitted from spec examples:
+
+- `geometry`: `[]` (empty coordinate array).
+- `profile`: `{ "dist_m": [], "elev_m": [], "slope_class": [] }` (empty sampling arrays).
+- `stops_timeline`: `[]` (empty timeline array; populated in M3 slice T05.32).
+- `computed_utc`: `"2026-11-14T08:00:00Z"` (EVA start UTC placeholder from scenario).
+
+## F9 — T05b.02 synthetic v2 grids
+
+The fixture is `packages/compute/tests/fixtures/v2grids.ts`, with a self-check in `packages/compute/tests/v2grids.test.ts`.
+The source of every non-placeholder value, and every choice marked Proposed, is in the table in the header comment of
+`v2grids.ts`; this section only points to it so that the fixture value rule of
+[_coordination.md §e](../../../../docs/tasks/_coordination.md#e-fixtures-and-mocks) finds it from here.

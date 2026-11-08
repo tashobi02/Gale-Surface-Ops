@@ -56,6 +56,7 @@
 - **Verify:** `make typecheck`; `npm --workspace @marswalk/hab-core test`.
 - **Agent brief:** Create typed throwing stubs only. The module split exists so four teammates can work on the engine without touching the same file.
 - **Conflict notes:** Each module's owner takes it over after this merges. Changing a signature later is a `contract-change:` in this task.
+- **Contract change (T22.09, 2026-11-07):** `EngineState` gains `motion: Partial<Record<CrewId, CrewMotion>>`, engine-only progress state for tick.ts (see the T22.09 rules); it is not in the wire SNAPSHOT (02 §E.6); it is in the on-disk snapshot used for resume.
 
 ### T22.02 — Fixture: fake scenario with a straight-line route and a stepped dose curve
 
@@ -233,6 +234,19 @@
 - **Verify:** `npm --workspace @marswalk/hab-core test -- tick`.
 - **Agent brief:** Implement `tick.ts` as an orchestrator: motion here, everything else through the engine modules and `@marswalk/compute`.
 - **Conflict notes:** Single owner; the other engine modules are owned by TASK-23, TASK-26, TASK-29 and TASK-31.
+- **Rules (proposed 2026-11-07, `TODO(decision)`; tests: `tick.test.ts`, T22.08):**
+  - S1: engine-only progress state `EngineState.motion: Partial<Record<CrewId, CrewMotion>>` (`initialState` gives `{}`). It is never sent to clients: `Session.snapshot()` picks fields explicitly.
+  - S2: constant speed within a leg. Position is the arc-length fraction `leg_t_s / leg_s` along `leg.geometry`, in projected metres; `leg_s = walk_time_min * 60`. Overshoot carries into the next phase, so there is no drift. A zero leg time or zero length means arrival at once.
+  - S3: `stop_index` is the 1-based position among the current plan's `role: "stop"` waypoints.
+  - S4: while `start_offset_s` has not elapsed the crew member stays at the start: shielding `hab`, no O₂ used, no motion, and `eva_elapsed_s` does not grow (only the time after the offset counts). The alert modules treat a waiting crew member as not out: `buddyTick` ignores it and `consumablesTick` treats it as safe (decision 2026-11-07, review fix).
+  - S5: at the end of a loop route (the last leg's `to` is the start waypoint) tick emits `CREW_SHELTERED {haven_kind: "hab"}` with the doses of this tick's dose step. The reducer sets `IN_HAB` only when the crew member was `WALKING` or `AT_STOP` (03 §E.8 "Walking → InHab: plan complete"); a `TO_HAVEN` crew member becomes `SHELTERED` (03 §E.8 "ToHaven → Sheltered"). Any other end, or a `NO_ROUTE` next leg, holds with no event. A held crew member whose revision gives a reachable next leg resumes walking (see S7). After the modules, on the first tick where the EVA is running and every crew member is `IN_HAB` or `SHELTERED`, tick logs one system `EVA_ENDED {crew_ids}` (03 §E.6 "Running → Ended: all crew sheltered or in hab"), once, because the reducer then sets `ENDED`. Proposed 2026-11-07.
+  - S6: `eva_elapsed_s` grows by `dt_s` for every activity except `IN_HAB`.
+  - S7: on re-plan (`plan_revision` differs from the crew member's) re-anchor on the new legs: candidates are the legs from the first whose `from` is the last waypoint reached, else all legs; snap to the closest point (ties to the earliest leg or segment). A held crew member is re-anchored too: it resumes walking when the closest point is not the end of its leg, else it stays held. `TODO(verify)` with T23.07: assumes the new first leg starts near the crew member and abort legs end at the start waypoint.
+  - S8: `TO_HAVEN` crew follow the revised legs with no dwell and no `ARRIVED_STOP`/`LEFT_STOP`; at the end `CREW_SHELTERED` hab (they become `SHELTERED`, S5) if the route ends at the start waypoint, otherwise hold (T23.05 logs a vehicle shelter). An `AT_STOP` crew member that is not `TO_HAVEN` finishes its dwell, then always emits `LEFT_STOP`, then continues; when the stop is no longer in the plan (for example a `CONTINUE_SKIP` revision dropped it) the event carries the crew member's current `stop_index` (proposed 2026-11-07).
+  - S9: O₂ and dose use the activity at the start of the step: `WALKING` and `TO_HAVEN` use shielding `suit` and `walking`; `AT_STOP` uses `suit` and `resting`; a held crew member (route end with no event, or waiting at a vehicle rendezvous) uses `suit` and `resting`; `IN_HAB` and a crew member waiting for its offset use `hab` and no O₂; `SHELTERED` in the hab or a vehicle uses `hab` or `pressurized_rover` and no O₂; `SHELTERED` in a refuge uses `suit` and `resting` (conservative; no refuge factor before T2). Dose runs for all crew every tick.
+  - S10: a module whose body is still a stub is skipped by a narrow per-call guard (`/^TODO\(TASK-\d+\): T\d+\.\d+ not implemented$/`); any other error propagates.
+  - S11: a leg whose `walk_time_min` is NaN, infinite or negative is a plan error: tick throws instead of arriving instantly (proposed 2026-11-07; zero stays "arrival at once", S2).
+  - Order inside `tick`: per crew (dose, O₂, `eva_elapsed_s`, motion); reduce the motion events with seqs from `next_seq`; then `MODULE_ORDER`, each module's events reduced before the next runs. STATE_DELTAs only when a value changed; LogEvents only `ARRIVED_STOP`, `LEFT_STOP`, `CREW_SHELTERED` and `EVA_ENDED` (after the modules) from tick itself.
 
 ### T22.10 — Implement alert evaluation: radiation, consumables, buddy distance
 
@@ -253,7 +267,7 @@
   - Serves: FR-37, FR-38 · [02 §D.13](../specs/02_Technical_Requirements_Document.md#d13-space-weather-event-model-fr-37-fr-38)
   - The alert cases of T22.08 pass; no threshold number appears in the source.
 - **Verify:** `npm --workspace @marswalk/hab-core test -- tick`; `grep -nE "[0-9]{2,}" apps/hab-core/src/engine/alerts.ts` shows no threshold literals.
-- **Agent brief:** Implement the three alert rules from ParamSets. Messages are action-first and ≤ 60 characters (04 §D.2); their wording is `TODO(decision)` unless 04 gives it.
+- **Agent brief:** Implement the three alert rules from ParamSets. Messages are action-first and ≤ 60 characters (04 §D.2); their wording was decided on 2026-11-07 (spec question 1).
 - **Conflict notes:** Single owner.
 
 ### T22.11 — Implement the scenario loader and its checks
@@ -285,7 +299,7 @@
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
 - **Estimate:** 1.5–2 h
-- **Owns (writes):** `apps/hab-core/src/session.ts`
+- **Owns (writes):** `apps/hab-core/src/session.ts`, `apps/hab-core/tests/sessionTick.test.ts`
 - **Reads:** [05 Session](../specs/05_Backend_and_Database_Schema.md#session), [02 §A.6](../specs/02_Technical_Requirements_Document.md#a6-state-model-commands--events--state), `apps/hab-core/src/server.ts`
 - **Depends on:** T22.06 (hard: reducer), T22.07 (hard: log), T22.11 (hard: loader), T22.01 (soft: stub), T20.04 (soft: server calls it)
 - **Parallel with:** T22.13
@@ -296,7 +310,7 @@
 - **Acceptance:**
   - Serves: FR-30, FR-34, NFR-10 · [05 Session](../specs/05_Backend_and_Database_Schema.md#session)
   - Killing and restarting the Hab Core mid-scenario resumes with the same `last_seq` and `log_hash`.
-- **Verify:** `npm --workspace @marswalk/hab-core test -- engine`; manual kill and restart noted in the PR.
+- **Verify:** `npm --workspace @marswalk/hab-core test -- engine`; `npm --workspace @marswalk/hab-core test -- sessionTick` (real tick: snapshot after the tick, seq drift throws, old snapshot without `motion`, resume with a tail of tick events); manual kill and restart noted in the PR.
 - **Agent brief:** Wire clock, tick, log and reducer into one authoritative session. Wall-clock enters only as elapsed milliseconds from the server.
 - **Conflict notes:** Single owner.
 
@@ -439,6 +453,6 @@ flowchart LR
 
 ## Spec questions
 
-1. **Alert message wording.** 04 §D.2 sets "action first, ≤ 60 characters" but gives few exact strings; T22.10 leaves the wording `TODO(decision)` for the product & systems lead.
-2. **Clear rule for consumables and buddy alerts.** 02 §D.13 gives a clear rule only for the radiation alert. `TODO(decision)` in T22.10.
+1. **Alert message wording.** 04 §D.2 sets "action first, ≤ 60 characters" but gives few exact strings. *Decided 2026-11-07 by the product & systems lead:* the O₂ message says whether to return to the hab or restock at the pressurized rover; buddy: "Buddy too far — close up".
+2. **Clear rule for consumables and buddy alerts.** 02 §D.13 gives a clear rule only for the radiation alert. *Decided 2026-11-07:* each clears once safe again (02 §D.14 "O₂ and buddy alerts"); the O₂ alert compares O₂ time left with the time to the nearest haven.
 3. **Effort.** Fifteen subtasks sum above 06's 10–14 h range; the extra is the split into tests and implementation. Hours are not the limit in 06 §A v2.2.

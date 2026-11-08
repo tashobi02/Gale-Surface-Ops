@@ -1,23 +1,46 @@
 /**
  * Contingency options (docs/specs/02 §D.15; FR-44): abort to hab, vehicle rendezvous, terrain
  * refuge (T2), continue with skipped stops. Ranked by expected dose, then ETA. TASK-05b.
+ * Signatures frozen by T05b.01 (contract C15).
  */
-import type { ContingencyOption, Crew, DoseSeries, ParamSet } from "@marswalk/protocol";
-import type { RendezvousResult } from "./rendezvous";
-import type { TimeField } from "./haven";
+import type { ContingencyOption, Crew, CrewId, DoseSeries, Leg, MissionScenario, ParamSet, Waypoint } from "@marswalk/protocol";
+import type { HavenIngress, TimeField } from "./haven";
+import type { RendezvousPair, RendezvousResult } from "./rendezvous";
 
 export interface ContingencyInputs {
   alert_id: string;
+  /** Only crew still out on the surface. */
   crew: Crew[];
-  hab: TimeField;
-  rendezvous: Record<string, RendezvousResult>;
-  series: DoseSeries;
+  /** ISO-8601 UTC sim time of the alert; selects the dose series position. */
   now_utc: string;
+  /** Hab time field (02 §D.8): abort-to-hab ETAs and `path_preview`. */
+  hab: TimeField;
+  /** Per crew member; absent = no vehicle for that member. */
+  rendezvous: Partial<Record<CrewId, RendezvousResult>>;
+  /** Hab and vehicle ingress, seconds (HAB_INGRESS_S; rover ParamSet `ingress_min` × 60). */
+  ingress: HavenIngress;
+  /**
+   * For two crew with a vehicle: the visiting order and later arrival, precomputed by the caller
+   * with `rendezvousPair`. Absent for one crew member or when either rendezvous is NO_RENDEZVOUS.
+   * A two-crew VEHICLE_RENDEZVOUS option reports the first-visited point in
+   * `ContingencyOption.rendezvous`.
+   * TODO(decision): 05 has a single rendezvous point per option.
+   */
+  pair?: RendezvousPair;
+  /** The plan being walked: "continue with skips" needs the dropped stops and the remaining legs (§D.15). */
+  plan: { waypoints: Waypoint[]; legs: Leg[] };
+  /** User limits, e.g. `max_haven_min`, to report violations. */
+  scenario: MissionScenario;
+  series: DoseSeries;
+  /** Shielding ParamSet (05 ParamSet kind `shielding`). */
   shielding: ParamSet;
-  ingress_s: number;
 }
 
-/** Deterministic ranked options. TASK-05b. */
+/**
+ * Deterministic ranked options (02 §D.15). Proposed: `option_id` is `${alert_id}:${kind}`, so the
+ * same inputs always give the same ids (NFR-06). Ranked by expected dose, then ETA; `rank` 1 = best.
+ * TASK-05b.
+ */
 export function proposeOptions(inputs: ContingencyInputs): ContingencyOption[] {
   throw new Error("TODO(TASK-05b): not implemented");
 }

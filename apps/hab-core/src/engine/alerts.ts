@@ -10,21 +10,28 @@
  * The radiation trigger and the replayed rate are compute functions (eventDose.ts, T05b.15); this
  * module only turns their changes into events.
  *
- * TODO(decision): alert wording. 04 §D.2 sets "action first, at most sixty characters"; only the
- * radiation text comes from a spec example (05 §F.6). TODO(decision): clear rules for consumables
- * and buddy alerts (02 gives one only for radiation, TASK-22 spec question 2): they do not clear
- * here, so they stay until a decision.
+ * Decided 2026-11-07 by the product & systems lead:
+ * - CONSUMABLES_LOW compares the O₂ time left (compute `o2RemainingS`, T05b.17) with the time to
+ *   the nearest haven (`crew.haven`, T23.03). The message says where to go: back to the hab, or to
+ *   a pressurized rover to restock. Margins `o2_caution_margin` and `o2_warning_margin` come from
+ *   the alert ParamSet.
+ * - CONSUMABLES_LOW clears when the margin is above `o2_clear_margin` (a little above the caution
+ *   margin, so it cannot flicker at the threshold) or the crew member is in the hab;
+ *   BUDDY_SEPARATION clears when the crew are within `buddy_max_m` again or fewer than two are out.
+ * - Wording is action first, at most 60 characters (04 §D.2); the radiation text is 05 §F.6's.
  */
-import { rateAt, triggerState } from "@marswalk/compute";
+import { o2RemainingS, rateAt, triggerState } from "@marswalk/compute";
 import type { Alert, AlertCode, AlertLevel, CrewId, LogEventData, ParamSet, ProvenanceMap } from "@marswalk/protocol";
-import type { EngineState, PendingEvent } from "./reducer";
+import { isWaiting, type EngineState, type PendingEvent } from "./reducer";
 import type { TickContext, TickResult } from "./tick";
 
 const MESSAGES = {
   radiation: "Radiation surge — shelter now", // 05 §F.6 example
-  o2Caution: "O₂ low — plan the return", // TODO(decision): wording
-  o2Warning: "O₂ critical — return now", // TODO(decision): wording
-  buddy: "Buddy too far — close up", // TODO(decision): wording
+  o2CautionHab: "O₂ low — plan return to hab",
+  o2CautionRover: "O₂ low — plan restock at rover",
+  o2WarningHab: "O₂ critical — return to hab now",
+  o2WarningRover: "O₂ critical — go to rover now",
+  buddy: "Buddy too far — close up",
 } as const;
 
 function alertParams(ctx: TickContext): ParamSet {
@@ -56,7 +63,11 @@ function raise(
   return { sim_time: state.session.clock.sim_time, kind: "ALERT_RAISED", actor: "system", data, provenance };
 }
 
-const onEva = (state: EngineState) => state.crew.filter((c) => c.activity !== "IN_HAB");
+/** A crew member waiting out `start_offset_s` is at the hab and not out yet (T22.09 S4). */
+const waiting = (state: EngineState, ctx: TickContext, c: EngineState["crew"][number]): boolean =>
+  isWaiting(c, state.motion[c.crew_id], ctx.scenario.scenario.crew.find((x) => x.crew_id === c.crew_id)?.start_offset_s ?? 0);
+
+const onEva = (state: EngineState, ctx: TickContext) => state.crew.filter((c) => c.activity !== "IN_HAB" && !waiting(state, ctx, c));
 
 /** RADIATION_ALERT raise and clear from the replayed rate (02 §D.13). */
 export function radiationTick(state: EngineState, ctx: TickContext): TickResult {
@@ -80,25 +91,58 @@ export function radiationTick(state: EngineState, ctx: TickContext): TickResult 
       ),
     );
   } else if (trigger === "nominal") {
-    for (const a of open) {
-      const data: LogEventData["ALERT_CLEARED"] = { alert_id: a.alert_id };
-      events.push({ sim_time: t, kind: "ALERT_CLEARED", actor: "system", data, provenance: {} });
-    }
+    for (const a of open) events.push(cleared(state, a.alert_id));
   }
   return { state, events, deltas: [] };
 }
 
-/** CONSUMABLES_LOW from the alert ParamSet O₂ thresholds: a caution, then a warning, once each per crew member. */
+function cleared(state: EngineState, alert_id: string): PendingEvent {
+  const data: LogEventData["ALERT_CLEARED"] = { alert_id };
+  return { sim_time: state.session.clock.sim_time, kind: "ALERT_CLEARED", actor: "system", data, provenance: {} };
+}
+
+function suitParams(ctx: TickContext, crew_id: CrewId): ParamSet {
+  const id = ctx.scenario.scenario.crew.find((c) => c.crew_id === crew_id)?.suit_param_set;
+  const p = id === undefined ? undefined : ctx.scenario.params[id];
+  if (!p) throw new Error(`alerts: crew ${crew_id} has no suit ParamSet in the scenario (05 Scenario)`);
+  return p;
+}
+
+/**
+ * CONSUMABLES_LOW from the O₂ margin = O₂ time left ÷ time to the nearest haven: a caution at
+ * `o2_caution_margin`, a warning (which replaces the caution) at `o2_warning_margin`. Cleared once
+ * the margin is above `o2_clear_margin` (hysteresis, decided 2026-11-07) or the crew member is back
+ * in the hab; between the caution and clear margins an open alert stays and none is raised.
+ * A haven 0 min away (or less) means the crew member is there, so nothing is raised. A haven that
+ * cannot be reached (`minutes` Infinity) gives margin 0, a warning with `haven_min` null. A NaN
+ * O₂ fraction or haven time is an engine error and throws, so it can never clear a live alert.
+ * TODO(verify): a terrain refuge (T2) gives shelter but no O₂; until T2 the haven is the hab or a
+ * pressurized rover, and a refuge haven is worded as the hab.
+ */
 export function consumablesTick(state: EngineState, ctx: TickContext): TickResult {
   const params = alertParams(ctx);
-  const caution = num(params, "o2_caution_frac");
-  const warning = num(params, "o2_warning_frac");
+  const caution = num(params, "o2_caution_margin");
+  const warning = num(params, "o2_warning_margin");
+  const clearAbove = num(params, "o2_clear_margin");
+  if (clearAbove < caution) throw new Error(`alerts: ParamSet ${params.param_set_id} o2_clear_margin ${clearAbove} is below o2_caution_margin ${caution}`);
   const open = active(state, "CONSUMABLES_LOW");
-  const has = (crew: CrewId, level: AlertLevel) => open.some((a) => a.level === level && a.subjects.includes(crew));
   const events: PendingEvent[] = [];
-  for (const c of onEva(state)) {
-    const level: AlertLevel | null = c.o2_frac <= warning ? "warning" : c.o2_frac <= caution ? "caution" : null;
-    if (!level || has(c.crew_id, level) || (level === "caution" && has(c.crew_id, "warning"))) continue;
+  for (const c of state.crew) {
+    const mine = open.filter((a) => a.subjects.includes(c.crew_id));
+    if (Number.isNaN(c.o2_frac) || Number.isNaN(c.haven.minutes)) throw new Error(`consumablesTick: crew ${c.crew_id} has a NaN O₂ fraction or haven time`);
+    const safe = c.activity === "IN_HAB" || waiting(state, ctx, c) || c.haven.minutes <= 0;
+    const o2_s = safe ? Infinity : o2RemainingS(c.o2_frac, "walking", suitParams(ctx, c.crew_id));
+    const reachable = Number.isFinite(c.haven.minutes);
+    const margin = safe ? Infinity : reachable ? o2_s / (c.haven.minutes * 60) : 0;
+    const level: AlertLevel | null = margin <= warning ? "warning" : margin <= caution ? "caution" : null;
+    if (level === null) {
+      if (margin > clearAbove) for (const a of mine) events.push(cleared(state, a.alert_id));
+      continue; // between the caution and clear margins: keep what is open, raise nothing
+    }
+    if (mine.some((a) => a.level === "warning") || (level === "caution" && mine.length > 0)) continue;
+    for (const a of mine) events.push(cleared(state, a.alert_id)); // the warning replaces the caution
+    const rover = c.haven.kind === "vehicle";
+    const message = level === "warning" ? (rover ? MESSAGES.o2WarningRover : MESSAGES.o2WarningHab) : rover ? MESSAGES.o2CautionRover : MESSAGES.o2CautionHab;
     events.push(
       raise(
         state,
@@ -106,23 +150,36 @@ export function consumablesTick(state: EngineState, ctx: TickContext): TickResul
         "CONSUMABLES_LOW",
         level,
         [c.crew_id],
-        level === "warning" ? MESSAGES.o2Warning : MESSAGES.o2Caution,
-        { o2_frac: c.o2_frac, threshold_frac: level === "warning" ? warning : caution },
-        { "data.o2_frac": "simulated", "data.threshold_frac": "assumed" },
+        message,
+        {
+          o2_remaining_min: o2_s / 60,
+          haven_min: reachable ? c.haven.minutes : null,
+          haven_kind: c.haven.kind,
+          margin,
+          threshold_margin: level === "warning" ? warning : caution,
+        },
+        { "data.o2_remaining_min": "simulated", "data.haven_min": "modelled", "data.margin": "simulated", "data.threshold_margin": "assumed" },
       ),
     );
   }
   return { state, events, deltas: [] };
 }
 
-/** BUDDY_SEPARATION from `buddy_max_m` in the alert ParamSet; distance in projected metres. */
+/**
+ * BUDDY_SEPARATION from `buddy_max_m` in the alert ParamSet; distance in projected metres.
+ * Cleared once the two are within `buddy_max_m` again or fewer than two crew are out; a crew member
+ * still waiting out `start_offset_s` is not out.
+ */
 export function buddyTick(state: EngineState, ctx: TickContext): TickResult {
-  const crew = onEva(state);
-  if (crew.length < 2 || active(state, "BUDDY_SEPARATION").length > 0) return { state, events: [], deltas: [] };
+  const crew = onEva(state, ctx);
+  const open = active(state, "BUDDY_SEPARATION");
+  const clearAll = (): TickResult => ({ state, events: open.map((a) => cleared(state, a.alert_id)), deltas: [] });
+  if (crew.length < 2) return clearAll();
   const max = num(alertParams(ctx), "buddy_max_m");
   const [a, b] = crew;
   const distance_m = Math.hypot(a.x_m - b.x_m, a.y_m - b.y_m);
-  if (distance_m <= max) return { state, events: [], deltas: [] };
+  if (distance_m <= max) return clearAll();
+  if (open.length > 0) return { state, events: [], deltas: [] };
   const event = raise(
     state,
     ctx.next_seq,
