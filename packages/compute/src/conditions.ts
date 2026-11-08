@@ -18,6 +18,9 @@
  * TODO(decision): team to confirm; not reachable at Gale (lat about -4.7 deg).
  */
 import type { EnvConstant, MissionScenario, PlanResult } from "@marswalk/protocol";
+import { localTrueSolarTime, solarLongitude } from "./mars24";
+import { estimateDose } from "./radiation";
+import { solarPosition, sunriseSunset } from "./sun";
 
 export interface ConditionsInputs {
   /** Site reference coordinate for solar calculations (lat planetocentric °, lon_e east-positive °). */
@@ -45,6 +48,60 @@ export interface ConditionsResult {
  * Assemble per-stop solar conditions, EVA-sol conditions, and background radiation dose (Contract C8).
  * Pure function: takes timeline and scenario, returns conditions components of PlanResult. TASK-06 (T06.09).
  */
-export function assembleConditions(_inputs: ConditionsInputs): ConditionsResult {
-  throw new Error("TODO(T06.09): not implemented");
+export function assembleConditions(inputs: ConditionsInputs): ConditionsResult {
+  const { site, timeline, scenario, envConstants, durationH } = inputs;
+
+  // 1. Per-stop timeline: arrival LTST ("HH:MM") and solar elevation
+  const stops_timeline: PlanResult["stops_timeline"] = timeline.map((entry) => {
+    const arriveDate = new Date(entry.arrive_utc);
+    const arriveLtst = localTrueSolarTime(arriveDate, site.lon_e);
+    const sunPos = solarPosition(arriveDate, site.lat, site.lon_e);
+
+    return {
+      arrive_utc: entry.arrive_utc,
+      depart_utc: entry.depart_utc,
+      arrive_ltst: arriveLtst,
+      sun_elevation_deg: sunPos.elevation_deg,
+    };
+  });
+
+  // 2. EVA-sol conditions for the sol containing eva_start_utc
+  const evaStartDate = new Date(scenario.eva_start_utc);
+  const sol = solarLongitude(evaStartDate);
+  const sun = sunriseSunset(evaStartDate, site.lat, site.lon_e);
+
+  const conditions: NonNullable<PlanResult["conditions"]> = {
+    mars_year: sol.mars_year,
+    ls_deg: sol.ls_deg,
+    sunrise_ltst: sun.sunrise_ltst,
+    sunset_ltst: sun.sunset_ltst,
+    sunrise_utc: sun.sunrise_utc,
+    sunset_utc: sun.sunset_utc,
+  };
+
+  // 3. Radiation dose estimate matching scenario solar_phase
+  const targetPhase = scenario.solar_phase;
+  const radConstant =
+    envConstants.find(
+      (c) =>
+        (c.conditions as { solar_phase?: string } | undefined)?.solar_phase === targetPhase,
+    ) ??
+    envConstants.find((c) => c.const_id.includes(targetPhase)) ??
+    envConstants[0];
+
+  const dose = radConstant
+    ? estimateDose(radConstant, durationH)
+    : {
+        dose_mSv: 0,
+        dose_low_mSv: 0,
+        dose_high_mSv: 0,
+        solar_phase: targetPhase,
+        const_id: `rad-gale-dose-eq-solar-${targetPhase}`,
+      };
+
+  return {
+    stops_timeline,
+    conditions,
+    radiation: dose as NonNullable<PlanResult["radiation"]>,
+  };
 }
