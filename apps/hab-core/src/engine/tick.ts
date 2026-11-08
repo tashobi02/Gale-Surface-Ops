@@ -233,6 +233,21 @@ function closest(geometry: Point[], x: number, y: number): { dist: number; along
   return best;
 }
 
+/**
+ * True while a pressurized rover's SUMMON task names this crew member and the rover is DISPATCHED,
+ * EN_ROUTE or ARRIVED (S5 hold for the vehicle). ARRIVED counts too: a rover that reaches the meeting
+ * point first waits there, and the crew must still hold for it, not shelter in the hab (Proposed 2026-11-08).
+ */
+function vehicleComing(state: EngineState, crew_id: CrewId): boolean {
+  return state.vehicles.some(
+    (v) =>
+      v.kind === "pressurized_rover" &&
+      (v.state === "DISPATCHED" || v.state === "EN_ROUTE" || v.state === "ARRIVED") &&
+      v.task?.kind === "SUMMON" &&
+      (v.task.crew_ids ?? []).includes(crew_id),
+  );
+}
+
 interface Walked {
   x_m: number;
   y_m: number;
@@ -326,12 +341,15 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
         cur = { ...next, phase: "walk" };
       } else {
         // End of the route. A loop (back at the start waypoint) shelters in the hab; otherwise hold (S5, S8).
-        // Only at the start waypoint's position (within SHELTER_REACH_M, the reach vehiclesTick uses): a
+        // Except for a crew member a pressurized rover is coming for (its SUMMON task names them) who ended
+        // off the start waypoint (farther than SHELTER_REACH_M, the reach vehiclesTick uses): a
         // VEHICLE_RENDEZVOUS revision's last leg has `to` = start but ends at the meeting point, where the
-        // crew hold until vehiclesTick shelters them in the vehicle (T23.07 rework, Proposed 2026-11-08).
+        // crew hold until vehiclesTick shelters them in the vehicle. A planner loop that ends on a cell
+        // centre near the start still shelters in the hab (T23.07 rework, Proposed 2026-11-08).
         // TODO(decision): a dedicated 05 Waypoint role ("rendezvous") would be cleaner; the spec owner's call.
         cur = { ...next, phase: "hold" };
-        if (leg.to === startId && start !== undefined && Math.hypot(x - start.x_m, y - start.y_m) <= SHELTER_REACH_M) {
+        const offStart = start === undefined || Math.hypot(x - start.x_m, y - start.y_m) > SHELTER_REACH_M;
+        if (leg.to === startId && !(offStart && vehicleComing(state, c.crew_id))) {
           pending.push((after) => ({
             sim_time,
             kind: "CREW_SHELTERED",

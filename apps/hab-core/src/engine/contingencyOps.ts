@@ -108,8 +108,20 @@ interface VehicleInputs {
  * compute never uses without a rendezvous) when there is no PARKED pressurized rover, its own ParamSet
  * is missing or has no `ingress_min` ≥ 0, or `rendezvousPair` throws RangeError for two crew.
  */
+const NO_VEHICLE: VehicleInputs = Object.freeze({ rendezvous: Object.freeze({}), vehicle_s: Number.NaN });
+
+/** `f()`, or null when it throws a RangeError (compute's "bad input" error); any other error propagates. */
+function unlessRangeError<T>(f: () => T): T | null {
+  try {
+    return f();
+  } catch (err) {
+    if (err instanceof RangeError) return null;
+    throw err;
+  }
+}
+
 function vehicleInputs(state: EngineState, scenario: LoadedScenario, grid: LoadedGrid, crew: Crew[], plan: MissionScenario): VehicleInputs {
-  const none: VehicleInputs = { rendezvous: {}, vehicle_s: Number.NaN };
+  const none = NO_VEHICLE;
   const vehicle = state.vehicles.find((v) => v.kind === "pressurized_rover");
   if (!vehicle || vehicle.state !== "PARKED") return none;
   const params = scenario.params[vehicle.param_set];
@@ -164,13 +176,18 @@ export function contingencyTick(state: EngineState, ctx: TickContext): TickResul
     const crew = state.crew.filter((c) => alert.subjects.includes(c.crew_id) && (c.activity === "WALKING" || c.activity === "AT_STOP"));
     if (crew.length === 0) continue;
 
-    hab ??= habTimeField(grid, { x_m: start.x_m, y_m: start.y_m }, plan.scenario);
-    const v = vehicleInputs(state, ctx.scenario, grid, crew, plan.scenario);
-    const options = proposeOptions({
+    // A compute RangeError (hab or rover off the grid, a malformed ParamSet) never stops the engine:
+    // no options at all if the hab side throws, no vehicle option if the vehicle side throws, and an
+    // alert whose options throw is skipped this tick (Proposed 2026-11-08). Other errors propagate.
+    hab ??= unlessRangeError(() => habTimeField(grid, { x_m: start.x_m, y_m: start.y_m }, plan.scenario));
+    if (hab === null) return none;
+    const habField = hab;
+    const v = unlessRangeError(() => vehicleInputs(state, ctx.scenario, grid, crew, plan.scenario)) ?? NO_VEHICLE;
+    const proposed = unlessRangeError(() => proposeOptions({
       alert_id: alert.alert_id,
       crew,
       now_utc: state.session.clock.sim_time,
-      hab,
+      hab: habField,
       rendezvous: v.rendezvous,
       ingress: { hab_s: HAB_INGRESS_S, vehicle_s: v.vehicle_s },
       ...(v.pair ? { pair: v.pair } : {}),
@@ -178,9 +195,9 @@ export function contingencyTick(state: EngineState, ctx: TickContext): TickResul
       scenario: plan.scenario,
       series: ctx.scenario.dose,
       shielding,
-    })
-      .filter(allFinite)
-      .map((o, i): ContingencyOption => ({ ...o, rank: i + 1 }));
+    }));
+    if (proposed === null) continue;
+    const options = proposed.filter(allFinite).map((o, i): ContingencyOption => ({ ...o, rank: i + 1 }));
 
     const data: LogEventData["OPTIONS_PROPOSED"] = { alert_id: alert.alert_id, options };
     events.push({ kind: "OPTIONS_PROPOSED", actor: "system", sim_time: state.session.clock.sim_time, data: data as Record<string, unknown>, provenance: { ...OPTIONS_PROVENANCE } });

@@ -488,6 +488,15 @@ describe("tick rule S5: a loop ending off the start waypoint still shelters in t
     const events = runFake(s, 30, 600);
     expect(sheltered(events).map((d) => [d.crew_id, d.haven_kind])).toEqual([["EV2", "hab"]]);
   });
+
+  it("a crew member a rover is coming for who ends ON the start waypoint still shelters in the hab", () => {
+    const s0 = apply(initialState(fake, "s-0001"), "EVA_STARTED", { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, "ops");
+    const s = withPr(s0, { state: "DISPATCHED", task: { kind: "SUMMON", target: { x_m: START.x_m, y_m: START.y_m }, crew_ids: ["EV1"] } });
+    expect(sheltered(runFake(s, 30, 600)).map((d) => [d.crew_id, d.haven_kind]).sort()).toEqual([
+      ["EV1", "hab"],
+      ["EV2", "hab"],
+    ]);
+  });
 });
 
 describe("compute RangeErrors never stop the engine", () => {
@@ -511,6 +520,18 @@ describe("compute RangeErrors never stop the engine", () => {
     const { options } = dataOf(contingencyTick(alerted, tctx(alerted, bad)).events, "OPTIONS_PROPOSED");
     expect(options.map((o) => o.kind)).not.toContain("VEHICLE_RENDEZVOUS");
     expect(options.length).toBeGreaterThan(0);
+  });
+
+  it("a RangeError from proposeOptions (stop_index outside the plan) skips the alert: no events, no throw", () => {
+    const stops = plan.waypoints.filter((w) => w.role === "stop").length;
+    const s = withCrew(alerted, "EV1", { stop_index: stops + 1 });
+    expect(() => contingencyTick(s, tctx(s))).not.toThrow();
+    expect(contingencyTick(s, tctx(s)).events).toEqual([]);
+  });
+
+  it("an error that is not a RangeError still propagates (a malformed grid object)", () => {
+    const broken: LoadedScenario = { ...sc, grid: {} as LoadedScenario["grid"] };
+    expect(() => contingencyTick(alerted, tctx(alerted, broken))).toThrow(TypeError);
   });
 
   it("dispatchVehicle maps a compute RangeError (rover off the grid) to NO_RENDEZVOUS", () => {

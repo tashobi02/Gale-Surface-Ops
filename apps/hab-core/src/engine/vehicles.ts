@@ -146,12 +146,19 @@ export function dispatchVehicle(state: EngineState, scenario: LoadedScenario, re
   const grid = scenario.grid;
   if (!grid) return reject("NO_RENDEZVOUS", "no terrain grid is loaded for the rendezvous");
 
-  const passable = vehiclePassable(grid, params);
-  const fromVehicle = vehicleTimeField(grid, { x_m: vehicle.x_m, y_m: vehicle.y_m }, params);
+  // A compute RangeError (the rover or a crew member off the grid, a malformed rover ParamSet) answers
+  // NO_RENDEZVOUS instead of stopping the engine; other errors propagate (T23.07 rework, Proposed 2026-11-08).
   const found: RendezvousOk[] = [];
-  for (const c of crew) {
-    const rv = rendezvous(crewTimeField(grid, { x_m: c!.x_m, y_m: c!.y_m }, plan, limit_s), fromVehicle, passable);
-    if (rv.status === "OK") found.push(rv);
+  try {
+    const passable = vehiclePassable(grid, params);
+    const fromVehicle = vehicleTimeField(grid, { x_m: vehicle.x_m, y_m: vehicle.y_m }, params);
+    for (const c of crew) {
+      const rv = rendezvous(crewTimeField(grid, { x_m: c!.x_m, y_m: c!.y_m }, plan, limit_s), fromVehicle, passable);
+      if (rv.status === "OK") found.push(rv);
+    }
+  } catch (err) {
+    if (!(err instanceof RangeError)) throw err;
+    return reject("NO_RENDEZVOUS", `compute could not search for a rendezvous: ${err.message}`);
   }
   if (found.length === 0) return reject("NO_RENDEZVOUS", "no cell both the crew and the vehicle can reach within the haven limit");
 
