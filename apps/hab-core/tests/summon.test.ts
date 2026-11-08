@@ -93,6 +93,10 @@ const standIn = vi.hoisted(() => {
       }
       return { cell_m: STAND_IN_CELL_M, width, height: 1, seconds, from_x_m, speed_ms };
     },
+    vehiclePassable(_grid: unknown, _params: unknown): Uint8Array {
+      const width = Math.round(s.extent_m / STAND_IN_CELL_M) + 1;
+      return new Uint8Array(width).fill(1);
+    },
     crewTimeField(_grid: unknown, from: { x_m: number }, scenario: { suited_flat_speed_kmh: number }, limit_s: number): LineField {
       return s.field(from.x_m, scenario.suited_flat_speed_kmh / 3.6, limit_s);
     },
@@ -140,6 +144,7 @@ vi.mock("@marswalk/compute", async () => {
     ...actual,
     crewTimeField: standIn.crewTimeField,
     vehicleTimeField: standIn.vehicleTimeField,
+    vehiclePassable: standIn.vehiclePassable,
     rendezvous: standIn.rendezvous,
   };
 });
