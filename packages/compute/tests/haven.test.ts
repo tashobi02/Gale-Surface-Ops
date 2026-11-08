@@ -10,9 +10,11 @@ import {
   crewTimeField,
   habTimeField,
   havenAlongRoute,
+  isCellPassable,
   liveHaven,
   pathTo,
   timeAt,
+  toLeg,
   vehiclePassable,
   vehicleTimeField,
 } from "../src";
@@ -37,8 +39,9 @@ import type { XY } from "./fixtures/v2grids";
 //
 // Every expected value is derived here from the fixture's declared shape (v2grids.ts), `defaultScenario()`,
 // `pr1Params` / `slowVehicleParams` and closed forms (octile distance on flat ground), or from a brute-force
-// oracle written in this file. No result is typed in. The route.ts / timeModel.ts / grid.ts helpers are still
-// stubs (T05.16, T05.18, T05.22), so this file does not call them: the §D.2 Tobler formula is written out below.
+// oracle written in this file. No result is typed in. The §D.2 Tobler formula is written out below as an
+// independent oracle; the parity block at the end compares the fields with TASK-05's own v1 step cost
+// (`toLeg`, `isCellPassable`: route.ts, leg.ts, timeModel.ts), so haven and the route search cannot drift apart.
 // Fields are built lazily inside each test (`cached`), so a stub failure is reported by the test that hit it.
 
 // ---------------------------------------------------------------------------
@@ -124,14 +127,15 @@ function suitedBlocked(g: LoadedGrid, sc: MissionScenario, k: number): boolean {
     Number.isNaN(g.elevation[k])
   );
 }
+/** Multiplier of an entered cell. A slope_max of 255 (no data) counts as no caution, as v1 does (route.ts decodes it to null, then 0). */
 function suitedMult(g: LoadedGrid, sc: MissionScenario, k: number): number {
-  return (g.slopeMax[k]! / 4 > sc.caution_slope_deg ? D2_CAUTION_MULT : 1) * ((g.flags[k]! & LOW_TI_BIT) !== 0 ? D2_LOW_TI_MULT : 1);
+  return (g.slopeMax[k] !== 255 && g.slopeMax[k]! / 4 > sc.caution_slope_deg ? D2_CAUTION_MULT : 1) * ((g.flags[k]! & LOW_TI_BIT) !== 0 ? D2_LOW_TI_MULT : 1);
 }
 
 /**
  * Brute-force suited Dijkstra, O(n^2), for small grids. Forward: crew-style field from `start`.
  * Reverse: time to walk from each cell TO `start`. The cost of a step is charged on the cell entered in the
- * direction of travel (Proposed, see the T05b.04 note in TASK-05b).
+ * direction of travel, as v1 does (route.ts searchLeg charges the destination cell; T05b.04 note in TASK-05b).
  */
 function referenceField(g: LoadedGrid, sc: MissionScenario, start: number, reverse: boolean): Float64Array {
   const { width: w, height: h, cell_m: c } = g.meta;
@@ -445,7 +449,7 @@ describe("habTimeField (T_hab, reverse Dijkstra)", () => {
     const cases: { name: string; flag: "caution" | "lowti" | "both"; mult: number }[] = [
       { name: "caution", flag: "caution", mult: D2_CAUTION_MULT },
       { name: "low TI", flag: "lowti", mult: D2_LOW_TI_MULT },
-      { name: "both (Proposed: they multiply)", flag: "both", mult: D2_CAUTION_MULT * D2_LOW_TI_MULT },
+      { name: "both (they multiply, as in v1 route.ts)", flag: "both", mult: D2_CAUTION_MULT * D2_LOW_TI_MULT },
     ];
     for (const c of cases) {
       const fx = havenFlat();
@@ -466,7 +470,7 @@ describe("habTimeField (T_hab, reverse Dijkstra)", () => {
     }
   });
 
-  it("charges the multiplier on the cell entered in the direction of travel (Proposed, TODO(decision) with T05.18)", () => {
+  it("charges the multiplier on the cell entered in the direction of travel, as v1 route.ts does", () => {
     const fx = havenFlat();
     const g = geoOf(fx.grid);
     const cautionCell = mustCell(g, { x_m: 3 * g.cell_m, y_m: 0 });
@@ -1316,10 +1320,193 @@ describe("lattice cache", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Parity with the v1 step cost (T05b.04 follow-up; 02 §D.8 "v1 D.2 step cost")
+// ---------------------------------------------------------------------------
+
+/**
+ * The v1 cost of walking `from` -> `to` (adjacent cells), in seconds, taken from TASK-05's own code only:
+ * `toLeg` (leg.ts) sums `stepTimeH` with route.ts's multipliers over a cell path, and `walk_time_min` x 60 turns it
+ * into seconds. Nothing of the formula is repeated here, so a change on either side shows up as a mismatch.
+ */
+function v1StepSeconds(grid: LoadedGrid, sc: MissionScenario, from: number, to: number): number {
+  const leg = toLeg(grid, "from", "to", { status: "OK", cells: [from, to] }, sc);
+  if (leg.status !== "OK") throw new Error("test setup: toLeg did not return an OK leg");
+  return leg.walk_time_min * 60;
+}
+
+/**
+ * bumpyGrid plus the cells whose step cost the two sides could disagree on: caution and LOW_TI on one cell (both),
+ * a no-data slope_max (255) on passable cells, a NaN elevation, and slope_p90 exactly at the hard limit.
+ */
+function parityGrid(): { grid: LoadedGrid; both: number[]; noDataMax: number[]; nanCell: number; atLimit: number } {
+  const grid = bumpyGrid();
+  const g = geoOf(grid);
+  const w = g.width;
+  const both: number[] = [];
+  for (let i = 25; i <= 30; i++) {
+    const k = i * w + 13; // inside the LOW_TI strip
+    grid.slopeMax[k] = (scenario.caution_slope_deg + 1) * 4;
+    both.push(k);
+  }
+  const noDataMax: number[] = [];
+  for (let i = 20; i <= 26; i++) {
+    const k = i * w + 4;
+    grid.slopeMax[k] = 255;
+    noDataMax.push(k);
+  }
+  const nanCell = 18 * w + 18;
+  grid.elevation[nanCell] = Number.NaN;
+  const atLimit = 30 * w + 30;
+  grid.slopeP90[atLimit] = scenario.hard_slope_limit_deg * 4;
+  return { grid, both, noDataMax, nanCell, atLimit };
+}
+
+/** Relative 1e-9: the two sides may differ in the last bits (one `exp` vs two), never more. */
+function closeRel(a: number, b: number): boolean {
+  return a === b || Math.abs(a - b) <= 1e-9 * Math.abs(b);
+}
+
+describe("parity with the v1 step cost (route.ts / leg.ts / timeModel.ts)", () => {
+  const hard = scenario.hard_slope_limit_deg;
+
+  it("passability: a cell is reached only if v1's isCellPassable accepts it (the start excepted)", () => {
+    const { grid, nanCell, atLimit } = parityGrid();
+    const g = geoOf(grid);
+    const start = mustCell(g, { x_m: 0, y_m: 0 });
+    const hab = habTimeField(grid, { x_m: 0, y_m: 0 }, scenario);
+    const crew = crewTimeField(grid, { x_m: 0, y_m: 0 }, scenario, Infinity);
+    const bad: number[] = [];
+    for (let k = 0; k < g.width * g.height; k++) {
+      if (k === start) continue;
+      const v1 = isCellPassable(grid, k, hard);
+      if ((hab.seconds[k]! < Infinity && !v1) || (crew.seconds[k]! < Infinity && !v1)) bad.push(k);
+    }
+    expectNoMismatch(bad, "reached but not v1-passable");
+    expect(isCellPassable(grid, nanCell, hard)).toBe(false);
+    expect(hab.seconds[nanCell]).toBe(Infinity);
+    expect(isCellPassable(grid, atLimit, hard)).toBe(true);
+    expect(hab.seconds[atLimit]).toBeLessThan(Infinity);
+  });
+
+  it("hab field: every back-pointer step k -> prev[k] costs what v1 charges for walking it toward the hab", () => {
+    const { grid, both, noDataMax } = parityGrid();
+    const g = geoOf(grid);
+    const hab = habTimeField(grid, { x_m: 0, y_m: 0 }, scenario);
+    const bad: number[] = [];
+    const seen = { plain: 0, caution: 0, lowTi: 0, both: 0, noDataMax: 0, diagUp: 0, diagDown: 0 };
+    for (let k = 0; k < g.width * g.height; k++) {
+      const p = hab.prev[k]!;
+      if (p < 0) continue;
+      if (!closeRel(hab.seconds[k]! - hab.seconds[p]!, v1StepSeconds(grid, scenario, k, p))) bad.push(k);
+      // Coverage of the cases, by the cell entered on the walk k -> p (v1 charges the destination).
+      const caution = grid.slopeMax[p]! !== 255 && grid.slopeMax[p]! / 4 > scenario.caution_slope_deg;
+      const lowTi = (grid.flags[p]! & LOW_TI_BIT) !== 0;
+      if (both.includes(p)) seen.both++;
+      else if (caution) seen.caution++;
+      else if (lowTi) seen.lowTi++;
+      else seen.plain++;
+      if (noDataMax.includes(p)) seen.noDataMax++;
+      const diagonal = rowOf(g, k) !== rowOf(g, p) && colOf(g, k) !== colOf(g, p);
+      if (diagonal && grid.elevation[p]! > grid.elevation[k]!) seen.diagUp++;
+      if (diagonal && grid.elevation[p]! < grid.elevation[k]!) seen.diagDown++;
+    }
+    expectNoMismatch(bad, "hab step vs v1");
+    for (const [name, count] of Object.entries(seen)) expect(count, `no hab step covers ${name}`).toBeGreaterThan(0);
+  });
+
+  it("crew field: every back-pointer step prev[k] -> k costs what v1 charges for walking it away from the start", () => {
+    const { grid, both, noDataMax } = parityGrid();
+    const g = geoOf(grid);
+    const crew = crewTimeField(grid, { x_m: 0, y_m: 0 }, scenario, Infinity);
+    const bad: number[] = [];
+    let bothSeen = 0;
+    let noDataSeen = 0;
+    for (let k = 0; k < g.width * g.height; k++) {
+      const p = crew.prev[k]!;
+      if (p < 0) continue;
+      if (!closeRel(crew.seconds[k]! - crew.seconds[p]!, v1StepSeconds(grid, scenario, p, k))) bad.push(k);
+      if (both.includes(k)) bothSeen++;
+      if (noDataMax.includes(k)) noDataSeen++;
+    }
+    expectNoMismatch(bad, "crew step vs v1");
+    expect(bothSeen).toBeGreaterThan(0);
+    expect(noDataSeen).toBeGreaterThan(0);
+  });
+
+  it("no field undercuts or overshoots v1 on any edge: T(k) <= T(p) + v1 step for every passable neighbour pair", () => {
+    // Dijkstra optimality under v1's cost: if haven charged more than v1 on an edge that is not in the tree,
+    // the tree checks above would not see it; this check does.
+    const { grid } = parityGrid();
+    const g = geoOf(grid);
+    const hab = habTimeField(grid, { x_m: 0, y_m: 0 }, scenario);
+    const crew = crewTimeField(grid, { x_m: 0, y_m: 0 }, scenario, Infinity);
+    const bad: number[] = [];
+    for (let u = 0; u < g.width * g.height; u++) {
+      if (!isCellPassable(grid, u, hard)) continue;
+      for (let di = -1; di <= 1; di++) {
+        for (let dj = -1; dj <= 1; dj++) {
+          if (di === 0 && dj === 0) continue;
+          const r = rowOf(g, u) + di;
+          const c = colOf(g, u) + dj;
+          if (r < 0 || c < 0 || r >= g.height || c >= g.width) continue;
+          const v = r * g.width + c;
+          if (!isCellPassable(grid, v, hard)) continue;
+          const tol = (t: number) => t + 1e-9 * Math.max(1, t);
+          // crew: walk u -> v; hab: walk v -> u (toward the hab).
+          if (crew.seconds[u]! < Infinity && !(crew.seconds[v]! <= tol(crew.seconds[u]! + v1StepSeconds(grid, scenario, u, v)))) bad.push(v);
+          if (hab.seconds[u]! < Infinity && !(hab.seconds[v]! <= tol(hab.seconds[u]! + v1StepSeconds(grid, scenario, v, u)))) bad.push(v);
+        }
+      }
+    }
+    expectNoMismatch(bad, "edge relaxation vs v1");
+  });
+
+  it("direct check: from one seeded cell each of the 8 neighbours reached directly costs v1's step, and none costs more", () => {
+    const { grid } = parityGrid();
+    const g = geoOf(grid);
+    // A cell on sloping ground next to the caution strip, so the 8 steps differ in d, dz and multiplier.
+    const s = 10 * g.width + 10;
+    const sc = centreOf(g, s);
+    const crew = crewTimeField(grid, sc, scenario, Infinity);
+    const hab = habTimeField(grid, sc, scenario);
+    let direct = 0;
+    for (let di = -1; di <= 1; di++) {
+      for (let dj = -1; dj <= 1; dj++) {
+        if (di === 0 && dj === 0) continue;
+        const nb = (rowOf(g, s) + di) * g.width + colOf(g, s) + dj;
+        const out = v1StepSeconds(grid, scenario, s, nb);
+        const back = v1StepSeconds(grid, scenario, nb, s);
+        expect(crew.seconds[nb]!).toBeLessThanOrEqual(out * (1 + 1e-9));
+        expect(hab.seconds[nb]!).toBeLessThanOrEqual(back * (1 + 1e-9));
+        if (crew.prev[nb] === s) {
+          direct++;
+          expect(closeRel(crew.seconds[nb]!, out), `crew neighbour ${nb}`).toBe(true);
+        }
+        if (hab.prev[nb] === s) {
+          direct++;
+          expect(closeRel(hab.seconds[nb]!, back), `hab neighbour ${nb}`).toBe(true);
+        }
+      }
+    }
+    expect(direct).toBeGreaterThanOrEqual(8);
+  });
+
+  it("a no-data slope_max (255) on a passable cell gets no caution multiplier, as v1 decodes it to null and uses 0", () => {
+    const fx = havenFlat();
+    const g = geoOf(fx.grid);
+    const k = mustCell(g, { x_m: 3 * g.cell_m, y_m: 0 });
+    fx.grid.slopeMax[k] = 255;
+    const step = g.cell_m / v0;
+    const out = crewTimeField(fx.grid, fx.shape.hab, scenario, Infinity);
+    expect(out.seconds[k]).toBeCloseTo(3 * step, 6);
+    expect(out.seconds[k]).toBeCloseTo(v1StepSeconds(fx.grid, scenario, mustCell(g, { x_m: 2 * g.cell_m, y_m: 0 }), k) + 2 * step, 6);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Deferred (it.todo instead of coverage targets, CLAUDE.md section 6)
 // ---------------------------------------------------------------------------
 
 describe("deferred", () => {
-  it.todo("parity with the v1 step cost: a habTimeField step equals stepTimeH x 3600 once T05.22 merges (TODO(TASK-05))");
   it.todo("real grid: full-grid field in 2 s or less on the weakest laptop (NFR-02) is the T05b.05 benchmark, bench/haven.bench.ts");
 });
