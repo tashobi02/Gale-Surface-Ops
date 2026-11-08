@@ -3,16 +3,22 @@
  * Each rejection reason has one named test. Every case copies the fake scenario (F8, T22.02) to a
  * temporary folder and breaks one thing; the fixture itself is never edited.
  */
+import { createHash } from "node:crypto";
 import { cpSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Scenario } from "@marswalk/protocol";
-import { readScenario, ScenarioCheckError, type SiteRef } from "../src/scenario";
+import { cellIndex, isCellPassable, vehiclePassable } from "@marswalk/compute";
+import type { LogEvent, LogEventData, LogEventKind, Role, Scenario, Site } from "@marswalk/protocol";
+import { initialState, reduce, type EngineState } from "../src/engine/reducer";
+import { tick } from "../src/engine/tick";
+import { loadSite, readScenario, ScenarioCheckError, type LoadedScenario, type SiteRef } from "../src/scenario";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, "fixtures/fake-scenario");
+const REPO_ROOT = join(here, "../../..");
+const MOCK_SITE_DIR = join(REPO_ROOT, "data/sites/mock_site");
 const SITE: SiteRef = { site_id: "mock_site", data_version: "mock_site-fixture", dir: null };
 
 const dirs: string[] = [];
@@ -159,5 +165,255 @@ describe("readScenario (T22.11, 05 §E.7)", () => {
       s.events = [{ ...s.events[0], event_id: "e2", t_utc: "2024-05-20T02:00:00Z" }, s.events[0]];
     });
     expect(rejection(dir).check).toBe("events_order");
+  });
+});
+
+// ---- T22.11 follow-up (Proposed): the Hab Core loads the site routing grid and comm_hab -------------------
+// 05 §E.7 (grid load, passable starts), 02 §E.1; FR-39, FR-40, NFR-01. The oracle is the tracked mock site
+// (F4): every expected number comes from its manifest or from compute, none is typed in here.
+
+const manifestOf = (dir: string): Site => JSON.parse(readFileSync(join(dir, "site-manifest.json"), "utf8")) as Site;
+const MOCK = manifestOf(MOCK_SITE_DIR);
+const MOCK_REF: SiteRef = { site_id: MOCK.site_id, data_version: MOCK.data_version, dir: MOCK_SITE_DIR };
+const FIXTURE_VERSION = "mock_site-fixture"; // the fake scenario's data_version
+const sha256Bytes = (b: Buffer): string => createHash("sha256").update(b).digest("hex");
+const assetOf = (m: Site, id: string) => m.assets.find((a) => a.asset_id === id)!;
+const loadMock = () => loadSite(MOCK_SITE_DIR, MOCK.site_id, MOCK.data_version);
+
+/** A temporary copy of the mock site; `edit` changes its manifest (and may rewrite files). `fixtureVersion` makes it claim the fake scenario's data_version. */
+function siteCopy(edit: (m: Site, dir: string) => void = () => {}, fixtureVersion = false): string {
+  const dir = mkdtempSync(join(tmpdir(), "marswalk-site-"));
+  dirs.push(dir);
+  cpSync(MOCK_SITE_DIR, dir, { recursive: true });
+  const m = manifestOf(dir);
+  if (fixtureVersion) m.data_version = FIXTURE_VERSION;
+  edit(m, dir);
+  writeFileSync(join(dir, "site-manifest.json"), `${JSON.stringify(m, null, 2)}\n`);
+  return dir;
+}
+/** Edit one grid file and record its new SHA-256, so that only the grid content changes. */
+function rewriteAsset(m: Site, dir: string, assetId: string, edit: (b: Buffer) => void): void {
+  const a = assetOf(m, assetId);
+  const path = join(dir, a.path);
+  const bytes = readFileSync(path);
+  edit(bytes);
+  writeFileSync(path, bytes);
+  a.sha256 = sha256Bytes(bytes);
+}
+function siteRejection(dir: string, ref: SiteRef = MOCK_REF): ScenarioCheckError {
+  try {
+    loadSite(dir, ref.site_id, ref.data_version);
+  } catch (err) {
+    expect(err).toBeInstanceOf(ScenarioCheckError);
+    return err as ScenarioCheckError;
+  }
+  throw new Error("expected loadSite to reject");
+}
+/** Centre of array offset k in projected metres; row 0 is north (05 §E.1). */
+function centreOf(m: Site, k: number): { x_m: number; y_m: number } {
+  const i = Math.floor(k / m.grid.width);
+  const j = k % m.grid.width;
+  return { x_m: m.grid.origin_m[0] + (j + 0.5) * m.grid.cell_m, y_m: m.grid.origin_m[1] - (i + 0.5) * m.grid.cell_m };
+}
+const fakeScenarioJson = () => JSON.parse(readFileSync(join(fixtureDir, "scenario.json"), "utf8")) as Scenario;
+
+describe("loadSite (T22.11 follow-up, 05 §E.7; FR-39, FR-40)", () => {
+  it("loads the mock site: every array has width x height cells, read from its manifest", () => {
+    const { grid } = loadMock();
+    const cells = MOCK.grid.width * MOCK.grid.height;
+    expect(grid.meta).toEqual(MOCK.grid);
+    for (const a of [grid.elevation, grid.slopeP90, grid.slopeMax, grid.flags, grid.commHab]) expect(a.length).toBe(cells);
+    const ti = readFileSync(join(MOCK_SITE_DIR, assetOf(MOCK, MOCK.grid.ti_asset!).path));
+    expect(grid.ti).toBeInstanceOf(Float32Array);
+    expect(grid.ti!.length).toBe(ti.length / Float32Array.BYTES_PER_ELEMENT);
+  });
+
+  it("the arrays hold the bytes of the manifest's assets and own their buffers (no pooled-Buffer view)", () => {
+    const { grid } = loadMock();
+    const file = (id: string) => readFileSync(join(MOCK_SITE_DIR, assetOf(MOCK, id).path));
+    expect(Array.from(grid.flags)).toEqual(Array.from(file(MOCK.grid.flags_asset)));
+    expect(Array.from(grid.slopeP90)).toEqual(Array.from(file(MOCK.grid.slope_p90_asset)));
+    const raw = file(MOCK.grid.elevation_asset);
+    const want = new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
+    expect(Array.from(grid.elevation, String)).toEqual(Array.from(want, String)); // String so the NaN cells compare equal
+    for (const a of [grid.elevation, grid.slopeP90, grid.slopeMax, grid.flags, grid.commHab]) {
+      expect(a.byteOffset).toBe(0);
+      expect(a.buffer.byteLength).toBe(a.byteLength);
+    }
+  });
+
+  it("comm carries the comm_hab array and the manifest's hab_mast", () => {
+    const { grid, comm } = loadMock();
+    expect(comm.hab_mast).toEqual(MOCK.grid.hab_mast);
+    expect(comm.comm_hab).toBe(grid.commHab);
+    const file = readFileSync(join(MOCK_SITE_DIR, assetOf(MOCK, MOCK.grid.comm_hab_asset).path));
+    expect(Array.from(comm.comm_hab)).toEqual(Array.from(file));
+  });
+
+  it("fails loudly when the site bundle or its manifest is missing", () => {
+    const dir = siteCopy();
+    unlinkSync(join(dir, "site-manifest.json"));
+    expect(siteRejection(dir).check).toBe("site_manifest");
+    const absent = join(dir, "no-such-site");
+    expect(siteRejection(absent, { ...MOCK_REF, dir: absent }).check).toBe("site_manifest");
+  });
+
+  it("rejects a manifest that fails schemas/site-manifest.schema.json", () => {
+    const dir = siteCopy((m) => {
+      delete (m as unknown as Record<string, unknown>).grid;
+    });
+    const err = siteRejection(dir);
+    expect(err.check).toBe("site_manifest");
+    expect(err.message).toMatch(/grid/);
+  });
+
+  it("rejects a manifest for another site or data_version", () => {
+    expect(siteRejection(MOCK_SITE_DIR, { ...MOCK_REF, data_version: "mock_site-2026.11.08" }).check).toBe("data_version");
+    expect(siteRejection(MOCK_SITE_DIR, { ...MOCK_REF, site_id: "gale_boxwork" }).check).toBe("site_id");
+  });
+
+  it("rejects a grid asset id the manifest does not list", () => {
+    const dir = siteCopy((m) => {
+      m.assets = m.assets.filter((a) => a.asset_id !== m.grid.flags_asset);
+    });
+    const err = siteRejection(dir);
+    expect(err.check).toBe("grid_asset");
+    expect(err.message).toContain(MOCK.grid.flags_asset);
+  });
+
+  it("fails loudly on a missing grid file, naming it (never a silent null)", () => {
+    const dir = siteCopy();
+    const path = assetOf(MOCK, MOCK.grid.slope_p90_asset).path;
+    unlinkSync(join(dir, path));
+    const err = siteRejection(dir);
+    expect(err.check).toBe("grid_missing");
+    expect(err.message).toContain(path);
+  });
+
+  it("rejects a grid file whose SHA-256 differs from the manifest's", () => {
+    const dir = siteCopy();
+    const path = join(dir, assetOf(MOCK, MOCK.grid.elevation_asset).path);
+    const bytes = readFileSync(path);
+    bytes[0] = bytes[0]! ^ 0xff;
+    writeFileSync(path, bytes);
+    const err = siteRejection(dir);
+    expect(err.check).toBe("grid_sha256");
+    expect(err.message).toContain(MOCK.grid.elevation_asset);
+  });
+
+  it("rejects an asset whose width or height is not the grid's", () => {
+    const dir = siteCopy((m) => {
+      assetOf(m, m.grid.flags_asset).height! += 1;
+    });
+    const err = siteRejection(dir);
+    expect(err.check).toBe("grid_dims");
+    expect(err.message).toContain(MOCK.grid.flags_asset);
+  });
+
+  it("rejects files that do not hold width x height cells (compute's check, re-raised)", () => {
+    const dir = siteCopy((m) => {
+      m.grid.height += 1;
+      for (const id of [m.grid.elevation_asset, m.grid.slope_p90_asset, m.grid.slope_max_asset, m.grid.flags_asset, m.grid.comm_hab_asset]) assetOf(m, id).height! += 1;
+    });
+    expect(siteRejection(dir).check).toBe("grid_dims");
+  });
+});
+
+describe("readScenario with a site directory (T22.11 follow-up, 05 §E.7)", () => {
+  const ref = (dir: string): SiteRef => ({ site_id: "mock_site", data_version: FIXTURE_VERSION, dir });
+
+  it("loads the grid and comm_hab on scenario load; a null dir keeps both null", () => {
+    const loaded = readScenario(fixtureDir, ref(siteCopy(() => {}, true)));
+    expect(loaded.grid!.meta.width).toBe(MOCK.grid.width);
+    expect(loaded.comm!.hab_mast).toEqual(MOCK.grid.hab_mast);
+    expect(loaded.comm!.comm_hab).toBe(loaded.grid!.commHab);
+    const none = readScenario(fixtureDir, SITE);
+    expect(none.grid).toBeNull();
+    expect(none.comm).toBeNull();
+  });
+
+  it("checks data_version before it reads the grid", () => {
+    const dir = siteCopy();
+    unlinkSync(join(dir, assetOf(MOCK, MOCK.grid.flags_asset).path));
+    expect(rejection(fixtureDir, { ...ref(dir), data_version: "mock_site-2026.11.08" }).check).toBe("data_version");
+  });
+
+  it("rejects the plan's start waypoint (where the crew leave the hab) on a hazard cell", () => {
+    const start = fakeScenarioJson().plan.waypoints.find((w) => w.role === "start")!;
+    const cell = cellIndex(loadMock().grid, start.x_m, start.y_m);
+    expect(Number.isFinite(cell)).toBe(true);
+    const HARD_HAZARD = 1 << 1; // 05 FLAG_BITS
+    const dir = siteCopy((m, d) => rewriteAsset(m, d, m.grid.flags_asset, (b) => (b[cell!] = b[cell!]! | HARD_HAZARD)), true);
+    const err = rejection(fixtureDir, ref(dir));
+    expect(err.check).toBe("start_blocked");
+    expect(err.message).toContain(start.id);
+  });
+
+  it("rejects a vehicle start on an impassable cell, naming the vehicle", () => {
+    const { grid } = loadMock();
+    const blocked = grid.elevation.findIndex((v) => Number.isNaN(v)); // a no-data cell of the mock DEM
+    expect(blocked).toBeGreaterThanOrEqual(0);
+    const c = centreOf(MOCK, blocked);
+    const scenarioDir = copyWith((s) => {
+      s.vehicles[0]!.start_x_m = c.x_m;
+      s.vehicles[0]!.start_y_m = c.y_m;
+    });
+    const err = rejection(scenarioDir, ref(siteCopy(() => {}, true)));
+    expect(err.check).toBe("start_blocked");
+    expect(err.message).toContain(fakeScenarioJson().vehicles[0]!.vehicle_id);
+  });
+
+  it("rejects a vehicle start outside the grid", () => {
+    const scenarioDir = copyWith((s) => {
+      s.vehicles[0]!.start_x_m = MOCK.grid.origin_m[0] - MOCK.grid.cell_m;
+    });
+    const err = rejection(scenarioDir, ref(siteCopy(() => {}, true)));
+    expect(err.check).toBe("start_blocked");
+    expect(err.message).toContain(fakeScenarioJson().vehicles[0]!.vehicle_id);
+  });
+
+  it("judges a vehicle start by the vehicle's own slope limit, not the crew's", () => {
+    const { grid } = loadMock();
+    const params = JSON.parse(readFileSync(join(fixtureDir, "param_sets", "pr1-assumed.json"), "utf8"));
+    const crewLimit = fakeScenarioJson().plan.scenario.hard_slope_limit_deg;
+    const rover = vehiclePassable(grid, params);
+    const k = rover.findIndex((ok, idx) => ok === 1 && !isCellPassable(grid, idx, crewLimit));
+    expect(k).toBeGreaterThanOrEqual(0); // the mock site has a slope band between the two limits
+    const c = centreOf(MOCK, k);
+    const scenarioDir = copyWith((s) => {
+      s.vehicles[0]!.start_x_m = c.x_m;
+      s.vehicles[0]!.start_y_m = c.y_m;
+    });
+    expect(readScenario(scenarioDir, ref(siteCopy(() => {}, true))).grid).not.toBeNull();
+  });
+});
+
+describe("the engine on a loaded site grid (T22.11 follow-up)", () => {
+  it("one tick with an open radiation warning proposes options without throwing", () => {
+    const fake = readScenario(fixtureDir, SITE);
+    const { grid, comm } = loadMock();
+    const sc: LoadedScenario = { ...fake, grid, comm }; // built directly: the fake scenario's data_version is not the mock site's
+    const waypoints = sc.scenario.plan.waypoints;
+    const [x0, y0, x1, y1] = MOCK.aoi.extent_m;
+    for (const w of waypoints) expect(w.x_m >= x0 && w.x_m <= x1 && w.y_m >= y0 && w.y_m <= y1).toBe(true);
+    const stop = waypoints.find((w) => w.role === "stop")!;
+
+    const apply = (s: EngineState, kind: LogEventKind, data: LogEventData[LogEventKind], actor: Role | "system" = "system"): EngineState => {
+      const event: LogEvent = { seq: s.session.last_seq + 1, sim_time: s.session.clock.sim_time, kind, actor, data: data as Record<string, unknown>, provenance: {}, command_ref: null };
+      return reduce(s, event);
+    };
+    let s = apply(initialState(sc, "s-0001"), "EVA_STARTED", { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, "ops");
+    for (const id of ["EV1", "EV2"] as const) {
+      s = apply(s, "ARRIVED_STOP", { crew_id: id, stop_id: stop.id, stop_index: 1 });
+      s = { ...s, crew: s.crew.map((c) => (c.crew_id === id ? { ...c, x_m: stop.x_m, y_m: stop.y_m } : c)) };
+    }
+    const t = new Date(Date.parse(sc.scenario.start_utc) + 3600_000).toISOString().replace(".000Z", "Z");
+    s = { ...s, session: { ...s.session, clock: { ...s.session.clock, sim_time: t } } };
+    s = apply(s, "ALERT_RAISED", { alert_id: "a-warn", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1", "EV2"], message: "Radiation surge — shelter now" });
+
+    const r = tick(s, sc, 1, s.session.last_seq + 1);
+    const proposed = r.events.find((e) => e.kind === "OPTIONS_PROPOSED");
+    expect(proposed).toBeDefined();
+    expect((proposed!.data as LogEventData["OPTIONS_PROPOSED"]).options.length).toBeGreaterThan(0);
   });
 });
