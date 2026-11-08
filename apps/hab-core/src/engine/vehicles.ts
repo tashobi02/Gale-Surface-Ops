@@ -57,6 +57,13 @@ export interface DispatchRequest {
   option_id?: string;
   /** The event's actor: the issuing role, or "system". */
   actor: LogEvent["actor"];
+  /**
+   * A rendezvous already computed by compute (T23.07: the approved option's own point, which its crew
+   * route leads to). When given, the compute call is skipped and the point is logged verbatim, after
+   * the same INVALID / BUSY / ParamSet checks; non-finite or negative numbers are INVALID. The reducer
+   * rounds `eta_s` up to whole seconds. Added by the T23.07 rework, Proposed 2026-11-08.
+   */
+  rendezvous?: NonNullable<LogEventData["VEHICLE_DISPATCHED"]["rendezvous"]>;
 }
 
 /** `dispatchVehicle` result: the VEHICLE_DISPATCHED event (no `command_ref`), or a rejection. */
@@ -84,8 +91,9 @@ function ownParams(scenario: LoadedScenario, vehicle: Vehicle): ParamSet | strin
  * rover; crew ids not 1–2 distinct known ids; a crew member already SHELTERED or IN_HAB;
  * unknown option, or crew that differ from the option's),
  * BUSY (the rover is not PARKED; before any compute call), INVALID (the rover's own ParamSet is
- * missing, of the wrong kind or has no positive `flat_speed_kmh`), NO_RENDEZVOUS (no grid, or no
- * candidate for any of the crew within L). Never changes state; returns one VEHICLE_DISPATCHED
+ * missing, of the wrong kind or has no positive `flat_speed_kmh`), then either the precomputed
+ * `req.rendezvous` (INVALID if not finite or negative; no compute call, no grid needed) or
+ * NO_RENDEZVOUS (no grid, or no candidate for any of the crew within L). Never changes state; returns one VEHICLE_DISPATCHED
  * `{vehicle_id, rendezvous, option_id?}` with provenance `{"data.rendezvous": "modelled"}`.
  *
  * Two crew: both rendezvous, then `rendezvousPair`; the event carries the first meeting point of the
@@ -122,18 +130,35 @@ export function dispatchVehicle(state: EngineState, scenario: LoadedScenario, re
 
   const params = ownParams(scenario, vehicle);
   if (typeof params === "string") return reject("INVALID", params);
+
+  if (req.rendezvous !== undefined) {
+    const rv = req.rendezvous;
+    const nums = [rv.x_m, rv.y_m, rv.eta_crew_s, rv.eta_vehicle_s];
+    if (!nums.every((x) => typeof x === "number" && Number.isFinite(x)) || rv.eta_crew_s < 0 || rv.eta_vehicle_s < 0) {
+      return reject("INVALID", "the precomputed rendezvous needs finite coordinates and ETAs >= 0");
+    }
+    return { ok: true, events: [dispatchedEvent(state, req, vehicle.vehicle_id, { ...rv })] };
+  }
+
   const plan = scenario.scenario.plan.scenario;
   const limit_s = plan.max_haven_min * 60;
   if (!(Number.isFinite(limit_s) && limit_s >= 0)) return reject("INVALID", `max_haven_min must be a number >= 0, got ${plan.max_haven_min}`);
   const grid = scenario.grid;
   if (!grid) return reject("NO_RENDEZVOUS", "no terrain grid is loaded for the rendezvous");
 
-  const passable = vehiclePassable(grid, params);
-  const fromVehicle = vehicleTimeField(grid, { x_m: vehicle.x_m, y_m: vehicle.y_m }, params);
+  // A compute RangeError (the rover or a crew member off the grid, a malformed rover ParamSet) answers
+  // NO_RENDEZVOUS instead of stopping the engine; other errors propagate (T23.07 rework, Proposed 2026-11-08).
   const found: RendezvousOk[] = [];
-  for (const c of crew) {
-    const rv = rendezvous(crewTimeField(grid, { x_m: c!.x_m, y_m: c!.y_m }, plan, limit_s), fromVehicle, passable);
-    if (rv.status === "OK") found.push(rv);
+  try {
+    const passable = vehiclePassable(grid, params);
+    const fromVehicle = vehicleTimeField(grid, { x_m: vehicle.x_m, y_m: vehicle.y_m }, params);
+    for (const c of crew) {
+      const rv = rendezvous(crewTimeField(grid, { x_m: c!.x_m, y_m: c!.y_m }, plan, limit_s), fromVehicle, passable);
+      if (rv.status === "OK") found.push(rv);
+    }
+  } catch (err) {
+    if (!(err instanceof RangeError)) throw err;
+    return reject("NO_RENDEZVOUS", `compute could not search for a rendezvous: ${err.message}`);
   }
   if (found.length === 0) return reject("NO_RENDEZVOUS", "no cell both the crew and the vehicle can reach within the haven limit");
 
@@ -159,24 +184,38 @@ export function dispatchVehicle(state: EngineState, scenario: LoadedScenario, re
   }
   const etaVehicle = Math.round(first.eta_vehicle_s);
 
+  return {
+    ok: true,
+    events: [
+      dispatchedEvent(state, req, vehicle.vehicle_id, {
+        x_m: first.x_m,
+        y_m: first.y_m,
+        eta_crew_s: Math.round(first.eta_crew_s),
+        eta_vehicle_s: pathLength > 0 ? Math.max(1, etaVehicle) : etaVehicle,
+      }),
+    ],
+  };
+}
+
+/** The one VEHICLE_DISPATCHED `{vehicle_id, rendezvous, option_id?}` of a dispatch (no `command_ref`). */
+function dispatchedEvent(
+  state: EngineState,
+  req: DispatchRequest,
+  vehicle_id: string,
+  rendezvous: NonNullable<LogEventData["VEHICLE_DISPATCHED"]["rendezvous"]>,
+): PendingEvent {
   const data: LogEventData["VEHICLE_DISPATCHED"] = {
-    vehicle_id: vehicle.vehicle_id,
-    rendezvous: {
-      x_m: first.x_m,
-      y_m: first.y_m,
-      eta_crew_s: Math.round(first.eta_crew_s),
-      eta_vehicle_s: pathLength > 0 ? Math.max(1, etaVehicle) : etaVehicle,
-    },
+    vehicle_id,
+    rendezvous,
     ...(req.option_id === undefined ? {} : { option_id: req.option_id }),
   };
-  const event: PendingEvent = {
+  return {
     kind: "VEHICLE_DISPATCHED",
     actor: req.actor,
     sim_time: state.session.clock.sim_time,
     data: data as Record<string, unknown>,
     provenance: { "data.rendezvous": "modelled" },
   };
-  return { ok: true, events: [event] };
 }
 
 /** SUMMON_VEHICLE `{crew, option_id?}`: checks the arg types, then `dispatchVehicle` (02 §D.10, §E.6). */

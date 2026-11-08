@@ -181,6 +181,7 @@
 - Tests: [summonReal.test.ts](../../apps/hab-core/tests/summonReal.test.ts) is a Proposed addition outside this subtask's Owns (T23.04 owns `summon.test.ts`). It runs on the real compute and the F9 grids; its only `vi.mock` is a pass-through of `rendezvousPair` that one test makes throw. In `summon.test.ts`, Gemini's `origin_m` / `prev` stand-in edits were reverted; only the `vehiclePassable` mock entry stays.
 - Recorded, not fixed: a bare summon (no option) never shelters anyone, because the reducer sets `task.crew_ids` only from an option and nothing walks the crew to the meeting point. TODO(decision), inherited from T23.04 / T22.06.
 - Recorded, not fixed: re-targeting when the crew move after the summon. TODO(decision).
+- Since 2026-11-08 the T23.07 rework (same owner) extended `dispatchVehicle` with an optional precomputed `rendezvous` and mapped compute RangeErrors to NO_RENDEZVOUS; see the T23.07 notes below.
 
 ### T23.06 — Tests: contingency options, approval and abort
 
@@ -223,7 +224,56 @@
   - T23.06 passes.
 - **Verify:** `npm --workspace @marswalk/hab-core test -- contingencyOps`.
 - **Agent brief:** Implement the options module until the tests pass.
+- **Decisions (Proposed 2026-11-08 — TODO(decision)):**
+  1. *Superseded 2026-11-08 by the "Answered once" note below.* `contingencyTick`: evaluated for active un-cleared `warning` alerts where options do not already stand in `state.options` and crew subjects are not already en route to a haven (`TO_HAVEN`), `SHELTERED`, or `IN_HAB`.
+  2. `APPROVE_OPTION`: if approving a `VEHICLE_RENDEZVOUS` option, emits `VEHICLE_DISPATCHED` first for the vehicle and rendezvous point, followed immediately by `PLAN_REVISED`.
+  3. `handleAbort`: requires non-empty `args.crew`, checks that EVA roles can only abort for themselves (`FORBIDDEN_ROLE`), finds matching `ABORT_TO_HAB` option, and logs `PLAN_REVISED` without dispatching a vehicle.
+  4. *Superseded 2026-11-08 by the "New leg" and "Rendezvous end" notes below.* Plan revision (`buildPlanRevision`): retains all legs between consecutive kept waypoints; the new return leg connects the last kept waypoint to start waypoint `wp-0` using `option.path_preview`.
 - **Conflict notes:** Single owner.
+
+**Proposed 2026-11-08 — TODO(decision)** (T23.07 review rework of Gemini's branch; these replace decisions 1 and 4 above where they differ):
+
+- **Answered once.** An alert gets one OPTIONS_PROPOSED, ever. The new engine-only, JSON-safe field `EngineState.proposed_alerts?: string[]` is reduced from OPTIONS_PROPOSED.
+  This is a small edit to `reducer.ts` (T22.06, same owner). It replaces the `TO_HAVEN` guard: after an approved CONTINUE_SKIP the crew stay WALKING, and Gemini's version proposed again on every tick.
+  The proposal goes only to the crew still out (WALKING or AT_STOP). An empty option list is still logged once, so a re-try does not run every tick.
+- **Missing inputs.** No grid (the scenario loader gives null until TASK-05), no `shielding` ParamSet, or no start waypoint: no events and no throw. This fixed the 11 `tick.test.ts` failures.
+- **Inputs to compute:**
+  - hab = the plan's `role: "start"` waypoint;
+  - ingress = `HAB_INGRESS_S`, and the rover's own ParamSet (`Vehicle.param_set`) `ingress_min` × 60;
+  - crew fields bounded at L = `max_haven_min` × 60 s, as in `vehicles.ts`;
+  - the vehicle field starts at the rover's position;
+  - `pair` = `rendezvousPair` for two crew with OK rendezvous. If it throws a RangeError there is no vehicle option.
+  - No vehicle option either unless the rover is PARKED and its ParamSet has `ingress_min` ≥ 0.
+- **Finite options.** Options with a non-finite number are dropped and the rest re-ranked 1..n (defensive; compute already drops them).
+- **New leg.** `walk_time_min` excludes ingress: ETA − `HAB_INGRESS_S`, or `rendezvous.eta_crew_s` for VEHICLE_RENDEZVOUS. `distance_m` = polyline length in projected metres. `cell_path_length` = the vertex count of `path_preview`.
+  That count is the cell count for ABORT_TO_HAB and VEHICLE_RENDEZVOUS, but not for CONTINUE_SKIP, whose path is display geometry. TODO(decision).
+- **Blocked: climb, descent, max slope and profile.** These can't be derived. Compute `toLeg` and `sampleProfile` are TASK-05 stubs, and slope or elevation sampling may not live in hab-core (CLAUDE.md §2).
+  For now they are 0 and an empty profile, labelled `assumed` in the PLAN_REVISED provenance. Replace this once TASK-05 lands.
+- **Provenance.** OPTIONS_PROPOSED labels `data.options.eta_shelter_min`, `data.options.expected_dose_ugy` and `data.options.rendezvous` `modelled` (05). VEHICLE_DISPATCHED labels `data.rendezvous` `modelled`.
+  PLAN_REVISED labels the new leg by index: `data.legs.<i>.walk_time_min` `modelled`, `distance_m` `derived`, and the three blocked metrics `assumed`.
+- **APPROVE_OPTION for VEHICLE_RENDEZVOUS** calls T23.05's `dispatchVehicle` with the option's own point as a precomputed `rendezvous` (orchestrator decision, 8 Nov).
+  This edits `vehicles.ts`, which belongs to T23.05 (same owner). A new optional `DispatchRequest.rendezvous` skips the compute call and is logged verbatim, after the same INVALID, BUSY and ParamSet checks; a non-finite or negative value is INVALID.
+  T23.06 asserts the verbatim point, and the vehicle target stays on the crew route. The local dispatch copy is deleted.
+  `Vehicle.eta_s` stays a whole number: the reducer (`reducer.ts`, T22.06, same owner) applies Math.ceil when it sets `eta_s` from VEHICLE_DISPATCHED. That is a no-op on T23.05's rounded ETAs, and a fractional ETA above 0 never becomes 0, which would stop the vehicle.
+- **Rendezvous end: tick rule S5** (orchestrator decisions, 8 Nov; the final round replaces the reach-only rule). This edits `tick.ts`, which belongs to T22.09 (same owner); the rule is recorded under T22.09 in TASK-22.
+  A route whose last leg has `to` = the start waypoint shelters in the hab as before, unless two things hold: a pressurized rover's SUMMON task names this crew member, and they ended farther than `SHELTER_REACH_M` from the start waypoint. Then they hold for the vehicle.
+  The rover counts while it is DISPATCHED or EN_ROUTE, and also ARRIVED: a rover that reaches the meeting point first waits there, and the crew must still hold for it.
+  So a planner loop that ends on a cell centre near the start still shelters in the hab. The VEHICLE_RENDEZVOUS leg keeps `to` = start (05 Waypoint roles and the T23.06 shape are unchanged) but ends at the meeting point; the crew hold there in the suit, and `vehiclesTick` shelters them in the vehicle (`haven_kind: "vehicle"`) when it arrives within reach.
+  A hab-bound leg (ABORT_TO_HAB, CONTINUE_SKIP) gets the start waypoint as its last vertex when compute's path ends elsewhere, for example at the hab cell's centre.
+  TODO(decision): that extra segment is at most half a cell's diagonal, and its walk time is not added to `walk_time_min`. Turning a distance into a walk time is the time model, which belongs in compute (CLAUDE.md §2); a flat-speed division here would be a second, slope-blind model.
+- **Compute RangeErrors never stop the engine** (orchestrator decision, 8 Nov). In `contingencyTick`:
+  - no options and no events if the hab side throws (`habTimeField`, e.g. the hab is off the grid);
+  - no vehicle option if the vehicle side throws (the rover off the grid, a malformed rover ParamSet);
+  - an alert whose `proposeOptions` call throws (e.g. a `stop_index` outside the plan) is skipped this tick and retried on the next.
+  `dispatchVehicle` answers NO_RENDEZVOUS for a compute RangeError. Any other error still propagates.
+  TODO(decision): a dedicated 05 Waypoint role ("rendezvous") would be cleaner; that is the spec owner's call.
+- **ABORT.** The EVA self rule takes the crew id from the role (`eva:<id>`); `selfOf` in `commands.ts` is private.
+  With ABORT_TO_HAB options of several active alerts, ABORT executes the newest alert's (highest `raised_seq`), ties to the lower `option_id`. Options of a cleared alert are skipped.
+- **Shared path for two crew.** TODO(decision): `path_preview` is crew[0]'s, so under rule S7 EV2 snaps onto EV1's path. The leg's walk time is the slowest member's (the option's ETA).
+- **CONTINUE_SKIP path.** The return leg follows the planned legs (compute's `remainingPlan`), so it passes the dropped stops' places, but with no waypoint there it has no dwell and no ARRIVED_STOP. TODO(decision) for the compute owner.
+- **Warning alerts only.** TODO(decision): an O₂ or buddy warning also gets radiation-style options; 02 §D.15 does not restrict this.
+- **Tests.** The new [contingencyOpsReal.test.ts](../../apps/hab-core/tests/contingencyOpsReal.test.ts) runs 36 tests on the real compute and the F9 `havenFlat` grid, including whole-`tick()` runs of a rendezvous (vehicle shelter) and an abort (hab shelter), and `dispatchVehicle` with a precomputed point.
+  In `contingencyOps.test.ts` only the fixture and mock shape changed (a stand-in grid and a `vehiclePassable` mock); no assertion changed.
 
 ### T23.08 — Verify: killer demo steps 0:30–1:10 run headless (M3)
 
@@ -244,6 +294,7 @@
   - Serves: FR-38, FR-40, FR-44 · [06 §C.2](../specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) TASK-23 done-when
   - The test passes headless; the event order matches 01 §E.1.
 - **Verify:** `npm --workspace @marswalk/hab-core test -- killerDemo` (skips without the real scenario).
+- **Blocker (Proposed 2026-11-08 — TODO(decision)):** the T23.07 revised leg's `climb_m`, `descent_m`, `max_slope_deg` and `profile` are 0 and labelled `assumed` until TASK-05 `toLeg`/`sampleProfile` land. They must be real before the headless demo check and the video.
 - **Agent brief:** Script the demo's commands and assert the event order; never change the scenario to make it pass.
 - **Conflict notes:** New test file; append-only log.
 

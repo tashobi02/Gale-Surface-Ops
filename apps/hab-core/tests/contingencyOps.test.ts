@@ -53,16 +53,22 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ContingencyInputs } from "@marswalk/compute";
+import type { ContingencyInputs, LoadedGrid } from "@marswalk/compute";
 import type { Command, CommandResult, ContingencyOption, LogEvent, LogEventData, LogEventKind, Role, Waypoint } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand, type CommandContext } from "../src/commands";
 import { contingencyTick, handleAbort, handleApproveOption } from "../src/engine/contingencyOps";
 import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
 import type { TickContext } from "../src/engine/tick";
-import { readScenario } from "../src/scenario";
+import { readScenario, type LoadedScenario } from "../src/scenario";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
+/**
+ * The fake scenario has no grid (null until TASK-05) and contingencyTick proposes nothing without one
+ * (T23.07 review, 8 Nov). Compute is replaced below, so the grid is an opaque stand-in that only the
+ * mocked functions receive (fixture shape added 2026-11-08 by the T23.07 rework; no assertion changed).
+ */
+const STAND_IN_GRID = Object.freeze({}) as unknown as LoadedGrid;
+const fake: LoadedScenario = { ...readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null }), grid: STAND_IN_GRID };
 const plan = fake.scenario.plan;
 const legs = plan.result.legs;
 const T0 = fake.scenario.start_utc;
@@ -106,7 +112,14 @@ function standIn(inputs: Pick<ContingencyInputs, "alert_id" | "crew">): Continge
     .map((o, i): ContingencyOption => ({ ...o, path_preview: [...o.path_preview] as [number, number][], alert_id: inputs.alert_id, crew_ids, stops_dropped, violations: [], rank: i + 1 }));
 }
 
-const field = { cell_m: 1, width: 1, height: 1, seconds: new Float64Array(1) };
+const field = {
+  cell_m: 1,
+  width: 1,
+  height: 1,
+  origin_m: [0, 0] as [number, number],
+  seconds: new Float64Array(1),
+  prev: new Int32Array(1),
+};
 vi.mock("@marswalk/compute", async () => {
   const actual = await vi.importActual<typeof import("@marswalk/compute")>("@marswalk/compute");
   return {
@@ -119,6 +132,7 @@ vi.mock("@marswalk/compute", async () => {
     habTimeField: () => field,
     crewTimeField: () => field,
     vehicleTimeField: () => field,
+    vehiclePassable: () => new Uint8Array(1),
     rendezvous: () => ({ status: "NO_RENDEZVOUS" }),
   };
 });
