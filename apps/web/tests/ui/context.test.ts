@@ -78,6 +78,5 @@ describe("T07.01 UI Context and Module Stubs (Contract C10)", () => {
     await expect(createMapSnapshot({} as any)).rejects.toThrow("TODO(T11.04)");
     expect(() => exportPlan({} as any, {} as any)).toThrow("TODO(T11.02)");
     expect(() => formatMetric({} as any)).toThrow("TODO(T12.01)");
-    expect(() => renderStatusIcon("ok")).toThrow("TODO(T13.05)");
   });
 });

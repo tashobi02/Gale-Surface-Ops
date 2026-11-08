@@ -1,0 +1,286 @@
+/**
+ * SCR-05 Route Results Panel styles (04 §F, 04 §B).
+ * Mission brutalist styling following tokens.css.
+ */
+
+.scr05-results-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--results-height, 220px);
+  background-color: var(--surface-1, #12151B);
+  border-top: 1px solid var(--edge, #2A303C);
+  color: var(--text-1, #ECEFF2);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  box-sizing: border-box;
+  font-family: var(--font-ui, system-ui, sans-serif);
+  transition: height 0.2s ease;
+}
+
+.scr05-results-panel[data-collapsed="true"] {
+  height: var(--topbar-height, 48px);
+  overflow: hidden;
+}
+
+/* Status strip (48 px header) */
+.scr05-status-strip {
+  height: var(--topbar-height, 48px);
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background-color: var(--surface-2, #181D24);
+  border-bottom: 1px solid var(--edge, #2A303C);
+  box-sizing: border-box;
+}
+
+.scr05-banner-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.scr05-banner-reason {
+  font-size: var(--text-ui, 14px);
+  color: var(--text-2, #A9B3BE);
+  font-family: var(--font-mono, monospace);
+}
+
+.scr05-retry-btn {
+  background-color: var(--caution, #FFB020);
+  color: var(--void, #0B0D10);
+  border: none;
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+.scr05-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scr05-details-toggle,
+.scr05-collapse-toggle {
+  background: transparent;
+  color: var(--text-2, #A9B3BE);
+  border: 1px solid var(--edge, #2A303C);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.scr05-details-toggle:hover,
+.scr05-collapse-toggle:hover {
+  color: var(--text-1, #ECEFF2);
+  border-color: var(--text-3, #8592A0);
+}
+
+/* Main Body layout (Middle + Right) */
+.scr05-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Middle Section */
+.scr05-middle-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 8px 16px;
+  box-sizing: border-box;
+}
+
+.scr05-metrics-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--edge, #2A303C);
+  overflow-x: auto;
+  transition: opacity 0.2s ease;
+}
+
+.scr05-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.scr05-metric-label {
+  font-size: 11px;
+  color: var(--text-3, #8592A0);
+  text-transform: uppercase;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.04em;
+}
+
+.scr05-metric-val-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.scr05-metric-value {
+  font-size: var(--text-value-ops, 20px);
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  color: var(--text-1, #ECEFF2);
+}
+
+.scr05-metric-unit {
+  font-size: 12px;
+  color: var(--text-2, #A9B3BE);
+  font-family: var(--font-mono, monospace);
+}
+
+.scr05-provenance-chip {
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  padding: 1px 4px;
+  border: 1px solid var(--edge, #2A303C);
+  background-color: var(--surface-2, #181D24);
+  color: var(--text-3, #8592A0);
+  border-radius: 2px;
+  cursor: help;
+}
+
+.scr05-profile-container {
+  flex: 1;
+  min-height: 100px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scr05-placeholder {
+  color: var(--text-3, #8592A0);
+  font-size: 13px;
+  font-family: var(--font-mono, monospace);
+}
+
+/* Right Section: Warnings list */
+.scr05-right-col {
+  width: 300px;
+  border-left: 1px solid var(--edge, #2A303C);
+  background-color: var(--surface-2, #181D24);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.scr05-warnings-header {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-3, #8592A0);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--edge, #2A303C);
+}
+
+.scr05-warnings-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.scr05-warning-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.05));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.scr05-warning-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  width: fit-content;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.scr05-warning-caution .scr05-warning-badge {
+  background-color: var(--caution, #FFB020);
+  color: var(--void, #0B0D10);
+}
+
+.scr05-warning-blocked .scr05-warning-badge,
+.scr05-warning-warning .scr05-warning-badge {
+  background-color: var(--warning, #FF4D4D);
+  color: #FFFFFF;
+}
+
+.scr05-no-warnings {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--text-3, #8592A0);
+  font-family: var(--font-mono, monospace);
+  text-align: center;
+}
+
+/* Per-leg Details breakdown table */
+.scr05-details-table-wrap {
+  max-height: 180px;
+  overflow-y: auto;
+  background-color: var(--surface-2, #181D24);
+  border-top: 1px solid var(--edge, #2A303C);
+}
+
+.scr05-details-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+}
+
+.scr05-details-table th,
+.scr05-details-table td {
+  padding: 6px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--edge, #2A303C);
+}
+
+.scr05-details-table th {
+  background-color: var(--surface-1, #12151B);
+  color: var(--text-3, #8592A0);
+  text-transform: uppercase;
+}
+
+.scr05-leg-row.no-route td {
+  color: var(--warning, #FF4D4D);
+}
+
+/* Screen reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
