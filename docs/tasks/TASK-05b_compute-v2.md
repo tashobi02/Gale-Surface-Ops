@@ -232,6 +232,15 @@ T23.03 `havenTick` consumes `liveHaven` from `haven.ts` (frozen in this PR; plea
 - **Verify:** `npx --no-install vitest bench --root packages/compute`; the verification-log section exists.
 - **Agent brief:** Write the benchmark and record measured values only.
 - **Conflict notes:** Append-only log file.
+- **Proposed 2026-11-08** (`TODO(decision)` for the owner and the team lead; the Steps and Acceptance text above is unchanged):
+  - **Rule.** GO if the worst of five cold runs of one full-grid `T_hab` field is 2000 ms or less on the weakest laptop (02 §F NFR-02, "go (≤ 2 s)" above). The median and the minimum are reported with it but do not decide. The first call of a process is one warm-up run and is not one of the five.
+  - **Cold, not warm.** Each run uses a freshly built grid, so the per-grid lattice cache in `haven.ts` cannot serve runs 2 to 5. A warm re-run on one grid is reported as a separate line only. The Hab Core builds the lattice once per grid, so warm is the steady state, but cold is what the first `habTimeField` call after a plan load costs.
+  - **Terrain.** Two deterministic terrains on the same grid: flat, and a synthetic rough one (analytic sine surface, slope bands from its gradient, a fixed hazard lattice and a low-TI band). The slower of the two decides. Constants are labelled "Assumed, bench-only" in `packages/compute/bench/grid.ts`; they are not science and not data. The real grid is T05b.20, not this task.
+  - **Grid size.** Derived, never typed: `aoi.extent_m` of `pipeline/sites/gale_boxwork/site.json` divided by the haven cell (`HAVEN_CELL_M`, 5 m, 02 §D.2); the builder throws if the extent is not a whole number of cells. The hab is `hab_mast` from the same file. `TODO(decision)`: the 5 m cell lives in a test fixture today; a shared `ROUTING_CELL_M` constant in `src` (for T05.16, T05b.04 and the bench) would remove the copy.
+  - **Secondary cases (context, not the decision).** `crewTimeField` with a 30 min bound, `vehicleTimeField`, and `liveHaven` on the fields just built.
+  - **Verify (needs `--run`, else Vitest bench waits for file changes).** `npx --no-install vitest bench --run --reporter=verbose --root packages/compute` (`--reporter=verbose` because the default reporter hides the bench's printed report), or `npm --workspace @marswalk/compute run bench`. The bench is outside `test.include`, so `make test-web` and CI never time anything. A grid-builder unit test, `packages/compute/tests/benchGrid.test.ts`, runs there.
+  - **Also touches (Proposed):** `bench/grid.ts`, `tests/benchGrid.test.ts`, `packages/compute/package.json` script `bench`, `packages/compute/tsconfig.json` include `bench`.
+  - **Not done by this note.** The verification-log section needs a person to run the bench on the weakest laptop; status stays `wip` until then. Times from other machines go in the PR body, not in the log.
 
 ### T05b.06 — Tests: rendezvous (02 §D.10 cases)
 
