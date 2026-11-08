@@ -1501,6 +1501,23 @@ describe("parity with the v1 step cost (route.ts / leg.ts / timeModel.ts)", () =
     expect(out.seconds[k]).toBeCloseTo(3 * step, 6);
     expect(out.seconds[k]).toBeCloseTo(v1StepSeconds(fx.grid, scenario, mustCell(g, { x_m: 2 * g.cell_m, y_m: 0 }), k) + 2 * step, 6);
   });
+
+  it("a NaN elevation blocks only its own cell, even when it is the first cell with its flags and slope", () => {
+    // Guards the per-(flags, slope_p90) passability memo in haven.ts: a NaN cell must not decide for the others.
+    const grid = bumpyGrid();
+    const g = geoOf(grid);
+    grid.elevation[0] = Number.NaN; // row 0, col 0: the first cell scanned
+    const hab = habTimeField(grid, { x_m: 0, y_m: 0 }, scenario);
+    const crew = crewTimeField(grid, { x_m: 0, y_m: 0 }, scenario, Infinity);
+    expect(isCellPassable(grid, 0, scenario.hard_slope_limit_deg)).toBe(false);
+    expect(hab.seconds[0]).toBe(Infinity);
+    expect(crew.seconds[0]).toBe(Infinity);
+    const bad: number[] = [];
+    for (let k = 1; k < g.width * g.height; k++) {
+      if (isCellPassable(grid, k, scenario.hard_slope_limit_deg) && !(hab.seconds[k]! < Infinity && crew.seconds[k]! < Infinity)) bad.push(k);
+    }
+    expectNoMismatch(bad, "v1-passable cell unreached");
+  });
 });
 
 // ---------------------------------------------------------------------------

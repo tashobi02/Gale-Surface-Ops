@@ -5,7 +5,8 @@
  */
 import { FLAG_BITS } from "@marswalk/protocol";
 import type { MissionScenario, ParamSet, Provenance } from "@marswalk/protocol";
-import type { LoadedGrid } from "./grid";
+import { cellIndex, decodeSlopeDeg, type LoadedGrid } from "./grid";
+import { CAUTION_SLOPE_MULTIPLIER, LOW_TI_MULTIPLIER, isCellPassable } from "./route";
 
 /**
  * Time to enter the hab and be sheltered: 5 min (02 §D.8 `t_ingress`, labelled **Assumed**).
@@ -71,15 +72,12 @@ export interface LiveHaven {
 }
 
 // ---------------------------------------------------------------------------
-// Private helpers. They do not call route.ts, timeModel.ts or grid.ts (still stubs: T05.16, T05.18,
-// T05.22); each repeats one spec formula and names its section.
-// TODO(TASK-05): replace cellOf / the slope tests / the suited step with cellIndex / decodeSlopeDeg / stepTimeH
-// once T05.16 and T05.22 merge, and add the parity test (a habTimeField step equals stepTimeH x 3600).
+// Private helpers. The suited step cost is v1's (02 §D.8 "v1 D.2 step cost", T05.18 / T05.22): passability from
+// route.ts `isCellPassable`, the multipliers and their rule from route.ts `searchLeg` (with grid.ts `decodeSlopeDeg`),
+// cell addressing on the routing grid from grid.ts `cellIndex`. The step time is timeModel.ts `stepTimeH` written
+// as one `exp` in the Dijkstra loop, because calling it there made a full-grid field up to about 65 % slower (T05b.04
+// note). The parity tests in haven.test.ts compare every field step with v1's `toLeg`, so the two cannot drift.
 // ---------------------------------------------------------------------------
-
-/** 02 §D.2 step-cost multipliers, labelled Assumed there ("configurable"). Private: T05.18 will export its own. */
-const CAUTION_COST_MULT = 1.5;
-const LOW_TI_COST_MULT = 1.3;
 
 const NO_DATA_BIT = 1 << FLAG_BITS.NO_DATA;
 const HARD_HAZARD_BIT = 1 << FLAG_BITS.HARD_HAZARD;
@@ -88,7 +86,10 @@ const LOW_TI_BIT = 1 << FLAG_BITS.LOW_TI;
 /** 05 §C RoutingGrid: slope u8 = degrees x 4, 255 = no data. */
 const SLOPE_NO_DATA = 255;
 
-/** 05 §E.1: i = floor((oy - y) / c), j = floor((x - ox) / c); -1 outside (NaN is outside). */
+/**
+ * 05 §E.1 on a TimeField or a lattice (the 10 m vehicle lattice has no LoadedGrid, so grid.ts `cellIndex` cannot
+ * address it): i = floor((oy - y) / c), j = floor((x - ox) / c); -1 outside (NaN is outside).
+ */
 function cellOf(origin: readonly [number, number], cell_m: number, width: number, height: number, x_m: number, y_m: number): number {
   const i = Math.floor((origin[1] - y_m) / cell_m);
   const j = Math.floor((x_m - origin[0]) / cell_m);
@@ -96,15 +97,21 @@ function cellOf(origin: readonly [number, number], cell_m: number, width: number
   return i * width + j;
 }
 
-/** 02 §D.2 impassability for the suited crew, plus a NaN elevation (DEM no-data becomes NaN, CLAUDE.md section 2). */
+/**
+ * grid.ts `cellIndex` on the routing grid, as -1 outside. `cellIndex` returns NaN, not null, for a NaN coordinate
+ * (Math.floor(NaN) passes its range test); the integer check keeps that outside (request to T05 in TASK-05b).
+ */
+function gridCell(grid: LoadedGrid, x_m: number, y_m: number): number {
+  const k = cellIndex(grid, x_m, y_m);
+  return k === null || !Number.isInteger(k) ? -1 : k;
+}
+
+/**
+ * Suited impassability: v1's route.ts `isCellPassable` (02 §D.2). The NaN elevation test repeats one that
+ * `isCellPassable` already makes, so CLAUDE.md section 2 (DEM no-data becomes NaN) holds here even if v1 drops it.
+ */
 function suitedBlocked(grid: LoadedGrid, scenario: MissionScenario, k: number): boolean {
-  const p90 = grid.slopeP90[k]!;
-  return (
-    (grid.flags[k]! & (NO_DATA_BIT | HARD_HAZARD_BIT)) !== 0 ||
-    p90 === SLOPE_NO_DATA ||
-    p90 / 4 > scenario.hard_slope_limit_deg ||
-    Number.isNaN(grid.elevation[k])
-  );
+  return !isCellPassable(grid, k, scenario.hard_slope_limit_deg) || Number.isNaN(grid.elevation[k]);
 }
 
 /** Per-cell data the Dijkstra kernel reads. `mult[k]` is defined for every cell, including impassable ones. */
@@ -151,13 +158,36 @@ function buildSuitedLattice(grid: LoadedGrid, scenario: MissionScenario): Lattic
   const n = width * height;
   const pass = new Uint8Array(n);
   const mult = new Float64Array(n);
+  // v1's multiplier of the cell entered (route.ts searchLeg): caution if the decoded slope_max exceeds the caution
+  // slope (255 decodes to null and counts as 0, so no caution), times LOW_TI; the two multiply. The caution factor
+  // depends only on the u8 slope_max, so it is tabulated once over the 256 values with v1's `decodeSlopeDeg`.
+  const cautionByU8 = new Float64Array(256);
+  for (let v = 0; v < 256; v++) cautionByU8[v] = (decodeSlopeDeg(v) ?? 0) > scenario.caution_slope_deg ? CAUTION_SLOPE_MULTIPLIER : 1;
+  const lowTiMult = LOW_TI_MULTIPLIER;
+  // Passability is v1's `isCellPassable` (via suitedBlocked), memoised by the inputs it reads (route.ts): flags[k] and
+  // slopeP90[k], with a NaN elevation always blocked. A cross-module call per cell costs about 0.25 s per 1.44 M cells
+  // under Vitest's module transform (T05b.05 bench); the memo calls it once per distinct (flags, slope_p90) pair, on a
+  // real cell. If v1 starts reading another per-cell input the memo is wrong; the parity tests in haven.test.ts are
+  // there to show it (passability against isCellPassable on every cell of their grids).
+  const passByKey = new Int8Array(65536).fill(-1);
   for (let k = 0; k < n; k++) {
-    pass[k] = suitedBlocked(grid, scenario, k) ? 0 : 1;
-    mult[k] = (grid.slopeMax[k]! / 4 > scenario.caution_slope_deg ? CAUTION_COST_MULT : 1) * ((grid.flags[k]! & LOW_TI_BIT) !== 0 ? LOW_TI_COST_MULT : 1);
+    if (Number.isNaN(grid.elevation[k])) {
+      pass[k] = 0;
+    } else {
+      const key = (grid.flags[k]! << 8) | grid.slopeP90[k]!;
+      let p = passByKey[key]!;
+      if (p < 0) {
+        p = suitedBlocked(grid, scenario, k) ? 0 : 1;
+        passByKey[key] = p;
+      }
+      pass[k] = p;
+    }
+    mult[k] = cautionByU8[grid.slopeMax[k]!]! * ((grid.flags[k]! & LOW_TI_BIT) !== 0 ? lowTiMult : 1);
   }
   return { width, height, cell_m, origin_m: [origin_m[0], origin_m[1]], z: new Float64Array(grid.elevation), pass, mult };
 }
 
+/** Seconds per metre at the suited flat speed v0, which must be finite and > 0. */
 function suitedInvSpeed(scenario: MissionScenario): number {
   const kmh = scenario.suited_flat_speed_kmh;
   if (!(Number.isFinite(kmh) && kmh > 0)) throw new RangeError(`MissionScenario.suited_flat_speed_kmh must be a finite number > 0, got ${kmh}`);
@@ -280,7 +310,9 @@ function dijkstra(lat: Lattice, start: number, reverse: boolean, limit_s: number
       if (dz !== dz) continue; // NaN elevation on the start cell
       let step: number;
       if (mode === MODE_SUITED) {
-        // 02 §D.2: L / v(S) * m with v(S) = v0 exp(-3.5 |S + 0.05|) / exp(-0.175), rearranged to one exp.
+        // v1's stepTimeH(d, dz, v0, m) x 3600 (timeModel.ts, 02 §D.2): hypot(d, dz) / v(S) x m with
+        // v(S) = v0 exp(-3.5 |S + 0.05|) / exp(-0.175), divided out to one exp; the factor is 1 on flat ground.
+        // d > 0 always, so stepTimeH's d = 0 branch is never needed. Equal to rounding (parity tests, 1e-9).
         step = dz === 0 ? d * p0 * m : Math.sqrt(d * d + dz * dz) * p0 * Math.exp(3.5 * Math.abs(dz / d + 0.05) - 0.175) * m;
       } else {
         // 02 §D.9: v = v_max * max(min_speed_frac, 1 - |theta| / theta_lim), theta from the directional gradient.
@@ -324,8 +356,7 @@ function toField(lat: Lattice, raw: RawField): TimeField {
  */
 export function habTimeField(grid: LoadedGrid, hab: { x_m: number; y_m: number }, scenario: MissionScenario): TimeField {
   const invV0 = suitedInvSpeed(scenario);
-  const { width, height, cell_m, origin_m } = grid.meta;
-  const start = cellOf(origin_m, cell_m, width, height, hab.x_m, hab.y_m);
+  const start = gridCell(grid, hab.x_m, hab.y_m);
   if (start < 0) throw new RangeError(`habTimeField: the hab (${hab.x_m}, ${hab.y_m}) is outside the grid`);
   const lat = suitedLattice(grid, scenario);
   return toField(lat, dijkstra(lat, start, true, Infinity, MODE_SUITED, invV0, 0, 0));
@@ -436,7 +467,7 @@ export function crewTimeField(grid: LoadedGrid, from: { x_m: number; y_m: number
   if (!(limit_s >= 0)) throw new RangeError(`crewTimeField: limit_s must be >= 0, got ${limit_s}`);
   const invV0 = suitedInvSpeed(scenario);
   const lat = suitedLattice(grid, scenario);
-  const start = cellOf(lat.origin_m, lat.cell_m, lat.width, lat.height, from.x_m, from.y_m);
+  const start = gridCell(grid, from.x_m, from.y_m);
   if (start < 0) {
     const n = lat.width * lat.height;
     return toField(lat, { seconds: new Float64Array(n).fill(Infinity), prev: new Int32Array(n).fill(-1) });
@@ -618,12 +649,12 @@ export function liveHaven(
 
 /** Straight segment p -> q is walkable: sampled every half cell, every cell touched is passable for the suit. */
 function segmentWalkable(grid: LoadedGrid, scenario: MissionScenario, px: number, py: number, qx: number, qy: number): boolean {
-  const { width, height, cell_m, origin_m } = grid.meta;
+  const { cell_m } = grid.meta;
   const steps = Math.max(1, Math.ceil(Math.hypot(qx - px, qy - py) / (cell_m / 2)));
   for (let s = 0; s <= steps; s++) {
     const x = px + ((qx - px) * s) / steps;
     const y = py + ((qy - py) * s) / steps;
-    const k = cellOf(origin_m, cell_m, width, height, x, y);
+    const k = gridCell(grid, x, y);
     if (k < 0 || suitedBlocked(grid, scenario, k)) return false;
   }
   return true;
