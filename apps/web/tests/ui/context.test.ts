@@ -73,7 +73,6 @@ describe("T07.01 UI Context and Module Stubs (Contract C10)", () => {
     expect(() => initMapKeyboard({} as any)).toThrow("TODO(T13.06)");
     expect(() => renderStopsList({} as any, {} as any)).toThrow("TODO(T08.05)");
     expect(() => renderProfileChart({} as any, {} as any)).toThrow("TODO(T09.02)");
-    expect(() => renderWarningsList({} as any, {} as any)).toThrow("TODO(T09.04)");
     expect(() => linkProfileToMap({} as any, {} as any)).toThrow("TODO(T09.05)");
     await expect(createMapSnapshot({} as any)).rejects.toThrow("TODO(T11.04)");
     expect(() => exportPlan({} as any, {} as any)).toThrow("TODO(T11.02)");
