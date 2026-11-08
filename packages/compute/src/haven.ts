@@ -75,8 +75,8 @@ export interface LiveHaven {
 // Private helpers. The suited step cost is v1's (02 §D.8 "v1 D.2 step cost", T05.18 / T05.22): passability from
 // route.ts `isCellPassable`, the multipliers and their rule from route.ts `searchLeg` (with grid.ts `decodeSlopeDeg`),
 // cell addressing on the routing grid from grid.ts `cellIndex`. The step time is timeModel.ts `stepTimeH` written
-// as one `exp` in the Dijkstra loop, because calling it there made a full-grid field up to about 65 % slower (T05b.04
-// note). The parity tests in haven.test.ts compare every field step with v1's `toLeg`, so the two cannot drift.
+// as one `exp` in the Dijkstra loop, because calling it there made a cold full-grid field slower: +67 % under plain
+// Node (flat, 257 to 430 ms) and about 2.5x under the T05b.05 Vitest bench (worst cold, rough, 380 to 963 ms); T05b.04 note. The parity tests in haven.test.ts compare every field step with v1's `toLeg`, so the two cannot drift.
 // ---------------------------------------------------------------------------
 
 const NO_DATA_BIT = 1 << FLAG_BITS.NO_DATA;
