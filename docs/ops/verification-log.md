@@ -384,3 +384,43 @@ All five match. Over the ten points: 9 match, 1 does not.
 - The 5 m grid is the scratch block mean above, not T03.19's output. If T03.19 resolves its `TODO(verify)` differently (for example a direct warp), the numbers here may move slightly.
 - Scratch scripts are in the session scratchpad, not in the repository. Intermediates (`aoi_1m_working.tif`, `aoi_5m_working.tif`, `gdal_viewshed.tif`, `comm_hab.u8`, `*.npy`, calibration rasters) are in `pipeline/work/comm/` (git-ignored). Nothing was committed.
 - Hands on to: T03.19 (aggregation), a T03.29 follow-up if bilinear sampling is chosen, and the T01.07 second check.
+
+## T13.04 — Base styles: typography defaults, focus ring, reduced motion
+
+| | |
+| --- | --- |
+| **Owner** | Ridita Alam (R5 EVA & Ops UI · design system) |
+| **Date** | 2026-11-08 |
+| **Status** | Done: base styles verified offline; zero external network requests |
+| **Inputs** | [04 §C.1, §C.2, §C.3, §E](../specs/04_Design_Brief.md); [base.css](../../apps/web/src/ui/styles/base.css); self-hosted fonts in `apps/web/public/fonts/` (T13.02) |
+
+| Feature | Result | Evidence |
+| --- | --- | --- |
+| Fonts offline (NFR-01, NFR-07) | **Verified offline**, zero external requests | `@font-face` rules in `base.css` reference `/fonts/...`; Vite production build (`base: "./"`) rebases to `../fonts/...`; bundle passes offline verification |
+| Typography defaults (04 §C.2) | **Verified** against 04 §C.2 specs | Body 14 px / 400 Inter (line-height 1.45), panel headings 16 px / 600, screen titles 20 px / 600, microcopy 12 px mono, no text renders below 12 px |
+| Focus ring (04 §E, 04 P10) | **Verified** | 2 px white outline with 2 px offset and box-shadow gap on `:focus-visible`, never removed |
+| Reduced motion (04 §E Motion) | **Verified** | `@media (prefers-reduced-motion: reduce)` zeroes animation and transition durations and forces `scroll-behavior: auto` |
+| Target sizes (04 §C.3) | **Verified** | Minimum mouse ≥ 32 px, touch ≥ 44 px via `@media (pointer: coarse)`, EVA ≥ 56 px with `[data-surface="eva"]` / `.eva-target` |
+
+- Hands on to: T13.09 (axe scan), T13.10 (keyboard-only run).
+
+## T13.06 — Keyboard map controls and global shortcuts
+
+| | |
+| --- | --- |
+| **Owner** | Ridita Alam (R5 EVA & Ops UI · design system) |
+| **Date** | 2026-11-08 |
+| **Status** | Done: keyboard shortcuts implemented and verified |
+| **Inputs** | [04 §E Keyboard, Motion](../specs/04_Design_Brief.md); [04 §D Briefing](../specs/04_Design_Brief.md#d-interaction-and-component-behavior); [03 §A, SCR-02, SCR-08](../specs/03_App_Flow_and_Diagrams.md); [keyboard.ts](../../apps/web/src/ui/map/keyboard.ts) |
+
+| Key / Shortcut | Action | Condition / Result |
+| --- | --- | --- |
+| Arrow keys (`↑`, `↓`, `←`, `→`) | Pan map view by step | Active when map has focus; instant when `prefers-reduced-motion` |
+| `+` / `−` | Zoom in / zoom out | Active when map has focus |
+| `Delete` | Remove selected stop and recompute plan (03 §C.3) | Requires active stop selection |
+| `B` | Navigate to Briefing (`#/briefing`) | Enabled only when plan is computed; does nothing if no stops or on error (03 SCR-08, 04 §D) |
+| `?` | Navigate to Sources & Methods (`#/sources`) | Active globally outside text inputs (03 SCR-02) |
+| Inputs / contentEditable | Text typing preserved | All shortcuts ignored when focus is within an editable element |
+| `A`, `Enter` | Omitted | Reserved for T08.07 crosshair mode; not bound here |
+
+- Hands on to: T13.10 (keyboard-only run of core scenario), T08.07 (add-stop mode).
