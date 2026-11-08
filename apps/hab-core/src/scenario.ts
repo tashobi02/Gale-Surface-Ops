@@ -1,8 +1,10 @@
 /**
  * Scenario loading and validation (docs/specs/05 §C.2 Scenario, 02 §E.7). Contract C14, frozen by
  * T22.01; implementation T22.11. Checks the schema, site_id and data_version, plan_hash, table
- * SHA-256s, passable starts, and that every `stop_tasks[].stop_id` is a stop Waypoint with 1–4 tasks
- * per stop (FR-50, U-61). TASK-21 owns the format.
+ * SHA-256s, and that every `stop_tasks[].stop_id` is a stop Waypoint with 1–4 tasks per stop
+ * (FR-50, U-61). TASK-21 owns the format. Proposed follow-up (T22.11, 9 Nov): `loadSite` reads the
+ * site's routing grid and comm_hab from `data/sites/<site_id>` and the loader checks that crew and
+ * vehicle starts are passable (05 §E.7; FR-39, FR-40).
  *
  * ajv comes through fastify (a declared hab-core dependency), as in the T22.02 fixture test.
  * TODO(decision): declare `ajv` and `ajv-formats` directly in the next dependency batch (T14.01).
@@ -13,8 +15,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020, { type ErrorObject, type ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
-import type { LoadedGrid } from "@marswalk/compute";
-import type { DoseSeries, EarthLinkTable, ParamSet, PlanExport, Scenario } from "@marswalk/protocol";
+import { cellIndex, isCellPassable, loadGrid, vehiclePassable, type LoadedGrid } from "@marswalk/compute";
+import type { DoseSeries, EarthLinkTable, ParamSet, PlanExport, Scenario, Site } from "@marswalk/protocol";
 import { canonicalJson } from "./log";
 
 export interface LoadedScenario {
@@ -65,7 +67,6 @@ export function readScenario(dir: string, site: SiteRef): LoadedScenario {
     throw new ScenarioCheckError("data_version", `scenario data_version ${scenario.data_version} (plan ${scenario.plan.data_version}) is not the loaded site's ${site.data_version}`);
   }
 
-
   const dose = readTable<DoseSeries>(dir, "dose_series", scenario.tables.dose_series);
   const earthLink = readTable<EarthLinkTable>(dir, "earth_link", scenario.tables.earth_link);
 
@@ -77,10 +78,101 @@ export function readScenario(dir: string, site: SiteRef): LoadedScenario {
     throw new ScenarioCheckError("events_order", "scenario events must be sorted by t_utc (05 Scenario)");
   }
 
-  // TODO(TASK-05): load the site's routing grid and comm_hab (compute `loadGrid`) when `site.dir` is
-  // set, and check that every crew and vehicle start is passable for its kind (05 §E.7). The fake
-  // scenario has no site data, so both stay null.
-  return { scenario, dose, earthLink, params, grid: null, comm: null };
+  // The grid is the costly step (about 12 MB for the real 1200 x 1200 site), so it comes after the cheap checks.
+  const loaded = site.dir === null ? null : loadSite(site.dir, site.site_id, site.data_version);
+  if (loaded !== null) checkStarts(scenario, params, loaded.grid);
+  return { scenario, dose, earthLink, params, grid: loaded?.grid ?? null, comm: loaded?.comm ?? null };
+}
+
+const GRID_ASSET_KEYS = ["elevation_asset", "slope_p90_asset", "slope_max_asset", "flags_asset", "comm_hab_asset"] as const;
+
+/**
+ * Load `<siteDir>` routing grid and hab comm coverage (05 RoutingGrid, §E.3; 02 §E.1). Reads
+ * `site-manifest.json` (schema, `site_id`, `data_version`), then every grid asset the manifest names:
+ * SHA-256 and dimensions are checked here, array lengths by compute `loadGrid`. All file reads happen
+ * here so `@marswalk/compute` stays browser-safe. Throws ScenarioCheckError `site_manifest`,
+ * `site_id`, `data_version`, `grid_asset`, `grid_missing`, `grid_sha256` or `grid_dims`.
+ * TODO(verify): `loadGrid` wraps the files in host-order typed arrays; the manifest says little-endian
+ * (x86 and Apple ARM both are). `loadGrid` checks the TI file only for a multiple of 4 bytes.
+ */
+export function loadSite(siteDir: string, site_id: string, data_version: string): { grid: LoadedGrid; comm: NonNullable<LoadedScenario["comm"]> } {
+  const manifestPath = join(siteDir, "site-manifest.json");
+  const manifest = readJsonFile<Site>(manifestPath, "site_manifest");
+  check(validators().site, manifest, "site_manifest", manifestPath);
+  if (manifest.site_id !== site_id) {
+    throw new ScenarioCheckError("site_id", `${manifestPath} describes site ${manifest.site_id}, not ${site_id}`);
+  }
+  if (manifest.data_version !== data_version) {
+    throw new ScenarioCheckError("data_version", `${manifestPath} has data_version ${manifest.data_version}, not ${data_version}`);
+  }
+
+  const meta = manifest.grid;
+  const read = (assetId: string): ArrayBuffer => {
+    const asset = manifest.assets.find((a) => a.asset_id === assetId);
+    if (!asset) throw new ScenarioCheckError("grid_asset", `grid asset ${assetId} is not listed in the manifest's assets (05 §E.3)`);
+    let bytes: Buffer;
+    try {
+      bytes = readFileSync(join(siteDir, asset.path));
+    } catch {
+      throw new ScenarioCheckError("grid_missing", `grid asset ${assetId}: ${join(siteDir, asset.path)} is missing; run the pipeline or fetch the site bundle`);
+    }
+    if (createHash("sha256").update(bytes).digest("hex") !== asset.sha256) {
+      throw new ScenarioCheckError("grid_sha256", `grid asset ${assetId} (${asset.path}) does not match its SHA-256 in the manifest`);
+    }
+    if (asset.width !== undefined && asset.height !== undefined && (asset.width !== meta.width || asset.height !== meta.height)) {
+      throw new ScenarioCheckError("grid_dims", `grid asset ${assetId} is ${asset.width}x${asset.height}, the grid is ${meta.width}x${meta.height}`);
+    }
+    // An exact copy: a Node Buffer can be a view into a larger pooled ArrayBuffer, so `bytes.buffer` is not the file.
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  };
+
+  const elevation = read(meta.elevation_asset);
+  const slopeP90 = read(meta.slope_p90_asset);
+  const slopeMax = read(meta.slope_max_asset);
+  const flags = read(meta.flags_asset);
+  const commHab = read(meta.comm_hab_asset);
+  const ti = meta.ti_asset === undefined ? undefined : read(meta.ti_asset);
+  let grid: LoadedGrid;
+  try {
+    grid = loadGrid(meta, { elevation, slopeP90, slopeMax, flags, commHab, ...(ti === undefined ? {} : { ti }) });
+  } catch (err) {
+    throw new ScenarioCheckError("grid_dims", `${manifestPath} grid arrays do not match ${meta.width}x${meta.height}: ${(err as Error).message}`);
+  }
+  return { grid, comm: { comm_hab: grid.commHab, hab_mast: meta.hab_mast } };
+}
+
+/**
+ * Crew start at the plan's start waypoint (the hab) and each vehicle at its own `start_*_m`; every
+ * start must be on a passable cell (05 §E.7). Crew use the plan's `hard_slope_limit_deg`; a vehicle
+ * uses its ParamSet's `hard_slope_deg` (compute `vehiclePassable`). Throws `start_blocked`.
+ */
+export function checkStarts(scenario: Scenario, params: Record<string, ParamSet>, grid: LoadedGrid): void {
+  // cellIndex returns null outside the grid, and NaN (not null) for non-finite coordinates.
+  const cellAt = (x_m: number, y_m: number): number | null => {
+    const k = cellIndex(grid, x_m, y_m);
+    return k === null || !Number.isFinite(k) ? null : k;
+  };
+  const start = scenario.plan.waypoints.find((w) => w.role === "start");
+  if (start) {
+    const k = cellAt(start.x_m, start.y_m);
+    if (k === null || !isCellPassable(grid, k, scenario.plan.scenario.hard_slope_limit_deg)) {
+      throw new ScenarioCheckError("start_blocked", `crew start ${start.id} (${start.x_m}, ${start.y_m}) is not on a passable cell of the site grid (05 §E.7)`);
+    }
+  }
+  for (const v of scenario.vehicles) {
+    const p = params[v.param_set];
+    if (!p) throw new ScenarioCheckError("param_set_unlisted", `vehicle ${v.vehicle_id} uses ParamSet ${v.param_set}, which is not loaded`);
+    let passable: Uint8Array;
+    try {
+      passable = vehiclePassable(grid, p);
+    } catch (err) {
+      throw new ScenarioCheckError("start_blocked", `vehicle ${v.vehicle_id}: ParamSet ${v.param_set} cannot give a passability mask: ${(err as Error).message}`);
+    }
+    const k = cellAt(v.start_x_m, v.start_y_m);
+    if (k === null || passable[k] !== 1) {
+      throw new ScenarioCheckError("start_blocked", `vehicle ${v.vehicle_id} start (${v.start_x_m}, ${v.start_y_m}) is not on a passable cell for a ${v.kind} (05 §E.7)`);
+    }
+  }
 }
 
 const sha256 = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex");
@@ -162,6 +254,7 @@ interface Validators {
   scenario: ValidateFunction;
   plan: ValidateFunction;
   paramSet: ValidateFunction;
+  site: ValidateFunction;
 }
 
 let cached: Validators | null = null;
@@ -173,7 +266,7 @@ function validators(): Validators {
   const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false, allowUnionTypes: true });
   addFormats(ajv);
   const compile = (file: string) => ajv.compile(JSON.parse(readFileSync(join(schemasDir, file), "utf8")) as object);
-  cached = { scenario: compile("scenario.schema.json"), plan: compile("plan-export.schema.json"), paramSet: compile("param-set.schema.json") };
+  cached = { scenario: compile("scenario.schema.json"), plan: compile("plan-export.schema.json"), paramSet: compile("param-set.schema.json"), site: compile("site-manifest.schema.json") };
   return cached;
 }
 

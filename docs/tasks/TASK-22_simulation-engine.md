@@ -293,6 +293,7 @@
 - **Verify:** `npm --workspace @marswalk/hab-core test -- scenario`.
 - **Agent brief:** Implement `readScenario` with every 05 check; each rejection has a named test in the same PR.
 - **Conflict notes:** Tests and loader land in one PR (the loader is small; the tests are written first in the same branch).
+- **Proposed follow-up (9 Nov 2026, `TODO(decision)`; no new id; the row stays `done`):** `readScenario` loads the site grid and hab comm coverage when `site.dir` is set, so the engine no longer runs on `grid: null` (05 §E.7 gives the passable-start check to the Hab Core on load; FR-39, FR-40). `loadSite(siteDir, site_id, data_version)` reads `site-manifest.json` (schema, `site_id`, `data_version`), each grid asset the manifest names (SHA-256 and width/height here; array lengths by compute `loadGrid`), and returns `{ grid, comm: { comm_hab, hab_mast } }`. Checks and reasons: `site_manifest`, `site_id`, `data_version`, `grid_asset`, `grid_missing`, `grid_sha256`, `grid_dims`, `start_blocked`. Crew start = the plan's start waypoint, judged with the plan's `hard_slope_limit_deg` (`isCellPassable`); a vehicle start is judged by `vehiclePassable` with its own ParamSet. A null `site.dir` (fake scenario) keeps `grid` and `comm` null. Tests: `apps/hab-core/tests/scenario.test.ts` against the tracked mock site. `replay.ts` `siteRefFor` is unchanged (T22.13).
 
 ### T22.12 — Implement the session manager: load, commands, persistence, resume
 

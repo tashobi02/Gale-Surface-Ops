@@ -10,10 +10,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { cellIndex, isCellPassable, vehiclePassable } from "@marswalk/compute";
-import type { LogEvent, LogEventData, LogEventKind, Role, Scenario, Site } from "@marswalk/protocol";
+import type { LogEventData, Scenario, Site } from "@marswalk/protocol";
 import { initialState, reduce, type EngineState } from "../src/engine/reducer";
+import { canonicalJson } from "../src/log";
 import { tick } from "../src/engine/tick";
-import { loadSite, readScenario, ScenarioCheckError, type LoadedScenario, type SiteRef } from "../src/scenario";
+import { checkStarts, loadSite, readScenario, ScenarioCheckError, type LoadedScenario, type SiteRef } from "../src/scenario";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, "fixtures/fake-scenario");
@@ -175,18 +176,16 @@ describe("readScenario (T22.11, 05 §E.7)", () => {
 const manifestOf = (dir: string): Site => JSON.parse(readFileSync(join(dir, "site-manifest.json"), "utf8")) as Site;
 const MOCK = manifestOf(MOCK_SITE_DIR);
 const MOCK_REF: SiteRef = { site_id: MOCK.site_id, data_version: MOCK.data_version, dir: MOCK_SITE_DIR };
-const FIXTURE_VERSION = "mock_site-fixture"; // the fake scenario's data_version
 const sha256Bytes = (b: Buffer): string => createHash("sha256").update(b).digest("hex");
 const assetOf = (m: Site, id: string) => m.assets.find((a) => a.asset_id === id)!;
 const loadMock = () => loadSite(MOCK_SITE_DIR, MOCK.site_id, MOCK.data_version);
 
-/** A temporary copy of the mock site; `edit` changes its manifest (and may rewrite files). `fixtureVersion` makes it claim the fake scenario's data_version. */
-function siteCopy(edit: (m: Site, dir: string) => void = () => {}, fixtureVersion = false): string {
+/** A temporary copy of the mock site; `edit` changes its manifest (and may rewrite files). */
+function siteCopy(edit: (m: Site, dir: string) => void = () => {}): string {
   const dir = mkdtempSync(join(tmpdir(), "marswalk-site-"));
   dirs.push(dir);
   cpSync(MOCK_SITE_DIR, dir, { recursive: true });
   const m = manifestOf(dir);
-  if (fixtureVersion) m.data_version = FIXTURE_VERSION;
   edit(m, dir);
   writeFileSync(join(dir, "site-manifest.json"), `${JSON.stringify(m, null, 2)}\n`);
   return dir;
@@ -214,6 +213,19 @@ function centreOf(m: Site, k: number): { x_m: number; y_m: number } {
   const i = Math.floor(k / m.grid.width);
   const j = k % m.grid.width;
   return { x_m: m.grid.origin_m[0] + (j + 0.5) * m.grid.cell_m, y_m: m.grid.origin_m[1] - (i + 0.5) * m.grid.cell_m };
+}
+/**
+ * A copy of the fake scenario folder made for the mock site: its `data_version` (and the plan's) is the
+ * manifest's, because the site schema does not allow the fixture's `mock_site-fixture`; `plan_hash` is recomputed.
+ */
+function scenarioForMock(edit: (s: Scenario) => void = () => {}): string {
+  return copyWith((s) => {
+    s.data_version = MOCK.data_version;
+    s.plan.data_version = MOCK.data_version;
+    edit(s);
+    const { data_version, scenario, waypoints } = s.plan;
+    s.plan.plan_hash = createHash("sha256").update(canonicalJson({ data_version, scenario, waypoints }), "utf8").digest("hex").slice(0, 12);
+  });
 }
 const fakeScenarioJson = () => JSON.parse(readFileSync(join(fixtureDir, "scenario.json"), "utf8")) as Scenario;
 
@@ -313,17 +325,17 @@ describe("loadSite (T22.11 follow-up, 05 §E.7; FR-39, FR-40)", () => {
   it("rejects files that do not hold width x height cells (compute's check, re-raised)", () => {
     const dir = siteCopy((m) => {
       m.grid.height += 1;
-      for (const id of [m.grid.elevation_asset, m.grid.slope_p90_asset, m.grid.slope_max_asset, m.grid.flags_asset, m.grid.comm_hab_asset]) assetOf(m, id).height! += 1;
+      for (const id of [m.grid.elevation_asset, m.grid.slope_p90_asset, m.grid.slope_max_asset, m.grid.flags_asset, m.grid.comm_hab_asset, m.grid.ti_asset!]) assetOf(m, id).height! += 1;
     });
     expect(siteRejection(dir).check).toBe("grid_dims");
   });
 });
 
 describe("readScenario with a site directory (T22.11 follow-up, 05 §E.7)", () => {
-  const ref = (dir: string): SiteRef => ({ site_id: "mock_site", data_version: FIXTURE_VERSION, dir });
+  const ref = (dir: string): SiteRef => ({ ...MOCK_REF, dir });
 
   it("loads the grid and comm_hab on scenario load; a null dir keeps both null", () => {
-    const loaded = readScenario(fixtureDir, ref(siteCopy(() => {}, true)));
+    const loaded = readScenario(scenarioForMock(), ref(siteCopy()));
     expect(loaded.grid!.meta.width).toBe(MOCK.grid.width);
     expect(loaded.comm!.hab_mast).toEqual(MOCK.grid.hab_mast);
     expect(loaded.comm!.comm_hab).toBe(loaded.grid!.commHab);
@@ -335,7 +347,7 @@ describe("readScenario with a site directory (T22.11 follow-up, 05 §E.7)", () =
   it("checks data_version before it reads the grid", () => {
     const dir = siteCopy();
     unlinkSync(join(dir, assetOf(MOCK, MOCK.grid.flags_asset).path));
-    expect(rejection(fixtureDir, { ...ref(dir), data_version: "mock_site-2026.11.08" }).check).toBe("data_version");
+    expect(rejection(scenarioForMock(), { ...ref(dir), data_version: "mock_site-2026.11.08" }).check).toBe("data_version");
   });
 
   it("rejects the plan's start waypoint (where the crew leave the hab) on a hazard cell", () => {
@@ -343,8 +355,8 @@ describe("readScenario with a site directory (T22.11 follow-up, 05 §E.7)", () =
     const cell = cellIndex(loadMock().grid, start.x_m, start.y_m);
     expect(Number.isFinite(cell)).toBe(true);
     const HARD_HAZARD = 1 << 1; // 05 FLAG_BITS
-    const dir = siteCopy((m, d) => rewriteAsset(m, d, m.grid.flags_asset, (b) => (b[cell!] = b[cell!]! | HARD_HAZARD)), true);
-    const err = rejection(fixtureDir, ref(dir));
+    const dir = siteCopy((m, d) => rewriteAsset(m, d, m.grid.flags_asset, (b) => (b[cell!] = b[cell!]! | HARD_HAZARD)));
+    const err = rejection(scenarioForMock(), ref(dir));
     expect(err.check).toBe("start_blocked");
     expect(err.message).toContain(start.id);
   });
@@ -354,22 +366,34 @@ describe("readScenario with a site directory (T22.11 follow-up, 05 §E.7)", () =
     const blocked = grid.elevation.findIndex((v) => Number.isNaN(v)); // a no-data cell of the mock DEM
     expect(blocked).toBeGreaterThanOrEqual(0);
     const c = centreOf(MOCK, blocked);
-    const scenarioDir = copyWith((s) => {
+    const scenarioDir = scenarioForMock((s) => {
       s.vehicles[0]!.start_x_m = c.x_m;
       s.vehicles[0]!.start_y_m = c.y_m;
     });
-    const err = rejection(scenarioDir, ref(siteCopy(() => {}, true)));
+    const err = rejection(scenarioDir, ref(siteCopy()));
     expect(err.check).toBe("start_blocked");
     expect(err.message).toContain(fakeScenarioJson().vehicles[0]!.vehicle_id);
   });
 
   it("rejects a vehicle start outside the grid", () => {
-    const scenarioDir = copyWith((s) => {
+    const scenarioDir = scenarioForMock((s) => {
       s.vehicles[0]!.start_x_m = MOCK.grid.origin_m[0] - MOCK.grid.cell_m;
     });
-    const err = rejection(scenarioDir, ref(siteCopy(() => {}, true)));
+    const err = rejection(scenarioDir, ref(siteCopy()));
     expect(err.check).toBe("start_blocked");
     expect(err.message).toContain(fakeScenarioJson().vehicles[0]!.vehicle_id);
+  });
+
+  it("treats non-finite start coordinates as off the grid (compute's cellIndex returns NaN, not null)", () => {
+    // A scenario.json cannot hold NaN, so this calls the check directly.
+    const { grid } = loadMock();
+    const base = fakeScenarioJson();
+    const params = Object.fromEntries(["pr1-assumed"].map((id) => [id, JSON.parse(readFileSync(join(fixtureDir, "param_sets", `${id}.json`), "utf8"))]));
+    expect(() => checkStarts(base, params, grid)).not.toThrow();
+    const nan = { ...base, vehicles: [{ ...base.vehicles[0]!, start_x_m: Number.NaN }] };
+    expect(() => checkStarts(nan, params, grid)).toThrow(ScenarioCheckError);
+    const inf = { ...base, vehicles: [{ ...base.vehicles[0]!, start_y_m: Number.POSITIVE_INFINITY }] };
+    expect(() => checkStarts(inf, params, grid)).toThrow(ScenarioCheckError);
   });
 
   it("judges a vehicle start by the vehicle's own slope limit, not the crew's", () => {
@@ -380,40 +404,35 @@ describe("readScenario with a site directory (T22.11 follow-up, 05 §E.7)", () =
     const k = rover.findIndex((ok, idx) => ok === 1 && !isCellPassable(grid, idx, crewLimit));
     expect(k).toBeGreaterThanOrEqual(0); // the mock site has a slope band between the two limits
     const c = centreOf(MOCK, k);
-    const scenarioDir = copyWith((s) => {
+    const scenarioDir = scenarioForMock((s) => {
       s.vehicles[0]!.start_x_m = c.x_m;
       s.vehicles[0]!.start_y_m = c.y_m;
     });
-    expect(readScenario(scenarioDir, ref(siteCopy(() => {}, true))).grid).not.toBeNull();
+    expect(readScenario(scenarioDir, ref(siteCopy())).grid).not.toBeNull();
   });
 });
 
 describe("the engine on a loaded site grid (T22.11 follow-up)", () => {
-  it("one tick with an open radiation warning proposes options without throwing", () => {
+  it("one tick at the replayed surge raises the radiation warning and proposes options, without throwing", () => {
     const fake = readScenario(fixtureDir, SITE);
     const { grid, comm } = loadMock();
     const sc: LoadedScenario = { ...fake, grid, comm }; // built directly: the fake scenario's data_version is not the mock site's
-    const waypoints = sc.scenario.plan.waypoints;
     const [x0, y0, x1, y1] = MOCK.aoi.extent_m;
-    for (const w of waypoints) expect(w.x_m >= x0 && w.x_m <= x1 && w.y_m >= y0 && w.y_m <= y1).toBe(true);
-    const stop = waypoints.find((w) => w.role === "stop")!;
+    for (const w of sc.scenario.plan.waypoints) expect(w.x_m >= x0 && w.x_m <= x1 && w.y_m >= y0 && w.y_m <= y1).toBe(true);
 
-    const apply = (s: EngineState, kind: LogEventKind, data: LogEventData[LogEventKind], actor: Role | "system" = "system"): EngineState => {
-      const event: LogEvent = { seq: s.session.last_seq + 1, sim_time: s.session.clock.sim_time, kind, actor, data: data as Record<string, unknown>, provenance: {}, command_ref: null };
-      return reduce(s, event);
-    };
-    let s = apply(initialState(sc, "s-0001"), "EVA_STARTED", { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, "ops");
-    for (const id of ["EV1", "EV2"] as const) {
-      s = apply(s, "ARRIVED_STOP", { crew_id: id, stop_id: stop.id, stop_index: 1 });
-      s = { ...s, crew: s.crew.map((c) => (c.crew_id === id ? { ...c, x_m: stop.x_m, y_m: stop.y_m } : c)) };
-    }
-    const t = new Date(Date.parse(sc.scenario.start_utc) + 3600_000).toISOString().replace(".000Z", "Z");
-    s = { ...s, session: { ...s.session, clock: { ...s.session.clock, sim_time: t } } };
-    s = apply(s, "ALERT_RAISED", { alert_id: "a-warn", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1", "EV2"], message: "Radiation surge — shelter now" });
+    // The second consecutive high sample of the replayed series raises RADIATION_ALERT (02 §D.13); its time comes from the fixture.
+    const times = sc.dose.samples.map(([t, r]) => [Date.parse(t), r] as const);
+    const step = times[1]![0] - times[0]![0];
+    const high = times.find(([, r]) => r !== times[0]![1])![0];
+    const sim_time = new Date(high + step).toISOString().replace(".000Z", "Z");
+    const started = reduce(initialState(sc, "s-0001"), { seq: 1, sim_time: sc.scenario.start_utc, kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, provenance: {}, command_ref: null });
+    const state: EngineState = { ...started, session: { ...started.session, clock: { ...started.session.clock, sim_time } } };
 
-    const r = tick(s, sc, 1, s.session.last_seq + 1);
+    const r = tick(state, sc, 1, state.session.last_seq + 1);
+    const kinds = r.events.map((e) => e.kind);
+    expect(kinds).toContain("ALERT_RAISED");
     const proposed = r.events.find((e) => e.kind === "OPTIONS_PROPOSED");
-    expect(proposed).toBeDefined();
+    expect(proposed, `events: ${kinds.join(", ")}`).toBeDefined();
     expect((proposed!.data as LogEventData["OPTIONS_PROPOSED"]).options.length).toBeGreaterThan(0);
   });
 });

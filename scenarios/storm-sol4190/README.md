@@ -42,7 +42,7 @@ The Hab Core loader is `readScenario` in [apps/hab-core/src/scenario.ts](../../a
 | `earth_link.json` | `pipeline/src/marswalk_pipeline/spice_tables.py` (T21.04); fallback T21.14 (fixed light time) | [earth-link.schema.json](../../schemas/earth-link.schema.json) | `readTable`: as above against `tables.earth_link.sha256`. Not validated against its schema at load |
 | `param_sets/<id>.json` | T21.01 (assumed values, reviewed; no build step) | [param-set.schema.json](../../schemas/param-set.schema.json) | `readParamSets`: every id in `param_sets` has a file that validates against the schema (`validators().paramSet`) and whose `param_set_id` equals the file name; every ParamSet used by `crew`, `vehicles` or `plan.scenario.vehicle_param_set` is listed; at least one `link`, `alert` and `shielding` set. No checksum |
 
-Passable crew and vehicle start cells (05 §E.7) are not checked yet: `readScenario` has a `TODO(TASK-05)` for loading the site grid.
+Passable crew and vehicle start cells (05 §E.7) are checked on load (T22.11 follow-up, Proposed 9 Nov): `readScenario` loads the site's routing grid and `comm_hab` from `data/sites/<site_id>` (`loadSite`), then rejects a start that is off the grid or on an impassable cell (`start_blocked`). Until the real `gale_boxwork` bundle exists (T03.19), `make hab` and `make replay` with this scenario stop with a clear `ScenarioCheckError`: `site` (no `site-manifest.json`) or `grid_missing` (a grid file the manifest lists is absent); both are the intended failure, not a bug.
 
 The rule "samples / rows strictly increasing in time" cannot be written in JSON Schema; the pipeline tests (T21.03: `pipeline/tests/test_rad.py`, `pipeline/tests/test_spice_tables.py`) check it.
 
