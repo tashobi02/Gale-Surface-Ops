@@ -185,6 +185,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-08 | Antigravity (Gemini) | T13.06: implemented keyboard map controls and global shortcuts in apps/web/src/ui/map/keyboard.ts (arrow pan, +/− zoom, Delete stop, B to #/briefing when computed, ? to #/sources, input focus guards, reduced motion handling; A and Enter omitted for T08.07) | Invented no keys or rules; followed 04 §E Keyboard & Motion, 04 §D, 03 §A, 03 SCR-02, 03 SCR-08 | Ridita Alam | This Antigravity session (conversation 56455a5c) |
 | 2026-11-08 | Antigravity (Gemini) | T13.12: verified HUD tokens against 04 §C.1/§E.6 in `tokens.css` (appended HUD font & value size bounds `--font-hud`, `--text-hud-min`, `--text-hud-max`); contrast verified with prototype contrast script (all HUD text pairs ≥ 7:1 on #000000 per NFR-04) | Invented no colours or contrast numbers; values copied from 04 §C.1 and §E.6; contrast verified by prototype script | Ridita Alam | This Antigravity session (conversation 56455a5c) |
 
+| 2026-11-07 | Antigravity (Gemini) | T13.11: self-hosted Lucide outline SVG icons (v1.70.0, ISC licence) under apps/web/public/icons/ for 04 §C.4 and §C.1 requirements; added README.md and LICENSE; verified no CDN references | Downloaded exact upstream Lucide static package; invented no icons; licence file preserved verbatim | Ridita Alam | This Antigravity session (conversation 56455a5c) |
+
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).
