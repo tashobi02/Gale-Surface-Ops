@@ -20,10 +20,18 @@
  *   and if that throws RangeError there is no vehicle option.
  * - Options with a non-finite number are dropped before logging and the rest re-ranked 1..n.
  * - The new leg: `walk_time_min` excludes ingress (ETA − HAB_INGRESS_S; for a rendezvous the crew's
- *   walk `eta_crew_s`), `distance_m` is the polyline length in projected metres. Climb, descent,
- *   max slope and profile cannot be derived yet (compute `toLeg` / `sampleProfile` are TASK-05
- *   stubs, and slope science may not live here, CLAUDE.md §2): 0 and an empty profile, labelled
- *   `assumed`. TODO(decision).
+ *   walk `eta_crew_s`), `distance_m` is the polyline length in projected metres, `geometry` is the
+ *   option's path. Climb, descent, max slope and profile come from compute (no slope or elevation
+ *   maths here, CLAUDE.md §2), labelled `derived`, only when the grid is there (no grid: INVALID).
+ *   Proposed 2026-11-09, TODO(decision):
+ *   - ABORT_TO_HAB / VEHICLE_RENDEZVOUS: `path_preview` is a cell-centre path; its cells (repeats
+ *     collapsed) go to `toLeg` and the four fields are copied. A path off the grid's cell centres
+ *     (`toLeg`'s distance differs from the path's own length: a field of another `cell_m`) is a
+ *     RangeError, answered INVALID. A path leaving the grid, a non-finite result or an empty path
+ *     keeps 0 and an empty profile, all `assumed`, for that leg: a display metric never blocks an abort.
+ *   - CONTINUE_SKIP: `path_preview` is a display polyline, not a cell path. `profile` is
+ *     `sampleProfile` of it (`derived`); climb, descent and max slope stay 0, `assumed`, until TASK-05
+ *     has a helper that maps a polyline to cells (TODO(decision) in TASK-23).
  * - A hab-bound new leg ends on the start waypoint; a VEHICLE_RENDEZVOUS leg ends at the meeting
  *   point (tick rule S5 then holds the crew there, and vehiclesTick shelters them in the vehicle).
  * - APPROVE_OPTION for VEHICLE_RENDEZVOUS dispatches through `dispatchVehicle` with the option's point.
@@ -37,8 +45,11 @@ import {
   proposeOptions,
   rendezvous,
   rendezvousPair,
+  sampleProfile,
+  toLeg,
   vehiclePassable,
   vehicleTimeField,
+  cellIndex,
   type ContingencyInputs,
   type LoadedGrid,
   type RendezvousOk,
@@ -52,10 +63,12 @@ import {
   type Crew,
   type CrewId,
   type Leg,
+  type LegProfile,
   type LogEventData,
   type MissionScenario,
   type OkLeg,
   type PlanExport,
+  type Provenance,
   type ProvenanceMap,
   type RejectCode,
   type Waypoint,
@@ -216,6 +229,57 @@ function walkSeconds(option: ContingencyOption): number {
   return Math.max(0, option.eta_shelter_min * 60 - HAB_INGRESS_S);
 }
 
+/** The four 05 Leg fields that come from compute, with the label each carries. */
+interface LegMetrics {
+  climb_m: number;
+  descent_m: number;
+  max_slope_deg: number;
+  profile: LegProfile;
+  labels: { climb_m: Provenance; descent_m: Provenance; max_slope_deg: Provenance; profile: Provenance };
+}
+
+/** No derivable value: 0 and an empty profile, all `assumed` (05 Leg; never blocks a safety abort). */
+const assumedMetrics = (): LegMetrics => ({
+  climb_m: 0,
+  descent_m: 0,
+  max_slope_deg: 0,
+  profile: { dist_m: [], elev_m: [], slope_class: [] },
+  labels: { climb_m: "assumed", descent_m: "assumed", max_slope_deg: "assumed", profile: "assumed" },
+});
+
+/**
+ * Climb, descent, max slope and profile of the new leg, from compute only (no slope or elevation maths
+ * here, CLAUDE.md §2). Built when a plan is revised, never per tick. Throws RangeError when the path is
+ * not on the grid's cell centres, which `planRevised` answers as INVALID.
+ */
+function legMetrics(grid: LoadedGrid, option: ContingencyOption, from: string, to: string, geometry: Point[], scenario: MissionScenario): LegMetrics {
+  if (option.kind === "CONTINUE_SKIP") {
+    // A display polyline, not a cell path: only the profile can be sampled; the scalars wait for TASK-05.
+    // TODO(decision): ask TASK-05 (Mishkat) for a compute helper that maps a polyline to cells.
+    const profile = sampleProfile(grid, geometry, scenario.caution_slope_deg, scenario.hard_slope_limit_deg);
+    const none = assumedMetrics();
+    return allFinite(profile) ? { ...none, profile, labels: { ...none.labels, profile: "derived" } } : none;
+  }
+  const path = option.path_preview;
+  if (path.length === 0) return assumedMetrics();
+  const cells: number[] = [];
+  for (const [x, y] of path) {
+    const cell = cellIndex(grid, x, y);
+    // `cellIndex` gives null outside the grid and NaN for a NaN coordinate.
+    if (cell === null || !Number.isInteger(cell)) return assumedMetrics();
+    if (cells[cells.length - 1] !== cell) cells.push(cell);
+  }
+  const leg = toLeg(grid, from, to, { status: "OK", cells }, scenario);
+  if (leg.status !== "OK") return assumedMetrics();
+  const length = polylineLength(path);
+  if (!(Math.abs(leg.distance_m - length) <= 1e-6 * Math.max(1, length))) {
+    throw new RangeError(`the path of ${option.option_id} is not on the cell centres of the grid (cell_m ${grid.meta.cell_m}): its length ${length} m differs from compute's ${leg.distance_m} m`);
+  }
+  const { climb_m, descent_m, max_slope_deg, profile } = leg;
+  if (![climb_m, descent_m, max_slope_deg].every(Number.isFinite) || !allFinite(profile)) return assumedMetrics();
+  return { climb_m, descent_m, max_slope_deg, profile, labels: { climb_m: "derived", descent_m: "derived", max_slope_deg: "derived", profile: "derived" } };
+}
+
 interface Revision {
   waypoints: Waypoint[];
   legs: Leg[];
@@ -224,6 +288,8 @@ interface Revision {
 
 /** The plan minus the option's dropped stops, with the kept legs and one new leg on the option's route. */
 function buildPlanRevision(state: EngineState, scenario: LoadedScenario, option: ContingencyOption): Revision | string {
+  const grid = scenario.grid;
+  if (!grid) return "the scenario has no routing grid";
   const plan = currentPlan(state, scenario);
   const start = startOf(plan);
   if (!start) return "the plan has no start waypoint";
@@ -247,18 +313,20 @@ function buildPlanRevision(state: EngineState, scenario: LoadedScenario, option:
   // vehicle. TODO(decision): a dedicated 05 Waypoint role ("rendezvous") would be cleaner.
   const end = geometry[geometry.length - 1];
   if (option.kind !== "VEHICLE_RENDEZVOUS" && (!end || end[0] !== start.x_m || end[1] !== start.y_m)) geometry.push([start.x_m, start.y_m]);
+  const from = waypoints[waypoints.length - 1]!.id;
+  const metrics = legMetrics(grid, option, from, start.id, geometry, plan.scenario);
   const leg: OkLeg = {
-    from: waypoints[waypoints.length - 1]!.id,
+    from,
     to: start.id,
     status: "OK",
     distance_m: polylineLength(geometry),
     walk_time_min: walk_s / 60,
-    climb_m: 0,
-    descent_m: 0,
-    max_slope_deg: 0,
+    climb_m: metrics.climb_m,
+    descent_m: metrics.descent_m,
+    max_slope_deg: metrics.max_slope_deg,
     geometry,
     cell_path_length: geometry.length,
-    profile: { dist_m: [], elev_m: [], slope_class: [] },
+    profile: metrics.profile,
   };
   legs.push(leg);
   const i = legs.length - 1;
@@ -268,16 +336,18 @@ function buildPlanRevision(state: EngineState, scenario: LoadedScenario, option:
     provenance: {
       [`data.legs.${i}.walk_time_min`]: "modelled",
       [`data.legs.${i}.distance_m`]: "derived",
-      [`data.legs.${i}.climb_m`]: "assumed",
-      [`data.legs.${i}.descent_m`]: "assumed",
-      [`data.legs.${i}.max_slope_deg`]: "assumed",
+      [`data.legs.${i}.climb_m`]: metrics.labels.climb_m,
+      [`data.legs.${i}.descent_m`]: metrics.labels.descent_m,
+      [`data.legs.${i}.max_slope_deg`]: metrics.labels.max_slope_deg,
+      [`data.legs.${i}.profile`]: metrics.labels.profile,
     },
   };
 }
 
 /** PLAN_REVISED for executing `option`, or a rejection. */
 function planRevised(state: EngineState, scenario: LoadedScenario, command: Command, option: ContingencyOption): PendingEvent | string {
-  const revision = buildPlanRevision(state, scenario, option);
+  // A RangeError (a path off the grid's cell centres) is a rejection, never a crash; other errors propagate.
+  const revision = unlessRangeError(() => buildPlanRevision(state, scenario, option)) ?? "the option's path does not match the routing grid";
   if (typeof revision === "string") return revision;
   const data: LogEventData["PLAN_REVISED"] = {
     plan_revision: state.session.plan_revision + 1,

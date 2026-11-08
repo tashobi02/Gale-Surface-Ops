@@ -426,8 +426,10 @@ describe("a hab-bound leg ends on the start waypoint (so S5 can shelter it in th
     const base = proposed();
     const abort = base.options.find((o) => o.kind === "ABORT_TO_HAB")!;
     const last = abort.path_preview[abort.path_preview.length - 1]!;
-    // A cell centre offset from the waypoint by more than the reach (a declared test input, not science).
-    const off: [number, number] = [last[0] + 3 * SHELTER_REACH_M, last[1]];
+    // The neighbouring cell centre, farther from the waypoint than the reach (a declared test input, not science).
+    // It stays on the grid's cell centres, which the leg-metric guard (T23.07 follow-up) requires.
+    const off: [number, number] = [last[0] + grid.meta.cell_m, last[1]];
+    expect(grid.meta.cell_m).toBeGreaterThan(SHELTER_REACH_M);
     const s = { ...base, options: base.options.map((o) => (o === abort ? { ...o, path_preview: [...o.path_preview.slice(0, -1), off] } : o)) };
     const leg = newLeg(handleCommand(s, cmd("ops", "APPROVE_OPTION", { option_id: abort.option_id }), cctx(s)).events);
     expect(leg.geometry[leg.geometry.length - 2]).toEqual(off);
@@ -748,9 +750,10 @@ describe("the revised leg's climb, descent, max slope and profile (T23.07 follow
     it("a path not on the grid's cell centres (a field of another cell_m): INVALID, nothing logged, no throw", () => {
       const base = proposed();
       const abort = base.options.find((o) => o.kind === "ABORT_TO_HAB")!;
-      // Vertices every half cell (5 m on the 10 m grid), as a field of cell_m 5 would give; a declared test input.
+      // A diagonal run of half-cell steps (5 m on the 10 m grid), as a field of half the cell_m would give; a
+      // declared test input. Its vertices fall on cells whose centres are farther apart than the steps.
       const half = grid.meta.cell_m / 2;
-      const path: [number, number][] = Array.from({ length: 21 }, (_, k) => [k * half, 0]);
+      const path: [number, number][] = Array.from({ length: 11 }, (_, k) => [k * half, k * half]);
       const s = { ...base, options: base.options.map((o) => (o === abort ? { ...o, path_preview: path } : o)) };
       let out!: ReturnType<typeof approve>;
       expect(() => (out = handleCommand(s, cmd("ops", "ABORT", { crew: ["EV1"] }), cctx(s)))).not.toThrow();
