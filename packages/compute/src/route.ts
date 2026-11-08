@@ -281,36 +281,10 @@ export function searchLeg(
   }
 
   // If open set is exhausted without finding the target, determine no-route reason
-  try {
-    const noRouteInfo = determineNoRoute(grid, to, exploredCells);
-    return {
-      status: "NO_ROUTE",
-      reason: noRouteInfo.reason,
-      nearest_reachable: noRouteInfo.nearest_reachable,
-    };
-  } catch {
-    // If determineNoRoute is still a stub, calculate nearest explored cell by Euclidean distance
-    let bestDist = Infinity;
-    let bestX = from.x_m;
-    let bestY = from.y_m;
-
-    for (const cell of exploredCells) {
-      const r = Math.floor(cell / width);
-      const c = cell % width;
-      const cx = origin_x + (c + 0.5) * cell_m;
-      const cy = origin_y - (r + 0.5) * cell_m;
-      const d = Math.hypot(to.x_m - cx, to.y_m - cy);
-      if (d < bestDist) {
-        bestDist = d;
-        bestX = cx;
-        bestY = cy;
-      }
-    }
-
-    return {
-      status: "NO_ROUTE",
-      reason: "DISCONNECTED_BY_SLOPE",
-      nearest_reachable: { x_m: bestX, y_m: bestY },
-    };
-  }
+  const noRouteInfo = determineNoRoute(grid, to, exploredCells, scenario.hard_slope_limit_deg);
+  return {
+    status: "NO_ROUTE",
+    reason: noRouteInfo.reason,
+    nearest_reachable: noRouteInfo.nearest_reachable,
+  };
 }
