@@ -250,9 +250,13 @@
 - **Climb, descent, max slope and profile** (Proposed 2026-11-09 — TODO(decision); replaces the 8 Nov "blocked" note). `buildPlanRevision` (run on approval and abort, never per tick) keeps `geometry`, `walk_time_min` and `distance_m` as above and takes only these four fields from compute. The Hab Core does no slope or elevation maths (CLAUDE.md §2):
   - **ABORT_TO_HAB and VEHICLE_RENDEZVOUS:** `path_preview` is a cell-centre path from `pathTo`. Its vertices go through `cellIndex` (repeats collapsed) into `toLeg(grid, from, to, {status: "OK", cells}, scenario)`; the four fields are copied.
     A vertex outside the grid (`cellIndex` gives `null`, or NaN for a NaN coordinate) or an empty path keeps 0 and an empty profile, labelled `assumed`.
-  - **Non-finite result** (bilinear elevation next to no-data): zeros and an empty profile, all four labelled `assumed`, for that leg only. A display metric never blocks a safety abort.
-  - **Path guard (the "field `cell_m`" check):** options carry no field, so the check is indirect. If `toLeg`'s `distance_m` differs from the path's own length, its vertices are not the centres of this grid's cells (a field of another `cell_m` or origin); the engine throws a RangeError, contained as an INVALID rejection. The check is approximate: a straight path with half-cell steps happens to map onto a same-length run of centres and passes.
-  - **No grid at approval** (`scenario.grid` null): the revision fails, INVALID. Options only exist when a tick had a grid.
+  - **Contained metrics step** (Proposed 2026-11-09 — TODO(decision), review decision): a display-metric problem never blocks a safety command. Zeros and an empty profile, all four labelled `assumed`, for that leg only, and the revision proceeds normally, when:
+    - a value is non-finite (bilinear elevation next to no-data);
+    - `toLeg` or `sampleProfile` throws any error;
+    - the path guard fails. Options carry no field, so the "field `cell_m`" check is indirect: if `toLeg`'s `distance_m` differs from the path's own length, its vertices are not the centres of this grid's cells (a field of another `cell_m` or origin). The check is approximate: a straight path with half-cell steps happens to map onto a same-length run of centres and passes.
+    Only the metrics step is contained: errors in the geometry, legs or waypoints still surface.
+  - **What the numbers cover.** For ABORT_TO_HAB and VEHICLE_RENDEZVOUS, `profile`, `climb_m`, `descent_m` and `max_slope_deg` cover `path_preview` only. `distance_m` and `geometry` also include the final hop to the start waypoint (at most about one cell) for a hab-bound leg. For CONTINUE_SKIP, `profile` is derived from the display polyline while climb, descent and max slope are assumed 0.
+  - **No grid at approval** (`scenario.grid` null): the revision fails, INVALID. This is the only rejection left: options only exist when a tick had a grid.
   - **CONTINUE_SKIP:** `path_preview` is a display polyline, not a cell path. `profile` = `sampleProfile(grid, geometry, caution_slope_deg, hard_slope_limit_deg)`, labelled `derived`. `climb_m`, `descent_m` and `max_slope_deg` stay 0, labelled `assumed`.
     TODO(decision), request to TASK-05 (Mishkat Ahmed Khan, `packages/compute`): a helper that maps a polyline to the grid cells it crosses (for example `cellsAlongPath(grid, polyline)`), so `toLeg` can serve CONTINUE_SKIP too. Until then these three numbers are the only gap of T23.07.
 - **Provenance.** OPTIONS_PROPOSED labels `data.options.eta_shelter_min`, `data.options.expected_dose_ugy` and `data.options.rendezvous` `modelled` (05). VEHICLE_DISPATCHED labels `data.rendezvous` `modelled`.
@@ -279,7 +283,7 @@
 - **CONTINUE_SKIP path.** The return leg follows the planned legs (compute's `remainingPlan`), so it passes the dropped stops' places, but with no waypoint there it has no dwell and no ARRIVED_STOP. TODO(decision) for the compute owner.
 - **Warning alerts only.** TODO(decision): an O₂ or buddy warning also gets radiation-style options; 02 §D.15 does not restrict this.
 - **Tests.** The new [contingencyOpsReal.test.ts](../../apps/hab-core/tests/contingencyOpsReal.test.ts) runs 36 tests on the real compute and the F9 `havenFlat` grid (tilted 5° since 9 Nov so climb, descent and slope are not 0; 18 more tests cover the revised leg's metrics), including whole-`tick()` runs of a rendezvous (vehicle shelter) and an abort (hab shelter), and `dispatchVehicle` with a precomputed point.
-  In `contingencyOps.test.ts` only the fixture and mock shape changed (a stand-in grid and a `vehiclePassable` mock); no assertion changed.
+  In `contingencyOps.test.ts` only the fixture and mock shape changed (a stand-in grid, a `vehiclePassable` mock, and since 9 Nov `cellIndex`, `toLeg` and `sampleProfile` mocks); no assertion changed.
 
 ### T23.08 — Verify: killer demo steps 0:30–1:10 run headless (M3)
 

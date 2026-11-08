@@ -71,6 +71,11 @@ import { havenFlat } from "../../../packages/compute/tests/fixtures/v2grids";
 const hook = vi.hoisted(() => ({
   calls: [] as unknown[],
   extra: null as null | ((options: unknown[]) => unknown[]),
+  /** Cell lists handed to `toLeg` (T23.07 follow-up). */
+  toLegCells: [] as number[][],
+  /** When set, `toLeg` / `sampleProfile` throw it (a forced compute failure). */
+  toLegThrows: null as null | Error,
+  sampleProfileThrows: null as null | Error,
 }));
 vi.mock("@marswalk/compute", async () => {
   const actual = await vi.importActual<typeof import("@marswalk/compute")>("@marswalk/compute");
@@ -81,11 +86,24 @@ vi.mock("@marswalk/compute", async () => {
       const out = actual.proposeOptions(inputs);
       return hook.extra ? hook.extra(out) : out;
     },
+    toLeg: (...args: Parameters<typeof actual.toLeg>) => {
+      const search = args[3];
+      if (search.status === "OK") hook.toLegCells.push([...search.cells]);
+      if (hook.toLegThrows) throw hook.toLegThrows;
+      return actual.toLeg(...args);
+    },
+    sampleProfile: (...args: Parameters<typeof actual.sampleProfile>) => {
+      if (hook.sampleProfileThrows) throw hook.sampleProfileThrows;
+      return actual.sampleProfile(...args);
+    },
   };
 });
 beforeEach(() => {
   hook.calls.length = 0;
   hook.extra = null;
+  hook.toLegCells.length = 0;
+  hook.toLegThrows = null;
+  hook.sampleProfileThrows = null;
 });
 
 // ---- scenario and states ----------------------------------------------------------------------------------
@@ -597,8 +615,11 @@ describe("pinned rules (surviving mutants of the review)", () => {
  *   (`derived`); climb, descent and max slope stay 0, `assumed`, until TASK-05 offers a polyline-to-cells helper.
  * - A non-finite result (elevation next to no-data) keeps zeros and an empty profile, all `assumed`, for that
  *   leg only: a display metric never blocks a safety abort.
- * - No grid at approval: INVALID. A path that is not on the grid's cell centres (a field of another
- *   `cell_m`) is refused as INVALID (compute's RangeError, contained).
+ * - No grid at approval: INVALID, the only rejection (options exist only when a tick had a grid).
+ * - The metrics are a contained step (decided 9 Nov, review): a path not on the grid's cell centres (a field
+ *   of another `cell_m`: `toLeg`'s distance differs from the path's own length), an error thrown by
+ *   `toLeg` / `sampleProfile`, or a non-finite value gives 0 and an empty profile, all `assumed`, and
+ *   the revision proceeds: a display metric never blocks a safety command.
  * Expected values are compute's own `toLeg` / `sampleProfile` on the same inputs, never typed numbers.
  */
 describe("the revised leg's climb, descent, max slope and profile (T23.07 follow-up; 05 Leg)", () => {
@@ -747,18 +768,64 @@ describe("the revised leg's climb, descent, max slope and profile (T23.07 follow
       expect(out.events.map((e) => e.kind)).toEqual(["COMMAND_REJECTED"]);
     });
 
-    it("a path not on the grid's cell centres (a field of another cell_m): INVALID, nothing logged, no throw", () => {
+    /** The ABORT option with its path replaced by `path`, in a state ready for the ABORT command. */
+    const withAbortPath = (path: [number, number][]): EngineState => {
       const base = proposed();
       const abort = base.options.find((o) => o.kind === "ABORT_TO_HAB")!;
+      return { ...base, options: base.options.map((o) => (o === abort ? { ...o, path_preview: path } : o)) };
+    };
+    const abortOf = (s: EngineState) => handleCommand(s, cmd("ops", "ABORT", { crew: ["EV1"] }), cctx(s));
+    const expectAssumedAccepted = (out: ReturnType<typeof abortOf>): void => {
+      expect(out.result.ok).toBe(true);
+      expect(out.events.map((e) => e.kind)).toEqual(["PLAN_REVISED"]);
+      const leg = newLeg(out.events);
+      expect([leg.climb_m, leg.descent_m, leg.max_slope_deg]).toEqual([0, 0, 0]);
+      expect(leg.profile).toEqual(EMPTY_PROFILE);
+      const i = lastIndex(out);
+      expect(provOf(out)).toMatchObject(Object.fromEntries(METRICS.map((k) => [`data.legs.${i}.${k}`, "assumed"])));
+      expect(provOf(out)).toMatchObject({ [`data.legs.${i}.walk_time_min`]: "modelled", [`data.legs.${i}.distance_m`]: "derived" });
+    };
+
+    it("a path not on the grid's cell centres (a field of another cell_m): the abort still goes through, metrics assumed", () => {
       // A diagonal run of half-cell steps (5 m on the 10 m grid), as a field of half the cell_m would give; a
       // declared test input. Its vertices fall on cells whose centres are farther apart than the steps.
       const half = grid.meta.cell_m / 2;
       const path: [number, number][] = Array.from({ length: 11 }, (_, k) => [k * half, k * half]);
-      const s = { ...base, options: base.options.map((o) => (o === abort ? { ...o, path_preview: path } : o)) };
-      let out!: ReturnType<typeof approve>;
-      expect(() => (out = handleCommand(s, cmd("ops", "ABORT", { crew: ["EV1"] }), cctx(s)))).not.toThrow();
-      expect(out.result).toMatchObject({ ok: false, code: "INVALID" });
-      expect(out.events.map((e) => e.kind)).toEqual(["COMMAND_REJECTED"]);
+      let out!: ReturnType<typeof abortOf>;
+      expect(() => (out = abortOf(withAbortPath(path)))).not.toThrow();
+      expectAssumedAccepted(out);
+      expect(newLeg(out.events).geometry.slice(0, path.length)).toEqual(path);
+    });
+
+    it("an error thrown by toLeg: the abort still goes through, metrics assumed", () => {
+      hook.toLegThrows = new Error("forced toLeg failure");
+      expectAssumedAccepted(abortOf(proposed()));
+    });
+
+    it("an error thrown by sampleProfile: a CONTINUE_SKIP approval still goes through, profile assumed", () => {
+      hook.sampleProfileThrows = new TypeError("forced sampleProfile failure");
+      const out = approve("CONTINUE_SKIP");
+      expect(out.result.ok).toBe(true);
+      expect(newLeg(out.events).profile).toEqual(EMPTY_PROFILE);
+      expect(provOf(out)[`data.legs.${lastIndex(out)}.profile`]).toBe("assumed");
+    });
+
+    it("errors outside the metrics step still surface (a plan whose legs cannot be read)", () => {
+      const s = proposed();
+      const broken = { ...s, plan: { ...s.plan!, result: undefined as never } };
+      expect(() => abortOf(broken)).toThrow(TypeError);
+    });
+
+    it("repeated vertices are collapsed before toLeg (consecutive duplicate cells are not passed on)", () => {
+      const base = optionOf("ABORT_TO_HAB").path_preview;
+      // Every vertex twice, and the first three times: a declared test input.
+      const doubled: [number, number][] = [base[0]!, ...base.flatMap((p): [number, number][] => [p, p])];
+      const out = abortOf(withAbortPath(doubled));
+      expect(out.result.ok).toBe(true);
+      const want = base.map(([x, y]) => cellIndex(grid, x, y)!);
+      expect(hook.toLegCells).toEqual([want]);
+      expect(want.some((c, i) => i > 0 && c === want[i - 1])).toBe(false);
+      expect(pick(newLeg(out.events))).toEqual(pick(oracleLeg(base)));
     });
   });
 });

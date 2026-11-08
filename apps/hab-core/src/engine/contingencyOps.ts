@@ -25,10 +25,12 @@
  *   maths here, CLAUDE.md §2), labelled `derived`, only when the grid is there (no grid: INVALID).
  *   Proposed 2026-11-09, TODO(decision):
  *   - ABORT_TO_HAB / VEHICLE_RENDEZVOUS: `path_preview` is a cell-centre path; its cells (repeats
- *     collapsed) go to `toLeg` and the four fields are copied. A path off the grid's cell centres
- *     (`toLeg`'s distance differs from the path's own length: a field of another `cell_m`) is a
- *     RangeError, answered INVALID. A path leaving the grid, a non-finite result or an empty path
- *     keeps 0 and an empty profile, all `assumed`, for that leg: a display metric never blocks an abort.
+ *     collapsed) go to `toLeg` and the four fields are copied. They cover `path_preview` only;
+ *     `distance_m` and `geometry` also include the final hop to the start waypoint (about one cell at most).
+ *     A path off the grid's cell centres (`toLeg`'s distance differs from the path's own length: a field
+ *     of another `cell_m`), an error from compute, a path leaving the grid, a non-finite result or an
+ *     empty path keeps 0 and an empty profile, all `assumed`, for that leg and the revision proceeds
+ *     (the metrics step is contained; geometry, legs and waypoints errors still surface).
  *   - CONTINUE_SKIP: `path_preview` is a display polyline, not a cell path. `profile` is
  *     `sampleProfile` of it (`derived`); climb, descent and max slope stay 0, `assumed`, until TASK-05
  *     has a helper that maps a polyline to cells (TODO(decision) in TASK-23).
@@ -249,10 +251,11 @@ const assumedMetrics = (): LegMetrics => ({
 
 /**
  * Climb, descent, max slope and profile of the new leg, from compute only (no slope or elevation maths
- * here, CLAUDE.md §2). Built when a plan is revised, never per tick. Throws RangeError when the path is
- * not on the grid's cell centres, which `planRevised` answers as INVALID.
+ * here, CLAUDE.md §2). Built when a plan is revised, never per tick. A path not on the grid's cell
+ * centres, a non-finite value or an error from compute gives `assumedMetrics()`: a display metric never
+ * blocks a safety command (Proposed 2026-11-09, review). Only this step is contained.
  */
-function legMetrics(grid: LoadedGrid, option: ContingencyOption, from: string, to: string, geometry: Point[], scenario: MissionScenario): LegMetrics {
+function computeLegMetrics(grid: LoadedGrid, option: ContingencyOption, from: string, to: string, geometry: Point[], scenario: MissionScenario): LegMetrics {
   if (option.kind === "CONTINUE_SKIP") {
     // A display polyline, not a cell path: only the profile can be sampled; the scalars wait for TASK-05.
     // TODO(decision): ask TASK-05 (Mishkat) for a compute helper that maps a polyline to cells.
@@ -273,11 +276,21 @@ function legMetrics(grid: LoadedGrid, option: ContingencyOption, from: string, t
   if (leg.status !== "OK") return assumedMetrics();
   const length = polylineLength(path);
   if (!(Math.abs(leg.distance_m - length) <= 1e-6 * Math.max(1, length))) {
-    throw new RangeError(`the path of ${option.option_id} is not on the cell centres of the grid (cell_m ${grid.meta.cell_m}): its length ${length} m differs from compute's ${leg.distance_m} m`);
+    // Not on this grid's cell centres (a field of another `cell_m` or origin): the numbers would be wrong.
+    return assumedMetrics();
   }
   const { climb_m, descent_m, max_slope_deg, profile } = leg;
   if (![climb_m, descent_m, max_slope_deg].every(Number.isFinite) || !allFinite(profile)) return assumedMetrics();
   return { climb_m, descent_m, max_slope_deg, profile, labels: { climb_m: "derived", descent_m: "derived", max_slope_deg: "derived", profile: "derived" } };
+}
+
+/** `computeLegMetrics`, with any error from compute contained as `assumedMetrics()`. */
+function legMetrics(grid: LoadedGrid, option: ContingencyOption, from: string, to: string, geometry: Point[], scenario: MissionScenario): LegMetrics {
+  try {
+    return computeLegMetrics(grid, option, from, to, geometry, scenario);
+  } catch {
+    return assumedMetrics();
+  }
 }
 
 interface Revision {
@@ -346,8 +359,7 @@ function buildPlanRevision(state: EngineState, scenario: LoadedScenario, option:
 
 /** PLAN_REVISED for executing `option`, or a rejection. */
 function planRevised(state: EngineState, scenario: LoadedScenario, command: Command, option: ContingencyOption): PendingEvent | string {
-  // A RangeError (a path off the grid's cell centres) is a rejection, never a crash; other errors propagate.
-  const revision = unlessRangeError(() => buildPlanRevision(state, scenario, option)) ?? "the option's path does not match the routing grid";
+  const revision = buildPlanRevision(state, scenario, option);
   if (typeof revision === "string") return revision;
   const data: LogEventData["PLAN_REVISED"] = {
     plan_revision: state.session.plan_revision + 1,
