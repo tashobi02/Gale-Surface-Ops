@@ -251,4 +251,16 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
     expect(Object.keys(body).sort()).toEqual(["data_version", "session_id", "sim_time", "status", "uptime_s"]);
     expect(body).toMatchObject({ data_version: "gale_boxwork-2026.11.08", session_id: "s-0007", sim_time: SIM_TIME });
   });
+
+  it("GET /api/report returns PostEvaReport (01 FR-46)", async () => {
+    const { server } = await setup();
+    const res = await fetch(`${server.url}/api/report`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.session_id).toBe("s-0007");
+    expect(body.disclaimer).toMatch(/NASA Space Apps/i);
+    expect(body.stops).toBeDefined();
+    expect(body.alerts).toBeDefined();
+    expect(body.tasks).toBeDefined();
+  });
 });

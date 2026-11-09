@@ -5,5 +5,7 @@
  *   #/sources SCR-09 · #/replay (GitHub Pages, recorded log, no Hab Core).
  * Each route sets <html data-mode="brief|ops|hud|print"> (04 §B.2) before rendering.
  * Router and boot: TASK-07 (planner), TASK-25 (roles).
+ * TODO(decision): assign and complete app boot, role/router mounting and HabClient lifecycle with TASK-07/TASK-25 owners;
+ * component tests do not establish application integration.
  */
 import "./ui/styles/tokens.css";

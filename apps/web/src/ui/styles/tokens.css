@@ -112,6 +112,8 @@
   --text-value-hud: 64px;
   --text-alert-ops: 18px;
   --text-alert-eva: 22px;
+  /* Landscape full-screen map HAVEN/O₂ stack: 40 px on phones, 48 px from 768 px up (04 §E.5 exception under review, U-60) */
+  --text-value-landscape: 40px;
 
   /* Shape and spacing (04 §C.3) */
   --grid: 4px;
@@ -342,6 +344,10 @@ a { text-decoration: underline; text-underline-offset: 2px; }
     --status-advisory: var(--print-text);
     --status-unknown: var(--print-text);
   }
+}
+
+@media (min-width: 768px) {
+  :root { --text-value-landscape: 48px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
