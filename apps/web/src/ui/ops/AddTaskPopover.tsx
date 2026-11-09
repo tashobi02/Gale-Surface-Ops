@@ -15,7 +15,8 @@ import type { CrewId, StopTaskKind } from "@marswalk/protocol";
 
 export interface StopOption {
   stopId: string;
-  stopNo: number;
+  /** Plan stop number, when known. */
+  stopNo?: number;
   label: string;
 }
 
@@ -40,7 +41,7 @@ const MAX_CHARS = 60;
 export function AddTaskPopover({
   crewId,
   stopId,
-  availableStops = [{ stopId, stopNo: 2, label: `Stop 2 (${stopId})` }],
+  availableStops = [{ stopId, label: `Stop ${stopId.replace(/^wp-/, "")}` }],
   maxReached = false,
   onAdd,
   onCancel,
@@ -68,7 +69,7 @@ export function AddTaskPopover({
   const popoverStyle: CSSProperties = {
     backgroundColor: "var(--panel, #14181D)",
     border: "1px solid var(--edge, #5C6670)",
-    borderRadius: "2px",
+    borderRadius: 0,
     padding: "12px",
     display: "flex",
     flexDirection: "column",
@@ -85,14 +86,14 @@ export function AddTaskPopover({
     border: "1px solid var(--edge, #5C6670)",
     color: "var(--text-1, #ECEFF2)",
     padding: "6px 8px",
-    borderRadius: "2px",
+    borderRadius: 0,
     fontFamily: "inherit",
     fontSize: "12px",
     width: "100%",
   };
 
   const labelStyle: CSSProperties = {
-    fontSize: "11px",
+    fontSize: "12px",
     color: "var(--text-2, #A9B3BE)",
     textTransform: "uppercase",
     letterSpacing: "0.04em",
@@ -107,7 +108,7 @@ export function AddTaskPopover({
     backgroundColor: "var(--raised, #1C2128)",
     color: "var(--text-1, #ECEFF2)",
     border: "1px solid var(--edge, #5C6670)",
-    borderRadius: "2px",
+    borderRadius: 0,
     cursor: "pointer",
     fontFamily: "inherit",
     fontSize: "12px",
@@ -159,7 +160,7 @@ export function AddTaskPopover({
         <div
           style={{
             color: "var(--status-caution, #FFB020)",
-            fontSize: "11px",
+            fontSize: "12px",
             padding: "4px",
             border: "1px dashed var(--status-caution, #FFB020)",
           }}

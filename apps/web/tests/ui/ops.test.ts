@@ -1,180 +1,436 @@
 /**
  * T25.07 — Tests: ops and join DOM tests (docs/specs/01 FR-31, FR-34, FR-44; 04 §D.2, §E.4).
- * Layout slots, crew cards with data-provenance, alert hierarchy and latching,
- * options hold-to-confirm, mission clock controls, join screen, and keyboard accessibility.
+ * The real OpsConsole, AlertStack, ClockControl, ConditionsPanel and OptionsPanel are mounted with explicit
+ * fixtures and driven by clicks and holds. Absent, empty and partial inputs are checked separately: nothing may
+ * be filled in from defaults.
+ *
+ * Not claimed here: the 3-column layout at >= 1280 px (pixel geometry) and session/store wiring (T25.01 follow-up).
  */
-import { describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { act, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { Alert, ContingencyOption, Crew, Snapshot, Vehicle } from "@marswalk/protocol";
 import { OpsConsole } from "../../src/ui/screens/scr11OpsConsole";
 import { Join } from "../../src/ui/screens/scr10Join";
 import { ClockControl } from "../../src/ui/ops/ClockControl";
+import { AlertStack } from "../../src/ui/ops/AlertStack";
 import { ConditionsPanel } from "../../src/ui/ops/ConditionsPanel";
-import { wsFixtures, type Beat } from "../fixtures/ws";
+import { HOLD_DURATION_MS } from "../../src/ui/eva/HoldToConfirm";
+import { recordingClient, rejected, storeFromBeat } from "./fixtureStore";
+import { click, flush, installDom, mount, must, pointerDown, pointerUp, removeDom } from "./domHarness";
 
-describe("SCR-11 Ops console layout (04 §E.4, FR-31, FR-34)", () => {
-  it("renders all core slots: top bar, crew, vehicles, map, conditions, earth link, event log", () => {
-    // 04 §E.4: Ops console slots on ≥ 1280 px
-    const html = renderToStaticMarkup(createElement(OpsConsole));
+const PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
 
-    // Module labels and core slots (04 P2, §E.4)
-    expect(html).toMatch(/CREW/i);
-    expect(html).toMatch(/VEHICLES/i);
-    expect(html).toMatch(/CONDITIONS/i);
-    expect(html).toMatch(/EARTH LINK/i);
-    expect(html).toMatch(/EVENT LOG/i);
+beforeAll(() => installDom());
+afterAll(() => removeDom());
+afterEach(() => {
+  vi.useRealTimers();
+  document.body.innerHTML = "";
+});
+
+const connectSnapshot = (): Snapshot => storeFromBeat("connect", "ops").state()!;
+const ev1 = (): Crew => connectSnapshot().crew.find((c) => c.crew_id === "EV1")!;
+
+/** A second crew member for the tests, built from EV1's fixture entry with explicit overrides. */
+const crewMember = (over: Partial<Crew>): Crew => ({ ...ev1(), ...over });
+
+const utilityRover = (over: Partial<Vehicle>): Vehicle => ({
+  vehicle_id: "UR1",
+  kind: "utility_rover",
+  param_set: "default",
+  x_m: 10,
+  y_m: 20,
+  state: "PARKED",
+  task: null,
+  path: [],
+  eta_s: null,
+  battery_wh: 640,
+  ...over,
+});
+
+const warning = (over: Partial<Alert> = {}): Alert => ({
+  alert_id: "a-w",
+  code: "RADIATION_ALERT",
+  level: "warning",
+  subjects: ["EV1"],
+  raised_seq: 7,
+  acked_seq: null,
+  cleared_seq: null,
+  acked_by: null,
+  message: "Shelter now",
+  data: {},
+  ...over,
+});
+
+describe("SCR-11 Ops console with nothing supplied (04 §D.1: no sample data)", () => {
+  it("renders every module label, and no crew, vehicle, alert, option, count or coordinate is made up", async () => {
+    const { container } = await mount(createElement(OpsConsole));
+    const text = container.textContent ?? "";
+
+    for (const label of [/CREW/, /VEHICLES/, /CONDITIONS/, /EARTH LINK/, /EVENT LOG/, /OPTIONS/]) {
+      expect(text).toMatch(label);
+    }
+    expect(container.querySelectorAll(".crew-card")).toHaveLength(0);
+    expect(container.querySelectorAll(".vehicle-card")).toHaveLength(0);
+    expect(container.querySelector(".alert-stack")).toBeNull();
+    expect(text).not.toMatch(/C\. Jones|M\. Taylor|450 mGy|92%|2m ago|2410|1875|13:0\d|SCALE 1:|STOP 2|storm-sol4190/);
+    expect(text).not.toMatch(/NaN|Infinity|undefined/);
+    // Header, conditions and event log read — and say why, in their labels.
+    expect(text).toContain("SOL —");
+    expect(text).toContain("LTST —");
+    expect(must(container, ".ops-event-log [data-provenance]").getAttribute("data-source")).toBe("unavailable:event_log");
+    expect(must(container, '[data-slot="options-empty"]').textContent).toContain("—");
+    expect(must<HTMLButtonElement>(container, "#action-confirm-option").disabled).toBe(true);
   });
 
-  it("crew cards show every mission value with data-provenance (04 §A.3 #8, FR-15)", () => {
-    // Every displayed value has a provenance label and source id
-    const html = renderToStaticMarkup(createElement(OpsConsole));
+  it("every labelled value on the empty console has a valid provenance and a source", async () => {
+    const { container } = await mount(createElement(OpsConsole));
+    const labelled = container.querySelectorAll("[data-provenance]");
 
-    // Must contain data-provenance attributes on telemetry values
-    expect(html).toMatch(/data-provenance="(measured|derived|modelled|assumed|replayed|simulated)"/);
-  });
-
-  it("unlinked crew card is rendered with dashed border and last-heard age (04 §A.3 #8)", () => {
-    // When a crew member suit link is lost, their card renders with dashed border and age
-    const html = renderToStaticMarkup(createElement(OpsConsole));
-
-    expect(html).toMatch(/unlinked|dashed|stale/i);
+    expect(labelled.length).toBeGreaterThan(0);
+    for (const el of labelled) {
+      expect(PROVENANCE).toContain(el.getAttribute("data-provenance"));
+      expect(el.getAttribute("data-source")).toBeTruthy();
+    }
   });
 });
 
-describe("Alert system and options panel (04 §D.2, §E.4, §D.3)", () => {
-  it("alert bar reflects hierarchy: warning overrides caution and nominal is quiet (04 §A.3 #3)", () => {
-    // Dark cockpit: nominal is quiet. Warning takes precedence over caution.
-    const nominalMessages = wsFixtures["walking"];
-    expect(nominalMessages.length).toBeGreaterThan(0);
+describe("SCR-11 crew and vehicle cards from explicit fixtures (04 §A.3 #8, FR-15)", () => {
+  async function consoleWith(crew: Crew[], vehicles: Vehicle[] = [], alerts: Alert[] = []) {
+    return mount(createElement(OpsConsole, { crew, vehicles, alerts }));
+  }
 
-    const alertMessages = wsFixtures["radiation-alert"];
-    expect(alertMessages.length).toBeGreaterThan(0);
+  it("each telemetry value is labelled on its own element, with simulated crew fields (never measured)", async () => {
+    const { container } = await consoleWith([ev1()]);
+    const card = must(container, ".crew-card");
 
-    const html = renderToStaticMarkup(createElement(OpsConsole));
-    expect(html).toMatch(/alert-bar|alert-slot/);
+    const bySource = (src: string) => must(card, `[data-source="${src}"]`);
+    expect(bySource("snapshot:crew.o2_frac").getAttribute("data-provenance")).toBe("simulated");
+    expect(bySource("snapshot:crew.dose_event_ugy").getAttribute("data-provenance")).toBe("simulated");
+    expect(bySource("snapshot:crew.linked").getAttribute("data-provenance")).toBe("simulated");
+    expect(bySource("snapshot:crew.haven.minutes").getAttribute("data-provenance")).toBe("modelled");
+    expect(card.innerHTML).not.toContain('data-provenance="measured"');
+    expect(bySource("snapshot:crew.o2_frac").textContent).toContain(`${Math.round(ev1().o2_frac * 100)} %`);
+    expect(card.textContent).not.toMatch(/C\. Jones/);
   });
 
-  it("alerts latch until acknowledged; ACK button is present and accessible", () => {
-    // 04 §D.2: Warnings and cautions latch until ops acknowledges
-    const html = renderToStaticMarkup(createElement(OpsConsole));
+  it("a real zero dose and a real zero O₂ show as 0, not as —", async () => {
+    const { container } = await consoleWith([crewMember({ o2_frac: 0, dose_event_ugy: 0 })]);
 
-    expect(html).toMatch(/ACK/i);
-    expect(html).toMatch(/<button/);
+    expect(must(container, '[data-source="snapshot:crew.o2_frac"]').textContent).toContain("0 %");
+    expect(must(container, '[data-source="snapshot:crew.dose_event_ugy"]').textContent).toContain("0.0 mGy");
   });
 
-  it("approve option requires full hold-to-confirm 800 ms and dispatches exactly one APPROVE_OPTION", () => {
-    const onApprove = vi.fn();
+  it("a partial crew entry shows — for the missing fields and keeps the rest", async () => {
+    const partial = { ...ev1(), haven: undefined, o2_frac: Number.NaN } as unknown as Crew;
+    const { container } = await consoleWith([partial]);
+    const card = must(container, ".crew-card");
 
-    // 04 §D.3: Hold-to-confirm 800 ms for critical ops approvals
-    let pressDurationMs = 400;
-    if (pressDurationMs >= 800) {
-      onApprove();
-    }
-    expect(onApprove).not.toHaveBeenCalled();
+    expect(must(card, '[data-source="snapshot:crew.haven.minutes"]').textContent).toContain("— MIN");
+    expect(must(card, '[data-source="snapshot:crew.o2_frac"]').textContent).toContain("— %");
+    expect(must(card, '[data-source="snapshot:crew.dose_event_ugy"]').textContent).toContain("0.0 mGy");
+    expect(card.textContent).not.toMatch(/NaN|\b14 MIN|71/);
+  });
 
-    pressDurationMs = 800;
-    if (pressDurationMs >= 800) {
-      onApprove();
-    }
-    expect(onApprove).toHaveBeenCalledTimes(1);
+  it("an unlinked crew card is dashed, says LOST and shows the last-heard age as — (no age is invented)", async () => {
+    const { container } = await consoleWith([crewMember({ linked: false, stale: true })]);
+    const card = must(container, ".crew-card");
 
-    const html = renderToStaticMarkup(createElement(OpsConsole));
-    expect(html).toMatch(/OPTIONS/i);
+    expect(card.className).toMatch(/unlinked/);
+    expect(card.className).toMatch(/dashed/);
+    expect(card.textContent).toContain("LOST");
+    const age = must(card, '[data-source="unavailable:link.age_seconds"]');
+    expect(age.textContent).toBe("—");
+    expect(age.getAttribute("data-provenance")).toBe("assumed");
+    expect(card.textContent).not.toMatch(/2m ago/);
+  });
+
+  it("task progress shows — until counts are supplied, then the supplied counts; + TASK needs a known stop", async () => {
+    const bare = await consoleWith([ev1()]);
+    const progress = must(bare.container, '[data-testid="task-progress-EV1"]');
+    expect(progress.textContent).toContain("STOP —");
+    expect(progress.textContent).not.toMatch(/\d\/\d/);
+    expect(must<HTMLButtonElement>(progress, "button").disabled).toBe(true);
+    await bare.unmount();
+
+    const supplied = await mount(
+      createElement(OpsConsole, {
+        crew: [ev1()],
+        taskProgress: { EV1: { stop: { stopId: "wp-4", stopNo: 4, done: 0, total: 2 }, total: { done: 1, total: 6 } } },
+      }),
+    );
+    const p = must(supplied.container, '[data-testid="task-progress-EV1"]');
+    expect(p.textContent).toContain("STOP 4 0/2");
+    expect(p.textContent).toContain("TOTAL 1/6");
+    expect(must<HTMLButtonElement>(p, "button").disabled).toBe(false);
+  });
+
+  it("battery is the supplied Wh for the utility rover, and — for the pressurised rover; never a percentage", async () => {
+    const { container } = await consoleWith([], [
+      { ...connectSnapshot().vehicles[0], battery_wh: null },
+      utilityRover({ battery_wh: 640 }),
+    ]);
+    const cards = [...container.querySelectorAll(".vehicle-card")];
+
+    expect(cards).toHaveLength(2);
+    expect(cards[0].textContent).toMatch(/BATTERY\s*—/);
+    expect(cards[1].textContent).toContain("640 Wh");
+    expect(container.textContent).not.toMatch(/\d\s?%.*BATTERY|BATTERY.*\d\s?%|\/130/);
+    expect(must(cards[1], '[data-source="snapshot:vehicles.battery_wh"]').getAttribute("data-provenance")).toBe("simulated");
+  });
+
+  it("vehicle state text is neutral: no status colour without a safety status", async () => {
+    const { container } = await consoleWith([], [utilityRover({ state: "EN_ROUTE" })]);
+    const card = must(container, ".vehicle-card");
+
+    expect(card.innerHTML).not.toMatch(/--status-(nominal|caution|warning)/);
+    expect(card.textContent).toContain("EN_ROUTE");
   });
 });
 
-describe("Mission clock controls and Join screen (04 §E.4, FR-30, FR-31)", () => {
-  it("clock controls (pause, 1x, 10x, 60x, step) each trigger their respective command", () => {
-    // 04 §E.4: Top bar clock controls: ⏸ 1× 10× [60×] ⏭
-    const html = renderToStaticMarkup(createElement(OpsConsole));
+describe("Alert system (04 §D.2, §E.4)", () => {
+  const caution = (): Alert => warning({ alert_id: "a-c", code: "COMM_SHADOW", level: "caution", message: "Comm shadow", raised_seq: 9 });
 
-    expect(html).toMatch(/1×|1x/i);
-    expect(html).toMatch(/10×|10x/i);
-    expect(html).toMatch(/60×|60x/i);
+  it("the highest level takes the single bar; the others are counted; every alert shows shape and word", async () => {
+    const { container } = await mount(createElement(AlertStack, { alerts: [caution(), warning()] }));
+    const bar = must(container, ".alert-bar");
+
+    expect(must(container, ".alert-stack").getAttribute("data-level")).toBe("warning");
+    expect(bar.textContent).toContain("WARNING");
+    expect(bar.textContent).toContain("⬣");
+    expect(bar.textContent).toContain("Shelter now");
+    expect(bar.textContent).toContain("+1");
+    const items = container.querySelectorAll(".alert-item");
+    expect(items).toHaveLength(2);
+    expect(items[1].textContent).toMatch(/▲/);
+    expect(items[1].textContent).toContain("CAUTION");
   });
 
-  it("ClockControl component supports pause/resume, speed buttons, scenario loading and start EVA", () => {
-    const htmlRunning = renderToStaticMarkup(
+  it("ACK calls onAcknowledge with the alert and its sequence, once; an acknowledged alert has no ACK button", async () => {
+    const onAcknowledge = vi.fn();
+    const { container } = await mount(createElement(AlertStack, { alerts: [warning()], onAcknowledge }));
+
+    await click(must(container, '[aria-label^="Acknowledge alert: Shelter now"]'));
+    expect(onAcknowledge.mock.calls).toEqual([["a-w", 7]]);
+
+    const acked = await mount(createElement(AlertStack, { alerts: [warning({ acked_seq: 8, acked_by: "ops" })] }));
+    expect(acked.container.querySelector('[aria-label^="Acknowledge alert:"]')).toBeNull();
+    expect(acked.container.textContent).toContain("ACK by ops");
+  });
+
+  it("OpsConsole forwards ACK as the alert's sequence number", async () => {
+    const onAcknowledgeAlert = vi.fn();
+    const { container } = await mount(createElement(OpsConsole, { alerts: [warning()], onAcknowledgeAlert }));
+
+    await click(must(container, '.alert-bar [aria-label^="Acknowledge alert"]'));
+    expect(onAcknowledgeAlert.mock.calls).toEqual([[7]]);
+  });
+});
+
+describe("Mission clock controls (04 §E.4, FR-30, FR-31)", () => {
+  it("ClockControl: pause, each speed, step, scenario and start EVA each trigger their command", async () => {
+    const onCommand = vi.fn();
+    const onSetSpeed = vi.fn();
+    const onPauseResume = vi.fn();
+    const onJumpNextEvent = vi.fn();
+    const onStartEva = vi.fn();
+    const { container } = await mount(
       createElement(ClockControl, {
-        speed: 60,
+        speed: 1,
         isPaused: false,
-        sessionState: "RUNNING",
-        activeScenarioId: "storm-sol4190",
-      })
-    );
-
-    expect(htmlRunning).toContain("60×");
-    expect(htmlRunning).toContain("aria-pressed=\"true\"");
-    expect(htmlRunning).toContain("⏸");
-    expect(htmlRunning).toContain("storm-sol4190");
-
-    const htmlLoaded = renderToStaticMarkup(
-      createElement(ClockControl, {
         sessionState: "LOADED",
-        isPaused: true,
-      })
+        activeScenarioId: "storm-sol4190",
+        onCommand,
+        onSetSpeed,
+        onPauseResume,
+        onJumpNextEvent,
+        onStartEva,
+      }),
     );
-    expect(htmlLoaded).toContain("START EVA");
-    expect(htmlLoaded).toContain("▶");
+
+    await click(must(container, '[aria-label="Set speed to 10x"]'));
+    await click(must(container, '[aria-label="Set speed to 60x"]'));
+    await click(must(container, '[aria-label="Pause mission clock"]'));
+    await click(must(container, '[aria-label="Jump to next scheduled event"]'));
+    await click(must(container, '[aria-label="Start EVA mission"]'));
+
+    expect(onSetSpeed.mock.calls).toEqual([[10], [60]]);
+    expect(onPauseResume.mock.calls).toEqual([[true]]);
+    expect(onJumpNextEvent).toHaveBeenCalledTimes(1);
+    expect(onStartEva).toHaveBeenCalledTimes(1);
+    expect(onCommand.mock.calls.map(([c]) => c)).toEqual([
+      { kind: "SET_CLOCK", args: { speed: 10 } },
+      { kind: "SET_CLOCK", args: { speed: 60 } },
+      { kind: "SET_CLOCK", args: { paused: true } },
+      { kind: "JUMP_NEXT_EVENT", args: {} },
+      { kind: "START_EVA", args: {} },
+    ]);
   });
 
-  it("join screen (SCR-10) displays available roles, role-taken state, and connecting/unreachable states", () => {
-    // 04 §E: SCR-10 Join view with role buttons (lead, buddy, ops, hud, etc.)
+  it("ClockControl lists only the scenario it is told about; no invented scenario catalogue or Sol numbers", async () => {
+    const none = await mount(createElement(ClockControl, {}));
+    expect(none.container.textContent).not.toMatch(/Sol 419\d|Nominal Boxwork|Comm Shadow/);
+    expect(none.container.querySelectorAll("option")).toHaveLength(1);
+    await none.unmount();
+
+    const one = await mount(createElement(ClockControl, { activeScenarioId: "storm-sol4190" }));
+    expect([...one.container.querySelectorAll("option")].map((o) => o.textContent)).toEqual(["storm-sol4190"]);
+  });
+
+  it("START EVA is neutral chrome, not a status colour", async () => {
+    const { container } = await mount(createElement(ClockControl, { sessionState: "LOADED" }));
+    expect(must(container, '[aria-label="Start EVA mission"]').getAttribute("style")).not.toMatch(/--status-/);
+  });
+
+  it("OpsConsole forwards the clock buttons to onClockCommand", async () => {
+    const onClockCommand = vi.fn();
+    const { container } = await mount(createElement(OpsConsole, { onClockCommand }));
+
+    await click(must(container, '[aria-label="Set speed to 10x"]'));
+    await click(must(container, '[aria-label="Pause mission clock"]'));
+    await click(must(container, '[aria-label="Resume mission clock"]'));
+    await click(must(container, '[aria-label="Jump to next scheduled event"]'));
+
+    expect(onClockCommand.mock.calls).toEqual([["SET_SPEED", 10], ["PAUSE"], ["RESUME"], ["STEP"]]);
+  });
+});
+
+describe("Options panel: ops approves with a full hold (04 §D.3, FR-44)", () => {
+  const option: ContingencyOption = {
+    option_id: "o-ops",
+    alert_id: "a-1",
+    kind: "VEHICLE_RENDEZVOUS",
+    crew_ids: ["EV1"],
+    eta_shelter_min: 12,
+    expected_dose_ugy: 3,
+    stops_dropped: [],
+    violations: [],
+    rank: 1,
+    path_preview: [],
+    rendezvous: null,
+  };
+
+  async function hold(button: Element): Promise<void> {
+    await pointerDown(button);
+    await act(async () => { vi.advanceTimersByTime(HOLD_DURATION_MS + 50); });
+    await flush();
+  }
+
+  it("a full hold sends one APPROVE_OPTION; onApproveOption fires only after it was accepted", async () => {
+    vi.useFakeTimers();
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const onApproveOption = vi.fn();
+    const snapshot = { ...connectSnapshot(), options: [option] };
+    const { container } = await mount(createElement(OpsConsole, { client, snapshot, onApproveOption }));
+
+    await hold(must(container, "#action-confirm-option"));
+    expect(sent).toEqual([{ kind: "APPROVE_OPTION", args: { option_id: "o-ops" } }]);
+    expect(onApproveOption.mock.calls).toEqual([["o-ops"]]);
+  });
+
+  it("a short press sends nothing; a rejected approval is shown and not reported as approved", async () => {
+    vi.useFakeTimers();
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"), () => rejected("BUSY", "rover not parked"));
+    const onApproveOption = vi.fn();
+    const snapshot = { ...connectSnapshot(), options: [option] };
+    const { container } = await mount(createElement(OpsConsole, { client, snapshot, onApproveOption }));
+    const button = must<HTMLButtonElement>(container, "#action-confirm-option");
+
+    await pointerDown(button);
+    await act(async () => { vi.advanceTimersByTime(300); });
+    await pointerUp(button);
+    expect(sent).toHaveLength(0);
+    await act(async () => { vi.advanceTimersByTime(2000); });
+    expect(sent).toHaveLength(0);
+
+    await hold(button);
+    expect(sent).toHaveLength(1);
+    expect(button.textContent).toContain("rover not parked");
+    expect(onApproveOption).not.toHaveBeenCalled();
+  });
+});
+
+describe("Conditions feed (01 FR-36, NFR-05, 04 §E.4, §E.5)", () => {
+  const conditions = {
+    ltst: { v: "09:15", unit: "LTST", prov: "modelled" as const, src: "test:ltst" },
+    sunElevationDeg: { v: 31.2, unit: "°", prov: "modelled" as const, src: "test:sun" },
+    doseRateBackgroundUgyH: { v: 0, unit: "µGy/h", prov: "replayed" as const, src: "test:bg" },
+    doseRateEventUgyH: { v: 5.5, unit: "µGy/h", prov: "replayed" as const, src: "test:event" },
+    earthLink: {
+      lightTimeSeconds: { v: 600, unit: "s", prov: "derived" as const, src: "test:light" },
+      nextPass: { v: "pass at 4", prov: "derived" as const, src: "test:pass" },
+      queueUp: { v: 2, unit: "pkts", prov: "derived" as const, src: "test:q" },
+      queueDown: { v: 0, unit: "pkts", prov: "derived" as const, src: "test:q" },
+    },
+  };
+
+  it("with no conditions every field reads — and is labelled assumed/unavailable; no sample number appears", async () => {
+    const { container } = await mount(createElement(ConditionsPanel, { variant: "ops" }));
+    const text = container.textContent ?? "";
+
+    expect(text).not.toMatch(/13:05|42\.5|0\.21|84\.2|9m|MRO|NaN/);
+    const values = container.querySelectorAll(".value");
+    expect(values.length).toBe(6);
+    for (const v of values) {
+      expect(v.textContent).toContain("—");
+      expect(v.getAttribute("data-provenance")).toBe("assumed");
+      expect(v.getAttribute("data-source")).toMatch(/^unavailable:conditions\./);
+    }
+    expect(container.querySelector(".value")?.closest("div")?.textContent).toMatch(/LTST/);
+    expect(text).toMatch(/not included in this build/i);
+    expect(text).not.toMatch(/\blive\b/i);
+  });
+
+  it("supplied values keep their own provenance and source; a real zero stays 0; partial input leaves the rest —", async () => {
+    const { container } = await mount(createElement(ConditionsPanel, { variant: "ops", conditions }));
+    const bySource = (src: string) => must(container, `[data-source="${src}"]`);
+
+    expect(bySource("test:ltst").textContent).toContain("09:15");
+    expect(bySource("test:ltst").getAttribute("data-provenance")).toBe("modelled");
+    expect(bySource("test:bg").textContent).toContain("0.00 µGy/h");
+    expect(bySource("test:bg").getAttribute("data-provenance")).toBe("replayed");
+    expect(bySource("test:event").textContent).toContain("5.5");
+    expect(bySource("test:light").textContent).toContain("10:00");
+    expect(bySource("test:q").textContent).toContain("↑2 ↓0");
+    expect(container.textContent).toMatch(/Event Dose Rate/);
+    expect(container.textContent).not.toMatch(/\blive\b/i);
+
+    const partial = await mount(
+      createElement(ConditionsPanel, { variant: "ops", conditions: { ltst: conditions.ltst } }),
+    );
+    expect(must(partial.container, '[data-source="test:ltst"]').textContent).toContain("09:15");
+    expect(must(partial.container, '[data-source="unavailable:conditions.sunElevationDeg"]').textContent).toContain("—");
+    expect(partial.container.textContent).not.toMatch(/Event Dose Rate/);
+  });
+
+  it("the EVA strip labels each value, shows — for missing ones and never says live", async () => {
+    const full = await mount(createElement(ConditionsPanel, { variant: "eva", conditions }));
+    const strip = must(full.container, '[data-testid="conditions-strip-eva"]');
+
+    for (const word of ["LTST", "SUN", "BG", "EVENT", "EARTH"]) expect(strip.textContent).toContain(word);
+    for (const el of strip.querySelectorAll("span[data-provenance]")) {
+      expect(el.getAttribute("data-source")).toBeTruthy();
+    }
+    expect(strip.textContent).not.toMatch(/\blive\b/i);
+    await full.unmount();
+
+    const empty = await mount(createElement(ConditionsPanel, { variant: "eva" }));
+    expect(empty.container.textContent).not.toMatch(/\d/);
+  });
+});
+
+describe("Join screen and keyboard access (NFR-04, 04 §E.4)", () => {
+  it("join screen (SCR-10) offers role buttons (static markup)", () => {
     const html = renderToStaticMarkup(createElement(Join));
 
     expect(html).toMatch(/role/i);
     expect(html).toMatch(/<button/);
   });
-});
 
-describe("Conditions feed (01 FR-36, NFR-05, 04 §E.4, §E.5)", () => {
-  it("ConditionsPanel (ops variant) displays LTST, sun elevation, dose rates, earth link with data-provenance", () => {
-    const html = renderToStaticMarkup(createElement(ConditionsPanel, { variant: "ops" }));
+  it("the ops console has only natively focusable controls and no tabindex=-1 on primary actions (static markup)", () => {
+    const html = renderToStaticMarkup(createElement(OpsConsole, { crew: [ev1()], alerts: [warning()] }));
 
-    // Values have data-provenance attributes
-    expect(html).toContain('data-provenance="modelled"');
-    expect(html).toContain('data-provenance="replayed"');
-    expect(html).toContain('data-provenance="derived"');
-    expect(html).toContain('data-provenance="assumed"');
-
-    // Expected fields
-    expect(html).toMatch(/LTST/i);
-    expect(html).toMatch(/Sun Elevation/i);
-    expect(html).toMatch(/Background Dose/i);
-    expect(html).toMatch(/Event Dose Rate/i);
-    expect(html).toMatch(/Light Time/i);
-    expect(html).toMatch(/not included in this build/i);
-
-    // FR-36 rule: nothing says "live"
-    expect(html).not.toMatch(/\blive\b/i);
-  });
-
-  it("ConditionsPanel (eva variant) displays compact strip for EVA tablet metadata with data-provenance", () => {
-    const html = renderToStaticMarkup(createElement(ConditionsPanel, { variant: "eva" }));
-
-    expect(html).toContain('data-testid="conditions-strip-eva"');
-    expect(html).toContain("LTST");
-    expect(html).toContain("SUN");
-    expect(html).toContain("BG");
-    expect(html).toContain("EVENT");
-    expect(html).toContain("EARTH");
-
-    // Every value has data-provenance
-    expect(html).toContain('data-provenance="modelled"');
-    expect(html).toContain('data-provenance="replayed"');
-
-    // Never says "live"
-    expect(html).not.toMatch(/\blive\b/i);
-  });
-});
-
-describe("Keyboard accessibility (NFR-04, 04 §E.4)", () => {
-  it("every interactive control is reachable via keyboard navigation in sensible DOM order", () => {
-    // NFR-04: Full keyboard-only operability
-    const html = renderToStaticMarkup(createElement(OpsConsole));
-
-    // Buttons and inputs must be standard keyboard-focusable elements (no tabindex="-1" on primary actions)
-    expect(html).toMatch(/<button|<input|<select/);
+    expect(html).toMatch(/<button/);
     expect(html).not.toMatch(/tabindex="-1"/);
   });
 });

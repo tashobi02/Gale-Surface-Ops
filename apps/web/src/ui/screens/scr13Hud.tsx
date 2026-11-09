@@ -9,10 +9,20 @@ import type { CSSProperties, ReactElement } from "react";
 import type { CrewId, Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 import {
+  havenTargetLabel,
   selectHudViewModel,
   type HudViewModel,
 } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
+import {
+  PROVENANCE_GLYPHS,
+  UNAVAILABLE,
+  fmtBearing,
+  fmtHourMinute,
+  fmtInt,
+  fmtKilometres,
+  provAttrs,
+} from "../components/provenance";
 
 export interface HudProps {
   /** Optional Hab Core client instance. */
@@ -24,19 +34,12 @@ export interface HudProps {
   className?: string;
 }
 
-const PROV_GLYPHS: Record<string, string> = {
-  measured: "■",
-  derived: "◆",
-  modelled: "○",
-  assumed: "△",
-  replayed: "▶",
-  simulated: "◇",
-};
+/** A "—" shown where no target is known (still labelled, 04 §D.1). */
+const NO_TARGET = { prov: "assumed", src: "unavailable:plan.next_stop" } as const;
 
-function formatMinutes(totalMinutes: number): string {
-  const h = Math.floor(totalMinutes / 60);
-  const m = Math.floor(totalMinutes % 60);
-  return `${h}:${String(m).padStart(2, "0")}`;
+/** HUD colour for a status; unknown is neutral, never nominal green. */
+function hudStatusColor(status: string): string {
+  return status === "unknown" ? "var(--hud-text-2, #A9B3BE)" : `var(--hud-${status}, var(--hud-nominal, #3DDC84))`;
 }
 
 /**
@@ -120,7 +123,7 @@ export function Hud({
               textTransform: "uppercase",
             }}
           >
-            <StatusIcon status={hud.alertSlot.level} showWord={false} />
+            <StatusIcon status={hud.alertSlot.level} showWord={true} />
             <span>{hud.alertSlot.message}</span>
           </div>
         ) : (
@@ -143,70 +146,73 @@ export function Hud({
       >
         {/* Value 1: HAVEN (Time to haven always left) */}
         <div data-slot="hud-haven" style={cardStyle}>
-          <span style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)", letterSpacing: "0.06em" }}>
-            HAVEN
+          <span style={{ fontSize: "16px", color: "var(--hud-text-2, #A9B3BE)", letterSpacing: "0.06em" }}>
+            HAVEN <StatusIcon status={hud.haven.status} showWord={true} />
           </span>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px", margin: "6px 0" }}>
             <span
               className="value"
-              data-provenance={hud.haven.minutes.prov}
+              {...provAttrs(hud.haven.minutes)}
               style={{
                 ...numberLargeStyle,
-                color: `var(--hud-${hud.haven.status}, var(--hud-nominal, #3DDC84))`,
+                color: hudStatusColor(hud.haven.status),
               }}
             >
-              {Math.round(hud.haven.minutes.v)}
+              {fmtInt(hud.haven.minutes.v)}
             </span>
             <span style={{ fontSize: "20px", textTransform: "uppercase" }}>
-              {hud.haven.minutes.unit} {PROV_GLYPHS[hud.haven.minutes.prov] ?? "○"}
+              {hud.haven.minutes.unit} {PROVENANCE_GLYPHS[hud.haven.minutes.prov]}
             </span>
           </div>
-          <span style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)" }}>
-            via {hud.haven.targetId ?? "PR1"}
+          <span style={{ fontSize: "16px", color: "var(--hud-text-2, #A9B3BE)" }}>
+            {havenTargetLabel(hud.haven)}
           </span>
         </div>
 
         {/* Value 2: Target Bearing and Distance */}
         <div data-slot="hud-target" style={cardStyle}>
-          <span style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)", letterSpacing: "0.06em" }}>
+          <span style={{ fontSize: "16px", color: "var(--hud-text-2, #A9B3BE)", letterSpacing: "0.06em" }}>
             {hud.targetBearingDistance ? hud.targetBearingDistance.targetLabel : "TARGET"}
           </span>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px", margin: "6px 0" }}>
             <span
               className="value"
-              data-provenance={hud.targetBearingDistance?.bearingDeg.prov ?? "derived"}
+              {...provAttrs(hud.targetBearingDistance?.bearingDeg ?? NO_TARGET)}
               style={numberLargeStyle}
             >
-              ↗ {hud.targetBearingDistance ? String(hud.targetBearingDistance.bearingDeg.v).padStart(3, "0") : "000"}°
+              ↗ {fmtBearing(hud.targetBearingDistance?.bearingDeg.v)}
             </span>
           </div>
-          <span style={{ fontSize: "18px", color: "var(--hud-text, #FFFFFF)" }}>
-            {hud.targetBearingDistance ? `${(hud.targetBearingDistance.distanceM.v / 1000).toFixed(2)} KM` : "0.00 KM"}
+          <span
+            {...provAttrs(hud.targetBearingDistance?.distanceM ?? NO_TARGET)}
+            style={{ fontSize: "18px", color: "var(--hud-text, #FFFFFF)" }}
+          >
+            {hud.targetBearingDistance ? `${fmtKilometres(hud.targetBearingDistance.distanceM.v)} KM` : UNAVAILABLE}
           </span>
         </div>
 
         {/* Value 3: O2 Margin */}
         <div data-slot="hud-o2" style={cardStyle}>
-          <span style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)", letterSpacing: "0.06em" }}>
-            O₂
+          <span style={{ fontSize: "16px", color: "var(--hud-text-2, #A9B3BE)", letterSpacing: "0.06em" }}>
+            O₂ <StatusIcon status={hud.o2.status} showWord={true} />
           </span>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px", margin: "6px 0" }}>
             <span
               className="value"
-              data-provenance={hud.o2.percent.prov}
+              {...provAttrs(hud.o2.percent)}
               style={{
                 ...numberLargeStyle,
-                color: `var(--hud-${hud.o2.status}, var(--hud-nominal, #3DDC84))`,
+                color: hudStatusColor(hud.o2.status),
               }}
             >
               {hud.o2.percent.v}
             </span>
             <span style={{ fontSize: "20px" }}>
-              % {PROV_GLYPHS[hud.o2.percent.prov] ?? "■"}
+              {hud.o2.percent.unit} {PROVENANCE_GLYPHS[hud.o2.percent.prov]}
             </span>
           </div>
-          <span style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)" }}>
-            {formatMinutes(hud.o2.timeLeftMinutes.v)} LEFT
+          <span {...provAttrs(hud.o2.timeLeftMinutes)} style={{ fontSize: "16px", color: "var(--hud-text-2, #A9B3BE)" }}>
+            {fmtHourMinute(hud.o2.timeLeftMinutes.v)} LEFT
           </span>
         </div>
       </div>
@@ -221,13 +227,15 @@ export function Hud({
           justifyContent: "flex-end",
           alignItems: "center",
           gap: "16px",
-          fontSize: "14px",
+          fontSize: "16px",
           color: "var(--hud-text-2, #A9B3BE)",
           letterSpacing: "0.06em",
         }}
       >
-        <span>LINK {hud.link.linked ? "▮▮▮" : "▯▯▯"}</span>
-        <span>{hud.link.stale ? "STALE" : "◇ SIM"}</span>
+        <span data-provenance="simulated" data-source="snapshot:crew.linked" title="snapshot:crew.linked">
+          LINK {hud.link.linked === null ? UNAVAILABLE : hud.link.linked ? "▮▮▮" : "▯▯▯"}
+        </span>
+        <span>{hud.link.stale === null ? UNAVAILABLE : hud.link.stale ? "STALE" : "◇ SIM"}</span>
       </div>
     </div>
   );

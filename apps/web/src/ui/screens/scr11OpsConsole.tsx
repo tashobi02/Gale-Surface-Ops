@@ -19,110 +19,103 @@ import {
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { Crew, Vehicle, Alert, Provenance } from "@marswalk/protocol";
+import type { Crew, CrewId, Vehicle, Alert, Snapshot } from "@marswalk/protocol";
+import type { HabClient } from "../../net/habClient";
 import { AlertStack } from "../ops/AlertStack";
 import { OptionsPanel } from "../ops/OptionsPanel";
 import { ClockControl } from "../ops/ClockControl";
-import { ConditionsPanel } from "../ops/ConditionsPanel";
+import { ConditionsPanel, type ConditionsState, type ProvenanceValue } from "../ops/ConditionsPanel";
 import { TaskProgress } from "../ops/TaskProgress";
 import { AddTaskPopover } from "../ops/AddTaskPopover";
+import {
+  PROVENANCE_GLYPHS,
+  UNAVAILABLE,
+  fmtFixed,
+  fmtInt,
+  isFiniteNumber,
+} from "../components/provenance";
+
+/** Task counts for one crew member, reduced from the task list by the caller. null counts render "—". */
+export interface CrewTaskProgress {
+  stop: { stopId?: string; stopNo: number; done: number; total: number } | null;
+  total: { done: number; total: number } | null;
+}
+
+/** One line of the event log footer, already worded and sourced by the caller. */
+export interface OpsLogLine {
+  key: string;
+  text: string;
+  prov: ProvenanceValue<string>["prov"];
+  src: string;
+}
 
 export interface OpsConsoleProps {
   scenarioName?: string;
-  sol?: number;
-  ltst?: string;
-  planRevision?: number;
+  sol?: ProvenanceValue<number>;
+  ltst?: ProvenanceValue<string>;
+  planRevision?: ProvenanceValue<number>;
+  /** Current EVA phase, when the Hab Core reports one. */
+  phase?: ProvenanceValue<string>;
   clockSpeed?: number;
   isPaused?: boolean;
   crew?: Crew[];
   vehicles?: Vehicle[];
   alerts?: Alert[];
+  /** Per-crew task counts. A crew member without an entry shows "—". */
+  taskProgress?: Partial<Record<CrewId, CrewTaskProgress>>;
+  /** Conditions for the right column; missing fields render "—". */
+  conditions?: Partial<ConditionsState>;
+  /** Hab Core client and snapshot, so the options panel can list and approve real options. */
+  client?: HabClient | null;
+  snapshot?: Snapshot | null;
+  /** Event log lines; none means the footer reads "—". */
+  logLines?: OpsLogLine[];
   onAcknowledgeAlert?: (alertSeq: number) => void;
   onApproveOption?: (optionId: string) => void;
   onClockCommand?: (cmd: "PAUSE" | "RESUME" | "SET_SPEED" | "STEP", speed?: number) => void;
   className?: string;
 }
 
-const PROVENANCE_GLYPHS: Record<Provenance, string> = {
-  measured: "■",
-  derived: "◆",
-  modelled: "○",
-  assumed: "△",
-  replayed: "▶",
-  simulated: "◇",
-};
+/** Crew telemetry is simulated by the Hab Core session (05 Crew), so its values are labelled "simulated". */
+function crewAttr(path: string): { "data-provenance": "simulated"; "data-source": string; title: string } {
+  return { "data-provenance": "simulated", "data-source": `snapshot:${path}`, title: `snapshot:${path}` };
+}
+
+/** Provenance attributes for a top-bar metadata value; a missing value is labelled unavailable. */
+function metaAttrs(
+  pv: ProvenanceValue<unknown> | undefined,
+  path: string,
+): { "data-provenance": ProvenanceValue<unknown>["prov"]; "data-source": string; title: string } {
+  const src = pv ? pv.src : `unavailable:session.${path}`;
+  return { "data-provenance": pv ? pv.prov : "assumed", "data-source": src, title: src };
+}
+
+/** Placement of an item on the schematic's footer line: working-projection metres, or "—". */
+function metres(v: unknown): string {
+  return isFiniteNumber(v) ? `${v >= 0 ? "+" : ""}${Math.round(v)}m` : UNAVAILABLE;
+}
 
 /**
  * SCR-11 Ops Console.
  * Mode OPS: Dark theme (#0B0D10 void, #14181D panel, #1C2128 raised, #ECEFF2 text-1).
+ * No sample data: every list defaults to empty and every missing value reads "—" (04 §D.1).
  */
 export function OpsConsole({
-  scenarioName = "storm-sol4190",
-  sol = 4190,
-  ltst = "13:05",
-  planRevision = 3,
+  scenarioName,
+  sol,
+  ltst,
+  planRevision,
+  phase,
   clockSpeed = 1,
   isPaused = false,
-  crew = [
-    {
-      crew_id: "EV1",
-      x_m: 2410.5,
-      y_m: -1875.0,
-      activity: "WALKING",
-      stop_index: 2,
-      o2_frac: 0.71,
-      eva_elapsed_s: 3600,
-      dose_event_ugy: 0,
-      dose_event_unsheltered_ugy: 0,
-      haven: { minutes: 14, kind: "vehicle", target_x_m: 2500, target_y_m: -1800 },
-      linked: true,
-      link_path: ["EV1", "HAB"],
-      stale: false,
-    },
-    {
-      crew_id: "EV2",
-      x_m: 2380.0,
-      y_m: -1890.0,
-      activity: "WALKING",
-      stop_index: 2,
-      o2_frac: 0.74,
-      eva_elapsed_s: 3600,
-      dose_event_ugy: 0,
-      dose_event_unsheltered_ugy: 0,
-      haven: { minutes: 15, kind: "vehicle", target_x_m: 2500, target_y_m: -1800 },
-      linked: false,
-      link_path: [],
-      stale: true,
-    },
-  ],
-  vehicles = [
-    {
-      vehicle_id: "PR1",
-      kind: "pressurized_rover",
-      param_set: "default",
-      x_m: 2500.0,
-      y_m: -1800.0,
-      state: "PARKED",
-      task: null,
-      path: [],
-      eta_s: null,
-      battery_wh: 12000,
-    },
-  ],
-  alerts = [
-    {
-      alert_id: "alert-042",
-      code: "RADIATION_ALERT",
-      level: "warning",
-      subjects: ["EV1", "EV2"],
-      raised_seq: 42,
-      acked_seq: null,
-      cleared_seq: null,
-      acked_by: null,
-      message: "SHELTER NOW — RADIATION SURGE (450 mGy/h)",
-      data: {},
-    },
-  ],
+  crew = [],
+  vehicles = [],
+  alerts = [],
+  taskProgress = {},
+  conditions,
+  client,
+  snapshot,
+  logLines = [],
   onAcknowledgeAlert,
   onApproveOption,
   onClockCommand,
@@ -132,6 +125,7 @@ export function OpsConsole({
   const [paused, setPaused] = useState<boolean>(isPaused);
   const [optionApproved, setOptionApproved] = useState<boolean>(false);
   const [activeAddCrew, setActiveAddCrew] = useState<string | null>(null);
+  // TODO(decision): remove the superseded SCR-11 hold-timer state when its session command integration is reconciled.
   const [pressProgress, setPressProgress] = useState<number>(0);
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -225,7 +219,7 @@ export function OpsConsole({
 
   const moduleLabelStyle: CSSProperties = {
     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
-    fontSize: "11px",
+    fontSize: "12px",
     fontWeight: 500,
     letterSpacing: "0.06em",
     textTransform: "uppercase",
@@ -271,7 +265,7 @@ export function OpsConsole({
       <header className="ops-top-bar" style={topBarStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <span style={{ fontWeight: 600, letterSpacing: "0.02em" }}>
-            ⬢ OPS · {scenarioName}
+            ⬢ OPS · {scenarioName ?? UNAVAILABLE}
           </span>
           <span
             className="meta-strip"
@@ -281,7 +275,11 @@ export function OpsConsole({
               color: "var(--text-2, #A9B3BE)",
             }}
           >
-            SOL {sol} · LTST {ltst} · REV 0{planRevision}
+            <span {...metaAttrs(sol, "sol")}>SOL {sol ? fmtInt(sol.v) : UNAVAILABLE}</span> ·{" "}
+            <span {...metaAttrs(ltst, "ltst")}>LTST {ltst && ltst.v ? ltst.v : UNAVAILABLE}</span> ·{" "}
+            <span {...metaAttrs(planRevision, "planRevision")}>
+              REV {planRevision && isFiniteNumber(planRevision.v) ? String(planRevision.v).padStart(2, "0") : UNAVAILABLE}
+            </span>
           </span>
         </div>
 
@@ -307,14 +305,15 @@ export function OpsConsole({
         </div>
       </header>
 
-      {/* ------------------------------------- EVA Phase Timeline (04 §E.4, P4) */}
+      {/* ------------------------------------- EVA Phase (04 §E.4, P4): only what the Hab Core reports */}
       <nav className="phase-timeline" style={timelineStyle} aria-label="EVA Phase Timeline">
-        <span>EGRESS</span> ▸ <span>TRAVERSE</span> ▸ <span>STOP 1</span> ▸{" "}
-        <span>TRAVERSE</span> ▸{" "}
-        <span style={{ fontWeight: 700, color: "var(--text-1, #ECEFF2)" }}>
-          ■ STOP 2 (now)
-        </span>{" "}
-        ▸ <span>TRAVERSE</span> ▸ <span>STOP 3</span> ▸ <span>INGRESS</span>
+        <span>EVA PHASE</span>{" "}
+        <span
+          style={{ fontWeight: 700, color: "var(--text-1, #ECEFF2)" }}
+          {...metaAttrs(phase, "phase")}
+        >
+          {phase && phase.v ? phase.v : UNAVAILABLE}
+        </span>
       </nav>
 
       {/* ------------------------------------- Alert Slot / Bar (04 §D.2, §E.4) */}
@@ -348,11 +347,9 @@ export function OpsConsole({
                       fontWeight: 600,
                     }}
                   >
-                    <span>
-                      [{member.crew_id}] {member.crew_id === "EV1" ? "C. Jones" : "M. Taylor"}
-                    </span>
-                    <span style={{ fontSize: "12px", textTransform: "uppercase" }}>
-                      {member.activity}
+                    <span>[{member.crew_id}]</span>
+                    <span style={{ fontSize: "12px", textTransform: "uppercase" }} {...crewAttr("crew.activity")}>
+                      {member.activity ?? UNAVAILABLE}
                     </span>
                   </header>
 
@@ -371,61 +368,60 @@ export function OpsConsole({
                       <span
                         className="value"
                         data-provenance="modelled"
-                        title="Modelled by safe-haven engine (TASK-05b)"
+                        data-source="snapshot:crew.haven.minutes"
+                        title="snapshot:crew.haven.minutes"
                       >
-                        {member.haven?.minutes ?? 14} MIN {PROVENANCE_GLYPHS.modelled}
+                        {fmtInt(member.haven?.minutes)} MIN {PROVENANCE_GLYPHS.modelled}
                       </span>
                     </div>
                     <div>
                       O₂{" "}
-                      <span
-                        className="value"
-                        data-provenance="modelled"
-                        title="Modelled consumption rate"
-                      >
-                        {Math.round((member.o2_frac ?? 0.71) * 100)} % {PROVENANCE_GLYPHS.modelled}
+                      <span className="value" {...crewAttr("crew.o2_frac")}>
+                        {isFiniteNumber(member.o2_frac) ? Math.round(member.o2_frac * 100) : UNAVAILABLE} %{" "}
+                        {PROVENANCE_GLYPHS.simulated}
                       </span>
                     </div>
                     <div>
                       DOSE{" "}
-                      <span
-                        className="value"
-                        data-provenance="measured"
-                        title="Measured by RAD sensor"
-                      >
-                        {((member.dose_event_ugy ?? 0) / 1000).toFixed(1)} mGy{" "}
-                        {PROVENANCE_GLYPHS.measured}
+                      <span className="value" {...crewAttr("crew.dose_event_ugy")}>
+                        {isFiniteNumber(member.dose_event_ugy) ? fmtFixed(member.dose_event_ugy / 1000, 1) : UNAVAILABLE} mGy{" "}
+                        {PROVENANCE_GLYPHS.simulated}
                       </span>
                     </div>
                     <div>
                       LINK{" "}
-                      <span
-                        className="value"
-                        data-provenance="measured"
-                        title="Direct RF telemetry"
-                      >
-                        {isUnlinked ? "LOST" : "▮▮▮"} {PROVENANCE_GLYPHS.measured}
+                      <span className="value" {...crewAttr("crew.linked")}>
+                        {isUnlinked ? "LOST" : "▮▮▮"} {PROVENANCE_GLYPHS.simulated}
                       </span>
                     </div>
                   </div>
 
-                  {/* Task progress row (01 FR-50, U-53) */}
+                  {/* Task progress row (01 FR-50, U-53): counts only when the caller reduced them from the task list */}
                   <TaskProgress
                     crewId={member.crew_id}
-                    stopCount={{ stopNo: member.stop_index ?? 2, done: 1, total: 3 }}
-                    total={{ done: 3, total: 8 }}
+                    stopCount={taskProgress[member.crew_id]?.stop ?? null}
+                    total={taskProgress[member.crew_id]?.total ?? null}
                     onAdd={(cid) => setActiveAddCrew(cid)}
+                    disabled={!taskProgress[member.crew_id]?.stop?.stopId}
                   />
 
                   {isUnlinked && (
                     <footer
                       style={{
-                        fontSize: "11px",
+                        fontSize: "12px",
                         color: "var(--status-caution, #FFB020)",
                         fontFamily: "var(--font-mono, monospace)",
                       }}
                     >
-                      ⚠ LAST HEARD 2m ago (cached values)
+                      ⚠ LAST HEARD{" "}
+                      <span
+                        data-provenance="assumed"
+                        data-source="unavailable:link.age_seconds"
+                        title="unavailable:link.age_seconds"
+                      >
+                        {UNAVAILABLE}
+                      </span>{" "}
+                      (cached values)
                     </footer>
                   )}
                 </article>
@@ -434,11 +430,11 @@ export function OpsConsole({
           </div>
 
           {/* Add Task Popover */}
-          {activeAddCrew && (
+          {activeAddCrew && taskProgress[activeAddCrew as CrewId]?.stop?.stopId && (
             <div style={{ marginTop: "8px" }}>
               <AddTaskPopover
-                crewId={activeAddCrew as any}
-                stopId="wp-2"
+                crewId={activeAddCrew as CrewId}
+                stopId={taskProgress[activeAddCrew as CrewId]!.stop!.stopId!}
                 onAdd={() => setActiveAddCrew(null)}
                 onCancel={() => setActiveAddCrew(null)}
               />
@@ -461,13 +457,15 @@ export function OpsConsole({
                   }}
                 >
                   <span>
-                    [{v.vehicle_id}] {v.kind === "pressurized_rover" ? "Pressurised Rover 1" : "Utility Rover"}
+                    [{v.vehicle_id}] {v.kind === "pressurized_rover" ? "Pressurised rover" : "Utility rover"}
                   </span>
+                  {/* Activity is a state word in neutral text; no status colour without an actual safety status */}
                   <span
                     style={{
                       fontSize: "12px",
-                      color: "var(--status-nominal, #3DDC84)",
+                      color: "var(--text-2, #A9B3BE)",
                     }}
+                    {...crewAttr("vehicles.state")}
                   >
                     {v.state}
                   </span>
@@ -479,7 +477,13 @@ export function OpsConsole({
                     color: "var(--text-2, #A9B3BE)",
                   }}
                 >
-                  BATTERY {v.battery_wh ? Math.round(v.battery_wh / 130) : 92}% · {v.state}
+                  {/* Battery is reported in Wh by the utility rover only; no percentage is inferred */}
+                  BATTERY{" "}
+                  <span {...crewAttr("vehicles.battery_wh")}>
+                    {v.kind === "utility_rover" && isFiniteNumber(v.battery_wh)
+                      ? `${Math.round(v.battery_wh)} Wh ${PROVENANCE_GLYPHS.simulated}`
+                      : `${UNAVAILABLE} ${PROVENANCE_GLYPHS.simulated}`}
+                  </span>
                 </div>
               </article>
             ))}
@@ -528,17 +532,30 @@ export function OpsConsole({
               fontSize: "13px",
             }}
           >
-            MAP VIEWPORT · PROJECTION IAU_2015:49900 · SCALE 1:5000
+            MAP VIEWPORT · PROJECTION IAU_2015:49900
           </div>
 
           <footer
             style={{
               fontFamily: "var(--font-mono, monospace)",
-              fontSize: "11px",
+              fontSize: "12px",
               color: "var(--text-3, #8592A0)",
             }}
           >
-            HAB [0, 0] · EV1 [+2410m, -1875m] · PR1 [+2500m, -1800m]
+            {crew.length === 0 && vehicles.length === 0
+              ? UNAVAILABLE
+              : [
+                  ...crew.map((c) => (
+                    <span key={c.crew_id} {...crewAttr("crew.position")}>
+                      {c.crew_id} [{metres(c.x_m)}, {metres(c.y_m)}] ·{" "}
+                    </span>
+                  )),
+                  ...vehicles.map((v) => (
+                    <span key={v.vehicle_id} {...crewAttr("vehicles.position")}>
+                      {v.vehicle_id} [{metres(v.x_m)}, {metres(v.y_m)}] ·{" "}
+                    </span>
+                  )),
+                ]}
           </footer>
         </section>
 
@@ -548,7 +565,7 @@ export function OpsConsole({
           <div className="module-label" style={moduleLabelStyle}>
             [ ENVIRONMENT /// CONDITIONS ]
           </div>
-          <ConditionsPanel variant="ops" />
+          <ConditionsPanel variant="ops" conditions={conditions} />
 
           {/* Module Label: OPTIONS (04 §D.3, §E.4) */}
           <div className="module-label" style={{ ...moduleLabelStyle, marginTop: "12px" }}>
@@ -556,6 +573,8 @@ export function OpsConsole({
           </div>
           <div className="options-panel">
             <OptionsPanel
+              client={client}
+              snapshot={snapshot}
               onApproveOption={(opt) => {
                 setOptionApproved(true);
                 onApproveOption?.(opt.option_id);
@@ -587,11 +606,17 @@ export function OpsConsole({
         <span style={{ fontWeight: 600, color: "var(--text-1, #ECEFF2)" }}>
           EVENT LOG
         </span>
-        <span>
-          13:04 EV1 arrived stop 2 {PROVENANCE_GLYPHS.simulated} · 13:05 Radiation alert{" "}
-          {PROVENANCE_GLYPHS.replayed} · 13:05 Safe haven PR1 assigned{" "}
-          {PROVENANCE_GLYPHS.modelled}
-        </span>
+        {logLines.length === 0 ? (
+          <span data-provenance="assumed" data-source="unavailable:event_log" title="unavailable:event_log">
+            {UNAVAILABLE}
+          </span>
+        ) : (
+          logLines.map((line) => (
+            <span key={line.key} data-provenance={line.prov} data-source={line.src} title={line.src}>
+              {line.text} {PROVENANCE_GLYPHS[line.prov]}
+            </span>
+          ))
+        )}
       </footer>
     </div>
   );

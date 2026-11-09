@@ -13,6 +13,9 @@ import {
   type ReactElement,
 } from "react";
 import type { Crew } from "@marswalk/protocol";
+import type { ProvenanceValue } from "../eva/viewModel";
+import { StatusIcon } from "../components/statusIcon";
+import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, fmtInt, provAttrs } from "../components/provenance";
 
 /** Scientific overlays offered on the full-screen map (04 §E.5; final set U-57). */
 export type FullScreenMapLayer = "slope" | "thermal_inertia" | "comm_shadow" | "haven_bands";
@@ -22,8 +25,11 @@ export const MAX_SCIENCE_LAYERS = 2;
 
 export interface FullScreenMapProps {
   crew?: Crew[];
-  /** Map view in working-projection metres (IAU_2015:49900). */
+  /** Map view in working-projection metres (IAU_2015:49900). Omitted means unknown: the readout shows "—". */
   view?: { center_x_m: number; center_y_m: number; resolution_m_per_px: number };
+  /** HAVEN and O₂ shown in the landscape stack; omitted means "—". Supplied provenance and source are carried through. */
+  haven?: ProvenanceValue<number | string>;
+  o2?: ProvenanceValue<number | string>;
   /** Oldest first; length ≤ MAX_SCIENCE_LAYERS. */
   layers?: FullScreenMapLayer[];
   orientation?: "portrait" | "landscape";
@@ -34,6 +40,11 @@ export interface FullScreenMapProps {
   onFit?: () => void;
   onFollow?: (follow: boolean) => void;
   className?: string;
+}
+
+/** A missing value: "—" labelled as unavailable (04 §D.1). */
+function noValue(path: string): { prov: "assumed"; src: string } {
+  return { prov: "assumed", src: `unavailable:${path}` };
 }
 
 const LAYER_LABELS: Record<FullScreenMapLayer, string> = {
@@ -50,7 +61,9 @@ const LAYER_LABELS: Record<FullScreenMapLayer, string> = {
  */
 export function FullScreenMap({
   crew = [],
-  view = { center_x_m: 2410.5, center_y_m: -1875.0, resolution_m_per_px: 1.0 },
+  view,
+  haven,
+  o2,
   layers = ["slope"],
   orientation = "portrait",
   hasWarning = false,
@@ -135,12 +148,19 @@ export function FullScreenMap({
     color: "var(--fg-1, #ECEFF2)",
     fontFamily: "var(--font-mono, monospace)",
     fontWeight: 700,
-    fontSize: "14px",
+    fontSize: "16px",
     textTransform: "uppercase",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+  };
+
+  // Landscape HAVEN/O₂ readout: 40 px on phones, 48 px on tablets (04 §E.5 exception under review, U-60)
+  const landscapeValueStyle: CSSProperties = {
+    fontFamily: "var(--font-mono, monospace)",
+    fontSize: "var(--text-value-landscape, 48px)",
+    fontWeight: 700,
   };
 
   return (
@@ -167,15 +187,20 @@ export function FullScreenMap({
           }}
         >
           <div data-slot="haven-compact" style={{ padding: "8px", background: "var(--surface-1, #14181D)" }}>
-            <span className="micro">HAVEN</span>
-            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "28px", fontWeight: 700 }}>
-              14 MIN
+            <span className="micro" style={{ fontSize: "16px" }}>HAVEN</span>
+            <div
+              {...provAttrs(haven ?? noValue("crew.haven.minutes"))}
+              style={landscapeValueStyle}
+            >
+              {haven ? fmtInt(haven.v) : UNAVAILABLE}
+              {haven && typeof haven.v === "number" ? " MIN" : ""} {PROVENANCE_GLYPHS[(haven ?? noValue("")).prov]}
             </div>
           </div>
           <div data-slot="o2-compact" style={{ padding: "8px", background: "var(--surface-1, #14181D)" }}>
-            <span className="micro">O₂</span>
-            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "28px", fontWeight: 700 }}>
-              71 %
+            <span className="micro" style={{ fontSize: "16px" }}>O₂</span>
+            <div {...provAttrs(o2 ?? noValue("crew.o2_frac"))} style={landscapeValueStyle}>
+              {o2 ? o2.v : UNAVAILABLE}
+              {o2 && typeof o2.v === "number" ? " %" : ""} {PROVENANCE_GLYPHS[(o2 ?? noValue("")).prov]}
             </div>
           </div>
         </div>
@@ -189,7 +214,7 @@ export function FullScreenMap({
             <span
               style={{
                 fontFamily: "var(--font-mono, monospace)",
-                fontSize: "11px",
+                fontSize: "16px",
                 letterSpacing: "0.06em",
                 color: "var(--text-3, #8592A0)",
                 textTransform: "uppercase",
@@ -197,12 +222,16 @@ export function FullScreenMap({
             >
               Gale Crater · Working Projection: IAU_2015:49900 (+proj=eqc) · Metres
             </span>
+            {/* View state, not a measurement: derived from the map's own extent (no sample centre when unknown) */}
             <span
               className="value"
-              data-provenance="measured"
-              style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "12px", color: "var(--text-2, #A9B3BE)" }}
+              data-provenance={view ? "derived" : "assumed"}
+              data-source={view ? "map:view" : "unavailable:map.view"}
+              title={view ? "map:view" : "unavailable:map.view"}
+              style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--text-2, #A9B3BE)" }}
             >
-              X: {view.center_x_m.toFixed(1)} m · Y: {view.center_y_m.toFixed(1)} m · {view.resolution_m_per_px} m/px
+              X: {fmtFixed(view?.center_x_m, 1)} m · Y: {fmtFixed(view?.center_y_m, 1)} m ·{" "}
+              {view ? view.resolution_m_per_px : UNAVAILABLE} m/px
             </span>
           </div>
 
@@ -216,10 +245,10 @@ export function FullScreenMap({
                 border: "1px solid var(--status-caution, #FFB020)",
                 color: "var(--status-caution, #FFB020)",
                 fontFamily: "var(--font-mono, monospace)",
-                fontSize: "12px",
+                fontSize: "16px",
               }}
             >
-              {notice}
+              <StatusIcon status="caution" showWord={true} /> {notice}
             </div>
           )}
         </div>
@@ -253,7 +282,7 @@ export function FullScreenMap({
                   background: "var(--surface-2, #1C2128)",
                   border: "1px solid var(--edge, #5C6670)",
                   fontFamily: "var(--font-mono, monospace)",
-                  fontSize: "11px",
+                  fontSize: "16px",
                   textTransform: "uppercase",
                 }}
               >
@@ -295,8 +324,9 @@ export function FullScreenMap({
                       justifyContent: "space-between",
                       padding: "8px 12px",
                       background: isActive ? "var(--surface-2, #1C2128)" : "transparent",
+                      // Selection is neutral chrome with a word (ON/OFF); status colours mean status only
                       border: isActive
-                        ? "2px solid var(--status-nominal, #3DDC84)"
+                        ? "3px solid var(--text-1, #ECEFF2)"
                         : "1px solid var(--hairline, #2A313A)",
                     }}
                   >
@@ -365,14 +395,14 @@ export function FullScreenMap({
                 ...controlButtonStyle,
                 background: following ? "var(--surface-2, #1C2128)" : "transparent",
                 border: following
-                  ? "2px solid var(--status-nominal, #3DDC84)"
+                  ? "3px solid var(--text-1, #ECEFF2)"
                   : "2px solid var(--control-edge, #5C6670)",
               }}
               aria-pressed={following}
               aria-label="Follow crew member position"
               onClick={handleFollowToggle}
             >
-              FOLLOW
+              FOLLOW {following ? "ON" : "OFF"}
             </button>
             <button
               id="map-ctrl-layers"
@@ -392,7 +422,6 @@ export function FullScreenMap({
               style={{
                 ...controlButtonStyle,
                 background: "var(--raised, #1C2128)",
-                borderColor: "var(--status-warning, #FF4D4D)",
               }}
               aria-label="Close full-screen map"
               onClick={onClose}

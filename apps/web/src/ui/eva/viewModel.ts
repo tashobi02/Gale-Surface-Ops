@@ -20,6 +20,7 @@ import type {
   Provenance,
   Snapshot,
 } from "@marswalk/protocol";
+import { UNAVAILABLE, isFiniteNumber } from "../components/provenance";
 
 /** A displayed value with full data provenance (04 §A.3 #8, FR-15). src is required (contract from #92). */
 export interface ProvenanceValue<T> {
@@ -32,16 +33,16 @@ export interface ProvenanceValue<T> {
 /** HAVEN telemetry card on SCR-12 / SCR-13 (04 §E.5, §E.6). */
 export interface EvaHavenView {
   readonly minutes: ProvenanceValue<number | string>;
-  readonly kind: "hab" | "vehicle" | "refuge";
+  readonly kind: "hab" | "vehicle" | "refuge" | null;
   readonly targetId?: string;
-  readonly status: "nominal" | "caution" | "warning";
+  readonly status: EvaCardStatus;
 }
 
 /** O₂ telemetry card on SCR-12 / SCR-13 (04 §E.5, §E.6). */
 export interface EvaO2View {
-  readonly percent: ProvenanceValue<number>;
+  readonly percent: ProvenanceValue<number | string>;
   readonly timeLeftMinutes: ProvenanceValue<number | string>;
-  readonly status: "nominal" | "caution" | "warning";
+  readonly status: EvaCardStatus;
 }
 
 /** Next stop card on SCR-12 (04 §E.5). */
@@ -65,15 +66,25 @@ export interface EvaAlertSlotView {
 
 /** Metadata strip on SCR-12 (04 §C.3, §E.5). */
 export interface EvaMetadataStripView {
-  readonly evaTimeSeconds: ProvenanceValue<number>;
-  readonly doseUgy: ProvenanceValue<number>;
-  readonly link: {
-    readonly linked: boolean;
-    readonly bars: number;
-    readonly ageSeconds: number;
-    readonly stale: boolean;
-  };
+  readonly evaTimeSeconds: ProvenanceValue<number | string>;
+  readonly doseUgy: ProvenanceValue<number | string>;
+  readonly link: EvaLinkView;
 }
+
+/**
+ * Link state of one crew member. `linked` and `stale` are null when the Hab Core has not reported
+ * the crew member (unknown, never assumed linked). `ageSeconds` is null until the Hab Core supplies a
+ * telemetry age: the client does not invent one (TODO(decision): see docs/tasks/status.md T24.03 and T24.07).
+ */
+export interface EvaLinkView {
+  readonly linked: boolean | null;
+  readonly bars: number;
+  readonly ageSeconds: number | null;
+  readonly stale: boolean | null;
+}
+
+/** Status of a telemetry card; "unknown" when there is no telemetry to judge (04 §C.1, never a nominal default). */
+export type EvaCardStatus = "nominal" | "caution" | "warning" | "unknown";
 
 /** SCR-12 complete view model. */
 export interface EvaViewModel {
@@ -96,15 +107,23 @@ export interface HudViewModel {
     readonly targetLabel: string;
   } | null;
   readonly o2: EvaO2View;
-  readonly link: {
-    readonly linked: boolean;
-    readonly bars: number;
-    readonly stale: boolean;
-    readonly ageSeconds: number;
-  };
+  readonly link: EvaLinkView;
 }
 
 const VALID_HAVEN_KINDS = ["hab", "vehicle", "refuge"] as const;
+
+/** A value the Hab Core has not supplied: "—" with an honest "assumed" label and an `unavailable:` source (04 §D.1). */
+function unavailable(path: string): ProvenanceValue<string> {
+  return { v: UNAVAILABLE, unit: "", prov: "assumed", src: `unavailable:${path}` };
+}
+
+/** Visible label for where the HAVEN card leads; never a default vehicle id. */
+export function havenTargetLabel(haven: Pick<EvaHavenView, "kind" | "targetId">): string {
+  if (haven.kind === "vehicle") return haven.targetId ? `via ${haven.targetId}` : `via ${UNAVAILABLE}`;
+  if (haven.kind === "hab") return "to HAB";
+  if (haven.kind === "refuge") return "to REFUGE";
+  return UNAVAILABLE;
+}
 
 // ---------------------------------------------------------------------------
 // Selectors (T24.03)
@@ -112,15 +131,15 @@ const VALID_HAVEN_KINDS = ["hab", "vehicle", "refuge"] as const;
 
 export function selectHaven(snapshot: Snapshot | null, crewId: CrewId): EvaHavenView {
   const crew = snapshot?.crew?.find((c) => c.crew_id === crewId);
-  const rawMinutes = crew?.haven?.minutes;
-  const minutes = rawMinutes !== undefined ? rawMinutes : "—";
+  const rawMinutes: unknown = crew?.haven?.minutes;
+  const hasMinutes = isFiniteNumber(rawMinutes);
 
-  // Validate kind safely without unvalidated typecast
+  // Validate kind safely without unvalidated typecast; unknown stays unknown (never defaulted to "hab")
   const rawKind = crew?.haven?.kind;
-  const kind: "hab" | "vehicle" | "refuge" =
+  const kind: "hab" | "vehicle" | "refuge" | null =
     rawKind && (VALID_HAVEN_KINDS as readonly string[]).includes(rawKind)
       ? (rawKind as "hab" | "vehicle" | "refuge")
-      : "hab";
+      : null;
 
   // Status comes strictly from server alerts (HAVEN_TIME_EXCEEDED, RADIATION_ALERT), NOT client thresholds
   const crewAlerts = (snapshot?.alerts ?? []).filter(
@@ -130,7 +149,8 @@ export function selectHaven(snapshot: Snapshot | null, crewId: CrewId): EvaHaven
     (a) => a.code === "RADIATION_ALERT" || a.code === "HAVEN_TIME_EXCEEDED",
   );
 
-  let status: "nominal" | "caution" | "warning" = "nominal";
+  // No telemetry and no server alert: the status is unknown, not nominal.
+  let status: EvaCardStatus = hasMinutes ? "nominal" : "unknown";
   if (escalationAlert) {
     status = escalationAlert.level === "warning" ? "warning" : "caution";
   }
@@ -144,52 +164,52 @@ export function selectHaven(snapshot: Snapshot | null, crewId: CrewId): EvaHaven
     targetId = rover?.vehicle_id;
   }
 
-  const prov = (snapshot?.provenance?.["crew.haven.minutes"] as Provenance) ?? "modelled";
+  const minutes: ProvenanceValue<number | string> = hasMinutes
+    ? {
+        v: rawMinutes,
+        unit: "min",
+        prov: (snapshot?.provenance?.["crew.haven.minutes"] as Provenance) ?? "modelled",
+        src: "snapshot:crew.haven.minutes",
+      }
+    : unavailable("crew.haven.minutes");
 
-  return {
-    minutes: {
-      v: minutes,
-      unit: typeof minutes === "number" ? "min" : "",
-      prov,
-      src: "snapshot:crew.haven.minutes",
-    },
-    kind,
-    targetId,
-    status,
-  };
+  return { minutes, kind, targetId, status };
 }
 
 export function selectO2(snapshot: Snapshot | null, crewId: CrewId): EvaO2View {
   const crew = snapshot?.crew?.find((c) => c.crew_id === crewId);
-  const frac = crew?.o2_frac ?? 0;
-  const percent = Math.round(frac * 100);
+  const frac: unknown = crew?.o2_frac;
+  const hasFrac = isFiniteNumber(frac);
 
   // Status comes strictly from server alert CONSUMABLES_LOW, never client thresholds (e.g. 20/35%)
   const crewAlerts = (snapshot?.alerts ?? []).filter(
     (a) => !a.subjects || a.subjects.length === 0 || a.subjects.includes(crewId),
   );
   const o2Alert = crewAlerts.find((a) => a.code === "CONSUMABLES_LOW");
-  let status: "nominal" | "caution" | "warning" = "nominal";
+  let status: EvaCardStatus = hasFrac ? "nominal" : "unknown";
   if (o2Alert) {
     status = o2Alert.level === "warning" ? "warning" : "caution";
   }
 
   // Time left: read from alert if available, otherwise "—" with TODO(decision) for Sadman
-  const alertTimeLeft = (o2Alert?.data as Record<string, unknown> | undefined)?.o2_remaining_min as number | undefined;
-  const timeLeftMinutes = alertTimeLeft !== undefined ? alertTimeLeft : "—";
+  const rawTimeLeft: unknown = (o2Alert?.data as Record<string, unknown> | undefined)?.o2_remaining_min;
+  const alertTimeLeft = isFiniteNumber(rawTimeLeft) ? rawTimeLeft : undefined;
+  const timeLeftMinutes = alertTimeLeft !== undefined ? alertTimeLeft : UNAVAILABLE;
   const timeLeftProv: Provenance = alertTimeLeft !== undefined ? "derived" : "assumed";
   const timeLeftSrc = alertTimeLeft !== undefined ? "hab-core:alert.o2_remaining_min" : "TODO(decision): Sadman to supply o2_time_left_min on crew";
 
   // Provenance: simulated, never "measured"
-  const o2Prov = (snapshot?.provenance?.["crew.o2_frac"] as Provenance) ?? "simulated";
+  const percent: ProvenanceValue<number | string> = hasFrac
+    ? {
+        v: Math.round(frac * 100),
+        unit: "%",
+        prov: (snapshot?.provenance?.["crew.o2_frac"] as Provenance) ?? "simulated",
+        src: "snapshot:crew.o2_frac",
+      }
+    : unavailable("crew.o2_frac");
 
   return {
-    percent: {
-      v: percent,
-      unit: "%",
-      prov: o2Prov,
-      src: "snapshot:crew.o2_frac",
-    },
+    percent,
     timeLeftMinutes: {
       v: timeLeftMinutes,
       unit: typeof timeLeftMinutes === "number" ? "min" : "",
@@ -240,16 +260,22 @@ export function selectAlertSlot(snapshot: Snapshot | null, crewId: CrewId): EvaA
   return null;
 }
 
+/**
+ * Next stop card. Bearing and distance are NOT computed here: the UI holds no science (TASK-24, AGENTS
+ * rule 2), and no authoritative navigation value reaches the snapshot yet, so both stay unavailable ("—").
+ * TODO(decision): reconcile current versus next stop selection with one-based engine stop_index, crew activity and
+ * revised plans; obtain authoritative navigation values from Hab Core/compute.
+ */
 export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNextStopView | null {
   if (!snapshot) return null;
   const crew = snapshot.crew?.find((c) => c.crew_id === crewId);
 
   const waypoints = snapshot.plan?.waypoints ?? [];
+  // Tasks this crew member may see: their own or "either crew" (crew_id null). Never another crew's.
+  const eligibleTasks = (snapshot.tasks ?? []).filter((t) => t.crew_id === null || t.crew_id === crewId);
   let stopId: string | null = null;
   let stopName = "";
-  let targetX: number | null = null;
-  let targetY: number | null = null;
-  let etaMin: number | string = "—";
+  let etaMin: number | string = UNAVAILABLE;
 
   if (waypoints.length > 0) {
     const stops = waypoints.filter((w) => w.role === "stop");
@@ -258,64 +284,33 @@ export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNe
     if (nextWp) {
       stopId = nextWp.id;
       stopName = nextWp.label || `Stop ${stopId.replace(/^wp-/, "")}`;
-      targetX = nextWp.x_m;
-      targetY = nextWp.y_m;
 
       const legs = snapshot.plan?.result?.legs ?? [];
       const leg = legs.find((l) => l.to === nextWp.id);
-      if (leg && "walk_time_min" in leg && typeof leg.walk_time_min === "number") {
+      if (leg && "walk_time_min" in leg && isFiniteNumber(leg.walk_time_min)) {
         etaMin = Math.round(leg.walk_time_min);
       }
     }
-  } else if (snapshot.tasks && snapshot.tasks.length > 0) {
-    const task = snapshot.tasks.find((t) => !t.crew_id || t.crew_id === crewId) ?? snapshot.tasks[0];
-    if (task) {
-      stopId = task.stop_id;
-      stopName = `Stop ${stopId.replace(/^wp-/, "")}`;
-      // When plan is not loaded, check if crew haven coordinates provide reference target
-      if (crew?.haven?.target_x_m !== undefined && crew?.haven?.target_y_m !== undefined) {
-        targetX = crew.haven.target_x_m;
-        targetY = crew.haven.target_y_m;
-      }
-    }
+  } else if (eligibleTasks.length > 0) {
+    const task = eligibleTasks[0];
+    stopId = task.stop_id;
+    stopName = `Stop ${stopId.replace(/^wp-/, "")}`;
   }
 
   if (!stopId) {
     return null;
   }
 
-  let bearing: number | string = "—";
-  let dist: number | string = "—";
+  const unavailableNav = "TODO(decision): authoritative navigation (bearing, distance) from Hab Core/compute";
 
-  if (targetX !== null && targetY !== null && crew) {
-    const dx = targetX - crew.x_m;
-    const dy = targetY - crew.y_m;
-    const distM = Math.hypot(dx, dy);
-    let deg = Math.round((Math.atan2(dx, dy) * 180) / Math.PI);
-    if (deg < 0) deg += 360;
-    bearing = deg;
-    dist = Math.round(distM);
-  }
-
-  const tasks = (snapshot.tasks ?? []).filter((t) => t.stop_id === stopId);
+  const tasks = eligibleTasks.filter((t) => t.stop_id === stopId);
   const done = tasks.filter((t) => t.state === "DONE").length;
-  const total = tasks.length > 0 ? tasks.length : 1;
 
   return {
     stopId,
     stopName,
-    bearingDeg: {
-      v: bearing,
-      unit: typeof bearing === "number" ? "°" : "",
-      prov: typeof bearing === "number" ? "derived" : "assumed",
-      src: typeof bearing === "number" ? "compute:geometry" : "TODO(decision): Sadman to provide plan waypoints",
-    },
-    distanceM: {
-      v: dist,
-      unit: typeof dist === "number" ? "m" : "",
-      prov: typeof dist === "number" ? "derived" : "assumed",
-      src: typeof dist === "number" ? "compute:geometry" : "TODO(decision): Sadman to provide plan waypoints",
-    },
+    bearingDeg: { v: UNAVAILABLE, unit: "", prov: "assumed", src: unavailableNav },
+    distanceM: { v: UNAVAILABLE, unit: "", prov: "assumed", src: unavailableNav },
     etaMinutes: {
       v: etaMin,
       unit: typeof etaMin === "number" ? "min" : "",
@@ -324,48 +319,44 @@ export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNe
     },
     taskCount: {
       done,
-      total,
+      total: tasks.length,
     },
   };
 }
 
 export function selectMetadataStrip(snapshot: Snapshot | null, crewId: CrewId): EvaMetadataStripView {
   const crew = snapshot?.crew?.find((c) => c.crew_id === crewId);
-  const linked = crew?.linked ?? true;
-  const stale = crew?.stale ?? (!linked);
+  // Unknown (null) when the crew member is not in the snapshot: never assumed linked.
+  const linked: boolean | null = typeof crew?.linked === "boolean" ? crew.linked : null;
+  const stale: boolean | null = typeof crew?.stale === "boolean" ? crew.stale : linked === null ? null : !linked;
 
   // Provenance: simulated, NEVER "measured"
   const evaProv = (snapshot?.provenance?.["crew.eva_elapsed_s"] as Provenance) ?? "simulated";
   const doseProv = (snapshot?.provenance?.["crew.dose_event_ugy"] as Provenance) ?? "simulated";
 
-  // Bars: 0 when unlinked, 1-3 when linked based on hop length
+  // Bars: 0 when unlinked or unknown, 1-3 when linked based on hop length
   let bars = 0;
   if (linked) {
     const hops = crew?.link_path?.length ?? 1;
     bars = Math.min(3, Math.max(1, 4 - hops));
   }
 
-  // Age in seconds: 0 when active/linked, positive when stale (derived client-side)
-  // TODO(decision): Sadman to supply telemetry ageSeconds in snapshot.crew or derive from client linkLost()
-  const ageSeconds = stale ? 1 : 0;
+  const eva: unknown = crew?.eva_elapsed_s;
+  const dose: unknown = crew?.dose_event_ugy;
 
   return {
-    evaTimeSeconds: {
-      v: crew?.eva_elapsed_s ?? 0,
-      unit: "s",
-      prov: evaProv,
-      src: "snapshot:crew.eva_elapsed_s",
-    },
-    doseUgy: {
-      v: crew?.dose_event_ugy ?? 0,
-      unit: "µGy",
-      prov: doseProv,
-      src: "snapshot:crew.dose_event_ugy",
-    },
+    evaTimeSeconds: isFiniteNumber(eva)
+      ? { v: eva, unit: "s", prov: evaProv, src: "snapshot:crew.eva_elapsed_s" }
+      : unavailable("crew.eva_elapsed_s"),
+    doseUgy: isFiniteNumber(dose)
+      ? { v: dose, unit: "µGy", prov: doseProv, src: "snapshot:crew.dose_event_ugy" }
+      : unavailable("crew.dose_event_ugy"),
     link: {
       linked,
       bars,
-      ageSeconds,
+      // No telemetry age reaches the snapshot: unavailable, not a placeholder.
+      // TODO(decision): Sadman to supply telemetry ageSeconds in snapshot.crew or derive from client linkLost().
+      ageSeconds: null,
       stale,
     },
   };

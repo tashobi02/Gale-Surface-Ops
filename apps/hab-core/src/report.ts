@@ -3,7 +3,11 @@
  * Implementation: T27.01 (Ridita Alam, R5 EVA & Ops UI).
  *
  * Every value in the report is reduced from the immutable session log (session.jsonl);
- * nothing is computed from live or wall-clock variables (NFR-06).
+ * nothing is computed from live or wall-clock variables (NFR-06). `generated_at` is the log's last
+ * simulation time (empty for an empty log), so identical input always gives identical output.
+ *
+ * TODO(decision): agree the report API-to-UI adapter, planned/actual stop timing context, shelter-response association,
+ * dropped-stop identity mapping and per-crew versus aggregate dose presentation before completing report integration.
  */
 
 import type {
@@ -64,7 +68,13 @@ export interface PostEvaReport {
   dose: {
     dose_event_ugy: number;
     dose_event_unsheltered_ugy: number;
-    background_dose_ugy: number;
+    /**
+     * Planned-background dose. Unavailable (null) until a sourced planned-background result arrives through the
+     * report/session contract: no rate lives in this builder (science lives in packages/compute, AGENTS rule 2).
+     * TODO(decision): supply a sourced planned-background dose result through the agreed report/session contract;
+     * background dose remains unavailable until then.
+     */
+    background_dose_ugy: number | null;
   };
   plan_revisions: number;
   provenance_summary: Record<Provenance, number>;
@@ -268,16 +278,13 @@ export function buildReport(events: LogEvent[], logHash: string = ""): PostEvaRe
     }
   }
 
-  // Background dose estimate from duration (0.21 uGy/h Gale background)
-  const bgRatePerHour = 0.21;
-  const backgroundDoseUgy = (durationS / 3600) * bgRatePerHour;
-
   return {
     session_id: sessionId,
     scenario_id: scenarioId,
     data_version: dataVersion,
     seed,
-    generated_at: new Date().toISOString(),
+    // The terminal event's simulation time, never the host clock (NFR-06); empty for an empty log.
+    generated_at: events.length > 0 ? events[events.length - 1].sim_time : "",
     log_hash: logHash,
     eva_duration_s: durationS,
     stops: {
@@ -299,7 +306,7 @@ export function buildReport(events: LogEvent[], logHash: string = ""): PostEvaRe
     dose: {
       dose_event_ugy: doseEventUgy,
       dose_event_unsheltered_ugy: doseUnshelteredUgy,
-      background_dose_ugy: Number(backgroundDoseUgy.toFixed(2)),
+      background_dose_ugy: null,
     },
     plan_revisions: planRevisions,
     provenance_summary: provenanceSummary,

@@ -5,7 +5,9 @@
  * Rules (04 §D.3):
  * - Gloved taps are imprecise; critical actions use press-and-hold 800 ms (--hold-to-confirm).
  * - A progress bar runs along the button's chamfered edge; early release cancels.
- * - On completion, a 300 ms confirmation state shows the outcome ("PR1 dispatched — ETA 14 min").
+ * - The command is dispatched when the hold completes. The button then shows "pending" (or "queued" while
+ *   unlinked) until the Hab Core answers; only an accepted result shows the 300 ms confirmation outcome, a
+ *   rejected result shows its reason and stays until the next press. Nothing claims success before the answer.
  * - Keyboard equivalent: hold Enter or Space.
  * - Accessibility fallback: tap, then tap the "Confirm" button that replaces it for 5 s.
  * - Minimum touch target: 56 px (--target-eva) with >= 8 px gaps.
@@ -24,6 +26,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import type { CrewId } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 
 /** Hold duration in milliseconds for critical actions (04 §D.3, C12 token --hold-to-confirm). */
@@ -38,17 +41,29 @@ export const CONFIRM_FALLBACK_MS = 5000;
 /** Minimum touch target size for EVA gloved operations (04 §A.3 #9, §C.3). */
 export const TARGET_EVA_PX = 56;
 
-export type HoldPhase = "idle" | "holding" | "cancelled" | "done" | "confirm";
+export type HoldPhase = "idle" | "holding" | "cancelled" | "pending" | "done" | "rejected" | "confirm";
+
+/**
+ * What a confirmed action reports back. A Hab Core `CommandResult` fits: `ok: false` means rejected.
+ * Returning nothing means the action has no answer to wait for and counts as accepted.
+ */
+export type ConfirmOutcome = void | { ok: true } | { ok: false; code?: string; message?: string };
 
 export type ActionKind = "caution" | "warning" | "nominal" | "neutral" | "crit-c" | "crit-w";
 
 export interface HoldToConfirmProps {
   /** Verb-first action label, e.g. "Summon rover", "Abort to hab" (04 §D.4). */
   label: string;
-  /** 300 ms outcome confirmation copy, e.g. "PR1 dispatched — ETA 14 min" (04 §D.3). */
+  /** 300 ms outcome copy shown only after the action was accepted, e.g. "Summon accepted" (04 §D.3). */
   outcome: string;
-  /** Dispatched when the hold completes and outcome duration elapses. */
-  onConfirm: () => void | Promise<void>;
+  /** Copy while waiting for the Hab Core's answer. */
+  pendingText?: string;
+  /** Copy while waiting and the link is down (commands queue, 04 §D.5). */
+  queuedText?: string;
+  /** True while unlinked: the pending state reads `queuedText`. */
+  queued?: boolean;
+  /** Dispatched when the hold completes; its result decides between the accepted and rejected states. */
+  onConfirm: () => ConfirmOutcome | Promise<ConfirmOutcome>;
   /** Semantic status kind for border and background cues (04 §C.1). */
   kind?: ActionKind;
   /** True when the action cannot be performed. */
@@ -81,6 +96,9 @@ export interface HoldToConfirmProps {
 export function HoldToConfirm({
   label,
   outcome,
+  pendingText = "Sending…",
+  queuedText = "Queued — sends when link returns",
+  queued = false,
   onConfirm,
   kind = "warning",
   disabled = false,
@@ -97,16 +115,20 @@ export function HoldToConfirm({
 }: HoldToConfirmProps): ReactElement {
   const [phase, setPhase] = useState<HoldPhase>("idle");
   const [progress, setProgress] = useState<number>(0);
+  const [rejection, setRejection] = useState<string>("");
 
-  const t0Ref = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
   const outcomeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef<boolean>(true);
+  const inFlightRef = useRef<boolean>(false);
 
   // Clean up timers on unmount
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       if (outcomeTimerRef.current !== null) clearTimeout(outcomeTimerRef.current);
       if (fallbackTimerRef.current !== null) clearTimeout(fallbackTimerRef.current);
@@ -114,32 +136,51 @@ export function HoldToConfirm({
     };
   }, []);
 
-  const triggerConfirm = useCallback(() => {
-    setPhase("done");
+  const triggerConfirm = useCallback(async () => {
+    // One dispatch per confirmation, however many taps or key repeats arrive while pending.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    if (fallbackTimerRef.current !== null) clearTimeout(fallbackTimerRef.current);
+    setPhase("pending");
     setProgress(1);
 
+    let result: ConfirmOutcome;
+    try {
+      result = await onConfirm();
+    } catch (err) {
+      result = { ok: false, message: err instanceof Error ? err.message : "Command failed" };
+    }
+    inFlightRef.current = false;
+    if (!mountedRef.current) return;
+
+    if (result && result.ok === false) {
+      setRejection([result.code, result.message].filter(Boolean).join(": ") || "Rejected");
+      setProgress(0);
+      setPhase("rejected");
+      return;
+    }
+
+    setPhase("done");
     outcomeTimerRef.current = setTimeout(() => {
-      try {
-        void onConfirm();
-      } finally {
-        setPhase("idle");
-        setProgress(0);
-      }
+      setPhase("idle");
+      setProgress(0);
     }, outcomeDurationMs);
   }, [onConfirm, outcomeDurationMs]);
 
-  const startHolding = useCallback(() => {
-    if (disabled || phase === "done") return;
+  /**
+   * Accessibility fallback (04 §D.3): the first tap turns the button into "Confirm" for `fallbackTimeoutMs`;
+   * only a second tap (or Enter/Space) confirms. Never confirms on the first tap.
+   */
+  const armFallback = useCallback(() => {
+    setPhase("confirm");
+    if (fallbackTimerRef.current !== null) clearTimeout(fallbackTimerRef.current);
+    fallbackTimerRef.current = setTimeout(() => {
+      setPhase("idle");
+    }, fallbackTimeoutMs);
+  }, [fallbackTimeoutMs]);
 
-    if (tapFallback) {
-      // Tap fallback accessibility mode (04 §D.3)
-      setPhase("confirm");
-      if (fallbackTimerRef.current !== null) clearTimeout(fallbackTimerRef.current);
-      fallbackTimerRef.current = setTimeout(() => {
-        setPhase("idle");
-      }, fallbackTimeoutMs);
-      return;
-    }
+  const startHolding = useCallback(() => {
+    if (disabled || phase === "done" || phase === "pending") return;
 
     if (cancelResetTimerRef.current !== null) {
       clearTimeout(cancelResetTimerRef.current);
@@ -148,7 +189,6 @@ export function HoldToConfirm({
 
     setPhase("holding");
     const startTime = performance.now();
-    t0Ref.current = startTime;
 
     const tick = () => {
       const elapsed = performance.now() - startTime;
@@ -157,14 +197,14 @@ export function HoldToConfirm({
 
       if (p >= 1) {
         rafRef.current = null;
-        triggerConfirm();
+        void triggerConfirm();
       } else {
         rafRef.current = requestAnimationFrame(tick);
       }
     };
 
     rafRef.current = requestAnimationFrame(tick);
-  }, [disabled, phase, tapFallback, fallbackTimeoutMs, holdDurationMs, triggerConfirm]);
+  }, [disabled, phase, holdDurationMs, triggerConfirm]);
 
   const cancelHolding = useCallback(() => {
     if (phase !== "holding") return;
@@ -183,12 +223,13 @@ export function HoldToConfirm({
   }, [phase]);
 
   const handlePointerDown = (e: PointerEvent<HTMLButtonElement>) => {
-    if (e.button !== 0 || disabled) return;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    // In tap-fallback mode the click event alone drives the two taps.
+    if (tapFallback || e.button !== 0 || disabled) return;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     startHolding();
   };
 
-  const handlePointerUp = (e: PointerEvent<HTMLButtonElement>) => {
+  const handlePointerUp = () => {
     if (phase === "holding") {
       cancelHolding();
     }
@@ -204,8 +245,9 @@ export function HoldToConfirm({
     if (disabled || e.repeat) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      if (phase === "confirm") {
-        triggerConfirm();
+      if (tapFallback || phase === "confirm") {
+        if (phase === "confirm") void triggerConfirm();
+        else if (phase !== "pending" && phase !== "done") armFallback();
       } else {
         startHolding();
       }
@@ -222,10 +264,12 @@ export function HoldToConfirm({
   };
 
   const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
+    if (!tapFallback || disabled) return;
+    e.preventDefault();
     if (phase === "confirm") {
-      e.preventDefault();
-      if (fallbackTimerRef.current !== null) clearTimeout(fallbackTimerRef.current);
-      triggerConfirm();
+      void triggerConfirm();
+    } else if (phase !== "pending" && phase !== "done") {
+      armFallback();
     }
   };
 
@@ -260,7 +304,7 @@ export function HoldToConfirm({
     color: phase === "done" && isCaution ? "var(--ink, #1A1A1A)" : "var(--text-1, #ECEFF2)",
     border: `2px solid ${disabled ? "var(--edge, #5C6670)" : statusColor}`,
     fontFamily: "var(--font-ui, Inter, sans-serif)",
-    fontSize: "var(--text-ui, 14px)",
+    fontSize: "16px", // EVA minimum text size (04 §A.3 #9)
     fontWeight: 600,
     letterSpacing: "0.02em",
     textTransform: "uppercase",
@@ -284,7 +328,9 @@ export function HoldToConfirm({
         aria-label={
           phase === "confirm"
             ? `Confirm — ${label}`
-            : `${label} (press and hold 800 ms)`
+            : tapFallback
+              ? `${label} (tap, then tap again to confirm)`
+              : `${label} (press and hold 800 ms)`
         }
         title={disabled && disabledReason ? disabledReason : undefined}
         style={buttonStyle}
@@ -311,7 +357,17 @@ export function HoldToConfirm({
         />
 
         {/* Content depending on hold phase */}
-        {phase === "done" ? (
+        {phase === "pending" ? (
+          <span role="status" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+            <span aria-hidden="true">…</span>
+            <span>{queued ? queuedText : pendingText}</span>
+          </span>
+        ) : phase === "rejected" ? (
+          <span role="alert" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textTransform: "none" }}>
+            <span aria-hidden="true">✕</span>
+            <span>Rejected — {rejection}</span>
+          </span>
+        ) : phase === "done" ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
             <span aria-hidden="true">✓</span>
             <span>{outcome}</span>
@@ -322,7 +378,7 @@ export function HoldToConfirm({
             <span>Confirm — {label}</span>
           </span>
         ) : phase === "cancelled" ? (
-          <span style={{ color: "var(--text-2, #A9B3BE)", fontSize: "12px" }}>
+          <span style={{ color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>
             Released early — hold 0.8 s
           </span>
         ) : (
@@ -330,7 +386,7 @@ export function HoldToConfirm({
             {icon && <span aria-hidden="true">{icon}</span>}
             <span>{label}</span>
             {disabledReason && disabled && (
-              <span style={{ fontSize: "11px", color: "var(--text-3, #8592A0)", textTransform: "none" }}>
+              <span style={{ fontSize: "16px", color: "var(--text-3, #8592A0)", textTransform: "none" }}>
                 ({disabledReason})
               </span>
             )}
@@ -345,14 +401,34 @@ export function HoldToConfirm({
 // Pre-wired EVA Critical Action Buttons (01 FR-32, FR-40, FR-44; 04 §E.5)
 // ---------------------------------------------------------------------------
 
+/** Why a wired control is disabled: no Hab Core client, or no crew member to act for. Undefined when usable. */
+function missingInput(client: HabClient | null | undefined, crewId: CrewId | undefined): string | undefined {
+  if (!client) return "No Hab Core connection";
+  if (!crewId) return "Crew not identified";
+  return undefined;
+}
+
+/** Sends one command and passes the Hab Core's answer back; `onAccepted` runs only when it was accepted. */
+async function sendAndReport(
+  client: HabClient,
+  command: Parameters<HabClient["send"]>[0],
+  onAccepted?: () => void,
+): Promise<ConfirmOutcome> {
+  const result = await client.send(command);
+  if (result.ok) onAccepted?.();
+  return result;
+}
+
 export interface SummonRoverButtonProps {
-  /** Hab WebSocket client instance. */
+  /** Hab WebSocket client instance. Without one the control is disabled. */
   client?: HabClient | null;
-  /** Whether habitat link is currently active (04 §D.5). */
-  linked?: boolean;
-  /** Target pressurized rover identifier (default PR1). */
-  vehicleId?: string;
-  /** Optional callback fired when vehicle command dispatches. */
+  /** Crew member acting; SUMMON_VEHICLE needs `args.crew` to include the issuer (02 §E.4). Without one the control is disabled. */
+  crewId?: CrewId;
+  /** Link state: false queues the command (04 §D.5); null or undefined means unknown. */
+  linked?: boolean | null;
+  /** Optional proposed rendezvous option this summon executes (SUMMON_VEHICLE `option_id`). */
+  optionId?: string;
+  /** Fired only after the Hab Core accepted the command. */
   onDispatched?: () => void;
   /** Whether the control is disabled. */
   disabled?: boolean;
@@ -362,31 +438,31 @@ export interface SummonRoverButtonProps {
 
 /**
  * SUMMON ROVER hold-to-confirm button (01 FR-40, 04 §E.5).
- * Dispatches SUMMON_VEHICLE with vehicle_id="PR1".
- * Linked: "PR1 dispatched — ETA 14 min".
- * Unlinked: "Queued — sends when link returns".
+ * Dispatches SUMMON_VEHICLE `{ crew: [crewId] }` (plus `option_id` when given) once, then shows pending
+ * (or queued while unlinked) until the Hab Core answers; only an accepted result shows "Summon accepted".
  */
 export function SummonRoverButton({
   client,
-  linked = true,
-  vehicleId = "PR1",
+  crewId,
+  linked,
+  optionId,
   onDispatched,
   disabled = false,
   disabledReason,
   className,
 }: SummonRoverButtonProps): ReactElement {
-  const outcomeText = linked
-    ? `${vehicleId} dispatched — ETA 14 min`
-    : "Queued — sends when link returns";
+  const missing = missingInput(client, crewId);
 
-  const handleConfirm = async () => {
-    if (client) {
-      await client.send({
+  const handleConfirm = async (): Promise<ConfirmOutcome> => {
+    if (!client || !crewId) return { ok: false, message: missing };
+    return sendAndReport(
+      client,
+      {
         kind: "SUMMON_VEHICLE",
-        args: { vehicle_id: vehicleId },
-      });
-    }
-    onDispatched?.();
+        args: { crew: [crewId], ...(optionId === undefined ? {} : { option_id: optionId }) },
+      },
+      onDispatched,
+    );
   };
 
   return (
@@ -394,10 +470,11 @@ export function SummonRoverButton({
       id="action-summon-rover"
       data-hold-key="eva-summon"
       label="Summon rover"
-      outcome={outcomeText}
+      outcome="Summon accepted"
+      queued={linked === false}
       kind="caution"
-      disabled={disabled}
-      disabledReason={disabledReason}
+      disabled={disabled || missing !== undefined}
+      disabledReason={disabledReason ?? missing}
       className={className}
       onConfirm={handleConfirm}
     />
@@ -405,11 +482,13 @@ export function SummonRoverButton({
 }
 
 export interface AbortToHabButtonProps {
-  /** Hab WebSocket client instance. */
+  /** Hab WebSocket client instance. Without one the control is disabled. */
   client?: HabClient | null;
-  /** Whether habitat link is currently active (04 §D.5). */
-  linked?: boolean;
-  /** Optional callback fired when abort command dispatches. */
+  /** Crew member acting; ABORT needs `args.crew` to include the issuer (02 §E.4). Without one the control is disabled. */
+  crewId?: CrewId;
+  /** Link state: false queues the command (04 §D.5); null or undefined means unknown. */
+  linked?: boolean | null;
+  /** Fired only after the Hab Core accepted the command. */
   onAborted?: () => void;
   /** Whether the control is disabled. */
   disabled?: boolean;
@@ -419,30 +498,23 @@ export interface AbortToHabButtonProps {
 
 /**
  * ABORT TO HAB hold-to-confirm button (01 FR-44, 04 §E.5).
- * Dispatches ABORT command to the Hab Core.
- * Linked: "Abort to hab — walking now".
- * Unlinked: "Queued — sends when link returns".
+ * Dispatches ABORT `{ crew: [crewId] }` once; "Abort accepted" only after the Hab Core accepts it. It makes
+ * no claim about walking or arrival.
  */
 export function AbortToHabButton({
   client,
-  linked = true,
+  crewId,
+  linked,
   onAborted,
   disabled = false,
   disabledReason,
   className,
 }: AbortToHabButtonProps): ReactElement {
-  const outcomeText = linked
-    ? "Abort to hab — walking now"
-    : "Queued — sends when link returns";
+  const missing = missingInput(client, crewId);
 
-  const handleConfirm = async () => {
-    if (client) {
-      await client.send({
-        kind: "ABORT",
-        args: { reason: "crew_request" },
-      });
-    }
-    onAborted?.();
+  const handleConfirm = async (): Promise<ConfirmOutcome> => {
+    if (!client || !crewId) return { ok: false, message: missing };
+    return sendAndReport(client, { kind: "ABORT", args: { crew: [crewId] } }, onAborted);
   };
 
   return (
@@ -450,10 +522,11 @@ export function AbortToHabButton({
       id="action-abort-hab"
       data-hold-key="eva-abort"
       label="Abort to hab"
-      outcome={outcomeText}
+      outcome="Abort accepted"
+      queued={linked === false}
       kind="warning"
-      disabled={disabled}
-      disabledReason={disabledReason}
+      disabled={disabled || missing !== undefined}
+      disabledReason={disabledReason ?? missing}
       className={className}
       onConfirm={handleConfirm}
     />
@@ -489,7 +562,7 @@ export function TaskRoverButton({
     color: "var(--text-1, #ECEFF2)",
     border: "2px solid var(--edge, #5C6670)",
     fontFamily: "var(--font-ui, Inter, sans-serif)",
-    fontSize: "var(--text-ui, 14px)",
+    fontSize: "16px",
     fontWeight: 600,
     letterSpacing: "0.02em",
     textTransform: "uppercase",
@@ -515,7 +588,9 @@ export function TaskRoverButton({
 
 export interface EvaActionRowProps {
   client?: HabClient | null;
-  linked?: boolean;
+  /** Crew member the row acts for; SUMMON and ABORT are disabled without one. */
+  crewId?: CrewId;
+  linked?: boolean | null;
   onOpenRoverTasking?: () => void;
   onOpenHud?: () => void;
   disabledSummon?: boolean;
@@ -532,7 +607,8 @@ export interface EvaActionRowProps {
  */
 export function EvaActionRow({
   client,
-  linked = true,
+  crewId,
+  linked,
   onOpenRoverTasking,
   onOpenHud,
   disabledSummon = false,
@@ -558,11 +634,13 @@ export function EvaActionRow({
     >
       <SummonRoverButton
         client={client}
+        crewId={crewId}
         linked={linked}
         disabled={disabledSummon}
       />
       <AbortToHabButton
         client={client}
+        crewId={crewId}
         linked={linked}
         disabled={disabledAbort}
       />
@@ -583,7 +661,7 @@ export function EvaActionRow({
           color: "var(--text-1, #ECEFF2)",
           border: "2px solid var(--edge, #5C6670)",
           fontFamily: "var(--font-ui, Inter, sans-serif)",
-          fontSize: "var(--text-ui, 14px)",
+          fontSize: "16px",
           fontWeight: 600,
           letterSpacing: "0.02em",
           textTransform: "uppercase",

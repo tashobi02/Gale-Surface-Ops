@@ -9,10 +9,13 @@
  */
 
 import type { CSSProperties, ReactElement } from "react";
+import { UNAVAILABLE, isFiniteNumber } from "../../components/provenance";
 
 export interface TasksButtonProps {
-  doneCount: number;
-  totalCount: number;
+  /** Tasks done at the current stop; null when no stop (and so no count) is known. */
+  doneCount: number | null;
+  /** Tasks at the current stop; null when no stop is known. */
+  totalCount: number | null;
   active?: boolean;
   onClick?: () => void;
   className?: string;
@@ -34,14 +37,14 @@ export function TasksButton({
     backgroundColor: active ? "var(--edge, #5C6670)" : "var(--raised, #1C2128)",
     color: "var(--text-1, #ECEFF2)",
     border: "1px solid var(--edge, #5C6670)",
-    borderRadius: "2px",
+    borderRadius: 0,
     cursor: "pointer",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     gap: "8px",
     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
-    fontSize: "14px",
+    fontSize: "16px",
     fontWeight: 600,
     letterSpacing: "0.04em",
     textTransform: "uppercase",
@@ -51,9 +54,11 @@ export function TasksButton({
     fontVariantNumeric: "tabular-nums",
     padding: "2px 6px",
     backgroundColor: "var(--panel, #14181D)",
-    borderRadius: "2px",
-    fontSize: "13px",
+    borderRadius: 0,
+    fontSize: "16px",
   };
+
+  const counts = isFiniteNumber(doneCount) && isFiniteNumber(totalCount) ? `${doneCount}/${totalCount}` : UNAVAILABLE;
 
   return (
     <button
@@ -62,15 +67,23 @@ export function TasksButton({
       data-testid="tasks-button"
       style={buttonStyle}
       onClick={onClick}
-      aria-label={ariaLabel ?? `View tasks: ${doneCount} of ${totalCount} completed`}
+      aria-label={
+        ariaLabel ??
+        (counts === UNAVAILABLE ? "View tasks: count unavailable" : `View tasks: ${doneCount} of ${totalCount} completed`)
+      }
       aria-pressed={active}
     >
       <span aria-hidden="true" style={{ fontSize: "15px" }}>
         ✓
       </span>
       <span>TASKS</span>
-      <span style={countBadgeStyle}>
-        {doneCount}/{totalCount}
+      <span
+        style={countBadgeStyle}
+        data-provenance="simulated"
+        data-source="snapshot:tasks"
+        title="snapshot:tasks"
+      >
+        {counts}
       </span>
     </button>
   );

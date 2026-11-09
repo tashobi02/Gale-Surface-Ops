@@ -10,10 +10,18 @@
  *             planned vs actual timeline, alerts and responses with response times, map trace schematic.
  *     Page 2: stop tasks summary (FR-50) with simulated chip, event log table, log_hash, scenario, and disclaimer.
  * - Non-negotiable: Every number carries provenance; mandatory NASA Space Apps disclaimer included.
+ * - No sample data: with no report supplied every value reads "—" and only the disclaimer remains. Nothing is
+ *   filled in from defaults.
+ *
+ * TODO(decision): agree the report API-to-UI adapter, planned/actual stop timing context, shelter-response association,
+ * dropped-stop identity mapping and per-crew versus aggregate dose presentation before completing report integration.
+ * TODO(decision): complete real report trace, sources and Export log JSON integration, then verify Chrome A4/Letter
+ * pagination with 12 mm margins; article-container counts do not prove two printed pages.
  */
 
 import type { CSSProperties, ReactElement } from "react";
 import type { Provenance } from "@marswalk/protocol";
+import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, isFiniteNumber } from "../components/provenance";
 
 export interface PostEvaReportData {
   sessionId?: string;
@@ -63,80 +71,33 @@ export interface PostEvaReportProps {
   className?: string;
 }
 
-const DEFAULT_REPORT_DATA: PostEvaReportData = {
-  sessionId: "storm-sol4190",
-  scenarioId: "storm-sol4190",
-  dataVersion: "gale_boxwork-2026.11.08",
-  seed: 4190,
-  logHash: "b1fa5ad968d4f29a00839e44bc6079c6fa301e7e4cbb46e53995818ad5b1fa5a",
-  doseReceivedUgy: 120.5,
-  doseUnshelteredUgy: 8100.0,
-  timeToShelterMin: 14,
-  stopsCompleted: 1,
-  stopsTotal: 3,
-  planRevisionsCount: 1,
-  timeline: [
-    { phase: "EGRESS", plannedLtst: "13:00", actualLtst: "13:00" },
-    { phase: "STOP 1 · EZ—ENG 01", plannedLtst: "13:04", actualLtst: "13:04" },
-    { phase: "STOP 2 · EZ—RES 02", plannedLtst: "13:14", actualLtst: "13:05 (alert)" },
-    { phase: "STOP 3 · EZ—SCI 01 (dropped)", plannedLtst: "13:30", actualLtst: "DROPPED" },
-    { phase: "INGRESS (PR1 Rendezvous)", plannedLtst: "13:45", actualLtst: "13:19" },
-  ],
-  alerts: [
-    {
-      level: "warning",
-      code: "RADIATION_ALERT",
-      message: "SOLAR PARTICLE EVENT DETECTED (450 µGy/h)",
-      raisedLtst: "13:05:00",
-      ackedLtst: "13:05:45",
-      shelteredLtst: "13:19:00",
-      responseSec: 45,
-    },
-    {
-      level: "caution",
-      code: "COMM_SHADOW",
-      message: "HAB RF TELEMETRY INTERRUPTED",
-      raisedLtst: "13:02:10",
-      ackedLtst: "13:02:40",
-      responseSec: 30,
-    },
-  ],
-  tasks: [
-    { stopName: "Stop 1 · EZ—ENG 01", ev1: "2 / 0 / 0", ev2: "2 / 0 / 0" },
-    { stopName: "Stop 2 · EZ—RES 02", ev1: "1 / 1 / 1", ev2: "1 / 0 / 2" },
-    { stopName: "Stop 3 · EZ—SCI 01 (dropped)", ev1: "0 / 0 / 3", ev2: "0 / 0 / 3" },
-  ],
-  logEvents: [
-    { seq: 1, time: "13:00:00", actor: "system", event: "SESSION_LOADED — storm-sol4190", prov: "simulated" },
-    { seq: 2, time: "13:00:10", actor: "system", event: "EVA_STARTED — crew EV1, EV2", prov: "simulated" },
-    { seq: 5, time: "13:04:00", actor: "system", event: "ARRIVED_STOP — wp-1 (Stop 1)", prov: "simulated" },
-    { seq: 7, time: "13:05:00", actor: "system", event: "ALERT_RAISED — RADIATION_ALERT (warning)", prov: "replayed" },
-    { seq: 8, time: "13:05:45", actor: "ops", event: "ALERT_ACKED — alt-01 by ops", prov: "measured" },
-    { seq: 9, time: "13:06:00", actor: "ops", event: "PLAN_REVISED — option 1 rendezvous (drops wp-2)", prov: "derived" },
-    { seq: 11, time: "13:19:00", actor: "system", event: "CREW_SHELTERED — EV1 in PR1 (dose 120.5 µGy)", prov: "measured" },
-    { seq: 12, time: "13:20:00", actor: "ops", event: "EVA_ENDED — mission completed safely", prov: "simulated" },
-  ],
-  disclaimer:
-    "NASA Space Apps Challenge 2026 — Interplanetary Survival Guide: Martian Map. " +
-    "For simulation and educational demonstration only; not certified for actual Martian flight or surface operations.",
-};
+/** Mandatory NASA Space Apps disclaimer (01 §F.1); independent of any report data. */
+export const REPORT_DISCLAIMER =
+  "NASA Space Apps Challenge 2026 — Interplanetary Survival Guide: Martian Map. " +
+  "For simulation and educational demonstration only; not certified for actual Martian flight or surface operations.";
 
-const PROVENANCE_GLYPHS: Record<Provenance, string> = {
-  measured: "■",
-  derived: "◆",
-  modelled: "○",
-  assumed: "△",
-  replayed: "▶",
-  simulated: "◇",
-};
+/** Provenance attributes for a report value; a missing value is labelled unavailable. */
+function reportAttrs(
+  present: boolean,
+  prov: Provenance,
+  path: string,
+): { "data-provenance": Provenance; "data-source": string; title: string } {
+  const src = present ? `report:${path}` : `unavailable:report.${path}`;
+  return { "data-provenance": present ? prov : "assumed", "data-source": src, title: src };
+}
 
 export function PostEvaReport({
-  report = DEFAULT_REPORT_DATA,
+  report,
   onPrint,
   onBack,
   className = "",
 }: PostEvaReportProps): ReactElement {
-  const data = { ...DEFAULT_REPORT_DATA, ...report };
+  const data: PostEvaReportData = report ?? {};
+  const hasReceived = isFiniteNumber(data.doseReceivedUgy);
+  const hasUnsheltered = isFiniteNumber(data.doseUnshelteredUgy);
+  const hasShelter = isFiniteNumber(data.timeToShelterMin);
+  const hasStops = isFiniteNumber(data.stopsCompleted) && isFiniteNumber(data.stopsTotal);
+  const hasRevisions = isFiniteNumber(data.planRevisionsCount);
 
   const handlePrint = (): void => {
     if (onPrint) {
@@ -179,7 +140,7 @@ export function PostEvaReport({
   const slabStyle: CSSProperties = {
     backgroundColor: "#F3F4F6",
     border: "1px solid #E5E7EB",
-    borderRadius: "2px",
+    borderRadius: 0,
     padding: "10px 12px",
     display: "flex",
     flexDirection: "column",
@@ -199,7 +160,7 @@ export function PostEvaReport({
     textAlign: "left",
     borderBottom: "1px solid #111827",
     padding: "4px 8px",
-    fontSize: "11px",
+    fontSize: "12px",
     fontWeight: 700,
     color: "#4B5563",
     textTransform: "uppercase",
@@ -244,7 +205,7 @@ export function PostEvaReport({
                 backgroundColor: "#1F2937",
                 color: "#FFFFFF",
                 border: "none",
-                borderRadius: "2px",
+                borderRadius: 0,
                 cursor: "pointer",
                 fontWeight: 600,
                 fontSize: "12px",
@@ -265,7 +226,7 @@ export function PostEvaReport({
             backgroundColor: "#2563EB",
             color: "#FFFFFF",
             border: "none",
-            borderRadius: "2px",
+            borderRadius: 0,
             cursor: "pointer",
             fontWeight: 700,
             fontSize: "13px",
@@ -283,7 +244,7 @@ export function PostEvaReport({
             <div
               style={{
                 fontFamily: "var(--font-mono, monospace)",
-                fontSize: "11px",
+                fontSize: "12px",
                 fontWeight: 600,
                 color: "#4B5563",
                 letterSpacing: "0.06em",
@@ -299,7 +260,7 @@ export function PostEvaReport({
                 color: "#111827",
               }}
             >
-              Storm at Sol 4190 — Mission Debrief
+              Mission Debrief{data.scenarioId ? ` — ${data.scenarioId}` : ""}
             </h1>
           </div>
           <span
@@ -317,7 +278,7 @@ export function PostEvaReport({
         {/* 4 Stat Slabs (04 §E.8) */}
         <section aria-label="Key mission statistics" style={slabGridStyle}>
           <div style={slabStyle}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "#4B5563" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "#4B5563" }}>
               DOSE RECEIVED VS UNSHELTERED
             </span>
             <span
@@ -327,16 +288,19 @@ export function PostEvaReport({
                 fontFamily: "var(--font-mono, monospace)",
               }}
             >
-              <span data-provenance="measured">{data.doseReceivedUgy?.toFixed(1)} µGy ■</span>
+              <span {...reportAttrs(hasReceived, "simulated", "dose_event_ugy")}>
+                {hasReceived ? fmtFixed(data.doseReceivedUgy, 1) : UNAVAILABLE} µGy {PROVENANCE_GLYPHS.simulated}
+              </span>
               <span style={{ fontSize: "12px", color: "#6B7280", margin: "0 4px" }}>vs</span>
-              <span data-provenance="replayed" style={{ color: "#DC2626" }}>
-                {data.doseUnshelteredUgy?.toLocaleString()} µGy ▶
+              <span {...reportAttrs(hasUnsheltered, "simulated", "dose_event_unsheltered_ugy")} style={{ color: "#4B5563" }}>
+                {hasUnsheltered ? (data.doseUnshelteredUgy as number).toLocaleString("en-US") : UNAVAILABLE} µGy{" "}
+                {PROVENANCE_GLYPHS.simulated}
               </span>
             </span>
           </div>
 
           <div style={slabStyle}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "#4B5563" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "#4B5563" }}>
               TIME TO SHELTER
             </span>
             <span
@@ -345,14 +309,14 @@ export function PostEvaReport({
                 fontWeight: 700,
                 fontFamily: "var(--font-mono, monospace)",
               }}
-              data-provenance="derived"
+              {...reportAttrs(hasShelter, "derived", "time_to_shelter_min")}
             >
-              {data.timeToShelterMin} min ◆
+              {hasShelter ? data.timeToShelterMin : UNAVAILABLE} min {PROVENANCE_GLYPHS.derived}
             </span>
           </div>
 
           <div style={slabStyle}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "#4B5563" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "#4B5563" }}>
               STOPS COMPLETED
             </span>
             <span
@@ -361,14 +325,14 @@ export function PostEvaReport({
                 fontWeight: 700,
                 fontFamily: "var(--font-mono, monospace)",
               }}
-              data-provenance="simulated"
+              {...reportAttrs(hasStops, "simulated", "stops")}
             >
-              {data.stopsCompleted} / {data.stopsTotal} ◇
+              {hasStops ? `${data.stopsCompleted} / ${data.stopsTotal}` : UNAVAILABLE} {PROVENANCE_GLYPHS.simulated}
             </span>
           </div>
 
           <div style={slabStyle}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "#4B5563" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "#4B5563" }}>
               PLAN REVISIONS
             </span>
             <span
@@ -377,9 +341,9 @@ export function PostEvaReport({
                 fontWeight: 700,
                 fontFamily: "var(--font-mono, monospace)",
               }}
-              data-provenance="derived"
+              {...reportAttrs(hasRevisions, "derived", "plan_revisions")}
             >
-              REV 0 → {data.planRevisionsCount} ◆
+              {hasRevisions ? data.planRevisionsCount : UNAVAILABLE} {PROVENANCE_GLYPHS.derived}
             </span>
           </div>
         </section>
@@ -407,11 +371,23 @@ export function PostEvaReport({
               </tr>
             </thead>
             <tbody>
+              {(data.timeline ?? []).length === 0 && (
+                <tr>
+                  <td style={tdStyle} {...reportAttrs(false, "simulated", "timeline")} colSpan={3}>
+                    {UNAVAILABLE}
+                  </td>
+                </tr>
+              )}
               {data.timeline?.map((row, idx) => (
                 <tr key={idx}>
                   <td style={tdStyle}>{row.phase}</td>
-                  <td style={tdStyle}>{row.plannedLtst}</td>
-                  <td style={{ ...tdStyle, fontWeight: row.actualLtst.includes("DROPPED") ? 700 : 400 }}>
+                  <td style={tdStyle} {...reportAttrs(true, "derived", "timeline.planned_ltst")}>
+                    {row.plannedLtst}
+                  </td>
+                  <td
+                    style={{ ...tdStyle, fontWeight: row.actualLtst.includes("DROPPED") ? 700 : 400 }}
+                    {...reportAttrs(true, "simulated", "timeline.actual_ltst")}
+                  >
                     {row.actualLtst}
                   </td>
                 </tr>
@@ -444,6 +420,13 @@ export function PostEvaReport({
               </tr>
             </thead>
             <tbody>
+              {(data.alerts ?? []).length === 0 && (
+                <tr>
+                  <td style={tdStyle} {...reportAttrs(false, "simulated", "alerts")} colSpan={4}>
+                    {UNAVAILABLE}
+                  </td>
+                </tr>
+              )}
               {data.alerts?.map((alt, idx) => (
                 <tr key={idx}>
                   <td style={tdStyle}>
@@ -452,129 +435,50 @@ export function PostEvaReport({
                         padding: "2px 6px",
                         backgroundColor: alt.level === "warning" ? "#FEE2E2" : "#FEF3C7",
                         color: alt.level === "warning" ? "#991B1B" : "#92400E",
-                        borderRadius: "2px",
+                        borderRadius: 0,
                         fontWeight: 700,
-                        fontSize: "11px",
+                        fontSize: "12px",
                       }}
                     >
-                      {alt.level.toUpperCase()}
+                      {alt.level === "warning" ? "⬣" : alt.level === "caution" ? "▲" : "◆"} {alt.level.toUpperCase()}
                     </span>
                   </td>
                   <td style={tdStyle}>
                     <div style={{ fontWeight: 600 }}>{alt.code}</div>
-                    <div style={{ fontSize: "11px", color: "#6B7280" }}>{alt.message}</div>
+                    <div style={{ fontSize: "12px", color: "#6B7280" }}>{alt.message}</div>
                   </td>
-                  <td style={tdStyle}>
+                  <td style={tdStyle} {...reportAttrs(true, "simulated", "alerts.times")}>
                     {alt.raisedLtst} → {alt.ackedLtst} {alt.shelteredLtst ? `→ ${alt.shelteredLtst}` : ""}
                   </td>
-                  <td style={tdStyle}>{alt.responseSec} s</td>
+                  <td style={tdStyle} {...reportAttrs(isFiniteNumber(alt.responseSec), "derived", "alerts.response_s")}>
+                    {isFiniteNumber(alt.responseSec) ? alt.responseSec : UNAVAILABLE} s
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </section>
 
-        {/* Map Trace (Schematic) */}
+        {/* Map trace: no fabricated schematic. The real trace needs the session position log (not wired). */}
         <section aria-label="Map Trace">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2
-              style={{
-                fontSize: "12px",
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: "#4B5563",
-                margin: "8px 0 2px 0",
-              }}
-            >
-              [ MAP /// MAP TRACE (30 s decimated) ]
-            </h2>
-            <span style={{ fontSize: "11px", color: "#6B7280", fontStyle: "italic" }}>
-              SCHEMATIC — not real terrain
-            </span>
-          </div>
-
-          <div
+          <h2
             style={{
-              height: "220px",
-              border: "1px solid #D1D5DB",
-              borderRadius: "2px",
-              backgroundColor: "#F9FAFB",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              position: "relative",
-              overflow: "hidden",
+              fontSize: "12px",
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "#4B5563",
+              margin: "8px 0 2px 0",
             }}
           >
-            <svg
-              width="100%"
-              height="100%"
-              viewBox="0 0 700 220"
-              style={{ width: "100%", height: "100%" }}
-              aria-label="Schematic mission route trace"
-            >
-              {/* Grid lines */}
-              <defs>
-                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#E5E7EB" strokeWidth="1" />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
-
-              {/* Comm coverage circle */}
-              <circle cx="120" cy="110" r="90" fill="#EBF5FF" stroke="#93C5FD" strokeDasharray="4 4" />
-              <text x="120" y="50" fontSize="10" fill="#6B7280" textAnchor="middle">
-                HAB COMM COVERAGE (600 m)
-              </text>
-
-              {/* Planned route */}
-              <path
-                d="M 120 110 L 260 70 L 420 90 L 580 150"
-                fill="none"
-                stroke="#9CA3AF"
-                strokeWidth="2"
-                strokeDasharray="4 4"
-              />
-
-              {/* Traversed path */}
-              <path
-                d="M 120 110 L 260 70 L 400 85"
-                fill="none"
-                stroke="#111827"
-                strokeWidth="3"
-              />
-
-              {/* PR1 Rendezvous vector */}
-              <path
-                d="M 380 160 L 400 85"
-                fill="none"
-                stroke="#DC2626"
-                strokeWidth="2.5"
-              />
-
-              {/* Markers */}
-              <circle cx="120" cy="110" r="6" fill="#111827" />
-              <text x="120" y="130" fontSize="11" fontWeight="700" textAnchor="middle" fill="#111827">
-                HAB
-              </text>
-
-              <circle cx="260" cy="70" r="5" fill="#111827" />
-              <text x="260" y="55" fontSize="10" fontWeight="600" textAnchor="middle" fill="#111827">
-                STOP 1 ✓
-              </text>
-
-              <circle cx="400" cy="85" r="7" fill="#DC2626" />
-              <text x="400" y="70" fontSize="11" fontWeight="700" textAnchor="middle" fill="#DC2626">
-                RDV SHELTER (PR1)
-              </text>
-
-              <circle cx="580" cy="150" r="4" fill="#9CA3AF" />
-              <text x="580" y="170" fontSize="10" textAnchor="middle" fill="#6B7280">
-                STOP 3 (DROPPED)
-              </text>
-            </svg>
-          </div>
+            [ MAP /// MAP TRACE ]
+          </h2>
+          <p
+            style={{ fontSize: "12px", color: "#6B7280", margin: "4px 0" }}
+            {...reportAttrs(false, "simulated", "map_trace")}
+          >
+            {UNAVAILABLE} Trace not available: it needs the session position log.
+          </p>
         </section>
       </article>
 
@@ -586,7 +490,7 @@ export function PostEvaReport({
             <div
               style={{
                 fontFamily: "var(--font-mono, monospace)",
-                fontSize: "11px",
+                fontSize: "12px",
                 fontWeight: 600,
                 color: "#4B5563",
                 letterSpacing: "0.06em",
@@ -635,7 +539,7 @@ export function PostEvaReport({
             <span
               data-provenance="simulated"
               style={{
-                fontSize: "11px",
+                fontSize: "12px",
                 color: "#4B5563",
                 fontFamily: "var(--font-mono, monospace)",
               }}
@@ -653,17 +557,28 @@ export function PostEvaReport({
               </tr>
             </thead>
             <tbody>
+              {(data.tasks ?? []).length === 0 && (
+                <tr>
+                  <td style={tdStyle} {...reportAttrs(false, "simulated", "tasks")} colSpan={3}>
+                    {UNAVAILABLE}
+                  </td>
+                </tr>
+              )}
               {data.tasks?.map((t, idx) => (
                 <tr key={idx}>
                   <td style={tdStyle}>{t.stopName}</td>
-                  <td style={{ ...tdStyle, fontFamily: "var(--font-mono, monospace)" }}>{t.ev1}</td>
-                  <td style={{ ...tdStyle, fontFamily: "var(--font-mono, monospace)" }}>{t.ev2}</td>
+                  <td style={{ ...tdStyle, fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(true, "simulated", "tasks.ev1")}>
+                    {t.ev1}
+                  </td>
+                  <td style={{ ...tdStyle, fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(true, "simulated", "tasks.ev2")}>
+                    {t.ev2}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p style={{ fontSize: "11px", color: "#6B7280", margin: "4px 0 8px 0" }}>
-            Dropped tasks: Open tasks closed when the rendezvous option revised the plan (Stop 2 was cut short and Stop 3 was dropped).
+          <p style={{ fontSize: "12px", color: "#6B7280", margin: "4px 0 8px 0" }}>
+            Dropped tasks: open tasks closed by the system when a plan revision dropped their stop (FR-50).
           </p>
         </section>
 
@@ -692,6 +607,13 @@ export function PostEvaReport({
               </tr>
             </thead>
             <tbody>
+              {(data.logEvents ?? []).length === 0 && (
+                <tr>
+                  <td style={tdStyle} {...reportAttrs(false, "simulated", "log_events")} colSpan={5}>
+                    {UNAVAILABLE}
+                  </td>
+                </tr>
+              )}
               {data.logEvents?.map((evt) => (
                 <tr key={evt.seq}>
                   <td style={tdStyle}>{evt.seq}</td>
@@ -699,7 +621,7 @@ export function PostEvaReport({
                   <td style={{ ...tdStyle, fontWeight: 600 }}>{evt.actor}</td>
                   <td style={tdStyle}>{evt.event}</td>
                   <td style={tdStyle}>
-                    <span data-provenance={evt.prov}>
+                    <span data-provenance={evt.prov} data-source={`report:log_events.${evt.seq}`} title={`report:log_events.${evt.seq}`}>
                       {evt.prov} {PROVENANCE_GLYPHS[evt.prov]}
                     </span>
                   </td>
@@ -715,7 +637,7 @@ export function PostEvaReport({
             marginTop: "auto",
             borderTop: "1px solid #D1D5DB",
             paddingTop: "10px",
-            fontSize: "11px",
+            fontSize: "12px",
             display: "flex",
             flexDirection: "column",
             gap: "6px",
@@ -731,18 +653,29 @@ export function PostEvaReport({
                 color: "#111827",
               }}
             >
-              {data.logHash}
+              <span {...reportAttrs(typeof data.logHash === "string" && data.logHash.length > 0, "derived", "log_hash")}>
+                {data.logHash ? data.logHash : UNAVAILABLE}
+              </span>
             </span>
 
             <span style={{ fontWeight: 700, textTransform: "uppercase" }}>SCENARIO</span>
             <span style={{ fontFamily: "var(--font-mono, monospace)" }}>
-              {data.scenarioId} · seed {data.seed} · {data.dataVersion}
+              <span {...reportAttrs(typeof data.scenarioId === "string", "simulated", "scenario_id")}>
+                {data.scenarioId ?? UNAVAILABLE}
+              </span>{" "}
+              · seed{" "}
+              <span {...reportAttrs(isFiniteNumber(data.seed), "simulated", "seed")}>
+                {isFiniteNumber(data.seed) ? data.seed : UNAVAILABLE}
+              </span>{" "}
+              · <span {...reportAttrs(typeof data.dataVersion === "string", "simulated", "data_version")}>
+                {data.dataVersion ?? UNAVAILABLE}
+              </span>
             </span>
           </div>
 
           <p
             style={{
-              fontSize: "10px",
+              fontSize: "12px",
               color: "#6B7280",
               margin: "6px 0 0 0",
               lineHeight: 1.4,
@@ -750,7 +683,7 @@ export function PostEvaReport({
               paddingTop: "6px",
             }}
           >
-            {data.disclaimer}
+            {data.disclaimer ?? REPORT_DISCLAIMER}
           </p>
         </footer>
       </article>

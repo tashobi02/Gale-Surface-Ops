@@ -9,6 +9,9 @@
  * Highest level wins the single bar slot; counter shows others ([+N]).
  * Tapping counter opens the alert stack list.
  * Each alert provides an accessible ACK button and displays acknowledged state with role.
+ * Every alert shows its severity as shape plus word (04 §A.3 #2).
+ * TODO(decision): complete warning/caution lifecycle filtering and advisory dismissal against authoritative alert
+ * state/time; current component cue repairs do not establish latching acceptance.
  */
 
 import {
@@ -35,6 +38,13 @@ const LEVEL_ICONS: Record<AlertLevel, string> = {
   warning: "⬣",
   caution: "▲",
   advisory: "◆",
+};
+
+/** Visible severity word beside the shape (04 §A.3 #2: colour + shape + word + fixed position). */
+const LEVEL_WORDS: Record<AlertLevel, string> = {
+  warning: "WARNING",
+  caution: "CAUTION",
+  advisory: "ADVISORY",
 };
 
 /**
@@ -71,6 +81,8 @@ export function AlertStack({
     return null;
   }
 
+  // TODO(decision): complete warning/caution lifecycle filtering and advisory dismissal against authoritative alert
+  // state/time; current component cue repairs do not establish latching acceptance.
   const sorted = sortAlerts(alerts);
   const primary = sorted[0];
   const othersCount = sorted.length - 1;
@@ -145,6 +157,9 @@ export function AlertStack({
           <span style={{ fontSize: "20px" }} aria-hidden="true">
             {LEVEL_ICONS[primary.level]}
           </span>
+          <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "13px", letterSpacing: "0.06em" }}>
+            {LEVEL_WORDS[primary.level]}
+          </span>
           <span
             style={{
               overflow: "hidden",
@@ -187,7 +202,7 @@ export function AlertStack({
             <span
               style={{
                 fontFamily: "var(--font-mono, monospace)",
-                fontSize: "11px",
+                fontSize: "12px",
                 fontWeight: 600,
                 opacity: 0.85,
                 textTransform: "uppercase",
@@ -204,7 +219,7 @@ export function AlertStack({
         <div
           style={{
             fontFamily: "var(--font-mono, monospace)",
-            fontSize: "11px",
+            fontSize: "12px",
             color: "var(--text-3, #8592A0)",
             textTransform: "uppercase",
             marginBottom: "4px",
@@ -236,13 +251,16 @@ export function AlertStack({
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
-                <span>{LEVEL_ICONS[alert.level]}</span>
+                <span aria-hidden="true">{LEVEL_ICONS[alert.level]}</span>
+                <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "12px", letterSpacing: "0.06em" }}>
+                  {LEVEL_WORDS[alert.level]}
+                </span>
                 <span style={{ fontSize: "14px", fontWeight: 600 }}>{alert.message}</span>
                 {alert.subjects.length > 0 && (
                   <span
                     style={{
                       fontFamily: "var(--font-mono, monospace)",
-                      fontSize: "11px",
+                      fontSize: "12px",
                       color: "var(--text-3, #8592A0)",
                     }}
                   >
@@ -264,7 +282,7 @@ export function AlertStack({
                   <span
                     style={{
                       fontFamily: "var(--font-mono, monospace)",
-                      fontSize: "11px",
+                      fontSize: "12px",
                       color: "var(--text-2, #A9B3BE)",
                     }}
                   >

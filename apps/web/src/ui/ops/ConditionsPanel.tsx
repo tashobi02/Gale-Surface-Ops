@@ -7,6 +7,8 @@
  *   (during replay), Earth link status, and REMS status ("not included in this build" if unbuilt).
  * - FR-36 & NFR-05: Every value shows its provenance class ({ v, unit, prov, src }) and data-provenance attribute.
  * - Non-negotiable: Nothing is labelled "live".
+ * - No sample values: a field the Hab Core has not supplied renders "—" (04 §D.1) with provenance "assumed"
+ *   and an `unavailable:` source. Supplied provenance and source ids are carried through untouched.
  * - Supports two variants:
  *   - "ops" (default): full panel layout for SCR-11 right column.
  *   - "eva": compact strip format for SCR-12 metadata strip.
@@ -14,6 +16,7 @@
 
 import type { CSSProperties, ReactElement } from "react";
 import type { Provenance } from "@marswalk/protocol";
+import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, fmtInt, isFiniteNumber } from "../components/provenance";
 
 export interface ProvenanceValue<T> {
   v: T;
@@ -47,95 +50,55 @@ export interface ConditionsPanelProps {
   className?: string;
 }
 
-const PROVENANCE_GLYPHS: Record<Provenance, string> = {
-  measured: "■",
-  derived: "◆",
-  modelled: "○",
-  assumed: "△",
-  replayed: "▶",
-  simulated: "◇",
-};
-
-const DEFAULT_CONDITIONS: ConditionsState = {
-  ltst: {
-    v: "13:05",
-    unit: "LTST",
-    prov: "modelled",
-    src: "Mars24-Gale-West-Lon",
-  },
-  sunElevationDeg: {
-    v: 42.5,
-    unit: "°",
-    prov: "modelled",
-    src: "Mars24-Solar-Position",
-  },
-  doseRateBackgroundUgyH: {
-    v: 0.21,
-    unit: "µGy/h",
-    prov: "replayed",
-    src: "MSL-RAD-Gale",
-  },
-  doseRateEventUgyH: {
-    v: 84.2,
-    unit: "µGy/h",
-    prov: "replayed",
-    src: "MSL-RAD-20240520",
-  },
-  earthLink: {
-    lightTimeSeconds: {
-      v: 842, // 14 min 02 s
-      unit: "s",
-      prov: "derived",
-      src: "SPICE-de440",
-    },
-    nextPass: {
-      v: "MRO 9m",
-      unit: "",
-      prov: "derived",
-      src: "MRO-Orbit-Pass-Predict",
-    },
-    queueUp: {
-      v: 1,
-      unit: "pkts",
-      prov: "derived",
-      src: "Orbital-Relay-Queue",
-    },
-    queueDown: {
-      v: 0,
-      unit: "pkts",
-      prov: "derived",
-      src: "Orbital-Relay-Queue",
-    },
-  },
-  remsClimatology: {
-    available: false,
-    note: "not included in this build",
-  },
-};
+const REMS_NOT_BUILT_NOTE = "not included in this build";
 
 function formatLightTime(seconds: number): string {
+  if (!isFiniteNumber(seconds) || seconds < 0) return UNAVAILABLE;
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
+
+/** One rendered condition: the text, and the provenance attributes of the value element. */
+interface Cell {
+  text: string;
+  attrs: { "data-provenance": Provenance; "data-source": string; title: string };
+}
+
+/** A supplied value formatted for display, or an unavailable cell when the field is missing. */
+function cell<T>(pv: ProvenanceValue<T> | undefined, path: string, fmt: (v: T, unit: string) => string): Cell {
+  if (!pv) {
+    const src = `unavailable:conditions.${path}`;
+    return { text: `${UNAVAILABLE} ${PROVENANCE_GLYPHS.assumed}`, attrs: { "data-provenance": "assumed", "data-source": src, title: src } };
+  }
+  return {
+    text: `${fmt(pv.v, pv.unit ?? "")} ${PROVENANCE_GLYPHS[pv.prov]}`,
+    attrs: { "data-provenance": pv.prov, "data-source": pv.src, title: pv.src },
+  };
+}
+
+const num = (digits: number) => (v: number, unit: string): string =>
+  isFiniteNumber(v) ? `${digits === 0 ? fmtInt(v) : fmtFixed(v, digits)}${unit ? ` ${unit}` : ""}` : UNAVAILABLE;
+const numTight = (v: number, unit: string): string => (isFiniteNumber(v) ? `${v}${unit}` : UNAVAILABLE);
+const plain = (v: string): string => (typeof v === "string" && v.length > 0 ? v : UNAVAILABLE);
 
 export function ConditionsPanel({
   variant = "ops",
   conditions = {},
   className = "",
 }: ConditionsPanelProps): ReactElement {
-  const state: ConditionsState = {
-    ...DEFAULT_CONDITIONS,
-    ...conditions,
-    earthLink: {
-      ...DEFAULT_CONDITIONS.earthLink!,
-      ...conditions.earthLink,
-    },
-    remsClimatology: {
-      ...DEFAULT_CONDITIONS.remsClimatology!,
-      ...conditions.remsClimatology,
-    },
-  };
+  const ltst = cell(conditions.ltst, "ltst", plain);
+  const sun = cell(conditions.sunElevationDeg, "sunElevationDeg", numTight);
+  const background = cell(conditions.doseRateBackgroundUgyH, "doseRateBackgroundUgyH", (v, u) => num(2)(v, u));
+  const event = conditions.doseRateEventUgyH ? cell(conditions.doseRateEventUgyH, "doseRateEventUgyH", (v, u) => num(1)(v, u)) : null;
+  const light = cell(conditions.earthLink?.lightTimeSeconds, "earthLink.lightTimeSeconds", (v) => formatLightTime(v));
+  const nextPass = cell(conditions.earthLink?.nextPass, "earthLink.nextPass", plain);
+  const queueUp = conditions.earthLink?.queueUp;
+  const queueDown = conditions.earthLink?.queueDown;
+  // Relay queue: up and down come as two sourced values; the cell carries the "up" source.
+  const queueDownText = queueDown && isFiniteNumber(queueDown.v) ? String(queueDown.v) : UNAVAILABLE;
+  const queue = cell(queueUp, "earthLink.queueUp", (v) => `↑${isFiniteNumber(v) ? v : UNAVAILABLE} ↓${queueDownText}`);
+  const remsNote = conditions.remsClimatology?.note ?? REMS_NOT_BUILT_NOTE;
 
   const cardStyle: CSSProperties = {
     backgroundColor: "var(--raised, #1C2128)",
@@ -158,7 +121,7 @@ export function ConditionsPanel({
   const labelStyle: CSSProperties = {
     color: "var(--text-2, #A9B3BE)",
     textTransform: "uppercase",
-    fontSize: "11px",
+    fontSize: "12px",
     letterSpacing: "0.04em",
   };
 
@@ -170,7 +133,7 @@ export function ConditionsPanel({
   };
 
   if (variant === "eva") {
-    // Compact inline strip for SCR-12 EVA tablet metadata
+    // Compact inline strip for SCR-12 EVA tablet metadata (EVA text is at least 16 px)
     return (
       <div
         className={`conditions-strip-eva ${className}`}
@@ -181,54 +144,20 @@ export function ConditionsPanel({
           alignItems: "center",
           gap: "12px",
           fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
-          fontSize: "11px",
+          fontSize: "16px",
           color: "var(--text-2, #A9B3BE)",
           overflowX: "auto",
         }}
       >
-        <span
-          data-provenance={state.ltst.prov}
-          data-source={state.ltst.src}
-          style={valStyle}
-        >
-          LTST {state.ltst.v} {PROVENANCE_GLYPHS[state.ltst.prov]}
-        </span>
-        <span
-          data-provenance={state.sunElevationDeg.prov}
-          data-source={state.sunElevationDeg.src}
-          style={valStyle}
-        >
-          SUN {state.sunElevationDeg.v}{state.sunElevationDeg.unit} {PROVENANCE_GLYPHS[state.sunElevationDeg.prov]}
-        </span>
-        <span
-          data-provenance={state.doseRateBackgroundUgyH.prov}
-          data-source={state.doseRateBackgroundUgyH.src}
-          style={valStyle}
-        >
-          BG {state.doseRateBackgroundUgyH.v} {state.doseRateBackgroundUgyH.unit} {PROVENANCE_GLYPHS[state.doseRateBackgroundUgyH.prov]}
-        </span>
-        {state.doseRateEventUgyH !== undefined && (
-          <span
-            data-provenance={state.doseRateEventUgyH.prov}
-            data-source={state.doseRateEventUgyH.src}
-            style={{
-              ...valStyle,
-              color: "var(--status-warning, #FF453A)",
-              fontWeight: 700,
-            }}
-          >
-            EVENT {state.doseRateEventUgyH.v} {state.doseRateEventUgyH.unit} {PROVENANCE_GLYPHS[state.doseRateEventUgyH.prov]}
+        <span {...ltst.attrs} style={valStyle}>LTST {ltst.text}</span>
+        <span {...sun.attrs} style={valStyle}>SUN {sun.text}</span>
+        <span {...background.attrs} style={valStyle}>BG {background.text}</span>
+        {event && (
+          <span {...event.attrs} style={{ ...valStyle, fontWeight: 700 }}>
+            EVENT {event.text}
           </span>
         )}
-        {state.earthLink && (
-          <span
-            data-provenance={state.earthLink.lightTimeSeconds.prov}
-            data-source={state.earthLink.lightTimeSeconds.src}
-            style={valStyle}
-          >
-            EARTH {formatLightTime(state.earthLink.lightTimeSeconds.v)} {PROVENANCE_GLYPHS[state.earthLink.lightTimeSeconds.prov]}
-          </span>
-        )}
+        <span {...light.attrs} style={valStyle}>EARTH {light.text}</span>
       </div>
     );
   }
@@ -245,54 +174,24 @@ export function ConditionsPanel({
       <div style={cardStyle}>
         <div style={rowStyle}>
           <span style={labelStyle}>LTST</span>
-          <span
-            className="value"
-            data-provenance={state.ltst.prov}
-            data-source={state.ltst.src}
-            style={valStyle}
-          >
-            {state.ltst.v} {PROVENANCE_GLYPHS[state.ltst.prov]}
-          </span>
+          <span className="value" {...ltst.attrs} style={valStyle}>{ltst.text}</span>
         </div>
 
         <div style={rowStyle}>
           <span style={labelStyle}>Sun Elevation</span>
-          <span
-            className="value"
-            data-provenance={state.sunElevationDeg.prov}
-            data-source={state.sunElevationDeg.src}
-            style={valStyle}
-          >
-            {state.sunElevationDeg.v}{state.sunElevationDeg.unit} {PROVENANCE_GLYPHS[state.sunElevationDeg.prov]}
-          </span>
+          <span className="value" {...sun.attrs} style={valStyle}>{sun.text}</span>
         </div>
 
         <div style={rowStyle}>
           <span style={labelStyle}>Background Dose</span>
-          <span
-            className="value"
-            data-provenance={state.doseRateBackgroundUgyH.prov}
-            data-source={state.doseRateBackgroundUgyH.src}
-            style={valStyle}
-          >
-            {state.doseRateBackgroundUgyH.v} {state.doseRateBackgroundUgyH.unit} {PROVENANCE_GLYPHS[state.doseRateBackgroundUgyH.prov]}
-          </span>
+          <span className="value" {...background.attrs} style={valStyle}>{background.text}</span>
         </div>
 
-        {state.doseRateEventUgyH !== undefined && (
+        {event && (
           <div style={rowStyle}>
             <span style={labelStyle}>Event Dose Rate</span>
-            <span
-              className="value"
-              data-provenance={state.doseRateEventUgyH.prov}
-              data-source={state.doseRateEventUgyH.src}
-              style={{
-                ...valStyle,
-                color: "var(--status-warning, #FF453A)",
-                fontWeight: 700,
-              }}
-            >
-              {state.doseRateEventUgyH.v} {state.doseRateEventUgyH.unit} {PROVENANCE_GLYPHS[state.doseRateEventUgyH.prov]}
+            <span className="value" {...event.attrs} style={{ ...valStyle, fontWeight: 700 }}>
+              {event.text}
             </span>
           </div>
         )}
@@ -301,68 +200,48 @@ export function ConditionsPanel({
           <span style={labelStyle}>REMS Weather</span>
           <span
             data-provenance="assumed"
-            data-source="REMS-Climatology"
-            style={{ color: "var(--text-dim, #7B8794)", fontSize: "11px" }}
+            data-source="docs/specs/01:FR-36"
+            title="docs/specs/01:FR-36"
+            style={{ color: "var(--text-dim, #7B8794)", fontSize: "12px" }}
           >
-            {state.remsClimatology?.note ?? "not included in this build"} △
+            {remsNote} {PROVENANCE_GLYPHS.assumed}
           </span>
         </div>
       </div>
 
-      {/* Earth Link Card */}
-      {state.earthLink && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <div
-            className="module-label"
-            style={{
-              fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
-              fontSize: "11px",
-              color: "var(--text-2, #A9B3BE)",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-            }}
-          >
-            [ ORBITAL /// EARTH LINK ]
+      {/* Earth Link Card: rows stay in place and read "—" until the Hab Core supplies them */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <div
+          className="module-label"
+          style={{
+            fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
+            fontSize: "12px",
+            color: "var(--text-2, #A9B3BE)",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+          }}
+        >
+          [ ORBITAL /// EARTH LINK ]
+        </div>
+        <div style={cardStyle} data-testid="earth-link-subpanel">
+          <div style={rowStyle}>
+            <span style={labelStyle}>Light Time</span>
+            <span className="value" {...light.attrs} style={valStyle}>{light.text}</span>
           </div>
-          <div style={cardStyle} data-testid="earth-link-subpanel">
-            <div style={rowStyle}>
-              <span style={labelStyle}>Light Time</span>
-              <span
-                className="value"
-                data-provenance={state.earthLink.lightTimeSeconds.prov}
-                data-source={state.earthLink.lightTimeSeconds.src}
-                style={valStyle}
-              >
-                {formatLightTime(state.earthLink.lightTimeSeconds.v)} {PROVENANCE_GLYPHS[state.earthLink.lightTimeSeconds.prov]}
-              </span>
-            </div>
 
-            <div style={rowStyle}>
-              <span style={labelStyle}>Next Pass</span>
-              <span
-                className="value"
-                data-provenance={state.earthLink.nextPass.prov}
-                data-source={state.earthLink.nextPass.src}
-                style={valStyle}
-              >
-                {state.earthLink.nextPass.v} {PROVENANCE_GLYPHS[state.earthLink.nextPass.prov]}
-              </span>
-            </div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>Next Pass</span>
+            <span className="value" {...nextPass.attrs} style={valStyle}>{nextPass.text}</span>
+          </div>
 
-            <div style={rowStyle}>
-              <span style={labelStyle}>Relay Queue</span>
-              <span
-                className="value"
-                data-provenance={state.earthLink.queueUp.prov}
-                data-source={state.earthLink.queueUp.src}
-                style={valStyle}
-              >
-                ↑{state.earthLink.queueUp.v} ↓{state.earthLink.queueDown.v} {PROVENANCE_GLYPHS[state.earthLink.queueUp.prov]}
-              </span>
-            </div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>Relay Queue</span>
+            <span className="value" {...queue.attrs} style={valStyle}>
+              {queue.text}
+            </span>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

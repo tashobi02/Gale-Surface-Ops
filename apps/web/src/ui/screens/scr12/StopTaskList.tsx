@@ -10,7 +10,8 @@
  *     DONE: drawn check in square (never filled ■, G-32) + "DONE"
  *     SKIPPED: ⊘ + "SKIPPED"
  *     DROPPED: ⊘ + "DROPPED"
- * - One tap ticks DONE; SKIP opens reason capture (time, terrain, alert, other).
+ * - One tap ticks DONE; SKIP opens reason capture (time, terrain, alert, other). Skipping sends exactly one
+ *   command, after the reason is chosen (onReason); the SKIP tap itself sends nothing.
  * - 5-s undo window shows UNDO button.
  * - Unsynced state shows "not synced" indicator.
  * - Ops-added task displays "added by ops" tag.
@@ -30,7 +31,8 @@ export interface StopTaskListProps {
   collapsed: boolean;
   notSyncedTaskIds: string[];
   onTick: (taskId: string) => void;
-  onSkip: (taskId: string) => void;
+  /** Notification only: fired when SKIP opens reason capture. It must not send a command; `onReason` does (once). */
+  onSkip?: (taskId: string) => void;
   onUndo: (taskId: string) => void;
   onReason: (taskId: string, reason: StopTaskReason) => void;
   className?: string;
@@ -42,11 +44,19 @@ export interface StopTaskRowProps {
   inUndoWindow: boolean;
   notSynced: boolean;
   onTick: (taskId: string) => void;
-  onSkip: (taskId: string) => void;
+  /** Notification only: fired when SKIP opens reason capture. It must not send a command. */
+  onSkip?: (taskId: string) => void;
   onUndo: (taskId: string) => void;
   onReason?: (taskId: string, reason: StopTaskReason) => void;
   className?: string;
 }
+
+/** Task states come from the simulated session (FR-50); counts are reduced from the supplied task list. */
+const COUNT_ATTRS = {
+  "data-provenance": "simulated",
+  "data-source": "snapshot:tasks",
+  title: "snapshot:tasks",
+} as const;
 
 const REASONS: StopTaskReason[] = ["time", "terrain", "alert", "other"];
 
@@ -73,7 +83,7 @@ export function StopTaskRow({
     borderBottom: "1px solid var(--hairline, #2A313A)",
     gap: "12px",
     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
-    fontSize: "13px",
+    fontSize: "16px", // EVA minimum text size (04 §A.3 #9)
     color: "var(--text-1, #ECEFF2)",
   };
 
@@ -89,7 +99,7 @@ export function StopTaskRow({
     alignItems: "center",
     justifyContent: "center",
     fontFamily: "inherit",
-    fontSize: "12px",
+    fontSize: "16px",
     fontWeight: 600,
     textTransform: "uppercase",
   };
@@ -107,9 +117,10 @@ export function StopTaskRow({
     color: "var(--text-1, #ECEFF2)",
   };
 
+  // SKIP only opens reason capture; the single UPDATE_STOP_TASK is sent by handleReasonSelect.
   const handleSkipClick = (): void => {
     setShowReasonPicker(true);
-    onSkip(task.task_id);
+    onSkip?.(task.task_id);
   };
 
   const handleReasonSelect = (reason: StopTaskReason): void => {
@@ -135,8 +146,8 @@ export function StopTaskRow({
             style={{
               ...actionButtonStyle,
               padding: "0",
-              minWidth: "44px",
-              minHeight: "44px",
+              minWidth: "var(--target-eva, 56px)",
+              minHeight: "var(--target-eva, 56px)",
               background: "transparent",
               border: "none",
             }}
@@ -155,19 +166,19 @@ export function StopTaskRow({
         {/* Task description & metadata tags */}
         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ fontWeight: 600, color: "var(--text-2, #A9B3BE)", fontSize: "11px" }}>
+            <span style={{ fontWeight: 600, color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>
               {task.state}
             </span>
             {task.origin === "ops" && (
               <span
                 className="tag-ops"
                 style={{
-                  fontSize: "10px",
+                  fontSize: "16px",
                   padding: "1px 4px",
                   backgroundColor: "var(--panel, #14181D)",
                   border: "1px solid var(--edge, #5C6670)",
                   color: "var(--text-2, #A9B3BE)",
-                  borderRadius: "2px",
+                  borderRadius: 0,
                 }}
               >
                 added by ops
@@ -177,7 +188,7 @@ export function StopTaskRow({
               <span
                 className="tag-sync"
                 style={{
-                  fontSize: "10px",
+                  fontSize: "16px",
                   padding: "1px 4px",
                   backgroundColor: "var(--panel, #14181D)",
                   color: "var(--text-2, #A9B3BE)",
@@ -197,7 +208,7 @@ export function StopTaskRow({
             {task.text}
           </span>
           {task.state === "SKIPPED" && task.reason && (
-            <span style={{ fontSize: "11px", color: "var(--text-2, #A9B3BE)" }}>
+            <span style={{ fontSize: "16px", color: "var(--text-2, #A9B3BE)" }}>
               Reason: {task.reason}
             </span>
           )}
@@ -206,7 +217,7 @@ export function StopTaskRow({
 
       {/* Action controls (Tick, Skip, Undo, Reason picker) */}
       {!readOnly && (
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {inUndoWindow && (
             <button
               type="button"
@@ -230,13 +241,13 @@ export function StopTaskRow({
           )}
 
           {showReasonPicker && (
-            <div style={{ display: "flex", gap: "4px" }}>
+            <div role="group" aria-label="Reason for skipping" style={{ display: "flex", gap: "8px" }}>
               {REASONS.map((r) => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => handleReasonSelect(r)}
-                  style={{ ...actionButtonStyle, minWidth: "44px", fontSize: "11px", padding: "4px 6px" }}
+                  style={{ ...actionButtonStyle, padding: "4px 8px" }}
                   aria-label={`Reason: ${r}`}
                 >
                   {r}
@@ -283,7 +294,7 @@ export function StopTaskList({
           alignItems: "center",
           gap: "8px",
           fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
-          fontSize: "12px",
+          fontSize: "16px",
           color: "var(--text-1, #ECEFF2)",
           padding: "4px 8px",
           backgroundColor: "var(--panel, #14181D)",
@@ -291,7 +302,7 @@ export function StopTaskList({
         }}
       >
         <span aria-hidden="true">✓</span>
-        <span>TASKS {doneCount}/{totalCount}</span>
+        <span {...COUNT_ATTRS}>TASKS {doneCount}/{totalCount}</span>
       </div>
     );
   }
@@ -319,12 +330,12 @@ export function StopTaskList({
           backgroundColor: "var(--panel, #14181D)",
           borderBottom: "1px solid var(--hairline, #2A313A)",
           fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
-          fontSize: "11px",
+          fontSize: "16px",
           color: "var(--text-2, #A9B3BE)",
           textTransform: "uppercase",
         }}
       >
-        <span>
+        <span {...COUNT_ATTRS}>
           TASKS {doneCount}/{totalCount}
         </span>
         {notSyncedTaskIds.length > 0 && (
@@ -344,7 +355,7 @@ export function StopTaskList({
             padding: "12px",
             color: "var(--text-2, #A9B3BE)",
             fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
-            fontSize: "12px",
+            fontSize: "16px",
           }}
         >
           No tasks assigned for this stop

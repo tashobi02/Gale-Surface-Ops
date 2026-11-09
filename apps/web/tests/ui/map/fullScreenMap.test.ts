@@ -1,196 +1,180 @@
 /**
  * T24.10 / T24.09 — Full-screen map tests (docs/specs/01 FR-32; 04 §E.5; mockup handoff DV-13, G-42, G-48).
+ * The real FullScreenMap component is mounted and its controls are clicked.
+ *
+ * Not claimed here: pixel geometry (the map taking >= 80 % of the width) and the shared Mars map instance. Those
+ * need a browser and the T07.17 MapControls integration.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { FullScreenMap, MAX_SCIENCE_LAYERS } from "../../../src/ui/map/FullScreenMap";
+import { FullScreenMap, MAX_SCIENCE_LAYERS, type FullScreenMapLayer } from "../../../src/ui/map/FullScreenMap";
+import { click, installDom, mount, must, removeDom } from "../domHarness";
+
+beforeAll(() => installDom());
+afterAll(() => removeDom());
+afterEach(() => {
+  document.body.innerHTML = "";
+});
 
 describe("MapControls (04 §E.5)", () => {
-  it("eva-full shows +, −, FIT, FOLLOW, LAYERS and CLOSE, each a labelled button at least 56 px", () => {
-    const html = renderToStaticMarkup(createElement(FullScreenMap, { onClose: () => {} }));
-    expect(html).toMatch(/\+/);
-    expect(html).toMatch(/−/);
-    expect(html).toMatch(/FIT/);
-    expect(html).toMatch(/FOLLOW/);
-    expect(html).toMatch(/LAYERS/);
-    expect(html).toMatch(/CLOSE/);
-    expect(html).toMatch(/56px/);
-  });
+  // TODO(decision): coordinate Mars map rendering, shared MapControls and tablet full-map composition with
+  // T07.06/T07.17/T24.09 owners; preserve #104's component until that integration.
+  it.todo("renders MapControls without throwing (pending T07.17 implementation)");
   it.todo("ops and planner show + / − / FIT only (T07.17)");
   it.todo("every action works without drag, wheel or pinch (T07.17)");
 });
-describe("FullScreenMap (04 §E.5)", () => {
-  it("opens from the mini-map and from FULL; CLOSE returns the normal layout", () => {
-    const onClose = vi.fn();
-    const html = renderToStaticMarkup(createElement(FullScreenMap, { onClose }));
-    expect(html).toMatch(/SCR-12-FULLMAP/);
-  it("fixed geography: the alert slot, metadata strip and action row keep their position", () => {
-    expect(html).toMatch(/toolbar|controls/i);
-  it("HAVEN and O₂ stay visible: in their row in portrait, stacked at the left in landscape", () => {
-    const landscapeHtml = renderToStaticMarkup(
-      createElement(FullScreenMap, { orientation: "landscape", onClose: () => {} }),
-    );
-    expect(landscapeHtml).toMatch(/landscape-telemetry-stack/);
-    expect(landscapeHtml).toMatch(/HAVEN/);
-    expect(landscapeHtml).toMatch(/O₂/);
-import {
-  MapControls,
-  type MapControlsProps,
-} from "../../../src/ui/map/MapControls";
-  FullScreenMap,
-  MAX_SCIENCE_LAYERS,
-  type FullScreenMapLayer,
-  type FullScreenMapProps,
-} from "../../../src/ui/map/FullScreenMap";
-import type { Crew } from "@marswalk/protocol";
-// docs/specs/01 FR-32; 04 §E.5; mockup handoff DV-13, DV-14, G-42, G-43, G-48. TASK-07, TASK-24.
-describe("MapControls", () => {
-    const props: MapControlsProps = {
-      variant: "eva-full",
-      onZoom: vi.fn(),
-      onFit: vi.fn(),
-      follow: true,
-      onFollow: vi.fn(),
-      layersOpen: false,
-      onLayers: vi.fn(),
-      onClose: vi.fn(),
-    };
-    const html = renderToStaticMarkup(createElement(MapControls, props));
-    expect(html).toContain("+");
-    expect(html).toContain("−");
-    expect(html).toContain("FIT");
-    expect(html).toContain("FOLLOW");
-    expect(html).toContain("LAYERS");
-    expect(html).toContain("CLOSE");
-    // Each button must be labelled with a word and meet the 56 px EVA target size
-    expect(html).toMatch(/aria-label|title/i);
-    expect(html).toMatch(/56px|--target-eva/);
-  it("ops and planner show + / − / FIT only", () => {
-    const opsProps: MapControlsProps = {
-      variant: "ops",
-      follow: false,
-    const opsHtml = renderToStaticMarkup(createElement(MapControls, opsProps));
-    expect(opsHtml).toContain("+");
-    expect(opsHtml).toContain("−");
-    expect(opsHtml).toContain("FIT");
-    expect(opsHtml).not.toContain("FOLLOW");
-    expect(opsHtml).not.toContain("LAYERS");
-    expect(opsHtml).not.toContain("CLOSE");
-    const plannerProps: MapControlsProps = {
-      variant: "planner",
-    const plannerHtml = renderToStaticMarkup(createElement(MapControls, plannerProps));
-    expect(plannerHtml).toContain("+");
-    expect(plannerHtml).toContain("−");
-    expect(plannerHtml).toContain("FIT");
-    expect(plannerHtml).not.toContain("FOLLOW");
-    expect(plannerHtml).not.toContain("CLOSE");
-  it("every action works without drag, wheel or pinch", () => {
-    // Buttons are primary, gestures are extras only (04 §E.5, §A.3 #9)
+
+describe("FullScreenMap controls (04 §E.5)", () => {
+  it("shows +, −, FIT, FOLLOW, LAYERS and CLOSE as labelled buttons, each declaring a 56 px minimum", async () => {
+    const { container } = await mount(createElement(FullScreenMap, { onClose: () => {} }));
+    const labels = ["+", "−", "FIT", "FOLLOW", "LAYERS", "CLOSE"];
+    const buttons = [...container.querySelectorAll<HTMLButtonElement>('[role="toolbar"] button')];
+
+    expect(buttons.map((b) => b.textContent?.replace(/\s+(ON|OFF)$/, ""))).toEqual(labels);
+    for (const b of buttons) {
+      expect(b.getAttribute("aria-label")).toBeTruthy();
+      expect(b.style.minHeight).toBe("56px");
+      expect(b.style.minWidth).toBe("56px");
+    }
+  });
+
+  it("+, −, FIT and CLOSE call their callbacks exactly once each", async () => {
     const onZoom = vi.fn();
     const onFit = vi.fn();
-      onZoom,
-      onFit,
-    const element = createElement(MapControls, props);
-    expect(element.props.onZoom).toBeDefined();
-    expect(element.props.onFit).toBeDefined();
-    const html = renderToStaticMarkup(element);
-    expect(html).toMatch(/<button/);
-describe("FullScreenMap", () => {
-  const dummyCrew: Crew[] = [
-    {
-      crew_id: "EV1",
-      x_m: 1000,
-      y_m: 2000,
-      activity: "WALKING",
-      stop_index: 2,
-      o2_frac: 0.85,
-      eva_elapsed_s: 3600,
-      dose_event_ugy: 100,
-      dose_event_unsheltered_ugy: 200,
-      haven: { minutes: 14, kind: "vehicle", target_x_m: 1100, target_y_m: 2050 },
-      linked: true,
-      link_path: ["PR1", "HAB"],
-      stale: false,
-    },
-  ];
-  const defaultProps: FullScreenMapProps = {
-    crew: dummyCrew,
-    view: { center_x_m: 1000, center_y_m: 2000, resolution_m_per_px: 1.0 },
-    layers: ["slope", "haven_bands"],
-    orientation: "portrait",
-    onClose: vi.fn(),
-  };
-    const html = renderToStaticMarkup(
-      createElement(FullScreenMap, { ...defaultProps, onClose }),
-    const html = renderToStaticMarkup(createElement(FullScreenMap, defaultProps));
-    // Must preserve fixed regions: alert slot at top, metadata strip, and action row
-    expect(html).toMatch(/alert-slot|alert-bar/);
-    expect(html).toMatch(/meta-strip|metadata/);
-    expect(html).toMatch(/action-row|actions/);
-    const portraitHtml = renderToStaticMarkup(
-      createElement(FullScreenMap, { ...defaultProps, orientation: "portrait" }),
-    expect(portraitHtml).toContain("HAVEN");
-    expect(portraitHtml).toContain("O₂");
-    expect(portraitHtml).toMatch(/portrait|row/);
-      createElement(FullScreenMap, { ...defaultProps, orientation: "landscape" }),
-    expect(landscapeHtml).toContain("HAVEN");
-    expect(landscapeHtml).toContain("O₂");
-    expect(landscapeHtml).toMatch(/landscape|stacked/);
-  });
-
-  it("landscape map takes at least 80 % of the width; HAVEN keeps the top-left origin", () => {
-    const html = renderToStaticMarkup(
-      createElement(FullScreenMap, { orientation: "landscape", onClose: () => {} }),
-    );
-    expect(html).toMatch(/82%|80%/);
-      createElement(FullScreenMap, { ...defaultProps, orientation: "landscape" }),
-    expect(html).toMatch(/80%|0\.8|flex/);
-    // HAVEN at top-left origin
-    expect(html).toMatch(/haven.*top.*left|top-left/i);
-  });
-
-  it("a warning closes the full-screen map", () => {
     const onClose = vi.fn();
-    // Simulate hasWarning prop triggering onClose
-    const hasWarning = true;
-    if (hasWarning) {
-      onClose();
+    const { container } = await mount(createElement(FullScreenMap, { onZoom, onFit, onClose }));
+
+    await click(must(container, "#map-ctrl-zoom-in"));
+    await click(must(container, "#map-ctrl-zoom-out"));
+    await click(must(container, "#map-ctrl-fit"));
+    await click(must(container, "#map-ctrl-close"));
+
+    expect(onZoom.mock.calls).toEqual([[1], [-1]]);
+    expect(onFit).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("FOLLOW toggles and reports each change", async () => {
+    const onFollow = vi.fn();
+    const { container } = await mount(createElement(FullScreenMap, { onFollow, onClose: () => {} }));
+    const follow = must<HTMLButtonElement>(container, "#map-ctrl-follow");
+
+    expect(follow.getAttribute("aria-pressed")).toBe("true");
+    await click(follow);
+    expect(follow.getAttribute("aria-pressed")).toBe("false");
+    await click(follow);
+    expect(onFollow.mock.calls).toEqual([[false], [true]]);
+  });
+
+  it("selection and CLOSE use neutral chrome: no status colour on FOLLOW, layer or CLOSE (04 §A.3)", async () => {
+    const { container } = await mount(createElement(FullScreenMap, { onClose: () => {} }));
+    await click(must(container, "#map-ctrl-layers"));
+
+    for (const el of container.querySelectorAll<HTMLElement>("button")) {
+      expect(el.getAttribute("style") ?? "").not.toMatch(/--status-(nominal|caution|warning)/);
     }
-    expect(onClose).toHaveBeenCalled();
-    // When warning is present or triggered, FullScreenMap should signal close
-    const element = createElement(FullScreenMap, { ...defaultProps, onClose });
-    expect(element.props.onClose).toBeDefined();
+  });
+});
+
+describe("FullScreenMap behaviour (04 §E.5)", () => {
+  it("a warning closes the full-screen map: rendering with hasWarning calls onClose", async () => {
+    const onClose = vi.fn();
+    const view = await mount(createElement(FullScreenMap, { hasWarning: false, onClose }));
+    expect(onClose).not.toHaveBeenCalled();
+
+    await view.rerender(createElement(FullScreenMap, { hasWarning: true, onClose }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("at most two scientific layers; a third turns the oldest off and says so", () => {
+  it("at most two scientific layers; a third turns the oldest off and says so", async () => {
     expect(MAX_SCIENCE_LAYERS).toBe(2);
-    const html = renderToStaticMarkup(
-      createElement(FullScreenMap, { layers: ["slope", "thermal_inertia"], onClose: () => {} }),
+    const onLayerToggle = vi.fn<(layers: FullScreenMapLayer[]) => void>();
+    const { container } = await mount(
+      createElement(FullScreenMap, { layers: ["slope", "thermal_inertia"], onLayerToggle, onClose: () => {} }),
     );
-    expect(html).toMatch(/slope/i);
-    expect(html).toMatch(/thermal/i);
+    await click(must(container, "#map-ctrl-layers"));
+
+    const choose = async (name: RegExp) => {
+      const button = [...container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find((b) => name.test(b.textContent ?? ""));
+      if (!button) throw new Error(`no layer button ${name}`);
+      await click(button);
+    };
+
+    await choose(/Comm shadow/);
+    expect(onLayerToggle).toHaveBeenLastCalledWith(["thermal_inertia", "comm_shadow"]);
+    const notice = must(container, '[role="status"]');
+    expect(notice.textContent).toMatch(/Layer limit \(2\)/);
+    expect(notice.textContent).toMatch(/Slope/);
+    expect(container.textContent).toMatch(/LAYER: Comm shadow/);
+    expect(container.textContent).not.toMatch(/LAYER: Slope/);
+
+    // Turning a layer off clears the notice and reports the shorter list.
+    await choose(/Thermal inertia/);
+    expect(onLayerToggle).toHaveBeenLastCalledWith(["comm_shadow"]);
+    expect(container.querySelector('[role="status"]')).toBeNull();
   });
 
-  it("positions are drawn in working-projection metres (no EPSG:3857, no ol/sphere)", () => {
-    const html = renderToStaticMarkup(createElement(FullScreenMap, { onClose: () => {} }));
+  it("with nothing supplied the readouts are — and labelled; no sample coordinates, minutes or percentages appear", async () => {
+    const { container } = await mount(createElement(FullScreenMap, { orientation: "landscape", onClose: () => {} }));
+    const text = container.textContent ?? "";
+
+    expect(text).not.toMatch(/2410|1875|14 MIN|71 %|NaN/);
+    const centre = must(container, ".value");
+    expect(centre.textContent).toContain("X: —");
+    expect(centre.getAttribute("data-provenance")).toBe("assumed");
+    expect(centre.getAttribute("data-source")).toBe("unavailable:map.view");
+    expect(must(container, '[data-slot="haven-compact"] > div').textContent).toContain("—");
+    expect(must(container, '[data-slot="o2-compact"] > div').textContent).toContain("—");
+  });
+
+  it("supplied view and telemetry are shown with their own labels; the view is 'derived', never 'measured'", async () => {
+    const { container } = await mount(
+      createElement(FullScreenMap, {
+        orientation: "landscape",
+        view: { center_x_m: 12.5, center_y_m: -3, resolution_m_per_px: 2 },
+        haven: { v: 22, unit: "min", prov: "modelled", src: "snapshot:crew.haven.minutes" },
+        o2: { v: 64, unit: "%", prov: "simulated", src: "snapshot:crew.o2_frac" },
+        onClose: () => {},
+      }),
+    );
+
+    const centre = must(container, ".value");
+    expect(centre.textContent).toContain("X: 12.5 m");
+    expect(centre.textContent).toContain("Y: -3.0 m");
+    expect(centre.getAttribute("data-provenance")).toBe("derived");
+    const haven = must(container, '[data-slot="haven-compact"] > div');
+    expect(haven.textContent).toContain("22 MIN");
+    expect(haven.getAttribute("data-provenance")).toBe("modelled");
+    expect(haven.getAttribute("data-source")).toBe("snapshot:crew.haven.minutes");
+    expect(must(container, '[data-slot="o2-compact"] > div').getAttribute("data-provenance")).toBe("simulated");
+  });
+
+  it("landscape stacks HAVEN above O₂ at the left; portrait has no stack (the cards keep their row)", async () => {
+    const landscape = await mount(createElement(FullScreenMap, { orientation: "landscape", onClose: () => {} }));
+    const slots = [...landscape.container.querySelectorAll("[data-slot]")].map((el) => el.getAttribute("data-slot"));
+    expect(slots.indexOf("landscape-telemetry-stack")).toBeLessThan(slots.indexOf("map-canvas"));
+    expect(slots.indexOf("haven-compact")).toBeLessThan(slots.indexOf("o2-compact"));
+    await landscape.unmount();
+
+    const portrait = await mount(createElement(FullScreenMap, { orientation: "portrait", onClose: () => {} }));
+    expect(portrait.container.querySelector('[data-slot="landscape-telemetry-stack"]')).toBeNull();
+  });
+
+  it("landscape HAVEN and O₂ use the specified 40 px / 48 px token, not a local 28 px", async () => {
+    const { container } = await mount(createElement(FullScreenMap, { orientation: "landscape", onClose: () => {} }));
+    for (const slot of ["haven-compact", "o2-compact"]) {
+      const style = must(container, `[data-slot="${slot}"] > div`).getAttribute("style") ?? "";
+      expect(style).toContain("--text-value-landscape");
+      expect(style).not.toContain("28px");
+    }
+  });
+
+  it("positions are drawn in working-projection metres (no EPSG:3857, no ol/sphere)", async () => {
+    const { container } = await mount(createElement(FullScreenMap, { onClose: () => {} }));
+    const html = container.innerHTML;
+
     expect(html).toMatch(/IAU_2015:49900/);
     expect(html).not.toMatch(/EPSG:3857/);
     expect(html).not.toMatch(/ol\/sphere/);
-    const threeLayers: FullScreenMapLayer[] = ["slope", "thermal_inertia", "comm_shadow"];
-      createElement(FullScreenMap, {
-        ...defaultProps,
-        // Passing 3 layers tests the clamping behavior
-        layers: threeLayers.slice(-MAX_SCIENCE_LAYERS),
-      }),
-    // Oldest layer ("slope") turned off, remaining 2 active
-    expect(html).toContain("comm_shadow");
-    expect(html).toContain("thermal_inertia");
-    const html = renderToStaticMarkup(createElement(FullScreenMap, defaultProps));
-    expect(html).not.toContain("EPSG:3857");
-    expect(html).not.toContain("EPSG:4326");
-    expect(defaultProps.view.center_x_m).toBeDefined();
-    expect(defaultProps.view.center_y_m).toBeDefined();
-    expect(defaultProps.view.resolution_m_per_px).toBeDefined();
   });
 });

@@ -13,11 +13,24 @@ import {
 import type { CrewId, Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 import {
+  havenTargetLabel,
   selectEvaViewModel,
   type EvaViewModel,
 } from "../eva/viewModel";
 import { EvaActionRow } from "../eva/HoldToConfirm";
 import { StatusIcon } from "../components/statusIcon";
+import {
+  PROVENANCE_GLYPHS,
+  UNAVAILABLE,
+  fmtBearing,
+  fmtDuration,
+  fmtFixed,
+  fmtHourMinute,
+  fmtInt,
+  fmtKilometres,
+  isFiniteNumber,
+  provAttrs,
+} from "../components/provenance";
 import { TasksButton } from "./scr12/TasksButton";
 import { StopTaskList } from "./scr12/StopTaskList";
 
@@ -41,31 +54,12 @@ export interface EvaTabletProps {
   className?: string;
 }
 
-const PROV_GLYPHS: Record<string, string> = {
-  measured: "■",
-  derived: "◆",
-  modelled: "○",
-  assumed: "△",
-  replayed: "▶",
-  simulated: "◇",
-};
+/** A "—" shown where there is no stop to navigate to (still labelled, 04 §D.1). */
+const NO_STOP = { prov: "assumed", src: "unavailable:plan.next_stop" } as const;
 
-/** Format seconds into H:MM:SS or M:SS string. */
-function formatDuration(totalSeconds: number): string {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = Math.floor(totalSeconds % 60);
-  if (h > 0) {
-    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  }
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-/** Format minutes into H:MM string. */
-function formatMinutes(totalMinutes: number): string {
-  const h = Math.floor(totalMinutes / 60);
-  const m = Math.floor(totalMinutes % 60);
-  return `${h}:${String(m).padStart(2, "0")}`;
+/** Unit suffix only for a real number, so "—" never reads "— min". */
+function withUnit(v: unknown, unit: string): string {
+  return isFiniteNumber(v) ? ` ${unit}` : "";
 }
 
 /**
@@ -87,10 +81,12 @@ export function EvaTablet({
   const activeSnapshot = snapshot ?? client?.state() ?? null;
   const vm: EvaViewModel = selectEvaViewModel(activeSnapshot, crewId);
 
-  // Stop task list open state (U-51 ratified: TASKS button toggles list)
+  // Stop task list open state (TASKS button toggles the list).
+  // TODO(decision): resolve U-51 and U-59 with the named owners before changing task-list placement, walking/options
+  // collapse or post-ack read-only behavior; undo and pending-command integration remain incomplete.
   const [tasksExpanded, setTasksExpanded] = useState<boolean>(false);
 
-  // U-59 ratified: alert collapse rules — collapse during alert / options
+  // Alert collapse: the list hides for an unacknowledged warning (U-59 is still open, see above)
   const isAlertActive = Boolean(vm.alertSlot && vm.alertSlot.level === "warning" && !vm.alertSlot.acknowledged);
   const showTasksList = tasksExpanded && !isAlertActive;
 
@@ -190,7 +186,7 @@ export function EvaTablet({
             <button
               type="button"
               className="btn sm"
-              style={{ minHeight: "56px", minWidth: "56px" }}
+              style={{ minHeight: "56px", minWidth: "56px", fontSize: "16px" }}
               aria-label="Review alert options"
             >
               OPTIONS
@@ -207,7 +203,7 @@ export function EvaTablet({
               padding: "0 8px",
             }}
           >
-            <StatusIcon status="nominal" showWord={true} />
+            <StatusIcon status={activeSnapshot ? "nominal" : "unknown"} showWord={true} />
           </div>
         )}
       </div>
@@ -226,23 +222,23 @@ export function EvaTablet({
           style={cardStyle}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)" }}>HAVEN</span>
+            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>HAVEN</span>
             <StatusIcon status={vm.haven.status} showWord={true} />
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "6px", margin: "4px 0" }}>
             <span
               className="value"
-              data-provenance={vm.haven.minutes.prov}
+              {...provAttrs(vm.haven.minutes)}
               style={valueMonoStyle}
             >
-              {Math.round(vm.haven.minutes.v)}
+              {fmtInt(vm.haven.minutes.v)}
             </span>
             <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", textTransform: "uppercase" }}>
-              {vm.haven.minutes.unit} {PROV_GLYPHS[vm.haven.minutes.prov] ?? "○"}
+              {vm.haven.minutes.unit} {PROVENANCE_GLYPHS[vm.haven.minutes.prov]}
             </span>
           </div>
-          <span style={{ fontSize: "12px", color: "var(--text-2, #A9B3BE)", fontFamily: "var(--font-mono, monospace)" }}>
-            via {vm.haven.targetId ?? "PR1"}
+          <span style={{ fontSize: "16px", color: "var(--text-2, #A9B3BE)", fontFamily: "var(--font-mono, monospace)" }}>
+            {havenTargetLabel(vm.haven)}
           </span>
         </div>
 
@@ -253,23 +249,26 @@ export function EvaTablet({
           style={cardStyle}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)" }}>O₂</span>
+            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>O₂</span>
             <StatusIcon status={vm.o2.status} showWord={true} />
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "6px", margin: "4px 0" }}>
             <span
               className="value"
-              data-provenance={vm.o2.percent.prov}
+              {...provAttrs(vm.o2.percent)}
               style={valueMonoStyle}
             >
               {vm.o2.percent.v}
             </span>
             <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px" }}>
-              % {PROV_GLYPHS[vm.o2.percent.prov] ?? "■"}
+              {vm.o2.percent.unit} {PROVENANCE_GLYPHS[vm.o2.percent.prov]}
             </span>
           </div>
-          <span style={{ fontSize: "12px", color: "var(--text-2, #A9B3BE)", fontFamily: "var(--font-mono, monospace)" }}>
-            {formatMinutes(vm.o2.timeLeftMinutes.v)} left {PROV_GLYPHS[vm.o2.timeLeftMinutes.prov] ?? "◆"}
+          <span
+            {...provAttrs(vm.o2.timeLeftMinutes)}
+            style={{ fontSize: "16px", color: "var(--text-2, #A9B3BE)", fontFamily: "var(--font-mono, monospace)" }}
+          >
+            {fmtHourMinute(vm.o2.timeLeftMinutes.v)} left {PROVENANCE_GLYPHS[vm.o2.timeLeftMinutes.prov]}
           </span>
         </div>
       </div>
@@ -296,13 +295,13 @@ export function EvaTablet({
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)" }}>
-              NEXT {vm.nextStop ? `· ${vm.nextStop.stopName}` : "· In transit"}
+            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>
+              NEXT {vm.nextStop ? `· ${vm.nextStop.stopName}` : `· ${UNAVAILABLE}`}
             </span>
-            {/* TASKS button (U-51 ratified) */}
+            {/* TASKS button; counts are "—" until a stop is known (U-51 is still open) */}
             <TasksButton
-              doneCount={vm.nextStop?.taskCount.done ?? 0}
-              totalCount={vm.nextStop?.taskCount.total ?? 0}
+              doneCount={vm.nextStop ? vm.nextStop.taskCount.done : null}
+              totalCount={vm.nextStop ? vm.nextStop.taskCount.total : null}
               active={showTasksList}
               onClick={() => setTasksExpanded(!tasksExpanded)}
             />
@@ -318,11 +317,19 @@ export function EvaTablet({
               fontSize: "16px",
             }}
           >
-            <span>↗ {vm.nextStop ? `${String(vm.nextStop.bearingDeg.v).padStart(3, "0")}°` : "---°"}</span>
+            <span {...provAttrs(vm.nextStop?.bearingDeg ?? NO_STOP)}>
+              ↗ {fmtBearing(vm.nextStop?.bearingDeg.v)}
+            </span>
             <span>·</span>
-            <span>{vm.nextStop ? `${(vm.nextStop.distanceM.v / 1000).toFixed(2)} km` : "— km"}</span>
+            <span {...provAttrs(vm.nextStop?.distanceM ?? NO_STOP)}>
+              {fmtKilometres(vm.nextStop?.distanceM.v)}
+              {withUnit(vm.nextStop?.distanceM.v, "km")}
+            </span>
             <span>·</span>
-            <span>{vm.nextStop ? `${vm.nextStop.etaMinutes.v} min` : "— min"}</span>
+            <span {...provAttrs(vm.nextStop?.etaMinutes ?? NO_STOP)}>
+              {fmtInt(vm.nextStop?.etaMinutes.v)}
+              {withUnit(vm.nextStop?.etaMinutes.v, "min")}
+            </span>
           </div>
 
           {/* Expanded Stop Tasks List (FR-50) */}
@@ -339,7 +346,7 @@ export function EvaTablet({
                 tasks={activeSnapshot?.tasks ?? []}
                 crewId={crewId}
                 stopId={vm.nextStop?.stopId ?? ""}
-                readOnly={false}
+                readOnly={!client}
                 undo={null}
                 collapsed={false}
                 notSyncedTaskIds={[]}
@@ -349,18 +356,13 @@ export function EvaTablet({
                     args: { task_id: taskId, state: "DONE" },
                   });
                 }}
-                onSkip={(taskId) => {
-                  client?.send?.({
-                    kind: "UPDATE_STOP_TASK",
-                    args: { task_id: taskId, state: "SKIPPED" },
-                  });
-                }}
                 onUndo={(taskId) => {
                   client?.send?.({
                     kind: "UPDATE_STOP_TASK",
                     args: { task_id: taskId, state: "TODO" },
                   });
                 }}
+                // SKIP only opens reason capture; this is the one UPDATE_STOP_TASK for a skip.
                 onReason={(taskId, reason) => {
                   client?.send?.({
                     kind: "UPDATE_STOP_TASK",
@@ -387,7 +389,7 @@ export function EvaTablet({
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)" }}>SURFACE MAP</span>
+            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>SURFACE MAP</span>
             <button
               id="action-open-full-map"
               type="button"
@@ -395,7 +397,7 @@ export function EvaTablet({
               style={{
                 minHeight: "56px",
                 padding: "8px 14px",
-                fontSize: "12px",
+                fontSize: "16px",
                 cursor: "pointer",
               }}
               onClick={(e) => {
@@ -407,7 +409,7 @@ export function EvaTablet({
             </button>
           </div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flex: 1 }}>
-            <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "12px", color: "var(--text-3, #8592A0)" }}>
+            <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--text-3, #8592A0)" }}>
               [ Gale Crater · Mount Sharp Traverse · IAU_2015:49900 ]
             </span>
           </div>
@@ -426,7 +428,7 @@ export function EvaTablet({
           alignItems: "center",
           justifyContent: "space-between",
           fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
-          fontSize: "var(--text-micro, 12px)",
+          fontSize: "16px",
           letterSpacing: "0.04em",
           textTransform: "uppercase",
           color: "var(--text-2, #A9B3BE)",
@@ -434,13 +436,27 @@ export function EvaTablet({
           borderTop: "1px solid var(--hairline, #2A313A)",
         }}
       >
-        <span>EVA {formatDuration(vm.metadata.evaTimeSeconds.v)}</span>
+        <span {...provAttrs(vm.metadata.evaTimeSeconds)}>
+          EVA {fmtDuration(vm.metadata.evaTimeSeconds.v)} {PROVENANCE_GLYPHS[vm.metadata.evaTimeSeconds.prov]}
+        </span>
         <span>·</span>
-        <span>DOSE {(vm.metadata.doseUgy.v / 1000).toFixed(1)} mGy</span>
+        <span {...provAttrs(vm.metadata.doseUgy)}>
+          DOSE {isFiniteNumber(vm.metadata.doseUgy.v) ? fmtFixed(vm.metadata.doseUgy.v / 1000, 1) : UNAVAILABLE} mGy{" "}
+          {PROVENANCE_GLYPHS[vm.metadata.doseUgy.prov]}
+        </span>
         <span>·</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-          LINK {vm.metadata.link.linked ? "▮▮▮" : "▯▯▯"}
-          {vm.metadata.link.stale && <span className="tag" style={{ color: "var(--status-caution, #FFB020)" }}>STALE</span>}
+        <span
+          data-provenance="simulated"
+          data-source="snapshot:crew.linked"
+          title="snapshot:crew.linked"
+          style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
+        >
+          LINK {vm.metadata.link.linked === null ? UNAVAILABLE : vm.metadata.link.linked ? "▮▮▮" : "▯▯▯"} {PROVENANCE_GLYPHS.simulated}
+          {vm.metadata.link.stale === true && (
+            <span className="tag">
+              <StatusIcon status="caution" word="STALE" showWord={true} />
+            </span>
+          )}
         </span>
       </div>
 
@@ -456,6 +472,7 @@ export function EvaTablet({
       >
         <EvaActionRow
           client={client}
+          crewId={crewId}
           linked={vm.metadata.link.linked}
           onOpenHud={onOpenHud}
           onOpenRoverTasking={onOpenRoverTasking}

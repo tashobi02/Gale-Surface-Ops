@@ -146,7 +146,7 @@ describe.skipIf(PENDING)("EVA view model on mock fixtures (T24.02)", () => {
     expect(vm.alertSlot).toBeNull();
   });
 
-  it("beat walking: updates haven and O₂ with next stop bearing and distance", () => {
+  it("beat walking: updates haven and O₂; next-stop bearing and distance stay unavailable (no UI geometry)", () => {
     const snapshot = getSnapshot("walking");
     const vm: EvaViewModel = selectEvaViewModel(snapshot, "EV1");
 
@@ -154,9 +154,12 @@ describe.skipIf(PENDING)("EVA view model on mock fixtures (T24.02)", () => {
     expect(vm.o2.percent.v).toBeGreaterThan(0);
     expect(vm.metadata.link.linked).toBe(true);
 
+    // The UI does not compute geometry (TASK-24): navigation is "—" until the Hab Core supplies it.
     expect(vm.nextStop).not.toBeNull();
-    expect(vm.nextStop!.distanceM.v).toBeGreaterThan(0);
-    expect(vm.nextStop!.bearingDeg.v).toBeGreaterThanOrEqual(0);
+    expect(vm.nextStop!.distanceM.v).toBe("—");
+    expect(vm.nextStop!.bearingDeg.v).toBe("—");
+    expect(vm.nextStop!.distanceM.src).not.toMatch(/compute:geometry/);
+    expect(vm.nextStop!.distanceM.prov).toBe("assumed");
   });
 
   it("beat radiation-alert: alert slot contains WARNING level with shelter surge message", () => {
@@ -198,14 +201,15 @@ describe.skipIf(PENDING)("EVA view model on mock fixtures (T24.02)", () => {
     expect(alertSlot?.message).toMatch(/comm shadow/i);
   });
 
-  it("beat link-lost-restored: unlinked state marks values as stale with positive age", () => {
+  it("beat link-lost-restored: unlinked state is stale; no telemetry age is invented", () => {
     const snapshot = getSnapshot("link-lost-restored");
     const metadata = selectMetadataStrip(snapshot, "EV1");
 
     // Link lost: unlinked and stale
     expect(metadata.link.linked).toBe(false);
     expect(metadata.link.stale).toBe(true);
-    expect(metadata.link.ageSeconds).toBeGreaterThan(0);
+    // TODO(decision): a real telemetry age comes from the Hab Core; the selector must not fabricate one.
+    expect(metadata.link.ageSeconds).toBeNull();
     expect(metadata.link.bars).toBe(0);
   });
 
@@ -249,5 +253,84 @@ describe.skipIf(PENDING)("EVA view model on mock fixtures (T24.02)", () => {
     expect(hud.haven).toBeDefined();
     expect(hud.o2).toBeDefined();
     expect(hud.link).toBeDefined();
+  });
+});
+
+describe("EVA view model without telemetry (no invented values)", () => {
+  it("a null snapshot yields unavailable values and unknown status, never numbers", () => {
+    const vm = selectEvaViewModel(null, "EV1");
+
+    expect(vm.haven.minutes.v).toBe("—");
+    expect(vm.haven.status).toBe("unknown");
+    expect(vm.haven.kind).toBeNull();
+    expect(vm.haven.targetId).toBeUndefined();
+    expect(vm.o2.percent.v).toBe("—");
+    expect(vm.o2.status).toBe("unknown");
+    expect(vm.metadata.evaTimeSeconds.v).toBe("—");
+    expect(vm.metadata.doseUgy.v).toBe("—");
+    expect(vm.metadata.link.linked).toBeNull();
+    expect(vm.metadata.link.stale).toBeNull();
+    expect(vm.metadata.link.ageSeconds).toBeNull();
+    expect(vm.nextStop).toBeNull();
+    for (const v of [vm.haven.minutes, vm.o2.percent, vm.metadata.evaTimeSeconds, vm.metadata.doseUgy]) {
+      expect(v.prov).toBe("assumed");
+      expect(v.src).toMatch(/^unavailable:/);
+    }
+  });
+
+  it("real zero values stay zero (a measured 0 is not 'unavailable')", () => {
+    const snapshot = getSnapshot("connect");
+    const crew = snapshot.crew.find((c) => c.crew_id === "EV1")!;
+    crew.o2_frac = 0;
+    crew.dose_event_ugy = 0;
+    crew.eva_elapsed_s = 0;
+    const vm = selectEvaViewModel(snapshot, "EV1");
+
+    expect(vm.o2.percent.v).toBe(0);
+    expect(vm.metadata.doseUgy.v).toBe(0);
+    expect(vm.metadata.evaTimeSeconds.v).toBe(0);
+  });
+
+  it("a non-finite value is unavailable, not NaN", () => {
+    const snapshot = getSnapshot("connect");
+    const crew = snapshot.crew.find((c) => c.crew_id === "EV1")!;
+    crew.o2_frac = Number.NaN;
+    crew.haven.minutes = Number.POSITIVE_INFINITY;
+    const vm = selectEvaViewModel(snapshot, "EV1");
+
+    expect(vm.o2.percent.v).toBe("—");
+    expect(vm.haven.minutes.v).toBe("—");
+  });
+
+  it("missing stop coordinates stay unavailable even when haven coordinates exist", () => {
+    const snapshot = getSnapshot("connect");
+    snapshot.plan = null as never;
+    const crew = snapshot.crew.find((c) => c.crew_id === "EV1")!;
+    expect(crew.haven.target_x_m).toBeDefined();
+    snapshot.tasks = [
+      { task_id: "t-1", stop_id: "wp-2", crew_id: "EV1", kind: "image", text: "x", state: "TODO", reason: null, origin: "plan", updated_sim_time: "", updated_by: "system", provenance: {} },
+    ];
+    const next = selectNextStop(snapshot, "EV1");
+
+    expect(next).not.toBeNull();
+    expect(next!.bearingDeg.v).toBe("—");
+    expect(next!.distanceM.v).toBe("—");
+  });
+
+  it("task counts include only this crew's tasks at the stop, and an empty list has total 0", () => {
+    const snapshot = getSnapshot("connect");
+    const mk = (id: string, crew: "EV1" | "EV2" | null, state: "TODO" | "DONE"): Snapshot["tasks"][number] => ({
+      task_id: id, stop_id: "wp-2", crew_id: crew, kind: "image", text: id, state, reason: null,
+      origin: "plan", updated_sim_time: "", updated_by: "system", provenance: {},
+    });
+    snapshot.plan = null as never;
+    snapshot.tasks = [mk("a", "EV1", "DONE"), mk("b", "EV1", "TODO"), mk("c", "EV2", "DONE"), mk("d", null, "DONE")];
+    const next = selectNextStop(snapshot, "EV1");
+
+    expect(next!.taskCount).toEqual({ done: 2, total: 3 });
+
+    // Another crew's tasks alone give this crew nothing at all (no stop, no fabricated total of 1).
+    snapshot.tasks = [mk("c", "EV2", "DONE")];
+    expect(selectNextStop(snapshot, "EV1")).toBeNull();
   });
 });

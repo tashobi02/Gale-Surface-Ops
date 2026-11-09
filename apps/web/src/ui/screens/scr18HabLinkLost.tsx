@@ -9,10 +9,12 @@ import type { CSSProperties, ReactElement } from "react";
 import type { CrewId, Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 import {
+  havenTargetLabel,
   selectEvaViewModel,
   type EvaViewModel,
 } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
+import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtInt, isFiniteNumber, provAttrs } from "../components/provenance";
 
 export interface HabLinkLostProps {
   /** Optional Hab Core client instance. */
@@ -21,21 +23,15 @@ export interface HabLinkLostProps {
   crewId?: CrewId;
   /** Direct Snapshot override (uses cached snapshot). */
   snapshot?: Snapshot | null;
-  /** Explicit link loss duration override in seconds. */
+  /**
+   * Link-loss duration in seconds, supplied by the caller from a defensible source (e.g. the client's link
+   * watchdog). Omitted means unknown: the age renders "—", never a placeholder.
+   */
   ageSeconds?: number;
   /** Role mode: "eva" (tablet overlay) or "ops" (console overlay). */
   mode?: "eva" | "ops";
   className?: string;
 }
-
-const PROV_GLYPHS: Record<string, string> = {
-  measured: "■",
-  derived: "◆",
-  modelled: "○",
-  assumed: "△",
-  replayed: "▶",
-  simulated: "◇",
-};
 
 /**
  * SCR-18 Hab Link Lost Component (04 §E.5, 03 SCR-18).
@@ -46,7 +42,7 @@ export function HabLinkLost({
   client,
   crewId = "EV1",
   snapshot,
-  ageSeconds = 15,
+  ageSeconds,
   mode = "eva",
   className = "",
 }: HabLinkLostProps): ReactElement {
@@ -122,7 +118,7 @@ export function HabLinkLost({
             HAB LINK LOST — SHOWING CACHED PLAN
           </span>
         </div>
-        <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "14px", fontWeight: 600 }}>
+        <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", fontWeight: 600 }}>
           AUTO-RECONNECTING (≤ 1s)
         </span>
       </div>
@@ -137,66 +133,68 @@ export function HabLinkLost({
       >
         {/* Cached Haven */}
         <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <span className="micro" style={{ color: "var(--text-3, #8592A0)" }}>
+          <span className="micro" style={{ color: "var(--text-3, #8592A0)", fontSize: "16px" }}>
             HAVEN (CACHED)
           </span>
           <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
             <span
               className="value is-stale"
-              data-provenance={vm.haven.minutes.prov}
+              {...provAttrs(vm.haven.minutes)}
               style={{ ...numberStyle, color: "var(--fg-3, #8592A0)" }}
             >
-              {Math.round(vm.haven.minutes.v)}
+              {fmtInt(vm.haven.minutes.v)}
             </span>
-            <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "14px", color: "var(--fg-3, #8592A0)" }}>
-              {vm.haven.minutes.unit} {PROV_GLYPHS[vm.haven.minutes.prov] ?? "○"}
+            <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--fg-3, #8592A0)" }}>
+              {vm.haven.minutes.unit} {PROVENANCE_GLYPHS[vm.haven.minutes.prov]}
             </span>
           </div>
-          <span style={{ fontSize: "12px", color: "var(--fg-3, #8592A0)", fontFamily: "var(--font-mono, monospace)" }}>
-            via {vm.haven.targetId ?? "PR1"}
+          <span style={{ fontSize: "16px", color: "var(--fg-3, #8592A0)", fontFamily: "var(--font-mono, monospace)" }}>
+            {havenTargetLabel(vm.haven)}
           </span>
         </div>
 
         {/* Cached O2 */}
         <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <span className="micro" style={{ color: "var(--text-3, #8592A0)" }}>
+          <span className="micro" style={{ color: "var(--text-3, #8592A0)", fontSize: "16px" }}>
             O₂ (CACHED)
           </span>
           <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
             <span
               className="value is-stale"
-              data-provenance={vm.o2.percent.prov}
+              {...provAttrs(vm.o2.percent)}
               style={{ ...numberStyle, color: "var(--fg-3, #8592A0)" }}
             >
               {vm.o2.percent.v}
             </span>
-            <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "14px", color: "var(--fg-3, #8592A0)" }}>
-              % {PROV_GLYPHS[vm.o2.percent.prov] ?? "■"}
+            <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--fg-3, #8592A0)" }}>
+              {vm.o2.percent.unit} {PROVENANCE_GLYPHS[vm.o2.percent.prov]}
             </span>
           </div>
-          <span style={{ fontSize: "12px", color: "var(--fg-3, #8592A0)", fontFamily: "var(--font-mono, monospace)" }}>
-            margin intact
+          <span style={{ fontSize: "16px", color: "var(--fg-3, #8592A0)", fontFamily: "var(--font-mono, monospace)" }}>
+            cached
           </span>
         </div>
 
         {/* Stale Age Counter */}
         <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <span className="micro" style={{ color: "var(--text-3, #8592A0)" }}>
+          <span className="micro" style={{ color: "var(--text-3, #8592A0)", fontSize: "16px" }}>
             STALE AGE
           </span>
           <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
             <span
               className="value is-stale"
-              data-provenance="measured"
+              data-provenance={isFiniteNumber(ageSeconds) ? "simulated" : "assumed"}
+              data-source={isFiniteNumber(ageSeconds) ? "client:link-watchdog" : "unavailable:link.age_seconds"}
+              title={isFiniteNumber(ageSeconds) ? "client:link-watchdog" : "unavailable:link.age_seconds"}
               style={{ ...numberStyle, color: "var(--status-caution, #FFB020)" }}
             >
-              {ageSeconds}
+              {isFiniteNumber(ageSeconds) ? Math.round(ageSeconds) : UNAVAILABLE}
             </span>
-            <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "14px", color: "var(--status-caution, #FFB020)" }}>
-              s ■
+            <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--status-caution, #FFB020)" }}>
+              {isFiniteNumber(ageSeconds) ? `s ${PROVENANCE_GLYPHS.simulated}` : ""}
             </span>
           </div>
-          <span style={{ fontSize: "12px", color: "var(--text-2, #A9B3BE)", fontFamily: "var(--font-mono, monospace)" }}>
+          <span style={{ fontSize: "16px", color: "var(--text-2, #A9B3BE)", fontFamily: "var(--font-mono, monospace)" }}>
             stale tracking
           </span>
         </div>
@@ -209,7 +207,7 @@ export function HabLinkLost({
           background: "var(--surface-2, #1C2128)",
           border: "1px solid var(--hairline, #2A313A)",
           fontFamily: "var(--font-mono, monospace)",
-          fontSize: "13px",
+          fontSize: "16px",
           color: "var(--text-2, #A9B3BE)",
         }}
       >

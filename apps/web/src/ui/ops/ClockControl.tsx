@@ -38,18 +38,13 @@ export interface ClockControlProps {
   className?: string;
 }
 
-const DEFAULT_SCENARIOS: ScenarioOption[] = [
-  { id: "storm-sol4190", label: "Sol 4190 · Dust Storm (Demo)" },
-  { id: "nominal-traverse", label: "Sol 4191 · Nominal Boxwork" },
-  { id: "comm-loss-demo", label: "Sol 4192 · Comm Shadow Traverse" },
-];
-
 export function ClockControl({
   speed = 1,
   isPaused = false,
   sessionState = "RUNNING",
-  activeScenarioId = "storm-sol4190",
-  availableScenarios = DEFAULT_SCENARIOS,
+  activeScenarioId,
+  // No invented scenario catalogue: with none supplied, only the active scenario (if any) is listed.
+  availableScenarios = activeScenarioId ? [{ id: activeScenarioId, label: activeScenarioId }] : [],
   onSetSpeed,
   onPauseResume,
   onJumpNextEvent,
@@ -60,7 +55,7 @@ export function ClockControl({
 }: ClockControlProps): ReactElement {
   const [internalPaused, setInternalPaused] = useState(isPaused);
   const [internalSpeed, setInternalSpeed] = useState<ClockSpeed>(speed);
-  const [selectedScenario, setSelectedScenario] = useState(activeScenarioId);
+  const [selectedScenario, setSelectedScenario] = useState(activeScenarioId ?? "");
 
   const paused = isPaused ?? internalPaused;
   const currentSpeed = speed ?? internalSpeed;
@@ -124,7 +119,7 @@ export function ClockControl({
     backgroundColor: "var(--raised, #1C2128)",
     color: "var(--text-1, #ECEFF2)",
     border: "1px solid var(--edge, #5C6670)",
-    borderRadius: "2px",
+    borderRadius: 0,
     cursor: "pointer",
     fontFamily: "inherit",
     fontSize: "12px",
@@ -147,7 +142,7 @@ export function ClockControl({
     backgroundColor: "var(--raised, #1C2128)",
     color: "var(--text-1, #ECEFF2)",
     border: "1px solid var(--edge, #5C6670)",
-    borderRadius: "2px",
+    borderRadius: 0,
     cursor: "pointer",
     fontFamily: "inherit",
     fontSize: "12px",
@@ -171,6 +166,7 @@ export function ClockControl({
         style={selectStyle}
         title="Load scenario"
       >
+        {availableScenarios.length === 0 && <option value="">—</option>}
         {availableScenarios.map((sc) => (
           <option key={sc.id} value={sc.id}>
             {sc.label}
@@ -185,8 +181,9 @@ export function ClockControl({
           onClick={handleStartEva}
           style={{
             ...buttonStyle,
-            borderColor: "var(--status-nominal, #2ECC71)",
-            color: "var(--status-nominal, #2ECC71)",
+            // Neutral chrome: START EVA is an action, not a status (04 §A.3: status colours mean status only)
+            borderColor: "var(--text-1, #ECEFF2)",
+            color: "var(--text-1, #ECEFF2)",
             fontWeight: 700,
           }}
           aria-label="Start EVA mission"

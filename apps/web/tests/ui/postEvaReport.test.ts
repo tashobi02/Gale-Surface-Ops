@@ -1,67 +1,153 @@
 /**
  * Tests for SCR-17 Post-EVA report (01 FR-46, 03 SCR-17, 04 §E.8).
- * Mode PRINT: 2 pages at most, light/paper styling, high contrast,
- * stat slabs, planned vs actual timeline, alert table, map trace,
- * stop tasks table, event log, log_hash, and disclaimer.
+ * Mode PRINT: two page containers, paper styling, stat slabs, planned vs actual timeline, alert table,
+ * stop tasks table, event log, log_hash and the mandatory disclaimer.
+ *
+ * Every value in the report comes from the data passed in; with none, values read "—". Absent, partial and full
+ * reports are checked separately, and each value's provenance is checked on the value itself.
+ *
+ * Not claimed here: that the report prints on two pages. Two `report-page` containers are not a measurement of
+ * printed pages. Chrome A4/Letter pagination with 12 mm margins is still to be verified by hand
+ * (TODO(decision): see docs/tasks/status.md, T27.03).
  */
-
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PostEvaReport } from "../../src/ui/screens/scr17PostEvaReport";
+import { PostEvaReport, REPORT_DISCLAIMER, type PostEvaReportData } from "../../src/ui/screens/scr17PostEvaReport";
 
-describe("SCR-17 Post-EVA report (01 FR-46, 04 §E.8)", () => {
-  it("renders page 1 and page 2 containers for print (<= 2 pages)", () => {
-    const html = renderToStaticMarkup(createElement(PostEvaReport));
+const render = (report?: PostEvaReportData): string => renderToStaticMarkup(createElement(PostEvaReport, { report }));
 
+/** An explicit report; every number here is a test input, not a result. */
+const FULL: PostEvaReportData = {
+  scenarioId: "scn-test",
+  dataVersion: "dv-test",
+  seed: 7,
+  logHash: "abc123",
+  doseReceivedUgy: 12.34,
+  doseUnshelteredUgy: 5000,
+  timeToShelterMin: 9,
+  stopsCompleted: 2,
+  stopsTotal: 5,
+  planRevisionsCount: 3,
+  timeline: [{ phase: "STOP A", plannedLtst: "10:00", actualLtst: "10:05" }],
+  alerts: [
+    { level: "warning", code: "RADIATION_ALERT", message: "Shelter now", raisedLtst: "10:10:00", ackedLtst: "10:10:20", responseSec: 20 },
+  ],
+  tasks: [{ stopName: "Stop A", ev1: "1 / 0 / 0", ev2: "0 / 1 / 0" }],
+  logEvents: [{ seq: 4, time: "10:10:00", actor: "system", event: "ALERT_RAISED", prov: "replayed" }],
+};
+
+/** The element carrying a given source id. */
+function bySource(html: string, src: string): string {
+  const m = html.match(new RegExp(`<[^>]*data-source="${src}"[^>]*>[^<]*(?:<[^/][^>]*>[^<]*)*`));
+  if (!m) throw new Error(`no element with source ${src}`);
+  return m[0];
+}
+
+describe("SCR-17 Post-EVA report with no data (nothing is made up)", () => {
+  const html = render();
+
+  it("keeps the structure and the mandatory disclaimer, independent of any data", () => {
     expect(html).toContain('data-page="1"');
     expect(html).toContain('data-page="2"');
-    expect(html).toContain("p. 1 / 2");
-    expect(html).toContain("p. 2 / 2");
-  });
-
-  it("renders four stat slabs: dose received vs unsheltered, time to shelter, stops completed, plan revisions", () => {
-    const html = renderToStaticMarkup(createElement(PostEvaReport));
-
-    expect(html).toMatch(/DOSE RECEIVED VS UNSHELTERED/i);
-    expect(html).toMatch(/TIME TO SHELTER/i);
-    expect(html).toMatch(/STOPS COMPLETED/i);
-    expect(html).toMatch(/PLAN REVISIONS/i);
-  });
-
-  it("renders planned vs actual timeline and alerts table with response times", () => {
-    const html = renderToStaticMarkup(createElement(PostEvaReport));
-
-    expect(html).toMatch(/PLANNED VS ACTUAL/i);
-    expect(html).toMatch(/ALERTS AND RESPONSES/i);
-    expect(html).toMatch(/RADIATION_ALERT|SOLAR/i);
-  });
-
-  it("renders map trace container with schematic tag", () => {
-    const html = renderToStaticMarkup(createElement(PostEvaReport));
-
-    expect(html).toMatch(/MAP TRACE/i);
-    expect(html).toMatch(/<svg/i);
-  });
-
-  it("renders stop tasks summary with simulated provenance chip (01 FR-50)", () => {
-    const html = renderToStaticMarkup(createElement(PostEvaReport));
-
-    expect(html).toMatch(/STOP TASKS/i);
-    expect(html).toContain('data-provenance="simulated"');
-  });
-
-  it("renders event log table with sim times, actors and events", () => {
-    const html = renderToStaticMarkup(createElement(PostEvaReport));
-
-    expect(html).toMatch(/EVENT LOG/i);
-    expect(html).toContain("<table");
-  });
-
-  it("includes log_hash and mandatory NASA Space Apps Challenge disclaimer (01 §F.1)", () => {
-    const html = renderToStaticMarkup(createElement(PostEvaReport));
-
-    expect(html).toMatch(/LOG HASH/i);
+    expect(html).toMatch(/DOSE RECEIVED VS UNSHELTERED/);
+    expect(html).toMatch(/TIME TO SHELTER/);
+    expect(html).toMatch(/STOPS COMPLETED/);
+    expect(html).toMatch(/PLAN REVISIONS/);
+    expect(html).toContain(REPORT_DISCLAIMER);
     expect(html).toMatch(/NASA Space Apps/i);
   });
+
+  it("shows no sample results, hash, timeline, alert, task or event, and no fabricated schematic", () => {
+    expect(html).not.toMatch(/120\.5|8,100|8100|b1fa5ad9|wp-1|EZ—|RADIATION_ALERT|SOLAR PARTICLE|450|600 m|SESSION_LOADED/);
+    expect(html).not.toMatch(/Storm at Sol|storm-sol4190|gale_boxwork|seed 4190/);
+    expect(html).not.toMatch(/<svg|HAB COMM COVERAGE|RDV SHELTER|STOP 3 \(DROPPED\)/);
+    expect(html).not.toMatch(/NaN|undefined|null/);
+  });
+
+  it("reads — for each value and labels every one as unavailable (assumed), with a source", () => {
+    expect((html.match(/>—</g) ?? []).length).toBeGreaterThan(5);
+    for (const src of ["dose_event_ugy", "time_to_shelter_min", "stops", "plan_revisions", "log_hash", "seed"]) {
+      const el = bySource(html, `unavailable:report.${src}`);
+      expect(el).toContain('data-provenance="assumed"');
+    }
+    for (const m of html.matchAll(/data-provenance="([a-z]+)"/g)) {
+      expect(["measured", "derived", "modelled", "assumed", "replayed", "simulated"]).toContain(m[1]);
+    }
+  });
+});
+
+describe("SCR-17 Post-EVA report with a full report (01 FR-46)", () => {
+  const html = render(FULL);
+
+  it("shows the supplied values, each labelled on its own element; received and unsheltered dose are simulated, never measured", () => {
+    expect(bySource(html, "report:dose_event_ugy")).toContain("12.3 µGy");
+    expect(bySource(html, "report:dose_event_ugy")).toContain('data-provenance="simulated"');
+    expect(bySource(html, "report:dose_event_unsheltered_ugy")).toContain("5,000 µGy");
+    expect(bySource(html, "report:dose_event_unsheltered_ugy")).toContain('data-provenance="simulated"');
+    expect(bySource(html, "report:time_to_shelter_min")).toContain("9 min");
+    expect(bySource(html, "report:time_to_shelter_min")).toContain('data-provenance="derived"');
+    expect(bySource(html, "report:stops")).toContain("2 / 5");
+    expect(bySource(html, "report:plan_revisions")).toContain("3");
+    expect(html).not.toContain('data-provenance="measured"');
+  });
+
+  it("renders the timeline, the alert with its response time, the tasks and the event log from the data", () => {
+    expect(html).toContain("STOP A");
+    expect(html).toContain("10:05");
+    expect(html).toContain("RADIATION_ALERT");
+    expect(bySource(html, "report:alerts.response_s")).toContain("20 s");
+    expect(html).toContain("1 / 0 / 0");
+    expect(html).toMatch(/<td[^>]*>ALERT_RAISED/);
+    expect(bySource(html, "report:log_events.4")).toContain("replayed");
+  });
+
+  it("shows the supplied hash and scenario line, and headlines the scenario id rather than a fixed title", () => {
+    expect(bySource(html, "report:log_hash")).toContain("abc123");
+    expect(html).toContain("Mission Debrief — scn-test");
+    expect(html).toContain("scn-test");
+    expect(html).toContain("dv-test");
+    expect(bySource(html, "report:seed")).toMatch(/>7$/);
+  });
+
+  it("alert levels show a shape and a word, not colour alone", () => {
+    expect(html).toMatch(/⬣ WARNING/);
+  });
+
+  it("has no chrome corner radius", () => {
+    expect(html).not.toMatch(/border-radius:\s*[1-9]/);
+  });
+});
+
+describe("SCR-17 Post-EVA report with a partial report", () => {
+  it("only the supplied values are filled in; the rest stay — and unavailable", () => {
+    const html = render({ doseReceivedUgy: 0, stopsCompleted: 0, stopsTotal: 0 });
+
+    // Real zeros are shown as zeros.
+    expect(bySource(html, "report:dose_event_ugy")).toContain("0.0 µGy");
+    expect(bySource(html, "report:stops")).toContain("0 / 0");
+    expect(bySource(html, "unavailable:report.dose_event_unsheltered_ugy")).toContain("—");
+    expect(bySource(html, "unavailable:report.time_to_shelter_min")).toContain("—");
+    expect(bySource(html, "unavailable:report.timeline")).toContain("—");
+    expect(html).toContain(REPORT_DISCLAIMER);
+  });
+
+  it("a supplied disclaimer replaces the default, and a non-finite number is treated as unavailable", () => {
+    const html = render({ disclaimer: "Custom disclaimer text", timeToShelterMin: Number.NaN });
+
+    expect(html).toContain("Custom disclaimer text");
+    expect(html).not.toContain(REPORT_DISCLAIMER);
+    expect(bySource(html, "unavailable:report.time_to_shelter_min")).toContain("—");
+    expect(html).not.toContain("NaN");
+  });
+});
+
+describe("SCR-17 pagination and print (not established by these tests)", () => {
+  it("renders exactly two page containers (a structural check, not a printed-page measurement)", () => {
+    const html = render(FULL);
+    expect((html.match(/class="report-page"/g) ?? []).length).toBe(2);
+  });
+
+  it.todo("prints on at most two pages in Chrome at A4 and Letter with 12 mm margins (TODO(decision): manual check)");
+  it.todo("map trace is drawn from the session position log (TODO(decision): needs the report API-to-UI adapter)");
 });
