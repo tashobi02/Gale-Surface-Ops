@@ -147,7 +147,16 @@ export function validatePlanInput(
     }
   }
 
-  // 9. max_haven_min (v2): 5–120
+  // 9. loop: boolean
+  if (scenario.loop !== undefined && typeof scenario.loop !== "boolean") {
+    errors.push({
+      field: "loop",
+      message: "loop must be a boolean",
+      value: scenario.loop,
+    });
+  }
+
+  // 10. max_haven_min (v2): 5–120
   if (scenario.max_haven_min !== undefined) {
     const val = scenario.max_haven_min;
     if (typeof val !== "number" || isNaN(val) || val < 5 || val > 120) {
@@ -159,7 +168,7 @@ export function validatePlanInput(
     }
   }
 
-  // 10. crew_count (v2): 1–2
+  // 11. crew_count (v2): 1–2
   if (scenario.crew_count !== undefined) {
     const val = scenario.crew_count;
     if (val !== 1 && val !== 2) {
@@ -171,7 +180,7 @@ export function validatePlanInput(
     }
   }
 
-  // 11. vehicle_available (v2): boolean
+  // 12. vehicle_available (v2): boolean
   if (scenario.vehicle_available !== undefined) {
     if (typeof scenario.vehicle_available !== "boolean") {
       errors.push({
@@ -182,7 +191,7 @@ export function validatePlanInput(
     }
   }
 
-  // 12. Waypoints validation
+  // 13. Waypoints validation
   if (waypoints !== undefined) {
     if (waypoints.length < 2 || waypoints.length > 11) {
       errors.push({
@@ -201,9 +210,20 @@ export function validatePlanInput(
       });
     }
 
-    if (grid) {
-      for (let i = 0; i < waypoints.length; i++) {
-        const wp = waypoints[i];
+    for (let i = 0; i < waypoints.length; i++) {
+      const wp = waypoints[i];
+      if (
+        typeof wp.x_m !== "number" ||
+        !Number.isFinite(wp.x_m) ||
+        typeof wp.y_m !== "number" ||
+        !Number.isFinite(wp.y_m)
+      ) {
+        errors.push({
+          field: "waypoints",
+          message: `Waypoint ${wp.id} has invalid coordinates (${wp.x_m}, ${wp.y_m}); x_m and y_m must be finite numbers`,
+          value: { id: wp.id, x_m: wp.x_m, y_m: wp.y_m },
+        });
+      } else if (grid) {
         const idx = cellIndex(grid, wp.x_m, wp.y_m);
         if (idx === null) {
           errors.push({
