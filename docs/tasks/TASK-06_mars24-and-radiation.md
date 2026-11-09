@@ -67,6 +67,7 @@
 - **Verify:** `make typecheck test`; `git diff --stat` shows only the three owned files.
 - **Agent brief:** Split the Mars24 stubs: move `solarPosition` and `sunriseSunset` from `packages/compute/src/mars24.ts` into a new `sun.ts`, and add a `conditions.ts` stub (contract C8) that assembles timeline LTST and sun elevation, conditions and radiation using only 05 PlanResult field names. Bodies throw `TODO(<owner id>)`; open choices stay `TODO(decision)` in JSDoc. `make typecheck test` must pass.
 - **Conflict notes:** Stub handover (map §c.1 rule 2): after merge, `mars24.ts` belongs to T06.06, `sun.ts` to T06.07 and `conditions.ts` to T06.09. Merge before any TASK-06 test or implement subtask starts, and alongside T05.01, whose `handler.ts` stub calls C8. Later changes need a `contract-change:` subtask (map §d).
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Define darkness evaluation during travel and dwell, including temporal sampling or crossing inputs and warning location; arrival elevation alone does not cover the EVA interval.
 
 ### T06.02 — Fixture: Mars24 reference values generated with `marstime`
 
@@ -94,6 +95,8 @@
 - **Verify:** `$(make -s pipeline-python) pipeline/tests/fixtures/make_mars24_reference.py` (twice), then `git diff --exit-code apps/web/tests/fixtures/mars24-reference.json` and `python3 -m json.tool apps/web/tests/fixtures/mars24-reference.json`.
 - **Agent brief:** Write a deterministic generator, `pipeline/tests/fixtures/make_mars24_reference.py`, that uses `marstime` to compute Mars24 reference values (MSD, L_s, Mars Year, LTST, solar elevation and azimuth, flat-horizon sunrise/sunset) for the recorded timestamps at the 05 §F.1 example site point, and writes `apps/web/tests/fixtures/mars24-reference.json`. Never type an output number by hand; mark unknown API details `TODO(verify)`.
 - **Conflict notes:** The README is append-only (one `## F6` section at the end; keep both sides on a rebase conflict). The JSON matches C8 v1; if C8 changes, a `follow-up:` subtask regenerates it. T06.03 starts after this merges.
+- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Pin marstime in the approved pipeline environment, verify its APIs, longitude and azimuth conventions, UTC-to-TT handling and version reporting, then regenerate F6 twice and compare bytes. Identify direct package outputs separately from generator-derived azimuth and sunrise/sunset.
+- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Reconcile the F6 record labelled Sol 4190 at 2024-05-18T06:00:00Z with the specifications' 2024-05-20 event date. Preserve existing numerical outputs until an approved regeneration or documented relabelling.
 
 ### T06.03 — Tests: Mars24 time and sun functions vs `marstime`
 
@@ -121,6 +124,8 @@
 - **Verify:** `npx vitest run tests/compute/mars24.test.ts tests/compute/sun.test.ts` (run in `apps/web/`).
 - **Agent brief:** Write the Vitest cases for the Mars24 port against fixture F6: LTST within 1 min and solar elevation within 0.1° at every reference timestamp, the east-to-west longitude conversion at Gale, and flat-horizon sunrise/sunset. Expected values come only from F6 or the spec. Leave the PR as a draft for T06.06 and T06.07.
 - **Conflict notes:** Stacked PRs (map §h.3): T06.06 branches from this branch and T06.07 from T06.06; merge T06.03, T06.06 and T06.07 back to back once T06.07's branch is green. If v1 cut 5 (no v2 cut item) is called first, this PR is never merged, so `main` never carries failing tests.
+- **Follow-up (2026-11-09 reconciliation):** The sun-function cases in `sun.test.ts` depend on the T06.07 stubs and are PENDING-gated (they are skipped unless `PENDING_RED=1` is set, which exposes the expected `TODO(T06.07): not implemented` failures). Their bodies are kept. T06.03 stays `wip`.
+- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Independently verify the Clancy Mars Year offset table and reference UTC-to-TT handling. TODO(decision): Ratify L_s, equation-of-time and sunrise/sunset tolerances; provisional test bounds do not establish new requirements.
 
 ### T06.04 — Tests: radiation estimate
 
@@ -198,6 +203,7 @@
 - **Verify:** `npx vitest run tests/compute/mars24.test.ts` (run in `apps/web/`); `make typecheck`.
 - **Agent brief:** Port the Mars24 time functions into `packages/compute/src/mars24.ts` — Mars Sol Date, L_s and Mars Year, east-to-west longitude, and LTST — following Allison & McEwen 2000 and the GISS Mars24 notes, until `tests/compute/mars24.test.ts` passes against fixture F6. Pure functions only; east-positive longitude everywhere except inside the Mars24 formulas.
 - **Conflict notes:** Owns `mars24.ts` after T06.01's stub edit. Branch from T06.03 (stacked); T06.07 branches from this branch. If the tests cannot be made to pass, T06.11 is the fallback trigger.
+- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Independently verify the Clancy Mars Year offset table and reference UTC-to-TT handling. TODO(decision): Ratify L_s, equation-of-time and sunrise/sunset tolerances; provisional test bounds do not establish new requirements.
 
 ### T06.07 — Implement solar position and flat-horizon sunrise/sunset
 
@@ -223,6 +229,7 @@
 - **Verify:** `npx vitest run tests/compute/sun.test.ts` (run in `apps/web/`); `make typecheck`.
 - **Agent brief:** Implement `solarPosition` and `sunriseSunset` in `packages/compute/src/sun.ts` on top of the Mars24 time functions in `mars24.ts`, until `tests/compute/sun.test.ts` passes against F6: elevation within 0.1°, flat horizon, no terrain or refraction. Unknown conventions stay `TODO(verify)`.
 - **Conflict notes:** Owns `sun.ts` after T06.01's stub. Branch from T06.06 (stacked); merge right after T06.03 and T06.06.
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Schedule T06.07 solar position and flat-horizon sunrise/sunset implementation after the reference conventions are verified; the T06.03 sun cases remain PENDING-gated until then.
 
 ### T06.08 — Implement the radiation estimate
 
@@ -272,6 +279,8 @@
 - **Verify:** `npx vitest run tests/compute/conditions.test.ts` (run in `apps/web/`); `make typecheck`.
 - **Agent brief:** Implement the C8 function in `packages/compute/src/conditions.ts`: per-stop LTST and sun elevation, the EVA-sol conditions block and the radiation block, using `mars24.ts`, `sun.ts` and `radiation.ts`, until `tests/compute/conditions.test.ts` passes. Follow the C8 decisions recorded in the stub's JSDoc.
 - **Conflict notes:** Owns `conditions.ts` after T06.01's stub; stacked on T06.05. T05.32 calls it through C8; T06.11 may replace the file if the fallback is triggered.
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Complete C8 assembly into PlanResult after deciding the site coordinate, EnvConstant selection, PARTIAL-plan dose duration and darkness inputs. Until then, return the existing M3 empty timeline and omit conditions and radiation.
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Define darkness evaluation during travel and dwell, including temporal sampling or crossing inputs and warning location; arrival elevation alone does not cover the EVA interval.
 
 ### T06.10 — Write the RAD EnvConstant and DataSource records (05 §C values verbatim)
 
@@ -298,6 +307,7 @@
 - **Verify:** `python3 -m json.tool` on each owned file; after T03.19, `make validate SITE=gale_boxwork`.
 - **Agent brief:** Create the two RAD EnvConstant JSON records and the `hassler-2014-rad` DataSource under `pipeline/sites/gale_boxwork/`, copying values verbatim from 05 §C/§F.1 and the citation from `docs/reference/mars-scientific-context.md`. Leave anything the sources do not state as `TODO(verify)`; the solar-min `source_id` is `TODO(decision)`.
 - **Conflict notes:** The `sources/` and `env_constants/` folders are append-only by file: one record per file, owned by its creator; never edit another subtask's record. T03.19 needs these files before it builds bundle v1 (map §f).
+- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Verify RAD DataSource metadata and access dates against the cited publications, including publisher, version, credit, licence and missions/instruments. TODO(decision): The data lead must confirm the solar-minimum source_id. Preserve numerical EnvConstant values.
 
 ### T06.11 — Fallback — start only if Mars24 tests fail: precomputed sun table for the demo dates
 
@@ -383,3 +393,4 @@ T06.10 has no edge inside this task; it feeds T03.19 (map §f).
 10. **`marstime` details:** its API, longitude convention (02 §C.4.1), Mars Year and azimuth conventions, and UTC-to-TT handling are `TODO(verify)` before T06.02 and T06.06.
 11. **Map change proposed (schedule):** the lanes board puts T06.02 in M1, but its hard dependency T14.01 is in M2. Move T06.02 to M2, or land T14.01's `marstime` entry first.
 12. **Map change proposed (fallback):** T06.11 also needs `marstime` (a hard edge on T14.01 missing from map §f) and writes `packages/compute/src/sunTable.json`, which map §c does not list. Add both, plus T06.11's `(replaces T06.05)` on `packages/compute/tests/conditions.test.ts`, to the map.
+13. **Follow-up (2026-11-09 reconciliation):** TODO(decision): The team lead must reconcile stale event-only prose with the Track P and coordination-register windows; this review makes no task-window change.

@@ -1,0 +1,16 @@
+{
+  "const_id": "rad-gale-dose-eq-solar-min",
+  "quantity": "surface dose equivalent rate",
+  "value": 0.925,
+  "low": 0.85,
+  "high": 1.0,
+  "unit": "mSv/day",
+  "conditions": {
+    "solar_phase": "min",
+    "location": "Gale crater floor",
+    "period": "~2019"
+  },
+  "provenance": "measured",
+  "source_id": "simonsen-2024-rad",
+  "note": "reported range, Simonsen et al. 2024"
+}

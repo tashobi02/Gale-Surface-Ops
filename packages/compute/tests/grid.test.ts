@@ -34,6 +34,11 @@ describe("grid loader and addressing (T05.05)", () => {
   }
 
   describe("cellIndex", () => {
+    it.each([NaN, Infinity, -Infinity])("returns null for nonfinite coordinates %j", (value) => {
+      const grid = loadGrid(dummyMeta, createValidBuffers());
+      expect(cellIndex(grid, value, 495)).toBeNull();
+      expect(cellIndex(grid, 1005, value)).toBeNull();
+    });
     it("cell index follows i = floor((origin_y − y)/cell), j = floor((x − origin_x)/cell)", () => {
       const buffers = createValidBuffers();
       const grid = {

@@ -153,7 +153,7 @@ def _layer(record: dict, produced: dict[str, dict]) -> dict:
     return layer
 
 
-def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Path) -> Path:
+def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Path, *, exclude_layers: set[str] | None = None) -> Path:
     """Assemble and write site-manifest.json (schema: schemas/site-manifest.schema.json). TASK-03.
 
     site_dir holds the produced assets; config_dir is pipeline/sites/<site_id>/ (C5).
@@ -167,11 +167,14 @@ def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Pa
     ti_present = (site_dir / FILE_ASSETS[TI_ASSET][0]).is_file()
     ti_dims = (_whole_cells(maxx - minx, TI_CELL_M), _whole_cells(maxy - miny, TI_CELL_M)) if ti_present else None
 
-    assets = _produced_assets(site_dir, (grid_width, grid_height), ti_dims)
+    excluded = exclude_layers or set()
+    assets = [asset for asset in _produced_assets(site_dir, (grid_width, grid_height), ti_dims)
+              if asset["asset_id"] not in {f"tiles-{layer}" for layer in excluded}]
     produced = {a["asset_id"]: a for a in assets}
 
     sources = _records(config_dir / "sources", "source_id")
-    layers = [_layer(record, produced) for record in _records(config_dir / "layers", "layer_id")]
+    layers = [_layer(record, produced) for record in _records(config_dir / "layers", "layer_id")
+              if record["layer_id"] not in excluded]
     env_constants = _records(config_dir / "env_constants", "const_id")
     known_offsets = {
         path.stem: _read_json(path)["offset_m"]
