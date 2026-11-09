@@ -67,4 +67,4 @@ Done when (06 §C): AOI inside DEM extent; hillshade shows HiRISE-scale texture 
 
 ## Large tiles in the repo
 
-Decision (team confirmed 2026-11-03): GitHub release asset (not Git LFS) for site tiles, grid and images. Reasoning: the same tarball serves as release archive and clean-clone source. Context: 02 §B Hosting says "keep tiles < 500 MB or use Git LFS / release asset"; NFR-09 caps the total site bundle at 250 MB.
+Decision (team confirmed 2026-11-03): GitHub release asset (not Git LFS) for site tiles, grid and images. Reasoning: the same tarball serves as release archive and clean-clone source. Context: 02 §B Hosting said "keep tiles < 500 MB or use Git LFS / release asset" before the v2 rewrite of 2026-11-04 (commit `560b2b6`); the current [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices) Hosting row names "Release asset with a run script" as the alternative to GitHub Pages. NFR-09 caps the total site bundle at 250 MB. How the bundle is obtained is recorded by T16.07 in `docs/ops/hosting.md`.
