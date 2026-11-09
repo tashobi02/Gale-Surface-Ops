@@ -433,3 +433,14 @@ def test_sampled_values_match_source_rasters():
 @real_bundle_only
 def test_site_bundle_at_most_250_mb():
     assert bundle_size_bytes(REAL_SITE) <= BUNDLE_LIMIT_BYTES
+
+
+def test_excluded_layer_and_existing_tiles_are_omitted(tmp_path: Path):
+    original, _, site_dir = written_manifest(tmp_path)
+    layer_id = 'elevation'
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(config, 'GRID_CELL_M', original['grid']['cell_m'])
+        path = write_manifest(site_dir, original['data_version'], original['crs']['proj4'], tmp_path / 'config', exclude_layers={layer_id})
+    manifest = json.loads(path.read_text())
+    assert layer_id not in {layer['layer_id'] for layer in manifest['layers']}
+    assert 'tiles-elevation' not in {asset['asset_id'] for asset in manifest['assets']}

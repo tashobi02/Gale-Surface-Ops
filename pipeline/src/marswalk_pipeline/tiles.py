@@ -17,11 +17,13 @@ def render_tiles(
     out_dir: Path,
     *,
     data_encoded: bool = False,
+    hillshade: bool = False,
 ) -> None:
     """Render a north-up raster already in the site's working projection.
 
     TODO(verify): C9 must confirm addressing, sampling, pixel encoding and index.
-    For data_encoded=True the single input band is slope in degrees. Otherwise
+    For data_encoded=True the single input band is slope in degrees. With
+    hillshade=True it is illumination in [0, 1], encoded in 1–255. Otherwise
     input bands must already be display-ready uint8 grayscale or RGB; any colour
     ramp is TODO(verify). PNG retains missing pixels as alpha. JPEG has no alpha:
     missing pixels are black, so the coverage polygon is needed (02 §C.2 L1).
@@ -37,6 +39,8 @@ def render_tiles(
         raise ValueError("layer_id must be a single path component")
     if fmt not in {"png", "jpg", "jpeg"}:
         raise ValueError("format must be png, jpg or jpeg")
+    if hillshade and (data_encoded or fmt != "png"):
+        raise ValueError("hillshade requires display PNG")
     if data_encoded and fmt != "png":
         raise ValueError("data-encoded slope requires lossless PNG")
     if tile_size_px <= 0 or not resolutions_m or any(not math.isfinite(r) or r <= 0 for r in resolutions_m):
@@ -52,9 +56,9 @@ def render_tiles(
             raise ValueError("raster must be north-up in the working projection")
         alpha_indexes = [i for i, color in enumerate(src.colorinterp, 1) if color == ColorInterp.alpha]
         bands = [i for i in src.indexes if i not in alpha_indexes]
-        if len(bands) not in (1, 3) or (data_encoded and len(bands) != 1):
+        if len(bands) not in (1, 3) or ((data_encoded or hillshade) and len(bands) != 1):
             raise ValueError("expected one grayscale/slope band or three RGB bands")
-        if not data_encoded and any(src.dtypes[i - 1] != "uint8" for i in bands):
+        if not data_encoded and not hillshade and any(src.dtypes[i - 1] != "uint8" for i in bands):
             raise ValueError("display raster must be uint8; colour mapping is not specified")
 
         ox, oy = origin_m
@@ -82,10 +86,18 @@ def render_tiles(
                                       boundless=True, masked=True,
                                       resampling=Resampling.nearest if data_encoded else Resampling.bilinear)
                     missing = np.ma.getmaskarray(values).any(axis=0) | ~np.isfinite(values.data).all(axis=0)
+                    # Mask pixel centres beyond the source extent regardless of GDAL fill value.
+                    cols = window.col_off + (np.arange(tile_size_px) + .5) * window.width / tile_size_px
+                    rows = window.row_off + (np.arange(tile_size_px) + .5) * window.height / tile_size_px
+                    missing |= (rows[:, None] < 0) | (rows[:, None] >= src.height) | (cols[None, :] < 0) | (cols[None, :] >= src.width)
                     if data_encoded:
                         from .grid import encode_slope_u8
 
                         pixels = encode_slope_u8(np.where(missing, np.nan, values.data[0]))[np.newaxis, :, :]
+                    elif hillshade:
+                        # TODO(verify): gdaldem-style display range; encoded 0 is no-data.
+                        shade = np.clip(values.data[0], 0, 1)
+                        pixels = np.where(missing, 0, np.rint(1 + 254 * shade)).astype("uint8")[np.newaxis, :, :]
                     else:
                         pixels = np.where(missing[np.newaxis, :, :], 0, values.data).astype("uint8")
                     if fmt == "png":
