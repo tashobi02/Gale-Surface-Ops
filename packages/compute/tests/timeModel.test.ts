@@ -1,17 +1,125 @@
-import { describe, it } from "vitest";
+import type { MissionScenario, Waypoint } from "@marswalk/protocol";
+import { describe, expect, it } from "vitest";
+import { evaTimeline, stepTimeH, suitedSpeedKmh } from "../src/timeModel";
 
-// docs/specs/02 §D.3 reference values (FR-09); table values exact to 0.01 km/h (02 §F.1). TASK-05.
-describe("suitedSpeedKmh (v0 = 3.3 km/h)", () => {
-  it.todo("0° → 5.04 unsuited, 3.30 suited");
-  it.todo("+5° → 3.71 unsuited, 2.43 suited");
-  it.todo("+10° → 2.72 unsuited, 1.78 suited");
-  it.todo("+15° → 1.97 unsuited, 1.29 suited");
-  it.todo("−5° → 5.26 unsuited, 3.45 suited");
-  it.todo("−10° → 3.86 unsuited, 2.53 suited");
+// Helper converting degrees to dimensionless gradient S = tan(theta)
+function degToGradient(deg: number): number {
+  return Math.tan((deg * Math.PI) / 180);
+}
+
+// docs/specs/02 §D.3 reference values (FR-09); table values exact to 0.01 km/h (02 §F.1). TASK-05 (T05.11).
+describe("suitedSpeedKmh (v0 = 3.3 km/h suited, v0 = 5.037 km/h unsuited Tobler)", () => {
+  const TOBLER_V0 = 5.037;
+  const SUITED_V0 = 3.3;
+
+  it("0° → 5.04 unsuited, 3.30 suited", () => {
+    const s = degToGradient(0);
+    expect(Number(suitedSpeedKmh(s, TOBLER_V0).toFixed(2))).toBe(5.04);
+    expect(Number(suitedSpeedKmh(s, SUITED_V0).toFixed(2))).toBe(3.3);
+  });
+
+  it("+5° → 3.71 unsuited, 2.43 suited", () => {
+    const s = degToGradient(5);
+    expect(Number(suitedSpeedKmh(s, TOBLER_V0).toFixed(2))).toBe(3.71);
+    expect(Number(suitedSpeedKmh(s, SUITED_V0).toFixed(2))).toBe(2.43);
+  });
+
+  it("+10° → 2.72 unsuited, 1.78 suited", () => {
+    const s = degToGradient(10);
+    expect(Number(suitedSpeedKmh(s, TOBLER_V0).toFixed(2))).toBe(2.72);
+    expect(Number(suitedSpeedKmh(s, SUITED_V0).toFixed(2))).toBe(1.78);
+  });
+
+  it("+15° → 1.97 unsuited, 1.29 suited", () => {
+    const s = degToGradient(15);
+    expect(Number(suitedSpeedKmh(s, TOBLER_V0).toFixed(2))).toBe(1.97);
+    expect(Number(suitedSpeedKmh(s, SUITED_V0).toFixed(2))).toBe(1.29);
+  });
+
+  it("−5° → 5.26 unsuited, 3.45 suited", () => {
+    const s = degToGradient(-5);
+    expect(Number(suitedSpeedKmh(s, TOBLER_V0).toFixed(2))).toBe(5.26);
+    expect(Number(suitedSpeedKmh(s, SUITED_V0).toFixed(2))).toBe(3.45);
+  });
+
+  it("−10° → 3.86 unsuited, 2.53 suited", () => {
+    const s = degToGradient(-10);
+    expect(Number(suitedSpeedKmh(s, TOBLER_V0).toFixed(2))).toBe(3.86);
+    expect(Number(suitedSpeedKmh(s, SUITED_V0).toFixed(2))).toBe(2.53);
+  });
 });
 
 describe("walking time", () => {
-  it.todo("1 km flat → 18.18 min");
-  it.todo("1 km at constant +10° gradient → 3D length 1015.4 m, ≈ 34.2 min");
-  it.todo("EVA timeline adds dwell time per stop");
+  it("1 km flat → 18.18 min (02 §D.3, FR-09)", () => {
+    const timeH = stepTimeH(1000, 0, 3.3, 1.0);
+    const timeMin = timeH * 60;
+    expect(Number(timeMin.toFixed(2))).toBe(18.18);
+  });
+
+  it("1 km at constant +10° gradient → 3D length 1015.4 m, ≈ 34.2 min (02 §D.3)", () => {
+    const horizontalDistM = 1000;
+    const dzM = horizontalDistM * degToGradient(10);
+    const length3DM = Math.hypot(horizontalDistM, dzM);
+
+    expect(Number(length3DM.toFixed(1))).toBe(1015.4);
+
+    const timeH = stepTimeH(horizontalDistM, dzM, 3.3, 1.0);
+    const timeMin = timeH * 60;
+    expect(Number(timeMin.toFixed(1))).toBe(34.2);
+  });
+
+  it("scales with caution and low-TI multipliers (02 §D.2)", () => {
+    const baseTimeH = stepTimeH(100, 5, 3.3, 1.0);
+    const cautionTimeH = stepTimeH(100, 5, 3.3, 1.5);
+    const lowTiTimeH = stepTimeH(100, 5, 3.3, 1.3);
+
+    expect(cautionTimeH).toBeCloseTo(baseTimeH * 1.5, 6);
+    expect(lowTiTimeH).toBeCloseTo(baseTimeH * 1.3, 6);
+  });
+
+  it("EVA timeline adds dwell time per stop (02 §D.3, 05 §C PlanResult)", () => {
+    const scenario: MissionScenario = {
+      eva_start_utc: "2026-11-14T08:00:00Z",
+      max_eva_duration_h: 6.0,
+      dwell_min_per_stop: 20,
+      hard_slope_limit_deg: 15,
+      caution_slope_deg: 10,
+      walkback_limit_km: 5.0,
+      suited_flat_speed_kmh: 3.3,
+      solar_phase: "max",
+      loop: true,
+      max_haven_min: 30,
+      crew_count: 2,
+      vehicle_available: true,
+    };
+
+    const waypoints: Waypoint[] = [
+      { id: "wp-0", role: "start", x_m: 0, y_m: 0 },
+      { id: "wp-1", role: "stop", x_m: 500, y_m: 0 },
+      { id: "wp-2", role: "stop", x_m: 1000, y_m: 0 },
+      { id: "wp-3", role: "start", x_m: 0, y_m: 0 }, // return to hab
+    ];
+
+    // leg 0: 15 min walk, leg 1: 25 min walk, leg 2: 30 min walk
+    const legWalkMin = [15, 25, 30];
+
+    const timeline = evaTimeline(scenario, waypoints, legWalkMin);
+    expect(timeline.length).toBe(4);
+
+    // wp-0 (start): arrives 08:00, departs 08:00 (no dwell at start)
+    expect(timeline[0].arrive_utc).toBe("2026-11-14T08:00:00.000Z");
+    expect(timeline[0].depart_utc).toBe("2026-11-14T08:00:00.000Z");
+
+    // wp-1 (stop): arrives 08:00 + 15 min = 08:15, dwells 20 min -> departs 08:35
+    expect(timeline[1].arrive_utc).toBe("2026-11-14T08:15:00.000Z");
+    expect(timeline[1].depart_utc).toBe("2026-11-14T08:35:00.000Z");
+
+    // wp-2 (stop): arrives 08:35 + 25 min = 09:00, dwells 20 min -> departs 09:20
+    expect(timeline[2].arrive_utc).toBe("2026-11-14T09:00:00.000Z");
+    expect(timeline[2].depart_utc).toBe("2026-11-14T09:20:00.000Z");
+
+    // wp-3 (return to start): arrives 09:20 + 30 min = 09:50, departs 09:50
+    expect(timeline[3].arrive_utc).toBe("2026-11-14T09:50:00.000Z");
+    expect(timeline[3].depart_utc).toBe("2026-11-14T09:50:00.000Z");
+  });
 });
