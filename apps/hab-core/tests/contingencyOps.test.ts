@@ -53,16 +53,22 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ContingencyInputs } from "@marswalk/compute";
+import type { ContingencyInputs, LoadedGrid } from "@marswalk/compute";
 import type { Command, CommandResult, ContingencyOption, LogEvent, LogEventData, LogEventKind, Role, Waypoint } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand, type CommandContext } from "../src/commands";
 import { contingencyTick, handleAbort, handleApproveOption } from "../src/engine/contingencyOps";
 import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
 import type { TickContext } from "../src/engine/tick";
-import { readScenario } from "../src/scenario";
+import { readScenario, type LoadedScenario } from "../src/scenario";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
+/**
+ * The fake scenario has no grid (null until TASK-05) and contingencyTick proposes nothing without one
+ * (T23.07 review, 8 Nov). Compute is replaced below, so the grid is an opaque stand-in that only the
+ * mocked functions receive (fixture shape added 2026-11-08 by the T23.07 rework; no assertion changed).
+ */
+const STAND_IN_GRID = Object.freeze({}) as unknown as LoadedGrid;
+const fake: LoadedScenario = { ...readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null }), grid: STAND_IN_GRID };
 const plan = fake.scenario.plan;
 const legs = plan.result.legs;
 const T0 = fake.scenario.start_utc;
@@ -77,6 +83,8 @@ const wp = (id: string): Waypoint => plan.waypoints.find((w) => w.id === id)!;
 // ---- compute stand-ins (T05b.19 and its inputs are stubs) ------------------------------------------------
 
 const calls = vi.hoisted(() => [] as unknown[]);
+/** Stand-in cell registry: `cellIndex` hands out one integer per vertex, `toLeg` measures the vertices back (T23.07 follow-up, shape only). */
+const cellXY = vi.hoisted(() => new Map<number, [number, number]>());
 
 /** Fixture-derived stand-in for `proposeOptions` (see the header). Ignores every input but these two. */
 function standIn(inputs: Pick<ContingencyInputs, "alert_id" | "crew">): ContingencyOption[] {
@@ -106,7 +114,16 @@ function standIn(inputs: Pick<ContingencyInputs, "alert_id" | "crew">): Continge
     .map((o, i): ContingencyOption => ({ ...o, path_preview: [...o.path_preview] as [number, number][], alert_id: inputs.alert_id, crew_ids, stops_dropped, violations: [], rank: i + 1 }));
 }
 
-const field = { cell_m: 1, width: 1, height: 1, seconds: new Float64Array(1) };
+const STAND_IN_PROFILE = Object.freeze({ dist_m: [0], elev_m: [0], slope_class: ["ok"] });
+
+const field = {
+  cell_m: 1,
+  width: 1,
+  height: 1,
+  origin_m: [0, 0] as [number, number],
+  seconds: new Float64Array(1),
+  prev: new Int32Array(1),
+};
 vi.mock("@marswalk/compute", async () => {
   const actual = await vi.importActual<typeof import("@marswalk/compute")>("@marswalk/compute");
   return {
@@ -119,7 +136,21 @@ vi.mock("@marswalk/compute", async () => {
     habTimeField: () => field,
     crewTimeField: () => field,
     vehicleTimeField: () => field,
+    vehiclePassable: () => new Uint8Array(1),
     rendezvous: () => ({ status: "NO_RENDEZVOUS" }),
+    // Leg metrics (T23.07 follow-up, 9 Nov; shape only, no assertion changed). Fixed finite stand-ins: the
+    // engine copies them, and its own checks (cells, distance) see a consistent grid.
+    cellIndex: (_grid: unknown, x: number, y: number) => {
+      const k = cellXY.size;
+      cellXY.set(k, [x, y]);
+      return k;
+    },
+    toLeg: (_grid: unknown, from: string, to: string, search: { cells: number[] }) => {
+      const xy = search.cells.map((k) => cellXY.get(k)!);
+      const distance_m = xy.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - xy[i]![0], p[1] - xy[i]![1]), 0);
+      return { from, to, status: "OK", distance_m, walk_time_min: 0, climb_m: 1, descent_m: 2, max_slope_deg: 3, geometry: [], cell_path_length: xy.length, profile: STAND_IN_PROFILE };
+    },
+    sampleProfile: () => STAND_IN_PROFILE,
   };
 });
 
