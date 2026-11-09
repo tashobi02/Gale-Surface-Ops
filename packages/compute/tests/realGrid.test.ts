@@ -206,10 +206,6 @@ describe("T05.28 — Seeded benchmark runner on disk fixture (mock_site)", () =>
     const grid = loadSiteGrid(MOCK_SITE_DIR);
     const results = runSeededPairsBenchmark(grid, 20);
 
-    console.log(
-      `[T05.28 benchmark mock_site] 20 pairs: p50=${results.p50_ms.toFixed(2)}ms, p95=${results.p95_ms.toFixed(2)}ms, min=${results.min_ms.toFixed(2)}ms, max=${results.max_ms.toFixed(2)}ms, routes=${results.routes}, noRoutes=${results.noRoutes}, failures=${results.failures}`,
-    );
-
     expect(results.count).toBe(20);
     expect(results.failures).toBe(0);
     expect(results.routes + results.noRoutes).toBe(20);
@@ -250,10 +246,6 @@ describe("T05.28 — Seeded benchmark runner on disk fixture (mock_site)", () =>
     const t0 = performance.now();
     const res = handleWorkerMessage(grid, req);
     const duration = performance.now() - t0;
-
-    console.log(
-      `[T05.28 benchmark mock_site] 3-stop loop duration=${duration.toFixed(2)}ms (legs=${res.type === "PLAN_RESULT" ? res.legs.length : "N/A"}, status=${res.type === "PLAN_RESULT" ? res.status : "ERROR"})`,
-    );
 
     expect(res.type).toBe("PLAN_RESULT");
     if (res.type === "PLAN_RESULT") {
@@ -296,27 +288,31 @@ describe.skipIf(!hasRealBundle)("T05.28 — Verify on the real grid (gale_boxwor
     const grid = loadSiteGrid(REAL_SITE_DIR);
     const results = runSeededPairsBenchmark(grid, 20);
 
-    console.log(
-      `[T05.28 benchmark gale_boxwork] 20 pairs: p50=${results.p50_ms.toFixed(2)}ms, p95=${results.p95_ms.toFixed(2)}ms, min=${results.min_ms.toFixed(2)}ms, max=${results.max_ms.toFixed(2)}ms, routes=${results.routes}, noRoutes=${results.noRoutes}, failures=${results.failures}`,
-    );
-
     expect(results.count).toBe(20);
     expect(results.failures).toBe(0);
     expect(results.routes + results.noRoutes).toBe(20);
   });
 
-  it("runs a single timed real-grid 3-stop loop smoke check through the handler", () => {
+  it("runs a single timed real-grid 3-stop loop smoke check through the handler", (ctx) => {
     const grid = loadSiteGrid(REAL_SITE_DIR);
     const manifest = JSON.parse(fs.readFileSync(REAL_MANIFEST_PATH, "utf8"));
-    const startX = manifest.default_start?.x_m ?? 1037;
-    const startY = manifest.default_start?.y_m ?? -1652;
+    if (
+      !manifest.default_start ||
+      typeof manifest.default_start.x_m !== "number" ||
+      typeof manifest.default_start.y_m !== "number" ||
+      !manifest.data_version
+    ) {
+      ctx.skip();
+    }
+    const startX = manifest.default_start.x_m;
+    const startY = manifest.default_start.y_m;
 
     const req: ComputePlanRequest = {
       type: "COMPUTE_PLAN",
       request_id: "bench-real-3stop-loop",
       plan_revision: 1,
       site_id: "gale_boxwork",
-      data_version: manifest.data_version ?? "gale_boxwork-2026.11.09",
+      data_version: manifest.data_version,
       waypoints: [
         { id: "wp-start", role: "start", x_m: startX, y_m: startY },
         { id: "wp-stop-1", role: "stop", x_m: startX + 200, y_m: startY + 100 },
@@ -342,10 +338,6 @@ describe.skipIf(!hasRealBundle)("T05.28 — Verify on the real grid (gale_boxwor
     const t0 = performance.now();
     const res = handleWorkerMessage(grid, req);
     const duration = performance.now() - t0;
-
-    console.log(
-      `[T05.28 benchmark gale_boxwork] 3-stop loop duration=${duration.toFixed(2)}ms (legs=${res.type === "PLAN_RESULT" ? res.legs.length : "N/A"}, status=${res.type === "PLAN_RESULT" ? res.status : "ERROR"})`,
-    );
 
     expect(res.type).toBe("PLAN_RESULT");
     expect(duration).toBeLessThanOrEqual(2000);

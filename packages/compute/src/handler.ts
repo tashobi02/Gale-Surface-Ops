@@ -71,16 +71,21 @@ export function handleWorkerMessage(
       return handleComputePlan(grid, request, maxExpansions);
     }
 
+    const req = request as unknown as Record<string, unknown>;
+    const reqId = typeof req?.request_id === "string" ? req.request_id : "unknown";
+    const reqType = typeof req?.type === "string" ? req.type : "unknown";
     return {
       type: "ERROR",
-      request_id: (request as any).request_id ?? "unknown",
+      request_id: reqId,
       code: "INTERNAL",
-      message: `Unknown worker request type: ${(request as any).type}`,
+      message: `Unknown worker request type: ${reqType}`,
     };
   } catch (err) {
+    const req = request as unknown as Record<string, unknown>;
+    const reqId = typeof req?.request_id === "string" ? req.request_id : "unknown";
     return {
       type: "ERROR",
-      request_id: request?.request_id ?? "unknown",
+      request_id: reqId,
       code: "INTERNAL",
       message: err instanceof Error ? err.message : String(err),
     };

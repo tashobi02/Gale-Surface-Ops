@@ -147,7 +147,16 @@ export function validatePlanInput(
     }
   }
 
-  // 9. max_haven_min (v2): 5–120
+  // 9. loop: boolean
+  if (scenario.loop !== undefined && typeof scenario.loop !== "boolean") {
+    errors.push({
+      field: "loop",
+      message: "loop must be a boolean",
+      value: scenario.loop,
+    });
+  }
+
+  // 10. max_haven_min (v2): 5–120
   if (scenario.max_haven_min !== undefined) {
     const val = scenario.max_haven_min;
     if (typeof val !== "number" || isNaN(val) || val < 5 || val > 120) {
@@ -159,7 +168,7 @@ export function validatePlanInput(
     }
   }
 
-  // 10. crew_count (v2): 1–2
+  // 11. crew_count (v2): 1–2
   if (scenario.crew_count !== undefined) {
     const val = scenario.crew_count;
     if (val !== 1 && val !== 2) {
@@ -171,7 +180,7 @@ export function validatePlanInput(
     }
   }
 
-  // 11. vehicle_available (v2): boolean
+  // 12. vehicle_available (v2): boolean
   if (scenario.vehicle_available !== undefined) {
     if (typeof scenario.vehicle_available !== "boolean") {
       errors.push({
@@ -182,7 +191,7 @@ export function validatePlanInput(
     }
   }
 
-  // 12. Waypoints validation
+  // 13. Waypoints validation
   if (waypoints !== undefined) {
     if (waypoints.length < 2 || waypoints.length > 11) {
       errors.push({
@@ -192,7 +201,7 @@ export function validatePlanInput(
       });
     }
 
-    const startCount = waypoints.filter((w) => w.role === "start").length;
+    const startCount = waypoints.filter((w) => w?.role === "start").length;
     if (startCount !== 1) {
       errors.push({
         field: "waypoints",
@@ -201,9 +210,29 @@ export function validatePlanInput(
       });
     }
 
-    if (grid) {
-      for (let i = 0; i < waypoints.length; i++) {
-        const wp = waypoints[i];
+    if (waypoints.length > 0 && waypoints[0]?.role !== "start") {
+      errors.push({
+        field: "waypoints",
+        message: `First waypoint must have role 'start' (found '${waypoints[0]?.role}')`,
+        value: waypoints[0]?.role,
+      });
+    }
+
+    for (let i = 0; i < waypoints.length; i++) {
+      const wp = waypoints[i];
+      if (typeof wp !== "object" || wp === null) continue; // shape errors belong to validateWorkerRequest
+      if (
+        typeof wp.x_m !== "number" ||
+        !Number.isFinite(wp.x_m) ||
+        typeof wp.y_m !== "number" ||
+        !Number.isFinite(wp.y_m)
+      ) {
+        errors.push({
+          field: "waypoints",
+          message: `Waypoint ${wp.id} has invalid coordinates (${wp.x_m}, ${wp.y_m}); x_m and y_m must be finite numbers`,
+          value: { id: wp.id, x_m: wp.x_m, y_m: wp.y_m },
+        });
+      } else if (grid) {
         const idx = cellIndex(grid, wp.x_m, wp.y_m);
         if (idx === null) {
           errors.push({
@@ -261,7 +290,6 @@ export function validateWorkerRequest(request: WorkerRequest, grid: LoadedGrid):
     ]) {
       if (scenario[field] === undefined) add(field, `${field} is required`);
     }
-    if (typeof scenario.loop !== "boolean") add("loop", "loop must be a boolean", scenario.loop);
     if (scenario.vehicle_available === true && !nonempty(scenario.vehicle_param_set)) {
       add("vehicle_param_set", "vehicle_param_set is required when vehicle is available", scenario.vehicle_param_set);
     }
@@ -281,9 +309,6 @@ export function validateWorkerRequest(request: WorkerRequest, grid: LoadedGrid):
       if (!nonempty(waypoint.id)) add("waypoints", "waypoint id is required", waypoint.id);
       if (waypoint.role !== "start" && waypoint.role !== "stop") {
         add("waypoints", "waypoint role must be start or stop", waypoint.role);
-      }
-      if (!finite(waypoint.x_m) || !finite(waypoint.y_m)) {
-        add("waypoints", "waypoint coordinates must be finite", waypoint);
       }
     }
     if (validEntries) errors.push(...validatePlanInput({}, request.waypoints, grid));

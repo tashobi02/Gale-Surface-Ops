@@ -289,6 +289,27 @@ describe("compute worker handler and entry", () => {
         expect(offRoute.warnings.some((warning) => warning.code === "TI_UNKNOWN")).toBe(false);
       }
     });
+
+    it("reports an unknown request type with request_id 'unknown' when the id is not a string", () => {
+      const response = handleWorkerMessage(testGrid, { type: "BOGUS", request_id: 5 } as unknown as ComputePlanRequest);
+      expect(response).toMatchObject({ type: "ERROR", code: "INTERNAL" });
+      if (response.type === "ERROR") expect(response.request_id).toBe("unknown");
+    });
+
+    it("is pure and deterministic: same input gives the same result, with no wall-clock fields", () => {
+      const res1 = handleWorkerMessage(testGrid, defaultComputeRequest);
+      const res2 = handleWorkerMessage(testGrid, defaultComputeRequest);
+
+      expect(res1).toEqual(res2);
+      expect(res1.type).toBe("PLAN_RESULT");
+      if (res1.type === "PLAN_RESULT") {
+        expect("computed_utc" in res1).toBe(false);
+        expect("timing_ms" in res1).toBe(false);
+        // Dwell stops counted from waypoints with role === 'stop'
+        const stops = defaultComputeRequest.waypoints.filter((w) => w.role === "stop").length;
+        expect(res1.totals?.dwell_time_min).toBe(stops * defaultComputeRequest.scenario.dwell_min_per_stop);
+      }
+    });
   });
 
   describe("planWorker entry and stale-revision rejection (T05.27)", () => {
