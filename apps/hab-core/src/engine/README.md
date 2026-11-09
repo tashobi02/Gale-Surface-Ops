@@ -22,7 +22,15 @@ State is a fold of the event log over the scenario's initial state (02 §A.6):
 
 ## Tick and module map
 
-`tick(state, scenario, dt_s, next_seq)` first moves crew along the plan, handles dwell, and updates O₂ and dose through `@marswalk/compute` (T22.09). It then calls each `EngineModule` (`(state, ctx) → {state, events, deltas}`) in `MODULE_ORDER`:
+`tick(state, scenario, dt_s, next_seq)` (T22.09; rules S1–S11 in [TASK-22](../../../../docs/tasks/TASK-22_simulation-engine.md), proposed 2026-11-07) works in this order:
+
+1. **Per crew member, in `state.crew` order:** event dose (`integrateDose`), then O₂ (`stepO2`), then `eva_elapsed_s`, then motion along the plan's legs. Dose and O₂ use the activity at the start of the step, over `[sim_time − dt_s, sim_time)` because the clock has already advanced. Motion (constant speed per leg, dwell at stops, start offset, re-anchoring after `PLAN_REVISED`) keeps its progress in `EngineState.motion`, which is engine-only (saved in snapshots, never sent to clients).
+2. **Motion events** (`ARRIVED_STOP`, `LEFT_STOP`, `CREW_SHELTERED` hab at the end of a loop) are reduced with seqs from `next_seq`.
+3. **Then each `EngineModule`** (`(state, ctx) → {state, events, deltas}`) in `MODULE_ORDER`, with `ctx.next_seq` the next free seq. Its events are reduced before the next module runs. A module whose body is still a `TODO(TASK-nn): Tnn.nn not implemented` stub is skipped (per call, nothing cached); any other error propagates. Stub modules are skipped silently (TODO: a one-time warning once the session has a logger).
+4. **EVA end:** after the modules, on the first tick where the session is `RUNNING` and every crew member is `IN_HAB` or `SHELTERED`, tick logs one system `EVA_ENDED {crew_ids}` (03 §E.6).
+5. **Deltas:** tick's own crew STATE_DELTAs (`crew/<id>/x_m`, `y_m`, `o2_frac`, `eva_elapsed_s`, `dose_event_ugy`, `dose_event_unsheltered_ugy`, only when the value changed), then each module's. The returned state contains every event: `session.last_seq = next_seq + events.length − 1`.
+
+The modules, in `MODULE_ORDER`:
 
 | # | Module function | Concern | Owner |
 | --- | --- | --- | --- |

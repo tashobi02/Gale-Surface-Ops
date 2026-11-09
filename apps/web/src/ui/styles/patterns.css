@@ -3,11 +3,11 @@
  * Implemented by T13.05 (Ridita Alam, R5 EVA & Ops UI · design system).
  *
  * Pattern class names (C12):
- *   .status-ok / .status-nominal      — solid fill       (✓ circle, --nominal / #3DDC84)
- *   .status-caution                   — diagonal hatch   (▲ triangle, --caution / #FFB020)
- *   .status-blocked / .status-warning — cross-hatch      (⬣ octagon, --warning / #FF4D4D)
- *   .status-unknown                   — dotted           (? diamond, --unknown / #B8A9FF)
- *   .status-advisory                  — dotted           (◆ diamond, --advisory / #4CC9F0)
+ *   .status-nominal / .status-ok      — solid fill       (✓ circle, --status-nominal)
+ *   .status-caution                   — diagonal hatch   (▲ triangle, --status-caution)
+ *   .status-warning / .status-blocked — cross-hatch      (⬣ octagon, --status-warning)
+ *   .status-unknown                   — dotted           (? diamond, --status-unknown)
+ *   .status-advisory                  — dotted           (◆ diamond, --status-advisory) [Proposed]
  *
  * Non-colour cues (04 §A.3 #2, §E):
  * Every status combines four cues: colour + shape + word + fixed position.
@@ -32,12 +32,12 @@
 
 .status-ok,
 .status-nominal {
-  background-color: var(--nominal, #3DDC84);
+  background-color: var(--status-nominal);
   color: var(--ink, #1A1A1A);
 }
 
 .status-caution {
-  background-color: var(--caution, #FFB020);
+  background-color: var(--status-caution);
   background-image: repeating-linear-gradient(
     45deg,
     rgba(0, 0, 0, 0.22),
@@ -50,7 +50,7 @@
 
 .status-blocked,
 .status-warning {
-  background-color: var(--warning, #FF4D4D);
+  background-color: var(--status-warning);
   background-image:
     repeating-linear-gradient(
       45deg,
@@ -66,11 +66,12 @@
       transparent 3px,
       transparent 6px
     );
-  color: var(--text-1, #ECEFF2);
+  /* Contrast fix: --ink on --warning gives 5.32:1 contrast (NFR-04 requires >= 4.5:1) */
+  color: var(--ink, #1A1A1A);
 }
 
 .status-unknown {
-  background-color: var(--unknown, #B8A9FF);
+  background-color: var(--status-unknown);
   background-image: radial-gradient(
     rgba(0, 0, 0, 0.35) 22%,
     transparent 22%
@@ -80,7 +81,7 @@
 }
 
 .status-advisory {
-  background-color: var(--advisory, #4CC9F0);
+  background-color: var(--status-advisory);
   background-image: radial-gradient(
     rgba(0, 0, 0, 0.35) 22%,
     transparent 22%
@@ -212,4 +213,3 @@
     print-color-adjust: exact !important;
   }
 }
-
