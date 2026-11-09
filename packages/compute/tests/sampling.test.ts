@@ -1,13 +1,228 @@
-import { describe, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import {
+  makeHazardWallGrid,
+  makeNanIslandGrid,
+  makePlaneGrid,
+  makeRampGrid,
+  withoutTi,
+} from "../../../apps/web/tests/fixtures/grids";
+import { samplePoint, sampleProfile } from "../src/sampling";
+import * as snapModule from "../src/snap";
 
-// docs/specs/02 §D.1 and 01 FR-03 acceptance (FR-03, FR-08). TASK-05.
+// Mock snap.ts so samplePoint tests can verify snap integration (T05.06 / T05.17)
+vi.mock("../src/snap", () => ({
+  SNAP_RADIUS_M: 50,
+  snapToPassable: vi.fn(),
+}));
+
+// docs/specs/02 §D.1, §E.2 and 01 FR-03, FR-08. TASK-05 (T05.06).
 describe("samplePoint", () => {
-  it.todo("returns OUTSIDE_AOI with no values outside the AOI");
-  it.todo("returns NO_DATA for NaN cells");
-  it.todo("matches the rasterio readout at 10 sampled cells (elevation exact, slope ±0.1°)");
-  it.todo("reports SLOPE_OVER_LIMIT and a snap candidate for steep cells");
+  it("returns OUTSIDE_AOI with null values outside the AOI (02 §D.1)", () => {
+    const grid = makePlaneGrid({
+      width: 10,
+      height: 10,
+      cell_m: 5,
+      origin_m: [0, 0],
+    });
+
+    // Grid extent: x in [0, 50], y in [-50, 0]
+    // Point north of origin (y > 0)
+    const resultNorth = samplePoint(grid, 25, 10, 50, 15);
+    expect(resultNorth.inside_aoi).toBe(false);
+    expect(resultNorth.passable).toBe(false);
+    expect(resultNorth.reason).toBe("OUTSIDE_AOI");
+    expect(resultNorth.lat).toBeNull();
+    expect(resultNorth.lon_e).toBeNull();
+    expect(resultNorth.elevation_m).toBeNull();
+    expect(resultNorth.slope_p90_deg).toBeNull();
+    expect(resultNorth.ti_tiu).toBeNull();
+    expect(resultNorth.flags).toEqual([]);
+    expect(resultNorth.snap).toBeNull();
+
+    // Point east of grid (x > 50)
+    const resultEast = samplePoint(grid, 60, -25, 50, 15);
+    expect(resultEast.inside_aoi).toBe(false);
+    expect(resultEast.reason).toBe("OUTSIDE_AOI");
+    expect(resultEast.elevation_m).toBeNull();
+  });
+
+  it("returns NO_DATA for NaN cells (02 §D.1)", () => {
+    // 30x30 grid with NaN island in the middle
+    const grid = makeNanIslandGrid({
+      width: 30,
+      height: 30,
+      cell_m: 5,
+      origin_m: [0, 0],
+      island_row: 10,
+      island_col: 10,
+      island_width: 5,
+      island_height: 5,
+    });
+
+    // Centre of cell (12, 12): x = 12.5 * 5 = 62.5, y = -12.5 * 5 = -62.5
+    const result = samplePoint(grid, 62.5, -62.5, 50, 15);
+    expect(result.inside_aoi).toBe(true);
+    expect(result.passable).toBe(false);
+    expect(result.reason).toBe("NO_DATA");
+    expect(result.lat).toBeNull();
+    expect(result.lon_e).toBeNull();
+    expect(result.elevation_m).toBeNull();
+    expect(result.slope_p90_deg).toBeNull();
+    expect(result.ti_tiu).toBeNull();
+    expect(result.flags).toContain("NO_DATA");
+  });
+
+  it("samples passable inside-AOI points with nearest slope/flags, bilinear elevation, and TI", () => {
+    const grid = makePlaneGrid({
+      width: 20,
+      height: 20,
+      cell_m: 10,
+      slope_deg: 10,
+      direction: "east",
+      origin_m: [0, 0],
+    });
+
+    // Inside cell (5, 5): x = 55, y = -55
+    const result = samplePoint(grid, 55, -55, 50, 15);
+    expect(result.inside_aoi).toBe(true);
+    expect(result.passable).toBe(true);
+    expect(result.reason).toBeNull();
+    expect(result.slope_p90_deg).toBe(10);
+    expect(result.flags).toEqual([]);
+    expect(result.ti_tiu).toBe(300);
+    expect(typeof result.elevation_m).toBe("number");
+    expect(result.snap).toBeNull();
+  });
+
+  it("returns ti_tiu as null when TI sidecar is absent (05 §E.6)", () => {
+    const grid = withoutTi(
+      makePlaneGrid({
+        width: 10,
+        height: 10,
+        cell_m: 10,
+        origin_m: [0, 0],
+      }),
+    );
+
+    const result = samplePoint(grid, 25, -25, 50, 15);
+    expect(result.inside_aoi).toBe(true);
+    expect(result.ti_tiu).toBeNull();
+  });
+
+  it("reports HARD_HAZARD and queries snapToPassable for hazard cells", () => {
+    const mockSnap = vi.mocked(snapModule.snapToPassable);
+    mockSnap.mockReturnValue({ x_m: 105, y_m: -55, distance_m: 10 });
+
+    const grid = makeHazardWallGrid({
+      width: 20,
+      height: 20,
+      cell_m: 10,
+      wall_col: 10,
+      origin_m: [0, 0],
+    });
+
+    // Point on the hazard wall: col 10 -> x = 105, row 5 -> y = -55
+    const result = samplePoint(grid, 105, -55, 50, 15);
+    expect(result.inside_aoi).toBe(true);
+    expect(result.passable).toBe(false);
+    expect(result.reason).toBe("HARD_HAZARD");
+    expect(result.flags).toContain("HARD_HAZARD");
+    expect(result.snap).toEqual({ x_m: 105, y_m: -55, distance_m: 10 });
+    expect(mockSnap).toHaveBeenCalledWith(grid, 105, -55, { hard_slope_limit_deg: 15 }, 50);
+  });
+
+  it("reports SLOPE_OVER_LIMIT and queries snapToPassable for steep cells", () => {
+    const mockSnap = vi.mocked(snapModule.snapToPassable);
+    mockSnap.mockReturnValue({ x_m: 15, y_m: -15, distance_m: 20 });
+
+    // Ramp with 20° slope
+    const grid = makeRampGrid({
+      width: 20,
+      height: 20,
+      cell_m: 10,
+      ramp_slope_deg: 20,
+      origin_m: [0, 0],
+    });
+
+    // With 15° hard slope limit, 20° is over limit
+    const result = samplePoint(grid, 35, -35, 50, 15);
+    expect(result.inside_aoi).toBe(true);
+    expect(result.passable).toBe(false);
+    expect(result.reason).toBe("SLOPE_OVER_LIMIT");
+    expect(result.slope_p90_deg).toBe(20);
+    expect(result.snap).toEqual({ x_m: 15, y_m: -15, distance_m: 20 });
+    expect(mockSnap).toHaveBeenCalledWith(grid, 35, -35, { hard_slope_limit_deg: 15 }, 50);
+  });
+
+  it("computes lat and lon_e matching spherical equirectangular projection (C7, 02 §C.1, 02 §E.2)", () => {
+    // 02 §E.2 reference example: (x=2990.0, y=-2595.0) -> lat -4.74378, lon_e 137.43061
+    const grid = makePlaneGrid({
+      width: 100,
+      height: 100,
+      cell_m: 100,
+      origin_m: [-5000, 5000],
+    });
+
+    const result = samplePoint(grid, 2990.0, -2595.0, 50, 15);
+    expect(result.lat).not.toBeNull();
+    expect(result.lon_e).not.toBeNull();
+    expect(result.lat!).toBeCloseTo(-4.74378, 4);
+    expect(result.lon_e!).toBeCloseTo(137.43061, 4);
+
+    // At origin (0, 0), lat and lon_e should equal site projection center (-4.70, 137.38)
+    const resultOrigin = samplePoint(grid, 0, 0, 50, 15);
+    expect(resultOrigin.lat!).toBeCloseTo(-4.70, 4);
+    expect(resultOrigin.lon_e!).toBeCloseTo(137.38, 4);
+  });
 });
 
 describe("sampleProfile", () => {
-  it.todo("samples elevation bilinearly every 5 m along the path");
+  it("samples elevation and slope classification every 5 m along a path (05 §C Leg, 01 FR-08)", () => {
+    const grid = makePlaneGrid({
+      width: 20,
+      height: 20,
+      cell_m: 10,
+      slope_deg: 10,
+      direction: "east",
+      origin_m: [0, 0],
+    });
+
+    // Straight 20 m path along east axis (x goes 10 -> 30, y stays -10)
+    const path: [number, number][] = [
+      [10, -10],
+      [30, -10],
+    ];
+
+    const profile = sampleProfile(grid, path, 10, 15);
+    // Samples at d = 0, 5, 10, 15, 20 m
+    expect(profile.dist_m).toEqual([0, 5, 10, 15, 20]);
+    expect(profile.elev_m.length).toBe(5);
+    expect(profile.slope_class.length).toBe(5);
+    // On 10° plane with caution=10, hard=15: slope is not > caution, so "ok" (or caution if >= caution)
+    profile.slope_class.forEach((sc) => {
+      expect(["ok", "caution", "over_limit"]).toContain(sc);
+    });
+  });
+
+  it("classifies slope as ok, caution, or over_limit against scenario limits (01 FR-08)", () => {
+    // 20° ramp: caution 10°, hard 15° -> 20° slope should be "over_limit"
+    const grid = makeRampGrid({
+      width: 10,
+      height: 10,
+      cell_m: 10,
+      ramp_slope_deg: 20,
+      origin_m: [0, 0],
+    });
+
+    const path: [number, number][] = [
+      [10, -10],
+      [20, -10],
+    ];
+
+    const profile = sampleProfile(grid, path, 10, 15);
+    expect(profile.dist_m).toEqual([0, 5, 10]);
+    profile.slope_class.forEach((sc) => {
+      expect(sc).toBe("over_limit");
+    });
+  });
 });

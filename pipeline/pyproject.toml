@@ -10,7 +10,8 @@ dependencies = []
 # Geo stack from docs/specs/02 §B. Kept optional so CI can run the (skipped) tests without GDAL.
 # Install the full environment with environment.yml (conda) instead.
 geo = ["rasterio", "numpy", "pyproj>=3.4"]
-dev = ["pytest"]
+validate = ["jsonschema>=4.0"]
+dev = ["pytest", "jsonschema>=4.0"]
 
 [project.scripts]
 validate-manifest = "marswalk_pipeline.validate_manifest:main"
