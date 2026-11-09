@@ -17,6 +17,8 @@
  *   cleared; an advisory leaves on clear (03 §E.7).
  * - Executing a rendezvous option logs VEHICLE_DISPATCHED, then PLAN_REVISED: the dispatch reads the
  *   option's crew, and the revision removes the alert's options.
+ * - PLAN_REVISED carries the revised `waypoints` and `legs`, which replace the plan's, so the map
+ *   shows the new route (decided 2026-11-07); a planner's new plan comes whole in `plan`.
  */
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -36,7 +38,7 @@ import type {
   Scenario,
 } from "@marswalk/protocol";
 import { canonicalJson, openLog, resumeLog, SNAPSHOT_EVERY } from "../src/log";
-import { initialState, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
+import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
 import type { LoadedScenario } from "../src/scenario";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -88,6 +90,10 @@ const at = (s: number): string => new Date(Date.parse(T0) + s * 1000).toISOStrin
 /** The scripted run: load, walk to stop 1, radiation alert, summon, shelter, clear, end (no TASK_*: T31.04). */
 function scriptedRun(): PendingEvent[] {
   const s = fake.scenario;
+  const [wp0, wp1] = s.plan.waypoints;
+  const firstLeg = s.plan.result.legs[0];
+  // Made-up return leg for the revision: the first leg's metrics with the option's straight path home.
+  const back = { ...firstLeg, from: "wp-1", to: "wp-0", geometry: [[1000, 0], [0, 0]] as [number, number][] };
   return [
     ev("SESSION_LOADED", at(0), { session_id: SESSION_ID, scenario_id: s.scenario_id, data_version: s.data_version, seed: s.seed, plan_hash: s.plan.plan_hash }),
     ev("CLOCK_CHANGED", at(0), { speed: 60, paused: false }, "ops"),
@@ -111,7 +117,7 @@ function scriptedRun(): PendingEvent[] {
     }),
     ev("ALERT_ACKED", at(3610), { alert_id: "a-7", acked_by: "eva:EV1" }, "eva:EV1"),
     ev("VEHICLE_DISPATCHED", at(3615), { vehicle_id: "PR1", option_id: "o1", rendezvous: { x_m: 500, y_m: 0, eta_crew_s: 600, eta_vehicle_s: 540 } }, "eva:EV1"),
-    ev("PLAN_REVISED", at(3615), { plan_revision: 2, option_id: "o1", stops_dropped: [2] }, "eva:EV1"),
+    ev("PLAN_REVISED", at(3615), { plan_revision: 2, option_id: "o1", stops_dropped: [2], waypoints: [wp0, wp1], legs: [firstLeg, back] }, "eva:EV1"),
     ev("VEHICLE_ARRIVED", at(4155), { vehicle_id: "PR1", x_m: 500, y_m: 0 }),
     ev("CREW_SHELTERED", at(4215), { crew_id: "EV1", haven_kind: "vehicle", dose_event_ugy: 0.08, dose_event_unsheltered_ugy: 0.5 }),
     ev("CREW_SHELTERED", at(4215), { crew_id: "EV2", haven_kind: "vehicle", dose_event_ugy: 0.09, dose_event_unsheltered_ugy: 0.5 }),
@@ -165,7 +171,7 @@ describe("event log (05 §B session store, LogEvent)", () => {
     const appended = scriptedRun().map((p) => log.append(p));
     expect(log.after(5)).toEqual(appended.slice(5));
     expect(log.after(log.lastSeq())).toEqual([]);
-    expect(appended[3]).toMatchObject({ ...scriptedRun()[3], seq: 4 });
+    expect(appended[3]).toEqual(logged(scriptedRun()[3], 4));
   });
 
   it("writes one canonical JSON line per event to session.jsonl", () => {
@@ -283,7 +289,7 @@ describe("engine determinism (02 §A.6, NFR-06, NFR-14)", () => {
   it("reduce is pure: it does not change its input state or event", () => {
     const state = initialState(fake, SESSION_ID);
     const before = structuredClone(state);
-    const event: LogEvent = { ...scriptedRun()[2], seq: 1 };
+    const event: LogEvent = logged(scriptedRun()[2], 1);
     const eventBefore = structuredClone(event);
     const next = reduce(state, event);
     expect(state).toEqual(before);
@@ -303,12 +309,12 @@ describe("engine determinism (02 §A.6, NFR-06, NFR-14)", () => {
 
 describe("reducer state transitions (03 §E.6–§E.10)", () => {
   /** State after the first `n` scripted events. */
-  const after = (n: number): EngineState => fold(scriptedRun().slice(0, n).map((p, i) => ({ ...p, seq: i + 1 })));
+  const after = (n: number): EngineState => fold(scriptedRun().slice(0, n).map((p, i) => logged(p, i + 1)));
 
   it("initial state: session LOADED at start_utc, crew IN_HAB at the plan start, vehicles PARKED at their starts", () => {
     const s = initialState(fake, SESSION_ID);
     expect(s.session).toMatchObject({ session_id: SESSION_ID, scenario_id: "fake-straight-line", data_version: "mock_site-fixture", seed: 4190, status: "LOADED", last_seq: 0 });
-    expect(s.session.clock.sim_time).toBe(T0);
+    expect(s.session.clock).toEqual({ sim_time: T0, speed: 1, paused: false }); // decision D, 2026-11-07
     expect(s.plan).toEqual(fake.scenario.plan);
     expect(s.crew.map((c) => [c.crew_id, c.activity, c.x_m, c.y_m, c.stop_index, c.linked])).toEqual([
       ["EV1", "IN_HAB", 0, 0, null, true],
@@ -354,6 +360,24 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
     expect(s.crew.map((c) => c.activity)).toEqual(["TO_HAVEN", "TO_HAVEN"]);
   });
 
+  it("PLAN_REVISED replaces the plan's waypoints and legs, so the map shows the revised route (decided 2026-11-07)", () => {
+    const before = after(10).plan!;
+    const revised = after(11).plan!;
+    expect(before.waypoints.map((w) => w.id)).toEqual(["wp-0", "wp-1", "wp-2"]);
+    expect(revised.waypoints.map((w) => w.id)).toEqual(["wp-0", "wp-1"]);
+    expect(revised.result.legs.map((l) => [l.from, l.to])).toEqual([["wp-0", "wp-1"], ["wp-1", "wp-0"]]);
+    expect(revised.plan_hash).toBe(before.plan_hash); // still names the published plan it came from
+    expect(revised.scenario).toEqual(before.scenario);
+  });
+
+  it("a PLAN_REVISED with a whole `plan` (PUBLISH_PLAN) replaces the plan", () => {
+    const base = after(3);
+    const next = { ...fake.scenario.plan, plan_hash: "abcdef012345", waypoints: fake.scenario.plan.waypoints.slice(0, 2) };
+    const s = reduce(base, logged(ev("PLAN_REVISED", at(5), { plan_revision: 2, option_id: null, stops_dropped: [], waypoints: next.waypoints, legs: next.result.legs, plan: next }, "planner"), 4));
+    expect(s.plan).toEqual(next);
+    expect(s.session.plan_revision).toBe(2);
+  });
+
   it("VEHICLE_DISPATCHED dispatches the vehicle to the rendezvous; VEHICLE_ARRIVED places it there", () => {
     expect(after(10).vehicles[0]).toMatchObject({ state: "DISPATCHED", task: { kind: "SUMMON", target: { x_m: 500, y_m: 0 }, crew_ids: ["EV1", "EV2"] }, eta_s: 540 });
     expect(after(12).vehicles[0]).toMatchObject({ state: "ARRIVED", x_m: 500, y_m: 0 });
@@ -363,13 +387,32 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
     const base = after(3);
     const tasked = reduce(
       { ...base, vehicles: [...base.vehicles, { vehicle_id: "UR1", kind: "utility_rover", param_set: "ur1-assumed", x_m: 0, y_m: 0, state: "PARKED", task: null, path: [], eta_s: null, battery_wh: null }] },
-      { ...ev("VEHICLE_DISPATCHED", at(10), { vehicle_id: "UR1", task: "CARRY", target: { x_m: 900, y_m: 10 }, item: "sample bag" }, "ops"), seq: 4 },
+      logged(ev("VEHICLE_DISPATCHED", at(10), { vehicle_id: "UR1", task: "CARRY", target: { x_m: 900, y_m: 10 }, item: "sample bag" }, "ops"), 4),
     );
     expect(tasked.vehicles[1]).toMatchObject({ state: "TASKED", task: { kind: "CARRY", target: { x_m: 900, y_m: 10 }, item: "sample bag" } });
   });
 
   it("CREW_SHELTERED sets SHELTERED, the haven kind and both doses from the event", () => {
     expect(after(13).crew[0]).toMatchObject({ activity: "SHELTERED", dose_event_ugy: 0.08, dose_event_unsheltered_ugy: 0.5, haven: expect.objectContaining({ kind: "vehicle" }) });
+  });
+
+  it("CREW_SHELTERED with haven_kind hab sets IN_HAB, the plan-complete step of 03 §E.8 (proposed 2026-11-07, T22.09)", () => {
+    const walking = after(3);
+    expect(walking.crew[0].activity).toBe("WALKING");
+    const home = reduce(walking, logged(ev("CREW_SHELTERED", at(6764), { crew_id: "EV1", haven_kind: "hab", dose_event_ugy: 0.12, dose_event_unsheltered_ugy: 0.3 }), 4));
+    expect(home.crew[0]).toMatchObject({ activity: "IN_HAB", dose_event_ugy: 0.12, dose_event_unsheltered_ugy: 0.3, haven: expect.objectContaining({ kind: "hab" }) });
+    expect(home.crew[1].activity).toBe("WALKING");
+  });
+
+  it("CREW_SHELTERED with haven_kind hab: IN_HAB from WALKING or AT_STOP, SHELTERED from TO_HAVEN (03 §E.8; proposed 2026-11-07)", () => {
+    const home = (s: EngineState): EngineState =>
+      reduce(s, logged(ev("CREW_SHELTERED", at(6764), { crew_id: "EV1", haven_kind: "hab", dose_event_ugy: 0.12, dose_event_unsheltered_ugy: 0.3 }), s.session.last_seq + 1));
+    const atStop = after(4);
+    expect(atStop.crew[0].activity).toBe("AT_STOP");
+    expect(home(atStop).crew[0].activity).toBe("IN_HAB");
+    const revised = after(scriptedRun().findIndex((e) => e.kind === "PLAN_REVISED") + 1);
+    expect(revised.crew[0].activity).toBe("TO_HAVEN");
+    expect(home(revised).crew[0]).toMatchObject({ activity: "SHELTERED", dose_event_ugy: 0.12, haven: expect.objectContaining({ kind: "hab" }) });
   });
 
   it("LINK_LOST marks the crew member unlinked and stale; LINK_RESTORED reverses it (03 §E.10)", () => {
@@ -385,10 +428,10 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
   it("a warning latches until it is acknowledged and cleared (03 §E.7)", () => {
     expect(after(18).alerts).toEqual([]); // acked at 9, cleared at 18
     const unacked = fold(
-      [scriptedRun()[6], ev("ALERT_CLEARED", at(3700), { alert_id: "a-7" })].map((p, i) => ({ ...p, seq: i + 1 })),
+      [scriptedRun()[6], ev("ALERT_CLEARED", at(3700), { alert_id: "a-7" })].map((p, i) => logged(p, i + 1)),
     );
     expect(unacked.alerts).toEqual([expect.objectContaining({ alert_id: "a-7", cleared_seq: 2, acked_seq: null })]);
-    const acked = reduce(unacked, { ...ev("ALERT_ACKED", at(3710), { alert_id: "a-7", acked_by: "ops" }, "ops"), seq: 3 });
+    const acked = reduce(unacked, logged(ev("ALERT_ACKED", at(3710), { alert_id: "a-7", acked_by: "ops" }, "ops"), 3));
     expect(acked.alerts).toEqual([]);
   });
 
@@ -397,7 +440,7 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
       [
         ev("ALERT_RAISED", at(10), { alert_id: "a-1", code: "ADVISORY", level: "advisory", subjects: [], message: "Earth forecast received" }),
         ev("ALERT_CLEARED", at(20), { alert_id: "a-1" }),
-      ].map((p, i) => ({ ...p, seq: i + 1 })),
+      ].map((p, i) => logged(p, i + 1)),
     );
     expect(s.alerts).toEqual([]);
   });
@@ -412,7 +455,7 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
       [
         ev("EARTH_MSG_QUEUED", at(3600), { message_id: "m-1", direction: "to_mars", body: "SEP event in progress. Recommend shelter.", sent_utc: at(3600), deliver_utc: at(4800), via: "dte" }, "system", { deliver_utc: "derived" }),
         ev("EARTH_MSG_DELIVERED", at(4800), { message_id: "m-1" }),
-      ].map((p, i) => ({ ...p, seq: i + 1 })),
+      ].map((p, i) => logged(p, i + 1)),
     );
     expect(s.earthQueue).toEqual([expect.objectContaining({ message_id: "m-1", state: "DELIVERED", via: "dte", deliver_utc: at(4800) })]);
   });

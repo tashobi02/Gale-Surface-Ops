@@ -162,7 +162,7 @@
 
 ### T12.05 — Write DataSource records for the models (Tobler, Apollo 17, Mars24)
 
-- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS) — taken over from Mishkat Ahmed Khan on 9 Nov to unblock T03.19 (data lead's call; Mishkat informed on the PR)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
