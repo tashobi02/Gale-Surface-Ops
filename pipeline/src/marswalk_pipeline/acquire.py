@@ -10,7 +10,24 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 
-def fetch_sources(lock_path: Path, work_dir: Path) -> None:
+def source_filename(entry: dict) -> str:
+    """Return the same cache filename for acquisition and clipping."""
+    url = entry["url"]
+    parsed = urlparse(url)
+    name = Path(unquote(parsed.path)).name
+    if not name or name in (".", ".."):
+        raise ValueError(f"Source URL has no filename: {url}")
+    projection, extent = entry.get("proj4"), entry.get("extent_m")
+    if (projection is None) != (extent is None):
+        raise ValueError("A source window requires both proj4 and extent_m")
+    if projection is not None:
+        key = json.dumps([url, projection, extent], separators=(",", ":"))
+        suffix = hashlib.sha256(key.encode("utf-8")).hexdigest()[:8]
+        name = f"{Path(name).stem}.{suffix}.tif"
+    return name
+
+
+def fetch_sources(lock_path: Path, work_dir: Path, *, data_version: str | None = None) -> None:
     """Acquire sources and record checksums and tool versions in the lock file.
 
     Entries may supply ``proj4`` and ``extent_m`` for a GDAL window in the
@@ -21,12 +38,12 @@ def fetch_sources(lock_path: Path, work_dir: Path) -> None:
     work_dir = Path(work_dir)
     lock = json.loads(lock_path.read_text(encoding="utf-8"))
     entries = [entry for entry in lock["sources"] if entry.get("url") is not None]
-    if not entries:
-        return
-
-    # Import only when acquisition is requested, never at module import time.
-    from osgeo import gdal
-    import rasterio
+    if data_version is not None:
+        lock["data_version"] = data_version
+    if entries:
+        # Import only when acquisition is requested, never at module import time.
+        from osgeo import gdal
+        import rasterio
 
     work_dir.mkdir(parents=True, exist_ok=True)
     for entry in entries:
@@ -34,17 +51,9 @@ def fetch_sources(lock_path: Path, work_dir: Path) -> None:
         parsed = urlparse(url)
         if parsed.scheme not in ("", "file", "http", "https"):
             raise ValueError(f"Unsupported source URL scheme: {parsed.scheme}")
-        name = Path(unquote(parsed.path)).name
-        if not name or name in (".", ".."):
-            raise ValueError(f"Source URL has no filename: {url}")
+        name = source_filename(entry)
         projection = entry.get("proj4")
         extent = entry.get("extent_m")
-        if (projection is None) != (extent is None):
-            raise ValueError("A source window requires both proj4 and extent_m")
-        if projection is not None:
-            key = json.dumps([url, projection, extent], separators=(",", ":"))
-            suffix = hashlib.sha256(key.encode("utf-8")).hexdigest()[:8]
-            name = f"{Path(name).stem}.{suffix}.tif"
         target = work_dir / name
         cached = target.exists()
         if not cached:
@@ -94,7 +103,8 @@ def fetch_sources(lock_path: Path, work_dir: Path) -> None:
             raise ValueError(f"Cached source checksum mismatch: {target}")
         entry["sha256"] = checksum
 
-    lock.setdefault("tools", {}).update(gdal=gdal.VersionInfo("RELEASE_NAME"), rasterio=rasterio.__version__)
+    if entries:
+        lock.setdefault("tools", {}).update(gdal=gdal.VersionInfo("RELEASE_NAME"), rasterio=rasterio.__version__)
     temporary_lock = None
     try:
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=lock_path.parent, delete=False) as dest:
