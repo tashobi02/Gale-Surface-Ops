@@ -13,6 +13,7 @@ dependencies:
   - pyproj>=3.4
   - spiceypy
   - pytest
+  - jsonschema>=4.0
   - pip
   - pip:
       - -e .
