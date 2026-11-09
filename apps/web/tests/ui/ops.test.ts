@@ -78,19 +78,28 @@ describe("SCR-11 Ops console with nothing supplied (04 §D.1: no sample data)", 
     // Header, conditions and event log read — and say why, in their labels.
     expect(text).toContain("SOL —");
     expect(text).toContain("LTST —");
-    expect(must(container, ".ops-event-log [data-provenance]").getAttribute("data-source")).toBe("unavailable:event_log");
+    const log = must(container, ".ops-event-log [data-unavailable]");
+    expect(log.getAttribute("data-source")).toBe("unavailable:event_log");
+    expect(log.getAttribute("data-provenance")).toBeNull();
     expect(must(container, '[data-slot="options-empty"]').textContent).toContain("—");
     expect(must<HTMLButtonElement>(container, "#action-confirm-option").disabled).toBe(true);
   });
 
-  it("every labelled value on the empty console has a valid provenance and a source", async () => {
+  it("every labelled value on the empty console has a source, and no missing value is labelled 'assumed'", async () => {
     const { container } = await mount(createElement(OpsConsole));
-    const labelled = container.querySelectorAll("[data-provenance]");
+    const labelled = container.querySelectorAll("[data-source]");
 
     expect(labelled.length).toBeGreaterThan(0);
     for (const el of labelled) {
-      expect(PROVENANCE).toContain(el.getAttribute("data-provenance"));
       expect(el.getAttribute("data-source")).toBeTruthy();
+      const prov = el.getAttribute("data-provenance");
+      if (prov !== null) expect(PROVENANCE).toContain(prov);
+      expect(prov).not.toBe("assumed");
+      // A missing value is flagged, shows no glyph, and its source says what is missing.
+      if (el.getAttribute("data-unavailable") === "true") {
+        expect(el.getAttribute("data-source")).toMatch(/^unavailable:|^docs\/specs\/01:FR-36$/);
+        expect(el.textContent).not.toMatch(/[■◆○△▶◇]/);
+      }
     }
   });
 });
@@ -126,8 +135,14 @@ describe("SCR-11 crew and vehicle cards from explicit fixtures (04 §A.3 #8, FR-
     const { container } = await consoleWith([partial]);
     const card = must(container, ".crew-card");
 
-    expect(must(card, '[data-source="snapshot:crew.haven.minutes"]').textContent).toContain("— MIN");
-    expect(must(card, '[data-source="snapshot:crew.o2_frac"]').textContent).toContain("— %");
+    const haven = must(card, '[data-source="unavailable:crew.haven.minutes"]');
+    expect(haven.textContent).toContain("— MIN");
+    expect(haven.getAttribute("data-unavailable")).toBe("true");
+    expect(haven.getAttribute("data-provenance")).toBe("modelled");
+    const o2 = must(card, '[data-source="unavailable:crew.o2_frac"]');
+    expect(o2.textContent).toContain("— %");
+    expect(o2.getAttribute("data-provenance")).toBe("simulated");
+    expect(o2.textContent).not.toMatch(/[■◆○△▶◇]/);
     expect(must(card, '[data-source="snapshot:crew.dose_event_ugy"]').textContent).toContain("0.0 mGy");
     expect(card.textContent).not.toMatch(/NaN|\b14 MIN|71/);
   });
@@ -141,7 +156,8 @@ describe("SCR-11 crew and vehicle cards from explicit fixtures (04 §A.3 #8, FR-
     expect(card.textContent).toContain("LOST");
     const age = must(card, '[data-source="unavailable:link.age_seconds"]');
     expect(age.textContent).toBe("—");
-    expect(age.getAttribute("data-provenance")).toBe("assumed");
+    expect(age.getAttribute("data-unavailable")).toBe("true");
+    expect(age.getAttribute("data-provenance")).toBe("simulated");
     expect(card.textContent).not.toMatch(/2m ago/);
   });
 
@@ -359,23 +375,28 @@ describe("Conditions feed (01 FR-36, NFR-05, 04 §E.4, §E.5)", () => {
     earthLink: {
       lightTimeSeconds: { v: 600, unit: "s", prov: "derived" as const, src: "test:light" },
       nextPass: { v: "pass at 4", prov: "derived" as const, src: "test:pass" },
-      queueUp: { v: 2, unit: "pkts", prov: "derived" as const, src: "test:q" },
-      queueDown: { v: 0, unit: "pkts", prov: "derived" as const, src: "test:q" },
+      queueUp: { v: 2, unit: "pkts", prov: "derived" as const, src: "test:q-up" },
+      queueDown: { v: 0, unit: "pkts", prov: "replayed" as const, src: "test:q-down" },
     },
   };
 
-  it("with no conditions every field reads — and is labelled assumed/unavailable; no sample number appears", async () => {
+  it("with no conditions every field reads —, flagged unavailable, with no class and no glyph; no sample number appears", async () => {
     const { container } = await mount(createElement(ConditionsPanel, { variant: "ops" }));
     const text = container.textContent ?? "";
 
     expect(text).not.toMatch(/13:05|42\.5|0\.21|84\.2|9m|MRO|NaN/);
     const values = container.querySelectorAll(".value");
-    expect(values.length).toBe(6);
+    expect(values.length).toBe(7);
     for (const v of values) {
       expect(v.textContent).toContain("—");
-      expect(v.getAttribute("data-provenance")).toBe("assumed");
+      expect(v.getAttribute("data-unavailable")).toBe("true");
+      expect(v.getAttribute("data-provenance")).toBeNull();
       expect(v.getAttribute("data-source")).toMatch(/^unavailable:conditions\./);
+      expect(v.textContent).not.toMatch(/[■◆○△▶◇]/);
     }
+    // Uplink and downlink are separate elements with separate unavailable sources.
+    expect(must(container, '[data-queue="up"]').getAttribute("data-source")).toBe("unavailable:conditions.earthLink.queueUp");
+    expect(must(container, '[data-queue="down"]').getAttribute("data-source")).toBe("unavailable:conditions.earthLink.queueDown");
     expect(container.querySelector(".value")?.closest("div")?.textContent).toMatch(/LTST/);
     expect(text).toMatch(/not included in this build/i);
     expect(text).not.toMatch(/\blive\b/i);
@@ -391,7 +412,12 @@ describe("Conditions feed (01 FR-36, NFR-05, 04 §E.4, §E.5)", () => {
     expect(bySource("test:bg").getAttribute("data-provenance")).toBe("replayed");
     expect(bySource("test:event").textContent).toContain("5.5");
     expect(bySource("test:light").textContent).toContain("10:00");
-    expect(bySource("test:q").textContent).toContain("↑2 ↓0");
+    // Each queue direction is its own element with its own source and class (the downlink does not inherit the uplink's).
+    expect(bySource("test:q-up").textContent).toContain("↑2");
+    expect(bySource("test:q-up").textContent).not.toContain("↓");
+    expect(bySource("test:q-up").getAttribute("data-provenance")).toBe("derived");
+    expect(bySource("test:q-down").textContent).toContain("↓0");
+    expect(bySource("test:q-down").getAttribute("data-provenance")).toBe("replayed");
     expect(container.textContent).toMatch(/Event Dose Rate/);
     expect(container.textContent).not.toMatch(/\blive\b/i);
 
@@ -399,7 +425,9 @@ describe("Conditions feed (01 FR-36, NFR-05, 04 §E.4, §E.5)", () => {
       createElement(ConditionsPanel, { variant: "ops", conditions: { ltst: conditions.ltst } }),
     );
     expect(must(partial.container, '[data-source="test:ltst"]').textContent).toContain("09:15");
-    expect(must(partial.container, '[data-source="unavailable:conditions.sunElevationDeg"]').textContent).toContain("—");
+    const sun = must(partial.container, '[data-source="unavailable:conditions.sunElevationDeg"]');
+    expect(sun.textContent).toContain("—");
+    expect(sun.getAttribute("data-unavailable")).toBe("true");
     expect(partial.container.textContent).not.toMatch(/Event Dose Rate/);
   });
 

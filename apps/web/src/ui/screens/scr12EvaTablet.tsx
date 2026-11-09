@@ -20,7 +20,7 @@ import {
 import { EvaActionRow } from "../eva/HoldToConfirm";
 import { StatusIcon } from "../components/statusIcon";
 import {
-  PROVENANCE_GLYPHS,
+  glyphOf,
   UNAVAILABLE,
   fmtBearing,
   fmtDuration,
@@ -30,6 +30,8 @@ import {
   fmtKilometres,
   isFiniteNumber,
   provAttrs,
+  unavailableOf,
+  PROVENANCE_GLYPHS,
 } from "../components/provenance";
 import { TasksButton } from "./scr12/TasksButton";
 import { StopTaskList } from "./scr12/StopTaskList";
@@ -54,8 +56,8 @@ export interface EvaTabletProps {
   className?: string;
 }
 
-/** A "—" shown where there is no stop to navigate to (still labelled, 04 §D.1). */
-const NO_STOP = { prov: "assumed", src: "unavailable:plan.next_stop" } as const;
+/** A "—" shown where there is no stop to navigate to: flagged unavailable, class unknown (04 §D.1). */
+const NO_STOP = unavailableOf(null, "next_stop");
 
 /** Unit suffix only for a real number, so "—" never reads "— min". */
 function withUnit(v: unknown, unit: string): string {
@@ -91,6 +93,10 @@ export function EvaTablet({
   const showTasksList = tasksExpanded && !isAlertActive;
 
   const isLandscape = orientation === "landscape";
+
+  // With no alert the banner reads NOMINAL only when this crew member's telemetry is available; with none it is UNKNOWN,
+  // matching the HAVEN and O₂ cards (04 §C.1: never a nominal default).
+  const bannerStatus = vm.haven.status === "unknown" && vm.o2.status === "unknown" ? "unknown" : "nominal";
 
   // Root container styles (OPS dark instrument mode, 04 §B.2)
   const rootStyle: CSSProperties = {
@@ -203,7 +209,7 @@ export function EvaTablet({
               padding: "0 8px",
             }}
           >
-            <StatusIcon status={activeSnapshot ? "nominal" : "unknown"} showWord={true} />
+            <StatusIcon status={bannerStatus} showWord={true} />
           </div>
         )}
       </div>
@@ -234,7 +240,7 @@ export function EvaTablet({
               {fmtInt(vm.haven.minutes.v)}
             </span>
             <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", textTransform: "uppercase" }}>
-              {vm.haven.minutes.unit} {PROVENANCE_GLYPHS[vm.haven.minutes.prov]}
+              {vm.haven.minutes.unit} {glyphOf(vm.haven.minutes)}
             </span>
           </div>
           <span style={{ fontSize: "16px", color: "var(--text-2, #A9B3BE)", fontFamily: "var(--font-mono, monospace)" }}>
@@ -261,14 +267,14 @@ export function EvaTablet({
               {vm.o2.percent.v}
             </span>
             <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px" }}>
-              {vm.o2.percent.unit} {PROVENANCE_GLYPHS[vm.o2.percent.prov]}
+              {vm.o2.percent.unit} {glyphOf(vm.o2.percent)}
             </span>
           </div>
           <span
             {...provAttrs(vm.o2.timeLeftMinutes)}
             style={{ fontSize: "16px", color: "var(--text-2, #A9B3BE)", fontFamily: "var(--font-mono, monospace)" }}
           >
-            {fmtHourMinute(vm.o2.timeLeftMinutes.v)} left {PROVENANCE_GLYPHS[vm.o2.timeLeftMinutes.prov]}
+            {fmtHourMinute(vm.o2.timeLeftMinutes.v)} left {glyphOf(vm.o2.timeLeftMinutes)}
           </span>
         </div>
       </div>
@@ -437,21 +443,24 @@ export function EvaTablet({
         }}
       >
         <span {...provAttrs(vm.metadata.evaTimeSeconds)}>
-          EVA {fmtDuration(vm.metadata.evaTimeSeconds.v)} {PROVENANCE_GLYPHS[vm.metadata.evaTimeSeconds.prov]}
+          EVA {fmtDuration(vm.metadata.evaTimeSeconds.v)} {glyphOf(vm.metadata.evaTimeSeconds)}
         </span>
         <span>·</span>
         <span {...provAttrs(vm.metadata.doseUgy)}>
           DOSE {isFiniteNumber(vm.metadata.doseUgy.v) ? fmtFixed(vm.metadata.doseUgy.v / 1000, 1) : UNAVAILABLE} mGy{" "}
-          {PROVENANCE_GLYPHS[vm.metadata.doseUgy.prov]}
+          {glyphOf(vm.metadata.doseUgy)}
         </span>
         <span>·</span>
         <span
-          data-provenance="simulated"
-          data-source="snapshot:crew.linked"
-          title="snapshot:crew.linked"
+          {...provAttrs(
+            vm.metadata.link.linked === null
+              ? unavailableOf("simulated", "crew.linked")
+              : { prov: "simulated", src: "snapshot:crew.linked" },
+          )}
           style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
         >
-          LINK {vm.metadata.link.linked === null ? UNAVAILABLE : vm.metadata.link.linked ? "▮▮▮" : "▯▯▯"} {PROVENANCE_GLYPHS.simulated}
+          LINK {vm.metadata.link.linked === null ? UNAVAILABLE : vm.metadata.link.linked ? "▮▮▮" : "▯▯▯"}{" "}
+          {vm.metadata.link.linked === null ? "" : PROVENANCE_GLYPHS.simulated}
           {vm.metadata.link.stale === true && (
             <span className="tag">
               <StatusIcon status="caution" word="STALE" showWord={true} />

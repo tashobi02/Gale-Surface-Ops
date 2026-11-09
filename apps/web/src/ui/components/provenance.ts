@@ -17,18 +17,52 @@ export const PROVENANCE_GLYPHS: Record<Provenance, string> = {
   simulated: "◇",
 };
 
-/** The two things every displayed value carries. */
+/**
+ * What every displayed value carries. `prov` is the field's provenance class when it is known (05); `null`
+ * only for a field whose class is not known while its value is missing. `unavailable` marks a missing value.
+ *
+ * Availability is separate from provenance (01 defines `assumed` as "a parameter we chose", so a missing value is
+ * never labelled `assumed`): a missing value renders "—" with `data-unavailable="true"`, an
+ * `unavailable:<field path>` source, and the field's own class on `data-provenance` when that class is known.
+ */
 export interface Sourced {
-  readonly prov: Provenance;
+  readonly prov: Provenance | null;
   readonly src: string;
+  readonly unavailable?: boolean;
+}
+
+type ProvAttrs = {
+  "data-provenance"?: Provenance;
+  "data-unavailable"?: "true";
+  "data-source": string;
+  title: string;
+};
+
+/**
+ * DOM attributes for a displayed value: provenance class (when known) and source id on the value element
+ * itself, the source id as the tooltip, and `data-unavailable="true"` for a missing value.
+ * Spread onto the element that shows the value.
+ */
+export function provAttrs(p: Sourced): ProvAttrs {
+  return {
+    ...(p.prov ? { "data-provenance": p.prov } : {}),
+    ...(p.unavailable ? { "data-unavailable": "true" as const } : {}),
+    "data-source": p.src,
+    title: p.src,
+  };
+}
+
+/** A missing value of a field: its known class (or null) and an `unavailable:<path>` source. */
+export function unavailableOf(prov: Provenance | null, path: string): Sourced & { unavailable: true } {
+  return { prov, src: `unavailable:${path}`, unavailable: true };
 }
 
 /**
- * DOM attributes for a displayed value: provenance class and source id on the value element itself,
- * plus the source id as the tooltip. Spread onto the element that shows the value.
+ * The provenance glyph that goes next to a value: the glyph of its own class, and none beside "—" or when the
+ * class is not known (never a glyph that disagrees with `data-provenance`).
  */
-export function provAttrs(p: Sourced): { "data-provenance": Provenance; "data-source": string; title: string } {
-  return { "data-provenance": p.prov, "data-source": p.src, title: p.src };
+export function glyphOf(p: Pick<Sourced, "prov" | "unavailable">): string {
+  return p.unavailable || !p.prov ? "" : PROVENANCE_GLYPHS[p.prov];
 }
 
 export function isFiniteNumber(v: unknown): v is number {

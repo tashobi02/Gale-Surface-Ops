@@ -21,7 +21,7 @@
 
 import type { CSSProperties, ReactElement } from "react";
 import type { Provenance } from "@marswalk/protocol";
-import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, isFiniteNumber } from "../components/provenance";
+import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
 
 export interface PostEvaReportData {
   sessionId?: string;
@@ -61,6 +61,7 @@ export interface PostEvaReportData {
     event: string;
     prov: Provenance;
   }>;
+  /** Extra commentary shown after the mandatory disclaimer. It never replaces it. */
   disclaimer?: string;
 }
 
@@ -76,15 +77,16 @@ export const REPORT_DISCLAIMER =
   "NASA Space Apps Challenge 2026 — Interplanetary Survival Guide: Martian Map. " +
   "For simulation and educational demonstration only; not certified for actual Martian flight or surface operations.";
 
-/** Provenance attributes for a report value; a missing value is labelled unavailable. */
-function reportAttrs(
-  present: boolean,
-  prov: Provenance,
-  path: string,
-): { "data-provenance": Provenance; "data-source": string; title: string } {
-  const src = present ? `report:${path}` : `unavailable:report.${path}`;
-  return { "data-provenance": present ? prov : "assumed", "data-source": src, title: src };
+/**
+ * Attributes for a report value. Present: its class and `report:<path>` source. Missing: the field's own class is kept,
+ * and the value is flagged `data-unavailable` with an `unavailable:report.<path>` source (never labelled `assumed`).
+ */
+function reportAttrs(present: boolean, prov: Provenance, path: string): ReturnType<typeof provAttrs> {
+  return provAttrs(present ? { prov, src: `report:${path}` } : unavailableOf(prov, `report.${path}`));
 }
+
+/** Glyph beside a report value: its own class when present, none beside "—". */
+const glyphIf = (present: boolean, prov: Provenance): string => (present ? PROVENANCE_GLYPHS[prov] : "");
 
 export function PostEvaReport({
   report,
@@ -289,12 +291,12 @@ export function PostEvaReport({
               }}
             >
               <span {...reportAttrs(hasReceived, "simulated", "dose_event_ugy")}>
-                {hasReceived ? fmtFixed(data.doseReceivedUgy, 1) : UNAVAILABLE} µGy {PROVENANCE_GLYPHS.simulated}
+                {hasReceived ? fmtFixed(data.doseReceivedUgy, 1) : UNAVAILABLE} µGy {glyphIf(hasReceived, "simulated")}
               </span>
               <span style={{ fontSize: "12px", color: "#6B7280", margin: "0 4px" }}>vs</span>
               <span {...reportAttrs(hasUnsheltered, "simulated", "dose_event_unsheltered_ugy")} style={{ color: "#4B5563" }}>
                 {hasUnsheltered ? (data.doseUnshelteredUgy as number).toLocaleString("en-US") : UNAVAILABLE} µGy{" "}
-                {PROVENANCE_GLYPHS.simulated}
+                {glyphIf(hasUnsheltered, "simulated")}
               </span>
             </span>
           </div>
@@ -311,7 +313,7 @@ export function PostEvaReport({
               }}
               {...reportAttrs(hasShelter, "derived", "time_to_shelter_min")}
             >
-              {hasShelter ? data.timeToShelterMin : UNAVAILABLE} min {PROVENANCE_GLYPHS.derived}
+              {hasShelter ? data.timeToShelterMin : UNAVAILABLE} min {glyphIf(hasShelter, "derived")}
             </span>
           </div>
 
@@ -327,7 +329,7 @@ export function PostEvaReport({
               }}
               {...reportAttrs(hasStops, "simulated", "stops")}
             >
-              {hasStops ? `${data.stopsCompleted} / ${data.stopsTotal}` : UNAVAILABLE} {PROVENANCE_GLYPHS.simulated}
+              {hasStops ? `${data.stopsCompleted} / ${data.stopsTotal}` : UNAVAILABLE} {glyphIf(hasStops, "simulated")}
             </span>
           </div>
 
@@ -343,7 +345,7 @@ export function PostEvaReport({
               }}
               {...reportAttrs(hasRevisions, "derived", "plan_revisions")}
             >
-              {hasRevisions ? data.planRevisionsCount : UNAVAILABLE} {PROVENANCE_GLYPHS.derived}
+              {hasRevisions ? data.planRevisionsCount : UNAVAILABLE} {glyphIf(hasRevisions, "derived")}
             </span>
           </div>
         </section>
@@ -616,12 +618,15 @@ export function PostEvaReport({
               )}
               {data.logEvents?.map((evt) => (
                 <tr key={evt.seq}>
-                  <td style={tdStyle}>{evt.seq}</td>
-                  <td style={tdStyle}>{evt.time}</td>
-                  <td style={{ ...tdStyle, fontWeight: 600 }}>{evt.actor}</td>
-                  <td style={tdStyle}>{evt.event}</td>
+                  {/* Each readout carries the event's own class and source; the chip beside them is only a name */}
+                  <td style={tdStyle} {...reportAttrs(true, evt.prov, `log_events.${evt.seq}.seq`)}>{evt.seq}</td>
+                  <td style={tdStyle} {...reportAttrs(true, evt.prov, `log_events.${evt.seq}.time`)}>{evt.time}</td>
+                  <td style={{ ...tdStyle, fontWeight: 600 }} {...reportAttrs(true, evt.prov, `log_events.${evt.seq}.actor`)}>
+                    {evt.actor}
+                  </td>
+                  <td style={tdStyle} {...reportAttrs(true, evt.prov, `log_events.${evt.seq}.event`)}>{evt.event}</td>
                   <td style={tdStyle}>
-                    <span data-provenance={evt.prov} data-source={`report:log_events.${evt.seq}`} title={`report:log_events.${evt.seq}`}>
+                    <span {...reportAttrs(true, evt.prov, `log_events.${evt.seq}`)}>
                       {evt.prov} {PROVENANCE_GLYPHS[evt.prov]}
                     </span>
                   </td>
@@ -683,7 +688,8 @@ export function PostEvaReport({
               paddingTop: "6px",
             }}
           >
-            {data.disclaimer ?? REPORT_DISCLAIMER}
+            {REPORT_DISCLAIMER}
+            {data.disclaimer ? ` ${data.disclaimer}` : ""}
           </p>
         </footer>
       </article>

@@ -6,6 +6,9 @@
  *
  * Not claimed here: pixel geometry, contrast ratios and glove use (manual checks, see docs/tasks/status.md).
  */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -25,6 +28,8 @@ import {
 import { BEATS } from "../fixtures/ws";
 import { accepted, recordingClient, rejected, storeFromBeat } from "./fixtureStore";
 import { click, flush, installDom, keyDown, keyUp, mount, must, pointerDown, pointerUp, removeDom } from "./domHarness";
+
+const STYLES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/styles");
 
 const PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
 
@@ -93,8 +98,38 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
     expect(must(container, '[data-slot="haven"]').textContent).toContain("UNKNOWN");
     expect(must(container, '[data-slot="o2"]').textContent).toContain("UNKNOWN");
     expect(must(container, '[data-slot="alert-nominal"]').textContent).toContain("UNKNOWN");
-    // Even the empty readouts are labelled.
-    expect(must(container, '[data-slot="haven"] .value').getAttribute("data-provenance")).toBe("assumed");
+    // Availability is separate from provenance: the readout is flagged unavailable, keeps the field's own class
+    // (05: haven modelled, O₂ simulated) and is never labelled "assumed" (01: a parameter we chose); no glyph beside "—".
+    const haven = must(container, '[data-slot="haven"] .value');
+    expect(haven.getAttribute("data-unavailable")).toBe("true");
+    expect(haven.getAttribute("data-provenance")).toBe("modelled");
+    expect(haven.getAttribute("data-source")).toBe("unavailable:crew.haven.minutes");
+    const o2 = must(container, '[data-slot="o2"] .value');
+    expect(o2.getAttribute("data-unavailable")).toBe("true");
+    expect(o2.getAttribute("data-provenance")).toBe("simulated");
+    expect(container.innerHTML).not.toContain('data-provenance="assumed"');
+    expect(must(container, '[data-slot="haven"]').textContent).not.toMatch(/[■◆○△▶◇]/);
+  });
+
+  it("a snapshot with no crew (or without this crew member) shows UNKNOWN on the banner too, not NOMINAL", async () => {
+    const base = snapshotOf("connect");
+    for (const crew of [[], base.crew.filter((c) => c.crew_id !== "EV1")]) {
+      const { container, unmount } = await mount(createElement(EvaTablet, { snapshot: { ...base, crew, alerts: [] }, crewId: "EV1" }));
+      const banner = must(container, '[data-slot="alert-nominal"]');
+      expect(banner.textContent).toContain("UNKNOWN");
+      expect(banner.textContent).not.toContain("NOMINAL");
+      expect(must(container, '[data-slot="haven"]').textContent).toContain("UNKNOWN");
+      expect(must(container, '[data-slot="o2"]').textContent).toContain("UNKNOWN");
+      await unmount();
+    }
+    // The other crew member's telemetry does not make EV1's banner nominal; EV2's own is unknown here.
+    const onlyEv1 = await mount(createElement(EvaTablet, { snapshot: { ...base, alerts: [] }, crewId: "EV2" }));
+    expect(must(onlyEv1.container, '[data-slot="alert-nominal"]').textContent).toContain("UNKNOWN");
+  });
+
+  it("with this crew member's telemetry and no alert the banner reads NOMINAL", async () => {
+    const { container } = await mount(createElement(EvaTablet, { snapshot: { ...snapshotOf("connect"), alerts: [] } }));
+    expect(must(container, '[data-slot="alert-nominal"]').textContent).toContain("NOMINAL");
   });
 
   it("a HAVEN that is the hab reads 'to HAB', not a vehicle id", async () => {
@@ -183,7 +218,9 @@ describe("SCR-13 HUD and SCR-18 link-lost on fixture snapshots", () => {
     expect(noAge.container.textContent).not.toMatch(/NaN|Infinity|undefined/);
     const age = must(noAge.container, '[data-slot="cached-telemetry"] > div:nth-child(3) .value');
     expect(age.textContent).toBe("—");
-    expect(age.getAttribute("data-provenance")).toBe("assumed");
+    expect(age.getAttribute("data-unavailable")).toBe("true");
+    expect(age.getAttribute("data-provenance")).toBe("simulated");
+    expect(age.getAttribute("data-source")).toBe("unavailable:link.age_seconds");
     await noAge.unmount();
 
     const withAge = await mount(createElement(HabLinkLost, { snapshot: snapshotOf("link-lost-restored"), ageSeconds: 42 }));
@@ -572,5 +609,57 @@ describe("SCR-14 Options (04 §E.7)", () => {
 
     expect(evaHtml).toMatch(/data-variant="eva"/);
     expect(opsHtml).toMatch(/data-variant="ops"/);
+  });
+});
+
+describe("EVA type scale: status words and map labels are at least 16 px (04 §A.3 #9)", () => {
+  /** Loads the real stylesheets into the document so computed sizes come from the shipped CSS. */
+  function loadStyles(): void {
+    const style = document.createElement("style");
+    style.textContent = ["tokens.css", "base.css", "patterns.css"].map((f) => readFileSync(join(STYLES_DIR, f), "utf8")).join("\n");
+    document.head.appendChild(style);
+  }
+  const px = (el: Element): number => Number.parseFloat(window.getComputedStyle(el).fontSize);
+
+  afterEach(() => {
+    document.head.innerHTML = "";
+  });
+
+  it("status words and glyphs on the EVA tablet, HUD, link-lost screen and map are 16 px or more", async () => {
+    loadStyles();
+    const screens = [
+      createElement(EvaTablet, { snapshot: snapshotOf("connect") }),
+      createElement(Hud, { snapshot: snapshotOf("connect") }),
+      createElement(HabLinkLost, { snapshot: snapshotOf("connect") }),
+    ];
+    for (const screen of screens) {
+      const { container, unmount } = await mount(screen);
+      const labels = container.querySelectorAll(".status-indicator .status-label");
+      expect(labels.length).toBeGreaterThan(0);
+      for (const label of labels) expect(px(label)).toBeGreaterThanOrEqual(16);
+      for (const glyph of container.querySelectorAll(".status-indicator .status-glyph")) expect(px(glyph)).toBeGreaterThanOrEqual(16);
+      await unmount();
+    }
+  });
+
+  it("the EVA options sheet uses 16 px status words; the ops variant keeps the 14 px UI size", async () => {
+    loadStyles();
+    const eva = await mount(createElement(Options, { variant: "eva", snapshot: snapshotOf("connect") }));
+    for (const label of eva.container.querySelectorAll(".status-label")) expect(px(label)).toBeGreaterThanOrEqual(16);
+    await eva.unmount();
+
+    const ops = await mount(createElement(Options, { variant: "ops", snapshot: snapshotOf("connect") }));
+    for (const label of ops.container.querySelectorAll(".status-label")) expect(px(label)).toBe(14);
+  });
+
+  it("the layer picker's micro label in the full-screen map is 16 px", async () => {
+    loadStyles();
+    const { FullScreenMap } = await import("../../src/ui/map/FullScreenMap");
+    const { container } = await mount(createElement(FullScreenMap, { orientation: "landscape", onClose: () => {} }));
+    await click(must(container, "#map-ctrl-layers"));
+    const micros = container.querySelectorAll(".micro");
+    expect(micros.length).toBeGreaterThanOrEqual(3);
+    for (const el of micros) expect(px(el)).toBeGreaterThanOrEqual(16);
+    expect(container.textContent).toContain("SELECT LAYERS");
   });
 });

@@ -7,8 +7,9 @@
  *   (during replay), Earth link status, and REMS status ("not included in this build" if unbuilt).
  * - FR-36 & NFR-05: Every value shows its provenance class ({ v, unit, prov, src }) and data-provenance attribute.
  * - Non-negotiable: Nothing is labelled "live".
- * - No sample values: a field the Hab Core has not supplied renders "—" (04 §D.1) with provenance "assumed"
- *   and an `unavailable:` source. Supplied provenance and source ids are carried through untouched.
+ * - No sample values: a field the Hab Core has not supplied renders "—" (04 §D.1), flagged `data-unavailable="true"`
+ *   with an `unavailable:` source, no provenance class (it is not known for a missing value) and no glyph.
+ *   Supplied provenance and source ids are carried through untouched, one set per element.
  * - Supports two variants:
  *   - "ops" (default): full panel layout for SCR-11 right column.
  *   - "eva": compact strip format for SCR-12 metadata strip.
@@ -16,7 +17,7 @@
 
 import type { CSSProperties, ReactElement } from "react";
 import type { Provenance } from "@marswalk/protocol";
-import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, fmtInt, isFiniteNumber } from "../components/provenance";
+import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, fmtInt, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
 
 export interface ProvenanceValue<T> {
   v: T;
@@ -62,18 +63,17 @@ function formatLightTime(seconds: number): string {
 /** One rendered condition: the text, and the provenance attributes of the value element. */
 interface Cell {
   text: string;
-  attrs: { "data-provenance": Provenance; "data-source": string; title: string };
+  attrs: ReturnType<typeof provAttrs>;
 }
 
 /** A supplied value formatted for display, or an unavailable cell when the field is missing. */
 function cell<T>(pv: ProvenanceValue<T> | undefined, path: string, fmt: (v: T, unit: string) => string): Cell {
   if (!pv) {
-    const src = `unavailable:conditions.${path}`;
-    return { text: `${UNAVAILABLE} ${PROVENANCE_GLYPHS.assumed}`, attrs: { "data-provenance": "assumed", "data-source": src, title: src } };
+    return { text: UNAVAILABLE, attrs: provAttrs(unavailableOf(null, `conditions.${path}`)) };
   }
   return {
     text: `${fmt(pv.v, pv.unit ?? "")} ${PROVENANCE_GLYPHS[pv.prov]}`,
-    attrs: { "data-provenance": pv.prov, "data-source": pv.src, title: pv.src },
+    attrs: provAttrs({ prov: pv.prov, src: pv.src }),
   };
 }
 
@@ -95,9 +95,9 @@ export function ConditionsPanel({
   const nextPass = cell(conditions.earthLink?.nextPass, "earthLink.nextPass", plain);
   const queueUp = conditions.earthLink?.queueUp;
   const queueDown = conditions.earthLink?.queueDown;
-  // Relay queue: up and down come as two sourced values; the cell carries the "up" source.
-  const queueDownText = queueDown && isFiniteNumber(queueDown.v) ? String(queueDown.v) : UNAVAILABLE;
-  const queue = cell(queueUp, "earthLink.queueUp", (v) => `↑${isFiniteNumber(v) ? v : UNAVAILABLE} ↓${queueDownText}`);
+  // Relay queue: uplink and downlink are two sourced values; each is its own element with its own source and class.
+  const queueUpCell = cell(queueUp, "earthLink.queueUp", (v) => `↑${isFiniteNumber(v) ? v : UNAVAILABLE}`);
+  const queueDownCell = cell(queueDown, "earthLink.queueDown", (v) => `↓${isFiniteNumber(v) ? v : UNAVAILABLE}`);
   const remsNote = conditions.remsClimatology?.note ?? REMS_NOT_BUILT_NOTE;
 
   const cardStyle: CSSProperties = {
@@ -198,13 +198,14 @@ export function ConditionsPanel({
 
         <div style={{ ...rowStyle, borderTop: "1px solid var(--edge, #5C6670)", paddingTop: "4px", marginTop: "2px" }}>
           <span style={labelStyle}>REMS Weather</span>
+          {/* A status note (FR-36: "not included in this build"), not a value: flagged unavailable, no class, no glyph */}
           <span
-            data-provenance="assumed"
+            {...provAttrs(unavailableOf(null, "conditions.remsClimatology"))}
             data-source="docs/specs/01:FR-36"
             title="docs/specs/01:FR-36"
             style={{ color: "var(--text-dim, #7B8794)", fontSize: "12px" }}
           >
-            {remsNote} {PROVENANCE_GLYPHS.assumed}
+            {remsNote}
           </span>
         </div>
       </div>
@@ -236,8 +237,9 @@ export function ConditionsPanel({
 
           <div style={rowStyle}>
             <span style={labelStyle}>Relay Queue</span>
-            <span className="value" {...queue.attrs} style={valStyle}>
-              {queue.text}
+            <span style={valStyle}>
+              <span className="value" data-queue="up" {...queueUpCell.attrs}>{queueUpCell.text}</span>
+              <span className="value" data-queue="down" {...queueDownCell.attrs}>{queueDownCell.text}</span>
             </span>
           </div>
         </div>

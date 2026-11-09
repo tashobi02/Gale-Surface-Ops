@@ -430,15 +430,19 @@ describe("TaskProgress (ops crew card)", () => {
 });
 
 describe("TaskProgress without counts shows —, labelled, and no chrome radius", () => {
-  it("null counts render — with an 'unavailable' label, not 0/0 or a sample fraction", () => {
+  it("null counts render — flagged unavailable, not 0/0 or a sample fraction", () => {
     const html = renderToStaticMarkup(
       createElement(TaskProgress, { crewId: "EV1", stopCount: null, total: null, onAdd: () => {} }),
     );
 
     expect(html).toContain("STOP —");
     expect(html).toContain("TOTAL —");
-    expect(html).toContain('data-provenance="assumed"');
+    expect(html).toContain('data-unavailable="true"');
+    expect(html).toContain('data-provenance="simulated"');
+    expect(html).not.toContain('data-provenance="assumed"');
     expect(html).toContain("unavailable:tasks.counts");
+    // No chip glyph beside the missing counts.
+    expect(html).not.toContain("◇");
     expect(html).not.toMatch(/\d\/\d/);
   });
 

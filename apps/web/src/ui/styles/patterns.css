@@ -148,6 +148,36 @@
   text-transform: uppercase;
 }
 
+/* ---------------------------------------------------------------- EVA scale (04 §A.3 #9)
+ * EVA and HUD screens use at least 16 px text, status words included. Scoped to the EVA screens, so OPS and planner
+ * status indicators keep the 14 px UI size. */
+
+[data-screen="SCR-12"] .status-indicator,
+[data-screen="SCR-12-FULLMAP"] .status-indicator,
+[data-screen="SCR-13"] .status-indicator,
+[data-screen="SCR-18"] .status-indicator,
+[data-screen="SCR-14"][data-variant="eva"] .status-indicator {
+  font-size: 16px;
+}
+
+[data-screen="SCR-12"] .status-indicator .status-glyph,
+[data-screen="SCR-12-FULLMAP"] .status-indicator .status-glyph,
+[data-screen="SCR-13"] .status-indicator .status-glyph,
+[data-screen="SCR-18"] .status-indicator .status-glyph,
+[data-screen="SCR-14"][data-variant="eva"] .status-indicator .status-glyph {
+  width: 22px;
+  height: 22px;
+  font-size: 16px;
+}
+
+[data-screen="SCR-12"] .status-indicator .status-label,
+[data-screen="SCR-12-FULLMAP"] .status-indicator .status-label,
+[data-screen="SCR-13"] .status-indicator .status-label,
+[data-screen="SCR-18"] .status-indicator .status-label,
+[data-screen="SCR-14"][data-variant="eva"] .status-indicator .status-label {
+  font-size: 16px;
+}
+
 /* ---------------------------------------------------------------- PRINT theme (04 §C.1) */
 
 @media print {

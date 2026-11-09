@@ -14,7 +14,7 @@ import {
   type EvaViewModel,
 } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
-import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtInt, isFiniteNumber, provAttrs } from "../components/provenance";
+import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtInt, glyphOf, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
 
 export interface HabLinkLostProps {
   /** Optional Hab Core client instance. */
@@ -145,7 +145,7 @@ export function HabLinkLost({
               {fmtInt(vm.haven.minutes.v)}
             </span>
             <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--fg-3, #8592A0)" }}>
-              {vm.haven.minutes.unit} {PROVENANCE_GLYPHS[vm.haven.minutes.prov]}
+              {vm.haven.minutes.unit} {glyphOf(vm.haven.minutes)}
             </span>
           </div>
           <span style={{ fontSize: "16px", color: "var(--fg-3, #8592A0)", fontFamily: "var(--font-mono, monospace)" }}>
@@ -167,7 +167,7 @@ export function HabLinkLost({
               {vm.o2.percent.v}
             </span>
             <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--fg-3, #8592A0)" }}>
-              {vm.o2.percent.unit} {PROVENANCE_GLYPHS[vm.o2.percent.prov]}
+              {vm.o2.percent.unit} {glyphOf(vm.o2.percent)}
             </span>
           </div>
           <span style={{ fontSize: "16px", color: "var(--fg-3, #8592A0)", fontFamily: "var(--font-mono, monospace)" }}>
@@ -183,9 +183,11 @@ export function HabLinkLost({
           <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
             <span
               className="value is-stale"
-              data-provenance={isFiniteNumber(ageSeconds) ? "simulated" : "assumed"}
-              data-source={isFiniteNumber(ageSeconds) ? "client:link-watchdog" : "unavailable:link.age_seconds"}
-              title={isFiniteNumber(ageSeconds) ? "client:link-watchdog" : "unavailable:link.age_seconds"}
+              {...provAttrs(
+                isFiniteNumber(ageSeconds)
+                  ? { prov: "simulated", src: "client:link-watchdog" }
+                  : unavailableOf("simulated", "link.age_seconds"),
+              )}
               style={{ ...numberStyle, color: "var(--status-caution, #FFB020)" }}
             >
               {isFiniteNumber(ageSeconds) ? Math.round(ageSeconds) : UNAVAILABLE}

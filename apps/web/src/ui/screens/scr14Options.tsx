@@ -15,7 +15,7 @@ import type { HabClient } from "../../net/habClient";
 import { HoldToConfirm, type ConfirmOutcome } from "../eva/HoldToConfirm";
 import { selectMetadataStrip } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
-import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtInt } from "../components/provenance";
+import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtInt, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
 
 export interface OptionsProps {
   /** Optional Hab Core client instance for command dispatch. */
@@ -31,6 +31,15 @@ export interface OptionsProps {
   /** Callback fired to close sheet. */
   onClose?: () => void;
   className?: string;
+}
+
+/** Option ETA and dose are modelled by the contingency engine (05); a non-finite one reads "—", flagged unavailable. */
+function optionAttrs(v: unknown, field: string): ReturnType<typeof provAttrs> {
+  return provAttrs(
+    isFiniteNumber(v)
+      ? { prov: "modelled", src: `snapshot:options.${field}` }
+      : unavailableOf("modelled", `options.${field}`),
+  );
 }
 
 const KIND_LABELS: Record<string, string> = {
@@ -261,9 +270,7 @@ export function Options({
                 </div>
                 <span
                   className="value"
-                  data-provenance="modelled"
-                  data-source="snapshot:options.eta_shelter_min"
-                  title="snapshot:options.eta_shelter_min"
+                  {...optionAttrs(opt.eta_shelter_min, "eta_shelter_min")}
                   style={{
                     fontFamily: "var(--font-mono, monospace)",
                     fontSize: "24px",
@@ -271,7 +278,7 @@ export function Options({
                     color: "var(--text-1, #ECEFF2)",
                   }}
                 >
-                  {fmtInt(opt.eta_shelter_min)} MIN {PROVENANCE_GLYPHS.modelled}
+                  {fmtInt(opt.eta_shelter_min)} MIN {isFiniteNumber(opt.eta_shelter_min) ? PROVENANCE_GLYPHS.modelled : ""}
                 </span>
               </div>
 
@@ -286,12 +293,8 @@ export function Options({
                   color: "var(--text-2, #A9B3BE)",
                 }}
               >
-                <span
-                  data-provenance="modelled"
-                  data-source="snapshot:options.expected_dose_ugy"
-                  title="snapshot:options.expected_dose_ugy"
-                >
-                  DOSE {fmtInt(opt.expected_dose_ugy)} µGy {PROVENANCE_GLYPHS.modelled}
+                <span {...optionAttrs(opt.expected_dose_ugy, "expected_dose_ugy")}>
+                  DOSE {fmtInt(opt.expected_dose_ugy)} µGy {isFiniteNumber(opt.expected_dose_ugy) ? PROVENANCE_GLYPHS.modelled : ""}
                 </span>
                 <span>·</span>
                 <span

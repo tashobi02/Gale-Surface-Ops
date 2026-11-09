@@ -15,7 +15,7 @@ import {
 import type { Crew } from "@marswalk/protocol";
 import type { ProvenanceValue } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
-import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, fmtInt, provAttrs } from "../components/provenance";
+import { UNAVAILABLE, fmtFixed, fmtInt, glyphOf, provAttrs, unavailableOf } from "../components/provenance";
 
 /** Scientific overlays offered on the full-screen map (04 §E.5; final set U-57). */
 export type FullScreenMapLayer = "slope" | "thermal_inertia" | "comm_shadow" | "haven_bands";
@@ -40,11 +40,6 @@ export interface FullScreenMapProps {
   onFit?: () => void;
   onFollow?: (follow: boolean) => void;
   className?: string;
-}
-
-/** A missing value: "—" labelled as unavailable (04 §D.1). */
-function noValue(path: string): { prov: "assumed"; src: string } {
-  return { prov: "assumed", src: `unavailable:${path}` };
 }
 
 const LAYER_LABELS: Record<FullScreenMapLayer, string> = {
@@ -156,6 +151,10 @@ export function FullScreenMap({
     justifyContent: "center",
   };
 
+  // A missing HAVEN or O₂ reads "—", flagged unavailable, with the field's own class (05: haven modelled, O₂ simulated).
+  const havenShown = haven && !haven.unavailable ? haven : unavailableOf("modelled", "crew.haven.minutes");
+  const o2Shown = o2 && !o2.unavailable ? o2 : unavailableOf("simulated", "crew.o2_frac");
+
   // Landscape HAVEN/O₂ readout: 40 px on phones, 48 px on tablets (04 §E.5 exception under review, U-60)
   const landscapeValueStyle: CSSProperties = {
     fontFamily: "var(--font-mono, monospace)",
@@ -189,18 +188,18 @@ export function FullScreenMap({
           <div data-slot="haven-compact" style={{ padding: "8px", background: "var(--surface-1, #14181D)" }}>
             <span className="micro" style={{ fontSize: "16px" }}>HAVEN</span>
             <div
-              {...provAttrs(haven ?? noValue("crew.haven.minutes"))}
+              {...provAttrs(havenShown)}
               style={landscapeValueStyle}
             >
               {haven ? fmtInt(haven.v) : UNAVAILABLE}
-              {haven && typeof haven.v === "number" ? " MIN" : ""} {PROVENANCE_GLYPHS[(haven ?? noValue("")).prov]}
+              {haven && typeof haven.v === "number" ? " MIN" : ""} {glyphOf(havenShown)}
             </div>
           </div>
           <div data-slot="o2-compact" style={{ padding: "8px", background: "var(--surface-1, #14181D)" }}>
             <span className="micro" style={{ fontSize: "16px" }}>O₂</span>
-            <div {...provAttrs(o2 ?? noValue("crew.o2_frac"))} style={landscapeValueStyle}>
+            <div {...provAttrs(o2Shown)} style={landscapeValueStyle}>
               {o2 ? o2.v : UNAVAILABLE}
-              {o2 && typeof o2.v === "number" ? " %" : ""} {PROVENANCE_GLYPHS[(o2 ?? noValue("")).prov]}
+              {o2 && typeof o2.v === "number" ? " %" : ""} {glyphOf(o2Shown)}
             </div>
           </div>
         </div>
@@ -225,9 +224,7 @@ export function FullScreenMap({
             {/* View state, not a measurement: derived from the map's own extent (no sample centre when unknown) */}
             <span
               className="value"
-              data-provenance={view ? "derived" : "assumed"}
-              data-source={view ? "map:view" : "unavailable:map.view"}
-              title={view ? "map:view" : "unavailable:map.view"}
+              {...provAttrs(view ? { prov: "derived", src: "map:view" } : unavailableOf(null, "map.view"))}
               style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--text-2, #A9B3BE)" }}
             >
               X: {fmtFixed(view?.center_x_m, 1)} m · Y: {fmtFixed(view?.center_y_m, 1)} m ·{" "}
@@ -309,7 +306,7 @@ export function FullScreenMap({
                 zIndex: 10,
               }}
             >
-              <span className="micro" style={{ color: "var(--text-2, #A9B3BE)" }}>
+              <span className="micro" style={{ color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>
                 SELECT LAYERS (MAX 2)
               </span>
               {(Object.keys(LAYER_LABELS) as FullScreenMapLayer[]).map((layerKey) => {

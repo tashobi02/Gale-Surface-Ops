@@ -159,7 +159,9 @@ describe.skipIf(PENDING)("EVA view model on mock fixtures (T24.02)", () => {
     expect(vm.nextStop!.distanceM.v).toBe("—");
     expect(vm.nextStop!.bearingDeg.v).toBe("—");
     expect(vm.nextStop!.distanceM.src).not.toMatch(/compute:geometry/);
-    expect(vm.nextStop!.distanceM.prov).toBe("assumed");
+    expect(vm.nextStop!.distanceM.unavailable).toBe(true);
+    expect(vm.nextStop!.distanceM.prov).toBeNull();
+    expect(vm.nextStop!.distanceM.src).toBe("unavailable:next_stop.distance_m");
   });
 
   it("beat radiation-alert: alert slot contains WARNING level with shelter surge message", () => {
@@ -231,7 +233,9 @@ describe.skipIf(PENDING)("EVA view model on mock fixtures (T24.02)", () => {
     expect(haven.minutes.prov).not.toBe("measured"); // simulated values must never be labelled measured
     expect(VALID_PROVENANCE).toContain(o2.percent.prov);
     expect(o2.percent.prov).not.toBe("measured");
-    expect(VALID_PROVENANCE).toContain(o2.timeLeftMinutes.prov);
+    // No O₂ alert in this beat, so time left is unavailable: flagged, with no class (none is known) and never "assumed".
+    expect(o2.timeLeftMinutes.unavailable).toBe(true);
+    expect(o2.timeLeftMinutes.prov).toBeNull();
     expect(VALID_PROVENANCE).toContain(meta.evaTimeSeconds.prov);
     expect(VALID_PROVENANCE).toContain(meta.doseUgy.prov);
   });
@@ -272,9 +276,17 @@ describe("EVA view model without telemetry (no invented values)", () => {
     expect(vm.metadata.link.stale).toBeNull();
     expect(vm.metadata.link.ageSeconds).toBeNull();
     expect(vm.nextStop).toBeNull();
-    for (const v of [vm.haven.minutes, vm.o2.percent, vm.metadata.evaTimeSeconds, vm.metadata.doseUgy]) {
-      expect(v.prov).toBe("assumed");
-      expect(v.src).toMatch(/^unavailable:/);
+    // Availability is separate from provenance: flagged unavailable, the field's 05 class kept, never "assumed".
+    const expected: [typeof vm.haven.minutes, string][] = [
+      [vm.haven.minutes, "modelled"],
+      [vm.o2.percent, "simulated"],
+      [vm.metadata.evaTimeSeconds, "simulated"],
+      [vm.metadata.doseUgy, "simulated"],
+    ];
+    for (const [v, prov] of expected) {
+      expect(v.unavailable).toBe(true);
+      expect(v.prov).toBe(prov);
+      expect(v.src).toMatch(/^unavailable:crew\./);
     }
   });
 

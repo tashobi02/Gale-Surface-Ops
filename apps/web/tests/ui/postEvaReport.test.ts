@@ -65,12 +65,24 @@ describe("SCR-17 Post-EVA report with no data (nothing is made up)", () => {
     expect(html).not.toMatch(/NaN|undefined|null/);
   });
 
-  it("reads — for each value and labels every one as unavailable (assumed), with a source", () => {
+  it("reads — for each value, flagged unavailable with its own class and an unavailable source; never 'assumed'", () => {
     expect((html.match(/>—</g) ?? []).length).toBeGreaterThan(5);
-    for (const src of ["dose_event_ugy", "time_to_shelter_min", "stops", "plan_revisions", "log_hash", "seed"]) {
+    const classes: Record<string, string> = {
+      dose_event_ugy: "simulated",
+      time_to_shelter_min: "derived",
+      stops: "simulated",
+      plan_revisions: "derived",
+      log_hash: "derived",
+      seed: "simulated",
+    };
+    for (const [src, prov] of Object.entries(classes)) {
       const el = bySource(html, `unavailable:report.${src}`);
-      expect(el).toContain('data-provenance="assumed"');
+      expect(el).toContain('data-unavailable="true"');
+      expect(el).toContain(`data-provenance="${prov}"`);
     }
+    expect(html).not.toContain('data-provenance="assumed"');
+    // No provenance glyph is printed beside a "—" slab value.
+    expect(html).not.toMatch(/—\s*(µGy|min)?\s*[■◆○△▶◇]/);
     for (const m of html.matchAll(/data-provenance="([a-z]+)"/g)) {
       expect(["measured", "derived", "modelled", "assumed", "replayed", "simulated"]).toContain(m[1]);
     }
@@ -100,6 +112,12 @@ describe("SCR-17 Post-EVA report with a full report (01 FR-46)", () => {
     expect(html).toContain("1 / 0 / 0");
     expect(html).toMatch(/<td[^>]*>ALERT_RAISED/);
     expect(bySource(html, "report:log_events.4")).toContain("replayed");
+    // Sequence, time, actor and event are each labelled on their own element with the event's class and a distinct source.
+    for (const [field, text] of [["seq", ">4"], ["time", ">10:10:00"], ["actor", ">system"], ["event", ">ALERT_RAISED"]] as const) {
+      const el = bySource(html, `report:log_events.4.${field}`);
+      expect(el).toContain('data-provenance="replayed"');
+      expect(el).toContain(text);
+    }
   });
 
   it("shows the supplied hash and scenario line, and headlines the scenario id rather than a fixed title", () => {
@@ -132,11 +150,20 @@ describe("SCR-17 Post-EVA report with a partial report", () => {
     expect(html).toContain(REPORT_DISCLAIMER);
   });
 
-  it("a supplied disclaimer replaces the default, and a non-finite number is treated as unavailable", () => {
-    const html = render({ disclaimer: "Custom disclaimer text", timeToShelterMin: Number.NaN });
+  it("supplied commentary is added after the mandatory disclaimer and never replaces it, even when empty", () => {
+    const html = render({ disclaimer: "Custom commentary text", timeToShelterMin: Number.NaN });
+    expect(html).toContain(REPORT_DISCLAIMER);
+    expect(html).toContain("Custom commentary text");
+    expect(html.indexOf(REPORT_DISCLAIMER)).toBeLessThan(html.indexOf("Custom commentary text"));
 
-    expect(html).toContain("Custom disclaimer text");
-    expect(html).not.toContain(REPORT_DISCLAIMER);
+    for (const blank of ["", "   "]) {
+      const empty = render({ disclaimer: blank });
+      expect(empty).toContain(REPORT_DISCLAIMER);
+    }
+  });
+
+  it("a non-finite number is treated as unavailable", () => {
+    const html = render({ timeToShelterMin: Number.NaN });
     expect(bySource(html, "unavailable:report.time_to_shelter_min")).toContain("—");
     expect(html).not.toContain("NaN");
   });

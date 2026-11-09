@@ -26,8 +26,11 @@ import { UNAVAILABLE, isFiniteNumber } from "../components/provenance";
 export interface ProvenanceValue<T> {
   readonly v: T;
   readonly unit: string;
-  readonly prov: Provenance;
+  /** The field's provenance class; null only when a missing value's class is not known (see provenance.ts). */
+  readonly prov: Provenance | null;
   readonly src: string;
+  /** True when the Hab Core has not supplied the value: it reads "—" and `src` is `unavailable:<path>`. */
+  readonly unavailable?: boolean;
 }
 
 /** HAVEN telemetry card on SCR-12 / SCR-13 (04 §E.5, §E.6). */
@@ -112,9 +115,12 @@ export interface HudViewModel {
 
 const VALID_HAVEN_KINDS = ["hab", "vehicle", "refuge"] as const;
 
-/** A value the Hab Core has not supplied: "—" with an honest "assumed" label and an `unavailable:` source (04 §D.1). */
-function unavailable(path: string): ProvenanceValue<string> {
-  return { v: UNAVAILABLE, unit: "", prov: "assumed", src: `unavailable:${path}` };
+/**
+ * A value the Hab Core has not supplied (04 §D.1): "—", flagged unavailable, with an `unavailable:` source and the
+ * field's own provenance class where 05 gives one. Missing data is never labelled `assumed` (01: a parameter we chose).
+ */
+function unavailable(path: string, prov: Provenance | null): ProvenanceValue<string> {
+  return { v: UNAVAILABLE, unit: "", prov, src: `unavailable:${path}`, unavailable: true };
 }
 
 /** Visible label for where the HAVEN card leads; never a default vehicle id. */
@@ -171,7 +177,7 @@ export function selectHaven(snapshot: Snapshot | null, crewId: CrewId): EvaHaven
         prov: (snapshot?.provenance?.["crew.haven.minutes"] as Provenance) ?? "modelled",
         src: "snapshot:crew.haven.minutes",
       }
-    : unavailable("crew.haven.minutes");
+    : unavailable("crew.haven.minutes", "modelled");
 
   return { minutes, kind, targetId, status };
 }
@@ -191,12 +197,12 @@ export function selectO2(snapshot: Snapshot | null, crewId: CrewId): EvaO2View {
     status = o2Alert.level === "warning" ? "warning" : "caution";
   }
 
-  // Time left: read from alert if available, otherwise "—" with TODO(decision) for Sadman
+  // Time left: read from alert if available, otherwise "—". TODO(decision): Sadman to supply o2_time_left_min on crew.
   const rawTimeLeft: unknown = (o2Alert?.data as Record<string, unknown> | undefined)?.o2_remaining_min;
   const alertTimeLeft = isFiniteNumber(rawTimeLeft) ? rawTimeLeft : undefined;
   const timeLeftMinutes = alertTimeLeft !== undefined ? alertTimeLeft : UNAVAILABLE;
-  const timeLeftProv: Provenance = alertTimeLeft !== undefined ? "derived" : "assumed";
-  const timeLeftSrc = alertTimeLeft !== undefined ? "hab-core:alert.o2_remaining_min" : "TODO(decision): Sadman to supply o2_time_left_min on crew";
+  const timeLeftProv: Provenance | null = alertTimeLeft !== undefined ? "derived" : null;
+  const timeLeftSrc = alertTimeLeft !== undefined ? "hab-core:alert.o2_remaining_min" : "unavailable:crew.o2_time_left_min";
 
   // Provenance: simulated, never "measured"
   const percent: ProvenanceValue<number | string> = hasFrac
@@ -206,7 +212,7 @@ export function selectO2(snapshot: Snapshot | null, crewId: CrewId): EvaO2View {
         prov: (snapshot?.provenance?.["crew.o2_frac"] as Provenance) ?? "simulated",
         src: "snapshot:crew.o2_frac",
       }
-    : unavailable("crew.o2_frac");
+    : unavailable("crew.o2_frac", "simulated");
 
   return {
     percent,
@@ -215,6 +221,7 @@ export function selectO2(snapshot: Snapshot | null, crewId: CrewId): EvaO2View {
       unit: typeof timeLeftMinutes === "number" ? "min" : "",
       prov: timeLeftProv,
       src: timeLeftSrc,
+      ...(alertTimeLeft === undefined ? { unavailable: true } : {}),
     },
     status,
   };
@@ -275,6 +282,7 @@ export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNe
   const eligibleTasks = (snapshot.tasks ?? []).filter((t) => t.crew_id === null || t.crew_id === crewId);
   let stopId: string | null = null;
   let stopName = "";
+  // TODO(decision): Sadman to supply stop ETA in plan or snapshot when no leg gives one.
   let etaMin: number | string = UNAVAILABLE;
 
   if (waypoints.length > 0) {
@@ -301,7 +309,7 @@ export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNe
     return null;
   }
 
-  const unavailableNav = "TODO(decision): authoritative navigation (bearing, distance) from Hab Core/compute";
+  // TODO(decision): authoritative navigation (bearing, distance) from Hab Core/compute.
 
   const tasks = eligibleTasks.filter((t) => t.stop_id === stopId);
   const done = tasks.filter((t) => t.state === "DONE").length;
@@ -309,13 +317,14 @@ export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNe
   return {
     stopId,
     stopName,
-    bearingDeg: { v: UNAVAILABLE, unit: "", prov: "assumed", src: unavailableNav },
-    distanceM: { v: UNAVAILABLE, unit: "", prov: "assumed", src: unavailableNav },
+    bearingDeg: { v: UNAVAILABLE, unit: "", prov: null, src: "unavailable:next_stop.bearing_deg", unavailable: true },
+    distanceM: { v: UNAVAILABLE, unit: "", prov: null, src: "unavailable:next_stop.distance_m", unavailable: true },
     etaMinutes: {
       v: etaMin,
       unit: typeof etaMin === "number" ? "min" : "",
-      prov: typeof etaMin === "number" ? "derived" : "assumed",
-      src: typeof etaMin === "number" ? "plan.legs.walk_time_min" : "TODO(decision): Sadman to supply stop ETA in plan or snapshot",
+      prov: typeof etaMin === "number" ? "derived" : null,
+      src: typeof etaMin === "number" ? "plan.legs.walk_time_min" : "unavailable:next_stop.eta_min",
+      ...(typeof etaMin === "number" ? {} : { unavailable: true }),
     },
     taskCount: {
       done,
@@ -347,10 +356,10 @@ export function selectMetadataStrip(snapshot: Snapshot | null, crewId: CrewId): 
   return {
     evaTimeSeconds: isFiniteNumber(eva)
       ? { v: eva, unit: "s", prov: evaProv, src: "snapshot:crew.eva_elapsed_s" }
-      : unavailable("crew.eva_elapsed_s"),
+      : unavailable("crew.eva_elapsed_s", "simulated"),
     doseUgy: isFiniteNumber(dose)
       ? { v: dose, unit: "µGy", prov: doseProv, src: "snapshot:crew.dose_event_ugy" }
-      : unavailable("crew.dose_event_ugy"),
+      : unavailable("crew.dose_event_ugy", "simulated"),
     link: {
       linked,
       bars,

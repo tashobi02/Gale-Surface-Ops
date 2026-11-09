@@ -33,6 +33,8 @@ import {
   fmtFixed,
   fmtInt,
   isFiniteNumber,
+  provAttrs,
+  unavailableOf,
 } from "../components/provenance";
 
 /** Task counts for one crew member, reduced from the task list by the caller. null counts render "—". */
@@ -76,18 +78,20 @@ export interface OpsConsoleProps {
   className?: string;
 }
 
-/** Crew telemetry is simulated by the Hab Core session (05 Crew), so its values are labelled "simulated". */
-function crewAttr(path: string): { "data-provenance": "simulated"; "data-source": string; title: string } {
-  return { "data-provenance": "simulated", "data-source": `snapshot:${path}`, title: `snapshot:${path}` };
+/**
+ * Crew telemetry is simulated by the Hab Core session (05 Crew), so its values are labelled "simulated". A missing
+ * value keeps that class but is flagged `data-unavailable` with an `unavailable:` source and shows no glyph.
+ */
+function crewAttr(path: string, present = true): ReturnType<typeof provAttrs> {
+  return provAttrs(present ? { prov: "simulated", src: `snapshot:${path}` } : unavailableOf("simulated", path));
 }
 
-/** Provenance attributes for a top-bar metadata value; a missing value is labelled unavailable. */
-function metaAttrs(
-  pv: ProvenanceValue<unknown> | undefined,
-  path: string,
-): { "data-provenance": ProvenanceValue<unknown>["prov"]; "data-source": string; title: string } {
-  const src = pv ? pv.src : `unavailable:session.${path}`;
-  return { "data-provenance": pv ? pv.prov : "assumed", "data-source": src, title: src };
+/** Glyph next to a crew value: its own class when present, none beside "—". */
+const simGlyph = (present: boolean): string => (present ? PROVENANCE_GLYPHS.simulated : "");
+
+/** Provenance attributes for a top-bar metadata value; a missing value is flagged unavailable (class unknown). */
+function metaAttrs(pv: ProvenanceValue<unknown> | undefined, path: string): ReturnType<typeof provAttrs> {
+  return provAttrs(pv ? { prov: pv.prov, src: pv.src } : unavailableOf(null, `session.${path}`));
 }
 
 /** Placement of an item on the schematic's footer line: working-projection metres, or "—". */
@@ -367,25 +371,27 @@ export function OpsConsole({
                       HAVEN{" "}
                       <span
                         className="value"
-                        data-provenance="modelled"
-                        data-source="snapshot:crew.haven.minutes"
-                        title="snapshot:crew.haven.minutes"
+                        {...provAttrs(
+                          isFiniteNumber(member.haven?.minutes)
+                            ? { prov: "modelled", src: "snapshot:crew.haven.minutes" }
+                            : unavailableOf("modelled", "crew.haven.minutes"),
+                        )}
                       >
-                        {fmtInt(member.haven?.minutes)} MIN {PROVENANCE_GLYPHS.modelled}
+                        {fmtInt(member.haven?.minutes)} MIN {isFiniteNumber(member.haven?.minutes) ? PROVENANCE_GLYPHS.modelled : ""}
                       </span>
                     </div>
                     <div>
                       O₂{" "}
-                      <span className="value" {...crewAttr("crew.o2_frac")}>
+                      <span className="value" {...crewAttr("crew.o2_frac", isFiniteNumber(member.o2_frac))}>
                         {isFiniteNumber(member.o2_frac) ? Math.round(member.o2_frac * 100) : UNAVAILABLE} %{" "}
-                        {PROVENANCE_GLYPHS.simulated}
+                        {simGlyph(isFiniteNumber(member.o2_frac))}
                       </span>
                     </div>
                     <div>
                       DOSE{" "}
-                      <span className="value" {...crewAttr("crew.dose_event_ugy")}>
+                      <span className="value" {...crewAttr("crew.dose_event_ugy", isFiniteNumber(member.dose_event_ugy))}>
                         {isFiniteNumber(member.dose_event_ugy) ? fmtFixed(member.dose_event_ugy / 1000, 1) : UNAVAILABLE} mGy{" "}
-                        {PROVENANCE_GLYPHS.simulated}
+                        {simGlyph(isFiniteNumber(member.dose_event_ugy))}
                       </span>
                     </div>
                     <div>
@@ -414,11 +420,7 @@ export function OpsConsole({
                       }}
                     >
                       ⚠ LAST HEARD{" "}
-                      <span
-                        data-provenance="assumed"
-                        data-source="unavailable:link.age_seconds"
-                        title="unavailable:link.age_seconds"
-                      >
+                      <span {...provAttrs(unavailableOf("simulated", "link.age_seconds"))}>
                         {UNAVAILABLE}
                       </span>{" "}
                       (cached values)
@@ -479,10 +481,10 @@ export function OpsConsole({
                 >
                   {/* Battery is reported in Wh by the utility rover only; no percentage is inferred */}
                   BATTERY{" "}
-                  <span {...crewAttr("vehicles.battery_wh")}>
+                  <span {...crewAttr("vehicles.battery_wh", v.kind === "utility_rover" && isFiniteNumber(v.battery_wh))}>
                     {v.kind === "utility_rover" && isFiniteNumber(v.battery_wh)
                       ? `${Math.round(v.battery_wh)} Wh ${PROVENANCE_GLYPHS.simulated}`
-                      : `${UNAVAILABLE} ${PROVENANCE_GLYPHS.simulated}`}
+                      : UNAVAILABLE}
                   </span>
                 </div>
               </article>
@@ -607,12 +609,10 @@ export function OpsConsole({
           EVENT LOG
         </span>
         {logLines.length === 0 ? (
-          <span data-provenance="assumed" data-source="unavailable:event_log" title="unavailable:event_log">
-            {UNAVAILABLE}
-          </span>
+          <span {...provAttrs(unavailableOf(null, "event_log"))}>{UNAVAILABLE}</span>
         ) : (
           logLines.map((line) => (
-            <span key={line.key} data-provenance={line.prov} data-source={line.src} title={line.src}>
+            <span key={line.key} {...provAttrs({ prov: line.prov, src: line.src })}>
               {line.text} {PROVENANCE_GLYPHS[line.prov]}
             </span>
           ))

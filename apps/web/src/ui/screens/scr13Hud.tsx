@@ -15,13 +15,14 @@ import {
 } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
 import {
-  PROVENANCE_GLYPHS,
+  glyphOf,
   UNAVAILABLE,
   fmtBearing,
   fmtHourMinute,
   fmtInt,
   fmtKilometres,
   provAttrs,
+  unavailableOf,
 } from "../components/provenance";
 
 export interface HudProps {
@@ -34,8 +35,8 @@ export interface HudProps {
   className?: string;
 }
 
-/** A "—" shown where no target is known (still labelled, 04 §D.1). */
-const NO_TARGET = { prov: "assumed", src: "unavailable:plan.next_stop" } as const;
+/** A "—" shown where no target is known: flagged unavailable, class unknown (04 §D.1). */
+const NO_TARGET = unavailableOf(null, "next_stop");
 
 /** HUD colour for a status; unknown is neutral, never nominal green. */
 function hudStatusColor(status: string): string {
@@ -161,7 +162,7 @@ export function Hud({
               {fmtInt(hud.haven.minutes.v)}
             </span>
             <span style={{ fontSize: "20px", textTransform: "uppercase" }}>
-              {hud.haven.minutes.unit} {PROVENANCE_GLYPHS[hud.haven.minutes.prov]}
+              {hud.haven.minutes.unit} {glyphOf(hud.haven.minutes)}
             </span>
           </div>
           <span style={{ fontSize: "16px", color: "var(--hud-text-2, #A9B3BE)" }}>
@@ -208,7 +209,7 @@ export function Hud({
               {hud.o2.percent.v}
             </span>
             <span style={{ fontSize: "20px" }}>
-              {hud.o2.percent.unit} {PROVENANCE_GLYPHS[hud.o2.percent.prov]}
+              {hud.o2.percent.unit} {glyphOf(hud.o2.percent)}
             </span>
           </div>
           <span {...provAttrs(hud.o2.timeLeftMinutes)} style={{ fontSize: "16px", color: "var(--hud-text-2, #A9B3BE)" }}>
@@ -232,7 +233,11 @@ export function Hud({
           letterSpacing: "0.06em",
         }}
       >
-        <span data-provenance="simulated" data-source="snapshot:crew.linked" title="snapshot:crew.linked">
+        <span
+          {...provAttrs(
+            hud.link.linked === null ? unavailableOf("simulated", "crew.linked") : { prov: "simulated", src: "snapshot:crew.linked" },
+          )}
+        >
           LINK {hud.link.linked === null ? UNAVAILABLE : hud.link.linked ? "▮▮▮" : "▯▯▯"}
         </span>
         <span>{hud.link.stale === null ? UNAVAILABLE : hud.link.stale ? "STALE" : "◇ SIM"}</span>

@@ -121,10 +121,21 @@ describe("FullScreenMap behaviour (04 §E.5)", () => {
     expect(text).not.toMatch(/2410|1875|14 MIN|71 %|NaN/);
     const centre = must(container, ".value");
     expect(centre.textContent).toContain("X: —");
-    expect(centre.getAttribute("data-provenance")).toBe("assumed");
+    expect(centre.getAttribute("data-unavailable")).toBe("true");
+    expect(centre.getAttribute("data-provenance")).toBeNull();
     expect(centre.getAttribute("data-source")).toBe("unavailable:map.view");
-    expect(must(container, '[data-slot="haven-compact"] > div').textContent).toContain("—");
-    expect(must(container, '[data-slot="o2-compact"] > div').textContent).toContain("—");
+    const haven = must(container, '[data-slot="haven-compact"] > div');
+    const o2 = must(container, '[data-slot="o2-compact"] > div');
+    expect(haven.textContent).toContain("—");
+    expect(o2.textContent).toContain("—");
+    // Flagged unavailable, with the field's own class (05: haven modelled, O₂ simulated), never "assumed", no glyph.
+    expect(haven.getAttribute("data-unavailable")).toBe("true");
+    expect(haven.getAttribute("data-provenance")).toBe("modelled");
+    expect(haven.getAttribute("data-source")).toBe("unavailable:crew.haven.minutes");
+    expect(o2.getAttribute("data-provenance")).toBe("simulated");
+    expect(haven.textContent).not.toMatch(/[■◆○△▶◇]/);
+    expect(o2.textContent).not.toMatch(/[■◆○△▶◇]/);
+    expect(container.innerHTML).not.toContain('data-provenance="assumed"');
   });
 
   it("supplied view and telemetry are shown with their own labels; the view is 'derived', never 'measured'", async () => {

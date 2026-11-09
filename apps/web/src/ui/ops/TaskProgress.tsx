@@ -26,8 +26,10 @@ export interface TaskProgressProps {
 
 /** Task states come from the simulated session (FR-50); counts are reduced from the supplied task list. */
 const SIMULATED = { "data-provenance": "simulated", "data-source": "snapshot:tasks", title: "snapshot:tasks" } as const;
+/** Missing counts: "—", flagged unavailable; task state is simulated (FR-50), so that class stays. */
 const UNAVAILABLE_ATTRS = {
-  "data-provenance": "assumed",
+  "data-provenance": "simulated",
+  "data-unavailable": "true",
   "data-source": "unavailable:tasks.counts",
   title: "unavailable:tasks.counts",
 } as const;
@@ -93,19 +95,21 @@ export function TaskProgress({
         <span {...(totalText ? SIMULATED : UNAVAILABLE_ATTRS)}>
           TOTAL {totalText ?? UNAVAILABLE}
         </span>
-        <span
-          data-provenance="simulated"
-          data-source="snapshot:tasks"
-          title="Task state is simulated (snapshot:tasks)"
-          style={{
-            fontSize: "12px",
-            color: "var(--text-2, #A9B3BE)",
-            display: "inline-block",
-            marginLeft: "2px",
-          }}
-        >
-          ◇
-        </span>
+        {(stopText || totalText) && (
+          <span
+            data-provenance="simulated"
+            data-source="snapshot:tasks"
+            title="Task state is simulated (snapshot:tasks)"
+            style={{
+              fontSize: "12px",
+              color: "var(--text-2, #A9B3BE)",
+              display: "inline-block",
+              marginLeft: "2px",
+            }}
+          >
+            ◇
+          </span>
+        )}
       </div>
 
       <button
