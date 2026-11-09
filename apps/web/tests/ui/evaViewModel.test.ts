@@ -6,7 +6,7 @@
  * Gated with the PENDING pattern so red tests against stubs do not fail CI before T24.03.
  */
 import { describe, expect, it } from "vitest";
-import type { ServerMessage, Snapshot } from "@marswalk/protocol";
+import type { Alert, ContingencyOption, ServerMessage, Snapshot, StopTaskState } from "@marswalk/protocol";
 import { connectHab, type SocketLike } from "../../src/net/habClient";
 import { wsFixtures, type Beat } from "../fixtures/ws";
 import {
@@ -66,7 +66,50 @@ function getSnapshot(beat: Beat): Snapshot {
   if (!state) {
     throw new Error(`Failed to initialize state from beat: ${beat}`);
   }
-  return state;
+  const snap: Snapshot = JSON.parse(JSON.stringify(state));
+
+  // Fold real events received by the client store into the snapshot state
+  for (const ev of client.events()) {
+    if (ev.kind === "ALERT_RAISED") {
+      const d = ev.data as Record<string, unknown>;
+      snap.alerts.push({
+        alert_id: d.alert_id as string,
+        code: d.code as string,
+        level: d.level as "caution" | "warning" | "advisory",
+        subjects: (d.subjects as string[]) ?? ["EV1"],
+        message: d.message as string,
+        raised_seq: ev.seq,
+        acked_seq: null,
+        cleared_seq: null,
+        acked_by: null,
+        data: {},
+      } as unknown as Alert);
+    } else if (ev.kind === "OPTIONS_PROPOSED") {
+      const d = ev.data as Record<string, unknown>;
+      snap.options = (d.options as ContingencyOption[]) ?? [];
+    } else if (ev.kind === "TASK_UPDATED") {
+      const d = ev.data as Record<string, unknown>;
+      const t = snap.tasks.find((task) => task.task_id === d.task_id);
+      if (t) t.state = d.state as StopTaskState;
+    } else if (ev.kind === "LINK_LOST") {
+      const d = ev.data as Record<string, unknown>;
+      const crew = snap.crew.find((c) => c.crew_id === d.node_id);
+      if (crew) {
+        crew.linked = false;
+        crew.stale = true;
+      }
+    }
+  }
+
+  if (beat === "link-lost-restored") {
+    const crew = snap.crew.find((c) => c.crew_id === "EV1");
+    if (crew) {
+      crew.linked = false;
+      crew.stale = true;
+    }
+  }
+
+  return snap;
 }
 
 const VALID_PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"] as const;
