@@ -8,6 +8,9 @@
  * - TODO(decision): DARKNESS warning criteria. Sunrise/sunset UTC comparison vs sun elevation threshold (< 0°) along path.
  * - TODO(decision): Duration for radiation dose in PARTIAL plans. When totals is null, use planned max_eva_duration_h vs actual routed duration.
  * - TODO(decision): EnvConstant selection. Match const_id directly ("rad-gale-dose-eq-solar-max"/"min") vs filter by conditions.solar_phase.
+ *
+ * Handler integration note (step 5 gap): handler.ts does not call assembleConditions
+ * while it throws TODO(T06.09); C8 integration into handler is tracked under T05.32.
  */
 import type { EnvConstant, MissionScenario, PlanResult } from "@marswalk/protocol";
 
@@ -37,6 +40,6 @@ export interface ConditionsResult {
  * Assemble per-stop solar conditions, EVA-sol conditions, and background radiation dose (Contract C8).
  * Pure function: takes timeline and scenario, returns conditions components of PlanResult. TASK-06 (T06.09).
  */
-export function assembleConditions(inputs: ConditionsInputs): ConditionsResult {
+export function assembleConditions(_inputs?: ConditionsInputs): ConditionsResult {
   throw new Error("TODO(T06.09): not implemented");
 }

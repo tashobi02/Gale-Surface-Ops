@@ -102,6 +102,27 @@ Typed placeholders used for fields omitted from spec examples:
 - `stops_timeline`: `[]` (empty timeline array; populated in M3 slice T05.32).
 - `computed_utc`: `"2026-11-14T08:00:00Z"` (EVA start UTC placeholder from scenario).
 
+## F3 — Mock worker
+
+`apps/web/tests/fixtures/mockWorker.ts` provides a mock Web Worker answering
+`WorkerRequest` messages (`SAMPLE_POINT`, `COMPUTE_PLAN`) using canned fixtures
+(contract C6 v1). Implemented by T05.04 (FR-03, FR-06, FR-07, 02 §E.2).
+
+### Usage & result selection
+
+The mock worker is strictly for dev builds and automated frontend UI tests.
+When loaded as a Web Worker, it inspects the worker URL's query parameters to
+select which canned `PLAN_RESULT` fixture to serve:
+
+- `?result=ok` (default): returns `ok.json` (status `OK`).
+- `?result=partial`: returns `partial.json` (status `PARTIAL` with a `NO_ROUTE` leg).
+- `?result=over-limits`: returns `over-limits.json` (status `OVER_LIMITS` with a `WALKBACK_EXCEEDED` warning).
+- Any unknown variant returns an `ERROR` message with code `INTERNAL`.
+
+On `SAMPLE_POINT`, it answers with the verbatim [02 §E.2](../../../../docs/specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol)
+`SAMPLE_RESULT` example. All responses echo the request's `request_id`, and
+`PLAN_RESULT` responses echo `plan_revision`.
+
 ## F9 — T05b.02 synthetic v2 grids
 
 The fixture is `packages/compute/tests/fixtures/v2grids.ts`, with a self-check in `packages/compute/tests/v2grids.test.ts`.

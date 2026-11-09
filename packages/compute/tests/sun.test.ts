@@ -33,6 +33,7 @@ describe("sun position and sunrise/sunset (T06.03 / T06.07, FR-11)", () => {
       const res = sunriseSunset(utc, lat, lonE);
 
       // Sunrise and sunset times match F6 within 2 min
+      // TODO(decision): 2-minute tolerance for sunrise/sunset times vs marstime reference (discrete bisection search vs continuous orbital solution; spec 02 §D.5 does not fix a numeric time tolerance for rise/set instants)
       const srDiffMin = Math.abs(
         (new Date(res.sunrise_utc).getTime() - new Date(record.sunrise_sunset.sunrise_utc).getTime()) / 60000
       );

@@ -56,7 +56,53 @@ The agent ran these tools on the data lead's request. The numbers are tool outpu
 | Not chosen | 8143899, −286264 | 92 % | 13.8° | 334 m | Same line of sight as the alternative, farther from the track |
 | Not chosen | 8144199, −283464 | 17 % | 8.2° | 1,128 m | Flattest, but sees little of the track and is within 50 m of a kept low-detail area |
 
+## Second-person check
+
+Assigned to Sadman Shaharier Mahim (product & systems lead) by the data lead on 2026-11-08. The check remains `TODO(verify)` until signed.
+
+### Inputs to check
+
+The positions and values are those in [Result](#result), without a new site assessment. The first choice is the start and mast in `pipeline/sites/gale_boxwork/site.json`; the alternative is for comparison. Review the source note's reasons and trade-off ([Why this site](#why-this-site)), particularly its difference between the 15° hard-limit default and the 10° caution default. A 50 m guide in a PNG is not a flatness measurement.
+
+### Tool-made crops
+
+All four PNGs are local, git-ignored artifacts in this shared directory:
+
+```text
+/home/obidit/secondBrain/coding/CheesySpace-NasaSpaceAppChallenge/pipeline/work/t03/
+```
+
+Each spans **600 m on every side of the documented site** (1200 × 1200 m at 1 m/px); raster row 0 is north. The cross marks the documented working-projection coordinate; the thin square is a 50 m pad-size guide, and the scale bar is 200 m. Sources were bilinearly resampled to the byte-identical `config.WORKING_PROJ` Mars grid. No source offset correction was applied. Hillshade azimuth/altitude: 315°/45°, from T01.03. These are review aids, not signed checks.
+
+| Site | Hillshade PNG | Ortho PNG | Crop extent `[minx, miny, maxx, maxy]` (m) |
+| --- | --- | --- | --- |
+| First choice | `hab_first_hillshade_600m.png` | `hab_first_ortho_600m.png` | `[437, -2252, 1637, -1052]` |
+| Alternative | `hab_alternative_hillshade_600m.png` | `hab_alternative_ortho_600m.png` | `[-161, -1252, 1039, -52]` |
+
+Side-by-side preview: `hab_site_review_contact_sheet.png` in the same directory.
+
+Image credits: DEM — USGS Astrogeology, Parker & Calef (2016), source `usgs-gale-dem-1m-v3`; colour ortho — NASA/JPL-Caltech/University of Arizona; USGS Astrogeology, Calef & Parker (2016), source `usgs-gale-ortho-25cm-v3`. The analytical crops and annotations are tool-made. The original rasters remain read-only.
+
+### Second-person checklist
+
+- [ ] **First-choice position:** locate `(1037, −1652)` in the Mars working projection on both hillshade and ortho; confirm the cross and the `site.json` start/mast refer to the intended place.
+- [ ] **Alternative position:** locate `(439, −652)` on both layers; confirm the cross is at the documented alternative.
+- [ ] **North and alignment:** check north is up and identify common terrain edges in both images. Record concerns about seams, smoothing or relative alignment below; use the provisional T03.20 offset note as context.
+- [ ] **First-choice pad:** review the 50 m pad and its surroundings against the source note's 12.5° largest 5 m p90; confirm the stated passability/caution trade-off rather than inferring flatness from image brightness.
+- [ ] **Alternative pad:** review the 50 m pad against the source note's 13.8° largest 5 m p90, and the note's dark sand/small dunes to the south-west. Record any disagreement for the data lead.
+- [ ] **Track distance:** overlay the same rover-track source and sol range used in `hab-site.md`; check the source note's 914 m first-choice and 82 m alternative distances. The track is not drawn on these crops; the source note, not the crops, supplies those distances.
+- [ ] **Comm-shadow reason:** review the ridges/knobs around the first choice and the open alternative against `hab-site.md`. Confirm the documented reason for the choice and acknowledge its 35–69 % versus 89–94 % line-of-sight method ranges. A hillshade image alone does not verify radio coverage.
+- [ ] **Outcome:** record agreement or corrections below and return to Obidit. Keep `TODO(verify)` open until a second person signs; refer changes in site choice or assumptions to the data lead.
+
+Observations / disagreements: ____
+
+GIS layers, track version / sol range and tools used: ____
+
+Outcome / corrections for Obidit: ____
+
+Checked by: ____ date ____
+
 ## Still open
 
-- **Second person's check on the hillshade** (T01.07 Verify): `TODO(verify)`.
+- **Second person's check on the hillshade** (T01.07 Verify): assigned to Sadman Shaharier Mahim; `TODO(verify)` until signed.
 - The default start and `hab_mast` values go into `site.json` at T03.16.

@@ -57,7 +57,7 @@
   2. Create `conditions.ts` with one exported assembly function and its types, built only from 05 PlanResult field names (`stops_timeline` `arrive_ltst` and `sun_elevation_deg`, `conditions`, `radiation`) and the existing `estimateDose` signature.
   3. Every new body throws `TODO(<owner id>)`, e.g. `TODO(T06.07): not implemented`.
   4. Record the open C8 choices as `TODO(decision)` in the JSDoc for the compute-lane owner: which point gives the site latitude and longitude; what DARKNESS needs (sunrise/sunset UTC or sun elevation along legs); which duration feeds the dose, including PARTIAL plans; how the EnvConstant is chosen from `solar_phase`.
-  5. Check with the T05.01 owner that the `handler.ts` stub calls the C8 function by its new name.
+  5. Check with the T05.01 owner that the `handler.ts` stub calls the C8 function by its new name. *Gap recorded 2026-11-09: `handler.ts` does not call `assembleConditions` while it throws `TODO(T06.09)`; handler wiring is tracked under T05.32 (wip until T06.09 implements conditions assembly).*
   6. Run `make typecheck test`.
 - **Acceptance:**
   - Serves: FR-11, FR-12 · [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12), [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
@@ -375,7 +375,7 @@ T06.10 has no edge inside this task; it feeds T03.19 (map §f).
 2. **M3 slice** (open point 3): if C1 makes `conditions`, `radiation` and `stops_timeline` required, M3 needs T06.09; otherwise T06.09 can land in M4 as planned.
 3. **Solar-min record** (open point 12): 05 §C gives value, low, high and a note (Simonsen et al. 2024) but no `source_id` and no `conditions`. T06.10 copies what exists and leaves the rest `TODO(verify)`.
 4. **Reference timestamps:** 02 §D.5 asks for at least 3 but names none; 02 §E.2's `eva_start_utc` example is one candidate — `TODO(decision)` in T06.02.
-5. **Tolerances:** 02 §D.5 sets tolerances only for solar elevation (0.1°) and LTST (1 min); those for L_s, Mars Year and sunrise/sunset times are `TODO(decision)`.
+5. **Tolerances:** 02 §D.5 sets tolerances only for solar elevation (0.1°) and LTST (1 min); those for L_s (0.1°), Mars Year (exact), MSD (0.005 sol) and sunrise/sunset times (2 min vs marstime reference) are Proposed 2026-11-09 — `TODO(decision)` (tested in T06.03).
 6. **Dose duration:** 01 FR-12 says "EVA duration", 02 §D.4 "planned duration", and 05 §F.3 uses `eva_total_min`; `totals` is null for PARTIAL plans (02 §E.2), so the duration for a partial plan is undefined — `TODO(decision)` at T06.01.
 7. **Display rounding:** 01 FR-12 shows 0.19 mSv where 02 §D.4 gives 0.187 and 05 §F.3 stores 0.066 (three decimals). Compute keeps unrounded values; the display rule is a UI `TODO(decision)` for SCR-07 and SCR-08. Map change proposed: give the 01 FR-12 "card shows 0.19 mSv" check, removed from `radiation.test.ts`, to T11.05 and T10.03.
 8. **Site position:** 02 §D.5 uses "the site's planetocentric latitude and longitude", but 05 Site has no single site point (`aoi.bbox_geo`, the `crs` centre, `default_start`) — `TODO(decision)` at T06.01.

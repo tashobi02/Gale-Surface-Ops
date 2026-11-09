@@ -11,6 +11,6 @@
     "period": "~2019"
   },
   "provenance": "measured",
-  "source_id": "simonsen-2024-rad",
-  "note": "reported range, Simonsen et al. 2024"
+  "source_id": "TODO(decision)",
+  "note": "reported range, Simonsen et al. 2024; source_id is Proposed/TODO(decision) per map open point 12"
 }

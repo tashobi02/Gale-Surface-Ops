@@ -59,6 +59,12 @@ export interface EngineState {
    * it is saved in snapshots so resume continues the walk, and never sent to clients.
    */
   motion: Partial<Record<CrewId, CrewMotion>>;
+  /**
+   * Alert ids that already had an OPTIONS_PROPOSED, in log order; contingencyOps.ts (T23.07) answers
+   * an alert once. Engine-only and JSON-safe, like `motion`; absent (= none) in states and snapshots
+   * written before 2026-11-08. Added by the T23.07 rework, Proposed 2026-11-08 — TODO(decision).
+   */
+  proposed_alerts?: string[];
 }
 
 /**
@@ -204,8 +210,14 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
       return { ...next, alerts: settle(next.alerts, e.data.alert_id, { acked_seq: e.seq, acked_by: e.data.acked_by }) };
     case "ALERT_CLEARED":
       return { ...next, alerts: settle(next.alerts, e.data.alert_id, { cleared_seq: e.seq }) };
-    case "OPTIONS_PROPOSED":
-      return { ...next, options: [...next.options.filter((o) => o.alert_id !== e.data.alert_id), ...e.data.options] };
+    case "OPTIONS_PROPOSED": {
+      const answered = next.proposed_alerts ?? [];
+      return {
+        ...next,
+        options: [...next.options.filter((o) => o.alert_id !== e.data.alert_id), ...e.data.options],
+        proposed_alerts: answered.includes(e.data.alert_id) ? answered : [...answered, e.data.alert_id],
+      };
+    }
     case "PLAN_REVISED": {
       // The revised waypoints and legs replace the plan's, so the map shows the new route; a
       // published plan arrives whole in `plan` (decided 2026-11-07).
@@ -239,7 +251,9 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
               target: rv ? { x_m: rv.x_m, y_m: rv.y_m } : { x_m: v.x_m, y_m: v.y_m },
               ...(option ? { crew_ids: [...option.crew_ids] } : {}),
             },
-            eta_s: rv ? rv.eta_vehicle_s : null,
+            // Whole seconds (05 Vehicle `eta_s` is an int). Math.ceil: a no-op on T23.05's rounded ETAs, and a
+            // precomputed (T23.07) fractional ETA > 0 never becomes 0, which would stop the vehicle (Proposed 2026-11-08).
+            eta_s: rv ? Math.ceil(rv.eta_vehicle_s) : null,
           };
         }),
       };
