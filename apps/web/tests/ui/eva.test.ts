@@ -164,11 +164,35 @@ describe("SCR-18 Hab link lost / connecting (04 §E.5, §B.2)", () => {
 });
 
 describe("SCR-14 Alert options sheet (04 §E.7)", () => {
-  it("renders ranked options with ETA to shelter, expected dose, and hold-to-confirm", () => {
-    const html = renderToStaticMarkup(createElement(Options));
-    expect(html).toMatch(/option/i);
-    expect(html).toMatch(/eta|shelter|dose/i);
+  it("renders empty state and disables hold-to-confirm when no options are proposed", () => {
+    const html = renderToStaticMarkup(createElement(Options, { options: [] }));
+    expect(html).toMatch(/No contingency options proposed/i);
+    expect(html).toMatch(/disabled/i);
+  });
+
+  it("renders ranked options with ETA to shelter, expected dose, and hold-to-confirm from server data", () => {
+    const fixtureMsg = wsFixtures["options-proposed"].find(
+      (m: any) => m.type === "EVENT" && m.event?.kind === "OPTIONS_PROPOSED"
+    );
+    const fixtureOptions = (fixtureMsg as any)?.event?.data?.options ?? [];
+    expect(fixtureOptions.length).toBeGreaterThan(0);
+
+    const html = renderToStaticMarkup(createElement(Options, { options: fixtureOptions }));
+    expect(html).toMatch(/RANK 1/i);
+    expect(html).toMatch(/MIN/i);
+    expect(html).toMatch(/DOSE/i);
+    expect(html).toMatch(/data-provenance="modelled"/);
     expect(html).toMatch(/800ms|--hold-to-confirm|data-hold/);
+  });
+
+  it("shows Ops review banner ONLY when opsReviewActive is true", () => {
+    const withoutOps = renderToStaticMarkup(createElement(Options, { opsReviewActive: false }));
+    expect(withoutOps).not.toMatch(/ops-review-banner/);
+    expect(withoutOps).not.toMatch(/Ops review active/);
+
+    const withOps = renderToStaticMarkup(createElement(Options, { opsReviewActive: true }));
+    expect(withOps).toMatch(/ops-review-banner/);
+    expect(withOps).toMatch(/Ops review active/);
   });
 
   it("supports both eva bottom-sheet and ops side-panel variants", () => {
