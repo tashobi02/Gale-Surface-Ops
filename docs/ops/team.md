@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Team Owner / Story lead ([06 §C TASK-00](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [T00.06](../tasks/TASK-00_resolve-rules-and-register.md#t0006--record-team-roster-and-skills-u-13-and-venue-type-u-14)) |
 | **Date** | 2026-11-04 |
-| **Status** | Roster recorded (U-13 resolved: 6 members); lane assignments & venue mode (`U-14`) pending confirmation |
+| **Status** | Roster recorded (U-13 resolved: 6 members); venue **virtual** (U-14 resolved 2026-11-09); final lane sign-off `TODO(decision)` |
 | **Related** | [06 §A Planning assumptions](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions) · [06 Unresolved items](../specs/06_High_Level_Implementation_Plan.md#unresolved-items-owned-by-this-document) · [01 §F.2 A-07](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) · [Coordination map §b Lanes](../tasks/_coordination.md#b-lanes) |
 
 ## Team overview
@@ -63,9 +63,9 @@ Every lane in [map §b](../tasks/_coordination.md#b-lanes) has named coverage (f
 | Field | Value |
 | --- | --- |
 | Local event | Dhaka, Bangladesh (**Confirmed** on the 2026 NASA Space Apps team page) |
-| Venue mode (physical vs. virtual, `U-14`) | `TODO(verify)` — the team could not confirm it on 2026-11-04; ask the Dhaka Local Lead again before the 10 Nov due date |
-| Source | 2026 NASA Space Apps team page (local event); Dhaka Local Lead reply pending |
-| Date recorded | 2026-11-04 |
+| Venue mode (physical vs. virtual, `U-14`) | **Virtual** (no physical venue) |
+| Source | Local event: 2026 NASA Space Apps team page. Venue mode: Obidit Islam (team lead), 2026-11-09 |
+| Date recorded | 2026-11-04 (local event); 2026-11-09 (venue mode) |
 
 ## Spec sync notes for T16.02
 
@@ -73,3 +73,4 @@ Per [T00.06 Step 5](../tasks/TASK-00_resolve-rules-and-register.md#t0006--record
 
 1. **[01 §F.2 A-07](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) and [06 §A](../specs/06_High_Level_Implementation_Plan.md#a-planning-assumptions):** Team size is **6** (**Confirmed** on the NASA Space Apps team page and GitHub repository collaborator settings), replacing the temporary assumption of 4 (`Assumed`). At 16–20 focused event hours per person, 6 members correspond to ≈ 96–120 person-hours rather than ≈ 70 person-hours.
 2. **[06 Unresolved items U-13](../specs/06_High_Level_Implementation_Plan.md#unresolved-items-owned-by-this-document):** Resolved in this file (`docs/ops/team.md`) on 2026-11-04.
+3. **[06 Unresolved items U-14](../specs/06_High_Level_Implementation_Plan.md#unresolved-items-owned-by-this-document):** Resolved in this file on 2026-11-09: the event is **virtual**. The U-14 row asks for venue power, table space and projector input; those do not apply. The demo and usability-test plans that assume a shared room (habitat LAN kit, in-person testers) need a check by their owners (TASK-28, TASK-15, 06 §D.6); this file does not change them.
