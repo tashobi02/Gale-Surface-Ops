@@ -8,7 +8,10 @@ import type { EnvConstant, PlanResult } from "@marswalk/protocol";
 
 /** Input: EnvConstant (mSv/day) and EVA duration (h). Output: PlanResult.radiation. TASK-06. */
 export function estimateDose(rate: EnvConstant, durationH: number): PlanResult["radiation"] {
-  const solar_phase = (rate.conditions?.solar_phase === "min" ? "min" : "max") as "max" | "min";
+  const solar_phase = rate.conditions?.solar_phase;
+  if (solar_phase !== "min" && solar_phase !== "max") {
+    throw new Error("conditions.solar_phase must be max or min");
+  }
   return {
     dose_mSv: (rate.value * durationH) / 24,
     dose_low_mSv: (rate.low * durationH) / 24,

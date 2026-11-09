@@ -37,6 +37,11 @@ const SOLAR_MIN_RATE: EnvConstant = {
 };
 
 describe("estimateDose (T06.04 / T06.08, FR-12)", () => {
+  it.each([{}, { solar_phase: "unknown" }, { solar_phase: null }])(
+    "rejects missing or invalid solar phase %j", (conditions) => {
+      expect(() => estimateDose({ ...SOLAR_MAX_RATE, conditions }, 7)).toThrow(/solar_phase/);
+    },
+  );
   it("7 h at solar max 0.64 mSv/day → 0.187 mSv (range 0.152–0.222) (02 §D.4)", () => {
     const res = estimateDose(SOLAR_MAX_RATE, 7);
     expect(res).toBeDefined();

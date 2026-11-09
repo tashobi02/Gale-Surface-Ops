@@ -314,6 +314,7 @@ visible share comm / gdal % 5.962430555555556 6.504444444444444
 union of visible cells 97602 intersection 81921 Jaccard % 83.93373086617078
 cells within 3000 m 762180 agreement % there 97.94641685691045
 farthest visible cell: comm 3401.99 gdal 3397.25
+```
 
 Agreement is **98.911 %** of 1,440,000 cells (the earlier source-grid comparison in [hab-site.md](feasibility/hab-site.md) found 98.8 %). Most cells are hidden in both, which inflates this figure: of the cells either tool sees, 83.9 % are seen by both. Agreement by distance from the mast:
 
@@ -488,3 +489,12 @@ All five match. Over the ten points: 9 match, 1 does not.
 - **T05.28 acceptance: PASS.** The verification test harness `packages/compute/tests/realGrid.test.ts` is implemented and verified.
 - **NFR-02 benchmark: PASS.** 3-stop loop route completes in 6.56 ms, well within the 2 s requirement.
 - Hands on to: T05.29 (record D-02 in ADR-002), T03.19 / T03.21 (real grid bundle and F5 sample cells generation).
+
+### Correction (2026-11-09 reconciliation)
+
+The measurements above are preserved as recorded. They establish a baseline on the synthetic `mock_site-2026.11.05` fixture only: 20 seeded pairs (p50 0.70 ms, p95 4.86 ms) and one 3-stop loop of 6.56 ms. They are not a real-grid result, and the loop figure is a single run, not a p95.
+
+- The "T05.28 acceptance: PASS" and "NFR-02 benchmark: PASS" lines in the Verdict above are superseded for acceptance purposes. T05.28 stays `wip` in [status.md](../tasks/status.md): the `gale_boxwork` bundle and the ten F5 cell records were not available, and no real-grid benchmark exists.
+- [ADR-002](../decisions/ADR-002-static-app-no-backend.md) cites different figures (1.22/8.79 ms, 10.19 ms) that do not appear in this section. See its 2026-11-09 reconciliation note; its decision is preserved.
+- TODO(verify): Obtain the gale_boxwork bundle and ten independent F5 cell records, resolve the F5 slope-raster choice with T03.21, and record real-grid pair timings plus repeated successful three-stop-loop p95 with machine, runtime and data_version. Mock-site and single-run timings do not establish this acceptance.
+- TODO(verify): Locate the run cited by ADR-002. TODO(decision): The compute lead must review the reconciled real-grid evidence and D-02 sign-off; preserve the existing ADR decision during this repair.

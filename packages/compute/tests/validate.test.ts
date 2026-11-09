@@ -31,6 +31,23 @@ describe("validatePlanInput", () => {
   });
 
   describe("eva_start_utc validation (year 2000–2100 ISO UTC)", () => {
+    it.each([
+      "2026-02-30T00:00:00Z", "2025-02-29T00:00:00Z", "2100-02-29T00:00:00Z",
+      "2026-13-01T00:00:00Z", "2026-00-01T00:00:00Z", "2026-04-31T00:00:00Z",
+      "2026-01-01T24:00:00Z", "2026-01-01T23:60:00Z", "2026-01-01T23:59:60Z",
+    ])("rejects invalid calendar date or clock %s", (eva_start_utc) => {
+      expect(validatePlanInput({ eva_start_utc }).some((error) => error.field === "eva_start_utc")).toBe(true);
+    });
+
+    it.each(["2000-02-29T00:00:00Z", "2024-02-29T23:59:59.123Z", "2024-02-29T23:59:59+00:00", "2024-02-29T23:59:59-00:00"])(
+      "accepts valid leap-day UTC form %s", (eva_start_utc) => {
+        expect(validatePlanInput({ eva_start_utc })).toEqual([]);
+      },
+    );
+
+    it("continues to allow an incomplete form", () => {
+      expect(validatePlanInput({})).toEqual([]);
+    });
     it("accepts valid ISO-8601 UTC within 2000–2100", () => {
       expect(validatePlanInput({ ...validScenario, eva_start_utc: "2000-01-01T00:00:00Z" })).toHaveLength(0);
       expect(validatePlanInput({ ...validScenario, eva_start_utc: "2100-12-31T23:59:59Z" })).toHaveLength(0);

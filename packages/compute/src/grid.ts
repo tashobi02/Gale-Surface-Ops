@@ -102,6 +102,7 @@ export function loadGrid(
  *   offset = i * width + j
  */
 export function cellIndex(grid: LoadedGrid, x_m: number, y_m: number): number | null {
+  if (!Number.isFinite(x_m) || !Number.isFinite(y_m)) return null;
   const origin_x = grid.meta.origin_m[0];
   const origin_y = grid.meta.origin_m[1];
   const cell = grid.meta.cell_m;

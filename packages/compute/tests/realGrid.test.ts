@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadGrid, type LoadedGrid } from "../src/grid.js";
+import { cellIndex, loadGrid, type LoadedGrid } from "../src/grid.js";
 import { samplePoint } from "../src/sampling.js";
 import { searchLeg } from "../src/route.js";
 import { handleWorkerMessage } from "../src/handler.js";
@@ -22,6 +22,28 @@ const hasRealBundle =
   fs.existsSync(path.join(REAL_SITE_DIR, "grid/elevation.f32"));
 
 const hasSampleCells = fs.existsSync(SAMPLE_CELLS_PATH);
+
+interface F5Cell {
+  x_m: number;
+  y_m: number;
+  elevation_m: number;
+  slope_deg: number;
+}
+
+function validateF5Records(records: unknown): F5Cell[] {
+  if (!Array.isArray(records) || records.length !== 10) {
+    throw new Error("Invalid F5: expected exactly ten cell records");
+  }
+  for (const record of records) {
+    if (!record || typeof record !== "object" ||
+      ![record.x_m, record.y_m, record.elevation_m, record.slope_deg].every(
+        (value) => typeof value === "number" && Number.isFinite(value),
+      )) {
+      throw new Error("Invalid F5: each cell needs finite coordinates, elevation and slope");
+    }
+  }
+  return records as F5Cell[];
+}
 
 /** Seeded PRNG (Mulberry32) for reproducible benchmark point generation. */
 function mulberry32(seed: number) {
@@ -173,6 +195,13 @@ function runSeededPairsBenchmark(grid: LoadedGrid, pairCount = 20, seed = 202611
 }
 
 describe("T05.28 — Seeded benchmark runner on disk fixture (mock_site)", () => {
+  it.each([
+    { records: [] }, { records: {} }, { records: null },
+    { records: [null] }, { records: Array.from({ length: 10 }, () => null) },
+  ])("rejects malformed or empty F5 records $records", ({ records }) => {
+    expect(() => validateF5Records(records)).toThrow(/^Invalid F5/);
+  });
+
   it("executes 20 seeded pairs inside AOI with 0 crashes, 0 silent failures", () => {
     const grid = loadSiteGrid(MOCK_SITE_DIR);
     const results = runSeededPairsBenchmark(grid, 20);
@@ -188,7 +217,7 @@ describe("T05.28 — Seeded benchmark runner on disk fixture (mock_site)", () =>
     expect(results.p95_ms).toBeGreaterThanOrEqual(0);
   });
 
-  it("times 3-stop loop through worker handler and confirms p95 <= 2 s (NFR-02)", () => {
+  it("runs a single timed 3-stop loop smoke check through the handler", () => {
     const grid = loadSiteGrid(MOCK_SITE_DIR);
     const req: ComputePlanRequest = {
       type: "COMPUTE_PLAN",
@@ -231,23 +260,34 @@ describe("T05.28 — Seeded benchmark runner on disk fixture (mock_site)", () =>
       expect(res.legs.length).toBe(4); // 3 stops + return leg
       expect(["OK", "PARTIAL", "OVER_LIMITS"]).toContain(res.status);
     }
-    expect(duration).toBeLessThanOrEqual(2000); // NFR-02 requirement: <= 2 s
+    expect(duration).toBeLessThanOrEqual(2000);
   });
+});
+
+// TODO(verify): Obtain the gale_boxwork bundle and ten independent F5 cell records, resolve the F5 slope-raster choice with T03.21, and record real-grid pair timings plus repeated successful three-stop-loop p95 with machine, runtime and data_version. Mock-site and single-run timings do not establish this acceptance.
+it.skipIf(!hasSampleCells)("F5 contains exactly ten usable independent cell records", () => {
+  validateF5Records(JSON.parse(fs.readFileSync(SAMPLE_CELLS_PATH, "utf8")));
 });
 
 // Step 1: Skip real bundle verification when data/sites/gale_boxwork/ is absent (clean clone)
 describe.skipIf(!hasRealBundle)("T05.28 — Verify on the real grid (gale_boxwork)", () => {
-  it("FR-03: compares 10 sampled F5 cells against rasterio readout", () => {
-    if (!hasSampleCells) {
-      return;
-    }
-    const sampleCells = JSON.parse(fs.readFileSync(SAMPLE_CELLS_PATH, "utf8"));
+  it.skipIf(!hasSampleCells)("FR-03: compares 10 sampled F5 cells against rasterio readout", () => {
+    const sampleCells = validateF5Records(JSON.parse(fs.readFileSync(SAMPLE_CELLS_PATH, "utf8")));
     const grid = loadSiteGrid(REAL_SITE_DIR);
 
     for (const cell of sampleCells) {
       const pt = samplePoint(grid, cell.x_m, cell.y_m, 50, 25);
       expect(pt.reason).toBeNull();
-      expect(pt.elevation_m).toBeCloseTo(cell.elevation_m, 2);
+      const index = cellIndex(grid, cell.x_m, cell.y_m);
+      expect(index).not.toBeNull();
+      expect(grid.elevation[index!]).toBe(Math.fround(cell.elevation_m));
+      const row = Math.floor(index! / grid.meta.width);
+      const col = index! % grid.meta.width;
+      const centerX = grid.meta.origin_m[0] + (col + 0.5) * grid.meta.cell_m;
+      const centerY = grid.meta.origin_m[1] - (row + 0.5) * grid.meta.cell_m;
+      const centerSample = samplePoint(grid, centerX, centerY, 50, 25);
+      expect(centerSample.elevation_m).toBe(Math.fround(cell.elevation_m));
+      expect(typeof pt.slope_p90_deg).toBe("number");
       expect(Math.abs(pt.slope_p90_deg! - cell.slope_deg)).toBeLessThanOrEqual(0.1);
     }
   });
@@ -265,7 +305,7 @@ describe.skipIf(!hasRealBundle)("T05.28 — Verify on the real grid (gale_boxwor
     expect(results.routes + results.noRoutes).toBe(20);
   });
 
-  it("NFR-02 / 06 §C: 3-stop loop route through handler completes with p95 <= 2 s", () => {
+  it("runs a single timed real-grid 3-stop loop smoke check through the handler", () => {
     const grid = loadSiteGrid(REAL_SITE_DIR);
     const manifest = JSON.parse(fs.readFileSync(REAL_MANIFEST_PATH, "utf8"));
     const startX = manifest.default_start?.x_m ?? 1037;

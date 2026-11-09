@@ -2,7 +2,7 @@
  * Hazard and constraint warnings (docs/specs/01 FR-10; 05 §C Warning; 02 §E.2 PARTIAL rule).
  * Implemented by TASK-05 (T05.24).
  */
-import type { Leg, MissionScenario, PlanResult, Warning, Waypoint } from "@marswalk/protocol";
+import { FLAG_BITS, type Leg, type MissionScenario, type PlanResult, type Warning, type Waypoint } from "@marswalk/protocol";
 import type { LoadedGrid } from "./grid";
 
 /**
@@ -14,12 +14,8 @@ export function countStops(waypoints: Waypoint[]): number {
 }
 
 /**
- * Collect slope, LOW_TI / TI_UNKNOWN, LOW_RES_DEM, NO_ROUTE, EVA duration, walkback and
- * darkness warnings. Missing TI layer yields TI_UNKNOWN, never silence (05 §E.6). TASK-05.
- *
- * TODO(decision): Warning severities and darkness (spec question 9):
- * - LOW_RES_DEM and DARKNESS mapped to caution per 04 §C.1.
- * - Darkness evaluated where timeline sun_elevation_deg < 0.
+ * Collect slope, TI_UNKNOWN, NO_ROUTE, EVA duration, walkback and darkness warnings.
+ * Missing TI layer yields TI_UNKNOWN, never silence (05 §E.6). TASK-05.
  */
 export function collectWarnings(
   legs: Leg[],
@@ -28,6 +24,7 @@ export function collectWarnings(
   maxWalkbackKm: number,
   grid?: LoadedGrid,
   waypoints?: Waypoint[],
+  cellPaths?: (readonly number[] | undefined)[],
 ): Warning[] {
   const warnings: Warning[] = [];
 
@@ -156,7 +153,7 @@ export function collectWarnings(
   }
 
   // 3. Darkness check
-  // TODO(TASK-06): Evaluate DARKNESS when sun elevation is available from C8 conditions (Mars24 / sun position).
+  // TODO(decision): Define darkness evaluation during travel and dwell, including temporal sampling or crossing inputs and warning location; arrival elevation alone does not cover the EVA interval.
   // When no solar elevation data is present on timeline stops, the check is skipped.
   const hasDarkness =
     timeline !== undefined &&
@@ -178,7 +175,51 @@ export function collectWarnings(
     });
   }
 
-  // 4. Missing TI layer check (05 §E.6)
+  // 4. Cell-level TI coverage follows the unsimplified path, independent of solar conditions.
+  if (grid && grid.ti !== undefined && cellPaths) {
+    for (let legIndex = 0; legIndex < legs.length; legIndex++) {
+      if (legs[legIndex].status !== "OK") continue;
+      const cells = cellPaths[legIndex];
+      if (!cells) continue;
+      let distance = 0;
+      let start: number | undefined;
+      let end = 0;
+      const emit = () => {
+        if (start === undefined) return;
+        warnings.push({
+          code: "TI_UNKNOWN",
+          severity: "unknown",
+          leg: legIndex,
+          from_m: start,
+          to_m: end,
+          message: "Thermal inertia data unavailable along route",
+        });
+        start = undefined;
+      };
+      for (let i = 0; i < cells.length; i++) {
+        if (i > 0) {
+          const previous = cells[i - 1];
+          const current = cells[i];
+          const dr = Math.floor(current / grid.meta.width) - Math.floor(previous / grid.meta.width);
+          const dc = (current % grid.meta.width) - (previous % grid.meta.width);
+          distance += Math.hypot(dc * grid.meta.cell_m, dr * grid.meta.cell_m);
+        }
+        if ((grid.flags[cells[i]] & (1 << FLAG_BITS.TI_UNKNOWN)) !== 0) {
+          if (start === undefined) start = distance;
+          end = distance;
+        } else {
+          emit();
+        }
+      }
+      emit();
+    }
+  }
+
+  // TODO(decision): Resolve U-03 and the LOW_TI threshold source before enabling LOW_TI warnings; do not infer a threshold from fixture values.
+  // TODO(decision): Confirm LOW_RES_DEM warning severity before emitting bit-4 route warnings; the bit encoding is defined, but TASK-05 spec question 9 leaves severity open.
+  // TODO(decision): Define NO_DATA_ADJACENT neighbourhood, distance, severity and affected-segment policy before implementation; the routing graph's eight neighbours do not by themselves define this warning.
+
+  // 5. Missing TI layer check (05 §E.6)
   if (grid && grid.ti === undefined) {
     warnings.push({
       code: "TI_UNKNOWN",
@@ -208,6 +249,7 @@ export function planStatus(legs: Leg[], warnings: Warning[]): PlanResult["status
     (w) =>
       w.code === "WALKBACK_EXCEEDED" ||
       w.code === "EVA_DURATION_EXCEEDED" ||
+      w.code === "DARKNESS" ||
       w.code === "OVER_HARD_SLOPE" ||
       (w.severity === "blocked" && w.code !== "NO_ROUTE"),
   );

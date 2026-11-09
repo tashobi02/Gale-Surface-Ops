@@ -3,7 +3,7 @@
  * FR-05. Implemented by TASK-05 (T05.25).
  * Used by both UI forms (T08.04) and Web Worker / Hab Core (T05.26) for defense in depth.
  */
-import type { MissionScenario, Waypoint } from "@marswalk/protocol";
+import type { MissionScenario, Waypoint, WorkerRequest } from "@marswalk/protocol";
 import { cellIndex, type LoadedGrid } from "./grid";
 
 export interface FieldValidationError {
@@ -27,18 +27,23 @@ export function validatePlanInput(
   // 1. eva_start_utc: ISO-8601 UTC, year 2000–2100
   if (scenario.eva_start_utc !== undefined) {
     const raw = scenario.eva_start_utc;
-    const isIsoUtc =
-      typeof raw === "string" &&
-      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]00:00)$/.test(raw);
-    const parsed = Date.parse(raw);
-    if (!isIsoUtc || isNaN(parsed)) {
+    const match = typeof raw === "string"
+      ? /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]00:00)$/.exec(raw)
+      : null;
+    const parts = match?.slice(1, 7).map(Number);
+    const date = parts ? new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5])) : null;
+    const validCalendar = parts && date &&
+      date.getUTCFullYear() === parts[0] && date.getUTCMonth() + 1 === parts[1] &&
+      date.getUTCDate() === parts[2] && date.getUTCHours() === parts[3] &&
+      date.getUTCMinutes() === parts[4] && date.getUTCSeconds() === parts[5];
+    if (!validCalendar) {
       errors.push({
         field: "eva_start_utc",
         message: "eva_start_utc must be a valid ISO-8601 UTC timestamp with year in 2000–2100",
         value: raw,
       });
     } else {
-      const year = new Date(parsed).getUTCFullYear();
+      const year = parts![0];
       if (year < 2000 || year > 2100) {
         errors.push({
           field: "eva_start_utc",
@@ -211,5 +216,77 @@ export function validatePlanInput(
     }
   }
 
+  return errors;
+}
+
+/** Strict boundary validation for complete worker messages; forms may use validatePlanInput separately. */
+export function validateWorkerRequest(request: WorkerRequest, grid: LoadedGrid): FieldValidationError[] {
+  const errors: FieldValidationError[] = [];
+  const add = (field: string, message: string, value?: unknown) => errors.push({ field, message, value });
+  const nonempty = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
+  const record = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null && !Array.isArray(value);
+  const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+
+  if (!nonempty(request.request_id)) add("request_id", "request_id must be a nonempty string", request.request_id);
+
+  if (request.type === "SAMPLE_POINT") {
+    for (const field of ["x_m", "y_m", "snap_radius_m"] as const) {
+      if (!finite(request[field])) add(field, `${field} must be finite`, request[field]);
+    }
+    if (finite(request.snap_radius_m) && request.snap_radius_m < 0) {
+      add("snap_radius_m", "snap_radius_m must be nonnegative", request.snap_radius_m);
+    }
+    if (request.hard_slope_limit_deg !== undefined && !finite(request.hard_slope_limit_deg)) {
+      add("hard_slope_limit_deg", "hard_slope_limit_deg must be finite", request.hard_slope_limit_deg);
+    }
+    return errors;
+  }
+
+  if (!Number.isSafeInteger(request.plan_revision)) {
+    add("plan_revision", "plan_revision must be a safe integer", request.plan_revision);
+  }
+  for (const field of ["site_id", "data_version"] as const) {
+    if (!nonempty(request[field])) add(field, `${field} must be a nonempty string`, request[field]);
+  }
+
+  if (!record(request.scenario)) {
+    add("scenario", "scenario must be an object", request.scenario);
+  } else {
+    const scenario = request.scenario as unknown as Record<string, unknown>;
+    for (const field of [
+      "eva_start_utc", "max_eva_duration_h", "dwell_min_per_stop", "hard_slope_limit_deg",
+      "caution_slope_deg", "walkback_limit_km", "suited_flat_speed_kmh", "solar_phase",
+      "loop", "max_haven_min", "crew_count", "vehicle_available",
+    ]) {
+      if (scenario[field] === undefined) add(field, `${field} is required`);
+    }
+    if (typeof scenario.loop !== "boolean") add("loop", "loop must be a boolean", scenario.loop);
+    if (scenario.vehicle_available === true && !nonempty(scenario.vehicle_param_set)) {
+      add("vehicle_param_set", "vehicle_param_set is required when vehicle is available", scenario.vehicle_param_set);
+    }
+    errors.push(...validatePlanInput(request.scenario));
+  }
+
+  if (!Array.isArray(request.waypoints)) {
+    add("waypoints", "waypoints must be an array", request.waypoints);
+  } else {
+    let validEntries = true;
+    for (const waypoint of request.waypoints as unknown[]) {
+      if (!record(waypoint)) {
+        add("waypoints", "each waypoint must be an object", waypoint);
+        validEntries = false;
+        continue;
+      }
+      if (!nonempty(waypoint.id)) add("waypoints", "waypoint id is required", waypoint.id);
+      if (waypoint.role !== "start" && waypoint.role !== "stop") {
+        add("waypoints", "waypoint role must be start or stop", waypoint.role);
+      }
+      if (!finite(waypoint.x_m) || !finite(waypoint.y_m)) {
+        add("waypoints", "waypoint coordinates must be finite", waypoint);
+      }
+    }
+    if (validEntries) errors.push(...validatePlanInput({}, request.waypoints, grid));
+  }
   return errors;
 }

@@ -536,6 +536,7 @@
 - **Verify:** `make validate SITE=gale_boxwork` · `du -sh data/sites/gale_boxwork` · `git status --porcelain` (only the manifest, vectors and lock file staged)
 - **Agent brief:** Human: run the full pipeline, judge the outputs and commit bundle v1. Agent may drive the commands, summarise validator output and check that no binary or downloaded file is staged.
 - **Conflict notes:** Sole writer of the committed bundle and the lock file; T18.01 later follows up with a new data version. T03.21 and T03.22 start after this merges. Unless v1 cut 4 (no v2 cut item) is called, wait for T04.07's threshold before the final run (Spec questions).
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): The data lead must reconcile #132's preparation edits with the registered owners of pipeline entry-point, acquisition, reprojection, tiling, manifest and test files; no ownership reassignment is made here.
 
 ### T03.20 — Verify DEM hillshade vs ortho alignment; record the offset
 

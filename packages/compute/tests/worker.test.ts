@@ -1,4 +1,4 @@
-import type { ComputePlanRequest, SamplePointRequest } from "@marswalk/protocol";
+import { FLAG_BITS, type ComputePlanRequest, type SamplePointRequest } from "@marswalk/protocol";
 import { describe, expect, it } from "vitest";
 import { makePlaneGrid, makeWallWithGapGrid } from "../../../apps/web/tests/fixtures/grids";
 import { handleMessage, setWorkerGrid } from "../../../apps/web/src/worker/planWorker";
@@ -31,6 +31,7 @@ const defaultComputeRequest: ComputePlanRequest = {
     max_haven_min: 30,
     crew_count: 2,
     vehicle_available: true,
+    vehicle_param_set: "pr1-assumed",
   },
   waypoints: [
     { id: "wp-0", role: "start", x_m: 12.5, y_m: -12.5 },
@@ -42,6 +43,80 @@ const defaultComputeRequest: ComputePlanRequest = {
 // docs/specs/02 §E.2 worker message protocol (FR-03, FR-07, NFR-02, NFR-06, NFR-10). TASK-05 (T05.15).
 describe("compute worker handler and entry", () => {
   describe("handleWorkerMessage", () => {
+    it.each([{ request: null }, { request: {} }, { request: [] }, { request: { request_id: "req" } }])(
+      "rejects malformed worker request envelopes $request", ({ request }) => {
+        const response = handleWorkerMessage(testGrid, request as unknown as ComputePlanRequest);
+        expect(response).toMatchObject({ type: "ERROR", code: "INVALID_INPUT" });
+      },
+    );
+    it.each([
+      ["request_id", undefined],
+      ["plan_revision", undefined],
+      ["site_id", undefined],
+      ["data_version", undefined],
+      ["scenario", undefined],
+      ["waypoints", undefined],
+      ["scenario", null],
+      ["scenario", []],
+      ["waypoints", {}],
+      ["waypoints", [null]],
+    ])("rejects malformed COMPUTE_PLAN %s = %j", (field, value) => {
+      const response = handleWorkerMessage(testGrid, { ...defaultComputeRequest, [field]: value } as ComputePlanRequest);
+      expect(response).toMatchObject({ type: "ERROR", code: "INVALID_INPUT" });
+    });
+
+    it.each(Object.keys(defaultComputeRequest.scenario))(
+      "rejects missing required scenario field %s (with conditional vehicle parameter)",
+      (field) => {
+        const scenario = { ...defaultComputeRequest.scenario } as Record<string, unknown>;
+        delete scenario[field];
+        const response = handleWorkerMessage(testGrid, { ...defaultComputeRequest, scenario } as unknown as ComputePlanRequest);
+        expect(response).toMatchObject({ type: "ERROR", code: "INVALID_INPUT" });
+      },
+    );
+
+    it("allows absent vehicle_param_set only when vehicle_available is false", () => {
+      const { vehicle_param_set: _vehicleParam, ...scenario } = defaultComputeRequest.scenario;
+      const response = handleWorkerMessage(testGrid, {
+        ...defaultComputeRequest,
+        scenario: { ...scenario, vehicle_available: false },
+      });
+      expect(response.type).toBe("PLAN_RESULT");
+    });
+
+    it.each([undefined, null, "true", 1])("rejects invalid loop %j", (loop) => {
+      const response = handleWorkerMessage(testGrid, {
+        ...defaultComputeRequest,
+        scenario: { ...defaultComputeRequest.scenario, loop },
+      } as unknown as ComputePlanRequest);
+      expect(response).toMatchObject({ type: "ERROR", code: "INVALID_INPUT" });
+    });
+
+    it.each([NaN, Infinity, -Infinity, undefined])("rejects nonfinite waypoint coordinate %j", (coordinate) => {
+      for (const axis of ["x_m", "y_m"] as const) {
+        const waypoints = defaultComputeRequest.waypoints.map((wp, index) =>
+          index === 1 ? { ...wp, [axis]: coordinate } : wp,
+        );
+        const response = handleWorkerMessage(testGrid, { ...defaultComputeRequest, waypoints } as ComputePlanRequest);
+        expect(response).toMatchObject({ type: "ERROR", code: "INVALID_INPUT" });
+      }
+    });
+
+    it.each(["via", "START", null, undefined])("rejects invalid waypoint role %j", (role) => {
+      const waypoints = defaultComputeRequest.waypoints.map((wp, index) => index === 1 ? { ...wp, role } : wp);
+      const response = handleWorkerMessage(testGrid, { ...defaultComputeRequest, waypoints } as ComputePlanRequest);
+      expect(response).toMatchObject({ type: "ERROR", code: "INVALID_INPUT" });
+    });
+
+    it.each([
+      { request_id: undefined }, { x_m: NaN }, { y_m: Infinity },
+      { snap_radius_m: undefined }, { snap_radius_m: -1 }, { snap_radius_m: Infinity },
+      { hard_slope_limit_deg: NaN },
+    ])("rejects malformed SAMPLE_POINT %j before sampling", (overrides) => {
+      const request = { type: "SAMPLE_POINT", request_id: "sample", x_m: 12.5, y_m: -12.5, snap_radius_m: 50, ...overrides } as SamplePointRequest;
+      const response = handleWorkerMessage(testGrid, request);
+      expect(response).toMatchObject({ type: "ERROR", code: "INVALID_INPUT" });
+    });
     it("returns GRID_NOT_LOADED error when grid is null", () => {
       const response = handleWorkerMessage(null, defaultComputeRequest);
       expect(response.type).toBe("ERROR");
@@ -146,7 +221,7 @@ describe("compute worker handler and entry", () => {
       }
     });
 
-    it("gives identical output for repeated identical requests (NFR-06 determinism)", () => {
+    it("returns identical complete pure responses without clock metadata or fabricated science", () => {
       const res1 = handleWorkerMessage(testGrid, defaultComputeRequest);
       const res2 = handleWorkerMessage(testGrid, defaultComputeRequest);
 
@@ -154,17 +229,70 @@ describe("compute worker handler and entry", () => {
       expect(res2.type).toBe("PLAN_RESULT");
 
       if (res1.type === "PLAN_RESULT" && res2.type === "PLAN_RESULT") {
-        // Compare every field except computed_utc and timing_ms per 05 §D
-        expect(res1.status).toBe(res2.status);
-        expect(res1.totals).toEqual(res2.totals);
-        expect(res1.legs).toEqual(res2.legs);
-        expect(res1.warnings).toEqual(res2.warnings);
+        expect(res1).toStrictEqual(res2);
+        expect(res1).not.toHaveProperty("computed_utc");
+        expect(res1).not.toHaveProperty("timing_ms");
+        expect(res1).not.toHaveProperty("conditions");
+        expect(res1).not.toHaveProperty("radiation");
+        expect(res1.stops_timeline).toEqual([]);
+      }
+    });
+
+    it.each([true, false])("counts actual stops for duration warnings with loop=%s", (loop) => {
+      const request = {
+        ...defaultComputeRequest,
+        scenario: { ...defaultComputeRequest.scenario, loop, max_eva_duration_h: 0.75 },
+      };
+      const under = handleWorkerMessage(testGrid, request);
+      expect(under.type).toBe("PLAN_RESULT");
+      if (under.type !== "PLAN_RESULT") return;
+      expect(under.totals?.dwell_time_min).toBe(40);
+      expect(under.warnings.some((warning) => warning.code === "EVA_DURATION_EXCEEDED")).toBe(false);
+      const over = handleWorkerMessage(testGrid, {
+        ...request,
+        scenario: { ...request.scenario, max_eva_duration_h: 0.5 },
+      });
+      expect(over.type).toBe("PLAN_RESULT");
+      if (over.type !== "PLAN_RESULT") return;
+      expect(over.totals?.dwell_time_min).toBe(40);
+      expect(over.warnings.some((warning) => warning.code === "EVA_DURATION_EXCEEDED")).toBe(true);
+      expect(over.status).toBe("OVER_LIMITS");
+    });
+
+    it("reports TI_UNKNOWN on a routed cell omitted by simplified display geometry", () => {
+      const grid = makePlaneGrid({ width: 20, height: 20, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+      const request: ComputePlanRequest = {
+        ...defaultComputeRequest,
+        scenario: { ...defaultComputeRequest.scenario, loop: false },
+        waypoints: [
+          { id: "wp-0", role: "start", x_m: 12.5, y_m: -12.5 },
+          { id: "wp-1", role: "stop", x_m: 37.5, y_m: -12.5 },
+        ],
+      };
+      const plain = handleWorkerMessage(grid, request);
+      expect(plain.type).toBe("PLAN_RESULT");
+      if (plain.type !== "PLAN_RESULT") return;
+      expect(plain.warnings.some((warning) => warning.code === "TI_UNKNOWN")).toBe(false);
+      grid.flags[2 * 20 + 4] |= 1 << FLAG_BITS.TI_UNKNOWN;
+      const flagged = handleWorkerMessage(grid, request);
+      expect(flagged.type).toBe("PLAN_RESULT");
+      if (flagged.type !== "PLAN_RESULT") return;
+      expect(flagged.legs[0]).toMatchObject({ status: "OK", geometry: [[12.5, -12.5], [37.5, -12.5]] });
+      expect(flagged.warnings.filter((warning) => warning.code === "TI_UNKNOWN")).toMatchObject([
+        { severity: "unknown", leg: 0, from_m: 10, to_m: 10 },
+      ]);
+      grid.flags[2 * 20 + 4] = 0;
+      grid.flags[10 * 20 + 10] |= 1 << FLAG_BITS.TI_UNKNOWN;
+      const offRoute = handleWorkerMessage(grid, request);
+      expect(offRoute.type).toBe("PLAN_RESULT");
+      if (offRoute.type === "PLAN_RESULT") {
+        expect(offRoute.warnings.some((warning) => warning.code === "TI_UNKNOWN")).toBe(false);
       }
     });
   });
 
-  describe("planWorker entry and cancellation (T05.27)", () => {
-    it("cancels superseded plan_revision and answers older requests with CANCELLED (02 §E.2)", () => {
+  describe("planWorker entry and stale-revision rejection (T05.27)", () => {
+    it("rejects an older plan_revision with CANCELLED after a newer request", () => {
       setWorkerGrid(testGrid);
 
       // Process revision 10

@@ -1,11 +1,11 @@
 /**
  * Mars24 solar functions (docs/specs/02 §D.5; Allison & McEwen 2000; ADR-005). FR-11.
- * Implemented by TASK-06 (T06.06); cross-checked against the Python `marstime` package.
+ * Implemented by TASK-06 (T06.06); F6 reference conventions and generator remain to be verified.
  * Pitfall (02 §C.4.1): many Mars24 implementations take west longitude; this app stores
  * east-positive longitude everywhere.
  */
 
-// Leap second offset table for UTC to TT conversion (IERS table matching marstime)
+// Leap-second transitions: NAIF naif0012.tls, locked in pipeline/spice/kernels.lock.json.
 const LEAP_DATES: [offsetDay: number, leapSec: number][] = [
   [-2441317.5, -32.184],
   [0, 10],
@@ -34,8 +34,8 @@ const LEAP_DATES: [offsetDay: number, leapSec: number][] = [
   [12419, 33],
   [13515, 34],
   [14792, 35],
-  [15522, 36],
-  [16436, 37],
+  [15887, 36],
+  [16437, 37],
 ];
 
 // Clancy et al. (2000) Mars Year zero-crossing table (J2000 offset TT in days for L_s = 0°)

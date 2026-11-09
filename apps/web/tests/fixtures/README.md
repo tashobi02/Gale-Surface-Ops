@@ -159,3 +159,10 @@ spec-derived reference timestamps.
 | Solar elevation (`solar_elevation_deg`) | Computed by `marstime.solar_elevation(lon_w, lat, j2000_ott)` |
 | Solar azimuth (`solar_azimuth_marstime_deg`, `solar_azimuth_standard_deg`) | `marstime.solar_azimuth` and Allison & McEwen 2000 Eq. 41 using radian latitude |
 | Sunrise and sunset (`sunrise_utc`, `sunset_utc`, `sunrise_ltst`, `sunset_ltst`) | Derived by bisection of elevation zero crossings on a flat horizon ($0^\circ$) for the sol containing the timestamp |
+
+**2026-11-09 reconciliation notes (annotations only; F6 values and timestamps are unchanged):**
+
+- Direct package outputs and generator-derived outputs are mixed in this fixture. Direct `marstime` calls, as the table states: `msd`, `ls_deg`, `mars_year`, `equation_of_time_deg`, `ltst`/`ltst_hours` and `solar_elevation_deg`. Generator-derived (`make_mars24_reference.py`, not package outputs): `solar_azimuth_standard_deg` (Allison & McEwen 2000 Eq. 41) and `sunrise_utc`, `sunset_utc`, `sunrise_ltst`, `sunset_ltst` (bisection of elevation zero crossings).
+- The timestamp `2024-05-18T06:00:00Z` is described above as the Sol 4190 storm start instant, but the specifications date the event 2024-05-20 (sol 4190).
+- `TODO(verify)`: Pin marstime in the approved pipeline environment, verify its APIs, longitude and azimuth conventions, UTC-to-TT handling and version reporting, then regenerate F6 twice and compare bytes. Identify direct package outputs separately from generator-derived azimuth and sunrise/sunset.
+- `TODO(verify)`: Reconcile the F6 record labelled Sol 4190 at 2024-05-18T06:00:00Z with the specifications' 2024-05-20 event date. Preserve existing numerical outputs until an approved regeneration or documented relabelling.

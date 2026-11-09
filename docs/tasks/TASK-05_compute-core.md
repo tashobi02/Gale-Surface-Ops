@@ -485,6 +485,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `npx vitest run tests/compute/route.test.ts` (run in `apps/web/`).
 - **Agent brief:** Implement `searchLeg` in `packages/compute/src/route.ts` exactly as 02 §D.2 defines it (impassable rule, Tobler step cost with multipliers, admissible heuristic, cell-index tie-break, expansion limit, cancellation hook) until `packages/compute/tests/route.test.ts` passes.
 - **Conflict notes:** Stacks on T05.07's branch. T05.01's stub edit removed `snapToPassable` and `toLeg` from this file before this subtask starts. Cut 7 drops it; the fallbacks are T05.30 and T09.08.
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Choose event-loop yielding or shared abort signalling for effective in-flight cancellation. Preserve the 02 §E.2 check interval of 50,000 expansions; stale-request rejection alone does not satisfy cancellation.
 
 ### T05.19 — Implement no-route reasons and nearest reachable cell
 
@@ -624,6 +625,9 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `npx vitest run tests/compute/warnings.test.ts` (run in `apps/web/`).
 - **Agent brief:** Implement `collectWarnings` and `planStatus` in `packages/compute/src/warnings.ts` from 01 FR-10, 05 §C Warning, 05 §E.6 and 03 §E.4 until `packages/compute/tests/warnings.test.ts` passes. Keep undecided severities as `TODO(decision)`.
 - **Conflict notes:** Stacks on T05.13's branch. The 1.3 LOW_TI cost and the LOW_TI warning stay dormant under v1 cut 4 (no v2 cut item) (no threshold, map §h.6).
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Resolve U-03 and the LOW_TI threshold source before enabling LOW_TI warnings; do not infer a threshold from fixture values.
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Confirm LOW_RES_DEM warning severity before emitting bit-4 route warnings; the bit encoding is defined, but TASK-05 spec question 9 leaves severity open.
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Define NO_DATA_ADJACENT neighbourhood, distance, severity and affected-segment policy before implementation; the routing graph's eight neighbours do not by themselves define this warning.
 
 ### T05.25 — Implement input validation
 
@@ -696,6 +700,8 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `npx vitest run tests/compute/worker.test.ts` (run in `apps/web/`); manual: in a dev build, two quick edits produce one PLAN_RESULT for the newer revision.
 - **Agent brief:** Implement the worker entry in `apps/web/src/worker/planWorker.ts`: message wiring, grid initialisation and latest-revision cancellation per the recorded C6 decisions, until the cancellation cases in `packages/compute/tests/worker.test.ts` pass.
 - **Conflict notes:** Stacks on T05.15's branch after T05.26. T07.04 (worker client) is the main-thread side of the same protocol; coordinate any C6 change through a `contract-change:`.
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): C6 owners must choose worker grid delivery and initialization, including the matching client path and failure handling; do not add a delivery message or fetch path in this reconciliation.
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Choose event-loop yielding or shared abort signalling for effective in-flight cancellation. Preserve the 02 §E.2 check interval of 50,000 expansions; stale-request rejection alone does not satisfy cancellation.
 
 ### T05.28 — Verify on the real grid: 10 sampled cells; 20 pairs p50/p95; 3-stop loop ≤ 2 s
 
@@ -721,6 +727,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `npx vitest run tests/compute/realGrid.test.ts` (run in `apps/web/` with the bundle present); check the new verification-log section.
 - **Agent brief:** Write `packages/compute/tests/realGrid.test.ts` that skips without the real bundle and otherwise checks the 10 F5 cells, 20 seeded pairs (p50/p95, no silent failures) and the 3-stop loop time, then log the numbers it measured in `docs/ops/verification-log.md`.
 - **Conflict notes:** The verification log is append-only. These are Node timings; the browser check on the weakest laptop is T14.07. Feeds D-02 (T05.29).
+- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Obtain the gale_boxwork bundle and ten independent F5 cell records, resolve the F5 slope-raster choice with T03.21, and record real-grid pair timings plus repeated successful three-stop-loop p95 with machine, runtime and data_version. Mock-site and single-run timings do not establish this acceptance.
 
 ### T05.29 — Record D-02 from the benchmark in ADR-002
 
@@ -744,6 +751,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `make docs-check`; the lane owner reads the ADR.
 - **Agent brief:** Human decision by the Compute engineer. An agent may draft the ADR-002 text from the T05.28 log section; the human checks the numbers and signs off the outcome.
 - **Conflict notes:** Single owner of ADR-002. Triggers T03.24 or T05.31 only when the rule says so.
+- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Locate the run cited by ADR-002. TODO(decision): The compute lead must review the reconciled real-grid evidence and D-02 sign-off; preserve the existing ADR decision during this repair.
 
 ### T05.30 — Fallback — start only if T09.06 says no-go: manual polyline validation (compute side)
 
@@ -819,6 +827,8 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `npx vitest run tests/compute/worker.test.ts` (run in `apps/web/`); `make test`.
 - **Agent brief:** Finish `handleMessage` in `packages/compute/src/handler.ts`: totals, timeline, conditions and radiation via the C8 interface, warnings, status and worker-side validation, test-first in `packages/compute/tests/worker.test.ts`. Mock `conditions.ts` until TASK-06 lands.
 - **Conflict notes:** Follow-up after T05.26 and T05.15 merge; T05.30 may also have edited `handler.ts`, so rebase and keep both. T11.05 needs this before export metrics can be reproduced.
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Complete C8 assembly into PlanResult after deciding the site coordinate, EnvConstant selection, PARTIAL-plan dose duration and darkness inputs. Until then, return the existing M3 empty timeline and omit conditions and radiation.
+- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Define routing and estimates timing boundaries before reporting phase timings; this repair reports only measured total handler duration in timing_ms.total.
 
 ## Internal dependency graph
 

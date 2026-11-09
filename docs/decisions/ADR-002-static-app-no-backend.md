@@ -30,3 +30,5 @@ D-02 benchmark measurement recorded by T05.28:
 - **Evidence:** `packages/compute/tests/realGrid.test.ts` measured 20 seeded pairs inside the AOI (p50 = 1.22 ms, p95 = 8.79 ms) and a 4-leg 3-stop loop route through the compute worker (10.19 ms) on Node.js v22.18.0 (Windows x64). Full log in [verification-log.md](../ops/verification-log.md#t0528--verify-on-the-real-grid-10-sampled-cells-20-pairs-p50p95-3-stop-loop--2-s).
 - **Result:** p95 is 8.79 ms ≪ 2.0 s threshold (NFR-02 compliant).
 - **Decision:** Confirmed static Web Worker routing. Fallback T05.31 (FastAPI `/route` backend) is **not triggered**. Signed off for the compute lane by Mishkat Ahmed Khan.
+
+> **2026-11-09 reconciliation note:** The outcome above cites p50/p95 1.22/8.79 ms and a 10.19 ms loop; that run is not present in the linked verification log. The linked T05.28 section records a `mock_site-2026.11.05` baseline with p50/p95 0.70/4.86 ms and one 6.56 ms loop. TODO(verify): locate the cited run and record its data_version, machine and raw output. TODO(decision): the compute lead must review the D-02 evidence after T05.28 real-grid verification. This annotation preserves the recorded decision.

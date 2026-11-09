@@ -11,16 +11,17 @@ import type {
   SampleResult,
   WorkerError,
   WorkerRequest,
-  WorkerResponse,
 } from "@marswalk/protocol";
 import type { LoadedGrid } from "./grid";
 import { toLeg } from "./leg";
 import { searchLeg } from "./route";
 import { samplePoint } from "./sampling";
-import { evaTimeline } from "./timeModel";
-import { validatePlanInput } from "./validate";
+import { validateWorkerRequest } from "./validate";
 import { maxWalkbackKm } from "./walkback";
-import { collectWarnings, planStatus } from "./warnings";
+import { collectWarnings, countStops, planStatus } from "./warnings";
+
+export type PurePlanResultMessage = Omit<PlanResultMessage, "computed_utc" | "timing_ms">;
+export type PureWorkerResponse = SampleResult | PurePlanResultMessage | WorkerError;
 
 /**
  * Handle a worker request message against the currently loaded grid.
@@ -31,8 +32,16 @@ export function handleWorkerMessage(
   grid: LoadedGrid | null,
   request: WorkerRequest,
   maxExpansions?: number,
-): WorkerResponse {
+): PureWorkerResponse {
   try {
+    if (request === null || typeof request !== "object" || Array.isArray(request) || typeof request.type !== "string") {
+      return {
+        type: "ERROR",
+        request_id: typeof request?.request_id === "string" ? request.request_id : "unknown",
+        code: "INVALID_INPUT",
+        message: "Worker request must be an object with a type",
+      };
+    }
     if (grid === null) {
       return {
         type: "ERROR",
@@ -40,6 +49,18 @@ export function handleWorkerMessage(
         code: "GRID_NOT_LOADED",
         message: "Routing grid failed checksum or did not load.",
       };
+    }
+
+    if (request.type === "SAMPLE_POINT" || request.type === "COMPUTE_PLAN") {
+      const errors = validateWorkerRequest(request, grid);
+      if (errors.length > 0) {
+        return {
+          type: "ERROR",
+          request_id: typeof request.request_id === "string" ? request.request_id : "unknown",
+          code: "INVALID_INPUT",
+          message: errors.map((error) => `${error.field}: ${error.message}`).join("; "),
+        };
+      }
     }
 
     if (request.type === "SAMPLE_POINT") {
@@ -89,29 +110,11 @@ function handleComputePlan(
   grid: LoadedGrid,
   request: ComputePlanRequest,
   maxExpansions?: number,
-): PlanResultMessage | WorkerError {
-  const startTime = Date.now();
-
-  // 1. Validation before search (02 §E.3)
-  const validationErrors = validatePlanInput(
-    request.scenario,
-    request.waypoints,
-    grid,
-  );
-  if (validationErrors.length > 0) {
-    return {
-      type: "ERROR",
-      request_id: request.request_id,
-      code: "INVALID_INPUT",
-      message: validationErrors
-        .map((e) => `${e.field}: ${e.message}`)
-        .join("; "),
-    };
-  }
-
+): PurePlanResultMessage | WorkerError {
   const waypoints = request.waypoints;
   const loop = request.scenario.loop;
 
+  // TODO(decision): Choose event-loop yielding or shared abort signalling for effective in-flight cancellation. Preserve the 02 §E.2 check interval of 50,000 expansions; stale-request rejection alone does not satisfy cancellation.
   // 2. Search legs between consecutive waypoints (+ return leg if loop)
   const legPairs: [typeof waypoints[0], typeof waypoints[0]][] = [];
   for (let i = 0; i < waypoints.length - 1; i++) {
@@ -122,6 +125,7 @@ function handleComputePlan(
   }
 
   const legs: PlanResult["legs"] = [];
+  const cellPaths: (readonly number[] | undefined)[] = [];
   for (const [fromWp, toWp] of legPairs) {
     const search = searchLeg(
       grid,
@@ -140,6 +144,7 @@ function handleComputePlan(
     }
     const leg = toLeg(grid, fromWp.id, toWp.id, search, request.scenario);
     legs.push(leg);
+    cellPaths.push(search.status === "OK" ? search.cells : undefined);
   }
 
   const hasNoRoute = legs.some((l) => l.status === "NO_ROUTE");
@@ -179,7 +184,7 @@ function handleComputePlan(
 
     maxWbKm = maxWalkbackKm(allCumDists, loop);
 
-    const stopCount = Math.max(0, waypoints.length - 1);
+    const stopCount = countStops(waypoints);
     const dwellMin = stopCount * (request.scenario.dwell_min_per_stop ?? 0);
     const evaTotalMin = totalWalkTimeMin + dwellMin;
     const evaMarginMin = request.scenario.max_eva_duration_h * 60 - evaTotalMin;
@@ -197,32 +202,22 @@ function handleComputePlan(
     };
   }
 
-  // 4. Timeline
-  const legWalkTimes = legs.map((l) => (l.status === "OK" ? l.walk_time_min : 0));
-  const baseTimeline = evaTimeline(
-    request.scenario,
-    request.waypoints,
-    legWalkTimes,
-  );
-  const stops_timeline: PlanResult["stops_timeline"] = baseTimeline.map((t) => ({
-    arrive_utc: t.arrive_utc,
-    depart_utc: t.depart_utc,
-    arrive_ltst: "12:00",
-    sun_elevation_deg: 45,
-  }));
+  // TODO(decision): Complete C8 assembly into PlanResult after deciding the site coordinate, EnvConstant selection, PARTIAL-plan dose duration and darkness inputs. Until then, return the existing M3 empty timeline and omit conditions and radiation.
+  const stops_timeline: PlanResult["stops_timeline"] = [];
 
   // 5. Warnings and plan status
   const warnings = collectWarnings(
     legs,
     request.scenario,
-    stops_timeline,
+    undefined,
     maxWbKm,
     grid,
+    waypoints,
+    cellPaths,
   );
   const status = planStatus(legs, warnings);
 
-  const routingDurationMs = Math.max(1, Date.now() - startTime);
-
+  // TODO(decision): Define routing and estimates timing boundaries before reporting phase timings; this repair reports only measured total handler duration in timing_ms.total.
   return {
     type: "PLAN_RESULT",
     request_id: request.request_id,
@@ -232,10 +227,5 @@ function handleComputePlan(
     totals,
     stops_timeline,
     warnings,
-    computed_utc: new Date().toISOString(),
-    timing_ms: {
-      routing: routingDurationMs,
-      estimates: 1,
-    },
   };
 }

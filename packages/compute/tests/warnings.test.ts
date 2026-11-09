@@ -1,4 +1,4 @@
-import type { Leg, MissionScenario, NoRouteLeg, OkLeg, PlanResult, Waypoint } from "@marswalk/protocol";
+import { FLAG_BITS, type Leg, type MissionScenario, type NoRouteLeg, type OkLeg, type PlanResult, type Waypoint } from "@marswalk/protocol";
 import { describe, expect, it } from "vitest";
 import { makePlaneGrid, withoutTi } from "../../../apps/web/tests/fixtures/grids";
 import { collectWarnings, countStops, planStatus } from "../src/warnings";
@@ -49,6 +49,58 @@ const mockNoRouteLeg: NoRouteLeg = {
 
 // docs/specs/01 FR-10, 02 §E.2 rule, 05 §E.6 (FR-10, FR-16). TASK-05 (T05.13).
 describe("warnings and plan status", () => {
+  it("makes routed DARKNESS OVER_LIMITS while NO_ROUTE retains PARTIAL precedence", () => {
+    const legs: Leg[] = [makeOkLeg()];
+    const timeline: PlanResult["stops_timeline"] = [
+      { arrive_utc: "2026-11-14T08:00:00Z", depart_utc: "2026-11-14T08:00:00Z", arrive_ltst: "09:00", sun_elevation_deg: -5 },
+    ];
+    const warnings = collectWarnings(legs, defaultScenario, timeline, 2);
+    expect(warnings.some((warning) => warning.code === "DARKNESS")).toBe(true);
+    expect(planStatus(legs, warnings)).toBe("OVER_LIMITS");
+    expect(planStatus([...legs, mockNoRouteLeg], warnings)).toBe("PARTIAL");
+  });
+
+  it("locates consecutive cell TI_UNKNOWN flags by unsimplified along-leg distance", () => {
+    const grid = makePlaneGrid({ width: 10, height: 10, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+    const cells = [21, 22, 23, 24, 25];
+    grid.flags[23] |= 1 << FLAG_BITS.TI_UNKNOWN;
+    grid.flags[24] |= 1 << FLAG_BITS.TI_UNKNOWN;
+    const warnings = collectWarnings([makeOkLeg()], defaultScenario, undefined, 0, grid, undefined, [cells]);
+    expect(warnings.filter((warning) => warning.code === "TI_UNKNOWN")).toMatchObject([
+      { severity: "unknown", leg: 0, from_m: 10, to_m: 15 },
+    ]);
+  });
+
+  it("reports route TI_UNKNOWN independently of a DARKNESS warning", () => {
+    const grid = makePlaneGrid({ width: 10, height: 10, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+    grid.flags[23] |= 1 << FLAG_BITS.TI_UNKNOWN;
+    const timeline: PlanResult["stops_timeline"] = [
+      { arrive_utc: "2026-11-14T08:00:00Z", depart_utc: "2026-11-14T08:00:00Z", arrive_ltst: "09:00", sun_elevation_deg: -5 },
+    ];
+    const warnings = collectWarnings([makeOkLeg()], defaultScenario, timeline, 0, grid, undefined, [[21, 22, 23]]);
+    expect(warnings.map((warning) => warning.code)).toContain("DARKNESS");
+    expect(warnings.map((warning) => warning.code)).toContain("TI_UNKNOWN");
+  });
+
+  it("uses horizontal diagonal distance and the correct leg index for a flagged endpoint", () => {
+    const grid = makePlaneGrid({ width: 10, height: 10, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+    grid.flags[44] |= 1 << FLAG_BITS.TI_UNKNOWN;
+    const legs = [mockNoRouteLeg, makeOkLeg()];
+    const warnings = collectWarnings(legs, defaultScenario, undefined, 0, grid, undefined, [undefined, [22, 33, 44]]);
+    const warning = warnings.find((item) => item.code === "TI_UNKNOWN");
+    expect(warning).toMatchObject({ severity: "unknown", leg: 1 });
+    expect(warning?.from_m).toBeCloseTo(10 * Math.SQRT2, 10);
+    expect(warning?.to_m).toBeCloseTo(10 * Math.SQRT2, 10);
+  });
+
+  it("does not duplicate the global missing-TI warning for flagged route cells", () => {
+    const grid = withoutTi(makePlaneGrid({ width: 10, height: 10, cell_m: 5, slope_deg: 0, origin_m: [0, 0] }));
+    grid.flags[23] |= 1 << FLAG_BITS.TI_UNKNOWN;
+    const warnings = collectWarnings([makeOkLeg()], defaultScenario, undefined, 0, grid, undefined, [[21, 22, 23]]);
+    expect(warnings.filter((warning) => warning.code === "TI_UNKNOWN")).toMatchObject([
+      { severity: "unknown", leg: null, from_m: null, to_m: null },
+    ]);
+  });
   it("status PARTIAL when any leg is NO_ROUTE (02 §E.2, 03 §E.4)", () => {
     const legs: Leg[] = [makeOkLeg(), mockNoRouteLeg];
     const warnings = collectWarnings(legs, defaultScenario, [], 2.0);
