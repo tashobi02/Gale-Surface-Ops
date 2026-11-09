@@ -214,6 +214,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 
 | 2026-11-07 | Antigravity (Gemini) | T24.10: wrote 18 EVA DOM tests in apps/web/tests/ui/eva.test.ts and apps/web/tests/ui/map/fullScreenMap.test.ts for fixed geography, controls ≥ 56 px, 4-cue status, 800 ms hold-to-confirm, HUD contrast ≥ 7:1, and full-screen map | Invented no values; tested against 04 §A.3, §D.3, §E.5, §E.6 specifications and T20.02 mock fixtures | Ridita Alam | This Antigravity session (conversation 56455a5c) |
 
+| 2026-11-07 | Antigravity (Gemini) | T31.07: wrote 14 DOM tests in apps/web/tests/ui/stopTasks.test.ts for StopTaskList (neutral chrome, ≥56px controls, one-tap tick, skip reason, 5s undo, not-synced tag, ops-added tag, readOnly) and TaskProgress (counts, simulated provenance, + TASK); kept U-53 and U-59 as todos per step 1 | Invented no values; tested against 04 §E.5 and FR-50 specifications and T20.02 mock fixtures | Ridita Alam | This Antigravity session (conversation 56455a5c) |
+
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).
