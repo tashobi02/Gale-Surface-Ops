@@ -1,0 +1,18 @@
+{
+  "source_id": "simonsen-2024-rad",
+  "title": "The Martian Radiation Environment and Human Health Risks",
+  "publisher": "NASA Technical Reports Server",
+  "authors": "Simonsen, L. C. et al.",
+  "missions": [
+    "MSL"
+  ],
+  "instruments": [
+    "RAD"
+  ],
+  "version": "v4",
+  "url": "https://ntrs.nasa.gov/api/citations/20240009831/downloads/NAS%20BPS%20Simonsen%20v4%20strives.pdf",
+  "credit": "Simonsen et al., 2024",
+  "licence": "TODO(verify)",
+  "accessed": "2026-11-02",
+  "accuracy_note": "Reported GCR dose equivalent rate at Gale Crater during solar minimum (~2019)."
+}

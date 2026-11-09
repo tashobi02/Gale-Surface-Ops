@@ -1,0 +1,19 @@
+{
+  "source_id": "hassler-2014-rad",
+  "title": "Mars' surface radiation environment measured with the Mars Science Laboratory's Curiosity rover",
+  "publisher": "American Association for the Advancement of Science",
+  "authors": "Hassler, D. M. et al.",
+  "missions": [
+    "MSL"
+  ],
+  "instruments": [
+    "RAD"
+  ],
+  "version": "Science 343(6169), 1244797",
+  "url": "https://pubmed.ncbi.nlm.nih.gov/24324275/",
+  "doi": "10.1126/science.1244797",
+  "credit": "Hassler et al., 2014",
+  "licence": "TODO(verify)",
+  "accessed": "2026-11-02",
+  "accuracy_note": "Surface dose equivalent rate measured by MSL RAD inside Gale Crater during solar maximum (2012–2013)."
+}
