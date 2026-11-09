@@ -155,6 +155,9 @@ describe("SCR-18 Hab link lost / connecting (04 §E.5, §B.2)", () => {
     const html = renderToStaticMarkup(createElement(HabLinkLost));
 
     expect(html).toMatch(/stale|link-lost|unlinked/i);
-    expect(html).toMatch(/is-stale|data-provenance/);
+    expect(html).toMatch(/is-stale/);
+    expect(html).toMatch(/data-provenance="derived"/);
+    // Never fake safety claims like "margin intact"
+    expect(html).not.toMatch(/margin intact/);
   });
 });
