@@ -25,7 +25,8 @@
       "provenance": {
         "data.rate_ugy_h": "replayed",
         "data.threshold_ugy_h": "assumed"
-      }
+      },
+      "command_ref": null
     }
   }
 ]

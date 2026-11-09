@@ -1,0 +1,12 @@
+/*
+ * Light theme — token overrides for projector venues (04 U-08).
+ * Stub — implementation: T13.08 (Ridita Alam), ONLY if the U-08 projector check fails.
+ * Imported from tokens.css so main.ts needs no edit (C12 Spec question 4).
+ *
+ * Uses only colour values 04 §C.1 states (the print-theme set). Values 04 lacks
+ * (accent, focus, unknown, panel, raised, text-muted) are TODO(decision) and need
+ * a spec-change on 04 §C.1 with computed contrast before T13.08 starts.
+ *
+ * This file is owned by T13.08. Do not edit until T13.08 merges. Cut-4 safe.
+ */
+

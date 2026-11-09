@@ -1,0 +1,14 @@
+{
+  "source_id": "mars24-allison-mcewen-2000",
+  "title": "Mars24 Sunclock — Time on Mars",
+  "publisher": "NASA Goddard Institute for Space Studies",
+  "authors": "Robert B. Schmunk; Michael D. Allison; Megan McEwen",
+  "missions": ["TODO(verify)"],
+  "instruments": ["TODO(verify)"],
+  "version": "Mars24 8.3.1, released 2023-05-18",
+  "url": "https://www.giss.nasa.gov/tools/mars24/help/credits.html",
+  "doi": "10.1016/S0032-0633(99)00092-6",
+  "credit": "Mars24: Robert B. Schmunk; algorithms: Michael D. Allison; algorithm reference: Allison, M., and M. McEwen (2000), A post-Pathfinder evaluation of aerocentric solar coordinates with improved timing recipes for Mars seasonal/diurnal climate studies (Planetary and Space Science; © 2000 Elsevier Science Ltd).",
+  "licence": "TODO(verify)",
+  "accessed": "2026-11-09"
+}

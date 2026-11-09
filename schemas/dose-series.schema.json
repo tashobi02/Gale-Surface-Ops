@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tashobi02/CheesySpace-NasaSpaceAppChallenge/schemas/dose-series.schema.json",
+  "title": "DoseSeries (docs/specs/05 §C.2 DoseSeries, dose_series.json)",
+  "$comment": "Replayed surface absorbed dose rate (02 L9, §D.13). Written by pipeline rad.py (T21.07) or the digitised fallback (T21.13). The Hab Core loader checks this file's SHA-256 against scenario.json tables.dose_series (05 §E.7). 'Strictly increasing time' in samples cannot be expressed in JSON Schema; the pipeline test (T21.03, pipeline/tests/test_rad.py) checks it.",
+  "type": "object",
+  "properties": {
+    "series_id": {
+      "type": "string",
+      "description": "Series id; \"rad-sol4190\" for the storm-sol4190 scenario (05 DoseSeries)."
+    },
+    "quantity": {
+      "const": "surface absorbed dose rate",
+      "description": "05 DoseSeries rule."
+    },
+    "unit": {
+      "const": "uGy/h",
+      "description": "Absorbed dose rate; never Sv for the event (05 DoseSeries, 02 L9)."
+    },
+    "samples": {
+      "type": "array",
+      "description": "[t_utc, rate] pairs. Time strictly increasing (not expressible here; checked by T21.03). rate is null for a gap; the Hab Core step-holds between samples and does not interpolate across null gaps (05 §E.7).",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "description": "t_utc, ISO-8601 UTC."
+          },
+          {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "rate in uGy/h; null marks a gap."
+          }
+        ],
+        "items": false,
+        "minItems": 2
+      }
+    },
+    "background_rate": {
+      "type": "number",
+      "description": "Background rate in the same unit (uGy/h); used for the RADIATION_ALERT trigger (02 §D.13)."
+    },
+    "method": {
+      "enum": [
+        "archive",
+        "digitised",
+        "template_scaled"
+      ]
+    },
+    "provenance": {
+      "const": "replayed"
+    },
+    "source_id": {
+      "type": "string",
+      "description": "FK to a DataSource (05 §C.1)."
+    },
+    "integral_check": {
+      "type": "object",
+      "description": "For digitised/template_scaled, expected_ugy is the published total (05 DoseSeries); for archive, T21.07 takes expected from the published total and computed from the samples.",
+      "properties": {
+        "expected_ugy": {
+          "type": "number"
+        },
+        "computed_ugy": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "expected_ugy",
+        "computed_ugy"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "series_id",
+    "quantity",
+    "unit",
+    "samples",
+    "background_rate",
+    "method",
+    "provenance",
+    "source_id",
+    "integral_check"
+  ],
+  "additionalProperties": false
+}

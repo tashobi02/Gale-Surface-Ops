@@ -1,0 +1,12 @@
+{
+  "site_id": "gale_boxwork",
+  "name": "Mount Sharp boxwork, Gale crater",
+  "body": "mars",
+  "data_version": "gale_boxwork-2026.11.09",
+  "aoi": {
+    "extent_m": [-3000, -3000, 3000, 3000],
+    "bbox_geo": [137.329209, -4.860612, 137.430791, -4.759388]
+  },
+  "default_start": {"x_m": 1037, "y_m": -1652, "label": "Habitat / rover"},
+  "hab_mast": {"x_m": 1037, "y_m": -1652}
+}

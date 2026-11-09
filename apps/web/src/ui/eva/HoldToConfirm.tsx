@@ -5,11 +5,14 @@
  * Rules (04 §D.3):
  * - Gloved taps are imprecise; critical actions use press-and-hold 800 ms (--hold-to-confirm).
  * - A progress bar runs along the button's chamfered edge; early release cancels.
- * - On completion, a 300 ms confirmation state shows the outcome ("PR1 dispatched — ETA 14 min").
+ * - On completion, a 300 ms confirmation state shows the outcome.
+ * - Zero invented numbers: no hardcoded "ETA 14 min"; outcome shows real server status or nothing.
+ * - Reliable command handling: errors on onConfirm are caught and displayed; never false success.
+ * - Queue state: "Queued — sends when link returns" when unlinked or on NO_LINK response.
+ * - Protocol alignment: SUMMON_VEHICLE and ABORT take { crew: [crewId] } per commands.ts / 05 schema.
  * - Keyboard equivalent: hold Enter or Space.
  * - Accessibility fallback: tap, then tap the "Confirm" button that replaces it for 5 s.
  * - Minimum touch target: 56 px (--target-eva) with >= 8 px gaps.
- * - Unlinked: commands queue through habClient and show "Queued — sends when link returns".
  */
 
 import {
@@ -24,6 +27,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import type { CrewId } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 
 /** Hold duration in milliseconds for critical actions (04 §D.3, C12 token --hold-to-confirm). */
@@ -38,17 +42,17 @@ export const CONFIRM_FALLBACK_MS = 5000;
 /** Minimum touch target size for EVA gloved operations (04 §A.3 #9, §C.3). */
 export const TARGET_EVA_PX = 56;
 
-export type HoldPhase = "idle" | "holding" | "cancelled" | "done" | "confirm";
+export type HoldPhase = "idle" | "holding" | "confirming" | "cancelled" | "done" | "error" | "confirm";
 
 export type ActionKind = "caution" | "warning" | "nominal" | "neutral" | "crit-c" | "crit-w";
 
 export interface HoldToConfirmProps {
   /** Verb-first action label, e.g. "Summon rover", "Abort to hab" (04 §D.4). */
   label: string;
-  /** 300 ms outcome confirmation copy, e.g. "PR1 dispatched — ETA 14 min" (04 §D.3). */
+  /** 300 ms outcome confirmation copy, e.g. "PR1 dispatched" (04 §D.3). */
   outcome: string;
-  /** Dispatched when the hold completes and outcome duration elapses. */
-  onConfirm: () => void | Promise<void>;
+  /** Dispatched when the hold completes. Returns a Promise for async operations. */
+  onConfirm: () => void | Promise<unknown>;
   /** Semantic status kind for border and background cues (04 §C.1). */
   kind?: ActionKind;
   /** True when the action cannot be performed. */
@@ -97,16 +101,20 @@ export function HoldToConfirm({
 }: HoldToConfirmProps): ReactElement {
   const [phase, setPhase] = useState<HoldPhase>("idle");
   const [progress, setProgress] = useState<number>(0);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const t0Ref = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
   const outcomeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef<boolean>(true);
 
-  // Clean up timers on unmount
+  // Clean up timers on unmount without dropping pending network operations
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       if (outcomeTimerRef.current !== null) clearTimeout(outcomeTimerRef.current);
       if (fallbackTimerRef.current !== null) clearTimeout(fallbackTimerRef.current);
@@ -114,29 +122,63 @@ export function HoldToConfirm({
     };
   }, []);
 
-  const triggerConfirm = useCallback(() => {
-    setPhase("done");
+  const triggerConfirm = useCallback(async () => {
+    setPhase("confirming");
     setProgress(1);
 
-    outcomeTimerRef.current = setTimeout(() => {
-      try {
-        void onConfirm();
-      } finally {
-        setPhase("idle");
-        setProgress(0);
+    try {
+      const result = await Promise.resolve(onConfirm());
+      // Check if result has command failure
+      if (result && typeof result === "object" && "ok" in result && !result.ok) {
+        const msg = (result as { message?: string }).message || "Command failed";
+        if (mountedRef.current) {
+          setErrorMessage(msg);
+          setPhase("error");
+          cancelResetTimerRef.current = setTimeout(() => {
+            if (mountedRef.current) {
+              setPhase("idle");
+              setProgress(0);
+              setErrorMessage("");
+            }
+          }, 2000);
+        }
+        return;
       }
-    }, outcomeDurationMs);
+
+      if (mountedRef.current) {
+        setPhase("done");
+        outcomeTimerRef.current = setTimeout(() => {
+          if (mountedRef.current) {
+            setPhase("idle");
+            setProgress(0);
+          }
+        }, outcomeDurationMs);
+      }
+    } catch (err) {
+      if (mountedRef.current) {
+        const msg = err instanceof Error ? err.message : "Action failed";
+        setErrorMessage(msg);
+        setPhase("error");
+        cancelResetTimerRef.current = setTimeout(() => {
+          if (mountedRef.current) {
+            setPhase("idle");
+            setProgress(0);
+            setErrorMessage("");
+          }
+        }, 2000);
+      }
+    }
   }, [onConfirm, outcomeDurationMs]);
 
   const startHolding = useCallback(() => {
-    if (disabled || phase === "done") return;
+    if (disabled || phase === "done" || phase === "confirming") return;
 
     if (tapFallback) {
       // Tap fallback accessibility mode (04 §D.3)
       setPhase("confirm");
       if (fallbackTimerRef.current !== null) clearTimeout(fallbackTimerRef.current);
       fallbackTimerRef.current = setTimeout(() => {
-        setPhase("idle");
+        if (mountedRef.current) setPhase("idle");
       }, fallbackTimeoutMs);
       return;
     }
@@ -153,11 +195,11 @@ export function HoldToConfirm({
     const tick = () => {
       const elapsed = performance.now() - startTime;
       const p = Math.min(elapsed / holdDurationMs, 1);
-      setProgress(p);
+      if (mountedRef.current) setProgress(p);
 
       if (p >= 1) {
         rafRef.current = null;
-        triggerConfirm();
+        void triggerConfirm();
       } else {
         rafRef.current = requestAnimationFrame(tick);
       }
@@ -178,17 +220,21 @@ export function HoldToConfirm({
     setPhase("cancelled");
 
     cancelResetTimerRef.current = setTimeout(() => {
-      setPhase("idle");
+      if (mountedRef.current) setPhase("idle");
     }, 1200);
   }, [phase]);
 
   const handlePointerDown = (e: PointerEvent<HTMLButtonElement>) => {
     if (e.button !== 0 || disabled) return;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // ignored in test environments where pointerCapture may be a mock
+    }
     startHolding();
   };
 
-  const handlePointerUp = (e: PointerEvent<HTMLButtonElement>) => {
+  const handlePointerUp = (_e: PointerEvent<HTMLButtonElement>) => {
     if (phase === "holding") {
       cancelHolding();
     }
@@ -205,7 +251,7 @@ export function HoldToConfirm({
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       if (phase === "confirm") {
-        triggerConfirm();
+        void triggerConfirm();
       } else {
         startHolding();
       }
@@ -225,14 +271,18 @@ export function HoldToConfirm({
     if (phase === "confirm") {
       e.preventDefault();
       if (fallbackTimerRef.current !== null) clearTimeout(fallbackTimerRef.current);
-      triggerConfirm();
+      void triggerConfirm();
     }
   };
 
   // Border & status color styling according to 04 §C.1
   const isCaution = kind === "caution" || kind === "crit-c";
   const isWarning = kind === "warning" || kind === "crit-w";
-  const statusColor = isWarning ? "var(--warning, #FF4D4D)" : isCaution ? "var(--caution, #FFB020)" : "var(--nominal, #3DDC84)";
+  const statusColor = isWarning
+    ? "var(--status-warning, #FF4D4D)"
+    : isCaution
+      ? "var(--status-caution, #FFB020)"
+      : "var(--status-nominal, #3DDC84)";
   const statusBg = isWarning
     ? "var(--warning-fill, #B3261E)"
     : isCaution
@@ -256,9 +306,9 @@ export function HoldToConfirm({
     width: "100%",
     minHeight: `${minHeightPx}px`,
     padding: "10px 16px",
-    background: phase === "done" ? statusBg : "var(--raised, #1C2128)",
+    background: phase === "done" ? statusBg : phase === "error" ? "var(--warning-fill, #B3261E)" : "var(--raised, #1C2128)",
     color: phase === "done" && isCaution ? "var(--ink, #1A1A1A)" : "var(--text-1, #ECEFF2)",
-    border: `2px solid ${disabled ? "var(--edge, #5C6670)" : statusColor}`,
+    border: `2px solid ${disabled ? "var(--edge, #5C6670)" : phase === "error" ? "var(--status-warning, #FF4D4D)" : statusColor}`,
     fontFamily: "var(--font-ui, Inter, sans-serif)",
     fontSize: "var(--text-ui, 14px)",
     fontWeight: 600,
@@ -288,7 +338,7 @@ export function HoldToConfirm({
         }
         title={disabled && disabledReason ? disabledReason : undefined}
         style={buttonStyle}
-        className={`btn hold ${kind} ${phase === "done" ? "done" : ""} ${phase === "confirm" ? "confirmbtn" : ""}`}
+        className={`btn hold ${kind} ${phase === "done" ? "done" : ""} ${phase === "confirm" ? "confirmbtn" : ""} ${phase === "error" ? "error" : ""}`}
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
@@ -305,7 +355,7 @@ export function HoldToConfirm({
             left: 0,
             height: "4px",
             width: `${Math.round(progress * 100)}%`,
-            background: statusColor,
+            background: phase === "error" ? "var(--status-warning, #FF4D4D)" : statusColor,
             transition: phase === "holding" ? "none" : "width 150ms ease",
           }}
         />
@@ -315,6 +365,15 @@ export function HoldToConfirm({
           <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
             <span aria-hidden="true">✓</span>
             <span>{outcome}</span>
+          </span>
+        ) : phase === "confirming" ? (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+            <span>Sending…</span>
+          </span>
+        ) : phase === "error" ? (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "8px", color: "var(--text-1, #ECEFF2)" }}>
+            <span aria-hidden="true">⚠</span>
+            <span>{errorMessage || "Action failed"}</span>
           </span>
         ) : phase === "confirm" ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
@@ -350,6 +409,8 @@ export interface SummonRoverButtonProps {
   client?: HabClient | null;
   /** Whether habitat link is currently active (04 §D.5). */
   linked?: boolean;
+  /** Active crew identifier sending the summon (commands.ts requires args.crew). */
+  crewId?: CrewId;
   /** Target pressurized rover identifier (default PR1). */
   vehicleId?: string;
   /** Optional callback fired when vehicle command dispatches. */
@@ -362,13 +423,13 @@ export interface SummonRoverButtonProps {
 
 /**
  * SUMMON ROVER hold-to-confirm button (01 FR-40, 04 §E.5).
- * Dispatches SUMMON_VEHICLE with vehicle_id="PR1".
- * Linked: "PR1 dispatched — ETA 14 min".
- * Unlinked: "Queued — sends when link returns".
+ * Dispatches SUMMON_VEHICLE with { crew: [crewId] }.
+ * Zero invented numbers: outcome is honest ("PR1 dispatched" or "Queued — sends when link returns").
  */
 export function SummonRoverButton({
   client,
   linked = true,
+  crewId = "EV1",
   vehicleId = "PR1",
   onDispatched,
   disabled = false,
@@ -376,15 +437,20 @@ export function SummonRoverButton({
   className,
 }: SummonRoverButtonProps): ReactElement {
   const outcomeText = linked
-    ? `${vehicleId} dispatched — ETA 14 min`
+    ? `${vehicleId} dispatched`
     : "Queued — sends when link returns";
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (): Promise<unknown> => {
     if (client) {
-      await client.send({
+      const res = await client.send({
         kind: "SUMMON_VEHICLE",
-        args: { vehicle_id: vehicleId },
+        args: { crew: [crewId] },
       });
+      if (!res.ok && res.code !== "NO_LINK") {
+        throw new Error(res.message || "Failed to summon rover");
+      }
+      onDispatched?.();
+      return res;
     }
     onDispatched?.();
   };
@@ -409,6 +475,8 @@ export interface AbortToHabButtonProps {
   client?: HabClient | null;
   /** Whether habitat link is currently active (04 §D.5). */
   linked?: boolean;
+  /** Active crew identifier executing abort (commands.ts requires args.crew). */
+  crewId?: CrewId;
   /** Optional callback fired when abort command dispatches. */
   onAborted?: () => void;
   /** Whether the control is disabled. */
@@ -419,13 +487,14 @@ export interface AbortToHabButtonProps {
 
 /**
  * ABORT TO HAB hold-to-confirm button (01 FR-44, 04 §E.5).
- * Dispatches ABORT command to the Hab Core.
+ * Dispatches ABORT command to Hab Core with { crew: [crewId] }.
  * Linked: "Abort to hab — walking now".
  * Unlinked: "Queued — sends when link returns".
  */
 export function AbortToHabButton({
   client,
   linked = true,
+  crewId = "EV1",
   onAborted,
   disabled = false,
   disabledReason,
@@ -435,12 +504,17 @@ export function AbortToHabButton({
     ? "Abort to hab — walking now"
     : "Queued — sends when link returns";
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (): Promise<unknown> => {
     if (client) {
-      await client.send({
+      const res = await client.send({
         kind: "ABORT",
-        args: { reason: "crew_request" },
+        args: { crew: [crewId] },
       });
+      if (!res.ok && res.code !== "NO_LINK") {
+        throw new Error(res.message || "Abort request failed");
+      }
+      onAborted?.();
+      return res;
     }
     onAborted?.();
   };
@@ -516,6 +590,7 @@ export function TaskRoverButton({
 export interface EvaActionRowProps {
   client?: HabClient | null;
   linked?: boolean;
+  crewId?: CrewId;
   onOpenRoverTasking?: () => void;
   onOpenHud?: () => void;
   disabledSummon?: boolean;
@@ -533,6 +608,7 @@ export interface EvaActionRowProps {
 export function EvaActionRow({
   client,
   linked = true,
+  crewId = "EV1",
   onOpenRoverTasking,
   onOpenHud,
   disabledSummon = false,
@@ -559,11 +635,13 @@ export function EvaActionRow({
       <SummonRoverButton
         client={client}
         linked={linked}
+        crewId={crewId}
         disabled={disabledSummon}
       />
       <AbortToHabButton
         client={client}
         linked={linked}
+        crewId={crewId}
         disabled={disabledAbort}
       />
       <TaskRoverButton
@@ -597,4 +675,3 @@ export function EvaActionRow({
     </div>
   );
 }
-

@@ -84,6 +84,20 @@ export function Hud({
     border: "none",
   };
 
+  const havenTargetLabel = hud.haven.targetId
+    ? `via ${hud.haven.targetId}`
+    : hud.haven.kind === "hab"
+    ? "to Hab Airlock"
+    : activeSnapshot?.vehicles?.[0]?.vehicle_id
+    ? `via ${activeSnapshot.vehicles[0].vehicle_id}`
+    : "—";
+
+  const hasTarget = Boolean(
+    hud.targetBearingDistance &&
+    typeof hud.targetBearingDistance.bearingDeg.v === "number" &&
+    typeof hud.targetBearingDistance.distanceM.v === "number"
+  );
+
   return (
     <div
       role="region"
@@ -93,7 +107,7 @@ export function Hud({
       className={`hud-visor ${className}`}
       style={rootStyle}
     >
-      {/* 1. Alert Banner Slot (only visible when active alert exists, 04 §E.6) */}
+      {/* 1. Alert Banner Slot (≤ 5 values rule; only visible when active alert exists, 04 §E.6) */}
       <div
         role="region"
         aria-label="HUD alert slot"
@@ -109,6 +123,8 @@ export function Hud({
             role="alert"
             data-slot="hud-alert"
             data-level={hud.alertSlot.level}
+            data-provenance="simulated"
+            data-src={hud.alertSlot.alertId}
             style={{
               display: "flex",
               alignItems: "center",
@@ -120,8 +136,11 @@ export function Hud({
               textTransform: "uppercase",
             }}
           >
-            <StatusIcon status={hud.alertSlot.level} showWord={false} />
-            <span>{hud.alertSlot.message}</span>
+            {/* 4 cues (04 §A.3): colour + shape + word + fixed position */}
+            <StatusIcon status={hud.alertSlot.level} showWord={true} live={true} />
+            <span data-provenance="simulated" data-src={hud.alertSlot.alertId}>
+              {hud.alertSlot.message}
+            </span>
           </div>
         ) : (
           <div style={{ visibility: "hidden", minHeight: "24px" }} />
@@ -141,32 +160,43 @@ export function Hud({
           width: "100%",
         }}
       >
-        {/* Value 1: HAVEN (Time to haven always left) */}
+        {/* Value 2: HAVEN (Time to haven always left; 04 §A.3 #4) */}
         <div data-slot="hud-haven" style={cardStyle}>
-          <span style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)", letterSpacing: "0.06em" }}>
-            HAVEN
-          </span>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)", letterSpacing: "0.06em" }}>
+              HAVEN
+            </span>
+            {/* 4 cues: shape + word + colour (04 §A.3) */}
+            <StatusIcon status={hud.haven.status} showWord={true} />
+          </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px", margin: "6px 0" }}>
             <span
               className="value"
               data-provenance={hud.haven.minutes.prov}
+              data-src={hud.haven.minutes.src}
               style={{
                 ...numberLargeStyle,
                 color: `var(--hud-${hud.haven.status}, var(--hud-nominal, #3DDC84))`,
               }}
             >
-              {Math.round(hud.haven.minutes.v)}
+              {typeof hud.haven.minutes.v === "number" && Number.isFinite(hud.haven.minutes.v)
+                ? Math.round(hud.haven.minutes.v)
+                : "—"}
             </span>
             <span style={{ fontSize: "20px", textTransform: "uppercase" }}>
               {hud.haven.minutes.unit} {PROV_GLYPHS[hud.haven.minutes.prov] ?? "○"}
             </span>
           </div>
-          <span style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)" }}>
-            via {hud.haven.targetId ?? "PR1"}
+          <span
+            data-provenance={hud.haven.minutes.prov}
+            data-src={hud.haven.minutes.src}
+            style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)" }}
+          >
+            {havenTargetLabel}
           </span>
         </div>
 
-        {/* Value 2: Target Bearing and Distance */}
+        {/* Value 3: Target Bearing and Distance */}
         <div data-slot="hud-target" style={cardStyle}>
           <span style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)", letterSpacing: "0.06em" }}>
             {hud.targetBearingDistance ? hud.targetBearingDistance.targetLabel : "TARGET"}
@@ -174,48 +204,72 @@ export function Hud({
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px", margin: "6px 0" }}>
             <span
               className="value"
-              data-provenance={hud.targetBearingDistance?.bearingDeg.prov ?? "derived"}
+              data-provenance={hud.targetBearingDistance?.bearingDeg.prov}
+              data-src={hud.targetBearingDistance?.bearingDeg.src}
               style={numberLargeStyle}
             >
-              ↗ {hud.targetBearingDistance ? String(hud.targetBearingDistance.bearingDeg.v).padStart(3, "0") : "000"}°
+              {hasTarget && hud.targetBearingDistance
+                ? `↗ ${String(hud.targetBearingDistance.bearingDeg.v).padStart(3, "0")}°`
+                : "↗ —"}
             </span>
           </div>
-          <span style={{ fontSize: "18px", color: "var(--hud-text, #FFFFFF)" }}>
-            {hud.targetBearingDistance ? `${(hud.targetBearingDistance.distanceM.v / 1000).toFixed(2)} KM` : "0.00 KM"}
+          <span
+            data-provenance={hud.targetBearingDistance?.distanceM.prov}
+            data-src={hud.targetBearingDistance?.distanceM.src}
+            style={{ fontSize: "18px", color: "var(--hud-text, #FFFFFF)" }}
+          >
+            {hasTarget && hud.targetBearingDistance
+              ? `${(Number(hud.targetBearingDistance.distanceM.v) / 1000).toFixed(2)} KM`
+              : "— KM"}
           </span>
         </div>
 
-        {/* Value 3: O2 Margin */}
+        {/* Value 4: O2 Margin */}
         <div data-slot="hud-o2" style={cardStyle}>
-          <span style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)", letterSpacing: "0.06em" }}>
-            O₂
-          </span>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)", letterSpacing: "0.06em" }}>
+              O₂
+            </span>
+            {/* 4 cues: shape + word + colour (04 §A.3) */}
+            <StatusIcon status={hud.o2.status} showWord={true} />
+          </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px", margin: "6px 0" }}>
             <span
               className="value"
               data-provenance={hud.o2.percent.prov}
+              data-src={hud.o2.percent.src}
               style={{
                 ...numberLargeStyle,
                 color: `var(--hud-${hud.o2.status}, var(--hud-nominal, #3DDC84))`,
               }}
             >
-              {hud.o2.percent.v}
+              {typeof hud.o2.percent.v === "number" && Number.isFinite(hud.o2.percent.v)
+                ? hud.o2.percent.v
+                : "—"}
             </span>
             <span style={{ fontSize: "20px" }}>
               % {PROV_GLYPHS[hud.o2.percent.prov] ?? "■"}
             </span>
           </div>
-          <span style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)" }}>
-            {formatMinutes(hud.o2.timeLeftMinutes.v)} LEFT
+          <span
+            data-provenance={hud.o2.timeLeftMinutes.prov}
+            data-src={hud.o2.timeLeftMinutes.src}
+            style={{ fontSize: "14px", color: "var(--hud-text-2, #A9B3BE)" }}
+          >
+            {typeof hud.o2.timeLeftMinutes.v === "number" && Number.isFinite(hud.o2.timeLeftMinutes.v)
+              ? `${formatMinutes(hud.o2.timeLeftMinutes.v)} LEFT`
+              : "— LEFT"}
           </span>
         </div>
       </div>
 
-      {/* 5: Link Status and Provenance (Bottom right) */}
+      {/* Value 5: Link Status and Provenance (Bottom right) */}
       <div
         role="region"
         aria-label="Visor link status"
         data-slot="hud-link"
+        data-provenance="derived"
+        data-src="net/link"
         style={{
           display: "flex",
           justifyContent: "flex-end",
@@ -226,8 +280,18 @@ export function Hud({
           letterSpacing: "0.06em",
         }}
       >
-        <span>LINK {hud.link.linked ? "▮▮▮" : "▯▯▯"}</span>
-        <span>{hud.link.stale ? "STALE" : "◇ SIM"}</span>
+        <span data-provenance="derived" data-src="net/link">
+          LINK {hud.link.linked ? "▮▮▮" : "▯▯▯"}
+        </span>
+        <span
+          data-provenance="derived"
+          data-src="net/link"
+          style={{
+            color: hud.link.stale ? "var(--hud-caution, #FFB020)" : undefined,
+          }}
+        >
+          {hud.link.stale ? "STALE" : "◇ SIM"}
+        </span>
       </div>
     </div>
   );

@@ -9,8 +9,9 @@
  * - caution:        ▲ triangle, diagonal hatch,  "CAUTION"
  * - blocked / warn: ⬣ octagon,  cross-hatch,     "BLOCKED" / "WARNING"
  * - unknown:        ? diamond,  dotted pattern,  "UNKNOWN"
- * - advisory:       ◆ diamond,  dotted pattern,  "ADVISORY"
+ * - advisory:       ◆ diamond,  dotted pattern,  "ADVISORY" (Proposed)
  * - The icon glyph is aria-hidden="true" when the status word is shown as text.
+ * - role="status" is placed ONLY on live indicators (options.live === true), not on static icons.
  */
 
 import { createElement, type ReactElement } from "react";
@@ -69,22 +70,71 @@ export interface StatusIconOptions {
   showWord?: boolean;
   /** Additional CSS class names. */
   className?: string;
+  /** Whether this is a live dynamic indicator (sets role="status" only when true). */
+  live?: boolean;
 }
 
 /**
  * Creates and returns an HTMLElement with icon + pattern + text (04 §C.1).
  * Preserves the exact T07.01 stub signature for consumers.
  */
-export function renderStatusIcon(status: OperationalStatus, options?: StatusIconOptions): HTMLElement {
+export function renderStatusIcon(status: ExtendedStatus, options?: StatusIconOptions): HTMLElement {
   const normalized = normalizeStatusClass(status);
   const glyph = STATUS_GLYPHS[status] ?? "?";
   const word = options?.word ?? STATUS_WORDS[status] ?? String(status).toUpperCase();
   const showWord = options?.showWord ?? true;
   const extraClass = options?.className ? ` ${options.className}` : "";
+  const live = options?.live ?? false;
+
+  if (typeof document === "undefined") {
+    // SSR / Node testing fallback
+    interface MockNode {
+      className: string;
+      textContent: string;
+      attributes: Record<string, string>;
+      children: MockNode[];
+      setAttribute(k: string, v: string): void;
+      getAttribute(k: string): string | null;
+      appendChild(child: MockNode): void;
+      querySelector(selector: string): MockNode | null;
+    }
+    const createMockNode = (className: string, textContent = ""): MockNode => ({
+      className,
+      textContent,
+      attributes: {},
+      children: [],
+      setAttribute(k: string, v: string) { this.attributes[k] = v; },
+      getAttribute(k: string) { return this.attributes[k] ?? null; },
+      appendChild(c: MockNode) { this.children.push(c); },
+      querySelector(selector: string) {
+        if (selector === ".status-glyph") return this.children.find(c => c.className === "status-glyph") ?? null;
+        if (selector === ".status-label") return this.children.find(c => c.className === "status-label") ?? null;
+        return null;
+      },
+    });
+
+    const container = createMockNode(`status-indicator status-${status} status-${normalized}${extraClass}`);
+    if (live) container.setAttribute("role", "status");
+    container.setAttribute("data-status", status);
+
+    const glyphSpan = createMockNode("status-glyph", glyph);
+    glyphSpan.setAttribute("aria-hidden", showWord ? "true" : "false");
+    container.appendChild(glyphSpan);
+
+    if (showWord) {
+      const labelSpan = createMockNode("status-label", word);
+      container.appendChild(labelSpan);
+    } else {
+      container.setAttribute("aria-label", word);
+    }
+    return container as unknown as HTMLElement;
+  }
 
   const container = document.createElement("span");
   container.className = `status-indicator status-${status} status-${normalized}${extraClass}`;
-  container.setAttribute("role", "status");
+  if (live) {
+    container.setAttribute("role", "status");
+  }
   container.setAttribute("data-status", status);
 
   // Icon glyph: aria-hidden when text word is visible (04 §E)
@@ -112,6 +162,8 @@ export interface StatusIconProps {
   showWord?: boolean;
   word?: string;
   className?: string;
+  /** Whether this is a live dynamic indicator (sets role="status" only when true). */
+  live?: boolean;
 }
 
 /**
@@ -123,6 +175,7 @@ export function StatusIcon({
   showWord = true,
   word,
   className = "",
+  live = false,
 }: StatusIconProps): ReactElement {
   const normalized = normalizeStatusClass(status);
   const glyph = STATUS_GLYPHS[status] ?? "?";
@@ -132,7 +185,7 @@ export function StatusIcon({
     "span",
     {
       className: `status-indicator status-${status} status-${normalized} ${className}`.trim(),
-      role: "status",
+      role: live ? "status" : undefined,
       "data-status": status,
       "aria-label": showWord ? undefined : displayWord,
     },
@@ -155,4 +208,3 @@ export function StatusIcon({
       : null,
   );
 }
-
