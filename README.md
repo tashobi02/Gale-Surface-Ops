@@ -13,11 +13,11 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`██████░░░░░░░░░░░░░░` **32 %** — 97 of 304 subtasks done, 11 in progress.
+`██████░░░░░░░░░░░░░░` **32 %** — 98 of 304 subtasks done, 10 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
-| [TASK-00 Resolve rules + register](docs/tasks/TASK-00_resolve-rules-and-register.md) | `████████░░` 80 % | 4 | 1 | 5 |
+| [TASK-00 Resolve rules + register](docs/tasks/TASK-00_resolve-rules-and-register.md) | `██████████` 100 % | 5 | 0 | 5 |
 | [TASK-01 Feasibility: AOI, DEM quality, coverage checks](docs/tasks/TASK-01_feasibility.md) | `████████░░` 83 % | 5 | 1 | 6 |
 | [TASK-02 Spike: OpenLayers custom Mars projection + custom tile grid](docs/tasks/TASK-02_projection-spike.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 5 |
 | [TASK-03 Preprocessing pipeline](docs/tasks/TASK-03_preprocessing-pipeline.md) | `█████████░` 88 % | 22 | 0 | 25 |
