@@ -1,0 +1,14 @@
+{
+  "source_id": "tobler-1993",
+  "title": "Improved prediction of hiking speeds using a data driven approach",
+  "publisher": "arXiv",
+  "authors": "Andrew Wood; William Mackaness; T. Ian Simpson; J. Douglas Armstrong",
+  "missions": ["TODO(verify)"],
+  "instruments": ["TODO(verify)"],
+  "version": "arXiv:2303.16065v6; revised 29 Aug 2023",
+  "url": "https://arxiv.org/pdf/2303.16065v6",
+  "credit": "Andrew Wood; William Mackaness; T. Ian Simpson; J. Douglas Armstrong; arXiv:2303.16065v6",
+  "licence": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+  "accessed": "2026-11-09",
+  "accuracy_note": "TODO(verify): The required source_id names Tobler's original 1993 work, but the URL in 02 Sources is a 2023 paper by Wood et al. that cites it; title, authors, publisher, version, credit and licence here describe that paper, not Tobler 1993. Reported as a 02 factual problem."
+}

@@ -13,6 +13,6 @@
   "url": "https://ntrs.nasa.gov/api/citations/20240009831/downloads/NAS%20BPS%20Simonsen%20v4%20strives.pdf",
   "credit": "Simonsen et al., 2024",
   "licence": "TODO(verify)",
-  "accessed": "2026-11-02",
-  "accuracy_note": "Reported GCR dose equivalent rate at Gale Crater during solar minimum (~2019)."
+  "accessed": "2026-11-08",
+  "accuracy_note": "Proposed source_id per map open point 12 — TODO(decision). Reported GCR dose equivalent rate at Gale Crater during solar minimum (~2019)."
 }
