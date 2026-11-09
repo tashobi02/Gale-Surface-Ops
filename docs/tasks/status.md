@@ -17,7 +17,7 @@ After editing this file run `make progress`. Do not edit the README progress blo
 | T00.02 | done | 2026-11-04 | Local Lead's reply quoted and registration confirmed in [rules.md](../ops/rules.md#answer) |
 | T00.03 | done | 2026-11-04 | [rules.md](../ops/rules.md): answer, sources, registration and Track P recorded |
 | T00.04 | done | 2026-11-04 | Phase-gate line in [CLAUDE.md](../../CLAUDE.md) and [AGENTS.md](../../AGENTS.md) |
-| T00.06 | wip | 2026-11-04 | Roster in [team.md](../ops/team.md); venue (U-14) still `TODO(verify)` |
+| T00.06 | done | 2026-11-09 | Roster in [team.md](../ops/team.md); venue **virtual** (U-14, Obidit Islam, 2026-11-09) with source and date; U-14 spec-sync note added for T16.02. Final lane sign-off stays `TODO(decision)` |
 | T01.01 | done | 2026-11-07 | [dem-label.md](../ops/feasibility/dem-label.md): label facts recorded (U-02 unclear, no-data −32767 from the GeoTIFF tag), full-file SHA-256 and `gdalinfo` match the remote header. Drive copy (Mishkat) still `TODO(verify)`, outside the acceptance criteria |
 | T01.02 | done | 2026-11-06 | [aoi.md](../ops/feasibility/aoi.md): centre, working projection, `extent_m` and `bbox_geo` from the data lead's rule, with PROJ commands and output. Frozen by T01.05 |
 | T01.03 | done | 2026-11-07 | [dem-quality.md](../ops/feasibility/dem-quality.md): pass at 85.67 % on the data lead's method, artifacts, U-10 evidence and a reference crater. The team reviews the margin at T01.05 |
