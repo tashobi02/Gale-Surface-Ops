@@ -18,7 +18,8 @@
         ],
         "message": "Comm shadow in 120 m — stay with EV2"
       },
-      "provenance": {}
+      "provenance": {},
+      "command_ref": null
     }
   }
 ]

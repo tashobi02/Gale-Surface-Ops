@@ -1,0 +1,52 @@
+{
+  "type": "PLAN_RESULT",
+  "request_id": "r-0042",
+  "plan_revision": 17,
+  "status": "PARTIAL",
+  "legs": [
+    {
+      "from": "wp-0",
+      "to": "wp-1",
+      "status": "OK",
+      "distance_m": 1184.2,
+      "walk_time_min": 26.1,
+      "climb_m": 38.0,
+      "descent_m": 4.5,
+      "max_slope_deg": 11.4,
+      "geometry": [],
+      "cell_path_length": 241,
+      "profile": {
+        "dist_m": [],
+        "elev_m": [],
+        "slope_class": []
+      }
+    },
+    {
+      "from": "wp-1",
+      "to": "wp-2",
+      "status": "NO_ROUTE",
+      "reason": "DISCONNECTED_BY_SLOPE",
+      "nearest_reachable": {
+        "x_m": 2905.0,
+        "y_m": -2410.0
+      }
+    }
+  ],
+  "totals": null,
+  "stops_timeline": [],
+  "warnings": [
+    {
+      "code": "CAUTION_SLOPE",
+      "severity": "caution",
+      "leg": 0,
+      "from_m": 610,
+      "to_m": 690,
+      "message": "Slope exceeds caution limit between 610 m and 690 m"
+    }
+  ],
+  "computed_utc": "2026-11-14T08:00:00Z",
+  "timing_ms": {
+    "routing": 412,
+    "estimates": 3
+  }
+}

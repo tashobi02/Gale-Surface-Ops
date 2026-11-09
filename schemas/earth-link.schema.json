@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tashobi02/CheesySpace-NasaSpaceAppChallenge/schemas/earth-link.schema.json",
+  "title": "EarthLinkTable (docs/specs/05 §C.2 EarthLinkTable, earth_link.json)",
+  "$comment": "SPICE geometry precomputed by pipeline spice_tables.py (T21.04) or the fixed-light-time fallback (T21.14); no SPICE at runtime (02 L10, §D.12). The Hab Core loader checks this file's SHA-256 against scenario.json tables.earth_link (05 §E.7). Rows strictly increasing in t_utc at step_s cannot be expressed in JSON Schema; the pipeline test (T21.03, pipeline/tests/test_spice_tables.py) checks the row step.",
+  "type": "object",
+  "$defs": {
+    "Orbiter": {
+      "enum": [
+        "mro",
+        "maven",
+        "tgo"
+      ]
+    },
+    "Row": {
+      "type": "object",
+      "properties": {
+        "t_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "light_time_s": {
+          "type": "number",
+          "description": "One-way Mars-Earth light time in seconds."
+        },
+        "sep_angle_deg": {
+          "type": "number",
+          "description": "Sun-Earth-Mars angle in degrees (conjunction proximity, 02 §D.12)."
+        },
+        "earth_elev_deg": {
+          "type": "number",
+          "description": "Earth elevation at the site in degrees."
+        },
+        "orbiters": {
+          "type": "object",
+          "description": "Orbiter values = elevation in degrees at the site (05 EarthLinkTable).",
+          "properties": {
+            "mro": {
+              "type": "number"
+            },
+            "maven": {
+              "type": "number"
+            },
+            "tgo": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "mro",
+            "maven",
+            "tgo"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "t_utc",
+        "light_time_s",
+        "sep_angle_deg",
+        "earth_elev_deg",
+        "orbiters"
+      ],
+      "additionalProperties": false
+    },
+    "Pass": {
+      "type": "object",
+      "description": "Relay pass window, precomputed with the link ParamSet's relay_min_elev_deg (05 EarthLinkTable).",
+      "properties": {
+        "orbiter": {
+          "$ref": "#/$defs/Orbiter"
+        },
+        "start_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "max_elev_deg": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "orbiter",
+        "start_utc",
+        "end_utc",
+        "max_elev_deg"
+      ],
+      "additionalProperties": false
+    },
+    "Kernel": {
+      "type": "object",
+      "description": "A SPICE file used to build the table.",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source_id": {
+          "type": "string",
+          "description": "FK to a DataSource (05 §C.1)."
+        }
+      },
+      "required": [
+        "file",
+        "sha256",
+        "source_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "step_s": {
+      "type": "integer",
+      "const": 60,
+      "description": "Row step in seconds; 05 EarthLinkTable rule is 60 (1 min, 02 §D.12, L10). The Hab Core binary-searches rows on this step (05 §E.7)."
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Row"
+      }
+    },
+    "passes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Pass"
+      }
+    },
+    "kernels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Kernel"
+      }
+    },
+    "provenance": {
+      "const": "derived"
+    }
+  },
+  "required": [
+    "step_s",
+    "rows",
+    "passes",
+    "kernels",
+    "provenance"
+  ],
+  "additionalProperties": false
+}
