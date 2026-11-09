@@ -1,18 +1,215 @@
 /*
- * Status pattern classes (04 §C.1) and statusIcon styles.
- * Stub — implementation: T13.05 (Ridita Alam).
- * Imported from tokens.css so main.ts needs no edit (C12 Spec question 4).
+ * Status pattern classes (docs/specs/04 §C.1) and statusIcon styles.
+ * Implemented by T13.05 (Ridita Alam, R5 EVA & Ops UI · design system).
  *
  * Pattern class names (C12):
- *   .status-nominal  — solid fill       (✓ circle, --status-nominal)
- *   .status-caution  — diagonal hatch   (▲ triangle, --status-caution)
- *   .status-warning  — cross-hatch      (⬣ octagon, --status-warning)
- *   .status-unknown  — dotted           (? diamond, --status-unknown)
+ *   .status-nominal / .status-ok      — solid fill       (✓ circle, --status-nominal)
+ *   .status-caution                   — diagonal hatch   (▲ triangle, --status-caution)
+ *   .status-warning / .status-blocked — cross-hatch      (⬣ octagon, --status-warning)
+ *   .status-unknown                   — dotted           (? diamond, --status-unknown)
+ *   .status-advisory                  — dotted           (◆ diamond, --status-advisory) [Proposed]
  *
- * Consumers: status banner (T09.03), warnings list (T09.04), legend swatches (T07.09),
- * briefing card (T11.03). Canvas/SVG consumers (T07.07, T09.01, T09.02) draw the same
- * 04 §C.1 patterns themselves — see note in T13.05 conflict notes (Spec question 3).
+ * Non-colour cues (04 §A.3 #2, §E):
+ * Every status combines four cues: colour + shape + word + fixed position.
+ * Never colour alone. In grayscale emulation or black-and-white print,
+ * patterns and labels remain 100% distinguishable.
  *
- * This file is owned by T13.05. Do not edit until T13.05 merges.
+ * Consumers of these CSS classes:
+ * - Status banner (T09.03)
+ * - Warnings list (T09.04)
+ * - Legend swatches (T07.09)
+ * - Briefing card (T11.03)
+ * - StatusIcon component (T13.05, apps/web/src/ui/components/statusIcon.ts)
+ *
+ * Canvas and SVG consumers:
+ * Note (TASK-13 Spec question 3): canvas and SVG renderers (T07.07 slope tiles,
+ * T09.01 hazard hatch, T09.02 elevation profile) draw the same 04 §C.1 patterns
+ * themselves using their respective 2D context or SVG definitions, maintaining
+ * visual consistency with these CSS classes.
  */
 
+/* ---------------------------------------------------------------- pattern classes (OPS & BRIEF) */
+
+.status-ok,
+.status-nominal {
+  background-color: var(--status-nominal);
+  color: var(--ink, #1A1A1A);
+}
+
+.status-caution {
+  background-color: var(--status-caution);
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.22),
+    rgba(0, 0, 0, 0.22) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  color: var(--ink, #1A1A1A);
+}
+
+.status-blocked,
+.status-warning {
+  background-color: var(--status-warning);
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.28),
+      rgba(0, 0, 0, 0.28) 3px,
+      transparent 3px,
+      transparent 6px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(0, 0, 0, 0.28),
+      rgba(0, 0, 0, 0.28) 3px,
+      transparent 3px,
+      transparent 6px
+    );
+  /* Contrast fix: --ink on --warning gives 5.32:1 contrast (NFR-04 requires >= 4.5:1) */
+  color: var(--ink, #1A1A1A);
+}
+
+.status-unknown {
+  background-color: var(--status-unknown);
+  background-image: radial-gradient(
+    rgba(0, 0, 0, 0.35) 22%,
+    transparent 22%
+  );
+  background-size: 8px 8px;
+  color: var(--ink, #1A1A1A);
+}
+
+.status-advisory {
+  background-color: var(--status-advisory);
+  background-image: radial-gradient(
+    rgba(0, 0, 0, 0.35) 22%,
+    transparent 22%
+  );
+  background-size: 8px 8px;
+  color: var(--ink, #1A1A1A);
+}
+
+/* ---------------------------------------------------------------- pattern swatches and indicators */
+
+.pattern-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  border: 1px solid var(--edge, #5C6670);
+  flex-shrink: 0;
+}
+
+.pattern-swatch.status-ok,
+.pattern-swatch.status-nominal {
+  border-radius: 50%;
+}
+
+.pattern-swatch.status-caution {
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+.pattern-swatch.status-blocked,
+.pattern-swatch.status-warning {
+  clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+}
+
+.pattern-swatch.status-unknown,
+.pattern-swatch.status-advisory {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+/* ---------------------------------------------------------------- status-icon container */
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui, "Inter", sans-serif);
+  font-weight: 600;
+  font-size: var(--text-ui, 14px);
+  line-height: 1;
+}
+
+.status-indicator .status-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  line-height: 1;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.status-indicator .status-label {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------- PRINT theme (04 §C.1) */
+
+@media print {
+  .status-ok,
+  .status-nominal {
+    background-color: #FFFFFF !important;
+    border: 2px solid var(--print-text, #111827) !important;
+    color: var(--print-text, #111827) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .status-caution {
+    background-color: #FFFFFF !important;
+    background-image: repeating-linear-gradient(
+      45deg,
+      #111827,
+      #111827 3px,
+      transparent 3px,
+      transparent 8px
+    ) !important;
+    border: 2px solid var(--print-text, #111827) !important;
+    color: var(--print-text, #111827) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .status-blocked,
+  .status-warning {
+    background-color: #FFFFFF !important;
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        #111827,
+        #111827 2px,
+        transparent 2px,
+        transparent 6px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        #111827,
+        #111827 2px,
+        transparent 2px,
+        transparent 6px
+      ) !important;
+    border: 2px solid var(--print-text, #111827) !important;
+    color: var(--print-text, #111827) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .status-unknown,
+  .status-advisory {
+    background-color: #FFFFFF !important;
+    background-image: radial-gradient(
+      #111827 25%,
+      transparent 25%
+    ) !important;
+    background-size: 6px 6px !important;
+    border: 2px solid var(--print-text, #111827) !important;
+    color: var(--print-text, #111827) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

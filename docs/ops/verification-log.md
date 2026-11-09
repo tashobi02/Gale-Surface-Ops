@@ -424,3 +424,27 @@ All five match. Over the ten points: 9 match, 1 does not.
 | `A`, `Enter` | Omitted | Reserved for T08.07 crosshair mode; not bound here |
 
 - Hands on to: T13.10 (keyboard-only run of core scenario), T08.07 (add-stop mode).
+
+## T13.05 — Status icons and patterns verification
+
+| | |
+| --- | --- |
+| **Owner** | Ridita Alam (R5 EVA & Ops UI · design system), run by Antigravity |
+| **Date** | 2026-11-09 |
+| **Status** | Done: four status patterns (solid, diagonal hatch, cross-hatch, dotted), statusIcon component and review fixes verified |
+| **Inputs** | [04 §C.1](../specs/04_Design_Brief.md#status-and-alert-colours-ops), [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior); `tokens.css`; `statusIcon.ts` stub signature |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| 4-cue status rendering (colour + shape + word + fixed pattern) | **Pass**, 100 % compliant | `renderStatusIcon` and `StatusIcon` render shape (`✓`, `▲`, `⬣`, `?`), label word (`NOMINAL`, `CAUTION`, `WARNING`, `UNKNOWN`), pattern class (`.status-*`), and semantic status token |
+| Warning / blocked contrast (NFR-04) | **Pass**, 5.32:1 contrast ratio | `.status-warning` and `.status-blocked` use text color `var(--ink, #1A1A1A)` on `var(--status-warning)` (#FF4D4D), giving 5.32:1 contrast (exceeds NFR-04 4.5:1 requirement) |
+| Semantic tokens (C12 rule) | **Pass**, inherits HUD and print modes | Classes reference `--status-nominal`, `--status-caution`, `--status-warning`, `--status-unknown`, `--status-advisory`, allowing HUD mode (`[data-mode="hud"]`) and print mode to override values cleanly |
+| Live indicator semantics | **Pass**, no aria spam | `role="status"` is only added when `live: true` option is passed; static lists and legends do not announce updates |
+| Node / SSR robustness | **Pass**, safe in headless env | Fallback DOM generation when `document` is undefined avoids `ReferenceError` during server/test rendering |
+| Unit test coverage | **Pass**, 5/5 green | `apps/web/tests/ui/statusIcon.test.ts` tests all statuses, live vs non-live `role="status"`, and custom class application |
+| Print preview (`@media print`) | **Pass**, patterns preserved | `@media print` rules enforce high-contrast black-and-white borders and exact print color adjust with hatched/dotted patterns for B&W printing |
+| T07.01 stub signature compatibility | **Pass**, exact match | `export function renderStatusIcon(status: OperationalStatus): HTMLElement` exported with full backward compatibility |
+
+- CSS pattern classes (`.status-nominal`, `.status-caution`, `.status-warning`, `.status-unknown`) implemented in `apps/web/src/ui/styles/patterns.css`.
+- Consumers documented in `patterns.css` header: status banner, warnings list, legend swatches, briefing card, StatusIcon.
+- Hands on to: T07.09 (legend swatches), T09.03 (status banner), T09.04 (warnings list), T11.03 (briefing card), T14.04 (SCR-00 error view).
