@@ -1,0 +1,33 @@
+{
+  "poi_id": "poi-sulfate-contact",
+  "name": "Boxwork and sulfate unit contact",
+  "lat": -4.811552448,
+  "lon_e": 137.381811688,
+  "science_objective": "Brush, image and analyse bedrock across the southern contact between the boxwork terrain and the layered sulfate unit, and compare it with the sulfate unit north of the boxwork.",
+  "why_it_matters": "NASA says magnesium sulfates are salty minerals that form as water dries up. Team framing, assumed: a candidate hydrated-sulfate (ISRU water) stop; no NASA yield figure is cited. The sol 4848 image shows sulfate terrain past the contact, not the contact itself.",
+  "image_asset": "img-sulfate-contact",
+  "image_credit": "NASA/JPL-Caltech",
+  "image_source_url": "https://science.nasa.gov/blog/curiosity-blog-sols-4845-4851-bye-bye-boxwork-bye-bye/",
+  "image_sol": 4848,
+  "image_date": "2026-03-27",
+  "image_camera": "Left Navigation Camera (Navcam)",
+  "position_source": "PDS PLACES localized_interp.csv v42.0, frame ROVER, sol 4848, site 121, drive 1446 (planetocentric_latitude, longitude; last ROVER row for the sol 4848 image). The same row is in localized_pos.csv, so it is a localized solution, not an interpolated one. This is where the rover was, not the surveyed position of the feature itself. Uncertainty 0.5 m is the PLACES SIS 1.3 Rev-A §4.4.1.2 expected accuracy of localized rover positions against the HiRISE base map; it does not include the offset between the rover and the imaged feature.",
+  "position_uncertainty_m": 0.5,
+  "provenance": "assumed",
+  "stop_type": "resource",
+  "ez_theme": "Sulfate unit contact: ISRU water candidate (assumed)",
+  "evidence": [
+    {
+      "text": "Blog sols 4845-4851: the drive took the rover just over the southernmost contact of the boxwork terrain with the surrounding layered sulfate unit; APXS and MAHLI analysed sulfate bedrock across it.",
+      "source_id": "nasa-msl-blog-sols-4845-4851"
+    },
+    {
+      "text": "NASA, 23 Jun 2025: the rover is in a layer rich in magnesium sulfates, salty minerals that form as water dries up.",
+      "source_id": "nasa-msl-boxwork-article-2025-06"
+    },
+    {
+      "text": "Position accuracy: localized positions have an expected accuracy of 0.5m compared to the base map (PLACES SIS 1.3 Rev-A, §4.4.1.2).",
+      "source_id": "pds-msl-places-sis-1-3"
+    }
+  ]
+}

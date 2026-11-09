@@ -1,0 +1,33 @@
+{
+  "poi_id": "poi-nevado-sajama-ridge",
+  "name": "Nevado Sajama ridge drill site",
+  "lat": -4.808007546,
+  "lon_e": 137.381004126,
+  "science_objective": "Drill the ridge-top Nevado Sajama bedrock, about 10 m from the hollow drill site, and run DAN to estimate the ridge's hydrogen (and by extrapolation water) content.",
+  "why_it_matters": "NASA's team requested one drill target in a hollow and one on an adjacent ridge, only about 2 m apart in elevation, to compare their mineralogy, volatiles and organic chemistry.",
+  "image_asset": "img-nevado-sajama-ridge",
+  "image_credit": "NASA/JPL-Caltech",
+  "image_source_url": "https://science.nasa.gov/blog/curiosity-blog-sols-4716-4722-drilling-success-at-nevado-sajama/",
+  "image_sol": 4718,
+  "image_date": "2025-11-13",
+  "image_camera": "Left Navigation Camera (Navcam)",
+  "position_source": "PDS PLACES localized_interp.csv v42.0, frame ROVER, sol 4711, site 120, drive 82 (planetocentric_latitude, longitude; last ROVER row (sol 4711) before the sol 4718 image; next row is sol 4741). The same row is in localized_pos.csv, so it is a localized solution, not an interpolated one. This is where the rover was, not the surveyed position of the feature itself. Uncertainty 0.5 m is the PLACES SIS 1.3 Rev-A §4.4.1.2 expected accuracy of localized rover positions against the HiRISE base map; it does not include the offset between the rover and the imaged feature.",
+  "position_uncertainty_m": 0.5,
+  "provenance": "assumed",
+  "stop_type": "science",
+  "ez_theme": "Ridge drill site: paired with hollow",
+  "evidence": [
+    {
+      "text": "Blog sols 4716-4722: drilling finished on sol 4718 at Nevado Sajama on the ridge; MAHLI saw fine veins in both targets; DAN gathered hydrogen (by extrapolation, water) data for the ridge.",
+      "source_id": "nasa-msl-blog-sols-4716-4722"
+    },
+    {
+      "text": "Blog sols 4709-4715: the boxwork group requested one drill in a hollow and one on an adjacent ridge; there is a mere 2-meter elevation difference between hollow floor and ridge top.",
+      "source_id": "nasa-msl-blog-sols-4709-4715"
+    },
+    {
+      "text": "Position accuracy: localized positions have an expected accuracy of 0.5m compared to the base map (PLACES SIS 1.3 Rev-A, §4.4.1.2).",
+      "source_id": "pds-msl-places-sis-1-3"
+    }
+  ]
+}
