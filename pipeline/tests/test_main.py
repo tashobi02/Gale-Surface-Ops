@@ -85,7 +85,108 @@ def test_vectors_report_owning_tasks(tmp_path):
     site.mkdir()
     (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
     with pytest.raises(NotImplementedError, match=r'T04\.01.*T04\.03-05'):
-        runner._run_step('vectors', tmp_path, site, tmp_path / 'work', tmp_path / 'out')
+        runner._run_step('vectors', tmp_path, site, tmp_path / 'work', tmp_path / 'out', traverse=Path('cached.csv'))
+
+
+def test_traverse_cli_passes_cached_source_to_packager(tmp_path, monkeypatch):
+    import json
+    from marswalk_pipeline import vectors
+    site = tmp_path / 'site'
+    site.mkdir()
+    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
+    monkeypatch.setattr(runner, '_paths', lambda _: (tmp_path, site, tmp_path / 'work', tmp_path / 'out'))
+    monkeypatch.setattr(runner, 'STEPS', ('vectors',))
+    calls = []
+    monkeypatch.setattr(vectors, 'package_traverse', lambda *args: calls.append(args))
+    monkeypatch.setattr(vectors, 'package_pois', lambda *args: None)
+    traverse = tmp_path / 'cache' / 'localized_interp.csv'
+    assert runner.main(['gale_boxwork', '--traverse', str(traverse)]) == 0
+    assert calls[0][0] == traverse
+
+
+def test_vectors_require_traverse_with_task_guidance(tmp_path):
+    import json
+    (tmp_path / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
+    with pytest.raises(ValueError, match=r'--traverse.*T04\.01.*T04\.03'):
+        runner._run_step('vectors', tmp_path, tmp_path, tmp_path / 'work', tmp_path / 'out')
+
+
+@pytest.mark.parametrize('name,source_id', [
+    ('dem', 'usgs-gale-dem-1m-v3'),
+    ('ortho', 'usgs-gale-ortho-25cm-v3'),
+    ('ti', 'usgs-themis-ti-30s120e'),
+])
+@pytest.mark.parametrize('matches', [True, False])
+def test_raster_override_must_match_locked_checksum(tmp_path, monkeypatch, name, source_id, matches):
+    import hashlib
+    import json
+    from marswalk_pipeline import clip_reproject
+    (tmp_path / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
+    override = tmp_path / 'override.tif'
+    override.write_bytes(b'fixture input')
+    checksum = hashlib.sha256(b'fixture input' if matches else b'different input').hexdigest()
+    lock = tmp_path / 'lock.json'
+    lock.write_text(json.dumps({'sources': [{'source_id': source_id, 'sha256': checksum}]}))
+    calls = []
+    monkeypatch.setattr(clip_reproject, 'clip_and_reproject', lambda source, *args, **kwargs: calls.append(source))
+    monkeypatch.setattr(clip_reproject, 'nodata_to_nan', lambda *args: None)
+    if matches:
+        runner._run_step('clip_reproject', tmp_path, tmp_path, tmp_path / 'work', tmp_path / 'out', lock_path=lock, inputs={name: override})
+        assert override in calls
+    else:
+        with pytest.raises(ValueError, match=r'checksum.*' + name):
+            runner._run_step('clip_reproject', tmp_path, tmp_path, tmp_path / 'work', tmp_path / 'out', lock_path=lock, inputs={name: override})
+        assert not calls
+
+
+def test_raster_override_requires_locked_checksum(tmp_path, monkeypatch):
+    import json
+    from marswalk_pipeline import clip_reproject
+    (tmp_path / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
+    override = tmp_path / 'override.tif'
+    override.write_bytes(b'fixture input')
+    lock = tmp_path / 'lock.json'
+    lock.write_text(json.dumps({'sources': [{'source_id': 'usgs-themis-ti-30s120e', 'sha256': None}]}))
+    calls = []
+    monkeypatch.setattr(clip_reproject, 'clip_and_reproject', lambda *args, **kwargs: calls.append(args))
+    with pytest.raises(ValueError, match='lock checksum.*ti'):
+        runner._run_step('clip_reproject', tmp_path, tmp_path, tmp_path / 'work', tmp_path / 'out', lock_path=lock, inputs={'ti': override})
+    assert not calls
+
+
+def test_masked_ti_sets_unknown_flag_through_pipeline(tmp_path, monkeypatch):
+    import json
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+    from marswalk_pipeline import clip_reproject, config
+
+    site, work = tmp_path / 'site', tmp_path / 'work'
+    site.mkdir()
+    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
+    for name in ('hazards.geojson', 'low_res_dem.geojson'):
+        (site / name).write_text(json.dumps({'type': 'FeatureCollection', 'features': []}))
+    ti_path = work / 'ti/themis_ti_aoi_pad1km.tif'
+    ti_path.parent.mkdir(parents=True)
+    with rasterio.Env(GDAL_TIFF_INTERNAL_MASK=True):
+        with rasterio.open(ti_path, 'w', driver='GTiff', width=2, height=2, count=1, dtype='float32',
+                           crs=config.WORKING_PROJ, transform=from_origin(0, 100, 50, 50)) as source:
+            source.write(np.array([[10, 0], [30, 40]], dtype='float32'), 1)
+            source.write_mask(np.array([[0, 255], [255, 255]], dtype='uint8'))
+    warp = clip_reproject.clip_and_reproject
+    def ti_only(source, *args, **kwargs):
+        if source == ti_path:
+            warp(source, *args, **kwargs)
+    monkeypatch.setattr(clip_reproject, 'clip_and_reproject', ti_only)
+    monkeypatch.setattr(clip_reproject, 'nodata_to_nan', lambda *args: None)
+    runner._run_step('clip_reproject', tmp_path, site, work, tmp_path / 'out')
+    scratch = work / 'runs/gale_boxwork'
+    np.save(scratch / 'elevation.npy', np.ones((20, 20), dtype='float32'))
+    runner._run_step('flags', tmp_path, site, work, tmp_path / 'out')
+    flags = np.load(scratch / 'flags.npy')
+    unknown = flags & (1 << config.FLAG_BITS['TI_UNKNOWN'])
+    assert unknown[0, 0]
+    assert not unknown[0, 10]
 
 
 def test_local_source_paths_are_configurable(tmp_path, monkeypatch):
@@ -173,6 +274,7 @@ def test_thermal_inertia_unresolved_ramp_stops(tmp_path, monkeypatch):
 
 
 def test_clip_resolves_acquired_sources_and_respects_override(tmp_path, monkeypatch):
+    import hashlib
     import json
     from marswalk_pipeline import clip_reproject
     from marswalk_pipeline.acquire import source_filename
@@ -180,13 +282,16 @@ def test_clip_resolves_acquired_sources_and_respects_override(tmp_path, monkeypa
     site.mkdir()
     (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
     entries = [{'source_id': sid, 'url': f'file:///some/{name}.tif'} for sid, name in [('usgs-gale-dem-1m-v3', 'dem'), ('usgs-gale-ortho-25cm-v3', 'ortho'), ('usgs-themis-ti-30s120e', 'ti')]]
+    override = tmp_path / 'override.tif'
+    override.write_bytes(b'fixture')
+    entries[2]['sha256'] = hashlib.sha256(b'fixture').hexdigest()
     lock = tmp_path / 'lock.json'
     lock.write_text(json.dumps({'sources': entries}))
     calls = []
     monkeypatch.setattr(clip_reproject, 'clip_and_reproject', lambda source, *args, **kwargs: calls.append(source))
     monkeypatch.setattr(clip_reproject, 'nodata_to_nan', lambda *args: None)
-    runner._run_step('clip_reproject', tmp_path, site, tmp_path / 'work', tmp_path / 'out', lock_path=lock, inputs={'ti': Path('override.tif')})
-    assert calls == [tmp_path / 'work' / source_filename(entries[0]), tmp_path / 'work' / source_filename(entries[1]), Path('override.tif'), Path('override.tif')]
+    runner._run_step('clip_reproject', tmp_path, site, tmp_path / 'work', tmp_path / 'out', lock_path=lock, inputs={'ti': override})
+    assert calls == [tmp_path / 'work' / source_filename(entries[0]), tmp_path / 'work' / source_filename(entries[1]), override, override]
 
 
 def test_acquire_fills_scratch_lock_and_cli_forwards_it(tmp_path, monkeypatch):

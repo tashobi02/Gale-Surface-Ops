@@ -182,6 +182,35 @@ def test_row_0_is_north_after_reprojection(tmp_path: Path) -> None:
         assert np.all(out[0, :] > out[-1, :])
 
 
+@pytest.mark.parametrize('method', ['nearest', 'bilinear'])
+@pytest.mark.parametrize('masked_only', [True, False])
+def test_ti_reprojection_preserves_unknown_pixels_as_nan(tmp_path: Path, method: str, masked_only: bool) -> None:
+    np = pytest.importorskip('numpy')
+    rasterio = pytest.importorskip('rasterio')
+    from rasterio.io import MemoryFile
+    from rasterio.transform import from_origin
+    from marswalk_pipeline import clip_reproject
+
+    values = np.array([[10, 20], [30, 40]], dtype='float32')
+    if not masked_only:
+        values[0, 0] = -9999
+    with MemoryFile() as memory:
+        with memory.open(driver='GTiff', width=2, height=2, count=1, dtype='float32',
+                         crs=EXAMPLE_WORKING_PROJ, transform=from_origin(0, 2, 1, 1),
+                         nodata=None if masked_only else -9999) as source:
+            source.write(values, 1)
+            if masked_only:
+                source.write_mask(np.array([[0, 255], [255, 255]], dtype='uint8'))
+        output = tmp_path / 'ti.tif'
+        clip_reproject.clip_and_reproject(memory.name, output, EXAMPLE_WORKING_PROJ, (0, 0, 2, 2), 1,
+                                          resampling=method, preserve_unknown=True)
+    with rasterio.open(output) as result:
+        data = result.read(1)
+        assert np.isnan(result.nodata)
+        assert np.isnan(data[0, 0])
+        np.testing.assert_array_equal(data[np.isfinite(data)], [20, 30, 40])
+
+
 def test_dem_nodata_becomes_nan_before_slope(tmp_path: Path) -> None:
     """DEM no-data pixels are replaced with NaN in-place before slope computation (02 §C.4.4)."""
     np = pytest.importorskip("numpy")

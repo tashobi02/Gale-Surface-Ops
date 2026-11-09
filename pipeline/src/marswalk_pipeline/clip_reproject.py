@@ -19,6 +19,7 @@ def clip_and_reproject(
     resolution_m: float,
     *,
     resampling: str = "bilinear",
+    preserve_unknown: bool = False,
 ) -> None:
     """Warp the requested extent to a north-up raster, reading by output window.
 
@@ -50,6 +51,8 @@ def clip_and_reproject(
     with rasterio.open(src) as source:
         profile = source.profile.copy()
         profile.update(driver="GTiff", crs=proj4, transform=transform, width=width, height=height)
+        if preserve_unknown:
+            profile.update(dtype="float32", nodata=np.nan)
         with WarpedVRT(
             source,
             crs=proj4,
@@ -57,9 +60,15 @@ def clip_and_reproject(
             width=width,
             height=height,
             resampling=methods[resampling],
+            add_alpha=preserve_unknown,
         ) as warped, rasterio.open(dst, "w", **profile) as output:
             for _, window in output.block_windows():
-                output.write(warped.read(window=window), window=window)
+                if preserve_unknown:
+                    data = warped.read(indexes=list(source.indexes), window=window, out_dtype="float32")
+                    data[:, warped.read(source.count + 1, window=window) == 0] = np.nan
+                    output.write(data, window=window)
+                else:
+                    output.write(warped.read(window=window), window=window)
 
 
 def nodata_to_nan(path: Path) -> None:
