@@ -20,17 +20,19 @@ import { samplePoint } from "./sampling";
 import { evaTimeline } from "./timeModel";
 import { validatePlanInput } from "./validate";
 import { maxWalkbackKm } from "./walkback";
-import { collectWarnings, planStatus } from "./warnings";
+import { collectWarnings, countStops, planStatus } from "./warnings";
 
 /**
  * Handle a worker request message against the currently loaded grid.
  * Pure function: takes the grid and the request, returns the response.
  * Optional maxExpansions parameter for testing TIMEOUT conditions.
+ * Optional nowMs parameter for deterministic wall-clock timestamps in tests.
  */
 export function handleWorkerMessage(
   grid: LoadedGrid | null,
   request: WorkerRequest,
   maxExpansions?: number,
+  nowMs?: number,
 ): WorkerResponse {
   try {
     if (grid === null) {
@@ -47,19 +49,24 @@ export function handleWorkerMessage(
     }
 
     if (request.type === "COMPUTE_PLAN") {
-      return handleComputePlan(grid, request, maxExpansions);
+      return handleComputePlan(grid, request, maxExpansions, nowMs);
     }
 
+    const req = request as unknown as Record<string, unknown>;
+    const reqId = typeof req?.request_id === "string" ? req.request_id : "unknown";
+    const reqType = typeof req?.type === "string" ? req.type : "unknown";
     return {
       type: "ERROR",
-      request_id: (request as any).request_id ?? "unknown",
+      request_id: reqId,
       code: "INTERNAL",
-      message: `Unknown worker request type: ${(request as any).type}`,
+      message: `Unknown worker request type: ${reqType}`,
     };
   } catch (err) {
+    const req = request as unknown as Record<string, unknown>;
+    const reqId = typeof req?.request_id === "string" ? req.request_id : "unknown";
     return {
       type: "ERROR",
-      request_id: request?.request_id ?? "unknown",
+      request_id: reqId,
       code: "INTERNAL",
       message: err instanceof Error ? err.message : String(err),
     };
@@ -89,8 +96,10 @@ function handleComputePlan(
   grid: LoadedGrid,
   request: ComputePlanRequest,
   maxExpansions?: number,
+  nowMs?: number,
 ): PlanResultMessage | WorkerError {
-  const startTime = Date.now();
+  const currentWallTimeMs = nowMs ?? Date.now();
+  const startTime = currentWallTimeMs;
 
   // 1. Validation before search (02 §E.3)
   const validationErrors = validatePlanInput(
@@ -179,7 +188,7 @@ function handleComputePlan(
 
     maxWbKm = maxWalkbackKm(allCumDists, loop);
 
-    const stopCount = Math.max(0, waypoints.length - 1);
+    const stopCount = countStops(waypoints);
     const dwellMin = stopCount * (request.scenario.dwell_min_per_stop ?? 0);
     const evaTotalMin = totalWalkTimeMin + dwellMin;
     const evaMarginMin = request.scenario.max_eva_duration_h * 60 - evaTotalMin;
@@ -198,18 +207,10 @@ function handleComputePlan(
   }
 
   // 4. Timeline
-  const legWalkTimes = legs.map((l) => (l.status === "OK" ? l.walk_time_min : 0));
-  const baseTimeline = evaTimeline(
-    request.scenario,
-    request.waypoints,
-    legWalkTimes,
-  );
-  const stops_timeline: PlanResult["stops_timeline"] = baseTimeline.map((t) => ({
-    arrive_utc: t.arrive_utc,
-    depart_utc: t.depart_utc,
-    arrive_ltst: "12:00",
-    sun_elevation_deg: 45,
-  }));
+  // Schema (05 §C / schemas/plan-export.schema.json): stops_timeline is empty in the M3 slice
+  // until T06.09 fills real Mars24 solar position and LTST; no invented constants are shipped.
+  // TODO(TASK-06): populate stops_timeline with real Mars24 solar position and LTST (T06.09 / T05.32).
+  const stops_timeline: PlanResult["stops_timeline"] = [];
 
   // 5. Warnings and plan status
   const warnings = collectWarnings(
@@ -221,7 +222,7 @@ function handleComputePlan(
   );
   const status = planStatus(legs, warnings);
 
-  const routingDurationMs = Math.max(1, Date.now() - startTime);
+  const routingDurationMs = Math.max(1, (nowMs ?? Date.now()) - startTime);
 
   return {
     type: "PLAN_RESULT",
@@ -232,10 +233,9 @@ function handleComputePlan(
     totals,
     stops_timeline,
     warnings,
-    computed_utc: new Date().toISOString(),
+    computed_utc: new Date(currentWallTimeMs).toISOString(),
     timing_ms: {
       routing: routingDurationMs,
-      estimates: 1,
     },
   };
 }

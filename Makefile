@@ -59,8 +59,10 @@ demo:
 	npm run -s build
 	npm run -s hab:start -- --site gale_boxwork --scenario storm-sol4190
 
-data:
-	@echo "not implemented — see TASK-03"
+# Offline preprocessing pipeline entry point (TASK-03, T03.15, T14.01).
+data: check-env
+	py=$$($(MAKE) -s --no-print-directory pipeline-python) || exit 1; \
+	"$$py" -m marswalk_pipeline
 
 conda-check:
 	@command -v "$(CONDA_BIN)" >/dev/null 2>&1 || { \

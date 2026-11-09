@@ -61,7 +61,21 @@ describe("C15 exported names (frozen: haven, rendezvous, contingency)", () => {
   it.each(FROZEN_FUNCTIONS)("%s is exported as a function", (name) => {
     expect(typeof (compute as Record<string, unknown>)[name]).toBe("function");
   });
-  it.each(FROZEN_FUNCTIONS)("%s is still a stub that throws", (name) => {
+  // haven.ts left this list when T05b.04 implemented it; rendezvous.ts left it for T05b.07; contingency.ts leaves it for T05b.19.
+  const implemented = new Set<string>([
+    "habTimeField",
+    "vehicleTimeField",
+    "crewTimeField",
+    "havenAlongRoute",
+    "vehiclePassable",
+    "timeAt",
+    "pathTo",
+    "liveHaven",
+    "rendezvous",
+    "rendezvousPair",
+    "proposeOptions",
+  ]);
+  it.each(FROZEN_FUNCTIONS.filter((name) => !implemented.has(name)))("%s is still a stub that throws", (name) => {
     const stub = (compute as unknown as Record<string, () => unknown>)[name];
     expect(() => stub()).toThrow("TODO(TASK-05b): not implemented");
   });

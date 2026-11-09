@@ -1,0 +1,187 @@
+/*
+ * Base styles — typography defaults, focus ring, reduced motion (04 §C.1, §C.2, §C.3, §E).
+ * Implementation: T13.04 (Ridita Alam, R5 EVA & Ops UI · design system).
+ * Imported from tokens.css so main.ts needs no edit (C12 Spec question 4).
+ *
+ * All colours come strictly from C12 tokens (tokens.css).
+ * Fonts are self-hosted offline assets under apps/web/public/fonts/ (NFR-01, NFR-07).
+ */
+
+/* ------------------------------------------------------------- 1. @font-face
+ * Self-hosted Inter (400, 500, 600) and IBM Plex Mono (500).
+ * Relative URL form: url('/fonts/...') is rebased by Vite (base: './') to
+ * url('../fonts/...') in production CSS, guaranteeing local offline resolution
+ * under any static hosting or local Hab Core port (NFR-01, ADR-012).
+ */
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter/Inter-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter/Inter-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter/Inter-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/ibm-plex-mono/IBMPlexMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* -------------------------------------------------------- 2. Element defaults
+ * Set typography defaults from 04 §C.2:
+ * - body text Inter 14 px / 400 with line-height 1.45
+ * - panel headings 16 px / 600
+ * - screen titles 20 px / 600
+ * - nothing below 12 px (--text-micro)
+ * - app background and text from 04 §C.1 (mapped to --surface-0 and --fg-1)
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--surface-0);
+  color: var(--fg-1);
+  font-family: var(--font-ui, "Inter", system-ui, sans-serif);
+  font-size: var(--text-ui, 14px);
+  font-weight: 400;
+  line-height: var(--line-height-ui, 1.45);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Screen titles (04 §C.2): 20 px / 600 */
+h1,
+.screen-title {
+  font-family: var(--font-display, "Inter", sans-serif);
+  font-size: var(--text-heading, 20px);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+  color: var(--fg-1);
+}
+
+/* Panel headings (04 §C.2): 16 px / 600 */
+h2,
+h3,
+.panel-title,
+.panel-heading {
+  font-family: var(--font-ui, "Inter", sans-serif);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0;
+  color: var(--fg-1);
+}
+
+/* Small text / microcopy (04 §C.2): nothing renders below 12 px */
+small,
+.micro,
+.meta-strip,
+.chip {
+  font-size: var(--text-micro, 12px);
+  min-height: 12px;
+}
+
+/* ----------------------------------------------------------- 3. Focus style
+ * 04 §E Focus & 04 P10:
+ * White 2 px ring + 2 px void gap on every interactive element on :focus-visible.
+ * Never removed, never indicated by colour alone.
+ */
+
+:focus-visible {
+  outline: 2px solid #FFFFFF !important;
+  outline-offset: 2px !important;
+  box-shadow: var(--focus-ring, 0 0 0 2px var(--surface-0), 0 0 0 4px #FFFFFF);
+}
+
+/* --------------------------------------------------------- 4. Reduced motion
+ * 04 §E Motion & 04 §C.6:
+ * Given prefers-reduced-motion: reduce, stop all CSS transitions and animations.
+ * No flashing, no animated map flights.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ----------------------------------------------------- 5. Target sizes (04 §C.3)
+ * Minimum interactive target sizes:
+ * - mouse ≥ 32 px
+ * - touch ≥ 44 px (detected via pointer: coarse, Spec question 10 / Decision C12)
+ * - EVA ≥ 56 px with ≥ 8 px gaps
+ */
+
+button,
+input,
+select,
+textarea,
+.btn {
+  min-height: var(--target-mouse, 32px);
+  min-width: var(--target-mouse, 32px);
+  border: 1px solid var(--control-edge);
+  border-radius: 0;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+button:active,
+.btn:active {
+  filter: invert(1);
+}
+
+@media (pointer: coarse) {
+  button,
+  input,
+  select,
+  textarea,
+  .btn {
+    min-height: var(--target-touch, 44px);
+    min-width: var(--target-touch, 44px);
+  }
+}
+
+/* EVA mode targets ≥ 56 px (04 §A.3.4, §C.3) */
+[data-surface="eva"] button,
+[data-surface="eva"] input,
+[data-surface="eva"] select,
+[data-surface="eva"] textarea,
+[data-surface="eva"] .btn,
+.eva-target {
+  min-height: var(--target-eva, 56px);
+  min-width: var(--target-eva, 56px);
+}
