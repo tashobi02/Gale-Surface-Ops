@@ -72,5 +72,22 @@ export function evaTimeline(
     currentMs = departMs;
   }
 
+  // Loop closing leg: return to start waypoint (hab)
+  if (
+    scenario.loop &&
+    waypoints.length >= 2 &&
+    legWalkMin.length >= waypoints.length &&
+    waypoints[waypoints.length - 1].role !== "start"
+  ) {
+    const returnWalkMin = legWalkMin[waypoints.length - 1] ?? 0;
+    const returnWalkMs = returnWalkMin * 60 * 1000;
+    const returnArriveMs = currentMs + returnWalkMs;
+
+    result.push({
+      arrive_utc: new Date(returnArriveMs).toISOString(),
+      depart_utc: new Date(returnArriveMs).toISOString(),
+    });
+  }
+
   return result;
 }

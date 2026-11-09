@@ -1,0 +1,18 @@
+/*
+ * Status pattern classes (04 §C.1) and statusIcon styles.
+ * Stub — implementation: T13.05 (Ridita Alam).
+ * Imported from tokens.css so main.ts needs no edit (C12 Spec question 4).
+ *
+ * Pattern class names (C12):
+ *   .status-nominal  — solid fill       (✓ circle, --status-nominal)
+ *   .status-caution  — diagonal hatch   (▲ triangle, --status-caution)
+ *   .status-warning  — cross-hatch      (⬣ octagon, --status-warning)
+ *   .status-unknown  — dotted           (? diamond, --status-unknown)
+ *
+ * Consumers: status banner (T09.03), warnings list (T09.04), legend swatches (T07.09),
+ * briefing card (T11.03). Canvas/SVG consumers (T07.07, T09.01, T09.02) draw the same
+ * 04 §C.1 patterns themselves — see note in T13.05 conflict notes (Spec question 3).
+ *
+ * This file is owned by T13.05. Do not edit until T13.05 merges.
+ */
+

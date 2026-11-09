@@ -1,0 +1,19 @@
+{
+  "layer_id": "traverse",
+  "title": "Curiosity traverse",
+  "category": "mission",
+  "kind": "vector",
+  "provenance": "measured",
+  "source_ids": [
+    "pds-msl-places-localizations"
+  ],
+  "legend": {
+    "type": "none"
+  },
+  "native_resolution_m": 0,
+  "display_resolution_m": 0,
+  "asset_id": "vec-traverse",
+  "default_visible": true,
+  "optional": true,
+  "limitations": "Proposed: the cached PLACES localized_interp.csv has 11,954 ROVER rows in the rounded AOI bounding box, covering 364 distinct sols from 3571 to 4868; these are not continuous sols. The cached PLACES file ends at sol 4868, while aoi.md based the AOI on MMGIS sols through 5045. TODO(decision): data lead to decide whether to keep PLACES or trigger T04.09 subject to its parsing-speed trigger. Intermediate positions and elevations are interpolated approximations; alignment with the ortho is unverified. Exact sol range and clipping margin are TODO(decision). Vector resolution values of 0 mean not applicable under C5; spec question 5 remains TODO(decision)."
+}
