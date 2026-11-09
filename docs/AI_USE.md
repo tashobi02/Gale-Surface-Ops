@@ -212,6 +212,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-09 | Antigravity (Gemini) | T24.02 review fixes: drove evaViewModel.test.ts through real Hab Core client store (connectHab), removed conditional assertions, fixed toBeCloseTo precision, strictly tested HUD 5-glance-fields bound against model properties, asserted positive age and 0 bars on unlinked state, gated suite with PENDING stub probe | Invented no values; tested against 03 SCR-12/13, 04 §E.5/§E.6 specifications and T20.02 mock fixtures | Ridita Alam | This Antigravity session (conversation 56455a5c) |
 | 2026-11-09 | Antigravity (Gemini) | T24.03 review fixes: resolved review findings on EVA view model in viewModel.ts; eliminated invented formulas (`frac * 480`, `dist / (1.1*60)`), fake waypoints and hardcoded bars/targets; derived status strictly from server alerts; honest provenance (simulated, reading snapshot.provenance); validated haven.kind; required ProvenanceValue.src; 04 no-data state (—) on missing values with TODO(decision) | Invented no numbers; read snapshot and plan directly; 10/10 tests pass | Ridita Alam | This Antigravity session (conversation 56455a5c) |
 
+| 2026-11-07 | Antigravity (Gemini) | T24.10: wrote 18 EVA DOM tests in apps/web/tests/ui/eva.test.ts and apps/web/tests/ui/map/fullScreenMap.test.ts for fixed geography, controls ≥ 56 px, 4-cue status, 800 ms hold-to-confirm, HUD contrast ≥ 7:1, and full-screen map | Invented no values; tested against 04 §A.3, §D.3, §E.5, §E.6 specifications and T20.02 mock fixtures | Ridita Alam | This Antigravity session (conversation 56455a5c) |
+
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).
