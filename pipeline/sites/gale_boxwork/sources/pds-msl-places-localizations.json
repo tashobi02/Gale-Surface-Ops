@@ -1,0 +1,17 @@
+{
+  "source_id": "pds-msl-places-localizations",
+  "title": "Collection of localization data products for Rover PLACES",
+  "publisher": "TODO(verify)",
+  "authors": "Robert G. Deen",
+  "missions": [
+    "Mars Science Laboratory"
+  ],
+  "instruments": [
+    "Mars Science Laboratory Curiosity Rover"
+  ],
+  "version": "42.0; localized_interp.csv created 2026-05-01",
+  "url": "https://planetarydata.jpl.nasa.gov/img/data/msl/msl_places/data_localizations/localized_interp.csv",
+  "credit": "Robert G. Deen (2024), Collection of localization data products for Rover PLACES; credit statement TODO(verify)",
+  "licence": "TODO(verify)",
+  "accessed": "2026-11-09"
+}

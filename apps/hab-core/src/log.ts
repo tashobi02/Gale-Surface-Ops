@@ -14,7 +14,7 @@ import { createHash, type Hash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { LogEvent } from "@marswalk/protocol";
-import type { EngineState, PendingEvent } from "./engine/reducer";
+import { logged, type EngineState, type PendingEvent } from "./engine/reducer";
 
 /** Events between snapshots (U-23). */
 export const SNAPSHOT_EVERY = 500;
@@ -69,7 +69,7 @@ class FileEventLog implements EventLog {
 
   append(pending: PendingEvent): LogEvent {
     if ("seq" in pending) throw new Error("append: a pending event must not carry a seq");
-    const event = { ...pending, seq: this.lastSeq() + 1 } as LogEvent;
+    const event = logged(pending, this.lastSeq() + 1);
     const line = `${canonicalJson(event)}\n`;
     appendFileSync(join(this.dir, LOG_FILE), line, "utf8");
     this.hasher.update(line, "utf8");
