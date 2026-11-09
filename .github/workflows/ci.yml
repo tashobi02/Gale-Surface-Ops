@@ -27,4 +27,5 @@ jobs:
       # Package installs are the only network steps; no datasets are fetched.
       - run: make setup
       - run: make lint typecheck test docs-check
+      - run: python3 scripts/check_tasks.py
       - run: npm run -s build
