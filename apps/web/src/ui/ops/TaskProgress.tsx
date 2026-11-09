@@ -25,6 +25,7 @@ export interface TaskProgressProps {
 }
 
 /** Task states come from the simulated session (FR-50); counts are reduced from the supplied task list. */
+const SIMULATED_GLYPH = "◇";
 const SIMULATED = { "data-provenance": "simulated", "data-source": "snapshot:tasks", title: "snapshot:tasks" } as const;
 /** Missing counts: "—", flagged unavailable; task state is simulated (FR-50), so that class stays. */
 const UNAVAILABLE_ATTRS = {
@@ -48,6 +49,9 @@ export function TaskProgress({
       : null;
   const totalText =
     total && isFiniteNumber(total.done) && isFiniteNumber(total.total) ? `${total.done}/${total.total}` : null;
+
+  // The glyph sits beside its own available count only, never beside a "—".
+  const glyphStyle: CSSProperties = { fontSize: "12px", color: "var(--text-2, #A9B3BE)" };
 
   const containerStyle: CSSProperties = {
     display: "flex",
@@ -90,26 +94,13 @@ export function TaskProgress({
       <div style={progressTextStyle}>
         <span {...(stopText ? SIMULATED : UNAVAILABLE_ATTRS)}>
           STOP {stopText ?? UNAVAILABLE}
+          {stopText && <span style={glyphStyle}> {SIMULATED_GLYPH}</span>}
         </span>
         <span style={{ color: "var(--text-2, #A9B3BE)" }}>·</span>
         <span {...(totalText ? SIMULATED : UNAVAILABLE_ATTRS)}>
           TOTAL {totalText ?? UNAVAILABLE}
+          {totalText && <span style={glyphStyle}> {SIMULATED_GLYPH}</span>}
         </span>
-        {(stopText || totalText) && (
-          <span
-            data-provenance="simulated"
-            data-source="snapshot:tasks"
-            title="Task state is simulated (snapshot:tasks)"
-            style={{
-              fontSize: "12px",
-              color: "var(--text-2, #A9B3BE)",
-              display: "inline-block",
-              marginLeft: "2px",
-            }}
-          >
-            ◇
-          </span>
-        )}
       </div>
 
       <button

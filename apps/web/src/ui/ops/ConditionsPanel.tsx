@@ -17,7 +17,7 @@
 
 import type { CSSProperties, ReactElement } from "react";
 import type { Provenance } from "@marswalk/protocol";
-import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, fmtInt, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
+import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, fmtInt, isFiniteNumber, isUsableValue, provAttrs, unavailableOf } from "../components/provenance";
 
 export interface ProvenanceValue<T> {
   v: T;
@@ -68,7 +68,8 @@ interface Cell {
 
 /** A supplied value formatted for display, or an unavailable cell when the field is missing. */
 function cell<T>(pv: ProvenanceValue<T> | undefined, path: string, fmt: (v: T, unit: string) => string): Cell {
-  if (!pv) {
+  // A supplied value that is empty, blank, null or non-finite is unavailable, like a missing one.
+  if (!pv || !isUsableValue(pv.v)) {
     return { text: UNAVAILABLE, attrs: provAttrs(unavailableOf(null, `conditions.${path}`)) };
   }
   return {

@@ -458,6 +458,40 @@ describe("TaskProgress without counts shows —, labelled, and no chrome radius"
     expect(html).not.toMatch(/border-radius:\s*[1-9]/);
   });
 
+  it("mixed availability: each glyph sits beside its own available count only", () => {
+    const stopOnly = renderToStaticMarkup(
+      createElement(TaskProgress, { crewId: "EV1", stopCount: { stopNo: 2, done: 1, total: 3 }, total: null, onAdd: () => {} }),
+    );
+    const totalOnly = renderToStaticMarkup(
+      createElement(TaskProgress, { crewId: "EV1", stopCount: null, total: { done: 4, total: 8 }, onAdd: () => {} }),
+    );
+    const parts = (html: string) => {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const spans = [...doc.querySelectorAll("span[data-source]")];
+      return {
+        stop: spans.find((e) => e.textContent?.startsWith("STOP"))!,
+        total: spans.find((e) => e.textContent?.startsWith("TOTAL"))!,
+      };
+    };
+
+    const a = parts(stopOnly);
+    expect(a.stop.textContent).toBe("STOP 2 1/3 ◇");
+    expect(a.stop.getAttribute("data-unavailable")).toBeNull();
+    expect(a.total.textContent).toBe("TOTAL —");
+    expect(a.total.getAttribute("data-unavailable")).toBe("true");
+    expect(a.total.getAttribute("data-source")).toBe("unavailable:tasks.counts");
+
+    const b = parts(totalOnly);
+    expect(b.stop.textContent).toBe("STOP —");
+    expect(b.stop.getAttribute("data-unavailable")).toBe("true");
+    expect(b.total.textContent).toBe("TOTAL 4/8 ◇");
+    // Exactly one glyph in each case, and never beside a "—".
+    for (const html of [stopOnly, totalOnly]) {
+      expect((html.match(/◇/g) ?? []).length).toBe(1);
+      expect(html).not.toMatch(/—\s*◇/);
+    }
+  });
+
   it("chrome has no corner radius on the task controls (04 §C.3: zero radius)", () => {
     const parts = [
       renderToStaticMarkup(createElement(TaskProgress, { crewId: "EV1", stopCount: null, total: null, onAdd: () => {} })),

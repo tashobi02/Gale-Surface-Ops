@@ -15,7 +15,7 @@ import {
 import type { Crew } from "@marswalk/protocol";
 import type { ProvenanceValue } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
-import { UNAVAILABLE, fmtFixed, fmtInt, glyphOf, provAttrs, unavailableOf } from "../components/provenance";
+import { UNAVAILABLE, fmtFixed, fmtInt, glyphOf, isUsableValue, provAttrs, unavailableOf } from "../components/provenance";
 
 /** Scientific overlays offered on the full-screen map (04 §E.5; final set U-57). */
 export type FullScreenMapLayer = "slope" | "thermal_inertia" | "comm_shadow" | "haven_bands";
@@ -152,8 +152,11 @@ export function FullScreenMap({
   };
 
   // A missing HAVEN or O₂ reads "—", flagged unavailable, with the field's own class (05: haven modelled, O₂ simulated).
-  const havenShown = haven && !haven.unavailable ? haven : unavailableOf("modelled", "crew.haven.minutes");
-  const o2Shown = o2 && !o2.unavailable ? o2 : unavailableOf("simulated", "crew.o2_frac");
+  // A supplied value that is NaN, empty or null is unavailable too.
+  const havenOk = Boolean(haven) && !haven!.unavailable && isUsableValue(haven!.v);
+  const o2Ok = Boolean(o2) && !o2!.unavailable && isUsableValue(o2!.v);
+  const havenShown = havenOk ? haven! : unavailableOf("modelled", "crew.haven.minutes");
+  const o2Shown = o2Ok ? o2! : unavailableOf("simulated", "crew.o2_frac");
 
   // Landscape HAVEN/O₂ readout: 40 px on phones, 48 px on tablets (04 §E.5 exception under review, U-60)
   const landscapeValueStyle: CSSProperties = {
@@ -191,15 +194,15 @@ export function FullScreenMap({
               {...provAttrs(havenShown)}
               style={landscapeValueStyle}
             >
-              {haven ? fmtInt(haven.v) : UNAVAILABLE}
-              {haven && typeof haven.v === "number" ? " MIN" : ""} {glyphOf(havenShown)}
+              {havenOk ? fmtInt(haven!.v) : UNAVAILABLE}
+              {havenOk && typeof haven!.v === "number" ? " MIN" : ""} {glyphOf(havenShown)}
             </div>
           </div>
           <div data-slot="o2-compact" style={{ padding: "8px", background: "var(--surface-1, #14181D)" }}>
             <span className="micro" style={{ fontSize: "16px" }}>O₂</span>
             <div {...provAttrs(o2Shown)} style={landscapeValueStyle}>
-              {o2 ? o2.v : UNAVAILABLE}
-              {o2 && typeof o2.v === "number" ? " %" : ""} {glyphOf(o2Shown)}
+              {o2Ok ? o2!.v : UNAVAILABLE}
+              {o2Ok && typeof o2!.v === "number" ? " %" : ""} {glyphOf(o2Shown)}
             </div>
           </div>
         </div>

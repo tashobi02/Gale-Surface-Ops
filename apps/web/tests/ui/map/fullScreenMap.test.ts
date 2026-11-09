@@ -160,6 +160,43 @@ describe("FullScreenMap behaviour (04 §E.5)", () => {
     expect(must(container, '[data-slot="o2-compact"] > div').getAttribute("data-provenance")).toBe("simulated");
   });
 
+  it("supplied-but-unusable HAVEN and O₂ (NaN, '', null) read — flagged unavailable, with no glyph and no ordinary source", async () => {
+    for (const bad of [Number.NaN, "", "  ", null as unknown as number]) {
+      const { container, unmount } = await mount(
+        createElement(FullScreenMap, {
+          orientation: "landscape",
+          haven: { v: bad, unit: "min", prov: "modelled", src: "snapshot:crew.haven.minutes" },
+          o2: { v: bad, unit: "%", prov: "simulated", src: "snapshot:crew.o2_frac" },
+          onClose: () => {},
+        }),
+      );
+      const haven = must(container, '[data-slot="haven-compact"] > div');
+      const o2 = must(container, '[data-slot="o2-compact"] > div');
+      for (const [el, path] of [[haven, "crew.haven.minutes"], [o2, "crew.o2_frac"]] as const) {
+        expect(el.textContent?.trim()).toBe("—");
+        expect(el.getAttribute("data-unavailable")).toBe("true");
+        expect(el.getAttribute("data-source")).toBe(`unavailable:${path}`);
+        expect(el.textContent).not.toMatch(/[■◆○△▶◇]|MIN|%/);
+      }
+      await unmount();
+    }
+  });
+
+  it("a real zero HAVEN or O₂ is still shown", async () => {
+    const { container } = await mount(
+      createElement(FullScreenMap, {
+        orientation: "landscape",
+        haven: { v: 0, unit: "min", prov: "modelled", src: "snapshot:crew.haven.minutes" },
+        o2: { v: 0, unit: "%", prov: "simulated", src: "snapshot:crew.o2_frac" },
+        onClose: () => {},
+      }),
+    );
+    const haven = must(container, '[data-slot="haven-compact"] > div');
+    expect(haven.textContent).toContain("0 MIN");
+    expect(haven.getAttribute("data-unavailable")).toBeNull();
+    expect(must(container, '[data-slot="o2-compact"] > div').textContent).toContain("0 %");
+  });
+
   it("landscape stacks HAVEN above O₂ at the left; portrait has no stack (the cards keep their row)", async () => {
     const landscape = await mount(createElement(FullScreenMap, { orientation: "landscape", onClose: () => {} }));
     const slots = [...landscape.container.querySelectorAll("[data-slot]")].map((el) => el.getAttribute("data-slot"));

@@ -431,6 +431,48 @@ describe("Conditions feed (01 FR-36, NFR-05, 04 §E.4, §E.5)", () => {
     expect(partial.container.textContent).not.toMatch(/Event Dose Rate/);
   });
 
+  it("supplied-but-unusable values ('', blank, NaN, null) are unavailable: —, flagged, unavailable source, no glyph", async () => {
+    const unusable = {
+      ltst: { v: "", unit: "LTST", prov: "modelled" as const, src: "test:ltst" },
+      sunElevationDeg: { v: Number.NaN, unit: "°", prov: "modelled" as const, src: "test:sun" },
+      doseRateBackgroundUgyH: { v: "   " as unknown as number, unit: "µGy/h", prov: "replayed" as const, src: "test:bg" },
+      earthLink: {
+        lightTimeSeconds: { v: Number.POSITIVE_INFINITY, unit: "s", prov: "derived" as const, src: "test:light" },
+        nextPass: { v: null as unknown as string, prov: "derived" as const, src: "test:pass" },
+        queueUp: { v: Number.NaN, unit: "pkts", prov: "derived" as const, src: "test:q-up" },
+        queueDown: { v: undefined as unknown as number, unit: "pkts", prov: "replayed" as const, src: "test:q-down" },
+      },
+    };
+    for (const variant of ["ops", "eva"] as const) {
+      const { container, unmount } = await mount(createElement(ConditionsPanel, { variant, conditions: unusable }));
+      const flagged = container.querySelectorAll('[data-unavailable="true"]');
+      expect(flagged.length).toBeGreaterThanOrEqual(variant === "ops" ? 8 : 4);
+      for (const el of flagged) {
+        expect(el.getAttribute("data-source")).toMatch(/^unavailable:|^docs\/specs\/01:FR-36$/);
+        expect(el.textContent).not.toMatch(/[■◆○△▶◇]/);
+      }
+      // Their ordinary sources must not survive on a value that is not there.
+      expect(container.innerHTML).not.toMatch(/data-source="test:/);
+      expect(container.textContent).not.toMatch(/NaN|Infinity|null|undefined/);
+      await unmount();
+    }
+    const ops = await mount(createElement(ConditionsPanel, { variant: "ops", conditions: unusable }));
+    expect(must(ops.container, '[data-source="unavailable:conditions.ltst"]').textContent).toBe("—");
+    expect(must(ops.container, '[data-queue="down"]').getAttribute("data-source")).toBe("unavailable:conditions.earthLink.queueDown");
+  });
+
+  it("a real zero and the number 0 in a string-free field are still usable", async () => {
+    const { container } = await mount(
+      createElement(ConditionsPanel, {
+        variant: "ops",
+        conditions: { sunElevationDeg: { v: 0, unit: "°", prov: "modelled" as const, src: "test:sun0" } },
+      }),
+    );
+    const sun = must(container, '[data-source="test:sun0"]');
+    expect(sun.textContent).toContain("0°");
+    expect(sun.getAttribute("data-unavailable")).toBeNull();
+  });
+
   it("the EVA strip labels each value, shows — for missing ones and never says live", async () => {
     const full = await mount(createElement(ConditionsPanel, { variant: "eva", conditions }));
     const strip = must(full.container, '[data-testid="conditions-strip-eva"]');

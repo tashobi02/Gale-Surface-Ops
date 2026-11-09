@@ -65,6 +65,17 @@ export function glyphOf(p: Pick<Sourced, "prov" | "unavailable">): string {
   return p.unavailable || !p.prov ? "" : PROVENANCE_GLYPHS[p.prov];
 }
 
+/**
+ * Whether a supplied value can be shown: not null or undefined, not an empty or blank string (or the "—" placeholder
+ * itself), and not a non-finite number. Anything else is treated as unavailable (04 §D.1).
+ */
+export function isUsableValue(v: unknown): boolean {
+  if (v === null || v === undefined) return false;
+  if (typeof v === "string") return v.trim().length > 0 && v.trim() !== UNAVAILABLE;
+  if (typeof v === "number") return Number.isFinite(v);
+  return true;
+}
+
 export function isFiniteNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
 }
