@@ -31,6 +31,7 @@ import {
 } from "@marswalk/protocol";
 import type { StateChange } from "./engine/reducer";
 import type { SessionHandle } from "./session";
+import { buildReport } from "./report";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -113,6 +114,20 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     if (!Number.isInteger(after) || after < 0) return reply.code(400).send({ error: "after must be a non-negative integer" });
     reply.type("application/x-ndjson");
     return session.eventsAfter(after).map((e) => JSON.stringify(e)).join("\n");
+  });
+
+  app.get("/api/report", async (_req, reply) => {
+    if (!session) return reply.code(404).send({ error: "no session loaded" });
+    const events = session.eventsAfter(0);
+    const snap = session.snapshot([]);
+    const report = buildReport(events, snap.session.log_hash);
+    if (report.session_id === "unknown" && snap.session.session_id) {
+      report.session_id = snap.session.session_id;
+      report.scenario_id = snap.session.scenario_id;
+      report.data_version = snap.session.data_version;
+      report.seed = snap.session.seed;
+    }
+    return report;
   });
 
   // ---- WebSocket ------------------------------------------------------------------------------
