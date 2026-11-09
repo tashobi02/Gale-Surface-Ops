@@ -22,6 +22,7 @@ export const MAX_SCIENCE_LAYERS = 2;
 
 export interface FullScreenMapProps {
   crew?: Crew[];
+  crewId?: string;
   /** Map view in working-projection metres (IAU_2015:49900). */
   view?: { center_x_m: number; center_y_m: number; resolution_m_per_px: number };
   /** Oldest first; length ≤ MAX_SCIENCE_LAYERS. */
@@ -43,6 +44,9 @@ const LAYER_LABELS: Record<FullScreenMapLayer, string> = {
   haven_bands: "Haven bands",
 };
 
+/** Default view center using site bounding box center (Gale AOI extent [-3000, -3000, 3000, 3000]). */
+const DEFAULT_SITE_VIEW = { center_x_m: 0.0, center_y_m: 0.0, resolution_m_per_px: 1.0 };
+
 /**
  * SCR-12 Full-Screen EVA Map (04 §E.5).
  * Mounts over the body area with labelled buttons (+, −, FIT, FOLLOW, LAYERS, CLOSE).
@@ -50,7 +54,8 @@ const LAYER_LABELS: Record<FullScreenMapLayer, string> = {
  */
 export function FullScreenMap({
   crew = [],
-  view = { center_x_m: 2410.5, center_y_m: -1875.0, resolution_m_per_px: 1.0 },
+  crewId,
+  view,
   layers = ["slope"],
   orientation = "portrait",
   hasWarning = false,
@@ -74,6 +79,30 @@ export function FullScreenMap({
   const [notice, setNotice] = useState<string | null>(null);
 
   const isLandscape = orientation === "landscape";
+
+  const activeCrew = crewId ? crew.find((c) => c.crew_id === crewId) : crew[0];
+
+  const havenMinutes =
+    typeof activeCrew?.haven?.minutes === "number" && Number.isFinite(activeCrew.haven.minutes)
+      ? Math.round(activeCrew.haven.minutes)
+      : undefined;
+
+  const o2Percent =
+    typeof activeCrew?.o2_frac === "number" && Number.isFinite(activeCrew.o2_frac)
+      ? Math.round(activeCrew.o2_frac * 100)
+      : undefined;
+
+  const havenProv = activeCrew?.haven ? "derived" : "assumed";
+  const o2Prov = activeCrew?.o2_frac !== undefined ? "simulated" : "assumed";
+
+  const activeView =
+    view ??
+    (activeCrew && Number.isFinite(activeCrew.x_m) && Number.isFinite(activeCrew.y_m)
+      ? { center_x_m: activeCrew.x_m, center_y_m: activeCrew.y_m, resolution_m_per_px: 1.0 }
+      : DEFAULT_SITE_VIEW);
+
+  const viewProv = view ? "derived" : activeCrew ? "simulated" : "assumed";
+  const viewSrc = view ? "client-view" : activeCrew ? `${activeCrew.crew_id}.position` : "site.json:aoi";
 
   const handleToggleLayer = (layer: FullScreenMapLayer) => {
     let next: FullScreenMapLayer[];
@@ -153,6 +182,44 @@ export function FullScreenMap({
       className={`fullscreen-map ${className}`}
       style={rootStyle}
     >
+      {/* Portrait top telemetry row (04 §E.5: in portrait, HAVEN and O2 stay visible in their row) */}
+      {!isLandscape && (
+        <div
+          data-slot="portrait-telemetry-row"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "8px",
+            padding: "8px 12px",
+            background: "var(--surface-0, #080A0D)",
+            borderBottom: "1px solid var(--hairline, #2A313A)",
+          }}
+        >
+          <div data-slot="haven-compact" style={{ padding: "8px", background: "var(--surface-1, #14181D)" }}>
+            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)" }}>HAVEN</span>
+            <div
+              className="value"
+              data-provenance={havenProv}
+              data-src={activeCrew ? `${activeCrew.crew_id}.haven` : "no-data"}
+              style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "24px", fontWeight: 700 }}
+            >
+              {havenMinutes !== undefined ? `${havenMinutes} MIN` : "—"}
+            </div>
+          </div>
+          <div data-slot="o2-compact" style={{ padding: "8px", background: "var(--surface-1, #14181D)" }}>
+            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)" }}>O₂</span>
+            <div
+              className="value"
+              data-provenance={o2Prov}
+              data-src={activeCrew ? `${activeCrew.crew_id}.o2` : "no-data"}
+              style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "24px", fontWeight: 700 }}
+            >
+              {o2Percent !== undefined ? `${o2Percent} %` : "—"}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Landscape left stacked telemetry placeholder (04 §E.5: HAVEN and O2 stack at left) */}
       {isLandscape && (
         <div
@@ -167,15 +234,25 @@ export function FullScreenMap({
           }}
         >
           <div data-slot="haven-compact" style={{ padding: "8px", background: "var(--surface-1, #14181D)" }}>
-            <span className="micro">HAVEN</span>
-            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "28px", fontWeight: 700 }}>
-              14 MIN
+            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)" }}>HAVEN</span>
+            <div
+              className="value"
+              data-provenance={havenProv}
+              data-src={activeCrew ? `${activeCrew.crew_id}.haven` : "no-data"}
+              style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "28px", fontWeight: 700 }}
+            >
+              {havenMinutes !== undefined ? `${havenMinutes} MIN` : "—"}
             </div>
           </div>
           <div data-slot="o2-compact" style={{ padding: "8px", background: "var(--surface-1, #14181D)" }}>
-            <span className="micro">O₂</span>
-            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "28px", fontWeight: 700 }}>
-              71 %
+            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)" }}>O₂</span>
+            <div
+              className="value"
+              data-provenance={o2Prov}
+              data-src={activeCrew ? `${activeCrew.crew_id}.o2` : "no-data"}
+              style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "28px", fontWeight: 700 }}
+            >
+              {o2Percent !== undefined ? `${o2Percent} %` : "—"}
             </div>
           </div>
         </div>
@@ -199,10 +276,11 @@ export function FullScreenMap({
             </span>
             <span
               className="value"
-              data-provenance="measured"
+              data-provenance={viewProv}
+              data-src={viewSrc}
               style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "12px", color: "var(--text-2, #A9B3BE)" }}
             >
-              X: {view.center_x_m.toFixed(1)} m · Y: {view.center_y_m.toFixed(1)} m · {view.resolution_m_per_px} m/px
+              X: {activeView.center_x_m.toFixed(1)} m · Y: {activeView.center_y_m.toFixed(1)} m · {activeView.resolution_m_per_px} m/px
             </span>
           </div>
 

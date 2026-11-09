@@ -38,12 +38,55 @@ describe("FullScreenMap (04 §E.5)", () => {
   });
 
   it("HAVEN and O₂ stay visible: in their row in portrait, stacked at the left in landscape", () => {
+    const portraitHtml = renderToStaticMarkup(
+      createElement(FullScreenMap, { orientation: "portrait", onClose: () => {} }),
+    );
+    expect(portraitHtml).toMatch(/portrait-telemetry-row/);
+    expect(portraitHtml).toMatch(/HAVEN/);
+    expect(portraitHtml).toMatch(/O₂/);
+
     const landscapeHtml = renderToStaticMarkup(
       createElement(FullScreenMap, { orientation: "landscape", onClose: () => {} }),
     );
     expect(landscapeHtml).toMatch(/landscape-telemetry-stack/);
     expect(landscapeHtml).toMatch(/HAVEN/);
     expect(landscapeHtml).toMatch(/O₂/);
+  });
+
+  it("honest telemetry: derives HAVEN and O₂ from crew prop, shows em-dash if missing, no measured provenance", () => {
+    // When crew telemetry is provided
+    const withCrewHtml = renderToStaticMarkup(
+      createElement(FullScreenMap, {
+        crew: [
+          {
+            crew_id: "EV1",
+            x_m: 100,
+            y_m: 200,
+            activity: "WALKING",
+            stop_index: 1,
+            o2_frac: 0.85,
+            eva_elapsed_s: 120,
+            dose_event_ugy: 5,
+            dose_event_unsheltered_ugy: 5,
+            haven: { minutes: 25.4, kind: "hab", target_x_m: 0, target_y_m: 0 },
+            linked: true,
+            link_path: [],
+            stale: false,
+          },
+        ],
+        onClose: () => {},
+      }),
+    );
+    expect(withCrewHtml).toMatch(/25 MIN/);
+    expect(withCrewHtml).toMatch(/85 %/);
+    expect(withCrewHtml).not.toMatch(/data-provenance="measured"/);
+
+    // When crew prop is empty: shows em-dash, no hardcoded fake numbers
+    const noCrewHtml = renderToStaticMarkup(createElement(FullScreenMap, { onClose: () => {} }));
+    expect(noCrewHtml).not.toMatch(/14 MIN/);
+    expect(noCrewHtml).not.toMatch(/71 %/);
+    expect(noCrewHtml).toMatch(/—/);
+    expect(noCrewHtml).not.toMatch(/data-provenance="measured"/);
   });
 
   it("landscape map takes at least 80 % of the width; HAVEN keeps the top-left origin", () => {
