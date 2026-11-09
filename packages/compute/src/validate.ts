@@ -25,7 +25,12 @@ export function validatePlanInput(
   const errors: FieldValidationError[] = [];
 
   // 1. eva_start_utc: ISO-8601 UTC, year 2000–2100
-  if (scenario.eva_start_utc !== undefined) {
+  if (scenario.eva_start_utc === undefined || scenario.eva_start_utc === null || scenario.eva_start_utc === "") {
+    errors.push({
+      field: "eva_start_utc",
+      message: "eva_start_utc is required",
+    });
+  } else {
     const raw = scenario.eva_start_utc;
     const isIsoUtc =
       typeof raw === "string" &&
@@ -50,7 +55,12 @@ export function validatePlanInput(
   }
 
   // 2. max_eva_duration_h: 0.5–10
-  if (scenario.max_eva_duration_h !== undefined) {
+  if (scenario.max_eva_duration_h === undefined || scenario.max_eva_duration_h === null) {
+    errors.push({
+      field: "max_eva_duration_h",
+      message: "max_eva_duration_h is required",
+    });
+  } else {
     const val = scenario.max_eva_duration_h;
     if (typeof val !== "number" || isNaN(val) || val < 0.5 || val > 10.0) {
       errors.push({
@@ -62,7 +72,12 @@ export function validatePlanInput(
   }
 
   // 3. dwell_min_per_stop: 0–180
-  if (scenario.dwell_min_per_stop !== undefined) {
+  if (scenario.dwell_min_per_stop === undefined || scenario.dwell_min_per_stop === null) {
+    errors.push({
+      field: "dwell_min_per_stop",
+      message: "dwell_min_per_stop is required",
+    });
+  } else {
     const val = scenario.dwell_min_per_stop;
     if (typeof val !== "number" || isNaN(val) || val < 0 || val > 180) {
       errors.push({
@@ -74,7 +89,12 @@ export function validatePlanInput(
   }
 
   // 4. caution_slope_deg: 2–30
-  if (scenario.caution_slope_deg !== undefined) {
+  if (scenario.caution_slope_deg === undefined || scenario.caution_slope_deg === null) {
+    errors.push({
+      field: "caution_slope_deg",
+      message: "caution_slope_deg is required",
+    });
+  } else {
     const val = scenario.caution_slope_deg;
     if (typeof val !== "number" || isNaN(val) || val < 2 || val > 30) {
       errors.push({
@@ -86,7 +106,12 @@ export function validatePlanInput(
   }
 
   // 5. hard_slope_limit_deg: 5–35 and > caution_slope_deg
-  if (scenario.hard_slope_limit_deg !== undefined) {
+  if (scenario.hard_slope_limit_deg === undefined || scenario.hard_slope_limit_deg === null) {
+    errors.push({
+      field: "hard_slope_limit_deg",
+      message: "hard_slope_limit_deg is required",
+    });
+  } else {
     const val = scenario.hard_slope_limit_deg;
     if (typeof val !== "number" || isNaN(val) || val < 5 || val > 35) {
       errors.push({
@@ -107,7 +132,12 @@ export function validatePlanInput(
   }
 
   // 6. walkback_limit_km: 0.5–20
-  if (scenario.walkback_limit_km !== undefined) {
+  if (scenario.walkback_limit_km === undefined || scenario.walkback_limit_km === null) {
+    errors.push({
+      field: "walkback_limit_km",
+      message: "walkback_limit_km is required",
+    });
+  } else {
     const val = scenario.walkback_limit_km;
     if (typeof val !== "number" || isNaN(val) || val < 0.5 || val > 20.0) {
       errors.push({
@@ -119,7 +149,12 @@ export function validatePlanInput(
   }
 
   // 7. suited_flat_speed_kmh: 0.5–6
-  if (scenario.suited_flat_speed_kmh !== undefined) {
+  if (scenario.suited_flat_speed_kmh === undefined || scenario.suited_flat_speed_kmh === null) {
+    errors.push({
+      field: "suited_flat_speed_kmh",
+      message: "suited_flat_speed_kmh is required",
+    });
+  } else {
     const val = scenario.suited_flat_speed_kmh;
     if (typeof val !== "number" || isNaN(val) || val < 0.5 || val > 6.0) {
       errors.push({
@@ -131,7 +166,12 @@ export function validatePlanInput(
   }
 
   // 8. solar_phase: max | min
-  if (scenario.solar_phase !== undefined) {
+  if (scenario.solar_phase === undefined || scenario.solar_phase === null) {
+    errors.push({
+      field: "solar_phase",
+      message: "solar_phase is required",
+    });
+  } else {
     const val = scenario.solar_phase;
     if (val !== "max" && val !== "min") {
       errors.push({
@@ -142,7 +182,21 @@ export function validatePlanInput(
     }
   }
 
-  // 9. max_haven_min (v2): 5–120
+  // 9. loop: boolean
+  if (scenario.loop === undefined || scenario.loop === null) {
+    errors.push({
+      field: "loop",
+      message: "loop is required",
+    });
+  } else if (typeof scenario.loop !== "boolean") {
+    errors.push({
+      field: "loop",
+      message: "loop must be a boolean",
+      value: scenario.loop,
+    });
+  }
+
+  // 10. max_haven_min (v2): 5–120
   if (scenario.max_haven_min !== undefined) {
     const val = scenario.max_haven_min;
     if (typeof val !== "number" || isNaN(val) || val < 5 || val > 120) {
@@ -154,7 +208,7 @@ export function validatePlanInput(
     }
   }
 
-  // 10. crew_count (v2): 1–2
+  // 11. crew_count (v2): 1–2
   if (scenario.crew_count !== undefined) {
     const val = scenario.crew_count;
     if (val !== 1 && val !== 2) {
@@ -166,7 +220,7 @@ export function validatePlanInput(
     }
   }
 
-  // 11. vehicle_available (v2): boolean
+  // 12. vehicle_available (v2): boolean
   if (scenario.vehicle_available !== undefined) {
     if (typeof scenario.vehicle_available !== "boolean") {
       errors.push({
@@ -177,7 +231,7 @@ export function validatePlanInput(
     }
   }
 
-  // 12. Waypoints validation
+  // 13. Waypoints validation
   if (waypoints !== undefined) {
     if (waypoints.length < 2 || waypoints.length > 11) {
       errors.push({
@@ -196,9 +250,28 @@ export function validatePlanInput(
       });
     }
 
-    if (grid) {
-      for (let i = 0; i < waypoints.length; i++) {
-        const wp = waypoints[i];
+    if (waypoints.length > 0 && waypoints[0].role !== "start") {
+      errors.push({
+        field: "waypoints",
+        message: `First waypoint must have role 'start' (found '${waypoints[0].role}')`,
+        value: waypoints[0].role,
+      });
+    }
+
+    for (let i = 0; i < waypoints.length; i++) {
+      const wp = waypoints[i];
+      if (
+        typeof wp.x_m !== "number" ||
+        !Number.isFinite(wp.x_m) ||
+        typeof wp.y_m !== "number" ||
+        !Number.isFinite(wp.y_m)
+      ) {
+        errors.push({
+          field: "waypoints",
+          message: `Waypoint ${wp.id} has invalid coordinates (${wp.x_m}, ${wp.y_m}); x_m and y_m must be finite numbers`,
+          value: { id: wp.id, x_m: wp.x_m, y_m: wp.y_m },
+        });
+      } else if (grid) {
         const idx = cellIndex(grid, wp.x_m, wp.y_m);
         if (idx === null) {
           errors.push({

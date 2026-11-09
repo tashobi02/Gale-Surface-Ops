@@ -30,6 +30,38 @@ describe("validatePlanInput", () => {
     expect(errors).toHaveLength(0);
   });
 
+  describe("required fields validation (02 §E.3)", () => {
+    it("rejects empty scenario because required fields are missing", () => {
+      const err = validatePlanInput({});
+      expect(err.length).toBeGreaterThanOrEqual(9);
+      const requiredFields = [
+        "eva_start_utc",
+        "max_eva_duration_h",
+        "dwell_min_per_stop",
+        "hard_slope_limit_deg",
+        "caution_slope_deg",
+        "walkback_limit_km",
+        "suited_flat_speed_kmh",
+        "solar_phase",
+        "loop",
+      ];
+      for (const field of requiredFields) {
+        expect(err.some((e) => e.field === field && e.message.includes("required"))).toBe(true);
+      }
+    });
+
+    it("requires loop to be present as a boolean", () => {
+      const missingLoop = { ...validScenario };
+      delete (missingLoop as any).loop;
+      const errMissing = validatePlanInput(missingLoop);
+      expect(errMissing.some((e) => e.field === "loop" && e.message.includes("required"))).toBe(true);
+
+      const invalidLoop = { ...validScenario, loop: "yes" as any };
+      const errInvalid = validatePlanInput(invalidLoop);
+      expect(errInvalid.some((e) => e.field === "loop" && e.message.includes("boolean"))).toBe(true);
+    });
+  });
+
   describe("eva_start_utc validation (year 2000–2100 ISO UTC)", () => {
     it("accepts valid ISO-8601 UTC within 2000–2100", () => {
       expect(validatePlanInput({ ...validScenario, eva_start_utc: "2000-01-01T00:00:00Z" })).toHaveLength(0);
@@ -165,6 +197,25 @@ describe("validatePlanInput", () => {
       ];
       const errTwoStarts = validatePlanInput(validScenario, twoStarts);
       expect(errTwoStarts.some((e) => e.field === "waypoints" && e.message.includes("exactly one start"))).toBe(true);
+    });
+
+    it("requires the first waypoint to have role 'start'", () => {
+      const startSecond: Waypoint[] = [
+        { id: "wp-0", role: "stop", x_m: 10, y_m: -10 },
+        { id: "wp-1", role: "start", x_m: 20, y_m: -10 },
+      ];
+      const err = validatePlanInput(validScenario, startSecond);
+      expect(err.some((e) => e.field === "waypoints" && e.message.includes("First waypoint must have role 'start'"))).toBe(true);
+    });
+
+    it("rejects non-finite waypoint coordinates", () => {
+      const nonFiniteWps: Waypoint[] = [
+        { id: "wp-0", role: "start", x_m: NaN, y_m: -10 },
+        { id: "wp-1", role: "stop", x_m: 20, y_m: Infinity },
+      ];
+      const err = validatePlanInput(validScenario, nonFiniteWps);
+      const coordErrors = err.filter((e) => e.field === "waypoints" && e.message.includes("finite"));
+      expect(coordErrors).toHaveLength(2);
     });
 
     it("rejects waypoints outside the AOI grid bounds when grid is provided", () => {
