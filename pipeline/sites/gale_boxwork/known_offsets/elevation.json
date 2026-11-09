@@ -1,0 +1,5 @@
+{
+  "offset_m": 1.92,
+  "method": "Median of 36 accepted per-tile displacement magnitudes pooled across three independent algorithms: 33 m high-pass ZNCC (nine 512 m tiles, 1 m grid), multi-scale gradient-magnitude FFT phase correlation (1 m and 2 m grids, original nine plus nine fixed offset tiles; one combined vector per tile), and symmetric Sobel-edge distance-transform chamfer search (+/-10 m). Predeclared input, boundary and quality rejection; rounded to 0.01 m; IQR and full methods in evidence; tool-confirmed by three independent methods (decided by the orchestrating session under the data lead's delegation, 2026-11-08); not GIS-checked",
+  "evidence": "docs/ops/verification-log.md#t0320--dem-hillshade-vs-ortho-offset-confirmed-by-three-tool-methods"
+}
