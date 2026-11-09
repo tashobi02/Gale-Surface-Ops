@@ -1,7 +1,7 @@
-import type { Leg, MissionScenario, NoRouteLeg, OkLeg, PlanResult } from "@marswalk/protocol";
+import type { Leg, MissionScenario, NoRouteLeg, OkLeg, PlanResult, Waypoint } from "@marswalk/protocol";
 import { describe, expect, it } from "vitest";
 import { makePlaneGrid, withoutTi } from "../../../apps/web/tests/fixtures/grids";
-import { collectWarnings, planStatus } from "../src/warnings";
+import { collectWarnings, countStops, planStatus } from "../src/warnings";
 
 const defaultScenario: MissionScenario = {
   eva_start_utc: "2026-11-14T08:00:00Z",
@@ -172,5 +172,62 @@ describe("warnings and plan status", () => {
     const darkWarn = warnings.find((w) => w.code === "DARKNESS");
     expect(darkWarn).toBeDefined();
     expect(darkWarn!.severity).toBe("caution");
+  });
+
+  it("emits EVA_DURATION_EXCEEDED and OVER_LIMITS when true margin is negative (probe: 4.8 h max, -4.6 min margin)", () => {
+    // 3 waypoints: 1 start + 2 stops
+    const waypoints: Waypoint[] = [
+      { id: "wp-0", role: "start", x_m: 0, y_m: 0 },
+      { id: "wp-1", role: "stop", x_m: 1000, y_m: 0 },
+      { id: "wp-2", role: "stop", x_m: 2000, y_m: 0 },
+    ];
+    const dwellPerStopMin = 20;
+    const numStops = countStops(waypoints);
+    expect(numStops).toBe(2);
+    const totalDwellMin = numStops * dwellPerStopMin; // 2 * 20 = 40 min
+
+    // 2 legs with walk times summing to 252.6 min
+    const leg1WalkMin = 130.0;
+    const leg2WalkMin = 122.6;
+    const totalWalkMin = leg1WalkMin + leg2WalkMin; // 252.6 min
+    const legs: Leg[] = [
+      makeOkLeg({ from: "wp-0", to: "wp-1", walk_time_min: leg1WalkMin }),
+      makeOkLeg({ from: "wp-1", to: "wp-2", walk_time_min: leg2WalkMin }),
+    ];
+
+    const totalEvaMin = totalWalkMin + totalDwellMin; // 292.6 min
+    // Max EVA duration: 4.8 h = 288 min -> expected margin = 288 - 292.6 = -4.6 min
+    const maxEvaDurationH = 4.8;
+    const expectedMarginMin = maxEvaDurationH * 60 - totalEvaMin;
+    expect(expectedMarginMin).toBeCloseTo(-4.6, 5);
+    expect(expectedMarginMin).toBeLessThan(0);
+
+    const scenario: MissionScenario = {
+      ...defaultScenario,
+      max_eva_duration_h: maxEvaDurationH,
+      dwell_min_per_stop: dwellPerStopMin,
+    };
+
+    const warnings = collectWarnings(legs, scenario, undefined, 2.0, undefined, waypoints);
+    const durWarn = warnings.find((w) => w.code === "EVA_DURATION_EXCEEDED");
+    expect(durWarn).toBeDefined();
+    expect(durWarn!.severity).toBe("blocked");
+    expect(planStatus(legs, warnings)).toBe("OVER_LIMITS");
+  });
+
+  it("skips DARKNESS warning when timeline has no sun elevation data", () => {
+    const legs = [makeOkLeg()];
+    const timelineWithoutSun = [
+      {
+        arrive_utc: "2026-11-14T08:00:00Z",
+        depart_utc: "2026-11-14T08:20:00Z",
+        arrive_ltst: "09:00",
+        sun_elevation_deg: NaN,
+      },
+    ];
+
+    const warnings = collectWarnings(legs, defaultScenario, timelineWithoutSun, 2.0);
+    const darkWarn = warnings.find((w) => w.code === "DARKNESS");
+    expect(darkWarn).toBeUndefined();
   });
 });
