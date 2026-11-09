@@ -13,15 +13,15 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`██████░░░░░░░░░░░░░░` **32 %** — 97 of 304 subtasks done, 11 in progress.
+`███████░░░░░░░░░░░░░` **33 %** — 100 of 304 subtasks done, 12 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
-| [TASK-00 Resolve rules + register](docs/tasks/TASK-00_resolve-rules-and-register.md) | `████████░░` 80 % | 4 | 1 | 5 |
+| [TASK-00 Resolve rules + register](docs/tasks/TASK-00_resolve-rules-and-register.md) | `██████████` 100 % | 5 | 0 | 5 |
 | [TASK-01 Feasibility: AOI, DEM quality, coverage checks](docs/tasks/TASK-01_feasibility.md) | `████████░░` 83 % | 5 | 1 | 6 |
 | [TASK-02 Spike: OpenLayers custom Mars projection + custom tile grid](docs/tasks/TASK-02_projection-spike.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 5 |
 | [TASK-03 Preprocessing pipeline](docs/tasks/TASK-03_preprocessing-pipeline.md) | `█████████░` 88 % | 22 | 1 | 25 |
-| [TASK-04 Vectors, POIs and images](docs/tasks/TASK-04_vectors-pois-images.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 9 |
+| [TASK-04 Vectors, POIs and images](docs/tasks/TASK-04_vectors-pois-images.md) | `█░░░░░░░░░` 11 % | 1 | 1 | 9 |
 | [TASK-05 Compute core: grid loader, sampling, A*, profile, time model, walkback, warnings](docs/tasks/TASK-05_compute-core.md) | `████░░░░░░` 40 % | 20 | 0 | 50 |
 | [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 10 |
 | [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 17 |
@@ -29,11 +29,11 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 8 |
 | [TASK-10 POI detail + Conditions panel](docs/tasks/TASK-10_poi-detail-and-conditions.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 4 |
 | [TASK-11 Briefing card + JSON export](docs/tasks/TASK-11_briefing-card-and-export.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
-| [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
+| [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `█░░░░░░░░░` 14 % | 1 | 0 | 7 |
 | [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `█████░░░░░` 50 % | 6 | 0 | 12 |
 | [TASK-14 Integration + offline hardening + fault tests](docs/tasks/TASK-14_integration-offline-hardening.md) | `█░░░░░░░░░` 9 % | 1 | 1 | 11 |
 | [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `█████░░░░░` 50 % | 2 | 0 | 4 |
-| [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
+| [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `░░░░░░░░░░` 0 % | 0 | 1 | 7 |
 | [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 3 |
 | [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `████████░░` 83 % | 10 | 1 | 12 |
 | [TASK-21 Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers](docs/tasks/TASK-21_scenario-builder.md) | `████░░░░░░` 42 % | 5 | 2 | 12 |
