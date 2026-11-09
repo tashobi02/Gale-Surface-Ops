@@ -99,15 +99,53 @@ describe("SCR-13 HUD glance view (04 §E.6)", () => {
     // Must show tabular monospace numbers (04 §G, §A.3 #5)
     expect(html).toMatch(/tabular-nums|font-mono|--font-mono/);
 
-    // Check for HUD core values (HAVEN, NEXT STOP, O₂, EVA TIME / LINK)
+    // Check for HUD core values (HAVEN, NEXT STOP, O₂, LINK)
     expect(html).toMatch(/HAVEN/i);
     expect(html).toMatch(/O₂|O2/i);
+    expect(html).toMatch(/LINK/i);
   });
 
-  it("all text pairs satisfy contrast ≥ 7 : 1 on black (NFR-04, 04 §C.1)", () => {
-    // 04 §C.1 HUD palette: all ≥ 7 : 1 on black (--hud-bg: #000000)
+  it("shows 4-cue accessible status (shape + word) and honest '—' when no target", () => {
     const html = renderToStaticMarkup(createElement(Hud));
-    expect(html).toMatch(/--hud-|hud-/);
+
+    // When no target is active, HUD shows honest '—', not invented '000°' or '0.00 KM'
+    expect(html).not.toMatch(/000°/);
+    expect(html).not.toMatch(/0\.00 KM/);
+    expect(html).toMatch(/—/);
+
+    // HAVEN and O₂ must render status icons with words and glyphs (04 §A.3)
+    expect(html).toMatch(/status-(nominal|caution|warning|unknown)/);
+    expect(html).toMatch(/NOMINAL|CAUTION|WARNING|UNKNOWN/);
+  });
+
+  it("all HUD text pairs satisfy contrast ≥ 7 : 1 on black (NFR-04, 04 §C.1)", () => {
+    // 04 §C.1 HUD palette: all ≥ 7 : 1 on black (--hud-bg: #000000)
+    const lum = (hex: string): number => {
+      const c = [1, 3, 5]
+        .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+        .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const cr = (a: string, b: string): number => {
+      const x = lum(a);
+      const y = lum(b);
+      const [hi, lo] = x > y ? [x, y] : [y, x];
+      return (hi + 0.05) / (lo + 0.05);
+    };
+
+    const hudColors = [
+      { name: "hud-text", hex: "#FFFFFF" },
+      { name: "hud-text-2", hex: "#A9B3BE" },
+      { name: "hud-nominal", hex: "#3DDC84" },
+      { name: "hud-caution", hex: "#FFB020" },
+      { name: "hud-warning", hex: "#FF6B6B" },
+      { name: "hud-advisory", hex: "#4CC9F0" },
+    ];
+
+    for (const color of hudColors) {
+      const ratio = cr(color.hex, "#000000");
+      expect(ratio).toBeGreaterThanOrEqual(7.0);
+    }
   });
 });
 
@@ -118,7 +156,10 @@ describe("SCR-18 Hab link lost / connecting (04 §E.5, §B.2)", () => {
     const html = renderToStaticMarkup(createElement(HabLinkLost));
 
     expect(html).toMatch(/stale|link-lost|unlinked/i);
-    expect(html).toMatch(/is-stale|data-provenance/);
+    expect(html).toMatch(/is-stale/);
+    expect(html).toMatch(/data-provenance="derived"/);
+    // Never fake safety claims like "margin intact"
+    expect(html).not.toMatch(/margin intact/);
   });
 });
 

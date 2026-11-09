@@ -5,7 +5,7 @@
  * Implemented by TASK-20, TASK-24 (T24.07, Ridita Alam).
  */
 
-import type { CSSProperties, ReactElement } from "react";
+import { useEffect, useState, type CSSProperties, type ReactElement } from "react";
 import type { CrewId, Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 import {
@@ -37,6 +37,12 @@ const PROV_GLYPHS: Record<string, string> = {
   simulated: "◇",
 };
 
+function formatMinutes(totalMinutes: number): string {
+  const h = Math.floor(totalMinutes / 60);
+  const m = Math.floor(totalMinutes % 60);
+  return `${h}:${String(m).padStart(2, "0")}`;
+}
+
 /**
  * SCR-18 Hab Link Lost Component (04 §E.5, 03 SCR-18).
  * Never blanks a value mid-EVA: displays the last known telemetry marked with
@@ -46,12 +52,43 @@ export function HabLinkLost({
   client,
   crewId = "EV1",
   snapshot,
-  ageSeconds = 15,
+  ageSeconds,
   mode = "eva",
   className = "",
 }: HabLinkLostProps): ReactElement {
   const activeSnapshot = snapshot ?? client?.state() ?? null;
   const vm: EvaViewModel = selectEvaViewModel(activeSnapshot, crewId);
+
+  // Subscribe to client updates and 1-s interval for live stale age tracking
+  const [, setTick] = useState<number>(0);
+  useEffect(() => {
+    if (!client) return;
+    const unsubscribe = client.subscribe(() => setTick((t) => t + 1));
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, [client]);
+
+  const linkInfo = client?.linkLost();
+  const isLinkLost = linkInfo ? linkInfo.lost : (ageSeconds !== undefined && ageSeconds > 0) || vm.metadata.link.stale;
+  const reconnectStatusLabel = isLinkLost ? "AUTO-RECONNECTING (≤ 1s)" : "LINK RESTORED";
+
+  // Derive link age honestly from client store / since_ms (never invented measured)
+  const computedAgeSeconds = ageSeconds !== undefined
+    ? ageSeconds
+    : linkInfo?.since_ms
+    ? Math.max(0, Math.floor((Date.now() - linkInfo.since_ms) / 1000))
+    : vm.metadata.link.ageSeconds ?? 0;
+
+  const havenTargetLabel = vm.haven.targetId
+    ? `via ${vm.haven.targetId}`
+    : vm.haven.kind === "hab"
+    ? "to Hab Airlock"
+    : activeSnapshot?.vehicles?.[0]?.vehicle_id
+    ? `via ${activeSnapshot.vehicles[0].vehicle_id}`
+    : "—";
 
   const isOps = mode === "ops";
 
@@ -108,22 +145,24 @@ export function HabLinkLost({
       className={`scr18-hab-link-lost ${className}`}
       style={rootStyle}
     >
-      {/* 1. Caution Alert Banner (64 px) */}
+      {/* 1. Caution Alert Banner (64 px) with 4 cues (04 §A.3) */}
       <div
         role="alert"
         aria-live="assertive"
         className="alert-bar status-caution"
         data-level="caution"
+        data-provenance="derived"
+        data-src="net/linkState"
         style={bannerStyle}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <StatusIcon status="caution" showWord={true} />
+          <StatusIcon status="caution" showWord={true} live={true} />
           <span style={{ fontSize: "18px", letterSpacing: "0.02em" }}>
             HAB LINK LOST — SHOWING CACHED PLAN
           </span>
         </div>
         <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "14px", fontWeight: 600 }}>
-          AUTO-RECONNECTING (≤ 1s)
+          {reconnectStatusLabel}
         </span>
       </div>
 
@@ -144,16 +183,23 @@ export function HabLinkLost({
             <span
               className="value is-stale"
               data-provenance={vm.haven.minutes.prov}
+              data-src={vm.haven.minutes.src}
               style={{ ...numberStyle, color: "var(--fg-3, #8592A0)" }}
             >
-              {Math.round(vm.haven.minutes.v)}
+              {typeof vm.haven.minutes.v === "number" && Number.isFinite(vm.haven.minutes.v)
+                ? Math.round(vm.haven.minutes.v)
+                : "—"}
             </span>
             <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "14px", color: "var(--fg-3, #8592A0)" }}>
               {vm.haven.minutes.unit} {PROV_GLYPHS[vm.haven.minutes.prov] ?? "○"}
             </span>
           </div>
-          <span style={{ fontSize: "12px", color: "var(--fg-3, #8592A0)", fontFamily: "var(--font-mono, monospace)" }}>
-            via {vm.haven.targetId ?? "PR1"}
+          <span
+            data-provenance={vm.haven.minutes.prov}
+            data-src={vm.haven.minutes.src}
+            style={{ fontSize: "12px", color: "var(--fg-3, #8592A0)", fontFamily: "var(--font-mono, monospace)" }}
+          >
+            {havenTargetLabel}
           </span>
         </div>
 
@@ -166,20 +212,30 @@ export function HabLinkLost({
             <span
               className="value is-stale"
               data-provenance={vm.o2.percent.prov}
+              data-src={vm.o2.percent.src}
               style={{ ...numberStyle, color: "var(--fg-3, #8592A0)" }}
             >
-              {vm.o2.percent.v}
+              {typeof vm.o2.percent.v === "number" && Number.isFinite(vm.o2.percent.v)
+                ? vm.o2.percent.v
+                : "—"}
             </span>
             <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "14px", color: "var(--fg-3, #8592A0)" }}>
               % {PROV_GLYPHS[vm.o2.percent.prov] ?? "■"}
             </span>
           </div>
-          <span style={{ fontSize: "12px", color: "var(--fg-3, #8592A0)", fontFamily: "var(--font-mono, monospace)" }}>
-            margin intact
+          <span
+            data-provenance={vm.o2.timeLeftMinutes.prov}
+            data-src={vm.o2.timeLeftMinutes.src}
+            style={{ fontSize: "12px", color: "var(--fg-3, #8592A0)", fontFamily: "var(--font-mono, monospace)" }}
+          >
+            {typeof vm.o2.timeLeftMinutes.v === "number" && Number.isFinite(vm.o2.timeLeftMinutes.v)
+              ? `${formatMinutes(vm.o2.timeLeftMinutes.v)} left`
+              : "— left"}{" "}
+            {PROV_GLYPHS[vm.o2.timeLeftMinutes.prov] ?? "◆"}
           </span>
         </div>
 
-        {/* Stale Age Counter */}
+        {/* Stale Age Counter (honestly derived, client-side, 04 §A.3 #8) */}
         <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
           <span className="micro" style={{ color: "var(--text-3, #8592A0)" }}>
             STALE AGE
@@ -187,13 +243,14 @@ export function HabLinkLost({
           <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
             <span
               className="value is-stale"
-              data-provenance="measured"
+              data-provenance="derived"
+              data-src="net/linkAge"
               style={{ ...numberStyle, color: "var(--status-caution, #FFB020)" }}
             >
-              {ageSeconds}
+              {computedAgeSeconds}
             </span>
             <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "14px", color: "var(--status-caution, #FFB020)" }}>
-              s ■
+              s ◆
             </span>
           </div>
           <span style={{ fontSize: "12px", color: "var(--text-2, #A9B3BE)", fontFamily: "var(--font-mono, monospace)" }}>

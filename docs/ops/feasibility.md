@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Data lead ([06 §C TASK-01](../specs/06_High_Level_Implementation_Plan.md#c-work-packages)) |
 | **Date** | 2026-11-07 |
-| **Status** | Draft for the team: D-01 is proposed, not decided ([ADR-001](../decisions/ADR-001-site-selection.md)) |
+| **Status** | D-01 decided 2026-11-07: Gale boxwork ([ADR-001](../decisions/ADR-001-site-selection.md), Accepted). AOI frozen |
 | **Related** | [02 §C Mars data and geospatial handling](../specs/02_Technical_Requirements_Document.md#c-mars-data-and-geospatial-handling) · [01 §F.2 A-01](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) · [06 §E First concrete actions](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov) |
 
 Done when (06 §C): AOI inside DEM extent; hillshade shows HiRISE-scale texture across ≥ 80 % of AOI.
@@ -49,7 +49,7 @@ Done when (06 §C): AOI inside DEM extent; hillshade shows HiRISE-scale texture 
 | Field | Value |
 | --- | --- |
 | MTRDR observations covering the AOI | 7, a patchwork; best single `FRT0000B6F1` at 97.12 % ([coverage.md](feasibility/coverage.md)) |
-| Decision for FR-18 | `TODO(decision)`: data lead |
+| Decision for FR-18 | **In scope** as a desirable (TASK-18), using the best single observation `FRT0000B6F1` only, not the patchwork (data lead, 2026-11-07) |
 
 ## Colour HiRISE COG coverage (U-09)
 
@@ -61,10 +61,10 @@ Done when (06 §C): AOI inside DEM extent; hillshade shows HiRISE-scale texture 
 
 | Field | Value |
 | --- | --- |
-| Site chosen (Gale boxwork / Jezero) | `TODO(decision)`: the data lead proposes Gale boxwork; team to decide |
-| Date decided (target 5 Nov, 06 §D.3) | `TODO(decision)` |
+| Site chosen (Gale boxwork / Jezero) | **Gale boxwork**: the AOI lies inside the DEM extent and the hillshade shows HiRISE-scale texture across 85.67 % of the AOI on the data lead's method (≥ 80 %, 06 §E rule). The strict reading gives about 48–68 % ([sensitivity](feasibility/dem-quality.md#sensitivity)); the team accepted the data lead's method |
+| Date decided (target 5 Nov, 06 §D.3) | 2026-11-07, recorded by the data lead (Obidit Islam) for the team; two days after the 06 §D.3 target |
 | Evidence | [DEM label](feasibility/dem-label.md) · [AOI](feasibility/aoi.md) · [DEM quality](feasibility/dem-quality.md) · [Coverage](feasibility/coverage.md) · [Hab site](feasibility/hab-site.md) |
 
 ## Large tiles in the repo
 
-Decision (team confirmed 2026-11-03): GitHub release asset (not Git LFS) for site tiles, grid and images. Reasoning: the same tarball serves as release archive and clean-clone source. Context: 02 §B Hosting says "keep tiles < 500 MB or use Git LFS / release asset"; NFR-09 caps the total site bundle at 250 MB.
+Decision (team confirmed 2026-11-03): GitHub release asset (not Git LFS) for site tiles, grid and images. Reasoning: the same tarball serves as release archive and clean-clone source. Context: 02 §B Hosting said "keep tiles < 500 MB or use Git LFS / release asset" before the v2 rewrite of 2026-11-04 (commit `560b2b6`); the current [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices) Hosting row names "Release asset with a run script" as the alternative to GitHub Pages. NFR-09 caps the total site bundle at 250 MB. How the bundle is obtained is recorded by T16.07 in `docs/ops/hosting.md`.

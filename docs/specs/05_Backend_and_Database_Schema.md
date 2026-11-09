@@ -310,7 +310,7 @@ Every number the simulation uses that is not data. Shown in the UI next to whate
 | `pressurized_rover` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, low_ti_cost, min_speed_frac, capacity, ingress_min, antenna_m` (§D.9) |
 | `utility_rover` | as above + `battery_wh, p_base_w, mass_kg, climb_eff` |
 | `link` | `range_hab_suit_m, range_suit_suit_m, range_rover_m, hab_mast_m, relay_min_elev_deg, conjunction_deg, dte_enabled` (§D.11–D.12) |
-| `alert` | `rad_k_background, rad_clear_k, rad_clear_min, buddy_max_m, o2_caution_frac, o2_warning_frac` (§D.13–D.14) |
+| `alert` | `rad_k_background, rad_clear_k, rad_clear_min, buddy_max_m, o2_caution_margin, o2_warning_margin, o2_clear_margin` (§D.13–D.14; `o2_clear_margin` ≥ `o2_caution_margin` is where an open O₂ alert clears; the O₂ margins replaced `o2_caution_frac, o2_warning_frac` on 2026-11-07: O₂ time left ÷ time to the nearest haven) |
 | `shielding` | `suit, pressurized_rover, hab` factors (§D.13) |
 
 ## C.2 Runtime entities (Hab Core) *(v2)*
@@ -378,7 +378,7 @@ Conventions as §C. In addition: `sim_time` is ISO-8601 UTC of the **mission clo
 | `session_id` (PK) | string | `s-<n>` |
 | `scenario_id`, `data_version`, `seed` | — | copied from Scenario |
 | `status` | enum | `LOADED \| RUNNING \| PAUSED \| ENDED` |
-| `clock` | `{sim_time, speed: 1\|10\|60, paused}` | |
+| `clock` | `{sim_time, speed: 1\|10\|60, paused}` | a loaded session starts at `speed` 1, not paused, until `SET_CLOCK` *(decided 2026-11-07)* |
 | `plan_revision` | int | increments on every `PLAN_REVISED` |
 | `last_seq` | int | |
 | `log_hash` | string | running SHA-256 over canonical LogEvents (NFR-06); canonical JSON is RFC 8785 (JCS), as for `plan_hash` *(decided 2026-11-07)* |
@@ -479,7 +479,7 @@ State is reduced from `TASK_ADDED`, `TASK_UPDATED` and `TASK_DROPPED` events; it
 | `data` | object | values needed to reduce state without recomputation |
 | `provenance` | object | field path → class |
 | `inputs_hash` | string | SHA-256 of the compute inputs when the event carries a computed value |
-| `command_ref` *(added 2026-11-07)* | `{client_id, command_id}` \| null | the command that produced the event (including `COMMAND_REJECTED`); `null` for `system` events. Lets the Hab Core rebuild the accepted `command_id`s after a restart (see Command) |
+| `command_ref` *(added 2026-11-07)* | `{client_id, command_id}` \| null | required (decided 2026-11-07: never absent, so `log_hash` has one form). The command that produced the event (including `COMMAND_REJECTED`); `null` for `system` events. Lets the Hab Core rebuild the accepted `command_id`s after a restart (see Command) |
 
 #### LogEvent `data` by kind *(added 2026-11-07)*
 
@@ -490,14 +490,14 @@ Source column: where the fields are stated. **Proposed** fields are not stated i
 | `SESSION_LOADED` | `session_id, scenario_id, data_version, seed, plan_hash` | **Proposed** (Session fields) |
 | `EVA_STARTED` | `crew_ids, plan_revision` | **Proposed** |
 | `ARRIVED_STOP`, `LEFT_STOP` | `crew_id, stop_id, stop_index` | **Proposed** (Crew, StopTask) |
-| `ALERT_RAISED` | `alert_id, code, level, subjects, message`, plus the code's values (`RADIATION_ALERT`: `rate_ugy_h, threshold_ugy_h, source`) | §F.6, fixtures `radiation-alert`, `comm-shadow`, 02 §E.6 |
+| `ALERT_RAISED` | `alert_id, code, level, subjects, message`, plus the code's values (`RADIATION_ALERT`: `rate_ugy_h, threshold_ugy_h, source`; `CONSUMABLES_LOW`: `o2_remaining_min, haven_min, haven_kind, margin, threshold_margin`; `BUDDY_SEPARATION`: `distance_m, threshold_m`) | §F.6, fixtures `radiation-alert`, `comm-shadow`, 02 §E.6; `CONSUMABLES_LOW` and `BUDDY_SEPARATION` values **Proposed** (02 §D.14 rule decided 2026-11-07) |
 | `ALERT_ACKED` | `alert_id, acked_by` | **Proposed** (Alert) |
 | `ALERT_CLEARED` | `alert_id` | **Proposed** (Alert) |
 | `OPTIONS_PROPOSED` | `alert_id, options` (ContingencyOption[]) | §F.6, fixture `options-proposed` |
-| `PLAN_REVISED` | `plan_revision` (02 §D.13); `option_id \| null, stops_dropped` | `plan_revision`: 02; rest **Proposed** |
+| `PLAN_REVISED` | `plan_revision` (02 §D.13); `option_id \| null, stops_dropped`; `waypoints` (Waypoint[]) and `legs` (Leg[]) of the revised plan, which replace the current ones so the map shows the new route; `plan` (PlanExport) only when the planner publishes a new plan | `plan_revision`: 02; `waypoints`, `legs` and `plan` decided 2026-11-07; rest **Proposed** |
 | `VEHICLE_DISPATCHED` | summon: `vehicle_id, option_id, rendezvous`; `TASK_ROVER`: `vehicle_id, task, target`, plus `item` for CARRY | summon: §F.6, fixture `summon-accepted`; rover: decided 2026-11-06 (T20.01) |
 | `VEHICLE_ARRIVED` | `vehicle_id, x_m, y_m` | **Proposed** (Vehicle) |
-| `CREW_SHELTERED` | `crew_id, haven_kind, dose_event_ugy, dose_event_unsheltered_ugy` | dose received vs. unsheltered: 03 §C; names from Crew; `haven_kind` **Proposed** |
+| `CREW_SHELTERED` | `crew_id, haven_kind, dose_event_ugy, dose_event_unsheltered_ugy` | dose received vs. unsheltered: 03 §C; names from Crew; `haven_kind` **Proposed**; `haven_kind "hab"` sets the crew activity to `IN_HAB` only when the crew member was `WALKING` or `AT_STOP` (03 §E.8 "plan complete"); otherwise (`TO_HAVEN`, or any other kind) it sets `SHELTERED` (03 §E.8 "ToHaven → Sheltered") (**Proposed** 2026-11-07, T22.09) |
 | `LINK_LOST`, `LINK_RESTORED` | `node_id` | fixture `link-lost-restored` |
 | `EARTH_MSG_QUEUED` | `message_id, direction, body, sent_utc, deliver_utc, via` | **Proposed** (EarthMessage) |
 | `EARTH_MSG_DELIVERED` | `message_id` | **Proposed** (EarthMessage) |
@@ -822,14 +822,15 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
 {"seq": 420, "sim_time": "2024-05-20T…Z", "kind": "ALERT_RAISED", "actor": "system",
  "data": {"alert_id": "a-420", "code": "RADIATION_ALERT", "level": "warning", "subjects": ["EV1", "EV2"],
           "message": "Radiation surge — shelter now", "rate_ugy_h": null, "threshold_ugy_h": null},
- "provenance": {"data.rate_ugy_h": "replayed", "data.threshold_ugy_h": "assumed"}, "inputs_hash": "…"}
+ "provenance": {"data.rate_ugy_h": "replayed", "data.threshold_ugy_h": "assumed"}, "inputs_hash": "…", "command_ref": null}
 {"seq": 421, "sim_time": "2024-05-20T…Z", "kind": "OPTIONS_PROPOSED", "actor": "system",
  "data": {"alert_id": "a-420", "options": [{"option_id": "o1", "kind": "VEHICLE_RENDEZVOUS", "rank": 1},
                                            {"option_id": "o2", "kind": "ABORT_TO_HAB", "rank": 2}]},
- "provenance": {"data.options[].eta_shelter_min": "modelled"}, "inputs_hash": "…"}
+ "provenance": {"data.options[].eta_shelter_min": "modelled"}, "inputs_hash": "…", "command_ref": null}
 {"seq": 422, "sim_time": "2024-05-20T…Z", "kind": "VEHICLE_DISPATCHED", "actor": "eva:EV1",
  "data": {"vehicle_id": "PR1", "option_id": "o1", "rendezvous": {"x_m": null, "y_m": null, "eta_crew_s": null, "eta_vehicle_s": null}},
- "provenance": {"data.rendezvous": "modelled"}, "inputs_hash": "…"}
+ "provenance": {"data.rendezvous": "modelled"}, "inputs_hash": "…",
+ "command_ref": {"client_id": "c-7f3a", "command_id": "k-0091"}}
 ```
 
 ## Unresolved items owned by this document

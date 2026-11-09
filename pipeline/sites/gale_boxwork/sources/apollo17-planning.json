@@ -1,0 +1,14 @@
+{
+  "source_id": "apollo17-planning",
+  "title": "Apollo 15 EVA Capability And Constraints Envelopes",
+  "publisher": "Bellcomm, Inc.",
+  "authors": "P. Benjamin",
+  "missions": ["Apollo 15"],
+  "instruments": ["TODO(verify)"],
+  "version": "TODO(verify)",
+  "url": "https://www.nasa.gov/wp-content/uploads/static/history/alsj/19790073512_1979073512.pdf",
+  "credit": "P. Benjamin, Bellcomm, Inc.; Memorandum for File B70 10028, 13 October 1970. PDF document courtesy NASA Technical Reports Server.",
+  "licence": "TODO(verify)",
+  "accessed": "2026-11-09",
+  "accuracy_note": "TODO(verify): The required source_id and technical specification name Apollo 17; the cited document identifies Apollo 15."
+}

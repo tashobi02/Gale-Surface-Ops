@@ -8,7 +8,8 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "bench": "vitest bench --run --reporter=verbose"
   },
   "dependencies": {
     "@marswalk/protocol": "0.2.0"

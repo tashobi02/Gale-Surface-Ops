@@ -8,7 +8,7 @@
  * Conventions: `sim_time` is ISO-8601 UTC on the mission clock (never wall-clock); `seq` is the
  * Hab Core's monotonic event number; positions are working-projection metres.
  */
-import type { PlanExport, Provenance } from "./schema";
+import type { Leg, PlanExport, Provenance, Waypoint } from "./schema";
 import type { RejectCode } from "./ws";
 
 /** Provenance map keyed by field path, e.g. {"crew.o2_frac": "simulated"} (02 §E.6). */
@@ -332,10 +332,9 @@ export interface LogEvent {
   /**
    * The command that produced the event, including COMMAND_REJECTED; null for `system` events.
    * Lets the Hab Core rebuild the accepted `command_id`s after a restart (05 Command dedupe rule).
-   * Optional in v0 so producers written before T20.11 still type-check. TODO(decision): make it
-   * required (absent and `null` hash differently in `log_hash`) when T22.07 writes the log.
+   * Required, decided 2026-11-07: an absent field and `null` would hash differently in `log_hash`.
    */
-  command_ref?: CommandRef | null;
+  command_ref: CommandRef | null;
 }
 
 /*
@@ -355,11 +354,25 @@ export interface LogEventData {
     rate_ugy_h?: number | null;
     threshold_ugy_h?: number | null;
     source?: string;
+    /** CONSUMABLES_LOW values (02 §D.14, decided 2026-11-07; 05 Proposed). */
+    o2_remaining_min?: number;
+    /** null when no haven can be reached. */
+    haven_min?: number | null;
+    haven_kind?: Crew["haven"]["kind"];
+    margin?: number;
+    threshold_margin?: number;
+    /** BUDDY_SEPARATION values (05 Proposed). */
+    distance_m?: number;
+    threshold_m?: number;
   };
   ALERT_ACKED: { alert_id: string; acked_by: Role };
   ALERT_CLEARED: { alert_id: string };
   OPTIONS_PROPOSED: { alert_id: string; options: ContingencyOption[] };
-  PLAN_REVISED: { plan_revision: number; option_id: string | null; stops_dropped: number[] };
+  /**
+   * `waypoints` and `legs` are the revised plan's and replace the current ones, so the map shows the
+   * new route (decided 2026-11-07). `plan` is present only when the planner publishes a new plan.
+   */
+  PLAN_REVISED: { plan_revision: number; option_id: string | null; stops_dropped: number[]; waypoints: Waypoint[]; legs: Leg[]; plan?: PlanExport };
   /** Summon: `option_id` + `rendezvous`. Accepted TASK_ROVER: `task` + `target` (+ `item` for CARRY). */
   VEHICLE_DISPATCHED: {
     vehicle_id: string;
