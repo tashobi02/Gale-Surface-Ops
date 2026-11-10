@@ -151,9 +151,14 @@ export function OpsConsole({
       onCommand?.(command);
       return true;
     }
-    const result = await client.send(command);
-    setCommandError(result.ok ? null : `${command.kind} rejected: ${result.message}`);
-    return result.ok;
+    try {
+      const result = await client.send(command);
+      setCommandError(result.ok ? null : `${command.kind} rejected: ${result.message}`);
+      return result.ok;
+    } catch (err) {
+      setCommandError(`${command.kind} failed: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
   };
 
   const rootStyle: CSSProperties = {
@@ -454,6 +459,7 @@ export function OpsConsole({
                 stopId={taskProgress[activeAddCrew as CrewId]!.stop!.stopId!}
                 stopNo={taskProgress[activeAddCrew as CrewId]!.stop!.stopNo}
                 onAdd={(task) => {
+                  // TODO(decision): ADD_STOP_TASK args not defined in 02 §E.4/05 — using TASK_ADDED fields.
                   // 05 TASK_ADDED fields; the Hab Core assigns task_id and origin. Closes only once accepted.
                   void issue({ kind: "ADD_STOP_TASK", args: { ...task } }).then((accepted) => {
                     if (accepted) setActiveAddCrew(null);
@@ -598,7 +604,8 @@ export function OpsConsole({
             <OptionsPanel
               client={client}
               snapshot={snapshot ?? liveState}
-              crewId={crew[0]?.crew_id ?? (snapshot ?? liveState)?.crew[0]?.crew_id ?? null}
+              // Ops is not a crew member, so there is no crew to give (the scr14 EV1 fallback is a TODO(decision) in OptionsPanel).
+              crewId={null}
               onApproveOption={(opt) => onApproveOption?.(opt.option_id)}
             />
           </div>

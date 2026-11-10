@@ -25,6 +25,10 @@ import { HOLD_DURATION_MS } from "../../src/ui/eva/HoldToConfirm";
 import { recordingClient, rejected, storeFromBeat } from "./fixtureStore";
 import { click, flush, installDom, mount, must, pointerDown, pointerUp, removeDom } from "./domHarness";
 
+/*
+ * The imports of Hab Core source above (commands, reducer, scenario) are deliberate: these are contract tests that run
+ * the commands the controls emit through the real server-side handler (02 §E.4), as tests/ui/commandContract.test.ts does.
+ */
 /** The Hab Core's own fake scenario, so emitted commands can be run through the real handler (02 §E.4). */
 const here = dirname(fileURLToPath(import.meta.url));
 const fake = readScenario(join(here, "../../../hab-core/tests/fixtures/fake-scenario"), {
@@ -307,6 +311,19 @@ describe("Alert system (04 §D.2, §E.4)", () => {
     await flush();
     expect(onAcknowledgeAlert).not.toHaveBeenCalled();
     expect(must(container, '[data-slot="command-error"]').textContent).toContain("no active alert a-w");
+  });
+
+  it("ops: a client that throws (socket closed) is reported on the console, not left as an unhandled rejection", async () => {
+    const { client } = recordingClient(storeFromBeat("connect", "ops"), () => {
+      throw new Error("socket closed");
+    });
+    const onAcknowledgeAlert = vi.fn();
+    const { container } = await mount(createElement(OpsConsole, { alerts: [warning()], client, onAcknowledgeAlert }));
+
+    await click(must(container, '.alert-bar [aria-label^="Acknowledge alert"]'));
+    await flush();
+    expect(onAcknowledgeAlert).not.toHaveBeenCalled();
+    expect(must(container, '[data-slot="command-error"]').textContent).toContain("socket closed");
   });
 
   it("contract: the ACK payload is accepted by the real Hab Core handler for ops, and the old sequence-only shape is not", async () => {
@@ -755,15 +772,21 @@ describe("Alert latching: what leaves the bar (04 §D.2, 03 §E.7)", () => {
   const advisory = (over: Partial<Alert> = {}): Alert =>
     warning({ alert_id: "a-a", code: "EARTH_FORECAST", level: "advisory", message: "Forecast received", raised_seq: 4, ...over });
 
-  it("an acknowledged caution leaves the bar, even though its condition has not cleared", async () => {
-    const alone = await mount(createElement(AlertStack, { alerts: [caution({ acked_seq: 10, acked_by: "ops" })] }));
-    expect(alone.container.querySelector(".alert-stack")).toBeNull();
-    await alone.unmount();
+  it("an acknowledged caution that is still active stays on the bar, marked seen; it leaves once cleared too", async () => {
+    // 04 §D.2: acknowledge = silence + mark as seen; it does not clear the condition. Cleared alerts move to the log.
+    const active = await mount(createElement(AlertStack, { alerts: [caution({ acked_seq: 10, acked_by: "ops" })] }));
+    expect(must(active.container, ".alert-bar").textContent).toContain("Comm shadow");
+    expect(must(active.container, ".alert-bar").textContent).toContain("ACK by ops");
+    expect(active.container.querySelector('.alert-bar [aria-label^="Acknowledge alert"]')).toBeNull();
+    await active.unmount();
 
-    const withWarning = await mount(createElement(AlertStack, { alerts: [warning(), caution({ acked_seq: 10, acked_by: "ops" })] }));
+    const cleared = await mount(createElement(AlertStack, { alerts: [caution({ acked_seq: 10, acked_by: "ops", cleared_seq: 11 })] }));
+    expect(cleared.container.querySelector(".alert-stack")).toBeNull();
+    await cleared.unmount();
+
+    const withWarning = await mount(createElement(AlertStack, { alerts: [warning(), caution({ acked_seq: 10, acked_by: "ops", cleared_seq: 11 })] }));
     expect(withWarning.container.querySelectorAll(".alert-item")).toHaveLength(1);
     expect(withWarning.container.textContent).not.toContain("Comm shadow");
-    expect(withWarning.container.textContent).not.toMatch(/\+1/);
   });
 
   it("a caution whose condition cleared stays until it is acknowledged", async () => {
@@ -833,6 +856,9 @@ describe("Ops console controls added in the audit (NFR-04, FR-50)", () => {
     expect(sent).toEqual([{ kind: "ADD_STOP_TASK", args: { crew_id: "EV1", stop_id: "poi-x7", kind: "observe", text: "Photograph the vein" } }]);
     expect(container.querySelector('[data-testid="add-task-popover"]')).toBeNull();
   });
+
+  // TODO(decision): the ADD_STOP_TASK args are not defined in 02 §E.4 / 05; the console sends the TASK_ADDED fields.
+  it.todo("contract: the ADD_STOP_TASK payload is accepted by the real handleAddStopTask for ops (once T31.04 lands)");
 
   it("ops: a rejected ADD_STOP_TASK keeps the popover open and shows the reason", async () => {
     const { client } = recordingClient(storeFromBeat("connect", "ops"), () => rejected("INVALID", "stop is not the current or next one"));

@@ -5,7 +5,7 @@
  * Requirements: FR-31, FR-37, FR-38.
  * Hierarchy: Warning (⬣) > Caution (▲) > Advisory (◆).
  * Warnings latch until acknowledged AND cleared.
- * Cautions latch until acknowledged.
+ * Cautions latch until acknowledged and stay, marked seen, while their condition persists.
  * Highest level wins the single bar slot; counter shows others ([+N]).
  * Tapping counter opens the alert stack list.
  * Each alert provides an accessible ACK button and displays acknowledged state with role.
@@ -50,16 +50,15 @@ const LEVEL_WORDS: Record<AlertLevel, string> = {
 
 /**
  * Whether an alert still belongs on the bar (04 §D.2, 03 §E.7):
- * - warning: latched until acknowledged AND cleared, so it stays while either is missing;
- * - caution: latched until acknowledged, so an acknowledged one leaves even if its condition persists;
+ * - warning and caution: stay while either the acknowledgement or the clearing is missing. Acknowledge = silence +
+ *   mark as seen; it does not clear the condition (04 §D.2). The levels differ in sound/chime, not in visibility;
  * - advisory: does not latch; it leaves once cleared (cleared alerts move to the log).
  */
 export function isOnBar(alert: Alert): boolean {
   switch (alert.level) {
     case "warning":
-      return alert.acked_seq === null || alert.cleared_seq === null;
     case "caution":
-      return alert.acked_seq === null;
+      return alert.acked_seq === null || alert.cleared_seq === null;
     case "advisory":
       return alert.cleared_seq === null;
   }

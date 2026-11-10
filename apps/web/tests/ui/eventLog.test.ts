@@ -126,9 +126,23 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
     expect(provenanceGlyph("something-else")).toBe("—");
     expect(provenanceGlyph("modelled")).toBe("○");
   });
+
+  it("inherited property names are not provenance classes (toString, constructor, __proto__)", async () => {
+    expect(provenanceGlyph("toString")).toBe("—");
+    expect(provenanceGlyph("constructor")).toBe("—");
+    const map = JSON.parse('{"a":"toString","b":"__proto__","c":"constructor"}') as Record<string, never>;
+    const { container } = await mount(createElement(EventLog, { events: [ev(1, "EVA_STARTED", { crew_ids: ["EV1"] }, map)] }));
+    expect(rows(container)[0].querySelector("[data-provenance]")).toBeNull();
+    expect(must(rows(container)[0], "[data-unavailable]").textContent).toBe("—");
+  });
 });
 
 describe("EventLog severity is shape + word, not colour alone (04 §A.3)", () => {
+  it("an advisory alert row carries ◆ ADVISORY (04 §D.2)", async () => {
+    const { container } = await mount(createElement(EventLog, { events: [ev(1, "ALERT_RAISED", { message: "Forecast received", level: "advisory" })] }));
+    expect(rows(container)[0].textContent).toMatch(/◆\s*ADVISORY/);
+  });
+
   it("a warning alert row carries ⬣ WARNING, a caution row ▲ CAUTION; other rows carry neither", async () => {
     const { container } = await mount(
       createElement(EventLog, {

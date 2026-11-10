@@ -165,7 +165,7 @@ export function summarizeEvent(event: LogEvent): string {
 
 /** Glyph for a provenance class (04 §C.1); "—" for a class that is not known (never another class's glyph). */
 export function provenanceGlyph(prov?: Provenance | string): string {
-  return prov !== undefined && prov in PROVENANCE_GLYPHS ? PROVENANCE_GLYPHS[prov as Provenance] : UNAVAILABLE;
+  return prov !== undefined && Object.hasOwn(PROVENANCE_GLYPHS, prov) ? PROVENANCE_GLYPHS[prov as Provenance] : UNAVAILABLE;
 }
 
 /** Severity shape + word for an alert row (04 §A.3 #2); only ALERT_RAISED carries a level. */
@@ -174,6 +174,7 @@ function severityOf(ev: LogEvent): { shape: string; word: string } | null {
   const level = (ev.data as { level?: string } | undefined)?.level;
   if (level === "warning") return { shape: "⬣", word: "WARNING" };
   if (level === "caution") return { shape: "▲", word: "CAUTION" };
+  if (level === "advisory") return { shape: "◆", word: "ADVISORY" };
   return null;
 }
 
@@ -181,7 +182,7 @@ function severityOf(ev: LogEvent): { shape: string; word: string } | null {
 function provenanceClasses(ev: LogEvent): { prov: Provenance; fields: string[] }[] {
   const byClass = new Map<Provenance, string[]>();
   for (const [path, prov] of Object.entries(ev.provenance ?? {})) {
-    if (!(prov in PROVENANCE_GLYPHS)) continue;
+    if (typeof prov !== "string" || !Object.hasOwn(PROVENANCE_GLYPHS, prov)) continue;
     byClass.set(prov, [...(byClass.get(prov) ?? []), path]);
   }
   return [...byClass].map(([prov, fields]) => ({ prov, fields }));
