@@ -7,9 +7,14 @@
  * Not claimed here: the 3-column layout at >= 1280 px (pixel geometry) and session/store wiring (T25.01 follow-up).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { act, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { Alert, ContingencyOption, Crew, Snapshot, Vehicle } from "@marswalk/protocol";
+import type { Alert, Command, ContingencyOption, Crew, LogEvent, LogEventData, LogEventKind, Role, Snapshot, Vehicle } from "@marswalk/protocol";
+import { AcceptedCommands, handleCommand } from "../../../hab-core/src/commands";
+import { initialState, reduce, type EngineState } from "../../../hab-core/src/engine/reducer";
+import { readScenario } from "../../../hab-core/src/scenario";
 import { OpsConsole } from "../../src/ui/screens/scr11OpsConsole";
 import { Join } from "../../src/ui/screens/scr10Join";
 import { ClockControl } from "../../src/ui/ops/ClockControl";
@@ -18,6 +23,26 @@ import { ConditionsPanel } from "../../src/ui/ops/ConditionsPanel";
 import { HOLD_DURATION_MS } from "../../src/ui/eva/HoldToConfirm";
 import { recordingClient, rejected, storeFromBeat } from "./fixtureStore";
 import { click, flush, installDom, mount, must, pointerDown, pointerUp, removeDom } from "./domHarness";
+
+/** The Hab Core's own fake scenario, so emitted commands can be run through the real handler (02 §E.4). */
+const here = dirname(fileURLToPath(import.meta.url));
+const fake = readScenario(join(here, "../../../hab-core/tests/fixtures/fake-scenario"), {
+  site_id: "mock_site",
+  data_version: "mock_site-fixture",
+  dir: null,
+});
+
+function applyEvent(state: EngineState, kind: LogEventKind, data: LogEventData[LogEventKind], actor: Role | "system" = "system"): EngineState {
+  const event: LogEvent = { seq: state.session.last_seq + 1, sim_time: fake.scenario.start_utc, kind, actor, data: data as Record<string, unknown>, provenance: {}, command_ref: null };
+  return reduce(state, event);
+}
+
+let commandCounter = 0;
+/** What the real Hab Core command handler answers to one command a control sent, as `role`. */
+function serverAnswer(state: EngineState, role: Role, sent: { kind: string; args: Record<string, unknown> }) {
+  const command = { command_id: `k-${++commandCounter}`, role, kind: sent.kind, args: sent.args } as Command;
+  return handleCommand(state, command, { scenario: fake, client_id: "c-1", next_seq: state.session.last_seq + 1, accepted: new AcceptedCommands() });
+}
 
 const PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
 
@@ -222,24 +247,68 @@ describe("Alert system (04 §D.2, §E.4)", () => {
     expect(items[1].textContent).toContain("CAUTION");
   });
 
-  it("ACK calls onAcknowledge with the alert and its sequence, once; an acknowledged alert has no ACK button", async () => {
+  it("ACK calls onAcknowledge with the alert id only (no sequence number), once; an acknowledged alert has no ACK button", async () => {
     const onAcknowledge = vi.fn();
     const { container } = await mount(createElement(AlertStack, { alerts: [warning()], onAcknowledge }));
 
     await click(must(container, '[aria-label^="Acknowledge alert: Shelter now"]'));
-    expect(onAcknowledge.mock.calls).toEqual([["a-w", 7]]);
+    expect(onAcknowledge.mock.calls).toEqual([["a-w"]]);
 
     const acked = await mount(createElement(AlertStack, { alerts: [warning({ acked_seq: 8, acked_by: "ops" })] }));
     expect(acked.container.querySelector('[aria-label^="Acknowledge alert:"]')).toBeNull();
     expect(acked.container.textContent).toContain("ACK by ops");
   });
 
-  it("OpsConsole forwards ACK as the alert's sequence number", async () => {
+  it("ops: ACK button sends ACK_ALERT with alert_id", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
     const onAcknowledgeAlert = vi.fn();
-    const { container } = await mount(createElement(OpsConsole, { alerts: [warning()], onAcknowledgeAlert }));
+    const { container } = await mount(createElement(OpsConsole, { alerts: [warning()], client, onAcknowledgeAlert }));
 
     await click(must(container, '.alert-bar [aria-label^="Acknowledge alert"]'));
-    expect(onAcknowledgeAlert.mock.calls).toEqual([[7]]);
+    await flush();
+    expect(sent).toEqual([{ kind: "ACK_ALERT", args: { alert_id: "a-w" } }]);
+    // The caller is told once the Hab Core accepted it, with the id (not the raised sequence 7).
+    expect(onAcknowledgeAlert.mock.calls).toEqual([["a-w"]]);
+  });
+
+  it("ops: the ACK in the expanded queue acknowledges that alert, not the bar's", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const caution = warning({ alert_id: "a-c", level: "caution", code: "COMM_SHADOW", message: "Comm shadow", raised_seq: 9 });
+    const { container } = await mount(createElement(OpsConsole, { alerts: [warning(), caution], client }));
+
+    const items = [...container.querySelectorAll(".alert-item")];
+    await click(must(items[1], '[aria-label^="Acknowledge alert"]'));
+    await flush();
+    expect(sent).toEqual([{ kind: "ACK_ALERT", args: { alert_id: "a-c" } }]);
+  });
+
+  it("ops: a rejected ACK is shown and not reported as acknowledged", async () => {
+    const { client } = recordingClient(storeFromBeat("connect", "ops"), () => rejected("INVALID", "no active alert a-w"));
+    const onAcknowledgeAlert = vi.fn();
+    const { container } = await mount(createElement(OpsConsole, { alerts: [warning()], client, onAcknowledgeAlert }));
+
+    await click(must(container, '.alert-bar [aria-label^="Acknowledge alert"]'));
+    await flush();
+    expect(onAcknowledgeAlert).not.toHaveBeenCalled();
+    expect(must(container, '[data-slot="command-error"]').textContent).toContain("no active alert a-w");
+  });
+
+  it("contract: the ACK payload is accepted by the real Hab Core handler for ops, and the old sequence-only shape is not", async () => {
+    const running = applyEvent(initialState(fake, "s-0001"), "EVA_STARTED", { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, "ops");
+    const raised = applyEvent(running, "ALERT_RAISED", { alert_id: "a-2", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1", "EV2"], message: "Radiation surge — shelter now" });
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const { container } = await mount(createElement(OpsConsole, { alerts: raised.alerts, client }));
+
+    await click(must(container, '.alert-bar [aria-label^="Acknowledge alert"]'));
+    await flush();
+    expect(sent).toHaveLength(1);
+    const answer = serverAnswer(raised, "ops", sent[0]);
+    expect(answer.result.ok).toBe(true);
+    expect(answer.events.map((e) => e.kind)).toEqual(["ALERT_ACKED"]);
+    expect(answer.events[0].data).toMatchObject({ alert_id: "a-2", acked_by: "ops" });
+
+    const legacy = serverAnswer(raised, "ops", { kind: "ACK_ALERT", args: { seq: raised.alerts[0].raised_seq } });
+    expect(legacy.result.ok).toBe(false);
   });
 });
 

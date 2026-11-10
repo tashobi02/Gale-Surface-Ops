@@ -19,7 +19,7 @@ import {
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { Crew, CrewId, Vehicle, Alert, Snapshot } from "@marswalk/protocol";
+import type { Crew, CrewId, Vehicle, Alert, Snapshot, Command } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 import { AlertStack } from "../ops/AlertStack";
 import { OptionsPanel } from "../ops/OptionsPanel";
@@ -72,7 +72,10 @@ export interface OpsConsoleProps {
   snapshot?: Snapshot | null;
   /** Event log lines; none means the footer reads "—". */
   logLines?: OpsLogLine[];
-  onAcknowledgeAlert?: (alertSeq: number) => void;
+  /** Called with the alert's id once the Hab Core accepted ACK_ALERT (or at once when no client is given). */
+  onAcknowledgeAlert?: (alertId: string) => void;
+  /** Receives every command the console issues when no `client` is given (with a client the console sends them). */
+  onCommand?: (command: Pick<Command, "kind" | "args">) => void;
   onApproveOption?: (optionId: string) => void;
   onClockCommand?: (cmd: "PAUSE" | "RESUME" | "SET_SPEED" | "STEP", speed?: number) => void;
   className?: string;
@@ -123,6 +126,7 @@ export function OpsConsole({
   onAcknowledgeAlert,
   onApproveOption,
   onClockCommand,
+  onCommand,
   className = "",
 }: OpsConsoleProps): ReactElement {
   const [activeSpeed, setActiveSpeed] = useState<number>(clockSpeed);
@@ -130,8 +134,23 @@ export function OpsConsole({
   const [optionApproved, setOptionApproved] = useState<boolean>(false);
   const [activeAddCrew, setActiveAddCrew] = useState<string | null>(null);
   // TODO(decision): remove the superseded SCR-11 hold-timer state when its session command integration is reconciled.
+  const [commandError, setCommandError] = useState<string | null>(null);
   const [pressProgress, setPressProgress] = useState<number>(0);
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  /**
+   * Sends one command to the Hab Core (02 §E.4). Without a client the command goes to `onCommand` and counts as
+   * issued. Returns true when it was accepted; a rejection is shown, not swallowed.
+   */
+  const issue = async (command: Pick<Command, "kind" | "args">): Promise<boolean> => {
+    if (!client) {
+      onCommand?.(command);
+      return true;
+    }
+    const result = await client.send(command);
+    setCommandError(result.ok ? null : `${command.kind} rejected: ${result.message}`);
+    return result.ok;
+  };
 
   const highestAlert = alerts.find((a) => a.level === "warning") ??
     alerts.find((a) => a.level === "caution") ??
@@ -323,8 +342,28 @@ export function OpsConsole({
       {/* ------------------------------------- Alert Slot / Bar (04 §D.2, §E.4) */}
       <AlertStack
         alerts={alerts}
-        onAcknowledge={(_id, seq) => onAcknowledgeAlert?.(seq)}
+        onAcknowledge={(alertId) => {
+          void issue({ kind: "ACK_ALERT", args: { alert_id: alertId } }).then((accepted) => {
+            if (accepted) onAcknowledgeAlert?.(alertId);
+          });
+        }}
       />
+      {commandError && (
+        <div
+          role="status"
+          data-slot="command-error"
+          style={{
+            padding: "6px 16px",
+            fontFamily: "var(--font-mono, monospace)",
+            fontSize: "12px",
+            color: "var(--text-1, #ECEFF2)",
+            backgroundColor: "var(--raised, #1C2128)",
+            borderBottom: "1px solid var(--hairline, #2A313A)",
+          }}
+        >
+          {commandError}
+        </div>
+      )}
 
       {/* ---------------------------------------------------- Main Body Grid */}
       <main style={bodyGridStyle}>

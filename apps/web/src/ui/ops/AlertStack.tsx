@@ -24,7 +24,8 @@ import type { Alert, AlertLevel, Role } from "@marswalk/protocol";
 export interface AlertStackProps {
   alerts: Alert[];
   activeRole?: Role;
-  onAcknowledge?: (alertId: string, alertSeq: number) => void;
+  /** ACK_ALERT is addressed by `alert_id` (02 §E.4); the raised sequence is not part of the command. */
+  onAcknowledge?: (alertId: string) => void;
   className?: string;
 }
 
@@ -193,7 +194,7 @@ export function AlertStack({
           {primary.acked_seq === null ? (
             <button
               style={buttonStyle}
-              onClick={() => onAcknowledge?.(primary.alert_id, primary.raised_seq)}
+              onClick={() => onAcknowledge?.(primary.alert_id)}
               aria-label={`Acknowledge alert: ${primary.message}`}
             >
               ACK
@@ -273,7 +274,7 @@ export function AlertStack({
                 {!isAcked ? (
                   <button
                     style={buttonStyle}
-                    onClick={() => onAcknowledge?.(alert.alert_id, alert.raised_seq)}
+                    onClick={() => onAcknowledge?.(alert.alert_id)}
                     aria-label={`Acknowledge alert ${alert.message}`}
                   >
                     ACK
