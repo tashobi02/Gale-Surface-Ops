@@ -20,7 +20,7 @@
  * ignored); reconnect with backoff 0.5 s → 1 s cap (NFR-13), reset after a successful open. On
  * reconnect the server sends a fresh SNAPSHOT, then the EVENTs after `last_seq` (SNAPSHOT only if
  * the gap is > 1,000; decision of 2026-11-07, 02 §E.6): the SNAPSHOT replaces `state()` and keeps
- * `events()`; replayed EVENTs at or below the SNAPSHOT's seq join `events()` (sorted, no duplicates)
+ * `events()` (unless its `session.session_id` differs from the previous one: a new session clears `events()`); replayed EVENTs at or below the SNAPSHOT's seq join `events()` (sorted, no duplicates)
  * without changing `state()` or `lastSeq()`. A command sent
  * while the socket is down, or rejected NO_LINK, stays queued and is resent once with
  * `queued_offline: true` (on reconnect, or on LINK_STATE linked=true for this suit). No hard-coded
@@ -201,7 +201,10 @@ export function connectHab(options: HabClientOptions): HabClient {
   function apply(msg: ServerMessage): void {
     switch (msg.type) {
       case "SNAPSHOT":
-        snapshot = msg; // the event feed is kept: the replay after it fills any gap (T20.13)
+        // The event feed is kept across a reconnect (the replay after it fills any gap, T20.13), but a SNAPSHOT of another
+        // session (LOAD_SCENARIO) restarts seq: the old feed goes, or its seq numbers would hide the new session's events.
+        if (snapshot && snapshot.session.session_id !== msg.session.session_id) events = [];
+        snapshot = msg;
         seq = msg.seq;
         break;
       case "STATE_DELTA": {

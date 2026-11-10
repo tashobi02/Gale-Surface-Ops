@@ -175,6 +175,47 @@ describe("Hab Core web client (T20.05 → T20.06)", () => {
     expect(c.state()?.seq).toBe(430);
   });
 
+  it("clears the event feed when a SNAPSHOT of another session arrives: seq restarts, and the new events are not mistaken for old ones", () => {
+    const c = start();
+    latest().open();
+    latest().receive(snapshot, wsFixtures["radiation-alert"][0]); // session s-0007, event 420
+    expect(c.events().map((e) => e.seq)).toEqual([420]);
+
+    const fresh: Snapshot = { ...snapshot, seq: 1, session: { ...snapshot.session, session_id: "s-0008", last_seq: 1 } };
+    latest().receive(fresh);
+    expect(c.events()).toEqual([]);
+    expect(c.lastSeq()).toBe(1);
+    expect(c.state()?.session.session_id).toBe("s-0008");
+
+    // The new session numbers its events from 1 again: 420 was in the old feed, 2 never was; both must be taken.
+    const alert = wsFixtures["radiation-alert"][0] as Extract<ServerMessage, { type: "EVENT" }>;
+    const at = (n: number): ServerMessage => ({ ...alert, seq: n, event: { ...alert.event, seq: n } });
+    latest().receive(at(2), at(420));
+    expect(c.events().map((e) => e.seq)).toEqual([2, 420]);
+  });
+
+  it("a SNAPSHOT of the same session on reconnect keeps the feed (only a different session_id resets it)", () => {
+    const c = start();
+    latest().open();
+    latest().receive(snapshot, wsFixtures["radiation-alert"][0]);
+    latest().receive({ ...snapshot, seq: 500 });
+    expect(c.events().map((e) => e.seq)).toEqual([420]);
+  });
+
+  it("applies the STATE_DELTAs the Hab Core sends for commands: acked alert, task state, a whole new alert list (02 §E.6)", () => {
+    const c = start();
+    latest().open();
+    const alert = { alert_id: "a-420", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"], raised_seq: 420, acked_seq: null, cleared_seq: null, acked_by: null, message: "m", data: {} } as Snapshot["alerts"][number];
+    latest().receive({ ...snapshot, alerts: [alert] });
+    latest().receive({ v: 1, type: "STATE_DELTA", seq: 413, sim_time: "", changes: [{ path: "alerts/a-420/acked_seq", value: 413 }, { path: "tasks/t-s2-02/state", value: "DONE" }] });
+    expect(c.state()?.alerts[0].acked_seq).toBe(413);
+    expect(c.state()?.tasks[0].state).toBe("DONE");
+
+    latest().receive({ v: 1, type: "STATE_DELTA", seq: 414, sim_time: "", changes: [{ path: "alerts", value: [] }, { path: "session/status", value: "PAUSED" }] });
+    expect(c.state()?.alerts).toEqual([]);
+    expect(c.state()?.session.status).toBe("PAUSED");
+  });
+
   it("adds replayed EVENTs at or below the SNAPSHOT seq to the feed, deduped by seq, without changing state (T20.13)", () => {
     const c = start();
     latest().open();
