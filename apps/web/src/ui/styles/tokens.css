@@ -133,7 +133,7 @@
   --meta-strip-height: 24px;
   --alert-bar-height: 64px;
   /* Narrow-viewport results panel height 1024–1279 px (04 §F Responsive) */
-  --results-height-narrow: 180px;  /* 04 §F */
+  --results-height-narrow: 180px;  /* TODO(verify): cites 04 §F, but 04 has no explicit 180px value */
   /* Selection outline width (04 §C.5; not a colour — route colour used) */
   --selection-width: 2px;          /* 04 §C.5 */
 
@@ -195,7 +195,8 @@
   --status-advisory: var(--hud-advisory);
   --status-unknown: var(--hud-text-2);
   --focus-ring: none;
-  /* HUD typography & sizing tokens (04 §C.1, 04 §E.6, NFR-04) */
+  --control-edge: #333333;
+  /* Proposed HUD tokens (not explicitly named in 04 §C.1; 04 §E.6, NFR-04) */
   --font-hud: var(--font-mono);
   --text-hud-min: 48px;
   --text-hud-max: 72px;
@@ -206,8 +207,10 @@
 [data-mode="print"] {
   --surface-0: #FFFFFF;
   --surface-1: #FFFFFF;
+  /* TODO(decision): print hex values #F3F4F6, #D1D5DB, #4B5563 are not defined in 04 §C.1 */
   --surface-2: #F3F4F6;
   --line: #D1D5DB;
+  --control-edge: #D1D5DB;
   --fg-1: var(--print-text);
   --fg-2: var(--print-text);
   --fg-3: #4B5563;
@@ -332,8 +335,10 @@ a { text-decoration: underline; text-underline-offset: 2px; }
   [data-mode] {
     --surface-0: #FFFFFF;
     --surface-1: #FFFFFF;
+    /* TODO(decision): print hex values #F3F4F6, #D1D5DB, #4B5563 are not defined in 04 §C.1 */
     --surface-2: #F3F4F6;
     --line: #D1D5DB;
+    --control-edge: #D1D5DB;
     --fg-1: var(--print-text);
     --fg-2: var(--print-text);
     --fg-3: #4B5563;
@@ -348,8 +353,4 @@ a { text-decoration: underline; text-underline-offset: 2px; }
 
 @media (min-width: 768px) {
   :root { --text-value-landscape: 48px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
 }

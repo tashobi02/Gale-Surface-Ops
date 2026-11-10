@@ -19,7 +19,7 @@
   src: url("/fonts/inter/Inter-Regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block; /* 04 § Fonts: block on OPS and HUD prevents FOIT/FOUT */
 }
 
 @font-face {
@@ -27,7 +27,7 @@
   src: url("/fonts/inter/Inter-Medium.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
@@ -35,7 +35,7 @@
   src: url("/fonts/inter/Inter-SemiBold.woff2") format("woff2");
   font-weight: 600;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
@@ -43,7 +43,7 @@
   src: url("/fonts/ibm-plex-mono/IBMPlexMono-Medium.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 /* -------------------------------------------------------- 2. Element defaults
@@ -115,9 +115,8 @@ small,
  */
 
 :focus-visible {
-  outline: 2px solid #FFFFFF !important;
-  outline-offset: 2px !important;
-  box-shadow: var(--focus-ring, 0 0 0 2px var(--surface-0), 0 0 0 4px #FFFFFF);
+  outline: 2px solid var(--fg-1, #ECEFF2);
+  outline-offset: 2px;
 }
 
 /* --------------------------------------------------------- 4. Reduced motion
@@ -145,9 +144,9 @@ small,
  */
 
 button,
-input,
 select,
 textarea,
+input:not([type="checkbox"]):not([type="radio"]),
 .btn {
   min-height: var(--target-mouse, 32px);
   min-width: var(--target-mouse, 32px);
@@ -159,16 +158,11 @@ textarea,
   color: inherit;
 }
 
-button:active,
-.btn:active {
-  filter: invert(1);
-}
-
 @media (pointer: coarse) {
   button,
-  input,
   select,
   textarea,
+  input:not([type="checkbox"]):not([type="radio"]),
   .btn {
     min-height: var(--target-touch, 44px);
     min-width: var(--target-touch, 44px);
@@ -177,9 +171,9 @@ button:active,
 
 /* EVA mode targets ≥ 56 px (04 §A.3.4, §C.3) */
 [data-surface="eva"] button,
-[data-surface="eva"] input,
 [data-surface="eva"] select,
 [data-surface="eva"] textarea,
+[data-surface="eva"] input:not([type="checkbox"]):not([type="radio"]),
 [data-surface="eva"] .btn,
 .eva-target {
   min-height: var(--target-eva, 56px);

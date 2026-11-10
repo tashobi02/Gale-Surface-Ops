@@ -40,7 +40,20 @@ No external icon font or CDN is used.
 | Diamond | `diamond.svg` | Unknown status shape (04 §C.1) |
 | Circle Help | `circle-help.svg` | Unknown status / help indicator |
 
+## Styling and Consumer Overrides (04 §C.4)
+
+Upstream Lucide SVGs default to `stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`.
+However, [04 §C.4](../../../../docs/specs/04_Design_Brief.md#c4-iconography) specifies a 1.5 px stroke with squared/miter caps:
+
+- `stroke-width: 1.5;`
+- `stroke-linecap: square;`
+- `stroke-linejoin: miter;`
+
+Consumers embedding these SVGs inline should apply these CSS overrides (or use the design system utility classes) to conform strictly to 04 §C.4.
+
 ## Licence and Attribution (T16.05)
+
+> Note for 04 spec owner: 04 §C.4 states Lucide is "MIT", but upstream Lucide is licensed under the ISC License with portions derived from Feather Icons under MIT. (Do not edit 04 directly; recorded here for clarification).
 
 Lucide Icons are licensed under the ISC License:
 Copyright (c) 2026 Lucide Icons and Contributors.
