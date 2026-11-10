@@ -68,6 +68,7 @@
 - **Verify:** `npx --no-install markdownlint-cli2 docs/contracts/tile-grid.md` and `python3 scripts/check_links.py docs/contracts`; the reviewer ticks each field against 05 §C Layer and 05 §F.1.
 - **Agent brief:** Write `docs/contracts/tile-grid.md`, contract C9 v1, from 05 §C Layer, 05 §F.1, 02 §B, 02 §E.1 and 04 §C.1. Cover fields, addressing, per-layer pixel encoding, no-data and the ImageStatic form. Quote every value from a spec; leave the x/y direction `TODO(verify)` and the slope encoding `TODO(decision)`. Touch no other file.
 - **Conflict notes:** Contract C9: after merge, changes go only through an appended `T02.nn — contract-change:` subtask (map §d), never concurrently. It freezes at the end of M1 (10 Nov). T03.02, T03.12 and T07.07 rebase after any change.
+- **Bundle v1 decision:** Obidit Islam (data lead), 2026-11-10: v1 ships ortho and hillshade only as raster tile layers. Elevation, thermal-inertia, hazard and comm display layers are deferred to a later `data_version` (v1.1) until Saba Atharique sets their ramps or encodings per 04; status colours are never data ramps. Excluding slope display tiles is an inference from that scope, `TODO(decision)` for the data lead to confirm; routing-grid slope data remains. The outstanding C9 encoding and verification questions are not resolved by this scope decision.
 
 ### T02.02 — Implement the Mars projection module with a web CRS-guard test
 

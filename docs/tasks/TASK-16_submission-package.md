@@ -69,6 +69,7 @@ No contract (§d) or fixture (§e) is consumed.
 - **Verify:** `make lint docs-check`; manual: ADR-008's header rows match ADR-001's (Owner, Date, Status, Related).
 - **Agent brief:** Human task: the team chooses the product name (D-08, 01 §F.4). An agent may search public repositories for each shortlisted name, report hits with links, and draft `docs/decisions/ADR-008-product-name.md` in the existing ADR format for the team to approve.
 - **Conflict notes:** New file, single owner. This subtask renames nothing: files that carry the working title belong to other owners (Spec question 6). Land it in M2 so T16.03, T07.03 and T07.05 can use the final name.
+- **Name search (2026-11-10):** GitHub repository search found the name "Marswalk" in at least five public 2026 repositories: `samam7md28-source/marswalk-hud` (created 2026-11-05; "for the 2026 NASA Space Apps Challenge"), `AntrikshH90/marswalk-nasa` (2026-09-22; "NASA Space Apps Challenge 2026"), `Ahmed9030/MarswalkMissionPlannerPrototype` (2026-10-07), `gausele/marswalk` (2026-11-07; "nasa space apps"), and `ChiefAbrar/Marswalk` (2026-10-12). The working title therefore clashes with D-08's rule to avoid names used by other public 2026 repositories. The same search found zero repository hits for "Galewalk", "Gale Surface Ops", "Habline" and "Sharpwalk". Search command for each name: `gh search repos "<name>" --limit 20 --json fullName,createdAt`. Obidit Islam deferred the name decision to a team meeting; the final choice remains `TODO(decision)`.
 
 ### T16.02 — spec-change: sync spec status rows and the docs index with the M0–M1 outcomes
 
@@ -232,6 +233,7 @@ No contract (§d) or fixture (§e) is consumed.
 - **Verify:** Manual: private-window check of the repository link; `make lint docs-check`.
 - **Agent brief:** Human task with two jobs. (1) Implement the release-asset route from `docs/ops/feasibility.md`: an agent may draft in `docs/ops/hosting.md` how a reader obtains the bundle from the release (download, verify the SHA-256, extract), checked against NFR-09 and `CLAUDE.md` §2; a fetch script is a new integration subtask (step 5), not written here. (2) The team decides what the public link shows and makes the repository public.
 - **Conflict notes:** Do not edit `docs/ops/feasibility.md` (T01.05), `.gitignore` (append-only), `.github/` (T14.02) or `README.md` (T16.03, which reads this file). The decision lands in M2; T16.06 repeats the private-window check at M6. Making the repository public is outward-facing: confirm with the team first.
+- **Update 2026-11-10:** Obidit Islam deferred both what the public link shows and whether the repository is made public to a team meeting; both remain `TODO(decision)`.
 
 ## Internal dependency graph
 
