@@ -1,0 +1,28 @@
+{
+  "layer_id": "pois",
+  "title": "Points of interest",
+  "category": "mission",
+  "kind": "vector",
+  "provenance": "assumed",
+  "source_ids": [
+    "pds-msl-places-localizations",
+    "nasa-msl-blog-sols-4620-4621",
+    "nasa-msl-blog-sols-4649-4654",
+    "nasa-msl-blog-sols-4675-4681",
+    "nasa-msl-blog-sols-4695-4701",
+    "nasa-msl-blog-sols-4709-4715",
+    "nasa-msl-blog-sols-4716-4722",
+    "nasa-msl-blog-sols-4845-4851",
+    "nasa-msl-boxwork-article-2025-06",
+    "pds-msl-places-sis-1-3"
+  ],
+  "legend": {
+    "type": "none"
+  },
+  "native_resolution_m": 0,
+  "display_resolution_m": 0,
+  "asset_id": "vec-pois",
+  "default_visible": true,
+  "optional": false,
+  "limitations": "Proposed 2026-11-09: five POIs curated by an agent from NASA Curiosity mission blog posts for the story lead's review. Positions are the rover's PDS PLACES localized_interp.csv position at the sol of the cited image (a localized solution also present in localized_pos.csv), not surveyed positions of the features. position_uncertainty_m is 0.5, the PLACES SIS 1.3 Rev-A §4.4.1.2 expected accuracy of localized rover positions against the HiRISE base map; it excludes the offset between the rover and the imaged feature. Stop types and ez_theme labels are team framing (assumed); the resource framing of the sulfate contact has no NASA water-yield figure behind it. Image files are saved by hand and not committed. Vector resolution values of 0 mean not applicable under C5."
+}
