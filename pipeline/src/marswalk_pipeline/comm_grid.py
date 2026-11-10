@@ -172,8 +172,14 @@ def build_comm_hab(
     )
 
 
-def write_comm_hab(out_dir: Path, visibility: np.ndarray) -> None:
-    """Write grid/comm_hab.u8: raw row-major, north-up uint8 (02 §L11, 05 RoutingGrid)."""
+def write_comm_hab(out_dir: Path, visibility: np.ndarray, file_name: str = "comm_hab.u8") -> None:
+    """Write grid/<file_name>: raw row-major, north-up uint8 (02 §L11, 05 RoutingGrid).
+
+    `file_name` is the name of the file inside `out_dir/grid/`. The default keeps writing
+    `grid/comm_hab.u8`, so every existing caller and the `grid-comm-hab` asset id are
+    unchanged. A hab candidate other than the rank-1 one writes its own file under its own
+    name (T03.31 step 4, C5 v2 candidate asset ids).
+    """
     vis = np.asarray(visibility)
     if vis.ndim != 2:
         raise ValueError(f"visibility must be a 2-D array, got shape {vis.shape}")
@@ -181,4 +187,4 @@ def write_comm_hab(out_dir: Path, visibility: np.ndarray) -> None:
         raise ValueError(f"visibility must be uint8, got {vis.dtype}")
     grid_dir = Path(out_dir) / "grid"
     grid_dir.mkdir(parents=True, exist_ok=True)
-    (grid_dir / "comm_hab.u8").write_bytes(np.ascontiguousarray(vis).tobytes())
+    (grid_dir / file_name).write_bytes(np.ascontiguousarray(vis).tobytes())
