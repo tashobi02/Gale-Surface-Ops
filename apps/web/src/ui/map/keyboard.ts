@@ -59,7 +59,7 @@ export function isEditableElement(target: EventTarget | null): boolean {
   if (tag === "textarea" || tag === "select") {
     return true;
   }
-  return target.isContentEditable;
+  return Boolean(target.isContentEditable);
 }
 
 /** Default hash navigation matching 03 §A routes. */
@@ -110,12 +110,14 @@ export function attachKeyboardControls(options: KeyboardControlsOptions = {}): (
     const animate = !reducedMotion;
 
     // 2. Map panning & zooming (04 §E)
-    // Map receives arrow keys and +/−. We check if map container or its elements have focus,
-    // or if the map element is specified.
+    // Arrow keys and +/− must only pan/zoom when the map element actually has focus
+    // (never hijack page-wide when no target element is set).
     const mapElement = mapHandle?.getTargetElement?.();
-    const mapHasFocus = !mapElement ||
-      mapElement === document.activeElement ||
-      mapElement.contains(document.activeElement);
+    const mapHasFocus = Boolean(
+      mapElement &&
+        (mapElement === document.activeElement ||
+          (typeof mapElement.contains === "function" && mapElement.contains(document.activeElement))),
+    );
 
     if (mapHandle && mapHasFocus) {
       switch (key) {
