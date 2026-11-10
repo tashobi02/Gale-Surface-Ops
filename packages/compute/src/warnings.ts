@@ -2,8 +2,16 @@
  * Hazard and constraint warnings (docs/specs/01 FR-10; 05 §C Warning; 02 §E.2 PARTIAL rule).
  * Implemented by TASK-05 (T05.24).
  */
-import type { Leg, MissionScenario, PlanResult, Warning } from "@marswalk/protocol";
+import type { Leg, MissionScenario, PlanResult, Warning, Waypoint } from "@marswalk/protocol";
 import type { LoadedGrid } from "./grid";
+
+/**
+ * Count the number of stops (waypoints with role "stop") in a plan.
+ * Used identically for dwell calculation in totals and in warnings.
+ */
+export function countStops(waypoints: Waypoint[]): number {
+  return waypoints.filter((wp) => wp.role === "stop").length;
+}
 
 /**
  * Collect slope, LOW_TI / TI_UNKNOWN, LOW_RES_DEM, NO_ROUTE, EVA duration, walkback and
@@ -16,9 +24,10 @@ import type { LoadedGrid } from "./grid";
 export function collectWarnings(
   legs: Leg[],
   scenario: MissionScenario,
-  timeline: PlanResult["stops_timeline"],
+  timeline: PlanResult["stops_timeline"] | undefined,
   maxWalkbackKm: number,
   grid?: LoadedGrid,
+  waypoints?: Waypoint[],
 ): Warning[] {
   const warnings: Warning[] = [];
 
@@ -126,7 +135,13 @@ export function collectWarnings(
       totalWalkMin += leg.walk_time_min;
     }
   }
-  const stopCount = timeline && timeline.length > 0 ? Math.max(0, timeline.length - 2) : Math.max(0, legs.length - 1);
+  // Count stops: prefer waypoints with role "stop" (same as totals).
+  // If waypoints not provided, count from timeline entries excluding the start waypoint.
+  const stopCount = waypoints
+    ? countStops(waypoints)
+    : timeline && timeline.length > 1
+      ? timeline.length - 1
+      : Math.max(0, legs.length);
   const dwellMin = stopCount * (scenario.dwell_min_per_stop ?? 0);
   const totalEvaH = (totalWalkMin + dwellMin) / 60;
   if (totalEvaH > scenario.max_eva_duration_h) {
@@ -141,9 +156,17 @@ export function collectWarnings(
   }
 
   // 3. Darkness check
-  const hasDarkness = timeline && timeline.some(
-    (t) => (t as any).sun_elevation_deg !== undefined && (t as any).sun_elevation_deg < 0,
-  );
+  // TODO(TASK-06): Evaluate DARKNESS when sun elevation is available from C8 conditions (Mars24 / sun position).
+  // When no solar elevation data is present on timeline stops, the check is skipped.
+  const hasDarkness =
+    timeline !== undefined &&
+    timeline.length > 0 &&
+    timeline.some(
+      (t) =>
+        typeof t.sun_elevation_deg === "number" &&
+        Number.isFinite(t.sun_elevation_deg) &&
+        t.sun_elevation_deg < 0,
+    );
   if (hasDarkness) {
     warnings.push({
       code: "DARKNESS",

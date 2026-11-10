@@ -23,10 +23,10 @@ FastAPI if browser routing p95 > 2 s.
 
 - 02 Unresolved table: "Keep static unless TASK-05 router benchmark > 2 s p95".
 
-## Outcome (2026-11-08)
+## Outcome (draft — pending real-grid measurement)
 
-D-02 benchmark measurement recorded by T05.28:
+D-02 benchmark measurement drafted from the mock disk fixture baseline (T05.28):
 
-- **Evidence:** `packages/compute/tests/realGrid.test.ts` measured 20 seeded pairs inside the AOI (p50 = 1.22 ms, p95 = 8.79 ms) and a 4-leg 3-stop loop route through the compute worker (10.19 ms) on Node.js v22.18.0 (Windows x64). Full log in [verification-log.md](../ops/verification-log.md#t0528--verify-on-the-real-grid-10-sampled-cells-20-pairs-p50p95-3-stop-loop--2-s).
-- **Result:** p95 is 8.79 ms ≪ 2.0 s threshold (NFR-02 compliant).
-- **Decision:** Confirmed static Web Worker routing. Fallback T05.31 (FastAPI `/route` backend) is **not triggered**. Signed off for the compute lane by Mishkat Ahmed Khan.
+- **Status note (relation to ADR-008):** In v2 ([ADR-008](ADR-008-hab-core-local-server.md)), a habitat-local server is introduced for multi-client synchronization, but the browser Web Worker remains the execution environment for single-destination and excursion route planning. The single-destination Dijkstra kernel measured here establishes the baseline performance and bounds the compute cost for the multi-destination Dijkstra fields (haven and rendezvous) adopted in ADR-008.
+- **Mock baseline evidence:** `packages/compute/tests/realGrid.test.ts` measured 20 seeded pairs inside the AOI (p50 = 0.70 ms, p95 = 4.86 ms) and a 4-leg 3-stop loop route through the compute worker (6.56 ms) on the mock disk fixture (`mock_site-2026.11.05`, Node.js v22.18.0, Windows x64). Full log in [verification-log.md](../ops/verification-log.md#t0528--verify-on-the-real-grid-10-sampled-cells-20-pairs-p50p95-3-stop-loop--2-s).
+- **Current status:** Adoption remains **pending real-grid measurement** on the full Gale crater bundle (`data/sites/gale_boxwork/`, T03.19/T03.21). The mock disk fixture indicates routing times well below the 2.0 s threshold (6.56 ms ≪ 2.0 s), but final confirmation and sign-off belong to the systems lead (Sadman Shaharier Mahim) once real-grid measurements land. Fallback T05.31 (FastAPI `/route` backend) is currently not triggered.

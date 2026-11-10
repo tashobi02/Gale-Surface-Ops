@@ -43,7 +43,7 @@
 
 ### T04.01 — Choose and cache the traverse source (U-04); write its DataSource and Layer records
 
-- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS) — taken over from Mishkat Ahmed Khan on 9 Nov to unblock T03.19 (data lead's call; Mishkat informed on the PR)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -206,7 +206,7 @@
 
 ### T04.07 — Resolve U-03: TI "loose fines" threshold from the AOI histogram and literature
 
-- **Owner:** Mishkat Ahmed Khan (R2 Compute lead · R1 support)
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS) — taken over from Mishkat Ahmed Khan on 9 Nov to unblock T03.19 (data lead's call; Mishkat informed on the PR)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
