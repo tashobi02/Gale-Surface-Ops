@@ -72,4 +72,12 @@ describe("estimateDose (T06.04 / T06.08, FR-12)", () => {
     expect(res?.dose_low_mSv).toBeCloseTo(0.053, 3);
     expect(res?.dose_high_mSv).toBeCloseTo(0.078, 3);
   });
+
+  it("throws when conditions.solar_phase is missing or invalid", () => {
+    const missingPhase = { ...SOLAR_MAX_RATE, conditions: {} };
+    expect(() => estimateDose(missingPhase, 2)).toThrow(/Invalid or missing conditions\.solar_phase/);
+
+    const invalidPhase = { ...SOLAR_MAX_RATE, conditions: { solar_phase: "medium" } };
+    expect(() => estimateDose(invalidPhase, 2)).toThrow(/Invalid or missing conditions\.solar_phase/);
+  });
 });
