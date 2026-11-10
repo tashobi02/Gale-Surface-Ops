@@ -18,6 +18,12 @@ function timeDiffMinutes(a: string, b: string): number {
   return Math.min(diff, 1440 - diff);
 }
 
+/** Helper: parse "HH:MM" time into decimal hours. */
+function parseLtstHours(timeStr: string): number {
+  const [h, m] = timeStr.split(":").map(Number);
+  return h + m / 60;
+}
+
 // docs/specs/02 §D.5, §C.4.1, and 01 FR-11 (TASK-06 / T06.03).
 describe("mars24 time functions (T06.03 / T06.06, FR-11)", () => {
   // TAI−UTC values and transition dates: NAIF naif0012.tls, locked in pipeline/spice/kernels.lock.json.
@@ -62,7 +68,8 @@ describe("mars24 time functions (T06.03 / T06.06, FR-11)", () => {
       const utc = new Date(record.utc);
       const res = solarLongitude(utc);
       expect(res.mars_year, `Mars Year for ${record.utc}`).toBe(record.mars_year);
-      // Provisional: docs/tasks/TASK-06_mars24-and-radiation.md#spec-questions
+      // Provisional bound 0.05° (strictly less than); TODO(decision): ratify, see
+      // docs/tasks/TASK-06_mars24-and-radiation.md#spec-questions
       expect(Math.abs(res.ls_deg - record.ls_deg), `L_s for ${record.utc}`).toBeLessThan(0.05);
     }
   });
@@ -78,5 +85,66 @@ describe("mars24 time functions (T06.03 / T06.06, FR-11)", () => {
         `LTST ${ltst} vs ${record.ltst} for ${record.utc} at lon_e ${lonE}`
       ).toBeLessThanOrEqual(1);
     }
+  });
+
+  it("matches F6 continuous LTST (ltst_hours, not the rounded HH:MM string) within 1 min at all reference timestamps (01 FR-11, 02 §D.5)", () => {
+    const lonE = f6.site.lon_e;
+    for (const record of f6.records) {
+      const utc = new Date(record.utc);
+      const ltstStr = localTrueSolarTime(utc, lonE);
+      const computedHours = parseLtstHours(ltstStr);
+      let diffHours = Math.abs(computedHours - record.ltst_hours);
+      if (diffHours > 12) diffHours = 24 - diffHours;
+      const diffMin = diffHours * 60;
+      expect(
+        diffMin,
+        `LTST ${ltstStr} (${computedHours.toFixed(2)}h) vs ${record.ltst_hours}h for ${record.utc} at lon_e ${lonE}`
+      ).toBeLessThanOrEqual(1.0);
+    }
+  });
+
+  // TODO(verify): the MSL touchdown cross-check below is a sanity case, not an independent reference. The
+  // touchdown instant and L_s 150.7° / Mars Year 31 were taken from the branch author's notes and have no
+  // citation in this repo; confirm them against a published MSL landing source before treating this as
+  // evidence. The F6 record for the same instant (2012-08-06T05:17:57Z) is the checked reference; the former
+  // LTST assertion (15.6 h) was this implementation's own output and has been dropped.
+  it("MSL touchdown instant (2012-08-06T05:17:57Z): L_s about 150.7° and Mars Year 31, matching F6", () => {
+    const landingUtc = new Date("2012-08-06T05:17:57Z");
+    const sol = solarLongitude(landingUtc);
+    const record = f6.records.find((r) => r.utc === "2012-08-06T05:17:57Z");
+    expect(record, "F6 record for the MSL touchdown instant").toBeDefined();
+    expect(sol.mars_year).toBe(31);
+    expect(sol.mars_year).toBe(record!.mars_year);
+    expect(Math.abs(sol.ls_deg - 150.7)).toBeLessThan(0.05);
+    expect(Math.abs(sol.ls_deg - record!.ls_deg)).toBeLessThan(0.05);
+  });
+
+  it("accepts 1972-01-01T00:00:00Z (TAI-UTC 10 s, NAIF naif0012.tls) and rejects the second before it", () => {
+    const first = new Date("1972-01-01T00:00:00Z");
+    const utcJ2000Days = first.getTime() / 86_400_000 + (2_440_587.5 - 2_451_545);
+    const ttMinusUtcSeconds = (j2000OffsetTt(first) - utcJ2000Days) * 86_400;
+    expect(Math.abs(ttMinusUtcSeconds - (32.184 + 10))).toBeLessThanOrEqual(0.0001);
+    expect(() => j2000OffsetTt(new Date("1971-12-31T23:59:59Z"))).toThrow(RangeError);
+  });
+
+  it("throws RangeError on invalid Date instances", () => {
+    const invalidDate = new Date("not-a-date");
+    expect(() => marsSolDate(invalidDate)).toThrow(RangeError);
+    expect(() => solarLongitude(invalidDate)).toThrow(RangeError);
+    expect(() => localTrueSolarTime(invalidDate, 137.38)).toThrow(RangeError);
+  });
+
+  it("throws RangeError for dates before 1972-01-01 UTC (pre-modern leap seconds)", () => {
+    const preLeapDate = new Date("1969-07-20T20:17:40Z");
+    expect(() => marsSolDate(preLeapDate)).toThrow(RangeError);
+    expect(() => solarLongitude(preLeapDate)).toThrow(RangeError);
+    expect(() => localTrueSolarTime(preLeapDate, 137.38)).toThrow(RangeError);
+  });
+
+  it("throws RangeError on non-finite longitudes", () => {
+    const utc = new Date("2026-11-14T08:00:00Z");
+    expect(() => eastToWestLongitude(NaN)).toThrow(RangeError);
+    expect(() => eastToWestLongitude(Infinity)).toThrow(RangeError);
+    expect(() => localTrueSolarTime(utc, NaN)).toThrow(RangeError);
   });
 });

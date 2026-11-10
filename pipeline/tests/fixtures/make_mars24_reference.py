@@ -6,6 +6,14 @@ azimuth, flat-horizon sunrise/sunset) for reference timestamps at Gale Crater.
 
 Outputs are generated entirely from the Python marstime package; no science
 numbers are typed by hand.
+
+Sunrise/sunset selection (repair 2026-11-10): both events are taken from the local sol that
+contains the timestamp (LTST 0 h to the next 0 h), never from a neighbouring sol, and a sol with
+no sunrise/sunset pair raises instead of falling back to the nearest event. The earlier selection
+could return a sunrise of the next sol with a sunset of this sol for timestamps after sunset.
+The committed F6 JSON was NOT regenerated (marstime is not pinned; TODO(verify)): its four records
+lie in sols whose events the corrected selection also returns (checked against the TypeScript
+implementation within 2 s in packages/compute/tests/sun.test.ts).
 """
 
 from __future__ import annotations
@@ -96,17 +104,66 @@ def bisect_elevation_crossing(
     return t_mid
 
 
+# Mean Mars solar day in Earth seconds (1.027491252 Earth days; Allison & McEwen 2000).
+SOL_SECONDS = 1.027491252 * 86400.0
+SOLAR_HOUR_SECONDS = SOL_SECONDS / 24.0
+
+
+def ltst_hours_at(dt: datetime, lon_w: float) -> float:
+    """Local true solar time in hours [0, 24) from marstime."""
+    return float(marstime.Local_True_Solar_Time(lon_w, get_j2000_ott(dt))) % 24.0
+
+
+def refine_to_ltst(dt: datetime, target_hours: float, lon_w: float) -> datetime:
+    """Instant near `dt` at which LTST equals `target_hours` (iterate on the wrapped LTST error)."""
+    t = dt
+    for _ in range(8):
+        err_h = ((ltst_hours_at(t, lon_w) - target_hours + 12.0) % 24.0) - 12.0
+        if abs(err_h) * SOLAR_HOUR_SECONDS < 0.5:
+            break
+        t = t - timedelta(seconds=err_h * SOLAR_HOUR_SECONDS)
+    return t
+
+
+def local_sol_bounds(dt_base: datetime, lon_w: float) -> tuple[datetime, datetime]:
+    """Local true solar midnights (LTST 0 h) at or before dt_base and the next one after it."""
+    ltst = ltst_hours_at(dt_base, lon_w)
+    start = refine_to_ltst(dt_base - timedelta(seconds=ltst * SOLAR_HOUR_SECONDS), 0.0, lon_w)
+    if start > dt_base:
+        start = refine_to_ltst(start - timedelta(seconds=SOL_SECONDS), 0.0, lon_w)
+    end = refine_to_ltst(start + timedelta(seconds=SOL_SECONDS), 0.0, lon_w)
+    return start, end
+
+
+def select_sol_events(
+    crossings: list[tuple[datetime, str]], sol_start: datetime, sol_end: datetime
+) -> tuple[datetime, datetime]:
+    """Pick the sunrise and sunset that both lie inside [sol_start, sol_end).
+
+    Crossings outside the local sol belong to the neighbouring sols and are never borrowed. Raises
+    ValueError when the sol does not hold exactly one sunrise followed by one sunset (no fallback).
+    """
+    inside = sorted((t, kind) for t, kind in crossings if sol_start <= t < sol_end)
+    sunrises = [t for t, kind in inside if kind == "sunrise"]
+    sunsets = [t for t, kind in inside if kind == "sunset"]
+    if len(sunrises) != 1 or len(sunsets) != 1 or not sunrises[0] < sunsets[0]:
+        raise ValueError(
+            f"expected one sunrise followed by one sunset inside the local sol "
+            f"{sol_start.isoformat()} to {sol_end.isoformat()}, got {len(sunrises)} sunrise(s) and {len(sunsets)} sunset(s)"
+        )
+    return sunrises[0], sunsets[0]
+
+
 def find_sol_sunrise_sunset(
     dt_base: datetime, lat: float, lon_w: float
 ) -> dict[str, str]:
-    """Find flat-horizon sunrise and sunset instants for the Martian sol containing dt_base."""
-    # Scan +/- 16 hours around dt_base in 2-minute steps to find elevation zero crossings
-    span_seconds = 32 * 3600
-    step_seconds = 120
-    steps = span_seconds // step_seconds
+    """Flat-horizon sunrise and sunset of the local sol (LTST 0 h to the next 0 h) containing dt_base."""
+    sol_start, sol_end = local_sol_bounds(dt_base, lon_w)
 
-    t_start = dt_base - timedelta(seconds=span_seconds / 2)
-    sample_times = [t_start + timedelta(seconds=i * step_seconds) for i in range(steps + 1)]
+    # Scan the whole sol in 2-minute steps for elevation zero crossings.
+    step_seconds = 120
+    n_steps = int((sol_end - sol_start).total_seconds() // step_seconds) + 1
+    sample_times = [sol_start + timedelta(seconds=i * step_seconds) for i in range(n_steps + 1)]
     elevations = [get_elevation(t, lat, lon_w) for t in sample_times]
 
     crossings: list[tuple[datetime, str]] = []
@@ -115,46 +172,9 @@ def find_sol_sunrise_sunset(
             t_cross = bisect_elevation_crossing(sample_times[i], sample_times[i + 1], lat, lon_w)
             # Determine if sunrise (going up) or sunset (going down)
             is_rising = get_elevation(t_cross + timedelta(seconds=30), lat, lon_w) > 0
-            kind = "sunrise" if is_rising else "sunset"
-            crossings.append((t_cross, kind))
+            crossings.append((t_cross, "sunrise" if is_rising else "sunset"))
 
-    # Match the sol daytime window containing or closest to dt_base
-    # A sol has one sunrise followed by sunset during daytime.
-    # Find sunrise and sunset defining the diurnal cycle of this sol.
-    sunrise_dt: datetime | None = None
-    sunset_dt: datetime | None = None
-
-    # Find the nearest sunrise and sunset relative to dt_base
-    sunrises = [t for t, k in crossings if k == "sunrise"]
-    sunsets = [t for t, k in crossings if k == "sunset"]
-
-    # Select the sunrise/sunset corresponding to the diurnal cycle containing dt_base
-    # If dt_base is in daytime: sunrise <= dt_base <= sunset
-    for sr in sunrises:
-        for ss in sunsets:
-            if sr < ss and (ss - sr).total_seconds() < 24.66 * 3600:
-                if sr <= dt_base <= ss:
-                    sunrise_dt = sr
-                    sunset_dt = ss
-                    break
-
-    # If dt_base is in night before sunrise:
-    if sunrise_dt is None and sunrises and sunsets:
-        for sr in sunrises:
-            if sr >= dt_base:
-                sunrise_dt = sr
-                matching_ss = [ss for ss in sunsets if ss > sr]
-                if matching_ss:
-                    sunset_dt = matching_ss[0]
-                break
-
-    # Fallback to closest events if outside daytime window:
-    if sunrise_dt is None and sunrises:
-        sunrise_dt = min(sunrises, key=lambda t: abs((t - dt_base).total_seconds()))
-    if sunset_dt is None and sunsets:
-        sunset_dt = min(sunsets, key=lambda t: abs((t - dt_base).total_seconds()))
-
-    assert sunrise_dt is not None and sunset_dt is not None
+    sunrise_dt, sunset_dt = select_sol_events(crossings, sol_start, sol_end)
 
     sr_ott = get_j2000_ott(sunrise_dt)
     ss_ott = get_j2000_ott(sunset_dt)
@@ -214,11 +234,13 @@ def build_fixture() -> dict:
             "sunrise_sunset": sol_events,
         })
 
-    version_str = getattr(marstime, "version", "0.5.6")
-    if callable(version_str):
-        version_str = version_str()
-    elif not isinstance(version_str, str):
-        version_str = "0.5.6"
+    version_val = getattr(marstime, "__version__", getattr(marstime, "version", None))
+    if callable(version_val):
+        version_str = str(version_val())
+    elif isinstance(version_val, str) and version_val:
+        version_str = version_val
+    else:
+        raise RuntimeError("Unable to determine marstime package version from module attributes")
 
     return {
         "$comment": "Mars24 reference fixture F6 generated by pipeline/tests/fixtures/make_mars24_reference.py. Do not edit by hand.",

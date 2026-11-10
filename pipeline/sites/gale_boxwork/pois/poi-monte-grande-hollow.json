@@ -1,0 +1,33 @@
+{
+  "poi_id": "poi-monte-grande-hollow",
+  "name": "Monte Grande hollow",
+  "lat": -4.807839161,
+  "lon_e": 137.381035353,
+  "science_objective": "Drill the Valle de la Luna bedrock in the Monte Grande hollow so CheMin and SAM can measure its mineralogy and volatiles, for comparison with a drill on the adjacent ridge.",
+  "why_it_matters": "NASA says comparing the mineralogy, volatile content and organic chemistry of ridges and hollows should reveal how the boxworks formed. This is the hollow half of that pair.",
+  "image_asset": "img-monte-grande-hollow",
+  "image_credit": "NASA/JPL-Caltech/MSSS",
+  "image_source_url": "https://science.nasa.gov/blog/curiosity-blog-sols-4695-4701-searching-for-answers-at-monte-grande/",
+  "image_sol": 4693,
+  "image_date": "2025-10-19",
+  "image_camera": "Mastcam",
+  "position_source": "PDS PLACES localized_interp.csv v42.0, frame ROVER, sol 4687, site 119, drive 1722 (planetocentric_latitude, longitude; last ROVER row before the sol 4693 image; next row is sol 4709). The same row is in localized_pos.csv, so it is a localized solution, not an interpolated one. This is where the rover was, not the surveyed position of the feature itself. Uncertainty 0.5 m is the PLACES SIS 1.3 Rev-A §4.4.1.2 expected accuracy of localized rover positions against the HiRISE base map; it does not include the offset between the rover and the imaged feature.",
+  "position_uncertainty_m": 0.5,
+  "provenance": "assumed",
+  "stop_type": "science",
+  "ez_theme": "Hollow drill site: mineralogy and volatiles",
+  "evidence": [
+    {
+      "text": "Blog sols 4695-4701: Curiosity drilled its 44th hole at Valle de la Luna in the Monte Grande hollow; SAM evolved-gas analysis releases volatiles including H2O, CO2 and SO2.",
+      "source_id": "nasa-msl-blog-sols-4695-4701"
+    },
+    {
+      "text": "Blog sols 4675-4681: the team chose Monte Grande as the next drill site, where SAM and CheMin will interrogate the boxworks.",
+      "source_id": "nasa-msl-blog-sols-4675-4681"
+    },
+    {
+      "text": "Position accuracy: localized positions have an expected accuracy of 0.5m compared to the base map (PLACES SIS 1.3 Rev-A, §4.4.1.2).",
+      "source_id": "pds-msl-places-sis-1-3"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+[
+  {
+    "task_id": "t-s1-01",
+    "stop_id": "wp-1",
+    "crew_id": "EV1",
+    "kind": "image",
+    "text": "Photograph the smooth ridge-top bedrock"
+  },
+  {
+    "task_id": "t-s1-02",
+    "stop_id": "wp-1",
+    "crew_id": "EV2",
+    "kind": "image",
+    "text": "Photograph the nodular bedrock at the hollow edge"
+  },
+  {
+    "task_id": "t-s1-03",
+    "stop_id": "wp-1",
+    "crew_id": null,
+    "kind": "observe",
+    "text": "Note where smooth rock gives way to nodular rock"
+  },
+  {
+    "task_id": "t-s2-01",
+    "stop_id": "wp-2",
+    "crew_id": "EV1",
+    "kind": "observe",
+    "text": "Locate the boxwork and sulfate unit contact"
+  },
+  {
+    "task_id": "t-s2-02",
+    "stop_id": "wp-2",
+    "crew_id": "EV1",
+    "kind": "other",
+    "text": "Brush dust from the bedrock at the contact"
+  },
+  {
+    "task_id": "t-s2-03",
+    "stop_id": "wp-2",
+    "crew_id": "EV2",
+    "kind": "image",
+    "text": "Photograph bedrock on each side of the contact"
+  },
+  {
+    "task_id": "t-s2-04",
+    "stop_id": "wp-2",
+    "crew_id": "EV2",
+    "kind": "measure",
+    "text": "Analyse the bedrock just across the contact"
+  },
+  {
+    "task_id": "t-s3-01",
+    "stop_id": "wp-3",
+    "crew_id": "EV1",
+    "kind": "sample",
+    "text": "Drill a sample from the hollow bedrock"
+  },
+  {
+    "task_id": "t-s3-02",
+    "stop_id": "wp-3",
+    "crew_id": "EV2",
+    "kind": "image",
+    "text": "Photograph the drill site before and after drilling"
+  },
+  {
+    "task_id": "t-s3-03",
+    "stop_id": "wp-3",
+    "crew_id": null,
+    "kind": "observe",
+    "text": "Compare the hollow bedrock with the ridge-top rock"
+  }
+]

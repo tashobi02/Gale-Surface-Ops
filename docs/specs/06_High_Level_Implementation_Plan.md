@@ -297,6 +297,6 @@ Team → problem (one line) → storm alert on the HUD → summon → crew shelt
 | --- | --- | --- | --- |
 | U-12 | Pre-event code allowed? — **Resolved 2026-11-04: Track P** ([ops/rules.md](../ops/rules.md)) | R6 | 4 Nov |
 | U-13 | Team size and skills — **Resolved 2026-11-04** ([ops/team.md](../ops/team.md)); role sign-off and Node vs. FastAPI (02 D-12) at kickoff. Four members list TypeScript/JavaScript, so Node stands | Team | 5 Nov |
-| U-14 | Venue details (power, table space, projector input) | R6 | 10 Nov |
+| U-14 | Venue details (power, table space, projector input) — **Resolved 2026-11-09**: virtual event, no physical venue ([ops/team.md](../ops/team.md#venue-type-u-14-due-10-nov)) | R6 | 10 Nov |
 | U-21 | Travel router availability | R4 | 7 Nov |
 | U-22 | Phone models for the device matrix (Android/iOS) | R5 | 7 Nov |

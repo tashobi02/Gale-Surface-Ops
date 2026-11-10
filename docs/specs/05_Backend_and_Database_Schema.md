@@ -837,7 +837,7 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
 
 | ID | Item | Recommendation |
 | --- | --- | --- |
-| U-10 | Can a per-pixel DEM source map (HiRISE vs. fill) be obtained for `LOW_RES_DEM`? | Try stereo-pair footprints from the DEM metadata list; else hand-digitise coverage from hillshade texture and label it interpreted |
+| U-10 | Can a per-pixel DEM source map (HiRISE vs. fill) be obtained for `LOW_RES_DEM`? | **Resolved 2026-11-07**: no per-pixel source map obtainable; low-resolution areas interpreted and labelled so ([evidence](../ops/feasibility/dem-quality.md#u-10-evidence), [low_res_dem.geojson](../../pipeline/sites/gale_boxwork/low_res_dem.geojson)). Original recommendation: Try stereo-pair footprints from the DEM metadata list; else hand-digitise coverage from hillshade texture and label it interpreted |
 | U-11 | Store profile arrays in export or recompute on import? | Store (small) — simplifies briefing rendering |
 | U-23 | Snapshot cadence vs. demo restart time | 500 events; measure resume time in TASK-22 |
 | U-24 | Store per-tick crew positions for the post-EVA map trace? | No — re-derive on replay; store only a 30 s-decimated trace in the report |
