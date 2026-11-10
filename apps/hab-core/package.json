@@ -9,7 +9,8 @@
     "start": "tsx src/cli.ts start",
     "replay": "tsx src/cli.ts replay",
     "typecheck": "tsc --noEmit -p .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "demo-numbers": "tsx scripts/demo-numbers.ts"
   },
   "dependencies": {
     "@marswalk/compute": "0.2.0",
