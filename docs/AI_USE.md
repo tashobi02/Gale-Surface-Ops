@@ -290,6 +290,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 
 | 2026-11-10 | Antigravity (Gemini) | T07.13: implemented debug diagnostics overlay (debug.ts) with FPS counter, worker timing_ms, grid cell addressing per 05 §E.1, data_version display, print hiding; unit tests (debug.test.ts) | Did not invent numbers or modify specs; used formula from 05 §E.1 | Reviewed by Saba Atharique | Session transcript |
 
+| 2026-11-10 | Antigravity (Gemini) | T07.07: implemented tiled raster layers (rasterLayers.ts) with custom TileGrid, dynamic slope limit updates, per-layer status for SCR-03, graceful degradation on missing assets; unit tests (rasterLayers.test.ts) | Did not invent numbers or modify specs; preserved projected metres | Reviewed by Saba Atharique | Session transcript |
+
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).
