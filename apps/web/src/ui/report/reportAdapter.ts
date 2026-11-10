@@ -38,6 +38,8 @@ export interface ApiPostEvaReport {
     dropped: number;
     not_reached: number;
     incomplete: number;
+    in_progress: number;
+    pending: number;
     details: { stop_id: string; status: "completed" | "in_progress" | "incomplete" | "dropped" | "not_reached" | "pending"; crew: ApiStopCrewTiming[] }[];
   };
   alerts: {
@@ -155,6 +157,8 @@ export function adaptPostEvaReport(api: ApiPostEvaReport): PostEvaReportData {
     stopsDropped: api.stops.dropped,
     stopsNotReached: api.stops.not_reached,
     stopsIncomplete: api.stops.incomplete,
+    stopsInProgress: api.stops.in_progress,
+    stopsPending: api.stops.pending,
     planRevisionsCount: api.plan_revisions,
     evaDurationS: api.eva_duration_s,
     generatedAt: clock(api.generated_at) ?? undefined,

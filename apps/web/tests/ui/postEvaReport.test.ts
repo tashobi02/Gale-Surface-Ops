@@ -39,6 +39,8 @@ const FULL: PostEvaReportData = {
   stopsDropped: 1,
   stopsNotReached: 1,
   stopsIncomplete: 1,
+  stopsInProgress: 2,
+  stopsPending: 3,
   generatedAt: "13:31:00 UTC",
   tasksTotals: { total: 3, done: 1, skipped: 0, dropped: 1 },
   timeline: [
@@ -89,7 +91,7 @@ describe("SCR-17 Post-EVA report with no data (nothing is made up)", () => {
       dose_event_ugy: "simulated",
       dose_headline: "derived",
       eva_duration_s: "derived",
-      stops_breakdown: "simulated",
+      stops_breakdown: "derived",
       tasks_totals: "simulated",
       generated_at: "simulated",
       time_to_shelter_min: "derived",
@@ -136,6 +138,9 @@ describe("SCR-17 Post-EVA report with a full report (01 FR-46)", () => {
     expect(stops).toContain("dropped 1");
     expect(stops).toContain("not reached 1");
     expect(stops).toContain("incomplete 1");
+    expect(stops).toContain("in progress 2");
+    expect(stops).toContain("pending 3");
+    expect(stops).toContain('data-provenance="derived"');
     expect(bySource(html, "report:tasks_totals")).toContain("1 / 0 / 1 of 3");
     expect(bySource(html, "report:alerts.cleared")).toContain("10:12:00 UTC");
     expect(bySource(html, "report:generated_at")).toContain("13:31:00 UTC");
@@ -290,6 +295,8 @@ const API: ApiPostEvaReport = {
     dropped: 1,
     not_reached: 1,
     incomplete: 1,
+    in_progress: 0,
+    pending: 0,
     details: [
       {
         stop_id: "wp-1",
@@ -412,7 +419,7 @@ describe("SCR-17 API report adapter (snake_case PostEvaReport -> camelCase PostE
 
   it("maps every report field: EVA duration, stop breakdown, task totals, clear time, generated time", () => {
     expect(data.evaDurationS).toBe(1800);
-    expect(data).toMatchObject({ stopsDropped: 1, stopsNotReached: 1, stopsIncomplete: 1, generatedAt: "13:31:00 UTC" });
+    expect(data).toMatchObject({ stopsDropped: 1, stopsNotReached: 1, stopsIncomplete: 1, stopsInProgress: 0, stopsPending: 0, generatedAt: "13:31:00 UTC" });
     expect(data.tasksTotals).toEqual({ total: 3, done: 1, skipped: 0, dropped: 1 });
     expect(data.alerts?.[0].clearedAt).toBe("13:23:00 UTC");
     expect(adaptPostEvaReport({ ...API, eva_duration_s: null, generated_at: "" })).toMatchObject({ evaDurationS: null, generatedAt: undefined });
@@ -459,7 +466,7 @@ describe("SCR-17 API report adapter (snake_case PostEvaReport -> camelCase PostE
     const html = render(data);
     expect(html).not.toMatch(/NaN|undefined|null/);
     expect(html).toContain("no shelter during alert");
-    const bare = adaptPostEvaReport({ ...API, eva_duration_s: null, stops: { completed: 0, dropped: 0, not_reached: 0, incomplete: 0, details: [] }, alerts: { total: 0, details: [] }, tasks: { total: 0, done: 0, skipped: 0, dropped: 0, per_stop: {} } });
+    const bare = adaptPostEvaReport({ ...API, eva_duration_s: null, stops: { completed: 0, dropped: 0, not_reached: 0, incomplete: 0, in_progress: 0, pending: 0, details: [] }, alerts: { total: 0, details: [] }, tasks: { total: 0, done: 0, skipped: 0, dropped: 0, per_stop: {} } });
     expect(render(bare)).not.toMatch(/NaN|undefined|null/);
   });
 });

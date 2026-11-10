@@ -48,6 +48,8 @@ export interface PostEvaReportData {
   stopsDropped?: number;
   stopsNotReached?: number;
   stopsIncomplete?: number;
+  stopsInProgress?: number;
+  stopsPending?: number;
   /** Sim time of the last event in the report's scope. */
   generatedAt?: string;
   tasksTotals?: { total: number; done: number; skipped: number; dropped: number };
@@ -143,7 +145,7 @@ export function PostEvaReport({
   const hasStops = isFiniteNumber(data.stopsCompleted) && isFiniteNumber(data.stopsTotal);
   const hasRevisions = isFiniteNumber(data.planRevisionsCount);
   const hasDuration = isFiniteNumber(data.evaDurationS);
-  const hasBreakdown = isFiniteNumber(data.stopsDropped) && isFiniteNumber(data.stopsNotReached) && isFiniteNumber(data.stopsIncomplete);
+  const hasBreakdown = isFiniteNumber(data.stopsDropped) && isFiniteNumber(data.stopsNotReached) && isFiniteNumber(data.stopsIncomplete) && isFiniteNumber(data.stopsInProgress) && isFiniteNumber(data.stopsPending);
   const hasTaskTotals = data.tasksTotals !== undefined;
   const hasHeadline = typeof data.doseHeadlineCrew === "string" && data.doseHeadlineCrew.length > 0;
 
@@ -422,9 +424,11 @@ export function PostEvaReport({
           </span>
           <span>
             <span style={{ fontWeight: 700 }}>STOPS </span>
-            <span style={{ fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(hasBreakdown, "simulated", "stops_breakdown")}>
-              {hasBreakdown ? `dropped ${data.stopsDropped} · not reached ${data.stopsNotReached} · incomplete ${data.stopsIncomplete}` : UNAVAILABLE}{" "}
-              {glyphIf(hasBreakdown, "simulated")}
+            <span style={{ fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(hasBreakdown, "derived", "stops_breakdown")}>
+              {hasBreakdown
+                ? `dropped ${data.stopsDropped} · not reached ${data.stopsNotReached} · incomplete ${data.stopsIncomplete} · in progress ${data.stopsInProgress} · pending ${data.stopsPending}`
+                : UNAVAILABLE}{" "}
+              {glyphIf(hasBreakdown, "derived")}
             </span>
           </span>
         </section>

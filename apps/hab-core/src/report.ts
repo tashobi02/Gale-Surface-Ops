@@ -33,6 +33,7 @@
 import type {
   AlertCode,
   AlertLevel,
+  CrewId,
   LogEvent,
   LogEventData,
   PlanExport,
@@ -120,6 +121,10 @@ export interface PostEvaReport {
     dropped: number;
     not_reached: number;
     incomplete: number;
+    /** Reached, not every EVA crew has left, EVA still running. */
+    in_progress: number;
+    /** Not reached yet, EVA still running. */
+    pending: number;
     details: StopReportDetail[];
   };
   alerts: {
@@ -186,6 +191,9 @@ function addPlanned(into: Map<string, PlannedStop>, plan: PlanExport | null | un
     if (arrive !== null && depart !== null) into.set(w.id, { arrival_offset_s: arrive, departure_offset_s: depart, dwell_s: depart - arrive });
   });
 }
+
+/** Every CrewId (runtime copy of the protocol type; the compiler checks each entry is one). */
+const CREW_IDS: readonly CrewId[] = ["EV1", "EV2"];
 
 interface AlertRecord extends AlertReportDetail {
   open: boolean;
@@ -299,7 +307,10 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
       case "PLAN_REVISED": {
         const d = event.data as LogEventData["PLAN_REVISED"];
         // A whole published plan (only possible before the EVA) becomes the planned source for the stops in it.
-        if (d.plan) addPlanned(planned, d.plan);
+        if (d.plan) {
+          planned.clear(); // the published plan replaces the planned source; a stop it no longer has keeps nothing
+          addPlanned(planned, d.plan);
+        }
         const next = Array.isArray(d.waypoints) ? stopIds(d.waypoints) : null;
         if (evaStartTime === null) {
           // Before the EVA a PLAN_REVISED is a publish: it replaces the baseline, and is neither counted nor diffed.
@@ -335,7 +346,8 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
           ack_s: null,
           // Rows for the subjects on the EVA (a vehicle or a crew member off the EVA cannot "shelter during the alert").
           shelter: (Array.isArray(d.subjects) ? d.subjects : [])
-            .filter((c) => evaCrew.length === 0 || evaCrew.includes(c))
+            // Before EVA_STARTED the EVA crew is not known yet: then only crew ids, not vehicles or nodes.
+            .filter((c) => (evaCrew.length > 0 ? evaCrew.includes(c) : (CREW_IDS as readonly string[]).includes(c)))
             .map((c) => ({ crew_id: String(c), shelter_response_s: null, sheltered_sim_time: null })),
           provenance: { times: "simulated", durations: "derived" },
           open: true,
@@ -521,6 +533,8 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
       dropped: count("dropped"),
       not_reached: count("not_reached"),
       incomplete: count("incomplete"),
+      in_progress: count("in_progress"),
+      pending: count("pending"),
       details: stopDetails,
     },
     alerts: {

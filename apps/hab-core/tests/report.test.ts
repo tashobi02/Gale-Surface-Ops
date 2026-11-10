@@ -263,6 +263,59 @@ describe("PostEvaReport builder (01 FR-46, 05 PostEvaReport)", () => {
     expect(report.stops).toMatchObject({ completed: 0, dropped: 1, not_reached: 3, incomplete: 0 });
   });
 
+  it("report: a later revision that restores a dropped stop makes it not dropped", () => {
+    const events = seqd([
+      ...stormLog.slice(0, -1), // wp-3 dropped at 13:21:30
+      makeEvent(0, "2024-05-20T13:26:00Z", "PLAN_REVISED", { plan_revision: 2, option_id: null, stops_dropped: [], waypoints: [WP_START, wp(1, "stop"), wp(2, "stop"), wp(3, "stop"), wp(4, "stop")], legs: [] }, "ops"),
+      makeEvent(0, "2024-05-20T13:31:00Z", "EVA_ENDED", { crew_ids: ["EV1", "EV2"] }),
+    ]);
+    const report = buildReport(events, "h", PLAN);
+
+    expect(report.stops.details.find((d) => d.stop_id === "wp-3")?.status).toBe("not_reached");
+    expect(report.stops.dropped).toBe(0);
+    expect(report.plan_revisions).toBe(2);
+  });
+
+  it("report: a published plan replaces the planned timing; a stop no longer in it keeps no stale planned times", () => {
+    const published = {
+      scenario: { eva_start_utc: "2024-05-20T13:00:00Z" },
+      waypoints: [WP_START, wp(1, "stop")],
+      result: { stops_timeline: [slot("2024-05-20T13:00:00Z", "2024-05-20T13:00:00Z"), slot("2024-05-20T13:10:00Z", "2024-05-20T13:20:00Z")] },
+    } as unknown as PlanExport;
+    const events = seqd([
+      makeEvent(0, "2024-05-20T13:00:00Z", "SESSION_LOADED", SESSION),
+      makeEvent(0, "2024-05-20T13:00:30Z", "PLAN_REVISED", { plan_revision: 1, option_id: null, stops_dropped: [], waypoints: published.waypoints, legs: [], plan: published }, "planner"),
+      makeEvent(0, "2024-05-20T13:00:40Z", "TASK_ADDED", { task_id: "t-9", stop_id: "wp-2", crew_id: "EV1", kind: "image", text: "x", origin: "plan" }),
+      makeEvent(0, "2024-05-20T13:01:00Z", "EVA_STARTED", { crew_ids: ["EV1"], plan_revision: 1 }),
+    ]);
+    const report = buildReport(events, "h", PLAN);
+
+    // wp-2 is listed (a task names it) but is not in the published plan: the initial plan's 1140 s must not survive
+    expect(rowFor(report, "wp-2", "EV1")?.planned_arrival_offset_s).toBeNull();
+    expect(rowFor(report, "wp-1", "EV1")?.planned_arrival_offset_s).toBe(600);
+  });
+
+  it("report: the stop counts add up to details.length also in the middle of the EVA (in_progress and pending are counted)", () => {
+    const running = buildReport(seqd(stormLog.slice(0, -1)), "h", PLAN);
+
+    expect(running.stops).toMatchObject({ completed: 1, in_progress: 1, dropped: 1, pending: 1, not_reached: 0, incomplete: 0 });
+    const s = running.stops;
+    expect(s.completed + s.in_progress + s.dropped + s.pending + s.not_reached + s.incomplete).toBe(s.details.length);
+    const ended = buildReport(stormLog, "h", PLAN).stops;
+    expect(ended).toMatchObject({ in_progress: 0, pending: 0 });
+    expect(ended.completed + ended.dropped + ended.not_reached + ended.incomplete).toBe(ended.details.length);
+  });
+
+  it("report: an alert raised before EVA_STARTED gives shelter rows only for crew ids, not for a vehicle subject", () => {
+    const events = seqd([
+      makeEvent(0, "2024-05-20T13:00:00Z", "SESSION_LOADED", SESSION),
+      makeEvent(0, "2024-05-20T13:00:30Z", "ALERT_RAISED", { alert_id: "a-0", code: "BUDDY_SEPARATION", level: "caution", subjects: ["EV1", "MDV-1", "EV2"], message: "m" }),
+      makeEvent(0, "2024-05-20T13:01:00Z", "EVA_STARTED", { crew_ids: ["EV1", "EV2"], plan_revision: 0 }),
+    ]);
+
+    expect(buildReport(events, "h").alerts.details[0].shelter.map((r) => r.crew_id)).toEqual(["EV1", "EV2"]);
+  });
+
   it("report: stop timing rows are only for the crew on the EVA; an alert subject off the EVA gets no shelter row, a crew who sheltered keeps a dose row", () => {
     const events = seqd([
       makeEvent(0, "2024-05-20T13:00:00Z", "SESSION_LOADED", SESSION),
