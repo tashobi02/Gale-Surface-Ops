@@ -310,7 +310,7 @@
     },
     {
       "accessed": "2026-11-02",
-      "accuracy_note": "Fixture bibliography from local reference \u00a79; accessed date copied from F.1, not a retrieval. TODO(verify): complete metadata; TODO(decision): canonical solar-min source id (map open point 12).",
+      "accuracy_note": "Fixture bibliography from local reference \u00a79; accessed date copied from F.1, not a retrieval. TODO(verify): complete metadata.",
       "credit": "Hassler et al., 2014",
       "instruments": [],
       "licence": "TODO(verify)",
@@ -323,7 +323,7 @@
     },
     {
       "accessed": "2026-11-02",
-      "accuracy_note": "Fixture bibliography from local reference \u00a79; accessed date copied from F.1, not a retrieval. TODO(verify): complete metadata; TODO(decision): canonical solar-min source id (map open point 12).",
+      "accuracy_note": "Fixture bibliography from local reference \u00a79; accessed date copied from F.1, not a retrieval. TODO(verify): complete metadata.",
       "credit": "Simonsen et al., 2024",
       "instruments": [],
       "licence": "TODO(verify)",

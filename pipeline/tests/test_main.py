@@ -274,6 +274,56 @@ def test_tiles_follow_record_and_stop_on_unknown_ramp(tmp_path, monkeypatch):
     assert rendered[2][1]['data_encoded']
 
 
+def test_gale_ortho_is_tiled_as_jpeg_at_half_metre(tmp_path, capsys, monkeypatch):
+    import shutil
+    import numpy as np
+    rasterio = pytest.importorskip('rasterio')
+    from rasterio.transform import from_origin
+    from marswalk_pipeline import config
+
+    root = Path(runner.__file__).resolve().parents[3]
+    source_layers = root / 'pipeline/sites/gale_boxwork/layers'
+    site = tmp_path / 'site'
+    shutil.copytree(source_layers, site / 'layers')
+    ortho = json.loads((site / 'layers/ortho.json').read_text())
+    assert ortho['tile_grid']['resolutions_m'] == config.ORTHO_TILE_RESOLUTIONS_M
+    assert ortho['tile_grid']['resolutions_m'] == [32, 16, 8, 4, 2, 0.5]
+    assert ortho['tile_grid']['format'] == 'jpg'
+    x, y = ortho['tile_grid']['origin_m']
+    resolution = ortho['tile_grid']['resolutions_m'][-1]
+    size = 2  # Synthetic raster shape, not a terrain measurement.
+    (site / 'site.json').write_text(json.dumps({
+        'site_id': 'gale_boxwork', 'aoi': {'extent_m': [x, y - size * resolution, x + size * resolution, y]},
+    }))
+    for name in ('hillshade', 'slope', 'elevation', 'thermal_inertia', 'hazard_flags', 'comm_hab'):
+        layer = json.loads((site / 'layers' / f'{name}.json').read_text())
+        assert layer['tile_grid']['resolutions_m'] == config.TILE_RESOLUTIONS_M
+        assert layer['tile_grid']['format'] == 'png'
+
+    # This test is about the ortho ladder, not the state of other layers' ramps.
+    deferred = {'elevation', 'thermal_inertia', 'hazard_flags', 'comm_hab'}
+    monkeypatch.setattr(runner, '_unstyled_layers', lambda _: {name: 'test' for name in deferred})
+    monkeypatch.setattr(runner, '_skipped_layers', lambda _: deferred)
+
+    scratch = tmp_path / 'work/runs/gale_boxwork'
+    scratch.mkdir(parents=True)
+    for name, dtype in (('ortho', 'uint8'), ('hillshade', 'float32'), ('slope', 'float32')):
+        with rasterio.open(scratch / f'{name}.tif', 'w', driver='GTiff', width=size, height=size,
+                           count=1, dtype=dtype, transform=from_origin(x, y, resolution, resolution)) as dst:
+            dst.write(np.zeros((size, size), dtype=dtype), 1)
+
+    output = tmp_path / 'out'
+    runner._run_step('tiles', root, site, tmp_path / 'work', output, skip_unstyled_optional=True)
+    levels = ortho['tile_grid']['resolutions_m']
+    finest = output / f'tiles/ortho/{len(levels) - 1}/0/0.jpg'
+    with rasterio.open(finest) as tile:
+        assert tile.driver == 'JPEG'
+    index = json.loads((output / 'tiles/ortho/index.json').read_text())
+    assert {entry['path'] for entry in index['tiles']} == {f'{z}/0/0.jpg' for z in range(len(levels))}
+    assert not list((output / 'tiles/ortho').rglob('*.png'))
+    assert 'ortho record PNG/2 m' not in capsys.readouterr().err
+
+
 def test_site_id_mismatch_stops_before_steps(tmp_path, monkeypatch, capsys):
     import json
     (tmp_path / 'site.json').write_text(json.dumps({'site_id': 'other'}))

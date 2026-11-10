@@ -9,8 +9,8 @@
   "native_resolution_m": 0.25,
   "display_resolution_m": 0.5,
   "asset_id": "tiles-ortho",
-  "tile_grid": {"origin_m": [-3000, 3000], "resolutions_m": [32, 16, 8, 4, 2], "tile_size_px": 256, "format": "png"},
+  "tile_grid": {"origin_m": [-3000, 3000], "resolutions_m": [32, 16, 8, 4, 2, 0.5], "tile_size_px": 256, "format": "jpg"},
   "default_visible": true,
   "optional": false,
-  "limitations": "Missing data is transparent. The colour COG has about 7.74% real greyscale strips in the AOI window (nearest-neighbour sample); valid-mask black RGB pixels are TODO(verify)."
+  "limitations": "The colour COG has about 7.74% greyscale strips in the AOI window (nearest-neighbour sample). JPEG tiles may show black padding outside the area of interest."
 }
