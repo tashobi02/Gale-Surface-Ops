@@ -275,10 +275,10 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 wer
 | Field | Spec |
 | --- | --- |
 | Purpose | Set up the mission on the hab computers before planning: which mission site this mission uses |
-| Entry | `#/setup` for ops (and presenter); after loading a scenario, before the planner publishes |
+| Entry | `#/setup`, ops only; after loading a scenario, before the planner publishes |
 | Content | Candidate hab sites as a short list of cards (first choice, alternative; label, position, a small comm-coverage preview from its precomputed grid and the source note, read from the manifest's `hab_candidates`; the facts behind the two sites are in [hab-site.md](../ops/feasibility/hab-site.md)); a "prepared on Earth, pre-checked" caption; other mission settings (crew count, vehicle available, solar phase, safety limits; **Proposed**) with the "Defaults are assumptions" badge, as SCR-04 |
 | Primary actions | Select a candidate (`SELECT_HAB_SITE`), set a setting (`SET_MISSION_SETUP`), Continue to the planner |
-| Rules | A list only: no free placement (01 §C.4). After a plan is published the site is locked until **Reset session** |
+| Rules | A list only: no free placement (01 §C.4). With no candidates in the manifest it shows the single default site as fixed. After a plan is published the site is locked until **Reset session** |
 | States | Loading · Ready · Computing haven fields (candidate changed; non-blocking) · Locked (plan published) · Command rejected |
 | Requirements | FR-53, FR-30 |
 

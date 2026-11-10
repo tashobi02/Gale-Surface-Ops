@@ -98,8 +98,8 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `crs.base` | string | ✓ | — | IAU code of geographic base | `"IAU_2015:49900"` |
 | `aoi.extent_m` | number[4] | ✓ | — | `[minx, miny, maxx, maxy]` | `[-3000,-3000,3000,3000]` |
 | `aoi.bbox_geo` | number[4] | ✓ | — | `[min_lon_e, min_lat, max_lon_e, max_lat]`, inside DEM extent | illustrative |
-| `default_start` | `{x_m, y_m, label}` | ✓ | — | Passable cell. *(2026-11-10)* Equals the `default_start` of the rank-1 `hab_candidates` entry | — |
-| `hab_candidates` *(2026-11-10, Proposed)* | HabCandidate[] | ✓ | — | ≥ 1, a short list of pre-checked sites (two today); exactly one has `rank` 1 | — |
+| `default_start` | `{x_m, y_m, label}` | ✓ | — | Passable cell. *(2026-11-10)* When `hab_candidates` is present, equals the `default_start` of its rank-1 entry | — |
+| `hab_candidates` *(2026-11-10, Proposed)* | HabCandidate[] | | absent | Optional until the pipeline produces candidates; absent = the single `default_start` / `hab_mast` site, so current manifests and the validator stay valid. When present: ≥ 1, a short list of pre-checked sites (two today); exactly one has `rank` 1 | — |
 | `known_offsets_m` | object | | `{}` | Measured layer-to-ortho offsets | `{"traverse": 2.1}` |
 | `layers` | Layer[] | ✓ | — | ≥ 1 | — |
 | `sources` | DataSource[] | ✓ | — | — | — |
@@ -175,7 +175,7 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `ti_asset` | FK | | f32 tiu at 100 m, own small grid with `ti_cell_m: 100` | `"grid-ti"` |
 | `ti_cell_m` | number | cond. | Required with `ti_asset`; TI grid cell size, metres | `100` |
 | `comm_hab_asset` *(v2)* | FK | ✓ | u8, 1 = line of sight to the hab mast, 0 = none, 255 = no data (02 §C.5 L11) | `"grid-comm-hab"` |
-| `hab_mast` *(v2)* | `{x_m, y_m, height_m}` | ✓ | Mast used for `comm_hab`. *(2026-11-10)* `comm_hab_asset` and `hab_mast` here are those of the rank-1 candidate, so a consumer that ignores candidates still works | `{"x_m":-1800,"y_m":-1500,"height_m":10}` |
+| `hab_mast` *(v2)* | `{x_m, y_m, height_m}` | ✓ | Mast used for `comm_hab`. *(2026-11-10)* When `hab_candidates` is present, `comm_hab_asset` and `hab_mast` here are those of the rank-1 candidate, so a consumer that ignores candidates still works | `{"x_m":-1800,"y_m":-1500,"height_m":10}` |
 
 #### Flag bits
 
@@ -346,9 +346,9 @@ Conventions as §C. In addition: `sim_time` is ISO-8601 UTC of the **mission clo
 | `site_id`, `data_version` | string | ✓ | must equal the loaded Site | `"gale_boxwork"` |
 | `seed` | int | ✓ | 32-bit | `4190` |
 | `start_utc` | ISO | ✓ | | `"2024-05-20T…Z"` (TASK-21) |
-| `mission_setup` *(2026-11-10, Proposed)* | `{hab_candidate_id, crew_count?, vehicle_available?, solar_phase?, max_haven_min?}` | ✓ | Defaults for the setup screen (SCR-20): `hab_candidate_id` must be a `candidate_id` in the Site's `hab_candidates`; the other keys use the [MissionScenario](#missionscenario-user-input) names and ranges. The chosen values are copied to the Session | `{"hab_candidate_id": "hab-first"}` |
+| `mission_setup` *(2026-11-10, Proposed)* | `{hab_candidate_id?, crew_count?, vehicle_available?, vehicle_param_set?, solar_phase?, max_haven_min?}` | ✓ | Defaults for the setup screen (SCR-20): `hab_candidate_id` (omitted when the Site has no `hab_candidates`) must be a `candidate_id` in the Site's `hab_candidates`; the other keys use the [MissionScenario](#missionscenario-user-input) names and ranges. They are the defaults the planner's scenario parameters start from; when a published plan exists, the plan's [MissionScenario](#missionscenario-user-input) values win. `crew_count` must equal the length of `crew[]`; `vehicle_available: true` requires `vehicle_param_set`. The chosen values are copied to the Session | `{"hab_candidate_id": "hab-first"}` |
 | `plan` | PlanExport | — | *(2026-11-10)* Optional: the **reference plan** for a headless reference run; in a live session the plan arrives with `PUBLISH_PLAN`. When present, `plan_hash` must verify | — |
-| `stop_tasks` *(FR-50, added 2026-11-06, Proposed)* | array of `{task_id, stop_id, crew_id, kind, text}` | — | the authored [StopTask](#stoptask-fr-50-added-2026-11-05) fields only; `stop_id` must be the `id` of a stop Waypoint in `plan` (U-61); 1–4 per stop (FR-50), checked by the Hab Core loader; kept beside `plan`, not inside it, so `plan_hash` is unchanged (U-48) | — |
+| `stop_tasks` *(FR-50, added 2026-11-06, Proposed)* | array of `{task_id, stop_id, crew_id, kind, text}` | — | *(2026-11-10)* requires `plan`, so it is for the reference run only; in a live session the tasks arrive with `PUBLISH_PLAN`, beside the plan. The authored [StopTask](#stoptask-fr-50-added-2026-11-05) fields only; `stop_id` must be the `id` of a stop Waypoint in `plan` (U-61); 1–4 per stop (FR-50), checked by the Hab Core loader; kept beside `plan`, not inside it, so `plan_hash` is unchanged (U-48) | — |
 | `crew` | array of `{crew_id, suit_param_set, start_offset_s}` | ✓ | 1–2 entries, ids `EV1`/`EV2` | — |
 | `vehicles` | array of `{vehicle_id, kind, param_set, start_x_m, start_y_m}` | ✓ | start on a passable cell for its kind | — |
 | `param_sets` | FK[] → ParamSet | ✓ | must include one `link`, `alert`, `shielding` | — |
@@ -382,7 +382,7 @@ An event the presenter starts at the current sim time with `START_EVENT {event_i
 | `series_start_utc` | ISO | ✓ | the sample time in that series where playback begins: the start of the pre-onset rise. Played at the press `t0`, so the rate at sim time `t ≥ t0` is the series at `series_start_utc + (t − t0)`. `TODO(verify)`: the value, chosen by TASK-21 from the series |
 | `label` | string | ✓ | shown on the curve: `"replayed — Curiosity RAD measurements"` |
 | `source_id`, `provenance` | FK, enum | ✓ | `rad-sol4190`; `replayed` |
-| `inputs` | array of `{input_id, t_offset_s, kind, payload, provenance, source_id}` | | scheduled inputs of this event (DONKI record, Earth message, advisory), as [ScenarioEvent](#scenarioevent) but timed at `t0 + t_offset_s`, `t_offset_s` ≥ 0, computed by the pipeline from the recorded time minus `series_start_utc`. `TODO(verify)`: whether any recorded input precedes `series_start_utc` (it would fire at the press) |
+| `inputs` | array of `{input_id, t_offset_s, kind, payload, provenance, source_id}` | | scheduled inputs of this event (DONKI record, Earth message, advisory), as [ScenarioEvent](#scenarioevent) but timed at `t0 + t_offset_s`, `t_offset_s` ≥ 0, computed by the pipeline from the recorded time minus `series_start_utc` for replayed inputs. A `simulated` input has no recorded time: `TODO(decision)` how its offset is set (for example derived from the DONKI record it answers; no value is chosen here). The old `payload.sent_earth_utc` of an `EARTH_MESSAGE` is not stored in a library input: the Earth issue time is the input's shifted time `t0 + t_offset_s`, from which §D.12 computes delivery. `TODO(verify)`: whether any recorded input precedes `series_start_utc` (it would fire at the press) |
 
 The Earth-link tables are **not** shifted: light time, relay passes, Sun position and LTST are read at the current sim time. `TODO(verify)`: `earth_link.json` covers the whole EVA day of a live session.
 
@@ -431,8 +431,8 @@ The drafted tasks in `scenarios/storm-sol4190/stop_tasks.json` (keyed there by `
 | --- | --- | --- |
 | `session_id` (PK) | string | `s-<n>` |
 | `scenario_id`, `data_version`, `seed` | — | copied from Scenario |
-| `hab_candidate_id` *(2026-11-10, Proposed)* | string | the chosen HabCandidate; initial value from Scenario `mission_setup`; changed only by `SELECT_HAB_SITE` in `LOADED` |
-| `mission_setup` *(2026-11-10, Proposed)* | object | the settings in force (`crew_count`, `vehicle_available`, `solar_phase`, `max_haven_min`), from Scenario `mission_setup`, changed by `SET_MISSION_SETUP` |
+| `hab_candidate_id` *(2026-11-10, Proposed)* | string | the chosen HabCandidate; initial value from Scenario `mission_setup`; changed only by `SELECT_HAB_SITE` (ops only) in `LOADED` |
+| `mission_setup` *(2026-11-10, Proposed)* | object | the settings in force (`crew_count`, `vehicle_available`, `vehicle_param_set`, `solar_phase`, `max_haven_min`), from Scenario `mission_setup`, changed by `SET_MISSION_SETUP` (ops only) |
 | `started_events` *(2026-11-10, Proposed)* | `{event_id, t0_sim_time}[]` | library events started so far; reduced from `EVENT_STARTED` |
 | `status` | enum | `LOADED \| RUNNING \| PAUSED \| ENDED` |
 | `clock` | `{sim_time, speed: 1\|10\|60, paused}` | a loaded session starts at `speed` 1, not paused, until `SET_CLOCK` *(decided 2026-11-07)* |
@@ -628,7 +628,7 @@ erDiagram
 ```mermaid
 erDiagram
   SCENARIO }o--|| SITE : "valid for data_version"
-  SCENARIO ||--|| PLAN_EXPORT : "carries"
+  SCENARIO ||--o| PLAN_EXPORT : "carries (reference plan)"
   SCENARIO ||--o{ SCENARIO_EVENT : "schedules"
   SCENARIO ||--|| DOSE_SERIES : "replays"
   SCENARIO ||--|{ EVENT_LIBRARY_ENTRY : "offers"
@@ -684,7 +684,7 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
 - Every `source_ids` entry resolves to a DataSource.
 - All grids share `width`, `height`, `cell_m`, `origin_m`.
 - All POIs and the default start lie inside `aoi.extent_m` and on passable cells.
-- *(2026-11-10)* Every `hab_candidates` mast and `default_start` lies inside `aoi.extent_m` on a passable cell; `candidate_id`s and ranks are unique; the rank-1 candidate matches `default_start`, `grid.comm_hab_asset` and `grid.hab_mast`.
+- *(2026-11-10)* When `hab_candidates` is present, every mast and `default_start` lies inside `aoi.extent_m` on a passable cell; `candidate_id`s and ranks are unique; the rank-1 candidate matches `default_start`, `grid.comm_hab_asset` and `grid.hab_mast`.
 - `crs.proj4` string is byte-identical to the pipeline constant.
 
 ### E.4 Versioning and migration
@@ -707,7 +707,7 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
 
 | Rule | Enforced by |
 | --- | --- |
-| Scenario `site_id`/`data_version` equal the loaded Site; `plan_hash` verifies; table SHA-256s match | Hab Core on `LOAD_SCENARIO` (reject with reason) |
+| Scenario `site_id`/`data_version` equal the loaded Site; `plan_hash` verifies when `plan` is present; table SHA-256s match | Hab Core on `LOAD_SCENARIO` (reject with reason) |
 | Every vehicle and crew start is passable for its kind | Hab Core on load |
 | *(2026-11-10)* `mission_setup.hab_candidate_id` exists in the Site's `hab_candidates`; each `event_library` entry's `dose_series` resolves in `tables` and its `series_start_utc` is a sample time of that series; each `task_library` `poi_id` resolves to a POI | Hab Core on `LOAD_SCENARIO` (reject with reason) |
 | `seq` gap-free; `session.jsonl` append-only; snapshot `seq` ≤ last line | Hab Core writer; checked on resume |

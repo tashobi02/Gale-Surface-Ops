@@ -321,7 +321,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 - **Behavior:** The scenario replays a historical event using (a) DONKI records for the flare/CME/SEP and the WSA-ENLIL prediction of arrival at Mars, and (b) the Curiosity RAD dose for that event. Default: the **20 May 2024** event, the largest surge RAD had measured since landing, with a total dose of about **8,100 µGy** for a person standing next to the rover (NASA, June 2024 — **Confirmed** via secondary report; replace with nasa.gov URL in TASK-04). *(Changed 2026-11-10: the event starts when the presenter presses Start storm, at the current sim time; FR-52.)* The alert timeline distinguishes:
   1. local radiation trigger on Mars (FR-38),
   2. Earth-side forecast, which arrives late because of light time and relay windows (FR-43).
-- **Acceptance:** event onset, peak and alert arrival times in the app match the scenario table built from the source records; the dose curve is labelled `replayed` with its source (or "digitised from published figure" if RAD time series is unavailable, U-15).
+- **Acceptance:** event onset, peak and alert arrival times in the app match the scenario table built from the source records *(changed 2026-11-10: as offsets from the press, FR-52; the reference run keeps the recorded UTC)*; the dose curve is labelled `replayed` with its source (or "digitised from published figure" if RAD time series is unavailable, U-15).
 
 #### FR-38 — Local radiation trigger [T1, M]
 
@@ -416,7 +416,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 - **Behavior:**
   - A `presenter` role and panel (SCR-19), separate from the ops console. The ops console is in-story (the habitat operator); the presenter panel is the team's control surface.
   - Buttons: **Next stop** (`JUMP_NEXT_STOP`), **Start storm** (`START_EVENT`, FR-52), clock speed 1× / 10× / 60× and pause (`SET_CLOCK`, existing), **Reset session** (`RESET_SESSION`). The panel may also use the existing `LOAD_SCENARIO` and `JUMP_NEXT_EVENT`.
-  - **Next stop** fast-forwards the sim clock until the crew arrive at the next stop. It is not a teleport: crew keep walking along the planned route under the hood, and consumables, dose, alerts and time accrue normally (02 §D.17). If an alert is raised on the way, the fast-forward stops at it (`TODO(decision)`, U-63).
+  - **Next stop** fast-forwards the sim clock until the crew arrive at the next stop. It is not a teleport: crew keep walking along the planned route under the hood, and consumables, dose, alerts and time accrue normally (02 §D.17). The fast-forward also ends at a plan revision, the end of the EVA, crew sheltering, or a warning-level alert (`TODO(decision)`, U-63), and is refused while such an alert is latched (02 §D.17).
   - **Reset session** returns to a fresh loaded session of the same scenario (02 §D.17).
   - Every press is a command that the Hab Core validates, and the event it produces is written to the event log, so a run replays deterministically (NFR-06). Presses are never applied on the client.
 - **Provenance:** the panel shows the clock as sim time, labelled `simulated`; it shows no new measured value.
@@ -451,8 +451,9 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 - **Framing:** the site data for the candidate hab locations was prepared on Earth by the pipeline. The crew, setting up the hab computers, select which mission site this mission uses.
 - **Behavior:**
   - Ops picks from a **short list of pre-checked candidate hab sites** (05 Site `hab_candidates`), not free placement. Today the list is the two sites in [hab-site.md](../ops/feasibility/hab-site.md): the first choice and the alternative.
+  - Until the pipeline produces candidates the manifest has none, and the single `default_start` / `hab_mast` site is the mission site (05 Site `hab_candidates` is optional).
   - Each candidate carries its precomputed hab-mast comm grid and its default start. Haven fields are recomputed at runtime for the chosen candidate (the NFR-02 target of 2 s applies; no new target).
-  - The setup screen (SCR-20) may also show other mission settings: crew count, vehicle available, solar phase and the safety limits that are planner ParamSet or MissionScenario values today (05). These are **Proposed**.
+  - The setup screen (SCR-20) may also show other mission settings: crew count, vehicle available, solar phase and the safety limits that are planner ParamSet or MissionScenario values today (05). They are the defaults the planner's scenario parameters start from; once a plan is published, the plan's values win (02 §D.17). Only ops sets them (02 §E.4). These are **Proposed**.
   - The chosen candidate is recorded in the session (05 Session) and in the event log (`SITE_SELECTED`); the planner opens with the hab as the start at the chosen candidate.
 - **Out of scope for now:** free placement with a live 20 m viewshed (C.4).
 - **Acceptance criteria:**
@@ -480,12 +481,12 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 
 **Live session** *(reframed 2026-11-10, decision of the product & systems lead; **Proposed**)*: the demo is not a fixed timeline. The team sets up the mission (site and settings, FR-53), plans a normal walk with its stop tasks (FR-54), publishes it and starts the EVA. The beats below happen **when a presenter triggers them** (FR-51): Next stop, then Start storm (FR-52), then the crew's own actions on their devices. The numbers in this section are the values of one **reference run**, the deterministic headless replay of a recorded command list (02 §D.17, NFR-06, NFR-14); they are not a fixed schedule, and a live session that presses Start storm at another sim time reads other Earth-link values from the same tables.
 
-**Setup:** Four devices on an offline router. Laptop A = Hab Core + ops console on the projector. Phone 1 = EV1 suit tablet (HUD mode). Phone 2 = EV2 (optional; tablet acceptable). A presenter device (a second laptop or tablet, or a window on laptop A) shows the presenter panel (SCR-19). Scenario: two-person EVA at Gale (default date **20 May 2024**, D-10), EVA start TODO(verify) (derived by T21.15 from the stop-2 dwell rule once T21.12 builds the demo plan; in a live session the planner sets it), clock at 60×.
+**Setup:** Three or four devices on an offline router. Laptop A = Hab Core + ops console on the projector. Phone 1 = EV1 suit tablet (HUD mode). Phone 2 = EV2 (optional; tablet acceptable). The presenter panel (SCR-19) runs on a fourth device (a second laptop or tablet) or, with three devices, as a window on laptop A. Scenario: two-person EVA at Gale (default date **20 May 2024**, D-10), EVA start TODO(verify) (derived by T21.15 from the stop-2 dwell rule once T21.12 builds the demo plan; in a live session the planner sets it), clock at 60×.
 
 | t (video) | Beat (what happens; triggered by) | What is shown | Value demonstrated |
 | --- | --- | --- | --- |
 | 0:00 | Crew are at stop 2, a hydrated-sulfate resource stop on Mount Sharp (presenter: Next stop, once or twice) | Ops map: EV1/EV2 markers, route, rover parked at hab; HUD: next stop, margins | In-EVA use; Exploration Zone |
-| 0:10 | Dose rate climbs; local trigger fires (presenter: Start storm) | Red alert on all devices simultaneously; dose-rate chart labelled `replayed — Curiosity RAD, 20 May 2024` | Real event, real data |
+| 0:10 | Dose rate climbs; local trigger fires (presenter: Start storm) | Red alert on all devices simultaneously; dose-rate chart labelled `replayed — Curiosity RAD measurements` (Sources & Methods names the 20 May 2024 record, sol 4190; FR-52) | Real event, real data |
 | 0:20 | Earth status: forecast message is still in transit / waiting for relay pass | Earth link widget: light time 15.8 min (SPICE), next relay pass in 179.5 min (MAVEN) | Earth can't help in time |
 | 0:30 | System proposes options | Abort to hab 41 min vs. rover rendezvous 14 min; expected event dose for each | Decision support |
 | 0:40 | EV1 taps **Summon vehicle** → confirm | Rover route draws; rendezvous point avoids a 17° slope; ETAs converge | Vehicle summon, realistic routing |
@@ -536,6 +537,8 @@ The v1 planning walkthrough below is retained; task files cite its step numbers.
 
 > Marswalk Surface Ops is an exploratory hackathon prototype. It is **not** astronaut operations software. Crew, suit, rover and vehicle states are **simulated**. Solar events are **real historical records replayed** on a simulated clock — not a live feed from Mars. Slope limits, speeds, consumables and shelter values are illustrative assumptions from Earth and Apollo-era references. Radio coverage is line-of-sight only.
 
+*Proposed (2026-11-10, FR-52), a separate note beside the statement above:* the replayed storm starts on demand, time-shifted from its recorded time; it is still a real historical record, never a live feed.
+
 ### F.2 Key assumptions
 
 | ID | Assumption | Label | Why it matters |
@@ -577,7 +580,7 @@ The v1 planning walkthrough below is retained; task files cite its step numbers.
 | U-17 | Usable orbiter dust-storm record in the scenario window | Check in TASK-04; otherwise drop FR-49 |
 | U-46 | FR-50 sign-off: Tier 1 (in the dry run) as proposed, and whether ops may add tasks during an active alert | Tier 1; ops adds tasks only when no warning is latched |
 | U-62 | Reference run (§E.1): press Start storm at the sim time that keeps the series at its recorded UTC (the §E.1 numbers stand), or press at another time and re-derive the numbers | `TODO(decision)`: product & systems lead; either way T21.15 prints the values for the press time used |
-| U-63 | Does **Next stop** stop at the first alert raised on the way (FR-51)? | Yes at a warning, so the presenter cannot skip past a safety alert; `TODO(decision)` |
+| U-63 | Does **Next stop** stop at the first alert raised on the way (FR-51)? | Yes at a warning, and it is rejected with `BUSY` while one is latched, so the presenter cannot skip past a safety alert; `TODO(decision)` |
 | U-64 | Where does the stop task library live: the scenario file or the site's POI data (FR-54)? | Scenario file, beside `stop_tasks`, as U-48 decided for tasks; the library is keyed by POI id; `TODO(decision)` |
 
 ---
