@@ -183,7 +183,6 @@ export function EvaTablet({
             data-slot="alert"
             data-level={vm.alertSlot.level}
             className={`alert-bar cut-s status-${vm.alertSlot.level}`}
-            onClick={onOpenOptions}
             style={{
               width: "100%",
               minHeight: "64px",
@@ -191,7 +190,6 @@ export function EvaTablet({
               alignItems: "center",
               justifyContent: "space-between",
               padding: "8px 16px",
-              cursor: "pointer",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -203,8 +201,9 @@ export function EvaTablet({
             <button
               type="button"
               className="btn sm"
-              style={{ minHeight: "56px", minWidth: "56px", fontSize: "16px" }}
+              style={{ minHeight: "56px", minWidth: "56px", fontSize: "16px", cursor: "pointer" }}
               aria-label="Review alert options"
+              onClick={onOpenOptions}
             >
               OPTIONS
             </button>
@@ -381,12 +380,10 @@ export function EvaTablet({
         <div
           data-slot="mini-map"
           className="card mini-map cut-s"
-          onClick={onOpenFullScreenMap}
           style={{
             ...cardStyle,
             minHeight: "160px",
             position: "relative",
-            cursor: "pointer",
             justifyContent: "space-between",
             background: "#080A0D",
           }}
@@ -403,19 +400,33 @@ export function EvaTablet({
                 fontSize: "16px",
                 cursor: "pointer",
               }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenFullScreenMap?.();
-              }}
+              onClick={onOpenFullScreenMap}
             >
               FULL MAP
             </button>
           </div>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flex: 1 }}>
+          {/* The map area is a real button (a large target for gloves), not a clickable div. */}
+          <button
+            type="button"
+            data-slot="mini-map-open"
+            aria-label="Open full-screen map"
+            onClick={onOpenFullScreenMap}
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              flex: 1,
+              minHeight: "56px",
+              background: "transparent",
+              border: "none",
+              color: "inherit",
+              cursor: "pointer",
+            }}
+          >
             <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--text-3, #8592A0)" }}>
               [ Gale Crater · Mount Sharp Traverse · IAU_2015:49900 ]
             </span>
-          </div>
+          </button>
         </div>
       </div>
 

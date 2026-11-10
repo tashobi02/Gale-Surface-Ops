@@ -4,7 +4,9 @@
  *
  * Rules (04 §D.3):
  * - Gloved taps are imprecise; critical actions use press-and-hold 800 ms (--hold-to-confirm).
- * - A progress bar runs along the button's chamfered edge; early release cancels.
+ * - A progress bar runs along the button's chamfered edge; early release cancels, and so does a pointer that leaves
+ *   the button, loses its capture or moves outside the button's box (a captured touch never fires "leave"); a control
+ *   that becomes disabled mid-hold never confirms.
  * - The command is dispatched when the hold completes. The button then shows "pending" (or "queued" while
  *   unlinked) until the Hab Core answers; only an accepted result shows the 300 ms confirmation outcome, a
  *   rejected result shows its reason and stays until the next press. Nothing claims success before the answer.
@@ -123,6 +125,10 @@ export function HoldToConfirm({
   const cancelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef<boolean>(true);
   const inFlightRef = useRef<boolean>(false);
+  const disabledRef = useRef<boolean>(disabled);
+  disabledRef.current = disabled;
+  /** What started the current hold: only a pointer hold is cancelled by the pointer leaving. */
+  const holdSourceRef = useRef<"pointer" | "key">("pointer");
 
   // Clean up timers on unmount
   useEffect(() => {
@@ -136,9 +142,24 @@ export function HoldToConfirm({
     };
   }, []);
 
+  // A control that turns disabled underneath a hold or an armed "Confirm" drops back to idle; it never confirms.
+  useEffect(() => {
+    if (!disabled) return;
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    if (fallbackTimerRef.current !== null) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
+    setPhase((p) => (p === "holding" || p === "confirm" || p === "cancelled" ? "idle" : p));
+    if (!inFlightRef.current) setProgress(0);
+  }, [disabled]);
+
   const triggerConfirm = useCallback(async () => {
     // One dispatch per confirmation, however many taps or key repeats arrive while pending.
-    if (inFlightRef.current) return;
+    if (inFlightRef.current || disabledRef.current) return;
     inFlightRef.current = true;
     if (fallbackTimerRef.current !== null) clearTimeout(fallbackTimerRef.current);
     setPhase("pending");
@@ -179,8 +200,9 @@ export function HoldToConfirm({
     }, fallbackTimeoutMs);
   }, [fallbackTimeoutMs]);
 
-  const startHolding = useCallback(() => {
+  const startHolding = useCallback((source: "pointer" | "key") => {
     if (disabled || phase === "done" || phase === "pending") return;
+    holdSourceRef.current = source;
 
     if (cancelResetTimerRef.current !== null) {
       clearTimeout(cancelResetTimerRef.current);
@@ -191,6 +213,10 @@ export function HoldToConfirm({
     const startTime = performance.now();
 
     const tick = () => {
+      if (disabledRef.current) {
+        rafRef.current = null;
+        return;
+      }
       const elapsed = performance.now() - startTime;
       const p = Math.min(elapsed / holdDurationMs, 1);
       setProgress(p);
@@ -226,7 +252,7 @@ export function HoldToConfirm({
     // In tap-fallback mode the click event alone drives the two taps.
     if (tapFallback || e.button !== 0 || disabled) return;
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    startHolding();
+    startHolding("pointer");
   };
 
   const handlePointerUp = () => {
@@ -241,6 +267,18 @@ export function HoldToConfirm({
     }
   };
 
+  // The pointer left the button or lost its capture: a pointer hold ends (a key hold is unaffected).
+  const handlePointerAway = () => {
+    if (phase === "holding" && holdSourceRef.current === "pointer") cancelHolding();
+  };
+
+  // A captured touch never fires "leave", so a move outside the button's box ends the hold too.
+  const handlePointerMove = (e: PointerEvent<HTMLButtonElement>) => {
+    if (phase !== "holding" || holdSourceRef.current !== "pointer") return;
+    const r = e.currentTarget.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) cancelHolding();
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (disabled || e.repeat) return;
     if (e.key === "Enter" || e.key === " ") {
@@ -249,7 +287,7 @@ export function HoldToConfirm({
         if (phase === "confirm") void triggerConfirm();
         else if (phase !== "pending" && phase !== "done") armFallback();
       } else {
-        startHolding();
+        startHolding("key");
       }
     }
   };
@@ -323,7 +361,7 @@ export function HoldToConfirm({
         aria-disabled={disabled}
         data-hold="1"
         data-hold-key={dataHoldKey}
-        data-hold-duration="800ms"
+        data-hold-duration={`${holdDurationMs}ms`}
         data-phase={phase}
         aria-label={
           phase === "confirm"
@@ -338,6 +376,9 @@ export function HoldToConfirm({
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
+        onPointerLeave={handlePointerAway}
+        onLostPointerCapture={handlePointerAway}
+        onPointerMove={handlePointerMove}
         onKeyDown={handleKeyDown}
         onKeyUp={handleKeyUp}
         onClick={handleClick}

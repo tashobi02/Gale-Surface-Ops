@@ -6,17 +6,19 @@
  */
 
 import {
+  useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent,
   type ReactElement,
 } from "react";
-import type { ContingencyOption, CrewId, Snapshot } from "@marswalk/protocol";
+import type { ContingencyOption, CrewId, LogEvent, Provenance, Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
-import { useCommand, useHabClient, useSnapshot } from "../../state/habSession";
+import { useCommand, useEvents, useHabClient, useSnapshot } from "../../state/habSession";
 import { HoldToConfirm, type ConfirmOutcome } from "../eva/HoldToConfirm";
-import { selectMetadataStrip } from "../eva/viewModel";
+import { isProvenance, selectMetadataStrip } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
-import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtInt, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
+import { UNAVAILABLE, fmtInt, glyphOf, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
 
 interface OptionsCommonProps {
   /** Hab Core client for command dispatch; omitted means the tab's session (state/habSession.ts), null means none. */
@@ -37,13 +39,33 @@ interface OptionsCommonProps {
 export type OptionsProps = OptionsCommonProps &
   ({ variant?: "eva"; crewId: CrewId } | { variant: "ops"; crewId?: CrewId });
 
-/** Option ETA and dose are modelled by the contingency engine (05); a non-finite one reads "—", flagged unavailable. */
-function optionAttrs(v: unknown, field: string): ReturnType<typeof provAttrs> {
-  return provAttrs(
-    isFiniteNumber(v)
-      ? { prov: "modelled", src: `snapshot:options.${field}` }
-      : unavailableOf("modelled", `options.${field}`),
-  );
+/** The class 05 ContingencyOption gives a field when the Hab Core's event does not name one; 05 gives `stops_dropped` none. */
+const OPTION_FIELD_CLASS: Record<string, Provenance | undefined> = {
+  eta_shelter_min: "modelled",
+  expected_dose_ugy: "modelled",
+};
+
+/**
+ * The class the Hab Core gave an option field: the provenance of the newest OPTIONS_PROPOSED event for the option's alert
+ * (05 §F.6 spells the key `data.options[].<field>`, the Hab Core `data.options.<field>`; both are read). Null when no
+ * such event is in the store or it names no valid class.
+ * TODO(decision): the two spellings should become one in 05; 05 gives `stops_dropped` no class, so it shows none.
+ */
+function eventClass(events: LogEvent[], option: ContingencyOption, field: string): Provenance | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i];
+    if (event.kind !== "OPTIONS_PROPOSED" || event.data.alert_id !== option.alert_id) continue;
+    const given: unknown = event.provenance?.[`data.options[].${field}`] ?? event.provenance?.[`data.options.${field}`];
+    return isProvenance(given) ? given : null;
+  }
+  return null;
+}
+
+/** Label for an option value: the Hab Core's class (else 05's); a non-finite value reads "—", flagged unavailable. */
+function optionAttrs(events: LogEvent[], option: ContingencyOption, field: string, v: unknown): { attrs: ReturnType<typeof provAttrs>; glyph: string } {
+  const prov = eventClass(events, option, field) ?? OPTION_FIELD_CLASS[field] ?? null;
+  const sourced = isFiniteNumber(v) ? { prov, src: `snapshot:options.${field}` } : unavailableOf(prov, `options.${field}`);
+  return { attrs: provAttrs(sourced), glyph: glyphOf(sourced) };
 }
 
 const KIND_LABELS: Record<string, string> = {
@@ -100,6 +122,7 @@ export function Options({
   const hab = useHabClient(client);
   const send = useCommand(client);
   const stored = useSnapshot(client);
+  const events = useEvents(client);
   const activeSnapshot = snapshot ?? stored;
   // No sample options: when the Hab Core has proposed none the sheet says so and cannot confirm anything.
   const rawOptions = activeSnapshot?.options ?? [];
@@ -107,9 +130,38 @@ export function Options({
   // Options are kept strictly in server-provided rank order (04 §E.7)
   const options = [...rawOptions].sort((a, b) => a.rank - b.rank);
 
-  // Top-ranked option is pre-selected (04 §E.7: "the top option pre-selected")
-  const [selectedRank, setSelectedRank] = useState<number | null>(null);
+  // Top-ranked option is pre-selected (04 §E.7: "the top option pre-selected"). A choice belongs to the proposal it was
+  // made on: a new proposal (other alert or other option ids) starts again at the top option.
+  const proposalKey = options.map((o) => `${o.alert_id}/${o.option_id}`).join("|");
+  const [choice, setChoice] = useState<{ key: string; rank: number } | null>(null);
+  const selectedRank = choice && choice.key === proposalKey ? choice.rank : null;
   const selectedOption = options.find((o) => o.rank === selectedRank) ?? options[0];
+  const radioRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const choose = (index: number): void => {
+    const target = options[index];
+    if (!target) return;
+    setChoice({ key: proposalKey, rank: target.rank });
+    radioRefs.current[index]?.focus();
+  };
+
+  // Radio group keys: arrows move the choice (wrapping), Home and End jump, Space and Enter choose the focused radio.
+  const onRadioKeyDown = (e: KeyboardEvent<HTMLDivElement>, index: number): void => {
+    const last = options.length - 1;
+    const next: Record<string, number> = {
+      ArrowDown: index === last ? 0 : index + 1,
+      ArrowRight: index === last ? 0 : index + 1,
+      ArrowUp: index === 0 ? last : index - 1,
+      ArrowLeft: index === 0 ? last : index - 1,
+      Home: 0,
+      End: last,
+      " ": index,
+      Enter: index,
+    };
+    if (!(e.key in next)) return;
+    e.preventDefault();
+    choose(next[e.key]);
+  };
 
   const isEva = variant === "eva";
   const linked = isEva && crewId ? selectMetadataStrip(activeSnapshot, crewId).link.linked : null;
@@ -230,21 +282,23 @@ export function Options({
             {UNAVAILABLE} No options proposed yet — the Hab Core is computing them
           </div>
         )}
-        {options.map((opt) => {
+        {options.map((opt, index) => {
           const isSelected = opt.option_id === selectedOption?.option_id;
+          const eta = optionAttrs(events, opt, "eta_shelter_min", opt.eta_shelter_min);
+          const dose = optionAttrs(events, opt, "expected_dose_ugy", opt.expected_dose_ugy);
+          const drops = optionAttrs(events, opt, "stops_dropped", opt.stops_dropped.length);
           // Selection is neutral chrome (04 §A.3: status colours mean status only).
           return (
             <div
               key={opt.option_id}
               role="radio"
               aria-checked={isSelected}
-              tabIndex={0}
-              onClick={() => setSelectedRank(opt.rank)}
-              onKeyDown={(e) => {
-                if (e.key === " " || e.key === "Enter") {
-                  setSelectedRank(opt.rank);
-                }
+              tabIndex={isSelected ? 0 : -1}
+              ref={(el) => {
+                radioRefs.current[index] = el;
               }}
+              onClick={() => choose(index)}
+              onKeyDown={(e) => onRadioKeyDown(e, index)}
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -278,7 +332,7 @@ export function Options({
                 </div>
                 <span
                   className="value"
-                  {...optionAttrs(opt.eta_shelter_min, "eta_shelter_min")}
+                  {...eta.attrs}
                   style={{
                     fontFamily: "var(--font-mono, monospace)",
                     fontSize: "24px",
@@ -286,7 +340,7 @@ export function Options({
                     color: "var(--text-1, #ECEFF2)",
                   }}
                 >
-                  {fmtInt(opt.eta_shelter_min)} MIN {isFiniteNumber(opt.eta_shelter_min) ? PROVENANCE_GLYPHS.modelled : ""}
+                  {fmtInt(opt.eta_shelter_min)} MIN {eta.glyph}
                 </span>
               </div>
 
@@ -301,17 +355,13 @@ export function Options({
                   color: "var(--text-2, #A9B3BE)",
                 }}
               >
-                <span {...optionAttrs(opt.expected_dose_ugy, "expected_dose_ugy")}>
-                  DOSE {fmtInt(opt.expected_dose_ugy)} µGy {isFiniteNumber(opt.expected_dose_ugy) ? PROVENANCE_GLYPHS.modelled : ""}
+                <span {...dose.attrs}>
+                  DOSE {fmtInt(opt.expected_dose_ugy)} µGy {dose.glyph}
                 </span>
                 <span>·</span>
-                <span
-                  data-provenance="modelled"
-                  data-source="snapshot:options.stops_dropped"
-                  title="snapshot:options.stops_dropped"
-                >
-                  DROPS {opt.stops_dropped.length > 0 ? `STOPS ${opt.stops_dropped.join(", ")}` : "0 STOPS"}{" "}
-                  {PROVENANCE_GLYPHS.modelled}
+                <span {...drops.attrs}>
+                  DROPS {opt.stops_dropped.length > 0 ? `STOPS ${opt.stops_dropped.join(", ")}` : "0 STOPS"}
+                  {drops.glyph ? ` ${drops.glyph}` : ""}
                 </span>
                 {opt.violations.length > 0 && (
                   <span style={{ color: "var(--status-warning, #FF4D4D)" }}>
