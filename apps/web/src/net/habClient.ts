@@ -293,27 +293,40 @@ function insertBySeq(list: LogEvent[], event: LogEvent): LogEvent[] {
 
 const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 
+/** The id field of each addressable list in the SNAPSHOT (mirrors apps/hab-core/src/stateDelta.ts ID_FIELD). */
+const LIST_ID_FIELD: Record<string, string> = {
+  crew: "crew_id",
+  vehicles: "vehicle_id",
+  alerts: "alert_id",
+  options: "option_id",
+  tasks: "task_id",
+  queue: "message_id",
+  clients: "client_id",
+};
+
 /**
  * Return a copy of `node` with `value` at `parts`, copying only the objects along the path.
- * Array items are matched by any `*_id` field equal to the segment. An unresolvable path leaves
- * the node unchanged (and logs it).
+ * Array items are matched by the list's own id field (`list` is the name the array sits under, e.g. "options" →
+ * `option_id`), never by another `*_id` such as an option's `alert_id`. An unresolvable path leaves the node
+ * unchanged (and logs it).
  */
-function withPath(node: unknown, parts: string[], value: unknown): unknown {
+function withPath(node: unknown, parts: string[], value: unknown, list = ""): unknown {
   const [key, ...rest] = parts;
   if (key === undefined || FORBIDDEN_KEYS.has(key)) return node;
   if (Array.isArray(node)) {
-    const i = node.findIndex((item) => item && typeof item === "object" && Object.entries(item).some(([k, v]) => k.endsWith("_id") && v === key));
+    const idField = LIST_ID_FIELD[list];
+    const i = idField === undefined ? -1 : node.findIndex((item) => item && typeof item === "object" && (item as Record<string, unknown>)[idField] === key);
     if (i < 0 || rest.length === 0) {
       console.warn(`habClient: no item ${key} for delta`);
       return node;
     }
     const copy = node.slice();
-    copy[i] = withPath(node[i], rest, value);
+    copy[i] = withPath(node[i], rest, value, "");
     return copy;
   }
   if (node !== null && typeof node === "object") {
     const record = node as Record<string, unknown>;
-    return { ...record, [key]: rest.length === 0 ? value : withPath(record[key], rest, value) };
+    return { ...record, [key]: rest.length === 0 ? value : withPath(record[key], rest, value, key) };
   }
   console.warn(`habClient: delta path ends at a non-object (${key})`);
   return node;

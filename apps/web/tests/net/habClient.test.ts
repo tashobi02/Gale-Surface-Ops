@@ -216,6 +216,19 @@ describe("Hab Core web client (T20.05 → T20.06)", () => {
     expect(c.state()?.session.status).toBe("PAUSED");
   });
 
+  it("matches a list item on that list's own id field only: an option whose alert_id equals the path id is not the one meant", () => {
+    const c = start();
+    latest().open();
+    const option = (option_id: string, alert_id: string, eta: number) => ({ option_id, alert_id, kind: "ABORT_TO_HAB", crew_ids: ["EV1"], eta_shelter_min: eta, expected_dose_ugy: 0, stops_dropped: [], violations: [], rank: 1, path_preview: [], rendezvous: null });
+    latest().receive({ ...snapshot, options: [option("o9", "o1", 5), option("o1", "a-1", 7)] as unknown as Snapshot["options"] });
+    latest().receive({ v: 1, type: "STATE_DELTA", seq: 413, sim_time: "", changes: [{ path: "options/o1/eta_shelter_min", value: 99 }] });
+
+    expect(c.state()?.options.map((o) => o.eta_shelter_min)).toEqual([5, 99]);
+    // A task is addressed by task_id, not by its stop_id.
+    latest().receive({ v: 1, type: "STATE_DELTA", seq: 414, sim_time: "", changes: [{ path: "tasks/wp-2/state", value: "DONE" }] });
+    expect(c.state()?.tasks[0].state).toBe("TODO");
+  });
+
   it("adds replayed EVENTs at or below the SNAPSHOT seq to the feed, deduped by seq, without changing state (T20.13)", () => {
     const c = start();
     latest().open();

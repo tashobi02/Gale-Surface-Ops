@@ -108,6 +108,8 @@ export function useStopTaskChanges(send: Send, serverTasks: StopTask[], linked: 
       .send({ kind: "UPDATE_STOP_TASK", args: entry.args })
       .then((result) => {
         if (result.ok) return;
+        // Only the entry that was sent may be undone by its own rejection: a newer one (the UNDO that replaced it) stays.
+        if (entries.current.get(taskId) !== entry) return;
         // Rejected for good (INVALID, FORBIDDEN_ROLE, …): the row goes back to the server's state and says why.
         entries.current.delete(taskId);
         rejected.current.set(taskId, { text: `${result.code}: ${result.message}`, at: serverState(taskId) ?? "TODO" });

@@ -12,7 +12,7 @@ import {
 } from "react";
 import type { CrewId, Snapshot, StopTask } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
-import { useCommand, useHabClient, useSnapshot } from "../../state/habSession";
+import { useCommand, useHabClient, useLinkLost, useSnapshot } from "../../state/habSession";
 import {
   havenTargetLabel,
   selectEvaViewModel,
@@ -93,7 +93,10 @@ export function EvaTablet({
   // A tick or skip is sent at once and shown at once (01 FR-50), so the view model, the TASKS count and the list all
   // read the snapshot with the changes in progress applied.
   const serverTasks = activeSnapshot?.tasks ?? NO_TASKS;
-  const linked = selectMetadataStrip(activeSnapshot, crewId).link.linked;
+  // Linked means the suit link is up (snapshot) and this tablet's own socket to the Hab Core is not lost.
+  const socketLost = useLinkLost(client).lost;
+  const suitLinked = selectMetadataStrip(activeSnapshot, crewId).link.linked;
+  const linked = socketLost ? false : suitLinked;
   const changes = useStopTaskChanges(send, serverTasks, linked);
   const viewSnapshot = activeSnapshot ? { ...activeSnapshot, tasks: changes.overlay(serverTasks) } : activeSnapshot;
   const vm: EvaViewModel = selectEvaViewModel(viewSnapshot, crewId);
@@ -499,7 +502,7 @@ export function EvaTablet({
         <EvaActionRow
           client={hab}
           crewId={crewId}
-          linked={vm.metadata.link.linked}
+          linked={linked}
           onOpenHud={onOpenHud}
           onOpenRoverTasking={onOpenRoverTasking}
         />

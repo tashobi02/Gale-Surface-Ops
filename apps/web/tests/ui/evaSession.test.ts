@@ -6,7 +6,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
-import type { ServerMessage, Snapshot } from "@marswalk/protocol";
+import { LINK_LOST_AFTER_MS, type ServerMessage, type Snapshot } from "@marswalk/protocol";
 import { connectHab, type HabClient, type SocketLike } from "../../src/net/habClient";
 import { STOP_TASK_UNDO_WINDOW_MS } from "../../src/ui/screens/scr12/useStopTaskChanges";
 import { EvaTablet, type EvaTabletProps } from "../../src/ui/screens/scr12EvaTablet";
@@ -287,6 +287,40 @@ describe("stop task changes are sent at once; UNDO reverses them on the server f
     expect(sent).toHaveLength(0);
     await unmount();
     expect(sent).toEqual([DONE]);
+  });
+
+  it("a rejection of the tick that arrives after UNDO was issued leaves the undo entry alone", async () => {
+    let release: (r: ReturnType<typeof rejected>) => void = () => {};
+    const slow = new Promise<ReturnType<typeof rejected>>((resolve) => { release = resolve; });
+    const { container, sent } = await tablet((c) => (c.args.undo ? new Promise(() => {}) : slow));
+    await tick(container);
+    await click(must(container, '[aria-label^="Undo task change: Image"]'));
+    expect(sent).toEqual([DONE, UNDO]);
+    expect(rowState(container)).toBe("TODO"); // the reversal's optimistic state
+
+    await act(async () => { release(rejected("INVALID", "tick refused")); });
+    await flush();
+    // The undo entry is intact: no rejection text from the tick, and the reversal is still in progress.
+    expect(container.querySelector('[data-field="rejection"]')).toBeNull();
+    expect(rowState(container)).toBe("TODO");
+  });
+
+  it("with the socket down (link lost) a tick waits and reads 'not synced' even though the suit link is up", async () => {
+    vi.useFakeTimers();
+    const live = liveClient();
+    await live.socket.receive(...wsFixtures.connect);
+    await act(async () => { vi.advanceTimersByTime(LINK_LOST_AFTER_MS + 50); });
+    expect(live.client.linkLost().lost).toBe(true);
+    const { client, sent } = recordingClient(live.client);
+    const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot: atStop() }));
+    await click(must(view.container, '[data-testid="tasks-button"]'));
+
+    await click(must(view.container, '[aria-label^="Mark task done: Image"]'));
+    expect(sent).toHaveLength(0);
+    expect(must(view.container, '[data-testid="task-row-t-s2-02"] .tag-sync').textContent).toBe("not synced");
+    await click(must(view.container, '[aria-label^="Undo task change: Image"]'));
+    await act(async () => { vi.advanceTimersByTime(STOP_TASK_UNDO_WINDOW_MS * 2); });
+    expect(sent).toHaveLength(0);
   });
 
   it("the TASKS count follows the change at once", async () => {
