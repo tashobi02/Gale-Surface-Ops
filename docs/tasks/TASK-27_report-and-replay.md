@@ -42,7 +42,7 @@
 
 ### T27.01 — follow-up: report builder and `GET /api/report`
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI); Sadman Shaharier Mahim (R4) reviews the server change
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core); Ridita Alam (R5) reviews the UI side — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -63,7 +63,7 @@
 
 ### T27.02 — Tests: report values equal the counts reduced from the log
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -83,7 +83,7 @@
 
 ### T27.03 — Implement SCR-17 post-EVA report (print, ≤ 2 pages)
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** event-only
