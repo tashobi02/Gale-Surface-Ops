@@ -1,0 +1,51 @@
+{
+  "hab": {
+    "lat": -4.83787,
+    "lonE": 137.39756,
+    "source": {
+      "path": "docs/ops/feasibility/hab-site.md",
+      "row": "Lat, lon °E (first choice)"
+    }
+  },
+  "alert": {
+    "t_utc": "2024-05-20T05:50:32Z",
+    "ltst": "11:10",
+    "sun_elevation_deg": 66.65,
+    "is_daylight": true,
+    "source": {
+      "path": "scenarios/storm-sol4190/dose_series.json",
+      "row": 41,
+      "rule": "triggerState with ParamSet alert-assumed (scenarios/storm-sol4190/param_sets/alert-assumed.json)"
+    }
+  },
+  "sun": {
+    "sunrise_utc": "2024-05-20T00:22:19Z",
+    "sunset_utc": "2024-05-20T13:01:00Z",
+    "sunrise_ltst": "05:51",
+    "sunset_ltst": "18:09",
+    "source": {
+      "rule": "sunriseSunset(alert, lat, lonE) with the hab position from docs/ops/feasibility/hab-site.md"
+    }
+  },
+  "light_time": {
+    "row_t_utc": "2024-05-20T05:50:00Z",
+    "light_time_s": 950.190644,
+    "light_time_min": 15.836510733333334,
+    "source": {
+      "path": "scenarios/storm-sol4190/earth_link.json",
+      "row": 3230
+    }
+  },
+  "next_pass": {
+    "orbiter": "maven",
+    "start_utc": "2024-05-20T08:50:00Z",
+    "end_utc": "2024-05-20T08:56:00Z",
+    "max_elev_deg": 12.832075,
+    "wait_min": 179.46666666666667,
+    "source": {
+      "path": "scenarios/storm-sol4190/earth_link.json",
+      "row": 16
+    }
+  },
+  "alert_inside_pass": null
+}
