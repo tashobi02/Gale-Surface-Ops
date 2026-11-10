@@ -74,4 +74,26 @@ describe("sun position and sunrise/sunset (T06.03 / T06.07, FR-11)", () => {
       ).toBeLessThanOrEqual(0.1);
     }
   });
+
+  it("throws RangeError on invalid Date, latitude, or longitude inputs", () => {
+    const validUtc = new Date("2026-11-14T08:00:00Z");
+    const invalidDate = new Date("not-a-date");
+
+    // Invalid date
+    expect(() => solarPosition(invalidDate, lat, lonE)).toThrow(RangeError);
+    expect(() => sunriseSunset(invalidDate, lat, lonE)).toThrow(RangeError);
+
+    // Invalid latitude
+    expect(() => solarPosition(validUtc, NaN, lonE)).toThrow(RangeError);
+    expect(() => solarPosition(validUtc, 95, lonE)).toThrow(RangeError);
+    expect(() => solarPosition(validUtc, -91, lonE)).toThrow(RangeError);
+    expect(() => sunriseSunset(validUtc, NaN, lonE)).toThrow(RangeError);
+    expect(() => sunriseSunset(validUtc, 100, lonE)).toThrow(RangeError);
+
+    // Invalid longitude
+    expect(() => solarPosition(validUtc, lat, NaN)).toThrow(RangeError);
+    expect(() => solarPosition(validUtc, lat, Infinity)).toThrow(RangeError);
+    expect(() => sunriseSunset(validUtc, lat, NaN)).toThrow(RangeError);
+    expect(() => sunriseSunset(validUtc, lat, Infinity)).toThrow(RangeError);
+  });
 });

@@ -36,6 +36,16 @@ export function solarPosition(
   lat: number,
   lonE: number,
 ): { elevation_deg: number; azimuth_deg: number } {
+  if (!(utc instanceof Date) || isNaN(utc.getTime())) {
+    throw new RangeError("Invalid Date provided to solarPosition: expected valid Date");
+  }
+  if (!Number.isFinite(lat) || Math.abs(lat) > 90) {
+    throw new RangeError("Invalid latitude provided to solarPosition: expected finite number between -90 and 90");
+  }
+  if (!Number.isFinite(lonE)) {
+    throw new RangeError("Invalid longitude provided to solarPosition: expected finite number");
+  }
+
   const ott = j2000OffsetTt(utc);
   const lonW = eastToWestLongitude(lonE);
   const lsDeg = areocentricSolarLongitude(ott);
@@ -105,6 +115,16 @@ export function sunriseSunset(
   sunrise_ltst: string;
   sunset_ltst: string;
 } {
+  if (!(utc instanceof Date) || isNaN(utc.getTime())) {
+    throw new RangeError("Invalid Date provided to sunriseSunset: expected valid Date");
+  }
+  if (!Number.isFinite(lat) || Math.abs(lat) > 90) {
+    throw new RangeError("Invalid latitude provided to sunriseSunset: expected finite number between -90 and 90");
+  }
+  if (!Number.isFinite(lonE)) {
+    throw new RangeError("Invalid longitude provided to sunriseSunset: expected finite number");
+  }
+
   // Search over a +/- 16 hour window (encompassing the 24.66-hour Martian sol)
   const spanMs = 32 * 3600 * 1000;
   const stepMs = 120 * 1000; // 2-minute steps
