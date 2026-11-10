@@ -14,9 +14,8 @@ Interface these tests define for T21.07 (`marswalk_pipeline/rad.py`). Times are 
         keeps holding the last rate after the last sample, the integral must say so too, or the sample
         grid must end in a closing sample. Decide with TASK-05b and change this test with it.
         `window=(t0_utc, t1_utc)` clips every interval to [t0, t1]; time before the first sample or
-        after the last adds nothing. No background is subtracted (TODO(decision): whether the
-        published event total is compared with the raw or the background-subtracted integral is
-        decided in T21.06/T21.07 and recorded in docs/ops/rad-series.md).
+        after the last adds nothing. No background is subtracted (the U-45 archive comparison uses
+        gross integrals, as recorded in docs/ops/rad-series.md).
 
     build_dose_series(samples, *, series_id, source_id, background_rate_ugy_per_h, expected_ugy,
                       input_unit, integral_window=None) -> dict
@@ -31,7 +30,7 @@ Interface these tests define for T21.07 (`marswalk_pipeline/rad.py`). Times are 
             sorted strictly increasing in time with gaps as None (JSON null; not interpolated, not
             zero, none dropped or added), background_rate, method "archive", provenance "replayed",
             source_id, integral_check {expected_ugy, computed_ugy}.
-        `expected_ugy` is the published total passed in (never computed from the samples);
+        `expected_ugy` is the independent reference passed in (never computed from the samples);
         `computed_ugy` = step_hold_integral_ugy(output samples, integral_window).
         ValueError: no samples, a repeated timestamp, an unsupported unit. TypeError or ValueError: a
         non-numeric rate, a missing `expected_ugy`.
@@ -41,11 +40,9 @@ Interface these tests define for T21.07 (`marswalk_pipeline/rad.py`). Times are 
         bytes written, which is what scenario.json `tables.dose_series.sha256` holds (scenario README,
         "Hashes written from Python"). Same input, same bytes.
 
-Committed table. When `scenarios/storm-sol4190/dose_series.json` exists (T21.07, or the T21.13 fallback)
-the `committed_*` tests check its order, null gaps, schema and SHA-256 against `scenario.json`
-`tables.dose_series` if that file exists; they skip with a reason while it is absent. Schema checks live
-in their own `*_validates_against_schema` tests, so the jsonschema skip (not in the conda env until
-T14.01) never hides another assertion.
+Committed table. The `committed_*` tests require `scenarios/storm-sol4190/dose_series.json` and check
+its order, null gaps, schema and integral. The SHA-256 check waits for T21.08's `scenario.json`.
+The optional raw-file reproduction test skips explicitly if D8, SPDF or cdflib is absent.
 
 Expected values come from the inputs and arithmetic identities. Rates, times, totals and ids below are
 SYNTHETIC (invented to exercise the rules); the 8,100 uGy published total is deliberately not used.
@@ -55,8 +52,12 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import random
 import re
+import subprocess
+import sys
+import types
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -272,9 +273,9 @@ def test_series_carries_method_archive_provenance_replayed_and_the_given_ids():
 
 
 def _assert_valid_against_schema(series: dict) -> None:
-    """Schema check. Call it LAST in a dedicated `*_validates_against_schema` test, after `_mod()` has
-    run, so the test is red before T21.07 and its skip hides no other assertion."""
-    jsonschema = pytest.importorskip("jsonschema", reason="jsonschema is not in the pipeline conda env (T14.01)")
+    """Validate against the schema using the pipeline environment's jsonschema."""
+    import jsonschema
+
     cls = jsonschema.Draft202012Validator
     cls(json.loads(DOSE_SCHEMA.read_text()), format_checker=cls.FORMAT_CHECKER).validate(series)
 
@@ -350,8 +351,7 @@ T_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 def _committed_series() -> dict:
     path = SCENARIO_DIR / "dose_series.json"
-    if not path.is_file():
-        pytest.skip(f"{path.relative_to(REPO_ROOT)} does not exist yet (written by T21.07)")
+    assert path.is_file(), f"missing {path.relative_to(REPO_ROOT)}"
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -370,6 +370,170 @@ def test_committed_dose_series_has_strict_time_order_and_null_gaps():
 
 def test_committed_dose_series_validates_against_schema():
     _assert_valid_against_schema(_committed_series())
+
+
+def test_committed_dose_series_integral_matches_saved_step_hold_samples():
+    series = _committed_series()
+    rows = series["samples"]
+    independent_total = math.fsum(
+        rate * (datetime.strptime(next_time, ISO_FMT) - datetime.strptime(time, ISO_FMT)).total_seconds() / 3600
+        for (time, rate), (next_time, _) in zip(rows, rows[1:]) if rate is not None
+    )
+    assert series["integral_check"]["computed_ugy"] == pytest.approx(independent_total, rel=1e-14)
+
+
+def test_zenodo_reader_uses_original_e_column_preserves_gap_and_truncates_timestamp(tmp_path):
+    # Synthetic values: six fields despite the five-field product header.
+    path = tmp_path / "d8.txt"
+    path.write_text(
+        "Datetime\tDoy\tSol\tDoseE [micro Gray per day]\tDoseE_filtered [micro Gray per day]\n"
+        "2024-05-20 00:00:00.987654\t2024\t141\t4190.0\t48\t900\n"
+        "2024-05-20 00:17:00.123456\t2024\t141\t4190.1\tnan\t901\n",
+        encoding="utf-8",
+    )
+    assert _mod().read_product(path, "zenodo-d8") == [
+        ("2024-05-20T00:00:00Z", 4190.0, 48.0),
+        ("2024-05-20T00:17:00Z", 4190.1, None),
+    ]
+
+
+def test_zenodo_reader_rejects_unexpected_row_layout(tmp_path):
+    path = tmp_path / "d8.txt"
+    path.write_text("Datetime\tDoseE [micro Gray per day]\n2024-05-20 00:00:00\t4190\t48\n")
+    with pytest.raises(ValueError, match="six"):
+        _mod().read_product(path, "zenodo-d8")
+
+
+def test_zenodo_reader_rejects_out_of_order_or_duplicate_times(tmp_path):
+    path = tmp_path / "d8.txt"
+    path.write_text(
+        "Datetime\tDoy\tSol\tDoseE [micro Gray per day]\tDoseE_filtered [micro Gray per day]\n"
+        "2024-05-20 00:17:00\t2024\t141\t4190.1\t48\t900\n"
+        "2024-05-20 00:00:00\t2024\t141\t4190.0\t48\t900\n"
+    )
+    with pytest.raises(ValueError, match="strictly increasing"):
+        _mod().read_product(path, "zenodo-d8")
+
+
+def test_spdf_reader_selects_label_converts_units_keeps_fill_and_flags(monkeypatch, tmp_path):
+    class FakeCDF:
+        def __init__(self, path):
+            self.path = path
+
+        def varattsget(self, name):
+            return {"UNITS": "uGray/day", "FILLVAL": -999.0, "VALIDMIN": 0.0, "VALIDMAX": 1000.0}
+
+        def varinq(self, name):
+            return types.SimpleNamespace(Data_Type_Description="CDF_TIME_TT2000")
+
+        def varget(self, name):
+            return {
+                "DOSIMETRY_DOSE_LABEL": ["Total Dose E", "Total Dose B"],
+                "EPOCH": ["2024-05-20T00:00:00", "2024-05-20T01:00:00", "2024-05-20T02:00:00"],
+                "DOSIMETRY_TOTAL": [[48.0, 999.0], [-999.0, 999.0], [1001.0, 999.0]],
+                "FLAGGED_DATA": [" Cmds ", "", "Cmds"],
+            }[name]
+
+    monkeypatch.setitem(sys.modules, "cdflib", types.SimpleNamespace(
+        CDF=FakeCDF, cdfepoch=types.SimpleNamespace(to_datetime=lambda times: times),
+    ))
+    assert _mod().read_spdf_l2([tmp_path / "input.cdf"]) == [
+        ("2024-05-20T00:00:00Z", 2.0, "Cmds"),
+        ("2024-05-20T01:00:00Z", None, ""),
+        ("2024-05-20T02:00:00Z", None, "Cmds"),
+    ]
+    original_varget = FakeCDF.varget
+    monkeypatch.setattr(FakeCDF, "varget", lambda self, name: ["Cmds", "", ""]
+                        if name == "FLAGGED_DATA" else original_varget(self, name))
+    with pytest.raises(ValueError, match="invalid SPDF dose"):
+        _mod().read_spdf_l2([tmp_path / "input.cdf"])
+
+
+def test_spdf_reference_requires_complete_bracketing_and_clips_edges():
+    rows = [(_t(0), 10.0, ""), (_t(60), 20.0, "Cmds"), (_t(120), 30.0, "")]
+    assert _mod().spdf_reference_ugy(rows, (_t(30), _t(90))) == pytest.approx(10.0)
+    with pytest.raises(ValueError, match="cover"):
+        _mod().spdf_reference_ugy(rows, (_t(-30), _t(90)))
+    with pytest.raises(ValueError, match="gap"):
+        _mod().spdf_reference_ugy([rows[0], (_t(60), None, ""), rows[2]], (_t(30), _t(90)))
+
+
+def test_spdf_reference_excludes_flagged_records_and_holds_the_previous_rate():
+    # SYNTHETIC flags before and within the window, including consecutive flags
+    # and a flagged fill value, must not interrupt the last unflagged rate.
+    rows = [(_t(-30), 2.0, ""), (_t(-15), 99.0, "Cmds"),
+            (_t(15), 98.0, "Cmds"), (_t(45), None, "Other"),
+            (_t(75), 6.0, ""), (_t(120), 97.0, "Cmds"), (_t(150), 20.0, "")]
+    assert _mod().spdf_reference_ugy(rows, (_t(0), _t(120))) == pytest.approx(7.0)
+
+
+def test_spdf_reference_requires_unflagged_records_to_bracket_window():
+    with pytest.raises(ValueError, match="cover"):
+        _mod().spdf_reference_ugy([(_t(0), 2.0, "Cmds"), (_t(60), 3.0, ""),
+                                   (_t(120), 4.0, "")], (_t(0), _t(60)))
+    with pytest.raises(ValueError, match="cover"):
+        _mod().spdf_reference_ugy([(_t(0), 2.0, ""), (_t(60), 3.0, ""),
+                                   (_t(120), 4.0, "Cmds")], (_t(0), _t(120)))
+
+
+def test_spdf_reference_preserves_unflagged_gaps_through_flagged_records():
+    rows = [(_t(0), None, ""), (_t(60), 20.0, "Cmds"), (_t(120), 30.0, "")]
+    with pytest.raises(ValueError, match="gap"):
+        _mod().spdf_reference_ugy(rows, (_t(30), _t(90)))
+
+
+def test_spdf_reference_rejects_missing_day_between_bracketing_records():
+    rows = [(_t(0), 10.0, ""), (_t(3 * 24 * 60), 20.0, "")]
+    with pytest.raises(ValueError, match="calendar day"):
+        _mod().spdf_reference_ugy(rows, (_t(0), _t(3 * 24 * 60)))
+
+
+def test_spdf_reference_holds_across_a_day_with_only_flagged_observations():
+    rows = [(_t(0), 2.0, ""), (_t(24 * 60), 99.0, "Cmds"),
+            (_t(2 * 24 * 60), 4.0, "")]
+    assert _mod().spdf_reference_ugy(rows, (_t(0), _t(2 * 24 * 60))) == pytest.approx(96.0)
+
+
+def test_spdf_reference_rejects_duplicate_flagged_timestamps():
+    rows = [(_t(0), 2.0, ""), (_t(60), 99.0, "Cmds"),
+            (_t(60), 3.0, ""), (_t(120), 4.0, "")]
+    with pytest.raises(ValueError, match="strictly increasing"):
+        _mod().spdf_reference_ugy(rows, (_t(0), _t(120)))
+
+
+def test_archive_builder_uses_pre_event_median_and_matched_independent_reference(monkeypatch):
+    mod = _mod()
+    # Synthetic sol/rate fixtures exercise selection and units without any download.
+    d8 = [(_t(-120), 4188.0, 24.0), (_t(-60), 4189.0, 72.0),
+          (_t(0), 4190.0, 240.0), (_t(60), 4191.0, 480.0),
+          (_t(120), 4192.0, 720.0), (_t(180), 4193.0, 960.0)]
+    spdf = [(_t(-30), 1.0, ""), (_t(30), 2.0, "Cmds"),
+            (_t(90), 3.0, ""), (_t(150), 4.0, "")]
+    monkeypatch.setattr(mod, "read_product", lambda path, product: d8)
+    monkeypatch.setattr(mod, "read_spdf_l2", lambda paths: spdf)
+    series, diagnostics = mod.archive_series("synthetic-d8", ["synthetic-spdf"])
+    assert series["samples"] == [[_t(0), 10.0], [_t(60), 20.0], [_t(120), 30.0]]
+    assert series["background_rate"] == 2.0
+    assert series["integral_check"] == {"computed_ugy": 30.0, "expected_ugy": 3.0}
+    assert diagnostics["spdf_flagged_records_in_window"] == 1
+
+
+def test_raw_archives_reproduce_committed_series_when_available(tmp_path):
+    raw = Path(os.environ.get("MARSWALK_RAD_DIR", REPO_ROOT / "pipeline" / "work" / "rad"))
+    d8 = raw / "doseE_sol_filter_update.txt"
+    cdfs = sorted((raw / "spdf-l2").glob("*.cdf"))
+    if not d8.is_file() or not cdfs:
+        pytest.skip("raw D8 or SPDF L2 files absent; set MARSWALK_RAD_DIR to reproduce")
+    pytest.importorskip("cdflib", reason="cdflib is not in pipeline/environment.yml until T14.01")
+    output = tmp_path / "dose_series.json"
+    proc = subprocess.run(
+        [sys.executable, "-m", "marswalk_pipeline.rad", "--d8", str(d8),
+         "--spdf-l2", *map(str, cdfs), "--output", str(output)],
+        cwd=REPO_ROOT, check=False, capture_output=True, text=True,
+        env={**os.environ, "PYTHONPATH": str(REPO_ROOT / "pipeline" / "src") + os.pathsep + os.environ.get("PYTHONPATH", "")},
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert output.read_bytes() == (SCENARIO_DIR / "dose_series.json").read_bytes()
 
 
 def test_committed_dose_series_sha256_matches_scenario_json():
