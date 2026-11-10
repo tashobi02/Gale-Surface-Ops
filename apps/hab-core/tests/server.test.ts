@@ -8,6 +8,10 @@
  * T20.04 changes `ServerOptions` / the return type and removes the cast.
  * Wall-clock timers are allowed in the server (heartbeat), never in src/engine/ (NFR-06).
  */
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import {
@@ -18,11 +22,20 @@ import {
   type CommandResult,
   type LogEvent,
   type ServerMessage,
+  type PlanExport,
   type Snapshot,
+  type Waypoint,
 } from "@marswalk/protocol";
 import type { StateChange } from "../src/engine/reducer";
+import { readScenario } from "../src/scenario";
 import { startServer } from "../src/server";
-import type { SessionHandle } from "../src/session";
+import { loadSession, type SessionHandle } from "../src/session";
+
+// seedTasks (T31.04) is still a stub; the real-session test below only needs a loaded session.
+vi.mock("../src/engine/tasks", async () => {
+  const actual = await vi.importActual<typeof import("../src/engine/tasks")>("../src/engine/tasks");
+  return { ...actual, seedTasks: () => [] };
+});
 
 interface HabServerUnderTest {
   url: string;
@@ -44,6 +57,11 @@ class StubSession implements SessionHandle {
   pending: LogEvent[] = [];
   applied: Command[] = [];
   clientIds: (string | undefined)[] = [];
+  /** The scenario's plan, and the engine's current plan (the reducer replaces its waypoints on PLAN_REVISED). */
+  initial: PlanExport | null = null;
+  current: PlanExport | null = null;
+  /** A scripted log for the report tests; without it the placeholder ARRIVED_STOP events are served. */
+  log: LogEvent[] | null = null;
   constructor(lastSeq: number) {
     this.lastSeq = lastSeq;
   }
@@ -52,7 +70,7 @@ class StubSession implements SessionHandle {
       v: 1, type: "SNAPSHOT", seq: this.lastSeq, sim_time: SIM_TIME,
       session: { session_id: "s-0007", scenario_id: "storm-sol4190", data_version: "gale_boxwork-2026.11.08", seed: 0,
         status: "RUNNING", clock: { sim_time: SIM_TIME, speed: 60, paused: false }, plan_revision: 0, last_seq: this.lastSeq, log_hash: "" },
-      plan: null, crew: [], vehicles: [], alerts: [], options: [], tasks: [],
+      plan: this.current, crew: [], vehicles: [], alerts: [], options: [], tasks: [],
       earth: { light_time_s: 0, next_pass_utc: null, blackout: false, queue: [] }, clients, provenance: {},
     };
   }
@@ -67,7 +85,11 @@ class StubSession implements SessionHandle {
     this.pending = [];
     return { events, deltas: [] };
   }
+  initialPlan(): PlanExport | null {
+    return this.initial;
+  }
   eventsAfter(seq: number): LogEvent[] {
+    if (this.log) return this.log.filter((e) => e.seq > seq);
     const out: LogEvent[] = [];
     for (let s = seq + 1; s <= this.lastSeq; s++) out.push(logEvent(s));
     return out;
@@ -262,5 +284,45 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
     expect(body.stops).toBeDefined();
     expect(body.alerts).toBeDefined();
     expect(body.tasks).toBeDefined();
+  });
+
+  describe("GET /api/report plan baseline (01 FR-46)", () => {
+    it("the real session's initialPlan() is the scenario's plan, and the snapshot plan starts out the same", () => {
+      const here = dirname(fileURLToPath(import.meta.url));
+      const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
+      const dir = mkdtempSync(join(tmpdir(), "marswalk-server-"));
+      try {
+        const session = loadSession(fake, dir);
+        expect(session.initialPlan()).toBe(fake.scenario.plan);
+        expect(session.snapshot([]).plan?.plan_hash).toBe(fake.scenario.plan.plan_hash);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    const wp = (n: number, role: Waypoint["role"]): Waypoint => ({ id: `wp-${n}`, role, x_m: n, y_m: 0 });
+    const planOf = (waypoints: Waypoint[]): PlanExport =>
+      ({ scenario: { eva_start_utc: SIM_TIME }, waypoints, result: { stops_timeline: [] } }) as unknown as PlanExport;
+    const ev = (seq: number, kind: LogEvent["kind"], data: Record<string, unknown>): LogEvent =>
+      ({ seq, sim_time: SIM_TIME, kind, actor: "system", data, provenance: {}, command_ref: null });
+
+    it("a stop dropped before anyone reached it is `dropped`, though the snapshot plan (replaced by the reducer) no longer lists it", async () => {
+      const { server, session } = await setup();
+      const start = wp(0, "start");
+      session.initial = planOf([start, wp(1, "stop"), wp(2, "stop"), wp(3, "stop")]);
+      session.current = planOf([start, wp(1, "stop")]); // after both revisions below
+      session.log = [
+        ev(1, "SESSION_LOADED", { session_id: "s-0007", scenario_id: "storm-sol4190", data_version: "gale_boxwork-2026.11.08", seed: 0, plan_hash: "x" }),
+        ev(2, "EVA_STARTED", { crew_ids: ["EV1"], plan_revision: 0 }),
+        ev(3, "PLAN_REVISED", { plan_revision: 1, option_id: "opt-1", stops_dropped: [3], waypoints: [start, wp(1, "stop"), wp(2, "stop")], legs: [] }),
+        ev(4, "PLAN_REVISED", { plan_revision: 2, option_id: "opt-2", stops_dropped: [2], waypoints: [start, wp(1, "stop")], legs: [] }),
+        ev(5, "EVA_ENDED", { crew_ids: ["EV1"] }),
+      ];
+      const body = (await (await fetch(`${server.url}/api/report`)).json()) as { stops: { dropped: number; not_reached: number; details: { stop_id: string; status: string }[] }; plan_revisions: number };
+
+      expect(body.stops.details.map((d) => [d.stop_id, d.status])).toEqual([["wp-1", "not_reached"], ["wp-2", "dropped"], ["wp-3", "dropped"]]);
+      expect(body.stops.dropped).toBe(2);
+      expect(body.plan_revisions).toBe(2);
+    });
   });
 });

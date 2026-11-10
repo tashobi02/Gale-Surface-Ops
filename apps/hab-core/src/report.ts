@@ -11,18 +11,22 @@
  *
  * Definitions:
  * - Stop timing, per crew member per stop: arrival offset = ARRIVED_STOP - EVA_STARTED; dwell = LEFT_STOP - ARRIVED_STOP.
- *   The planned side is the plan's stops_timeline as offsets from the plan's `eva_start_utc`; null without a plan.
+ *   The planned side is the INITIAL plan's stops_timeline (05: per waypoint, so by index against that plan's waypoints) as
+ *   offsets from its `eva_start_utc`; null without a plan or for a stop it has no entry for. A PLAN_REVISED that carries a
+ *   whole `plan` (a publish) replaces the planned source for the stops in it. Rows exist only for the crew in EVA_STARTED.
  *   Actual is `simulated`, planned and differences are `derived`. No LEFT_STOP gives a null departure and dwell.
  * - Shelter response, per (alert, crew in subjects): the first CREW_SHELTERED of that crew after the raise while the alert
  *   has not been cleared, minus the raise time; otherwise null. `ack_s` is the first ALERT_ACKED minus the raise time.
  * - Dropped stop: a role "stop" waypoint of the previous plan (initial plan, or the last PLAN_REVISED's waypoints) that the
- *   PLAN_REVISED waypoints no longer have, by stop_id; `stops_dropped` ordinals are never mapped to ids.
+ *   PLAN_REVISED waypoints no longer have, by stop_id; `stops_dropped` ordinals are never mapped to ids. Only PLAN_REVISED
+ *   events after EVA_STARTED are revisions (counted, diffed); one before it is a published plan: it replaces the baseline and
+ *   is neither counted nor diffed (decided by the orchestrator 11 Nov, TODO(decision): confirm with Sadman). A stop that was
+ *   reached and then dropped is `dropped` with its timings kept.
+ * - Stop status: `completed` = every EVA crew has LEFT_STOP; after EVA_ENDED, reached but not all left = `incomplete`, never
+ *   reached = `not_reached`; while the EVA runs they are `in_progress` and `pending`.
  * - Dose: one row per crew member from that crew's last CREW_SHELTERED; the headline is the highest individual
  *   dose_event_ugy; there is no crew total.
  *
- * TODO(decision): the server passes the Hab Core's current plan snapshot, because SessionHandle does not expose the loaded
- * scenario's initial plan. After a PLAN_REVISED the snapshot's waypoints no longer line up with its (original)
- * stops_timeline, so planned timing is null then. Expose the scenario plan through SessionHandle to fix that.
  * TODO(decision): contract change in packages/protocol if PostEvaReport moves there; the type lives in this file for now.
  */
 
@@ -36,8 +40,11 @@ import type {
   Waypoint,
 } from "@marswalk/protocol";
 
-/** `pending`: not reached yet and the EVA has not ended; `not_reached`: never reached, not dropped, EVA ended. */
-export type StopStatus = "completed" | "in_progress" | "dropped" | "not_reached" | "pending";
+/**
+ * `pending`: not reached yet and the EVA has not ended; `not_reached`: never reached, not dropped, EVA ended;
+ * `incomplete`: reached but not every EVA crew left by EVA_ENDED; `in_progress`: the same while the EVA runs.
+ */
+export type StopStatus = "completed" | "in_progress" | "incomplete" | "dropped" | "not_reached" | "pending";
 
 /** One crew member at one stop. Offsets are seconds from EVA_STARTED; all of them null when not known. */
 export interface StopCrewTiming {
@@ -112,6 +119,7 @@ export interface PostEvaReport {
     completed: number;
     dropped: number;
     not_reached: number;
+    incomplete: number;
     details: StopReportDetail[];
   };
   alerts: {
@@ -164,26 +172,26 @@ interface PlannedStop {
   dwell_s: number;
 }
 
-/** stop_id -> planned timing. Only when stops_timeline lines up with the waypoints one to one (05: per waypoint). */
-function plannedTiming(plan: PlanExport | null | undefined): Map<string, PlannedStop> {
-  const out = new Map<string, PlannedStop>();
+/** Add a plan's per-stop planned timing to `into` (by index: stops_timeline[i] belongs to waypoints[i]); later plans override. */
+function addPlanned(into: Map<string, PlannedStop>, plan: PlanExport | null | undefined): void {
   const timeline = plan?.result?.stops_timeline;
   const waypoints = plan?.waypoints;
   const evaStart = plan?.scenario?.eva_start_utc;
-  if (!plan || !Array.isArray(timeline) || !Array.isArray(waypoints) || typeof evaStart !== "string" || timeline.length !== waypoints.length) return out;
+  if (!Array.isArray(timeline) || !Array.isArray(waypoints) || typeof evaStart !== "string") return;
   waypoints.forEach((w, i) => {
-    if (w.role !== "stop") return;
-    const arrive = secondsBetween(evaStart, timeline[i].arrive_utc);
-    const depart = secondsBetween(evaStart, timeline[i].depart_utc);
-    if (arrive !== null && depart !== null) out.set(w.id, { arrival_offset_s: arrive, departure_offset_s: depart, dwell_s: depart - arrive });
+    const slot = timeline[i];
+    if (w.role !== "stop" || !slot) return;
+    const arrive = secondsBetween(evaStart, slot.arrive_utc);
+    const depart = secondsBetween(evaStart, slot.depart_utc);
+    if (arrive !== null && depart !== null) into.set(w.id, { arrival_offset_s: arrive, departure_offset_s: depart, dwell_s: depart - arrive });
   });
-  return out;
 }
 
 interface AlertRecord extends AlertReportDetail {
   open: boolean;
 }
 
+/** `plan` is the scenario's initial plan (SessionHandle.initialPlan), never the engine's revised current plan. */
 export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: PlanExport | null): PostEvaReport {
   // Scope: the current session = everything after the last SESSION_LOADED (that event included).
   let from = 0;
@@ -213,13 +221,17 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
   };
   const arrivals = new Map<string, Map<string, { arrived: string; left: string | null }>>();
   const dropped = new Set<string>();
-  let currentStops: string[] | null = null; // the previous plan's stops, once known
   const initialStops = stopIds(plan?.waypoints);
+  // The previous plan's stops: the initial plan's, then each revision's. Without a plan: the stops the log names so far.
+  let currentStops: string[] | null = plan ? initialStops : null;
   initialStops.forEach(noteStop);
+  const planned = new Map<string, PlannedStop>();
+  addPlanned(planned, plan);
 
-  const crewSeen: string[] = [];
-  const noteCrew = (id: string): void => {
-    if (!crewSeen.includes(id)) crewSeen.push(id);
+  const arrivalCrew: string[] = []; // crew seen at a stop
+  const shelterCrew: string[] = []; // crew seen in CREW_SHELTERED
+  const noteIn = (list: string[], id: string): void => {
+    if (!list.includes(id)) list.push(id);
   };
   const lastShelter = new Map<string, { sim_time: string; data: LogEventData["CREW_SHELTERED"] }>();
 
@@ -257,7 +269,6 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
         if (evaStartTime === null) {
           evaStartTime = event.sim_time;
           evaCrew = Array.isArray(d.crew_ids) ? [...d.crew_ids] : [];
-          evaCrew.forEach(noteCrew);
         }
         break;
       }
@@ -270,7 +281,7 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
       case "ARRIVED_STOP": {
         const d = event.data as LogEventData["ARRIVED_STOP"];
         noteStop(d.stop_id);
-        noteCrew(d.crew_id);
+        noteIn(arrivalCrew, d.crew_id);
         if (typeof d.stop_index === "number") stopIndexOf.set(d.stop_id, d.stop_index);
         const perCrew = arrivals.get(d.stop_id) ?? new Map();
         if (!perCrew.has(d.crew_id)) perCrew.set(d.crew_id, { arrived: event.sim_time, left: null });
@@ -286,15 +297,26 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
       }
 
       case "PLAN_REVISED": {
-        planRevisions++;
         const d = event.data as LogEventData["PLAN_REVISED"];
-        if (Array.isArray(d.waypoints)) {
-          // The previous plan's stops: the last revision's, else the initial plan's plus the stops the log already names.
+        // A whole published plan (only possible before the EVA) becomes the planned source for the stops in it.
+        if (d.plan) addPlanned(planned, d.plan);
+        const next = Array.isArray(d.waypoints) ? stopIds(d.waypoints) : null;
+        if (evaStartTime === null) {
+          // Before the EVA a PLAN_REVISED is a publish: it replaces the baseline, and is neither counted nor diffed.
+          if (next) {
+            currentStops = next;
+            stopOrder.length = 0;
+            next.forEach(noteStop);
+          }
+          break;
+        }
+        planRevisions++;
+        if (next) {
           const previous = currentStops ?? stopOrder.slice();
-          const next = stopIds(d.waypoints);
           for (const id of previous) {
             if (!next.includes(id)) dropped.add(id);
           }
+          for (const id of next) dropped.delete(id); // a revision that puts a stop back
           next.forEach(noteStop);
           currentStops = next;
         }
@@ -311,7 +333,10 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
           acked_sim_time: null,
           cleared_sim_time: null,
           ack_s: null,
-          shelter: (Array.isArray(d.subjects) ? d.subjects : []).map((c) => ({ crew_id: String(c), shelter_response_s: null, sheltered_sim_time: null })),
+          // Rows for the subjects on the EVA (a vehicle or a crew member off the EVA cannot "shelter during the alert").
+          shelter: (Array.isArray(d.subjects) ? d.subjects : [])
+            .filter((c) => evaCrew.length === 0 || evaCrew.includes(c))
+            .map((c) => ({ crew_id: String(c), shelter_response_s: null, sheltered_sim_time: null })),
           provenance: { times: "simulated", durations: "derived" },
           open: true,
         };
@@ -371,7 +396,7 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
 
       case "CREW_SHELTERED": {
         const d = event.data as LogEventData["CREW_SHELTERED"];
-        noteCrew(d.crew_id);
+        noteIn(shelterCrew, d.crew_id);
         lastShelter.set(d.crew_id, { sim_time: event.sim_time, data: d });
         // A response only while the alert is still open, and only the first one.
         for (const a of alerts) {
@@ -391,15 +416,15 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
     }
   }
 
-  const crewOrder = evaCrew.length > 0 ? [...evaCrew, ...crewSeen.filter((c) => !evaCrew.includes(c))] : crewSeen;
-  const eva = evaCrew.length > 0 ? evaCrew : crewSeen;
-  const planned = plannedTiming(plan);
+  // Stop timing: the crew on the EVA. Dose: those plus anyone else who sheltered.
+  const eva = evaCrew.length > 0 ? evaCrew : arrivalCrew;
+  const doseCrew = [...eva, ...shelterCrew.filter((c) => !eva.includes(c))];
   const evaEnded = evaEndTime !== null;
 
   const stopDetails: StopReportDetail[] = stopOrder.map((stop_id) => {
     const perCrew = arrivals.get(stop_id);
     const p = planned.get(stop_id);
-    const crew: StopCrewTiming[] = crewOrder.map((crew_id) => {
+    const crew: StopCrewTiming[] = eva.map((crew_id) => {
       const rec = perCrew?.get(crew_id);
       const arrival = secondsBetween(evaStartTime, rec?.arrived ?? null);
       const dwell = secondsBetween(rec?.arrived ?? null, rec?.left ?? null);
@@ -417,13 +442,13 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
         provenance: { actual: "simulated", planned: "derived", differences: "derived" },
       };
     });
-    const reached = perCrew !== undefined && perCrew.size > 0;
+    const reached = perCrew !== undefined && eva.some((c) => perCrew.has(c));
     let status: StopStatus;
-    if (reached) {
-      const everyoneLeft = eva.length > 0 && eva.every((c) => perCrew.get(c)?.left != null);
-      status = everyoneLeft ? "completed" : "in_progress";
-    } else if (dropped.has(stop_id)) {
-      status = "dropped";
+    if (dropped.has(stop_id)) {
+      status = "dropped"; // also when reached first: the timings above stay
+    } else if (reached) {
+      const everyoneLeft = eva.every((c) => perCrew.get(c)?.left != null);
+      status = everyoneLeft ? "completed" : evaEnded ? "incomplete" : "in_progress";
     } else {
       status = evaEnded ? "not_reached" : "pending";
     }
@@ -439,7 +464,7 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
   const count = (status: StopStatus): number => stopDetails.filter((s) => s.status === status).length;
 
   // Dose rows: one per crew member, from that member's last CREW_SHELTERED.
-  const perCrewDose: CrewDoseRow[] = crewOrder.map((crew_id) => {
+  const perCrewDose: CrewDoseRow[] = doseCrew.map((crew_id) => {
     const s = lastShelter.get(crew_id);
     if (!s) return { crew_id, sheltered: false, sheltered_sim_time: null, haven_kind: null, dose_event_ugy: null, dose_event_unsheltered_ugy: null };
     return {
@@ -495,6 +520,7 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
       completed: count("completed"),
       dropped: count("dropped"),
       not_reached: count("not_reached"),
+      incomplete: count("incomplete"),
       details: stopDetails,
     },
     alerts: {

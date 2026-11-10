@@ -140,7 +140,7 @@ describe("PostEvaReport builder (01 FR-46, 05 PostEvaReport)", () => {
     expect(rowFor(report, "wp-2", "EV1")).toMatchObject({ planned_arrival_offset_s: 1140, dwell_diff_s: null });
   });
 
-  it("report: planned side is null without a plan or when the timeline does not match the waypoints", () => {
+  it("report: planned side is null without a plan, and for a stop the plan's timeline has no entry for", () => {
     const without = buildReport(stormLog, "h");
     expect(rowFor(without, "wp-1", "EV1")).toMatchObject({ planned_arrival_offset_s: null, planned_departure_offset_s: null, planned_dwell_s: null, arrival_diff_s: null, dwell_diff_s: null });
     expect(rowFor(without, "wp-1", "EV1")?.arrival_offset_s).toBe(180);
@@ -148,6 +148,51 @@ describe("PostEvaReport builder (01 FR-46, 05 PostEvaReport)", () => {
     const emptyTimeline = { ...PLAN, result: { ...PLAN.result, stops_timeline: [] } } as PlanExport;
     expect(rowFor(buildReport(stormLog, "h", emptyTimeline), "wp-1", "EV1")?.planned_arrival_offset_s).toBeNull();
     expect(rowFor(buildReport(stormLog, "h", null), "wp-1", "EV1")?.planned_arrival_offset_s).toBeNull();
+  });
+
+  it("report: a same-count reorder in a PLAN_REVISED does not mis-map planned times (initial plan's index decides)", () => {
+    const reordered = seqd(stormLog.map((e) => e.kind !== "PLAN_REVISED" ? e : {
+      ...e,
+      data: { ...e.data, waypoints: [WP_START, wp(2, "stop"), wp(1, "stop"), wp(3, "stop"), wp(4, "stop")] },
+    }));
+    const report = buildReport(reordered, "h", PLAN);
+
+    expect(rowFor(report, "wp-1", "EV1")).toMatchObject({ planned_arrival_offset_s: 240, planned_departure_offset_s: 840 });
+    expect(rowFor(report, "wp-2", "EV1")).toMatchObject({ planned_arrival_offset_s: 1140 });
+    expect(report.stops.dropped).toBe(0);
+  });
+
+  it("report: a plan published before the EVA is the new baseline and planned source; it is not a revision", () => {
+    const published = {
+      scenario: { eva_start_utc: "2024-05-20T13:00:00Z" },
+      waypoints: [WP_START, wp(1, "stop"), wp(5, "stop")],
+      result: { stops_timeline: [slot("2024-05-20T13:00:00Z", "2024-05-20T13:00:00Z"), slot("2024-05-20T13:10:00Z", "2024-05-20T13:20:00Z"), slot("2024-05-20T13:30:00Z", "2024-05-20T13:40:00Z")] },
+    } as unknown as PlanExport;
+    const events = seqd([
+      makeEvent(0, "2024-05-20T13:00:00Z", "SESSION_LOADED", SESSION),
+      makeEvent(0, "2024-05-20T13:00:30Z", "PLAN_REVISED", { plan_revision: 1, option_id: null, stops_dropped: [], waypoints: published.waypoints, legs: [], plan: published }, "planner"),
+      makeEvent(0, "2024-05-20T13:01:00Z", "EVA_STARTED", { crew_ids: ["EV1"], plan_revision: 1 }),
+      makeEvent(0, "2024-05-20T13:12:00Z", "ARRIVED_STOP", { crew_id: "EV1", stop_id: "wp-1", stop_index: 1 }),
+    ]);
+    const report = buildReport(events, "h", PLAN);
+
+    expect(report.plan_revisions).toBe(0);
+    // wp-2..wp-4 of the initial plan are not stops of the published plan: not "dropped", not listed
+    expect(report.stops.details.map((d) => d.stop_id)).toEqual(["wp-1", "wp-5"]);
+    expect(report.stops.dropped).toBe(0);
+    // planned offsets are from the published plan's own eva_start_utc (13:00:00): arrive +600 s, depart +1200 s; actual arrival 13:12:00 - 13:01:00 = 660 s
+    expect(rowFor(report, "wp-1", "EV1")).toMatchObject({ planned_arrival_offset_s: 600, planned_departure_offset_s: 1200, planned_dwell_s: 600, arrival_diff_s: 60 });
+    expect(rowFor(report, "wp-5", "EV1")?.planned_arrival_offset_s).toBe(1800);
+  });
+
+  it("report: only a revision after EVA_STARTED is counted and diffed; one before it just replaces the baseline", () => {
+    const prePublish = makeEvent(0, "2024-05-20T13:00:30Z", "PLAN_REVISED", { plan_revision: 1, option_id: null, stops_dropped: [], waypoints: [WP_START, wp(1, "stop"), wp(2, "stop"), wp(3, "stop"), wp(4, "stop")], legs: [] }, "planner");
+    const events = seqd([stormLog[0], prePublish, ...stormLog.slice(1)]);
+    const report = buildReport(events, "h", PLAN);
+
+    expect(report.plan_revisions).toBe(1);
+    expect(report.stops.details.find((d) => d.stop_id === "wp-3")?.status).toBe("dropped");
+    expect(report.stops.dropped).toBe(1);
   });
 
   it("report: dropped stop by stop_id from plan diff, never from the stops_dropped ordinal", () => {
@@ -173,22 +218,66 @@ describe("PostEvaReport builder (01 FR-46, 05 PostEvaReport)", () => {
     expect(report.plan_revisions).toBe(2);
   });
 
-  it("report: completed needs every EVA crew to have left; reached-but-not-left is in_progress; unreached after EVA_ENDED is not_reached", () => {
+  it("report: completed needs every EVA crew to have left; unreached after EVA_ENDED is not_reached; not everyone left by EVA_ENDED is incomplete", () => {
     const report = buildReport(stormLog, "h", PLAN);
     const status = (id: string) => report.stops.details.find((s) => s.stop_id === id)?.status;
 
     expect(status("wp-1")).toBe("completed");
-    expect(status("wp-2")).toBe("in_progress");
+    expect(status("wp-2")).toBe("incomplete"); // EV1 arrived and never left; EV2 never arrived
+    expect(status("wp-3")).toBe("dropped");
     expect(status("wp-4")).toBe("not_reached");
-    expect(report.stops).toMatchObject({ completed: 1, dropped: 1, not_reached: 1 });
+    expect(report.stops).toMatchObject({ completed: 1, dropped: 1, not_reached: 1, incomplete: 1 });
+  });
 
-    const oneLeft = seqd(stormLog.filter((e) => !(e.kind === "LEFT_STOP" && (e.data as { crew_id: string }).crew_id === "EV2")));
+  it("report: while the EVA runs, reached-but-not-all-left is in_progress and unreached is pending", () => {
+    const running = buildReport(seqd(stormLog.slice(0, -1)), "h", PLAN);
+    const status = (id: string) => running.stops.details.find((s) => s.stop_id === id)?.status;
+
+    expect(status("wp-2")).toBe("in_progress");
+    expect(status("wp-4")).toBe("pending");
+    const oneLeft = seqd(stormLog.filter((e) => !(e.kind === "LEFT_STOP" && (e.data as { crew_id: string }).crew_id === "EV2")).slice(0, -1));
     expect(buildReport(oneLeft, "h", PLAN).stops.details.find((s) => s.stop_id === "wp-1")?.status).toBe("in_progress");
   });
 
-  it("report: before EVA_ENDED an unreached stop is pending, not not_reached", () => {
-    const running = seqd(stormLog.slice(0, -1));
-    expect(buildReport(running, "h", PLAN).stops.details.find((s) => s.stop_id === "wp-4")?.status).toBe("pending");
+  it("report: every stop is in exactly one status; the counts add up to the details", () => {
+    const ended = buildReport(stormLog, "h", PLAN);
+    const { completed, dropped, not_reached, incomplete } = ended.stops;
+    expect(completed + dropped + not_reached + incomplete).toBe(ended.stops.details.length);
+
+    const running = buildReport(seqd(stormLog.slice(0, -1)), "h", PLAN);
+    const n = (st: string): number => running.stops.details.filter((d) => d.status === st).length;
+    expect(running.stops.completed + running.stops.dropped + running.stops.not_reached + running.stops.incomplete + n("pending") + n("in_progress"))
+      .toBe(running.stops.details.length);
+  });
+
+  it("report: a stop reached and then dropped is dropped, with its timings kept", () => {
+    const events = seqd([
+      ...stormLog.slice(0, 10), // both crew arrived at and left wp-1
+      makeEvent(0, "2024-05-20T13:18:00Z", "PLAN_REVISED", { plan_revision: 1, option_id: "opt-1", stops_dropped: [1], waypoints: [WP_START, wp(2, "stop"), wp(3, "stop"), wp(4, "stop")], legs: [] }, "ops"),
+      makeEvent(0, "2024-05-20T13:31:00Z", "EVA_ENDED", { crew_ids: ["EV1", "EV2"] }),
+    ]);
+    const report = buildReport(events, "h", PLAN);
+
+    expect(report.stops.details.find((d) => d.stop_id === "wp-1")?.status).toBe("dropped");
+    expect(rowFor(report, "wp-1", "EV1")).toMatchObject({ arrived_sim_time: "2024-05-20T13:04:00Z", dwell_s: 600 });
+    expect(report.stops).toMatchObject({ completed: 0, dropped: 1, not_reached: 3, incomplete: 0 });
+  });
+
+  it("report: stop timing rows are only for the crew on the EVA; an alert subject off the EVA gets no shelter row, a crew who sheltered keeps a dose row", () => {
+    const events = seqd([
+      makeEvent(0, "2024-05-20T13:00:00Z", "SESSION_LOADED", SESSION),
+      makeEvent(0, "2024-05-20T13:01:00Z", "EVA_STARTED", { crew_ids: ["EV1"], plan_revision: 0 }),
+      makeEvent(0, "2024-05-20T13:04:00Z", "ARRIVED_STOP", { crew_id: "EV1", stop_id: "wp-1", stop_index: 1 }),
+      makeEvent(0, "2024-05-20T13:05:00Z", "ALERT_RAISED", { alert_id: "a-1", code: "BUDDY_SEPARATION", level: "caution", subjects: ["EV1", "MDV-1"], message: "m" }),
+      makeEvent(0, "2024-05-20T13:06:00Z", "CREW_SHELTERED", { crew_id: "EV1", haven_kind: "hab", dose_event_ugy: 5, dose_event_unsheltered_ugy: 9 }),
+      makeEvent(0, "2024-05-20T13:07:00Z", "CREW_SHELTERED", { crew_id: "EV2", haven_kind: "hab", dose_event_ugy: 7, dose_event_unsheltered_ugy: 11 }),
+    ]);
+    const report = buildReport(events, "h", PLAN);
+
+    expect(report.stops.details[0].crew.map((c) => c.crew_id)).toEqual(["EV1"]);
+    expect(report.alerts.details[0].shelter.map((r) => r.crew_id)).toEqual(["EV1"]);
+    expect(report.dose.per_crew.map((r) => r.crew_id)).toEqual(["EV1", "EV2"]);
+    expect(report.dose.headline?.crew_id).toBe("EV2");
   });
 
   it("reduces alert acknowledgement time (raised -> first ack), not the latest ack", () => {
