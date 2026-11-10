@@ -67,6 +67,9 @@
       transparent 6px
     );
   /* Contrast fix: --ink on --warning gives 5.32:1 contrast (NFR-04 requires >= 4.5:1) */
+  /* TODO(decision): in HUD mode this pill is --ink (#1A1A1A) on --hud-warning (#FF6B6B) = 6.27 : 1, under the
+     7 : 1 HUD floor (04 §C.1 HUD table, §F). The other HUD pills pass (9.05-9.75 : 1). Needs a 04 spec change
+     first: a HUD pill ink of #000000 (7.57 : 1) or a lighter hud-warning fill. Value left as is until 04 changes. */
   color: var(--ink, #1A1A1A);
 }
 
