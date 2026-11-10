@@ -605,7 +605,10 @@ export function OpsConsole({
         </aside>
       </main>
 
-      {/* ------------------------------------- Bottom Bar: EVENT LOG (TASK-27) */}
+      {/* ------------------------------------- Bottom Bar: EVENT LOG (TASK-27)
+          TODO(decision): `ui/ops/EventLog.tsx` (filterable panel, tested in tests/ui/eventLog.test.ts) is not mounted.
+          03 SCR-11 lists "event log" in Content without a position; 04 §E.4 draws a one-line strip here, and the panel
+          does not fit a 36 px bar. Decide: expandable drawer opened from this strip, or a side panel. */}
       <footer
         className="ops-event-log"
         style={{
