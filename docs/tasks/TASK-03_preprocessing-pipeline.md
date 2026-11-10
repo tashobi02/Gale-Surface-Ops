@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Objective | Preprocessing pipeline. Deliverable (06 §C): `pipeline/` scripts → tiles (ortho 0.5 m; hillshade/slope/elevation/TI 2 m), routing grid 5 m (elevation, slope_p90, slope_max, flags, TI), `site-manifest.json`, `sources.lock.json`, `validate_manifest.py` |
-| Requirements | 06: FR-01–FR-03, FR-07, NFR-06. Subtasks also serve FR-04, FR-06, FR-10, FR-15–FR-17, NFR-02, NFR-07, NFR-09, NFR-10, U-10 |
+| Requirements | 06: FR-01–FR-03, FR-07, NFR-06. Subtasks also serve FR-04, FR-06, FR-10, FR-42, FR-53, FR-15–FR-17, NFR-02, NFR-07, NFR-09, NFR-10, U-10 |
 | Lane / owner role | data — R1 Data & GIS: Obidit Islam |
-| Milestone | M1 (contracts, mock site) · M2 (pipeline, bundle v1, `comm_hab`, clean re-run; by Mon 9 Nov) |
+| Milestone | M1 (contracts, mock site) · M2 (pipeline, bundle v1, `comm_hab`, clean re-run; by Mon 9 Nov) · M4 (candidate hab sites T03.31–T03.35, live session; added 2026-11-10) |
 | Window | pre-event-allowed |
 | Effort (doc 06) | 8–14 h |
 | Done when (doc 06) | Validator passes; sampled values match source rasters; total bundle ≤ 250 MB |
@@ -29,6 +29,7 @@
 | RAD EnvConstant and DataSource records | upstream output | T06.10 | hard for T03.19 |
 | Model DataSource records (Tobler, Apollo 17, Mars24) | upstream output | T12.05 | hard for T03.19 |
 | JSON-Schema validator in the pipeline dependencies | upstream output | T14.01 | hard for T03.14 |
+| Hab site first choice and alternative (`docs/ops/feasibility/hab-site.md`) | upstream output | T01.07 | hard for T03.29 and T03.32 |
 | Geo stack (GDAL, rasterio, numpy, pyproj) from `pipeline/environment.yml` | environment | exists | — |
 
 ## Outputs this task provides
@@ -48,6 +49,8 @@
 | Bundle v1 and lock file | `data/sites/gale_boxwork/`, `pipeline/sources.lock.json` | T05.28, T09.06, T07.*, T14.*, T16.03 |
 | F5 real-grid sample cells | `apps/web/tests/fixtures/real/sample_cells.json` | T05.28, T07.15 |
 | Static PNG layers (fallback) | `pipeline/src/marswalk_pipeline/static_images.py` | T07.16 |
+| Candidate hab site records (live session, 2026-11-10) | `pipeline/sites/gale_boxwork/hab_candidates.json` | T03.34 |
+| Manifest `hab_candidates` with one `comm_hab` grid and default start per candidate | `data/sites/gale_boxwork/` (next T03.19 or T03.22 run) | SCR-20 and `SELECT_HAB_SITE` subtasks, not registered yet ([map v2 open point 11](_coordination.md#v2-open-points-2026-11-06)) |
 
 ## Subtasks
 
@@ -999,6 +1002,124 @@ PY
 - **Agent brief:** Run the independent check and record results only.
 - **Conflict notes:** Append-only log.
 
+### T03.31 — contract-change: C1, C2 and C5 v2 — optional `hab_candidates` (HabCandidate) in the site manifest
+
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
+- **Type:** contract
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 1–1.5 h
+- **Owns (writes):** `packages/protocol/src/schema.ts` (after T03.01), `schemas/site-manifest.schema.json` (after T03.01), `pipeline/sites/README.md` (after T03.01)
+- **Reads:** [05 HabCandidate](../specs/05_Backend_and_Database_Schema.md#habcandidate-2026-11-10-proposed), 05 Site (`default_start`, `hab_candidates`) and RoutingGrid (`comm_hab_asset`, `hab_mast`), [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds), [05 §F.1](../specs/05_Backend_and_Database_Schema.md#f1-site-manifest-abridged-aoi-values-illustrative-until-task-01) `hab_candidates` example, [01 FR-53](../specs/01_Product_Requirements_Document.md#fr-53--mission-site-selection-at-setup-t1-m), [02 §D.17](../specs/02_Technical_Requirements_Document.md#d17-live-session-next-stop-event-on-demand-reset-fr-51-fr-52-fr-53-added-2026-11-10-proposed)
+- **Depends on:** T03.01 (hard: owner of C1, C2 and C5 v1)
+- **Parallel with:** T03.32, T03.33
+- **Steps:**
+  1. C1: add a `HabCandidate` type to `schema.ts` with the 05 field names (`candidate_id`, `label`, `rank`, `hab_mast`, `lat`, `lon_e`, `comm_hab_asset`, `default_start`, `note?`, `provenance`, `source_ids`) and an optional `hab_candidates?: HabCandidate[]` on the Site type.
+  2. C2: add optional `hab_candidates` to `site-manifest.schema.json` (`minItems` 1; `candidate_id` pattern `^[a-z0-9-]+$`; `label` ≤ 80 characters; integer `rank` ≥ 1; `hab_mast` with `height_m`). Uniqueness of ids and ranks, exactly one rank 1, and the rank-1 mirror rules are cross-field rules: leave them to `validate-manifest` (T03.34) and say so in a schema `description`.
+  3. C5 v2: document `pipeline/sites/<site_id>/hab_candidates.json` in `pipeline/sites/README.md`: an optional array of `{candidate_id, label, rank, hab_mast: {x_m, y_m}, default_start: {x_m, y_m, label}, note, provenance, source_ids}`. The pipeline adds `hab_mast.height_m` (link ParamSet `hab_mast_m`, as for the single mast today), `lat` and `lon_e` (inverse of the working `+proj=eqc` with pyproj) and `comm_hab_asset`; none of them is typed by hand.
+  4. Record the asset id rule (Proposed): the rank-1 candidate keeps the existing `grid-comm-hab` asset (`grid/comm_hab.u8`), so `grid.comm_hab_asset` and every current consumer are unchanged; any other candidate gets `grid-comm-<candidate_id>` at `grid/comm_<candidate_id>.u8`. If the reviewer prefers the 05 §F.1 example ids for every candidate, leave it as `TODO(decision)` and list it under Spec questions.
+  5. State contract versions C1, C2 and C5 = v2 in the PR description.
+- **Acceptance:**
+  - Serves: FR-53, FR-42 · [05 HabCandidate](../specs/05_Backend_and_Database_Schema.md#habcandidate-2026-11-10-proposed)
+  - The F4 mock manifest (no `hab_candidates`) and the current real `site-manifest.json` still validate against C2; a manifest with the two-candidate shape of 05 §F.1 (numbers filled) validates.
+  - Every HabCandidate field name in `schema.ts`, the JSON Schema and C5 is copied from 05.
+- **Verify:** `make typecheck` · `python3 -m json.tool schemas/site-manifest.schema.json` · `make test` · `make lint`
+- **Agent brief:** Extend the C1, C2 and C5 contracts with the optional HabCandidate list from 05; change no existing field.
+- **Conflict notes:** `schema.ts` only: the Hab Core live-session work edits `ws.ts` and `runtime.ts`, not this file. Rebase on any other open `schema.ts` change before merge.
+
+### T03.32 — Candidate hab site records: the first choice and the alternative
+
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 0.5 h
+- **Owns (writes):** `pipeline/sites/gale_boxwork/hab_candidates.json`
+- **Reads:** [hab-site.md](../ops/feasibility/hab-site.md#result) (Result and "Why this site"), `pipeline/sites/gale_boxwork/site.json`, `pipeline/sites/gale_boxwork/sources/`, `pipeline/sites/README.md` (C5 v2)
+- **Depends on:** T03.31 (hard: C5 v2 layout), T01.07 (hard: the two positions)
+- **Parallel with:** T03.33
+- **Steps:**
+  1. Write two entries copied from the hab-site.md Result table: `hab-first` (`label` "First choice", `rank` 1, mast and start at 1037, −1652) and `hab-alternative` (`label` "Alternative", `rank` 2, mast and start at 439, −652). `default_start.label` is "Habitat / rover", as in `site.json`.
+  2. `note`: one line each from "Why this site" (ridges and comm shadows on the track; open plain next to the track, the safer site). `provenance` `assumed`; `source_ids`: the DEM source id under `sources/` that the checks used.
+  3. Type no height, latitude, longitude or asset id: the pipeline derives them (C5 v2).
+- **Acceptance:**
+  - Serves: FR-53 · [01 FR-53](../specs/01_Product_Requirements_Document.md#fr-53--mission-site-selection-at-setup-t1-m)
+  - The rank-1 entry's mast and start equal `site.json` `hab_mast` and `default_start`; both positions match hab-site.md to the metre.
+- **Verify:** `python3 -m json.tool pipeline/sites/gale_boxwork/hab_candidates.json` · `make lint`
+- **Agent brief:** Copy the two decided hab sites into the site-config file; add no new site assessment.
+- **Conflict notes:** New file. The second-person check of hab-site.md (`TODO(verify)`) still applies to both positions.
+
+### T03.33 — Tests: per-candidate `comm_hab` grids, the manifest `hab_candidates` list and its validator rules
+
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
+- **Type:** test
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 1–1.5 h
+- **Owns (writes):** `pipeline/tests/test_hab_candidates.py`
+- **Reads:** `pipeline/tests/test_comm_grid.py`, `pipeline/tests/test_manifest.py`, `pipeline/sites/README.md` (C5 v2), [05 HabCandidate](../specs/05_Backend_and_Database_Schema.md#habcandidate-2026-11-10-proposed), [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds) (the 2026-11-10 rule), [02 L11](../specs/02_Technical_Requirements_Document.md#l11--hab-antenna-coverage-grid-fr-42)
+- **Depends on:** T03.31 (soft: field names and asset id rule)
+- **Parallel with:** T03.32
+- **Steps:**
+  1. Grids: on a synthetic plane with one wall, two masts on either side give different grids, and each equals `build_comm_hab` run alone at that mast (same origin, cell size, row 0 = north).
+  2. Manifest: with a two-candidate input, the manifest lists both with `height_m` from the link ParamSet, `lat`/`lon_e` from the pyproj inverse of the working projection, an asset with a checksum for each grid, and the rank-1 entry equal to `default_start`, `grid.hab_mast` and `grid.comm_hab_asset`.
+  3. Without `hab_candidates.json` the manifest has no `hab_candidates` and is unchanged (F4 mock site).
+  4. Validator: one named case each that rejects a duplicate `candidate_id`, a duplicate `rank`, no rank 1, a rank-1 entry that differs from `default_start` or `grid.hab_mast`, a mast or start outside `aoi.extent_m` or on an impassable cell, and an unknown `comm_hab_asset`; a valid two-candidate manifest passes.
+  5. Guard geo imports with `pytest.importorskip`, as the other pipeline tests do.
+- **Acceptance:**
+  - Serves: FR-53, FR-42 · [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds)
+  - Each rule above is one named pytest case; none reads downloaded data.
+- **Verify:** `$(make -s pipeline-python) -m pytest pipeline/tests/test_hab_candidates.py` fails before T03.34 and passes after.
+- **Agent brief:** Write synthetic-raster tests for per-candidate hab grids, the manifest list and its validator rules.
+- **Conflict notes:** New file. Pair T03.33 → T03.34 (§h.3).
+
+### T03.34 — follow-up: build a `comm_hab` grid and a default start for each hab candidate; manifest and validator
+
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 2–3 h
+- **Owns (writes):** `pipeline/src/marswalk_pipeline/__main__.py` (after T03.15), `pipeline/src/marswalk_pipeline/manifest.py` (after T03.13), `pipeline/src/marswalk_pipeline/validate_manifest.py` (after T03.14), `pipeline/src/marswalk_pipeline/comm_grid.py` (after T03.29)
+- **Reads:** `pipeline/tests/test_hab_candidates.py`, `pipeline/sites/README.md` (C5 v2), `pipeline/sites/gale_boxwork/hab_candidates.json`, [05 HabCandidate](../specs/05_Backend_and_Database_Schema.md#habcandidate-2026-11-10-proposed), [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds), [02 L11](../specs/02_Technical_Requirements_Document.md#l11--hab-antenna-coverage-grid-fr-42)
+- **Depends on:** T03.33 (hard: tests first), T03.32 (hard: the candidate records), T03.31 (hard: C2 v2 schema), T03.13 (hard: manifest writer), T03.14 (hard: validator), T03.15 (hard: entry point), T03.29 (hard: `comm_hab` builder)
+- **Parallel with:** none
+- **Steps:**
+  1. `comm_grid.py`: let `write_comm_hab` take the output file name; `build_comm_hab` is unchanged.
+  2. `__main__.py`: when `hab_candidates.json` exists, build one grid per candidate from the same elevation array and mast height; the rank-1 candidate writes `grid/comm_hab.u8` as today.
+  3. `manifest.py`: emit `hab_candidates` (derived `height_m`, `lat`, `lon_e`, `comm_hab_asset`) and one Asset with a checksum per extra grid; keep `default_start`, `grid.hab_mast` and `grid.comm_hab_asset` equal to the rank-1 candidate.
+  4. `validate_manifest.py`: add the 05 §E.3 (2026-11-10) rules that T03.33 tests.
+  5. Leave sites without `hab_candidates.json` byte-identical: the T03.06 and T03.28 tests still pass and the F4 manifest does not change.
+- **Acceptance:**
+  - Serves: FR-53, FR-42 · [06 §C.2](../specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) "Candidate-site comm grids"
+  - T03.33, T03.06 and T03.28 pass; each extra grid adds 1.44 MB (1200 × 1200 u8), within the 250 MB bundle budget.
+- **Verify:** `$(make -s pipeline-python) -m pytest pipeline/tests` · `make validate SITE=mock_site`
+- **Agent brief:** Generalise the single hab viewshed to a list of candidate hab sites in the pipeline, manifest and validator; the browser and Hab Core only read the result.
+- **Conflict notes:** Follow-up to four done subtasks; T03.19 runs the pipeline but does not edit these files. Rebase on `main` first if a T03.19 fix to `__main__.py` lands meanwhile.
+
+### T03.35 — Verify both hab candidates on the real site: validator passes, alternative `comm_hab` against `gdal_viewshed`
+
+- **Owner:** Obidit Islam (team lead · R1 Data & GIS)
+- **Type:** verify
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 0.5–1 h
+- **Owns (writes):** `docs/ops/verification-log.md` (append-only)
+- **Reads:** [06 §C.2](../specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) "Candidate-site comm grids" done-when, the T03.30 section of `docs/ops/verification-log.md`, [hab-site.md](../ops/feasibility/hab-site.md#result)
+- **Depends on:** T03.34 (hard: the per-candidate build), T03.19 (hard: the real inputs and run)
+- **Parallel with:** T03.22
+- **Steps:**
+  1. Run the pipeline on the real site in a local work directory; `validate-manifest` must pass with both candidates.
+  2. Check that the rank-1 grid's SHA-256 equals the `grid-comm-hab` checksum of the committed bundle v1 manifest (the first choice did not change).
+  3. Run `gdal_viewshed` from the alternative mast at the same height and compare five points across the AOI, as T03.30 did for the first choice.
+  4. Append a section with the run, both checks, the five points and pass or fail.
+- **Acceptance:**
+  - Serves: FR-53, FR-42 · [06 §C.2](../specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) ("validator passes with both candidates; each grid matches `gdal_viewshed`")
+  - Five points recorded for the alternative; any mismatch has an explanation, as in T03.30.
+- **Verify:** Manual: the T03.35 section of the verification log.
+- **Agent brief:** Run the independent checks for the second hab candidate and record results only.
+- **Conflict notes:** Append-only log. T03.35 commits no bundle files: the committed bundle gets `hab_candidates` at the next T03.19 or T03.22 run.
+
 ## Internal dependency graph
 
 ```mermaid
@@ -1077,3 +1198,5 @@ flowchart LR
 13. **Hazard-flags layer.** 03 SCR-03 lists a "Hazard flags" layer but 06 TASK-03 names display resolutions only for ortho, hillshade, slope, elevation and TI — `TODO(decision)` at T03.17.
 14. **10 m fallback.** If T03.24 triggers, 02 §D.2 ("8-connected 5 m grid") and ADR-004 become outdated and need a `spec-change:`.
 15. **DEM no-data value.** 02 §C.4.4 gives examples only; T03.08 uses the file's declared value or T01.01's label value — `TODO(verify)` which applies.
+16. **Candidate asset ids (2026-11-10).** 05 §F.1 names the grids `grid-comm-hab-first` and `grid-comm-hab-alternative`, while 05 Site requires the rank-1 candidate to match `grid.comm_hab_asset` (today `grid-comm-hab`). T03.31 proposes keeping `grid-comm-hab` for rank 1; if the team keeps the example ids instead, `grid.comm_hab_asset` changes for every consumer. The 05 §F.1 example is illustrative (positions are `null`), so no spec change is needed either way.
+17. **`lat`, `lon_e` consistency.** 05 HabCandidate asks for consistency with `hab_mast` but gives no tolerance; T03.34 derives both from the mast with the pyproj inverse, so they agree exactly by construction.
