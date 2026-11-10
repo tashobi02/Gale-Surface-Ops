@@ -12,26 +12,30 @@ import {
 } from "react";
 import type { ContingencyOption, CrewId, Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
+import { useCommand, useHabClient, useSnapshot } from "../../state/habSession";
 import { HoldToConfirm, type ConfirmOutcome } from "../eva/HoldToConfirm";
 import { selectMetadataStrip } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
 import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtInt, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
 
-export interface OptionsProps {
-  /** Optional Hab Core client instance for command dispatch. */
+interface OptionsCommonProps {
+  /** Hab Core client for command dispatch; omitted means the tab's session (state/habSession.ts), null means none. */
   client?: HabClient | null;
-  /** Active crew identifier. */
-  crewId?: CrewId;
   /** Direct Snapshot override. */
   snapshot?: Snapshot | null;
-  /** Presentation variant: "eva" (bottom sheet) or "ops" (side panel). Defaults to "eva". */
-  variant?: "eva" | "ops";
   /** Callback fired when an option is selected. */
   onSelectOption?: (option: ContingencyOption) => void;
   /** Callback fired to close sheet. */
   onClose?: () => void;
   className?: string;
 }
+
+/**
+ * The EVA bottom sheet acts for one crew member, so `crewId` is required there (there is no default crew member); the
+ * ops side panel acts for no crew member and ignores a `crewId` it is given (OptionsPanel still passes one).
+ */
+export type OptionsProps = OptionsCommonProps &
+  ({ variant?: "eva"; crewId: CrewId } | { variant: "ops"; crewId?: CrewId });
 
 /** Option ETA and dose are modelled by the contingency engine (05); a non-finite one reads "—", flagged unavailable. */
 function optionAttrs(v: unknown, field: string): ReturnType<typeof provAttrs> {
@@ -61,10 +65,11 @@ export type OptionCommand =
  * TODO(decision): define authorized EVA handling for unsupported option kinds; CONTINUE_SKIP requires ops
  * approval. Unsupported EVA actions remain disabled.
  */
-export function commandForOption(variant: "eva" | "ops", option: ContingencyOption, crewId: CrewId): OptionCommand {
+export function commandForOption(variant: "eva" | "ops", option: ContingencyOption, crewId: CrewId | undefined): OptionCommand {
   if (variant === "ops") {
     return { supported: true, kind: "APPROVE_OPTION", args: { option_id: option.option_id } };
   }
+  if (!crewId) return { supported: false, reason: "Crew not identified" };
   if (!option.crew_ids.includes(crewId)) {
     return { supported: false, reason: `Option does not cover ${crewId}` };
   }
@@ -85,14 +90,17 @@ export function commandForOption(variant: "eva" | "ops", option: ContingencyOpti
  */
 export function Options({
   client,
-  crewId = "EV1",
+  crewId,
   snapshot,
   variant = "eva",
   onSelectOption,
   onClose,
   className = "",
 }: OptionsProps): ReactElement {
-  const activeSnapshot = snapshot ?? client?.state() ?? null;
+  const hab = useHabClient(client);
+  const send = useCommand(client);
+  const stored = useSnapshot(client);
+  const activeSnapshot = snapshot ?? stored;
   // No sample options: when the Hab Core has proposed none the sheet says so and cannot confirm anything.
   const rawOptions = activeSnapshot?.options ?? [];
 
@@ -104,9 +112,9 @@ export function Options({
   const selectedOption = options.find((o) => o.rank === selectedRank) ?? options[0];
 
   const isEva = variant === "eva";
-  const linked = selectMetadataStrip(activeSnapshot, crewId).link.linked;
+  const linked = isEva && crewId ? selectMetadataStrip(activeSnapshot, crewId).link.linked : null;
   const command = selectedOption ? commandForOption(variant, selectedOption, crewId) : null;
-  const missing = !client ? "No Hab Core connection" : !selectedOption ? "No option proposed" : command && !command.supported ? command.reason : undefined;
+  const missing = !hab ? "No Hab Core connection" : !selectedOption ? "No option proposed" : command && !command.supported ? command.reason : undefined;
 
   const rootStyle: CSSProperties = {
     display: "flex",
@@ -134,9 +142,9 @@ export function Options({
   // Sends the one command for the selected option. The sheet closes and callbacks fire only when the Hab Core
   // accepted it; a rejection is shown on the button and the sheet stays open.
   const handleConfirm = async (): Promise<ConfirmOutcome> => {
-    if (!client || !selectedOption || !command) return { ok: false, message: missing };
+    if (!hab || !selectedOption || !command) return { ok: false, message: missing };
     if (!command.supported) return { ok: false, message: command.reason };
-    const result = await client.send({ kind: command.kind, args: command.args });
+    const result = await send({ kind: command.kind, args: command.args });
     if (result.ok) {
       onSelectOption?.(selectedOption);
       onClose?.();

@@ -1,11 +1,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
+import { act, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EvaTablet } from "../../src/ui/screens/scr12EvaTablet";
 import { storeFromBeat, recordingClient } from "./fixtureStore";
 import { click, installDom, mount, must, removeDom } from "./domHarness";
 import { StopTaskList, StopTaskRow } from "../../src/ui/screens/scr12/StopTaskList";
 import { TasksButton } from "../../src/ui/screens/scr12/TasksButton";
+import { STOP_TASK_UNDO_WINDOW_MS } from "../../src/ui/screens/scr12/useStopTaskChanges";
 import { TaskProgress } from "../../src/ui/ops/TaskProgress";
 import { AddTaskPopover } from "../../src/ui/ops/AddTaskPopover";
 import type { Snapshot, StopTask } from "@marswalk/protocol";
@@ -17,6 +18,7 @@ import type { Snapshot, StopTask } from "@marswalk/protocol";
 beforeAll(() => installDom());
 afterAll(() => removeDom());
 afterEach(() => {
+  vi.useRealTimers();
   document.body.innerHTML = "";
 });
 
@@ -540,13 +542,37 @@ describe("StopTaskList interaction: real clicks (FR-50)", () => {
     expect(calls.reason).not.toHaveBeenCalled();
     expect(calls.tick).not.toHaveBeenCalled();
     const picker = must(container, '[role="group"][aria-label="Reason for skipping"]');
-    expect([...picker.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["time", "terrain", "alert", "other"]);
+    expect([...picker.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["time", "terrain", "alert", "other", "CANCEL"]);
 
     await click(must(container, '[aria-label="Reason: terrain"]'));
     expect(calls.reason.mock.calls).toEqual([["t-s2-01", "terrain"]]);
     // The picker closes after the reason; no second send.
     expect(container.querySelector('[role="group"]')).toBeNull();
     expect(calls.reason).toHaveBeenCalledTimes(1);
+  });
+
+  it("CANCEL closes the reason picker without a reason or a command, and SKIP is offered again", async () => {
+    const { calls, element } = list();
+    const { container } = await mount(element);
+
+    await click(must(container, '[aria-label^="Skip task: Photograph"]'));
+    expect(container.querySelector('[role="group"][aria-label="Reason for skipping"]')).not.toBeNull();
+    await click(must(container, '[aria-label="Cancel skip"]'));
+
+    expect(container.querySelector('[role="group"]')).toBeNull();
+    expect(container.querySelector('[aria-label^="Skip task: Photograph"]')).not.toBeNull();
+    expect(calls.reason).not.toHaveBeenCalled();
+    expect(calls.tick).not.toHaveBeenCalled();
+    expect(calls.undo).not.toHaveBeenCalled();
+  });
+
+  it("the CANCEL control is at least 56 px like the reasons", async () => {
+    const { element } = list();
+    const { container } = await mount(element);
+    await click(must(container, '[aria-label^="Skip task: Photograph"]'));
+    const cancel = must<HTMLElement>(container, '[aria-label="Cancel skip"]');
+    expect(cancel.style.minHeight).toBe("var(--target-eva, 56px)");
+    expect(cancel.style.minWidth).toBe("var(--target-eva, 56px)");
   });
 
   it("reason and tick buttons are at least 56 px in both dimensions with at least 8 px between reasons", async () => {
@@ -584,9 +610,10 @@ describe("StopTaskList interaction: real clicks (FR-50)", () => {
 });
 
 describe("EVA tablet task list: one UPDATE_STOP_TASK per action (FR-50)", () => {
-  /** A snapshot with no plan, so the tablet takes its stop from the tasks. */
+  /** A snapshot with no plan, so the tablet takes its stop from the tasks; EV1 is at the stop, so the list is not collapsed. */
   function snapshotWithTasks(): Snapshot {
-    return { ...storeFromBeat("connect").state()!, plan: null as never, tasks: mockTasks };
+    const base = storeFromBeat("connect").state()!;
+    return { ...base, plan: null as never, tasks: mockTasks, crew: base.crew.map((c) => ({ ...c, activity: "AT_STOP" as const })) };
   }
 
   async function tabletWithList() {
@@ -596,16 +623,27 @@ describe("EVA tablet task list: one UPDATE_STOP_TASK per action (FR-50)", () => 
     return { ...view, sent };
   }
 
-  it("ticking sends one DONE; skipping sends nothing until the reason, then one SKIPPED with that reason", async () => {
+  it("ticking sends one DONE after the 5 s undo window; skipping sends nothing until the reason, then one SKIPPED with it", async () => {
+    vi.useFakeTimers();
     const { container, sent } = await tabletWithList();
+    const window = async () => {
+      await act(async () => {
+        vi.advanceTimersByTime(STOP_TASK_UNDO_WINDOW_MS);
+      });
+    };
 
     await click(must(container, '[aria-label^="Mark task done: Photograph"]'));
+    expect(sent).toHaveLength(0);
+    await window();
     expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "DONE" } }]);
 
+    // The snapshot prop here does not change, so the row is a to-do again once the change is sent.
     sent.length = 0;
     await click(must(container, '[aria-label^="Skip task: Photograph"]'));
     expect(sent).toHaveLength(0);
     await click(must(container, '[aria-label="Reason: time"]'));
+    expect(sent).toHaveLength(0);
+    await window();
     expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "SKIPPED", reason: "time" } }]);
     // No reasonless SKIPPED was ever sent.
     expect(sent.every((c) => c.args.reason !== undefined)).toBe(true);

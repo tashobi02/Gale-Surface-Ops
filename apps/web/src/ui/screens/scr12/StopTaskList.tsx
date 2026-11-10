@@ -11,8 +11,9 @@
  *     SKIPPED: ⊘ + "SKIPPED"
  *     DROPPED: ⊘ + "DROPPED"
  * - One tap ticks DONE; SKIP opens reason capture (time, terrain, alert, other). Skipping sends exactly one
- *   command, after the reason is chosen (onReason); the SKIP tap itself sends nothing.
- * - 5-s undo window shows UNDO button.
+ *   command, after the reason is chosen (onReason); the SKIP tap itself sends nothing, and CANCEL closes the
+ *   picker without a reason or a command.
+ * - 5-s undo window shows UNDO button (the window itself is kept by the caller: useStopTaskChanges).
  * - Unsynced state shows "not synced" indicator.
  * - Ops-added task displays "added by ops" tag.
  * - During alert or walking, collapses to a count (TASKS n/m).
@@ -130,6 +131,10 @@ export function StopTaskRow({
   const handleSkipClick = (): void => {
     setShowReasonPicker(true);
     onSkip?.(task.task_id);
+  };
+
+  const handleReasonCancel = (): void => {
+    setShowReasonPicker(false);
   };
 
   const handleReasonSelect = (reason: StopTaskReason): void => {
@@ -264,6 +269,14 @@ export function StopTaskRow({
                   {r}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={handleReasonCancel}
+                style={{ ...actionButtonStyle, padding: "4px 8px" }}
+                aria-label="Cancel skip"
+              >
+                CANCEL
+              </button>
             </div>
           )}
         </div>

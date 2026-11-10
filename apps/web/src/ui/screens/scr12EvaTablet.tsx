@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { CrewId, Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
+import { useCommand, useHabClient, useSnapshot } from "../../state/habSession";
 import {
   havenTargetLabel,
   selectEvaViewModel,
@@ -35,13 +36,14 @@ import {
 } from "../components/provenance";
 import { TasksButton } from "./scr12/TasksButton";
 import { StopTaskList } from "./scr12/StopTaskList";
+import { useStopTaskChanges } from "./scr12/useStopTaskChanges";
 
 export interface EvaTabletProps {
-  /** Optional Hab Core WebSocket client. */
+  /** Hab Core WebSocket client; omitted means the tab's session (state/habSession.ts), null means none. */
   client?: HabClient | null;
-  /** Active crew identifier (defaults to "EV1"). */
-  crewId?: CrewId;
-  /** Direct Snapshot override (uses client.state() if omitted). */
+  /** The crew member this tablet belongs to. Required: there is no default crew member. */
+  crewId: CrewId;
+  /** Direct Snapshot override (uses the session's snapshot if omitted). */
   snapshot?: Snapshot | null;
   /** Handler to open SCR-13 HUD visor glance. */
   onOpenHud?: () => void;
@@ -70,7 +72,7 @@ function withUnit(v: unknown, unit: string): string {
  */
 export function EvaTablet({
   client,
-  crewId = "EV1",
+  crewId,
   snapshot,
   onOpenHud,
   onOpenOptions,
@@ -79,24 +81,32 @@ export function EvaTablet({
   orientation = "portrait",
   className = "",
 }: EvaTabletProps): ReactElement {
-  // Resolve active snapshot: prop override > client store > null
-  const activeSnapshot = snapshot ?? client?.state() ?? null;
-  const vm: EvaViewModel = selectEvaViewModel(activeSnapshot, crewId);
+  // Resolve the snapshot: prop override > the session store (re-renders on every change) > null.
+  const hab = useHabClient(client);
+  const stored = useSnapshot(client);
+  const send = useCommand(client);
+  const activeSnapshot = snapshot ?? stored;
+
+  // Tick and skip are held for the 5 s undo window (01 FR-50) and shown at once, so the view model, the TASKS count
+  // and the list all read the snapshot with the held changes applied.
+  const changes = useStopTaskChanges(send);
+  const viewSnapshot = activeSnapshot ? { ...activeSnapshot, tasks: changes.overlay(activeSnapshot.tasks) } : activeSnapshot;
+  const vm: EvaViewModel = selectEvaViewModel(viewSnapshot, crewId);
 
   // Stop task list open state (TASKS button toggles the list).
-  // TODO(decision): resolve U-51 and U-59 with the named owners before changing task-list placement, walking/options
-  // collapse or post-ack read-only behavior; undo and pending-command integration remain incomplete.
+  // TODO(decision): resolve U-51 and U-59 with the named owners before changing task-list placement or post-ack
+  // read-only behaviour.
   const [tasksExpanded, setTasksExpanded] = useState<boolean>(false);
 
-  // Alert collapse: the list hides for an unacknowledged warning (U-59 is still open, see above)
-  const isAlertActive = Boolean(vm.alertSlot && vm.alertSlot.level === "warning" && !vm.alertSlot.acknowledged);
-  const showTasksList = tasksExpanded && !isAlertActive;
+  // FR-50: the list shows in full at the stop and collapses to its count while walking and during an alert.
+  const collapsed = vm.alertSlot !== null || vm.activity === "WALKING";
+  const showTasksList = tasksExpanded;
 
   const isLandscape = orientation === "landscape";
 
-  // With no alert the banner reads NOMINAL only when this crew member's telemetry is available; with none it is UNKNOWN,
-  // matching the HAVEN and O₂ cards (04 §C.1: never a nominal default).
-  const bannerStatus = vm.haven.status === "unknown" && vm.o2.status === "unknown" ? "unknown" : "nominal";
+  // With no alert the banner reads NOMINAL only when this crew member's HAVEN and O₂ are both available; if either is
+  // unknown it is UNKNOWN, matching the cards (04 §C.1: never a nominal default).
+  const bannerStatus = vm.haven.status === "unknown" || vm.o2.status === "unknown" ? "unknown" : "nominal";
 
   // Root container styles (OPS dark instrument mode, 04 §B.2)
   const rootStyle: CSSProperties = {
@@ -153,6 +163,7 @@ export function EvaTablet({
       role="main"
       aria-label="EVA Tablet Operations"
       data-screen="SCR-12"
+      data-surface="eva"
       data-mode="ops"
       data-orientation={orientation}
       className={`scr12-eva-tablet ${className}`}
@@ -349,32 +360,18 @@ export function EvaTablet({
               }}
             >
               <StopTaskList
-                tasks={activeSnapshot?.tasks ?? []}
+                tasks={viewSnapshot?.tasks ?? []}
                 crewId={crewId}
                 stopId={vm.nextStop?.stopId ?? ""}
-                readOnly={!client}
-                undo={null}
-                collapsed={false}
-                notSyncedTaskIds={[]}
-                onTick={(taskId) => {
-                  client?.send?.({
-                    kind: "UPDATE_STOP_TASK",
-                    args: { task_id: taskId, state: "DONE" },
-                  });
-                }}
-                onUndo={(taskId) => {
-                  client?.send?.({
-                    kind: "UPDATE_STOP_TASK",
-                    args: { task_id: taskId, state: "TODO" },
-                  });
-                }}
-                // SKIP only opens reason capture; this is the one UPDATE_STOP_TASK for a skip.
-                onReason={(taskId, reason) => {
-                  client?.send?.({
-                    kind: "UPDATE_STOP_TASK",
-                    args: { task_id: taskId, state: "SKIPPED", reason },
-                  });
-                }}
+                readOnly={!hab || !crewId}
+                undo={changes.undoTaskId === null ? null : { taskId: changes.undoTaskId }}
+                collapsed={collapsed}
+                notSyncedTaskIds={changes.notSyncedTaskIds(vm.metadata.link.linked)}
+                onTick={(taskId) => changes.start(taskId, { state: "DONE" })}
+                // UNDO cancels the held change on the client; it never sends state "TODO" (01 FR-50: only TODO → DONE / SKIPPED).
+                onUndo={(taskId) => changes.undo(taskId)}
+                // SKIP only opens reason capture; the chosen reason starts the one held SKIPPED change.
+                onReason={(taskId, reason) => changes.start(taskId, { state: "SKIPPED", reason })}
               />
             </div>
           )}
@@ -480,7 +477,7 @@ export function EvaTablet({
         }}
       >
         <EvaActionRow
-          client={client}
+          client={hab}
           crewId={crewId}
           linked={vm.metadata.link.linked}
           onOpenHud={onOpenHud}
