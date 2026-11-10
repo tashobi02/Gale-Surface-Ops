@@ -53,11 +53,11 @@ An unknown field holds the string `"TODO(verify)"` while the record is being wri
 | `method` | string | How it was measured |
 | `evidence` | string | Link to the section of `docs/ops/verification-log.md` |
 
-**`ti_threshold.json`** (T04.07; 05 has no manifest field for it). T03.10 reads `value`; an absent file means no `LOW_TI` bits.
+**`ti_threshold.json`** (T04.07; 05 has no manifest field for it). T03.10 reads `value`; an absent file means no `LOW_TI` bits. **The file is not written**: U-03 decided on 2026-11-10 that no defensible TI "loose fines" threshold exists for the AOI, so T03.10 always runs with no threshold ([`docs/ops/ti-threshold.md`](../../docs/ops/ti-threshold.md#decision)). The layout below applies only if a later recorded decision writes the file.
 
 | Field | Type | Rule |
 | --- | --- | --- |
-| `value` | number | Chosen by the data lead |
+| `value` | number | Chosen by the data lead in a recorded decision |
 | `unit` | string | `tiu` |
 | `label` | string | `interpretive` (02 §C.2 L4) |
 | `note` | string | Path of the method note, `docs/ops/ti-threshold.md` |

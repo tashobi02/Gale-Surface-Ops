@@ -625,7 +625,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `npx vitest run tests/compute/warnings.test.ts` (run in `apps/web/`).
 - **Agent brief:** Implement `collectWarnings` and `planStatus` in `packages/compute/src/warnings.ts` from 01 FR-10, 05 §C Warning, 05 §E.6 and 03 §E.4 until `packages/compute/tests/warnings.test.ts` passes. Keep undecided severities as `TODO(decision)`.
 - **Conflict notes:** Stacks on T05.13's branch. The 1.3 LOW_TI cost and the LOW_TI warning stay dormant under v1 cut 4 (no v2 cut item) (no threshold, map §h.6).
-- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Resolve U-03 and the LOW_TI threshold source before enabling LOW_TI warnings; do not infer a threshold from fixture values.
+- **Follow-up (2026-11-09 reconciliation, resolved 2026-11-10):** U-03 is decided by the data lead (Obidit Islam, 2026-11-10): **no defensible TI "loose fines" threshold for the AOI**, so `ti_threshold.json` is not written, T03.10 sets no `LOW_TI` bits and the 1.3 `LOW_TI` cost and the `LOW_TI` warning stay dormant for good ([ti-threshold.md](../ops/ti-threshold.md#decision)). Never infer a threshold from fixture values.
 - **Follow-up (2026-11-09 reconciliation):** TODO(decision): Confirm LOW_RES_DEM warning severity before emitting bit-4 route warnings; the bit encoding is defined, but TASK-05 spec question 9 leaves severity open.
 - **Follow-up (2026-11-09 reconciliation):** TODO(decision): Define NO_DATA_ADJACENT neighbourhood, distance, severity and affected-segment policy before implementation; the routing graph's eight neighbours do not by themselves define this warning.
 

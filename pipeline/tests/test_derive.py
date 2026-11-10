@@ -225,8 +225,9 @@ def test_hillshade_all_nan_dem_gives_all_nan():
 
 
 # --- Hazard flags -----------------------------------------------------------------------------
-# Thresholds and TI values below are synthetic test inputs, not site values (the real threshold
-# is Unresolved, U-03).
+# Thresholds and TI values below are synthetic test inputs, not site values: U-03 decided
+# 2026-11-10 that there is no defensible TI threshold for the AOI, so `threshold=None` is the
+# production case (docs/ops/ti-threshold.md).
 
 SYNTHETIC_TI_THRESHOLD = 200.0
 
@@ -292,7 +293,7 @@ def test_hazard_flags_low_ti_only_when_threshold_is_passed():
     assert np.array_equal(low, expected)
     assert np.all((with_threshold & TI_UNKNOWN) == 0)
 
-    # TI threshold is Unresolved (U-03): without one, nothing is flagged LOW_TI.
+    # U-03 decided 2026-11-10: no threshold; `threshold=None` is the production case.
     without_threshold = hazard_flags(elevation, ti, None)
     assert np.all((without_threshold & LOW_TI) == 0)
     assert np.all((without_threshold & TI_UNKNOWN) == 0)
