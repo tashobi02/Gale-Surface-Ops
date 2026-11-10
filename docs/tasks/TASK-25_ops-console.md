@@ -48,7 +48,7 @@
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr11OpsConsole.tsx`
+- **Owns (writes):** `apps/web/src/ui/screens/scr11OpsConsole.tsx`, `apps/web/src/state/habSession.ts`, `apps/web/tests/state/habSession.test.ts`
 - **Reads:** [04 §E.4](../specs/04_Design_Brief.md#e4-scr-11-ops-console-ops--1280-px-projector), [04 §E.10](../specs/04_Design_Brief.md#e10-specimen-card-scr-06-poi-detail-crew-and-vehicle-cards), [03 SCR-11](../specs/03_App_Flow_and_Diagrams.md#scr-11--ops-console-v2), `docs/design/prototype/`, `apps/web/tests/ui/ops.test.ts`
 - **Depends on:** T25.07 (hard: DOM tests first), T20.06 (hard: client store), T13.01 (soft: tokens), T31.06 (soft: task progress)
 - **Parallel with:** T25.02

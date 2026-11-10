@@ -399,7 +399,7 @@ All five match. Over the ten points: 9 match, 1 does not.
 | --- | --- | --- |
 | Fonts offline (NFR-01, NFR-07) | **Verified offline**, zero external requests | `@font-face` rules in `base.css` reference `/fonts/...`; Vite production build (`base: "./"`) rebases to `../fonts/...`; bundle passes offline verification |
 | Typography defaults (04 §C.2) | **Verified** against 04 §C.2 specs | Body 14 px / 400 Inter (line-height 1.45), panel headings 16 px / 600, screen titles 20 px / 600, microcopy 12 px mono, no text renders below 12 px |
-| Focus ring (04 §E, 04 P10) | **Verified** | 2 px white outline with 2 px offset and box-shadow gap on `:focus-visible`, never removed |
+| Focus ring (04 §E, 04 P10) | **Verified** | Single `:focus-visible` rule in `base.css` applying the per-mode `--focus-ring` (2 px ring + 2 px gap; white on OPS and HUD, ink on paper in BRIEF, `TODO(decision)` for 04) plus a transparent outline for forced-colors; never removed; guarded by `apps/web/tests/ui/baseStyles.test.ts` |
 | Reduced motion (04 §E Motion) | **Verified** | `@media (prefers-reduced-motion: reduce)` zeroes animation and transition durations and forces `scroll-behavior: auto` |
 | Target sizes (04 §C.3) | **Verified** | Minimum mouse ≥ 32 px, touch ≥ 44 px via `@media (pointer: coarse)`, EVA ≥ 56 px with `[data-surface="eva"]` / `.eva-target` |
 

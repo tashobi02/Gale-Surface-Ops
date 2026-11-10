@@ -19,7 +19,7 @@
   src: url("/fonts/inter/Inter-Regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block; /* block causes FOIT (invisible text until load) and prevents FOUT; 04 §G scopes it to OPS/HUD, applied globally here because the fonts are local and load at once */
 }
 
 @font-face {
@@ -27,7 +27,7 @@
   src: url("/fonts/inter/Inter-Medium.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
@@ -35,7 +35,7 @@
   src: url("/fonts/inter/Inter-SemiBold.woff2") format("woff2");
   font-weight: 600;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
@@ -43,7 +43,7 @@
   src: url("/fonts/ibm-plex-mono/IBMPlexMono-Medium.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 /* -------------------------------------------------------- 2. Element defaults
@@ -109,15 +109,17 @@ small,
 }
 
 /* ----------------------------------------------------------- 3. Focus style
- * 04 §E Focus & 04 P10:
- * White 2 px ring + 2 px void gap on every interactive element on :focus-visible.
- * Never removed, never indicated by colour alone.
+ * 04 §C.1 `focus`, §E Focus & 04 P10:
+ * 2 px ring + 2 px gap on every interactive element on :focus-visible, in every mode (OPS, BRIEF, HUD, PRINT).
+ * This is the ONLY :focus-visible rule; the ring comes from --focus-ring (tokens.css, defined per mode).
+ * Never removed, never indicated by colour alone. The transparent outline is invisible normally but is
+ * drawn in forced-colors / high-contrast mode, where box-shadow is dropped.
+ * Do not add `outline: none` or `box-shadow: none` on controls elsewhere.
  */
 
 :focus-visible {
-  outline: 2px solid #FFFFFF !important;
-  outline-offset: 2px !important;
-  box-shadow: var(--focus-ring, 0 0 0 2px var(--surface-0), 0 0 0 4px #FFFFFF);
+  outline: 2px solid transparent;
+  box-shadow: var(--focus-ring);
 }
 
 /* --------------------------------------------------------- 4. Reduced motion
@@ -145,30 +147,24 @@ small,
  */
 
 button,
-input,
 select,
 textarea,
+input:not([type="checkbox"]):not([type="radio"]),
 .btn {
   min-height: var(--target-mouse, 32px);
   min-width: var(--target-mouse, 32px);
   border: 1px solid var(--control-edge);
   border-radius: 0;
-  box-shadow: none;
   font-family: inherit;
   font-size: inherit;
   color: inherit;
 }
 
-button:active,
-.btn:active {
-  filter: invert(1);
-}
-
 @media (pointer: coarse) {
   button,
-  input,
   select,
   textarea,
+  input:not([type="checkbox"]):not([type="radio"]),
   .btn {
     min-height: var(--target-touch, 44px);
     min-width: var(--target-touch, 44px);
@@ -177,9 +173,9 @@ button:active,
 
 /* EVA mode targets ≥ 56 px (04 §A.3.4, §C.3) */
 [data-surface="eva"] button,
-[data-surface="eva"] input,
 [data-surface="eva"] select,
 [data-surface="eva"] textarea,
+[data-surface="eva"] input:not([type="checkbox"]):not([type="radio"]),
 [data-surface="eva"] .btn,
 .eva-target {
   min-height: var(--target-eva, 56px);

@@ -88,7 +88,7 @@
 - **Tag:** agent-ready · core
 - **Window:** event-only
 - **Estimate:** 1.5–2 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr17PostEvaReport.tsx`
+- **Owns (writes):** `apps/web/src/ui/screens/scr17PostEvaReport.tsx`, `apps/web/src/ui/report/reportAdapter.ts`, `apps/web/tests/ui/postEvaReport.test.ts`
 - **Reads:** [03 SCR-17](../specs/03_App_Flow_and_Diagrams.md#scr-17--post-eva-report-v2), [04 §E.8](../specs/04_Design_Brief.md#e8-scr-08-briefing-card-and-scr-17-post-eva-report-print), `docs/design/prototype/`
 - **Depends on:** T27.01 (hard: report data)
 - **Parallel with:** T27.05
@@ -103,7 +103,7 @@
 
 ### T27.04 — Implement the event log view on ops
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 11 Nov to fix the 11 Nov audit findings (product lead's call; Ridita informed on the PR)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted

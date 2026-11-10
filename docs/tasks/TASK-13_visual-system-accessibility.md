@@ -44,7 +44,7 @@
 
 ### T13.01 — Freeze CSS token and status-class names v1 against 04 §C
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 11 Nov to fix the 11 Nov audit findings (product lead's call; Ridita informed on the PR)
 - **Type:** contract
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -124,7 +124,7 @@
 
 ### T13.04 — Implement base styles: typography, focus ring, reduced motion
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 11 Nov to fix the 11 Nov audit findings (product lead's call; Ridita informed on the PR)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -179,7 +179,7 @@
 
 ### T13.06 — Implement keyboard map controls (04 §E)
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 11 Nov to fix the 11 Nov audit findings (product lead's call; Ridita informed on the PR)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
