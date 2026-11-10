@@ -91,7 +91,8 @@ Owners: assumptions A-01–A-07 in [01 §F.2](specs/01_Product_Requirements_Docu
 | Resolved | D-01 site (Gale boxwork, 2026-11-07), AOI exact bounds, DEM quality inside the AOI (U-01, on the data lead's method) and CRISM coverage (U-05): [ops/feasibility.md](ops/feasibility.md) |
 | Resolved | LOW_RES_DEM: no per-pixel source map; interpreted patches (U-10, 2026-11-07): [dem-quality.md](ops/feasibility/dem-quality.md#u-10-evidence) |
 | Resolved | Venue details (U-14, 2026-11-09): virtual event ([ops/team.md](ops/team.md#venue-type-u-14-due-10-nov)) |
-| Unresolved | TI "loose fines" threshold; traverse source (U-04: **Proposed**, PDS PLACES, data lead to confirm, [DataSource](../pipeline/sites/gale_boxwork/sources/pds-msl-places-localizations.json), [T04.01 row](tasks/status.md)) |
+| Resolved | TI "loose fines" threshold: **no defensible threshold for the AOI** (U-03, Obidit Islam, 2026-11-10), so `ti_threshold.json` is not written and T03.10 sets no `LOW_TI` bits; A-05 stays an Assumed interpretation ([ops/ti-threshold.md](ops/ti-threshold.md#decision)) |
+| Unresolved | Traverse source (U-04: **Proposed**, PDS PLACES, data lead to confirm, [DataSource](../pipeline/sites/gale_boxwork/sources/pds-msl-places-localizations.json), [T04.01 row](tasks/status.md)) |
 
 ## Traceability (MVP requirements)
 

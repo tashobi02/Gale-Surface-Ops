@@ -21,7 +21,7 @@
 | Rules answer and Track S/P (`docs/ops/rules.md`) | upstream output | T00.03 | hard (T16.02) |
 | D-01 decision, feasibility summary and notes, ADR-001 | upstream output | T01.05 (notes: T01.01–T01.04) | hard (T16.02) |
 | D-03 spike outcome (ADR-003) | upstream output | T02.05 | hard (T16.02) |
-| Team roster and venue (`docs/ops/team.md`), traverse source record (U-04), TI threshold (U-03), LOW_RES_DEM coverage (U-10) | upstream outputs | T00.06, T04.01, T04.07, T03.18 | none — T16.02 applies them only if already recorded |
+| Team roster and venue (`docs/ops/team.md`), traverse source record (U-04), TI threshold (U-03 — **recorded 2026-11-10: no defensible threshold, no `ti_threshold.json`**, [ti-threshold.md](../ops/ti-threshold.md#decision)), LOW_RES_DEM coverage (U-10) | upstream outputs | T00.06, T04.01, T04.07, T03.18 | none — T16.02 applies them only if already recorded |
 | SCR-09 Sources & Methods, including its AI-use statement | upstream output | T12.03 | hard (T16.03–T16.06) |
 | Hardening and verification results (verification-log sections) | upstream output | T14.03–T14.10 | hard (T16.06) |
 | Bundle v1 site manifest (`DataSource.credit`) and POI image credits | upstream output | T03.19 | read only; no §f edge (Spec question 4) |
