@@ -13,8 +13,11 @@
  * - No sample data: with no report supplied every value reads "—" and only the disclaimer remains. Nothing is
  *   filled in from defaults.
  *
- * TODO(decision): agree the report API-to-UI adapter, planned/actual stop timing context, shelter-response association,
- * dropped-stop identity mapping and per-crew versus aggregate dose presentation before completing report integration.
+ * The data comes from `adaptPostEvaReport` (../report/reportAdapter.ts) applied to `GET /api/report`. Definitions (approved
+ * 11 Nov): stop timing per crew per stop (planned `derived` from the plan, actual `simulated`, differences `derived`); shelter
+ * response per alert and crew only while the alert is open; dose per crew with the highest individual as headline (`derived`),
+ * no crew total; a crew member who never sheltered reads "not sheltered".
+ *
  * TODO(decision): complete real report trace, sources and Export log JSON integration, then verify Chrome A4/Letter
  * pagination with 12 mm margins; article-container counts do not prove two printed pages.
  */
@@ -29,30 +32,46 @@ export interface PostEvaReportData {
   dataVersion?: string;
   seed?: number;
   logHash?: string;
+  /** Headline dose: the highest individual's (`derived`), never a crew total. Absent when nobody sheltered. */
   doseReceivedUgy?: number;
   doseUnshelteredUgy?: number;
+  doseHeadlineCrew?: string;
+  /** One row per crew member (`simulated`); null values read "not sheltered". */
+  doseRows?: Array<{ crewId: string; doseReceivedUgy: number | null; doseUnshelteredUgy: number | null }>;
+  /** Slowest crew shelter response, minutes (`derived`). */
   timeToShelterMin?: number;
   stopsCompleted?: number;
   stopsTotal?: number;
   planRevisionsCount?: number;
+  /** One row per crew per reached stop, or one row (crewId null) with a status word. Times are offsets from EVA start. */
   timeline?: Array<{
-    phase: string;
-    plannedLtst: string;
-    actualLtst: string;
+    stopId: string;
+    crewId: string | null;
+    status: string;
+    plannedArrival: string | null;
+    actualArrival: string | null;
+    arrivalDiff: string | null;
+    plannedDwell: string | null;
+    actualDwell: string | null;
+    dwellDiff: string | null;
   }>;
   alerts?: Array<{
     level: "warning" | "caution" | "advisory";
     code: string;
-    message: string;
-    raisedLtst: string;
-    ackedLtst: string;
-    shelteredLtst?: string;
-    responseSec: number;
+    message?: string;
+    raisedAt: string;
+    ackedAt: string | null;
+    /** First acknowledgement minus raise. */
+    ackSec: number | null;
+    /** Per crew in the alert's subjects; null response = no shelter during the alert. */
+    shelter: Array<{ crewId: string; responseSec: number | null; shelteredAt: string | null }>;
   }>;
   tasks?: Array<{
     stopName: string;
-    ev1: string;
-    ev2: string;
+    done: number;
+    skipped: number;
+    dropped: number;
+    total: number;
   }>;
   logEvents?: Array<{
     seq: number;
@@ -71,6 +90,10 @@ export interface PostEvaReportProps {
   onBack?: () => void;
   className?: string;
 }
+
+/** Pages rendered below; the "p. n / N" labels are computed from this, not typed. */
+const PAGES = [1, 2] as const;
+const pageLabel = (n: number): string => `p. ${n} / ${PAGES.length}`;
 
 /** Mandatory NASA Space Apps disclaimer (01 §F.1); independent of any report data. */
 export const REPORT_DISCLAIMER =
@@ -97,6 +120,10 @@ export function PostEvaReport({
   const data: PostEvaReportData = report ?? {};
   const hasReceived = isFiniteNumber(data.doseReceivedUgy);
   const hasUnsheltered = isFiniteNumber(data.doseUnshelteredUgy);
+  // Per-crew rows were supplied but nobody has a dose: say so instead of "—".
+  const nobodySheltered = !hasReceived && (data.doseRows?.length ?? 0) > 0 && data.doseRows?.every((r) => !isFiniteNumber(r.doseReceivedUgy));
+  // The mandatory disclaimer is rendered once; supplied commentary is only what is left after it.
+  const commentary = (data.disclaimer ?? "").replace(REPORT_DISCLAIMER, "").trim();
   const hasShelter = isFiniteNumber(data.timeToShelterMin);
   const hasStops = isFiniteNumber(data.stopsCompleted) && isFiniteNumber(data.stopsTotal);
   const hasRevisions = isFiniteNumber(data.planRevisionsCount);
@@ -273,7 +300,7 @@ export function PostEvaReport({
               color: "#4B5563",
             }}
           >
-            p. 1 / 2
+            {pageLabel(1)}
           </span>
         </header>
 
@@ -290,15 +317,31 @@ export function PostEvaReport({
                 fontFamily: "var(--font-mono, monospace)",
               }}
             >
-              <span {...reportAttrs(hasReceived, "simulated", "dose_event_ugy")}>
-                {hasReceived ? fmtFixed(data.doseReceivedUgy, 1) : UNAVAILABLE} µGy {glyphIf(hasReceived, "simulated")}
+              <span {...reportAttrs(hasReceived, "derived", "dose_event_ugy")}>
+                {hasReceived ? `${fmtFixed(data.doseReceivedUgy, 1)} µGy` : nobodySheltered ? "not sheltered" : `${UNAVAILABLE} µGy`}{" "}
+                {glyphIf(hasReceived, "derived")}
               </span>
               <span style={{ fontSize: "12px", color: "#6B7280", margin: "0 4px" }}>vs</span>
-              <span {...reportAttrs(hasUnsheltered, "simulated", "dose_event_unsheltered_ugy")} style={{ color: "#4B5563" }}>
-                {hasUnsheltered ? (data.doseUnshelteredUgy as number).toLocaleString("en-US") : UNAVAILABLE} µGy{" "}
-                {glyphIf(hasUnsheltered, "simulated")}
+              <span {...reportAttrs(hasUnsheltered, "derived", "dose_event_unsheltered_ugy")} style={{ color: "#4B5563" }}>
+                {hasUnsheltered ? `${(data.doseUnshelteredUgy as number).toLocaleString("en-US")} µGy` : nobodySheltered ? "not sheltered" : `${UNAVAILABLE} µGy`}{" "}
+                {glyphIf(hasUnsheltered, "derived")}
               </span>
             </span>
+            <span style={{ fontSize: "12px", color: "#4B5563" }}>
+              highest individual{data.doseHeadlineCrew ? `: ${data.doseHeadlineCrew}` : ""}
+            </span>
+            {(data.doseRows ?? []).length > 0 && (
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", fontSize: "12px", fontFamily: "var(--font-mono, monospace)" }}>
+                {data.doseRows?.map((r) => {
+                  const has = isFiniteNumber(r.doseReceivedUgy);
+                  return (
+                    <li key={r.crewId} {...reportAttrs(has, "simulated", `dose.${r.crewId}`)}>
+                      {r.crewId} {has ? `${fmtFixed(r.doseReceivedUgy, 1)} µGy` : "not sheltered"} {glyphIf(has, "simulated")}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
 
           <div style={slabStyle}>
@@ -367,35 +410,47 @@ export function PostEvaReport({
           <table style={tableStyle}>
             <thead>
               <tr>
-                <th style={thStyle}>Phase</th>
-                <th style={thStyle}>Planned LTST</th>
-                <th style={thStyle}>Actual LTST</th>
+                <th style={thStyle}>Stop</th>
+                <th style={thStyle}>Crew</th>
+                <th style={thStyle}>Arrive plan / actual / Δ</th>
+                <th style={thStyle}>Dwell plan / actual / Δ</th>
+                <th style={thStyle}>Status</th>
               </tr>
             </thead>
             <tbody>
               {(data.timeline ?? []).length === 0 && (
                 <tr>
-                  <td style={tdStyle} {...reportAttrs(false, "simulated", "timeline")} colSpan={3}>
+                  <td style={tdStyle} {...reportAttrs(false, "simulated", "timeline")} colSpan={5}>
                     {UNAVAILABLE}
                   </td>
                 </tr>
               )}
               {data.timeline?.map((row, idx) => (
                 <tr key={idx}>
-                  <td style={tdStyle}>{row.phase}</td>
-                  <td style={tdStyle} {...reportAttrs(true, "derived", "timeline.planned_ltst")}>
-                    {row.plannedLtst}
+                  <td style={tdStyle}>{row.stopId}</td>
+                  <td style={tdStyle}>{row.crewId ?? UNAVAILABLE}</td>
+                  <td style={tdStyle}>
+                    <span {...reportAttrs(row.plannedArrival !== null, "derived", "timeline.arrival_planned")}>{row.plannedArrival ?? UNAVAILABLE}</span>
+                    {" / "}
+                    <span {...reportAttrs(row.actualArrival !== null, "simulated", "timeline.arrival_actual")}>{row.actualArrival ?? UNAVAILABLE}</span>
+                    {" / "}
+                    <span {...reportAttrs(row.arrivalDiff !== null, "derived", "timeline.arrival_diff")}>{row.arrivalDiff ?? UNAVAILABLE}</span>
                   </td>
-                  <td
-                    style={{ ...tdStyle, fontWeight: row.actualLtst.includes("DROPPED") ? 700 : 400 }}
-                    {...reportAttrs(true, "simulated", "timeline.actual_ltst")}
-                  >
-                    {row.actualLtst}
+                  <td style={tdStyle}>
+                    <span {...reportAttrs(row.plannedDwell !== null, "derived", "timeline.dwell_planned")}>{row.plannedDwell ?? UNAVAILABLE}</span>
+                    {" / "}
+                    <span {...reportAttrs(row.actualDwell !== null, "simulated", "timeline.dwell_actual")}>{row.actualDwell ?? UNAVAILABLE}</span>
+                    {" / "}
+                    <span {...reportAttrs(row.dwellDiff !== null, "derived", "timeline.dwell_diff")}>{row.dwellDiff ?? UNAVAILABLE}</span>
                   </td>
+                  <td style={{ ...tdStyle, fontWeight: row.status === "DROPPED" ? 700 : 400 }}>{row.status}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <p style={{ fontSize: "12px", color: "#6B7280", margin: "4px 0" }}>
+            Times are offsets from EVA start (sim time). Planned and differences are derived; actual is simulated.
+          </p>
         </section>
 
         {/* Alerts and Responses */}
@@ -417,8 +472,8 @@ export function PostEvaReport({
               <tr>
                 <th style={thStyle}>Level</th>
                 <th style={thStyle}>Alert</th>
-                <th style={thStyle}>Raised → Acked → Sheltered</th>
-                <th style={thStyle}>Response Time</th>
+                <th style={thStyle}>Raised → Acked (sim UTC)</th>
+                <th style={thStyle}>Shelter response per crew</th>
               </tr>
             </thead>
             <tbody>
@@ -447,13 +502,26 @@ export function PostEvaReport({
                   </td>
                   <td style={tdStyle}>
                     <div style={{ fontWeight: 600 }}>{alt.code}</div>
-                    <div style={{ fontSize: "12px", color: "#6B7280" }}>{alt.message}</div>
+                    {alt.message ? <div style={{ fontSize: "12px", color: "#6B7280" }}>{alt.message}</div> : null}
                   </td>
-                  <td style={tdStyle} {...reportAttrs(true, "simulated", "alerts.times")}>
-                    {alt.raisedLtst} → {alt.ackedLtst} {alt.shelteredLtst ? `→ ${alt.shelteredLtst}` : ""}
+                  <td style={tdStyle}>
+                    <span {...reportAttrs(true, "simulated", "alerts.times")}>
+                      {alt.raisedAt} → {alt.ackedAt ?? UNAVAILABLE}
+                    </span>{" "}
+                    <span {...reportAttrs(isFiniteNumber(alt.ackSec), "derived", "alerts.ack_s")}>
+                      {`(ack ${isFiniteNumber(alt.ackSec) ? alt.ackSec : UNAVAILABLE} s)`}
+                    </span>
                   </td>
-                  <td style={tdStyle} {...reportAttrs(isFiniteNumber(alt.responseSec), "derived", "alerts.response_s")}>
-                    {isFiniteNumber(alt.responseSec) ? alt.responseSec : UNAVAILABLE} s
+                  <td style={tdStyle}>
+                    {alt.shelter.length === 0 && <span {...reportAttrs(false, "derived", "alerts.shelter_response_s")}>{UNAVAILABLE}</span>}
+                    {alt.shelter.map((r) => {
+                      const has = isFiniteNumber(r.responseSec);
+                      return (
+                        <div key={r.crewId} {...reportAttrs(has, "derived", `alerts.shelter_response_s.${r.crewId}`)}>
+                          {r.crewId} {has ? `${r.responseSec} s` : "no shelter during alert"}
+                        </div>
+                      );
+                    })}
                   </td>
                 </tr>
               ))}
@@ -519,7 +587,7 @@ export function PostEvaReport({
               color: "#4B5563",
             }}
           >
-            p. 2 / 2
+            {pageLabel(2)}
           </span>
         </header>
 
@@ -554,8 +622,8 @@ export function PostEvaReport({
             <thead>
               <tr>
                 <th style={thStyle}>Stop</th>
-                <th style={thStyle}>EV1 (Done / Skip / Drop)</th>
-                <th style={thStyle}>EV2 (Done / Skip / Drop)</th>
+                <th style={thStyle}>Done / Skipped / Dropped</th>
+                <th style={thStyle}>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -569,11 +637,11 @@ export function PostEvaReport({
               {data.tasks?.map((t, idx) => (
                 <tr key={idx}>
                   <td style={tdStyle}>{t.stopName}</td>
-                  <td style={{ ...tdStyle, fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(true, "simulated", "tasks.ev1")}>
-                    {t.ev1}
+                  <td style={{ ...tdStyle, fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(true, "simulated", "tasks.counts")}>
+                    {`${t.done} / ${t.skipped} / ${t.dropped}`}
                   </td>
-                  <td style={{ ...tdStyle, fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(true, "simulated", "tasks.ev2")}>
-                    {t.ev2}
+                  <td style={{ ...tdStyle, fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(true, "simulated", "tasks.total")}>
+                    {t.total}
                   </td>
                 </tr>
               ))}
@@ -689,7 +757,7 @@ export function PostEvaReport({
             }}
           >
             {REPORT_DISCLAIMER}
-            {data.disclaimer ? ` ${data.disclaimer}` : ""}
+            {commentary ? ` ${commentary}` : ""}
           </p>
         </footer>
       </article>
