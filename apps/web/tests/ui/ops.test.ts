@@ -18,6 +18,7 @@ import { readScenario } from "../../../hab-core/src/scenario";
 import { OpsConsole } from "../../src/ui/screens/scr11OpsConsole";
 import { Join } from "../../src/ui/screens/scr10Join";
 import { ClockControl } from "../../src/ui/ops/ClockControl";
+import { OptionsPanel } from "../../src/ui/ops/OptionsPanel";
 import { AlertStack } from "../../src/ui/ops/AlertStack";
 import { ConditionsPanel } from "../../src/ui/ops/ConditionsPanel";
 import { HOLD_DURATION_MS } from "../../src/ui/eva/HoldToConfirm";
@@ -362,21 +363,126 @@ describe("Mission clock controls (04 §E.4, FR-30, FR-31)", () => {
     expect([...one.container.querySelectorAll("option")].map((o) => o.textContent)).toEqual(["storm-sol4190"]);
   });
 
+  it("ClockControl is controlled: a click reports the command but the highlighted speed follows the props", async () => {
+    const m = await mount(createElement(ClockControl, { speed: 1, isPaused: false }));
+
+    await click(must(m.container, '[aria-label="Set speed to 10x"]'));
+    expect(must(m.container, '[aria-label="Set speed to 1x"]').getAttribute("aria-pressed")).toBe("true");
+    expect(must(m.container, '[aria-label="Set speed to 10x"]').getAttribute("aria-pressed")).toBe("false");
+
+    await m.rerender(createElement(ClockControl, { speed: 10, isPaused: true }));
+    expect(must(m.container, '[aria-label="Set speed to 10x"]').getAttribute("aria-pressed")).toBe("true");
+    expect(m.container.querySelector('[aria-label="Resume mission clock"]')).not.toBeNull();
+  });
+
   it("START EVA is neutral chrome, not a status colour", async () => {
     const { container } = await mount(createElement(ClockControl, { sessionState: "LOADED" }));
     expect(must(container, '[aria-label="Start EVA mission"]').getAttribute("style")).not.toMatch(/--status-/);
   });
 
-  it("OpsConsole forwards the clock buttons to onClockCommand", async () => {
-    const onClockCommand = vi.fn();
-    const { container } = await mount(createElement(OpsConsole, { onClockCommand }));
+  /** The connect snapshot with the session clock replaced, as the Hab Core would broadcast after a clock change. */
+  const withClock = (clock: { speed: 1 | 10 | 60; paused: boolean }): Snapshot => {
+    const snap = connectSnapshot();
+    return { ...snap, session: { ...snap.session, clock: { ...snap.session.clock, ...clock } } };
+  };
+
+  it("ops: pause sends SET_CLOCK {paused:true}; the 10x button sends SET_CLOCK {speed:10}; next event sends JUMP_NEXT_EVENT", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const { container } = await mount(createElement(OpsConsole, { client, snapshot: withClock({ speed: 60, paused: false }) }));
+
+    await click(must(container, '[aria-label="Pause mission clock"]'));
+    await click(must(container, '[aria-label="Set speed to 10x"]'));
+    await click(must(container, '[aria-label="Jump to next scheduled event"]'));
+    await flush();
+
+    expect(sent).toEqual([
+      { kind: "SET_CLOCK", args: { paused: true } },
+      { kind: "SET_CLOCK", args: { speed: 10 } },
+      { kind: "JUMP_NEXT_EVENT", args: {} },
+    ]);
+  });
+
+  it("ops: every command the clock controls send is accepted by the real Hab Core handler for ops (no PAUSE/SET_SPEED/STEP)", async () => {
+    const running = applyEvent(initialState(fake, "s-0001"), "EVA_STARTED", { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, "ops");
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const { container } = await mount(createElement(OpsConsole, { client, snapshot: withClock({ speed: 60, paused: false }) }));
+
+    await click(must(container, '[aria-label="Pause mission clock"]'));
+    await click(must(container, '[aria-label="Set speed to 10x"]'));
+    await click(must(container, '[aria-label="Jump to next scheduled event"]'));
+    await flush();
+
+    expect(sent).toHaveLength(3);
+    for (const command of sent) expect(serverAnswer(running, "ops", command).result.ok).toBe(true);
+  });
+
+  it("the clock buttons show the session clock from the snapshot, and follow it when the server changes it", async () => {
+    const view = (snapshot: Snapshot | null) => createElement(OpsConsole, { snapshot });
+    const m = await mount(view(withClock({ speed: 60, paused: false })));
+    const pressed = () =>
+      [...m.container.querySelectorAll('[aria-label^="Set speed to"]')]
+        .filter((b) => b.getAttribute("aria-pressed") === "true")
+        .map((b) => b.getAttribute("aria-label"));
+
+    expect(pressed()).toEqual(["Set speed to 60x"]);
+    expect(m.container.querySelector('[aria-label="Pause mission clock"]')).not.toBeNull();
+
+    // The server pauses at 10x: the console follows, with no click on this client.
+    await m.rerender(view(withClock({ speed: 10, paused: true })));
+    expect(pressed()).toEqual(["Set speed to 10x"]);
+    expect(m.container.querySelector('[aria-label="Pause mission clock"]')).toBeNull();
+    expect(m.container.querySelector('[aria-label="Resume mission clock"]')).not.toBeNull();
+  });
+
+  it("after the server paused the clock, the same button sends the resume (paused:false)", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const m = await mount(createElement(OpsConsole, { client, snapshot: withClock({ speed: 60, paused: false }) }));
+    await m.rerender(createElement(OpsConsole, { client, snapshot: withClock({ speed: 60, paused: true }) }));
+
+    await click(must(m.container, '[aria-label="Resume mission clock"]'));
+    await flush();
+    expect(sent).toEqual([{ kind: "SET_CLOCK", args: { paused: false } }]);
+  });
+
+  it("with no snapshot the clock state is unknown: no speed is shown as pressed and pause/resume is not offered", async () => {
+    const { container } = await mount(createElement(OpsConsole));
+
+    expect(container.querySelectorAll('[aria-label^="Set speed to"][aria-pressed="true"]')).toHaveLength(0);
+    expect(must<HTMLButtonElement>(container, '[aria-label="Pause or resume mission clock (state unknown)"]').disabled).toBe(true);
+  });
+
+  it("without a client the commands go to onCommand, in protocol form", async () => {
+    const onCommand = vi.fn();
+    const { container } = await mount(createElement(OpsConsole, { onCommand, snapshot: withClock({ speed: 1, paused: false }) }));
 
     await click(must(container, '[aria-label="Set speed to 10x"]'));
-    await click(must(container, '[aria-label="Pause mission clock"]'));
-    await click(must(container, '[aria-label="Resume mission clock"]'));
     await click(must(container, '[aria-label="Jump to next scheduled event"]'));
+    expect(onCommand.mock.calls.map(([c]) => c)).toEqual([
+      { kind: "SET_CLOCK", args: { speed: 10 } },
+      { kind: "JUMP_NEXT_EVENT", args: {} },
+    ]);
+  });
 
-    expect(onClockCommand.mock.calls).toEqual([["SET_SPEED", 10], ["PAUSE"], ["RESUME"], ["STEP"]]);
+  it("a rejected clock command is shown on the console", async () => {
+    const { client } = recordingClient(storeFromBeat("connect", "ops"), () => rejected("INVALID", "Changing the clock is not allowed when ENDED"));
+    const { container } = await mount(createElement(OpsConsole, { client, snapshot: withClock({ speed: 60, paused: false }) }));
+
+    await click(must(container, '[aria-label="Set speed to 10x"]'));
+    await flush();
+    expect(must(container, '[data-slot="command-error"]').textContent).toContain("Changing the clock is not allowed");
+  });
+
+  it("START EVA appears only when the session is LOADED, from the snapshot (no assumed state)", async () => {
+    const snap = connectSnapshot();
+    const loaded = { ...snap, session: { ...snap.session, status: "LOADED" as const } };
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const m = await mount(createElement(OpsConsole, { client, snapshot: loaded }));
+
+    await click(must(m.container, '[aria-label="Start EVA mission"]'));
+    await flush();
+    expect(sent).toEqual([{ kind: "START_EVA", args: {} }]);
+    await m.rerender(createElement(OpsConsole, { client, snapshot: snap }));
+    expect(m.container.querySelector('[aria-label="Start EVA mission"]')).toBeNull();
   });
 });
 
@@ -411,6 +517,31 @@ describe("Options panel: ops approves with a full hold (04 §D.3, FR-44)", () =>
     await hold(must(container, "#action-confirm-option"));
     expect(sent).toEqual([{ kind: "APPROVE_OPTION", args: { option_id: "o-ops" } }]);
     expect(onApproveOption.mock.calls).toEqual([["o-ops"]]);
+  });
+
+  it("approving the selected option sends that option's id, not a fixed one", async () => {
+    vi.useFakeTimers();
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const second: ContingencyOption = { ...option, option_id: "o-second", rank: 2, kind: "ABORT_TO_HAB", crew_ids: ["EV2"] };
+    const snapshot = { ...connectSnapshot(), options: [option, second] };
+    const { container } = await mount(createElement(OpsConsole, { client, snapshot }));
+
+    await click(must(container, '[role="radio"]:nth-of-type(2)'));
+    await hold(must(container, "#action-confirm-option"));
+    expect(sent).toEqual([{ kind: "APPROVE_OPTION", args: { option_id: "o-second" } }]);
+  });
+
+  it("OptionsPanel takes its crew from the caller (required prop, no EV1 default)", async () => {
+    vi.useFakeTimers();
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const forEv2: ContingencyOption = { ...option, option_id: "o-ev2", crew_ids: ["EV2"] };
+    const snapshot = { ...connectSnapshot(), options: [forEv2] };
+    const { container } = await mount(createElement(OptionsPanel, { client, snapshot, crewId: "EV2" }));
+
+    await hold(must(container, "#action-confirm-option"));
+    expect(sent).toEqual([{ kind: "APPROVE_OPTION", args: { option_id: "o-ev2" } }]);
+    // @ts-expect-error crewId is required: there is no default crew (take it from props or the session).
+    createElement(OptionsPanel, { client, snapshot });
   });
 
   it("a short press sends nothing; a rejected approval is shown and not reported as approved", async () => {

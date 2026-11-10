@@ -16,7 +16,13 @@ import { Options } from "../screens/scr14Options";
 
 export interface OptionsPanelProps {
   client?: HabClient | null;
-  crewId?: CrewId;
+  /**
+   * The crew member this panel is shown for, taken from the caller or the session. Required: there is no default
+   * crew. null = the caller has none to give (no crew in the session yet).
+   * TODO(decision): scr14 `Options` still defaults its own `crewId` to "EV1" when this is null; for the ops variant it
+   * only affects the EVA-only "queued" flag, so nothing the ops console shows or sends depends on it.
+   */
+  crewId: CrewId | null;
   snapshot?: Snapshot | null;
   onApproveOption?: (option: ContingencyOption) => void;
   onPreviewPath?: (path: [number, number][]) => void;
@@ -29,7 +35,7 @@ export interface OptionsPanelProps {
  */
 export function OptionsPanel({
   client,
-  crewId = "EV1",
+  crewId,
   snapshot,
   onApproveOption,
   onPreviewPath,
@@ -50,7 +56,7 @@ export function OptionsPanel({
     >
       <Options
         client={client}
-        crewId={crewId}
+        crewId={crewId ?? undefined}
         snapshot={snapshot}
         variant="ops"
         onSelectOption={(option) => {

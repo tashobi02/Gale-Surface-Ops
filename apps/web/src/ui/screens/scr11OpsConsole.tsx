@@ -14,8 +14,9 @@
  */
 
 import {
+  useCallback,
   useState,
-  useRef,
+  useSyncExternalStore,
   type CSSProperties,
   type ReactElement,
 } from "react";
@@ -58,7 +59,8 @@ export interface OpsConsoleProps {
   planRevision?: ProvenanceValue<number>;
   /** Current EVA phase, when the Hab Core reports one. */
   phase?: ProvenanceValue<string>;
-  clockSpeed?: number;
+  /** Fallbacks for the clock when no snapshot is available; the snapshot's session clock wins. Unset = unknown. */
+  clockSpeed?: 1 | 10 | 60;
   isPaused?: boolean;
   crew?: Crew[];
   vehicles?: Vehicle[];
@@ -77,7 +79,6 @@ export interface OpsConsoleProps {
   /** Receives every command the console issues when no `client` is given (with a client the console sends them). */
   onCommand?: (command: Pick<Command, "kind" | "args">) => void;
   onApproveOption?: (optionId: string) => void;
-  onClockCommand?: (cmd: "PAUSE" | "RESUME" | "SET_SPEED" | "STEP", speed?: number) => void;
   className?: string;
 }
 
@@ -113,8 +114,8 @@ export function OpsConsole({
   ltst,
   planRevision,
   phase,
-  clockSpeed = 1,
-  isPaused = false,
+  clockSpeed,
+  isPaused,
   crew = [],
   vehicles = [],
   alerts = [],
@@ -125,18 +126,16 @@ export function OpsConsole({
   logLines = [],
   onAcknowledgeAlert,
   onApproveOption,
-  onClockCommand,
   onCommand,
   className = "",
 }: OpsConsoleProps): ReactElement {
-  const [activeSpeed, setActiveSpeed] = useState<number>(clockSpeed);
-  const [paused, setPaused] = useState<boolean>(isPaused);
-  const [optionApproved, setOptionApproved] = useState<boolean>(false);
   const [activeAddCrew, setActiveAddCrew] = useState<string | null>(null);
-  // TODO(decision): remove the superseded SCR-11 hold-timer state when its session command integration is reconciled.
   const [commandError, setCommandError] = useState<string | null>(null);
-  const [pressProgress, setPressProgress] = useState<number>(0);
-  const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // The session is read from the snapshot (given, or the client's own), so the clock and status follow the server.
+  const subscribe = useCallback((listener: () => void) => client?.subscribe(listener) ?? (() => {}), [client]);
+  const readState = useCallback(() => client?.state() ?? null, [client]);
+  const liveState = useSyncExternalStore(subscribe, readState, readState);
+  const session = (snapshot ?? liveState)?.session;
 
   /**
    * Sends one command to the Hab Core (02 §E.4). Without a client the command goes to `onCommand` and counts as
@@ -150,36 +149,6 @@ export function OpsConsole({
     const result = await client.send(command);
     setCommandError(result.ok ? null : `${command.kind} rejected: ${result.message}`);
     return result.ok;
-  };
-
-  const highestAlert = alerts.find((a) => a.level === "warning") ??
-    alerts.find((a) => a.level === "caution") ??
-    alerts[0];
-
-  const hasUnacked = alerts.some((a) => a.acked_seq === null);
-
-  const handleHoldStart = () => {
-    if (pressTimerRef.current) clearInterval(pressTimerRef.current);
-    const start = Date.now();
-    pressTimerRef.current = setInterval(() => {
-      const elapsed = Date.now() - start;
-      const progress = Math.min(1, elapsed / 800);
-      setPressProgress(progress);
-      if (progress >= 1) {
-        clearInterval(pressTimerRef.current!);
-        pressTimerRef.current = null;
-        setOptionApproved(true);
-        onApproveOption?.("option-1");
-      }
-    }, 50);
-  };
-
-  const handleHoldEnd = () => {
-    if (pressTimerRef.current) {
-      clearInterval(pressTimerRef.current);
-      pressTimerRef.current = null;
-    }
-    setPressProgress(0);
   };
 
   const rootStyle: CSSProperties = {
@@ -309,18 +278,11 @@ export function OpsConsole({
         {/* Mission clock controls: ⏸ 1× 10× [60×] ⏭ */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <ClockControl
-            speed={activeSpeed as 1 | 10 | 60}
-            isPaused={paused}
-            activeScenarioId={scenarioName}
-            onSetSpeed={(s) => {
-              setActiveSpeed(s);
-              onClockCommand?.("SET_SPEED", s);
-            }}
-            onPauseResume={(p) => {
-              setPaused(p);
-              onClockCommand?.(p ? "PAUSE" : "RESUME");
-            }}
-            onJumpNextEvent={() => onClockCommand?.("STEP")}
+            speed={session?.clock.speed ?? clockSpeed ?? null}
+            isPaused={session?.clock.paused ?? isPaused ?? null}
+            sessionState={session?.status}
+            activeScenarioId={session?.scenario_id ?? scenarioName}
+            onCommand={(command) => void issue(command)}
           />
           <span style={{ marginLeft: "8px", cursor: "pointer" }} aria-label="Sound status">
             🔊
@@ -615,11 +577,9 @@ export function OpsConsole({
           <div className="options-panel">
             <OptionsPanel
               client={client}
-              snapshot={snapshot}
-              onApproveOption={(opt) => {
-                setOptionApproved(true);
-                onApproveOption?.(opt.option_id);
-              }}
+              snapshot={snapshot ?? liveState}
+              crewId={crew[0]?.crew_id ?? (snapshot ?? liveState)?.crew[0]?.crew_id ?? null}
+              onApproveOption={(opt) => onApproveOption?.(opt.option_id)}
             />
           </div>
         </aside>
