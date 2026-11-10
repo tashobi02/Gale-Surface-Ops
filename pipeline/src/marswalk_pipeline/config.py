@@ -49,5 +49,6 @@ PROJ4_BY_SITE = {
 
 # TODO(verify): provisional 05 §F.1 ladder until C9 is frozen.
 TILE_RESOLUTIONS_M = [32, 16, 8, 4, 2]
-# TODO(verify): 06 §C TASK-03 ortho finest level until C9 is frozen.
+# Obidit Islam (data lead), 2026-11-10: 02 §C.3 ortho finest level is 0.5 m.
+# TODO(verify): C9 tile-grid contract remains to be frozen.
 ORTHO_TILE_RESOLUTIONS_M = [*TILE_RESOLUTIONS_M, 0.5]
