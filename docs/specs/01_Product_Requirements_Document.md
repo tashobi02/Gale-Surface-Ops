@@ -399,20 +399,29 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 
 ### E.1 Killer demo — "Storm at sol 4190" (target 90 s of the 240-s video)
 
-**Setup:** Three devices on an offline router. Laptop A = Hab Core + ops console on the projector. Phone 1 = EV1 suit tablet (HUD mode). Phone 2 = EV2 (optional; tablet acceptable). Scenario: two-person EVA at Gale on **20 May 2024**, clock at 60×.
+**Setup:** Three devices on an offline router. Laptop A = Hab Core + ops console on the projector. Phone 1 = EV1 suit tablet (HUD mode). Phone 2 = EV2 (optional; tablet acceptable). Scenario: two-person EVA at Gale on **20 May 2024**, EVA start TODO(verify) (derived by T21.15 from the stop-2 dwell rule once T21.12 builds the demo plan), clock at 60×.
 
 | t (video) | What happens | What is shown | Value demonstrated |
 | --- | --- | --- | --- |
 | 0:00 | Crew are at stop 2, a hydrated-sulfate resource stop on Mount Sharp | Ops map: EV1/EV2 markers, route, rover parked at hab; HUD: next stop, margins | In-EVA use; Exploration Zone |
 | 0:10 | Dose rate climbs; local trigger fires | Red alert on all devices simultaneously; dose-rate chart labelled `replayed — Curiosity RAD, 20 May 2024` | Real event, real data |
-| 0:20 | Earth status: forecast message is still in transit / waiting for relay pass | Earth link widget: light time X min (SPICE), next relay pass in Y min | Earth can't help in time |
+| 0:20 | Earth status: forecast message is still in transit / waiting for relay pass | Earth link widget: light time 15.8 min (SPICE), next relay pass in 179.5 min (MAVEN) | Earth can't help in time |
 | 0:30 | System proposes options | Abort to hab 41 min vs. rover rendezvous 14 min; expected event dose for each | Decision support |
 | 0:40 | EV1 taps **Summon vehicle** → confirm | Rover route draws; rendezvous point avoids a 17° slope; ETAs converge | Vehicle summon, realistic routing |
 | 0:55 | Route to rendezvous crosses a comm shadow | `COMM_SHADOW` warning; robotic rover tasked to relay closes it (FR-41) | Terrain-aware comms |
 | 1:10 | Crew reach the rover | Dose received vs. unsheltered estimate; event log | Outcome |
 | 1:20 | Ops opens post-EVA report | Planned vs. actual, alerts, dose, provenance | Credible output |
 
-Times, ETAs and slope values in this table are **illustrative**; the real ones come from the compute engine once the AOI and scenario are fixed (TASK-21 writes the final script).
+ETAs and slope values in this table are **illustrative** until the headless replay of the fixed scenario produces them (T23.08; determinism T22.14). The *t (video)* column is the edit plan (06 §G). The light time and relay pass come from the committed tables (sources below; TASK-21 writes the final script).
+
+Sources for the §E.1 numbers (T21.09, 2026-11-10):
+
+- Local trigger: alert `2024-05-20T05:50:32Z`, local true solar time 11:10, row 41 of `scenarios/storm-sol4190/dose_series.json`, found by `triggerState` with the ParamSet `alert-assumed` (`rad_k_background` 10, `rad_clear_k` 2, `rad_clear_min` 30; **Assumed**, U-19).
+- Daylight window: sunrise `2024-05-20T00:22:19Z` (05:51 LTST) and sunset `2024-05-20T13:01:00Z` (18:09 LTST) at the hab position (`docs/ops/feasibility/hab-site.md`), flat horizon, from `sunriseSunset` in `packages/compute/src/sun.ts` (T06.07 is wip).
+- Light time (the X in the 0:20 row): `scenarios/storm-sol4190/earth_link.json`, row `t_utc` `2024-05-20T05:50:00Z`, `light_time_s` 950.190644 s = 15.84 min, shown to 0.1 min in the table (SPICE, **derived**).
+- Next relay pass (the Y in the 0:20 row): MAVEN, `start_utc` `2024-05-20T08:50:00Z`, `passes[16]` of `earth_link.json`, 179.5 min after the alert (`wait_min` 179.46666666666667). A pass needs the orbiter at or above 10° elevation (02 §D.12, **Assumed** minimum elevation, U-19); this pass peaks at `max_elev_deg` 12.832075°.
+- Command: `npm --workspace @marswalk/hab-core run demo-numbers` (the T21.15 script `apps/hab-core/scripts/demo-numbers.ts`, PR #163), which prints every value with its source.
+- ETAs, slope and doses: TODO(verify), pending the headless replay (T23.08; determinism T22.14).
 
 ### E.2 Supporting scenario — planning (the v1 flow, condensed to ~40 s)
 
