@@ -5,9 +5,11 @@
  * east-positive longitude everywhere.
  */
 
-// Leap second offset table for UTC to TT conversion (IERS table matching marstime)
+// Leap second offset table for UTC to TT conversion (TAI - UTC offset in seconds).
+// Modern leap seconds began 1972-01-01 UTC (MJD 41317, JD 2441317.5, rel = 0).
+// Table includes all leap seconds through 2017-01-01 (37 s), including the 2015 and 2017
+// leap seconds added by IERS after the original Allison & McEwen (2000) publication.
 const LEAP_DATES: [offsetDay: number, leapSec: number][] = [
-  [-2441317.5, -32.184],
   [0, 10],
   [182, 11],
   [366, 12],
@@ -65,25 +67,37 @@ const PHI_PERTURBS = [49.409, 168.173, 191.837, 21.736, 15.704, 95.528, 49.095];
 
 /**
  * Compute elapsed days since the J2000 epoch (2000-01-01 12:00:00 TT, JD 2451545.0) in Terrestrial Time (TT).
+ *
+ * Valid range: Dates >= 1972-01-01 UTC (the start of the modern leap second system).
+ * Dates before 1972 throw RangeError.
+ * Assumption: Times after the last scheduled leap second (2017-01-01) keep ΔAT = 37 s.
  */
 export function j2000OffsetTt(utc: Date): number {
+  if (!(utc instanceof Date) || isNaN(utc.getTime())) {
+    throw new RangeError("Invalid Date provided to Mars24 calculation");
+  }
+
   const m = utc.getTime();
   const jdayUtc = 2440587.5 + m / 86400000.0;
-  const jdayMin = 2441317.5;
+  const jdayMin = 2441317.5; // 1972-01-01 00:00:00 UTC
   const rel = jdayUtc - jdayMin;
 
-  let offsetSec = 32.184 + 37.0; // modern leap seconds default
-  if (rel <= LEAP_DATES[0][0]) {
-    offsetSec = 32.184 + LEAP_DATES[0][1];
-  } else if (rel < LEAP_DATES[LEAP_DATES.length - 1][0]) {
+  if (rel < 0) {
+    throw new RangeError("Dates before 1972-01-01 UTC are outside the valid Mars24 leap-second table range");
+  }
+
+  // Assumption: times after the last leap second (2017-01-01) retain ΔAT = 37 s.
+  let leapSec = 37.0;
+  if (rel < LEAP_DATES[LEAP_DATES.length - 1][0]) {
     for (let i = 0; i < LEAP_DATES.length - 1; i++) {
       if (rel >= LEAP_DATES[i][0] && rel < LEAP_DATES[i + 1][0]) {
-        offsetSec = 32.184 + LEAP_DATES[i][1];
+        leapSec = LEAP_DATES[i][1];
         break;
       }
     }
   }
 
+  const offsetSec = 32.184 + leapSec;
   const jdayTt = jdayUtc + offsetSec / 86400.0;
   return jdayTt - 2451545.0;
 }
@@ -97,23 +111,23 @@ export function marsSolDate(utc: Date): number {
 }
 
 /**
- * Fictional Mean Sun angle in degrees (Allison & McEwen 2000 Eq. 17).
+ * Fictional Mean Sun angle in degrees (Allison & McEwen 2000 Eq. 17). Internal helper.
  */
-export function fictionalMeanSunAngle(ott: number): number {
+function fictionalMeanSunAngle(ott: number): number {
   return ((270.3863 + 0.5240384 * ott) % 360 + 360) % 360;
 }
 
 /**
- * Mars Mean Anomaly in degrees (Allison & McEwen 2000 Eq. 16).
+ * Mars Mean Anomaly in degrees (Allison & McEwen 2000 Eq. 16). Internal helper.
  */
-export function marsMeanAnomaly(ott: number): number {
+function marsMeanAnomaly(ott: number): number {
   return ((19.387 + 0.52402075 * ott) % 360 + 360) % 360;
 }
 
 /**
- * Periodic orbital perturbation terms (PBS) in degrees (Allison & McEwen 2000 Eq. 18).
+ * Periodic orbital perturbation terms (PBS) in degrees (Allison & McEwen 2000 Eq. 18). Internal helper.
  */
-export function alphaPerturbations(ott: number): number {
+function alphaPerturbations(ott: number): number {
   let pbs = 0;
   for (let i = 0; i < 7; i++) {
     const angleRad = (((0.985626 * ott) / TAU_PERTURBS[i] + PHI_PERTURBS[i]) * Math.PI) / 180;
@@ -124,6 +138,7 @@ export function alphaPerturbations(ott: number): number {
 
 /**
  * Equation of Center (true anomaly v - mean anomaly M) in degrees (Allison & McEwen 2000 Eq. 19).
+ * Used by sun.ts for solar declination and subsolar longitude.
  */
 export function equationOfCenter(ott: number): number {
   const mDeg = marsMeanAnomaly(ott);
@@ -142,6 +157,7 @@ export function equationOfCenter(ott: number): number {
 
 /**
  * Areocentric solar longitude L_s in degrees (Allison & McEwen 2000 Eq. 20).
+ * Used by sun.ts for solar declination and solar position.
  */
 export function areocentricSolarLongitude(ott: number): number {
   const alphaFms = fictionalMeanSunAngle(ott);
@@ -150,9 +166,9 @@ export function areocentricSolarLongitude(ott: number): number {
 }
 
 /**
- * Mars Year number (Clancy et al. 2000 convention, where MY 1 begins 1955-04-11).
+ * Mars Year number (Clancy et al. 2000 convention, where MY 1 begins 1955-04-11). Internal helper.
  */
-export function marsYear(ott: number): number {
+function marsYear(ott: number): number {
   if (ott < CLANCY_MY_J2K_OFFSETS[0]) {
     return Math.floor(1 + (ott - CLANCY_MY_J2K_OFFSETS[0]) / 686.95);
   }
@@ -179,13 +195,16 @@ export function solarLongitude(utc: Date): { ls_deg: number; mars_year: number }
 
 /** Convert east-positive longitude to the west longitude Mars24 expects (02 §C.4.1). TASK-06 (T06.06). */
 export function eastToWestLongitude(lonE: number): number {
+  if (!Number.isFinite(lonE)) {
+    throw new RangeError("Invalid longitude provided to eastToWestLongitude: expected finite number");
+  }
   return ((360 - (lonE % 360)) % 360 + 360) % 360;
 }
 
 /**
- * Equation of Time (EOT) in degrees (Allison & McEwen 2000 Eq. 22).
+ * Equation of Time (EOT) in degrees (Allison & McEwen 2000 Eq. 22). Internal helper.
  */
-export function equationOfTime(ott: number): number {
+function equationOfTime(ott: number): number {
   const lsDeg = areocentricSolarLongitude(ott);
   const lsRad = (lsDeg * Math.PI) / 180;
   const vm = equationOfCenter(ott);
@@ -200,6 +219,7 @@ export function equationOfTime(ott: number): number {
 
 /**
  * Coordinated Mars Time (MTC) in decimal hours (0 to 24).
+ * Used by sun.ts for subsolar longitude calculation.
  */
 export function coordinatedMarsTime(ott: number): number {
   const msd = (ott - 4.5) / 1.027491252 + 44796.0 - 0.00096;
@@ -207,9 +227,12 @@ export function coordinatedMarsTime(ott: number): number {
 }
 
 /**
- * Local True Solar Time in decimal hours (0 to 24).
+ * Local True Solar Time in decimal hours (0 to 24). Internal helper.
  */
-export function localTrueSolarTimeHours(utc: Date, lonE: number): number {
+function localTrueSolarTimeHours(utc: Date, lonE: number): number {
+  if (!Number.isFinite(lonE)) {
+    throw new RangeError("Invalid longitude provided to localTrueSolarTime: expected finite number");
+  }
   const ott = j2000OffsetTt(utc);
   const lonW = eastToWestLongitude(lonE);
   const mtc = coordinatedMarsTime(ott);

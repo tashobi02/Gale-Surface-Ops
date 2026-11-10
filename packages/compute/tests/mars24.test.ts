@@ -69,4 +69,25 @@ describe("mars24 time functions (T06.03 / T06.06, FR-11)", () => {
     const hours = parseLtstHours(ltst);
     expect(hours).toBeCloseTo(15.6, 1);
   });
+
+  it("throws RangeError on invalid Date instances", () => {
+    const invalidDate = new Date("not-a-date");
+    expect(() => marsSolDate(invalidDate)).toThrow(RangeError);
+    expect(() => solarLongitude(invalidDate)).toThrow(RangeError);
+    expect(() => localTrueSolarTime(invalidDate, 137.38)).toThrow(RangeError);
+  });
+
+  it("throws RangeError for dates before 1972-01-01 UTC (pre-modern leap seconds)", () => {
+    const preLeapDate = new Date("1969-07-20T20:17:40Z");
+    expect(() => marsSolDate(preLeapDate)).toThrow(RangeError);
+    expect(() => solarLongitude(preLeapDate)).toThrow(RangeError);
+    expect(() => localTrueSolarTime(preLeapDate, 137.38)).toThrow(RangeError);
+  });
+
+  it("throws RangeError on non-finite longitudes", () => {
+    const utc = new Date("2026-11-14T08:00:00Z");
+    expect(() => eastToWestLongitude(NaN)).toThrow(RangeError);
+    expect(() => eastToWestLongitude(Infinity)).toThrow(RangeError);
+    expect(() => localTrueSolarTime(utc, NaN)).toThrow(RangeError);
+  });
 });
