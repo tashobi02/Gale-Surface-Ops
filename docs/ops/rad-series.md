@@ -2,9 +2,9 @@
 
 | | |
 | --- | --- |
-| **Owner** | Obidit Islam, R1 Data & GIS ([T21.06](../tasks/TASK-21_scenario-builder.md#t2106--download-the-rad-series-verify-sol-4190-coverage-u-15-and-the-product-u-45)); Mishkat Ahmed Khan (R2) checks U-45. Downloads and tables by an agent, 2026-11-07 |
-| **Date** | 2026-11-07 |
-| **Status** | Draft: U-15 answered from the files; U-45 has a **Proposed** recommendation and waits for the decision and the second-person read |
+| **Owner** | Obidit Islam, R1 Data & GIS ([T21.06](../tasks/TASK-21_scenario-builder.md#t2106--download-the-rad-series-verify-sol-4190-coverage-u-15-and-the-product-u-45)); Mishkat Ahmed Khan (R2) checks U-45. Downloads and tables by an agent, 2026-11-07; T21.07 extraction and review fixes by Codex (gpt-6.1-terra, max) |
+| **Date** | 2026-11-07; 2026-11-10 (U-45 decision and T21.07 extraction) |
+| **Status** | U-15 answered from the files; U-45 decided by Obidit Islam on 2026-11-10. Mishkat Ahmed Khan's second-person read is pending `TODO(verify)` |
 | **Related** | [Data downloads](data-downloads.md) D8, D9, D10, U-15, U-45 · [02 L9](../specs/02_Technical_Requirements_Document.md#l9--rad-event-time-series-fr-37) · [02 §D.13](../specs/02_Technical_Requirements_Document.md#d13-space-weather-event-model-fr-37-fr-38) · [05 DoseSeries](../specs/05_Backend_and_Database_Schema.md#doseseries-dose_seriesjson) · [01 §E.1](../specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video) · [T21.07](../tasks/TASK-21_scenario-builder.md#t2107--implement-the-rad-dose-series-extraction) · [T21.13](../tasks/TASK-21_scenario-builder.md#t2113--fallback--start-only-if-t2106-finds-no-sol-4190-series-digitised-dose-curve) |
 
 ## Result
@@ -17,7 +17,7 @@
 | Event total, E detector | **1,978.6–2,190.7 µGy** gross and **1,741.0–1,793.9 µGy** above background, in D8 and SPDF L2 alike, depending on the window (defined under Method) | Integrals below |
 | NASA's published figure | **8,100 µGy** (D10), with no integration window stated | Quote below |
 | Do the archives reproduce 8,100 µGy? | **No.** Every product and window gives about a quarter of it. The peak *rate* of the E detector is 8,274.30–8,434.2 µGy/**day** (D8, L2, PDS), close to 8,100 in number; whether NASA's figure is a peak rate or a total from another method is `TODO(verify)` | Comparison table |
-| U-45: product to replay | **Proposed:** D8 original (not filtered) E-detector column, with the SPDF L2 Total Dose E as a cross-check. **Decision:** `TODO(decision)` for the data lead and Mishkat | Recommendation section |
+| U-45: product to replay | **Decided:** D8 original (not filtered) E-detector column, with SPDF L2 Total Dose E as the cross-check. Obidit Islam, 2026-11-10; Mishkat's second-person read remains `TODO(verify)` | Decision section |
 
 ## Sources
 
@@ -171,7 +171,7 @@ Onset in the L2 file, verbatim (`[Total B, RTG-corrected B, Total E]` in µGy/da
 2024-05-20 06:15:19 [7354.29, 7295.71, 8377.91] 208.1
 ```
 
-The cadence drops from about 17 min to about 9 min at the onset, as the `Time_resolution` note says. Some records carry `FLAGGED_DATA = 'Cmds'`; they were **not** removed in these integrals (the flag count per window is `TODO(verify)` for T21.07).
+The cadence drops from about 17 min to about 9 min at the onset, as the `Time_resolution` note says. Some records carry `FLAGGED_DATA = 'Cmds'`; they were **not** removed in these historical comparison integrals. The T21.07 reference below follows the later decision to exclude flagged records.
 
 ### PDS RDR, sol 4190
 
@@ -249,9 +249,9 @@ The ratio column is gross ÷ 8,100, rounded to two decimals with `python3 -c` (s
 3. **Background subtraction matters at the 10–20 % level** (240.8 µGy in window A, 399.9 µGy in window C for D8), not at the factor-4 level. The pre-event background was itself depressed (129.72 against 165.02 µGy/day ten sols earlier), so the choice of background window changes the net by a few per cent.
 4. The E peak rate is 8,274.30 µGy/day (D8), 8,377.91 µGy/day (L2) and 8,434.2 µGy/day (PDS, 351.424 µGy/h × 24). That is numerically close to NASA's 8,100, but NASA calls its number a dose, not a rate. Whether NASA's figure is the peak daily rate, a total in another quantity, or a total from a different processing is **unverified**: `TODO(verify)` with a RAD publication or the RAD team. A search on 2026-11-07 found only news coverage repeating the release.
 
-## U-45 recommendation (Proposed)
+## U-45 decision
 
-**Proposed:** replay the **D8 original E-detector column** (`DoseE [micro Gray per day]`, the 5th field of 6), converted to µGy/h, with `method: archive`, provenance `replayed`, and the SPDF L2 `Total Dose E` cited as the cross-check. Do not use the filtered column.
+**Decided by Obidit Islam, data lead, 2026-11-10:** accept the recommendation to replay the **D8 original E-detector column** (`DoseE [micro Gray per day]`, the 5th field of 6), converted to µGy/h, with `method: archive`, provenance `replayed`, and the SPDF L2 `Total Dose E` cited as the cross-check. Do not use the filtered column. For the SPDF reference, exclude every record with a nonempty `FLAGGED_DATA` and step-hold the previous unflagged rate until the next unflagged observation, as SPDF metadata directs removal of flagged data for science. This exclusion does not change the replayed D8 samples. Mishkat Ahmed Khan's second-person read against the files has not happened and remains `TODO(verify)` (T21.06 Verify).
 
 Reasons:
 
@@ -261,13 +261,115 @@ Reasons:
 - It is licensed CC BY 4.0, which is clear for NFR-07; the L2 CDF gives rules of use but no licence name.
 - The filtered column rings below zero before the onset (−584.38 µGy/day) and has a lower peak (6,270.20 against 8,274.30 µGy/day).
 
-Consequences the decision has to accept or change:
+Consequences of the decision:
 
-- `integral_check` cannot honestly use 8,100 as `expected_ugy` for an `archive` series. The proposal is: `computed_ugy` from the samples, `expected_ugy` from the SPDF L2 integral over the same window, and a line in Sources & methods saying the archive total is about 2,000 µGy for the E detector while NASA's release says 8,100 µGy, with the reason once `TODO(verify)` above is answered. Any narration or UI text that says "8,100 µGy" must not sit next to the replayed curve without that note.
+- `integral_check` uses `computed_ugy` from the samples and `expected_ugy` from the flag-excluded SPDF L2 integral over the same window, not NASA's 8,100 µGy. Sources & methods must say the E-detector archive total is about 2,200 µGy for this window and that NASA's published 8,100 µGy is not reproduced; what that figure measures remains `TODO(verify)` above. Any narration or UI text that says "8,100 µGy" must not sit next to the replayed curve without that note.
 - D8's original column is interpolated; a real data gap would be drawn as a straight line. For sols 4187–4193 the L2 file shows none, so this does not affect the demo window.
-- Alternative: replay the SPDF L2 Total Dose E directly (native cadence, 8-min steps at the onset, sharper peak). Cost: CDF reading in the pipeline (`cdflib` is not in `pipeline/environment.yml`), several files, licence wording `TODO(verify)`.
+- Alternative: replay the SPDF L2 Total Dose E directly (native cadence, 8-min steps at the onset, sharper peak). It uses several CDF files and its licence wording is `TODO(verify)`. The selected D8 series also needs those files for its independent cross-check; `cdflib` is not yet in `pipeline/environment.yml` (T14.01).
 
-**Decision:** `TODO(decision)` — data lead (Obidit) and Mishkat, after the second-person read of this note against the files (T21.06 Verify).
+### T21.07 extraction and matched reference
+
+The command below selects the D8 original E column for sols 4190–4192 and the median of the original E values from pre-event sols 4188–4189 for `background_rate`; the median is converted from µGy/day to µGy/h. It retains actual missing values as `null`. D8 is already interpolated, so it cannot reveal original observation gaps. Its unstated time scale is provisionally mapped to UTC, and fractional seconds are truncated, not rounded; the mapping remains `TODO(verify)`.
+
+Both totals are **derived** from **replayed** D8 and SPDF records. They use `rad.py`'s step-hold rule, include background, and cover the same interval from the first stored D8 sample to the last stored D8 sample. The final sample has no added tail; SPDF intervals are clipped to those endpoints. The SPDF reader requires coverage of the window by unflagged records and rejects an overlapping unflagged fill-value gap. SPDF records whose flag is nonempty are excluded before integration; the preceding unflagged rate is held across them. The flag does not turn an otherwise valid rate into a null gap.
+
+The existing `marswalk-pipeline` environment does not yet include `cdflib`; T14.01 owns dependency changes. These outputs were produced on Obidit Islam's machine with `cdflib` 1.3.16 exposed from a local scratch environment. From the repo root, set `CDFLIB_SITE` to a Python search directory containing that version of `cdflib`; set `RAD_DIR` if the downloads are elsewhere. Run the extraction with:
+
+```bash
+RAD_DIR="${RAD_DIR:-$PWD/pipeline/work/rad}"
+: "${CDFLIB_SITE:?Set CDFLIB_SITE to a directory containing cdflib 1.3.16}"
+PYTHONPATH="$PWD/pipeline/src:$CDFLIB_SITE${PYTHONPATH:+:$PYTHONPATH}" "$(make -s pipeline-python)" -m marswalk_pipeline.rad --d8 "$RAD_DIR/doseE_sol_filter_update.txt" --spdf-l2 "$RAD_DIR"/spdf-l2/*.cdf --output scenarios/storm-sol4190/dose_series.json
+```
+
+`RAD_DIR` must contain the downloaded D8 file and the `spdf-l2` directory. No runtime network access is needed.
+
+Command output, including the independently calculated SPDF integral and the small JSON's size:
+
+```json
+{
+  "window_start": "2024-05-19T18:21:11Z",
+  "window_end": "2024-05-22T20:03:08Z",
+  "samples": 264,
+  "background_samples": 176,
+  "background_rate_ugy_h": 5.405159379175338,
+  "spdf_records_in_window": 343,
+  "spdf_flagged_records_in_window": 8,
+  "computed_ugy": 2188.835147648945,
+  "expected_ugy": 2188.6230479137985,
+  "difference_ugy": 0.212099735146694,
+  "difference_percent_of_expected": 0.009691012591184212,
+  "sha256": "993a7826b97dd7d71e8d344fb98208969ae1c08ff9ebef1be0e4a650b85486b1",
+  "output_bytes": 11699
+}
+```
+
+This interval and step-hold convention differ from the earlier comparison windows and rectangle/trapezoid methods; the totals should not be compared as if the bounds and integration rules were the same.
+
+The excluded SPDF records in the replay window are listed below (TT2000 converted to UTC and truncated to seconds, as in `rad.py`). The `FLAGGED_DATA` field's `FIELDNAM` says flagged data should be removed for science; its `CATDESC` lists quality issues including commanding.
+
+| UTC | `FLAGGED_DATA` |
+| --- | --- |
+| 2024-05-19T21:37:55Z | `Cmds` |
+| 2024-05-20T00:45:13Z | `Cmds` |
+| 2024-05-20T13:40:41Z | `Cmds` |
+| 2024-05-20T22:09:12Z | `Cmds` |
+| 2024-05-21T13:21:39Z | `Cmds` |
+| 2024-05-21T15:15:21Z | `Cmds` |
+| 2024-05-22T01:50:20Z | `Cmds` |
+| 2024-05-22T14:34:39Z | `Cmds` |
+
+The following independent calculation reads the two source products directly, without importing `rad.py`. With the same `RAD_DIR` and `CDFLIB_SITE` as above, it recomputes the two integrals, lists the flagged records and decomposes the remaining difference. The intermediate series samples the last unflagged SPDF rate at each D8 time and holds it until the next D8 time. Thus `D8 − intermediate` is the accumulated rate difference at D8 timestamps; `intermediate − SPDF` is the effect of holding SPDF at D8 cadence instead of updating at SPDF timestamps.
+
+```bash
+RAD_DIR="$RAD_DIR" PYTHONPATH="$CDFLIB_SITE${PYTHONPATH:+:$PYTHONPATH}" "$(make -s pipeline-python)" - <<'PY'
+import bisect
+import math
+import os
+from datetime import datetime
+from pathlib import Path
+import cdflib
+
+rad = Path(os.environ['RAD_DIR'])
+d8 = []
+with (rad / 'doseE_sol_filter_update.txt').open() as source:
+    next(source)
+    for line in source:
+        fields = line.rstrip().split('\t')
+        if 4190 <= float(fields[3]) < 4193:
+            d8.append((datetime.fromisoformat(fields[0]).replace(microsecond=0), float(fields[4]) / 24))
+start, end = d8[0][0], d8[-1][0]
+l2 = []
+for path in sorted((rad / 'spdf-l2').glob('*.cdf')):
+    cdf = cdflib.CDF(path)
+    col = [str(x).strip() for x in cdf.varget('DOSIMETRY_DOSE_LABEL')].index('Total Dose E')
+    for t, dose, flag in zip(cdflib.cdfepoch.to_datetime(cdf.varget('EPOCH')), cdf.varget('DOSIMETRY_TOTAL'), cdf.varget('FLAGGED_DATA')):
+        l2.append((datetime.fromisoformat(str(t)).replace(microsecond=0), float(dose[col]) / 24, str(flag).strip()))
+l2.sort()
+clean = [(t, rate) for t, rate, flag in l2 if not flag]
+all_rows = [(t, rate) for t, rate, _ in l2]
+def integrate(rows):
+    return math.fsum(rate * (min(end, b[0]) - max(start, t)).total_seconds() / 3600 for (t, rate), b in zip(rows, rows[1:]) if max(start, t) < min(end, b[0]))
+held_times = [t for t, _ in clean]
+sampled = [(t, clean[bisect.bisect_right(held_times, t) - 1][1]) for t, _ in d8]
+d8_total, all_total, clean_total, sampled_total = map(integrate, (d8, all_rows, clean, sampled))
+print('window', start.isoformat() + 'Z', end.isoformat() + 'Z')
+print('flagged records (UTC, flag, uGy/day):')
+for t, rate, flag in l2:
+    if start <= t < end and flag:
+        print(t.isoformat() + 'Z', flag, format(rate * 24, '.9g'))
+print('D8, SPDF all, SPDF clean:', d8_total, all_total, clean_total)
+print('flagged-record effect (clean minus all):', clean_total - all_total)
+print('remaining difference:', d8_total - clean_total)
+print('decomposition: rate differences at D8 timestamps:', d8_total - sampled_total)
+print('decomposition: SPDF changes between D8 timestamps:', sampled_total - clean_total)
+PY
+```
+
+The independent run gives **derived** D8 = 2,188.8351476489447 µGy, SPDF with flags = 2,173.2055960766916 µGy, and flag-excluded SPDF = 2,188.6230479137985 µGy. Excluding the flags increases the SPDF integral by 15.41745183710691 µGy. The remaining computed − expected difference is 0.21209973514623925 µGy: −10.789828097527788 µGy from rate differences at D8 timestamps, plus 11.001927832674028 µGy from SPDF changes between those timestamps. The two terms explain the residual as the net effect of differences in rates and sample timing between the resampled D8 and native SPDF series; they do not identify an instrument-level cause. The last floating-point digits differ from the `rad.py` output above because the independent script orders multiplication and division differently.
+
+### Sources & methods wording for SCR-09
+
+T12.03 owns SCR-09 and is not implemented yet. It must carry this disclosure with the source credits above: **Replayed:** Curiosity RAD E, D8 original resampled series (source D8; Heber and Löwe, CC BY 4.0). **Derived:** the archive integral is about 2,200 µGy (2,189 µGy gross over the replay window; 1,979–2,191 µGy for original D8 E and SPDF L2 Total Dose E in the earlier windows A–C); flag-excluded SPDF L2 Total Dose E (D9) is the cross-check. NASA's D10 figure of 8,100 µGy is not reproduced by this archive series; what NASA's number measures is `TODO(verify)`. D8's original column is already interpolated and its timestamp scale remains `TODO(verify)`.
 
 ## Commands and scripts
 
@@ -309,8 +411,9 @@ D8-matched window: 2024-05-20 05:16:55 -> 2024-05-22 01:33:28
 
 ## Open items
 
-- `TODO(verify)`: what NASA's 8,100 µGy measures (window, detector, quantity). Blocks the wording in Sources & methods, not the replay.
+- `TODO(verify)`: what NASA's 8,100 µGy measures (window, detector, quantity). State the mismatch in Sources & methods now; its explanation remains unverified.
+- `TODO(verify)`: Mishkat Ahmed Khan's second-person read of this note against the files (T21.06 Verify).
 - `TODO(verify)`: the time scale of D8 `Datetime`; whether L2 `EPOCH` is start or mid-observation.
 - `TODO(verify)`: D8 column 2 is the year (header names 5 columns, rows have 6); ask the authors or read `sol_to_doy`.
 - `TODO(verify)`: licence wording for the SPDF L2 and PDS RDR products; PDS checksum from `CHECKSUMS.TXT`.
-- Not done here (other owners): rows in `pipeline/sources.lock.json` (data-downloads §A rule 3), the U-15/U-45 links in `data-downloads.md` (T21.04 step 3), and the `docs/AI_USE.md` entry.
+- Not done here (other owners): rows in `pipeline/sources.lock.json` (data-downloads §A rule 3), the U-15/U-45 links in `data-downloads.md` (T21.02 step 3), the dependency batch in T14.01, and SCR-09 in T12.03.

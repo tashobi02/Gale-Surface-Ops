@@ -196,6 +196,7 @@
   - T21.03 RAD cases pass; any difference between expected and computed integral is explained in `rad-series.md`.
 - **Verify:** `$(make -s pipeline-python) -m pytest pipeline/tests/test_rad.py`.
 - **Agent brief:** Extract the series exactly; the unit conversion follows the product's own documentation, cited in a comment.
+- **U-45 follow-up:** `TODO(decision)` — reconcile this subtask's published-total wording and the archive description in `schemas/dose-series.schema.json` with Obidit Islam's 2026-11-10 decision to use the flag-excluded SPDF L2 integral over the same window for an archive series. 05 DoseSeries requires the published total specifically for `digitised`/`template_scaled`; it does not specify that requirement for `archive`. Review the 01 FR-37 and 02 L9 presentation of NASA's 8,100 µGy alongside the unreproduced archive total; do not change spec text without its owner. T12.03/T12.04 must carry the [Sources & methods disclosure](../ops/rad-series.md#sources--methods-wording-for-scr-09) when that screen and content are built.
 - **Conflict notes:** Single owner of both paths.
 
 ### T21.08 — Assemble `scenario.json` with checksums and initial stop tasks
