@@ -78,14 +78,14 @@ describe("option values carry the provenance the Hab Core gave (FR-15)", () => {
     expect(dose.textContent).toContain("▶");
   });
 
-  it("the hab-core spelling of the key ('data.options.eta_shelter_min') is read too", async () => {
-    const { client, socket } = live();
+  it("only the 05 spelling of the key is read: data.options.<field> is not (the Hab Core now writes the 05 one)", async () => {
     const { event, options } = proposedWith({ "data.options.eta_shelter_min": "simulated" });
+    const { client, socket } = live();
     const snapshot = { ...(wsFixtures.connect[0] as Snapshot), options };
     const { container } = await mount(createElement(Options, { client, crewId: "EV1" }));
     await socket.receive(snapshot, event);
 
-    expect(must(radios(container)[0], '[data-source="snapshot:options.eta_shelter_min"]').getAttribute("data-provenance")).toBe("simulated");
+    expect(must(radios(container)[0], '[data-source="snapshot:options.eta_shelter_min"]').getAttribute("data-provenance")).toBe("modelled");
   });
 
   it("a class that is not one of the six is not shown; the 05 class of the field is", async () => {

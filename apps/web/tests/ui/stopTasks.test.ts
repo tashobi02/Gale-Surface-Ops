@@ -623,27 +623,25 @@ describe("EVA tablet task list: one UPDATE_STOP_TASK per action (FR-50)", () => 
     return { ...view, sent };
   }
 
-  it("ticking sends one DONE after the 5 s undo window; skipping sends nothing until the reason, then one SKIPPED with it", async () => {
+  it("ticking sends one DONE at once, and the row keeps showing DONE until the snapshot says otherwise", async () => {
     vi.useFakeTimers();
     const { container, sent } = await tabletWithList();
-    const window = async () => {
-      await act(async () => {
-        vi.advanceTimersByTime(STOP_TASK_UNDO_WINDOW_MS);
-      });
-    };
 
     await click(must(container, '[aria-label^="Mark task done: Photograph"]'));
-    expect(sent).toHaveLength(0);
-    await window();
     expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "DONE" } }]);
+    await act(async () => {
+      vi.advanceTimersByTime(STOP_TASK_UNDO_WINDOW_MS);
+    });
+    expect(sent).toHaveLength(1);
+    expect(must(container, '[data-testid="task-row-t-s2-01"]').getAttribute("data-state")).toBe("DONE");
+  });
 
-    // The snapshot prop here does not change, so the row is a to-do again once the change is sent.
-    sent.length = 0;
+  it("skipping sends nothing until the reason is chosen, then one SKIPPED with that reason", async () => {
+    const { container, sent } = await tabletWithList();
+
     await click(must(container, '[aria-label^="Skip task: Photograph"]'));
     expect(sent).toHaveLength(0);
     await click(must(container, '[aria-label="Reason: time"]'));
-    expect(sent).toHaveLength(0);
-    await window();
     expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "SKIPPED", reason: "time" } }]);
     // No reasonless SKIPPED was ever sent.
     expect(sent.every((c) => c.args.reason !== undefined)).toBe(true);
@@ -752,9 +750,25 @@ describe("task state and text carry their own provenance (FR-15, NFR-05; 05 Stop
     expect(must(container, '[data-field="text"]').getAttribute("data-provenance")).toBe("measured");
   });
 
-  it("a missing or invalid class falls back to the one 05 gives the field, never to the invalid value", async () => {
+  it("a state class that is missing or invalid falls back to the `simulated` 05 gives every task state", async () => {
     const { container } = await row({ ...mockTasks[0], provenance: { state: "live" } as never });
     expect(must(container, '[data-field="state"]').getAttribute("data-provenance")).toBe("simulated");
-    expect(must(container, '[data-field="text"]').getAttribute("data-provenance")).toBe("assumed");
+  });
+
+  it("a text class the data does not give is not invented: no class, and the author (origin) is named, or —", async () => {
+    const plan = await row({ ...mockTasks[0], provenance: {} });
+    const text = must(plan.container, '[data-field="text"]');
+    expect(text.getAttribute("data-provenance")).toBeNull();
+    expect(text.getAttribute("data-origin")).toBe("plan");
+    expect(text.getAttribute("data-source")).toBe("snapshot:tasks.t-s2-01.text");
+    await plan.unmount();
+
+    const ops = await row({ ...mockTasks[2], provenance: { text: "live" } as never });
+    expect(must(ops.container, '[data-field="text"]').getAttribute("data-origin")).toBe("ops");
+    expect(must(ops.container, '[data-field="text"]').getAttribute("data-provenance")).toBeNull();
+    await ops.unmount();
+
+    const none = await row({ ...mockTasks[0], origin: undefined as never, provenance: {} });
+    expect(must(none.container, '[data-field="text"]').getAttribute("data-origin")).toBe("—");
   });
 });

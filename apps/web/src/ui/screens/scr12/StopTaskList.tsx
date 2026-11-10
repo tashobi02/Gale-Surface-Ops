@@ -32,7 +32,10 @@ export interface StopTaskListProps {
   readOnly: boolean;
   undo: { taskId: string } | null;
   collapsed: boolean;
+  /** Tasks whose change waits on the client or in the queue while the link is down. */
   notSyncedTaskIds: string[];
+  /** The Hab Core's reason for each change it rejected, by task id; shown on the row. */
+  rejections?: Record<string, string>;
   onTick: (taskId: string) => void;
   /** Notification only: fired when SKIP opens reason capture. It must not send a command; `onReason` does (once). */
   onSkip?: (taskId: string) => void;
@@ -46,6 +49,8 @@ export interface StopTaskRowProps {
   readOnly: boolean;
   inUndoWindow: boolean;
   notSynced: boolean;
+  /** The Hab Core's reason for rejecting the last change to this task ("INVALID: …"). */
+  rejection?: string;
   onTick: (taskId: string) => void;
   /** Notification only: fired when SKIP opens reason capture. It must not send a command. */
   onSkip?: (taskId: string) => void;
@@ -61,10 +66,14 @@ const COUNT_ATTRS = {
   title: "snapshot:tasks",
 } as const;
 
-/** Class and source of one task field: the task's own provenance map, else the class 05 StopTask gives it. */
+/**
+ * Class and source of one task field: the task's own provenance map. A state without a valid class reads the
+ * `simulated` that 05 gives every task state; a text without one carries no class (its author is named instead, see
+ * `data-origin`), because 05 ties the text's class to the POI source, which the row cannot know.
+ */
 function taskFieldAttrs(task: StopTask, field: "state" | "text"): ReturnType<typeof provAttrs> {
   const given: unknown = task.provenance?.[field];
-  const fallback: Provenance = field === "state" ? "simulated" : "assumed";
+  const fallback: Provenance | null = field === "state" ? "simulated" : null;
   return provAttrs({ prov: isProvenance(given) ? given : fallback, src: `snapshot:tasks.${task.task_id}.${field}` });
 }
 
@@ -75,6 +84,7 @@ export function StopTaskRow({
   readOnly,
   inUndoWindow,
   notSynced,
+  rejection,
   onTick,
   onSkip,
   onUndo,
@@ -215,6 +225,7 @@ export function StopTaskRow({
           </div>
           <span
             data-field="text"
+            data-origin={task.origin || "—"}
             {...taskFieldAttrs(task, "text")}
             style={{
               color: task.state === "DROPPED" || task.state === "SKIPPED" ? "var(--text-2, #A9B3BE)" : "var(--text-1, #ECEFF2)",
@@ -223,6 +234,11 @@ export function StopTaskRow({
           >
             {task.text}
           </span>
+          {rejection && (
+            <span role="alert" data-field="rejection" style={{ fontSize: "16px", color: "var(--text-1, #ECEFF2)" }}>
+              Rejected — {rejection}
+            </span>
+          )}
           {task.state === "SKIPPED" && task.reason && (
             <span style={{ fontSize: "16px", color: "var(--text-2, #A9B3BE)" }}>
               Reason: {task.reason}
@@ -293,6 +309,7 @@ export function StopTaskList({
   undo,
   collapsed,
   notSyncedTaskIds,
+  rejections = {},
   onTick,
   onSkip,
   onUndo,
@@ -392,6 +409,7 @@ export function StopTaskList({
             readOnly={readOnly}
             inUndoWindow={undo?.taskId === t.task_id}
             notSynced={notSyncedTaskIds.includes(t.task_id)}
+            rejection={rejections[t.task_id]}
             onTick={onTick}
             onSkip={onSkip}
             onUndo={onUndo}

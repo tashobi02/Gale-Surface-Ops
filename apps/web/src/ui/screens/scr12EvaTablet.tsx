@@ -10,12 +10,13 @@ import {
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { CrewId, Snapshot } from "@marswalk/protocol";
+import type { CrewId, Snapshot, StopTask } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 import { useCommand, useHabClient, useSnapshot } from "../../state/habSession";
 import {
   havenTargetLabel,
   selectEvaViewModel,
+  selectMetadataStrip,
   type EvaViewModel,
 } from "../eva/viewModel";
 import { EvaActionRow } from "../eva/HoldToConfirm";
@@ -58,6 +59,8 @@ export interface EvaTabletProps {
   className?: string;
 }
 
+const NO_TASKS: StopTask[] = [];
+
 /** A "—" shown where there is no stop to navigate to: flagged unavailable, class unknown (04 §D.1). */
 const NO_STOP = unavailableOf(null, "next_stop");
 
@@ -87,10 +90,12 @@ export function EvaTablet({
   const send = useCommand(client);
   const activeSnapshot = snapshot ?? stored;
 
-  // Tick and skip are held for the 5 s undo window (01 FR-50) and shown at once, so the view model, the TASKS count
-  // and the list all read the snapshot with the held changes applied.
-  const changes = useStopTaskChanges(send);
-  const viewSnapshot = activeSnapshot ? { ...activeSnapshot, tasks: changes.overlay(activeSnapshot.tasks) } : activeSnapshot;
+  // A tick or skip is sent at once and shown at once (01 FR-50), so the view model, the TASKS count and the list all
+  // read the snapshot with the changes in progress applied.
+  const serverTasks = activeSnapshot?.tasks ?? NO_TASKS;
+  const linked = selectMetadataStrip(activeSnapshot, crewId).link.linked;
+  const changes = useStopTaskChanges(send, serverTasks, linked);
+  const viewSnapshot = activeSnapshot ? { ...activeSnapshot, tasks: changes.overlay(serverTasks) } : activeSnapshot;
   const vm: EvaViewModel = selectEvaViewModel(viewSnapshot, crewId);
 
   // Stop task list open state (TASKS button toggles the list).
@@ -98,8 +103,10 @@ export function EvaTablet({
   // read-only behaviour.
   const [tasksExpanded, setTasksExpanded] = useState<boolean>(false);
 
-  // FR-50: the list shows in full at the stop and collapses to its count while walking and during an alert.
-  const collapsed = vm.alertSlot !== null || vm.activity === "WALKING";
+  // FR-50: the list is in full only while the crew member is at the stop; walking, heading for a haven, sheltered (or
+  // not out yet) and any unacknowledged warning or caution leave the count. U-59 (collapse rules) is still open.
+  const alertCollapses = vm.alertSlot !== null && !vm.alertSlot.acknowledged && (vm.alertSlot.level === "warning" || vm.alertSlot.level === "caution");
+  const collapsed = vm.activity !== "AT_STOP" || alertCollapses;
   const showTasksList = tasksExpanded;
 
   const isLandscape = orientation === "landscape";
@@ -365,11 +372,13 @@ export function EvaTablet({
                 readOnly={!hab || !crewId}
                 undo={changes.undoTaskId === null ? null : { taskId: changes.undoTaskId }}
                 collapsed={collapsed}
-                notSyncedTaskIds={changes.notSyncedTaskIds(vm.metadata.link.linked)}
+                notSyncedTaskIds={changes.notSyncedTaskIds()}
+                rejections={changes.rejections()}
                 onTick={(taskId) => changes.start(taskId, { state: "DONE" })}
-                // UNDO cancels the held change on the client; it never sends state "TODO" (01 FR-50: only TODO → DONE / SKIPPED).
+                // UNDO is a reversal on the server ({state: "TODO", undo: true}); a bare TODO is never sent. While the link
+                // is down it cancels a waiting change on the client instead.
                 onUndo={(taskId) => changes.undo(taskId)}
-                // SKIP only opens reason capture; the chosen reason starts the one held SKIPPED change.
+                // SKIP only opens reason capture; the chosen reason sends the one SKIPPED change.
                 onReason={(taskId, reason) => changes.start(taskId, { state: "SKIPPED", reason })}
               />
             </div>

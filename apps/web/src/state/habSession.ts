@@ -7,6 +7,9 @@
  * client with `useSyncExternalStore`, so a view re-renders on every new SNAPSHOT, STATE_DELTA, EVENT or link change
  * without being remounted. This module computes nothing: it passes the client's data through.
  *
+ * TODO(wiring slice M): app boot must call `startHabSession` (role and crew from the join screen) before an EVA or
+ * HUD route mounts; until then the hooks read `null` and the screens show "—". No route is mounted here.
+ *
  * Each hook takes an optional `client`: `undefined` means the tab's current session, `null` means "no connection"
  * (the view shows "—"), and a client means that client (tests and the ops console, which are handed one).
  */
@@ -34,6 +37,7 @@ export function startHabSession(options: HabClientOptions): HabClient {
     return existing;
   }
   const client = connectHab(options);
+  trackerOf(client); // created with the session, so no view creates it lazily during a render
   sessions.set(options.role, client);
   setCurrent(client);
   return client;
@@ -58,41 +62,13 @@ export function closeHabSessions(): void {
 type LinkLost = ReturnType<HabClient["linkLost"]>;
 
 /**
- * Remembers what `useSyncExternalStore` needs to see as stable references: the event feed of the current session
- * and the link-lost value. The tracker subscribes to its client for the client's whole life, so it notices a
- * session change at the SNAPSHOT that carries it, before the new session's first EVENT arrives.
+ * Keeps what `useSyncExternalStore` needs as stable references: the link-lost value (the client returns a new object
+ * per call). The event feed is the client's own: it clears it when a SNAPSHOT of another session arrives.
  */
 class Tracker {
-  private sessionId: string | null = null;
-  private readonly stale = new WeakSet<LogEvent>();
-  private source: LogEvent[] | null = null;
-  private feed: LogEvent[] = [];
   private link: LinkLost = { lost: false, since_ms: null };
 
-  constructor(private readonly client: HabClient) {
-    client.subscribe(() => this.observe());
-  }
-
-  /** A SNAPSHOT of another session ends the old one: its events leave the feed (a reconnect keeps the session id). */
-  private observe(): void {
-    const id = this.client.state()?.session.session_id ?? null;
-    if (id === null) return;
-    if (this.sessionId !== null && id !== this.sessionId) {
-      for (const event of this.client.events()) this.stale.add(event);
-      this.source = null; // the cached feed no longer matches
-    }
-    this.sessionId = id;
-  }
-
-  events(): LogEvent[] {
-    this.observe();
-    const source = this.client.events();
-    if (source !== this.source) {
-      this.source = source;
-      this.feed = source.filter((event) => !this.stale.has(event));
-    }
-    return this.feed;
-  }
+  constructor(private readonly client: HabClient) {}
 
   linkLost(): LinkLost {
     const next = this.client.linkLost();
@@ -138,7 +114,7 @@ function useClientStore<T>(client: HabClient | null, read: (client: HabClient) =
 }
 
 const readSnapshot = (client: HabClient): Snapshot | null => client.state();
-const readEvents = (client: HabClient): LogEvent[] => trackerOf(client).events();
+const readEvents = (client: HabClient): LogEvent[] => client.events();
 const readLink = (client: HabClient): LinkLost => trackerOf(client).linkLost();
 
 /** The last SNAPSHOT with every newer STATE_DELTA applied; null before the first SNAPSHOT. A new object per change. */

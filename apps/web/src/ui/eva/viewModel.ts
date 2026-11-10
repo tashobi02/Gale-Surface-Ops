@@ -196,14 +196,12 @@ export function selectHaven(snapshot: Snapshot | null, crewId: CrewId): EvaHaven
     status = escalationAlert.level === "warning" ? "warning" : "caution";
   }
 
-  // The vehicle named by the server's own data: the one whose SUMMON task lists this crew member or, failing that, the
-  // one standing at the haven target the server reports. No match, or more than one, is unknown (never "any rover").
+  // The vehicle named by the server's own data: the one whose SUMMON task lists this crew member. No match, or more than
+  // one, is unknown (never "any rover", and no guess from positions).
   let targetId: string | undefined;
   if (kind === "vehicle" && snapshot?.vehicles) {
     const summoned = snapshot.vehicles.filter((v) => v.task?.kind === "SUMMON" && v.task.crew_ids?.includes(crewId));
-    const atTarget = snapshot.vehicles.filter((v) => v.x_m === crew?.haven?.target_x_m && v.y_m === crew?.haven?.target_y_m);
-    const matches = summoned.length > 0 ? summoned : atTarget;
-    targetId = matches.length === 1 ? matches[0].vehicle_id : undefined;
+    targetId = summoned.length === 1 ? summoned[0].vehicle_id : undefined;
   }
 
   const minutes: ProvenanceValue<number | string> = hasMinutes

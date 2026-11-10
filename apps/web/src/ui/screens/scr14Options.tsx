@@ -47,15 +47,15 @@ const OPTION_FIELD_CLASS: Record<string, Provenance | undefined> = {
 
 /**
  * The class the Hab Core gave an option field: the provenance of the newest OPTIONS_PROPOSED event for the option's alert
- * (05 §F.6 spells the key `data.options[].<field>`, the Hab Core `data.options.<field>`; both are read). Null when no
- * such event is in the store or it names no valid class.
- * TODO(decision): the two spellings should become one in 05; 05 gives `stops_dropped` no class, so it shows none.
+ * (the key is spelled as in 05 §F.6, `data.options[].<field>`, which the Hab Core writes; no other spelling is read).
+ * Null when no such event is in the store or it names no valid class.
+ * TODO(decision): 05 gives `stops_dropped` no class, so it shows none.
  */
 function eventClass(events: LogEvent[], option: ContingencyOption, field: string): Provenance | null {
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i];
     if (event.kind !== "OPTIONS_PROPOSED" || event.data.alert_id !== option.alert_id) continue;
-    const given: unknown = event.provenance?.[`data.options[].${field}`] ?? event.provenance?.[`data.options.${field}`];
+    const given: unknown = event.provenance?.[`data.options[].${field}`];
     return isProvenance(given) ? given : null;
   }
   return null;

@@ -437,7 +437,7 @@ describe("O₂ time left is the server's alert value with the server's provenanc
   });
 });
 
-describe("HAVEN target is the vehicle the server tied to this crew member (T24.03)", () => {
+describe("HAVEN target is the vehicle the server tied to this crew member by its SUMMON task (T24.03)", () => {
   const rover = (over: Partial<Vehicle>): Vehicle => ({
     vehicle_id: "PR1", kind: "pressurized_rover", param_set: "pr1-assumed", x_m: -1800, y_m: -1500, state: "PARKED",
     task: null, path: [], eta_s: null, battery_wh: null, ...over,
@@ -467,8 +467,8 @@ describe("HAVEN target is the vehicle the server tied to this crew member (T24.0
     expect(targetOf([rover({ vehicle_id: "PR1", task: summon(["EV1"]) }), rover({ vehicle_id: "PR2", task: summon(["EV1"]) })])).toBeUndefined();
   });
 
-  it("a vehicle standing at the haven target the server reports matches when no task does", () => {
-    expect(targetOf([rover({ x_m: 55, y_m: -66 })], { target_x_m: 55, target_y_m: -66 })).toBe("PR1");
+  it("a vehicle merely standing at the reported haven target is not matched: no float-equality guess", () => {
+    expect(targetOf([rover({ x_m: 55, y_m: -66 })], { target_x_m: 55, target_y_m: -66 })).toBeUndefined();
   });
 
   it("only a vehicle haven has a target id", () => {
