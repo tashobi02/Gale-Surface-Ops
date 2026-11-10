@@ -43,21 +43,32 @@ export function evaTimeline(
   }
 
   const startMs = Date.parse(scenario.eva_start_utc);
-  const dwellPerStopMs = (scenario.dwell_min_per_stop ?? 0) * 60 * 1000;
+  if (typeof scenario.dwell_min_per_stop !== "number" ||
+    !Number.isFinite(scenario.dwell_min_per_stop) || scenario.dwell_min_per_stop < 0) {
+    throw new RangeError("dwell_min_per_stop must be a finite nonnegative number");
+  }
+  const dwellPerStopMs = scenario.dwell_min_per_stop * 60 * 1000;
+
+  const walkTimeMs = (minutes: number | undefined, index: number): number => {
+    if (typeof minutes !== "number" || !Number.isFinite(minutes) || minutes < 0) {
+      throw new RangeError(`Missing or invalid walk time for leg ${index}`);
+    }
+    return minutes * 60 * 1000;
+  };
 
   const result: Pick<PlanResult["stops_timeline"][number], "arrive_utc" | "depart_utc">[] = [];
 
   let currentMs = startMs;
 
-  // Waypoint 0 (start): arrives and departs at EVA start
+  // The first waypoint may be a stop; dwell is counted for every stop role.
   result.push({
     arrive_utc: new Date(currentMs).toISOString(),
-    depart_utc: new Date(currentMs).toISOString(),
+    depart_utc: new Date(currentMs + (waypoints[0].role === "stop" ? dwellPerStopMs : 0)).toISOString(),
   });
+  if (waypoints[0].role === "stop") currentMs += dwellPerStopMs;
 
   for (let i = 1; i < waypoints.length; i++) {
-    const walkMin = legWalkMin[i - 1] ?? 0;
-    const walkMs = walkMin * 60 * 1000;
+    const walkMs = walkTimeMs(legWalkMin[i - 1], i - 1);
     const arriveMs = currentMs + walkMs;
 
     const isStop = waypoints[i].role === "stop";
@@ -70,6 +81,21 @@ export function evaTimeline(
     });
 
     currentMs = departMs;
+  }
+
+  // Loop closing leg: return to the first waypoint.
+  if (
+    scenario.loop &&
+    waypoints.length >= 2 &&
+    legWalkMin[waypoints.length - 1] !== undefined
+  ) {
+    const returnWalkMs = walkTimeMs(legWalkMin[waypoints.length - 1], waypoints.length - 1);
+    const returnArriveMs = currentMs + returnWalkMs;
+
+    result.push({
+      arrive_utc: new Date(returnArriveMs).toISOString(),
+      depart_utc: new Date(returnArriveMs).toISOString(),
+    });
   }
 
   return result;

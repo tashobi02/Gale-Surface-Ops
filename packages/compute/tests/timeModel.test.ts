@@ -122,4 +122,96 @@ describe("walking time", () => {
     expect(timeline[3].arrive_utc).toBe("2026-11-14T09:50:00.000Z");
     expect(timeline[3].depart_utc).toBe("2026-11-14T09:50:00.000Z");
   });
+
+  it("EVA timeline includes loop-closing leg for return to start (02 §D.3)", () => {
+    const scenario: MissionScenario = {
+      eva_start_utc: "2026-11-14T08:00:00Z",
+      max_eva_duration_h: 6.0,
+      dwell_min_per_stop: 20,
+      hard_slope_limit_deg: 15,
+      caution_slope_deg: 10,
+      walkback_limit_km: 5.0,
+      suited_flat_speed_kmh: 3.3,
+      solar_phase: "max",
+      loop: true,
+      max_haven_min: 30,
+      crew_count: 2,
+      vehicle_available: true,
+    };
+
+    // 2 waypoints (start + 1 stop) on a loop
+    const waypoints: Waypoint[] = [
+      { id: "wp-0", role: "start", x_m: 0, y_m: 0 },
+      { id: "wp-1", role: "stop", x_m: 500, y_m: 0 },
+    ];
+    // leg 0 (start -> stop 1): 15 min; leg 1 (stop 1 -> return start): 15 min
+    const legWalkMin = [15, 15];
+
+    const timeline = evaTimeline(scenario, waypoints, legWalkMin);
+    expect(timeline).toHaveLength(3);
+    // start
+    expect(timeline[0].arrive_utc).toBe("2026-11-14T08:00:00.000Z");
+    expect(timeline[0].depart_utc).toBe("2026-11-14T08:00:00.000Z");
+    // stop 1 (dwell 20 min)
+    expect(timeline[1].arrive_utc).toBe("2026-11-14T08:15:00.000Z");
+    expect(timeline[1].depart_utc).toBe("2026-11-14T08:35:00.000Z");
+    // return to start (hab)
+    expect(timeline[2].arrive_utc).toBe("2026-11-14T08:50:00.000Z");
+    expect(timeline[2].depart_utc).toBe("2026-11-14T08:50:00.000Z");
+  });
+
+  describe("EVA timeline with unavailable inputs", () => {
+    const scenario: MissionScenario = {
+      eva_start_utc: "2026-11-14T08:00:00Z",
+      max_eva_duration_h: 6.0,
+      dwell_min_per_stop: 20,
+      hard_slope_limit_deg: 15,
+      caution_slope_deg: 10,
+      walkback_limit_km: 5.0,
+      suited_flat_speed_kmh: 3.3,
+      solar_phase: "max",
+      loop: true,
+      max_haven_min: 30,
+      crew_count: 2,
+      vehicle_available: true,
+    };
+    const waypoints: Waypoint[] = [
+      { id: "wp-0", role: "start", x_m: 0, y_m: 0 },
+      { id: "wp-1", role: "stop", x_m: 500, y_m: 0 },
+    ];
+
+    it("omits the loop return when its duration is missing, including a sparse array", () => {
+      const sparseWalkTimes = [15];
+      sparseWalkTimes.length = 2;
+      expect(evaTimeline(scenario, waypoints, [15])).toHaveLength(2);
+      const timeline = evaTimeline(scenario, waypoints, sparseWalkTimes);
+      expect(timeline).toHaveLength(2);
+      expect(timeline[1].depart_utc).toBe("2026-11-14T08:35:00.000Z");
+    });
+
+    it("rejects a missing walk time before a waypoint instead of inventing zero", () => {
+      const missingWalkTimes: number[] = [];
+      missingWalkTimes[1] = 15;
+      expect(() => evaTimeline(scenario, waypoints, missingWalkTimes)).toThrow();
+    });
+
+    it("rejects a missing required dwell duration rather than assuming zero", () => {
+      const withoutDwell = { ...scenario, dwell_min_per_stop: undefined } as unknown as MissionScenario;
+      expect(() => evaTimeline(withoutDwell, waypoints, [15, 15])).toThrow();
+    });
+
+    it("keeps a supplied zero-minute return leg", () => {
+      const timeline = evaTimeline(scenario, waypoints, [15, 0]);
+      expect(timeline).toHaveLength(3);
+      expect(timeline[2].arrive_utc).toBe("2026-11-14T08:35:00.000Z");
+    });
+
+    it("includes a supplied loop return when the only start is the last waypoint", () => {
+      const timeline = evaTimeline(scenario, [waypoints[1], waypoints[0]], [15, 15]);
+      expect(timeline).toHaveLength(3);
+      expect(timeline[0].arrive_utc).toBe("2026-11-14T08:00:00.000Z");
+      expect(timeline[0].depart_utc).toBe("2026-11-14T08:20:00.000Z");
+      expect(timeline[2].arrive_utc).toBe("2026-11-14T08:50:00.000Z");
+    });
+  });
 });
