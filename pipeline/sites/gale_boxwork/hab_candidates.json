@@ -1,0 +1,22 @@
+[
+  {
+    "candidate_id": "hab-first",
+    "label": "First choice",
+    "rank": 1,
+    "hab_mast": {"x_m": 1037, "y_m": -1652},
+    "default_start": {"x_m": 1037, "y_m": -1652, "label": "Habitat / rover"},
+    "note": "Ridges and knobs surround the site, so only part of the rover track is in line of sight and a crew walking the track moves in and out of comm shadow.",
+    "provenance": "assumed",
+    "source_ids": ["usgs-gale-dem-1m-v3", "pds-msl-places-localizations"]
+  },
+  {
+    "candidate_id": "hab-alternative",
+    "label": "Alternative",
+    "rank": 2,
+    "hab_mast": {"x_m": 439, "y_m": -652},
+    "default_start": {"x_m": 439, "y_m": -652, "label": "Habitat / rover"},
+    "note": "A smooth open plain next to the track, the safer site; most of the track is in line of sight, so comm shadows would rarely appear.",
+    "provenance": "assumed",
+    "source_ids": ["usgs-gale-dem-1m-v3", "pds-msl-places-localizations"]
+  }
+]
