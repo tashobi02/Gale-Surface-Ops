@@ -20,7 +20,9 @@
  */
 
 import { useState, type CSSProperties, type ReactElement } from "react";
-import type { CrewId, StopTask, StopTaskReason } from "@marswalk/protocol";
+import type { CrewId, Provenance, StopTask, StopTaskReason } from "@marswalk/protocol";
+import { isProvenance } from "../../eva/viewModel";
+import { provAttrs } from "../../components/provenance";
 
 export interface StopTaskListProps {
   tasks: StopTask[];
@@ -57,6 +59,13 @@ const COUNT_ATTRS = {
   "data-source": "snapshot:tasks",
   title: "snapshot:tasks",
 } as const;
+
+/** Class and source of one task field: the task's own provenance map, else the class 05 StopTask gives it. */
+function taskFieldAttrs(task: StopTask, field: "state" | "text"): ReturnType<typeof provAttrs> {
+  const given: unknown = task.provenance?.[field];
+  const fallback: Provenance = field === "state" ? "simulated" : "assumed";
+  return provAttrs({ prov: isProvenance(given) ? given : fallback, src: `snapshot:tasks.${task.task_id}.${field}` });
+}
 
 const REASONS: StopTaskReason[] = ["time", "terrain", "alert", "other"];
 
@@ -166,7 +175,7 @@ export function StopTaskRow({
         {/* Task description & metadata tags */}
         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ fontWeight: 600, color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>
+            <span data-field="state" {...taskFieldAttrs(task, "state")} style={{ fontWeight: 600, color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>
               {task.state}
             </span>
             {task.origin === "ops" && (
@@ -200,6 +209,8 @@ export function StopTaskRow({
             )}
           </div>
           <span
+            data-field="text"
+            {...taskFieldAttrs(task, "text")}
             style={{
               color: task.state === "DROPPED" || task.state === "SKIPPED" ? "var(--text-2, #A9B3BE)" : "var(--text-1, #ECEFF2)",
               textDecoration: task.state === "DROPPED" || task.state === "SKIPPED" ? "line-through" : "none",

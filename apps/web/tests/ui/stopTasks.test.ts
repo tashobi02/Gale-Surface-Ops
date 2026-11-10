@@ -692,3 +692,31 @@ describe("Ops add-task callback (FR-50)", () => {
     expect(onAdd.mock.calls).toEqual([[{ crew_id: "EV1", stop_id: "wp-2", kind: "observe", text: "Photograph the vein" }]]);
   });
 });
+
+describe("task state and text carry their own provenance (FR-15, NFR-05; 05 StopTask)", () => {
+  const row = (task: StopTask) => mount(createElement(StopTaskRow, { task, readOnly: true, inUndoWindow: false, notSynced: false, onTick: () => {}, onUndo: () => {} }));
+
+  it("the state and the text carry the class and source from the task's own provenance map", async () => {
+    const { container } = await row({ ...mockTasks[0], provenance: { state: "simulated", text: "assumed" } });
+    const state = must(container, '[data-field="state"]');
+    const text = must(container, '[data-field="text"]');
+
+    expect(state.textContent).toBe("TODO");
+    expect(state.getAttribute("data-provenance")).toBe("simulated");
+    expect(state.getAttribute("data-source")).toBe("snapshot:tasks.t-s2-01.state");
+    expect(text.textContent).toBe(mockTasks[0].text);
+    expect(text.getAttribute("data-provenance")).toBe("assumed");
+    expect(text.getAttribute("data-source")).toBe("snapshot:tasks.t-s2-01.text");
+  });
+
+  it("a class the data gives is shown as given (an ops-added task's text is not 'assumed' by default)", async () => {
+    const { container } = await row({ ...mockTasks[2], provenance: { state: "simulated", text: "measured" } });
+    expect(must(container, '[data-field="text"]').getAttribute("data-provenance")).toBe("measured");
+  });
+
+  it("a missing or invalid class falls back to the one 05 gives the field, never to the invalid value", async () => {
+    const { container } = await row({ ...mockTasks[0], provenance: { state: "live" } as never });
+    expect(must(container, '[data-field="state"]').getAttribute("data-provenance")).toBe("simulated");
+    expect(must(container, '[data-field="text"]').getAttribute("data-provenance")).toBe("assumed");
+  });
+});
