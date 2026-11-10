@@ -97,12 +97,20 @@ const COMPOSITE_SELECTOR = [
   "select",
 ].join(",");
 
-/** True when the element is, or sits inside, a composite widget that owns the arrow keys (role-based). */
-export function isCompositeWidget(target: EventTarget | null): boolean {
-  if (!target || !(target instanceof HTMLElement)) {
+/**
+ * True when the element is, or sits inside, a composite widget that owns the arrow keys (role-based).
+ * With `boundary` (the map element) only widgets strictly inside it count: a map mounted inside a toolbar or grid
+ * must still pan, and a map element that itself carries such a role is not "inside" a widget.
+ */
+export function isCompositeWidget(target: EventTarget | null, boundary?: Element | null): boolean {
+  if (!target || !(target instanceof Element)) {
     return false;
   }
-  return target.closest(COMPOSITE_SELECTOR) !== null;
+  const widget = target.closest(COMPOSITE_SELECTOR);
+  if (widget === null) {
+    return false;
+  }
+  return !boundary || (widget !== boundary && boundary.contains(widget));
 }
 
 /** Default hash navigation matching 03 §A routes. */
@@ -163,7 +171,7 @@ export function attachKeyboardControls(options: KeyboardControlsOptions = {}): (
     );
 
     // A radio group, listbox, menu or slider inside the map container keeps its own arrow-key behaviour.
-    const inComposite = isCompositeWidget(event.target) || isCompositeWidget(document.activeElement);
+    const inComposite = isCompositeWidget(event.target, mapElement) || isCompositeWidget(document.activeElement, mapElement);
 
     if (mapHandle && mapHasFocus && !inComposite) {
       switch (key) {

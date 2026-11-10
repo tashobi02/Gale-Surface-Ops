@@ -275,6 +275,19 @@ describe("T13.06 Keyboard Controls (keyboard.ts)", () => {
     expect(panBy).not.toHaveBeenCalled();
     expect(zoomBy).not.toHaveBeenCalled();
     noTarget();
+
+    // A handle that does name its element, while a different element holds focus: still no pan or zoom.
+    const withTarget = attachKeyboardControls({ mapHandle: { panBy, zoomBy, getTargetElement: () => mapElement } });
+    other.focus();
+    expect(document.activeElement).toBe(other);
+    for (const key of ["ArrowUp", "ArrowLeft", "+", "-"]) {
+      const ev = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+      other.dispatchEvent(ev);
+      expect(ev.defaultPrevented).toBe(false);
+    }
+    expect(panBy).not.toHaveBeenCalled();
+    expect(zoomBy).not.toHaveBeenCalled();
+    withTarget();
   });
 
   it("keyboard: arrows inside radio groups/listboxes are not prevented", () => {
@@ -308,13 +321,14 @@ describe("T13.06 Keyboard Controls (keyboard.ts)", () => {
     for (const focused of [radio, option, menuitem, slider]) {
       focused.focus();
       expect(document.activeElement).toBe(focused);
-      for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) {
+      for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "+", "-"]) {
         const ev = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
         focused.dispatchEvent(ev);
         expect(ev.defaultPrevented).toBe(false);
       }
     }
     expect(panBy).not.toHaveBeenCalled();
+    expect(zoomBy).not.toHaveBeenCalled();
 
     // Control: the map element itself still pans, so the guard (not a broken setup) blocked the above.
     mapElement.focus();
@@ -334,5 +348,50 @@ describe("T13.06 Keyboard Controls (keyboard.ts)", () => {
     expect(isCompositeWidget(inner)).toBe(true);
     expect(isCompositeWidget(document.createElement("div"))).toBe(false);
     expect(isCompositeWidget(null)).toBe(false);
+  });
+
+  it("keyboard: a map mounted inside a toolbar/grid ancestor still pans (the composite check stops at the map)", () => {
+    const panBy = vi.fn();
+    const zoomBy = vi.fn();
+    const toolbar = document.createElement("div");
+    toolbar.setAttribute("role", "toolbar");
+    const grid = document.createElement("div");
+    grid.setAttribute("role", "grid");
+    toolbar.appendChild(grid);
+    const innerMap = document.createElement("div");
+    innerMap.tabIndex = 0;
+    grid.appendChild(innerMap);
+    container.appendChild(toolbar);
+
+    const cleanup = attachKeyboardControls({ mapHandle: { panBy, zoomBy, getTargetElement: () => innerMap } });
+    innerMap.focus();
+    const ev = new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true });
+    innerMap.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(panBy).toHaveBeenCalledTimes(1);
+
+    // A map element that is itself role=grid is not "inside" a composite either.
+    innerMap.setAttribute("role", "grid");
+    innerMap.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }));
+    expect(panBy).toHaveBeenCalledTimes(2);
+    expect(isCompositeWidget(innerMap, innerMap)).toBe(false);
+    cleanup();
+  });
+
+  it("isCompositeWidget accepts SVG targets (Element, not only HTMLElement)", () => {
+    const group = document.createElement("div");
+    group.setAttribute("role", "slider");
+    const svgNs = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNs, "svg");
+    const circle = document.createElementNS(svgNs, "circle");
+    svg.appendChild(circle);
+    group.appendChild(svg);
+    expect(circle instanceof HTMLElement).toBe(false);
+    expect(isCompositeWidget(circle)).toBe(true);
+    const outer = document.createElement("div");
+    outer.appendChild(group);
+    expect(isCompositeWidget(circle, outer)).toBe(true);
+    const lone = document.createElementNS(svgNs, "circle");
+    expect(isCompositeWidget(lone)).toBe(false);
   });
 });
