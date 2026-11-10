@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Delivery — mirrors [06](../specs/06_High_Level_Implementation_Plan.md), which owns order, dependencies and cut decisions |
 | **Date** | 2026-11-03; v2 additions 2026-11-06 |
-| **Status** | Approved 2026-11-03 and frozen; amended the same day by one `coord:` change after Phase 2 (3 subtasks added; edges, paths and open points synced with the task files). **`coord:` v2 change 2026-11-06** (session handoff §F.2, approved by Sadman Shaharier Mahim): TASK-05b and TASK-20–TASK-31 atomized, an Owner on every subtask, v1 subtasks re-dated to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 milestones, windows and cut list. **`coord:` change 2026-11-10** (approved by Sadman Shaharier Mahim, product & systems lead): T21.15 registered (demo timing numbers derived from the committed tables; T21.09 now depends on it). Change this file first (§h.5) |
+| **Status** | Approved 2026-11-03 and frozen; amended the same day by one `coord:` change after Phase 2 (3 subtasks added; edges, paths and open points synced with the task files). **`coord:` v2 change 2026-11-06** (session handoff §F.2, approved by Sadman Shaharier Mahim): TASK-05b and TASK-20–TASK-31 atomized, an Owner on every subtask, v1 subtasks re-dated to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 milestones, windows and cut list. **`coord:` change 2026-11-10** (approved by Sadman Shaharier Mahim, product & systems lead): T21.15 registered (demo timing numbers derived from the committed tables; T21.09 now depends on it). **`coord:` change 2026-11-10 (live session, data lane)** (team lead Obidit Islam; follows the merged spec change #176): T03.31–T03.35 registered for the candidate hab sites of 01 FR-53 (06 §C.2 "Candidate-site comm grids"; U-65 for the R1 lane only). Change this file first (§h.5) |
 | **Related** | [06 §C Work packages](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D Delivery strategy](../specs/06_High_Level_Implementation_Plan.md#d-delivery-strategy) · [Docs index](../README.md) · [CLAUDE.md](../../CLAUDE.md) |
 
 This file lets several people and AI agents work on the work packages of 06 in parallel: the 19 v1 packages (planner, Tier 0) and the 13 v2 packages (TASK-05b, TASK-20–TASK-31: surface ops, Tier 1). It fixes subtask ids (§a), lanes (§b), who writes which file (§c), the interfaces that decouple lanes (§d), the fixtures that remove waiting (§e), the dependency graph (§f), what runs together per milestone (§g) and how branches and PRs work (§h). Task files `TASK-NN_<title>.md` expand each subtask listed here; they never add a subtask, path owner or cross-task dependency that is not in this file.
@@ -110,6 +110,11 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 | T03.28 | Tests: `comm_hab` viewshed grid (v2) | data | test | agent-ready · core | pre-event-allowed | M2 | FR-42 |
 | T03.29 | Implement the `comm_hab` viewshed grid and its layer record (v2) | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-42 |
 | T03.30 | Verify `comm_hab` against `gdal_viewshed` at 5 points (v2) | data | verify | agent-ready · core | pre-event-allowed | M2 | FR-42 |
+| T03.31 | contract-change: C1, C2 and C5 v2 — optional `hab_candidates` (HabCandidate) in the site manifest | data | contract | agent-ready · core | pre-event-allowed | M4 | FR-42, FR-53 |
+| T03.32 | Candidate hab site records: the first choice and the alternative | data | implement | agent-ready · core | pre-event-allowed | M4 | FR-53 |
+| T03.33 | Tests: per-candidate `comm_hab` grids, the manifest `hab_candidates` list and its validator rules | data | test | agent-ready · core | pre-event-allowed | M4 | FR-42, FR-53 |
+| T03.34 | follow-up: build a `comm_hab` grid and a default start for each hab candidate; manifest and validator | data | implement | agent-ready · core | pre-event-allowed | M4 | FR-42, FR-53 |
+| T03.35 | Verify both hab candidates on the real site: validator passes, alternative `comm_hab` against `gdal_viewshed` | data | verify | agent-ready · core | pre-event-allowed | M4 | FR-42, FR-53 |
 
 #### TASK-04 — Vectors, POIs and images
 
@@ -621,7 +626,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 
 | Path | Owner | Rule |
 | --- | --- | --- |
-| `pipeline/sites/README.md` | T03.01 | Contract (§d, C5) |
+| `pipeline/sites/README.md` | T03.01 | Contract (§d, C5); T03.31 follows up (C5 v2) |
 | `pipeline/sites/gale_boxwork/site.json` | T03.16 | — |
 | `pipeline/sites/gale_boxwork/sources/` | T03.17 (DEM, ortho, THEMIS), T04.01 (traverse), T06.10 (RAD), T12.05 (models), T18.01 (CRISM), T18.02 (REMS) | Append-only by file: one `<source_id>.json` per record, owned by its creator |
 | `pipeline/sites/gale_boxwork/layers/` | T03.17 (ortho, hillshade, elevation, slope, thermal inertia, hazard flags), T04.01 (traverse), T04.04 (POIs), T18.01 (CRISM) | Append-only by file: one `<layer_id>.json` per record |
@@ -629,6 +634,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | `pipeline/sites/gale_boxwork/known_offsets/` | T03.20 (`elevation.json`), T04.08 (`traverse.json`) | Append-only by file |
 | `pipeline/sites/gale_boxwork/pois/` | T04.04 (POIs 1–4), T04.05 (POIs 5–8) | Append-only by file: one `<poi_id>.json` per POI |
 | `pipeline/sites/gale_boxwork/hazards.geojson`, `pipeline/sites/gale_boxwork/low_res_dem.geojson` | T03.18 | — |
+| `pipeline/sites/gale_boxwork/hab_candidates.json` | T03.32 | New; layout from C5 v2 (T03.31) |
 | `pipeline/sites/gale_boxwork/ti_threshold.json` | T04.07 | Absent by the 2026-11-10 U-03 decision (no defensible threshold); it stays unwritten |
 | `pipeline/src/marswalk_pipeline/config.py`, `acquire.py` | T03.07 | — |
 | `pipeline/src/marswalk_pipeline/clip_reproject.py` | T03.08 | — |
@@ -636,9 +642,9 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | `pipeline/src/marswalk_pipeline/flags.py` | T03.10 | New; stub by T03.01 |
 | `pipeline/src/marswalk_pipeline/grid.py` | T03.11 | — |
 | `pipeline/src/marswalk_pipeline/tiles.py` | T03.12 | — |
-| `pipeline/src/marswalk_pipeline/manifest.py` | T03.13 | — |
-| `pipeline/src/marswalk_pipeline/validate_manifest.py` | T03.14 | — |
-| `pipeline/src/marswalk_pipeline/__main__.py` | T03.15 | New |
+| `pipeline/src/marswalk_pipeline/manifest.py` | T03.13 | T03.34 follows up |
+| `pipeline/src/marswalk_pipeline/validate_manifest.py` | T03.14 | T03.34 follows up |
+| `pipeline/src/marswalk_pipeline/__main__.py` | T03.15 | New; T03.34 follows up |
 | `pipeline/src/marswalk_pipeline/vectors.py` | T04.03 | — |
 | `pipeline/src/marswalk_pipeline/static_images.py` | T03.25 | New; fallback |
 | `pipeline/src/marswalk_pipeline/sun_table.py` | T06.11 | New; fallback |
@@ -649,6 +655,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | `pipeline/tests/test_derive.py` | T03.04 | Covers `derive.py` and `flags.py` |
 | `pipeline/tests/test_grid.py` | T03.05 | — |
 | `pipeline/tests/test_manifest.py` | T03.06 | — |
+| `pipeline/tests/test_hab_candidates.py` | T03.33 | New |
 | `pipeline/tests/test_vectors.py` | T04.02 | New |
 | `pipeline/tests/fixtures/make_mock_site.py` | T03.02 | New |
 | `pipeline/tests/fixtures/make_sample_cells.py` | T03.21 | New |
@@ -661,7 +668,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 
 | Path | Owner | Rule |
 | --- | --- | --- |
-| `packages/protocol/src/schema.ts` | T03.01 | Contract (§d, C1) |
+| `packages/protocol/src/schema.ts` | T03.01 | Contract (§d, C1); T03.31 follows up (C1 v2) |
 | `packages/protocol/src/worker.ts` | T05.01 | Contract (§d, C6) |
 | `packages/compute/src/grid.ts` | T05.16 | — |
 | `packages/compute/src/sampling.ts` | T05.17 | Stub edit by T05.01 (inputs for lat/lon) |
@@ -914,7 +921,7 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `packages/protocol/src/ws.ts` | T20.01 | stub by T31.01; T20.11 contract-change |
 | `pipeline/cache/donki/` | T21.05 | — |
 | `pipeline/spice/kernels.lock.json` | T21.02 | — |
-| `pipeline/src/marswalk_pipeline/comm_grid.py` | T03.29 | — |
+| `pipeline/src/marswalk_pipeline/comm_grid.py` | T03.29 | T03.34 follows up |
 | `pipeline/src/marswalk_pipeline/donki.py` | T21.05 | — |
 | `pipeline/src/marswalk_pipeline/rad.py` | T21.07 | — |
 | `pipeline/src/marswalk_pipeline/scenario_build.py` | T21.08 | — |
@@ -943,11 +950,11 @@ Lanes code against these interfaces, not against each other's implementations. A
 
 | ID | Contract | Path(s) | Owner | Freeze | Main consumers | Decisions the owner must record |
 | --- | --- | --- | --- | --- | --- | --- |
-| C1 | TypeScript mirror of every 05 entity | `packages/protocol/src/schema.ts` | T03.01 | End of M0 (5 Nov) | All web subtasks | Required vs optional PlanResult/Leg/Warning fields (existing `TODO(decision)`), including whether `conditions`, `radiation` and `stops_timeline` may be absent for the M3 slice |
-| C2 | Site-manifest JSON Schema | `schemas/site-manifest.schema.json` | T03.01 | End of M0 | T03.13, T03.14, T03.02, T07.02, T14.03 | Legend structure (05 leaves it open) |
+| C1 | TypeScript mirror of every 05 entity | `packages/protocol/src/schema.ts` | T03.01 (v2: T03.31, HabCandidate, 2026-11-10) | End of M0 (5 Nov) | All web subtasks | Required vs optional PlanResult/Leg/Warning fields (existing `TODO(decision)`), including whether `conditions`, `radiation` and `stops_timeline` may be absent for the M3 slice |
+| C2 | Site-manifest JSON Schema | `schemas/site-manifest.schema.json` | T03.01 (v2: T03.31, optional `hab_candidates`, 2026-11-10) | End of M0 | T03.13, T03.14, T03.02, T07.02, T14.03 | Legend structure (05 leaves it open) |
 | C3 | Plan-export JSON Schema | `schemas/plan-export.schema.json` | T03.01 | End of M0 | T11.01, T11.02, T05.03 | U-11 (store profile arrays in the export) |
 | C4 | Routing-grid binary layout | Spec: 05 §C RoutingGrid and Flag bits, 05 §E.1. Mirrors: `pipeline/src/marswalk_pipeline/config.py` constants, `FLAG_BITS` in `schema.ts`, `LoadedGrid` in `packages/compute/src/grid.ts` | T03.01 (freeze by review; no write to `config.py` or `grid.ts`) | End of M0 | T03.10, T03.11, T03.02, T05.02, T05.16 | Code never hard-codes 5 m: it reads `cell_m` (T03.24 fallback) |
-| C5 | Site-config input layout (one JSON file per DataSource, Layer, EnvConstant, POI, offset) | `pipeline/sites/README.md` | T03.01 | End of M0 | T03.13, T03.16, T03.17, T04.*, T06.10, T12.05 | Layer ids; where the TI threshold lives (05 has no field) |
+| C5 | Site-config input layout (one JSON file per DataSource, Layer, EnvConstant, POI, offset) | `pipeline/sites/README.md` | T03.01 (v2: T03.31, `hab_candidates.json`, 2026-11-10) | End of M0 | T03.13, T03.16, T03.17, T04.*, T06.10, T12.05 | Layer ids; where the TI threshold lives (05 has no field) |
 | C6 | Worker message protocol (02 §E.2) | `packages/protocol/src/worker.ts` | T05.01 | End of M0 (Track P) or M2 (Track S) | T05.04, T05.15, T05.26, T05.27, T07.04, T08.03 | How the worker receives the grid (02 §E.2 defines no load message); cancellation mechanism (02 §E.2 needs the search to yield) |
 | C7 | Compute module layout and exported signatures | Stubs in `packages/compute/src/` (`noRoute.ts`, `snap.ts`, `leg.ts`, `validate.ts`, `handler.ts`) | T05.01 | Same as C6 | Compute lane; T08.04 (`validate.ts`) | Projection maths in the worker (proj4 or hand-written eqc, 02 §B) |
 | C8 | Conditions interface (timeline LTST, sun elevation, conditions, radiation) | `packages/compute/src/conditions.ts`, `packages/compute/src/sun.ts` stubs | T06.01 | M2 | T05.32, T06.05, T06.09, T06.11 | — |
@@ -1208,6 +1215,7 @@ flowchart LR
 | --- | --- |
 | T01.05 → T04.10 | AOI and site |
 | T01.07 → T03.29 | hab position |
+| T01.07 → T03.32 | candidate hab positions (hab-site.md) |
 | T01.07 → T21.04 | hab position for elevations |
 | T01.07 → T21.08 | start positions |
 | T03.19 → T05b.20 | real grid |
@@ -1314,7 +1322,7 @@ Generated from the register's *M* column on 2026-11-06 (06 v2.2). A subtask span
 | **M2** data and scenario 6–9 Nov | T03.03–22, (T03.23), (T03.24), (T03.25), (T03.26), (T03.27), T03.28–30, T04.01–03, T04.07, T04.08, (T04.09), T04.11, T18.08, T21.02–08, T21.10, T21.11, (T21.13), (T21.14) | T05.05–29, (T05.30), (T05.31), T05.32, T05b.06–17, T06.03–09, (T06.11), T21.12 | T07.02–13, T07.15, (T07.16), T07.17, T08.01, T24.02–05, T24.07, T24.10, T25.01, T25.02, T25.07, T31.07 | T13.05, T13.12 | T04.04–06, T04.10, T12.04, T12.05, T16.01, T16.07, T21.09, T31.02 | T16.02 | T20.05, T20.06, T21.15, T22.03–08, T22.11, T23.01, T23.02, T23.04, T23.06, T31.03 |
 | **M3** walking skeleton by 10 Nov | — | T05b.18–20, T23.03, T26.01–07, (T26.08), T29.01–03, T29.06, (T29.07) | T07.18, T08.02–09, (T08.10), T08.11, T08.12, T09.01–05, T09.07, (T09.08), T09.09, T24.06, T24.08, T24.09, T25.03–06, (T25.09), T25.10, T27.01, T27.02, T29.04, T29.05, T31.05, T31.06, (T31.09) | T15.01, T15.04 | T12.01, T12.07, T17.01 | T09.06, T28.02, T28.03 | T22.09, T22.10, T22.12–14, (T22.15), T22.16, T23.05, T23.07, T23.08, (T23.09), T31.04 |
 | **M3b** first dry run 10 Nov evening | — | — | T24.11, (T24.12), T25.08 | T15.02, T15.03 | — | T31.08 | — |
-| **M4** offline dry run 11 Nov | — | — | T11.01, T11.02, T11.04, (T11.06), T11.07, T11.08, T27.04 | T11.03, T11.05, T13.04, T13.06–10 | T12.02, T12.03 | T14.03–10, T28.05 | — |
+| **M4** offline dry run 11 Nov | T03.31–35 | — | T11.01, T11.02, T11.04, (T11.06), T11.07, T11.08, T27.04 | T11.03, T11.05, T13.04, T13.06–10 | T12.02, T12.03 | T14.03–10, T28.05 | — |
 | **M4b** buffer 12 Nov | T18.01, T18.02, T18.13 | T18.04, T18.05, T18.09–11 | T18.03, T18.06, T18.07, T18.12 | — | T12.06 | T28.04 | — |
 | **M5** Day 1 → 12:30 | — | — | T10.01–03 | — | — | — | — |
 | **M6** Day 1 → 18:30 | — | — | — | — | T17.02, (T17.04) | — | — |
@@ -1523,7 +1531,7 @@ From each subtask's *Serves* line. Implemented by: `contract`, `fixture`, `imple
 | FR-39 | T01.07, T05b.01, T05b.02, T05b.04, T05b.21, T08.12, T09.09, T23.03, T25.02 | T05b.03, T05b.05, T05b.20 |
 | FR-40 | T05b.01, T05b.02, T05b.07, T15.04, T23.05, T23.09, T24.05 | T05b.06, T05b.20, T23.04, T23.08 |
 | FR-41 | T29.02, T29.03, T29.04, T29.05, T29.07 | T29.01, T29.06 |
-| FR-42 | T01.07, T03.29, T05b.01, T05b.02, T05b.09, T05b.11, T09.09, T25.02, T26.01, T26.02, T26.08, T29.03 | T03.28, T03.30, T05b.08, T05b.10, T05b.20, T26.06, T26.07, T29.01, T29.06 |
+| FR-42 | T01.07, T03.29, T03.31, T03.34, T05b.01, T05b.02, T05b.09, T05b.11, T09.09, T25.02, T26.01, T26.02, T26.08, T29.03 | T03.28, T03.30, T03.33, T03.35, T05b.08, T05b.10, T05b.20, T26.06, T26.07, T29.01, T29.06 |
 | FR-43 | T05b.01, T05b.13, T21.01, T21.02, T21.04, T21.14, T21.15, T26.04, T26.05, T26.08 | T05b.12, T21.03, T21.10, T26.03, T26.07 |
 | FR-44 | T05b.01, T05b.19, T18.11, T23.07, T24.05, T24.06, T25.04 | T05b.18, T23.06, T23.08, T25.07 |
 | FR-45 | T01.07, T04.10, T07.18, T10.04, T31.02 | — |
@@ -1532,6 +1540,7 @@ From each subtask's *Serves* line. Implemented by: `contract`, `fixture`, `imple
 | FR-48 | T18.12 | — |
 | FR-49 | T04.11, T18.13 | — |
 | FR-50 | T11.08, T20.02, T21.08, T27.01, T31.01, T31.02, T31.04, T31.05, T31.06, T31.09 | T27.02, T31.03, T31.07, T31.08 |
+| FR-53 | T03.31, T03.32, T03.34 | T03.33, T03.35 |
 | NFR-01 | T20.06, T20.09, T28.01, T28.02, T28.04 | T20.08 |
 | NFR-02 | T05b.21 | T05b.05, T05b.20, T22.14 |
 | NFR-03 | — | T24.11, T28.03 |
@@ -1592,3 +1601,4 @@ Found while atomizing the v2 packages and re-dating v1. Each has an owner subtas
 8. **Rover relay beat in the 240-s video** — the product & systems lead's call (session handoff §F.4); not planned as a subtask.
 9. **Dependency batch.** T14.01 (M1) now also has to bring a DOM test environment for React components and a local QR library (T28.02); React itself landed on 6 Nov (ADR-012).
 10. **v1 step texts** still name v1 times ("Day 1", v1 milestones) in places; the register and each file's header are authoritative (re-dating note in every v1 file).
+11. **Consumers of `hab_candidates` (2026-11-10).** SCR-20 (R5) and `SELECT_HAB_SITE` (R4) read the list but are not registered yet; the R4 `coord:` PR for U-65 adds them with edges from T03.31 (field names) and T03.34 (real candidates). The F4 mock site has no candidates (the field is optional); whether SCR-20 needs a two-candidate mock is `TODO(decision)` for those subtasks.

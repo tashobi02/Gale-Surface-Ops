@@ -178,6 +178,11 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T03.28 | Tests: `comm_hab` viewshed grid (v2) | data | pre-event-allowed | M2 | |
 | T03.29 | Implement the `comm_hab` viewshed grid and its layer record (v2) | data | pre-event-allowed | M2 | |
 | T03.30 | Verify `comm_hab` against `gdal_viewshed` at 5 points (v2) | data | pre-event-allowed | M2 | |
+| T03.31 | contract-change: C1, C2 and C5 v2 — optional `hab_candidates` (HabCandidate) in the site manifest | data | pre-event-allowed | M4 | |
+| T03.32 | Candidate hab site records: the first choice and the alternative | data | pre-event-allowed | M4 | |
+| T03.33 | Tests: per-candidate `comm_hab` grids, the manifest `hab_candidates` list and its validator rules | data | pre-event-allowed | M4 | |
+| T03.34 | follow-up: build a `comm_hab` grid and a default start for each hab candidate; manifest and validator | data | pre-event-allowed | M4 | |
+| T03.35 | Verify both hab candidates on the real site: validator passes, alternative `comm_hab` against `gdal_viewshed` | data | pre-event-allowed | M4 | |
 | T04.01 | Choose and cache the traverse source (U-04); write its DataSource and Layer records | data | pre-event-allowed | M2 | |
 | T04.02 | Tests: traverse and POI packaging | data | pre-event-allowed | M2 | |
 | T04.03 | Implement traverse and POI packaging | data | pre-event-allowed | M2 | |
