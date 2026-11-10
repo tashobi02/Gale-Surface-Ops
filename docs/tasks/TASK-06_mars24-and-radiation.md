@@ -57,7 +57,7 @@
   2. Create `conditions.ts` with one exported assembly function and its types, built only from 05 PlanResult field names (`stops_timeline` `arrive_ltst` and `sun_elevation_deg`, `conditions`, `radiation`) and the existing `estimateDose` signature.
   3. Every new body throws `TODO(<owner id>)`, e.g. `TODO(T06.07): not implemented`.
   4. Record the open C8 choices as `TODO(decision)` in the JSDoc for the compute-lane owner: which point gives the site latitude and longitude; what DARKNESS needs (sunrise/sunset UTC or sun elevation along legs); which duration feeds the dose, including PARTIAL plans; how the EnvConstant is chosen from `solar_phase`.
-  5. Check with the T05.01 owner that the `handler.ts` stub calls the C8 function by its new name.
+  5. Check with the T05.01 owner that the `handler.ts` stub calls the C8 function by its new name. *Gap recorded 2026-11-09: `handler.ts` does not call `assembleConditions` while it throws `TODO(T06.09)`; handler wiring is tracked under T05.32 (wip until T06.09 implements conditions assembly).*
   6. Run `make typecheck test`.
 - **Acceptance:**
   - Serves: FR-11, FR-12 · [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12), [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
