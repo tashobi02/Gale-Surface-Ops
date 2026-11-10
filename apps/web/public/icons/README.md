@@ -43,13 +43,13 @@ No external icon font or CDN is used.
 ## Styling and Consumer Overrides (04 §C.4)
 
 Upstream Lucide SVGs default to `stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`.
-However, [04 §C.4](../../../../docs/specs/04_Design_Brief.md#c4-iconography) specifies a 1.5 px stroke with squared/miter caps:
+However, [04 §C.4](../../../../docs/specs/04_Design_Brief.md#c4-iconography) specifies a 1.5 px stroke with squared caps. The join is not specified by 04 (`stroke-linejoin: miter` is Proposed, to match the squared caps):
 
 - `stroke-width: 1.5;`
 - `stroke-linecap: square;`
-- `stroke-linejoin: miter;`
+- `stroke-linejoin: miter;` (Proposed; not in 04 §C.4)
 
-Consumers embedding these SVGs inline should apply these CSS overrides (or use the design system utility classes) to conform strictly to 04 §C.4.
+Consumers embedding these SVGs inline should apply these CSS overrides to conform to 04 §C.4. TODO(decision): no shared icon utility class exists yet; add one only after the icon consumers exist.
 
 ## Licence and Attribution (T16.05)
 

@@ -19,7 +19,7 @@ This test evaluates the primary User Value goal defined in the product specifica
 
 And the work-package exit criterion from the implementation plan:
 
-> **[06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-15 done-when (06 v2.2 line 116):**  
+> **[06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-15 row, "Done when" column:**  
 > "≥ 2 of 3 pass each criterion (01 §B.2)"
 
 ---

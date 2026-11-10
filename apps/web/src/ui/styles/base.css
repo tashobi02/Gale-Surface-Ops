@@ -19,7 +19,7 @@
   src: url("/fonts/inter/Inter-Regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
-  font-display: block; /* 04 § Fonts: block on OPS and HUD prevents FOIT/FOUT */
+  font-display: block; /* block causes FOIT (invisible text until load) and prevents FOUT; 04 §G scopes it to OPS/HUD, applied globally here because the fonts are local and load at once */
 }
 
 @font-face {
@@ -109,14 +109,17 @@ small,
 }
 
 /* ----------------------------------------------------------- 3. Focus style
- * 04 §E Focus & 04 P10:
- * White 2 px ring + 2 px void gap on every interactive element on :focus-visible.
- * Never removed, never indicated by colour alone.
+ * 04 §C.1 `focus`, §E Focus & 04 P10:
+ * 2 px ring + 2 px gap on every interactive element on :focus-visible, in every mode (OPS, BRIEF, HUD, PRINT).
+ * This is the ONLY :focus-visible rule; the ring comes from --focus-ring (tokens.css, defined per mode).
+ * Never removed, never indicated by colour alone. The transparent outline is invisible normally but is
+ * drawn in forced-colors / high-contrast mode, where box-shadow is dropped.
+ * Do not add `outline: none` or `box-shadow: none` on controls elsewhere.
  */
 
 :focus-visible {
-  outline: 2px solid var(--fg-1, #ECEFF2);
-  outline-offset: 2px;
+  outline: 2px solid transparent;
+  box-shadow: var(--focus-ring);
 }
 
 /* --------------------------------------------------------- 4. Reduced motion
@@ -152,7 +155,6 @@ input:not([type="checkbox"]):not([type="radio"]),
   min-width: var(--target-mouse, 32px);
   border: 1px solid var(--control-edge);
   border-radius: 0;
-  box-shadow: none;
   font-family: inherit;
   font-size: inherit;
   color: inherit;

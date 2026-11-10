@@ -187,4 +187,74 @@ describe("T13.06 Keyboard Controls (keyboard.ts)", () => {
 
     cleanup();
   });
+
+  it("passes { animate: false } to pan and zoom under prefers-reduced-motion (04 §E Motion)", () => {
+    const matchMedia = vi.fn((query: string) => ({ matches: query.includes("prefers-reduced-motion"), media: query }));
+    vi.stubGlobal("matchMedia", matchMedia);
+    (window as unknown as { matchMedia: unknown }).matchMedia = matchMedia;
+    expect(prefersReducedMotion()).toBe(true);
+
+    const panBy = vi.fn();
+    const zoomBy = vi.fn();
+    const mapHandle: KeyboardMapHandle = { panBy, zoomBy, getTargetElement: () => mapElement };
+    const cleanup = attachKeyboardControls({ mapHandle, panStepPx: 40 });
+    mapElement.focus();
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "+" }));
+    expect(panBy).toHaveBeenCalledWith(0, -40, { animate: false });
+    expect(zoomBy).toHaveBeenCalledWith(1, { animate: false });
+
+    cleanup();
+    vi.unstubAllGlobals();
+    delete (window as unknown as { matchMedia?: unknown }).matchMedia;
+  });
+
+  it("cleanup removes the listener: keys after cleanup() do nothing", () => {
+    const panBy = vi.fn();
+    const zoomBy = vi.fn();
+    const deleteStop = vi.fn();
+    const navigate = vi.fn();
+    const mapHandle: KeyboardMapHandle = { panBy, zoomBy, getTargetElement: () => mapElement };
+    const planContext: KeyboardPlanContext = {
+      getSelectedStopId: () => "stop-1",
+      deleteStop,
+      canOpenBriefing: () => true,
+      navigate,
+    };
+    const cleanup = attachKeyboardControls({ mapHandle, planContext });
+    mapElement.focus();
+
+    cleanup();
+
+    for (const key of ["ArrowDown", "+", "-", "Delete", "b", "?"]) {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key }));
+    }
+    expect(panBy).not.toHaveBeenCalled();
+    expect(zoomBy).not.toHaveBeenCalled();
+    expect(deleteStop).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("modifier guard: Ctrl+b, Meta+b and Alt+? do not open briefing or sources", () => {
+    const navigate = vi.fn();
+    const planContext: KeyboardPlanContext = {
+      getSelectedStopId: () => null,
+      deleteStop: vi.fn(),
+      canOpenBriefing: () => true,
+      navigate,
+    };
+    const cleanup = attachKeyboardControls({ planContext });
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "b", ctrlKey: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", altKey: true }));
+    expect(navigate).not.toHaveBeenCalled();
+
+    // Control: the plain key still works, so the guard (not a broken setup) is what blocked the above.
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "b" }));
+    expect(navigate).toHaveBeenCalledWith("#/briefing");
+
+    cleanup();
+  });
 });
