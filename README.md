@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`███████░░░░░░░░░░░░░` **34 %** — 104 of 304 subtasks done, 54 in progress.
+`███████░░░░░░░░░░░░░` **34 %** — 104 of 304 subtasks done, 55 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -33,7 +33,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `█████░░░░░` 50 % | 6 | 1 | 12 |
 | [TASK-14 Integration + offline hardening + fault tests](docs/tasks/TASK-14_integration-offline-hardening.md) | `█░░░░░░░░░` 9 % | 1 | 1 | 11 |
 | [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `█████░░░░░` 50 % | 2 | 0 | 4 |
-| [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `░░░░░░░░░░` 0 % | 0 | 1 | 7 |
+| [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `░░░░░░░░░░` 0 % | 0 | 2 | 7 |
 | [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `░░░░░░░░░░` 0 % | 0 | 1 | 3 |
 | [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `████████░░` 83 % | 10 | 1 | 12 |
 | [TASK-21 Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers](docs/tasks/TASK-21_scenario-builder.md) | `████░░░░░░` 42 % | 5 | 2 | 12 |
