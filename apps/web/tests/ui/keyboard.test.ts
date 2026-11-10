@@ -5,6 +5,7 @@ import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } 
 import { installDom, removeDom } from "./domHarness";
 import {
   attachKeyboardControls,
+  isCompositeWidget,
   isEditableElement,
   prefersReducedMotion,
   type KeyboardMapHandle,
@@ -256,5 +257,82 @@ describe("T13.06 Keyboard Controls (keyboard.ts)", () => {
     expect(navigate).toHaveBeenCalledWith("#/briefing");
 
     cleanup();
+  });
+
+  it("keyboard: no pan without a focused map target", () => {
+    const panBy = vi.fn();
+    const zoomBy = vi.fn();
+    // No getTargetElement at all, and a handle whose element is not focused: neither may pan or zoom.
+    const noTarget = attachKeyboardControls({ mapHandle: { panBy, zoomBy } });
+    const other = document.createElement("button");
+    container.appendChild(other);
+    other.focus();
+    for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "+", "-"]) {
+      const ev = new KeyboardEvent("keydown", { key, cancelable: true });
+      window.dispatchEvent(ev);
+      expect(ev.defaultPrevented).toBe(false);
+    }
+    expect(panBy).not.toHaveBeenCalled();
+    expect(zoomBy).not.toHaveBeenCalled();
+    noTarget();
+  });
+
+  it("keyboard: arrows inside radio groups/listboxes are not prevented", () => {
+    const panBy = vi.fn();
+    const zoomBy = vi.fn();
+    const cleanup = attachKeyboardControls({
+      mapHandle: { panBy, zoomBy, getTargetElement: () => mapElement },
+    });
+
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    const group = document.createElement("div");
+    group.setAttribute("role", "radiogroup");
+    group.appendChild(radio);
+    const listbox = document.createElement("ul");
+    listbox.setAttribute("role", "listbox");
+    const option = document.createElement("li");
+    option.setAttribute("role", "option");
+    option.tabIndex = 0;
+    listbox.appendChild(option);
+    const menu = document.createElement("div");
+    menu.setAttribute("role", "menu");
+    const menuitem = document.createElement("button");
+    menuitem.setAttribute("role", "menuitem");
+    menu.appendChild(menuitem);
+    const slider = document.createElement("div");
+    slider.setAttribute("role", "slider");
+    slider.tabIndex = 0;
+    mapElement.append(group, listbox, menu, slider);
+
+    for (const focused of [radio, option, menuitem, slider]) {
+      focused.focus();
+      expect(document.activeElement).toBe(focused);
+      for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) {
+        const ev = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+        focused.dispatchEvent(ev);
+        expect(ev.defaultPrevented).toBe(false);
+      }
+    }
+    expect(panBy).not.toHaveBeenCalled();
+
+    // Control: the map element itself still pans, so the guard (not a broken setup) blocked the above.
+    mapElement.focus();
+    const ev = new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true });
+    mapElement.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(panBy).toHaveBeenCalledTimes(1);
+
+    cleanup();
+  });
+
+  it("isCompositeWidget is role-based and looks at ancestors", () => {
+    const group = document.createElement("div");
+    group.setAttribute("role", "radiogroup");
+    const inner = document.createElement("span");
+    group.appendChild(inner);
+    expect(isCompositeWidget(inner)).toBe(true);
+    expect(isCompositeWidget(document.createElement("div"))).toBe(false);
+    expect(isCompositeWidget(null)).toBe(false);
   });
 });

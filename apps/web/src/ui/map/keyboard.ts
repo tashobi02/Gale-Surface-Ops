@@ -9,6 +9,10 @@
  * - ?: opens Sources & Methods (#/sources) (03 SCR-02).
  * - A and Enter are deliberately NOT bound here (reserved for T08.07 add-stop crosshair mode).
  * - Shortcuts are ignored when focus is in an input or editable field.
+ * - Arrow keys are never hijacked (no preventDefault, no pan) when focus is inside a composite widget
+ *   (radio group, listbox, menu, slider, tabs, ...): those own the arrows (04 §E, WAI-ARIA APG).
+ * - TODO(T07.x): attachKeyboardControls is deliberately not mounted yet; it waits on the map workspace
+ *   (Saba, T07.x) providing a focusable map element through KeyboardMapHandle.getTargetElement.
  * - Instant view transitions when prefers-reduced-motion is active (04 §E Motion).
  */
 
@@ -60,6 +64,45 @@ export function isEditableElement(target: EventTarget | null): boolean {
     return true;
   }
   return Boolean(target.isContentEditable);
+}
+
+/** ARIA roles whose widgets use the arrow keys themselves (WAI-ARIA Authoring Practices composite widgets). */
+const COMPOSITE_ROLES = [
+  "radiogroup",
+  "radio",
+  "listbox",
+  "option",
+  "menu",
+  "menubar",
+  "menuitem",
+  "menuitemradio",
+  "menuitemcheckbox",
+  "slider",
+  "spinbutton",
+  "scrollbar",
+  "tablist",
+  "tab",
+  "tree",
+  "treeitem",
+  "grid",
+  "treegrid",
+  "combobox",
+  "toolbar",
+];
+
+const COMPOSITE_SELECTOR = [
+  ...COMPOSITE_ROLES.map((role) => `[role="${role}"]`),
+  "input[type='radio']",
+  "input[type='range']",
+  "select",
+].join(",");
+
+/** True when the element is, or sits inside, a composite widget that owns the arrow keys (role-based). */
+export function isCompositeWidget(target: EventTarget | null): boolean {
+  if (!target || !(target instanceof HTMLElement)) {
+    return false;
+  }
+  return target.closest(COMPOSITE_SELECTOR) !== null;
 }
 
 /** Default hash navigation matching 03 §A routes. */
@@ -119,7 +162,10 @@ export function attachKeyboardControls(options: KeyboardControlsOptions = {}): (
           (typeof mapElement.contains === "function" && mapElement.contains(document.activeElement))),
     );
 
-    if (mapHandle && mapHasFocus) {
+    // A radio group, listbox, menu or slider inside the map container keeps its own arrow-key behaviour.
+    const inComposite = isCompositeWidget(event.target) || isCompositeWidget(document.activeElement);
+
+    if (mapHandle && mapHasFocus && !inComposite) {
       switch (key) {
         case "ArrowUp":
           event.preventDefault();
