@@ -15,8 +15,8 @@
  *
  * The data comes from `adaptPostEvaReport` (../report/reportAdapter.ts) applied to `GET /api/report`. Definitions (approved
  * 11 Nov): stop timing per crew per stop (planned `derived` from the plan, actual `simulated`, differences `derived`); shelter
- * response per alert and crew only while the alert is open; dose per crew with the highest individual as headline (`derived`),
- * no crew total; a crew member who never sheltered reads "not sheltered".
+ * response per alert and crew only while the alert is open; dose per crew (`simulated`) with the highest individual picked
+ * as the headline (the pick is `derived`, the values stay `simulated`), no crew total; a crew member who never sheltered reads "not sheltered".
  *
  * TODO(decision): complete real report trace, sources and Export log JSON integration, then verify Chrome A4/Letter
  * pagination with 12 mm margins; article-container counts do not prove two printed pages.
@@ -32,7 +32,7 @@ export interface PostEvaReportData {
   dataVersion?: string;
   seed?: number;
   logHash?: string;
-  /** Headline dose: the highest individual's (`derived`), never a crew total. Absent when nobody sheltered. */
+  /** Headline dose: the highest individual's values (`simulated`; the pick is `derived`), never a crew total. Absent when nobody sheltered. */
   doseReceivedUgy?: number;
   doseUnshelteredUgy?: number;
   doseHeadlineCrew?: string;
@@ -43,6 +43,14 @@ export interface PostEvaReportData {
   stopsCompleted?: number;
   stopsTotal?: number;
   planRevisionsCount?: number;
+  /** Null without EVA_STARTED and EVA_ENDED. */
+  evaDurationS?: number | null;
+  stopsDropped?: number;
+  stopsNotReached?: number;
+  stopsIncomplete?: number;
+  /** Sim time of the last event in the report's scope. */
+  generatedAt?: string;
+  tasksTotals?: { total: number; done: number; skipped: number; dropped: number };
   /** One row per crew per reached stop, or one row (crewId null) with a status word. Times are offsets from EVA start. */
   timeline?: Array<{
     stopId: string;
@@ -61,6 +69,7 @@ export interface PostEvaReportData {
     message?: string;
     raisedAt: string;
     ackedAt: string | null;
+    clearedAt?: string | null;
     /** First acknowledgement minus raise. */
     ackSec: number | null;
     /** Per crew in the alert's subjects; null response = no shelter during the alert. */
@@ -95,6 +104,12 @@ export interface PostEvaReportProps {
 const PAGES = [1, 2] as const;
 const pageLabel = (n: number): string => `p. ${n} / ${PAGES.length}`;
 
+/** "MM:SS" of a duration in seconds (minutes may exceed 59). */
+const mmss = (totalS: number): string => {
+  const s = Math.round(totalS);
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+};
+
 /** Mandatory NASA Space Apps disclaimer (01 §F.1); independent of any report data. */
 export const REPORT_DISCLAIMER =
   "NASA Space Apps Challenge 2026 — Interplanetary Survival Guide: Martian Map. " +
@@ -127,6 +142,10 @@ export function PostEvaReport({
   const hasShelter = isFiniteNumber(data.timeToShelterMin);
   const hasStops = isFiniteNumber(data.stopsCompleted) && isFiniteNumber(data.stopsTotal);
   const hasRevisions = isFiniteNumber(data.planRevisionsCount);
+  const hasDuration = isFiniteNumber(data.evaDurationS);
+  const hasBreakdown = isFiniteNumber(data.stopsDropped) && isFiniteNumber(data.stopsNotReached) && isFiniteNumber(data.stopsIncomplete);
+  const hasTaskTotals = data.tasksTotals !== undefined;
+  const hasHeadline = typeof data.doseHeadlineCrew === "string" && data.doseHeadlineCrew.length > 0;
 
   const handlePrint = (): void => {
     if (onPrint) {
@@ -317,18 +336,18 @@ export function PostEvaReport({
                 fontFamily: "var(--font-mono, monospace)",
               }}
             >
-              <span {...reportAttrs(hasReceived, "derived", "dose_event_ugy")}>
+              <span {...reportAttrs(hasReceived, "simulated", "dose_event_ugy")}>
                 {hasReceived ? `${fmtFixed(data.doseReceivedUgy, 1)} µGy` : nobodySheltered ? "not sheltered" : `${UNAVAILABLE} µGy`}{" "}
-                {glyphIf(hasReceived, "derived")}
+                {glyphIf(hasReceived, "simulated")}
               </span>
               <span style={{ fontSize: "12px", color: "#6B7280", margin: "0 4px" }}>vs</span>
-              <span {...reportAttrs(hasUnsheltered, "derived", "dose_event_unsheltered_ugy")} style={{ color: "#4B5563" }}>
+              <span {...reportAttrs(hasUnsheltered, "simulated", "dose_event_unsheltered_ugy")} style={{ color: "#4B5563" }}>
                 {hasUnsheltered ? `${(data.doseUnshelteredUgy as number).toLocaleString("en-US")} µGy` : nobodySheltered ? "not sheltered" : `${UNAVAILABLE} µGy`}{" "}
-                {glyphIf(hasUnsheltered, "derived")}
+                {glyphIf(hasUnsheltered, "simulated")}
               </span>
             </span>
-            <span style={{ fontSize: "12px", color: "#4B5563" }}>
-              highest individual{data.doseHeadlineCrew ? `: ${data.doseHeadlineCrew}` : ""}
+            <span style={{ fontSize: "12px", color: "#4B5563" }} {...reportAttrs(hasHeadline, "derived", "dose.headline")}>
+              {`highest individual: ${hasHeadline ? data.doseHeadlineCrew : UNAVAILABLE}`} {glyphIf(hasHeadline, "derived")}
             </span>
             {(data.doseRows ?? []).length > 0 && (
               <ul style={{ margin: 0, padding: 0, listStyle: "none", fontSize: "12px", fontFamily: "var(--font-mono, monospace)" }}>
@@ -391,6 +410,23 @@ export function PostEvaReport({
               {hasRevisions ? data.planRevisionsCount : UNAVAILABLE} {glyphIf(hasRevisions, "derived")}
             </span>
           </div>
+        </section>
+
+        {/* EVA summary: duration and how the stops ended */}
+        <section aria-label="EVA summary" style={{ display: "flex", gap: "24px", fontSize: "12px", color: "#4B5563", flexWrap: "wrap" }}>
+          <span>
+            <span style={{ fontWeight: 700 }}>EVA DURATION </span>
+            <span style={{ fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(hasDuration, "derived", "eva_duration_s")}>
+              {hasDuration ? mmss(data.evaDurationS as number) : UNAVAILABLE} {glyphIf(hasDuration, "derived")}
+            </span>
+          </span>
+          <span>
+            <span style={{ fontWeight: 700 }}>STOPS </span>
+            <span style={{ fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(hasBreakdown, "simulated", "stops_breakdown")}>
+              {hasBreakdown ? `dropped ${data.stopsDropped} · not reached ${data.stopsNotReached} · incomplete ${data.stopsIncomplete}` : UNAVAILABLE}{" "}
+              {glyphIf(hasBreakdown, "simulated")}
+            </span>
+          </span>
         </section>
 
         {/* Planned vs Actual Timeline */}
@@ -507,6 +543,9 @@ export function PostEvaReport({
                   <td style={tdStyle}>
                     <span {...reportAttrs(true, "simulated", "alerts.times")}>
                       {alt.raisedAt} → {alt.ackedAt ?? UNAVAILABLE}
+                    </span>{" "}
+                    <span {...reportAttrs(typeof alt.clearedAt === "string", "simulated", "alerts.cleared")}>
+                      {`cleared ${alt.clearedAt ?? UNAVAILABLE}`}
                     </span>{" "}
                     <span {...reportAttrs(isFiniteNumber(alt.ackSec), "derived", "alerts.ack_s")}>
                       {`(ack ${isFiniteNumber(alt.ackSec) ? alt.ackSec : UNAVAILABLE} s)`}
@@ -647,6 +686,11 @@ export function PostEvaReport({
               ))}
             </tbody>
           </table>
+          <p style={{ fontSize: "12px", margin: "4px 0", fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(hasTaskTotals, "simulated", "tasks_totals")}>
+            {hasTaskTotals
+              ? `All stops: ${data.tasksTotals?.done} / ${data.tasksTotals?.skipped} / ${data.tasksTotals?.dropped} of ${data.tasksTotals?.total}`
+              : `All stops: ${UNAVAILABLE}`}
+          </p>
           <p style={{ fontSize: "12px", color: "#6B7280", margin: "4px 0 8px 0" }}>
             Dropped tasks: open tasks closed by the system when a plan revision dropped their stop (FR-50).
           </p>
@@ -729,6 +773,14 @@ export function PostEvaReport({
               <span {...reportAttrs(typeof data.logHash === "string" && data.logHash.length > 0, "derived", "log_hash")}>
                 {data.logHash ? data.logHash : UNAVAILABLE}
               </span>
+            </span>
+
+            <span style={{ fontWeight: 700, textTransform: "uppercase" }}>GENERATED</span>
+            <span style={{ fontFamily: "var(--font-mono, monospace)" }}>
+              <span {...reportAttrs(typeof data.generatedAt === "string" && data.generatedAt.length > 0, "simulated", "generated_at")}>
+                {data.generatedAt ? data.generatedAt : UNAVAILABLE}
+              </span>{" "}
+              (sim time of the last logged event)
             </span>
 
             <span style={{ fontWeight: 700, textTransform: "uppercase" }}>SCENARIO</span>
