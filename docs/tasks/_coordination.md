@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Delivery — mirrors [06](../specs/06_High_Level_Implementation_Plan.md), which owns order, dependencies and cut decisions |
 | **Date** | 2026-11-03; v2 additions 2026-11-06 |
-| **Status** | Approved 2026-11-03 and frozen; amended the same day by one `coord:` change after Phase 2 (3 subtasks added; edges, paths and open points synced with the task files). **`coord:` v2 change 2026-11-06** (session handoff §F.2, approved by Sadman Shaharier Mahim): TASK-05b and TASK-20–TASK-31 atomized, an Owner on every subtask, v1 subtasks re-dated to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 milestones, windows and cut list. Change this file first (§h.5) |
+| **Status** | Approved 2026-11-03 and frozen; amended the same day by one `coord:` change after Phase 2 (3 subtasks added; edges, paths and open points synced with the task files). **`coord:` v2 change 2026-11-06** (session handoff §F.2, approved by Sadman Shaharier Mahim): TASK-05b and TASK-20–TASK-31 atomized, an Owner on every subtask, v1 subtasks re-dated to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 milestones, windows and cut list. **`coord:` change 2026-11-10** (approved by Sadman Shaharier Mahim, product & systems lead): T21.15 registered (demo timing numbers derived from the committed tables; T21.09 now depends on it). Change this file first (§h.5) |
 | **Related** | [06 §C Work packages](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D Delivery strategy](../specs/06_High_Level_Implementation_Plan.md#d-delivery-strategy) · [Docs index](../README.md) · [CLAUDE.md](../../CLAUDE.md) |
 
 This file lets several people and AI agents work on the work packages of 06 in parallel: the 19 v1 packages (planner, Tier 0) and the 13 v2 packages (TASK-05b, TASK-20–TASK-31: surface ops, Tier 1). It fixes subtask ids (§a), lanes (§b), who writes which file (§c), the interfaces that decouple lanes (§d), the fixtures that remove waiting (§e), the dependency graph (§f), what runs together per milestone (§g) and how branches and PRs work (§h). Task files `TASK-NN_<title>.md` expand each subtask listed here; they never add a subtask, path owner or cross-task dependency that is not in this file.
@@ -415,6 +415,7 @@ FR-21 (space weather, 3D view, multi-site, AI narration) is post-MVP and has no 
 | T21.12 | Build the demo `PlanExport` headlessly from the demo plan stops | compute | implement | agent-ready · core | pre-event-allowed | M2 | FR-34, NFR-06 |
 | T21.13 | Fallback — start only if T21.06 finds no sol-4190 series: digitised dose curve | data | fallback | human-required · core | pre-event-allowed | M2 | FR-37 |
 | T21.14 | Fallback — start only if T21.02 cannot get the kernels: fixed light time for the date | data | fallback | agent-ready · core | pre-event-allowed | M2 | FR-43 |
+| T21.15 | Derive the demo timing numbers from the committed tables | hab-core | implement | agent-ready · core | pre-event-allowed | M2 | FR-34, FR-37, FR-38, FR-43 |
 
 #### TASK-22 — Simulation engine: clock, crew motion, consumables, alerts, event log, replay
 
@@ -589,7 +590,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | --- | --- | --- |
 | `docs/tasks/_coordination.md`, `docs/tasks/TASK-*.md` | this plan | Change-process only (§h); T15.03 and later triage may append subtasks at the end of a task file |
 | `docs/tasks/README.md` | this plan | Claims: one PR edits only the *Claimed by* cell of one row |
-| `docs/specs/**` | — | `spec-change:` subtasks only: T16.02, T20.10, T01.06 (fallback). One open spec-change PR at a time |
+| `docs/specs/**` | — | `spec-change:` subtasks only: T16.02, T20.10, T21.09 (01 §E.1 only), T01.06 (fallback). One open spec-change PR at a time |
 | `docs/README.md` | T16.02 | — |
 | `docs/contracts/tile-grid.md` | T02.01 | Contract (§d) |
 | `docs/ops/rules.md` | T00.03 | — |
@@ -772,6 +773,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | Path | Owner | Rule |
 | --- | --- | --- |
 | `package.json`, `package-lock.json`, `apps/web/package.json` | T14.01 | Single integration owner: every planned dependency lands in one batch; a later need is a new integration subtask |
+| `apps/hab-core/package.json` | — | Append-only for `scripts`: any subtask may add one line for its own CLI at the end of `scripts` (T21.15 adds `demo-numbers`); the trailing comma on the preceding entry is allowed; on a rebase conflict keep both lines (§c.1.4). Dependency changes need an integration subtask, as in the T14.01 row |
 | `pipeline/pyproject.toml`, `pipeline/environment.yml` | T14.01 | Same |
 | `Makefile` | T14.01 | Same (wires `make data` to `python -m marswalk_pipeline`) |
 | `apps/web/vite.config.ts`, `apps/web/tsconfig.json` | T14.01 | Same; DOM tests choose their environment per file, so no config edit is expected |
@@ -790,6 +792,7 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | Path | Owner | Rule |
 | --- | --- | --- |
 | `apps/hab-core/scripts/build-demo-plan.ts` | T21.12 | — |
+| `apps/hab-core/scripts/demo-numbers.ts` | T21.15 | — |
 | `apps/hab-core/spike/` | T20.07 | — |
 | `apps/hab-core/src/cli.ts` | T22.13 | — |
 | `apps/hab-core/src/commands.ts` | T23.02 | — |
@@ -814,10 +817,12 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `apps/hab-core/src/scenario.ts` | T22.11 | stub by T22.01 |
 | `apps/hab-core/src/server.ts` | T20.04 | T20.12, T26.02, T27.01, T28.02 follow up (one at a time) |
 | `apps/hab-core/src/session.ts` | T22.12 | stub by T22.01 |
+| `apps/hab-core/tests/__snapshots__/demoNumbers.test.ts.snap` | T21.15 | Written by Vitest; committed so a rebuilt table shows as a diff |
 | `apps/hab-core/tests/clock.test.ts` | T22.03 | — |
 | `apps/hab-core/tests/commands.test.ts` | T23.01 | — |
 | `apps/hab-core/tests/conditions.test.ts` | T22.16 | — |
 | `apps/hab-core/tests/contingencyOps.test.ts` | T23.06 | — |
+| `apps/hab-core/tests/demoNumbers.test.ts` | T21.15 | — |
 | `apps/hab-core/tests/earth.test.ts` | T26.03 | — |
 | `apps/hab-core/tests/engine.test.ts` | T22.05 | — |
 | `apps/hab-core/tests/fixtures/fake-scenario/` | T22.02 | T22.17 follows up |
@@ -1220,6 +1225,7 @@ flowchart LR
 | T05b.11 → T29.03 | link graph |
 | T05b.13 → T22.16 | Earth link status |
 | T05b.13 → T26.04 | delivery rule |
+| T05b.15 → T21.15 | triggerState for the first alert sample |
 | T05b.15 → T22.09 | real dose integral |
 | T05b.15 → T22.16 | event dose rate |
 | T05b.16 → T18.04 | owner of the test file; the engine's suit-consumables cases come first |
@@ -1227,7 +1233,9 @@ flowchart LR
 | T05b.17 → T22.09 | real consumables |
 | T05b.19 → T18.11 | owner of `contingency.ts` |
 | T05b.19 → T23.07 | ranking |
+| T06.06 → T21.15 | LTST |
 | T06.06 → T22.16 | Mars24 time functions |
+| T06.07 → T21.15 | sunrise and sunset |
 | T06.07 → T22.16 | sun elevation |
 | T07.06 → T24.09 | map module |
 | T07.06 → T25.02 | map module |
@@ -1302,7 +1310,7 @@ Generated from the register's *M* column on 2026-11-06 (06 v2.2). A subtask span
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | **M0** kickoff 5–6 Nov | T01.01–05, (T01.06), T01.07 | — | — | — | T00.01–03, (T00.05), T00.06, T30.01, T30.02 | T00.04 | — |
 | **M1** spikes 6–7 Nov | T03.01, T03.02, T21.01 | T05.01–04, T05b.01–05, (T05b.21), T06.01, T06.02, T06.10 | T02.01–05, (T02.06), T07.01, T24.01 | T13.01–03, T13.11 | T07.14 | T14.01, T14.02, T14.11, T28.01 | T20.01–04, T20.07, T20.08, (T20.09), T22.01, T22.02, T31.01 |
-| **M2** data and scenario 6–9 Nov | T03.03–22, (T03.23), (T03.24), (T03.25), (T03.26), (T03.27), T03.28–30, T04.01–03, T04.07, T04.08, (T04.09), T04.11, T18.08, T21.02–08, T21.10, T21.11, (T21.13), (T21.14) | T05.05–29, (T05.30), (T05.31), T05.32, T05b.06–17, T06.03–09, (T06.11), T21.12 | T07.02–13, T07.15, (T07.16), T07.17, T08.01, T24.02–05, T24.07, T24.10, T25.01, T25.02, T25.07, T31.07 | T13.05, T13.12 | T04.04–06, T04.10, T12.04, T12.05, T16.01, T16.07, T21.09, T31.02 | T16.02 | T20.05, T20.06, T22.03–08, T22.11, T23.01, T23.02, T23.04, T23.06, T31.03 |
+| **M2** data and scenario 6–9 Nov | T03.03–22, (T03.23), (T03.24), (T03.25), (T03.26), (T03.27), T03.28–30, T04.01–03, T04.07, T04.08, (T04.09), T04.11, T18.08, T21.02–08, T21.10, T21.11, (T21.13), (T21.14) | T05.05–29, (T05.30), (T05.31), T05.32, T05b.06–17, T06.03–09, (T06.11), T21.12 | T07.02–13, T07.15, (T07.16), T07.17, T08.01, T24.02–05, T24.07, T24.10, T25.01, T25.02, T25.07, T31.07 | T13.05, T13.12 | T04.04–06, T04.10, T12.04, T12.05, T16.01, T16.07, T21.09, T31.02 | T16.02 | T20.05, T20.06, T21.15, T22.03–08, T22.11, T23.01, T23.02, T23.04, T23.06, T31.03 |
 | **M3** walking skeleton by 10 Nov | — | T05b.18–20, T23.03, T26.01–07, (T26.08), T29.01–03, T29.06, (T29.07) | T07.18, T08.02–09, (T08.10), T08.11, T08.12, T09.01–05, T09.07, (T09.08), T09.09, T24.06, T24.08, T24.09, T25.03–06, (T25.09), T25.10, T27.01, T27.02, T29.04, T29.05, T31.05, T31.06, (T31.09) | T15.01, T15.04 | T12.01, T12.07, T17.01 | T09.06, T28.02, T28.03 | T22.09, T22.10, T22.12–14, (T22.15), T22.16, T23.05, T23.07, T23.08, (T23.09), T31.04 |
 | **M3b** first dry run 10 Nov evening | — | — | T24.11, (T24.12), T25.08 | T15.02, T15.03 | — | T31.08 | — |
 | **M4** offline dry run 11 Nov | — | — | T11.01, T11.02, T11.04, (T11.06), T11.07, T11.08, T27.04 | T11.03, T11.05, T13.04, T13.06–10 | T12.02, T12.03 | T14.03–10, T28.05 | — |
@@ -1321,7 +1329,7 @@ Capacity: 06 §A v2.2 assumes 288–360 person-hours over the 6 build days (8–
 - One subtask = one branch = one PR. Branch `t05.18-astar-core` (lower-case id + short slug); PR title starts with the id: `T05.18 Implement the A* least-time search`.
 - Human subtasks whose *Owns* is `none` open no PR; the subtask that depends on them records their output.
 - Commit trailers: `Subtask: T05.18` and `Refs: FR-07, NFR-02, NFR-06` (the subtask's requirement ids). Fill the PR template's traceability block.
-- Rebase on `main` before merge; `make lint typecheck test docs-check` must pass. Shared files (c.6) change only in integration subtasks.
+- Rebase on `main` before merge; `make lint typecheck test docs-check` must pass. Shared files (c.6) change only in integration subtasks, except the append-only rows of c.6.
 - Each PR appends one `docs/AI_USE.md` log row when AI helped (`CLAUDE.md` §2).
 
 ### h.2 Agents and worktrees
@@ -1506,16 +1514,16 @@ From each subtask's *Serves* line. Implemented by: `contract`, `fixture`, `imple
 | FR-31 | T11.07, T20.01, T20.04, T20.06, T23.02, T25.01, T25.03, T25.06, T28.02 | T20.03, T20.05, T23.01, T25.07 |
 | FR-32 | T07.17, T20.02, T20.06, T24.01, T24.03, T24.04, T24.05, T24.07, T24.09, T24.12, T26.02 | T20.05, T24.02, T24.10, T24.11 |
 | FR-33 | T13.12, T15.04, T24.01, T24.08, T24.12 | T24.10, T24.11 |
-| FR-34 | T21.01, T21.08, T21.09, T21.12, T22.01, T22.02, T22.04, T22.06, T22.11, T22.12, T25.05, T25.09, T27.05 | T22.03, T22.05, T25.07, T25.08, T27.06 |
+| FR-34 | T21.01, T21.08, T21.09, T21.12, T21.15, T22.01, T22.02, T22.04, T22.06, T22.11, T22.12, T25.05, T25.09, T27.05 | T22.03, T22.05, T25.07, T25.08, T27.06 |
 | FR-35 | T05b.17, T22.09, T22.15 | T05b.16, T22.08 |
 | FR-36 | T22.16, T25.10 | T12.07 |
-| FR-37 | T21.01, T21.05, T21.06, T21.07, T21.09, T21.13, T22.10, T25.03 | T21.03, T21.10, T22.08, T26.03 |
-| FR-38 | T05b.15, T21.06, T21.07, T21.11, T22.10, T25.03 | T05b.14, T22.08, T23.08 |
+| FR-37 | T21.01, T21.05, T21.06, T21.07, T21.09, T21.13, T21.15, T22.10, T25.03 | T21.03, T21.10, T22.08, T26.03 |
+| FR-38 | T05b.15, T21.06, T21.07, T21.11, T21.15, T22.10, T25.03 | T05b.14, T22.08, T23.08 |
 | FR-39 | T01.07, T05b.01, T05b.02, T05b.04, T05b.21, T08.12, T09.09, T23.03, T25.02 | T05b.03, T05b.05, T05b.20 |
 | FR-40 | T05b.01, T05b.02, T05b.07, T15.04, T23.05, T23.09, T24.05 | T05b.06, T05b.20, T23.04, T23.08 |
 | FR-41 | T29.02, T29.03, T29.04, T29.05, T29.07 | T29.01, T29.06 |
 | FR-42 | T01.07, T03.29, T05b.01, T05b.02, T05b.09, T05b.11, T09.09, T25.02, T26.01, T26.02, T26.08, T29.03 | T03.28, T03.30, T05b.08, T05b.10, T05b.20, T26.06, T26.07, T29.01, T29.06 |
-| FR-43 | T05b.01, T05b.13, T21.01, T21.02, T21.04, T21.14, T26.04, T26.05, T26.08 | T05b.12, T21.03, T21.10, T26.03, T26.07 |
+| FR-43 | T05b.01, T05b.13, T21.01, T21.02, T21.04, T21.14, T21.15, T26.04, T26.05, T26.08 | T05b.12, T21.03, T21.10, T26.03, T26.07 |
 | FR-44 | T05b.01, T05b.19, T18.11, T23.07, T24.05, T24.06, T25.04 | T05b.18, T23.06, T23.08, T25.07 |
 | FR-45 | T01.07, T04.10, T07.18, T10.04, T31.02 | — |
 | FR-46 | T27.01, T27.03, T27.04, T27.05, T27.07 | T27.02, T27.06 |
