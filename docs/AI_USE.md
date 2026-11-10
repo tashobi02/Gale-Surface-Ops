@@ -288,6 +288,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-10 | Claude Code (Opus 5.5) | coord: registered T03.31–T03.35 (candidate hab sites for the live session, 01 FR-53; 06 §C.2 "Candidate-site comm grids") in the register, task index, path owners, contracts C1/C2/C5 v2, edges, M4 row, FR-42/FR-53 coverage and v2 open point 11; wrote their sections, inputs, outputs and two spec questions in TASK-03 | No requirement text, number, label or spec edited; no status row (none started); positions only referenced from hab-site.md
 | 2026-11-10 | Claude Code (Opus 5.5) | coord: changed the Owner of T21.08 and T21.11 from Obidit Islam to Sadman Shaharier Mahim in TASK-21 (owner lines only) | Did not change steps, acceptance, dependencies or ids; did not start either subtask | Sadman Shaharier Mahim asked for the takeover; Obidit Islam confirmed on PR #175 | This session |
 
+| 2026-11-10 | Antigravity (Gemini) | T07.13: implemented debug diagnostics overlay (debug.ts) with FPS counter, worker timing_ms, grid cell addressing per 05 §E.1, data_version display, print hiding; unit tests (debug.test.ts) | Did not invent numbers or modify specs; used formula from 05 §E.1 | Reviewed by Saba Atharique | Session transcript |
+
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).
