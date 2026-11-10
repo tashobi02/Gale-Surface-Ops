@@ -1,0 +1,33 @@
+{
+  "start": "default_start",
+  "stops": ["poi-boxwork-ridge", "poi-sulfate-contact", "poi-monte-grande-hollow"],
+  "scenario": {
+    "max_eva_duration_h": 6.0,
+    "dwell_min_per_stop": 20,
+    "hard_slope_limit_deg": 15,
+    "caution_slope_deg": 10,
+    "walkback_limit_km": 5.0,
+    "suited_flat_speed_kmh": 3.3,
+    "solar_phase": "max",
+    "loop": true,
+    "max_haven_min": 30,
+    "crew_count": 2,
+    "vehicle_available": true,
+    "vehicle_param_set": "pr1-assumed"
+  },
+  "notes": {
+    "status": "Proposed 2026-11-09 (TODO(decision): Sadman Shaharier Mahim confirms the three stops). T07.14, TASK-07 open point 15.",
+    "shape": "start names the site default_start (pipeline/sites/gale_boxwork/site.json); stops are POI ids in walking order. No coordinates are copied: the plan store resolves both from the site bundle (T07.05).",
+    "stop_picks": {
+      "poi-boxwork-ridge": "Stop 1, science. 01 E.2 step 3 opens 'Boxwork ridge'.",
+      "poi-sulfate-contact": "Stop 2, resource (stop_type resource in its POI file). 01 E.1: the crew are at stop 2, a hydrated-sulfate resource stop, when the storm starts; 01 E.2 steps 3-4 add a science stop and a resource stop; step 5 drags stop 2 onto a steep slope. FR-45: at least one resource POI in the demo plan. Its ISRU framing is assumed. Slope suitability of stop 2 is not checked: the real grid is not on disk yet, TODO(verify) after the T03.19 bundle exists.",
+      "poi-monte-grande-hollow": "Stop 3, science: the hollow half of the ridge/hollow pair started at stop 1. The walk now backtracks north from the sulfate contact to the hollow (latitudes read from the POI files). Slope suitability is TODO(verify) until the T03.19 bundle exists."
+    },
+    "non_default_reasons": {},
+    "defaults_source": "docs/specs/05_Backend_and_Database_Schema.md MissionScenario; every value is a 05 default and shows as assumed in the UI. Ranges: 02 section E.3. vehicle_param_set pr1-assumed matches scenarios/storm-sol4190/param_sets/pr1-assumed.json.",
+    "unresolved": [
+      "eva_start_utc is omitted: 05 gives only \"site default\" and 05 Site has no such field (TASK-07 spec question 7). Planner demo (01 E.2) start day/time: TODO(decision). The storm scenario (01 E.1) is 2024-05-20 / sol 4190, with the time of day from T21.09 (scenarios/storm-sol4190 has no scenario.json yet, T21.08). 01 E.2 step 7 needs a daylight start so that moving it to early morning raises the daylight warning.",
+      "01 E.2 step 8 shows 0.19 mSv for 7 h at solar maximum; max_eva_duration_h is the 6 h default, so the plan does not reproduce it (TASK-07 spec question 8, TODO(decision))."
+    ]
+  }
+}

@@ -174,7 +174,7 @@ C.1–C.4 *(v1, unchanged)*; C.5 is new.
 
 ### C.2 Data layers
 
-AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **inside** the DEM extent (lat −5.098652…−4.129605, lon 137.124167…137.680559 °E). Exact bounds are **Unresolved** — chosen in TASK-01 from the traverse (sols ≈ 4,450–4,750; boxwork campaign confirmed for 2025 by NASA mission blog posts and photojournal).
+AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **inside** the DEM extent (lat −5.098652…−4.129605, lon 137.124167…137.680559 °E). Exact bounds are **Resolved 2026-11-07** ([feasibility.md](../ops/feasibility.md#aoi-bounds-u-01-context-02-c2)) — chosen in TASK-01 from the traverse (sols ≈ 4,450–4,750; boxwork campaign confirmed for 2025 by NASA mission blog posts and photojournal).
 
 #### L1 — Optical basemap (FR-01)
 
@@ -224,7 +224,7 @@ AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **ins
 
 | Field | Value |
 | --- | --- |
-| Source | CRISM MTRDR (Map-projected Targeted RDR) summary parameters / browse products, PDS Geosciences Node — product **Confirmed**; AOI coverage **Unresolved** |
+| Source | CRISM MTRDR (Map-projected Targeted RDR) summary parameters / browse products, PDS Geosciences Node — product **Confirmed**; AOI coverage **Resolved 2026-11-07** ([feasibility.md](../ops/feasibility.md#crism-coverage-u-05)) |
 | Resolution | ~18–20 m/px for FRT observations |
 | Labelling | "Spectral summary parameter — indicative, not a mineral identification" (wording follows CRISM label guidance) |
 | Fallback | Omit; three data types are already met without it |
@@ -824,11 +824,11 @@ The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state,
 | D-03 | OpenLayers tiles vs. ImageStatic fallback | TASK-02 spike (v1) |
 | D-12 | Hab Core language | Node.js + TS unless TS capacity < 2 people (U-13) |
 | D-14 | Web UI library | React + Vite chosen 2026-11-06 by the product & systems lead ([ADR-012](../decisions/ADR-012-react-vite-web-app.md)); kickoff sign-off |
-| U-01 | DEM quality inside AOI | TASK-01 (v1) |
+| U-01 | DEM quality inside AOI | **Resolved 2026-11-07** on the data lead's method ([feasibility.md](../ops/feasibility.md#dem-quality-check-u-01-a-01), [ADR-001](../decisions/ADR-001-site-selection.md#outcome-2026-11-07)); TASK-01 (v1) |
 | U-02 | Elevation datum wording | TASK-01 (v1) |
 | U-03 | TI "loose fines" threshold | TASK-04 (v1) |
-| U-04 | Traverse source | TASK-04 (v1) |
-| U-05 | CRISM coverage of AOI | TASK-01 (v1) |
+| U-04 | Traverse source | **Proposed 2026-11-09**: PDS PLACES, data lead to confirm ([DataSource](../../pipeline/sites/gale_boxwork/sources/pds-msl-places-localizations.json), [T04.01 row](../tasks/status.md)); TASK-04 (v1) |
+| U-05 | CRISM coverage of AOI | **Resolved 2026-11-07** ([feasibility.md](../ops/feasibility.md#crism-coverage-u-05)); TASK-01 (v1) |
 | U-15 | RAD sol-4190 time series — sources found 2026-11-05 ([ops/data-downloads.md](../ops/data-downloads.md) D8–D9); coverage of sol 4190 to verify on download | TASK-04; fallbacks in §C.5 L9 |
 | U-18 | Exact SPICE kernel files covering May 2024 for MRO, MAVEN, TGO | TASK-04 |
 | U-19 | Shielding factors (A-11), alert threshold k, relay min elevation, conjunction angle, O₂ alert margins `o2_caution_margin` / `o2_warning_margin` / `o2_clear_margin` (added 2026-11-07) | Keep as labelled assumptions; ask mentor; cite any found value |
