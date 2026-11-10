@@ -136,6 +136,16 @@ Effort is person-hours (ranges, not promises). **P** = pre-event (Track P), **E*
 | **TASK-29** | Robotic rover tasking: SCOUT, CARRY, RELAY, RETURN (moved to Tier 1 on 5 Nov) | R2 (rover routing, relay coverage, Hab Core handlers with R4) + R3 (SCR-15 tasking on the map, EVA and ops entry points) | P 9–10 Nov | 4–8 | RELAY closes the demo shadow; queue shows ETA and battery | RELAY only |
 | **TASK-30** | Score-sheet single points on day one of the build: challenge named, repo public, page drafted; `docs/AI_USE.md` kept current | R6 | P 5–6 Nov, then continuous | 1–2 | All three single points verifiable | — |
 
+**Live operations session** *(added 2026-11-10 by the product & systems lead's decision, 01 FR-51–FR-54; **Proposed** until team sign-off).* The demo changes from a scripted run to a session a presenter drives. Task ids, windows and effort are `TODO(decision)`: a later `coord:` PR registers the subtasks in `docs/tasks/`. Owners below are **Proposed**.
+
+| Work | Objective | Owner (Proposed) | When | Effort | Done when | Risk → fallback |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Presenter panel and Hab Core commands** | `presenter` role and SCR-19; `JUMP_NEXT_STOP`, `START_EVENT`, `RESET_SESSION`, `SELECT_HAB_SITE`, `SET_MISSION_SETUP` (the last two ops only) in the engine and protocol (02 §D.17, §E.4; 05 Command, LogEvent) | R4 Hab Core: Sadman Shaharier Mahim (UI for SCR-19 included) | `TODO(decision)` | `TODO(decision)` | A recorded command list replays headless to the same log hash twice; Next stop leaves the crew at the next stop with the same O₂ and dose as a walked run | Keep SET_CLOCK and JUMP_NEXT_EVENT as the only presenter buttons |
+| **Scenario file reshaped** | `scenario.json` becomes mission setup + event library + task library (05 Scenario, EventLibraryEntry, TaskLibraryEntry); loader and schema updated; reference command list written | R4: Sadman Shaharier Mahim, with R1 for the data half | `TODO(decision)` | `TODO(decision)` | Loader validates the new shape; the reference run reproduces the 01 §E.1 numbers or T21.15 re-derives them (U-62) | Keep the fixed timeline as one `event_library` entry started by the loader |
+| **Planner task editing** | Per-POI suggested tasks come with an added stop and are editable in the plan panel, published with the plan (SCR-04, SCR-06; FR-54) | Sadman Shaharier Mahim, **after** Saba Atharique's open planner subtasks land (PRs #168–#174: T02.01–T02.03, T07.01, T07.02, T08.01, T29.05), because it builds on her planner | After those subtasks; `TODO(decision)` | `TODO(decision)` | Adding a library POI shows its tasks; an edit reaches the EVA tablet after publishing | Tasks come from the library unedited; ops adds by hand (FR-50) |
+| **Ops setup screen** | SCR-20: candidate cards, mission settings, Continue to planner (FR-53) | R5: Ridita Alam | `TODO(decision)` | `TODO(decision)` | Choosing the other candidate changes the haven field, the comm layer and the planner start | Candidate fixed to the rank-1 site |
+| **Candidate-site comm grids** | Precomputed `comm_hab` grid per candidate (the first choice and the alternative of [hab-site.md](../ops/feasibility/hab-site.md)) and the manifest `hab_candidates` list (05 HabCandidate) | R1 pipeline: Obidit Islam | `TODO(decision)` | `TODO(decision)` | Validator passes with both candidates; each grid matches `gdal_viewshed` as TASK-03 requires | Ship the rank-1 candidate only |
+
 ---
 
 ## D. Delivery strategy
@@ -300,3 +310,4 @@ Team → problem (one line) → storm alert on the HUD → summon → crew shelt
 | U-14 | Venue details (power, table space, projector input) — **Resolved 2026-11-09**: virtual event, no physical venue ([ops/team.md](../ops/team.md#venue-type-u-14-due-10-nov)) | R6 | 10 Nov |
 | U-21 | Travel router availability | R4 | 7 Nov |
 | U-22 | Phone models for the device matrix (Android/iOS) | R5 | 7 Nov |
+| U-65 | Task ids, windows, effort and sign-off of the live-session work packages (§C.2, 2026-11-10); registered by a `coord:` PR | R4 + team lead | `TODO(decision)` |
