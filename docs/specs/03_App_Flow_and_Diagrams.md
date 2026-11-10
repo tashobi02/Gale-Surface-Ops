@@ -25,6 +25,7 @@ Marswalk Surface Ops (one web app, served by Hab Core; mode per 04 §B.2)
 │   ├── SCR-06 POI Detail · SCR-07 Conditions · point inspector
 │   └── SCR-08 Briefing Card                #/briefing      PRINT  (+ Publish to Hab Core)
 ├── OPS role                                #/ops           OPS
+│   ├── SCR-20 Mission setup                #/setup          (site, settings; before planning)
 │   ├── SCR-11 Ops console
 │   ├── SCR-14 Options panel (on alert)
 │   ├── SCR-15 Rover tasking
@@ -36,6 +37,8 @@ Marswalk Surface Ops (one web app, served by Hab Core; mode per 04 §B.2)
 │   └── SCR-15 Rover tasking
 ├── EARTH role (T2)                         #/earth         OPS
 │   └── SCR-16 Earth view
+├── PRESENTER role                          #/presenter     OPS    (the team running the session; not in the story)
+│   └── SCR-19 Presenter panel
 ├── SCR-09 Sources & Methods                #/sources       BRIEF (from every screen)
 ├── SCR-18 Hab link lost / connecting       (overlay state, all live roles)
 ├── SCR-00 Boot error                       (boot failure only)
@@ -48,7 +51,7 @@ Hash routing (`#/…`) so any static host works. `#/map` (v1) redirects to `#/pl
 
 ## B. Screen specification
 
-SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
+SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 were added on 2026-11-10 (live session).
 
 ### SCR-00 — Boot error
 
@@ -103,11 +106,11 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
 | Field | Spec |
 | --- | --- |
 | Purpose | Mission inputs and stop list |
-| Content | **Inputs** (start time UTC with LTST preview, max EVA duration, dwell per stop, hard/caution slope, walkback limit, suited speed, solar phase, loop toggle) with "Defaults are assumptions" badge and "Reset defaults"; **Stops list** (number, name/POI, coordinates, arrival LTST, reorder ↑/↓, delete), "Undo" |
+| Content | **Inputs** (start time UTC with LTST preview, max EVA duration, dwell per stop, hard/caution slope, walkback limit, suited speed, solar phase, loop toggle) with "Defaults are assumptions" badge and "Reset defaults"; **Stops list** (number, name/POI, coordinates, arrival LTST, reorder ↑/↓, delete), "Undo"; *(2026-11-10, FR-54)* each stop expands to its **stop tasks**: a stop added at a POI arrives with that POI's suggested tasks from the task library, and each can be edited, deleted or added (kind + one line, 1–4 per stop) before publishing |
 | Validation | Ranges per [02 §E.3](02_Technical_Requirements_Document.md#e3-input-validation-rules); inline error, field keeps last valid value until corrected |
 | Actions | Edit → debounced (300 ms) recompute; reorder/delete → immediate recompute |
 | States | Empty (only start) · Editing · Invalid input · Computing |
-| Requirements | FR-05, FR-06, FR-09 |
+| Requirements | FR-05, FR-06, FR-09, FR-54 |
 
 ### SCR-05 — Route Results panel
 
@@ -124,9 +127,9 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
 | Field | Spec |
 | --- | --- |
 | Purpose | Science context and ground view |
-| Content | Name; science objective; why it matters; rover image (credit, sol, date, camera); position source + confidence; "Add as stop" / "Remove stop" |
+| Content | Name; science objective; why it matters; rover image (credit, sol, date, camera); position source + confidence; "Add as stop" / "Remove stop"; *(2026-11-10)* its suggested tasks (FR-54), brought along by "Add as stop" |
 | States | Image loading · Image missing (placeholder with explanation, still usable) |
-| Requirements | FR-04 |
+| Requirements | FR-04, FR-54 |
 
 ### SCR-07 — Conditions panel
 
@@ -165,10 +168,10 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
 | --- | --- |
 | Purpose | Put each device in the right role in < 10 s |
 | Entry | `#/join`; scanning an ops QR code (`#/join?role=eva:EV1`) |
-| Content | Five role tiles (Planner, Ops, EV1, EV2, Earth (T2)) with what each can do; Hab Core status (session, scenario, clock) |
+| Content | Role tiles (Planner, Ops, EV1, EV2, Earth (T2), Presenter) with what each can do; Hab Core status (session, scenario, clock) |
 | Primary action | Tap a tile → role route |
 | States | Connecting · Ready · Role taken (EV1 already connected — "Take over?" for demo resets) · Hab Core unreachable → SCR-18 |
-| Requirements | FR-30, FR-31 |
+| Requirements | FR-30, FR-31, FR-51 |
 
 ### SCR-11 — Ops console *(v2)*
 
@@ -177,7 +180,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
 | Purpose | One screen to run and watch the whole EVA |
 | Entry | `#/ops` |
 | Content | Top bar with clock control and metadata strip; alert bar; crew cards (with each crew member's stop-task progress, FR-50); vehicle cards; map (route, crew, vehicles, comm shadow, haven isochrones); conditions; Earth link widget; options panel (on alert); event log; join QR codes (drawer) |
-| Primary actions | Load scenario, Start EVA, set clock speed, jump to next event, acknowledge alert, approve option, summon on behalf of crew, add a stop task to a crew member (FR-50), inject event (T2) |
+| Primary actions | Load scenario (or Mission setup, SCR-20), Start EVA, set clock speed, jump to next event, acknowledge alert, approve option, summon on behalf of crew, add a stop task to a crew member (FR-50), inject event (T2) |
 | States | No session · Loaded (ready) · Running · Paused · Alerting · Ended (→ report) |
 | Requirements | FR-30–FR-38, FR-40, FR-42–FR-46 |
 
@@ -255,6 +258,30 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
 | Exit | Reconnect → snapshot/replay of missed events (02 §E.6) |
 | Requirements | FR-16, FR-32, NFR-13 |
 
+### SCR-19 — Presenter panel *(live session, 2026-11-10, Proposed)*
+
+| Field | Spec |
+| --- | --- |
+| Purpose | Let the team running the session trigger the beats, one press each, outside the story |
+| Entry | `#/presenter`; the Presenter tile on SCR-10 |
+| Content | Session strip (scenario, chosen hab site, sim time, speed, status); **Next stop** (shows the stop it will go to); **Start storm** (disabled once started); clock speed 1× / 10× / 60× and pause; **Reset session** (with a confirm step, because it ends the run); last command results (accepted or rejected with the reason); join QR codes |
+| Primary actions | `JUMP_NEXT_STOP`, `START_EVENT {storm}`, `SET_CLOCK`, `RESET_SESSION`; also `LOAD_SCENARIO`, `JUMP_NEXT_EVENT` |
+| Rules | Mode OPS, but neutral chrome: no status colours on buttons or labels (status colours mean status only, 04 §A.3) and no brand orange. The panel shows no crew values it could be mistaken for. A fast-forward in progress shows "Advancing to stop N" with the sim time, and cannot be pressed twice |
+| States | No session · Loaded · Running · Advancing to next stop · Storm running · Paused · Ended · Command rejected |
+| Requirements | FR-51, FR-52, FR-34 |
+
+### SCR-20 — Mission setup *(live session, 2026-11-10, Proposed)*
+
+| Field | Spec |
+| --- | --- |
+| Purpose | Set up the mission on the hab computers before planning: which mission site this mission uses |
+| Entry | `#/setup` for ops (and presenter); after loading a scenario, before the planner publishes |
+| Content | Candidate hab sites as a short list of cards (first choice, alternative; label, position, a small comm-coverage preview from its precomputed grid and the source note, read from the manifest's `hab_candidates`; the facts behind the two sites are in [hab-site.md](../ops/feasibility/hab-site.md)); a "prepared on Earth, pre-checked" caption; other mission settings (crew count, vehicle available, solar phase, safety limits; **Proposed**) with the "Defaults are assumptions" badge, as SCR-04 |
+| Primary actions | Select a candidate (`SELECT_HAB_SITE`), set a setting (`SET_MISSION_SETUP`), Continue to the planner |
+| Rules | A list only: no free placement (01 §C.4). After a plan is published the site is locked until **Reset session** |
+| States | Loading · Ready · Computing haven fields (candidate changed; non-blocking) · Locked (plan published) · Command rejected |
+| Requirements | FR-53, FR-30 |
+
 ---
 
 ## C. User journeys
@@ -298,6 +325,8 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new.
 
 ### C.6 Killer demo journey — "Storm at sol 4190" *(v2; 01 §E.1)*
 
+*Reframed 2026-11-10 (Proposed): this is the journey of the reference run. In a live session each step happens when someone presses the control named in C.9, not at a fixed time.*
+
 | # | Ops (projector) | EV1 (phone) | EV2 (phone or ops-only) | System |
 | --- | --- | --- | --- | --- |
 | 1 | Loads `storm-sol4190`; shows QR codes | Scans QR → SCR-12 | Scans QR → SCR-12 | Session LOADED |
@@ -318,6 +347,20 @@ EV1 taps Task rover → Relay → accepts suggested ridge → UR1 drives → com
 ### C.8 Hab server lost mid-EVA
 
 Hab Core process killed → SCR-18 banner on all clients within 3 s → EVA keeps cached plan and last margins (aged) → Hab Core restarts and resumes from `session.jsonl` → clients reconnect and replay missed events.
+
+### C.9 Live session journey *(2026-11-10, Proposed; 01 FR-51–FR-54)*
+
+| # | Who | Action (command) | What happens |
+| --- | --- | --- | --- |
+| 1 | Ops (SCR-20) | Selects a candidate hab site and mission settings (`SELECT_HAB_SITE`, `SET_MISSION_SETUP`) | Haven fields recomputed for that hab; planner opens with the hab as start |
+| 2 | Planner (SCR-02/04) | Adds POIs as stops; each stop arrives with its suggested tasks; edits them | Route, time, dose computed as in C.1 |
+| 3 | Planner | Publishes (`PUBLISH_PLAN`) | Plan and tasks go to the Hab Core; site locked |
+| 4 | Ops | Start EVA (`START_EVA`); EV1 and EV2 join | Crew walk the route; clock at the presenter's speed |
+| 5 | Presenter (SCR-19) | Next stop (`JUMP_NEXT_STOP`) as often as needed | Clock fast-forwards until the crew arrive; consumables, dose and tasks accrue as on a normal walk |
+| 6 | Crew, ops | Tick tasks; ops may add one (`ADD_STOP_TASK`) | As FR-50 |
+| 7 | Presenter | Start storm (`START_EVENT`) | The replayed dose series begins at that moment; alert, options, Earth link as in C.6 steps 4 to 8 |
+| 8 | EV1, ops | Summon, approve, abort as in C.6 | As C.6 |
+| 9 | Presenter | Reset session (`RESET_SESSION`) | Back to Loaded, ready for the next run |
 
 ---
 
@@ -493,11 +536,15 @@ sequenceDiagram
 stateDiagram-v2
   [*] --> NoSession
   NoSession --> Loaded: LOAD_SCENARIO ok
+  Loaded --> Loaded: SELECT_HAB_SITE or SET_MISSION_SETUP
   Loaded --> Running: START_EVA
   Running --> Paused: SET_CLOCK paused
   Paused --> Running: SET_CLOCK resume
   Running --> Ended: all crew sheltered or in hab, or ops END
   Ended --> Loaded: LOAD_SCENARIO (new session)
+  Running --> Loaded: RESET_SESSION (presenter)
+  Paused --> Loaded: RESET_SESSION (presenter)
+  Ended --> Loaded: RESET_SESSION (presenter)
 ```
 
 ### E.7 State — alert lifecycle *(v2)*
