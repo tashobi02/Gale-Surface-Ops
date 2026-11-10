@@ -45,6 +45,21 @@ function serverAnswer(state: EngineState, role: Role, sent: { kind: string; args
   return handleCommand(state, command, { scenario: fake, client_id: "c-1", next_seq: state.session.last_seq + 1, accepted: new AcceptedCommands() });
 }
 
+/** Types into a React-controlled input the way a user would (native value setter, then an input event). */
+async function typeInto(input: HTMLInputElement, value: string): Promise<void> {
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input) as object, "value")?.set;
+    setter?.call(input, value);
+    input.dispatchEvent(new window.Event("input", { bubbles: true }));
+  });
+}
+
+async function submitForm(form: HTMLFormElement): Promise<void> {
+  await act(async () => {
+    form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+  });
+}
+
 const PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
 
 beforeAll(() => installDom());
@@ -702,5 +717,176 @@ describe("Join screen and keyboard access (NFR-04, 04 §E.4)", () => {
 
     expect(html).toMatch(/<button/);
     expect(html).not.toMatch(/tabindex="-1"/);
+  });
+});
+
+
+describe("Crew link word: LOST only when unlinked, STALE when linked but not heard (04 §E.4)", () => {
+  async function linkText(over: Partial<Crew>): Promise<{ text: string; card: HTMLElement }> {
+    const { container } = await mount(createElement(OpsConsole, { crew: [crewMember(over)] }));
+    const card = must(container, ".crew-card");
+    return { text: must(card, '[data-source="snapshot:crew.linked"]').textContent ?? "", card };
+  }
+
+  it("linked and fresh shows neither LOST nor STALE", async () => {
+    const { text, card } = await linkText({ linked: true, stale: false });
+    expect(text).not.toMatch(/LOST|STALE/);
+    expect(card.className).not.toMatch(/unlinked/);
+  });
+
+  it("linked but stale says STALE, not LOST", async () => {
+    const { text, card } = await linkText({ linked: true, stale: true });
+    expect(text).toContain("STALE");
+    expect(text).not.toContain("LOST");
+    // Cached values: still the dashed card.
+    expect(card.className).toMatch(/dashed/);
+  });
+
+  it("unlinked says LOST", async () => {
+    const { text } = await linkText({ linked: false, stale: false });
+    expect(text).toContain("LOST");
+    expect(text).not.toContain("STALE");
+  });
+});
+
+describe("Alert latching: what leaves the bar (04 §D.2, 03 §E.7)", () => {
+  const caution = (over: Partial<Alert> = {}): Alert =>
+    warning({ alert_id: "a-c", code: "COMM_SHADOW", level: "caution", message: "Comm shadow", raised_seq: 9, ...over });
+  const advisory = (over: Partial<Alert> = {}): Alert =>
+    warning({ alert_id: "a-a", code: "EARTH_FORECAST", level: "advisory", message: "Forecast received", raised_seq: 4, ...over });
+
+  it("an acknowledged caution leaves the bar, even though its condition has not cleared", async () => {
+    const alone = await mount(createElement(AlertStack, { alerts: [caution({ acked_seq: 10, acked_by: "ops" })] }));
+    expect(alone.container.querySelector(".alert-stack")).toBeNull();
+    await alone.unmount();
+
+    const withWarning = await mount(createElement(AlertStack, { alerts: [warning(), caution({ acked_seq: 10, acked_by: "ops" })] }));
+    expect(withWarning.container.querySelectorAll(".alert-item")).toHaveLength(1);
+    expect(withWarning.container.textContent).not.toContain("Comm shadow");
+    expect(withWarning.container.textContent).not.toMatch(/\+1/);
+  });
+
+  it("a caution whose condition cleared stays until it is acknowledged", async () => {
+    const { container } = await mount(createElement(AlertStack, { alerts: [caution({ cleared_seq: 11 })] }));
+    expect(must(container, ".alert-bar").textContent).toContain("Comm shadow");
+  });
+
+  it("a warning stays while it is acknowledged but not cleared, or cleared but not acknowledged; it leaves when both", async () => {
+    const ackedOnly = await mount(createElement(AlertStack, { alerts: [warning({ acked_seq: 8, acked_by: "ops" })] }));
+    expect(ackedOnly.container.querySelector(".alert-stack")).not.toBeNull();
+    const clearedOnly = await mount(createElement(AlertStack, { alerts: [warning({ cleared_seq: 8 })] }));
+    expect(clearedOnly.container.querySelector(".alert-stack")).not.toBeNull();
+    const both = await mount(createElement(AlertStack, { alerts: [warning({ acked_seq: 8, acked_by: "ops", cleared_seq: 9 })] }));
+    expect(both.container.querySelector(".alert-stack")).toBeNull();
+  });
+
+  it("a cleared advisory moves to the log (leaves the bar); an uncleared one stays", async () => {
+    const gone = await mount(createElement(AlertStack, { alerts: [advisory({ cleared_seq: 6 })] }));
+    expect(gone.container.querySelector(".alert-stack")).toBeNull();
+    const shown = await mount(createElement(AlertStack, { alerts: [advisory()] }));
+    expect(must(shown.container, ".alert-bar").textContent).toContain("ADVISORY");
+  });
+});
+
+describe("Ops console controls added in the audit (NFR-04, FR-50)", () => {
+  it("the sound toggle is a focusable button with a name, and reports a click; it states what is not known", async () => {
+    const onToggleSound = vi.fn();
+    const { container } = await mount(createElement(OpsConsole, { onToggleSound }));
+
+    expect(container.querySelector('span[aria-label="Sound status"]')).toBeNull();
+    const button = must<HTMLButtonElement>(container, 'button[aria-label^="Alert sound"]');
+    expect(button.tabIndex).toBeGreaterThanOrEqual(0);
+    expect(button.getAttribute("aria-label")).toMatch(/unknown/i);
+    expect(button.getAttribute("aria-pressed")).toBeNull();
+    await click(button);
+    expect(onToggleSound).toHaveBeenCalledTimes(1);
+  });
+
+  it("the sound toggle shows on/off from the caller as pressed state and a word", async () => {
+    const on = await mount(createElement(OpsConsole, { soundOn: true }));
+    const b = must(on.container, 'button[aria-label^="Alert sound"]');
+    expect(b.getAttribute("aria-pressed")).toBe("true");
+    expect(b.textContent).toMatch(/ON/);
+    const off = await mount(createElement(OpsConsole, { soundOn: false }));
+    expect(must(off.container, 'button[aria-label^="Alert sound"]').textContent).toMatch(/OFF/);
+  });
+
+  const withStop = (stopNo?: number) => ({
+    crew: [ev1()],
+    taskProgress: { EV1: { stop: { stopId: "poi-x7", stopNo: stopNo as number, done: 0, total: 2 }, total: { done: 0, total: 2 } } },
+  });
+
+  async function openPopover(props: Parameters<typeof OpsConsole>[0]) {
+    const m = await mount(createElement(OpsConsole, props));
+    await click(must(m.container, '[aria-label="Add task for EV1"]'));
+    return m;
+  }
+
+  it("ops: adding a task sends ADD_STOP_TASK with crew, stop, kind and text, then closes", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const { container } = await openPopover({ ...withStop(4), client });
+
+    await typeInto(must<HTMLInputElement>(container, '[aria-label="Enter task description"]'), "  Photograph the vein  ");
+    await submitForm(must<HTMLFormElement>(container, "form"));
+    await flush();
+
+    expect(sent).toEqual([{ kind: "ADD_STOP_TASK", args: { crew_id: "EV1", stop_id: "poi-x7", kind: "observe", text: "Photograph the vein" } }]);
+    expect(container.querySelector('[data-testid="add-task-popover"]')).toBeNull();
+  });
+
+  it("ops: a rejected ADD_STOP_TASK keeps the popover open and shows the reason", async () => {
+    const { client } = recordingClient(storeFromBeat("connect", "ops"), () => rejected("INVALID", "stop is not the current or next one"));
+    const { container } = await openPopover({ ...withStop(4), client });
+
+    await typeInto(must<HTMLInputElement>(container, '[aria-label="Enter task description"]'), "Measure");
+    await submitForm(must<HTMLFormElement>(container, "form"));
+    await flush();
+
+    expect(container.querySelector('[data-testid="add-task-popover"]')).not.toBeNull();
+    expect(must(container, '[data-slot="command-error"]').textContent).toContain("stop is not the current or next one");
+  });
+
+  it("the stop is labelled with its plan number from the data, not a slice of its id; with no number it reads —", async () => {
+    const numbered = await openPopover(withStop(4));
+    const label = must(numbered.container, '[aria-label="Select stop"] option').textContent ?? "";
+    expect(label).toBe("Stop 4");
+    expect(label).not.toMatch(/poi-x7|x7/);
+    await numbered.unmount();
+
+    const bare = await openPopover(withStop(undefined));
+    expect(must(bare.container, '[aria-label="Select stop"] option').textContent).toBe("—");
+  });
+});
+
+describe("SCR-10 Join shows only what it is told (04 §D.1, §A.3.1)", () => {
+  it("with no props: no connection status, no scenario and no taken role is made up", async () => {
+    const { container } = await mount(createElement(Join));
+    const text = container.textContent ?? "";
+
+    expect(text).not.toMatch(/CONNECTED|storm-sol4190|ROLE TAKEN|TAKE OVER ROLE/);
+    expect(container.querySelectorAll(".role-taken")).toHaveLength(0);
+    expect(must(container, '[data-slot="join-status"]').textContent).toContain("—");
+    expect(must(container, '[data-slot="join-scenario"]').textContent).toBe("—");
+  });
+
+  it("the connection badge states its status with shape and word, from the status tokens, never brand orange", async () => {
+    for (const [status, word] of [["ready", "CONNECTED"], ["connecting", "CONNECTING"], ["unreachable", "UNREACHABLE"]] as const) {
+      const { container, unmount } = await mount(createElement(Join, { status }));
+      const badge = must(container, '[data-slot="join-status"]');
+      expect(badge.textContent).toContain(word);
+      expect(badge.getAttribute("data-status")).toBeTruthy();
+      const style = badge.getAttribute("style") ?? "";
+      expect(style).not.toMatch(/E7553D|--signal/i);
+      if (status !== "connecting") expect(style).toMatch(/--status-/);
+      await unmount();
+    }
+  });
+
+  it("supplied scenario and taken roles are shown; the taken-role mark is not brand orange", async () => {
+    const { container } = await mount(createElement(Join, { status: "ready", takenRoles: ["ops"], sessionScenario: "my-scenario" }));
+
+    expect(must(container, '[data-slot="join-scenario"]').textContent).toBe("my-scenario");
+    expect(container.querySelectorAll(".role-taken")).toHaveLength(1);
+    expect(container.innerHTML).not.toMatch(/--signal-ink|E7553D/i);
   });
 });

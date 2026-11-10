@@ -10,8 +10,8 @@
  * Tapping counter opens the alert stack list.
  * Each alert provides an accessible ACK button and displays acknowledged state with role.
  * Every alert shows its severity as shape plus word (04 §A.3 #2).
- * TODO(decision): complete warning/caution lifecycle filtering and advisory dismissal against authoritative alert
- * state/time; current component cue repairs do not establish latching acceptance.
+ * Advisories leave the bar once cleared ("cleared alerts move to the log", 04 §D.2).
+ * TODO(decision): the advisory 10 s auto-dismiss (04 §D.2) needs authoritative sim time; it is not done here.
  */
 
 import {
@@ -49,6 +49,23 @@ const LEVEL_WORDS: Record<AlertLevel, string> = {
 };
 
 /**
+ * Whether an alert still belongs on the bar (04 §D.2, 03 §E.7):
+ * - warning: latched until acknowledged AND cleared, so it stays while either is missing;
+ * - caution: latched until acknowledged, so an acknowledged one leaves even if its condition persists;
+ * - advisory: does not latch; it leaves once cleared (cleared alerts move to the log).
+ */
+export function isOnBar(alert: Alert): boolean {
+  switch (alert.level) {
+    case "warning":
+      return alert.acked_seq === null || alert.cleared_seq === null;
+    case "caution":
+      return alert.acked_seq === null;
+    case "advisory":
+      return alert.cleared_seq === null;
+  }
+}
+
+/**
  * Sort alerts strictly by 04 §D.2 hierarchy:
  * 1. Level weight (warning > caution > advisory)
  * 2. Unacknowledged before acknowledged
@@ -78,13 +95,12 @@ export function AlertStack({
 }: AlertStackProps): ReactElement | null {
   const [expanded, setExpanded] = useState<boolean>(false);
 
-  if (!alerts || alerts.length === 0) {
+  const live = (alerts ?? []).filter(isOnBar);
+  if (live.length === 0) {
     return null;
   }
 
-  // TODO(decision): complete warning/caution lifecycle filtering and advisory dismissal against authoritative alert
-  // state/time; current component cue repairs do not establish latching acceptance.
-  const sorted = sortAlerts(alerts);
+  const sorted = sortAlerts(live);
   const primary = sorted[0];
   const othersCount = sorted.length - 1;
 

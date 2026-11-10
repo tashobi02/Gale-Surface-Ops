@@ -79,6 +79,9 @@ export interface OpsConsoleProps {
   /** Receives every command the console issues when no `client` is given (with a client the console sends them). */
   onCommand?: (command: Pick<Command, "kind" | "args">) => void;
   onApproveOption?: (optionId: string) => void;
+  /** Alert sound state, when the caller knows it; unset = unknown. */
+  soundOn?: boolean;
+  onToggleSound?: () => void;
   className?: string;
 }
 
@@ -126,6 +129,8 @@ export function OpsConsole({
   logLines = [],
   onAcknowledgeAlert,
   onApproveOption,
+  soundOn,
+  onToggleSound,
   onCommand,
   className = "",
 }: OpsConsoleProps): ReactElement {
@@ -284,9 +289,16 @@ export function OpsConsole({
             activeScenarioId={session?.scenario_id ?? scenarioName}
             onCommand={(command) => void issue(command)}
           />
-          <span style={{ marginLeft: "8px", cursor: "pointer" }} aria-label="Sound status">
-            🔊
-          </span>
+          <button
+            type="button"
+            style={{ ...buttonStyle, marginLeft: "8px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+            aria-label={`Alert sound: ${soundOn === undefined ? "unknown" : soundOn ? "on" : "off"}`}
+            aria-pressed={soundOn}
+            onClick={() => onToggleSound?.()}
+          >
+            <span aria-hidden="true">🔊</span>
+            <span>{soundOn === undefined ? UNAVAILABLE : soundOn ? "ON" : "OFF"}</span>
+          </button>
         </div>
       </header>
 
@@ -339,6 +351,8 @@ export function OpsConsole({
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {crew.map((member) => {
               const isUnlinked = !member.linked || member.stale;
+              // LOST = no hab link; STALE = linked but not heard recently (cached values). Not the same state.
+              const linkWord = !member.linked ? "LOST" : member.stale ? "STALE" : "▮▮▮";
               return (
                 <article
                   key={member.crew_id}
@@ -398,7 +412,7 @@ export function OpsConsole({
                     <div>
                       LINK{" "}
                       <span className="value" {...crewAttr("crew.linked")}>
-                        {isUnlinked ? "LOST" : "▮▮▮"} {PROVENANCE_GLYPHS.simulated}
+                        {linkWord} {PROVENANCE_GLYPHS.simulated}
                       </span>
                     </div>
                   </div>
@@ -438,7 +452,13 @@ export function OpsConsole({
               <AddTaskPopover
                 crewId={activeAddCrew as CrewId}
                 stopId={taskProgress[activeAddCrew as CrewId]!.stop!.stopId!}
-                onAdd={() => setActiveAddCrew(null)}
+                stopNo={taskProgress[activeAddCrew as CrewId]!.stop!.stopNo}
+                onAdd={(task) => {
+                  // 05 TASK_ADDED fields; the Hab Core assigns task_id and origin. Closes only once accepted.
+                  void issue({ kind: "ADD_STOP_TASK", args: { ...task } }).then((accepted) => {
+                    if (accepted) setActiveAddCrew(null);
+                  });
+                }}
                 onCancel={() => setActiveAddCrew(null)}
               />
             </div>
