@@ -293,17 +293,13 @@ describe.skipIf(!hasRealBundle)("T05.28 — Verify on the real grid (gale_boxwor
     expect(results.routes + results.noRoutes).toBe(20);
   });
 
-  it("runs a single timed real-grid 3-stop loop smoke check through the handler", (ctx) => {
+  it("runs a single timed real-grid 3-stop loop smoke check through the handler", () => {
     const grid = loadSiteGrid(REAL_SITE_DIR);
     const manifest = JSON.parse(fs.readFileSync(REAL_MANIFEST_PATH, "utf8"));
-    if (
-      !manifest.default_start ||
-      typeof manifest.default_start.x_m !== "number" ||
-      typeof manifest.default_start.y_m !== "number" ||
-      !manifest.data_version
-    ) {
-      ctx.skip();
-    }
+    expect(Number.isFinite(manifest.default_start?.x_m)).toBe(true);
+    expect(Number.isFinite(manifest.default_start?.y_m)).toBe(true);
+    expect(typeof manifest.data_version).toBe("string");
+    expect(manifest.data_version).not.toBe("");
     const startX = manifest.default_start.x_m;
     const startY = manifest.default_start.y_m;
 

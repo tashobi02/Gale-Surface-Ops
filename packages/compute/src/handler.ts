@@ -190,7 +190,7 @@ function handleComputePlan(
     maxWbKm = maxWalkbackKm(allCumDists, loop);
 
     const stopCount = countStops(waypoints);
-    const dwellMin = stopCount * (request.scenario.dwell_min_per_stop ?? 0);
+    const dwellMin = stopCount * request.scenario.dwell_min_per_stop;
     const evaTotalMin = totalWalkTimeMin + dwellMin;
     const evaMarginMin = request.scenario.max_eva_duration_h * 60 - evaTotalMin;
 

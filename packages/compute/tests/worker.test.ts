@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { makePlaneGrid, makeWallWithGapGrid } from "../../../apps/web/tests/fixtures/grids";
 import { handleMessage, setWorkerGrid } from "../../../apps/web/src/worker/planWorker";
 import { handleWorkerMessage } from "../src/handler";
+import { cellIndex } from "../src/grid";
 
 const testGrid = makePlaneGrid({
   width: 20,
@@ -163,6 +164,14 @@ describe("compute worker handler and entry", () => {
         expect(response.legs[2].from).toBe("wp-2");
         expect(response.legs[2].to).toBe("wp-0");
 
+        const firstLeg = response.legs[0];
+        expect(firstLeg.status).toBe("OK");
+        if (firstLeg.status === "OK") {
+          expect(firstLeg.geometry.length).toBeGreaterThan(1);
+          expect(firstLeg.profile.dist_m.length).toBeGreaterThan(1);
+          expect(firstLeg.profile.elev_m).toHaveLength(firstLeg.profile.dist_m.length);
+        }
+
         // Totals must be present on OK status
         expect(response.totals).not.toBeNull();
         expect(response.totals!.distance_m).toBeGreaterThan(0);
@@ -219,6 +228,30 @@ describe("compute worker handler and entry", () => {
       if (response.type === "ERROR") {
         expect(response.code).toBe("TIMEOUT");
       }
+    });
+
+    it("returns PARTIAL with null totals when a leg has no route", () => {
+      const grid = makePlaneGrid({ width: 20, height: 20, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+      const start = defaultComputeRequest.waypoints[0];
+      const index = cellIndex(grid, start.x_m, start.y_m);
+      expect(index).not.toBeNull();
+      grid.flags[index!] |= 1 << FLAG_BITS.HARD_HAZARD;
+
+      const response = handleWorkerMessage(grid, defaultComputeRequest);
+      expect(response.type).toBe("PLAN_RESULT");
+      if (response.type === "PLAN_RESULT") {
+        expect(response.legs.some((leg) => leg.status === "NO_ROUTE")).toBe(true);
+        expect(response.status).toBe("PARTIAL");
+        expect(response.totals).toBeNull();
+      }
+    });
+
+    it("converts a thrown grid access into INTERNAL with the request id", () => {
+      const grid = { ...testGrid, get meta(): typeof testGrid.meta { throw new Error("grid access failed"); } };
+      expect(handleWorkerMessage(grid, defaultComputeRequest)).toMatchObject({
+        type: "ERROR", code: "INTERNAL", request_id: defaultComputeRequest.request_id,
+        message: "grid access failed",
+      });
     });
 
     it("returns identical complete pure responses without clock metadata or fabricated science", () => {
@@ -288,6 +321,40 @@ describe("compute worker handler and entry", () => {
       if (offRoute.type === "PLAN_RESULT") {
         expect(offRoute.warnings.some((warning) => warning.code === "TI_UNKNOWN")).toBe(false);
       }
+    });
+
+    it("accepts schema-valid waypoint order and counts dwell only at stops", () => {
+      const waypoints = [
+        defaultComputeRequest.waypoints[1],
+        defaultComputeRequest.waypoints[0],
+        defaultComputeRequest.waypoints[2],
+      ];
+      const response = handleWorkerMessage(testGrid, {
+        ...defaultComputeRequest,
+        scenario: { ...defaultComputeRequest.scenario, loop: false },
+        waypoints,
+      });
+
+      expect(response.type).toBe("PLAN_RESULT");
+      if (response.type === "PLAN_RESULT") {
+        expect(response.legs.map(({ from, to }) => [from, to])).toEqual([
+          [waypoints[0].id, waypoints[1].id],
+          [waypoints[1].id, waypoints[2].id],
+        ]);
+        expect(response.totals?.dwell_time_min).toBe(2 * defaultComputeRequest.scenario.dwell_min_per_stop);
+        expect(response).not.toHaveProperty("computed_utc");
+        expect(response).not.toHaveProperty("timing_ms");
+      }
+    });
+
+    it("returns INVALID_INPUT for an unprintable waypoint coordinate", () => {
+      const unprintable = { toString: 1, valueOf: 1 };
+      const response = handleWorkerMessage(testGrid, {
+        ...defaultComputeRequest,
+        waypoints: [{ ...defaultComputeRequest.waypoints[0], x_m: unprintable }, defaultComputeRequest.waypoints[1]],
+      } as unknown as ComputePlanRequest);
+      expect(response).toMatchObject({ type: "ERROR", code: "INVALID_INPUT" });
+      if (response.type === "ERROR") expect(response.message).toContain("coordinates");
     });
 
     it("reports an unknown request type with request_id 'unknown' when the id is not a string", () => {
