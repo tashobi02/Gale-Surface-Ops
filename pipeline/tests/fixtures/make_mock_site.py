@@ -156,8 +156,8 @@ def build() -> dict[str, bytes]:
         assets.append({"asset_id": layer["asset_id"], "path": root, "format": "tiles",
                        "sha256": hashlib.sha256(index).hexdigest()})
 
-    # Missing solar-min source id is map open point 12. Use a local fixture id,
-    # with bibliographic URLs already present in the repository, never invented.
+    # The solar-min source id was confirmed by the data lead (map open point 12).
+    # Bibliographic URLs are already present in the repository, never invented.
     reference = (ROOT / "docs/reference/mars-scientific-context.md").read_text()
     solar_max = manifest["env_constants"][0]
     solar_min_text = spec.split("Second record: `", 1)[1].split("\n", 1)[0]
@@ -178,8 +178,7 @@ def build() -> dict[str, bytes]:
             "instruments": [], "version": "", "url": url[1], "credit": label,
             "licence": "TODO(verify)", "accessed": manifest["sources"][0]["accessed"],
             "accuracy_note": "Fixture bibliography from local reference §9; accessed date copied "
-                             "from F.1, not a retrieval. TODO(verify): complete metadata; "
-                             "TODO(decision): canonical solar-min source id (map open point 12)."})
+                             "from F.1, not a retrieval. TODO(verify): complete metadata."})
 
     poi_sol = poi["properties"]["image_sol"]
     poi["properties"] = {key: value for key, value in poi["properties"].items()

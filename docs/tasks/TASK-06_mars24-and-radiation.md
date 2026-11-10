@@ -298,9 +298,9 @@
 - **Parallel with:** T06.01, T06.02
 - **Steps:**
   1. Write `rad-gale-dose-eq-solar-max.json` with the 05 §C and §F.1 values verbatim: `quantity` "surface dose equivalent rate", `value` 0.64, `low` 0.52, `high` 0.76, `unit` "mSv/day", `conditions` {solar_phase max, location "Gale crater floor", period "2012-2013"}, `provenance` "measured", `source_id` "hassler-2014-rad".
-  2. Write `rad-gale-dose-eq-solar-min.json` with the 05 §C values: `value` 0.925, `low` 0.85, `high` 1.0, `provenance` "measured", `note` "reported range, Simonsen et al. 2024", `unit` "mSv/day" (02 §C.2 L7), `conditions.solar_phase` "min"; the other conditions come from the solar-minimum row of Mars Scientific Context §9 or stay `TODO(verify)`; `source_id` is `TODO(decision)` (map open point 12).
+  2. Write `rad-gale-dose-eq-solar-min.json` with the 05 §C values: `value` 0.925, `low` 0.85, `high` 1.0, `provenance` "measured", `note` "reported range, Simonsen et al. 2024", `unit` "mSv/day" (02 §C.2 L7), `conditions.solar_phase` "min"; the other conditions come from the solar-minimum row of Mars Scientific Context §9 or stay `TODO(verify)`; `source_id` is `simonsen-2024-rad` (Obidit Islam (data lead), 2026-11-10; map open point 12).
   3. Write `hassler-2014-rad.json`: title, authors and link copied from the Hassler et al. (2014) entry in the Mars Scientific Context source list; missions and instruments from the specs (MSL, RAD); `accessed` is the date of access; any required field the sources do not give is `TODO(verify)`.
-  4. Once the solar-min `source_id` is decided, add its DataSource (Simonsen et al. 2024, link in the same source list) as `<source_id>.json` under the append-only-by-file rule.
+  4. Use the existing `simonsen-2024-rad.json` DataSource (Simonsen et al. 2024, link in the same source list) for the solar-min record.
   5. Check every file parses and uses the field names of the manifest schema's EnvConstant and DataSource definitions.
 - **Acceptance:**
   - Serves: FR-12, FR-15 · [05 EnvConstant](../specs/05_Backend_and_Database_Schema.md#envconstant), [05 DataSource](../specs/05_Backend_and_Database_Schema.md#datasource)
@@ -308,9 +308,10 @@
   - No URL, DOI, licence or credit text is invented: missing values are `TODO(verify)`.
   - After T03.19 runs, `validate-manifest` reports no problem with these records, and SCR-09 can credit the RAD source (FR-15).
 - **Verify:** `python3 -m json.tool` on each owned file; after T03.19, `make validate SITE=gale_boxwork`.
-- **Agent brief:** Create the two RAD EnvConstant JSON records and the `hassler-2014-rad` DataSource under `pipeline/sites/gale_boxwork/`, copying values verbatim from 05 §C/§F.1 and the citation from `docs/reference/mars-scientific-context.md`. Leave anything the sources do not state as `TODO(verify)`; the solar-min `source_id` is `TODO(decision)`.
+- **Agent brief:** Create the two RAD EnvConstant JSON records and the RAD DataSources under `pipeline/sites/gale_boxwork/`, copying values verbatim from 05 §C/§F.1 and the citation from `docs/reference/mars-scientific-context.md`. Leave anything the sources do not state as `TODO(verify)`; use the decided solar-min `source_id` above.
 - **Conflict notes:** The `sources/` and `env_constants/` folders are append-only by file: one record per file, owned by its creator; never edit another subtask's record. T03.19 needs these files before it builds bundle v1 (map §f).
-- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Verify RAD DataSource metadata and access dates against the cited publications, including publisher, version, credit, licence and missions/instruments. TODO(decision): The data lead must confirm the solar-minimum source_id. Preserve numerical EnvConstant values.
+- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Mishkat Ahmed Khan must verify RAD DataSource metadata and access dates against the cited publications, including publisher, version, credit, licence and missions/instruments. Obidit Islam (data lead), 2026-11-10 confirmed `simonsen-2024-rad` for the solar-minimum `source_id`. Preserve numerical EnvConstant values; the complete-bundle validator and SCR-09 checks remain open.
+- **PR follow-up:** Obidit Islam will inform Mishkat Ahmed Khan (owner of the RAD records) by a review request or comment on this PR when it is opened; that notification has not yet been sent in this fix round.
 
 ### T06.11 — Fallback — start only if Mars24 tests fail: precomputed sun table for the demo dates
 
@@ -386,7 +387,7 @@ T06.10 has no edge inside this task; it feeds T03.19 (map §f).
 
 1. **Window** ([map open point 2](_coordination.md#open-points)): 06 §D.2 says TASK-06 has no data dependency, but 06 §A Track P covers only TASK-02 and TASK-05, so T06.03–T06.09 stay `event-only` — `TODO(decision)`.
 2. **M3 slice** (open point 3): if C1 makes `conditions`, `radiation` and `stops_timeline` required, M3 needs T06.09; otherwise T06.09 can land in M4 as planned.
-3. **Solar-min record** (open point 12): 05 §C gives value, low, high and a note (Simonsen et al. 2024) but no `source_id` and no `conditions`. T06.10 copies what exists and leaves the rest `TODO(verify)`.
+3. **Solar-min record** (open point 12): 05 §C gives value, low, high and a note (Simonsen et al. 2024) but no `source_id` and no `conditions`. Obidit Islam (data lead), 2026-11-10 chose `simonsen-2024-rad`; T06.10 leaves unverified metadata `TODO(verify)`.
 4. **Reference timestamps:** 02 §D.5 asks for at least 3 but names none; 02 §E.2's `eva_start_utc` example is one candidate — `TODO(decision)` in T06.02.
 5. **Tolerances:** 02 §D.5 sets tolerances only for solar elevation (0.1°) and LTST (1 min); those for L_s (strictly below 0.05°, as asserted in `mars24.test.ts`; an earlier draft documented 0.1° while its `toBeCloseTo(…, 1)` assertion allowed only less than 0.05°), Mars Year (exact), MSD (0.001 sol) and sunrise/sunset times (within 2 min of F6 in the F6 case, within 30 s in the same-sol cases of `sun.test.ts`; observed at most 2 s) are provisional — `TODO(decision)` to ratify (tested in T06.03 and T06.07).
 6. **Dose duration:** 01 FR-12 says "EVA duration", 02 §D.4 "planned duration", and 05 §F.3 uses `eva_total_min`; `totals` is null for PARTIAL plans (02 §E.2), so the duration for a partial plan is undefined — `TODO(decision)` at T06.01.
