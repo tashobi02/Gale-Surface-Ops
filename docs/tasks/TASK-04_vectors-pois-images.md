@@ -36,7 +36,7 @@
 | Packaging code | `pipeline/src/marswalk_pipeline/vectors.py` | T03.15, T03.19 |
 | Packaged vectors (written by the T03.19 run) | `data/sites/gale_boxwork/vectors/traverse.geojson`, `data/sites/gale_boxwork/vectors/pois.geojson` | T07.10, T07.11, T10.01 |
 | Dataset and image credits list | `docs/ops/credits.md` | T12.03, T16.03, T16.05 |
-| TI threshold (v1 cut 4; no v2 cut item) | `pipeline/sites/gale_boxwork/ti_threshold.json`, `docs/ops/ti-threshold.md` | T03.10, T12.04, T16.02 |
+| TI threshold (v1 cut 4; no v2 cut item) — **U-03 decided 2026-11-10: no defensible threshold, so `ti_threshold.json` is not written** | `pipeline/sites/gale_boxwork/ti_threshold.json` (not written), `docs/ops/ti-threshold.md` | T03.10, T12.04, T16.02 |
 | Measured traverse offset | `pipeline/sites/gale_boxwork/known_offsets/traverse.json` | T03.13, T03.19 |
 
 ## Subtasks
@@ -211,7 +211,7 @@
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
 - **Estimate:** 1–2 h
-- **Owns (writes):** `pipeline/sites/gale_boxwork/ti_threshold.json`, `docs/ops/ti-threshold.md`
+- **Owns (writes):** `docs/ops/ti-threshold.md`; `pipeline/sites/gale_boxwork/ti_threshold.json` only if a threshold is chosen (not written — U-03 decided 2026-11-10 that no defensible threshold exists)
 - **Reads:** [02 §C.2 L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10), [01 §F.2](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) (A-05), [05 Flag bits](../specs/05_Backend_and_Database_Schema.md#flag-bits), [02 Unresolved](../specs/02_Technical_Requirements_Document.md#unresolved-decisions-owned-by-this-document) (U-03), `pipeline/sites/README.md`, the clipped AOI TI raster in `pipeline/work/`
 - **Depends on:** T03.08 (hard: The TI histogram and the alignment check need the clipped AOI rasters), T03.01 (soft)
 - **Parallel with:** T04.01–T04.06, T04.08
@@ -221,6 +221,8 @@
   3. The data lead chooses a threshold in tiu, or decides there is no defensible one.
   4. If chosen, write `ti_threshold.json` in the C5 layout with value, unit and an "interpretive" label.
   5. Write `docs/ops/ti-threshold.md`: method, histogram, citation, the interpretive label (02 §C.2 L4), and the limits from 01 A-05 and 02 L4 (100 m pixels, ~20 % absolute accuracy).
+- **Decision note (U-03, Obidit Islam, 2026-11-10):** **no defensible TI "loose fines" threshold for the AOI.** The data lead's decision, on the evidence recorded in [ti-threshold.md](../ops/ti-threshold.md), is that no threshold in tiu is defensible. The evidence this note records supports the following reasons: the native 100 m support cannot resolve walking-scale patches (02 L4: a TI pixel covers 400 routing cells at 5 m); the mosaic's ~20 % absolute accuracy is not a margin a single cut can respect; the opened literature gives a qualitative association only and explicitly not a calibration for this AOI; the material inference is confounded; and the histogram selects no break. **Consequence:** `pipeline/sites/gale_boxwork/ti_threshold.json` is **not written**, so per [C5](../../pipeline/sites/README.md#records) T03.10 sets no `LOW_TI` bits and the 1.3 `LOW_TI` cost multiplier stays dormant. [01 A-05](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) stays an **Assumed interpretation** and TI gaps stay *unknown*, never zero. No threshold number is proposed or implied.
+  - **TODO(decision) spec-change (owner: T16.02):** the U-03 row in [02 Unresolved](../specs/02_Technical_Requirements_Document.md#unresolved-decisions-owned-by-this-document) still reads *TI "loose fines" threshold | TASK-04 (v1)* and needs a status label for the decision. `docs/specs/**` is not edited by T04.07; T16.02 changes only that status row, linking [ti-threshold.md](../ops/ti-threshold.md#decision) as the evidence, and writes no threshold value into the spec. The `docs/README.md` *Key assumptions and blockers* row is already updated here to *Resolved* (U-03, 2026-11-10).
 - **Acceptance:**
   - Serves: FR-10, U-03 · [02 §C.2 L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10)
   - The threshold traces to the recorded histogram and a cited interpretation, and is labelled interpretive.
@@ -347,7 +349,7 @@ flowchart LR
 - [06 §D.7](../specs/06_High_Level_Implementation_Plan.md#d7-definition-of-done-per-feature): acceptance criteria of FR-04 and FR-17 met; packaging unit tests committed (T04.02); provenance set on every record (POIs `assumed`, traverse `measured`); every source credited and listed for SCR-09 (T04.06); everything is a local file, so it works offline. Keyboard reachability does not apply (no UI here).
 - 06 done-when: the traverse aligns with tracks at ≥ 3 checkpoints (T04.08); every POI has a credit and a position source (T04.04, T04.05).
 - 5–8 POIs, including Boxwork ridge (01 FR-04, 01 §E step 3).
-- U-04 is recorded; U-03 is recorded, or v1 cut 4 (no v2 cut item) is invoked.
+- U-04 is recorded; U-03 is recorded (2026-11-10: no defensible threshold, so no `ti_threshold.json` and no `LOW_TI` bits), or v1 cut 4 (no v2 cut item) is invoked.
 - No downloaded data or images are committed (`CLAUDE.md` §2).
 - `make test` and `python3 scripts/check_tasks.py` pass.
 
@@ -358,7 +360,7 @@ flowchart LR
 3. **Image required?** 01 FR-04 says every POI has `image_credit` populated; 05 §C makes the image fields conditional, and 05 §E.6 keeps a POI valid with null image fields. The curators aim for an image on every POI; validation follows 05.
 4. **Look direction:** 01 FR-04 shows an "approximate look direction if known", but 05 §C POI has no field for it — `TODO(decision)`: add it to 05 or drop it.
 5. **Vector layers:** 05 §C Layer requires `legend`, `native_resolution_m`, `display_resolution_m` and a tiles-root `asset_id` for every layer, but the traverse and POI layers are vectors — `TODO(decision)` at C2 and C5 (T03.01).
-6. **TI threshold home** (map open point 10): 05 has no manifest field for it, and 02 assigns U-03 to TASK-04 while 06 TASK-04 does not list it. T04.07 records it in `ti_threshold.json` and `docs/ops/ti-threshold.md`.
+6. **TI threshold home** (map open point 10): 05 has no manifest field for it, and 02 assigns U-03 to TASK-04 while 06 TASK-04 does not list it. T04.07 records the outcome in `docs/ops/ti-threshold.md`; under the 2026-11-10 decision (no defensible threshold) there is no `ti_threshold.json`, so 05 still has no field and no manifest change follows.
 7. **"In/near the AOI"** (01 FR-17) gives no distance. The cached sol range (≈ 4,450–4,750 per 02 §C.2) and any clipping margin are `TODO(decision)` in T04.01; the frozen `package_traverse` signature has no extent argument.
 8. **MMGIS path:** 02 §C.2 L6 says the MSL path is unverified — `TODO(verify)` in T04.09.
 9. **Map change proposed:** §c gives T04.01 no document for the U-04 outcome and the PLACES field layout, while U-03 has `docs/ops/ti-threshold.md`. Add `docs/ops/traverse-source.md` owned by T04.01. Until then the decision lives in T04.01's PR description.

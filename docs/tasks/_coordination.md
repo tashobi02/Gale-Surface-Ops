@@ -628,7 +628,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | `pipeline/sites/gale_boxwork/known_offsets/` | T03.20 (`elevation.json`), T04.08 (`traverse.json`) | Append-only by file |
 | `pipeline/sites/gale_boxwork/pois/` | T04.04 (POIs 1–4), T04.05 (POIs 5–8) | Append-only by file: one `<poi_id>.json` per POI |
 | `pipeline/sites/gale_boxwork/hazards.geojson`, `pipeline/sites/gale_boxwork/low_res_dem.geojson` | T03.18 | — |
-| `pipeline/sites/gale_boxwork/ti_threshold.json` | T04.07 | — |
+| `pipeline/sites/gale_boxwork/ti_threshold.json` | T04.07 | Absent by the 2026-11-10 U-03 decision (no defensible threshold); it stays unwritten |
 | `pipeline/src/marswalk_pipeline/config.py`, `acquire.py` | T03.07 | — |
 | `pipeline/src/marswalk_pipeline/clip_reproject.py` | T03.08 | — |
 | `pipeline/src/marswalk_pipeline/derive.py` | T03.09 | T03.01 moves the `hazard_flags` stub out (stub → T03.10) |
@@ -1551,7 +1551,7 @@ Gaps and contradictions found while building this map. None is resolved here; ea
 7. **Layer order.** FR-02 fixes six classes but not where the traverse and waypoints go — T07.01, `TODO(decision)`.
 8. **Source-id attribute.** NFR-05 requires a source id on every value but names no attribute — T07.01, `TODO(decision)`.
 9. **Alignment checkpoints.** FR-17 and 06 TASK-04 say ≥ 3; 01 §B and 02 §F.1 say 5 — T04.08 records both counts.
-10. **TI threshold.** 02 assigns U-03 to TASK-04, 06 TASK-04 does not list it, and 05 has no manifest field for it — T04.07 keeps it in `ti_threshold.json` and the methods text.
+10. **TI threshold.** 02 assigns U-03 to TASK-04, 06 TASK-04 does not list it, and 05 has no manifest field for it. U-03 is decided (2026-11-10: no defensible TI "loose fines" threshold for the AOI), so T04.07 records the outcome in `docs/ops/ti-threshold.md` only and `ti_threshold.json` remains absent; 05 still has no manifest field and no manifest change follows ([ti-threshold.md](../ops/ti-threshold.md#decision)). The 02 U-03 row still needs a status label — T16.02 (spec-sync note in [TASK-04](TASK-04_vectors-pois-images.md#t0407--resolve-u-03-ti-loose-fines-threshold-from-the-aoi-histogram-and-literature)).
 11. **Duplicate test.** The pipeline stub `test_scale_bar_vs_dem_measured_feature_within_2_percent` duplicates the F.1 case allocated to T02.04 — T03.03 removes it.
 12. **Solar-min source.** 05 gives the solar-min EnvConstant values and a note (Simonsen et al. 2024) but no `source_id` — T06.10, `TODO(verify)`.
 13. **Bundle hosting.** Closed: GitHub release asset, not Git LFS (`docs/ops/feasibility.md`). T16.07 implements it and still settles what the public link shows (02 §B).
@@ -1563,7 +1563,7 @@ Gaps and contradictions found while building this map. None is resolved here; ea
 19. **SAMPLE_POINT has no slope limit.** Passability depends on the hard slope limit (02 §D.2), but the SAMPLE_POINT request (02 §E.2) carries none — T05.01; a fix needs a `spec-change:` to 02 §E.2.
 20. **SAMPLE_RESULT nullability.** 02 §D.1 returns `null` values with `OUTSIDE_AOI` / `NO_DATA`; the skeleton types them as numbers — T05.01 (C6).
 21. **Demo dose vs default EVA limit.** 01 §E step 8 expects 0.19 mSv for a 7 h EVA, but FR-05's default maximum is 6 h and the dose uses the planned EVA total (05 §F.3) — T07.14 and T17.01 must pick a scenario that matches; spec question for 01.
-22. **Missing TI tiles vs `LOW_TI` bits.** FR-16 expects "unknown" sand warnings when the TI tiles are deleted, but the grid still carries `LOW_TI` bits and the worker cannot tell that a layer is missing — T05.01, T14.05.
+22. **Missing TI tiles vs `LOW_TI` bits.** FR-16 expects "unknown" sand warnings when the TI tiles are deleted. The grid carries no `LOW_TI` bits (U-03 decided 2026-11-10: no defensible threshold, so no `ti_threshold.json`; [ti-threshold.md](../ops/ti-threshold.md#decision)), but the worker still cannot tell that a layer is missing — T05.01, T14.05.
 23. **Moving a stop by keyboard.** Demo step 5 drags a stop; 04 §E gives no keyboard way to move one (NFR-04) — T08.08, T13.06, `TODO(decision)`.
 24. **Light theme and toasts.** 04 §C.1 defines no light-theme values (T13.08, cut 2), and no subtask owns the toast that 03 §D uses — T07.01 decides the toast; the light theme needs a `spec-change:` to 04 if kept.
 25. **REMS output path.** T18.02 has no bundle re-release unless CRISM triggers T18.01 — decide with TASK-18 if FR-13 is attempted.

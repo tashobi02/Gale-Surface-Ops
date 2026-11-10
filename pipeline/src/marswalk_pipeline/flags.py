@@ -46,8 +46,10 @@ def hazard_flags(
     """u8 flag bitfield per 05 §C: NO_DATA, LOW_TI, TI_UNKNOWN; HARD_HAZARD and LOW_RES_DEM from the input masks.
 
     All arrays share the routing grid's shape. The masks are rasterised from the C5 GeoJSON inputs
-    (`hazards.geojson`, `low_res_dem.geojson`; pipeline/sites/README.md). TI threshold is Unresolved (U-03);
-    flags are interpretive. TASK-03 (T03.10).
+    (`hazards.geojson`, `low_res_dem.geojson`; pipeline/sites/README.md). `ti_threshold_tiu` is None when
+    `ti_threshold.json` is absent, and then no LOW_TI bit is set: U-03 is decided (2026-11-10) and there is no
+    defensible TI "loose fines" threshold for the AOI (docs/ops/ti-threshold.md). Flags are interpretive.
+    TASK-03 (T03.10).
     """
     flags = np.zeros(elevation.shape, dtype=np.uint8)
 

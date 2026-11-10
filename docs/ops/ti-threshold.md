@@ -3,11 +3,11 @@
 | | |
 | --- | --- |
 | **Owner** | Obidit Islam |
-| **Date** | 2026-11-09 |
-| **Status** | histogram and literature recorded; threshold TODO(decision) by the data lead |
+| **Date** | 2026-11-09 (evidence); 2026-11-10 (U-03 decision) |
+| **Status** | U-03 **decided 2026-11-10**: no defensible threshold; `ti_threshold.json` not written |
 | **Related** | [T04.07](../tasks/TASK-04_vectors-pois-images.md#t0407--resolve-u-03-ti-loose-fines-threshold-from-the-aoi-histogram-and-literature) · [02 §C.2 L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10) · [01 A-05](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) · [THEMIS coverage](feasibility/coverage.md#themis-quantitative-thermal-inertia-l4-d4) · [C5 input layout](../../pipeline/sites/README.md#records) |
 
-This note records evidence for FR-10 and U-03. No threshold has been chosen or proposed. `pipeline/sites/gale_boxwork/ti_threshold.json` has not been written. The data lead retains the choice of a threshold in tiu or no defensible threshold.
+This note records the evidence for FR-10 and U-03, and the decision taken on it: **there is no defensible TI "loose fines" threshold for this AOI** (see [Decision](#decision)). `pipeline/sites/gale_boxwork/ti_threshold.json` is not written, so per [C5](../../pipeline/sites/README.md#records) T03.10 sets no `LOW_TI` bits. No threshold number is proposed, recommended or implied anywhere in this note.
 
 ## Method
 
@@ -214,7 +214,7 @@ It relates differences in apparent TI to surface mantling and distinguishes laye
 
 [02 §C.2 L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10) owns the intended caution wording: **“possible loose fines”**, labelled **interpretive**. [01 A-05](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) retains **Assumed interpretation** and limits the use to coarse caution. Those labels are not changed by the literature or histogram.
 
-The TI retrieval and histogram carry provenance **derived**, source id `usgs-themis-ti-30s120e`; a material inference carries provenance **assumed**, with A-05 and the literature ids above as its interpretation references. The word `interpretive` is the C5 threshold label, not an additional provenance class. A low value alone does not establish loose soil, cohesion, bearing strength or safe footing.
+The TI retrieval and histogram carry provenance **derived**, source id `usgs-themis-ti-30s120e`; a material inference carries provenance **assumed**, with A-05 and the literature ids above as its interpretation references. The word `interpretive` is the C5 label for a threshold value, not an additional provenance class; under the [Decision](#decision) no threshold value exists, so no `LOW_TI` flag is set. A low value alone does not establish loose soil, cohesion, bearing strength or safe footing.
 
 ## Limits
 
@@ -229,8 +229,20 @@ The TI retrieval and histogram carry provenance **derived**, source id `usgs-the
 
 ## Decision
 
-**TODO(decision): Obidit Islam, the data lead, chooses a threshold in tiu, or no defensible threshold.** This is still open; absence of a chosen threshold is not a recorded decision that no threshold is defensible. No threshold number is proposed, recommended or implied by the bin edges or percentiles.
+**U-03 is decided: there is no defensible TI "loose fines" threshold for the Gale boxwork AOI.** Obidit Islam, the data lead, took this decision on **2026-11-10** in T04.07, on the evidence recorded in this note. The decision is that a threshold in tiu would not be defensible from that evidence; no threshold number is proposed, recommended or implied, and none may be inferred from the bin edges or the percentiles above.
 
-**Proposed method choices for review:** retain the native-centre selection as the unsmoothed source distribution and show the existing bilinear dry-run grid separately; use the requested descriptive bin width and percentile ranks; preserve A-05 and the interpretive wording. These choices concern evidence presentation only.
+The rationale is the evidence this note already records:
 
-Under [C5](../../pipeline/sites/README.md#records), an absent `ti_threshold.json` means T03.10 sets no `LOW_TI` bits. This note leaves that file absent. The orchestrator owns task-status, README progress and AI-use updates; none is changed here.
+- **Spatial support.** The native product resolves 100 m pixels, and [02 L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10) states that a TI pixel covers 400 routing cells at 5 m. A walking hazard is a walking-scale question, so the source cannot separate walkable ground from a hazard at the scale the flag would be read at; resampling onto the routing grid adds no independent information (see [Limits](#limits)).
+- **Absolute accuracy.** The approximately 20 % absolute accuracy of the THEMIS quantitative mosaic (Fergason et al. 2006, Abstract), as 02 L4 retains, is not a margin a single cut can respect: a cut placed at any one value would be read as exact.
+- **The literature does not validate a threshold for this AOI.** The opened sources support a *qualitative* association between fine unconsolidated cover and low TI (Fergason et al. 2006 §1.2 and §5.1, the only source opened in full), and the mechanism behind it (Presley & Christensen 1997). They do not supply an AOI-specific cut, and the note records that Fergason et al.'s Tharsis example is explicitly not a calibration for the Gale boxwork AOI. Three of the four sources are indexed or Abstract-level only (Presley & Christensen 1997, Putzig & Mellon 2007, Fergason 2012); only Fergason 2006 was opened in full. Fergason et al. (2012) gives Gale-region context at Abstract level — an indurated surface mixed with unconsolidated materials — not a ground-truthed classification for this AOI.
+- **The inference is confounded.** Fine cover, rock/fine mixtures, crusts, porosity, layering and atmospheric/model effects all change apparent TI ([Limits](#limits), [Literature](#literature)). A single cut would attribute to one of them what the measurement cannot separate.
+- **The histogram selects nothing.** The two distributions in [Histogram](#histogram) describe the AOI; they contain no natural break, and the choice of bin width or percentile rank is presentational. Nothing in the recorded method would distinguish a defensible cut from an arbitrary one.
+
+Consequences:
+
+- `pipeline/sites/gale_boxwork/ti_threshold.json` is **not written**. Per [C5](../../pipeline/sites/README.md#records), an absent file means T03.10 sets no `LOW_TI` bits, so the routing grid carries no `LOW_TI` bit and the 1.3 `LOW_TI` cost multiplier and any `LOW_TI` warning stay dormant.
+- **[01 A-05](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) stays an Assumed interpretation.** 02 L4's cautious wording and its `interpretive` label are unchanged, and TI gaps stay *unknown*, never zero. TI remains available as a derived layer with its own provenance and limits; only the hazard flag is not set.
+- The threshold's home in [02 Unresolved](../specs/02_Technical_Requirements_Document.md#unresolved-decisions-owned-by-this-document) (the U-03 row) is **not edited here**: `docs/specs/**` is unchanged, and the spec-sync note for the T16.02 owner is in the [T04.07 task file](../tasks/TASK-04_vectors-pois-images.md#t0407--resolve-u-03-ti-loose-fines-threshold-from-the-aoi-histogram-and-literature).
+
+**Method choices, proposed and not separately reviewed (evidence presentation only):** the native-centre selection is retained as the unsmoothed source distribution and the existing bilinear dry-run grid is shown separately; the requested descriptive bin width and percentile ranks are used; A-05 and the interpretive wording are preserved. These choices concern evidence presentation only and do not bear on the decision above.

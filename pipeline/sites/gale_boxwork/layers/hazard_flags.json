@@ -12,5 +12,5 @@
   "tile_grid": {"origin_m": [-3000, 3000], "resolutions_m": [32, 16, 8, 4, 2], "tile_size_px": 256, "format": "png"},
   "default_visible": false,
   "optional": true,
-  "limitations": "Interpretive flags: HARD_HAZARD is team-digitised; LOW_TI marks TI below an unresolved threshold as possible loose fines; TI_UNKNOWN marks missing TI coverage; LOW_RES_DEM identifies cells filled by lower-resolution DEM sources when source mapping is available."
+  "limitations": "Interpretive flags: HARD_HAZARD is team-digitised; LOW_TI is not set (no defensible TI threshold for this AOI, U-03 decided 2026-11-10), so no cell is marked as possible loose fines; TI_UNKNOWN marks missing TI coverage; LOW_RES_DEM identifies cells filled by lower-resolution DEM sources when source mapping is available."
 }

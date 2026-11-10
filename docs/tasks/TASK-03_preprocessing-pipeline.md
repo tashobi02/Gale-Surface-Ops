@@ -25,7 +25,7 @@
 | Tile-grid and tile-encoding contract C9 (`docs/contracts/tile-grid.md`) | contract | T02.01 | soft for T03.02, T03.12, T03.25 |
 | Traverse source and records, vector packaging code, POI records and images | upstream output | T04.01, T04.03, T04.04, T04.05 | hard for T03.19 |
 | Traverse offset (`pipeline/sites/gale_boxwork/known_offsets/traverse.json`) | upstream output | T04.08 | hard for T03.19 |
-| TI threshold (`pipeline/sites/gale_boxwork/ti_threshold.json`; dropped by v1 cut 4, no v2 cut item) | upstream output | T04.07 | optional input of T03.19's run; see Spec questions |
+| TI threshold (`pipeline/sites/gale_boxwork/ti_threshold.json`; **not written** — U-03 decided 2026-11-10 that no defensible threshold exists) | upstream output | T04.07 | not an input of T03.19's run: the file is absent, so T03.10 sets no `LOW_TI` bits; see Spec questions |
 | RAD EnvConstant and DataSource records | upstream output | T06.10 | hard for T03.19 |
 | Model DataSource records (Tobler, Apollo 17, Mars24) | upstream output | T12.05 | hard for T03.19 |
 | JSON-Schema validator in the pipeline dependencies | upstream output | T14.01 | hard for T03.14 |
@@ -67,7 +67,7 @@
   2. C1: record the decision on required PlanResult, Leg and Warning fields (the existing `TODO(decision)`), including whether `conditions`, `radiation` and `stops_timeline` may be absent in the M3 slice (map open point 3). Keep it a visible `TODO(decision)` until the data lead signs off, and list the 05 wording it needs under Spec questions.
   3. C2/C3: model `legend` on the 05 §F.1 example (`type`, `breaks_follow_scenario`, `classes`); record U-11 (store profile arrays in the export; 05 recommends storing) as `TODO(decision)`.
   4. C4 by review only: compare the `config.py` constants, `FLAG_BITS` in `schema.ts` and `LoadedGrid` in `packages/compute/src/grid.ts` with 05 RoutingGrid and flag bits. Report any mismatch to its owner (T03.07, T05.16); do not edit those files.
-  5. C5: write `pipeline/sites/README.md` — one JSON file per DataSource, Layer, EnvConstant, POI and known offset under `pipeline/sites/<site_id>/`, plus `site.json`, `hazards.geojson`, `low_res_dem.geojson` and `ti_threshold.json`; record the layer ids (`TODO(decision)`; 05 §F.1 uses `slope` and `elevation`).
+  5. C5: write `pipeline/sites/README.md` — one JSON file per DataSource, Layer, EnvConstant, POI and known offset under `pipeline/sites/<site_id>/`, plus `site.json`, `hazards.geojson`, `low_res_dem.geojson` and the optional `ti_threshold.json` layout (the file itself is absent: U-03 decided 2026-11-10 that no defensible threshold exists); record the layer ids (`TODO(decision)`; 05 §F.1 uses `slope` and `elevation`).
   6. Move the `hazard_flags` stub from `derive.py` into a new `flags.py`, adding inputs for the HARD_HAZARD and LOW_RES_DEM masks (its docstring says they come from inputs); it keeps raising `NotImplementedError`.
   7. Check `data/sites/gale_boxwork/README.md` still matches 02 §E.1; state contract versions C1–C5 = v1 in the PR description.
 - **Acceptance:**
@@ -299,7 +299,7 @@
 - **Steps:**
   1. Bit 0 NO_DATA where elevation is NaN.
   2. Bit 3 TI_UNKNOWN where the TI grid is absent or NaN — "unknown", never zero (02 §C.2 L4, 05 §E.6).
-  3. Bit 2 LOW_TI only when a threshold is given (U-03); with no `ti_threshold.json` (v1 cut 4; no v2 cut item) no LOW_TI bit is set. The flag is interpretive.
+  3. Bit 2 LOW_TI only when a threshold is given; U-03 decided 2026-11-10 that no defensible threshold exists, so `ti_threshold.json` is absent and no LOW_TI bit is set ([ti-threshold.md](../ops/ti-threshold.md#decision)). The flag is interpretive.
   4. Bits 1 HARD_HAZARD and 4 LOW_RES_DEM from masks rasterised from the C5 GeoJSON inputs, nearest resampling (02 §C.2 L4); bits 5–7 stay zero.
   5. Make the T03.04 flag tests pass.
 - **Acceptance:**
@@ -308,7 +308,7 @@
   - Given no threshold, no cell carries LOW_TI; given no TI grid, every cell carries TI_UNKNOWN (05 §E.6).
 - **Verify:** `$(make -s pipeline-python) -m pytest -q pipeline/tests/test_derive.py`
 - **Agent brief:** Implement `hazard_flags` in `flags.py` as the 05 flag bitfield: NO_DATA, TI_UNKNOWN, LOW_TI (only with a threshold), HARD_HAZARD and LOW_RES_DEM from input masks. Make T03.04's flag tests pass; a missing TI layer must yield TI_UNKNOWN, never silence.
-- **Conflict notes:** Takes over `flags.py` after T03.01's stub merges. Stacked on T03.04 with T03.09. Its real inputs come from T03.18 and T04.07 at T03.19's run.
+- **Conflict notes:** Takes over `flags.py` after T03.01's stub merges. Stacked on T03.04 with T03.09. Its real inputs come from T03.18 at T03.19's run; T04.07 supplies no threshold input (U-03 decided 2026-11-10 that no defensible threshold exists, so `ti_threshold.json` is absent).
 
 ### T03.11 — Implement the routing-grid writer (u8 slope encoding, little-endian arrays, TI sidecar)
 
@@ -535,7 +535,7 @@
   - With the network off, the bundle loads from a static server on localhost.
 - **Verify:** `make validate SITE=gale_boxwork` · `du -sh data/sites/gale_boxwork` · `git status --porcelain` (only the manifest, vectors and lock file staged)
 - **Agent brief:** Human: run the full pipeline, judge the outputs and commit bundle v1. Agent may drive the commands, summarise validator output and check that no binary or downloaded file is staged.
-- **Conflict notes:** Sole writer of the committed bundle and the lock file; T18.01 later follows up with a new data version. T03.21 and T03.22 start after this merges. Unless v1 cut 4 (no v2 cut item) is called, wait for T04.07's threshold before the final run (Spec questions).
+- **Conflict notes:** Sole writer of the committed bundle and the lock file; T18.01 later follows up with a new data version. T03.21 and T03.22 start after this merges. T04.07 is decided (2026-11-10: no defensible TI "loose fines" threshold, so no `ti_threshold.json` is written and T03.10 sets no `LOW_TI` bits; [ti-threshold.md](../ops/ti-threshold.md#decision)), so this run does not wait on T04.07.
 - **Follow-up (2026-11-09 reconciliation):** TODO(decision): The data lead must reconcile #132's preparation edits with the registered owners of pipeline entry-point, acquisition, reprojection, tiling, manifest and test files; no ownership reassignment is made here.
 
 ### T03.20 — Verify DEM hillshade vs ortho alignment; record the offset
@@ -857,8 +857,8 @@ flowchart LR
 1. **PlanResult required fields (map open point 3).** 05 has no *Req* column for PlanResult, Leg and Warning; T03.01 can record a proposal but 05 must change through a `spec-change:` subtask. Map change proposed: append a `spec-change:` subtask for that 05 wording and U-11 after T03.01, or widen T16.02's scope to include it.
 2. **CI and the geo stack.** `make setup` installs only `pipeline[dev]` (no GDAL, rasterio, numpy or pyproj), so real pipeline tests would fail in CI. This plan guards them with `pytest.importorskip`; whether CI should install the geo stack instead is `TODO(decision)` for T14.01 and T14.02.
 3. **THEMIS and ortho records need T01.04.** 02 Sources gives the THEMIS page only for example tile 30S060E; the AOI tile (pattern `30S120E`) and colour-COG coverage come from T01.04. Map change proposed: add T01.04 → T03.17 (hard: the exact THEMIS tile and ortho product come from the coverage check).
-4. **TI threshold before bundle v1.** If v1 cut 4 (no v2 cut item) is not called, the LOW_TI bits need T04.07's threshold before T03.19 runs. Map change proposed: add T04.07 → T03.19 (hard unless v1 cut 4 (no v2 cut item) is called).
-5. **TI threshold has no manifest field (map open point 10).** It lives in `pipeline/sites/gale_boxwork/ti_threshold.json` (C5) and the methods text.
+4. **TI threshold before bundle v1.** Resolved by the U-03 decision (Obidit Islam, 2026-11-10): there is no defensible TI "loose fines" threshold for the AOI, so `ti_threshold.json` is not written and T03.10 sets no `LOW_TI` bits ([ti-threshold.md](../ops/ti-threshold.md#decision)). T03.19 does not wait on T04.07 and no T04.07 → T03.19 edge is added.
+5. **TI threshold has no manifest field (map open point 10).** The threshold's home would have been `pipeline/sites/gale_boxwork/ti_threshold.json` (C5) and the methods text; under the 2026-11-10 U-03 decision that file stays absent, so 05 still has no manifest field and no manifest change follows ([ti-threshold.md](../ops/ti-threshold.md#decision)).
 6. **Slope tile encoding (map open point 6).** Slope classes follow the current limits (04 §C.1, 05 §F.1), so T03.12 depends on C9's encoding decision.
 7. **Duplicate test (map open point 11).** T03.03 deletes the pipeline stub `test_scale_bar_vs_dem_measured_feature_within_2_percent`; the case belongs to T02.04.
 8. **Slope encoding range.** 05 RoutingGrid encodes 0–63.5° in u8 with 255 = no data; behaviour for steeper cells is unspecified — `TODO(decision)` at T03.11.
