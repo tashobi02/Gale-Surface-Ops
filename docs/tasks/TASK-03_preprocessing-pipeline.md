@@ -538,6 +538,207 @@
 - **Conflict notes:** Sole writer of the committed bundle and the lock file; T18.01 later follows up with a new data version. T03.21 and T03.22 start after this merges. T04.07 is decided (2026-11-10: no defensible TI "loose fines" threshold, so no `ti_threshold.json` is written and T03.10 sets no `LOW_TI` bits; [ti-threshold.md](../ops/ti-threshold.md#decision)), so this run does not wait on T04.07.
 - **Follow-up (2026-11-09 reconciliation):** TODO(decision): The data lead must reconcile #132's preparation edits with the registered owners of pipeline entry-point, acquisition, reprojection, tiling, manifest and test files; no ownership reassignment is made here.
 
+#### T03.19 dry run — 2026-11-10
+
+Obidit Islam requested this fresh real-data **dry run**, not bundle v1. The 2026-11-09 [status row](status.md) recorded the previous run's summary, not its exact CLI command; the DEM and ortho choices below follow the preserved `pipeline/work/t03/dryrun/run.py` in the original checkout, and the TI input follows [ti-threshold.md](../ops/ti-threshold.md). The previous `dryrun3` elevation and TI grids have the same SHA-256 as this run's grids (values below). This establishes equality of those grids, not a complete reproduction of the old run. All run products, logs and the temporary lock are under the git-ignored `pipeline/work/runs/dry-2026-11-10/`; the original checkout's inputs were read only. No source was downloaded.
+
+**Result.** The pipeline exited 1 at `vectors`: both T04.03 packaging functions are stubs. The earlier stages completed; `--skip-unstyled-optional` omitted elevation, thermal-inertia, hazard and comm display tiles. A separate call to the existing manifest step produced a **diagnostic** manifest after that failure; it did not fabricate the missing vectors. The validator exited 1 with five messages: the POI and traverse layer `asset_id` references and their top-level asset references are missing (four messages); solar-minimum `source_id` is `TODO(decision)` and matches no DataSource (one message). JSON Schema validation was available. The incomplete site directory is `55M` by `du -sh`; that size does not establish the final bundle budget. The static-file check returned HTTP 200 for the diagnostic manifest and one ortho tile with byte-for-byte matching bodies. The sandbox first denied loopback sockets; the retry used localhost access outside the sandbox, without an external request. Wi-Fi was not switched off, and a full application load was not checked.
+
+**Input checksums.** The three supplied TIFFs were hashed by the lock-creation command below and written to the git-ignored lock; the same values were re-read and re-verified from the lock afterwards. They identify the cached input files only — the URLs and versions are null, so they are not full source provenance.
+
+| Source id | File (read from the original checkout) | SHA-256 |
+| --- | --- | --- |
+| `usgs-gale-dem-1m-v3` | `pipeline/work/dem/MSL_Gale_DEM_Mosaic_1m_v3.tif` | `c481ae885b4827af68fbdb428e9fac8a824d6828aebfba492577ba39bf55e42e` |
+| `usgs-gale-ortho-25cm-v3` | `pipeline/work/ortho/hirise_lrgb_aoi.tif` | `cf61884fdc3d6a73d814d109537288dcdd929c3df057a619d6b4e21e13194aeb` |
+| `usgs-themis-ti-30s120e` | `pipeline/work/ti/themis_ti_aoi_pad1km.tif` | `c697c4836903b3f87c79853055c4647c62287e3a54ae96e574d873e747d20ee2` |
+
+The TI hash equals the value recorded independently in [ti-threshold.md](../ops/ti-threshold.md) (same file, same digest). The TI sidecar mask `pipeline/work/ti/themis_ti_aoi_pad1km.tif.msk` has SHA-256 `00ce42713e245dbd4442cbe00e00e17b9dc002c192fe34060d1d507520051127`, the same value as [ti-threshold.md](../ops/ti-threshold.md); rasterio read the mask alongside the TIFF.
+
+**Grid checksums.** The two grid files of this run and of the 2026-11-09 `dryrun3` run hash identically:
+
+| File | SHA-256 (both runs) |
+| --- | --- |
+| `grid/elevation.f32` | `201a5d10fdb34d89daf55c7b1a9db45e181629bb63b42bc47266e41a97de1c7f` |
+| `grid/ti_100m.f32` | `1395cb6b9c11604b139edde7077e2992d7f81a53a0cb3125adb57d3c8afc69af` |
+
+The TI grid hash is the same one recorded in [ti-threshold.md](../ops/ti-threshold.md) for `dryrun3`.
+
+| Step | Wall time (seconds) | Result |
+| --- | ---: | --- |
+| acquire | 0.003 | Local checksum-only lock; no source URL to fetch |
+| clip_reproject | 32.977 | Complete |
+| derive | 29.381 | Complete |
+| flags | 0.020 | Complete |
+| grid | 0.019 | Complete |
+| comm_grid | 29.478 | Complete |
+| tiles | 58.786 | Complete with four unstyled optional layers omitted |
+| vectors | 0.000 | Failed at the T04.03 stub; manifest and validate did not run within the CLI |
+| full CLI | 2:30.72 | Exit 1; zsh wall time in minutes:seconds |
+| diagnostic manifest | 0.013 | Run separately after the vector failure |
+| diagnostic validator | 0.086 | Exit 1; five unresolved references |
+| localhost static-file check | 0.507 | Run separately with loopback access; not an offline app-load test |
+
+**Input and output checks.** The generated flags contain **0 LOW_TI cells out of 1,440,000**, using `FLAG_BITS['LOW_TI']`; `ti_threshold.json` is absent, as required by U-03 (Obidit Islam, 2026-11-10). Five proposed POI input records exist and the diagnostic manifest contains their `pois` Layer referring to `vec-pois`; **no POI feature file was packaged or validated**, because T04.03 stopped first. Both measured RAD EnvConstants and both RAD DataSource records were read into the diagnostic manifest; the solar-minimum source reference is unresolved. The three T12.05 model DataSources are present. The manifest carries the existing elevation offset, but no traverse offset. The T21.07 `dose_series.json` is a separate scenario artifact, not a site-manifest asset: its `rad-sol4190` record is labelled `replayed` and has 264 samples. T21.06's second-person review remains open; this run did not validate or regenerate the dose series.
+
+The tiler emitted 582 `NotGeoreferencedWarning` messages while writing PNG tiles. The warning originates at rasterio's in-memory image writer used by `tiles.py`; it does not by itself establish a tile-alignment failure. TODO(verify), T02.04 / T03.12: Saba Atharique and Obidit Islam should check the generated tiles' addressing, alignment and hillshade encoding against C9 and the real-map check. The TI input's external `.msk` was present and read by rasterio; its SHA-256 is recorded above. The diagnostic lock binds the three supplied TIFF bytes but is **not** the 05 §E.5 release lock: its per-source URLs and versions and its `tools` fields are empty and it does not bind that mask; its `data_version` is not null — the `acquire` step copied `gale_boxwork-2026.11.09` from `site.json`, which T03.16 recorded as the planned M2 bundle date. GDAL 3.13.3, rasterio 1.5.2 and numpy 2.5.4 were reported by the environment version command below.
+
+**Default-start passability.** T03.16 records that T03.14 checks the start cell at T03.19, and T03.19 is where that check happened. The validator's `default_start` passability check ([validate_manifest.py](../../pipeline/src/marswalk_pipeline/validate_manifest.py)) ran against the diagnostic manifest and reported **no `default_start` finding**: `default_start` is `(1037, −1652)` inside `aoi.extent_m`, and the manifest's `grid.flags_asset` (`grid-flags`) and `grid.slope_p90_asset` (`grid-slope-p90`) both resolve, so the cell was read and found passable. The validator output below lists only the five unresolved references; neither `default_start` nor `hab_mast` appears in it. This is the T03.16→T03.14 check satisfied for the diagnostic manifest only — the same check must still pass on the complete bundle, with the packaged POI and traverse assets present.
+
+**Still required before bundle v1:**
+
+- **T03.19, ortho ladder:** TODO(decision), Obidit Islam, data lead. On 2026-11-10 he kept open the choice between the configured 2 m PNG ladder and 02 §C.3's 0.5 m JPEG. TODO(decision) `spec-change:` if the selected outcome requires a change to 02; do not edit the spec in this dry run.
+- **T03.12 / T02.01, display encodings:** TODO(decision), Obidit Islam with the 04 design and C9 owner Saba Atharique. Set the elevation and TI ramps and hazard and comm display encodings; the dry run omits all four optional display layers. Verify the hillshade encoding and real-tile alignment under T03.12 / T02.04 as noted above.
+- **T03.19 / #132 ownership:** TODO(decision), Obidit Islam. Reconcile the preparation edits with the registered file owners; no ownership is reassigned by this record.
+- **T04.02 (tests), T04.03 and T04.08:** Mishkat Ahmed Khan must write the traverse/POI packaging tests (T04.02), implement the packaging (T04.03), then measure and record the traverse alignment (T04.08). T04.03's packaging functions are stubs, so the run stopped there. The cached T04.01 traverse file exists; no vector was generated and `known_offsets_m.traverse` is absent.
+- **T04.04 and T04.05:** Sadman Shaharier Mahim must review the proposed POIs and complete the human image work or resolve the documented unavailable-image handling. These records are not yet approved, and the dry run could not package or validate their features.
+- **T06.10 and map open point 12:** TODO(decision), Obidit Islam must confirm the solar-minimum source id; Mishkat Ahmed Khan owns the RAD records and their remaining metadata checks, `TODO(verify)`. The present draft fails referential integrity.
+- **T03.20 — flag from this dry run, TODO(decision), Obidit Islam (data lead):** the T03.20 acceptance calls for a human measurement of the DEM-to-ortho offset, but the closure was delegated and the result was *not* GIS-checked. The [verification record](../ops/verification-log.md#delegated-closure-and-remaining-checks) lists the remaining checks as the LOW_RES_DEM overlay, the slope and hazards candidates and the T01.07 second check; it lists no outstanding GIS check of the offset. The existing status row says `done` for the delegated three-method tool confirmation, and this dry run does not revise that decision or status. **The data lead decides whether this blocks bundle v1.**
+- **T04.01 / U-04:** TODO(decision), Obidit Islam must confirm the Proposed traverse source and its outstanding range and clipping choices; publisher, credit and licence remain `TODO(verify)` in the existing T04.01 record. T12.05 is recorded `done`; its three model sources are present, so it is no longer listed as a missing-record blocker.
+- **T03.19 final release checks:** Obidit Islam must judge the outputs, prepare the actual source lock with URLs, versions and checksums, rebuild the complete bundle, obtain a passing validator, check the final size and verify the offline application load. He must also **confirm or bump `data_version`** when bundle v1 is built: it is currently `gale_boxwork-2026.11.09`, the planned M2 bundle date that T03.16 recorded in `site.json` and that the diagnostic lock and manifest carry. Any later asset change is a new `data_version` (T03.19 step 5; 05 §E.6). The [T03.20 verification record](../ops/verification-log.md#delegated-closure-and-remaining-checks) also leaves the LOW_RES_DEM interpretation and empty-hazards review for him. No generated artifact is staged or committed by this dry run.
+
+**Commands and evidence.** Every command below is run from the worktree root with the pipeline interpreter taken from the Makefile, per CLAUDE.md §4: `PY="$(make -s pipeline-python)"`. `SRC` is the read-only input cache in the original checkout; it is only read. The temporary checksum lock was created with the following command. Its null URLs prevent the acquisition step from initiating a download; the raster overrides are checksum-checked by the CLI. The source TIFF checksums are printed by the command and remain in the ignored lock.
+
+```sh
+PY="$(make -s pipeline-python)"
+SRC=/home/obidit/secondBrain/coding/CheesySpace-NasaSpaceAppChallenge/pipeline/work
+"$PY" - "$SRC" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+run = Path('pipeline/work/runs/dry-2026-11-10')
+source = Path(sys.argv[1])
+inputs = {
+    'usgs-gale-dem-1m-v3': source / 'dem/MSL_Gale_DEM_Mosaic_1m_v3.tif',
+    'usgs-gale-ortho-25cm-v3': source / 'ortho/hirise_lrgb_aoi.tif',
+    'usgs-themis-ti-30s120e': source / 'ti/themis_ti_aoi_pad1km.tif',
+}
+assert not run.exists()
+assert all(p.is_file() for p in inputs.values())
+assert (source / 'traverse/localized_interp.csv').is_file()
+run.mkdir(parents=True)
+entries = []
+for source_id, path in inputs.items():
+    with path.open('rb') as stream:
+        sha256 = hashlib.file_digest(stream, 'sha256').hexdigest()
+    entries.append({'source_id': source_id, 'url': None, 'version': None, 'sha256': sha256})
+    print(source_id, path, sha256, flush=True)
+lock = {'$comment': 'Local-only diagnostic lock; input checksums identify cached files, not full source provenance.',
+        'data_version': None, 'tools': {'gdal': None, 'rasterio': None}, 'sources': entries}
+(run / 'sources.lock.json').write_text(json.dumps(lock, indent=2) + '\n', encoding='utf-8')
+PY
+```
+
+The exact pipeline invocation and its diagnostic manifest and validator calls were:
+
+```zsh
+PY="$(make -s pipeline-python)"
+SRC=/home/obidit/secondBrain/coding/CheesySpace-NasaSpaceAppChallenge/pipeline/work
+set -o pipefail
+TIMEFMT='total_wall_seconds %*E'
+{ time env PYTHONPATH="$PWD/pipeline/src" GDAL_PAM_ENABLED=NO PROJ_NETWORK=OFF CPL_VSIL_CURL_ALLOWED_EXTENSIONS= GDAL_CACHEMAX=128 "$PY" -m marswalk_pipeline gale_boxwork --out pipeline/work/runs/dry-2026-11-10/site --work pipeline/work/runs/dry-2026-11-10/work --lock pipeline/work/runs/dry-2026-11-10/sources.lock.json --dem "$SRC/dem/MSL_Gale_DEM_Mosaic_1m_v3.tif" --ortho "$SRC/ortho/hirise_lrgb_aoi.tif" --ti "$SRC/ti/themis_ti_aoi_pad1km.tif" --traverse "$SRC/traverse/localized_interp.csv" --skip-unstyled-optional; } 2>&1 | tee pipeline/work/runs/dry-2026-11-10/pipeline.log
+
+PYTHONPATH="$PWD/pipeline/src" "$PY" - <<'PY'
+from pathlib import Path
+from time import monotonic
+from marswalk_pipeline.__main__ import _run_step
+
+root = Path.cwd()
+run = root / 'pipeline/work/runs/dry-2026-11-10'
+start = monotonic()
+_run_step('manifest', root, root / 'pipeline/sites/gale_boxwork', run / 'work', run / 'site',
+          lock_path=run / 'sources.lock.json', skip_unstyled_optional=True)
+print(f'diagnostic manifest: {monotonic() - start:.3f}s')
+PY
+
+set -o pipefail
+TIMEFMT='validator_wall_seconds %*E'
+{ time env PYTHONPATH="$PWD/pipeline/src" "$PY" -m marswalk_pipeline.validate_manifest pipeline/work/runs/dry-2026-11-10/site; } 2>&1 | tee pipeline/work/runs/dry-2026-11-10/validate.log
+du -sh pipeline/work/runs/dry-2026-11-10/site
+rg -c 'NotGeoreferencedWarning' pipeline/work/runs/dry-2026-11-10/pipeline.log
+sha256sum "$SRC/ti/themis_ti_aoi_pad1km.tif.msk"
+```
+
+The `.msk` checksum was `00ce42713e245dbd4442cbe00e00e17b9dc002c192fe34060d1d507520051127`. An initial invocation using `/usr/bin/time` did not start the pipeline because that binary was absent; the successful invocation above used zsh's `time`. `git check-ignore -v` confirmed that the scratch manifest, grid and lock are covered by `.gitignore`'s `pipeline/work/*` rule.
+
+The following command counted the flag bit and inspected the POI and RAD records without changing them:
+
+```sh
+PY="$(make -s pipeline-python)"
+PYTHONPATH="$PWD/pipeline/src" "$PY" - <<'PY'
+import json
+from pathlib import Path
+import numpy as np
+from marswalk_pipeline.config import FLAG_BITS
+
+site = Path('pipeline/work/runs/dry-2026-11-10/site')
+config = Path('pipeline/sites/gale_boxwork')
+manifest = json.loads((site / 'site-manifest.json').read_text())
+flags = np.fromfile(site / 'grid/flags.u8', dtype=np.uint8)
+low_ti = np.count_nonzero(flags & (1 << FLAG_BITS['LOW_TI']))
+print('LOW_TI cells:', low_ti, 'of', flags.size)
+assert low_ti == 0
+pois = sorted(p.stem for p in (config / 'pois').glob('*.json'))
+print('input POIs:', len(pois), ', '.join(pois))
+print('manifest POI layers:', [(x['layer_id'], x['asset_id']) for x in manifest['layers'] if x['layer_id'] == 'pois'])
+print('packaged POI asset exists:', (site / 'vectors/pois.geojson').is_file())
+print('RAD constants:', [(x['const_id'], x['provenance'], x['source_id']) for x in manifest['env_constants']])
+print('RAD sources:', [x['source_id'] for x in manifest['sources'] if x['source_id'] in ('hassler-2014-rad', 'simonsen-2024-rad')])
+print('known offsets:', manifest['known_offsets_m'])
+dose = json.loads(Path('scenarios/storm-sol4190/dose_series.json').read_text())
+print('separate scenario dose:', dose['series_id'], dose['provenance'], dose['source_id'], len(dose['samples']), 'samples')
+PY
+```
+
+The old/new grid checks and tool versions were obtained with:
+
+```sh
+PY="$(make -s pipeline-python)"
+SRC=/home/obidit/secondBrain/coding/CheesySpace-NasaSpaceAppChallenge/pipeline/work
+sha256sum "$SRC/t03/dryrun3/site/grid/elevation.f32" pipeline/work/runs/dry-2026-11-10/site/grid/elevation.f32 "$SRC/t03/dryrun3/site/grid/ti_100m.f32" pipeline/work/runs/dry-2026-11-10/site/grid/ti_100m.f32
+"$PY" -c 'import rasterio, osgeo.gdal as gdal, numpy; print("GDAL",gdal.VersionInfo("RELEASE_NAME"),"rasterio",rasterio.__version__,"numpy",numpy.__version__)'
+"$PY" -c "import json; m=json.load(open('pipeline/work/runs/dry-2026-11-10/site/site-manifest.json')); print('model sources:', [x['source_id'] for x in m['sources'] if x['source_id'] in ('tobler-1993','apollo17-planning','mars24-allison-mcewen-2000')]); print('produced layers:', [x['layer_id'] for x in m['layers']]); print('assets:', len(m['assets']))"
+```
+
+The localhost check was the following exact command, first denied by the sandbox and then rerun with localhost access:
+
+```sh
+PY="$(make -s pipeline-python)"
+"$PY" - <<'PY'
+from functools import partial
+from http.client import HTTPConnection
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from threading import Thread
+from time import monotonic
+
+class Quiet(SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+site = Path('pipeline/work/runs/dry-2026-11-10/site')
+start = monotonic()
+server = ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=str(site)))
+thread = Thread(target=server.serve_forever, daemon=True)
+thread.start()
+try:
+    for path in ('/site-manifest.json', '/tiles/ortho/0/0/0.png'):
+        conn = HTTPConnection('127.0.0.1', server.server_port, timeout=5)
+        conn.request('GET', path)
+        response = conn.getresponse()
+        body = response.read()
+        print(path, 'status', response.status, 'bytes', len(body))
+        assert response.status == 200 and body == (site / path.lstrip('/')).read_bytes()
+        conn.close()
+finally:
+    server.shutdown()
+    thread.join()
+    server.server_close()
+print(f'localhost static-file check: {monotonic() - start:.3f}s')
+PY
+```
+
 ### T03.20 — Verify DEM hillshade vs ortho alignment; record the offset
 
 - **Owner:** Obidit Islam (team lead · R1 Data & GIS)
