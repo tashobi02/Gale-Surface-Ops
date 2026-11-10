@@ -290,3 +290,4 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).
+| 2026-11-10 | Antigravity (Gemini) | T07.06: implemented createMap.ts — OL map on MARS_LOCAL projection, metric scale bar (no ol/sphere), north arrow, coordinate readout (data-provenance=derived, 5-decimal °E), C10 MapHandle interface; 10 unit tests with vi.hoisted class mocks | Followed spec 02 §C.1, §C.4, 04 §E; CRS guard verified in tests
