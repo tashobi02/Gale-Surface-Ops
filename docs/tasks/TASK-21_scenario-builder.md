@@ -354,7 +354,7 @@
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
 - **Estimate:** 2–3 h
-- **Owns (writes):** `apps/hab-core/scripts/demo-numbers.ts`, `apps/hab-core/tests/demoNumbers.test.ts`, `apps/hab-core/tests/__snapshots__/demoNumbers.test.ts.snap`, `apps/hab-core/package.json` (append-only)
+- **Owns (writes):** `apps/hab-core/scripts/demo-numbers.ts`, `apps/hab-core/tests/demoNumbers.test.ts`, `apps/hab-core/tests/__snapshots__/demoNumbers.alert.snap`, `apps/hab-core/tests/__snapshots__/demoNumbers.eva.snap`, `apps/hab-core/package.json` (append-only)
 - **Reads:** `scenarios/storm-sol4190/dose_series.json`, `scenarios/storm-sol4190/param_sets/alert-assumed.json`, `scenarios/storm-sol4190/earth_link.json`, `scenarios/storm-sol4190/plan.json` (when present), `docs/ops/feasibility/hab-site.md`, `packages/compute/src/eventDose.ts` (`triggerState`), `packages/compute/src/mars24.ts` (`localTrueSolarTime`), `packages/compute/src/sun.ts` (`sunriseSunset`, `solarPosition`), `packages/compute/src/earthLink.ts` (`nextPassStart` once T05b.13 lands), [01 §E.1](../specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video), `docs/ops/demo-script.md`, [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11)
 - **Depends on:** T21.07 (hard: dose series), T21.04 (hard: Earth-link table), T05b.15 (hard: triggerState for the first alert sample), T06.06 (hard: LTST), T06.07 (hard: sunrise and sunset), T21.12 (soft: leg times for the stop-2 start rule; those parts skip until plan.json exists), T05b.13 (soft: switch the pass lookup to nextPassStart)
 - **Parallel with:** T21.08

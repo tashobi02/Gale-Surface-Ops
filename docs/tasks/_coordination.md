@@ -817,7 +817,8 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `apps/hab-core/src/scenario.ts` | T22.11 | stub by T22.01 |
 | `apps/hab-core/src/server.ts` | T20.04 | T20.12, T26.02, T27.01, T28.02 follow up (one at a time) |
 | `apps/hab-core/src/session.ts` | T22.12 | stub by T22.01 |
-| `apps/hab-core/tests/__snapshots__/demoNumbers.test.ts.snap` | T21.15 | Written by Vitest; committed so a rebuilt table shows as a diff |
+| `apps/hab-core/tests/__snapshots__/demoNumbers.alert.snap` | T21.15 | Written by Vitest (`toMatchFileSnapshot`); committed so a rebuilt table shows as a diff |
+| `apps/hab-core/tests/__snapshots__/demoNumbers.eva.snap` | T21.15 | Written by Vitest once `plan.json` exists |
 | `apps/hab-core/tests/clock.test.ts` | T22.03 | — |
 | `apps/hab-core/tests/commands.test.ts` | T23.01 | — |
 | `apps/hab-core/tests/conditions.test.ts` | T22.16 | — |
