@@ -87,7 +87,7 @@ describe("mars24 time functions (T06.03 / T06.06, FR-11)", () => {
     }
   });
 
-  it("matches marstime LTST within 1 min against fixture ltst_hours at all reference timestamps (01 FR-11, 02 §D.5)", () => {
+  it("matches F6 continuous LTST (ltst_hours, not the rounded HH:MM string) within 1 min at all reference timestamps (01 FR-11, 02 §D.5)", () => {
     const lonE = f6.site.lon_e;
     for (const record of f6.records) {
       const utc = new Date(record.utc);
@@ -103,17 +103,28 @@ describe("mars24 time functions (T06.03 / T06.06, FR-11)", () => {
     }
   });
 
-  it("reproduces published MSL Curiosity touchdown sanity case (2012-08-06T05:17:57Z: L_s ≈ 150.7°, LMST ≈ 15:0x)", () => {
-    // NASA MSL touchdown confirmed at Gale Crater: 2012-08-06T05:17:57Z (Allison & McEwen 2000 / JPL MSL Mission)
+  // TODO(verify): the MSL touchdown cross-check below is a sanity case, not an independent reference. The
+  // touchdown instant and L_s 150.7° / Mars Year 31 were taken from the branch author's notes and have no
+  // citation in this repo; confirm them against a published MSL landing source before treating this as
+  // evidence. The F6 record for the same instant (2012-08-06T05:17:57Z) is the checked reference; the former
+  // LTST assertion (15.6 h) was this implementation's own output and has been dropped.
+  it("MSL touchdown instant (2012-08-06T05:17:57Z): L_s about 150.7° and Mars Year 31, matching F6", () => {
     const landingUtc = new Date("2012-08-06T05:17:57Z");
     const sol = solarLongitude(landingUtc);
-    expect(sol.ls_deg).toBeCloseTo(150.7, 1);
+    const record = f6.records.find((r) => r.utc === "2012-08-06T05:17:57Z");
+    expect(record, "F6 record for the MSL touchdown instant").toBeDefined();
     expect(sol.mars_year).toBe(31);
+    expect(sol.mars_year).toBe(record!.mars_year);
+    expect(Math.abs(sol.ls_deg - 150.7)).toBeLessThan(0.05);
+    expect(Math.abs(sol.ls_deg - record!.ls_deg)).toBeLessThan(0.05);
+  });
 
-    // Gale crater center lon_e = 137.38° (MSD ~49269.245, MTC ~5.89h, LMST ~15:03, LTST ~15:36 with EOT ~33 min)
-    const ltst = localTrueSolarTime(landingUtc, 137.38);
-    const hours = parseLtstHours(ltst);
-    expect(hours).toBeCloseTo(15.6, 1);
+  it("accepts 1972-01-01T00:00:00Z (TAI-UTC 10 s, NAIF naif0012.tls) and rejects the second before it", () => {
+    const first = new Date("1972-01-01T00:00:00Z");
+    const utcJ2000Days = first.getTime() / 86_400_000 + (2_440_587.5 - 2_451_545);
+    const ttMinusUtcSeconds = (j2000OffsetTt(first) - utcJ2000Days) * 86_400;
+    expect(Math.abs(ttMinusUtcSeconds - (32.184 + 10))).toBeLessThanOrEqual(0.0001);
+    expect(() => j2000OffsetTt(new Date("1971-12-31T23:59:59Z"))).toThrow(RangeError);
   });
 
   it("throws RangeError on invalid Date instances", () => {

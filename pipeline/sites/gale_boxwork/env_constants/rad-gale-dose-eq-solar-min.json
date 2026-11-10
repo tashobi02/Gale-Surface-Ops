@@ -12,5 +12,5 @@
   },
   "provenance": "measured",
   "source_id": "TODO(decision)",
-  "note": "reported range, Simonsen et al. 2024; source_id is Proposed/TODO(decision) per map open point 12"
+  "note": "DRAFT, not bundle-ready: reported range, Simonsen et al. 2024. source_id is TODO(decision) per map open point 12 and matches no DataSource id, so manifest referential integrity would reject it; the data lead confirms the id, then the DataSource record and this record use it consistently"
 }

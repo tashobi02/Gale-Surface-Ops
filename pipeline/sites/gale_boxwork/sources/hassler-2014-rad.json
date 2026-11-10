@@ -11,9 +11,9 @@
   ],
   "version": "Science 343(6169), 1244797",
   "url": "https://pubmed.ncbi.nlm.nih.gov/24324275/",
-  "doi": "TODO(verify)",
+  "doi": "10.1126/science.1244797",
   "credit": "Hassler et al., 2014",
   "licence": "TODO(verify)",
-  "accessed": "2026-11-08",
-  "accuracy_note": "Surface dose equivalent rate measured by MSL RAD inside Gale Crater during solar maximum (2012–2013). Title, authors, URL, and version (Science 343(6169), 1244797) from docs/reference/mars-scientific-context.md §14; DOI marked TODO(verify) pending direct check."
+  "accessed": "2026-11-02",
+  "accuracy_note": "Surface dose equivalent rate measured by MSL RAD inside Gale Crater during solar maximum (2012–2013)."
 }

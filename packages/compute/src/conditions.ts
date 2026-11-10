@@ -11,6 +11,11 @@
  *
  * Handler integration note (step 5 gap): handler.ts does not call assembleConditions
  * while it throws TODO(T06.09); C8 integration into handler is tracked under T05.32.
+ *
+ * Sunrise/sunset contract (T06.07): sunriseSunset throws SunEventsUnavailableError (a RangeError) when the
+ * sun does not cross the flat horizon in the sol (polar day or night). 05 PlanResult.conditions has no
+ * absent-event form, so T06.09 must catch it and either omit `conditions` or decide the DARKNESS semantics.
+ * TODO(decision): team to confirm; not reachable at Gale (lat about -4.7 deg).
  */
 import type { EnvConstant, MissionScenario, PlanResult } from "@marswalk/protocol";
 
@@ -40,6 +45,6 @@ export interface ConditionsResult {
  * Assemble per-stop solar conditions, EVA-sol conditions, and background radiation dose (Contract C8).
  * Pure function: takes timeline and scenario, returns conditions components of PlanResult. TASK-06 (T06.09).
  */
-export function assembleConditions(_inputs?: ConditionsInputs): ConditionsResult {
+export function assembleConditions(_inputs: ConditionsInputs): ConditionsResult {
   throw new Error("TODO(T06.09): not implemented");
 }
