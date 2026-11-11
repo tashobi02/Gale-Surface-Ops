@@ -44,11 +44,10 @@ TI_ASSET = "grid-ti"
 # C5 v2: the optional candidate hab site records live in this file of the site-config folder.
 CANDIDATES_FILE = "hab_candidates.json"
 
-# C5 v2 candidate asset ids (T03.31 step 4, Proposed): the rank-1 candidate keeps the existing
-# `grid-comm-hab` asset at `grid/comm_hab.u8`; any other candidate gets `grid-comm-<candidate_id>`
-# at `grid/comm_<candidate_id>.u8`. The rule keeps `grid.comm_hab_asset` unchanged for every
-# current consumer. TODO(decision): the 05 §F.1 example illustrates an id for every candidate
-# (`grid-comm-hab-first`); a reviewer who prefers those changes this rule and every consumer.
+# C5 v2 candidate asset ids (05 HabCandidate `comm_hab_asset`, decided 2026-11-11 by T03.37):
+# the rank-1 candidate keeps the existing `grid-comm-hab` asset at `grid/comm_hab.u8`; any other
+# candidate gets `grid-comm-<candidate_id>` at `grid/comm_<candidate_id>.u8`. The rule keeps
+# `grid.comm_hab_asset` unchanged for every current consumer.
 RANK_ONE_ASSET_ID = "grid-comm-hab"
 RANK_ONE_FILE_NAME = "comm_hab.u8"
 

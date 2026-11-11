@@ -199,7 +199,7 @@ A candidate hab site, prepared on Earth by the pipeline and chosen at mission se
 | `rank` | int | ✓ | ≥ 1, unique; 1 is the default | `1` |
 | `hab_mast` | `{x_m, y_m, height_m}` | ✓ | Passable cell inside the AOI | see §F.1 |
 | `lat`, `lon_e` | number | ✓ | planetocentric °, east-positive; consistent with `hab_mast` | — |
-| `comm_hab_asset` | FK | ✓ | Same encoding and shape as `grid.comm_hab_asset`, computed from this candidate's mast | `"grid-comm-hab-first"` |
+| `comm_hab_asset` | FK | ✓ | Same encoding and shape as `grid.comm_hab_asset`, computed from this candidate's mast. *(2026-11-11)* Asset id: the rank-1 candidate uses `grid.comm_hab_asset` itself (`grid-comm-hab`, file `grid/comm_hab.u8`); any other candidate `grid-comm-<candidate_id>` (file `grid/comm_<candidate_id>.u8`) | `"grid-comm-hab"` |
 | `default_start` | `{x_m, y_m, label}` | ✓ | The planner's start waypoint when this candidate is chosen | — |
 | `note` | string | | Why it is on the list (for example the trade-off in [hab-site.md](../ops/feasibility/hab-site.md)) | — |
 | `provenance`, `source_ids` | enum, string[] | ✓ | `assumed` for a curated choice; sources of the checks | `"assumed"` |
@@ -758,7 +758,7 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
   "default_start": {"x_m": -1800, "y_m": -1500, "label": "Habitat / rover"},
   "hab_candidates": [
     {"candidate_id": "hab-first", "label": "First choice", "rank": 1,
-     "hab_mast": {"x_m": null, "y_m": null, "height_m": 10}, "comm_hab_asset": "grid-comm-hab-first",
+     "hab_mast": {"x_m": null, "y_m": null, "height_m": 10}, "comm_hab_asset": "grid-comm-hab",
      "default_start": {"x_m": null, "y_m": null, "label": "Habitat / rover"},
      "note": "Ridges around it cast comm shadows on the track (hab-site.md)", "provenance": "assumed", "source_ids": []},
     {"candidate_id": "hab-alternative", "label": "Alternative", "rank": 2,

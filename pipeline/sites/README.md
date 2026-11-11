@@ -67,7 +67,7 @@ One array of objects:
 
 So a hand-written record carries no height, no latitude, no longitude and no asset id.
 
-### Candidate asset ids *(Proposed, T03.31)*
+### Candidate asset ids *(decided 2026-11-11, T03.37)*
 
 | Candidate | Asset id | File |
 | --- | --- | --- |
@@ -76,7 +76,7 @@ So a hand-written record carries no height, no latitude, no longitude and no ass
 
 The rank-1 candidate keeps the existing `grid-comm-hab` asset, so `grid.comm_hab_asset` and every current consumer of it are unchanged. Any other candidate gets its own grid under its own id.
 
-*Spec question (T03.31):* [05 §F.1](../../docs/specs/05_Backend_and_Database_Schema.md#f1-site-manifest-abridged-aoi-values-illustrative-until-task-01) illustrates the candidates with `grid-comm-hab-first` and `grid-comm-hab-alternative`, that is, the "every candidate gets its own id" rule. The rule above is **Proposed** and differs from that example on purpose, so that `grid.comm_hab_asset` keeps its current value. If the reviewer prefers the 05 §F.1 example ids for every candidate, `grid.comm_hab_asset` changes for every consumer and this section is rewritten; that choice is `TODO(decision)`.
+*Decision (T03.37, 2026-11-11):* proposed by T03.31, chosen by the data lead (Obidit Islam) over the earlier 05 §F.1 example `grid-comm-hab-first`, and written into [05 HabCandidate](../../docs/specs/05_Backend_and_Database_Schema.md#habcandidate-2026-11-10-proposed) and the [05 §F.1](../../docs/specs/05_Backend_and_Database_Schema.md#f1-site-manifest-abridged-aoi-values-illustrative-until-task-01) example.
 
 ### Cross-field rules
 
@@ -125,4 +125,4 @@ Layer ids: 05 §F.1 fixes `slope` and `elevation`; the task files fix `comm_hab`
 | `traverse` | `vectors/traverse.geojson` | T04.01 |
 | `pois` | `vectors/pois.geojson` | T04.04 |
 
-Asset ids follow the 05 examples: `tiles-<layer_id>`; `grid-elevation`, `grid-slope-p90`, `grid-slope-max`, `grid-flags`, `grid-ti`, `grid-comm-hab`; `vec-pois`, `vec-traverse`; `img-<name>` for `poi-<name>`. The candidate comm grids follow the [candidate asset-id rule](#candidate-asset-ids-proposed-t0331): `grid-comm-hab` for the rank-1 candidate, `grid-comm-<candidate_id>` for the others.
+Asset ids follow the 05 examples: `tiles-<layer_id>`; `grid-elevation`, `grid-slope-p90`, `grid-slope-max`, `grid-flags`, `grid-ti`, `grid-comm-hab`; `vec-pois`, `vec-traverse`; `img-<name>` for `poi-<name>`. The candidate comm grids follow the [candidate asset-id rule](#candidate-asset-ids-decided-2026-11-11-t0337): `grid-comm-hab` for the rank-1 candidate, `grid-comm-<candidate_id>` for the others.
