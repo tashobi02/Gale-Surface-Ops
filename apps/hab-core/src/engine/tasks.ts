@@ -120,8 +120,10 @@ export function handleUpdateStopTask(
   }
 
   // Undo: only the role that made the last change may reverse it, and a `system` change cannot be reversed.
-  if (a.undo === true && (task.updated_by === "system" || task.updated_by !== command.role)) {
-    return reject(command, "FORBIDDEN_ROLE", `${command.role} is not the actor of the last change to ${taskId} (${task.updated_by}); only that role may undo it`);
+  // A task with no such change (never updated, or dropped) is not a role question: it falls through to INVALID.
+  const lastActor = state.task_actor?.[taskId];
+  if (a.undo === true && (task.state === "DONE" || task.state === "SKIPPED") && lastActor !== undefined && (lastActor === "system" || lastActor !== command.role)) {
+    return reject(command, "FORBIDDEN_ROLE", `${command.role} is not the actor of the last change to ${taskId} (${lastActor}); only that role may undo it`);
   }
   if (a.undo !== undefined && typeof a.undo !== "boolean") {
     return reject(command, "INVALID", "UPDATE_STOP_TASK args.undo must be true or false");
@@ -302,7 +304,7 @@ export function onPlanRevised(state: EngineState, revised: LogEvent): PendingEve
         kind: "TASK_DROPPED",
         actor: "system",
         data: data as Record<string, unknown>,
-        provenance: {},
+        provenance: { "data.plan_revision": "simulated" },
       });
     }
   }
@@ -390,6 +392,7 @@ export function reduceTaskEvent(state: EngineState, event: LogEvent): EngineStat
         ...state,
         // The plan revision of this change, for the staleness rule of an undo (reducer.ts `task_plan_rev`; #202).
         task_plan_rev: { ...state.task_plan_rev, [d.task_id]: state.session.plan_revision },
+        task_actor: { ...state.task_actor, [d.task_id]: event.actor },
         tasks: state.tasks.map((t) =>
           t.task_id === d.task_id
             ? {

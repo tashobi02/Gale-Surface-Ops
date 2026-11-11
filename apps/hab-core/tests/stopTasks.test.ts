@@ -546,7 +546,7 @@ describe("stop tasks in the engine", () => {
     expect(tickResult.state.tasks[0].state).toBe("DONE");
   });
 
-  it("two headless runs give the same TASK_* events (NFR-06)", () => {
+  it("seedTasks is a pure function of the scenario: two calls give equal events", () => {
     const run1 = seedTasks(fake);
     const run2 = seedTasks(fake);
     expect(run1).toEqual(run2);
@@ -699,6 +699,8 @@ function seeded(): EngineState {
 const taskOf = (s: EngineState, id: string): StopTask => s.tasks.find((t) => t.task_id === id)!;
 
 describe("UPDATE_STOP_TASK transitions (FR-50)", () => {
+  const undoArgs = { task_id: "t-s1-01", state: "TODO", undo: true };
+
   it("DONE and SKIPPED are accepted only from TODO", () => {
     const base = seeded();
     const done = send(base, "ops", { task_id: "t-s1-01", state: "DONE" });
@@ -741,7 +743,20 @@ describe("UPDATE_STOP_TASK transitions (FR-50)", () => {
   });
 
   it("undo true from anyone but the actor of the last change is FORBIDDEN_ROLE before the target is looked at", () => {
-    expect(codeOf(send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE", undo: true }).out.result)).toBe("FORBIDDEN_ROLE");
+    const opsDone = send(seeded(), "ops", { task_id: "t-s1-01", state: "DONE" }).next;
+    expect(codeOf(send(opsDone, "eva:EV1", { task_id: "t-s1-01", state: "DONE", undo: true }).out.result)).toBe("FORBIDDEN_ROLE");
+  });
+
+  it("an undo on a task nobody ever updated is INVALID for every role, not FORBIDDEN_ROLE", () => {
+    for (const role of ["ops", "eva:EV1"] as const) expect(codeOf(send(seeded(), role, undoArgs).out.result), role).toBe("INVALID");
+  });
+
+  it("an undo on a dropped task is INVALID, whether it was ever updated or not", () => {
+    const never = applyEvent(seeded(), "TASK_DROPPED", { task_id: "t-s1-01", stop_id: "wp-1", plan_revision: 2 });
+    for (const role of ["ops", "eva:EV1"] as const) expect(codeOf(send(never, role, undoArgs).out.result), role).toBe("INVALID");
+    const undone = send(send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next, "eva:EV1", undoArgs).next;
+    const dropped = applyEvent(undone, "TASK_DROPPED", { task_id: "t-s1-01", stop_id: "wp-1", plan_revision: 2 });
+    for (const role of ["ops", "eva:EV1"] as const) expect(codeOf(send(dropped, role, undoArgs).out.result), role).toBe("INVALID");
   });
 
   it("a state outside TODO, DONE, SKIPPED is INVALID", () => {
@@ -810,8 +825,8 @@ describe("UPDATE_STOP_TASK undo (FR-50, spec change #202)", () => {
     expect(codeOf(send(unlinked, "eva:EV1", undoArgs).out.result)).toBe("NO_LINK");
     // Linked, not the actor, and the task is also not undoable for another reason (none here): FORBIDDEN_ROLE.
     expect(codeOf(send(opsDone, "eva:EV1", undoArgs).out.result)).toBe("FORBIDDEN_ROLE");
-    // Not the actor of a task that was never changed (state TODO, last event TASK_ADDED by system): FORBIDDEN_ROLE before INVALID.
-    expect(codeOf(send(seeded(), "eva:EV1", undoArgs).out.result)).toBe("FORBIDDEN_ROLE");
+    // A task nobody ever updated has no actor to compare with: INVALID, not FORBIDDEN_ROLE (#202).
+    expect(codeOf(send(seeded(), "eva:EV1", undoArgs).out.result)).toBe("INVALID");
   });
 
   it("an undo of a task that is TODO, or DROPPED, by the actor of its last event is INVALID", () => {
@@ -880,6 +895,15 @@ describe("UPDATE_STOP_TASK undo (FR-50, spec change #202)", () => {
 });
 
 describe("stop task provenance (05 StopTask, NFR-05)", () => {
+  it("TASK_DROPPED provenance is not empty and names a field of its data", () => {
+    const [e] = onPlanRevised(
+      withTask(running, { ...sampleTaskEV1, stop_id: "wp-2" }),
+      { seq: 9, sim_time: T0, kind: "PLAN_REVISED", actor: "ops", data: { plan_revision: 2, option_id: null, stops_dropped: [2], waypoints: [], legs: [] } as never, provenance: {}, command_ref: null },
+    );
+    expect(e.provenance).toEqual({ "data.plan_revision": "simulated" });
+    expect(Object.keys(e.data)).toContain("plan_revision");
+  });
+
   const fieldsOf = (e: PendingEvent): string[] => Object.keys(e.provenance).map((k) => k.replace(/^data\./, ""));
 
   it("TASK_ADDED provenance keys are fields of its data (seeded and ops-added)", () => {

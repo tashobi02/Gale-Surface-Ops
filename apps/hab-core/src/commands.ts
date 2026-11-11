@@ -118,7 +118,7 @@ export function handleCommand(state: EngineState, command: Command, ctx: Command
     checkRole(state, command);
     checkLink(state, command);
     const out = dispatch(state, command, ctx);
-    const events = (out.result.ok ? withTaskDrops(state, out.events, ctx.next_seq) : out.events).map((e) => ({ ...e, command_ref: ref }));
+    const events = out.result.ok ? withTaskDrops(state, out.events, ctx.next_seq, ref) : out.events.map((e) => ({ ...e, command_ref: ref }));
     let result = out.result;
     if (result.ok) {
       result = { v: PROTOCOL_VERSION, type: "COMMAND_RESULT", command_id: command.command_id, ok: true, event_seq: events.length > 0 ? ctx.next_seq : result.event_seq };
@@ -134,16 +134,17 @@ export function handleCommand(state: EngineState, command: Command, ctx: Command
 }
 
 /**
- * After each PLAN_REVISED of an accepted command (APPROVE_OPTION, ABORT, PUBLISH_PLAN) log a TASK_DROPPED, actor
- * `system`, for every open task at a stop the revision removed (01 FR-50, T31.04). `onPlanRevised` reads the
- * state BEFORE the revision, which is `state` here (the command has not been reduced yet); each drop is placed
- * straight after its PLAN_REVISED, so the first event of the command, and `event_seq`, are unchanged.
+ * Gives the command's events its `command_ref` and, after each PLAN_REVISED of an accepted command (APPROVE_OPTION,
+ * ABORT, PUBLISH_PLAN), logs a TASK_DROPPED, actor `system`, for every open task at a stop the revision removed
+ * (01 FR-50, T31.04). `onPlanRevised` reads the state BEFORE the revision, which is `state` here (the command has
+ * not been reduced yet). Each drop is placed straight after its PLAN_REVISED, so the first event of the command,
+ * and `event_seq`, are unchanged. A drop is a system event: its `command_ref` is null (05 LogEvent).
  */
-function withTaskDrops(state: EngineState, events: PendingEvent[], first_seq: number): PendingEvent[] {
+function withTaskDrops(state: EngineState, events: PendingEvent[], first_seq: number, ref: CommandRef): PendingEvent[] {
   const out: PendingEvent[] = [];
   for (const e of events) {
-    out.push(e);
-    if (e.kind === "PLAN_REVISED") out.push(...onPlanRevised(state, logged(e, first_seq + out.length - 1)));
+    out.push({ ...e, command_ref: ref });
+    if (e.kind === "PLAN_REVISED") out.push(...onPlanRevised(state, logged(e, first_seq + out.length - 1)).map((d) => ({ ...d, command_ref: null })));
   }
   return out;
 }

@@ -108,9 +108,19 @@ describe("ABORT drops the open tasks of the stops it removes (FR-50 acceptance; 
     expect(kinds(out.events)).toEqual(["COMMAND_REJECTED"]);
   });
 
-  it("every drop event carries the command's command_ref", () => {
-    const out = handleCommand(proposed, cmd("ops", "ABORT", { crew: ["EV1", "EV2"] }), cctx(proposed));
-    expect(out.events.every((e) => e.command_ref?.client_id === "c-1")).toBe(true);
+  it("the command's events carry its command_ref, the system TASK_DROPPED events carry null (05 LogEvent)", () => {
+    const c = cmd("ops", "ABORT", { crew: ["EV1", "EV2"] });
+    const out = handleCommand(proposed, c, cctx(proposed));
+    expect(out.events.filter((e) => e.kind !== "TASK_DROPPED").every((e) => e.command_ref?.command_id === c.command_id)).toBe(true);
+    expect(dropEvents(out.events).length).toBeGreaterThan(0);
+    expect(dropEvents(out.events).every((e) => e.command_ref === null)).toBe(true);
+  });
+
+  it("a restart rebuilds the accepted command from its first event, not from a drop", () => {
+    const c = cmd("ops", "ABORT", { crew: ["EV1", "EV2"] });
+    const out = handleCommand(proposed, c, cctx(proposed));
+    const log = out.events.map((e, i) => logged(e, 100 + i));
+    expect(AcceptedCommands.fromLog(log).get("c-1", c.command_id)).toMatchObject({ ok: true, event_seq: 100 });
   });
 
   it("the report counts the dropped task from the log (FR-46)", () => {
@@ -216,6 +226,8 @@ describe("a real session: drops, undo and determinism (NFR-06)", () => {
     expect(log.filter((e) => e.kind === "TASK_UPDATED")).toHaveLength(2);
     const report = buildReport(log, "h");
     expect(report.tasks).toMatchObject({ total: 2, done: 0 });
+    // EV1 ticks again: ops is not the actor of that change, so its undo is FORBIDDEN_ROLE.
+    send(s, "eva:EV1", "UPDATE_STOP_TASK", { task_id: "t-s1-01", state: "DONE" });
     const refused = send(s, "ops", "UPDATE_STOP_TASK", { task_id: "t-s1-01", state: "TODO", undo: true });
     expect(refused.result.ok).toBe(false);
     expect(fail(refused.result)).toBe("FORBIDDEN_ROLE");

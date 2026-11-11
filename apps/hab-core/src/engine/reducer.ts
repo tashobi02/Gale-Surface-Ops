@@ -28,6 +28,7 @@ import type {
   LinkState,
   LogEvent,
   PlanExport,
+  Role,
   Session,
   StopTask,
   TypedLogEvent,
@@ -73,6 +74,12 @@ export interface EngineState {
    * state with the authorisation of its owner (Sadman Shaharier Mahim) — TODO(decision) until #194 merges.
    */
   task_plan_rev?: Record<string, number>;
+  /**
+   * The actor of each task's last TASK_UPDATED, by task id; tasks.ts judges an undo against it (#202: "the
+   * actor of that change"). Unlike `StopTask.updated_by` it ignores TASK_ADDED and TASK_DROPPED, so a task
+   * that was never updated or was dropped has no entry. Engine-only and JSON-safe, like `task_plan_rev`.
+   */
+  task_actor?: Record<string, Role | "system">;
 }
 
 /**

@@ -257,4 +257,4 @@ flowchart LR
 ## Spec questions
 
 1. **U-46** ops adding tasks during an alert; **U-52** per-crew task model; **U-56** current-stop tasks on abort; **U-58** who writes the text and where (this plan proposes `stop_tasks.json`, copied into `scenario.json`).
-2. **Undo.** FR-50's 5-s undo: a `TODO` target state sent to the Hab Core, or client-side only before sending. `TODO(decision)` in T31.03.
+2. **Undo.** *Decided 11 Nov 2026 by the product & systems lead (spec change #202, Proposed):* the undo is server-side, `UPDATE_STOP_TASK` with state `TODO` and `undo: true` (01 FR-50 Undo, 02 §E.6, 05 StopTask). Tests: T31.03 (`stopTasks.test.ts`).
