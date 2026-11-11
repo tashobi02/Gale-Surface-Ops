@@ -101,6 +101,7 @@ export function HabLinkLost({
       role="region"
       aria-label="Hab Link Lost Overlay"
       data-screen="SCR-18"
+      data-surface={isOps ? "ops" : "eva"}
       data-status="caution"
       data-slot="link-lost"
       className={`scr18-hab-link-lost ${className}`}

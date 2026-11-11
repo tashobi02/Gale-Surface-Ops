@@ -18,6 +18,7 @@ import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
 import { WebSocketServer, type WebSocket } from "ws";
 import {
+  CSP_HEADER,
   HEARTBEAT_MS,
   MAX_REPLAY_GAP,
   PERMISSIONS,
@@ -48,8 +49,8 @@ const MAX_LOOP_ELAPSED_S = 1;
 /** Skip sending to a client whose socket buffer is this full (slow or half-open device). */
 const MAX_BUFFERED_BYTES = 1024 * 1024;
 
-/** NFR-08 Content-Security-Policy (02 §F). */
-export const CSP = "default-src 'self'; connect-src 'self' ws:";
+/** NFR-08 Content-Security-Policy (02 §F): the one policy of @marswalk/protocol, served as a header. */
+export const CSP = CSP_HEADER;
 
 export interface ServerOptions {
   site: string;
