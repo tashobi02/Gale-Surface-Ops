@@ -23,7 +23,7 @@ Only the weights specifically required by 04 §C.2 are included:
 
 ## Licences and Redistribution
 
-Both font families are distributed under the **SIL Open Font License, Version 1.1**,
+All four font families are distributed under the **SIL Open Font License, Version 1.1**,
 which permits bundling, modification, and redistribution with software applications
 (including public Apache-2.0 repositories), provided font names are preserved and
 the fonts are not sold individually.
@@ -32,3 +32,5 @@ the fonts are not sold individually.
 
 - **Inter**: Copyright © 2016 The Inter Project Authors (<https://github.com/rsms/inter>), licensed under SIL Open Font License 1.1.
 - **IBM Plex Mono**: Copyright © 2017 IBM Corp. with Reserved Font Name "Plex", licensed under SIL Open Font License 1.1.
+- **Chakra Petch**: Copyright 2018 The Chakra Petch Project Authors (<https://github.com/m4rc1e/Chakra-Petch>), licensed under SIL Open Font License 1.1.
+- **Source Serif 4**: Copyright 2014 The Source Serif 4 Project Authors (<https://github.com/adobe-fonts/source-serif>), licensed under SIL Open Font License 1.1.

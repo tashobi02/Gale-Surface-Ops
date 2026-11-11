@@ -11,8 +11,9 @@
  * - Shortcuts are ignored when focus is in an input or editable field.
  * - Arrow keys are never hijacked (no preventDefault, no pan) when focus is inside a composite widget
  *   (radio group, listbox, menu, slider, tabs, ...): those own the arrows (04 §E, WAI-ARIA APG).
- * - TODO(T07.x): attachKeyboardControls is deliberately not mounted yet; it waits on the map workspace
- *   (Saba, T07.x) providing a focusable map element through KeyboardMapHandle.getTargetElement.
+ * - Mounted by `createMap` (ui/map/createMap.ts, T07.06), whose focusable viewport is `getTargetElement`; the planner
+ *   passes its `planContext` (Delete, B, ?) through `createMap`'s `keyboard` option. The screen that composes the
+ *   map (SCR-02, T07.08) is the other mount point; until it exists no running app shows the keys.
  * - Instant view transitions when prefers-reduced-motion is active (04 §E Motion).
  */
 

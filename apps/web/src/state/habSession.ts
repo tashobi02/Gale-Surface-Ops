@@ -2,13 +2,17 @@
  * Hab session store: one Hab Core connection per browser tab, and the React hooks that read it
  * (docs/specs/02 §E.6; 01 FR-32, FR-33; 03 SCR-12, SCR-13, SCR-14, SCR-18). Registered under T25.01.
  *
- * `startHabSession` opens the tab's single `connectHab` per role (EVA tablet and HUD of one crew member share
- * `eva:EV1`, for example); calling it again with the same role returns the same client. The hooks subscribe to the
+ * `startHabSession` opens the tab's single `connectHab` per role (the EVA tablet is `eva:EV1` and the HUD its own
+ * `hud:EV1`, for example); calling it again with the same role returns the same client. The hooks subscribe to the
  * client with `useSyncExternalStore`, so a view re-renders on every new SNAPSHOT, STATE_DELTA, EVENT or link change
  * without being remounted. This module computes nothing: it passes the client's data through.
  *
- * TODO(wiring slice M): app boot must call `startHabSession` (role and crew from the join screen) before an EVA or
- * HUD route mounts; until then the hooks read `null` and the screens show "—". No route is mounted here.
+ * App boot (boot/session.ts) calls `startHabSession` for the route's role and crew member before an ops, EVA or HUD
+ * route renders, and `closeHabSessionsExcept` so a tab keeps one connection. Before the first SNAPSHOT the hooks read
+ * `null` and the screens show "—".
+ *
+ * A client the Hab Core told "taken over" (02 §E.4) is final: `useTakenOver` reads it, and `startHabSession` for that role
+ * opens a fresh connection (a deliberate return through the join screen), never revives the dead client.
  *
  * Each hook takes an optional `client`: `undefined` means the tab's current session, `null` means "no connection"
  * (the view shows "—"), and a client means that client (tests and the ops console, which are handed one).
@@ -31,7 +35,12 @@ function setCurrent(client: HabClient | null): void {
  * started session is the tab's current one (what the hooks read when given no client).
  */
 export function startHabSession(options: HabClientOptions): HabClient {
-  const existing = sessions.get(options.role);
+  let existing = sessions.get(options.role);
+  if (existing?.takenOver()) {
+    existing.close();
+    sessions.delete(options.role);
+    existing = undefined;
+  }
   if (existing) {
     if (current !== existing) setCurrent(existing);
     return existing;
@@ -43,9 +52,28 @@ export function startHabSession(options: HabClientOptions): HabClient {
   return client;
 }
 
+/** True when the Hab Core took `role` over from this tab's connection (02 §E.4). */
+export function isTakenOver(role: HabClientOptions["role"]): boolean {
+  return sessions.get(role)?.takenOver() ?? false;
+}
+
 /** The tab's current client, or null before `startHabSession`. */
 export function currentHabClient(): HabClient | null {
   return current;
+}
+
+/**
+ * Closes every connection of this tab except the one for `keep` (a tab keeps one Hab Core connection, 03 §A). The kept
+ * session, if open, becomes the current one. With `keep` null every connection closes.
+ */
+export function closeHabSessionsExcept(keep: string | null): void {
+  for (const [role, client] of [...sessions]) {
+    if (role === keep) continue;
+    client.close();
+    sessions.delete(role);
+  }
+  const kept = keep ? (sessions.get(keep) ?? null) : null;
+  if (current !== kept) setCurrent(kept);
 }
 
 /** Closes every connection of this tab (page teardown and tests). */
@@ -116,6 +144,7 @@ function useClientStore<T>(client: HabClient | null, read: (client: HabClient) =
 const readSnapshot = (client: HabClient): Snapshot | null => client.state();
 const readEvents = (client: HabClient): LogEvent[] => client.events();
 const readLink = (client: HabClient): LinkLost => trackerOf(client).linkLost();
+const readTakenOver = (client: HabClient): boolean => client.takenOver();
 
 /** The last SNAPSHOT with every newer STATE_DELTA applied; null before the first SNAPSHOT. A new object per change. */
 export function useSnapshot(client?: HabClient | null): Snapshot | null {
@@ -130,6 +159,11 @@ export function useEvents(client?: HabClient | null): LogEvent[] {
 /** "HAB LINK LOST" state of this tab's connection (SCR-18); `since_ms` is client time. */
 export function useLinkLost(client?: HabClient | null): LinkLost {
   return useClientStore(useHabClient(client), readLink, NOT_LOST);
+}
+
+/** True once a newer device took this tab's role over (02 §E.4); the connection is then final. */
+export function useTakenOver(client?: HabClient | null): boolean {
+  return useClientStore(useHabClient(client), readTakenOver, false);
 }
 
 /** What `useCommand` resolves when there is no connection to send on. */

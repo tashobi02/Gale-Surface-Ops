@@ -4,7 +4,14 @@ import { join, resolve } from "node:path";
 import proj4 from "proj4";
 import { get as getTransform } from "ol/proj/transforms.js";
 import type { Layer, Site } from "@marswalk/protocol";
-import { registerMarsProjection, createTileGrid, getMarsProjectionCode } from "../../src/ui/map/projection.js";
+import {
+  registerMarsProjection,
+  createTileGrid,
+  getMarsProjectionCode,
+  projectedToLatLonE,
+  ensureMarsProjection,
+  formatLatLonE,
+} from "../../src/ui/map/projection.js";
 
 const REPO_ROOT = resolve(__dirname, "../../../..");
 const MOCK_MANIFEST = join(REPO_ROOT, "data/sites/mock_site/site-manifest.json");
@@ -198,5 +205,72 @@ describe("Mars projection module (T02.02, FR-01, D-03)", () => {
     expect(grid.getTileCoordForCoordAndZ([ox + 1, oy - 1], 1)).toEqual([1, 0, 0]);
     const span1 = spec.tile_size_px * spec.resolutions_m[1];
     expect(grid.getTileCoordForCoordAndZ([ox + 1, oy - 1 - span1], 1)).toEqual([1, 0, 1]);
+  });
+});
+
+describe("worldExtent and the inverse projection (T07.06 review; 02 §C.1)", () => {
+  it("gives OpenLayers the world extent in degrees [min_lon_e, min_lat, max_lon_e, max_lat], not metres", () => {
+    const proj = registerMarsProjection(MOCK_SITE);
+    expect(proj.getWorldExtent()).toEqual(MOCK_SITE.aoi.bbox_geo);
+    expect(proj.getExtent()).toEqual(MOCK_SITE.aoi.extent_m);
+  });
+
+  it("projectedToLatLonE inverts the manifest eqc string: the origin is (lat_0, lon_0) and metres map to degrees on the Mars sphere", () => {
+    registerMarsProjection(MOCK_SITE);
+    const read = (key: string): number => Number(new RegExp(`\\+${key}=(-?[\\d.]+)`).exec(MOCK_SITE.crs.proj4)![1]);
+    const [latTs, lat0, lon0] = [read("lat_ts"), read("lat_0"), read("lon_0")];
+    const deg = 180 / Math.PI;
+
+    const origin = projectedToLatLonE(MOCK_SITE, 0, 0);
+    expect(origin.lat).toBeCloseTo(lat0, 9);
+    expect(origin.lon_e).toBeCloseTo(lon0, 9);
+
+    // eqc: x = R (lon - lon_0) cos(lat_ts), y = R (lat - lat_0), R = Mars (never Earth's 6,371,008 m)
+    for (const [x, y] of [[1000, 2000], [-1800, -1500], [2999, -2999]]) {
+      const got = projectedToLatLonE(MOCK_SITE, x, y);
+      expect(got.lat).toBeCloseTo(lat0 + (y / MARS_RADIUS_M) * deg, 9);
+      expect(got.lon_e).toBeCloseTo(lon0 + (x / (MARS_RADIUS_M * Math.cos((latTs * Math.PI) / 180))) * deg, 9);
+    }
+  });
+
+  it("returns east-positive longitude in [0, 360) and accepts a site id once registered", () => {
+    registerMarsProjection(MOCK_SITE);
+    const { lon_e } = projectedToLatLonE(MOCK_SITE.site_id, 0, 0);
+    expect(lon_e).toBeGreaterThanOrEqual(0);
+    expect(lon_e).toBeLessThan(360);
+  });
+
+  it("throws, never guesses a code path, for a site whose projection was not registered", () => {
+    expect(() => projectedToLatLonE("never_registered_site", 0, 0)).toThrow(/not registered/);
+  });
+});
+
+describe("tile grid extent and shared projection (T07.07 review)", () => {
+  it("limits the TileGrid to the AOI extent when given, so no tile outside it is requested", () => {
+    const spec = rasterLayer().tile_grid!;
+    const extent = MOCK_SITE.aoi.extent_m;
+    const grid = createTileGrid(spec, extent);
+    expect(grid.getExtent()).toEqual(extent);
+    const last = spec.resolutions_m.length - 1;
+    const span = spec.tile_size_px * spec.resolutions_m[last];
+    expect(grid.getFullTileRange(last)!.maxX + 1).toBe(Math.ceil((extent[2] - extent[0]) / span));
+    expect(createTileGrid(spec).getExtent()).toBeNull();
+  });
+
+  it("ensureMarsProjection returns the registered projection instead of registering a second one", () => {
+    const first = registerMarsProjection(MOCK_SITE);
+    expect(ensureMarsProjection(MOCK_SITE)).toBe(first);
+    const fresh = { ...MOCK_SITE, site_id: "ensure_probe" };
+    const made = ensureMarsProjection(fresh);
+    expect(made.getCode()).toBe("MARS_LOCAL:ensure_probe");
+    expect(ensureMarsProjection(fresh)).toBe(made);
+  });
+});
+
+describe("formatLatLonE (02 §C.1: 5 decimals, true minus, east-positive °E)", () => {
+  it("formats planetocentric latitude and east longitude as the spec writes them", () => {
+    expect(formatLatLonE(-4.71234, 137.38765)).toBe("−4.71234°, 137.38765°E");
+    expect(formatLatLonE(4.5, 0.000004)).toBe("4.50000°, 0.00000°E");
+    expect(formatLatLonE(-0.000004, 10)).toBe("0.00000°, 10.00000°E"); // no "−0.00000"
   });
 });

@@ -9,6 +9,8 @@
  *   hab.lastSeq()   → the highest seq applied (sent as `last_seq` on reconnect)
  *   hab.linkLost()  → {lost, since_ms}: "HAB LINK LOST" (SCR-18) after LINK_LOST_AFTER_MS without
  *                     any server message (PINGs arrive every HEARTBEAT_MS); since_ms is client time
+ *   hab.takenOver() → boolean: a newer device took this role over (TAKEN_OVER, 02 §E.4). The client then stops: no
+ *                     reconnect, no link-lost watchdog, queued and later commands resolve as rejected; its last values stay
  *   hab.send({kind, args}) → Promise<CommandResult>; resolves on the matching COMMAND_RESULT
  *   hab.subscribe(listener) → unsubscribe; called after every store change
  *   hab.close()
@@ -29,7 +31,8 @@
  *
  * Open points for the product & systems lead:
  * - TODO(verify): a command in flight when the socket drops is resent flagged `queued_offline`; it
- *   may already have run. The Hab Core should ignore a repeated `command_id` (T23.02).
+ *   may already have run. The Hab Core ignores a repeated `command_id` of the same client (T23.02), so ids are
+ *   `<client_id>-<per-connection nonce>-k<n>`: unique across reloads and duplicated tabs, stable across a resend.
  */
 import {
   LINK_LOST_AFTER_MS,
@@ -68,6 +71,8 @@ export interface HabClient {
   events(): LogEvent[];
   lastSeq(): number;
   linkLost(): { lost: boolean; since_ms: number | null };
+  /** True once the Hab Core told this client a newer device took its role (02 §E.4); final for this client. */
+  takenOver(): boolean;
   send(command: Pick<Command, "kind" | "args">): Promise<CommandResult>;
   subscribe(listener: () => void): () => void;
   close(): void;
@@ -87,6 +92,13 @@ interface Pending {
   inFlight: boolean;
 }
 
+/** Lower-case hex of `bytes` random bytes (crypto.getRandomValues also exists on a LAN page that is not a secure context). */
+function randomHex(bytes: number): string {
+  const buf = new Uint8Array(bytes);
+  globalThis.crypto.getRandomValues(buf);
+  return [...buf].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export function connectHab(options: HabClientOptions): HabClient {
   const { role, clientId, displayName } = options;
   const loc = globalThis.location;
@@ -102,7 +114,11 @@ export function connectHab(options: HabClientOptions): HabClient {
   let socket: SocketLike | null = null;
   let backoff = BACKOFF_START_MS;
   let closed = false;
+  let takenOver = false;
   let commandCounter = 0;
+  // Per-connection nonce: the Hab Core dedupes by (client_id, command_id), so a client that restarts its counter (reload,
+  // role change, duplicated tab) must not repeat an id. Client-side only; a resend within this connection keeps its id.
+  const nonce = randomHex(4);
   let watchdog: ReturnType<typeof setTimeout> | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   const pending = new Map<string, Pending>();
@@ -122,7 +138,7 @@ export function connectHab(options: HabClientOptions): HabClient {
   function armWatchdog(): void {
     if (watchdog) clearTimeout(watchdog);
     watchdog = setTimeout(() => {
-      if (closed) return;
+      if (closed || takenOver) return;
       lost = true;
       lostSince = Date.now();
       notify();
@@ -163,7 +179,7 @@ export function connectHab(options: HabClientOptions): HabClient {
       flush();
     };
     s.onmessage = (ev) => {
-      if (closed) return;
+      if (closed || takenOver) return;
       let msg: ServerMessage;
       try {
         msg = JSON.parse(ev.data) as ServerMessage;
@@ -177,7 +193,7 @@ export function connectHab(options: HabClientOptions): HabClient {
       if (socket !== s) return;
       socket = null;
       for (const p of pending.values()) if (p.inFlight) Object.assign(p, { inFlight: false, queued: true });
-      if (closed) return;
+      if (closed || takenOver) return;
       if (!lost) armWatchdog();
       scheduleReconnect();
     };
@@ -238,10 +254,26 @@ export function connectHab(options: HabClientOptions): HabClient {
         p.resolve(msg);
         return;
       }
+      case "TAKEN_OVER":
+        if (msg.role !== role) return;
+        stopTakenOver();
+        break;
       case "PING":
         return;
     }
     notify();
+  }
+
+  /** Final: a newer device holds the role. Nothing is sent or retried from here, so the two devices cannot fight. */
+  function stopTakenOver(): void {
+    takenOver = true;
+    if (watchdog) clearTimeout(watchdog);
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    lost = false;
+    lostSince = null;
+    for (const [id, p] of pending) p.resolve(failed(id, "Taken over by another device"));
+    pending.clear();
+    socket?.close(); // the Hab Core closes it too; this covers a socket it left open
   }
 
   function failed(command_id: string, message: string): CommandResult {
@@ -257,9 +289,11 @@ export function connectHab(options: HabClientOptions): HabClient {
     events: () => events,
     lastSeq: () => seq,
     linkLost: () => ({ lost, since_ms: lostSince }),
+    takenOver: () => takenOver,
     send(command) {
       if (closed) return Promise.resolve(failed("", "client closed"));
-      const command_id = `${clientId}-k${++commandCounter}`;
+      if (takenOver) return Promise.resolve(failed("", "Taken over by another device"));
+      const command_id = `${clientId}-${nonce}-k${++commandCounter}`;
       const message: Pending["message"] = { v: PROTOCOL_VERSION, type: "COMMAND", command_id, role, command: { kind: command.kind, args: command.args } };
       return new Promise<CommandResult>((resolve) => {
         const p: Pending = { message, resolve, queued: false, inFlight: false };

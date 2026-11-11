@@ -199,7 +199,7 @@ A candidate hab site, prepared on Earth by the pipeline and chosen at mission se
 | `rank` | int | ✓ | ≥ 1, unique; 1 is the default | `1` |
 | `hab_mast` | `{x_m, y_m, height_m}` | ✓ | Passable cell inside the AOI | see §F.1 |
 | `lat`, `lon_e` | number | ✓ | planetocentric °, east-positive; consistent with `hab_mast` | — |
-| `comm_hab_asset` | FK | ✓ | Same encoding and shape as `grid.comm_hab_asset`, computed from this candidate's mast | `"grid-comm-hab-first"` |
+| `comm_hab_asset` | FK | ✓ | Same encoding and shape as `grid.comm_hab_asset`, computed from this candidate's mast. *(2026-11-11)* Asset id: the rank-1 candidate uses `grid.comm_hab_asset` itself (`grid-comm-hab`, file `grid/comm_hab.u8`); any other candidate `grid-comm-<candidate_id>` (file `grid/comm_<candidate_id>.u8`) | `"grid-comm-hab"` |
 | `default_start` | `{x_m, y_m, label}` | ✓ | The planner's start waypoint when this candidate is chosen | — |
 | `note` | string | | Why it is on the list (for example the trade-off in [hab-site.md](../ops/feasibility/hab-site.md)) | — |
 | `provenance`, `source_ids` | enum, string[] | ✓ | `assumed` for a curated choice; sources of the checks | `"assumed"` |
@@ -442,7 +442,7 @@ The drafted tasks in `scenarios/storm-sol4190/stop_tasks.json` (keyed there by `
 
 ### ClientConnection
 
-`client_id`, `role` (`planner \| eva:EV1 \| eva:EV2 \| ops \| earth \| presenter`; `presenter` added 2026-11-10), `display_name`, `connected_since` (wall-clock, diagnostics only — never logged into `session.jsonl`), `last_seq_acked`. Not persisted.
+`client_id`, `role` (`planner \| eva:EV1 \| eva:EV2 \| hud:EV1 \| hud:EV2 \| ops \| earth \| presenter`; `presenter` added 2026-11-10; `hud:EV1` and `hud:EV2` added 2026-11-12, Proposed: read-only viewers, 02 §E.4), `display_name`, `connected_since` (wall-clock, diagnostics only — never logged into `session.jsonl`), `last_seq_acked`. Not persisted.
 
 ### Crew
 
@@ -540,7 +540,7 @@ State is reduced from `TASK_ADDED`, `TASK_UPDATED` and `TASK_DROPPED` events; it
 | --- | --- | --- |
 | `seq` | int | monotonic, gap-free |
 | `sim_time` | ISO | |
-| `kind` | enum | `SESSION_LOADED, EVA_STARTED, ARRIVED_STOP, LEFT_STOP, ALERT_RAISED, ALERT_ACKED, ALERT_CLEARED, OPTIONS_PROPOSED, PLAN_REVISED, VEHICLE_DISPATCHED, VEHICLE_ARRIVED, CREW_SHELTERED, LINK_LOST, LINK_RESTORED, EARTH_MSG_QUEUED, EARTH_MSG_DELIVERED, COMMAND_REJECTED, CLOCK_CHANGED, EVA_ENDED, TASK_ADDED, TASK_UPDATED, TASK_DROPPED, CLOCK_JUMPED, EVENT_STARTED, SESSION_RESET, SITE_SELECTED, MISSION_SETUP_SET` (the last five added 2026-11-10) |
+| `kind` | enum | `SESSION_LOADED, EVA_STARTED, ARRIVED_STOP, LEFT_STOP, ALERT_RAISED, ALERT_ACKED, ALERT_CLEARED, OPTIONS_PROPOSED, PLAN_REVISED, VEHICLE_DISPATCHED, VEHICLE_ARRIVED, CREW_SHELTERED, LINK_LOST, LINK_RESTORED, EARTH_MSG_QUEUED, EARTH_MSG_DELIVERED, COMMAND_REJECTED, CLOCK_CHANGED, EVA_ENDED, TASK_ADDED, TASK_UPDATED, TASK_DROPPED, CLOCK_JUMPED, EVENT_STARTED, SESSION_RESET, SITE_SELECTED, MISSION_SETUP_SET, ROLE_TAKEN_OVER` (the five before the last added 2026-11-10; `ROLE_TAKEN_OVER` added 2026-11-12, Proposed) |
 | `actor` | role \| `system` | |
 | `data` | object | values needed to reduce state without recomputation |
 | `provenance` | object | field path → class |
@@ -578,6 +578,7 @@ Source column: where the fields are stated. **Proposed** fields are not stated i
 | `SESSION_RESET` | `session_id, next_session_id` | **Proposed** (02 §D.17); last line of the old log |
 | `SITE_SELECTED` | `candidate_id` | **Proposed** (HabCandidate) |
 | `MISSION_SETUP_SET` | the settings set (`crew_count, vehicle_available, solar_phase, max_haven_min`) | **Proposed** (Session `mission_setup`) |
+| `ROLE_TAKEN_OVER` | `role, crew_id?, old_client_id, new_client_id` | **Proposed** (02 §E.4, decision of Sadman Shaharier Mahim, 2026-11-12); `actor` `system`, `command_ref` `null`; `crew_id` only for an `eva:EVn` or `hud:EVn` role; client ids are the HELLO `client_id`s (random per page load, no personal data); changes no state |
 
 Per-tick position updates are **not** logged; they are re-derived on replay from the plan and the logged events (determinism, NFR-06).
 
@@ -757,7 +758,7 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
   "default_start": {"x_m": -1800, "y_m": -1500, "label": "Habitat / rover"},
   "hab_candidates": [
     {"candidate_id": "hab-first", "label": "First choice", "rank": 1,
-     "hab_mast": {"x_m": null, "y_m": null, "height_m": 10}, "comm_hab_asset": "grid-comm-hab-first",
+     "hab_mast": {"x_m": null, "y_m": null, "height_m": 10}, "comm_hab_asset": "grid-comm-hab",
      "default_start": {"x_m": null, "y_m": null, "label": "Habitat / rover"},
      "note": "Ridges around it cast comm shadows on the track (hab-site.md)", "provenance": "assumed", "source_ids": []},
     {"candidate_id": "hab-alternative", "label": "Alternative", "rank": 2,
