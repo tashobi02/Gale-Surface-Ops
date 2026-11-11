@@ -170,6 +170,10 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     });
   });
 
+  /** `role` + client_id pairs this server displaced (02 §E.4); kept for the server's lifetime, a few short strings per take-over. */
+  const displacedIds = new Set<string>();
+  const displacedKey = (role: Role, client_id: string): string => `${role}\u0000${client_id}`;
+
   /** Current seq and sim time, read from the session (never cached across a LOAD_SCENARIO). */
   function head(): { seq: number; sim_time: string } {
     if (!session) return { seq: 0, sim_time: "" };
@@ -190,12 +194,20 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
   }
 
   function onHello(client: Client, msg: Record<string, unknown>): void {
+    if (!clients.has(client)) return; // already released (displaced or replaced): its socket is closing, it cannot join
     const { role, client_id, last_seq } = msg;
     const display_name = msg.display_name ?? "";
     if (!isRole(role) || !isShortString(client_id) || !isShortString(display_name)) return;
     if (typeof last_seq !== "number" || !Number.isInteger(last_seq) || last_seq < 0) return;
     // One client_id per connection: it keys command dedupe (05 Command), so a second HELLO may not change it.
     if (client.joined && client.client_id !== client_id) return;
+    // A client_id the Hab Core displaced from this role stays displaced: a later HELLO from it is told so and closed,
+    // it does not take the role back from the new holder (taking it back is a new join with a new client_id).
+    if (displacedIds.has(displacedKey(role, client_id))) {
+      send(client, { v: PROTOCOL_VERSION, type: "TAKEN_OVER", ...head(), role });
+      release(client, TAKEN_OVER_CLOSE_CODE, TAKEN_OVER_CLOSE_REASON);
+      return;
+    }
     const displaced = holdersOf(role, client);
     Object.assign(client, { role, client_id, display_name, joined: true });
     const takeovers = displaced.filter((old) => old.client_id !== client_id).map((old) => takeOver(old, client));
@@ -230,6 +242,7 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
 
   /** Displace `old` by `by` (02 §E.4): log it, tell `old`, close it. Returns the logged event (none without a session). */
   function takeOver(old: Client, by: Client): LogEvent | null {
+    displacedIds.add(displacedKey(old.role, old.client_id));
     const data: LogEventData["ROLE_TAKEN_OVER"] = {
       role: old.role,
       ...(/^(eva|hud):/.test(old.role) ? { crew_id: old.role.slice(4) as CrewId } : {}),

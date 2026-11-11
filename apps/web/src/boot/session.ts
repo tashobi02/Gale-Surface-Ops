@@ -9,7 +9,7 @@
  * The client id is random and per page load, never derived from a person and never stored.
  */
 import type { HabClient, HabClientOptions } from "../net/habClient";
-import { closeHabSessionsExcept, startHabSession } from "../state/habSession";
+import { closeHabSessionsExcept, isTakenOver, startHabSession } from "../state/habSession";
 import type { Route } from "../ui/router";
 
 /** Lower-case hex of `bytes` random bytes (crypto.getRandomValues also works on a LAN page that is not a secure context). */
@@ -23,10 +23,21 @@ function randomId(bytes = 8): string {
  * One client id per page load, made on first use. It is deliberately not stored: sessionStorage is copied into a
  * duplicated tab, and two live tabs must never share an id (the Hab Core keys its command dedupe and client list on it).
  * Command ids carry their own per-connection nonce as well (net/habClient.ts).
+ * `renew()` makes the next call return a new id: used when the Hab Core took a role over from this page, because it
+ * bars a displaced client_id from taking that role back, and a deliberate take-back (02 §E.4) is a new join.
  */
-export function createClientIdSource(): () => string {
+export interface ClientIdSource {
+  (): string;
+  renew(): void;
+}
+
+export function createClientIdSource(): ClientIdSource {
   let id: string | null = null;
-  return () => (id ??= randomId());
+  const source = (): string => (id ??= randomId());
+  source.renew = (): void => {
+    id = null;
+  };
+  return source;
 }
 
 const pageClientId = createClientIdSource();
@@ -54,6 +65,7 @@ export interface SessionBootDeps {
 export function ensureSessionForRoute(route: Route, deps: SessionBootDeps = {}): HabClient | null {
   if (!route.role) return null;
   closeHabSessionsExcept(route.role);
+  if (isTakenOver(route.role)) pageClientId.renew();
   const options: HabClientOptions = {
     role: route.role,
     clientId: (deps.clientId ?? pageClientId)(),

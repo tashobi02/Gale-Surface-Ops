@@ -182,6 +182,22 @@ describe("taken over by another device (02 §E.4; 03 exception table)", () => {
     expect(made).toHaveLength(1);
   });
 
+  it("the screen under the notice is inert and hidden from assistive technology; it is not while the role is held", async () => {
+    vi.useFakeTimers();
+    const made = open("eva:EV1");
+    const { container } = await mount(createElement(LiveFrame, { variant: "eva", crewId: "EV1" }, child()));
+    await made[0].receive(...wsFixtures.connect);
+    const held = must(container, "#screen").closest('[data-slot="live-screen"]') as HTMLElement;
+    expect(held.hasAttribute("inert")).toBe(false);
+    expect(held.getAttribute("aria-hidden")).toBeNull();
+
+    await made[0].receive(taken("eva:EV1"));
+    const under = must(container, "#screen").closest('[data-slot="live-screen"]') as HTMLElement;
+    expect(under.hasAttribute("inert")).toBe(true);
+    expect(under.getAttribute("aria-hidden")).toBe("true");
+    expect(under.contains(must(container, '[data-slot="taken-over-overlay"]'))).toBe(false); // the notice itself stays operable
+  });
+
   it("the back button goes to the join screen", async () => {
     vi.useFakeTimers();
     const made = open("ops");

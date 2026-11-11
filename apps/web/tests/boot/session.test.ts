@@ -125,6 +125,30 @@ describe("client identity", () => {
     }
   });
 
+  it("taking a role back after being taken over is a new join with a new id (the Hab Core bars the displaced id), other roles keep the page id", () => {
+    const { made, socketFactory } = sockets();
+    const deps = { url: "ws://localhost/ws", socketFactory };
+    const helloId = (s: FakeSocket) => (s.sent[0] as { client_id: string }).client_id;
+
+    ensureSessionForRoute(parseHash("#/ops"), deps);
+    made[0].onopen?.();
+    const first = helloId(made[0]);
+    ensureSessionForRoute(parseHash("#/eva/EV1"), deps);
+    made[1].onopen?.();
+    expect(helloId(made[1])).toBe(first); // not taken over: one id per page load
+
+    made[1].onmessage?.({ data: JSON.stringify({ v: 1, type: "TAKEN_OVER", seq: 430, sim_time: "2024-05-20T13:14:00Z", role: "eva:EV1" }) });
+    ensureSessionForRoute(parseHash("#/eva/EV1"), deps);
+    expect(made).toHaveLength(3);
+    made[2].onopen?.();
+    const renewed = helloId(made[2]);
+    expect(renewed).toMatch(/^c-[a-f0-9]{16}$/);
+    expect(renewed).not.toBe(first);
+
+    ensureSessionForRoute(parseHash("#/eva/EV1"), deps); // still the same connection: no further change
+    expect(made).toHaveLength(3);
+  });
+
   it("names the device by role and view, so the ops client list says what each device is", () => {
     expect(displayNameFor(parseHash("#/ops"))).toBe("Ops console");
     expect(displayNameFor(parseHash("#/eva/EV1"))).toBe("EV1 tablet");

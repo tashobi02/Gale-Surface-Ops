@@ -561,15 +561,66 @@ describe("role take-over: newest wins (02 §E.4, §E.6; 05 ROLE_TAKEN_OVER)", ()
     expect(session.takeovers).toEqual([]);
   });
 
-  it("a displaced client's later commands are not applied", async () => {
+  it("a displaced client's later commands are not applied: one sent the instant TAKEN_OVER arrives, before its close, is dropped", async () => {
     const { server, session } = await setup();
     const first = await joined(server.url, "eva:EV1", "c-first");
     const closed = closeOf(first);
+    // Sent from the message handler itself, so the socket is still open on the client when the command goes out.
+    // The server has marked this client not joined by then; the INVALID reply cannot be delivered on a closing socket.
+    first.ws.on("message", (raw) => {
+      if ((JSON.parse(raw.toString()) as ServerMessage).type === "TAKEN_OVER") {
+        first.send({ v: 1, type: "COMMAND", command_id: "k-late", role: "eva:EV1", command: { kind: "ACK_ALERT", args: { alert_id: "a-1" } } });
+      }
+    });
     await joined(server.url, "eva:EV1", "c-second");
     await closed;
-    first.send({ v: 1, type: "COMMAND", command_id: "k-late", role: "eva:EV1", command: { kind: "ACK_ALERT", args: { alert_id: "a-1" } } });
     await new Promise((r) => setTimeout(r, 50));
+    expect(first.received.filter((m) => m.type === "COMMAND_RESULT" && m.ok)).toEqual([]);
     expect(session.applied).toEqual([]);
+  });
+
+  it("a displaced client_id may not take its role back by reconnecting: it gets TAKEN_OVER and 4001, the new holder stays", async () => {
+    const { server, session } = await setup();
+    const a = await joined(server.url, "eva:EV1", "c-a");
+    const b = await joined(server.url, "eva:EV1", "c-b");
+    await a.waitFor((m) => m.type === "TAKEN_OVER");
+
+    const again = await client(server.url);
+    const closed = closeOf(again);
+    again.send(hello(0, "c-a", "eva:EV1"));
+    await again.waitFor((m) => m.type === "TAKEN_OVER");
+    expect(await closed).toEqual({ code: 4001, reason: "taken over" });
+    expect(again.received.map((m) => m.type)).toEqual(["TAKEN_OVER"]); // no SNAPSHOT: it is not served
+
+    expect(takenOver(b)).toHaveLength(0);
+    expect(b.ws.readyState).toBe(WebSocket.OPEN);
+    expect(session.takeovers).toHaveLength(1); // nothing displaced, nothing logged again
+    b.send({ v: 1, type: "COMMAND", command_id: "k-b", role: "eva:EV1", command: { kind: "ACK_ALERT", args: { alert_id: "a-1" } } });
+    expect(await b.waitFor((m) => m.type === "COMMAND_RESULT")).toMatchObject([{ ok: true }]);
+    expect(session.clientIds).toEqual(["c-b"]);
+  });
+
+  it("a displaced client_id is barred only from the role it lost", async () => {
+    const { server } = await setup();
+    await joined(server.url, "eva:EV1", "c-a");
+    await joined(server.url, "eva:EV1", "c-b");
+    const other = await client(server.url);
+    other.send(hello(0, "c-a", "ops"));
+    expect(await other.waitFor((m) => m.type === "SNAPSHOT")).toHaveLength(1);
+  });
+
+  it("a HELLO on a socket the server already released is ignored: it neither joins nor displaces the new holder", async () => {
+    const { server, session } = await setup();
+    const first = await joined(server.url, "eva:EV1", "c-first");
+    // Sent from the message handler, while the old socket is still open on the client but already released on the server.
+    first.ws.on("message", (raw) => {
+      if ((JSON.parse(raw.toString()) as ServerMessage).type === "TAKEN_OVER") first.send(hello(0, "c-third", "eva:EV1"));
+    });
+    const second = await joined(server.url, "eva:EV1", "c-second");
+    await first.waitFor((m) => m.type === "TAKEN_OVER");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(takenOver(second)).toHaveLength(0);
+    expect(session.takeovers).toHaveLength(1);
   });
 
   it("without a session the old client is still displaced (nothing to log)", async () => {

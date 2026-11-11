@@ -137,7 +137,10 @@ export function LiveFrame({ variant, crewId, onRetry, children }: LiveFrameProps
   const retry = onRetry ?? (() => globalThis.location?.reload());
   return (
     <>
-      {children}
+      {/* display: contents keeps the layout; while taken over the screen is inert (no focus, no clicks) and hidden from assistive technology */}
+      <div data-slot="live-screen" style={{ display: "contents" }} {...(takenOver ? { inert: true, "aria-hidden": true } : {})}>
+        {children}
+      </div>
       {takenOver && (
         <div data-slot="taken-over-overlay" data-surface={variant === "ops" ? "ops" : "eva"} style={overlayStyle}>
           <TakenOverNotice roleLabel={variant === "ops" || !crewId ? "OPS" : variant === "hud" ? `HUD ${crewId}` : crewId} />

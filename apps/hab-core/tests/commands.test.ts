@@ -61,7 +61,7 @@ describe("handleCommand: role check (02 §E.4)", () => {
   it("the HUD roles are read-only viewers: every command kind is FORBIDDEN_ROLE (02 §E.4)", () => {
     for (const role of ["hud:EV1", "hud:EV2"] as const) {
       expect(PERMISSIONS[role]).toEqual([]);
-      for (const kind of ["ACK_ALERT", "SUMMON_VEHICLE", "ABORT", "UPDATE_STOP_TASK", "SEND_MESSAGE", "TASK_ROVER"] as const) {
+      for (const kind of new Set(Object.values(PERMISSIONS).flat())) {
         expect(rejected(handleCommand(withAlert, cmd(role, kind, { alert_id: "a-2", task_id: "t-1", state: "DONE" }), ctx(withAlert)).result), `${role} ${kind}`).toBe("FORBIDDEN_ROLE");
       }
     }

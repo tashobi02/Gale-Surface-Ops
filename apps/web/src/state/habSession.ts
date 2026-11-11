@@ -52,6 +52,11 @@ export function startHabSession(options: HabClientOptions): HabClient {
   return client;
 }
 
+/** True when the Hab Core took `role` over from this tab's connection (02 §E.4). */
+export function isTakenOver(role: HabClientOptions["role"]): boolean {
+  return sessions.get(role)?.takenOver() ?? false;
+}
+
 /** The tab's current client, or null before `startHabSession`. */
 export function currentHabClient(): HabClient | null {
   return current;

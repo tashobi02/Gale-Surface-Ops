@@ -159,7 +159,7 @@ export function summarizeEvent(event: LogEvent): string {
     case "EVA_ENDED":
       return "EVA completed / ended";
     case "ROLE_TAKEN_OVER":
-      return `Role ${field(d.role)} taken over by another device`;
+      return `Role ${field(d.role)} connection replaced`;
     default:
       return `${event.kind}`;
   }
