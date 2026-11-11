@@ -9,6 +9,7 @@ import {
   createTileGrid,
   getMarsProjectionCode,
   projectedToLatLonE,
+  ensureMarsProjection,
 } from "../../src/ui/map/projection.js";
 
 const REPO_ROOT = resolve(__dirname, "../../../..");
@@ -240,5 +241,27 @@ describe("worldExtent and the inverse projection (T07.06 review; 02 §C.1)", () 
 
   it("throws, never guesses a code path, for a site whose projection was not registered", () => {
     expect(() => projectedToLatLonE("never_registered_site", 0, 0)).toThrow(/not registered/);
+  });
+});
+
+describe("tile grid extent and shared projection (T07.07 review)", () => {
+  it("limits the TileGrid to the AOI extent when given, so no tile outside it is requested", () => {
+    const spec = rasterLayer().tile_grid!;
+    const extent = MOCK_SITE.aoi.extent_m;
+    const grid = createTileGrid(spec, extent);
+    expect(grid.getExtent()).toEqual(extent);
+    const last = spec.resolutions_m.length - 1;
+    const span = spec.tile_size_px * spec.resolutions_m[last];
+    expect(grid.getFullTileRange(last)!.maxX + 1).toBe(Math.ceil((extent[2] - extent[0]) / span));
+    expect(createTileGrid(spec).getExtent()).toBeNull();
+  });
+
+  it("ensureMarsProjection returns the registered projection instead of registering a second one", () => {
+    const first = registerMarsProjection(MOCK_SITE);
+    expect(ensureMarsProjection(MOCK_SITE)).toBe(first);
+    const fresh = { ...MOCK_SITE, site_id: "ensure_probe" };
+    const made = ensureMarsProjection(fresh);
+    expect(made.getCode()).toBe("MARS_LOCAL:ensure_probe");
+    expect(ensureMarsProjection(fresh)).toBe(made);
   });
 });

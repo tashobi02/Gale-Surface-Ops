@@ -19,7 +19,6 @@ import { provAttrs, glyphOf, PROVENANCE_GLYPHS } from "../../src/ui/components/p
 import { attachKeyboardControls, type KeyboardMapHandle } from "../../src/ui/map/keyboard";
 import type { FullScreenMapProps } from "../../src/ui/map/FullScreenMap";
 import { validateSite } from "../../src/boot/validateSite";
-import { createRasterLayers } from "../../src/ui/map/rasterLayers";
 import { createTraverseLayer } from "../../src/ui/map/traverseLayer";
 import { createPoiLayer } from "../../src/ui/map/poiLayer";
 import { initPointInspector } from "../../src/ui/map/inspector";
@@ -157,7 +156,6 @@ describe("C10 WorkerClient carries retry (decision 11 Nov)", () => {
 describe("C10 stubs throw TODO(<owner id>) and are React components where they render", () => {
   it("throws the owner id from the c.4 register", async () => {
     expect(() => validateSite({} as never)).toThrow("TODO(T14.03)");
-    expect(() => createRasterLayers({} as never)).toThrow("TODO(T07.07)");
     expect(() => createTraverseLayer({} as never)).toThrow("TODO(T07.10)");
     expect(() => createPoiLayer({} as never)).toThrow("TODO(T07.11)");
     expect(() => initPointInspector({} as never, {} as never)).toThrow("TODO(T07.12)");

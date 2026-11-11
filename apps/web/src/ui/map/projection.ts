@@ -61,6 +61,14 @@ export function registerMarsProjection(site: MarsProjectionSite): Projection {
 }
 
 /**
+ * The site's registered working projection, registering it first when it is not yet (several modules need it, and
+ * the first one to run must not leave the others with a second, different Projection object).
+ */
+export function ensureMarsProjection(site: MarsProjectionSite): Projection {
+  return getProjection(getMarsProjectionCode(site)) ?? registerMarsProjection(site);
+}
+
+/**
  * Planetocentric latitude and east-positive longitude (degrees, longitude in [0, 360)) of a point in the site's
  * working projection, by inverting the registered manifest `+proj=eqc` string on the Mars sphere (02 §C.1).
  * Throws when the site's projection was not registered with `registerMarsProjection`.
@@ -83,12 +91,14 @@ export function projectedToLatLonE(
  * Builds an OpenLayers TileGrid from a manifest tile_grid specification (C9 contract).
  *
  * @param tileGridSpec Manifest tile_grid specification.
+ * @param extent Optional coverage in working-projection metres (the AOI): OpenLayers then requests no tile outside it.
  * @returns OpenLayers TileGrid configured with origin, resolutions, and tile size.
  */
-export function createTileGrid(tileGridSpec: TileGridSpec): TileGrid {
+export function createTileGrid(tileGridSpec: TileGridSpec, extent?: [number, number, number, number]): TileGrid {
   return new TileGrid({
     origin: tileGridSpec.origin_m,
     resolutions: tileGridSpec.resolutions_m,
     tileSize: tileGridSpec.tile_size_px,
+    ...(extent ? { extent } : {}),
   });
 }
