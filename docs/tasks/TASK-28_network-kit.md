@@ -86,6 +86,7 @@
 - **Parallel with:** T24.11
 - **Steps:**
   1. List the team's devices and browsers; open each role view on each; note layout or input problems.
+  2. On each device, check that the live role views connect and show a SNAPSHOT in Safari and Firefox as well as Chrome (the CSP is `connect-src 'self'` without `ws:`, 02 §F NFR-08, changed 2026-11-12); record a browser that blocks the WebSocket.
 - **Acceptance:**
   - Serves: NFR-03
   - Each device has a row with pass or the problem found.

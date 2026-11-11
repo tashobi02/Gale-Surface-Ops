@@ -170,7 +170,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 wer
 | Entry | `#/join`; scanning an ops QR code (`#/join?role=eva:EV1`) |
 | Content | Role tiles (Planner, Ops, EV1, EV2, Earth (T2), Presenter) with what each can do; Hab Core status (session, scenario, clock) |
 | Primary action | Tap a tile → role route |
-| States | Connecting · Ready · Role taken (EV1 already connected — "Take over?" for demo resets) · Hab Core unreachable → SCR-18 |
+| States | Connecting · Ready · Role taken (EV1 already connected: the tile offers "Take over", which asks "the other device will be disconnected" and, on confirm, takes the role from it: newest wins, 02 §E.4; *changed 2026-11-12, Proposed*) · Hab Core unreachable → SCR-18 |
 | Requirements | FR-30, FR-31, FR-51 |
 
 ### SCR-11 — Ops console *(v2)*
@@ -385,7 +385,8 @@ Hab Core process killed → SCR-18 banner on all clients within 3 s → EVA keep
 | *(v2)* Simulated comm shadow | Link graph: suit not linked | Caution bar "No hab link — operating on cached plan"; commands "Queued" | Move to coverage; stay with buddy; rover relay (FR-41) |
 | *(v2)* Command rejected | `COMMAND_RESULT ok:false` | Inline message with reason (`FORBIDDEN_ROLE`, `NO_LINK`, `INVALID`, `NO_RENDEZVOUS`, `BUSY`) | Follow the reason |
 | *(v2)* No rendezvous possible | `NO_RENDEZVOUS` | Option removed with reason; abort to hab becomes option 1 | Abort to hab |
-| *(v2)* Role already taken | HELLO with an occupied role | SCR-10 "EV1 is connected on another device — take over?" | Take over (demo) or pick another role |
+| *(v2)* Role already taken | HELLO with an occupied role | SCR-10 "EV1 is connected on another device — take over?" | Take over (the other device is disconnected and shows "Taken over by another device") or pick another role *(changed 2026-11-12, Proposed)* |
+| *(v2)* Role taken over *(added 2026-11-12, Proposed)* | `TAKEN_OVER` received | Full-screen "Taken over by another device" naming the role; the client does not reconnect; last values are not shown as current | "Back to role select" (SCR-10) |
 | *(v2)* Scenario/data mismatch | `LOAD_SCENARIO` validation | Ops error naming the mismatched `data_version` or checksum | Rebuild scenario (TASK-21) |
 | *(v2)* Ops approval pending too long | Option needs approval > 60 s sim time | EVA shows "Ops hasn't approved — abort to hab is always available" | Abort or wait |
 

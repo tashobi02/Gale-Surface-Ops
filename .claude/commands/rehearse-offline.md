@@ -19,6 +19,8 @@ Manual (human, Wi-Fi off, `make demo`):
 - [ ] Browser devtools Network panel shows no request leaving `localhost` (FR-01, NFR-01)
 - [ ] No console errors on the demo path
 - [ ] Briefing card prints on one page in Chrome (FR-14)
+- [ ] On each venue device, Safari (iOS and macOS) and Firefox join a role over the router and receive a SNAPSHOT: the CSP is `connect-src 'self'` without `ws:` (02 §F NFR-08, changed 2026-11-12), and a browser that blocks the same-host WebSocket needs a documented fix, not `ws:` back
+- [ ] Role take-over: a second device joining a taken role disconnects the first, which shows "Taken over by another device" and does not reconnect (02 §E.4)
 - [ ] Missing thermal-inertia tiles show "Layer unavailable" and routing still works (FR-16)
 
 Write the date, who ran it, and each result into the rehearsal log (06 TASK-14).
