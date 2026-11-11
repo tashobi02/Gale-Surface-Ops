@@ -33,7 +33,7 @@
 
 ### T15.01 — Write the usability-test script (3 non-team users, briefing in ≤ 5 min)
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 11 Nov to fix the 11 Nov audit findings (product lead's call; Ridita informed on the PR)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed
@@ -116,7 +116,7 @@
 
 ### T15.04 — follow-up: add the v2 criteria to the usability script (HUD glance, summon, landscape cards)
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 11 Nov to fix the 11 Nov audit findings (product lead's call; Ridita informed on the PR)
 - **Type:** human
 - **Tag:** human-required · core
 - **Window:** pre-event-allowed

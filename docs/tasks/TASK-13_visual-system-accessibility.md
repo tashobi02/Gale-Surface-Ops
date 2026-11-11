@@ -44,7 +44,7 @@
 
 ### T13.01 — Freeze CSS token and status-class names v1 against 04 §C
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 11 Nov to fix the 11 Nov audit findings (product lead's call; Ridita informed on the PR)
 - **Type:** contract
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -124,7 +124,7 @@
 
 ### T13.04 — Implement base styles: typography, focus ring, reduced motion
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 11 Nov to fix the 11 Nov audit findings (product lead's call; Ridita informed on the PR)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -152,7 +152,7 @@
 
 ### T13.05 — Implement status icons and patterns
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -179,7 +179,7 @@
 
 ### T13.06 — Implement keyboard map controls (04 §E)
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 11 Nov to fix the 11 Nov audit findings (product lead's call; Ridita informed on the PR)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -263,7 +263,7 @@
 
 ### T13.09 — Verify the axe scan: 0 serious issues
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI · design system)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** verify
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
