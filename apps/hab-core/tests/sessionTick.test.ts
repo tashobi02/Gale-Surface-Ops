@@ -46,11 +46,6 @@ vi.mock("../src/log", async () => {
   };
 });
 
-vi.mock("../src/engine/tasks", async () => {
-  const actual = await vi.importActual<typeof import("../src/engine/tasks")>("../src/engine/tasks");
-  return { ...actual, seedTasks: () => [] };
-});
-
 const here = dirname(fileURLToPath(import.meta.url));
 const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
 const sha256 = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex");
