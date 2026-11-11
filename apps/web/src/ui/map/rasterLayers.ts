@@ -28,6 +28,7 @@ import type { ImageLike } from "ol/DataTile.js";
 import type { Layer, ClassesLegend, DataSource, MissionScenario } from "@marswalk/protocol";
 import { LAYER_Z_INDEX, type LoadedAsset, type LoadedSite, type MapHandle } from "../context";
 import type { PlanStore } from "../../state/planStore";
+import { parseHexColour, readCssToken, requireToken } from "./mapTokens";
 import { createTileGrid, ensureMarsProjection } from "./projection";
 
 export type LayerStatus = "ready" | "loading" | "unavailable" | "out_of_range";
@@ -177,21 +178,9 @@ export function classifySlopeTile(tile: DecodedTile, bands: SlopeBands, palette:
   return { width: tile.width, height: tile.height, data: out };
 }
 
-/** `#RRGGBB` or `#RGB` to channels; throws for anything else. */
-export function parseHexColour(text: string): [number, number, number] {
-  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(text.trim());
-  if (!hex) throw new Error(`not a hex colour: ${JSON.stringify(text)}`);
-  const digits = hex[1].length === 3 ? [...hex[1]].map((d) => d + d).join("") : hex[1];
-  return [0, 2, 4].map((i) => parseInt(digits.slice(i, i + 2), 16)) as [number, number, number];
-}
-
 /** The slope palette from the `--slope-*` colour and `--slope-opacity-*` tokens; throws naming a missing token. */
 export function readSlopePalette(readToken: (name: string) => string): SlopePalette {
-  const token = (name: string): string => {
-    const value = readToken(name).trim();
-    if (value === "") throw new Error(`design token ${name} is not defined`);
-    return value;
-  };
+  const token = (name: string): string => requireToken(readToken, name);
   const style = (colour: string, opacity: string): SlopeClassStyle => {
     const alpha = Number(token(opacity));
     if (!(alpha >= 0 && alpha <= 1)) throw new Error(`design token ${opacity} is not an opacity: ${token(opacity)}`);
@@ -242,7 +231,7 @@ const browserDeps: RasterDeps = {
     context.putImageData(new ImageData(new Uint8ClampedArray(tile.data), tile.width, tile.height), 0, 0);
     return canvas;
   },
-  readToken: (name) => getComputedStyle(document.documentElement).getPropertyValue(name),
+  readToken: readCssToken,
 };
 
 /** Whether a layer's pixels are data to colour in the browser: its legend says its class breaks follow the scenario. */

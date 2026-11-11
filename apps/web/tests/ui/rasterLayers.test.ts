@@ -12,7 +12,6 @@ import {
   attributionOf,
   classifySlopeTile,
   createRasterLayers,
-  parseHexColour,
   readSlopePalette,
   slopeBands,
   zIndexOf,
@@ -23,6 +22,7 @@ import {
 } from "../../src/ui/map/rasterLayers";
 import { LAYER_Z_INDEX, type LoadedSite, type MapView } from "../../src/ui/context";
 import type { PlanState } from "../../src/state/planStore";
+import { parseHexColour } from "../../src/ui/map/mapTokens";
 import { getMarsProjectionCode, registerMarsProjection } from "../../src/ui/map/projection";
 import { loadedSiteFrom, mockManifest } from "./map/mapFixtures";
 import { installDom, removeDom } from "./domHarness";
