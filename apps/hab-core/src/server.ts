@@ -32,6 +32,7 @@ import {
 import type { StateChange } from "./engine/reducer";
 import type { SessionHandle } from "./session";
 import { buildReport } from "./report";
+import { diffSnapshots } from "./stateDelta";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -120,7 +121,7 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
     const events = session.eventsAfter(0);
     const snap = session.snapshot([]);
-    const report = buildReport(events, snap.session.log_hash);
+    const report = buildReport(events, snap.session.log_hash, session.initialPlan());
     if (report.session_id === "unknown" && snap.session.session_id) {
       report.session_id = snap.session.session_id;
       report.scenario_id = snap.session.scenario_id;
@@ -220,14 +221,35 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
       ...(command.queued_offline === true ? { queued_offline: true } : {}),
     };
     let outcome: ReturnType<SessionHandle["apply"]>;
+    const before = session.snapshot([]);
     try {
       outcome = session.apply(cmd, client.client_id);
     } catch (err) {
       app.log.error(err);
       return send(client, reject(command_id, "INVALID", "command failed"));
     }
-    broadcastEvents(outcome.events);
+    publish(before, outcome.events);
     send(client, outcome.result);
+  }
+
+  /**
+   * Tell every client what a command or a batch of ticks did: the EVENTs, then the STATE_DELTA between the session's
+   * state before and after, so `state()` on each client follows (alerts, options, tasks, clock, not only crew fields).
+   * A new session (LOAD_SCENARIO) restarts seq, which a delta cannot express: every client gets a fresh SNAPSHOT first.
+   */
+  function publish(before: Snapshot, events: LogEvent[], tickChanges: StateChange[] = []): void {
+    if (!session) return;
+    const after = session.snapshot([]);
+    if (after.session.session_id !== before.session.session_id) {
+      const list = clientList(clients);
+      for (const c of clients) if (c.joined) send(c, { ...after, clients: list });
+      broadcastEvents(events);
+      return;
+    }
+    broadcastEvents(events);
+    // The diff comes last, so it wins a path the tick also reported (last value per path, 02 §D.14).
+    const changes = [...tickChanges, ...diffSnapshots(before, after)];
+    if (changes.length > 0) broadcast(stateDelta(changes));
   }
 
   function broadcastEvents(events: LogEvent[]): void {
@@ -247,14 +269,14 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
       const now = performance.now();
       const elapsed_s = Math.min(Math.max((now - lastLoopAt) / 1000, 0), MAX_LOOP_ELAPSED_S);
       lastLoopAt = now;
-      const { clock } = session.snapshot([]).session;
+      const before = session.snapshot([]);
+      const { clock } = before.session;
       const speed = Number.isFinite(clock.speed) && clock.speed > 0 ? clock.speed : 0;
       simCarry_s += clock.paused ? 0 : elapsed_s * speed;
       const steps = Math.floor(simCarry_s);
       simCarry_s -= steps;
       const { events, deltas } = session.advance(steps);
-      broadcastEvents(events);
-      if (deltas.length > 0) broadcast(stateDelta(deltas));
+      publish(before, events, deltas);
     } catch (err) {
       app.log.error(err); // keep serving; the engine owner sees the error
     }

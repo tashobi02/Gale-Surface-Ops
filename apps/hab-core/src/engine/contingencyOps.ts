@@ -164,10 +164,11 @@ function vehicleInputs(state: EngineState, scenario: LoadedScenario, grid: Loade
   return { rendezvous: map, vehicle_s: ingressMin * 60 };
 }
 
+/** Keys spelled as in 05 §F.6 (`data.options[].<field>`), which the EVA options sheet reads. */
 const OPTIONS_PROVENANCE: ProvenanceMap = {
-  "data.options.eta_shelter_min": "modelled",
-  "data.options.expected_dose_ugy": "modelled",
-  "data.options.rendezvous": "modelled",
+  "data.options[].eta_shelter_min": "modelled",
+  "data.options[].expected_dose_ugy": "modelled",
+  "data.options[].rendezvous": "modelled",
 };
 
 /** On a new warning, build options with @marswalk/compute and log OPTIONS_PROPOSED (once per alert). */
