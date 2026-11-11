@@ -214,18 +214,33 @@ describe("JoinRoute (SCR-10)", () => {
     expect(container.querySelectorAll(".role-taken").length).toBe(1);
   });
 
-  it("a taken role does not pretend to be taken over: honest wording, and the other device stays connected", async () => {
+  it("a taken role offers a real take-over: an honest confirm that the other device will be disconnected (02 §E.4)", async () => {
     const fetchImpl = vi.fn(async () => json(session([{ client_id: "c-9", role: "eva:EV1", display_name: "EV1 tablet" }])));
     const { container } = await mount(createElement(JoinRoute, { fetchImpl, pollMs: 60_000 }));
     await flush();
     const taken = must(container, ".role-taken");
-    expect(container.textContent).not.toMatch(/take over/i);
+    expect(must(taken, "button").textContent).toContain("TAKE OVER");
+    expect(window.location.hash).toBe("");
     await click(must(taken, "button"));
+    // Nothing happens until it is confirmed: the question comes first.
+    expect(window.location.hash).toBe("");
+    expect(taken.textContent).toMatch(/the other device will be disconnected/i);
+    expect(taken.textContent).not.toMatch(/not built|stay connected|stays connected/i);
     const confirm = must(taken, 'button[aria-label^="Confirm"]');
-    expect(confirm.textContent).toContain("OPEN ANYWAY");
-    expect(confirm.textContent).toContain("OTHER DEVICE STAYS CONNECTED");
-    expect(taken.textContent).toMatch(/not built yet/i);
+    expect(confirm.textContent).toContain("TAKE OVER");
+    expect(confirm.textContent).toContain("DISCONNECTS THE OTHER DEVICE");
     await click(confirm);
     expect(window.location.hash).toBe("#/eva/EV1");
+  });
+
+  it("cancelling the take-over question leaves everything as it was", async () => {
+    const fetchImpl = vi.fn(async () => json(session([{ client_id: "c-9", role: "ops", display_name: "Ops console" }])));
+    const { container } = await mount(createElement(JoinRoute, { fetchImpl, pollMs: 60_000 }));
+    await flush();
+    const taken = must(container, ".role-taken");
+    await click(must(taken, "button"));
+    await click(must(taken, 'button[aria-label="Cancel"]'));
+    expect(window.location.hash).toBe("");
+    expect(taken.textContent).not.toMatch(/will be disconnected/i);
   });
 });

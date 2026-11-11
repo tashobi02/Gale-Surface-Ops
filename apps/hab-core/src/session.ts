@@ -43,6 +43,11 @@ export interface SessionHandle {
   apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[] };
   /** Run `steps` fixed 1-s sim steps; events go out immediately, deltas are coalesced by the server. */
   advance(steps: number): { events: LogEvent[]; deltas: StateChange[] };
+  /**
+   * Log that a HELLO displaced the holder of a role (02 §E.4): one `ROLE_TAKEN_OVER` event, actor `system`, at the
+   * current sim time. The server calls it; the engine reads no wall clock for it (NFR-06).
+   */
+  recordRoleTakeOver(data: LogEventData["ROLE_TAKEN_OVER"]): LogEvent;
   /** Logged events after `seq` (reconnect, 02 §E.6). */
   eventsAfter(seq: number): LogEvent[];
   /**
@@ -157,6 +162,13 @@ class Session implements SessionHandle {
     if (!Number.isInteger(steps) || steps < 0) throw new Error(`advance: steps must be a non-negative integer: ${steps}`);
     if (this.state.session.status !== "RUNNING") return { events: [], deltas: [] };
     return this.runTicks(steps, false);
+  }
+
+  recordRoleTakeOver(data: LogEventData["ROLE_TAKEN_OVER"]): LogEvent {
+    const pending: PendingEvent = { sim_time: this.state.session.clock.sim_time, kind: "ROLE_TAKEN_OVER", actor: "system", data, provenance: {}, command_ref: null };
+    return this.appendAll([pending], (e) => {
+      this.state = reduce(this.state, e);
+    })[0];
   }
 
   eventsAfter(seq: number): LogEvent[] {

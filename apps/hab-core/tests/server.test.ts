@@ -24,8 +24,10 @@ import {
   type Alert,
   type CommandResult,
   type LogEvent,
+  type LogEventData,
   type ServerMessage,
   type PlanExport,
+  type Role,
   type Snapshot,
   type StopTask,
   type Waypoint,
@@ -60,6 +62,8 @@ class StubSession implements SessionHandle {
   current: PlanExport | null = null;
   /** A scripted log for the report tests; without it the placeholder ARRIVED_STOP events are served. */
   log: LogEvent[] | null = null;
+  /** The take-overs the server asked the session to log (02 §E.4). */
+  takeovers: LogEventData["ROLE_TAKEN_OVER"][] = [];
   constructor(lastSeq: number) {
     this.lastSeq = lastSeq;
   }
@@ -85,6 +89,10 @@ class StubSession implements SessionHandle {
   }
   initialPlan(): PlanExport | null {
     return this.initial;
+  }
+  recordRoleTakeOver(data: LogEventData["ROLE_TAKEN_OVER"]): LogEvent {
+    this.takeovers.push(data);
+    return { seq: ++this.lastSeq, sim_time: SIM_TIME, kind: "ROLE_TAKEN_OVER", actor: "system", data, provenance: {}, command_ref: null };
   }
   eventsAfter(seq: number): LogEvent[] {
     if (this.log) return this.log.filter((e) => e.seq > seq);
@@ -181,8 +189,8 @@ async function connect(url: string): Promise<TestClient> {
 /** `seq` of a server message; COMMAND_RESULT has none (02 §E.6 example). */
 const seqOf = (m: ServerMessage): number => ("seq" in m ? m.seq : -1);
 
-const hello = (last_seq: number, client_id = "c-7f3a"): ClientMessage =>
-  ({ v: 1, type: "HELLO", role: "eva:EV1", client_id, display_name: "", last_seq }); // 02 §E.6 HELLO
+const hello = (last_seq: number, client_id = "c-7f3a", role: Role = "eva:EV1"): ClientMessage =>
+  ({ v: 1, type: "HELLO", role, client_id, display_name: "", last_seq }); // 02 §E.6 HELLO
 
 const open: { server?: HabServerUnderTest; clients: TestClient[] } = { clients: [] };
 
@@ -225,8 +233,8 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
     const { server, session } = await setup();
     const a = await client(server.url);
     const b = await client(server.url);
-    a.send(hello(0, "c-a"));
-    b.send(hello(0, "c-b"));
+    a.send(hello(0, "c-a", "eva:EV1"));
+    b.send(hello(0, "c-b", "ops")); // another role: the same role would take the first client over (02 §E.4)
     await a.waitFor((m) => m.type === "SNAPSHOT");
     await b.waitFor((m) => m.type === "SNAPSHOT");
     const first = session.lastSeq + 1;
@@ -299,12 +307,12 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
     const { server, session } = await setup();
     const a = await client(server.url);
     const b = await client(server.url);
-    a.send(hello(0, "c-aaaa"));
-    b.send(hello(0, "c-bbbb"));
+    a.send(hello(0, "c-aaaa", "eva:EV1"));
+    b.send(hello(0, "c-bbbb", "eva:EV2"));
     await a.waitFor((m) => m.type === "SNAPSHOT");
     await b.waitFor((m) => m.type === "SNAPSHOT");
-    for (const c of [a, b]) {
-      c.send({ v: 1, type: "COMMAND", command_id: "k-0001", role: "eva:EV1", command: { kind: "ACK_ALERT", args: { alert_id: "a-1" } } });
+    for (const [c, role] of [[a, "eva:EV1"], [b, "eva:EV2"]] as const) {
+      c.send({ v: 1, type: "COMMAND", command_id: "k-0001", role, command: { kind: "ACK_ALERT", args: { alert_id: "a-1" } } });
       await c.waitFor((m) => m.type === "COMMAND_RESULT");
     }
     expect(session.clientIds).toEqual(["c-aaaa", "c-bbbb"]);
@@ -458,3 +466,103 @@ describe("command effects reach every client (T20.04; 02 §D.14, §E.6)", () => 
   });
 });
 
+
+describe("role take-over: newest wins (02 §E.4, §E.6; 05 ROLE_TAKEN_OVER)", () => {
+  const closeOf = (c: TestClient) => new Promise<{ code: number; reason: string }>((resolve) => c.ws.once("close", (code, reason) => resolve({ code, reason: reason.toString() })));
+  const joined = async (url: string, role: Role, client_id: string, last_seq = 0) => {
+    const c = await client(url);
+    c.send(hello(last_seq, client_id, role));
+    await c.waitFor((m) => m.type === "SNAPSHOT");
+    return c;
+  };
+  const takenOver = (c: TestClient) => c.received.filter((m) => m.type === "TAKEN_OVER");
+
+  it("a HELLO for a role another client holds: the old client gets TAKEN_OVER and is closed, the new one is served", async () => {
+    const { server, session } = await setup();
+    const first = await joined(server.url, "eva:EV1", "c-first");
+    const closed = closeOf(first);
+    const second = await joined(server.url, "eva:EV1", "c-second");
+
+    await first.waitFor((m) => m.type === "TAKEN_OVER");
+    expect(takenOver(first)).toEqual([{ v: 1, type: "TAKEN_OVER", seq: session.lastSeq, sim_time: SIM_TIME, role: "eva:EV1" }]);
+    expect(await closed).toEqual({ code: 4001, reason: "taken over" });
+    expect(takenOver(second)).toHaveLength(0);
+    const snap = second.received.find((m): m is Snapshot => m.type === "SNAPSHOT");
+    expect(snap?.clients.map((c) => c.client_id)).toEqual(["c-second"]);
+
+    second.send({ v: 1, type: "COMMAND", command_id: "k-0001", role: "eva:EV1", command: { kind: "ACK_ALERT", args: { alert_id: "a-1" } } });
+    expect(await second.waitFor((m) => m.type === "COMMAND_RESULT")).toMatchObject([{ ok: true }]);
+    expect(session.clientIds).toEqual(["c-second"]);
+  });
+
+  it("logs ROLE_TAKEN_OVER once through the session, with crew_id for an EVA role and the client ids", async () => {
+    const { server, session } = await setup();
+    await joined(server.url, "eva:EV1", "c-first");
+    await joined(server.url, "eva:EV1", "c-second");
+    await new Promise((r) => setTimeout(r, 30));
+    expect(session.takeovers).toEqual([{ role: "eva:EV1", crew_id: "EV1", old_client_id: "c-first", new_client_id: "c-second" }]);
+  });
+
+  it("a role with no crew member logs no crew_id key", async () => {
+    const { server, session } = await setup();
+    await joined(server.url, "ops", "c-ops-1");
+    await joined(server.url, "ops", "c-ops-2");
+    expect(session.takeovers).toEqual([{ role: "ops", old_client_id: "c-ops-1", new_client_id: "c-ops-2" }]);
+    expect(Object.keys(session.takeovers[0])).not.toContain("crew_id");
+  });
+
+  it("the other connected clients receive the ROLE_TAKEN_OVER event (ops console event log)", async () => {
+    const { server } = await setup();
+    const ops = await joined(server.url, "ops", "c-ops");
+    await joined(server.url, "eva:EV1", "c-first");
+    await joined(server.url, "eva:EV1", "c-second");
+    const [event] = await ops.waitFor((m) => m.type === "EVENT" && m.event.kind === "ROLE_TAKEN_OVER");
+    expect(event).toMatchObject({ event: { actor: "system", command_ref: null, data: { role: "eva:EV1", old_client_id: "c-first", new_client_id: "c-second" } } });
+  });
+
+  it("different roles do not displace each other", async () => {
+    const { server, session } = await setup();
+    const clients = [await joined(server.url, "ops", "c-1"), await joined(server.url, "eva:EV1", "c-2"), await joined(server.url, "eva:EV2", "c-3"), await joined(server.url, "earth", "c-4")];
+    await new Promise((r) => setTimeout(r, 50));
+    for (const c of clients) {
+      expect(takenOver(c)).toHaveLength(0);
+      expect(c.ws.readyState).toBe(WebSocket.OPEN);
+    }
+    expect(session.takeovers).toEqual([]);
+  });
+
+  it("the same client_id reconnecting replaces its own stale socket silently: no notice, no event", async () => {
+    const { server, session } = await setup();
+    const stale = await joined(server.url, "eva:EV1", "c-same");
+    const closed = closeOf(stale);
+    const fresh = await joined(server.url, "eva:EV1", "c-same", 400);
+    const { code } = await closed;
+    expect(code).not.toBe(4001);
+    expect(takenOver(stale)).toHaveLength(0);
+    expect(takenOver(fresh)).toHaveLength(0);
+    expect(session.takeovers).toEqual([]);
+  });
+
+  it("a displaced client's later commands are not applied", async () => {
+    const { server, session } = await setup();
+    const first = await joined(server.url, "eva:EV1", "c-first");
+    const closed = closeOf(first);
+    await joined(server.url, "eva:EV1", "c-second");
+    await closed;
+    first.send({ v: 1, type: "COMMAND", command_id: "k-late", role: "eva:EV1", command: { kind: "ACK_ALERT", args: { alert_id: "a-1" } } });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(session.applied).toEqual([]);
+  });
+
+  it("without a session the old client is still displaced (nothing to log)", async () => {
+    const server = await startServer({ site: "mock_site", port: 0, host: "127.0.0.1" });
+    open.server = server;
+    const first = await client(server.url);
+    first.send(hello(0, "c-first"));
+    await new Promise((r) => setTimeout(r, 30));
+    const closed = closeOf(first);
+    const second = await client(server.url);
+    second.send(hello(0, "c-second"));
+    expect((await closed).code).toBe(4001);
+  });
+});

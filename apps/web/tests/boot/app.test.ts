@@ -295,6 +295,8 @@ describe("index.html (NFR-01, NFR-08)", () => {
     expect(html).not.toMatch(/<(script|link|img)[^>]+(src|href)="(https?:)?\/\//i);
     expect(CSP_META).toContain("default-src 'self'");
     expect(CSP_META).toContain("connect-src 'self'");
+    // 02 §F NFR-08 (changed 2026-11-12): 'self' alone; `ws:` would allow a WebSocket to any host.
+    expect(CSP_META.split(";").map((d) => d.trim())).toContain("connect-src 'self'");
     expect(CSP_META).not.toMatch(/'unsafe-(inline|eval)'/);
     expect(CSP_META).not.toMatch(/\b(blob|data|ws|wss|http|https):/);
   });

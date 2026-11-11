@@ -6,8 +6,8 @@
  * element styles through the CSSOM (no inline style attribute in the markup), the map will load same-origin tiles, and
  * the Hab Core WebSocket is same-host, which `connect-src 'self'` covers in CSP3 browsers. So there is no `blob:`,
  * `data:`, `ws:` or `'unsafe-inline'`; add a source here, with the reason, when a feature needs one.
- * TODO(decision): 02 §F NFR-08 still spells `connect-src 'self' ws:`; `ws:` would allow a WebSocket to any host, and
- * Chromium connects with `'self'` alone. Update 02 §F if Sadman agrees; confirm on the venue's Safari and Firefox.
+ * 02 §F NFR-08 (changed 2026-11-12, decided by Sadman Shaharier Mahim) is `connect-src 'self'` without `ws:`. Safari and
+ * Firefox on the venue devices are checked in the offline rehearsal (.claude/commands/rehearse-offline.md).
  */
 export const CSP_META = "default-src 'self'; connect-src 'self'; base-uri 'self'; object-src 'none'";
 

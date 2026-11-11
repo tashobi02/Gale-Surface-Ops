@@ -3,6 +3,8 @@
  * Fastify serves the web app and site data; `ws` handles /ws: HELLO → SNAPSHOT, then the EVENTs after
  * `last_seq` on a reconnect, EVENTs fanned out immediately, STATE_DELTAs coalesced to ≤ 10 Hz per client
  * (02 §D.14), COMMAND → exactly one COMMAND_RESULT, PING every HEARTBEAT_MS.
+ * Role take-over, newest wins (02 §E.4): a HELLO for a role another client holds displaces that client (TAKEN_OVER,
+ * close 4001, one logged ROLE_TAKEN_OVER); the same client_id on a new socket replaces its own stale socket silently.
  * Binds 0.0.0.0 by default so phones on the habitat LAN can join. No outbound network requests,
  * ever (NFR-01, NFR-08).
  *
@@ -23,9 +25,13 @@ import {
   MAX_REPLAY_GAP,
   PERMISSIONS,
   PROTOCOL_VERSION,
+  TAKEN_OVER_CLOSE_CODE,
+  TAKEN_OVER_CLOSE_REASON,
   type Command,
   type CommandResult,
+  type CrewId,
   type LogEvent,
+  type LogEventData,
   type Role,
   type ServerMessage,
   type Snapshot,
@@ -190,7 +196,10 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     if (typeof last_seq !== "number" || !Number.isInteger(last_seq) || last_seq < 0) return;
     // One client_id per connection: it keys command dedupe (05 Command), so a second HELLO may not change it.
     if (client.joined && client.client_id !== client_id) return;
+    const displaced = holdersOf(role, client);
     Object.assign(client, { role, client_id, display_name, joined: true });
+    const takeovers = displaced.filter((old) => old.client_id !== client_id).map((old) => takeOver(old, client));
+    for (const old of displaced.filter((o) => o.client_id === client_id)) release(old, 1000, "replaced by a newer socket");
     if (!session) return;
     // Always a fresh SNAPSHOT first: state changed only by STATE_DELTA during the gap is otherwise
     // lost (NFR-13). On a reconnect (last_seq > 0) with a small gap, the missed EVENTs follow it;
@@ -201,6 +210,36 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     if (last_seq > 0 && gap >= 0 && gap <= MAX_REPLAY_GAP) {
       for (const event of session.eventsAfter(last_seq)) send(client, eventMessage(event));
     }
+    // Everyone else sees the take-over in their event feed; the new client's own feed starts at its SNAPSHOT (or replay).
+    for (const event of takeovers) {
+      if (event) for (const c of clients) if (c.joined && c !== client) send(c, eventMessage(event));
+    }
+  }
+
+  /** Other joined clients that currently hold `role`. */
+  function holdersOf(role: Role, except: Client): Client[] {
+    return [...clients].filter((c) => c !== except && c.joined && c.role === role);
+  }
+
+  /** Drop a client from the live set and close its socket; nothing more is sent to or accepted from it. */
+  function release(old: Client, code: number, reason: string): void {
+    old.joined = false;
+    clients.delete(old);
+    if (old.ws.readyState === old.ws.OPEN || old.ws.readyState === old.ws.CONNECTING) old.ws.close(code, reason);
+  }
+
+  /** Displace `old` by `by` (02 §E.4): log it, tell `old`, close it. Returns the logged event (none without a session). */
+  function takeOver(old: Client, by: Client): LogEvent | null {
+    const data: LogEventData["ROLE_TAKEN_OVER"] = {
+      role: old.role,
+      ...(old.role.startsWith("eva:") ? { crew_id: old.role.slice(4) as CrewId } : {}),
+      old_client_id: old.client_id,
+      new_client_id: by.client_id,
+    };
+    const event = session ? session.recordRoleTakeOver(data) : null;
+    send(old, { v: PROTOCOL_VERSION, type: "TAKEN_OVER", ...head(), role: old.role }); // before the close frame
+    release(old, TAKEN_OVER_CLOSE_CODE, TAKEN_OVER_CLOSE_REASON);
+    return event;
   }
 
   /** Exactly one COMMAND_RESULT for every COMMAND that carries a usable command_id (02 §E.6). */

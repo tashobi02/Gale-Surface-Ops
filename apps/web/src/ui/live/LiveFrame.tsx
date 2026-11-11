@@ -6,13 +6,17 @@
  * The overlay sets the data-surface of its host (EVA and HUD: `eva`, 16 px codes; ops: `ops`, 12 px codes, 04 §C.2), so a
  * code never renders at the wrong size because an ancestor lacks a surface.
  *
+ * A role taken over by a newer device (02 §E.4) covers the screen with `TakenOverNotice` instead; the client has stopped, so
+ * no link-lost overlay is shown with it.
+ *
  * The link age is client time since the watchdog fired (`since_ms` from the client), shown as a `simulated` value with
  * the source `client:link-watchdog`, as SCR-18 does. It is a display tick only; nothing here feeds the simulation.
  */
 import { useEffect, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import type { CrewId } from "@marswalk/protocol";
-import { useLinkLost } from "../../state/habSession";
+import { useLinkLost, useTakenOver } from "../../state/habSession";
 import { HabLinkLost } from "../screens/scr18HabLinkLost";
+import { TakenOverNotice } from "./TakenOverNotice";
 import { StatusIcon } from "../components/statusIcon";
 import { PROVENANCE_GLYPHS, UNAVAILABLE, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
 
@@ -128,12 +132,18 @@ function OpsLinkLostNotice({ ageSeconds, onRetry }: { ageSeconds: number | undef
 
 export function LiveFrame({ variant, crewId, onRetry, children }: LiveFrameProps): ReactElement {
   const link = useLinkLost();
+  const takenOver = useTakenOver();
   const age = useLinkAgeSeconds(link.lost ? link.since_ms : null);
   const retry = onRetry ?? (() => globalThis.location?.reload());
   return (
     <>
       {children}
-      {link.lost && (
+      {takenOver && (
+        <div data-slot="taken-over-overlay" data-surface={variant === "ops" ? "ops" : "eva"} style={overlayStyle}>
+          <TakenOverNotice roleLabel={variant === "ops" || !crewId ? "OPS" : crewId} />
+        </div>
+      )}
+      {link.lost && !takenOver && (
         <div data-slot="link-lost-overlay" data-surface={variant === "ops" ? "ops" : "eva"} style={overlayStyle}>
           {variant === "ops" || !crewId ? (
             <OpsLinkLostNotice ageSeconds={age} onRetry={retry} />

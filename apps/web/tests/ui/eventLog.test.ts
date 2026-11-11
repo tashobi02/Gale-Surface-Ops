@@ -80,6 +80,7 @@ describe("EventLog with fields missing: — and nothing invented (04 §D.1)", ()
     expect(summarizeEvent(ev(1, "EVA_STARTED", { crew_ids: ["EV2"] }))).toContain("EV2");
     expect(summarizeEvent(ev(1, "PLAN_REVISED", { plan_revision: 5 }))).toContain("Rev 5");
     expect(summarizeEvent(ev(1, "VEHICLE_DISPATCHED", { vehicle_id: "UR1" }))).toContain("UR1");
+    expect(summarizeEvent(ev(1, "ROLE_TAKEN_OVER", { role: "eva:EV1", crew_id: "EV1", old_client_id: "c-a", new_client_id: "c-b" }))).toBe("Role eva:EV1 taken over by another device");
     expect(summarizeEvent(ev(1, "CLOCK_CHANGED", { speed: 10, paused: true }))).toBe("Clock speed 10x (paused)");
     expect(summarizeEvent(ev(1, "OPTIONS_PROPOSED", { options: [] }))).toContain("0 contingency");
   });

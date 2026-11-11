@@ -311,7 +311,9 @@ export type LogEventKind =
   | "EVA_ENDED"
   | "TASK_ADDED"
   | "TASK_UPDATED"
-  | "TASK_DROPPED";
+  | "TASK_DROPPED"
+  /** A HELLO for a held role displaced its holder (02 §E.4, added 2026-11-12, Proposed). Actor `system`, `command_ref` null. */
+  | "ROLE_TAKEN_OVER";
 
 /** The command that produced a LogEvent (05 LogEvent `command_ref`, added 2026-11-07). */
 export interface CommandRef {
@@ -397,6 +399,8 @@ export interface LogEventData {
   /** `undo: true` marks a reversal to TODO (05 LogEvent, 01 FR-50; added 2026-11-11, Proposed, spec change #202). */
   TASK_UPDATED: Pick<StopTask, "task_id" | "stop_id" | "crew_id" | "state" | "reason"> & { undo?: boolean };
   TASK_DROPPED: { task_id: string; stop_id: string; plan_revision: number };
+  /** 05 LogEvent `ROLE_TAKEN_OVER`; `crew_id` only for an `eva:EVn` role (the key is absent otherwise). Changes no state. */
+  ROLE_TAKEN_OVER: { role: Role; crew_id?: CrewId; old_client_id: string; new_client_id: string };
 }
 
 /** A LogEvent of one kind with its `data` typed. */

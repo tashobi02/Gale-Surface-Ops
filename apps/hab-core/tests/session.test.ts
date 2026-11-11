@@ -170,3 +170,28 @@ describe("session manager (T22.12)", () => {
     expect(resumed.session.clock.speed).toBe(live.session.clock.speed);
   });
 });
+
+describe("recordRoleTakeOver (02 §E.4; 05 ROLE_TAKEN_OVER)", () => {
+  const data = { role: "eva:EV1" as const, crew_id: "EV1" as const, old_client_id: "c-old", new_client_id: "c-new" };
+
+  it("logs one system event at the current sim time that changes no state but seq and log_hash", () => {
+    const s = scripted(varDir());
+    const before = state(s);
+    const event = s.recordRoleTakeOver(data);
+    const after = state(s);
+    expect(event).toMatchObject({ seq: before.seq + 1, kind: "ROLE_TAKEN_OVER", actor: "system", command_ref: null, sim_time: before.sim_time, data });
+    expect(s.eventsAfter(before.seq)).toEqual([event]);
+    expect(after.session.log_hash).not.toBe(before.session.log_hash);
+    expect({ ...after, seq: 0, session: { ...after.session, last_seq: 0, log_hash: "" } }).toEqual({ ...before, seq: 0, session: { ...before.session, last_seq: 0, log_hash: "" } });
+  });
+
+  it("survives a restart mid-scenario: resume gives the same last_seq, log_hash and state", () => {
+    const dir = varDir();
+    const s = scripted(dir);
+    s.recordRoleTakeOver(data);
+    s.advance(5);
+    s.recordRoleTakeOver({ role: "ops", old_client_id: "c-a", new_client_id: "c-b" });
+    const live = state(s);
+    expect(state(resumeSession(sessionDir(dir), fake))).toEqual(live);
+  });
+});
