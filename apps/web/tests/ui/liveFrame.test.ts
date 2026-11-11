@@ -135,6 +135,81 @@ describe("LiveFrame", () => {
   });
 });
 
+describe("taken over by another device (02 §E.4; 03 exception table)", () => {
+  const taken = (role: "ops" | "eva:EV1"): ServerMessage => ({ v: 1, type: "TAKEN_OVER", seq: 430, sim_time: "2024-05-20T13:14:00Z", role });
+
+  it("EVA host: a full-screen notice naming the role, in the EVA surface, with a way back to role select", async () => {
+    vi.useFakeTimers();
+    const made = open("eva:EV1");
+    const { container } = await mount(createElement(LiveFrame, { variant: "eva", crewId: "EV1" }, child()));
+    await made[0].receive(...wsFixtures.connect, taken("eva:EV1"));
+
+    const notice = must(container, '[data-slot="taken-over-overlay"]');
+    expect(notice.getAttribute("data-surface")).toBe("eva");
+    expect(notice.textContent).toContain("TAKEN OVER BY ANOTHER DEVICE");
+    expect(notice.textContent).toContain("EV1");
+    expect(must(notice, '[data-slot="taken-over-back"]').textContent).toContain("BACK TO ROLE SELECT");
+  });
+
+  it("ops host: the same notice on the ops surface", async () => {
+    vi.useFakeTimers();
+    const made = open("ops");
+    const { container } = await mount(createElement(LiveFrame, { variant: "ops" }, child()));
+    await made[0].receive(...wsFixtures.connect, taken("ops"));
+    const notice = must(container, '[data-slot="taken-over-overlay"]');
+    expect(notice.getAttribute("data-surface")).toBe("ops");
+    expect(notice.textContent).toContain("TAKEN OVER BY ANOTHER DEVICE");
+  });
+
+  it("shows no crew values and never offers to reconnect or take the role back by itself", async () => {
+    vi.useFakeTimers();
+    const made = open("eva:EV1");
+    const { container } = await mount(createElement(LiveFrame, { variant: "eva", crewId: "EV1" }, child()));
+    await made[0].receive(...wsFixtures.connect, taken("eva:EV1"));
+    const notice = must(container, '[data-slot="taken-over-overlay"]');
+    expect(notice.querySelector("[data-provenance]")).toBeNull();
+    expect([...notice.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["BACK TO ROLE SELECT"]);
+  });
+
+  it("no HAB LINK LOST overlay while taken over, however long the silence", async () => {
+    vi.useFakeTimers();
+    const made = open("ops");
+    const { container } = await mount(createElement(LiveFrame, { variant: "ops" }, child()));
+    await made[0].receive(...wsFixtures.connect, taken("ops"));
+    await silence(LINK_LOST_AFTER_MS * 4);
+    expect(container.querySelector('[data-slot="link-lost-overlay"]')).toBeNull();
+    expect(container.querySelector('[data-slot="taken-over-overlay"]')).not.toBeNull();
+    expect(made).toHaveLength(1);
+  });
+
+  it("the screen under the notice is inert and hidden from assistive technology; it is not while the role is held", async () => {
+    vi.useFakeTimers();
+    const made = open("eva:EV1");
+    const { container } = await mount(createElement(LiveFrame, { variant: "eva", crewId: "EV1" }, child()));
+    await made[0].receive(...wsFixtures.connect);
+    const held = must(container, "#screen").closest('[data-slot="live-screen"]') as HTMLElement;
+    expect(held.hasAttribute("inert")).toBe(false);
+    expect(held.getAttribute("aria-hidden")).toBeNull();
+
+    await made[0].receive(taken("eva:EV1"));
+    const under = must(container, "#screen").closest('[data-slot="live-screen"]') as HTMLElement;
+    expect(under.hasAttribute("inert")).toBe(true);
+    expect(under.getAttribute("aria-hidden")).toBe("true");
+    expect(under.contains(must(container, '[data-slot="taken-over-overlay"]'))).toBe(false); // the notice itself stays operable
+  });
+
+  it("the back button goes to the join screen", async () => {
+    vi.useFakeTimers();
+    const made = open("ops");
+    const { container } = await mount(createElement(LiveFrame, { variant: "ops" }, child()));
+    await made[0].receive(...wsFixtures.connect, taken("ops"));
+    await act(async () => {
+      must(container, '[data-slot="taken-over-back"]').dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(globalThis.location.hash).toBe("#/join");
+  });
+});
+
 describe("SCR-18 data-surface (review of #214)", () => {
   const snapshot = wsFixtures.connect[0] as Snapshot;
 

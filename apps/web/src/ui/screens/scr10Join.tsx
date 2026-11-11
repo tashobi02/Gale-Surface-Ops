@@ -4,12 +4,11 @@
  *
  * Requirements: FR-30, FR-31.
  * Purpose: Put each device in the right role in < 10 s; supports deep linking #/join?role=….
- * Five chamfered tiles: PLANNER · OPS · EV1 · EV2 · EARTH.
+ * Seven chamfered tiles: PLANNER · OPS · EV1 · EV2 · HUD EV1 · HUD EV2 · EARTH (a HUD is its own read-only role, 02 §E.4).
  * States: Connecting · Ready · Role taken · Hab Core unreachable.
- * Role taken: the Hab Core has no take-over yet (02 §E.4 defines none), so the screen offers "open anyway" and says the
- * other device stays connected; it never says "taken over".
- * TODO(decision → decided 11 Nov: newest wins; implementation pending): the Hab Core accepts the new device,
- * disconnects the old one with a "taken over" notice and logs it. Restore a take-over label only when that ships.
+ * Role taken: "newest wins" (02 §E.4, decided 2026-11-12). The tile offers TAKE OVER and asks first: confirming sends this
+ * device to the role, and the Hab Core then disconnects the other device (it shows "Taken over by another device") and
+ * logs ROLE_TAKEN_OVER. The screen says so plainly; nothing is taken until the confirm.
  */
 
 import {
@@ -20,7 +19,7 @@ import {
 import type { Role } from "@marswalk/protocol";
 import { UNAVAILABLE } from "../components/provenance";
 
-export type ClientRoleOption = "planner" | "ops" | "eva:EV1" | "eva:EV2" | "earth";
+export type ClientRoleOption = "planner" | "ops" | "eva:EV1" | "eva:EV2" | "hud:EV1" | "hud:EV2" | "earth";
 
 export interface RoleDescriptor {
   role: ClientRoleOption;
@@ -58,6 +57,20 @@ export const ROLE_DESCRIPTORS: RoleDescriptor[] = [
     code: "EV2",
     description: "Buddy navigation, mutual haven proximity, suit status, task verification.",
     route: "#/eva/EV2",
+  },
+  {
+    role: "hud:EV1",
+    label: "HUD for EV1",
+    code: "HUD EV1",
+    description: "Read-only suit HUD view for EV1: shows values, sends no commands. Does not replace the EV1 tablet.",
+    route: "#/hud/EV1",
+  },
+  {
+    role: "hud:EV2",
+    label: "HUD for EV2",
+    code: "HUD EV2",
+    description: "Read-only suit HUD view for EV2: shows values, sends no commands. Does not replace the EV2 tablet.",
+    route: "#/hud/EV2",
   },
   {
     role: "earth",
@@ -322,8 +335,7 @@ export function Join({
                 {isConfirmingTakeOver ? (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "16px" }}>
                     <p data-slot="join-taken-note" style={{ flexBasis: "100%", margin: 0, fontSize: "14px" }}>
-                      This role is already open on another device. Taking a role over is not built yet: if you continue,
-                      both devices stay connected.
+                      This role is already open on another device. If you take it over, the other device will be disconnected.
                     </p>
                     <button
                       style={{
@@ -332,9 +344,9 @@ export function Join({
                         flex: 1,
                       }}
                       onClick={() => handleConfirmTakeOver(desc.role)}
-                      aria-label={`Confirm open ${desc.label} anyway; the other device stays connected`}
+                      aria-label={`Confirm take over ${desc.label}; the other device is disconnected`}
                     >
-                      OPEN ANYWAY (OTHER DEVICE STAYS CONNECTED)
+                      TAKE OVER (DISCONNECTS THE OTHER DEVICE)
                     </button>
                     <button
                       style={{
@@ -358,7 +370,7 @@ export function Join({
                     onClick={() => handleRoleClick(desc.role, isTaken)}
                     aria-label={`Select role ${desc.label}`}
                   >
-                    {isTaken ? "OPEN ANYWAY…" : "JOIN AS " + desc.code}
+                    {isTaken ? "TAKE OVER…" : "JOIN AS " + desc.code}
                   </button>
                 )}
               </div>

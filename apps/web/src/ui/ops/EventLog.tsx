@@ -158,6 +158,8 @@ export function summarizeEvent(event: LogEvent): string {
       return `Earth message delivered: ${field(d.message_id)}`;
     case "EVA_ENDED":
       return "EVA completed / ended";
+    case "ROLE_TAKEN_OVER":
+      return `Role ${field(d.role)} connection replaced`;
     default:
       return `${event.kind}`;
   }

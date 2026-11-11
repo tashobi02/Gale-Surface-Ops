@@ -7,7 +7,7 @@
  * recovers. Nothing is assumed before the first answer ("connecting").
  *
  * A QR link `#/join?role=eva:EV1` goes straight to that role once the first answer shows it free; a role that is taken
- * stays on this screen so the "open anyway" question is asked (take-over itself is not built: see scr10Join.tsx).
+ * stays on this screen so the take-over question is asked (the confirm is in scr10Join.tsx; the Hab Core displaces the old device, 02 §E.4).
  * This tab's own connection (`ownClientId`) is not counted as taken.
  */
 import { useEffect, useRef, useState, type ReactElement } from "react";
