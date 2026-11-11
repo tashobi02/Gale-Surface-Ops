@@ -73,7 +73,7 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
   });
 
   it("different fixture values give different displayed values (the display follows the snapshot)", async () => {
-    const connect = await mount(createElement(EvaTablet, { snapshot: snapshotOf("connect") }));
+    const connect = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
     const connectHaven = valueText(connect.container, "haven");
     await connect.unmount();
 
@@ -82,13 +82,13 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
       ...base,
       crew: base.crew.map((c) => (c.crew_id === "EV1" ? { ...c, haven: { ...c.haven, minutes: c.haven.minutes + 7 } } : c)),
     };
-    const next = await mount(createElement(EvaTablet, { snapshot: changed }));
+    const next = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: changed }));
     expect(valueText(next.container, "haven")).not.toBe(connectHaven);
     expect(valueText(next.container, "haven")).toBe(String(Math.round(changed.crew[0].haven.minutes)));
   });
 
   it("without a snapshot nothing is invented: values read —, status is UNKNOWN, no target, no distance", async () => {
-    const { container } = await mount(createElement(EvaTablet, { snapshot: null }));
+    const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: null }));
 
     expect(container.textContent).not.toMatch(/NaN|Infinity|undefined/);
     expect(valueText(container, "haven")).toBe("—");
@@ -128,7 +128,7 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
   });
 
   it("with this crew member's telemetry and no alert the banner reads NOMINAL", async () => {
-    const { container } = await mount(createElement(EvaTablet, { snapshot: { ...snapshotOf("connect"), alerts: [] } }));
+    const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: { ...snapshotOf("connect"), alerts: [] } }));
     expect(must(container, '[data-slot="alert-nominal"]').textContent).toContain("NOMINAL");
   });
 
@@ -138,13 +138,13 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
       ...base,
       crew: base.crew.map((c) => (c.crew_id === "EV1" ? { ...c, haven: { ...c.haven, kind: "hab" as const } } : c)),
     };
-    const { container } = await mount(createElement(EvaTablet, { snapshot: hab }));
+    const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: hab }));
     expect(must(container, '[data-slot="haven"]').textContent).toContain("to HAB");
     expect(container.textContent).not.toMatch(/via PR1/);
   });
 
   it("next-stop navigation stays — (the UI computes no geometry) and is labelled", async () => {
-    const { container } = await mount(createElement(EvaTablet, { snapshot: snapshotOf("walking") }));
+    const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("walking") }));
     const next = must(container, '[data-slot="next"]');
     expect(next.textContent).not.toMatch(/NaN/);
     expect(next.textContent).toContain("↗ —");
@@ -156,7 +156,7 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
   it("the alert slot, HAVEN, O₂ and the action row keep one DOM order across fixture states (04 §A.3 #4)", async () => {
     const orders: string[] = [];
     for (const beat of ["connect", "walking", "radiation-alert", "summon-accepted", "comm-shadow"] as const) {
-      const { container } = await mount(createElement(EvaTablet, { snapshot: snapshotOf(beat) }));
+      const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf(beat) }));
       const slots = [...container.querySelectorAll("[data-slot]")].map((el) => el.getAttribute("data-slot"));
       const pick = (name: string) => slots.indexOf(name);
       expect(pick("alert-slot")).toBeLessThan(pick("haven"));
@@ -169,7 +169,7 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
   });
 
   it("every status indicator has colour class, shape glyph and word (04 §A.3 #2)", async () => {
-    const { container } = await mount(createElement(EvaTablet, { snapshot: snapshotOf("connect") }));
+    const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
     const indicators = container.querySelectorAll(".status-indicator");
     expect(indicators.length).toBeGreaterThan(0);
     for (const el of indicators) {
@@ -180,7 +180,7 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
   });
 
   it("EVA hold controls declare the 800 ms hold in the markup (static check)", () => {
-    const html = renderToStaticMarkup(createElement(EvaTablet, { snapshot: snapshotOf("connect") }));
+    const html = renderToStaticMarkup(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
     expect(html).toMatch(/SUMMON|Summon/);
     expect(html).toMatch(/Abort/i);
     expect(html).toMatch(/data-hold-duration="800ms"/);
@@ -189,13 +189,13 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
 
 describe("SCR-13 HUD and SCR-18 link-lost on fixture snapshots", () => {
   it("HUD shows the snapshot's values with labels, and — with no snapshot (never 000° or 0.00 KM)", async () => {
-    const withData = await mount(createElement(Hud, { snapshot: snapshotOf("connect") }));
+    const withData = await mount(createElement(Hud, { crewId: "EV1", snapshot: snapshotOf("connect") }));
     expect(withData.container.textContent).not.toMatch(/NaN|Infinity|undefined/);
     expect(must(withData.container, '[data-slot="hud-haven"] .value').getAttribute("data-provenance")).toBeTruthy();
     expect(must(withData.container, '[data-slot="hud-o2"] .value').getAttribute("data-source")).toBe("snapshot:crew.o2_frac");
     await withData.unmount();
 
-    const empty = await mount(createElement(Hud, { snapshot: null }));
+    const empty = await mount(createElement(Hud, { crewId: "EV1", snapshot: null }));
     const text = empty.container.textContent ?? "";
     expect(text).not.toMatch(/NaN|Infinity|undefined|000°|0\.00 KM|via PR1/);
     expect(must(empty.container, '[data-slot="hud-haven"] .value').textContent).toBe("—");
@@ -205,7 +205,7 @@ describe("SCR-13 HUD and SCR-18 link-lost on fixture snapshots", () => {
   });
 
   it("HUD status values carry a shape and a word, not colour alone", async () => {
-    const { container } = await mount(createElement(Hud, { snapshot: snapshotOf("connect") }));
+    const { container } = await mount(createElement(Hud, { crewId: "EV1", snapshot: snapshotOf("connect") }));
     for (const slot of ["hud-haven", "hud-o2"]) {
       const indicator = must(container, `[data-slot="${slot}"] .status-indicator`);
       expect(indicator.querySelector(".status-glyph")?.textContent).toBeTruthy();
@@ -214,7 +214,7 @@ describe("SCR-13 HUD and SCR-18 link-lost on fixture snapshots", () => {
   });
 
   it("link-lost keeps cached values labelled and shows the age as — unless one is supplied; never 'measured'", async () => {
-    const noAge = await mount(createElement(HabLinkLost, { snapshot: snapshotOf("link-lost-restored") }));
+    const noAge = await mount(createElement(HabLinkLost, { crewId: "EV1", snapshot: snapshotOf("link-lost-restored") }));
     expect(noAge.container.textContent).not.toMatch(/NaN|Infinity|undefined/);
     const age = must(noAge.container, '[data-slot="cached-telemetry"] > div:nth-child(3) .value');
     expect(age.textContent).toBe("—");
@@ -223,14 +223,14 @@ describe("SCR-13 HUD and SCR-18 link-lost on fixture snapshots", () => {
     expect(age.getAttribute("data-source")).toBe("unavailable:link.age_seconds");
     await noAge.unmount();
 
-    const withAge = await mount(createElement(HabLinkLost, { snapshot: snapshotOf("link-lost-restored"), ageSeconds: 42 }));
+    const withAge = await mount(createElement(HabLinkLost, { crewId: "EV1", snapshot: snapshotOf("link-lost-restored"), ageSeconds: 42 }));
     const supplied = must(withAge.container, '[data-slot="cached-telemetry"] > div:nth-child(3) .value');
     expect(supplied.textContent).toBe("42");
     expect(supplied.getAttribute("data-provenance")).toBe("simulated");
   });
 
   it("link-lost with no snapshot reads — and does not name a vehicle", async () => {
-    const { container } = await mount(createElement(HabLinkLost, { snapshot: null }));
+    const { container } = await mount(createElement(HabLinkLost, { crewId: "EV1", snapshot: null }));
     expect(container.textContent).not.toMatch(/NaN|via PR1/);
     expect(must(container, '[data-slot="cached-telemetry"] .value').textContent).toBe("—");
   });
@@ -498,7 +498,7 @@ describe("SCR-14 Options (04 §E.7)", () => {
 
   it("with no options it shows an empty state and cannot confirm; no sample ETA or dose appears", async () => {
     const { client, sent } = recordingClient(storeFromBeat("connect"));
-    const { container } = await mount(createElement(Options, { client, snapshot: { ...snapshotOf("connect"), options: [] } }));
+    const { container } = await mount(createElement(Options, { crewId: "EV1", client, snapshot: { ...snapshotOf("connect"), options: [] } }));
 
     expect(must(container, '[data-slot="options-empty"]').textContent).toContain("—");
     expect(container.textContent).not.toMatch(/\b14\b|\b41\b|\b12 µGy|\b48 µGy|PR1/);
@@ -511,7 +511,7 @@ describe("SCR-14 Options (04 §E.7)", () => {
       option({ option_id: "o-2", rank: 2, kind: "ABORT_TO_HAB", eta_shelter_min: 31, expected_dose_ugy: 70, stops_dropped: [2, 3] }),
       option({ option_id: "o-1", rank: 1 }),
     ]);
-    const { container } = await mount(createElement(Options, { snapshot: snap }));
+    const { container } = await mount(createElement(Options, { crewId: "EV1", snapshot: snap }));
     const radios = container.querySelectorAll('[role="radio"]');
 
     expect(radios).toHaveLength(2);
@@ -566,7 +566,7 @@ describe("SCR-14 Options (04 §E.7)", () => {
     const onSelectOption = vi.fn();
     const onClose = vi.fn();
     const { container } = await mount(
-      createElement(Options, { client, snapshot: withOptions([option({ kind: "ABORT_TO_HAB" })]), onSelectOption, onClose }),
+      createElement(Options, { crewId: "EV1", client, snapshot: withOptions([option({ kind: "ABORT_TO_HAB" })]), onSelectOption, onClose }),
     );
     const button = must<HTMLButtonElement>(container, "#action-confirm-option");
 
@@ -582,7 +582,7 @@ describe("SCR-14 Options (04 §E.7)", () => {
     vi.useFakeTimers();
     const { client, sent } = recordingClient(storeFromBeat("connect"));
     const { container } = await mount(
-      createElement(Options, { client, variant: "eva", snapshot: withOptions([option({ kind: "CONTINUE_SKIP" })]) }),
+      createElement(Options, { crewId: "EV1", client, variant: "eva", snapshot: withOptions([option({ kind: "CONTINUE_SKIP" })]) }),
     );
     const button = must<HTMLButtonElement>(container, "#action-confirm-option");
 
@@ -604,7 +604,7 @@ describe("SCR-14 Options (04 §E.7)", () => {
   });
 
   it("supports both eva bottom-sheet and ops side-panel variants (static check)", () => {
-    const evaHtml = renderToStaticMarkup(createElement(Options, { variant: "eva" }));
+    const evaHtml = renderToStaticMarkup(createElement(Options, { crewId: "EV1", variant: "eva" }));
     const opsHtml = renderToStaticMarkup(createElement(Options, { variant: "ops" }));
 
     expect(evaHtml).toMatch(/data-variant="eva"/);
@@ -628,9 +628,9 @@ describe("EVA type scale: status words and map labels are at least 16 px (04 §A
   it("status words and glyphs on the EVA tablet, HUD, link-lost screen and map are 16 px or more", async () => {
     loadStyles();
     const screens = [
-      createElement(EvaTablet, { snapshot: snapshotOf("connect") }),
-      createElement(Hud, { snapshot: snapshotOf("connect") }),
-      createElement(HabLinkLost, { snapshot: snapshotOf("connect") }),
+      createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }),
+      createElement(Hud, { crewId: "EV1", snapshot: snapshotOf("connect") }),
+      createElement(HabLinkLost, { crewId: "EV1", snapshot: snapshotOf("connect") }),
     ];
     for (const screen of screens) {
       const { container, unmount } = await mount(screen);
@@ -644,7 +644,7 @@ describe("EVA type scale: status words and map labels are at least 16 px (04 §A
 
   it("the EVA options sheet uses 16 px status words; the ops variant keeps the 14 px UI size", async () => {
     loadStyles();
-    const eva = await mount(createElement(Options, { variant: "eva", snapshot: snapshotOf("connect") }));
+    const eva = await mount(createElement(Options, { crewId: "EV1", variant: "eva", snapshot: snapshotOf("connect") }));
     for (const label of eva.container.querySelectorAll(".status-label")) expect(px(label)).toBeGreaterThanOrEqual(16);
     await eva.unmount();
 

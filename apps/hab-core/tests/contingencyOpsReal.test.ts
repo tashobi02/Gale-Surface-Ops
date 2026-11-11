@@ -256,7 +256,9 @@ describe("contingencyTick on the real compute (02 §D.15; FR-44)", () => {
 
   it("labels the options' ETA and dose modelled (05 ContingencyOption)", () => {
     const e = contingencyTick(alerted, tctx(alerted)).events[0]!;
-    expect(e.provenance).toMatchObject({ "data.options.eta_shelter_min": "modelled", "data.options.expected_dose_ugy": "modelled" });
+    // The key spelling of 05 §F.6 and the fixture `options-proposed`: data.options[].<field>.
+    expect(e.provenance).toMatchObject({ "data.options[].eta_shelter_min": "modelled", "data.options[].expected_dose_ugy": "modelled", "data.options[].rendezvous": "modelled" });
+    expect(Object.keys(e.provenance).filter((k) => k.startsWith("data.options."))).toEqual([]);
   });
 
   it("the vehicle field starts at the rover's real position", () => {

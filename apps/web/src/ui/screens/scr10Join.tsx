@@ -14,6 +14,7 @@ import {
   type ReactElement,
 } from "react";
 import type { Role } from "@marswalk/protocol";
+import { UNAVAILABLE } from "../components/provenance";
 
 export type ClientRoleOption = "planner" | "ops" | "eva:EV1" | "eva:EV2" | "earth";
 
@@ -63,9 +64,20 @@ export const ROLE_DESCRIPTORS: RoleDescriptor[] = [
   },
 ];
 
+/** Connection badge: status token fill, a shape and a word each (04 §A.3). Connecting has no status colour. */
+const STATUS_BADGE = {
+  ready: { fill: "var(--status-nominal, #3DDC84)", text: "✓ HAB CORE CONNECTED" },
+  connecting: { fill: "var(--steel, #CFCFCF)", text: "… CONNECTING TO HAB CORE" },
+  unreachable: { fill: "var(--status-warning, #FF4D4D)", text: "⬣ HAB CORE UNREACHABLE · RETRYING" },
+  unknown: { fill: "transparent", text: "? HAB CORE STATUS —" },
+} as const;
+
 export interface JoinProps {
+  /** Hab Core connection state. Unset = not known: the badge says so and nothing is assumed. */
   status?: "ready" | "connecting" | "unreachable";
+  /** Roles already held by other clients. Unset = not known: no tile is marked taken. */
   takenRoles?: string[];
+  /** Id of the loaded scenario. Unset = shown as "—". */
   sessionScenario?: string;
   onSelectRole?: (role: ClientRoleOption, takeOver: boolean) => void;
   className?: string;
@@ -73,12 +85,13 @@ export interface JoinProps {
 
 /**
  * SCR-10 Join view.
- * Uses BRIEF mode: #F7F5F0 paper background, #1A1A1A ink text, #E7553D signal accent.
+ * Uses BRIEF mode: #F7F5F0 paper background, #1A1A1A ink text, #E7553D signal accent (identity only: connection
+ * status uses the status tokens with shape + word, 04 §A.3).
  */
 export function Join({
-  status = "ready",
-  takenRoles = ["ops"],
-  sessionScenario = "storm-sol4190",
+  status,
+  takenRoles = [],
+  sessionScenario,
   onSelectRole,
   className = "",
 }: JoinProps): ReactElement {
@@ -205,53 +218,27 @@ export function Join({
             SELECT CLIENT ROLE
           </h1>
           <div style={{ color: "var(--ink-2, #5A5A5A)", fontSize: "14px" }}>
-            Assign this device to a mission role. Scenario: <strong>{sessionScenario}</strong>
+            Assign this device to a mission role. Scenario: <strong data-slot="join-scenario">{sessionScenario ?? UNAVAILABLE}</strong>
           </div>
         </div>
 
-        {/* Hab Core Connection Status Badge */}
+        {/* Hab Core connection status: shape + word + status token (04 §A.3); unknown is shown as unknown */}
         <div style={{ textAlign: "right" }}>
-          {status === "connecting" && (
-            <div
-              style={{
-                backgroundColor: "var(--steel, #CFCFCF)",
-                padding: "6px 12px",
-                fontFamily: "var(--font-mono, monospace)",
-                fontSize: "12px",
-                fontWeight: 600,
-              }}
-            >
-              CONNECTING TO HAB CORE…
-            </div>
-          )}
-          {status === "unreachable" && (
-            <div
-              style={{
-                backgroundColor: "var(--signal, #E7553D)",
-                color: "#FFFFFF",
-                padding: "6px 12px",
-                fontFamily: "var(--font-mono, monospace)",
-                fontSize: "12px",
-                fontWeight: 700,
-              }}
-            >
-              ⚠ HAB CORE UNREACHABLE · RETRYING
-            </div>
-          )}
-          {status === "ready" && (
-            <div
-              style={{
-                backgroundColor: "#3DDC84",
-                color: "#000000",
-                padding: "6px 12px",
-                fontFamily: "var(--font-mono, monospace)",
-                fontSize: "12px",
-                fontWeight: 700,
-              }}
-            >
-              ● HAB CORE CONNECTED
-            </div>
-          )}
+          <div
+            data-slot="join-status"
+            data-status={status ?? "unknown"}
+            style={{
+              backgroundColor: STATUS_BADGE[status ?? "unknown"].fill,
+              color: "var(--ink, #1A1A1A)",
+              padding: "6px 12px",
+              fontFamily: "var(--font-mono, monospace)",
+              fontSize: "12px",
+              fontWeight: 700,
+              ...(status === undefined ? { border: "1px dotted var(--ink, #1A1A1A)" } : {}),
+            }}
+          >
+            {STATUS_BADGE[status ?? "unknown"].text}
+          </div>
         </div>
       </header>
 
@@ -295,7 +282,7 @@ export function Join({
                         fontFamily: "var(--font-mono, monospace)",
                         fontSize: "11px",
                         fontWeight: 600,
-                        color: "var(--signal-ink, #C2401F)",
+                        color: "var(--ink, #1A1A1A)",
                         textTransform: "uppercase",
                       }}
                     >

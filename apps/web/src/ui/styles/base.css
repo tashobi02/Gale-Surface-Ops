@@ -75,6 +75,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* TODO(decision): headings keep the v1 style (Inter / 600, sentence case) because Chakra Petch is not self-hosted.
+   04 §C.2 (v2) sets Display and Headings in Chakra Petch 20–28 px / 500 uppercase (and "never bold headlines", P6).
+   04 spec change needed (keep Inter for v1 screens, or schedule the Chakra Petch self-hosting task); values left as is. */
 /* Screen titles (04 §C.2): 20 px / 600 */
 h1,
 .screen-title {
