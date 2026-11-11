@@ -196,6 +196,7 @@ describe("Mars projection module (T02.02, FR-01, D-03)", () => {
     });
     // The north-west corner is tile (x 0, y 0); moving south increases y.
     expect(grid.getTileCoordForCoordAndZ([ox + 1, oy - 1], 1)).toEqual([1, 0, 0]);
-    expect(grid.getTileCoordForCoordAndZ([ox + 1, oy - 1 - 4096], 1)).toEqual([1, 0, 1]);
+    const span1 = spec.tile_size_px * spec.resolutions_m[1];
+    expect(grid.getTileCoordForCoordAndZ([ox + 1, oy - 1 - span1], 1)).toEqual([1, 0, 1]);
   });
 });

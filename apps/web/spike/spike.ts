@@ -2,9 +2,11 @@
  * T02.03 Spike page: site tiles in the custom Mars projection with a metric scale bar.
  * (02 §B, 01 FR-01, 04 §B; D-03). Throwaway: nothing under src/ imports this, and Vite builds only index.html.
  *
- * Everything comes from the served site bundle: the page fetches `/sites/<site>/site-manifest.json` (the Hab Core
- * serves data/sites; `make dev` proxies /sites to it) and reads origin, resolutions and tile size from each layer's
- * `tile_grid`. It hard-codes none of them and imports nothing from data/.
+ * Everything comes from the served site bundle: the page fetches `../sites/<site>/site-manifest.json` (relative to
+ * /spike/, like loadSite's `sites/<site>/...` relative to the app root; the Hab Core serves data/sites and `make dev`
+ * proxies /sites to it), validates it with `parseSiteManifest`, and reads origin, resolutions and tile size from each
+ * layer's `tile_grid`. It hard-codes none of them and imports nothing from data/. Panel values carry
+ * data-provenance and data-source (FR-15, NFR-05).
  * Site: `?site=<id>` (`^[a-z0-9_]+$`), default `mock_site` (F4).
  */
 import Map from "ol/Map.js";
@@ -14,42 +16,10 @@ import XYZ from "ol/source/XYZ.js";
 import ScaleLine from "ol/control/ScaleLine.js";
 import { defaults as defaultControls } from "ol/control/defaults.js";
 import type TileGrid from "ol/tilegrid/TileGrid.js";
-import type { Layer, Site } from "@marswalk/protocol";
-import {
-  registerMarsProjection,
-  getMarsProjectionCode,
-  createTileGrid,
-  type MarsProjectionSite,
-} from "../src/ui/map/projection.js";
-
-const DEFAULT_SITE_ID = "mock_site";
-const SITE_ID_PATTERN = /^[a-z0-9_]+$/;
-
-/** What the page uses of the manifest, narrowed from the JSON at runtime. */
-interface SpikeSite extends MarsProjectionSite {
-  name: string;
-  layers: Layer[];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isNumberTuple(value: unknown, length: number): value is number[] {
-  return Array.isArray(value) && value.length === length && value.every((n) => typeof n === "number" && Number.isFinite(n));
-}
-
-/** Check the fields the spike reads, so a malformed manifest fails with a message instead of a type cast. */
-function parseSpikeSite(json: unknown): SpikeSite {
-  if (!isRecord(json)) throw new Error("manifest is not a JSON object");
-  const { site_id, name, crs, aoi, layers } = json;
-  if (typeof site_id !== "string" || !SITE_ID_PATTERN.test(site_id)) throw new Error("manifest site_id is missing or invalid");
-  if (typeof name !== "string") throw new Error("manifest name is missing");
-  if (!isRecord(crs) || typeof crs.proj4 !== "string" || typeof crs.base !== "string") throw new Error("manifest crs.proj4 / crs.base missing");
-  if (!isRecord(aoi) || !isNumberTuple(aoi.extent_m, 4) || !isNumberTuple(aoi.bbox_geo, 4)) throw new Error("manifest aoi.extent_m / aoi.bbox_geo missing");
-  if (!Array.isArray(layers)) throw new Error("manifest layers is not an array");
-  return { site_id, name, crs, aoi, layers } as SpikeSite;
-}
+import type { Provenance, Site } from "@marswalk/protocol";
+import { registerMarsProjection, getMarsProjectionCode, createTileGrid } from "../src/ui/map/projection.js";
+import { DEFAULT_SITE_ID, SITE_ID_PATTERN, parseSiteManifest } from "../src/boot/loadSite.js";
+import { provAttrs } from "../src/ui/components/provenance.js";
 
 function siteIdFromUrl(): string {
   const requested = new URLSearchParams(window.location.search).get("site") ?? DEFAULT_SITE_ID;
@@ -57,18 +27,21 @@ function siteIdFromUrl(): string {
   return requested;
 }
 
-async function loadSiteManifest(siteId: string): Promise<SpikeSite> {
-  const url = `/sites/${siteId}/site-manifest.json`;
+async function loadSiteManifest(siteId: string): Promise<Site> {
+  const url = `../sites/${siteId}/site-manifest.json`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`${url}: HTTP ${res.status}. Start the Hab Core (make hab) and the dev server (make dev).`);
   }
-  return parseSpikeSite(await res.json());
+  return parseSiteManifest(await res.json());
 }
 
-function setText(id: string, text: string): void {
+/** Show a panel value with its provenance class and source id (FR-15, NFR-05). */
+function setValue(id: string, text: string, prov: Provenance, src: string): void {
   const el = document.getElementById(id);
-  if (el) el.textContent = text;
+  if (!el) return;
+  el.textContent = text;
+  for (const [name, value] of Object.entries(provAttrs({ prov, src }))) el.setAttribute(name, value);
 }
 
 async function init(): Promise<void> {
@@ -86,11 +59,12 @@ async function init(): Promise<void> {
 
   try {
     const siteId = siteIdFromUrl();
-    log(`Fetching /sites/${siteId}/site-manifest.json ...`);
+    log(`Fetching sites/${siteId}/site-manifest.json ...`);
     const site = await loadSiteManifest(siteId);
 
-    setText("site-name", site.name);
-    setText("site-crs", `${site.crs.base} (${site.site_id})`);
+    // Manifest values: configuration we chose, so `assumed` (01 provenance classes).
+    setValue("site-name", site.name, "assumed", "site-manifest:name");
+    setValue("site-crs", `${site.crs.base} (${site.site_id})`, "assumed", "site-manifest:crs.base");
 
     const proj = registerMarsProjection(site);
     log(`Registered projection code: ${getMarsProjectionCode(site)}`);
@@ -113,7 +87,7 @@ async function init(): Promise<void> {
 
       const tileGrid = createTileGrid(spec);
       grids.push(tileGrid);
-      const tileUrl = `/sites/${site.site_id}/tiles/${layer.layer_id}/{z}/{x}/{y}.${spec.format}`;
+      const tileUrl = `../sites/${site.site_id}/tiles/${layer.layer_id}/{z}/{x}/{y}.${spec.format}`;
       log(`Layer "${layer.title}" -> ${tileUrl}`);
 
       const source = new XYZ({ projection: proj, tileGrid, url: tileUrl, wrapX: false });
@@ -173,11 +147,11 @@ async function init(): Promise<void> {
       const resolution = view.getResolution();
       const centre = view.getCenter();
       const z = view.getZoom();
-      setText("current-res", resolution === undefined ? "-" : String(resolution));
-      setText("current-z", z === undefined ? "-" : z.toFixed(0));
+      setValue("current-res", resolution === undefined ? "-" : String(resolution), "derived", "map:view");
+      setValue("current-z", z === undefined ? "-" : z.toFixed(0), "derived", "map:view");
       if (centre && z !== undefined) {
         const [tz, tx, ty] = grids[0].getTileCoordForCoordAndZ(centre, Math.round(z));
-        setText("centre-tile", `${tz}/${tx}/${ty}`);
+        setValue("centre-tile", `${tz}/${tx}/${ty}`, "derived", "map:view");
       }
     }
     view.on("change:resolution", updateViewInfo);

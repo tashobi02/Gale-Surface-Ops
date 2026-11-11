@@ -159,6 +159,14 @@ describe("T07.04 worker client: requests and results", () => {
     expect(worker().posted).toHaveLength(1);
   });
 
+  it("a rejected duplicate request_id does not advance the latest plan revision", async () => {
+    const { client, worker } = setup();
+    const first = client.computePlan(planReq("p-1", 1));
+    expect(await rejectionCode(client.computePlan(planReq("p-1", 5)))).toBe("INVALID_INPUT");
+    worker().respond(planResult("p-1", 1));
+    await expect(first).resolves.toMatchObject({ plan_revision: 1 }); // not SUPERSEDED by the rejected revision 5
+  });
+
   it("rejects with TIMEOUT, forgets the request and ignores its late result", async () => {
     const { client, worker } = setup({ defaultTimeoutMs: 1_000 });
     vi.useFakeTimers();
@@ -219,6 +227,20 @@ describe("T07.04 worker client: errors are per request, crashes are not", () => 
     const recovered = client.samplePoint(sampleReq("s-4"));
     worker().respond(sampleResult("s-4"));
     await expect(recovered).resolves.toMatchObject({ request_id: "s-4" });
+  });
+
+  it("an INTERNAL error also settles every other pending request with CRASH and clears their timers", async () => {
+    const { client, worker } = setup({ defaultTimeoutMs: 60_000 });
+    vi.useFakeTimers();
+    const failing = rejectionCode(client.samplePoint(sampleReq("s-1")));
+    const otherSample = rejectionCode(client.samplePoint(sampleReq("s-2")));
+    const otherPlan = rejectionCode(client.computePlan(planReq("p-1", 1)));
+    worker().respond({ type: "ERROR", request_id: "s-1", code: "INTERNAL", message: "boom" });
+
+    expect(await failing).toBe("INTERNAL");
+    expect(await otherSample).toBe("CRASH");
+    expect(await otherPlan).toBe("CRASH");
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("an INTERNAL error that names no pending request (request_id unknown) still marks the client crashed", () => {

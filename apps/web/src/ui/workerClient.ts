@@ -7,7 +7,8 @@
  * - a PLAN_RESULT older than the latest requested plan_revision rejects `SUPERSEDED` (02 §E.2: only the latest is
  *   delivered); a worker `CANCELLED` rejects `CANCELLED`. Both are "not an error": see `isSupersededError`;
  * - any other worker ERROR rejects only the request it names, with the worker's code. Only an `INTERNAL` error
- *   (or a worker script error, `onerror`) marks the client crashed (03 §D) until `retry()`;
+ *   (or a worker script error, `onerror`) marks the client crashed (03 §D) until `retry()`, and everything else
+ *   still pending then rejects `CRASH`;
  * - `TIMEOUT` when `defaultTimeoutMs` elapses; `CRASH` for what is pending at a worker script error;
  *   `SUPERSEDED` for what is pending at `retry()`; `TERMINATED` for what is pending at `terminate()`.
  * After `terminate()` every call rejects `TERMINATED` (and `postMessage` / `retry` throw it).
@@ -134,8 +135,12 @@ export function createWorkerClient(options: WorkerClientOptions = {}): WorkerCli
       }
     } else if (message.type === "ERROR") {
       take(message.request_id)?.reject(new WorkerClientError(message.code, message.message));
-      // A worker that reports an internal failure is not trusted until restarted (03 §D); other codes are per request.
-      if (message.code === "INTERNAL") crashed = true;
+      // A worker that reports an internal failure is not trusted until restarted (03 §D): everything still pending
+      // settles with CRASH. Other codes are per request.
+      if (message.code === "INTERNAL") {
+        crashed = true;
+        rejectAll(() => new WorkerClientError("CRASH", `Worker reported an internal error: ${message.message}`));
+      }
     }
   }
 
@@ -164,7 +169,7 @@ export function createWorkerClient(options: WorkerClientOptions = {}): WorkerCli
     worker = created;
   }
 
-  function send<T extends SampleResult | PlanResultMessage>(request: WorkerRequest): Promise<T> {
+  function send<T extends SampleResult | PlanResultMessage>(request: WorkerRequest, onAccepted?: () => void): Promise<T> {
     if (terminated) return Promise.reject(new WorkerClientError("TERMINATED", "Worker client was terminated"));
     if (crashed) {
       return Promise.reject(new WorkerClientError("CRASH", "Worker has crashed; call retry() to restart"));
@@ -174,6 +179,7 @@ export function createWorkerClient(options: WorkerClientOptions = {}): WorkerCli
         new WorkerClientError("INVALID_INPUT", `request_id ${request.request_id} is already pending`),
       );
     }
+    onAccepted?.();
     return new Promise<T>((resolve, reject) => {
       const timer =
         options.defaultTimeoutMs === undefined
@@ -195,10 +201,10 @@ export function createWorkerClient(options: WorkerClientOptions = {}): WorkerCli
       return send<SampleResult>({ ...req, type: "SAMPLE_POINT" });
     },
     computePlan(req: Omit<ComputePlanRequest, "type">): Promise<PlanResultMessage> {
-      if (!terminated && !crashed && req.plan_revision > latestPlanRevision) {
-        latestPlanRevision = req.plan_revision;
-      }
-      return send<PlanResultMessage>({ ...req, type: "COMPUTE_PLAN" });
+      // The latest revision advances only for a request that is accepted (not a rejected duplicate id).
+      return send<PlanResultMessage>({ ...req, type: "COMPUTE_PLAN" }, () => {
+        if (req.plan_revision > latestPlanRevision) latestPlanRevision = req.plan_revision;
+      });
     },
     postMessage(message: WorkerRequest): void {
       if (terminated) throw new WorkerClientError("TERMINATED", "Worker client was terminated");
