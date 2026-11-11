@@ -31,7 +31,6 @@ import { initWaypointDrag } from "../../src/ui/map/waypointDrag";
 import { initTouchInput } from "../../src/ui/map/touchInput";
 import { StopsList } from "../../src/ui/plan/stopsList";
 import { ProfileChart } from "../../src/ui/results/profileChart";
-import { WarningsList } from "../../src/ui/results/warningsList";
 import { linkProfileToMap } from "../../src/ui/results/profileLink";
 import { createMapSnapshot } from "../../src/ui/briefing/mapSnapshot";
 import { exportPlan } from "../../src/export/planExport";
@@ -170,7 +169,6 @@ describe("C10 stubs throw TODO(<owner id>) and are React components where they r
     expect(() => initTouchInput({} as never)).toThrow("TODO(T08.09)");
     expect(() => StopsList({} as never)).toThrow("TODO(T08.05)");
     expect(() => ProfileChart({} as never)).toThrow("TODO(T09.02)");
-    expect(() => WarningsList({} as never)).toThrow("TODO(T09.04)");
     expect(() => linkProfileToMap({} as never, {} as never)).toThrow("TODO(T09.05)");
     await expect(createMapSnapshot({} as never)).rejects.toThrow("TODO(T11.04)");
     expect(() => exportPlan({} as never, {} as never)).toThrow("TODO(T11.02)");
