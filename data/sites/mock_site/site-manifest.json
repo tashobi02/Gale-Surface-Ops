@@ -84,13 +84,13 @@
       "asset_id": "tiles-elevation",
       "format": "tiles",
       "path": "tiles/elevation",
-      "sha256": "abf1e2555fa8ccc2a8f907c1aaf582c0f8b27387d1c32702a177f30c522fe998"
+      "sha256": "de7f17b86b853ef4bc5028c5160a3dcd5301c31d835ff94a8446b2b478bdcb4c"
     },
     {
       "asset_id": "tiles-slope",
       "format": "tiles",
       "path": "tiles/slope",
-      "sha256": "abf1e2555fa8ccc2a8f907c1aaf582c0f8b27387d1c32702a177f30c522fe998"
+      "sha256": "de7f17b86b853ef4bc5028c5160a3dcd5301c31d835ff94a8446b2b478bdcb4c"
     },
     {
       "asset_id": "vec-pois",
