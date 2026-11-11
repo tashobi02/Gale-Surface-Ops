@@ -1,181 +1,390 @@
 /**
- * T07.06 — createMap tests (FR-01, 02 §C.1, 02 §C.4).
+ * T07.06 — createMap tests (FR-01, 02 §C.1, 02 §C.4, 04 §E; C10 v2 MapHandle).
  *
- * Verifies:
- * - createMap returns a MapHandle with required methods
- * - getMap() returns the OpenLayers Map instance
- * - fitExtent() calls OL map view's fit()
- * - setCenter / getCenter work in projected metres
- * - setZoom / getZoom round-trip
- * - destroy() calls OL map's setTarget(undefined)
- * - destroy() calls OL map's setTarget(undefined)
- * - CRS guard: no EPSG:3857 view is created (02 §C.4.1)
- * - North arrow and coordinate readout are mounted in the DOM
+ * OpenLayers is real here: the view, the Mars projection and the controls are the ones the app runs. Only the
+ * browser layout and `matchMedia` that jsdom lacks are stubbed (tests/ui/map/mapFixtures.ts).
  */
-
-import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import type OlMap from "ol/Map.js";
+import type BaseEvent from "ol/events/Event.js";
+import { getTransform } from "./map/olTransform";
 import { installDom, removeDom } from "./domHarness";
-
-// Use vi.hoisted so class definitions exist before vi.mock() hoisted calls
-const { MockView, MockMap, mockFit, mockSetCenter, mockGetCenter, mockSetZoom, mockGetZoom, mockSetTarget, mockOn } =
-  vi.hoisted(() => {
-    const mockFit = vi.fn();
-    const mockSetCenter = vi.fn();
-    const mockGetCenter = vi.fn(() => [0, 0] as [number, number]);
-    const mockSetZoom = vi.fn();
-    const mockGetZoom = vi.fn(() => 5);
-    const mockSetTarget = vi.fn();
-    const mockOn = vi.fn();
-
-    class MockView {
-      static lastProjection: string | null = null;
-      fit = mockFit;
-      setCenter = mockSetCenter;
-      getCenter = mockGetCenter;
-      setZoom = mockSetZoom;
-      getZoom = mockGetZoom;
-      constructor(opts: { projection?: string }) {
-        const proj = String(opts?.projection ?? "");
-        MockView.lastProjection = proj;
-        if (proj.includes("EPSG:3857") || proj.includes("EPSG:4326")) {
-          throw new Error(`FORBIDDEN_PROJECTION: ${proj}`);
-        }
-      }
-    }
-
-    class MockMap {
-      private _view: MockView;
-      setTarget = mockSetTarget;
-      on = mockOn;
-      addControl() {}
-      constructor({ view }: { view: MockView }) { this._view = view; }
-      getView() { return this._view; }
-    }
-
-    return { MockView, MockMap, mockFit, mockSetCenter, mockGetCenter, mockSetZoom, mockGetZoom, mockSetTarget, mockOn };
-  });
-
-vi.mock("ol/Map.js", () => ({ default: MockMap }));
-vi.mock("ol/View.js", () => ({ default: MockView }));
-vi.mock("ol/proj.js", () => {
-  class MockProjection { constructor(_opts: unknown) {} }
-  return {
-    get: vi.fn(() => null),
-    addProjection: vi.fn(),
-    Projection: MockProjection,
-  };
-});
-vi.mock("ol/proj/proj4.js", () => ({ register: vi.fn() }));
-vi.mock("proj4", () => ({
-  default: Object.assign((_from: string, _to: string) => [0, 0], {
-    defs: vi.fn(),
-  }),
-}));
-vi.mock("ol/control/ScaleLine.js", () => {
-  class MockScaleLine { constructor(_opts?: unknown) {} }
-  return { default: MockScaleLine };
-});
-
+import { mockLoadedSite, sizedHost, stubReducedMotion, stubResizeObserver } from "./map/mapFixtures";
 import { createMap } from "../../src/ui/map/createMap";
-import type { Site } from "@marswalk/protocol";
+import { getMarsProjectionCode, projectedToLatLonE } from "../../src/ui/map/projection";
+import type { MapHandle, MapView } from "../../src/ui/context";
 
-const MOCK_SITE: Site = {
-  site_id: "mock_site",
-  crs: {
-    base: "IAU_2015:49900",
-    proj4: "+proj=eqc +lat_ts=-4.70 +lat_0=-4.70 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs",
-  },
-  aoi: {
-    bbox_geo: [137.3292, -4.7506, 137.4308, -4.6494],
-    extent_m: [-3000, -3000, 3000, 3000],
-  },
-} as unknown as Site;
+const SITE = mockLoadedSite();
+const CODE = getMarsProjectionCode(SITE.site);
+const MARS_R = 3_396_190;
 
-describe("createMap (T07.06)", () => {
-  beforeAll(() => { installDom(); });
-  afterAll(() => { removeDom(); });
+beforeAll(() => {
+  installDom();
+  stubResizeObserver();
+});
+afterAll(() => removeDom());
 
-  it("returns a MapHandle with required methods", () => {
-    const container = document.createElement("div");
-    const handle = createMap(MOCK_SITE, container);
-    expect(typeof handle.getMap).toBe("function");
-    expect(typeof handle.fitExtent).toBe("function");
-    expect(typeof handle.setCenter).toBe("function");
-    expect(typeof handle.getCenter).toBe("function");
-    expect(typeof handle.setZoom).toBe("function");
-    expect(typeof handle.getZoom).toBe("function");
-    expect(typeof handle.destroy).toBe("function");
+const open: MapHandle[] = [];
+afterEach(() => {
+  for (const handle of open.splice(0)) handle.destroy();
+  document.body.innerHTML = "";
+});
+
+function make(host: HTMLElement = sizedHost(), extra: Partial<Parameters<typeof createMap>[0]> = {}): { handle: MapHandle; host: HTMLElement; map: OlMap } {
+  const handle = createMap({ target: host, site: SITE, ...extra });
+  open.push(handle);
+  return { handle, host, map: handle.getMap<OlMap>() };
+}
+
+const pointerMove = (map: OlMap, coordinate: [number, number]): void => {
+  map.dispatchEvent({ type: "pointermove", coordinate } as unknown as BaseEvent);
+};
+
+describe("createMap: projection and view (FR-01, 02 §C.4)", () => {
+  it("builds the view on the Mars projection of the manifest, bounded by the AOI extent, never an Earth CRS", () => {
+    const { map } = make();
+    const view = map.getView();
+    expect(view.getProjection().getCode()).toBe(CODE);
+    expect(view.getProjection().getCode()).not.toMatch(/EPSG:(3857|4326)/);
+    expect(view.getProjection().getUnits()).toBe("m");
+    expect(view.getProjection().getExtent()).toEqual(SITE.site.aoi.extent_m);
   });
 
-  it("getMap() returns an OL Map-like object", () => {
-    const container = document.createElement("div");
-    const handle = createMap(MOCK_SITE, container);
-    const map = handle.getMap();
-    expect(map).toBeTruthy();
+  it("creates no transform between the Mars projection and EPSG:3857 or EPSG:4326", () => {
+    make();
+    for (const earth of ["EPSG:3857", "EPSG:4326"]) {
+      expect(getTransform(CODE, earth), `${CODE} -> ${earth}`).toBeNull();
+      expect(getTransform(earth, CODE), `${earth} -> ${CODE}`).toBeNull();
+    }
   });
 
-  it("fitExtent() delegates to view.fit()", () => {
-    const container = document.createElement("div");
-    mockFit.mockClear();
-    const handle = createMap(MOCK_SITE, container);
-    const countAfterCreate = mockFit.mock.calls.length; // called once at creation
-    handle.fitExtent([-3000, -3000, 3000, 3000]);
-    expect(mockFit.mock.calls.length).toBe(countAfterCreate + 1);
+  it("disables rotation: north stays up", () => {
+    const { map } = make();
+    const view = map.getView();
+    view.setRotation(1.2);
+    expect(view.getRotation()).toBe(0);
   });
 
-  it("setCenter() delegates to view.setCenter()", () => {
-    const container = document.createElement("div");
-    mockSetCenter.mockClear();
-    const handle = createMap(MOCK_SITE, container);
-    handle.setCenter([100, 200]);
-    expect(mockSetCenter).toHaveBeenCalledWith([100, 200]);
+  it("fits the AOI on open when the host has a size", () => {
+    const { handle } = make(sizedHost(800, 600));
+    const [cx, cy] = handle.getCenter();
+    expect(cx).toBeCloseTo(0, 6);
+    expect(cy).toBeCloseTo(0, 6);
+    // 6000 m across the smaller dimension (600 px) minus the 24 px padding on each side
+    expect(handle.getResolution()).toBeCloseTo(6000 / (600 - 48), 6);
   });
 
-  it("setZoom() delegates to view.setZoom()", () => {
-    const container = document.createElement("div");
-    mockSetZoom.mockClear();
-    const handle = createMap(MOCK_SITE, container);
+  it("fits the AOI when the host gets its size later (React mounts before layout)", () => {
+    const host = sizedHost(0, 0);
+    const { handle, map } = make(host);
+    Object.defineProperty(host, "offsetWidth", { value: 1000, configurable: true });
+    Object.defineProperty(host, "offsetHeight", { value: 500, configurable: true });
+    map.updateSize();
+    expect(handle.getResolution()).toBeCloseTo(6000 / (500 - 48), 6);
+  });
+
+  it("throws for an unknown target id instead of returning a map on a detached element", () => {
+    expect(() => createMap({ target: "no-such-element", site: SITE })).toThrow(/no-such-element/);
+  });
+
+  it("accepts a target id", () => {
+    const host = sizedHost();
+    host.id = "map-host";
+    const { handle } = make(undefined, { target: "map-host" });
+    expect(host.contains(handle.getTargetElement())).toBe(true);
+  });
+
+  it("does not restyle the host: no forced position, no tabindex on it", () => {
+    const host = sizedHost();
+    host.style.position = "";
+    make(host);
+    expect(host.style.position).toBe("");
+    expect(host.hasAttribute("tabindex")).toBe(false);
+  });
+});
+
+describe("createMap: MapHandle v2", () => {
+  it("implements every method of the C10 v2 handle", () => {
+    const { handle } = make();
+    for (const name of [
+      "getMap", "getTargetElement", "fitExtent", "setCenter", "getCenter", "setZoom", "getZoom",
+      "getResolution", "panBy", "zoomBy", "onViewChange", "destroy",
+    ] as const) {
+      expect(typeof handle[name], name).toBe("function");
+    }
+  });
+
+  it("getTargetElement is a focusable element inside the host (tabindex 0, labelled)", () => {
+    const { handle, host } = make();
+    const el = handle.getTargetElement();
+    expect(host.contains(el)).toBe(true);
+    expect(el.getAttribute("tabindex")).toBe("0");
+    expect(el.getAttribute("aria-label")).toMatch(/map/i);
+    el.focus();
+    expect(document.activeElement).toBe(el);
+  });
+
+  it("setCenter / getCenter / setZoom / getZoom work in projected metres", () => {
+    const { handle } = make();
+    handle.setCenter([100, -200]);
+    expect(handle.getCenter()).toEqual([100, -200]);
     handle.setZoom(3);
-    expect(mockSetZoom).toHaveBeenCalledWith(3);
+    expect(handle.getZoom()).toBeCloseTo(3, 9);
   });
 
-  it("getZoom() returns the view zoom level", () => {
-    const container = document.createElement("div");
-    const handle = createMap(MOCK_SITE, container);
-    expect(handle.getZoom()).toBe(5);
+  it("fitExtent fits a sub-extent: centred on it, resolution from its size", () => {
+    const restore = stubReducedMotion(true); // instant, so the result can be read at once
+    try {
+      const { handle } = make(sizedHost(800, 600));
+      handle.fitExtent([-500, -500, 500, 500]);
+      const [cx, cy] = handle.getCenter();
+      expect(cx).toBeCloseTo(0, 6);
+      expect(cy).toBeCloseTo(0, 6);
+      expect(handle.getResolution()).toBeCloseTo(1000 / (600 - 48), 6);
+    } finally {
+      restore();
+    }
   });
 
-  it("destroy() calls map.setTarget(undefined)", () => {
-    const container = document.createElement("div");
-    mockSetTarget.mockClear();
-    const handle = createMap(MOCK_SITE, container);
-    handle.destroy();
-    expect(mockSetTarget).toHaveBeenCalledWith(undefined);
+  it("panBy moves the view by screen pixels, y down: negative dy shows more north", () => {
+    const { handle } = make();
+    handle.setCenter([0, 0]);
+    const res = handle.getResolution()!;
+    handle.panBy(100, 0, { animate: false });
+    expect(handle.getCenter()[0]).toBeCloseTo(100 * res, 6);
+    handle.panBy(0, -50, { animate: false });
+    expect(handle.getCenter()[1]).toBeCloseTo(50 * res, 6); // north is +y
+    handle.panBy(-100, 50, { animate: false });
+    expect(handle.getCenter()[0]).toBeCloseTo(0, 6);
+    expect(handle.getCenter()[1]).toBeCloseTo(0, 6);
   });
 
-  it("CRS guard: does not create an EPSG:3857 or EPSG:4326 view (02 §C.4.1)", () => {
-    const proj = MockView.lastProjection ?? "";
-    expect(proj).not.toContain("EPSG:3857");
-    expect(proj).not.toContain("EPSG:4326");
-    expect(proj).toContain("MARS_LOCAL:");
+  it("zoomBy changes the zoom level by delta (+1 halves the resolution)", () => {
+    const { handle } = make();
+    handle.setCenter([0, 0]);
+    const before = handle.getResolution()!;
+    handle.zoomBy(1, { animate: false });
+    expect(handle.getResolution()).toBeCloseTo(before / 2, 6);
+    handle.zoomBy(-1, { animate: false });
+    expect(handle.getResolution()).toBeCloseTo(before, 6);
   });
 
-  it("north arrow element is mounted in the container", () => {
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    createMap(MOCK_SITE, container);
-    const arrow = container.querySelector("[data-testid='north-arrow']");
+  it("getResolution reads metres per pixel from the view", () => {
+    const { handle, map } = make();
+    expect(handle.getResolution()).toBe(map.getView().getResolution());
+  });
+
+  it("onViewChange emits {center_x_m, center_y_m, resolution_m_per_px}, not on subscribe, until unsubscribed", () => {
+    const { handle } = make();
+    const seen: MapView[] = [];
+    const unsubscribe = handle.onViewChange((v) => seen.push(v));
+    expect(seen).toEqual([]);
+
+    handle.setCenter([40, 50]);
+    expect(seen.at(-1)).toEqual({
+      center_x_m: 40,
+      center_y_m: 50,
+      resolution_m_per_px: handle.getResolution(),
+    });
+    handle.zoomBy(1, { animate: false });
+    expect(seen.at(-1)!.resolution_m_per_px).toBe(handle.getResolution());
+
+    unsubscribe();
+    const count = seen.length;
+    handle.setCenter([60, 70]);
+    expect(seen.length).toBe(count);
+  });
+});
+
+describe("createMap: reduced motion (04 §E Motion)", () => {
+  it("moves instantly with no options when prefers-reduced-motion is set", () => {
+    const restore = stubReducedMotion(true);
+    try {
+      const { handle, map } = make();
+      handle.setCenter([0, 0]);
+      const res = handle.getResolution()!;
+      handle.panBy(10, 0);
+      expect(map.getView().getAnimating()).toBe(false);
+      expect(handle.getCenter()[0]).toBeCloseTo(10 * res, 6);
+      handle.zoomBy(1);
+      expect(map.getView().getAnimating()).toBe(false);
+      expect(handle.getResolution()).toBeCloseTo(res / 2, 6);
+      handle.fitExtent([-500, -500, 500, 500]);
+      expect(map.getView().getAnimating()).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+
+  it("animates by default without the preference, and an explicit animate:false is still instant", () => {
+    const restore = stubReducedMotion(false);
+    try {
+      const { handle, map } = make();
+      handle.setCenter([0, 0]);
+      handle.panBy(10, 0);
+      expect(map.getView().getAnimating()).toBe(true);
+      map.getView().cancelAnimations();
+
+      const res = handle.getResolution()!;
+      const x = handle.getCenter()[0];
+      handle.panBy(10, 0, { animate: false });
+      expect(map.getView().getAnimating()).toBe(false);
+      expect(handle.getCenter()[0]).toBeCloseTo(x + 10 * res, 6);
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("createMap: coordinate readout, north arrow, scale bar (FR-01, FR-15)", () => {
+  const readoutOf = (host: HTMLElement): HTMLElement => host.querySelector<HTMLElement>("[data-testid='coord-readout']")!;
+
+  it("shows — marked unavailable until a position is measured, with the provenance class and a real source id", () => {
+    const { host } = make();
+    const readout = readoutOf(host);
+    expect(readout.textContent).toBe("—");
+    expect(readout.getAttribute("data-unavailable")).toBe("true");
+    expect(readout.getAttribute("data-provenance")).toBe("derived");
+    expect(readout.getAttribute("data-source")).toMatch(/^unavailable:/);
+  });
+
+  it("on pointermove shows planetocentric lat and east-positive lon to 5 decimals plus projected x/y metres", () => {
+    const { host, map } = make();
+    pointerMove(map, [1000, 2000]);
+    const readout = readoutOf(host);
+
+    // Independent maths: eqc inverse on the Mars sphere from the manifest string (lat_ts = lat_0 = -4.70, lon_0 = 137.38)
+    const lat = -4.7 + (2000 / MARS_R) * (180 / Math.PI);
+    const lon = 137.38 + (1000 / (MARS_R * Math.cos((4.7 * Math.PI) / 180))) * (180 / Math.PI);
+    const text = readout.textContent!;
+    expect(text).toContain(`${lat.toFixed(5).replace("-", "−")}°`);
+    expect(text).toContain(`${lon.toFixed(5)}°E`);
+    expect(text).toContain("x 1000 m");
+    expect(text).toContain("y 2000 m");
+    // and it is the same as the projection module's inverse
+    const inv = projectedToLatLonE(SITE.site, 1000, 2000);
+    expect(text).toContain(inv.lon_e.toFixed(5));
+
+    expect(readout.hasAttribute("data-unavailable")).toBe(false);
+    expect(readout.getAttribute("data-provenance")).toBe("derived");
+  });
+
+  it("cites a DataSource that exists in the manifest (not an invented MARS_LOCAL id)", () => {
+    const { host, map } = make();
+    pointerMove(map, [0, 0]);
+    const source = readoutOf(host).getAttribute("data-source")!;
+    expect(source).not.toMatch(/^MARS_LOCAL/);
+    expect(SITE.sources.has(source)).toBe(true);
+  });
+
+  it("uses the readoutSourceId option when it names a manifest source, and rejects one that does not", () => {
+    const other = [...SITE.sources.keys()].at(-1)!;
+    const { host, map } = make(undefined, { readoutSourceId: other });
+    pointerMove(map, [0, 0]);
+    expect(readoutOf(host).getAttribute("data-source")).toBe(other);
+    expect(() => createMap({ target: sizedHost(), site: SITE, readoutSourceId: "not-a-source" })).toThrow(/not-a-source/);
+  });
+
+  it("goes back to — when the pointer leaves the map", () => {
+    const { handle, host, map } = make();
+    pointerMove(map, [10, 10]);
+    handle.getTargetElement().dispatchEvent(new window.Event("pointerleave"));
+    expect(readoutOf(host).textContent).toBe("—");
+    expect(readoutOf(host).getAttribute("data-unavailable")).toBe("true");
+  });
+
+  it("mounts a north arrow (top right) with a word, and a scale bar", () => {
+    const { host } = make();
+    const arrow = host.querySelector<HTMLElement>("[data-testid='north-arrow']")!;
     expect(arrow).not.toBeNull();
-    document.body.removeChild(container);
+    expect(arrow.textContent).toContain("N");
+    expect(arrow.getAttribute("role")).toBe("img");
+    expect(host.querySelector(".ol-scale-line")).not.toBeNull();
   });
 
-  it("coordinate readout carries data-provenance='derived' (NFR-05)", () => {
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    createMap(MOCK_SITE, container);
-    const readout = container.querySelector("[data-testid='coord-readout']");
-    expect(readout).not.toBeNull();
-    expect(readout?.getAttribute("data-provenance")).toBe("derived");
-    document.body.removeChild(container);
+  it("uses design tokens and no text below 12 px (04 §C.2)", () => {
+    const { host } = make();
+    const styled = [...host.querySelectorAll<HTMLElement>("[data-testid], .ol-scale-line, .ol-attribution")];
+    expect(styled.length).toBeGreaterThanOrEqual(3);
+    for (const el of styled) {
+      const style = el.getAttribute("style") ?? "";
+      expect(style, el.className || el.dataset.testid).not.toMatch(/--color-fg/);
+      expect(style).not.toMatch(/font-size:\s*(1[01]|[0-9])px/);
+    }
+    expect(readoutOf(host).getAttribute("style")).toContain("var(--text-1)");
+    expect(readoutOf(host).getAttribute("style")).toContain("var(--text-micro)");
+  });
+});
+
+describe("createMap: keyboard and destroy (04 §E, T13.06)", () => {
+  const key = (el: EventTarget, k: string): void => {
+    el.dispatchEvent(new window.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+  };
+
+  it("mounts attachKeyboardControls: arrows pan and +/- zoom while the map has focus", () => {
+    const restore = stubReducedMotion(true);
+    try {
+      const { handle } = make();
+      handle.setCenter([0, 0]);
+      const res = handle.getResolution()!;
+      const el = handle.getTargetElement();
+      el.focus();
+      key(el, "ArrowRight");
+      expect(handle.getCenter()[0]).toBeCloseTo(50 * res, 6);
+      key(el, "ArrowUp");
+      expect(handle.getCenter()[1]).toBeCloseTo(50 * res, 6);
+      key(el, "+");
+      expect(handle.getResolution()).toBeCloseTo(res / 2, 6);
+    } finally {
+      restore();
+    }
+  });
+
+  it("does not pan when the map does not have focus", () => {
+    const { handle } = make();
+    handle.setCenter([0, 0]);
+    document.body.focus();
+    key(window, "ArrowRight");
+    expect(handle.getCenter()).toEqual([0, 0]);
+  });
+
+  it("keyboard: false mounts no key handler", () => {
+    const restore = stubReducedMotion(true);
+    try {
+      const { handle } = make(undefined, { keyboard: false });
+      handle.setCenter([0, 0]);
+      handle.getTargetElement().focus();
+      key(handle.getTargetElement(), "ArrowRight");
+      expect(handle.getCenter()).toEqual([0, 0]);
+    } finally {
+      restore();
+    }
+  });
+
+  it("destroy removes the map DOM, the key handler and the view listeners, and is safe to call twice", () => {
+    const restore = stubReducedMotion(true);
+    try {
+      const host = sizedHost();
+      const { handle, map } = make(host);
+      const listener = vi.fn();
+      handle.onViewChange(listener);
+      const el = handle.getTargetElement();
+      handle.destroy();
+
+      expect(host.childElementCount).toBe(0);
+      expect(host.querySelector("[data-testid]")).toBeNull();
+
+      el.focus();
+      const view = map.getView();
+      const before = view.getCenter();
+      key(window, "ArrowRight");
+      expect(view.getCenter()).toEqual(before);
+
+      view.setCenter([5, 5]);
+      expect(listener).not.toHaveBeenCalled();
+      expect(() => handle.destroy()).not.toThrow();
+    } finally {
+      restore();
+    }
   });
 });

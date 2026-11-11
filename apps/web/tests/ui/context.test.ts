@@ -20,7 +20,6 @@ import { attachKeyboardControls, type KeyboardMapHandle } from "../../src/ui/map
 import type { FullScreenMapProps } from "../../src/ui/map/FullScreenMap";
 import { validateSite } from "../../src/boot/validateSite";
 import { DebugOverlay } from "../../src/ui/debug";
-import { createMap } from "../../src/ui/map/createMap";
 import { createRasterLayers } from "../../src/ui/map/rasterLayers";
 import { createTraverseLayer } from "../../src/ui/map/traverseLayer";
 import { createPoiLayer } from "../../src/ui/map/poiLayer";
@@ -160,7 +159,6 @@ describe("C10 stubs throw TODO(<owner id>) and are React components where they r
   it("throws the owner id from the c.4 register", async () => {
     expect(() => validateSite({} as never)).toThrow("TODO(T14.03)");
     expect(() => DebugOverlay({} as never)).toThrow("TODO(T07.13)");
-    expect(() => createMap({} as never)).toThrow("TODO(T07.06)");
     expect(() => createRasterLayers({} as never)).toThrow("TODO(T07.07)");
     expect(() => createTraverseLayer({} as never)).toThrow("TODO(T07.10)");
     expect(() => createPoiLayer({} as never)).toThrow("TODO(T07.11)");

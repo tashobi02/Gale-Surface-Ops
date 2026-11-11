@@ -1,204 +1,226 @@
 /**
- * T07.06 — Shared OpenLayers map: view, metric scale bar, north arrow, coordinate readout.
- * (FR-01, 02 §C.1, 02 §C.4, 04 §B, 04 §E; mockup DV-14)
+ * Shared OpenLayers map: view, metric scale bar, north arrow, coordinate readout, C10 v2 MapHandle
+ * (T07.06; FR-01, FR-15, 02 §C.1, 02 §C.4, 03 SCR-02, 04 §C.2, §E, §F; mockup DV-14).
  *
- * - OpenLayers map in the Mars projection (IAU_2015:49900, local eqc, projected metres).
- * - Scale bar in projected metres; never uses ol/sphere, EPSG:3857, or Earth-radius helpers (02 §C.4.2).
- * - North arrow (top right) and coordinate readout (bottom right):
- *     lat/lon to 5 decimals + local x/y metres from AOI origin (02 §C.1).
- * - Returns the C10 MapHandle with layer-order slots and a fit-to-AOI action.
- * - Respects prefers-reduced-motion: instant jumps, no animated fly-to (04 §E).
- *
- * CRS GUARD: no EPSG:3857, no EPSG:4326, no ol/sphere imports here (02 §C.4).
+ * - The map is built on `registerMarsProjection` (projection.ts): local `+proj=eqc` in projected metres, bounded by
+ *   `aoi.extent_m`. Nothing here registers a projection, inverts eqc by hand, or touches EPSG:3857, EPSG:4326 or
+ *   `ol/sphere`; the scale bar measures in projected metres through the projection's identity point resolution
+ *   (02 §C.4.2). Rotation is off, so the north arrow is fixed (top right).
+ * - The map owns its OpenLayers viewport only: the host element is not restyled (no forced `position`, no
+ *   `tabindex`). `getTargetElement()` is that viewport with `tabindex="0"`, which is what the keyboard layer
+ *   (keyboard.ts, 04 §E) needs to pan and zoom only while the map has focus. North arrow, readout, scale bar and
+ *   attribution are OpenLayers controls inside the viewport, so `destroy()` removes them with it.
+ * - The coordinate readout shows "—" until a position is measured, then planetocentric latitude, east-positive
+ *   longitude (5 decimals) and projected x/y metres, labelled `derived` with a manifest DataSource id (FR-15).
+ * - Motion: `panBy`, `zoomBy` and fits are instant under `prefers-reduced-motion` or `{ animate: false }` (04 §E).
+ * - `attachKeyboardControls` is mounted here (T13.06): pass `keyboard: { planContext }` for the planner's Delete, B
+ *   and ? shortcuts, or `keyboard: false` where the page mounts them itself.
  */
-
 import OlMap from "ol/Map.js";
 import OlView from "ol/View.js";
-import { get as getProjection } from "ol/proj.js";
+import Attribution from "ol/control/Attribution.js";
+import Control from "ol/control/Control.js";
 import ScaleLine from "ol/control/ScaleLine.js";
-import proj4 from "proj4";
-import { register } from "ol/proj/proj4.js";
-import { addProjection, Projection } from "ol/proj.js";
-import type { Site } from "@marswalk/protocol";
-import type { FitOptions } from "ol/View.js";
+import { unByKey } from "ol/Observable.js";
+import type { EventsKey } from "ol/events.js";
+import type { Extent } from "ol/extent.js";
+import type { LoadedSite, MapHandle, MapView } from "../context";
+import { UNAVAILABLE, provAttrs, unavailableOf } from "../components/provenance";
+import { attachKeyboardControls, prefersReducedMotion, type KeyboardControlsOptions } from "./keyboard";
+import { projectedToLatLonE, registerMarsProjection } from "./projection";
 
-/** C10 MapHandle: generic handle to the shared OL map (02 §C.1, TASK-07). */
-export interface MapHandle {
-  getMap<T = unknown>(): T;
-  fitExtent(extent: [number, number, number, number]): void;
-  setCenter(coord: [number, number]): void;
-  getCenter(): [number, number];
-  setZoom(zoom: number): void;
-  getZoom(): number | undefined;
-  destroy(): void;
+export interface CreateMapOptions {
+  /** The host element, or its id. A missing id throws. */
+  target: HTMLElement | string;
+  site: LoadedSite;
+  /**
+   * The DataSource the coordinate readout cites. Default: the first source of the basemap layer (the layer that is
+   * not optional), else of the first layer. TODO(decision): which DataSource a projection-derived readout cites.
+   */
+  readoutSourceId?: string;
+  /** Keyboard layer (04 §E): options for `attachKeyboardControls`, or `false` to mount none. Default: map keys only. */
+  keyboard?: false | Pick<KeyboardControlsOptions, "planContext" | "panStepPx" | "target">;
 }
 
-/** Mars sphere radius from IAU_2015:49900 (02 §C.1). Never Earth's radius. */
-const MARS_R_M = 3_396_190;
+/** Duration of an animated pan, zoom or fit (04 §C.6 `--motion-fast`). */
+const MOTION_MS = 150;
+/** Padding around a fitted extent, pixels. */
+const FIT_PADDING_PX = 24;
 
-/**
- * Registers site.crs.proj4 with proj4 and OpenLayers if not already registered.
- * Code is always MARS_LOCAL:<site_id> — never an EPSG earth code (02 §C.4.1).
- */
-function ensureMarsProjection(site: Site): void {
-  const code = `MARS_LOCAL:${site.site_id}`;
-  if (getProjection(code)) return; // already registered
-  proj4.defs(code, site.crs.proj4);
-  register(proj4);
-  const proj = new Projection({
-    code,
-    extent: site.aoi.extent_m,
-    units: "m",
-    metersPerUnit: 1,
-    worldExtent: site.aoi.extent_m,
-    // Identity: 1 projected metre = 1 ground metre; avoids Earth-sphere conversions (02 §C.4.2).
-    getPointResolution: (res: number): number => res,
-  });
-  addProjection(proj);
-}
+type Animate = { animate?: boolean } | undefined;
 
-/** Inverse-eqc: projected metres → geodetic degrees for readout (02 §C.1). */
-function projectedToGeo(
-  x_m: number,
-  y_m: number,
-  lat_ts_deg: number,
-  lon_0_deg: number,
-): { lat: number; lon: number } {
-  // eqc: lon = lon_0 + x / (R * cos(lat_ts)); lat = lat_0 + y / R
-  const lat_ts_rad = (lat_ts_deg * Math.PI) / 180;
-  const lat = lat_ts_deg + (y_m / MARS_R_M) * (180 / Math.PI);
-  const lon = lon_0_deg + (x_m / (MARS_R_M * Math.cos(lat_ts_rad))) * (180 / Math.PI);
-  return { lat, lon };
-}
-
-/** Parse lat_ts and lon_0 from the proj4 string. */
-function parseProjParams(proj4str: string): { lat_ts: number; lon_0: number } {
-  const latTs = /\+lat_ts=([-\d.]+)/.exec(proj4str);
-  const lon0 = /\+lon_0=([-\d.]+)/.exec(proj4str);
-  return {
-    lat_ts: latTs ? parseFloat(latTs[1]) : 0,
-    lon_0: lon0 ? parseFloat(lon0[1]) : 0,
-  };
-}
-
-/** Reduced-motion preference (04 §E). */
-function prefersReducedMotion(): boolean {
-  try {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  } catch {
-    return false;
+/** Source the readout cites: the option, else the basemap layer's first source, else the first layer's. */
+function resolveReadoutSource(site: LoadedSite, requested: string | undefined): string {
+  if (requested !== undefined) {
+    if (!site.sources.has(requested)) {
+      throw new Error(`createMap: readoutSourceId ${JSON.stringify(requested)} is not a source of site ${site.site.site_id}`);
+    }
+    return requested;
   }
+  const layers = [...site.layers.values()];
+  const basemap = layers.find((layer) => !layer.optional);
+  for (const layer of basemap ? [basemap, ...layers] : layers) {
+    const id = layer.source_ids.find((sourceId) => site.sources.has(sourceId));
+    if (id !== undefined) return id;
+  }
+  const first = site.sources.keys().next();
+  if (first.done) throw new Error(`createMap: site ${site.site.site_id} lists no DataSource to cite`);
+  return first.value;
 }
 
-/** Fit options: no animation when reduced motion is preferred (04 §E). */
-function fitOpts(): Parameters<OlView["fit"]>[1] {
-  return {
-    duration: prefersReducedMotion() ? 0 : 300,
-    padding: [24, 24, 24, 24],
-  };
+function resolveHost(target: HTMLElement | string): HTMLElement {
+  if (typeof target !== "string") return target;
+  const el = document.getElementById(target);
+  if (!el) throw new Error(`createMap: no element with id ${JSON.stringify(target)}`);
+  return el;
+}
+
+/** Fixed-decimal with a true minus sign (02 §C.1 shows `−4.71234°`). */
+const signed = (value: number, digits: number): string => `${value < 0 ? "−" : ""}${Math.abs(value).toFixed(digits)}`;
+
+/** Chrome over imagery: raised dark panel, `--text-1` ink, 12 px minimum (04 §C.2), mono for numbers. */
+const CHROME = [
+  "position:absolute",
+  "pointer-events:none",
+  "padding:2px 8px",
+  "background:var(--panel)",
+  "color:var(--text-1)",
+  "font-family:var(--font-mono)",
+  "font-size:var(--text-micro)",
+  "line-height:var(--line-height-ui)",
+  "white-space:nowrap",
+].join(";");
+
+function chromeElement(testId: string, css: string): HTMLElement {
+  const el = document.createElement("div");
+  el.setAttribute("data-testid", testId);
+  el.style.cssText = `${CHROME};${css}`;
+  return el;
 }
 
 /**
- * Creates the shared OpenLayers map on the Mars projection.
- *
- * @param site Loaded site manifest (provides CRS, AOI extent, and proj4 string).
- * @param target DOM element or element id to mount the map into.
- * @returns C10 MapHandle with getMap, fitExtent, setCenter, getCenter, setZoom, getZoom, destroy.
+ * Creates the shared OpenLayers map on the site's Mars projection and returns the C10 v2 handle.
+ * Throws when the target id is unknown or `readoutSourceId` is not a source of the site.
  */
-export function createMap(site: Site, target: HTMLElement | string): MapHandle {
-  ensureMarsProjection(site);
+export function createMap(options: CreateMapOptions): MapHandle {
+  const { site: loaded } = options;
+  const site = loaded.site;
+  const host = resolveHost(options.target);
+  const readoutSource = resolveReadoutSource(loaded, options.readoutSourceId);
 
-  const projCode = `MARS_LOCAL:${site.site_id}`;
-  const extent = site.aoi.extent_m as [number, number, number, number];
-  const { lat_ts, lon_0 } = parseProjParams(site.crs.proj4);
+  const projection = registerMarsProjection(site);
+  const extent = site.aoi.extent_m as Extent;
+  const aoiCentre: [number, number] = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
 
   const view = new OlView({
-    projection: projCode,
+    projection,
     extent,
-    constrainOnlyCenter: false,
+    // The centre stays in the AOI; the resolution is free so the AOI can be fitted with padding.
+    constrainOnlyCenter: true,
+    center: aoiCentre,
+    zoom: 0,
+    enableRotation: false,
   });
 
-  // Scale bar in projected metres — ol/sphere is never imported (02 §C.4.2).
+  // Scale bar in projected metres: ScaleLine asks the projection for its point resolution (identity).
   const scaleLine = new ScaleLine({ units: "metric" });
+  // Attributions come from the layers' sources (NFR-07); the layer modules set them from DataSource credits.
+  const attribution = new Attribution({ collapsible: false });
+
+  const northArrow = chromeElement("north-arrow", "top:8px;right:8px;text-align:center");
+  northArrow.setAttribute("role", "img");
+  northArrow.setAttribute("aria-label", "North is up");
+  northArrow.textContent = "↑ N";
+
+  const readout = chromeElement("coord-readout", "bottom:8px;right:8px");
+  const showReadout = (text: string, prov: ReturnType<typeof provAttrs>): void => {
+    readout.textContent = text;
+    readout.removeAttribute("data-unavailable");
+    for (const [key, value] of Object.entries(prov)) readout.setAttribute(key, value);
+  };
+  const clearReadout = (): void => showReadout(UNAVAILABLE, provAttrs(unavailableOf("derived", "map.pointer")));
+  clearReadout();
 
   const map = new OlMap({
-    target,
+    target: host,
     view,
-    controls: [scaleLine],
+    controls: [scaleLine, attribution, new Control({ element: northArrow }), new Control({ element: readout })],
     layers: [],
   });
 
-  // Fit to AOI on open.
-  view.fit(extent, fitOpts());
+  const viewport = map.getViewport();
+  if (!viewport) throw new Error("createMap: OpenLayers created no viewport");
+  // OpenLayers builds the scale bar and attribution elements itself; they are styled once they are in the viewport.
+  const scaleEl = viewport.querySelector<HTMLElement>(".ol-scale-line");
+  if (scaleEl) {
+    scaleEl.style.cssText = `${CHROME};left:8px;bottom:8px`;
+    scaleEl.setAttribute("data-testid", "scale-bar");
+    scaleEl.setAttribute("data-provenance", "derived");
+    scaleEl.setAttribute("data-source", readoutSource);
+  }
+  const attributionEl = viewport.querySelector<HTMLElement>(".ol-attribution");
+  if (attributionEl) {
+    attributionEl.style.cssText = `${CHROME};left:8px;bottom:36px;white-space:normal;max-width:60%`;
+    attributionEl.setAttribute("data-testid", "attribution");
+  }
+  viewport.tabIndex = 0;
+  viewport.setAttribute("role", "group");
+  viewport.setAttribute("aria-label", `Map of ${site.name}. Arrow keys pan; plus and minus zoom.`);
 
-  // ----- North arrow -----
-  const container = typeof target === "string"
-    ? (document.getElementById(target) ?? document.createElement("div"))
-    : target;
+  const keys: EventsKey[] = [];
+  const cleanups: (() => void)[] = [];
+  let destroyed = false;
 
-  const northArrow = document.createElement("div");
-  northArrow.setAttribute("data-testid", "north-arrow");
-  northArrow.setAttribute("aria-label", "North arrow");
-  northArrow.setAttribute("role", "img");
-  northArrow.style.cssText = [
-    "position:absolute",
-    "top:12px",
-    "right:12px",
-    "width:28px",
-    "height:28px",
-    "pointer-events:none",
-    "z-index:200",
-    "display:flex",
-    "align-items:center",
-    "justify-content:center",
-    "font-size:20px",
-    "line-height:1",
-    "color:var(--color-fg,#e8edf2)",
-  ].join(";");
-  northArrow.textContent = "⬆";
-  northArrow.title = "North";
-  container.style.position = "relative";
-  container.appendChild(northArrow);
+  const hasSize = (): boolean => {
+    const size = map.getSize();
+    return size !== undefined && size[0] > 0 && size[1] > 0;
+  };
+  const instant = (opts: Animate): boolean => opts?.animate === false || prefersReducedMotion();
 
-  // ----- Coordinate readout -----
-  const readout = document.createElement("div");
-  readout.setAttribute("data-testid", "coord-readout");
-  readout.setAttribute("data-provenance", "derived");
-  readout.setAttribute("data-source-id", "MARS_LOCAL:" + site.site_id);
-  readout.style.cssText = [
-    "position:absolute",
-    "bottom:28px",
-    "right:8px",
-    "font-size:11px",
-    "font-family:var(--font-mono,'ui-monospace',monospace)",
-    "color:var(--color-fg,#e8edf2)",
-    "background:rgba(10,14,20,0.72)",
-    "padding:2px 6px",
-    "border-radius:3px",
-    "pointer-events:none",
-    "z-index:200",
-    "white-space:nowrap",
-  ].join(";");
-  readout.textContent = "—";
-  container.appendChild(readout);
+  const fit = (target: Extent, opts?: Animate): void => {
+    view.fit(target, {
+      size: map.getSize(),
+      padding: [FIT_PADDING_PX, FIT_PADDING_PX, FIT_PADDING_PX, FIT_PADDING_PX],
+      duration: instant(opts) ? 0 : MOTION_MS,
+    });
+  };
 
-  // Update readout on pointer move.
-  map.on("pointermove", (evt) => {
-    const [x, y] = evt.coordinate as [number, number];
-    const { lat, lon } = projectedToGeo(x, y, lat_ts, lon_0);
-    readout.textContent =
-      `${lat >= 0 ? "+" : ""}${lat.toFixed(5)}°, ${lon.toFixed(5)}°E  ` +
-      `(${x >= 0 ? "+" : ""}${x.toFixed(0)} m, ${y >= 0 ? "+" : ""}${y.toFixed(0)} m)`;
-  });
+  // Fit the AOI on open. A host with no layout yet (React mounts before layout) is fitted once it has a size.
+  if (hasSize()) {
+    fit(extent, { animate: false });
+  } else {
+    const key = map.on("change:size", () => {
+      if (!hasSize()) return;
+      unByKey(key);
+      fit(extent, { animate: false });
+    });
+    keys.push(key);
+  }
 
-  // ----- MapHandle -----
-  return {
+  keys.push(
+    map.on("pointermove", (event) => {
+      const [x, y] = event.coordinate;
+      const { lat, lon_e } = projectedToLatLonE(site, x, y);
+      showReadout(
+        `${signed(lat, 5)}°, ${lon_e.toFixed(5)}°E  x ${Math.round(x)} m  y ${Math.round(y)} m`,
+        provAttrs({ prov: "derived", src: readoutSource }),
+      );
+    }),
+  );
+  viewport.addEventListener("pointerleave", clearReadout);
+  cleanups.push(() => viewport.removeEventListener("pointerleave", clearReadout));
+
+  const handle: MapHandle = {
     getMap<T = unknown>(): T {
-      return map as T;
+      return map as unknown as T;
     },
 
-    fitExtent(ext: [number, number, number, number]): void {
-      view.fit(ext, fitOpts());
+    getTargetElement(): HTMLElement {
+      return viewport;
+    },
+
+    fitExtent(target: [number, number, number, number]): void {
+      fit(target);
     },
 
     setCenter(coord: [number, number]): void {
@@ -206,7 +228,7 @@ export function createMap(site: Site, target: HTMLElement | string): MapHandle {
     },
 
     getCenter(): [number, number] {
-      return (view.getCenter() ?? [0, 0]) as [number, number];
+      return (view.getCenter() ?? aoiCentre) as [number, number];
     },
 
     setZoom(zoom: number): void {
@@ -217,9 +239,66 @@ export function createMap(site: Site, target: HTMLElement | string): MapHandle {
       return view.getZoom();
     },
 
+    getResolution(): number | undefined {
+      return view.getResolution();
+    },
+
+    panBy(dx_px: number, dy_px: number, opts?: { animate?: boolean }): void {
+      const resolution = view.getResolution();
+      const centre = view.getCenter();
+      if (resolution === undefined || !centre) return;
+      // Screen y points down, projected y points north: a negative dy shows more north.
+      const next: [number, number] = [centre[0] + dx_px * resolution, centre[1] - dy_px * resolution];
+      if (instant(opts)) {
+        view.setCenter(next);
+      } else {
+        view.animate({ center: next, duration: MOTION_MS });
+      }
+    },
+
+    zoomBy(delta: number, opts?: { animate?: boolean }): void {
+      const zoom = view.getZoom();
+      if (zoom === undefined) return;
+      if (instant(opts)) {
+        view.setZoom(zoom + delta);
+      } else {
+        view.animate({ zoom: zoom + delta, duration: MOTION_MS });
+      }
+    },
+
+    onViewChange(listener: (v: MapView) => void): () => void {
+      const emit = (): void => {
+        const centre = view.getCenter();
+        const resolution = view.getResolution();
+        if (!centre || resolution === undefined || !(resolution > 0)) return;
+        listener({ center_x_m: centre[0], center_y_m: centre[1], resolution_m_per_px: resolution });
+      };
+      const subscribed = [view.on("change:center", emit), view.on("change:resolution", emit)];
+      let active = true;
+      const unsubscribe = (): void => {
+        if (!active) return;
+        active = false;
+        unByKey(subscribed);
+        cleanups.splice(cleanups.indexOf(unsubscribe), 1);
+      };
+      cleanups.push(unsubscribe);
+      return unsubscribe;
+    },
+
     destroy(): void {
+      if (destroyed) return;
+      destroyed = true;
+      for (const cleanup of [...cleanups]) cleanup();
+      unByKey(keys);
+      // Removes the viewport, and with it every control element, from the host; then drops the map's own listeners.
       map.setTarget(undefined);
+      map.dispose();
     },
   };
-}
 
+  if (options.keyboard !== false) {
+    cleanups.push(attachKeyboardControls({ mapHandle: handle, ...options.keyboard }));
+  }
+
+  return handle;
+}
