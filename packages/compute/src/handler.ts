@@ -147,6 +147,14 @@ function handleComputePlan(
         message: `Routing search timed out between ${fromWp.id} and ${toWp.id}`,
       };
     }
+    if (search.status === "CANCELLED") {
+      return {
+        type: "ERROR",
+        request_id: request.request_id,
+        code: "CANCELLED",
+        message: `Routing search cancelled between ${fromWp.id} and ${toWp.id}`,
+      };
+    }
     const leg = toLeg(grid, fromWp.id, toWp.id, search, request.scenario);
     legs.push(leg);
     cellPaths.push(search.status === "OK" ? search.cells : undefined);
