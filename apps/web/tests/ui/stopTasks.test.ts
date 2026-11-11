@@ -1,11 +1,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
+import { act, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EvaTablet } from "../../src/ui/screens/scr12EvaTablet";
 import { storeFromBeat, recordingClient } from "./fixtureStore";
 import { click, installDom, mount, must, removeDom } from "./domHarness";
 import { StopTaskList, StopTaskRow } from "../../src/ui/screens/scr12/StopTaskList";
 import { TasksButton } from "../../src/ui/screens/scr12/TasksButton";
+import { STOP_TASK_UNDO_WINDOW_MS } from "../../src/ui/screens/scr12/useStopTaskChanges";
 import { TaskProgress } from "../../src/ui/ops/TaskProgress";
 import { AddTaskPopover } from "../../src/ui/ops/AddTaskPopover";
 import type { Snapshot, StopTask } from "@marswalk/protocol";
@@ -17,6 +18,7 @@ import type { Snapshot, StopTask } from "@marswalk/protocol";
 beforeAll(() => installDom());
 afterAll(() => removeDom());
 afterEach(() => {
+  vi.useRealTimers();
   document.body.innerHTML = "";
 });
 
@@ -540,13 +542,37 @@ describe("StopTaskList interaction: real clicks (FR-50)", () => {
     expect(calls.reason).not.toHaveBeenCalled();
     expect(calls.tick).not.toHaveBeenCalled();
     const picker = must(container, '[role="group"][aria-label="Reason for skipping"]');
-    expect([...picker.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["time", "terrain", "alert", "other"]);
+    expect([...picker.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["time", "terrain", "alert", "other", "CANCEL"]);
 
     await click(must(container, '[aria-label="Reason: terrain"]'));
     expect(calls.reason.mock.calls).toEqual([["t-s2-01", "terrain"]]);
     // The picker closes after the reason; no second send.
     expect(container.querySelector('[role="group"]')).toBeNull();
     expect(calls.reason).toHaveBeenCalledTimes(1);
+  });
+
+  it("CANCEL closes the reason picker without a reason or a command, and SKIP is offered again", async () => {
+    const { calls, element } = list();
+    const { container } = await mount(element);
+
+    await click(must(container, '[aria-label^="Skip task: Photograph"]'));
+    expect(container.querySelector('[role="group"][aria-label="Reason for skipping"]')).not.toBeNull();
+    await click(must(container, '[aria-label="Cancel skip"]'));
+
+    expect(container.querySelector('[role="group"]')).toBeNull();
+    expect(container.querySelector('[aria-label^="Skip task: Photograph"]')).not.toBeNull();
+    expect(calls.reason).not.toHaveBeenCalled();
+    expect(calls.tick).not.toHaveBeenCalled();
+    expect(calls.undo).not.toHaveBeenCalled();
+  });
+
+  it("the CANCEL control is at least 56 px like the reasons", async () => {
+    const { element } = list();
+    const { container } = await mount(element);
+    await click(must(container, '[aria-label^="Skip task: Photograph"]'));
+    const cancel = must<HTMLElement>(container, '[aria-label="Cancel skip"]');
+    expect(cancel.style.minHeight).toBe("var(--target-eva, 56px)");
+    expect(cancel.style.minWidth).toBe("var(--target-eva, 56px)");
   });
 
   it("reason and tick buttons are at least 56 px in both dimensions with at least 8 px between reasons", async () => {
@@ -584,9 +610,10 @@ describe("StopTaskList interaction: real clicks (FR-50)", () => {
 });
 
 describe("EVA tablet task list: one UPDATE_STOP_TASK per action (FR-50)", () => {
-  /** A snapshot with no plan, so the tablet takes its stop from the tasks. */
+  /** A snapshot with no plan, so the tablet takes its stop from the tasks; EV1 is at the stop, so the list is not collapsed. */
   function snapshotWithTasks(): Snapshot {
-    return { ...storeFromBeat("connect").state()!, plan: null as never, tasks: mockTasks };
+    const base = storeFromBeat("connect").state()!;
+    return { ...base, plan: null as never, tasks: mockTasks, crew: base.crew.map((c) => ({ ...c, activity: "AT_STOP" as const })) };
   }
 
   async function tabletWithList() {
@@ -596,13 +623,22 @@ describe("EVA tablet task list: one UPDATE_STOP_TASK per action (FR-50)", () => 
     return { ...view, sent };
   }
 
-  it("ticking sends one DONE; skipping sends nothing until the reason, then one SKIPPED with that reason", async () => {
+  it("ticking sends one DONE at once, and the row keeps showing DONE until the snapshot says otherwise", async () => {
+    vi.useFakeTimers();
     const { container, sent } = await tabletWithList();
 
     await click(must(container, '[aria-label^="Mark task done: Photograph"]'));
     expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "DONE" } }]);
+    await act(async () => {
+      vi.advanceTimersByTime(STOP_TASK_UNDO_WINDOW_MS);
+    });
+    expect(sent).toHaveLength(1);
+    expect(must(container, '[data-testid="task-row-t-s2-01"]').getAttribute("data-state")).toBe("DONE");
+  });
 
-    sent.length = 0;
+  it("skipping sends nothing until the reason is chosen, then one SKIPPED with that reason", async () => {
+    const { container, sent } = await tabletWithList();
+
     await click(must(container, '[aria-label^="Skip task: Photograph"]'));
     expect(sent).toHaveLength(0);
     await click(must(container, '[aria-label="Reason: time"]'));
@@ -690,5 +726,49 @@ describe("Ops add-task callback (FR-50)", () => {
     await setText("  Photograph the vein  ");
     await submit();
     expect(onAdd.mock.calls).toEqual([[{ crew_id: "EV1", stop_id: "wp-2", kind: "observe", text: "Photograph the vein" }]]);
+  });
+});
+
+describe("task state and text carry their own provenance (FR-15, NFR-05; 05 StopTask)", () => {
+  const row = (task: StopTask) => mount(createElement(StopTaskRow, { task, readOnly: true, inUndoWindow: false, notSynced: false, onTick: () => {}, onUndo: () => {} }));
+
+  it("the state and the text carry the class and source from the task's own provenance map", async () => {
+    const { container } = await row({ ...mockTasks[0], provenance: { state: "simulated", text: "assumed" } });
+    const state = must(container, '[data-field="state"]');
+    const text = must(container, '[data-field="text"]');
+
+    expect(state.textContent).toBe("TODO");
+    expect(state.getAttribute("data-provenance")).toBe("simulated");
+    expect(state.getAttribute("data-source")).toBe("snapshot:tasks.t-s2-01.state");
+    expect(text.textContent).toBe(mockTasks[0].text);
+    expect(text.getAttribute("data-provenance")).toBe("assumed");
+    expect(text.getAttribute("data-source")).toBe("snapshot:tasks.t-s2-01.text");
+  });
+
+  it("a class the data gives is shown as given (an ops-added task's text is not 'assumed' by default)", async () => {
+    const { container } = await row({ ...mockTasks[2], provenance: { state: "simulated", text: "measured" } });
+    expect(must(container, '[data-field="text"]').getAttribute("data-provenance")).toBe("measured");
+  });
+
+  it("a state class that is missing or invalid falls back to the `simulated` 05 gives every task state", async () => {
+    const { container } = await row({ ...mockTasks[0], provenance: { state: "live" } as never });
+    expect(must(container, '[data-field="state"]').getAttribute("data-provenance")).toBe("simulated");
+  });
+
+  it("a text class the data does not give is not invented: no class, and the author (origin) is named, or —", async () => {
+    const plan = await row({ ...mockTasks[0], provenance: {} });
+    const text = must(plan.container, '[data-field="text"]');
+    expect(text.getAttribute("data-provenance")).toBeNull();
+    expect(text.getAttribute("data-origin")).toBe("plan");
+    expect(text.getAttribute("data-source")).toBe("snapshot:tasks.t-s2-01.text");
+    await plan.unmount();
+
+    const ops = await row({ ...mockTasks[2], provenance: { text: "live" } as never });
+    expect(must(ops.container, '[data-field="text"]').getAttribute("data-origin")).toBe("ops");
+    expect(must(ops.container, '[data-field="text"]').getAttribute("data-provenance")).toBeNull();
+    await ops.unmount();
+
+    const none = await row({ ...mockTasks[0], origin: undefined as never, provenance: {} });
+    expect(must(none.container, '[data-field="text"]').getAttribute("data-origin")).toBe("—");
   });
 });

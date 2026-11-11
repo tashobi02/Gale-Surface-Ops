@@ -15,10 +15,12 @@ import {
   MAX_REPLAY_GAP,
   type ClientMessage,
   type Command,
+  type Alert,
   type CommandResult,
   type LogEvent,
   type ServerMessage,
   type Snapshot,
+  type StopTask,
 } from "@marswalk/protocol";
 import type { StateChange } from "../src/engine/reducer";
 import { startServer } from "../src/server";
@@ -77,6 +79,53 @@ class StubSession implements SessionHandle {
     for (let i = 0; i < n; i++) this.pending.push(logEvent(++this.lastSeq));
   }
 }
+
+/**
+ * A session whose commands change state the way the reducer does (new arrays, nothing mutated), so the server can
+ * diff the snapshot before and after. The real task handler is still the T31.04 stub, hence this stand-in.
+ */
+class StatefulSession extends StubSession {
+  alerts: Alert[] = [];
+  tasks: StopTask[] = [];
+  sessionId = "s-0007";
+  snapshot(clients: Snapshot["clients"]): Snapshot {
+    const snap = super.snapshot(clients);
+    return { ...snap, session: { ...snap.session, session_id: this.sessionId }, alerts: this.alerts, tasks: this.tasks };
+  }
+  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[] } {
+    const out = super.apply(command, client_id);
+    const seq = out.events[0].seq;
+    const args = command.args as Record<string, string>;
+    if (command.kind === "ACK_ALERT") {
+      this.alerts = this.alerts.map((a) => (a.alert_id === args.alert_id ? { ...a, acked_seq: seq, acked_by: command.role } : a));
+    } else if (command.kind === "UPDATE_STOP_TASK") {
+      this.tasks = this.tasks.map((t) => (t.task_id === args.task_id ? { ...t, state: args.state as StopTask["state"], updated_by: command.role } : t));
+    } else if (command.kind === "LOAD_SCENARIO") {
+      this.sessionId = "s-0008";
+    }
+    return out;
+  }
+  private staged: Alert | null = null;
+  /** Raise an alert inside the next advance, as the engine's alerts tick does (state changes only inside it). */
+  raise(alert: Alert): void {
+    this.emit(1);
+    this.staged = alert;
+  }
+  advance(steps: number): { events: LogEvent[]; deltas: StateChange[] } {
+    if (this.staged) this.alerts = [...this.alerts, this.staged];
+    this.staged = null;
+    return super.advance(steps);
+  }
+}
+
+const ALERT: Alert = {
+  alert_id: "a-420", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1", "EV2"], raised_seq: 420,
+  acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now — radiation surge", data: {},
+};
+const TASK: StopTask = {
+  task_id: "t-s2-02", stop_id: "wp-2", crew_id: "EV1", kind: "image", text: "Image the ridge crest", state: "TODO", reason: null,
+  origin: "plan", updated_sim_time: SIM_TIME, updated_by: "system", provenance: { state: "simulated", text: "assumed" },
+};
 
 // ---- WebSocket test client ---------------------------------------------------------------------
 
@@ -264,3 +313,83 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
     expect(body.tasks).toBeDefined();
   });
 });
+
+describe("command effects reach every client (T20.04; 02 §D.14, §E.6)", () => {
+  const opsHello: ClientMessage = { v: 1, type: "HELLO", role: "ops", client_id: "c-ops", display_name: "", last_seq: 0 };
+  const deltas = (c: TestClient) => c.received.filter((m): m is Extract<ServerMessage, { type: "STATE_DELTA" }> => m.type === "STATE_DELTA");
+
+  async function twoClients(session: StatefulSession) {
+    const server = await start({ site: "mock_site", port: 0, host: "127.0.0.1", session });
+    open.server = server;
+    const ev1 = await client(server.url);
+    const ops = await client(server.url);
+    ev1.send(hello(0));
+    ops.send(opsHello);
+    await ev1.waitFor((m) => m.type === "SNAPSHOT");
+    await ops.waitFor((m) => m.type === "SNAPSHOT");
+    return { ev1, ops };
+  }
+
+  it("ACK_ALERT by ops: every client gets the EVENT, then a STATE_DELTA with the alert's acked_seq", async () => {
+    const session = new StatefulSession(412);
+    session.alerts = [ALERT];
+    const { ev1, ops } = await twoClients(session);
+
+    ops.send({ v: 1, type: "COMMAND", command_id: "k-ack", role: "ops", command: { kind: "ACK_ALERT", args: { alert_id: "a-420" } } });
+    await ops.waitFor((m) => m.type === "COMMAND_RESULT");
+    for (const c of [ev1, ops]) {
+      const [delta] = await c.waitFor((m) => m.type === "STATE_DELTA");
+      expect(delta).toMatchObject({ seq: 413, changes: expect.arrayContaining([{ path: "alerts/a-420/acked_seq", value: 413 }]) });
+      // The EVENT comes first, so the client's seq is already 413 when the delta is applied.
+      expect(c.received.filter((m) => m.type !== "SNAPSHOT").map((m) => m.type).slice(0, 2)).toEqual(["EVENT", "STATE_DELTA"]);
+    }
+  });
+
+  it("UPDATE_STOP_TASK: the task's new state reaches the other client", async () => {
+    const session = new StatefulSession(412);
+    session.tasks = [TASK];
+    const { ev1, ops } = await twoClients(session);
+
+    ev1.send({ v: 1, type: "COMMAND", command_id: "k-task", role: "eva:EV1", command: { kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-02", state: "DONE" } } });
+    const [delta] = await ops.waitFor((m) => m.type === "STATE_DELTA");
+    expect(delta).toMatchObject({ changes: expect.arrayContaining([{ path: "tasks/t-s2-02/state", value: "DONE" }]) });
+  });
+
+  it("a command that changes no state sends no STATE_DELTA", async () => {
+    const session = new StatefulSession(412);
+    const { ev1 } = await twoClients(session);
+    ev1.send({ v: 1, type: "COMMAND", command_id: "k-none", role: "eva:EV1", command: { kind: "SEND_MESSAGE", args: {} } });
+    await ev1.waitFor((m) => m.type === "COMMAND_RESULT");
+    await new Promise((r) => setTimeout(r, 150));
+    // seq and the log hash move with every event, so only those session fields may appear.
+    const paths = deltas(ev1).flatMap((d) => d.changes.map((ch) => ch.path));
+    expect(paths.filter((p) => !p.startsWith("session/"))).toEqual([]);
+  });
+
+  it("an alert raised by the engine tick reaches every client: a new item replaces the whole list", async () => {
+    const session = new StatefulSession(412);
+    const { ev1, ops } = await twoClients(session);
+
+    session.raise(ALERT);
+    for (const c of [ev1, ops]) {
+      const [delta] = await c.waitFor((m) => m.type === "STATE_DELTA" && m.changes.some((ch) => ch.path === "alerts"));
+      expect(delta).toMatchObject({ changes: expect.arrayContaining([{ path: "alerts", value: [ALERT] }]) });
+    }
+  });
+
+  it("LOAD_SCENARIO (a new session id) sends every client a fresh SNAPSHOT before the new events, and no delta", async () => {
+    const session = new StatefulSession(412);
+    const { ev1, ops } = await twoClients(session);
+
+    ops.send({ v: 1, type: "COMMAND", command_id: "k-load", role: "ops", command: { kind: "LOAD_SCENARIO", args: { scenario_id: "storm-sol4190" } } });
+    await ops.waitFor((m) => m.type === "COMMAND_RESULT");
+    for (const c of [ev1, ops]) {
+      const [, second] = await c.waitFor((m) => m.type === "SNAPSHOT", 2);
+      expect((second as Snapshot).session.session_id).toBe("s-0008");
+      const after = c.received.slice(c.received.indexOf(second) + 1).map((m) => m.type);
+      expect(after[0]).toBe("EVENT");
+      expect(deltas(c)).toHaveLength(0);
+    }
+  });
+});
+
