@@ -426,6 +426,7 @@ T23.03 `havenTick` consumes `liveHaven` from `haven.ts` (frozen in this PR; plea
 - **Verify:** `npm --workspace @marswalk/compute test -- earthLink`.
 - **Agent brief:** Implement the delivery rule until the tests pass.
 - **Conflict notes:** Single owner.
+- Review notes (11 Nov): `TODO(decision)` for the 02 §D.12 owner: a message queued for a later pass is not delivered when that pass starts in conjunction (the spec checks blackout only at the send time, or at Mars arrival for Earth to Mars). The code and tests apply the stricter rule; revert it if the spec means send time only. `TODO(verify)`: the 02 §D.12 light-time validation against `spiceypy` or WebGeocalc (within 1 s) has no independent value in the repo yet, so it is an `it.todo`; the committed-table light time is only a regression pin. The committed storm table has a one-sample pass with `start_utc` = `end_utc`, so a pass list is accepted when end is at or after start.
 
 ### T05b.14 — Tests: radiation trigger and event dose integral
 
