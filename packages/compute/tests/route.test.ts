@@ -1,8 +1,9 @@
-import type { MissionScenario } from "@marswalk/protocol";
+import type { MissionScenario, RoutingGrid } from "@marswalk/protocol";
 import { describe, expect, it } from "vitest";
 import { makePlaneGrid, makeWallWithGapGrid } from "../../../apps/web/tests/fixtures/grids";
-import { decodeSlopeDeg } from "../src/grid";
+import { decodeSlopeDeg, type LoadedGrid } from "../src/grid";
 import { searchLeg } from "../src/route";
+import { stepTimeH } from "../src/timeModel";
 
 const defaultScenario: MissionScenario = {
   eva_start_utc: "2026-11-14T08:00:00Z",
@@ -119,5 +120,157 @@ describe("searchLeg", () => {
     // With a tiny maxExpansions limit, search must terminate with TIMEOUT
     const result = searchLeg(grid, from, to, defaultScenario, 5);
     expect(result.status).toBe("TIMEOUT");
+  });
+
+  it("aborts when shouldCancel hook returns true at check interval (02 §E.2)", () => {
+    const grid = makePlaneGrid({
+      width: 30,
+      height: 30,
+      cell_m: 5,
+      slope_deg: 0,
+      origin_m: [0, 0],
+    });
+
+    const from = { x_m: 12.5, y_m: -12.5 };
+    const to = { x_m: 137.5, y_m: -137.5 };
+
+    let checkCount = 0;
+    const shouldCancel = () => {
+      checkCount++;
+      return checkCount >= 2;
+    };
+
+    const result = searchLeg(grid, from, to, defaultScenario, 1000, shouldCancel, 10);
+    expect(result.status).toBe("TIMEOUT");
+    expect(checkCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it("route matches exhaustive brute-force Dijkstra oracle on a small synthetic grid (02 §D.2)", () => {
+    const width = 5;
+    const height = 5;
+    const cell_m = 5;
+    const totalCells = width * height;
+
+    const elevation = new Float32Array(totalCells);
+    const slopeP90 = new Uint8Array(totalCells);
+    const slopeMax = new Uint8Array(totalCells);
+    const flags = new Uint8Array(totalCells);
+    const commHab = new Uint8Array(totalCells).fill(1);
+
+    for (let i = 0; i < totalCells; i++) {
+      elevation[i] = (i % 5) * 2.0 + Math.floor(i / 5) * 1.5;
+      slopeP90[i] = 20; // 5 degrees (passable)
+      slopeMax[i] = 20; // 5 degrees
+    }
+    // Set cell (2, 2) as high slope (caution)
+    slopeMax[2 * 5 + 2] = 48; // 12 degrees > caution (10)
+
+    const meta: RoutingGrid = {
+      cell_m,
+      width,
+      height,
+      origin_m: [0, 0],
+      row_order: "north_up",
+      elevation_asset: "e",
+      slope_p90_asset: "sp",
+      slope_max_asset: "sm",
+      flags_asset: "f",
+      comm_hab_asset: "c",
+      hab_mast: { x_m: 0, y_m: 0, height_m: 10 },
+    };
+    const grid: LoadedGrid = {
+      meta,
+      elevation,
+      slopeP90,
+      slopeMax,
+      flags,
+      commHab,
+    };
+
+    const startCell = 0;
+    const goalCell = 24;
+
+    // Independent Brute-Force Dijkstra Oracle
+    const oracleDist = new Float64Array(totalCells).fill(Infinity);
+    const visited = new Uint8Array(totalCells);
+    oracleDist[startCell] = 0;
+
+    for (let step = 0; step < totalCells; step++) {
+      let minU = -1;
+      let minDist = Infinity;
+      for (let i = 0; i < totalCells; i++) {
+        if (!visited[i] && oracleDist[i] < minDist) {
+          minDist = oracleDist[i];
+          minU = i;
+        }
+      }
+      if (minU === -1 || minU === goalCell) break;
+      visited[minU] = 1;
+
+      const uRow = Math.floor(minU / width);
+      const uCol = minU % width;
+      const uElev = elevation[minU];
+
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = uRow + dr;
+          const nc = uCol + dc;
+          if (nr < 0 || nr >= height || nc < 0 || nc >= width) continue;
+          const v = nr * width + nc;
+
+          const isDiag = dr !== 0 && dc !== 0;
+          const dM = isDiag ? cell_m * Math.SQRT2 : cell_m;
+          const dzM = elevation[v] - uElev;
+
+          let multiplier = 1.0;
+          if ((decodeSlopeDeg(slopeMax[v]) ?? 0) > defaultScenario.caution_slope_deg) {
+            multiplier *= 1.5;
+          }
+          if ((flags[v] & (1 << 2)) !== 0) {
+            multiplier *= 1.3;
+          }
+
+          const weight = stepTimeH(dM, dzM, defaultScenario.suited_flat_speed_kmh, multiplier);
+          if (oracleDist[minU] + weight < oracleDist[v]) {
+            oracleDist[v] = oracleDist[minU] + weight;
+          }
+        }
+      }
+    }
+
+    const from = { x_m: 2.5, y_m: -2.5 };
+    const to = { x_m: 22.5, y_m: -22.5 };
+    const result = searchLeg(grid, from, to, defaultScenario);
+
+    expect(result.status).toBe("OK");
+    if (result.status === "OK") {
+      expect(result.cells[0]).toBe(startCell);
+      expect(result.cells[result.cells.length - 1]).toBe(goalCell);
+
+      let aStarTimeH = 0;
+      for (let i = 0; i < result.cells.length - 1; i++) {
+        const u = result.cells[i];
+        const v = result.cells[i + 1];
+        const uRow = Math.floor(u / width);
+        const uCol = u % width;
+        const vRow = Math.floor(v / width);
+        const vCol = v % width;
+        const isDiag = uRow !== vRow && uCol !== vCol;
+        const dM = isDiag ? cell_m * Math.SQRT2 : cell_m;
+        const dzM = elevation[v] - elevation[u];
+
+        let multiplier = 1.0;
+        if ((decodeSlopeDeg(slopeMax[v]) ?? 0) > defaultScenario.caution_slope_deg) {
+          multiplier *= 1.5;
+        }
+        if ((flags[v] & (1 << 2)) !== 0) {
+          multiplier *= 1.3;
+        }
+        aStarTimeH += stepTimeH(dM, dzM, defaultScenario.suited_flat_speed_kmh, multiplier);
+      }
+
+      expect(aStarTimeH).toBeCloseTo(oracleDist[goalCell], 9);
+    }
   });
 });

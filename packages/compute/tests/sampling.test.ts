@@ -6,7 +6,7 @@ import {
   makeRampGrid,
   withoutTi,
 } from "../../../apps/web/tests/fixtures/grids";
-import { samplePoint, sampleProfile } from "../src/sampling";
+import { parseProj4Origin, samplePoint, sampleProfile } from "../src/sampling";
 import * as snapModule from "../src/snap";
 
 // Mock snap.ts so samplePoint tests can verify snap integration (T05.06 / T05.17)
@@ -44,6 +44,27 @@ describe("samplePoint", () => {
     expect(resultEast.inside_aoi).toBe(false);
     expect(resultEast.reason).toBe("OUTSIDE_AOI");
     expect(resultEast.elevation_m).toBeNull();
+  });
+
+  it("returns OUTSIDE_AOI for nonfinite (NaN, Infinity) coordinates", () => {
+    const grid = makePlaneGrid({
+      width: 10,
+      height: 10,
+      cell_m: 5,
+      origin_m: [0, 0],
+    });
+
+    for (const invalid of [NaN, Infinity, -Infinity]) {
+      const resX = samplePoint(grid, invalid, -25, 50, 15);
+      expect(resX.inside_aoi).toBe(false);
+      expect(resX.reason).toBe("OUTSIDE_AOI");
+      expect(resX.lat).toBeNull();
+
+      const resY = samplePoint(grid, 25, invalid, 50, 15);
+      expect(resY.inside_aoi).toBe(false);
+      expect(resY.reason).toBe("OUTSIDE_AOI");
+      expect(resY.lat).toBeNull();
+    }
   });
 
   it("returns NO_DATA for NaN cells (02 §D.1)", () => {
@@ -224,5 +245,53 @@ describe("sampleProfile", () => {
     profile.slope_class.forEach((sc) => {
       expect(sc).toBe("over_limit");
     });
+  });
+
+  it("samples the end of the leg even when total distance is not a multiple of 5 m", () => {
+    const grid = makePlaneGrid({
+      width: 20,
+      height: 20,
+      cell_m: 10,
+      slope_deg: 0,
+      origin_m: [0, 0],
+    });
+
+    // 12 m path
+    const path: [number, number][] = [
+      [0, 0],
+      [12, 0],
+    ];
+
+    const profile = sampleProfile(grid, path, 10, 15);
+    // Profile must include 0, 5, 10 and the exact leg end at 12 m
+    expect(profile.dist_m).toEqual([0, 5, 10, 12]);
+    expect(profile.elev_m.length).toBe(4);
+    expect(profile.slope_class.length).toBe(4);
+  });
+});
+
+describe("projection origin and parsing", () => {
+  it("parses projection origin from working proj4 string (02 §C.1)", () => {
+    const proj4 = "+proj=eqc +lat_ts=-4.7 +lat_0=-4.7 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs";
+    const origin = parseProj4Origin(proj4);
+    expect(origin).toEqual({
+      lat_0: -4.7,
+      lon_0: 137.38,
+      lat_ts: -4.7,
+    });
+  });
+
+  it("uses grid.projection when specified instead of DEFAULT_PROJECTION", () => {
+    const grid = makePlaneGrid({
+      width: 10,
+      height: 10,
+      cell_m: 10,
+      origin_m: [0, 0],
+    });
+    grid.projection = { lat_0: -10.0, lon_0: 100.0, lat_ts: -10.0 };
+
+    const res = samplePoint(grid, 0, 0, 50, 15);
+    expect(res.lat).toBeCloseTo(-10.0, 4);
+    expect(res.lon_e).toBeCloseTo(100.0, 4);
   });
 });

@@ -55,13 +55,13 @@ class MinHeap {
   }
 
   private compare(a: HeapNode, b: HeapNode): number {
-    // Smaller f comes first
-    if (Math.abs(a.f - b.f) > 1e-12) {
-      return a.f - b.f;
+    // Smaller f comes first (strict ordering)
+    if (a.f !== b.f) {
+      return a.f < b.f ? -1 : 1;
     }
-    // Smaller h comes first
-    if (Math.abs(a.h - b.h) > 1e-12) {
-      return a.h - b.h;
+    // Smaller h comes first (strict ordering)
+    if (a.h !== b.h) {
+      return a.h < b.h ? -1 : 1;
     }
     // Deterministic tie-break by cell index (02 §D.2 (4))
     return a.cell - b.cell;
@@ -130,6 +130,8 @@ export function searchLeg(
   to: { x_m: number; y_m: number },
   scenario: MissionScenario,
   maxExpansions = MAX_NODE_EXPANSIONS,
+  shouldCancel?: () => boolean,
+  cancellationInterval = 50_000,
 ): LegSearch {
   const { width, height, cell_m, origin_m } = grid.meta;
   const [origin_x, origin_y] = origin_m;
@@ -228,6 +230,11 @@ export function searchLeg(
     expansions++;
     exploredCells.push(u);
 
+    // Mid-search cancellation check every 50,000 expansions (02 §E.2)
+    if (expansions % cancellationInterval === 0 && shouldCancel?.()) {
+      return { status: "TIMEOUT" };
+    }
+
     if (expansions >= maxExpansions) {
       return { status: "TIMEOUT" };
     }
@@ -250,6 +257,10 @@ export function searchLeg(
         continue;
       }
 
+      // Diagonal corner-cutting decision (Proposed / resolved 2026-11-09):
+      // Pure 8-connectivity per 02 §D.2; diagonal moves test only destination passability
+      // without requiring both orthogonal neighbours to be passable.
+      // Matches haven.ts (T05b.04) and TASK-05b resolution.
       if (!isCellPassable(grid, v, scenario.hard_slope_limit_deg)) {
         continue;
       }
