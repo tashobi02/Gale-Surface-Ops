@@ -19,11 +19,14 @@ import { addProjection, get as getProjection, Projection } from "ol/proj.js";
 import TileGrid from "ol/tilegrid/TileGrid.js";
 import type { Site, TileGrid as TileGridSpec } from "@marswalk/protocol";
 
+/** The parts of a Site the projection needs (05 Site: id, working projection, AOI extent). */
+export type MarsProjectionSite = Pick<Site, "site_id" | "crs" | "aoi">;
+
 /**
  * Returns the authority:code identifier for a site's local working projection.
  * Always Mars-specific; never EPSG:3857 or EPSG:4326 (02 §C.1).
  */
-export function getMarsProjectionCode(siteOrId: Site | string): string {
+export function getMarsProjectionCode(siteOrId: MarsProjectionSite | string): string {
   const siteId = typeof siteOrId === "string" ? siteOrId : siteOrId.site_id;
   return `MARS_LOCAL:${siteId}`;
 }
@@ -34,7 +37,7 @@ export function getMarsProjectionCode(siteOrId: Site | string): string {
  * @param site Site manifest entity providing crs.proj4 and aoi.extent_m.
  * @returns Configured OpenLayers Projection instance in metres.
  */
-export function registerMarsProjection(site: Site): Projection {
+export function registerMarsProjection(site: MarsProjectionSite): Projection {
   const code = getMarsProjectionCode(site);
 
   // 1. Register with proj4js using the exact manifest string byte-for-byte, under the Mars code only.
