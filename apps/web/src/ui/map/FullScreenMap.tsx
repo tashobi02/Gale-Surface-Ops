@@ -8,8 +8,9 @@
  *
  * Crew: each `crew` member is listed with its position (labelled, class from the snapshot's provenance map or the
  * `simulated` class 05 gives Crew positions) and, when a `view` is known, marked at its offset from the view centre
- * (metres / resolution, north up). The map tiles and the shared Mars map instance wait on T07.06 / T07.17 and are not
- * built here. Keyboard: Escape closes the layers menu first, then the map, and focus returns to what opened it.
+ * (metres / resolution, north up). The control bar is the shared `MapControls` (T07.17, eva-full set). The map tiles and
+ * the shared Mars map instance (`createMap`, T07.06) are not mounted here yet; the screen that composes them passes
+ * `mapControlHandlers(handle, …)` as `onZoom`, `onFit` and `onPan`. Keyboard: Escape closes the layers menu first, then the map, and focus returns to what opened it.
  */
 import {
   useEffect,
@@ -21,6 +22,7 @@ import {
 import type { Crew, Provenance, ProvenanceMap } from "@marswalk/protocol";
 import { isProvenance, type ProvenanceValue } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
+import { MapControls } from "./MapControls";
 import { UNAVAILABLE, fmtFixed, fmtInt, glyphOf, isFiniteNumber, isUsableValue, provAttrs, unavailableOf } from "../components/provenance";
 
 /** Scientific overlays offered on the full-screen map (04 §E.5; final set U-57). */
@@ -47,6 +49,8 @@ export interface FullScreenMapProps {
   onLayerToggle?: (layers: FullScreenMapLayer[]) => void;
   onZoom?: (direction: 1 | -1) => void;
   onFit?: () => void;
+  /** Adds the NORTH / SOUTH / EAST / WEST pan buttons (screen directions, y down; MapControls). */
+  onPan?: (dx: -1 | 0 | 1, dy: -1 | 0 | 1) => void;
   onFollow?: (follow: boolean) => void;
   className?: string;
 }
@@ -76,6 +80,7 @@ export function FullScreenMap({
   onLayerToggle,
   onZoom,
   onFit,
+  onPan,
   onFollow,
   className = "",
 }: FullScreenMapProps): ReactElement {
@@ -443,97 +448,18 @@ export function FullScreenMap({
           )}
         </div>
 
-        {/* Bottom Control Bar: +, −, FIT, FOLLOW, LAYERS, CLOSE (all ≥ 56 px) */}
-        <div
-          role="toolbar"
-          aria-label="Map navigation controls"
-          data-slot="map-controls"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "8px",
-            width: "100%",
-            boxSizing: "border-box",
-          }}
-        >
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button
-              id="map-ctrl-zoom-in"
-              type="button"
-              className="btn"
-              style={controlButtonStyle}
-              aria-label="Zoom in"
-              onClick={() => onZoom?.(1)}
-            >
-              +
-            </button>
-            <button
-              id="map-ctrl-zoom-out"
-              type="button"
-              className="btn"
-              style={controlButtonStyle}
-              aria-label="Zoom out"
-              onClick={() => onZoom?.(-1)}
-            >
-              −
-            </button>
-            <button
-              id="map-ctrl-fit"
-              type="button"
-              className="btn"
-              style={controlButtonStyle}
-              aria-label="Fit route into view"
-              onClick={onFit}
-            >
-              FIT
-            </button>
-          </div>
-
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button
-              id="map-ctrl-follow"
-              type="button"
-              className="btn"
-              style={{
-                ...controlButtonStyle,
-                background: following ? "var(--surface-2, #1C2128)" : "transparent",
-                border: following
-                  ? "3px solid var(--text-1, #ECEFF2)"
-                  : "2px solid var(--control-edge, #5C6670)",
-              }}
-              aria-pressed={following}
-              aria-label="Follow crew member position"
-              onClick={handleFollowToggle}
-            >
-              FOLLOW {following ? "ON" : "OFF"}
-            </button>
-            <button
-              id="map-ctrl-layers"
-              type="button"
-              className="btn"
-              style={controlButtonStyle}
-              aria-expanded={layersMenuOpen}
-              aria-label="Toggle scientific layers menu"
-              onClick={() => setLayersMenuOpen(!layersMenuOpen)}
-            >
-              LAYERS
-            </button>
-            <button
-              id="map-ctrl-close"
-              type="button"
-              className="btn"
-              style={{
-                ...controlButtonStyle,
-                background: "var(--raised, #1C2128)",
-              }}
-              aria-label="Close full-screen map"
-              onClick={onClose}
-            >
-              CLOSE
-            </button>
-          </div>
-        </div>
+        {/* Bottom control bar: the shared MapControls, eva-full set (+, −, FIT, FOLLOW, LAYERS, CLOSE; all ≥ 56 px) */}
+        <MapControls
+          variant="eva-full"
+          onZoom={(direction) => onZoom?.(direction)}
+          onFit={() => onFit?.()}
+          onPan={onPan}
+          follow={following}
+          onFollow={() => handleFollowToggle()}
+          layersOpen={layersMenuOpen}
+          onLayers={setLayersMenuOpen}
+          onClose={onClose}
+        />
       </div>
     </div>
   );

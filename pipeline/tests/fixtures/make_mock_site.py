@@ -2,7 +2,8 @@
 
 Run from the worktree root with $(make -s pipeline-python). Spec examples are
 read locally, never fetched. No fixture value represents a new measurement.
-TODO(verify): C9 tile layout, downward-positive y and index format after T02.01.
+Tile layout follows C9 v1.1 §3.2 (top-left origin, eastward x, southward y).
+TODO(verify): the tiles-root index format is not part of C9 (tiles.py).
 """
 
 from __future__ import annotations
@@ -26,8 +27,7 @@ SPEC_02 = ROOT / "docs/specs/02_Technical_Requirements_Document.md"
 # coarse routing cell size reuses F.1's TI cell size; bounds determine dimensions.
 # A central single-column wall has one central gap; no-data is a 2×2 corner patch.
 # A single opposite-corner hazard and a quarter-grid TI gap are separate features.
-# Two coarsest tile levels only; grayscale 0/255 stripes are decorative.
-COARSE_LEVEL_COUNT = 2
+# Every tile_grid level is populated (T03.36); grayscale 0/255 stripes are decorative.
 PATCH_SIDE_CELLS = 2
 TI_GAP_DIVISOR = 4
 PNG_SAMPLE_BITS = 8
@@ -78,6 +78,9 @@ def build() -> dict[str, bytes]:
                        "bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest(),
                        **metadata})
 
+    # 05 §F.1 has illustrated hab_candidates (null positions) since 2026-11-10. F4 stays
+    # the single-site case (map open point 11: candidates in F4 are TODO(decision)).
+    manifest.pop("hab_candidates", None)
     manifest["site_id"] = "mock_site"
     manifest["name"] = "Mock site (synthetic fixture F4)"
     # Keep the example release date fixed, following 05 §C Site's pattern.
@@ -139,10 +142,10 @@ def build() -> dict[str, bytes]:
     tile_payload = png(tile_grid["tile_size_px"])
     for layer in manifest["layers"]:
         entries = []
-        for zoom, resolution in enumerate(tile_grid["resolutions_m"][:COARSE_LEVEL_COUNT]):
+        for zoom, resolution in enumerate(tile_grid["resolutions_m"]):
             span = tile_grid["tile_size_px"] * resolution
             ox, oy = tile_grid["origin_m"]
-            # TODO(verify): C9 layout, y direction and index format are provisional.
+            # C9 v1.1 §3.2: tile (z, x, y) spans x·span east and y·span south of origin_m.
             for x in range(math.floor((minx - ox) / span), math.ceil((maxx - ox) / span)):
                 for y in range(math.floor((oy - maxy) / span), math.ceil((oy - miny) / span)):
                     relative = f"{zoom}/{x}/{y}.png"

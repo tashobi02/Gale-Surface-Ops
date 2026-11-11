@@ -663,6 +663,12 @@ No accounts. A client joins with a **role** and a display name; the Hab Core tru
 
 The presenter panel is read-only for crew actions: a presenter cannot approve options, abort or summon on a crew member's behalf (those stay in story). Every row is checked per command (05 §E.2).
 
+**Role take-over: newest wins** *(added 2026-11-12, Proposed; decision of the product & systems lead, Sadman Shaharier Mahim)*: a role is held by one connected client at a time. When a client sends `HELLO` for a role that a different connected client (another `client_id`) holds, the Hab Core accepts the new client, sends the old one a `TAKEN_OVER` message (§E.6), closes the old socket and logs `ROLE_TAKEN_OVER` (05 LogEvent), actor `system`. The take-over is a server-layer action on connection state: it takes no wall-clock input into the engine, and the event's `sim_time` is the session's current sim time (NFR-06). A `HELLO` whose `client_id` already holds the role on a stale socket (the same page reconnecting) replaces that socket silently: no notice, no event. The old client does not reconnect by itself; it shows "Taken over by another device" and offers the join screen (03 SCR-10), where taking the role back is a deliberate act that takes it from the new holder in turn. The Hab Core remembers the `client_id` it displaced from a role: a later `HELLO` from that `client_id` for that role (a reconnect of the displaced page) gets `TAKEN_OVER` and close code 4001 and does not displace the new holder; the page therefore uses a new `client_id` for the deliberate take-back. Newest wins per role: a second `hud:EV1` takes over the first HUD only, and a second `eva:EV1` takes over the first tablet only.
+
+**HUD role `hud:EVn`** *(added 2026-11-12, Proposed; decision of the product & systems lead, Sadman Shaharier Mahim)*: the EVA HUD (SCR-13) joins as its own read-only role `hud:EV1` or `hud:EV2`, a viewer that sends no commands: its column in the table above is empty (every command is rejected `FORBIDDEN_ROLE`). It never displaces and is never displaced by the tablet `eva:EVn`, so one crew member can have a tablet and a HUD on two devices at once. In the web app a browser tab keeps one connection: moving a tab from `#/eva/EVn` to `#/hud/EVn` closes the tablet connection and opens the HUD's.
+
+**Expected, not a fault** *(added 2026-11-12)*: the client id is new on every page load, so a page that reloads while its old socket is still open on the Hab Core is logged as taking over that socket (`ROLE_TAKEN_OVER`); nobody is affected.
+
 ### E.5 Hab Core HTTP endpoints
 
 | Method + path | Purpose |
@@ -716,6 +722,12 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
 ```
 
 ```json
+{"v":1,"type":"TAKEN_OVER","seq":430,"sim_time":"2024-05-20T13:14:00Z","role":"eva:EV1"}
+```
+
+`TAKEN_OVER` *(added 2026-11-12, Proposed)* is sent once to the displaced client just before the Hab Core closes its socket with close code 4001 (reason `taken over`); see §E.4. `role` is the role it lost. It carries no other client's id.
+
+```json
 {"v":1,"type":"COMMAND","command_id":"k-0102","role":"eva:EV1",
  "command":{"kind":"UPDATE_STOP_TASK","args":{"task_id":"t-s2-02","state":"DONE"}}}
 ```
@@ -733,6 +745,7 @@ The accepted reversal is logged as `TASK_UPDATED` with `{task_id, stop_id, crew_
 - Rejections: `{"ok":false,"code":"FORBIDDEN_ROLE"|"NO_LINK"|"INVALID"|"NO_RENDEZVOUS"|"BUSY","message":"…"}`.
 - `NO_LINK`: the issuing suit is unlinked on L-surf; the client keeps the command queued and resends on `LINK_STATE linked=true`.
 - Reconnect *(changed 2026-11-07)*: client sends `last_seq`; server always sends a fresh `SNAPSHOT` first, then the `EVENT`s after `last_seq` (none if the gap is > 1,000). The SNAPSHOT makes state changed only by `STATE_DELTA` during the gap correct (NFR-13); the replayed EVENTs, all at or below the SNAPSHOT's `seq`, only fill the client's event feed and do not change state.
+- Take-over *(added 2026-11-12, Proposed)*: a client that received `TAKEN_OVER` does not reconnect and sends nothing more; a client whose socket merely dropped keeps the backoff reconnect above. A reloaded page that reconnects while its old socket is still open on the server is treated as a take-over of that socket, which is expected (§E.4).
 - Command dedupe *(added 2026-11-07)*: a repeated `command_id` from the same client that was accepted is answered with the first `COMMAND_RESULT` and not run again; a rejected one may be retried (05 Command).
 - Heartbeat: server `PING` every 2 s; client shows "HAB LINK LOST" after 3 s without one (FR-32).
 
@@ -771,7 +784,7 @@ The accepted reversal is logged as `TASK_UPDATED` with `{task_id, stop_id, crew_
 | NFR-05 | Scientific transparency | Every value has `data-provenance` ∈ {measured, derived, modelled, assumed, replayed, simulated} + source id | DOM test on all role views |
 | NFR-06 | Determinism | Same scenario + seed + data version ⇒ identical event-log hash; same plan inputs ⇒ identical plan hash (v1) | CI test runs the scenario headless twice |
 | NFR-07 | Licensing/attribution | v1, plus DONKI/CCMC, NAIF, ESA SPICE credits | TASK-30 checklist |
-| NFR-08 | Security/privacy | No accounts, analytics or third-party requests; LAN-only; CSP `default-src 'self'; connect-src 'self' ws:` | Header check |
+| NFR-08 | Security/privacy | No accounts, analytics or third-party requests; LAN-only; CSP `default-src 'self'; connect-src 'self'` *(changed 2026-11-12, Proposed; decision of Sadman Shaharier Mahim: `ws:` would allow a WebSocket to any host, and CSP3 `'self'` covers the same-host WebSocket; Safari and Firefox on the venue devices are checked in the rehearsal)* | Header check |
 | NFR-09 | Size budget | Site bundle ≤ 250 MB (v1); JS ≤ 600 KB gzipped (all roles) | Build report |
 | NFR-10 | Reliability | Missing optional layer never breaks routing (v1); Hab Core crash → clients degrade (FR-32) and session resumes from disk on restart | Fault injection |
 | NFR-11 | Debuggability | `?debug=1` (v1) plus engine tick time, connected clients, last seq | Manual |

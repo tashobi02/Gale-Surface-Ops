@@ -49,6 +49,12 @@ y direction and index format when T02.01 freezes C9; regenerate consumers then.
 The manifest retains the full example resolution ladder even though only its
 two coarsest levels are populated in this small fixture.
 
+2026-11-11 (T03.36): every level of the F.1 `tile_grid` is populated now
+(1, 4, 9, 36 and 144 tiles per layer at 32, 16, 8, 4 and 2 m/px), so the
+sentence above and "First two/coarsest F.1 levels only" in the table no
+longer hold. The layout is C9 v1.1 §3.2 (southward y); the index format is
+still the `tiles.py` provisional one.
+
 `TODO(verify)`: complete radiation source metadata before treating it as a real
 bundle. `TODO(decision)`: `simonsen-2024-rad` is a local fixture source id pending
 the canonical solar-min source decision (map open point 12).
