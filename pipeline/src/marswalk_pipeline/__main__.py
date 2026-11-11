@@ -177,11 +177,8 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
         from .vectors import package_pois, package_traverse
         if traverse is None:
             raise ValueError("--traverse is required for vectors: provide the T04.01 cached source for the T04.03 parser")
-        try:
-            package_traverse(traverse, projection, bundle_dir / "vectors" / "traverse.geojson")
-            package_pois(site_dir / "pois", projection, bundle_dir / "vectors" / "pois.geojson")
-        except NotImplementedError as exc:
-            raise NotImplementedError("Vector inputs and packaging require T04.01 and T04.03-05") from exc
+        package_traverse(traverse, projection, bundle_dir / "vectors" / "traverse.geojson", aoi_extent_m=extent)
+        package_pois(site_dir / "pois", projection, bundle_dir / "vectors" / "pois.geojson")
     elif name == "manifest":
         from .manifest import write_manifest
         write_manifest(bundle_dir, site["data_version"], projection, site_dir, exclude_layers=_skipped_layers(site_dir) if skip_unstyled_optional else set())
