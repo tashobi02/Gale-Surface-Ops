@@ -7,10 +7,11 @@ import type {
   LogEventData,
   Role,
   StopTask,
+  Waypoint,
 } from "@marswalk/protocol";
 import { describe, expect, it } from "vitest";
 import { AcceptedCommands, handleCommand, type CommandContext } from "../src/commands";
-import { initialState, reduce, type EngineState } from "../src/engine/reducer";
+import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
 import { onPlanRevised, seedTasks, tasksTick } from "../src/engine/tasks";
 import { buildReport } from "../src/report";
 import { readScenario } from "../src/scenario";
@@ -256,8 +257,6 @@ describe("UPDATE_STOP_TASK", () => {
     });
   });
 
-  // TODO(decision): FR-50's 5-s undo — a TODO target state from the client, or client-side only.
-  it.todo("undo within 5 s returns a DONE or SKIPPED task to TODO");
 });
 
 describe("ADD_STOP_TASK", () => {
@@ -668,5 +667,422 @@ describe("stop tasks in the engine", () => {
     expect(report.tasks.dropped).toBe(1);
     expect(report.tasks.per_stop["wp-1"]).toEqual({ total: 2, done: 1, skipped: 1, dropped: 0 });
     expect(report.tasks.per_stop["wp-2"]).toEqual({ total: 1, done: 0, skipped: 0, dropped: 1 });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// FR-50 transitions and undo (01 FR-50 "Undo"; 02 §E.6 "Stop-task undo"; 05 UPDATE_STOP_TASK args).
+// Spec change #202, 11 Nov 2026. State is built by real commands reduced through the real reducer.
+// ---------------------------------------------------------------------------------------------
+
+const codeOf = (r: CommandResult): string => (r as Extract<CommandResult, { ok: false }>).code;
+
+/** Apply a handled command's events through the real reducer, as the session does. */
+function applyOut(state: EngineState, out: { events: PendingEvent[] }): EngineState {
+  return out.events.reduce((s, e) => reduce(s, logged(e, s.session.last_seq + 1)), state);
+}
+
+/** Send a command and, if accepted, fold its events into the state. */
+function send(state: EngineState, role: Role, args: Record<string, unknown>, kind: Command["kind"] = "UPDATE_STOP_TASK") {
+  const out = handleCommand(state, cmd(role, kind, args), ctx(state));
+  return { out, next: applyOut(state, out) };
+}
+
+/** A running session whose tasks came from TASK_ADDED events, so every field is the reducer's own. */
+function seeded(): EngineState {
+  let s = running;
+  for (const t of fake.scenario.stop_tasks!) {
+    s = applyEvent(s, "TASK_ADDED", { task_id: t.task_id, stop_id: t.stop_id, crew_id: t.crew_id ?? null, kind: t.kind, text: t.text, origin: "plan" });
+  }
+  return s;
+}
+const taskOf = (s: EngineState, id: string): StopTask => s.tasks.find((t) => t.task_id === id)!;
+
+describe("UPDATE_STOP_TASK transitions (FR-50)", () => {
+  it("DONE and SKIPPED are accepted only from TODO", () => {
+    const base = seeded();
+    const done = send(base, "ops", { task_id: "t-s1-01", state: "DONE" });
+    expect(done.out.result.ok).toBe(true);
+    expect(taskOf(done.next, "t-s1-01").state).toBe("DONE");
+    for (const target of [{ state: "DONE" }, { state: "SKIPPED", reason: "time" }]) {
+      const again = send(done.next, "ops", { task_id: "t-s1-01", ...target });
+      expect(again.out.result.ok, JSON.stringify(target)).toBe(false);
+      expect(codeOf(again.out.result)).toBe("INVALID");
+      expect(again.out.events.map((e) => e.kind)).toEqual(["COMMAND_REJECTED"]);
+      expect(taskOf(again.next, "t-s1-01").state).toBe("DONE");
+    }
+  });
+
+  it("SKIPPED to DONE and SKIPPED to SKIPPED are INVALID", () => {
+    const skipped = send(seeded(), "ops", { task_id: "t-s1-01", state: "SKIPPED", reason: "terrain" }).next;
+    for (const target of [{ state: "DONE" }, { state: "SKIPPED", reason: "time" }]) {
+      const out = send(skipped, "ops", { task_id: "t-s1-01", ...target }).out;
+      expect(codeOf(out.result)).toBe("INVALID");
+    }
+  });
+
+  it("TODO without undo true is INVALID, even from DONE and even for a task already TODO", () => {
+    const done = send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next;
+    for (const args of [{ task_id: "t-s1-01", state: "TODO" }, { task_id: "t-s1-01", state: "TODO", undo: false }]) {
+      expect(codeOf(send(done, "eva:EV1", args).out.result)).toBe("INVALID");
+    }
+    expect(codeOf(send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "TODO" }).out.result)).toBe("INVALID");
+  });
+
+  it("undo true with a target other than TODO is INVALID", () => {
+    const base = seeded();
+    expect(codeOf(send(base, "eva:EV1", { task_id: "t-s1-01", state: "DONE", undo: true }).out.result)).toBe("INVALID");
+    expect(codeOf(send(base, "eva:EV1", { task_id: "t-s1-01", state: "SKIPPED", reason: "time", undo: true }).out.result)).toBe("INVALID");
+    expect(codeOf(send(base, "eva:EV1", { task_id: "t-s1-01", state: "DROPPED", undo: true }).out.result)).toBe("INVALID");
+  });
+
+  it("a state outside TODO, DONE, SKIPPED is INVALID", () => {
+    expect(codeOf(send(seeded(), "ops", { task_id: "t-s1-01", state: "DROPPED" }).out.result)).toBe("INVALID");
+    expect(codeOf(send(seeded(), "ops", { task_id: "t-s1-01" }).out.result)).toBe("INVALID");
+  });
+});
+
+describe("UPDATE_STOP_TASK undo (FR-50, spec change #202)", () => {
+  const undoArgs = { task_id: "t-s1-01", state: "TODO", undo: true };
+
+  it("the sender that made the change reverses DONE to TODO; the event is TASK_UPDATED with undo true", () => {
+    const done = send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next;
+    const { out, next } = send(done, "eva:EV1", undoArgs);
+    expect(out.result.ok).toBe(true);
+    expect(out.events).toHaveLength(1);
+    expect(out.events[0]).toMatchObject({ kind: "TASK_UPDATED", actor: "eva:EV1" });
+    expect(out.events[0].data).toEqual({ task_id: "t-s1-01", stop_id: "wp-1", crew_id: "EV1", state: "TODO", reason: null, undo: true });
+    expect(taskOf(next, "t-s1-01")).toMatchObject({ state: "TODO", reason: null, updated_by: "eva:EV1" });
+  });
+
+  it("a normal tick or skip carries no undo field", () => {
+    const out = send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "SKIPPED", reason: "time" }).out;
+    expect(out.events[0].data).toEqual({ task_id: "t-s1-01", stop_id: "wp-1", crew_id: "EV1", state: "SKIPPED", reason: "time" });
+  });
+
+  it("SKIPPED to TODO clears the reason", () => {
+    const skipped = send(seeded(), "ops", { task_id: "t-s1-01", state: "SKIPPED", reason: "alert" }).next;
+    const { out, next } = send(skipped, "ops", undoArgs);
+    expect(out.result.ok).toBe(true);
+    expect(taskOf(next, "t-s1-01")).toMatchObject({ state: "TODO", reason: null });
+  });
+
+  it("ops may undo its own change, but not a change made by the EVA role", () => {
+    const opsDone = send(seeded(), "ops", { task_id: "t-s1-01", state: "DONE" }).next;
+    expect(send(opsDone, "ops", undoArgs).out.result.ok).toBe(true);
+    const evaDone = send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next;
+    const out = send(evaDone, "ops", undoArgs).out;
+    expect(codeOf(out.result)).toBe("FORBIDDEN_ROLE");
+    expect(taskOf(applyOut(evaDone, out), "t-s1-01").state).toBe("DONE");
+  });
+
+  it("the EVA role may not undo a change made by ops, and the other EVA role may not undo it either", () => {
+    const opsDone = send(seeded(), "ops", { task_id: "t-s2-01", state: "DONE" }).next; // crew_id null: either EVA role
+    expect(codeOf(send(opsDone, "eva:EV1", { ...undoArgs, task_id: "t-s2-01" }).out.result)).toBe("FORBIDDEN_ROLE");
+    const ev1Done = send(seeded(), "eva:EV1", { task_id: "t-s2-01", state: "DONE" }).next;
+    expect(codeOf(send(ev1Done, "eva:EV2", { ...undoArgs, task_id: "t-s2-01" }).out.result)).toBe("FORBIDDEN_ROLE");
+  });
+
+  it("a change by system (auto-complete) cannot be undone by anyone: FORBIDDEN_ROLE", () => {
+    const auto = applyEvent(seeded(), "TASK_UPDATED", { task_id: "t-s1-01", stop_id: "wp-1", crew_id: "EV1", state: "DONE", reason: null }, "system");
+    for (const role of ["ops", "eva:EV1"] as const) {
+      expect(codeOf(send(auto, role, undoArgs).out.result), role).toBe("FORBIDDEN_ROLE");
+    }
+  });
+
+  it("planner and earth are FORBIDDEN_ROLE for undo, as for every UPDATE_STOP_TASK", () => {
+    const done = send(seeded(), "ops", { task_id: "t-s1-01", state: "DONE" }).next;
+    for (const role of ["planner", "earth"] as const) expect(codeOf(send(done, role, undoArgs).out.result)).toBe("FORBIDDEN_ROLE");
+  });
+
+  it("the checks run NO_LINK, then FORBIDDEN_ROLE, then INVALID", () => {
+    const opsDone = send(seeded(), "ops", { task_id: "t-s1-01", state: "DONE" }).next;
+    const unlinked = applyEvent(opsDone, "LINK_LOST", { node_id: "EV1" });
+    // EV1 is not the actor of the change AND has no link: NO_LINK wins.
+    expect(codeOf(send(unlinked, "eva:EV1", undoArgs).out.result)).toBe("NO_LINK");
+    // Linked, not the actor, and the task is also not undoable for another reason (none here): FORBIDDEN_ROLE.
+    expect(codeOf(send(opsDone, "eva:EV1", undoArgs).out.result)).toBe("FORBIDDEN_ROLE");
+    // Not the actor of a task that was never changed (state TODO, last event TASK_ADDED by system): FORBIDDEN_ROLE before INVALID.
+    expect(codeOf(send(seeded(), "eva:EV1", undoArgs).out.result)).toBe("FORBIDDEN_ROLE");
+  });
+
+  it("an undo of a task that is TODO, or DROPPED, by the actor of its last event is INVALID", () => {
+    const done = send(seeded(), "ops", { task_id: "t-s1-01", state: "DONE" }).next;
+    const undone = send(done, "ops", undoArgs).next;
+    expect(codeOf(send(undone, "ops", undoArgs).out.result)).toBe("INVALID"); // already TODO
+    const dropped = withTask(seeded(), { ...taskOf(seeded(), "t-s1-01"), state: "DROPPED", updated_by: "ops" });
+    expect(codeOf(send(dropped, "ops", undoArgs).out.result)).toBe("INVALID");
+  });
+
+  it("only the last change can be undone: after ops re-ticks the undone task, EV1 cannot undo", () => {
+    let s = send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next;
+    s = send(s, "eva:EV1", undoArgs).next;
+    s = send(s, "ops", { task_id: "t-s1-01", state: "DONE" }).next;
+    expect(codeOf(send(s, "eva:EV1", undoArgs).out.result)).toBe("FORBIDDEN_ROLE");
+    expect(send(s, "ops", undoArgs).out.result.ok).toBe(true);
+  });
+
+  it("an undo after a PLAN_REVISED since the change is INVALID, even when the stop is still in the plan", () => {
+    const done = send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next;
+    const plan = done.plan!;
+    const revised = applyEvent(done, "PLAN_REVISED", { plan_revision: 2, option_id: null, stops_dropped: [], waypoints: plan.waypoints, legs: plan.result.legs });
+    expect(revised.plan!.waypoints.some((w) => w.id === "wp-1")).toBe(true);
+    const out = send(revised, "eva:EV1", undoArgs).out;
+    expect(codeOf(out.result)).toBe("INVALID");
+    expect(taskOf(applyOut(revised, out), "t-s1-01").state).toBe("DONE");
+  });
+
+  it("a revision before the change does not stale it: tick after the revision, then undo", () => {
+    const base = seeded();
+    const plan = base.plan!;
+    const revised = applyEvent(base, "PLAN_REVISED", { plan_revision: 2, option_id: null, stops_dropped: [], waypoints: plan.waypoints, legs: plan.result.legs });
+    const done = send(revised, "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next;
+    expect(send(done, "eva:EV1", undoArgs).out.result.ok).toBe(true);
+  });
+
+  it("an undo for a task whose stop left the current plan is INVALID (never revives a dropped stop's task)", () => {
+    const done = send(seeded(), "ops", { task_id: "t-s2-01", state: "DONE" }).next;
+    const plan = done.plan!;
+    const revised = applyEvent(done, "PLAN_REVISED", {
+      plan_revision: 2,
+      option_id: "o-1",
+      stops_dropped: [2],
+      waypoints: plan.waypoints.filter((w) => w.id !== "wp-2"),
+      legs: [],
+    });
+    expect(codeOf(send(revised, "ops", { ...undoArgs, task_id: "t-s2-01" }).out.result)).toBe("INVALID");
+  });
+
+  it("staleness survives a snapshot: the plan revision of the change is plain JSON in the state", () => {
+    const done = send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next;
+    const restored = JSON.parse(JSON.stringify(done)) as EngineState;
+    expect(send(restored, "eva:EV1", undoArgs).out.result.ok).toBe(true);
+    const plan = restored.plan!;
+    const revised = applyEvent(restored, "PLAN_REVISED", { plan_revision: 2, option_id: null, stops_dropped: [], waypoints: plan.waypoints, legs: plan.result.legs });
+    expect(codeOf(send(revised, "eva:EV1", undoArgs).out.result)).toBe("INVALID");
+  });
+
+  it("the undo uses the log alone: no wall-clock input, the same state gives the same event", () => {
+    const done = send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next;
+    const a = send(done, "eva:EV1", undoArgs).out.events;
+    const b = send(done, "eva:EV1", undoArgs).out.events;
+    expect(a).toEqual(b);
+  });
+});
+
+describe("stop task provenance (05 StopTask, NFR-05)", () => {
+  const fieldsOf = (e: PendingEvent): string[] => Object.keys(e.provenance).map((k) => k.replace(/^data\./, ""));
+
+  it("TASK_ADDED provenance keys are fields of its data (seeded and ops-added)", () => {
+    const atStop1 = applyEvent(seeded(), "ARRIVED_STOP", { crew_id: "EV1", stop_id: "wp-1", stop_index: 1 });
+    const added = send(atStop1, "ops", { stop_id: "wp-1", crew_id: "EV1", kind: "measure", text: "Measure dose" }, "ADD_STOP_TASK").out.events;
+    const events = [...seedTasks(fake), ...added];
+    expect(events.length).toBeGreaterThan(0);
+    for (const e of events) {
+      expect(Object.keys(e.provenance).every((k) => k.startsWith("data."))).toBe(true);
+      for (const f of fieldsOf(e)) expect(Object.keys(e.data), `${e.kind} provenance names ${f}`).toContain(f);
+      expect(e.provenance["data.text"]).toBe("assumed");
+    }
+  });
+
+  it("TASK_UPDATED provenance is not empty and names a field of its data (state is simulated)", () => {
+    const done = send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" });
+    const undone = send(done.next, "eva:EV1", { task_id: "t-s1-01", state: "TODO", undo: true });
+    for (const e of [...done.out.events, ...undone.out.events]) {
+      expect(e.kind).toBe("TASK_UPDATED");
+      expect(e.provenance).toEqual({ "data.state": "simulated" });
+    }
+  });
+
+  it("auto-completed TASK_UPDATED events carry the same provenance", () => {
+    const stateDwellEnd: EngineState = { ...seeded(), motion: { EV2: { plan_revision: 1, phase: "walk", leg_index: 2, t_s: 0, last_wp_id: "wp-2" } } };
+    const events = tasksTick(stateDwellEnd, { scenario: fake, dt_s: 1, next_seq: 20 }).events;
+    expect(events.length).toBeGreaterThan(0);
+    for (const e of events) expect(e.provenance).toEqual({ "data.state": "simulated" });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// ADD_STOP_TASK: server ids, validation, 1-based stop numbers (Crew.stop_index, stops_dropped).
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * The fake plan with a non-stop waypoint before every stop, so a stop's 1-based number differs from its index in
+ * `waypoints`. 05 Waypoint has only `start | stop` today; `via` is a test-only role standing for "any non-stop
+ * waypoint", which the engine must skip (it filters on `role === "stop"`).
+ */
+function threeStopsWithVia(base: EngineState): EngineState {
+  const wp = (id: string, role: string, x_m: number) => ({ id, role, x_m, y_m: 0 }) as unknown as Waypoint;
+  const waypoints = [wp("wp-0", "start", 0), wp("v-1", "via", 500), wp("s-1", "stop", 1000), wp("v-2", "via", 1500), wp("s-2", "stop", 2000), wp("v-3", "via", 2500), wp("s-3", "stop", 3000)];
+  return { ...base, plan: { ...base.plan!, waypoints } };
+}
+const addTo = (state: EngineState, args: Record<string, unknown>) => send(state, "ops", args, "ADD_STOP_TASK");
+const stopOk = (state: EngineState, stop_id: string, crew_id?: string): boolean => addTo(state, { stop_id, text: "Check", ...(crew_id ? { crew_id } : {}) }).out.result.ok;
+
+describe("ADD_STOP_TASK server-side rules (FR-50)", () => {
+  const atStop1 = applyEvent(seeded(), "ARRIVED_STOP", { crew_id: "EV1", stop_id: "wp-1", stop_index: 1 });
+
+  it("the server generates the task id, t-ops-<seq>, and ignores one the client sends", () => {
+    const { out, next } = addTo(atStop1, { stop_id: "wp-1", crew_id: "EV1", task_id: "t-s1-01", text: "Take a photo" });
+    expect(out.result.ok).toBe(true);
+    expect(out.events[0].data.task_id).toBe(`t-ops-${atStop1.session.last_seq + 1}`);
+    expect(taskOf(next, "t-s1-01")).toEqual(taskOf(atStop1, "t-s1-01")); // not overwritten
+    expect(next.tasks).toHaveLength(atStop1.tasks.length + 1);
+  });
+
+  it("never overwrites an existing task, even one that already holds the generated id", () => {
+    const clash = `t-ops-${atStop1.session.last_seq + 1}`;
+    const withClash = applyEvent(atStop1, "TASK_ADDED", { task_id: clash, stop_id: "wp-1", crew_id: null, kind: "other", text: "Seeded", origin: "plan" });
+    const clash2 = `t-ops-${withClash.session.last_seq + 1}`;
+    const taken = applyEvent(withClash, "TASK_ADDED", { task_id: clash2, stop_id: "wp-1", crew_id: null, kind: "other", text: "Seeded 2", origin: "plan" });
+    const { out, next } = addTo(taken, { stop_id: "wp-1", text: "New" });
+    expect(out.result.ok).toBe(true);
+    const ids = next.tasks.map((t) => t.task_id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(next.tasks).toHaveLength(taken.tasks.length + 1);
+    expect(taskOf(next, clash2).text).toBe("Seeded 2");
+  });
+
+  it("two ops additions in a row get two different ids", () => {
+    const first = addTo(atStop1, { stop_id: "wp-1", text: "One" });
+    const second = addTo(first.next, { stop_id: "wp-1", text: "Two" });
+    expect(second.next.tasks.map((t) => t.task_id)).toContain(first.out.events[0].data.task_id);
+    expect(second.out.events[0].data.task_id).not.toBe(first.out.events[0].data.task_id);
+  });
+
+  it("a kind outside the enum is INVALID; a missing kind is other", () => {
+    expect(codeOf(addTo(atStop1, { stop_id: "wp-1", text: "x", kind: "teleport" }).out.result)).toBe("INVALID");
+    expect(codeOf(addTo(atStop1, { stop_id: "wp-1", text: "x", kind: 7 }).out.result)).toBe("INVALID");
+    for (const kind of ["observe", "image", "sample", "measure", "deploy", "other"]) expect(addTo(atStop1, { stop_id: "wp-1", text: "x", kind }).out.result.ok, kind).toBe(true);
+    expect(addTo(atStop1, { stop_id: "wp-1", text: "x" }).out.events[0].data.kind).toBe("other");
+  });
+
+  it("a crew_id outside EV1, EV2 or null is INVALID; a missing one means either (null)", () => {
+    expect(codeOf(addTo(atStop1, { stop_id: "wp-1", text: "x", crew_id: "EV3" }).out.result)).toBe("INVALID");
+    expect(codeOf(addTo(atStop1, { stop_id: "wp-1", text: "x", crew_id: 1 }).out.result)).toBe("INVALID");
+    expect(codeOf(addTo(atStop1, { stop_id: "wp-1", text: "x", crew_id: "" }).out.result)).toBe("INVALID");
+    expect(addTo(atStop1, { stop_id: "wp-1", text: "x" }).out.events[0].data.crew_id).toBeNull();
+    expect(addTo(atStop1, { stop_id: "wp-1", text: "x", crew_id: null }).out.events[0].data.crew_id).toBeNull();
+    expect(addTo(atStop1, { stop_id: "wp-1", text: "x", crew_id: "EV1" }).out.events[0].data.crew_id).toBe("EV1");
+  });
+
+  it("an id containing / is INVALID (it would break STATE_DELTA paths)", () => {
+    expect(codeOf(addTo(atStop1, { stop_id: "wp/1", text: "x" }).out.result)).toBe("INVALID");
+    expect(codeOf(addTo(atStop1, { stop_id: "wp-1", text: "x", task_id: "a/b" }).out.result)).toBe("INVALID");
+  });
+
+  it("a non-string stop_id or text is INVALID", () => {
+    expect(codeOf(addTo(atStop1, { stop_id: 1, text: "x" }).out.result)).toBe("INVALID");
+    expect(codeOf(addTo(atStop1, { stop_id: "wp-1", text: 5 }).out.result)).toBe("INVALID");
+    expect(codeOf(addTo(atStop1, { stop_id: "wp-1" }).out.result)).toBe("INVALID");
+  });
+
+  it("an EVA role is FORBIDDEN_ROLE for ADD_STOP_TASK", () => {
+    expect(codeOf(send(atStop1, "eva:EV1", { stop_id: "wp-1", text: "x" }, "ADD_STOP_TASK").out.result)).toBe("FORBIDDEN_ROLE");
+  });
+});
+
+describe("ADD_STOP_TASK current or next stop uses 1-based stop numbers over the stops only", () => {
+  const base = threeStopsWithVia(seeded());
+  const at = (crew_id: "EV1" | "EV2", stop_id: string, n: number): EngineState => applyEvent(base, "ARRIVED_STOP", { crew_id, stop_id, stop_index: n });
+
+  it("at stop 1 (stop_index 1) the current stop s-1 and the next stop s-2 are allowed, the third is not", () => {
+    const s = at("EV1", "s-1", 1);
+    expect(stopOk(s, "s-1", "EV1")).toBe(true);
+    expect(stopOk(s, "s-2", "EV1")).toBe(true);
+    expect(stopOk(s, "s-3", "EV1")).toBe(false);
+  });
+
+  it("at stop 2 (stop_index 2) s-2 and s-3 are allowed, s-1 is not", () => {
+    const s = at("EV1", "s-2", 2);
+    expect(stopOk(s, "s-1", "EV1")).toBe(false);
+    expect(stopOk(s, "s-2", "EV1")).toBe(true);
+    expect(stopOk(s, "s-3", "EV1")).toBe(true);
+  });
+
+  it("at the last stop only that stop is allowed", () => {
+    const s = at("EV2", "s-3", 3);
+    expect(stopOk(s, "s-3", "EV2")).toBe(true);
+    expect(stopOk(s, "s-2", "EV2")).toBe(false);
+  });
+
+  it("a via waypoint id is never a valid stop", () => {
+    expect(stopOk(at("EV1", "s-1", 1), "v-2", "EV1")).toBe(false);
+  });
+
+  it("a crew member walking to the first stop has that stop as next, and no other", () => {
+    const walking = base; // EVA running, EV1 WALKING with stop_index null
+    expect(stopOk(walking, "s-1", "EV1")).toBe(true);
+    expect(stopOk(walking, "s-2", "EV1")).toBe(false);
+  });
+
+  it("a crew member who has left stop 1 and walks on has stop 2 as next, not stop 1", () => {
+    const left = applyEvent(base, "LEFT_STOP", { crew_id: "EV1", stop_id: "s-1", stop_index: 1 });
+    expect(stopOk(left, "s-2", "EV1")).toBe(true);
+    expect(stopOk(left, "s-1", "EV1")).toBe(false);
+    expect(stopOk(left, "s-3", "EV1")).toBe(false);
+  });
+
+  it("with no crew_id the stop must be current or next for some crew member", () => {
+    const s = applyEvent(at("EV1", "s-1", 1), "ARRIVED_STOP", { crew_id: "EV2", stop_id: "s-2", stop_index: 2 });
+    expect(stopOk(s, "s-3")).toBe(true); // next stop of EV2
+    expect(stopOk(s, "s-1")).toBe(true); // current stop of EV1
+    expect(stopOk(threeStopsWithVia(running), "s-3")).toBe(false);
+  });
+
+  it("a crew member who is sheltered or in the hab has no current or next stop", () => {
+    const sheltered = applyEvent(at("EV1", "s-1", 1), "CREW_SHELTERED", { crew_id: "EV1", haven_kind: "hab", dose_event_ugy: 0, dose_event_unsheltered_ugy: 0 });
+    expect(stopOk(sheltered, "s-2", "EV1")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// onPlanRevised with via waypoints: stops_dropped are 1-based stop numbers, not waypoint indexes.
+// ---------------------------------------------------------------------------------------------
+
+describe("onPlanRevised stop numbers (05 PLAN_REVISED stops_dropped)", () => {
+  const task = (id: string, stop_id: string): StopTask => ({ ...sampleTaskEV1, task_id: id, stop_id, crew_id: null });
+  const withStopTasks = (): EngineState => {
+    const base = threeStopsWithVia(running);
+    return ["s-1", "s-2", "s-3"].reduce((s, id) => withTask(s, task(`t-${id}`, id)), base);
+  };
+  const revision = (stops_dropped: number[], waypoints: Waypoint[]): LogEvent => ({
+    seq: 30,
+    sim_time: T0,
+    kind: "PLAN_REVISED",
+    actor: "ops",
+    data: { plan_revision: 2, option_id: "o-1", stops_dropped, waypoints, legs: [] } as unknown as Record<string, unknown>,
+    provenance: {},
+    command_ref: null,
+  });
+  const allWaypoints = threeStopsWithVia(running).plan!.waypoints;
+
+  it("stops_dropped [3] drops stop 3 (s-3) whatever the revised waypoints say, with via points before every stop", () => {
+    const dropped = onPlanRevised(withStopTasks(), revision([3], allWaypoints));
+    expect(dropped.map((e) => e.data.task_id)).toEqual(["t-s-3"]);
+  });
+
+  it("stops_dropped [2, 3] drops stops 2 and 3 and keeps stop 1", () => {
+    const dropped = onPlanRevised(withStopTasks(), revision([2, 3], allWaypoints));
+    expect(dropped.map((e) => e.data.task_id).sort()).toEqual(["t-s-2", "t-s-3"]);
+  });
+
+  it("revised waypoints without s-3 drop s-3 even when stops_dropped is empty (a published plan)", () => {
+    const without = allWaypoints.filter((w) => w.id !== "s-3");
+    expect(onPlanRevised(withStopTasks(), revision([], without)).map((e) => e.data.task_id)).toEqual(["t-s-3"]);
+  });
+
+  it("a stop number beyond the stops, zero, or a non-integer drops nothing and does not throw", () => {
+    for (const bad of [[9], [0], [-1], [1.5]]) expect(onPlanRevised(withStopTasks(), revision(bad, allWaypoints)), JSON.stringify(bad)).toEqual([]);
+  });
+
+  it("the events carry the revision's plan_revision and sim_time, actor system", () => {
+    const [e] = onPlanRevised(withStopTasks(), revision([3], allWaypoints));
+    expect(e).toMatchObject({ kind: "TASK_DROPPED", actor: "system", sim_time: T0, data: { task_id: "t-s-3", stop_id: "s-3", plan_revision: 2 } });
+  });
+
+  it("DONE, SKIPPED and already DROPPED tasks at a dropped stop are left alone", () => {
+    const s = ["TODO", "DONE", "SKIPPED", "DROPPED"].reduce((acc, st, i) => withTask(acc, { ...task(`t-x${i}`, "s-3"), state: st as StopTask["state"] }), threeStopsWithVia(running));
+    expect(onPlanRevised(s, revision([3], allWaypoints)).map((e) => e.data.task_id)).toEqual(["t-x0"]);
   });
 });
