@@ -67,12 +67,6 @@
       transparent 6px
     );
   /* Contrast fix: --ink on --warning gives 5.32:1 contrast (NFR-04 requires >= 4.5:1) */
-  /* TODO(decision): in HUD mode this pill is --ink (#1A1A1A) on --hud-warning (#FF6B6B) = 6.27 : 1, under the
-     7 : 1 HUD floor (04 §C.1 HUD table, §F). The other flat HUD pill fills pass (8.19-9.75 : 1). Patterned areas
-     fall further: the cross-hatch stripes darken the fill under the ink to about 3.5 : 1 (2.2 : 1 where the stripes
-     cross), and the caution, advisory and unknown patterns also drop below 7 : 1. Needs a 04 spec change first:
-     a HUD pill ink of #000000 or lighter fills (6.27 -> 7.57 : 1 flat), and lighter pattern alpha. Values left as
-     is until 04 changes. */
   color: var(--ink, #1A1A1A);
 }
 
@@ -94,6 +88,78 @@
   );
   background-size: 8px 8px;
   color: var(--ink, #1A1A1A);
+}
+
+/* ---------------------------------------------------------------- HUD status pills (04 §C.1 "HUD status pills", §F)
+ * In HUD mode the pill ink is #000000 (--hud-pill-ink), not --ink, and the pattern overlay is drawn with an alpha
+ * chosen so that the darkest patterned area keeps >= 7 : 1 with that ink (decided 2026-11-11, spec-change #213).
+ * The status fills are unchanged. Measured with the WCAG formula by apps/web/tests/ui/patterns.test.ts, the pattern
+ * colour composited over the fill (a pattern colour that crosses itself, as in the cross-hatch, is composited twice).
+ * Ratios are #000000 ink on the fill, flat -> darkest patterned area:
+ *
+ *   nominal   #3DDC84  solid, no pattern                       11.77 -> 11.77 : 1
+ *   caution   #FFB020  45deg stripes, black alpha 0.20         11.48 ->  7.38 : 1  (7 : 1 is reached up to alpha 0.22)
+ *   advisory  #4CC9F0  dots, black alpha 0.18                  10.92 ->  7.38 : 1  (7 : 1 is reached up to alpha 0.20)
+ *   unknown   #A9B3BE  dots, black alpha 0.15                   9.88 ->  7.20 : 1  (7 : 1 is reached up to alpha 0.16)
+ *   warning   #FF6B6B  cross-hatch, WHITE alpha 0.30            7.57 ->  7.57 : 1  (flat, see below)
+ *
+ * Warning: #FF6B6B is only 7.57 : 1 flat, so black stripes could take at most alpha 0.02 off the fill (cross-hatch,
+ * two layers) before dropping under 7 : 1, which draws nothing visible. The cross-hatch is therefore drawn in a
+ * lighter colour instead (white at 0.30): the stripe-free fill stays the darkest area (7.57 : 1) and the stripes only
+ * raise the contrast of the ink; the cross-hatch stays legible. The shape glyph and the word carry the status, the
+ * pattern is secondary (04 §A.3 #2). OPS, BRIEF and PRINT pills keep the dark patterns above.
+ */
+
+[data-mode="hud"] .status-ok,
+[data-mode="hud"] .status-nominal {
+  color: var(--hud-pill-ink);
+}
+
+[data-mode="hud"] .status-caution {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.20),
+    rgba(0, 0, 0, 0.20) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  color: var(--hud-pill-ink);
+}
+
+[data-mode="hud"] .status-blocked,
+[data-mode="hud"] .status-warning {
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.30),
+      rgba(255, 255, 255, 0.30) 3px,
+      transparent 3px,
+      transparent 6px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.30),
+      rgba(255, 255, 255, 0.30) 3px,
+      transparent 3px,
+      transparent 6px
+    );
+  color: var(--hud-pill-ink);
+}
+
+[data-mode="hud"] .status-unknown {
+  background-image: radial-gradient(
+    rgba(0, 0, 0, 0.15) 22%,
+    transparent 22%
+  );
+  color: var(--hud-pill-ink);
+}
+
+[data-mode="hud"] .status-advisory {
+  background-image: radial-gradient(
+    rgba(0, 0, 0, 0.18) 22%,
+    transparent 22%
+  );
+  color: var(--hud-pill-ink);
 }
 
 /* ---------------------------------------------------------------- pattern swatches and indicators */

@@ -1,15 +1,21 @@
 /**
- * T13.05 / T13.09 design-system review items that need a 04 spec change first ("change 04 first").
- * The tokens are not edited here: each gap is recorded as a TODO(decision) in the stylesheet and the contrast
- * gap is asserted as a known failure, so it cannot be hidden and cannot be forgotten.
+ * T13.05 / T13.09: HUD status pill contrast (04 §C.1 "HUD status pills", §F) and the design-system values that
+ * 04 now defines (decided 2026-11-11, spec-change #213): narrow results panel, selection width, print neutrals,
+ * headings in the v1 exception, minimum text size, Lucide defaults.
+ *
+ * The contrast checks read patterns.css and tokens.css (jsdom cannot resolve var() or composite gradients) and
+ * composite each pill's stripe or dot colour over the HUD fill with the WCAG formula, so the darkest patterned
+ * area is measured, not just the flat fill.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { contrast, ratio, toRgb, type Rgb } from "./wcag";
 
 const STYLES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/styles");
 const read = (f: string): string => readFileSync(join(STYLES_DIR, f), "utf8");
+const stripComments = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//g, "");
 
 /** Value of a custom property declared in tokens.css (first declaration wins). */
 function token(name: string): string {
@@ -18,111 +24,158 @@ function token(name: string): string {
   return m[1];
 }
 
-type Rgb = [number, number, number];
-
-const toRgb = (hex: string): Rgb => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as Rgb;
-
-function luminance([r8, g8, b8]: Rgb): number {
-  const [r, g, b] = [r8, g8, b8].map((v) => {
-    const c = v / 255;
-    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+/** Body of the HUD-scoped `[data-mode="hud"] .status-<name>` rule in patterns.css (comments removed). */
+function hudRuleBody(status: string): string {
+  const css = stripComments(read("patterns.css"));
+  const re = new RegExp(`(?:^|\\n)((?:[^{}]*\\[data-mode="hud"\\]\\s*\\.status-[a-z]+,\\s*)*[^{}]*\\[data-mode="hud"\\]\\s*\\.status-${status}\\b[^{}]*)\\{([^}]*)\\}`);
+  const rule = re.exec(css);
+  expect(rule, `[data-mode="hud"] .status-${status} rule in patterns.css`).not.toBeNull();
+  return rule![2];
 }
 
-/** WCAG 2.x contrast ratio between two colours. */
-function ratio(a: Rgb, b: Rgb): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
+interface Layer {
+  rgb: Rgb;
+  alpha: number;
 }
 
-const contrast = (a: string, b: string): number => ratio(toRgb(a), toRgb(b));
+/** The stripe or dot colour of each gradient layer in a rule body (the first `rgba(r, g, b, a)` of each gradient). */
+function patternLayers(body: string): Layer[] {
+  const layers: Layer[] = [];
+  for (const piece of body.split(/-gradient\(/).slice(1)) {
+    const m = /rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([0-9.]+)\)/.exec(piece);
+    if (m) layers.push({ rgb: [Number(m[1]), Number(m[2]), Number(m[3])], alpha: Number(m[4]) });
+  }
+  return layers;
+}
 
 /**
- * Worst case under the pill's pattern: the black `rgba(0,0,0,a)` stripes or dots of the `.status-<name>` rule in
- * patterns.css composited over the fill. Layers that cross (the cross-hatch has two) darken by 1 - (1 - a)^layers.
+ * Worst case under the pill's pattern: the pattern colour composited over the fill 0..n times (n gradient layers
+ * that cross, as in the cross-hatch; 0 = the stripe-free area). Dark stripes darken the fill under the ink; lighter
+ * stripes leave the stripe-free fill as the darkest area. The lowest ink contrast over all coverages is returned.
  */
 function patternedContrast(status: string, fill: string): number {
-  const rule = new RegExp(`(?:^|\\n)(?:\\.status-[a-z]+,\\s*)*\\.status-${status}(?:,\\s*\\.status-[a-z]+)*\\s*\\{([^}]*)\\}`).exec(
-    read("patterns.css"),
-  );
-  expect(rule, `.status-${status} rule`).not.toBeNull();
-  const body = rule![1];
-  const alpha = /rgba\(0,\s*0,\s*0,\s*([0-9.]+)\)/.exec(body);
-  const layers = (body.match(/-gradient\(/g) ?? []).length;
-  if (!alpha || layers === 0) return contrast(token("--ink"), fill);
-  const darken = 1 - (1 - Number(alpha[1])) ** layers;
-  const base = toRgb(fill);
-  const composited = base.map((v) => v * (1 - darken)) as Rgb;
-  return ratio(toRgb(token("--ink")), composited);
+  const body = hudRuleBody(status);
+  const ink = toRgb(token("--hud-pill-ink"));
+  const layers = patternLayers(body);
+  const gradients = (body.match(/-gradient\(/g) ?? []).length;
+  expect(layers.length, `${status}: one rgba colour per gradient`).toBe(gradients);
+  let worst = ratio(ink, toRgb(fill));
+  let colour = toRgb(fill);
+  for (const { rgb, alpha } of layers) {
+    colour = colour.map((v, i) => v * (1 - alpha) + rgb[i] * alpha) as Rgb;
+    worst = Math.min(worst, ratio(ink, colour));
+  }
+  return worst;
 }
 
-/** HUD status pills: `.status-*` text colour is --ink on the HUD status fill (patterns.css, HUD mode in tokens.css). */
+/** HUD status pills: pattern class, fill token (HUD mode in tokens.css), 04 §C.1 flat contrast with #000000 ink. */
 const HUD_PILLS = [
-  ["nominal", "--hud-nominal"],
-  ["caution", "--hud-caution"],
-  ["advisory", "--hud-advisory"],
-  ["unknown", "--hud-text-2"],
+  ["nominal", "--hud-nominal", 11.77],
+  ["caution", "--hud-caution", 11.48],
+  ["warning", "--hud-warning", 7.57],
+  ["advisory", "--hud-advisory", 10.92],
+  ["unknown", "--hud-text-2", 9.88],
 ] as const;
 
-describe("patterns: HUD pill ink/fill contrast is documented", () => {
-  it("patterns: HUD pill ink/fill contrast is documented (pairs that pass reach >= 7 : 1, 04 §F)", () => {
-    const ink = token("--ink");
-    for (const [status, fill] of HUD_PILLS) {
-      expect(contrast(ink, token(fill)), `${status}: ink on ${fill}`).toBeGreaterThanOrEqual(7);
-    }
+describe("patterns: HUD pill ink is #000000 (04 §C.1 HUD status pills)", () => {
+  it("--hud-pill-ink is #000000", () => {
+    expect(token("--hud-pill-ink").toUpperCase()).toBe("#000000");
   });
 
-  // Known failure, kept visible: ink #1A1A1A on --hud-warning #FF6B6B is 6.27 : 1, under the 7 : 1 HUD floor.
-  // Needs a 04 spec change first (04 §C.1 HUD table + §F): either a HUD pill ink of #000000 (7.57 : 1) or a lighter
-  // hud-warning fill. `it.fails` turns green again, and flags the stale TODO, as soon as the pair reaches 7 : 1.
-  it.fails("patterns: HUD warning pill ink/fill reaches 7 : 1 (TODO(decision): 04 spec change, HUD pill ink or hud-warning)", () => {
-    expect(contrast(token("--ink"), token("--hud-warning"))).toBeGreaterThanOrEqual(7);
+  it("the status fills are unchanged (a fill change would need 04 first)", () => {
+    expect(token("--hud-nominal").toUpperCase()).toBe("#3DDC84");
+    expect(token("--hud-caution").toUpperCase()).toBe("#FFB020");
+    expect(token("--hud-warning").toUpperCase()).toBe("#FF6B6B");
+    expect(token("--hud-advisory").toUpperCase()).toBe("#4CC9F0");
+    expect(token("--hud-text-2").toUpperCase()).toBe("#A9B3BE");
   });
 
-  // The pills also draw black stripes or dots (patterns.css), which darken the fill under the ink. Measured at the
-  // worst case (full stripe coverage), every patterned HUD pill falls below the 7 : 1 floor, and the cross-hatched
-  // warning pill below 4.5 : 1. The solid nominal pill is unaffected. Each is a known failure that needs the same
-  // 04 spec change (HUD pill ink #000000 or lighter fills, or a lighter pattern alpha); `it.fails` keeps them visible.
-  it("patterns: the solid nominal HUD pill is unaffected by a pattern and keeps 7 : 1", () => {
-    expect(patternedContrast("nominal", token("--hud-nominal"))).toBeGreaterThanOrEqual(7);
-  });
-
-  for (const [status, fill] of [
-    ["caution", "--hud-caution"],
-    ["warning", "--hud-warning"],
-    ["advisory", "--hud-advisory"],
-    ["unknown", "--hud-text-2"],
-  ] as const) {
-    it.fails(`patterns: patterned HUD ${status} pill, pattern composited over ${fill}, reaches 7 : 1 (TODO(decision): 04 spec change)`, () => {
-      expect(patternedContrast(status, token(fill))).toBeGreaterThanOrEqual(7);
+  for (const [status] of HUD_PILLS) {
+    it(`every .status-${status} pill sets its HUD ink from --hud-pill-ink`, () => {
+      expect(hudRuleBody(status)).toMatch(/color:\s*var\(--hud-pill-ink\)/);
     });
   }
 
-  it.fails("patterns: patterned HUD warning pill reaches 4.5 : 1 (NFR-04 text floor; TODO(decision): 04 spec change)", () => {
-    expect(patternedContrast("warning", token("--hud-warning"))).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it("patterns: the HUD warning gap is still at least 4.5 : 1 (NFR-04 text floor) and the stylesheet names the decision", () => {
-    expect(contrast(token("--ink"), token("--hud-warning"))).toBeGreaterThanOrEqual(4.5);
-    expect(read("patterns.css")).toMatch(/TODO\(decision\)[^*]*HUD[^*]*(warning|7 ?: ?1)/is);
+  it("OPS and BRIEF pills keep --ink (the ink change is scoped to the HUD)", () => {
+    expect(stripComments(read("patterns.css"))).toMatch(/\.status-caution\s*\{[^}]*color:\s*var\(--ink,/);
   });
 });
 
-describe("tokens: values 04 does not define are flagged for a spec change, not edited", () => {
-  it("--results-height-narrow and --selection-width carry a TODO(decision) naming 04", () => {
-    const css = read("tokens.css");
-    const narrow = css.split("\n").find((l) => l.includes("--results-height-narrow:"));
-    const selection = css.split("\n").find((l) => l.includes("--selection-width:"));
-    expect(narrow).toBeDefined();
-    expect(selection).toBeDefined();
-    expect(narrow).toContain("180px");
-    expect(selection).toContain("2px");
-    const around = (needle: string): string => {
-      const i = css.indexOf(needle);
-      return css.slice(Math.max(0, i - 400), i + 300);
-    };
-    expect(around("--results-height-narrow:")).toMatch(/TODO\(decision\)[\s\S]*04 §F/);
-    expect(around("--selection-width:")).toMatch(/TODO\(decision\)[\s\S]*04 §C\.5[\s\S]*3 px/);
+describe("patterns: HUD pill ink/fill contrast", () => {
+  for (const [status, fill, flat] of HUD_PILLS) {
+    it(`flat ${status} pill: #000000 ink on ${fill} matches 04 §C.1 (${flat} : 1) and reaches 7 : 1`, () => {
+      const value = contrast(token("--hud-pill-ink"), token(fill));
+      expect(value).toBeGreaterThanOrEqual(7);
+      expect(value).toBeCloseTo(flat, 1);
+    });
+
+    it(`patterned ${status} pill keeps 7 : 1 at its darkest patterned area (04 §C.1, §F)`, () => {
+      expect(patternedContrast(status, token(fill))).toBeGreaterThanOrEqual(7);
+    });
+
+    it(`patterned ${status} pill keeps 4.5 : 1 (NFR-04 text floor)`, () => {
+      expect(patternedContrast(status, token(fill))).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+
+  it("the patterns are still drawn: every patterned HUD pill keeps a stripe or dot alpha of at least 0.1", () => {
+    for (const [status] of HUD_PILLS) {
+      if (status === "nominal") continue;
+      const layers = patternLayers(hudRuleBody(status));
+      expect(layers.length, `${status} layers`).toBeGreaterThan(0);
+      for (const { alpha } of layers) expect(alpha, status).toBeGreaterThanOrEqual(0.1);
+    }
+  });
+
+  it("the HUD pill block in patterns.css cites 04 §C.1, records the measured ratios and names no open decision", () => {
+    const css = read("patterns.css");
+    expect(css).toMatch(/04 §C\.1[^*]*HUD status pills/s);
+    for (const measured of ["11.77", "11.48", "7.57", "10.92", "9.88"]) expect(css).toContain(measured);
+    expect(css).not.toMatch(/TODO\(decision\)[^*]*HUD/is);
+  });
+});
+
+/** Text of the comment (and declarations between) directly before `needle`, back to the previous declaration. */
+function leadIn(css: string, needle: string): string {
+  const i = css.indexOf(needle);
+  expect(i, needle).toBeGreaterThan(-1);
+  return css.slice(css.lastIndexOf(";\n", i - 1) + 1, i);
+}
+
+describe("tokens: values 04 now defines are cited, not flagged (spec-change #213, decided 2026-11-11)", () => {
+  const css = read("tokens.css");
+
+  it("--results-height-narrow is 180px and cites 04 §F without a TODO", () => {
+    expect(css).toMatch(/--results-height-narrow:\s*180px;/);
+    const lead = leadIn(css, "--results-height-narrow:");
+    expect(lead).toMatch(/04 §F/);
+    expect(lead).not.toMatch(/TODO/);
+  });
+
+  it("--selection-width is 2px, cites 04 §C.5 and no longer mentions a 3 px focus ring", () => {
+    expect(css).toMatch(/--selection-width:\s*2px;/);
+    const lead = leadIn(css, "--selection-width:");
+    expect(lead).toMatch(/04 §C\.5/);
+    expect(lead).not.toMatch(/TODO|3 px/);
+  });
+
+  it("both print blocks in tokens.css (the print mode and the @media print remap) cite 04 §C.1 for the neutrals, with no TODO", () => {
+    const blocks = [...css.matchAll(/--surface-2:\s*#F3F4F6/g)];
+    expect(blocks.length).toBe(2);
+    for (const m of blocks) {
+      const lead = css.slice(css.lastIndexOf(";\n", m.index! - 1) + 1, m.index);
+      expect(lead).toMatch(/04 §C\.1/);
+      expect(lead).not.toMatch(/TODO/);
+    }
+    expect([...css.matchAll(/--line:\s*#D1D5DB/g)].length).toBe(2);
+    expect([...css.matchAll(/--fg-3:\s*#4B5563/g)].length).toBe(2);
+    expect(css).not.toMatch(/TODO\(decision\)[^\n*]*print hex values/);
+  });
+
+  it("the print neutrals reach the 04 §C.1 ratios: #4B5563 7.56 : 1 on white, #111827 16.12 : 1 on #F3F4F6", () => {
+    expect(contrast("#4B5563", "#FFFFFF")).toBeCloseTo(7.56, 1);
+    expect(contrast("#4B5563", "#F3F4F6")).toBeCloseTo(6.87, 1);
+    expect(contrast("#111827", "#F3F4F6")).toBeCloseTo(16.12, 1);
+    expect(contrast("#D1D5DB", "#FFFFFF")).toBeCloseTo(1.47, 1);
   });
 });
