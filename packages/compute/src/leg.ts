@@ -87,8 +87,8 @@ export function toLeg(
     return leg;
   }
 
-  if (search.status === "TIMEOUT") {
-    throw new Error("Cannot assemble leg: search timed out");
+  if (search.status === "TIMEOUT" || search.status === "CANCELLED") {
+    throw new Error(`Cannot assemble leg: search ended with ${search.status}`);
   }
 
   const { width, cell_m, origin_m } = grid.meta;

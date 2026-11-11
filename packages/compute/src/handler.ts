@@ -147,6 +147,14 @@ function handleComputePlan(
         message: `Routing search timed out between ${fromWp.id} and ${toWp.id}`,
       };
     }
+    if (search.status === "CANCELLED") {
+      return {
+        type: "ERROR",
+        request_id: request.request_id,
+        code: "CANCELLED",
+        message: `Routing search cancelled between ${fromWp.id} and ${toWp.id}`,
+      };
+    }
     const leg = toLeg(grid, fromWp.id, toWp.id, search, request.scenario);
     legs.push(leg);
     cellPaths.push(search.status === "OK" ? search.cells : undefined);
@@ -190,7 +198,7 @@ function handleComputePlan(
     maxWbKm = maxWalkbackKm(allCumDists, loop);
 
     const stopCount = countStops(waypoints);
-    const dwellMin = stopCount * (request.scenario.dwell_min_per_stop ?? 0);
+    const dwellMin = stopCount * request.scenario.dwell_min_per_stop;
     const evaTotalMin = totalWalkTimeMin + dwellMin;
     const evaMarginMin = request.scenario.max_eva_duration_h * 60 - evaTotalMin;
 

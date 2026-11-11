@@ -3,7 +3,6 @@
  * FR-03, FR-07. Implemented by TASK-05 (T05.16).
  */
 import type { RoutingGrid } from "@marswalk/protocol";
-import type { ProjectionOrigin } from "./sampling";
 
 /** In-memory arrays for one site, row-major, north-up (02 §E.1). */
 export interface LoadedGrid {
@@ -22,8 +21,6 @@ export interface LoadedGrid {
    * Added by Obidit Islam for Mishkat Ahmed Khan (T05.16 owner) after the T03.01 C4 review.
    */
   commHab: Uint8Array;
-  /** Working projection origin from the site manifest (02 §C.1). */
-  projection?: ProjectionOrigin;
 }
 
 /**

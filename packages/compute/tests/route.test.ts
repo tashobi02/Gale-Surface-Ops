@@ -122,7 +122,7 @@ describe("searchLeg", () => {
     expect(result.status).toBe("TIMEOUT");
   });
 
-  it("aborts when shouldCancel hook returns true at check interval (02 §E.2)", () => {
+  it("returns CANCELLED (not TIMEOUT) when shouldCancel returns true at the check interval (02 §E.2)", () => {
     const grid = makePlaneGrid({
       width: 30,
       height: 30,
@@ -141,8 +141,8 @@ describe("searchLeg", () => {
     };
 
     const result = searchLeg(grid, from, to, defaultScenario, 1000, shouldCancel, 10);
-    expect(result.status).toBe("TIMEOUT");
-    expect(checkCount).toBeGreaterThanOrEqual(2);
+    expect(result.status).toBe("CANCELLED");
+    expect(checkCount).toBe(2);
   });
 
   it("route matches exhaustive brute-force Dijkstra oracle on a small synthetic grid (02 §D.2)", () => {

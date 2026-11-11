@@ -19,7 +19,8 @@ export const TOBLER_UNSUITED_FLAT_KMH = 5.037;
 export type LegSearch =
   | { status: "OK"; cells: number[] }
   | { status: "NO_ROUTE"; reason: NoRouteReason; nearest_reachable: { x_m: number; y_m: number } }
-  | { status: "TIMEOUT" };
+  | { status: "TIMEOUT" }
+  | { status: "CANCELLED" };
 
 interface HeapNode {
   cell: number;
@@ -230,9 +231,10 @@ export function searchLeg(
     expansions++;
     exploredCells.push(u);
 
-    // Mid-search cancellation check every 50,000 expansions (02 §E.2)
+    // Cooperative cancellation check every 50,000 expansions (02 §E.2). Nothing passes `shouldCancel` yet:
+    // TODO(decision): event-loop yielding or shared abort signalling (TASK-05 T05.18/T05.27).
     if (expansions % cancellationInterval === 0 && shouldCancel?.()) {
-      return { status: "TIMEOUT" };
+      return { status: "CANCELLED" };
     }
 
     if (expansions >= maxExpansions) {
@@ -257,10 +259,8 @@ export function searchLeg(
         continue;
       }
 
-      // Diagonal corner-cutting decision (Proposed / resolved 2026-11-09):
-      // Pure 8-connectivity per 02 §D.2; diagonal moves test only destination passability
-      // without requiring both orthogonal neighbours to be passable.
-      // Matches haven.ts (T05b.04) and TASK-05b resolution.
+      // Diagonal corner cutting: only the destination cell is tested, the same as haven.ts (T05b.04) so haven and
+      // route agree on reachability. The rule is still Proposed / TODO(decision) in TASK-05b; 02 §D.2 does not state it.
       if (!isCellPassable(grid, v, scenario.hard_slope_limit_deg)) {
         continue;
       }

@@ -6,7 +6,7 @@ import {
   makeRampGrid,
   withoutTi,
 } from "../../../apps/web/tests/fixtures/grids";
-import { parseProj4Origin, samplePoint, sampleProfile } from "../src/sampling";
+import { samplePoint, sampleProfile } from "../src/sampling";
 import * as snapModule from "../src/snap";
 
 // Mock snap.ts so samplePoint tests can verify snap integration (T05.06 / T05.17)
@@ -268,30 +268,38 @@ describe("sampleProfile", () => {
     expect(profile.elev_m.length).toBe(4);
     expect(profile.slope_class.length).toBe(4);
   });
-});
 
-describe("projection origin and parsing", () => {
-  it("parses projection origin from working proj4 string (02 §C.1)", () => {
-    const proj4 = "+proj=eqc +lat_ts=-4.7 +lat_0=-4.7 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs";
-    const origin = parseProj4Origin(proj4);
-    expect(origin).toEqual({
-      lat_0: -4.7,
-      lon_0: 137.38,
-      lat_ts: -4.7,
-    });
+  it("classifies the leg-end sample with the same thresholds as the 5 m samples", () => {
+    // Plane at 12 deg: above the 10 deg caution threshold, below the 15 deg hard limit
+    const grid = makePlaneGrid({ width: 20, height: 20, cell_m: 10, slope_deg: 12, origin_m: [0, 0] });
+    const profile = sampleProfile(grid, [[0, -5], [12, -5]], 10, 15);
+    expect(profile.dist_m).toEqual([0, 5, 10, 12]);
+    expect(profile.slope_class).toEqual(["caution", "caution", "caution", "caution"]);
   });
 
-  it("uses grid.projection when specified instead of DEFAULT_PROJECTION", () => {
-    const grid = makePlaneGrid({
-      width: 10,
-      height: 10,
-      cell_m: 10,
-      origin_m: [0, 0],
-    });
-    grid.projection = { lat_0: -10.0, lon_0: 100.0, lat_ts: -10.0 };
+  it("keeps comm, elevation and slope arrays equal in length when the leg end is outside the grid", () => {
+    const grid = makePlaneGrid({ width: 4, height: 4, cell_m: 10, slope_deg: 0, origin_m: [0, 0] });
+    // The grid spans x 0..40 m; the path ends 2 m past the east edge, off a 5 m sample boundary
+    const profile = sampleProfile(grid, [[30, -5], [42, -5]], 10, 15);
+    expect(profile.dist_m).toEqual([0, 5, 10, 12]);
+    expect(profile.slope_class[3]).toBe("over_limit");
+    expect(profile.comm).toHaveLength(profile.dist_m.length);
+    expect(profile.comm?.[3]).toBe(0);
+    expect(profile.elev_m).toHaveLength(profile.dist_m.length);
+    expect(profile.slope_class).toHaveLength(profile.dist_m.length);
+  });
 
-    const res = samplePoint(grid, 0, 0, 50, 15);
-    expect(res.lat).toBeCloseTo(-10.0, 4);
-    expect(res.lon_e).toBeCloseTo(100.0, 4);
+  it("omits comm and keeps the other arrays equal in length when the grid has no commHab", () => {
+    const grid = makePlaneGrid({ width: 4, height: 4, cell_m: 10, slope_deg: 0, origin_m: [0, 0] });
+    const withoutComm = { ...grid, commHab: undefined } as unknown as typeof grid;
+    for (const path of [
+      [[0, -5], [12, -5]], // leg end inside the grid
+      [[30, -5], [42, -5]], // leg end outside the grid
+    ] as [number, number][][]) {
+      const profile = sampleProfile(withoutComm, path, 10, 15);
+      expect(profile.comm).toBeUndefined();
+      expect(profile.elev_m).toHaveLength(profile.dist_m.length);
+      expect(profile.slope_class).toHaveLength(profile.dist_m.length);
+    }
   });
 });
