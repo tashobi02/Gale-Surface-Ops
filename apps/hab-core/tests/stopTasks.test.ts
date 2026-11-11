@@ -729,11 +729,19 @@ describe("UPDATE_STOP_TASK transitions (FR-50)", () => {
     expect(codeOf(send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "TODO" }).out.result)).toBe("INVALID");
   });
 
-  it("undo true with a target other than TODO is INVALID", () => {
-    const base = seeded();
-    expect(codeOf(send(base, "eva:EV1", { task_id: "t-s1-01", state: "DONE", undo: true }).out.result)).toBe("INVALID");
-    expect(codeOf(send(base, "eva:EV1", { task_id: "t-s1-01", state: "SKIPPED", reason: "time", undo: true }).out.result)).toBe("INVALID");
-    expect(codeOf(send(base, "eva:EV1", { task_id: "t-s1-01", state: "DROPPED", undo: true }).out.result)).toBe("INVALID");
+  it("undo true with a target other than TODO is INVALID (sent by the actor of the last change)", () => {
+    // EV1 ticked and undid, so EV1 is the actor of the last change and passes the actor check; the rest is INVALID.
+    const ev1 = send(send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next, "eva:EV1", { task_id: "t-s1-01", state: "TODO", undo: true }).next;
+    expect(codeOf(send(ev1, "eva:EV1", { task_id: "t-s1-01", state: "DONE", undo: true }).out.result)).toBe("INVALID");
+    expect(codeOf(send(ev1, "eva:EV1", { task_id: "t-s1-01", state: "SKIPPED", reason: "time", undo: true }).out.result)).toBe("INVALID");
+    expect(codeOf(send(ev1, "eva:EV1", { task_id: "t-s1-01", state: "DROPPED", undo: true }).out.result)).toBe("INVALID");
+    const done = send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next;
+    expect(codeOf(send(done, "eva:EV1", { task_id: "t-s1-01", state: "SKIPPED", reason: "time", undo: true }).out.result)).toBe("INVALID");
+    expect(taskOf(done, "t-s1-01").state).toBe("DONE");
+  });
+
+  it("undo true from anyone but the actor of the last change is FORBIDDEN_ROLE before the target is looked at", () => {
+    expect(codeOf(send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE", undo: true }).out.result)).toBe("FORBIDDEN_ROLE");
   });
 
   it("a state outside TODO, DONE, SKIPPED is INVALID", () => {
@@ -864,8 +872,9 @@ describe("UPDATE_STOP_TASK undo (FR-50, spec change #202)", () => {
 
   it("the undo uses the log alone: no wall-clock input, the same state gives the same event", () => {
     const done = send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next;
-    const a = send(done, "eva:EV1", undoArgs).out.events;
-    const b = send(done, "eva:EV1", undoArgs).out.events;
+    const command = cmd("eva:EV1", "UPDATE_STOP_TASK", undoArgs);
+    const a = handleCommand(done, command, ctx(done)).events;
+    const b = handleCommand(done, command, ctx(done)).events;
     expect(a).toEqual(b);
   });
 });
@@ -932,15 +941,15 @@ describe("ADD_STOP_TASK server-side rules (FR-50)", () => {
 
   it("never overwrites an existing task, even one that already holds the generated id", () => {
     const clash = `t-ops-${atStop1.session.last_seq + 1}`;
-    const withClash = applyEvent(atStop1, "TASK_ADDED", { task_id: clash, stop_id: "wp-1", crew_id: null, kind: "other", text: "Seeded", origin: "plan" });
-    const clash2 = `t-ops-${withClash.session.last_seq + 1}`;
-    const taken = applyEvent(withClash, "TASK_ADDED", { task_id: clash2, stop_id: "wp-1", crew_id: null, kind: "other", text: "Seeded 2", origin: "plan" });
+    // A task that already has the id the server would pick (added without a log event, so last_seq does not move).
+    const taken = withTask(atStop1, { ...taskOf(atStop1, "t-s1-01"), task_id: clash, text: "Seeded" });
     const { out, next } = addTo(taken, { stop_id: "wp-1", text: "New" });
     expect(out.result.ok).toBe(true);
+    expect(out.events[0].data.task_id).not.toBe(clash);
     const ids = next.tasks.map((t) => t.task_id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(next.tasks).toHaveLength(taken.tasks.length + 1);
-    expect(taskOf(next, clash2).text).toBe("Seeded 2");
+    expect(taskOf(next, clash).text).toBe("Seeded");
   });
 
   it("two ops additions in a row get two different ids", () => {

@@ -125,8 +125,8 @@
   - Serves: FR-50, NFR-06
   - T31.03 passes apart from the decision-bound todos.
 - **Verify:** `npm --workspace @marswalk/hab-core test -- stopTasks`.
-- **Agent brief:** Implement the task module; it never edits `tick.ts` or `reducer.ts`.
-- **Conflict notes:** Single owner.
+- **Agent brief:** Implement the task module; it never edits `tick.ts`. Two small additions outside `tasks.ts` were made with the product lead's authorisation on 11 Nov (PR #194 review): `commands.ts` appends the `TASK_DROPPED` events after every accepted `PLAN_REVISED` (`withTaskDrops`), and the reducer state gains the engine-only `task_plan_rev` for the undo staleness rule (spec change #202).
+- **Conflict notes:** Single owner of `tasks.ts`; `commands.ts` (T23.02) and `reducer.ts` (T22.06) carry the two additions above.
 
 ### T31.05 — Implement the EVA task list and TASKS button
 

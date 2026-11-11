@@ -65,6 +65,14 @@ export interface EngineState {
    * written before 2026-11-08. Added by the T23.07 rework, Proposed 2026-11-08 — TODO(decision).
    */
   proposed_alerts?: string[];
+  /**
+   * `session.plan_revision` at the time of each task's last TASK_UPDATED, by task id; tasks.ts decides
+   * from it whether an undo is stale ("no PLAN_REVISED since that change", 01 FR-50, 02 §E.6; spec
+   * change #202, Proposed 2026-11-11). Engine-only and JSON-safe, like `motion`; absent in states and
+   * snapshots written before that change (an undo is then refused as stale). Added to the T20 reducer
+   * state with the authorisation of its owner (Sadman Shaharier Mahim) — TODO(decision) until #194 merges.
+   */
+  task_plan_rev?: Record<string, number>;
 }
 
 /**
