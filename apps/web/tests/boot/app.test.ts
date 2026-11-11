@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { act } from "react";
-import type { ClientMessage, ServerMessage } from "@marswalk/protocol";
+import { CSP_HEADER, CSP_META, type ClientMessage, type ServerMessage } from "@marswalk/protocol";
 import type { SocketLike } from "../../src/net/habClient";
 import { startApp, type AppHandle } from "../../src/boot/app";
 import { BootError } from "../../src/boot/loadSite";
@@ -280,23 +280,28 @@ describe("teardown and network", () => {
 describe("index.html (NFR-01, NFR-08)", () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const html = readFileSync(join(here, "../../index.html"), "utf8");
+  const policy = /<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]+)"/i.exec(html)?.[1];
 
-  it("carries the CSP of 02 §F: default-src 'self', connect-src 'self' ws:", () => {
-    const meta = /<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]+)"/i.exec(html);
-    expect(meta, "CSP meta tag").not.toBeNull();
-    const policy = meta?.[1] ?? "";
-    expect(policy).toContain("default-src 'self'");
-    expect(policy).toContain("connect-src 'self' ws:");
+  it("carries the one policy constant the Hab Core also serves as its header (review of #219)", () => {
+    expect(policy, "CSP meta tag").toBeDefined();
+    expect(policy).toBe(CSP_META);
+    // frame-ancestors is ignored in a meta tag, so it is header-only; everything else is identical.
+    expect(CSP_HEADER).toBe(`${CSP_META}; frame-ancestors 'none'`);
+    expect(CSP_META).not.toContain("frame-ancestors");
   });
 
-  it("names no external origin anywhere in the page or the policy", () => {
+  it("allows only the page's own origin: no external origin, no inline or eval script, no inline style, no blob or data sources", () => {
     expect(html).not.toMatch(/https?:\/\//i);
     expect(html).not.toMatch(/<(script|link|img)[^>]+(src|href)="(https?:)?\/\//i);
+    expect(CSP_META).toContain("default-src 'self'");
+    expect(CSP_META).toContain("connect-src 'self'");
+    expect(CSP_META).not.toMatch(/'unsafe-(inline|eval)'/);
+    expect(CSP_META).not.toMatch(/\b(blob|data|ws|wss|http|https):/);
   });
 
-  it("allows no inline or eval script in the policy", () => {
-    const policy = /http-equiv="Content-Security-Policy"\s+content="([^"]+)"/i.exec(html)?.[1] ?? "";
-    expect(policy).not.toMatch(/script-src[^;]*'unsafe-(inline|eval)'/);
+  it("the page has no inline script or style of its own", () => {
+    expect(html).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/i);
+    expect(html).not.toMatch(/<style\b/i);
+    expect(html).not.toMatch(/\sstyle="/i);
   });
 });
-

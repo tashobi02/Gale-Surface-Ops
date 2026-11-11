@@ -16,7 +16,11 @@ function devInlineScript(): Plugin {
     apply: "serve",
     transformIndexHtml: {
       order: "pre",
-      handler: (html) => html.replace("script-src 'self';", "script-src 'self' 'unsafe-inline';"),
+      handler: (html) => {
+        const strict = "default-src 'self';";
+        if (!html.includes(strict)) throw new Error("index.html CSP no longer starts with default-src 'self'; update devInlineScript");
+        return html.replace(strict, "default-src 'self'; script-src 'self' 'unsafe-inline';");
+      },
     },
   };
 }

@@ -4,15 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!--
-      NFR-08 (02 §F): default-src 'self'; connect-src 'self' ws:  — LAN only, no external origin, no inline or eval script.
-      The additions below are for what the app itself needs and widen nothing beyond the page's own origin:
-      worker-src (the plan worker; blob: for the map), img-src (map tiles are same-origin; data:/blob: for canvases),
-      style-src 'unsafe-inline' (React sets element styles through the style attribute), font-src (self-hosted fonts).
-      `make dev` relaxes script-src for Vite's dev client only (apps/web/vite.config.ts); the built page keeps this policy.
+      NFR-08 (02 §F): own origin only, no inline or eval script, no external origin. This is CSP_META of
+      packages/protocol/src/csp.ts (a test checks they match); the Hab Core serves CSP_HEADER, the same plus
+      frame-ancestors, on every response. Change the policy there, with the reason, not here.
+      `make dev` relaxes script-src for Vite's inline refresh preamble only (apps/web/vite.config.ts).
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; connect-src 'self' ws:; script-src 'self'; worker-src 'self' blob:; img-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'"
+      content="default-src 'self'; connect-src 'self'; base-uri 'self'; object-src 'none'"
     />
     <title>Marswalk Surface Ops</title>
   </head>
