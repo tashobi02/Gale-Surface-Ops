@@ -27,7 +27,7 @@ import type { Extent } from "ol/extent.js";
 import type { LoadedSite, MapHandle, MapView } from "../context";
 import { UNAVAILABLE, provAttrs, unavailableOf } from "../components/provenance";
 import { attachKeyboardControls, prefersReducedMotion, type KeyboardControlsOptions } from "./keyboard";
-import { projectedToLatLonE, registerMarsProjection } from "./projection";
+import { formatLatLonE, projectedToLatLonE, registerMarsProjection } from "./projection";
 
 export interface CreateMapOptions {
   /** The host element, or its id. A missing id throws. */
@@ -74,9 +74,6 @@ function resolveHost(target: HTMLElement | string): HTMLElement {
   if (!el) throw new Error(`createMap: no element with id ${JSON.stringify(target)}`);
   return el;
 }
-
-/** Fixed-decimal with a true minus sign (02 §C.1 shows `−4.71234°`). */
-const signed = (value: number, digits: number): string => `${value < 0 ? "−" : ""}${Math.abs(value).toFixed(digits)}`;
 
 /** Chrome over imagery: raised dark panel, `--text-1` ink, 12 px minimum (04 §C.2), mono for numbers. */
 const CHROME = [
@@ -202,7 +199,7 @@ export function createMap(options: CreateMapOptions): MapHandle {
       const [x, y] = event.coordinate;
       const { lat, lon_e } = projectedToLatLonE(site, x, y);
       showReadout(
-        `${signed(lat, 5)}°, ${lon_e.toFixed(5)}°E  x ${Math.round(x)} m  y ${Math.round(y)} m`,
+        `${formatLatLonE(lat, lon_e)}  x ${Math.round(x)} m  y ${Math.round(y)} m`,
         provAttrs({ prov: "derived", src: readoutSource }),
       );
     }),

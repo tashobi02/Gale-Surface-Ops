@@ -19,7 +19,6 @@ import { provAttrs, glyphOf, PROVENANCE_GLYPHS } from "../../src/ui/components/p
 import { attachKeyboardControls, type KeyboardMapHandle } from "../../src/ui/map/keyboard";
 import type { FullScreenMapProps } from "../../src/ui/map/FullScreenMap";
 import { validateSite } from "../../src/boot/validateSite";
-import { initPointInspector } from "../../src/ui/map/inspector";
 import { createWaypointLayer } from "../../src/ui/map/waypointLayer";
 import { initAddStopMode } from "../../src/ui/map/addStopMode";
 import { initWaypointDrag } from "../../src/ui/map/waypointDrag";
@@ -154,7 +153,6 @@ describe("C10 WorkerClient carries retry (decision 11 Nov)", () => {
 describe("C10 stubs throw TODO(<owner id>) and are React components where they render", () => {
   it("throws the owner id from the c.4 register", async () => {
     expect(() => validateSite({} as never)).toThrow("TODO(T14.03)");
-    expect(() => initPointInspector({} as never, {} as never)).toThrow("TODO(T07.12)");
     expect(() => createWaypointLayer({} as never)).toThrow("TODO(T08.06)");
     expect(() => initAddStopMode({} as never, {} as never)).toThrow("TODO(T08.07)");
     expect(() => initWaypointDrag({} as never, {} as never)).toThrow("TODO(T08.08)");

@@ -60,6 +60,20 @@ export function registerMarsProjection(site: MarsProjectionSite): Projection {
   return projection;
 }
 
+/** A coordinate to 5 decimals with a true minus sign, and no minus on a value that rounds to zero. */
+function fixed5(value: number): string {
+  const text = Math.abs(value).toFixed(5);
+  return value < 0 && Number(text) !== 0 ? `−${text}` : text;
+}
+
+/**
+ * Planetocentric latitude and east-positive longitude as 02 §C.1 and T07.06 write them:
+ * `−4.71234°, 137.38765°E` (5 decimals, a true minus sign).
+ */
+export function formatLatLonE(lat: number, lon_e: number): string {
+  return `${fixed5(lat)}°, ${fixed5(lon_e)}°E`;
+}
+
 /**
  * The site's registered working projection, registering it first when it is not yet (several modules need it, and
  * the first one to run must not leave the others with a second, different Projection object).

@@ -10,6 +10,7 @@ import {
   getMarsProjectionCode,
   projectedToLatLonE,
   ensureMarsProjection,
+  formatLatLonE,
 } from "../../src/ui/map/projection.js";
 
 const REPO_ROOT = resolve(__dirname, "../../../..");
@@ -263,5 +264,13 @@ describe("tile grid extent and shared projection (T07.07 review)", () => {
     const made = ensureMarsProjection(fresh);
     expect(made.getCode()).toBe("MARS_LOCAL:ensure_probe");
     expect(ensureMarsProjection(fresh)).toBe(made);
+  });
+});
+
+describe("formatLatLonE (02 §C.1: 5 decimals, true minus, east-positive °E)", () => {
+  it("formats planetocentric latitude and east longitude as the spec writes them", () => {
+    expect(formatLatLonE(-4.71234, 137.38765)).toBe("−4.71234°, 137.38765°E");
+    expect(formatLatLonE(4.5, 0.000004)).toBe("4.50000°, 0.00000°E");
+    expect(formatLatLonE(-0.000004, 10)).toBe("0.00000°, 10.00000°E"); // no "−0.00000"
   });
 });
