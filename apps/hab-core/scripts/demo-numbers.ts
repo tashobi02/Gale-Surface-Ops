@@ -144,6 +144,19 @@ function firstAlertRow(series: DoseSeries, params: ParamSet): number {
   throw new Error(`demo-numbers: no alert sample in series ${series.series_id} with ParamSet ${params.param_set_id}`);
 }
 
+/**
+ * `linkAt`, `nextPassStart` and `activePass` use `Date.parse`, which reads a time without Z or an offset in the
+ * host's time zone. Every row and pass time is therefore checked here with the strict `ms()` first (throws, naming
+ * the field), so a bad table cannot be read differently on two machines.
+ */
+function assertTableTimes(table: EarthLinkTable): void {
+  for (const row of table.rows) ms(row.t_utc, "row time");
+  for (const pass of table.passes) {
+    ms(pass.start_utc, "pass start");
+    ms(pass.end_utc, "pass end");
+  }
+}
+
 /** Index of the last row with t <= alert, via `linkAt` (the same row object, so its index is found by identity). */
 function lightTimeRow(table: EarthLinkTable, alert_utc: string): number {
   if (table.rows.length === 0) throw new Error("demo-numbers: earth link table has no rows");
@@ -185,6 +198,7 @@ export function deriveDemoTiming(inputs: DemoTimingInputs): DemoTiming {
   const sun: DemoTiming["sun"] = { ...events, source: { rule: `sunriseSunset(alert, lat, lonE) with the hab position from ${hab.source.path}` } };
 
   // X: the row at or before the alert
+  assertTableTimes(table);
   const xRow = lightTimeRow(table, alert_utc);
   const light_time: DemoTiming["light_time"] = {
     row_t_utc: table.rows[xRow].t_utc,
