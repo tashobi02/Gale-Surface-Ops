@@ -40,20 +40,15 @@ No external icon font or CDN is used.
 | Diamond | `diamond.svg` | Unknown status shape (04 §C.1) |
 | Circle Help | `circle-help.svg` | Unknown status / help indicator |
 
-## Styling and Consumer Overrides (04 §C.4)
+## Styling (04 §C.4)
 
-Upstream Lucide SVGs default to `stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`.
-However, [04 §C.4](../../../../docs/specs/04_Design_Brief.md#c4-iconography) specifies a 1.5 px stroke with squared caps. The join is not specified by 04 (`stroke-linejoin: miter` is Proposed, to match the squared caps):
-
-- `stroke-width: 1.5;`
-- `stroke-linecap: square;`
-- `stroke-linejoin: miter;` (Proposed; not in 04 §C.4)
-
-Consumers embedding these SVGs inline should apply these CSS overrides to conform to 04 §C.4. TODO(decision): the shipped SVG files stay Lucide `stroke-width="2"` with round caps and joins, which 04 §C.4 (1.5 px, squared caps) does not allow; this needs a 04 spec change (accept the Lucide defaults) or an icon-build step, and until then every consumer must apply the overrides above. TODO(decision): no shared icon utility class exists yet; add one only after the icon consumers exist.
+[04 §C.4](../../../../docs/specs/04_Design_Brief.md#c4-iconography) accepts the Lucide defaults as shipped for v1:
+`stroke-width="2"`, `stroke-linecap="round"`, `stroke-linejoin="round"`. The files here are used unchanged, with no
+consumer override. Icons never stand alone for actions on EVA: icon + word.
 
 ## Licence and Attribution (T16.05)
 
-> Note for 04 spec owner: 04 §C.4 states Lucide is "MIT", but upstream Lucide is licensed under the ISC License with portions derived from Feather Icons under MIT. (Do not edit 04 directly; recorded here for clarification).
+Per [04 §C.4](../../../../docs/specs/04_Design_Brief.md#c4-iconography) the icon set is Lucide under the ISC licence.
 
 Lucide Icons are licensed under the ISC License:
 Copyright (c) 2026 Lucide Icons and Contributors.
