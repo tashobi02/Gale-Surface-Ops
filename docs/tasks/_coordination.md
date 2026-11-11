@@ -758,7 +758,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | `apps/web/src/ui/map/touchInput.ts` | T08.09 | New; stub by T07.01 |
 | `apps/web/src/ui/map/routeLayer.ts` | T09.01 | New; stub by T07.01 |
 | `apps/web/src/ui/map/drawLegs.ts` | T09.08 | New; fallback |
-| `apps/web/src/ui/map/keyboard.ts` | T13.06 | New; stub by T07.01 |
+| `apps/web/src/ui/map/keyboard.ts` | T13.06 | New; real implementation already on main (T13.06), so T07.01 adds no stub; `KeyboardMapHandle` is what MapHandle v2 satisfies |
 | `apps/web/src/ui/plan/stopsList.ts` | T08.05 | New; stub by T07.01 |
 | `apps/web/src/ui/results/profileChart.ts` | T09.02 | New; stub by T07.01 (SCR-05 and SCR-08 both use it) |
 | `apps/web/src/ui/results/warningsList.ts` | T09.04 | New; stub by T07.01 |
@@ -766,7 +766,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | `apps/web/src/ui/briefing/mapSnapshot.ts` | T11.04 | New; stub by T07.01; T11.06 may replace it |
 | `apps/web/src/export/planExport.ts` | T11.02 | New; stub by T07.01 |
 | `apps/web/src/ui/components/metric.ts` | T12.01 | New; stub by T07.01 |
-| `apps/web/src/ui/components/statusIcon.ts` | T13.05 | New; stub by T07.01 |
+| `apps/web/src/ui/components/statusIcon.ts` | T13.05 | New; real implementation already on main (T13.05), so T07.01 adds no stub |
 | `apps/web/src/ui/coachMarks.ts` | T13.07 | New; desirable path for cut 2 |
 | `apps/web/src/ui/content/methods.json` | T12.04 | New |
 | `apps/web/src/ui/styles/tokens.css` | T13.01 | Contract C12; after T13.01, append-only: add new custom properties at the end of the matching block with a 04 §C reference; renames need a contract-change |
@@ -1023,7 +1023,7 @@ Lanes code against these interfaces, not against each other's implementations. A
 | C7 | Compute module layout and exported signatures | Stubs in `packages/compute/src/` (`noRoute.ts`, `snap.ts`, `leg.ts`, `validate.ts`, `handler.ts`) | T05.01 | Same as C6 | Compute lane; T08.04 (`validate.ts`) | Projection maths in the worker (proj4 or hand-written eqc, 02 §B) |
 | C8 | Conditions interface (timeline LTST, sun elevation, conditions, radiation) | `packages/compute/src/conditions.ts`, `packages/compute/src/sun.ts` stubs | T06.01 | M2 | T05.32, T06.05, T06.09, T06.11 | — |
 | C9 | Tile grid and tile pixel encoding | `docs/contracts/tile-grid.md` | T02.01 | v1 at M0; frozen end of M1 (10 Nov); **v1.1 (11 Nov, documentation only: `{y}` southward from `origin_m[1]`, slope encoding cited from `tiles.py`/`grid.py`; no field, value or path changed); v1.2 after T02.04 only if the real-tile check changes something** | T02.02, T02.03, T03.02, T03.12, T07.07 | *(resolved in v1.1)* z/x/y addressing and y direction; data-encoded slope tiles, because 04 §C.1 slope classes follow the current limits. Still open: elevation and thermal-inertia ramps (`TODO(decision)` in the contract) |
-| C10 | UI app context: screen renderer signature, worker-client interface, map handle, fixed layer order, provenance attribute names; UI module stubs | `apps/web/src/ui/context.ts` + stubs listed in c.4 | T07.01 | M2 | All frontend, design and story code | Where traverse and waypoints sit in the FR-02 layer order; attribute name for the source id (NFR-05) |
+| C10 | UI app context **v2 (11 Nov 2026, contract change decided by Sadman Shaharier Mahim; v1 never merged)**: `ScreenProps` / `ScreenComponent` (React, not DOM renderers), `WorkerClient` (with `retry()`, `isCrashed()`), `MapHandle` v2 (`panBy(dx_px, dy_px)`, `zoomBy(delta)`, `getTargetElement()` focusable with tabindex 0, `getResolution()`, `onViewChange` with `center_x_m`, `center_y_m`, `resolution_m_per_px`, so `KeyboardMapHandle` and `FullScreenMap`'s `view` consume it), `LoadedAsset` (manifest `path` plus fetch `url`), fixed layer order, provenance attributes `data-provenance` and `data-source` (`PROVENANCE_VALUES` derived from the protocol `Provenance`); React stubs only where main has no real file | `apps/web/src/ui/context.ts` + stubs listed in c.4 | T07.01 | M2 | All frontend, design and story code | Where traverse and waypoints sit in the FR-02 layer order. *(Resolved in v2: the source-id attribute is `data-source`.)* |
 | C11 | Plan-store state and events | Interfaces in `apps/web/src/state/planStore.ts` | T08.01 | M2 | T07.04, T08.*, T09.*, T10.*, T11.*, T13.06 | Selection and hover shape for map ↔ list ↔ profile linking |
 | C12 | CSS token names and status classes | `apps/web/src/ui/styles/tokens.css` | T13.01 | M2 | All UI CSS | Pattern class names for ok / caution / blocked / unknown |
 | C13 *(v2)* | Protocol v0: runtime entities, wire messages, permissions (05 §C.2, 02 §E.4, §E.6) | `packages/protocol/src/runtime.ts`, `packages/protocol/src/ws.ts` | T20.01 (FR-50 parts by T31.01); T20.11 completes v0 with the 7 Nov decisions (T20.10); v0.1 (additive, 2026-11-10): T32.01 adds the live session (`presenter`, five commands, five log events), T32.07 and T32.25 follow up | M1 (Sat 7 Nov, 06 §D.3) | Every v2 subtask | Command body shape (flat or `args`); `TaskRoverArgs`; the accepted-rover-task event kind |

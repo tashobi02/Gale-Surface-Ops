@@ -1,17 +1,18 @@
 /**
- * Standard metric formatter with explicit data provenance attributes (FR-15, NFR-05).
- * Stub for T12.01.
+ * Standard metric display with the provenance label and source id on the value (FR-15, NFR-05).
+ * Stub for T12.01 (React component, C10 v2). Build it on `provAttrs` / `glyphOf` from ./provenance, so the
+ * value carries `data-provenance` and `data-source`, and a missing value renders "—" (04 §D.1).
  */
-import type { ProvenanceKind } from "../context";
+import type { ReactElement } from "react";
+import type { Sourced } from "./provenance";
 
-export interface MetricProps {
-  value: number | string;
+export interface MetricProps extends Sourced {
+  /** `null` = no value: rendered "—" and flagged unavailable. */
+  value: number | string | null;
   unit?: string;
-  provenance: ProvenanceKind;
-  sourceId: string;
   label?: string;
 }
 
-export function formatMetric(props: MetricProps): HTMLElement {
-  throw new Error("TODO(T12.01): formatMetric not implemented");
+export function Metric(props: MetricProps): ReactElement {
+  throw new Error("TODO(T12.01): Metric not implemented");
 }

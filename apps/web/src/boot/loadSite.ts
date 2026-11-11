@@ -3,7 +3,6 @@
  * Implemented by T07.02 (FR-01, FR-16).
  */
 import type {
-  Asset,
   DataSource,
   Layer,
   POIFeature,
@@ -12,6 +11,7 @@ import type {
 import {
   URL_PARAMS,
   type BootProblem,
+  type LoadedAsset,
   type LoadedSite,
 } from "../ui/context";
 
@@ -80,13 +80,12 @@ export async function loadSite(siteId?: string): Promise<LoadedSite> {
     sources.set(source.source_id, source);
   }
 
-  const assets = new Map<string, Asset>();
+  const assets = new Map<string, LoadedAsset>();
   for (const asset of site.assets ?? []) {
-    // Resolve asset path relative to the site folder (05 §C Asset path)
-    const resolvedPath = `sites/${id}/${asset.path}`;
+    // `path` stays the manifest value (05 §C Asset path); `url` is where it is fetched from (C10 v2)
     assets.set(asset.asset_id, {
       ...asset,
-      path: resolvedPath,
+      url: `sites/${id}/${asset.path}`,
     });
   }
 
@@ -95,7 +94,7 @@ export async function loadSite(siteId?: string): Promise<LoadedSite> {
   // Fetch POIs from pois_asset if declared (02 §E.1)
   if (site.pois_asset) {
     const poiAsset = assets.get(site.pois_asset);
-    const poiPath = poiAsset ? poiAsset.path : `sites/${id}/vectors/pois.geojson`;
+    const poiPath = poiAsset ? poiAsset.url : `sites/${id}/vectors/pois.geojson`;
 
     try {
       const poiRes = await fetch(poiPath);

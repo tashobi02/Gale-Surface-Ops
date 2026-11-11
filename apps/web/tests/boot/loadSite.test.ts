@@ -146,7 +146,8 @@ describe("T07.02 Site Loading (loadSite)", () => {
     expect(loaded.site.site_id).toBe("mock_site");
     expect(loaded.layers.get("slope")?.title).toBe("Slope");
     expect(loaded.sources.get("dem-source")?.publisher).toBe("USGS");
-    expect(loaded.assets.get("tiles-slope")?.path).toBe("sites/mock_site/tiles/slope");
+    expect(loaded.assets.get("tiles-slope")?.path).toBe("tiles/slope");
+    expect(loaded.assets.get("tiles-slope")?.url).toBe("sites/mock_site/tiles/slope");
     expect(loaded.pois.get("poi-1")?.properties.name).toBe("Crater Rim");
   });
 
