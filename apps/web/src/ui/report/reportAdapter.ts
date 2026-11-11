@@ -186,7 +186,7 @@ export function adaptPostEvaReport(api: ApiPostEvaReport): PostEvaReportData {
     out.doseHeadlineCrew = api.dose.headline.crew_id;
   }
 
-  // TODO(decision): "time to shelter" slab = the slowest crew response over every alert (worst case); confirm with Sadman.
+  // "time to shelter" slab = the slowest crew response over every alert (worst case); decided by Sadman Shaharier Mahim, 11 Nov.
   const responses = api.alerts.details.flatMap((a) => a.shelter.map((s) => s.shelter_response_s)).filter((v): v is number => v !== null);
   if (responses.length > 0) out.timeToShelterMin = Math.round((Math.max(...responses) / 60) * 10) / 10;
 

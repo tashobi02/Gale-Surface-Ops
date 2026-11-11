@@ -20,7 +20,7 @@
  * - Dropped stop: a role "stop" waypoint of the previous plan (initial plan, or the last PLAN_REVISED's waypoints) that the
  *   PLAN_REVISED waypoints no longer have, by stop_id; `stops_dropped` ordinals are never mapped to ids. Only PLAN_REVISED
  *   events after EVA_STARTED are revisions (counted, diffed); one before it is a published plan: it replaces the baseline and
- *   is neither counted nor diffed (decided by the orchestrator 11 Nov, TODO(decision): confirm with Sadman). A stop that was
+ *   is neither counted nor diffed (confirmed by Sadman Shaharier Mahim, 11 Nov). A stop that was
  *   reached and then dropped is `dropped` with its timings kept.
  * - Stop status: `completed` = every EVA crew has LEFT_STOP; after EVA_ENDED, reached but not all left = `incomplete`, never
  *   reached = `not_reached`; while the EVA runs they are `in_progress` and `pending`.
