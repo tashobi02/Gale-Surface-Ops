@@ -1,10 +1,21 @@
 /**
  * Shared on-screen map controls (docs/specs/01 FR-32; 04 §E.5; mockup handoff G-42, G-43, DV-14).
- * Buttons, not gestures: each ≥ 56 px on EVA and labelled with a word (04 §A.3 #9). The full-screen
- * EVA map shows +, −, FIT, FOLLOW, LAYERS and CLOSE; ops and planner maps show + / − / FIT (drag
- * and wheel are extras). Implemented by TASK-07 (planner, ops) and TASK-24 (EVA).
+ * Buttons, not gestures: every action has a button, so the map works without drag, wheel or pinch (04 §A.3 #9: no
+ * hidden controls; each control carries a word or a conventional symbol with an accessible name). The full-screen
+ * EVA map shows +, −, FIT, FOLLOW, LAYERS and CLOSE; ops and planner maps show + / − / FIT (drag and wheel are
+ * extras). With `onPan`, four pan buttons labelled NORTH, SOUTH, EAST and WEST are added.
+ * Implemented by TASK-07 (planner, ops) and TASK-24 (EVA).
+ *
+ * - Chrome is neutral (`--raised`, `--edge`, `--text-1`): status colours mean status only (04 §A.3 #1). A pressed
+ *   control is marked with a thicker `--text-1` edge and a word (FOLLOW ON / OFF), never a colour alone.
+ * - Target size follows the surface (04 §E): 32 px planner (mouse), 44 px ops (tablet), 56 px EVA (gloves), with
+ *   ≥ 8 px gaps on EVA.
+ * - Placement is the caller's: the toolbar is not positioned absolutely.
+ * - `mapControlHandlers` turns a `MapHandle` into the `onZoom`, `onPan` and `onFit` callbacks, so screens call the
+ *   map handle and never OpenLayers.
  */
-import React, { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
+import type { MapHandle } from "../context";
 
 /** Which button set to show. */
 export type MapControlsVariant = "eva-full" | "ops" | "planner";
@@ -13,7 +24,10 @@ export interface MapControlsProps {
   variant: MapControlsVariant;
   /** +1 = zoom in, −1 = zoom out. */
   onZoom: (direction: 1 | -1) => void;
-  /** Optional button pan; drag stays an extra. */
+  /**
+   * Optional button pan (adds NORTH, SOUTH, EAST, WEST); drag stays an extra. Screen directions, y down, as
+   * `MapHandle.panBy`: north = (0, −1), south = (0, 1), west = (−1, 0), east = (1, 0).
+   */
   onPan?: (dx: -1 | 0 | 1, dy: -1 | 0 | 1) => void;
   /** FOLLOW keeps the map centred on the crew member (EVA only). */
   follow: boolean;
@@ -24,186 +38,146 @@ export interface MapControlsProps {
   onLayers?: (open: boolean) => void;
   /** CLOSE returns to the normal SCR-12 layout (EVA full-screen only). */
   onClose?: () => void;
+  /** Class for the caller's placement (the toolbar is not positioned here). */
+  className?: string;
 }
 
-const baseContainerStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "8px",
-  position: "absolute",
-  zIndex: 10,
-  userSelect: "none",
+/** Minimum target per surface, px (04 §E: mouse 32, tablet 44, EVA 56). */
+export const MAP_CONTROL_TARGET_PX: Record<MapControlsVariant, number> = {
+  planner: 32,
+  ops: 44,
+  "eva-full": 56,
 };
 
-const baseBtnStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontFamily: "var(--font-mono, monospace)",
-  fontSize: "14px",
-  fontWeight: 600,
-  cursor: "pointer",
-  boxSizing: "border-box",
-  borderRadius: "0px",
-  border: "1px solid var(--border-color, #444)",
-  backgroundColor: "var(--bg-panel, #111)",
-  color: "var(--text-1, #eee)",
-  padding: "4px 8px",
-};
+/** Pixels one pan-button press moves the view (the keyboard step of keyboard.ts). */
+export const MAP_CONTROL_PAN_STEP_PX = 50;
 
-const evaBtnStyle: CSSProperties = {
-  ...baseBtnStyle,
-  minWidth: "56px",
-  minHeight: "56px",
-  padding: "8px 12px",
-  fontSize: "16px",
-};
+interface MapControlHandlers {
+  onZoom: (direction: 1 | -1) => void;
+  onPan: (dx: -1 | 0 | 1, dy: -1 | 0 | 1) => void;
+  onFit: () => void;
+}
+
+/**
+ * `MapControls` callbacks backed by a `MapHandle`. FIT fits `fitExtent` (the AOI or the route's extent, in projected
+ * metres); a pan button moves the view `panStepPx` screen pixels.
+ */
+export function mapControlHandlers(
+  handle: MapHandle,
+  options: { fitExtent: () => [number, number, number, number]; panStepPx?: number },
+): MapControlHandlers {
+  const step = options.panStepPx ?? MAP_CONTROL_PAN_STEP_PX;
+  return {
+    onZoom: (direction) => handle.zoomBy(direction),
+    onPan: (dx, dy) => handle.panBy(dx * step, dy * step),
+    onFit: () => handle.fitExtent(options.fitExtent()),
+  };
+}
+
+const PAN_BUTTONS = [
+  { control: "pan-north", glyph: "↑", word: "NORTH", label: "Pan north", dx: 0, dy: -1 },
+  { control: "pan-south", glyph: "↓", word: "SOUTH", label: "Pan south", dx: 0, dy: 1 },
+  { control: "pan-west", glyph: "←", word: "WEST", label: "Pan west", dx: -1, dy: 0 },
+  { control: "pan-east", glyph: "→", word: "EAST", label: "Pan east", dx: 1, dy: 0 },
+] as const;
 
 /** Labelled map buttons. TASK-07, TASK-24. */
 export function MapControls(props: MapControlsProps): ReactElement {
-  const isEva = props.variant === "eva-full";
-  const btnStyle = isEva ? evaBtnStyle : baseBtnStyle;
+  const eva = props.variant === "eva-full";
+  const target = `${MAP_CONTROL_TARGET_PX[props.variant]}px`;
+
+  const button = (pressed: boolean): CSSProperties => ({
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "4px",
+    minWidth: target,
+    minHeight: target,
+    padding: eva ? "10px 14px" : "4px 10px",
+    boxSizing: "border-box",
+    background: "var(--raised)",
+    // Selection is neutral chrome with a word; status colours mean status only
+    border: pressed ? "3px solid var(--text-1)" : "2px solid var(--edge)",
+    color: "var(--text-1)",
+    fontFamily: "var(--font-mono)",
+    fontWeight: 700,
+    fontSize: eva ? "16px" : "var(--text-ui)",
+    textTransform: "uppercase",
+    cursor: "pointer",
+  });
+  const group: CSSProperties = { display: "flex", flexWrap: "wrap", gap: "8px" };
 
   return (
-    <nav
-      className={`map-controls map-controls--${props.variant}`}
-      aria-label="Map controls"
-      style={{
-        ...baseContainerStyle,
-        bottom: isEva ? "16px" : "20px",
-        right: "16px",
-      }}
+    <div
+      role="toolbar"
+      aria-label="Map navigation controls"
+      data-slot="map-controls"
+      data-variant={props.variant}
+      className={props.className}
+      style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "8px", width: "100%", boxSizing: "border-box" }}
     >
-      {/* Zoom In */}
-      <button
-        type="button"
-        className="map-control-btn map-control-btn--zoom-in"
-        style={btnStyle}
-        aria-label="Zoom in"
-        onClick={() => props.onZoom(1)}
-      >
-        <span>+</span>
-        {isEva && <span style={{ marginLeft: "4px" }}>IN</span>}
-      </button>
+      <div role="group" aria-label="Zoom and fit" style={group}>
+        <button type="button" data-control="zoom-in" id={eva ? "map-ctrl-zoom-in" : undefined} className="btn" style={button(false)} aria-label="Zoom in" onClick={() => props.onZoom(1)}>
+          +
+        </button>
+        <button type="button" data-control="zoom-out" id={eva ? "map-ctrl-zoom-out" : undefined} className="btn" style={button(false)} aria-label="Zoom out" onClick={() => props.onZoom(-1)}>
+          −
+        </button>
+        <button type="button" data-control="fit" id={eva ? "map-ctrl-fit" : undefined} className="btn" style={button(false)} aria-label="Fit route into view" onClick={() => props.onFit()}>
+          FIT
+        </button>
+      </div>
 
-      {/* Zoom Out */}
-      <button
-        type="button"
-        className="map-control-btn map-control-btn--zoom-out"
-        style={btnStyle}
-        aria-label="Zoom out"
-        onClick={() => props.onZoom(-1)}
-      >
-        <span>−</span>
-        {isEva && <span style={{ marginLeft: "4px" }}>OUT</span>}
-      </button>
-
-      {/* Fit Extent */}
-      <button
-        type="button"
-        className="map-control-btn map-control-btn--fit"
-        style={btnStyle}
-        aria-label="Fit route to map"
-        onClick={() => props.onFit()}
-      >
-        <span>FIT</span>
-      </button>
-
-      {/* Optional Pan Buttons if onPan is provided */}
       {props.onPan && (
-        <div
-          className="map-controls-pan-group"
-          style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "4px" }}
-          aria-label="Pan controls"
-        >
-          <span />
-          <button
-            type="button"
-            className="map-control-btn map-control-btn--pan-up"
-            style={{ ...btnStyle, minWidth: isEva ? "56px" : "32px", minHeight: isEva ? "56px" : "32px" }}
-            aria-label="Pan up"
-            onClick={() => props.onPan!(0, 1)}
-          >
-            ▲
-          </button>
-          <span />
-          <button
-            type="button"
-            className="map-control-btn map-control-btn--pan-left"
-            style={{ ...btnStyle, minWidth: isEva ? "56px" : "32px", minHeight: isEva ? "56px" : "32px" }}
-            aria-label="Pan left"
-            onClick={() => props.onPan!(-1, 0)}
-          >
-            ◀
-          </button>
-          <span />
-          <button
-            type="button"
-            className="map-control-btn map-control-btn--pan-right"
-            style={{ ...btnStyle, minWidth: isEva ? "56px" : "32px", minHeight: isEva ? "56px" : "32px" }}
-            aria-label="Pan right"
-            onClick={() => props.onPan!(1, 0)}
-          >
-            ▶
-          </button>
-          <span />
-          <button
-            type="button"
-            className="map-control-btn map-control-btn--pan-down"
-            style={{ ...btnStyle, minWidth: isEva ? "56px" : "32px", minHeight: isEva ? "56px" : "32px" }}
-            aria-label="Pan down"
-            onClick={() => props.onPan!(0, -1)}
-          >
-            ▼
-          </button>
-          <span />
+        <div role="group" aria-label="Pan" style={group}>
+          {PAN_BUTTONS.map((pan) => (
+            <button
+              key={pan.control}
+              type="button"
+              data-control={pan.control}
+              className="btn"
+              style={button(false)}
+              aria-label={pan.label}
+              onClick={() => props.onPan!(pan.dx, pan.dy)}
+            >
+              <span aria-hidden="true">{pan.glyph}</span>
+              {pan.word}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* EVA-only Controls: FOLLOW, LAYERS, CLOSE */}
-      {isEva && (
-        <>
+      {eva && (
+        <div role="group" aria-label="View" style={group}>
           <button
             type="button"
-            className={`map-control-btn map-control-btn--follow ${props.follow ? "active" : ""}`}
-            style={{
-              ...btnStyle,
-              backgroundColor: props.follow ? "var(--active-bg, #2a4365)" : btnStyle.backgroundColor,
-              borderColor: props.follow ? "var(--active-border, #63b3ed)" : btnStyle.borderColor,
-            }}
-            aria-label="Follow crew member"
+            data-control="follow"
+            id="map-ctrl-follow"
+            className="btn"
+            style={button(props.follow)}
             aria-pressed={props.follow}
+            aria-label="Follow crew member position"
             onClick={() => props.onFollow?.(!props.follow)}
           >
-            <span>FOLLOW</span>
+            FOLLOW {props.follow ? "ON" : "OFF"}
           </button>
-
           <button
             type="button"
-            className={`map-control-btn map-control-btn--layers ${props.layersOpen ? "active" : ""}`}
-            style={{
-              ...btnStyle,
-              backgroundColor: props.layersOpen ? "var(--active-bg, #2a4365)" : btnStyle.backgroundColor,
-              borderColor: props.layersOpen ? "var(--active-border, #63b3ed)" : btnStyle.borderColor,
-            }}
-            aria-label="Toggle layers panel"
-            aria-pressed={props.layersOpen}
+            data-control="layers"
+            id="map-ctrl-layers"
+            className="btn"
+            style={button(props.layersOpen)}
+            aria-expanded={props.layersOpen}
+            aria-label="Toggle scientific layers menu"
             onClick={() => props.onLayers?.(!props.layersOpen)}
           >
-            <span>LAYERS</span>
+            LAYERS
           </button>
-
-          <button
-            type="button"
-            className="map-control-btn map-control-btn--close"
-            style={btnStyle}
-            aria-label="Close full-screen map"
-            onClick={() => props.onClose?.()}
-          >
-            <span>CLOSE</span>
+          <button type="button" data-control="close" id="map-ctrl-close" className="btn" style={button(false)} aria-label="Close full-screen map" onClick={() => props.onClose?.()}>
+            CLOSE
           </button>
-        </>
+        </div>
       )}
-    </nav>
+    </div>
   );
 }
