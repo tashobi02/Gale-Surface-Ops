@@ -297,6 +297,23 @@ def test_every_source_id_resolves_to_a_data_source(site: Path, where: str):
     assert mentions(problems, NO_SUCH_SOURCE)
 
 
+def test_gale_solar_min_source_resolves_in_manifest(site: Path):
+    records = ROOT / 'pipeline/sites/gale_boxwork'
+    minimum = json.loads((records / 'env_constants/rad-gale-dose-eq-solar-min.json').read_text())
+    source = json.loads((records / 'sources/simonsen-2024-rad.json').read_text())
+    manifest = load_manifest(site)
+    assert sum(c['const_id'] == minimum['const_id'] for c in manifest['env_constants']) == 1
+    assert sum(s['source_id'] == source['source_id'] for s in manifest['sources']) == 1
+    manifest['env_constants'] = [minimum if c['const_id'] == minimum['const_id'] else c
+                                 for c in manifest['env_constants']]
+    manifest['sources'] = [source if s['source_id'] == source['source_id'] else s
+                           for s in manifest['sources']]
+    save_manifest(site, manifest)
+
+    assert minimum['source_id'] == source['source_id'] == 'simonsen-2024-rad'
+    assert validate(site) == []
+
+
 # --------------------------------------------------------------------------------------
 # 05 §E.3: grids share width, height, cell, origin
 

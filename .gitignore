@@ -1,5 +1,6 @@
-node_modules/
+node_modules
 .claude/settings.local.json
+.claude/worktrees/
 # graphify: keep only the report in git
 graphify-out/*
 !graphify-out/GRAPH_REPORT.md

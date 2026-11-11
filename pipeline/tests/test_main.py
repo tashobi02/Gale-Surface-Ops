@@ -1,4 +1,5 @@
 """T03.15 entry-point orchestration and local output isolation."""
+import json
 from pathlib import Path
 
 import pytest
@@ -189,6 +190,62 @@ def test_masked_ti_sets_unknown_flag_through_pipeline(tmp_path, monkeypatch):
     assert not unknown[0, 10]
 
 
+def test_absent_ti_threshold_sets_no_low_ti_flag_through_pipeline(tmp_path, monkeypatch):
+    """U-03 is decided (2026-11-10): no defensible TI threshold for the AOI, so `ti_threshold.json` is
+    absent and T03.10 sets no LOW_TI bits (C5; docs/ops/ti-threshold.md). The TI values here are far below
+    any plausible threshold, so a LOW_TI bit would mean the absent file was read as a threshold anyway."""
+    import json
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+    from marswalk_pipeline import clip_reproject, config
+
+    site, work = tmp_path / 'site', tmp_path / 'work'
+    site.mkdir()
+    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
+    for name in ('hazards.geojson', 'low_res_dem.geojson'):
+        (site / name).write_text(json.dumps({'type': 'FeatureCollection', 'features': []}))
+    assert not (site / 'ti_threshold.json').exists()
+    ti_path = work / 'ti/themis_ti_aoi_pad1km.tif'
+    ti_path.parent.mkdir(parents=True)
+    with rasterio.Env(GDAL_TIFF_INTERNAL_MASK=True):
+        with rasterio.open(ti_path, 'w', driver='GTiff', width=2, height=2, count=1, dtype='float32',
+                           crs=config.WORKING_PROJ, transform=from_origin(0, 100, 50, 50)) as source:
+            source.write(np.full((2, 2), 10, dtype='float32'), 1)
+    warp = clip_reproject.clip_and_reproject
+    def ti_only(source, *args, **kwargs):
+        if source == ti_path:
+            warp(source, *args, **kwargs)
+    monkeypatch.setattr(clip_reproject, 'clip_and_reproject', ti_only)
+    monkeypatch.setattr(clip_reproject, 'nodata_to_nan', lambda *args: None)
+    runner._run_step('clip_reproject', tmp_path, site, work, tmp_path / 'out')
+    scratch = work / 'runs/gale_boxwork'
+    np.save(scratch / 'elevation.npy', np.ones((20, 20), dtype='float32'))
+    runner._run_step('flags', tmp_path, site, work, tmp_path / 'out')
+    flags = np.load(scratch / 'flags.npy')
+    assert not np.any(flags & (1 << config.FLAG_BITS['LOW_TI']))
+    # The TI values themselves are present: only the LOW_TI flag is withheld.
+    assert not np.any(flags & (1 << config.FLAG_BITS['TI_UNKNOWN']))
+
+
+def test_gale_boxwork_site_has_no_ti_threshold_file():
+    """U-03 decided 2026-11-10: there is no defensible TI threshold for the AOI, so the real site's
+    `ti_threshold.json` must stay absent. Writing one needs a new recorded decision (T04.07), not an
+    edit to this file."""
+    repo_root = Path(__file__).resolve().parents[2]
+    assert not (repo_root / 'pipeline/sites/gale_boxwork/ti_threshold.json').exists()
+
+
+def test_hazard_flags_layer_limitations_do_not_imply_a_threshold():
+    """The legend text is copied into the T03.19 manifest, so it must not say that a LOW_TI threshold
+    is pending: U-03 decided on 2026-11-10 that no defensible threshold exists."""
+    repo_root = Path(__file__).resolve().parents[2]
+    layer = json.loads((repo_root / 'pipeline/sites/gale_boxwork/layers/hazard_flags.json').read_text())
+    limitations = layer['limitations']
+    assert 'unresolved threshold' not in limitations
+    assert 'LOW_TI is not set' in limitations
+
+
 def test_local_source_paths_are_configurable(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, '_paths', lambda _: (tmp_path, tmp_path, tmp_path / 'w', tmp_path / 'o'))
     (tmp_path / 'site.json').write_text('{"site_id": "site"}')
@@ -215,6 +272,56 @@ def test_tiles_follow_record_and_stop_on_unknown_ramp(tmp_path, monkeypatch):
     assert rendered[0][0][3] == [32, 2]
     assert rendered[1][1]['hillshade']
     assert rendered[2][1]['data_encoded']
+
+
+def test_gale_ortho_is_tiled_as_jpeg_at_half_metre(tmp_path, capsys, monkeypatch):
+    import shutil
+    import numpy as np
+    rasterio = pytest.importorskip('rasterio')
+    from rasterio.transform import from_origin
+    from marswalk_pipeline import config
+
+    root = Path(runner.__file__).resolve().parents[3]
+    source_layers = root / 'pipeline/sites/gale_boxwork/layers'
+    site = tmp_path / 'site'
+    shutil.copytree(source_layers, site / 'layers')
+    ortho = json.loads((site / 'layers/ortho.json').read_text())
+    assert ortho['tile_grid']['resolutions_m'] == config.ORTHO_TILE_RESOLUTIONS_M
+    assert ortho['tile_grid']['resolutions_m'] == [32, 16, 8, 4, 2, 0.5]
+    assert ortho['tile_grid']['format'] == 'jpg'
+    x, y = ortho['tile_grid']['origin_m']
+    resolution = ortho['tile_grid']['resolutions_m'][-1]
+    size = 2  # Synthetic raster shape, not a terrain measurement.
+    (site / 'site.json').write_text(json.dumps({
+        'site_id': 'gale_boxwork', 'aoi': {'extent_m': [x, y - size * resolution, x + size * resolution, y]},
+    }))
+    for name in ('hillshade', 'slope', 'elevation', 'thermal_inertia', 'hazard_flags', 'comm_hab'):
+        layer = json.loads((site / 'layers' / f'{name}.json').read_text())
+        assert layer['tile_grid']['resolutions_m'] == config.TILE_RESOLUTIONS_M
+        assert layer['tile_grid']['format'] == 'png'
+
+    # This test is about the ortho ladder, not the state of other layers' ramps.
+    deferred = {'elevation', 'thermal_inertia', 'hazard_flags', 'comm_hab'}
+    monkeypatch.setattr(runner, '_unstyled_layers', lambda _: {name: 'test' for name in deferred})
+    monkeypatch.setattr(runner, '_skipped_layers', lambda _: deferred)
+
+    scratch = tmp_path / 'work/runs/gale_boxwork'
+    scratch.mkdir(parents=True)
+    for name, dtype in (('ortho', 'uint8'), ('hillshade', 'float32'), ('slope', 'float32')):
+        with rasterio.open(scratch / f'{name}.tif', 'w', driver='GTiff', width=size, height=size,
+                           count=1, dtype=dtype, transform=from_origin(x, y, resolution, resolution)) as dst:
+            dst.write(np.zeros((size, size), dtype=dtype), 1)
+
+    output = tmp_path / 'out'
+    runner._run_step('tiles', root, site, tmp_path / 'work', output, skip_unstyled_optional=True)
+    levels = ortho['tile_grid']['resolutions_m']
+    finest = output / f'tiles/ortho/{len(levels) - 1}/0/0.jpg'
+    with rasterio.open(finest) as tile:
+        assert tile.driver == 'JPEG'
+    index = json.loads((output / 'tiles/ortho/index.json').read_text())
+    assert {entry['path'] for entry in index['tiles']} == {f'{z}/0/0.jpg' for z in range(len(levels))}
+    assert not list((output / 'tiles/ortho').rglob('*.png'))
+    assert 'ortho record PNG/2 m' not in capsys.readouterr().err
 
 
 def test_site_id_mismatch_stops_before_steps(tmp_path, monkeypatch, capsys):

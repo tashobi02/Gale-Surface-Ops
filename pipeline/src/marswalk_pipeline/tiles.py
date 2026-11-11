@@ -18,6 +18,7 @@ def render_tiles(
     *,
     data_encoded: bool = False,
     hillshade: bool = False,
+    aoi_extent_m: tuple[float, float, float, float] | None = None,
 ) -> None:
     """Render a north-up raster already in the site's working projection.
 
@@ -26,7 +27,8 @@ def render_tiles(
     hillshade=True it is illumination in [0, 1], encoded in 1–255. Otherwise
     input bands must already be display-ready uint8 grayscale or RGB; any colour
     ramp is TODO(verify). PNG retains missing pixels as alpha. JPEG has no alpha:
-    missing pixels are black, so the coverage polygon is needed (02 §C.2 L1).
+    reject missing source data within the AOI, while allowing outside padding.
+    The viewer must clip that padding; 02 §C.2 L1's coverage polygon remains open.
     The supplied resolutions determine output resolution, including the finest.
     """
     import numpy as np
@@ -47,6 +49,11 @@ def render_tiles(
         raise ValueError("tile size and resolutions must be positive")
     if len(origin_m) != 2 or not all(math.isfinite(v) for v in origin_m):
         raise ValueError("origin must contain two finite coordinates")
+    if fmt in {"jpg", "jpeg"}:
+        if aoi_extent_m is None or len(aoi_extent_m) != 4 or not all(math.isfinite(v) for v in aoi_extent_m):
+            raise ValueError("JPEG tiles require a finite aoi.extent_m")
+        if aoi_extent_m[0] >= aoi_extent_m[2] or aoi_extent_m[1] >= aoi_extent_m[3]:
+            raise ValueError("JPEG aoi.extent_m must have positive width and height")
 
     root = Path(out_dir) / "tiles" / layer_id
     entries = []
@@ -60,6 +67,41 @@ def render_tiles(
             raise ValueError("expected one grayscale/slope band or three RGB bands")
         if not data_encoded and not hillshade and any(src.dtypes[i - 1] != "uint8" for i in bands):
             raise ValueError("display raster must be uint8; colour mapping is not specified")
+
+        if fmt in {"jpg", "jpeg"}:
+            from rasterio.windows import Window
+
+            assert aoi_extent_m is not None  # validated above
+            minx, miny, maxx, maxy = aoi_extent_m
+            error = f"{layer_id}: JPEG cannot represent invalid or no-data source pixels inside aoi.extent_m"
+            bounds = src.bounds
+            # Missing raster coverage is also missing data within the AOI.
+            for actual, required, lower in ((bounds.left, minx, True), (bounds.bottom, miny, True),
+                                            (bounds.right, maxx, False), (bounds.top, maxy, False)):
+                tolerance = 4 * max(math.ulp(actual), math.ulp(required))
+                gap = actual - required if lower else required - actual
+                if gap > tolerance:
+                    raise ValueError(f"{error}: source does not cover the AOI")
+
+            aoi_window = from_bounds(minx, miny, maxx, maxy, transform)
+
+            def snap(value: float) -> float:
+                nearest = round(value)
+                return float(nearest) if abs(value - nearest) <= 4 * math.ulp(value) else value
+
+            col_start = max(0, math.floor(snap(aoi_window.col_off)))
+            row_start = max(0, math.floor(snap(aoi_window.row_off)))
+            col_end = min(src.width, math.ceil(snap(aoi_window.col_off + aoi_window.width)))
+            row_end = min(src.height, math.ceil(snap(aoi_window.row_off + aoi_window.height)))
+            # Check all source pixels intersecting the AOI before any resampling.
+            # Bounded windows avoid materializing a large raster in memory.
+            for row in range(row_start, row_end, 1024):
+                for col in range(col_start, col_end, 1024):
+                    window = Window(col, row, min(1024, col_end - col), min(1024, row_end - row))
+                    if (src.read_masks(bands, window=window) == 0).any() or (
+                        alpha_indexes and (src.read(alpha_indexes, window=window) == 0).any()
+                    ):
+                        raise ValueError(error)
 
         ox, oy = origin_m
         west, north = src.bounds.left, src.bounds.top

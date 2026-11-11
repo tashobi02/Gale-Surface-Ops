@@ -8,6 +8,10 @@
  * T20.04 changes `ServerOptions` / the return type and removes the cast.
  * Wall-clock timers are allowed in the server (heartbeat), never in src/engine/ (NFR-06).
  */
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import {
@@ -15,14 +19,25 @@ import {
   MAX_REPLAY_GAP,
   type ClientMessage,
   type Command,
+  type Alert,
   type CommandResult,
   type LogEvent,
   type ServerMessage,
+  type PlanExport,
   type Snapshot,
+  type StopTask,
+  type Waypoint,
 } from "@marswalk/protocol";
 import type { StateChange } from "../src/engine/reducer";
+import { readScenario } from "../src/scenario";
 import { startServer } from "../src/server";
-import type { SessionHandle } from "../src/session";
+import { loadSession, type SessionHandle } from "../src/session";
+
+// seedTasks (T31.04) is still a stub; the real-session test below only needs a loaded session.
+vi.mock("../src/engine/tasks", async () => {
+  const actual = await vi.importActual<typeof import("../src/engine/tasks")>("../src/engine/tasks");
+  return { ...actual, seedTasks: () => [] };
+});
 
 interface HabServerUnderTest {
   url: string;
@@ -44,6 +59,11 @@ class StubSession implements SessionHandle {
   pending: LogEvent[] = [];
   applied: Command[] = [];
   clientIds: (string | undefined)[] = [];
+  /** The scenario's plan, and the engine's current plan (the reducer replaces its waypoints on PLAN_REVISED). */
+  initial: PlanExport | null = null;
+  current: PlanExport | null = null;
+  /** A scripted log for the report tests; without it the placeholder ARRIVED_STOP events are served. */
+  log: LogEvent[] | null = null;
   constructor(lastSeq: number) {
     this.lastSeq = lastSeq;
   }
@@ -52,7 +72,7 @@ class StubSession implements SessionHandle {
       v: 1, type: "SNAPSHOT", seq: this.lastSeq, sim_time: SIM_TIME,
       session: { session_id: "s-0007", scenario_id: "storm-sol4190", data_version: "gale_boxwork-2026.11.08", seed: 0,
         status: "RUNNING", clock: { sim_time: SIM_TIME, speed: 60, paused: false }, plan_revision: 0, last_seq: this.lastSeq, log_hash: "" },
-      plan: null, crew: [], vehicles: [], alerts: [], options: [], tasks: [],
+      plan: this.current, crew: [], vehicles: [], alerts: [], options: [], tasks: [],
       earth: { light_time_s: 0, next_pass_utc: null, blackout: false, queue: [] }, clients, provenance: {},
     };
   }
@@ -67,7 +87,11 @@ class StubSession implements SessionHandle {
     this.pending = [];
     return { events, deltas: [] };
   }
+  initialPlan(): PlanExport | null {
+    return this.initial;
+  }
   eventsAfter(seq: number): LogEvent[] {
+    if (this.log) return this.log.filter((e) => e.seq > seq);
     const out: LogEvent[] = [];
     for (let s = seq + 1; s <= this.lastSeq; s++) out.push(logEvent(s));
     return out;
@@ -77,6 +101,53 @@ class StubSession implements SessionHandle {
     for (let i = 0; i < n; i++) this.pending.push(logEvent(++this.lastSeq));
   }
 }
+
+/**
+ * A session whose commands change state the way the reducer does (new arrays, nothing mutated), so the server can
+ * diff the snapshot before and after. The real task handler is still the T31.04 stub, hence this stand-in.
+ */
+class StatefulSession extends StubSession {
+  alerts: Alert[] = [];
+  tasks: StopTask[] = [];
+  sessionId = "s-0007";
+  snapshot(clients: Snapshot["clients"]): Snapshot {
+    const snap = super.snapshot(clients);
+    return { ...snap, session: { ...snap.session, session_id: this.sessionId }, alerts: this.alerts, tasks: this.tasks };
+  }
+  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[] } {
+    const out = super.apply(command, client_id);
+    const seq = out.events[0].seq;
+    const args = command.args as Record<string, string>;
+    if (command.kind === "ACK_ALERT") {
+      this.alerts = this.alerts.map((a) => (a.alert_id === args.alert_id ? { ...a, acked_seq: seq, acked_by: command.role } : a));
+    } else if (command.kind === "UPDATE_STOP_TASK") {
+      this.tasks = this.tasks.map((t) => (t.task_id === args.task_id ? { ...t, state: args.state as StopTask["state"], updated_by: command.role } : t));
+    } else if (command.kind === "LOAD_SCENARIO") {
+      this.sessionId = "s-0008";
+    }
+    return out;
+  }
+  private staged: Alert | null = null;
+  /** Raise an alert inside the next advance, as the engine's alerts tick does (state changes only inside it). */
+  raise(alert: Alert): void {
+    this.emit(1);
+    this.staged = alert;
+  }
+  advance(steps: number): { events: LogEvent[]; deltas: StateChange[] } {
+    if (this.staged) this.alerts = [...this.alerts, this.staged];
+    this.staged = null;
+    return super.advance(steps);
+  }
+}
+
+const ALERT: Alert = {
+  alert_id: "a-420", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1", "EV2"], raised_seq: 420,
+  acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now — radiation surge", data: {},
+};
+const TASK: StopTask = {
+  task_id: "t-s2-02", stop_id: "wp-2", crew_id: "EV1", kind: "image", text: "Image the ridge crest", state: "TODO", reason: null,
+  origin: "plan", updated_sim_time: SIM_TIME, updated_by: "system", provenance: { state: "simulated", text: "assumed" },
+};
 
 // ---- WebSocket test client ---------------------------------------------------------------------
 
@@ -263,4 +334,124 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
     expect(body.alerts).toBeDefined();
     expect(body.tasks).toBeDefined();
   });
+
+  describe("GET /api/report plan baseline (01 FR-46)", () => {
+    it("the real session's initialPlan() is the scenario's plan, and the snapshot plan starts out the same", () => {
+      const here = dirname(fileURLToPath(import.meta.url));
+      const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
+      const dir = mkdtempSync(join(tmpdir(), "marswalk-server-"));
+      try {
+        const session = loadSession(fake, dir);
+        expect(session.initialPlan()).toBe(fake.scenario.plan);
+        expect(session.snapshot([]).plan?.plan_hash).toBe(fake.scenario.plan.plan_hash);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    const wp = (n: number, role: Waypoint["role"]): Waypoint => ({ id: `wp-${n}`, role, x_m: n, y_m: 0 });
+    const planOf = (waypoints: Waypoint[]): PlanExport =>
+      ({ scenario: { eva_start_utc: SIM_TIME }, waypoints, result: { stops_timeline: [] } }) as unknown as PlanExport;
+    const ev = (seq: number, kind: LogEvent["kind"], data: Record<string, unknown>): LogEvent =>
+      ({ seq, sim_time: SIM_TIME, kind, actor: "system", data, provenance: {}, command_ref: null });
+
+    it("a stop dropped before anyone reached it is `dropped`, though the snapshot plan (replaced by the reducer) no longer lists it", async () => {
+      const { server, session } = await setup();
+      const start = wp(0, "start");
+      session.initial = planOf([start, wp(1, "stop"), wp(2, "stop"), wp(3, "stop")]);
+      session.current = planOf([start, wp(1, "stop")]); // after both revisions below
+      session.log = [
+        ev(1, "SESSION_LOADED", { session_id: "s-0007", scenario_id: "storm-sol4190", data_version: "gale_boxwork-2026.11.08", seed: 0, plan_hash: "x" }),
+        ev(2, "EVA_STARTED", { crew_ids: ["EV1"], plan_revision: 0 }),
+        ev(3, "PLAN_REVISED", { plan_revision: 1, option_id: "opt-1", stops_dropped: [3], waypoints: [start, wp(1, "stop"), wp(2, "stop")], legs: [] }),
+        ev(4, "PLAN_REVISED", { plan_revision: 2, option_id: "opt-2", stops_dropped: [2], waypoints: [start, wp(1, "stop")], legs: [] }),
+        ev(5, "EVA_ENDED", { crew_ids: ["EV1"] }),
+      ];
+      const body = (await (await fetch(`${server.url}/api/report`)).json()) as { stops: { dropped: number; not_reached: number; details: { stop_id: string; status: string }[] }; plan_revisions: number };
+
+      expect(body.stops.details.map((d) => [d.stop_id, d.status])).toEqual([["wp-1", "not_reached"], ["wp-2", "dropped"], ["wp-3", "dropped"]]);
+      expect(body.stops.dropped).toBe(2);
+      expect(body.plan_revisions).toBe(2);
+    });
+  });
 });
+
+describe("command effects reach every client (T20.04; 02 §D.14, §E.6)", () => {
+  const opsHello: ClientMessage = { v: 1, type: "HELLO", role: "ops", client_id: "c-ops", display_name: "", last_seq: 0 };
+  const deltas = (c: TestClient) => c.received.filter((m): m is Extract<ServerMessage, { type: "STATE_DELTA" }> => m.type === "STATE_DELTA");
+
+  async function twoClients(session: StatefulSession) {
+    const server = await start({ site: "mock_site", port: 0, host: "127.0.0.1", session });
+    open.server = server;
+    const ev1 = await client(server.url);
+    const ops = await client(server.url);
+    ev1.send(hello(0));
+    ops.send(opsHello);
+    await ev1.waitFor((m) => m.type === "SNAPSHOT");
+    await ops.waitFor((m) => m.type === "SNAPSHOT");
+    return { ev1, ops };
+  }
+
+  it("ACK_ALERT by ops: every client gets the EVENT, then a STATE_DELTA with the alert's acked_seq", async () => {
+    const session = new StatefulSession(412);
+    session.alerts = [ALERT];
+    const { ev1, ops } = await twoClients(session);
+
+    ops.send({ v: 1, type: "COMMAND", command_id: "k-ack", role: "ops", command: { kind: "ACK_ALERT", args: { alert_id: "a-420" } } });
+    await ops.waitFor((m) => m.type === "COMMAND_RESULT");
+    for (const c of [ev1, ops]) {
+      const [delta] = await c.waitFor((m) => m.type === "STATE_DELTA");
+      expect(delta).toMatchObject({ seq: 413, changes: expect.arrayContaining([{ path: "alerts/a-420/acked_seq", value: 413 }]) });
+      // The EVENT comes first, so the client's seq is already 413 when the delta is applied.
+      expect(c.received.filter((m) => m.type !== "SNAPSHOT").map((m) => m.type).slice(0, 2)).toEqual(["EVENT", "STATE_DELTA"]);
+    }
+  });
+
+  it("UPDATE_STOP_TASK: the task's new state reaches the other client", async () => {
+    const session = new StatefulSession(412);
+    session.tasks = [TASK];
+    const { ev1, ops } = await twoClients(session);
+
+    ev1.send({ v: 1, type: "COMMAND", command_id: "k-task", role: "eva:EV1", command: { kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-02", state: "DONE" } } });
+    const [delta] = await ops.waitFor((m) => m.type === "STATE_DELTA");
+    expect(delta).toMatchObject({ changes: expect.arrayContaining([{ path: "tasks/t-s2-02/state", value: "DONE" }]) });
+  });
+
+  it("a command that changes no state sends no STATE_DELTA", async () => {
+    const session = new StatefulSession(412);
+    const { ev1 } = await twoClients(session);
+    ev1.send({ v: 1, type: "COMMAND", command_id: "k-none", role: "eva:EV1", command: { kind: "SEND_MESSAGE", args: {} } });
+    await ev1.waitFor((m) => m.type === "COMMAND_RESULT");
+    await new Promise((r) => setTimeout(r, 150));
+    // seq and the log hash move with every event, so only those session fields may appear.
+    const paths = deltas(ev1).flatMap((d) => d.changes.map((ch) => ch.path));
+    expect(paths.filter((p) => !p.startsWith("session/"))).toEqual([]);
+  });
+
+  it("an alert raised by the engine tick reaches every client: a new item replaces the whole list", async () => {
+    const session = new StatefulSession(412);
+    const { ev1, ops } = await twoClients(session);
+
+    session.raise(ALERT);
+    for (const c of [ev1, ops]) {
+      const [delta] = await c.waitFor((m) => m.type === "STATE_DELTA" && m.changes.some((ch) => ch.path === "alerts"));
+      expect(delta).toMatchObject({ changes: expect.arrayContaining([{ path: "alerts", value: [ALERT] }]) });
+    }
+  });
+
+  it("LOAD_SCENARIO (a new session id) sends every client a fresh SNAPSHOT before the new events, and no delta", async () => {
+    const session = new StatefulSession(412);
+    const { ev1, ops } = await twoClients(session);
+
+    ops.send({ v: 1, type: "COMMAND", command_id: "k-load", role: "ops", command: { kind: "LOAD_SCENARIO", args: { scenario_id: "storm-sol4190" } } });
+    await ops.waitFor((m) => m.type === "COMMAND_RESULT");
+    for (const c of [ev1, ops]) {
+      const [, second] = await c.waitFor((m) => m.type === "SNAPSHOT", 2);
+      expect((second as Snapshot).session.session_id).toBe("s-0008");
+      const after = c.received.slice(c.received.indexOf(second) + 1).map((m) => m.type);
+      expect(after[0]).toBe("EVENT");
+      expect(deltas(c)).toHaveLength(0);
+    }
+  });
+});
+

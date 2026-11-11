@@ -1,4 +1,4 @@
-import type { MissionScenario, Waypoint, WorkerRequest } from "@marswalk/protocol";
+import type { ComputePlanRequest, MissionScenario, Waypoint, WorkerRequest } from "@marswalk/protocol";
 import { describe, expect, it } from "vitest";
 import { makePlaneGrid } from "../../../apps/web/tests/fixtures/grids";
 import { validatePlanInput, validateWorkerRequest } from "../src/validate";
@@ -31,20 +31,49 @@ describe("validatePlanInput", () => {
   });
 
   describe("required fields validation (02 §E.3)", () => {
-    // Presence is enforced on full requests by validateWorkerRequest; validatePlanInput
-    // stays a per-field validator so the planner form can check partial input.
-    const request = {
-      type: "COMPUTE_PLAN",
-      request_id: "req-required",
-      plan_revision: 1,
-      site_id: "gale_boxwork",
-      data_version: "2026.11.05",
-      waypoints: [
-        { id: "wp-0", role: "start", x_m: 12.5, y_m: -12.5 },
-        { id: "wp-1", role: "stop", x_m: 37.5, y_m: -12.5 },
-      ],
-    } as const;
     const grid = makePlaneGrid({ width: 20, height: 20, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+    const request: ComputePlanRequest = {
+      type: "COMPUTE_PLAN", request_id: "req-001", plan_revision: 1,
+      site_id: "gale_boxwork", data_version: "2026.11.05",
+      scenario: { ...validScenario, vehicle_param_set: "pr1-assumed" },
+      waypoints: validWaypoints,
+    };
+
+    it("rejects an empty worker scenario because required fields are missing", () => {
+      const err = validateWorkerRequest({ ...request, scenario: {} as MissionScenario }, grid);
+      expect(err.length).toBeGreaterThanOrEqual(9);
+      const requiredFields = [
+        "eva_start_utc",
+        "max_eva_duration_h",
+        "dwell_min_per_stop",
+        "hard_slope_limit_deg",
+        "caution_slope_deg",
+        "walkback_limit_km",
+        "suited_flat_speed_kmh",
+        "solar_phase",
+        "loop",
+      ];
+      for (const field of requiredFields) {
+        expect(err.some((e) => e.field === field && e.message.includes("required"))).toBe(true);
+      }
+    });
+
+    it("requires loop to be present as a boolean", () => {
+      const missingLoop = { ...validScenario };
+      delete (missingLoop as any).loop;
+      const errMissing = validateWorkerRequest({ ...request, scenario: missingLoop }, grid);
+      expect(errMissing.some((e) => e.field === "loop" && e.message.includes("required"))).toBe(true);
+
+      const invalidLoop = { ...validScenario, loop: "yes" as any };
+      const errInvalid = validatePlanInput(invalidLoop);
+      expect(errInvalid.some((e) => e.field === "loop" && e.message.includes("boolean"))).toBe(true);
+    });
+
+    it("accepts a complete worker request while preserving partial form validation", () => {
+      expect(validatePlanInput({})).toEqual([]);
+      expect(validatePlanInput({ eva_start_utc: validScenario.eva_start_utc })).toEqual([]);
+      expect(validateWorkerRequest(request, grid)).toEqual([]);
+    });
 
     it("rejects a request whose scenario has no fields", () => {
       const err = validateWorkerRequest({ ...request, scenario: {} } as unknown as WorkerRequest, grid);
@@ -83,6 +112,50 @@ describe("validatePlanInput", () => {
     it("still accepts a partial scenario for per-field checks", () => {
       expect(validatePlanInput({})).toEqual([]);
     });
+
+    it("reports a missing loop once as required on a full request", () => {
+      const { loop: _loop, ...scenario } = request.scenario;
+      const err = validateWorkerRequest({ ...request, scenario } as unknown as WorkerRequest, grid);
+      expect(err.filter((e) => e.field === "loop")).toMatchObject([
+        { field: "loop", message: "loop is required" },
+      ]);
+    });
+
+    it("reports non-finite coordinates alongside a malformed waypoint", () => {
+      const err = validateWorkerRequest({
+        ...request,
+        waypoints: [{ ...request.waypoints[0], x_m: Number.NaN }, null],
+      } as unknown as WorkerRequest, grid);
+      expect(err.filter((e) => e.field === "waypoints" && /coordinates/.test(e.message))).toHaveLength(1);
+      expect(err.some((e) => e.field === "waypoints" && /object/.test(e.message))).toBe(true);
+    });
+
+    it("reports unprintable waypoint values without hiding other boundary errors", () => {
+      const unprintable = { toString: 1, valueOf: 1 };
+      const err = validateWorkerRequest({
+        ...request,
+        scenario: { ...request.scenario, loop: "yes" },
+        waypoints: [{ ...request.waypoints[0], id: unprintable, x_m: unprintable }, request.waypoints[1]],
+      } as unknown as WorkerRequest, grid);
+      expect(err.filter((e) => e.field === "loop")).toHaveLength(1);
+      const coordinateErrors = err.filter((e) => e.field === "waypoints" && /coordinates/.test(e.message));
+      expect(coordinateErrors).toHaveLength(1);
+      expect(coordinateErrors[0].value).toMatchObject({ id: unprintable, x_m: unprintable });
+      expect(err.some((e) => e.field === "waypoints" && /id is required/.test(e.message))).toBe(true);
+    });
+
+    it("reports loop and coordinate errors alongside an unprintable slope constraint", () => {
+      const unprintable = { toString: 1, valueOf: 1 };
+      const err = validateWorkerRequest({
+        ...request,
+        scenario: { ...request.scenario, loop: "yes", caution_slope_deg: unprintable },
+        waypoints: [{ ...request.waypoints[0], x_m: Number.NaN }, request.waypoints[1]],
+      } as unknown as WorkerRequest, grid);
+      expect(err.filter((e) => e.field === "loop")).toHaveLength(1);
+      expect(err.filter((e) => e.field === "caution_slope_deg")).toHaveLength(1);
+      expect(err.filter((e) => e.field === "waypoints" && /coordinates/.test(e.message))).toHaveLength(1);
+    });
+
   });
 
   describe("eva_start_utc validation (year 2000–2100 ISO UTC)", () => {
@@ -239,13 +312,13 @@ describe("validatePlanInput", () => {
       expect(errTwoStarts.some((e) => e.field === "waypoints" && e.message.includes("exactly one start"))).toBe(true);
     });
 
-    it("requires the first waypoint to have role 'start'", () => {
+    it("accepts schema-valid waypoints when the sole start is not first", () => {
       const startSecond: Waypoint[] = [
         { id: "wp-0", role: "stop", x_m: 10, y_m: -10 },
         { id: "wp-1", role: "start", x_m: 20, y_m: -10 },
       ];
       const err = validatePlanInput(validScenario, startSecond);
-      expect(err.some((e) => e.field === "waypoints" && e.message.includes("First waypoint must have role 'start'"))).toBe(true);
+      expect(err).toEqual([]);
     });
 
     it("rejects non-finite waypoint coordinates", () => {

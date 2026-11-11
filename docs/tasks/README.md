@@ -47,6 +47,7 @@ The work packages of [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-wo
 | TASK-29 | [Robotic rover tasking: SCOUT, CARRY, RELAY, RETURN](TASK-29_rover-tasking.md) | compute — R2: Mishkat Ahmed Khan (handler, routing, relay coverage, engine module); frontend — R3: Saba Atharique (SCR-15, queue display) | M3 (9–10 Nov; moved to Tier 1 on 5 Nov) | pre-event-if-permitted | 7 | 5.5–8.5 |
 | TASK-30 | [Score-sheet single points: challenge named, repo public, page drafted, AI use current](TASK-30_score-sheet-points.md) | story — R6: Obidit Islam (submission and project page) | M0 (5–6 Nov), then continuous to M8 | pre-event-allowed | 3 | 1.5–2 |
 | TASK-31 | [Stop task list (FR-50): protocol, engine, EVA list, ops progress, task text](TASK-31_stop-task-list.md) | hab-core — R4: Anjim Hossain (engine); frontend — R5: Ridita Alam (UI); story — R6: Sadman Shaharier Mahim (task text) | M1 (contract, done 6 Nov) → M3 (engine and UI, 8–10 Nov) | pre-event-if-permitted (T31.01 and T31.02 are pre-event-allowed) | 9 | 9–11.5 |
+| TASK-32 | [Live operations session: presenter panel, event on demand, mission setup, stop task library](TASK-32_live-session.md) | hab-core — R4 Hab Core: Sadman Shaharier Mahim (all subtasks, including the SCR-19, SCR-20 and planner task editing UI) | M4 (offline dry run 11 Nov); planner task editing M4b; `TODO(decision)` in 06 §C.2 | pre-event-allowed (contract, spec-change, fixture, data); pre-event-if-permitted (code) | 32 | 50–68 |
 
 Estimates are the sums of the subtasks' low and high estimates, computed by `scripts/check_tasks.py --summary`; they include fallbacks and desirables that may never run.
 
@@ -178,6 +179,11 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T03.28 | Tests: `comm_hab` viewshed grid (v2) | data | pre-event-allowed | M2 | |
 | T03.29 | Implement the `comm_hab` viewshed grid and its layer record (v2) | data | pre-event-allowed | M2 | |
 | T03.30 | Verify `comm_hab` against `gdal_viewshed` at 5 points (v2) | data | pre-event-allowed | M2 | |
+| T03.31 | contract-change: C1, C2 and C5 v2 — optional `hab_candidates` (HabCandidate) in the site manifest | data | pre-event-allowed | M4 | |
+| T03.32 | Candidate hab site records: the first choice and the alternative | data | pre-event-allowed | M4 | |
+| T03.33 | Tests: per-candidate `comm_hab` grids, the manifest `hab_candidates` list and its validator rules | data | pre-event-allowed | M4 | |
+| T03.34 | follow-up: build a `comm_hab` grid and a default start for each hab candidate; manifest and validator | data | pre-event-allowed | M4 | |
+| T03.35 | Verify both hab candidates on the real site: validator passes, alternative `comm_hab` against `gdal_viewshed` | data | pre-event-allowed | M4 | |
 | T04.01 | Choose and cache the traverse source (U-04); write its DataSource and Layer records | data | pre-event-allowed | M2 | |
 | T04.02 | Tests: traverse and POI packaging | data | pre-event-allowed | M2 | |
 | T04.03 | Implement traverse and POI packaging | data | pre-event-allowed | M2 | |
@@ -473,4 +479,36 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T31.07 | Tests: EVA list and ops progress DOM tests | frontend | pre-event-if-permitted | M2 | |
 | T31.08 | Verify: tap on tablet shows on ops ≤ 500 ms; abort drops open tasks; report counts match the log | integration | pre-event-if-permitted | M3b–M4 | |
 | T31.09 | Fallback — start only if TASK-31 runs late at M3: ops view-only, no `ADD_STOP_TASK` | frontend | pre-event-if-permitted | M3 | |
+| T32.01 | contract-change: live-session protocol — `presenter` role, five commands, five log events, Session and library types (C13) | hab-core | pre-event-allowed | M4 | |
+| T32.02 | spec-change: record the live-session gaps — planner task-library transport, `PUBLISH_PLAN` task payload, `ended_by` values, command-list export, 06 §C.2 owners | hab-core | pre-event-allowed | M4 | |
+| T32.03 | follow-up: F7 fixtures for the live-session beats | hab-core | pre-event-allowed | M4 | |
+| T32.04 | contract-change: scenario schema v2 — `mission_setup`, `event_library`, `task_library`; `plan` and `events` optional | hab-core | pre-event-allowed | M4 | |
+| T32.05 | follow-up: fake scenario in the live shape, a plan-less variant and a two-candidate site | hab-core | pre-event-allowed | M4 | |
+| T32.06 | Tests: reshaped loader and plan-less session | hab-core | pre-event-if-permitted | M4 | |
+| T32.07 | follow-up: optional `plan` and `events` across the loader and the engine | hab-core | pre-event-if-permitted | M4 | |
+| T32.08 | follow-up: loader checks for `mission_setup`, `event_library` and `task_library` | hab-core | pre-event-if-permitted | M4 | |
+| T32.09 | Tests: `JUMP_NEXT_STOP` (Next stop) | hab-core | pre-event-if-permitted | M4 | |
+| T32.10 | follow-up: implement `JUMP_NEXT_STOP` (fast-forward to the next stop) | hab-core | pre-event-if-permitted | M4 | |
+| T32.11 | Tests: `START_EVENT` and the time-shifted storm | hab-core | pre-event-if-permitted | M4 | |
+| T32.12 | follow-up: implement `START_EVENT` (event on demand, time-shifted dose series) | hab-core | pre-event-if-permitted | M4 | |
+| T32.13 | Tests: `RESET_SESSION`, `SELECT_HAB_SITE`, `SET_MISSION_SETUP` and the role matrix | hab-core | pre-event-if-permitted | M4 | |
+| T32.14 | follow-up: implement `RESET_SESSION`, `SELECT_HAB_SITE` and `SET_MISSION_SETUP` | hab-core | pre-event-if-permitted | M4 | |
+| T32.15 | follow-up: server sends a fresh `SNAPSHOT` to every client after the session is replaced | hab-core | pre-event-if-permitted | M4 | |
+| T32.16 | Tests: headless replay of a recorded command list | hab-core | pre-event-if-permitted | M4 | |
+| T32.17 | follow-up: replay and CLI apply a recorded command list; export from the log | hab-core | pre-event-if-permitted | M4 | |
+| T32.18 | Write the reference command list for the 01 §E.1 reference run (U-62) | hab-core | pre-event-allowed | M4 | |
+| T32.19 | Tests: SCR-19 presenter panel | frontend | pre-event-if-permitted | M4 | |
+| T32.20 | Implement SCR-19 presenter panel | frontend | pre-event-if-permitted | M4 | |
+| T32.21 | Tests: SCR-20 mission setup | frontend | pre-event-if-permitted | M4 | |
+| T32.22 | Implement SCR-20 mission setup | frontend | pre-event-if-permitted | M4 | |
+| T32.23 | follow-up: register `#/presenter` and `#/setup`; Presenter tile on SCR-10 | frontend | pre-event-if-permitted | M4 | |
+| T32.24 | Tests: `PUBLISH_PLAN` carries `stop_tasks`; the planner receives the task library | hab-core | pre-event-if-permitted | M4 | |
+| T32.25 | follow-up: Hab Core seeds published tasks and delivers the task library to the planner | hab-core | pre-event-if-permitted | M4 | |
+| T32.26 | Tests: planner stop-task drafts, publish payload and the SCR-04 editor | frontend | pre-event-if-permitted | M4b | |
+| T32.27 | follow-up: planner stop-task drafts and the publish payload | frontend | pre-event-if-permitted | M4b | |
+| T32.28 | follow-up: SCR-04 stop-task editor | frontend | pre-event-if-permitted | M4b | |
+| T32.29 | Verify: a full live session headless — next stop ×N, start storm, shelter, reset, replay hash identical | hab-core | pre-event-if-permitted | M4 | |
+| T32.30 | Tests: per-crew O₂ time left, bearing, distance and ETA to the next stop | hab-core | pre-event-if-permitted | M4 | |
+| T32.31 | follow-up: implement per-crew O₂ time left, bearing, distance and ETA to the next stop | hab-core | pre-event-if-permitted | M4 | |
+| T32.32 | follow-up: `scenario.json` in the live shape — `mission_setup`, `event_library`, `task_library` | hab-core | pre-event-allowed | M4 | |
 <!-- v2-claims:end -->

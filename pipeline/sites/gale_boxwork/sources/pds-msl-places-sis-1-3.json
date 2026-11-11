@@ -1,0 +1,18 @@
+{
+  "source_id": "pds-msl-places-sis-1-3",
+  "title": "Mars Science Laboratory Software Interface Specification: PLACES Data Products for PDS",
+  "publisher": "Jet Propulsion Laboratory, California Institute of Technology",
+  "authors": "Robert Deen, MIPL/OPGS",
+  "missions": [
+    "MSL"
+  ],
+  "instruments": [
+    "TODO(verify)"
+  ],
+  "version": "Release 1.3 Rev-A; JPL D-78442; MSL-477-3984; 2016-07-01",
+  "url": "https://planetarydata.jpl.nasa.gov/img/data/msl/msl_places/document/PLACES_PDS_SIS.pdf",
+  "credit": "Robert Deen (2016), PLACES Data Products for PDS SIS, JPL; Copyright 2016 California Institute of Technology, government sponsorship acknowledged",
+  "licence": "TODO(verify)",
+  "accessed": "2026-11-09",
+  "accuracy_note": "Section 4.4.1.2: \"The localized positions have an expected accuracy of 0.5m compared to the base map.\" That sentence is in the localized_pos view; localized_interp contains those localized solutions plus interpolated values between them."
+}

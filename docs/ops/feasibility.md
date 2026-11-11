@@ -43,6 +43,7 @@ Done when (06 §C): AOI inside DEM extent; hillshade shows HiRISE-scale texture 
 | --- | --- |
 | Tile file name (pattern `30S120E`, 02 §C.2 L4) | `THEMIS_TI_Mosaic_Quant_30S120E_100mpp.cub` ([coverage.md](feasibility/coverage.md)) |
 | Covers the AOI without gaps? | Yes, 100 % valid |
+| U-03 outcome | **No defensible TI "loose fines" threshold for the AOI** (data lead, 2026-11-10); no `ti_threshold.json`, so no `LOW_TI` bits ([ti-threshold.md](ti-threshold.md#decision)) |
 
 ## CRISM coverage (U-05)
 

@@ -62,7 +62,7 @@ USGS Gale merged DEM 1 m and orthophoto 25 cm (Astropedia) · USGS THEMIS therma
 
 | ID | Decision | Alternative / trigger |
 | --- | --- | --- |
-| [D-01](decisions/ADR-001-site-selection.md) | Site = Mount Sharp boxwork, Gale crater (challenge's own example; only site with surface radiation measurements) | Jezero (M2020 TRN HiRISE DTM) if the Gale DEM is not HiRISE-quality in the AOI |
+| [D-01](decisions/ADR-001-site-selection.md) | Site = Mount Sharp boxwork, Gale crater (challenge's own example; only site with surface radiation measurements). **Accepted 2026-11-07** ([feasibility.md](ops/feasibility.md#d-01-outcome)) | Jezero (M2020 TRN HiRISE DTM) if the Gale DEM is not HiRISE-quality in the AOI |
 | [D-02](decisions/ADR-002-static-app-no-backend.md) | ~~Static web app, no backend~~ — **superseded 2026-11-04** by D-02 v2 below | — |
 | [D-03](decisions/ADR-003-openlayers-mars-projection.md) | OpenLayers with local Mars equirectangular projection (IAU_2015:49900 sphere) and custom tile grid | ImageStatic images if the spike fails |
 | [D-04](decisions/ADR-004-least-time-routing.md) | Least-time A* on a 5 m grid between user-ordered stops; hard slope limit; caution multipliers | Manual polyline + validation (cut-list item 6) |
@@ -82,13 +82,17 @@ Owners: assumptions A-01–A-07 in [01 §F.2](specs/01_Product_Requirements_Docu
 | Type | Item |
 | --- | --- |
 | Resolved | Pre-event application code is allowed: Track P, Local Lead answer of 2026-11-04 ([ops/rules.md](ops/rules.md)); re-check against the 2026 guides on 13 Nov |
-| **Blocker** | DEM quality inside the AOI (A-01, TASK-01) decides whether Gale data is usable at walking scale |
+| Resolved | DEM quality inside the AOI (A-01, TASK-01) decides whether Gale data is usable at walking scale (resolved 2026-11-07 via U-01, see below) |
 | **Blocker** | RAD time series for sol 4190 (U-15: public sources found 5 Nov, coverage to verify) and SPICE kernels for May 2024 (U-18) decide replay fidelity (TASK-21). Exact files: [ops/data-downloads.md](ops/data-downloads.md) |
 | Assumption | Vehicle, suit, link, alert and shielding parameters (05 ParamSet) are illustrative until cited (U-19, U-20) |
 | Assumption | Slope limit 15°/10°, walkback 5 km, suited speed 3.3 km/h — illustrative, editable |
 | Assumption | Team of 6 ([ops/team.md](ops/team.md)), ~96–120 person-hours during the event |
 | Assumption | DEM elevations are MOLA-areoid-referenced (verify label) |
-| Unresolved | AOI exact bounds; TI "loose fines" threshold; CRISM coverage; traverse source |
+| Resolved | D-01 site (Gale boxwork, 2026-11-07), AOI exact bounds, DEM quality inside the AOI (U-01, on the data lead's method) and CRISM coverage (U-05): [ops/feasibility.md](ops/feasibility.md) |
+| Resolved | LOW_RES_DEM: no per-pixel source map; interpreted patches (U-10, 2026-11-07): [dem-quality.md](ops/feasibility/dem-quality.md#u-10-evidence) |
+| Resolved | Venue details (U-14, 2026-11-09): virtual event ([ops/team.md](ops/team.md#venue-type-u-14-due-10-nov)) |
+| Resolved | TI "loose fines" threshold: **no defensible threshold for the AOI** (U-03, Obidit Islam, 2026-11-10), so `ti_threshold.json` is not written and T03.10 sets no `LOW_TI` bits; A-05 stays an Assumed interpretation ([ops/ti-threshold.md](ops/ti-threshold.md#decision)) |
+| Resolved | Traverse source (U-04: PDS PLACES `localized_interp.csv`, cached rover range sol 0–4868, clip to AOI plus a 100 m data-lead margin; Obidit Islam (data lead), 2026-11-10; [T04.01](tasks/TASK-04_vectors-pois-images.md#t0401--choose-and-cache-the-traverse-source-u-04-write-its-datasource-and-layer-records)); publisher, credit and licence remain `TODO(verify)` |
 
 ## Traceability (MVP requirements)
 

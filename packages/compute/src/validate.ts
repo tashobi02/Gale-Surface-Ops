@@ -12,6 +12,12 @@ export interface FieldValidationError {
   value?: unknown;
 }
 
+/** Format untrusted values without invoking object-provided conversion methods. */
+function formatInputValue(value: unknown): string {
+  if ((typeof value === "object" && value !== null) || typeof value === "function") return "[invalid]";
+  return String(value);
+}
+
 /**
  * Validates mission scenario parameters and waypoint lists against 02 §E.3 rules.
  * Limits are inclusive per spec question 12.
@@ -100,7 +106,7 @@ export function validatePlanInput(
         value: val,
       });
     } else if (
-      scenario.caution_slope_deg !== undefined &&
+      typeof scenario.caution_slope_deg === "number" &&
       val <= scenario.caution_slope_deg
     ) {
       errors.push({
@@ -210,14 +216,6 @@ export function validatePlanInput(
       });
     }
 
-    if (waypoints.length > 0 && waypoints[0]?.role !== "start") {
-      errors.push({
-        field: "waypoints",
-        message: `First waypoint must have role 'start' (found '${waypoints[0]?.role}')`,
-        value: waypoints[0]?.role,
-      });
-    }
-
     for (let i = 0; i < waypoints.length; i++) {
       const wp = waypoints[i];
       if (typeof wp !== "object" || wp === null) continue; // shape errors belong to validateWorkerRequest
@@ -229,7 +227,7 @@ export function validatePlanInput(
       ) {
         errors.push({
           field: "waypoints",
-          message: `Waypoint ${wp.id} has invalid coordinates (${wp.x_m}, ${wp.y_m}); x_m and y_m must be finite numbers`,
+          message: `Waypoint ${formatInputValue(wp.id)} has invalid coordinates (${formatInputValue(wp.x_m)}, ${formatInputValue(wp.y_m)}); x_m and y_m must be finite numbers`,
           value: { id: wp.id, x_m: wp.x_m, y_m: wp.y_m },
         });
       } else if (grid) {
@@ -237,7 +235,7 @@ export function validatePlanInput(
         if (idx === null) {
           errors.push({
             field: "waypoints",
-            message: `Waypoint ${wp.id} at (${wp.x_m}, ${wp.y_m}) is outside AOI bounds`,
+            message: `Waypoint ${formatInputValue(wp.id)} at (${wp.x_m}, ${wp.y_m}) is outside AOI bounds`,
             value: { id: wp.id, x_m: wp.x_m, y_m: wp.y_m },
           });
         }
@@ -290,16 +288,21 @@ export function validateWorkerRequest(request: WorkerRequest, grid: LoadedGrid):
     ]) {
       if (scenario[field] === undefined) add(field, `${field} is required`);
     }
+    if (scenario.loop !== undefined && typeof scenario.loop !== "boolean") {
+      add("loop", "loop must be a boolean", scenario.loop);
+    }
     if (scenario.vehicle_available === true && !nonempty(scenario.vehicle_param_set)) {
       add("vehicle_param_set", "vehicle_param_set is required when vehicle is available", scenario.vehicle_param_set);
     }
-    errors.push(...validatePlanInput(request.scenario));
+    // The worker boundary already checks loop, including its requiredness.
+    errors.push(...validatePlanInput(request.scenario).filter((error) => error.field !== "loop"));
   }
 
   if (!Array.isArray(request.waypoints)) {
     add("waypoints", "waypoints must be an array", request.waypoints);
   } else {
     let validEntries = true;
+    const coordinateErrors: FieldValidationError[] = [];
     for (const waypoint of request.waypoints as unknown[]) {
       if (!record(waypoint)) {
         add("waypoints", "each waypoint must be an object", waypoint);
@@ -310,8 +313,17 @@ export function validateWorkerRequest(request: WorkerRequest, grid: LoadedGrid):
       if (waypoint.role !== "start" && waypoint.role !== "stop") {
         add("waypoints", "waypoint role must be start or stop", waypoint.role);
       }
+      if (!finite(waypoint.x_m) || !finite(waypoint.y_m)) {
+        coordinateErrors.push({ field: "waypoints", message: "waypoint coordinates must be finite", value: waypoint });
+      }
     }
-    if (validEntries) errors.push(...validatePlanInput({}, request.waypoints, grid));
+    if (validEntries) {
+      // This also reports invalid coordinates, so avoid reporting them twice.
+      errors.push(...validatePlanInput({}, request.waypoints, grid));
+    } else {
+      // Preserve coordinate errors even when a malformed entry prevents shared validation.
+      errors.push(...coordinateErrors);
+    }
   }
   return errors;
 }

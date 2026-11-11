@@ -57,7 +57,7 @@
   2. Create `conditions.ts` with one exported assembly function and its types, built only from 05 PlanResult field names (`stops_timeline` `arrive_ltst` and `sun_elevation_deg`, `conditions`, `radiation`) and the existing `estimateDose` signature.
   3. Every new body throws `TODO(<owner id>)`, e.g. `TODO(T06.07): not implemented`.
   4. Record the open C8 choices as `TODO(decision)` in the JSDoc for the compute-lane owner: which point gives the site latitude and longitude; what DARKNESS needs (sunrise/sunset UTC or sun elevation along legs); which duration feeds the dose, including PARTIAL plans; how the EnvConstant is chosen from `solar_phase`.
-  5. Check with the T05.01 owner that the `handler.ts` stub calls the C8 function by its new name.
+  5. Check with the T05.01 owner that the `handler.ts` stub calls the C8 function by its new name. *Gap recorded 2026-11-09: `handler.ts` does not call `assembleConditions` while it throws `TODO(T06.09)`; handler wiring is tracked under T05.32 (wip until T06.09 implements conditions assembly).*
   6. Run `make typecheck test`.
 - **Acceptance:**
   - Serves: FR-11, FR-12 · [02 §D.4](../specs/02_Technical_Requirements_Document.md#d4-radiation-estimate-fr-12), [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11), [05 PlanResult](../specs/05_Backend_and_Database_Schema.md#planresult-computed)
@@ -126,6 +126,7 @@
 - **Conflict notes:** Stacked PRs (map §h.3): T06.06 branches from this branch and T06.07 from T06.06; merge T06.03, T06.06 and T06.07 back to back once T06.07's branch is green. If v1 cut 5 (no v2 cut item) is called first, this PR is never merged, so `main` never carries failing tests.
 - **Follow-up (2026-11-09 reconciliation):** The sun-function cases in `sun.test.ts` depend on the T06.07 stubs and are PENDING-gated (they are skipped unless `PENDING_RED=1` is set, which exposes the expected `TODO(T06.07): not implemented` failures). Their bodies are kept. T06.03 stays `wip`.
 - **Follow-up (2026-11-09 reconciliation):** TODO(verify): Independently verify the Clancy Mars Year offset table and reference UTC-to-TT handling. TODO(decision): Ratify L_s, equation-of-time and sunrise/sunset tolerances; provisional test bounds do not establish new requirements.
+- **Update (2026-11-10):** T06.07 now exists, so the PENDING gate was removed from `sun.test.ts`; all of its F6 cases pass against the implementation, and same-sol, no-crossing and azimuth cases were added (see T06.07). T06.03 stays `wip` for the open `TODO(verify)`/`TODO(decision)` items above (Clancy table, UTC-to-TT handling, tolerances, F6 reproducibility).
 
 ### T06.04 — Tests: radiation estimate
 
@@ -204,6 +205,7 @@
 - **Agent brief:** Port the Mars24 time functions into `packages/compute/src/mars24.ts` — Mars Sol Date, L_s and Mars Year, east-to-west longitude, and LTST — following Allison & McEwen 2000 and the GISS Mars24 notes, until `tests/compute/mars24.test.ts` passes against fixture F6. Pure functions only; east-positive longitude everywhere except inside the Mars24 formulas.
 - **Conflict notes:** Owns `mars24.ts` after T06.01's stub edit. Branch from T06.03 (stacked); T06.07 branches from this branch. If the tests cannot be made to pass, T06.11 is the fallback trigger.
 - **Follow-up (2026-11-09 reconciliation):** TODO(verify): Independently verify the Clancy Mars Year offset table and reference UTC-to-TT handling. TODO(decision): Ratify L_s, equation-of-time and sunrise/sunset tolerances; provisional test bounds do not establish new requirements.
+- **Update (2026-11-10):** `mars24.ts` now throws `RangeError` for an invalid `Date`, an instant before 1972-01-01 UTC (no tabulated leap seconds) and a non-finite longitude, and keeps its helper functions internal. The leap-second table is NAIF `naif0012.tls` as on main (36 s from 2015-07-01, 37 s from 2017-01-01); a draft table that applied those steps one year and one day early was not merged. `TODO(verify)`: confirm with IERS Bulletin C that no leap second follows 2017-01-01.
 
 ### T06.07 — Implement solar position and flat-horizon sunrise/sunset
 
@@ -230,6 +232,7 @@
 - **Agent brief:** Implement `solarPosition` and `sunriseSunset` in `packages/compute/src/sun.ts` on top of the Mars24 time functions in `mars24.ts`, until `tests/compute/sun.test.ts` passes against F6: elevation within 0.1°, flat horizon, no terrain or refraction. Unknown conventions stay `TODO(verify)`.
 - **Conflict notes:** Owns `sun.ts` after T06.01's stub. Branch from T06.06 (stacked); merge right after T06.03 and T06.06.
 - **Follow-up (2026-11-09 reconciliation):** TODO(decision): Schedule T06.07 solar position and flat-horizon sunrise/sunset implementation after the reference conventions are verified; the T06.03 sun cases remain PENDING-gated until then.
+- **Update (2026-11-10, review repair of the integrated `sun.ts`):** `sunriseSunset` now takes both events from the local true solar sol (LTST 00:00 to 00:00) that contains `utc`, so probes before dawn or after sunset return the same pair as midday (regression: Gale `2026-11-14T21:00:00Z`); the `?? utc` fallback is gone. No-crossing contract (|cos H0| > 1, polar day or night): `sunriseSunset` throws `SunEventsUnavailableError` (a `RangeError` with `reason` `SUN_ALWAYS_UP` or `SUN_NEVER_UP`) and never invents an instant; 05 PlanResult.conditions has no absent-event form, so T06.09 must catch it. TODO(decision): team to confirm this contract (not reachable at Gale). TODO(verify): add the NASA Mars24 worked azimuth example with its printed inputs and cite it; the azimuth cases use F6 marstime elevation and declination through the spherical law of cosines because the page was unreachable offline. T06.07 stays `wip` until these are closed.
 
 ### T06.08 — Implement the radiation estimate
 
@@ -295,9 +298,9 @@
 - **Parallel with:** T06.01, T06.02
 - **Steps:**
   1. Write `rad-gale-dose-eq-solar-max.json` with the 05 §C and §F.1 values verbatim: `quantity` "surface dose equivalent rate", `value` 0.64, `low` 0.52, `high` 0.76, `unit` "mSv/day", `conditions` {solar_phase max, location "Gale crater floor", period "2012-2013"}, `provenance` "measured", `source_id` "hassler-2014-rad".
-  2. Write `rad-gale-dose-eq-solar-min.json` with the 05 §C values: `value` 0.925, `low` 0.85, `high` 1.0, `provenance` "measured", `note` "reported range, Simonsen et al. 2024", `unit` "mSv/day" (02 §C.2 L7), `conditions.solar_phase` "min"; the other conditions come from the solar-minimum row of Mars Scientific Context §9 or stay `TODO(verify)`; `source_id` is `TODO(decision)` (map open point 12).
+  2. Write `rad-gale-dose-eq-solar-min.json` with the 05 §C values: `value` 0.925, `low` 0.85, `high` 1.0, `provenance` "measured", `note` "reported range, Simonsen et al. 2024", `unit` "mSv/day" (02 §C.2 L7), `conditions.solar_phase` "min"; the other conditions come from the solar-minimum row of Mars Scientific Context §9 or stay `TODO(verify)`; `source_id` is `simonsen-2024-rad` (Obidit Islam (data lead), 2026-11-10; map open point 12).
   3. Write `hassler-2014-rad.json`: title, authors and link copied from the Hassler et al. (2014) entry in the Mars Scientific Context source list; missions and instruments from the specs (MSL, RAD); `accessed` is the date of access; any required field the sources do not give is `TODO(verify)`.
-  4. Once the solar-min `source_id` is decided, add its DataSource (Simonsen et al. 2024, link in the same source list) as `<source_id>.json` under the append-only-by-file rule.
+  4. Use the existing `simonsen-2024-rad.json` DataSource (Simonsen et al. 2024, link in the same source list) for the solar-min record.
   5. Check every file parses and uses the field names of the manifest schema's EnvConstant and DataSource definitions.
 - **Acceptance:**
   - Serves: FR-12, FR-15 · [05 EnvConstant](../specs/05_Backend_and_Database_Schema.md#envconstant), [05 DataSource](../specs/05_Backend_and_Database_Schema.md#datasource)
@@ -305,9 +308,10 @@
   - No URL, DOI, licence or credit text is invented: missing values are `TODO(verify)`.
   - After T03.19 runs, `validate-manifest` reports no problem with these records, and SCR-09 can credit the RAD source (FR-15).
 - **Verify:** `python3 -m json.tool` on each owned file; after T03.19, `make validate SITE=gale_boxwork`.
-- **Agent brief:** Create the two RAD EnvConstant JSON records and the `hassler-2014-rad` DataSource under `pipeline/sites/gale_boxwork/`, copying values verbatim from 05 §C/§F.1 and the citation from `docs/reference/mars-scientific-context.md`. Leave anything the sources do not state as `TODO(verify)`; the solar-min `source_id` is `TODO(decision)`.
+- **Agent brief:** Create the two RAD EnvConstant JSON records and the RAD DataSources under `pipeline/sites/gale_boxwork/`, copying values verbatim from 05 §C/§F.1 and the citation from `docs/reference/mars-scientific-context.md`. Leave anything the sources do not state as `TODO(verify)`; use the decided solar-min `source_id` above.
 - **Conflict notes:** The `sources/` and `env_constants/` folders are append-only by file: one record per file, owned by its creator; never edit another subtask's record. T03.19 needs these files before it builds bundle v1 (map §f).
-- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Verify RAD DataSource metadata and access dates against the cited publications, including publisher, version, credit, licence and missions/instruments. TODO(decision): The data lead must confirm the solar-minimum source_id. Preserve numerical EnvConstant values.
+- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Mishkat Ahmed Khan must verify RAD DataSource metadata and access dates against the cited publications, including publisher, version, credit, licence and missions/instruments. Obidit Islam (data lead), 2026-11-10 confirmed `simonsen-2024-rad` for the solar-minimum `source_id`. Preserve numerical EnvConstant values; the complete-bundle validator and SCR-09 checks remain open.
+- **PR follow-up:** Obidit Islam will inform Mishkat Ahmed Khan (owner of the RAD records) by a review request or comment on this PR when it is opened; that notification has not yet been sent in this fix round.
 
 ### T06.11 — Fallback — start only if Mars24 tests fail: precomputed sun table for the demo dates
 
@@ -383,9 +387,9 @@ T06.10 has no edge inside this task; it feeds T03.19 (map §f).
 
 1. **Window** ([map open point 2](_coordination.md#open-points)): 06 §D.2 says TASK-06 has no data dependency, but 06 §A Track P covers only TASK-02 and TASK-05, so T06.03–T06.09 stay `event-only` — `TODO(decision)`.
 2. **M3 slice** (open point 3): if C1 makes `conditions`, `radiation` and `stops_timeline` required, M3 needs T06.09; otherwise T06.09 can land in M4 as planned.
-3. **Solar-min record** (open point 12): 05 §C gives value, low, high and a note (Simonsen et al. 2024) but no `source_id` and no `conditions`. T06.10 copies what exists and leaves the rest `TODO(verify)`.
+3. **Solar-min record** (open point 12): 05 §C gives value, low, high and a note (Simonsen et al. 2024) but no `source_id` and no `conditions`. Obidit Islam (data lead), 2026-11-10 chose `simonsen-2024-rad`; T06.10 leaves unverified metadata `TODO(verify)`.
 4. **Reference timestamps:** 02 §D.5 asks for at least 3 but names none; 02 §E.2's `eva_start_utc` example is one candidate — `TODO(decision)` in T06.02.
-5. **Tolerances:** 02 §D.5 sets tolerances only for solar elevation (0.1°) and LTST (1 min); those for L_s, Mars Year and sunrise/sunset times are `TODO(decision)`.
+5. **Tolerances:** 02 §D.5 sets tolerances only for solar elevation (0.1°) and LTST (1 min); those for L_s (strictly below 0.05°, as asserted in `mars24.test.ts`; an earlier draft documented 0.1° while its `toBeCloseTo(…, 1)` assertion allowed only less than 0.05°), Mars Year (exact), MSD (0.001 sol) and sunrise/sunset times (within 2 min of F6 in the F6 case, within 30 s in the same-sol cases of `sun.test.ts`; observed at most 2 s) are provisional — `TODO(decision)` to ratify (tested in T06.03 and T06.07).
 6. **Dose duration:** 01 FR-12 says "EVA duration", 02 §D.4 "planned duration", and 05 §F.3 uses `eva_total_min`; `totals` is null for PARTIAL plans (02 §E.2), so the duration for a partial plan is undefined — `TODO(decision)` at T06.01.
 7. **Display rounding:** 01 FR-12 shows 0.19 mSv where 02 §D.4 gives 0.187 and 05 §F.3 stores 0.066 (three decimals). Compute keeps unrounded values; the display rule is a UI `TODO(decision)` for SCR-07 and SCR-08. Map change proposed: give the 01 FR-12 "card shows 0.19 mSv" check, removed from `radiation.test.ts`, to T11.05 and T10.03.
 8. **Site position:** 02 §D.5 uses "the site's planetocentric latitude and longitude", but 05 Site has no single site point (`aoi.bbox_geo`, the `crs` centre, `default_start`) — `TODO(decision)` at T06.01.
@@ -394,3 +398,4 @@ T06.10 has no edge inside this task; it feeds T03.19 (map §f).
 11. **Map change proposed (schedule):** the lanes board puts T06.02 in M1, but its hard dependency T14.01 is in M2. Move T06.02 to M2, or land T14.01's `marstime` entry first.
 12. **Map change proposed (fallback):** T06.11 also needs `marstime` (a hard edge on T14.01 missing from map §f) and writes `packages/compute/src/sunTable.json`, which map §c does not list. Add both, plus T06.11's `(replaces T06.05)` on `packages/compute/tests/conditions.test.ts`, to the map.
 13. **Follow-up (2026-11-09 reconciliation):** TODO(decision): The team lead must reconcile stale event-only prose with the Track P and coordination-register windows; this review makes no task-window change.
+14. **No sunrise/sunset in a sol (2026-11-10):** at polar latitudes the sun may not cross the flat horizon. `sunriseSunset` throws `SunEventsUnavailableError` instead of returning a placeholder; whether C8 omits `conditions`, reports a polar-day/night state or blocks such sites is `TODO(decision)` at T06.09 (Gale never hits it).

@@ -41,6 +41,7 @@
 | DONKI events in the scenario timeline | `scenarios/storm-sol4190/scenario.json` (`events`) | T26.04, T26.07 |
 | Demo `PlanExport` | `scenarios/storm-sol4190/plan.json` | T21.08, T11.07 |
 | `scenario.json` with checksums | `scenarios/storm-sol4190/scenario.json` | T22.14, T23.08, all M3/M4 checks |
+| Derived demo timing numbers (alert time, light time, next relay pass, LTST and daylight window, EVA start) | `apps/hab-core/scripts/demo-numbers.ts` | T21.09 |
 | Final demo numbers in 01 §E.1 and the demo script | `docs/specs/01_Product_Requirements_Document.md`, `docs/ops/demo-script.md` | T17.01, T17.02 |
 
 ## Subtasks
@@ -196,11 +197,12 @@
   - T21.03 RAD cases pass; any difference between expected and computed integral is explained in `rad-series.md`.
 - **Verify:** `$(make -s pipeline-python) -m pytest pipeline/tests/test_rad.py`.
 - **Agent brief:** Extract the series exactly; the unit conversion follows the product's own documentation, cited in a comment.
+- **U-45 follow-up:** `TODO(decision)` — reconcile this subtask's published-total wording and the archive description in `schemas/dose-series.schema.json` with Obidit Islam's 2026-11-10 decision to use the flag-excluded SPDF L2 integral over the same window for an archive series. 05 DoseSeries requires the published total specifically for `digitised`/`template_scaled`; it does not specify that requirement for `archive`. Review the 01 FR-37 and 02 L9 presentation of NASA's 8,100 µGy alongside the unreproduced archive total; do not change spec text without its owner. T12.03/T12.04 must carry the [Sources & methods disclosure](../ops/rad-series.md#sources--methods-wording-for-scr-09) when that screen and content are built.
 - **Conflict notes:** Single owner of both paths.
 
 ### T21.08 — Assemble `scenario.json` with checksums and initial stop tasks
 
-- **Owner:** Obidit Islam (R1 Data & GIS)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Obidit Islam on 10 Nov for the live-operations reframe (product lead's call; Obidit informed on the PR)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -217,7 +219,7 @@
   - The file validates; the Hab Core loader (T22.11) accepts it.
 - **Verify:** `npm run -s hab:replay -- scenarios/storm-sol4190` loads it (after T22.13); schema check with `jsonschema`.
 - **Agent brief:** Assemble the scenario from the built tables and the demo plan. Do not hand-edit numbers into it.
-- **Conflict notes:** Single owner; the stop task text comes from T31.02's content file.
+- **Conflict notes:** Single owner; the stop task text comes from T31.02's content file. `start_utc` = `plan.scenario.eva_start_utc` (from T21.15).
 
 ### T21.09 — spec-change: choose the EVA start time; write the final demo numbers into 01 §E.1 and the demo script
 
@@ -228,16 +230,16 @@
 - **Estimate:** 1–1.5 h
 - **Owns (writes):** `docs/specs/01_Product_Requirements_Document.md` (spec-change), `docs/ops/demo-script.md` (after T17.01)
 - **Reads:** [01 §E.1](../specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video), `docs/ops/rad-series.md`, `scenarios/storm-sol4190/earth_link.json`
-- **Depends on:** T21.07 (hard: dose series), T21.04 (hard: light time and passes), T17.01 (hard: owner of the demo script)
+- **Depends on:** T21.07 (hard: dose series), T21.04 (hard: light time and passes), T17.01 (hard: owner of the demo script), T21.15 (hard: derived numbers)
 - **Parallel with:** T21.08
 - **Steps:**
-  1. Pick the EVA start in daylight LTST so the storm lands mid-EVA; record the reason.
+  1. Take `eva_start_utc` from T21.15 (stop-2 dwell rule, decided by Sadman Shaharier Mahim 2026-11-10) and record it with its source.
   2. Replace each `…` and `TODO` in 01 §E.1 with a number from the built tables or the headless replay, citing its source.
   3. Update the demo script's numbers to match.
 - **Acceptance:**
   - Serves: FR-34, FR-37 · [01 §E.1](../specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video) · 06 TASK-21 done-when
   - Every number in 01 §E.1 traces to a table, a replay hash or a cited source; none is estimated.
-- **Verify:** `make docs-check`; a second person checks each number against its source.
+- **Verify:** `make docs-check`; `npm --workspace @marswalk/hab-core test -- demoNumbers` passes with the docs-consistency check active; a second person checks each number against its source.
 - **Agent brief:** The product & systems lead decides; an agent may list where each number comes from. No AI-computed numbers (ADR-006).
 - **Conflict notes:** `spec-change:` of 01 (one open spec-change PR at a time, map §c.2); the demo script edit follows T17.01.
 
@@ -264,7 +266,7 @@
 
 ### T21.11 — Fixture: real-scenario excerpt for engine tests
 
-- **Owner:** Obidit Islam (R1 Data & GIS)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Obidit Islam on 10 Nov for the live-operations reframe (product lead's call; Obidit informed on the PR)
 - **Type:** fixture
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -302,7 +304,7 @@
   - Two runs give the same `plan_hash`; the export validates against `schemas/plan-export.schema.json`.
 - **Verify:** Run the script twice; compare `plan_hash`.
 - **Agent brief:** Call `@marswalk/compute` exactly as the planner worker does; no compute logic in the script.
-- **Conflict notes:** New paths; single owner. The file is a build output and is regenerated, not edited.
+- **Conflict notes:** New paths; single owner. The file is a build output and is regenerated, not edited. After T21.15 derives `eva_start_utc`, rebuild `plan.json` with `scenario.eva_start_utc` set to it (plan_hash changes).
 
 ### T21.13 — Fallback — start only if T21.06 finds no sol-4190 series: digitised dose curve
 
@@ -345,6 +347,34 @@
 - **Agent brief:** Only if orbiter kernels are unavailable.
 - **Conflict notes:** Replaces T21.04's output; never at the same time.
 
+### T21.15 — Derive the demo timing numbers from the committed tables
+
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core · demo story)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 2–3 h
+- **Owns (writes):** `apps/hab-core/scripts/demo-numbers.ts`, `apps/hab-core/tests/demoNumbers.test.ts`, `apps/hab-core/tests/__snapshots__/demoNumbers.alert.snap`, `apps/hab-core/tests/__snapshots__/demoNumbers.eva.snap`, `apps/hab-core/package.json` (append-only)
+- **Reads:** `scenarios/storm-sol4190/dose_series.json`, `scenarios/storm-sol4190/param_sets/alert-assumed.json`, `scenarios/storm-sol4190/earth_link.json`, `scenarios/storm-sol4190/plan.json` (when present), `docs/ops/feasibility/hab-site.md`, `packages/compute/src/eventDose.ts` (`triggerState`), `packages/compute/src/mars24.ts` (`localTrueSolarTime`), `packages/compute/src/sun.ts` (`sunriseSunset`, `solarPosition`), `packages/compute/src/earthLink.ts` (`nextPassStart` once T05b.13 lands), [01 §E.1](../specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video), `docs/ops/demo-script.md`, [02 §D.5](../specs/02_Technical_Requirements_Document.md#d5-solar-conditions-fr-11)
+- **Depends on:** T21.07 (hard: dose series), T21.04 (hard: Earth-link table), T05b.15 (hard: triggerState for the first alert sample), T06.06 (hard: LTST), T06.07 (hard: sunrise and sunset), T21.12 (soft: leg times for the stop-2 start rule; those parts skip until plan.json exists), T05b.13 (soft: switch the pass lookup to nextPassStart)
+- **Parallel with:** T21.08
+- **Steps:**
+  1. Test first (`demoNumbers.test.ts`): rule invariants; the derived values stored as Vitest file snapshots, so a rebuilt table shows as a diff; a docs-consistency check that skips while 01 §E.1 still has the `X`/`Y` placeholders (the 'illustrative' note does not gate it, since it also covers T23.08's ETAs and slope), a guard test that fails if the placeholders are gone but the comparison would not run, and fails if a stated value differs from the derived one; the rule-(b) parts below as `it.skipIf(!plan.json)`.
+  2. `deriveDemoTiming(...)`: a pure thin layer over `@marswalk/compute` with no science of its own and no `Date.now()`. Hab position: lat/lon from the `docs/ops/feasibility/hab-site.md` first-choice row; `TODO(decision)`: read them from the site manifest once it carries geographic coordinates. It computes:
+     - (a) the first `alert` sample time, by `triggerState` over `dose_series.json` with the `alert-assumed.json` ParamSet;
+     - the local true solar time at the alert and at `eva_start_utc`, and sunrise and sunset from `sunriseSunset(alert, lat, lonE)`;
+     - the light time X from the `earth_link.json` row at or before the alert;
+     - the next relay pass Y, the first pass with `start_utc` ≥ alert (as `nextPassStart` will); `TODO(T05b.13)`: switch to `nextPassStart`. Report "alert inside pass `<orbiter> <start>–<end>`" as a separate field;
+     - (b) when `plan.json` exists, `eva_start_utc` by the **stop-2 dwell rule decided by Sadman Shaharier Mahim on 2026-11-10**: start = alert − (`result.legs[0].walk_time_min` + dwell + `result.legs[1].walk_time_min` + dwell/2), with dwell = `scenario.dwell_min_per_stop`, all in minutes, rounded down to a whole UTC minute. Asserts: `result.legs[0]` and `result.legs[1]` have status `OK` and `result.legs[1].to` is `waypoints[2]` (the second stop); arr2 ≤ alert − start < arr2 + dwell, with arr2 = `result.legs[0].walk_time_min` + dwell + `result.legs[1].walk_time_min`; and daylight: sunrise + 1 min ≤ start and start + `max_eva_duration_h` × 60 min + 1 min ≤ sunset (margin 1 min, matching the 02 §D.5 LTST tolerance). Fail loudly on any miss; never shift the replayed times.
+  3. A CLI entry (`tsx`) prints JSON and a Markdown block, each value with its source path and row. Add the `demo-numbers` script to `apps/hab-core/package.json`.
+- **Acceptance:**
+  - Serves: FR-34, FR-37, FR-38, FR-43 · [01 §E.1](../specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video)
+  - Every value traces to a committed table plus a compute function; none is typed. The docs-consistency check skips until T21.09 writes the values; T21.09's Verify runs it and it passes. `make lint typecheck test-web docs-check` pass.
+  - Done only when part (b) runs against the real `plan.json` (T21.12 merged); until then wip.
+- **Verify:** `npm --workspace @marswalk/hab-core run demo-numbers` and `npm --workspace @marswalk/hab-core test -- demoNumbers`; a second person reruns and compares.
+- **Agent brief:** Tests first, then a thin script over `@marswalk/compute`; no science in the script, no wall-clock time, no typed numbers. The stop-2 rule above is a decision, not a suggestion: do not retune it to make the daylight asserts pass.
+- **Conflict notes:** Milestone M2, registered 2026-11-10. New files plus one `scripts` line in `apps/hab-core/package.json`. T21.09 quotes these numbers into 01 §E.1 and the demo script. T23.08 owns the replay-derived numbers (ETAs, slope, doses). T06.06 and T06.07 are wip; the code exists on main. LTST/sun output may change while T06.06/T06.07 stay wip; the snapshot shows it. Keep the CLI logic in an exported function imported by the test, since `scripts/` is outside hab-core's tsconfig include.
+
 ## Internal dependency graph
 
 ```mermaid
@@ -365,6 +395,10 @@ flowchart LR
   T21_08 --> T21_11["T21.11 excerpt fixture"]
   T21_06 --> T21_13["T21.13 fallback: digitised"]
   T21_02 --> T21_14["T21.14 fallback: fixed light time"]
+  T21_04 --> T21_15["T21.15 derive timing numbers"]
+  T21_07 --> T21_15
+  T21_12 -.-> T21_15
+  T21_15 --> T21_09
 ```
 
 ## Definition of done (task level)

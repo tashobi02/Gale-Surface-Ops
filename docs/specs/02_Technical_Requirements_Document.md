@@ -129,6 +129,7 @@ sequenceDiagram
 
 - **Event-sourced:** state = fold of the event log over the scenario's initial state. Persistence = append-only `session.jsonl` + periodic snapshot.
 - **Deterministic:** the engine uses sim time only, never wall-clock, and a seeded PRNG (`mulberry32`) if any randomness is enabled (none by default). Replay hash = SHA-256 of the canonical event log.
+- **Live session** *(added 2026-11-10, Proposed)*: a presenter presses buttons at wall-clock moments, but a command takes effect at a whole sim second, and the event it produces records that sim second. The log, and the **recorded command list** a headless run replays (`{sim_time, role, kind, args}`, applied in list order, §D.17), therefore reproduce the run without any wall-clock input. Same scenario + seed + data version + command list ⇒ same log hash (NFR-06).
 
 ---
 
@@ -174,7 +175,7 @@ C.1–C.4 *(v1, unchanged)*; C.5 is new.
 
 ### C.2 Data layers
 
-AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **inside** the DEM extent (lat −5.098652…−4.129605, lon 137.124167…137.680559 °E). Exact bounds are **Unresolved** — chosen in TASK-01 from the traverse (sols ≈ 4,450–4,750; boxwork campaign confirmed for 2025 by NASA mission blog posts and photojournal).
+AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **inside** the DEM extent (lat −5.098652…−4.129605, lon 137.124167…137.680559 °E). Exact bounds are **Resolved 2026-11-07** ([feasibility.md](../ops/feasibility.md#aoi-bounds-u-01-context-02-c2)) — chosen in TASK-01 from the traverse (sols ≈ 4,450–4,750; boxwork campaign confirmed for 2025 by NASA mission blog posts and photojournal).
 
 #### L1 — Optical basemap (FR-01)
 
@@ -224,7 +225,7 @@ AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **ins
 
 | Field | Value |
 | --- | --- |
-| Source | CRISM MTRDR (Map-projected Targeted RDR) summary parameters / browse products, PDS Geosciences Node — product **Confirmed**; AOI coverage **Unresolved** |
+| Source | CRISM MTRDR (Map-projected Targeted RDR) summary parameters / browse products, PDS Geosciences Node — product **Confirmed**; AOI coverage **Resolved 2026-11-07** ([feasibility.md](../ops/feasibility.md#crism-coverage-u-05)) |
 | Resolution | ~18–20 m/px for FRT observations |
 | Labelling | "Spectral summary parameter — indicative, not a mineral identification" (wording follows CRISM label guidance) |
 | Fallback | Omit; three data types are already met without it |
@@ -488,7 +489,7 @@ Precomputed table rows (1 min): `t_utc, light_time_s, sep_angle_deg, earth_elev_
 
 | Item | Definition |
 | --- | --- |
-| Clock | Fixed step Δt = 1 s sim time; speed multipliers 1×, 10×, 60×; pause; jump-to-next-event |
+| Clock | Fixed step Δt = 1 s sim time; speed multipliers 1×, 10×, 60×; pause; jump-to-next-event; jump-to-next-stop (presenter, §D.17) |
 | Crew motion | Position interpolated along the planned cell path by cumulative leg time (v1 D.3); dwell at stops; on re-plan, follow the new path from the current cell |
 | Consumables | O₂ fraction decreases at `rate = P_met / P_ref / 8 h` with P_met 351.7 W walking, 250 W at stops (**Assumed**), P_ref 300 W; dose per D.13 |
 | Vehicles/rovers | Move along their computed paths at parameter-set speed; arrive ⇒ event |
@@ -504,6 +505,22 @@ For each crew member on alert: candidate actions = {abort to hab, vehicle rendez
 ### D.16 Sky-view factor refuge (FR-47, T2)
 
 For each cell, horizon elevation angles in 16 azimuths (max over 2 km); SVF ≈ mean over azimuths of cos²(h_az) (isotropic, horizontal-surface approximation). Refuge dose factor = SVF / SVF_flat. Labelled *simplified isotropic model; real SEP fluxes are anisotropic*. Candidate refuges = local SVF minima reachable within the haven rule.
+
+### D.17 Live session: next stop, event on demand, reset (FR-51, FR-52, FR-53) *(added 2026-11-10, Proposed)*
+
+Behaviour of the presenter commands (§E.4). Command and event names and payloads are **Proposed**. All of it uses sim time only (NFR-06).
+
+| Command | Behaviour |
+| --- | --- |
+| `JUMP_NEXT_STOP {}` | Runs the engine tick (§D.14) repeatedly, without waiting for wall-clock time, until every crew member on EVA has arrived at the next stop. The **next stop** is the lowest-index stop of the current plan that not every crew member on EVA has reached yet (a stop is reached by a crew member when `ARRIVED_STOP` is logged for them; Proposed: one target for the crew, not one per crew member). Crew keep walking along the planned route; consumables, dose, dwell, alerts, link state and task auto-completion accrue normally, and every event raised on the way is logged at its own sim second. It is a fast-forward, not a teleport. It also ends when a `PLAN_REVISED`, `EVA_ENDED` or `CREW_SHELTERED` event is logged, and at the first `ALERT_RAISED` of level `warning` (`TODO(decision)`, 01 U-63). The speed and pause state of the clock are unchanged after it. Rejected with `INVALID` when no EVA is running or no stop remains, and with `BUSY` while a warning-level alert is latched (raised and not yet cleared). Logs `CLOCK_JUMPED {reason: "next_stop", from_sim_time, to_sim_time, stop_id, ended_by: "arrival" \| "alert" \| "plan_revised" \| "eva_ended" \| "sheltered"}` |
+| `START_EVENT {event_id}` | Starts a library event (05 Scenario `event_library`) at the current sim time `t0`. For the storm: the dose rate at sim time `t ≥ t0` is the recorded series sampled at `series_start_utc + (t − t0)` (binary search, step-hold, 05 §E.7); before `t0` it is `DoseSeries.background_rate`. The event's scheduled inputs (DONKI records, Earth messages) fire at `t0 + t_offset_s`. Everything else reads sim time directly: Mars24 sun and LTST (§D.5), light time and relay passes (§D.12), so they stay true whenever the press happens. Rejected with `INVALID` for an unknown `event_id` and `BUSY` if that event already started in this session. Logs `EVENT_STARTED {event_id, t0_sim_time, series_start_utc, source_id}`; the app labels the curve `replayed — Curiosity RAD measurements` and Sources & Methods says it is time-shifted |
+| `RESET_SESSION {}` | Appends `SESSION_RESET` to the current log, then starts a new session `s-<n+1>` of the same scenario and seed in `LOADED`, as `LOAD_SCENARIO` does: clock at the scenario start, mission-setup defaults from the scenario, library events available again. The earlier log stays on disk. Clients stay connected and receive a fresh `SNAPSHOT` |
+| `SELECT_HAB_SITE {candidate_id}` | **Ops only.** Allowed in `LOADED`, before a plan is published. Loads that candidate's `comm_hab` grid and hab mast (05 Site `hab_candidates`) and recomputes the haven fields (§D.8; NFR-02). Logs `SITE_SELECTED {candidate_id}`. A candidate is chosen from the manifest list only; free placement is out of scope (01 §C.4) |
+| `SET_MISSION_SETUP {…}` | **Ops only.** Allowed in `LOADED`. Sets the Proposed mission settings of 01 FR-53 (`crew_count`, `vehicle_available`, `vehicle_param_set`, `solar_phase`, `max_haven_min`; ranges as §E.3). They are the defaults the planner's scenario parameters start from; once a plan is published, the plan's values win and a later `SET_MISSION_SETUP` does not change that plan. Rejected with `INVALID` when `crew_count` differs from the number of scenario `crew[]` entries, or when `vehicle_available` is true and no `vehicle_param_set` is given or already set. Logs `MISSION_SETUP_SET` |
+
+**Headless run.** `npm run hab:replay` accepts a recorded command list beside the scenario (`TODO(verify)`: file name and flag, T22.x) and applies the commands as the named role in **list order** (the order of the log `seq`), not sorted by `sim_time`. A command recorded at sim second `t` is applied before the tick at `t`. A list covers **one session**: a live run with `RESET_SESSION` is exported as one list per session, split at the reset. A live session can export the list it ran from its log. The reference run (01 §E.1) is one such list.
+
+**Time-shift caveat.** Shifting the series changes the UTC at which the real event is replayed. Its shape, integral and the trigger rule (§D.13) are unchanged. Earth light time and the relay pass at the shifted time come from the tables at the new time, so values such as those in 01 §E.1 hold for the reference run only.
 
 ---
 
@@ -628,19 +645,23 @@ Validation runs in the UI (inline messages) **and** in the worker and Hab Core (
 
 ### E.4 Authentication and roles
 
-No accounts. A client joins with a **role** and a display name; the Hab Core trusts the LAN (the router has no WAN and a WPA2 password). Role permissions:
+No accounts. A client joins with a **role** and a display name; the Hab Core trusts the LAN (the router has no WAN and a WPA2 password). Role permissions (`presenter` added 2026-11-10, **Proposed**):
 
-| Command | planner | eva:EVn | ops | earth |
-| --- | --- | --- | --- | --- |
-| `LOAD_SCENARIO`, `SET_CLOCK`, `JUMP_NEXT_EVENT` | — | — | ✓ | — |
-| `PUBLISH_PLAN` | ✓ | — | ✓ | — |
-| `START_EVA`, `APPROVE_OPTION` | — | — | ✓ | — |
-| `SUMMON_VEHICLE`, `ABORT`, `ACK_ALERT` | — | ✓ (self) | ✓ (any crew) | — |
-| `TASK_ROVER` | — | ✓ | ✓ | — |
-| `SEND_MESSAGE` | — | ✓ | ✓ | ✓ (delayed) |
-| `UPDATE_STOP_TASK` (FR-50) | — | ✓ (own tasks) | ✓ (any crew) | — |
-| `ADD_STOP_TASK` (FR-50) | — | — | ✓ | — |
-| `INJECT_EVENT` | — | — | ✓ | — |
+| Command | planner | eva:EVn | ops | earth | presenter |
+| --- | --- | --- | --- | --- | --- |
+| `LOAD_SCENARIO`, `SET_CLOCK`, `JUMP_NEXT_EVENT` | — | — | ✓ | — | ✓ |
+| `JUMP_NEXT_STOP`, `START_EVENT`, `RESET_SESSION` (FR-51, FR-52) | — | — | — | — | ✓ |
+| `SELECT_HAB_SITE`, `SET_MISSION_SETUP` (FR-53) | — | — | ✓ | — | — |
+| `PUBLISH_PLAN` | ✓ | — | ✓ | — | — |
+| `START_EVA`, `APPROVE_OPTION` | — | — | ✓ | — | — |
+| `SUMMON_VEHICLE`, `ABORT`, `ACK_ALERT` | — | ✓ (self) | ✓ (any crew) | — | — |
+| `TASK_ROVER` | — | ✓ | ✓ | — | — |
+| `SEND_MESSAGE` | — | ✓ | ✓ | ✓ (delayed) | — |
+| `UPDATE_STOP_TASK` (FR-50; the undo form, `undo: true`, only by the role that is the `actor` of the change, *added 2026-11-11, Proposed*) | — | ✓ (own tasks) | ✓ (any crew) | — | — |
+| `ADD_STOP_TASK` (FR-50) | — | — | ✓ | — | — |
+| `INJECT_EVENT` | — | — | ✓ | — | — |
+
+The presenter panel is read-only for crew actions: a presenter cannot approve options, abort or summon on a crew member's behalf (those stay in story). Every row is checked per command (05 §E.2).
 
 ### E.5 Hab Core HTTP endpoints
 
@@ -650,7 +671,7 @@ No accounts. A client joins with a **role** and a display name; the Hab Core tru
 | `GET /sites/<site_id>/*` | Site data (v1 §E.1 contract) |
 | `GET /api/health` | `{status, data_version, session_id, sim_time, uptime_s}` |
 | `GET /api/session` | Full snapshot (same body as WS `SNAPSHOT`) |
-| `POST /api/session` | Load scenario `{scenario_id, seed?}` (ops only, via header `X-Role: ops`) |
+| `POST /api/session` | Load scenario `{scenario_id, seed?}` (ops or presenter, via header `X-Role`) |
 | `GET /api/log?after=<seq>` | Event log page (JSON lines) |
 | `GET /api/report` | Post-EVA report data (FR-46) |
 | `GET /api/join-qr?role=` | SVG QR code for the join URL |
@@ -699,7 +720,13 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
  "command":{"kind":"UPDATE_STOP_TASK","args":{"task_id":"t-s2-02","state":"DONE"}}}
 ```
 
-The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state, reason}`; ops and the HUD count read it from the event, never from the command (FR-50).
+The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state, reason}` (+ optional `undo`, below); ops and the HUD count read it from the event, never from the command (FR-50).
+
+**Stop-task undo** *(added 2026-11-11, Proposed; decision of the product & systems lead, Sadman Shaharier Mahim)*: the tablet sends a tick or skip at once (`state` `DONE` or `SKIPPED`, `reason` for `SKIPPED`) and, for 5 s after the tap, offers Undo, which sends `{"kind":"UPDATE_STOP_TASK","args":{"task_id":"t-s2-02","state":"TODO","undo":true}}`. The 5-s window is a UI affordance on the client's wall clock; the engine applies no wall-clock rule (NFR-06) and judges the reversal from the log alone. The Hab Core accepts `DONE → TODO` or `SKIPPED → TODO` only when all hold: `undo` is `true`; the sender is the same role as the `actor` of the task's last `TASK_UPDATED` (05 defines `actor` as role \| `system`, so ops may undo its own change and a `system` actor, such as auto-complete, cannot be undone); that event is the last change to the task (no `TASK_UPDATED` or `TASK_DROPPED` since); and the change is not stale: the task's `stop_id` is still a stop of the current plan revision and no `PLAN_REVISED` has been logged since that change (`TASK_DROPPED` never touches a `DONE` or `SKIPPED` task, so without this rule an undo could revive a task on a dropped stop). The checks run in this order: `NO_LINK` (a suit with no link, as for every command); `FORBIDDEN_ROLE` (the sender's role is not the `actor` of the last change, or that actor is `system`); then `INVALID` for everything else: `undo: true` with any target other than `TODO`, `TODO` without `undo: true`, any other reversal (from `TODO` or `DROPPED`), another change since, or a stale change as above.
+
+*Queue and reconnect (Proposed).* Queued commands resend in queue order on `LINK_STATE linked=true`. A resent undo with the same `command_id` is answered by the dedupe rule below, not run twice. An undo with a new `command_id` after one has succeeded is rejected with `INVALID` (the task is already `TODO`). While the suit is unlinked the tablet cancels a queued tap and its undo as a pair, locally: neither is sent.
+
+The accepted reversal is logged as `TASK_UPDATED` with `{task_id, stop_id, crew_id, state: "TODO", reason: null, undo: true}`; clients and the report reduce it like any other `TASK_UPDATED` (05 StopTask).
 
 `SNAPSHOT` also carries `tasks` (05 StopTask[]; FR-50, added 2026-11-06), so a client that joins or reconnects mid-EVA gets the current task list without replaying the log.
 
@@ -716,17 +743,20 @@ The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state,
 | `scenario_id`, `title`, `seed` | Identity and determinism |
 | `site_id`, `data_version` | Must match the loaded site |
 | `start_utc` | Default `2024-05-20T…Z` (D-10; exact LTST chosen in TASK-21) |
-| `plan` | PlanExport (05) produced by the planner |
+| `mission_setup` *(2026-11-10)* | Defaults for the setup screen (SCR-20): `hab_candidate_id` (preselected candidate, 05 Site `hab_candidates`) and the **Proposed** mission settings (FR-53) |
+| `plan` | PlanExport (05) produced by the planner. *(2026-11-10)* Optional: in a live session the plan arrives with `PUBLISH_PLAN`; a scenario that carries one is the **reference plan** for the headless reference run |
 | `stop_tasks` | Optional initial stop tasks (05 Scenario, FR-50): authored fields only, beside `plan` so `plan_hash` is unchanged |
+| `task_library` *(2026-11-10)* | Suggested tasks per POI (05 TaskLibraryEntry, FR-54); the planner copies a POI's entries into the plan when the stop is added |
 | `crew` | `[{id, start_offset_s, suit_params}]` |
 | `vehicles` | `[{vehicle_id, kind, param_set, start_x_m, start_y_m}]` |
-| `events` | Scheduled inputs (05 ScenarioEvent): `t_utc`, `kind` ∈ {`EARTH_MESSAGE`, `DONKI_RECORD`, `ADVISORY`, `INJECT`}, `payload`, `provenance`, `source_id`; the dose curve is a table, not an event |
+| `events` | Scheduled inputs (05 ScenarioEvent): `t_utc`, `kind` ∈ {`EARTH_MESSAGE`, `DONKI_RECORD`, `ADVISORY`, `INJECT`}, `payload`, `provenance`, `source_id`; the dose curve is a table, not an event. *(2026-11-10)* Inputs that belong to the storm move into `event_library`; `events` keeps any input that is not tied to a library event |
+| `event_library` *(2026-11-10)* | Events a presenter can start with `START_EVENT` (05 EventLibraryEntry): the storm, with its dose series, its scheduled inputs as offsets from the press, and its labels (FR-52) |
 | `tables` | Paths to `earth_link.json`, `dose_series.json` |
 | `provenance` | Source IDs for every table (05 DataSource) |
 
 ### E.8 New entities (field definitions: [05 §C.2](05_Backend_and_Database_Schema.md#c2-runtime-entities-hab-core-v2))
 
-`Session`, `ClientConnection`, `Crew` (id, position, consumables, dose, link state), `Vehicle` (kind ∈ {pressurized_rover, utility_rover}, params, state, path; named Vehicle because 05 already uses Asset for files), `Alert` (code, severity, raised/acked/cleared times), `Command`, `Event` (seq, sim_time, kind, actor, data, provenance, inputs_hash), `ContingencyOption`, `EarthMessage` (direction, sent_utc, deliver_utc, body), `Scenario`, `LinkState`.
+`Session`, `ClientConnection`, `Crew` (id, position, consumables, dose, link state), `Vehicle` (kind ∈ {pressurized_rover, utility_rover}, params, state, path; named Vehicle because 05 already uses Asset for files), `Alert` (code, severity, raised/acked/cleared times), `Command`, `Event` (seq, sim_time, kind, actor, data, provenance, inputs_hash), `ContingencyOption`, `EarthMessage` (direction, sent_utc, deliver_utc, body), `Scenario`, `LinkState`; *(2026-11-10)* `HabCandidate` (a Site list entry), `EventLibraryEntry`, `TaskLibraryEntry`.
 
 ---
 
@@ -824,11 +854,11 @@ The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state,
 | D-03 | OpenLayers tiles vs. ImageStatic fallback | TASK-02 spike (v1) |
 | D-12 | Hab Core language | Node.js + TS unless TS capacity < 2 people (U-13) |
 | D-14 | Web UI library | React + Vite chosen 2026-11-06 by the product & systems lead ([ADR-012](../decisions/ADR-012-react-vite-web-app.md)); kickoff sign-off |
-| U-01 | DEM quality inside AOI | TASK-01 (v1) |
+| U-01 | DEM quality inside AOI | **Resolved 2026-11-07** on the data lead's method ([feasibility.md](../ops/feasibility.md#dem-quality-check-u-01-a-01), [ADR-001](../decisions/ADR-001-site-selection.md#outcome-2026-11-07)); TASK-01 (v1) |
 | U-02 | Elevation datum wording | TASK-01 (v1) |
 | U-03 | TI "loose fines" threshold | TASK-04 (v1) |
-| U-04 | Traverse source | TASK-04 (v1) |
-| U-05 | CRISM coverage of AOI | TASK-01 (v1) |
+| U-04 | Traverse source | **Proposed 2026-11-09**: PDS PLACES, data lead to confirm ([DataSource](../../pipeline/sites/gale_boxwork/sources/pds-msl-places-localizations.json), [T04.01 row](../tasks/status.md)); TASK-04 (v1) |
+| U-05 | CRISM coverage of AOI | **Resolved 2026-11-07** ([feasibility.md](../ops/feasibility.md#crism-coverage-u-05)); TASK-01 (v1) |
 | U-15 | RAD sol-4190 time series — sources found 2026-11-05 ([ops/data-downloads.md](../ops/data-downloads.md) D8–D9); coverage of sol 4190 to verify on download | TASK-04; fallbacks in §C.5 L9 |
 | U-18 | Exact SPICE kernel files covering May 2024 for MRO, MAVEN, TGO | TASK-04 |
 | U-19 | Shielding factors (A-11), alert threshold k, relay min elevation, conjunction angle, O₂ alert margins `o2_caution_margin` / `o2_warning_margin` / `o2_clear_margin` (added 2026-11-07) | Keep as labelled assumptions; ask mentor; cite any found value |

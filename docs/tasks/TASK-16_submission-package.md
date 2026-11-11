@@ -21,7 +21,7 @@
 | Rules answer and Track S/P (`docs/ops/rules.md`) | upstream output | T00.03 | hard (T16.02) |
 | D-01 decision, feasibility summary and notes, ADR-001 | upstream output | T01.05 (notes: T01.01–T01.04) | hard (T16.02) |
 | D-03 spike outcome (ADR-003) | upstream output | T02.05 | hard (T16.02) |
-| Team roster and venue (`docs/ops/team.md`), traverse source record (U-04), TI threshold (U-03), LOW_RES_DEM coverage (U-10) | upstream outputs | T00.06, T04.01, T04.07, T03.18 | none — T16.02 applies them only if already recorded |
+| Team roster and venue (`docs/ops/team.md`), traverse source record (U-04), TI threshold (U-03 — **recorded 2026-11-10: no defensible threshold, no `ti_threshold.json`**, [ti-threshold.md](../ops/ti-threshold.md#decision)), LOW_RES_DEM coverage (U-10) | upstream outputs | T00.06, T04.01, T04.07, T03.18 | none — T16.02 applies them only if already recorded |
 | SCR-09 Sources & Methods, including its AI-use statement | upstream output | T12.03 | hard (T16.03–T16.06) |
 | Hardening and verification results (verification-log sections) | upstream output | T14.03–T14.10 | hard (T16.06) |
 | Bundle v1 site manifest (`DataSource.credit`) and POI image credits | upstream output | T03.19 | read only; no §f edge (Spec question 4) |
@@ -69,6 +69,7 @@ No contract (§d) or fixture (§e) is consumed.
 - **Verify:** `make lint docs-check`; manual: ADR-008's header rows match ADR-001's (Owner, Date, Status, Related).
 - **Agent brief:** Human task: the team chooses the product name (D-08, 01 §F.4). An agent may search public repositories for each shortlisted name, report hits with links, and draft `docs/decisions/ADR-008-product-name.md` in the existing ADR format for the team to approve.
 - **Conflict notes:** New file, single owner. This subtask renames nothing: files that carry the working title belong to other owners (Spec question 6). Land it in M2 so T16.03, T07.03 and T07.05 can use the final name.
+- **Name search (2026-11-10):** GitHub repository search found the name "Marswalk" in at least five public 2026 repositories: `samam7md28-source/marswalk-hud` (created 2026-11-05; "for the 2026 NASA Space Apps Challenge"), `AntrikshH90/marswalk-nasa` (2026-09-22; "NASA Space Apps Challenge 2026"), `Ahmed9030/MarswalkMissionPlannerPrototype` (2026-10-07), `gausele/marswalk` (2026-11-07; "nasa space apps"), and `ChiefAbrar/Marswalk` (2026-10-12). The working title therefore clashes with D-08's rule to avoid names used by other public 2026 repositories. The same search found zero repository hits for "Galewalk", "Gale Surface Ops", "Habline" and "Sharpwalk". Search command for each name: `gh search repos "<name>" --limit 20 --json fullName,createdAt`. Obidit Islam deferred the name decision to a team meeting; the final choice remains `TODO(decision)`.
 
 ### T16.02 — spec-change: sync spec status rows and the docs index with the M0–M1 outcomes
 
@@ -232,6 +233,7 @@ No contract (§d) or fixture (§e) is consumed.
 - **Verify:** Manual: private-window check of the repository link; `make lint docs-check`.
 - **Agent brief:** Human task with two jobs. (1) Implement the release-asset route from `docs/ops/feasibility.md`: an agent may draft in `docs/ops/hosting.md` how a reader obtains the bundle from the release (download, verify the SHA-256, extract), checked against NFR-09 and `CLAUDE.md` §2; a fetch script is a new integration subtask (step 5), not written here. (2) The team decides what the public link shows and makes the repository public.
 - **Conflict notes:** Do not edit `docs/ops/feasibility.md` (T01.05), `.gitignore` (append-only), `.github/` (T14.02) or `README.md` (T16.03, which reads this file). The decision lands in M2; T16.06 repeats the private-window check at M6. Making the repository public is outward-facing: confirm with the team first.
+- **Update 2026-11-10:** Obidit Islam deferred both what the public link shows and whether the repository is made public to a team meeting; both remain `TODO(decision)`.
 
 ## Internal dependency graph
 

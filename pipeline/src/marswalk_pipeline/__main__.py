@@ -137,11 +137,26 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
     elif name == "comm_grid":
         import numpy as np
         from .comm_grid import build_comm_hab, write_comm_hab
-        mast = site["hab_mast"]
-        write_comm_hab(bundle_dir, build_comm_hab(np.load(scratch / "elevation.npy"), config.GRID_CELL_M, origin, mast["x_m"], mast["y_m"], root))
+        from .manifest import candidate_file_name, read_candidates
+        elevation = np.load(scratch / "elevation.npy")
+        candidates = read_candidates(site_dir)
+        if candidates:
+            # One grid per candidate, all from the same elevation array and the same mast height
+            # (the link ParamSet `hab_mast_m`, read by build_comm_hab). The rank-1 candidate writes
+            # grid/comm_hab.u8, so `grid.comm_hab_asset` and every current consumer are unchanged.
+            for candidate in candidates:
+                mast = candidate["hab_mast"]
+                write_comm_hab(
+                    bundle_dir,
+                    build_comm_hab(elevation, config.GRID_CELL_M, origin, mast["x_m"], mast["y_m"], root),
+                    file_name=candidate_file_name(candidate),
+                )
+        else:
+            # No hab_candidates.json: the single site mast, exactly as before.
+            mast = site["hab_mast"]
+            write_comm_hab(bundle_dir, build_comm_hab(elevation, config.GRID_CELL_M, origin, mast["x_m"], mast["y_m"], root))
     elif name == "tiles":
         from .tiles import render_tiles
-        print("TODO(decision): ortho record PNG/2 m differs from 02 §C.3 JPEG/0.5 m (owner: data lead + design brief 04)", file=sys.stderr)
         unstyled = _unstyled_layers(site_dir)
         skipped = _skipped_layers(site_dir) if skip_unstyled_optional else set()
         for layer, raster in (("ortho", "ortho.tif"), ("hillshade", "hillshade.tif"), ("slope", "slope.tif"), ("elevation", "dem.tif"), ("thermal_inertia", "ti.tif"), ("hazard_flags", None), ("comm_hab", None)):
@@ -157,7 +172,7 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
                 raise ValueError(f"{layer}: TODO(decision) {unstyled[layer]}")
             record = json.loads((site_dir / "layers" / f"{layer}.json").read_text(encoding="utf-8"))
             tile_grid = record["tile_grid"]
-            render_tiles(scratch / raster, layer, tuple(tile_grid["origin_m"]), tile_grid["resolutions_m"], tile_grid["tile_size_px"], tile_grid["format"], bundle_dir, data_encoded=layer == "slope", hillshade=layer == "hillshade")
+            render_tiles(scratch / raster, layer, tuple(tile_grid["origin_m"]), tile_grid["resolutions_m"], tile_grid["tile_size_px"], tile_grid["format"], bundle_dir, data_encoded=layer == "slope", hillshade=layer == "hillshade", aoi_extent_m=extent)
     elif name == "vectors":
         from .vectors import package_pois, package_traverse
         if traverse is None:

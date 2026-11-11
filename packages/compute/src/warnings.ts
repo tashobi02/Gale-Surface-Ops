@@ -218,7 +218,10 @@ export function collectWarnings(
     }
   }
 
-  // TODO(decision): Resolve U-03 and the LOW_TI threshold source before enabling LOW_TI warnings; do not infer a threshold from fixture values.
+  // U-03 is decided (Obidit Islam, 2026-11-10): there is no defensible TI "loose fines" threshold for the AOI,
+  // so `pipeline/sites/gale_boxwork/ti_threshold.json` is not written, T03.10 sets no LOW_TI bits, and no LOW_TI
+  // warning is emitted (docs/ops/ti-threshold.md). The warning stays dormant until a threshold is decided; never
+  // infer a threshold from fixture values.
   // TODO(decision): Confirm LOW_RES_DEM warning severity before emitting bit-4 route warnings; the bit encoding is defined, but TASK-05 spec question 9 leaves severity open.
   // TODO(decision): Define NO_DATA_ADJACENT neighbourhood, distance, severity and affected-segment policy before implementation; the routing graph's eight neighbours do not by themselves define this warning.
 
