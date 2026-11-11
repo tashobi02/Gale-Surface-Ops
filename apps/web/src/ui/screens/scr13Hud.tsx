@@ -8,6 +8,7 @@
 import type { CSSProperties, ReactElement } from "react";
 import type { CrewId, Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
+import { useSnapshot } from "../../state/habSession";
 import {
   havenTargetLabel,
   selectHudViewModel,
@@ -26,10 +27,10 @@ import {
 } from "../components/provenance";
 
 export interface HudProps {
-  /** Optional Hab Core client instance. */
+  /** Hab Core client; omitted means the tab's session (state/habSession.ts), null means none. */
   client?: HabClient | null;
-  /** Active crew identifier (defaults to "EV1"). */
-  crewId?: CrewId;
+  /** The crew member whose visor this is. Required: there is no default crew member. */
+  crewId: CrewId;
   /** Direct Snapshot override. */
   snapshot?: Snapshot | null;
   className?: string;
@@ -50,11 +51,12 @@ function hudStatusColor(status: string): string {
  */
 export function Hud({
   client,
-  crewId = "EV1",
+  crewId,
   snapshot,
   className = "",
 }: HudProps): ReactElement {
-  const activeSnapshot = snapshot ?? client?.state() ?? null;
+  const stored = useSnapshot(client);
+  const activeSnapshot = snapshot ?? stored;
   const hud: HudViewModel = selectHudViewModel(activeSnapshot, crewId);
 
   // Black background visor frame styles (04 §C.1, §E.6)

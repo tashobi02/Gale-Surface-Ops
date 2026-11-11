@@ -191,7 +191,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 wer
 | Purpose | Tell one crew member where to go, how much margin is left, and how to get safe |
 | Entry | `#/eva/EV1` or `#/eva/EV2` |
 | Content | Alert bar; haven and O₂ (largest); next stop with bearing/distance/ETA and its task count; stop task list at a stop (FR-50); mini-map; metadata strip (EVA time, dose, link); action row: Summon rover, Abort, Task rover, HUD |
-| Primary actions | Summon rover (hold), Abort to hab (hold), Acknowledge alert, tick or skip a stop task (one tap, 5-s undo), Open HUD |
+| Primary actions | Summon rover (hold), Abort to hab (hold), Acknowledge alert, tick or skip a stop task (one tap, sent at once; 5-s undo, which sends a server-side reversal, 02 §E.6), Open HUD |
 | States | Waiting for EVA start · Walking · At stop (dwell countdown) · Alerting (→ SCR-14) · To haven · Sheltered · No hab link (cached plan; commands queued) · EVA ended |
 | Requirements | FR-32, FR-35, FR-39, FR-40, FR-44, FR-50 |
 

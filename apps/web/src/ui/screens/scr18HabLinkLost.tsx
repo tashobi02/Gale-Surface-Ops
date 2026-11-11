@@ -8,6 +8,7 @@
 import type { CSSProperties, ReactElement } from "react";
 import type { CrewId, Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
+import { useSnapshot } from "../../state/habSession";
 import {
   havenTargetLabel,
   selectEvaViewModel,
@@ -17,10 +18,10 @@ import { StatusIcon } from "../components/statusIcon";
 import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtInt, glyphOf, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
 
 export interface HabLinkLostProps {
-  /** Optional Hab Core client instance. */
+  /** Hab Core client; omitted means the tab's session (state/habSession.ts), null means none. */
   client?: HabClient | null;
-  /** Active crew identifier (defaults to "EV1"). */
-  crewId?: CrewId;
+  /** The crew member whose cached values are shown. Required: there is no default crew member. */
+  crewId: CrewId;
   /** Direct Snapshot override (uses cached snapshot). */
   snapshot?: Snapshot | null;
   /**
@@ -40,13 +41,14 @@ export interface HabLinkLostProps {
  */
 export function HabLinkLost({
   client,
-  crewId = "EV1",
+  crewId,
   snapshot,
   ageSeconds,
   mode = "eva",
   className = "",
 }: HabLinkLostProps): ReactElement {
-  const activeSnapshot = snapshot ?? client?.state() ?? null;
+  const stored = useSnapshot(client);
+  const activeSnapshot = snapshot ?? stored;
   const vm: EvaViewModel = selectEvaViewModel(activeSnapshot, crewId);
 
   const isOps = mode === "ops";

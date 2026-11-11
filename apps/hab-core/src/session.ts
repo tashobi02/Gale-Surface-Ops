@@ -23,7 +23,7 @@
  */
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { PROTOCOL_VERSION, type Command, type CommandResult, type LogEvent, type LogEventData, type ProvenanceMap, type Snapshot } from "@marswalk/protocol";
+import { PROTOCOL_VERSION, type Command, type CommandResult, type LogEvent, type LogEventData, type PlanExport, type ProvenanceMap, type Snapshot } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand } from "./commands";
 import { SIM_STEP_S } from "./engine/clock";
 import { initialState, logged, reduce, type EngineState, type PendingEvent, type StateChange } from "./engine/reducer";
@@ -45,6 +45,11 @@ export interface SessionHandle {
   advance(steps: number): { events: LogEvent[]; deltas: StateChange[] };
   /** Logged events after `seq` (reconnect, 02 §E.6). */
   eventsAfter(seq: number): LogEvent[];
+  /**
+   * The loaded scenario's own plan, unchanged by PLAN_REVISED (the snapshot's `plan` is the engine's current one, whose
+   * waypoints the reducer replaces). The post-EVA report diffs revisions against it and reads its planned timing (FR-46).
+   */
+  initialPlan(): PlanExport | null;
 }
 
 export interface SessionOptions {
@@ -95,6 +100,10 @@ class Session implements SessionHandle {
       this.state = started.state;
       this.accepted = new AcceptedCommands();
     }
+  }
+
+  initialPlan(): PlanExport | null {
+    return this.scenario.scenario.plan;
   }
 
   snapshot(clients: Snapshot["clients"]): Snapshot {

@@ -336,7 +336,7 @@
   - `make replay` prints a hash; `make hab` serves on `0.0.0.0:8080`.
 - **Verify:** `make replay` twice gives the same hash.
 - **Agent brief:** Implement the two CLI commands described in the `cli.ts` header.
-- **Conflict notes:** `Makefile` belongs to T14.01; it already calls these commands.
+- **Conflict notes:** `Makefile` belongs to T14.01; it already calls these commands. T32.07 and T32.17 follow up on `replay.ts` and `cli.ts` (one at a time).
 
 ### T22.14 — Verify: two runs give the same hash; 60× full run; tick cost (M3)
 
@@ -347,12 +347,13 @@
 - **Estimate:** 0.5–1 h
 - **Owns (writes):** `docs/ops/verification-log.md` (append-only)
 - **Reads:** [06 §B](../specs/06_High_Level_Implementation_Plan.md#b-milestones) M3, [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation) NFR-02, NFR-06
-- **Depends on:** T22.13 (hard: replay), T21.08 (hard: the real sol-4190 scenario), T22.10 (hard: alerts)
+- **Depends on:** T22.13 (hard: replay), T21.08 (hard: the real sol-4190 scenario), T22.10 (hard: alerts), T32.17 (soft: list replay, only for step 4), T32.18 (soft: the reference command list, only for step 4)
 - **Parallel with:** T23.08
 - **Steps:**
   1. Run `make replay` on the real scenario twice on one laptop and once on a second laptop; compare hashes.
   2. Run the full scenario at 60× with ops connected; record that it completes and the engine's share of one core (NFR-02 target ≤ 30 %).
   3. Commit the reference hash for the freeze criteria (06 §D.6).
+  4. Once T32.18 exists, repeat step 1 with the reference command list (`--commands`, T32.17) and record its hash beside the others; T32.29 verifies the full live session. This step does not block M3.
 - **Acceptance:**
   - Serves: NFR-02, NFR-06, NFR-14 · [06 §C.2](../specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) TASK-22 done-when
   - Three equal hashes recorded; the 60× run completes; the measured core share is written down.

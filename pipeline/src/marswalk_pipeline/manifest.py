@@ -1,7 +1,12 @@
 """Write site-manifest.json with provenance and checksums (docs/specs/05 §C Site, §F.1). FR-01, FR-15, NFR-06.
 
 Inputs: the C5 site-config folder (pipeline/sites/README.md) and the produced site bundle folder.
-Every number comes from an input file, a produced asset or config.py. Standard library only.
+Every number comes from an input file, a produced asset or config.py.
+
+C5 v2: an optional `hab_candidates.json` in the site-config folder adds the 05 HabCandidate
+list to the manifest, with `height_m`, `lat`, `lon_e` and `comm_hab_asset` derived here and
+never read from the file. Deriving `lat` / `lon_e` needs pyproj (the pipeline geo stack);
+everything else is standard library only.
 """
 from __future__ import annotations
 
@@ -36,10 +41,58 @@ FILE_ASSETS = {
 }
 TI_ASSET = "grid-ti"
 
+# C5 v2: the optional candidate hab site records live in this file of the site-config folder.
+CANDIDATES_FILE = "hab_candidates.json"
+
+# C5 v2 candidate asset ids (T03.31 step 4, Proposed): the rank-1 candidate keeps the existing
+# `grid-comm-hab` asset at `grid/comm_hab.u8`; any other candidate gets `grid-comm-<candidate_id>`
+# at `grid/comm_<candidate_id>.u8`. The rule keeps `grid.comm_hab_asset` unchanged for every
+# current consumer. TODO(decision): the 05 §F.1 example illustrates an id for every candidate
+# (`grid-comm-hab-first`); a reviewer who prefers those changes this rule and every consumer.
+RANK_ONE_ASSET_ID = "grid-comm-hab"
+RANK_ONE_FILE_NAME = "comm_hab.u8"
+
 # Bytes per array element, from the struct module rather than typed in.
 ITEM_BYTES = {"f32": struct.calcsize("<f"), "u8": struct.calcsize("<B")}
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 KIND_BY_FORMAT = {"tiles": "raster_tiles", "geojson": "vector", "png": "image_static"}
+
+
+def read_candidates(config_dir: Path) -> list[dict]:
+    """The candidate hab site records of a site-config folder, in rank order (C5 v2).
+
+    `config_dir` is `pipeline/sites/<site_id>/`. The file is optional: a site without it has no
+    candidates and every caller keeps today's single-mast behaviour. The records are the
+    hand-written C5 v2 entries (candidate_id, label, rank, hab_mast, default_start, note,
+    provenance, source_ids); the pipeline derives height_m, lat, lon_e and comm_hab_asset.
+    """
+    path = Path(config_dir) / CANDIDATES_FILE
+    if not path.is_file():
+        return []
+    records = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(records, list):
+        raise ValueError(f"{path}: expected an array of candidate records")
+    # Rank order, then candidate_id, so the output never depends on the file order.
+    return sorted(records, key=lambda record: (record["rank"], record["candidate_id"]))
+
+
+def candidate_asset_id(candidate: dict) -> str:
+    """The Asset id of a candidate's own comm grid (C5 v2 candidate asset ids)."""
+    if int(candidate["rank"]) == 1:
+        return RANK_ONE_ASSET_ID
+    return f"grid-comm-{candidate['candidate_id']}"
+
+
+def candidate_file_name(candidate: dict) -> str:
+    """The name of a candidate's comm grid file inside `grid/` (C5 v2 candidate asset ids)."""
+    if int(candidate["rank"]) == 1:
+        return RANK_ONE_FILE_NAME
+    return f"comm_{candidate['candidate_id']}.u8"
+
+
+def candidate_path(candidate: dict) -> str:
+    """The bundle-relative path of a candidate's comm grid (C5 v2 candidate asset ids)."""
+    return f"grid/{candidate_file_name(candidate)}"
 
 
 def sha256_file(path: Path) -> str:
@@ -133,6 +186,85 @@ def _produced_assets(site_dir: Path, grid_dims: tuple[int, int], ti_dims: tuple[
     return sorted(assets, key=lambda a: a["asset_id"])
 
 
+def _candidate_grid_assets(site_dir: Path, candidates: list[dict], grid_dims: tuple[int, int]) -> list[dict]:
+    """One Asset record with a SHA-256 checksum per candidate comm grid (05 §C Asset).
+
+    The rank-1 candidate's grid is the existing `grid-comm-hab` asset, already recorded by
+    `_produced_assets`; every other candidate gets its own `grid-comm-<candidate_id>` record.
+    A candidate whose grid was not produced leaves no record, so validate() reports the
+    dangling reference instead of a checksum that cannot exist.
+    """
+    assets = []
+    for candidate in candidates:
+        if int(candidate["rank"]) == 1:
+            continue
+        path = candidate_path(candidate)
+        if not (site_dir / path).is_file():
+            continue
+        assets.append(_file_asset(site_dir, candidate_asset_id(candidate), path, "u8", grid_dims))
+    return assets
+
+
+def _mast_height_m() -> float:
+    """The hab mast height from the link ParamSet (02 §C.5 L11), as for the single mast today.
+
+    The value is passed through unchanged, so the manifest keeps the JSON type the param set
+    uses and a site without candidates produces a byte-identical manifest.
+    """
+    return _read_json(HAB_LINK_PARAM_SET)["values"]["hab_mast_m"]
+
+
+def _geo_transformer(proj4: str):
+    """The pyproj inverse of the working projection: projected metres to planetocentric degrees.
+
+    The working projection is the local `+proj=eqc` string of config.py, copied byte for byte
+    into `crs.proj4` (05 §E.3). `always_xy=True` gives east-positive longitude first, then
+    latitude, matching 05 HabCandidate's `lon_e` / `lat`.
+    """
+    try:
+        import pyproj
+    except ImportError as exc:  # pragma: no cover - the geo stack is required by the pipeline
+        raise RuntimeError(
+            "pyproj is required to derive the candidate lat/lon_e; install the pipeline geo stack"
+        ) from exc
+    crs = pyproj.CRS.from_proj4(proj4)
+    return pyproj.Transformer.from_crs(crs, crs.geodetic_crs, always_xy=True)
+
+
+def _hab_candidates(candidates: list[dict], proj4: str, mast_height_m: float) -> list[dict]:
+    """The 05 HabCandidate list, with the derived fields the pipeline owns (C5 v2).
+
+    Derived here and never read from the config file: `hab_mast.height_m` (the link ParamSet
+    `hab_mast_m`), `lat` and `lon_e` (the pyproj inverse of the working projection, so they
+    agree with `hab_mast` by construction) and `comm_hab_asset` (the candidate asset-id rule).
+    """
+    to_geo = _geo_transformer(proj4)
+    records = []
+    for candidate in candidates:
+        mast = candidate["hab_mast"]
+        lon_e, lat = to_geo.transform(float(mast["x_m"]), float(mast["y_m"]))
+        record = {
+            "candidate_id": candidate["candidate_id"],
+            "label": candidate["label"],
+            "rank": int(candidate["rank"]),
+            "hab_mast": {
+                "x_m": mast["x_m"],
+                "y_m": mast["y_m"],
+                "height_m": mast_height_m,
+            },
+            "lat": lat,
+            "lon_e": lon_e,
+            "comm_hab_asset": candidate_asset_id(candidate),
+            "default_start": dict(candidate["default_start"]),
+            "provenance": candidate["provenance"],
+            "source_ids": list(candidate.get("source_ids", [])),
+        }
+        if "note" in candidate:
+            record["note"] = candidate["note"]
+        records.append(record)
+    return records
+
+
 def _layer(record: dict, produced: dict[str, dict]) -> dict:
     """Layer kind, asset_id and tile_grid follow the produced asset (C5 layers/ rule)."""
     layer = dict(record)
@@ -170,6 +302,14 @@ def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Pa
     excluded = exclude_layers or set()
     assets = [asset for asset in _produced_assets(site_dir, (grid_width, grid_height), ti_dims)
               if asset["asset_id"] not in {f"tiles-{layer}" for layer in excluded}]
+
+    # C5 v2: the optional candidate hab sites. A site without hab_candidates.json has none, and
+    # then every field below is exactly what it was before (the F4 mock manifest is unchanged).
+    candidates = read_candidates(config_dir)
+    mast_height_m = _mast_height_m()
+    if candidates:
+        assets.extend(_candidate_grid_assets(site_dir, candidates, (grid_width, grid_height)))
+        assets = sorted(assets, key=lambda a: a["asset_id"])
     produced = {a["asset_id"]: a for a in assets}
 
     sources = _records(config_dir / "sources", "source_id")
@@ -181,6 +321,29 @@ def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Pa
         for path in sorted((config_dir / "known_offsets").glob("*.json"))
     } if (config_dir / "known_offsets").is_dir() else {}
 
+    # 05 §C RoutingGrid: with candidates present, `comm_hab_asset` and `hab_mast` are those of the
+    # rank-1 candidate, so a consumer that ignores the candidates still works.
+    rank_one = next((c for c in candidates if int(c["rank"]) == 1), None)
+    default_start = site["default_start"]
+    if rank_one is None:
+        comm_hab_asset = RANK_ONE_ASSET_ID
+        hab_mast = {"x_m": site["hab_mast"]["x_m"], "y_m": site["hab_mast"]["y_m"]}
+    else:
+        comm_hab_asset = candidate_asset_id(rank_one)
+        hab_mast = {"x_m": rank_one["hab_mast"]["x_m"], "y_m": rank_one["hab_mast"]["y_m"]}
+        # 05 Site: the manifest's default_start and hab_mast are those of the rank-1 candidate.
+        # A config file that disagrees is an input error, not a silent choice.
+        for field, expected, actual in (
+            ("hab_mast", hab_mast, site["hab_mast"]),
+            ("default_start", rank_one["default_start"], site["default_start"]),
+        ):
+            if any(actual.get(key) != expected.get(key) for key in ("x_m", "y_m")):
+                raise ValueError(
+                    f"{CANDIDATES_FILE}: the rank-1 candidate's {field} does not match site.json's "
+                    f"{field}; the manifest cannot mirror both"
+                )
+        default_start = dict(rank_one["default_start"])
+
     grid = {
         "cell_m": cell_m,
         "width": grid_width,
@@ -191,11 +354,11 @@ def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Pa
         "slope_p90_asset": "grid-slope-p90",
         "slope_max_asset": "grid-slope-max",
         "flags_asset": "grid-flags",
-        "comm_hab_asset": "grid-comm-hab",
+        "comm_hab_asset": comm_hab_asset,
         "hab_mast": {
-            "x_m": site["hab_mast"]["x_m"],
-            "y_m": site["hab_mast"]["y_m"],
-            "height_m": _read_json(HAB_LINK_PARAM_SET)["values"]["hab_mast_m"],
+            "x_m": hab_mast["x_m"],
+            "y_m": hab_mast["y_m"],
+            "height_m": mast_height_m,
         },
     }
     if ti_present:
@@ -210,7 +373,7 @@ def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Pa
         "data_version": data_version,
         "crs": {"proj4": proj4, "base": config.CRS_BASE},
         "aoi": site["aoi"],
-        "default_start": site["default_start"],
+        "default_start": default_start,
         "known_offsets_m": known_offsets,
         "layers": layers,
         "sources": sources,
@@ -220,6 +383,8 @@ def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Pa
         "traverse_asset": "vec-traverse",
         "assets": assets,
     }
+    if candidates:
+        manifest["hab_candidates"] = _hab_candidates(candidates, proj4, mast_height_m)
 
     target = site_dir / "site-manifest.json"
     target.write_text(

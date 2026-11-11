@@ -14,12 +14,13 @@
  */
 
 import {
+  useCallback,
   useState,
-  useRef,
+  useSyncExternalStore,
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { Crew, CrewId, Vehicle, Alert, Snapshot } from "@marswalk/protocol";
+import type { Crew, CrewId, Vehicle, Alert, Snapshot, Command } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 import { AlertStack } from "../ops/AlertStack";
 import { OptionsPanel } from "../ops/OptionsPanel";
@@ -58,7 +59,8 @@ export interface OpsConsoleProps {
   planRevision?: ProvenanceValue<number>;
   /** Current EVA phase, when the Hab Core reports one. */
   phase?: ProvenanceValue<string>;
-  clockSpeed?: number;
+  /** Fallbacks for the clock when no snapshot is available; the snapshot's session clock wins. Unset = unknown. */
+  clockSpeed?: 1 | 10 | 60;
   isPaused?: boolean;
   crew?: Crew[];
   vehicles?: Vehicle[];
@@ -72,9 +74,14 @@ export interface OpsConsoleProps {
   snapshot?: Snapshot | null;
   /** Event log lines; none means the footer reads "—". */
   logLines?: OpsLogLine[];
-  onAcknowledgeAlert?: (alertSeq: number) => void;
+  /** Called with the alert's id once the Hab Core accepted ACK_ALERT (or at once when no client is given). */
+  onAcknowledgeAlert?: (alertId: string) => void;
+  /** Receives every command the console issues when no `client` is given (with a client the console sends them). */
+  onCommand?: (command: Pick<Command, "kind" | "args">) => void;
   onApproveOption?: (optionId: string) => void;
-  onClockCommand?: (cmd: "PAUSE" | "RESUME" | "SET_SPEED" | "STEP", speed?: number) => void;
+  /** Alert sound state, when the caller knows it; unset = unknown. */
+  soundOn?: boolean;
+  onToggleSound?: () => void;
   className?: string;
 }
 
@@ -110,8 +117,8 @@ export function OpsConsole({
   ltst,
   planRevision,
   phase,
-  clockSpeed = 1,
-  isPaused = false,
+  clockSpeed,
+  isPaused,
   crew = [],
   vehicles = [],
   alerts = [],
@@ -122,45 +129,36 @@ export function OpsConsole({
   logLines = [],
   onAcknowledgeAlert,
   onApproveOption,
-  onClockCommand,
+  soundOn,
+  onToggleSound,
+  onCommand,
   className = "",
 }: OpsConsoleProps): ReactElement {
-  const [activeSpeed, setActiveSpeed] = useState<number>(clockSpeed);
-  const [paused, setPaused] = useState<boolean>(isPaused);
-  const [optionApproved, setOptionApproved] = useState<boolean>(false);
   const [activeAddCrew, setActiveAddCrew] = useState<string | null>(null);
-  // TODO(decision): remove the superseded SCR-11 hold-timer state when its session command integration is reconciled.
-  const [pressProgress, setPressProgress] = useState<number>(0);
-  const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [commandError, setCommandError] = useState<string | null>(null);
+  // The session is read from the snapshot (given, or the client's own), so the clock and status follow the server.
+  const subscribe = useCallback((listener: () => void) => client?.subscribe(listener) ?? (() => {}), [client]);
+  const readState = useCallback(() => client?.state() ?? null, [client]);
+  const liveState = useSyncExternalStore(subscribe, readState, readState);
+  const session = (snapshot ?? liveState)?.session;
 
-  const highestAlert = alerts.find((a) => a.level === "warning") ??
-    alerts.find((a) => a.level === "caution") ??
-    alerts[0];
-
-  const hasUnacked = alerts.some((a) => a.acked_seq === null);
-
-  const handleHoldStart = () => {
-    if (pressTimerRef.current) clearInterval(pressTimerRef.current);
-    const start = Date.now();
-    pressTimerRef.current = setInterval(() => {
-      const elapsed = Date.now() - start;
-      const progress = Math.min(1, elapsed / 800);
-      setPressProgress(progress);
-      if (progress >= 1) {
-        clearInterval(pressTimerRef.current!);
-        pressTimerRef.current = null;
-        setOptionApproved(true);
-        onApproveOption?.("option-1");
-      }
-    }, 50);
-  };
-
-  const handleHoldEnd = () => {
-    if (pressTimerRef.current) {
-      clearInterval(pressTimerRef.current);
-      pressTimerRef.current = null;
+  /**
+   * Sends one command to the Hab Core (02 §E.4). Without a client the command goes to `onCommand` and counts as
+   * issued. Returns true when it was accepted; a rejection is shown, not swallowed.
+   */
+  const issue = async (command: Pick<Command, "kind" | "args">): Promise<boolean> => {
+    if (!client) {
+      onCommand?.(command);
+      return true;
     }
-    setPressProgress(0);
+    try {
+      const result = await client.send(command);
+      setCommandError(result.ok ? null : `${command.kind} rejected: ${result.message}`);
+      return result.ok;
+    } catch (err) {
+      setCommandError(`${command.kind} failed: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
   };
 
   const rootStyle: CSSProperties = {
@@ -290,22 +288,22 @@ export function OpsConsole({
         {/* Mission clock controls: ⏸ 1× 10× [60×] ⏭ */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <ClockControl
-            speed={activeSpeed as 1 | 10 | 60}
-            isPaused={paused}
-            activeScenarioId={scenarioName}
-            onSetSpeed={(s) => {
-              setActiveSpeed(s);
-              onClockCommand?.("SET_SPEED", s);
-            }}
-            onPauseResume={(p) => {
-              setPaused(p);
-              onClockCommand?.(p ? "PAUSE" : "RESUME");
-            }}
-            onJumpNextEvent={() => onClockCommand?.("STEP")}
+            speed={session?.clock.speed ?? clockSpeed ?? null}
+            isPaused={session?.clock.paused ?? isPaused ?? null}
+            sessionState={session?.status}
+            activeScenarioId={session?.scenario_id ?? scenarioName}
+            onCommand={(command) => void issue(command)}
           />
-          <span style={{ marginLeft: "8px", cursor: "pointer" }} aria-label="Sound status">
-            🔊
-          </span>
+          <button
+            type="button"
+            style={{ ...buttonStyle, marginLeft: "8px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+            aria-label={`Alert sound: ${soundOn === undefined ? "unknown" : soundOn ? "on" : "off"}`}
+            aria-pressed={soundOn}
+            onClick={() => onToggleSound?.()}
+          >
+            <span aria-hidden="true">🔊</span>
+            <span>{soundOn === undefined ? UNAVAILABLE : soundOn ? "ON" : "OFF"}</span>
+          </button>
         </div>
       </header>
 
@@ -323,8 +321,28 @@ export function OpsConsole({
       {/* ------------------------------------- Alert Slot / Bar (04 §D.2, §E.4) */}
       <AlertStack
         alerts={alerts}
-        onAcknowledge={(_id, seq) => onAcknowledgeAlert?.(seq)}
+        onAcknowledge={(alertId) => {
+          void issue({ kind: "ACK_ALERT", args: { alert_id: alertId } }).then((accepted) => {
+            if (accepted) onAcknowledgeAlert?.(alertId);
+          });
+        }}
       />
+      {commandError && (
+        <div
+          role="status"
+          data-slot="command-error"
+          style={{
+            padding: "6px 16px",
+            fontFamily: "var(--font-mono, monospace)",
+            fontSize: "12px",
+            color: "var(--text-1, #ECEFF2)",
+            backgroundColor: "var(--raised, #1C2128)",
+            borderBottom: "1px solid var(--hairline, #2A313A)",
+          }}
+        >
+          {commandError}
+        </div>
+      )}
 
       {/* ---------------------------------------------------- Main Body Grid */}
       <main style={bodyGridStyle}>
@@ -338,6 +356,8 @@ export function OpsConsole({
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {crew.map((member) => {
               const isUnlinked = !member.linked || member.stale;
+              // LOST = no hab link; STALE = linked but not heard recently (cached values). Not the same state.
+              const linkWord = !member.linked ? "LOST" : member.stale ? "STALE" : "▮▮▮";
               return (
                 <article
                   key={member.crew_id}
@@ -397,7 +417,7 @@ export function OpsConsole({
                     <div>
                       LINK{" "}
                       <span className="value" {...crewAttr("crew.linked")}>
-                        {isUnlinked ? "LOST" : "▮▮▮"} {PROVENANCE_GLYPHS.simulated}
+                        {linkWord} {PROVENANCE_GLYPHS.simulated}
                       </span>
                     </div>
                   </div>
@@ -437,7 +457,14 @@ export function OpsConsole({
               <AddTaskPopover
                 crewId={activeAddCrew as CrewId}
                 stopId={taskProgress[activeAddCrew as CrewId]!.stop!.stopId!}
-                onAdd={() => setActiveAddCrew(null)}
+                stopNo={taskProgress[activeAddCrew as CrewId]!.stop!.stopNo}
+                onAdd={(task) => {
+                  // TODO(decision): ADD_STOP_TASK args not defined in 02 §E.4/05 — using TASK_ADDED fields.
+                  // 05 TASK_ADDED fields; the Hab Core assigns task_id and origin. Closes only once accepted.
+                  void issue({ kind: "ADD_STOP_TASK", args: { ...task } }).then((accepted) => {
+                    if (accepted) setActiveAddCrew(null);
+                  });
+                }}
                 onCancel={() => setActiveAddCrew(null)}
               />
             </div>
@@ -576,17 +603,19 @@ export function OpsConsole({
           <div className="options-panel">
             <OptionsPanel
               client={client}
-              snapshot={snapshot}
-              onApproveOption={(opt) => {
-                setOptionApproved(true);
-                onApproveOption?.(opt.option_id);
-              }}
+              snapshot={snapshot ?? liveState}
+              // Ops is not a crew member, so there is no crew to give (the scr14 EV1 fallback is a TODO(decision) in OptionsPanel).
+              crewId={null}
+              onApproveOption={(opt) => onApproveOption?.(opt.option_id)}
             />
           </div>
         </aside>
       </main>
 
-      {/* ------------------------------------- Bottom Bar: EVENT LOG (TASK-27) */}
+      {/* ------------------------------------- Bottom Bar: EVENT LOG (TASK-27)
+          TODO(decision): `ui/ops/EventLog.tsx` (filterable panel, tested in tests/ui/eventLog.test.ts) is not mounted.
+          03 SCR-11 lists "event log" in Content without a position; 04 §E.4 draws a one-line strip here, and the panel
+          does not fit a 36 px bar. Decide: expandable drawer opened from this strip, or a side panel. */}
       <footer
         className="ops-event-log"
         style={{

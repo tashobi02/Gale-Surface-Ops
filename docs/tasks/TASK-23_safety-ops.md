@@ -294,12 +294,13 @@
 - **Estimate:** 0.5–1 h
 - **Owns (writes):** `apps/hab-core/tests/killerDemo.test.ts`, `docs/ops/verification-log.md` (append-only)
 - **Reads:** [01 §E.1](../specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video), [03 §C.6](../specs/03_App_Flow_and_Diagrams.md#c6-killer-demo-journey--storm-at-sol-4190-v2-01-e1)
-- **Depends on:** T23.03 (hard), T23.05 (hard), T23.07 (hard), T22.12 (hard: session), T21.08 (hard: real scenario)
+- **Depends on:** T23.03 (hard), T23.05 (hard), T23.07 (hard), T22.12 (hard: session), T21.08 (hard: real scenario), T32.17 (soft: list replay, only for the extra step), T32.18 (soft: the reference command list, only for the extra step)
 - **Parallel with:** T22.14
 - **Steps:**
   1. A scripted headless run of the real scenario that issues the demo's commands at the 01 §E.1 beats (summon, approve).
   2. Assert the event sequence 0:30–1:10: alert, options, summon accepted, vehicle arrives, crew sheltered.
   3. Record the run's `log_hash` in the verification log.
+  4. Once T32.18 exists, also run the same beats from the reference command list (T32.17) and compare the event order; T32.29 verifies the full live session. This step does not block M3.
 - **Acceptance:**
   - Serves: FR-38, FR-40, FR-44 · [06 §C.2](../specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) TASK-23 done-when
   - The test passes headless; the event order matches 01 §E.1.
