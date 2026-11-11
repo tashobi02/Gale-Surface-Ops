@@ -1,13 +1,464 @@
 /**
- * SCR-05 — Route Results panel (docs/specs/03 §B; layout in docs/specs/04 §F).
- * Purpose: Show whether the plan works and why.
- * Requirements: FR-07–FR-12.
- * Implemented by TASK-09.
+ * SCR-05 — Route Results panel (docs/specs/03 §B; layout in docs/specs/04 §F; mode OPS, 04 §B.2).
+ * Purpose: show whether the plan works and why: status banner, six headline metrics, the elevation profile and the
+ * warnings list; collapsible to the 48 px status strip (04 §B), with a per-leg Details table (04 §D).
+ * Requirements: FR-07–FR-12, FR-15, NFR-05. Implemented by T09.03 (Saba Atharique, #179; reworked in the review).
+ *
+ * Every value carries `data-provenance` and `data-source` through `provAttrs` (04 §A.3 #8). Source ids are the 05 §F.3
+ * `provenance_summary` ones: walk time `modelled` from `tobler-1993` + `apollo17-planning`, dose `modelled` from
+ * `hassler-2014-rad`, distance and slope `derived` from `usgs-gale-dem-1m-v3`. The limits are the scenario's own
+ * inputs (`assumed`, 01 FR-05): a scenario without one shows "—", the panel has no default limit. Totals are hidden for
+ * a PARTIAL plan (02 §E.2). The chart (T09.02), the warnings list (T09.04) and the profile link (T09.05) are mounted
+ * each behind a boundary so one failing leaves the rest usable.
+ *
+ * TODO(decision): the exact metric set (03 SCR-05 lists climb/descent, 04 §D/§F do not; T09 Spec questions). The six
+ * of 04 §F are shown; climb and descent are in the Details table.
+ * TODO(decision): layout. This keeps the v1 status strip on top (04 Appendix A "status strip remains when collapsed")
+ * where 04 §F draws the banner as a 280 px left column.
+ * TODO(decision): `Metric` (T12.01) is a stub on main; the tiles here use `provAttrs`/`glyphOf` directly and move to it
+ * when it lands.
  */
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import type { Leg, NoRouteLeg, PlanResult, Provenance } from "@marswalk/protocol";
+import type { PlanState, PlanStore } from "../../state/planStore";
+import type { MapHandle } from "../context";
+import { StatusIcon, type ExtendedStatus } from "../components/statusIcon";
+import {
+  PROVENANCE_GLYPHS,
+  UNAVAILABLE,
+  fmtFixed,
+  fmtInt,
+  fmtKilometres,
+  isFiniteNumber,
+  provAttrs,
+  unavailableOf,
+  type Sourced,
+} from "../components/provenance";
+import { legStretchExtent } from "../map/routeGeometry";
+import { ProfileChart } from "../results/profileChart";
+import { linkProfileToMap } from "../results/profileLink";
+import { WarningsList } from "../results/warningsList";
+import "./scr05RouteResults.css";
 
-import type { ReactElement } from "react";
+export interface RouteResultsProps {
+  planStore: PlanStore;
+  /** The shared map: the profile link and click-to-zoom of the warnings use it. Absent: neither is wired. */
+  mapHandle?: MapHandle;
+  className?: string;
+}
 
-/** SCR-05 view (React, ADR-012). The owning task adds its props. TASK-09. */
-export function RouteResults(): ReactElement {
-  throw new Error("TODO(TASK-09): not implemented");
+/** 05 §F.3 provenance_summary and §F.1 slope layer. */
+const SRC_DEM = "usgs-gale-dem-1m-v3";
+const SRC_WALK_TIME = "tobler-1993 apollo17-planning";
+const SRC_DOSE = "hassler-2014-rad";
+
+/** "WALKBACK_EXCEEDED" -> "Walkback exceeded". */
+function words(code: string): string {
+  const w = code.toLowerCase().replace(/_/g, " ");
+  return w.charAt(0).toUpperCase() + w.slice(1);
+}
+
+/** A number without trailing zeros, at most two decimals ("5", "3.06"). */
+function trimmed(n: number): string {
+  return String(Number(n.toFixed(2)));
+}
+
+interface Banner {
+  status: ExtendedStatus;
+  word: string;
+  reason: string;
+}
+
+function isPartial(state: PlanState): boolean {
+  return state.status === "Partial" || state.result?.status === "PARTIAL";
+}
+function isOverLimits(state: PlanState): boolean {
+  return state.status === "OverLimits" || state.result?.status === "OVER_LIMITS";
+}
+function isEmpty(state: PlanState): boolean {
+  return state.status === "Empty" || (state.status !== "Error" && state.status !== "Computing" && !state.result);
+}
+
+function bannerOf(state: PlanState): Banner {
+  if (state.status === "Error") {
+    return { status: "warning", word: "Computation failed", reason: state.last_error_code ? `Error ${state.last_error_code}` : "Worker error" };
+  }
+  if (state.status === "Computing") {
+    return { status: "advisory", word: "Computing…", reason: "Evaluating terrain and route constraints" };
+  }
+  if (isEmpty(state)) return { status: "unknown", word: "No plan yet", reason: "Add at least one stop" };
+  if (isPartial(state)) {
+    const leg = state.result?.legs.find((l): l is NoRouteLeg => l.status === "NO_ROUTE");
+    return {
+      status: "warning",
+      word: "Partial",
+      reason: leg ? `No route ${leg.from} → ${leg.to}: ${leg.reason}` : "Some legs could not be routed",
+    };
+  }
+  if (isOverLimits(state)) {
+    const exceeded = (state.result?.warnings ?? []).filter((w) => w.code.endsWith("_EXCEEDED")).map((w) => words(w.code));
+    return { status: "warning", word: "Over limits", reason: exceeded.length > 0 ? [...new Set(exceeded)].join(", ") : "See the warnings" };
+  }
+  return { status: "nominal", word: "OK", reason: "All legs routed, within limits" };
+}
+
+function announcementOf(state: PlanState, banner: Banner): string {
+  if (state.status === "Error") return `Plan computation failed: ${state.last_error_code ?? "error"}`;
+  if (state.status === "Computing") return "Plan computing…";
+  if (isEmpty(state)) return "Plan empty: add at least one stop";
+  if (isPartial(state)) return "Plan updated: Partial route, unroutable legs";
+  const count = state.result?.warnings.length ?? 0;
+  return `Plan updated: ${banner.word}, ${count} ${count === 1 ? "warning" : "warnings"}`;
+}
+
+// ---------------------------------------------------------------------------
+// Metric tiles
+// ---------------------------------------------------------------------------
+
+/** A shown value: its text, and who says so. A missing value is the dash with an `unavailable:` source (04 §D.1). */
+interface Shown extends Sourced {
+  text: string;
+}
+
+function shown(text: string, prov: Provenance, src: string): Shown {
+  return { text, prov, src };
+}
+function missing(prov: Provenance, path: string): Shown {
+  return { text: UNAVAILABLE, ...unavailableOf(prov, path) };
+}
+/** `value` formatted when it is a finite number, else the dash. */
+function numeric(v: unknown, format: (n: number) => string, prov: Provenance, src: string, path: string): Shown {
+  return isFiniteNumber(v) ? shown(format(v), prov, src) : missing(prov, path);
+}
+
+function Chip({ p }: { p: Sourced }): ReactElement | null {
+  if (!p.prov || p.unavailable) return null;
+  return (
+    <span className="scr05-chip" {...provAttrs(p)}>
+      {PROVENANCE_GLYPHS[p.prov]} {p.prov.toUpperCase()}
+    </span>
+  );
+}
+
+interface MetricTileProps {
+  label: string;
+  /** One value, or a value and its limit. */
+  parts: Shown[];
+  unit: string;
+  hint?: string;
+}
+
+function MetricTile({ label, parts, unit, hint }: MetricTileProps): ReactElement {
+  const allMissing = parts.every((p) => p.unavailable);
+  // The plan-derived value is the first part; a limit that follows is the scenario's own input and stays shown.
+  return (
+    <div className="scr05-metric" title={parts[0]?.unavailable ? hint : undefined}>
+      <div className="scr05-metric-label">{label}</div>
+      <div className="scr05-metric-line">
+        {parts.map((p, i) => (
+          <span key={i} className="scr05-metric-part">
+            {i > 0 ? <span className="scr05-metric-sep"> / </span> : null}
+            <span className="scr05-metric-value" {...provAttrs(p)}>
+              {p.text}
+            </span>
+          </span>
+        ))}
+        {allMissing ? null : <span className="scr05-metric-unit">{unit}</span>}
+        {parts.map((p, i) => (
+          <Chip key={i} p={p} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function metricsOf(state: PlanState, hide: boolean): MetricTileProps[] {
+  const t = hide ? null : (state.result?.totals ?? null);
+  const radiation = hide ? undefined : state.result?.radiation;
+  const sc = state.scenario;
+  const hint = "Needs a plan";
+  const evaLimitMin = isFiniteNumber(sc?.max_eva_duration_h) ? sc.max_eva_duration_h * 60 : undefined;
+  return [
+    {
+      label: "Distance",
+      unit: "km",
+      hint,
+      parts: [numeric(t?.distance_m, (n) => fmtKilometres(n), "derived", SRC_DEM, "result.totals.distance_m")],
+    },
+    {
+      label: "Walk time",
+      unit: "min",
+      hint,
+      parts: [numeric(t?.walk_time_min, fmtInt, "modelled", SRC_WALK_TIME, "result.totals.walk_time_min")],
+    },
+    {
+      label: "EVA total",
+      unit: "min",
+      hint,
+      parts: [
+        numeric(t?.eva_total_min, fmtInt, "derived", SRC_WALK_TIME, "result.totals.eva_total_min"),
+        numeric(evaLimitMin, fmtInt, "assumed", "scenario.max_eva_duration_h", "scenario.max_eva_duration_h"),
+      ],
+    },
+    {
+      label: "Max slope",
+      unit: "°",
+      hint,
+      parts: [numeric(t?.max_slope_deg, (n) => fmtFixed(n, 1), "derived", SRC_DEM, "result.totals.max_slope_deg")],
+    },
+    {
+      label: "Max walkback",
+      unit: "km",
+      hint,
+      parts: [
+        numeric(t?.max_walkback_km, trimmed, "derived", SRC_DEM, "result.totals.max_walkback_km"),
+        numeric(sc?.walkback_limit_km, trimmed, "assumed", "scenario.walkback_limit_km", "scenario.walkback_limit_km"),
+      ],
+    },
+    {
+      label: "Dose",
+      unit: "mSv",
+      hint,
+      parts: [numeric(radiation?.dose_mSv, (n) => fmtFixed(n, 3), "modelled", SRC_DOSE, "result.radiation.dose_mSv")],
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Boundary: one failing child must not take the panel down
+// ---------------------------------------------------------------------------
+
+interface IsolatedProps {
+  label: string;
+  /** The boundary clears its error when this changes (a new result may render). */
+  resetKey: unknown;
+  children: ReactNode;
+}
+interface IsolatedState {
+  error: string | null;
+  resetKey: unknown;
+}
+
+class Isolated extends Component<IsolatedProps, IsolatedState> {
+  state: IsolatedState = { error: null, resetKey: this.props.resetKey };
+
+  static getDerivedStateFromError(error: unknown): Partial<IsolatedState> {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+
+  static getDerivedStateFromProps(props: IsolatedProps, state: IsolatedState): Partial<IsolatedState> | null {
+    return props.resetKey !== state.resetKey ? { error: null, resetKey: props.resetKey } : null;
+  }
+
+  render(): ReactNode {
+    if (this.state.error === null) return this.props.children;
+    return (
+      <div className="scr05-unavailable" role="status">
+        {this.props.label} unavailable: {this.state.error}
+      </div>
+    );
+  }
+}
+
+/** Keys from a leg's endpoints; a repeated pair gets a counter so the keys stay unique and stable. */
+function legKeys(legs: readonly Leg[]): string[] {
+  const seen = new Map<string, number>();
+  return legs.map((l) => {
+    const base = `${l.from}>${l.to}`;
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    return n === 0 ? base : `${base}#${n}`;
+  });
+}
+
+function Cell({ p }: { p: Shown }): ReactElement {
+  return (
+    <td>
+      <span {...provAttrs(p)}>{p.text}</span>
+    </td>
+  );
+}
+
+function LegTable({ result }: { result: PlanResult }): ReactElement {
+  const keys = useMemo(() => legKeys(result.legs), [result.legs]);
+  return (
+    <div className="scr05-details-table-wrap">
+      <table className="scr05-details-table">
+        <thead>
+          <tr>
+            <th scope="col">Leg</th>
+            <th scope="col">From → To</th>
+            <th scope="col">Status</th>
+            <th scope="col">Distance (km)</th>
+            <th scope="col">Walk time (min)</th>
+            <th scope="col">Max slope (°)</th>
+            <th scope="col">Climb / descent (m)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {result.legs.map((leg, i) => {
+            const path = `result.legs[${i}]`;
+            const okLeg = leg.status === "OK" ? leg : null;
+            return (
+              <tr key={keys[i]}>
+                <td>{i + 1}</td>
+                <td>
+                  {leg.from} → {leg.to}
+                </td>
+                <td>
+                  {okLeg ? <StatusIcon status="nominal" word="OK" /> : <StatusIcon status="warning" word="NO ROUTE" />}
+                </td>
+                <Cell p={numeric(okLeg?.distance_m, (n) => fmtKilometres(n), "derived", SRC_DEM, `${path}.distance_m`)} />
+                <Cell p={numeric(okLeg?.walk_time_min, fmtInt, "modelled", SRC_WALK_TIME, `${path}.walk_time_min`)} />
+                <Cell p={numeric(okLeg?.max_slope_deg, (n) => fmtFixed(n, 1), "derived", SRC_DEM, `${path}.max_slope_deg`)} />
+                <Cell
+                  p={
+                    okLeg && isFiniteNumber(okLeg.climb_m) && isFiniteNumber(okLeg.descent_m)
+                      ? shown(`+${fmtInt(okLeg.climb_m)} / −${fmtInt(okLeg.descent_m)}`, "derived", SRC_DEM)
+                      : missing("derived", `${path}.climb_m`)
+                  }
+                />
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** SCR-05 Route Results (React, ADR-012). */
+export function RouteResults({ planStore, mapHandle, className = "" }: RouteResultsProps): ReactElement {
+  const subscribe = useCallback((onChange: () => void) => planStore.subscribe(() => onChange()), [planStore]);
+  const read = useCallback(() => planStore.get(), [planStore]);
+  const state = useSyncExternalStore(subscribe, read, read);
+  const [collapsed, setCollapsed] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  const { result } = state;
+  const banner = bannerOf(state);
+  const computing = state.status === "Computing";
+  const empty = isEmpty(state);
+  const hideTotals = empty || isPartial(state) || !result?.totals;
+  const hasResult = result !== null && !empty;
+
+  // Profile <-> map linking (FR-08): wiring, so it runs from an effect and returns its own cleanup. A failure is
+  // shown in the panel, not swallowed.
+  useEffect(() => {
+    const element = profileRef.current;
+    if (!mapHandle || !element || !hasResult) {
+      setLinkError(null);
+      return undefined;
+    }
+    try {
+      const unlink = linkProfileToMap(mapHandle, element);
+      setLinkError(null);
+      return unlink;
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : String(err));
+      return undefined;
+    }
+  }, [mapHandle, hasResult, collapsed]);
+
+  const getLegExtent = useCallback(
+    (leg: number, from_m: number, to_m: number) => (result ? legStretchExtent(result.legs, leg, from_m, to_m) : null),
+    [result],
+  );
+
+  const metrics = metricsOf(state, hideTotals);
+  const warnings = result?.warnings ?? [];
+
+  return (
+    <section
+      className={`scr05-results-panel ${className}`.trim()}
+      data-collapsed={collapsed}
+      data-computing={computing}
+      aria-label="Route results"
+    >
+      <div className="scr05-sr-only" aria-live="polite" aria-atomic="true">
+        {announcementOf(state, banner)}
+      </div>
+
+      <div className="scr05-status-strip">
+        <div className="scr05-banner-status">
+          <StatusIcon status={banner.status} word={banner.word} />
+          <span className="scr05-banner-reason">{banner.reason}</span>
+          {state.status === "Error" ? (
+            <button type="button" className="scr05-retry-btn" onClick={() => planStore.retry()}>
+              Retry
+            </button>
+          ) : null}
+        </div>
+        <div className="scr05-strip-actions">
+          {!collapsed && hasResult ? (
+            <button
+              type="button"
+              className="scr05-details-toggle"
+              onClick={() => setShowDetails((v) => !v)}
+              aria-expanded={showDetails}
+            >
+              {showDetails ? "Hide details" : "Details"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="scr05-collapse-toggle"
+            onClick={() => setCollapsed((v) => !v)}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expand results panel" : "Collapse results panel"}
+          >
+            {collapsed ? "▲ Expand" : "▼ Collapse"}
+          </button>
+        </div>
+      </div>
+
+      {collapsed ? null : (
+        <div className="scr05-body">
+          <div className="scr05-middle-col">
+            <div className="scr05-metrics-row" data-totals-hidden={hideTotals} style={{ opacity: computing ? 0.5 : 1 }}>
+              {metrics.map((m) => (
+                <MetricTile key={m.label} {...m} />
+              ))}
+            </div>
+
+            <div className="scr05-profile-container" ref={profileRef}>
+              {hasResult && result ? (
+                <Isolated label="Profile" resetKey={result}>
+                  <ProfileChart result={result} />
+                </Isolated>
+              ) : (
+                <div className="scr05-placeholder">{empty ? "Profile appears after stops are added" : "Profile loading…"}</div>
+              )}
+              {linkError ? (
+                <div className="scr05-link-note" role="status">
+                  Profile ↔ map link unavailable: {linkError}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="scr05-right-col">
+            <div className="scr05-warnings-header">Warnings</div>
+            <Isolated label="Warnings" resetKey={warnings}>
+              <WarningsList warnings={warnings} mapHandle={mapHandle} getLegExtent={getLegExtent} />
+            </Isolated>
+          </div>
+        </div>
+      )}
+
+      {!collapsed && showDetails && hasResult && result ? <LegTable result={result} /> : null}
+    </section>
+  );
 }

@@ -110,6 +110,24 @@ export type CommandResult =
   | { v: typeof PROTOCOL_VERSION; type: "COMMAND_RESULT"; command_id: string; ok: true; event_seq: number }
   | { v: typeof PROTOCOL_VERSION; type: "COMMAND_RESULT"; command_id: string; ok: false; code: RejectCode; message: string };
 
+/**
+ * Sent once to a client whose role a newer client took over (02 §E.4, §E.6; added 2026-11-12, Proposed), just before the
+ * Hab Core closes its socket with close code `TAKEN_OVER_CLOSE_CODE`. The client must not reconnect by itself.
+ */
+export interface TakenOverMessage {
+  v: typeof PROTOCOL_VERSION;
+  type: "TAKEN_OVER";
+  seq: number;
+  sim_time: string;
+  /** The role that was lost. */
+  role: Role;
+}
+
+/** WebSocket close code (application range) of a socket closed because its role was taken over (02 §E.6). */
+export const TAKEN_OVER_CLOSE_CODE = 4001;
+/** Its close reason. */
+export const TAKEN_OVER_CLOSE_REASON = "taken over";
+
 export interface Ping {
   v: typeof PROTOCOL_VERSION;
   type: "PING";
@@ -118,7 +136,7 @@ export interface Ping {
 }
 
 export type ClientMessage = Hello | CommandMessage;
-export type ServerMessage = Snapshot | StateDelta | EventMessage | LinkStateMessage | CommandResult | Ping;
+export type ServerMessage = Snapshot | StateDelta | EventMessage | LinkStateMessage | TakenOverMessage | CommandResult | Ping;
 
 /**
  * Role → allowed command kinds (02 §E.4). `self` restrictions are checked by the Hab Core,
@@ -128,6 +146,9 @@ export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
   planner: ["PUBLISH_PLAN"],
   "eva:EV1": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
   "eva:EV2": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
+  // The HUD is a viewer: no command at all (02 §E.4, added 2026-11-12, Proposed).
+  "hud:EV1": [],
+  "hud:EV2": [],
   ops: [
     "LOAD_SCENARIO",
     "SET_CLOCK",

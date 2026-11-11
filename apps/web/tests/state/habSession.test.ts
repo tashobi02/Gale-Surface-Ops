@@ -24,6 +24,7 @@ import {
   useEvents,
   useLinkLost,
   useSnapshot,
+  useTakenOver,
 } from "../../src/state/habSession";
 import { wsFixtures } from "../fixtures/ws";
 import { installDom, mount, must, removeDom } from "../ui/domHarness";
@@ -92,10 +93,12 @@ function CommandProbe(): ReactElement | null {
 
 beforeAll(() => installDom());
 afterAll(() => removeDom());
-afterEach(() => {
+afterEach(async () => {
   closeHabSessions();
   sendRef = null;
   vi.useRealTimers();
+  // Closing notifies the roots earlier tests left mounted; let React finish that while the DOM still exists.
+  await act(async () => {});
   document.body.innerHTML = "";
 });
 
@@ -278,5 +281,46 @@ describe("commands", () => {
 
     expect(result.ok).toBe(false);
     expect(result).toMatchObject({ message: expect.stringMatching(/no hab core connection/i) });
+  });
+});
+
+describe("taken over by another device (02 §E.4)", () => {
+  const taken: ServerMessage = { v: PROTOCOL_VERSION, type: "TAKEN_OVER", seq: 430, sim_time: "2024-05-20T13:14:00Z", role: "eva:EV1" };
+
+  it("useTakenOver follows the client without a remount", async () => {
+    const { factory, made } = sockets();
+    open("eva:EV1", factory);
+    let seen: boolean | undefined;
+    function Taken(): null {
+      seen = useTakenOver();
+      return null;
+    }
+    const view = await mount(createElement(Taken));
+    expect(seen).toBe(false);
+    await made[0].receive(...wsFixtures.connect, taken);
+    expect(seen).toBe(true);
+    await view.unmount();
+  });
+
+  it("useTakenOver is false with no connection", async () => {
+    let seen: boolean | undefined;
+    function Taken(): null {
+      seen = useTakenOver(null);
+      return null;
+    }
+    const view = await mount(createElement(Taken));
+    expect(seen).toBe(false);
+    await view.unmount();
+  });
+
+  it("starting the role again after a take-over opens a fresh connection (a deliberate return), not the dead client", async () => {
+    const { factory, made } = sockets();
+    const first = open("eva:EV1", factory);
+    await made[0].receive(...wsFixtures.connect, taken);
+    const second = open("eva:EV1", factory);
+    expect(second).not.toBe(first);
+    expect(second.takenOver()).toBe(false);
+    expect(made).toHaveLength(2);
+    expect(currentHabClient()).toBe(second);
   });
 });

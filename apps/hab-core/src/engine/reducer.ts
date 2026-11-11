@@ -308,6 +308,8 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
     case "TASK_UPDATED":
     case "TASK_DROPPED":
       return reduceTaskEvent(next, event);
+    case "ROLE_TAKEN_OVER":
+      return next; // connection bookkeeping (02 §E.4): seq and sim time advance, nothing else changes
     default:
       return assertNever(e);
   }

@@ -80,13 +80,28 @@ def test_synthetic_rasters_run_through_grid_and_comm(tmp_path):
     assert (out / 'grid/comm_hab.u8').stat().st_size == 400
 
 
-def test_vectors_report_owning_tasks(tmp_path):
+def test_vectors_step_packages_traverse_and_pois(tmp_path):
+    """T04.03 is implemented: the vectors step writes both GeoJSON files with the site AOI."""
     import json
+    pytest.importorskip('pyproj')
     site = tmp_path / 'site'
-    site.mkdir()
-    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
-    with pytest.raises(NotImplementedError, match=r'T04\.01.*T04\.03-05'):
-        runner._run_step('vectors', tmp_path, site, tmp_path / 'work', tmp_path / 'out', traverse=Path('cached.csv'))
+    (site / 'pois').mkdir(parents=True)
+    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [-1000, -1000, 1000, 1000]}}))
+    (site / 'pois' / 'poi-a.json').write_text(json.dumps({
+        'poi_id': 'poi-a', 'name': 'A', 'lat': -4.81, 'lon_e': 137.38, 'science_objective': 'x', 'why_it_matters': 'y',
+        'position_source': 'synthetic', 'position_uncertainty_m': 1, 'provenance': 'assumed'}))
+    traverse = tmp_path / 'localized_interp.csv'
+    traverse.write_text(
+        'frame,site,drive,planetocentric_latitude,longitude,elevation,sol\n'
+        'ROVER,1,2,-4.81,137.38,-4000,100\n'
+        'ROVER,1,3,-4.0,137.38,-4000,101\n')
+    out = tmp_path / 'out'
+    runner._run_step('vectors', tmp_path, site, tmp_path / 'work', out, traverse=traverse)
+    pois = json.loads((out / 'vectors/pois.geojson').read_text())
+    assert pois['features'][0]['geometry']['coordinates'] == [0.0, 0.0]
+    features = json.loads((out / 'vectors/traverse.geojson').read_text())['features']
+    # The second fix lies far outside the AOI plus margin and is clipped; one Point plus one LineString remain.
+    assert [f['geometry']['type'] for f in features] == ['Point', 'LineString']
 
 
 def test_traverse_cli_passes_cached_source_to_packager(tmp_path, monkeypatch):
@@ -98,11 +113,12 @@ def test_traverse_cli_passes_cached_source_to_packager(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, '_paths', lambda _: (tmp_path, site, tmp_path / 'work', tmp_path / 'out'))
     monkeypatch.setattr(runner, 'STEPS', ('vectors',))
     calls = []
-    monkeypatch.setattr(vectors, 'package_traverse', lambda *args: calls.append(args))
+    monkeypatch.setattr(vectors, 'package_traverse', lambda *args, **kwargs: calls.append((args, kwargs)))
     monkeypatch.setattr(vectors, 'package_pois', lambda *args: None)
     traverse = tmp_path / 'cache' / 'localized_interp.csv'
     assert runner.main(['gale_boxwork', '--traverse', str(traverse)]) == 0
-    assert calls[0][0] == traverse
+    assert calls[0][0][0] == traverse
+    assert calls[0][1]['aoi_extent_m'] == (0, 0, 100, 100)
 
 
 def test_vectors_require_traverse_with_task_guidance(tmp_path):

@@ -7,7 +7,8 @@
  *   builds transforms between every pair of proj4 definitions, which would create a Mars <-> EPSG:4326 /
  *   EPSG:3857 path (02 §C.1 "Never"). The OpenLayers Projection is added directly and has no transforms;
  *   the sources and the view share it, so none is needed.
- * - Creates an OpenLayers Projection in metres bounded by aoi.extent_m.
+ * - Creates an OpenLayers Projection in metres bounded by aoi.extent_m. Its worldExtent is in degrees
+ *   (OpenLayers: longitude/latitude), so it is aoi.bbox_geo, not the metre extent.
  * - Sets point resolution to identity (1 projected metre = 1 ground metre at the standard parallel),
  *   preventing OpenLayers from estimating point resolution via Earth-radius geodesics (02 §C.4.2). The
  *   identity is within 1e-3 of the true scale over the whole AOI (checked in tests/ui/projection.test.ts).
@@ -50,7 +51,7 @@ export function registerMarsProjection(site: MarsProjectionSite): Projection {
     extent: site.aoi.extent_m,
     units: "m",
     metersPerUnit: 1,
-    worldExtent: site.aoi.extent_m,
+    worldExtent: site.aoi.bbox_geo,
     getPointResolution: (resolution: number): number => resolution,
   });
 
@@ -59,16 +60,59 @@ export function registerMarsProjection(site: MarsProjectionSite): Projection {
   return projection;
 }
 
+/** A coordinate to 5 decimals with a true minus sign, and no minus on a value that rounds to zero. */
+function fixed5(value: number): string {
+  const text = Math.abs(value).toFixed(5);
+  return value < 0 && Number(text) !== 0 ? `−${text}` : text;
+}
+
+/**
+ * Planetocentric latitude and east-positive longitude as 02 §C.1 and T07.06 write them:
+ * `−4.71234°, 137.38765°E` (5 decimals, a true minus sign).
+ */
+export function formatLatLonE(lat: number, lon_e: number): string {
+  return `${fixed5(lat)}°, ${fixed5(lon_e)}°E`;
+}
+
+/**
+ * The site's registered working projection, registering it first when it is not yet (several modules need it, and
+ * the first one to run must not leave the others with a second, different Projection object).
+ */
+export function ensureMarsProjection(site: MarsProjectionSite): Projection {
+  return getProjection(getMarsProjectionCode(site)) ?? registerMarsProjection(site);
+}
+
+/**
+ * Planetocentric latitude and east-positive longitude (degrees, longitude in [0, 360)) of a point in the site's
+ * working projection, by inverting the registered manifest `+proj=eqc` string on the Mars sphere (02 §C.1).
+ * Throws when the site's projection was not registered with `registerMarsProjection`.
+ */
+export function projectedToLatLonE(
+  siteOrId: MarsProjectionSite | string,
+  x_m: number,
+  y_m: number,
+): { lat: number; lon_e: number } {
+  const code = getMarsProjectionCode(siteOrId);
+  if (!(code in proj4.defs)) {
+    throw new Error(`Mars projection ${code} is not registered; call registerMarsProjection first`);
+  }
+  // The manifest string has no datum, so proj4 applies no datum shift: this is the plain eqc inverse.
+  const [lon, lat] = proj4(code).inverse([x_m, y_m]);
+  return { lat, lon_e: ((lon % 360) + 360) % 360 };
+}
+
 /**
  * Builds an OpenLayers TileGrid from a manifest tile_grid specification (C9 contract).
  *
  * @param tileGridSpec Manifest tile_grid specification.
+ * @param extent Optional coverage in working-projection metres (the AOI): OpenLayers then requests no tile outside it.
  * @returns OpenLayers TileGrid configured with origin, resolutions, and tile size.
  */
-export function createTileGrid(tileGridSpec: TileGridSpec): TileGrid {
+export function createTileGrid(tileGridSpec: TileGridSpec, extent?: [number, number, number, number]): TileGrid {
   return new TileGrid({
     origin: tileGridSpec.origin_m,
     resolutions: tileGridSpec.resolutions_m,
     tileSize: tileGridSpec.tile_size_px,
+    ...(extent ? { extent } : {}),
   });
 }
