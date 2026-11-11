@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`███████░░░░░░░░░░░░░` **33 %** — 112 of 342 subtasks done, 81 in progress.
+`███████░░░░░░░░░░░░░` **33 %** — 114 of 342 subtasks done, 79 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -21,7 +21,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-01 Feasibility: AOI, DEM quality, coverage checks](docs/tasks/TASK-01_feasibility.md) | `████████░░` 83 % | 5 | 1 | 6 |
 | [TASK-02 Spike: OpenLayers custom Mars projection + custom tile grid](docs/tasks/TASK-02_projection-spike.md) | `████░░░░░░` 40 % | 2 | 1 | 5 |
 | [TASK-03 Preprocessing pipeline](docs/tasks/TASK-03_preprocessing-pipeline.md) | `█████████░` 87 % | 26 | 1 | 30 |
-| [TASK-04 Vectors, POIs and images](docs/tasks/TASK-04_vectors-pois-images.md) | `██░░░░░░░░` 22 % | 2 | 6 | 9 |
+| [TASK-04 Vectors, POIs and images](docs/tasks/TASK-04_vectors-pois-images.md) | `████░░░░░░` 44 % | 4 | 4 | 9 |
 | [TASK-05 Compute core: grid loader, sampling, A*, profile, time model, walkback, warnings](docs/tasks/TASK-05_compute-core.md) | `████░░░░░░` 44 % | 22 | 8 | 50 |
 | [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `███░░░░░░░` 30 % | 3 | 7 | 10 |
 | [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `█░░░░░░░░░` 12 % | 2 | 10 | 17 |
