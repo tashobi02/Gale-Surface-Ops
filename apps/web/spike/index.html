@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>T02.03 Spike — Mars Projection & Tile Grid</title>
+    <link rel="stylesheet" href="./spike.css" />
+  </head>
+  <body>
+    <div id="controls" class="spike-panel">
+      <h1>Marswalk Spike (T02.03)</h1>
+      <p class="meta"><strong>Site:</strong> <span id="site-name">Loading...</span></p>
+      <p class="meta"><strong>CRS:</strong> <span id="site-crs">...</span></p>
+      <p class="meta"><strong>Resolution:</strong> <span id="current-res">-</span> m/px</p>
+      <p class="meta"><strong>Zoom Level (z):</strong> <span id="current-z">-</span></p>
+      <p class="meta"><strong>Centre tile (z/x/y, y southward):</strong> <span id="centre-tile">-</span></p>
+
+      <div class="section-title">Layers</div>
+      <div id="layer-toggles"></div>
+
+      <div class="section-title">Diagnostics</div>
+      <div id="diagnostics">Initializing map...</div>
+    </div>
+    <div id="map"></div>
+    <script type="module" src="./spike.ts"></script>
+  </body>
+</html>

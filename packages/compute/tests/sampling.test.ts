@@ -46,6 +46,27 @@ describe("samplePoint", () => {
     expect(resultEast.elevation_m).toBeNull();
   });
 
+  it("returns OUTSIDE_AOI for nonfinite (NaN, Infinity) coordinates", () => {
+    const grid = makePlaneGrid({
+      width: 10,
+      height: 10,
+      cell_m: 5,
+      origin_m: [0, 0],
+    });
+
+    for (const invalid of [NaN, Infinity, -Infinity]) {
+      const resX = samplePoint(grid, invalid, -25, 50, 15);
+      expect(resX.inside_aoi).toBe(false);
+      expect(resX.reason).toBe("OUTSIDE_AOI");
+      expect(resX.lat).toBeNull();
+
+      const resY = samplePoint(grid, 25, invalid, 50, 15);
+      expect(resY.inside_aoi).toBe(false);
+      expect(resY.reason).toBe("OUTSIDE_AOI");
+      expect(resY.lat).toBeNull();
+    }
+  });
+
   it("returns NO_DATA for NaN cells (02 §D.1)", () => {
     // 30x30 grid with NaN island in the middle
     const grid = makeNanIslandGrid({
@@ -224,5 +245,61 @@ describe("sampleProfile", () => {
     profile.slope_class.forEach((sc) => {
       expect(sc).toBe("over_limit");
     });
+  });
+
+  it("samples the end of the leg even when total distance is not a multiple of 5 m", () => {
+    const grid = makePlaneGrid({
+      width: 20,
+      height: 20,
+      cell_m: 10,
+      slope_deg: 0,
+      origin_m: [0, 0],
+    });
+
+    // 12 m path
+    const path: [number, number][] = [
+      [0, 0],
+      [12, 0],
+    ];
+
+    const profile = sampleProfile(grid, path, 10, 15);
+    // Profile must include 0, 5, 10 and the exact leg end at 12 m
+    expect(profile.dist_m).toEqual([0, 5, 10, 12]);
+    expect(profile.elev_m.length).toBe(4);
+    expect(profile.slope_class.length).toBe(4);
+  });
+
+  it("classifies the leg-end sample with the same thresholds as the 5 m samples", () => {
+    // Plane at 12 deg: above the 10 deg caution threshold, below the 15 deg hard limit
+    const grid = makePlaneGrid({ width: 20, height: 20, cell_m: 10, slope_deg: 12, origin_m: [0, 0] });
+    const profile = sampleProfile(grid, [[0, -5], [12, -5]], 10, 15);
+    expect(profile.dist_m).toEqual([0, 5, 10, 12]);
+    expect(profile.slope_class).toEqual(["caution", "caution", "caution", "caution"]);
+  });
+
+  it("keeps comm, elevation and slope arrays equal in length when the leg end is outside the grid", () => {
+    const grid = makePlaneGrid({ width: 4, height: 4, cell_m: 10, slope_deg: 0, origin_m: [0, 0] });
+    // The grid spans x 0..40 m; the path ends 2 m past the east edge, off a 5 m sample boundary
+    const profile = sampleProfile(grid, [[30, -5], [42, -5]], 10, 15);
+    expect(profile.dist_m).toEqual([0, 5, 10, 12]);
+    expect(profile.slope_class[3]).toBe("over_limit");
+    expect(profile.comm).toHaveLength(profile.dist_m.length);
+    expect(profile.comm?.[3]).toBe(0);
+    expect(profile.elev_m).toHaveLength(profile.dist_m.length);
+    expect(profile.slope_class).toHaveLength(profile.dist_m.length);
+  });
+
+  it("omits comm and keeps the other arrays equal in length when the grid has no commHab", () => {
+    const grid = makePlaneGrid({ width: 4, height: 4, cell_m: 10, slope_deg: 0, origin_m: [0, 0] });
+    const withoutComm = { ...grid, commHab: undefined } as unknown as typeof grid;
+    for (const path of [
+      [[0, -5], [12, -5]], // leg end inside the grid
+      [[30, -5], [42, -5]], // leg end outside the grid
+    ] as [number, number][][]) {
+      const profile = sampleProfile(withoutComm, path, 10, 15);
+      expect(profile.comm).toBeUndefined();
+      expect(profile.elev_m).toHaveLength(profile.dist_m.length);
+      expect(profile.slope_class).toHaveLength(profile.dist_m.length);
+    }
   });
 });

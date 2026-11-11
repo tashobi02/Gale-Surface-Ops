@@ -30,7 +30,6 @@ vi.mock("../src/engine/tick", async () => {
     },
   };
 });
-vi.mock("../src/engine/tasks", async () => ({ ...(await vi.importActual<typeof import("../src/engine/tasks")>("../src/engine/tasks")), seedTasks: () => [] }));
 
 const here = dirname(fileURLToPath(import.meta.url));
 const scenarioDir = join(here, "fixtures/fake-scenario");

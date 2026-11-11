@@ -3,11 +3,18 @@
  * The real FullScreenMap component is mounted and its controls are clicked.
  *
  * Not claimed here: pixel geometry (the map taking >= 80 % of the width) and the shared Mars map instance. Those
- * need a browser and the T07.17 MapControls integration.
+ * need a browser. The MapControls cases (T07.17) mount the real component and click its buttons.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { FullScreenMap, MAX_SCIENCE_LAYERS, type FullScreenMapLayer } from "../../../src/ui/map/FullScreenMap";
+import {
+  MAP_CONTROL_PAN_STEP_PX,
+  MapControls,
+  mapControlHandlers,
+  type MapControlsProps,
+} from "../../../src/ui/map/MapControls";
+import type { MapHandle } from "../../../src/ui/context";
 import type { Crew } from "@marswalk/protocol";
 import { click, installDom, keyDown, mount as mountRaw, must, removeDom, type Mounted } from "../domHarness";
 import { storeFromBeat } from "../fixtureStore";
@@ -28,12 +35,126 @@ afterEach(async () => {
   document.body.innerHTML = "";
 });
 
-describe("MapControls (04 §E.5)", () => {
-  // TODO(decision): coordinate Mars map rendering, shared MapControls and tablet full-map composition with
-  // T07.06/T07.17/T24.09 owners; preserve #104's component until that integration.
-  it.todo("renders MapControls without throwing (pending T07.17 implementation)");
-  it.todo("ops and planner show + / − / FIT only (T07.17)");
-  it.todo("every action works without drag, wheel or pinch (T07.17)");
+describe("MapControls (04 §E.5, T07.17)", () => {
+  const evaProps = (over: Partial<MapControlsProps> = {}): MapControlsProps => ({
+    variant: "eva-full",
+    onZoom: () => {},
+    onFit: () => {},
+    follow: true,
+    onFollow: () => {},
+    layersOpen: false,
+    onLayers: () => {},
+    onClose: () => {},
+    ...over,
+  });
+  const buttonsOf = (container: HTMLElement): HTMLButtonElement[] => [...container.querySelectorAll<HTMLButtonElement>("button")];
+  const controls = (container: HTMLElement): string[] => buttonsOf(container).map((b) => b.dataset.control ?? "");
+
+  it("renders eva-full without throwing: +, −, FIT, FOLLOW, LAYERS and CLOSE, each a labelled button of at least 56 px", async () => {
+    const { container } = await mount(createElement(MapControls, evaProps()));
+    expect(controls(container)).toEqual(["zoom-in", "zoom-out", "fit", "follow", "layers", "close"]);
+    expect(buttonsOf(container).map((b) => b.textContent?.replace(/\s+(ON|OFF)$/, ""))).toEqual(["+", "−", "FIT", "FOLLOW", "LAYERS", "CLOSE"]);
+    for (const b of buttonsOf(container)) {
+      expect(b.getAttribute("aria-label")).toBeTruthy();
+      expect(b.style.minHeight).toBe("56px");
+      expect(b.style.minWidth).toBe("56px");
+    }
+  });
+
+  it("ops and planner show + / − / FIT only, sized for their surface (ops 44 px tablet, planner 32 px mouse)", async () => {
+    for (const [variant, px] of [["ops", "44px"], ["planner", "32px"]] as const) {
+      const { container, unmount } = await mount(createElement(MapControls, evaProps({ variant })));
+      expect(controls(container), variant).toEqual(["zoom-in", "zoom-out", "fit"]);
+      for (const b of buttonsOf(container)) expect(b.style.minHeight, variant).toBe(px);
+      expect(container.textContent).not.toMatch(/FOLLOW|LAYERS|CLOSE/);
+      await unmount();
+    }
+  });
+
+  it("every action works by button, without drag, wheel or pinch: each click reaches its callback", async () => {
+    const onZoom = vi.fn();
+    const onFit = vi.fn();
+    const onFollow = vi.fn();
+    const onLayers = vi.fn();
+    const onClose = vi.fn();
+    const onPan = vi.fn();
+    const { container } = await mount(
+      createElement(MapControls, evaProps({ onZoom, onFit, onFollow, onLayers, onClose, onPan, follow: true, layersOpen: false })),
+    );
+    const press = async (control: string): Promise<void> => click(must(container, `[data-control="${control}"]`));
+
+    for (const control of ["zoom-in", "zoom-out", "fit", "follow", "layers", "close", "pan-north", "pan-south", "pan-west", "pan-east"]) {
+      await press(control);
+    }
+    expect(onZoom.mock.calls).toEqual([[1], [-1]]);
+    expect(onFit).toHaveBeenCalledTimes(1);
+    expect(onFollow.mock.calls).toEqual([[false]]); // follow was on, so the press turns it off
+    expect(onLayers.mock.calls).toEqual([[true]]);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // screen directions, y down, as MapHandle.panBy: north is dy -1
+    expect(onPan.mock.calls).toEqual([[0, -1], [0, 1], [-1, 0], [1, 0]]);
+  });
+
+  it("pan buttons carry a word as well as an arrow, and exist only when onPan is given (04 §A.3 #9)", async () => {
+    const without = await mount(createElement(MapControls, evaProps()));
+    expect(without.container.querySelector('[data-control^="pan-"]')).toBeNull();
+    await without.unmount();
+
+    const { container } = await mount(createElement(MapControls, evaProps({ onPan: () => {} })));
+    const words = ["pan-north", "pan-south", "pan-west", "pan-east"].map((c) => must(container, `[data-control="${c}"]`).textContent);
+    expect(words).toEqual(["↑NORTH", "↓SOUTH", "←WEST", "→EAST"]);
+    for (const c of ["pan-north", "pan-south", "pan-west", "pan-east"]) {
+      expect(must(container, `[data-control="${c}"]`).style.minHeight).toBe("56px");
+    }
+  });
+
+  it("FOLLOW and LAYERS report their state with words and aria, not colour", async () => {
+    const view = await mount(createElement(MapControls, evaProps({ follow: false, layersOpen: true })));
+    const follow = must<HTMLButtonElement>(view.container, '[data-control="follow"]');
+    expect(follow.textContent).toBe("FOLLOW OFF");
+    expect(follow.getAttribute("aria-pressed")).toBe("false");
+    expect(must(view.container, '[data-control="layers"]').getAttribute("aria-expanded")).toBe("true");
+    await view.rerender(createElement(MapControls, evaProps({ follow: true })));
+    expect(must(view.container, '[data-control="follow"]').textContent).toBe("FOLLOW ON");
+  });
+
+  it("uses neutral chrome tokens and no status colour, whatever the state (04 §A.3)", async () => {
+    const { container } = await mount(createElement(MapControls, evaProps({ follow: true, layersOpen: true, onPan: () => {} })));
+    for (const b of buttonsOf(container)) {
+      const style = b.getAttribute("style") ?? "";
+      expect(style).not.toMatch(/--status-|--caution|--warning|--nominal|#[0-9a-fA-F]{3,6}|--color-|--bg-panel|--border-color|--active/);
+      expect(style).toMatch(/var\(--(raised)\)/);
+      expect(style).toMatch(/var\(--(edge|text-1)\)/);
+    }
+  });
+
+  it("mapControlHandlers drive the map handle: zoom by one level, pan by the keyboard step in screen pixels, fit the extent", () => {
+    const calls: string[] = [];
+    const handle = {
+      zoomBy: (d: number) => calls.push(`zoom ${d}`),
+      panBy: (dx: number, dy: number) => calls.push(`pan ${dx} ${dy}`),
+      fitExtent: (e: number[]) => calls.push(`fit ${e.join(",")}`),
+    } as unknown as MapHandle;
+    const h = mapControlHandlers(handle, { fitExtent: () => [-3000, -3000, 3000, 3000] });
+    h.onZoom(1);
+    h.onZoom(-1);
+    h.onPan(0, -1);
+    h.onPan(1, 0);
+    h.onFit();
+    expect(calls).toEqual(["zoom 1", "zoom -1", `pan 0 ${-MAP_CONTROL_PAN_STEP_PX}`, `pan ${MAP_CONTROL_PAN_STEP_PX} 0`, "fit -3000,-3000,3000,3000"]);
+    expect(MAP_CONTROL_PAN_STEP_PX).toBe(50); // the keyboard layer's default step (keyboard.ts)
+    mapControlHandlers(handle, { fitExtent: () => [0, 0, 1, 1], panStepPx: 10 }).onPan(-1, 1);
+    expect(calls.at(-1)).toBe("pan -10 10");
+  });
+
+  it("FullScreenMap mounts the shared MapControls (eva-full) and passes onPan through", async () => {
+    const onPan = vi.fn();
+    const { container } = await mount(createElement(FullScreenMap, { onPan, onClose: () => {} }));
+    const toolbar = must(container, '[data-slot="map-controls"]');
+    expect(toolbar.getAttribute("data-variant")).toBe("eva-full");
+    await click(must(container, '[data-control="pan-east"]'));
+    expect(onPan).toHaveBeenCalledWith(1, 0);
+  });
 });
 
 describe("FullScreenMap controls (04 §E.5)", () => {

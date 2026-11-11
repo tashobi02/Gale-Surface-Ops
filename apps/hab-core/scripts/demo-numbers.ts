@@ -11,8 +11,9 @@
  *   TODO(decision): read them from the site manifest once it carries geographic coordinates);
  * - the light time X: the `earth_link.json` row at or before the alert;
  * - the next relay pass Y: the first pass with `start_utc` >= alert, and "alert inside pass" as a
- *   separate field. TODO(T05b.13): switch to `nextPassStart` and `linkAt` (both still stubs in
- *   `packages/compute/src/earthLink.ts`; the row and pass selection here is table lookup only);
+ *   separate field. Row and pass selection use `linkAt`, `nextPassStart` and `activePass` from
+ *   `packages/compute/src/earthLink.ts` (T05b.13); the script only locates the returned row or pass in the
+ *   table to print its index;
  * - when a plan is given, `eva_start_utc` by the stop-2 dwell rule (decided by Sadman Shaharier Mahim,
  *   2026-11-10): start = alert - (legs[0].walk_time_min + dwell + legs[1].walk_time_min + dwell / 2),
  *   in minutes, rounded down to a whole UTC minute, with its asserts. A miss throws; the replayed times
@@ -23,7 +24,7 @@
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { localTrueSolarTime, solarPosition, sunriseSunset, triggerState } from "@marswalk/compute";
+import { activePass, linkAt, localTrueSolarTime, nextPassStart, solarPosition, sunriseSunset, triggerState } from "@marswalk/compute";
 import type { DoseSeries, EarthLinkTable, MissionScenario, NoRouteLeg, OkLeg, ParamSet, Waypoint } from "@marswalk/protocol";
 
 const MIN_MS = 60_000;
@@ -143,19 +144,30 @@ function firstAlertRow(series: DoseSeries, params: ParamSet): number {
   throw new Error(`demo-numbers: no alert sample in series ${series.series_id} with ParamSet ${params.param_set_id}`);
 }
 
-/** Index of the last row with t <= alert (binary search; rows are strictly increasing). */
-function lightTimeRow(table: EarthLinkTable, alert_ms: number): number {
-  const rows = table.rows;
-  if (rows.length === 0) throw new Error("demo-numbers: earth link table has no rows");
-  if (ms(rows[0].t_utc, "row time") > alert_ms) throw new Error(`demo-numbers: the alert ${iso(alert_ms)} is before the first row ${rows[0].t_utc} of the earth link table`);
-  let lo = 0;
-  let hi = rows.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (ms(rows[mid].t_utc, "row time") <= alert_ms) lo = mid;
-    else hi = mid - 1;
+/**
+ * `linkAt`, `nextPassStart` and `activePass` use `Date.parse`, which reads a time without Z or an offset in the
+ * host's time zone. Every row and pass time is therefore checked here with the strict `ms()` first (throws, naming
+ * the field), so a bad table cannot be read differently on two machines.
+ */
+function assertTableTimes(table: EarthLinkTable): void {
+  for (const row of table.rows) ms(row.t_utc, "row time");
+  for (const pass of table.passes) {
+    ms(pass.start_utc, "pass start");
+    ms(pass.end_utc, "pass end");
   }
-  return lo;
+}
+
+/** Index of the last row with t <= alert, via `linkAt` (the same row object, so its index is found by identity). */
+function lightTimeRow(table: EarthLinkTable, alert_utc: string): number {
+  if (table.rows.length === 0) throw new Error("demo-numbers: earth link table has no rows");
+  const row = linkAt(table, alert_utc);
+  if (row === null) throw new Error(`demo-numbers: the alert ${alert_utc} is before the first row ${table.rows[0].t_utc} of the earth link table`);
+  return table.rows.indexOf(row);
+}
+
+/** Index in `table.passes` of a pass returned by `nextPassStart` or `activePass` (same start, end and orbiter). */
+function passIndex(table: EarthLinkTable, found: { start_utc: string; end_utc: string; orbiter: string }): number {
+  return table.passes.findIndex((p) => p.start_utc === found.start_utc && p.end_utc === found.end_utc && p.orbiter === found.orbiter);
 }
 
 function passFinding(table: EarthLinkTable, index: number, alert_ms: number, path: string): PassFinding {
@@ -186,7 +198,8 @@ export function deriveDemoTiming(inputs: DemoTimingInputs): DemoTiming {
   const sun: DemoTiming["sun"] = { ...events, source: { rule: `sunriseSunset(alert, lat, lonE) with the hab position from ${hab.source.path}` } };
 
   // X: the row at or before the alert
-  const xRow = lightTimeRow(table, alert_ms);
+  assertTableTimes(table);
+  const xRow = lightTimeRow(table, alert_utc);
   const light_time: DemoTiming["light_time"] = {
     row_t_utc: table.rows[xRow].t_utc,
     light_time_s: table.rows[xRow].light_time_s,
@@ -194,15 +207,11 @@ export function deriveDemoTiming(inputs: DemoTimingInputs): DemoTiming {
     source: { path: inputs.earth_link.path, row: xRow },
   };
 
-  // Y: the first pass with start >= alert (TODO(T05b.13): nextPassStart); the pass the alert is inside, apart
-  let nextIndex = -1;
-  let insideIndex = -1;
-  table.passes.forEach((p, i) => {
-    const start = ms(p.start_utc, "pass start");
-    const end = ms(p.end_utc, "pass end");
-    if (start >= alert_ms && (nextIndex < 0 || start < ms(table.passes[nextIndex].start_utc, "pass start"))) nextIndex = i;
-    if (start <= alert_ms && alert_ms < end && insideIndex < 0) insideIndex = i;
-  });
+  // Y: the first pass with start >= alert (`nextPassStart`); the pass the alert is inside (`activePass`), apart
+  const nextFound = nextPassStart(table, alert_utc);
+  const insideFound = activePass(table, alert_utc);
+  const nextIndex = nextFound === null ? -1 : passIndex(table, nextFound);
+  const insideIndex = insideFound === null ? -1 : passIndex(table, insideFound);
   const next_pass = nextIndex < 0 ? null : passFinding(table, nextIndex, alert_ms, inputs.earth_link.path);
   const alert_inside_pass = insideIndex < 0 ? null : passFinding(table, insideIndex, alert_ms, inputs.earth_link.path);
 

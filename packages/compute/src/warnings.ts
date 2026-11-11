@@ -78,6 +78,9 @@ export function collectWarnings(
         });
       }
 
+      // Slope metrics distinction (02 §D.2 / §D.3):
+      // CAUTION_SLOPE warning evaluates slope_p90 from the leg profile (02 §D.3, 05 §C),
+      // whereas A* routing uses slope_max for the 1.5x step-cost penalty (02 §D.2).
       // Find contiguous runs of "caution"
       let inCaution = false;
       let startCautionDist = 0;

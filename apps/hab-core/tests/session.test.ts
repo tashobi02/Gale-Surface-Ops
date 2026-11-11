@@ -43,11 +43,6 @@ vi.mock("../src/engine/tick", async () => {
   };
 });
 
-vi.mock("../src/engine/tasks", async () => {
-  const actual = await vi.importActual<typeof import("../src/engine/tasks")>("../src/engine/tasks");
-  return { ...actual, seedTasks: () => [] };
-});
-
 const here = dirname(fileURLToPath(import.meta.url));
 const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
 const sha256 = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex");
@@ -76,16 +71,20 @@ function scripted(dir: string): SessionHandle {
   return s;
 }
 
+/** The scenario's `stop_tasks` are logged as TASK_ADDED right after SESSION_LOADED (FR-50, T31.04), so a command's first seq is 2 + this. */
+const SEEDED = fake.scenario.stop_tasks!.length;
+
 describe("session manager (T22.12)", () => {
-  it("LOAD: a new session s-0001 logs SESSION_LOADED and builds the initial state", () => {
+  it("LOAD: a new session s-0001 logs SESSION_LOADED, then the seeded TASK_ADDED events, and builds the initial state", () => {
     const dir = varDir();
     const s = loadSession(fake, dir);
     const snap = state(s);
-    expect(snap.seq).toBe(1);
-    expect(snap.session).toMatchObject({ session_id: "s-0001", scenario_id: "fake-straight-line", status: "LOADED", last_seq: 1 });
-    expect(s.eventsAfter(0).map((e) => [e.kind, e.data, e.command_ref])).toEqual([
-      ["SESSION_LOADED", { session_id: "s-0001", scenario_id: "fake-straight-line", data_version: "mock_site-fixture", seed: 4190, plan_hash: fake.scenario.plan.plan_hash }, null],
-    ]);
+    expect(SEEDED).toBeGreaterThan(0);
+    expect(snap.seq).toBe(1 + SEEDED);
+    expect(snap.session).toMatchObject({ session_id: "s-0001", scenario_id: "fake-straight-line", status: "LOADED", last_seq: 1 + SEEDED });
+    expect(snap.tasks.map((t) => t.task_id)).toEqual(fake.scenario.stop_tasks!.map((t) => t.task_id));
+    expect(s.eventsAfter(0).map((e) => [e.kind, e.command_ref])).toEqual([["SESSION_LOADED", null], ...fake.scenario.stop_tasks!.map(() => ["TASK_ADDED", null])]);
+    expect(s.eventsAfter(0)[0]!.data).toEqual({ session_id: "s-0001", scenario_id: "fake-straight-line", data_version: "mock_site-fixture", seed: 4190, plan_hash: fake.scenario.plan.plan_hash });
     expect(snap.session.log_hash).toBe(sha256(readFileSync(join(sessionDir(dir), "session.jsonl"), "utf8")));
   });
 
@@ -98,14 +97,14 @@ describe("session manager (T22.12)", () => {
   it("each step: clock → tick → append → reduce; deltas and events go back to the server", () => {
     const s = loadSession(fake, varDir());
     const start = s.apply(cmd("ops", "START_EVA"), "c-ops");
-    expect(start.result).toMatchObject({ ok: true, event_seq: 2 });
+    expect(start.result).toMatchObject({ ok: true, event_seq: 2 + SEEDED });
     const out = s.advance(40);
-    expect(out.events.map((e) => [e.seq, e.kind, e.sim_time])).toEqual([[3, "ARRIVED_STOP", "2024-05-20T00:00:30Z"]]);
+    expect(out.events.map((e) => [e.seq, e.kind, e.sim_time])).toEqual([[3 + SEEDED, "ARRIVED_STOP", "2024-05-20T00:00:30Z"]]);
     expect(out.deltas.at(-1)).toEqual({ path: "crew/EV1/x_m", value: 30 });
     const snap = state(s);
     expect(snap.sim_time).toBe("2024-05-20T00:00:40Z");
     expect(snap.crew.find((c) => c.crew_id === "EV1")).toMatchObject({ activity: "AT_STOP", x_m: 30 });
-    expect(snap.session.last_seq).toBe(3);
+    expect(snap.session.last_seq).toBe(3 + SEEDED);
   });
 
   it("commands go through commands.ts: rejections are logged, repeats are answered from memory", () => {
@@ -153,7 +152,7 @@ describe("session manager (T22.12)", () => {
     const first = s.apply(c, "c-ops");
     const r = resumeSession(sessionDir(dir), fake);
     expect(r.apply(c, "c-ops")).toEqual({ result: first.result, events: [] });
-    expect(r.advance(30).events.map((e) => e.seq)).toEqual([3]);
+    expect(r.advance(30).events.map((e) => e.seq)).toEqual([3 + SEEDED]);
   });
 
   it("writes a snapshot when a batch crosses 500 events, and resumes from it", () => {

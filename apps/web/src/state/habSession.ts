@@ -7,8 +7,9 @@
  * client with `useSyncExternalStore`, so a view re-renders on every new SNAPSHOT, STATE_DELTA, EVENT or link change
  * without being remounted. This module computes nothing: it passes the client's data through.
  *
- * TODO(wiring slice M): app boot must call `startHabSession` (role and crew from the join screen) before an EVA or
- * HUD route mounts; until then the hooks read `null` and the screens show "—". No route is mounted here.
+ * App boot (boot/session.ts) calls `startHabSession` for the route's role and crew member before an ops, EVA or HUD
+ * route renders, and `closeHabSessionsExcept` so a tab keeps one connection. Before the first SNAPSHOT the hooks read
+ * `null` and the screens show "—".
  *
  * Each hook takes an optional `client`: `undefined` means the tab's current session, `null` means "no connection"
  * (the view shows "—"), and a client means that client (tests and the ops console, which are handed one).
@@ -46,6 +47,20 @@ export function startHabSession(options: HabClientOptions): HabClient {
 /** The tab's current client, or null before `startHabSession`. */
 export function currentHabClient(): HabClient | null {
   return current;
+}
+
+/**
+ * Closes every connection of this tab except the one for `keep` (a tab keeps one Hab Core connection, 03 §A). The kept
+ * session, if open, becomes the current one. With `keep` null every connection closes.
+ */
+export function closeHabSessionsExcept(keep: string | null): void {
+  for (const [role, client] of [...sessions]) {
+    if (role === keep) continue;
+    client.close();
+    sessions.delete(role);
+  }
+  const kept = keep ? (sessions.get(keep) ?? null) : null;
+  if (current !== kept) setCurrent(kept);
 }
 
 /** Closes every connection of this tab (page teardown and tests). */

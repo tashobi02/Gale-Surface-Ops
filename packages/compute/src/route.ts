@@ -11,6 +11,8 @@ import { stepTimeH } from "./timeModel";
 /** Limits and multiplier constants from 02 §D.2. */
 export const MAX_STOPS = 10;
 export const MAX_NODE_EXPANSIONS = 3_000_000;
+/** Cooperative cancellation check interval in node expansions (02 §E.2). */
+export const CANCEL_CHECK_EVERY_EXPANSIONS = 50_000;
 export const CAUTION_SLOPE_MULTIPLIER = 1.5;
 export const LOW_TI_MULTIPLIER = 1.3;
 export const TOBLER_UNSUITED_FLAT_KMH = 5.037;
@@ -19,7 +21,8 @@ export const TOBLER_UNSUITED_FLAT_KMH = 5.037;
 export type LegSearch =
   | { status: "OK"; cells: number[] }
   | { status: "NO_ROUTE"; reason: NoRouteReason; nearest_reachable: { x_m: number; y_m: number } }
-  | { status: "TIMEOUT" };
+  | { status: "TIMEOUT" }
+  | { status: "CANCELLED" };
 
 interface HeapNode {
   cell: number;
@@ -55,13 +58,13 @@ class MinHeap {
   }
 
   private compare(a: HeapNode, b: HeapNode): number {
-    // Smaller f comes first
-    if (Math.abs(a.f - b.f) > 1e-12) {
-      return a.f - b.f;
+    // Smaller f comes first (strict ordering)
+    if (a.f !== b.f) {
+      return a.f < b.f ? -1 : 1;
     }
-    // Smaller h comes first
-    if (Math.abs(a.h - b.h) > 1e-12) {
-      return a.h - b.h;
+    // Smaller h comes first (strict ordering)
+    if (a.h !== b.h) {
+      return a.h < b.h ? -1 : 1;
     }
     // Deterministic tie-break by cell index (02 §D.2 (4))
     return a.cell - b.cell;
@@ -130,6 +133,8 @@ export function searchLeg(
   to: { x_m: number; y_m: number },
   scenario: MissionScenario,
   maxExpansions = MAX_NODE_EXPANSIONS,
+  shouldCancel?: () => boolean,
+  cancellationInterval = CANCEL_CHECK_EVERY_EXPANSIONS,
 ): LegSearch {
   const { width, height, cell_m, origin_m } = grid.meta;
   const [origin_x, origin_y] = origin_m;
@@ -228,6 +233,12 @@ export function searchLeg(
     expansions++;
     exploredCells.push(u);
 
+    // Cooperative cancellation check every 50,000 expansions (02 §E.2). Nothing passes `shouldCancel` yet:
+    // TODO(decision): event-loop yielding or shared abort signalling (TASK-05 T05.18/T05.27).
+    if (expansions % cancellationInterval === 0 && shouldCancel?.()) {
+      return { status: "CANCELLED" };
+    }
+
     if (expansions >= maxExpansions) {
       return { status: "TIMEOUT" };
     }
@@ -250,6 +261,8 @@ export function searchLeg(
         continue;
       }
 
+      // Diagonal corner cutting: only the destination cell is tested, the same as haven.ts (T05b.04) so haven and
+      // route agree on reachability. The rule is still Proposed / TODO(decision) in TASK-05b; 02 §D.2 does not state it.
       if (!isCellPassable(grid, v, scenario.hard_slope_limit_deg)) {
         continue;
       }

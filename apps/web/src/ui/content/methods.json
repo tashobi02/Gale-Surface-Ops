@@ -51,7 +51,7 @@
       "source_ids": [
         "usgs-themis-ti-30s120e"
       ],
-      "text": "USGS THEMIS Thermal Inertia Mosaic, Quantitative (32-bit), 100 m/px (Fergason et al. 2006). Units: tiu = J m⁻² K⁻¹ s⁻½. Resampled bilinearly for display and nearest-neighbor for routing flags. Cells below threshold flagged as possible loose fines (LOW_TI). Gaps in mosaic labelled unknown, never zero."
+      "text": "USGS THEMIS Thermal Inertia Mosaic, Quantitative (32-bit), 100 m/px (Fergason et al. 2006). Units: tiu = J m⁻² K⁻¹ s⁻½. Resampled bilinearly for display and nearest-neighbor for flags. No defensible threshold for \"possible loose fines\" exists for this AOI (U-03, decided 2026-11-10), so no LOW_TI flag is set and the layer is display only. Gaps in the mosaic are labelled unknown, never zero."
     }
   ],
   "models": [
@@ -84,7 +84,7 @@
       "equations": [
         "dose_mSv = rate_mSv_per_day × duration_h / 24"
       ],
-      "text": "Calculates cumulative background surface dose equivalent from measured Gale crater GCR rates: solar maximum 0.64 ± 0.12 mSv/day (Hassler et al. 2014) or solar minimum range 0.85–1.0 mSv/day (Simonsen et al. 2024). Excludes solar particle events, spacesuit/habitat shielding, terrain horizon shielding, and elevation differences within AOI."
+      "text": "Cumulative background surface dose equivalent = measured Gale crater background rate × planned duration. The rates and their ranges for solar maximum and solar minimum are read from the site's env_constants records (each with its source id), not repeated here. Excludes solar energetic particle events, suit/habitat shielding, terrain sky-blocking, and altitude differences within the AOI."
     },
     {
       "id": "model-solar-conditions",
@@ -95,7 +95,7 @@
       "source_ids": [
         "mars24-allison-mcewen-2000"
       ],
-      "text": "Mars24 celestial mechanics algorithm (Allison & McEwen 2000): determines Mars Sol Date (MSD), areocentric solar longitude (L_s), Clancy Mars Year, Equation of Time, Local True Solar Time (LTST), sub-solar coordinates, and solar elevation and azimuth at Gale crater planetocentric coordinates. Sunrise and sunset times computed for a flat spherical horizon (elevation = 0°)."
+      "text": "Mars24 algorithm (Allison & McEwen 2000; GISS Mars24 technical notes): Mars Sol Date, L_s, equation of time, LTST, solar declination, and solar elevation and azimuth for the site's planetocentric latitude and longitude. EVA window sunrise and sunset use horizon = 0°, flat."
     }
   ],
   "limitations": [
@@ -103,31 +103,57 @@
       "id": "limitation-dtm",
       "title": "Topographic DTM Resolution and Artifacts",
       "spec_ref": "02 §C.2 L2",
-      "text": "Post spacing is 1 m, but effective spatial resolution of photogrammetric DTMs is coarser than grid cell spacing. Micro-relief below effective DTM resolution (such as 1–2 m boxwork ridge heights, rocks, boulders, and small crevices) is smoothed and not mapped in the routing graph. Stereo DTM artifacts such as CCD seams, boxes, and faceted low-contrast areas may produce localized slope noise."
+      "text": "Post spacing is 1 m, but effective spatial resolution of photogrammetric DTMs is coarser than grid cell spacing. Micro-relief below effective DTM resolution (such as 1–2 m boxwork ridge heights, rocks, boulders, and small crevices) is smoothed and not mapped in the routing graph. Stereo DTM artifacts such as CCD seams, boxes, and faceted low-contrast areas may produce localized slope noise.",
+      "provenance": "assumed",
+      "source_ids": [
+        "usgs-gale-dem-1m-v3"
+      ]
+    },
+    {
+      "id": "limitation-slope",
+      "title": "Slope Noise and the p90 Aggregate",
+      "spec_ref": "02 §C.2 L3",
+      "provenance": "derived",
+      "source_ids": [
+        "usgs-gale-dem-1m-v3"
+      ],
+      "text": "Slope at 1 m is noisy where DTM artifacts exist; p90 reduces single-pixel spikes but can hide short steps."
     },
     {
       "id": "limitation-ti",
       "title": "Thermal Inertia Scale and Coverage",
       "spec_ref": "02 §C.2 L4",
-      "text": "THEMIS thermal inertia native resolution is 100 m/px; one thermal pixel spans 400 routing cells (20 × 20 cells at 5 m). Absolute accuracy is ~20%. Areas with missing or poor coverage in the mosaic are marked unknown rather than assumed zero."
+      "text": "THEMIS thermal inertia native resolution is 100 m/px, so one thermal pixel covers 400 routing cells. Absolute accuracy is ~20 %. Areas with missing or poor coverage in the mosaic are marked unknown rather than assumed zero.",
+      "provenance": "derived",
+      "source_ids": [
+        "usgs-themis-ti-30s120e"
+      ]
     },
     {
       "id": "limitation-routing",
       "title": "8-Connected Grid Routing",
       "spec_ref": "02 §D.2",
-      "text": "Path traversal is constrained to 8 grid directions (multiples of 45°); paths are simplified with Douglas-Peucker (2 m tolerance) for visualization only while metrics preserve unsimplified cell paths. Caution multipliers (m = 1.5 for caution slope, m = 1.3 for low TI) represent operational engineering margins, not verified human biomechanics."
+      "text": "Paths are grid-aligned (8 directions); micro-relief below effective DTM resolution is invisible and rocks/boulders are not mapped. Douglas–Peucker simplification (2 m tolerance) is for display only; metrics use the unsimplified cell path. Caution multipliers (m = 1.5, m = 1.3) are judgement, not physiology.",
+      "provenance": "assumed",
+      "source_ids": [
+        "tobler-1993",
+        "apollo17-planning"
+      ]
     },
     {
       "id": "limitation-solar",
-      "title": "Flat-Horizon Solar Illumination",
+      "title": "No Terrain Shadowing or Refraction",
       "spec_ref": "02 §D.5",
-      "text": "Solar elevation and sunrise/sunset times assume an unobstructed spherical horizon (elevation 0°). Local terrain shadowing by crater walls or ridges, atmospheric refraction, and atmospheric dust opacity (tau) variations are explicitly not modelled."
+      "text": "No terrain shadowing; no atmospheric refraction; dust opacity not modelled. Sunrise and sunset assume a flat horizon (elevation 0°).",
+      "provenance": "modelled",
+      "source_ids": [
+        "mars24-allison-mcewen-2000"
+      ]
     }
   ],
   "ai_use": {
-    "spec_ref": "03 SCR-09, 02 §D.7",
+    "spec_ref": "03 SCR-09",
     "title": "AI-Use Statement",
-    "statement": "No AI computes or generates values in this app.",
-    "text": "All scientific models, routing algorithms, time predictions, environmental calculations, and safety boundaries in Marswalk Surface Ops execute deterministic, pure, unit-tested code. AI coding assistants (such as Claude Code, Codex, and Gemini) were used solely during development for software engineering, documentation maintenance, and test scaffolding; all such uses are publicly logged in docs/AI_USE.md."
+    "text": "No AI computes or generates values in this app."
   }
 }
