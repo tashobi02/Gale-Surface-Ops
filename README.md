@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`███████░░░░░░░░░░░░░` **33 %** — 112 of 342 subtasks done, 67 in progress.
+`███████░░░░░░░░░░░░░` **33 %** — 112 of 342 subtasks done, 68 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -26,7 +26,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `███░░░░░░░` 30 % | 3 | 7 | 10 |
 | [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `█░░░░░░░░░` 6 % | 1 | 3 | 17 |
 | [TASK-08 Plan panel + waypoint editing](docs/tasks/TASK-08_plan-panel-and-waypoints.md) | `█░░░░░░░░░` 9 % | 1 | 0 | 11 |
-| [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `█░░░░░░░░░` 12 % | 1 | 1 | 8 |
+| [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `█░░░░░░░░░` 12 % | 1 | 2 | 8 |
 | [TASK-10 POI detail + Conditions panel](docs/tasks/TASK-10_poi-detail-and-conditions.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 4 |
 | [TASK-11 Briefing card + JSON export](docs/tasks/TASK-11_briefing-card-and-export.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
 | [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `█░░░░░░░░░` 14 % | 1 | 0 | 7 |
