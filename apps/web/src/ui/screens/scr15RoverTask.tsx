@@ -242,7 +242,7 @@ export function RoverTask({
       ? { text: fmtDuration(vehicle.eta_s), prov: "simulated", src: "snapshot:vehicles.eta_s" }
       : { text: UNAVAILABLE, ...unavailableOf("simulated", "vehicles.eta_s") };
   // TODO(decision): see the header; no estimate exists before the Hab Core accepts the task.
-  const batteryAfter = { text: UNAVAILABLE, ...unavailableOf("modelled", "rover_task.battery_after_wh") };
+  const batteryAfter = { text: UNAVAILABLE, ...unavailableOf(null, "rover_task.battery_after_wh") };
 
   const resultBox = (state: NonNullable<typeof resultState>, status: "advisory" | "nominal" | "warning", word: string, body: ReactNode): ReactElement => (
     <div data-state={state} style={box} {...(state === "failed" && outcome.phase === "failed" ? { "data-reject-code": outcome.code } : {})} role="status">

@@ -4,6 +4,10 @@
  * the token's computed value from the document when it draws. tokens.css stays the single place the hex values are
  * written. A missing value (tokens.css not loaded, or no document) throws: a silent default colour would hide a build
  * error on a safety display.
+ *
+ * Failure mode (review 12 Nov): layers call this from OpenLayers style callbacks, where a throw escapes React error
+ * boundaries and stops the map drawing. Every token used here must therefore be defined in tokens.css :root (tests
+ * load the real tokens.css). TODO(decision): validate the tokens once at layer creation instead.
  */
 
 /** Primitive tokens the map layers draw with. */
