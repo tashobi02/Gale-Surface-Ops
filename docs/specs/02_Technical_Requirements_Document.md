@@ -657,7 +657,7 @@ No accounts. A client joins with a **role** and a display name; the Hab Core tru
 | `SUMMON_VEHICLE`, `ABORT`, `ACK_ALERT` | — | ✓ (self) | ✓ (any crew) | — | — |
 | `TASK_ROVER` | — | ✓ | ✓ | — | — |
 | `SEND_MESSAGE` | — | ✓ | ✓ | ✓ (delayed) | — |
-| `UPDATE_STOP_TASK` (FR-50) | — | ✓ (own tasks) | ✓ (any crew) | — | — |
+| `UPDATE_STOP_TASK` (FR-50; the undo form, `undo: true`, only by the role that is the `actor` of the change, *added 2026-11-11, Proposed*) | — | ✓ (own tasks) | ✓ (any crew) | — | — |
 | `ADD_STOP_TASK` (FR-50) | — | — | ✓ | — | — |
 | `INJECT_EVENT` | — | — | ✓ | — | — |
 
@@ -720,7 +720,13 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
  "command":{"kind":"UPDATE_STOP_TASK","args":{"task_id":"t-s2-02","state":"DONE"}}}
 ```
 
-The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state, reason}`; ops and the HUD count read it from the event, never from the command (FR-50).
+The resulting `EVENT` is `TASK_UPDATED` with `{task_id, stop_id, crew_id, state, reason}` (+ optional `undo`, below); ops and the HUD count read it from the event, never from the command (FR-50).
+
+**Stop-task undo** *(added 2026-11-11, Proposed; decision of the product & systems lead, Sadman Shaharier Mahim)*: the tablet sends a tick or skip at once (`state` `DONE` or `SKIPPED`, `reason` for `SKIPPED`) and, for 5 s after the tap, offers Undo, which sends `{"kind":"UPDATE_STOP_TASK","args":{"task_id":"t-s2-02","state":"TODO","undo":true}}`. The 5-s window is a UI affordance on the client's wall clock; the engine applies no wall-clock rule (NFR-06) and judges the reversal from the log alone. The Hab Core accepts `DONE → TODO` or `SKIPPED → TODO` only when all hold: `undo` is `true`; the sender is the same role as the `actor` of the task's last `TASK_UPDATED` (05 defines `actor` as role \| `system`, so ops may undo its own change and a `system` actor, such as auto-complete, cannot be undone); that event is the last change to the task (no `TASK_UPDATED` or `TASK_DROPPED` since); and the change is not stale: the task's `stop_id` is still a stop of the current plan revision and no `PLAN_REVISED` has been logged since that change (`TASK_DROPPED` never touches a `DONE` or `SKIPPED` task, so without this rule an undo could revive a task on a dropped stop). The checks run in this order: `NO_LINK` (a suit with no link, as for every command); `FORBIDDEN_ROLE` (the sender's role is not the `actor` of the last change, or that actor is `system`); then `INVALID` for everything else: `undo: true` with any target other than `TODO`, `TODO` without `undo: true`, any other reversal (from `TODO` or `DROPPED`), another change since, or a stale change as above.
+
+*Queue and reconnect (Proposed).* Queued commands resend in queue order on `LINK_STATE linked=true`. A resent undo with the same `command_id` is answered by the dedupe rule below, not run twice. An undo with a new `command_id` after one has succeeded is rejected with `INVALID` (the task is already `TODO`). While the suit is unlinked the tablet cancels a queued tap and its undo as a pair, locally: neither is sent.
+
+The accepted reversal is logged as `TASK_UPDATED` with `{task_id, stop_id, crew_id, state: "TODO", reason: null, undo: true}`; clients and the report reduce it like any other `TASK_UPDATED` (05 StopTask).
 
 `SNAPSHOT` also carries `tasks` (05 StopTask[]; FR-50, added 2026-11-06), so a client that joins or reconnects mid-EVA gets the current task list without replaying the log.
 
