@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`███████░░░░░░░░░░░░░` **33 %** — 112 of 342 subtasks done, 70 in progress.
+`███████░░░░░░░░░░░░░` **33 %** — 112 of 342 subtasks done, 71 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -44,7 +44,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-26 Links: surface link graph and `LINK_STATE`, comm-shadow warnings, Earth link widget and delayed queue](docs/tasks/TASK-26_links.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
 | [TASK-27 Event log view, post-EVA report, replay mode for GitHub Pages](docs/tasks/TASK-27_report-and-replay.md) | `░░░░░░░░░░` 0 % | 0 | 4 | 6 |
 | [TASK-28 Network kit and rehearsal: router, static IP, QR join, device matrix, venue checklist](docs/tasks/TASK-28_network-kit.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 5 |
-| [TASK-29 Robotic rover tasking: SCOUT, CARRY, RELAY, RETURN](docs/tasks/TASK-29_rover-tasking.md) | `░░░░░░░░░░` 0 % | 0 | 1 | 6 |
+| [TASK-29 Robotic rover tasking: SCOUT, CARRY, RELAY, RETURN](docs/tasks/TASK-29_rover-tasking.md) | `░░░░░░░░░░` 0 % | 0 | 2 | 6 |
 | [TASK-30 Score-sheet single points: challenge named, repo public, page drafted, AI use current](docs/tasks/TASK-30_score-sheet-points.md) | `░░░░░░░░░░` 0 % | 0 | 2 | 3 |
 | [TASK-31 Stop task list (FR-50): protocol, engine, EVA list, ops progress, task text](docs/tasks/TASK-31_stop-task-list.md) | `████░░░░░░` 38 % | 3 | 4 | 8 |
 | [TASK-32 Live operations session: presenter panel, event on demand, mission setup, stop task library](docs/tasks/TASK-32_live-session.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 32 |
