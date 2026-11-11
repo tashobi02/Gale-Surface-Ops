@@ -78,17 +78,61 @@ export function nextPassStart(table: EarthLinkTable, t_utc: string): RelayPassFi
   return { start_utc: best.pass.start_utc, end_utc: best.pass.end_utc, orbiter: best.pass.orbiter };
 }
 
-/** True when the Sun–Earth–Mars angle is below `link.conjunction_deg`. TASK-05b. */
+/**
+ * `link.conjunction_deg` in degrees. No fallback (02 §D.12 says 3°, Assumed, and that value lives only in the
+ * ParamSet): a missing, non-numeric, non-finite or negative value throws RangeError.
+ */
+function conjunctionThresholdDeg(params: ParamSet): number {
+  const v = params.values?.conjunction_deg;
+  if (typeof v !== "number" || !Number.isFinite(v) || v < 0) {
+    throw new RangeError(
+      `ParamSet ${params.param_set_id}: conjunction_deg must be a finite non-negative number of degrees, got ${String(v)}`,
+    );
+  }
+  return v;
+}
+
+/**
+ * True when the Sun–Earth–Mars angle is below `link.conjunction_deg` (strictly below). False before the first
+ * table row. Throws RangeError when the ParamSet has no valid `conjunction_deg`. TASK-05b.
+ */
 export function inConjunction(table: EarthLinkTable, t_utc: string, params: ParamSet): boolean {
+  const threshold = conjunctionThresholdDeg(params);
   const row = linkAt(table, t_utc);
   if (!row) return false;
-  const threshold = Number(params.values?.conjunction_deg ?? 3);
   return row.sep_angle_deg < threshold;
 }
 
 /**
+ * Delivery needs a usable pass list: not empty, each pass ending at or after its start (the committed storm table has a one-sample pass with start = end at its tail), and sorted by start time.
+ * Throws RangeError otherwise (a bad table must not read as "no pass, so wait forever").
+ */
+function assertPassesUsable(table: EarthLinkTable): void {
+  if (!Array.isArray(table.passes) || table.passes.length === 0) {
+    throw new RangeError("earth link table has no passes");
+  }
+  let prevStart = Number.NEGATIVE_INFINITY;
+  table.passes.forEach((pass, i) => {
+    const start = Date.parse(pass.start_utc);
+    const end = Date.parse(pass.end_utc);
+    if (Number.isNaN(start) || Number.isNaN(end)) {
+      throw new RangeError(`earth link table passes[${i}] has an unparseable start_utc or end_utc`);
+    }
+    if (end < start) {
+      throw new RangeError(`earth link table passes[${i}] ends before it starts`);
+    }
+    if (start < prevStart) {
+      throw new RangeError(`earth link table passes are not sorted by start_utc (passes[${i}])`);
+    }
+    prevStart = start;
+  });
+}
+
+/**
  * Delivery time for a message, or null during conjunction blackout or if no pass exists.
- * Simplified DTN model (02 §D.12).
+ * Simplified DTN model (02 §D.12). Throws RangeError for an empty or unsorted pass list or a missing
+ * `conjunction_deg`. A message queued for a later pass is also blocked when that pass starts in conjunction
+ * (Proposed; 02 §D.12 is silent, `TODO(decision)`).
  * For "to_mars", `t_send_utc` is the Earth send time (sent_earth_utc).
  * TASK-05b.
  */
@@ -103,7 +147,8 @@ export function deliveryTime(
     throw new RangeError(`Invalid send time: ${t_send_utc}`);
   }
 
-  const dteEnabled = Boolean(params.values?.dte_enabled);
+  assertPassesUsable(table);
+  const dteEnabled = params.values?.dte_enabled === true;
 
   if (direction === "to_earth") {
     if (inConjunction(table, t_send_utc, params)) return null;
@@ -133,6 +178,7 @@ export function deliveryTime(
 
     const next = nextPassStart(table, t_send_utc);
     if (!next) return null;
+    if (inConjunction(table, next.start_utc, params)) return null;
 
     const nextRow = linkAt(table, next.start_utc);
     const passLt_s = nextRow ? nextRow.light_time_s : lt_s;
@@ -176,6 +222,7 @@ export function deliveryTime(
 
   const next = nextPassStart(table, arriveMarsUtc);
   if (!next) return null;
+  if (inConjunction(table, next.start_utc, params)) return null;
 
   return {
     deliver_utc: new Date(Date.parse(next.start_utc)).toISOString(),
