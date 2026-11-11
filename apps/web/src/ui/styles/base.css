@@ -51,7 +51,8 @@
  * - body text Inter 14 px / 400 with line-height 1.45
  * - panel headings 16 px / 600
  * - screen titles 20 px / 600
- * - nothing below 12 px (--text-micro)
+ * - nothing below 12 px (--text-micro), except .code/.module-label at 11 px in BRIEF and planner desktop (04 §C.2
+ *   Minimum text size; see tokens.css)
  * - app background and text from 04 §C.1 (mapped to --surface-0 and --fg-1)
  */
 
@@ -75,9 +76,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* TODO(decision): headings keep the v1 style (Inter / 600, sentence case) because Chakra Petch is not self-hosted.
-   04 §C.2 (v2) sets Display and Headings in Chakra Petch 20–28 px / 500 uppercase (and "never bold headlines", P6).
-   04 spec change needed (keep Inter for v1 screens, or schedule the Chakra Petch self-hosting task); values left as is. */
+/* Headings keep the v1 style (Inter 600, sentence case) under the 04 §C.2 "Headings during the font roll-out"
+   exception: v1 screens (SCR-00 to SCR-09) until Chakra Petch and Source Serif 4 are self-hosted; from then on the
+   04 §C.2 Display and Headings rows apply (Chakra Petch / 500 uppercase, P6).
+   TODO(decision): self-hosting Chakra Petch and Source Serif 4 under apps/web/public/fonts with OFL credits (04 §C.2;
+   owner T13.04). */
 /* Screen titles (04 §C.2): 20 px / 600 */
 h1,
 .screen-title {
@@ -102,7 +105,7 @@ h3,
   color: var(--fg-1);
 }
 
-/* Small text / microcopy (04 §C.2): nothing renders below 12 px */
+/* Small text / microcopy (04 §C.2): nothing renders below 12 px (11 px catalogue codes: see tokens.css) */
 small,
 .micro,
 .meta-strip,
