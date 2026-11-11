@@ -3,14 +3,18 @@
  *
  * Implements T02.02:
  * - Registers site.crs.proj4 with proj4js using a Mars-specific code (never EPSG:3857 or EPSG:4326).
+ *   Only that one definition is added to proj4. `ol/proj/proj4` `register()` is deliberately not used: it
+ *   builds transforms between every pair of proj4 definitions, which would create a Mars <-> EPSG:4326 /
+ *   EPSG:3857 path (02 §C.1 "Never"). The OpenLayers Projection is added directly and has no transforms;
+ *   the sources and the view share it, so none is needed.
  * - Creates an OpenLayers Projection in metres bounded by aoi.extent_m.
- * - Sets point resolution to identity (1 projected metre = 1 ground metre at standard parallel),
- *   preventing OpenLayers from estimating point resolution via Earth-radius geodesics (02 §C.4.2).
+ * - Sets point resolution to identity (1 projected metre = 1 ground metre at the standard parallel),
+ *   preventing OpenLayers from estimating point resolution via Earth-radius geodesics (02 §C.4.2). The
+ *   identity is within 1e-3 of the true scale over the whole AOI (checked in tests/ui/projection.test.ts).
  * - Builds custom OpenLayers TileGrid instances from manifest tile_grid configurations.
  */
 
 import proj4 from "proj4";
-import { register } from "ol/proj/proj4.js";
 import { addProjection, get as getProjection, Projection } from "ol/proj.js";
 import TileGrid from "ol/tilegrid/TileGrid.js";
 import type { Site, TileGrid as TileGridSpec } from "@marswalk/protocol";
@@ -33,14 +37,11 @@ export function getMarsProjectionCode(siteOrId: Site | string): string {
 export function registerMarsProjection(site: Site): Projection {
   const code = getMarsProjectionCode(site);
 
-  // 1. Register with proj4js using the exact manifest string byte-for-byte
+  // 1. Register with proj4js using the exact manifest string byte-for-byte, under the Mars code only.
   proj4.defs(code, site.crs.proj4);
 
-  // 2. Synchronize OpenLayers projection registry with proj4
-  register(proj4);
-
-  // 3. Obtain or construct the OpenLayers Projection with local metric properties
-  // Point resolution is set directly to nominal resolution to avoid Earth-sphere conversions (02 §C.4.2)
+  // 2. Construct the OpenLayers Projection with local metric properties and add it without any transforms.
+  // Point resolution is set directly to nominal resolution to avoid Earth-sphere conversions (02 §C.4.2).
   const projection = new Projection({
     code,
     extent: site.aoi.extent_m,
