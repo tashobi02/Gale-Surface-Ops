@@ -11,6 +11,8 @@ import { stepTimeH } from "./timeModel";
 /** Limits and multiplier constants from 02 §D.2. */
 export const MAX_STOPS = 10;
 export const MAX_NODE_EXPANSIONS = 3_000_000;
+/** Cooperative cancellation check interval in node expansions (02 §E.2). */
+export const CANCEL_CHECK_EVERY_EXPANSIONS = 50_000;
 export const CAUTION_SLOPE_MULTIPLIER = 1.5;
 export const LOW_TI_MULTIPLIER = 1.3;
 export const TOBLER_UNSUITED_FLAT_KMH = 5.037;
@@ -132,7 +134,7 @@ export function searchLeg(
   scenario: MissionScenario,
   maxExpansions = MAX_NODE_EXPANSIONS,
   shouldCancel?: () => boolean,
-  cancellationInterval = 50_000,
+  cancellationInterval = CANCEL_CHECK_EVERY_EXPANSIONS,
 ): LegSearch {
   const { width, height, cell_m, origin_m } = grid.meta;
   const [origin_x, origin_y] = origin_m;

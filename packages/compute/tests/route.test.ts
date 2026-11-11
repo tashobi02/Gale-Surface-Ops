@@ -2,7 +2,7 @@ import type { MissionScenario, RoutingGrid } from "@marswalk/protocol";
 import { describe, expect, it } from "vitest";
 import { makePlaneGrid, makeWallWithGapGrid } from "../../../apps/web/tests/fixtures/grids";
 import { decodeSlopeDeg, type LoadedGrid } from "../src/grid";
-import { searchLeg } from "../src/route";
+import { CANCEL_CHECK_EVERY_EXPANSIONS, searchLeg } from "../src/route";
 import { stepTimeH } from "../src/timeModel";
 
 const defaultScenario: MissionScenario = {
@@ -143,6 +143,29 @@ describe("searchLeg", () => {
     const result = searchLeg(grid, from, to, defaultScenario, 1000, shouldCancel, 10);
     expect(result.status).toBe("CANCELLED");
     expect(checkCount).toBe(2);
+  });
+
+  it("completes with OK when shouldCancel keeps returning false (02 §E.2)", () => {
+    const grid = makePlaneGrid({ width: 30, height: 30, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+    const from = { x_m: 12.5, y_m: -12.5 };
+    const to = { x_m: 137.5, y_m: -137.5 };
+
+    let checkCount = 0;
+    const shouldCancel = () => {
+      checkCount++;
+      return false;
+    };
+
+    const withHook = searchLeg(grid, from, to, defaultScenario, 1000, shouldCancel, 10);
+    const withoutHook = searchLeg(grid, from, to, defaultScenario);
+
+    expect(checkCount).toBeGreaterThan(0);
+    expect(withHook).toEqual(withoutHook);
+    expect(withHook.status).toBe("OK");
+  });
+
+  it("checks for cancellation every 50,000 expansions by default (02 §E.2)", () => {
+    expect(CANCEL_CHECK_EVERY_EXPANSIONS).toBe(50_000);
   });
 
   it("route matches exhaustive brute-force Dijkstra oracle on a small synthetic grid (02 §D.2)", () => {

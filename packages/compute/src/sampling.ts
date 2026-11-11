@@ -313,7 +313,10 @@ export function sampleProfile(
     pushSample(s, x, y);
   }
 
-  // The leg end is always sampled, even when the length is not a multiple of 5 m (05 §C Leg.profile)
+  // Proposed, not specified: 05 §C says the profile is "sampled every 5 m" and does not mention the leg end, so a
+  // sample at the exact leg end when the length is not a multiple of 5 m is new contract behaviour. It moves where
+  // warnings.ts closes the last slope run (to_m is the leg length, not the last 5 m multiple).
+  // TODO(decision): record the leg-end sample in 05 §C Leg.profile or drop it (TASK-05 T05.17/T05.18).
   if (totalDist > 0 && dist_m[dist_m.length - 1] < totalDist - 1e-6) {
     const endPt = path[path.length - 1];
     pushSample(totalDist, endPt[0], endPt[1]);
