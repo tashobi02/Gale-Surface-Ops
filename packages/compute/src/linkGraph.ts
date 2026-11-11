@@ -19,30 +19,56 @@ export interface LinkNodeState extends LinkState {
   path_to_hab: string[];
 }
 
-function maxRangeM(a: LinkNode, b: LinkNode, params: ParamSet): number {
-  const v = params.values ?? {};
-  if (a.kind === "rover" || b.kind === "rover") {
-    return Number(v.range_rover_m ?? 5000);
+/** The three link ranges of a ParamSet of kind `link` (05 ParamSet; 02 §D.11, Assumed), in metres. */
+interface LinkRanges {
+  habSuit_m: number;
+  suitSuit_m: number;
+  rover_m: number;
+}
+
+/**
+ * Read one range from the ParamSet. There is no fallback: a missing, non-numeric, non-finite or negative value
+ * throws, because `dist > NaN` is false and would otherwise silently mean unlimited range.
+ */
+function readRange(params: ParamSet, key: string): number {
+  const v = params.values?.[key];
+  if (typeof v !== "number" || !Number.isFinite(v) || v < 0) {
+    throw new RangeError(
+      `ParamSet ${params.param_set_id}: ${key} must be a finite non-negative number of metres, got ${String(v)}`,
+    );
   }
-  if ((a.kind === "hab" && b.kind === "suit") || (a.kind === "suit" && b.kind === "hab")) {
-    return Number(v.range_hab_suit_m ?? 10000);
-  }
-  if (a.kind === "suit" && b.kind === "suit") {
-    return Number(v.range_suit_suit_m ?? 2000);
-  }
+  return v;
+}
+
+function readRanges(params: ParamSet): LinkRanges {
+  return {
+    habSuit_m: readRange(params, "range_hab_suit_m"),
+    suitSuit_m: readRange(params, "range_suit_suit_m"),
+    rover_m: readRange(params, "range_rover_m"),
+  };
+}
+
+function maxRangeM(a: LinkNode, b: LinkNode, ranges: LinkRanges): number {
+  if (a.kind === "rover" || b.kind === "rover") return ranges.rover_m;
+  if ((a.kind === "hab" && b.kind === "suit") || (a.kind === "suit" && b.kind === "hab")) return ranges.habSuit_m;
+  if (a.kind === "suit" && b.kind === "suit") return ranges.suitSuit_m;
   return 0;
+}
+
+/** Locale-independent order (UTF-16 code units), so the BFS tie-break is the same on every machine. */
+function compareCodeUnits(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 function hasEdge(
   a: LinkNode,
   b: LinkNode,
   los: (u: LinkNode, v: LinkNode) => boolean,
-  params: ParamSet,
+  ranges: LinkRanges,
 ): boolean {
   if (a.node_id === b.node_id) return false;
   const dist = Math.hypot(a.x_m - b.x_m, a.y_m - b.y_m);
-  const range = maxRangeM(a, b, params);
-  if (dist > range) return false;
+  if (dist > maxRangeM(a, b, ranges)) return false;
   return los(a, b) && los(b, a);
 }
 
@@ -86,7 +112,11 @@ function findShortestPathToHab(
   return path.reverse();
 }
 
-/** `los(a, b)` is injected so the graph stays testable without a DEM. TASK-05b. */
+/**
+ * `los(a, b)` is injected so the graph stays testable without a DEM. TASK-05b. Throws RangeError when the
+ * ParamSet lacks a finite non-negative `range_hab_suit_m`, `range_suit_suit_m` or `range_rover_m`. An edge needs
+ * distance ≤ range (inclusive) and LOS both ways; neighbours and BFS ties are ordered by code unit.
+ */
 export function linkStates(
   nodes: LinkNode[],
   los: (a: LinkNode, b: LinkNode) => boolean,
@@ -94,6 +124,7 @@ export function linkStates(
   sim_time: string,
   previous?: readonly LinkState[],
 ): LinkNodeState[] {
+  const ranges = readRanges(params);
   const habNode = nodes.find((n) => n.node_id === HAB_NODE_ID) ?? nodes.find((n) => n.kind === "hab");
   const habId = habNode?.node_id;
 
@@ -106,7 +137,7 @@ export function linkStates(
     for (let j = i + 1; j < nodes.length; j++) {
       const a = nodes[i];
       const b = nodes[j];
-      if (hasEdge(a, b, los, params)) {
+      if (hasEdge(a, b, los, ranges)) {
         adj.get(a.node_id)!.push(b.node_id);
         adj.get(b.node_id)!.push(a.node_id);
       }
@@ -114,7 +145,7 @@ export function linkStates(
   }
 
   for (const neighbors of adj.values()) {
-    neighbors.sort((a, b) => a.localeCompare(b));
+    neighbors.sort(compareCodeUnits);
   }
 
   const prevMap = new Map<string, LinkState>();
