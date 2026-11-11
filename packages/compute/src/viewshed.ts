@@ -3,6 +3,7 @@
  * Binary LOS with Mars curvature drop d² / 2R, R = 3,396,190 m (IAU_2015:49900 sphere, 02 §C.1).
  * No Fresnel zone, diffraction or link budget. TASK-05b.
  */
+import type { Provenance } from "@marswalk/protocol";
 import { cellIndex, type LoadedGrid } from "./grid";
 
 /** Mean radius of Mars sphere in metres (IAU_2015:49900, docs/specs/02 §C.1, §D.11). */
@@ -13,6 +14,32 @@ export const RELAY_VIEWSHED_RADIUS_M = 4000;
 
 /** Default relay rover viewshed grid cell size in metres (02 §D.11). */
 export const RELAY_VIEWSHED_CELL_M = 20;
+
+/**
+ * Fraction of a grid cell used as the ray sampling step in `lineOfSight`. Half a cell keeps consecutive samples
+ * no more than one cell apart on an axis-aligned ray, so no cell the ray crosses along its length is skipped; a
+ * diagonal ray that only clips a cell corner can still miss it. The spec (02 §D.11) says "ray-cast ... every
+ * intermediate sample" but gives no step, so this value is a choice of T05b.09, not a spec number.
+ */
+export const LOS_STEP_CELL_FRACTION = 0.5;
+
+/**
+ * Upper bound of the ray sampling step in metres, for grids with cells coarser than 40 m. Chosen equal to the 20 m
+ * relay viewshed cell (02 §D.11) so a coarse grid is never sampled more sparsely than the dynamic viewshed grid.
+ * Not a spec number; `TODO(decision)` for the 02 §D.11 owner.
+ */
+export const LOS_MAX_STEP_M = 20;
+
+/**
+ * Label every value derived from `lineOfSight` / `viewshed` must carry where it is displayed (T05b.09
+ * acceptance; FR-15, NFR-05): `derived`, with the caveat that only geometry is modelled. `viewshed` returns a
+ * bare `CoverageGrid`, so the caller (link graph, T26 relay, planner UI) applies this label to what it shows.
+ * Frozen.
+ */
+export const VIEWSHED_LABEL: Readonly<{ provenance: Provenance; note: string }> = Object.freeze({
+  provenance: "derived" as Provenance,
+  note: "radio propagation not modelled beyond line of sight",
+});
 
 /** Coverage grid returned by viewshed analysis (TASK-05b / C15 contract proposal). */
 export interface CoverageGrid {
@@ -75,8 +102,8 @@ export function lineOfSight(
   const H1 = z1 + from.height_m;
   const H2 = z2 + to.height_m;
 
-  // Step size along the ray: at most half of the grid cell size, or 20 m maximum
-  const step = Math.min(grid.meta.cell_m * 0.5, 20);
+  // Step along the ray: LOS_STEP_CELL_FRACTION of a cell, at most LOS_MAX_STEP_M.
+  const step = Math.min(grid.meta.cell_m * LOS_STEP_CELL_FRACTION, LOS_MAX_STEP_M);
   const steps = Math.max(1, Math.ceil(dist / step));
 
   for (let k = 1; k < steps; k++) {
@@ -105,7 +132,7 @@ export function lineOfSight(
 
 /**
  * Viewshed on a coarse grid within `radius_m` of a transmitter (docs/specs/02 §D.11).
- * 1 = line of sight to transmitter, 0 = shadowed or outside radius.
+ * 1 = line of sight to transmitter, 0 = shadowed or outside radius. Label: `VIEWSHED_LABEL` (`derived`).
  */
 export function viewshed(
   grid: LoadedGrid,
