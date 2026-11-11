@@ -3,7 +3,7 @@
  * draw on a canvas, which cannot resolve `var(--x)`, so the layers read the token value; they never hard-code hex.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { tokenColor, withAlpha } from "../../../src/ui/map/tokenColors";
+import { tokenColor, tokenFont, tokenNumber, withAlpha } from "../../../src/ui/map/tokenColors";
 import { installDom, removeDom } from "../domHarness";
 import { applyTokens } from "../tokensDom";
 
@@ -29,6 +29,14 @@ describe("tokenColor", () => {
 
   it("throws when tokens.css is not loaded instead of drawing a default colour", () => {
     expect(() => tokenColor("route")).toThrow(/--route is not defined/);
+  });
+});
+
+describe("tokenFont and tokenNumber", () => {
+  it("read the mono font stack and the comm-shadow opacity from the document", () => {
+    const tokens = applyTokens();
+    expect(tokenFont()).toBe(tokens["--font-mono"]);
+    expect(tokenNumber("comm-shadow-opacity")).toBe(0.35);
   });
 });
 
