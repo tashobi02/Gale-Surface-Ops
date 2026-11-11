@@ -184,6 +184,8 @@ python3 scripts/check_tasks.py --file docs/tasks/TASK-05_compute-core.md   # one
 | T03.33 | Tests: per-candidate `comm_hab` grids, the manifest `hab_candidates` list and its validator rules | data | pre-event-allowed | M4 | |
 | T03.34 | follow-up: build a `comm_hab` grid and a default start for each hab candidate; manifest and validator | data | pre-event-allowed | M4 | |
 | T03.35 | Verify both hab candidates on the real site: validator passes, alternative `comm_hab` against `gdal_viewshed` | data | pre-event-allowed | M4 | |
+| T03.36 | follow-up: F4 mock site ships placeholder tiles for every `tile_grid` level | data | pre-event-allowed | M4 | |
+| T03.37 | spec-change: 05 rank-1 hab candidate keeps `grid-comm-hab`; other candidates `grid-comm-<candidate_id>` | data | pre-event-allowed | M4 | |
 | T04.01 | Choose and cache the traverse source (U-04); write its DataSource and Layer records | data | pre-event-allowed | M2 | |
 | T04.02 | Tests: traverse and POI packaging | data | pre-event-allowed | M2 | |
 | T04.03 | Implement traverse and POI packaging | data | pre-event-allowed | M2 | |
