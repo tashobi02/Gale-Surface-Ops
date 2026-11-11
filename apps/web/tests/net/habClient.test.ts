@@ -39,6 +39,7 @@ interface ClientUnderTest {
   events(): LogEvent[];
   lastSeq(): number;
   linkLost(): { lost: boolean; since_ms: number | null };
+  takenOver(): boolean;
   send(command: Pick<Command, "kind" | "args">): Promise<CommandResult>;
   subscribe(listener: () => void): () => void;
   close(): void;
@@ -312,5 +313,61 @@ describe("Hab Core web client (T20.05 → T20.06)", () => {
     listener.mockClear();
     latest().receive(wsFixtures.walking[0]);
     expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe("Hab Core web client: taken over by another device (02 §E.4, §E.6)", () => {
+  const taken = (role: Role = "eva:EV1"): ServerMessage => ({ v: 1, type: "TAKEN_OVER", seq: 430, sim_time: "2024-05-20T13:14:00Z", role });
+
+  it("TAKEN_OVER sets takenOver(), notifies subscribers and keeps the last values", () => {
+    const c = start();
+    const listener = vi.fn();
+    c.subscribe(listener);
+    latest().open();
+    latest().receive(snapshot);
+    expect(c.takenOver()).toBe(false);
+    listener.mockClear();
+    latest().receive(taken());
+    expect(c.takenOver()).toBe(true);
+    expect(listener).toHaveBeenCalled();
+    expect(c.state()).not.toBeNull();
+  });
+
+  it("does not reconnect after the Hab Core closes the socket: no new socket however long it waits", () => {
+    const c = start();
+    latest().open();
+    latest().receive(snapshot, taken());
+    latest().drop();
+    vi.advanceTimersByTime(60_000);
+    expect(sockets).toHaveLength(1);
+    expect(c.takenOver()).toBe(true);
+  });
+
+  it("does not raise HAB LINK LOST: the link is fine, the role is gone", () => {
+    const c = start();
+    latest().open();
+    latest().receive(snapshot, taken());
+    latest().drop();
+    vi.advanceTimersByTime(LINK_LOST_AFTER_MS * 5);
+    expect(c.linkLost().lost).toBe(false);
+  });
+
+  it("resolves queued and later commands as rejected instead of leaving them waiting", async () => {
+    const c = start();
+    latest().open();
+    latest().receive(snapshot);
+    const inFlight = c.send({ kind: "ACK_ALERT", args: { alert_id: "a-1" } });
+    latest().receive(taken());
+    latest().drop();
+    expect(await inFlight).toMatchObject({ ok: false, message: expect.stringMatching(/taken over/i) });
+    expect(await c.send({ kind: "ACK_ALERT", args: { alert_id: "a-1" } })).toMatchObject({ ok: false, message: expect.stringMatching(/taken over/i) });
+    expect(latest().sent.filter((m) => m.type === "COMMAND")).toHaveLength(1);
+  });
+
+  it("ignores a TAKEN_OVER for a role this client does not hold", () => {
+    const c = start("eva:EV1");
+    latest().open();
+    latest().receive(snapshot, taken("ops"));
+    expect(c.takenOver()).toBe(false);
   });
 });

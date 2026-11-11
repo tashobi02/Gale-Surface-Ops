@@ -13,6 +13,7 @@
  * - An accepted command's events carry its `command_ref`; `event_seq` is the first of them.
  */
 import { describe, expect, it } from "vitest";
+import { PERMISSIONS } from "@marswalk/protocol";
 import type { Command, CommandResult, LogEvent, LogEventData, LogEventKind, Role } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand, type CommandContext } from "../src/commands";
 import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
@@ -55,6 +56,15 @@ describe("handleCommand: role check (02 §E.4)", () => {
     expect(rejected(handleCommand(running, cmd("planner", "SET_CLOCK", { paused: true }), ctx(running)).result)).toBe("FORBIDDEN_ROLE");
     expect(rejected(handleCommand(loaded, cmd("eva:EV1", "START_EVA"), ctx(loaded)).result)).toBe("FORBIDDEN_ROLE");
     expect(rejected(handleCommand(withAlert, cmd("earth", "ACK_ALERT", { alert_id: "a-2" }), ctx(withAlert)).result)).toBe("FORBIDDEN_ROLE");
+  });
+
+  it("the HUD roles are read-only viewers: every command kind is FORBIDDEN_ROLE (02 §E.4)", () => {
+    for (const role of ["hud:EV1", "hud:EV2"] as const) {
+      expect(PERMISSIONS[role]).toEqual([]);
+      for (const kind of new Set(Object.values(PERMISSIONS).flat())) {
+        expect(rejected(handleCommand(withAlert, cmd(role, kind, { alert_id: "a-2", task_id: "t-1", state: "DONE" }), ctx(withAlert)).result), `${role} ${kind}`).toBe("FORBIDDEN_ROLE");
+      }
+    }
   });
 
   it("an EVA role may acknowledge only alerts about itself (self)", () => {

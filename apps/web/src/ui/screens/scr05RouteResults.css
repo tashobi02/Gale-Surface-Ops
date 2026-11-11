@@ -1,0 +1,277 @@
+/*
+ * SCR-05 Route Results panel (04 §F SCR-05, §B.2 OPS mode, §C.3 shape and grid).
+ * Semantic tokens only (tokens.css C12): no hex values and no brand orange in OPS (04 §A.3 #1). Status colour comes from
+ * StatusIcon (patterns.css), never from this file. The host (T07.08) places the panel; its height follows the
+ * results-height tokens (220 px at >= 1280 px, 180 px below, 04 §F).
+ */
+
+.scr05-results-panel {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: var(--results-height);
+  background-color: var(--surface-1);
+  border-top: 1px solid var(--control-edge);
+  color: var(--fg-1);
+  font-family: var(--font-ui);
+  font-size: var(--text-ui);
+  line-height: var(--line-height-ui);
+}
+
+@media (max-width: 1279px) {
+  .scr05-results-panel {
+    height: var(--results-height-narrow);
+  }
+}
+
+.scr05-results-panel[data-collapsed="true"] {
+  height: var(--topbar-height);
+  overflow: hidden;
+}
+
+.scr05-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Status strip: the 48 px row that stays when the panel is collapsed. */
+.scr05-status-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  box-sizing: border-box;
+  height: var(--topbar-height);
+  padding: 0 var(--pad-md);
+  background-color: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.scr05-banner-status,
+.scr05-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--pad-sm);
+}
+
+.scr05-banner-reason {
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+.scr05-retry-btn,
+.scr05-details-toggle,
+.scr05-collapse-toggle,
+.warning-zoom-btn {
+  min-height: var(--target-mouse);
+  padding: 0 var(--pad-sm);
+  background: transparent;
+  color: var(--fg-1);
+  border: 1px solid var(--control-edge);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* Primary action: fill with text-1, void text (04 §D.1). Not a status colour. */
+.scr05-retry-btn {
+  background-color: var(--fg-1);
+  color: var(--surface-0);
+}
+
+.scr05-retry-btn:focus-visible,
+.scr05-details-toggle:focus-visible,
+.scr05-collapse-toggle:focus-visible,
+.warning-zoom-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.scr05-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.scr05-middle-col {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--pad-sm) var(--pad-md);
+  box-sizing: border-box;
+}
+
+.scr05-metrics-row {
+  display: flex;
+  gap: var(--gap-section);
+  padding-bottom: var(--pad-sm);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.scr05-metric {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scr05-metric-label {
+  color: var(--fg-3);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+}
+
+.scr05-metric-line {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.scr05-metric-value {
+  color: var(--fg-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-value-ops);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.scr05-metric-value[data-unavailable="true"] {
+  color: var(--fg-3);
+}
+
+.scr05-metric-sep,
+.scr05-metric-unit {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+/* Provenance chip: outline, mono 11 px uppercase, text-2 (04 §C.1). */
+.scr05-chip {
+  padding: 0 4px;
+  border: 1px solid var(--control-edge);
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.scr05-profile-container {
+  flex: 1;
+  min-height: 0;
+  margin-top: var(--pad-sm);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.scr05-placeholder,
+.scr05-unavailable,
+.scr05-link-note {
+  padding: var(--pad-sm);
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+.scr05-right-col {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 300px;
+  min-height: 0;
+  padding: var(--pad-sm);
+  box-sizing: border-box;
+  border-left: 1px solid var(--line);
+  background-color: var(--surface-2);
+  overflow-y: auto;
+}
+
+.scr05-warnings-header {
+  margin-bottom: var(--pad-sm);
+  color: var(--fg-3);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+}
+
+.warnings-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.warning-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--pad-sm);
+  padding-bottom: var(--pad-sm);
+  border-bottom: 1px solid var(--line);
+}
+
+.warning-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.warning-location {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+.warnings-empty {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+.scr05-details-table-wrap {
+  flex: none;
+  max-height: 50%;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  background-color: var(--surface-2);
+}
+
+.scr05-details-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.scr05-details-table th,
+.scr05-details-table td {
+  padding: 4px var(--pad-sm);
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.scr05-details-table th {
+  color: var(--fg-3);
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scr05-results-panel {
+    transition: none;
+  }
+}

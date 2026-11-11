@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Delivery — mirrors [06](../specs/06_High_Level_Implementation_Plan.md), which owns order, dependencies and cut decisions |
 | **Date** | 2026-11-03; v2 additions 2026-11-06 |
-| **Status** | Approved 2026-11-03 and frozen; amended the same day by one `coord:` change after Phase 2 (3 subtasks added; edges, paths and open points synced with the task files). **`coord:` v2 change 2026-11-06** (session handoff §F.2, approved by Sadman Shaharier Mahim): TASK-05b and TASK-20–TASK-31 atomized, an Owner on every subtask, v1 subtasks re-dated to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 milestones, windows and cut list. **`coord:` change 2026-11-10** (approved by Sadman Shaharier Mahim, product & systems lead): T21.15 registered (demo timing numbers derived from the committed tables; T21.09 now depends on it). **`coord:` change 2026-11-10 (live session, data lane)** (team lead Obidit Islam; follows the merged spec change #176): T03.31–T03.35 registered for the candidate hab sites of 01 FR-53 (06 §C.2 "Candidate-site comm grids"; U-65 for the R1 lane only). **`coord:` change 2026-11-10 (live session, Hab Core and UI)** (product & systems lead Sadman Shaharier Mahim; follows the merged spec change #176): TASK-32 registered (T32.01–T32.32) for the live operations session of 01 FR-51–FR-54 (06 §C.2: presenter panel and Hab Core commands, scenario file reshaped, ops setup screen, planner task editing); T22.14 and T23.08 gain an extra step and soft edges to T32.17 and T32.18 (T21.08 is unchanged and stays M2); U-65 recorded as registered (sign-off by the team lead on the PR). **`coord:` change 2026-11-11 (data lane)** (team lead Obidit Islam): T03.36 (follow-up: F4 ships every `tile_grid` level, so T02.03 can check every level) and T03.37 (spec-change: 05 rank-1 hab-candidate asset id; the data lead keeps `grid-comm-hab`) registered. Change this file first (§h.5) |
+| **Status** | Approved 2026-11-03 and frozen; amended the same day by one `coord:` change after Phase 2 (3 subtasks added; edges, paths and open points synced with the task files). **`coord:` v2 change 2026-11-06** (session handoff §F.2, approved by Sadman Shaharier Mahim): TASK-05b and TASK-20–TASK-31 atomized, an Owner on every subtask, v1 subtasks re-dated to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 milestones, windows and cut list. **`coord:` change 2026-11-10** (approved by Sadman Shaharier Mahim, product & systems lead): T21.15 registered (demo timing numbers derived from the committed tables; T21.09 now depends on it). **`coord:` change 2026-11-10 (live session, data lane)** (team lead Obidit Islam; follows the merged spec change #176): T03.31–T03.35 registered for the candidate hab sites of 01 FR-53 (06 §C.2 "Candidate-site comm grids"; U-65 for the R1 lane only). **`coord:` change 2026-11-10 (live session, Hab Core and UI)** (product & systems lead Sadman Shaharier Mahim; follows the merged spec change #176): TASK-32 registered (T32.01–T32.32) for the live operations session of 01 FR-51–FR-54 (06 §C.2: presenter panel and Hab Core commands, scenario file reshaped, ops setup screen, planner task editing); T22.14 and T23.08 gain an extra step and soft edges to T32.17 and T32.18 (T21.08 is unchanged and stays M2); U-65 recorded as registered (sign-off by the team lead on the PR). **`coord:` change 2026-11-11 (data lane)** (team lead Obidit Islam): T03.36 (follow-up: F4 ships every `tile_grid` level, so T02.03 can check every level) and T03.37 (spec-change: 05 rank-1 hab-candidate asset id; the data lead keeps `grid-comm-hab`) registered; T13.13 (follow-up: the two remaining 04 §C.2 font families, outside T13.02's scope) registered with the same change. Change this file first (§h.5) |
 | **Related** | [06 §C Work packages](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D Delivery strategy](../specs/06_High_Level_Implementation_Plan.md#d-delivery-strategy) · [Docs index](../README.md) · [CLAUDE.md](../../CLAUDE.md) |
 
 This file lets several people and AI agents work on the work packages of 06 in parallel: the 19 v1 packages (planner, Tier 0) and the 13 v2 packages (TASK-05b, TASK-20–TASK-31: surface ops, Tier 1). It fixes subtask ids (§a), lanes (§b), who writes which file (§c), the interfaces that decouple lanes (§d), the fixtures that remove waiting (§e), the dependency graph (§f), what runs together per milestone (§g) and how branches and PRs work (§h). Task files `TASK-NN_<title>.md` expand each subtask listed here; they never add a subtask, path owner or cross-task dependency that is not in this file.
@@ -291,6 +291,7 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 | T13.10 | Verify a keyboard-only run of the core scenario | design | verify | human-required · core | pre-event-if-permitted | M4 | NFR-04 |
 | T13.11 | Self-host the outline icon set and verify its licence | design | implement | agent-ready · core | pre-event-allowed | M1 | NFR-01, NFR-07 |
 | T13.12 | HUD tokens: contrast ≥ 7 : 1 (v2) | design | implement | agent-ready · core | pre-event-allowed | M2 | FR-33, NFR-04 |
+| T13.13 | follow-up: self-host Chakra Petch 500 and Source Serif 4 400; verify their licences | design | implement | agent-ready · core | pre-event-allowed | M4 | NFR-01, NFR-07 |
 
 #### TASK-14 — Integration + offline hardening + fault tests
 
@@ -775,7 +776,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | `apps/web/src/ui/styles/base.css` | T13.04 | New; stub by T13.01 (imported from `tokens.css`) |
 | `apps/web/src/ui/styles/patterns.css` | T13.05 | New; stub by T13.01 |
 | `apps/web/src/ui/styles/light.css` | T13.08 | New; stub by T13.01 |
-| `apps/web/public/fonts/` | T13.02 | New |
+| `apps/web/public/fonts/` | T13.02 | New; T13.13 follows up (Chakra Petch, Source Serif 4) |
 | `apps/web/public/icons/` | T13.11 | New |
 | `data/sites/mock_site/` | T03.02 | Fixture F4; needs the `.gitignore` negation (c.6); T03.36 follows up (regenerated, never hand-edited) |
 | `data/sites/gale_boxwork/README.md` | T03.01 | Static-asset layout doc |
@@ -1469,7 +1470,7 @@ Generated from the register's *M* column on 2026-11-06 (06 v2.2). A subtask span
 | **M2** data and scenario 6–9 Nov | T03.03–22, (T03.23), (T03.24), (T03.25), (T03.26), (T03.27), T03.28–30, T04.01–03, T04.07, T04.08, (T04.09), T04.11, T18.08, T21.02–08, T21.10, T21.11, (T21.13), (T21.14) | T05.05–29, (T05.30), (T05.31), T05.32, T05b.06–17, T06.03–09, (T06.11), T21.12 | T07.02–13, T07.15, (T07.16), T07.17, T08.01, T24.02–05, T24.07, T24.10, T25.01, T25.02, T25.07, T31.07 | T13.05, T13.12 | T04.04–06, T04.10, T12.04, T12.05, T16.01, T16.07, T21.09, T31.02 | T16.02 | T20.05, T20.06, T21.15, T22.03–08, T22.11, T23.01, T23.02, T23.04, T23.06, T31.03 |
 | **M3** walking skeleton by 10 Nov | — | T05b.18–20, T23.03, T26.01–07, (T26.08), T29.01–03, T29.06, (T29.07) | T07.18, T08.02–09, (T08.10), T08.11, T08.12, T09.01–05, T09.07, (T09.08), T09.09, T24.06, T24.08, T24.09, T25.03–06, (T25.09), T25.10, T27.01, T27.02, T29.04, T29.05, T31.05, T31.06, (T31.09) | T15.01, T15.04 | T12.01, T12.07, T17.01 | T09.06, T28.02, T28.03 | T22.09, T22.10, T22.12–14, (T22.15), T22.16, T23.05, T23.07, T23.08, (T23.09), T31.04 |
 | **M3b** first dry run 10 Nov evening | — | — | T24.11, (T24.12), T25.08 | T15.02, T15.03 | — | T31.08 | — |
-| **M4** offline dry run 11 Nov | T03.31–37 | — | T11.01, T11.02, T11.04, (T11.06), T11.07, T11.08, T27.04, T32.19–T32.23 | T11.03, T11.05, T13.04, T13.06–10 | T12.02, T12.03 | T14.03–10, T28.05 | T32.01–T32.18, T32.24, T32.25, T32.29–T32.32 |
+| **M4** offline dry run 11 Nov | T03.31–37 | — | T11.01, T11.02, T11.04, (T11.06), T11.07, T11.08, T27.04, T32.19–T32.23 | T11.03, T11.05, T13.04, T13.06–10, T13.13 | T12.02, T12.03 | T14.03–10, T28.05 | T32.01–T32.18, T32.24, T32.25, T32.29–T32.32 |
 | **M4b** buffer 12 Nov | T18.01, T18.02, T18.13 | T18.04, T18.05, T18.09–11 | T18.03, T18.06, T18.07, T18.12, T32.26–T32.28 | — | T12.06 | T28.04 | — |
 | **M5** Day 1 → 12:30 | — | — | T10.01–03 | — | — | — | — |
 | **M6** Day 1 → 18:30 | — | — | — | — | T17.02, (T17.04) | — | — |
@@ -1702,13 +1703,13 @@ From each subtask's *Serves* line. Implemented by: `contract`, `fixture`, `imple
 | FR-52 | T32.01, T32.03, T32.04, T32.05, T32.08, T32.12, T32.18, T32.20, T32.32 | T32.06, T32.11, T32.19, T32.29 |
 | FR-53 | T03.31, T03.32, T03.34, T03.37, T32.01, T32.02, T32.03, T32.04, T32.05, T32.07, T32.08, T32.14, T32.22, T32.23 | T03.33, T03.35, T32.06, T32.13, T32.21, T32.29 |
 | FR-54 | T32.02, T32.04, T32.05, T32.07, T32.08, T32.25, T32.27, T32.28, T32.32 | T32.06, T32.24, T32.26 |
-| NFR-01 | T20.06, T20.09, T28.01, T28.02, T28.04 | T20.08 |
+| NFR-01 | T13.13, T20.06, T20.09, T28.01, T28.02, T28.04 | T20.08 |
 | NFR-02 | T05b.21 | T05b.05, T05b.20, T22.14 |
 | NFR-03 | — | T24.11, T28.03 |
 | NFR-04 | T13.12, T24.04, T24.08, T25.01, T31.05, T32.20, T32.28 | T24.10, T25.07, T31.07, T32.26 |
 | NFR-05 | T24.01, T24.03, T24.04, T24.06, T25.01, T25.10, T26.05, T29.05, T32.20, T32.22, T32.28, T32.31 | T12.07, T24.02, T32.19, T32.26, T32.30 |
 | NFR-06 | T05b.01, T05b.04, T05b.07, T05b.19, T21.08, T21.11, T21.12, T22.01, T22.04, T22.06, T22.07, T22.09, T23.02, T23.05, T23.07, T31.04, T32.05, T32.07, T32.10, T32.12, T32.14, T32.17, T32.25, T32.31, T32.32 | T05b.06, T22.03, T22.05, T22.14, T31.03, T32.06, T32.09, T32.11, T32.13, T32.16, T32.24, T32.29, T32.30 |
-| NFR-07 | T21.02, T21.06, T30.01, T30.02 | T30.03 |
+| NFR-07 | T13.13, T21.02, T21.06, T30.01, T30.02 | T30.03 |
 | NFR-08 | T20.04, T28.01 | — |
 | NFR-10 | T22.07, T22.11, T22.12, T32.07 | T22.05, T28.05, T32.06 |
 | NFR-12 | T20.04, T20.07 | T20.08, T31.08 |

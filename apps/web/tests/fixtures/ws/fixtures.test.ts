@@ -42,6 +42,7 @@ const MESSAGE_KEYS: { [K in Exclude<ServerMessage["type"], "COMMAND_RESULT">]: K
   EVENT: { v: true, type: true, seq: true, sim_time: true, event: true },
   LINK_STATE: { v: true, type: true, seq: true, sim_time: true, crew_id: true, linked: true },
   PING: { v: true, type: true, seq: true, sim_time: true },
+  TAKEN_OVER: { v: true, type: true, seq: true, sim_time: true, role: true },
 };
 const RESULT_OK_KEYS: Keys<Extract<CommandResult, { ok: true }>> = { v: true, type: true, command_id: true, ok: true, event_seq: true };
 const RESULT_FAIL_KEYS: Keys<Extract<CommandResult, { ok: false }>> = { v: true, type: true, command_id: true, ok: true, code: true, message: true };
@@ -72,6 +73,7 @@ const LOG_EVENT_DATA_KEYS: { [K in LogEventKind]: KeySpec<LogEventData[K]> } = {
   TASK_ADDED: { task_id: "req", stop_id: "req", crew_id: "req", kind: "req", text: "req", origin: "req" },
   TASK_UPDATED: { task_id: "req", stop_id: "req", crew_id: "req", state: "req", reason: "req", undo: "opt" },
   TASK_DROPPED: { task_id: "req", stop_id: "req", plan_revision: "req" },
+  ROLE_TAKEN_OVER: { role: "req", crew_id: "opt", old_client_id: "req", new_client_id: "req" },
 };
 const CREW_KEYS: Keys<Crew> = { crew_id: true, x_m: true, y_m: true, activity: true, stop_index: true, o2_frac: true, eva_elapsed_s: true, dose_event_ugy: true, dose_event_unsheltered_ugy: true, haven: true, linked: true, link_path: true, stale: true };
 const TASK_KEYS: Keys<StopTask> = { task_id: true, stop_id: true, crew_id: true, kind: true, text: true, state: true, reason: true, origin: true, updated_sim_time: true, updated_by: true, provenance: true };
@@ -93,6 +95,7 @@ const LOG_EVENT_KINDS: Record<LogEventKind, true> = {
   ALERT_CLEARED: true, OPTIONS_PROPOSED: true, PLAN_REVISED: true, VEHICLE_DISPATCHED: true, VEHICLE_ARRIVED: true,
   CREW_SHELTERED: true, LINK_LOST: true, LINK_RESTORED: true, EARTH_MSG_QUEUED: true, EARTH_MSG_DELIVERED: true,
   COMMAND_REJECTED: true, CLOCK_CHANGED: true, EVA_ENDED: true, TASK_ADDED: true, TASK_UPDATED: true, TASK_DROPPED: true,
+  ROLE_TAKEN_OVER: true,
 };
 
 function expectExactKeys(obj: object, keys: object, where: string): void {

@@ -360,6 +360,28 @@
 - **Agent brief:** Append HUD tokens from 04 only; never rename an existing token.
 - **Conflict notes:** `tokens.css` is append-only after T13.01 (map §c.4).
 
+### T13.13 — follow-up: self-host Chakra Petch 500 and Source Serif 4 400; verify their licences
+
+- **Owner:** Obidit Islam (team lead; files fetched with the data downloads, F1)
+- **Type:** implement
+- **Tag:** agent-ready · core
+- **Window:** pre-event-allowed
+- **Estimate:** 0.5 h
+- **Owns (writes):** `apps/web/public/fonts/` (after T13.02)
+- **Reads:** [04 §C.2](../specs/04_Design_Brief.md#c2-typography) (Chakra Petch display, Source Serif 4 long-form), `apps/web/public/fonts/README.md`, [data-downloads.md](../ops/data-downloads.md) F1
+- **Depends on:** T13.02 (hard: the fonts folder and its README conventions)
+- **Parallel with:** T13.04
+- **Steps:**
+  1. Add the two remaining 04 §C.2 families, only the weights it uses (Chakra Petch 500, Source Serif 4 400), each in `apps/web/public/fonts/<family>/` with its `OFL.txt`.
+  2. Add their README registry rows (version, source, SHA-256, licence, date fetched) and their credit lines.
+  3. Confirm no file in `apps/web/` references a font CDN.
+- **Acceptance:**
+  - Serves: NFR-01, NFR-07 · [04 §C.2](../specs/04_Design_Brief.md#c2-typography)
+  - Each family has its font file, its licence file, a registry row whose SHA-256 matches the file, and a credit line.
+- **Verify:** `sha256sum apps/web/public/fonts/*/*.woff2` against the README; `git grep -n "fonts.googleapis\|fonts.gstatic" -- apps/web` (no match outside the README); `make lint`.
+- **Agent brief:** Self-host the two remaining 04 §C.2 font families with their licences, as T13.02 did for Inter and IBM Plex Mono; add no npm dependency.
+- **Conflict notes:** Follow-up to done T13.02. `@font-face` rules for these families belong to T13.04 (`base.css`), not here; the font-source route (U-27) stays open.
+
 ## Internal dependency graph
 
 ```mermaid
