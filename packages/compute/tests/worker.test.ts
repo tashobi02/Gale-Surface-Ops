@@ -161,6 +161,20 @@ describe("compute worker handler and entry", () => {
         expect(res1.warnings).toEqual(res2.warnings);
       }
     });
+
+    it("is pure and deterministic when passed explicit wall-clock time", () => {
+      const fixedMs = 1700000000000;
+      const res1 = handleWorkerMessage(testGrid, defaultComputeRequest, undefined, fixedMs);
+      const res2 = handleWorkerMessage(testGrid, defaultComputeRequest, undefined, fixedMs);
+
+      expect(res1).toEqual(res2);
+      if (res1.type === "PLAN_RESULT") {
+        expect(res1.computed_utc).toBe(new Date(fixedMs).toISOString());
+        expect(res1.timing_ms.estimates).toBeUndefined();
+        // Dwell stops counted from waypoints with role === 'stop' (2 stops out of 3 waypoints)
+        expect(res1.totals?.dwell_time_min).toBe(2 * defaultComputeRequest.scenario.dwell_min_per_stop);
+      }
+    });
   });
 
   describe("planWorker entry and cancellation (T05.27)", () => {

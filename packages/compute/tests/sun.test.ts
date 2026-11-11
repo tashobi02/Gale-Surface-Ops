@@ -33,6 +33,7 @@ describe("sun position and sunrise/sunset (T06.03 / T06.07, FR-11)", () => {
       const res = sunriseSunset(utc, lat, lonE);
 
       // Sunrise and sunset times match F6 within 2 min
+      // TODO(decision): 2-minute tolerance for sunrise/sunset times vs marstime reference (discrete bisection search vs continuous orbital solution; spec 02 §D.5 does not fix a numeric time tolerance for rise/set instants)
       const srDiffMin = Math.abs(
         (new Date(res.sunrise_utc).getTime() - new Date(record.sunrise_sunset.sunrise_utc).getTime()) / 60000
       );
@@ -72,5 +73,27 @@ describe("sun position and sunrise/sunset (T06.03 / T06.07, FR-11)", () => {
         `Elevation at sunset ${res.sunset_utc} for sol of ${record.utc}`
       ).toBeLessThanOrEqual(0.1);
     }
+  });
+
+  it("throws RangeError on invalid Date, latitude, or longitude inputs", () => {
+    const validUtc = new Date("2026-11-14T08:00:00Z");
+    const invalidDate = new Date("not-a-date");
+
+    // Invalid date
+    expect(() => solarPosition(invalidDate, lat, lonE)).toThrow(RangeError);
+    expect(() => sunriseSunset(invalidDate, lat, lonE)).toThrow(RangeError);
+
+    // Invalid latitude
+    expect(() => solarPosition(validUtc, NaN, lonE)).toThrow(RangeError);
+    expect(() => solarPosition(validUtc, 95, lonE)).toThrow(RangeError);
+    expect(() => solarPosition(validUtc, -91, lonE)).toThrow(RangeError);
+    expect(() => sunriseSunset(validUtc, NaN, lonE)).toThrow(RangeError);
+    expect(() => sunriseSunset(validUtc, 100, lonE)).toThrow(RangeError);
+
+    // Invalid longitude
+    expect(() => solarPosition(validUtc, lat, NaN)).toThrow(RangeError);
+    expect(() => solarPosition(validUtc, lat, Infinity)).toThrow(RangeError);
+    expect(() => sunriseSunset(validUtc, lat, NaN)).toThrow(RangeError);
+    expect(() => sunriseSunset(validUtc, lat, Infinity)).toThrow(RangeError);
   });
 });

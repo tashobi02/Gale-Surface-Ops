@@ -8,6 +8,9 @@
  * - DARKNESS warning criteria: Departure before sunrise or sun elevation < 0° along leg checked in warnings.ts.
  * - Duration for radiation dose in PARTIAL plans: Uses planned max_eva_duration_h when totals is null.
  * - EnvConstant selection: Filter by conditions.solar_phase matching scenario.solar_phase ("max" | "min").
+ *
+ * Handler integration note (step 5 gap): handler.ts does not call assembleConditions
+ * while it throws TODO(T06.09); C8 integration into handler is tracked under T05.32.
  */
 import type { EnvConstant, MissionScenario, PlanResult } from "@marswalk/protocol";
 import { localTrueSolarTime, solarLongitude } from "./mars24";
@@ -78,18 +81,13 @@ export function assembleConditions(inputs: ConditionsInputs): ConditionsResult {
       (c) =>
         (c.conditions as { solar_phase?: string } | undefined)?.solar_phase === targetPhase,
     ) ??
-    envConstants.find((c) => c.const_id.includes(targetPhase)) ??
-    envConstants[0];
+    envConstants.find((c) => c.const_id.includes(targetPhase));
 
-  const dose = radConstant
-    ? estimateDose(radConstant, durationH)
-    : {
-        dose_mSv: 0,
-        dose_low_mSv: 0,
-        dose_high_mSv: 0,
-        solar_phase: targetPhase,
-        const_id: `rad-gale-dose-eq-solar-${targetPhase}`,
-      };
+  if (!radConstant) {
+    throw new Error(`No radiation EnvConstant found matching solar phase: ${targetPhase}`);
+  }
+
+  const dose = estimateDose(radConstant, durationH);
 
   return {
     stops_timeline,
