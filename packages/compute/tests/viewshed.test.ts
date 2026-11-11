@@ -4,6 +4,9 @@ import {
   MARS_RADIUS_M,
   RELAY_VIEWSHED_CELL_M,
   RELAY_VIEWSHED_RADIUS_M,
+  LOS_MAX_STEP_M,
+  LOS_STEP_CELL_FRACTION,
+  VIEWSHED_LABEL,
   horizonDistanceM,
   lineOfSight,
   viewshed,
@@ -131,4 +134,21 @@ describe("viewshed (02 §D.11)", () => {
     expect(RELAY_VIEWSHED_RADIUS_M).toBe(4000);
     expect(RELAY_VIEWSHED_CELL_M).toBe(20);
   });
+
+  it("names the ray step rule: half a grid cell, never more than 20 m", () => {
+    expect(LOS_STEP_CELL_FRACTION).toBe(0.5);
+    expect(LOS_MAX_STEP_M).toBe(20);
+  });
+});
+
+describe("viewshed provenance label (T05b.09 acceptance; 02 §D.11)", () => {
+  it("labels the output `derived` with the not-modelled caveat, frozen", () => {
+    expect(VIEWSHED_LABEL.provenance).toBe("derived");
+    expect(VIEWSHED_LABEL.note).toBe("radio propagation not modelled beyond line of sight");
+    expect(Object.isFrozen(VIEWSHED_LABEL)).toBe(true);
+  });
+});
+
+describe("viewshed validation still to do (02 §D.11, §F.2)", () => {
+  it.todo("matches gdal_viewshed at 5 real points (fixture from the pipeline; TASK-05b T05b.20 / T03.30)");
 });
