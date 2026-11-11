@@ -74,6 +74,8 @@
   --hud-caution: #FFB020;
   --hud-warning: #FF6B6B;
   --hud-advisory: #4CC9F0;
+  /* HUD status pill ink (04 §C.1 "HUD status pills"): #000000 on every HUD status fill reaches >= 7 : 1 */
+  --hud-pill-ink: #000000;
 
   /* PRINT (v1 values) */
   --print-text: #111827;
@@ -132,13 +134,10 @@
   --topbar-height: 48px;
   --meta-strip-height: 24px;
   --alert-bar-height: 64px;
-  /* Narrow-viewport results panel height 1024–1279 px (04 §F Responsive) */
-  /* TODO(decision): 04 §F names the narrow layout but gives no 180px value. 04 spec change needed to define the
-     narrow results height; value left as is until then. */
+  /* Narrow-viewport results panel height 1024–1279 px: 180 px (220 px at >= 1280); 04 §F Responsive */
   --results-height-narrow: 180px;
-  /* Selection outline width (04 §C.5; not a colour — route colour used) */
-  /* TODO(decision): 04 §C.5 table sets the selected waypoint `focus` ring to 3 px; 2px here is not in 04. 04 spec
-     change needed (state what --selection-width covers, or set it to 3 px); value left as is until then. */
+  /* Selection outline width: the selected waypoint is a 2 px `route` outline plus a marker; 04 §C.5 "Selection and
+     keyboard focus are two different things". Keyboard focus stays the 2 px white ring (--focus-ring, 04 §C.1, §F). */
   --selection-width: 2px;
 
   /* Motion (04 §C.6) */
@@ -216,7 +215,7 @@
   /* TODO(decision): 04 §C.1 defines no PRINT focus ring; print is not interactive, so none is set and the OPS value is inherited. 04 spec-change needed. */
   --surface-0: #FFFFFF;
   --surface-1: #FFFFFF;
-  /* TODO(decision): print hex values #F3F4F6, #D1D5DB, #4B5563 are not defined in 04 §C.1 */
+  /* Print neutrals (04 §C.1 PRINT): fill #F3F4F6, rule #D1D5DB (hairlines only, never text), secondary text #4B5563 */
   --surface-2: #F3F4F6;
   --line: #D1D5DB;
   --control-edge: #D1D5DB;
@@ -298,15 +297,44 @@ html {
   max-width: 68ch;
 }
 
-/* Catalogue codes and module labels (04 P1, P2) — real ids only, never decoration */
-/* TODO(decision): 11 px is inside 04 §C.2 Microcopy (11–13 px) but below its "Minimum 12 px anywhere" rule, and
-   04 §C.2 itself conflicts here. 04 spec change needed (drop the 11 px floor or exempt microcopy); value left as is. */
+/* Catalogue codes and module labels (04 P1, P2) — real ids only, never decoration.
+ * Size follows 04 §C.2 "Minimum text size": 12 px by default (ops console and everywhere else); 11 px only in BRIEF
+ * and on planner desktop surfaces, at >= 4.5 : 1 (--fg-3 on the surface); never below 16 px on EVA, never below
+ * 14 px on the HUD. `data-surface="planner"` marks a planner surface (SCR-02 to SCR-07). */
 .code,
 .module-label {
-  font: 500 11px / 1.2 var(--font-mono);
+  font: 500 var(--text-micro) / 1.2 var(--font-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--fg-3);
+}
+
+[data-mode="brief"] .code,
+[data-mode="brief"] .module-label {
+  font-size: 11px;
+}
+
+@media (min-width: 1024px) {
+  [data-surface="planner"] .code,
+  [data-surface="planner"] .module-label {
+    font-size: 11px;
+  }
+}
+
+[data-mode="hud"] .code,
+[data-mode="hud"] .module-label {
+  font-size: 14px;
+}
+
+[data-surface="eva"] .code,
+[data-surface="eva"] .module-label,
+[data-screen="SCR-12"] .code,
+[data-screen="SCR-12"] .module-label,
+[data-screen="SCR-12-FULLMAP"] .code,
+[data-screen="SCR-12-FULLMAP"] .module-label,
+[data-screen="SCR-14"][data-variant="eva"] .code,
+[data-screen="SCR-14"][data-variant="eva"] .module-label {
+  font-size: 16px;
 }
 
 /* Buttons look like buttons (04 P8): visible edge, label, pressed state. No radius, no shadow.
@@ -348,7 +376,7 @@ a { text-decoration: underline; text-underline-offset: 2px; }
   [data-mode] {
     --surface-0: #FFFFFF;
     --surface-1: #FFFFFF;
-    /* TODO(decision): print hex values #F3F4F6, #D1D5DB, #4B5563 are not defined in 04 §C.1 */
+    /* Print neutrals (04 §C.1 PRINT): fill #F3F4F6, rule #D1D5DB (hairlines only, never text), secondary text #4B5563 */
     --surface-2: #F3F4F6;
     --line: #D1D5DB;
     --control-edge: #D1D5DB;
