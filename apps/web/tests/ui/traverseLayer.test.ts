@@ -282,6 +282,22 @@ describe("loading the traverse asset (FR-16)", () => {
     expect(c.getPointFeatures()).toHaveLength(3);
   });
 
+  it("a null feature or a feature with null geometry (valid GeoJSON) is skipped; ready() never rejects (review 12 Nov)", async () => {
+    const doc = { type: "FeatureCollection", features: [null, { type: "Feature", geometry: null, properties: GOOD }, point(GOOD)] };
+    const c = make(SITE, null, { fetchJson: async () => doc });
+    await expect(c.ready()).resolves.toBeUndefined();
+    expect(c.getStatus()).toBe("ready");
+    expect(c.getPointFeatures()).toHaveLength(1);
+    expect(c.skipped()).toHaveLength(2);
+  });
+
+  it("a throw while drawing makes the layer unavailable instead of rejecting ready()", async () => {
+    const doc = { type: "FeatureCollection", features: [{ type: "Feature", get geometry(): never { throw new Error("boom"); }, properties: GOOD }] };
+    const c = make(SITE, null, { fetchJson: async () => doc });
+    await expect(c.ready()).resolves.toBeUndefined();
+    expect(c.getStatus()).toBe("unavailable");
+  });
+
   it("is unavailable, not thrown, when the fetch fails; and when the asset is missing", async () => {
     const failing = make(SITE, null, { fetchJson: async () => { throw new Error("HTTP 404"); } });
     await failing.ready();

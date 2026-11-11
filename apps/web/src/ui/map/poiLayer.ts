@@ -183,6 +183,9 @@ export function createPoiLayer(site: LoadedSite, options: PoiLayerOptions = {}):
     button.type = "button";
     button.dataset.poiId = id;
     button.textContent = poi.properties.name;
+    // FR-15: the name carries the POI's own class (05 POI.provenance) and the record it came from.
+    if (poi.properties.provenance) button.setAttribute("data-provenance", poi.properties.provenance);
+    button.setAttribute("data-source", `pois:${id}`);
     button.setAttribute("aria-pressed", "false");
     button.style.cssText = [
       "min-height:var(--target-mouse)",

@@ -232,6 +232,13 @@ describe("keyboard focus path: a list of the POIs, one button each (04 §F, §A.
     expect(c.listElement.getAttribute("aria-label")).toMatch(/points of interest/i);
   });
 
+  it("each list button carries the POI's own provenance class and a source id (FR-15; 05 POI.provenance)", () => {
+    const c = make(loadedSiteFrom(mockManifest(), [POI]));
+    const button = c.listElement.querySelector<HTMLButtonElement>("button")!;
+    expect(button.getAttribute("data-provenance")).toBe(POI.properties.provenance);
+    expect(button.getAttribute("data-source")).toBe(`pois:${POI.properties.poi_id}`);
+  });
+
   it("focusing a button shows that POI's label and a focus ring on the map; leaving clears it", () => {
     const c = make();
     document.body.appendChild(c.listElement);

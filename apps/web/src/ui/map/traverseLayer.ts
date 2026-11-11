@@ -182,6 +182,11 @@ export function createTraverseLayer(site: LoadedSite, options: TraverseLayerOpti
 
   function draw(document: TraverseGeoJson): void {
     document.features.forEach((feature, index) => {
+      // A null feature or a null geometry is valid GeoJSON for "no shape": skip it, never throw (review 12 Nov).
+      if (feature == null || feature.geometry == null) {
+        skips.push({ index, reason: "feature has no geometry" });
+        return;
+      }
       const props = feature.properties ?? {};
       if (feature.geometry.type === "LineString") {
         const coords = feature.geometry.coordinates;
@@ -232,8 +237,9 @@ export function createTraverseLayer(site: LoadedSite, options: TraverseLayerOpti
       if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
       return response.json();
     });
-    loading = fetchJson(asset.url).then(
-      (json) => {
+    // .then(ok).catch(fail): a throw while drawing also becomes "unavailable", so ready() never rejects.
+    loading = fetchJson(asset.url)
+      .then((json) => {
         const features = (json as { features?: unknown } | null)?.features;
         if (!Array.isArray(features)) {
           status = "unavailable";
@@ -241,11 +247,10 @@ export function createTraverseLayer(site: LoadedSite, options: TraverseLayerOpti
         }
         draw(json as TraverseGeoJson);
         status = "ready";
-      },
-      () => {
+      })
+      .catch(() => {
         status = "unavailable";
-      },
-    );
+      });
   }
 
   function nearest(coord: [number, number], toleranceM: number): Feature<Point> | null {
