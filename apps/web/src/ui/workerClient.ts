@@ -1,19 +1,29 @@
 /**
  * Web Worker client adapter for compute core communication (02 §E.2, 03 §D, 03 §E.4, NFR-10).
- * Implemented by T07.04 (FR-03, FR-07).
+ * Implemented by T07.04 (FR-03, FR-07). Implements the C10 `WorkerClient` interface (context.ts).
+ *
+ * Every promise handed to a caller settles, and its timer is cleared:
+ * - resolved with the worker's SAMPLE_RESULT / PLAN_RESULT;
+ * - a PLAN_RESULT older than the latest requested plan_revision rejects `SUPERSEDED` (02 §E.2: only the latest is
+ *   delivered); a worker `CANCELLED` rejects `CANCELLED`. Both are "not an error": see `isSupersededError`;
+ * - any other worker ERROR rejects only the request it names, with the worker's code. Only an `INTERNAL` error
+ *   (or a worker script error, `onerror`) marks the client crashed (03 §D) until `retry()`;
+ * - `TIMEOUT` when `defaultTimeoutMs` elapses; `CRASH` for what is pending at a worker script error;
+ *   `SUPERSEDED` for what is pending at `retry()`; `TERMINATED` for what is pending at `terminate()`.
+ * After `terminate()` every call rejects `TERMINATED` (and `postMessage` / `retry` throw it).
  */
 import type {
   ComputePlanRequest,
   PlanResultMessage,
   SamplePointRequest,
   SampleResult,
-  WorkerError,
   WorkerErrorCode,
   WorkerRequest,
   WorkerResponse,
 } from "@marswalk/protocol";
 import type { WorkerClient } from "./context";
 
+/** The part of a Worker the client uses; a DOM `Worker` satisfies it, so do test doubles. */
 export interface WorkerLike {
   postMessage(message: unknown): void;
   terminate?(): void;
@@ -22,255 +32,207 @@ export interface WorkerLike {
   onmessageerror?: ((event: MessageEvent<unknown>) => void) | null;
 }
 
-export class WorkerClientError extends Error {
-  readonly code: WorkerErrorCode | "CRASH" | "SUPERSEDED";
+export type WorkerClientErrorCode = WorkerErrorCode | "CRASH" | "SUPERSEDED" | "TERMINATED";
 
-  constructor(code: WorkerErrorCode | "CRASH" | "SUPERSEDED", message: string) {
+export class WorkerClientError extends Error {
+  readonly code: WorkerClientErrorCode;
+  constructor(code: WorkerClientErrorCode, message: string) {
     super(message);
     this.name = "WorkerClientError";
     this.code = code;
   }
 }
 
-export interface WorkerClientOptions {
-  workerFactory?: () => WorkerLike;
-  defaultTimeoutMs?: number;
+/**
+ * True for a plan that was replaced by a newer revision (`SUPERSEDED`, or the worker's `CANCELLED`): the caller drops
+ * it silently and the map stays usable (02 §E.2, 03 §E.4).
+ */
+export function isSupersededError(error: unknown): error is WorkerClientError {
+  return error instanceof WorkerClientError && (error.code === "SUPERSEDED" || error.code === "CANCELLED");
 }
 
-export interface ExtendedWorkerClient extends WorkerClient {
-  retry(): void;
-  isCrashed(): boolean;
+export interface WorkerClientOptions {
+  /** Creates the worker; default: the plan worker module (`../worker/planWorker.ts`). */
+  workerFactory?: () => WorkerLike;
+  /** Per-request timeout in ms; none when omitted. */
+  defaultTimeoutMs?: number;
+  /**
+   * Receives an exception thrown by an `onMessage` listener. Default: rethrown asynchronously, so it reaches the
+   * window's error handling without breaking delivery to other listeners or settling of the request.
+   */
+  onListenerError?: (error: unknown) => void;
+}
+
+interface Pending {
+  resolve: (message: SampleResult | PlanResultMessage) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout> | undefined;
 }
 
 /**
- * Create a WorkerClient managing request tracking, latest-revision resolution,
- * cancellation handling and crash recovery (02 §E.2, 03 §D).
+ * Create a WorkerClient managing request tracking, latest-revision resolution, cancellation handling and crash
+ * recovery (02 §E.2, 03 §D). Throws when no Worker can be created (no `Worker` global and no factory).
  */
-export function createWorkerClient(
-  options: WorkerClientOptions = {}
-): ExtendedWorkerClient {
+export function createWorkerClient(options: WorkerClientOptions = {}): WorkerClient {
   let worker: WorkerLike | null = null;
   let crashed = false;
-  let reqIdCounter = 0;
+  let terminated = false;
   let latestPlanRevision = -1;
-
-  const pendingSampleRequests = new Map<
-    string,
-    {
-      resolve: (res: SampleResult) => void;
-      reject: (err: Error) => void;
-      timer?: ReturnType<typeof setTimeout>;
-    }
-  >();
-
-  const pendingComputeRequests = new Map<
-    string,
-    {
-      plan_revision: number;
-      resolve: (res: PlanResultMessage) => void;
-      reject: (err: Error) => void;
-      timer?: ReturnType<typeof setTimeout>;
-    }
-  >();
-
+  const pending = new Map<string, Pending>();
   const messageListeners = new Set<(message: WorkerResponse) => void>();
 
+  function reportListenerError(error: unknown): void {
+    if (options.onListenerError) {
+      options.onListenerError(error);
+    } else {
+      setTimeout(() => {
+        throw error;
+      }, 0);
+    }
+  }
+
+  /** Remove a request and clear its timer; returns it, or undefined when it already settled. */
+  function take(requestId: string): Pending | undefined {
+    const entry = pending.get(requestId);
+    if (!entry) return undefined;
+    pending.delete(requestId);
+    if (entry.timer !== undefined) clearTimeout(entry.timer);
+    return entry;
+  }
+
+  function rejectAll(makeError: () => Error): void {
+    for (const requestId of [...pending.keys()]) {
+      take(requestId)?.reject(makeError());
+    }
+  }
+
   function handleWorkerResponse(event: MessageEvent<WorkerResponse>): void {
-    const msg = event.data;
-    if (!msg || typeof msg !== "object") return;
-
-    for (const listener of messageListeners) {
+    const message = event.data;
+    if (!message || typeof message !== "object") return;
+    for (const listener of [...messageListeners]) {
       try {
-        listener(msg);
-      } catch (err) {
-        console.error("WorkerClient listener error:", err);
+        listener(message);
+      } catch (error) {
+        reportListenerError(error);
       }
     }
 
-    if (msg.type === "SAMPLE_RESULT") {
-      const pending = pendingSampleRequests.get(msg.request_id);
-      if (pending) {
-        if (pending.timer) clearTimeout(pending.timer);
-        pendingSampleRequests.delete(msg.request_id);
-        pending.resolve(msg);
-      }
-    } else if (msg.type === "PLAN_RESULT") {
-      // Deliver only if at or above latest plan_revision (02 §E.2)
-      if (msg.plan_revision < latestPlanRevision) {
-        // Stale result: drop silently
-        pendingComputeRequests.delete(msg.request_id);
-        return;
-      }
-
-      const pending = pendingComputeRequests.get(msg.request_id);
-      if (pending) {
-        if (pending.timer) clearTimeout(pending.timer);
-        pendingComputeRequests.delete(msg.request_id);
-        pending.resolve(msg);
-      }
-    } else if (msg.type === "ERROR") {
-      if (msg.code === "CANCELLED") {
-        // Treat as superseded, not as an error; map stays usable (02 §E.2, 03 §E.4)
-        const pending = pendingComputeRequests.get(msg.request_id);
-        if (pending) {
-          if (pending.timer) clearTimeout(pending.timer);
-          pendingComputeRequests.delete(msg.request_id);
-        }
+    if (message.type === "SAMPLE_RESULT") {
+      take(message.request_id)?.resolve(message);
+    } else if (message.type === "PLAN_RESULT") {
+      const entry = take(message.request_id);
+      if (!entry) return;
+      if (message.plan_revision < latestPlanRevision) {
+        entry.reject(
+          new WorkerClientError(
+            "SUPERSEDED",
+            `Plan revision ${message.plan_revision} superseded by revision ${latestPlanRevision}`,
+          ),
+        );
       } else {
-        // TIMEOUT or INTERNAL or unexpected: fail pending and enter crashed state (03 §D)
-        failAllPending(new WorkerClientError(msg.code, msg.message));
-        crashed = true;
+        entry.resolve(message);
       }
+    } else if (message.type === "ERROR") {
+      take(message.request_id)?.reject(new WorkerClientError(message.code, message.message));
+      // A worker that reports an internal failure is not trusted until restarted (03 §D); other codes are per request.
+      if (message.code === "INTERNAL") crashed = true;
     }
   }
 
-  function handleWorkerError(event: ErrorEvent | MessageEvent<unknown>): void {
-    const message =
-      "message" in event && typeof event.message === "string"
-        ? event.message
-        : "Web Worker crashed";
+  function handleWorkerFailure(event: Event): void {
+    const reason = "message" in event && typeof event.message === "string" && event.message ? event.message : "Web Worker failed";
     crashed = true;
-    failAllPending(new WorkerClientError("CRASH", message));
+    rejectAll(() => new WorkerClientError("CRASH", reason));
   }
 
-  function failAllPending(error: Error): void {
-    for (const [, pending] of pendingSampleRequests) {
-      if (pending.timer) clearTimeout(pending.timer);
-      pending.reject(error);
-    }
-    pendingSampleRequests.clear();
-
-    for (const [, pending] of pendingComputeRequests) {
-      if (pending.timer) clearTimeout(pending.timer);
-      pending.reject(error);
-    }
-    pendingComputeRequests.clear();
+  function detach(old: WorkerLike): void {
+    old.onmessage = null;
+    old.onerror = null;
+    old.onmessageerror = null;
+    old.terminate?.();
   }
 
   function startWorker(): void {
-    if (options.workerFactory) {
-      worker = options.workerFactory();
-    } else if (typeof Worker !== "undefined") {
-      worker = new Worker(
-        new URL("../worker/planWorker.ts", import.meta.url),
-        { type: "module" }
-      ) as unknown as WorkerLike;
-    } else {
-      throw new Error("Web Worker environment not available");
-    }
-
+    const created: WorkerLike = options.workerFactory
+      ? options.workerFactory()
+      : createDefaultWorker();
+    created.onmessage = handleWorkerResponse;
+    // A message that cannot be read cannot be matched to a request, so it is treated like a script error.
+    created.onerror = (event) => handleWorkerFailure(event);
+    created.onmessageerror = (event) => handleWorkerFailure(event);
     crashed = false;
-    worker.onmessage = handleWorkerResponse;
-    if ("onerror" in worker) {
-      worker.onerror = handleWorkerError as (e: ErrorEvent) => void;
+    worker = created;
+  }
+
+  function send<T extends SampleResult | PlanResultMessage>(request: WorkerRequest): Promise<T> {
+    if (terminated) return Promise.reject(new WorkerClientError("TERMINATED", "Worker client was terminated"));
+    if (crashed) {
+      return Promise.reject(new WorkerClientError("CRASH", "Worker has crashed; call retry() to restart"));
     }
-    if ("onmessageerror" in worker) {
-      worker.onmessageerror = handleWorkerError as (e: MessageEvent<unknown>) => void;
+    if (pending.has(request.request_id)) {
+      return Promise.reject(
+        new WorkerClientError("INVALID_INPUT", `request_id ${request.request_id} is already pending`),
+      );
     }
+    return new Promise<T>((resolve, reject) => {
+      const timer =
+        options.defaultTimeoutMs === undefined
+          ? undefined
+          : setTimeout(() => {
+              take(request.request_id)?.reject(
+                new WorkerClientError("TIMEOUT", `${request.type} ${request.request_id} timed out`),
+              );
+            }, options.defaultTimeoutMs);
+      pending.set(request.request_id, { resolve: resolve as Pending["resolve"], reject, timer });
+      worker?.postMessage(request);
+    });
   }
 
   startWorker();
 
   return {
     samplePoint(req: Omit<SamplePointRequest, "type">): Promise<SampleResult> {
-      if (crashed) {
-        return Promise.reject(
-          new WorkerClientError("CRASH", "Worker has crashed; call retry() to restart")
-        );
-      }
-
-      const request_id = req.request_id ?? `sample-${++reqIdCounter}-${Date.now()}`;
-      const fullReq: SamplePointRequest = {
-        ...req,
-        type: "SAMPLE_POINT",
-        request_id,
-      };
-
-      return new Promise<SampleResult>((resolve, reject) => {
-        let timer: ReturnType<typeof setTimeout> | undefined;
-        if (options.defaultTimeoutMs) {
-          timer = setTimeout(() => {
-            pendingSampleRequests.delete(request_id);
-            reject(new WorkerClientError("TIMEOUT", "SAMPLE_POINT timed out"));
-          }, options.defaultTimeoutMs);
-        }
-
-        pendingSampleRequests.set(request_id, { resolve, reject, timer });
-        worker?.postMessage(fullReq);
-      });
+      return send<SampleResult>({ ...req, type: "SAMPLE_POINT" });
     },
-
     computePlan(req: Omit<ComputePlanRequest, "type">): Promise<PlanResultMessage> {
-      if (crashed) {
-        return Promise.reject(
-          new WorkerClientError("CRASH", "Worker has crashed; call retry() to restart")
-        );
-      }
-
-      const request_id = req.request_id ?? `plan-${++reqIdCounter}-${Date.now()}`;
-      if (req.plan_revision > latestPlanRevision) {
+      if (!terminated && !crashed && req.plan_revision > latestPlanRevision) {
         latestPlanRevision = req.plan_revision;
       }
-
-      const fullReq: ComputePlanRequest = {
-        ...req,
-        type: "COMPUTE_PLAN",
-        request_id,
-      };
-
-      return new Promise<PlanResultMessage>((resolve, reject) => {
-        let timer: ReturnType<typeof setTimeout> | undefined;
-        if (options.defaultTimeoutMs) {
-          timer = setTimeout(() => {
-            pendingComputeRequests.delete(request_id);
-            reject(new WorkerClientError("TIMEOUT", "COMPUTE_PLAN timed out"));
-          }, options.defaultTimeoutMs);
-        }
-
-        pendingComputeRequests.set(request_id, {
-          plan_revision: req.plan_revision,
-          resolve,
-          reject,
-          timer,
-        });
-        worker?.postMessage(fullReq);
-      });
+      return send<PlanResultMessage>({ ...req, type: "COMPUTE_PLAN" });
     },
-
     postMessage(message: WorkerRequest): void {
-      if (crashed) {
-        throw new WorkerClientError("CRASH", "Worker has crashed; call retry() to restart");
-      }
+      if (terminated) throw new WorkerClientError("TERMINATED", "Worker client was terminated");
+      if (crashed) throw new WorkerClientError("CRASH", "Worker has crashed; call retry() to restart");
       worker?.postMessage(message);
     },
-
     onMessage(listener: (message: WorkerResponse) => void): () => void {
       messageListeners.add(listener);
       return () => {
         messageListeners.delete(listener);
       };
     },
-
     terminate(): void {
-      failAllPending(new WorkerClientError("CRASH", "Worker client terminated"));
-      worker?.terminate?.();
+      if (terminated) return;
+      terminated = true;
+      rejectAll(() => new WorkerClientError("TERMINATED", "Worker client was terminated"));
+      if (worker) detach(worker);
       worker = null;
     },
-
     retry(): void {
-      if (worker?.terminate) {
-        try {
-          worker.terminate();
-        } catch {
-          // ignore
-        }
-      }
-      failAllPending(new WorkerClientError("SUPERSEDED", "Worker restarted via retry()"));
+      if (terminated) throw new WorkerClientError("TERMINATED", "Worker client was terminated");
+      if (worker) detach(worker);
+      rejectAll(() => new WorkerClientError("SUPERSEDED", "Worker restarted via retry()"));
+      latestPlanRevision = -1;
       startWorker();
     },
-
     isCrashed(): boolean {
       return crashed;
     },
   };
+}
+
+/** The plan worker as a module worker (02 §A.1). */
+function createDefaultWorker(): WorkerLike {
+  if (typeof Worker === "undefined") throw new Error("Web Worker environment not available");
+  return new Worker(new URL("../worker/planWorker.ts", import.meta.url), { type: "module" });
 }
