@@ -8,6 +8,7 @@
  */
 import type { ReactElement } from "react";
 import type { PlannerBootHandle } from "../boot/bootPlanner";
+import { ownClientId } from "../boot/session";
 import type { Route } from "./router";
 import { MissionBriefing } from "./screens/scr01MissionBriefing";
 import { EarthView } from "./screens/scr16EarthView";
@@ -36,7 +37,7 @@ export function App({ route, planner, fetchImpl }: AppProps): ReactElement {
         </RouteBoundary>
       );
     case "join":
-      return <JoinRoute fetchImpl={fetchImpl} joinRole={route.joinRole} />;
+      return <JoinRoute fetchImpl={fetchImpl} joinRole={route.joinRole} ownClientId={ownClientId()} />;
     case "planner":
     case "briefing":
     case "sources":

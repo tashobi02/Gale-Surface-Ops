@@ -6,7 +6,7 @@
  * not-built placeholder; when a screen lands it mounts here with no edit. SCR-02 is the planner surface: its root carries
  * `data-surface="planner"`, which is what makes the 11 px code size of 04 §C.2 apply on desktop (tokens.css).
  */
-import { useEffect, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useState, type ReactElement } from "react";
 import type { BootProblem, ScreenComponent } from "../context";
 import { URL_PARAMS } from "../context";
 import type { PlannerBoot, PlannerBootHandle } from "../../boot/bootPlanner";
@@ -54,6 +54,14 @@ export function PlannerHost({ route, planner }: { route: Route; planner: Planner
     };
   }, [planner, attempt]);
 
+  // The context is rebuilt only when the boot changes, so screens that compare it by reference do not re-run.
+  const boot = state.status === "ready" ? state.boot : null;
+  const ctx = useMemo(() => {
+    if (!boot?.planStore) return null;
+    const debug = new URLSearchParams(globalThis.location?.search ?? "").get(URL_PARAMS.DEBUG) === "1";
+    return { site: boot.site, planStore: boot.planStore, workerClient: boot.workerClient, debug };
+  }, [boot]);
+
   const entry = SCREENS[route.id];
   if (!entry) return <NotBuilt screen={route.screen ?? "—"} label={route.id} />;
   const { Screen, label, task, surface } = entry;
@@ -75,12 +83,10 @@ export function PlannerHost({ route, planner }: { route: Route; planner: Planner
         }}
       />
     );
-  } else if (!state.boot.planStore) {
+  } else if (!ctx) {
     // No plan store yet (T08.03 stub): there is no AppContext to give the screen.
     body = <NotBuilt screen={route.screen ?? "—"} label={label} task={`${task} (plan store: T08.03)`} />;
   } else {
-    const debug = new URLSearchParams(globalThis.location?.search ?? "").get(URL_PARAMS.DEBUG) === "1";
-    const ctx = { site: state.boot.site, planStore: state.boot.planStore, workerClient: state.boot.workerClient, debug };
     body = (
       <RouteBoundary screen={route.screen ?? "—"} label={label} task={task}>
         <Screen ctx={ctx} />

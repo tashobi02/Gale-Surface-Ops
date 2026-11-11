@@ -16,13 +16,11 @@ import { formatSimTime, summarizeEvent } from "./EventLog";
 
 const CREW_IDS: readonly CrewId[] = ["EV1", "EV2"];
 
-/** Position (1-based) of a stop among the plan's stops; without a plan, the number in a `wp-<n>` id; else unknown. */
+/** Position (1-based) of a stop among the plan's stops; null (shown "—") when there is no plan or it lacks the stop. */
 function stopNumber(snapshot: Snapshot, stopId: string): number | null {
   const stops = (snapshot.plan?.waypoints ?? []).filter((w) => w.role === "stop");
   const at = stops.findIndex((w) => w.id === stopId);
-  if (at !== -1) return at + 1;
-  const m = /^wp-(\d+)$/.exec(stopId);
-  return m ? Number(m[1]) : null;
+  return at === -1 ? null : at + 1;
 }
 
 function taskProgressOf(snapshot: Snapshot, crewId: CrewId): CrewTaskProgress | null {
@@ -36,9 +34,16 @@ function taskProgressOf(snapshot: Snapshot, crewId: CrewId): CrewTaskProgress | 
   };
 }
 
-/** One strip line for the newest event; its class is the event's own (the first of its provenance map), else null. */
+/**
+ * One strip line for the newest event. Its class is the event's own: the class of the first field path in sorted order
+ * (deterministic whatever order the map was built in), else null when the event gives none.
+ */
 function logLineOf(event: LogEvent): OpsLogLine {
-  const prov = Object.values(event.provenance ?? {}).find(isProvenance) ?? null;
+  const prov =
+    Object.entries(event.provenance ?? {})
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([, value]) => value)
+      .find(isProvenance) ?? null;
   return {
     key: String(event.seq),
     text: `#${event.seq} ${formatSimTime(event.sim_time)} ${summarizeEvent(event)}`,

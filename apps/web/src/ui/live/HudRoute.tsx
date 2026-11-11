@@ -14,6 +14,7 @@ export const HUD_EXIT_HOLD_MS = 2000;
 
 export function HudRoute({ crewId }: { crewId: CrewId }): ReactElement {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const frame = useRef<HTMLDivElement>(null);
   const cancel = (): void => {
     if (timer.current !== null) clearTimeout(timer.current);
     timer.current = null;
@@ -22,9 +23,12 @@ export function HudRoute({ crewId }: { crewId: CrewId }): ReactElement {
     globalThis.location.hash = routeHash("eva", crewId);
   };
   useEffect(() => cancel, []);
+  // Take focus on mount so Escape works without a tap first.
+  useEffect(() => frame.current?.focus(), []);
   return (
     // The wrapper only listens: the HUD has no controls. tabIndex lets Escape reach it from the keyboard.
     <div
+      ref={frame}
       data-slot="hud-route"
       tabIndex={0}
       style={{ minHeight: "100vh", outline: "none" }}

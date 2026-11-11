@@ -78,6 +78,12 @@ describe("HudRoute (SCR-13: exit by tap-and-hold, 2 s)", () => {
     expect(window.location.hash).toBe("");
   });
 
+  it("takes focus on mount, so Escape works without a tap first", async () => {
+    openSession("eva:EV1");
+    const { container } = await mount(createElement(HudRoute, { crewId: "EV1" }));
+    expect(document.activeElement).toBe(must(container, '[data-slot="hud-route"]'));
+  });
+
   it("Escape is the keyboard way back", async () => {
     openSession("eva:EV1");
     const { container } = await mount(createElement(HudRoute, { crewId: "EV1" }));
@@ -167,6 +173,22 @@ describe("JoinRoute (SCR-10)", () => {
     expect(must(container, '[data-slot="join-status"]').getAttribute("data-status")).toBe("ready");
   });
 
+  it("this tab's own open connection is not shown as a role taken by someone else", async () => {
+    const fetchImpl = vi.fn(async () =>
+      json(
+        session([
+          { client_id: "c-me", role: "ops", display_name: "Ops console" },
+          { client_id: "c-9", role: "eva:EV1", display_name: "EV1 tablet" },
+        ]),
+      ),
+    );
+    const { container } = await mount(createElement(JoinRoute, { fetchImpl, pollMs: 60_000, ownClientId: "c-me" }));
+    await flush();
+    const taken = [...container.querySelectorAll(".role-taken")];
+    expect(taken).toHaveLength(1);
+    expect(taken[0].textContent).toContain("[EV1]");
+  });
+
   it("a tile goes to its role's route", async () => {
     const fetchImpl = vi.fn(async () => json(session([])));
     const { container } = await mount(createElement(JoinRoute, { fetchImpl, pollMs: 60_000 }));
@@ -190,5 +212,20 @@ describe("JoinRoute (SCR-10)", () => {
     await flush();
     expect(window.location.hash).toBe("");
     expect(container.querySelectorAll(".role-taken").length).toBe(1);
+  });
+
+  it("a taken role does not pretend to be taken over: honest wording, and the other device stays connected", async () => {
+    const fetchImpl = vi.fn(async () => json(session([{ client_id: "c-9", role: "eva:EV1", display_name: "EV1 tablet" }])));
+    const { container } = await mount(createElement(JoinRoute, { fetchImpl, pollMs: 60_000 }));
+    await flush();
+    const taken = must(container, ".role-taken");
+    expect(container.textContent).not.toMatch(/take over/i);
+    await click(must(taken, "button"));
+    const confirm = must(taken, 'button[aria-label^="Confirm"]');
+    expect(confirm.textContent).toContain("OPEN ANYWAY");
+    expect(confirm.textContent).toContain("OTHER DEVICE STAYS CONNECTED");
+    expect(taken.textContent).toMatch(/not built yet/i);
+    await click(confirm);
+    expect(window.location.hash).toBe("#/eva/EV1");
   });
 });

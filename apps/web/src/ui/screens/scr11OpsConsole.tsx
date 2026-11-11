@@ -153,14 +153,8 @@ export function OpsConsole({
   }, []);
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (!logOpen) return;
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") closeLog();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [logOpen, closeLog]);
+    if (logOpen) closeRef.current?.focus();
+  }, [logOpen]);
   // The session is read from the snapshot (given, or the client's own), so the clock and status follow the server.
   const subscribe = useCallback((listener: () => void) => client?.subscribe(listener) ?? (() => {}), [client]);
   const readState = useCallback(() => client?.state() ?? null, [client]);
@@ -649,6 +643,11 @@ export function OpsConsole({
           borderTop: "1px solid var(--hairline, #2A313A)",
         }}
         aria-label="Mission Event Log Stream"
+        // Escape is handled here, on the strip and the drawer, and not on the document: another widget's Escape (the
+        // add-task popover) is not ours to swallow.
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && logOpen) closeLog();
+        }}
       >
         <button
           ref={stripRef}

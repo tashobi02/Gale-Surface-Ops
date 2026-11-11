@@ -31,6 +31,9 @@ export function createClientIdSource(): () => string {
 
 const pageClientId = createClientIdSource();
 
+/** This page load's client id (what the open connection's HELLO carries). */
+export const ownClientId = (): string => pageClientId();
+
 /** What the ops client list shows for this device. */
 export function displayNameFor(route: Route): string {
   if (route.id === "ops") return "Ops console";

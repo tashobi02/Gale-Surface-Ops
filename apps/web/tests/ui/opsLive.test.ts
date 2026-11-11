@@ -58,8 +58,17 @@ describe("selectOpsProps", () => {
     ];
     const progress = selectOpsProps({ ...connect, tasks }, []).taskProgress?.EV1;
     expect(progress?.total).toEqual({ done: 1, total: 3 });
-    expect(progress?.stop?.stopId).toBeDefined();
-    expect(progress?.stop?.total).toBeGreaterThan(0);
+  });
+
+  it("numbers the stop from the plan's stops, and never from the shape of an id: without a plan the stop is unknown (—)", () => {
+    const tasks = [{ ...connect.tasks[0], task_id: "a", stop_id: "wp-2", crew_id: "EV1" as const, state: "TODO" as const }];
+    expect(selectOpsProps({ ...connect, tasks, plan: null }, []).taskProgress?.EV1?.stop).toBeNull();
+
+    const waypoint = (id: string, role: string) => ({ id, role }) as unknown as NonNullable<Snapshot["plan"]>["waypoints"][number];
+    const plan = { ...(connect.plan ?? {}), waypoints: [waypoint("wp-0", "start"), waypoint("wp-9", "stop"), waypoint("wp-2", "stop")] } as unknown as Snapshot["plan"];
+    // EV1 is walking with no stop reached yet, so the next stop is the plan's first stop: wp-9 is stop 1, whatever its id says.
+    const first = [{ ...tasks[0], stop_id: "wp-9" }];
+    expect(selectOpsProps({ ...connect, tasks: first, plan }, []).taskProgress?.EV1?.stop).toMatchObject({ stopId: "wp-9", stopNo: 1, done: 0, total: 1 });
   });
 
   it("has no progress for a crew member without tasks (the console shows —)", () => {
@@ -81,6 +90,12 @@ describe("selectOpsProps", () => {
     expect(lines[0]).toMatchObject({ key: "5", prov: "replayed", src: "log:5" });
     expect(lines[0].text).toContain("#5");
     expect(lines[0].text).toContain("13:05:07");
+
+    // Several classes: the class of the first field path in sorted order, whatever order the map was built in.
+    const forward = event(7, "ALERT_RAISED", {}, { "data.b": "assumed", "data.a": "replayed" });
+    const reversed = event(7, "ALERT_RAISED", {}, { "data.a": "replayed", "data.b": "assumed" });
+    expect(selectOpsProps(connect, [forward]).logLines?.[0].prov).toBe("replayed");
+    expect(selectOpsProps(connect, [reversed]).logLines?.[0].prov).toBe("replayed");
 
     const plain = selectOpsProps(connect, [event(6, "CLOCK_CHANGED", { speed: 10 })]).logLines ?? [];
     expect(plain[0].prov).toBeNull();
@@ -151,6 +166,17 @@ describe("event log strip and drawer (03 SCR-11)", () => {
     await keyDown(must(container, '[data-slot="event-log-drawer"]'), "Escape");
     expect(container.querySelector('[data-slot="event-log-drawer"]')).toBeNull();
     expect(document.activeElement).toBe(strip);
+  });
+
+  it("Escape closes the drawer from the strip too, but an Escape elsewhere on the page is left alone for its owner", async () => {
+    const { container } = await consoleWithEvents();
+    const strip = must<HTMLButtonElement>(container, '[data-slot="event-log-strip"]');
+    await click(strip);
+    // Another widget's Escape (for example the add-task popover) must not close the log behind its back.
+    await keyDown(container.querySelector(".phase-timeline") as Element, "Escape");
+    expect(container.querySelector('[data-slot="event-log-drawer"]')).not.toBeNull();
+    await keyDown(strip, "Escape");
+    expect(container.querySelector('[data-slot="event-log-drawer"]')).toBeNull();
   });
 
   it("the close button closes it too, and focus returns", async () => {
