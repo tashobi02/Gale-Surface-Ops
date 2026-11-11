@@ -267,6 +267,23 @@ describe("T21.15 (a) next relay pass Y", () => {
     expect(() => deriveDemoTiming(inputs(A, { earth_link: { path: "e.json", data: table(A - 5 * MIN, 12, dateOnly) } }))).toThrow(/ISO time with Z or an offset/);
   });
 
+  it("rejects a pass whose time lacks Z or an offset even when that pass is not the one chosen", () => {
+    const early = [{ orbiter: "mro" as const, start_utc: "2024-05-20T01:00:00", end_utc: "2024-05-20T01:06:00Z", max_elev_deg: 10 }];
+    expect(() => deriveDemoTiming(inputs(A, { earth_link: { path: "e.json", data: table(A - 5 * MIN, 12, early) } }))).toThrow(/pass start.*ISO time with Z or an offset/);
+    const badEnd = [{ orbiter: "mro" as const, start_utc: "2024-05-20T01:00:00Z", end_utc: "2024-05-20T01:06:00", max_elev_deg: 10 }];
+    expect(() => deriveDemoTiming(inputs(A, { earth_link: { path: "e.json", data: table(A - 5 * MIN, 12, badEnd) } }))).toThrow(/pass end.*ISO time with Z or an offset/);
+  });
+
+  it("rejects a row time without Z or an offset, naming the field", () => {
+    const t = table(A - 5 * MIN, 12, noPasses);
+    t.rows[0] = { ...t.rows[0], t_utc: "2024-05-20T05:45:00" };
+    expect(() => deriveDemoTiming(inputs(A, { earth_link: { path: "e.json", data: t } }))).toThrow(/row time.*ISO time with Z or an offset/);
+    const t2 = table(A - 5 * MIN, 12, noPasses);
+    // Row 5 (A - 5 min + 5 min) is the row at or before the alert, so it is the one the light time reads.
+    t2.rows[5] = { ...t2.rows[5], t_utc: t2.rows[5].t_utc.replace("Z", "") };
+    expect(() => deriveDemoTiming(inputs(A, { earth_link: { path: "e.json", data: t2 } }))).toThrow(/row time.*ISO time with Z or an offset/);
+  });
+
   it("accepts a +hh:mm offset", () => {
     const p = [{ orbiter: "mro" as const, start_utc: "2024-05-20T10:00:00+00:00", end_utc: "2024-05-20T11:00:00+00:00", max_elev_deg: 10 }];
     const t = deriveDemoTiming(inputs(Date.parse("2024-05-20T09:00:30Z"), { earth_link: { path: "e.json", data: table(Date.parse("2024-05-20T08:55:00Z"), 12, p) } }));

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   deliveryTime,
   DTE_MIN_ELEV_DEG,
+  activePass,
   inConjunction,
   linkAt,
   nextPassStart,
@@ -317,5 +318,56 @@ describe("conjunction at the queued pass start (Proposed; 02 §D.12 is silent, T
 
   it("a queued message is still delivered when the pass start is clear of conjunction", () => {
     expect(deliveryTime(syntheticTable, "to_earth", "2026-11-10T12:30:00Z", mockParams)?.via).toBe("tgo");
+  });
+});
+
+describe("unparseable times throw RangeError instead of reading as 'no row' or 'no pass' (02 §D.12)", () => {
+  const bad = ["garbage", "", "2026-13-45T99:00:00Z"];
+
+  it.each(bad)("linkAt, activePass, nextPassStart and inConjunction reject t_utc %j", (t) => {
+    expect(() => linkAt(syntheticTable, t)).toThrow(RangeError);
+    expect(() => activePass(syntheticTable, t)).toThrow(RangeError);
+    expect(() => nextPassStart(syntheticTable, t)).toThrow(RangeError);
+    expect(() => inConjunction(syntheticTable, t, mockParams)).toThrow(RangeError);
+  });
+
+  it("linkAt rejects a table row whose t_utc does not parse", () => {
+    const badRows: EarthLinkTable = {
+      ...syntheticTable,
+      rows: syntheticTable.rows.map((r, i) => (i === 0 ? { ...r, t_utc: "not a time" } : r)),
+    };
+    expect(() => linkAt(badRows, "2026-11-10T12:05:00Z")).toThrow(RangeError);
+  });
+
+  it("activePass and nextPassStart reject a pass whose start_utc or end_utc does not parse", () => {
+    const badPass: EarthLinkTable = {
+      ...syntheticTable,
+      passes: [{ ...syntheticTable.passes[0], end_utc: "later" }, syntheticTable.passes[1]],
+    };
+    expect(() => activePass(badPass, "2026-11-10T12:05:00Z")).toThrow(RangeError);
+    expect(() => nextPassStart(badPass, "2026-11-10T11:00:00Z")).toThrow(RangeError);
+  });
+
+  it("deliveryTime rejects an unparseable send time in both directions", () => {
+    expect(() => deliveryTime(syntheticTable, "to_earth", "garbage", mockParams)).toThrow(RangeError);
+    expect(() => deliveryTime(syntheticTable, "to_mars", "garbage", mockParams)).toThrow(RangeError);
+  });
+});
+
+describe("a send time before the table is a RangeError, blackout is null (02 §D.12)", () => {
+  const before = "2026-11-10T11:00:00Z"; // the first row is 11:45:00Z
+
+  it("to_earth and to_mars throw RangeError naming the table start", () => {
+    expect(() => deliveryTime(syntheticTable, "to_earth", before, mockParams)).toThrow(RangeError);
+    expect(() => deliveryTime(syntheticTable, "to_mars", before, mockParams)).toThrow(RangeError);
+    expect(() => deliveryTime(syntheticTable, "to_earth", before, mockParams)).toThrow("2026-11-10T11:45:00Z");
+  });
+
+  it("conjunction inside the table still returns null, not an error", () => {
+    const inConj: EarthLinkTable = {
+      ...syntheticTable,
+      rows: syntheticTable.rows.map((r) => ({ ...r, sep_angle_deg: 2 })),
+    };
+    expect(deliveryTime(inConj, "to_earth", "2026-11-10T12:05:00Z", mockParams)).toBeNull();
   });
 });
