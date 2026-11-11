@@ -6,32 +6,11 @@ from __future__ import annotations
 
 import csv
 import json
-import math
 from pathlib import Path
-from typing import Any
 
-try:
-    import pytest
-except ImportError:
-    class _MockPytest:
-        @staticmethod
-        def approx(expected: float, abs: float = 1e-6) -> Any:
-            class _Approx:
-                def __eq__(self, actual: Any) -> bool:
-                    try:
-                        return math.isclose(float(actual), float(expected), abs_tol=abs)
-                    except (ValueError, TypeError):
-                        return False
-            return _Approx()
+import pytest
 
-        @staticmethod
-        def importorskip(modname: str) -> Any:
-            import importlib
-            try:
-                return importlib.import_module(modname)
-            except ImportError:
-                return None
-    pytest = _MockPytest()  # type: ignore[assignment]
+pytest.importorskip("pyproj")  # the geo stack lives in the conda env (02 §C.1)
 
 from marswalk_pipeline.vectors import package_pois, package_traverse
 
@@ -415,3 +394,166 @@ def test_package_traverse_from_geojson_source(tmp_path: Path) -> None:
     assert len(linestrings) == 1
     assert points[0]["properties"]["sol"] == 4600
     assert points[1]["properties"]["sol"] == 4601
+
+
+# ---------------------------------------------------------------------------
+# Review fixes: strict inputs, explicit AOI, POI rules (05 §C POI)
+# ---------------------------------------------------------------------------
+
+EQUATOR_PROJ4 = (
+    "+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs"
+)
+
+
+def test_package_traverse_requires_an_aoi_extent(tmp_path: Path) -> None:
+    """No AOI extent means no silent skip of the clip and no guessed site.json."""
+    csv_file = tmp_path / "localized_interp.csv"
+    _create_synthetic_places_csv(csv_file)
+    # A site.json beside the output must not be picked up.
+    (tmp_path / "site.json").write_text(
+        json.dumps({"aoi": {"extent_m": [-1.0, -1.0, 1.0, 1.0]}}), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="AOI extent"):
+        package_traverse(csv_file, EXAMPLE_PROJ4, tmp_path / "vectors" / "traverse.geojson")
+    with pytest.raises(ValueError, match="AOI extent"):
+        package_traverse(
+            csv_file, EXAMPLE_PROJ4, tmp_path / "vectors" / "traverse.geojson", aoi_extent_m=(0.0, 0.0, 1.0)
+        )
+
+
+def test_package_traverse_rejects_invalid_projection(tmp_path: Path) -> None:
+    """A bad proj4 string fails loudly; there is no hand-written projection fallback."""
+    from pyproj.exceptions import CRSError
+
+    csv_file = tmp_path / "localized_interp.csv"
+    _create_synthetic_places_csv(csv_file)
+    with pytest.raises(CRSError):
+        package_traverse(
+            csv_file, "+proj=nonsense", tmp_path / "t.geojson", aoi_extent_m=(-1.0, -1.0, 1.0, 1.0)
+        )
+
+
+@pytest.mark.parametrize(
+    "missing, match",
+    [("sol", "sol"), ("planetocentric_latitude", "latitude"), ("longitude", "longitude")],
+)
+def test_places_csv_missing_required_value_raises(tmp_path: Path, missing: str, match: str) -> None:
+    """A blank sol, latitude or longitude is an error, never a 0 default."""
+    csv_file = tmp_path / "localized_interp.csv"
+    row = {
+        "frame": "ROVER", "site": "1", "drive": "2",
+        "planetocentric_latitude": "-4.7", "longitude": "137.4", "elevation": "1", "sol": "10",
+    }
+    row[missing] = ""
+    with csv_file.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(row))
+        writer.writeheader()
+        writer.writerow(row)
+    with pytest.raises(ValueError, match=match):
+        package_traverse(csv_file, EXAMPLE_PROJ4, tmp_path / "t.geojson", aoi_extent_m=(-9e6, -9e6, 9e6, 9e6))
+
+
+def test_places_csv_zero_coordinates_are_real_values(tmp_path: Path) -> None:
+    """Latitude 0 and longitude 0 are valid, not missing."""
+    csv_file = tmp_path / "localized_interp.csv"
+    csv_file.write_text(
+        "frame,site,drive,planetocentric_latitude,longitude,elevation,sol\nROVER,0,0,0,0,0,0\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "t.geojson"
+    package_traverse(csv_file, EQUATOR_PROJ4, out, aoi_extent_m=(-10.0, -10.0, 10.0, 10.0))
+    point = next(f for f in json.loads(out.read_text(encoding="utf-8"))["features"] if f["geometry"]["type"] == "Point")
+    assert point["properties"]["sol"] == 0
+    assert point["properties"]["lat"] == 0.0
+    assert point["properties"]["lon_e"] == 0.0
+    assert point["properties"]["elevation_m"] == 0.0
+    assert point["properties"]["site_drive"] == "0_0"
+    assert point["geometry"]["coordinates"] == [0.0, 0.0]
+
+
+def test_geojson_zero_properties_win_over_coordinates(tmp_path: Path) -> None:
+    """lat 0 / lon 0 in properties are kept, not replaced by the geometry (no `or` chains)."""
+    src = tmp_path / "traverse.geojson"
+    src.write_text(
+        json.dumps({"type": "FeatureCollection", "features": [{
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [137.0, -4.0]},
+            "properties": {"sol": 0, "lat": 0, "lon_e": 0},
+        }]}),
+        encoding="utf-8",
+    )
+    out = tmp_path / "t.geojson"
+    package_traverse(src, EQUATOR_PROJ4, out, aoi_extent_m=(-10.0, -10.0, 10.0, 10.0))
+    point = next(f for f in json.loads(out.read_text(encoding="utf-8"))["features"] if f["geometry"]["type"] == "Point")
+    assert point["properties"]["lat"] == 0.0
+    assert point["properties"]["lon_e"] == 0.0
+    assert point["properties"]["sol"] == 0
+
+
+@pytest.mark.parametrize(
+    "feature, match",
+    [
+        ({"geometry": {"type": "Point", "coordinates": [137.4, -4.7]}, "properties": {}}, "sol"),
+        ({"geometry": {"type": "Point", "coordinates": []}, "properties": {"sol": 1}}, "lat"),
+        ({"geometry": {"type": "Point", "coordinates": []}, "properties": {"sol": 1, "lat": -4.7}}, "lon"),
+    ],
+)
+def test_geojson_missing_required_value_raises(tmp_path: Path, feature: dict, match: str) -> None:
+    """Missing sol, latitude or longitude raises instead of defaulting to 0."""
+    src = tmp_path / "traverse.geojson"
+    src.write_text(
+        json.dumps({"type": "FeatureCollection", "features": [{"type": "Feature", **feature}]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match=match):
+        package_traverse(src, EXAMPLE_PROJ4, tmp_path / "t.geojson", aoi_extent_m=(-9e6, -9e6, 9e6, 9e6))
+
+
+def test_traverse_unknown_source_format_raises(tmp_path: Path) -> None:
+    """Only .csv (PLACES) and .geojson / .json (MMGIS) sources are accepted."""
+    src = tmp_path / "traverse.txt"
+    src.write_text("whatever", encoding="utf-8")
+    with pytest.raises(ValueError, match="traverse source"):
+        package_traverse(src, EXAMPLE_PROJ4, tmp_path / "t.geojson", aoi_extent_m=(-1.0, -1.0, 1.0, 1.0))
+
+
+def _poi_record() -> dict:
+    return {
+        "poi_id": "poi-valid", "name": "Valid", "lat": -4.7, "lon_e": 137.38,
+        "science_objective": "Short.", "why_it_matters": "Short.",
+        "position_source": "Synthetic", "position_uncertainty_m": 0.0, "provenance": "assumed",
+    }
+
+
+@pytest.mark.parametrize(
+    "change, match",
+    [
+        ({"science_objective": "x" * 301}, "science_objective"),
+        ({"why_it_matters": "x" * 301}, "why_it_matters"),
+        ({"position_uncertainty_m": -0.1}, "position_uncertainty_m"),
+        ({"position_uncertainty_m": "10"}, "position_uncertainty_m"),
+        ({"provenance": "live"}, "provenance"),
+        ({"provenance": "Measured"}, "provenance"),
+    ],
+)
+def test_package_pois_rejects_invalid_records(tmp_path: Path, change: dict, match: str) -> None:
+    """05 §C POI: text <= 300 chars, uncertainty >= 0, provenance one of the six classes."""
+    curated = tmp_path / "pois"
+    curated.mkdir()
+    (curated / "poi-valid.json").write_text(json.dumps({**_poi_record(), **change}), encoding="utf-8")
+    with pytest.raises(ValueError, match=match):
+        package_pois(curated, EXAMPLE_PROJ4, tmp_path / "vectors" / "pois.geojson")
+
+
+def test_package_pois_accepts_boundary_values(tmp_path: Path) -> None:
+    """300-character text, zero uncertainty and each of the six provenance classes are valid."""
+    curated = tmp_path / "pois"
+    curated.mkdir()
+    for index, provenance in enumerate(
+        ("measured", "derived", "modelled", "assumed", "replayed", "simulated")
+    ):
+        record = {**_poi_record(), "poi_id": f"poi-{index}", "provenance": provenance, "science_objective": "x" * 300}
+        (curated / f"poi-{index}.json").write_text(json.dumps(record), encoding="utf-8")
+    out = tmp_path / "vectors" / "pois.geojson"
+    package_pois(curated, EXAMPLE_PROJ4, out)
+    assert len(json.loads(out.read_text(encoding="utf-8"))["features"]) == 6
