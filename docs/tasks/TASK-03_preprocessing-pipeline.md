@@ -1165,7 +1165,7 @@ PY
   - Serves: FR-53, FR-42 · [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds) (rank-1 entry mirrors `grid.comm_hab_asset`)
   - 05, C5 and `manifest.py` state the same rule; no asset id, file name, schema or test changes; the HabCandidate entity keeps its Proposed label.
   - `make lint docs-check` passes; `make test` is unchanged.
-- **Verify:** `make lint docs-check` · `git grep -n "grid-comm-hab-first"` (no match) · `make test`
+- **Verify:** `make lint docs-check` · `git grep -n "grid-comm-hab-first" -- docs/specs pipeline/src` (no match; history notes elsewhere may keep the old id) · `make test`
 - **Agent brief:** Write the data lead's decision on the rank-1 candidate asset id into 05, C5 and the manifest-writer comment; change no behaviour.
 - **Conflict notes:** One open spec-change PR at a time (map §c). T32.02 also edits 05 (live-session gaps); rebase on it if it lands first.
 
