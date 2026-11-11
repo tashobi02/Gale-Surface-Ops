@@ -15,6 +15,8 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import {
+  CSP_HEADER,
+  CSP_META,
   HEARTBEAT_MS,
   MAX_REPLAY_GAP,
   type ClientMessage,
@@ -306,6 +308,13 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
       await c.waitFor((m) => m.type === "COMMAND_RESULT");
     }
     expect(session.clientIds).toEqual(["c-aaaa", "c-bbbb"]);
+  });
+
+  it("serves the one CSP policy of @marswalk/protocol as its header, the page's meta policy plus frame-ancestors (NFR-08)", async () => {
+    const { server } = await setup();
+    const res = await fetch(`${server.url}/api/health`);
+    expect(res.headers.get("content-security-policy")).toBe(CSP_HEADER);
+    expect(CSP_HEADER.startsWith(CSP_META)).toBe(true);
   });
 
   it("GET /api/health returns {status, data_version, session_id, sim_time, uptime_s} (02 §E.5)", async () => {

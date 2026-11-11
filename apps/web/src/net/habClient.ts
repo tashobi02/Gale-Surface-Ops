@@ -29,7 +29,8 @@
  *
  * Open points for the product & systems lead:
  * - TODO(verify): a command in flight when the socket drops is resent flagged `queued_offline`; it
- *   may already have run. The Hab Core should ignore a repeated `command_id` (T23.02).
+ *   may already have run. The Hab Core ignores a repeated `command_id` of the same client (T23.02), so ids are
+ *   `<client_id>-<per-connection nonce>-k<n>`: unique across reloads and duplicated tabs, stable across a resend.
  */
 import {
   LINK_LOST_AFTER_MS,
@@ -87,6 +88,13 @@ interface Pending {
   inFlight: boolean;
 }
 
+/** Lower-case hex of `bytes` random bytes (crypto.getRandomValues also exists on a LAN page that is not a secure context). */
+function randomHex(bytes: number): string {
+  const buf = new Uint8Array(bytes);
+  globalThis.crypto.getRandomValues(buf);
+  return [...buf].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export function connectHab(options: HabClientOptions): HabClient {
   const { role, clientId, displayName } = options;
   const loc = globalThis.location;
@@ -103,6 +111,9 @@ export function connectHab(options: HabClientOptions): HabClient {
   let backoff = BACKOFF_START_MS;
   let closed = false;
   let commandCounter = 0;
+  // Per-connection nonce: the Hab Core dedupes by (client_id, command_id), so a client that restarts its counter (reload,
+  // role change, duplicated tab) must not repeat an id. Client-side only; a resend within this connection keeps its id.
+  const nonce = randomHex(4);
   let watchdog: ReturnType<typeof setTimeout> | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   const pending = new Map<string, Pending>();
@@ -259,7 +270,7 @@ export function connectHab(options: HabClientOptions): HabClient {
     linkLost: () => ({ lost, since_ms: lostSince }),
     send(command) {
       if (closed) return Promise.resolve(failed("", "client closed"));
-      const command_id = `${clientId}-k${++commandCounter}`;
+      const command_id = `${clientId}-${nonce}-k${++commandCounter}`;
       const message: Pending["message"] = { v: PROTOCOL_VERSION, type: "COMMAND", command_id, role, command: { kind: command.kind, args: command.args } };
       return new Promise<CommandResult>((resolve) => {
         const p: Pending = { message, resolve, queued: false, inFlight: false };
