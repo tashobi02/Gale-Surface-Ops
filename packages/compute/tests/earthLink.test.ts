@@ -191,16 +191,131 @@ describe("earthLink (02 §D.12; FR-43)", () => {
     expect(DTE_MIN_ELEV_DEG).toBe(10);
   });
 
-  it("light time for the scenario date matches a spiceypy spot check within 1 s", () => {
+  it("regression pin: the committed scenario table row at the alert hour has light_time_s 949.7 (not an independent SPICE check)", () => {
+    // This compares the table with a value read from the same table, so it only catches an accidental edit of
+    // `scenarios/storm-sol4190/earth_link.json` or a change in `linkAt`. The independent check that 02 §D.12
+    // asks for is the `it.todo` below.
     const filePath = resolve(__dirname, "../../../scenarios/storm-sol4190/earth_link.json");
-    const raw = readFileSync(filePath, "utf-8");
-    const realTable: EarthLinkTable = JSON.parse(raw);
+    const realTable: EarthLinkTable = JSON.parse(readFileSync(filePath, "utf-8"));
 
     const row = linkAt(realTable, "2024-05-20T12:00:00Z");
     expect(row).not.toBeNull();
-    // 02 §D.12 / 01 §E.1: ~15.8 min = 948-950 s. Real SPICE row is 949.70 s.
-    expect(row!.light_time_s).toBeGreaterThan(940);
-    expect(row!.light_time_s).toBeLessThan(960);
     expect(row!.light_time_s).toBeCloseTo(949.7, 0);
+  });
+
+  it.todo(
+    "light time for the scenario date matches an independent spiceypy or WebGeocalc value within 1 s (02 §D.12 validation; needs a value computed outside this repo's table, TASK-21 / T05b.20)",
+  );
+});
+
+describe("earthLink parameters and inputs fail loudly (02 §D.12)", () => {
+  const at = "2026-11-10T12:05:00Z";
+
+  it.each([
+    ["missing", undefined],
+    ["NaN", Number.NaN],
+    ["infinite", Number.POSITIVE_INFINITY],
+    ["negative", -1],
+    ["a boolean", true],
+  ])("inConjunction throws RangeError when conjunction_deg is %s (no built-in fallback)", (_label, bad) => {
+    const values: Record<string, number | boolean> = { ...mockParams.values };
+    if (bad === undefined) delete values.conjunction_deg;
+    else values.conjunction_deg = bad;
+    expect(() => inConjunction(syntheticTable, at, { ...mockParams, values })).toThrow(RangeError);
+    expect(() => inConjunction(syntheticTable, at, { ...mockParams, values })).toThrow("conjunction_deg");
+    expect(() => deliveryTime(syntheticTable, "to_earth", at, { ...mockParams, values })).toThrow(RangeError);
+  });
+
+  it("inConjunction uses the ParamSet threshold, strictly below", () => {
+    const wide = { ...mockParams, values: { ...mockParams.values, conjunction_deg: 50 } };
+    expect(inConjunction(syntheticTable, at, wide)).toBe(true); // 45 < 50
+    const exact = { ...mockParams, values: { ...mockParams.values, conjunction_deg: 45 } };
+    expect(inConjunction(syntheticTable, at, exact)).toBe(false); // 45 < 45 is false
+  });
+
+  it("dte_enabled is on only when it is the boolean true (the number 1 does not enable DTE)", () => {
+    const one = { ...mockParams, values: { ...mockParams.values, dte_enabled: 1 } };
+    const result = deliveryTime(syntheticTable, "to_earth", "2026-11-10T12:30:00Z", one);
+    expect(result?.via).toBe("tgo");
+    expect(result?.deliver_utc).toBe("2026-11-10T13:15:00.000Z");
+  });
+
+  it("deliveryTime throws RangeError when the table has no passes", () => {
+    const noPasses: EarthLinkTable = { ...syntheticTable, passes: [] };
+    expect(() => deliveryTime(noPasses, "to_earth", at, mockParams)).toThrow(RangeError);
+    expect(() => deliveryTime(noPasses, "to_mars", at, mockParams)).toThrow(RangeError);
+  });
+
+  it("deliveryTime throws RangeError when the passes are not sorted by start", () => {
+    const unsorted: EarthLinkTable = { ...syntheticTable, passes: [...syntheticTable.passes].reverse() };
+    expect(() => deliveryTime(unsorted, "to_earth", at, mockParams)).toThrow(RangeError);
+    expect(() => deliveryTime(unsorted, "to_mars", at, mockParams)).toThrow(RangeError);
+  });
+
+  it("deliveryTime throws RangeError for a pass that ends before it starts", () => {
+    const bad: EarthLinkTable = {
+      ...syntheticTable,
+      passes: [
+        { ...syntheticTable.passes[0], start_utc: "2026-11-10T12:10:00Z", end_utc: "2026-11-10T12:00:00Z" },
+        syntheticTable.passes[1],
+      ],
+    };
+    expect(() => deliveryTime(bad, "to_earth", at, mockParams)).toThrow(RangeError);
+  });
+
+  it("accepts the committed storm table, including its one-sample pass with start = end", () => {
+    const filePath = resolve(__dirname, "../../../scenarios/storm-sol4190/earth_link.json");
+    const real: EarthLinkTable = JSON.parse(readFileSync(filePath, "utf-8"));
+    expect(real.passes.some((p) => p.start_utc === p.end_utc)).toBe(true);
+    expect(() => deliveryTime(real, "to_earth", "2024-05-20T12:00:00Z", mockParams)).not.toThrow();
+  });
+});
+
+describe("Earth to Mars with direct-to-Earth enabled (02 §D.12)", () => {
+  const dteParams: ParamSet = { ...mockParams, values: { ...mockParams.values, dte_enabled: true } };
+
+  it("delivers at Mars arrival via dte when Earth elevation there is at least DTE_MIN_ELEV_DEG", () => {
+    // Earth sends 12:10Z, arrives at Mars 12:25Z (between passes); the row at or before 12:25Z is 12:10Z (24 deg).
+    const result = deliveryTime(syntheticTable, "to_mars", "2026-11-10T12:10:00Z", dteParams);
+    expect(result).toEqual({ deliver_utc: "2026-11-10T12:25:00.000Z", via: "dte", light_time_s: 900 });
+  });
+
+  it("falls back to the next pass start when Earth elevation at Mars arrival is below DTE_MIN_ELEV_DEG", () => {
+    const lowElev: EarthLinkTable = {
+      ...syntheticTable,
+      rows: syntheticTable.rows.map((r) => ({ ...r, earth_elev_deg: DTE_MIN_ELEV_DEG - 1 })),
+    };
+    const result = deliveryTime(lowElev, "to_mars", "2026-11-10T12:10:00Z", dteParams);
+    expect(result?.via).toBe("tgo");
+    expect(result?.deliver_utc).toBe("2026-11-10T13:00:00.000Z");
+  });
+
+  it("DTE at exactly DTE_MIN_ELEV_DEG is allowed (boundary is inclusive)", () => {
+    const edge: EarthLinkTable = {
+      ...syntheticTable,
+      rows: syntheticTable.rows.map((r) => ({ ...r, earth_elev_deg: DTE_MIN_ELEV_DEG })),
+    };
+    expect(deliveryTime(edge, "to_mars", "2026-11-10T12:10:00Z", dteParams)?.via).toBe("dte");
+    expect(deliveryTime(edge, "to_earth", "2026-11-10T12:30:00Z", dteParams)?.via).toBe("dte");
+  });
+});
+
+describe("conjunction at the queued pass start (Proposed; 02 §D.12 is silent, TODO(decision))", () => {
+  // The table enters conjunction (2 deg < 3 deg) at 13:00Z, the start of the TGO pass; before that it is clear.
+  const enters: EarthLinkTable = {
+    ...syntheticTable,
+    rows: syntheticTable.rows.map((r) => (r.t_utc === "2026-11-10T13:00:00Z" ? { ...r, sep_angle_deg: 2 } : r)),
+  };
+
+  it("Mars to Earth: a message queued for a pass that starts in conjunction is not delivered", () => {
+    expect(deliveryTime(enters, "to_earth", "2026-11-10T12:30:00Z", mockParams)).toBeNull();
+  });
+
+  it("Earth to Mars: a message queued for a pass that starts in conjunction is not delivered", () => {
+    expect(deliveryTime(enters, "to_mars", "2026-11-10T12:10:00Z", mockParams)).toBeNull();
+  });
+
+  it("a queued message is still delivered when the pass start is clear of conjunction", () => {
+    expect(deliveryTime(syntheticTable, "to_earth", "2026-11-10T12:30:00Z", mockParams)?.via).toBe("tgo");
   });
 });
