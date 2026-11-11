@@ -130,7 +130,7 @@
 
 ### T31.05 — Implement the EVA task list and TASKS button
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -152,7 +152,7 @@
 
 ### T31.06 — Implement ops task progress and the add-task popover
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -173,7 +173,7 @@
 
 ### T31.07 — Tests: EVA list and ops progress DOM tests
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted

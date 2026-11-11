@@ -8,11 +8,23 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { FullScreenMap, MAX_SCIENCE_LAYERS, type FullScreenMapLayer } from "../../../src/ui/map/FullScreenMap";
-import { click, installDom, mount, must, removeDom } from "../domHarness";
+import type { Crew } from "@marswalk/protocol";
+import { click, installDom, keyDown, mount as mountRaw, must, removeDom, type Mounted } from "../domHarness";
+import { storeFromBeat } from "../fixtureStore";
 
 beforeAll(() => installDom());
 afterAll(() => removeDom());
-afterEach(() => {
+
+// The map listens on the document for Escape, so a map left mounted by an earlier test would answer a later one's key.
+const mounted = new Set<Mounted>();
+const mount: typeof mountRaw = async (element) => {
+  const view = await mountRaw(element);
+  mounted.add(view);
+  return { ...view, unmount: async () => { mounted.delete(view); await view.unmount(); } };
+};
+afterEach(async () => {
+  for (const view of [...mounted]) await view.unmount();
+  mounted.clear();
   document.body.innerHTML = "";
 });
 
@@ -224,5 +236,127 @@ describe("FullScreenMap behaviour (04 §E.5)", () => {
     expect(html).toMatch(/IAU_2015:49900/);
     expect(html).not.toMatch(/EPSG:3857/);
     expect(html).not.toMatch(/ol\/sphere/);
+  });
+});
+
+describe("FullScreenMap shows the crew it is given (04 §E.5; map tiles wait on T07.06/T07.17)", () => {
+  const ev1: Crew = storeFromBeat("connect").state()!.crew[0]; // x 2410.5, y -1875.0 (fixture `connect`)
+  const ev2: Crew = { ...ev1, crew_id: "EV2", x_m: 2430.5, y_m: -1895 };
+  const view = { center_x_m: 2400, center_y_m: -1900, resolution_m_per_px: 2 };
+
+  it("lists each crew member with its label and position, every number labelled with the snapshot's class and source", async () => {
+    const { container } = await mount(createElement(FullScreenMap, { crew: [ev1, ev2], view, onClose: () => {} }));
+    const rows = [...container.querySelectorAll<HTMLElement>('[data-slot="crew-readout"] [data-crew]')];
+
+    expect(rows.map((r) => r.getAttribute("data-crew"))).toEqual(["EV1", "EV2"]);
+    expect(rows[0].textContent).toContain("EV1");
+    const x = must(rows[0], '[data-field="x_m"]');
+    const y = must(rows[0], '[data-field="y_m"]');
+    expect(x.textContent).toContain("2410.5");
+    expect(y.textContent).toContain("-1875.0");
+    expect(x.getAttribute("data-provenance")).toBe("simulated");
+    expect(x.getAttribute("data-source")).toBe("snapshot:crew.x_m");
+    expect(y.getAttribute("data-source")).toBe("snapshot:crew.y_m");
+  });
+
+  it("the class comes from the provenance map when one is given and valid", async () => {
+    const { container } = await mount(
+      createElement(FullScreenMap, { crew: [ev1], provenance: { "crew.x_m": "replayed", "crew.y_m": "live" as never }, onClose: () => {} }),
+    );
+    expect(must(container, '[data-field="x_m"]').getAttribute("data-provenance")).toBe("replayed");
+    expect(must(container, '[data-field="y_m"]').getAttribute("data-provenance")).toBe("simulated");
+  });
+
+  it("with a view each member is marked at its offset from the view centre in pixels (metres / resolution, north up)", async () => {
+    const { container } = await mount(createElement(FullScreenMap, { crew: [ev1, ev2], view, onClose: () => {} }));
+    const marker = must(container, '[data-slot="crew-marker"][data-crew="EV1"]');
+
+    // (2410.5 - 2400) / 2 = 5.25 px east; (-1875 - -1900) / 2 = 12.5 px north, so -12.5 px on screen.
+    expect(marker.style.transform).toBe("translate(5.25px, -12.5px)");
+    expect(marker.textContent).toContain("EV1");
+    expect(marker.getAttribute("data-provenance")).toBe("simulated");
+    expect(must(container, '[data-slot="crew-marker"][data-crew="EV2"]').style.transform).toBe("translate(15.25px, -2.5px)");
+  });
+
+  it("without a view the positions are listed but nothing is placed", async () => {
+    const { container } = await mount(createElement(FullScreenMap, { crew: [ev1], onClose: () => {} }));
+    expect(container.querySelector('[data-slot="crew-marker"]')).toBeNull();
+    expect(must(container, '[data-field="x_m"]').textContent).toContain("2410.5");
+  });
+
+  it("a position that is not a finite number reads — and is not placed", async () => {
+    const { container } = await mount(createElement(FullScreenMap, { crew: [{ ...ev1, x_m: Number.NaN }], view, onClose: () => {} }));
+    const x = must(container, '[data-field="x_m"]');
+
+    expect(x.textContent).toContain("—");
+    expect(x.getAttribute("data-unavailable")).toBe("true");
+    expect(container.querySelector('[data-slot="crew-marker"]')).toBeNull();
+    expect(container.textContent).not.toMatch(/NaN/);
+  });
+
+  it("with no crew nothing is listed or invented", async () => {
+    const { container } = await mount(createElement(FullScreenMap, { view, onClose: () => {} }));
+    expect(container.querySelector("[data-crew]")).toBeNull();
+    expect(container.textContent).not.toMatch(/EV1|EV2/);
+  });
+});
+
+describe("FullScreenMap keyboard and focus (04 §E.5, NFR-04)", () => {
+  function opener(): HTMLButtonElement {
+    const button = document.createElement("button");
+    button.id = "opener";
+    document.body.appendChild(button);
+    button.focus();
+    return button;
+  }
+
+  it("focus moves into the map when it opens", async () => {
+    opener();
+    const { container } = await mount(createElement(FullScreenMap, { onClose: () => {} }));
+    expect(container.contains(document.activeElement)).toBe(true);
+  });
+
+  it("Escape closes the map once and returns focus to the control that opened it", async () => {
+    const from = opener();
+    const onClose = vi.fn();
+    await mount(createElement(FullScreenMap, { onClose }));
+
+    await keyDown(document.activeElement!, "Escape");
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(from);
+  });
+
+  it("with the layers menu open Escape closes only the menu", async () => {
+    opener();
+    const onClose = vi.fn();
+    const { container } = await mount(createElement(FullScreenMap, { onClose }));
+    await click(must(container, "#map-ctrl-layers"));
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+
+    await keyDown(document.activeElement!, "Escape");
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    await keyDown(document.activeElement!, "Escape");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("other keys do not close it, and it stops listening once unmounted", async () => {
+    opener();
+    const onClose = vi.fn();
+    const view = await mount(createElement(FullScreenMap, { onClose }));
+    await keyDown(document.activeElement!, "Enter");
+    await keyDown(document.activeElement!, "a");
+    expect(onClose).not.toHaveBeenCalled();
+
+    await view.unmount();
+    await keyDown(document.body, "Escape");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("unmounting (the parent closed it) also returns focus to the opener", async () => {
+    const from = opener();
+    const view = await mount(createElement(FullScreenMap, { onClose: () => {} }));
+    await view.unmount();
+    expect(document.activeElement).toBe(from);
   });
 });

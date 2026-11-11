@@ -87,6 +87,14 @@
         "label"
       ]
     },
+    "hab_candidates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/HabCandidate"
+      },
+      "minItems": 1,
+      "$comment": "v2 (05 Site.hab_candidates, 2026-11-10): optional. Absent = the single default_start / hab_mast site, so current manifests stay valid. Uniqueness of candidate_id and rank, exactly one rank 1 and the rank-1 mirror rules (rank-1 default_start == Site.default_start, rank-1 comm_hab_asset == grid.comm_hab_asset, rank-1 hab_mast == grid.hab_mast) are cross-field rules and are checked by validate-manifest, not here (05 §E.3)."
+    },
     "known_offsets_m": {
       "type": "object",
       "additionalProperties": {
@@ -592,6 +600,104 @@
           "ti_cell_m"
         ]
       }
+    },
+    "HabCandidate": {
+      "type": "object",
+      "$comment": "05 §C HabCandidate (2026-11-10, Proposed). Field names copied from 05.",
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "$comment": "05: unique in the Site; uniqueness checked by validate-manifest"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "$comment": "05: ≥ 1, unique; 1 is the default; uniqueness checked by validate-manifest"
+        },
+        "hab_mast": {
+          "type": "object",
+          "properties": {
+            "x_m": {
+              "type": "number"
+            },
+            "y_m": {
+              "type": "number"
+            },
+            "height_m": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "x_m",
+            "y_m",
+            "height_m"
+          ],
+          "additionalProperties": false
+        },
+        "lat": {
+          "type": "number",
+          "$comment": "planetocentric degrees; consistent with hab_mast"
+        },
+        "lon_e": {
+          "type": "number",
+          "$comment": "east-positive degrees; consistent with hab_mast"
+        },
+        "comm_hab_asset": {
+          "type": "string",
+          "$comment": "FK → Asset: this candidate's own comm grid, same encoding as grid.comm_hab_asset"
+        },
+        "default_start": {
+          "type": "object",
+          "properties": {
+            "x_m": {
+              "type": "number"
+            },
+            "y_m": {
+              "type": "number"
+            },
+            "label": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "x_m",
+            "y_m",
+            "label"
+          ],
+          "additionalProperties": false
+        },
+        "note": {
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "candidate_id",
+        "label",
+        "rank",
+        "hab_mast",
+        "lat",
+        "lon_e",
+        "comm_hab_asset",
+        "default_start",
+        "provenance",
+        "source_ids"
+      ],
+      "additionalProperties": false
     },
     "EnvConstant": {
       "type": "object",

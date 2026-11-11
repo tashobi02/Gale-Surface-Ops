@@ -5,13 +5,13 @@
  * Requirements: FR-31, FR-37, FR-38.
  * Hierarchy: Warning (⬣) > Caution (▲) > Advisory (◆).
  * Warnings latch until acknowledged AND cleared.
- * Cautions latch until acknowledged.
+ * Cautions latch until acknowledged and stay, marked seen, while their condition persists.
  * Highest level wins the single bar slot; counter shows others ([+N]).
  * Tapping counter opens the alert stack list.
  * Each alert provides an accessible ACK button and displays acknowledged state with role.
  * Every alert shows its severity as shape plus word (04 §A.3 #2).
- * TODO(decision): complete warning/caution lifecycle filtering and advisory dismissal against authoritative alert
- * state/time; current component cue repairs do not establish latching acceptance.
+ * Advisories leave the bar once cleared ("cleared alerts move to the log", 04 §D.2).
+ * TODO(decision): the advisory 10 s auto-dismiss (04 §D.2) needs authoritative sim time; it is not done here.
  */
 
 import {
@@ -24,7 +24,8 @@ import type { Alert, AlertLevel, Role } from "@marswalk/protocol";
 export interface AlertStackProps {
   alerts: Alert[];
   activeRole?: Role;
-  onAcknowledge?: (alertId: string, alertSeq: number) => void;
+  /** ACK_ALERT is addressed by `alert_id` (02 §E.4); the raised sequence is not part of the command. */
+  onAcknowledge?: (alertId: string) => void;
   className?: string;
 }
 
@@ -46,6 +47,22 @@ const LEVEL_WORDS: Record<AlertLevel, string> = {
   caution: "CAUTION",
   advisory: "ADVISORY",
 };
+
+/**
+ * Whether an alert still belongs on the bar (04 §D.2, 03 §E.7):
+ * - warning and caution: stay while either the acknowledgement or the clearing is missing. Acknowledge = silence +
+ *   mark as seen; it does not clear the condition (04 §D.2). The levels differ in sound/chime, not in visibility;
+ * - advisory: does not latch; it leaves once cleared (cleared alerts move to the log).
+ */
+export function isOnBar(alert: Alert): boolean {
+  switch (alert.level) {
+    case "warning":
+    case "caution":
+      return alert.acked_seq === null || alert.cleared_seq === null;
+    case "advisory":
+      return alert.cleared_seq === null;
+  }
+}
 
 /**
  * Sort alerts strictly by 04 §D.2 hierarchy:
@@ -77,13 +94,12 @@ export function AlertStack({
 }: AlertStackProps): ReactElement | null {
   const [expanded, setExpanded] = useState<boolean>(false);
 
-  if (!alerts || alerts.length === 0) {
+  const live = (alerts ?? []).filter(isOnBar);
+  if (live.length === 0) {
     return null;
   }
 
-  // TODO(decision): complete warning/caution lifecycle filtering and advisory dismissal against authoritative alert
-  // state/time; current component cue repairs do not establish latching acceptance.
-  const sorted = sortAlerts(alerts);
+  const sorted = sortAlerts(live);
   const primary = sorted[0];
   const othersCount = sorted.length - 1;
 
@@ -193,7 +209,7 @@ export function AlertStack({
           {primary.acked_seq === null ? (
             <button
               style={buttonStyle}
-              onClick={() => onAcknowledge?.(primary.alert_id, primary.raised_seq)}
+              onClick={() => onAcknowledge?.(primary.alert_id)}
               aria-label={`Acknowledge alert: ${primary.message}`}
             >
               ACK
@@ -273,7 +289,7 @@ export function AlertStack({
                 {!isAcked ? (
                   <button
                     style={buttonStyle}
-                    onClick={() => onAcknowledge?.(alert.alert_id, alert.raised_seq)}
+                    onClick={() => onAcknowledge?.(alert.alert_id)}
                     aria-label={`Acknowledge alert ${alert.message}`}
                   >
                     ACK

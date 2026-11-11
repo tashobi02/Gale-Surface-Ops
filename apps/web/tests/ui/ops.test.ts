@@ -7,17 +7,62 @@
  * Not claimed here: the 3-column layout at >= 1280 px (pixel geometry) and session/store wiring (T25.01 follow-up).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { act, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { Alert, ContingencyOption, Crew, Snapshot, Vehicle } from "@marswalk/protocol";
+import type { Alert, Command, ContingencyOption, Crew, LogEvent, LogEventData, LogEventKind, Role, Snapshot, Vehicle } from "@marswalk/protocol";
+import { AcceptedCommands, handleCommand } from "../../../hab-core/src/commands";
+import { initialState, reduce, type EngineState } from "../../../hab-core/src/engine/reducer";
+import { readScenario } from "../../../hab-core/src/scenario";
 import { OpsConsole } from "../../src/ui/screens/scr11OpsConsole";
 import { Join } from "../../src/ui/screens/scr10Join";
 import { ClockControl } from "../../src/ui/ops/ClockControl";
+import { OptionsPanel } from "../../src/ui/ops/OptionsPanel";
 import { AlertStack } from "../../src/ui/ops/AlertStack";
 import { ConditionsPanel } from "../../src/ui/ops/ConditionsPanel";
 import { HOLD_DURATION_MS } from "../../src/ui/eva/HoldToConfirm";
 import { recordingClient, rejected, storeFromBeat } from "./fixtureStore";
 import { click, flush, installDom, mount, must, pointerDown, pointerUp, removeDom } from "./domHarness";
+
+/*
+ * The imports of Hab Core source above (commands, reducer, scenario) are deliberate: these are contract tests that run
+ * the commands the controls emit through the real server-side handler (02 §E.4), as tests/ui/commandContract.test.ts does.
+ */
+/** The Hab Core's own fake scenario, so emitted commands can be run through the real handler (02 §E.4). */
+const here = dirname(fileURLToPath(import.meta.url));
+const fake = readScenario(join(here, "../../../hab-core/tests/fixtures/fake-scenario"), {
+  site_id: "mock_site",
+  data_version: "mock_site-fixture",
+  dir: null,
+});
+
+function applyEvent(state: EngineState, kind: LogEventKind, data: LogEventData[LogEventKind], actor: Role | "system" = "system"): EngineState {
+  const event: LogEvent = { seq: state.session.last_seq + 1, sim_time: fake.scenario.start_utc, kind, actor, data: data as Record<string, unknown>, provenance: {}, command_ref: null };
+  return reduce(state, event);
+}
+
+let commandCounter = 0;
+/** What the real Hab Core command handler answers to one command a control sent, as `role`. */
+function serverAnswer(state: EngineState, role: Role, sent: { kind: string; args: Record<string, unknown> }) {
+  const command = { command_id: `k-${++commandCounter}`, role, kind: sent.kind, args: sent.args } as Command;
+  return handleCommand(state, command, { scenario: fake, client_id: "c-1", next_seq: state.session.last_seq + 1, accepted: new AcceptedCommands() });
+}
+
+/** Types into a React-controlled input the way a user would (native value setter, then an input event). */
+async function typeInto(input: HTMLInputElement, value: string): Promise<void> {
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input) as object, "value")?.set;
+    setter?.call(input, value);
+    input.dispatchEvent(new window.Event("input", { bubbles: true }));
+  });
+}
+
+async function submitForm(form: HTMLFormElement): Promise<void> {
+  await act(async () => {
+    form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+  });
+}
 
 const PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
 
@@ -222,24 +267,81 @@ describe("Alert system (04 §D.2, §E.4)", () => {
     expect(items[1].textContent).toContain("CAUTION");
   });
 
-  it("ACK calls onAcknowledge with the alert and its sequence, once; an acknowledged alert has no ACK button", async () => {
+  it("ACK calls onAcknowledge with the alert id only (no sequence number), once; an acknowledged alert has no ACK button", async () => {
     const onAcknowledge = vi.fn();
     const { container } = await mount(createElement(AlertStack, { alerts: [warning()], onAcknowledge }));
 
     await click(must(container, '[aria-label^="Acknowledge alert: Shelter now"]'));
-    expect(onAcknowledge.mock.calls).toEqual([["a-w", 7]]);
+    expect(onAcknowledge.mock.calls).toEqual([["a-w"]]);
 
     const acked = await mount(createElement(AlertStack, { alerts: [warning({ acked_seq: 8, acked_by: "ops" })] }));
     expect(acked.container.querySelector('[aria-label^="Acknowledge alert:"]')).toBeNull();
     expect(acked.container.textContent).toContain("ACK by ops");
   });
 
-  it("OpsConsole forwards ACK as the alert's sequence number", async () => {
+  it("ops: ACK button sends ACK_ALERT with alert_id", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
     const onAcknowledgeAlert = vi.fn();
-    const { container } = await mount(createElement(OpsConsole, { alerts: [warning()], onAcknowledgeAlert }));
+    const { container } = await mount(createElement(OpsConsole, { alerts: [warning()], client, onAcknowledgeAlert }));
 
     await click(must(container, '.alert-bar [aria-label^="Acknowledge alert"]'));
-    expect(onAcknowledgeAlert.mock.calls).toEqual([[7]]);
+    await flush();
+    expect(sent).toEqual([{ kind: "ACK_ALERT", args: { alert_id: "a-w" } }]);
+    // The caller is told once the Hab Core accepted it, with the id (not the raised sequence 7).
+    expect(onAcknowledgeAlert.mock.calls).toEqual([["a-w"]]);
+  });
+
+  it("ops: the ACK in the expanded queue acknowledges that alert, not the bar's", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const caution = warning({ alert_id: "a-c", level: "caution", code: "COMM_SHADOW", message: "Comm shadow", raised_seq: 9 });
+    const { container } = await mount(createElement(OpsConsole, { alerts: [warning(), caution], client }));
+
+    const items = [...container.querySelectorAll(".alert-item")];
+    await click(must(items[1], '[aria-label^="Acknowledge alert"]'));
+    await flush();
+    expect(sent).toEqual([{ kind: "ACK_ALERT", args: { alert_id: "a-c" } }]);
+  });
+
+  it("ops: a rejected ACK is shown and not reported as acknowledged", async () => {
+    const { client } = recordingClient(storeFromBeat("connect", "ops"), () => rejected("INVALID", "no active alert a-w"));
+    const onAcknowledgeAlert = vi.fn();
+    const { container } = await mount(createElement(OpsConsole, { alerts: [warning()], client, onAcknowledgeAlert }));
+
+    await click(must(container, '.alert-bar [aria-label^="Acknowledge alert"]'));
+    await flush();
+    expect(onAcknowledgeAlert).not.toHaveBeenCalled();
+    expect(must(container, '[data-slot="command-error"]').textContent).toContain("no active alert a-w");
+  });
+
+  it("ops: a client that throws (socket closed) is reported on the console, not left as an unhandled rejection", async () => {
+    const { client } = recordingClient(storeFromBeat("connect", "ops"), () => {
+      throw new Error("socket closed");
+    });
+    const onAcknowledgeAlert = vi.fn();
+    const { container } = await mount(createElement(OpsConsole, { alerts: [warning()], client, onAcknowledgeAlert }));
+
+    await click(must(container, '.alert-bar [aria-label^="Acknowledge alert"]'));
+    await flush();
+    expect(onAcknowledgeAlert).not.toHaveBeenCalled();
+    expect(must(container, '[data-slot="command-error"]').textContent).toContain("socket closed");
+  });
+
+  it("contract: the ACK payload is accepted by the real Hab Core handler for ops, and the old sequence-only shape is not", async () => {
+    const running = applyEvent(initialState(fake, "s-0001"), "EVA_STARTED", { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, "ops");
+    const raised = applyEvent(running, "ALERT_RAISED", { alert_id: "a-2", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1", "EV2"], message: "Radiation surge — shelter now" });
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const { container } = await mount(createElement(OpsConsole, { alerts: raised.alerts, client }));
+
+    await click(must(container, '.alert-bar [aria-label^="Acknowledge alert"]'));
+    await flush();
+    expect(sent).toHaveLength(1);
+    const answer = serverAnswer(raised, "ops", sent[0]);
+    expect(answer.result.ok).toBe(true);
+    expect(answer.events.map((e) => e.kind)).toEqual(["ALERT_ACKED"]);
+    expect(answer.events[0].data).toMatchObject({ alert_id: "a-2", acked_by: "ops" });
+
+    const legacy = serverAnswer(raised, "ops", { kind: "ACK_ALERT", args: { seq: raised.alerts[0].raised_seq } });
+    expect(legacy.result.ok).toBe(false);
   });
 });
 
@@ -293,21 +395,126 @@ describe("Mission clock controls (04 §E.4, FR-30, FR-31)", () => {
     expect([...one.container.querySelectorAll("option")].map((o) => o.textContent)).toEqual(["storm-sol4190"]);
   });
 
+  it("ClockControl is controlled: a click reports the command but the highlighted speed follows the props", async () => {
+    const m = await mount(createElement(ClockControl, { speed: 1, isPaused: false }));
+
+    await click(must(m.container, '[aria-label="Set speed to 10x"]'));
+    expect(must(m.container, '[aria-label="Set speed to 1x"]').getAttribute("aria-pressed")).toBe("true");
+    expect(must(m.container, '[aria-label="Set speed to 10x"]').getAttribute("aria-pressed")).toBe("false");
+
+    await m.rerender(createElement(ClockControl, { speed: 10, isPaused: true }));
+    expect(must(m.container, '[aria-label="Set speed to 10x"]').getAttribute("aria-pressed")).toBe("true");
+    expect(m.container.querySelector('[aria-label="Resume mission clock"]')).not.toBeNull();
+  });
+
   it("START EVA is neutral chrome, not a status colour", async () => {
     const { container } = await mount(createElement(ClockControl, { sessionState: "LOADED" }));
     expect(must(container, '[aria-label="Start EVA mission"]').getAttribute("style")).not.toMatch(/--status-/);
   });
 
-  it("OpsConsole forwards the clock buttons to onClockCommand", async () => {
-    const onClockCommand = vi.fn();
-    const { container } = await mount(createElement(OpsConsole, { onClockCommand }));
+  /** The connect snapshot with the session clock replaced, as the Hab Core would broadcast after a clock change. */
+  const withClock = (clock: { speed: 1 | 10 | 60; paused: boolean }): Snapshot => {
+    const snap = connectSnapshot();
+    return { ...snap, session: { ...snap.session, clock: { ...snap.session.clock, ...clock } } };
+  };
+
+  it("ops: pause sends SET_CLOCK {paused:true}; the 10x button sends SET_CLOCK {speed:10}; next event sends JUMP_NEXT_EVENT", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const { container } = await mount(createElement(OpsConsole, { client, snapshot: withClock({ speed: 60, paused: false }) }));
+
+    await click(must(container, '[aria-label="Pause mission clock"]'));
+    await click(must(container, '[aria-label="Set speed to 10x"]'));
+    await click(must(container, '[aria-label="Jump to next scheduled event"]'));
+    await flush();
+
+    expect(sent).toEqual([
+      { kind: "SET_CLOCK", args: { paused: true } },
+      { kind: "SET_CLOCK", args: { speed: 10 } },
+      { kind: "JUMP_NEXT_EVENT", args: {} },
+    ]);
+  });
+
+  it("ops: every command the clock controls send is accepted by the real Hab Core handler for ops (no PAUSE/SET_SPEED/STEP)", async () => {
+    const running = applyEvent(initialState(fake, "s-0001"), "EVA_STARTED", { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, "ops");
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const { container } = await mount(createElement(OpsConsole, { client, snapshot: withClock({ speed: 60, paused: false }) }));
+
+    await click(must(container, '[aria-label="Pause mission clock"]'));
+    await click(must(container, '[aria-label="Set speed to 10x"]'));
+    await click(must(container, '[aria-label="Jump to next scheduled event"]'));
+    await flush();
+
+    expect(sent).toHaveLength(3);
+    for (const command of sent) expect(serverAnswer(running, "ops", command).result.ok).toBe(true);
+  });
+
+  it("the clock buttons show the session clock from the snapshot, and follow it when the server changes it", async () => {
+    const view = (snapshot: Snapshot | null) => createElement(OpsConsole, { snapshot });
+    const m = await mount(view(withClock({ speed: 60, paused: false })));
+    const pressed = () =>
+      [...m.container.querySelectorAll('[aria-label^="Set speed to"]')]
+        .filter((b) => b.getAttribute("aria-pressed") === "true")
+        .map((b) => b.getAttribute("aria-label"));
+
+    expect(pressed()).toEqual(["Set speed to 60x"]);
+    expect(m.container.querySelector('[aria-label="Pause mission clock"]')).not.toBeNull();
+
+    // The server pauses at 10x: the console follows, with no click on this client.
+    await m.rerender(view(withClock({ speed: 10, paused: true })));
+    expect(pressed()).toEqual(["Set speed to 10x"]);
+    expect(m.container.querySelector('[aria-label="Pause mission clock"]')).toBeNull();
+    expect(m.container.querySelector('[aria-label="Resume mission clock"]')).not.toBeNull();
+  });
+
+  it("after the server paused the clock, the same button sends the resume (paused:false)", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const m = await mount(createElement(OpsConsole, { client, snapshot: withClock({ speed: 60, paused: false }) }));
+    await m.rerender(createElement(OpsConsole, { client, snapshot: withClock({ speed: 60, paused: true }) }));
+
+    await click(must(m.container, '[aria-label="Resume mission clock"]'));
+    await flush();
+    expect(sent).toEqual([{ kind: "SET_CLOCK", args: { paused: false } }]);
+  });
+
+  it("with no snapshot the clock state is unknown: no speed is shown as pressed and pause/resume is not offered", async () => {
+    const { container } = await mount(createElement(OpsConsole));
+
+    expect(container.querySelectorAll('[aria-label^="Set speed to"][aria-pressed="true"]')).toHaveLength(0);
+    expect(must<HTMLButtonElement>(container, '[aria-label="Pause or resume mission clock (state unknown)"]').disabled).toBe(true);
+  });
+
+  it("without a client the commands go to onCommand, in protocol form", async () => {
+    const onCommand = vi.fn();
+    const { container } = await mount(createElement(OpsConsole, { onCommand, snapshot: withClock({ speed: 1, paused: false }) }));
 
     await click(must(container, '[aria-label="Set speed to 10x"]'));
-    await click(must(container, '[aria-label="Pause mission clock"]'));
-    await click(must(container, '[aria-label="Resume mission clock"]'));
     await click(must(container, '[aria-label="Jump to next scheduled event"]'));
+    expect(onCommand.mock.calls.map(([c]) => c)).toEqual([
+      { kind: "SET_CLOCK", args: { speed: 10 } },
+      { kind: "JUMP_NEXT_EVENT", args: {} },
+    ]);
+  });
 
-    expect(onClockCommand.mock.calls).toEqual([["SET_SPEED", 10], ["PAUSE"], ["RESUME"], ["STEP"]]);
+  it("a rejected clock command is shown on the console", async () => {
+    const { client } = recordingClient(storeFromBeat("connect", "ops"), () => rejected("INVALID", "Changing the clock is not allowed when ENDED"));
+    const { container } = await mount(createElement(OpsConsole, { client, snapshot: withClock({ speed: 60, paused: false }) }));
+
+    await click(must(container, '[aria-label="Set speed to 10x"]'));
+    await flush();
+    expect(must(container, '[data-slot="command-error"]').textContent).toContain("Changing the clock is not allowed");
+  });
+
+  it("START EVA appears only when the session is LOADED, from the snapshot (no assumed state)", async () => {
+    const snap = connectSnapshot();
+    const loaded = { ...snap, session: { ...snap.session, status: "LOADED" as const } };
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const m = await mount(createElement(OpsConsole, { client, snapshot: loaded }));
+
+    await click(must(m.container, '[aria-label="Start EVA mission"]'));
+    await flush();
+    expect(sent).toEqual([{ kind: "START_EVA", args: {} }]);
+    await m.rerender(createElement(OpsConsole, { client, snapshot: snap }));
+    expect(m.container.querySelector('[aria-label="Start EVA mission"]')).toBeNull();
   });
 });
 
@@ -342,6 +549,31 @@ describe("Options panel: ops approves with a full hold (04 §D.3, FR-44)", () =>
     await hold(must(container, "#action-confirm-option"));
     expect(sent).toEqual([{ kind: "APPROVE_OPTION", args: { option_id: "o-ops" } }]);
     expect(onApproveOption.mock.calls).toEqual([["o-ops"]]);
+  });
+
+  it("approving the selected option sends that option's id, not a fixed one", async () => {
+    vi.useFakeTimers();
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const second: ContingencyOption = { ...option, option_id: "o-second", rank: 2, kind: "ABORT_TO_HAB", crew_ids: ["EV2"] };
+    const snapshot = { ...connectSnapshot(), options: [option, second] };
+    const { container } = await mount(createElement(OpsConsole, { client, snapshot }));
+
+    await click(must(container, '[role="radio"]:nth-of-type(2)'));
+    await hold(must(container, "#action-confirm-option"));
+    expect(sent).toEqual([{ kind: "APPROVE_OPTION", args: { option_id: "o-second" } }]);
+  });
+
+  it("OptionsPanel takes its crew from the caller (required prop, no EV1 default)", async () => {
+    vi.useFakeTimers();
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const forEv2: ContingencyOption = { ...option, option_id: "o-ev2", crew_ids: ["EV2"] };
+    const snapshot = { ...connectSnapshot(), options: [forEv2] };
+    const { container } = await mount(createElement(OptionsPanel, { client, snapshot, crewId: "EV2" }));
+
+    await hold(must(container, "#action-confirm-option"));
+    expect(sent).toEqual([{ kind: "APPROVE_OPTION", args: { option_id: "o-ev2" } }]);
+    // @ts-expect-error crewId is required: there is no default crew (take it from props or the session).
+    createElement(OptionsPanel, { client, snapshot });
   });
 
   it("a short press sends nothing; a rejected approval is shown and not reported as approved", async () => {
@@ -502,5 +734,185 @@ describe("Join screen and keyboard access (NFR-04, 04 §E.4)", () => {
 
     expect(html).toMatch(/<button/);
     expect(html).not.toMatch(/tabindex="-1"/);
+  });
+});
+
+
+describe("Crew link word: LOST only when unlinked, STALE when linked but not heard (04 §E.4)", () => {
+  async function linkText(over: Partial<Crew>): Promise<{ text: string; card: HTMLElement }> {
+    const { container } = await mount(createElement(OpsConsole, { crew: [crewMember(over)] }));
+    const card = must(container, ".crew-card");
+    return { text: must(card, '[data-source="snapshot:crew.linked"]').textContent ?? "", card };
+  }
+
+  it("linked and fresh shows neither LOST nor STALE", async () => {
+    const { text, card } = await linkText({ linked: true, stale: false });
+    expect(text).not.toMatch(/LOST|STALE/);
+    expect(card.className).not.toMatch(/unlinked/);
+  });
+
+  it("linked but stale says STALE, not LOST", async () => {
+    const { text, card } = await linkText({ linked: true, stale: true });
+    expect(text).toContain("STALE");
+    expect(text).not.toContain("LOST");
+    // Cached values: still the dashed card.
+    expect(card.className).toMatch(/dashed/);
+  });
+
+  it("unlinked says LOST", async () => {
+    const { text } = await linkText({ linked: false, stale: false });
+    expect(text).toContain("LOST");
+    expect(text).not.toContain("STALE");
+  });
+});
+
+describe("Alert latching: what leaves the bar (04 §D.2, 03 §E.7)", () => {
+  const caution = (over: Partial<Alert> = {}): Alert =>
+    warning({ alert_id: "a-c", code: "COMM_SHADOW", level: "caution", message: "Comm shadow", raised_seq: 9, ...over });
+  const advisory = (over: Partial<Alert> = {}): Alert =>
+    warning({ alert_id: "a-a", code: "EARTH_FORECAST", level: "advisory", message: "Forecast received", raised_seq: 4, ...over });
+
+  it("an acknowledged caution that is still active stays on the bar, marked seen; it leaves once cleared too", async () => {
+    // 04 §D.2: acknowledge = silence + mark as seen; it does not clear the condition. Cleared alerts move to the log.
+    const active = await mount(createElement(AlertStack, { alerts: [caution({ acked_seq: 10, acked_by: "ops" })] }));
+    expect(must(active.container, ".alert-bar").textContent).toContain("Comm shadow");
+    expect(must(active.container, ".alert-bar").textContent).toContain("ACK by ops");
+    expect(active.container.querySelector('.alert-bar [aria-label^="Acknowledge alert"]')).toBeNull();
+    await active.unmount();
+
+    const cleared = await mount(createElement(AlertStack, { alerts: [caution({ acked_seq: 10, acked_by: "ops", cleared_seq: 11 })] }));
+    expect(cleared.container.querySelector(".alert-stack")).toBeNull();
+    await cleared.unmount();
+
+    const withWarning = await mount(createElement(AlertStack, { alerts: [warning(), caution({ acked_seq: 10, acked_by: "ops", cleared_seq: 11 })] }));
+    expect(withWarning.container.querySelectorAll(".alert-item")).toHaveLength(1);
+    expect(withWarning.container.textContent).not.toContain("Comm shadow");
+  });
+
+  it("a caution whose condition cleared stays until it is acknowledged", async () => {
+    const { container } = await mount(createElement(AlertStack, { alerts: [caution({ cleared_seq: 11 })] }));
+    expect(must(container, ".alert-bar").textContent).toContain("Comm shadow");
+  });
+
+  it("a warning stays while it is acknowledged but not cleared, or cleared but not acknowledged; it leaves when both", async () => {
+    const ackedOnly = await mount(createElement(AlertStack, { alerts: [warning({ acked_seq: 8, acked_by: "ops" })] }));
+    expect(ackedOnly.container.querySelector(".alert-stack")).not.toBeNull();
+    const clearedOnly = await mount(createElement(AlertStack, { alerts: [warning({ cleared_seq: 8 })] }));
+    expect(clearedOnly.container.querySelector(".alert-stack")).not.toBeNull();
+    const both = await mount(createElement(AlertStack, { alerts: [warning({ acked_seq: 8, acked_by: "ops", cleared_seq: 9 })] }));
+    expect(both.container.querySelector(".alert-stack")).toBeNull();
+  });
+
+  it("a cleared advisory moves to the log (leaves the bar); an uncleared one stays", async () => {
+    const gone = await mount(createElement(AlertStack, { alerts: [advisory({ cleared_seq: 6 })] }));
+    expect(gone.container.querySelector(".alert-stack")).toBeNull();
+    const shown = await mount(createElement(AlertStack, { alerts: [advisory()] }));
+    expect(must(shown.container, ".alert-bar").textContent).toContain("ADVISORY");
+  });
+});
+
+describe("Ops console controls added in the audit (NFR-04, FR-50)", () => {
+  it("the sound toggle is a focusable button with a name, and reports a click; it states what is not known", async () => {
+    const onToggleSound = vi.fn();
+    const { container } = await mount(createElement(OpsConsole, { onToggleSound }));
+
+    expect(container.querySelector('span[aria-label="Sound status"]')).toBeNull();
+    const button = must<HTMLButtonElement>(container, 'button[aria-label^="Alert sound"]');
+    expect(button.tabIndex).toBeGreaterThanOrEqual(0);
+    expect(button.getAttribute("aria-label")).toMatch(/unknown/i);
+    expect(button.getAttribute("aria-pressed")).toBeNull();
+    await click(button);
+    expect(onToggleSound).toHaveBeenCalledTimes(1);
+  });
+
+  it("the sound toggle shows on/off from the caller as pressed state and a word", async () => {
+    const on = await mount(createElement(OpsConsole, { soundOn: true }));
+    const b = must(on.container, 'button[aria-label^="Alert sound"]');
+    expect(b.getAttribute("aria-pressed")).toBe("true");
+    expect(b.textContent).toMatch(/ON/);
+    const off = await mount(createElement(OpsConsole, { soundOn: false }));
+    expect(must(off.container, 'button[aria-label^="Alert sound"]').textContent).toMatch(/OFF/);
+  });
+
+  const withStop = (stopNo?: number) => ({
+    crew: [ev1()],
+    taskProgress: { EV1: { stop: { stopId: "poi-x7", stopNo: stopNo as number, done: 0, total: 2 }, total: { done: 0, total: 2 } } },
+  });
+
+  async function openPopover(props: Parameters<typeof OpsConsole>[0]) {
+    const m = await mount(createElement(OpsConsole, props));
+    await click(must(m.container, '[aria-label="Add task for EV1"]'));
+    return m;
+  }
+
+  it("ops: adding a task sends ADD_STOP_TASK with crew, stop, kind and text, then closes", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const { container } = await openPopover({ ...withStop(4), client });
+
+    await typeInto(must<HTMLInputElement>(container, '[aria-label="Enter task description"]'), "  Photograph the vein  ");
+    await submitForm(must<HTMLFormElement>(container, "form"));
+    await flush();
+
+    expect(sent).toEqual([{ kind: "ADD_STOP_TASK", args: { crew_id: "EV1", stop_id: "poi-x7", kind: "observe", text: "Photograph the vein" } }]);
+    expect(container.querySelector('[data-testid="add-task-popover"]')).toBeNull();
+  });
+
+  // TODO(decision): the ADD_STOP_TASK args are not defined in 02 §E.4 / 05; the console sends the TASK_ADDED fields.
+  it.todo("contract: the ADD_STOP_TASK payload is accepted by the real handleAddStopTask for ops (once T31.04 lands)");
+
+  it("ops: a rejected ADD_STOP_TASK keeps the popover open and shows the reason", async () => {
+    const { client } = recordingClient(storeFromBeat("connect", "ops"), () => rejected("INVALID", "stop is not the current or next one"));
+    const { container } = await openPopover({ ...withStop(4), client });
+
+    await typeInto(must<HTMLInputElement>(container, '[aria-label="Enter task description"]'), "Measure");
+    await submitForm(must<HTMLFormElement>(container, "form"));
+    await flush();
+
+    expect(container.querySelector('[data-testid="add-task-popover"]')).not.toBeNull();
+    expect(must(container, '[data-slot="command-error"]').textContent).toContain("stop is not the current or next one");
+  });
+
+  it("the stop is labelled with its plan number from the data, not a slice of its id; with no number it reads —", async () => {
+    const numbered = await openPopover(withStop(4));
+    const label = must(numbered.container, '[aria-label="Select stop"] option').textContent ?? "";
+    expect(label).toBe("Stop 4");
+    expect(label).not.toMatch(/poi-x7|x7/);
+    await numbered.unmount();
+
+    const bare = await openPopover(withStop(undefined));
+    expect(must(bare.container, '[aria-label="Select stop"] option').textContent).toBe("—");
+  });
+});
+
+describe("SCR-10 Join shows only what it is told (04 §D.1, §A.3.1)", () => {
+  it("with no props: no connection status, no scenario and no taken role is made up", async () => {
+    const { container } = await mount(createElement(Join));
+    const text = container.textContent ?? "";
+
+    expect(text).not.toMatch(/CONNECTED|storm-sol4190|ROLE TAKEN|TAKE OVER ROLE/);
+    expect(container.querySelectorAll(".role-taken")).toHaveLength(0);
+    expect(must(container, '[data-slot="join-status"]').textContent).toContain("—");
+    expect(must(container, '[data-slot="join-scenario"]').textContent).toBe("—");
+  });
+
+  it("the connection badge states its status with shape and word, from the status tokens, never brand orange", async () => {
+    for (const [status, word] of [["ready", "CONNECTED"], ["connecting", "CONNECTING"], ["unreachable", "UNREACHABLE"]] as const) {
+      const { container, unmount } = await mount(createElement(Join, { status }));
+      const badge = must(container, '[data-slot="join-status"]');
+      expect(badge.textContent).toContain(word);
+      expect(badge.getAttribute("data-status")).toBeTruthy();
+      const style = badge.getAttribute("style") ?? "";
+      expect(style).not.toMatch(/E7553D|--signal/i);
+      if (status !== "connecting") expect(style).toMatch(/--status-/);
+      await unmount();
+    }
+  });
+
+  it("supplied scenario and taken roles are shown; the taken-role mark is not brand orange", async () => {
+    const { container } = await mount(createElement(Join, { status: "ready", takenRoles: ["ops"], sessionScenario: "my-scenario" }));
+
+    expect(must(container, '[data-slot="join-scenario"]').textContent).toBe("my-scenario");
+    expect(container.querySelectorAll(".role-taken")).toHaveLength(1);
+    expect(container.innerHTML).not.toMatch(/--signal-ink|E7553D/i);
   });
 });

@@ -19,8 +19,8 @@ This test evaluates the primary User Value goal defined in the product specifica
 
 And the work-package exit criterion from the implementation plan:
 
-> **[06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-15 done-when:**  
-> "≥ 2 of 3 finish briefing in ≤ 5 min"
+> **[06 §C.1](../specs/06_High_Level_Implementation_Plan.md#c1-retained-from-v1-planning-spine-tier-0) TASK-15 row, "Done when" column:**  
+> "≥ 2 of 3 pass each criterion (01 §B.2)"
 
 ---
 
@@ -160,7 +160,7 @@ All tests use three non-team volunteer participants (P1–P3). For touch tests, 
 
 ### 9.1 HUD Visor 3-Second Glance Test (FR-33, 02 §F.2, 04 §F.1)
 
-- **Surface:** SCR-13 HUD visor glance view (`#/eva?role=ev1&mode=hud`), pure black background, landscape orientation (≥ 640 px).
+- **Surface:** SCR-13 HUD visor glance view (`#/hud/EV1`), pure black background, landscape orientation (≥ 640 px).
 - **Objective:** Verify crew can read critical telemetry within ≤ 3 s under visor constraints.
 - **Setup:** Display is concealed until timing begins.
 - **Participant prompt (verbatim):** "Look at this display and read aloud: (1) your time to haven, (2) your oxygen margin, and (3) your bearing and distance to the next stop."
@@ -169,7 +169,7 @@ All tests use three non-team volunteer participants (P1–P3). For touch tests, 
 
 ### 9.2 Summon Rover Without Instruction (FR-40, 02 §F.2, 04 §F.1)
 
-- **Surface:** SCR-12 EVA tablet (`#/eva?role=ev1`), phone/tablet with participant wearing thick gloves.
+- **Surface:** SCR-12 EVA tablet (`#/eva/EV1`), phone/tablet with participant wearing thick gloves.
 - **Objective:** Verify crew can locate and execute the rover summon action without prior explanation.
 - **Setup:** Client in NOMINAL walking state. `SUMMON ROVER` action button visible in bottom action row.
 - **Participant prompt (verbatim):** "You need the pressurized rover to meet you. Summon the rover to your location."
@@ -186,7 +186,7 @@ All tests use three non-team volunteer participants (P1–P3). For touch tests, 
 
 ### 9.4 UT-9: Landscape Full-Screen Map Telemetry Check (U-60, 04 §E.5, G-48)
 
-- **Surface:** SCR-12 EVA tablet (`#/eva?role=ev1`), phone in landscape orientation.
+- **Surface:** SCR-12 EVA tablet (`#/eva/EV1`), phone in landscape orientation.
 - **Objective:** Verify whether the stacked HAVEN and O₂ cards at 40 px (below the 56 px rule per U-60 / G-48) remain legible and quickly locatable while interacting with the full-screen map.
 - **Participant prompt (verbatim):** "Tap FULL to open the full-screen map, zoom in once using the on-screen zoom control, and then tell me your haven time and oxygen percentage without closing the map."
 - **Procedure:** Time from map opening until both values are correctly read.

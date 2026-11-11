@@ -202,7 +202,7 @@
 
 ### T21.08 — Assemble `scenario.json` with checksums and initial stop tasks
 
-- **Owner:** Obidit Islam (R1 Data & GIS)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Obidit Islam on 10 Nov for the live-operations reframe (product lead's call; Obidit informed on the PR)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-allowed
@@ -266,7 +266,7 @@
 
 ### T21.11 — Fixture: real-scenario excerpt for engine tests
 
-- **Owner:** Obidit Islam (R1 Data & GIS)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Obidit Islam on 10 Nov for the live-operations reframe (product lead's call; Obidit informed on the PR)
 - **Type:** fixture
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted

@@ -182,9 +182,13 @@ The v1 planner tokens `ok / caution / blocked / unknown` map to `nominal / cauti
 | `hud-warning` | `#FF6B6B` | 7.57 : 1 |
 | `hud-advisory` | `#4CC9F0` | 10.92 : 1 |
 
+**HUD status pills** *(added 2026-11-11, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead))*: on a HUD status fill (`hud-nominal`, `hud-caution`, `hud-warning`, `hud-advisory`, and `hud-text-2` for `unknown`) the pill ink is `#000000`, not `ink` (`#1A1A1A`). Flat, `#000000` ink on each fill reaches ≥ 7 : 1 (computed 2026-11-11 with the WCAG formula: nominal 11.77, caution 11.48, warning 7.57, advisory 10.92, unknown 9.88). The pill's pattern overlay (diagonal stripes, dots or cross-hatch, §C.1 status table) is drawn with an alpha chosen so that the darkest patterned area keeps ≥ 7 : 1 with `#000000` ink for every HUD status; the shape glyph and the word carry the status, the pattern is secondary (§A.3 #2). TODO(verify): the alpha value is set by T13.05 once measured by `apps/web/tests/ui/patterns.test.ts`; this document states no number for it.
+
 #### PRINT
 
 v1 print theme retained: text `#111827` on white (17.7 : 1); caution `#9A5B00` (5.43 : 1); warning `#B42318` (6.57 : 1); nominal `#0E7A4F` (5.36 : 1); patterns kept for black-and-white printers.
+
+Print neutrals *(added 2026-11-11, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead); these are the values shipped in `tokens.css`)*: fill `#F3F4F6` (panel and table fills; `#111827` text on it 16.12 : 1), rule `#D1D5DB` (hairlines and dividers only, 1.47 : 1 on white, so never text and never the only cue), secondary text `#4B5563` (7.56 : 1 on white, 6.87 : 1 on the fill; computed 2026-11-11).
 
 #### Provenance chips (all modes; outline style so they never compete with status)
 
@@ -217,13 +221,17 @@ Chip: Plex Mono 11 px uppercase on `raised` (OPS) or `concrete` (BRIEF), `text-2
 | Display | **Chakra Petch** (OFL — verify, TASK-13) | 40–96 px / 500, uppercase, tracking −1 % (P6) | BRIEF headlines, OPS screen titles ≥ 20 px |
 | Headings | Chakra Petch | 20–28 px / 500 uppercase | Panel titles |
 | UI text | **Inter** | 14 px / 400, line-height 1.45 | Labels, body (OPS) |
-| Microcopy | **IBM Plex Mono** | 11–13 px / 500 uppercase, tracking +4 % | Metadata strips, chips, kickers (the reference image's small mono copy) |
+| Microcopy | **IBM Plex Mono** | 11–13 px / 500 uppercase, tracking +4 % (11 px only where the minimum text size rule below allows it) | Metadata strips, chips, kickers (the reference image's small mono copy) |
 | Captions (BRIEF) | IBM Plex Mono | 13–15 px / 400, line-height 1.6 | Short editorial copy ≤ 3 lines (reference image) |
 | Long-form (BRIEF, PRINT) | **Source Serif 4** (OFL — verify, TASK-13) | 17 px / 400, line-height 1.6, max 68 characters per line | Paragraphs > 3 lines (P7): Sources & methods, report narrative, POI "why it matters" |
 | Values | **IBM Plex Mono**, tabular, slashed zero | 20 px (OPS) · 32–56 px (EVA) · 48–72 px (HUD) / 500 | Every number |
 | Alert text | Inter | 18 px (OPS) · 22 px (EVA) / 700, sentence case | Alert bar |
 
-Rules: never Chakra Petch for digits or for text under 20 px; never bold headlines (P6). Uppercase only for labels ≤ 4 words and headlines; messages and alerts are sentence case. Minimum 12 px anywhere; 16 px on EVA. All fonts self-hosted (offline).
+Rules: never Chakra Petch for digits or for text under 20 px; never bold headlines (P6). Uppercase only for labels ≤ 4 words and headlines; messages and alerts are sentence case. All fonts self-hosted (offline).
+
+**Minimum text size** *(changed 2026-11-11, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead); resolves the conflict between the 11 px microcopy row and "Minimum 12 px anywhere")*: microcopy (catalogue codes P1, module labels P2, and the other 11 px mono labels in §B.3, §C.1 and §E.10) may be 11 px only in BRIEF and planner desktop surfaces, and only at ≥ 4.5 : 1 against its background. The minimum is 12 px everywhere else, including the ops console. The minimum is 16 px on EVA (unchanged) and never below 14 px on the HUD. Where §B.3, §C.1 or §E.10 state 11 px, this rule decides.
+
+**Headings during the font roll-out** *(added 2026-11-11, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead))*: v1 screens (SCR-00 to SCR-09, [03 §B](03_App_Flow_and_Diagrams.md)) keep headings in Inter 600 until Chakra Petch (and Source Serif 4, where a row above lists it) are self-hosted under `apps/web/public/fonts` with their OFL licences credited in the UI and README (NFR-07). From then on the Display and Headings rows above apply (Chakra Petch / 500 uppercase, P6). This is a temporary exception to P6's "never bold headlines". TODO(decision): self-hosting Chakra Petch and Source Serif 4, owner T13.04.
 
 ### C.3 Shape, grid and structure
 
@@ -237,7 +245,7 @@ Rules: never Chakra Petch for digits or for text under 20 px; never bold headlin
 
 ### C.4 Iconography
 
-One outline set (Lucide, MIT — verify licence in TASK-13), 1.5 px stroke, squared caps. Custom glyphs: hab, pressurized rover, utility rover, crew chevron, antenna/no-signal, radiation (trefoil), relay pass, Earth link. Status shapes as in §C.1. Icons never stand alone for actions on EVA: icon + word.
+One outline set (Lucide, ISC licence). *(Licence corrected 2026-11-11: 04 said "MIT", which was a factual error. Lucide is licensed under the ISC licence, with portions derived from Feather Icons under MIT; the complete text is kept in `apps/web/public/icons/LICENSE`.)* For v1 the Lucide defaults are accepted as shipped: stroke 2 px, round caps and joins (Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead); replaces "1.5 px stroke, squared caps"). Custom glyphs: hab, pressurized rover, utility rover, crew chevron, antenna/no-signal, radiation (trefoil), relay pass, Earth link. Status shapes as in §C.1. Icons never stand alone for actions on EVA: icon + word.
 
 ### C.5 Imagery
 
@@ -482,7 +490,7 @@ Codes: `EZ—SCI nn` (science), `EZ—RES nn` (resource), `EZ—ENG nn` (enginee
 | Motion | `prefers-reduced-motion`: no flashes (static bar), no marker interpolation |
 | Gloves | EVA targets ≥ 56 px, ≥ 8 px gaps; hold-to-confirm; no swipe-only actions; test with thick gloves on a touchscreen phone (TASK-15) |
 | Glare | EVA has a "high-contrast" toggle that switches to HUD palette |
-| Responsive | BRIEF fluid 360–1920 px. Planner/ops ≥ 1280 three-column; 1024–1279 one drawer at a time; ops < 1024 shows a "use a larger screen" notice. EVA 360–1024 portrait; HUD landscape ≥ 640 px |
+| Responsive | BRIEF fluid 360–1920 px. Planner/ops ≥ 1280 three-column; 1024–1279 one drawer at a time and a results panel 180 px high (`--results-height-narrow`; 220 px at ≥ 1280, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead)); ops < 1024 shows a "use a larger screen" notice. EVA 360–1024 portrait; HUD landscape ≥ 640 px |
 
 ### F.1 Mission-critical usability checks (TASK-15)
 
@@ -544,11 +552,13 @@ Desktop layout (≥ 1280 px):
 
 | Element | Default | Hover | Selected | Disabled/invalid |
 | --- | --- | --- | --- | --- |
-| Waypoint | `accent` fill, `bg` number | +2 px ring | `focus` ring 3 px | `blocked` outline + ⬣ |
+| Waypoint | `accent` fill, `bg` number | +2 px ring | `route` outline of `--selection-width` (2 px) plus a marker, see below | `blocked` outline + ⬣ |
 | POI | white pin, `bg` outline | label shown | `accent` pin + right drawer open | — |
 | Route leg | cased `accent` line | thicker 6 px | — | NO_ROUTE: dashed `unknown` to nearest reachable point |
 | Hazard segment | — | tooltip | — | overlay of `caution`/`blocked` hatch along route |
 | Traverse | thin `#E8EDF2` 60 % dashed | sol label | — | — |
+
+**Selection and keyboard focus are two different things** *(changed 2026-11-11, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead); replaces the selected waypoint's "`focus` ring 3 px")*: the selected waypoint is drawn with an outline of `--selection-width`, 2 px, in the `route` colour plus a marker (P10: selection is never by colour alone). Keyboard focus is the white 2 px ring with a 2 px gap of §C.1 and §F (unchanged), drawn from `--focus-ring`, on every interactive element including a waypoint marker; a selected waypoint that also has focus shows both. The two share neither token nor colour.
 
 ### D. Interaction and component behavior
 
