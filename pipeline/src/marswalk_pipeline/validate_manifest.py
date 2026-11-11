@@ -202,6 +202,12 @@ def validate(site_dir: Path) -> list[str]:
     start = manifest.get("default_start")
     if isinstance(start, dict):
         check_point("default_start", start.get("x_m"), start.get("y_m"))
+
+    # 05 §E.3 (rule of 2026-11-10): the candidate hab sites. A manifest without `hab_candidates`
+    # is the single `default_start` / `hab_mast` site and is checked as before.
+    candidates = manifest.get("hab_candidates")
+    if isinstance(candidates, list) and candidates:
+        problems.extend(check_hab_candidates(candidates, grid, manifest, check_point))
     traverse_payload = payload_for(manifest.get("traverse_asset"))
     if traverse_payload is not None:
         try:
@@ -229,6 +235,74 @@ def validate(site_dir: Path) -> list[str]:
                     check_point(label, coords[0], coords[1])
         except (ValueError, UnicodeDecodeError) as exc:
             problems.append(f"pois asset: invalid GeoJSON: {exc}")
+    return problems
+
+
+def check_hab_candidates(candidates, grid: dict, manifest: dict, check_point) -> list[str]:
+    """The 05 §E.3 rules for the candidate hab sites (rule of 2026-11-10).
+
+    Checks: every candidate mast and `default_start` lies inside `aoi.extent_m` on a passable
+    cell; `candidate_id`s and `rank`s are unique; exactly one candidate has `rank` 1; the rank-1
+    candidate matches the manifest's `default_start`, `grid.comm_hab_asset` and `grid.hab_mast`.
+    Every `comm_hab_asset` resolving to a known Asset is already checked by the generic
+    reference walk in `validate()`.
+    """
+    problems: list[str] = []
+    ids: set[str] = set()
+    ranks: dict[int, int] = {}
+    rank_one = None
+
+    for index, candidate in enumerate(candidates):
+        if not isinstance(candidate, dict):
+            problems.append(f"hab_candidates[{index}]: invalid candidate record")
+            continue
+        candidate_id = candidate.get("candidate_id")
+        label = candidate_id if isinstance(candidate_id, str) and candidate_id else f"hab_candidates[{index}]"
+        if isinstance(candidate_id, str):
+            if candidate_id in ids:
+                problems.append(f"hab_candidates: duplicate candidate_id {candidate_id!r}")
+            ids.add(candidate_id)
+        rank = candidate.get("rank")
+        if isinstance(rank, int) and not isinstance(rank, bool):
+            if rank in ranks:
+                problems.append(f"hab_candidates: duplicate rank {rank}")
+            ranks[rank] = index
+            if rank == 1:
+                rank_one = candidate
+        mast = candidate.get("hab_mast")
+        if isinstance(mast, dict):
+            check_point(f"hab_candidates[{label}].hab_mast", mast.get("x_m"), mast.get("y_m"))
+        candidate_start = candidate.get("default_start")
+        if isinstance(candidate_start, dict):
+            check_point(f"hab_candidates[{label}].default_start",
+                        candidate_start.get("x_m"), candidate_start.get("y_m"))
+
+    if 1 not in ranks:
+        problems.append("hab_candidates: no candidate has rank 1")
+    elif rank_one is not None:
+        # 05 Site: the rank-1 candidate mirrors the manifest's single-site fields.
+        start = manifest.get("default_start")
+        if isinstance(start, dict) and isinstance(rank_one.get("default_start"), dict):
+            for field in ("x_m", "y_m"):
+                if rank_one["default_start"].get(field) != start.get(field):
+                    problems.append(
+                        f"hab_candidates: the rank-1 candidate's default_start {field} differs from "
+                        f"the manifest's default_start"
+                    )
+        mast = grid.get("hab_mast")
+        if isinstance(mast, dict) and isinstance(rank_one.get("hab_mast"), dict):
+            for field in ("x_m", "y_m", "height_m"):
+                if rank_one["hab_mast"].get(field) != mast.get(field):
+                    problems.append(
+                        f"hab_candidates: the rank-1 candidate's hab_mast {field} differs from "
+                        f"the manifest's grid.hab_mast"
+                    )
+        if rank_one.get("comm_hab_asset") != grid.get("comm_hab_asset"):
+            problems.append(
+                f"hab_candidates: the rank-1 candidate's comm_hab_asset "
+                f"{rank_one.get('comm_hab_asset')!r} differs from the manifest's grid.comm_hab_asset "
+                f"{grid.get('comm_hab_asset')!r}"
+            )
     return problems
 
 

@@ -23,6 +23,8 @@ export interface StopOption {
 export interface AddTaskPopoverProps {
   crewId: CrewId;
   stopId: string;
+  /** Plan number of `stopId`, from the data. Absent = the label reads "—" (it is never cut out of the id). */
+  stopNo?: number;
   availableStops?: StopOption[];
   maxReached?: boolean;
   onAdd: (task: {
@@ -38,10 +40,16 @@ export interface AddTaskPopoverProps {
 const TASK_KINDS: StopTaskKind[] = ["observe", "image", "sample", "measure", "deploy", "other"];
 const MAX_CHARS = 60;
 
+/** "Stop n" from the plan number, or "—" when the number is not known. */
+function stopLabel(stopNo: number | undefined): string {
+  return typeof stopNo === "number" && Number.isFinite(stopNo) ? `Stop ${stopNo}` : "—";
+}
+
 export function AddTaskPopover({
   crewId,
   stopId,
-  availableStops = [{ stopId, label: `Stop ${stopId.replace(/^wp-/, "")}` }],
+  stopNo,
+  availableStops = [{ stopId, stopNo, label: stopLabel(stopNo) }],
   maxReached = false,
   onAdd,
   onCancel,

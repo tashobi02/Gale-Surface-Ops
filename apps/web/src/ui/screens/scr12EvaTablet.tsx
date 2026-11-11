@@ -10,11 +10,13 @@ import {
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { CrewId, Snapshot } from "@marswalk/protocol";
+import type { CrewId, Snapshot, StopTask } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
+import { useCommand, useHabClient, useLinkLost, useSnapshot } from "../../state/habSession";
 import {
   havenTargetLabel,
   selectEvaViewModel,
+  selectMetadataStrip,
   type EvaViewModel,
 } from "../eva/viewModel";
 import { EvaActionRow } from "../eva/HoldToConfirm";
@@ -35,13 +37,14 @@ import {
 } from "../components/provenance";
 import { TasksButton } from "./scr12/TasksButton";
 import { StopTaskList } from "./scr12/StopTaskList";
+import { useStopTaskChanges } from "./scr12/useStopTaskChanges";
 
 export interface EvaTabletProps {
-  /** Optional Hab Core WebSocket client. */
+  /** Hab Core WebSocket client; omitted means the tab's session (state/habSession.ts), null means none. */
   client?: HabClient | null;
-  /** Active crew identifier (defaults to "EV1"). */
-  crewId?: CrewId;
-  /** Direct Snapshot override (uses client.state() if omitted). */
+  /** The crew member this tablet belongs to. Required: there is no default crew member. */
+  crewId: CrewId;
+  /** Direct Snapshot override (uses the session's snapshot if omitted). */
   snapshot?: Snapshot | null;
   /** Handler to open SCR-13 HUD visor glance. */
   onOpenHud?: () => void;
@@ -55,6 +58,8 @@ export interface EvaTabletProps {
   orientation?: "portrait" | "landscape";
   className?: string;
 }
+
+const NO_TASKS: StopTask[] = [];
 
 /** A "—" shown where there is no stop to navigate to: flagged unavailable, class unknown (04 §D.1). */
 const NO_STOP = unavailableOf(null, "next_stop");
@@ -70,7 +75,7 @@ function withUnit(v: unknown, unit: string): string {
  */
 export function EvaTablet({
   client,
-  crewId = "EV1",
+  crewId,
   snapshot,
   onOpenHud,
   onOpenOptions,
@@ -79,24 +84,39 @@ export function EvaTablet({
   orientation = "portrait",
   className = "",
 }: EvaTabletProps): ReactElement {
-  // Resolve active snapshot: prop override > client store > null
-  const activeSnapshot = snapshot ?? client?.state() ?? null;
-  const vm: EvaViewModel = selectEvaViewModel(activeSnapshot, crewId);
+  // Resolve the snapshot: prop override > the session store (re-renders on every change) > null.
+  const hab = useHabClient(client);
+  const stored = useSnapshot(client);
+  const send = useCommand(client);
+  const activeSnapshot = snapshot ?? stored;
+
+  // A tick or skip is sent at once and shown at once (01 FR-50), so the view model, the TASKS count and the list all
+  // read the snapshot with the changes in progress applied.
+  const serverTasks = activeSnapshot?.tasks ?? NO_TASKS;
+  // Linked means the suit link is up (snapshot) and this tablet's own socket to the Hab Core is not lost.
+  const socketLost = useLinkLost(client).lost;
+  const suitLinked = selectMetadataStrip(activeSnapshot, crewId).link.linked;
+  const linked = socketLost ? false : suitLinked;
+  const changes = useStopTaskChanges(send, serverTasks, linked);
+  const viewSnapshot = activeSnapshot ? { ...activeSnapshot, tasks: changes.overlay(serverTasks) } : activeSnapshot;
+  const vm: EvaViewModel = selectEvaViewModel(viewSnapshot, crewId);
 
   // Stop task list open state (TASKS button toggles the list).
-  // TODO(decision): resolve U-51 and U-59 with the named owners before changing task-list placement, walking/options
-  // collapse or post-ack read-only behavior; undo and pending-command integration remain incomplete.
+  // TODO(decision): resolve U-51 and U-59 with the named owners before changing task-list placement or post-ack
+  // read-only behaviour.
   const [tasksExpanded, setTasksExpanded] = useState<boolean>(false);
 
-  // Alert collapse: the list hides for an unacknowledged warning (U-59 is still open, see above)
-  const isAlertActive = Boolean(vm.alertSlot && vm.alertSlot.level === "warning" && !vm.alertSlot.acknowledged);
-  const showTasksList = tasksExpanded && !isAlertActive;
+  // FR-50: the list is in full only while the crew member is at the stop; walking, heading for a haven, sheltered (or
+  // not out yet) and any unacknowledged warning or caution leave the count. U-59 (collapse rules) is still open.
+  const alertCollapses = vm.alertSlot !== null && !vm.alertSlot.acknowledged && (vm.alertSlot.level === "warning" || vm.alertSlot.level === "caution");
+  const collapsed = vm.activity !== "AT_STOP" || alertCollapses;
+  const showTasksList = tasksExpanded;
 
   const isLandscape = orientation === "landscape";
 
-  // With no alert the banner reads NOMINAL only when this crew member's telemetry is available; with none it is UNKNOWN,
-  // matching the HAVEN and O₂ cards (04 §C.1: never a nominal default).
-  const bannerStatus = vm.haven.status === "unknown" && vm.o2.status === "unknown" ? "unknown" : "nominal";
+  // With no alert the banner reads NOMINAL only when this crew member's HAVEN and O₂ are both available; if either is
+  // unknown it is UNKNOWN, matching the cards (04 §C.1: never a nominal default).
+  const bannerStatus = vm.haven.status === "unknown" || vm.o2.status === "unknown" ? "unknown" : "nominal";
 
   // Root container styles (OPS dark instrument mode, 04 §B.2)
   const rootStyle: CSSProperties = {
@@ -153,6 +173,7 @@ export function EvaTablet({
       role="main"
       aria-label="EVA Tablet Operations"
       data-screen="SCR-12"
+      data-surface="eva"
       data-mode="ops"
       data-orientation={orientation}
       className={`scr12-eva-tablet ${className}`}
@@ -172,7 +193,6 @@ export function EvaTablet({
             data-slot="alert"
             data-level={vm.alertSlot.level}
             className={`alert-bar cut-s status-${vm.alertSlot.level}`}
-            onClick={onOpenOptions}
             style={{
               width: "100%",
               minHeight: "64px",
@@ -180,7 +200,6 @@ export function EvaTablet({
               alignItems: "center",
               justifyContent: "space-between",
               padding: "8px 16px",
-              cursor: "pointer",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -192,8 +211,9 @@ export function EvaTablet({
             <button
               type="button"
               className="btn sm"
-              style={{ minHeight: "56px", minWidth: "56px", fontSize: "16px" }}
+              style={{ minHeight: "56px", minWidth: "56px", fontSize: "16px", cursor: "pointer" }}
               aria-label="Review alert options"
+              onClick={onOpenOptions}
             >
               OPTIONS
             </button>
@@ -349,32 +369,20 @@ export function EvaTablet({
               }}
             >
               <StopTaskList
-                tasks={activeSnapshot?.tasks ?? []}
+                tasks={viewSnapshot?.tasks ?? []}
                 crewId={crewId}
                 stopId={vm.nextStop?.stopId ?? ""}
-                readOnly={!client}
-                undo={null}
-                collapsed={false}
-                notSyncedTaskIds={[]}
-                onTick={(taskId) => {
-                  client?.send?.({
-                    kind: "UPDATE_STOP_TASK",
-                    args: { task_id: taskId, state: "DONE" },
-                  });
-                }}
-                onUndo={(taskId) => {
-                  client?.send?.({
-                    kind: "UPDATE_STOP_TASK",
-                    args: { task_id: taskId, state: "TODO" },
-                  });
-                }}
-                // SKIP only opens reason capture; this is the one UPDATE_STOP_TASK for a skip.
-                onReason={(taskId, reason) => {
-                  client?.send?.({
-                    kind: "UPDATE_STOP_TASK",
-                    args: { task_id: taskId, state: "SKIPPED", reason },
-                  });
-                }}
+                readOnly={!hab || !crewId}
+                undo={changes.undoTaskId === null ? null : { taskId: changes.undoTaskId }}
+                collapsed={collapsed}
+                notSyncedTaskIds={changes.notSyncedTaskIds()}
+                rejections={changes.rejections()}
+                onTick={(taskId) => changes.start(taskId, { state: "DONE" })}
+                // UNDO is a reversal on the server ({state: "TODO", undo: true}); a bare TODO is never sent. While the link
+                // is down it cancels a waiting change on the client instead.
+                onUndo={(taskId) => changes.undo(taskId)}
+                // SKIP only opens reason capture; the chosen reason sends the one SKIPPED change.
+                onReason={(taskId, reason) => changes.start(taskId, { state: "SKIPPED", reason })}
               />
             </div>
           )}
@@ -384,12 +392,10 @@ export function EvaTablet({
         <div
           data-slot="mini-map"
           className="card mini-map cut-s"
-          onClick={onOpenFullScreenMap}
           style={{
             ...cardStyle,
             minHeight: "160px",
             position: "relative",
-            cursor: "pointer",
             justifyContent: "space-between",
             background: "#080A0D",
           }}
@@ -406,19 +412,33 @@ export function EvaTablet({
                 fontSize: "16px",
                 cursor: "pointer",
               }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenFullScreenMap?.();
-              }}
+              onClick={onOpenFullScreenMap}
             >
               FULL MAP
             </button>
           </div>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flex: 1 }}>
+          {/* The map area is a real button (a large target for gloves), not a clickable div. */}
+          <button
+            type="button"
+            data-slot="mini-map-open"
+            aria-label="Open full-screen map"
+            onClick={onOpenFullScreenMap}
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              flex: 1,
+              minHeight: "56px",
+              background: "transparent",
+              border: "none",
+              color: "inherit",
+              cursor: "pointer",
+            }}
+          >
             <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--text-3, #8592A0)" }}>
               [ Gale Crater · Mount Sharp Traverse · IAU_2015:49900 ]
             </span>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -480,9 +500,9 @@ export function EvaTablet({
         }}
       >
         <EvaActionRow
-          client={client}
+          client={hab}
           crewId={crewId}
-          linked={vm.metadata.link.linked}
+          linked={linked}
           onOpenHud={onOpenHud}
           onOpenRoverTasking={onOpenRoverTasking}
         />

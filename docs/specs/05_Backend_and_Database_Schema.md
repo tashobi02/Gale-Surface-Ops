@@ -525,6 +525,15 @@ One thing to do at one planned stop. Initial tasks come from the plan in `scenar
 
 State is reduced from `TASK_ADDED`, `TASK_UPDATED` and `TASK_DROPPED` events; it is never stored outside the log and snapshots.
 
+**`UPDATE_STOP_TASK` args** *(2026-11-11, **Proposed**; behaviour in 02 §E.6)*: `{task_id, state, reason?, undo?}`.
+
+| Arg | Type | Rules |
+| --- | --- | --- |
+| `task_id` | string | an existing StopTask |
+| `state` | `DONE \| SKIPPED \| TODO` | `DONE` and `SKIPPED` from `TODO`; `TODO` only with `undo: true` |
+| `reason` | enum | for `SKIPPED` only (`time \| terrain \| alert \| other`) |
+| `undo` | bool, optional | `true` = reversal to `TODO` (`DONE \| SKIPPED → TODO`) of the last change to this task, by the sender's role as the `actor` of that `TASK_UPDATED` (a `system` actor cannot be undone), accepted only while that change is the task's last event and not stale (the task's stop is still in the current plan and no `PLAN_REVISED` since). Any `state` other than `TODO` with `undo: true` is `INVALID`. The 5-s window is enforced on the tablet, not by the Hab Core |
+
 ### LogEvent (one line of `session.jsonl`)
 
 | Field | Type | Rules |
@@ -562,7 +571,7 @@ Source column: where the fields are stated. **Proposed** fields are not stated i
 | `CLOCK_CHANGED` | `speed, paused` | **Proposed** (Session `clock`) |
 | `EVA_ENDED` | `crew_ids` | **Proposed** |
 | `TASK_ADDED` | `task_id, stop_id, crew_id, kind, text, origin` | **Proposed** (StopTask) |
-| `TASK_UPDATED` | `task_id, stop_id, crew_id, state, reason` | 02 §E.6, fixture `stop-task-ticked` |
+| `TASK_UPDATED` | `task_id, stop_id, crew_id, state, reason`; optional `undo` (bool, `true` for a reversal to `TODO`, *added 2026-11-11*) | 02 §E.6, fixture `stop-task-ticked`; `undo` **Proposed** |
 | `TASK_DROPPED` | `task_id, stop_id, plan_revision` | **Proposed** (StopTask: DROPPED is set on plan revision) |
 | `CLOCK_JUMPED` | `reason` (`next_stop`), `from_sim_time, to_sim_time, stop_id, ended_by` (`arrival \| alert`) | **Proposed** (02 §D.17); events raised during the jump are logged at their own sim seconds |
 | `EVENT_STARTED` | `event_id, t0_sim_time, series_start_utc, source_id` | **Proposed** (EventLibraryEntry) |
