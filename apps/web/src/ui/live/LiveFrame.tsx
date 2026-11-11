@@ -140,7 +140,7 @@ export function LiveFrame({ variant, crewId, onRetry, children }: LiveFrameProps
       {children}
       {takenOver && (
         <div data-slot="taken-over-overlay" data-surface={variant === "ops" ? "ops" : "eva"} style={overlayStyle}>
-          <TakenOverNotice roleLabel={variant === "ops" || !crewId ? "OPS" : crewId} />
+          <TakenOverNotice roleLabel={variant === "ops" || !crewId ? "OPS" : variant === "hud" ? `HUD ${crewId}` : crewId} />
         </div>
       )}
       {link.lost && !takenOver && (

@@ -53,15 +53,26 @@ describe("ensureSessionForRoute", () => {
     expect(hello).toMatchObject({ type: "HELLO", role: "ops" });
   });
 
-  it("opens eva:<crew> for the tablet, and the HUD of the same crew member reuses it: one socket", () => {
+  it("opens eva:<crew> for the tablet and hud:<crew> for the HUD; one tab keeps one connection, so moving between them closes the first", () => {
     const { made, socketFactory } = sockets();
     const deps = { url: "ws://localhost/ws", socketFactory, clientId: () => "c-test" };
     const tablet = ensureSessionForRoute(parseHash("#/eva/EV2"), deps);
     const hud = ensureSessionForRoute(parseHash("#/hud/EV2"), deps);
 
     expect(tablet?.role).toBe("eva:EV2");
-    expect(hud).toBe(tablet);
-    expect(made).toHaveLength(1);
+    expect(hud?.role).toBe("hud:EV2");
+    expect(hud).not.toBe(tablet);
+    expect(made).toHaveLength(2);
+    expect(made[0].closed).toBe(true);
+    expect(made[1].closed).toBe(false);
+    made[1].onopen?.();
+    expect(made[1].sent[0]).toMatchObject({ type: "HELLO", role: "hud:EV2" });
+    expect(currentHabClient()).toBe(hud);
+
+    const back = ensureSessionForRoute(parseHash("#/eva/EV2"), deps);
+    expect(back?.role).toBe("eva:EV2");
+    expect(made).toHaveLength(3);
+    expect(made[1].closed).toBe(true);
   });
 
   it("a tab keeps one connection: moving to another live role closes the first", () => {

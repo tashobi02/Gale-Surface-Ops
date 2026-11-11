@@ -146,6 +146,9 @@ export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
   planner: ["PUBLISH_PLAN"],
   "eva:EV1": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
   "eva:EV2": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
+  // The HUD is a viewer: no command at all (02 §E.4, added 2026-11-12, Proposed).
+  "hud:EV1": [],
+  "hud:EV2": [],
   ops: [
     "LOAD_SCENARIO",
     "SET_CLOCK",

@@ -2,7 +2,7 @@
  * Boot of the Hab Core connection (docs/specs/02 §E.6; 03 §A; 01 FR-31, FR-32; T07.03, T25.01).
  *
  * `ensureSessionForRoute` is what app boot calls before a live route renders: it opens the tab's connection for the
- * route's role (ops, or eva:<crew> for both the EVA tablet and the HUD), through `startHabSession`, and closes any
+ * route's role (ops, eva:<crew> for the EVA tablet, or the read-only hud:<crew> for the HUD, 02 §E.4), through `startHabSession`, and closes any
  * connection of another role, so a tab keeps one. A route with no role (join, planner, report, ...) opens nothing and
  * leaves an open connection alone, so going to the report and back does not reconnect.
  *

@@ -15,7 +15,8 @@ import type { RejectCode } from "./ws";
 export type ProvenanceMap = Record<string, Provenance>;
 
 export type CrewId = "EV1" | "EV2";
-export type Role = "planner" | "eva:EV1" | "eva:EV2" | "ops" | "earth";
+/** `hud:EVn` (added 2026-11-12, Proposed): the EVA HUD, a read-only viewer with no commands (02 §E.4). */
+export type Role = "planner" | "eva:EV1" | "eva:EV2" | "hud:EV1" | "hud:EV2" | "ops" | "earth";
 
 // ---------------------------------------------------------------------------
 // Parameters and scenario files
@@ -399,7 +400,7 @@ export interface LogEventData {
   /** `undo: true` marks a reversal to TODO (05 LogEvent, 01 FR-50; added 2026-11-11, Proposed, spec change #202). */
   TASK_UPDATED: Pick<StopTask, "task_id" | "stop_id" | "crew_id" | "state" | "reason"> & { undo?: boolean };
   TASK_DROPPED: { task_id: string; stop_id: string; plan_revision: number };
-  /** 05 LogEvent `ROLE_TAKEN_OVER`; `crew_id` only for an `eva:EVn` role (the key is absent otherwise). Changes no state. */
+  /** 05 LogEvent `ROLE_TAKEN_OVER`; `crew_id` only for an `eva:EVn` or `hud:EVn` role (the key is absent otherwise). Changes no state. */
   ROLE_TAKEN_OVER: { role: Role; crew_id?: CrewId; old_client_id: string; new_client_id: string };
 }
 

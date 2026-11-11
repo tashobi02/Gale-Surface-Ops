@@ -122,7 +122,7 @@ describe("live roles", () => {
     expect(must(root, '[data-surface="ops"]').textContent).toContain("storm-sol4190");
   });
 
-  it("#/eva/EV1 mounts the tablet for EV1 with the eva:EV1 role, and #/hud/EV1 reuses the same connection", async () => {
+  it("#/eva/EV1 mounts the tablet for EV1 with the eva:EV1 role, and #/hud/EV1 moves the tab to its own hud:EV1 connection", async () => {
     const root = await boot("#/eva/EV1");
     expect(must(root, '[data-screen="SCR-12"]')).toBeTruthy();
     sockets[0].onopen?.();
@@ -133,8 +133,11 @@ describe("live roles", () => {
     expect(must(root, '[data-screen="SCR-13"]')).toBeTruthy();
     expect(root.querySelector('[data-screen="SCR-12"]')).toBeNull();
     expect(document.documentElement.getAttribute("data-mode")).toBe("hud");
-    expect(sockets).toHaveLength(1); // one connection per tab
-    expect(sockets[0].closed).toBe(false);
+    expect(sockets).toHaveLength(2); // one open connection per tab: the tablet's closes, the HUD's opens
+    expect(sockets[0].closed).toBe(true);
+    expect(sockets[1].closed).toBe(false);
+    sockets[1].onopen?.();
+    expect(sockets[1].sent[0]).toMatchObject({ type: "HELLO", role: "hud:EV1" });
   });
 
   it("moving to another live role closes the first connection: the tab never holds two", async () => {

@@ -5,8 +5,9 @@
  * Pure: no DOM, no network, no clock. `parseHash` turns `location.hash` into a `Route`; anything it does not know is the
  * `unknown` route (a safe "—" screen, never a throw and never a guess at what was meant).
  *
- * `role` is the Hab Core connection role a route needs, or null for a route that opens none. The EVA tablet and the HUD
- * of one crew member share `eva:<crew>`, so a tab opens one connection for both (state/habSession.ts). The planner, join,
+ * `role` is the Hab Core connection role a route needs, or null for a route that opens none. The EVA tablet is
+ * `eva:<crew>` and the HUD is its own read-only `hud:<crew>` (02 §E.4); a tab keeps one connection, so going from one to the
+ * other closes the first (boot/session.ts). The planner, join,
  * report, briefing and sources routes open none: the planner works without a Hab Core, join and report only fetch.
  * SCR-16 (earth), SCR-19 (presenter) and SCR-20 (setup) are not built, so they open none either; when they are, give them
  * their role here (the `presenter` role is T32.01).
@@ -42,7 +43,7 @@ export interface RouteEntry {
   /** True when the path takes a crew member (`/EV1`, `/EV2`). */
   crew?: true;
   /** Role of the Hab Core connection the route needs; null = none. */
-  role: "ops" | "eva" | null;
+  role: "ops" | "eva" | "hud" | null;
 }
 
 /** 03 §A, in the order it lists them. */
@@ -55,7 +56,7 @@ export const ROUTES: readonly RouteEntry[] = [
   { id: "setup", path: "setup", screen: "SCR-20", mode: "ops", role: null },
   { id: "report", path: "report", screen: "SCR-17", mode: "print", role: null },
   { id: "eva", path: "eva", screen: "SCR-12", mode: "ops", crew: true, role: "eva" },
-  { id: "hud", path: "hud", screen: "SCR-13", mode: "hud", crew: true, role: "eva" },
+  { id: "hud", path: "hud", screen: "SCR-13", mode: "hud", crew: true, role: "hud" },
   { id: "earth", path: "earth", screen: "SCR-16", mode: "ops", role: null },
   { id: "presenter", path: "presenter", screen: "SCR-19", mode: "ops", role: null },
   { id: "sources", path: "sources", screen: "SCR-09", mode: "brief", role: null },
@@ -64,7 +65,7 @@ export const ROUTES: readonly RouteEntry[] = [
 
 const CREW_IDS: readonly CrewId[] = ["EV1", "EV2"];
 /** Roles a join link (`#/join?role=…`) may name: exactly the protocol's `Role` values a device can take. */
-const JOIN_ROLES: readonly Role[] = ["planner", "ops", "eva:EV1", "eva:EV2", "earth"];
+const JOIN_ROLES: readonly Role[] = ["planner", "ops", "eva:EV1", "eva:EV2", "hud:EV1", "hud:EV2", "earth"];
 /** SCR-09 anchors are layer, source and parameter ids: letters, digits, `_` and `-`. */
 const ANCHOR = /^[A-Za-z0-9_-]{1,80}$/;
 /** A route path is plain ASCII segments; the length cap keeps hostile input out of every later step. */
@@ -148,7 +149,7 @@ export function parseHash(hash: string): Route {
       return unknown(requested);
     }
   }
-  const role: Role | null = entry.role === "ops" ? "ops" : entry.role === "eva" && crewId ? (`eva:${crewId}` as Role) : null;
+  const role: Role | null = entry.role === "ops" ? "ops" : (entry.role === "eva" || entry.role === "hud") && crewId ? (`${entry.role}:${crewId}` as Role) : null;
   const route: Route = {
     id: entry.id,
     screen: entry.screen,

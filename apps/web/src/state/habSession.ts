@@ -2,8 +2,8 @@
  * Hab session store: one Hab Core connection per browser tab, and the React hooks that read it
  * (docs/specs/02 §E.6; 01 FR-32, FR-33; 03 SCR-12, SCR-13, SCR-14, SCR-18). Registered under T25.01.
  *
- * `startHabSession` opens the tab's single `connectHab` per role (EVA tablet and HUD of one crew member share
- * `eva:EV1`, for example); calling it again with the same role returns the same client. The hooks subscribe to the
+ * `startHabSession` opens the tab's single `connectHab` per role (the EVA tablet is `eva:EV1` and the HUD its own
+ * `hud:EV1`, for example); calling it again with the same role returns the same client. The hooks subscribe to the
  * client with `useSyncExternalStore`, so a view re-renders on every new SNAPSHOT, STATE_DELTA, EVENT or link change
  * without being remounted. This module computes nothing: it passes the client's data through.
  *

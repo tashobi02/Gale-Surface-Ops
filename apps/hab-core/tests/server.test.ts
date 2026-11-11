@@ -520,6 +520,24 @@ describe("role take-over: newest wins (02 §E.4, §E.6; 05 ROLE_TAKEN_OVER)", ()
     expect(event).toMatchObject({ event: { actor: "system", command_ref: null, data: { role: "eva:EV1", old_client_id: "c-first", new_client_id: "c-second" } } });
   });
 
+  it("a HUD and the tablet of one crew member do not displace each other; a second HUD takes over only the first HUD", async () => {
+    const { server, session } = await setup();
+    const tablet = await joined(server.url, "eva:EV1", "c-tablet");
+    const hud1 = await joined(server.url, "hud:EV1", "c-hud-1");
+    await new Promise((r) => setTimeout(r, 30));
+    expect(takenOver(tablet)).toHaveLength(0);
+    expect(takenOver(hud1)).toHaveLength(0);
+    expect(session.takeovers).toEqual([]);
+
+    const closed = closeOf(hud1);
+    await joined(server.url, "hud:EV1", "c-hud-2");
+    expect((await closed).code).toBe(4001);
+    expect(takenOver(hud1)).toMatchObject([{ role: "hud:EV1" }]);
+    expect(takenOver(tablet)).toHaveLength(0);
+    expect(tablet.ws.readyState).toBe(WebSocket.OPEN);
+    expect(session.takeovers).toEqual([{ role: "hud:EV1", crew_id: "EV1", old_client_id: "c-hud-1", new_client_id: "c-hud-2" }]);
+  });
+
   it("different roles do not displace each other", async () => {
     const { server, session } = await setup();
     const clients = [await joined(server.url, "ops", "c-1"), await joined(server.url, "eva:EV1", "c-2"), await joined(server.url, "eva:EV2", "c-3"), await joined(server.url, "earth", "c-4")];

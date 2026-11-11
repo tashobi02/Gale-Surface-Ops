@@ -65,10 +65,14 @@ describe("parseHash: the routes of 03 §A", () => {
 });
 
 describe("parseHash: connection role (one Hab Core connection per tab)", () => {
-  it("EVA tablet and HUD of one crew member share the role eva:<crew>", () => {
+  it("the EVA tablet is eva:<crew> and the HUD is its own read-only role hud:<crew> (02 §E.4)", () => {
     expect(parseHash("#/eva/EV1").role).toBe("eva:EV1");
-    expect(parseHash("#/hud/EV1").role).toBe("eva:EV1");
-    expect(parseHash("#/hud/EV2").role).toBe("eva:EV2");
+    expect(parseHash("#/hud/EV1").role).toBe("hud:EV1");
+    expect(parseHash("#/hud/EV2").role).toBe("hud:EV2");
+  });
+
+  it("a join link may name a HUD role", () => {
+    expect(parseHash("#/join?role=hud:EV2").joinRole).toBe("hud:EV2");
   });
 
   it("the ops console is the ops role", () => {

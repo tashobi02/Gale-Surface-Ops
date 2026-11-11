@@ -4,7 +4,7 @@
  *
  * Requirements: FR-30, FR-31.
  * Purpose: Put each device in the right role in < 10 s; supports deep linking #/join?role=….
- * Five chamfered tiles: PLANNER · OPS · EV1 · EV2 · EARTH.
+ * Seven chamfered tiles: PLANNER · OPS · EV1 · EV2 · HUD EV1 · HUD EV2 · EARTH (a HUD is its own read-only role, 02 §E.4).
  * States: Connecting · Ready · Role taken · Hab Core unreachable.
  * Role taken: "newest wins" (02 §E.4, decided 2026-11-12). The tile offers TAKE OVER and asks first: confirming sends this
  * device to the role, and the Hab Core then disconnects the other device (it shows "Taken over by another device") and
@@ -19,7 +19,7 @@ import {
 import type { Role } from "@marswalk/protocol";
 import { UNAVAILABLE } from "../components/provenance";
 
-export type ClientRoleOption = "planner" | "ops" | "eva:EV1" | "eva:EV2" | "earth";
+export type ClientRoleOption = "planner" | "ops" | "eva:EV1" | "eva:EV2" | "hud:EV1" | "hud:EV2" | "earth";
 
 export interface RoleDescriptor {
   role: ClientRoleOption;
@@ -57,6 +57,20 @@ export const ROLE_DESCRIPTORS: RoleDescriptor[] = [
     code: "EV2",
     description: "Buddy navigation, mutual haven proximity, suit status, task verification.",
     route: "#/eva/EV2",
+  },
+  {
+    role: "hud:EV1",
+    label: "HUD for EV1",
+    code: "HUD EV1",
+    description: "Read-only suit HUD view for EV1: shows values, sends no commands. Does not replace the EV1 tablet.",
+    route: "#/hud/EV1",
+  },
+  {
+    role: "hud:EV2",
+    label: "HUD for EV2",
+    code: "HUD EV2",
+    description: "Read-only suit HUD view for EV2: shows values, sends no commands. Does not replace the EV2 tablet.",
+    route: "#/hud/EV2",
   },
   {
     role: "earth",

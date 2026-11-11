@@ -232,7 +232,7 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
   function takeOver(old: Client, by: Client): LogEvent | null {
     const data: LogEventData["ROLE_TAKEN_OVER"] = {
       role: old.role,
-      ...(old.role.startsWith("eva:") ? { crew_id: old.role.slice(4) as CrewId } : {}),
+      ...(/^(eva|hud):/.test(old.role) ? { crew_id: old.role.slice(4) as CrewId } : {}),
       old_client_id: old.client_id,
       new_client_id: by.client_id,
     };

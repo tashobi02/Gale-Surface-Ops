@@ -233,6 +233,22 @@ describe("JoinRoute (SCR-10)", () => {
     expect(window.location.hash).toBe("#/eva/EV1");
   });
 
+  it("lists the HUD roles as their own tiles, taken independently of the tablet", async () => {
+    const fetchImpl = vi.fn(async () => json(session([{ client_id: "c-9", role: "hud:EV1", display_name: "EV1 HUD" }, { client_id: "c-8", role: "eva:EV2", display_name: "EV2 tablet" }])));
+    const { container } = await mount(createElement(JoinRoute, { fetchImpl, pollMs: 60_000 }));
+    await flush();
+    const tiles = [...container.querySelectorAll("article")];
+    const tile = (code: string) => tiles.find((t) => t.textContent?.includes(`[${code}]`)) as HTMLElement;
+    expect(tile("HUD EV1")).toBeTruthy();
+    expect(tile("HUD EV2")).toBeTruthy();
+    expect(tile("HUD EV1").classList.contains("role-taken")).toBe(true);
+    expect(tile("EV1").classList.contains("role-taken")).toBe(false);
+    expect(tile("HUD EV2").classList.contains("role-taken")).toBe(false);
+    expect(tile("EV2").classList.contains("role-taken")).toBe(true);
+    await click(must(tile("HUD EV2"), "button"));
+    expect(window.location.hash).toBe("#/hud/EV2");
+  });
+
   it("cancelling the take-over question leaves everything as it was", async () => {
     const fetchImpl = vi.fn(async () => json(session([{ client_id: "c-9", role: "ops", display_name: "Ops console" }])));
     const { container } = await mount(createElement(JoinRoute, { fetchImpl, pollMs: 60_000 }));
