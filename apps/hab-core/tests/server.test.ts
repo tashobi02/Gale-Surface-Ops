@@ -33,12 +33,6 @@ import { readScenario } from "../src/scenario";
 import { startServer } from "../src/server";
 import { loadSession, type SessionHandle } from "../src/session";
 
-// seedTasks (T31.04) is still a stub; the real-session test below only needs a loaded session.
-vi.mock("../src/engine/tasks", async () => {
-  const actual = await vi.importActual<typeof import("../src/engine/tasks")>("../src/engine/tasks");
-  return { ...actual, seedTasks: () => [] };
-});
-
 interface HabServerUnderTest {
   url: string;
   close(): Promise<void>;
