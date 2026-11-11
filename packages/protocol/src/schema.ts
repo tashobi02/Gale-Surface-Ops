@@ -44,6 +44,13 @@ export interface Site {
   };
   /** Passable cell. */
   default_start: { x_m: number; y_m: number; label: string };
+  /**
+   * v2 (05 §C Site `hab_candidates`, 2026-11-10): optional list of pre-checked candidate hab sites
+   * (01 FR-53). Absent = the single `default_start` / `hab_mast` site, so current manifests and the
+   * validator stay valid. When present: ≥ 1 entries, exactly one with `rank` 1, whose `default_start`
+   * equals this Site's `default_start`. Cross-field rules are checked by `validate-manifest`.
+   */
+  hab_candidates?: HabCandidate[];
   /** Measured layer-to-ortho offsets (m). Default {}. */
   known_offsets_m?: Record<string, number | null>;
   layers: Layer[];
@@ -56,6 +63,37 @@ export interface Site {
   pois_asset: string;
   /** FK → Asset. */
   traverse_asset: string;
+}
+
+/**
+ * v2 (05 §C HabCandidate, 2026-11-10): one pre-checked candidate hab site, prepared on Earth by the
+ * pipeline and chosen at mission setup (01 FR-53). Free placement is out of scope for now. Haven
+ * fields are **not** stored: the Hab Core recomputes them for the chosen candidate at runtime
+ * (NFR-02).
+ */
+export interface HabCandidate {
+  /** ^[a-z0-9-]+$; unique in the Site. */
+  candidate_id: string;
+  /** ≤ 80 chars. */
+  label: string;
+  /** ≥ 1, unique; 1 is the default. */
+  rank: number;
+  /** Passable cell inside the AOI. */
+  hab_mast: { x_m: number; y_m: number; height_m: number };
+  /** Planetocentric degrees; consistent with `hab_mast`. */
+  lat: number;
+  /** East-positive degrees; consistent with `hab_mast`. */
+  lon_e: number;
+  /** FK → Asset: the candidate's own comm grid, same encoding as `grid.comm_hab_asset`. */
+  comm_hab_asset: string;
+  /** The planner's start waypoint when this candidate is chosen. */
+  default_start: { x_m: number; y_m: number; label: string };
+  /** Why it is on the list (for example the trade-off in hab-site.md). */
+  note?: string;
+  /** `assumed` for a curated choice. */
+  provenance: Provenance;
+  /** Sources of the checks (FK → DataSource). */
+  source_ids: string[];
 }
 
 /** A cited external product (05 §C DataSource; FR-15). */
