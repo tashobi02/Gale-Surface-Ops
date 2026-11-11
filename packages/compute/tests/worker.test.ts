@@ -377,6 +377,13 @@ describe("compute worker handler and entry", () => {
         expect(res1.totals?.dwell_time_min).toBe(stops * defaultComputeRequest.scenario.dwell_min_per_stop);
       }
     });
+
+    // C8 assembly into PLAN_RESULT waits on five decisions (conditions.ts header, TASK-06 T06.09): the handler
+    // returns the empty M3 timeline and omits conditions and radiation until then (tested above).
+    it.todo("populates stops_timeline, conditions and radiation from assembleConditions (TODO(decision): site coordinate, EnvConstant selection)");
+    it.todo("PARTIAL plan: dose duration and per-leg walk time are unavailable, not 0 (TODO(decision): PARTIAL-plan dose duration)");
+    it.todo("DARKNESS warning from solar inputs along legs and dwell (TODO(decision): darkness inputs)");
+    it.todo("timing_ms.routing and timing_ms.estimates (TODO(decision): timing boundaries)");
   });
 
   describe("planWorker entry and stale-revision rejection (T05.27)", () => {
