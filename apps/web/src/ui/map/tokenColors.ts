@@ -24,12 +24,31 @@ export type MapToken =
   | "unknown"
   | "traverse";
 
-/** The colour of a design token as a CSS colour string usable on a canvas. */
-export function tokenColor(name: MapToken): string {
+/** Non-colour tokens a canvas style reads: the mono font stack and the comm-shadow opacity (04 §C.1, §C.2). */
+export type MapValueToken = "font-mono" | "comm-shadow-opacity";
+
+function readToken(name: string): string {
   if (typeof document === "undefined") throw new Error(`design token --${name} needs a document (tokens.css loaded)`);
   const value = getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
   if (!value) throw new Error(`design token --${name} is not defined: is tokens.css loaded?`);
   return value;
+}
+
+/** The colour of a design token as a CSS colour string usable on a canvas. */
+export function tokenColor(name: MapToken): string {
+  return readToken(name);
+}
+
+/** The mono font stack of the design tokens (`--font-mono`), for canvas text. */
+export function tokenFont(): string {
+  return readToken("font-mono" satisfies MapValueToken);
+}
+
+/** A unitless numeric token (`--comm-shadow-opacity`). */
+export function tokenNumber(name: "comm-shadow-opacity"): number {
+  const n = Number(readToken(name));
+  if (!Number.isFinite(n)) throw new Error(`design token --${name} is not a number`);
+  return n;
 }
 
 /** `#RRGGBB` with an opacity (04 §C.1 gives overlay opacities, e.g. the comm shadow's 35 %). */
