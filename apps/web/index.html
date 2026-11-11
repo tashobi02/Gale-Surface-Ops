@@ -3,6 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      NFR-08 (02 §F): own origin only, no inline or eval script, no external origin. This is CSP_META of
+      packages/protocol/src/csp.ts (a test checks they match); the Hab Core serves CSP_HEADER, the same plus
+      frame-ancestors, on every response. Change the policy there, with the reason, not here.
+      `make dev` relaxes script-src for Vite's inline refresh preamble only (apps/web/vite.config.ts).
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self'; base-uri 'self'; object-src 'none'"
+    />
     <title>Marswalk Surface Ops</title>
   </head>
   <body>

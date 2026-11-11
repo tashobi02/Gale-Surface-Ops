@@ -184,6 +184,8 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 wer
 | States | No session · Loaded (ready) · Running · Paused · Alerting · Ended (→ report) |
 | Requirements | FR-30–FR-38, FR-40, FR-42–FR-46 |
 
+**Event log placement (Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead)).** The event log is the one-line strip along the bottom of the console (04 §E.4), showing the latest event with its sim time. Clicking the strip, or pressing Enter or Space on it, opens the full event log (filters, copy) as a drawer over the bottom of the console; Escape or a close control closes it and returns focus to the strip. The strip needs no other space, so the three-column layout is unchanged.
+
 ### SCR-12 — EVA tablet *(v2)*
 
 | Field | Spec |
