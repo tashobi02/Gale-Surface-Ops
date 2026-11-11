@@ -13,20 +13,20 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`██████░░░░░░░░░░░░░░` **31 %** — 107 of 342 subtasks done, 61 in progress.
+`███████░░░░░░░░░░░░░` **33 %** — 112 of 342 subtasks done, 81 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
 | [TASK-00 Resolve rules + register](docs/tasks/TASK-00_resolve-rules-and-register.md) | `██████████` 100 % | 5 | 0 | 5 |
 | [TASK-01 Feasibility: AOI, DEM quality, coverage checks](docs/tasks/TASK-01_feasibility.md) | `████████░░` 83 % | 5 | 1 | 6 |
-| [TASK-02 Spike: OpenLayers custom Mars projection + custom tile grid](docs/tasks/TASK-02_projection-spike.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 5 |
+| [TASK-02 Spike: OpenLayers custom Mars projection + custom tile grid](docs/tasks/TASK-02_projection-spike.md) | `████░░░░░░` 40 % | 2 | 1 | 5 |
 | [TASK-03 Preprocessing pipeline](docs/tasks/TASK-03_preprocessing-pipeline.md) | `█████████░` 87 % | 26 | 1 | 30 |
-| [TASK-04 Vectors, POIs and images](docs/tasks/TASK-04_vectors-pois-images.md) | `████░░░░░░` 44 % | 4 | 4 | 9 |
+| [TASK-04 Vectors, POIs and images](docs/tasks/TASK-04_vectors-pois-images.md) | `██░░░░░░░░` 22 % | 2 | 6 | 9 |
 | [TASK-05 Compute core: grid loader, sampling, A*, profile, time model, walkback, warnings](docs/tasks/TASK-05_compute-core.md) | `████░░░░░░` 44 % | 22 | 8 | 50 |
-| [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `███░░░░░░░` 30 % | 3 | 5 | 10 |
-| [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `░░░░░░░░░░` 0 % | 0 | 1 | 17 |
-| [TASK-08 Plan panel + waypoint editing](docs/tasks/TASK-08_plan-panel-and-waypoints.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 11 |
-| [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 8 |
+| [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `███░░░░░░░` 30 % | 3 | 7 | 10 |
+| [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `█░░░░░░░░░` 12 % | 2 | 10 | 17 |
+| [TASK-08 Plan panel + waypoint editing](docs/tasks/TASK-08_plan-panel-and-waypoints.md) | `█░░░░░░░░░` 9 % | 1 | 0 | 11 |
+| [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `░░░░░░░░░░` 0 % | 0 | 3 | 8 |
 | [TASK-10 POI detail + Conditions panel](docs/tasks/TASK-10_poi-detail-and-conditions.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 4 |
 | [TASK-11 Briefing card + JSON export](docs/tasks/TASK-11_briefing-card-and-export.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
 | [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `█░░░░░░░░░` 14 % | 1 | 0 | 7 |
@@ -40,13 +40,13 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-22 Simulation engine: clock, crew motion, consumables, alerts, event log, replay](docs/tasks/TASK-22_simulation-engine.md) | `████████░░` 81 % | 13 | 1 | 16 |
 | [TASK-23 Safety ops in the Hab Core: commands, haven per tick, summon and rendezvous, contingency options, abort](docs/tasks/TASK-23_safety-ops.md) | `██████░░░░` 62 % | 5 | 1 | 8 |
 | [TASK-24 EVA client and HUD: SCR-12 tablet, SCR-13 HUD, SCR-14 options sheet, SCR-18 link lost, full-screen map](docs/tasks/TASK-24_eva-client-and-hud.md) | `█░░░░░░░░░` 9 % | 1 | 9 | 11 |
-| [TASK-25 Ops console: SCR-11 with the shared map, alerts, options approval, clock control, SCR-10 join](docs/tasks/TASK-25_ops-console.md) | `░░░░░░░░░░` 0 % | 0 | 7 | 9 |
+| [TASK-25 Ops console: SCR-11 with the shared map, alerts, options approval, clock control, SCR-10 join](docs/tasks/TASK-25_ops-console.md) | `░░░░░░░░░░` 0 % | 0 | 8 | 9 |
 | [TASK-26 Links: surface link graph and `LINK_STATE`, comm-shadow warnings, Earth link widget and delayed queue](docs/tasks/TASK-26_links.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
 | [TASK-27 Event log view, post-EVA report, replay mode for GitHub Pages](docs/tasks/TASK-27_report-and-replay.md) | `░░░░░░░░░░` 0 % | 0 | 4 | 6 |
 | [TASK-28 Network kit and rehearsal: router, static IP, QR join, device matrix, venue checklist](docs/tasks/TASK-28_network-kit.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 5 |
-| [TASK-29 Robotic rover tasking: SCOUT, CARRY, RELAY, RETURN](docs/tasks/TASK-29_rover-tasking.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 6 |
+| [TASK-29 Robotic rover tasking: SCOUT, CARRY, RELAY, RETURN](docs/tasks/TASK-29_rover-tasking.md) | `░░░░░░░░░░` 0 % | 0 | 2 | 6 |
 | [TASK-30 Score-sheet single points: challenge named, repo public, page drafted, AI use current](docs/tasks/TASK-30_score-sheet-points.md) | `░░░░░░░░░░` 0 % | 0 | 2 | 3 |
-| [TASK-31 Stop task list (FR-50): protocol, engine, EVA list, ops progress, task text](docs/tasks/TASK-31_stop-task-list.md) | `█░░░░░░░░░` 12 % | 1 | 4 | 8 |
+| [TASK-31 Stop task list (FR-50): protocol, engine, EVA list, ops progress, task text](docs/tasks/TASK-31_stop-task-list.md) | `████░░░░░░` 38 % | 3 | 4 | 8 |
 | [TASK-32 Live operations session: presenter panel, event on demand, mission setup, stop task library](docs/tasks/TASK-32_live-session.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 32 |
 
 Totals leave out 43 fallback and desirable subtasks (they may never run); 0 of them done. Source: [docs/tasks/status.md](docs/tasks/status.md), regenerated by `make progress`.

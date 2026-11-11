@@ -5,7 +5,11 @@
  * Requirements: FR-30, FR-31.
  * Purpose: Put each device in the right role in < 10 s; supports deep linking #/join?role=….
  * Five chamfered tiles: PLANNER · OPS · EV1 · EV2 · EARTH.
- * States: Connecting · Ready · Role taken ("Take over?" for demo resets) · Hab Core unreachable.
+ * States: Connecting · Ready · Role taken · Hab Core unreachable.
+ * Role taken: the Hab Core has no take-over yet (02 §E.4 defines none), so the screen offers "open anyway" and says the
+ * other device stays connected; it never says "taken over".
+ * TODO(decision → decided 11 Nov: newest wins; implementation pending): the Hab Core accepts the new device,
+ * disconnects the old one with a "taken over" notice and logs it. Restore a take-over label only when that ships.
  */
 
 import {
@@ -316,7 +320,11 @@ export function Join({
               {/* Action Button */}
               <div>
                 {isConfirmingTakeOver ? (
-                  <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "16px" }}>
+                    <p data-slot="join-taken-note" style={{ flexBasis: "100%", margin: 0, fontSize: "14px" }}>
+                      This role is already open on another device. Taking a role over is not built yet: if you continue,
+                      both devices stay connected.
+                    </p>
                     <button
                       style={{
                         ...buttonStyle,
@@ -324,9 +332,9 @@ export function Join({
                         flex: 1,
                       }}
                       onClick={() => handleConfirmTakeOver(desc.role)}
-                      aria-label={`Confirm take over role ${desc.label}`}
+                      aria-label={`Confirm open ${desc.label} anyway; the other device stays connected`}
                     >
-                      TAKE OVER
+                      OPEN ANYWAY (OTHER DEVICE STAYS CONNECTED)
                     </button>
                     <button
                       style={{
@@ -335,7 +343,7 @@ export function Join({
                         color: "var(--ink, #1A1A1A)",
                       }}
                       onClick={() => setTakeOverConfirmRole(null)}
-                      aria-label="Cancel take over"
+                      aria-label="Cancel"
                     >
                       CANCEL
                     </button>
@@ -350,7 +358,7 @@ export function Join({
                     onClick={() => handleRoleClick(desc.role, isTaken)}
                     aria-label={`Select role ${desc.label}`}
                   >
-                    {isTaken ? "TAKE OVER ROLE" : "JOIN AS " + desc.code}
+                    {isTaken ? "OPEN ANYWAY…" : "JOIN AS " + desc.code}
                   </button>
                 )}
               </div>

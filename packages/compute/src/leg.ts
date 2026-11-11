@@ -87,8 +87,8 @@ export function toLeg(
     return leg;
   }
 
-  if (search.status === "TIMEOUT") {
-    throw new Error("Cannot assemble leg: search timed out");
+  if (search.status === "TIMEOUT" || search.status === "CANCELLED") {
+    throw new Error(`Cannot assemble leg: search ended with ${search.status}`);
   }
 
   const { width, cell_m, origin_m } = grid.meta;
@@ -141,10 +141,16 @@ export function toLeg(
     }
   }
 
-  const maxSlopeDeg =
-    cells.length > 0
-      ? Math.max(...cells.map((c) => decodeSlopeDeg(grid.slopeP90[c]) ?? 0))
-      : 0;
+  // Find maximum slope along traversed cells without spreading array to avoid call stack overflow (05 §C).
+  // Note on slope metrics: 02 §D.3 uses slope_p90 for caution warnings and leg summary,
+  // while 02 §D.2 uses slope_max for the A* step penalty multiplier (1.5x).
+  let maxSlopeDeg = 0;
+  for (let i = 0; i < cells.length; i++) {
+    const deg = decodeSlopeDeg(grid.slopeP90[cells[i]]) ?? 0;
+    if (deg > maxSlopeDeg) {
+      maxSlopeDeg = deg;
+    }
+  }
 
   const geometry = douglasPeucker(unsimplifiedPath, 2.0);
   const profile = sampleProfile(

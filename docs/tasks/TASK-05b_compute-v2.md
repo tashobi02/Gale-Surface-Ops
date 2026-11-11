@@ -82,6 +82,8 @@ Proposed signature changes in Anjim Hossain's modules (not frozen; each is force
 | NEW `RELAY_VIEWSHED_RADIUS_M` | — | `4000` (02 §D.11, "horizon radius") | Named constant |
 | NEW `RELAY_VIEWSHED_CELL_M` | — | `20` (02 §D.11) | Named constant |
 
+Status of this proposal (11 Nov): Anjim Hossain's PR #188 (T05b.08/T05b.09) implements every row above, including the `Uint8Array` to `CoverageGrid` return change, so the viewshed rows are taken as accepted by the module owner; the follow-up `contract-change:` subtask is not opened and no consumer exists yet (T26.01, T29.03 read the new shape). `TODO(decision)`: Anjim Hossain to confirm the return change in the PR thread. The review round added `VIEWSHED_LABEL` (`derived`, "radio propagation not modelled beyond line of sight", T05b.09 acceptance), `LOS_STEP_CELL_FRACTION` and `LOS_MAX_STEP_M` (the ray step rule, not a spec number; `TODO(decision)` for 02 §D.11) as additive exports. `TODO(verify)` the 02 §D.11 "≤ 1 s" budget: [viewshed.bench.ts](../../packages/compute/bench/viewshed.bench.ts) measured, on an Apple M2 under Node (11 Nov, not the weakest laptop, other work running), 4.4 to 7.6 s for the all-visible flat worst case and about 0.5 s for the shadowed rough terrain, so the budget is **not met** in the worst case; T05b.20 re-measures on the weakest laptop, and a faster algorithm (for example one horizon sweep per ray direction instead of one ray per cell) is open work for the T05b.09 owner. Also noted: 4 km at 20 m is 125,676 cells inside the circle, where 02 §D.11 says 90 k.
+
 **linkGraph.ts (T05b.11)**
 
 | Item | Current | Proposed | Why |
@@ -426,6 +428,7 @@ T23.03 `havenTick` consumes `liveHaven` from `haven.ts` (frozen in this PR; plea
 - **Verify:** `npm --workspace @marswalk/compute test -- earthLink`.
 - **Agent brief:** Implement the delivery rule until the tests pass.
 - **Conflict notes:** Single owner.
+- Review notes (11 Nov): `TODO(decision)` for the 02 §D.12 owner: a message queued for a later pass is not delivered when that pass starts in conjunction (the spec checks blackout only at the send time, or at Mars arrival for Earth to Mars). The code and tests apply the stricter rule; revert it if the spec means send time only. `TODO(verify)`: the 02 §D.12 light-time validation against `spiceypy` or WebGeocalc (within 1 s) has no independent value in the repo yet, so it is an `it.todo`; the committed-table light time is only a regression pin. The committed storm table has a one-sample pass with `start_utc` = `end_utc`, so a pass list is accepted when end is at or after start.
 
 ### T05b.14 — Tests: radiation trigger and event dose integral
 

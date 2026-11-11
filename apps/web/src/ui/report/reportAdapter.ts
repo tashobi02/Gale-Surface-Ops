@@ -3,7 +3,7 @@
  * camelCase PostEvaReportData the screen renders. Pure: no clock, no network, no computed science. Every number shown comes
  * from the API report; this file only renames, formats and picks (no sums, no invented values).
  *
- * Nothing fetches `/api/report` yet: wiring the screen to the endpoint is a later slice.
+ * `ui/live/ReportRoute.tsx` fetches `api/report` and feeds this adapter (T27.03).
  *
  * TODO(decision): `ApiPostEvaReport` mirrors apps/hab-core/src/report.ts because apps/web cannot import the Hab Core. Move
  * the type into packages/protocol (contract change) so both sides share one definition.

@@ -62,8 +62,15 @@ export function determineNoRoute(
   }
 
   // 2. Classify barrier along the boundary of the explored component
-  const exploredSet = new Set(cells);
-  const boundaryCells = new Set<number>();
+  // Use typed arrays instead of allocating Sets over up to 1.4 M explored cells (TASK-05 / #74)
+  const totalCells = width * height;
+  const isExplored = new Uint8Array(totalCells);
+  for (let i = 0; i < cells.length; i++) {
+    isExplored[cells[i]] = 1;
+  }
+
+  const isBoundary = new Uint8Array(totalCells);
+  const boundaryCells: number[] = [];
 
   const neighbors: [number, number][] = [
     [-1, 0],
@@ -76,17 +83,19 @@ export function determineNoRoute(
     [1, 1],
   ];
 
-  for (const cell of cells) {
+  for (let i = 0; i < cells.length; i++) {
+    const cell = cells[i];
     const r = Math.floor(cell / width);
     const c = cell % width;
 
-    for (const [dr, dc] of neighbors) {
-      const nr = r + dr;
-      const nc = c + dc;
+    for (let k = 0; k < 8; k++) {
+      const nr = r + neighbors[k][0];
+      const nc = c + neighbors[k][1];
       if (nr >= 0 && nr < height && nc >= 0 && nc < width) {
         const nIdx = nr * width + nc;
-        if (!exploredSet.has(nIdx)) {
-          boundaryCells.add(nIdx);
+        if (isExplored[nIdx] === 0 && isBoundary[nIdx] === 0) {
+          isBoundary[nIdx] = 1;
+          boundaryCells.push(nIdx);
         }
       }
     }

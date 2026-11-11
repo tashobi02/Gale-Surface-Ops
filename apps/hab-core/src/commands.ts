@@ -7,7 +7,8 @@
  * Delegated (each stays in its owner's module, which checks its own args and state): SUMMON_VEHICLE
  * → engine/vehicles (T23.05), APPROVE_OPTION and ABORT → engine/contingencyOps (T23.07),
  * SEND_MESSAGE → engine/earth (TASK-26), TASK_ROVER → ./rover (FR-41, TASK-29), UPDATE_STOP_TASK and
- * ADD_STOP_TASK → engine/tasks (FR-50, T31.04; "own tasks" is checked there, 02 §E.4).
+ * ADD_STOP_TASK → engine/tasks (FR-50, T31.04; "own tasks" and the undo rules are checked there, 02 §E.4, §E.6).
+ * Every accepted PLAN_REVISED is followed by the TASK_DROPPED events of the stops it removed (`withTaskDrops`).
  * Rules where 02 is silent (proposed 2026-11-07, tests/commands.test.ts header): EVA "self" means
  * SUMMON_VEHICLE `args.crew` includes the issuer, and ACK_ALERT's alert has the issuer in `subjects`.
  *
@@ -32,8 +33,8 @@ import {
 } from "@marswalk/protocol";
 import { handleAbort, handleApproveOption } from "./engine/contingencyOps";
 import { handleSendMessage } from "./engine/earth";
-import type { CommandOutcome, EngineState, PendingEvent } from "./engine/reducer";
-import { handleAddStopTask, handleUpdateStopTask } from "./engine/tasks";
+import { logged, type CommandOutcome, type EngineState, type PendingEvent } from "./engine/reducer";
+import { handleAddStopTask, handleUpdateStopTask, onPlanRevised } from "./engine/tasks";
 import { handleSummon } from "./engine/vehicles";
 import { handleTaskRover } from "./rover";
 import { checkPlan, type LoadedScenario } from "./scenario";
@@ -117,7 +118,7 @@ export function handleCommand(state: EngineState, command: Command, ctx: Command
     checkRole(state, command);
     checkLink(state, command);
     const out = dispatch(state, command, ctx);
-    const events = out.events.map((e) => ({ ...e, command_ref: ref }));
+    const events = out.result.ok ? withTaskDrops(state, out.events, ctx.next_seq, ref) : out.events.map((e) => ({ ...e, command_ref: ref }));
     let result = out.result;
     if (result.ok) {
       result = { v: PROTOCOL_VERSION, type: "COMMAND_RESULT", command_id: command.command_id, ok: true, event_seq: events.length > 0 ? ctx.next_seq : result.event_seq };
@@ -130,6 +131,22 @@ export function handleCommand(state: EngineState, command: Command, ctx: Command
     if (err instanceof Rejection) return rejectedOutcome(state, command, ref, err.code, err.message);
     throw err;
   }
+}
+
+/**
+ * Gives the command's events its `command_ref` and, after each PLAN_REVISED of an accepted command (APPROVE_OPTION,
+ * ABORT, PUBLISH_PLAN), logs a TASK_DROPPED, actor `system`, for every open task at a stop the revision removed
+ * (01 FR-50, T31.04). `onPlanRevised` reads the state BEFORE the revision, which is `state` here (the command has
+ * not been reduced yet). Each drop is placed straight after its PLAN_REVISED, so the first event of the command,
+ * and `event_seq`, are unchanged. A drop is a system event: its `command_ref` is null (05 LogEvent).
+ */
+function withTaskDrops(state: EngineState, events: PendingEvent[], first_seq: number, ref: CommandRef): PendingEvent[] {
+  const out: PendingEvent[] = [];
+  for (const e of events) {
+    out.push({ ...e, command_ref: ref });
+    if (e.kind === "PLAN_REVISED") out.push(...onPlanRevised(state, logged(e, first_seq + out.length - 1)).map((d) => ({ ...d, command_ref: null })));
+  }
+  return out;
 }
 
 function rejectedOutcome(state: EngineState, command: Command, ref: CommandRef, code: RejectCode, message: string): HandledCommand {

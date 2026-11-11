@@ -26,7 +26,11 @@ export interface ProjectionOrigin {
   lat_ts?: number;
 }
 
-/** Default Gale crater / mock_site projection origin (02 §C.1, 05 §F.1). */
+/**
+ * Default Gale crater / mock_site projection origin (02 §C.1, 05 §F.1).
+ * TODO(decision): read the origin from the site manifest's working-projection `proj4` (05 §E.3) once a loader that
+ * reads the manifest exists; until then every grid uses this constant.
+ */
 export const DEFAULT_PROJECTION: ProjectionOrigin = {
   lat_0: -4.7,
   lon_0: 137.38,
@@ -221,6 +225,21 @@ export function samplePoint(
 }
 
 /**
+ * Profile slope class of one cell (02 §D.3): over_limit for no-data, hard hazard or slope above the hard limit,
+ * caution above the caution threshold, otherwise ok.
+ */
+function classifySlope(
+  slopeDeg: number | null,
+  isHazard: boolean,
+  cautionSlopeDeg: number,
+  hardSlopeLimitDeg: number,
+): "ok" | "caution" | "over_limit" {
+  if (slopeDeg === null || isHazard || slopeDeg > hardSlopeLimitDeg) return "over_limit";
+  if (slopeDeg > cautionSlopeDeg) return "caution";
+  return "ok";
+}
+
+/**
  * Elevation/slope profile along a cell path, sampled every 5 m (05 §C Leg.profile, FR-08).
  * Input: path as [x_m, y_m] pairs. Output: dist_m[], elev_m[], slope_class[], comm[].
  */
@@ -252,12 +271,28 @@ export function sampleProfile(
   const elev_m: number[] = [];
   const slope_class: ("ok" | "caution" | "over_limit")[] = [];
   const comm: (0 | 1)[] = [];
+  const hasComm = grid.commHab !== undefined;
+
+  // One place appends a sample, so dist_m, elev_m, slope_class and comm always stay equal in length.
+  const pushSample = (s: number, x: number, y: number): void => {
+    dist_m.push(s);
+    elev_m.push(interpolateElevation(grid, x, y));
+
+    const cIdx = cellIndex(grid, x, y);
+    if (cIdx === null) {
+      slope_class.push("over_limit");
+      if (hasComm) comm.push(0);
+      return;
+    }
+    const isHazard = (grid.flags[cIdx] & (1 << FLAG_BITS.HARD_HAZARD)) !== 0;
+    slope_class.push(classifySlope(decodeSlopeDeg(grid.slopeP90[cIdx]), isHazard, cautionSlopeDeg, hardSlopeLimitDeg));
+    if (hasComm) comm.push(grid.commHab[cIdx] === 1 ? 1 : 0);
+  };
 
   const sampleCount = totalDist === 0 ? 1 : Math.floor(totalDist / PROFILE_SPACING_M) + 1;
 
   for (let sIdx = 0; sIdx < sampleCount; sIdx++) {
     const s = sIdx * PROFILE_SPACING_M;
-    dist_m.push(s);
 
     let x = path[0][0];
     let y = path[0][1];
@@ -275,31 +310,16 @@ export function sampleProfile(
       y = path[segIdx][1] + t * (path[segIdx + 1][1] - path[segIdx][1]);
     }
 
-    const elev = interpolateElevation(grid, x, y);
-    elev_m.push(elev);
+    pushSample(s, x, y);
+  }
 
-    const cIdx = cellIndex(grid, x, y);
-    if (cIdx !== null) {
-      const rawSlope = grid.slopeP90[cIdx];
-      const slopeDeg = decodeSlopeDeg(rawSlope);
-      const flagByte = grid.flags[cIdx];
-      const isHazard = (flagByte & (1 << FLAG_BITS.HARD_HAZARD)) !== 0;
-
-      if (slopeDeg === null || isHazard || slopeDeg > hardSlopeLimitDeg) {
-        slope_class.push("over_limit");
-      } else if (slopeDeg > cautionSlopeDeg) {
-        slope_class.push("caution");
-      } else {
-        slope_class.push("ok");
-      }
-
-      if (grid.commHab && grid.commHab.length > cIdx) {
-        comm.push(grid.commHab[cIdx] === 1 ? 1 : 0);
-      }
-    } else {
-      slope_class.push("over_limit");
-      comm.push(0);
-    }
+  // Proposed, not specified: 05 §C says the profile is "sampled every 5 m" and does not mention the leg end, so a
+  // sample at the exact leg end when the length is not a multiple of 5 m is new contract behaviour. It moves where
+  // warnings.ts closes the last slope run (to_m is the leg length, not the last 5 m multiple).
+  // TODO(decision): record the leg-end sample in 05 §C Leg.profile or drop it (TASK-05 T05.17/T05.18).
+  if (totalDist > 0 && dist_m[dist_m.length - 1] < totalDist - 1e-6) {
+    const endPt = path[path.length - 1];
+    pushSample(totalDist, endPt[0], endPt[1]);
   }
 
   const result: LegProfile = {
@@ -307,8 +327,7 @@ export function sampleProfile(
     elev_m,
     slope_class,
   };
-
-  if (grid.commHab && comm.length === dist_m.length) {
+  if (hasComm) {
     result.comm = comm;
   }
 
