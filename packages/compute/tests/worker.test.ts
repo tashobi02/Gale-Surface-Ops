@@ -1,6 +1,6 @@
 import type { ComputePlanRequest, SamplePointRequest } from "@marswalk/protocol";
 import { describe, expect, it } from "vitest";
-import { makePlaneGrid, makeWallWithGapGrid } from "../../../apps/web/tests/fixtures/grids";
+import { makeHazardWallGrid, makePlaneGrid, makeWallWithGapGrid } from "../../../apps/web/tests/fixtures/grids";
 import { handleMessage, setWorkerGrid } from "../../../apps/web/src/worker/planWorker";
 import { handleWorkerMessage } from "../src/handler";
 
@@ -170,9 +170,97 @@ describe("compute worker handler and entry", () => {
       expect(res1).toEqual(res2);
       if (res1.type === "PLAN_RESULT") {
         expect(res1.computed_utc).toBe(new Date(fixedMs).toISOString());
-        expect(res1.timing_ms.estimates).toBeUndefined();
+        expect(res1.timing_ms.estimates).toBe(0);
         // Dwell stops counted from waypoints with role === 'stop' (2 stops out of 3 waypoints)
         expect(res1.totals?.dwell_time_min).toBe(2 * defaultComputeRequest.scenario.dwell_min_per_stop);
+      }
+    });
+
+    it("populates full PLAN_RESULT with stops_timeline, conditions, radiation, and timing_ms (T05.32, Contract C8)", () => {
+      const response = handleWorkerMessage(testGrid, defaultComputeRequest);
+      expect(response.type).toBe("PLAN_RESULT");
+      if (response.type === "PLAN_RESULT") {
+        expect(response.status).toBe("OK");
+
+        // Stops timeline populated via evaTimeline + C8 assembleConditions
+        expect(response.stops_timeline).toHaveLength(4); // 3 waypoints + return to hab loop
+        for (const stop of response.stops_timeline) {
+          expect(typeof stop.arrive_utc).toBe("string");
+          expect(typeof stop.depart_utc).toBe("string");
+          expect(stop.arrive_ltst).toMatch(/^\d{2}:\d{2}$/);
+          expect(typeof stop.sun_elevation_deg).toBe("number");
+          expect(Number.isFinite(stop.sun_elevation_deg)).toBe(true);
+        }
+
+        // Conditions block populated (05 §C PlanResult.conditions)
+        expect(response.conditions).toBeDefined();
+        expect(response.conditions?.mars_year).toBeGreaterThan(30);
+        expect(response.conditions?.ls_deg).toBeGreaterThanOrEqual(0);
+        expect(response.conditions?.ls_deg).toBeLessThan(360);
+        expect(response.conditions?.sunrise_ltst).toMatch(/^\d{2}:\d{2}$/);
+        expect(response.conditions?.sunset_ltst).toMatch(/^\d{2}:\d{2}$/);
+        expect(typeof response.conditions?.sunrise_utc).toBe("string");
+        expect(typeof response.conditions?.sunset_utc).toBe("string");
+
+        // Radiation block populated (05 §C PlanResult.radiation)
+        expect(response.radiation).toBeDefined();
+        expect(response.radiation?.solar_phase).toBe("max");
+        expect(response.radiation?.const_id).toBe("rad-gale-dose-eq-solar-max");
+        expect(response.radiation?.dose_mSv).toBeGreaterThan(0);
+        expect(response.radiation?.dose_low_mSv).toBeGreaterThan(0);
+        expect(response.radiation?.dose_high_mSv).toBeGreaterThan(0);
+        expect(response.radiation?.dose_low_mSv).toBeLessThan(response.radiation!.dose_mSv);
+        expect(response.radiation?.dose_mSv).toBeLessThan(response.radiation!.dose_high_mSv);
+
+        // Timing diagnostics (02 §E.2)
+        expect(typeof response.timing_ms.routing).toBe("number");
+        expect(response.timing_ms.routing).toBeGreaterThanOrEqual(0);
+        expect(typeof response.timing_ms.estimates).toBe("number");
+        expect(response.timing_ms.estimates).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it("handles PARTIAL plan with null totals and computes radiation from max_eva_duration_h (02 §E.2, T05.32)", () => {
+      // Wall grid dividing the field at col 10 with no gap
+      const wallGrid = makeHazardWallGrid({
+        width: 20,
+        height: 20,
+        cell_m: 5,
+        origin_m: [0, 0],
+      });
+      const blockedReq: ComputePlanRequest = {
+        ...defaultComputeRequest,
+        waypoints: [
+          { id: "wp-0", role: "start", x_m: 12.5, y_m: -12.5 }, // col 2 (left of wall)
+          { id: "wp-1", role: "stop", x_m: 87.5, y_m: -12.5 },  // col 17 (right of wall)
+        ],
+      };
+
+      const response = handleWorkerMessage(wallGrid, blockedReq);
+      expect(response.type).toBe("PLAN_RESULT");
+      if (response.type === "PLAN_RESULT") {
+        expect(response.status).toBe("PARTIAL");
+        expect(response.totals).toBeNull();
+        expect(response.legs[0].status).toBe("NO_ROUTE");
+
+        // stops_timeline still populated
+        expect(response.stops_timeline.length).toBeGreaterThan(0);
+
+        // radiation computed using scenario.max_eva_duration_h (6.0 h)
+        expect(response.radiation).toBeDefined();
+        expect(response.radiation?.solar_phase).toBe("max");
+        // 6 h * (0.64 mSv / 24 h) = 0.160 mSv
+        expect(response.radiation?.dose_mSv).toBeCloseTo(0.16, 2);
+      }
+    });
+
+    it("emits DARKNESS warning when sun elevation is negative (FR-10, T05.32)", () => {
+      // At eva_start_utc "2026-11-14T08:00:00Z", sun elevation at Gale crater is -4.03° (before sunrise at 08:16Z)
+      const response = handleWorkerMessage(testGrid, defaultComputeRequest);
+      expect(response.type).toBe("PLAN_RESULT");
+      if (response.type === "PLAN_RESULT") {
+        expect(response.stops_timeline[0].sun_elevation_deg).toBeLessThan(0);
+        expect(response.warnings.some((w) => w.code === "DARKNESS")).toBe(true);
       }
     });
   });

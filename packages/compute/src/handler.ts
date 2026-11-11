@@ -5,6 +5,7 @@
  */
 import type {
   ComputePlanRequest,
+  EnvConstant,
   PlanResult,
   PlanResultMessage,
   SamplePointRequest,
@@ -13,14 +14,45 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "@marswalk/protocol";
+import { assembleConditions } from "./conditions";
 import type { LoadedGrid } from "./grid";
 import { toLeg } from "./leg";
 import { searchLeg } from "./route";
-import { samplePoint } from "./sampling";
+import { DEFAULT_PROJECTION, samplePoint } from "./sampling";
 import { evaTimeline } from "./timeModel";
 import { validatePlanInput } from "./validate";
 import { maxWalkbackKm } from "./walkback";
 import { collectWarnings, countStops, planStatus } from "./warnings";
+
+/**
+ * Default environmental constants for Gale crater (05 §C; Hassler et al. 2014, Simonsen et al. 2024).
+ * Used when no custom envConstants are supplied in the request.
+ */
+export const DEFAULT_ENV_CONSTANTS: EnvConstant[] = [
+  {
+    const_id: "rad-gale-dose-eq-solar-max",
+    quantity: "surface dose equivalent rate",
+    value: 0.64,
+    low: 0.52,
+    high: 0.76,
+    unit: "mSv/day",
+    conditions: { solar_phase: "max", location: "Gale crater floor", period: "2012-2013" },
+    provenance: "measured",
+    source_id: "hassler-2014-rad",
+  },
+  {
+    const_id: "rad-gale-dose-eq-solar-min",
+    quantity: "surface dose equivalent rate",
+    value: 0.925,
+    low: 0.85,
+    high: 1.0,
+    unit: "mSv/day",
+    conditions: { solar_phase: "min", location: "Gale crater floor", period: "2019-2020" },
+    provenance: "measured",
+    source_id: "simonsen-2024-rad",
+    note: "reported range, Simonsen et al. 2024",
+  },
+];
 
 /**
  * Handle a worker request message against the currently loaded grid.
@@ -33,6 +65,8 @@ export function handleWorkerMessage(
   request: WorkerRequest,
   maxExpansions?: number,
   nowMs?: number,
+  envConstants?: EnvConstant[],
+  site?: { lat: number; lon_e: number },
 ): WorkerResponse {
   try {
     if (grid === null) {
@@ -49,7 +83,7 @@ export function handleWorkerMessage(
     }
 
     if (request.type === "COMPUTE_PLAN") {
-      return handleComputePlan(grid, request, maxExpansions, nowMs);
+      return handleComputePlan(grid, request, maxExpansions, nowMs, envConstants, site);
     }
 
     const req = request as unknown as Record<string, unknown>;
@@ -97,9 +131,11 @@ function handleComputePlan(
   request: ComputePlanRequest,
   maxExpansions?: number,
   nowMs?: number,
+  envConstants?: EnvConstant[],
+  site?: { lat: number; lon_e: number },
 ): PlanResultMessage | WorkerError {
   const currentWallTimeMs = nowMs ?? Date.now();
-  const startTime = currentWallTimeMs;
+  const routingStartTime = currentWallTimeMs;
 
   // 1. Validation before search (02 §E.3)
   const validationErrors = validatePlanInput(
@@ -150,6 +186,9 @@ function handleComputePlan(
     const leg = toLeg(grid, fromWp.id, toWp.id, search, request.scenario);
     legs.push(leg);
   }
+
+  const routingDurationMs = Math.max(1, (nowMs ?? Date.now()) - routingStartTime);
+  const estimatesStartTime = nowMs ?? Date.now();
 
   const hasNoRoute = legs.some((l) => l.status === "NO_ROUTE");
 
@@ -206,11 +245,33 @@ function handleComputePlan(
     };
   }
 
-  // 4. Timeline
-  // Schema (05 §C / schemas/plan-export.schema.json): stops_timeline is empty in the M3 slice
-  // until T06.09 fills real Mars24 solar position and LTST; no invented constants are shipped.
-  // TODO(TASK-06): populate stops_timeline with real Mars24 solar position and LTST (T06.09 / T05.32).
-  const stops_timeline: PlanResult["stops_timeline"] = [];
+  // 4. Timeline, conditions, and radiation (Contract C8; T06.09 / T05.32)
+  const legWalkMin = legs.map((l) => (l.status === "OK" ? l.walk_time_min : 0));
+  const rawTimeline = evaTimeline(request.scenario, waypoints, legWalkMin);
+  const durationH =
+    totals !== null
+      ? totals.eva_total_min / 60
+      : request.scenario.max_eva_duration_h;
+
+  const resolvedSite =
+    site ??
+    (request as unknown as { site?: { lat: number; lon_e: number } }).site ?? {
+      lat: DEFAULT_PROJECTION.lat_0,
+      lon_e: DEFAULT_PROJECTION.lon_0,
+    };
+
+  const resolvedEnvConstants =
+    envConstants ??
+    (request as unknown as { envConstants?: EnvConstant[] }).envConstants ??
+    DEFAULT_ENV_CONSTANTS;
+
+  const { stops_timeline, conditions, radiation } = assembleConditions({
+    site: resolvedSite,
+    timeline: rawTimeline,
+    scenario: request.scenario,
+    envConstants: resolvedEnvConstants,
+    durationH,
+  });
 
   // 5. Warnings and plan status
   const warnings = collectWarnings(
@@ -219,10 +280,11 @@ function handleComputePlan(
     stops_timeline,
     maxWbKm,
     grid,
+    waypoints,
   );
   const status = planStatus(legs, warnings);
 
-  const routingDurationMs = Math.max(1, (nowMs ?? Date.now()) - startTime);
+  const estimatesDurationMs = Math.max(0, (nowMs ?? Date.now()) - estimatesStartTime);
 
   return {
     type: "PLAN_RESULT",
@@ -232,10 +294,13 @@ function handleComputePlan(
     legs,
     totals,
     stops_timeline,
+    conditions,
+    radiation,
     warnings,
     computed_utc: new Date(currentWallTimeMs).toISOString(),
     timing_ms: {
       routing: routingDurationMs,
+      estimates: estimatesDurationMs,
     },
   };
 }
