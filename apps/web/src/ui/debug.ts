@@ -1,182 +1,190 @@
 /**
- * Debug diagnostics overlay (?debug=1) (NFR-11, 02 §F, 05 §E.1).
- * Implemented by T07.13.
+ * Debug diagnostics overlay for `?debug=1` (T07.13; NFR-11, 02 §F, 05 §E.1; C10 v2 React component).
  *
- * - When enabled (?debug=1 or options.enabled), displays:
- *     - FPS counter (rendered frame frequency)
- *     - Worker solve timings (timing_ms from the latest PlanResult)
- *     - Grid cell [i, j] under the pointer (using 05 §E.1 addressing on manifest grid)
- *     - Site data_version
- * - When not enabled, renders nothing and registers no timers or event listeners.
- * - Out of print: excluded from printing via @media print { display: none !important; }.
+ * Shows FPS, the timings of the latest PLAN_RESULT, the routing-grid cell under the pointer and the site data
+ * version. Without `ctx.debug` it renders nothing and registers nothing (no listener, no animation frame).
+ *
+ * - A value that has not been measured yet reads "—" (flagged `data-unavailable`), never a placeholder number: FPS
+ *   until a full second of frames has been counted, the worker timing until a PLAN_RESULT arrives, the cell until
+ *   the pointer moves over the map.
+ * - Every value carries `data-provenance` and `data-source` (FR-15): FPS and worker timings are `measured` in this
+ *   browser, the cell is `derived` from the manifest grid by the 05 §E.1 formula, the data version is `derived`
+ *   from the manifest.
+ * - Text nodes only (React); print is suppressed by a real `@media print` rule; chrome uses design tokens and the
+ *   12 px minimum (04 §C.2).
  */
+import { createElement, useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
+import type { RoutingGrid } from "@marswalk/protocol";
+import type { AppContext } from "./context";
+import { UNAVAILABLE, provAttrs, unavailableOf, type Sourced } from "./components/provenance";
 
-export interface GridMetadata {
-  cell_m: number;
-  origin_m: [number, number]; // [origin_x, origin_y]
-  width: number;
-  height: number;
-}
+/** The parts of the manifest grid the cell address needs (05 §C RoutingGrid). */
+export type GridMetadata = Pick<RoutingGrid, "cell_m" | "origin_m" | "width" | "height">;
 
 export interface GridCell {
+  /** Row, counted from the north edge. */
   i: number;
+  /** Column, counted from the west edge. */
   j: number;
 }
 
-export interface DebugOverlayOptions {
-  enabled?: boolean;
-  container?: HTMLElement;
-  dataVersion?: string;
-  grid?: GridMetadata;
-}
-
-export interface DebugOverlayController {
-  updateTiming(timing_ms: number): void;
-  updateCursor(x_m: number, y_m: number): void;
-  destroy(): void;
-}
-
 /**
- * Computes grid cell index [i, j] from working-projection metres per 05 §E.1:
- * i = floor((origin_y − y) / cell)
- * j = floor((x − origin_x) / cell)
- *
- * Returns null if (x, y) lies outside grid bounds.
+ * Grid cell of a point in working-projection metres, 05 §E.1:
+ * `i = floor((origin_y − y)/cell)`, `j = floor((x − origin_x)/cell)`. Null outside the grid.
  */
-export function computeGridCell(
-  x_m: number,
-  y_m: number,
-  grid: GridMetadata
-): GridCell | null {
+export function computeGridCell(x_m: number, y_m: number, grid: GridMetadata): GridCell | null {
   const [originX, originY] = grid.origin_m;
   const j = Math.floor((x_m - originX) / grid.cell_m);
   const i = Math.floor((originY - y_m) / grid.cell_m);
-
-  if (i < 0 || i >= grid.height || j < 0 || j >= grid.width) {
-    return null;
-  }
+  if (i < 0 || i >= grid.height || j < 0 || j >= grid.width) return null;
   return { i, j };
 }
 
-/**
- * Checks whether debug diagnostics are enabled via URL parameter (?debug=1).
- */
-export function isDebugParamEnabled(): boolean {
-  try {
-    if (typeof window === "undefined" || !window.location) return false;
-    const params = new URLSearchParams(window.location.search);
-    return params.get("debug") === "1";
-  } catch {
-    return false;
-  }
+/** True when the query string has `debug=1` (URL_PARAMS.DEBUG in context.ts). Defaults to the page's own. */
+export function isDebugParamEnabled(search?: string): boolean {
+  const query = search ?? (typeof window !== "undefined" ? window.location.search : "");
+  return new URLSearchParams(query).get("debug") === "1";
 }
 
-/**
- * Initializes the debug overlay if enabled.
- * If not enabled, registers no timers or DOM nodes and returns null.
- */
-export function initDebugOverlay(
-  options: DebugOverlayOptions = {}
-): DebugOverlayController | null {
-  const isEnabled = options.enabled !== undefined ? options.enabled : isDebugParamEnabled();
-  if (!isEnabled) {
-    return null;
-  }
+export interface DebugOverlayProps {
+  ctx: AppContext;
+}
 
-  const container = options.container ?? document.body;
-  const dataVersion = options.dataVersion ?? "unknown";
-  const grid = options.grid;
+/** The pointer events of the map handle's OpenLayers map that the overlay listens to (C10: `getMap` is untyped). */
+interface PointerSource {
+  on(type: "pointermove", listener: (event: { coordinate: number[] }) => void): unknown;
+  un(type: "pointermove", listener: (event: { coordinate: number[] }) => void): void;
+}
 
-  let currentFps = 60;
-  let frameCount = 0;
-  let lastFpsTime = performance.now();
-  let rafId: number | null = null;
-  let currentTimingMs: number | null = null;
-  let currentCellStr = "—";
+const PRINT_CSS = "@media print { [data-testid='debug-overlay'] { display: none !important; } }";
 
-  // Create overlay element
-  const overlay = document.createElement("div");
-  overlay.setAttribute("data-testid", "debug-overlay");
-  overlay.className = "debug-overlay no-print";
-  overlay.style.cssText = [
-    "position:fixed",
-    "top:8px",
-    "left:8px",
-    "z-index:9999",
-    "background:rgba(10,14,20,0.85)",
-    "border:1px solid #2e3846",
-    "border-radius:4px",
-    "padding:6px 10px",
-    "font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace",
-    "font-size:11px",
-    "line-height:1.4",
-    "color:#e8edf2",
-    "pointer-events:none",
-    "user-select:none",
-    "@media print{display:none !important}",
-  ].join(";");
+const PANEL: CSSProperties = {
+  position: "fixed",
+  top: "8px",
+  left: "8px",
+  zIndex: 9999,
+  padding: "6px 10px",
+  background: "var(--panel)",
+  border: "1px solid var(--edge)",
+  color: "var(--text-1)",
+  fontFamily: "var(--font-mono)",
+  fontSize: "var(--text-micro)",
+  lineHeight: "var(--line-height-ui)",
+  pointerEvents: "none",
+  userSelect: "none",
+};
 
-  // Inject print suppression style tag if not present
-  if (typeof document !== "undefined" && !document.getElementById("debug-overlay-print-style")) {
-    const style = document.createElement("style");
-    style.id = "debug-overlay-print-style";
-    style.textContent = "@media print { .debug-overlay, [data-testid='debug-overlay'] { display: none !important; } }";
-    document.head?.appendChild(style);
-  }
+/** One diagnostic line: label, then the value with its provenance and source. */
+function Row(props: { name: string; label: string; text: string; sourced: Sourced }): ReactElement {
+  return createElement(
+    "div",
+    { "data-debug": props.name, ...provAttrs(props.sourced) },
+    createElement("span", { style: { color: "var(--text-2)" } }, `${props.label} `),
+    createElement("span", { style: { fontWeight: 600 } }, props.text),
+  );
+}
 
-  function render(): void {
-    const timingStr = currentTimingMs !== null ? `${currentTimingMs.toFixed(1)} ms` : "—";
-    overlay.innerHTML = `
-      <div style="font-weight:600; color:#4cc9f0; margin-bottom:2px;">[ DIAGNOSTICS /// ?debug=1 ]</div>
-      <div>FPS: <span style="font-weight:600;">${currentFps}</span></div>
-      <div>Worker: <span style="font-weight:600;">${timingStr}</span></div>
-      <div>Cell: <span style="font-weight:600;">${currentCellStr}</span></div>
-      <div>Data: <span style="color:#9ca3af;">${dataVersion}</span></div>
-    `;
-  }
-
-  render();
-  container.appendChild(overlay);
-
-  // FPS measurement loop
-  function measureFps(now: number): void {
-    frameCount++;
-    const delta = now - lastFpsTime;
-    if (delta >= 1000) {
-      currentFps = Math.round((frameCount * 1000) / delta);
-      frameCount = 0;
-      lastFpsTime = now;
-      render();
-    }
-    rafId = requestAnimationFrame(measureFps);
-  }
-
-  if (typeof requestAnimationFrame === "function") {
-    rafId = requestAnimationFrame(measureFps);
-  }
-
-  return {
-    updateTiming(timing_ms: number): void {
-      currentTimingMs = timing_ms;
-      render();
-    },
-
-    updateCursor(x_m: number, y_m: number): void {
-      if (grid) {
-        const cell = computeGridCell(x_m, y_m, grid);
-        currentCellStr = cell ? `[${cell.i}, ${cell.j}]` : "outside grid";
+/** Frames per second over each full second of animation frames; null until the first second is complete. */
+function useFps(): number | null {
+  const [fps, setFps] = useState<number | null>(null);
+  useEffect(() => {
+    if (typeof requestAnimationFrame !== "function") return;
+    let frames = 0;
+    let windowStart: number | null = null;
+    let handle: number | null = null;
+    const tick = (now: number): void => {
+      if (windowStart === null) {
+        windowStart = now;
       } else {
-        currentCellStr = `${x_m.toFixed(0)}, ${y_m.toFixed(0)}`;
+        frames += 1;
+        if (now - windowStart >= 1000) {
+          setFps(Math.round((frames * 1000) / (now - windowStart)));
+          frames = 0;
+          windowStart = now;
+        }
       }
-      render();
-    },
+      handle = requestAnimationFrame(tick);
+    };
+    handle = requestAnimationFrame(tick);
+    return () => {
+      if (handle !== null && typeof cancelAnimationFrame === "function") cancelAnimationFrame(handle);
+    };
+  }, []);
+  return fps;
+}
 
-    destroy(): void {
-      if (rafId !== null && typeof cancelAnimationFrame === "function") {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-      overlay.remove();
-    },
-  };
+function DebugPanel({ ctx }: DebugOverlayProps): ReactElement {
+  const fps = useFps();
+  const [timing, setTiming] = useState<Record<string, number> | null>(null);
+  // `undefined`: pointer not seen yet; `null`: outside the grid
+  const [cell, setCell] = useState<GridCell | null | undefined>(undefined);
+  const grid = useRef<GridMetadata>(ctx.site.site.grid);
+  grid.current = ctx.site.site.grid;
+
+  useEffect(
+    () =>
+      ctx.workerClient.onMessage((message) => {
+        if (message.type === "PLAN_RESULT") setTiming(message.timing_ms);
+      }),
+    [ctx.workerClient],
+  );
+
+  useEffect(() => {
+    if (!ctx.mapHandle) return;
+    const map = ctx.mapHandle.getMap<PointerSource>();
+    const onMove = (event: { coordinate: number[] }): void => {
+      const [x, y] = event.coordinate;
+      setCell(computeGridCell(x, y, grid.current));
+    };
+    map.on("pointermove", onMove);
+    return () => map.un("pointermove", onMove);
+  }, [ctx.mapHandle]);
+
+  const timingText =
+    timing === null
+      ? UNAVAILABLE
+      : Object.entries(timing)
+          .map(([name, ms]) => `${name} ${ms.toFixed(1)} ms`)
+          .join(", ");
+  const cellText = cell === undefined ? UNAVAILABLE : cell === null ? "outside grid" : `[${cell.i}, ${cell.j}]`;
+
+  return createElement(
+    "div",
+    { "data-testid": "debug-overlay", role: "group", "aria-label": "Diagnostics", style: PANEL },
+    createElement("style", null, PRINT_CSS),
+    createElement("div", { style: { color: "var(--text-2)" } }, "DIAGNOSTICS ?debug=1"),
+    createElement(Row, {
+      name: "fps",
+      label: "FPS",
+      text: fps === null ? UNAVAILABLE : String(fps),
+      sourced: fps === null ? unavailableOf("measured", "debug.fps") : { prov: "measured", src: "browser:requestAnimationFrame" },
+    }),
+    createElement(Row, {
+      name: "worker",
+      label: "Worker",
+      text: timingText,
+      sourced: timing === null ? unavailableOf("measured", "debug.worker_timing_ms") : { prov: "measured", src: "worker:PLAN_RESULT.timing_ms" },
+    }),
+    createElement(Row, {
+      name: "cell",
+      label: "Cell",
+      text: cellText,
+      sourced: cell === undefined ? unavailableOf("derived", "debug.grid_cell") : { prov: "derived", src: "manifest:grid (05 §E.1)" },
+    }),
+    createElement(Row, {
+      name: "data-version",
+      label: "Data",
+      text: ctx.site.site.data_version,
+      sourced: { prov: "derived", src: "manifest:data_version" },
+    }),
+  );
+}
+
+/** The `?debug=1` overlay: nothing at all unless `ctx.debug` (NFR-11). */
+export function DebugOverlay(props: DebugOverlayProps): ReactElement {
+  return props.ctx.debug ? createElement(DebugPanel, { ctx: props.ctx }) : createElement(NothingToShow);
+}
+
+function NothingToShow(): null {
+  return null;
 }
