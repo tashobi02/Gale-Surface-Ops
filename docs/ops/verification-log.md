@@ -449,6 +449,7 @@ All five match. Over the ten points: 9 match, 1 does not.
 - CSS pattern classes (`.status-nominal`, `.status-caution`, `.status-warning`, `.status-unknown`) implemented in `apps/web/src/ui/styles/patterns.css`.
 - Consumers documented in `patterns.css` header: status banner, warnings list, legend swatches, briefing card, StatusIcon.
 - Hands on to: T07.09 (legend swatches), T09.03 (status banner), T09.04 (warnings list), T11.03 (briefing card), T14.04 (SCR-00 error view).
+- Follow-up 2026-11-11 (design-system review, slice L): the "Node / SSR robustness" row above no longer holds. The hand-written mock fallback was removed, so `renderStatusIcon` now requires a DOM document (it throws without one; server rendering uses the React `StatusIcon`), and `statusIcon.test.ts` runs the real DOM branch under jsdom. Icon-only (`showWord: false`) static indicators now carry `role="img"` with the `aria-label`.
 
 ## T05.28 — Verify on the real grid: 10 sampled cells; 20 pairs p50/p95; 3-stop loop ≤ 2 s
 
@@ -498,3 +499,12 @@ The measurements above are preserved as recorded. They establish a baseline on t
 - [ADR-002](../decisions/ADR-002-static-app-no-backend.md) cites different figures (1.22/8.79 ms, 10.19 ms) that do not appear in this section. See its 2026-11-09 reconciliation note; its decision is preserved.
 - TODO(verify): Obtain the gale_boxwork bundle and ten independent F5 cell records, resolve the F5 slope-raster choice with T03.21, and record real-grid pair timings plus repeated successful three-stop-loop p95 with machine, runtime and data_version. Mock-site and single-run timings do not establish this acceptance.
 - TODO(verify): Locate the run cited by ADR-002. TODO(decision): The compute lead must review the reconciled real-grid evidence and D-02 sign-off; preserve the existing ADR decision during this repair.
+
+## Corrections 2026-11-11 (audit)
+
+An independent audit on 11 Nov checked the T13 entries above against the files on `main` (after #167). The old entries are left as written; these lines supersede them. The matching rows in [status.md](../tasks/status.md) are `wip`. Owner of the follow-up: Sadman Shaharier Mahim (takeover PR #192).
+
+- **T13.04, "Focus ring ... Verified".** Not supported when written. The 2026-11-08 text claimed a single `:focus-visible` rule, but the rule was added to every mode only in #167 (one rule driven by a per-mode `--focus-ring`, with `baseStyles.test.ts` as its guard); the check is a stylesheet-text test, and no rendered page was tabbed through, because SCR-01 and SCR-02 are stubs.
+- **T13.04, "no text renders below 12 px".** False: `.code` and `.module-label` in `tokens.css` are set to 11 px. The "Verified against 04 §C.2" line is also contradicted by the headings: h1 is 20 px/600, not uppercase, and its Chakra Petch is declared but not self-hosted; h2/h3 are Inter 16 px/600 (04 v2 §C.2 specifies Chakra Petch 20–28 px/500 uppercase), where 04 v2 §C.2 specifies Chakra Petch 20–28 px at 500 uppercase. "Verified offline, zero external requests" cites a build and `@font-face` rules but no recorded network trace.
+- **T13.05, "Done" / "Print preview Pass" / "100 % compliant".** Not supported. No print preview or B&W print output was produced or recorded; the `@media print` rules were only read. "100 %" is not a measured quantity (the only automated check is five jsdom tests in `statusIcon.test.ts`). The print colours `#F3F4F6`, `#D1D5DB` and `#4B5563` that the print theme uses are not defined in 04 §C.1 (`TODO(decision)` in `tokens.css`).
+- **T13.06, "implemented and verified".** Not supported. `attachKeyboardControls` in `keyboard.ts` is imported only by its own test; SCR-02 (`MapWorkspace`) still throws "not implemented", so the shortcuts cannot be exercised in the app and no manual keyboard check was possible. At that date there were no unit tests either; #167 added 10 in `keyboard.test.ts`, which cover the module in isolation only.

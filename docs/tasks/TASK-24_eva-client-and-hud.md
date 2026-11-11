@@ -65,7 +65,7 @@
 
 ### T24.02 — Tests: EVA view model on the mock fixtures
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -86,7 +86,7 @@
 
 ### T24.03 — Implement the EVA view model
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -106,7 +106,7 @@
 
 ### T24.04 — Implement SCR-12 EVA tablet layout with fixed geography
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -128,7 +128,7 @@
 
 ### T24.05 — Implement hold-to-confirm and wire SUMMON, ABORT and TASK ROVER
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -150,7 +150,7 @@
 
 ### T24.06 — Implement SCR-14 options sheet (EVA)
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -171,7 +171,7 @@
 
 ### T24.07 — Implement SCR-18 hab-link-lost overlay with cached, stale-labelled values
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -192,7 +192,7 @@
 
 ### T24.08 — Implement SCR-13 HUD
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -213,7 +213,7 @@
 
 ### T24.09 — Implement the full-screen EVA map with its controls
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI); Saba Atharique (R3) reviews the map code
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core); Saba Atharique (R3) reviews the map code — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -235,7 +235,7 @@
 
 ### T24.10 — Tests: EVA DOM tests (fixed geography, targets, hold-to-confirm, HUD, link lost, full-screen map)
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted

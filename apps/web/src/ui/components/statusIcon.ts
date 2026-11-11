@@ -12,6 +12,7 @@
  * - advisory:       ◆ diamond,  dotted pattern,  "ADVISORY" (Proposed)
  * - The icon glyph is aria-hidden="true" when the status word is shown as text.
  * - role="status" is placed ONLY on live indicators (options.live === true), not on static icons.
+ * - Icon-only (showWord=false) static indicators carry role="img" with the word as aria-label.
  */
 
 import { createElement, type ReactElement } from "react";
@@ -87,53 +88,17 @@ export function renderStatusIcon(status: ExtendedStatus, options?: StatusIconOpt
   const live = options?.live ?? false;
 
   if (typeof document === "undefined") {
-    // SSR / Node testing fallback
-    interface MockNode {
-      className: string;
-      textContent: string;
-      attributes: Record<string, string>;
-      children: MockNode[];
-      setAttribute(k: string, v: string): void;
-      getAttribute(k: string): string | null;
-      appendChild(child: MockNode): void;
-      querySelector(selector: string): MockNode | null;
-    }
-    const createMockNode = (className: string, textContent = ""): MockNode => ({
-      className,
-      textContent,
-      attributes: {},
-      children: [],
-      setAttribute(k: string, v: string) { this.attributes[k] = v; },
-      getAttribute(k: string) { return this.attributes[k] ?? null; },
-      appendChild(c: MockNode) { this.children.push(c); },
-      querySelector(selector: string) {
-        if (selector === ".status-glyph") return this.children.find(c => c.className === "status-glyph") ?? null;
-        if (selector === ".status-label") return this.children.find(c => c.className === "status-label") ?? null;
-        return null;
-      },
-    });
-
-    const container = createMockNode(`status-indicator status-${status} status-${normalized}${extraClass}`);
-    if (live) container.setAttribute("role", "status");
-    container.setAttribute("data-status", status);
-
-    const glyphSpan = createMockNode("status-glyph", glyph);
-    glyphSpan.setAttribute("aria-hidden", showWord ? "true" : "false");
-    container.appendChild(glyphSpan);
-
-    if (showWord) {
-      const labelSpan = createMockNode("status-label", word);
-      container.appendChild(labelSpan);
-    } else {
-      container.setAttribute("aria-label", word);
-    }
-    return container as unknown as HTMLElement;
+    // No hand-written stand-in: tests use jsdom (tests/ui/domHarness.ts) so the real branch below is what runs.
+    throw new Error("renderStatusIcon needs a DOM document; use the StatusIcon React component for server rendering");
   }
 
   const container = document.createElement("span");
   container.className = `status-indicator status-${status} status-${normalized}${extraClass}`;
   if (live) {
     container.setAttribute("role", "status");
+  } else if (!showWord) {
+    // An aria-label on a role-less span is not reliably announced; icon-only is an image with a name.
+    container.setAttribute("role", "img");
   }
   container.setAttribute("data-status", status);
 
@@ -185,7 +150,7 @@ export function StatusIcon({
     "span",
     {
       className: `status-indicator status-${status} status-${normalized} ${className}`.trim(),
-      role: live ? "status" : undefined,
+      role: live ? "status" : showWord ? undefined : "img",
       "data-status": status,
       "aria-label": showWord ? undefined : displayWord,
     },
