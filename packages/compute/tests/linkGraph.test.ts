@@ -170,3 +170,81 @@ describe("linkStates (02 §A.5, §D.11; FR-42)", () => {
     expect(HAB_NODE_ID).toBe("HAB");
   });
 });
+
+describe("linkStates ranges come from the ParamSet (02 §D.11 ranges; 05 ParamSet `link`)", () => {
+  const T = "2026-11-10T12:00:00Z";
+  const allLos = () => true;
+  const withValues = (values: Record<string, number | boolean>): ParamSet => ({ ...mockParams, values });
+  const neighborsOf = (states: LinkNodeState[], id: string): string[] =>
+    states.find((s) => s.node_id === id)!.neighbors;
+
+  it("suit to suit at 2.1 km is not linked, but a suit at 2.1 km from the hab is", () => {
+    const suitSuitM = mockParams.values.range_suit_suit_m as number;
+    const habSuitM = mockParams.values.range_hab_suit_m as number;
+    const d = suitSuitM + 100; // 2.1 km with the committed ParamSet
+    expect(d).toBeLessThanOrEqual(habSuitM);
+
+    const a: LinkNode = { node_id: "EV1", kind: "suit", x_m: d, y_m: 0, antenna_m: 2 };
+    const b: LinkNode = { node_id: "EV2", kind: "suit", x_m: 2 * d, y_m: 0, antenna_m: 2 };
+    // EV1 is d from the hab (linked); EV2 is d from EV1 (suit-suit, too far) and 2d from the hab (hab-suit, fine
+    // in range) but the hab has no LOS to EV2 here, so only the suit-suit rule can decide EV2.
+    const los = (u: LinkNode, v: LinkNode) => !(u.node_id === "EV2" && v.node_id === "HAB") && !(u.node_id === "HAB" && v.node_id === "EV2");
+    const states = linkStates([hab, a, b], los, mockParams, T);
+    expect(neighborsOf(states, "EV1")).toEqual(["HAB"]);
+    expect(neighborsOf(states, "EV1")).not.toContain("EV2");
+    expect(states.find((s) => s.node_id === "EV2")!.linked_to_hab).toBe(false);
+  });
+
+  it("rover range is inclusive at exactly range_rover_m and exclusive one metre beyond", () => {
+    const roverM = mockParams.values.range_rover_m as number;
+    const onEdge: LinkNode = { node_id: "RR1", kind: "rover", x_m: roverM, y_m: 0, antenna_m: 2.5 };
+    const beyond: LinkNode = { node_id: "RR2", kind: "rover", x_m: 0, y_m: roverM + 1, antenna_m: 2.5 };
+    const states = linkStates([hab, onEdge, beyond], allLos, mockParams, T);
+    expect(neighborsOf(states, "RR1")).toContain("HAB");
+    expect(states.find((s) => s.node_id === "RR1")!.linked_to_hab).toBe(true);
+    expect(neighborsOf(states, "RR2")).not.toContain("HAB");
+  });
+
+  it("uses the ParamSet value, not a built-in one: a shorter suit-suit range cuts a 1.5 km edge", () => {
+    const a: LinkNode = { node_id: "EV1", kind: "suit", x_m: 1000, y_m: 0, antenna_m: 2 };
+    const b: LinkNode = { node_id: "EV2", kind: "suit", x_m: 2500, y_m: 0, antenna_m: 2 };
+    const noHabToB = (u: LinkNode, v: LinkNode) => ![u.node_id, v.node_id].every((id) => id === "HAB" || id === "EV2");
+    const wide = linkStates([hab, a, b], noHabToB, mockParams, T);
+    expect(neighborsOf(wide, "EV1")).toContain("EV2");
+    const narrow = linkStates([hab, a, b], noHabToB, withValues({ ...mockParams.values, range_suit_suit_m: 1000 }), T);
+    expect(neighborsOf(narrow, "EV1")).not.toContain("EV2");
+  });
+
+  it.each(["range_hab_suit_m", "range_suit_suit_m", "range_rover_m"])(
+    "throws RangeError naming %s when the ParamSet lacks it",
+    (key) => {
+      const values = { ...mockParams.values };
+      delete values[key];
+      expect(() => linkStates([hab], allLos, withValues(values), T)).toThrow(RangeError);
+      expect(() => linkStates([hab], allLos, withValues(values), T)).toThrow(key);
+    },
+  );
+
+  it.each([
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+    ["a negative number", -1],
+    ["a boolean", true],
+  ])("throws RangeError when a range is %s (a NaN range must not mean unlimited range)", (_label, bad) => {
+    for (const key of ["range_hab_suit_m", "range_suit_suit_m", "range_rover_m"]) {
+      const values = { ...mockParams.values, [key]: bad };
+      expect(() => linkStates([hab], allLos, withValues(values), T)).toThrow(RangeError);
+    }
+  });
+
+  it("orders neighbours and breaks BFS ties by UTF-16 code unit, not by locale", () => {
+    // Code-unit order puts "Z" (0x5A) before "a" (0x61); localeCompare puts "a" first.
+    const rz: LinkNode = { node_id: "Z", kind: "rover", x_m: 1000, y_m: 500, antenna_m: 2.5 };
+    const ra: LinkNode = { node_id: "a", kind: "rover", x_m: 1000, y_m: -500, antenna_m: 2.5 };
+    const ev: LinkNode = { node_id: "EV1", kind: "suit", x_m: 2000, y_m: 0, antenna_m: 2 };
+    const noDirect = (u: LinkNode, v: LinkNode) => ![u.node_id, v.node_id].every((id) => id === "HAB" || id === "EV1");
+    const states = linkStates([hab, ra, rz, ev], noDirect, mockParams, T);
+    expect(neighborsOf(states, "HAB")).toEqual(["Z", "a"]);
+    expect(states.find((s) => s.node_id === "EV1")!.path_to_hab).toEqual(["EV1", "Z", "HAB"]);
+  });
+});
