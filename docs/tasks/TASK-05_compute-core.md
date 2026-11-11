@@ -460,6 +460,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `npx vitest run tests/compute/sampling.test.ts` (run in `apps/web/`).
 - **Agent brief:** Implement `samplePoint` and `sampleProfile` in `packages/compute/src/sampling.ts` until `packages/compute/tests/sampling.test.ts` passes, following 02 §D.1 and the T05.01 projection decision. No DOM, no fetch.
 - **Conflict notes:** Stacks on T05.06's branch. Snap offers work at run time only after T05.20 merges; until then the UI uses the F3 mock worker. Profile spacing is the 05 Leg value (5 m) even if T03.24 moves the grid to 10 m cells.
+- **Follow-up (2026-11-11):** TODO(decision): `sampleProfile` appends a sample at the exact leg end when the leg length is not a multiple of 5 m, which 05 §C ("sampled every 5 m") does not specify. It is Proposed behaviour from review of #208: it also moves the `to_m` of the last `OVER_HARD_SLOPE` or `CAUTION_SLOPE` run in `warnings.ts` from the last 5 m multiple to the leg length. Record it in 05 §C `Leg.profile` or drop it.
 
 ### T05.18 — Implement the A* least-time search
 

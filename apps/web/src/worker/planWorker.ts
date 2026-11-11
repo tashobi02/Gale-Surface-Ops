@@ -7,7 +7,7 @@
  * cancellation and grid delivery are not (TASK-05 T05.18, T05.27: TODO(decision)).
  * Input validation (02 §E.3) happens in the pure handler → INVALID_INPUT.
  */
-import type { WorkerRequest, WorkerResponse } from "@marswalk/protocol";
+import type { PlanResultMessage, WorkerRequest, WorkerResponse } from "@marswalk/protocol";
 import { handleWorkerMessage, type LoadedGrid } from "@marswalk/compute";
 
 let currentGrid: LoadedGrid | null = null;
@@ -43,28 +43,36 @@ export function handleMessage(request: WorkerRequest): WorkerResponse {
   const elapsedMs = performance.now() - startMs;
 
   if (response.type === "PLAN_RESULT") {
-    return {
+    const planResultMsg = {
       ...response,
       computed_utc: new Date().toISOString(),
       timing_ms: { total: elapsedMs },
-    };
+    } satisfies PlanResultMessage;
+    return planResultMsg;
   }
-  return response;
+  return response satisfies WorkerResponse;
 }
 
-// Wire worker onmessage when running in a Worker global scope
-const workerScope = globalThis as unknown as {
-  onmessage?: ((event: { data: WorkerRequest }) => void) | null;
+// Wire worker onmessage only when running in a genuine Worker global scope (02 §A.1, #61)
+const g = globalThis as unknown as {
+  WorkerGlobalScope?: new () => unknown;
+  self?: unknown;
   postMessage?: (message: unknown) => void;
+  onmessage?: ((event: { data: WorkerRequest }) => void) | null;
 };
 
-if (typeof workerScope.postMessage === "function") {
-  workerScope.onmessage = (event: { data: WorkerRequest }) => {
+const isWorkerScope =
+  typeof g.WorkerGlobalScope === "function" &&
+  typeof g.self !== "undefined" &&
+  g.self instanceof g.WorkerGlobalScope;
+
+if (isWorkerScope && typeof g.postMessage === "function") {
+  g.onmessage = (event: { data: WorkerRequest }) => {
     try {
       const response = handleMessage(event.data);
-      workerScope.postMessage!(response);
+      g.postMessage!(response);
     } catch (err) {
-      workerScope.postMessage!({
+      g.postMessage!({
         type: "ERROR",
         request_id: event.data?.request_id ?? "unknown",
         code: "INTERNAL",
