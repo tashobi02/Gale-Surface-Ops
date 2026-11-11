@@ -9,6 +9,10 @@
  * - ?: opens Sources & Methods (#/sources) (03 SCR-02).
  * - A and Enter are deliberately NOT bound here (reserved for T08.07 add-stop crosshair mode).
  * - Shortcuts are ignored when focus is in an input or editable field.
+ * - Arrow keys are never hijacked (no preventDefault, no pan) when focus is inside a composite widget
+ *   (radio group, listbox, menu, slider, tabs, ...): those own the arrows (04 §E, WAI-ARIA APG).
+ * - TODO(T07.x): attachKeyboardControls is deliberately not mounted yet; it waits on the map workspace
+ *   (Saba, T07.x) providing a focusable map element through KeyboardMapHandle.getTargetElement.
  * - Instant view transitions when prefers-reduced-motion is active (04 §E Motion).
  */
 
@@ -59,7 +63,54 @@ export function isEditableElement(target: EventTarget | null): boolean {
   if (tag === "textarea" || tag === "select") {
     return true;
   }
-  return target.isContentEditable;
+  return Boolean(target.isContentEditable);
+}
+
+/** ARIA roles whose widgets use the arrow keys themselves (WAI-ARIA Authoring Practices composite widgets). */
+const COMPOSITE_ROLES = [
+  "radiogroup",
+  "radio",
+  "listbox",
+  "option",
+  "menu",
+  "menubar",
+  "menuitem",
+  "menuitemradio",
+  "menuitemcheckbox",
+  "slider",
+  "spinbutton",
+  "scrollbar",
+  "tablist",
+  "tab",
+  "tree",
+  "treeitem",
+  "grid",
+  "treegrid",
+  "combobox",
+  "toolbar",
+];
+
+const COMPOSITE_SELECTOR = [
+  ...COMPOSITE_ROLES.map((role) => `[role="${role}"]`),
+  "input[type='radio']",
+  "input[type='range']",
+  "select",
+].join(",");
+
+/**
+ * True when the element is, or sits inside, a composite widget that owns the arrow keys (role-based).
+ * With `boundary` (the map element) only widgets strictly inside it count: a map mounted inside a toolbar or grid
+ * must still pan, and a map element that itself carries such a role is not "inside" a widget.
+ */
+export function isCompositeWidget(target: EventTarget | null, boundary?: Element | null): boolean {
+  if (!target || !(target instanceof Element)) {
+    return false;
+  }
+  const widget = target.closest(COMPOSITE_SELECTOR);
+  if (widget === null) {
+    return false;
+  }
+  return !boundary || (widget !== boundary && boundary.contains(widget));
 }
 
 /** Default hash navigation matching 03 §A routes. */
@@ -110,14 +161,19 @@ export function attachKeyboardControls(options: KeyboardControlsOptions = {}): (
     const animate = !reducedMotion;
 
     // 2. Map panning & zooming (04 §E)
-    // Map receives arrow keys and +/−. We check if map container or its elements have focus,
-    // or if the map element is specified.
+    // Arrow keys and +/− must only pan/zoom when the map element actually has focus
+    // (never hijack page-wide when no target element is set).
     const mapElement = mapHandle?.getTargetElement?.();
-    const mapHasFocus = !mapElement ||
-      mapElement === document.activeElement ||
-      mapElement.contains(document.activeElement);
+    const mapHasFocus = Boolean(
+      mapElement &&
+        (mapElement === document.activeElement ||
+          (typeof mapElement.contains === "function" && mapElement.contains(document.activeElement))),
+    );
 
-    if (mapHandle && mapHasFocus) {
+    // A radio group, listbox, menu or slider inside the map container keeps its own arrow-key behaviour.
+    const inComposite = isCompositeWidget(event.target, mapElement) || isCompositeWidget(document.activeElement, mapElement);
+
+    if (mapHandle && mapHasFocus && !inComposite) {
       switch (key) {
         case "ArrowUp":
           event.preventDefault();

@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { PostEvaReport, REPORT_DISCLAIMER, type PostEvaReportData } from "../../src/ui/screens/scr17PostEvaReport";
+import { adaptPostEvaReport, type ApiPostEvaReport } from "../../src/ui/report/reportAdapter";
 
 const render = (report?: PostEvaReportData): string => renderToStaticMarkup(createElement(PostEvaReport, { report }));
 
@@ -25,15 +26,34 @@ const FULL: PostEvaReportData = {
   logHash: "abc123",
   doseReceivedUgy: 12.34,
   doseUnshelteredUgy: 5000,
+  doseHeadlineCrew: "EV1",
+  doseRows: [
+    { crewId: "EV1", doseReceivedUgy: 12.34, doseUnshelteredUgy: 5000 },
+    { crewId: "EV2", doseReceivedUgy: null, doseUnshelteredUgy: null },
+  ],
   timeToShelterMin: 9,
   stopsCompleted: 2,
   stopsTotal: 5,
   planRevisionsCount: 3,
-  timeline: [{ phase: "STOP A", plannedLtst: "10:00", actualLtst: "10:05" }],
-  alerts: [
-    { level: "warning", code: "RADIATION_ALERT", message: "Shelter now", raisedLtst: "10:10:00", ackedLtst: "10:10:20", responseSec: 20 },
+  evaDurationS: 1800,
+  stopsDropped: 1,
+  stopsNotReached: 1,
+  stopsIncomplete: 1,
+  stopsInProgress: 2,
+  stopsPending: 3,
+  generatedAt: "13:31:00 UTC",
+  tasksTotals: { total: 3, done: 1, skipped: 0, dropped: 1 },
+  timeline: [
+    { stopId: "wp-1", crewId: "EV1", status: "LEFT", plannedArrival: "T+04:00", actualArrival: "T+03:00", arrivalDiff: "-01:00", plannedDwell: "10:00", actualDwell: "10:00", dwellDiff: "+00:00" },
+    { stopId: "wp-3", crewId: null, status: "DROPPED", plannedArrival: null, actualArrival: null, arrivalDiff: null, plannedDwell: null, actualDwell: null, dwellDiff: null },
   ],
-  tasks: [{ stopName: "Stop A", ev1: "1 / 0 / 0", ev2: "0 / 1 / 0" }],
+  alerts: [
+    {
+      level: "warning", code: "RADIATION_ALERT", message: "Shelter now", raisedAt: "10:10:00 UTC", ackedAt: "10:10:20 UTC", clearedAt: "10:12:00 UTC", ackSec: 20,
+      shelter: [{ crewId: "EV1", responseSec: 90, shelteredAt: "10:11:30 UTC" }, { crewId: "EV2", responseSec: null, shelteredAt: null }],
+    },
+  ],
+  tasks: [{ stopName: "wp-1", done: 1, skipped: 0, dropped: 0, total: 1 }],
   logEvents: [{ seq: 4, time: "10:10:00", actor: "system", event: "ALERT_RAISED", prov: "replayed" }],
 };
 
@@ -69,6 +89,11 @@ describe("SCR-17 Post-EVA report with no data (nothing is made up)", () => {
     expect((html.match(/>—</g) ?? []).length).toBeGreaterThan(5);
     const classes: Record<string, string> = {
       dose_event_ugy: "simulated",
+      dose_headline: "derived",
+      eva_duration_s: "derived",
+      stops_breakdown: "derived",
+      tasks_totals: "simulated",
+      generated_at: "simulated",
       time_to_shelter_min: "derived",
       stops: "simulated",
       plan_revisions: "derived",
@@ -76,7 +101,7 @@ describe("SCR-17 Post-EVA report with no data (nothing is made up)", () => {
       seed: "simulated",
     };
     for (const [src, prov] of Object.entries(classes)) {
-      const el = bySource(html, `unavailable:report.${src}`);
+      const el = bySource(html, `unavailable:report.${src.replace("dose_headline", "dose.headline")}`);
       expect(el).toContain('data-unavailable="true"');
       expect(el).toContain(`data-provenance="${prov}"`);
     }
@@ -92,24 +117,78 @@ describe("SCR-17 Post-EVA report with no data (nothing is made up)", () => {
 describe("SCR-17 Post-EVA report with a full report (01 FR-46)", () => {
   const html = render(FULL);
 
-  it("shows the supplied values, each labelled on its own element; received and unsheltered dose are simulated, never measured", () => {
+  it("dose values stay simulated; only the highest-individual pick is derived, and both labels are shown; no crew total", () => {
     expect(bySource(html, "report:dose_event_ugy")).toContain("12.3 µGy");
     expect(bySource(html, "report:dose_event_ugy")).toContain('data-provenance="simulated"');
     expect(bySource(html, "report:dose_event_unsheltered_ugy")).toContain("5,000 µGy");
     expect(bySource(html, "report:dose_event_unsheltered_ugy")).toContain('data-provenance="simulated"');
+    const pick = bySource(html, "report:dose.headline");
+    expect(pick).toMatch(/highest individual: EV1/i);
+    expect(pick).toContain('data-provenance="derived"');
+    expect(bySource(html, "report:dose.EV1")).toContain("12.3 µGy");
+    expect(bySource(html, "report:dose.EV1")).toContain('data-provenance="simulated"');
+    expect(html).not.toMatch(/crew total/i);
+    expect(html).not.toContain('data-provenance="measured"');
+  });
+
+  it("shows the EVA duration, the stop breakdown, the task totals, the clear time and the generated time", () => {
+    expect(bySource(html, "report:eva_duration_s")).toContain("30:00");
+    expect(bySource(html, "report:eva_duration_s")).toContain('data-provenance="derived"');
+    const stops = bySource(html, "report:stops_breakdown");
+    expect(stops).toContain("dropped 1");
+    expect(stops).toContain("not reached 1");
+    expect(stops).toContain("incomplete 1");
+    expect(stops).toContain("in progress 2");
+    expect(stops).toContain("pending 3");
+    expect(stops).toContain('data-provenance="derived"');
+    expect(bySource(html, "report:tasks_totals")).toContain("1 / 0 / 1 of 3");
+    expect(bySource(html, "report:alerts.cleared")).toContain("10:12:00 UTC");
+    expect(bySource(html, "report:generated_at")).toContain("13:31:00 UTC");
+  });
+
+  it("a crew member who never sheltered reads 'not sheltered', flagged unavailable with its class", () => {
+    const row = bySource(html, "unavailable:report.dose.EV2");
+    expect(row).toContain("not sheltered");
+    expect(row).toContain('data-unavailable="true"');
+    expect(row).toContain('data-provenance="simulated"');
+  });
+
+  it("shows the other slabs with their own provenance", () => {
     expect(bySource(html, "report:time_to_shelter_min")).toContain("9 min");
     expect(bySource(html, "report:time_to_shelter_min")).toContain('data-provenance="derived"');
     expect(bySource(html, "report:stops")).toContain("2 / 5");
     expect(bySource(html, "report:plan_revisions")).toContain("3");
-    expect(html).not.toContain('data-provenance="measured"');
   });
 
-  it("renders the timeline, the alert with its response time, the tasks and the event log from the data", () => {
-    expect(html).toContain("STOP A");
-    expect(html).toContain("10:05");
+  it("renders the timeline with planned, actual and difference per crew; a dropped stop is a word, not blanks", () => {
+    expect(bySource(html, "report:timeline.arrival_actual")).toContain("T+03:00");
+    expect(bySource(html, "report:timeline.arrival_actual")).toContain('data-provenance="simulated"');
+    expect(bySource(html, "report:timeline.arrival_planned")).toContain("T+04:00");
+    expect(bySource(html, "report:timeline.arrival_planned")).toContain('data-provenance="derived"');
+    expect(bySource(html, "report:timeline.arrival_diff")).toContain("-01:00");
+    expect(bySource(html, "report:timeline.arrival_diff")).toContain('data-provenance="derived"');
+    expect(html).toContain("wp-3");
+    expect(html).toContain("DROPPED");
+    expect(bySource(html, "unavailable:report.timeline.arrival_actual")).toContain("—");
+    // a stop reached and then dropped keeps its timings and carries both words
+    const kept = render({ timeline: [{ stopId: "wp-1", crewId: "EV1", status: "LEFT · DROPPED", plannedArrival: null, actualArrival: "T+03:00", arrivalDiff: null, plannedDwell: null, actualDwell: "10:00", dwellDiff: null }] });
+    expect(kept).toContain("LEFT · DROPPED");
+    expect(bySource(kept, "report:timeline.arrival_actual")).toContain("T+03:00");
+  });
+
+  it("renders the alert with its first-ack time and per-crew shelter response; no response reads 'no shelter during alert'", () => {
     expect(html).toContain("RADIATION_ALERT");
-    expect(bySource(html, "report:alerts.response_s")).toContain("20 s");
-    expect(html).toContain("1 / 0 / 0");
+    expect(bySource(html, "report:alerts.ack_s")).toContain("20 s");
+    expect(bySource(html, "report:alerts.ack_s")).toContain('data-provenance="derived"');
+    expect(bySource(html, "report:alerts.shelter_response_s.EV1")).toContain("90 s");
+    expect(bySource(html, "report:alerts.shelter_response_s.EV1")).toContain('data-provenance="derived"');
+    const none = bySource(html, "unavailable:report.alerts.shelter_response_s.EV2");
+    expect(none).toContain("no shelter during alert");
+    expect(none).toContain('data-unavailable="true"');
+  });
+
+  it("renders the task counts and the event log from the data", () => {
+    expect(html).toMatch(/<td[^>]*>1 \/ 0 \/ 0/);
     expect(html).toMatch(/<td[^>]*>ALERT_RAISED/);
     expect(bySource(html, "report:log_events.4")).toContain("replayed");
     // Sequence, time, actor and event are each labelled on their own element with the event's class and a distinct source.
@@ -162,6 +241,22 @@ describe("SCR-17 Post-EVA report with a partial report", () => {
     }
   });
 
+  it("the mandatory disclaimer is rendered once, also when the API report repeats it as commentary", () => {
+    const count = (html: string): number => html.split(REPORT_DISCLAIMER).length - 1;
+    expect(count(render(FULL))).toBe(1);
+    expect(count(render({ disclaimer: REPORT_DISCLAIMER }))).toBe(1);
+    const extra = render({ disclaimer: `${REPORT_DISCLAIMER} Extra note.` });
+    expect(count(extra)).toBe(1);
+    expect(extra).toContain("Extra note.");
+  });
+
+  it("nobody sheltered: the dose slab reads 'not sheltered' with its class, not a number", () => {
+    const html = render({ doseRows: [{ crewId: "EV1", doseReceivedUgy: null, doseUnshelteredUgy: null }] });
+    const el = bySource(html, "unavailable:report.dose_event_ugy");
+    expect(el).toContain("not sheltered");
+    expect(el).toContain('data-provenance="simulated"');
+  });
+
   it("a non-finite number is treated as unavailable", () => {
     const html = render({ timeToShelterMin: Number.NaN });
     expect(bySource(html, "unavailable:report.time_to_shelter_min")).toContain("—");
@@ -175,6 +270,203 @@ describe("SCR-17 pagination and print (not established by these tests)", () => {
     expect((html.match(/class="report-page"/g) ?? []).length).toBe(2);
   });
 
+  it("page numbers are computed from the pages rendered, not hard-coded", () => {
+    const html = render(FULL);
+    expect(html).toContain("p. 1 / 2");
+    expect(html).toContain("p. 2 / 2");
+  });
+
   it.todo("prints on at most two pages in Chrome at A4 and Letter with 12 mm margins (TODO(decision): manual check)");
   it.todo("map trace is drawn from the session position log (TODO(decision): needs the report API-to-UI adapter)");
+});
+
+
+/** What GET /api/report returns for the Hab Core fixture of apps/hab-core/tests/report.test.ts (two crew, one revision). */
+const API: ApiPostEvaReport = {
+  session_id: "s-demo-4190",
+  scenario_id: "storm-sol4190",
+  data_version: "gale-v2026.11",
+  seed: 42,
+  generated_at: "2024-05-20T13:31:00Z",
+  log_hash: "hash1234567890abcdef",
+  eva_duration_s: 1800,
+  stops: {
+    completed: 1,
+    dropped: 1,
+    not_reached: 1,
+    incomplete: 1,
+    in_progress: 0,
+    pending: 0,
+    details: [
+      {
+        stop_id: "wp-1",
+        status: "completed",
+        crew: [
+          { crew_id: "EV1", arrived_sim_time: "2024-05-20T13:04:00Z", departed_sim_time: "2024-05-20T13:14:00Z", arrival_offset_s: 180, dwell_s: 600, planned_arrival_offset_s: 240, planned_departure_offset_s: 840, planned_dwell_s: 600, arrival_diff_s: -60, dwell_diff_s: 0 },
+          { crew_id: "EV2", arrived_sim_time: "2024-05-20T13:06:30Z", departed_sim_time: "2024-05-20T13:17:30Z", arrival_offset_s: 330, dwell_s: 660, planned_arrival_offset_s: 240, planned_departure_offset_s: 840, planned_dwell_s: 600, arrival_diff_s: 90, dwell_diff_s: 60 },
+        ],
+      },
+      {
+        stop_id: "wp-2",
+        status: "incomplete",
+        crew: [
+          { crew_id: "EV1", arrived_sim_time: "2024-05-20T13:20:00Z", departed_sim_time: null, arrival_offset_s: 1140, dwell_s: null, planned_arrival_offset_s: null, planned_departure_offset_s: null, planned_dwell_s: null, arrival_diff_s: null, dwell_diff_s: null },
+          { crew_id: "EV2", arrived_sim_time: null, departed_sim_time: null, arrival_offset_s: null, dwell_s: null, planned_arrival_offset_s: null, planned_departure_offset_s: null, planned_dwell_s: null, arrival_diff_s: null, dwell_diff_s: null },
+        ],
+      },
+      { stop_id: "wp-3", status: "dropped", crew: [] },
+      { stop_id: "wp-4", status: "not_reached", crew: [] },
+    ],
+  },
+  alerts: {
+    total: 1,
+    details: [
+      {
+        alert_id: "alt-01",
+        code: "RADIATION_ALERT",
+        level: "warning",
+        raised_sim_time: "2024-05-20T13:21:00Z",
+        acked_sim_time: "2024-05-20T13:21:45Z",
+        cleared_sim_time: "2024-05-20T13:23:00Z",
+        ack_s: 45,
+        shelter: [
+          { crew_id: "EV1", shelter_response_s: null, sheltered_sim_time: null },
+          { crew_id: "EV2", shelter_response_s: 90, sheltered_sim_time: "2024-05-20T13:22:30Z" },
+        ],
+      },
+    ],
+  },
+  tasks: { total: 3, done: 1, skipped: 0, dropped: 1, per_stop: { "wp-1": { done: 1, skipped: 0, dropped: 0, total: 1 }, "wp-3": { done: 0, skipped: 0, dropped: 1, total: 1 } } },
+  dose: {
+    per_crew: [
+      { crew_id: "EV1", sheltered: true, sheltered_sim_time: "2024-05-20T13:25:00Z", haven_kind: "hab", dose_event_ugy: 300, dose_event_unsheltered_ugy: 9000 },
+      { crew_id: "EV2", sheltered: true, sheltered_sim_time: "2024-05-20T13:22:30Z", haven_kind: "vehicle", dose_event_ugy: 120.5, dose_event_unsheltered_ugy: 8100 },
+    ],
+    headline: { crew_id: "EV1", dose_event_ugy: 300, dose_event_unsheltered_ugy: 9000 },
+    background_dose_ugy: null,
+  },
+  plan_revisions: 1,
+  disclaimer: REPORT_DISCLAIMER,
+};
+
+describe("SCR-17 API report adapter (snake_case PostEvaReport -> camelCase PostEvaReportData)", () => {
+  const data = adaptPostEvaReport(API);
+
+  it("maps the scenario line, hash and counts", () => {
+    expect(data).toMatchObject({ sessionId: "s-demo-4190", scenarioId: "storm-sol4190", dataVersion: "gale-v2026.11", seed: 42, logHash: "hash1234567890abcdef", planRevisionsCount: 1 });
+    expect(data.stopsCompleted).toBe(1);
+    expect(data.stopsTotal).toBe(4);
+  });
+
+  it("dose: the headline is the highest individual and each crew keeps its own row", () => {
+    expect(data.doseReceivedUgy).toBe(300);
+    expect(data.doseUnshelteredUgy).toBe(9000);
+    expect(data.doseHeadlineCrew).toBe("EV1");
+    expect(data.doseRows).toEqual([
+      { crewId: "EV1", doseReceivedUgy: 300, doseUnshelteredUgy: 9000 },
+      { crewId: "EV2", doseReceivedUgy: 120.5, doseUnshelteredUgy: 8100 },
+    ]);
+  });
+
+  it("dose: a crew member who never sheltered maps to nulls, and nobody sheltered leaves no headline", () => {
+    const none = adaptPostEvaReport({
+      ...API,
+      dose: { ...API.dose, headline: null, per_crew: [{ crew_id: "EV1", sheltered: false, sheltered_sim_time: null, haven_kind: null, dose_event_ugy: null, dose_event_unsheltered_ugy: null }] },
+    });
+    expect(none.doseRows).toEqual([{ crewId: "EV1", doseReceivedUgy: null, doseUnshelteredUgy: null }]);
+    expect(none.doseReceivedUgy).toBeUndefined();
+    expect(none.doseHeadlineCrew).toBeUndefined();
+  });
+
+  it("alerts: ack time, per-crew shelter response and a null for no shelter during the alert", () => {
+    expect(data.alerts).toEqual([
+      {
+        level: "warning",
+        code: "RADIATION_ALERT",
+        raisedAt: "13:21:00 UTC",
+        ackedAt: "13:21:45 UTC",
+        clearedAt: "13:23:00 UTC",
+        ackSec: 45,
+        shelter: [
+          { crewId: "EV1", responseSec: null, shelteredAt: null },
+          { crewId: "EV2", responseSec: 90, shelteredAt: "13:22:30 UTC" },
+        ],
+      },
+    ]);
+  });
+
+  it("time to shelter is the slowest crew response in minutes, null when nobody responded", () => {
+    expect(data.timeToShelterMin).toBe(1.5);
+    const none = adaptPostEvaReport({ ...API, alerts: { total: 1, details: [{ ...API.alerts.details[0], shelter: [{ crew_id: "EV1", shelter_response_s: null, sheltered_sim_time: null }] }] } });
+    expect(none.timeToShelterMin).toBeUndefined();
+  });
+
+  it("timeline: one row per crew for stops reached, one row with a status word for the rest", () => {
+    const rows = data.timeline ?? [];
+    expect(rows.map((r) => [r.stopId, r.crewId, r.status])).toEqual([
+      ["wp-1", "EV1", "LEFT"],
+      ["wp-1", "EV2", "LEFT"],
+      ["wp-2", "EV1", "AT STOP · INCOMPLETE"],
+      ["wp-2", "EV2", "NOT ARRIVED · INCOMPLETE"],
+      ["wp-3", null, "DROPPED"],
+      ["wp-4", null, "NOT REACHED"],
+    ]);
+    expect(rows[0]).toMatchObject({ plannedArrival: "T+04:00", actualArrival: "T+03:00", arrivalDiff: "-01:00", plannedDwell: "10:00", actualDwell: "10:00", dwellDiff: "+00:00" });
+    expect(rows[1]).toMatchObject({ arrivalDiff: "+01:30", dwellDiff: "+01:00", actualDwell: "11:00" });
+    // no departure: dwell and its difference are null, not 0
+    expect(rows[2]).toMatchObject({ actualArrival: "T+19:00", plannedArrival: null, actualDwell: null, dwellDiff: null });
+  });
+
+  it("maps every report field: EVA duration, stop breakdown, task totals, clear time, generated time", () => {
+    expect(data.evaDurationS).toBe(1800);
+    expect(data).toMatchObject({ stopsDropped: 1, stopsNotReached: 1, stopsIncomplete: 1, stopsInProgress: 0, stopsPending: 0, generatedAt: "13:31:00 UTC" });
+    expect(data.tasksTotals).toEqual({ total: 3, done: 1, skipped: 0, dropped: 1 });
+    expect(data.alerts?.[0].clearedAt).toBe("13:23:00 UTC");
+    expect(adaptPostEvaReport({ ...API, eva_duration_s: null, generated_at: "" })).toMatchObject({ evaDurationS: null, generatedAt: undefined });
+  });
+
+  it("timeline: a stop reached and then dropped keeps its per-crew rows and says so; an incomplete stop says so", () => {
+    const dropped = adaptPostEvaReport({
+      ...API,
+      stops: { ...API.stops, details: [{ ...API.stops.details[0], status: "dropped" }, { ...API.stops.details[1], status: "incomplete" }] },
+    });
+    const rows = dropped.timeline ?? [];
+    expect(rows.slice(0, 2).map((r) => r.status)).toEqual(["LEFT · DROPPED", "LEFT · DROPPED"]);
+    expect(rows[0].actualArrival).toBe("T+03:00");
+    expect(rows.slice(2).map((r) => r.status)).toEqual(["AT STOP · INCOMPLETE", "NOT ARRIVED · INCOMPLETE"]);
+  });
+
+  it("tasks: per-stop counts, sorted by stop id (code-unit order, not locale)", () => {
+    expect(data.tasks).toEqual([
+      { stopName: "wp-1", done: 1, skipped: 0, dropped: 0, total: 1 },
+      { stopName: "wp-3", done: 0, skipped: 0, dropped: 1, total: 1 },
+    ]);
+  });
+
+  it("task rows sort by plain code-unit comparison, so the order does not depend on the host locale", () => {
+    const per_stop = { "wp-10": { done: 0, skipped: 0, dropped: 0, total: 1 }, "wp-2": { done: 0, skipped: 0, dropped: 0, total: 1 }, "WP-3": { done: 0, skipped: 0, dropped: 0, total: 1 } };
+    const names = (adaptPostEvaReport({ ...API, tasks: { ...API.tasks, per_stop } }).tasks ?? []).map((t) => t.stopName);
+    expect(names).toEqual(["WP-3", "wp-10", "wp-2"]);
+  });
+
+  it("the API disclaimer equal to the mandatory one is not passed on as commentary; a different one is", () => {
+    expect(data.disclaimer).toBeUndefined();
+    expect(adaptPostEvaReport({ ...API, disclaimer: "Note" }).disclaimer).toBe("Note");
+    expect(render(data).split(REPORT_DISCLAIMER).length - 1).toBe(1);
+  });
+
+  it("an unknown session leaves the scenario fields out rather than printing 'unknown'", () => {
+    const d = adaptPostEvaReport({ ...API, session_id: "unknown", scenario_id: "unknown", data_version: "unknown" });
+    expect(d.sessionId).toBeUndefined();
+    expect(d.scenarioId).toBeUndefined();
+    expect(d.dataVersion).toBeUndefined();
+  });
+
+  it("renders end to end with nothing undefined or NaN, and an EVA-less report still renders", () => {
+    const html = render(data);
+    expect(html).not.toMatch(/NaN|undefined|null/);
+    expect(html).toContain("no shelter during alert");
+    const bare = adaptPostEvaReport({ ...API, eva_duration_s: null, stops: { completed: 0, dropped: 0, not_reached: 0, incomplete: 0, in_progress: 0, pending: 0, details: [] }, alerts: { total: 0, details: [] }, tasks: { total: 0, done: 0, skipped: 0, dropped: 0, per_stop: {} } });
+    expect(render(bare)).not.toMatch(/NaN|undefined|null/);
+  });
 });

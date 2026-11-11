@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Delivery — mirrors [06](../specs/06_High_Level_Implementation_Plan.md), which owns order, dependencies and cut decisions |
 | **Date** | 2026-11-03; v2 additions 2026-11-06 |
-| **Status** | Approved 2026-11-03 and frozen; amended the same day by one `coord:` change after Phase 2 (3 subtasks added; edges, paths and open points synced with the task files). **`coord:` v2 change 2026-11-06** (session handoff §F.2, approved by Sadman Shaharier Mahim): TASK-05b and TASK-20–TASK-31 atomized, an Owner on every subtask, v1 subtasks re-dated to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 milestones, windows and cut list. **`coord:` change 2026-11-10** (approved by Sadman Shaharier Mahim, product & systems lead): T21.15 registered (demo timing numbers derived from the committed tables; T21.09 now depends on it). Change this file first (§h.5) |
+| **Status** | Approved 2026-11-03 and frozen; amended the same day by one `coord:` change after Phase 2 (3 subtasks added; edges, paths and open points synced with the task files). **`coord:` v2 change 2026-11-06** (session handoff §F.2, approved by Sadman Shaharier Mahim): TASK-05b and TASK-20–TASK-31 atomized, an Owner on every subtask, v1 subtasks re-dated to [06](../specs/06_High_Level_Implementation_Plan.md) v2.2 milestones, windows and cut list. **`coord:` change 2026-11-10** (approved by Sadman Shaharier Mahim, product & systems lead): T21.15 registered (demo timing numbers derived from the committed tables; T21.09 now depends on it). **`coord:` change 2026-11-10 (live session, data lane)** (team lead Obidit Islam; follows the merged spec change #176): T03.31–T03.35 registered for the candidate hab sites of 01 FR-53 (06 §C.2 "Candidate-site comm grids"; U-65 for the R1 lane only). **`coord:` change 2026-11-10 (live session, Hab Core and UI)** (product & systems lead Sadman Shaharier Mahim; follows the merged spec change #176): TASK-32 registered (T32.01–T32.32) for the live operations session of 01 FR-51–FR-54 (06 §C.2: presenter panel and Hab Core commands, scenario file reshaped, ops setup screen, planner task editing); T22.14 and T23.08 gain an extra step and soft edges to T32.17 and T32.18 (T21.08 is unchanged and stays M2); U-65 recorded as registered (sign-off by the team lead on the PR). Change this file first (§h.5) |
 | **Related** | [06 §C Work packages](../specs/06_High_Level_Implementation_Plan.md#c-work-packages) · [06 §D Delivery strategy](../specs/06_High_Level_Implementation_Plan.md#d-delivery-strategy) · [Docs index](../README.md) · [CLAUDE.md](../../CLAUDE.md) |
 
 This file lets several people and AI agents work on the work packages of 06 in parallel: the 19 v1 packages (planner, Tier 0) and the 13 v2 packages (TASK-05b, TASK-20–TASK-31: surface ops, Tier 1). It fixes subtask ids (§a), lanes (§b), who writes which file (§c), the interfaces that decouple lanes (§d), the fixtures that remove waiting (§e), the dependency graph (§f), what runs together per milestone (§g) and how branches and PRs work (§h). Task files `TASK-NN_<title>.md` expand each subtask listed here; they never add a subtask, path owner or cross-task dependency that is not in this file.
@@ -110,6 +110,11 @@ The register publishes every id. Requirement ids are the ones the subtask serves
 | T03.28 | Tests: `comm_hab` viewshed grid (v2) | data | test | agent-ready · core | pre-event-allowed | M2 | FR-42 |
 | T03.29 | Implement the `comm_hab` viewshed grid and its layer record (v2) | data | implement | agent-ready · core | pre-event-allowed | M2 | FR-42 |
 | T03.30 | Verify `comm_hab` against `gdal_viewshed` at 5 points (v2) | data | verify | agent-ready · core | pre-event-allowed | M2 | FR-42 |
+| T03.31 | contract-change: C1, C2 and C5 v2 — optional `hab_candidates` (HabCandidate) in the site manifest | data | contract | agent-ready · core | pre-event-allowed | M4 | FR-42, FR-53 |
+| T03.32 | Candidate hab site records: the first choice and the alternative | data | implement | agent-ready · core | pre-event-allowed | M4 | FR-53 |
+| T03.33 | Tests: per-candidate `comm_hab` grids, the manifest `hab_candidates` list and its validator rules | data | test | agent-ready · core | pre-event-allowed | M4 | FR-42, FR-53 |
+| T03.34 | follow-up: build a `comm_hab` grid and a default start for each hab candidate; manifest and validator | data | implement | agent-ready · core | pre-event-allowed | M4 | FR-42, FR-53 |
+| T03.35 | Verify both hab candidates on the real site: validator passes, alternative `comm_hab` against `gdal_viewshed` | data | verify | agent-ready · core | pre-event-allowed | M4 | FR-42, FR-53 |
 
 #### TASK-04 — Vectors, POIs and images
 
@@ -554,6 +559,43 @@ FR-21 (space weather, 3D view, multi-site, AI narration) is post-MVP and has no 
 | T31.08 | Verify: tap on tablet shows on ops ≤ 500 ms; abort drops open tasks; report counts match the log | integration | verify | human-required · core | pre-event-if-permitted | M3b–M4 | FR-50, NFR-12 |
 | T31.09 | Fallback — start only if TASK-31 runs late at M3: ops view-only, no `ADD_STOP_TASK` | frontend | fallback | agent-ready · core | pre-event-if-permitted | M3 | FR-50 |
 
+#### TASK-32 — Live operations session: presenter panel, event on demand, mission setup, stop task library
+
+| ID | Subtask | Lane | Type | Tag | Window | M | Reqs |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T32.01 | contract-change: live-session protocol — `presenter` role, five commands, five log events, Session and library types (C13) | hab-core | contract | agent-ready · core | pre-event-allowed | M4 | FR-51, FR-52, FR-53, FR-31, FR-32, FR-33, FR-35 |
+| T32.02 | spec-change: record the live-session gaps — planner task-library transport, `PUBLISH_PLAN` task payload, `ended_by` values, command-list export, 06 §C.2 owners | hab-core | contract | human-required · core | pre-event-allowed | M4 | FR-51, FR-54, FR-53, FR-32, FR-33, U-65 |
+| T32.03 | follow-up: F7 fixtures for the live-session beats | hab-core | fixture | agent-ready · core | pre-event-allowed | M4 | FR-51, FR-52, FR-53 |
+| T32.04 | contract-change: scenario schema v2 — `mission_setup`, `event_library`, `task_library`; `plan` and `events` optional | hab-core | contract | agent-ready · core | pre-event-allowed | M4 | FR-52, FR-53, FR-54, U-64 |
+| T32.05 | follow-up: fake scenario in the live shape, a plan-less variant and a two-candidate site | hab-core | fixture | agent-ready · core | pre-event-allowed | M4 | FR-52, FR-53, FR-54, NFR-06 |
+| T32.06 | Tests: reshaped loader and plan-less session | hab-core | test | agent-ready · core | pre-event-if-permitted | M4 | FR-52, FR-53, FR-54, NFR-06, NFR-10 |
+| T32.07 | follow-up: optional `plan` and `events` across the loader and the engine | hab-core | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-53, FR-54, NFR-06, NFR-10 |
+| T32.08 | follow-up: loader checks for `mission_setup`, `event_library` and `task_library` | hab-core | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-52, FR-53, FR-54 |
+| T32.09 | Tests: `JUMP_NEXT_STOP` (Next stop) | hab-core | test | agent-ready · core | pre-event-if-permitted | M4 | FR-51, NFR-06, U-63 |
+| T32.10 | follow-up: implement `JUMP_NEXT_STOP` (fast-forward to the next stop) | hab-core | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-51, NFR-06, U-63 |
+| T32.11 | Tests: `START_EVENT` and the time-shifted storm | hab-core | test | agent-ready · core | pre-event-if-permitted | M4 | FR-52, FR-38, NFR-06 |
+| T32.12 | follow-up: implement `START_EVENT` (event on demand, time-shifted dose series) | hab-core | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-52, FR-38, NFR-06 |
+| T32.13 | Tests: `RESET_SESSION`, `SELECT_HAB_SITE`, `SET_MISSION_SETUP` and the role matrix | hab-core | test | agent-ready · core | pre-event-if-permitted | M4 | FR-51, FR-53, FR-31, NFR-06 |
+| T32.14 | follow-up: implement `RESET_SESSION`, `SELECT_HAB_SITE` and `SET_MISSION_SETUP` | hab-core | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-51, FR-53, FR-39, NFR-06 |
+| T32.15 | follow-up: server sends a fresh `SNAPSHOT` to every client after the session is replaced | hab-core | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-51, FR-31, NFR-13 |
+| T32.16 | Tests: headless replay of a recorded command list | hab-core | test | agent-ready · core | pre-event-if-permitted | M4 | NFR-14, NFR-06, FR-51 |
+| T32.17 | follow-up: replay and CLI apply a recorded command list; export from the log | hab-core | implement | agent-ready · core | pre-event-if-permitted | M4 | NFR-14, NFR-06, FR-51 |
+| T32.18 | Write the reference command list for the 01 §E.1 reference run (U-62) | hab-core | implement | human-required · core | pre-event-allowed | M4 | FR-51, FR-52, NFR-14, U-62 |
+| T32.19 | Tests: SCR-19 presenter panel | frontend | test | agent-ready · core | pre-event-if-permitted | M4 | FR-51, FR-52, FR-34, NFR-05, SCR-19 |
+| T32.20 | Implement SCR-19 presenter panel | frontend | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-51, FR-52, NFR-04, NFR-05, SCR-19 |
+| T32.21 | Tests: SCR-20 mission setup | frontend | test | agent-ready · core | pre-event-if-permitted | M4 | FR-53, FR-30, SCR-20 |
+| T32.22 | Implement SCR-20 mission setup | frontend | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-53, FR-30, NFR-05, SCR-20 |
+| T32.23 | follow-up: register `#/presenter` and `#/setup`; Presenter tile on SCR-10 | frontend | implement | agent-ready · core | pre-event-if-permitted | M4 | SCR-19, SCR-20, FR-51, FR-53 |
+| T32.24 | Tests: `PUBLISH_PLAN` carries `stop_tasks`; the planner receives the task library | hab-core | test | agent-ready · core | pre-event-if-permitted | M4 | FR-54, FR-50, NFR-06 |
+| T32.25 | follow-up: Hab Core seeds published tasks and delivers the task library to the planner | hab-core | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-54, FR-50, NFR-06, U-64 |
+| T32.26 | Tests: planner stop-task drafts, publish payload and the SCR-04 editor | frontend | test | agent-ready · core | pre-event-if-permitted | M4b | FR-54, NFR-04, NFR-05 |
+| T32.27 | follow-up: planner stop-task drafts and the publish payload | frontend | implement | agent-ready · core | pre-event-if-permitted | M4b | FR-54, FR-50 |
+| T32.28 | follow-up: SCR-04 stop-task editor | frontend | implement | agent-ready · core | pre-event-if-permitted | M4b | FR-54, NFR-04, NFR-05 |
+| T32.29 | Verify: a full live session headless — next stop ×N, start storm, shelter, reset, replay hash identical | hab-core | verify | agent-ready · core | pre-event-if-permitted | M4 | FR-51, FR-52, FR-53, NFR-06, NFR-14 |
+| T32.30 | Tests: per-crew O₂ time left, bearing, distance and ETA to the next stop | hab-core | test | agent-ready · core | pre-event-if-permitted | M4 | FR-32, FR-33, FR-35, NFR-05, NFR-06 |
+| T32.31 | follow-up: implement per-crew O₂ time left, bearing, distance and ETA to the next stop | hab-core | implement | agent-ready · core | pre-event-if-permitted | M4 | FR-32, FR-33, FR-35, NFR-05, NFR-06 |
+| T32.32 | follow-up: `scenario.json` in the live shape — `mission_setup`, `event_library`, `task_library` | hab-core | implement | agent-ready · core | pre-event-allowed | M4 | FR-52, FR-54, NFR-06 |
+
 <!-- v2-register:end -->
 
 ## b. Lanes
@@ -590,7 +632,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | --- | --- | --- |
 | `docs/tasks/_coordination.md`, `docs/tasks/TASK-*.md` | this plan | Change-process only (§h); T15.03 and later triage may append subtasks at the end of a task file |
 | `docs/tasks/README.md` | this plan | Claims: one PR edits only the *Claimed by* cell of one row |
-| `docs/specs/**` | — | `spec-change:` subtasks only: T16.02, T20.10, T21.09 (01 §E.1 only), T01.06 (fallback). One open spec-change PR at a time |
+| `docs/specs/**` | — | `spec-change:` subtasks only: T16.02, T20.10, T21.09 (01 §E.1 only), T01.06 (fallback), T32.02 (02 §E.5/§E.6, 05 and 06 §C.2 owners, live-session gaps only). One open spec-change PR at a time |
 | `docs/README.md` | T16.02 | — |
 | `docs/contracts/tile-grid.md` | T02.01 | Contract (§d) |
 | `docs/ops/rules.md` | T00.03 | — |
@@ -621,7 +663,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 
 | Path | Owner | Rule |
 | --- | --- | --- |
-| `pipeline/sites/README.md` | T03.01 | Contract (§d, C5) |
+| `pipeline/sites/README.md` | T03.01 | Contract (§d, C5); T03.31 follows up (C5 v2) |
 | `pipeline/sites/gale_boxwork/site.json` | T03.16 | — |
 | `pipeline/sites/gale_boxwork/sources/` | T03.17 (DEM, ortho, THEMIS), T04.01 (traverse), T06.10 (RAD), T12.05 (models), T18.01 (CRISM), T18.02 (REMS) | Append-only by file: one `<source_id>.json` per record, owned by its creator |
 | `pipeline/sites/gale_boxwork/layers/` | T03.17 (ortho, hillshade, elevation, slope, thermal inertia, hazard flags), T04.01 (traverse), T04.04 (POIs), T18.01 (CRISM) | Append-only by file: one `<layer_id>.json` per record |
@@ -629,6 +671,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | `pipeline/sites/gale_boxwork/known_offsets/` | T03.20 (`elevation.json`), T04.08 (`traverse.json`) | Append-only by file |
 | `pipeline/sites/gale_boxwork/pois/` | T04.04 (POIs 1–4), T04.05 (POIs 5–8) | Append-only by file: one `<poi_id>.json` per POI |
 | `pipeline/sites/gale_boxwork/hazards.geojson`, `pipeline/sites/gale_boxwork/low_res_dem.geojson` | T03.18 | — |
+| `pipeline/sites/gale_boxwork/hab_candidates.json` | T03.32 | New; layout from C5 v2 (T03.31) |
 | `pipeline/sites/gale_boxwork/ti_threshold.json` | T04.07 | Absent by the 2026-11-10 U-03 decision (no defensible threshold); it stays unwritten |
 | `pipeline/src/marswalk_pipeline/config.py`, `acquire.py` | T03.07 | — |
 | `pipeline/src/marswalk_pipeline/clip_reproject.py` | T03.08 | — |
@@ -636,9 +679,9 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | `pipeline/src/marswalk_pipeline/flags.py` | T03.10 | New; stub by T03.01 |
 | `pipeline/src/marswalk_pipeline/grid.py` | T03.11 | — |
 | `pipeline/src/marswalk_pipeline/tiles.py` | T03.12 | — |
-| `pipeline/src/marswalk_pipeline/manifest.py` | T03.13 | — |
-| `pipeline/src/marswalk_pipeline/validate_manifest.py` | T03.14 | — |
-| `pipeline/src/marswalk_pipeline/__main__.py` | T03.15 | New |
+| `pipeline/src/marswalk_pipeline/manifest.py` | T03.13 | T03.34 follows up |
+| `pipeline/src/marswalk_pipeline/validate_manifest.py` | T03.14 | T03.34 follows up |
+| `pipeline/src/marswalk_pipeline/__main__.py` | T03.15 | New; T03.34 follows up |
 | `pipeline/src/marswalk_pipeline/vectors.py` | T04.03 | — |
 | `pipeline/src/marswalk_pipeline/static_images.py` | T03.25 | New; fallback |
 | `pipeline/src/marswalk_pipeline/sun_table.py` | T06.11 | New; fallback |
@@ -649,6 +692,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | `pipeline/tests/test_derive.py` | T03.04 | Covers `derive.py` and `flags.py` |
 | `pipeline/tests/test_grid.py` | T03.05 | — |
 | `pipeline/tests/test_manifest.py` | T03.06 | — |
+| `pipeline/tests/test_hab_candidates.py` | T03.33 | New |
 | `pipeline/tests/test_vectors.py` | T04.02 | New |
 | `pipeline/tests/fixtures/make_mock_site.py` | T03.02 | New |
 | `pipeline/tests/fixtures/make_sample_cells.py` | T03.21 | New |
@@ -661,7 +705,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 
 | Path | Owner | Rule |
 | --- | --- | --- |
-| `packages/protocol/src/schema.ts` | T03.01 | Contract (§d, C1) |
+| `packages/protocol/src/schema.ts` | T03.01 | Contract (§d, C1); T03.31 follows up (C1 v2) |
 | `packages/protocol/src/worker.ts` | T05.01 | Contract (§d, C6) |
 | `packages/compute/src/grid.ts` | T05.16 | — |
 | `packages/compute/src/sampling.ts` | T05.17 | Stub edit by T05.01 (inputs for lat/lon) |
@@ -687,7 +731,7 @@ The M4 dry runs and TASK-14 are all-hands on 10–12 Nov (06 §A.2). TASK-18 has
 | `apps/web/src/ui/context.ts` | T07.01 | New; contract C10 |
 | `apps/web/src/boot/loadSite.ts` | T07.02 | New; stub by T07.01 |
 | `apps/web/src/boot/validateSite.ts` | T14.03 | New; stub by T07.01 |
-| `apps/web/src/ui/router.ts`, `apps/web/src/main.ts`, `apps/web/index.html` | T07.03 | Route registry: all four hash routes registered by T07.03; screens never edit it |
+| `apps/web/src/ui/router.ts`, `apps/web/src/main.ts`, `apps/web/index.html` | T07.03 | Route registry: all four hash routes registered by T07.03; screens never edit it; T32.23 follows up (`#/presenter`, `#/setup`) |
 | `apps/web/src/ui/workerClient.ts` | T07.04 | New; stub by T07.01 |
 | `apps/web/src/ui/debug.ts` | T07.13 | New; stub by T07.01 |
 | `apps/web/src/ui/demoPlan.json` | T07.14 | New |
@@ -794,53 +838,70 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `apps/hab-core/scripts/build-demo-plan.ts` | T21.12 | — |
 | `apps/hab-core/scripts/demo-numbers.ts` | T21.15 | — |
 | `apps/hab-core/spike/` | T20.07 | — |
-| `apps/hab-core/src/cli.ts` | T22.13 | — |
-| `apps/hab-core/src/commands.ts` | T23.02 | — |
+| `apps/hab-core/src/cli.ts` | T22.13 | T32.17 follows up |
+| `apps/hab-core/src/commands.ts` | T23.02 | T32.10, T32.12, T32.14, T32.25 follow up (one at a time) |
 | `apps/hab-core/src/engine/README.md` | T22.01 | — |
-| `apps/hab-core/src/engine/alerts.ts` | T22.10 | stub by T22.01 |
+| `apps/hab-core/src/engine/alerts.ts` | T22.10 | stub by T22.01; T32.12 follows up |
 | `apps/hab-core/src/engine/clock.ts` | T22.04 | — |
 | `apps/hab-core/src/engine/conditions.ts` | T22.16 | stub by T22.01 |
-| `apps/hab-core/src/engine/contingencyOps.ts` | T23.07 | stub by T22.01 |
+| `apps/hab-core/src/engine/contingencyOps.ts` | T23.07 | stub by T22.01; T32.07 follows up |
+| `apps/hab-core/src/engine/crewMargins.ts` | T32.31 | New |
 | `apps/hab-core/src/engine/earth.ts` | T26.04 | stub by T22.01 |
 | `apps/hab-core/src/engine/haven.ts` | T23.03 | stub by T22.01 |
 | `apps/hab-core/src/engine/links.ts` | T26.01 | stub by T22.01; fallback T26.08 may replace it |
-| `apps/hab-core/src/engine/reducer.ts` | T22.06 | stub by T22.01 |
+| `apps/hab-core/src/engine/liveEvents.ts` | T32.12 | New |
+| `apps/hab-core/src/engine/liveSetup.ts` | T32.14 | New |
+| `apps/hab-core/src/engine/nextStop.ts` | T32.10 | New |
+| `apps/hab-core/src/engine/reducer.ts` | T22.06 | stub by T22.01; T32.01, T32.07 follow up (one at a time) |
 | `apps/hab-core/src/engine/rovers.ts` | T29.03 | stub by T22.01 |
-| `apps/hab-core/src/engine/tasks.ts` | T31.04 | stub by T22.01 |
-| `apps/hab-core/src/engine/tick.ts` | T22.09 | stub by T22.01; fallback T22.15 may replace it |
-| `apps/hab-core/src/engine/vehicles.ts` | T23.05 | stub by T22.01; fallback T23.09 may replace it |
+| `apps/hab-core/src/engine/tasks.ts` | T31.04 | stub by T22.01; T32.25 follows up |
+| `apps/hab-core/src/engine/tick.ts` | T22.09 | stub by T22.01; fallback T22.15 may replace it; T32.07, T32.12, T32.31 follow up (one at a time) |
+| `apps/hab-core/src/engine/vehicles.ts` | T23.05 | stub by T22.01; fallback T23.09 may replace it; T32.07 follows up |
 | `apps/hab-core/src/localMode.ts` | T20.09 | — |
 | `apps/hab-core/src/log.ts` | T22.07 | stub by T22.01 |
-| `apps/hab-core/src/replay.ts` | T22.13 | — |
+| `apps/hab-core/src/replay.ts` | T22.13 | T32.07, T32.17 follow up (one at a time) |
 | `apps/hab-core/src/report.ts` | T27.01 | — |
 | `apps/hab-core/src/rover.ts` | T29.02 | fallback T29.07 may replace it |
-| `apps/hab-core/src/scenario.ts` | T22.11 | stub by T22.01 |
-| `apps/hab-core/src/server.ts` | T20.04 | T20.12, T26.02, T27.01, T28.02 follow up (one at a time) |
-| `apps/hab-core/src/session.ts` | T22.12 | stub by T22.01 |
+| `apps/hab-core/src/scenario.ts` | T22.11 | stub by T22.01; T32.07, T32.08 follow up (one at a time) |
+| `apps/hab-core/src/server.ts` | T20.04 | T20.12, T26.02, T27.01, T28.02, T32.15 follow up (one at a time) |
+| `apps/hab-core/src/session.ts` | T22.12 | stub by T22.01; T32.07, T32.10, T32.14, T32.31, T32.25 follow up (one at a time) |
 | `apps/hab-core/tests/__snapshots__/demoNumbers.alert.snap` | T21.15 | Written by Vitest (`toMatchFileSnapshot`); committed so a rebuilt table shows as a diff |
 | `apps/hab-core/tests/__snapshots__/demoNumbers.eva.snap` | T21.15 | Written by Vitest once `plan.json` exists |
 | `apps/hab-core/tests/clock.test.ts` | T22.03 | — |
-| `apps/hab-core/tests/commands.test.ts` | T23.01 | — |
+| `apps/hab-core/tests/commands.test.ts` | T23.01 | T32.12 follows up (START_EVENT in the storm cases) |
 | `apps/hab-core/tests/conditions.test.ts` | T22.16 | — |
-| `apps/hab-core/tests/contingencyOps.test.ts` | T23.06 | — |
+| `apps/hab-core/tests/contingencyOps.test.ts` | T23.06 | T32.12 follows up (START_EVENT in the storm cases) |
+| `apps/hab-core/tests/contingencyOpsReal.test.ts` | T32.12 | Existing file, unowned before; T32.12 updates it for the event-on-demand storm |
+| `apps/hab-core/tests/crewMargins.test.ts` | T32.30 | New |
 | `apps/hab-core/tests/demoNumbers.test.ts` | T21.15 | — |
 | `apps/hab-core/tests/earth.test.ts` | T26.03 | — |
-| `apps/hab-core/tests/engine.test.ts` | T22.05 | — |
-| `apps/hab-core/tests/fixtures/fake-scenario/` | T22.02 | T22.17 follows up |
+| `apps/hab-core/tests/engine.test.ts` | T22.05 | T32.12 follows up (START_EVENT in the storm cases) |
+| `apps/hab-core/tests/fixtures/fake-scenario/` | T22.02 | T22.17, T32.05 follow up (one at a time) |
 | `apps/hab-core/tests/fixtures/storm-excerpt/` | T21.11 | — |
 | `apps/hab-core/tests/havenTick.test.ts` | T23.03 | — |
 | `apps/hab-core/tests/killerDemo.test.ts` | T23.08 | — |
 | `apps/hab-core/tests/links.test.ts` | T26.06 | — |
-| `apps/hab-core/tests/report.test.ts` | T27.02 | — |
+| `apps/hab-core/tests/liveEvents.test.ts` | T32.11 | New |
+| `apps/hab-core/tests/liveSession.test.ts` | T32.29 | New; skips without the real scenario |
+| `apps/hab-core/tests/liveSetup.test.ts` | T32.13 | New |
+| `apps/hab-core/tests/nextStop.test.ts` | T32.09 | New |
+| `apps/hab-core/tests/publishTasks.test.ts` | T32.24 | New |
+| `apps/hab-core/tests/replay.test.ts` | T32.12 | Existing file, unowned before; T32.12 updates it for the event-on-demand storm |
+| `apps/hab-core/tests/replayCommands.test.ts` | T32.16 | New |
+| `apps/hab-core/tests/report.test.ts` | T27.02 | T32.12 follows up (START_EVENT in the storm cases; owner unchanged) |
 | `apps/hab-core/tests/rover.test.ts` | T29.01 | — |
 | `apps/hab-core/tests/scenario.test.ts` | T22.11 | — |
-| `apps/hab-core/tests/server.test.ts` | T20.03 | T20.12 follows up |
+| `apps/hab-core/tests/scenarioLive.test.ts` | T32.06 | New |
+| `apps/hab-core/tests/server.test.ts` | T20.03 | T20.12, T32.15 follow up (one at a time) |
+| `apps/hab-core/tests/session.test.ts` | T32.12 | Existing file, unowned before; T32.12 updates it for the event-on-demand storm |
 | `apps/hab-core/tests/stopTasks.test.ts` | T31.03 | — |
 | `apps/hab-core/tests/summon.test.ts` | T23.04 | — |
-| `apps/hab-core/tests/tick.test.ts` | T22.08 | — |
-| `apps/web/src/net/habClient.ts` | T20.06 | T20.13 follows up |
+| `apps/hab-core/tests/tick.test.ts` | T22.08 | T32.12 follows up (START_EVENT in the storm cases) |
+| `apps/web/src/net/habClient.ts` | T20.06 | T20.13, T32.15 follow up (one at a time) |
 | `apps/web/src/net/replaySource.ts` | T27.05 | — |
-| `apps/web/src/ui/briefing/publishPlan.ts` | T11.07 | — |
+| `apps/web/src/state/habSession.ts`, `apps/web/tests/state/habSession.test.ts` | T25.01 | T24.04 and T31.05 subscribe through it; added 11 Nov (store hook over T20.06's client) |
+| `apps/web/src/state/stopTaskDraft.ts` | T32.27 | New |
+| `apps/web/src/ui/briefing/publishPlan.ts` | T11.07 | T32.27 follows up |
 | `apps/web/src/ui/eva/HoldToConfirm.tsx` | T24.05 | — |
 | `apps/web/src/ui/eva/viewModel.ts` | T24.03 | stub by T24.01 |
 | `apps/web/src/ui/map/FullScreenMap.tsx` | T24.09 | stub by T31.01 |
@@ -856,11 +917,12 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `apps/web/src/ui/ops/OptionsPanel.tsx` | T25.04 | — |
 | `apps/web/src/ui/ops/RoverQueue.tsx` | T29.05 | — |
 | `apps/web/src/ui/ops/TaskProgress.tsx` | T31.06 | stub by T31.01 |
-| `apps/web/src/ui/screens/scr04PlanPanel.tsx` | T08.04 | T08.12 follow up (one at a time) |
+| `apps/web/src/ui/plan/StopTaskEditor.tsx` | T32.28 | New |
+| `apps/web/src/ui/screens/scr04PlanPanel.tsx` | T08.04 | T08.12, T32.28 follow up (one at a time) |
 | `apps/web/src/ui/screens/scr05RouteResults.tsx` | T09.03 | T09.09, T18.06 follow up (one at a time) |
 | `apps/web/src/ui/screens/scr06PoiDetail.tsx` | T10.01 | T10.04 follow up (one at a time) |
 | `apps/web/src/ui/screens/scr08BriefingCard.tsx` | T11.03 | T11.08, T18.06 follow up (one at a time) |
-| `apps/web/src/ui/screens/scr10Join.tsx` | T25.06 | — |
+| `apps/web/src/ui/screens/scr10Join.tsx` | T25.06 | T32.23 follows up |
 | `apps/web/src/ui/screens/scr11OpsConsole.tsx` | T25.01 | — |
 | `apps/web/src/ui/screens/scr12/StopTaskList.tsx` | T31.05 | stub by T31.01 |
 | `apps/web/src/ui/screens/scr12/TasksButton.tsx` | T31.05 | — |
@@ -870,14 +932,22 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `apps/web/src/ui/screens/scr15RoverTask.tsx` | T29.04 | — |
 | `apps/web/src/ui/screens/scr16EarthView.tsx` | T18.12 | — |
 | `apps/web/src/ui/screens/scr17PostEvaReport.tsx` | T27.03 | fallback T27.07 may replace it |
+| `apps/web/src/ui/report/reportAdapter.ts`, `apps/web/tests/ui/postEvaReport.test.ts` | T27.03 | added 11 Nov (maps `GET /api/report` to SCR-17) |
 | `apps/web/src/ui/screens/scr18HabLinkLost.tsx` | T24.07 | — |
-| `apps/web/tests/fixtures/ws/` | T20.02 | T20.11 follows up |
-| `apps/web/tests/net/habClient.test.ts` | T20.05 | T20.13 follows up |
+| `apps/web/src/ui/screens/scr19Presenter.tsx` | T32.20 | New |
+| `apps/web/src/ui/screens/scr20MissionSetup.tsx` | T32.22 | New |
+| `apps/web/src/ui/setup/commPreview.ts` | T32.22 | New |
+| `apps/web/tests/fixtures/ws/` | T20.02 | T20.11, T32.03 follow up (one at a time) |
+| `apps/web/tests/net/habClient.test.ts` | T20.05 | T20.13, T32.15 follow up (one at a time) |
+| `apps/web/tests/state/stopTaskDraft.test.ts` | T32.26 | New |
 | `apps/web/tests/ui/eva.test.ts` | T24.10 | — |
 | `apps/web/tests/ui/evaViewModel.test.ts` | T24.02 | — |
 | `apps/web/tests/ui/map/fullScreenMap.test.ts` | T24.10 | — |
 | `apps/web/tests/ui/ops.test.ts` | T25.07 | — |
+| `apps/web/tests/ui/presenter.test.ts` | T32.19 | New |
 | `apps/web/tests/ui/provenance.test.ts` | T12.02 | T12.07 follow up (one at a time) |
+| `apps/web/tests/ui/setup.test.ts` | T32.21 | New |
+| `apps/web/tests/ui/stopTaskEditor.test.ts` | T32.26 | New |
 | `apps/web/tests/ui/stopTasks.test.ts` | T31.07 | — |
 | `docs/ops/data-downloads.md` | T21.02 | — |
 | `docs/ops/demo-kit.md` | T28.01 | T28.04 follow up (one at a time) |
@@ -910,14 +980,14 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `packages/compute/tests/skyView.test.ts` | T18.09 | — |
 | `packages/compute/tests/viewshed.test.ts` | T05b.08 | — |
 | `packages/protocol/src/index.ts` | T20.01 | — |
-| `packages/protocol/src/runtime.ts` | T20.01 | stub by T31.01; T20.11 contract-change |
-| `packages/protocol/src/ws.ts` | T20.01 | stub by T31.01; T20.11 contract-change |
+| `packages/protocol/src/runtime.ts` | T20.01 | stub by T31.01; T20.11 contract-change; T32.01, T32.07, T32.25 follow up (one at a time) |
+| `packages/protocol/src/ws.ts` | T20.01 | stub by T31.01; T20.11 contract-change; T32.01, T32.07, T32.25 follow up (one at a time) |
 | `pipeline/cache/donki/` | T21.05 | — |
 | `pipeline/spice/kernels.lock.json` | T21.02 | — |
-| `pipeline/src/marswalk_pipeline/comm_grid.py` | T03.29 | — |
+| `pipeline/src/marswalk_pipeline/comm_grid.py` | T03.29 | T03.34 follows up |
 | `pipeline/src/marswalk_pipeline/donki.py` | T21.05 | — |
 | `pipeline/src/marswalk_pipeline/rad.py` | T21.07 | — |
-| `pipeline/src/marswalk_pipeline/scenario_build.py` | T21.08 | — |
+| `pipeline/src/marswalk_pipeline/scenario_build.py` | T21.08 | T32.32 follows up |
 | `pipeline/src/marswalk_pipeline/spice_tables.py` | T21.04 | — |
 | `pipeline/tests/check_v2_independent.py` | T05b.20 | — |
 | `pipeline/tests/test_comm_grid.py` | T03.28 | — |
@@ -929,11 +999,12 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `scenarios/storm-sol4190/earth_link.json` | T21.04 | fallback T21.14 may replace it |
 | `scenarios/storm-sol4190/param_sets/` | T21.01 | — |
 | `scenarios/storm-sol4190/plan.json` | T21.12 | — |
-| `scenarios/storm-sol4190/scenario.json` | T21.08 | T18.13 follow up (one at a time) |
+| `scenarios/storm-sol4190/reference_commands.json` | T32.18 | New; the file name is Proposed (T32.02) |
+| `scenarios/storm-sol4190/scenario.json` | T21.08 | T18.13, T32.32 follow up (one at a time) |
 | `scenarios/storm-sol4190/stop_tasks.json` | T31.02 | — |
 | `schemas/dose-series.schema.json` | T21.01 | — |
 | `schemas/earth-link.schema.json` | T21.01 | — |
-| `schemas/scenario.schema.json` | T31.01 | — |
+| `schemas/scenario.schema.json` | T31.01 | T32.04 contract-change |
 
 <!-- v2-paths:end -->
 
@@ -943,11 +1014,11 @@ Lanes code against these interfaces, not against each other's implementations. A
 
 | ID | Contract | Path(s) | Owner | Freeze | Main consumers | Decisions the owner must record |
 | --- | --- | --- | --- | --- | --- | --- |
-| C1 | TypeScript mirror of every 05 entity | `packages/protocol/src/schema.ts` | T03.01 | End of M0 (5 Nov) | All web subtasks | Required vs optional PlanResult/Leg/Warning fields (existing `TODO(decision)`), including whether `conditions`, `radiation` and `stops_timeline` may be absent for the M3 slice |
-| C2 | Site-manifest JSON Schema | `schemas/site-manifest.schema.json` | T03.01 | End of M0 | T03.13, T03.14, T03.02, T07.02, T14.03 | Legend structure (05 leaves it open) |
+| C1 | TypeScript mirror of every 05 entity | `packages/protocol/src/schema.ts` | T03.01 (v2: T03.31, HabCandidate, 2026-11-10) | End of M0 (5 Nov) | All web subtasks | Required vs optional PlanResult/Leg/Warning fields (existing `TODO(decision)`), including whether `conditions`, `radiation` and `stops_timeline` may be absent for the M3 slice |
+| C2 | Site-manifest JSON Schema | `schemas/site-manifest.schema.json` | T03.01 (v2: T03.31, optional `hab_candidates`, 2026-11-10) | End of M0 | T03.13, T03.14, T03.02, T07.02, T14.03 | Legend structure (05 leaves it open) |
 | C3 | Plan-export JSON Schema | `schemas/plan-export.schema.json` | T03.01 | End of M0 | T11.01, T11.02, T05.03 | U-11 (store profile arrays in the export) |
 | C4 | Routing-grid binary layout | Spec: 05 §C RoutingGrid and Flag bits, 05 §E.1. Mirrors: `pipeline/src/marswalk_pipeline/config.py` constants, `FLAG_BITS` in `schema.ts`, `LoadedGrid` in `packages/compute/src/grid.ts` | T03.01 (freeze by review; no write to `config.py` or `grid.ts`) | End of M0 | T03.10, T03.11, T03.02, T05.02, T05.16 | Code never hard-codes 5 m: it reads `cell_m` (T03.24 fallback) |
-| C5 | Site-config input layout (one JSON file per DataSource, Layer, EnvConstant, POI, offset) | `pipeline/sites/README.md` | T03.01 | End of M0 | T03.13, T03.16, T03.17, T04.*, T06.10, T12.05 | Layer ids; where the TI threshold lives (05 has no field) |
+| C5 | Site-config input layout (one JSON file per DataSource, Layer, EnvConstant, POI, offset) | `pipeline/sites/README.md` | T03.01 (v2: T03.31, `hab_candidates.json`, 2026-11-10) | End of M0 | T03.13, T03.16, T03.17, T04.*, T06.10, T12.05 | Layer ids; where the TI threshold lives (05 has no field) |
 | C6 | Worker message protocol (02 §E.2) | `packages/protocol/src/worker.ts` | T05.01 | End of M0 (Track P) or M2 (Track S) | T05.04, T05.15, T05.26, T05.27, T07.04, T08.03 | How the worker receives the grid (02 §E.2 defines no load message); cancellation mechanism (02 §E.2 needs the search to yield) |
 | C7 | Compute module layout and exported signatures | Stubs in `packages/compute/src/` (`noRoute.ts`, `snap.ts`, `leg.ts`, `validate.ts`, `handler.ts`) | T05.01 | Same as C6 | Compute lane; T08.04 (`validate.ts`) | Projection maths in the worker (proj4 or hand-written eqc, 02 §B) |
 | C8 | Conditions interface (timeline LTST, sun elevation, conditions, radiation) | `packages/compute/src/conditions.ts`, `packages/compute/src/sun.ts` stubs | T06.01 | M2 | T05.32, T06.05, T06.09, T06.11 | — |
@@ -955,12 +1026,12 @@ Lanes code against these interfaces, not against each other's implementations. A
 | C10 | UI app context: screen renderer signature, worker-client interface, map handle, fixed layer order, provenance attribute names; UI module stubs | `apps/web/src/ui/context.ts` + stubs listed in c.4 | T07.01 | M2 | All frontend, design and story code | Where traverse and waypoints sit in the FR-02 layer order; attribute name for the source id (NFR-05) |
 | C11 | Plan-store state and events | Interfaces in `apps/web/src/state/planStore.ts` | T08.01 | M2 | T07.04, T08.*, T09.*, T10.*, T11.*, T13.06 | Selection and hover shape for map ↔ list ↔ profile linking |
 | C12 | CSS token names and status classes | `apps/web/src/ui/styles/tokens.css` | T13.01 | M2 | All UI CSS | Pattern class names for ok / caution / blocked / unknown |
-| C13 *(v2)* | Protocol v0: runtime entities, wire messages, permissions (05 §C.2, 02 §E.4, §E.6) | `packages/protocol/src/runtime.ts`, `packages/protocol/src/ws.ts` | T20.01 (FR-50 parts by T31.01); T20.11 completes v0 with the 7 Nov decisions (T20.10) | M1 (Sat 7 Nov, 06 §D.3) | Every v2 subtask | Command body shape (flat or `args`); `TaskRoverArgs`; the accepted-rover-task event kind |
+| C13 *(v2)* | Protocol v0: runtime entities, wire messages, permissions (05 §C.2, 02 §E.4, §E.6) | `packages/protocol/src/runtime.ts`, `packages/protocol/src/ws.ts` | T20.01 (FR-50 parts by T31.01); T20.11 completes v0 with the 7 Nov decisions (T20.10); v0.1 (additive, 2026-11-10): T32.01 adds the live session (`presenter`, five commands, five log events), T32.07 and T32.25 follow up | M1 (Sat 7 Nov, 06 §D.3) | Every v2 subtask | Command body shape (flat or `args`); `TaskRoverArgs`; the accepted-rover-task event kind |
 | C14 *(v2)* | Engine interfaces and engine-module split (`reduce`, `tick`, session, log; one module per concern) | `apps/hab-core/src/engine/`, `scenario.ts`, `session.ts`, `log.ts` | T22.01 | M1 | TASK-22, TASK-23, TASK-26, TASK-29, TASK-31 | Module call order inside `tick` (02 §D.14) |
 | C15 *(v2)* | Compute v2 signatures (haven, rendezvous, viewshed, link graph, Earth delivery, event dose, consumables, contingency) | `packages/compute/src/` v2 modules | T05b.01 | M1 | TASK-22, TASK-23, TASK-26, TASK-29, T09.09 | Which spec constants are code constants and which come from ParamSets |
 | C16 *(v2)* | Scenario tables: `dose_series.json`, `earth_link.json` formats; scenario folder layout | `schemas/dose-series.schema.json`, `schemas/earth-link.schema.json`, `scenarios/storm-sol4190/README.md` | T21.01 | M1 | T05b.12, T05b.14, T21.*, T22.11 | Sample step of the dose series (`TODO(verify)` on download) |
 | C17 *(v2)* | EVA view model (selectors from the client store) | `apps/web/src/ui/eva/viewModel.ts` | T24.01 | M1 | TASK-24, T31.05 | — |
-| C18 *(v2)* | FR-50 stop tasks: `StopTask`, task commands and events, `scenario.json` `stop_tasks` | `packages/protocol/src/runtime.ts` (part), `schemas/scenario.schema.json` | T31.01 (**done** 6 Nov) | M1 | TASK-31, T21.08, T11.08, T27.01 | U-46, U-52, U-56, U-58, undo |
+| C18 *(v2)* | FR-50 stop tasks: `StopTask`, task commands and events, `scenario.json` `stop_tasks` | `packages/protocol/src/runtime.ts` (part), `schemas/scenario.schema.json` | T31.01 (**done** 6 Nov); v2 (2026-11-10): T32.04 adds `mission_setup`, `event_library`, `task_library` and makes `plan` and `events` optional | M1 | TASK-31, T21.08, T11.08, T27.01, T32.05–T32.08, T32.32 | U-46, U-52, U-56, U-58, undo |
 
 **Change process.**
 
@@ -1208,11 +1279,23 @@ flowchart LR
 | --- | --- |
 | T01.05 → T04.10 | AOI and site |
 | T01.07 → T03.29 | hab position |
+| T01.07 → T03.32 | candidate hab positions (hab-site.md) |
 | T01.07 → T21.04 | hab position for elevations |
 | T01.07 → T21.08 | start positions |
+| T02.01 → T32.26 | planner tile-grid contract, PR #168–#174 |
+| T02.02 → T32.26 | projection module, PR #168–#174 |
+| T02.03 → T32.26 | spike page, PR #168–#174 |
 | T03.19 → T05b.20 | real grid |
 | T03.19 → T21.12 | real grid |
 | T03.29 → T05b.20 | `comm_hab` grid |
+| T03.31 → T32.05 | HabCandidate shape for the two-candidate manifest |
+| T03.31 → T32.08 | `hab_candidates` field names the loader reads |
+| T03.31 → T32.13 | HabCandidate shape |
+| T03.31 → T32.21 | HabCandidate types and manifest field |
+| T03.31 → T32.22 | field names |
+| T03.32 → T32.22 | the candidate records |
+| T03.34 → T32.22 | real per-candidate grids and manifest |
+| T03.35 → T32.29 | the real candidates verified |
 | T04.04 → T31.02 | POI objectives |
 | T04.11 → T18.13 | record found |
 | T05.16 → T05b.04 | grid loader |
@@ -1229,25 +1312,47 @@ flowchart LR
 | T05b.15 → T21.15 | triggerState for the first alert sample |
 | T05b.15 → T22.09 | real dose integral |
 | T05b.15 → T22.16 | event dose rate |
+| T05b.15 → T32.11 | event dose integral |
 | T05b.16 → T18.04 | owner of the test file; the engine's suit-consumables cases come first |
 | T05b.17 → T18.05 | owner of `consumables.ts` since v2, FR-35 |
 | T05b.17 → T22.09 | real consumables |
+| T05b.17 → T32.30 | `o2RemainingS` |
+| T05b.17 → T32.31 | `o2RemainingS` |
 | T05b.19 → T18.11 | owner of `contingency.ts` |
 | T05b.19 → T23.07 | ranking |
 | T06.06 → T21.15 | LTST |
 | T06.06 → T22.16 | Mars24 time functions |
 | T06.07 → T21.15 | sunrise and sunset |
 | T06.07 → T22.16 | sun elevation |
+| T07.01 → T32.26 | UI context, PR #168–#174 |
+| T07.02 → T32.26 | site loader, PR #168–#174 |
+| T07.03 → T32.23 | owner of the route registry |
 | T07.06 → T24.09 | map module |
 | T07.06 → T25.02 | map module |
 | T07.14 → T21.12 | demo stops |
 | T07.14 → T31.02 | the demo plan's stops |
 | T07.17 → T24.09 | shared map controls |
 | T07.17 → T25.02 | shared controls |
+| T08.01 → T32.26 | plan-store interfaces, PR #168–#174 |
+| T08.03 → T32.27 | plan store implementation |
+| T08.04 → T32.28 | owner of the plan panel |
+| T08.12 → T32.28 | previous follower of scr04PlanPanel.tsx |
+| T11.07 → T32.27 | owner of publishPlan.ts |
 | T14.01 → T28.02 | QR library |
 | T16.07 → T27.06 | hosting of the public link |
 | T17.01 → T21.09 | owner of the demo script |
+| T20.01 → T32.01 | owner of runtime.ts and ws.ts |
+| T20.01 → T32.07 | owner of runtime.ts and ws.ts |
+| T20.01 → T32.25 | owner |
+| T20.02 → T32.03 | owner |
+| T20.03 → T32.15 | owner |
 | T20.04 → T26.02 | owner of `server.ts` |
+| T20.04 → T32.15 | owner |
+| T20.05 → T32.15 | owner |
+| T20.06 → T32.15 | owner |
+| T20.06 → T32.19 | client store |
+| T20.06 → T32.20 | client |
+| T20.06 → T32.22 | client |
 | T20.10 → T22.17 | canonical JSON rule (05 PlanExport) |
 | T20.04 → T27.01 | owner of `server.ts` |
 | T20.04 → T28.02 | owner of `server.ts` |
@@ -1267,21 +1372,64 @@ flowchart LR
 | T20.06 → T29.05 | client store |
 | T20.06 → T31.06 | client store |
 | T20.08 → T31.08 | LAN latency method |
+| T20.11 → T32.01 | the previous contract-change on the same files |
+| T20.11 → T32.03 | the previous follower of this folder |
+| T20.12 → T32.15 | previous follower of the server files |
+| T20.13 → T32.15 | previous follower of the client files |
 | T21.08 → T18.13 | owner of `scenario.json` |
 | T21.08 → T22.14 | the real sol-4190 scenario |
 | T21.08 → T23.08 | real scenario |
 | T21.08 → T26.07 | real scenario |
 | T21.08 → T29.06 | real scenario |
+| T21.08 → T32.29 | the real scenario |
+| T21.08 → T32.32 | owner of the scenario builder and file; stays M2 |
+| T21.15 → T32.18 | the printed numbers for the press time |
+| T22.02 → T32.05 | owner |
+| T22.05 → T32.12 | owner of engine.test.ts |
+| T22.06 → T32.01 | owner of reducer.ts |
+| T22.06 → T32.07 | owner |
 | T22.07 → T27.01 | log |
+| T22.08 → T32.12 | owner of tick.test.ts |
+| T22.09 → T32.07 | owner |
+| T22.09 → T32.09 | tick events |
+| T22.09 → T32.11 | tick |
+| T22.09 → T32.12 | owner |
+| T22.09 → T32.30 | tick and motion |
+| T22.09 → T32.31 | owner |
+| T22.10 → T32.09 | alerts |
+| T22.10 → T32.11 | alerts |
+| T22.10 → T32.12 | owner |
+| T22.11 → T32.07 | owner |
+| T22.11 → T32.08 | owner |
 | T22.12 → T23.08 | session |
 | T22.12 → T28.05 | resume from disk |
+| T22.12 → T32.07 | owner |
+| T22.12 → T32.09 | session |
+| T22.12 → T32.10 | owner |
+| T22.12 → T32.14 | owner |
+| T22.12 → T32.25 | owner |
+| T22.12 → T32.31 | owner |
+| T22.13 → T32.07 | owner; in progress |
+| T22.13 → T32.16 | replay exists |
+| T22.13 → T32.17 | owner; in progress |
 | T22.14 → T27.05 | recorded log |
 | T22.16 → T25.10 | conditions in state |
+| T22.17 → T32.05 | the previous follower |
+| T23.01 → T32.12 | owner of commands.test.ts |
 | T23.02 → T29.02 | dispatch |
 | T23.02 → T31.04 | dispatch |
+| T23.02 → T32.10 | owner |
+| T23.02 → T32.12 | owner |
+| T23.02 → T32.14 | owner |
+| T23.02 → T32.25 | owner |
+| T23.03 → T32.14 | haven fields per tick |
 | T23.05 → T29.03 | motion helper |
+| T23.05 → T32.07 | owner |
+| T23.05 → T32.09 | sheltering events |
+| T23.06 → T32.12 | owner of contingencyOps.test.ts |
 | T23.07 → T24.11 | real options from the Hab Core |
 | T23.07 → T31.08 | abort |
+| T23.07 → T32.07 | owner; in progress |
 | T23.08 → T18.09 | 06 Tier 2 gate, M3 passes |
 | T23.08 → T18.10 | Tier 2 gate |
 | T23.08 → T18.12 | Tier 2 gate |
@@ -1296,10 +1444,15 @@ flowchart LR
 | T25.01 → T12.07 | SCR-11 |
 | T25.01 → T28.03 | ops view |
 | T25.02 → T29.04 | ops map layers |
+| T25.06 → T32.23 | owner of SCR-10 |
 | T26.01 → T29.06 | comm shadow in the engine |
 | T26.04 → T18.12 | Earth messages |
 | T27.01 → T31.08 | report counts |
+| T27.02 → T32.12 | owner of report.test.ts |
 | T28.01 → T20.08 | a configured travel router |
+| T29.05 → T32.26 | rover queue display, PR #168–#174 |
+| T31.01 → T32.04 | owner |
+| T31.04 → T32.25 | owner of tasks.ts |
 
 <!-- v2-edges:end -->
 
@@ -1314,8 +1467,8 @@ Generated from the register's *M* column on 2026-11-06 (06 v2.2). A subtask span
 | **M2** data and scenario 6–9 Nov | T03.03–22, (T03.23), (T03.24), (T03.25), (T03.26), (T03.27), T03.28–30, T04.01–03, T04.07, T04.08, (T04.09), T04.11, T18.08, T21.02–08, T21.10, T21.11, (T21.13), (T21.14) | T05.05–29, (T05.30), (T05.31), T05.32, T05b.06–17, T06.03–09, (T06.11), T21.12 | T07.02–13, T07.15, (T07.16), T07.17, T08.01, T24.02–05, T24.07, T24.10, T25.01, T25.02, T25.07, T31.07 | T13.05, T13.12 | T04.04–06, T04.10, T12.04, T12.05, T16.01, T16.07, T21.09, T31.02 | T16.02 | T20.05, T20.06, T21.15, T22.03–08, T22.11, T23.01, T23.02, T23.04, T23.06, T31.03 |
 | **M3** walking skeleton by 10 Nov | — | T05b.18–20, T23.03, T26.01–07, (T26.08), T29.01–03, T29.06, (T29.07) | T07.18, T08.02–09, (T08.10), T08.11, T08.12, T09.01–05, T09.07, (T09.08), T09.09, T24.06, T24.08, T24.09, T25.03–06, (T25.09), T25.10, T27.01, T27.02, T29.04, T29.05, T31.05, T31.06, (T31.09) | T15.01, T15.04 | T12.01, T12.07, T17.01 | T09.06, T28.02, T28.03 | T22.09, T22.10, T22.12–14, (T22.15), T22.16, T23.05, T23.07, T23.08, (T23.09), T31.04 |
 | **M3b** first dry run 10 Nov evening | — | — | T24.11, (T24.12), T25.08 | T15.02, T15.03 | — | T31.08 | — |
-| **M4** offline dry run 11 Nov | — | — | T11.01, T11.02, T11.04, (T11.06), T11.07, T11.08, T27.04 | T11.03, T11.05, T13.04, T13.06–10 | T12.02, T12.03 | T14.03–10, T28.05 | — |
-| **M4b** buffer 12 Nov | T18.01, T18.02, T18.13 | T18.04, T18.05, T18.09–11 | T18.03, T18.06, T18.07, T18.12 | — | T12.06 | T28.04 | — |
+| **M4** offline dry run 11 Nov | T03.31–35 | — | T11.01, T11.02, T11.04, (T11.06), T11.07, T11.08, T27.04, T32.19–T32.23 | T11.03, T11.05, T13.04, T13.06–10 | T12.02, T12.03 | T14.03–10, T28.05 | T32.01–T32.18, T32.24, T32.25, T32.29–T32.32 |
+| **M4b** buffer 12 Nov | T18.01, T18.02, T18.13 | T18.04, T18.05, T18.09–11 | T18.03, T18.06, T18.07, T18.12, T32.26–T32.28 | — | T12.06 | T28.04 | — |
 | **M5** Day 1 → 12:30 | — | — | T10.01–03 | — | — | — | — |
 | **M6** Day 1 → 18:30 | — | — | — | — | T17.02, (T17.04) | — | — |
 | **M7** Day 1 19:00 → Day 2 05:00 | — | — | T10.04, T27.03, T27.05, T27.06, (T27.07) | — | — | — | — |
@@ -1476,6 +1629,17 @@ Every v2 validation case named in [02 §D.8–§D.16](../specs/02_Technical_Requ
 | Killer demo 0:30–1:10 headless | 06 §C.2 TASK-23 | T23.08 |
 | Tablet tap on ops ≤ 500 ms; abort drops open tasks; report counts = log | 01 FR-50 | T31.08 |
 | RELAY closes the demo comm shadow; queue shows ETA and battery | 01 FR-41 | T29.06 |
+| Next stop ends at arrival, alert, plan revision, EVA end or sheltering; `BUSY` while a warning is latched; `INVALID` with no EVA or no stop | 02 §D.17 | T32.09 |
+| After Next stop, O₂ and dose equal a run walked at 60× | 01 FR-51 | T32.09 |
+| Start storm at two sim times: same curve shifted, same integral; alert at the first sample above the threshold, from the press | 01 FR-52, 02 §D.17 | T32.11 |
+| Reset session, `SELECT_HAB_SITE`, `SET_MISSION_SETUP` rules; presenter-only and ops-only roles; presenter cannot approve, abort or summon | 02 §D.17, §E.4 | T32.13 |
+| Reshaped scenario loads; plan and events optional; library checks; plan-less session | 05 Scenario | T32.06 |
+| Recorded command list replays to the same hash twice, one list per session | 02 §D.17 | T32.16 (rule), T32.29 (full live session) |
+| SCR-19 presenter panel DOM | 03 SCR-19 | T32.19 |
+| SCR-20 mission setup DOM | 03 SCR-20 | T32.21 |
+| `PUBLISH_PLAN` with `stop_tasks`; library reaches the planner | 01 FR-54 | T32.24 |
+| Planner stop-task drafts and editor | 01 FR-54 | T32.26 |
+| Per-crew O₂ remaining, next-stop bearing, distance and ETA | 01 FR-32, FR-33 | T32.30 |
 
 ## Requirement coverage
 
@@ -1511,19 +1675,19 @@ From each subtask's *Serves* line. Implemented by: `contract`, `fixture`, `imple
 
 | Req | Implemented by | Tested or verified by |
 | --- | --- | --- |
-| FR-30 | T20.01, T20.02, T20.04, T20.09, T22.12, T25.01, T25.02 | T20.03, T25.08 |
-| FR-31 | T11.07, T20.01, T20.04, T20.06, T23.02, T25.01, T25.03, T25.06, T28.02 | T20.03, T20.05, T23.01, T25.07 |
-| FR-32 | T07.17, T20.02, T20.06, T24.01, T24.03, T24.04, T24.05, T24.07, T24.09, T24.12, T26.02 | T20.05, T24.02, T24.10, T24.11 |
-| FR-33 | T13.12, T15.04, T24.01, T24.08, T24.12 | T24.10, T24.11 |
-| FR-34 | T21.01, T21.08, T21.09, T21.12, T21.15, T22.01, T22.02, T22.04, T22.06, T22.11, T22.12, T25.05, T25.09, T27.05 | T22.03, T22.05, T25.07, T25.08, T27.06 |
-| FR-35 | T05b.17, T22.09, T22.15 | T05b.16, T22.08 |
+| FR-30 | T20.01, T20.02, T20.04, T20.09, T22.12, T25.01, T25.02, T32.22 | T20.03, T25.08, T32.21 |
+| FR-31 | T11.07, T20.01, T20.04, T20.06, T23.02, T25.01, T25.03, T25.06, T28.02, T32.01, T32.15 | T20.03, T20.05, T23.01, T25.07, T32.13 |
+| FR-32 | T07.17, T20.02, T20.06, T24.01, T24.03, T24.04, T24.05, T24.07, T24.09, T24.12, T26.02, T32.01, T32.02, T32.31 | T20.05, T24.02, T24.10, T24.11, T32.30 |
+| FR-33 | T13.12, T15.04, T24.01, T24.08, T24.12, T32.01, T32.02, T32.31 | T24.10, T24.11, T32.30 |
+| FR-34 | T21.01, T21.08, T21.09, T21.12, T21.15, T22.01, T22.02, T22.04, T22.06, T22.11, T22.12, T25.05, T25.09, T27.05 | T22.03, T22.05, T25.07, T25.08, T27.06, T32.19 |
+| FR-35 | T05b.17, T22.09, T22.15, T32.01, T32.31 | T05b.16, T22.08, T32.30 |
 | FR-36 | T22.16, T25.10 | T12.07 |
 | FR-37 | T21.01, T21.05, T21.06, T21.07, T21.09, T21.13, T21.15, T22.10, T25.03 | T21.03, T21.10, T22.08, T26.03 |
-| FR-38 | T05b.15, T21.06, T21.07, T21.11, T21.15, T22.10, T25.03 | T05b.14, T22.08, T23.08 |
-| FR-39 | T01.07, T05b.01, T05b.02, T05b.04, T05b.21, T08.12, T09.09, T23.03, T25.02 | T05b.03, T05b.05, T05b.20 |
+| FR-38 | T05b.15, T21.06, T21.07, T21.11, T21.15, T22.10, T25.03, T32.12 | T05b.14, T22.08, T23.08, T32.11 |
+| FR-39 | T01.07, T05b.01, T05b.02, T05b.04, T05b.21, T08.12, T09.09, T23.03, T25.02, T32.14 | T05b.03, T05b.05, T05b.20 |
 | FR-40 | T05b.01, T05b.02, T05b.07, T15.04, T23.05, T23.09, T24.05 | T05b.06, T05b.20, T23.04, T23.08 |
 | FR-41 | T29.02, T29.03, T29.04, T29.05, T29.07 | T29.01, T29.06 |
-| FR-42 | T01.07, T03.29, T05b.01, T05b.02, T05b.09, T05b.11, T09.09, T25.02, T26.01, T26.02, T26.08, T29.03 | T03.28, T03.30, T05b.08, T05b.10, T05b.20, T26.06, T26.07, T29.01, T29.06 |
+| FR-42 | T01.07, T03.29, T03.31, T03.34, T05b.01, T05b.02, T05b.09, T05b.11, T09.09, T25.02, T26.01, T26.02, T26.08, T29.03 | T03.28, T03.30, T03.33, T03.35, T05b.08, T05b.10, T05b.20, T26.06, T26.07, T29.01, T29.06 |
 | FR-43 | T05b.01, T05b.13, T21.01, T21.02, T21.04, T21.14, T21.15, T26.04, T26.05, T26.08 | T05b.12, T21.03, T21.10, T26.03, T26.07 |
 | FR-44 | T05b.01, T05b.19, T18.11, T23.07, T24.05, T24.06, T25.04 | T05b.18, T23.06, T23.08, T25.07 |
 | FR-45 | T01.07, T04.10, T07.18, T10.04, T31.02 | — |
@@ -1531,19 +1695,25 @@ From each subtask's *Serves* line. Implemented by: `contract`, `fixture`, `imple
 | FR-47 | T18.10, T18.11 | T18.09 |
 | FR-48 | T18.12 | — |
 | FR-49 | T04.11, T18.13 | — |
-| FR-50 | T11.08, T20.02, T21.08, T27.01, T31.01, T31.02, T31.04, T31.05, T31.06, T31.09 | T27.02, T31.03, T31.07, T31.08 |
+| FR-50 | T11.08, T20.02, T21.08, T27.01, T31.01, T31.02, T31.04, T31.05, T31.06, T31.09, T32.25, T32.27 | T27.02, T31.03, T31.07, T31.08, T32.24 |
+| FR-51 | T32.01, T32.02, T32.03, T32.10, T32.14, T32.15, T32.17, T32.18, T32.20, T32.23 | T32.09, T32.13, T32.16, T32.19, T32.29 |
+| FR-52 | T32.01, T32.03, T32.04, T32.05, T32.08, T32.12, T32.18, T32.20, T32.32 | T32.06, T32.11, T32.19, T32.29 |
+| FR-53 | T03.31, T03.32, T03.34, T32.01, T32.02, T32.03, T32.04, T32.05, T32.07, T32.08, T32.14, T32.22, T32.23 | T03.33, T03.35, T32.06, T32.13, T32.21, T32.29 |
+| FR-54 | T32.02, T32.04, T32.05, T32.07, T32.08, T32.25, T32.27, T32.28, T32.32 | T32.06, T32.24, T32.26 |
 | NFR-01 | T20.06, T20.09, T28.01, T28.02, T28.04 | T20.08 |
 | NFR-02 | T05b.21 | T05b.05, T05b.20, T22.14 |
 | NFR-03 | — | T24.11, T28.03 |
-| NFR-04 | T13.12, T24.04, T24.08, T25.01, T31.05 | T24.10, T25.07, T31.07 |
-| NFR-05 | T24.01, T24.03, T24.04, T24.06, T25.01, T25.10, T26.05, T29.05 | T12.07, T24.02 |
-| NFR-06 | T05b.01, T05b.04, T05b.07, T05b.19, T21.08, T21.11, T21.12, T22.01, T22.04, T22.06, T22.07, T22.09, T23.02, T23.05, T23.07, T31.04 | T05b.06, T22.03, T22.05, T22.14, T31.03 |
+| NFR-04 | T13.12, T24.04, T24.08, T25.01, T31.05, T32.20, T32.28 | T24.10, T25.07, T31.07, T32.26 |
+| NFR-05 | T24.01, T24.03, T24.04, T24.06, T25.01, T25.10, T26.05, T29.05, T32.20, T32.22, T32.28, T32.31 | T12.07, T24.02, T32.19, T32.26, T32.30 |
+| NFR-06 | T05b.01, T05b.04, T05b.07, T05b.19, T21.08, T21.11, T21.12, T22.01, T22.04, T22.06, T22.07, T22.09, T23.02, T23.05, T23.07, T31.04, T32.05, T32.07, T32.10, T32.12, T32.14, T32.17, T32.25, T32.31, T32.32 | T05b.06, T22.03, T22.05, T22.14, T31.03, T32.06, T32.09, T32.11, T32.13, T32.16, T32.24, T32.29, T32.30 |
 | NFR-07 | T21.02, T21.06, T30.01, T30.02 | T30.03 |
 | NFR-08 | T20.04, T28.01 | — |
-| NFR-10 | T22.07, T22.11, T22.12 | T22.05, T28.05 |
+| NFR-10 | T22.07, T22.11, T22.12, T32.07 | T22.05, T28.05, T32.06 |
 | NFR-12 | T20.04, T20.07 | T20.08, T31.08 |
-| NFR-13 | T20.06, T24.07 | T20.03, T20.05, T28.05 |
-| NFR-14 | T22.02, T22.13 | T22.05, T22.14 |
+| NFR-13 | T20.06, T24.07, T32.15 | T20.03, T20.05, T28.05 |
+| NFR-14 | T22.02, T22.13, T32.17, T32.18 | T22.05, T22.14, T32.16, T32.29 |
+| SCR-19 | T32.20, T32.23 | T32.19 |
+| SCR-20 | T32.22, T32.23 | T32.21 |
 
 <!-- v2-coverage:end -->
 
@@ -1592,3 +1762,14 @@ Found while atomizing the v2 packages and re-dating v1. Each has an owner subtas
 8. **Rover relay beat in the 240-s video** — the product & systems lead's call (session handoff §F.4); not planned as a subtask.
 9. **Dependency batch.** T14.01 (M1) now also has to bring a DOM test environment for React components and a local QR library (T28.02); React itself landed on 6 Nov (ADR-012).
 10. **v1 step texts** still name v1 times ("Day 1", v1 milestones) in places; the register and each file's header are authoritative (re-dating note in every v1 file).
+11. **Consumers of `hab_candidates` (2026-11-10).** SCR-20 and `SELECT_HAB_SITE` are registered by the TASK-32 `coord:` change: SCR-20 as T32.21 and T32.22, `SELECT_HAB_SITE` as T32.13 and T32.14, with edges from T03.31 (field names) and T03.34 (real candidates). The F4 mock site has no candidates (the field is optional); T32.05 builds a two-candidate site under the Hab Core fixtures, and whether F4 itself gains candidates stays `TODO(decision)` (T03.02, Obidit Islam).
+12. **U-65 (2026-11-10).** The task ids, windows, effort and owners of the live-session work packages of 06 §C.2 are registered by this `coord:` change as T32.01–T32.32 (the data lane was T03.31–T03.35). Sign-off by the team lead on the PR. 06 itself is not edited here.
+13. **Milestones and effort of TASK-32.** 06 §C.2 gives no "When" and no effort (`TODO(decision)`). M4 (M4b for the planner task editing, which waits for Saba Atharique's PRs #168–#174) is a board placement, and the estimates are planning guesses by analogy with TASK-22 and TASK-23; the team lead confirms both on the PR. T21.08 stays M2: the scenario reshape is T32.32 (M4), so a late T21.08 does not move.
+14. **Shifted-series helpers.** `engine/liveEvents.ts` (T32.12) exports `seriesUtc` and `inputTime`; the conditions feed (T22.16, not started) and the Earth messages and scheduled inputs (T26.04) must call them, or their dose rate, light time and scheduled inputs ignore the Start storm press. Owners: T22.16, T26.04.
+15. **06 §C.2 owner of the ops setup screen.** 06 lists R5 Ridita Alam (Proposed); the product lead took SCR-20 himself (10 Nov), so T32.21 and T32.22 are registered to Sadman Shaharier Mahim, Ridita informed on the PR. 06 §C.2 is updated by T32.02, the next spec-change.
+16. **Blocked by in-progress or unmerged owners.** T32.07 waits for T22.13 and T23.07 (in progress); T32.23 for T07.03 and T25.06; T32.26–T32.28 for the planner subtasks of PRs #168–#174 and for T08.03, T08.04, T08.12 and T11.07. Hard edges are in the v2 table above.
+17. **Ops console link to SCR-20.** 03 SCR-11 lists "Mission setup, SCR-20" as an action; no subtask edits `scr11OpsConsole.tsx` (T25.01) for it. Reach SCR-20 by `#/setup` until the SCR-11 owner adds it.
+18. **06 §C.2 fallbacks** (presenter limited to SET_CLOCK and JUMP_NEXT_EVENT; fixed timeline as one `event_library` entry; tasks from the library unedited; candidate fixed to rank 1) are not registered as subtasks. Add `fallback` subtasks and §h.7 rows if one is triggered.
+19. **Spec gaps found while registering** (task-library transport to the planner, `PUBLISH_PLAN` task argument, `ended_by` values, command-list export from a log that holds no commands, command-list file name, `SESSION_LOADED.plan_hash` for a plan-less session, `MISSION_SETUP_SET` without `vehicle_param_set`): T32.02 is the spec-change subtask; T32.24–T32.28 wait for it.
+20. **Crew HUD fields (2026-11-10).** 05 Crew and 02 §E.6 need a follow-up spec-change for `o2_remaining_min`, `next_stop_bearing_deg`, `next_stop_distance_m`, `next_stop_eta_s` (Proposed names, `TODO(decision)`; ETA provenance Proposed `modelled`); T32.01 types them, T32.31 computes them, T32.02 writes them into the specs. The views that show them (T24.03, T24.04, T24.08) are Ridita Alam's and unchanged here.
+21. **Existing tests that expect the table-time storm.** From T32.12 a session has background dose until `START_EVENT`; T32.12 updates `engine.test.ts`, `tick.test.ts`, `commands.test.ts`, `contingencyOps.test.ts`, `report.test.ts` (owners unchanged) and takes ownership of `contingencyOpsReal.test.ts`, `replay.test.ts` and `session.test.ts`, which no subtask owned. `summon.test.ts`, `sessionTick.test.ts` and `demoNumbers.test.ts` build their alerts or doses without the session's storm and are expected to pass unchanged; confirm when T32.12 lands (`TODO(verify)`).
