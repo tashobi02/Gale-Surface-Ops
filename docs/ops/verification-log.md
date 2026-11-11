@@ -449,6 +449,7 @@ All five match. Over the ten points: 9 match, 1 does not.
 - CSS pattern classes (`.status-nominal`, `.status-caution`, `.status-warning`, `.status-unknown`) implemented in `apps/web/src/ui/styles/patterns.css`.
 - Consumers documented in `patterns.css` header: status banner, warnings list, legend swatches, briefing card, StatusIcon.
 - Hands on to: T07.09 (legend swatches), T09.03 (status banner), T09.04 (warnings list), T11.03 (briefing card), T14.04 (SCR-00 error view).
+- Follow-up 2026-11-11 (design-system review, slice L): the "Node / SSR robustness" row above no longer holds. The hand-written mock fallback was removed, so `renderStatusIcon` now requires a DOM document (it throws without one; server rendering uses the React `StatusIcon`), and `statusIcon.test.ts` runs the real DOM branch under jsdom. Icon-only (`showWord: false`) static indicators now carry `role="img"` with the `aria-label`.
 
 ## T05.28 — Verify on the real grid: 10 sampled cells; 20 pairs p50/p95; 3-stop loop ≤ 2 s
 

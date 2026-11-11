@@ -49,7 +49,7 @@ However, [04 §C.4](../../../../docs/specs/04_Design_Brief.md#c4-iconography) sp
 - `stroke-linecap: square;`
 - `stroke-linejoin: miter;` (Proposed; not in 04 §C.4)
 
-Consumers embedding these SVGs inline should apply these CSS overrides to conform to 04 §C.4. TODO(decision): no shared icon utility class exists yet; add one only after the icon consumers exist.
+Consumers embedding these SVGs inline should apply these CSS overrides to conform to 04 §C.4. TODO(decision): the shipped SVG files stay Lucide `stroke-width="2"` with round caps and joins, which 04 §C.4 (1.5 px, squared caps) does not allow; this needs a 04 spec change (accept the Lucide defaults) or an icon-build step, and until then every consumer must apply the overrides above. TODO(decision): no shared icon utility class exists yet; add one only after the icon consumers exist.
 
 ## Licence and Attribution (T16.05)
 
