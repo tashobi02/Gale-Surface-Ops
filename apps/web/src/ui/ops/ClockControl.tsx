@@ -9,10 +9,14 @@
  * - Scenario selector (LOAD_SCENARIO)
  * - Start EVA action (START_EVA)
  *
+ * Controlled: speed, pause state, session state and scenario all come from the Hab Core session (snapshot).
+ * Nothing is remembered here, so a change made by another client or by the server shows at once. A value that is
+ * not known (null/undefined) shows no active speed and offers no pause/resume, instead of assuming one.
+ *
  * Mode OPS: Projector-readable, keyboard accessible (NFR-04).
  */
 
-import { useState, type CSSProperties, type ReactElement, type ChangeEvent } from "react";
+import type { CSSProperties, ReactElement, ChangeEvent } from "react";
 import type { CommandKind } from "@marswalk/protocol";
 
 export type ClockSpeed = 1 | 10 | 60;
@@ -24,8 +28,11 @@ export interface ScenarioOption {
 }
 
 export interface ClockControlProps {
-  speed?: ClockSpeed;
-  isPaused?: boolean;
+  /** Session clock speed; null/undefined = unknown (no speed is shown as active). */
+  speed?: ClockSpeed | null;
+  /** Session clock paused flag; null/undefined = unknown (pause/resume is disabled). */
+  isPaused?: boolean | null;
+  /** Session status; START EVA is offered only while "LOADED". */
   sessionState?: SessionState;
   activeScenarioId?: string;
   availableScenarios?: ScenarioOption[];
@@ -39,9 +46,9 @@ export interface ClockControlProps {
 }
 
 export function ClockControl({
-  speed = 1,
-  isPaused = false,
-  sessionState = "RUNNING",
+  speed,
+  isPaused,
+  sessionState,
   activeScenarioId,
   // No invented scenario catalogue: with none supplied, only the active scenario (if any) is listed.
   availableScenarios = activeScenarioId ? [{ id: activeScenarioId, label: activeScenarioId }] : [],
@@ -53,16 +60,12 @@ export function ClockControl({
   onCommand,
   className = "",
 }: ClockControlProps): ReactElement {
-  const [internalPaused, setInternalPaused] = useState(isPaused);
-  const [internalSpeed, setInternalSpeed] = useState<ClockSpeed>(speed);
-  const [selectedScenario, setSelectedScenario] = useState(activeScenarioId ?? "");
-
-  const paused = isPaused ?? internalPaused;
-  const currentSpeed = speed ?? internalSpeed;
+  const paused = isPaused ?? null;
+  const currentSpeed = speed ?? null;
 
   const handlePauseToggle = (): void => {
+    if (paused === null) return;
     const next = !paused;
-    setInternalPaused(next);
     onPauseResume?.(next);
     onCommand?.({
       kind: "SET_CLOCK",
@@ -71,7 +74,6 @@ export function ClockControl({
   };
 
   const handleSpeedSelect = (newSpeed: ClockSpeed): void => {
-    setInternalSpeed(newSpeed);
     onSetSpeed?.(newSpeed);
     onCommand?.({
       kind: "SET_CLOCK",
@@ -97,7 +99,6 @@ export function ClockControl({
 
   const handleScenarioChange = (e: ChangeEvent<HTMLSelectElement>): void => {
     const nextId = e.target.value;
-    setSelectedScenario(nextId);
     onLoadScenario?.(nextId);
     onCommand?.({
       kind: "LOAD_SCENARIO",
@@ -161,7 +162,7 @@ export function ClockControl({
       {/* Scenario selector */}
       <select
         aria-label="Select mission scenario"
-        value={selectedScenario}
+        value={activeScenarioId ?? ""}
         onChange={handleScenarioChange}
         style={selectStyle}
         title="Load scenario"
@@ -197,11 +198,18 @@ export function ClockControl({
       <button
         type="button"
         onClick={handlePauseToggle}
+        disabled={paused === null}
         style={paused ? activeButtonStyle : buttonStyle}
-        aria-label={paused ? "Resume mission clock" : "Pause mission clock"}
-        title={paused ? "Resume (▶)" : "Pause (⏸)"}
+        aria-label={
+          paused === null
+            ? "Pause or resume mission clock (state unknown)"
+            : paused
+              ? "Resume mission clock"
+              : "Pause mission clock"
+        }
+        title={paused === null ? "Clock state unknown" : paused ? "Resume (▶)" : "Pause (⏸)"}
       >
-        {paused ? "▶" : "⏸"}
+        {paused === null ? "—" : paused ? "▶" : "⏸"}
       </button>
 
       {/* Speed multiplier buttons: 1×, 10×, 60× */}

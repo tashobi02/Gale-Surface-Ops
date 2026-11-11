@@ -899,6 +899,7 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `apps/hab-core/tests/tick.test.ts` | T22.08 | T32.12 follows up (START_EVENT in the storm cases) |
 | `apps/web/src/net/habClient.ts` | T20.06 | T20.13, T32.15 follow up (one at a time) |
 | `apps/web/src/net/replaySource.ts` | T27.05 | — |
+| `apps/web/src/state/habSession.ts`, `apps/web/tests/state/habSession.test.ts` | T25.01 | T24.04 and T31.05 subscribe through it; added 11 Nov (store hook over T20.06's client) |
 | `apps/web/src/state/stopTaskDraft.ts` | T32.27 | New |
 | `apps/web/src/ui/briefing/publishPlan.ts` | T11.07 | T32.27 follows up |
 | `apps/web/src/ui/eva/HoldToConfirm.tsx` | T24.05 | — |
@@ -931,6 +932,7 @@ Paths created or taken over by the v2 subtasks. Append-only paths are listed in 
 | `apps/web/src/ui/screens/scr15RoverTask.tsx` | T29.04 | — |
 | `apps/web/src/ui/screens/scr16EarthView.tsx` | T18.12 | — |
 | `apps/web/src/ui/screens/scr17PostEvaReport.tsx` | T27.03 | fallback T27.07 may replace it |
+| `apps/web/src/ui/report/reportAdapter.ts`, `apps/web/tests/ui/postEvaReport.test.ts` | T27.03 | added 11 Nov (maps `GET /api/report` to SCR-17) |
 | `apps/web/src/ui/screens/scr18HabLinkLost.tsx` | T24.07 | — |
 | `apps/web/src/ui/screens/scr19Presenter.tsx` | T32.20 | New |
 | `apps/web/src/ui/screens/scr20MissionSetup.tsx` | T32.22 | New |

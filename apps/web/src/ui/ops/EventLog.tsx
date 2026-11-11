@@ -6,6 +6,8 @@
  * - Displays events in monotonic seq order with their sim time (05 §C.2, FR-46).
  * - Research pattern P2: module label [ HAB CORE /// EVENT LOG ] (04 §E.4).
  * - Displays sim time (HH:MM:SS), seq number, actor, kind, event summary, and provenance chip.
+ * - A field the event does not carry reads "—" (04 §D.1); the provenance chip shows the classes in the event's own
+ *   provenance map, or "—" when it has none. Nothing is filled in from defaults.
  * - Filter by event kind category: ALL, ALERTS, CREW, TASKS, VEHICLES, LINK, SYSTEM.
  * - Copy button allows copying formatted event log to clipboard.
  * - Adheres to OPS dark mode palette (panel, raised, edge, hairline, text-1/2/3); no brand orange.
@@ -13,7 +15,9 @@
 
 import {
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
@@ -21,6 +25,18 @@ import {
 } from "react";
 import type { LogEvent, LogEventKind, Provenance } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
+import { PROVENANCE_GLYPHS, UNAVAILABLE, provAttrs, unavailableOf } from "../components/provenance";
+
+/** Stable empty list for useSyncExternalStore: a new [] on every read would re-render forever. */
+const NO_EVENTS: LogEvent[] = [];
+
+/** A data field as text, or "—" when the event does not carry it. */
+function field(v: unknown): string {
+  if (v === null || v === undefined) return UNAVAILABLE;
+  if (typeof v === "number") return Number.isFinite(v) ? String(v) : UNAVAILABLE;
+  if (typeof v === "string") return v.trim().length > 0 ? v : UNAVAILABLE;
+  return UNAVAILABLE;
+}
 
 export type EventCategory = "ALL" | "ALERTS" | "CREW" | "TASKS" | "VEHICLES" | "LINK" | "SYSTEM";
 
@@ -88,53 +104,58 @@ export function categorizeEvent(kind: LogEventKind): EventCategory {
   }
 }
 
-/** Converts event data into human-readable text description. */
+/** Converts event data into human-readable text description. Missing fields read "—". */
 export function summarizeEvent(event: LogEvent): string {
   const d = (event.data ?? {}) as Record<string, unknown>;
 
   switch (event.kind) {
     case "SESSION_LOADED":
-      return `Session loaded: ${d.scenario_id ?? "scenario"}`;
-    case "CLOCK_CHANGED":
-      return `Clock speed ${d.speed ?? 1}x${d.paused ? " (paused)" : ""}`;
-    case "EVA_STARTED":
-      return `EVA started with crew ${(d.crew_ids as string[] | undefined)?.join(", ") ?? "EV1, EV2"}`;
+      return `Session loaded: ${field(d.scenario_id)}`;
+    case "CLOCK_CHANGED": {
+      const speed = typeof d.speed === "number" && Number.isFinite(d.speed) ? `${d.speed}x` : UNAVAILABLE;
+      return `Clock speed ${speed}${d.paused === true ? " (paused)" : ""}`;
+    }
+    case "EVA_STARTED": {
+      const crew = Array.isArray(d.crew_ids) && d.crew_ids.length > 0 ? d.crew_ids.map(String).join(", ") : UNAVAILABLE;
+      return `EVA started with crew ${crew}`;
+    }
     case "ARRIVED_STOP":
-      return `${d.crew_id ?? "Crew"} arrived ${d.stop_id ?? "stop"}`;
+      return `${field(d.crew_id)} arrived ${field(d.stop_id)}`;
     case "LEFT_STOP":
-      return `${d.crew_id ?? "Crew"} departed ${d.stop_id ?? "stop"}`;
+      return `${field(d.crew_id)} departed ${field(d.stop_id)}`;
     case "ALERT_RAISED":
-      return `${String(d.message ?? d.code ?? "Alert raised")}`;
+      return field(d.message) !== UNAVAILABLE ? field(d.message) : field(d.code);
     case "ALERT_ACKED":
-      return `Alert ${d.alert_id ?? ""} acknowledged by ${d.acked_by ?? event.actor}`;
+      return `Alert ${field(d.alert_id)} acknowledged by ${field(d.acked_by ?? event.actor)}`;
     case "ALERT_CLEARED":
-      return `Alert ${d.alert_id ?? ""} cleared`;
+      return `Alert ${field(d.alert_id)} cleared`;
     case "OPTIONS_PROPOSED":
-      return `${(d.options as unknown[] | undefined)?.length ?? 0} contingency options proposed`;
+      return `${Array.isArray(d.options) ? d.options.length : UNAVAILABLE} contingency options proposed`;
     case "PLAN_REVISED":
-      return `Plan revised to Rev ${d.plan_revision ?? 2}`;
+      return `Plan revised to Rev ${field(d.plan_revision)}`;
     case "VEHICLE_DISPATCHED":
-      return `Vehicle ${d.vehicle_id ?? "PR1"} dispatched`;
+      return `Vehicle ${field(d.vehicle_id)} dispatched`;
     case "VEHICLE_ARRIVED":
-      return `Vehicle ${d.vehicle_id ?? "PR1"} arrived at destination`;
+      return `Vehicle ${field(d.vehicle_id)} arrived at destination`;
     case "CREW_SHELTERED":
-      return `${d.crew_id ?? "Crew"} sheltered in ${d.haven_kind ?? "shelter"}`;
+      return `${field(d.crew_id)} sheltered in ${field(d.haven_kind)}`;
     case "TASK_ADDED":
-      return `Task added: ${String(d.text ?? d.task_id ?? "")}`;
+      return `Task added: ${field(d.text) !== UNAVAILABLE ? field(d.text) : field(d.task_id)}`;
     case "TASK_UPDATED":
-      return `Task ${d.task_id ?? ""} marked ${d.state ?? ""}${d.reason ? ` (${String(d.reason)})` : ""}`;
+      return `Task ${field(d.task_id)} marked ${field(d.state)}${d.reason ? ` (${String(d.reason)})` : ""}`;
     case "TASK_DROPPED":
-      return `Task ${d.task_id ?? ""} dropped: ${d.reason ?? "plan cut"}`;
+      // 05 TASK_DROPPED carries the plan revision that dropped it, not a free-text reason.
+      return `Task ${field(d.task_id)} dropped at plan revision ${field(d.plan_revision)}`;
     case "LINK_LOST":
-      return `Link lost: ${d.node_id ?? "suit"}`;
+      return `Link lost: ${field(d.node_id)}`;
     case "LINK_RESTORED":
-      return `Link restored: ${d.node_id ?? "suit"}`;
+      return `Link restored: ${field(d.node_id)}`;
     case "COMMAND_REJECTED":
-      return `Command rejected: ${d.code ?? ""} (${d.message ?? ""})`;
+      return `Command rejected: ${field(d.code)} (${field(d.message)})`;
     case "EARTH_MSG_QUEUED":
-      return `Earth message queued: ${d.msg_id ?? ""}`;
+      return `Earth message queued: ${field(d.message_id)}`;
     case "EARTH_MSG_DELIVERED":
-      return `Earth message delivered: ${d.msg_id ?? ""}`;
+      return `Earth message delivered: ${field(d.message_id)}`;
     case "EVA_ENDED":
       return "EVA completed / ended";
     default:
@@ -142,24 +163,29 @@ export function summarizeEvent(event: LogEvent): string {
   }
 }
 
-/** Visual glyph for provenance level (04 §C.1). */
+/** Glyph for a provenance class (04 §C.1); "—" for a class that is not known (never another class's glyph). */
 export function provenanceGlyph(prov?: Provenance | string): string {
-  switch (prov) {
-    case "measured":
-      return "■";
-    case "derived":
-      return "◆";
-    case "modelled":
-      return "○";
-    case "assumed":
-      return "△";
-    case "replayed":
-      return "▶";
-    case "simulated":
-      return "◇";
-    default:
-      return "◇";
+  return prov !== undefined && Object.hasOwn(PROVENANCE_GLYPHS, prov) ? PROVENANCE_GLYPHS[prov as Provenance] : UNAVAILABLE;
+}
+
+/** Severity shape + word for an alert row (04 §A.3 #2); only ALERT_RAISED carries a level. */
+function severityOf(ev: LogEvent): { shape: string; word: string } | null {
+  if (ev.kind !== "ALERT_RAISED") return null;
+  const level = (ev.data as { level?: string } | undefined)?.level;
+  if (level === "warning") return { shape: "⬣", word: "WARNING" };
+  if (level === "caution") return { shape: "▲", word: "CAUTION" };
+  if (level === "advisory") return { shape: "◆", word: "ADVISORY" };
+  return null;
+}
+
+/** The distinct classes in an event's provenance map, with the field paths that carry each. */
+function provenanceClasses(ev: LogEvent): { prov: Provenance; fields: string[] }[] {
+  const byClass = new Map<Provenance, string[]>();
+  for (const [path, prov] of Object.entries(ev.provenance ?? {})) {
+    if (typeof prov !== "string" || !Object.hasOwn(PROVENANCE_GLYPHS, prov)) continue;
+    byClass.set(prov, [...(byClass.get(prov) ?? []), path]);
   }
+  return [...byClass].map(([prov, fields]) => ({ prov, fields }));
 }
 
 export function EventLog({
@@ -173,7 +199,8 @@ export function EventLog({
   // Sync with client if events prop is not passed directly
   const clientEvents = useSyncExternalStore(
     useCallback((onStoreChange) => client?.subscribe(onStoreChange) ?? (() => {}), [client]),
-    useCallback(() => client?.events() ?? [], [client]),
+    useCallback(() => client?.events() ?? NO_EVENTS, [client]),
+    () => NO_EVENTS,
   );
 
   const rawEvents = propEvents ?? clientEvents;
@@ -184,23 +211,35 @@ export function EventLog({
   }, [rawEvents]);
 
   const [filter, setFilter] = useState<EventCategory>(initialCategory);
-  const [copied, setCopied] = useState<boolean>(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+  }, []);
 
   const filteredEvents = useMemo(() => {
     if (filter === "ALL") return sortedEvents;
     return sortedEvents.filter((e) => categorizeEvent(e.kind) === filter);
   }, [sortedEvents, filter]);
 
-  const handleCopyLog = () => {
+  const handleCopyLog = async (): Promise<void> => {
     const text = filteredEvents
       .map(
         (e) =>
           `[${formatSimTime(e.sim_time)}] #${e.seq} (${e.actor}) ${e.kind}: ${summarizeEvent(e)}`,
       )
       .join("\n");
-    void navigator.clipboard?.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    // Report what happened: "copied" only after the write resolved, "failed" when there is no clipboard or it refused.
+    let next: "copied" | "failed" = "copied";
+    try {
+      if (!navigator.clipboard) throw new Error("no clipboard");
+      await navigator.clipboard.writeText(text);
+    } catch {
+      next = "failed";
+    }
+    setCopyState(next);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCopyState("idle"), 2000);
   };
 
   const categories: EventCategory[] = ["ALL", "ALERTS", "CREW", "TASKS", "VEHICLES", "LINK", "SYSTEM"];
@@ -278,12 +317,12 @@ export function EventLog({
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <button
             type="button"
-            onClick={handleCopyLog}
+            onClick={() => void handleCopyLog()}
             style={{
               padding: "2px 8px",
               background: "transparent",
               border: "1px solid var(--edge, #5C6670)",
-              color: copied ? "var(--nominal, #3DDC84)" : "var(--text-2, #A9B3BE)",
+              color: copyState === "idle" ? "var(--text-2, #A9B3BE)" : "var(--text-1, #ECEFF2)",
               fontSize: "11px",
               fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
               cursor: "pointer",
@@ -291,7 +330,7 @@ export function EventLog({
             }}
             title="Copy visible log lines to clipboard"
           >
-            {copied ? "COPIED ✓" : "COPY LOG"}
+            {copyState === "copied" ? "COPIED ✓" : copyState === "failed" ? "COPY FAILED ✕" : "COPY LOG"}
           </button>
         </div>
       </header>
@@ -341,10 +380,9 @@ export function EventLog({
                 ? "var(--caution, #FFB020)"
                 : "var(--text-1, #ECEFF2)";
 
-            // Derive primary provenance glyph from event or provenance map
-            const provMap = ev.provenance ?? {};
-            const provType = Object.values(provMap)[0] ?? (isAlert ? "replayed" : "simulated");
-            const glyph = provenanceGlyph(provType);
+            // Provenance classes come from the event's own map; none = unknown (shown as "—", never a guessed class).
+            const classes = provenanceClasses(ev);
+            const severity = severityOf(ev);
 
             return (
               <div
@@ -363,7 +401,7 @@ export function EventLog({
                 }}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "50px 72px 70px 1fr 28px",
+                  gridTemplateColumns: "50px 72px 70px 1fr minmax(28px, auto)",
                   alignItems: "center",
                   gap: "8px",
                   padding: "4px 12px",
@@ -424,21 +462,31 @@ export function EventLog({
                   }}
                   title={summarizeEvent(ev)}
                 >
+                  {severity && <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px" }}>{severity.shape} {severity.word} </span>}
                   {summarizeEvent(ev)}
                 </span>
 
-                {/* Provenance Chip Glyph */}
+                {/* Provenance chip: one glyph per class in the event's provenance map, or "—" */}
                 <span
                   style={{
                     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
                     color: "var(--text-3, #8592A0)",
                     fontSize: "12px",
                     textAlign: "right",
+                    display: "inline-flex",
+                    justifyContent: "flex-end",
+                    gap: "4px",
                   }}
-                  title={`Provenance: ${provType}`}
-                  data-provenance={provType}
                 >
-                  {glyph}
+                  {classes.length === 0 ? (
+                    <span {...provAttrs(unavailableOf(null, "event_log.provenance"))}>{UNAVAILABLE}</span>
+                  ) : (
+                    classes.map(({ prov, fields }) => (
+                      <span key={prov} {...provAttrs({ prov, src: `event:${ev.seq}:${fields.join(",")}` })}>
+                        {provenanceGlyph(prov)}
+                      </span>
+                    ))
+                  )}
                 </span>
               </div>
             );

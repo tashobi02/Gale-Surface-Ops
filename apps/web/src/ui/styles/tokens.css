@@ -133,9 +133,13 @@
   --meta-strip-height: 24px;
   --alert-bar-height: 64px;
   /* Narrow-viewport results panel height 1024–1279 px (04 §F Responsive) */
-  --results-height-narrow: 180px;  /* 04 §F */
+  /* TODO(decision): 04 §F names the narrow layout but gives no 180px value. 04 spec change needed to define the
+     narrow results height; value left as is until then. */
+  --results-height-narrow: 180px;
   /* Selection outline width (04 §C.5; not a colour — route colour used) */
-  --selection-width: 2px;          /* 04 §C.5 */
+  /* TODO(decision): 04 §C.5 table sets the selected waypoint `focus` ring to 3 px; 2px here is not in 04. 04 spec
+     change needed (state what --selection-width covers, or set it to 3 px); value left as is until then. */
+  --selection-width: 2px;
 
   /* Motion (04 §C.6) */
   --motion-fast: 150ms;
@@ -159,7 +163,7 @@
   --status-warning: var(--warning);
   --status-advisory: var(--advisory);
   --status-unknown: var(--unknown);
-  --focus-ring: 0 0 0 2px var(--void), 0 0 0 4px #FFFFFF;
+  --focus-ring: 0 0 0 2px var(--void), 0 0 0 4px #FFFFFF;   /* 04 §C.1 `focus` */
   color-scheme: dark;
 }
 
@@ -176,6 +180,7 @@
   --accent: var(--signal);
   --accent-text: var(--signal-ink);
   --on-accent: var(--ink);
+  /* TODO(decision): 04 §C.1 `focus` is white (a white ring is invisible on paper); the BRIEF ring uses ink on a paper gap. 04 spec-change needed. */
   --focus-ring: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink);
   color-scheme: light;
 }
@@ -194,8 +199,12 @@
   --status-warning: var(--hud-warning);
   --status-advisory: var(--hud-advisory);
   --status-unknown: var(--hud-text-2);
-  --focus-ring: none;
-  /* HUD typography & sizing tokens (04 §C.1, 04 §E.6, NFR-04) */
+  /* 04 §C.1 `focus`: white ring 2 px + 2 px gap; HUD gap is its own black (hud-bg), ring is hud-text (#FFFFFF) */
+  --focus-ring: 0 0 0 2px var(--hud-bg), 0 0 0 4px var(--hud-text);
+  /* 04 §C.1 defines no HUD-specific edge; the OPS `edge` is reused (≥ 3 : 1 non-text on black).
+     TODO(decision): 04 spec-change if the HUD needs its own control-edge value. */
+  --control-edge: var(--edge);
+  /* Proposed HUD tokens (not explicitly named in 04 §C.1; 04 §E.6, NFR-04) */
   --font-hud: var(--font-mono);
   --text-hud-min: 48px;
   --text-hud-max: 72px;
@@ -204,10 +213,13 @@
 }
 
 [data-mode="print"] {
+  /* TODO(decision): 04 §C.1 defines no PRINT focus ring; print is not interactive, so none is set and the OPS value is inherited. 04 spec-change needed. */
   --surface-0: #FFFFFF;
   --surface-1: #FFFFFF;
+  /* TODO(decision): print hex values #F3F4F6, #D1D5DB, #4B5563 are not defined in 04 §C.1 */
   --surface-2: #F3F4F6;
   --line: #D1D5DB;
+  --control-edge: #D1D5DB;
   --fg-1: var(--print-text);
   --fg-2: var(--print-text);
   --fg-3: #4B5563;
@@ -227,10 +239,7 @@ html {
   font: var(--text-ui) / var(--line-height-ui) var(--font-ui);
 }
 
-:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
+/* Focus ring: the single :focus-visible rule lives in base.css (T13.04); --focus-ring is defined for every mode above. */
 
 /* Every number: tabular, slashed zero (04 §G). */
 [data-provenance],
@@ -290,6 +299,8 @@ html {
 }
 
 /* Catalogue codes and module labels (04 P1, P2) — real ids only, never decoration */
+/* TODO(decision): 11 px is inside 04 §C.2 Microcopy (11–13 px) but below its "Minimum 12 px anywhere" rule, and
+   04 §C.2 itself conflicts here. 04 spec change needed (drop the 11 px floor or exempt microcopy); value left as is. */
 .code,
 .module-label {
   font: 500 11px / 1.2 var(--font-mono);
@@ -298,16 +309,21 @@ html {
   color: var(--fg-3);
 }
 
-/* Buttons look like buttons (04 P8): visible edge, label, pressed state. No radius, no shadow. */
+/* Buttons look like buttons (04 P8): visible edge, label, pressed state. No radius, no shadow.
+ * Do not set `box-shadow: none` here: it would erase the focus ring (single rule in base.css). */
 button,
 .btn {
   border: 1px solid var(--control-edge);
   border-radius: 0;
-  box-shadow: none;
   min-height: var(--target-mouse);
 }
-button:active,
-.btn:active { filter: invert(1); }
+/* Pressed: inverted (04 §D.1 action button, P8), token-based so it works in every mode.
+   TODO(decision): a primary button (text-1 fill, void text, 04 §D) already looks like this; give it its own pressed state when that class lands. */
+button:not(:disabled):active,
+.btn:not(:disabled):not([aria-disabled="true"]):active {
+  background: var(--fg-1);
+  color: var(--surface-0);
+}
 a { text-decoration: underline; text-underline-offset: 2px; }
 
 /* Hidden content is announced (04 P11): scroll shadow + count label. */
@@ -332,8 +348,10 @@ a { text-decoration: underline; text-underline-offset: 2px; }
   [data-mode] {
     --surface-0: #FFFFFF;
     --surface-1: #FFFFFF;
+    /* TODO(decision): print hex values #F3F4F6, #D1D5DB, #4B5563 are not defined in 04 §C.1 */
     --surface-2: #F3F4F6;
     --line: #D1D5DB;
+    --control-edge: #D1D5DB;
     --fg-1: var(--print-text);
     --fg-2: var(--print-text);
     --fg-3: #4B5563;
@@ -348,8 +366,4 @@ a { text-decoration: underline; text-underline-offset: 2px; }
 
 @media (min-width: 768px) {
   :root { --text-value-landscape: 48px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
 }

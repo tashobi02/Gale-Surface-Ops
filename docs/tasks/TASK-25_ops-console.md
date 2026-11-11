@@ -43,12 +43,12 @@
 
 ### T25.01 — Implement the SCR-11 layout: crew and vehicle cards, metadata strip, slots
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
 - **Estimate:** 2–3 h
-- **Owns (writes):** `apps/web/src/ui/screens/scr11OpsConsole.tsx`
+- **Owns (writes):** `apps/web/src/ui/screens/scr11OpsConsole.tsx`, `apps/web/src/state/habSession.ts`, `apps/web/tests/state/habSession.test.ts`
 - **Reads:** [04 §E.4](../specs/04_Design_Brief.md#e4-scr-11-ops-console-ops--1280-px-projector), [04 §E.10](../specs/04_Design_Brief.md#e10-specimen-card-scr-06-poi-detail-crew-and-vehicle-cards), [03 SCR-11](../specs/03_App_Flow_and_Diagrams.md#scr-11--ops-console-v2), `docs/design/prototype/`, `apps/web/tests/ui/ops.test.ts`
 - **Depends on:** T25.07 (hard: DOM tests first), T20.06 (hard: client store), T13.01 (soft: tokens), T31.06 (soft: task progress)
 - **Parallel with:** T25.02
@@ -87,7 +87,7 @@
 
 ### T25.03 — Implement the alert stack with acknowledgement
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -108,7 +108,7 @@
 
 ### T25.04 — Implement the ops options panel with `APPROVE_OPTION`
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -129,7 +129,7 @@
 
 ### T25.05 — Implement clock control and scenario load
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -150,7 +150,7 @@
 
 ### T25.06 — Implement SCR-10 join / role select
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -171,7 +171,7 @@
 
 ### T25.07 — Tests: ops and join DOM tests
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** test
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted
@@ -235,7 +235,7 @@
 
 ### T25.10 — Implement the ops conditions panel and the EVA conditions strip values (FR-36)
 
-- **Owner:** Ridita Alam (R5 EVA & Ops UI)
+- **Owner:** Sadman Shaharier Mahim (product & systems lead · R4 Hab Core) — taken over from Ridita Alam on 10 Nov to unblock the live session while her agent is out for the day (product lead's call; Ridita informed on the PR; the human-required checks stay with her)
 - **Type:** implement
 - **Tag:** agent-ready · core
 - **Window:** pre-event-if-permitted

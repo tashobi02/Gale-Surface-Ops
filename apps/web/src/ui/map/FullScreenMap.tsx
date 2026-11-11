@@ -5,17 +5,23 @@
  * row; landscape: stacked at the left, map ≥ 80 % of the width, U-60). A warning closes it. At most
  * two scientific layers; a third turns the oldest off and says so. Projected metres only, never
  * EPSG:3857 or `ol/sphere` (02 §C.1). Implemented by TASK-24 (T24.09, Ridita Alam).
+ *
+ * Crew: each `crew` member is listed with its position (labelled, class from the snapshot's provenance map or the
+ * `simulated` class 05 gives Crew positions) and, when a `view` is known, marked at its offset from the view centre
+ * (metres / resolution, north up). The map tiles and the shared Mars map instance wait on T07.06 / T07.17 and are not
+ * built here. Keyboard: Escape closes the layers menu first, then the map, and focus returns to what opened it.
  */
 import {
   useEffect,
+  useRef,
   useState,
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { Crew } from "@marswalk/protocol";
-import type { ProvenanceValue } from "../eva/viewModel";
+import type { Crew, Provenance, ProvenanceMap } from "@marswalk/protocol";
+import { isProvenance, type ProvenanceValue } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
-import { UNAVAILABLE, fmtFixed, fmtInt, glyphOf, isUsableValue, provAttrs, unavailableOf } from "../components/provenance";
+import { UNAVAILABLE, fmtFixed, fmtInt, glyphOf, isFiniteNumber, isUsableValue, provAttrs, unavailableOf } from "../components/provenance";
 
 /** Scientific overlays offered on the full-screen map (04 §E.5; final set U-57). */
 export type FullScreenMapLayer = "slope" | "thermal_inertia" | "comm_shadow" | "haven_bands";
@@ -24,7 +30,10 @@ export type FullScreenMapLayer = "slope" | "thermal_inertia" | "comm_shadow" | "
 export const MAX_SCIENCE_LAYERS = 2;
 
 export interface FullScreenMapProps {
+  /** Crew members to show (positions in working-projection metres). Omitted means none: nothing is invented. */
   crew?: Crew[];
+  /** The snapshot's provenance map, for the class of `crew.x_m` and `crew.y_m`; absent or invalid entries read `simulated` (05 Crew). */
+  provenance?: ProvenanceMap;
   /** Map view in working-projection metres (IAU_2015:49900). Omitted means unknown: the readout shows "—". */
   view?: { center_x_m: number; center_y_m: number; resolution_m_per_px: number };
   /** HAVEN and O₂ shown in the landscape stack; omitted means "—". Supplied provenance and source are carried through. */
@@ -56,6 +65,7 @@ const LAYER_LABELS: Record<FullScreenMapLayer, string> = {
  */
 export function FullScreenMap({
   crew = [],
+  provenance,
   view,
   haven,
   o2,
@@ -78,6 +88,36 @@ export function FullScreenMap({
 
   const [activeLayers, setActiveLayers] = useState<FullScreenMapLayer[]>(layers.slice(0, MAX_SCIENCE_LAYERS));
   const [layersMenuOpen, setLayersMenuOpen] = useState<boolean>(false);
+
+  // Focus moves into the map when it opens and goes back to what opened it when it closes (Escape, CLOSE or unmount).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<Element | null>(null);
+  const restoreFocus = (): void => {
+    const opener = openerRef.current;
+    if (opener instanceof HTMLElement && opener !== document.body && opener.isConnected) opener.focus();
+  };
+  useEffect(() => {
+    openerRef.current = document.activeElement;
+    rootRef.current?.focus({ preventScroll: true });
+    return restoreFocus;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on open and on close only
+  }, []);
+
+  // Escape: the layers menu first, then the map.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      if (layersMenuOpen) {
+        setLayersMenuOpen(false);
+        return;
+      }
+      onClose();
+      restoreFocus();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [layersMenuOpen, onClose]);
   const [following, setFollowing] = useState<boolean>(true);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -120,6 +160,7 @@ export function FullScreenMap({
     fontFamily: "var(--font-ui, Inter, sans-serif)",
     boxSizing: "border-box",
     overflow: "hidden",
+    outline: "none",
   };
 
   const mapAreaStyle: CSSProperties = {
@@ -167,6 +208,8 @@ export function FullScreenMap({
 
   return (
     <div
+      ref={rootRef}
+      tabIndex={-1}
       role="region"
       aria-label="Full-screen surface operations map"
       data-screen="SCR-12-FULLMAP"
@@ -264,6 +307,67 @@ export function FullScreenMap({
             position: "relative",
           }}
         >
+          {/* Crew markers: offset from the view centre in pixels (metres / resolution; north is up). No view, no marker. */}
+          {crew.map((member) => {
+            const placed = viewIsKnown(view) && isFiniteNumber(member.x_m) && isFiniteNumber(member.y_m);
+            if (!placed || !view) return null;
+            const dx = round2((member.x_m - view.center_x_m) / view.resolution_m_per_px);
+            const dy = round2(-(member.y_m - view.center_y_m) / view.resolution_m_per_px);
+            return (
+              <span
+                key={member.crew_id}
+                data-slot="crew-marker"
+                data-crew={member.crew_id}
+                {...provAttrs({ prov: positionClass(provenance, "crew.x_m"), src: "snapshot:crew.x_m" })}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  transform: `translate(${dx}px, ${dy}px)`,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontFamily: "var(--font-mono, monospace)",
+                  fontSize: "16px",
+                  fontWeight: 700,
+                }}
+              >
+                <span aria-hidden="true">⊕</span>
+                {member.crew_id}
+              </span>
+            );
+          })}
+
+          {/* Crew positions as numbers, for the crew the map is given */}
+          {crew.length > 0 && (
+            <ul
+              data-slot="crew-readout"
+              aria-label="Crew positions"
+              style={{
+                position: "absolute",
+                left: "8px",
+                bottom: "8px",
+                margin: 0,
+                padding: 0,
+                listStyle: "none",
+                display: "flex",
+                flexDirection: "column",
+                gap: "4px",
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: "16px",
+                color: "var(--text-2, #A9B3BE)",
+              }}
+            >
+              {crew.map((member) => (
+                <li key={member.crew_id} data-crew={member.crew_id}>
+                  {member.crew_id} ·{" "}
+                  <CrewCoordinate field="x_m" letter="X" value={member.x_m} provenance={provenance} /> ·{" "}
+                  <CrewCoordinate field="y_m" letter="Y" value={member.y_m} provenance={provenance} />
+                </li>
+              ))}
+            </ul>
+          )}
+
           {/* Active Layers Badges */}
           <div
             style={{
@@ -432,5 +536,39 @@ export function FullScreenMap({
         </div>
       </div>
     </div>
+  );
+}
+
+/** A view whose centre and resolution are usable numbers (resolution must be positive). */
+function viewIsKnown(view: FullScreenMapProps["view"]): boolean {
+  return Boolean(view) && isFiniteNumber(view!.center_x_m) && isFiniteNumber(view!.center_y_m) && isFiniteNumber(view!.resolution_m_per_px) && view!.resolution_m_per_px > 0;
+}
+
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/** The class of a Crew position field: the snapshot's own entry when it is one of the six, else the `simulated` of 05 Crew. */
+function positionClass(provenance: ProvenanceMap | undefined, key: string): Provenance {
+  const given: unknown = provenance?.[key];
+  return isProvenance(given) ? given : "simulated";
+}
+
+/** One labelled coordinate of a crew member; a non-finite value reads "—", flagged unavailable. */
+function CrewCoordinate({
+  field,
+  letter,
+  value,
+  provenance,
+}: {
+  field: "x_m" | "y_m";
+  letter: string;
+  value: number;
+  provenance: ProvenanceMap | undefined;
+}): ReactElement {
+  const prov = positionClass(provenance, `crew.${field}`);
+  const sourced = isFiniteNumber(value) ? { prov, src: `snapshot:crew.${field}` } : unavailableOf(prov, `crew.${field}`);
+  return (
+    <span data-field={field} {...provAttrs(sourced)}>
+      {letter} {fmtFixed(value, 1)} m {glyphOf(sourced)}
+    </span>
   );
 }

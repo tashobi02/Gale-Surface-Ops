@@ -1,8 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { installDom, removeDom } from "./domHarness";
 import { renderStatusIcon, StatusIcon, STATUS_GLYPHS, STATUS_WORDS } from "../../src/ui/components/statusIcon";
 import { renderToString } from "react-dom/server";
 
 describe("T13.05 statusIcon component and renderer", () => {
+  // The DOM renderer runs against a real jsdom document, not a hand-written stand-in (04 §A.3, §E).
+  beforeAll(() => installDom());
+  afterAll(() => removeDom());
+
   it("renders DOM element with 4-cue accessible indicator (✓ circle for nominal/ok)", () => {
     const el = renderStatusIcon("nominal");
     expect(el.className).toContain("status-nominal");
@@ -56,5 +61,50 @@ describe("T13.05 statusIcon component and renderer", () => {
     expect(el.querySelector(".status-label")).toBeNull();
     expect(el.getAttribute("aria-label")).toBe("NOMINAL");
     expect(el.querySelector(".status-glyph")?.getAttribute("aria-hidden")).toBe("false");
+  });
+
+  it("statusIcon: DOM branch renders colour+shape+word", () => {
+    const el = renderStatusIcon("caution");
+    // A real element from the jsdom document, not a stand-in object.
+    expect(el).toBeInstanceOf(window.HTMLElement);
+    expect(el.ownerDocument).toBe(document);
+    // colour (status class that patterns.css colours), shape (glyph), word (label), fixed position (glyph first).
+    expect(el.classList.contains("status-indicator")).toBe(true);
+    expect(el.classList.contains("status-caution")).toBe(true);
+    expect(el.children[0].className).toBe("status-glyph");
+    expect(el.children[0].textContent).toBe("▲");
+    expect(el.children[1].className).toBe("status-label");
+    expect(el.children[1].textContent).toBe("CAUTION");
+    expect(el.textContent).toBe("▲CAUTION");
+    document.body.appendChild(el);
+    expect(document.querySelector("[data-status='caution'] .status-label")).toBe(el.children[1]);
+    el.remove();
+  });
+
+  it("statusIcon: showWord=false has role=img and aria-label", () => {
+    const el = renderStatusIcon("blocked", { showWord: false });
+    expect(el.getAttribute("aria-label")).toBe("BLOCKED");
+    expect(el.getAttribute("role")).toBe("img");
+    // live wins: a live icon-only indicator keeps role=status and still carries its accessible name.
+    const live = renderStatusIcon("blocked", { showWord: false, live: true });
+    expect(live.getAttribute("role")).toBe("status");
+    expect(live.getAttribute("aria-label")).toBe("BLOCKED");
+    // React variant agrees.
+    const html = renderToString(StatusIcon({ status: "blocked", showWord: false }));
+    expect(html).toContain('role="img"');
+    expect(html).toContain('aria-label="BLOCKED"');
+    // With the word shown there is no img role and no aria-label.
+    const withWord = renderStatusIcon("blocked");
+    expect(withWord.getAttribute("role")).toBeNull();
+    expect(withWord.getAttribute("aria-label")).toBeNull();
+  });
+
+  it("statusIcon: renderStatusIcon needs a DOM (no hand-written mock path)", () => {
+    removeDom();
+    try {
+      expect(() => renderStatusIcon("ok")).toThrow(/DOM/);
+    } finally {
+      installDom();
+    }
   });
 });
