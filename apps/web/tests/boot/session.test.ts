@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { ClientMessage } from "@marswalk/protocol";
 import type { SocketLike } from "../../src/net/habClient";
 import { closeHabSessions, currentHabClient } from "../../src/state/habSession";
-import { clientIdFor, displayNameFor, ensureSessionForRoute } from "../../src/boot/session";
+import { createClientIdSource, displayNameFor, ensureSessionForRoute } from "../../src/boot/session";
 import { parseHash } from "../../src/ui/router";
 import { installDom, removeDom } from "../ui/domHarness";
 
@@ -36,21 +36,6 @@ function sockets() {
   return { made, socketFactory };
 }
 
-/** A minimal Storage double. */
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() {
-      return data.size;
-    },
-    clear: () => data.clear(),
-    getItem: (k) => data.get(k) ?? null,
-    key: (i) => [...data.keys()][i] ?? null,
-    removeItem: (k) => void data.delete(k),
-    setItem: (k, v) => void data.set(k, v),
-  };
-}
-
 beforeAll(() => installDom());
 afterAll(() => removeDom());
 afterEach(() => closeHabSessions());
@@ -58,7 +43,7 @@ afterEach(() => closeHabSessions());
 describe("ensureSessionForRoute", () => {
   it("opens the ops connection on #/ops, with the ops role in HELLO", () => {
     const { made, socketFactory } = sockets();
-    const client = ensureSessionForRoute(parseHash("#/ops"), { url: "ws://localhost/ws", socketFactory, storage: memoryStorage() });
+    const client = ensureSessionForRoute(parseHash("#/ops"), { url: "ws://localhost/ws", socketFactory, clientId: () => "c-test" });
 
     expect(client?.role).toBe("ops");
     expect(made).toHaveLength(1);
@@ -70,7 +55,7 @@ describe("ensureSessionForRoute", () => {
 
   it("opens eva:<crew> for the tablet, and the HUD of the same crew member reuses it: one socket", () => {
     const { made, socketFactory } = sockets();
-    const deps = { url: "ws://localhost/ws", socketFactory, storage: memoryStorage() };
+    const deps = { url: "ws://localhost/ws", socketFactory, clientId: () => "c-test" };
     const tablet = ensureSessionForRoute(parseHash("#/eva/EV2"), deps);
     const hud = ensureSessionForRoute(parseHash("#/hud/EV2"), deps);
 
@@ -81,7 +66,7 @@ describe("ensureSessionForRoute", () => {
 
   it("a tab keeps one connection: moving to another live role closes the first", () => {
     const { made, socketFactory } = sockets();
-    const deps = { url: "ws://localhost/ws", socketFactory, storage: memoryStorage() };
+    const deps = { url: "ws://localhost/ws", socketFactory, clientId: () => "c-test" };
     ensureSessionForRoute(parseHash("#/ops"), deps);
     const ev1 = ensureSessionForRoute(parseHash("#/eva/EV1"), deps);
 
@@ -93,7 +78,7 @@ describe("ensureSessionForRoute", () => {
 
   it("opens nothing for routes that need no connection, and leaves an open one alone", () => {
     const { made, socketFactory } = sockets();
-    const deps = { url: "ws://localhost/ws", socketFactory, storage: memoryStorage() };
+    const deps = { url: "ws://localhost/ws", socketFactory, clientId: () => "c-test" };
     expect(ensureSessionForRoute(parseHash("#/join"), deps)).toBeNull();
     expect(ensureSessionForRoute(parseHash("#/nope"), deps)).toBeNull();
     expect(made).toHaveLength(0);
@@ -109,18 +94,24 @@ describe("ensureSessionForRoute", () => {
 });
 
 describe("client identity", () => {
-  it("keeps one client id per tab (stored), and a different one in another tab", () => {
-    const a = memoryStorage();
-    const first = clientIdFor(a);
-    expect(first).toMatch(/^[a-z0-9-]{8,}$/);
-    expect(clientIdFor(a)).toBe(first);
-    expect(clientIdFor(memoryStorage())).not.toBe(first);
+  it("is one id per page load: stable within a source, different in another page load", () => {
+    const first = createClientIdSource();
+    const id = first();
+    expect(id).toMatch(/^c-[a-f0-9]{16}$/);
+    expect(first()).toBe(id);
+    expect(createClientIdSource()()).not.toBe(id);
   });
 
-  it("still returns an id when storage is missing or refuses", () => {
-    expect(clientIdFor(null)).toMatch(/^[a-z0-9-]{8,}$/);
-    const refusing = { ...memoryStorage(), getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("denied"); } } as Storage;
-    expect(clientIdFor(refusing)).toMatch(/^[a-z0-9-]{8,}$/);
+  it("is not kept in storage: a reload or a duplicated tab (which copies sessionStorage) never shares an id", () => {
+    const writes: string[] = [];
+    const spy = { getItem: () => "c-stale", setItem: (k: string) => void writes.push(k) } as unknown as Storage;
+    Object.defineProperty(globalThis, "sessionStorage", { value: spy, configurable: true });
+    try {
+      expect(createClientIdSource()()).not.toBe("c-stale");
+      expect(writes).toEqual([]);
+    } finally {
+      Reflect.deleteProperty(globalThis, "sessionStorage");
+    }
   });
 
   it("names the device by role and view, so the ops client list says what each device is", () => {

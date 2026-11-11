@@ -74,7 +74,6 @@ async function boot(hash: string, over: { planner?: PlannerBootDeps; fetchImpl?:
       root,
       session: {
         url: "ws://localhost/ws",
-        storage: null,
         socketFactory: () => {
           const s = new FakeSocket();
           sockets.push(s);
