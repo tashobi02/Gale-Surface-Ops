@@ -217,6 +217,45 @@ describe("assembleConditions (T06.05 / T06.09, Contract C8)", () => {
       const res = assembleConditions({ ...baseInputs, scenario: { ...scenarioMax, solar_phase: phase }, envConstants: real, durationH: 7.0 });
       expect(res.radiation).toEqual(estimateDose(real.find((c) => c.conditions.solar_phase === phase)!, 7.0));
     }
+
+    // Independent expected numbers quoted from the specs, not recomputed from the records
+    const solarMax = { ...baseInputs, envConstants: real };
+    // 02 §D.4: solar max, 7 h = 0.187 (range 0.152-0.222) mSv
+    const sevenHours = assembleConditions({ ...solarMax, durationH: 7 }).radiation;
+    expect(sevenHours?.dose_mSv).toBeCloseTo(0.187, 3);
+    expect(sevenHours?.dose_low_mSv).toBeCloseTo(0.152, 3);
+    expect(sevenHours?.dose_high_mSv).toBeCloseTo(0.222, 3);
+    // 05 §F.3 worked plan export: 148 min at solar max = 0.066 (range 0.053-0.078) mSv
+    const f3 = assembleConditions({ ...solarMax, durationH: 148 / 60 }).radiation;
+    expect(f3?.dose_mSv).toBeCloseTo(0.066, 3);
+    expect(f3?.dose_low_mSv).toBeCloseTo(0.053, 3);
+    expect(f3?.dose_high_mSv).toBeCloseTo(0.078, 3);
+    // 02 §D.4: solar min range 0.85-1.0 mSv/day, 7 h = 0.248-0.292 mSv
+    const min = assembleConditions({ ...solarMax, scenario: { ...scenarioMax, solar_phase: "min" }, durationH: 7 }).radiation;
+    expect(min?.dose_low_mSv).toBeCloseTo(0.248, 3);
+    expect(min?.dose_high_mSv).toBeCloseTo(0.292, 3);
+  });
+
+  it("accepts a zero duration and returns a zero dose, not an omitted block", () => {
+    const res = assembleConditions({ ...baseInputs, durationH: 0 });
+
+    expect(res.radiation).toEqual(estimateDose(rateMax, 0));
+    expect(res.radiation?.dose_mSv).toBe(0);
+  });
+
+  it.each([
+    ["an invalid arrive_utc", { timeline: [{ arrive_utc: "not-a-date", depart_utc: "not-a-date" }] }],
+    ["an invalid eva_start_utc", { scenario: { ...scenarioMax, eva_start_utc: "not-a-date" } }],
+  ])("throws RangeError for %s instead of returning invented values", async (_label, override) => {
+    // The real solar functions validate their Date arguments; the mocks would accept anything
+    const actualMars24 = await vi.importActual<typeof import("../src/mars24")>("../src/mars24");
+    const actualSun = await vi.importActual<typeof import("../src/sun")>("../src/sun");
+    vi.mocked(mars24Module.localTrueSolarTime).mockImplementation(actualMars24.localTrueSolarTime);
+    vi.mocked(mars24Module.solarLongitude).mockImplementation(actualMars24.solarLongitude);
+    vi.mocked(sunModule.solarPosition).mockImplementation(actualSun.solarPosition);
+    vi.mocked(sunModule.sunriseSunset).mockImplementation(actualSun.sunriseSunset);
+
+    expect(() => assembleConditions({ ...baseInputs, ...override })).toThrow(RangeError);
   });
 
   // Cases that wait on the five C8 decisions recorded in the conditions.ts header (TODO(decision), TASK-06 T06.09)

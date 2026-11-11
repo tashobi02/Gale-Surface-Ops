@@ -12,7 +12,8 @@
  *   `const_id` starts with "rad-", whose unit is "mSv/day" and whose `conditions.solar_phase` equals the
  *   scenario's; zero or several matches omit `radiation`. The team confirms it or sets another rule.
  * - TODO(decision): Dose duration for PARTIAL plans. `totals` is null then (02 §E.2), so the caller has no
- *   routed duration; planned `max_eva_duration_h` vs unavailable is not settled. This function takes `durationH`.
+ *   routed duration; planned `max_eva_duration_h` vs unavailable is not settled. This function takes `durationH`;
+ *   a `durationH` of 0 is accepted and gives a dose of 0 (not an omitted block), so a caller must not pass 0 for "unknown".
  * - TODO(decision): DARKNESS inputs. Sunrise/sunset UTC or sun elevation along legs and dwell; arrival elevation
  *   alone does not cover the EVA interval. Nothing here feeds `collectWarnings`.
  * - TODO(decision): Timing boundaries. What `timing_ms.routing` and `timing_ms.estimates` measure. Nothing here
