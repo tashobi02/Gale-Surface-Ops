@@ -2,15 +2,25 @@
  * Plan state store contract (Contract C11 v1; docs/specs/03 §E.3 sequence; §C.3 editing; §E.4 state machine).
  * (FR-05, FR-06). Freeze M2.
  *
- * Holds scenario, waypoints, plan_revision, results, and active selection/hover.
- * Actions support adding/moving/deleting waypoints, reordering stops, scenario editing (debounced),
- * single-level undo, reset defaults, and plan loading.
+ * Holds scenario, waypoints, the stops' authored tasks, plan_revision, results, and active selection/hover.
+ * Actions support adding/moving/deleting waypoints, reordering stops, editing a stop's tasks (FR-54),
+ * scenario editing (debounced), single-level undo, reset defaults, and plan loading.
  *
  * Stub for T08.03.
+ *
+ * Stop tasks (FR-54, FR-50; 03 SCR-04): each stop carries 1-4 authored tasks (kind + one line of text, 05 StopTask).
+ * The store keeps only the authored fields (`StopTaskSeed`, the shape of 05 Scenario `stop_tasks`); task state
+ * (TODO/DONE/...) is simulated and lives in the Hab Core event log, never here. Tasks are published beside the plan
+ * (`PUBLISH_PLAN`), not inside it, so editing a task does not bump `plan_revision`, does not send COMPUTE_PLAN and
+ * leaves `plan_hash` unchanged (05 Scenario `stop_tasks`, U-48). Deleting a stop removes its tasks; undo restores both.
+ * `StopTaskSeed` comes from runtime.ts (C18), which this file now imports besides schema.ts and worker.ts.
+ * TODO(decision): where the suggested tasks of a POI (05 TaskLibraryEntry) are applied when a stop is added at a POI:
+ * by the caller through `addStopTask`, or by `addWaypoint`. Follow-up on C11 once T08.03 starts (consumers: T08.04, T08.05, T10.01).
  */
 import type {
   MissionScenario,
   PlanResult,
+  StopTaskSeed,
   Waypoint,
 } from "@marswalk/protocol";
 import type {
@@ -38,8 +48,17 @@ export type PlanStatus =
   | "Error";
 
 /**
+ * The fields of a stop task a planner may edit (FR-54): `task_id` and `stop_id` are fixed once created.
+ */
+export type StopTaskPatch = Partial<Pick<StopTaskSeed, "crew_id" | "kind" | "text">>;
+
+/**
  * Selection and hover shape shared across Map, Stops List, and Profile Chart (C11).
- * TODO(decision): open point on exact coordinate vs distance linking resolution.
+ * TODO(decision): C11 open point "selection and hover shape for map <-> list <-> profile linking" (coordination map
+ * §d, C11 row): whether linking is by distance along the route, by coordinate or by waypoint id, and whether POI
+ * selection lives here. Consumers waiting on it: T08.05 (stops list row <-> marker), T08.06 and T08.08 (marker hover
+ * ring, selected focus ring, drag), T09.02 and T09.05 (profile scrub <-> map), T10.01 (POI selection opens SCR-06),
+ * T13.06 (Delete removes the selected stop). The fields below are the proposal those consumers code against.
  */
 export interface PlanHoverPosition {
   /** Distance along current traverse route in metres (profile chart scrub). */
@@ -60,6 +79,11 @@ export interface PlanState {
   scenario: MissionScenario;
   /** Ordered list of waypoints (start at index 0, followed by stops). */
   waypoints: Waypoint[];
+  /**
+   * Authored tasks of the stops, 1-4 per stop (FR-50, FR-54). `stop_id` is the `id` of a stop Waypoint (05 StopTask).
+   * Not part of the routing inputs: see the header.
+   */
+  stop_tasks: StopTaskSeed[];
   /** Monotonically increasing revision number, bumped on each edit (03 §E.3). */
   plan_revision: number;
   /** Current computation lifecycle status (03 §E.4). */
@@ -70,7 +94,7 @@ export interface PlanState {
   last_error_code: WorkerErrorCode | null;
   /** True when a previous waypoint state is available to restore via undo() (01 FR-06). */
   can_undo: boolean;
-  /** Currently selected waypoint ID in the UI, or null if none. */
+  /** Currently selected waypoint ID in the UI, or null if none (TODO(decision): see PlanHoverPosition). */
   selected_waypoint_id: string | null;
   /** Ephemeral hover position shared across map, list and profile chart. */
   hover: PlanHoverPosition | null;
@@ -94,12 +118,18 @@ export interface PlanStore {
   deleteWaypoint(id: string): void;
   /** Reorder stop waypoints (immediate recompute, 03 §C.3). */
   reorderWaypoints(waypoint_ids: string[]): void;
+  /** Add a task to a stop (FR-54; 1-4 per stop is checked by T08.03). Does not recompute the route. */
+  addStopTask(task: StopTaskSeed): void;
+  /** Edit a stop task's crew, kind or text (FR-54). Does not recompute the route. */
+  updateStopTask(task_id: string, patch: StopTaskPatch): void;
+  /** Delete a stop task (FR-54). Does not recompute the route. */
+  deleteStopTask(task_id: string): void;
   /** Single-level undo of last waypoint edit (01 FR-06, 03 §C.3). */
   undo(): void;
   /** Reset scenario inputs to initial defaults. */
   resetDefaults(): void;
-  /** Load an entire plan (e.g. demo plan or restored export). */
-  loadPlan(scenario: MissionScenario, waypoints: Waypoint[]): void;
+  /** Load an entire plan (e.g. demo plan or restored export); `stop_tasks` defaults to none. */
+  loadPlan(scenario: MissionScenario, waypoints: Waypoint[], stop_tasks?: StopTaskSeed[]): void;
   /** Set selected waypoint. */
   selectWaypoint(id: string | null): void;
   /** Set shared hover state. */
