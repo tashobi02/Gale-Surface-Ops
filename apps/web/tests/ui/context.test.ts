@@ -29,7 +29,6 @@ import { createWaypointLayer } from "../../src/ui/map/waypointLayer";
 import { initAddStopMode } from "../../src/ui/map/addStopMode";
 import { initWaypointDrag } from "../../src/ui/map/waypointDrag";
 import { initTouchInput } from "../../src/ui/map/touchInput";
-import { createRouteLayer } from "../../src/ui/map/routeLayer";
 import { StopsList } from "../../src/ui/plan/stopsList";
 import { ProfileChart } from "../../src/ui/results/profileChart";
 import { WarningsList } from "../../src/ui/results/warningsList";
@@ -169,7 +168,6 @@ describe("C10 stubs throw TODO(<owner id>) and are React components where they r
     expect(() => initAddStopMode({} as never, {} as never)).toThrow("TODO(T08.07)");
     expect(() => initWaypointDrag({} as never, {} as never)).toThrow("TODO(T08.08)");
     expect(() => initTouchInput({} as never)).toThrow("TODO(T08.09)");
-    expect(() => createRouteLayer({} as never)).toThrow("TODO(T09.01)");
     expect(() => StopsList({} as never)).toThrow("TODO(T08.05)");
     expect(() => ProfileChart({} as never)).toThrow("TODO(T09.02)");
     expect(() => WarningsList({} as never)).toThrow("TODO(T09.04)");
