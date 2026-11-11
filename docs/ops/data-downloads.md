@@ -39,7 +39,7 @@ Licences and credits: USGS Astrogeology lists "None" as the use constraint for D
 | --- | --- | --- | --- | --- | --- | --- |
 | D5 | L6 traverse (preferred) | Curiosity localisations from the PDS PLACES archive (doi:10.17189/1520397), the source the PDS MSL Analyst's Notebook map uses | PDS Geosciences Node; the MSL file path is `TODO(verify)` (the Mars 2020 equivalent is a `best_interp.csv` in the `mars2020_rover_places` bundle) | `pipeline/work/traverse/` | 7 Nov | Archive **Confirmed**; MSL file path `TODO(verify)` |
 | D6 | L6 traverse (fallback) | NASA "Where is Curiosity?" waypoints GeoJSON (MMGIS) | `https://mars.nasa.gov/mmgis-maps/MSL/Layers/json/MSL_waypoints.json` — not an official API; cache once and label it unofficial | `pipeline/work/traverse/` | 7 Nov | `TODO(verify)` that it still resolves (the Mars 2020 equivalents are widely used; the MSL path appears commented out in one library) |
-| D7 | POI ground images | 6–8 Curiosity Navcam/Mastcam images for the POIs, saved by hand from NASA raw-image or Photojournal pages | One page URL per image, recorded with its credit (*NASA/JPL-Caltech*; *NASA/JPL-Caltech/MSSS* for Mastcam) | `data/sites/gale_boxwork/images/` (git-ignored, release asset) | 9 Nov | Do **not** use the Mars Rover Photos API (archived, 02 L6) |
+| D7 | POI ground images | 6–8 Curiosity Navcam/Mastcam images for the POIs, saved by hand from NASA raw-image or Photojournal pages | One page URL per image, recorded with its credit (*NASA/JPL-Caltech*; *NASA/JPL-Caltech/MSSS* for Mastcam) | `data/sites/gale_boxwork/images/` (git-ignored, release asset) | 9 Nov | Do **not** use the Mars Rover Photos API (archived, 02 L6). **2026-11-11:** five candidates downloaded to the T04.04 staging path `pipeline/work/images/<poi_id>.jpg`, one per drafted POI: the lead image of each POI's `image_source_url` blog page, whose raw-image id matches the record's `image_sol` and `image_camera`. URLs, sizes and SHA-256 in `pipeline/work/images/SOURCES.md`. No people in frame (checked by eye). **Not approved:** the story lead still approves each pick (T04.04, T04.05) |
 
 ### B.3 Storm replay: radiation, space weather and orbit geometry (Tier 1, killer demo)
 
@@ -62,9 +62,9 @@ Only trajectory (SPK) files are needed: we compute light time, the Sun–Earth�
 
 | # | Layer | Dataset | Source | Status |
 | --- | --- | --- | --- | --- |
-| D16 | L12 climatology | REMS RDR, PDS Atmospheres Node | Listed in 02 Sources | As in 02 |
-| D17 | L5 / L12 resource layer | CRISM MTRDR summary parameters, PDS Geosciences Node | Listed in 02 Sources | AOI coverage Unresolved (02 L5) |
-| D18 | L12 dust advisory | MRO MARCI daily global maps | `TODO(verify)` | Qualitative only (FR-49) |
+| D16 | L12 climatology | REMS RDR, PDS Atmospheres Node | Listed in 02 Sources | As in 02. **Downloaded 2026-11-11:** the PDS4 bundle `msl_rems_bundle/data_calibrated/` now runs to `SOL_04710_04843`, so sol 4190 is archived (02 still says "to at least 3778"). Downloaded the environmental RDR (`RNV`, .TAB + .LBL + .xml) for sols 4182 and 4187–4192 (label times 11–12 May and 16–22 May 2024 UTC) to `pipeline/work/rems/`; sizes match the server; times and SHA-256 are in `pipeline/work/rems/SOURCES.md`. Sols 4183–4186 and 4193–4195 (the rest of U-44's 13–24 May) were skipped because the server throttled to about 12 KB/s |
+| D17 | L5 / L12 resource layer | CRISM MTRDR summary parameters, PDS Geosciences Node | Listed in 02 Sources | AOI coverage Resolved 2026-11-07 (U-05, best single observation `FRT0000B6F1`). **Downloaded 2026-11-11:** `frt0000b6f1_07_su165j_mtr3.{img,hdr,lbl,xml}` from `https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1/mrocr_4001/mtrdr/2008/2008_191/frt0000b6f1/` to `pipeline/work/crism/` (img 132,804,000 bytes, SHA-256 `512cfad4c599aac4e7d865549a720fc974eed5348762d08ffc34c5e797aff56b`). The I/F, IN, SR, DE and WV products in the same folder were not downloaded |
+| D18 | L12 dust advisory | MRO MARCI daily global maps | `TODO(verify)` | Qualitative only (FR-49). **Checked 2026-11-11: no weekly report for the window.** The MSSS "MRO MARCI Weather Report" series ends at MSSS-608 (week of 31 Jan – 6 Feb 2022, released 9 Feb 2022; `https://www.msss.com/msss_images/latest_weather.html`). `asimov.msss.com/msss_images/2024/05/{22,29}/` return HTTP 404. Only raw MARCI EDRs remain, which a qualitative T2 advisory cannot justify. Not downloaded; U-17 decision pending (per 01, drop FR-49) |
 
 ## C. Offline assets that are not science data
 
@@ -72,7 +72,7 @@ No internet at runtime means every font and library must be inside the build.
 
 | # | Asset | Source | Save to | Status |
 | --- | --- | --- | --- | --- |
-| F1 | Fonts from [04 §C.2](../specs/04_Design_Brief.md): Chakra Petch, Inter, IBM Plex Mono, Source Serif 4 (all SIL Open Font License) | The `google/fonts` repository on GitHub, or the `@fontsource/*` npm packages | `apps/web/public/fonts/` with each `OFL.txt` | Route is `TODO(decision)` (U-27): GitHub files add no dependency; `@fontsource` adds four small dev dependencies but pins versions. The prototype may load Google Fonts online; **the product must not** |
+| F1 | Fonts from [04 §C.2](../specs/04_Design_Brief.md): Chakra Petch, Inter, IBM Plex Mono, Source Serif 4 (all SIL Open Font License) | The `google/fonts` repository on GitHub, or the `@fontsource/*` npm packages | `apps/web/public/fonts/` with each `OFL.txt` | Route is `TODO(decision)` (U-27): GitHub files add no dependency; `@fontsource` adds four small dev dependencies but pins versions. The prototype may load Google Fonts online; **the product must not**. **2026-11-11:** all four families are now in `apps/web/public/fonts/` (registry in its README). Chakra Petch 500 and Source Serif 4 400 were copied from the `@fontsource` npm tarballs without adding a dependency; their `OFL.txt` files come from `google/fonts`. The route decision (U-27) is still open |
 | F2 | JavaScript libraries (OpenLayers, proj4, Fastify, `ws`) | npm, already in `package-lock.json` | `node_modules/` via `npm ci` | No action |
 
 ## D. Tools for the pipeline
