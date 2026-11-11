@@ -15,13 +15,17 @@
 
 import {
   useCallback,
+  useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { Crew, CrewId, Vehicle, Alert, Snapshot, Command } from "@marswalk/protocol";
+import type { Crew, CrewId, Vehicle, Alert, Snapshot, Command, Provenance } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
+import { useHabClient } from "../../state/habSession";
+import { EventLog } from "../ops/EventLog";
 import { AlertStack } from "../ops/AlertStack";
 import { OptionsPanel } from "../ops/OptionsPanel";
 import { ClockControl } from "../ops/ClockControl";
@@ -48,7 +52,8 @@ export interface CrewTaskProgress {
 export interface OpsLogLine {
   key: string;
   text: string;
-  prov: ProvenanceValue<string>["prov"];
+  /** The line's own provenance class; null when the event gives none (the strip then shows an unavailable marker). */
+  prov: Provenance | null;
   src: string;
 }
 
@@ -69,7 +74,10 @@ export interface OpsConsoleProps {
   taskProgress?: Partial<Record<CrewId, CrewTaskProgress>>;
   /** Conditions for the right column; missing fields render "—". */
   conditions?: Partial<ConditionsState>;
-  /** Hab Core client and snapshot, so the options panel can list and approve real options. */
+  /**
+   * Hab Core client and snapshot, so the options panel can list and approve real options. Omitted means the tab's
+   * session (state/habSession.ts), null means none.
+   */
   client?: HabClient | null;
   snapshot?: Snapshot | null;
   /** Event log lines; none means the footer reads "—". */
@@ -124,7 +132,7 @@ export function OpsConsole({
   alerts = [],
   taskProgress = {},
   conditions,
-  client,
+  client: clientProp,
   snapshot,
   logLines = [],
   onAcknowledgeAlert,
@@ -136,6 +144,23 @@ export function OpsConsole({
 }: OpsConsoleProps): ReactElement {
   const [activeAddCrew, setActiveAddCrew] = useState<string | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
+  const client = useHabClient(clientProp);
+  const [logOpen, setLogOpen] = useState(false);
+  const stripRef = useRef<HTMLButtonElement>(null);
+  const closeLog = useCallback(() => {
+    setLogOpen(false);
+    stripRef.current?.focus();
+  }, []);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!logOpen) return;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") closeLog();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [logOpen, closeLog]);
   // The session is read from the snapshot (given, or the client's own), so the clock and status follow the server.
   const subscribe = useCallback((listener: () => void) => client?.subscribe(listener) ?? (() => {}), [client]);
   const readState = useCallback(() => client?.state() ?? null, [client]);
@@ -613,38 +638,86 @@ export function OpsConsole({
       </main>
 
       {/* ------------------------------------- Bottom Bar: EVENT LOG (TASK-27)
-          TODO(decision): `ui/ops/EventLog.tsx` (filterable panel, tested in tests/ui/eventLog.test.ts) is not mounted.
-          03 SCR-11 lists "event log" in Content without a position; 04 §E.4 draws a one-line strip here, and the panel
-          does not fit a 36 px bar. Decide: expandable drawer opened from this strip, or a side panel. */}
+          The strip shows the latest event; click, Enter or Space opens the full log as a drawer over the bottom of the
+          console; Escape or the close button closes it and returns focus here (03 SCR-11, decided 11 Nov; 04 §E.4). */}
       <footer
         className="ops-event-log"
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "16px",
+          position: "relative",
           height: "36px",
-          padding: "0 16px",
           backgroundColor: "var(--panel, #14181D)",
           borderTop: "1px solid var(--hairline, #2A313A)",
-          fontFamily: "var(--font-mono, monospace)",
-          fontSize: "12px",
-          color: "var(--text-2, #A9B3BE)",
-          overflowX: "hidden",
-          whiteSpace: "nowrap",
         }}
         aria-label="Mission Event Log Stream"
       >
-        <span style={{ fontWeight: 600, color: "var(--text-1, #ECEFF2)" }}>
-          EVENT LOG
-        </span>
-        {logLines.length === 0 ? (
-          <span {...provAttrs(unavailableOf(null, "event_log"))}>{UNAVAILABLE}</span>
-        ) : (
-          logLines.map((line) => (
-            <span key={line.key} {...provAttrs({ prov: line.prov, src: line.src })}>
-              {line.text} {PROVENANCE_GLYPHS[line.prov]}
-            </span>
-          ))
+        <button
+          ref={stripRef}
+          type="button"
+          data-slot="event-log-strip"
+          aria-expanded={logOpen}
+          aria-haspopup="dialog"
+          aria-controls="ops-event-log-drawer"
+          onClick={() => setLogOpen((open) => !open)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            width: "100%",
+            height: "100%",
+            padding: "0 16px",
+            background: "transparent",
+            border: "none",
+            textAlign: "left",
+            cursor: "pointer",
+            fontFamily: "var(--font-mono, monospace)",
+            fontSize: "12px",
+            color: "var(--text-2, #A9B3BE)",
+            overflowX: "hidden",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span style={{ fontWeight: 600, color: "var(--text-1, #ECEFF2)" }}>EVENT LOG {logOpen ? "▾" : "▴"}</span>
+          {logLines.length === 0 ? (
+            <span {...provAttrs(unavailableOf(null, "event_log"))}>{UNAVAILABLE}</span>
+          ) : (
+            logLines.map((line) => (
+              <span key={line.key} {...provAttrs(line.prov ? { prov: line.prov, src: line.src } : unavailableOf(null, line.src))}>
+                {line.text} {line.prov ? PROVENANCE_GLYPHS[line.prov] : ""}
+              </span>
+            ))
+          )}
+        </button>
+        {logOpen && (
+          <div
+            id="ops-event-log-drawer"
+            data-slot="event-log-drawer"
+            role="dialog"
+            aria-label="Event log"
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: "36px",
+              zIndex: 20,
+              backgroundColor: "var(--panel, #14181D)",
+              borderTop: "2px solid var(--edge, #5C6670)",
+              boxShadow: "none",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "flex-end", padding: "4px 8px" }}>
+              <button
+                ref={closeRef}
+                type="button"
+                data-slot="event-log-drawer-close"
+                onClick={closeLog}
+                style={{ ...buttonStyle, minHeight: "32px" }}
+                aria-label="Close event log"
+              >
+                CLOSE ✕
+              </button>
+            </div>
+            <EventLog client={client} maxHeight="40vh" />
+          </div>
         )}
       </footer>
     </div>
