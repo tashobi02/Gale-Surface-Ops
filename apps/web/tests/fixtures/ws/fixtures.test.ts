@@ -70,7 +70,7 @@ const LOG_EVENT_DATA_KEYS: { [K in LogEventKind]: KeySpec<LogEventData[K]> } = {
   CLOCK_CHANGED: { speed: "req", paused: "req" },
   EVA_ENDED: { crew_ids: "req" },
   TASK_ADDED: { task_id: "req", stop_id: "req", crew_id: "req", kind: "req", text: "req", origin: "req" },
-  TASK_UPDATED: { task_id: "req", stop_id: "req", crew_id: "req", state: "req", reason: "req" },
+  TASK_UPDATED: { task_id: "req", stop_id: "req", crew_id: "req", state: "req", reason: "req", undo: "opt" },
   TASK_DROPPED: { task_id: "req", stop_id: "req", plan_revision: "req" },
 };
 const CREW_KEYS: Keys<Crew> = { crew_id: true, x_m: true, y_m: true, activity: true, stop_index: true, o2_frac: true, eva_elapsed_s: true, dose_event_ugy: true, dose_event_unsheltered_ugy: true, haven: true, linked: true, link_path: true, stale: true };

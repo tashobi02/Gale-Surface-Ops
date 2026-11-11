@@ -1,39 +1,428 @@
 /**
  * Stop task engine (docs/specs/01 FR-50; 05 StopTask; 02 §E.6).
- * Stub created by T22.01 (contract C14); owner T31.04 (TASK-31, Anjim Hossain). Pure; sim time only, never wall-clock (NFR-06).
+ * Owner T31.04 (TASK-31, Anjim Hossain). Pure; sim time only, never wall-clock (NFR-06).
  * EVA roles may update only their own tasks or crew_id null (02 §E.4 "own tasks").
  */
-import type { Command, LogEvent } from "@marswalk/protocol";
+import {
+  PROTOCOL_VERSION,
+  type Command,
+  type Crew,
+  type CrewId,
+  type LogEvent,
+  type LogEventData,
+  type RejectCode,
+  type StopTask,
+  type StopTaskKind,
+  type StopTaskReason,
+  type Waypoint,
+} from "@marswalk/protocol";
 import type { LoadedScenario } from "../scenario";
-import type { CommandOutcome, EngineState, PendingEvent } from "./reducer";
+import {
+  logged,
+  type CommandOutcome,
+  type EngineState,
+  type PendingEvent,
+} from "./reducer";
 import type { TickContext, TickResult } from "./tick";
+
+function reject(command: Command, code: RejectCode, message: string): CommandOutcome {
+  return {
+    result: {
+      v: PROTOCOL_VERSION,
+      type: "COMMAND_RESULT",
+      command_id: command.command_id,
+      ok: false,
+      code,
+      message,
+    },
+    events: [],
+  };
+}
+
+function accepted(command: Command, events: PendingEvent[]): CommandOutcome {
+  return {
+    result: {
+      v: PROTOCOL_VERSION,
+      type: "COMMAND_RESULT",
+      command_id: command.command_id,
+      ok: true,
+      event_seq: 0,
+    },
+    events,
+  };
+}
+
+/** A task's text is team-authored content (05 StopTask); the key names the `text` field of TASK_ADDED's data. */
+const TEXT_PROVENANCE = { "data.text": "assumed" } as const;
 
 /** TASK_ADDED events seeded from `scenario.stop_tasks` at session load. Called by session.ts (T22.12) after SESSION_LOADED. */
 export function seedTasks(scenario: LoadedScenario): PendingEvent[] {
-  throw new Error("TODO(TASK-31): T31.04 not implemented");
+  const stopTasks = scenario.scenario.stop_tasks ?? [];
+  return stopTasks.map((t) => {
+    const data: LogEventData["TASK_ADDED"] = {
+      task_id: t.task_id,
+      stop_id: t.stop_id,
+      crew_id: t.crew_id ?? null,
+      kind: t.kind,
+      text: t.text,
+      origin: "plan",
+    };
+    return {
+      sim_time: scenario.scenario.start_utc,
+      kind: "TASK_ADDED",
+      actor: "system",
+      data: data as Record<string, unknown>,
+      provenance: { ...TEXT_PROVENANCE },
+    };
+  });
 }
 
-/** UPDATE_STOP_TASK: "own tasks" check; log TASK_UPDATED. */
-export function handleUpdateStopTask(state: EngineState, scenario: LoadedScenario, command: Command): CommandOutcome {
-  throw new Error("TODO(TASK-31): T31.04 not implemented");
+const REASONS: readonly StopTaskReason[] = ["time", "terrain", "alert", "other"];
+const KINDS: readonly StopTaskKind[] = ["observe", "image", "sample", "measure", "deploy", "other"];
+const CREW_IDS: readonly CrewId[] = ["EV1", "EV2"];
+
+/** Provenance of a task event: its `state` field is simulated (05 StopTask); keys name fields of the event's `data`. */
+const STATE_PROVENANCE = { "data.state": "simulated" } as const;
+
+/** The stop waypoints of a plan in order; stop number n (1-based, as `Crew.stop_index` and `stops_dropped`) is `stops[n - 1]`. */
+const stopsOf = (state: EngineState): Waypoint[] => (state.plan?.waypoints ?? []).filter((w) => w.role === "stop");
+
+/**
+ * UPDATE_STOP_TASK `{task_id, state, reason?, undo?}` (01 FR-50; 02 §E.6 "Stop-task undo"; 05 args table).
+ * Checks run in this order: unknown task (INVALID); "own tasks" (FORBIDDEN_ROLE); for `undo: true` the sender
+ * must be the actor of the task's last change, never `system` (FORBIDDEN_ROLE); then everything else is INVALID.
+ * NO_LINK comes first, in commands.ts. Transitions: DONE and SKIPPED only from TODO; TODO only with
+ * `undo: true`, from DONE or SKIPPED, while no PLAN_REVISED has been logged since the change and its stop is
+ * still in the plan. The 5-s window is the tablet's; nothing here reads a clock (NFR-06).
+ */
+export function handleUpdateStopTask(
+  state: EngineState,
+  _scenario: LoadedScenario,
+  command: Command,
+): CommandOutcome {
+  const a = command.args ?? {};
+  const taskId = a.task_id;
+  if (typeof taskId !== "string" || !taskId) {
+    return reject(command, "INVALID", "UPDATE_STOP_TASK needs args.task_id");
+  }
+
+  const task = state.tasks.find((t) => t.task_id === taskId);
+  if (!task) {
+    return reject(command, "INVALID", `unknown task_id: ${taskId}`);
+  }
+
+  // "own tasks" check (02 §E.4, FR-50)
+  if (command.role === "eva:EV1" && task.crew_id === "EV2") {
+    return reject(command, "FORBIDDEN_ROLE", "eva:EV1 may not update EV2 task");
+  }
+  if (command.role === "eva:EV2" && task.crew_id === "EV1") {
+    return reject(command, "FORBIDDEN_ROLE", "eva:EV2 may not update EV1 task");
+  }
+
+  // Undo: only the role that made the last change may reverse it, and a `system` change cannot be reversed.
+  // A task with no such change (never updated, or dropped) is not a role question: it falls through to INVALID.
+  const lastActor = state.task_actor?.[taskId];
+  if (a.undo === true && (task.state === "DONE" || task.state === "SKIPPED") && lastActor !== undefined && (lastActor === "system" || lastActor !== command.role)) {
+    return reject(command, "FORBIDDEN_ROLE", `${command.role} is not the actor of the last change to ${taskId} (${lastActor}); only that role may undo it`);
+  }
+  if (a.undo !== undefined && typeof a.undo !== "boolean") {
+    return reject(command, "INVALID", "UPDATE_STOP_TASK args.undo must be true or false");
+  }
+  const undo = a.undo === true;
+
+  const target = a.state;
+  if (target !== "TODO" && target !== "DONE" && target !== "SKIPPED") {
+    return reject(command, "INVALID", `invalid stop task state: ${String(target)}`);
+  }
+
+  if (undo) {
+    if (target !== "TODO") return reject(command, "INVALID", `undo: true needs state TODO, not ${target}`);
+    if (task.state !== "DONE" && task.state !== "SKIPPED") {
+      return reject(command, "INVALID", `only a DONE or SKIPPED task can be undone; ${taskId} is ${task.state}`);
+    }
+    // Stale: a plan revision since the change, or the stop is no longer in the plan (a dropped stop's task is never revived).
+    if (state.task_plan_rev?.[taskId] !== state.session.plan_revision) {
+      return reject(command, "INVALID", `the plan was revised since the last change to ${taskId}; it cannot be undone`);
+    }
+    if (!stopsOf(state).some((w) => w.id === task.stop_id)) {
+      return reject(command, "INVALID", `stop ${task.stop_id} is no longer in the plan; ${taskId} cannot be undone`);
+    }
+  } else {
+    if (target === "TODO") return reject(command, "INVALID", "state TODO needs undo: true");
+    if (task.state !== "TODO") return reject(command, "INVALID", `${taskId} is ${task.state}; ${target} is allowed only from TODO`);
+    if (target === "SKIPPED" && (typeof a.reason !== "string" || !REASONS.includes(a.reason as StopTaskReason))) {
+      return reject(command, "INVALID", "SKIPPED requires reason: time | terrain | alert | other");
+    }
+  }
+
+  const data: LogEventData["TASK_UPDATED"] = {
+    task_id: task.task_id,
+    stop_id: task.stop_id,
+    crew_id: task.crew_id,
+    state: target,
+    reason: target === "SKIPPED" ? (a.reason as StopTaskReason) : null,
+    ...(undo ? { undo: true } : {}),
+  };
+
+  const event: PendingEvent = {
+    sim_time: state.session.clock.sim_time,
+    kind: "TASK_UPDATED",
+    actor: command.role,
+    data: data as Record<string, unknown>,
+    provenance: { ...STATE_PROVENANCE },
+  };
+
+  return accepted(command, [event]);
 }
 
-/** ADD_STOP_TASK (ops): log TASK_ADDED with origin `ops`. */
-export function handleAddStopTask(state: EngineState, scenario: LoadedScenario, command: Command): CommandOutcome {
-  throw new Error("TODO(TASK-31): T31.04 not implemented");
+/**
+ * The stop ids that are the current or next stop of any of `crew`: at a stop (stop number n, 1-based) that
+ * stop and the next; walking, the next one (`stop_index` is the last stop visited, null = none yet). A crew
+ * member who is sheltered, in the hab or heading for a haven has none.
+ */
+function currentOrNextStops(state: EngineState, crew: readonly Crew[]): Set<string> {
+  const stops = stopsOf(state);
+  const ids = new Set<string>();
+  for (const c of crew) {
+    if (c.activity === "AT_STOP" && c.stop_index !== null) {
+      for (const w of [stops[c.stop_index - 1], stops[c.stop_index]]) if (w) ids.add(w.id);
+    } else if (c.activity === "WALKING") {
+      const next = stops[c.stop_index ?? 0];
+      if (next) ids.add(next.id);
+    }
+  }
+  return ids;
 }
 
-/** After PLAN_REVISED: TASK_DROPPED (actor `system`) for open tasks at dropped stops. Called by session.ts (T22.12) after it appends a PLAN_REVISED. */
+/**
+ * ADD_STOP_TASK `{stop_id, text, crew_id?, kind?}` (ops): log TASK_ADDED with origin `ops`. The Hab Core
+ * assigns `task_id` (`t-ops-<seq>`) and never overwrites an existing task; an id the client sends is ignored.
+ */
+export function handleAddStopTask(
+  state: EngineState,
+  _scenario: LoadedScenario,
+  command: Command,
+): CommandOutcome {
+  if (command.role !== "ops") {
+    return reject(command, "FORBIDDEN_ROLE", `${command.role} may not send ADD_STOP_TASK`);
+  }
+
+  const a = command.args ?? {};
+  const stopId = a.stop_id;
+  if (typeof stopId !== "string" || !stopId) {
+    return reject(command, "INVALID", "ADD_STOP_TASK needs args.stop_id");
+  }
+  // "/" would break the STATE_DELTA path of the task ("tasks/<task_id>/state").
+  if (stopId.includes("/")) return reject(command, "INVALID", "ADD_STOP_TASK stop_id may not contain /");
+  if (a.task_id !== undefined && (typeof a.task_id !== "string" || a.task_id.includes("/"))) {
+    return reject(command, "INVALID", "ADD_STOP_TASK task_id is assigned by the Hab Core and may not contain /");
+  }
+
+  const text = a.text;
+  if (typeof text !== "string" || text.trim().length === 0 || text.length > 60) {
+    return reject(command, "INVALID", "ADD_STOP_TASK text must be 1-60 characters");
+  }
+
+  const kind = a.kind === undefined ? "other" : a.kind;
+  if (!KINDS.includes(kind as StopTaskKind)) {
+    return reject(command, "INVALID", `ADD_STOP_TASK kind must be one of ${KINDS.join(", ")}`);
+  }
+
+  const rawCrew = a.crew_id ?? null;
+  if (rawCrew !== null && !CREW_IDS.includes(rawCrew as CrewId)) {
+    return reject(command, "INVALID", "ADD_STOP_TASK crew_id must be EV1, EV2 or null");
+  }
+  const crewId = rawCrew as CrewId | null;
+  if (crewId !== null && !state.crew.some((c) => c.crew_id === crewId)) {
+    return reject(command, "INVALID", `ADD_STOP_TASK crew_id ${crewId} is not in this session`);
+  }
+
+  if (!stopsOf(state).some((w) => w.id === stopId)) {
+    return reject(command, "INVALID", `unknown stop_id: ${stopId}`);
+  }
+
+  // Current or next stop of the crew member (either one when crew_id is null), 01 FR-50.
+  const valid = currentOrNextStops(state, crewId ? state.crew.filter((c) => c.crew_id === crewId) : state.crew);
+  if (!valid.has(stopId)) {
+    return reject(command, "INVALID", `stop ${stopId} is not the current or next stop`);
+  }
+
+  const base = `t-ops-${state.session.last_seq + 1}`;
+  let taskId = base;
+  for (let k = 2; state.tasks.some((t) => t.task_id === taskId); k++) taskId = `${base}-${k}`;
+
+  const data: LogEventData["TASK_ADDED"] = {
+    task_id: taskId,
+    stop_id: stopId,
+    crew_id: crewId,
+    kind: kind as StopTaskKind,
+    text,
+    origin: "ops",
+  };
+
+  const event: PendingEvent = {
+    sim_time: state.session.clock.sim_time,
+    kind: "TASK_ADDED",
+    actor: "ops",
+    data: data as Record<string, unknown>,
+    provenance: { ...TEXT_PROVENANCE },
+  };
+
+  return accepted(command, [event]);
+}
+
+/**
+ * After PLAN_REVISED: TASK_DROPPED (actor `system`) for open tasks at dropped stops. `state` must be the
+ * state BEFORE the revision (commands.ts passes it): the stops a revision removes are the old plan's stops
+ * that the revised waypoints lack, plus `stops_dropped`, which are 1-based stop numbers (05 PLAN_REVISED;
+ * the same numbering as `Crew.stop_index`), i.e. the n-th stop waypoint, not `waypoints[n]`.
+ */
 export function onPlanRevised(state: EngineState, revised: LogEvent): PendingEvent[] {
-  throw new Error("TODO(TASK-31): T31.04 not implemented");
+  const d = revised.data as unknown as LogEventData["PLAN_REVISED"];
+  const oldStops = stopsOf(state);
+  const droppedStops = new Set<string>();
+
+  if (Array.isArray(d.waypoints)) {
+    const kept = new Set(d.waypoints.filter((w) => w.role === "stop").map((w) => w.id));
+    for (const w of oldStops) if (!kept.has(w.id)) droppedStops.add(w.id);
+  }
+  for (const no of Array.isArray(d.stops_dropped) ? d.stops_dropped : []) {
+    const w = Number.isInteger(no) && no >= 1 ? oldStops[no - 1] : undefined;
+    if (w) droppedStops.add(w.id);
+  }
+
+  const events: PendingEvent[] = [];
+  for (const task of state.tasks) {
+    if (task.state === "TODO" && droppedStops.has(task.stop_id)) {
+      const data: LogEventData["TASK_DROPPED"] = {
+        task_id: task.task_id,
+        stop_id: task.stop_id,
+        plan_revision: d.plan_revision,
+      };
+      events.push({
+        sim_time: revised.sim_time,
+        kind: "TASK_DROPPED",
+        actor: "system",
+        data: data as Record<string, unknown>,
+        provenance: { "data.plan_revision": "simulated" },
+      });
+    }
+  }
+
+  return events;
 }
 
 /** At the end of each dwell the simulated crew member's open tasks become DONE. */
 export function tasksTick(state: EngineState, ctx: TickContext): TickResult {
-  throw new Error("TODO(TASK-31): T31.04 not implemented");
+  const events: PendingEvent[] = [];
+  let current = state;
+
+  // TODO(decision): EV2 is hard-coded as the simulated crew member (01 FR-50 "for example EV2 in the demo");
+  // the scenario file has no field for which crew member nobody drives. Add one (05 Scenario) before a
+  // live session where EV2 is a person, or this completes a person's tasks at dwell end.
+  const simulatedCrewIds: CrewId[] = ["EV2"];
+
+  for (const crewId of simulatedCrewIds) {
+    const c = current.crew.find((cr) => cr.crew_id === crewId);
+    const m = current.motion[crewId];
+    if (!c || !m) continue;
+
+    if (m.phase === "walk" && m.last_wp_id) {
+      const openTasks = current.tasks.filter(
+        (t) =>
+          t.stop_id === m.last_wp_id &&
+          t.state === "TODO" &&
+          (t.crew_id === crewId || t.crew_id === null),
+      );
+
+      for (const task of openTasks) {
+        const updateData: LogEventData["TASK_UPDATED"] = {
+          task_id: task.task_id,
+          stop_id: task.stop_id,
+          crew_id: task.crew_id,
+          state: "DONE",
+          reason: null,
+        };
+        const event: PendingEvent = {
+          sim_time: current.session.clock.sim_time,
+          kind: "TASK_UPDATED",
+          actor: "system",
+          data: updateData as Record<string, unknown>,
+          provenance: { ...STATE_PROVENANCE },
+        };
+        events.push(event);
+        current = reduceTaskEvent(current, logged(event, ctx.next_seq + events.length - 1));
+      }
+    }
+  }
+
+  return {
+    state: current,
+    events,
+    deltas: [],
+  };
 }
 
 /** Reducer case for TASK_ADDED / TASK_UPDATED / TASK_DROPPED; called by reduce (T22.06). */
 export function reduceTaskEvent(state: EngineState, event: LogEvent): EngineState {
-  throw new Error("TODO(TASK-31): T31.04 not implemented");
+  switch (event.kind) {
+    case "TASK_ADDED": {
+      const d = event.data as unknown as LogEventData["TASK_ADDED"];
+      const task: StopTask = {
+        task_id: d.task_id,
+        stop_id: d.stop_id,
+        crew_id: d.crew_id ?? null,
+        kind: d.kind,
+        text: d.text,
+        state: "TODO",
+        reason: null,
+        origin: d.origin ?? "plan",
+        updated_sim_time: event.sim_time,
+        updated_by: event.actor,
+        provenance: { state: "simulated", text: "assumed" },
+      };
+      return {
+        ...state,
+        tasks: [...state.tasks.filter((t) => t.task_id !== task.task_id), task],
+      };
+    }
+    case "TASK_UPDATED": {
+      const d = event.data as unknown as LogEventData["TASK_UPDATED"];
+      return {
+        ...state,
+        // The plan revision of this change, for the staleness rule of an undo (reducer.ts `task_plan_rev`; #202).
+        task_plan_rev: { ...state.task_plan_rev, [d.task_id]: state.session.plan_revision },
+        task_actor: { ...state.task_actor, [d.task_id]: event.actor },
+        tasks: state.tasks.map((t) =>
+          t.task_id === d.task_id
+            ? {
+                ...t,
+                state: d.state,
+                reason: d.reason ?? null,
+                updated_sim_time: event.sim_time,
+                updated_by: event.actor,
+              }
+            : t,
+        ),
+      };
+    }
+    case "TASK_DROPPED": {
+      const d = event.data as unknown as LogEventData["TASK_DROPPED"];
+      return {
+        ...state,
+        tasks: state.tasks.map((t) =>
+          t.task_id === d.task_id
+            ? {
+                ...t,
+                state: "DROPPED",
+                updated_sim_time: event.sim_time,
+                updated_by: event.actor,
+              }
+            : t,
+        ),
+      };
+    }
+    default:
+      return state;
+  }
 }
