@@ -10,6 +10,13 @@ import type { EarthLinkTable, ParamSet } from "@marswalk/protocol";
 /** Minimum Earth elevation in degrees for Direct-to-Earth communication (02 §D.12). */
 export const DTE_MIN_ELEV_DEG = 10;
 
+/** Epoch ms of an ISO time, or RangeError naming `what`: a NaN must never read as "no row" or "no pass". */
+function parseUtc(t_utc: string, what: string): number {
+  const v = Date.parse(t_utc);
+  if (Number.isNaN(v)) throw new RangeError(`${what} ${JSON.stringify(t_utc)} is not a parseable ISO time`);
+  return v;
+}
+
 export interface RelayPassFinding {
   start_utc: string;
   end_utc: string;
@@ -24,12 +31,13 @@ export interface EarthDeliveryResult {
 
 /**
  * Returns the currently active pass at t_utc (start_utc <= t < end_utc), or null if between passes.
+ * Throws RangeError when t_utc or a pass time does not parse.
  */
 export function activePass(table: EarthLinkTable, t_utc: string): RelayPassFinding | null {
-  const t = Date.parse(t_utc);
+  const t = parseUtc(t_utc, "t_utc");
   for (const pass of table.passes) {
-    const s = Date.parse(pass.start_utc);
-    const e = Date.parse(pass.end_utc);
+    const s = parseUtc(pass.start_utc, "pass start_utc");
+    const e = parseUtc(pass.end_utc, "pass end_utc");
     if (s <= t && t < e) {
       return { start_utc: pass.start_utc, end_utc: pass.end_utc, orbiter: pass.orbiter };
     }
@@ -37,11 +45,14 @@ export function activePass(table: EarthLinkTable, t_utc: string): RelayPassFindi
   return null;
 }
 
-/** Row at or before t (binary search on 60 s rows). Null before the first row. TASK-05b. */
+/**
+ * Row at or before t (binary search on 60 s rows). Null before the first row. Throws RangeError when t_utc or an
+ * examined row time does not parse. TASK-05b.
+ */
 export function linkAt(table: EarthLinkTable, t_utc: string): EarthLinkTable["rows"][number] | null {
+  const t = parseUtc(t_utc, "t_utc");
   if (!table.rows || table.rows.length === 0) return null;
-  const t = Date.parse(t_utc);
-  const first = Date.parse(table.rows[0].t_utc);
+  const first = parseUtc(table.rows[0].t_utc, "row t_utc");
   if (t < first) return null;
 
   let low = 0;
@@ -50,7 +61,7 @@ export function linkAt(table: EarthLinkTable, t_utc: string): EarthLinkTable["ro
 
   while (low <= high) {
     const mid = (low + high) >> 1;
-    const midT = Date.parse(table.rows[mid].t_utc);
+    const midT = parseUtc(table.rows[mid].t_utc, "row t_utc");
     if (midT <= t) {
       best = mid;
       low = mid + 1;
@@ -62,12 +73,16 @@ export function linkAt(table: EarthLinkTable, t_utc: string): EarthLinkTable["ro
   return table.rows[best];
 }
 
-/** Start of the first relay pass at or after t, or null if none in the table. TASK-05b. */
+/**
+ * Start of the first relay pass at or after t, or null if none in the table. Throws RangeError when t_utc or a
+ * pass start does not parse. TASK-05b.
+ */
 export function nextPassStart(table: EarthLinkTable, t_utc: string): RelayPassFinding | null {
-  const t = Date.parse(t_utc);
+  const t = parseUtc(t_utc, "t_utc");
   let best: { pass: typeof table.passes[number]; start: number } | null = null;
   for (const pass of table.passes) {
-    const s = Date.parse(pass.start_utc);
+    const s = parseUtc(pass.start_utc, "pass start_utc");
+    parseUtc(pass.end_utc, "pass end_utc"); // the returned finding carries it
     if (s >= t) {
       if (!best || s < best.start) {
         best = { pass, start: s };
@@ -130,9 +145,9 @@ function assertPassesUsable(table: EarthLinkTable): void {
 
 /**
  * Delivery time for a message, or null during conjunction blackout or if no pass exists.
- * Simplified DTN model (02 §D.12). Throws RangeError for an empty or unsorted pass list or a missing
- * `conjunction_deg`. A message queued for a later pass is also blocked when that pass starts in conjunction
- * (Proposed; 02 §D.12 is silent, `TODO(decision)`).
+ * Simplified DTN model (02 §D.12). Throws RangeError for an empty or unsorted pass list, a missing
+ * `conjunction_deg`, an unparseable time, or a send time before the first table row (blackout is null, not an error).
+ * A message queued for a later pass is also blocked when that pass starts in conjunction (Proposed; 02 §D.12 is silent, `TODO(decision)`).
  * For "to_mars", `t_send_utc` is the Earth send time (sent_earth_utc).
  * TASK-05b.
  */
@@ -148,6 +163,11 @@ export function deliveryTime(
   }
 
   assertPassesUsable(table);
+  // A send time before the table is an input error, not a blackout: null is reserved for conjunction or no pass.
+  if (!table.rows || table.rows.length === 0) throw new RangeError("earth link table has no rows");
+  if (sendMs < parseUtc(table.rows[0].t_utc, "row t_utc")) {
+    throw new RangeError(`send time ${t_send_utc} is before the first table row ${table.rows[0].t_utc}`);
+  }
   const dteEnabled = params.values?.dte_enabled === true;
 
   if (direction === "to_earth") {
