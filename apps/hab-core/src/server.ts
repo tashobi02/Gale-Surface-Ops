@@ -121,7 +121,7 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
     const events = session.eventsAfter(0);
     const snap = session.snapshot([]);
-    const report = buildReport(events, snap.session.log_hash);
+    const report = buildReport(events, snap.session.log_hash, session.initialPlan());
     if (report.session_id === "unknown" && snap.session.session_id) {
       report.session_id = snap.session.session_id;
       report.scenario_id = snap.session.scenario_id;
