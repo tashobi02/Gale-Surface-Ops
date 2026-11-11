@@ -442,7 +442,7 @@ The drafted tasks in `scenarios/storm-sol4190/stop_tasks.json` (keyed there by `
 
 ### ClientConnection
 
-`client_id`, `role` (`planner \| eva:EV1 \| eva:EV2 \| ops \| earth \| presenter`; `presenter` added 2026-11-10), `display_name`, `connected_since` (wall-clock, diagnostics only — never logged into `session.jsonl`), `last_seq_acked`. Not persisted.
+`client_id`, `role` (`planner \| eva:EV1 \| eva:EV2 \| hud:EV1 \| hud:EV2 \| ops \| earth \| presenter`; `presenter` added 2026-11-10; `hud:EV1` and `hud:EV2` added 2026-11-12, Proposed: read-only viewers, 02 §E.4), `display_name`, `connected_since` (wall-clock, diagnostics only — never logged into `session.jsonl`), `last_seq_acked`. Not persisted.
 
 ### Crew
 
@@ -578,7 +578,7 @@ Source column: where the fields are stated. **Proposed** fields are not stated i
 | `SESSION_RESET` | `session_id, next_session_id` | **Proposed** (02 §D.17); last line of the old log |
 | `SITE_SELECTED` | `candidate_id` | **Proposed** (HabCandidate) |
 | `MISSION_SETUP_SET` | the settings set (`crew_count, vehicle_available, solar_phase, max_haven_min`) | **Proposed** (Session `mission_setup`) |
-| `ROLE_TAKEN_OVER` | `role, crew_id?, old_client_id, new_client_id` | **Proposed** (02 §E.4, decision of Sadman Shaharier Mahim, 2026-11-12); `actor` `system`, `command_ref` `null`; `crew_id` only for an `eva:EVn` role; client ids are the HELLO `client_id`s (random per page load, no personal data); changes no state |
+| `ROLE_TAKEN_OVER` | `role, crew_id?, old_client_id, new_client_id` | **Proposed** (02 §E.4, decision of Sadman Shaharier Mahim, 2026-11-12); `actor` `system`, `command_ref` `null`; `crew_id` only for an `eva:EVn` or `hud:EVn` role; client ids are the HELLO `client_id`s (random per page load, no personal data); changes no state |
 
 Per-tick position updates are **not** logged; they are re-derived on replay from the plan and the logged events (determinism, NFR-06).
 

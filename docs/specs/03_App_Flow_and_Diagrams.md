@@ -168,7 +168,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 wer
 | --- | --- |
 | Purpose | Put each device in the right role in < 10 s |
 | Entry | `#/join`; scanning an ops QR code (`#/join?role=eva:EV1`) |
-| Content | Role tiles (Planner, Ops, EV1, EV2, Earth (T2), Presenter) with what each can do; Hab Core status (session, scenario, clock) |
+| Content | Role tiles (Planner, Ops, EV1, EV2, HUD EV1, HUD EV2 *(added 2026-11-12, Proposed; read-only, 02 §E.4)*, Earth (T2), Presenter) with what each can do; Hab Core status (session, scenario, clock) |
 | Primary action | Tap a tile → role route |
 | States | Connecting · Ready · Role taken (EV1 already connected: the tile offers "Take over", which asks "the other device will be disconnected" and, on confirm, takes the role from it: newest wins, 02 §E.4; *changed 2026-11-12, Proposed*) · Hab Core unreachable → SCR-18 |
 | Requirements | FR-30, FR-31, FR-51 |
