@@ -22,10 +22,12 @@ import {
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { Crew, CrewId, Vehicle, Alert, Snapshot, Command, Provenance } from "@marswalk/protocol";
+import type { Crew, CrewId, Vehicle, Alert, Snapshot, Command, ContingencyOption, Provenance } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 import { useCommand, useEvents, useHabClient, useSnapshot } from "../../state/habSession";
 import { useOpsSound } from "../ops/sound";
+import { selectOpsProps } from "../ops/liveProps";
+import { EarthLinkWidget } from "../ops/EarthLinkWidget";
 import { EventLog } from "../ops/EventLog";
 import { AlertStack } from "../ops/AlertStack";
 import { OptionsPanel } from "../ops/OptionsPanel";
@@ -135,7 +137,7 @@ export function OpsConsole({
   conditions,
   client: clientProp,
   snapshot,
-  logLines = [],
+  logLines: logLinesProp,
   onAcknowledgeAlert,
   onApproveOption,
   soundOn,
@@ -156,6 +158,8 @@ export function OpsConsole({
   const narrow = viewportWidth < 1280;
   const [activeAddCrew, setActiveAddCrew] = useState<string | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ContingencyOption | null>(null);
+  const previewPath = useCallback((_path: [number, number][], option?: ContingencyOption | null) => setPreview(option ?? null), []);
   const client = useHabClient(clientProp);
   const [logOpen, setLogOpen] = useState(false);
   const stripRef = useRef<HTMLButtonElement>(null);
@@ -173,14 +177,22 @@ export function OpsConsole({
   const send = useCommand(client);
   const activeSnapshot = snapshot === undefined ? liveState : snapshot;
   const session = activeSnapshot?.session;
+  const logLines = logLinesProp ?? selectOpsProps(activeSnapshot, events).logLines ?? [];
   const raisedTimes = new Map(events.filter((event) => event.kind === "ALERT_RAISED").map((event) => [event.seq, event.sim_time]));
   useEffect(() => {
     if (session?.status === "ENDED") window.location.hash = "#/report";
   }, [session?.status]);
   const warningKey = alerts.filter((alert) => alert.level === "warning" && (alert.acked_seq === null || alert.cleared_seq === null)).map((alert) => `${alert.alert_id}/${alert.raised_seq}`).join("|");
+  const atTaskLimit = (crewId: CrewId): boolean => {
+    const stop = taskProgress[crewId]?.stop;
+    if (!stop?.stopId) return false;
+    return activeSnapshot?.tasks ? activeSnapshot.tasks.filter((task) => task.stop_id === stop.stopId && task.state !== "DROPPED" && (task.crew_id === crewId || task.crew_id === null)).length >= 4 : stop.total >= 4;
+  };
   const optionsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (warningKey) {
+      setActiveAddCrew(null);
+      setLogOpen(false);
       if (narrow) setSideDrawer("mission");
       optionsRef.current?.focus();
     }
@@ -506,7 +518,8 @@ export function OpsConsole({
                     stopCount={taskProgress[member.crew_id]?.stop ?? null}
                     total={taskProgress[member.crew_id]?.total ?? null}
                     onAdd={(cid) => setActiveAddCrew(cid)}
-                    disabled={!taskProgress[member.crew_id]?.stop?.stopId}
+                    disabled={Boolean(warningKey) || !taskProgress[member.crew_id]?.stop?.stopId || atTaskLimit(member.crew_id)}
+                    disabledReason={warningKey ? "Warning latched — acknowledge and clear before adding tasks" : atTaskLimit(member.crew_id) ? "Maximum 4 tasks reached for this crew at this stop" : !taskProgress[member.crew_id]?.stop?.stopId ? "No current or next planned stop" : undefined}
                   />
 
                   {isUnlinked && (
@@ -530,15 +543,15 @@ export function OpsConsole({
           </div>
 
           {/* Add Task Popover */}
-          {activeAddCrew && taskProgress[activeAddCrew as CrewId]?.stop?.stopId && (
+          {activeAddCrew && !warningKey && taskProgress[activeAddCrew as CrewId]?.stop?.stopId && (
             <div style={{ marginTop: "8px" }}>
               <AddTaskPopover
                 crewId={activeAddCrew as CrewId}
                 stopId={taskProgress[activeAddCrew as CrewId]!.stop!.stopId!}
                 stopNo={taskProgress[activeAddCrew as CrewId]!.stop!.stopNo}
+                tasks={activeSnapshot?.tasks}
                 onAdd={(task) => {
-                  // TODO(decision): ADD_STOP_TASK args not defined in 02 §E.4/05 — using TASK_ADDED fields.
-                  // 05 TASK_ADDED fields; the Hab Core assigns task_id and origin. Closes only once accepted.
+                  // N-08 typed authoring fields; the Hab Core assigns task_id and origin.
                   void issue({ kind: "ADD_STOP_TASK", args: { ...task } }).then((accepted) => {
                     if (accepted) setActiveAddCrew(null);
                   });
@@ -639,7 +652,16 @@ export function OpsConsole({
               fontSize: "13px",
             }}
           >
-            MAP VIEWPORT · PROJECTION IAU_2015:49900
+            {preview && Array.isArray(preview.path_preview) && preview.path_preview.length > 0 && preview.path_preview.every((point) => point.length === 2 && point.every(Number.isFinite)) ? (() => {
+              const points = preview.path_preview;
+              const xs = points.map(([x]) => x);
+              const ys = points.map(([, y]) => y);
+              const width = Math.max(1, Math.max(...xs) - Math.min(...xs));
+              const height = Math.max(1, Math.max(...ys) - Math.min(...ys));
+              return <svg data-slot="option-path-preview" data-provenance="modelled" data-source={`snapshot:options/${preview.option_id}/path_preview`} role="img" aria-label="Option path preview in Mars projected metres" viewBox={`${Math.min(...xs) - width * 0.05} ${-Math.max(...ys) - height * 0.05} ${width * 1.1} ${height * 1.1}`} style={{ width: "100%", height: "100%", minHeight: "240px" }}>
+                <polyline points={points.map(([x, y]) => `${x},${y}`).join(" ")} transform="scale(1,-1)" fill="none" stroke="var(--route)" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+              </svg>;
+            })() : "MAP VIEWPORT · PROJECTION IAU_2015:49900"}
           </div>
 
           <footer
@@ -668,11 +690,12 @@ export function OpsConsole({
 
         {/* Right Column: CONDITIONS, EARTH LINK, OPTIONS */}
         <aside aria-label="Conditions and options" style={{ ...rightColumnStyle, ...(narrow ? { display: sideDrawer === "mission" ? "flex" : "none", position: "absolute", right: 0, top: 0, bottom: 0, width: "320px", zIndex: 5 } : {}) }}>
+          <EarthLinkWidget snapshot={activeSnapshot} />
           {/* Module Label: CONDITIONS */}
           <div className="module-label" style={moduleLabelStyle}>
             [ ENVIRONMENT /// CONDITIONS ]
           </div>
-          <ConditionsPanel variant="ops" conditions={conditions} />
+          <ConditionsPanel variant="ops" conditions={conditions} showEarthLink={false} />
 
           {/* Module Label: OPTIONS (04 §D.3, §E.4) */}
           <div className="module-label" style={{ ...moduleLabelStyle, marginTop: "12px" }}>
@@ -681,9 +704,9 @@ export function OpsConsole({
           <div className="options-panel" ref={optionsRef} tabIndex={-1} role="region" aria-label="Options">
             <OptionsPanel
               client={client}
-              snapshot={snapshot ?? liveState}
-              // Ops is not a crew member, so there is no crew to give (the scr14 EV1 fallback is a TODO(decision) in OptionsPanel).
+              snapshot={activeSnapshot}
               crewId={null}
+              onPreviewPath={previewPath}
               onApproveOption={(opt) => onApproveOption?.(opt.option_id)}
             />
           </div>
@@ -715,7 +738,7 @@ export function OpsConsole({
           aria-expanded={logOpen}
           aria-haspopup="dialog"
           aria-controls="ops-event-log-drawer"
-          onClick={() => setLogOpen((open) => !open)}
+          onClick={() => { setSideDrawer(null); setLogOpen((open) => !open); }}
           style={{
             display: "flex",
             alignItems: "center",

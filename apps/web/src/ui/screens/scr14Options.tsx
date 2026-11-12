@@ -7,6 +7,7 @@
 
 import {
   useRef,
+  useEffect,
   useState,
   type CSSProperties,
   type KeyboardEvent,
@@ -27,6 +28,8 @@ interface OptionsCommonProps {
   snapshot?: Snapshot | null;
   /** Callback fired when an option is selected. */
   onSelectOption?: (option: ContingencyOption) => void;
+  /** Selection preview, before approval; null removes a superseded path. */
+  onPreviewOption?: (option: ContingencyOption | null) => void;
   /** Callback fired to close sheet. */
   onClose?: () => void;
   className?: string;
@@ -116,6 +119,7 @@ export function Options({
   snapshot,
   variant = "eva",
   onSelectOption,
+  onPreviewOption,
   onClose,
   className = "",
 }: OptionsProps): ReactElement {
@@ -123,7 +127,7 @@ export function Options({
   const send = useCommand(client);
   const stored = useSnapshot(client);
   const events = useEvents(client);
-  const activeSnapshot = snapshot ?? stored;
+  const activeSnapshot = snapshot === undefined ? stored : snapshot;
   // No sample options: when the Hab Core has proposed none the sheet says so and cannot confirm anything.
   const rawOptions = activeSnapshot?.options ?? [];
 
@@ -136,6 +140,7 @@ export function Options({
   const [choice, setChoice] = useState<{ key: string; rank: number } | null>(null);
   const selectedRank = choice && choice.key === proposalKey ? choice.rank : null;
   const selectedOption = options.find((o) => o.rank === selectedRank) ?? options[0];
+  useEffect(() => { onPreviewOption?.(selectedOption ?? null); }, [selectedOption, onPreviewOption]);
   const radioRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const choose = (index: number): void => {
@@ -324,7 +329,7 @@ export function Options({
                       color: isSelected ? "#000000" : "var(--text-1, #ECEFF2)",
                     }}
                   >
-                    {isSelected ? "▣ " : ""}RANK {opt.rank}
+                    <span data-provenance="simulated" data-source="snapshot:options.rank">{isSelected ? "▣ " : ""}RANK {opt.rank}</span>
                   </span>
                   <span style={{ fontWeight: 600, fontSize: "16px" }}>
                     {KIND_LABELS[opt.kind] ?? opt.kind}
@@ -385,7 +390,7 @@ export function Options({
         <HoldToConfirm
           id="action-confirm-option"
           data-hold-key="confirm-option"
-          label={selectedOption ? `Go — Option ${selectedOption.rank}` : "Confirm option"}
+          label={selectedOption ? isEva ? `Go — Option ${selectedOption.rank}` : `Approve option ${selectedOption.rank}` : "Confirm option"}
           outcome={selectedOption ? `Option ${selectedOption.rank} accepted` : "Accepted"}
           queued={isEva && linked === false}
           kind="warning"

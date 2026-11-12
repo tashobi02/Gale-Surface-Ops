@@ -344,7 +344,7 @@ describe("Alert system (04 §D.2, §E.4)", () => {
     await flush();
     expect(sent).toHaveLength(1);
     const answer = serverAnswer(raised, "ops", sent[0]);
-    expect(answer.result.ok).toBe(true);
+    expect(answer.result).toMatchObject({ ok: true });
     expect(answer.events.map((e) => e.kind)).toEqual(["ALERT_ACKED"]);
     expect(answer.events[0].data).toMatchObject({ alert_id: "a-2", acked_by: "ops" });
 
@@ -865,8 +865,20 @@ describe("Ops console controls added in the audit (NFR-04, FR-50)", () => {
     expect(container.querySelector('[data-testid="add-task-popover"]')).toBeNull();
   });
 
-  // TODO(decision): the ADD_STOP_TASK args are not defined in 02 §E.4 / 05; the console sends the TASK_ADDED fields.
-  it.todo("contract: the ADD_STOP_TASK payload is accepted by the real handleAddStopTask for ops (once T31.04 lands)");
+  it("contract: the typed ADD_STOP_TASK payload is accepted by the real Hab Core handler", async () => {
+    const state = initialState(fake, "s-0001");
+    const plan = { waypoints: [{ id: "wp-2", role: "stop" }] } as unknown as NonNullable<Snapshot["plan"]>;
+    const running = { ...state, session: { ...state.session, status: "RUNNING" as const }, plan, crew: connectSnapshot().crew, tasks: [] };
+    const stop = plan.waypoints.find((point) => point.role === "stop")!;
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const { container } = await openPopover({ crew: [ev1()], taskProgress: { EV1: { stop: { stopId: stop.id, stopNo: 1, done: 0, total: 0 }, total: { done: 0, total: 0 } } }, client });
+    await typeInto(must(container, 'input'), "Observe the ridge");
+    await submitForm(must(container, 'form'));
+    await flush();
+    expect(sent).toHaveLength(1);
+    const answer = serverAnswer(running, "ops", sent[0]);
+    expect(answer.result).toMatchObject({ ok: true });
+  });
 
   it("ops: a rejected ADD_STOP_TASK keeps the popover open and shows the reason", async () => {
     const { client } = recordingClient(storeFromBeat("connect", "ops"), () => rejected("INVALID", "stop is not the current or next one"));
@@ -1008,4 +1020,77 @@ describe("package 19 ops interactions", () => {
     window.location.hash = "";
     await view.unmount();
   });
+});
+
+
+describe("package 20 ops panels", () => {
+  const withTasks = (count: number) => ({
+    crew: [ev1()],
+    taskProgress: { EV1: { stop: { stopId: "wp-2", stopNo: 2, done: 0, total: count }, total: { done: 0, total: count } } },
+  });
+
+  it("add task disabled while warning latched", async () => {
+    const props = { ...withTasks(1), client: null, alerts: [warning({ acked_seq: 8 })] };
+    const view = await mount(createElement(OpsConsole, props));
+    const add = must<HTMLButtonElement>(view.container, '[aria-label="Add task for EV1"]');
+    expect(add.getAttribute("aria-disabled")).toBe("true");
+    expect(add.getAttribute("title")).toMatch(/warning/i);
+    await click(add);
+    expect(view.container.querySelector('form')).toBeNull();
+    await view.rerender(createElement(OpsConsole, { ...props, alerts: [warning({ acked_seq: 8, cleared_seq: 9 })] }));
+    expect(add.disabled).toBe(false);
+    await click(add);
+    expect(view.container.querySelector('form')).not.toBeNull();
+    await view.rerender(createElement(OpsConsole, { ...props, alerts: [warning()] }));
+    expect(view.container.querySelector('form')).toBeNull();
+  });
+
+  it("maximum four tasks follows the selected crew and stop", async () => {
+    const snapshot = connectSnapshot();
+    snapshot.tasks = Array.from({ length: 4 }, (_, i) => ({ ...snapshot.tasks[0], task_id: `test-${i}`, stop_id: "wp-2", crew_id: "EV2" as const }));
+    const view = await mount(createElement(OpsConsole, { ...withTasks(1), client: null, snapshot }));
+    await click(must(view.container, '[aria-label="Add task for EV1"]'));
+    const crewSelect = must<HTMLSelectElement>(view.container, '[aria-label="Select crew member"]');
+    await act(async () => { crewSelect.value = "EV2"; crewSelect.dispatchEvent(new window.Event("change", { bubbles: true })); });
+    await typeInto(must(view.container, 'input'), "Observe the ridge");
+    expect(must<HTMLButtonElement>(view.container, '[type="submit"]').disabled).toBe(true);
+    expect(view.container.textContent).toMatch(/maximum.*4/i);
+    await act(async () => { crewSelect.value = "EV1"; crewSelect.dispatchEvent(new window.Event("change", { bubbles: true })); });
+    expect(must<HTMLButtonElement>(view.container, '[type="submit"]').disabled).toBe(false);
+  });
+
+  it("ops previews before approval and names the alert affected crew", async () => {
+    const snapshot = connectSnapshot();
+    const option: ContingencyOption = { option_id: "ops-preview", alert_id: "a-w", crew_ids: ["EV2"], kind: "ABORT_TO_HAB", rank: 1, eta_shelter_min: 12, expected_dose_ugy: 3, stops_dropped: [], violations: [], path_preview: [[10, 20], [30, 40]], rendezvous: null };
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const view = await mount(createElement(OpsConsole, { client, snapshot: { ...snapshot, options: [option], alerts: [warning({ subjects: ["EV2"] })] }, alerts: [warning({ subjects: ["EV2"] })] }));
+    expect(must(view.container, '[data-slot="affected-crew"]').textContent).toBe("EV2");
+    expect(must(view.container, '[data-slot="option-path-preview"] polyline').getAttribute("points")).toBe("10,20 30,40");
+    expect(sent).toHaveLength(0);
+    expect(must(view.container, '#action-confirm-option').textContent).toContain("Approve option 1");
+    await view.rerender(createElement(OpsConsole, { client, snapshot: { ...snapshot, options: [] } }));
+    expect(view.container.querySelector('[data-slot="option-path-preview"]')).toBeNull();
+  });
+});
+
+
+it("a newer alert blocks approval of a superseded option", async () => {
+  const snapshot = connectSnapshot();
+  const option: ContingencyOption = { option_id: "old-option", alert_id: "old-alert", crew_ids: ["EV2"], kind: "ABORT_TO_HAB", rank: 1, eta_shelter_min: 12, expected_dose_ugy: 3, stops_dropped: [], violations: [], path_preview: [], rendezvous: null };
+  const { client } = recordingClient(storeFromBeat("connect", "ops"));
+  const view = await mount(createElement(OptionsPanel, { client, crewId: null, snapshot: { ...snapshot, options: [option], alerts: [warning()] } }));
+  expect(view.container.querySelectorAll('[role="radio"]')).toHaveLength(0);
+  expect(must<HTMLButtonElement>(view.container, '#action-confirm-option').disabled).toBe(true);
+});
+
+
+it("a dropped task frees an ops task slot", async () => {
+  const snapshot = connectSnapshot();
+  snapshot.tasks = Array.from({ length: 4 }, (_, i) => ({ ...snapshot.tasks[0], task_id: `test-${i}`, stop_id: "wp-2", crew_id: "EV1" as const, state: i === 0 ? "DROPPED" as const : "DONE" as const }));
+  const view = await mount(createElement(OpsConsole, { client: null, snapshot, crew: [ev1()], taskProgress: { EV1: { stop: { stopId: "wp-2", stopNo: 2, done: 3, total: 4 }, total: { done: 3, total: 4 } } } }));
+  const add = must<HTMLButtonElement>(view.container, '[aria-label="Add task for EV1"]');
+  expect(add.disabled).toBe(false);
+  await click(add);
+  await typeInto(must(view.container, 'input'), "Observe the ridge");
+  expect(must<HTMLButtonElement>(view.container, '[type="submit"]').disabled).toBe(false);
 });

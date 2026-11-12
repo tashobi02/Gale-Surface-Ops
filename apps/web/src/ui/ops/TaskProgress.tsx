@@ -21,6 +21,7 @@ export interface TaskProgressProps {
   total: { done: number; total: number } | null;
   onAdd: (crewId: CrewId) => void;
   disabled?: boolean;
+  disabledReason?: string;
   className?: string;
 }
 
@@ -41,6 +42,7 @@ export function TaskProgress({
   total,
   onAdd,
   disabled = false,
+  disabledReason,
   className = "",
 }: TaskProgressProps): ReactElement {
   const stopText =
@@ -109,6 +111,7 @@ export function TaskProgress({
         onClick={() => !disabled && onAdd(crewId)}
         disabled={disabled}
         aria-disabled={disabled ? "true" : undefined}
+        title={disabledReason}
         aria-label={`Add task for ${crewId}`}
       >
         + TASK
