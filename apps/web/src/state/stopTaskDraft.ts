@@ -1,15 +1,36 @@
 /** FR-54 / T32.27: library application lives beside C11, using only its public actions (FD-089). */
-import type { AddStopTaskArgs, StopTaskSeed, TaskLibraryEntry } from "@marswalk/protocol";
+import type { AddStopTaskArgs, StopTaskKind, StopTaskSeed, TaskLibraryEntry } from "@marswalk/protocol";
 import { MAX_TASKS_PER_STOP, STOP_TASK_TEXT_MAX, type PlanStore, type StopTaskPatch } from "./planStore";
 
-export const TASK_KINDS = ["observe", "image", "sample", "measure", "deploy", "other"] as const;
+/** The protocol's task kinds, in the order the editor offers them. */
+export const TASK_KINDS = ["observe", "image", "sample", "measure", "deploy", "other"] as const satisfies readonly StopTaskKind[];
+// Compile-time exhaustiveness: this line stops compiling when the protocol gains a kind that TASK_KINDS does not list.
+const everyKindListed: [Exclude<StopTaskKind, (typeof TASK_KINDS)[number]>] extends [never] ? true : never = true;
+void everyKindListed;
+
+export function isStopTaskKind(value: unknown): value is StopTaskKind {
+  return typeof value === "string" && (TASK_KINDS as readonly string[]).includes(value);
+}
+
+/** Where the planner's task library stands: in flight, loaded (possibly with nothing for a POI) or failed. A failed library is not an empty one. */
+export type TaskLibraryStatus = "loading" | "ready" | "unavailable";
+
 export const TASK_RULE_SOURCE = "spec:01-FR-54";
-export const TASK_TEXT_ERROR = `Task text must contain 1–${STOP_TASK_TEXT_MAX} characters. Keeping the last valid text.`;
+export const TASK_BLANK_ERROR = "Task text cannot be empty or only spaces.";
+export const TASK_TOO_LONG_ERROR = `Task text is too long: use at most ${STOP_TASK_TEXT_MAX} characters.`;
+/** Appended where an existing task keeps its previous text; a new-task box has nothing to keep. */
+export const TASK_KEPT_NOTE = "Keeping the last valid text.";
 export const TASK_LIMIT_ERROR = `A stop can carry at most ${MAX_TASKS_PER_STOP} tasks. Delete a task before adding another.`;
 export const TASK_MIN_ERROR = "Keep at least one task at this stop. Edit the remaining task instead.";
 
+/** What is wrong with a task text (FR-50: 1–60 characters, not blank), or null when it is valid. */
+export function taskTextError(text: string): string | null {
+  if (text.trim().length === 0) return TASK_BLANK_ERROR;
+  return text.length > STOP_TASK_TEXT_MAX ? TASK_TOO_LONG_ERROR : null;
+}
+
 function validText(text: string): boolean {
-  return text.trim().length > 0 && text.length <= STOP_TASK_TEXT_MAX;
+  return taskTextError(text) === null;
 }
 
 /** A seed id derives from its stop and library entry, so repeated POIs have distinct tasks. */
@@ -61,7 +82,8 @@ export function createStopTaskDraft(store: PlanStore, initial: readonly TaskLibr
 export function addDraft(store: PlanStore, stopId: string, input: Omit<AddStopTaskArgs, "stop_id">): string | null {
   const state = store.get();
   if (!state.waypoints.some(w => w.id === stopId && w.role === "stop")) return "Choose an existing stop first.";
-  if (!validText(input.text)) return TASK_TEXT_ERROR;
+  const textProblem = taskTextError(input.text);
+  if (textProblem) return textProblem;
   if (state.stop_tasks.filter(task => task.stop_id === stopId).length >= MAX_TASKS_PER_STOP) return TASK_LIMIT_ERROR;
   let sequence = 1;
   while (state.stop_tasks.some(task => task.task_id === `${stopId}:authored-${sequence}`)) sequence += 1;
@@ -71,7 +93,8 @@ export function addDraft(store: PlanStore, stopId: string, input: Omit<AddStopTa
 
 export function editDraft(store: PlanStore, taskId: string, patch: StopTaskPatch): string | null {
   if (!store.get().stop_tasks.some(task => task.task_id === taskId)) return "This task is no longer in the plan.";
-  if (patch.text !== undefined && !validText(patch.text)) return TASK_TEXT_ERROR;
+  const textProblem = patch.text === undefined ? null : taskTextError(patch.text);
+  if (textProblem) return `${textProblem} ${TASK_KEPT_NOTE}`;
   store.updateStopTask(taskId, patch);
   return null;
 }
@@ -88,9 +111,10 @@ export function removeDraft(store: PlanStore, taskId: string): string | null {
 function isLibraryEntry(value: unknown): value is TaskLibraryEntry {
   if (!value || typeof value !== "object") return false;
   const e = value as TaskLibraryEntry;
-  return typeof e.library_task_id === "string" && e.library_task_id.length > 0 &&
+  // The Hab Core refuses a task id with "/" (it would break the STATE_DELTA path), and the draft id embeds this one.
+  return typeof e.library_task_id === "string" && e.library_task_id.length > 0 && !e.library_task_id.includes("/") &&
     typeof e.poi_id === "string" && e.poi_id.length > 0 &&
-    [null, "EV1", "EV2"].includes(e.crew_id) && TASK_KINDS.includes(e.kind) &&
+    [null, "EV1", "EV2"].includes(e.crew_id) && isStopTaskKind(e.kind) &&
     typeof e.text === "string" && validText(e.text) &&
     (e.source_id === undefined || (typeof e.source_id === "string" && e.source_id.length > 0)) &&
     (!/[0-9]/.test(e.text) || typeof e.source_id === "string");

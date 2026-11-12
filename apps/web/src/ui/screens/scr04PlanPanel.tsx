@@ -26,6 +26,7 @@
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode } from "react";
 import type { MissionScenario, TaskLibraryEntry } from "@marswalk/protocol";
+import type { TaskLibraryStatus } from "../../state/stopTaskDraft";
 import { localTrueSolarTime, validatePlanInput } from "@marswalk/compute";
 import type { AppContext } from "../context";
 import { Notice } from "../components/Notice";
@@ -44,6 +45,10 @@ export interface SessionSummary {
 export interface PlanPanelProps {
   ctx: AppContext;
   taskLibrary?: readonly TaskLibraryEntry[];
+  /** N-07 fetch state (default: loaded). A POI stop's editor says so when the library is loading or unavailable. */
+  taskLibraryStatus?: TaskLibraryStatus;
+  /** Fetches the task library again; the editor offers it while the library is unavailable. */
+  onRetryTaskLibrary?: () => void;
   /** Reads the Hab Core's session summary; `null` when there is no Hab Core. Default: `GET api/session` on the page's own origin. */
   fetchSession?: () => Promise<SessionSummary | null>;
 }
@@ -190,7 +195,7 @@ function RadioGroup<T extends string | number>(props: {
 }
 
 /** SCR-04 plan panel (React, ADR-012). */
-export function PlanPanel({ ctx, taskLibrary, fetchSession = fetchSessionSummary }: PlanPanelProps): ReactElement {
+export function PlanPanel({ ctx, taskLibrary, taskLibraryStatus, onRetryTaskLibrary, fetchSession = fetchSessionSummary }: PlanPanelProps): ReactElement {
   const { planStore, site } = ctx;
   const plan = usePlanState(planStore);
   const scenario = plan.scenario;
@@ -483,7 +488,7 @@ export function PlanPanel({ ctx, taskLibrary, fetchSession = fetchSessionSummary
         )}
       </section>
 
-      <StopsList planStore={planStore} site={site} renderStopTasks={stopId => <StopTaskEditor planStore={planStore} stopId={stopId} library={taskLibrary} />} />
+      <StopsList planStore={planStore} site={site} renderStopTasks={stopId => <StopTaskEditor planStore={planStore} stopId={stopId} library={taskLibrary} libraryStatus={taskLibraryStatus} onRetryLibrary={onRetryTaskLibrary} />} />
     </section>
   );
 }

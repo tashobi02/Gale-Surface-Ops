@@ -1,7 +1,7 @@
 /** T32.26–T32.27: FR-54 drafts use C11 actions; task edits never enter the routing hash. */
 import { afterEach, expect, it, vi } from "vitest";
 import type { PublishPlanArgs, TaskLibraryEntry } from "@marswalk/protocol";
-import { createStopTaskDraft, addDraft, editDraft, removeDraft, fetchTaskLibrary } from "../../src/state/stopTaskDraft";
+import { createStopTaskDraft, addDraft, editDraft, isStopTaskKind, removeDraft, fetchTaskLibrary, TASK_KINDS } from "../../src/state/stopTaskDraft";
 import { exportPlan } from "../../src/export/planExport";
 import { publishPlan } from "../../src/ui/briefing/publishPlan";
 import { realPlan, STOP_FREE, STOP_POI } from "../ui/realPlanStore";
@@ -134,5 +134,57 @@ it("reads N-07 from the same-origin session snapshot and returns unavailable on 
   expect(await fetchTaskLibrary()).toBeNull();
   fetcher.mockRejectedValue(new Error("offline"));
   expect(await fetchTaskLibrary()).toBeNull();
+  drafts.destroy();
+});
+
+it("rejects a library whose task id contains a slash, which the Hab Core refuses in STATE_DELTA paths", async () => {
+  const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ task_library: [{ ...library[0]!, library_task_id: "lt/boxwork-01" }] }) });
+  vi.stubGlobal("fetch", fetcher);
+  expect(await fetchTaskLibrary()).toBeNull();
+  fetcher.mockResolvedValue({ ok: true, json: async () => ({ task_library: library }) });
+  expect(await fetchTaskLibrary()).toEqual(library);
+});
+
+it("names the actual problem: blank, too long, and 'last valid text' only when an existing task keeps one", () => {
+  const { store } = realPlan();
+  const drafts = createStopTaskDraft(store, library);
+  store.addWaypoint(STOP_POI);
+  const id = store.get().stop_tasks[0]!.task_id;
+  const blankNew = addDraft(store, STOP_POI.id, { kind: "other", text: "   " })!;
+  const emptyNew = addDraft(store, STOP_POI.id, { kind: "other", text: "" })!;
+  const longNew = addDraft(store, STOP_POI.id, { kind: "other", text: "a".repeat(61) })!;
+  for (const message of [blankNew, emptyNew, longNew]) expect(message).not.toMatch(/last valid/i);
+  expect(blankNew).toMatch(/empty|blank|spaces/i);
+  expect(blankNew).not.toMatch(/1–60/);
+  expect(longNew).toMatch(/60/);
+  const blankEdit = editDraft(store, id, { text: "   " })!;
+  const longEdit = editDraft(store, id, { text: "a".repeat(61) })!;
+  expect(blankEdit).toMatch(/empty|blank|spaces/i);
+  expect(blankEdit).not.toMatch(/1–60/);
+  expect(longEdit).toMatch(/60/);
+  for (const message of [blankEdit, longEdit]) expect(message).toMatch(/Keeping the last valid text\.$/);
+  drafts.destroy();
+});
+
+it("lists every protocol task kind and narrows a string to one with a type guard", () => {
+  const kinds: import("@marswalk/protocol").StopTaskKind[] = ["observe", "image", "sample", "measure", "deploy", "other"];
+  expect([...TASK_KINDS].sort()).toEqual([...kinds].sort());
+  for (const kind of kinds) expect(isStopTaskKind(kind)).toBe(true);
+  for (const bad of ["", "Observe", "walk", null, undefined, 4]) expect(isStopTaskKind(bad)).toBe(false);
+});
+
+it("reordering stops keeps each stop's tasks attached to the same stop id and drafts unchanged", () => {
+  const { store } = realPlan();
+  const drafts = createStopTaskDraft(store, library);
+  store.addWaypoint(STOP_POI);
+  store.addWaypoint({ ...STOP_POI, id: STOP_FREE.id, x_m: STOP_FREE.x_m, y_m: STOP_FREE.y_m });
+  addDraft(store, STOP_FREE.id, { kind: "observe", text: "Observe the ridge" });
+  const byStop = () => Object.fromEntries([STOP_POI.id, STOP_FREE.id].map(id => [id, store.get().stop_tasks.filter(task => task.stop_id === id).map(task => task.text)]));
+  const before = byStop();
+  const total = store.get().stop_tasks.length;
+  store.reorderWaypoints([STOP_FREE.id, STOP_POI.id]);
+  expect(store.get().waypoints.filter(w => w.role === "stop").map(w => w.id)).toEqual([STOP_FREE.id, STOP_POI.id]);
+  expect(store.get().stop_tasks).toHaveLength(total);
+  expect(byStop()).toEqual(before);
   drafts.destroy();
 });

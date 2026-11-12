@@ -10,8 +10,10 @@
 .stop-task-editor select { padding: 0 6px; background: var(--surface-0); color: var(--fg-1); border: 1px solid var(--control-edge); }
 .stop-task-help { margin: 0; color: var(--fg-2); font-size: var(--text-micro); overflow-wrap: anywhere; }
 .stop-task-new { display: flex; flex-direction: column; gap: 8px; }
-.stop-task-editor button:enabled:hover, .stop-task-editor > summary:hover { background: var(--surface-1); }
-.stop-task-editor input:disabled, .stop-task-editor select:disabled { color: var(--fg-3); cursor: not-allowed; }
+.stop-task-editor button:not([aria-disabled="true"]):hover, .stop-task-editor > summary:hover { background: var(--surface-1); }
+/* aria-disabled, not disabled: a control that holds focus must keep it (the control stays in the tab order and says why it cannot act). */
+.stop-task-editor [aria-disabled="true"] { color: var(--fg-3); cursor: not-allowed; }
+.stop-task-library { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 @media (pointer: coarse) {
   .stop-task-editor select, .stop-task-editor input { min-height: var(--target-touch); min-width: var(--target-touch); }
 }
