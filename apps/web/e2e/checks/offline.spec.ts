@@ -18,8 +18,10 @@ test("offline: every route loads with no external request and local fonts and ic
     const before = guard.blocked.length;
     // A fresh document each time, so an asset a route needs is requested again and not served from the previous route's page.
     await page.goto("about:blank");
-    await page.goto(`/${hash}`);
+    await page.goto(`/?site=${process.env.E2E_SITE ?? "mock_site"}${hash}`);
     await page.waitForLoadState("networkidle");
+    if (hash === "#/") await expect(page.locator('[data-screen="SCR-01"] h1')).toContainText("Plan the walk");
+    if (hash === "#/sources") await expect(page.locator('[data-screen="SCR-09"] h1')).toContainText("What each value is");
     await page.evaluate(() => document.fonts.ready);
     expect(guard.blocked.slice(before), `external requests on ${hash}`).toEqual([]);
   }

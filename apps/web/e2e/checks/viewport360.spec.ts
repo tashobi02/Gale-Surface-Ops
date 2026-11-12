@@ -24,8 +24,10 @@ async function expectNoOverflow(page: Page, where: string): Promise<void> {
 
 test("viewport360: BRIEF routes fit 360 px", async ({ page }) => {
   for (const hash of routeHashesInMode(["brief"])) {
-    await page.goto(`/${hash}`);
+    await page.goto(`/?site=${process.env.E2E_SITE ?? "mock_site"}${hash}`);
     await page.waitForLoadState("networkidle");
+    if (hash === "#/") await expect(page.locator('[data-screen="SCR-01"] h1')).toContainText("Plan the walk");
+    if (hash === "#/sources") await expect(page.locator('[data-screen="SCR-09"] h1')).toContainText("What each value is");
     await expectNoOverflow(page, hash);
   }
 });
