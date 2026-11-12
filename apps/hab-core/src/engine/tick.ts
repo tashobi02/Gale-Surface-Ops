@@ -145,7 +145,8 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
   }
 
   // Running → Ended: all crew sheltered or in the hab (03 §E.6). The reducer then sets ENDED, so this fires once.
-  if (current.session.status === "RUNNING" && current.crew.length > 0 && current.crew.every((c) => c.activity === "IN_HAB" || c.activity === "SHELTERED")) {
+  // A jump (JUMP_NEXT_STOP) also ticks a paused EVA, so PAUSED counts as running here (T32.10, BD-113).
+  if ((current.session.status === "RUNNING" || current.session.status === "PAUSED") && current.crew.length > 0 && current.crew.every((c) => c.activity === "IN_HAB" || c.activity === "SHELTERED")) {
     apply([{ sim_time: current.session.clock.sim_time, kind: "EVA_ENDED", actor: "system", data: { crew_ids: current.crew.map((c) => c.crew_id) }, provenance: {} }]);
   }
   return { state: current, events, deltas };

@@ -242,3 +242,5 @@ After editing this file run `make progress`. Do not edit the README progress blo
 | T32.06 | done | 2026-11-12 | [scenarioLive.test.ts](../../apps/hab-core/tests/scenarioLive.test.ts): loader rules and plan-less session, one named case each |
 | T32.07 | done | 2026-11-12 | Optional plan/events end to end; reference log_hash unchanged (test pins it) |
 | T32.08 | done | 2026-11-12 | Loader checks for mission_setup, event_library, task_library; loadCandidateComm in [scenario.ts](../../apps/hab-core/src/scenario.ts) |
+| T32.09 | done | 2026-11-12 | [nextStop.test.ts](../../apps/hab-core/tests/nextStop.test.ts): target, equivalence, five ended_by, rejections, determinism |
+| T32.10 | done | 2026-11-12 | [nextStop.ts](../../apps/hab-core/src/engine/nextStop.ts), commands.ts and session.ts; CLOCK_JUMPED after the jump's events (BD-92, BD-113) |
