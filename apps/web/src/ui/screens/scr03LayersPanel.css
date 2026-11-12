@@ -107,7 +107,8 @@
 
 .scr03-reason,
 .scr03-hint,
-.scr03-native {
+.scr03-native,
+.scr03-fallback {
   margin: 0;
   color: var(--fg-2);
   font-size: var(--text-micro);
