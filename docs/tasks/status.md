@@ -251,3 +251,5 @@ After editing this file run `make progress`. Do not edit the README progress blo
 | T32.15 | done | 2026-11-12 | [server.ts](../../apps/hab-core/src/server.ts) sends a fresh SNAPSHOT after a session replace (BD-118); [server.test.ts](../../apps/hab-core/tests/server.test.ts) green; habClient already restarts its feed on a new session_id (01a) |
 | T32.30 | done | 2026-11-12 | [crewMargins.test.ts](../../apps/hab-core/tests/crewMargins.test.ts): O₂ time, bearing, distance, ETA (BD-95, BD-119) |
 | T32.31 | done | 2026-11-12 | [crewMargins.ts](../../apps/hab-core/src/engine/crewMargins.ts) and compute [geometry.ts](../../packages/compute/src/geometry.ts); fields in SNAPSHOT and STATE_DELTA with provenance |
+| T32.24 | done | 2026-11-12 | [publishTasks.test.ts](../../apps/hab-core/tests/publishTasks.test.ts): publish with tasks, rejections, abort drops, library in every SNAPSHOT (BD-90, BD-91, BD-120) |
+| T32.25 | done | 2026-11-12 | PUBLISH_PLAN {plan, stop_tasks?} seeds TASK_ADDED; SNAPSHOT task_library; ADD_STOP_TASK 4-per-stop limit and either-task completion (BD-90, BD-91, BD-109, BD-120) |

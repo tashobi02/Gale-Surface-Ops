@@ -758,10 +758,10 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
 ```json
 {"v":1,"type":"COMMAND","command_id":"k-0010","role":"planner",
  "command":{"kind":"PUBLISH_PLAN","args":{"plan":"<PlanExport>",
-   "stop_tasks":[{"stop_id":"wp-2","crew_id":null,"kind":"image","text":"…"}]}}}
+   "stop_tasks":[{"task_id":"t-p-01","stop_id":"wp-2","crew_id":null,"kind":"image","text":"…"}]}}}
 ```
 
-The Hab Core logs one `TASK_ADDED` per seed at publish (05 Command).
+The Hab Core logs one `TASK_ADDED` per seed at publish (05 Command), after the `PLAN_REVISED`, actor `system`, origin `plan`. A seed is a full `StopTaskSeed`; the command is `INVALID` when `stop_tasks` is not an array, a `task_id` is empty, contains `/`, repeats or names a task of the session, a `stop_id` is not a stop Waypoint of the published plan, a text is empty or over 60 characters, a `kind` or `crew_id` is not a 05 value, or a stop has more than 4 tasks *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-120)*. `ADD_STOP_TASK` is `INVALID` once the stop has 4 tasks that are not dropped (the limit is per stop, BD-109).
 
 ```json
 {"v":1,"type":"TAKEN_OVER","seq":430,"sim_time":"2024-05-20T13:14:00Z","role":"eva:EV1"}
