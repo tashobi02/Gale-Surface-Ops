@@ -51,7 +51,12 @@ test("poi-conditions: a pre-dawn start shows the real worker DARKNESS warning (N
   await expect(ltst).not.toContainText("—");
   const previousLtst = await ltst.innerText();
   // Drive the form one hour before the worker's own sunrise. The UI performs no solar calculation.
+  // The EVA start field lives on the Plan tab, so go back to it for the edit and return to Conditions to read the result.
+  await page.getByRole("tab", { name: "Plan", exact: true }).click();
+  // With a stop in the plan the Constraints section is collapsed; open it when the field is not showing.
+  if (!(await start.isVisible())) await page.getByRole("button", { name: "Constraints", exact: true }).click();
   await start.fill(new Date(Date.parse(suppliedSunrise!) - 60 * 60 * 1000).toISOString());
+  await page.getByRole("tab", { name: "Conditions", exact: true }).click();
   await expect(ltst).not.toHaveText(previousLtst);
   await expect(page.getByRole("region", { name: "Conditions", exact: true })).toHaveAttribute("aria-busy", "false");
   await expect(page.getByRole("alert", { name: "Daylight warning" })).toBeVisible();
