@@ -23,6 +23,7 @@ function deps(over: Partial<Parameters<typeof createPlannerBoot>[0]> = {}) {
       loadSite: async () => (calls.push("loadSite"), site),
       validateSite: () => (calls.push("validateSite"), []),
       createWorkerClient: () => (calls.push("createWorkerClient"), worker),
+      loadGrid: async () => void calls.push("loadGrid"),
       createPlanStore: () => (calls.push("createPlanStore"), store),
       ...over,
     },
@@ -33,7 +34,7 @@ describe("createPlannerBoot", () => {
   it("runs the steps in the order of T07.03 and returns what it built", async () => {
     const { calls, deps: d } = deps();
     const boot = await createPlannerBoot(d).get();
-    expect(calls).toEqual(["hasWorker", "loadSite", "validateSite", "createWorkerClient", "createPlanStore"]);
+    expect(calls).toEqual(["hasWorker", "loadSite", "validateSite", "createWorkerClient", "loadGrid", "createPlanStore"]);
     expect(boot.site).toBe(site);
     expect(boot.workerClient).toBe(worker);
     expect(boot.planStore).toBe(store);
@@ -91,6 +92,24 @@ describe("createPlannerBoot", () => {
     expect(worker.terminate).toHaveBeenCalled();
   });
 
+  it("the grid goes to the worker after the site loads and before the plan store exists (BD-40)", async () => {
+    const given: unknown[] = [];
+    const { deps: d } = deps({ loadGrid: async (s, w) => void given.push(s, w) });
+    await createPlannerBoot(d).get();
+    expect(given).toEqual([site, worker]);
+  });
+
+  it("a grid the worker cannot take stops the boot with that BootError and stops the worker", async () => {
+    const { calls, deps: d } = deps({
+      loadGrid: async () => {
+        throw new BootError({ code: "GRID_ASSET_NOT_FOUND", message: "Failed to fetch grid file", missingFile: "sites/mock_site/grid/flags.u8" });
+      },
+    });
+    await expect(createPlannerBoot(d).get()).rejects.toMatchObject({ problem: { code: "GRID_ASSET_NOT_FOUND", missingFile: "sites/mock_site/grid/flags.u8" } });
+    expect(worker.terminate).toHaveBeenCalled();
+    expect(calls).not.toContain("createPlanStore");
+  });
+
   it("a worker that cannot start is WORKER_FAILED", async () => {
     const { deps: d } = deps({
       createWorkerClient: () => {
@@ -129,7 +148,7 @@ describe("createBootPlanStore (T08.03: the plan store the boot builds)", () => {
   const mockSite = {
     site: { site_id: "mock_site", data_version: "mock_site-2026.11.05", default_start: { x_m: 12, y_m: -34, label: "Hab" } },
   } as unknown as LoadedSite;
-  const client = { computePlan: vi.fn(() => new Promise<never>(() => {})), retry: vi.fn(), isCrashed: () => false } as unknown as WorkerClient;
+  const client = { computePlan: vi.fn(() => new Promise<never>(() => {})), retry: vi.fn(), isCrashed: () => false, terminate: vi.fn() } as unknown as WorkerClient;
 
   it("starts Empty at the manifest's default start with the FR-05 defaults, and no invented start time", () => {
     const store = createBootPlanStore(mockSite, client);
@@ -151,6 +170,7 @@ describe("createBootPlanStore (T08.03: the plan store the boot builds)", () => {
       loadSite: async () => mockSite,
       validateSite: () => [],
       createWorkerClient: () => client,
+      loadGrid: async () => {},
     }).get();
     expect(boot.planStore.get().waypoints[0]).toMatchObject({ id: "wp-0", role: "start" });
     expect(boot.skipped).toEqual([]);
@@ -174,7 +194,7 @@ describe("the default worker client follows ?mock_worker (T07.04, FD-174)", () =
     const bootWith = async (search: string) => {
       vi.stubGlobal("location", { search });
       const withStart = { site: { site_id: "mock_site", data_version: "v", default_start: { x_m: 1, y_m: 2, label: "Hab" } } } as unknown as LoadedSite;
-      const boot = await createPlannerBoot({ loadSite: async () => withStart, validateSite: () => [] }).get();
+      const boot = await createPlannerBoot({ loadSite: async () => withStart, validateSite: () => [], loadGrid: async () => {} }).get();
       boot.workerClient.terminate();
     };
     await bootWith("?mock_worker=1&mock_worker_result=over-limits");

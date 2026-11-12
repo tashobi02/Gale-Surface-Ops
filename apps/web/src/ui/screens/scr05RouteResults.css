@@ -96,6 +96,17 @@
   box-shadow: var(--focus-ring);
 }
 
+/* Touch targets under a coarse pointer are 44 px (04 §C.3); the 32 px mouse size above is the default. */
+@media (pointer: coarse) {
+  .scr05-collapse-toggle,
+  .scr05-details-toggle,
+  .scr05-retry-btn,
+  .warning-zoom-btn {
+    min-height: var(--target-touch);
+    min-width: var(--target-touch);
+  }
+}
+
 .scr05-body {
   display: flex;
   flex: 1;

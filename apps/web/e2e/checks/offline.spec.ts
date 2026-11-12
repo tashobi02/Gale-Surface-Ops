@@ -40,6 +40,11 @@ test("offline: the planner boots on ?site=mock_site and asks only the Hab Core f
   const manifest = guard.responses.find((r) => r.url === `${origin}/sites/mock_site/site-manifest.json`);
   expect(manifest?.status, "manifest answered by the Hab Core").toBe(200);
   expect(guard.responses.some((r) => r.url.endsWith("/sites/mock_site/vectors/pois.geojson") && r.status === 200), "POIs answered").toBe(true);
+  // Package 07 (BD-40): the boot sent the routing grid to the worker, and the real worker accepted it (the boot waits for
+  // GRID_LOADED, so SCR-02 above is on screen only after it).
+  for (const file of ["elevation.f32", "slope_p90.u8", "slope_max.u8", "flags.u8", "comm_hab.u8"]) {
+    expect(guard.responses.some((r) => r.url.endsWith(`/sites/mock_site/grid/${file}`) && r.status === 200), `grid file ${file} answered`).toBe(true);
+  }
   expectNoExternal(guard);
 });
 

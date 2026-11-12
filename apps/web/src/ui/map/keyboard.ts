@@ -13,7 +13,8 @@
  *   (radio group, listbox, menu, slider, tabs, ...): those own the arrows (04 §E, WAI-ARIA APG).
  * - Mounted by `createMap` (ui/map/createMap.ts, T07.06), whose focusable viewport is `getTargetElement`; the planner
  *   passes its `planContext` (Delete, B, ?) through `createMap`'s `keyboard` option. The screen that composes the
- *   map (SCR-02, T07.08) is the other mount point; until it exists no running app shows the keys.
+ *   map (SCR-02, T07.08, scr02MapWorkspace.tsx) passes its `planContext` there: the start waypoint is never offered to
+ *   Delete, and B is enabled only for OK, Over limits or Partial with a stop.
  * - Instant view transitions when prefers-reduced-motion is active (04 §E Motion).
  */
 

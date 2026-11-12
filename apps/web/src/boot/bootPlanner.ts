@@ -1,10 +1,11 @@
 /**
  * Planner boot sequence (docs/specs/03 SCR-00, §D; 01 FR-01, FR-16; T07.03):
- * Web Worker check -> loadSite -> validateSite -> worker client -> plan store.
+ * Web Worker check -> loadSite -> validateSite -> worker client -> LOAD_GRID -> plan store.
  *
  * Every failure is a `BootError` whose `problem` names the file or the field (03 §D "Boot asset failure"); SCR-00 shows it.
  * `validateSite` is still a stub on main (T14.03): its "TODO(...)" error is skipped and recorded in `skipped`, never
- * reported as success. Any other error is a real failure. `?mock_worker=1` starts the F3 mock worker (FD-174).
+ * reported as success. Any other error is a real failure. `?mock_worker=1` starts the F3 mock worker (FD-174). After the
+ * worker starts, the grid goes to it by `LOAD_GRID` (boot/loadGrid.ts, BD-40) before the plan store is built.
  *
  * Live roles (ops, EVA, HUD, report, join) do not boot this: a suit tablet must come up even when site tiles fail to load.
  */
@@ -13,6 +14,7 @@ import type { PlanStore } from "../state/planStore";
 import { DEFAULT_SCENARIO, createPlanStore } from "../state/planStore";
 import { createWorkerClient, mockWorkerFromSearch } from "../ui/workerClient";
 import { BootError, loadSite } from "./loadSite";
+import { loadGridIntoWorker } from "./loadGrid";
 import { validateSite } from "./validateSite";
 
 export interface PlannerBoot {
@@ -28,6 +30,8 @@ export interface PlannerBootDeps {
   loadSite?: () => Promise<LoadedSite>;
   validateSite?: (site: LoadedSite["site"]) => BootProblem[];
   createWorkerClient?: () => WorkerClient;
+  /** Send LOAD_GRID to the worker and wait for GRID_LOADED (BD-40). */
+  loadGrid?: (site: LoadedSite, workerClient: WorkerClient) => Promise<void>;
   createPlanStore?: (site: LoadedSite, workerClient: WorkerClient) => PlanStore;
 }
 
@@ -77,6 +81,15 @@ async function runBoot(deps: PlannerBootDeps): Promise<PlannerBoot> {
     workerClient = (deps.createWorkerClient ?? (() => createWorkerClient({ mock: mockWorkerFromSearch(globalThis.location?.search ?? "") })))();
   } catch (err) {
     throw new BootError({ code: "WORKER_FAILED", message: `The compute worker could not start: ${message(err)}` });
+  }
+
+  // The main thread delivers the routing grid once, before any request (BD-40); a failure is SCR-00 with the file named.
+  try {
+    await (deps.loadGrid ?? loadGridIntoWorker)(site, workerClient);
+  } catch (err) {
+    workerClient.terminate();
+    if (err instanceof BootError) throw err;
+    throw new BootError({ code: "GRID_REJECTED", message: `The routing grid could not be delivered to the worker: ${message(err)}` });
   }
 
   let planStore: PlanStore;

@@ -1,5 +1,5 @@
 /**
- * Check `targets` (replaces T24.11 targets; 04 §C.3, FD-153). Enabled by packages 17 (EVA), 19 (ops) and 09 (planner).
+ * Check `targets` (replaces T24.11 targets; 04 §C.3, FD-153). Enabled by packages 17 (EVA), 19 (ops) and 07 (planner workspace; 09 adds the plan panel).
  * EVA and HUD: every target at least 56 x 56 px with gaps of at least 8 px. Ops: at least 32 px. Planner: at least 44 px under
  * `pointer: coarse`. The limits are 04 §C.3's; this file only applies them.
  */
@@ -28,8 +28,11 @@ test.fixme("targets: ops targets are at least 32 px (enabled by package 19)", as
   expectTargetSize(await targets(page), OPS_MIN);
 });
 
-test.fixme("targets: planner targets are at least 44 px under a coarse pointer (enabled by package 09)", async ({ page }) => {
-  await page.goto("/#/planner");
+// Package 07 enables the planner workspace on the touch projects; package 09 adds the plan panel's targets to the same page.
+test("targets: planner workspace targets are at least 44 px under a coarse pointer (package 07)", async ({ page, hasTouch }) => {
+  test.skip(!hasTouch, "a coarse pointer needs a touch project");
+  await page.goto("/?site=mock_site#/planner");
   await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
   expectTargetSize(await targets(page), PLANNER_COARSE_MIN);
 });

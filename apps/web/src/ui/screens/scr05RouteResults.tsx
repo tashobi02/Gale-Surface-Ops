@@ -256,7 +256,7 @@ function Cell({ p }: { p: Shown }): ReactElement {
 function LegTable({ result }: { result: PlanResult }): ReactElement {
   const keys = useMemo(() => legKeys(result.legs), [result.legs]);
   return (
-    <div className="scr05-details-table-wrap">
+    <div className="scr05-details-table-wrap" role="group" aria-label="Leg details" tabIndex={0}>
       <table className="scr05-details-table">
         <thead>
           <tr>
@@ -391,7 +391,7 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
       {collapsed ? null : (
         <div className="scr05-body">
           <div className="scr05-middle-col">
-            <div className="scr05-metrics-row" data-totals-hidden={hideTotals} style={{ opacity: computing ? 0.5 : 1 }}>
+            <div className="scr05-metrics-row" role="group" aria-label="Route metrics" tabIndex={0} data-totals-hidden={hideTotals} style={{ opacity: computing ? 0.5 : 1 }}>
               {metrics.map((m) => (
                 <MetricTile key={m.label} {...m} />
               ))}

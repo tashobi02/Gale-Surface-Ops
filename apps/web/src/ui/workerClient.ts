@@ -30,7 +30,7 @@ import { URL_PARAMS, type WorkerClient } from "./context";
 
 /** The part of a Worker the client uses; a DOM `Worker` satisfies it, so do test doubles. */
 export interface WorkerLike {
-  postMessage(message: unknown): void;
+  postMessage(message: unknown, transfer?: Transferable[]): void;
   terminate?(): void;
   onmessage: ((event: MessageEvent<WorkerResponse>) => void) | null;
   onerror?: ((event: ErrorEvent) => void) | null;
@@ -234,7 +234,9 @@ export function createWorkerClient(options: WorkerClientOptions = {}): WorkerCli
     postMessage(message: WorkerRequest): void {
       if (terminated) throw new WorkerClientError("TERMINATED", "Worker client was terminated");
       if (crashed) throw new WorkerClientError("CRASH", "Worker has crashed; call retry() to restart");
-      worker?.postMessage(message);
+      const transfer = transferListOf(message);
+      if (transfer) worker?.postMessage(message, transfer);
+      else worker?.postMessage(message);
     },
     onMessage(listener: (message: WorkerResponse) => void): () => void {
       messageListeners.add(listener);
@@ -260,6 +262,15 @@ export function createWorkerClient(options: WorkerClientOptions = {}): WorkerCli
       return crashed;
     },
   };
+}
+
+/**
+ * The buffers a message moves instead of copying: the grid arrays of LOAD_GRID (BD-40). Undefined for every other message,
+ * so the call is the plain `postMessage(message)` of before.
+ */
+function transferListOf(message: WorkerRequest): Transferable[] | undefined {
+  if (message.type !== "LOAD_GRID") return undefined;
+  return Object.values(message.arrays).filter((buffer): buffer is ArrayBuffer => buffer !== null);
 }
 
 /** The plan worker as a module worker (02 §A.1). */

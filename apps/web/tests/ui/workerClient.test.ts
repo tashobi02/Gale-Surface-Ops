@@ -421,3 +421,30 @@ describe("mock worker switch (FD-174; ?mock_worker=1, dev and harness only)", ()
     client.terminate();
   });
 });
+
+describe("LOAD_GRID transfer (BD-40: the arrays are transferred, not copied)", () => {
+  it("postMessage hands the grid buffers to the worker as a transfer list and leaves other messages alone", () => {
+    const transfers: unknown[] = [];
+    const worker = new MockWorker();
+    worker.postMessage = (message: unknown, transfer?: unknown): void => {
+      worker.posted.push(message as { type: string; request_id: string });
+      transfers.push(transfer);
+    };
+    const client = createWorkerClient({ workerFactory: () => worker });
+    const elevation = new ArrayBuffer(16);
+    const flags = new ArrayBuffer(4);
+    client.postMessage({
+      type: "LOAD_GRID",
+      request_id: "g",
+      site_id: "mock_site",
+      data_version: "v",
+      meta: {} as never,
+      arrays: { elevation, slopeP90: new ArrayBuffer(4), slopeMax: new ArrayBuffer(4), flags, ti: null, commHab: new ArrayBuffer(4) },
+    });
+    expect(transfers[0]).toHaveLength(5);
+    expect(transfers[0]).toEqual(expect.arrayContaining([elevation, flags]));
+    client.postMessage({ type: "SAMPLE_POINT", ...sampleReq("s") });
+    expect(transfers[1]).toBeUndefined();
+    client.terminate();
+  });
+});

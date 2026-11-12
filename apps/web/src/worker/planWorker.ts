@@ -8,12 +8,13 @@
  * supersede, which the client reports as `SUPERSEDED` and the plan store drops without an error; the grid reaches the worker
  * once, at start, by the `LOAD_GRID` message of 02 §E.2 (protocol v0.2, BD-40), which supersedes FD-091's wording that the
  * worker fetches it. A request before then is answered `GRID_NOT_LOADED`, which the plan store shows as an Error with
- * Retry, never as a plan. The app does not send `LOAD_GRID` yet (no frontend package owns it); `?mock_worker=1` runs the
- * F3 mock, which answers every request.
+ * Retry, never as a plan. The boot sends `LOAD_GRID` from the main thread after the site loads (boot/loadGrid.ts, T07.08,
+ * FD-228); this adapter wraps the buffers with compute's `loadGrid` and answers `GRID_LOADED`, or `INVALID_INPUT` naming
+ * the buffer whose size does not match the grid. `?mock_worker=1` runs the F3 mock, which answers every request.
  * Input validation (02 §E.3) happens in the pure handler → INVALID_INPUT.
  */
-import type { PlanResultMessage, WorkerRequest, WorkerResponse } from "@marswalk/protocol";
-import { handleWorkerMessage, type LoadedGrid } from "@marswalk/compute";
+import type { LoadGridRequest, PlanResultMessage, WorkerRequest, WorkerResponse } from "@marswalk/protocol";
+import { handleWorkerMessage, loadGrid, type LoadedGrid } from "@marswalk/compute";
 
 let currentGrid: LoadedGrid | null = null;
 let latestRevision = -1;
@@ -25,12 +26,30 @@ export function setWorkerGrid(grid: LoadedGrid | null): void {
   currentGrid = grid;
 }
 
+/** LOAD_GRID (BD-40): wrap the transferred buffers as the worker's grid; a size mismatch leaves the worker unloaded. */
+function handleLoadGrid(request: LoadGridRequest): WorkerResponse {
+  try {
+    const { ti, ...rest } = request.arrays;
+    currentGrid = loadGrid(request.meta, ti === null ? rest : { ...rest, ti });
+  } catch (error) {
+    currentGrid = null;
+    return {
+      type: "ERROR",
+      request_id: request.request_id,
+      code: "INVALID_INPUT",
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+  return { type: "GRID_LOADED", request_id: request.request_id, site_id: request.site_id, data_version: request.data_version };
+}
+
 /**
  * Handle one request and return its response message (02 §E.2).
  * Tracks the latest plan_revision and rejects a request older than it with CANCELLED. This is
  * stale-request rejection only: a search already running is not interrupted.
  */
 export function handleMessage(request: WorkerRequest): WorkerResponse {
+  if (request.type === "LOAD_GRID") return handleLoadGrid(request);
   if (request.type === "COMPUTE_PLAN") {
     if (request.plan_revision < latestRevision) {
       return {

@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { act } from "react";
+import { act, createElement } from "react";
 import { CSP_HEADER, CSP_META, type ClientMessage, type ServerMessage } from "@marswalk/protocol";
 import type { SocketLike } from "../../src/net/habClient";
 import { startApp, type AppHandle } from "../../src/boot/app";
@@ -18,6 +18,11 @@ import type { PlanStore } from "../../src/state/planStore";
 import type { LoadedSite, WorkerClient } from "../../src/ui/context";
 import { wsFixtures } from "../fixtures/ws";
 import { click, flush, installDom, must, removeDom } from "../ui/domHarness";
+
+// The workspace mounts the real map; its own tests (tests/ui/mapWorkspace.test.ts) cover it. Here only the routing is real.
+vi.mock("../../src/ui/screens/scr02MapWorkspace", () => ({
+  MapWorkspace: () => createElement("div", { "data-slot": "map-workspace" }),
+}));
 
 class FakeSocket implements SocketLike {
   readyState = 1;
@@ -50,6 +55,7 @@ const plannerDeps = (over: PlannerBootDeps = {}): PlannerBootDeps => ({
   loadSite: async () => site,
   validateSite: () => [],
   createWorkerClient: () => ({ terminate() {} }) as unknown as WorkerClient,
+  loadGrid: async () => {},
   createPlanStore: () => ({}) as unknown as PlanStore,
   ...over,
 });
@@ -228,8 +234,7 @@ describe("planner routes", () => {
     const root = await boot("#/planner");
     const surface = must(root, '[data-surface="planner"]');
     expect(surface.getAttribute("data-screen")).toBe("SCR-02");
-    // The workspace itself is still a stub: its placeholder says so inside the planner surface.
-    expect(must(surface, '[data-slot="not-built"]').textContent).toContain("SCR-02");
+    expect(must(surface, '[data-slot="map-workspace"]')).toBeTruthy();
     expect(document.documentElement.getAttribute("data-mode")).toBe("ops");
     expect(sockets).toHaveLength(0);
   });
@@ -253,7 +258,7 @@ describe("planner routes", () => {
     await click(must(failure, '[data-slot="boot-retry"]'));
     await flush();
     expect(root.querySelector('[data-slot="boot-failure"]')).toBeNull();
-    expect(must(root, '[data-slot="not-built"]')).toBeTruthy();
+    expect(must(root, '[data-slot="map-workspace"]')).toBeTruthy();
   });
 
   it("a planner boot failure never touches the live roles: the tablet needs no site", async () => {

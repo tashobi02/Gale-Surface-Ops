@@ -35,3 +35,11 @@ test("axe: SCR-00 boot error has no serious or critical violation", async ({ pag
     await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr00` });
   });
 });
+
+// Package 07: the planner workspace SCR-02 on the F4 site, in OPS mode.
+test("axe: SCR-02 planner workspace has no serious or critical violation", async ({ page }, testInfo) => {
+  await page.goto("/?site=mock_site#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02` });
+});
