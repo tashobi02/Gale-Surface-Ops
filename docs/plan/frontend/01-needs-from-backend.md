@@ -14,7 +14,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 | N-01 | Start the Hab Core on a scenario folder outside `scenarios/` | `hab:start -- --scenario-dir <path>` | Harness (FD-198) | 01 (soft: a copy workaround exists) |
 | N-02 | Per-crew navigation and O₂ margin in the snapshot, with provenance map entries | `Crew.o2_remaining_min`, `next_stop_bearing_deg`, `next_stop_distance_m`, `next_stop_eta_s` (T32.30–T32.31) | TASK-32 Q9 | 17, 18 |
 | N-03 | Crew last-linked sim time | `Crew.last_linked_sim_time` (UTC sim time) | FD-044 | 17, 18, 21 |
-| N-04 | Per-crew link state with bars | `LINK_STATE {crew_id, linked, quality_bars}` (T26.02) | FD-045 | 17, 18 |
+| N-04 | Per-crew link state: hops and via, **no bars** | `Crew.link_hops?: number \| null`, `Crew.link_via?: "direct" \| "relay" \| "crew" \| null`; the same on `LINK_STATE` (contract N-04, "Changed: no `quality_bars`") | FD-045, FD-245 | 17, 18 |
 | N-05 | Session summary over HTTP for planner, join and presenter | `GET /api/session` → `{session_id, scenario_id, status, sim_time, speed, eva_start_utc, hab_site_id, plan_published}` | FD-042 | 09, 22, 23 |
 | N-06 | Conditions in the snapshot | `Snapshot.conditions {sol, ltst, sun_elevation_deg, eva_phase, background_rate, event_rate}` with provenance and source ids (T22.16) | FD-085, FD-166 | 19 |
 | N-07 | Task library to the planner | One transport (T32.02/T32.25), e.g. `GET /api/task-library` → `TaskLibraryEntry[]` keyed by POI id; type in `packages/protocol` | FD-036, FD-171 | 25 |
