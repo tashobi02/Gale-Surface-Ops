@@ -1,5 +1,6 @@
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 // Relative base so the build runs from the Hab Core or any static folder offline (NFR-01).
@@ -25,10 +26,20 @@ function devInlineScript(): Plugin {
   };
 }
 
+/**
+ * The T02.03 spike page is built only for the verification harness (`MARSWALK_SPIKE=1`, set by e2e/globalSetup.ts), so the
+ * `tiles-all-levels` and `scale-bar` checks can load it from the Hab Core; the demo build never contains it.
+ */
+const spikeInput =
+  process.env.MARSWALK_SPIKE === "1"
+    ? { main: fileURLToPath(new URL("./index.html", import.meta.url)), spike: fileURLToPath(new URL("./spike/index.html", import.meta.url)) }
+    : undefined;
+
 // React + Vite (ADR-012): static build, no server rendering.
 export default defineConfig({
   plugins: [react(), devInlineScript()],
   base: "./",
+  build: spikeInput ? { rollupOptions: { input: spikeInput } } : {},
   server: {
     host: true,
     proxy: {

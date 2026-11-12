@@ -46,7 +46,12 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   }
 
   if (process.env.E2E_SKIP_BUILD !== "1") {
-    const build = spawnSync("npm", ["--workspace", "@marswalk/web", "run", "build"], { cwd: repoRoot, encoding: "utf8" });
+    // MARSWALK_SPIKE=1 adds the throwaway spike page (/spike/) to this build only; `make demo` never ships it.
+    const build = spawnSync("npm", ["--workspace", "@marswalk/web", "run", "build"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { ...process.env, MARSWALK_SPIKE: "1" },
+    });
     if (build.status !== 0) throw new Error(`web build failed:\n${build.stdout}\n${build.stderr}`);
   } else if (!existsSync(join(repoRoot, "apps/web/dist/index.html"))) {
     throw new Error("E2E_SKIP_BUILD=1 but apps/web/dist/index.html does not exist; build first");

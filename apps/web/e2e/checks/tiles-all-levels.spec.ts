@@ -1,17 +1,18 @@
 /**
- * Check `tiles-all-levels` (replaces T02.03 "renders at every level"). Enabled by package 04.
+ * Check `tiles-all-levels` (replaces T02.03 "renders at every level"; FD-104).
  * The spike page loads every `tile_grid` level of every raster layer in the manifest with HTTP 200 and paints a non-empty canvas.
- * TODO(verify): the spike has no zoom hook yet; package 04 adds `?zoom=<n>` (or equivalent) and this body uses it.
+ * The spike page takes `?site=<id>&layer=<layer_id>&zoom=<n>` (n indexes `resolutions_m`, so it is the tile z). It is built only
+ * when `MARSWALK_SPIKE=1`, which globalSetup sets for the harness build; `make demo` does not ship it.
  */
 import { expect, test } from "@playwright/test";
 
 interface TileLayerMeta {
   layer_id: string;
   kind: string;
-  tile_grid?: { resolutions: number[] };
+  tile_grid?: { resolutions_m: number[] };
 }
 
-test.fixme("tiles-all-levels: every tile_grid level loads 200 and paints (enabled by package 04)", async ({ page, request }) => {
+test("tiles-all-levels: every tile_grid level loads 200 and paints", async ({ page, request }) => {
   const site = process.env.E2E_SITE ?? "mock_site";
   const manifest = (await (await request.get(`/sites/${site}/site-manifest.json`)).json()) as { layers: TileLayerMeta[] };
   const layers = manifest.layers.filter((l) => l.kind === "raster_tiles" && l.tile_grid);
@@ -24,7 +25,7 @@ test.fixme("tiles-all-levels: every tile_grid level loads 200 and paints (enable
   });
 
   for (const layer of layers) {
-    const levels = layer.tile_grid!.resolutions.length;
+    const levels = layer.tile_grid!.resolutions_m.length;
     for (let z = 0; z < levels; z += 1) {
       await page.goto(`/spike/?site=${site}&layer=${layer.layer_id}&zoom=${z}`);
       await page.waitForLoadState("networkidle");
