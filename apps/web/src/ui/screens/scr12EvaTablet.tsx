@@ -6,6 +6,7 @@
  */
 
 import {
+  useEffect,
   useState,
   type CSSProperties,
   type ReactElement,
@@ -27,6 +28,7 @@ import {
   glyphOf,
   UNAVAILABLE,
   fmtBearing,
+  fmtBearingArrow,
   fmtDuration,
   fmtFixed,
   fmtHourMinute,
@@ -56,7 +58,7 @@ export interface EvaTabletProps {
   onOpenRoverTasking?: () => void;
   /** Handler to open full-screen map mode. */
   onOpenFullScreenMap?: () => void;
-  /** Orientation mode override. */
+  /** Orientation mode override; omitted follows the viewport, as the stylesheet's media query does. */
   orientation?: "portrait" | "landscape";
   className?: string;
 }
@@ -72,6 +74,47 @@ function withUnit(v: unknown, unit: string): string {
 }
 
 /**
+ * The ETA in minutes: "<1 min" under a minute, so a value between 0 and 1 is never rounded to "0 min" (which reads as
+ * "no time left"). "—" when the Hab Core has not supplied one.
+ */
+function fmtEta(minutes: unknown): string {
+  if (!isFiniteNumber(minutes)) return UNAVAILABLE;
+  if (minutes < 1) return "<1 min";
+  return `${Math.round(minutes)} min`;
+}
+
+/** The hop count's unit in words: "1 hop" is singular, every other count is "hops". */
+function hopsUnit(count: unknown): string {
+  return count === 1 ? "hop" : "hops";
+}
+
+/**
+ * The orientation of the tablet, read from the SAME media query the stylesheet uses (`@media (orientation: ...)`),
+ * so `data-orientation` and the layout can never disagree. The `orientation` prop overrides it for a caller that
+ * pins the tablet to one orientation; without it the viewport decides, as the CSS does.
+ */
+function useViewportOrientation(override?: "portrait" | "landscape"): "portrait" | "landscape" {
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">(() => {
+    if (override) return override;
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "portrait";
+    return window.matchMedia("(orientation: landscape)").matches ? "landscape" : "portrait";
+  });
+  useEffect(() => {
+    if (override) {
+      setOrientation(override);
+      return;
+    }
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(orientation: landscape)");
+    const apply = (): void => setOrientation(query.matches ? "landscape" : "portrait");
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
+  }, [override]);
+  return override ?? orientation;
+}
+
+/**
  * SCR-12 EVA Tablet Component (04 §E.5).
  * Fixed geography layout ensuring zero spatial displacement between normal, caution, and alert states.
  */
@@ -84,7 +127,7 @@ export function EvaTablet({
   optionsOpen = false,
   onOpenRoverTasking,
   onOpenFullScreenMap,
-  orientation = "portrait",
+  orientation,
   className = "",
 }: EvaTabletProps): ReactElement {
   // Resolve the snapshot: prop override > the session store (re-renders on every change) > null.
@@ -108,6 +151,8 @@ export function EvaTablet({
   const [contrast, setContrast] = useState(false);
   const [tapFallback, setTapFallback] = useState(false);
   const [tasksExpanded, setTasksExpanded] = useState<boolean>(false);
+  // The Hab Core's reason for a refused ACK_ALERT, shown under the alert bar until the next alert (04 §D.5).
+  const [ackRejection, setAckRejection] = useState<string | null>(null);
 
   // FR-50: the list is in full only while the crew member is at the stop; walking, heading for a haven, sheltered (or
   // not out yet) and any unacknowledged warning or caution leave the count.
@@ -115,7 +160,9 @@ export function EvaTablet({
   const collapsed = vm.activity !== "AT_STOP" || alertCollapses || optionsOpen;
   const showTasksList = tasksExpanded;
 
-  const isLandscape = orientation === "landscape";
+  // The orientation follows the viewport (the same media query the stylesheet uses) unless a caller pins it.
+  const resolvedOrientation = useViewportOrientation(orientation);
+  const isLandscape = resolvedOrientation === "landscape";
 
   // With no alert the banner reads NOMINAL only when this crew member's HAVEN and O₂ are both available; if either is
   // unknown it is UNKNOWN, matching the cards (04 §C.1: never a nominal default).
@@ -178,7 +225,7 @@ export function EvaTablet({
       data-screen="SCR-12"
       data-surface="eva"
       data-mode="ops"
-      data-orientation={orientation}
+      data-orientation={resolvedOrientation}
       data-contrast={contrast ? "high" : "normal"}
       data-tasks-open={showTasksList ? "true" : "false"}
       className={`scr12-eva-tablet ${className}`}
@@ -228,7 +275,12 @@ export function EvaTablet({
               className="btn sm"
               style={{ minHeight: "56px", minWidth: "56px", fontSize: "16px", cursor: "pointer" }}
               aria-label="Acknowledge alert"
-              onClick={() => { void send({ kind: "ACK_ALERT", args: { alert_id: vm.alertSlot!.alertId } }); }}
+              onClick={() => {
+                // The Hab Core's reason for a refused ACK is shown, not swallowed (04 §D.5).
+                void send({ kind: "ACK_ALERT", args: { alert_id: vm.alertSlot!.alertId } }).then((result) => {
+                  setAckRejection(result.ok ? null : (result.message ?? "The Hab Core refused the acknowledgement"));
+                });
+              }}
             >
               ACK
             </button>}
@@ -248,6 +300,29 @@ export function EvaTablet({
           </div>
         )}
       </div>
+
+      {/* A refused ACK_ALERT says so, with the Hab Core's own reason (04 §D.5): a command that failed must not look
+          like one that worked. */}
+      {ackRejection !== null && (
+        <div
+          role="status"
+          data-slot="ack-rejection"
+          data-provenance="simulated"
+          data-source="snapshot:alerts"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontFamily: "var(--font-mono, monospace)",
+            fontSize: "16px",
+            color: "var(--text-1, #ECEFF2)",
+            borderLeft: "4px solid var(--status-warning, #FF6B6B)",
+            paddingLeft: "8px",
+          }}
+        >
+          ACK REFUSED — {ackRejection}
+        </div>
+      )}
 
       {/* -------------------------------------- Telemetry Row: HAVEN & O2 */}
       <div
@@ -344,11 +419,13 @@ export function EvaTablet({
             <span className="micro" style={{ color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>
               NEXT {vm.nextStop ? `· ${vm.nextStop.stopName}` : `· ${UNAVAILABLE}`}
             </span>
-            {/* TASKS button; counts are "—" until a stop is known */}
+            {/* TASKS button; counts are "—" until a stop is known. While the list is collapsed the count stays here as a
+                figure, not a control, and no panel is behind it (FD-032). */}
             <TasksButton
               doneCount={vm.nextStop ? vm.nextStop.taskCount.done : null}
               totalCount={vm.nextStop ? vm.nextStop.taskCount.total : null}
               active={showTasksList}
+              readOnly={collapsed}
               onClick={() => setTasksExpanded(!tasksExpanded)}
             />
           </div>
@@ -364,7 +441,7 @@ export function EvaTablet({
             }}
           >
             <span {...provAttrs(vm.nextStop?.bearingDeg ?? NO_STOP)}>
-              ↗ {fmtBearing(vm.nextStop?.bearingDeg.v)}
+              {fmtBearingArrow(vm.nextStop?.bearingDeg.v)} {fmtBearing(vm.nextStop?.bearingDeg.v)}
             </span>
             <span>·</span>
             <span {...provAttrs(vm.nextStop?.distanceM ?? NO_STOP)}>
@@ -373,16 +450,17 @@ export function EvaTablet({
             </span>
             <span>·</span>
             <span {...provAttrs(vm.nextStop?.etaMinutes ?? NO_STOP)}>
-              {fmtInt(vm.nextStop?.etaMinutes.v)}
-              {withUnit(vm.nextStop?.etaMinutes.v, "min")}
+              {fmtEta(vm.nextStop?.etaMinutes.v)}
             </span>
           </div>
 
 
         </div>
 
-          {/* Expanded Stop Tasks List (FR-50) */}
-          {showTasksList && (
+          {/* Expanded Stop Tasks List (FR-50). While the list is collapsed (walking, an unacknowledged warning or the
+              options sheet open) FD-032 wants a count and nothing else: no panel, so nothing covers the NEXT card's
+              bearing, distance and ETA. The count itself stays in the NEXT header, on the TASKS button. */}
+          {showTasksList && !collapsed && (
             <div
               data-slot="stop-task-list"
               style={{
@@ -397,7 +475,7 @@ export function EvaTablet({
                 stopId={vm.nextStop?.stopId ?? ""}
                 readOnly={!hab || !crewId || (vm.alertSlot?.level === "warning" && vm.alertSlot.acknowledged)}
                 undo={changes.undoTaskId === null ? null : { taskId: changes.undoTaskId }}
-                collapsed={collapsed}
+                collapsed={false}
                 notSyncedTaskIds={changes.notSyncedTaskIds()}
                 rejections={changes.rejections()}
                 onTick={(taskId) => changes.start(taskId, { state: "DONE" })}
@@ -423,7 +501,7 @@ export function EvaTablet({
             background: "#080A0D",
           }}
         >
-          <MiniMap snapshot={activeSnapshot ?? null} onOpen={onOpenFullScreenMap} />
+          <MiniMap snapshot={activeSnapshot ?? null} crewId={crewId} onOpen={onOpenFullScreenMap} />
         </div>
       </div>
 
@@ -465,7 +543,8 @@ export function EvaTablet({
           style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
         >
           LINK {vm.metadata.link.hops.v}
-          {vm.metadata.link.hops.v !== UNAVAILABLE && ` ${vm.metadata.link.hops.unit}`}
+          {vm.metadata.link.hops.v !== UNAVAILABLE && ` ${hopsUnit(vm.metadata.link.hops.v)}`}
+          {" "}
           <span {...provAttrs(vm.metadata.link.via)}>VIA {vm.metadata.link.via.v}</span>
           {vm.metadata.link.stale === true && (
             <span className="tag">
