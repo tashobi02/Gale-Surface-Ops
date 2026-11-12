@@ -37,7 +37,16 @@ import type { KeyboardPlanContext } from "../map/keyboard";
 import { MapControls, mapControlHandlers } from "../map/MapControls";
 import { createEzLayer, type EzLayerController } from "../map/ezLayer";
 import { createPoiLayer, type PoiLayerController } from "../map/poiLayer";
+import type ImageLayer from "ol/layer/Image.js";
+import type Static from "ol/source/ImageStatic.js";
+import type TileLayer from "ol/layer/Tile.js";
 import { createRasterLayers, slopeLegend, type LayerStatus, type RasterLayersController } from "../map/rasterLayers";
+import { initDrawLegs, legPairs, manualLegPreview, needsDrawLegs, type DrawLegsController, type DrawLegState } from "../map/drawLegs";
+import { ProfileChart } from "../results/profileChart";
+import { WarningsList } from "../results/warningsList";
+import { Metric } from "../components/metric";
+import { StatusIcon } from "../components/statusIcon";
+import { legStretchExtent } from "../map/routeGeometry";
 import { createRouteLayer } from "../map/routeLayer";
 import { validateMapTokens } from "../map/tokenColors";
 import { createTraverseLayer, type TraverseLayerController } from "../map/traverseLayer";
@@ -158,6 +167,9 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
   const [notReady, setNotReady] = useState<ReadonlySet<string>>(new Set());
   const [kit, setKit] = useState<LayerKit>({});
   const [placementNotice, setPlacementNotice] = useState<PlacementNotice | null>(null);
+  const [drawLegs, setDrawLegs] = useState<DrawLegsController | null>(null);
+  const [drawState, setDrawState] = useState<DrawLegState | null>(null);
+  const drawRef = useRef<DrawLegsController | null>(null);
   const [addStopOn, setAddStopOn] = useState(false);
   const addStopRef = useRef<AddStopMode | null>(null);
   const [layerTick, setLayerTick] = useState(0);
@@ -212,7 +224,7 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
       // FD-117: `A` and the crosshair `Enter` belong to the add-stop mode; the keyboard layer delegates to it.
       addStop: {
         isActive: () => addStopRef.current?.isActive() ?? false,
-        toggle: () => addStopRef.current?.toggle(),
+        toggle: () => { drawRef.current?.cancel(); addStopRef.current?.toggle(); },
         placeAtCrosshair: () => addStopRef.current?.placeAtCrosshair(),
       },
     }),
@@ -255,10 +267,21 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
       if (alive) setLayerTick((n) => n + 1);
     };
     attach("raster", () => {
-      const raster = createRasterLayers(ctx.site, { scenario: ctx.planStore, mapHandle: handle, onStatusChange: bump });
+      // T02.06/T07.16: a layer whose tiles all failed brings its ImageStatic stand-in; it joins the map the moment it exists.
+      const layers: (TileLayer | ImageLayer<Static>)[] = [];
+      const raster = createRasterLayers(ctx.site, {
+        scenario: ctx.planStore,
+        mapHandle: handle,
+        onStatusChange: bump,
+        onFallbackLayer: (_layerId, layer) => {
+          layers.push(layer);
+          map.addLayer(layer);
+        },
+      });
       held.raster = raster;
-      const layers = raster.olLayers();
-      for (const layer of layers) map.addLayer(layer);
+      const primary = raster.olLayers();
+      for (const layer of primary) map.addLayer(layer);
+      layers.push(...primary);
       return () => {
         for (const layer of layers) map.removeLayer(layer);
         raster.destroy();
@@ -329,8 +352,17 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
         setAddStopOn(false);
       };
     });
+    attach("draw-legs", () => {
+      const drawing = initDrawLegs(handle, { planStore: ctx.planStore, workerClient: ctx.workerClient });
+      drawRef.current = drawing; setDrawLegs(drawing); setDrawState(drawing.get());
+      const off = drawing.subscribe(() => {
+        if (drawing.get().active) addStopRef.current?.setActive(false);
+        if (alive) setDrawState(drawing.get());
+      });
+      return () => { off(); drawing.destroy(); drawRef.current = null; setDrawLegs(null); setDrawState(null); };
+    });
     attach("inspector", () => {
-      const inspector = initPointInspector(handle, mapCtx, { shouldInspect: () => !addStopRef.current?.isActive() });
+      const inspector = initPointInspector(handle, mapCtx, { shouldInspect: () => !addStopRef.current?.isActive() && !drawRef.current?.get().active });
       return () => inspector.destroy();
     });
     attach("waypoints", () => {
@@ -401,6 +433,7 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
         opacity: managed.getOpacity(),
         status,
         ...(status === "unavailable" ? { unavailableReason: `the tile set "${def.asset_id}" is missing or did not load` } : {}),
+        ...(managed.getFallback() ? { fallback: { kind: managed.getFallback()!.kind, resolutionM: managed.getFallback()!.resolutionM } } : {}),
         provenance: managed.provenance,
         sourceIds: managed.sourceIds,
         nativeResolutionM: def.native_resolution_m,
@@ -449,6 +482,23 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
     return rows;
   }, [kit, layerTick, ctx.site, caution, hard]);
 
+  // T02.06/T07.16: the map says so when a layer is drawn from its stand-in image, so a coarse picture is never taken for the tiles.
+  const fallbackMessage = useMemo<ReactNode | null>(() => {
+    const rows = panelLayers.filter((row) => row.fallback && row.status !== "unavailable");
+    if (rows.length === 0) return null;
+    const only = rows.length === 1 ? rows[0]! : null;
+    return (
+      <>
+        {rows.map((row) => row.title).join(", ")}: tiles did not load, so {only ? "this layer is" : "these layers are"} drawn from a fallback image
+        {only && (
+          <>
+            {" "}at <Metric value={only.fallback!.resolutionM} unit="m" prov="derived" src={`layer.${only.id}.tile_grid`} chip="glyph" /> per pixel
+          </>
+        )}
+        .
+      </>
+    );
+  }, [panelLayers]);
   const setLayerVisible = useCallback(
     (id: string, visible: boolean): void => {
       if (id === "traverse") kit.traverse?.setVisible(visible);
@@ -555,7 +605,7 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
                 data-control="add-stop"
                 aria-pressed={addStopOn}
                 title="Add stop mode: click the map or press Enter at the crosshair (A)"
-                onClick={() => addStopRef.current?.toggle()}
+                onClick={() => { drawRef.current?.cancel(); addStopRef.current?.toggle(); }}
               >
                 Add stop <span className="scr02-key">A</span>
                 {addStopOn && <span className="scr02-mode-word"> ON</span>}
@@ -576,6 +626,9 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
               onDismiss={() => kit.placement?.clear()}
             />
           </div>
+          <div className="scr02-fallback-notice" data-slot="layer-fallback-notice">
+            <Notice message={fallbackMessage} status="caution" />
+          </div>
           {notReady.size > 0 && <span hidden data-slot="modules-not-ready" data-modules={[...notReady].join(" ")} />}
           <DebugOverlay ctx={mapCtx} />
         </div>
@@ -593,6 +646,21 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
       </div>
 
       <div data-slot="results-panel" className="scr02-results">
+      {drawLegs && needsDrawLegs(window.location.search, plan.result) && <section className="scr02-manual-legs" tabIndex={0} aria-label="Draw route legs" data-slot="draw-legs">
+        <h2>Draw route legs</h2>
+        <p>Click to draw, double-click to finish. Or focus the map, pan with arrows and press Enter at each crosshair point, then Finish leg. Escape cancels.</p>
+        <div className="scr02-manual-actions">
+          {legPairs(ctx.planStore).map(([from, to], i) => <button key={`${from.id}-${to.id}`} disabled={drawState?.pending} onClick={() => drawLegs.start(i)} {...provAttrs({ prov: "assumed", src: `plan-store:waypoints.${from.id} plan-store:waypoints.${to.id}` })}>Draw {from.label || from.id} → {to.label || to.id}</button>)}
+          <button disabled={!drawState?.active} onClick={() => drawLegs.finish()}>Finish leg</button>
+          <button disabled={!drawState?.active && !drawState?.pending && !drawState?.response} onClick={() => drawLegs.cancel()}>Cancel leg</button>
+        </div>
+        <div role="status" data-slot="manual-leg-status">
+          <StatusIcon status={drawState?.error ? "unknown" : drawState?.response?.leg.status === "OK" ? "nominal" : "advisory"} word={drawState?.pending ? "Validating" : drawState?.error ? "Unavailable" : drawState?.response ? "Leg validation" : drawState?.active ? "Drawing" : "Ready"} />
+          {drawState?.error && <p>{drawState.error}</p>}
+        </div>
+        <p>Manual leg walk time <Metric value={drawState?.response?.leg.status === "OK" ? drawState.response.leg.walk_time_min : null} unit="min" prov="modelled" src="worker:MANUAL_LEG_RESULT.leg.walk_time_min" />. Plan totals <Metric value={null} prov="derived" src="manual-plan-totals" /></p>
+        {drawState?.response && manualLegPreview(plan.result, drawState.response) && <><ProfileChart result={manualLegPreview(plan.result, drawState.response)!} /><WarningsList warnings={drawState.response.warnings} site={ctx.site} mapHandle={handle ?? undefined} getLegExtent={(_index, from, to) => legStretchExtent([drawState.response!.leg], 0, from, to)} /></>}
+      </section>}
         <RouteResults planStore={ctx.planStore} mapHandle={handle ?? undefined} site={ctx.site} />
       </div>
     </div>
