@@ -351,6 +351,7 @@ D.1–D.6 *(v1, unchanged)*; D.7 revised; D.8–D.16 new. All functions live in 
 | Snapping | A waypoint on an impassable cell snaps to the nearest passable cell within 50 m; otherwise rejected |
 | Limits | ≤ 10 stops; search aborts after 3 × 10⁶ node expansions (`TIMEOUT`) |
 | Validation | (1) Synthetic grid with a wall containing one gap → route passes through the gap. (2) Uniform 20° ramp with 15° limit → `NO_ROUTE / DISCONNECTED_BY_SLOPE`. (3) Re-sample every returned step: no step violates the hard limit. (4) Determinism: identical output for repeated runs (tie-break by cell index) |
+| Along-leg distances | *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-082)* `Leg.profile.dist_m` and `Warning.from_m`/`to_m` are along-leg; the UI maps them to positions by interpolating `Leg.geometry` in projected metres |
 | Known limitations | Grid-aligned paths (8 directions); micro-relief below effective DTM resolution invisible; rocks/boulders not mapped; caution multipliers are judgement, not physiology |
 
 A no-data slope code (255) is impassable for the suit and for the vehicle, in addition to the rule in the Impassable row *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-57)*
@@ -641,7 +642,7 @@ Error codes: `GRID_NOT_LOADED`, `INVALID_INPUT`, `TIMEOUT`, `CANCELLED`, `INTERN
 
 | Field | Rule |
 | --- | --- |
-| `eva_start_utc` | ISO-8601 UTC; year 2000–2100 (Mars24 fit range covers this) |
+| `eva_start_utc` | ISO-8601 UTC; year 2000–2100 (Mars24 fit range covers this). *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-042)* Default: the loaded scenario's `eva_start_utc` (Hab Core `GET /api/session`); with no Hab Core, no default: the field is required |
 | `max_eva_duration_h` | 0.5–10 |
 | `dwell_min_per_stop` | 0–180 |
 | `hard_slope_limit_deg` | 5–35, and > `caution_slope_deg` |

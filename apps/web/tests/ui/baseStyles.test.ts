@@ -61,11 +61,74 @@ function resolve(value: string, mode: Rule): string {
   });
 }
 
-describe("T13.04 focus ring: print has no ring of its own until 04 defines one", () => {
-  it("print mode carries a TODO(decision) instead of an invented ring", () => {
+describe("T13.04 focus ring: print is not interactive, so it has no ring (FD-068)", () => {
+  it("print mode sets no ring and tokens.css says why, citing FD-068 and no open decision", () => {
     const print = modeBlock("print");
     expect(decl(print.body, "--focus-ring")).toBeUndefined();
-    expect(read("tokens.css")).toMatch(/04 §C\.1 defines no PRINT focus ring/);
+    expect(read("tokens.css")).toMatch(/FD-068[^*]*print is not interactive/);
+    expect(read("tokens.css")).not.toMatch(/04 §C\.1 defines no PRINT focus ring/);
+  });
+
+  it("BRIEF uses an ink ring on a paper gap (FD-066, 04 §C.1 focus row)", () => {
+    const brief = modeBlock("brief");
+    expect(decl(brief.body, "--focus-ring")).toBe("0 0 0 2px var(--paper), 0 0 0 4px var(--ink)");
+    expect(read("tokens.css")).toMatch(/FD-066/);
+  });
+});
+
+describe("T13.01 tokens: no open decision is left in the stylesheets (FD-066 to FD-069, FD-175)", () => {
+  it.each(["tokens.css", "base.css", "patterns.css"])("%s has no TODO(decision) or TODO(verify)", (file) => {
+    expect(read(file)).not.toMatch(/TODO\((decision|verify)\)/);
+  });
+
+  it("the HUD has no control-edge token of its own: it reuses the OPS edge (FD-067)", () => {
+    expect(decl(modeBlock("hud").body, "--control-edge")).toBe("var(--edge)");
+    expect(read("tokens.css")).toMatch(/FD-067/);
+  });
+
+  it("PRINT advisory #1D4ED8 and unknown #6D28D9 are the print status colours, with the contrast the mockup states (FD-013, DV-07)", () => {
+    const print = modeBlock("print");
+    expect(decl(print.body, "--status-advisory")).toBe("var(--print-advisory)");
+    expect(decl(print.body, "--status-unknown")).toBe("var(--print-unknown)");
+    expect(decl(PRIMITIVES.body, "--print-advisory")).toBe("#1D4ED8");
+    expect(decl(PRIMITIVES.body, "--print-unknown")).toBe("#6D28D9");
+    expect(contrast("#1D4ED8", "#FFFFFF")).toBeGreaterThanOrEqual(4.5);
+    expect(contrast("#6D28D9", "#FFFFFF")).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("the primary button has its own pressed state: text-2 fill with void text (FD-069)", () => {
+    const base = ALL_RULES.find((r) => r.selector.trim() === ".btn-primary");
+    expect(base, ".btn-primary rule").toBeDefined();
+    expect(decl(base!.body, "background")).toBe("var(--fg-1)");
+    expect(decl(base!.body, "color")).toBe("var(--surface-0)");
+    const pressed = ALL_RULES.find((r) => r.selector.replace(/\s+/g, "") === '.btn-primary:not(:disabled):not([aria-disabled="true"]):active');
+    expect(pressed, ".btn-primary:active rule").toBeDefined();
+    expect(decl(pressed!.body, "background")).toBe("var(--fg-2)");
+    expect(decl(pressed!.body, "color")).toBe("var(--surface-0)");
+  });
+});
+
+describe("T13.04 touch targets by pointer type; EVA always 56 px (FD-153, 04 §C.3)", () => {
+  const find = (sel: string): Rule[] => ALL_RULES.filter((r) => r.selector.split(",").some((x) => x.trim().replace(/\s+/g, " ") === sel));
+
+  it("tokens: mouse 32, touch 44, EVA 56", () => {
+    const tokens = (name: string) => decl(PRIMITIVES.body, name);
+    expect(tokens("--target-mouse")).toBe("32px");
+    expect(tokens("--target-touch")).toBe("44px");
+    expect(tokens("--target-eva")).toBe("56px");
+  });
+
+  it("buttons use the mouse size by default and the touch size under @media (pointer: coarse)", () => {
+    const css = read("base.css");
+    expect(css).toMatch(/@media \(pointer: coarse\)\s*\{[^@]*min-height: var\(--target-touch, 44px\)/);
+    expect(css).not.toMatch(/prefers-color-scheme/);
+  });
+
+  it("EVA surfaces set the EVA size after the coarse rule, so it wins on touch devices", () => {
+    const css = read("base.css");
+    expect(find('[data-surface="eva"] button').length).toBeGreaterThan(0);
+    expect(css.indexOf("@media (pointer: coarse)")).toBeLessThan(css.indexOf('[data-surface="eva"] button'));
+    for (const r of find('[data-surface="eva"] button')) expect(decl(r.body, "min-height")).toBe("var(--target-eva, 56px)");
   });
 });
 
@@ -133,14 +196,27 @@ describe("T13.04 control edge: only 04-defined values (04 §C.1 edge, ≥ 3 : 1 
 });
 
 describe("T13.04 type and icon values follow 04 (spec-change #213, decided 2026-11-11)", () => {
-  it("base.css headings keep Inter 600 under the 04 §C.2 v1 exception; self-hosting Chakra Petch stays a TODO(decision) for T13.04", () => {
+  it("base.css headings are Chakra Petch 500 uppercase on every screen: the font roll-out ended (FD-073, 04 §C.2)", () => {
     const base = read("base.css");
-    expect(base).toMatch(/04 §C\.2[^*]*Headings during the font roll-out/);
-    expect(base).toMatch(/v1 (screens|exception)/);
-    expect(base).toMatch(/TODO\(decision\)[^*]*self-host[^*]*Chakra Petch[^*]*T13\.04/i);
-    expect(base).not.toMatch(/TODO\(decision\)[^\n]*headings keep the v1 style/);
-    expect(base).not.toMatch(/04 spec change needed/);
-    expect(base).toMatch(/font-weight: 600/);
+    expect(base).toMatch(/Ended 2026-11-12/);
+    expect(base).not.toMatch(/TODO\(decision\)/);
+    expect(base).not.toMatch(/Inter 600/);
+    for (const sel of ["h1, .screen-title", "h2, h3, .panel-title, .panel-heading"]) {
+      const rule = ALL_RULES.find((r) => r.file === "base.css" && r.selector.split(",").map((x) => x.trim()).join(", ") === sel);
+      expect(rule, sel).toBeDefined();
+      expect(decl(rule!.body, "font-family"), sel).toMatch(/var\(--font-display/);
+      expect(decl(rule!.body, "font-weight"), sel).toBe("500");
+      expect(decl(rule!.body, "text-transform"), sel).toBe("uppercase");
+      const token = /var\((--[\w-]+)/.exec(decl(rule!.body, "font-size")!)![1]!;
+      expect(parseInt(decl(PRIMITIVES.body, token)!, 10), `${sel} is at least 20 px (Chakra Petch never under 20 px)`).toBeGreaterThanOrEqual(20);
+    }
+  });
+
+  it("every self-hosted face the headings use is declared with a local file (offline, NFR-01)", () => {
+    const base = read("base.css");
+    expect(base).toMatch(/font-family:\s*"Chakra Petch"/);
+    expect(base).toMatch(/font-family:\s*"Source Serif 4"/);
+    expect(base).not.toMatch(/url\((https?:)?\/\//);
   });
 
   it("icons README follows 04 §C.4: Lucide defaults, ISC licence, no stroke override or TODO notes", () => {

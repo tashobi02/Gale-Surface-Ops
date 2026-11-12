@@ -21,11 +21,10 @@
  * - Briefing card (T11.03)
  * - StatusIcon component (T13.05, apps/web/src/ui/components/statusIcon.ts)
  *
- * Canvas and SVG consumers:
- * Note (TASK-13 Spec question 3): canvas and SVG renderers (T07.07 slope tiles,
- * T09.01 hazard hatch, T09.02 elevation profile) draw the same 04 §C.1 patterns
- * themselves using their respective 2D context or SVG definitions, maintaining
- * visual consistency with these CSS classes.
+ * Canvas and SVG consumers (FD-150):
+ * ui/components/patterns.ts exports SVG <pattern> defs and canvas patterns from the same geometry. The spacings, stripe
+ * widths and alphas below are the --pattern-* tokens of tokens.css; tests/ui/sharedPatterns.test.ts keeps them equal to
+ * PATTERN_GEOMETRY. The @media print block keeps its own coarser strokes for black-and-white printers.
  */
 
 /* ---------------------------------------------------------------- pattern classes (OPS & BRIEF) */
@@ -40,10 +39,10 @@
   background-color: var(--status-caution);
   background-image: repeating-linear-gradient(
     45deg,
-    rgba(0, 0, 0, 0.22),
-    rgba(0, 0, 0, 0.22) 4px,
-    transparent 4px,
-    transparent 8px
+    rgba(0, 0, 0, var(--pattern-hatch-alpha)),
+    rgba(0, 0, 0, var(--pattern-hatch-alpha)) var(--pattern-hatch-stripe),
+    transparent var(--pattern-hatch-stripe),
+    transparent var(--pattern-hatch-period)
   );
   color: var(--ink, #1A1A1A);
 }
@@ -54,17 +53,17 @@
   background-image:
     repeating-linear-gradient(
       45deg,
-      rgba(0, 0, 0, 0.28),
-      rgba(0, 0, 0, 0.28) 3px,
-      transparent 3px,
-      transparent 6px
+      rgba(0, 0, 0, var(--pattern-cross-alpha)),
+      rgba(0, 0, 0, var(--pattern-cross-alpha)) var(--pattern-cross-stripe),
+      transparent var(--pattern-cross-stripe),
+      transparent var(--pattern-cross-period)
     ),
     repeating-linear-gradient(
       -45deg,
-      rgba(0, 0, 0, 0.28),
-      rgba(0, 0, 0, 0.28) 3px,
-      transparent 3px,
-      transparent 6px
+      rgba(0, 0, 0, var(--pattern-cross-alpha)),
+      rgba(0, 0, 0, var(--pattern-cross-alpha)) var(--pattern-cross-stripe),
+      transparent var(--pattern-cross-stripe),
+      transparent var(--pattern-cross-period)
     );
   /* Contrast fix: --ink on --warning gives 5.32:1 contrast (NFR-04 requires >= 4.5:1) */
   color: var(--ink, #1A1A1A);
@@ -73,20 +72,20 @@
 .status-unknown {
   background-color: var(--status-unknown);
   background-image: radial-gradient(
-    rgba(0, 0, 0, 0.35) 22%,
-    transparent 22%
+    rgba(0, 0, 0, var(--pattern-dot-alpha)) var(--pattern-dot-radius),
+    transparent var(--pattern-dot-radius)
   );
-  background-size: 8px 8px;
+  background-size: var(--pattern-dot-period) var(--pattern-dot-period);
   color: var(--ink, #1A1A1A);
 }
 
 .status-advisory {
   background-color: var(--status-advisory);
   background-image: radial-gradient(
-    rgba(0, 0, 0, 0.35) 22%,
-    transparent 22%
+    rgba(0, 0, 0, var(--pattern-dot-alpha)) var(--pattern-dot-radius),
+    transparent var(--pattern-dot-radius)
   );
-  background-size: 8px 8px;
+  background-size: var(--pattern-dot-period) var(--pattern-dot-period);
   color: var(--ink, #1A1A1A);
 }
 
@@ -98,10 +97,11 @@
  * Ratios are #000000 ink on the fill, flat -> darkest patterned area:
  *
  *   nominal   #3DDC84  solid, no pattern                       11.77 -> 11.77 : 1
- *   caution   #FFB020  45deg stripes, black alpha 0.20         11.48 ->  7.38 : 1  (7 : 1 is reached up to alpha 0.22)
- *   advisory  #4CC9F0  dots, black alpha 0.18                  10.92 ->  7.38 : 1  (7 : 1 is reached up to alpha 0.20)
- *   unknown   #A9B3BE  dots, black alpha 0.15                   9.88 ->  7.20 : 1  (7 : 1 is reached up to alpha 0.16)
- *   warning   #FF6B6B  cross-hatch, WHITE alpha 0.30            7.57 ->  7.57 : 1  (flat, see below)
+ *   caution   #FFB020  45deg stripes, black alpha 0.22 (--hud-pill-alpha-caution)   11.48 -> 7.0x : 1
+ *   advisory  #4CC9F0  dots, black alpha 0.20 (--hud-pill-alpha-advisory)            10.92 -> 7.0x : 1
+ *   unknown   #A9B3BE  dots, black alpha 0.16 (--hud-pill-alpha-unknown)              9.88 -> 7.0x : 1
+ *   (FD-155: each alpha is the largest, in steps of 0.01, that keeps 7 : 1; patterns.test.ts runs that search.)
+ *   warning   #FF6B6B  cross-hatch, WHITE alpha 0.30                                7.57 -> 7.57 : 1  (flat, see below)
  *
  * Warning: #FF6B6B is only 7.57 : 1 flat, so black stripes could take at most alpha 0.02 off the fill (cross-hatch,
  * two layers) before dropping under 7 : 1, which draws nothing visible. The cross-hatch is therefore drawn in a
@@ -118,10 +118,10 @@
 [data-mode="hud"] .status-caution {
   background-image: repeating-linear-gradient(
     45deg,
-    rgba(0, 0, 0, 0.20),
-    rgba(0, 0, 0, 0.20) 4px,
-    transparent 4px,
-    transparent 8px
+    rgba(0, 0, 0, var(--hud-pill-alpha-caution)),
+    rgba(0, 0, 0, var(--hud-pill-alpha-caution)) var(--pattern-hatch-stripe),
+    transparent var(--pattern-hatch-stripe),
+    transparent var(--pattern-hatch-period)
   );
   color: var(--hud-pill-ink);
 }
@@ -132,32 +132,32 @@
     repeating-linear-gradient(
       45deg,
       rgba(255, 255, 255, 0.30),
-      rgba(255, 255, 255, 0.30) 3px,
-      transparent 3px,
-      transparent 6px
+      rgba(255, 255, 255, 0.30) var(--pattern-cross-stripe),
+      transparent var(--pattern-cross-stripe),
+      transparent var(--pattern-cross-period)
     ),
     repeating-linear-gradient(
       -45deg,
       rgba(255, 255, 255, 0.30),
-      rgba(255, 255, 255, 0.30) 3px,
-      transparent 3px,
-      transparent 6px
+      rgba(255, 255, 255, 0.30) var(--pattern-cross-stripe),
+      transparent var(--pattern-cross-stripe),
+      transparent var(--pattern-cross-period)
     );
   color: var(--hud-pill-ink);
 }
 
 [data-mode="hud"] .status-unknown {
   background-image: radial-gradient(
-    rgba(0, 0, 0, 0.15) 22%,
-    transparent 22%
+    rgba(0, 0, 0, var(--hud-pill-alpha-unknown)) var(--pattern-dot-radius),
+    transparent var(--pattern-dot-radius)
   );
   color: var(--hud-pill-ink);
 }
 
 [data-mode="hud"] .status-advisory {
   background-image: radial-gradient(
-    rgba(0, 0, 0, 0.18) 22%,
-    transparent 22%
+    rgba(0, 0, 0, var(--hud-pill-alpha-advisory)) var(--pattern-dot-radius),
+    transparent var(--pattern-dot-radius)
   );
   color: var(--hud-pill-ink);
 }
@@ -208,11 +208,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: var(--status-icon-size);
+  height: var(--status-icon-size);
   line-height: 1;
   font-size: 13px;
   font-weight: 700;
+}
+
+/* The drawn octagon fills its glyph box (FD-208); the box size comes from the token (FD-215). */
+.status-glyph svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  fill: currentColor;
 }
 
 .status-indicator .status-label {
@@ -237,8 +245,8 @@
 [data-screen="SCR-13"] .status-indicator .status-glyph,
 [data-screen="SCR-18"] .status-indicator .status-glyph,
 [data-screen="SCR-14"][data-variant="eva"] .status-indicator .status-glyph {
-  width: 22px;
-  height: 22px;
+  width: var(--status-icon-size-eva);
+  height: var(--status-icon-size-eva);
   font-size: 16px;
 }
 

@@ -231,7 +231,7 @@ describe("what the popover shows (FR-03, FR-15, NFR-05)", () => {
     await done;
     const status = popover()!.querySelector<HTMLElement>("[data-field='passable'] .status-indicator")!;
     expect(status.classList.contains("status-warning")).toBe(true);
-    expect(status.textContent).toContain("⬣");
+    expect(status.querySelector(".status-glyph svg polygon")).not.toBeNull(); // the drawn octagon (FD-208)
     expect(status.textContent).toContain("BLOCKED");
     expect(popover()!.querySelector("[data-field='passable']")!.textContent).toMatch(/hard hazard/i);
   });

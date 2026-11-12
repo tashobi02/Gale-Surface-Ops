@@ -24,6 +24,13 @@ function token(name: string): string {
   return m[1];
 }
 
+/** Plain number of a custom property declared in tokens.css (the HUD pill alphas, FD-155). */
+function tokenNumber(name: string): number {
+  const m = new RegExp(`(?:^|[\\s;{])${name}\\s*:\\s*([0-9.]+)\\s*;`).exec(read("tokens.css"));
+  if (!m) throw new Error(`tokens.css has no ${name} number`);
+  return Number(m[1]);
+}
+
 /** Body of the HUD-scoped `[data-mode="hud"] .status-<name>` rule in patterns.css (comments removed). */
 function hudRuleBody(status: string): string {
   const css = stripComments(read("patterns.css"));
@@ -42,8 +49,8 @@ interface Layer {
 function patternLayers(body: string): Layer[] {
   const layers: Layer[] = [];
   for (const piece of body.split(/-gradient\(/).slice(1)) {
-    const m = /rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([0-9.]+)\)/.exec(piece);
-    if (m) layers.push({ rgb: [Number(m[1]), Number(m[2]), Number(m[3])], alpha: Number(m[4]) });
+    const m = /rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*(?:([0-9.]+)|var\((--[\w-]+)\))\)/.exec(piece);
+    if (m) layers.push({ rgb: [Number(m[1]), Number(m[2]), Number(m[3])], alpha: m[4] !== undefined ? Number(m[4]) : tokenNumber(m[5]!) });
   }
   return layers;
 }
@@ -98,6 +105,46 @@ describe("patterns: HUD pill ink is #000000 (04 §C.1 HUD status pills)", () => 
 
   it("OPS and BRIEF pills keep --ink (the ink change is scoped to the HUD)", () => {
     expect(stripComments(read("patterns.css"))).toMatch(/\.status-caution\s*\{[^}]*color:\s*var\(--ink,/);
+  });
+});
+
+/**
+ * FD-155 / T13.05: the pattern alpha of a HUD pill is the largest one for which the pill still reaches 7 : 1. The search
+ * below is the source of the `--hud-pill-alpha-*` values in tokens.css (step 0.01, black stripes or dots, one layer).
+ */
+function largestAlpha(fill: string): number {
+  const ink = toRgb(token("--hud-pill-ink"));
+  const base = toRgb(fill);
+  let best = 0;
+  for (let a = 0.01; a <= 0.5001; a += 0.01) {
+    const colour = base.map((v) => v * (1 - a)) as Rgb;
+    if (ratio(ink, colour) >= 7) best = Math.round(a * 100) / 100;
+  }
+  return best;
+}
+
+describe("patterns: every HUD pill keeps 7:1 with its pattern alpha (FD-155)", () => {
+  for (const [status, fill, token_] of [
+    ["caution", "--hud-caution", "--hud-pill-alpha-caution"],
+    ["advisory", "--hud-advisory", "--hud-pill-alpha-advisory"],
+    ["unknown", "--hud-text-2", "--hud-pill-alpha-unknown"],
+  ] as const) {
+    it(`${status}: ${token_} is the largest alpha that keeps 7 : 1 and the rule uses it`, () => {
+      const found = largestAlpha(token(fill));
+      expect(found).toBeGreaterThan(0.1);
+      expect(tokenNumber(token_)).toBe(found);
+      expect(hudRuleBody(status)).toContain(`var(${token_})`);
+      expect(patternedContrast(status, token(fill))).toBeGreaterThanOrEqual(7);
+    });
+  }
+
+  it("the warning pill stays a lighter cross-hatch: black stripes would be invisible at 7 : 1", () => {
+    expect(largestAlpha(token("--hud-warning"))).toBeLessThan(0.05);
+    for (const { rgb } of patternLayers(hudRuleBody("warning"))) expect(rgb).toEqual([255, 255, 255]);
+  });
+
+  it("no it.fails is left in this file", () => {
+    expect(readFileSync(fileURLToPath(import.meta.url), "utf8")).not.toMatch(/it\.fails\(/);
   });
 });
 

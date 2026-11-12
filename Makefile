@@ -7,7 +7,7 @@ CONDA_ENV ?= marswalk-pipeline
 CONDA_BIN ?= $(if $(CONDA_EXE),$(CONDA_EXE),conda)
 
 .PHONY: setup setup-web setup-pipeline lint typecheck test test-web docs-check dev demo data \
-	conda-check check-env pipeline-python validate progress hab replay agent-skills design-check
+	conda-check check-env pipeline-python validate progress hab replay agent-skills design-check e2e e2e-one
 
 setup: setup-web setup-pipeline agent-skills
 
@@ -37,6 +37,17 @@ test-web:
 docs-check: lint
 	python3 scripts/check_links.py docs README.md CLAUDE.md AGENTS.md
 	python3 scripts/update_progress.py --check
+
+# Browser verification harness (frontend plan 01): Chromium only, headless, localhost only. Builds the app and starts a
+# Hab Core on 127.0.0.1:8091 itself; E2E_SKIP_BUILD=1 reuses apps/web/dist, E2E_SITE=gale_boxwork uses the real bundle.
+# Needs no conda. See apps/web/e2e/README.md.
+e2e:
+	npx playwright test -c apps/web/e2e/playwright.config.ts
+
+# One check by name: make e2e-one CHECK=offline
+e2e-one:
+	@test -n "$(CHECK)" || { echo "usage: make e2e-one CHECK=<name> (a file in apps/web/e2e/checks, without .spec.ts)"; exit 2; }
+	npx playwright test -c apps/web/e2e/playwright.config.ts "checks/$(CHECK)\.spec"
 
 # Regenerate the README progress bar from docs/tasks/status.md.
 progress:

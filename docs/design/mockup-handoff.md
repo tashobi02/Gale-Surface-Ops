@@ -637,31 +637,31 @@ IDs continue after U-29 (04 ends at U-27, but U-28 and U-29 are used in 03). U-4
 
 | ID | Item | Owner | Due |
 | --- | --- | --- | --- |
-| U-30 | Ratify the EVA landscape layout (compact HAVEN and O₂ cards top-left, NEXT below, map on the whole right column) and the SCR-14 right panel over the map column (04 §E.5, §E.7, §F; 01 FR-32); confirm that O₂, NEXT and the mini-map may change place between orientations while HAVEN, alert, strip and actions do not (G-24). | Sadman / Obidit | Before 10 Nov (TASK-24 start) |
-| U-31 | Where does the EVA high-contrast toggle live on the real tablet? Proposal: a fifth compact action-row button or a system quick-setting. | Design (R6) + R5 | TASK-13 |
-| U-32 | Should lower-level alerts interrupt a latched warning bar briefly, or stay behind "+N" (03 §C.6 steps 7–8 vs 04 §D.2)? | Sadman | TASK-24 |
-| U-33 | Ratify the added PRINT neutral tokens (G-15). | Design (R6) | TASK-13 |
-| U-34 | EZ code numbering: global order in pois.geojson or per stop type (04 §E.10)? | R1 + R6 | TASK-04 |
-| U-35 | Final content for stop 1 (EZ—ENG 01): name, objective, image. | R1 + R6 | TASK-04 |
-| U-36 | Dose display unit rule (mGy in 04 §E.4/E.5; µGy in 05; no Sv for the event). | R2 + R5 | TASK-24 |
-| U-37 | High-contrast alert bars: confirm the outlined variant (white on warning-fill is 6.54 : 1). | Design (R6) | TASK-13 |
-| U-38 | Product sound default (prototype starts muted). | R5 | TASK-25 |
-| U-39 | Replace the schematic map with the real basemap, slope, TI and comm_hab layers; recheck all overlay contrast on real imagery. | R1 + R3 | TASK-03 / TASK-07 |
-| U-40 | Self-host WOFF2 and verify Chakra Petch, Inter, IBM Plex Mono, Source Serif 4 and Lucide licences (extends U-27). | R6 | TASK-13 |
-| U-41 | Usability check that advisory (i) and unknown (?) are distinguishable in grayscale (G-27). | R6 | TASK-15 |
-| U-42 | Wire messages carry raw numbers plus a provenance map; the fixture wraps every number as {v, unit, prov, src}. Decide the production adapter. | R4 + R5 | TASK-20 |
-| U-43 | Ops and HUD still leave the idle alert slot empty. Decide whether ops should also show a status line, and whether an always-on NOMINAL line on the EVA tablet is compatible with "nominal is quiet" (04 §A.3); check with UT-7. | Design (R6) + R5 | TASK-15 |
+| U-30 | Ratify the EVA landscape layout (compact HAVEN and O₂ cards top-left, NEXT below, map on the whole right column) and the SCR-14 right panel over the map column (04 §E.5, §E.7, §F; 01 FR-32); confirm that O₂, NEXT and the mini-map may change place between orientations while HAVEN, alert, strip and actions do not (G-24). Decided 2026-11-12: FD-010 (Proposed). | Sadman / Obidit | Before 10 Nov (TASK-24 start) |
+| U-31 | Where does the EVA high-contrast toggle live on the real tablet? Proposal: a fifth compact action-row button or a system quick-setting. Decided 2026-11-12: FD-011 (Proposed). | Design (R6) + R5 | TASK-13 |
+| U-32 | Should lower-level alerts interrupt a latched warning bar briefly, or stay behind "+N" (03 §C.6 steps 7–8 vs 04 §D.2)? Decided 2026-11-12: FD-012 (Proposed). | Sadman | TASK-24 |
+| U-33 | Ratify the added PRINT neutral tokens (G-15). Decided 2026-11-12: FD-013 (Proposed). | Design (R6) | TASK-13 |
+| U-34 | EZ code numbering: global order in pois.geojson or per stop type (04 §E.10)? Decided 2026-11-12: FD-014 (Proposed). | R1 + R6 | TASK-04 |
+| U-35 | Final content for stop 1 (EZ—ENG 01): name, objective, image. Decided 2026-11-12: FD-015 (Proposed). | R1 + R6 | TASK-04 |
+| U-36 | Dose display unit rule (mGy in 04 §E.4/E.5; µGy in 05; no Sv for the event). Decided 2026-11-12: FD-016 (Proposed). | R2 + R5 | TASK-24 |
+| U-37 | High-contrast alert bars: confirm the outlined variant (white on warning-fill is 6.54 : 1). Decided 2026-11-12: FD-017 (Proposed). | Design (R6) | TASK-13 |
+| U-38 | Product sound default (prototype starts muted). Decided 2026-11-12: FD-018 (Proposed). | R5 | TASK-25 |
+| U-39 | Replace the schematic map with the real basemap, slope, TI and comm_hab layers; recheck all overlay contrast on real imagery. Decided 2026-11-12: FD-019 (Proposed). | R1 + R3 | TASK-03 / TASK-07 |
+| U-40 | Self-host WOFF2 and verify Chakra Petch, Inter, IBM Plex Mono, Source Serif 4 and Lucide licences (extends U-27). Decided 2026-11-12: FD-007 (Proposed). | R6 | TASK-13 |
+| U-41 | Usability check that advisory (i) and unknown (?) are distinguishable in grayscale (G-27). Decided 2026-11-12: FD-020 (Proposed). | R6 | TASK-15 |
+| U-42 | Wire messages carry raw numbers plus a provenance map; the fixture wraps every number as {v, unit, prov, src}. Decide the production adapter. Decided 2026-11-12: FD-021 (Proposed). | R4 + R5 | TASK-20 |
+| U-43 | Ops and HUD still leave the idle alert slot empty. Decide whether ops should also show a status line, and whether an always-on NOMINAL line on the EVA tablet is compatible with "nominal is quiet" (04 §A.3); check with UT-7. Decided 2026-11-12: FD-022 (Proposed). | Design (R6) + R5 | TASK-15 |
 | U-47 | **Resolved by FR-50** (stop task list on the EVA tablet, synced to ops). U-47 was "Add the FR-50 stop task list to the prototype" (04); closed in 04 on 2026-11-05. Prototyped in SCR-12, SCR-11, SCR-08, SCR-17 and the Stage beat at 0:05. | Sadman | Resolved 2026-11-05 |
-| U-51 | Ratify the TASKS button, the phone-landscape list in the map column and the NEXT-position list on tablets and in portrait (G-30, G-31, DV-12). | Sadman + Design (R6) | TASK-13 |
-| U-52 | Per-crew task model: tasks belong to EV1 or EV2 (`crew_id`), EV2 is simulated and completes tasks at the end of each dwell, so a dwell cut short by the storm leaves EV2's tasks open and later dropped. Confirm. | R2 | TASK-31 |
-| U-53 | Ratify the prototype rule that counts are looked up from build-time tables; the product computes counts from the task list (G-34). | Sadman + R2 | TASK-31 |
-| U-54 | Allow a task count on the HUD as a sixth value, or fold it into the STOP sub-label (G-35)? | Design (R6) + R5 | TASK-15 |
-| U-55 | Skip-reason capture: one tap records `other`, then one REASON control in the 5-s undo strip (G-33). Acceptable with gloves? | Design (R6) | UT-8 |
-| U-56 | On abort or rendezvous, do open tasks at the current stop also become DROPPED (G-39)? | R2 | TASK-31 |
-| U-57 | Full-screen map — **scope decided 2026-11-05: Tier 1**, on the EVA tablet with shared controls on ops and planner (01 FR-32, 04 §E.5, 06 TASK-07/TASK-24). Still open: final layer set and a pinch test on touch hardware (pinch stays an extra). | Sadman + R3 | TASK-07 / TASK-15 |
-| U-58 | Who writes the final task text, in which file, and who may add tasks from ops (limit, audit)? Prototype text is PROPOSED copy from the POI objectives. | R1 + R6 | TASK-31 |
-| U-59 | List collapse during an alert: collapse while the options sheet is open or a warning is unacknowledged, then allow a read-only list (G-40)? | Sadman | TASK-24 |
-| U-60 | Ratify, for the landscape full-screen map only, the stacked HAVEN / O₂ cards at 40 px (48 px on tablets), below the 56 px rule and with O₂ below HAVEN rather than beside it (G-48); or keep 56 px values and accept a smaller map. | Sadman + Design (R6) | UT-9 |
+| U-51 | Ratify the TASKS button, the phone-landscape list in the map column and the NEXT-position list on tablets and in portrait (G-30, G-31, DV-12). Decided 2026-11-12: FD-024 (Proposed). | Sadman + Design (R6) | TASK-13 |
+| U-52 | Per-crew task model: tasks belong to EV1 or EV2 (`crew_id`), EV2 is simulated and completes tasks at the end of each dwell, so a dwell cut short by the storm leaves EV2's tasks open and later dropped. Confirm. Decided 2026-11-12: FD-025 (Proposed). | R2 | TASK-31 |
+| U-53 | Ratify the prototype rule that counts are looked up from build-time tables; the product computes counts from the task list (G-34). Decided 2026-11-12: FD-026 (Proposed). | Sadman + R2 | TASK-31 |
+| U-54 | Allow a task count on the HUD as a sixth value, or fold it into the STOP sub-label (G-35)? Decided 2026-11-12: FD-027 (Proposed). | Design (R6) + R5 | TASK-15 |
+| U-55 | Skip-reason capture: one tap records `other`, then one REASON control in the 5-s undo strip (G-33). Acceptable with gloves? Decided 2026-11-12: FD-028 (Proposed). | Design (R6) | UT-8 |
+| U-56 | On abort or rendezvous, do open tasks at the current stop also become DROPPED (G-39)? Decided 2026-11-12: FD-029 (Proposed). | R2 | TASK-31 |
+| U-57 | Full-screen map — **scope decided 2026-11-05: Tier 1**, on the EVA tablet with shared controls on ops and planner (01 FR-32, 04 §E.5, 06 TASK-07/TASK-24). Still open: final layer set and a pinch test on touch hardware (pinch stays an extra). Decided 2026-11-12: FD-030 (Proposed). | Sadman + R3 | TASK-07 / TASK-15 |
+| U-58 | Who writes the final task text, in which file, and who may add tasks from ops (limit, audit)? Prototype text is PROPOSED copy from the POI objectives. Decided 2026-11-12: FD-031 (Proposed). | R1 + R6 | TASK-31 |
+| U-59 | List collapse during an alert: collapse while the options sheet is open or a warning is unacknowledged, then allow a read-only list (G-40)? Decided 2026-11-12: FD-032 (Proposed). | Sadman | TASK-24 |
+| U-60 | Ratify, for the landscape full-screen map only, the stacked HAVEN / O₂ cards at 40 px (48 px on tablets), below the 56 px rule and with O₂ below HAVEN rather than beside it (G-48); or keep 56 px values and accept a smaller map. Decided 2026-11-12: FD-033 (Proposed). | Sadman + Design (R6) | UT-9 |
 
 ## Usability test script for TASK-15
 
