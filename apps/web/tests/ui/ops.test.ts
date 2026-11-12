@@ -939,6 +939,31 @@ describe("SCR-10 Join shows only what it is told (04 §D.1, §A.3.1)", () => {
 
 
 describe("package 19 ops interactions", () => {
+  it("at 1100px the log and side drawers replace each other and restore opener focus", async () => {
+    const old = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1100 });
+    try {
+      const view = await mount(createElement(OpsConsole, { client: null }));
+      const strip = must<HTMLButtonElement>(view.container, '[data-slot="event-log-strip"]');
+      const buttons = [...view.container.querySelectorAll<HTMLButtonElement>('[data-slot="ops-side-drawer"] button')];
+      for (const button of buttons) {
+        await click(strip);
+        expect(view.container.querySelector('[data-slot="event-log-drawer"]')).not.toBeNull();
+        await click(button);
+        expect(view.container.querySelector('[data-slot="event-log-drawer"]')).toBeNull();
+        expect(button.getAttribute("aria-expanded")).toBe("true");
+        await keyDown(document.activeElement!, "Escape");
+        expect(button.getAttribute("aria-expanded")).toBe("false");
+        expect(document.activeElement).toBe(button);
+        await click(button);
+        await click(strip);
+        expect(button.getAttribute("aria-expanded")).toBe("false");
+        await keyDown(document.activeElement!, "Escape");
+        expect(document.activeElement).toBe(strip);
+      }
+    } finally { Object.defineProperty(window, "innerWidth", { configurable: true, value: old }); }
+  });
+
   it("caution chimes again when a new session reuses its id and sequence", async () => {
     const tone = vi.fn(() => ({ frequency: { value: 0 }, connect() {}, start() {}, stop() {}, disconnect() {} }));
     Object.defineProperty(window, "AudioContext", { configurable: true, value: function () { return {

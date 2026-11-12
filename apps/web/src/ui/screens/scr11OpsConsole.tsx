@@ -146,6 +146,8 @@ export function OpsConsole({
 }: OpsConsoleProps): ReactElement {
   const [viewportWidth, setViewportWidth] = useState(() => typeof window === "undefined" ? 1280 : window.innerWidth);
   const [sideDrawer, setSideDrawer] = useState<"crew" | "mission" | null>(null);
+  const sideOpener = useRef<HTMLButtonElement | null>(null);
+  const crewPanelRef = useRef<HTMLElement>(null);
   const [localSoundOn, setLocalSoundOn] = useState(true);
   const soundEnabled = soundOn ?? localSoundOn;
   useEffect(() => {
@@ -199,7 +201,17 @@ export function OpsConsole({
   }, [warningKey, narrow]);
   useEffect(() => {
     if (sideDrawer === "mission") optionsRef.current?.focus();
+    else if (sideDrawer === "crew") crewPanelRef.current?.focus();
   }, [sideDrawer]);
+  const toggleSideDrawer = (drawer: "crew" | "mission", opener: HTMLButtonElement): void => {
+    sideOpener.current = opener;
+    setLogOpen(false);
+    setSideDrawer(sideDrawer === drawer ? null : drawer);
+  };
+  const closeSideDrawer = (): void => {
+    setSideDrawer(null);
+    sideOpener.current?.focus();
+  };
 
   /**
    * Sends one command to the Hab Core (02 §E.4). Without a client the command goes to `onCommand` and counts as
@@ -323,7 +335,7 @@ export function OpsConsole({
     const key = event.key.toLowerCase();
     if (key === "o") {
       event.preventDefault();
-      if (narrow) setSideDrawer("mission");
+      if (narrow) { setLogOpen(false); setSideDrawer("mission"); }
       optionsRef.current?.focus();
       return;
     }
@@ -436,12 +448,12 @@ export function OpsConsole({
 
       {/* ---------------------------------------------------- Main Body Grid */}
       {narrow && <nav data-slot="ops-side-drawer" aria-label="Ops panels" style={{ display: "flex", gap: "8px", padding: "8px 16px" }}>
-        <button style={buttonStyle} aria-expanded={sideDrawer === "crew"} onClick={() => setSideDrawer(sideDrawer === "crew" ? null : "crew")}>Crew &amp; vehicles</button>
-        <button style={buttonStyle} aria-expanded={sideDrawer === "mission"} onClick={() => setSideDrawer(sideDrawer === "mission" ? null : "mission")}>Conditions &amp; options</button>
+        <button style={buttonStyle} aria-expanded={sideDrawer === "crew"} onClick={(event) => toggleSideDrawer("crew", event.currentTarget)}>Crew &amp; vehicles</button>
+        <button style={buttonStyle} aria-expanded={sideDrawer === "mission"} onClick={(event) => toggleSideDrawer("mission", event.currentTarget)}>Conditions &amp; options</button>
       </nav>}
       <main style={bodyGridStyle}>
         {/* Left Column: CREW & VEHICLES */}
-        <aside aria-label="Crew and vehicles" style={{ ...columnStyle, ...(narrow ? { display: sideDrawer === "crew" ? "flex" : "none", position: "absolute", left: 0, top: 0, bottom: 0, width: "280px", zIndex: 5 } : {}) }}>
+        <aside ref={crewPanelRef} tabIndex={-1} onKeyDown={(event) => { if (narrow && event.key === "Escape") { event.stopPropagation(); closeSideDrawer(); } }} aria-label="Crew and vehicles" style={{ ...columnStyle, ...(narrow ? { display: sideDrawer === "crew" ? "flex" : "none", position: "absolute", left: 0, top: 0, bottom: 0, width: "280px", zIndex: 5 } : {}) }}>
           {/* Module Label: CREW (04 P2) */}
           <div className="module-label" style={moduleLabelStyle}>
             [ HAB CORE /// CREW ]
@@ -693,7 +705,7 @@ export function OpsConsole({
         </section>
 
         {/* Right Column: CONDITIONS, EARTH LINK, OPTIONS */}
-        <aside aria-label="Conditions and options" style={{ ...rightColumnStyle, ...(narrow ? { display: sideDrawer === "mission" ? "flex" : "none", position: "absolute", right: 0, top: 0, bottom: 0, width: "320px", zIndex: 5 } : {}) }}>
+        <aside onKeyDown={(event) => { if (narrow && event.key === "Escape") { event.stopPropagation(); closeSideDrawer(); } }} aria-label="Conditions and options" style={{ ...rightColumnStyle, ...(narrow ? { display: sideDrawer === "mission" ? "flex" : "none", position: "absolute", right: 0, top: 0, bottom: 0, width: "320px", zIndex: 5 } : {}) }}>
           <EarthLinkWidget snapshot={activeSnapshot} />
           {/* Module Label: CONDITIONS */}
           <div className="module-label" style={moduleLabelStyle}>
