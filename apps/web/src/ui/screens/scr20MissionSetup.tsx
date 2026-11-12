@@ -124,11 +124,11 @@ function SetupPanel({ client, snapshot, site, fetchGrid }: { client: HabClient; 
       <p className="setup-assumptions" data-provenance="assumed" data-source="spec:03-SCR-20">Defaults are assumptions</p>
       <fieldset className="setup-settings" disabled={disabled || !settings}><legend>Defaults for the planner</legend>
         <label>Crew count<select aria-label="Crew count" {...attrs("crew_count")} value={settings?.crew_count ?? ""} onChange={(e) => set({ crew_count: Number(e.target.value) })}>
-          {!settings && <option value="">—</option>}<option value="1">1</option><option value="2">2</option>
+          {!settings && <option value="">—</option>}{snapshot && <option value={snapshot.crew.length}>{snapshot.crew.length}</option>}
         </select></label>
         <label className="setup-vehicle"><input type="checkbox" role="switch" aria-label="Vehicle available" {...attrs("vehicle_available")} checked={settings?.vehicle_available ?? false} disabled={!settings || (!settings.vehicle_available && !settings.vehicle_param_set)} onChange={(e) => set({ vehicle_available: e.target.checked })} />Vehicle available <span {...attrs("vehicle_available")}>{settings ? settings.vehicle_available ? "ON" : "OFF" : "—"}</span></label>
-        <label>Vehicle parameter set<select aria-label="Vehicle parameter set" {...attrs("vehicle_param_set")} value={settings?.vehicle_param_set ?? ""} onChange={(e) => set({ vehicle_param_set: e.target.value })}>
-          <option value="">—</option>{[...new Set([...(settings?.vehicle_param_set ? [settings.vehicle_param_set] : []), ...(snapshot?.vehicles.filter((v) => v.kind === "pressurized_rover").map((v) => v.param_set) ?? [])])].map((id) => <option key={id} value={id}>{id}</option>)}
+        <label>Vehicle parameter set<select aria-label="Vehicle parameter set" {...attrs("vehicle_param_set")} value={settings?.vehicle_param_set ?? ""} onChange={(e) => { if (e.target.value) set({ vehicle_param_set: e.target.value }); }}>
+          {[...new Set([...(settings?.vehicle_param_set ? [settings.vehicle_param_set] : []), ...(snapshot?.vehicles.filter((v) => v.kind === "pressurized_rover").map((v) => v.param_set) ?? [])])].map((id) => <option key={id} value={id}>{id}</option>)}
         </select></label>
         <label>Solar phase<select aria-label="Solar phase" {...attrs("solar_phase")} value={settings?.solar_phase ?? ""} onChange={(e) => set({ solar_phase: e.target.value })}>
           {!settings && <option value="">—</option>}<option value="max">Solar maximum</option><option value="min">Solar minimum</option>

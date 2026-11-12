@@ -395,6 +395,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 
 | 2026-11-13 | GPT-6.1 Terra (Codex, xhigh), frontend implementer | SCR-19 review: missing provenance, pending sim time, reset focus and accessible label | Regression tests first: 6 red; no invented values | Presenter unit tests green; browser checks pending orchestrator | This Codex session |
 
+| 2026-11-13 | GPT-6.1 Terra (Codex, xhigh), frontend implementer | SCR-20 review: restrict crew and vehicle parameter choices to accepted values; FD-347 | Regression test first: 1 red | Setup unit tests green; browser checks pending orchestrator | This Codex session |
+
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).

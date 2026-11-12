@@ -74,12 +74,10 @@ describe("SCR-20 mission setup", () => {
     await click(must(container, 'button[aria-label="Select Mock alternative"]'));
     expect(sent).toEqual([{ kind: "SELECT_HAB_SITE", args: { candidate_id: "hab-alternative" } }]);
     expect(must(container, 'button[aria-label="Select Mock first choice"]').getAttribute("aria-pressed")).toBe("true");
-    await select(must(container, 'select[aria-label="Crew count"]'), "1");
     await click(must(container, 'input[aria-label="Vehicle available"]'));
     await select(must(container, 'select[aria-label="Solar phase"]'), "min");
     const haven = must<HTMLInputElement>(container, 'input[aria-label="Maximum time to haven (min)"]');
     haven.value = "35"; await fire(haven, new window.FocusEvent("focusout", { bubbles: true }));
-    expect(sent).toContainEqual({ kind: "SET_MISSION_SETUP", args: { crew_count: 1 } });
     expect(sent).toContainEqual({ kind: "SET_MISSION_SETUP", args: { vehicle_available: false } });
     expect(sent).toContainEqual({ kind: "SET_MISSION_SETUP", args: { solar_phase: "min" } });
     expect(sent).toContainEqual({ kind: "SET_MISSION_SETUP", args: { max_haven_min: 35 } });
@@ -103,6 +101,16 @@ describe("SCR-20 mission setup", () => {
     expect(locked.container.textContent).toContain("Locked");
     expect(must<HTMLButtonElement>(locked.container, 'button[aria-label="Select Mock alternative"]').disabled).toBe(true);
     expect(must<HTMLInputElement>(locked.container, 'input[aria-label="Maximum time to haven (min)"]').matches(":disabled")).toBe(true);
+  });
+
+  it("offers only the scenario crew count and never an empty vehicle parameter option", async () => {
+    const { container, sent } = await setup();
+    const crew = must<HTMLSelectElement>(container, 'select[aria-label="Crew count"]');
+    expect([...crew.options].map((option) => option.value)).toEqual([String(loaded.crew.length)]);
+    const vehicle = must<HTMLSelectElement>(container, 'select[aria-label="Vehicle parameter set"]');
+    expect([...vehicle.options].some((option) => option.value === "")).toBe(false);
+    await select(vehicle, "");
+    expect(sent).toEqual([]);
   });
 
   it("offers setup controls only to ops and Continue navigates to the planner", async () => {
@@ -133,7 +141,7 @@ describe("SCR-20 mission setup", () => {
   it("offers only the snapshot's rover parameter sets and sends the chosen one", async () => {
     const { container, sent } = await setup();
     const picker = must<HTMLSelectElement>(container, 'select[aria-label="Vehicle parameter set"]');
-    expect([...picker.options].map((o) => o.value)).toEqual(["", "pr1-assumed"]);
+    expect([...picker.options].map((o) => o.value)).toEqual(["pr1-assumed"]);
     await select(picker, "pr1-assumed");
     expect(sent).toEqual([{ kind: "SET_MISSION_SETUP", args: { vehicle_param_set: "pr1-assumed" } }]);
   });
