@@ -22,7 +22,7 @@ function primitive(name: string): string {
 const ORANGE = [primitive("signal"), primitive("signal-ink")];
 
 test("brand-orange: no computed colour equals a brand-orange primitive in any OPS or HUD route", async ({ page }) => {
-  const hashes = routeHashesInMode(["ops", "hud"]);
+  const hashes = [...new Set([...routeHashesInMode(["ops", "hud"]), "#/presenter"])];
   expect(hashes.length).toBeGreaterThan(0);
   const hits: string[] = [];
 
@@ -30,6 +30,7 @@ test("brand-orange: no computed colour equals a brand-orange primitive in any OP
     await page.goto("about:blank");
     await page.goto(`/${hash}`);
     await page.waitForLoadState("networkidle");
+    if (hash === "#/presenter") await expect(page.locator('[data-screen="SCR-19"]')).toBeVisible();
     const found = await page.evaluate((orange) => {
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 1;

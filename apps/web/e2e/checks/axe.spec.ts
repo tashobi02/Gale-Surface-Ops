@@ -11,16 +11,17 @@ import { openEvaFixture, type EvaFixtureState } from "../lib/evaFixture";
 import { openOpsFixture } from "../lib/opsFixture";
 import { withManifestlessSite } from "../lib/siteBundle";
 
-const LIVE = /^#\/(ops|eva|hud)/;
+const LIVE = /^#\/(ops|eva|hud|presenter)/;
 
 // Routes that render real content today. Each screen package adds its own route here when it builds the screen, until the
 // list equals `routeHashes()` (package 99 asserts that).
-const BUILT_ROUTES = ["#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report"];
+const BUILT_ROUTES = ["#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report", "#/presenter"];
 
 test("axe: every built route has no serious or critical violation", async ({ page }, testInfo) => {
   for (const hash of BUILT_ROUTES) {
     await page.goto(`/${hash}`);
     await page.waitForLoadState("networkidle");
+    if (hash === "#/presenter") await expect(page.locator('[data-screen="SCR-19"]')).toBeVisible();
     if (LIVE.test(hash)) await waitForSnapshot(page);
     const mode = (await page.evaluate(() => document.documentElement.dataset.mode)) as HtmlMode;
     await axeScan(page, { mode, route: `${testInfo.project.name}-${hash}` });

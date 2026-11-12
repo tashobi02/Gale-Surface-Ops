@@ -44,3 +44,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 ## Package 19 follow-up
 
 1. N-30 — N-06 supplies sol, LTST and the condition fields, but `ConditionsState` has no EVA phase. Supply the authoritative phase plus provenance and source; SCR-11 currently displays “—”.
+
+## Package 23 follow-up
+
+1. N-90 — Implement N-16 `GET /api/join-qr?role=<role>` for the protocol roles, including presenter and HUD. The contract lists it but apps/hab-core/src has no handler in this checkout; SCR-19 shows “—” when an image is unavailable and keeps the same-origin join link.
