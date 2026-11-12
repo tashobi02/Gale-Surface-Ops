@@ -1,14 +1,18 @@
 /** FD-088: lose an accepted command's reply AFTER hold dispatch, then resend to the real Hab Core. */
 import { expect, test } from "@playwright/test";
 import type { ClientMessage, CommandResult, Snapshot } from "@marswalk/protocol";
+import { waitForSnapshot } from "../lib/hab";
 
  test("queued-resend: in-flight SUMMON keeps its id, queues, resends once and executes once", async ({ page, context }) => {
   const ops = await context.newPage();
   try {
     await ops.goto('/?site=mock_site#/ops');
+    await waitForSnapshot(ops);
     await expect(ops.getByTestId('clock-control')).toBeVisible();
     const start = ops.getByRole('button', { name: 'Start EVA mission', exact: true });
-    if (await start.count()) await start.click();
+    await expect(start).toBeVisible({ timeout: 5000 });
+    await start.click();
+    await expect(start).toBeHidden({ timeout: 5000 });
     await ops.close();
     const sent: Extract<ClientMessage, { type: "COMMAND" }>[] = [];
     const delivered: CommandResult[] = [];
