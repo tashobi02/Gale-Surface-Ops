@@ -1,6 +1,6 @@
 {
   "$comment": "Source lock (docs/specs/05 \u00a7E.5; plan backend 22; BD-134): every input the pipeline reads, with the URL, version, size, SHA-256 and the date the file was fetched, `verified` is the date its local copy was last compared with the lock. `dir` and `filename` place the file under pipeline/work/. Filled from pipeline/spice/kernels.lock.json, docs/ops/rad-series.md, the PLACES cache manifest, the POI image list and the checksums of docs/tasks/TASK-03 (Input checksums); every digest was recomputed from the files on 2026-11-12. `python -m marswalk_pipeline.acquire --offline` re-verifies them without a network.",
-  "data_version": null,
+  "data_version": "gale_boxwork-2026.11.09",
   "tools": {
     "gdal": "3.13.3",
     "rasterio": "1.5.2"

@@ -4,13 +4,32 @@
   "category": "optical",
   "kind": "raster_tiles",
   "provenance": "measured",
-  "source_ids": ["usgs-gale-ortho-25cm-v3"],
-  "legend": {"type": "none"},
+  "source_ids": [
+    "usgs-gale-ortho-25cm-v3"
+  ],
+  "legend": {
+    "type": "none"
+  },
   "native_resolution_m": 0.25,
   "display_resolution_m": 0.5,
   "asset_id": "tiles-ortho",
-  "tile_grid": {"origin_m": [-3000, 3000], "resolutions_m": [32, 16, 8, 4, 2, 0.5], "tile_size_px": 256, "format": "jpg"},
+  "tile_grid": {
+    "origin_m": [
+      -3000,
+      3000
+    ],
+    "resolutions_m": [
+      32,
+      16,
+      8,
+      4,
+      2,
+      0.5
+    ],
+    "tile_size_px": 256,
+    "format": "jpg"
+  },
   "default_visible": true,
   "optional": false,
-  "limitations": "The colour COG has about 7.74% greyscale strips in the AOI window (nearest-neighbour sample). JPEG tiles may show black padding outside the area of interest."
+  "limitations": "The colour COG has about 7.74% greyscale strips in the AOI window (nearest-neighbour sample). JPEG tiles have no alpha: pixels outside the source mask and outside the area of interest are written in the map background colour (04 `void`), not transparent, and the manifest has no coverage polygon. Black pixels the source marks valid are shown as they are; the product page does not say what black means."
 }

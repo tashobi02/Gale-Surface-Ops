@@ -17,23 +17,21 @@ def _paths(site_id: str) -> tuple[Path, Path, Path, Path]:
     return root, root / "pipeline" / "sites" / site_id, root / "pipeline" / "work", root / "data" / "sites" / site_id
 
 
-def _unstyled_layers(site_dir: Path) -> dict[str, str]:
-    result = {}
-    for layer in ("elevation", "thermal_inertia", "hazard_flags", "comm_hab"):
-        path = site_dir / "layers" / f"{layer}.json"
-        if not path.exists():
-            continue
-        record = json.loads(path.read_text(encoding="utf-8"))
-        if layer in ("hazard_flags", "comm_hab"):
-            result[layer] = "display tile encoding is unspecified"
-        elif record.get("legend", {}).get("stops") == "TODO(verify)":
-            result[layer] = "display colour ramp is unspecified"
-    return result
+# Display layers whose tiles are derived from the other outputs: a computed colour ramp or a flag
+# encoding (BD-17). The build renders all of them; `--skip-unstyled-optional` can omit the optional ones.
+DERIVED_DISPLAY_LAYERS = ("elevation", "thermal_inertia", "hazard_flags", "comm_hab")
+# Ramp layers: (source raster in the scratch folder, unit of the legend labels, decimals of the labels).
+RAMP_LAYERS = {"elevation": ("dem.tif", "m", 1), "thermal_inertia": ("ti.tif", "tiu", 0)}
 
 
 def _skipped_layers(site_dir: Path) -> set[str]:
-    return {layer for layer in _unstyled_layers(site_dir)
-            if json.loads((site_dir / "layers" / f"{layer}.json").read_text(encoding="utf-8")).get("optional") is True}
+    """The optional derived display layers (the ones `--skip-unstyled-optional` may omit)."""
+    result = set()
+    for layer in DERIVED_DISPLAY_LAYERS:
+        path = site_dir / "layers" / f"{layer}.json"
+        if path.exists() and json.loads(path.read_text(encoding="utf-8")).get("optional") is True:
+            result.add(layer)
+    return result
 
 
 def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir: Path, *, inputs: dict[str, Path] | None = None, lock_path: Path | None = None, skip_unstyled_optional: bool = False, traverse: Path | None = None, offline: bool = False) -> None:
@@ -156,29 +154,46 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
             mast = site["hab_mast"]
             write_comm_hab(bundle_dir, build_comm_hab(elevation, config.GRID_CELL_M, origin, mast["x_m"], mast["y_m"], root))
     elif name == "tiles":
-        from .tiles import render_tiles
-        unstyled = _unstyled_layers(site_dir)
+        import numpy as np
+        import rasterio
+        from .tiles import comm_rgba, hazard_rgba, ramp_stops, render_tiles, set_legend_stops, write_rgba_raster
         skipped = _skipped_layers(site_dir) if skip_unstyled_optional else set()
-        for layer, raster in (("ortho", "ortho.tif"), ("hillshade", "hillshade.tif"), ("slope", "slope.tif"), ("elevation", "dem.tif"), ("thermal_inertia", "ti.tif"), ("hazard_flags", None), ("comm_hab", None)):
-            if layer in unstyled:
-                if layer in skipped:
-                    print(f"Warning: {layer}: {unstyled[layer]}; TODO(decision) (owner: data lead + design brief 04); skipping", file=sys.stderr)
-                    old = bundle_dir / "tiles" / layer
-                    if old.is_symlink():
-                        old.unlink()
-                    elif old.exists():
-                        shutil.rmtree(old)
-                    continue
-                raise ValueError(f"{layer}: TODO(decision) {unstyled[layer]}")
-            record = json.loads((site_dir / "layers" / f"{layer}.json").read_text(encoding="utf-8"))
+        for layer, raster in (("ortho", "ortho.tif"), ("hillshade", "hillshade.tif"), ("slope", "slope.tif"), ("elevation", "dem.tif"), ("thermal_inertia", "ti.tif"), ("hazard_flags", "hazard_flags.tif"), ("comm_hab", "comm_hab.tif")):
+            if layer in skipped:
+                print(f"Warning: {layer}: omitted by --skip-unstyled-optional", file=sys.stderr)
+                old = bundle_dir / "tiles" / layer
+                if old.is_symlink():
+                    old.unlink()
+                elif old.exists():
+                    shutil.rmtree(old)
+                continue
+            record_path = site_dir / "layers" / f"{layer}.json"
+            record = json.loads(record_path.read_text(encoding="utf-8"))
             tile_grid = record["tile_grid"]
-            render_tiles(scratch / raster, layer, tuple(tile_grid["origin_m"]), tile_grid["resolutions_m"], tile_grid["tile_size_px"], tile_grid["format"], bundle_dir, data_encoded=layer == "slope", hillshade=layer == "hillshade", aoi_extent_m=extent)
+            options: dict = {}
+            if layer in RAMP_LAYERS:
+                source, unit, decimals = RAMP_LAYERS[layer]
+                with rasterio.open(scratch / source) as dataset:
+                    values = dataset.read(1, masked=True).astype("float64").filled(np.nan)
+                stops = ramp_stops(values, unit, decimals)
+                set_legend_stops(record_path, stops)
+                options["ramp"] = (stops[0][0], stops[1][0])
+            elif layer == "hazard_flags":
+                write_rgba_raster(scratch / raster, hazard_rgba(np.load(scratch / "flags.npy")), origin, config.GRID_CELL_M, projection)
+                options["categorical"] = True
+            elif layer == "comm_hab":
+                shape = np.load(scratch / "flags.npy").shape
+                visibility = np.fromfile(bundle_dir / "grid" / "comm_hab.u8", dtype=np.uint8).reshape(shape)
+                write_rgba_raster(scratch / raster, comm_rgba(visibility), origin, config.GRID_CELL_M, projection)
+                options["categorical"] = True
+            render_tiles(scratch / raster, layer, tuple(tile_grid["origin_m"]), tile_grid["resolutions_m"], tile_grid["tile_size_px"], tile_grid["format"], bundle_dir, data_encoded=layer == "slope", hillshade=layer == "hillshade", aoi_extent_m=extent, **options)
     elif name == "vectors":
-        from .vectors import package_pois, package_traverse
+        from .vectors import package_poi_images, package_pois, package_traverse
         if traverse is None:
             raise ValueError("--traverse is required for vectors: provide the T04.01 cached source for the T04.03 parser")
         package_traverse(traverse, projection, bundle_dir / "vectors" / "traverse.geojson", aoi_extent_m=extent)
         package_pois(site_dir / "pois", projection, bundle_dir / "vectors" / "pois.geojson")
+        package_poi_images(site_dir / "pois", work_dir / "images", bundle_dir / "images")
     elif name == "manifest":
         from .manifest import write_manifest
         write_manifest(bundle_dir, site["data_version"], projection, site_dir, exclude_layers=_skipped_layers(site_dir) if skip_unstyled_optional else set())
@@ -199,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--lock", type=Path, help="source lock file (default: pipeline/sources.lock.json)")
     parser.add_argument("--traverse", type=Path, help="T04.01 cached traverse source for T04.03 vector packaging")
     parser.add_argument("--offline", action="store_true", help="acquire makes no request: it verifies the files in --work against the lock and fails on a missing one")
-    parser.add_argument("--skip-unstyled-optional", action="store_true", help="omit optional layers with unresolved display encoding")
+    parser.add_argument("--skip-unstyled-optional", action="store_true", help="omit the optional derived display layers (elevation, thermal_inertia, hazard_flags, comm_hab); the build does not use it")
     for source in ("dem", "ortho", "ti"):
         parser.add_argument(f"--{source}", type=Path, help=f"override local {source} input raster")
     args = parser.parse_args(argv)

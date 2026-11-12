@@ -340,3 +340,59 @@ def test_hazard_flags_reserved_bits_5_to_7_stay_zero():
     )
 
     assert np.all((flags & RESERVED_BITS) == 0)
+
+
+# --- BD-19: the ratified numerics -------------------------------------------------------------
+
+
+def test_bd19_horn_edge_ring_is_nan_not_replicated():
+    """The outer ring has no full stencil: its slope is NaN (unknown is never passable), not an edge replica."""
+    slope = horn_slope_deg(_plane(10.0), CELL_M)
+    ring = np.ones(slope.shape, dtype=bool)
+    ring[1:-1, 1:-1] = False
+    assert np.isnan(slope[ring]).all()
+    assert np.isfinite(slope[~ring]).all()
+
+
+def test_bd19_p90_is_numpy_linear_interpolation():
+    block = np.arange(25, dtype=np.float64).reshape(5, 5)       # 0..24: the linear 90th percentile is 21.6
+    p90, maximum = aggregate_slope(block, 5)
+    assert p90[0, 0] == pytest.approx(float(np.percentile(np.arange(25), 90, method="linear")))
+    assert p90[0, 0] == pytest.approx(21.6)
+    assert maximum[0, 0] == 24
+
+
+def test_bd19_aggregate_refuses_a_window_that_is_not_whole_cells_instead_of_cropping():
+    with pytest.raises(ValueError, match="multiple"):
+        aggregate_slope(np.zeros((6, 5)), 5)
+
+
+def test_bd19_grid_elevation_is_the_block_mean_of_the_1m_dem(tmp_path):
+    """The 5 m grid elevation is the mean of the finite 1 m posts of each block; an all-NaN block stays NaN."""
+    rasterio = pytest.importorskip("rasterio")
+    import json
+    from rasterio.transform import from_origin
+    from marswalk_pipeline import __main__ as runner
+    from marswalk_pipeline import config
+
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "site.json").write_text(json.dumps({"site_id": "gale_boxwork", "aoi": {"extent_m": [0, 0, 10, 10]}}))
+    dem = np.arange(100, dtype="float32").reshape(10, 10)
+    dem[:5, 5:] = np.nan                        # block (0, 1) is all unknown
+    dem[5, 0] = np.nan                          # one unknown post in block (1, 0)
+    scratch = tmp_path / "work/runs/gale_boxwork"
+    scratch.mkdir(parents=True)
+    with rasterio.open(scratch / "dem.tif", "w", driver="GTiff", width=10, height=10, count=1, dtype="float32",
+                       transform=from_origin(0, 10, 1, 1), nodata=np.nan) as dst:
+        dst.write(dem, 1)
+    runner._run_step("derive", tmp_path, site, tmp_path / "work", tmp_path / "out")
+    factor = int(config.GRID_CELL_M)
+    expected = np.full((2, 2), np.nan)
+    for row in range(2):
+        for col in range(2):
+            cell = dem[row * factor:(row + 1) * factor, col * factor:(col + 1) * factor]
+            if np.isfinite(cell).any():
+                expected[row, col] = cell[np.isfinite(cell)].mean(dtype=np.float64)
+    np.testing.assert_allclose(np.load(scratch / "elevation.npy"), expected, equal_nan=True, rtol=1e-6)
+

@@ -129,6 +129,30 @@ def _png_size(path: Path) -> tuple[int, int]:
     return width, height
 
 
+def _jpeg_size(path: Path) -> tuple[int, int]:
+    """(width, height) from the first start-of-frame marker of a JPEG file (standard library only)."""
+    data = path.read_bytes()
+    if data[:2] != b"\xff\xd8":
+        raise ValueError(f"{path.name} is not a JPEG file")
+    position = 2
+    while position + 4 <= len(data):
+        if data[position] != 0xFF:
+            break
+        marker = data[position + 1]
+        if marker == 0xFF:
+            position += 1
+            continue
+        if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+            position += 2
+            continue
+        length = struct.unpack(">H", data[position + 2:position + 4])[0]
+        if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+            height, width = struct.unpack(">HH", data[position + 5:position + 9])
+            return width, height
+        position += 2 + length
+    raise ValueError(f"{path.name}: no JPEG frame header found")
+
+
 def _file_asset(site_dir: Path, asset_id: str, path: str, fmt: str, dims: tuple[int, int] | None) -> dict:
     file = site_dir / path
     size = file.stat().st_size
@@ -169,8 +193,21 @@ def _produced_assets(site_dir: Path, grid_dims: tuple[int, int], ti_dims: tuple[
             "sha256": sha256_file(index),
         })
 
-    # Single static images (T03.25 fallback). TODO(verify): images/<name>.png is not fixed by C5 or 05.
+    # POI images (02 §E.1 `images/<poi_id>.jpg`): the asset id is `img-<poi_id without its `poi-` prefix>`,
+    # the id the POI record's `image_asset` carries; the files are the locked source images, copied as they are.
     images = site_dir / "images"
+    for image in sorted(images.glob("*.jpg")) if images.is_dir() else []:
+        width, height = _jpeg_size(image)
+        assets.append({
+            "asset_id": f"img-{image.stem.removeprefix('poi-')}",
+            "path": f"images/{image.name}",
+            "format": "jpg",
+            "sha256": sha256_file(image),
+            "bytes": image.stat().st_size,
+            "width": width,
+            "height": height,
+        })
+    # Single static images (T03.25 fallback): images/<layer_id>.png, one per 2 m layer (C9 §6); not built in v1.
     for image in sorted(images.glob("*.png")) if images.is_dir() else []:
         width, height = _png_size(image)
         assets.append({
