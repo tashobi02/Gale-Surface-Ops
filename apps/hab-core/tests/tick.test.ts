@@ -619,11 +619,12 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
     // The first tick moves both crew by a delta carrying the new value, and logs nothing.
     expect(trace.events[1]).toEqual([]);
     for (const id of CREW) expect(trace.deltas[1]).toContainEqual({ path: `crew/${id}/x_m`, value: crewOf(trace.states[1], id).x_m });
-    // A delta is sent only when the value changed: standing in a dwell moves nothing but O₂, time and dose.
+    // A delta is sent only when the value changed: standing in a dwell moves nothing but O₂, time and dose, and the two margins
+    // that follow them (O₂ time left and the ETA to the next stop; the bearing and distance to it stay, T32.31, BD-95).
     const inDwell = tickOf(0) + 10;
-    const dwellPaths = CREW.flatMap((id) => [`crew/${id}/dose_event_ugy`, `crew/${id}/dose_event_unsheltered_ugy`, `crew/${id}/eva_elapsed_s`, `crew/${id}/o2_frac`]);
+    const dwellPaths = CREW.flatMap((id) => [`crew/${id}/dose_event_ugy`, `crew/${id}/dose_event_unsheltered_ugy`, `crew/${id}/eva_elapsed_s`, `crew/${id}/o2_frac`, `crew/${id}/o2_remaining_min`, `crew/${id}/next_stop_eta_s`]);
     expect(trace.deltas[inDwell].map((d) => d.path).sort()).toEqual(dwellPaths.sort());
-    expect(trace.deltas.flat().every((d) => /^crew\/(EV1|EV2)\/(x_m|y_m|o2_frac|eva_elapsed_s|dose_event_ugy|dose_event_unsheltered_ugy)$/.test(d.path))).toBe(true);
+    expect(trace.deltas.flat().every((d) => /^crew\/(EV1|EV2)\/(x_m|y_m|o2_frac|eva_elapsed_s|dose_event_ugy|dose_event_unsheltered_ugy|o2_remaining_min|next_stop_bearing_deg|next_stop_distance_m|next_stop_eta_s)$/.test(d.path))).toBe(true);
     // Applying the deltas to the start reproduces the end state (what a client does).
     const folded = new Map<string, unknown>();
     for (const d of trace.deltas.flat()) folded.set(d.path, d.value);

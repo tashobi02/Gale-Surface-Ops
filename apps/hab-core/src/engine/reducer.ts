@@ -201,6 +201,11 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
         linked: true,
         link_path: [c.crew_id, "HAB"],
         stale: false,
+        // Margins for the tablet and HUD (BD-95): nothing to report in the hab; crewMargins fills them once the EVA runs.
+        o2_remaining_min: null,
+        next_stop_bearing_deg: null,
+        next_stop_distance_m: null,
+        next_stop_eta_s: null,
       }),
     ),
     vehicles: s.vehicles.map(

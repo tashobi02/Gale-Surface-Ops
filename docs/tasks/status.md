@@ -249,3 +249,5 @@ After editing this file run `make progress`. Do not edit the README progress blo
 | T32.13 | done | 2026-11-12 | [liveSetup.test.ts](../../apps/hab-core/tests/liveSetup.test.ts): reset, site, setup and the full 02 §E.4 matrix |
 | T32.14 | done | 2026-11-12 | [liveSetup.ts](../../apps/hab-core/src/engine/liveSetup.ts); haven recomputed on SELECT_HAB_SITE (BD-115, BD-116, BD-117) |
 | T32.15 | done | 2026-11-12 | [server.ts](../../apps/hab-core/src/server.ts) sends a fresh SNAPSHOT after a session replace (BD-118); [server.test.ts](../../apps/hab-core/tests/server.test.ts) green; habClient already restarts its feed on a new session_id (01a) |
+| T32.30 | done | 2026-11-12 | [crewMargins.test.ts](../../apps/hab-core/tests/crewMargins.test.ts): O₂ time, bearing, distance, ETA (BD-95, BD-119) |
+| T32.31 | done | 2026-11-12 | [crewMargins.ts](../../apps/hab-core/src/engine/crewMargins.ts) and compute [geometry.ts](../../packages/compute/src/geometry.ts); fields in SNAPSHOT and STATE_DELTA with provenance |

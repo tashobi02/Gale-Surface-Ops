@@ -27,3 +27,4 @@ export * from "./leg";
 export * from "./noRoute";
 export * from "./validate";
 export * from "./handler";
+export * from "./geometry";
