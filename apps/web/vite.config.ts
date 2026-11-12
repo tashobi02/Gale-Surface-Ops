@@ -37,5 +37,6 @@ export default defineConfig({
       "/ws": { target: HAB.replace(/^http/, "ws"), ws: true },
     },
   },
+  // Vitest runs only tests/; the Playwright harness in e2e/ is run by `make e2e`, never by `make test-web`.
   test: { include: ["tests/**/*.test.ts"] },
 });

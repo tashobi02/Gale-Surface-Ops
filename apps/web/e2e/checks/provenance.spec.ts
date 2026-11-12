@@ -1,0 +1,31 @@
+/**
+ * Check `provenance` (replaces T12.06). Enabled by packages 28 and 29.
+ * The demo path (SCR-01, SCR-02, SCR-05, SCR-07, SCR-08) and every live role: `unlabelledNumbers` is empty, and every source id
+ * shown resolves in SCR-09.
+ */
+import { expect, test } from "@playwright/test";
+import { waitForSnapshot } from "../lib/hab";
+import { expectNoUnlabelledNumbers } from "../lib/provenance";
+
+const DEMO_PATH = ["#/", "#/planner", "#/briefing"];
+const LIVE = ["#/ops", "#/eva/EV1", "#/hud/EV1", "#/report"];
+
+test.fixme("provenance: no unlabelled number on the demo path and every source id resolves in SCR-09 (enabled by package 28)", async ({ page }) => {
+  const sources = new Set<string>();
+  for (const hash of DEMO_PATH) {
+    await page.goto(`/${hash}`);
+    await page.waitForLoadState("networkidle");
+    await expectNoUnlabelledNumbers(page, hash);
+    for (const id of await page.locator("[data-source]").evaluateAll((els) => els.map((e) => e.getAttribute("data-source")!))) sources.add(id);
+  }
+  await page.goto("/#/sources");
+  for (const id of sources) await expect(page.locator(`[id="${id}"], [data-anchor="${id}"]`).first(), `source ${id} is not in SCR-09`).toBeAttached();
+});
+
+test.fixme("provenance: no unlabelled number on any live role (enabled by package 29)", async ({ page }) => {
+  for (const hash of LIVE) {
+    await page.goto(`/${hash}`);
+    if (hash !== "#/report") await waitForSnapshot(page);
+    await expectNoUnlabelledNumbers(page, hash);
+  }
+});
