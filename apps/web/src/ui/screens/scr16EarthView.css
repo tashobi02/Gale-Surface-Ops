@@ -1,0 +1,12 @@
+.earth-view { max-width: 1200px; margin: auto; padding: 24px; color: var(--text-1); font-family: var(--font-mono); }
+.earth-view h1 { margin: 8px 0 24px; }
+.earth-view h2 { font-size: 1rem; margin: 0 0 16px; }
+.earth-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.earth-panel { padding: 16px; background: var(--raised); border: 1px solid var(--edge); }
+.earth-panel form { display: grid; gap: 8px; }
+.earth-panel textarea { min-height: 120px; padding: 8px; background: var(--panel); color: var(--text-1); border: 1px solid var(--edge); font: inherit; }
+.earth-panel button { min-height: 44px; color: var(--text-1); background: var(--raised); border: 1px solid var(--edge); cursor: pointer; }
+.earth-panel button:disabled { opacity: .6; cursor: default; }
+.earth-panel li { overflow-wrap: anywhere; }
+.earth-caution { color: var(--status-caution); }
+@media (max-width: 700px) { .earth-grid { grid-template-columns: 1fr; } }
