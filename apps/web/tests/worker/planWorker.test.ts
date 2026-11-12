@@ -4,7 +4,7 @@
  * apps/web/src/worker/planWorker.ts adds `computed_utc` and a measured `timing_ms.total`.
  * The handler is replaced here by a stub, so these tests do not depend on routing science.
  */
-import type { ComputePlanRequest, PlanResultMessage, SamplePointRequest, WorkerError } from "@marswalk/protocol";
+import type { ComputePlanRequest, EnvConstant, PlanResultMessage, SamplePointRequest, WorkerError } from "@marswalk/protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const handleWorkerMessage = vi.hoisted(() => vi.fn());
@@ -92,7 +92,7 @@ describe("planWorker adapter metadata", () => {
 
     expect(response.type).toBe("PLAN_RESULT");
     expect(response.computed_utc).toBe(FIXED_NOW);
-    expect(response.timing_ms).toEqual({ total: 12.5 });
+    expect(response.timing_ms).toEqual({ total: 12.5, routing: 0, estimates: 0 });
   });
 
   it("keeps a measured zero duration at zero (no minimum)", async () => {
@@ -104,15 +104,40 @@ describe("planWorker adapter metadata", () => {
     expect(response.timing_ms.total).toBe(0);
   });
 
-  it("reports only the total: no fabricated routing or estimates timings", async () => {
-    stubHandlerThatTakes(7, pureOk);
+  it("reports routing and estimates as the time the handler spends inside the timer it was given (BD-50)", async () => {
+    let now = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    handleWorkerMessage.mockImplementation(
+      (_grid: unknown, _request: unknown, _max: unknown, options: { timer: <T>(phase: "routing" | "estimates", fn: () => T) => T }) => {
+        options.timer("routing", () => { now += 4; });
+        options.timer("routing", () => { now += 3; });
+        now += 1; // time outside both phases counts only in total
+        options.timer("estimates", () => { now += 2; });
+        return pureOk;
+      },
+    );
     const { handleMessage } = await loadAdapter();
 
     const response = handleMessage(planRequest) as PlanResultMessage;
 
-    expect(Object.keys(response.timing_ms)).toEqual(["total"]);
-    expect(response.timing_ms).not.toHaveProperty("routing");
-    expect(response.timing_ms).not.toHaveProperty("estimates");
+    expect(response.timing_ms).toEqual({ total: 10, routing: 7, estimates: 2 });
+  });
+
+  it("starts the phase timers at zero for every plan (no state carried between requests)", async () => {
+    let now = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    handleWorkerMessage.mockImplementation(
+      (_grid: unknown, _request: unknown, _max: unknown, options: { timer: <T>(phase: "routing" | "estimates", fn: () => T) => T }) => {
+        options.timer("routing", () => { now += 5; });
+        return pureOk;
+      },
+    );
+    const { handleMessage } = await loadAdapter();
+
+    handleMessage(planRequest);
+    const second = handleMessage({ ...planRequest, plan_revision: 4 }) as PlanResultMessage;
+
+    expect(second.timing_ms.routing).toBe(5);
   });
 
   it("keeps the pure plan fields and the empty M3 timeline untouched", async () => {
@@ -143,7 +168,18 @@ describe("planWorker adapter metadata", () => {
     handleMessage(planRequest);
 
     expect(handleWorkerMessage).toHaveBeenCalledTimes(1);
-    expect(handleWorkerMessage).toHaveBeenCalledWith(null, planRequest);
+    expect(handleWorkerMessage).toHaveBeenCalledWith(null, planRequest, undefined, expect.objectContaining({ timer: expect.any(Function) }));
+  });
+
+  it("hands the env constants set for the site to the pure handler (radiation inputs, BD-122)", async () => {
+    stubHandlerThatTakes(1, pureOk);
+    const { handleMessage, setWorkerEnvConstants } = await loadAdapter();
+    const rate = { const_id: "rad-test", unit: "mSv/day", conditions: { solar_phase: "max" } } as unknown as EnvConstant;
+    setWorkerEnvConstants([rate]);
+
+    handleMessage(planRequest);
+
+    expect(handleWorkerMessage.mock.calls[0][3]).toMatchObject({ envConstants: [rate] });
   });
 
   it("returns SAMPLE_RESULT unchanged, without plan metadata", async () => {

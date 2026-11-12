@@ -1,9 +1,17 @@
-import { FLAG_BITS, type ComputePlanRequest, type SamplePointRequest } from "@marswalk/protocol";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { FLAG_BITS, type ComputePlanRequest, type EnvConstant, type PlanResult, type SamplePointRequest } from "@marswalk/protocol";
+import Ajv2020 from "ajv/dist/2020";
+import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 import { makePlaneGrid, makeWallWithGapGrid } from "../../../apps/web/tests/fixtures/grids";
 import { handleMessage, setWorkerGrid } from "../../../apps/web/src/worker/planWorker";
 import { handleWorkerMessage } from "../src/handler";
 import { cellIndex } from "../src/grid";
+import { localTrueSolarTime, mslSol, solarLongitude } from "../src/mars24";
+import { estimateDose } from "../src/radiation";
+import { inverseEqc } from "../src/sampling";
+import { solarPosition, sunriseSunset } from "../src/sun";
 
 const testGrid = makePlaneGrid({
   width: 20,
@@ -265,9 +273,11 @@ describe("compute worker handler and entry", () => {
         expect(res1).toStrictEqual(res2);
         expect(res1).not.toHaveProperty("computed_utc");
         expect(res1).not.toHaveProperty("timing_ms");
-        expect(res1).not.toHaveProperty("conditions");
+        // The handler needs no env constants for the timeline and the EVA-sol conditions; radiation is omitted
+        // without them (BD-50) and never invented.
         expect(res1).not.toHaveProperty("radiation");
-        expect(res1.stops_timeline).toEqual([]);
+        expect(res1.stops_timeline).toHaveLength(defaultComputeRequest.waypoints.length + 1);
+        expect(res1.conditions).toBeDefined();
       }
     });
 
@@ -378,12 +388,149 @@ describe("compute worker handler and entry", () => {
       }
     });
 
-    // C8 assembly into PLAN_RESULT waits on five decisions (conditions.ts header, TASK-06 T06.09): the handler
-    // returns the empty M3 timeline and omits conditions and radiation until then (tested above).
-    it.todo("populates stops_timeline, conditions and radiation from assembleConditions (TODO(decision): site coordinate, EnvConstant selection)");
-    it.todo("PARTIAL plan: dose duration and per-leg walk time are unavailable, not 0 (TODO(decision): PARTIAL-plan dose duration)");
-    it.todo("DARKNESS warning from solar inputs along legs and dwell (TODO(decision): darkness inputs)");
-    it.todo("timing_ms.routing and timing_ms.estimates (TODO(decision): timing boundaries)");
+    // DARKNESS from solar inputs along legs and dwell is package 14 (BD-49), not C8 assembly.
+    it.todo("DARKNESS warning from solar inputs along legs and dwell (package 14, BD-49)");
+  });
+
+  // C8 assembly into PLAN_RESULT (T06.09, T05.32; BD-50, BD-122).
+  describe("PLAN_RESULT conditions, timeline and radiation", () => {
+    const loadRate = (phase: "max" | "min"): EnvConstant =>
+      JSON.parse(
+        readFileSync(
+          fileURLToPath(new URL(`../../../pipeline/sites/gale_boxwork/env_constants/rad-gale-dose-eq-solar-${phase}.json`, import.meta.url), ),
+          "utf8",
+        ),
+      ) as EnvConstant;
+    const envConstants = [loadRate("max"), loadRate("min")];
+    const start = defaultComputeRequest.waypoints[0];
+    // The site is the plan's start waypoint through the inverse working projection (BD-50).
+    const site = inverseEqc(start.x_m, start.y_m);
+
+    function plan(options: Parameters<typeof handleWorkerMessage>[3] = { envConstants }, request: ComputePlanRequest = defaultComputeRequest) {
+      const response = handleWorkerMessage(testGrid, request, undefined, options);
+      expect(response.type).toBe("PLAN_RESULT");
+      return response as Extract<typeof response, { type: "PLAN_RESULT" }>;
+    }
+
+    it("fills stops_timeline: one entry per waypoint plus the loop return, from the start instant, with LTST and sun elevation at the start waypoint", () => {
+      const res = plan();
+      const evaStartMs = Date.parse(defaultComputeRequest.scenario.eva_start_utc);
+
+      expect(res.stops_timeline).toHaveLength(defaultComputeRequest.waypoints.length + 1);
+      expect(Date.parse(res.stops_timeline[0].arrive_utc)).toBe(evaStartMs);
+      for (const entry of res.stops_timeline) {
+        const arrive = new Date(entry.arrive_utc);
+        expect(entry.arrive_ltst).toBe(localTrueSolarTime(arrive, site.lon_e));
+        expect(entry.sun_elevation_deg).toBe(solarPosition(arrive, site.lat, site.lon_e).elevation_deg);
+        expect(Date.parse(entry.depart_utc)).toBeGreaterThanOrEqual(Date.parse(entry.arrive_utc));
+      }
+      // The loop ends when the EVA does: last arrival minus start is the EVA total.
+      const last = res.stops_timeline[res.stops_timeline.length - 1];
+      expect((Date.parse(last.arrive_utc) - evaStartMs) / 60_000).toBeCloseTo(res.totals!.eva_total_min, 2); // ISO timestamps carry milliseconds
+    });
+
+    it("has no return entry when loop is false", () => {
+      const request = { ...defaultComputeRequest, scenario: { ...defaultComputeRequest.scenario, loop: false } };
+      expect(plan({ envConstants }, request).stops_timeline).toHaveLength(request.waypoints.length);
+    });
+
+    it("fills conditions for the EVA sol, incl. the MSL sol, from the compute functions at the start waypoint", () => {
+      const res = plan();
+      const evaStart = new Date(defaultComputeRequest.scenario.eva_start_utc);
+      const sun = sunriseSunset(evaStart, site.lat, site.lon_e);
+      const sol = solarLongitude(evaStart);
+
+      expect(res.conditions).toEqual({
+        mars_year: sol.mars_year,
+        ls_deg: sol.ls_deg,
+        sunrise_ltst: sun.sunrise_ltst,
+        sunset_ltst: sun.sunset_ltst,
+        sunrise_utc: sun.sunrise_utc,
+        sunset_utc: sun.sunset_utc,
+        sol: mslSol(evaStart, site.lon_e),
+      });
+    });
+
+    it.each(["max", "min"] as const)("fills radiation for solar_phase %s over the routed EVA total (02 §D.4)", (phase) => {
+      const request = { ...defaultComputeRequest, scenario: { ...defaultComputeRequest.scenario, solar_phase: phase } };
+      const res = plan({ envConstants }, request);
+      const rate = envConstants.find((c) => c.conditions.solar_phase === phase)!;
+
+      expect(res.radiation).toEqual(estimateDose(rate, res.totals!.eva_total_min / 60));
+      expect(res.radiation?.solar_phase).toBe(phase);
+    });
+
+    it("omits radiation, and invents nothing, when the handler was given no env constants", () => {
+      const res = plan({});
+      expect(res).not.toHaveProperty("radiation");
+      expect(res.conditions).toBeDefined();
+    });
+
+    it("PARTIAL plan: totals null, no timeline (walk times unknown), no radiation, conditions still present", () => {
+      const grid = makePlaneGrid({ width: 20, height: 20, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+      grid.flags[cellIndex(grid, start.x_m, start.y_m)!] |= 1 << FLAG_BITS.HARD_HAZARD;
+
+      const res = handleWorkerMessage(grid, defaultComputeRequest, undefined, { envConstants });
+
+      expect(res.type).toBe("PLAN_RESULT");
+      if (res.type !== "PLAN_RESULT") return;
+      expect(res.status).toBe("PARTIAL");
+      expect(res.totals).toBeNull();
+      expect(res.stops_timeline).toEqual([]);
+      expect(res).not.toHaveProperty("radiation");
+      expect(res.conditions?.sol).toBe(mslSol(new Date(defaultComputeRequest.scenario.eva_start_utc), site.lon_e));
+    });
+
+    it("a grid far from the default origin gives another site: LTST follows the inverse projection of the start waypoint (Mars CRS, projected metres)", () => {
+      const shift = 4_000_000;
+      const farGrid = makePlaneGrid({ width: 20, height: 20, cell_m: 5, slope_deg: 0, origin_m: [shift, 0] });
+      const moved = {
+        ...defaultComputeRequest,
+        waypoints: defaultComputeRequest.waypoints.map((w) => ({ ...w, x_m: w.x_m + shift })),
+      };
+      const movedSite = inverseEqc(start.x_m + shift, start.y_m);
+      expect(Math.abs(movedSite.lon_e - site.lon_e)).toBeGreaterThan(1);
+
+      const res = handleWorkerMessage(farGrid, moved, undefined, { envConstants });
+
+      expect(res.type).toBe("PLAN_RESULT");
+      if (res.type !== "PLAN_RESULT") return;
+      const arrive = new Date(res.stops_timeline[0].arrive_utc);
+      expect(res.stops_timeline[0].arrive_ltst).toBe(localTrueSolarTime(arrive, movedSite.lon_e));
+      expect(res.conditions?.sol).toBe(mslSol(arrive, movedSite.lon_e));
+    });
+
+    it("calls the injected timer for every routed leg ('routing') and once for the assembly ('estimates'), and returns the values unchanged", () => {
+      const calls: string[] = [];
+      const timer = <T,>(phase: "routing" | "estimates", fn: () => T): T => {
+        calls.push(phase);
+        return fn();
+      };
+
+      const timed = plan({ envConstants, timer });
+
+      expect(calls.filter((c) => c === "routing")).toHaveLength(timed.legs.length);
+      expect(calls.filter((c) => c === "estimates")).toHaveLength(1);
+      expect(timed).toEqual(plan({ envConstants }));
+    });
+
+    it("is deterministic: two runs on the same grid and request are identical (BD-51)", () => {
+      expect(plan()).toStrictEqual(plan());
+    });
+
+    it("returns a PlanResult that validates against schemas/plan-export.schema.json when exported", () => {
+      const schema = JSON.parse(readFileSync(fileURLToPath(new URL("../../../schemas/plan-export.schema.json", import.meta.url)), "utf8"));
+      const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false, allowUnionTypes: true });
+      addFormats(ajv);
+      ajv.addSchema(schema);
+      const validate = ajv.getSchema(`${schema.$id}#/$defs/PlanResult`)!;
+      const { type: _type, request_id: _id, plan_revision: _rev, ...result } = plan();
+      // Run metadata the adapter adds (02 §E.2); the schema requires nothing about their values.
+      const exported: PlanResult = { ...result, computed_utc: "2026-11-12T08:00:00Z", timing_ms: { total: 1, routing: 1, estimates: 0 } };
+
+      expect(validate(exported), JSON.stringify(validate.errors)).toBe(true);
+      expect(exported.conditions?.sol).toBeTypeOf("number");
+    });
   });
 
   describe("planWorker entry and stale-revision rejection (T05.27)", () => {

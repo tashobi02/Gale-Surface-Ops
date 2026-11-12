@@ -3,7 +3,8 @@
  * FR-10, FR-11, FR-12. TASK-06 (T06.05).
  * assembleConditions runs with mars24 and sun mocked so the cases test assembly only. Every mocked value is
  * SYNTHETIC (an arbitrary stand-in, not a Mars24 result). Radiation expectations come from the real
- * estimateDose, never from hand arithmetic. The cases that wait on the five C8 decisions are `it.todo`.
+ * estimateDose, never from hand arithmetic. The five C8 decisions are BD-50 (site coordinate, EnvConstant rule,
+ * PARTIAL-plan dose, darkness inputs, timing boundaries); each has a case at the end of this file.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -11,6 +12,7 @@ import type { EnvConstant, MissionScenario } from "@marswalk/protocol";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { assembleConditions, type ConditionsInputs } from "../src/conditions";
 import * as mars24Module from "../src/mars24";
+import { mslSol } from "../src/mars24";
 import { estimateDose } from "../src/radiation";
 import * as sunModule from "../src/sun";
 
@@ -85,12 +87,13 @@ describe("assembleConditions (T06.05 / T06.09, Contract C8)", () => {
   const rateMin = syntheticRate("min", 4.5);
   const envConstants = [rateMax, rateMin];
 
+  const DURATION_H = 3.5;
   const baseInputs: ConditionsInputs = {
     site,
     timeline,
     scenario: scenarioMax,
     envConstants,
-    durationH: 3.5,
+    durationH: DURATION_H,
   };
 
   beforeEach(() => {
@@ -127,7 +130,8 @@ describe("assembleConditions (T06.05 / T06.09, Contract C8)", () => {
   it("populates the EVA-sol flat-horizon conditions block (05 §C PlanResult.conditions)", () => {
     const res = assembleConditions(baseInputs);
 
-    expect(res.conditions).toEqual({ ...MOCK_LS, ...MOCK_SUN_EVENTS });
+    // `sol` is the real mslSol (it is not mocked): the MSL mission sol of the EVA start at the site longitude.
+    expect(res.conditions).toEqual({ ...MOCK_LS, ...MOCK_SUN_EVENTS, sol: mslSol(new Date(scenarioMax.eva_start_utc), site.lon_e) });
     expect(sunModule.sunriseSunset).toHaveBeenCalledWith(new Date(scenarioMax.eva_start_utc), site.lat, site.lon_e);
     expect(mars24Module.solarLongitude).toHaveBeenCalledWith(new Date(scenarioMax.eva_start_utc));
   });
@@ -141,7 +145,7 @@ describe("assembleConditions (T06.05 / T06.09, Contract C8)", () => {
 
     expect(res.conditions).toBeUndefined();
     expect(res.stops_timeline).toHaveLength(timeline.length);
-    expect(res.radiation).toEqual(estimateDose(rateMax, baseInputs.durationH));
+    expect(res.radiation).toEqual(estimateDose(rateMax, DURATION_H));
   });
 
   it("does not hide other sunriseSunset failures such as an invalid latitude", () => {
@@ -258,10 +262,50 @@ describe("assembleConditions (T06.05 / T06.09, Contract C8)", () => {
     expect(() => assembleConditions({ ...baseInputs, ...override })).toThrow(RangeError);
   });
 
-  // Cases that wait on the five C8 decisions recorded in the conditions.ts header (TODO(decision), TASK-06 T06.09)
-  it.todo("site coordinate: which point feeds the solar functions, mast vs AOI centre (TODO(decision))");
-  it.todo("EnvConstant selection: the final rule when more than one record matches (TODO(decision))");
-  it.todo("PARTIAL plan dose: which duration feeds the dose when totals is null (TODO(decision))");
-  it.todo("DARKNESS inputs: sunrise/sunset UTC or sun elevation along legs and dwell (TODO(decision))");
-  it.todo("timing boundaries: what timing_ms.routing and timing_ms.estimates measure (TODO(decision))");
+  // The five C8 decisions (BD-50).
+  it("site coordinate: every solar function uses inputs.site, the plan's start waypoint (BD-50), not a fixed AOI centre", () => {
+    const hab = { lat: 12.25, lon_e: 33.5 };
+    const res = assembleConditions({ ...baseInputs, site: hab });
+
+    expect(mars24Module.localTrueSolarTime).toHaveBeenNthCalledWith(1, new Date(timeline[0].arrive_utc), hab.lon_e);
+    expect(sunModule.solarPosition).toHaveBeenNthCalledWith(1, new Date(timeline[0].arrive_utc), hab.lat, hab.lon_e);
+    expect(sunModule.sunriseSunset).toHaveBeenCalledWith(new Date(scenarioMax.eva_start_utc), hab.lat, hab.lon_e);
+    expect(res.conditions?.sol).toBe(mslSol(new Date(scenarioMax.eva_start_utc), hab.lon_e));
+  });
+
+  it("EnvConstant selection: exactly one rad- rate in mSv/day for the phase; a record without a conditions object never matches", () => {
+    const noConditions = { ...rateMax, conditions: undefined } as unknown as EnvConstant;
+
+    expect(assembleConditions({ ...baseInputs, envConstants: [noConditions] }).radiation).toBeUndefined();
+    expect(assembleConditions({ ...baseInputs, envConstants: [noConditions, rateMax] }).radiation?.const_id).toBe(rateMax.const_id);
+  });
+
+  it("PARTIAL plan dose: a null duration (no routed totals) omits radiation, and 0 stays a real zero dose (BD-50)", () => {
+    const partial = assembleConditions({ ...baseInputs, durationH: null });
+
+    expect(partial.radiation).toBeUndefined();
+    expect(partial.conditions).toBeDefined();
+    expect(partial.stops_timeline).toHaveLength(timeline.length);
+    expect(assembleConditions({ ...baseInputs, durationH: 0 }).radiation?.dose_mSv).toBe(0);
+  });
+
+  it("darkness inputs: per-stop sun elevation at arrival and the EVA-sol sunrise and sunset UTC are returned for the warnings (BD-49)", () => {
+    const res = assembleConditions(baseInputs);
+
+    expect(res.stops_timeline.map((s) => s.sun_elevation_deg)).toEqual(MOCK_ELEVATION_BY_CALL);
+    expect(res.conditions?.sunrise_utc).toBe(MOCK_SUN_EVENTS.sunrise_utc);
+    expect(res.conditions?.sunset_utc).toBe(MOCK_SUN_EVENTS.sunset_utc);
+  });
+
+  it("timing boundaries: assembly reads no clock, so the adapter alone measures timing_ms (BD-50, NFR-06)", () => {
+    const dateNow = vi.spyOn(Date, "now");
+    const perfNow = vi.spyOn(performance, "now");
+
+    assembleConditions(baseInputs);
+
+    expect(dateNow).not.toHaveBeenCalled();
+    expect(perfNow).not.toHaveBeenCalled();
+    dateNow.mockRestore();
+    perfNow.mockRestore();
+  });
 });

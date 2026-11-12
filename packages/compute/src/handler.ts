@@ -5,6 +5,7 @@
  */
 import type {
   ComputePlanRequest,
+  EnvConstant,
   PlanResult,
   PlanResultMessage,
   SamplePointRequest,
@@ -12,16 +13,34 @@ import type {
   WorkerError,
   WorkerRequest,
 } from "@marswalk/protocol";
+import { assembleConditions } from "./conditions";
 import type { LoadedGrid } from "./grid";
 import { toLeg } from "./leg";
 import { searchLeg } from "./route";
-import { samplePoint } from "./sampling";
+import { inverseEqc, samplePoint } from "./sampling";
+import { evaTimeline } from "./timeModel";
 import { validateWorkerRequest } from "./validate";
 import { maxWalkbackKm } from "./walkback";
 import { collectWarnings, countStops, planStatus } from "./warnings";
 
 export type PurePlanResultMessage = Omit<PlanResultMessage, "computed_utc" | "timing_ms">;
 export type PureWorkerResponse = SampleResult | PurePlanResultMessage | WorkerError;
+
+/**
+ * Phase timer the worker adapter injects to measure `timing_ms` (BD-50). The handler only brackets its calls with it;
+ * it never reads a clock itself (NFR-06). `routing` brackets each `searchLeg` call, `estimates` brackets the timeline,
+ * conditions, radiation and warnings assembly. Without a timer the calls run directly.
+ */
+export type PhaseTimer = <T>(phase: "routing" | "estimates", fn: () => T) => T;
+
+/** Site data and measurement hooks a worker request needs beyond the grid (BD-50, BD-122). */
+export interface HandlerOptions {
+  /** The site's EnvConstant records (05 §E.3). Absent or without a matching rate: PLAN_RESULT has no `radiation`. */
+  envConstants?: EnvConstant[];
+  timer?: PhaseTimer;
+}
+
+const runDirect: PhaseTimer = (_phase, fn) => fn();
 
 /**
  * Handle a worker request message against the currently loaded grid.
@@ -32,6 +51,7 @@ export function handleWorkerMessage(
   grid: LoadedGrid | null,
   request: WorkerRequest,
   maxExpansions?: number,
+  options: HandlerOptions = {},
 ): PureWorkerResponse {
   try {
     if (request === null || typeof request !== "object" || Array.isArray(request) || typeof request.type !== "string") {
@@ -68,7 +88,7 @@ export function handleWorkerMessage(
     }
 
     if (request.type === "COMPUTE_PLAN") {
-      return handleComputePlan(grid, request, maxExpansions);
+      return handleComputePlan(grid, request, maxExpansions, options);
     }
 
     const req = request as unknown as Record<string, unknown>;
@@ -115,11 +135,13 @@ function handleComputePlan(
   grid: LoadedGrid,
   request: ComputePlanRequest,
   maxExpansions?: number,
+  options: HandlerOptions = {},
 ): PurePlanResultMessage | WorkerError {
+  const time = options.timer ?? runDirect;
   const waypoints = request.waypoints;
   const loop = request.scenario.loop;
 
-  // TODO(decision): Choose event-loop yielding or shared abort signalling for effective in-flight cancellation. Preserve the 02 §E.2 check interval of 50,000 expansions; stale-request rejection alone does not satisfy cancellation.
+  // In-flight cancellation (BD-41) is the async search of the worker-grid package; this handler is synchronous.
   // 2. Search legs between consecutive waypoints (+ return leg if loop)
   const legPairs: [typeof waypoints[0], typeof waypoints[0]][] = [];
   for (let i = 0; i < waypoints.length - 1; i++) {
@@ -132,13 +154,7 @@ function handleComputePlan(
   const legs: PlanResult["legs"] = [];
   const cellPaths: (readonly number[] | undefined)[] = [];
   for (const [fromWp, toWp] of legPairs) {
-    const search = searchLeg(
-      grid,
-      fromWp,
-      toWp,
-      request.scenario,
-      maxExpansions,
-    );
+    const search = time("routing", () => searchLeg(grid, fromWp, toWp, request.scenario, maxExpansions));
     if (search.status === "TIMEOUT") {
       return {
         type: "ERROR",
@@ -215,22 +231,28 @@ function handleComputePlan(
     };
   }
 
-  // TODO(decision): Complete C8 assembly into PlanResult after deciding the site coordinate, EnvConstant selection, PARTIAL-plan dose duration and darkness inputs. Until then, return the existing M3 empty timeline and omit conditions and radiation.
-  const stops_timeline: PlanResult["stops_timeline"] = [];
-
-  // 5. Warnings and plan status
-  const warnings = collectWarnings(
-    legs,
-    request.scenario,
-    undefined,
-    maxWbKm,
-    grid,
-    waypoints,
-    cellPaths,
-  );
+  // 4. Timeline, conditions, radiation and warnings (BD-50). The site is the plan's start waypoint (the hab) through
+  // the inverse working projection (projected metres in, planetocentric lat / east lon out). A PARTIAL plan has no
+  // routed walk times, so it has no timeline and no dose duration; its EVA-sol conditions still need only the start.
+  const { stops_timeline, conditions, radiation, warnings } = time("estimates", () => {
+    const startWp = waypoints.find((w) => w.role === "start") ?? waypoints[0];
+    const site = inverseEqc(startWp.x_m, startWp.y_m);
+    const timeline = hasNoRoute
+      ? []
+      : evaTimeline(request.scenario, waypoints, legs.map((l) => (l.status === "OK" ? l.walk_time_min : Number.NaN)));
+    const assembled = assembleConditions({
+      site,
+      timeline,
+      scenario: request.scenario,
+      envConstants: options.envConstants ?? [],
+      durationH: totals === null ? null : totals.eva_total_min / 60,
+    });
+    // `undefined` timeline: the DARKNESS check over the timeline instants is BD-49 (warnings package).
+    const collected = collectWarnings(legs, request.scenario, undefined, maxWbKm, grid, waypoints, cellPaths);
+    return { ...assembled, warnings: collected };
+  });
   const status = planStatus(legs, warnings);
 
-  // TODO(decision): Define routing and estimates timing boundaries before reporting phase timings; this repair reports only measured total handler duration in timing_ms.total.
   return {
     type: "PLAN_RESULT",
     request_id: request.request_id,
@@ -239,6 +261,8 @@ function handleComputePlan(
     legs,
     totals,
     stops_timeline,
+    ...(conditions === undefined ? {} : { conditions }),
+    ...(radiation === undefined ? {} : { radiation }),
     warnings,
   };
 }

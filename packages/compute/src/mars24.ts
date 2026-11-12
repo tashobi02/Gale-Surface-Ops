@@ -74,6 +74,9 @@ const CLANCY_MY_J2K_OFFSETS: number[] = [
   35186.7944595, 35873.740573, 36560.7112423, 37247.7247318,
 ];
 
+// MSL touchdown instant (sol 0): NASA, "Five Years Ago and 154 Million Miles Away: Touchdown!", 2 Aug 2017.
+const MSL_TOUCHDOWN_UTC = new Date("2012-08-06T05:17:57Z");
+
 // Orbital perturbation periodic terms (Allison & McEwen 2000 Eq. 18)
 const A_PERTURBS = [0.0071, 0.0057, 0.0039, 0.0037, 0.0021, 0.0020, 0.0018];
 const TAU_PERTURBS = [2.2353, 2.7543, 1.1177, 15.7866, 2.1354, 2.4694, 32.8493];
@@ -123,6 +126,21 @@ export function j2000OffsetTt(utc: Date): number {
 export function marsSolDate(utc: Date): number {
   const ott = j2000OffsetTt(utc);
   return (ott - 4.5) / 1.027491252 + 44796.0 - 0.00096;
+}
+
+/**
+ * MSL mission sol number of a UTC instant at a site longitude (BD-122; FR-36, N-06, N-15). Sol 0 is the touchdown sol,
+ * 2012-08-06T05:17:57Z (NASA, "Five Years Ago and 154 Million Miles Away: Touchdown!", Webster, Cantillo and Brown,
+ * 2 Aug 2017). MSL sols change at local mean solar midnight at the rover's longitude, so
+ * sol = floor(local mean solar date) - floor(local mean solar date at touchdown), where the local mean solar date is
+ * the Mars Solar Date minus the west longitude / 360 (GISS C-3 in days). `lonE` is east-positive (02 §C.4.1); the
+ * conversion to west is `eastToWestLongitude`. Derived, never typed. Throws RangeError for an invalid Date, a
+ * non-finite longitude or an instant before 1972-01-01 UTC.
+ */
+export function mslSol(utc: Date, lonE: number): number {
+  const lonW = eastToWestLongitude(lonE);
+  const localDate = (t: Date): number => marsSolDate(t) - lonW / 360;
+  return Math.floor(localDate(utc)) - Math.floor(localDate(MSL_TOUCHDOWN_UTC));
 }
 
 /**

@@ -6,6 +6,7 @@ import {
   j2000OffsetTt,
   localTrueSolarTime,
   marsSolDate,
+  mslSol,
   solarLongitude,
 } from "../src/mars24";
 import { solarDeclination } from "../src/sun";
@@ -223,5 +224,63 @@ describe("NASA GISS Mars24 worked examples (BD-56, FR-11)", () => {
     let diffMin = Math.abs(h * 60 + m - ex.ltstHours * 60);
     diffMin = Math.min(diffMin, 1440 - diffMin);
     expect(diffMin, "LTST (C-4) within the HH:MM resolution").toBeLessThanOrEqual(1);
+  });
+});
+
+// MSL mission sol (BD-122; N-06, N-15). Sol 0 is the touchdown sol, 2012-08-06T05:17:57Z (NASA, "Five Years Ago and
+// 154 Million Miles Away: Touchdown!", 2 Aug 2017); sols change at local mean solar midnight at the given longitude.
+describe("mslSol (MSL mission sol, FR-36)", () => {
+  const lonE = f6.site.lon_e;
+  const MEAN_SOL_MS = 1.027491252 * 86_400_000;
+  const touchdown = new Date("2012-08-06T05:17:57Z");
+
+  it("is 0 at touchdown and 1 after the next local mean solar midnight", () => {
+    expect(mslSol(touchdown, lonE)).toBe(0);
+    // One mean sol is exactly one Mars Solar Date, so the local mean solar date advances by exactly 1.
+    expect(mslSol(new Date(touchdown.getTime() + MEAN_SOL_MS), lonE)).toBe(1);
+    expect(mslSol(new Date(touchdown.getTime() + 10 * MEAN_SOL_MS), lonE)).toBe(10);
+  });
+
+  it("puts the 20 May 2024 surge in sol 4190 (02 §C L9) and the F6 record of 18 May 2024 in sol 4188 (BD-55)", () => {
+    expect(mslSol(new Date("2024-05-20T12:00:00Z"), lonE)).toBe(4190);
+    expect(mslSol(new Date("2024-05-18T06:00:00Z"), lonE)).toBe(4188);
+  });
+
+  it("advances by exactly one at each local mean solar midnight and never goes back", () => {
+    const start = Date.parse("2026-11-14T00:00:00Z");
+    let prev = mslSol(new Date(start), lonE);
+    let steps = 0;
+    for (let ms = start + 600_000; ms < start + 5 * MEAN_SOL_MS; ms += 600_000) {
+      const cur = mslSol(new Date(ms), lonE);
+      expect(cur - prev === 0 || cur - prev === 1, `step at ${new Date(ms).toISOString()}`).toBe(true);
+      if (cur !== prev) steps += 1;
+      prev = cur;
+    }
+    expect(steps).toBe(5);
+  });
+
+  it("moves to the next sol at local mean solar midnight: LTST wraps 24 h to 0 h where the sol changes, within the equation of time", () => {
+    // Local mean solar midnight is where LMST = 0; the true solar time there differs by the equation of time
+    // (at most about 0.7 h), so LTST near the change is within 1 h of midnight.
+    const start = Date.parse("2026-11-14T00:00:00Z");
+    for (let ms = start; ms < start + 3 * MEAN_SOL_MS; ms += 60_000) {
+      if (mslSol(new Date(ms + 60_000), lonE) !== mslSol(new Date(ms), lonE)) {
+        const [h, m] = localTrueSolarTime(new Date(ms), lonE).split(":").map(Number);
+        const ltst = h + m / 60;
+        expect(Math.min(ltst, 24 - ltst), `LTST at the sol change ${new Date(ms).toISOString()}`).toBeLessThan(1);
+      }
+    }
+  });
+
+  it("depends on longitude only through the local day boundary: sites 90 degrees apart differ by at most one sol", () => {
+    const t = new Date("2026-11-14T08:00:00Z");
+    const here = mslSol(t, lonE);
+    expect(Math.abs(mslSol(t, lonE + 90) - here)).toBeLessThanOrEqual(1);
+  });
+
+  it("throws RangeError for an invalid Date, a non-finite longitude and dates before 1972", () => {
+    expect(() => mslSol(new Date("not-a-date"), lonE)).toThrow(RangeError);
+    expect(() => mslSol(touchdown, Number.NaN)).toThrow(RangeError);
+    expect(() => mslSol(new Date("1969-07-20T20:17:40Z"), lonE)).toThrow(RangeError);
   });
 });

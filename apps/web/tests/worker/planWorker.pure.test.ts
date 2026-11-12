@@ -1,7 +1,7 @@
 /**
  * Adapter over the real pure handler (docs/specs/02 §E.2, NFR-06; TASK-05 T05.15, T05.32).
- * No mocks: a routed plan through `handleMessage` carries a real ISO timestamp and only the
- * measured total, and the pure handler's own output stays reproducible without them.
+ * No mocks: a routed plan through `handleMessage` carries a real ISO timestamp and the
+ * measured total, routing and estimates timings, and the pure handler's own output stays reproducible without them.
  */
 import type { ComputePlanRequest, PlanResultMessage } from "@marswalk/protocol";
 import { handleWorkerMessage } from "@marswalk/compute";
@@ -39,7 +39,7 @@ const request: ComputePlanRequest = {
 };
 
 describe("planWorker adapter with the real pure handler", () => {
-  it("adds a real ISO timestamp and a finite measured total, and nothing else, to timing_ms", () => {
+  it("adds a real ISO timestamp and finite measured total, routing and estimates, and nothing else, to timing_ms", () => {
     setWorkerGrid(grid);
     const before = Date.now();
     const response = handleMessage(request) as PlanResultMessage;
@@ -49,9 +49,17 @@ describe("planWorker adapter with the real pure handler", () => {
     expect(new Date(response.computed_utc).toISOString()).toBe(response.computed_utc);
     expect(Date.parse(response.computed_utc)).toBeGreaterThanOrEqual(before);
     expect(Date.parse(response.computed_utc)).toBeLessThanOrEqual(after);
-    expect(Object.keys(response.timing_ms)).toEqual(["total"]);
-    expect(Number.isFinite(response.timing_ms.total)).toBe(true);
-    expect(response.timing_ms.total).toBeGreaterThanOrEqual(0);
+    expect(Object.keys(response.timing_ms).sort()).toEqual(["estimates", "routing", "total"]);
+    for (const key of ["total", "routing", "estimates"]) {
+      expect(Number.isFinite(response.timing_ms[key]), key).toBe(true);
+      expect(response.timing_ms[key], key).toBeGreaterThanOrEqual(0);
+    }
+    // Both phases run inside the handler call, so neither can exceed the total.
+    expect(response.timing_ms.routing).toBeLessThanOrEqual(response.timing_ms.total);
+    expect(response.timing_ms.estimates).toBeLessThanOrEqual(response.timing_ms.total);
+    // The conditions block and the timeline are filled by the pure handler.
+    expect(response.conditions?.sol).toBeTypeOf("number");
+    expect(response.stops_timeline.length).toBeGreaterThan(0);
   });
 
   it("leaves the pure handler output free of run metadata and identical across repeats", () => {

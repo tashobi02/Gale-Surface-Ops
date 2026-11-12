@@ -365,7 +365,7 @@
               "$comment": "v2, planning approximation (02 §D.8)"
             }
           },
-          "$comment": "sampled every 5 m. TODO(decision): U-11, store profile arrays in the export or recompute on import. 05 recommends storing; until decided, profile is optional in the export.",
+          "$comment": "sampled every 5 m. U-11 decided (BD-64, 12 Nov 2026): exporters always write profile; it stays optional here so exports made before the decision still validate (05 §E.4, additive).",
           "required": [
             "dist_m",
             "elev_m",
@@ -595,6 +595,10 @@
             },
             "sunset_utc": {
               "type": "string"
+            },
+            "sol": {
+              "type": "integer",
+              "$comment": "MSL mission sol of the EVA start, derived by compute mslSol (BD-122); optional so earlier exports still validate"
             }
           },
           "$comment": "flat horizon",
