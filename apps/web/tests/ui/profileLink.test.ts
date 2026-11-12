@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import type VectorLayer from "ol/layer/Vector.js";
 import type VectorSource from "ol/source/Vector.js";
 import { linkProfileToMap } from "../../src/ui/results/profileLink";
@@ -75,4 +75,30 @@ it("arrow keys move the profile cursor between samples", () => {
   first.dispatchEvent(new window.KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }));
   expect(fake.store.get().hover?.distance_m).toBe(5);
   unlink(); el.remove();
+});
+
+it("idle map movement and cleanup preserve hover owned by the stops list", () => {
+  const { handle, host } = fakeMapHandle();
+  const fake = fakePlanStore({ hover: { waypoint_id: "wp-1", coord: [100, 100] } });
+  fake.store.setHover = vi.fn(hover => fake.emit({ hover }));
+  let move: (e: { coordinate: number[]; pixel: number[] }) => void = () => {};
+  Object.assign(host, { on: (_type: string, fn: typeof move) => { move = fn; } });
+  const unlink = linkProfileToMap(handle, document.createElement("div"), fake.store);
+  move({ coordinate: [0, 0], pixel: [0, 0] }); move({ coordinate: [0, 0], pixel: [0, 0] });
+  unlink();
+  expect(fake.store.setHover).not.toHaveBeenCalled();
+  expect(fake.store.get().hover?.waypoint_id).toBe("wp-1");
+});
+it("leaving the profile preserves a newer hover from another module", () => {
+  const { handle } = fakeMapHandle();
+  const fake = fakePlanStore();
+  fake.store.setHover = hover => fake.emit({ hover });
+  const el = document.createElement("div");
+  el.innerHTML = '<svg><circle data-profile-sample data-distance-m="5" data-leg-index="0" data-x-m="3" data-y-m="4" tabindex="0" /></svg>';
+  const unlink = linkProfileToMap(handle, el, fake.store);
+  el.querySelector("circle")!.dispatchEvent(new window.FocusEvent("focusin", { bubbles: true }));
+  fake.store.setHover({ waypoint_id: "wp-1" });
+  el.dispatchEvent(new window.MouseEvent("pointerleave"));
+  unlink();
+  expect(fake.store.get().hover).toEqual({ waypoint_id: "wp-1" });
 });

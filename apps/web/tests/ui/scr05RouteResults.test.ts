@@ -17,6 +17,7 @@ import okFixture from "../fixtures/plan-results/ok.json";
 import partialFixture from "../fixtures/plan-results/partial.json";
 import overLimitsFixture from "../fixtures/plan-results/over-limits.json";
 import { readFileSync } from "node:fs";
+import { mockLoadedSite } from "./map/mapFixtures";
 
 // The chart (T09.02) and the profile link (T09.05) belong to other tasks and are stubs on main: replace them so this file
 // tests the panel. A test that needs the real stub failing sets the implementation itself.
@@ -432,5 +433,56 @@ it("profile SVG labels use the secondary foreground fill on the OPS surface", as
   view.container.style.setProperty("--fg-2", "rgb(169, 179, 190)");
   expect(window.getComputedStyle(must(view.container, ".profile-chart text")).fill).toBe("rgb(169, 179, 190)");
   style.remove();
+  await view.unmount();
+});
+
+it("bands expose keyboard-readable segments and distinguish modelled NO SIGNAL from missing samples", async () => {
+  const leg = { ...ok.legs[0], profile: { dist_m: [0, 5, 10], elev_m: [0, 0, 0], slope_class: ["ok", "ok", "ok"], haven_min: [1, 2, 2], comm: [0, NaN, 1] } } as OkLeg;
+  const view = await mount(ui({ planStore: fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } }).store }));
+  for (const kind of ["haven", "comm"]) {
+    const summary = must(view.container, `[data-band="${kind}"] [data-band-summary]`);
+    expect(summary.getAttribute("tabindex")).toBe("0");
+    expect(summary.textContent).toMatch(/0–5 m/);
+  }
+  const known = must(view.container, '[data-band="comm"] [data-band-status="caution"]');
+  const missing = must(view.container, '[data-band="comm"] [data-band-status="unknown"]');
+  expect(known.getAttribute("data-unavailable")).toBeNull();
+  expect(known.getAttribute("data-provenance")).toBe("modelled");
+  expect(missing.getAttribute("data-unavailable")).toBe("true");
+  const summary = must(view.container, '[data-band="comm"] [data-band-summary]');
+  expect(summary.textContent).toContain("▲ NO SIGNAL");
+  expect(summary.textContent).toContain("? — Not supplied");
+  await view.unmount();
+});
+
+it("haven band status comes only from located worker warnings, never a client threshold", async () => {
+  const leg = { ...ok.legs[0], profile: { dist_m: [0, 5, 10], elev_m: [], slope_class: [], haven_min: [31, 1, 1] } } as OkLeg;
+  const fake = fakePlanStore({ status: "OK", result: { ...ok, warnings: [], legs: [leg] } });
+  const view = await mount(ui({ planStore: fake.store }));
+  expect([...view.container.querySelectorAll('[data-band="haven"] [data-band-status]')].map(el => el.getAttribute("data-band-status"))).toEqual(["neutral", "neutral"]);
+  await act(async () => fake.emit({ result: { ...ok, legs: [leg], warnings: [{ code: "HAVEN_TIME_EXCEEDED", severity: "caution", leg: 0, from_m: 5, to_m: 10, message: "Worker flagged this segment" }] } }));
+  expect([...view.container.querySelectorAll('[data-band="haven"] [data-band-status]')].map(el => el.getAttribute("data-band-status"))).toEqual(["neutral", "caution"]);
+  await view.unmount();
+});
+
+it("bands keep text at the micro token size and reserve stretching for geometry", async () => {
+  const style = document.createElement("style");
+  style.textContent = readFileSync(new URL("../../src/ui/screens/scr05RouteResults.css", import.meta.url), "utf8");
+  document.head.append(style);
+  const leg = { ...ok.legs[0], profile: { dist_m: [0, 5], elev_m: [], slope_class: [], haven_min: [1, 2] } } as OkLeg;
+  const view = await mount(ui({ planStore: fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } }).store }));
+  view.container.style.setProperty("--text-micro", "12px");
+  const label = must(view.container, '[data-band="haven"] .profile-band-label, [data-band="haven"] text');
+  expect(window.getComputedStyle(label).fontSize).toBe("12px");
+  for (const svg of view.container.querySelectorAll('.profile-band svg[preserveAspectRatio="none"]')) expect(svg.querySelector("text, circle")).toBeNull();
+  style.remove();
+  await view.unmount();
+});
+
+it("warnings receive the current site layer sources through the results panel", async () => {
+  const site = mockLoadedSite();
+  site.layers.set("thermal_inertia", { ...site.layers.get("slope")!, source_ids: ["usgs-themis-ti-30s120e"] });
+  const view = await mount(ui({ site, planStore: fakePlanStore({ status: "OK", result: { ...ok, warnings: [{ code: "LOW_TI", severity: "caution", leg: null, from_m: null, to_m: null, message: "Low inertia" }] } }).store }));
+  expect(must(view.container, ".warning-item").getAttribute("data-source")).toBe("rule:LOW_TI usgs-themis-ti-30s120e");
   await view.unmount();
 });

@@ -18,6 +18,7 @@ import { click, installDom, mount, must, removeDom } from "./domHarness";
 import { fakeMapHandle } from "./fakeMapHandle";
 import okFixture from "../fixtures/plan-results/ok.json";
 import overLimits from "../fixtures/plan-results/over-limits.json";
+import { mockLoadedSite } from "./map/mapFixtures";
 
 beforeAll(() => installDom());
 afterAll(() => removeDom());
@@ -242,4 +243,15 @@ it("reduced motion zoom is instant", async () => {
   expect(fit).toHaveBeenCalledWith([0, 0, 1, 1], { animate: false });
   await view.unmount();
   delete (window as unknown as Record<string, unknown>).matchMedia;
+});
+it("TI and comm warnings use registered source ids, preferring manifest layer sources", async () => {
+  const site = mockLoadedSite();
+  const warnings = [w({ code: "LOW_TI" }), w({ code: "TI_UNKNOWN" }), w({ code: "COMM_SHADOW" })];
+  const view = await mount(ui({ warnings, site }));
+  expect([...view.container.querySelectorAll("li")].map(el => el.getAttribute("data-source"))).toEqual(["rule:LOW_TI usgs-themis-ti-30s120e", "rule:TI_UNKNOWN usgs-themis-ti-30s120e", "rule:COMM_SHADOW usgs-gale-dem-1m-v3"]);
+  site.layers.set("thermal_inertia", { ...site.layers.get("slope")!, source_ids: ["usgs-themis-ti-30s120e", "usgs-gale-dem-1m-v3"] });
+  site.layers.set("comm_hab", { ...site.layers.get("slope")!, source_ids: ["usgs-gale-dem-1m-v3", "usgs-themis-ti-30s120e"] });
+  await view.rerender(ui({ warnings, site }));
+  expect([...view.container.querySelectorAll("li")].map(el => el.getAttribute("data-source"))).toEqual(["rule:LOW_TI usgs-themis-ti-30s120e usgs-gale-dem-1m-v3", "rule:TI_UNKNOWN usgs-themis-ti-30s120e usgs-gale-dem-1m-v3", "rule:COMM_SHADOW usgs-gale-dem-1m-v3 usgs-themis-ti-30s120e"]);
+  await view.unmount();
 });

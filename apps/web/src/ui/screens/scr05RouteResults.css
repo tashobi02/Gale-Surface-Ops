@@ -265,21 +265,26 @@
 }
 
 .profile-chart { height: 100%; display: flex; flex-direction: column; min-height: 0; }
-.profile-chart svg { width: 100%; flex: 1; min-height: 40px; color: var(--fg-1); overflow: visible; }
+.profile-chart svg { width: 100%; height: 106px; min-height: var(--target-touch); color: var(--fg-1); overflow: visible; }
 .profile-chart text, .profile-caption, .profile-no-route, .profile-band { font-family: var(--font-mono); font-size: var(--text-micro); }
 .profile-chart text { fill: var(--fg-2); }
-.profile-chart circle { fill: var(--surface-1); stroke: var(--fg-2); cursor: crosshair; }
-.profile-chart circle[data-active="true"], .profile-chart circle:focus { fill: var(--route); stroke: var(--fg-1); stroke-width: 2px; outline: none; }
+.profile-plot { position: relative; touch-action: none; min-height: var(--target-touch); }
+.profile-sample { position: absolute; display: block; box-sizing: border-box; width: 6px; height: 6px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--surface-1); border: 1px solid var(--fg-2); cursor: crosshair; }
+.profile-sample[data-active="true"], .profile-sample:focus { background: var(--route); border-color: var(--fg-1); }
+.profile-sample:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .profile-caption, .profile-no-route { color: var(--fg-2); }
 .profile-no-route { color: var(--unknown); }
 .profile-bands { flex: none; margin-top: 2px; }
-.profile-band { display: flex; align-items: center; gap: var(--pad-sm); min-width: 0; }
-.profile-band-label { flex: 0 0 190px; color: var(--fg-3); }
+.profile-band { min-width: 0; }
+.profile-band-track { position: relative; display: flex; align-items: center; gap: var(--pad-sm); }
+.profile-band-label { flex: 0 0 190px; color: var(--fg-3); font-size: var(--text-micro); }
+.profile-band-track:has(svg) .profile-band-label { position: absolute; left: 0; max-width: 30%; }
+.profile-band-summary { display: flex; gap: var(--pad-sm); list-style: none; margin: 0; padding: 0; max-height: var(--target-touch); overflow: auto; color: var(--fg-2); }
+.profile-band-summary li { flex: none; }
 
 
 
 
 .scr05-middle-col { overflow-y: auto; }
 .profile-chart output { font-family: var(--font-mono); font-size: var(--text-micro); color: var(--fg-2); }
-.profile-band svg { width: 100%; height: 16px; }
-.profile-band text { fill: var(--fg-2); font-size: 10px; }
+.profile-band svg { width: 100%; height: 24px; }

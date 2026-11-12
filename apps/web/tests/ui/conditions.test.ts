@@ -47,6 +47,8 @@ it("supplied Mars24 fields are modelled and the last arrival is labelled at retu
   const view = await mount(createElement(Conditions, { ctx: ctxFor(result) }));
   expect(must(view.container, '[data-condition="ltst-return"]').textContent).toContain("at return");
   expect(must(view.container, '[data-condition="ltst-return"]').textContent).toContain("09:00");
+  expect(must(view.container, '[data-condition="ltst-start"]').textContent).toContain("08:00");
+  expect(must(view.container, '[data-condition="ltst-return"] dd').textContent).not.toContain("08:00");
   expect(must(view.container, '[data-condition="sol"]').textContent).toContain("4190");
   expect(view.container.querySelectorAll('[data-source="mars24-allison-mcewen-2000"][data-provenance="modelled"]').length).toBeGreaterThan(3);
   await view.unmount();

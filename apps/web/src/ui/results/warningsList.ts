@@ -11,7 +11,7 @@
  */
 import { createElement, useMemo, type ReactElement } from "react";
 import type { Warning } from "@marswalk/protocol";
-import type { MapHandle } from "../context";
+import type { LoadedSite, MapHandle } from "../context";
 import type { Extent } from "../map/routeGeometry";
 import { StatusIcon, type OperationalStatus } from "../components/statusIcon";
 import { UNAVAILABLE, provAttrs } from "../components/provenance";
@@ -26,6 +26,7 @@ export interface WarningsListProps {
   /** Called with the warning that was clicked, before the map zooms. */
   onZoom?: (warning: Warning) => void;
   className?: string;
+  site?: LoadedSite;
 }
 
 /** A located warning has a leg and an along-leg stretch (05 Warning). */
@@ -78,7 +79,7 @@ function keysOf(warnings: readonly Warning[]): string[] {
   });
 }
 
-export function WarningsList({ warnings, mapHandle, getLegExtent, onZoom, className = "" }: WarningsListProps): ReactElement {
+export function WarningsList({ warnings, mapHandle, getLegExtent, onZoom, className = "", site }: WarningsListProps): ReactElement {
   const sorted = useMemo(() => sortWarnings(warnings), [warnings]);
   const keys = useMemo(() => keysOf(sorted), [sorted]);
 
@@ -106,7 +107,7 @@ export function WarningsList({ warnings, mapHandle, getLegExtent, onZoom, classN
           "data-severity": w.severity,
           // The message is computed by the route worker from the plan and the grid: derived (05 PlanResult).
           // FD-064: rule id and the source layers it reads.
-          ...provAttrs({ prov: "derived", src: `rule:${w.code} ${warningSources(w.code)}`.trim() }),
+          ...provAttrs({ prov: "derived", src: `rule:${w.code} ${warningSources(w.code, site)}`.trim() }),
         },
         createElement(StatusIcon, { status, word: status.toUpperCase(), className: "warning-status" }),
         createElement(
@@ -133,11 +134,11 @@ export function WarningsList({ warnings, mapHandle, getLegExtent, onZoom, classN
 }
 
 /** Existing layer/model source ids read by each warning rule (05 §F.3; FD-064). */
-function warningSources(code: Warning["code"]): string {
-  if (code === "LOW_TI" || code === "TI_UNKNOWN") return "grid.ti_asset";
+function warningSources(code: Warning["code"], site?: LoadedSite): string {
+  if (code === "LOW_TI" || code === "TI_UNKNOWN") return site?.layers.get("thermal_inertia")?.source_ids.join(" ") || "usgs-themis-ti-30s120e";
   if (code === "DARKNESS") return LTST_SOURCE;
   if (code === "EVA_DURATION_EXCEEDED" || code === "HAVEN_TIME_EXCEEDED" || code === "CONSUMABLES_LOW") return "tobler-1993 apollo17-planning";
   if (code === "RADIATION_ALERT") return "hassler-2014-rad";
-  if (code === "COMM_SHADOW") return "grid.comm_hab_asset";
+  if (code === "COMM_SHADOW") return site?.layers.get("comm_hab")?.source_ids.join(" ") || "usgs-gale-dem-1m-v3";
   return "usgs-gale-dem-1m-v3";
 }

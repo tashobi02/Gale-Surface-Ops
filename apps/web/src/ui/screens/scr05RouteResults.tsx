@@ -29,14 +29,15 @@ import {
 } from "react";
 import type { Leg, NoRouteLeg, PlanResult, Provenance } from "@marswalk/protocol";
 import type { PlanState, PlanStore } from "../../state/planStore";
-import type { MapHandle } from "../context";
+import type { LoadedSite, MapHandle } from "../context";
 import { StatusIcon, type ExtendedStatus } from "../components/statusIcon";
-import { svgPatternDefs } from "../components/patterns";
+import { STATUS_PATTERN, svgPatternDefs } from "../components/patterns";
 import { Metric } from "../components/metric";
 import { formatNumber, metresToKilometres, type FormatUnit } from "../components/format";
 import { UNAVAILABLE, isFiniteNumber, provAttrs, unavailableOf, type Sourced } from "../components/provenance";
 import { legStretchExtent } from "../map/routeGeometry";
-import { ProfileChart, PROFILE_AXIS } from "../results/profileChart";
+import { ProfileChart } from "../results/profileChart";
+import { useProfileLayout } from "../results/profileLayout";
 import { linkProfileToMap } from "../results/profileLink";
 import { WarningsList } from "../results/warningsList";
 import "./scr05RouteResults.css";
@@ -46,6 +47,7 @@ export interface RouteResultsProps {
   /** The shared map: the profile link and click-to-zoom of the warnings use it. Absent: neither is wired. */
   mapHandle?: MapHandle;
   className?: string;
+  site?: LoadedSite;
 }
 
 /** 05 §F.3 provenance_summary and §F.1 slope layer. */
@@ -301,42 +303,48 @@ function LegTable({ result }: { result: PlanResult }): ReactElement {
   );
 }
 
-/** The worker owns haven minutes and comm flags; UI only lays samples out by along-leg distance. */
-function ProfileBands({ result, havenLimit }: { result: PlanResult | null; havenLimit?: number }): ReactElement {
+/** Worker samples and warning statuses only; no UI haven threshold (FR-39, FR-42, FD-247). */
+const NO_LEGS: Leg[] = [];
+function ProfileBands({ result }: { result: PlanResult | null }): ReactElement {
   const patternId = `band-${useId().replace(/:/g, "")}`;
-  const totalDistance = result?.legs.reduce((sum, leg) => sum + (leg.status === "OK" ? leg.distance_m : 0), 0) ?? 0;
-  const x = (distance: number) => PROFILE_AXIS.left + distance / Math.max(1, totalDistance) * PROFILE_AXIS.span;
-  return <div className="profile-bands">{(["haven", "comm"] as const).map(kind => {
-    const prov = kind === "haven" ? "modelled" : "derived";
+  const layout = useProfileLayout(result?.legs ?? NO_LEGS);
+  return <div className="profile-bands" ref={layout.ref}>{(["haven", "comm"] as const).map(kind => {
+    const prov = "modelled";
     const label = kind === "haven" ? "Haven · modelled (approximation)" : "Comm · line of sight only";
-    let offset = 0;
-    const segments = result?.legs.flatMap((leg, legIndex) => {
+    const segments = layout.entries.flatMap(({ leg, index: legIndex, start, gap }) => {
       if (leg.status !== "OK") return [];
-      const start = offset;
-      offset += leg.distance_m;
       const values = kind === "haven" ? leg.profile.haven_min : leg.profile.comm;
-      if (!values?.length) return [];
-      return leg.profile.dist_m.slice(0, -1).map((distance, i) => {
+      return leg.profile.dist_m.slice(0, -1).flatMap((distance, i) => {
+        const end = leg.profile.dist_m[i + 1]!;
+        if (!isFiniteNumber(distance) || !isFiniteNumber(end) || end < distance) return [];
         const value = values?.[i];
         const valid = isFiniteNumber(value) && (kind === "haven" ? value >= 0 : value === 0 || value === 1);
-        const status = !valid || (kind === "haven" && !isFiniteNumber(havenLimit)) ? "unknown" : kind === "comm" ? value === 0 ? "unknown" : "nominal" : isFiniteNumber(havenLimit) && value > havenLimit ? "caution" : "nominal";
-        const word = !valid ? "— Not supplied" : kind === "comm" ? value === 0 ? "? NO SIGNAL" : "○ SIGNAL" : `${status === "caution" ? "▲" : "○"} ${formatNumber(value, "min")} min`;
-        return <g key={`${legIndex}:${i}`}><rect data-band-status={status} x={x(start + distance)} y={2} width={Math.max(0, x(start + leg.profile.dist_m[i + 1]!) - x(start + distance))} height={12} fill={status === "nominal" ? "var(--nominal)" : status === "caution" ? "var(--caution)" : "var(--unknown)"} stroke="var(--surface-0)" strokeDasharray={status === "unknown" ? "2 2" : undefined} {...provAttrs({ prov, src: valid ? `result.legs[${legIndex}].profile.${kind === "haven" ? "haven_min" : "comm"}` : `unavailable:result.legs[${legIndex}].profile.${kind}`, unavailable: !valid })}>
-          <title {...provAttrs({ prov, src: valid ? `result.legs[${legIndex}].profile.${kind}` : `unavailable:result.legs[${legIndex}].profile.${kind}`, unavailable: !valid })}>{word}</title>
-        </rect>{status !== "nominal" ? <rect x={x(start + distance)} y={2} width={Math.max(0, x(start + leg.profile.dist_m[i + 1]!) - x(start + distance))} height={12} fill={`url(#${patternId}-${kind}-hatch)`} aria-hidden="true" pointerEvents="none" /> : null}</g>;
+        const flag = result?.warnings.find(w => w.code === "HAVEN_TIME_EXCEEDED" && w.leg === legIndex && isFiniteNumber(w.from_m) && isFiniteNumber(w.to_m) && w.from_m < end && w.to_m > distance);
+        const status: "neutral" | "nominal" | keyof typeof STATUS_PATTERN = !valid ? "unknown" : kind === "comm" ? value === 0 ? "caution" : "nominal" : flag ? flag.severity === "blocked" ? "warning" : flag.severity : "neutral";
+        const word = !valid ? "? — Not supplied" : kind === "comm" ? value === 0 ? "▲ NO SIGNAL" : "○ SIGNAL" : `${status === "caution" ? "▲" : status === "warning" ? "⬣" : "○"} ${formatNumber(value, "min")} min · ${flag ? "over haven rule (worker warning)" : "not classified"}`;
+        const sourced = valid ? { prov, src: `result.legs[${legIndex}].profile.${kind === "haven" ? "haven_min" : "comm"}` } as const : unavailableOf(prov, `result.legs[${legIndex}].profile.${kind}`);
+        return [{ key: `${legIndex}:${i}`, legIndex, distance, end, status, word, sourced, x: layout.x(start + distance, gap), width: Math.max(0, layout.x(start + end, gap) - layout.x(start + distance, gap)) }];
       });
-    }) ?? [];
+    });
     return <div key={kind} className="profile-band" data-band={kind}>
-      {segments.length ? <svg viewBox={`0 0 ${PROFILE_AXIS.width} 16`} role="img" aria-label={label} preserveAspectRatio="none">
-        <g dangerouslySetInnerHTML={{ __html: svgPatternDefs("var(--surface-0)").replaceAll("pattern-", `${patternId}-${kind}-`) }} />
-        <text x={0} y={12}>{label}</text>{segments}
-      </svg> : <><span className="profile-band-label">{label}</span><span {...provAttrs({ prov, src: `unavailable:result.legs.profile.${kind}`, unavailable: true })}>— {kind === "haven" ? "Haven samples" : "Comm samples"} not supplied by worker</span></>}
+      <div className="profile-band-track"><span className="profile-band-label">{label}</span>
+        {segments.length ? <svg viewBox={`0 0 ${layout.width} 24`} role="img" aria-label={label} preserveAspectRatio="xMinYMid meet">
+          <g dangerouslySetInnerHTML={{ __html: svgPatternDefs("var(--surface-0)").replaceAll("pattern-", `${patternId}-${kind}-`) }} />
+          {segments.map(segment => <g key={segment.key}>
+            <rect data-band-status={segment.status} x={segment.x} y={6} width={segment.width} height={12} fill={segment.status === "neutral" ? "var(--fg-2)" : `var(--${segment.status})`} stroke="var(--surface-0)" strokeDasharray={segment.status === "unknown" ? "2 2" : undefined} {...provAttrs(segment.sourced)}>
+              <title {...provAttrs(segment.sourced)}>{segment.word}</title>
+            </rect>
+            {segment.status !== "neutral" && segment.status !== "nominal" ? <rect x={segment.x} y={6} width={segment.width} height={12} fill={`url(#${patternId}-${kind}-${STATUS_PATTERN[segment.status]})`} aria-hidden="true" pointerEvents="none" /> : null}
+          </g>)}
+        </svg> : <span {...provAttrs(unavailableOf(prov, `result.legs.profile.${kind}`))}>— {kind === "haven" ? "Haven samples" : "Comm samples"} not supplied by worker</span>}
+      </div>
+      {segments.length ? <ul className="profile-band-summary" data-band-summary tabIndex={0} aria-label={`${label} segment values`}>{segments.map(segment => <li key={segment.key} {...provAttrs(segment.sourced)}>Leg {segment.legIndex + 1} · {formatNumber(segment.distance, "m")}–{formatNumber(segment.end, "m")} m · {segment.word}</li>)}</ul> : null}
     </div>;
-  })}<div className="profile-caption">○ SIGNAL / ? NO SIGNAL · ○ within haven rule / ▲ over rule</div></div>;
+  })}<div className="profile-caption">○ SIGNAL / ▲ NO SIGNAL · Haven status from worker warnings; unflagged samples are neutral</div></div>;
 }
 
 /** SCR-05 Route Results (React, ADR-012). */
-export function RouteResults({ planStore, mapHandle, className = "" }: RouteResultsProps): ReactElement {
+export function RouteResults({ planStore, mapHandle, className = "", site }: RouteResultsProps): ReactElement {
   const subscribe = useCallback((onChange: () => void) => planStore.subscribe(() => onChange()), [planStore]);
   const read = useCallback(() => planStore.get(), [planStore]);
   const state = useSyncExternalStore(subscribe, read, read);
@@ -445,13 +453,13 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
                 </div>
               ) : null}
             </div>
-            <ProfileBands result={hasResult ? result : null} havenLimit={state.scenario?.max_haven_min} />
+            <ProfileBands result={hasResult ? result : null} />
           </div>
 
           <div className="scr05-right-col" role="region" aria-label="Route warnings" tabIndex={0}>
             <div className="scr05-warnings-header">Warnings</div>
             <Isolated label="Warnings" resetKey={warnings}>
-              <WarningsList warnings={warnings} mapHandle={mapHandle} getLegExtent={getLegExtent} />
+              <WarningsList warnings={warnings} mapHandle={mapHandle} getLegExtent={getLegExtent} site={site} />
             </Isolated>
           </div>
         </div>

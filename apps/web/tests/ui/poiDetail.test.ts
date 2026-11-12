@@ -40,7 +40,7 @@ it("credit and sol labelled", async () => {
   for (const field of ["credit", "sol", "date", "camera"]) {
     const el = must(view.container, `[data-image-${field}]`);
     expect(el.getAttribute("data-provenance")).toBe("measured");
-    expect(el.getAttribute("data-source")).toBe(poi.properties.image_source_url);
+    expect(el.getAttribute("data-source")).toBe(`pois:${poi.properties.poi_id}`);
     expect(el.textContent).not.toBe("—");
   }
   const img = must(view.container, "img");
@@ -51,6 +51,16 @@ it("credit and sol labelled", async () => {
   await fire(img, new window.Event("error"));
   expect(view.container.textContent).toContain("Image not available");
   expect(must<HTMLButtonElement>(view.container, "[data-add-stop]").disabled).toBe(false);
+  await view.unmount();
+});
+it("image source URLs are reference links with POI provenance ids", async () => {
+  const { ctx, poi } = fixture(true);
+  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id }));
+  const link = must<HTMLAnchorElement>(view.container, "a.scr06-source-url");
+  expect(link.getAttribute("href")).toBe(poi.properties.image_source_url);
+  expect(link.textContent).toBe("Image source record");
+  expect(view.container.textContent).not.toContain(poi.properties.image_source_url);
+  expect([...view.container.querySelectorAll("[data-source]")].every(el => !el.getAttribute("data-source")!.startsWith("http"))).toBe(true);
   await view.unmount();
 });
 it("stop type shape and word", async () => {

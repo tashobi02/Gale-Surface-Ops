@@ -32,7 +32,7 @@ export function Conditions({ ctx }: ScreenProps): ReactElement {
   return <section className="scr07-conditions" data-conditions aria-label="Conditions" aria-busy={state.status === "Computing"} data-computing={state.status === "Computing"}>
     <h2>Conditions</h2>
     {state.status === "Computing" ? <p role="status">Computing conditions… Previous values are shown.</p> : state.status === "Error" ? <p role="status"><StatusIcon status="unknown" word="Conditions unavailable" /> Plan computation failed (<Value value={state.last_error_code} prov="derived" src="plan.last_error_code" path="plan.last_error_code" />). Retry the plan to refresh conditions.</p> : null}
-    {darkness.length ? <section role="alert" aria-label="Daylight warning"><h3>Daylight warning</h3><WarningsList warnings={darkness} /></section> : null}
+    {darkness.length ? <section role="alert" aria-label="Daylight warning"><h3>Daylight warning</h3><WarningsList warnings={darkness} site={ctx.site} /></section> : null}
     <h3>Mars date and sun</h3>
     <dl>
       <Field id="mars-year" label="Mars Year">{text(c?.mars_year, "result.conditions.mars_year")}</Field>

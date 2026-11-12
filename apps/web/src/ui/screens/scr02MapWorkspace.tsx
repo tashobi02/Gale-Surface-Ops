@@ -565,7 +565,7 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
       </div>
 
       <div data-slot="results-panel" className="scr02-results">
-        <RouteResults planStore={ctx.planStore} mapHandle={handle ?? undefined} />
+        <RouteResults planStore={ctx.planStore} mapHandle={handle ?? undefined} site={ctx.site} />
       </div>
     </div>
   );

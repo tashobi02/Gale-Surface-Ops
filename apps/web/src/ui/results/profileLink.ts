@@ -21,8 +21,9 @@ export function linkProfileToMap(mapHandle: MapHandle, profileElement: HTMLEleme
   const layer = new VectorLayer({ source, style: () => new Style({ image: new CircleStyle({ radius: 6, stroke: new Stroke({ color: tokenColor("text-1"), width: 2 }) }) }) });
   layer.setZIndex(LAYER_Z_INDEX.ROUTE + 1);
   map.addLayer(layer);
-  const samples = () => [...profileElement.querySelectorAll<SVGElement>("[data-profile-sample]")];
-  const position = (el: SVGElement): PlanHoverPosition | null => {
+  type SampleElement = SVGElement | HTMLElement;
+  const samples = () => [...profileElement.querySelectorAll<SampleElement>("[data-profile-sample]")];
+  const position = (el: SampleElement): PlanHoverPosition | null => {
     const a = el.getAttribute("data-x-m"), b = el.getAttribute("data-y-m");
     if (a === null || b === null) return null;
     return { distance_m: Number(el.dataset.distanceM), leg_index: Number(el.dataset.legIndex), coord: [Number(a), Number(b)] };
@@ -30,7 +31,7 @@ export function linkProfileToMap(mapHandle: MapHandle, profileElement: HTMLEleme
   const show = (hover: PlanHoverPosition | null) => {
     source.clear();
     if (hover?.coord) source.addFeature(new Feature(new Point(hover.coord)));
-    let nearest: SVGElement | undefined, best = Infinity;
+    let nearest: SampleElement | undefined, best = Infinity;
     for (const sample of samples()) {
       sample.removeAttribute("data-active");
       const p = position(sample);
@@ -40,13 +41,26 @@ export function linkProfileToMap(mapHandle: MapHandle, profileElement: HTMLEleme
     }
     nearest?.setAttribute("data-active", "true");
   };
-  const set = (p: PlanHoverPosition | null) => { if (store) store.setHover(p); else show(p); };
+  let owned: PlanHoverPosition | null = null;
+  const clear = () => {
+    if (owned && (!store || store.get().hover === owned)) {
+      if (store) store.setHover(null); else show(null);
+    }
+    owned = null;
+  };
+  const set = (p: PlanHoverPosition | null) => {
+    if (!p) { clear(); return; }
+    if (store) {
+      const previous = store.get().hover;
+      store.setHover(p);
+      if (store.get().hover !== previous) owned = store.get().hover;
+    } else { owned = p; show(p); }
+  };
   const over = (event: Event) => {
     const target = event.target as Element | null;
-    const sample = target?.closest<SVGElement>("[data-profile-sample]");
+    const sample = target?.closest<SampleElement>("[data-profile-sample]");
     if (sample) set(position(sample));
   };
-  const clear = () => set(null);
   const move = (event: { coordinate: number[]; pixel: number[]; dragging?: boolean }) => {
     if (event.dragging) return;
     const leg = map.forEachFeatureAtPixel?.(event.pixel, feature => feature.get("type") === "ok_leg" ? { legIndex: feature.get("legIndex") } : undefined);
@@ -61,13 +75,15 @@ export function linkProfileToMap(mapHandle: MapHandle, profileElement: HTMLEleme
     set(nearest);
   };
   const keydown = (event: KeyboardEvent) => {
+    if (event.defaultPrevented) return;
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-    const target = (event.target as Element).closest<SVGElement>("[data-profile-sample]");
+    const target = (event.target as Element).closest<SampleElement>("[data-profile-sample]");
     const all = samples();
     const index = target ? all.indexOf(target) : -1;
     if (index < 0) return;
     event.preventDefault();
     const next = event.key === "Home" ? 0 : event.key === "End" ? all.length - 1 : Math.max(0, Math.min(all.length - 1, index + (event.key === "ArrowRight" ? 1 : -1)));
+    all.forEach((sample, i) => { sample.tabIndex = i === next ? 0 : -1; });
     all[next]?.focus();
   };
   profileElement.addEventListener("keydown", keydown);

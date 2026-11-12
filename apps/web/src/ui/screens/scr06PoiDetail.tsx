@@ -38,7 +38,7 @@ function Specimen({ ctx, poi, placement, suggestedTasks = [] }: { ctx: AppContex
   const p = poi.properties;
   const src = `pois:${p.poi_id}`;
   const source = { prov: p.provenance, src };
-  const imageSource = { prov: "measured", src: p.image_source_url || src } as const;
+  const imageSource = { prov: "measured", src } as const;
   const imageUrl = localImage(p.image_asset ? ctx.site.assets.get(p.image_asset)?.url : undefined);
   const [imageState, setImageState] = useState<"loading" | "shown" | "missing">(imageUrl ? "loading" : "missing");
   const dialog = useRef<HTMLDialogElement>(null);
@@ -77,7 +77,7 @@ function Specimen({ ctx, poi, placement, suggestedTasks = [] }: { ctx: AppContex
           const present = value !== null && value !== undefined && value !== "";
           return <span key={field} {...{ [`data-image-${field}`]: true }} {...provAttrs(present ? imageSource : { prov: "measured", src: `unavailable:${src}.image_${field}`, unavailable: true })}>{field === "sol" ? "sol " : ""}{present ? value : "—"}</span>;
         })}
-        {p.image_source_url ? <span className="scr06-source-url" {...provAttrs(imageSource)}>{p.image_source_url}</span> : null}
+        {p.image_source_url ? <a className="scr06-source-url" href={p.image_source_url} target="_blank" rel="noreferrer" {...provAttrs(imageSource)}>Image source record</a> : null}
         <a href="#/sources">Sources and methods</a>
         {imageState === "shown" && imageUrl ? <a href={imageUrl} target="_blank" rel="noreferrer">View original</a> : null}
       </figcaption>
