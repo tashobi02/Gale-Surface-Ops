@@ -71,12 +71,14 @@ test("axe: SCR-04 plan panel Editing state with a selected stop and the keyboard
 
 
 test("axe: EVA tablet states and high contrast have no serious or critical violation", async ({ page }, testInfo) => {
-  const states: EvaFixtureState[] = ["walking", "at-stop", "undo-window", "ops-added-task", "alerting", "no-hab-link", "to-haven"];
+  const states: EvaFixtureState[] = ["walking", "at-stop", "undo-window", "ops-added-task", "alerting", "alerting-with-options", "no-hab-link", "to-haven"];
   for (const state of states) {
     await openEvaFixture(page, state);
     if (state === "at-stop" || state === "ops-added-task") await page.getByTestId("tasks-button").click();
     await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}` });
-    if (state === "alerting") await page.getByRole("button", { name: "Close options sheet" }).click();
+    // The options sheet only opens for a warning that CARRIES options (FD-081). The plain alerting fixture raises a
+    // warning without any, so there is no sheet to close — the crew member opens it from the alert bar's OPTIONS button.
+    if (state === "alerting-with-options") await page.getByRole("button", { name: "Close options sheet" }).click();
     await page.getByRole("button", { name: "Toggle high contrast" }).click();
     await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}-contrast` });
   }

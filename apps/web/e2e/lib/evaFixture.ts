@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 import type { Snapshot } from "@marswalk/protocol";
 
-export type EvaFixtureState = "walking" | "at-stop" | "undo-window" | "ops-added-task" | "alerting" | "no-hab-link" | "to-haven";
+export type EvaFixtureState = "walking" | "at-stop" | "undo-window" | "ops-added-task" | "alerting" | "alerting-with-options" | "no-hab-link" | "to-haven";
 
 export function evaFixture(state: EvaFixtureState): Snapshot {
   const snapshot = (JSON.parse(readFileSync(new URL("../../tests/fixtures/ws/connect.json", import.meta.url), "utf8")) as Snapshot[])[0]!;
@@ -11,7 +11,28 @@ export function evaFixture(state: EvaFixtureState): Snapshot {
   crew.activity = state === "to-haven" ? "TO_HAVEN" : ["at-stop", "undo-window", "ops-added-task"].includes(state) ? "AT_STOP" : "WALKING";
   if (state === "no-hab-link") { crew.linked = false; crew.stale = true; }
   if (state === "ops-added-task" && snapshot.tasks[0]) snapshot.tasks[0].origin = "ops";
-  if (state === "alerting") snapshot.alerts = [{ alert_id: "alert-fixture", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"], raised_seq: 1, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {} }];
+  if (state === "alerting" || state === "alerting-with-options") {
+    snapshot.alerts = [{ alert_id: "alert-fixture", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"], raised_seq: 1, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {} }];
+  }
+  // A warning with no options yet does not open the SCR-14 sheet (FD-081): the sheet would cover the tablet to say
+  // "no options proposed yet". With options it opens on its own.
+  if (state === "alerting-with-options") {
+    snapshot.options = [
+      {
+        option_id: "opt-1",
+        alert_id: "alert-fixture",
+        kind: "ABORT_TO_HAB",
+        crew_ids: ["EV1"],
+        eta_shelter_min: 4,
+        expected_dose_ugy: 120,
+        stops_dropped: [],
+        violations: [],
+        rank: 1,
+        path_preview: [],
+        rendezvous: null,
+      } as unknown as Snapshot["options"][number],
+    ];
+  }
   return snapshot;
 }
 
