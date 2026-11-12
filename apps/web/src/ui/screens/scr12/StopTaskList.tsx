@@ -322,6 +322,15 @@ export function StopTaskList({
 
   const doneCount = stopTasks.filter((t) => t.state === "DONE").length;
   const totalCount = stopTasks.length;
+  // The row cap counts the tasks the crew member can still act on: a DROPPED task is a record of what was dropped, not
+  // work to do, so it never takes a row from an actionable task. It is listed after them, and only when there is room
+  // in the four rows of 56 px (04 §E.5).
+  const actionable = stopTasks.filter((t) => t.state !== "DROPPED");
+  const dropped = stopTasks.filter((t) => t.state === "DROPPED");
+  const listedTasks = [
+    ...actionable.slice(0, MAX_TASK_ROWS),
+    ...dropped.slice(0, Math.max(0, MAX_TASK_ROWS - Math.min(actionable.length, MAX_TASK_ROWS))),
+  ];
 
   if (collapsed) {
     // Collapsed state: during walking or alerting, renders count only (04 §E.5, U-59)
@@ -401,7 +410,7 @@ export function StopTaskList({
           No tasks assigned for this stop
         </div>
       ) : (
-        stopTasks.slice(0, MAX_TASK_ROWS).map((t) => (
+        listedTasks.map((t) => (
           <StopTaskRow
             key={t.task_id}
             task={t}

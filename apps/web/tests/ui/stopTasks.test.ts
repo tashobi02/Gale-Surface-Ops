@@ -784,7 +784,38 @@ describe("package 17 stop task list row cap (04 §E.5: up to four rows of at lea
     const rows = html.match(/data-testid="task-row-/g) ?? [];
     expect(rows.length).toBe(4);
     expect(html).toContain('data-testid="task-row-t-s2-01"');
-    expect(html).not.toContain('data-testid="task-row-t-s2-05"');
+    expect(html).toContain('data-testid="task-row-t-s2-05"');
+  });
+
+  it("a DROPPED task does not take one of the four rows from a task that can still be acted on", () => {
+    // A DROPPED task is a record of what was dropped, not work to do: the cap counts the tasks the crew member can act
+    // on, so the fifth actionable task still gets its row.
+    const tasks: StopTask[] = [
+      { ...mockTasks[0]!, task_id: "t-a", state: "TODO" },
+      { ...mockTasks[0]!, task_id: "t-b", state: "TODO" },
+      { ...mockTasks[0]!, task_id: "t-c", state: "TODO" },
+      { ...mockTasks[0]!, task_id: "t-d", state: "TODO" },
+      { ...mockTasks[3]!, task_id: "t-dropped", state: "DROPPED" },
+    ];
+    const html = renderToStaticMarkup(
+      createElement(StopTaskList, {
+        tasks,
+        crewId: "EV1",
+        stopId: "wp-2",
+        readOnly: false,
+        undo: null,
+        collapsed: false,
+        notSyncedTaskIds: [],
+        onTick: () => {},
+        onUndo: () => {},
+        onReason: () => {},
+      }),
+    );
+    const rows = html.match(/data-testid="task-row-/g) ?? [];
+    expect(rows.length).toBe(4);
+    for (const id of ["t-a", "t-b", "t-c", "t-d"]) expect(html).toContain(`data-testid="task-row-${id}"`);
+    // The dropped task is listed only when there is room left in the four rows.
+    expect(html).not.toContain('data-testid="task-row-t-dropped"');
   });
 
   it("still counts every task of the stop in the TASKS n/m count", () => {

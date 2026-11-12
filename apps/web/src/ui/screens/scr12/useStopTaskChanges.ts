@@ -43,6 +43,12 @@ interface Entry {
   args: UpdateStopTaskArgs;
   /** "waiting" is held on the client (link down); "sent" has gone to the habClient. */
   phase: "waiting" | "sent";
+  /**
+   * The state the server last confirmed for this task. Once it differs from `from` the change has landed: the row shows
+   * the server's own state and the entry is only kept for the rest of the undo window, so the REASON control of FD-028
+   * stays live and can still send a revision (a snapshot that confirms the skip must not kill the control).
+   */
+  landed: StopTaskState | null;
 }
 
 export interface StopTaskChanges {
@@ -75,13 +81,22 @@ export function useStopTaskChanges(send: Send, serverTasks: StopTask[], linked: 
   const serverState = (taskId: string): StopTaskState | undefined => latest.current.serverTasks.find((t) => t.task_id === taskId)?.state;
 
   // A change ends, and a rejection clears, once the server's state of the task is no longer the one they refer to.
+  // A change the server confirmed keeps its entry until the undo window closes: the REASON control of FD-028 revises the
+  // reason of a skip, and the snapshot that confirms the skip must not take the control away with it.
   useEffect(() => {
     let changed = false;
     for (const [id, e] of entries.current) {
       const now = serverTasks.find((t) => t.task_id === id)?.state;
       if (now !== undefined && now !== e.from) {
-        entries.current.delete(id);
-        changed = true;
+        if (e.landed === null) {
+          e.landed = now;
+          changed = true;
+        }
+        // The entry ends when its window closes (see `endEntry`); until then it still carries the reason to revise.
+        if (offer.current?.taskId !== id) {
+          entries.current.delete(id);
+          changed = true;
+        }
       }
     }
     for (const [id, r] of rejected.current) {
@@ -139,6 +154,8 @@ export function useStopTaskChanges(send: Send, serverTasks: StopTask[], linked: 
       const timer = setTimeout(() => {
         offer.current = null;
         dispatch(taskId); // a change still waiting on the client (link was down) goes out when its window ends
+        // The window closed: UNDO and the REASON control go. The entry stays while the change is still in flight, so the
+        // row keeps showing it until the server's own state replaces it (see the effect above).
         if (mounted.current) rerender();
       }, STOP_TASK_UNDO_WINDOW_MS);
       offer.current = { taskId, timer };
@@ -154,6 +171,7 @@ export function useStopTaskChanges(send: Send, serverTasks: StopTask[], linked: 
         from: serverState(taskId) ?? "TODO",
         args: updateStopTaskArgs(taskId, change),
         phase: "waiting",
+        landed: null,
       });
       openWindow(taskId);
     },
@@ -177,6 +195,7 @@ export function useStopTaskChanges(send: Send, serverTasks: StopTask[], linked: 
         from: entry?.shown ?? serverState(taskId) ?? "TODO",
         args: updateStopTaskArgs(taskId, "UNDO"),
         phase: "waiting",
+        landed: null,
       });
       dispatch(taskId); // the original change already went out (even if queued): its reversal follows it at once
     },
@@ -184,13 +203,23 @@ export function useStopTaskChanges(send: Send, serverTasks: StopTask[], linked: 
   );
 
   // FD-028: the undo strip holds one REASON control that revises the reason of the skip just made. The revision is a
-  // change of the same kind, so it goes out at once (FR-50: the tap is never held back on the tablet).
+  // change of the same kind, so it goes out at once (FR-50: the tap is never held back on the tablet). The revision follows
+  // the same link rule as the skip it revises: while the link is down it waits on the client and never goes out.
   const changeReason = useCallback(
     (taskId: string, reason: StopTaskReason) => {
       const entry = entries.current.get(taskId);
-      if (!entry || entry.shown !== "SKIPPED") return;
+      if (!entry) return;
+      // The row shows a skip: the client sent one, or the server confirmed one.
+      const skipped = entry.shown === "SKIPPED" || entry.landed === "SKIPPED";
+      if (!skipped) return;
       entry.reason = reason;
       entry.args = updateStopTaskArgs(taskId, { state: "SKIPPED", reason });
+      if (latest.current.linked === false) {
+        // The link is down: the revision waits on the client (04 §D.5) and goes out when the window ends.
+        entry.phase = "waiting";
+        rerender();
+        return;
+      }
       sendEntry(taskId, entry);
       rerender();
     },
@@ -216,7 +245,14 @@ export function useStopTaskChanges(send: Send, serverTasks: StopTask[], linked: 
         ? tasks
         : tasks.map((t) => {
             const e = entries.current.get(t.task_id);
-            return e && t.state === e.from ? { ...t, state: e.shown, reason: e.reason } : t;
+            if (!e) return t;
+            // The change is still in flight: the row shows its new state at once (FR-50).
+            if (e.landed === null && t.state === e.from) return { ...t, state: e.shown, reason: e.reason };
+            // The server confirmed it: the row shows the server's own state, with the reason the client last sent (the
+            // server's snapshot may carry no reason of its own). A later snapshot that says otherwise is the server's
+            // word too, so the confirmed change never comes back as an optimistic overlay.
+            if (e.landed !== null && t.state === e.landed) return e.reason === null ? t : { ...t, reason: e.reason };
+            return t;
           }),
     notSyncedTaskIds: () => (linked === false ? [...entries.current.keys()] : [...entries.current].filter(([, e]) => e.phase === "waiting").map(([id]) => id)),
     rejections: () => Object.fromEntries([...rejected.current].map(([id, r]) => [id, r.text])),
