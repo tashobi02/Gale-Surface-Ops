@@ -398,8 +398,19 @@ def test_crs_proj4_byte_identical_to_pipeline_constant(site: Path, alteration: s
 # --------------------------------------------------------------------------------------
 # real bundle (skips while data/sites/gale_boxwork/site-manifest.json is absent; T03.19)
 
+def _real_bundle_present() -> bool:
+    """The manifest is committed, but its binaries (grid/*, tiles/*) are git-ignored: check one asset path from it."""
+    if not REAL_MANIFEST.exists():
+        return False
+    try:
+        assets = json.loads(REAL_MANIFEST.read_text(encoding="utf-8"))["assets"]
+    except (KeyError, ValueError):
+        return True  # a broken manifest must fail loudly in the tests, not skip
+    return all((REAL_SITE / asset["path"]).exists() for asset in assets[:1] + assets[-1:])
+
+
 real_bundle_only = pytest.mark.skipif(
-    not REAL_MANIFEST.exists(), reason=f"{REAL_MANIFEST.relative_to(ROOT)} absent until T03.19"
+    not _real_bundle_present(), reason="real bundle absent (manifest or git-ignored binary assets missing)"
 )
 
 
