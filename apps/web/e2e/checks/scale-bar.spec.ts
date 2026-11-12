@@ -11,7 +11,8 @@ const RESOLUTION_TOLERANCE = 0.01;
 const CRATER_TOLERANCE = 0.02;
 
 test("scale-bar: scale line equals the view resolution within 1 % at every level", async ({ page }) => {
-  await page.goto("/spike/");
+  // The spike page defaults to the real site (FD-086); the harness site is `mock_site` unless E2E_SITE says otherwise.
+  await page.goto(`/spike/?site=${process.env.E2E_SITE ?? "mock_site"}`);
   await page.waitForLoadState("networkidle");
   const levels = await page.evaluate(() => {
     const spike = (window as unknown as { __spike?: { levels(): number } }).__spike;

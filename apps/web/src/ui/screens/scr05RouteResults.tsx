@@ -413,7 +413,7 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
             </div>
           </div>
 
-          <div className="scr05-right-col">
+          <div className="scr05-right-col" role="region" aria-label="Route warnings" tabIndex={0}>
             <div className="scr05-warnings-header">Warnings</div>
             <Isolated label="Warnings" resetKey={warnings}>
               <WarningsList warnings={warnings} mapHandle={mapHandle} getLegExtent={getLegExtent} />
