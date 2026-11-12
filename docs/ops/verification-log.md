@@ -508,3 +508,14 @@ An independent audit on 11 Nov checked the T13 entries above against the files o
 - **T13.04, "no text renders below 12 px".** False: `.code` and `.module-label` in `tokens.css` are set to 11 px. The "Verified against 04 §C.2" line is also contradicted by the headings: h1 is 20 px/600, not uppercase, and its Chakra Petch is declared but not self-hosted; h2/h3 are Inter 16 px/600 (04 v2 §C.2 specifies Chakra Petch 20–28 px/500 uppercase), where 04 v2 §C.2 specifies Chakra Petch 20–28 px at 500 uppercase. "Verified offline, zero external requests" cites a build and `@font-face` rules but no recorded network trace.
 - **T13.05, "Done" / "Print preview Pass" / "100 % compliant".** Not supported. No print preview or B&W print output was produced or recorded; the `@media print` rules were only read. "100 %" is not a measured quantity (the only automated check is five jsdom tests in `statusIcon.test.ts`). The print colours `#F3F4F6`, `#D1D5DB` and `#4B5563` that the print theme uses are not defined in 04 §C.1 (`TODO(decision)` in `tokens.css`).
 - **T13.06, "implemented and verified".** Not supported. `attachKeyboardControls` in `keyboard.ts` is imported only by its own test; SCR-02 (`MapWorkspace`) still throws "not implemented", so the shortcuts cannot be exercised in the app and no manual keyboard check was possible. At that date there were no unit tests either; #167 added 10 in `keyboard.test.ts`, which cover the module in isolation only.
+
+## T13.03 — Wireframe evidence for SCR-02 and SCR-08
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 03, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-12 |
+| **Status** | Done: the wireframes are the prototype frames of the mockup, not paper sketches (FD-154, Proposed) |
+| **Inputs** | [Mockup handoff, Screen inventory](../design/mockup-handoff.md#screen-inventory): `#scr-02-idle` (SCR-02 map workspace, idle) and `#scr-08-ok` (SCR-08 briefing card, OK plan) |
+
+The prototype frames show every element 04 §B and §F name for both screens and have no person in the images (06 TASK-17 media rule). `docs/design/wireframes/` is not created. Open layout questions are the Unresolved items of the mockup handoff, decided by FD rows (see `docs/plan/frontend/decisions.md`).

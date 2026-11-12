@@ -15,14 +15,14 @@ const LIMITS = { text: 4.5, large: 3, hud: 7 };
 const ROUTES: { hash: string; live: boolean; pending?: string }[] = [
   { hash: "#/join", live: false },
   { hash: "#/hud/EV1", live: true },
-  { hash: "#/ops", live: true, pending: "package 03: 4.42 : 1 on 12 px 'not included in this build' (.conditions-panel-ops)" },
+  { hash: "#/ops", live: true },
   {
     hash: "#/eva/EV1",
     live: true,
     pending:
       "package 17: HAVEN and O2 card text 1.02 : 1 (ink #1A1A1A on the --panel card: `.card` background overrides `.status-nominal` fill)",
   },
-  { hash: "#/report", live: false, pending: "package 03: 4.39 : 1 on the 12 px 'vs' separator in SCR-17" },
+  { hash: "#/report", live: false },
 ];
 
 for (const { hash, live, pending } of ROUTES) {

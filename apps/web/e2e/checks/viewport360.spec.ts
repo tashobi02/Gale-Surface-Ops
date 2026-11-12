@@ -22,7 +22,7 @@ async function expectNoOverflow(page: Page, where: string): Promise<void> {
   expect(result.clipped, `${where}: clipped text boxes`).toEqual([]);
 }
 
-test.fixme("viewport360: BRIEF routes fit 360 px (enabled by package 03)", async ({ page }) => {
+test("viewport360: BRIEF routes fit 360 px", async ({ page }) => {
   for (const hash of routeHashesInMode(["brief"])) {
     await page.goto(`/${hash}`);
     await page.waitForLoadState("networkidle");

@@ -204,7 +204,7 @@ export function ConditionsPanel({
             {...provAttrs(unavailableOf(null, "conditions.remsClimatology"))}
             data-source="docs/specs/01:FR-36"
             title="docs/specs/01:FR-36"
-            style={{ color: "var(--text-dim, #7B8794)", fontSize: "12px" }}
+            style={{ color: "var(--text-3)", fontSize: "12px" }}
           >
             {remsNote}
           </span>

@@ -7,7 +7,7 @@
  * - Never colour alone (colour-blind and grayscale safe).
  * - ok / nominal:   ✓ circle,   solid pattern,   "OK" / "NOMINAL"
  * - caution:        ▲ triangle, diagonal hatch,  "CAUTION"
- * - blocked / warn: ⬣ octagon,  cross-hatch,     "BLOCKED" / "WARNING"
+ * - blocked / warn: octagon,    cross-hatch,     "BLOCKED" / "WARNING" (drawn as an SVG polygon: U+2B23 is a hexagon, FD-208)
  * - unknown:        ? diamond,  dotted pattern,  "UNKNOWN"
  * - advisory:       ◆ diamond,  dotted pattern,  "ADVISORY" (Proposed)
  * - The icon glyph is aria-hidden="true" when the status word is shown as text.
@@ -16,6 +16,7 @@
  */
 
 import { createElement, type ReactElement } from "react";
+import { octagonPointsAttr } from "./patterns";
 
 /** Operational status kinds from contract C10 / T07.01 stub. */
 export type OperationalStatus = "ok" | "caution" | "blocked" | "unknown";
@@ -23,13 +24,16 @@ export type OperationalStatus = "ok" | "caution" | "blocked" | "unknown";
 /** Extended status kinds including v2 alert vocabulary (04 §C.1). */
 export type ExtendedStatus = OperationalStatus | "nominal" | "warning" | "advisory";
 
-/** Unicode shape glyphs representing each status level (04 §C.1). */
+/**
+ * Text shape tokens for each status level (04 §C.1), for text-only contexts. Warning and blocked are drawn as an SVG octagon
+ * by `StatusIcon` and `renderStatusIcon` (FD-208); U+2BC3 is the octagon codepoint, not the hexagon U+2B23.
+ */
 export const STATUS_GLYPHS: Record<ExtendedStatus, string> = {
   ok: "✓",
   nominal: "✓",
   caution: "▲",
-  blocked: "⬣",
-  warning: "⬣",
+  blocked: "⯃",
+  warning: "⯃",
   unknown: "?",
   advisory: "◆",
 };
@@ -62,6 +66,35 @@ export function normalizeStatusClass(status: ExtendedStatus): "nominal" | "cauti
     default:
       return "unknown";
   }
+}
+
+/** Statuses whose shape is a drawn octagon instead of a text character (04 §C.1, FD-208). */
+export function hasDrawnShape(status: ExtendedStatus): boolean {
+  return normalizeStatusClass(status) === "warning";
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+const OCTAGON_VIEWBOX = `0 0 100 100`;
+
+/** The octagon as a DOM node; its box comes from the glyph's token-sized box (patterns.css `.status-glyph svg`). */
+function octagonElement(): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", OCTAGON_VIEWBOX);
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  const polygon = document.createElementNS(SVG_NS, "polygon");
+  polygon.setAttribute("points", octagonPointsAttr());
+  svg.appendChild(polygon);
+  return svg;
+}
+
+/** The octagon as a React element; same markup as `octagonElement`. */
+function octagonReact(): ReactElement {
+  return createElement(
+    "svg",
+    { viewBox: OCTAGON_VIEWBOX, "aria-hidden": "true", focusable: "false" },
+    createElement("polygon", { points: octagonPointsAttr() }),
+  );
 }
 
 export interface StatusIconOptions {
@@ -106,7 +139,8 @@ export function renderStatusIcon(status: ExtendedStatus, options?: StatusIconOpt
   const glyphSpan = document.createElement("span");
   glyphSpan.className = "status-glyph";
   glyphSpan.setAttribute("aria-hidden", showWord ? "true" : "false");
-  glyphSpan.textContent = glyph;
+  if (hasDrawnShape(status)) glyphSpan.appendChild(octagonElement());
+  else glyphSpan.textContent = glyph;
   container.appendChild(glyphSpan);
 
   // Status word text
@@ -160,7 +194,7 @@ export function StatusIcon({
         className: "status-glyph",
         "aria-hidden": showWord ? "true" : "false",
       },
-      glyph,
+      hasDrawnShape(status) ? octagonReact() : glyph,
     ),
     showWord
       ? createElement(

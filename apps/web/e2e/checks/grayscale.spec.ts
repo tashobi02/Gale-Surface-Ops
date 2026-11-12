@@ -9,7 +9,8 @@
  * claim FD-020 makes for the advisory/unknown pair. A stricter floor needs a spec number first.
  */
 import { expect, test } from "@playwright/test";
-import { STATUS_GLYPHS, STATUS_WORDS, normalizeStatusClass, type ExtendedStatus } from "../../src/ui/components/statusIcon";
+import { octagonPointsAttr } from "../../src/ui/components/patterns";
+import { STATUS_GLYPHS, STATUS_WORDS, hasDrawnShape, normalizeStatusClass, type ExtendedStatus } from "../../src/ui/components/statusIcon";
 import { expectDistinct, lumaSignatures } from "../lib/grayscale";
 
 const MIN_LUMA_DELTA = 1;
@@ -21,7 +22,7 @@ for (const mode of ["ops", "brief"] as const) {
     await page.waitForLoadState("networkidle");
     // Same markup as renderStatusIcon (statusIcon.ts): container, glyph, word.
     await page.evaluate(
-      ({ statuses, glyphs, words, classes, htmlMode }) => {
+      ({ statuses, glyphs, words, classes, drawn, octagon, htmlMode }) => {
         document.documentElement.dataset.mode = htmlMode;
         const host = document.createElement("div");
         host.id = "grayscale-sample";
@@ -34,7 +35,16 @@ for (const mode of ["ops", "brief"] as const) {
           const glyph = document.createElement("span");
           glyph.className = "status-glyph";
           glyph.setAttribute("aria-hidden", "true");
-          glyph.textContent = glyphs[s];
+          if (drawn[s]) {
+            // The drawn octagon of statusIcon.ts (FD-208), not the text token.
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("viewBox", "0 0 100 100");
+            svg.setAttribute("aria-hidden", "true");
+            const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+            polygon.setAttribute("points", octagon);
+            svg.append(polygon);
+            glyph.append(svg);
+          } else glyph.textContent = glyphs[s];
           const label = document.createElement("span");
           label.className = "status-label";
           label.textContent = words[s];
@@ -48,13 +58,16 @@ for (const mode of ["ops", "brief"] as const) {
         glyphs: STATUS_GLYPHS,
         words: STATUS_WORDS,
         classes: Object.fromEntries(STATUSES.map((s) => [s, normalizeStatusClass(s)])),
+        drawn: Object.fromEntries(STATUSES.map((s) => [s, hasDrawnShape(s)])),
+        octagon: octagonPointsAttr(),
         htmlMode: mode,
       },
     );
 
     // Shape and word are present for every status, so colour is never the only cue (04 §A.3 #2).
     for (const s of STATUSES) {
-      await expect(page.locator(`#sample-${s} .status-glyph`)).toHaveText(STATUS_GLYPHS[s]);
+      if (hasDrawnShape(s)) await expect(page.locator(`#sample-${s} .status-glyph svg polygon`)).toHaveCount(1);
+      else await expect(page.locator(`#sample-${s} .status-glyph`)).toHaveText(STATUS_GLYPHS[s]);
       await expect(page.locator(`#sample-${s} .status-label`)).toHaveText(STATUS_WORDS[s]);
     }
     expect(new Set(STATUSES.map((s) => STATUS_WORDS[s])).size).toBe(STATUSES.length);

@@ -53,10 +53,10 @@ that enables it in its title. The package removes its own `fixme` and makes it g
 | `offline` | T07.02/T07.03 Verify, NFR-01 of T14.09 | active, all routes in the router table | 01, then each screen package |
 | `brand-orange` | 04 §A.3, CLAUDE.md §2 | active, OPS and HUD routes | 03, re-run by live packages |
 | `grayscale` | T13.05, U-41, UT-4 | active, five statuses in BRIEF and OPS | 03 |
-| `contrast` | T13.12, NFR-04 | active on `#/join` and `#/hud/EV1`; `#/ops`, `#/eva/EV1`, `#/report` are `fixme` with the measured failure | 03, 17 |
+| `contrast` | T13.12, NFR-04 | active on `#/join`, `#/hud/EV1`, `#/ops`, `#/report`; `#/eva/EV1` is `fixme` with the measured failure | 03, 17 |
 | `tiles-all-levels`, `scale-bar` | T02.03, T02.04 | fixme | 04 |
-| `viewport360` | 04 §F | fixme | 03, 17 |
-| `axe` | T13.09 | fixme | 03, each screen package |
+| `viewport360` | 04 §F | active on the BRIEF routes; the EVA tablet is `fixme` | 03, 17 |
+| `axe` | T13.09 | active on `#/join`, `#/ops`, `#/hud/EV1`, `#/report` (the `BUILT_ROUTES` list); each screen package adds its route | 03, each screen package |
 | `targets` | T24.11 targets | fixme | 17, 19, 09 |
 | `hud-glance`, `eva-geometry`, `rotation`, `fullmap` | T24.11 glance, T24.04, UT-5/6/9 | fixme | 17, 18 |
 | `queued-resend`, `link-lost` | FD-088, T24.11 | fixme | 18 |

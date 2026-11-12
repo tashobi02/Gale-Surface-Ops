@@ -105,7 +105,7 @@ describe("WarningsList: four cues, never colour alone (04 §A.3 #2)", () => {
     const items = [...view.container.querySelectorAll("li")];
     expect(items).toHaveLength(3);
     expect(items[0]!.getAttribute("data-severity")).toBe("blocked");
-    expect(items[0]!.textContent).toContain("⬣");
+    expect(items[0]!.querySelector(".status-glyph svg polygon")).not.toBeNull(); // the drawn octagon (FD-208)
     expect(items[0]!.textContent).toContain("BLOCKED");
     expect(items[1]!.textContent).toContain("▲");
     expect(items[1]!.textContent).toContain("CAUTION");
