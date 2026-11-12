@@ -17,7 +17,8 @@
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { LogEvent, LogEventData, PlanExport, Role, Waypoint } from "@marswalk/protocol";
+import type { DoseSeries, LogEvent, LogEventData, PlanExport, PostEvaReport, Role, Waypoint } from "@marswalk/protocol";
+import { backgroundDoseUgy } from "@marswalk/compute";
 import { buildReport } from "../src/report";
 
 function makeEvent<K extends LogEvent["kind"]>(
@@ -382,8 +383,8 @@ describe("PostEvaReport builder (01 FR-46, 05 PostEvaReport)", () => {
     expect(report.dose.headline).toEqual({ crew_id: "EV1", dose_event_ugy: 300, dose_event_unsheltered_ugy: 9000 });
     expect(report.dose.provenance).toEqual({ per_crew: "simulated", headline: "derived", planned_background_ugy: "modelled" }); // BD-76
     expect(report.dose).not.toHaveProperty("dose_event_ugy");
-    // TODO(decision): a sourced planned-background result comes through the report/session contract; until
-    // then the background dose is null. A rate hard-coded in the builder would be an invented number.
+    // The engine does not integrate the background apart from the event series, so the received background is not split out
+    // (null); the planned figure is `planned_background_ugy` (BD-132, tested below). A rate hard-coded here would be an invented number.
     expect(report.dose.background_dose_ugy).toBeNull();
   });
 
@@ -523,5 +524,99 @@ describe("PostEvaReport determinism (NFR-06)", () => {
 
     expect(report.generated_at).toBe("");
     expect(report.dose.background_dose_ugy).toBeNull();
+  });
+});
+
+/**
+ * Backend package 20 (T27.01, BD-76, BD-132): planned background dose and the crew trace.
+ * `planned_background_ugy` = compute `backgroundDoseUgy(series, planned EVA seconds)`: the recorded series' own background rate
+ * (µGy/h) times the plan's `eva_total_min`; null with a reason when an input is missing; `modelled`, with the series' source id.
+ * (BD-132 amends BD-76: estimateDose gives dose equivalent in mSv, and 02 §D.13 forbids converting it to the µGy of this field.)
+ * The expected values are computed here from the series and the plan, never typed in.
+ */
+const SERIES: DoseSeries = {
+  series_id: "rad-test",
+  quantity: "surface absorbed dose rate",
+  unit: "uGy/h",
+  samples: [["2024-05-20T00:00:00Z", 5.4]],
+  background_rate: 5.4,
+  method: "archive",
+  provenance: "replayed",
+  source_id: "rad-test-source",
+  integral_check: { expected_ugy: 0, computed_ugy: 0 },
+};
+const planWithTotals = (eva_total_min: number | null): PlanExport => ({ ...PLAN, result: { ...PLAN.result, totals: eva_total_min === null ? null : { eva_total_min } } }) as unknown as PlanExport;
+
+describe("planned background dose (BD-76, BD-132)", () => {
+  it("is the series' background rate times the plan's planned EVA hours, modelled, with the series' source id and no reason", () => {
+    const plan = planWithTotals(135);
+    const report = buildReport(stormLog, "h", plan, { dose: SERIES });
+    expect(report.dose.planned_background_ugy).toBe(backgroundDoseUgy(SERIES, 135 * 60));
+    expect(report.dose.planned_background_ugy).toBeCloseTo((SERIES.background_rate * 135) / 60, 9);
+    expect(report.dose.planned_background_reason).toBeNull();
+    expect(report.dose.planned_background_source_id).toBe("rad-test-source");
+    expect(report.dose.provenance.planned_background_ugy).toBe("modelled");
+  });
+
+  it("a zero-minute plan is a real zero dose, not a missing one", () => {
+    const report = buildReport(stormLog, "h", planWithTotals(0), { dose: SERIES });
+    expect(report.dose.planned_background_ugy).toBe(0);
+    expect(report.dose.planned_background_reason).toBeNull();
+  });
+
+  it("is null with a reason that names what is missing: no plan, no totals, no dose series, or an unusable rate or duration", () => {
+    const none = buildReport(stormLog, "h", null, { dose: SERIES });
+    expect(none.dose.planned_background_ugy).toBeNull();
+    expect(none.dose.planned_background_reason).toMatch(/plan/i);
+    expect(none.dose.planned_background_source_id).toBeNull();
+
+    const partial = buildReport(stormLog, "h", planWithTotals(null), { dose: SERIES });
+    expect(partial.dose.planned_background_ugy).toBeNull();
+    expect(partial.dose.planned_background_reason).toMatch(/totals/i);
+
+    const noSeries = buildReport(stormLog, "h", planWithTotals(90), { dose: null });
+    expect(noSeries.dose.planned_background_ugy).toBeNull();
+    expect(noSeries.dose.planned_background_reason).toMatch(/dose series/i);
+    expect(buildReport(stormLog, "h", planWithTotals(90)).dose.planned_background_reason).toMatch(/dose series/i);
+
+    const badRate = buildReport(stormLog, "h", planWithTotals(90), { dose: { ...SERIES, background_rate: Number.NaN } });
+    expect(badRate.dose.planned_background_ugy).toBeNull();
+    expect(badRate.dose.planned_background_reason).toMatch(/background_rate/);
+    const badDuration = buildReport(stormLog, "h", planWithTotals(-5), { dose: SERIES });
+    expect(badDuration.dose.planned_background_ugy).toBeNull();
+    expect(badDuration.dose.planned_background_reason).toMatch(/duration/i);
+  });
+
+  it("a plan published before the EVA replaces the planned duration; a revision after EVA_STARTED does not", () => {
+    const published = { ...planWithTotals(60) } as PlanExport;
+    const before = seqd([
+      makeEvent(0, "2024-05-20T13:00:00Z", "SESSION_LOADED", SESSION),
+      makeEvent(0, "2024-05-20T13:00:30Z", "PLAN_REVISED", { plan_revision: 1, option_id: null, stops_dropped: [], waypoints: INITIAL_WAYPOINTS, legs: [], plan: published }, "planner"),
+      makeEvent(0, "2024-05-20T13:01:00Z", "EVA_STARTED", { crew_ids: ["EV1", "EV2"], plan_revision: 1 }),
+      makeEvent(0, "2024-05-20T13:21:30Z", "PLAN_REVISED", { plan_revision: 2, option_id: "opt-1", stops_dropped: [1], waypoints: [WP_START, wp(1, "stop")], legs: [] }, "ops"),
+    ]);
+    const report = buildReport(before, "h", planWithTotals(135), { dose: SERIES });
+    expect(report.dose.planned_background_ugy).toBe(backgroundDoseUgy(SERIES, 60 * 60));
+  });
+
+  it("is deterministic: the same log, plan and series give the same JSON", () => {
+    const a = buildReport(stormLog, "h", planWithTotals(135), { dose: SERIES });
+    const b = buildReport(stormLog, "h", planWithTotals(135), { dose: SERIES });
+    expect(JSON.stringify(b)).toBe(JSON.stringify(a));
+  });
+});
+
+describe("crew trace in the report (BD-76, U-24)", () => {
+  const trace: PostEvaReport["trace"] = [
+    { crew_id: "EV1", points: [{ sim_time: "2024-05-20T13:01:30Z", x_m: 1, y_m: 2 }] },
+    { crew_id: "EV2", points: [{ sim_time: "2024-05-20T13:01:30Z", x_m: 3, y_m: 4 }] },
+  ];
+
+  it("is empty without a trace and is the session's trace when given, copied (not aliased)", () => {
+    expect(buildReport(stormLog, "h", PLAN).trace).toEqual([]);
+    const report = buildReport(stormLog, "h", PLAN, { trace });
+    expect(report.trace).toEqual(trace);
+    expect(report.trace).not.toBe(trace);
+    expect(report.trace[0]!.points).not.toBe(trace[0]!.points);
   });
 });

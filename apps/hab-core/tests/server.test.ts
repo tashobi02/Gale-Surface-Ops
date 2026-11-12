@@ -85,6 +85,9 @@ class StubSession implements SessionHandle {
   relayCoverage(_vehicle_id: string): ReturnType<SessionHandle["relayCoverage"]> {
     return null;
   }
+  reportInputs(): ReturnType<SessionHandle["reportInputs"]> {
+    return { dose: null, trace: [] };
+  }
   apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[]; replaced?: boolean } {
     this.applied.push(command);
     this.clientIds.push(client_id);

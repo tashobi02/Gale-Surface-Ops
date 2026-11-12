@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`███████████░░░░░░░░░` **57 %** — 195 of 345 subtasks done, 51 in progress.
+`███████████░░░░░░░░░` **57 %** — 197 of 345 subtasks done, 49 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-24 EVA client and HUD: SCR-12 tablet, SCR-13 HUD, SCR-14 options sheet, SCR-18 link lost, full-screen map](docs/tasks/TASK-24_eva-client-and-hud.md) | `█░░░░░░░░░` 9 % | 1 | 9 | 11 |
 | [TASK-25 Ops console: SCR-11 with the shared map, alerts, options approval, clock control, SCR-10 join](docs/tasks/TASK-25_ops-console.md) | `░░░░░░░░░░` 0 % | 0 | 8 | 9 |
 | [TASK-26 Links: surface link graph and `LINK_STATE`, comm-shadow warnings, Earth link widget and delayed queue](docs/tasks/TASK-26_links.md) | `███████░░░` 71 % | 5 | 0 | 7 |
-| [TASK-27 Event log view, post-EVA report, replay mode for GitHub Pages](docs/tasks/TASK-27_report-and-replay.md) | `░░░░░░░░░░` 0 % | 0 | 4 | 6 |
+| [TASK-27 Event log view, post-EVA report, replay mode for GitHub Pages](docs/tasks/TASK-27_report-and-replay.md) | `███░░░░░░░` 33 % | 2 | 2 | 6 |
 | [TASK-28 Network kit and rehearsal: router, static IP, QR join, device matrix, venue checklist](docs/tasks/TASK-28_network-kit.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 5 |
 | [TASK-29 Robotic rover tasking: SCOUT, CARRY, RELAY, RETURN](docs/tasks/TASK-29_rover-tasking.md) | `█████░░░░░` 50 % | 3 | 2 | 6 |
 | [TASK-30 Score-sheet single points: challenge named, repo public, page drafted, AI use current](docs/tasks/TASK-30_score-sheet-points.md) | `░░░░░░░░░░` 0 % | 0 | 2 | 3 |

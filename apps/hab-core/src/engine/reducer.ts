@@ -93,6 +93,12 @@ export interface EngineState {
    * revision and never repeats an ETag (BD-112). Engine-only and JSON-safe; absent = none given yet.
    */
   relay_revs?: Record<string, number>;
+  /**
+   * Crew positions every 30 sim-s while the EVA ticks, `simulated`, for the post-EVA report (05 U-24, BD-76): sampled by the
+   * session after each tick from the state (`sampleTrace`, session.ts), so a resume re-derives the part after its snapshot by
+   * the same ticks. Engine-only and JSON-safe, saved in snapshots; absent = nothing sampled yet.
+   */
+  trace?: { crew_id: CrewId; points: { sim_time: string; x_m: number; y_m: number }[] }[];
 }
 
 /** One planned drive of a utility rover (BD-102). `path` lists the vertices ahead of the start, ending at the target. */

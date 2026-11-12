@@ -134,11 +134,13 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     };
   });
 
-  app.get<{ Querystring: { after?: string } }>("/api/log", async (req, reply) => {
+  app.get<{ Querystring: { after?: string; download?: string } }>("/api/log", async (req, reply) => {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
     const after = Number(req.query.after ?? 0);
     if (!Number.isInteger(after) || after < 0) return reply.code(400).send({ error: "after must be a non-negative integer" });
     reply.type("application/x-ndjson");
+    // ?download=1 saves the log as `<session_id>.jsonl` (N-10; the ops console's "download the log").
+    if (req.query.download === "1") reply.header("Content-Disposition", `attachment; filename="${session.snapshot([]).session.session_id}.jsonl"`);
     return session.eventsAfter(after).map((e) => JSON.stringify(e)).join("\n");
   });
 
@@ -158,7 +160,7 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
     const events = session.eventsAfter(0);
     const snap = session.snapshot([]);
-    const report = buildReport(events, snap.session.log_hash, session.initialPlan());
+    const report = buildReport(events, snap.session.log_hash, session.initialPlan(), session.reportInputs());
     if (report.session_id === "unknown" && snap.session.session_id) {
       report.session_id = snap.session.session_id;
       report.scenario_id = snap.session.scenario_id;

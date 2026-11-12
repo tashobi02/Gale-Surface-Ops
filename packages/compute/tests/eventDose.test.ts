@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { DoseSeries, ParamSet } from "@marswalk/protocol";
-import { integrateDose, rateAt, triggerState } from "../src/eventDose";
+import { backgroundDoseUgy, integrateDose, rateAt, triggerState } from "../src/eventDose";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const param = (id: string): ParamSet => JSON.parse(readFileSync(join(here, "../../../scenarios/storm-sol4190/param_sets", `${id}.json`), "utf8")) as ParamSet;
@@ -144,4 +144,28 @@ describe("integrateDose (02 §D.13, §F.2)", () => {
   });
 
   it.todo("digitised series integral matches the published 8,100 µGy total within the stated tolerance (needs the TASK-21 series)");
+});
+
+/** Backend package 20 (T27.01, BD-132): the planned background dose, the series' own background rate times the planned duration. */
+describe("backgroundDoseUgy", () => {
+  const s = series([[0, LOW], [10, HIGH]]);
+  it("is background_rate (µGy/h) times the duration in hours, with no shielding factor and no unit conversion", () => {
+    expect(backgroundDoseUgy(s, 3600)).toBe(BG);
+    expect(backgroundDoseUgy(s, 6 * 3600)).toBeCloseTo(6 * BG, 12);
+    expect(backgroundDoseUgy(s, 90 * 60)).toBeCloseTo(1.5 * BG, 12);
+    expect(backgroundDoseUgy(s, 0)).toBe(0);
+  });
+
+  it("agrees with integrateDose over the same duration at the background rate in the suit's unshielded factor", () => {
+    const flat = { ...series([[0, BG], [600, BG]]) };
+    const unsheltered = integrateDose(flat, [{ t_utc: iso(0), dt_s: 3600, shelter: "suit" }], shielding).unsheltered_ugy;
+    expect(backgroundDoseUgy(flat, 3600)).toBeCloseTo(unsheltered, 9);
+  });
+
+  it("throws RangeError for a negative or non-finite duration and for a series without a usable background_rate", () => {
+    expect(() => backgroundDoseUgy(s, -1)).toThrow(RangeError);
+    expect(() => backgroundDoseUgy(s, Number.NaN)).toThrow(RangeError);
+    expect(() => backgroundDoseUgy({ ...s, background_rate: Number.NaN }, 60)).toThrow(RangeError);
+    expect(() => backgroundDoseUgy({ ...s, background_rate: -1 }, 60)).toThrow(RangeError);
+  });
 });
