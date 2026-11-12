@@ -48,6 +48,11 @@ export interface LoadedScenario {
    * null when no site is loaded (fake scenario), as `grid`.
    */
   site: { default_start: { x_m: number; y_m: number }; hab_candidates: HabCandidate[] } | null;
+  /**
+   * The SiteRef this scenario was read with, kept so SELECT_HAB_SITE can read another candidate's comm grid
+   * (`loadCandidateComm`, T32.14). Absent on a scenario assembled by hand (tests); such a session cannot swap sites.
+   */
+  site_ref?: SiteRef;
 }
 
 /** The loaded site the scenario must match (05 Scenario `site_id`, `data_version`). */
@@ -118,6 +123,7 @@ export function readScenario(dir: string, site: SiteRef): LoadedScenario {
     comm,
     eventLibrary: scenario.event_library,
     taskLibrary: scenario.task_library ?? [],
+    site_ref: site,
     site: loaded === null ? null : { default_start: { x_m: loaded.manifest.default_start.x_m, y_m: loaded.manifest.default_start.y_m }, hab_candidates: loaded.manifest.hab_candidates ?? [] },
   };
 }

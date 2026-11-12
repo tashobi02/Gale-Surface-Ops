@@ -246,3 +246,6 @@ After editing this file run `make progress`. Do not edit the README progress blo
 | T32.10 | done | 2026-11-12 | [nextStop.ts](../../apps/hab-core/src/engine/nextStop.ts), commands.ts and session.ts; CLOCK_JUMPED after the jump's events (BD-92, BD-113) |
 | T32.11 | done | 2026-11-12 | [liveEvents.test.ts](../../apps/hab-core/tests/liveEvents.test.ts): background before press, shift, alert from press, rejections, determinism |
 | T32.12 | done | 2026-11-12 | [liveEvents.ts](../../apps/hab-core/src/engine/liveEvents.ts); tick/alerts/contingency read the shifted series; existing tests press at series_start_utc (U-62, BD-97, BD-114) with unchanged numbers |
+| T32.13 | done | 2026-11-12 | [liveSetup.test.ts](../../apps/hab-core/tests/liveSetup.test.ts): reset, site, setup and the full 02 §E.4 matrix |
+| T32.14 | done | 2026-11-12 | [liveSetup.ts](../../apps/hab-core/src/engine/liveSetup.ts); haven recomputed on SELECT_HAB_SITE (BD-115, BD-116, BD-117) |
+| T32.15 | done | 2026-11-12 | [server.ts](../../apps/hab-core/src/server.ts) sends a fresh SNAPSHOT after a session replace (BD-118); [server.test.ts](../../apps/hab-core/tests/server.test.ts) green; habClient already restarts its feed on a new session_id (01a) |

@@ -7,7 +7,8 @@
  * Delegated (each stays in its owner's module, which checks its own args and state): SUMMON_VEHICLE
  * → engine/vehicles (T23.05), APPROVE_OPTION and ABORT → engine/contingencyOps (T23.07),
  * JUMP_NEXT_STOP → the session manager runs the ticks (effect "next_stop", engine/nextStop.ts, T32.10),
- * START_EVENT → engine/liveEvents (T32.12), SEND_MESSAGE → engine/earth (TASK-26), TASK_ROVER → ./rover (FR-41, TASK-29), UPDATE_STOP_TASK and
+ * START_EVENT → engine/liveEvents (T32.12), SELECT_HAB_SITE and SET_MISSION_SETUP → engine/liveSetup (T32.14),
+ * RESET_SESSION → the session manager (effect "reset"; any status, presenter only), SEND_MESSAGE → engine/earth (TASK-26), TASK_ROVER → ./rover (FR-41, TASK-29), UPDATE_STOP_TASK and
  * ADD_STOP_TASK → engine/tasks (FR-50, T31.04; "own tasks" and the undo rules are checked there, 02 §E.4, §E.6).
  * Every accepted PLAN_REVISED is followed by the TASK_DROPPED events of the stops it removed (`withTaskDrops`).
  * Rules where 02 is silent (proposed 2026-11-07, tests/commands.test.ts header): EVA "self" means
@@ -35,6 +36,7 @@ import {
 import { handleAbort, handleApproveOption } from "./engine/contingencyOps";
 import { handleSendMessage } from "./engine/earth";
 import { startEvent } from "./engine/liveEvents";
+import { selectHabSite, setMissionSetup, type SiteEffect } from "./engine/liveSetup";
 import { nextStopTarget, warningLatched } from "./engine/nextStop";
 import { logged, type CommandOutcome, type EngineState, type PendingEvent } from "./engine/reducer";
 import { handleAddStopTask, handleUpdateStopTask, onPlanRevised } from "./engine/tasks";
@@ -51,8 +53,12 @@ export interface CommandContext {
   accepted: AcceptedCommands;
 }
 
-/** Work only the session manager can do (T22.12): replace the session, or run to the next event. */
-export type SessionEffect = { kind: "load"; scenario_id: string } | { kind: "jump" } | { kind: "next_stop" };
+/**
+ * Work only the session manager can do (T22.12): replace the session, run to the next event, run to the next stop, swap
+ * the hab site after SITE_SELECTED is logged (T32.14), or reset (T32.14: the manager logs SESSION_RESET, which names the
+ * next session id only it knows, then starts that session).
+ */
+export type SessionEffect = { kind: "load"; scenario_id: string } | { kind: "jump" } | { kind: "next_stop" } | { kind: "reset" } | SiteEffect;
 
 export interface HandledCommand extends CommandOutcome {
   effect?: SessionEffect;
@@ -224,6 +230,13 @@ function dispatch(state: EngineState, command: Command, ctx: CommandContext): Ha
       return { result: okWithoutEvent(command), events: [], effect: { kind: "next_stop" } };
     case "START_EVENT":
       return startEvent(state, ctx.scenario, command); // args and state are checked there (T32.12, 02 §D.17)
+    case "RESET_SESSION":
+      // Allowed in every status (03 §E: Running, Paused and Ended all go back to Loaded); the session manager does the rest.
+      return { result: okWithoutEvent(command), events: [], effect: { kind: "reset" } };
+    case "SELECT_HAB_SITE":
+      return selectHabSite(state, ctx.scenario, command); // args, then state, are checked there (T32.14, 02 §D.17)
+    case "SET_MISSION_SETUP":
+      return setMissionSetup(state, ctx.scenario, command); // args, then state, are checked there (T32.14, 02 §D.17, §E.3)
     case "START_EVA":
       requireState(state, ["LOADED"], "Starting the EVA");
       if (state.plan === null) reject("INVALID", "START_EVA needs a published plan; send PUBLISH_PLAN first (02 §D.17)");

@@ -26,12 +26,14 @@ import { join } from "node:path";
 import { PROTOCOL_VERSION, type Command, type CommandRef, type CommandResult, type LogEvent, type LogEventData, type PlanExport, type ProvenanceMap, type Snapshot } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand } from "./commands";
 import { SIM_STEP_S } from "./engine/clock";
+import { invalidateHavenCache } from "./engine/haven";
+import { buildHabSite, prepareSite, relocateCrew, type HabSite } from "./engine/liveSetup";
 import { arrivedAt, jumpEnded, nextStopTarget, type JumpEnd } from "./engine/nextStop";
 import { initialState, logged, reduce, type EngineState, type PendingEvent, type StateChange } from "./engine/reducer";
 import { seedTasks } from "./engine/tasks";
 import { tick } from "./engine/tick";
 import { canonicalJson, openLog, resumeLog, SNAPSHOT_EVERY, type EventLog } from "./log";
-import type { LoadedScenario } from "./scenario";
+import { loadCandidateComm, type LoadedScenario } from "./scenario";
 
 export interface SessionHandle {
   /** Full state for SNAPSHOT and `GET /api/session`; the server supplies the connected clients. */
@@ -40,8 +42,13 @@ export interface SessionHandle {
    * Validate and apply one command; exactly one COMMAND_RESULT per command (02 §E.6).
    * `client_id` keys the 05 Command dedupe rule and `command_ref`; server.ts passes the HELLO
    * `client_id`. Without one (tests, headless replay) the role stands in for the client.
+   *
+   * `replaced` is true when the command replaced the session (RESET_SESSION, LOAD_SCENARIO; T32.15). `events` are then the
+   * old session's events the command logged (the reset's SESSION_RESET; none for a load), `result.event_seq` is the
+   * last of them (or, for a load, the new session's first), and the server answers with a fresh SNAPSHOT of the new
+   * session instead of the new session's own events.
    */
-  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[] };
+  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[]; replaced?: boolean };
   /** Run `steps` fixed 1-s sim steps; events go out immediately, deltas are coalesced by the server. */
   advance(steps: number): { events: LogEvent[]; deltas: StateChange[] };
   /**
@@ -51,6 +58,13 @@ export interface SessionHandle {
   recordRoleTakeOver(data: LogEventData["ROLE_TAKEN_OVER"]): LogEvent;
   /** Logged events after `seq` (reconnect, 02 §E.6). */
   eventsAfter(seq: number): LogEvent[];
+  /**
+   * The hab site in use (T32.14): the chosen candidate's mast, comm grid and haven field; null when the Site has no
+   * candidates or the scenario no routing grid. Recomputed by SELECT_HAB_SITE; the haven field is built on first
+   * read for the candidate a session starts with. Not part of any snapshot or log (typed arrays), read by tools,
+   * the link graph (TASK-26) and the tests.
+   */
+  habSite(): HabSite | null;
   /**
    * The loaded scenario's own plan, unchanged by PLAN_REVISED (the snapshot's `plan` is the engine's current one, whose
    * waypoints the reducer replaces). The post-EVA report diffs revisions against it and reads its planned timing (FR-46).
@@ -101,15 +115,21 @@ class Session implements SessionHandle {
   private state: EngineState;
   private log: EventLog;
   private accepted: AcceptedCommands;
+  /** The scenario as loaded: what RESET_SESSION starts again from. */
+  private baseScenario: LoadedScenario;
+  /** The scenario in use: `baseScenario` with the chosen candidate's comm grid and mast after SELECT_HAB_SITE. */
   private scenario: LoadedScenario;
+  /** The chosen hab; undefined until first needed (the haven field costs a Dijkstra pass), null when there is none. */
+  private site: HabSite | null | undefined;
 
   constructor(
     scenario: LoadedScenario,
     private readonly varDir: string,
     private readonly options: SessionOptions,
-    resumed?: { log: EventLog; state: EngineState; accepted: AcceptedCommands },
+    resumed?: { log: EventLog; state: EngineState; accepted: AcceptedCommands; scenario: LoadedScenario },
   ) {
-    this.scenario = scenario;
+    this.baseScenario = scenario;
+    this.scenario = resumed?.scenario ?? scenario;
     if (resumed) {
       this.log = resumed.log;
       this.state = resumed.state;
@@ -124,6 +144,11 @@ class Session implements SessionHandle {
 
   initialPlan(): PlanExport | null {
     return this.scenario.scenario.plan ?? null;
+  }
+
+  habSite(): HabSite | null {
+    if (this.site === undefined) this.site = buildHabSite(this.scenario, this.state.session.hab_candidate_id);
+    return this.site;
   }
 
   snapshot(clients: Snapshot["clients"]): Snapshot {
@@ -151,19 +176,24 @@ class Session implements SessionHandle {
     };
   }
 
-  apply(command: Command, client_id: string = command.role): { result: CommandResult; events: LogEvent[] } {
+  apply(command: Command, client_id: string = command.role): { result: CommandResult; events: LogEvent[]; replaced?: boolean } {
     const out = handleCommand(this.state, command, { scenario: this.scenario, client_id, next_seq: this.log.lastSeq() + 1, accepted: this.accepted });
     if (out.effect?.kind === "load") {
-      const scenario = out.effect.scenario_id === this.scenario.scenario.scenario_id ? this.scenario : this.options.resolveScenario?.(out.effect.scenario_id);
+      // Reloading the scenario in use starts from the scenario as loaded, not with the comm grid of a chosen candidate.
+      const scenario = out.effect.scenario_id === this.scenario.scenario.scenario_id ? this.baseScenario : this.options.resolveScenario?.(out.effect.scenario_id);
       if (!scenario) return { result: { v: PROTOCOL_VERSION, type: "COMMAND_RESULT", command_id: command.command_id, ok: false, code: "INVALID", message: `unknown scenario ${out.effect.scenario_id}` }, events: [] };
       const started = startSession(scenario, this.varDir);
+      this.baseScenario = scenario;
       this.scenario = scenario;
+      this.site = undefined;
+      invalidateHavenCache();
       this.log = started.log;
       this.state = started.state;
       this.accepted = new AcceptedCommands();
-      const events = this.log.after(0);
-      return { result: { ...okResult(command, events[0].seq) }, events };
+      return { result: okResult(command, this.log.after(0)[0].seq), events: [], replaced: true };
     }
+    if (out.effect?.kind === "reset") return this.resetSession(command, client_id);
+    if (out.effect?.kind === "site") return this.selectSite(command, client_id, out);
     if (out.effect?.kind === "next_stop") return this.jumpToNextStop(command, client_id);
     if (out.effect?.kind === "jump") {
       const { events } = this.runTicks(jumpLimitSteps(this.state), true);
@@ -176,6 +206,57 @@ class Session implements SessionHandle {
     if (events.length > 0 && out.result.ok && out.result.event_seq !== events[0].seq) {
       throw new Error(`apply: event_seq ${out.result.event_seq} is not the first logged seq ${events[0].seq}`);
     }
+    return { result: out.result, events };
+  }
+
+  /**
+   * RESET_SESSION (02 §D.17; BD-115): SESSION_RESET is appended to the old log (its last line; nothing is written there
+   * again), then `s-<n+1>` of the same scenario and seed starts in LOADED from the scenario as loaded, the accepted-command
+   * memory starts empty and the haven cache is dropped. The command is answered with the SESSION_RESET's seq; the
+   * clients get it as an EVENT of the old session, then a fresh SNAPSHOT (server.ts).
+   */
+  private resetSession(command: Command, client_id: string): { result: CommandResult; events: LogEvent[]; replaced: true } {
+    const data: LogEventData["SESSION_RESET"] = { session_id: this.state.session.session_id, next_session_id: nextSessionId(this.varDir) };
+    const closing: PendingEvent = { sim_time: this.state.session.clock.sim_time, kind: "SESSION_RESET", actor: command.role, data, provenance: {}, command_ref: { client_id, command_id: command.command_id } };
+    const events = this.appendAll([closing], (e) => {
+      this.state = reduce(this.state, e);
+    });
+    const started = startSession(this.baseScenario, this.varDir);
+    if ((started.state.session.session_id) !== data.next_session_id) throw new Error(`resetSession: started ${started.state.session.session_id}, SESSION_RESET named ${data.next_session_id}`);
+    this.scenario = this.baseScenario;
+    this.site = undefined;
+    invalidateHavenCache();
+    this.log = started.log;
+    this.state = started.state;
+    this.accepted = new AcceptedCommands();
+    return { result: okResult(command, events[0].seq), events, replaced: true };
+  }
+
+  /**
+   * SELECT_HAB_SITE after validation (02 §D.17; BD-116): the candidate's comm grid and mast and its haven field are
+   * prepared first, so a missing asset answers INVALID with nothing logged; then SITE_SELECTED is logged, the crew are
+   * placed in the chosen hab and the haven cache is dropped.
+   */
+  private selectSite(command: Command, client_id: string, out: ReturnType<typeof handleCommand>): { result: CommandResult; events: LogEvent[] } {
+    const effect = out.effect as { kind: "site"; candidate_id: string };
+    let prepared: ReturnType<typeof prepareSite>;
+    try {
+      prepared = prepareSite(this.scenario, effect.candidate_id);
+    } catch (err) {
+      const message = `SELECT_HAB_SITE: cannot load hab candidate ${effect.candidate_id}: ${err instanceof Error ? err.message : String(err)}`;
+      const rejection: PendingEvent = { sim_time: this.state.session.clock.sim_time, kind: "COMMAND_REJECTED", actor: command.role, data: { code: "INVALID", message }, provenance: {}, command_ref: { client_id, command_id: command.command_id } };
+      const events = this.appendAll([rejection], (e) => {
+        this.state = reduce(this.state, e);
+      });
+      return { result: { v: PROTOCOL_VERSION, type: "COMMAND_RESULT", command_id: command.command_id, ok: false, code: "INVALID", message }, events };
+    }
+    this.scenario = prepared.scenario;
+    this.site = prepared.site;
+    invalidateHavenCache();
+    const events = this.appendAll(out.events, (e) => {
+      this.state = relocateCrew(reduce(this.state, e), this.scenario, effect.candidate_id);
+    });
+    if (out.result.ok && out.result.event_seq !== events[0].seq) throw new Error(`selectSite: event_seq ${out.result.event_seq} is not the first logged seq ${events[0].seq}`);
     return { result: out.result, events };
   }
 
@@ -365,9 +446,16 @@ export function resumeSession(sessionDir: string, scenario: LoadedScenario, opti
       throw new Error(`resumeSession: seq ${e.seq} at ${e.sim_time} is later than the held sim time ${state.session.clock.sim_time}`);
     } else {
       state = reduce(state, e);
+      // The crew follow a chosen hab; the event carries only the id, so the placement is re-derived here as in apply (T32.14).
+      if (e.kind === "SITE_SELECTED") state = relocateCrew(state, scenario, (e.data as LogEventData["SITE_SELECTED"]).candidate_id);
       i++;
     }
   }
   state = { ...state, session: { ...state.session, log_hash: log.hash() } };
-  return new Session(scenario, varDir, options, { log, state, accepted: AcceptedCommands.fromLog(log.after(0)) });
+  // A session that chose another hab than the scenario's starts with resumes on that candidate's comm grid and mast.
+  const chosen = state.session.hab_candidate_id;
+  const inUse = chosen !== null && chosen !== (scenario.scenario.mission_setup.hab_candidate_id ?? null) && scenario.site_ref !== undefined
+    ? { ...scenario, comm: loadCandidateComm(scenario.site_ref, chosen) }
+    : scenario;
+  return new Session(scenario, varDir, options, { log, state, accepted: AcceptedCommands.fromLog(log.after(0)), scenario: inUse });
 }
