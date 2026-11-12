@@ -1,10 +1,9 @@
 /**
- * What a route shows when its screen cannot: not built yet, unknown address, boot failure, render failure
- * (docs/specs/03 SCR-00, §D; T07.03 step 4 "never a blank page"). Plain, neutral chrome: no status colours (04 §A.3) and
- * no brand orange. Every missing value is "—".
+ * What a route shows when its screen cannot: not built yet, unknown address, render failure
+ * (docs/specs/03 §D; T07.03 step 4 "never a blank page"). Plain, neutral chrome: no status colours (04 §A.3) and
+ * no brand orange. Every missing value is "—". A boot failure is SCR-00 (screens/scr00BootError.tsx), not a placeholder.
  */
 import { Component, type CSSProperties, type ErrorInfo, type ReactElement, type ReactNode } from "react";
-import type { BootProblem } from "../context";
 import { UNAVAILABLE } from "../components/provenance";
 import { isNotBuilt } from "../../boot/bootPlanner";
 
@@ -64,33 +63,6 @@ export function UnknownRoute(): ReactElement {
       <h1 style={{ fontSize: "20px", fontWeight: 600 }}>{UNAVAILABLE}</h1>
       <p>No screen is at this address.</p>
       <HomeLinks />
-    </main>
-  );
-}
-
-/** A boot problem as plain text naming the missing file (03 SCR-00; SCR-00 itself is T14.04). */
-export function BootFailure({ problem, onRetry }: { problem: BootProblem; onRetry: () => void }): ReactElement {
-  return (
-    <main data-slot="boot-failure" role="alert" style={pageStyle}>
-      <p className="code" style={{ margin: 0, fontFamily: "var(--font-mono, monospace)" }}>
-        [ SCR-00 ]
-      </p>
-      <h1 style={{ fontSize: "20px", fontWeight: 600 }}>The app cannot start</h1>
-      <p>{problem.message}</p>
-      <dl style={{ fontFamily: "var(--font-mono, monospace)" }}>
-        <dt>Code</dt>
-        <dd>{problem.code}</dd>
-        <dt>Missing file</dt>
-        <dd>{problem.missingFile ?? UNAVAILABLE}</dd>
-      </dl>
-      <button
-        type="button"
-        data-slot="boot-retry"
-        onClick={onRetry}
-        style={{ minHeight: "44px", padding: "8px 20px", border: "2px solid currentColor", background: "transparent", cursor: "pointer", fontFamily: "inherit" }}
-      >
-        Retry
-      </button>
     </main>
   );
 }

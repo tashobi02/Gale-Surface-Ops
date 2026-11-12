@@ -1,10 +1,10 @@
 /**
  * Host of the planner routes (SCR-02 `#/planner`, SCR-08 `#/briefing`, SCR-09 `#/sources`; docs/specs/03 §A; T07.03).
  *
- * Runs the planner boot (site -> worker -> plan store) before a planner screen mounts, shows its failure as plain text
- * naming the file with a retry, and gives the screen its `AppContext`. Planner screens are not built yet, so each shows its
- * not-built placeholder; when a screen lands it mounts here with no edit. SCR-02 is the planner surface: its root carries
- * `data-surface="planner"`, which is what makes the 11 px code size of 04 §C.2 apply on desktop (tokens.css).
+ * Runs the planner boot (site -> worker -> plan store) before a planner screen mounts, shows its failure as SCR-00 (T14.04:
+ * plain-language cause, the missing file, Retry) and gives the screen its `AppContext`. A planner screen that is not built
+ * yet shows its not-built placeholder; when a screen lands it mounts here with no edit. SCR-02 is the planner surface: its
+ * root carries `data-surface="planner"`, which is what makes the 11 px code size of 04 §C.2 apply on desktop (tokens.css).
  */
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 import type { BootProblem, ScreenComponent } from "../context";
@@ -15,7 +15,8 @@ import type { Route } from "../router";
 import { MapWorkspace } from "../screens/scr02MapWorkspace";
 import { BriefingCard } from "../screens/scr08BriefingCard";
 import { SourcesMethods } from "../screens/scr09SourcesMethods";
-import { BootFailure, NotBuilt, RouteBoundary } from "./placeholders";
+import { BootErrorScreen } from "../screens/scr00BootError";
+import { NotBuilt, RouteBoundary } from "./placeholders";
 
 interface PlannerScreen {
   Screen: ScreenComponent;
@@ -57,7 +58,7 @@ export function PlannerHost({ route, planner }: { route: Route; planner: Planner
   // The context is rebuilt only when the boot changes, so screens that compare it by reference do not re-run.
   const boot = state.status === "ready" ? state.boot : null;
   const ctx = useMemo(() => {
-    if (!boot?.planStore) return null;
+    if (!boot) return null;
     const debug = new URLSearchParams(globalThis.location?.search ?? "").get(URL_PARAMS.DEBUG) === "1";
     return { site: boot.site, planStore: boot.planStore, workerClient: boot.workerClient, debug };
   }, [boot]);
@@ -67,15 +68,9 @@ export function PlannerHost({ route, planner }: { route: Route; planner: Planner
   const { Screen, label, task, surface } = entry;
 
   let body: ReactElement;
-  if (state.status === "loading") {
+  if (state.status === "failed") {
     body = (
-      <p role="status" data-slot="boot-loading" style={{ padding: "32px" }}>
-        LOADING SITE …
-      </p>
-    );
-  } else if (state.status === "failed") {
-    body = (
-      <BootFailure
+      <BootErrorScreen
         problem={state.problem}
         onRetry={() => {
           planner.reset();
@@ -83,19 +78,25 @@ export function PlannerHost({ route, planner }: { route: Route; planner: Planner
         }}
       />
     );
-  } else if (!ctx) {
-    // No plan store yet (T08.03 stub): there is no AppContext to give the screen.
-    body = <NotBuilt screen={route.screen ?? "—"} label={label} task={`${task} (plan store: T08.03)`} />;
-  } else {
+  } else if (ctx) {
     body = (
       <RouteBoundary screen={route.screen ?? "—"} label={label} task={task}>
         <Screen ctx={ctx} />
       </RouteBoundary>
     );
+  } else {
+    body = (
+      <p role="status" data-slot="boot-loading" style={{ padding: "32px" }}>
+        LOADING SITE …
+      </p>
+    );
   }
 
+  // SCR-00 is its own screen (it carries data-screen="SCR-00"): the wrapper claims the route's screen and surface only
+  // while that screen is what is shown.
+  const failed = state.status === "failed";
   return (
-    <div data-screen={route.screen ?? undefined} {...(surface ? { "data-surface": surface } : {})}>
+    <div {...(failed ? {} : { "data-screen": route.screen ?? undefined })} {...(surface && !failed ? { "data-surface": surface } : {})}>
       {body}
     </div>
   );

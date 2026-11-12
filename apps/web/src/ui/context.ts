@@ -1,5 +1,5 @@
 /**
- * UI App Context & Shared Frontend Contracts — Contract C10 v2 (03 §A, 02 §E.2, 04 §B;
+ * UI App Context & Shared Frontend Contracts — Contract C10 v3 (03 §A, 02 §E.2, 04 §B;
  * 01 FR-01, FR-02, FR-15, NFR-05; TASK-07, T07.01).
  *
  * Types and constants only. No logic or DOM execution in this file.
@@ -17,6 +17,11 @@
  *   `onViewChange`, so `KeyboardMapHandle` (ui/map/keyboard.ts) and `FullScreenMap`'s `view` prop consume it as is.
  * - `WorkerClient` carries `retry()` and `isCrashed()` (03 §D crash recovery); there is no separate extended type.
  * - Loaded assets keep the manifest `path` and carry a separate fetchable `url`.
+ *
+ * Contract change v2 -> v3, 12 Nov 2026, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority
+ * (FD-063): `MapHandle.fitExtent(extent, { animate })` takes an options argument, so a caller that must not animate
+ * (the warnings list under `prefers-reduced-motion`) says so; every fit is instant under that preference. Existing
+ * one-argument callers compile unchanged. `LAYER_Z_INDEX` carries the decided traverse and waypoint slots (FD-040).
  */
 import type { ReactElement } from "react";
 import type { Asset, DataSource, Layer, POIFeature, Provenance, Site } from "@marswalk/protocol";
@@ -85,7 +90,11 @@ export interface MapHandle {
    * map has focus.
    */
   getTargetElement(): HTMLElement;
-  fitExtent(extent: [number, number, number, number]): void;
+  /**
+   * Fit the view to `extent` (projected metres). `animate: false` is an instant move, and `prefers-reduced-motion` makes
+   * every fit instant (C10 v3, FD-063; 04 §E Motion).
+   */
+  fitExtent(extent: [number, number, number, number], options?: { animate?: boolean }): void;
   setCenter(coord: [number, number]): void;
   getCenter(): [number, number];
   setZoom(zoom: number): void;
@@ -146,16 +155,19 @@ export type ScreenComponent = (props: ScreenProps) => ReactElement;
  * Fixed map layer z-indices / stack order per FR-02:
  * basemap < hillshade < scientific overlay < hazards < route < POIs.
  *
- * Open point 7: Traverse and waypoints positions are TODO(decision).
+ * Decided (FD-040, open point 7): the traverse sits above the hazards and below the route, because it is context; the
+ * waypoints sit above the route and below the POIs, because they are the plan.
  */
 export const LAYER_Z_INDEX = {
   BASEMAP: 10,
   HILLSHADE: 20,
   SCIENTIFIC_OVERLAY: 30,
   HAZARDS: 40,
-  TRAVERSE: 45, // TODO(decision): open point 7 (traverse layer stack position)
+  TRAVERSE: 45,
   ROUTE: 50,
-  WAYPOINTS: 55, // TODO(decision): open point 7 (waypoint layer stack position)
+  WAYPOINTS: 55,
+  /** FR-45 stop-type markers: above the waypoints, under the POI pins they annotate (T07.18). */
+  EZ: 58,
   POIS: 60,
 } as const;
 

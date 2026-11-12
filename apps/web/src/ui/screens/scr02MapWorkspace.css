@@ -1,0 +1,260 @@
+/*
+ * SCR-02 map workspace (04 §E.3 layout, §F responsive, Appendix A §B): top bar 48 px, metadata strip, left drawer 320 px, map,
+ * right drawer 320 px, results panel 220 px (180 px from 1024 to 1279 px). Semantic tokens only (tokens.css): no hex values,
+ * no brand orange in OPS (04 §A.3 #1). The three-column layout is the default; `data-layout="one-drawer"` (set from the
+ * viewport width in scr02MapWorkspace.tsx at the same 1280 px breakpoint as scr05RouteResults.css) turns a drawer into an
+ * overlay of the map, one at a time.
+ */
+
+.scr02 {
+  display: grid;
+  grid-template-rows: var(--topbar-height) var(--meta-strip-height) minmax(0, 1fr) auto;
+  height: 100vh;
+  min-height: 0;
+  background: var(--surface-0);
+  color: var(--fg-1);
+  font-family: var(--font-ui);
+  font-size: var(--text-ui);
+  line-height: var(--line-height-ui);
+}
+
+.scr02-top-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--control-edge);
+  min-width: 0;
+}
+
+.scr02-top-bar .spacer {
+  flex: 1 1 auto;
+}
+
+.scr02-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg-1);
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  min-height: var(--target-mouse);
+}
+
+.scr02-logo svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.scr02-site-name,
+.scr02-chip {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  white-space: nowrap;
+}
+
+.scr02-chip {
+  padding: 2px 8px;
+  border: 1px solid var(--control-edge);
+}
+
+.scr02-link,
+.scr02-top-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--surface-2);
+  color: var(--fg-1);
+  border: 1px solid var(--control-edge);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.scr02-top-bar button[disabled] {
+  cursor: not-allowed;
+}
+
+.scr02-top-bar button[aria-expanded="true"] {
+  border-width: 3px;
+}
+
+.scr02-key {
+  font-family: var(--font-mono);
+}
+
+.scr02-meta-strip {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 12px;
+  background: var(--surface-0);
+  border-bottom: 1px solid var(--control-edge);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--fg-2);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.scr02-main {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--drawer-width) minmax(0, 1fr) var(--drawer-width);
+  min-height: 0;
+}
+
+.scr02[data-layout="one-drawer"] .scr02-main {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.scr02-drawer {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-1);
+  border: 0 solid var(--control-edge);
+  overflow: hidden;
+}
+
+.scr02-drawer[data-drawer="left"] {
+  grid-column: 1;
+  grid-row: 1;
+  border-right-width: 1px;
+}
+
+.scr02-drawer[data-drawer="right"] {
+  grid-column: 3;
+  grid-row: 1;
+  border-left-width: 1px;
+}
+
+.scr02-drawer[hidden] {
+  display: none;
+}
+
+/* One drawer at a time over the map, never two (04 Appendix A §B "never covered by more than one drawer"). */
+.scr02[data-layout="one-drawer"] .scr02-drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 6;
+  width: var(--drawer-width);
+  max-width: 100%;
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.scr02[data-layout="one-drawer"] .scr02-drawer[data-drawer="left"] {
+  left: 0;
+  border-right-width: 1px;
+}
+
+.scr02[data-layout="one-drawer"] .scr02-drawer[data-drawer="right"] {
+  right: 0;
+  border-left-width: 1px;
+}
+
+.scr02-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--control-edge);
+}
+
+.scr02-tabs [role="tab"] {
+  flex: 1 1 0;
+  background: var(--surface-1);
+  color: var(--fg-2);
+  border-width: 0 0 3px;
+  border-style: solid;
+  border-color: transparent;
+  padding: 6px 8px;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.scr02-tabs [role="tab"][aria-selected="true"] {
+  color: var(--fg-1);
+  border-bottom-color: var(--fg-1);
+}
+
+.scr02-tabpanel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 10px;
+}
+
+.scr02-pending {
+  padding: 12px;
+  border: 1px solid var(--control-edge);
+  background: var(--surface-2);
+  color: var(--fg-2);
+}
+
+.scr02-pending b {
+  display: block;
+  color: var(--fg-1);
+  margin-bottom: 4px;
+}
+
+.scr02-map-box {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.scr02[data-layout="one-drawer"] .scr02-map-box {
+  grid-column: 1;
+}
+
+.scr02-map-host {
+  position: absolute;
+  inset: 0;
+  background: var(--surface-0);
+}
+
+/* Map toolbar, top left (04 Appendix A §F SCR-02); the north arrow is top right. */
+.scr02-map-toolbar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: calc(100% - 96px);
+}
+
+.scr02-map-toolbar > [data-slot="map-controls"] {
+  width: auto;
+}
+
+.scr02-results {
+  min-width: 0;
+}
+
+/* Touch targets under a coarse pointer are 44 px (04 §C.3). The links and the shared map controls size themselves, so the
+   workspace raises them here; MapControls sets its size inline for the mouse, hence `!important`. */
+@media (pointer: coarse) {
+  .scr02-link,
+  .scr02-logo,
+  .scr02-top-bar button,
+  .scr02-tabs [role="tab"] {
+    min-height: var(--target-touch);
+    min-width: var(--target-touch);
+  }
+
+  .scr02-map-toolbar [data-slot="map-controls"] button {
+    min-height: var(--target-touch) !important;
+    min-width: var(--target-touch) !important;
+  }
+}

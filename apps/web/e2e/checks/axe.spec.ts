@@ -6,6 +6,7 @@
 import { test } from "@playwright/test";
 import { axeScan, type HtmlMode } from "../lib/a11y";
 import { waitForSnapshot } from "../lib/hab";
+import { withManifestlessSite } from "../lib/siteBundle";
 
 const LIVE = /^#\/(ops|eva|hud)/;
 
@@ -23,4 +24,22 @@ test("axe: every built route has no serious or critical violation", async ({ pag
     const mode = (await page.evaluate(() => document.documentElement.dataset.mode)) as HtmlMode;
     await axeScan(page, { mode, route: `${testInfo.project.name}-${hash}` });
   }
+});
+
+// Package 06: SCR-00, the boot error, in OPS mode (FD-207). A site whose manifest was deleted makes the planner boot fail.
+test("axe: SCR-00 boot error has no serious or critical violation", async ({ page }, testInfo) => {
+  await withManifestlessSite(async (siteId) => {
+    await page.goto(`/?site=${siteId}#/planner`);
+    await page.waitForLoadState("networkidle");
+    await page.locator('[data-screen="SCR-00"]').waitFor();
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr00` });
+  });
+});
+
+// Package 07: the planner workspace SCR-02 on the F4 site, in OPS mode.
+test("axe: SCR-02 planner workspace has no serious or critical violation", async ({ page }, testInfo) => {
+  await page.goto("/?site=mock_site#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02` });
 });

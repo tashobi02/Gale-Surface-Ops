@@ -28,11 +28,10 @@ export class BootError extends Error {
 }
 
 /**
- * Site id used when neither the argument nor `?site=` gives one.
- * TODO(decision): the default site. `mock_site` is the F4 fixture; the real site is `gale_boxwork`, whose data is
- * a release asset and not in the repository.
+ * Site id used when neither the argument nor `?site=` gives one: the real site, D-01 (FD-086). `?site=mock_site` loads the
+ * F4 fixture for tests and the harness. A missing bundle is SCR-00 naming the manifest path.
  */
-export const DEFAULT_SITE_ID = "mock_site";
+export const DEFAULT_SITE_ID = "gale_boxwork";
 
 /** The C2 `site_id` pattern (05 §C Site): the only ids `?site=` may name. */
 export const SITE_ID_PATTERN = /^[a-z0-9_]+$/;

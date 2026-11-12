@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`████████░░░░░░░░░░░░` **42 %** — 146 of 345 subtasks done, 76 in progress.
+`█████████░░░░░░░░░░░` **47 %** — 163 of 345 subtasks done, 66 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -24,14 +24,14 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-04 Vectors, POIs and images](docs/tasks/TASK-04_vectors-pois-images.md) | `████░░░░░░` 44 % | 4 | 4 | 9 |
 | [TASK-05 Compute core: grid loader, sampling, A*, profile, time model, walkback, warnings](docs/tasks/TASK-05_compute-core.md) | `████░░░░░░` 44 % | 22 | 8 | 50 |
 | [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `███░░░░░░░` 30 % | 3 | 7 | 10 |
-| [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `█░░░░░░░░░` 12 % | 2 | 10 | 17 |
-| [TASK-08 Plan panel + waypoint editing](docs/tasks/TASK-08_plan-panel-and-waypoints.md) | `█░░░░░░░░░` 9 % | 1 | 0 | 11 |
+| [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `████████░░` 82 % | 14 | 1 | 17 |
+| [TASK-08 Plan panel + waypoint editing](docs/tasks/TASK-08_plan-panel-and-waypoints.md) | `███░░░░░░░` 27 % | 3 | 0 | 11 |
 | [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `░░░░░░░░░░` 0 % | 0 | 3 | 8 |
 | [TASK-10 POI detail + Conditions panel](docs/tasks/TASK-10_poi-detail-and-conditions.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 4 |
 | [TASK-11 Briefing card + JSON export](docs/tasks/TASK-11_briefing-card-and-export.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |
-| [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `█░░░░░░░░░` 14 % | 1 | 1 | 7 |
-| [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `██████░░░░` 62 % | 8 | 1 | 13 |
-| [TASK-14 Integration + offline hardening + fault tests](docs/tasks/TASK-14_integration-offline-hardening.md) | `█░░░░░░░░░` 9 % | 1 | 1 | 11 |
+| [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `███░░░░░░░` 29 % | 2 | 1 | 7 |
+| [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `███████░░░` 69 % | 9 | 0 | 13 |
+| [TASK-14 Integration + offline hardening + fault tests](docs/tasks/TASK-14_integration-offline-hardening.md) | `██░░░░░░░░` 18 % | 2 | 1 | 11 |
 | [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `██░░░░░░░░` 25 % | 1 | 1 | 4 |
 | [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `░░░░░░░░░░` 0 % | 0 | 2 | 7 |
 | [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `░░░░░░░░░░` 0 % | 0 | 1 | 3 |

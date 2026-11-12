@@ -28,7 +28,6 @@ import { ProfileChart } from "../../src/ui/results/profileChart";
 import { linkProfileToMap } from "../../src/ui/results/profileLink";
 import { createMapSnapshot } from "../../src/ui/briefing/mapSnapshot";
 import { exportPlan } from "../../src/export/planExport";
-import { Metric } from "../../src/ui/components/metric";
 import { installDom, removeDom } from "./domHarness";
 
 const SIX_CLASSES: Provenance[] = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
@@ -160,6 +159,5 @@ describe("C10 stubs throw TODO(<owner id>) and are React components where they r
     expect(() => linkProfileToMap({} as never, {} as never)).toThrow("TODO(T09.05)");
     await expect(createMapSnapshot({} as never)).rejects.toThrow("TODO(T11.04)");
     expect(() => exportPlan({} as never, {} as never)).toThrow("TODO(T11.02)");
-    expect(() => Metric({} as never)).toThrow("TODO(T12.01)");
   });
 });

@@ -1,0 +1,98 @@
+/* SCR-00 Boot error (04 §C tokens only; mode OPS, FD-207). Quiet: the only status cue is the status icon. */
+.scr00 {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--pad-md);
+  padding: calc(var(--grid) * 8) calc(var(--grid) * 6);
+  background-color: var(--surface-0);
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: calc(var(--grid) * 8) calc(var(--grid) * 8);
+  color: var(--fg-1);
+  font-family: var(--font-ui);
+  font-size: var(--text-ui);
+  line-height: var(--line-height-ui);
+}
+
+/* Registration marks in the four corners (the prototype's frame). */
+.scr00-reg {
+  position: absolute;
+  width: var(--pad-md);
+  height: var(--pad-md);
+  border: 0 solid var(--fg-3);
+}
+.scr00-reg-tl { top: var(--pad-sm); left: var(--pad-sm); border-top-width: 2px; border-left-width: 2px; }
+.scr00-reg-tr { top: var(--pad-sm); right: var(--pad-sm); border-top-width: 2px; border-right-width: 2px; }
+.scr00-reg-bl { bottom: var(--pad-sm); left: var(--pad-sm); border-bottom-width: 2px; border-left-width: 2px; }
+.scr00-reg-br { bottom: var(--pad-sm); right: var(--pad-sm); border-bottom-width: 2px; border-right-width: 2px; }
+
+.scr00-title {
+  margin: 0;
+  font-size: 28px;
+  outline: none; /* focus is moved here for assistive technology; it is not a control, so no ring is drawn */
+}
+
+.scr00-card {
+  display: grid;
+  max-width: 560px;
+  margin: 0;
+  box-sizing: border-box;
+  grid-template-columns: max-content 1fr;
+  gap: var(--grid) var(--pad-md);
+  padding: var(--pad-sm) var(--pad-md);
+  background: var(--surface-2);
+}
+.scr00-card dt,
+.scr00-card dd {
+  margin: 0;
+}
+.scr00-card dd {
+  overflow-wrap: anywhere;
+}
+
+.scr00-mono {
+  font-family: var(--font-mono);
+}
+
+.scr00-card dd[data-unavailable="true"] {
+  color: var(--fg-3);
+}
+
+.scr00-actions {
+  display: flex;
+  gap: var(--pad-sm);
+}
+
+.scr00-button {
+  min-height: var(--target-touch);
+  min-width: var(--target-touch);
+  padding: 0 calc(var(--grid) * 6);
+  cursor: pointer;
+}
+
+.scr00-run {
+  max-width: 560px;
+}
+.scr00-run summary {
+  min-height: var(--target-mouse);
+  cursor: pointer;
+}
+.scr00-run pre {
+  margin: var(--grid) 0 0;
+  padding: var(--pad-sm);
+  overflow-x: auto;
+  background: var(--surface-2);
+}
+
+.scr00-note {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--fg-2);
+  font-size: var(--text-micro);
+}

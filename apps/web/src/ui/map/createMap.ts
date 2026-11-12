@@ -11,8 +11,9 @@
  *   (keyboard.ts, 04 §E) needs to pan and zoom only while the map has focus. North arrow, readout, scale bar and
  *   attribution are OpenLayers controls inside the viewport, so `destroy()` removes them with it.
  * - The coordinate readout shows "—" until a position is measured, then planetocentric latitude, east-positive
- *   longitude (5 decimals) and projected x/y metres, labelled `derived` with a manifest DataSource id (FR-15).
- * - Motion: `panBy`, `zoomBy` and fits are instant under `prefers-reduced-motion` or `{ animate: false }` (04 §E).
+ *   longitude (5 decimals) and projected x/y metres, labelled `derived` with the source `proj:IAU_2015:49900` (FR-15, FD-080).
+ * - Motion: `panBy`, `zoomBy` and fits (`fitExtent(extent, { animate })`, FD-063) are instant under
+ *   `prefers-reduced-motion` or `{ animate: false }` (04 §E).
  * - `attachKeyboardControls` is mounted here (T13.06): pass `keyboard: { planContext }` for the planner's Delete, B
  *   and ? shortcuts, or `keyboard: false` where the page mounts them itself.
  */
@@ -33,11 +34,6 @@ export interface CreateMapOptions {
   /** The host element, or its id. A missing id throws. */
   target: HTMLElement | string;
   site: LoadedSite;
-  /**
-   * The DataSource the coordinate readout cites. Default: the first source of the basemap layer (the layer that is
-   * not optional), else of the first layer. TODO(decision): which DataSource a projection-derived readout cites.
-   */
-  readoutSourceId?: string;
   /** Keyboard layer (04 §E): options for `attachKeyboardControls`, or `false` to mount none. Default: map keys only. */
   keyboard?: false | Pick<KeyboardControlsOptions, "planContext" | "panStepPx" | "target">;
 }
@@ -49,24 +45,11 @@ const FIT_PADDING_PX = 24;
 
 type Animate = { animate?: boolean } | undefined;
 
-/** Source the readout cites: the option, else the basemap layer's first source, else the first layer's. */
-function resolveReadoutSource(site: LoadedSite, requested: string | undefined): string {
-  if (requested !== undefined) {
-    if (!site.sources.has(requested)) {
-      throw new Error(`createMap: readoutSourceId ${JSON.stringify(requested)} is not a source of site ${site.site.site_id}`);
-    }
-    return requested;
-  }
-  const layers = [...site.layers.values()];
-  const basemap = layers.find((layer) => !layer.optional);
-  for (const layer of basemap ? [basemap, ...layers] : layers) {
-    const id = layer.source_ids.find((sourceId) => site.sources.has(sourceId));
-    if (id !== undefined) return id;
-  }
-  const first = site.sources.keys().next();
-  if (first.done) throw new Error(`createMap: site ${site.site.site_id} lists no DataSource to cite`);
-  return first.value;
-}
+/**
+ * The source id the coordinate readout and the scale bar cite: the working projection, not a dataset (FD-080). They are
+ * `derived` from the projected position by the eqc inverse (02 §C.4), so the source is the projection itself.
+ */
+export const READOUT_SOURCE_ID = "proj:IAU_2015:49900";
 
 function resolveHost(target: HTMLElement | string): HTMLElement {
   if (typeof target !== "string") return target;
@@ -103,7 +86,7 @@ export function createMap(options: CreateMapOptions): MapHandle {
   const { site: loaded } = options;
   const site = loaded.site;
   const host = resolveHost(options.target);
-  const readoutSource = resolveReadoutSource(loaded, options.readoutSourceId);
+  const readoutSource = READOUT_SOURCE_ID;
 
   const projection = registerMarsProjection(site);
   const extent = site.aoi.extent_m as Extent;
@@ -216,8 +199,8 @@ export function createMap(options: CreateMapOptions): MapHandle {
       return viewport;
     },
 
-    fitExtent(target: [number, number, number, number]): void {
-      fit(target);
+    fitExtent(target: [number, number, number, number], opts?: { animate?: boolean }): void {
+      fit(target, opts);
     },
 
     setCenter(coord: [number, number]): void {

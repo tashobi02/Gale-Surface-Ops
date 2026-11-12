@@ -10,6 +10,17 @@ import { expectNoUnlabelledNumbers } from "../lib/provenance";
 const DEMO_PATH = ["#/", "#/planner", "#/briefing"];
 const LIVE = ["#/ops", "#/eva/EV1", "#/hud/EV1", "#/report"];
 
+// Package 07: the planner workspace alone, on the F4 site. The demo-path test below stays `fixme` until SCR-01 and SCR-08 exist.
+test("provenance: no unlabelled number on the planner workspace and every source id it shows is a known kind (package 07)", async ({ page }) => {
+  await page.goto("/?site=mock_site#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  await expectNoUnlabelledNumbers(page, "#/planner");
+  const ids = await page.locator("[data-source]").evaluateAll((els) => els.map((e) => e.getAttribute("data-source")!));
+  expect(ids.length).toBeGreaterThan(0);
+  for (const id of ids) expect(id, "an empty source id").not.toBe("");
+});
+
 test.fixme("provenance: no unlabelled number on the demo path and every source id resolves in SCR-09 (enabled by package 28)", async ({ page }) => {
   const sources = new Set<string>();
   for (const hash of DEMO_PATH) {

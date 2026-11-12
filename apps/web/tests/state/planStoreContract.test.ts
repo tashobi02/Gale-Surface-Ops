@@ -1,6 +1,6 @@
 /**
  * T08.01 — C11 plan-store contract: stop tasks beside the plan (FR-54, FR-50; 03 SCR-04; 05 Scenario `stop_tasks`).
- * The store itself is T08.03; these tests pin the shapes consumers (T08.04, T08.05, T11.02, T21.12) code against.
+ * The store is T08.03 (tested in planStore.test.ts); these tests pin the shapes consumers (T08.04, T08.05, T11.02, T21.12) code against.
  */
 import { describe, expect, it, vi } from "vitest";
 import type { MissionScenario, StopTaskSeed, Waypoint } from "@marswalk/protocol";
@@ -69,9 +69,12 @@ describe("C11 stop tasks (FR-54, FR-50)", () => {
     expect([noId, noStop]).toHaveLength(2);
   });
 
-  it("keeps createPlanStore a stub until T08.03", () => {
-    expect(() => createPlanStore()).toThrow("TODO(T08.03)");
-    const unused = vi.fn();
-    expect(unused).not.toHaveBeenCalled();
-  });
+  it("createPlanStore returns the same C11 interface the contract tests describe", () => {
+    const store: PlanStore = createPlanStore(
+      { scenario: {} as MissionScenario },
+      { workerClient: { computePlan: vi.fn(), retry: vi.fn(), isCrashed: () => false }, siteId: "mock_site", dataVersion: "v" },
+    );
+    expect(Object.keys(store).sort()).toEqual(Object.keys(recordingStore().store).sort());
+    expect(store.get().stop_tasks).toEqual([]);
+});
 });
