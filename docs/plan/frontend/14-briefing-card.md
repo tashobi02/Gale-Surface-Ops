@@ -51,3 +51,27 @@ Row format: `| Txx.yy | done | 2026-11-DD | <evidence links: test file, harness 
 4. In the TASK file, add "Decided: FD-nnn (12 Nov 2026, Proposed)" under each Spec question this package closes; remove the code markers listed in the FD rows.
 5. Update `docs/tasks/status.md` rows exactly as below, run `make progress`, stage `status.md` and `README.md` in the same commit; append a `docs/AI_USE.md` row.
 6. Commit with the subtask ids and FR ids in the title, explicit paths (never `git add -A`), ending with the two attribution lines.
+
+## Package 14 implementation handoff (13 Nov 2026)
+
+FD-360–362 record the local snapshot lifecycle, compact PRINT profile and stop-task wiring. The implementation adds these necessary frontend files beyond the original package list:
+
+- `apps/web/src/ui/briefing/publishPlan.ts` and `apps/web/tests/ui/publishPlan.test.ts`: the wire-named `stop_tasks` adapter and regression.
+- `apps/web/src/ui/results/profileChart.ts` and `apps/web/tests/ui/profileChart.test.ts`: optional 56-unit PRINT layout with readable labels.
+- `apps/web/tests/ui/context.test.ts`: replace the snapshot stub assertion with its implemented failure contract.
+- `apps/web/e2e/lib/briefing.ts` and the existing `print`, `axe`, `contrast`, `provenance` checks: load computed states through the public mock-site planner flow.
+
+Tests first: 13 red briefing/snapshot cases; 4 further red profile/palette/source-link review regressions. The additional publish-adapter test killed a mutation that dropped `stop_tasks`; the invalid-handle contract also killed its guard mutation. A code/design reviewer checked the diff; typography, slope legend and PRINT vector-palette findings were fixed, including refreshing OpenLayers RegularShape cached stroke render options.
+
+Validation: 1,593 web tests pass (six pre-existing todo cases); lint, typecheck and docs-check pass. The Impeccable scoped source detector reported no findings; browser contrast and visual inspection remain pending.
+
+`timeout 60s make e2e-one CHECK=print` cannot start the Hab Core in this sandbox: `listen EPERM: operation not permitted /tmp/tsx-1000/333.pipe`. The check is enabled; no harness bypass or manual acceptance is used. T11.03/04/08 stay `wip` pending its result. Run outside the sandbox:
+
+```sh
+make e2e-one CHECK=print
+make e2e-one CHECK=axe
+make e2e-one CHECK=contrast
+make e2e-one CHECK=provenance
+```
+
+`plan-hash` stays with package 28 (FD-300); the import-plan control it expects does not exist. Browser print with the demo task payload also needs package 25's task editor; the card's task grouping and publish payload are covered by unit tests now. `graphify` is unavailable in this checkout. Initial `git fetch` failed on the worktree's read-only `FETCH_HEAD`; the orchestrator-prepared branch was retained. No push or lane publication.

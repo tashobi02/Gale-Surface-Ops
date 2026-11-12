@@ -3,6 +3,7 @@
  * The demo path (SCR-01, SCR-02, SCR-05, SCR-07, SCR-08) and every live role: `unlabelledNumbers` is empty, and every source id
  * shown resolves in SCR-09.
  */
+import { openBriefing, BRIEFING_STATES } from "../lib/briefing";
 import { expect, test } from "@playwright/test";
 import { waitForSnapshot } from "../lib/hab";
 import { expectNoUnlabelledNumbers } from "../lib/provenance";
@@ -50,5 +51,14 @@ test.fixme("provenance: no unlabelled number on any live role (enabled by packag
     await page.goto(`/${hash}`);
     if (hash !== "#/report") await waitForSnapshot(page);
     await expectNoUnlabelledNumbers(page, hash);
+  }
+});
+
+
+test("provenance: SCR-08 briefing states have no unlabelled number (package 14)", async ({ page }) => {
+  test.setTimeout(120_000);
+  for (const state of BRIEFING_STATES) {
+    await openBriefing(page, state);
+    await expectNoUnlabelledNumbers(page, `#/briefing ${state}`);
   }
 });

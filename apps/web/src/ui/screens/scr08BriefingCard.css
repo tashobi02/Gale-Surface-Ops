@@ -1,0 +1,68 @@
+/* SCR-08: PRINT tokens, 04 §E.8 and Appendix A §F; FD-204 map/profile sizes. */
+.scr08-card { max-width: 186mm; margin: 0 auto; padding: 16px; font: 12px/1.25 var(--font-ui); color: var(--print-text); background: var(--surface-0); }
+.scr08-card h1 { font: 500 22px/1.15 var(--font-ui); margin: 0 0 8px; }
+.scr08-date { font-family: var(--font-mono); }
+.scr08-card h2 { font: 500 14px/1.2 var(--font-ui); margin: 6px 0 4px; }
+.scr08-card p, .scr08-card ul, .scr08-map { margin: 0; }
+.scr08-card ul { padding-left: 16px; }
+.scr08-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.scr08-actions button { color: var(--print-text); background: var(--surface-1); padding: 6px 10px; }
+.scr08-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.scr08-header { border-bottom: 1px solid var(--print-text); padding-bottom: 6px; }
+.scr08-banner { margin: 6px 0; border: 1px solid currentColor; padding: 4px 8px; }
+.scr08-banner .status-icon { margin-right: 6px; }
+.scr08-summary { display: grid; grid-template-columns: 60% 1fr; gap: 10px; }
+.scr08-map { height: 253px; min-width: 0; }
+.scr08-map img, .scr08-map > p { display: block; width: 100%; height: 235px; object-fit: contain; filter: grayscale(1); background: var(--surface-2); }
+.scr08-map > p { padding: 12px; box-sizing: border-box; }
+.scr08-map figcaption { font-size: 12px; }
+.scr08-metrics { display: flex; flex-direction: column; justify-content: space-between; padding: 4px 0; }
+.scr08-card .metric { display: inline; }
+.scr08-card .metric-line { display: inline; }
+.scr08-card .metric-value, .scr08-card .metric-unit { font: 500 12px/1.25 var(--font-mono); }
+.scr08-card .metric-chip { font: 500 12px/1.25 var(--font-mono); margin-left: 3px; color: var(--fg-3); }
+/* Compact rows keep the provenance attributes on every value; the class word stays on metrics. */
+.scr08-meta .metric-chip, .scr08-stops .metric-chip, .scr08-details .metric-chip { display: none; }
+.scr08-card table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+.scr08-card th, .scr08-card td { padding: 3px 4px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.scr08-card th:nth-child(1) { width: 13%; }
+.scr08-card th:nth-child(2) { width: 27%; }
+.scr08-card th:nth-child(3) { width: 10%; }
+.scr08-card th:nth-child(4) { width: 8%; }
+.scr08-card th:nth-child(5) { width: 42%; }
+.scr08-task { margin-top: 2px; }
+.scr08-profile .profile-plot { height: 56px; position: relative; }
+.scr08-profile svg { display: block; width: 100%; height: 56px; }
+.scr08-profile .profile-sample, .scr08-profile output, .scr08-profile .profile-caption { display: none; }
+.scr08-details { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.scr08-details p { margin-bottom: 3px; }
+.scr08-footer { border-top: 1px solid var(--print-text); margin-top: 8px; padding-top: 6px; font-size: 12px; }
+.scr08-footer p + p { margin-top: 4px; }
+.scr08-capture { position: fixed; left: -10000px; top: 0; width: 430px; height: 235px; pointer-events: none; }
+@media (max-width: 600px) {
+  .scr08-summary, .scr08-details { grid-template-columns: 1fr; }
+  .scr08-stops { overflow-x: auto; }
+  .scr08-stops table { min-width: 600px; }
+}
+@media print {
+  @page { margin: 12mm; }
+  html, body, #app, #root { margin: 0; padding: 0; height: auto; min-height: 0; overflow: visible; background: var(--surface-0); }
+  .scr08-card { max-width: none; width: auto; padding: 0; margin: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .scr08-actions, .scr08-publish, .scr08-capture { display: none; }
+  .scr08-summary { grid-template-columns: 60% 1fr; }
+  .scr08-details { grid-template-columns: 1fr 1fr; }
+  .scr08-stops { overflow: visible; }
+  .scr08-stops table { min-width: 0; }
+  .scr08-header, .scr08-summary, .scr08-card tr, .scr08-profile, .scr08-details, .scr08-footer { break-inside: avoid; }
+  .scr08-card a { color: var(--print-text); }
+}
+
+/* PRINT patterns occupy the banner gutter; readable text stays on paper, including in screen preview. */
+.scr08-card .status-nominal { --scr08-state: var(--print-nominal); }
+.scr08-card .status-caution { --scr08-state: var(--print-caution); }
+.scr08-card .status-warning { --scr08-state: var(--print-warning); }
+.scr08-card .status-unknown { --scr08-state: var(--print-unknown); }
+.scr08-card .scr08-banner { background-color: var(--surface-0); background-size: 8px 100%; background-repeat: no-repeat; padding-left: 16px; color: var(--scr08-state); }
+.scr08-card .status-indicator { background-color: var(--surface-0) !important; background-image: none !important; border: 0 !important; color: var(--scr08-state) !important; }
+.scr08-card .status-label { font-size: 12px; }
+.scr08-profile svg text { font: 500 12px var(--font-mono); }

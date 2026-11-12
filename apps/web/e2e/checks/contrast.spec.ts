@@ -4,6 +4,7 @@
  * pattern search (FD-155). Non-text contrast (3 : 1) is enabled by package 03 with the tokens. Package 08 adds the planner with
  * the layers panel (text) and the rendered slope overlay (non-text, FD-019).
  */
+import { openBriefing, BRIEFING_STATES } from "../lib/briefing";
 import { expect, test, type Page } from "@playwright/test";
 import { deflateSync } from "node:zlib";
 import { expectContrast } from "../lib/contrast";
@@ -117,4 +118,13 @@ test("contrast: the rendered slope overlay keeps 3 : 1 against the map backgroun
   expect(drawn.translucent, "the class fill drew nothing").toBeGreaterThan(0);
   const background = toRgb(drawn.void_);
   for (const rgb of drawn.opaque) expect(ratio(rgb, background), `colour ${rgb.join(",")}`).toBeGreaterThanOrEqual(3);
+});
+
+
+test("contrast: SCR-08 briefing uses PRINT text contrast (package 14)", async ({ page }) => {
+  test.setTimeout(120_000);
+  for (const state of BRIEFING_STATES) {
+    await openBriefing(page, state);
+    expect(await expectContrast(page, LIMITS), state).toBeGreaterThan(0);
+  }
 });

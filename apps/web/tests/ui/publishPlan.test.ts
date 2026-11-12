@@ -88,6 +88,11 @@ describe("publish plan (T11.07)", () => {
       expect(close).toHaveBeenCalledOnce();
     } finally { vi.useRealTimers(); }
   });
+  it("SCR-08 wire-named stop_tasks reach PUBLISH_PLAN", async () => {
+    const fake = fakeClient({ v: 1, type: "COMMAND_RESULT", command_id: "k-1", ok: true, event_seq: 42 });
+    await publishPlan({ plan: exportedPlan(), stop_tasks: TASKS, openClient: () => fake.client });
+    expect(fake.sent[0].args).toMatchObject({ stop_tasks: TASKS });
+  });
   it("tasks beside plan", async () => {
     const fake = fakeClient({ v: 1, type: "COMMAND_RESULT", command_id: "k-1", ok: true, event_seq: 42 });
     const plan = exportedPlan();
