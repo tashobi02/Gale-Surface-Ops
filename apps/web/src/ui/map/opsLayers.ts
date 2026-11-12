@@ -103,6 +103,12 @@ export interface OpsLayers {
   havenBandsLayer: VectorLayer<VectorSource>;
   /** Redraw crew, trails and vehicles from a snapshot; null clears them. */
   update(snapshot: Snapshot | null): void;
+  /**
+   * The crew member this view belongs to. Their marker is drawn as "me" (a ringed chevron with the label "ME") and the
+   * others as "buddy" (the plain chevron), so the EVA tablet tells the two apart (plan step 2 of
+   * `docs/plan/frontend/17-eva-tablet.md`). Null draws every crew member as "buddy".
+   */
+  setOwnCrew(crewId: string | null): void;
   /** The hab marker position (the mast of the site manifest), or null for none. */
   setHab(hab: { x_m: number; y_m: number } | null): void;
   /** The comm shadow from the comm grid; null clears it. */
@@ -266,6 +272,22 @@ function chevronRenderer(heading: number | null, unlinked: boolean): RenderFunct
   };
 }
 
+/** A ring around the chevron of the crew member this view belongs to ("me"); the others are "buddy". */
+const ownRingRenderer: RenderFunction = (coords, state) => {
+  const [px, py] = coords as number[] as [number, number];
+  const ctx = state.context;
+  const r = (CHEVRON_PX / 2 + 4) * state.pixelRatio;
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, 2 * Math.PI);
+  ctx.strokeStyle = tokenColor("text-1");
+  ctx.lineWidth = 2 * state.pixelRatio;
+  ctx.setLineDash([]);
+  ctx.stroke();
+  ctx.restore();
+};
+
 /** Squared glyph with one chamfered corner (04 §C.1 vehicles, hab). */
 function chamferRenderer(sizePx: number, fill: MapToken, stroke: MapToken): RenderFunction {
   return (coords, state) => {
@@ -368,10 +390,14 @@ const crewStyle: StyleFunction = (feature: FeatureLike) => {
   const type = feature.get("type");
   if (type === "crew_marker") {
     const unlinked = feature.get("unlinked") === true;
-    return [
+    const own = feature.get("own") === true;
+    const styles: Style[] = [
       new Style({ renderer: chevronRenderer(feature.get("heading_rad") as number | null, unlinked), zIndex: 2 }),
-      textStyle(feature.get("label") as string, -(CHEVRON_PX / 2 + 8), unlinked ? "text-3" : "text-1"),
     ];
+    // "Me" carries a ring around the chevron, so the two crew members are told apart without colour alone.
+    if (own) styles.push(new Style({ renderer: ownRingRenderer, zIndex: 1 }));
+    styles.push(textStyle(feature.get("label") as string, -(CHEVRON_PX / 2 + 8), unlinked ? "text-3" : "text-1"));
+    return styles;
   }
   if (type === "crew_trail") {
     const unlinked = feature.get("unlinked") === true;
@@ -438,6 +464,7 @@ export function createOpsLayers(mapHandle: MapHandle): OpsLayers {
   let hasComm = false;
   let hasHaven = false;
   let hab: { x_m: number; y_m: number } | null = null;
+  let ownCrewId: string | null = null;
   let lastSnapshot: Snapshot | null = null;
   let sessionId: string | null = null;
   const trails = new Map<string, Coord[]>();
@@ -503,6 +530,7 @@ export function createOpsLayers(mapHandle: MapHandle): OpsLayers {
           geometry: new Point([c.x_m, c.y_m]),
           type: "crew_marker",
           crew_id: c.crew_id,
+          own: ownCrewId !== null && c.crew_id === ownCrewId,
           activity: c.activity,
           heading_rad: headings.get(c.crew_id) ?? null,
           unlinked,
@@ -525,6 +553,12 @@ export function createOpsLayers(mapHandle: MapHandle): OpsLayers {
       lastSnapshot = snapshot;
       drawCrew(snapshot);
       drawVehicles(snapshot);
+    },
+
+    setOwnCrew(crewId) {
+      if (ownCrewId === crewId) return;
+      ownCrewId = crewId;
+      drawCrew(lastSnapshot);
     },
 
     setHab(next) {

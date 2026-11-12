@@ -242,6 +242,41 @@ describe("crew markers and trails (04 §C.1 crew markers)", () => {
   });
 });
 
+describe("'me' and 'buddy' are told apart (plan step 2 of docs/plan/frontend/17-eva-tablet.md)", () => {
+  it("marks the crew member this view belongs to as own, and the others as not", () => {
+    const { ops } = setup();
+    ops.setOwnCrew("EV1");
+    ops.update(snapshot({ crew: [crew("EV1", 0, 0), crew("EV2", 10, 0)] }));
+    const markers = byType(ops.crewLayer, "crew_marker");
+    expect(markers[0]!.get("own")).toBe(true);
+    expect(markers[1]!.get("own")).toBe(false);
+  });
+
+  it("draws a ring around the own marker and none around the buddy, so the two differ by shape and not by colour", () => {
+    const { ops } = setup();
+    ops.setOwnCrew("EV1");
+    ops.update(snapshot({ crew: [crew("EV1", 0, 0), crew("EV2", 10, 0)] }));
+    const markers = byType(ops.crewLayer, "crew_marker");
+    const ownStyles = stylesOf(ops.crewLayer, markers[0]!);
+    const buddyStyles = stylesOf(ops.crewLayer, markers[1]!);
+    // The own marker has a second renderer (the ring); the buddy has only the chevron.
+    expect(ownStyles.filter((st) => st.getRenderer()).length).toBe(2);
+    expect(buddyStyles.filter((st) => st.getRenderer()).length).toBe(1);
+    const { calls } = draw(ownStyles.find((st) => st.getRenderer() && st !== glyphOf(ownStyles))!, [50, 50]);
+    expect(calls.some((c) => c.name === "arc")).toBe(true);
+  });
+
+  it("with no own crew every marker is a buddy, and setting the own crew redraws the markers", () => {
+    const { ops } = setup();
+    ops.update(snapshot({ crew: [crew("EV1", 0, 0), crew("EV2", 10, 0)] }));
+    expect(byType(ops.crewLayer, "crew_marker").every((m) => m.get("own") === false)).toBe(true);
+    ops.setOwnCrew("EV2");
+    const markers = byType(ops.crewLayer, "crew_marker");
+    expect(markers[0]!.get("own")).toBe(false);
+    expect(markers[1]!.get("own")).toBe(true);
+  });
+});
+
 describe("stale crew (04 §C.1: dashed outline and 'STALE 0:42'; §D.5)", () => {
   it("draws an unlinked crew member with a dashed outline in grey and a STALE label with the age since the link was lost", () => {
     const { ops } = setup();
