@@ -203,3 +203,4 @@ flowchart LR
 ## Spec questions
 
 1. **When.** 06 §C.2 schedules TASK-27 at the event (E), but 06 §F lists "Report view" for R5 on Wed 11 Nov and TASK-31's done-when needs report counts before M4. This plan builds the report data and the log view before the event (T27.01, T27.02, T27.04) and keeps SCR-17 and replay mode at the event. Confirm.
+   Decided: FD-334 (12 Nov 2026, Proposed). Related review decisions: FD-332 (replay), FD-333 (SCR-17 print).
