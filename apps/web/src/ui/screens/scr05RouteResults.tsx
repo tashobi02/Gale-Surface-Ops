@@ -1,6 +1,6 @@
 /**
  * SCR-05 — Route Results panel (docs/specs/03 §B; layout in docs/specs/04 §F; mode OPS, 04 §B.2).
- * Purpose: show whether the plan works and why: status banner, six headline metrics, the elevation profile and the
+ * Purpose: show whether the plan works and why: status banner, seven headline metrics, the elevation profile and the
  * warnings list; collapsible to the 48 px status strip (04 §B), with a per-leg Details table (04 §D).
  * Requirements: FR-07–FR-12, FR-15, NFR-05. Implemented by T09.03 (Saba Atharique, #179; reworked in the review).
  *
@@ -11,10 +11,7 @@
  * a PARTIAL plan (02 §E.2). The chart (T09.02), the warnings list (T09.04) and the profile link (T09.05) are mounted
  * each behind a boundary so one failing leaves the rest usable.
  *
- * TODO(decision): the exact metric set (03 SCR-05 lists climb/descent, 04 §D/§F do not; T09 Spec questions). The six
- * of 04 §F are shown; climb and descent are in the Details table.
- * TODO(decision): layout. This keeps the v1 status strip on top (04 Appendix A "status strip remains when collapsed")
- * where 04 §F draws the banner as a 280 px left column.
+ * FD-056/FD-057: seven metrics, status strip retained when collapsed.
  * The tiles are the shared `Metric` component (T12.01, FD-058) and its number formats (`format.ts`, FD-124): km two
  * decimals, min integer, ° one decimal, mSv two decimals.
  */
@@ -23,6 +20,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useId,
   useRef,
   useState,
   useSyncExternalStore,
@@ -31,13 +29,15 @@ import {
 } from "react";
 import type { Leg, NoRouteLeg, PlanResult, Provenance } from "@marswalk/protocol";
 import type { PlanState, PlanStore } from "../../state/planStore";
-import type { MapHandle } from "../context";
+import type { LoadedSite, MapHandle } from "../context";
 import { StatusIcon, type ExtendedStatus } from "../components/statusIcon";
+import { STATUS_PATTERN, svgPatternDefs } from "../components/patterns";
 import { Metric } from "../components/metric";
 import { formatNumber, metresToKilometres, type FormatUnit } from "../components/format";
 import { UNAVAILABLE, isFiniteNumber, provAttrs, unavailableOf, type Sourced } from "../components/provenance";
 import { legStretchExtent } from "../map/routeGeometry";
 import { ProfileChart } from "../results/profileChart";
+import { useProfileLayout } from "../results/profileLayout";
 import { linkProfileToMap } from "../results/profileLink";
 import { WarningsList } from "../results/warningsList";
 import "./scr05RouteResults.css";
@@ -47,6 +47,7 @@ export interface RouteResultsProps {
   /** The shared map: the profile link and click-to-zoom of the warnings use it. Absent: neither is wired. */
   mapHandle?: MapHandle;
   className?: string;
+  site?: LoadedSite;
 }
 
 /** 05 §F.3 provenance_summary and §F.1 slope layer. */
@@ -180,7 +181,7 @@ function metricsOf(state: PlanState, hide: boolean): MetricTileProps[] {
       unit: "min",
       hint,
       parts: [
-        part(t?.eva_total_min, "derived", SRC_WALK_TIME, "result.totals.eva_total_min"),
+        part(t?.eva_total_min, "modelled", SRC_WALK_TIME, "result.totals.eva_total_min"),
         part(evaLimitMin, "assumed", "scenario.max_eva_duration_h", "scenario.max_eva_duration_h"),
       ],
     },
@@ -194,6 +195,7 @@ function metricsOf(state: PlanState, hide: boolean): MetricTileProps[] {
         part(sc?.walkback_limit_km, "assumed", "scenario.walkback_limit_km", "scenario.walkback_limit_km"),
       ],
     },
+    { label: "Climb / descent", unit: "m", hint, parts: [part(t?.climb_m, "derived", SRC_DEM, "result.totals.climb_m"), part(t?.descent_m, "derived", SRC_DEM, "result.totals.descent_m")] },
     { label: "Dose", unit: "mSv", hint, parts: [part(radiation?.dose_mSv, "modelled", SRC_DOSE, "result.radiation.dose_mSv")] },
   ];
 }
@@ -275,8 +277,8 @@ function LegTable({ result }: { result: PlanResult }): ReactElement {
             const okLeg = leg.status === "OK" ? leg : null;
             return (
               <tr key={keys[i]}>
-                <td>{i + 1}</td>
-                <td>
+                <td {...provAttrs({ prov: "derived", src: path })}>{i + 1}</td>
+                <td {...provAttrs({ prov: "derived", src: path })}>
                   {leg.from} → {leg.to}
                 </td>
                 <td>
@@ -301,8 +303,47 @@ function LegTable({ result }: { result: PlanResult }): ReactElement {
   );
 }
 
+/** Worker samples and warning statuses only; no UI haven threshold (FR-39, FR-42, FD-247). */
+function ProfileBands({ result }: { result: PlanResult }): ReactElement {
+  const patternId = `band-${useId().replace(/:/g, "")}`;
+  const layout = useProfileLayout(result.legs);
+  return <div className="profile-bands" ref={layout.ref}>{(["haven", "comm"] as const).map(kind => {
+    const prov = "modelled";
+    const label = kind === "haven" ? "Haven · modelled (approximation)" : "Comm · line of sight only";
+    const segments = layout.entries.flatMap(({ leg, index: legIndex, start, gap }) => {
+      if (leg.status !== "OK") return [];
+      const values = kind === "haven" ? leg.profile.haven_min : leg.profile.comm;
+      return leg.profile.dist_m.slice(0, -1).flatMap((distance, i) => {
+        const end = leg.profile.dist_m[i + 1]!;
+        if (!isFiniteNumber(distance) || !isFiniteNumber(end) || end < distance) return [];
+        const value = values?.[i];
+        const valid = isFiniteNumber(value) && (kind === "haven" ? value >= 0 : value === 0 || value === 1);
+        const flag = result?.warnings.find(w => w.code === "HAVEN_TIME_EXCEEDED" && w.leg === legIndex && isFiniteNumber(w.from_m) && isFiniteNumber(w.to_m) && w.from_m < end && w.to_m > distance);
+        const status: "neutral" | "nominal" | keyof typeof STATUS_PATTERN = !valid ? "unknown" : kind === "comm" ? value === 0 ? "caution" : "nominal" : flag ? flag.severity === "blocked" ? "warning" : flag.severity : "neutral";
+        const word = !valid ? "? — Not supplied" : kind === "comm" ? value === 0 ? "▲ NO SIGNAL" : "○ SIGNAL" : `${status === "caution" ? "▲" : status === "warning" ? "⬣" : "○"} ${formatNumber(value, "min")} min · ${flag ? "over haven rule (worker warning)" : "not classified"}`;
+        const sourced = valid ? { prov, src: `result.legs[${legIndex}].profile.${kind === "haven" ? "haven_min" : "comm"}` } as const : unavailableOf(prov, `result.legs[${legIndex}].profile.${kind}`);
+        return [{ key: `${legIndex}:${i}`, legIndex, distance, end, status, word, sourced, x: layout.x(start + distance, gap), width: Math.max(0, layout.x(start + end, gap) - layout.x(start + distance, gap)) }];
+      });
+    });
+    return <div key={kind} className="profile-band" data-band={kind}>
+      <div className="profile-band-track"><span className="profile-band-label">{label}</span>
+        {segments.length ? <svg viewBox={`0 0 ${layout.width} 24`} role="img" aria-label={label} preserveAspectRatio="xMinYMid meet">
+          <g dangerouslySetInnerHTML={{ __html: svgPatternDefs("var(--surface-0)").replaceAll("pattern-", `${patternId}-${kind}-`) }} />
+          {segments.map(segment => <g key={segment.key}>
+            <rect data-band-status={segment.status} x={segment.x} y={6} width={segment.width} height={12} fill={segment.status === "neutral" ? "var(--fg-2)" : `var(--${segment.status})`} stroke="var(--surface-0)" strokeDasharray={segment.status === "unknown" ? "2 2" : undefined} {...provAttrs(segment.sourced)}>
+              <title {...provAttrs(segment.sourced)}>{segment.word}</title>
+            </rect>
+            {segment.status !== "neutral" && segment.status !== "nominal" ? <rect x={segment.x} y={6} width={segment.width} height={12} fill={`url(#${patternId}-${kind}-${STATUS_PATTERN[segment.status]})`} aria-hidden="true" pointerEvents="none" /> : null}
+          </g>)}
+        </svg> : <span {...provAttrs(unavailableOf(prov, `result.legs.profile.${kind}`))}>— {kind === "haven" ? "Haven samples" : "Comm samples"} not supplied by worker</span>}
+      </div>
+      {segments.length ? <ul className="profile-band-summary" data-band-summary tabIndex={0} aria-label={`${label} segment values`}>{segments.map(segment => <li key={segment.key} {...provAttrs(segment.sourced)}>Leg {segment.legIndex + 1} · {formatNumber(segment.distance, "m")}–{formatNumber(segment.end, "m")} m · {segment.word}</li>)}</ul> : null}
+    </div>;
+  })}<div className="profile-caption">○ SIGNAL / ▲ NO SIGNAL · Haven status from worker warnings; unflagged samples are neutral</div></div>;
+}
+
 /** SCR-05 Route Results (React, ADR-012). */
-export function RouteResults({ planStore, mapHandle, className = "" }: RouteResultsProps): ReactElement {
+export function RouteResults({ planStore, mapHandle, className = "", site }: RouteResultsProps): ReactElement {
   const subscribe = useCallback((onChange: () => void) => planStore.subscribe(() => onChange()), [planStore]);
   const read = useCallback(() => planStore.get(), [planStore]);
   const state = useSyncExternalStore(subscribe, read, read);
@@ -327,14 +368,14 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
       return undefined;
     }
     try {
-      const unlink = linkProfileToMap(mapHandle, element);
+      const unlink = linkProfileToMap(mapHandle, element, planStore);
       setLinkError(null);
       return unlink;
     } catch (err) {
       setLinkError(err instanceof Error ? err.message : String(err));
       return undefined;
     }
-  }, [mapHandle, hasResult, collapsed]);
+  }, [mapHandle, hasResult, collapsed, result, planStore]);
 
   const getLegExtent = useCallback(
     (leg: number, from_m: number, to_m: number) => (result ? legStretchExtent(result.legs, leg, from_m, to_m) : null),
@@ -355,7 +396,7 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
         {announcementOf(state, banner)}
       </div>
 
-      <div className="scr05-status-strip">
+      <div className="scr05-status-strip" data-results-banner {...provAttrs({ prov: "derived", src: "result.status" })}>
         <div className="scr05-banner-status">
           <StatusIcon status={banner.status} word={banner.word} />
           <span className="scr05-banner-reason">{banner.reason}</span>
@@ -390,7 +431,7 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
 
       {collapsed ? null : (
         <div className="scr05-body">
-          <div className="scr05-middle-col">
+          <div className="scr05-middle-col" role="group" aria-label="Route profile and bands" tabIndex={0}>
             <div className="scr05-metrics-row" role="group" aria-label="Route metrics" tabIndex={0} data-totals-hidden={hideTotals} style={{ opacity: computing ? 0.5 : 1 }}>
               {metrics.map((m) => (
                 <MetricTile key={m.label} {...m} />
@@ -400,7 +441,7 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
             <div className="scr05-profile-container" ref={profileRef}>
               {hasResult && result ? (
                 <Isolated label="Profile" resetKey={result}>
-                  <ProfileChart result={result} />
+                  <ProfileChart result={result} hover={state.hover} />
                 </Isolated>
               ) : (
                 <div className="scr05-placeholder">{empty ? "Profile appears after stops are added" : "Profile loading…"}</div>
@@ -411,12 +452,13 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
                 </div>
               ) : null}
             </div>
+            {hasResult && result ? <Isolated label="Profile bands" resetKey={result}><ProfileBands result={result} /></Isolated> : null}
           </div>
 
           <div className="scr05-right-col" role="region" aria-label="Route warnings" tabIndex={0}>
             <div className="scr05-warnings-header">Warnings</div>
             <Isolated label="Warnings" resetKey={warnings}>
-              <WarningsList warnings={warnings} mapHandle={mapHandle} getLegExtent={getLegExtent} />
+              <WarningsList warnings={warnings} mapHandle={mapHandle} getLegExtent={getLegExtent} site={site} />
             </Isolated>
           </div>
         </div>

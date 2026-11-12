@@ -651,5 +651,24 @@ describe("loadPlan, subscribe, request ids", () => {
 });
 
 // Type-level: the factory returns the C11 interface unchanged.
+it("unchanged hover preserves the snapshot and does not notify subscribers", () => {
+  const { store, states } = setup();
+  const empty = store.get();
+  store.setHover(null);
+  expect(store.get()).toBe(empty);
+  const hover = { coord: [3, 4] as [number, number], distance_m: 5, waypoint_id: "wp-1", leg_index: 0 };
+  store.setHover(hover);
+  const set = store.get();
+  store.setHover({ ...hover, coord: [3, 4] });
+  expect(store.get()).toBe(set);
+  expect(states).toHaveLength(1);
+  store.setHover({ ...hover, leg_index: 1 });
+  store.setHover(null);
+  const cleared = store.get();
+  store.setHover(null);
+  expect(store.get()).toBe(cleared);
+  expect(states).toHaveLength(3);
+});
+
 const _typeCheck: (s: PlanStore) => PlanState = (s) => s.get();
 void _typeCheck;

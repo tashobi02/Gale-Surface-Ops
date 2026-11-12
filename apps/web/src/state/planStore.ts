@@ -518,6 +518,11 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
     },
 
     setHover(hover) {
+      const previous = state.hover;
+      if (previous === hover || (previous && hover &&
+        previous.distance_m === hover.distance_m && previous.leg_index === hover.leg_index &&
+        previous.waypoint_id === hover.waypoint_id &&
+        (previous.coord === hover.coord || (previous.coord && hover.coord && previous.coord[0] === hover.coord[0] && previous.coord[1] === hover.coord[1])))) return;
       commit({ hover });
     },
 

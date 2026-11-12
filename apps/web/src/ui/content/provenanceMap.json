@@ -1,0 +1,33 @@
+{
+  "$comment": "The one provenance table of the app (FD-136, owned by T12.04): value path -> provenance class and source ids. The export's `provenance_summary` and the provenance chips of the screens read it, so a value is labelled the same way everywhere. The paths are the 05 §C PlanResult / PlanExport paths; a path the result does not carry is left out of the summary.",
+  "result": {
+    "result.totals.distance_m": { "provenance": "derived", "source_ids": ["usgs-gale-dem-1m-v3"] },
+    "result.totals.max_slope_deg": { "provenance": "derived", "source_ids": ["usgs-gale-dem-1m-v3"] },
+    "result.totals.max_walkback_km": { "provenance": "derived", "source_ids": ["usgs-gale-dem-1m-v3"] },
+    "result.totals.climb_m": { "provenance": "derived", "source_ids": ["usgs-gale-dem-1m-v3"] },
+    "result.totals.descent_m": { "provenance": "derived", "source_ids": ["usgs-gale-dem-1m-v3"] },
+    "result.totals.walk_time_min": { "provenance": "modelled", "source_ids": ["tobler-1993", "apollo17-planning"] },
+    "result.totals.eva_total_min": { "provenance": "modelled", "source_ids": ["tobler-1993", "apollo17-planning"] },
+    "result.totals.dwell_time_min": { "provenance": "assumed", "source_ids": ["scenario.dwell_min_per_stop"] },
+    "result.totals.eva_margin_min": { "provenance": "derived", "source_ids": ["scenario.max_eva_duration_h", "tobler-1993", "apollo17-planning"] },
+    "result.radiation.dose_mSv": { "provenance": "modelled", "source_ids": ["hassler-2014-rad", "simonsen-2024-rad"] },
+    "result.radiation.dose_low_mSv": { "provenance": "modelled", "source_ids": ["hassler-2014-rad", "simonsen-2024-rad"] },
+    "result.radiation.dose_high_mSv": { "provenance": "modelled", "source_ids": ["hassler-2014-rad", "simonsen-2024-rad"] },
+    "result.conditions": { "provenance": "modelled", "source_ids": ["mars24-allison-mcewen-2000"] }
+  },
+  "scenario": {
+    "scenario.eva_start_utc": { "provenance": "assumed", "source_ids": ["user:scenario.eva_start_utc"] },
+    "scenario.max_eva_duration_h": { "provenance": "assumed", "source_ids": ["scenario.max_eva_duration_h"] },
+    "scenario.dwell_min_per_stop": { "provenance": "assumed", "source_ids": ["scenario.dwell_min_per_stop"] },
+    "scenario.hard_slope_limit_deg": { "provenance": "assumed", "source_ids": ["scenario.hard_slope_limit_deg"] },
+    "scenario.caution_slope_deg": { "provenance": "assumed", "source_ids": ["scenario.caution_slope_deg"] },
+    "scenario.walkback_limit_km": { "provenance": "assumed", "source_ids": ["scenario.walkback_limit_km"] },
+    "scenario.suited_flat_speed_kmh": { "provenance": "assumed", "source_ids": ["scenario.suited_flat_speed_kmh"] },
+    "scenario.solar_phase": { "provenance": "assumed", "source_ids": ["scenario.solar_phase"] },
+    "scenario.loop": { "provenance": "assumed", "source_ids": ["scenario.loop"] },
+    "scenario.max_haven_min": { "provenance": "assumed", "source_ids": ["scenario.max_haven_min"] },
+    "scenario.crew_count": { "provenance": "assumed", "source_ids": ["scenario.crew_count"] },
+    "scenario.vehicle_available": { "provenance": "assumed", "source_ids": ["scenario.vehicle_available"] },
+    "scenario.vehicle_param_set": { "provenance": "assumed", "source_ids": ["scenario.vehicle_param_set"] }
+  }
+}

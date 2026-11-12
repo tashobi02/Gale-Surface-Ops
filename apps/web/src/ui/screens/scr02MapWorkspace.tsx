@@ -11,8 +11,8 @@
  * Layout: top bar (logo to SCR-01, site, data-version chip, Briefing, Sources), metadata strip, left drawer (Layers,
  * Plan), the map, right drawer (POI detail, Conditions) and the bottom results panel (SCR-05). From 1280 px the drawers
  * are two columns beside the map; below it (down to 1024 px) one drawer at a time opens over the map (04 §F). SCR-03 is in
- * the Layers tab; SCR-04 (package 09) is in the Plan tab; the panels of SCR-06 and SCR-07 mount in their drawer tabs as their packages land,
- * and until then the tab says so in plain words and shows no value.
+ * the Layers tab; SCR-04 (package 09) is in the Plan tab; the panels of SCR-06 and SCR-07 mount in their drawer tabs,
+ * and share the selected POI and current plan result.
  *
  * Waypoints (package 10): the waypoint layer, the single placement function (SAMPLE_POINT, snap offer, "Outside mapped area"),
  * add-stop mode (`A`, crosshair `Enter`), marker and row drag, tablet long-press and the keyboard move of the selected stop are
@@ -48,6 +48,8 @@ import { KeyboardMove } from "../map/keyboardMove";
 import { Notice } from "../components/Notice";
 import { LayersPanel, isScientificOverlay, type PanelLayer, type PanelLegend, type RowStatus } from "./scr03LayersPanel";
 import { PlanPanel } from "./scr04PlanPanel";
+import { PoiDetail } from "./scr06PoiDetail";
+import { Conditions } from "./scr07Conditions";
 import { RouteResults } from "./scr05RouteResults";
 import "./scr02MapWorkspace.css";
 
@@ -87,21 +89,6 @@ function briefingBlock(status: string, stops: number): string | null {
   if (status === "Error") return "The computation failed: retry or edit the plan first";
   if (status === "Computing") return "Wait for the computation to finish";
   return BRIEFABLE.has(status) ? null : "Add a stop first";
-}
-
-/**
- * A drawer tab whose panel is not built yet: names it plainly, shows no value, and says where it is tracked. The ids are
- * identifiers, not measurements (`data-identifier`).
- */
-function PanelPending(props: { screen: string; label: string; task: string }): ReactElement {
-  return (
-    <div className="scr02-pending" data-slot="panel-pending">
-      <b>{props.label}</b>
-      <span>
-        <span data-identifier>{props.screen}</span> is not built yet; it is tracked as <span data-identifier>{props.task}</span>. No values are shown.
-      </span>
-    </div>
-  );
 }
 
 function Tabs<T extends string>(props: {
@@ -569,16 +556,16 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
           <Tabs label="Right drawer" tabs={RIGHT_TABS} selected={rightTab} onSelect={setRightTab} idPrefix="scr02-right" />
           <div className="scr02-tabpanel" role="tabpanel" id="scr02-right-panel" aria-labelledby={`scr02-right-tab-${rightTab}`}>
             {rightTab === "poi" ? (
-              <PanelPending screen="SCR-06" label="POI detail" task="T10.01" />
+              <PoiDetail ctx={ctx} selectedPoiId={selectedPoiId} placement={kit.placement} />
             ) : (
-              <PanelPending screen="SCR-07" label="Conditions" task="T10.02" />
+              <Conditions ctx={ctx} />
             )}
           </div>
         </Drawer>
       </div>
 
       <div data-slot="results-panel" className="scr02-results">
-        <RouteResults planStore={ctx.planStore} mapHandle={handle ?? undefined} />
+        <RouteResults planStore={ctx.planStore} mapHandle={handle ?? undefined} site={ctx.site} />
       </div>
     </div>
   );

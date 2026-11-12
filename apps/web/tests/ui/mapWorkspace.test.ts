@@ -105,7 +105,7 @@ describe("MapWorkspace layout (04 §E.3, §F)", () => {
     expect(must(root, '[data-slot="results-panel"] .scr05-results-panel')).toBeTruthy();
   });
 
-  it("the left drawer has the Layers and Plan tabs and the right drawer the POI detail and Conditions tabs, each saying plainly when its panel is not built (no throw, no blank)", async () => {
+  it("the left drawer has the Layers and Plan tabs and the right drawer the POI detail and Conditions tabs, with the mounted panels (no throw, no blank)", async () => {
     const { root } = await workspace(1280);
     const names = (drawer: string): string[] => [...root.querySelectorAll(`[data-drawer="${drawer}"] [role="tab"]`)].map((t) => t.textContent!.trim());
     expect(names("left")).toEqual(["Layers", "Plan"]);
@@ -323,4 +323,11 @@ describe("MapWorkspace layers and POI selection (package 08: SCR-03, FD-074, FD-
     await open.pop()!.unmount();
     expect(w.__onNextPostrender).toBeUndefined();
   });
+});
+it("right drawer mounts POI detail and conditions on their real selections", async () => {
+  const { root } = await workspace(1280);
+  await click(must(root, 'button[data-poi-id]'));
+  expect(must(root, '[data-poi-detail]').textContent).toContain("Boxwork ridge");
+  await click(must(root, '#scr02-right-tab-conditions'));
+  expect(must(root, '[data-conditions]').textContent).toContain("Not included in this build");
 });

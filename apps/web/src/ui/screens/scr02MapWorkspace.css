@@ -191,19 +191,6 @@
   padding: 8px 10px;
 }
 
-.scr02-pending {
-  padding: 12px;
-  border: 1px solid var(--control-edge);
-  background: var(--surface-2);
-  color: var(--fg-2);
-}
-
-.scr02-pending b {
-  display: block;
-  color: var(--fg-1);
-  margin-bottom: 4px;
-}
-
 .scr02-map-box {
   position: relative;
   min-width: 0;
