@@ -14,8 +14,24 @@ export async function openBriefing(page: Page, state: typeof BRIEFING_STATES[num
   await expect(page.locator("[data-results-banner]")).toContainText(word);
   await page.evaluate(() => { window.location.hash = "#/briefing"; });
   await expect(page.locator('[data-slot="briefing-card"]')).toBeVisible();
-  await expect(page.locator(".scr08-map img")).toBeVisible();
-  await expect(page.locator(".scr08-map img")).toHaveJSProperty("complete", true);
-  expect(await page.locator(".scr08-map img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  await expectBriefingMap(page);
   if (viewport) await page.setViewportSize(viewport);
+}
+
+/**
+ * The briefing map is a canvas, not an image: the app's CSP is `default-src 'self'`, so a `data:` image source is
+ * refused and an `<img>` would silently never appear (FD-363). The canvas is asserted by its painted pixels.
+ */
+export async function expectBriefingMap(page: Page): Promise<void> {
+  const canvas = page.locator(".scr08-map canvas");
+  await expect(canvas).toBeVisible();
+  const painted = await canvas.evaluate((element: HTMLCanvasElement) => {
+    const context = element.getContext("2d");
+    if (!context || element.width === 0 || element.height === 0) return 0;
+    const { data } = context.getImageData(0, 0, element.width, element.height);
+    let painted = 0;
+    for (let i = 3; i < data.length; i += 4) if (data[i] > 0) painted += 1;
+    return painted;
+  });
+  expect(painted, "the briefing map canvas has no painted pixels").toBeGreaterThan(0);
 }

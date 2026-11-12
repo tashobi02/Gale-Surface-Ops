@@ -58,6 +58,17 @@ async function snapshotCanvas(handle: MapHandle, options: SnapshotOptions): Prom
   }
 }
 
+/**
+ * The composed map as a canvas element (FD-363).
+ *
+ * The app's Content Security Policy is `default-src 'self'` (02 §F NFR-08), so a `data:` or `blob:` image source is
+ * refused: the briefing map cannot be shown as an `<img src="data:image/png,...">`. A canvas element is not an image
+ * source, so it is not restricted, and Chromium prints it like any other replaced element.
+ */
+export async function composeBriefingCanvas(handle: MapHandle, options: SnapshotOptions = {}): Promise<HTMLCanvasElement> {
+  return snapshotCanvas(handle, options);
+}
+
 /** Preserve the C10 stub's Blob API for other export consumers. */
 export async function createMapSnapshot(handle: MapHandle, options: SnapshotOptions = {}): Promise<Blob> {
   const canvas = await snapshotCanvas(handle, options);
@@ -98,12 +109,18 @@ export function applyPrintPalette(layer: VectorLayer, palette: { ink: string; pa
 }
 
 /** A short-lived dedicated map: the workspace is unmounted on #/briefing (FD-360). */
-export async function captureBriefingMap(target: HTMLElement, site: LoadedSite, planStore: PlanStore): Promise<string> {
+export async function captureBriefingMap(target: HTMLCanvasElement, site: LoadedSite, planStore: PlanStore): Promise<void> {
   const [{ createMap }, { createRasterLayers }, { createRouteLayer }, { createWaypointLayer }] = await Promise.all([
     import("../map/createMap"), import("../map/rasterLayers"), import("../map/routeLayer"), import("../map/waypointLayer"),
   ]);
-  const handle = createMap({ target, site, keyboard: false });
-  const destroy: (() => void)[] = [() => handle.destroy()];
+  // The dedicated map renders off-screen; the composed pixels are drawn onto the target canvas.
+  // The staging element is attached to the document: OpenLayers only renders into a host that is in the layout.
+  const stage = document.createElement("div");
+  stage.className = "scr08-capture";
+  stage.setAttribute("aria-hidden", "true");
+  document.body.append(stage);
+  const handle = createMap({ target: stage, site, keyboard: false });
+  const destroy: (() => void)[] = [() => handle.destroy(), () => stage.remove()];
   try {
     const map = handle.getMap<OlMap>();
     map.setSize([430, 235]);
@@ -123,9 +140,13 @@ export async function captureBriefingMap(target: HTMLElement, site: LoadedSite, 
     for (const leg of planStore.get().result?.legs ?? []) if (leg.status === "OK") points.push(...leg.geometry);
     if (!points.length) throw new Error("No route available for the map snapshot.");
     const extent: [number, number, number, number] = [Math.min(...points.map(p => p[0]!)), Math.min(...points.map(p => p[1]!)), Math.max(...points.map(p => p[0]!)), Math.max(...points.map(p => p[1]!))];
-    const url = await createMapSnapshotDataUrl(handle, { extent });
+    const composed = await composeBriefingCanvas(handle, { extent });
     if ([...rasters.layers].some(([id, layer]) => site.layers.get(id)?.category === "optical" && layer.failedTiles() > 0)) throw new Error("Local basemap tiles could not be loaded.");
-    return url;
+    const context = target.getContext("2d");
+    if (!context) throw new Error("The briefing map needs a canvas context.");
+    target.width = composed.width;
+    target.height = composed.height;
+    context.drawImage(composed, 0, 0);
   } finally {
     destroy.reverse().forEach(dispose => dispose());
   }

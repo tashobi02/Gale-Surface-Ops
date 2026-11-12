@@ -7,19 +7,23 @@
  * - no plan shows empty banner
  */
 import { createElement as h } from "react";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlanResult, StopTaskSeed, Waypoint } from "@marswalk/protocol";
 import type { AppContext } from "../../src/ui/context";
 import { BriefingCard } from "../../src/ui/screens/scr08BriefingCard";
 import { PROTOTYPE_DISCLAIMER } from "../../src/export/planExport";
-import { click, installDom, mount, removeDom } from "./domHarness";
+import { click, flush, installDom, mount, removeDom } from "./domHarness";
+import { contrast } from "./wcag";
 import { fakePlanStore, SCENARIO } from "./planStoreFake";
 import { mockLoadedSite } from "./map/mapFixtures";
 import okJson from "../fixtures/plan-results/ok.json";
 import partialJson from "../fixtures/plan-results/partial.json";
 import overLimitsJson from "../fixtures/plan-results/over-limits.json";
 
-vi.mock("../../src/ui/briefing/mapSnapshot", () => ({ captureBriefingMap: vi.fn(async () => "data:image/png;base64,bWFw") }));
+vi.mock("../../src/ui/briefing/mapSnapshot", () => ({ captureBriefingMap: vi.fn(async () => undefined) }));
 vi.mock("../../src/ui/briefing/publishPlan", () => ({ publishPlan: vi.fn(async () => ({ status: "accepted", planHash: "test" })) }));
 import { captureBriefingMap } from "../../src/ui/briefing/mapSnapshot";
 import { publishPlan } from "../../src/ui/briefing/publishPlan";
@@ -162,6 +166,9 @@ describe("SCR-08 — Briefing Card (T11.03, T11.08)", () => {
     expect(emptyBanner).not.toBeNull();
     expect(emptyBanner?.textContent).toContain("Add at least one stop");
 
+    // The screen slot is present in every state, so the harness finds the card either way.
+    expect(container.querySelector("[data-slot='briefing-card']")).not.toBeNull();
+
     // Back to map button
     const backBtn = container.querySelector<HTMLButtonElement>("button[data-action='back-to-map']");
     expect(backBtn).not.toBeNull();
@@ -224,6 +231,20 @@ describe("SCR-08 — Briefing Card (T11.03, T11.08)", () => {
     await view.unmount();
   });
 
+  it("draws the map into a canvas element, not a data-URL image (FD-363)", async () => {
+    // The app's CSP is `default-src 'self'`: a `data:` image source is refused, so the map must be a canvas.
+    const { ctx } = createTestContext({});
+    const view = await mount(h(BriefingCard, { ctx }));
+    await flush();
+    expect(view.container.querySelector("img")).toBeNull();
+    const canvas = view.container.querySelector<HTMLCanvasElement>(".scr08-map canvas");
+    expect(canvas).not.toBeNull();
+    expect(canvas?.width).toBe(860);
+    expect(canvas?.height).toBe(470);
+    expect(captureBriefingMap).toHaveBeenCalledWith(canvas, ctx.site, ctx.planStore);
+    await view.unmount();
+  });
+
   it("a stale result while computing shows the empty banner", async () => {
     const { ctx, store } = createTestContext({});
     const state = store.get();
@@ -232,5 +253,40 @@ describe("SCR-08 — Briefing Card (T11.03, T11.08)", () => {
     expect(view.container.querySelector("[data-slot='empty-banner']")).not.toBeNull();
     expect(view.container.querySelector("[data-action='publish']")).toBeNull();
     await view.unmount();
+  });
+
+  it("the stops region is keyboard reachable: it scrolls sideways on a narrow screen", async () => {
+    // A scrollable region must be focusable (axe `scrollable-region-focusable`).
+    const { ctx } = createTestContext({});
+    const view = await mount(h(BriefingCard, { ctx }));
+    const stops = view.container.querySelector<HTMLElement>(".scr08-stops");
+    expect(stops?.getAttribute("tabindex")).toBe("0");
+    expect(stops?.getAttribute("aria-label")).toBeTruthy();
+    await view.unmount();
+  });
+});
+
+/**
+ * The card is a PRINT surface: every colour it shows is a PRINT token (04 §C.1 PRINT, FD-013).
+ * `--unknown` is a screen token (2.07 : 1 on paper) and the profile's NO ROUTE line uses it, so the card
+ * remaps it to `--print-unknown` (7.1 : 1). The card's own stylesheet, read as source: jsdom cannot
+ * resolve `var()`.
+ */
+describe("SCR-08 print surface uses PRINT tokens only (FD-364)", () => {
+  const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/screens/scr08BriefingCard.css"), "utf8");
+
+  it("remaps --unknown to the PRINT unknown colour on the card", () => {
+    expect(css).toMatch(/--unknown:\s*var\(--print-unknown\)/);
+  });
+
+  it("the PRINT unknown colour keeps 4.5 : 1 on paper", () => {
+    expect(contrast("#6D28D9", "#FFFFFF")).toBeGreaterThanOrEqual(4.5);
+    // The screen token the card must not use on paper.
+    expect(contrast("#B8A9FF", "#FFFFFF")).toBeLessThan(4.5);
+  });
+
+  it("the map is a canvas, not a data-URL image (the CSP refuses a data source)", () => {
+    expect(css).not.toMatch(/url\(data:/);
+    expect(css).toMatch(/\.scr08-map-canvas/);
   });
 });

@@ -15,20 +15,20 @@ export function BriefingCard({ ctx }: ScreenProps): ReactElement {
   const state = useSyncExternalStore(ctx.planStore.subscribe, ctx.planStore.get, ctx.planStore.get);
   const plan = useMemo(() => state.result && ["OK", "OverLimits", "Partial"].includes(state.status)
     ? exportPlan(ctx.site.site, state) : null, [ctx.site, state.result, state.status, state.scenario, state.waypoints]);
-  const target = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<{ plan: typeof plan; url?: string; error?: string } | null>(null);
+  const target = useRef<HTMLCanvasElement>(null);
+  const [map, setMap] = useState<{ plan: typeof plan; drawn?: boolean; error?: string } | null>(null);
   const [published, setPublished] = useState<{ plan: typeof plan; tasks: typeof state.stop_tasks; outcome: PublishOutcome } | null>(null);
   useEffect(() => {
     if (!plan || !target.current) return;
     let live = true;
     captureBriefingMap(target.current, ctx.site, ctx.planStore).then(
-      url => live && setMap({ plan, url }),
+      () => live && setMap({ plan, drawn: true }),
       (error: unknown) => live && setMap({ plan, error: error instanceof Error ? error.message : String(error) }),
     );
     return () => { live = false; };
   }, [plan, ctx.site, ctx.planStore]);
   const back = () => { window.location.hash = "#/planner"; };
-  if (!plan) return <main className="scr08-card"><h1>Briefing card</h1><p role="status" data-slot="empty-banner">Add at least one stop</p><button data-action="back-to-map" onClick={back}>Back to map</button></main>;
+  if (!plan) return <main className="scr08-card" data-slot="briefing-card"><h1>Briefing card</h1><p role="status" data-slot="empty-banner">Add at least one stop</p><button data-action="back-to-map" onClick={back}>Back to map</button></main>;
 
   const { result, scenario } = plan;
   const partial = result.status === "PARTIAL";
@@ -56,7 +56,7 @@ export function BriefingCard({ ctx }: ScreenProps): ReactElement {
   const stops = plan.waypoints;
   return <main className="scr08-card" data-slot="briefing-card">
     <nav className="scr08-actions" aria-label="Briefing actions">
-      <button onClick={() => window.print()} disabled={!snapshot?.url && !snapshot?.error}>Print</button>
+      <button onClick={() => window.print()} disabled={!snapshot?.drawn && !snapshot?.error}>Print</button>
       <button onClick={download}>Export plan JSON</button>
       <button data-action="publish" disabled={partial || outcome?.status === "pending"} onClick={() => { void publish(); }}>Publish to Hab Core</button>
       <button data-action="back-to-map" onClick={back}>Back to map</button>
@@ -79,8 +79,15 @@ export function BriefingCard({ ctx }: ScreenProps): ReactElement {
     </div>
     <div className="scr08-summary">
       <figure className="scr08-map">
-        {snapshot?.url ? <img src={snapshot.url} alt="Whole planned route over the local Mars basemap, with numbered stops" {...attrs("result.legs.geometry")} />
-          : snapshot?.error ? <p role="alert" data-slot="map-error">Map snapshot unavailable: {snapshot.error}</p> : <p role="status">Preparing local map snapshot…</p>}
+        {snapshot?.error
+          ? <p role="alert" data-slot="map-error">Map snapshot unavailable: {snapshot.error}</p>
+          : <>
+            {/* A canvas, not an `<img src="data:...">`: the CSP is `default-src 'self'` and refuses a data image source (FD-363). */}
+            <canvas ref={target} className="scr08-map-canvas" width={860} height={470} role="img"
+              aria-label="Whole planned route over the local Mars basemap, with numbered stops"
+              {...attrs("result.legs.geometry")} />
+            {!snapshot?.drawn && <p role="status" data-slot="map-pending">Preparing local map snapshot…</p>}
+          </>}
         <figcaption>Route in projected metres · north up</figcaption>
       </figure>
       <div className="scr08-metrics">
@@ -91,7 +98,9 @@ export function BriefingCard({ ctx }: ScreenProps): ReactElement {
         {partial && <p>Totals omitted for an incomplete route.</p>}
       </div>
     </div>
-    <section aria-label="Stops and tasks" className="scr08-stops">
+    {/* The table scrolls sideways on a narrow screen, so the region is focusable: a scrollable region must be
+        keyboard reachable (axe `scrollable-region-focusable`, FD-365). */}
+    <section aria-label="Stops and tasks" className="scr08-stops" tabIndex={0}>
       <h2>Stops / timeline / tasks</h2>
       <table data-slot="stops-table"><thead><tr><th scope="col">Stop</th><th scope="col">Arrival UTC / LTST</th><th scope="col">Dwell</th><th scope="col">Sun</th><th scope="col">Notes / tasks</th></tr></thead>
         <tbody data-slot="stop-tasks">{stops.map((stop, i) => {
@@ -129,6 +138,5 @@ export function BriefingCard({ ctx }: ScreenProps): ReactElement {
       <p>Sources: {ctx.site.site.sources.map((source, i) => <span key={source.source_id} {...provAttrs({ prov: "derived", src: source.source_id })}>{i > 0 ? "; " : ""}<a href={`#/sources#source-${source.source_id}`} title={source.credit || source.title}>{source.source_id}</a></span>)}. <a href="#/sources">Sources &amp; methods</a></p>
       <p data-slot="disclaimer">{plan.disclaimer}</p>
     </footer>
-    <div ref={target} className="scr08-capture" aria-hidden="true" inert />
   </main>;
 }

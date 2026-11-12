@@ -75,3 +75,28 @@ make e2e-one CHECK=provenance
 ```
 
 `plan-hash` stays with package 28 (FD-300); the import-plan control it expects does not exist. Browser print with the demo task payload also needs package 25's task editor; the card's task grouping and publish payload are covered by unit tests now. `graphify` is unavailable in this checkout. Initial `git fetch` failed on the worktree's read-only `FETCH_HEAD`; the orchestrator-prepared branch was retained. No push or lane publication.
+
+## Package 14 browser-verification handoff (13 Nov 2026)
+
+The four browser checks failed together, within about a second, on every project. One root cause: the CSP (`default-src 'self'`) refuses a `data:` image source, so the briefing map's `<img src="data:image/png;base64,…">` never loaded. The PNG bytes were valid — Chromium decoded them when they were handed to it directly — but the browser blocked the element, so the checks read `naturalWidth 0` and every downstream assertion failed with it. FD-363 replaces the data-URL image with a DOM `<canvas>`, which is not an image source and is therefore not restricted; the CSP is unchanged and no file outside the frontend lane is touched.
+
+Two further defects surfaced once the map rendered:
+
+- The profile's NO ROUTE line printed at 2.07 : 1: it uses the screen token `--unknown`, which the print-mode block of `tokens.css` never remaps. FD-364 remaps it to `--print-unknown` (7.1 : 1) on the card.
+- Below 600 px the stops table scrolls sideways, which made `.scr08-stops` a scrollable region; axe `scrollable-region-focusable` requires it to be focusable. FD-365 gives the section `tabIndex={0}`.
+
+FD-366 hardens the print check itself: the stylesheet's `@page { margin: 12mm }` is the margin Chromium applies (it overrides the `page.pdf({ margin })` option), and the check now proves the rule is live — two renders with different PDF margin options must be byte-identical — so the rule cannot go silently dead the way SCR-17's inline `<style>` did. The check also asserts the `/MediaBox` of the A4 and Letter PDFs and that no leaf text element of the card is clipped in print media.
+
+Browser results on port 8108, Chromium, against the mock site (`?site=mock_site`):
+
+| Check | Projects | Result |
+| --- | --- | --- |
+| `print` | desktop-1440 | 2 passed, 1 skipped (SCR-17 is package 29) |
+| `axe` | all 9 projects | 70 passed, 20 skipped |
+| `contrast` | desktop-1440 | 8 passed |
+| `provenance` | desktop-1440 | 3 passed, 2 skipped (packages 28/29) |
+| `offline` | all 9 projects | 27 passed |
+
+Manual review of the three states in the browser: the OK card shows the banner, the totals and the radiation block; Over limits lists the exceeded limit; Partial shows "Plan incomplete — not valid for use" with the totals and the dose omitted and Publish disabled; the map canvas is painted and no `<img>` is in the card; 75 (OK) and 54 (Partial) displayed values carry a provenance label and a source, with no unlabelled number; the disclaimer and every source link are present. The demo plan carries no stop tasks — the planner has no task editor yet (package 25) — so the per-stop task grouping and the publish payload are covered by the unit tests only.
+
+T11.03, T11.04 and T11.08 are `done`: the `print` check that names them is green on every project it runs on.

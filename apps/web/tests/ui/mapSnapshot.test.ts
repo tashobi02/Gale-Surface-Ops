@@ -35,6 +35,17 @@ describe("map snapshot", () => {
     const { handle } = fixture();
     expect(await createMapSnapshotDataUrl(handle)).toMatch(/^data:image\/png/);
   });
+  it("composes the map into a canvas element, never a data URL (FD-363)", async () => {
+    // The app's CSP is `default-src 'self'`, so an `<img src="data:image/png,...">` is refused and the briefing
+    // map would never appear. The snapshot is drawn into a canvas element instead, which the CSP does not restrict.
+    const { handle, context } = fixture();
+    const compose = await import("../../src/ui/briefing/mapSnapshot");
+    const composed = await compose.composeBriefingCanvas(handle);
+    expect(composed).toBeInstanceOf(window.HTMLCanvasElement);
+    expect(composed.width).toBe(860);
+    expect(composed.height).toBe(470);
+    expect(context.drawImage).toHaveBeenCalled();
+  });
   it("rejects a blank map explicitly and restores view", async () => {
     const { host, handle } = fixture(); host.replaceChildren();
     await expect(createMapSnapshot(handle)).rejects.toThrow(/no rendered map/i);
