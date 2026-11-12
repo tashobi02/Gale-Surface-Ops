@@ -13,13 +13,14 @@
  *   proposed again on the next tick. A new alert is answered again.
  * - No grid, no shielding ParamSet or no start waypoint: no options and no events (the scenario
  *   loader gives a null grid until TASK-05).
- * - Inputs: hab = the plan's `role: "start"` waypoint; ingress = {HAB_INGRESS_S, the rover's own
+ * - Inputs: hab = the plan's `role: "start"` waypoint; ingress = {the suit ParamSet `hab_ingress_min` × 60
+ *   (compute `habIngressS`; the largest over the alert's crew, the conservative one), the rover's own
  *   ParamSet `ingress_min` × 60}; crew fields bounded at L = `max_haven_min` × 60 s (02 §D.10, as
  *   in vehicles.ts); the vehicle field starts at the rover's position. A vehicle option needs a
  *   PARKED rover with a usable ParamSet; for two crew with OK rendezvous `pair` is `rendezvousPair`,
  *   and if that throws RangeError there is no vehicle option.
  * - Options with a non-finite number are dropped before logging and the rest re-ranked 1..n.
- * - The new leg: `walk_time_min` excludes ingress (ETA − HAB_INGRESS_S; for a rendezvous the crew's
+ * - The new leg: `walk_time_min` excludes ingress (ETA − the hab ingress; for a rendezvous the crew's
  *   walk `eta_crew_s`), `distance_m` is the polyline length in projected metres, `geometry` is the
  *   option's path. Climb, descent, max slope and profile come from compute (no slope or elevation
  *   maths here, CLAUDE.md §2), labelled `derived`, only when the grid is there (no grid: INVALID).
@@ -43,7 +44,7 @@
 import {
   crewTimeField,
   habTimeField,
-  HAB_INGRESS_S,
+  habIngressS,
   proposeOptions,
   rendezvous,
   rendezvousPair,
@@ -207,7 +208,7 @@ export function contingencyTick(state: EngineState, ctx: TickContext): TickResul
       now_utc: state.session.clock.sim_time,
       hab: habField,
       rendezvous: v.rendezvous,
-      ingress: { hab_s: HAB_INGRESS_S, vehicle_s: v.vehicle_s },
+      ingress: { hab_s: crewHabIngressS(ctx.scenario, crew.map((c) => c.crew_id)), vehicle_s: v.vehicle_s },
       ...(v.pair ? { pair: v.pair } : {}),
       plan: { waypoints: plan.waypoints, legs: plan.result.legs },
       scenario: plan.scenario,
@@ -227,11 +228,25 @@ export function contingencyTick(state: EngineState, ctx: TickContext): TickResul
 // Plan revision
 // ---------------------------------------------------------------------------
 
+/**
+ * Seconds of hab ingress for `crew_ids`: the largest suit ParamSet `hab_ingress_min` × 60 among them (BD-57; the
+ * conservative choice when two suits differ). A missing key is a compute RangeError naming it.
+ */
+function crewHabIngressS(scenario: LoadedScenario, crew_ids: readonly CrewId[]): number {
+  const values = crew_ids.map((id) => {
+    const set = scenario.scenario.crew.find((c) => c.crew_id === id)?.suit_param_set;
+    const suit = set === undefined ? undefined : scenario.params[set];
+    if (!suit) throw new RangeError(`crew ${id} has no suit ParamSet in the scenario, so its hab ingress is unknown`);
+    return habIngressS(suit);
+  });
+  return Math.max(...values);
+}
+
 /** Seconds the crew walk on the option's route: the ETA without the ingress (02 §D.8), or the rendezvous walk. */
-function walkSeconds(option: ContingencyOption): number {
+function walkSeconds(option: ContingencyOption, hab_ingress_s: number): number {
   if (option.kind === "VEHICLE_RENDEZVOUS") return option.rendezvous ? option.rendezvous.eta_crew_s : Number.NaN;
-  // Math.max only absorbs float rounding when the walk is zero; compute's ETA is walk + HAB_INGRESS_S.
-  return Math.max(0, option.eta_shelter_min * 60 - HAB_INGRESS_S);
+  // Math.max only absorbs float rounding when the walk is zero; compute's ETA is walk + the hab ingress.
+  return Math.max(0, option.eta_shelter_min * 60 - hab_ingress_s);
 }
 
 /** The four 05 Leg fields that come from compute, with the label each carries. */
@@ -310,7 +325,14 @@ function buildPlanRevision(state: EngineState, scenario: LoadedScenario, option:
   if (!plan) return "no plan is published";
   const start = startOf(plan);
   if (!start) return "the plan has no start waypoint";
-  const walk_s = walkSeconds(option);
+  let hab_ingress_s: number;
+  try {
+    hab_ingress_s = crewHabIngressS(scenario, option.crew_ids);
+  } catch (err) {
+    if (err instanceof RangeError) return err.message;
+    throw err;
+  }
+  const walk_s = walkSeconds(option, hab_ingress_s);
   if (!Number.isFinite(walk_s)) return `option ${option.option_id} has no finite walk time`;
 
   const stopNo = new Map(plan.waypoints.filter((w) => w.role === "stop").map((w, i) => [w.id, i + 1]));

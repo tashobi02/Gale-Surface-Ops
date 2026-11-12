@@ -10,12 +10,13 @@
     "p_walk_w": 351.7,
     "p_rest_w": 250,
     "p_ref_w": 300,
-    "antenna_m": 2
+    "antenna_m": 2,
+    "hab_ingress_min": 5
   },
   "provenance": "assumed",
   "source_ids": [
     "apollo17-planning",
     "tobler-1993"
   ],
-  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20). Speed and metabolic values follow the cited Apollo-era and Tobler sources; the rest are assumed."
+  "note": "Illustrative assumption from docs/specs/02 \u00a7D.9\u2013D.14; replace with cited values where found (U-19, U-20). Speed and metabolic values follow the cited Apollo-era and Tobler sources; the rest are assumed. hab_ingress_min is 02 \u00a7D.8 t_ingress, Assumed (source: 02 \u00a7D.8)."
 }

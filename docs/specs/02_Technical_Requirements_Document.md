@@ -422,6 +422,8 @@ haven(p)      = min(haven_hab(p), haven_veh(p), haven_refuge(p) [T2])
 
 **Validation:** synthetic grid: hab at origin, vehicle 2 km away on flat ground, crew 1 km from hab → hand-computed values; blocked wall forcing detour; vehicle slower than walking (must choose hab).
 
+**Engine tick** *(Proposed 2026-11-12, T23.03; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-57)*: each tick, for every crew member on EVA (walking, at a stop or going to a haven, and not waiting out `start_offset_s`), the Hab Core evaluates the live form for their position and writes `crew[].haven` (`minutes`, `kind`, `target_*`, `modelled`); a crew member in the hab, sheltered or waiting has 0 minutes, and a haven that cannot be reached is `Infinity` minutes (null on the wire), kind `hab`. The hab field is the one at the plan's start waypoint and is rebuilt only when the grid, the slope limits, the suited speed, `max_haven_min`, the data version or the chosen hab candidate change; the rover's field only when the rover or its ParamSet changes. `HAVEN_TIME_EXCEEDED` is a `caution` for that crew member, raised once when `minutes` exceeds the plan's `max_haven_min` and cleared when it is at or under it or the crew member is no longer out. A no-data slope code (255) is impassable for the suit and the vehicle.
+
 ### D.9 Crew and vehicle parameter sets (FR-40, FR-41) — **Assumed** unless cited, shown in the UI (05 ParamSet)
 
 | Parameter | Suited crew | Pressurized rover | Robotic utility rover |

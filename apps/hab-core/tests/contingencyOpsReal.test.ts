@@ -10,11 +10,11 @@
  * non-finite option. The grid is the synthetic F9 `havenFlat` fixture
  * (`packages/compute/tests/fixtures/v2grids.ts`) tilted 5° (see `tilted` below), whose hab is at the
  * origin like the fake scenario's start waypoint. Expected values come from the same compute functions (the oracle), the fixture
- * scenario, or `HAB_INGRESS_S`; nothing is typed in as a science number.
+ * scenario, or the suit ParamSet's `hab_ingress_min` (BD-57); nothing is typed in as a science number.
  *
  * Rules checked here (TASK-23 T23.07, Proposed 2026-11-08):
  * - No grid (the scenario loader gives null until TASK-05): no options, no throw, no events.
- * - Inputs: hab = the plan's `role: "start"` waypoint; ingress = {HAB_INGRESS_S, the rover's own
+ * - Inputs: hab = the plan's `role: "start"` waypoint; ingress = {the suit ParamSet's `hab_ingress_min` × 60, the rover's own
  *   ParamSet `ingress_min` × 60}; shielding = the scenario's `shielding` ParamSet; the vehicle field
  *   starts at the rover's position; crew fields bounded at L = `max_haven_min` × 60 s (02 §D.10);
  *   two crew with OK rendezvous get `pair` from `rendezvousPair`. No vehicle option unless the rover is PARKED.
@@ -45,7 +45,7 @@ import {
   cellIndex,
   crewTimeField,
   habTimeField,
-  HAB_INGRESS_S,
+  habIngressS,
   proposeOptions,
   rendezvous,
   rendezvousPair,
@@ -136,6 +136,8 @@ function tilted(base: LoadedGrid): LoadedGrid {
 const grid = tilted(havenFlat(10).grid);
 const sc: LoadedScenario = { ...fake, grid };
 const plan = sc.scenario.plan!;
+/** Hab ingress from the suit ParamSet, not a constant in code (BD-57: it replaces the old hab-ingress constant, same 300 s). */
+const HAB_INGRESS = habIngressS(sc.params["suit-assumed"]!);
 const START = plan.waypoints.find((w) => w.role === "start")!;
 const STOP1 = plan.waypoints.filter((w) => w.role === "stop")[0]!;
 const PR = sc.scenario.vehicles.find((v) => v.kind === "pressurized_rover")!;
@@ -187,7 +189,7 @@ function oracleInputs(state: EngineState): ContingencyInputs {
     now_utc: state.session.clock.sim_time,
     hab: habTimeField(grid, { x_m: START.x_m, y_m: START.y_m }, scen),
     rendezvous: rv,
-    ingress: { hab_s: HAB_INGRESS_S, vehicle_s: Number(PR_PARAMS.values.ingress_min) * 60 },
+    ingress: { hab_s: HAB_INGRESS, vehicle_s: Number(PR_PARAMS.values.ingress_min) * 60 },
     ...(pair ? { pair } : {}),
     plan: { waypoints: plan.waypoints, legs: plan.result.legs },
     scenario: scen,
@@ -236,7 +238,7 @@ describe("contingencyTick with no grid (scenario loader gives null until TASK-05
 });
 
 describe("contingencyTick on the real compute (02 §D.15; FR-44)", () => {
-  it("hands compute the real inputs: start-waypoint hab, HAB_INGRESS_S and the rover's ingress_min, the shielding ParamSet, pair for two crew", () => {
+  it("hands compute the real inputs: start-waypoint hab, the suit's hab_ingress_min and the rover's ingress_min, the shielding ParamSet, pair for two crew", () => {
     const r = contingencyTick(alerted, tctx(alerted));
     expect(r.events.map((e) => e.kind)).toEqual(["OPTIONS_PROPOSED"]);
     const asked = hook.calls[0] as ContingencyInputs;
@@ -246,6 +248,21 @@ describe("contingencyTick on the real compute (02 §D.15; FR-44)", () => {
     expect(asked.pair).toEqual(want.pair);
     expect(want.pair).toBeDefined(); // the fixture gives both crew a rendezvous
     expect(dataOf(r.events, "OPTIONS_PROPOSED").options).toEqual(EXPECTED);
+  });
+
+  it("hab ingress follows the suit ParamSet's hab_ingress_min, the largest of the alert's crew (BD-57)", () => {
+    const suit = sc.params["suit-assumed"]!;
+    const longer: LoadedScenario = { ...sc, params: { ...sc.params, "suit-assumed": { ...suit, values: { ...suit.values, hab_ingress_min: 9 } } } };
+    contingencyTick(alertedOn(longer), tctx(alertedOn(longer), longer));
+    expect((hook.calls[0] as ContingencyInputs).ingress.hab_s).toBe(9 * 60);
+  });
+
+  it("a suit ParamSet without hab_ingress_min gives no options and no throw (a contained compute RangeError; BD-57)", () => {
+    const suit = sc.params["suit-assumed"]!;
+    const { hab_ingress_min: _gone, ...values } = suit.values;
+    const broken: LoadedScenario = { ...sc, params: { ...sc.params, "suit-assumed": { ...suit, values } } };
+    const r = contingencyTick(alertedOn(broken), tctx(alertedOn(broken), broken));
+    expect(r.events).toEqual([]);
   });
 
   it("the logged options are those of the oracle inputs, all finite, and survive JSON", () => {
@@ -321,7 +338,7 @@ describe("APPROVE_OPTION on the real compute: the new leg (05 Leg; tick rules S2
   it("ABORT_TO_HAB: walk_time_min is the ETA without the hab ingress, distance_m the path's polyline length", () => {
     const leg = newLeg(approve("ABORT_TO_HAB").events);
     const o = optionOf("ABORT_TO_HAB");
-    expect(leg.walk_time_min * 60).toBeCloseTo(o.eta_shelter_min * 60 - HAB_INGRESS_S, 6);
+    expect(leg.walk_time_min * 60).toBeCloseTo(o.eta_shelter_min * 60 - HAB_INGRESS, 6);
     expect(leg.walk_time_min).toBeGreaterThan(0);
     expect(leg.distance_m).toBeCloseTo(polylineLength(o.path_preview), 6);
     expect(leg.distance_m).toBeGreaterThan(0);
@@ -329,7 +346,7 @@ describe("APPROVE_OPTION on the real compute: the new leg (05 Leg; tick rules S2
 
   it("CONTINUE_SKIP: walk_time_min is the ETA without the hab ingress", () => {
     const leg = newLeg(approve("CONTINUE_SKIP").events);
-    expect(leg.walk_time_min * 60).toBeCloseTo(optionOf("CONTINUE_SKIP").eta_shelter_min * 60 - HAB_INGRESS_S, 6);
+    expect(leg.walk_time_min * 60).toBeCloseTo(optionOf("CONTINUE_SKIP").eta_shelter_min * 60 - HAB_INGRESS, 6);
   });
 
   it("VEHICLE_RENDEZVOUS: walk_time_min is the crew's walk to the meeting point (eta_crew_s), not the ETA with ingress", () => {
@@ -681,7 +698,7 @@ describe("the revised leg's climb, descent, max slope and profile (T23.07 follow
         // The option's path already ends on the start waypoint (ABORT) or at the meeting point (rendezvous).
         expect(leg.geometry).toEqual(o.path_preview);
         expect(leg.distance_m).toBeCloseTo(polylineLength(o.path_preview), 9);
-        const walk_s = kind === "VEHICLE_RENDEZVOUS" ? o.rendezvous!.eta_crew_s : o.eta_shelter_min * 60 - HAB_INGRESS_S;
+        const walk_s = kind === "VEHICLE_RENDEZVOUS" ? o.rendezvous!.eta_crew_s : o.eta_shelter_min * 60 - HAB_INGRESS;
         expect(leg.walk_time_min * 60).toBeCloseTo(walk_s, 6);
       });
 
@@ -749,7 +766,7 @@ describe("the revised leg's climb, descent, max slope and profile (T23.07 follow
       expect(leg.profile).toEqual(EMPTY_PROFILE);
       const i = lastIndex(out);
       expect(provOf(out)).toMatchObject(Object.fromEntries(METRICS.map((k) => [`data.legs.${i}.${k}`, "assumed"])));
-      expect(leg.walk_time_min * 60).toBeCloseTo(optionOf("ABORT_TO_HAB").eta_shelter_min * 60 - HAB_INGRESS_S, 6);
+      expect(leg.walk_time_min * 60).toBeCloseTo(optionOf("ABORT_TO_HAB").eta_shelter_min * 60 - HAB_INGRESS, 6);
       const data = dataOf(out.events, "PLAN_REVISED");
       expect(JSON.parse(JSON.stringify(data))).toEqual(data);
     });
