@@ -11,8 +11,8 @@
  * leaves the last valid value in effect. While the user types the field shows what was typed with the error; leaving the field
  * returns its text to the last valid value and the error stays until the next edit or Reset (FD-236).
  *
- * Start time (FD-042): no default is invented. With an empty start the panel asks `GET api/session` (N-05, the Hab Core's scenario
- * `eva_start_utc`) and uses its answer when valid and the field is still empty; with no Hab Core the field stays empty and the
+ * Start time (FD-042): no default is invented. With an empty start the panel asks the Hab Core (`fetchSessionSummary`, N-05: the scenario's
+ * `eva_start_utc`; FD-239) and uses its answer when valid and the field is still empty; with no Hab Core the field stays empty and the
  * panel says "Invalid input — set a start time". Reset defaults restores every other input and keeps the start time.
  *
  * Provenance (FD-114, FR-15): every input value is `assumed` ("a parameter we chose", 01), source `scenario.<field>`; once the user
@@ -46,18 +46,26 @@ export interface PlanPanelProps {
   fetchSession?: () => Promise<SessionSummary | null>;
 }
 
-/** `GET api/session` on the app's own origin (NFR-01: the Hab Core, never another host); any failure is "no Hab Core". */
+/**
+ * The Hab Core's scenario start (N-05, FD-239), on the app's own origin (NFR-01: the Hab Core, never another host). The lobby summary
+ * `api/session/summary` carries `eva_start_utc` only once the EVA has started; before that the scenario's start is the published plan's
+ * (`plan.scenario.eva_start_utc` of `api/session`). Any failure, or a value that is not a string, is "no Hab Core".
+ */
 export async function fetchSessionSummary(): Promise<SessionSummary | null> {
   if (typeof fetch !== "function") return null;
-  try {
-    const response = await fetch("api/session");
-    if (!response.ok) return null;
-    const body: unknown = await response.json();
-    const start = typeof body === "object" && body !== null ? (body as { eva_start_utc?: unknown }).eva_start_utc : undefined;
-    return typeof start === "string" ? { eva_start_utc: start } : null;
-  } catch {
-    return null;
-  }
+  const read = async (url: string): Promise<unknown> => {
+    try {
+      const response = await fetch(url);
+      return response.ok ? await response.json() : null;
+    } catch {
+      return null;
+    }
+  };
+  const record = (v: unknown): Record<string, unknown> | null => (typeof v === "object" && v !== null ? (v as Record<string, unknown>) : null);
+  const fromSummary = record(await read("api/session/summary"))?.eva_start_utc;
+  if (typeof fromSummary === "string") return { eva_start_utc: fromSummary };
+  const fromPlan = record(record(record(await read("api/session"))?.plan)?.scenario)?.eva_start_utc;
+  return typeof fromPlan === "string" ? { eva_start_utc: fromPlan } : null;
 }
 
 type NumberKey =

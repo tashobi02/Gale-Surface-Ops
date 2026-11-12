@@ -50,4 +50,33 @@ describe("Notice (FD-115)", () => {
     open.push(m);
     expect(m.container.querySelector('[data-action="dismiss-notice"]')).toBeNull();
   });
+
+  it("shows a message that carries its own labelled values (a ReactNode), not only a string", async () => {
+    const message = createElement("span", { "data-provenance": "derived", "data-source": "usgs-gale-dem-1m-v3" }, "22.0°");
+    const m = await mountRaw(createElement(Notice, { message, status: "warning" }));
+    open.push(m);
+    expect(must(m.container, '[data-slot="notice"] [data-provenance]').textContent).toBe("22.0°");
+    expect(must(m.container, '[data-slot="notice"]').getAttribute("data-status")).toBe("warning");
+  });
+
+  it("renders its action buttons (a snap offer: use the snapped position, place elsewhere) and calls the one pressed", async () => {
+    const accept = vi.fn();
+    const decline = vi.fn();
+    const m = await mountRaw(
+      createElement(Notice, {
+        message: "Not walkable here",
+        status: "warning",
+        actions: [
+          { action: "accept-snap", label: "Use snapped position", onClick: accept },
+          { action: "decline-snap", label: "Place elsewhere", onClick: decline },
+        ],
+      }),
+    );
+    open.push(m);
+    const buttons = [...m.container.querySelectorAll<HTMLButtonElement>("[data-slot='notice'] button")];
+    expect(buttons.map((b) => b.textContent)).toEqual(["Use snapped position", "Place elsewhere"]);
+    await click(must(m.container, '[data-action="decline-snap"]'));
+    expect(decline).toHaveBeenCalledTimes(1);
+    expect(accept).not.toHaveBeenCalled();
+  });
 });

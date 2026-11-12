@@ -8,7 +8,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { act, createElement } from "react";
 import { localTrueSolarTime } from "@marswalk/compute";
 import type { AppContext, WorkerClient } from "../../src/ui/context";
-import { PlanPanel, type SessionSummary } from "../../src/ui/screens/scr04PlanPanel";
+import { PlanPanel, fetchSessionSummary, type SessionSummary } from "../../src/ui/screens/scr04PlanPanel";
 import { projectedToLatLonE, registerMarsProjection } from "../../src/ui/map/projection";
 import { DEFAULT_SCENARIO, SCENARIO_DEBOUNCE_MS } from "../../src/state/planStore";
 import { click, installDom, mount as mountRaw, must, removeDom, type Mounted } from "./domHarness";
@@ -353,5 +353,39 @@ describe("PlanPanel layout (04 §B)", () => {
     const notice = must(root, '[data-slot="notice"]');
     expect(notice.getAttribute("role")).toBe("status");
     expect(notice.getAttribute("aria-live")).toBe("polite");
+  });
+});
+
+describe("fetchSessionSummary against the merged Hab Core (N-05; FD-042, FD-239)", () => {
+  const answer = (routes: Record<string, unknown>) => {
+    const calls: string[] = [];
+    (globalThis as unknown as { fetch: unknown }).fetch = async (url: string) => {
+      calls.push(url);
+      return url in routes ? { ok: true, json: async () => routes[url] } : { ok: false, json: async () => ({}) };
+    };
+    return calls;
+  };
+  afterEach(() => {
+    delete (globalThis as unknown as { fetch?: unknown }).fetch;
+  });
+
+  it("reads the scenario's start from the published plan in GET api/session when the summary has none yet", async () => {
+    answer({ "api/session/summary": { eva_start_utc: null }, "api/session": { plan: { scenario: { eva_start_utc: "2026-11-14T09:30:00Z" } } } });
+    expect(await fetchSessionSummary()).toEqual({ eva_start_utc: "2026-11-14T09:30:00Z" });
+  });
+
+  it("uses the summary's eva_start_utc when it has one", async () => {
+    const calls = answer({ "api/session/summary": { eva_start_utc: "2026-11-14T10:00:00Z" } });
+    expect(await fetchSessionSummary()).toEqual({ eva_start_utc: "2026-11-14T10:00:00Z" });
+    expect(calls).toEqual(["api/session/summary"]);
+  });
+
+  it("is null with no Hab Core, with no plan, or on a malformed body", async () => {
+    answer({});
+    expect(await fetchSessionSummary()).toBeNull();
+    answer({ "api/session/summary": { eva_start_utc: null }, "api/session": { plan: null } });
+    expect(await fetchSessionSummary()).toBeNull();
+    answer({ "api/session/summary": 7, "api/session": { plan: { scenario: { eva_start_utc: 5 } } } });
+    expect(await fetchSessionSummary()).toBeNull();
   });
 });

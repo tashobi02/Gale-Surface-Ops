@@ -14,12 +14,15 @@
  * the Layers tab; SCR-04 (package 09) is in the Plan tab; the panels of SCR-06 and SCR-07 mount in their drawer tabs as their packages land,
  * and until then the tab says so in plain words and shows no value.
  *
+ * Waypoints (package 10): the waypoint layer, the single placement function (SAMPLE_POINT, snap offer, "Outside mapped area"),
+ * add-stop mode (`A`, crosshair `Enter`), marker and row drag, tablet long-press and the keyboard move of the selected stop are
+ * attached here; the placement notice (FD-115) is the one Notice above the map. The toolbar button follows the mode.
+ *
  * Map: `createMap` (Mars projection, scale bar, north arrow, readout derived from `proj:IAU_2015:49900`, FD-080) with the
  * keyboard layer (A is the add-stop mode's; B opens the briefing, ? the sources, Delete removes the selected stop, arrows and
  * +/− pan and zoom while the map has focus), the shared MapControls (T07.17, FD-202) and the `?debug=1` overlay. Every map
  * module is attached here: the raster, traverse, POI and route layers and the point inspector. A module whose function
- * is still a "TODO(...)" stub (add-stop mode, waypoint layer, drag, touch) leaves its toolbar control hidden, never dead
- * (FD-118). The root is `data-surface="planner"` on the host (PlannerHost); this component adds no second claim to it.
+ * is still a "TODO(...)" stub leaves its toolbar control hidden, never dead (FD-118); none is a stub now. The root is `data-surface="planner"` on the host (PlannerHost); this component adds no second claim to it.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode } from "react";
 import type OlMap from "ol/Map.js";
@@ -37,10 +40,12 @@ import { createRouteLayer } from "../map/routeLayer";
 import { validateMapTokens } from "../map/tokenColors";
 import { createTraverseLayer, type TraverseLayerController } from "../map/traverseLayer";
 import { initPointInspector } from "../map/inspector";
-import { initAddStopMode } from "../map/addStopMode";
-import { createWaypointLayer } from "../map/waypointLayer";
+import { initAddStopMode, type AddStopMode } from "../map/addStopMode";
+import { createPlacement, createWaypointLayer, type PlacementNotice } from "../map/waypointLayer";
 import { initWaypointDrag } from "../map/waypointDrag";
 import { initTouchInput } from "../map/touchInput";
+import { KeyboardMove } from "../map/keyboardMove";
+import { Notice } from "../components/Notice";
 import { LayersPanel, isScientificOverlay, type PanelLayer, type PanelLegend, type RowStatus } from "./scr03LayersPanel";
 import { PlanPanel } from "./scr04PlanPanel";
 import { RouteResults } from "./scr05RouteResults";
@@ -144,6 +149,7 @@ const RIGHT_TABS = [
 
 /** The layer controllers SCR-02 creates; the Layers tab and its switches work on these. Absent = that module is not built. */
 interface LayerKit {
+  placement?: ReturnType<typeof createPlacement>;
   raster?: RasterLayersController;
   traverse?: TraverseLayerController;
   pois?: PoiLayerController;
@@ -162,6 +168,9 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
   const [handle, setHandle] = useState<MapHandle | null>(null);
   const [notReady, setNotReady] = useState<ReadonlySet<string>>(new Set());
   const [kit, setKit] = useState<LayerKit>({});
+  const [placementNotice, setPlacementNotice] = useState<PlacementNotice | null>(null);
+  const [addStopOn, setAddStopOn] = useState(false);
+  const addStopRef = useRef<AddStopMode | null>(null);
   const [layerTick, setLayerTick] = useState(0);
   // FD-074: POI selection is this screen's own state, not the plan store's waypoint selection (C11 is unchanged).
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
@@ -184,6 +193,12 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
       canOpenBriefing: () => {
         const state = ctx.planStore.get();
         return briefingBlock(state.status, state.waypoints.filter((w) => w.role === "stop").length) === null;
+      },
+      // FD-117: `A` and the crosshair `Enter` belong to the add-stop mode; the keyboard layer delegates to it.
+      addStop: {
+        isActive: () => addStopRef.current?.isActive() ?? false,
+        toggle: () => addStopRef.current?.toggle(),
+        placeAtCrosshair: () => addStopRef.current?.placeAtCrosshair(),
       },
     }),
     [ctx.planStore],
@@ -284,16 +299,48 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
         route.destroy();
       };
     });
+    // The placement function and the add-stop mode come first: the inspector leaves a click to the mode while it is on.
+    const placement = createPlacement({ planStore: ctx.planStore, workerClient: ctx.workerClient, site: ctx.site, notify: setPlacementNotice });
+    held.placement = placement;
+    const poiAt = (coord: [number, number]) => held.pois?.getPoiAt(coord, 12 * (handle.getResolution() ?? 1)) ?? null;
+    attach("add-stop", () => {
+      const mode = initAddStopMode(handle, placement, { poiAt });
+      addStopRef.current = mode;
+      const off = mode.onChange(setAddStopOn);
+      return () => {
+        off();
+        mode.destroy();
+        addStopRef.current = null;
+        setAddStopOn(false);
+      };
+    });
     attach("inspector", () => {
-      const inspector = initPointInspector(handle, mapCtx);
+      const inspector = initPointInspector(handle, mapCtx, { shouldInspect: () => !addStopRef.current?.isActive() });
       return () => inspector.destroy();
     });
-    attach("waypoints", () => void createWaypointLayer(ctx.planStore));
-    attach("waypoint-drag", () => initWaypointDrag(handle, ctx.planStore));
-    attach("touch", () => initTouchInput(handle));
-    attach("add-stop", () => initAddStopMode(handle, ctx.planStore));
-    setNotReady(missing);
+    attach("waypoints", () => {
+      const waypoints = createWaypointLayer(ctx.planStore);
+      map.addLayer(waypoints.layer);
+      const detach = initWaypointDrag(handle, ctx.planStore, placement, { preview: (p) => waypoints.setPreview(p) });
+      return () => {
+        detach();
+        map.removeLayer(waypoints.layer);
+        waypoints.destroy();
+      };
+    });
+    attach("touch", () => initTouchInput(handle, placement, { poiAt }));
+    // The harness's placement hook (`plan-rules`): debug only, never in a plain page.
+    if (ctx.debug) {
+      (window as unknown as { __tryPlace?: unknown }).__tryPlace = async (x_m: number, y_m: number) => {
+        const before = ctx.planStore.get().waypoints.length;
+        const outcome = await placement.place({ x_m, y_m });
+        const after = ctx.planStore.get().waypoints;
+        const added = after.length > before ? after[after.length - 1]! : null;
+        return { outcome, snappedFrom: added?.snapped_from ?? null, added: added ? { x_m: added.x_m, y_m: added.y_m } : null };
+      };
+    }
     setKit(held);
+    setNotReady(missing);
 
     // The harness's repaint hook (`toggles`): calls back after the next map render. Debug only, never in a plain page.
     const win = window as unknown as { __onNextPostrender?: (callback: () => void) => void };
@@ -301,7 +348,11 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
 
     return () => {
       alive = false;
-      if (ctx.debug) delete win.__onNextPostrender;
+      if (ctx.debug) {
+        delete win.__onNextPostrender;
+        delete (window as unknown as { __tryPlace?: unknown }).__tryPlace;
+      }
+      placement.clear();
       setKit({});
       for (const cleanup of cleanups.reverse()) cleanup();
     };
@@ -482,9 +533,33 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
         <div className="scr02-map-box" data-slot="map-box">
           <div className="scr02-map-host" data-slot="map-host" ref={hostRef} />
           <div className="scr02-map-toolbar" data-slot="map-toolbar">
+            {kit.placement && addStopRef.current && (
+              <button
+                type="button"
+                className="scr02-add-stop"
+                data-control="add-stop"
+                aria-pressed={addStopOn}
+                title="Add stop mode: click the map or press Enter at the crosshair (A)"
+                onClick={() => addStopRef.current?.toggle()}
+              >
+                Add stop <span className="scr02-key">A</span>
+                {addStopOn && <span className="scr02-mode-word"> ON</span>}
+              </button>
+            )}
             {controls && (
               <MapControls variant="planner" follow={false} layersOpen={false} onZoom={controls.onZoom} onFit={fitAoi} />
             )}
+            {kit.placement && handle && (
+              <KeyboardMove planStore={ctx.planStore} placement={kit.placement} mapHandle={handle} cellM={ctx.site.site.grid.cell_m} />
+            )}
+          </div>
+          <div className="scr02-placement-notice" data-slot="placement-notice">
+            <Notice
+              message={placementNotice?.message ?? null}
+              status={placementNotice?.status ?? "advisory"}
+              {...(placementNotice?.actions ? { actions: placementNotice.actions } : {})}
+              onDismiss={() => kit.placement?.clear()}
+            />
           </div>
           {notReady.size > 0 && <span hidden data-slot="modules-not-ready" data-modules={[...notReady].join(" ")} />}
           <DebugOverlay ctx={mapCtx} />

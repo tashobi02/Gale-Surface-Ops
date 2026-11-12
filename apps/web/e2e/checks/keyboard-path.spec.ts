@@ -47,3 +47,37 @@ test.fixme("keyboard-path: plan, move a stop, open the briefing and export witho
   await page.getByRole("button", { name: /export/i }).focus();
   await expectFocusVisible(page, "export button");
 });
+
+// Package 10: step "move stop 2" (FD-119) on the planner alone, with no pointer. SCR-01, the demo plan and SCR-08 are other packages',
+// so the full path above stays `fixme` until package 28. A pan moves the crosshair west of the F4 site's wall of
+// 20-degree cells (x from 0 to 100 m) before the stops are placed.
+test("keyboard-path: add two stops at the crosshair and move stop 2 by the keyboard (package 10)", async ({ page }) => {
+  await page.goto("/?site=mock_site#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  await page.getByRole("tab", { name: "Plan" }).click();
+  await page.getByLabel(/EVA start/i).fill("2026-11-14T08:00:00Z");
+
+  const viewport = page.locator(".ol-viewport");
+  await viewport.focus();
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("a");
+  await expectFocusVisible(page, "map after A");
+  await expect(page.getByRole("button", { name: /^Add stop/ })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Enter");
+  await expect(page.locator('[data-waypoint-id="wp-1"]')).toBeVisible();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("a");
+  await page.keyboard.press("Enter");
+  await expect(page.locator('[data-waypoint-id="wp-2"]')).toBeVisible();
+
+  const coords = page.locator('[data-waypoint-id="wp-2"] [data-slot="stop-coords"]');
+  const before = await coords.innerText();
+  const east = page.getByRole("button", { name: "Move stop 2 one cell east" });
+  await east.focus();
+  await expectFocusVisible(page, "nudge east");
+  await page.keyboard.press("Enter");
+  await expect(coords).not.toHaveText(before);
+  await page.keyboard.press("ArrowLeft");
+  await expect(coords).toHaveText(before);
+});

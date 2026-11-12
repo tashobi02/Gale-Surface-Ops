@@ -1,0 +1,50 @@
+/* Add-stop crosshair and the placement notice over the map (T08.06, T08.07; 03 §D; 04 §C.1). Tokens only; no brand orange. */
+
+.marswalk-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  pointer-events: none;
+  z-index: 9;
+}
+
+/* Two strokes with a `void` casing, so the cross reads on any imagery without colour (04 §A.3 #2). */
+.marswalk-crosshair::before,
+.marswalk-crosshair::after {
+  content: "";
+  position: absolute;
+  background: var(--text-1);
+  box-shadow: 0 0 0 1px var(--void);
+}
+
+.marswalk-crosshair::before {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+}
+
+.marswalk-crosshair::after {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+}
+
+.scr02-placement-notice {
+  position: absolute;
+  bottom: 48px;
+  left: 8px;
+  right: 8px;
+  z-index: 8;
+  max-width: 520px;
+}
+
+.scr02-placement-notice .notice[data-empty="true"] {
+  display: none;
+}

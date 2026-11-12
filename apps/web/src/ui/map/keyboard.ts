@@ -7,7 +7,8 @@
  * - Delete: removes selected stop (C11, 03 §C.3).
  * - B: opens Briefing (#/briefing) when plan is computed; disabled if no stops or on error (03 SCR-08, 04 §D).
  * - ?: opens Sources & Methods (#/sources) (03 SCR-02).
- * - A and Enter are deliberately NOT bound here (reserved for T08.07 add-stop crosshair mode).
+ * - A toggles and Enter places at the crosshair through `planContext.addStop`, the add-stop mode's own controller (T08.07, FD-117):
+ *   this file only delegates. Without `addStop` neither key is bound. Enter on a button or link is left to that control.
  * - Shortcuts are ignored when focus is in an input or editable field.
  * - Arrow keys are never hijacked (no preventDefault, no pan) when focus is inside a composite widget
  *   (radio group, listbox, menu, slider, tabs, ...): those own the arrows (04 §E, WAI-ARIA APG).
@@ -40,6 +41,14 @@ export interface KeyboardPlanContext {
   canOpenBriefing: () => boolean;
   /** Optional custom navigation handler (defaults to hash assignment). */
   navigate?: (route: string) => void;
+  /** The add-stop mode (T08.07): `A` toggles it and `Enter` places at the crosshair while it is on (FD-117). */
+  addStop?: AddStopControl;
+}
+
+export interface AddStopControl {
+  isActive: () => boolean;
+  toggle: () => void;
+  placeAtCrosshair: () => void | Promise<void>;
 }
 
 export interface KeyboardControlsOptions {
@@ -206,6 +215,23 @@ export function attachKeyboardControls(options: KeyboardControlsOptions = {}): (
       }
     }
 
+    // 2b. Add-stop mode (T08.07, FD-117): A toggles; Enter places at the crosshair, unless a button or link has focus.
+    if (planContext?.addStop) {
+      if (key === "a" || key === "A") {
+        event.preventDefault();
+        planContext.addStop.toggle();
+        return;
+      }
+      if (key === "Enter" && planContext.addStop.isActive()) {
+        const control = event.target instanceof Element ? event.target.closest("button, a, [role='button'], [role='switch'], [role='radio'], [role='tab']") : null;
+        if (!control) {
+          event.preventDefault();
+          void planContext.addStop.placeAtCrosshair();
+          return;
+        }
+      }
+    }
+
     // 3. Delete selected stop (C11, 03 §C.3)
     if (key === "Delete" && planContext) {
       const selectedId = planContext.getSelectedStopId();
@@ -235,7 +261,6 @@ export function attachKeyboardControls(options: KeyboardControlsOptions = {}): (
       return;
     }
 
-    // Note: 'A' and 'Enter' are reserved for T08.07 (add-stop crosshair mode) and NOT bound here.
   };
 
   target.addEventListener("keydown", handleKeyDown as EventListener);
