@@ -23,6 +23,7 @@
 import type { CSSProperties, ReactElement } from "react";
 import type { Provenance } from "@marswalk/protocol";
 import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
+import "./scr17PostEvaReport.css";
 
 export interface PostEvaReportData {
   sessionId?: string;
@@ -32,7 +33,11 @@ export interface PostEvaReportData {
   logHash?: string;
   /** Headline dose: the highest individual's values (`simulated`; the pick is `derived`), never a crew total. Absent when nobody sheltered. */
   trace?: Array<{ crew_id: string; points: Array<{ sim_time: string; x_m: number; y_m: number }> }>;
+  /** Planned background dose over the planned EVA (`modelled`); null with `plannedBackgroundReason` when unavailable. */
   plannedBackgroundUgy?: number | null;
+  plannedBackgroundReason?: string | null;
+  /** Count of report values per provenance class (05 PostEvaReport `provenance_summary`). */
+  provenanceSummary?: Partial<Record<Provenance, number>>;
   doseReceivedUgy?: number;
   doseUnshelteredUgy?: number;
   doseHeadlineCrew?: string;
@@ -125,6 +130,20 @@ export const REPORT_DISCLAIMER =
 function reportAttrs(present: boolean, prov: Provenance, path: string): ReturnType<typeof provAttrs> {
   return provAttrs(present ? { prov, src: `report:${path}` } : unavailableOf(prov, `report.${path}`));
 }
+
+/** Line style per crew in the trace, in legend order: the first solid, then dashed, then dotted (never colour alone). */
+const TRACE_DASH = [undefined, "6 4", "2 3"] as const;
+const TRACE_WORD = ["solid", "dashed", "dotted"] as const;
+
+
+const h2Style: CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 700,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  color: "#4B5563",
+  margin: "8px 0 2px 0",
+};
 
 /** Glyph beside a report value: its own class when present, none beside "—". */
 const glyphIf = (present: boolean, prov: Provenance): string => (present ? PROVENANCE_GLYPHS[prov] : "");
@@ -235,13 +254,6 @@ export function PostEvaReport({
         fontFamily: "var(--font-ui, Inter, sans-serif)",
       }}
     >
-      <style>{`@page { margin: 12mm; }
-        @media print {
-          .scr17-post-eva-report { background: white !important; min-height: 0 !important; padding: 0 !important; }
-          .scr17-post-eva-report .no-print { display: none !important; }
-          .scr17-post-eva-report .report-page { min-height: 0 !important; margin: 0 !important; padding: 0 !important; max-width: none !important; border: 0 !important; box-shadow: none !important; gap: 6px !important; }
-          .scr17-post-eva-report .report-page + .report-page { break-before: page; }
-        }`}</style>
       {/* Top action toolbar (hidden when printing) */}
       <div
         className="no-print"
@@ -337,7 +349,7 @@ export function PostEvaReport({
 
         {/* 4 Stat Slabs (04 §E.8) */}
         <section aria-label="Key mission statistics" style={slabGridStyle}>
-          <div style={slabStyle}>
+          <div className="report-slab" style={slabStyle}>
             <span style={{ fontSize: "12px", fontWeight: 700, color: "#4B5563" }}>
               DOSE RECEIVED VS UNSHELTERED
             </span>
@@ -361,8 +373,12 @@ export function PostEvaReport({
             <span style={{ fontSize: "12px", color: "#4B5563" }} {...reportAttrs(hasHeadline, "derived", "dose.headline")}>
               {`highest individual: ${hasHeadline ? data.doseHeadlineCrew : UNAVAILABLE}`} {glyphIf(hasHeadline, "derived")}
             </span>
-            <span {...reportAttrs(isFiniteNumber(data.plannedBackgroundUgy), "modelled", "dose.planned_background_ugy")}>
-              Planned background: {isFiniteNumber(data.plannedBackgroundUgy) ? `${fmtFixed(data.plannedBackgroundUgy, 1)} µGy` : UNAVAILABLE}
+            <span style={{ fontSize: "12px" }}>
+              Planned background:{" "}
+              <span {...reportAttrs(isFiniteNumber(data.plannedBackgroundUgy), "modelled", "dose.planned_background_ugy")}>
+                {isFiniteNumber(data.plannedBackgroundUgy) ? `${fmtFixed(data.plannedBackgroundUgy, 1)} µGy` : UNAVAILABLE} {glyphIf(isFiniteNumber(data.plannedBackgroundUgy), "modelled")}
+              </span>
+              {!isFiniteNumber(data.plannedBackgroundUgy) && data.plannedBackgroundReason ? ` (${data.plannedBackgroundReason})` : ""}
             </span>
             {(data.doseRows ?? []).length > 0 && (
               <ul style={{ margin: 0, padding: 0, listStyle: "none", fontSize: "12px", fontFamily: "var(--font-mono, monospace)" }}>
@@ -378,7 +394,7 @@ export function PostEvaReport({
             )}
           </div>
 
-          <div style={slabStyle}>
+          <div className="report-slab" style={slabStyle}>
             <span style={{ fontSize: "12px", fontWeight: 700, color: "#4B5563" }}>
               TIME TO SHELTER
             </span>
@@ -394,7 +410,7 @@ export function PostEvaReport({
             </span>
           </div>
 
-          <div style={slabStyle}>
+          <div className="report-slab" style={slabStyle}>
             <span style={{ fontSize: "12px", fontWeight: 700, color: "#4B5563" }}>
               STOPS COMPLETED
             </span>
@@ -410,7 +426,7 @@ export function PostEvaReport({
             </span>
           </div>
 
-          <div style={slabStyle}>
+          <div className="report-slab" style={slabStyle}>
             <span style={{ fontSize: "12px", fontWeight: 700, color: "#4B5563" }}>
               PLAN REVISIONS
             </span>
@@ -482,14 +498,14 @@ export function PostEvaReport({
                 <tr key={idx}>
                   <td style={tdStyle}>{row.stopId}</td>
                   <td style={tdStyle}>{row.crewId ?? UNAVAILABLE}</td>
-                  <td style={tdStyle}>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
                     <span {...reportAttrs(row.plannedArrival !== null, "derived", "timeline.arrival_planned")}>{row.plannedArrival ?? UNAVAILABLE}</span>
                     {" / "}
                     <span {...reportAttrs(row.actualArrival !== null, "simulated", "timeline.arrival_actual")}>{row.actualArrival ?? UNAVAILABLE}</span>
                     {" / "}
                     <span {...reportAttrs(row.arrivalDiff !== null, "derived", "timeline.arrival_diff")}>{row.arrivalDiff ?? UNAVAILABLE}</span>
                   </td>
-                  <td style={tdStyle}>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
                     <span {...reportAttrs(row.plannedDwell !== null, "derived", "timeline.dwell_planned")}>{row.plannedDwell ?? UNAVAILABLE}</span>
                     {" / "}
                     <span {...reportAttrs(row.actualDwell !== null, "simulated", "timeline.dwell_actual")}>{row.actualDwell ?? UNAVAILABLE}</span>
@@ -501,7 +517,7 @@ export function PostEvaReport({
               ))}
             </tbody>
           </table>
-          <p style={{ fontSize: "12px", color: "#4B5563", margin: "4px 0" }}>
+          <p className="report-note" style={{ fontSize: "12px", color: "#4B5563", margin: "4px 0" }}>
             Times are offsets from EVA start (sim time). Planned and differences are derived; actual is simulated.
           </p>
         </section>
@@ -585,18 +601,64 @@ export function PostEvaReport({
           </table>
         </section>
 
-        <section aria-label="Map Trace">
-          <h2>MAP TRACE</h2>
-          {(data.trace ?? []).some((row) => row.points.length > 0) ? (() => {
-            const points = (data.trace ?? []).flatMap((row) => row.points);
+        <section aria-label="Map Trace" className="report-block">
+          <h2 style={h2Style}>[ MAP /// CREW TRACE ]</h2>
+          {(() => {
+            const rows = (data.trace ?? []).filter((row) => row.points.length > 0);
+            if (rows.length === 0) {
+              return (
+                <p className="report-note" style={{ fontSize: "12px", margin: "4px 0" }} {...reportAttrs(false, "simulated", "trace")}>
+                  {UNAVAILABLE} Trace not available.
+                </p>
+              );
+            }
+            const points = rows.flatMap((row) => row.points);
             const minX = Math.min(...points.map((p) => p.x_m));
             const maxX = Math.max(...points.map((p) => p.x_m));
             const minY = Math.min(...points.map((p) => p.y_m));
             const maxY = Math.max(...points.map((p) => p.y_m));
-            return <svg data-slot="report-trace" {...reportAttrs(true, "simulated", "trace")} role="img" aria-label="Crew position traces" viewBox={`${minX} ${-maxY} ${Math.max(maxX - minX, 1)} ${Math.max(maxY - minY, 1)}`} style={{ width: "100%", height: "100px" }}>
-              {data.trace?.map((row) => <polyline key={row.crew_id} aria-label={row.crew_id} points={row.points.map((p) => `${p.x_m},${-p.y_m}`).join(" ")} fill="none" stroke="currentColor" vectorEffect="non-scaling-stroke" />)}
-            </svg>;
-          })() : <p {...reportAttrs(false, "simulated", "map_trace")}>{UNAVAILABLE} Trace not available.</p>}
+            const w = Math.max(maxX - minX, 1);
+            const h = Math.max(maxY - minY, 1);
+            return (
+              <>
+                <svg
+                  className="report-trace-svg"
+                  data-slot="report-trace"
+                  {...reportAttrs(true, "simulated", "trace")}
+                  role="img"
+                  aria-label={`Crew position traces: ${rows.map((row, k) => `${row.crew_id} ${TRACE_WORD[k] ?? "dotted"}`).join(", ")}`}
+                  viewBox={`${minX} ${-maxY} ${w} ${h}`}
+                  preserveAspectRatio="xMidYMid meet"
+                  style={{ width: "100%", height: "96px", overflow: "visible", color: "#111827" }}
+                >
+                  {rows.map((row, k) =>
+                    row.points.length === 1 ? (
+                      <circle key={row.crew_id} data-crew={row.crew_id} cx={row.points[0]!.x_m} cy={-row.points[0]!.y_m} r={Math.max(w, h) * 0.02} fill="currentColor" />
+                    ) : (
+                      <polyline
+                        key={row.crew_id}
+                        data-crew={row.crew_id}
+                        points={row.points.map((p) => `${p.x_m},${-p.y_m}`).join(" ")}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                        strokeDasharray={TRACE_DASH[k] ?? TRACE_DASH[2]}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ),
+                  )}
+                </svg>
+                <p className="report-note" style={{ fontSize: "12px", color: "#4B5563", margin: "2px 0" }}>
+                  {rows.map((row, k) => `${row.crew_id} ${TRACE_WORD[k] ?? "dotted"}`).join(" / ")} · positions every 30 s, projected metres
+                  (local equirectangular), north up · extent{" "}
+                  <span {...reportAttrs(true, "derived", "trace.extent")}>
+                    {`${Math.round(maxX - minX)} m × ${Math.round(maxY - minY)} m`}
+                  </span>{" "}
+                  {glyphIf(true, "derived")}
+                </p>
+              </>
+            );
+          })()}
         </section>
       </article>
 
@@ -734,7 +796,8 @@ export function PostEvaReport({
               {(data.logEvents ?? []).length === 0 && (
                 <tr>
                   <td style={tdStyle} {...reportAttrs(false, "simulated", "log_events")} colSpan={5}>
-                    {UNAVAILABLE}
+                    {UNAVAILABLE} The report does not carry the event log. EXPORT LOG JSON downloads the full event log (session.jsonl
+                    as JSON); the log hash below covers it.
                   </td>
                 </tr>
               )}
@@ -756,6 +819,29 @@ export function PostEvaReport({
               ))}
             </tbody>
           </table>
+        </section>
+
+        {/* Sources (03 SCR-17, FD-053) */}
+        <section aria-label="Sources" className="report-block">
+          <h2 style={h2Style}>[ SOURCES /// WHERE THE VALUES COME FROM ]</h2>
+          <p className="report-note" style={{ fontSize: "12px", margin: "4px 0" }}>
+            Source ids:{" "}
+            <span {...reportAttrs(false, "derived", "source_ids")}>{UNAVAILABLE}</span> — the report does not list source ids yet;
+            every dataset and method is listed in Sources and methods (SCR-09, <a href="#/sources">#/sources</a>).
+          </p>
+          <p className="report-note" style={{ fontSize: "12px", margin: "4px 0", fontFamily: "var(--font-mono, monospace)" }}>
+            Values by provenance:{" "}
+            {data.provenanceSummary && Object.keys(data.provenanceSummary).length > 0 ? (
+              <span {...reportAttrs(true, "derived", "provenance_summary")}>
+                {(Object.entries(data.provenanceSummary) as Array<[Provenance, number]>)
+                  .filter(([, n]) => isFiniteNumber(n) && n > 0)
+                  .map(([prov, n]) => `${PROVENANCE_GLYPHS[prov]} ${prov} ${n}`)
+                  .join(" · ")}
+              </span>
+            ) : (
+              <span {...reportAttrs(false, "derived", "provenance_summary")}>{UNAVAILABLE}</span>
+            )}
+          </p>
         </section>
 
         {/* Verification and Audit Metadata */}

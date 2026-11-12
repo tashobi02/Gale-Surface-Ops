@@ -112,6 +112,8 @@ export function adaptPostEvaReport(api: ApiPostEvaReport): PostEvaReportData {
       .map(([stopName, c]) => ({ stopName, done: c.done, skipped: c.skipped, dropped: c.dropped, total: c.total })),
     trace: api.trace ?? [],
     plannedBackgroundUgy: api.dose.planned_background_ugy ?? null,
+    plannedBackgroundReason: api.dose.planned_background_reason ?? null,
+    provenanceSummary: api.provenance_summary ?? undefined,
     doseRows: api.dose.per_crew.map((c) => ({ crewId: c.crew_id, doseReceivedUgy: c.dose_event_ugy, doseUnshelteredUgy: c.dose_event_unsheltered_ugy })),
     disclaimer: commentary(api.disclaimer),
   };

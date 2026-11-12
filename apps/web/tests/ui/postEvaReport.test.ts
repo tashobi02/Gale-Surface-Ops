@@ -7,6 +7,7 @@
  * reports are checked separately, and each value's provenance is checked on the value itself.
  *
  */
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -278,7 +279,7 @@ describe("SCR-17 pagination and print (not established by these tests)", () => {
 
 
 /** What GET /api/report returns for the Hab Core fixture of apps/hab-core/tests/report.test.ts (two crew, one revision). */
-const API = {
+const API: ApiPostEvaReport = {
   session_id: "s-demo-4190",
   scenario_id: "storm-sol4190",
   data_version: "gale-v2026.11",
@@ -298,16 +299,16 @@ const API = {
         stop_id: "wp-1",
         status: "completed",
         crew: [
-          { crew_id: "EV1", arrived_sim_time: "2024-05-20T13:04:00Z", departed_sim_time: "2024-05-20T13:14:00Z", arrival_offset_s: 180, dwell_s: 600, planned_arrival_offset_s: 240, planned_departure_offset_s: 840, planned_dwell_s: 600, arrival_diff_s: -60, dwell_diff_s: 0 },
-          { crew_id: "EV2", arrived_sim_time: "2024-05-20T13:06:30Z", departed_sim_time: "2024-05-20T13:17:30Z", arrival_offset_s: 330, dwell_s: 660, planned_arrival_offset_s: 240, planned_departure_offset_s: 840, planned_dwell_s: 600, arrival_diff_s: 90, dwell_diff_s: 60 },
+          { crew_id: "EV1", arrived_sim_time: "2024-05-20T13:04:00Z", departed_sim_time: "2024-05-20T13:14:00Z", arrival_offset_s: 180, dwell_s: 600, planned_arrival_offset_s: 240, planned_departure_offset_s: 840, planned_dwell_s: 600, arrival_diff_s: -60, dwell_diff_s: 0, provenance: { actual: "simulated", planned: "derived", differences: "derived" } },
+          { crew_id: "EV2", arrived_sim_time: "2024-05-20T13:06:30Z", departed_sim_time: "2024-05-20T13:17:30Z", arrival_offset_s: 330, dwell_s: 660, planned_arrival_offset_s: 240, planned_departure_offset_s: 840, planned_dwell_s: 600, arrival_diff_s: 90, dwell_diff_s: 60, provenance: { actual: "simulated", planned: "derived", differences: "derived" } },
         ],
       },
       {
         stop_id: "wp-2",
         status: "incomplete",
         crew: [
-          { crew_id: "EV1", arrived_sim_time: "2024-05-20T13:20:00Z", departed_sim_time: null, arrival_offset_s: 1140, dwell_s: null, planned_arrival_offset_s: null, planned_departure_offset_s: null, planned_dwell_s: null, arrival_diff_s: null, dwell_diff_s: null },
-          { crew_id: "EV2", arrived_sim_time: null, departed_sim_time: null, arrival_offset_s: null, dwell_s: null, planned_arrival_offset_s: null, planned_departure_offset_s: null, planned_dwell_s: null, arrival_diff_s: null, dwell_diff_s: null },
+          { crew_id: "EV1", arrived_sim_time: "2024-05-20T13:20:00Z", departed_sim_time: null, arrival_offset_s: 1140, dwell_s: null, planned_arrival_offset_s: null, planned_departure_offset_s: null, planned_dwell_s: null, arrival_diff_s: null, dwell_diff_s: null, provenance: { actual: "simulated", planned: "derived", differences: "derived" } },
+          { crew_id: "EV2", arrived_sim_time: null, departed_sim_time: null, arrival_offset_s: null, dwell_s: null, planned_arrival_offset_s: null, planned_departure_offset_s: null, planned_dwell_s: null, arrival_diff_s: null, dwell_diff_s: null, provenance: { actual: "simulated", planned: "derived", differences: "derived" } },
         ],
       },
       { stop_id: "wp-3", status: "dropped", crew: [] },
@@ -329,6 +330,7 @@ const API = {
           { crew_id: "EV1", shelter_response_s: null, sheltered_sim_time: null },
           { crew_id: "EV2", shelter_response_s: 90, sheltered_sim_time: "2024-05-20T13:22:30Z" },
         ],
+        provenance: { times: "simulated", durations: "derived" },
       },
     ],
   },
@@ -339,11 +341,19 @@ const API = {
       { crew_id: "EV2", sheltered: true, sheltered_sim_time: "2024-05-20T13:22:30Z", haven_kind: "vehicle", dose_event_ugy: 120.5, dose_event_unsheltered_ugy: 8100 },
     ],
     headline: { crew_id: "EV1", dose_event_ugy: 300, dose_event_unsheltered_ugy: 9000 },
+    provenance: { per_crew: "simulated", headline: "derived", planned_background_ugy: "modelled" },
     background_dose_ugy: null,
+    planned_background_ugy: null,
+    planned_background_reason: "no sourced planned-background dose result yet",
   },
+  trace: [
+    { crew_id: "EV1", points: [{ sim_time: "2024-05-20T13:00:00Z", x_m: 10, y_m: 20 }, { sim_time: "2024-05-20T13:00:30Z", x_m: 30, y_m: 60 }] },
+    { crew_id: "EV2", points: [{ sim_time: "2024-05-20T13:00:00Z", x_m: 12, y_m: 25 }, { sim_time: "2024-05-20T13:00:30Z", x_m: 40, y_m: 45 }] },
+  ],
   plan_revisions: 1,
+  provenance_summary: { measured: 0, derived: 6, modelled: 0, assumed: 0, replayed: 0, simulated: 14 },
   disclaimer: REPORT_DISCLAIMER,
-} as unknown as ApiPostEvaReport;
+};
 
 describe("SCR-17 API report adapter (snake_case PostEvaReport -> camelCase PostEvaReportData)", () => {
   const data = adaptPostEvaReport(API);
@@ -469,16 +479,67 @@ describe("SCR-17 API report adapter (snake_case PostEvaReport -> camelCase PostE
 
 
 describe("T27.03 report contract", () => {
-  it("trace from decimated positions", () => {
-    const report = adaptPostEvaReport({ ...API, trace: [{ crew_id: "EV1", points: [{ sim_time: "2026-01-01T00:00:00Z", x_m: 10, y_m: 20 }, { sim_time: "2026-01-01T00:00:30Z", x_m: 30, y_m: 40 }] }] } as ApiPostEvaReport);
-    const html = render(report);
+  it("trace from decimated positions: one polyline per crew, north up (y flipped), viewBox from the extent", () => {
+    const html = render(adaptPostEvaReport(API));
     expect(html).toContain('data-slot="report-trace"');
     expect(html).toContain('data-source="report:trace"');
-    expect(html).toContain('<polyline');
+    // x 10..40, y 20..60: the viewBox starts at -maxY and spans the extent.
+    expect(html).toMatch(/viewBox="10 -60 30 40"/);
+    expect(html).toMatch(/<polyline[^>]*data-crew="EV1"[^>]*points="10,-20 30,-60"/);
+    expect(html).toMatch(/<polyline[^>]*data-crew="EV2"[^>]*points="12,-25 40,-45"/);
+    expect((html.match(/<polyline/g) ?? []).length).toBe(2);
+    // The second crew is dashed, and the legend says which is which; the scale note gives the unit.
+    expect(html).toMatch(/<polyline[^>]*data-crew="EV2"[^>]*stroke-dasharray/);
+    expect(html).toContain("EV1 solid");
+    expect(html).toContain("EV2 dashed");
+    expect(html).toMatch(/metres/);
   });
-  it("dose per crew includes planned background", () => {
-    const report = adaptPostEvaReport({ ...API, dose: { ...API.dose, planned_background_ugy: 17 } } as ApiPostEvaReport);
-    expect(render(report)).toContain('17.0 µGy');
-    expect(render(report)).toContain('report:dose.planned_background_ugy');
+
+  it("a crew with a single trace point is drawn as a dot, not an invisible polyline", () => {
+    const html = render(adaptPostEvaReport({ ...API, trace: [{ crew_id: "EV1", points: [{ sim_time: "2024-05-20T13:00:00Z", x_m: 5, y_m: 7 }] }] }));
+    expect(html).toMatch(/<circle[^>]*data-crew="EV1"/);
+  });
+
+  it("no trace: says so with — and flagged unavailable", () => {
+    const html = render(adaptPostEvaReport({ ...API, trace: [] }));
+    expect(bySource(html, "unavailable:report.trace")).toContain('data-unavailable="true"');
+  });
+
+  it("dose per crew includes planned background (modelled, with its glyph), or its reason when null", () => {
+    const report = adaptPostEvaReport({ ...API, dose: { ...API.dose, planned_background_ugy: 17, planned_background_reason: null } });
+    const html = render(report);
+    expect(html).toContain("17.0 µGy");
+    expect(bySource(html, "report:dose.planned_background_ugy")).toContain('data-provenance="modelled"');
+    expect(bySource(html, "report:dose.planned_background_ugy")).toContain("○");
+    const none = render(adaptPostEvaReport(API));
+    expect(none).toContain("no sourced planned-background dose result yet");
+  });
+
+  it("sources: the report carries no source ids, so the section says — and why; the provenance summary is shown", () => {
+    const html = render(adaptPostEvaReport(API));
+    expect(html).toMatch(/aria-label="Sources"/);
+    expect(bySource(html, "unavailable:report.source_ids")).toContain('data-unavailable="true"');
+    expect(html).toContain("#/sources");
+    expect(bySource(html, "report:provenance_summary")).toContain("simulated 14");
+  });
+
+  it("event log: the report carries no events, so the table is marked unavailable with the reason and the export", () => {
+    const html = render(adaptPostEvaReport(API));
+    const cell = bySource(html, "unavailable:report.log_events");
+    expect(cell).toContain('data-unavailable="true"');
+    expect(html).toMatch(/EXPORT LOG JSON/);
+    expect(html).toMatch(/full event log/i);
+  });
+
+  it("print layout: headings stay with their content, blocks do not split, the @page margin is 12 mm", () => {
+    const html = render(adaptPostEvaReport(API));
+    // A stylesheet, never an inline <style> (the CSP blocks it, so the @page rule would never apply).
+    expect(html).not.toContain("<style");
+    const css = readFileSync(new URL("../../src/ui/screens/scr17PostEvaReport.css", import.meta.url), "utf8");
+    expect(css).toMatch(/@page \{\s*margin: 12mm;\s*\}/);
+    expect(css).toMatch(/h2 \{[^}]*break-after: avoid/);
+    expect(css).toMatch(/break-inside: avoid/);
+    // The trace heading is styled like every other section heading.
+    expect(html).toMatch(/<h2[^>]*>\[ MAP \/\/\/ CREW TRACE \]<\/h2>/);
   });
 });

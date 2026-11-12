@@ -7,11 +7,14 @@
  * report is an error: a half-filled report would read as a result.
  *
  */
-import { useCallback, useEffect, useState, type CSSProperties, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { adaptPostEvaReport, type ApiPostEvaReport } from "../report/reportAdapter";
 import { PostEvaReport, type PostEvaReportData } from "../screens/scr17PostEvaReport";
 
 export const REPORT_URL = "api/report";
+export const LOG_URL = "api/log";
+/** The object URL of a download lives this long after the click, so the browser has started reading it. */
+const REVOKE_AFTER_MS = 60_000;
 
 type ReportState =
   | { state: "loading" }
@@ -88,6 +91,7 @@ export function ReportRoute({ fetchImpl, onBack }: ReportRouteProps): ReactEleme
   const [report, setReport] = useState<ReportState>({ state: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [exportError, setExportError] = useState("");
+  const exporting = useRef(false);
   const doFetch = fetchImpl ?? ((url: string) => fetch(url));
 
   useEffect(() => {
@@ -108,21 +112,32 @@ export function ReportRoute({ fetchImpl, onBack }: ReportRouteProps): ReactEleme
     else globalThis.location.hash = "#/ops";
   }, [onBack]);
 
+  /** GET api/log (session.jsonl) -> a JSON array of its events, downloaded as log-<session_id>.json. One at a time. */
   const exportLog = async (): Promise<void> => {
+    if (exporting.current) return;
+    exporting.current = true;
     try {
       setExportError("");
-      const response = await doFetch("api/log");
+      const response = await doFetch(LOG_URL);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const lines = (await response.text()).split("\n").filter((line) => line.trim() !== "");
-      const events: unknown[] = lines.map((line) => JSON.parse(line));
+      const events: unknown[] = lines.map((line, i) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          throw new Error(`log line ${i + 1} is not valid JSON`);
+        }
+      });
       const url = URL.createObjectURL(new Blob([JSON.stringify(events, null, 2)], { type: "application/json" }));
       const anchor = document.createElement("a");
       anchor.href = url;
       anchor.download = `log-${report.state === "ready" ? report.data.sessionId ?? "session" : "session"}.json`;
       anchor.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), REVOKE_AFTER_MS);
     } catch (err) {
       setExportError(`Could not export log: ${err instanceof Error ? err.message : "request failed"}`);
+    } finally {
+      exporting.current = false;
     }
   };
 
@@ -145,7 +160,13 @@ export function ReportRoute({ fetchImpl, onBack }: ReportRouteProps): ReactEleme
           )}
         </div>
       )}
-      {exportError && <p role="alert">{exportError}</p>}
+      {exportError && (
+        <div className="report-route-no-print" style={{ maxWidth: "800px", margin: "8px auto 0" }}>
+          <p role="alert" data-slot="report-export-error" style={{ ...statusStyle, margin: 0 }}>
+            {exportError}
+          </p>
+        </div>
+      )}
       <PostEvaReport report={report.state === "ready" ? report.data : undefined} onBack={back} onExportLog={report.state === "ready" ? () => { void exportLog(); } : undefined} />
     </>
   );
