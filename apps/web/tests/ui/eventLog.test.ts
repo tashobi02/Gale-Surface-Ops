@@ -118,6 +118,27 @@ describe("EventLog with fields missing: — and nothing invented (04 §D.1)", ()
     expect(summarizeEvent(ev(1, "OPTIONS_PROPOSED", { options: [] }))).toContain("0 contingency");
   });
 
+  it("clock jump, library event, reset, site and mission setup events show their data (LogEventData)", async () => {
+    const jump = ev(1, "CLOCK_JUMPED", { reason: "next_stop", from_sim_time: "2024-05-20T13:05:00Z", to_sim_time: "2024-05-20T13:21:30Z", stop_id: "wp-2", ended_by: "alert" });
+    expect(summarizeEvent(jump)).toBe("Clock jumped to next stop wp-2: 13:05:00 → 13:21:30, ended by alert");
+    expect(summarizeEvent(ev(2, "EVENT_STARTED", { event_id: "spe-2024-05-20", t0_sim_time: "2024-05-20T13:10:00Z", series_start_utc: "2024-05-20T00:00:00Z", source_id: "donki-sep" })))
+      .toBe("Event spe-2024-05-20 started at 13:10:00 (series from 2024-05-20T00:00:00Z, source donki-sep)");
+    expect(summarizeEvent(ev(3, "SESSION_RESET", { session_id: "s-1", next_session_id: "s-2" }))).toBe("Session s-1 reset; next session s-2");
+    expect(summarizeEvent(ev(4, "SITE_SELECTED", { candidate_id: "cand-3" }))).toBe("Site candidate cand-3 selected");
+    expect(summarizeEvent(ev(5, "MISSION_SETUP_SET", { crew_count: 2, vehicle_available: false, vehicle_param_set: null, solar_phase: "max", max_haven_min: 30 })))
+      .toBe("Mission setup set: crew_count 2, vehicle_available no, vehicle_param_set none, solar_phase max, max_haven_min 30");
+    for (const kind of ["CLOCK_JUMPED", "EVENT_STARTED", "SESSION_RESET", "SITE_SELECTED", "MISSION_SETUP_SET"] as const) {
+      const text = summarizeEvent(ev(9, kind));
+      expect(text).toContain("—");
+      expect(text).not.toBe(kind);
+    }
+    const view = await mount(createElement(EventLog, { events: [jump] }));
+    const row = rows(view.container)[0]!;
+    expect(row.textContent).toContain("wp-2: 13:05:00 → 13:21:30");
+    expect([...row.querySelectorAll("[title]")].map((el) => el.getAttribute("title"))).toContain("Clock jumped to next stop wp-2: 13:05:00 → 13:21:30, ended by alert");
+    await view.unmount();
+  });
+
   it("Earth message events read the message_id field (05 EarthMessage), not msg_id", () => {
     expect(summarizeEvent(ev(1, "EARTH_MSG_QUEUED", { message_id: "m-17" }))).toContain("m-17");
     expect(summarizeEvent(ev(2, "EARTH_MSG_DELIVERED", { message_id: "m-18" }))).toContain("m-18");

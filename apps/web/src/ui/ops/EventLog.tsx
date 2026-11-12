@@ -109,6 +109,11 @@ export function categorizeEvent(kind: LogEventKind): EventCategory {
   }
 }
 
+/** A sim-time field as HH:MM:SS, or "—" when absent or not a valid time. */
+function simClock(v: unknown): string {
+  return typeof v === "string" ? formatSimTime(v) : UNAVAILABLE;
+}
+
 /** Converts event data into human-readable text description. Missing fields read "—". */
 export function summarizeEvent(event: LogEvent): string {
   const d = (event.data ?? {}) as Record<string, unknown>;
@@ -165,6 +170,22 @@ export function summarizeEvent(event: LogEvent): string {
       return "EVA completed / ended";
     case "ROLE_TAKEN_OVER":
       return `Role ${field(d.role)} connection replaced`;
+    case "CLOCK_JUMPED": {
+      const reason = d.reason === "next_stop" ? "next stop" : field(d.reason);
+      return `Clock jumped to ${reason} ${field(d.stop_id)}: ${simClock(d.from_sim_time)} → ${simClock(d.to_sim_time)}, ended by ${field(d.ended_by)}`;
+    }
+    case "EVENT_STARTED":
+      return `Event ${field(d.event_id)} started at ${simClock(d.t0_sim_time)} (series from ${field(d.series_start_utc)}, source ${field(d.source_id)})`;
+    case "SESSION_RESET":
+      return `Session ${field(d.session_id)} reset; next session ${field(d.next_session_id)}`;
+    case "SITE_SELECTED":
+      return `Site candidate ${field(d.candidate_id)} selected`;
+    case "MISSION_SETUP_SET": {
+      // Partial<MissionSetup>: only the keys that were set, in the event's order; null vehicle_param_set means none.
+      const parts = Object.entries(d).map(([key, value]) =>
+        `${key} ${typeof value === "boolean" ? (value ? "yes" : "no") : value === null && key === "vehicle_param_set" ? "none" : field(value)}`);
+      return `Mission setup set: ${parts.length > 0 ? parts.join(", ") : UNAVAILABLE}`;
+    }
     default:
       return `${event.kind}`;
   }
