@@ -333,7 +333,7 @@ Every number the simulation uses that is not data. Shown in the UI next to whate
 
 | `kind` | Required `values` keys (02 reference) |
 | --- | --- |
-| `suit` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, o2_nominal_h, p_walk_w, p_rest_w, p_ref_w, antenna_m` (§D.3, §D.14) |
+| `suit` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, o2_nominal_h, p_walk_w, p_rest_w, p_ref_w, antenna_m` (§D.3, §D.14); `hab_ingress_min` *(2026-11-12)*: minutes to enter the hab and be sheltered, 02 §D.8 `t_ingress`, `assumed` (source "02 §D.8"), read by the haven module and the contingency options *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-57)* |
 | `pressurized_rover` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, low_ti_cost, min_speed_frac, capacity, ingress_min, antenna_m` (§D.9) |
 | `utility_rover` | as above + `battery_wh, p_base_w, mass_kg, climb_eff` |
 | `link` | `range_hab_suit_m, range_suit_suit_m, range_rover_m, hab_mast_m, relay_min_elev_deg, conjunction_deg, dte_enabled` (§D.11–D.12) |

@@ -16,6 +16,7 @@ import { conditionsTick } from "./conditions";
 import { contingencyTick } from "./contingencyOps";
 import { earthTick } from "./earth";
 import { havenTick } from "./haven";
+import { doseAt } from "./liveEvents";
 import { linksTick } from "./links";
 import { isWaiting, logged, reduce, type CrewMotion, type EngineState, type PendingEvent, type StateChange } from "./reducer";
 import { roversTick } from "./rovers";
@@ -87,6 +88,8 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
   const shielding = Object.values(scenario.params).find((p) => p.kind === "shielding");
   if (!shielding) throw new Error("tick: the scenario has no shielding ParamSet (05 Scenario)");
   const t_utc = isoSeconds(Date.parse(state.session.clock.sim_time) - dt_s * 1000);
+  // The dose series and the time to read it at: shifted by START_EVENT, the background before it (T32.12, 02 §D.17).
+  const dose_source = doseAt(state, scenario, t_utc);
 
   const crew: Crew[] = [];
   const motion: Partial<Record<CrewId, CrewMotion>> = {};
@@ -101,7 +104,7 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
 
     // Dose, then O₂, then elapsed time, all by the activity at the start of the step (S9).
     const mode = stepMode(c, m, offset_s);
-    const dose = integrateDose(scenario.dose, [{ t_utc, dt_s, shelter: mode.shelter }], shielding);
+    const dose = integrateDose(dose_source.series, [{ t_utc: dose_source.t_utc, dt_s, shelter: mode.shelter }], shielding);
     const walked = advance(state, scenario, c, m, dt_s, offset_s);
     const next: Crew = {
       ...c,
@@ -145,7 +148,8 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
   }
 
   // Running → Ended: all crew sheltered or in the hab (03 §E.6). The reducer then sets ENDED, so this fires once.
-  if (current.session.status === "RUNNING" && current.crew.length > 0 && current.crew.every((c) => c.activity === "IN_HAB" || c.activity === "SHELTERED")) {
+  // A jump (JUMP_NEXT_STOP) also ticks a paused EVA, so PAUSED counts as running here (T32.10, BD-113).
+  if ((current.session.status === "RUNNING" || current.session.status === "PAUSED") && current.crew.length > 0 && current.crew.every((c) => c.activity === "IN_HAB" || c.activity === "SHELTERED")) {
     apply([{ sim_time: current.session.clock.sim_time, kind: "EVA_ENDED", actor: "system", data: { crew_ids: current.crew.map((c) => c.crew_id) }, provenance: {} }]);
   }
   return { state: current, events, deltas };

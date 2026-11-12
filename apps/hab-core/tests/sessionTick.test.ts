@@ -49,7 +49,7 @@ vi.mock("../src/log", async () => {
 const here = dirname(fileURLToPath(import.meta.url));
 const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
 const sha256 = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex");
-const firstLeg = fake.scenario.plan.result.legs[0];
+const firstLeg = fake.scenario.plan!.result.legs[0];
 if (firstLeg.status !== "OK") throw new Error("the fixture's first leg is OK");
 /** Ticks until the crew reach stop 1 (the end of the first leg). */
 const ARRIVAL_TICKS = Math.ceil(firstLeg.walk_time_min * 60);
@@ -133,7 +133,7 @@ describe("session with the real tick (T22.12, T22.09)", () => {
 
 describe("session with the real tick: drift, old snapshots and a tail of tick events (T22.12 review fixes)", () => {
   const leg0_s = firstLeg.walk_time_min * 60;
-  const dwell_s = fake.scenario.plan.scenario.dwell_min_per_stop * 60;
+  const dwell_s = fake.scenario.plan!.scenario.dwell_min_per_stop * 60;
   /** Ticks from the start of the walk to the tick that logs LEFT_STOP (the end of the first dwell). */
   const LEFT_TICKS = Math.ceil(leg0_s + dwell_s);
 

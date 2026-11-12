@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { FLAG_BITS } from "@marswalk/protocol";
 import type { MissionScenario, ParamSet } from "@marswalk/protocol";
 import {
-  HAB_INGRESS_S,
   HAVEN_PLANNING_LABEL,
   HAVEN_PLANNING_RADIUS_M,
   HAVEN_SAMPLE_SPACING_M,
   VEHICLE_GRID_CELL_M,
   crewTimeField,
+  habIngressS,
   habTimeField,
   havenAlongRoute,
   isCellPassable,
@@ -32,6 +32,7 @@ import {
   havenWallDetour,
   pr1Params,
   rendezvousRidge,
+  suitParams,
 } from "./fixtures/v2grids";
 import type { XY } from "./fixtures/v2grids";
 
@@ -59,7 +60,7 @@ const LOW_TI_BIT = 1 << FLAG_BITS.LOW_TI;
 const scenario: MissionScenario = defaultScenario();
 const v0 = (scenario.suited_flat_speed_kmh * 1000) / 3600; // m/s
 const vvOf = (p: ParamSet): number => ((p.values.flat_speed_kmh as number) * 1000) / 3600; // m/s
-const ingress: HavenIngress = { hab_s: HAB_INGRESS_S, vehicle_s: (pr1Params.values.ingress_min as number) * 60 };
+const ingress: HavenIngress = { hab_s: habIngressS(suitParams), vehicle_s: (pr1Params.values.ingress_min as number) * 60 };
 const limitS = scenario.max_haven_min * 60;
 
 // ---------------------------------------------------------------------------
@@ -982,7 +983,7 @@ describe("liveHaven", () => {
     expect(bestKeyFor(veh, vvOf(params)) + ingress.vehicle_s).toBeGreaterThan(shape.crewToHab_m / v0 + ingress.hab_s);
     const r = liveHaven(hab, crew, veh, pass, ingress, shape.crew)!;
     expect(r.kind).toBe("hab");
-    expect(r.haven_s).toBeCloseTo(shape.crewToHab_m / v0 + HAB_INGRESS_S, 6);
+    expect(r.haven_s).toBeCloseTo(shape.crewToHab_m / v0 + ingress.hab_s, 6);
     expect([r.target_x_m, r.target_y_m]).toEqual([shape.hab.x_m, shape.hab.y_m]);
   });
 
@@ -1526,4 +1527,60 @@ describe("parity with the v1 step cost (route.ts / leg.ts / timeModel.ts)", () =
 
 describe("deferred", () => {
   it.todo("real grid: full-grid field in 2 s or less on the weakest laptop (NFR-02) is the T05b.05 benchmark, bench/haven.bench.ts");
+});
+
+// ---------------------------------------------------------------------------
+// Hab ingress from the suit ParamSet and no-data slopes (BD-57, 02 §D.8)
+// ---------------------------------------------------------------------------
+
+describe("habIngressS: hab ingress is the suit ParamSet key hab_ingress_min (BD-57)", () => {
+  it("is hab_ingress_min x 60, whatever the value", () => {
+    expect(habIngressS(suitParams)).toBe((suitParams.values.hab_ingress_min as number) * 60);
+    expect(habIngressS({ ...suitParams, values: { ...suitParams.values, hab_ingress_min: 7.5 } })).toBe(450);
+    expect(habIngressS({ ...suitParams, values: { ...suitParams.values, hab_ingress_min: 0 } })).toBe(0);
+  });
+
+  it("a missing key is a RangeError naming it", () => {
+    const { hab_ingress_min: _gone, ...rest } = suitParams.values;
+    expect(() => habIngressS({ ...suitParams, values: rest })).toThrow(RangeError);
+    expect(() => habIngressS({ ...suitParams, values: rest })).toThrow(/hab_ingress_min/);
+  });
+
+  it.each([Number.NaN, -1, Number.POSITIVE_INFINITY, "5" as unknown as number])("rejects hab_ingress_min %s", (bad) => {
+    expect(() => habIngressS({ ...suitParams, values: { ...suitParams.values, hab_ingress_min: bad } })).toThrow(/hab_ingress_min/);
+  });
+
+  it("rejects a ParamSet that is not a suit set", () => {
+    expect(() => habIngressS(pr1Params)).toThrow(/suit/);
+  });
+
+  it("the live haven time moves with the ParamSet value: a longer ingress adds exactly its difference", () => {
+    const { hab, crew, shape } = flatCase();
+    const longer = { ...suitParams, values: { ...suitParams.values, hab_ingress_min: 9 } };
+    const a = liveHaven(hab, crew, null, null, { hab_s: habIngressS(suitParams), vehicle_s: 0 }, shape.crew)!;
+    const b = liveHaven(hab, crew, null, null, { hab_s: habIngressS(longer), vehicle_s: 0 }, shape.crew)!;
+    expect(b.haven_s - a.haven_s).toBeCloseTo(4 * 60, 6);
+  });
+});
+
+describe("a no-data slope (255) blocks the crew field and the vehicle field (BD-57)", () => {
+  it("the crew time fields leave the cell unreached", () => {
+    const fx = havenFlat();
+    const g = geoOf(fx.grid);
+    const k = mustCell(g, { x_m: -400, y_m: 200 });
+    fx.grid.slopeP90[k] = 255;
+    expect(habTimeField(fx.grid, fx.shape.hab, scenario).seconds[k]).toBe(Infinity);
+    expect(crewTimeField(fx.grid, fx.shape.crew, scenario, Infinity).seconds[k]).toBe(Infinity);
+  });
+
+  it("the vehicle time field and mask leave it unreached too, so no rendezvous cell lies on it", () => {
+    const fx = havenFlat();
+    const g = geoOf(fx.grid);
+    const k = mustCell(g, { x_m: -400, y_m: 200 });
+    fx.grid.slopeP90[k] = 255;
+    expect(vehiclePassable(fx.grid, pr1Params)[k]).toBe(0);
+    const field = vehicleTimeField(fx.grid, fx.shape.vehicle, pr1Params);
+    const c = centreOf(g, k);
+    expect(timeAt(field, c.x_m, c.y_m)).toBe(Infinity);
+  });
 });

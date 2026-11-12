@@ -71,7 +71,8 @@ class StubSession implements SessionHandle {
     return {
       v: 1, type: "SNAPSHOT", seq: this.lastSeq, sim_time: SIM_TIME,
       session: { session_id: "s-0007", scenario_id: "storm-sol4190", data_version: "gale_boxwork-2026.11.08", seed: 0,
-        status: "RUNNING", clock: { sim_time: SIM_TIME, speed: 60, paused: false }, plan_revision: 0, last_seq: this.lastSeq, log_hash: "" },
+        status: "RUNNING", clock: { sim_time: SIM_TIME, speed: 60, paused: false }, plan_revision: 0, last_seq: this.lastSeq, log_hash: "",
+        hab_candidate_id: null, mission_setup: { crew_count: 2, vehicle_available: true, vehicle_param_set: "pr1-assumed", solar_phase: "max", max_haven_min: 30 }, started_events: [] },
       plan: this.current, crew: [], vehicles: [], alerts: [], options: [], tasks: [],
       earth: { light_time_s: 0, next_pass_utc: null, blackout: false, queue: [] }, clients, provenance: {},
       conditions: { ltst: null, sun_elevation_deg: null, dose_rate_background_ugy_h: null, dose_rate_event_ugy_h: null, event_series_utc: null, sol: null, source_ids: {}, provenance: {} }, task_library: [], event_library: [], next_stop_target: null,
@@ -355,7 +356,7 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
       try {
         const session = loadSession(fake, dir);
         expect(session.initialPlan()).toBe(fake.scenario.plan);
-        expect(session.snapshot([]).plan?.plan_hash).toBe(fake.scenario.plan.plan_hash);
+        expect(session.snapshot([]).plan?.plan_hash).toBe(fake.scenario.plan!.plan_hash);
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }

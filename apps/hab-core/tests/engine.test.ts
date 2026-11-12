@@ -54,6 +54,9 @@ function loadFakeScenario(): LoadedScenario {
     scenario,
     dose: readJson<DoseSeries>(join(fixtureDir, scenario.tables.dose_series.path)),
     earthLink: readJson<EarthLinkTable>(join(fixtureDir, scenario.tables.earth_link.path)),
+    eventLibrary: scenario.event_library,
+    taskLibrary: scenario.task_library ?? [],
+    site: null,
     params,
     grid: null,
     comm: null,
@@ -90,12 +93,12 @@ const at = (s: number): string => new Date(Date.parse(T0) + s * 1000).toISOStrin
 /** The scripted run: load, walk to stop 1, radiation alert, summon, shelter, clear, end (no TASK_*: T31.04). */
 function scriptedRun(): PendingEvent[] {
   const s = fake.scenario;
-  const [wp0, wp1] = s.plan.waypoints;
-  const firstLeg = s.plan.result.legs[0];
+  const [wp0, wp1] = s.plan!.waypoints;
+  const firstLeg = s.plan!.result.legs[0];
   // Made-up return leg for the revision: the first leg's metrics with the option's straight path home.
   const back = { ...firstLeg, from: "wp-1", to: "wp-0", geometry: [[1000, 0], [0, 0]] as [number, number][] };
   return [
-    ev("SESSION_LOADED", at(0), { session_id: SESSION_ID, scenario_id: s.scenario_id, data_version: s.data_version, seed: s.seed, plan_hash: s.plan.plan_hash }),
+    ev("SESSION_LOADED", at(0), { session_id: SESSION_ID, scenario_id: s.scenario_id, data_version: s.data_version, seed: s.seed, plan_hash: s.plan!.plan_hash }),
     ev("CLOCK_CHANGED", at(0), { speed: 60, paused: false }, "ops"),
     ev("EVA_STARTED", at(0), { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, "ops"),
     ev("ARRIVED_STOP", at(1091), { crew_id: "EV1", stop_id: "wp-1", stop_index: 1 }),
@@ -372,8 +375,8 @@ describe("reducer state transitions (03 §E.6–§E.10)", () => {
 
   it("a PLAN_REVISED with a whole `plan` (PUBLISH_PLAN) replaces the plan", () => {
     const base = after(3);
-    const next = { ...fake.scenario.plan, plan_hash: "abcdef012345", waypoints: fake.scenario.plan.waypoints.slice(0, 2) };
-    const s = reduce(base, logged(ev("PLAN_REVISED", at(5), { plan_revision: 2, option_id: null, stops_dropped: [], waypoints: next.waypoints, legs: next.result.legs, plan: next }, "planner"), 4));
+    const next = { ...fake.scenario.plan!, plan_hash: "abcdef012345", waypoints: fake.scenario.plan!.waypoints.slice(0, 2) };
+    const s = reduce(base, logged(ev("PLAN_REVISED", at(5), { plan_revision: 2, option_id: null, stops_dropped: [], waypoints: next.waypoints, legs: next.result!.legs, plan: next }, "planner"), 4));
     expect(s.plan).toEqual(next);
     expect(s.session.plan_revision).toBe(2);
   });

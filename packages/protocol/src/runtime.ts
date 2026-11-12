@@ -63,13 +63,15 @@ export interface Scenario {
   data_version: string;
   seed: number;
   start_utc: string;
-  plan: PlanExport;
+  /** The reference plan of a headless run; a live session has none until PUBLISH_PLAN (05 Scenario, T32.07). */
+  plan?: PlanExport;
   /** Initial stop tasks, authored fields only; beside `plan` so `plan_hash` is unchanged (05 Scenario, FR-50, U-48). */
   stop_tasks?: StopTaskSeed[];
   crew: { crew_id: CrewId; suit_param_set: string; start_offset_s: number }[];
   vehicles: { vehicle_id: string; kind: VehicleKind; param_set: string; start_x_m: number; start_y_m: number }[];
   param_sets: string[];
-  events: ScenarioEvent[];
+  /** Other scheduled inputs; absent reads as `[]` (05 Scenario, T32.07). */
+  events?: ScenarioEvent[];
   /** Mission settings in force at load (05 Scenario `mission_setup`, 2026-11-10, Proposed). */
   mission_setup: Partial<MissionSetup> & { hab_candidate_id?: string };
   /** Events the presenter starts on demand with START_EVENT (05 EventLibraryEntry). */
@@ -176,12 +178,12 @@ export interface Session {
   plan_revision: number;
   last_seq: number;
   log_hash: string;
-  /** The chosen HabCandidate; changed only by SELECT_HAB_SITE (05 Session). Optional until work package 04, then required (BD-100). */
-  hab_candidate_id?: string | null;
-  /** The settings in force (05 Session). Optional until work package 04, then required (BD-100). */
-  mission_setup?: MissionSetup;
-  /** Library events started so far, reduced from EVENT_STARTED (05 Session). Optional until work package 04 (BD-100). */
-  started_events?: { event_id: string; t0_sim_time: string }[];
+  /** The chosen HabCandidate, null when the Site has none; changed only by SELECT_HAB_SITE (05 Session; BD-100). */
+  hab_candidate_id: string | null;
+  /** The settings in force (05 Session; BD-100). */
+  mission_setup: MissionSetup;
+  /** Library events started so far, reduced from EVENT_STARTED (05 Session; BD-100). */
+  started_events: { event_id: string; t0_sim_time: string }[];
 }
 
 export interface ClientConnection {

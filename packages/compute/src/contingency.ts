@@ -30,7 +30,7 @@ export interface ContingencyInputs {
   hab: TimeField;
   /** Per crew member; absent = no vehicle for that member. */
   rendezvous: Partial<Record<CrewId, RendezvousResult>>;
-  /** Hab and vehicle ingress, seconds (HAB_INGRESS_S; rover ParamSet `ingress_min` × 60). */
+  /** Hab and vehicle ingress, seconds (suit ParamSet `hab_ingress_min` × 60, compute `habIngressS`; rover ParamSet `ingress_min` × 60). */
   ingress: HavenIngress;
   /**
    * For two crew with a vehicle: the visiting order and later arrival, precomputed by the caller
