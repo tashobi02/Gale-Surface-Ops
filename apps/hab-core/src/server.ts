@@ -116,6 +116,24 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     return session.snapshot(clientList(clients));
   });
 
+  // N-05 (01-contract §7a): the lobby's small summary; GET /api/session stays the full SNAPSHOT (02 §E.5).
+  app.get("/api/session/summary", async (_req, reply) => {
+    if (!session) return reply.code(404).send({ error: "no session loaded" });
+    const snap = session.snapshot([]);
+    const evaStarted = session.eventsAfter(0).find((e) => e.kind === "EVA_STARTED");
+    return {
+      session_id: snap.session.session_id,
+      scenario_id: snap.session.scenario_id,
+      status: snap.session.status,
+      sim_time: snap.sim_time,
+      speed: snap.session.clock.speed,
+      paused: snap.session.clock.paused,
+      eva_start_utc: evaStarted?.sim_time ?? null,
+      hab_candidate_id: snap.session.hab_candidate_id,
+      plan_published: snap.plan !== null,
+    };
+  });
+
   app.get<{ Querystring: { after?: string } }>("/api/log", async (req, reply) => {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
     const after = Number(req.query.after ?? 0);

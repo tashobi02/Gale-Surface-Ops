@@ -7,7 +7,7 @@
  * `snapshot-<seq>.json` (every SNAPSHOT_EVERY events, called by the session) plus `meta.json`;
  * resume = latest snapshot + the lines after it.
  *
- * `commands.jsonl` beside it is the command journal (BD-93): one canonical-JSON `CommandJournalLine` per command the session
+ * `commands.jsonl` beside it is the command journal (BD-93): one JSON `CommandJournalLine` per command the session
  * evaluated, appended by the session manager after the command's events are written. It is not part of `log_hash`, the
  * engine never reads it, and `exportCommandList` (replay.ts) turns it into the list a headless replay applies.
  *
@@ -99,7 +99,9 @@ class FileEventLog implements EventLog {
   }
 
   journal(line: CommandJournalLine): void {
-    appendFileSync(join(this.dir, JOURNAL_FILE), `${canonicalJson(line)}\n`, "utf8");
+    // Plain JSON, not canonical: a client's args may hold a value canonical JSON refuses (NaN), which JSON writes as null. The
+    // command was rejected for it, and the journal must never fail a command.
+    appendFileSync(join(this.dir, JOURNAL_FILE), `${JSON.stringify(line)}\n`, "utf8");
   }
 
   snapshot(state: EngineState): void {

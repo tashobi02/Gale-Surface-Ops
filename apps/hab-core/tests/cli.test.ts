@@ -47,6 +47,7 @@ function mockSiteScenario(): { dir: string; scenario: Scenario } {
   cpSync(join(here, "fixtures/fake-scenario"), dir, { recursive: true });
   const scenario = JSON.parse(readFileSync(join(dir, "scenario.json"), "utf8")) as Scenario;
   scenario.data_version = SITE_VERSION;
+  delete scenario.mission_setup.hab_candidate_id; // the mock site lists no hab candidates (05 Scenario)
   const plan = scenario.plan!;
   plan.data_version = SITE_VERSION;
   plan.plan_hash = sha256(canonicalJson({ data_version: plan.data_version, scenario: plan.scenario, waypoints: plan.waypoints })).slice(0, 12);
@@ -54,9 +55,12 @@ function mockSiteScenario(): { dir: string; scenario: Scenario } {
   return { dir, scenario };
 }
 
+/** Sessions of `replay` and `start` go to a folder of their own, never to apps/hab-core/var. */
+const withVar = (args: string[]): string[] => ((args[0] === "replay" || args[0] === "start") && !args.includes("--var-dir") ? [...args, "--var-dir", tmp("cli-var")] : args);
+
 async function cli(args: string[], env: NodeJS.ProcessEnv = {}): Promise<{ stdout: string; stderr: string; code: number }> {
   try {
-    const { stdout, stderr } = await exec(TSX, ["src/cli.ts", ...args], { cwd: HAB_CORE, env: { ...process.env, ...env } });
+    const { stdout, stderr } = await exec(TSX, ["src/cli.ts", ...withVar(args)], { cwd: HAB_CORE, env: { ...process.env, ...env } });
     return { stdout, stderr, code: 0 };
   } catch (err) {
     const e = err as { stdout: string; stderr: string; code: number };
@@ -192,7 +196,7 @@ describe("export-commands (T32.17)", () => {
 describe("start --scenario-dir (N-01; T22.13 make hab smoke)", () => {
   it("serves /api/health with the session id for a scenario folder outside scenarios/, on the requested host and port", async () => {
     const { dir } = mockSiteScenario();
-    const child = execFile(TSX, ["src/cli.ts", "start", "--scenario-dir", dir, "--port", "0"], { cwd: HAB_CORE });
+    const child = execFile(TSX, ["src/cli.ts", "start", "--scenario-dir", dir, "--port", "0", "--var-dir", tmp("cli-var")], { cwd: HAB_CORE });
     try {
       const url = await new Promise<string>((resolve, reject) => {
         let out = "";

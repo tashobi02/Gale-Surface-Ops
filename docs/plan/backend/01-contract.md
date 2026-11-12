@@ -162,8 +162,9 @@ export interface Recording {
 // written to scenarios/storm-sol4190/recording.json by package 11
 
 // packages/protocol/src/commandList.ts (new) — BD-93
-export interface RecordedCommand { sim_time: string; role: Role; kind: CommandKind; args: Record<string, unknown> }
-export interface CommandList { $comment: string; scenario_id: string; seed: number; commands: RecordedCommand[] }
+export interface RecordedCommand { sim_time: string; role: Role; kind: CommandKind; args: Record<string, unknown>; command_id?: string; client_id?: string }
+export interface CommandList { $comment: string; scenario_id: string; seed: number; commands: RecordedCommand[]; session_id?: string; until_sim_time?: string }
+// contract-change: (package 11, BD-121) the optional fields above; an exported list always has them. Types are in packages/protocol/src/commandList.ts.
 export interface CommandJournalLine extends RecordedCommand { after_seq: number; command_id: string; client_id: string } // commands.jsonl
 
 // packages/protocol/src/worker.ts — BD-40, BD-41 (C6 v1)

@@ -75,6 +75,11 @@ export interface SessionHandle {
 export interface SessionOptions {
   /** Find a scenario by id for `LOAD_SCENARIO` other than the one loaded; without it only a reload works. */
   resolveScenario?: (scenario_id: string) => LoadedScenario;
+  /**
+   * The id the first session of this manager starts under (default: the next free `s-<n>`). A headless replay of an exported
+   * command list starts under the id the list came from, which SESSION_LOADED holds, so the hash can match (BD-121).
+   */
+  firstSessionId?: string;
 }
 
 /** Provenance classes of the SNAPSHOT fields (05 §C.2 Crew, Vehicle; 02 §E.6 example). */
@@ -135,7 +140,7 @@ class Session implements SessionHandle {
       this.state = resumed.state;
       this.accepted = resumed.accepted;
     } else {
-      const started = startSession(scenario, varDir);
+      const started = startSession(scenario, varDir, options.firstSessionId);
       this.log = started.log;
       this.state = started.state;
       this.accepted = new AcceptedCommands();
@@ -176,7 +181,24 @@ class Session implements SessionHandle {
     };
   }
 
+  /**
+   * Evaluate one command and journal it (BD-93, BD-121): one `CommandJournalLine` goes to `commands.jsonl` of the session the
+   * command was evaluated in, after its events are written. Not journaled: a resent command id (answered from memory, nothing
+   * logged), a LOAD_SCENARIO that replaced the session or found no scenario (nothing was logged), anything else that logged no
+   * event. A JUMP_NEXT_EVENT that ran to the limit without an event is journaled: it moved sim time.
+   */
   apply(command: Command, client_id: string = command.role): { result: CommandResult; events: LogEvent[]; replaced?: boolean } {
+    const log = this.log;
+    const sim_time = this.state.session.clock.sim_time;
+    const after_seq = log.lastSeq();
+    const out = this.evaluate(command, client_id);
+    if (out.events.length > 0 || (out.result.ok && command.kind === "JUMP_NEXT_EVENT")) {
+      log.journal({ sim_time, after_seq, role: command.role, kind: command.kind, args: command.args ?? {}, command_id: command.command_id, client_id });
+    }
+    return out;
+  }
+
+  private evaluate(command: Command, client_id: string): { result: CommandResult; events: LogEvent[]; replaced?: boolean } {
     const out = handleCommand(this.state, command, { scenario: this.scenario, client_id, next_seq: this.log.lastSeq() + 1, accepted: this.accepted });
     if (out.effect?.kind === "load") {
       // Reloading the scenario in use starts from the scenario as loaded, not with the comm grid of a chosen candidate.
@@ -380,8 +402,8 @@ function nextSessionId(varDir: string): string {
 }
 
 /** New session folder: initial state, SESSION_LOADED, then the seeded TASK_ADDED events (FR-50). */
-function startSession(scenario: LoadedScenario, varDir: string): { log: EventLog; state: EngineState } {
-  const session_id = nextSessionId(varDir);
+function startSession(scenario: LoadedScenario, varDir: string, firstId?: string): { log: EventLog; state: EngineState } {
+  const session_id = firstId ?? nextSessionId(varDir);
   const dir = join(varDir, "sessions", session_id);
   mkdirSync(dir, { recursive: true });
   const log = openLog(dir);
