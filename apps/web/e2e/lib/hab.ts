@@ -11,8 +11,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { OUT_DIR } from "./a11y";
 
-/** Port of the harness's Hab Core (FD-198); keeps `make hab` on 8080 free. */
-export const HAB_PORT = 8091;
+/**
+ * Port of the harness's Hab Core (FD-198); keeps `make hab` on 8080 free. `E2E_PORT` lets parallel worktrees each run their own
+ * harness without sharing the port (default 8091).
+ */
+export const HAB_PORT = Number(process.env.E2E_PORT ?? 8091);
 export const HAB_ORIGIN = `http://127.0.0.1:${HAB_PORT}`;
 
 /** Roles a harness page can open (protocol `Role` values a device can take, 02 §E.4). */

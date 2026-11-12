@@ -20,6 +20,7 @@ only `tests/`).
 | `E2E_SKIP_BUILD=1 make e2e` | Reuses `apps/web/dist` |
 | `E2E_SITE=gale_boxwork make e2e` | Real site and `scenarios/storm-sol4190`. When their files are absent it prints `skipped: bundle absent (...)` and runs only the self-tests |
 | `E2E_CHROMIUM=/path/to/chrome-headless-shell make e2e` | Use that browser |
+| `E2E_PORT=8101 make e2e` | Use that port for the Hab Core instead of 8091, so several git worktrees can run the harness at the same time |
 
 Output goes to `apps/web/e2e/out/` (git-ignored): `results.json`, `axe-<route>.json`, failure artefacts.
 
