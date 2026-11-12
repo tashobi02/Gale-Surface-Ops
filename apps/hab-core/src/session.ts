@@ -30,6 +30,7 @@ import { invalidateHavenCache } from "./engine/haven";
 import { buildHabSite, prepareSite, relocateCrew, type HabSite } from "./engine/liveSetup";
 import { arrivedAt, jumpEnded, nextStopTarget, type JumpEnd } from "./engine/nextStop";
 import { initialState, logged, reduce, type EngineState, type PendingEvent, type StateChange } from "./engine/reducer";
+import { relayCoverageGrid } from "./engine/rovers";
 import { seedTasks } from "./engine/tasks";
 import { tick } from "./engine/tick";
 import { canonicalJson, openLog, resumeLog, SNAPSHOT_EVERY, type EventLog } from "./log";
@@ -65,6 +66,12 @@ export interface SessionHandle {
    * the link graph (TASK-26) and the tests.
    */
   habSite(): HabSite | null;
+  /**
+   * The coverage grid of a utility rover parked as a relay (N-11, 02 §E.5 `GET /api/relay-coverage/<vehicle_id>`): the u8 grid in
+   * the `comm_hab` layout and the `relay_coverage_rev` it belongs to; null when the vehicle is not a parked relay. Derived from
+   * the state and the grid, cached per rover position and revision; not part of any snapshot or log.
+   */
+  relayCoverage(vehicle_id: string): { rev: number; width: number; height: number; data: Uint8Array } | null;
   /**
    * The loaded scenario's own plan, unchanged by PLAN_REVISED (the snapshot's `plan` is the engine's current one, whose
    * waypoints the reducer replaces). The post-EVA report diffs revisions against it and reads its planned timing (FR-46).
@@ -127,6 +134,8 @@ class Session implements SessionHandle {
   private scenario: LoadedScenario;
   /** The chosen hab; undefined until first needed (the haven field costs a Dijkstra pass), null when there is none. */
   private site: HabSite | null | undefined;
+  /** Memo of `relayCoverageGrid` (a pure function of the rover and the scenario), keyed by rover, revision and position. */
+  private readonly relayCache = new Map<string, { width: number; height: number; data: Uint8Array }>();
 
   constructor(
     scenario: LoadedScenario,
@@ -150,6 +159,20 @@ class Session implements SessionHandle {
 
   initialPlan(): PlanExport | null {
     return this.scenario.scenario.plan ?? null;
+  }
+
+  relayCoverage(vehicle_id: string): { rev: number; width: number; height: number; data: Uint8Array } | null {
+    const v = this.state.vehicles.find((x) => x.vehicle_id === vehicle_id);
+    const rev = v?.relay_coverage_rev ?? null;
+    if (v === undefined || rev === null) return null;
+    const key = `${vehicle_id}|${rev}|${v.x_m}|${v.y_m}`;
+    const hit = this.relayCache.get(key);
+    if (hit !== undefined) return { rev, ...hit };
+    const grid = relayCoverageGrid(this.scenario, v);
+    if (grid === null) return null;
+    this.relayCache.clear(); // one live revision per rover is enough
+    this.relayCache.set(key, grid);
+    return { rev, ...grid };
   }
 
   habSite(): HabSite | null {

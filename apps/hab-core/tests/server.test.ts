@@ -82,6 +82,9 @@ class StubSession implements SessionHandle {
   habSite(): ReturnType<SessionHandle["habSite"]> {
     return null;
   }
+  relayCoverage(_vehicle_id: string): ReturnType<SessionHandle["relayCoverage"]> {
+    return null;
+  }
   apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[]; replaced?: boolean } {
     this.applied.push(command);
     this.clientIds.push(client_id);

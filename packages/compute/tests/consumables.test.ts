@@ -8,7 +8,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { ParamSet } from "@marswalk/protocol";
-import { o2RemainingS, stepO2 } from "../src/consumables";
+import { MARS_GRAVITY_M_S2, o2RemainingS, roverEnergyWh, stepO2 } from "../src/consumables";
+import { flatGrid, rendezvousRidge } from "./fixtures/v2grids";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const suit = JSON.parse(readFileSync(join(here, "../../../scenarios/storm-sol4190/param_sets/suit-assumed.json"), "utf8")) as ParamSet;
@@ -44,5 +45,57 @@ describe("stepO2 / o2RemainingS (02 §D.14)", () => {
   it("every coefficient comes from the suit ParamSet", () => {
     const longer = { ...suit, values: { ...suit.values, o2_nominal_h: v.o2_nominal_h * 2 } } as ParamSet;
     expect(o2RemainingS(1, "walking", longer)).toBeCloseTo(2 * o2RemainingS(1, "walking", suit), 6);
+  });
+});
+
+/** T29.03 (backend package 19): the utility rover energy form of 02 §D.9, E = P_base * t + m * g * dh+ / eta, from the ParamSet. */
+const ur1 = JSON.parse(readFileSync(join(here, "../../../scenarios/storm-sol4190/param_sets/ur1-assumed.json"), "utf8")) as ParamSet;
+const u = ur1.values as Record<string, number>;
+
+describe("roverEnergyWh (02 §D.9 robotic utility rover)", () => {
+  it("uses 02 §D.9's Mars gravity", () => {
+    expect(MARS_GRAVITY_M_S2).toBe(3.721);
+  });
+
+  it("on flat ground only the base power counts: P_base * t, in Wh", () => {
+    const grid = flatGrid({ cell_m: 10, cellsWest: 10, cellsEast: 10, cellsNorth: 2, cellsSouth: 2 });
+    expect(roverEnergyWh([[0, 0], [100, 0]], 3600, ur1, grid)).toBeCloseTo(u.p_base_w, 9);
+    expect(roverEnergyWh([[0, 0], [100, 0]], 1800, ur1, grid)).toBeCloseTo(u.p_base_w / 2, 9);
+    expect(roverEnergyWh([[0, 0]], 0, ur1, grid)).toBe(0);
+  });
+
+  it("a climb adds m * g * dh+ / eta joules; a descent adds nothing", () => {
+    const { grid } = rendezvousRidge();
+    const rise = (x: number): number => grid.elevation[Math.floor((grid.meta.origin_m[1] - 0) / grid.meta.cell_m) * grid.meta.width + Math.floor((x - grid.meta.origin_m[0]) / grid.meta.cell_m)]!;
+    // Walk from the west foot up the flank (the plateau is at x = 0): a pure climb; the reverse is a pure descent.
+    const foot: [number, number] = [-250, 0];
+    const top: [number, number] = [0, 0];
+    const dh = rise(top[0]) - rise(foot[0]);
+    expect(dh).toBeGreaterThan(0);
+    const up = roverEnergyWh([foot, top], 0, ur1, grid);
+    expect(up).toBeCloseTo(((u.mass_kg * MARS_GRAVITY_M_S2 * dh) / u.climb_eff) / 3600, 6);
+    expect(roverEnergyWh([top, foot], 0, ur1, grid)).toBe(0);
+  });
+
+  it("sums only the positive steps of a path that goes up, down and up", () => {
+    const { grid } = rendezvousRidge();
+    const at = (x: number): number => grid.elevation[Math.floor((grid.meta.origin_m[1] - 0) / grid.meta.cell_m) * grid.meta.width + Math.floor((x - grid.meta.origin_m[0]) / grid.meta.cell_m)]!;
+    const xs = [-250, -150, -250, -50];
+    const expected = (at(-150) - at(-250)) + (at(-50) - at(-250));
+    expect(roverEnergyWh(xs.map((x) => [x, 0] as [number, number]), 0, ur1, grid)).toBeCloseTo(((u.mass_kg * MARS_GRAVITY_M_S2 * expected) / u.climb_eff) / 3600, 6);
+  });
+
+  it("reads every coefficient from the ParamSet", () => {
+    const grid = flatGrid({ cell_m: 10, cellsWest: 10, cellsEast: 10, cellsNorth: 2, cellsSouth: 2 });
+    const bigger = { ...ur1, values: { ...ur1.values, p_base_w: u.p_base_w * 3 } } as ParamSet;
+    expect(roverEnergyWh([[0, 0]], 3600, bigger, grid)).toBeCloseTo(3 * u.p_base_w, 9);
+  });
+
+  it("a missing coefficient, a negative duration or a point off the grid is a RangeError naming the problem", () => {
+    const grid = flatGrid({ cell_m: 10, cellsWest: 10, cellsEast: 10, cellsNorth: 2, cellsSouth: 2 });
+    const { climb_eff: _drop, ...rest } = u;
+    expect(() => roverEnergyWh([[0, 0]], 1, { ...ur1, values: rest } as ParamSet, grid)).toThrow(/climb_eff/);
+    expect(() => roverEnergyWh([[0, 0]], -1, ur1, grid)).toThrow(RangeError);
+    expect(() => roverEnergyWh([[0, 0], [1e6, 0]], 1, ur1, grid)).toThrow(RangeError);
   });
 });

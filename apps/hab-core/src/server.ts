@@ -142,6 +142,18 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     return session.eventsAfter(after).map((e) => JSON.stringify(e)).join("\n");
   });
 
+  // N-11 (BD-112): the coverage of a utility rover parked as a RELAY, a u8 grid in the comm_hab layout; 404 otherwise.
+  app.get<{ Params: { vehicle_id: string } }>("/api/relay-coverage/:vehicle_id", async (req, reply) => {
+    if (!session) return reply.code(404).send({ error: "no session loaded" });
+    const cov = session.relayCoverage(req.params.vehicle_id);
+    if (!cov) return reply.code(404).send({ error: `${req.params.vehicle_id} is not parked as a relay` });
+    const etag = `"${cov.rev}"`;
+    reply.header("ETag", etag).header("Cache-Control", "no-cache");
+    if (req.headers["if-none-match"] === etag) return reply.code(304).send();
+    reply.type("application/octet-stream");
+    return Buffer.from(cov.data.buffer, cov.data.byteOffset, cov.data.byteLength);
+  });
+
   app.get("/api/report", async (_req, reply) => {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
     const events = session.eventsAfter(0);
