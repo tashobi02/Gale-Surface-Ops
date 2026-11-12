@@ -65,7 +65,7 @@ export const ROUTES: readonly RouteEntry[] = [
 
 const CREW_IDS: readonly CrewId[] = ["EV1", "EV2"];
 /** Roles a join link (`#/join?role=…`) may name: exactly the protocol's `Role` values a device can take. */
-const JOIN_ROLES: readonly Role[] = ["planner", "ops", "eva:EV1", "eva:EV2", "hud:EV1", "hud:EV2", "earth"];
+const JOIN_ROLES: readonly Role[] = ["planner", "ops", "eva:EV1", "eva:EV2", "hud:EV1", "hud:EV2", "earth", "presenter"];
 /** SCR-09 anchors are layer, source and parameter ids: letters, digits, `_` and `-`. */
 const ANCHOR = /^[A-Za-z0-9_-]{1,80}$/;
 /** A route path is plain ASCII segments; the length cap keeps hostile input out of every later step. */
