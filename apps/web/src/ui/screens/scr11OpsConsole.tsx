@@ -39,6 +39,7 @@ import { TaskProgress } from "../ops/TaskProgress";
 import { AddTaskPopover } from "../ops/AddTaskPopover";
 import { OpsMap } from "../ops/OpsMap";
 import { RoverQueue } from "../ops/RoverQueue";
+import { QrDrawer } from "../ops/QrDrawer";
 import { RoverTask } from "./scr15RoverTask";
 import {
   PROVENANCE_GLYPHS,
@@ -152,6 +153,7 @@ export function OpsConsole({
 }: OpsConsoleProps): ReactElement {
   const [viewportWidth, setViewportWidth] = useState(() => typeof window === "undefined" ? 1280 : window.innerWidth);
   const [sideDrawer, setSideDrawer] = useState<"crew" | "mission" | null>(null);
+  const [joinOpen, setJoinOpen] = useState(false);
   const sideOpener = useRef<HTMLButtonElement | null>(null);
   const crewPanelRef = useRef<HTMLElement>(null);
   const [localSoundOn, setLocalSoundOn] = useState(true);
@@ -220,6 +222,7 @@ export function OpsConsole({
     if (warningKey) {
       setActiveAddCrew(null);
       setLogOpen(false);
+      setJoinOpen(false);
       if (narrow) setSideDrawer("mission");
       optionsRef.current?.focus();
     }
@@ -231,6 +234,7 @@ export function OpsConsole({
   const toggleSideDrawer = (drawer: "crew" | "mission", opener: HTMLButtonElement): void => {
     sideOpener.current = opener;
     setLogOpen(false);
+    setJoinOpen(false);
     setSideDrawer(sideDrawer === drawer ? null : drawer);
   };
   const closeSideDrawer = (): void => {
@@ -362,7 +366,7 @@ export function OpsConsole({
     if (key === " " && event.target instanceof Element && event.target.closest('button, a[href], [role="button"], [role="radio"], [role="checkbox"], [role="switch"], [role="tab"]')) return;
     if (key === "o") {
       event.preventDefault();
-      if (narrow) { setLogOpen(false); setSideDrawer("mission"); }
+      if (narrow) { setLogOpen(false); setJoinOpen(false); setSideDrawer("mission"); }
       optionsRef.current?.focus();
       return;
     }
@@ -414,6 +418,7 @@ export function OpsConsole({
 
         {/* Mission clock controls: ⏸ 1× 10× [60×] ⏭ */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <QrDrawer open={joinOpen} onOpenChange={(open) => { setJoinOpen(open); if (open) { setSideDrawer(null); setLogOpen(false); } }} />
           <ClockControl
             speed={session?.clock.speed ?? clockSpeed ?? null}
             isPaused={session?.clock.paused ?? isPaused ?? null}
@@ -812,7 +817,7 @@ export function OpsConsole({
           aria-expanded={logOpen}
           aria-haspopup="dialog"
           aria-controls="ops-event-log-drawer"
-          onClick={() => { setSideDrawer(null); setLogOpen((open) => !open); }}
+          onClick={() => { setSideDrawer(null); setJoinOpen(false); setLogOpen((open) => !open); }}
           style={{
             display: "flex",
             alignItems: "center",

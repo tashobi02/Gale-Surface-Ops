@@ -14,8 +14,16 @@ import { routeFixtureRecording } from "../lib/replayFixture";
 import { populatedReport } from "../../tests/fixtures/postEvaReport";
 import { openSetupFixture, type SetupFixtureState } from "../lib/setupFixture";
 import { openPresenterFixture, type PresenterFixtureState } from "../lib/presenterFixture";
+import { openOpsFixture } from "../lib/opsFixture";
 
 const LIMITS = { text: 4.5, large: 3, hud: 7 };
+
+test("contrast: ops join drawer", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await openOpsFixture(page, "running");
+  await page.getByRole("button", { name: "Join QR codes" }).click();
+  expect(await expectContrast(page, LIMITS)).toBeGreaterThan(0);
+});
 
 // Routes that render real content today. Each later package adds its own route here when it builds the screen.
 // `pending` marks a route the harness already measures as failing: the defect is the named package's to fix, and that package

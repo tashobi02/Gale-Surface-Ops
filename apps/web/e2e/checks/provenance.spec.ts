@@ -9,6 +9,14 @@ import { waitForSnapshot } from "../lib/hab";
 import { expectNoUnlabelledNumbers, PROVENANCE_ALLOWLIST, unlabelledNumbers } from "../lib/provenance";
 import { openPoiTasks } from "../lib/plannerTasks";
 import { openReplayFixture } from "../lib/replayFixture";
+import { openOpsFixture } from "../lib/opsFixture";
+
+test("provenance: ops join drawer", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await openOpsFixture(page, "running");
+  await page.getByRole("button", { name: "Join QR codes" }).click();
+  await expectNoUnlabelledNumbers(page, "ops join drawer", '[role="group"][aria-label="Join QR codes"]');
+});
 
 const DEMO_PATH = ["#/", "#/planner", "#/briefing"];
 const LIVE = ["#/ops", "#/eva/EV1", "#/hud/EV1", "#/report", "#/replay"];

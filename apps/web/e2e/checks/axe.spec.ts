@@ -25,6 +25,13 @@ const LIVE = /^#\/(ops|eva|hud|presenter|setup)/;
 // Package 27 adds `#/replay`, on the fixture recording until N-81 commits the real one (lib/replayFixture.ts); 36 adds `#/earth`; 23 and 24 add `#/presenter` and `#/setup`.
 const BUILT_ROUTES = ["#/", "#/sources", "#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report", "#/replay", "#/earth", "#/presenter", "#/setup"];
 
+test("axe: ops join drawer", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await openOpsFixture(page, "running");
+  await page.getByRole("button", { name: "Join QR codes" }).click();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-join` });
+});
+
 test("axe: every built route has no serious or critical violation", async ({ page }, testInfo) => {
   await routeFixtureRecording(page);
   for (const hash of BUILT_ROUTES) {
