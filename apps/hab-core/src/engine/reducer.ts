@@ -37,7 +37,7 @@ import type {
   Vehicle,
 } from "@marswalk/protocol";
 import type { LoadedScenario } from "../scenario";
-import type { ConditionsState } from "./conditions";
+import { conditionsFrame, type ConditionsState } from "./conditions";
 import { reduceTaskEvent } from "./tasks";
 
 export interface EngineState {
@@ -228,16 +228,7 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
     links: [],
     earth: { light_time_s: firstEarthRow?.light_time_s ?? 0, next_pass_utc: null, blackout: false },
     earthQueue: [],
-    conditions: {
-      ltst: null,
-      sun_elevation_deg: null,
-      dose_rate_background_ugy_h: null,
-      dose_rate_event_ugy_h: null,
-      event_series_utc: null,
-      sol: null,
-      source_ids: {},
-      provenance: {},
-    },
+    conditions: conditionsFrame(scenario),
     motion: {},
   };
 }

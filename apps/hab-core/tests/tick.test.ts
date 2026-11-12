@@ -624,7 +624,13 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
     const inDwell = tickOf(0) + 10;
     const dwellPaths = CREW.flatMap((id) => [`crew/${id}/dose_event_ugy`, `crew/${id}/dose_event_unsheltered_ugy`, `crew/${id}/eva_elapsed_s`, `crew/${id}/o2_frac`, `crew/${id}/o2_remaining_min`, `crew/${id}/next_stop_eta_s`]);
     expect(trace.deltas[inDwell].map((d) => d.path).sort()).toEqual(dwellPaths.sort());
-    expect(trace.deltas.flat().every((d) => /^crew\/(EV1|EV2)\/(x_m|y_m|o2_frac|eva_elapsed_s|dose_event_ugy|dose_event_unsheltered_ugy|o2_remaining_min|next_stop_bearing_deg|next_stop_distance_m|next_stop_eta_s)$/.test(d.path))).toBe(true);
+    // The fake scenario has no Site, so the conditions feed (T22.16, BD-127) has no solar fields: the first tick reports the two
+    // dose rates, and later ticks only the event series time once START_EVENT has played (and a rate when it steps).
+    const conditionPaths = trace.deltas.map((ds) => ds.filter((d) => d.path.startsWith("conditions/")).map((d) => d.path));
+    expect(conditionPaths[1].sort()).toEqual(["conditions/dose_rate_background_ugy_h", "conditions/dose_rate_event_ugy_h"]);
+    expect(conditionPaths[2]).toEqual([]);
+    expect(conditionPaths.flat().every((p) => ["conditions/dose_rate_background_ugy_h", "conditions/dose_rate_event_ugy_h", "conditions/event_series_utc"].includes(p))).toBe(true);
+    expect(trace.deltas.flat().filter((d) => !d.path.startsWith("conditions/")).every((d) => /^crew\/(EV1|EV2)\/(x_m|y_m|o2_frac|eva_elapsed_s|dose_event_ugy|dose_event_unsheltered_ugy|o2_remaining_min|next_stop_bearing_deg|next_stop_distance_m|next_stop_eta_s)$/.test(d.path))).toBe(true);
     // Applying the deltas to the start reproduces the end state (what a client does).
     const folded = new Map<string, unknown>();
     for (const d of trace.deltas.flat()) folded.set(d.path, d.value);
