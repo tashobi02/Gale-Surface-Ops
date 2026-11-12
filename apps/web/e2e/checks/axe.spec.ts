@@ -74,18 +74,34 @@ test("axe: SCR-04 plan panel Editing state with a selected stop and the keyboard
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-editing` });
 });
 
-test("axe: SCR-04 task editor populated, invalid and limit states have no serious or critical violation (package 25)", async ({ page }, testInfo) => {
-  test.skip((page.viewportSize()?.width ?? 0) < 800, "the planner is specified from 1024 px (04 §F)");
-  const { editor, suggested } = await openPoiTasks(page);
-  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-tasks` });
-  const text = editor.locator("[data-task-text]").first();
-  await text.fill("");
+// Package 25: one axe scan per test, scoped to the plan panel. Three full-page scans plus their setup in one test passed the 60 s limit
+// on the phone-landscape and HUD projects (a full planner scan walks the SCR-05 profile chart: 16 to 22 s on a quiet machine, more under
+// load). The task editor states change only the plan panel; the rest of the page is scanned by the SCR-02 and SCR-04 tests above.
+const TASK_EDITOR_MIN_WIDTH = 800;
+const PLAN_PANEL = '[data-slot="plan-panel"]';
+const skipBelowPlanner = (width: number | undefined): void => test.skip((width ?? 0) < TASK_EDITOR_MIN_WIDTH, "the planner is specified from 1024 px (04 §F)");
+
+test("axe: SCR-04 task editor populated state has no serious or critical violation (package 25)", async ({ page }, testInfo) => {
+  skipBelowPlanner(page.viewportSize()?.width);
+  await openPoiTasks(page);
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-tasks`, include: PLAN_PANEL });
+});
+
+test("axe: SCR-04 task editor invalid-text state has no serious or critical violation (package 25)", async ({ page }, testInfo) => {
+  skipBelowPlanner(page.viewportSize()?.width);
+  const { editor } = await openPoiTasks(page);
+  await editor.locator("[data-task-text]").first().fill("");
   await expect(editor.getByRole("alert")).toBeVisible();
-  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-task-invalid` });
-  await text.fill(suggested[0]!.text);
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-task-invalid`, include: PLAN_PANEL });
+});
+
+test("axe: SCR-04 task editor four-task limit state has no serious or critical violation (package 25)", async ({ page }, testInfo) => {
+  skipBelowPlanner(page.viewportSize()?.width);
+  const { editor, suggested } = await openPoiTasks(page);
   for (let n = suggested.length; n < 4; n++) {
     await editor.locator("[data-new-task-text]").fill(suggested[0]!.text);
     await editor.getByRole("button", { name: "Add task", exact: true }).click();
   }
-  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-task-limit` });
+  await expect(editor.locator("[data-task-text]")).toHaveCount(4);
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-task-limit`, include: PLAN_PANEL });
 });

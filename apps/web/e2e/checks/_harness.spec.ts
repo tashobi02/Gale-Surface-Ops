@@ -9,6 +9,7 @@ import { boxes, expectGaps, expectSameBoxes, expectTargetSize, gapBetween, targe
 import { SIGNATURE_SIDE, expectDistinct, lumaDelta, lumaSignatures } from "../lib/grayscale";
 import { expectLocalAssetsOk, expectNoExternal, guardNetwork } from "../lib/offline";
 import { countPdfPages, pdfPages } from "../lib/print";
+import { axeScan } from "../lib/a11y";
 import { planHash } from "../lib/fakeScenario";
 import { unlabelledNumbers } from "../lib/provenance";
 
@@ -126,6 +127,18 @@ test("provenance helper finds numbers with no label and skips identifiers", asyn
   );
   const bad = await unlabelledNumbers(page);
   expect(bad.map((b) => b.text)).toEqual(["bare 42 m"]);
+});
+
+test("axe scan scope: a violation outside the included region is not reported, one inside it is", async ({ page }) => {
+  // An <img> with no alt is a critical image-alt violation; each region holds one control that is fine and, in #bad, that image.
+  await page.setContent(
+    '<!doctype html><html lang="en" data-mode="ops"><head><title>scope</title></head><body><main>' +
+      '<div id="good"><button type="button">Fine</button></div>' +
+      '<div id="bad"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw="></div></main></body></html>',
+  );
+  await expect(axeScan(page, { mode: "ops", route: "harness-scope-page" })).rejects.toThrow(/image-alt/);
+  await expect(axeScan(page, { mode: "ops", route: "harness-scope-bad", include: "#bad" })).rejects.toThrow(/image-alt/);
+  await expect(axeScan(page, { mode: "ops", route: "harness-scope-good", include: "#good" })).resolves.toMatchObject({ blocking: 0 });
 });
 
 test("fake scenario plan hash is the first 12 hex digits of a stable SHA-256", () => {
