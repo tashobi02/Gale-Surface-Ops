@@ -100,6 +100,40 @@ test("axe: SCR-04 plan panel Editing state with a selected stop and the keyboard
 });
 
 
+// Package 28: SCR-07 (the conditions panel) on the real worker, in the state the demo path reaches — the plan is computed
+// and the panel shows its values, its radiation block and its daylight warning. The panel lives in the right drawer, so the
+// scan is scoped to it (a full-page scan walks the SCR-05 profile chart).
+test("axe: SCR-07 conditions panel on the real worker has no serious or critical violation", async ({ page }, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 800, "the planner is specified from 1024 px (04 §F)");
+  await page.goto("/?site=mock_site#/");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: /open demo plan/i }).click();
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  // The planner's drawers hold the tabs. Below 1024 px the layout is one drawer, so its toggle button opens the drawer
+  // the tab lives in; above it the drawers are open and the toggle is not rendered (04 §F). The toggle is waited for
+  // rather than polled: on a slow run the shell is still rendering when the check first looks for it.
+  const leftToggle = page.locator('[data-slot="drawer-toggle"][data-for="left"]');
+  const oneDrawer = await leftToggle.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false);
+  if (oneDrawer) await leftToggle.click();
+  await page.getByRole("tab", { name: "Plan", exact: true }).click();
+  const start = page.getByLabel(/EVA start/i);
+  await start.fill("");
+  await start.fill("2026-11-14T08:00:00Z");
+  await expect(page.locator("[data-results-banner]")).not.toContainText("Computing…", { timeout: 30_000 });
+  // The conditions panel is in the right drawer, on its Conditions tab. In the one-drawer layout the right toggle
+  // replaces the left one, so the drawer is opened again before its tab is chosen.
+  if (oneDrawer) {
+    const rightToggle = page.locator('[data-slot="drawer-toggle"][data-for="right"]');
+    await rightToggle.waitFor({ state: "visible", timeout: 5000 });
+    await rightToggle.click();
+  }
+  await page.getByRole("tab", { name: "Conditions", exact: true }).click();
+  const conditions = page.locator('[data-conditions]');
+  await expect(conditions, "the conditions panel is shown").toBeVisible();
+  await expect(conditions).toHaveAttribute("aria-busy", "false");
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr07`, include: "[data-conditions]" });
+});
+
 test("axe: EVA tablet states and high contrast have no serious or critical violation", async ({ context }, testInfo) => {
   test.setTimeout(180_000);
   const states: EvaFixtureState[] = ["walking", "at-stop", "undo-window", "ops-added-task", "alerting", "alerting-with-options", "no-hab-link", "to-haven"];

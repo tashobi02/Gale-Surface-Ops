@@ -33,11 +33,11 @@ The harness check `walking-skeleton` (`apps/web/e2e/checks/walking-skeleton.spec
 | Legs | `wp-0 → wp-1` OK, `wp-1 → wp-0` OK (the demo plan loops) |
 | Totals | 5 974 m, 108.6 min walk, 128.6 min EVA, max walkback 2.99 km, max slope 0° |
 | Warnings | `DARKNESS` (caution) — the sun is below the horizon at the check's start time |
-| Worker timing | `total` 22.9 ms, `routing` 8.9 ms, `estimates` 4.3 ms |
-| NFR-02 budget | full-grid haven field ≤ 2 000 ms (02 §F) — **met**, 22.9 ms of 2 000 ms |
+| Worker timing | `total` 16.6 ms, `routing` 6.0 ms, `estimates` 3.2 ms |
+| NFR-02 budget | full-grid haven field ≤ 2 000 ms (02 §F) — **met**, 16.6 ms of 2 000 ms |
 
 What this run proves: the real worker loads the grid, routes every leg of the demo plan, returns a plan with totals and a profile, and does it far inside the NFR-02 budget. The elevation profile is drawn from the worker's own samples, so FR-08's chart has data on the F4 site.
 
-What it does not yet prove: the M3 exit criterion of 06 §B — a **3-stop** route over the **real** site — because the F4 bundle holds one of the demo plan's three POIs, and the real site bundle (`gale_boxwork`) has no grid assets yet. The run on the real site needs N-20 (`scenarios/storm-sol4190/scenario.json` in the live shape, plus the `gale_boxwork` grid). The demo plan's two missing stops are named by SCR-01 itself, so no coordinate was invented for them.
+What it does not yet prove: the M3 exit criterion of 06 §B — a **3-stop** route over the **real** site — because the F4 bundle holds one of the demo plan's three POIs, and the real site bundle (`gale_boxwork`) has no grid assets yet. The run on the real site needs the site's grid assets (N-140: `data/sites/gale_boxwork/grid/elevation.f32`, `slope_p90.u8` and `flags.u8`) and the live-shape scenario (N-20). The demo plan's two missing stops are named by SCR-01 itself, so no coordinate was invented for them.
 
-**Status of the go/no-go: the auto-routing slice is go** on the evidence above (the worker routes and meets NFR-02 on every leg it was given). The final 3-stop confirmation on the real site stays open until N-20 lands; the fallback claims (T05.30, T09.08) are not claimed. The human confirmation of this record is with the team lead and the product & systems lead, as 06 §D.3 requires.
+**Status of the go/no-go: the auto-routing slice is go** on the evidence above (the worker routes and meets NFR-02 on every leg it was given). The final 3-stop confirmation on the real site stays open until N-140 and N-20 land; the fallback claims (T05.30, T09.08) are not claimed. The human confirmation of this record is with the team lead and the product & systems lead, as 06 §D.3 requires.

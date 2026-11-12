@@ -5,16 +5,18 @@
 import type { Page } from "@playwright/test";
 
 /**
- * FD-110 allowlist: identifiers and chrome are not measurements. `[data-identifier]` is the documented hook; the scale line,
- * the `?debug=1` overlay and SCR-09 equation blocks have no agreed hook yet, so the likely ones are listed.
- * TODO(verify): replace the guessed hooks with the real ones when packages 04, 07 and 15 land.
+ * FD-110 allowlist: identifiers and chrome are not measurements.
+ *
+ * The hooks are the ones the app really renders, read from the source: `[data-identifier]` is the documented hook and is
+ * what the stop number, the site name, the source id, the SCR-09 equation and the model reference carry; the scale line is
+ * OpenLayers' own `.ol-scale-line` (`createMap.ts` reads it) and the `?debug=1` overlay is `[data-testid="debug-overlay"]`
+ * (`debug.ts` builds it). The earlier guessed hooks (`[data-scale-line]`, `[data-debug-overlay]`, `[data-equation]`) matched
+ * nothing in the app and were removed.
  */
 export const PROVENANCE_ALLOWLIST = [
   "[data-identifier]",
   ".ol-scale-line",
-  "[data-scale-line]",
-  "[data-debug-overlay]",
-  "[data-equation]",
+  '[data-testid="debug-overlay"]',
 ] as const;
 
 export interface UnlabelledNumber {

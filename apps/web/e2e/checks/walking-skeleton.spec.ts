@@ -131,7 +131,7 @@ test("walking-skeleton: the demo plan routes every leg on the real worker within
   test.info().annotations.push({ type: "walking-skeleton", description: JSON.stringify(outcome) });
 
   // NFR-02: the haven field of the whole grid is computed within the budget.
-  expect(outcome.timing_ms.total, "the worker's total time").toBeLessThanOrEqual(budgetMs);
+  expect(outcome.timing_ms?.total ?? Number.POSITIVE_INFINITY, "the worker's total time").toBeLessThanOrEqual(budgetMs);
   // The worker routed every leg of the demo plan.
   expect(outcome.legs.every((leg) => leg.status === "OK"), "every leg of the demo plan is routed").toBe(true);
   // The result is one of the three routed states of 03 §D: the worker answered with a plan, not with a failure.
