@@ -49,7 +49,8 @@ def step_hold_integral_ugy(
     Clip each interval to ``window`` when supplied. A null interval contributes
     zero; no background is subtracted and no time outside the samples is added.
     The last sample contributes nothing because its duration is unknown.
-    TODO(verify): reconcile that endpoint convention with TASK-05b's rateAt.
+    Endpoint convention (BD-25): left-closed [t_i, t_{i+1}), the same as compute `rateAt`; a test feeds both languages the
+    same boundary instants.
     """
     bounds = None if window is None else (_utc(window[0]), _utc(window[1]))
     if bounds is not None and bounds[0] > bounds[1]:
@@ -144,8 +145,8 @@ def write_dose_series(series: dict, path: str | Path) -> str:
 def read_product(path: str | Path, product: str):
     """Read D8's six-field rows as (second-resolution time, sol, original E).
 
-    D8's times have no stated scale: appending Z provisionally maps them to UTC
-    (TODO(verify), docs/ops/rad-series.md). Fractional seconds are truncated.
+    D8's times have no stated scale: appending Z maps them to UTC, as the SPDF L2 cross-check
+    (UTC) supports (docs/ops/rad-series.md; decided 10 Nov by Obidit Islam). Fractional seconds are truncated.
     An explicit NaN in the original column is preserved as a null gap. The D8
     original column is already interpolated and cannot expose earlier gaps.
     """

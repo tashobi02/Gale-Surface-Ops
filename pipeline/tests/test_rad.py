@@ -9,10 +9,9 @@ Interface these tests define for T21.07 (`marswalk_pipeline/rad.py`). Times are 
         null gaps)"): each sample's rate holds until the next sample,
             sum over i of rate_i * (t_{i+1} - t_i in hours),   rate_i = None counts as 0 (no data),
         and the last sample adds nothing (nothing after it is known). Result in uGy.
-        TODO(verify): "the last sample adds nothing" must agree with the Hab Core and
-        packages/compute `rateAt` (packages/compute/src/eventDose.ts, TASK-05b, still a stub): if `rateAt`
-        keeps holding the last rate after the last sample, the integral must say so too, or the sample
-        grid must end in a closing sample. Decide with TASK-05b and change this test with it.
+        Endpoint convention (BD-25): left-closed [t_i, t_{i+1}), the same as compute `rateAt`; "the last
+        sample adds nothing" is the integral's rule, and the boundary tests at the end of this file and
+        `packages/compute/tests/rateAtBoundary.test.ts` feed both languages the same instants.
         `window=(t0_utc, t1_utc)` clips every interval to [t0, t1]; time before the first sample or
         after the last adds nothing. No background is subtracted (the U-45 archive comparison uses
         gross integrals, as recorded in docs/ops/rad-series.md).
@@ -546,3 +545,68 @@ def test_committed_dose_series_sha256_matches_scenario_json():
     entry = json.loads(scenario.read_text(encoding="utf-8"))["tables"]["dose_series"]
     assert (scenario.parent / entry["path"]).resolve() == path.resolve()
     assert hashlib.sha256(path.read_bytes()).hexdigest() == entry["sha256"]
+
+
+# ---------------------------------------------------------------------------------------------
+# BD-25: the step-hold boundary convention is the same in Python and in compute `rateAt`
+# ---------------------------------------------------------------------------------------------
+
+
+def test_step_hold_is_left_closed_at_every_real_sample_instant_bd25():
+    """An interval [t_i, t_{i+1}) takes rate_i. The window one second either side of a sample instant therefore holds
+    rate_{i-1} for one second and rate_i for one second. The Vitest `rateAtBoundary.test.ts` feeds the same instants to
+    compute `rateAt` and expects the same rates, so the two languages cannot disagree on an endpoint."""
+    mod = _mod()
+    samples = json.loads((SCENARIO_DIR / "dose_series.json").read_text(encoding="utf-8"))["samples"]
+    for (_, before), (t, after), _next in zip(samples, samples[1:], samples[2:]):  # the last sample holds nothing
+        if before is None or after is None:
+            continue
+        lo = (datetime.strptime(t, ISO_FMT) - timedelta(seconds=1)).strftime(ISO_FMT)
+        hi = (datetime.strptime(t, ISO_FMT) + timedelta(seconds=1)).strftime(ISO_FMT)
+        assert mod.step_hold_integral_ugy(samples, window=(lo, hi)) == pytest.approx((before + after) / 3600, rel=1e-12)
+
+
+def test_truncation_of_fractional_seconds_never_makes_two_samples_collide():
+    """BD-25: D8 times are truncated to whole seconds; the committed series, built from them, is strictly increasing."""
+    samples = json.loads((SCENARIO_DIR / "dose_series.json").read_text(encoding="utf-8"))["samples"]
+    times = [s[0] for s in samples]
+    assert all(a < b for a, b in zip(times, times[1:]))
+
+
+# ---------------------------------------------------------------------------------------------
+# T21.06 (BD-06, BD-25): a scripted second read of the raw archive files
+# ---------------------------------------------------------------------------------------------
+
+
+def test_reread_of_the_raw_archive_recomputes_sol_4190_coverage_and_the_product_id():
+    """Recomputes, from the raw D8 file, the SPDF L2 files and the PDS label, the coverage and product claims of
+    docs/ops/rad-series.md, parsing each claimed number out of that note. Skips, naming the reason, when the raw files are absent."""
+    import re
+
+    raw = Path(os.environ.get("MARSWALK_RAD_DIR", REPO_ROOT / "pipeline" / "work" / "rad"))
+    d8 = raw / "doseE_sol_filter_update.txt"
+    label = raw / "pds-rdr" / "RAD_RDR_2024_140_18_30_4190_V00.LBL"
+    cdfs = sorted((raw / "spdf-l2").glob("*.cdf"))
+    if not (d8.is_file() and label.is_file() and cdfs):
+        pytest.skip("raw D8, PDS label or SPDF L2 files absent; set MARSWALK_RAD_DIR")
+    pytest.importorskip("cdflib")
+    note = (REPO_ROOT / "docs/ops/rad-series.md").read_text(encoding="utf-8")
+    claim = re.search(r"D8: (\d+) samples with sol (\d+\.\d+)…(\d+\.\d+); SPDF L2: (\d+) records on 20 May 2024", note)
+    assert claim, "the U-15 row of rad-series.md no longer states D8 and SPDF coverage"
+
+    rows = _mod().read_product(d8, "zenodo-d8")
+    on_sol = [sol for _, sol, _ in rows if 4190 <= sol < 4191]
+    assert len(on_sol) == int(claim.group(1))
+    assert f"{min(on_sol):.3f}" == claim.group(2) and f"{max(on_sol):.3f}" == claim.group(3)
+    spdf = _mod().read_spdf_l2(cdfs)
+    assert sum(1 for t, _, _ in spdf if t.startswith("2024-05-20")) == int(claim.group(4))
+
+    products = re.findall(r'PRODUCT_ID\s*=\s*"([^"]+)"', label.read_text(encoding="latin-1"))
+    product = "RAD_RDR_2024_140_18_30_4190_V00"
+    assert product in products  # the label's own PRODUCT_ID (the first one is the product type, RAD_RDR)
+    assert f'Label `PRODUCT_ID = "{product}"`' in note
+
+    series = json.loads((SCENARIO_DIR / "dose_series.json").read_text(encoding="utf-8"))
+    d8_times = {t for t, sol, _ in rows if 4190 <= sol < 4193}
+    assert {t for t, _ in series["samples"]} <= d8_times  # every committed sample is a D8 row of the event sols
+    assert series["source_id"] == "rad-sol4190"

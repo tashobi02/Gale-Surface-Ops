@@ -27,7 +27,7 @@ import { initialState, logged, reduce, type EngineState, type PendingEvent } fro
 import type { TickContext, TickResult } from "../src/engine/tick";
 import { loadSession } from "../src/session";
 import { readScenario, type LoadedScenario } from "../src/scenario";
-import { havenFlat } from "../../../packages/compute/tests/fixtures/v2grids";
+import { fixtureCellCentre, fixtureCellIndex, havenFlat } from "../../../packages/compute/tests/fixtures/v2grids";
 
 const spies = vi.hoisted(() => ({ hab: 0, crew: 0, vehicle: 0 }));
 vi.mock("@marswalk/compute", async () => {
@@ -228,6 +228,54 @@ describe("the hab field is computed once per grid, limits and candidate, and reu
     const moved: EngineState = { ...state, vehicles: state.vehicles.map((v) => ({ ...v, x_m: -1900 })) };
     havenTick(moved, ctxOf());
     expect(spies.vehicle).toBe(2);
+  });
+});
+
+describe("the live haven is computed once per crew cell (replay speed on the real 5 m grid; BD-145)", () => {
+  const cell = fx.grid.meta.cell_m;
+  /** The centre of the cell that holds x = 603, so a quarter-cell step stays inside it. */
+  const X0 = fixtureCellCentre(fx.grid.meta, fixtureCellIndex(fx.grid.meta, { x_m: 603, y_m: 0 })!).x_m;
+  const state = (x: number): EngineState => evaState({ EV1: x }, -2000);
+
+  it("a crew member who stays inside one cell does not rebuild the crew field", () => {
+    havenTick(state(X0), ctxOf());
+    expect(spies.crew).toBe(1);
+    havenTick(state(X0 + cell / 4), ctxOf());
+    havenTick(state(X0), ctxOf());
+    expect(spies.crew).toBe(1);
+  });
+
+  it("moving to another cell rebuilds it once", () => {
+    havenTick(state(X0), ctxOf());
+    havenTick(state(X0 + 2 * cell), ctxOf());
+    havenTick(state(X0 + 2 * cell), ctxOf());
+    expect(spies.crew).toBe(2);
+  });
+
+  it("two crew members each keep their own entry", () => {
+    const two = evaState({ EV1: 600, EV2: 900 }, -2000);
+    havenTick(two, ctxOf());
+    havenTick(two, ctxOf());
+    expect(spies.crew).toBe(2);
+  });
+
+  it("the cached result equals a cold computation at the same place, in the same cell and in the next one", () => {
+    for (const x of [X0, X0 + cell / 4, X0 + 2 * cell]) {
+      const warm = havenTick(state(x), ctxOf()).state.crew.find((c) => c.crew_id === "EV1")!.haven;
+      invalidateHavenCache();
+      const cold = havenTick(state(x), ctxOf()).state.crew.find((c) => c.crew_id === "EV1")!.haven;
+      expect(warm).toEqual(cold);
+    }
+  });
+
+  it("a change of the rover, the plan limits or invalidateHavenCache() recomputes", () => {
+    havenTick(state(X0), ctxOf());
+    const moved: EngineState = { ...state(X0), vehicles: state(X0).vehicles.map((v) => ({ ...v, x_m: -1900 })) };
+    havenTick(moved, ctxOf());
+    expect(spies.crew).toBe(2);
+    invalidateHavenCache();
+    havenTick(moved, ctxOf());
+    expect(spies.crew).toBe(3);
   });
 });
 

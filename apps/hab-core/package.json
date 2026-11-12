@@ -11,7 +11,8 @@
     "local": "tsx src/cli.ts local",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
-    "demo-numbers": "tsx scripts/demo-numbers.ts"
+    "demo-numbers": "tsx scripts/demo-numbers.ts",
+    "build-demo-plan": "tsx scripts/build-demo-plan.ts"
   },
   "dependencies": {
     "@fastify/static": "^8.0.0",

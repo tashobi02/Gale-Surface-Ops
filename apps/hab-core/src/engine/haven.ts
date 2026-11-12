@@ -32,7 +32,7 @@
  *   Wording is action first, at most 60 characters (04 §D.2).
  *   TODO(decision): caution level and the two wordings are this package's proposal; 02 §D.13 does not name them.
  */
-import { crewTimeField, habIngressS, habTimeField, liveHaven, vehiclePassable, vehicleTimeField, type LoadedGrid, type TimeField } from "@marswalk/compute";
+import { cellIndex, crewTimeField, habIngressS, habTimeField, liveHaven, vehiclePassable, vehicleTimeField, type LiveHaven, type LoadedGrid, type TimeField } from "@marswalk/compute";
 import type { Alert, Crew, LogEventData, MissionScenario, ParamSet, Vehicle } from "@marswalk/protocol";
 import type { LoadedScenario } from "../scenario";
 import { isWaiting, type EngineState, type PendingEvent, type StateChange } from "./reducer";
@@ -56,13 +56,34 @@ interface VehicleEntry {
   field: TimeField;
   passable: Uint8Array;
 }
+/**
+ * The live haven of one crew member, kept for the cell they stand in (BD-145). `liveHaven` reads the crew position only
+ * through the cell that contains it (`timeAt`, `pathTo` and the start of the crew field are all cell-level), so the result
+ * is the same for every position in one cell; on the real 5 m grid the 30 min crew field costs about 25 ms, which at one
+ * evaluation per second made a six-hour replay take about 18 minutes. The entry is valid while the grid, the cell, the hab
+ * and rover fields (by identity: they are themselves cached on their inputs), the passable mask, the two ingress times and
+ * the limit are the same objects and numbers.
+ */
+interface LiveEntry {
+  grid: LoadedGrid;
+  cell: number;
+  hab: TimeField;
+  vehicle: TimeField | null;
+  passable: Uint8Array | null;
+  hab_s: number;
+  vehicle_s: number;
+  limit_s: number;
+  live: LiveHaven | null;
+}
 let habCache: HabEntry | null = null;
 let vehicleCache: VehicleEntry | null = null;
+const liveCache = new Map<string, LiveEntry>();
 
 /** Forget the cached hab and rover fields (the next tick rebuilds them). */
 export function invalidateHavenCache(): void {
   habCache = null;
   vehicleCache = null;
+  liveCache.clear();
 }
 
 /** The hab field for the plan's start waypoint, cached on the key of BD-57 plus everything else the field reads. */
@@ -149,9 +170,18 @@ export function havenTick(state: EngineState, ctx: TickContext): TickResult {
     const hab_s = habIngressS(suit); // a missing hab_ingress_min throws, naming the key (BD-57)
     hfield ??= habField(state, grid, hab, mission);
     vehicle ??= vehicleInputs(state, ctx.scenario, grid, mission);
-    // The crew field is only read by the vehicle branch; without a vehicle the hab field (same geometry) stands in.
-    const crewField = vehicle ? crewTimeField(grid, { x_m: c.x_m, y_m: c.y_m }, mission, limit_s) : hfield;
-    const live = liveHaven(hfield, crewField, vehicle?.field ?? null, vehicle?.passable ?? null, { hab_s, vehicle_s: vehicle?.vehicle_s ?? 0 }, { x_m: c.x_m, y_m: c.y_m });
+    const cell = cellIndex(grid, c.x_m, c.y_m);
+    const vehicle_s = vehicle?.vehicle_s ?? 0;
+    const kept = liveCache.get(c.crew_id);
+    let live: LiveHaven | null;
+    if (kept !== undefined && cell !== null && kept.grid === grid && kept.cell === cell && kept.hab === hfield && kept.vehicle === (vehicle?.field ?? null) && kept.passable === (vehicle?.passable ?? null) && kept.hab_s === hab_s && kept.vehicle_s === vehicle_s && kept.limit_s === limit_s) {
+      live = kept.live;
+    } else {
+      // The crew field is only read by the vehicle branch; without a vehicle the hab field (same geometry) stands in.
+      const crewField = vehicle ? crewTimeField(grid, { x_m: c.x_m, y_m: c.y_m }, mission, limit_s) : hfield;
+      live = liveHaven(hfield, crewField, vehicle?.field ?? null, vehicle?.passable ?? null, { hab_s, vehicle_s }, { x_m: c.x_m, y_m: c.y_m });
+      if (cell !== null) liveCache.set(c.crew_id, { grid, cell, hab: hfield, vehicle: vehicle?.field ?? null, passable: vehicle?.passable ?? null, hab_s, vehicle_s, limit_s, live });
+    }
 
     const haven: Crew["haven"] =
       live === null
