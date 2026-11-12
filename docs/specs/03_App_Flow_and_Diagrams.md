@@ -58,6 +58,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 wer
 | Field | Spec |
 | --- | --- |
 | Purpose | Explain why the app cannot start and what to do |
+| Mode | OPS *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-207)* |
 | Entry | Manifest missing/invalid, routing grid failed, browser lacks Web Worker/WebGL-free fallback |
 | Content | Plain-language cause, missing asset name, "Retry", link to README run instructions |
 | States | Single |
@@ -146,7 +147,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 wer
 | --- | --- |
 | Purpose | One-page excursion summary for print/PDF |
 | Entry | "Briefing" button (enabled when status is OK, Over limits or Partial; disabled with no stops or after Error) |
-| Content | Header (site, plan name, data version, plan hash, generated time); route map snapshot; stops/timeline table; profile; metrics; warnings; conditions; assumptions; sources; disclaimer |
+| Content | Header (site, plan name — "Plan for <site name> — <EVA start date>" *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-133)*, data version, plan hash, generated time); route map snapshot; stops/timeline table; profile; metrics; warnings; conditions; assumptions; sources; disclaimer |
 | Actions | Print (browser), **Export plan JSON**, Back to map |
 | States | Partial plan → red banner "Plan incomplete — not valid for use" and totals omitted · Over limits → banner listing the exceeded limits |
 | Requirements | FR-14, FR-15 |
@@ -191,7 +192,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 wer
 | Field | Spec |
 | --- | --- |
 | Purpose | Tell one crew member where to go, how much margin is left, and how to get safe |
-| Entry | `#/eva/EV1` or `#/eva/EV2` |
+| Entry | `#/eva/EV1` or `#/eva/EV2`; portrait or landscape *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-010)* |
 | Content | Alert bar; haven and O₂ (largest); next stop with bearing/distance/ETA and its task count; stop task list at a stop (FR-50); mini-map; metadata strip (EVA time, dose, link); action row: Summon rover, Abort, Task rover, HUD |
 | Primary actions | Summon rover (hold), Abort to hab (hold), Acknowledge alert, tick or skip a stop task (one tap, sent at once; 5-s undo, which sends a server-side reversal, 02 §E.6), Open HUD |
 | States | Waiting for EVA start · Walking · At stop (dwell countdown) · Alerting (→ SCR-14) · To haven · Sheltered · No hab link (cached plan; commands queued) · EVA ended |
@@ -226,7 +227,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 wer
 | --- | --- |
 | Purpose | Send the utility rover to scout, carry, relay or return |
 | Entry | "Task rover" on SCR-12 or a vehicle card on SCR-11 |
-| Content | Task type tiles; target picked on map (or "nearest ridge for relay" suggestion); ETA, battery after task |
+| Content | Task type tiles; target picked on map (or "nearest ridge for relay" suggestion); *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-051)* after the Hab Core accepts the task: its ETA and battery (simulated); before that, — |
 | States | Choosing · Confirm · Queued · En route · Done · Failed (reason, e.g., `NO_ROUTE`) |
 | Requirements | FR-41 |
 
@@ -255,6 +256,7 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 wer
 | Field | Spec |
 | --- | --- |
 | Purpose | Never leave a live screen frozen without saying so |
+| Mode | Inherits the host route's mode *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-207)* |
 | Trigger | No server heartbeat for 3 s (real LAN loss) — distinct from a *simulated* comm shadow (FR-42), which shows a caution bar instead |
 | Content | EVA: banner "HAB SERVER UNREACHABLE — showing cached plan" + reconnect counter; cached plan and last values with ages. Ops: full-screen notice with retry |
 | Exit | Reconnect → snapshot/replay of missed events (02 §E.6) |
@@ -342,6 +344,8 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 wer
 | 9 | Crew cards turn SHELTERED; dose received vs. unsheltered | "Sheltered — PR1" | Same | `CREW_SHELTERED` |
 | 10 | End EVA → SCR-17 report | EVA ended | EVA ended | `EVA_ENDED` |
 
+*(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-012)* Steps 7 and 8: the caution and the advisory are in the alert list behind "+N"; the latched warning keeps the bar (04 §D.2).
+
 ### C.7 Rover tasking
 
 EV1 taps Task rover → Relay → accepts suggested ridge → UR1 drives → comm-shadow caution clears on the remaining route.
@@ -374,7 +378,7 @@ Hab Core process killed → SCR-18 banner on all clients within 3 s → EVA keep
 | No-data cell / impassable cell | Grid lookup | "Not walkable here (slope 22° > 15° limit)"; snapped position offered if ≤ 50 m | Accept snap or place elsewhere |
 | Optional layer unavailable | Tile 404 / asset missing at boot | Layer row disabled "Unavailable in this build"; sand warnings show "unknown" | Continue; routing unaffected |
 | Invalid input | UI validation | Inline field error with allowed range | Correct value; last valid value stays in effect |
-| No feasible route | Worker `NO_ROUTE` | Leg drawn dashed grey to nearest reachable point; banner with reason; totals hidden | Move stop, relax slope limit (with warning), or delete stop |
+| No feasible route | Worker `NO_ROUTE` | Leg drawn dashed `unknown` (04 §C.5) *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-122)* to nearest reachable point; banner with reason; totals hidden | Move stop, relax slope limit (with warning), or delete stop |
 | Over limits (duration, walkback, darkness) | Estimates | Status "Over limits" (amber/red) with list | Reduce stops, shorten dwell, change start time |
 | Partial results | Some legs OK, some not | Status "Partial"; briefing marked "not valid" | Fix failing legs |
 | Worker timeout/crash | `TIMEOUT`/`INTERNAL`/onerror | Results panel error "Computation failed" + Retry; map stays usable | Retry; reduce stops |
@@ -608,4 +612,4 @@ stateDiagram-v2
 | U-06 | Should free placement be allowed in the demo, or POIs only? | Allow both; demo uses the scenario's precomputed plan |
 | U-07 | Tablet editing depth | View + stop add/delete only in MVP; drag on tablet if time permits — **resolved 2026-11-02** (01 Clarifications) |
 | U-28 | Do vehicle-rendezvous options need ops approval? | No (crew safety first); only "continue with skipped stops" does — confirm with team |
-| U-29 | Should judges be able to join as EV2 from their own phone during judging? | Yes if the router allows guests; keep a spare phone |
+| U-29 | Should judges be able to join as EV2 from their own phone during judging? | Yes if the router allows guests; keep a spare phone. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-009)* Resolution: no guest join; the event is virtual (06 U-14) |

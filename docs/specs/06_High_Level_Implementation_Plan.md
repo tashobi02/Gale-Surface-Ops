@@ -111,12 +111,14 @@ Effort is person-hours (ranges, not promises). **P** = pre-event (Track P), **E*
 | **TASK-10** | POI detail (stop types) + conditions panel | R3 | E | 3–4 | Images with credits | — |
 | **TASK-11** | Briefing card + export → **`PUBLISH_PLAN` to Hab Core** | R3 | P 10–11 Nov | 3–5 | Plan appears in ops; `plan_hash` stable; each stop lists its tasks (FR-50) | Static thumbnail |
 | **TASK-12** | Sources & methods + provenance (6 classes) | R6 | P/E | 3–4 | DOM test: no unlabelled number in any role view | — |
-| **TASK-13** | Design system + **HUD tokens** + a11y | R6 | P 6–9 Nov | 4–6 | Tokens applied; HUD contrast ≥ 7 : 1 | Keep tokens + focus + patterns only |
+| **TASK-13** | Design system + **HUD tokens** + a11y | R6 | P 6–9 Nov | 4–6 | Tokens applied; HUD contrast ≥ 7 : 1; *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-154)* the wireframe evidence of T13.03 is the prototype frames of SCR-02 and SCR-08 | Keep tokens + focus + patterns only |
 | **TASK-14** | Integration, offline hardening, fault tests | R4 (lead) + all | P 10–12 Nov / E | 4–6 | 02 §F.1 + §F.2 fault cases pass | — |
-| **TASK-15** | Usability test (3 non-team users) incl. HUD glance + summon without instruction | R6 | P 10–11 Nov (moved from the event, v2.2) | 2–3 | ≥ 2 of 3 pass each criterion (01 §B.2) | — |
+| **TASK-15** | Usability test (3 non-team users) incl. HUD glance + summon without instruction | R6 | P 10–11 Nov (moved from the event, v2.2) | 2–3 | *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-156, FD-157, FD-158)* Automated heuristic checks (package 30 of the frontend plan) replace the three sessions; each UT row has a pass rule; failures become follow-up subtasks | — |
 | **TASK-16** | Submission package: README, LICENSE, AI_USE, credits, project page fields | R6 | P/E | 3–4 | Private-window check passes | — |
 | **TASK-17** | Videos: 240 s and 30 s (§G) | R6 + one helper | E | 4–6 | Uploaded, subtitled, datasets named, no under-18 likeness | Use M4 recording |
 | **TASK-18** | Tier 2 desirables (CRISM, REMS, dust, SVF refuge, Earth view) | Any | After M3 passes (P 10–12 Nov), cheapest first (REMS, dust); otherwise E after the M7 gate | 2–6 each | Labelled and tested | Skip |
+
+*(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-190, FD-191)* **Verification of the frontend lane:** `human-required` verify subtasks are met by named Playwright checks plus a verification-log entry.
 
 ### C.2 New in v2 (surface ops, Tier 1 unless marked)
 
@@ -200,6 +202,8 @@ The **planner (TASK-07…11) is off the critical path** for the killer demo: the
 ### D.4 Cut list (cut in this order when behind)
 
 Mirrors the organizer guide's rule — drop scope before the killer moment.
+
+*(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-193)* Fallbacks are built as degradation paths behind their trigger; the trigger no longer gates building them.
 
 **Not planned.** On 5 Nov the team decided not to cut scope (6 people, 6 build days). This list is a contingency only: it is invoked jointly by the team lead and the product & systems lead if M3 (10 Nov) is missed, starting from item 1.
 
