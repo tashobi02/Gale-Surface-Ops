@@ -1,0 +1,43 @@
+/* Notice (FD-115; 03 §D): a status line with the status icon and word. Tokens only; no brand orange. */
+.notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--fg-1);
+  font-size: var(--text-micro);
+  line-height: var(--line-height-ui);
+}
+
+.notice[data-empty="true"] {
+  display: block;
+  min-height: 0;
+}
+
+.notice:not([data-empty="true"]) {
+  padding: 6px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--control-edge);
+}
+
+.notice-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.notice-dismiss {
+  min-height: var(--target-mouse);
+  padding: 0 8px;
+  background: var(--surface-1);
+  color: var(--fg-1);
+  border: 1px solid var(--control-edge);
+  font-size: var(--text-micro);
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .notice-dismiss {
+    min-height: var(--target-touch);
+    min-width: var(--target-touch);
+  }
+}

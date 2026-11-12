@@ -3,7 +3,7 @@
  * EVA and HUD: every target at least 56 x 56 px with gaps of at least 8 px. Ops: at least 32 px. Planner: at least 44 px under
  * `pointer: coarse`. The limits are 04 §C.3's; this file only applies them.
  */
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { expectGaps, expectTargetSize, targets } from "../lib/geometry";
 import { waitForSnapshot } from "../lib/hab";
 
@@ -35,4 +35,19 @@ test("targets: planner workspace targets are at least 44 px under a coarse point
   await page.waitForLoadState("networkidle");
   await page.locator('[data-slot="map-workspace"]').waitFor();
   expectTargetSize(await targets(page), PLANNER_COARSE_MIN);
+});
+
+// Package 09: the plan panel's inputs, switches, radios and stops-list buttons, on the same touch projects.
+test("targets: plan panel targets are at least 44 px under a coarse pointer (package 09)", async ({ page, hasTouch }) => {
+  test.skip(!hasTouch, "a coarse pointer needs a touch project");
+  await page.goto("/?site=mock_site#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  const toggle = page.locator('[data-slot="drawer-toggle"][data-for="left"]');
+  if (await toggle.isVisible()) await toggle.click();
+  await page.getByRole("tab", { name: "Plan" }).click();
+  await page.locator('[data-slot="plan-panel"]').waitFor();
+  const list = await targets(page, '[data-slot="plan-panel"]');
+  expect(list.length, "the plan panel has targets").toBeGreaterThan(0);
+  expectTargetSize(list, PLANNER_COARSE_MIN);
 });

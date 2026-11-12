@@ -3,7 +3,7 @@
  * axe-core in real Chromium, tags wcag2a, wcag2aa, wcag21aa: zero serious or critical violations on every built route, in its
  * mode, and on each EVA and ops state fixture (FD-151). The full result of each scan goes to `out/axe-<route>.json`.
  */
-import { test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { axeScan, type HtmlMode } from "../lib/a11y";
 import { waitForSnapshot } from "../lib/hab";
 import { withManifestlessSite } from "../lib/siteBundle";
@@ -42,4 +42,29 @@ test("axe: SCR-02 planner workspace has no serious or critical violation", async
   await page.waitForLoadState("networkidle");
   await page.locator('[data-slot="map-workspace"]').waitFor();
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02` });
+});
+
+/** Opens the left drawer (one-drawer layouts) and its Plan tab, where the SCR-04 panel is. */
+async function openPlanTab(page: Page): Promise<void> {
+  await page.goto("/?site=mock_site#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  const toggle = page.locator('[data-slot="drawer-toggle"][data-for="left"]');
+  if (await toggle.isVisible()) await toggle.click();
+  await page.getByRole("tab", { name: "Plan" }).click();
+  await page.locator('[data-slot="plan-panel"]').waitFor();
+}
+
+// Package 09: the SCR-04 plan panel in its Empty state (only the start) and its Invalid input state (an out-of-range entry shows
+// its range inline). Editing and Computing are scanned by package 10, which can place stops from the keyboard.
+test("axe: SCR-04 plan panel Empty and Invalid input states have no serious or critical violation", async ({ page }, testInfo) => {
+  // 04 §F specifies the planner from 1024 px; its top bar does not fit a 360 or 390 px portrait phone, so the drawer button is
+  // out of reach there. The phone landscape (844 px) and every wider project are scanned.
+  test.skip((page.viewportSize()?.width ?? 0) < 800, "the planner is specified from 1024 px (04 §F)");
+  await openPlanTab(page);
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-empty` });
+  const duration = page.getByLabel(/max eva duration/i);
+  await duration.fill("-1");
+  await expect(page.getByRole("alert").filter({ hasText: /duration/i })).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-invalid` });
 });

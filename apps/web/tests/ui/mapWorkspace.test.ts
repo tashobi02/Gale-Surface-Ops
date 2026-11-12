@@ -114,6 +114,16 @@ describe("MapWorkspace layout (04 §E.3, §F)", () => {
     await click(must(root, '[data-drawer="left"] [role="tab"]:nth-child(2)'));
     expect(must(root, '[data-drawer="left"] [role="tab"][aria-selected="true"]').textContent).toContain("Plan");
   });
+
+  it("the Plan tab is the SCR-04 panel on the plan store: inputs, the defaults badge and the stops list (package 09)", async () => {
+    const { root } = await workspace(1280);
+    await click(must(root, '[data-drawer="left"] [role="tab"]:nth-child(2)'));
+    const plan = must(root, '[data-drawer="left"] [data-slot="plan-panel"]');
+    expect(plan.querySelector('[data-slot="defaults-badge"]')).not.toBeNull();
+    expect(plan.querySelector('[data-field="max_haven_min"] input')).not.toBeNull();
+    expect(plan.querySelector('[data-slot="stops-list"]')).not.toBeNull();
+    expect(root.querySelector('[data-drawer="left"] [data-slot="panel-pending"]')).toBeNull();
+  });
 });
 
 describe("MapWorkspace map mount (T07.06, T07.08)", () => {

@@ -11,8 +11,8 @@
  * Layout: top bar (logo to SCR-01, site, data-version chip, Briefing, Sources), metadata strip, left drawer (Layers,
  * Plan), the map, right drawer (POI detail, Conditions) and the bottom results panel (SCR-05). From 1280 px the drawers
  * are two columns beside the map; below it (down to 1024 px) one drawer at a time opens over the map (04 §F). SCR-03 is in
- * the Layers tab; the panels of SCR-04, SCR-06 and SCR-07 mount in their drawer tabs as their packages land, and until then
- * the tab says so in plain words and shows no value.
+ * the Layers tab; SCR-04 (package 09) is in the Plan tab; the panels of SCR-06 and SCR-07 mount in their drawer tabs as their packages land,
+ * and until then the tab says so in plain words and shows no value.
  *
  * Map: `createMap` (Mars projection, scale bar, north arrow, readout derived from `proj:IAU_2015:49900`, FD-080) with the
  * keyboard layer (A is the add-stop mode's; B opens the briefing, ? the sources, Delete removes the selected stop, arrows and
@@ -42,6 +42,7 @@ import { createWaypointLayer } from "../map/waypointLayer";
 import { initWaypointDrag } from "../map/waypointDrag";
 import { initTouchInput } from "../map/touchInput";
 import { LayersPanel, isScientificOverlay, type PanelLayer, type PanelLegend, type RowStatus } from "./scr03LayersPanel";
+import { PlanPanel } from "./scr04PlanPanel";
 import { RouteResults } from "./scr05RouteResults";
 import "./scr02MapWorkspace.css";
 
@@ -473,7 +474,7 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
             {leftTab === "layers" ? (
               <LayersPanel layers={panelLayers} onVisibleChange={setLayerVisible} onOpacityChange={setLayerOpacity} />
             ) : (
-              <PanelPending screen="SCR-04" label="Plan" task="T08.04" />
+              <PlanPanel ctx={ctx} />
             )}
           </div>
         </Drawer>
