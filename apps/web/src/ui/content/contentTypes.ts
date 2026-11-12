@@ -2,7 +2,7 @@
  * The shapes of the two content files of SCR-01 and SCR-09 (`briefing.json`, `methods.json`).
  *
  * The JSON modules carry no type of their own, so the screens and the tests read them through these types.
- * `src/export/planExport.ts` builds the export's provenance summary from its own table (FD-244) until the shared
+ * `src/export/planExport.ts` builds the export's provenance summary from its own table (FD-300) until the shared
  * `provenanceMap.json` (FD-136) exists.
  */
 import type { Provenance } from "@marswalk/protocol";

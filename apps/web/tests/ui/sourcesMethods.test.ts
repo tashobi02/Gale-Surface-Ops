@@ -45,7 +45,7 @@ describe("SCR-09 sources and methods (T12.03)", () => {
     }
   });
 
-  it("every source title is on the screen (the SCR-09 half of the `credits` check, FD-249)", async () => {
+  it("every source title is on the screen (the SCR-09 half of the `credits` check, FD-305)", async () => {
     // The `credits` harness check stays a fixme for package 31 (its README half is package 31's), so the SCR-09 half it
     // will assert is asserted here now.
     const { root, site } = await sources();

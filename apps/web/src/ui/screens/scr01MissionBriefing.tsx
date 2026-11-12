@@ -4,12 +4,12 @@
  * Implemented by T07.05; the demo-plan button is T07.14 (FD-041).
  *
  * BRIEF mode. The screen shows the site the bundle names, a context thumbnail (the coarsest tile of the manifest's
- * basemap layer, FD-109 and FD-245), the objective and "what this tool does" from `content/briefing.json` (no numbers
+ * basemap layer, FD-109 and FD-301), the objective and "what this tool does" from `content/briefing.json` (no numbers
  * in the copy, FD-109), one data badge per manifest source (the badges are the manifest's own `sources`; each carries
  * its provenance class and source id, FD-143), and the 01 §F.1 disclaimer verbatim.
  *
  * The three actions: **Start planning** opens the planner route with the default scenario, **Open demo plan** loads
- * `demoPlan.json` into the plan store and opens the planner (FD-246, FD-247) and **Run demo** opens the join screen
+ * `demoPlan.json` into the plan store and opens the planner (FD-302, FD-303) and **Run demo** opens the join screen
  * (SCR-10). **Sources & methods** opens SCR-09. The screen owns no navigation: it calls `onNavigate` with a route hash.
  *
  * Every displayed value carries `data-provenance` and `data-source` (FR-15, NFR-05); a value the bundle does not have
@@ -52,7 +52,7 @@ const DEMO = demoPlan as DemoPlanFile;
  * The thumbnail URL: the coarsest tile of the manifest's basemap layer (the raster-tile layer with `optional: false`;
  * the real site names `ortho`). A manifest with no such layer (the F4 fixture has only optional layers) falls back to the
  * coarsest tile of the first raster-tile layer the manifest names; a manifest with no raster-tile layer at all has no
- * thumbnail (FD-245). The tile is always a file of the site bundle, never an invented or remote image (NFR-01).
+ * thumbnail (FD-301). The tile is always a file of the site bundle, never an invented or remote image (NFR-01).
  *
  * The tile grid is XYZ with the coarsest level at z = 0 (`resolutions_m[0]` is the coarsest, as `rasterLayers.ts` uses
  * it), so the coarsest tile is `0/0/0.<format>`.
@@ -70,8 +70,8 @@ export function thumbnailUrl(site: LoadedSite): string | null {
 /**
  * The demo plan's waypoints against the site bundle: the site's `default_start` and the demo stops the bundle can
  * resolve (the POI id is in the bundle). A stop the bundle does not have is left out and named in the notice; no
- * coordinate is invented (FD-246). The demo plan names no start time, so the store sends nothing and the planner opens
- * in its Empty state until the planner or the Hab Core supplies one (FD-042, FD-247).
+ * coordinate is invented (FD-302). The demo plan names no start time, so the store sends nothing and the planner opens
+ * in its Empty state until the planner or the Hab Core supplies one (FD-042, FD-303).
  */
 export function resolveDemoWaypoints(site: LoadedSite): { waypoints: Waypoint[]; missing: string[] } {
   const start = site.site.default_start;
