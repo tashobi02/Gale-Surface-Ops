@@ -7,9 +7,9 @@
  *   the white 2 px ring with a 2 px `--void` gap. Colours, font and size are design tokens read at run time
  *   (mapTokens.ts); a missing token throws. A POI with bad coordinates is skipped and listed.
  * - Selection is its own: `selectPoi(id)` records the selected POI and calls `onSelectPoi(poi_id | null)`; it never
- *   touches the plan store's waypoint selection (a POI id is not a waypoint id). TODO(decision): C11 has no POI
- *   selection yet (planStore.ts header; consumers T10.01 opens SCR-06 from it, T13.06): the caller wires
- *   `onSelectPoi` to wherever that lands. Selecting an id that is not a POI of the site does nothing.
+ *   touches the plan store's waypoint selection (a POI id is not a waypoint id). Decided (FD-074): the POI selection is the
+ *   planner screen's own `selected_poi_id` UI state, outside C11; SCR-02 passes `onSelectPoi` to set it, and the SCR-06
+ *   drawer reads it. Selecting an id that is not a POI of the site does nothing.
  * - Keyboard path: a canvas marker cannot take focus, so the layer also builds `listElement`, a list with one real
  *   button per POI (Tab reaches it, Enter and Space select). It is visually hidden until a button has focus, then
  *   shows as a panel; focusing a button shows that POI's name and focus ring on the map. `attach(handle)` mounts the
@@ -34,7 +34,7 @@ import { colourToken, pxToken, readCssToken, requireToken, type TokenReader } fr
 export type { POIFeature };
 
 export interface PoiLayerOptions {
-  /** Called with the selected `poi_id`, or null when the selection is cleared (C11 POI selection: TODO(decision)). */
+  /** Called with the selected `poi_id`, or null when the selection is cleared (SCR-02's `selected_poi_id`, FD-074). */
   onSelectPoi?: (poiId: string | null) => void;
   initialVisible?: boolean;
   readToken?: TokenReader;

@@ -342,7 +342,7 @@ export function PostEvaReport({
                 {hasReceived ? `${fmtFixed(data.doseReceivedUgy, 1)} µGy` : nobodySheltered ? "not sheltered" : `${UNAVAILABLE} µGy`}{" "}
                 {glyphIf(hasReceived, "simulated")}
               </span>
-              <span style={{ fontSize: "12px", color: "#6B7280", margin: "0 4px" }}>vs</span>
+              <span style={{ fontSize: "12px", color: "#4B5563", margin: "0 4px" }}>vs</span>
               <span {...reportAttrs(hasUnsheltered, "simulated", "dose_event_unsheltered_ugy")} style={{ color: "#4B5563" }}>
                 {hasUnsheltered ? `${(data.doseUnshelteredUgy as number).toLocaleString("en-US")} µGy` : nobodySheltered ? "not sheltered" : `${UNAVAILABLE} µGy`}{" "}
                 {glyphIf(hasUnsheltered, "simulated")}
@@ -488,7 +488,7 @@ export function PostEvaReport({
               ))}
             </tbody>
           </table>
-          <p style={{ fontSize: "12px", color: "#6B7280", margin: "4px 0" }}>
+          <p style={{ fontSize: "12px", color: "#4B5563", margin: "4px 0" }}>
             Times are offsets from EVA start (sim time). Planned and differences are derived; actual is simulated.
           </p>
         </section>
@@ -542,7 +542,7 @@ export function PostEvaReport({
                   </td>
                   <td style={tdStyle}>
                     <div style={{ fontWeight: 600 }}>{alt.code}</div>
-                    {alt.message ? <div style={{ fontSize: "12px", color: "#6B7280" }}>{alt.message}</div> : null}
+                    {alt.message ? <div style={{ fontSize: "12px", color: "#4B5563" }}>{alt.message}</div> : null}
                   </td>
                   <td style={tdStyle}>
                     <span {...reportAttrs(true, "simulated", "alerts.times")}>
@@ -587,7 +587,7 @@ export function PostEvaReport({
             [ MAP /// MAP TRACE ]
           </h2>
           <p
-            style={{ fontSize: "12px", color: "#6B7280", margin: "4px 0" }}
+            style={{ fontSize: "12px", color: "#4B5563", margin: "4px 0" }}
             {...reportAttrs(false, "simulated", "map_trace")}
           >
             {UNAVAILABLE} Trace not available: it needs the session position log.
@@ -696,7 +696,7 @@ export function PostEvaReport({
               ? `All stops: ${data.tasksTotals?.done} / ${data.tasksTotals?.skipped} / ${data.tasksTotals?.dropped} of ${data.tasksTotals?.total}`
               : `All stops: ${UNAVAILABLE}`}
           </p>
-          <p style={{ fontSize: "12px", color: "#6B7280", margin: "4px 0 8px 0" }}>
+          <p style={{ fontSize: "12px", color: "#4B5563", margin: "4px 0 8px 0" }}>
             Dropped tasks: open tasks closed by the system when a plan revision dropped their stop (FR-50).
           </p>
         </section>
@@ -806,7 +806,7 @@ export function PostEvaReport({
           <p
             style={{
               fontSize: "12px",
-              color: "#6B7280",
+              color: "#4B5563",
               margin: "6px 0 0 0",
               lineHeight: 1.4,
               borderTop: "1px solid #E5E7EB",

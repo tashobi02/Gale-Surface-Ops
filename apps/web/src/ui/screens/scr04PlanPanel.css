@@ -1,0 +1,334 @@
+/*
+ * SCR-04 plan panel and its stops list (04 §B, §C.3 targets, §D "Input field" and "Stops list", §E; mockup #scr-04-*).
+ * Tokens only: no hex values, no brand orange in OPS (04 §A.3 #1). An invalid input is the warning outline (a thicker edge) with
+ * the octagon, the range in words and `aria-invalid`; selection is a thick edge, never colour alone (04 §A.3 #2).
+ */
+
+.scr04 {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--fg-1);
+  font-size: var(--text-ui);
+  line-height: var(--line-height-ui);
+}
+
+.scr04-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.scr04-badge {
+  padding: 2px 6px;
+  border: 1px solid var(--control-edge);
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+}
+
+.scr04-btn,
+.scr04-accordion,
+.stops-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  background: var(--surface-2);
+  color: var(--fg-1);
+  border: 1px solid var(--control-edge);
+  cursor: pointer;
+}
+
+.scr04-btn:disabled,
+.stops-btn:disabled {
+  color: var(--fg-3);
+  cursor: not-allowed;
+}
+
+.scr04-accordion {
+  width: 100%;
+  justify-content: flex-start;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+}
+
+.scr04-accordion[aria-expanded="true"] {
+  border-width: 2px;
+}
+
+.scr04-constraints {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scr04-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 2px;
+}
+
+.scr04-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.scr04-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.scr04-inline {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.scr04-label {
+  color: var(--fg-2);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+}
+
+.scr04-subhead {
+  margin-top: 4px;
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+}
+
+.scr04-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.scr04-input input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 6px;
+  background: var(--surface-0);
+  color: var(--fg-1);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* The warning outline is a thicker edge as well as a colour (04 §D Input field "Red outline + range text below"). */
+.scr04-field[data-invalid="true"] .scr04-input input {
+  border: 3px solid var(--status-warning);
+}
+
+.scr04-unit {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+.scr04-chip,
+.stops-chip {
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+.scr04-ltst {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-mono);
+}
+
+.scr04-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  color: var(--fg-1);
+  font-size: var(--text-micro);
+}
+
+.scr04-radios {
+  display: inline-flex;
+}
+
+.scr04-radio,
+.scr04-switch {
+  padding: 0 10px;
+  background: var(--surface-1);
+  color: var(--fg-1);
+  border: 1px solid var(--control-edge);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  cursor: pointer;
+}
+
+/* On is a thicker edge and, for the switch, the word ON; never colour alone (04 §A.3 #2). */
+.scr04-radio[aria-checked="true"],
+.scr04-switch[aria-checked="true"] {
+  border-width: 3px;
+  border-color: var(--fg-1);
+}
+
+/* ---------------------------------------------------------------- stops list (T08.05) */
+
+.stops {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stops-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.stops .mod {
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+.stops-empty,
+.stops-limit {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: var(--text-ui);
+}
+
+.stops-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stops-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--control-edge);
+}
+
+.stops-row[data-selected="true"] {
+  border: 3px solid var(--fg-1);
+  padding: 2px 6px;
+}
+
+.stops-row[data-hover="true"] {
+  border-style: dashed;
+}
+
+.stops-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.stops-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--target-mouse);
+  min-height: var(--target-mouse);
+  color: var(--fg-3);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.stops-select {
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 6px;
+  background: transparent;
+  color: var(--fg-1);
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stops-number {
+  font-family: var(--font-mono);
+}
+
+.stops-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stops-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.stops-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+.stops-arrival {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.stops-label {
+  color: var(--fg-3);
+  text-transform: uppercase;
+}
+
+/* Previous values stay while a result is computing, at 50 % (04 §D "Previous value at 50 % opacity"); no animation. */
+.stops-arrival[data-computing="true"] {
+  opacity: 0.5;
+}
+
+.stops-blocked {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--text-micro);
+}
+
+/* Touch targets are 44 px under a coarse pointer (04 §C.3). */
+@media (pointer: coarse) {
+  .scr04-btn,
+  .scr04-accordion,
+  .scr04-radio,
+  .scr04-switch,
+  .stops-btn,
+  .stops-select,
+  .stops-handle {
+    min-height: var(--target-touch);
+    min-width: var(--target-touch);
+  }
+}

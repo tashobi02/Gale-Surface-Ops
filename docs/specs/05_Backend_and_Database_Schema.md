@@ -254,7 +254,7 @@ Second record: `rad-gale-dose-eq-solar-min`, value `0.925` (midpoint, display as
 
 | Field | Type | Req | Default | Range (see [02 §E.3](02_Technical_Requirements_Document.md#e3-input-validation-rules)) |
 | --- | --- | --- | --- | --- |
-| `eva_start_utc` | ISO string | ✓ | site default | 2000–2100 |
+| `eva_start_utc` | ISO string | ✓ | *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-042)* the loaded scenario's `eva_start_utc` (Hab Core `GET /api/session`); with no Hab Core, no default: the field is required | 2000–2100 |
 | `max_eva_duration_h` | number | ✓ | 6.0 | 0.5–10 |
 | `dwell_min_per_stop` | number | ✓ | 20 | 0–180 |
 | `hard_slope_limit_deg` | number | ✓ | 15 | 5–35, > caution |
@@ -312,7 +312,7 @@ All defaults carry provenance `assumed` in the UI.
 | `export_schema_version` | string | ✓ |
 | `app_version` | string | ✓ |
 | `site_id`, `data_version` | string | ✓ |
-| `plan_hash` | string | ✓ — first 12 hex of SHA-256 over canonical JSON of `{data_version, scenario, waypoints}` (sorted keys, numbers as written). *Canonical JSON is RFC 8785 (JCS), decided 2026-11-07*: keys sorted by UTF-16 code units, no whitespace, numbers as ECMAScript `Number::toString` writes them (`1.0` → `1`, `1e21` → `1e+21`) |
+| `plan_hash` | string | ✓ — first 12 hex of SHA-256 over canonical JSON of `{data_version, scenario, waypoints}` (sorted keys, numbers as written). *Canonical JSON is RFC 8785 (JCS), decided 2026-11-07*: keys sorted by UTF-16 code units, no whitespace, numbers as ECMAScript `Number::toString` writes them (`1.0` → `1`, `1e21` → `1e+21`). *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-134)* The `plan_hash` input is canonicalised with RFC 8785 (JCS), as `log_hash`; the web client and the Hab Core use the same rule |
 | `scenario` | MissionScenario | ✓ |
 | `waypoints` | Waypoint[] | ✓ |
 | `result` | PlanResult | ✓ |

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ComputePlanRequest, SamplePointRequest } from "@marswalk/protocol";
 import {
+  getResultVariantFromName,
   getResultVariantFromUrl,
   handleMockWorkerMessage,
   MOCK_SAMPLE_RESULT_BASE,
@@ -114,5 +115,16 @@ describe("F3 — Mock worker (T05.04)", () => {
     expect(getResultVariantFromUrl("http://localhost/mockWorker.js?result=over-limits")).toBe("over-limits");
     expect(getResultVariantFromUrl("http://localhost/mockWorker.js")).toBe("ok");
     expect(getResultVariantFromUrl("invalid-url-string")).toBe("ok");
+  });
+});
+
+describe("F3 — Mock worker variant from the worker's name (FD-174)", () => {
+  it("reads mock:<variant>, which the app's ?mock_worker_result= switch sets, and ignores any other name", () => {
+    expect(getResultVariantFromName("mock:partial")).toBe("partial");
+    expect(getResultVariantFromName("mock:over-limits")).toBe("over-limits");
+    expect(getResultVariantFromName("")).toBeNull();
+    expect(getResultVariantFromName("planner")).toBeNull();
+    expect(getResultVariantFromName(undefined)).toBeNull();
+    expect(getResultVariantFromName("mock:")).toBeNull();
   });
 });

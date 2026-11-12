@@ -96,6 +96,17 @@
   box-shadow: var(--focus-ring);
 }
 
+/* Touch targets under a coarse pointer are 44 px (04 §C.3); the 32 px mouse size above is the default. */
+@media (pointer: coarse) {
+  .scr05-collapse-toggle,
+  .scr05-details-toggle,
+  .scr05-retry-btn,
+  .warning-zoom-btn {
+    min-height: var(--target-touch);
+    min-width: var(--target-touch);
+  }
+}
+
 .scr05-body {
   display: flex;
   flex: 1;
@@ -136,35 +147,6 @@
   display: flex;
   align-items: baseline;
   gap: 4px;
-}
-
-.scr05-metric-value {
-  color: var(--fg-1);
-  font-family: var(--font-mono);
-  font-size: var(--text-value-ops);
-  font-variant-numeric: tabular-nums slashed-zero;
-}
-
-.scr05-metric-value[data-unavailable="true"] {
-  color: var(--fg-3);
-}
-
-.scr05-metric-sep,
-.scr05-metric-unit {
-  color: var(--fg-3);
-  font-family: var(--font-mono);
-  font-size: var(--text-micro);
-}
-
-/* Provenance chip: outline, mono 11 px uppercase, text-2 (04 §C.1). */
-.scr05-chip {
-  padding: 0 4px;
-  border: 1px solid var(--control-edge);
-  color: var(--fg-2);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .scr05-profile-container {
@@ -274,4 +256,10 @@
   .scr05-results-panel {
     transition: none;
   }
+}
+
+.scr05-metric-sep {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
 }

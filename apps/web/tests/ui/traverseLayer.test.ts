@@ -46,6 +46,18 @@ const point = (props: Record<string, unknown>, coordinates: unknown = [10, 20]) 
 const collection = (...features: TraverseGeoJson["features"]): TraverseGeoJson => ({ type: "FeatureCollection", features });
 const GOOD = { sol: 4450, source_id: "usgs-gale-dem-1m-v3", provenance: "assumed" };
 
+describe("createTraverseLayer: the class the layer row shows (FD-075)", () => {
+  it("the mock site has no traverse layer in its manifest, so the row takes the feature's own class and its DataSource", () => {
+    const c = make();
+    expect(c.describe()).toEqual({ provenance: "assumed", sourceId: "usgs-gale-dem-1m-v3" });
+  });
+
+  it("with no drawn point there is no class to show: describe() is null, never a default", () => {
+    const c = make(SITE, collection());
+    expect(c.describe()).toBeNull();
+  });
+});
+
 describe("createTraverseLayer: the mock site's traverse", () => {
   it("draws the three points and the line in projected metres at the C10 traverse slot", () => {
     const c = make();

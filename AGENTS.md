@@ -4,6 +4,8 @@ For any coding agent (Codex, Cursor, Gemini CLI, …). This file is the single r
 
 **Project.** Team CheesySpace's NASA Space Apps 2026 entry: a habitat-local Mars surface operations system for one Exploration Zone at Gale crater — planner, Hab Core server, EVA tablet/HUD, ops console, with a replayed real solar particle event. npm workspaces: `apps/web` (TypeScript, Vite, OpenLayers, proj4), `apps/hab-core` (Node.js, Fastify, ws), `packages/compute`, `packages/protocol`; offline Python pipeline in `pipeline/`. Start at [docs/README.md](docs/README.md); `docs/specs/01–06` are the source of truth.
 
+**Full run, 12–13 Nov 2026 (read first).** Until the submission deadline (13 Nov 18:00) the product is finished in two lanes, backend (`core-backend`, Sadman) and frontend (`core-frontend`, Obidit), integrated on `merging-core`. Read [docs/plan/README.md](docs/plan/README.md) before any work: lane boundaries, package order, implementer prompt and conflict handling. It overrides task ownership in `_coordination.md` for the duration of the run.
+
 ## Phase gate
 
 **Track P recorded 2026-11-04: application code may be written before 13 Nov.** See [docs/ops/rules.md](docs/ops/rules.md) for the Local Lead's answer and the open scope question. Work follows the task windows and dependency order in [docs/tasks/_coordination.md](docs/tasks/_coordination.md); `pre-event-if-permitted` subtasks may start now. Re-check against the 2026 Project Submission and Judging guides on 13 Nov.

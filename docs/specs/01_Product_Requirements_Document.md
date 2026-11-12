@@ -288,7 +288,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 - **Full-screen map** *(added 2026-11-05, Tier 1, product & systems lead's decision)*: tapping the mini-map or FULL opens a full-screen map with labelled on-screen controls (+, −, FIT, FOLLOW, LAYERS, CLOSE) and up to two scientific layers at once (slope, thermal inertia, comm shadow, haven bands). HAVEN and O₂ stay on screen, the alert slot and action row never move, and a warning closes it. Layout: 04 §E.5; prototype: [mockup handoff](../design/mockup-handoff.md) DV-13, G-42, G-43.
 - **Content:** next stop (name, bearing, distance, ETA), mini-map with route and my position, margins strip (time to haven, O₂ remaining, EVA time remaining, dose so far), alert banner, three primary actions: **Summon vehicle**, **Task rover**, **Abort to haven**.
 - **Acceptance criteria:**
-  - Works on a phone/tablet ≥ 360 px wide in portrait; touch targets ≥ 56 px (glove use, **Assumed**).
+  - *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-010)* Works on a phone/tablet ≥ 360 px wide in portrait **or ≥ 844 × 390 px in landscape**; touch targets ≥ 56 px (glove use, **Assumed**); the alert bar, HAVEN (top-left), O₂, metadata strip and action row keep their positions in both orientations.
   - Each primary action is ≤ 2 taps + confirm.
   - When the Hab Core link is lost, shows "HAB LINK LOST" and continues to display the cached plan and last known margins, labelled stale with age.
 
@@ -526,7 +526,7 @@ The v1 planning walkthrough below is retained; task files cite its step numbers.
 | 5 | Drags stop 2 onto a steep slope | Leg turns "blocked/no feasible route" with reason; nearest reachable point shown | Honest failure behavior |
 | 6 | Moves stop 2 back; changes hard slope limit 15° → 12° | Route re-routes around a ridge; time increases | Explicit trade-off |
 | 7 | Sets EVA start to early morning | Daylight warning on first leg; sun elevation shown | Conditions integration |
-| 8 | Opens **Briefing card** | One-page summary: route, timeline, radiation 0.19 mSv (7 h, solar max), warnings, assumptions, sources | Usable output |
+| 8 | Opens **Briefing card** | One-page summary: route, timeline, radiation estimate as computed for the plan's EVA total *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-043)*, warnings, assumptions, sources | Usable output |
 | 9 | Opens **Sources & methods** | Dataset list, versions, processing steps, labels | Credibility |
 
 **Result produced:** an exportable plan and briefing card for a 3-stop Marswalk with explicit constraints and uncertainty.
@@ -575,7 +575,7 @@ The v1 planning walkthrough below is retained; task files cite its step numbers.
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| D-08 | Final product name | Team to choose; avoid names used by other public 2026 repos |
+| D-08 | Final product name | Team to choose; avoid names used by other public 2026 repos. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-006)* Decided: "Gale Surface Ops"; search of 12 Nov 2026 found no repository with that name; recorded in ADR-013 (written by package 31) |
 | D-09 | Default suited slope/walkback/speed | Keep editable; ask a NASA mentor at the 11:30 round |
 | D-10 | Scenario date | **20 May 2024 (sol 4190)** — real SEP event at Gale; confirm the AOI is in daylight at the chosen LTST |
 | D-11 | Haven rule default | 30 min; revisit with mentor |
@@ -695,7 +695,7 @@ Carried over verbatim from v1 (2026-11-02) so the acceptance criteria stay citab
 - **User story:** As a planner, I see the expected surface radiation dose for this excursion and how solid that number is.
 - **Priority:** M
 - **Behavior:** Dose equivalent = measured Gale surface rate × EVA duration, for selected solar-cycle phase. Show rate source (Curiosity RAD), uncertainty, and caveats (no suit shielding, no SEP events, no terrain shielding).
-- **Acceptance criteria:** For a 7 h EVA at solar-maximum rate 0.64 mSv/day the card shows 0.19 mSv (verified arithmetic: 0.64 × 7/24 = 0.187). Label: "measured rate × planned duration (simplified)."
+- **Acceptance criteria:** For a 7 h EVA at solar-maximum rate 0.64 mSv/day the card shows 0.19 mSv (verified arithmetic: 0.64 × 7/24 = 0.187). Label: "measured rate × planned duration (simplified)." *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-128)* The label text is "measured background rate × planned duration (simplified)" (the 02 §D.4 wording), so SCR-07, SCR-09 and the cards show one string.
 
 ### FR-13 — Environmental context (seasonal weather)
 
@@ -714,7 +714,7 @@ Carried over verbatim from v1 (2026-11-02) so the acceptance criteria stay citab
 
 - **Priority:** M
 - **Behavior:** Every layer and computed value has a provenance label and a link into the Sources & Methods panel (SCR-09), which lists datasets, versions, resolution, licence/credit, processing steps and known limitations.
-- **Acceptance criteria:** No numeric value is displayed without a provenance label (automated UI test checks `data-provenance` attribute on every metric element).
+- **Acceptance criteria:** No numeric value is displayed without a provenance label (automated UI test checks `data-provenance` attribute on every metric element). *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-110)* Identifiers and chrome are not metrics and carry no provenance label: data version, plan hash, log hash, generated time, dataset version and accessed dates, sol labels in headings, the scale bar, the `?debug=1` overlay, equations in SCR-09, and task ids. Every other digit does, including the coordinate readout.
 
 ### FR-16 — Offline and degraded operation
 

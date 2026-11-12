@@ -15,8 +15,8 @@
  * of 04 §F are shown; climb and descent are in the Details table.
  * TODO(decision): layout. This keeps the v1 status strip on top (04 Appendix A "status strip remains when collapsed")
  * where 04 §F draws the banner as a 280 px left column.
- * TODO(decision): `Metric` (T12.01) is a stub on main; the tiles here use `provAttrs`/`glyphOf` directly and move to it
- * when it lands.
+ * The tiles are the shared `Metric` component (T12.01, FD-058) and its number formats (`format.ts`, FD-124): km two
+ * decimals, min integer, ° one decimal, mSv two decimals.
  */
 import {
   Component,
@@ -33,17 +33,9 @@ import type { Leg, NoRouteLeg, PlanResult, Provenance } from "@marswalk/protocol
 import type { PlanState, PlanStore } from "../../state/planStore";
 import type { MapHandle } from "../context";
 import { StatusIcon, type ExtendedStatus } from "../components/statusIcon";
-import {
-  PROVENANCE_GLYPHS,
-  UNAVAILABLE,
-  fmtFixed,
-  fmtInt,
-  fmtKilometres,
-  isFiniteNumber,
-  provAttrs,
-  unavailableOf,
-  type Sourced,
-} from "../components/provenance";
+import { Metric } from "../components/metric";
+import { formatNumber, metresToKilometres, type FormatUnit } from "../components/format";
+import { UNAVAILABLE, isFiniteNumber, provAttrs, unavailableOf, type Sourced } from "../components/provenance";
 import { legStretchExtent } from "../map/routeGeometry";
 import { ProfileChart } from "../results/profileChart";
 import { linkProfileToMap } from "../results/profileLink";
@@ -66,11 +58,6 @@ const SRC_DOSE = "hassler-2014-rad";
 function words(code: string): string {
   const w = code.toLowerCase().replace(/_/g, " ");
   return w.charAt(0).toUpperCase() + w.slice(1);
-}
-
-/** A number without trailing zeros, at most two decimals ("5", "3.06"). */
-function trimmed(n: number): string {
-  return String(Number(n.toFixed(2)));
 }
 
 interface Banner {
@@ -141,45 +128,42 @@ function numeric(v: unknown, format: (n: number) => string, prov: Provenance, sr
   return isFiniteNumber(v) ? shown(format(v), prov, src) : missing(prov, path);
 }
 
-function Chip({ p }: { p: Sourced }): ReactElement | null {
-  if (!p.prov || p.unavailable) return null;
-  return (
-    <span className="scr05-chip" {...provAttrs(p)}>
-      {PROVENANCE_GLYPHS[p.prov]} {p.prov.toUpperCase()}
-    </span>
-  );
+/** One value of a tile: a number in the unit it is formatted by, and who says so (`path` names it when it is missing). */
+interface TilePart {
+  value: number | null;
+  prov: Provenance;
+  src: string;
 }
 
 interface MetricTileProps {
   label: string;
   /** One value, or a value and its limit. */
-  parts: Shown[];
-  unit: string;
+  parts: TilePart[];
+  unit: FormatUnit;
   hint?: string;
 }
 
 function MetricTile({ label, parts, unit, hint }: MetricTileProps): ReactElement {
-  const allMissing = parts.every((p) => p.unavailable);
   // The plan-derived value is the first part; a limit that follows is the scenario's own input and stays shown.
+  const first = parts[0];
   return (
-    <div className="scr05-metric" title={parts[0]?.unavailable ? hint : undefined}>
+    <div className="scr05-metric" title={first && first.value === null ? hint : undefined}>
       <div className="scr05-metric-label">{label}</div>
       <div className="scr05-metric-line">
         {parts.map((p, i) => (
           <span key={i} className="scr05-metric-part">
             {i > 0 ? <span className="scr05-metric-sep"> / </span> : null}
-            <span className="scr05-metric-value" {...provAttrs(p)}>
-              {p.text}
-            </span>
+            <Metric value={p.value} unit={unit} prov={p.prov} src={p.src} />
           </span>
-        ))}
-        {allMissing ? null : <span className="scr05-metric-unit">{unit}</span>}
-        {parts.map((p, i) => (
-          <Chip key={i} p={p} />
         ))}
       </div>
     </div>
   );
+}
+
+/** A tile part: the value when it is a finite number, else missing with the `unavailable:<path>` source. */
+function part(value: number | null | undefined, prov: Provenance, src: string, path: string): TilePart {
+  return isFiniteNumber(value) ? { value, prov, src } : { value: null, prov, src: path };
 }
 
 function metricsOf(state: PlanState, hide: boolean): MetricTileProps[] {
@@ -189,48 +173,28 @@ function metricsOf(state: PlanState, hide: boolean): MetricTileProps[] {
   const hint = "Needs a plan";
   const evaLimitMin = isFiniteNumber(sc?.max_eva_duration_h) ? sc.max_eva_duration_h * 60 : undefined;
   return [
-    {
-      label: "Distance",
-      unit: "km",
-      hint,
-      parts: [numeric(t?.distance_m, (n) => fmtKilometres(n), "derived", SRC_DEM, "result.totals.distance_m")],
-    },
-    {
-      label: "Walk time",
-      unit: "min",
-      hint,
-      parts: [numeric(t?.walk_time_min, fmtInt, "modelled", SRC_WALK_TIME, "result.totals.walk_time_min")],
-    },
+    { label: "Distance", unit: "km", hint, parts: [part(metresToKilometres(t?.distance_m), "derived", SRC_DEM, "result.totals.distance_m")] },
+    { label: "Walk time", unit: "min", hint, parts: [part(t?.walk_time_min, "modelled", SRC_WALK_TIME, "result.totals.walk_time_min")] },
     {
       label: "EVA total",
       unit: "min",
       hint,
       parts: [
-        numeric(t?.eva_total_min, fmtInt, "derived", SRC_WALK_TIME, "result.totals.eva_total_min"),
-        numeric(evaLimitMin, fmtInt, "assumed", "scenario.max_eva_duration_h", "scenario.max_eva_duration_h"),
+        part(t?.eva_total_min, "derived", SRC_WALK_TIME, "result.totals.eva_total_min"),
+        part(evaLimitMin, "assumed", "scenario.max_eva_duration_h", "scenario.max_eva_duration_h"),
       ],
     },
-    {
-      label: "Max slope",
-      unit: "°",
-      hint,
-      parts: [numeric(t?.max_slope_deg, (n) => fmtFixed(n, 1), "derived", SRC_DEM, "result.totals.max_slope_deg")],
-    },
+    { label: "Max slope", unit: "°", hint, parts: [part(t?.max_slope_deg, "derived", SRC_DEM, "result.totals.max_slope_deg")] },
     {
       label: "Max walkback",
       unit: "km",
       hint,
       parts: [
-        numeric(t?.max_walkback_km, trimmed, "derived", SRC_DEM, "result.totals.max_walkback_km"),
-        numeric(sc?.walkback_limit_km, trimmed, "assumed", "scenario.walkback_limit_km", "scenario.walkback_limit_km"),
+        part(t?.max_walkback_km, "derived", SRC_DEM, "result.totals.max_walkback_km"),
+        part(sc?.walkback_limit_km, "assumed", "scenario.walkback_limit_km", "scenario.walkback_limit_km"),
       ],
     },
-    {
-      label: "Dose",
-      unit: "mSv",
-      hint,
-      parts: [numeric(radiation?.dose_mSv, (n) => fmtFixed(n, 3), "modelled", SRC_DOSE, "result.radiation.dose_mSv")],
-    },
+    { label: "Dose", unit: "mSv", hint, parts: [part(radiation?.dose_mSv, "modelled", SRC_DOSE, "result.radiation.dose_mSv")] },
   ];
 }
 
@@ -292,7 +256,7 @@ function Cell({ p }: { p: Shown }): ReactElement {
 function LegTable({ result }: { result: PlanResult }): ReactElement {
   const keys = useMemo(() => legKeys(result.legs), [result.legs]);
   return (
-    <div className="scr05-details-table-wrap">
+    <div className="scr05-details-table-wrap" role="group" aria-label="Leg details" tabIndex={0}>
       <table className="scr05-details-table">
         <thead>
           <tr>
@@ -318,13 +282,13 @@ function LegTable({ result }: { result: PlanResult }): ReactElement {
                 <td>
                   {okLeg ? <StatusIcon status="nominal" word="OK" /> : <StatusIcon status="warning" word="NO ROUTE" />}
                 </td>
-                <Cell p={numeric(okLeg?.distance_m, (n) => fmtKilometres(n), "derived", SRC_DEM, `${path}.distance_m`)} />
-                <Cell p={numeric(okLeg?.walk_time_min, fmtInt, "modelled", SRC_WALK_TIME, `${path}.walk_time_min`)} />
-                <Cell p={numeric(okLeg?.max_slope_deg, (n) => fmtFixed(n, 1), "derived", SRC_DEM, `${path}.max_slope_deg`)} />
+                <Cell p={numeric(okLeg?.distance_m, (n) => formatNumber(metresToKilometres(n), "km"), "derived", SRC_DEM, `${path}.distance_m`)} />
+                <Cell p={numeric(okLeg?.walk_time_min, (n) => formatNumber(n, "min"), "modelled", SRC_WALK_TIME, `${path}.walk_time_min`)} />
+                <Cell p={numeric(okLeg?.max_slope_deg, (n) => formatNumber(n, "°"), "derived", SRC_DEM, `${path}.max_slope_deg`)} />
                 <Cell
                   p={
                     okLeg && isFiniteNumber(okLeg.climb_m) && isFiniteNumber(okLeg.descent_m)
-                      ? shown(`+${fmtInt(okLeg.climb_m)} / −${fmtInt(okLeg.descent_m)}`, "derived", SRC_DEM)
+                      ? shown(`+${formatNumber(okLeg.climb_m, "m")} / −${formatNumber(okLeg.descent_m, "m")}`, "derived", SRC_DEM)
                       : missing("derived", `${path}.climb_m`)
                   }
                 />
@@ -427,7 +391,7 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
       {collapsed ? null : (
         <div className="scr05-body">
           <div className="scr05-middle-col">
-            <div className="scr05-metrics-row" data-totals-hidden={hideTotals} style={{ opacity: computing ? 0.5 : 1 }}>
+            <div className="scr05-metrics-row" role="group" aria-label="Route metrics" tabIndex={0} data-totals-hidden={hideTotals} style={{ opacity: computing ? 0.5 : 1 }}>
               {metrics.map((m) => (
                 <MetricTile key={m.label} {...m} />
               ))}
