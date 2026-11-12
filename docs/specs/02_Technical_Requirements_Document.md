@@ -475,6 +475,7 @@ Precomputed table rows (1 min): `t_utc, light_time_s, sep_angle_deg, earth_elev_
 - **Mars → Earth delivery:** `t_deliver = next_pass_start(t_send) + light_time` (orbiter store-and-forward; orbiter-to-Earth downlink scheduling simplified to "at the pass"). Labelled *simplified DTN model*.
 - **Earth → Mars delivery:** `t_deliver = next_pass_start(t_send_earth + light_time)`.
 - **Direct-to-Earth from hab:** disabled by default; optional toggle uses `earth_elev_deg ≥ 10°`.
+- **Live use in the Hab Core** *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-129)*: `SEND_MESSAGE` from `eva:*` or `ops` goes to Earth, from `earth` to Mars, each queued (`EARTH_MSG_QUEUED`) with the delivery time above and delivered (`EARTH_MSG_DELIVERED`) at it. A message the rule cannot deliver because of a conjunction blackout is held and delivered as if sent at the first table time at which the rule can deliver it; if there is none it is refused (`BUSY`). A scenario `EARTH_MESSAGE` and a library event's `EARTH_MESSAGE` input are Earth to Mars messages sent at `payload.sent_earth_utc`, else when they fire, and arrive by the same rule. The SNAPSHOT `earth` block is the table's light time, next pass start and blackout at sim time
 - **Validation:** light time for the scenario date matches a WebGeocalc or `spiceypy` spot check within 1 s; a message sent mid-pass is delivered immediately + light time; one sent between passes waits.
 
 ### D.13 Space-weather event model (FR-37, FR-38)

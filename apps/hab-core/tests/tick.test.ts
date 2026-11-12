@@ -630,7 +630,10 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
     expect(conditionPaths[1].sort()).toEqual(["conditions/dose_rate_background_ugy_h", "conditions/dose_rate_event_ugy_h"]);
     expect(conditionPaths[2]).toEqual([]);
     expect(conditionPaths.flat().every((p) => ["conditions/dose_rate_background_ugy_h", "conditions/dose_rate_event_ugy_h", "conditions/event_series_utc"].includes(p))).toBe(true);
-    expect(trace.deltas.flat().filter((d) => !d.path.startsWith("conditions/")).every((d) => /^crew\/(EV1|EV2)\/(x_m|y_m|o2_frac|eva_elapsed_s|dose_event_ugy|dose_event_unsheltered_ugy|o2_remaining_min|next_stop_bearing_deg|next_stop_distance_m|next_stop_eta_s)$/.test(d.path))).toBe(true);
+    // The fake scenario's one Earth-link row has a Sun-Earth-Mars angle of 0 degrees, inside `conjunction_deg`, so the first tick
+    // reports `earth/blackout` once (T26.04, BD-129); light time (0 s) and next pass (none) are unchanged.
+    expect(trace.deltas.flat().filter((d) => d.path.startsWith("earth/"))).toEqual([{ path: "earth/blackout", value: true }]);
+    expect(trace.deltas.flat().filter((d) => !d.path.startsWith("conditions/") && !d.path.startsWith("earth/")).every((d) => /^crew\/(EV1|EV2)\/(x_m|y_m|o2_frac|eva_elapsed_s|dose_event_ugy|dose_event_unsheltered_ugy|o2_remaining_min|next_stop_bearing_deg|next_stop_distance_m|next_stop_eta_s)$/.test(d.path))).toBe(true);
     // Applying the deltas to the start reproduces the end state (what a client does).
     const folded = new Map<string, unknown>();
     for (const d of trace.deltas.flat()) folded.set(d.path, d.value);
@@ -703,9 +706,12 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
 
   it("a module that is still a T22.01 stub is skipped; any other module error propagates", () => {
     const s = onEva();
-    expect(() => earthTick(s, ctx(s))).toThrow(/^TODO\(TASK-26\): T26\.04 not implemented$/); // the stub the guard must skip
-    expect(() => step(s)).not.toThrow();
     const earth = vi.mocked(earthTick);
+    // The guard skips a module whose body is still the T22.01 stub (earth.ts and links.ts are real since package 18; the mock stands in).
+    earth.mockImplementationOnce(() => {
+      throw new Error("TODO(TASK-26): T26.04 not implemented");
+    });
+    expect(() => step(s)).not.toThrow();
     earth.mockImplementationOnce(() => {
       throw new Error("boom");
     });
