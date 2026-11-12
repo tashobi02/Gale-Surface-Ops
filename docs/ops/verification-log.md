@@ -497,8 +497,7 @@ The measurements above are preserved as recorded. They establish a baseline on t
 
 - The "T05.28 acceptance: PASS" and "NFR-02 benchmark: PASS" lines in the Verdict above are superseded for acceptance purposes. T05.28 stays `wip` in [status.md](../tasks/status.md): the `gale_boxwork` bundle and the ten F5 cell records were not available, and no real-grid benchmark exists.
 - [ADR-002](../decisions/ADR-002-static-app-no-backend.md) cites different figures (1.22/8.79 ms, 10.19 ms) that do not appear in this section. See its 2026-11-09 reconciliation note; its decision is preserved.
-- TODO(verify): Obtain the gale_boxwork bundle and ten independent F5 cell records, resolve the F5 slope-raster choice with T03.21, and record real-grid pair timings plus repeated successful three-stop-loop p95 with machine, runtime and data_version. Mock-site and single-run timings do not establish this acceptance.
-- TODO(verify): Locate the run cited by ADR-002. TODO(decision): The compute lead must review the reconciled real-grid evidence and D-02 sign-off; preserve the existing ADR decision during this repair.
+- The real-grid measurement, the F5 comparison and the review of the ADR-002 evidence were done on 13 Nov 2026 (backend package 24); see the section [T05.28, T05b.05, T05b.20 — real-grid benchmarks and independent checks](#t0528-t05b05-t05b20--real-grid-benchmarks-and-independent-checks-backend-package-24). The cited ADR-002 run was not found and is superseded by that section.
 
 ## Corrections 2026-11-11 (audit)
 
@@ -654,3 +653,47 @@ The first choice's numbers equal T03.30's to the third decimal, which shows the 
 | **Inputs** | `data/sites/gale_boxwork/vectors/traverse.geojson`, `pois.geojson`; [test_traverse_checks.py](../../pipeline/tests/test_traverse_checks.py) |
 
 12,255 points, 375 distinct sols (3549 to 4868). Every point is inside `aoi.extent_m` widened by U-04's 100 m margin (x −52.17 to 1738.61 m, y −252.94 to 3099.69 m); sols never decrease along the track; each POI lies 0.000 m from the traverse point of the PLACES sol its `position_source` names (the last row before the image sol for three of five), against a limit of 0.5 m plus one 5 m cell. The traverse layer's `limitations` states the PLACES accuracy (0.5 m, SIS 1.3 Rev-A §4.4.1.2) and that the ortho offset was not measured (BD-137). The DEM-to-ortho offset is the separate T03.20 record (1.92 m).
+
+## T05.28, T05b.05, T05b.20 — real-grid benchmarks and independent checks (backend package 24)
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 24, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: every figure below is from the real `gale_boxwork-2026.11.09` bundle |
+| **Machine (BD-03)** | Apple M2, 8 cores, 8 GiB RAM, macOS 15.7.2 (darwin 24.6.0), Node v24.5.0; the Vitest runs and `npx tsx` runs are Node, not the browser worker |
+| **Inputs** | `data/sites/gale_boxwork/` (grid via the SSD symlinks), F5 [real-grid-cells.json](../../pipeline/tests/fixtures/real-grid-cells.json), [realGrid.test.ts](../../packages/compute/tests/realGrid.test.ts), [realGridVerify.test.ts](../../packages/compute/tests/realGridVerify.test.ts), [real.ts](../../packages/compute/bench/real.ts), [gdal_viewshed_reference.py](../../pipeline/tests/fixtures/gdal_viewshed_reference.py) |
+
+**T05.28 (FR-03, FR-07, NFR-02).** The ten F5 cells equal the decoded grid: elevation to the float32 bit, slope P90 to the u8 step. 20 seeded pairs (Mulberry32, seed 20261108): 14 routes, 6 no-route, no crash; min 0, p50 63, p95 1,081, max 1,081 ms. The no-route answers are random points on cells over the slope limit (47.8 % of cells, BD-140). 3-stop loop through the handler: runs 13, 14, 13, 12, 11 ms after one warm-up, p95 14 ms. p95 of the pairs is at most 2 s, so T05.31 does not run.
+
+**T05b.05 (FR-39, NFR-02), `npx tsx packages/compute/bench/haven.bench.ts --real`.** `habTimeField` from the rank-1 hab mast (1037, -1652), cold (fresh grid per run), 1 warm-up + 5 runs: min 52, median 53, max 57 ms (54 53 52 52 57); the field reaches 169,064 of 1,440,000 cells. `crewTimeField` (30 min bound): 30 to 35 ms. `vehicleTimeField`: 29 to 40 ms. Synthetic all-passable terrain of the same size (`npm --workspace @marswalk/compute run bench -- haven`): worst cold run 407 ms. Worst real run 57 ms against 2,000 ms: **GO**; T05b.21 does not run.
+
+**T05b.20 (FR-39, FR-40, FR-42), `realGridVerify.test.ts`.** On a 200 x 200 crop around the rank-1 hab: `habTimeField` and `crewTimeField` equal an independent heap Dijkstra written from 02 §D.2 at every cell (relative 1e-9); `rendezvous` equals the brute-force candidate sort (same cell, same two arrival times). Mutation checks: changing the caution multiplier fails both field tests (19,411 and 16,891 cells differ), replacing max(Tc, Tv) by Tc + Tv fails the rendezvous test. Viewshed against `gdal_viewshed` (`-cc 1.0`, `-md 4000`, the T03.30 method) at the AOI centre and the four quadrant centres, 160,000 cells each: agreement 99.75, 99.83, 99.73, 99.54 and 99.77 %; compute-only visible cells 0.02 to 0.08 %. Mutation check: raising every terrain sample by 3 m drops the AOI centre to 96.03 % and fails the test.
+
+**Viewshed time (NFR-02, 02 §D.11, BD-61), `npx tsx packages/compute/bench/viewshed.bench.ts --real`.** One 4 km / 20 m viewshed, 1 warm-up + 5 runs per viewpoint: hab-first mast 94 to 103 ms, AOI centre 134 to 154, NE 80 to 122, NW 74 to 75, SE 75 to 83, SW 75 to 76 ms. Worst 154 ms against 1,000 ms: **GO on the real grid**. The synthetic bench (`... run bench -- viewshed`) misses: flat, everything visible, 4,381 to 4,704 ms; rough 447 to 465 ms. The flat case has 125,676 visible cells, 24 times the real worst case (10,363); Gale has no such terrain. Decision BD-141: the real-grid result counts; the algorithm is not changed.
+
+**T05b.01 (BD-63).** `contracts.test.ts` is green (47 passed with `realGrid.test.ts`); the contracts are accepted as implemented.
+
+## T21.06, T21.08, T21.11, T21.12, T22.13, T31.02, T32.32 — the real scenario (backend package 25)
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 25, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: `make replay` and `make hab` run on `scenarios/storm-sol4190` on the real `gale_boxwork-2026.11.09` bundle |
+| **Machine (BD-03)** | Apple M2, 8 cores, 8 GiB RAM, macOS 15.7.2 (darwin 24.6.0), Node v24.5.0 |
+| **Inputs** | [build-demo-plan.ts](../../apps/hab-core/scripts/build-demo-plan.ts), [plan.json](../../scenarios/storm-sol4190/plan.json), [scenario_build.py](../../pipeline/src/marswalk_pipeline/scenario_build.py), [scenario.json](../../scenarios/storm-sol4190/scenario.json), [storm-excerpt](../../apps/hab-core/tests/fixtures/storm-excerpt/README.md) |
+
+**T21.12 (plan).** `npm --workspace @marswalk/hab-core run build-demo-plan`, run twice: `plan_hash` d9919915db7e both times, file bytes equal. The three demo stops as `demoPlan.json` has them; hard slope limit **24°** where the file says 15° (BD-142: the smallest whole-degree limit at which every leg routes; four of the five POIs sit on 22.25° to 24.5° cells). Legs 59.0, 10.2, 5.7 and 79.9 min (2,389, 326, 243 and 2,319 m), status OK, total EVA 214.9 min against 360 min allowed, margin 145.1 min, max slope 24°, max walk-back 2.64 km. `eva_start_utc` **2024-05-20T04:11:00Z** by the T21.15 stop-2 dwell rule (the alert sample is 05:50:32Z), inside daylight (sunrise 00:22:19Z, sunset 13:01:00Z).
+
+**T21.08 / T32.32 (scenario).** `$(make -s pipeline-python) -m marswalk_pipeline.scenario_build`: prints the rule "last sample below `rad_clear_k` x `background_rate` before the first alert sample" and **`series_start_utc` 2024-05-20T05:16:55Z** (BD-143; the BD-98 form "at or below `background_rate`" would give 2024-05-19T19:45:15Z, before the sim clock starts). The press at that time is 65 min into the EVA and 33.6 min before the alert. `start_utc` = the plan's start; hab candidate `hab-first` (BD-10); crew EV1 and EV2; vehicles PR1 and UR1 at the hab mast (1037, -1652); 30 library inputs (29 DONKI records from the press to the end of the series, offsets from `series_start_utc`, plus one simulated Earth message answering the first, the 05:36 CME record, at its offset 1,145 s); no `events` (no DONKI record between the start and the press); 10 library tasks. Validates against `schemas/scenario.schema.json`; the Hab Core loader accepts it (`scenarioReal.test.ts`). sha256 of `scenario.json` f05e531353139ebec39cc894f2ec44371fbeb0512610ab54d71e90bc7e87ffb1; two builds give the same bytes. The Vitest check recomputes the first alert sample (05:50:32Z) and `series_start_utc` with compute `triggerState`.
+
+**T22.13 (`make replay`, `make hab`).** `make replay` on the real scenario, twice: **log_hash a347721a13ae7be8167a33ce9c3c364e501a35b11629fe6095babe2e8806c66c** both times, 40 to 41 s each. This hash is **new** because it is the first reference replay of the real scenario: every earlier hash is the fake scenario's (pinned by `cli.test.ts` and `logHash.test.ts`, unchanged). Before the haven memo (BD-145) the same replay did not finish in 5 minutes (profile: 28 of 33 s in `dijkstra` for 600 s of sim time). `make hab` (on port 18099 here) answers `/api/health` with `data_version gale_boxwork-2026.11.09` and `session_id s-0001`, and `/api/session` with the `storm-sol4190` snapshot.
+
+**T21.06 (RAD re-read, BD-25).** `test_rad.py::test_reread_of_the_raw_archive_recomputes_sol_4190_coverage_and_the_product_id` recomputes from the raw files: D8 88 samples with sol 4190.000 to 4190.989, SPDF L2 142 records on 20 May 2024, PDS `PRODUCT_ID` RAD_RDR_2024_140_18_30_4190_V00; each equals the number parsed out of `rad-series.md`. The step-hold boundary is left-closed in both languages (`test_rad.py` and `rateAtBoundary.test.ts` on every real sample instant); the Python mutation (right-hold) fails the test.
+
+**T21.11 (excerpt).** `make_storm_excerpt.py`: the 05 UTC hour holding `series_start_utc`: 4 dose samples, 60 Earth-link rows, byte-identical on re-run (`test_storm_excerpt.py`).
+
+**T31.02.** The agent-drafted task text is approved (BD-06) and carried through: 10 `stop_tasks`, 10 `task_library` entries keyed by POI id (`test_scenario_build.py`).
+
+**Red counts.** `buildDemoPlan.test.ts` 0 of 21 ran (module missing), then 21 green; `test_scenario_build.py` collection error, then 25 green; `test_storm_excerpt.py` 4 failed 1 passed, then 5 green; `havenTick.test.ts` 3 red then green; `test_rad.py` / `test_donki.py` additions passed at once and were mutation-checked (right-hold integral fails the boundary test); `scenarioReal.test.ts` and `rateAtBoundary.test.ts` passed at once on committed data. Mutations of `build-demo-plan.ts` (limit step 2, hash 11 hex, placeholder start) and `scenario_build.py` (BD-98 form, offsets from the start, wrong `answers`) each fail a test; the "every leg OK" variant of the NO_ROUTE check is an equivalent mutant (a leg is OK or NO_ROUTE).

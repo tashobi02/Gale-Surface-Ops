@@ -25,6 +25,7 @@
  */
 import { cpus, platform, release, totalmem } from "node:os";
 import { describe, test } from "vitest";
+import { runHavenReal, realMode } from "./real";
 import type { Bench } from "vitest";
 import type { LoadedGrid } from "../src/grid";
 import { crewTimeField, habTimeField, liveHaven, vehicleTimeField, vehiclePassable } from "../src/haven";
@@ -117,6 +118,9 @@ function printReport(): void {
   console.log(lines.join("\n"));
 }
 
+if (realMode()) {
+  runHavenReal();
+} else {
 describe("T05b.05 haven benchmark", () => {
   test(
     "one full-grid T_hab field on an AOI-size grid",
@@ -160,3 +164,4 @@ describe("T05b.05 haven benchmark", () => {
     900_000,
   );
 });
+}

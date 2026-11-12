@@ -38,7 +38,7 @@ note via a spec-change.
     load_cache(cache_dir) -> dict[str, list[dict]]
         Reads every `<TYPE>.json` (a JSON array of records) in `cache_dir` into {TYPE: records}.
 
-Field names per DONKI type (own time / id), all TODO(verify) against the CCMC DONKI documentation
+Field names per DONKI type (own time / id), checked against the committed cache (BD-110, the last test of this file)
 because no response was fetched for this task; they follow the public DONKI schema as remembered:
 
     FLR                  beginTime            flrID
@@ -69,7 +69,7 @@ WINDOW = ("2024-05-13", "2024-05-24")
 SOURCE_ID = "synthetic-donki-source"
 T_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
-# (DONKI type, id field, own-time field)  -- TODO(verify) all of these names.
+# (DONKI type, id field, own-time field)  -- checked against the cache (BD-110).
 TYPE_FIELDS = {
     "FLR": ("flrID", "beginTime"),
     "CME": ("activityID", "startTime"),
@@ -295,8 +295,8 @@ def test_events_validate_against_the_scenario_event_schema():
 def test_cme_analysis_records_are_accepted_whether_mapped_or_ignored():
     """02 L8 lists CMEAnalysis. The implementer may map it to events or ignore it; it must not raise.
 
-    TODO(verify): CMEAnalysis field names (time21_5, associatedCMEID, ...) were not checked against the
-    CCMC documentation; the record below is SYNTHETIC and its time field is a guess.
+    The record below is SYNTHETIC (CMEAnalysis is not mapped to events; its field names, time21_5 and
+    associatedCMEID, are those of the committed cache, BD-110).
     """
     mod = _mod()
     analysis = {"associatedCMEID": "SYNTH-CME-1", "time21_5": "2024-05-14T10:00Z", "speed": 0.0}  # SYNTHETIC
@@ -366,3 +366,31 @@ def test_load_cache_reads_one_json_array_per_type(tmp_path: Path):
     assert cache == {"FLR": records["FLR"], "WSAEnlilSimulations": records["WSAEnlilSimulations"]}
     # And the loaded cache feeds donki_events directly.
     assert len(_mod().donki_events(cache, SOURCE_ID)) == 2
+
+
+# ---------------------------------------------------------------------------------------------
+# BD-110: the committed cache is the source of truth for the field names the extractor reads
+# ---------------------------------------------------------------------------------------------
+
+CACHE_DIR = REPO_ROOT / "pipeline" / "cache" / "donki"
+
+
+def test_every_field_name_the_extractor_reads_is_present_in_the_cached_responses_bd110():
+    """No network: the committed JSON arrays must carry the id and time field of every record, the FLR `classType`, and for
+    WSAEnlilSimulations an `impactList` whose Mars entry has `location` and `arrivalTime` (what `_event` reads)."""
+    cache = _mod().load_cache(CACHE_DIR)
+    assert set(TYPE_FIELDS) <= set(cache)
+    for donki_type, (id_field, time_field) in TYPE_FIELDS.items():
+        assert cache[donki_type], f"{donki_type}: the cache has no record"
+        for record in cache[donki_type]:
+            assert isinstance(record.get(id_field), str) and record[id_field], f"{donki_type}: record without {id_field}"
+            assert isinstance(record.get(time_field), str) and record[time_field], f"{donki_type}: record without {time_field}"
+    assert any(r.get("classType") for r in cache["FLR"])
+    impacts = [i for r in cache["WSAEnlilSimulations"] for i in (r.get("impactList") or [])]
+    assert any(i.get("location") == "Mars" and i.get("arrivalTime") for i in impacts)
+
+
+def test_the_cache_readme_records_the_host_that_answered_with_http_200():
+    text = (CACHE_DIR / "README.md").read_text(encoding="utf-8")
+    assert "https://ccmc.gsfc.nasa.gov/DONKI/WS/get/" in text
+    assert text.count("| 200 |") >= len(TYPE_FIELDS)
