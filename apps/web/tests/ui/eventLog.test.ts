@@ -6,7 +6,7 @@
  * Includes the SCR-11 strip and keyboard drawer contract (FD-092).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
+import { act, createElement } from "react";
 import type { LogEvent, LogEventKind, ProvenanceMap } from "@marswalk/protocol";
 import { OpsConsole } from "../../src/ui/screens/scr11OpsConsole";
 import { storeFromBeat } from "./fixtureStore";
@@ -207,6 +207,24 @@ describe("EventLog COPY LOG reports what happened", () => {
 
 
 describe("SCR-11 log strip", () => {
+  it("log drawer traps Tab and Shift-Tab then Escape restores the opener", async () => {
+    const view = await mount(createElement(OpsConsole, { client: null }));
+    const strip = must<HTMLButtonElement>(view.container, '[data-slot="event-log-strip"]');
+    await click(strip);
+    const drawer = must(view.container, '[data-slot="event-log-drawer"]');
+    const close = must<HTMLButtonElement>(drawer, '[aria-label="Close event log"]');
+    const last = must<HTMLElement>(drawer, '[aria-label="Event rows"]');
+    last.focus();
+    await keyDown(last, "Tab");
+    expect(document.activeElement).toBe(close);
+    await act(async () => { close.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true })); });
+    expect(document.activeElement).toBe(last);
+    await keyDown(last, "Escape");
+    expect(view.container.querySelector('[data-slot="event-log-drawer"]')).toBeNull();
+    expect(document.activeElement).toBe(strip);
+    await view.unmount();
+  });
+
   it("strip opens drawer", async () => {
     const client = storeFromBeat("radiation-alert", "ops");
     const view = await mount(createElement(OpsConsole, { client }));

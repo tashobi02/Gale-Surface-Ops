@@ -791,7 +791,21 @@ export function OpsConsole({
             id="ops-event-log-drawer"
             data-slot="event-log-drawer"
             role="dialog"
+            aria-modal="true"
             aria-label="Event log"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                closeLog();
+              } else if (event.key === "Tab") {
+                const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]')];
+                const first = controls[0];
+                const last = controls[controls.length - 1];
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+              }
+            }}
             style={{
               position: "absolute",
               left: 0,
