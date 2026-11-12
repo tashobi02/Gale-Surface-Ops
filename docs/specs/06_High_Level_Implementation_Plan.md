@@ -54,6 +54,8 @@ Pairing rule: R2↔R4 own `packages/protocol` jointly; R3↔R5 share the map com
 
 ### A.2 Assignment by person *(Proposed 2026-11-05 — sign-off at the 6 Nov kickoff)*
 
+From 12 Nov every open subtask is assigned to Sadman Shaharier Mahim and executed by agents *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-00)*
+
 Each task's effort comes from §C; where two people share a task, the range is split between them. Pre-event load per person is 22–41 person-hours, about 2.2–5.1 working days at 8–10 h/day, so everyone's pre-event tasks can be finished before the 11 Nov dry run (capacity row in §A). "Coding agent" records each person's tool (Claude Code, Codex, Gemini CLI or more than one); the shared rules for every tool are in [ops/agentic-workflow.md](../ops/agentic-workflow.md).
 
 | Person | Position | Pre-event tasks (person-hours) | Pre-event total | Event tasks | Event total | Coding agent |
@@ -145,6 +147,8 @@ Effort is person-hours (ranges, not promises). **P** = pre-event (Track P), **E*
 | **Planner task editing** | Per-POI suggested tasks come with an added stop and are editable in the plan panel, published with the plan (SCR-04, SCR-06; FR-54) | Sadman Shaharier Mahim, **after** Saba Atharique's open planner subtasks land (PRs #168–#174: T02.01–T02.03, T07.01, T07.02, T08.01, T29.05), because it builds on her planner | After those subtasks; `TODO(decision)` | `TODO(decision)` | Adding a library POI shows its tasks; an edit reaches the EVA tablet after publishing | Tasks come from the library unedited; ops adds by hand (FR-50) |
 | **Ops setup screen** | SCR-20: candidate cards, mission settings, Continue to planner (FR-53) | R5: Ridita Alam | `TODO(decision)` | `TODO(decision)` | Choosing the other candidate changes the haven field, the comm layer and the planner start | Candidate fixed to the rank-1 site |
 | **Candidate-site comm grids** | Precomputed `comm_hab` grid per candidate (the first choice and the alternative of [hab-site.md](../ops/feasibility/hab-site.md)) and the manifest `hab_candidates` list (05 HabCandidate) | R1 pipeline: Obidit Islam | `TODO(decision)` | `TODO(decision)` | Validator passes with both candidates; each grid matches `gdal_viewshed` as TASK-03 requires | Ship the rank-1 candidate only |
+
+The owner of the ops setup screen (SCR-20) is Sadman Shaharier Mahim *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-94)*
 
 ---
 
@@ -310,4 +314,4 @@ Team → problem (one line) → storm alert on the HUD → summon → crew shelt
 | U-14 | Venue details (power, table space, projector input) — **Resolved 2026-11-09**: virtual event, no physical venue ([ops/team.md](../ops/team.md#venue-type-u-14-due-10-nov)) | R6 | 10 Nov |
 | U-21 | Travel router availability | R4 | 7 Nov |
 | U-22 | Phone models for the device matrix (Android/iOS) | R5 | 7 Nov |
-| U-65 | Task ids, windows, effort and sign-off of the live-session work packages (§C.2, 2026-11-10); registered by a `coord:` PR | R4 + team lead | `TODO(decision)` |
+| U-65 | Task ids, windows, effort and sign-off of the live-session work packages (§C.2, 2026-11-10); registered by a `coord:` PR | R4 + team lead | **Registered 2026-11-12**: T32.01–T32.32 are in the register of `docs/tasks/_coordination.md` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-94, BD-05)* |
