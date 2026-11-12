@@ -48,3 +48,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 ## Package 26 follow-up
 
 1. N-80 — Supply report source IDs with manifest-resolvable references and populate the 30-second crew trace in `/api/report`; this checkout's builder returns an empty trace and the protocol has no source IDs. SCR-17 shows — when unavailable.
+
+## Package 27 follow-up
+
+1. N-81 — Commit the storm recording required by N-21 and include the complete ordered session log in it (including events preceding the initial snapshot), so the Pages replay can independently verify the advertised log hash. The current collector begins with a snapshot and only records later events; this checkout has no recording file.

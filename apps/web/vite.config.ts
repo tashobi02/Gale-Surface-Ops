@@ -1,6 +1,8 @@
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 import { fileURLToPath } from "node:url";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 
 // Relative base so the build runs from the Hab Core or any static folder offline (NFR-01).
@@ -37,7 +39,17 @@ const spikeInput =
 
 // React + Vite (ADR-012): static build, no server rendering.
 export default defineConfig({
-  plugins: [react(), devInlineScript()],
+  plugins: [react(), devInlineScript(), {
+    name: "copy-replay-recording",
+    apply: "build",
+    closeBundle() {
+      const recording = fileURLToPath(new URL("../../scenarios/storm-sol4190/recording.json", import.meta.url));
+      if (!existsSync(recording)) return;
+      const destination = resolve(import.meta.dirname, "dist/replay");
+      mkdirSync(destination, { recursive: true });
+      copyFileSync(recording, resolve(destination, "recording.json"));
+    },
+  }],
   base: "./",
   build: spikeInput ? { rollupOptions: { input: spikeInput } } : {},
   server: {

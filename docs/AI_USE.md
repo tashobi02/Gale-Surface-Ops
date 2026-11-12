@@ -390,6 +390,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-12 | GPT-6.1 Terra (Codex, xhigh), frontend implementer | Package 17 continuation: EVA map, responsive layout, contrast and tap confirmation, rover entry, warnings, stop tasks, and harness checks | Tests first; N-04 link quality and N-29 reason revision remain unavailable; browser checks await the orchestrator outside the sandbox | Obidit Islam | This Codex session |
 | 2026-11-12 | GPT-6.1 Sol (Codex, xhigh), frontend implementer | Package 19: ops session hooks, clock shortcuts, scenario reload, report transition, sim-time advisory expiry, sound arming and narrow layouts; ops harness states | No science computed in UI; N-06 values retain supplied sources; phase absent (N-30). Tests first: 6 red, session-owner mutation killed | 1,379 web tests passed; focused 92 passed; browser verification pending with orchestrator | This Codex session |
 | 2026-11-12 | GPT-6.1 Terra (Codex, xhigh), frontend implementer | Package 26: report trace, background dose, log export and print harness | Tests first: 3 red; N-80 records missing backend trace and source IDs | Web checks and print verification recorded in commit | This Codex session |
+| 2026-11-12 | GPT-6.1 Terra (Codex, xhigh), frontend implementer | Package 27: read-only replay source, local playback controls, static build copy and hash verification | Tests first: 3 red; N-81 records missing recording and complete log | Web checks and replay verification recorded in commit | This Codex session |
 
 ## Prompts location
 

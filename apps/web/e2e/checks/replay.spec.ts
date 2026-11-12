@@ -6,7 +6,7 @@
  */
 import { expect, test } from "@playwright/test";
 
-test.fixme("replay: the recorded log plays to the end and its hash matches (enabled by package 29)", async ({ page }) => {
+test.fixme("replay: needs N-81 — complete recording plays to the end and its hash matches", async ({ page }) => {
   const origin = process.env.STATIC_REPLAY_ORIGIN;
   test.skip(!origin, "no static replay origin");
   await page.goto(`${origin}/#/replay`);
