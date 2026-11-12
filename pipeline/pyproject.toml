@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Offline preprocessing pipeline for Marswalk Planner (docs/specs/02 §A, §C; TASK-03, TASK-04)"
 license = "Apache-2.0"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["jsonschema>=4.0"]  # the manifest validator needs it (BD-21)
 
 [project.optional-dependencies]
 # Geo stack from docs/specs/02 §B. Kept optional so CI can run the (skipped) tests without GDAL.
@@ -25,4 +25,6 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# pipeline/work holds git-ignored downloads and scratch scripts (symlinked to the SSD); never collect them.
+norecursedirs = ["work", "cache", ".*", "node_modules"]
 pythonpath = ["src"]
