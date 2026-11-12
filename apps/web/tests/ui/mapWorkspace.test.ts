@@ -4,7 +4,7 @@
  * size and draws no frame; pixel geometry and tile painting are the harness's (`make e2e-one CHECK=offline|axe|targets|provenance`).
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
+import { act, createElement } from "react";
 import type { AppContext, MapHandle, WorkerClient } from "../../src/ui/context";
 import { MapWorkspace } from "../../src/ui/screens/scr02MapWorkspace";
 import { click, installDom, keyDown, mount as mountRaw, must, removeDom, type Mounted } from "./domHarness";
@@ -12,6 +12,7 @@ import { mockLoadedSite, stubReducedMotion, stubResizeObserver } from "./map/map
 import { fakePlanStore, resultOf, type FakePlanStore } from "./planStoreFake";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { realPlan, STOP_POI } from "./realPlanStore";
 
 beforeAll(() => {
   installDom();
@@ -35,6 +36,7 @@ afterEach(async () => {
   for (const m of open.splice(0)) await m.unmount();
   document.body.innerHTML = "";
   restoreMotion();
+  vi.unstubAllGlobals();
 });
 
 const workerClient = {
@@ -330,4 +332,28 @@ it("right drawer mounts POI detail and conditions on their real selections", asy
   expect(must(root, '[data-poi-detail]').textContent).toContain("Boxwork ridge");
   await click(must(root, '#scr02-right-tab-conditions'));
   expect(must(root, '[data-conditions]').textContent).toContain("Not included in this build");
+});
+
+it("N-07 library populates stops with Plan closed, feeds SCR-06 and the editor, and aborts/unsubscribes on exit", async () => {
+  const plan = realPlan();
+  const library = [{ library_task_id: "lt-boxwork-01", poi_id: STOP_POI.poi_id, crew_id: "EV1", kind: "image", text: "Image the ridge crest", source_id: "poi-boxwork-ridge" }];
+  const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ task_library: library }) });
+  vi.stubGlobal("fetch", fetcher);
+  const ctx: AppContext = { site: SITE, planStore: plan.store, workerClient, debug: false };
+  const m = await mountRaw(createElement(MapWorkspace, { ctx }));
+  open.push(m);
+  const root = m.container;
+  expect(must(root, '#scr02-left-tab-layers').getAttribute('aria-selected')).toBe('true');
+  await act(async () => { plan.store.addWaypoint(STOP_POI); });
+  expect(plan.store.get().stop_tasks).toHaveLength(1);
+  expect(plan.store.get().stop_tasks[0]!.text).toBe(library[0]!.text);
+  await click(must(root, 'button[data-poi-id]'));
+  expect(must(root, '[aria-label="Suggested tasks"]').textContent).toContain(library[0]!.text);
+  await click(must(root, '#scr02-left-tab-plan'));
+  expect(must(root, '[data-task-text]').getAttribute('data-source')).toBe(library[0]!.source_id);
+  await open.pop()!.unmount();
+  const request = fetcher.mock.calls.find(call => call[0] === 'api/session')!;
+  expect(request[1].signal.aborted).toBe(true);
+  plan.store.addWaypoint({ ...STOP_POI, id: 'wp-2' });
+  expect(plan.store.get().stop_tasks).toHaveLength(1);
 });

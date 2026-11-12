@@ -6,6 +6,7 @@
  * TODO(verify): control names and the keyboard-move keys come from packages 15, 10 and 14; adjust when they land.
  */
 import { expect, test, type Page } from "@playwright/test";
+import { openPoiTasks } from "../lib/plannerTasks";
 
 const MIN_RING_PX = 2;
 
@@ -80,4 +81,35 @@ test("keyboard-path: add two stops at the crosshair and move stop 2 by the keybo
   await expect(coords).not.toHaveText(before);
   await page.keyboard.press("ArrowLeft");
   await expect(coords).toHaveText(before);
+});
+
+test("keyboard-path: edit, add and delete a stop task through native keyboard controls (package 25)", async ({ page }) => {
+  const { editor, suggested } = await openPoiTasks(page);
+  const summary = editor.locator("summary");
+  await summary.focus();
+  await expectFocusVisible(page, "task disclosure");
+  await page.keyboard.press("Enter");
+  await expect(editor).not.toHaveAttribute("open");
+  await page.keyboard.press("Enter");
+  await expect(editor).toHaveAttribute("open", "");
+  await page.keyboard.press("Tab");
+  await expect(editor.locator("[data-task-kind]").first()).toBeFocused();
+  await expectFocusVisible(page, "task kind");
+  const text = editor.locator("[data-task-text]").first();
+  await text.focus();
+  await expectFocusVisible(page, "task text");
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.insertText("Observe the ridge");
+  await text.press("Tab");
+  await expect(text).toHaveValue("Observe the ridge");
+  const newText = editor.locator("[data-new-task-text]");
+  await newText.focus();
+  await page.keyboard.insertText(suggested[0]!.text);
+  await page.keyboard.press("Enter");
+  await expect(editor.locator("[data-task-text]")).toHaveCount(suggested.length + 1);
+  const remove = editor.locator("[data-delete-task]").last();
+  await remove.focus();
+  await expectFocusVisible(page, "delete task");
+  await page.keyboard.press("Enter");
+  await expect(editor.locator("[data-task-text]")).toHaveCount(suggested.length);
 });

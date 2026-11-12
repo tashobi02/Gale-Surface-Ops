@@ -32,7 +32,7 @@ function TextValue({ value, source, field }: { value: string | number | null | u
   return <span {...provAttrs(present ? source : { prov: source.prov, src: `unavailable:${source.src}${field ? `.${field}` : ""}`, unavailable: true })}>{present ? value : "—"}</span>;
 }
 
-function Specimen({ ctx, poi, placement, suggestedTasks = [] }: { ctx: AppContext; poi: POIFeature; placement?: Pick<Placement, "place">; suggestedTasks?: readonly TaskLibraryEntry[] }): ReactElement {
+function Specimen({ ctx, poi, placement, suggestedTasks }: { ctx: AppContext; poi: POIFeature; placement?: Pick<Placement, "place">; suggestedTasks?: readonly TaskLibraryEntry[] }): ReactElement {
   const subscribe = useCallback((notify: () => void) => ctx.planStore.subscribe(notify), [ctx.planStore]);
   const state = useSyncExternalStore(subscribe, ctx.planStore.get, ctx.planStore.get);
   const p = poi.properties;
@@ -90,7 +90,7 @@ function Specimen({ ctx, poi, placement, suggestedTasks = [] }: { ctx: AppContex
     </details>
     <h3>Position</h3>
     <p data-position {...provAttrs(source)}><TextValue value={p.position_source} source={source} /><br />{Number.isFinite(p.position_uncertainty_m) ? "±" : null}<Metric value={Number.isFinite(p.position_uncertainty_m) ? p.position_uncertainty_m : null} unit="m" prov={p.provenance} src={src} /></p>
-    {suggestedTasks.some(task => task.poi_id === p.poi_id) ? <section aria-label="Suggested tasks"><h3>Suggested tasks</h3><ul>{suggestedTasks.filter(task => task.poi_id === p.poi_id).map(task => <li key={task.library_task_id} {...provAttrs({ prov: "assumed", src: task.source_id ?? `scenario.task_library:${task.library_task_id}` })}>{task.text}</li>)}</ul></section> : null}
+    <section aria-label="Suggested tasks"><h3>Suggested tasks</h3>{suggestedTasks ? suggestedTasks.some(task => task.poi_id === p.poi_id) ? <ul>{suggestedTasks.filter(task => task.poi_id === p.poi_id).map(task => <li key={task.library_task_id} {...provAttrs({ prov: "assumed", src: task.source_id ?? `scenario.task_library:${task.library_task_id}` })}>{task.text}</li>)}</ul> : <p>No suggested tasks for this POI.</p> : <p><span {...provAttrs({ prov: "assumed", src: "unavailable:scenario.task_library", unavailable: true })}>—</span> Task library unavailable.</p>}</section>
     {stop ? <button type="button" data-remove-stop onClick={() => ctx.planStore.deleteWaypoint(stop.id)}>Remove stop</button> : <button type="button" data-add-stop disabled={atLimit || !placement || !poiPlaceRequest(poi)} aria-describedby={atLimit ? "scr06-stop-limit" : undefined} onClick={() => { const request = poiPlaceRequest(poi); if (request) void placement?.place(request); }}>Add as stop</button>}
     {atLimit && !stop ? <p id="scr06-stop-limit">Stop limit reached (<span {...provAttrs({ prov: "assumed", src: "spec:02-E.3" })}>{MAX_STOPS}</span>). Remove a stop to add another.</p> : null}
     {imageUrl && imageState === "shown" ? <dialog ref={dialog} className="scr06-image-dialog" aria-label={`${p.name} image`} onClose={() => enlarge.current?.focus()}>

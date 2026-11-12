@@ -8,6 +8,7 @@ import { axeScan, type HtmlMode } from "../lib/a11y";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 import { withManifestlessSite } from "../lib/siteBundle";
+import { openPoiTasks } from "../lib/plannerTasks";
 
 const LIVE = /^#\/(ops|eva|hud)/;
 
@@ -71,4 +72,20 @@ test("axe: SCR-04 plan panel Editing state with a selected stop and the keyboard
   await addStopByKeyboard(page, 2);
   await page.getByRole("group", { name: "Move stop 2" }).waitFor();
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-editing` });
+});
+
+test("axe: SCR-04 task editor populated, invalid and limit states have no serious or critical violation (package 25)", async ({ page }, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 800, "the planner is specified from 1024 px (04 §F)");
+  const { editor, suggested } = await openPoiTasks(page);
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-tasks` });
+  const text = editor.locator("[data-task-text]").first();
+  await text.fill("");
+  await expect(editor.getByRole("alert")).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-task-invalid` });
+  await text.fill(suggested[0]!.text);
+  for (let n = suggested.length; n < 4; n++) {
+    await editor.locator("[data-new-task-text]").fill(suggested[0]!.text);
+    await editor.getByRole("button", { name: "Add task", exact: true }).click();
+  }
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-task-limit` });
 });

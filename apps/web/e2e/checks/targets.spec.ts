@@ -7,6 +7,7 @@ import { expect, test } from "@playwright/test";
 import { expectGaps, expectTargetSize, targets } from "../lib/geometry";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
+import { openPoiTasks } from "../lib/plannerTasks";
 
 const EVA_MIN = 56;
 const EVA_GAP = 8;
@@ -56,5 +57,13 @@ test("targets: add-stop and keyboard-move targets are at least 44 px under a coa
   const list = await targets(page, '[data-slot="map-toolbar"]');
   expect(list.some((t) => /Add stop/.test(t.label))).toBe(true);
   expect(list.some((t) => /one cell east/.test(t.label))).toBe(true);
+  expectTargetSize(list, PLANNER_COARSE_MIN);
+});
+
+test("targets: stop task editor targets are at least 44 px under a coarse pointer (package 25)", async ({ page, hasTouch }) => {
+  test.skip(!hasTouch, "a coarse pointer needs a touch project");
+  await openPoiTasks(page);
+  const list = await targets(page, "[data-stop-task-editor]");
+  expect(list.some(target => /input/i.test(target.label))).toBe(true);
   expectTargetSize(list, PLANNER_COARSE_MIN);
 });

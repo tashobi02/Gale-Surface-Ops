@@ -11,7 +11,7 @@
  * The outcome is one of three states a screen shows: `pending` (the command is on the wire), `accepted`
  * (the Hab Core logged the plan) and `rejected` (with the Hab Core's own reason, 02 §E.6 rejections).
  */
-import type { CommandResult, PlanExport, StopTaskSeed } from "@marswalk/protocol";
+import type { CommandResult, PlanExport, PublishPlanArgs, StopTaskSeed } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 
 // Bound the UI wait when a disconnected Hab Core never answers; this does not drive simulation time.
@@ -68,7 +68,7 @@ export async function publishPlan(options: PublishPlanOptions): Promise<PublishO
   }
 
   try {
-    const args: { plan: PlanExport; stop_tasks?: StopTaskSeed[] } = { plan: options.plan };
+    const args: PublishPlanArgs = { plan: options.plan };
     const tasks = options.stopTasks ?? [];
     if (tasks.length > 0) args.stop_tasks = [...tasks];
 

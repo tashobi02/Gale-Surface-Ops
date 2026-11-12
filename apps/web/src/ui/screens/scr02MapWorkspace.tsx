@@ -26,6 +26,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode } from "react";
 import type OlMap from "ol/Map.js";
+import type { TaskLibraryEntry } from "@marswalk/protocol";
+import { createStopTaskDraft, fetchTaskLibrary } from "../../state/stopTaskDraft";
 import type { AppContext, MapHandle } from "../context";
 import { isNotBuilt } from "../../boot/bootPlanner";
 import { provAttrs } from "../components/provenance";
@@ -161,12 +163,27 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
   const [layerTick, setLayerTick] = useState(0);
   // FD-074: POI selection is this screen's own state, not the plan store's waypoint selection (C11 is unchanged).
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
+  const [taskLibrary, setTaskLibrary] = useState<readonly TaskLibraryEntry[] | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const onMapReadyRef = useRef(onMapReady);
   onMapReadyRef.current = onMapReady;
 
   const stops = plan.waypoints.filter((w) => w.role === "stop").length;
   const blocked = briefingBlock(plan.status, stops);
+
+  // FD-089/FD-171: one observer serves every placement path, even while the Plan tab is closed.
+  useEffect(() => {
+    const drafts = createStopTaskDraft(ctx.planStore);
+    const abort = new AbortController();
+    let alive = true;
+    setTaskLibrary(null);
+    void fetchTaskLibrary(abort.signal).then(library => {
+      if (!alive) return;
+      if (library) drafts.setLibrary(library);
+      setTaskLibrary(library);
+    });
+    return () => { alive = false; abort.abort(); drafts.destroy(); };
+  }, [ctx.planStore]);
 
   // The keyboard layer reads the plan store when a key is pressed (04 §E); the start waypoint is never deleted by it.
   const planContext = useMemo<KeyboardPlanContext>(
@@ -512,7 +529,7 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
             {leftTab === "layers" ? (
               <LayersPanel layers={panelLayers} onVisibleChange={setLayerVisible} onOpacityChange={setLayerOpacity} />
             ) : (
-              <PlanPanel ctx={ctx} />
+              <PlanPanel ctx={ctx} taskLibrary={taskLibrary ?? undefined} />
             )}
           </div>
         </Drawer>
@@ -556,7 +573,7 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
           <Tabs label="Right drawer" tabs={RIGHT_TABS} selected={rightTab} onSelect={setRightTab} idPrefix="scr02-right" />
           <div className="scr02-tabpanel" role="tabpanel" id="scr02-right-panel" aria-labelledby={`scr02-right-tab-${rightTab}`}>
             {rightTab === "poi" ? (
-              <PoiDetail ctx={ctx} selectedPoiId={selectedPoiId} placement={kit.placement} />
+              <PoiDetail ctx={ctx} selectedPoiId={selectedPoiId} placement={kit.placement} suggestedTasks={taskLibrary ?? undefined} />
             ) : (
               <Conditions ctx={ctx} />
             )}
