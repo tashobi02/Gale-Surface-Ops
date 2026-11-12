@@ -4,6 +4,7 @@
  */
 import { FLAG_BITS, type Leg, type MissionScenario, type PlanResult, type Warning, type Waypoint } from "@marswalk/protocol";
 import type { LoadedGrid } from "./grid";
+import { solarPosition, sunriseSunset } from "./sun";
 
 /**
  * Count the number of stops (waypoints with role "stop") in a plan.
@@ -11,6 +12,97 @@ import type { LoadedGrid } from "./grid";
  */
 export function countStops(waypoints: Waypoint[]): number {
   return waypoints.filter((wp) => wp.role === "stop").length;
+}
+
+/** Site coordinate for the solar checks (lat planetocentric °, lon east-positive °). */
+export interface WarningSite {
+  lat: number;
+  lon_e: number;
+}
+
+/**
+ * DARKNESS (BD-49): the first leg where the sun is below the flat horizon at a timeline instant, or where the sunset
+ * of the EVA's sol falls between two instants that are both lit. Instants in time order are each stop's arrival and its
+ * departure (the dwell's end); an arrival belongs to the leg that ends there, a departure to the leg that starts
+ * there. Needs the site; without it nothing is computed and nothing is guessed.
+ */
+function darknessWarning(
+  timeline: PlanResult["stops_timeline"] | undefined,
+  legCount: number,
+  site: WarningSite | undefined,
+): Warning | undefined {
+  if (site === undefined || timeline === undefined || timeline.length === 0 || legCount === 0) return undefined;
+  const lastLeg = legCount - 1;
+  const instants: { utc: string; ms: number; leg: number }[] = [];
+  timeline.forEach((entry, i) => {
+    instants.push({ utc: entry.arrive_utc, ms: Date.parse(entry.arrive_utc), leg: Math.min(Math.max(i - 1, 0), lastLeg) });
+    instants.push({ utc: entry.depart_utc, ms: Date.parse(entry.depart_utc), leg: Math.min(i, lastLeg) });
+  });
+  const make = (at_utc: string, leg: number): Warning => ({
+    code: "DARKNESS",
+    severity: "caution",
+    leg,
+    from_m: null,
+    to_m: null,
+    at_utc,
+    message: `Sun below the horizon at ${at_utc} (leg ${leg + 1}); flat-horizon model`,
+  });
+  for (const instant of instants) {
+    if (solarPosition(new Date(instant.ms), site.lat, site.lon_e).elevation_deg < 0) return make(instant.utc, instant.leg);
+  }
+  const sunset = Date.parse(sunriseSunset(new Date(instants[0].ms), site.lat, site.lon_e).sunset_utc);
+  for (let i = 1; i < instants.length; i++) {
+    if (instants[i - 1].ms < sunset && sunset <= instants[i].ms) return make(new Date(sunset).toISOString(), instants[i].leg);
+  }
+  return undefined;
+}
+
+/** Distance spans along a leg's unsimplified cell path where `flagged(cell)` holds, one per contiguous run. */
+function runsAlongPath(grid: LoadedGrid, cells: readonly number[], flagged: (cell: number) => boolean): { from_m: number; to_m: number }[] {
+  const runs: { from_m: number; to_m: number }[] = [];
+  let distance = 0;
+  let start: number | undefined;
+  let end = 0;
+  const close = () => {
+    if (start !== undefined) runs.push({ from_m: start, to_m: end });
+    start = undefined;
+  };
+  for (let i = 0; i < cells.length; i++) {
+    if (i > 0) {
+      const dr = Math.floor(cells[i] / grid.meta.width) - Math.floor(cells[i - 1] / grid.meta.width);
+      const dc = (cells[i] % grid.meta.width) - (cells[i - 1] % grid.meta.width);
+      distance += Math.hypot(dc * grid.meta.cell_m, dr * grid.meta.cell_m);
+    }
+    if (flagged(cells[i])) {
+      if (start === undefined) start = distance;
+      end = distance;
+    } else {
+      close();
+    }
+  }
+  close();
+  return runs;
+}
+
+/** A cell with no usable data: NO_DATA flag, NaN elevation or the u8 no-data slope (as noRoute.ts counts it). */
+function isNoDataCell(grid: LoadedGrid, cell: number): boolean {
+  return (grid.flags[cell] & (1 << FLAG_BITS.NO_DATA)) !== 0 || Number.isNaN(grid.elevation[cell]) || grid.slopeP90[cell] === 255;
+}
+
+/** True when any of the 8 neighbours of `cell` that lie in the grid is a no-data cell (BD-49). */
+function hasNoDataNeighbour(grid: LoadedGrid, cell: number): boolean {
+  const { width, height } = grid.meta;
+  const row = Math.floor(cell / width);
+  const col = cell % width;
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const r = row + dr;
+      const c = col + dc;
+      if (r >= 0 && r < height && c >= 0 && c < width && isNoDataCell(grid, r * width + c)) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -25,6 +117,7 @@ export function collectWarnings(
   grid?: LoadedGrid,
   waypoints?: Waypoint[],
   cellPaths?: (readonly number[] | undefined)[],
+  site?: WarningSite,
 ): Warning[] {
   const warnings: Warning[] = [];
 
@@ -155,75 +248,34 @@ export function collectWarnings(
     });
   }
 
-  // 3. Darkness check
-  // TODO(decision): Define darkness evaluation during travel and dwell, including temporal sampling or crossing inputs and warning location; arrival elevation alone does not cover the EVA interval.
-  // When no solar elevation data is present on timeline stops, the check is skipped.
-  const hasDarkness =
-    timeline !== undefined &&
-    timeline.length > 0 &&
-    timeline.some(
-      (t) =>
-        typeof t.sun_elevation_deg === "number" &&
-        Number.isFinite(t.sun_elevation_deg) &&
-        t.sun_elevation_deg < 0,
-    );
-  if (hasDarkness) {
-    warnings.push({
-      code: "DARKNESS",
-      severity: "caution",
-      leg: null,
-      from_m: null,
-      to_m: null,
-      message: "Sun elevation below horizon during planned EVA window",
-    });
-  }
+  // 3. Darkness at the timeline instants (BD-49)
+  const darkness = darknessWarning(timeline, legs.length, site);
+  if (darkness) warnings.push(darkness);
 
-  // 4. Cell-level TI coverage follows the unsimplified path, independent of solar conditions.
-  if (grid && grid.ti !== undefined && cellPaths) {
+  // 4. Cell-level route warnings follow the unsimplified path, independent of solar conditions (BD-49): TI_UNKNOWN
+  // (unknown), LOW_RES_DEM (caution) and NO_DATA_ADJACENT (caution), one warning per contiguous run per leg.
+  // U-03 is decided (Obidit Islam, 2026-11-10): no defensible TI "loose fines" threshold exists, so no LOW_TI bit is
+  // set and LOW_TI is never emitted (docs/ops/ti-threshold.md). Never infer a threshold from fixture values.
+  if (grid && cellPaths) {
     for (let legIndex = 0; legIndex < legs.length; legIndex++) {
       if (legs[legIndex].status !== "OK") continue;
       const cells = cellPaths[legIndex];
       if (!cells) continue;
-      let distance = 0;
-      let start: number | undefined;
-      let end = 0;
-      const emit = () => {
-        if (start === undefined) return;
-        warnings.push({
-          code: "TI_UNKNOWN",
-          severity: "unknown",
-          leg: legIndex,
-          from_m: start,
-          to_m: end,
-          message: "Thermal inertia data unavailable along route",
-        });
-        start = undefined;
-      };
-      for (let i = 0; i < cells.length; i++) {
-        if (i > 0) {
-          const previous = cells[i - 1];
-          const current = cells[i];
-          const dr = Math.floor(current / grid.meta.width) - Math.floor(previous / grid.meta.width);
-          const dc = (current % grid.meta.width) - (previous % grid.meta.width);
-          distance += Math.hypot(dc * grid.meta.cell_m, dr * grid.meta.cell_m);
-        }
-        if ((grid.flags[cells[i]] & (1 << FLAG_BITS.TI_UNKNOWN)) !== 0) {
-          if (start === undefined) start = distance;
-          end = distance;
-        } else {
-          emit();
+      const runWarnings: [Warning["code"], Warning["severity"], string, (cell: number) => boolean][] = [];
+      if (grid.ti !== undefined) {
+        runWarnings.push(["TI_UNKNOWN", "unknown", "Thermal inertia data unavailable along route", (c) => (grid.flags[c] & (1 << FLAG_BITS.TI_UNKNOWN)) !== 0]);
+      }
+      runWarnings.push(
+        ["LOW_RES_DEM", "caution", "Low-resolution DEM along route", (c) => (grid.flags[c] & (1 << FLAG_BITS.LOW_RES_DEM)) !== 0],
+        ["NO_DATA_ADJACENT", "caution", "Route passes next to a no-data cell", (c) => hasNoDataNeighbour(grid, c)],
+      );
+      for (const [code, severity, message, flagged] of runWarnings) {
+        for (const run of runsAlongPath(grid, cells, flagged)) {
+          warnings.push({ code, severity, leg: legIndex, from_m: run.from_m, to_m: run.to_m, message });
         }
       }
-      emit();
     }
   }
-
-  // U-03 is decided (Obidit Islam, 2026-11-10): there is no defensible TI "loose fines" threshold for the AOI,
-  // so `pipeline/sites/gale_boxwork/ti_threshold.json` is not written, T03.10 sets no LOW_TI bits, and no LOW_TI
-  // warning is emitted (docs/ops/ti-threshold.md). The warning stays dormant until a threshold is decided; never
-  // infer a threshold from fixture values.
-  // TODO(decision): Confirm LOW_RES_DEM warning severity before emitting bit-4 route warnings; the bit encoding is defined, but TASK-05 spec question 9 leaves severity open.
-  // TODO(decision): Define NO_DATA_ADJACENT neighbourhood, distance, severity and affected-segment policy before implementation; the routing graph's eight neighbours do not by themselves define this warning.
 
   // 5. Missing TI layer check (05 §E.6)
   if (grid && grid.ti === undefined) {

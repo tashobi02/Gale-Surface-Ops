@@ -13,7 +13,7 @@
   "url": "https://pubmed.ncbi.nlm.nih.gov/24324275/",
   "doi": "10.1126/science.1244797",
   "credit": "Hassler et al., 2014",
-  "licence": "TODO(verify)",
-  "accessed": "2026-11-02",
+  "licence": "not stated by the publisher (checked 2026-11-12: Europe PMC record for DOI 10.1126/science.1244797 lists isOpenAccess N and no licence; the publisher page https://www.science.org/doi/10.1126/science.1244797 returned HTTP 403 to the fetch). The app cites the paper and uses two published numbers (0.64 +/- 0.12 mSv/day); no figure or text is reproduced",
+  "accessed": "2026-11-12",
   "accuracy_note": "Surface dose equivalent rate measured by MSL RAD inside Gale Crater during solar maximum (2012–2013)."
 }

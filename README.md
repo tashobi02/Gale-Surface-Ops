@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`██████████░░░░░░░░░░` **49 %** — 170 of 345 subtasks done, 66 in progress.
+`███████████░░░░░░░░░` **53 %** — 183 of 345 subtasks done, 53 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -22,8 +22,8 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-02 Spike: OpenLayers custom Mars projection + custom tile grid](docs/tasks/TASK-02_projection-spike.md) | `████████░░` 80 % | 4 | 1 | 5 |
 | [TASK-03 Preprocessing pipeline](docs/tasks/TASK-03_preprocessing-pipeline.md) | `█████████░` 88 % | 28 | 1 | 32 |
 | [TASK-04 Vectors, POIs and images](docs/tasks/TASK-04_vectors-pois-images.md) | `████░░░░░░` 44 % | 4 | 4 | 9 |
-| [TASK-05 Compute core: grid loader, sampling, A*, profile, time model, walkback, warnings](docs/tasks/TASK-05_compute-core.md) | `████░░░░░░` 44 % | 22 | 8 | 50 |
-| [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `███░░░░░░░` 30 % | 3 | 7 | 10 |
+| [TASK-05 Compute core: grid loader, sampling, A*, profile, time model, walkback, warnings](docs/tasks/TASK-05_compute-core.md) | `██████░░░░` 56 % | 28 | 2 | 50 |
+| [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `█████████░` 90 % | 9 | 1 | 10 |
 | [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `████████░░` 82 % | 14 | 1 | 17 |
 | [TASK-08 Plan panel + waypoint editing](docs/tasks/TASK-08_plan-panel-and-waypoints.md) | `█████████░` 91 % | 10 | 0 | 11 |
 | [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `░░░░░░░░░░` 0 % | 0 | 3 | 8 |
@@ -38,7 +38,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `████████░░` 83 % | 10 | 1 | 12 |
 | [TASK-21 Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers](docs/tasks/TASK-21_scenario-builder.md) | `█████░░░░░` 46 % | 6 | 3 | 13 |
 | [TASK-22 Simulation engine: clock, crew motion, consumables, alerts, event log, replay](docs/tasks/TASK-22_simulation-engine.md) | `████████░░` 81 % | 13 | 1 | 16 |
-| [TASK-23 Safety ops in the Hab Core: commands, haven per tick, summon and rendezvous, contingency options, abort](docs/tasks/TASK-23_safety-ops.md) | `████████░░` 75 % | 6 | 1 | 8 |
+| [TASK-23 Safety ops in the Hab Core: commands, haven per tick, summon and rendezvous, contingency options, abort](docs/tasks/TASK-23_safety-ops.md) | `█████████░` 88 % | 7 | 0 | 8 |
 | [TASK-24 EVA client and HUD: SCR-12 tablet, SCR-13 HUD, SCR-14 options sheet, SCR-18 link lost, full-screen map](docs/tasks/TASK-24_eva-client-and-hud.md) | `█░░░░░░░░░` 9 % | 1 | 9 | 11 |
 | [TASK-25 Ops console: SCR-11 with the shared map, alerts, options approval, clock control, SCR-10 join](docs/tasks/TASK-25_ops-console.md) | `░░░░░░░░░░` 0 % | 0 | 8 | 9 |
 | [TASK-26 Links: surface link graph and `LINK_STATE`, comm-shadow warnings, Earth link widget and delayed queue](docs/tasks/TASK-26_links.md) | `░░░░░░░░░░` 0 % | 0 | 0 | 7 |

@@ -1,8 +1,10 @@
-import type { MissionScenario, RoutingGrid } from "@marswalk/protocol";
+import type { LoadedGridMeta, MissionScenario } from "@marswalk/protocol";
 import { describe, expect, it } from "vitest";
-import { makePlaneGrid, makeWallWithGapGrid } from "../../../apps/web/tests/fixtures/grids";
+import { FIXTURE_PROJ4, makePlaneGrid, makeWallWithGapGrid } from "../../../apps/web/tests/fixtures/grids";
 import { decodeSlopeDeg, type LoadedGrid } from "../src/grid";
-import { CANCEL_CHECK_EVERY_EXPANSIONS, searchLeg } from "../src/route";
+import { FLAG_BITS } from "@marswalk/protocol";
+import { CANCEL_CHECK_EVERY_EXPANSIONS, searchLeg, searchLegAsync } from "../src/route";
+import { toLeg } from "../src/leg";
 import { stepTimeH } from "../src/timeModel";
 
 const defaultScenario: MissionScenario = {
@@ -188,7 +190,7 @@ describe("searchLeg", () => {
     // Set cell (2, 2) as high slope (caution)
     slopeMax[2 * 5 + 2] = 48; // 12 degrees > caution (10)
 
-    const meta: RoutingGrid = {
+    const meta: LoadedGridMeta = {
       cell_m,
       width,
       height,
@@ -200,6 +202,7 @@ describe("searchLeg", () => {
       flags_asset: "f",
       comm_hab_asset: "c",
       hab_mast: { x_m: 0, y_m: 0, height_m: 10 },
+      proj4: FIXTURE_PROJ4,
     };
     const grid: LoadedGrid = {
       meta,
@@ -295,5 +298,113 @@ describe("searchLeg", () => {
 
       expect(aStarTimeH).toBeCloseTo(oracleDist[goalCell], 9);
     }
+  });
+});
+
+const macrotask = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+const farPair = { from: { x_m: 12.5, y_m: -12.5 }, to: { x_m: 137.5, y_m: -137.5 } };
+
+// BD-41: the search is a cooperative loop that yields to the event loop every CANCEL_CHECK_EVERY_EXPANSIONS expansions.
+describe("searchLegAsync (BD-41)", () => {
+  const grid = () => makePlaneGrid({ width: 30, height: 30, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+
+  it("gives the same answer as the synchronous search", async () => {
+    const g = grid();
+    const sync = searchLeg(g, farPair.from, farPair.to, defaultScenario);
+    const asyncResult = await searchLegAsync(g, farPair.from, farPair.to, defaultScenario, { yieldToLoop: macrotask });
+    expect(asyncResult).toEqual(sync);
+    expect(asyncResult.status).toBe("OK");
+  });
+
+  it("yields to the event loop once per cancellation interval, not more and not less", async () => {
+    const g = grid();
+    let yields = 0;
+    let expansionsSeen = 0;
+    const result = await searchLegAsync(g, farPair.from, farPair.to, defaultScenario, {
+      cancellationInterval: 10,
+      yieldToLoop: async () => {
+        yields++;
+        await macrotask();
+      },
+      shouldCancel: () => {
+        expansionsSeen++;
+        return false;
+      },
+    });
+    expect(result.status).toBe("OK");
+    expect(yields).toBeGreaterThan(1);
+    expect(expansionsSeen).toBe(yields);
+  });
+
+  it("is cancelled in flight: a flag set by another task while the search is yielded ends it with CANCELLED", async () => {
+    const g = grid();
+    let cancel = false;
+    setTimeout(() => {
+      cancel = true;
+    }, 0); // queued before the search's first yield, so it runs while the search waits
+    const result = await searchLegAsync(g, farPair.from, farPair.to, defaultScenario, {
+      cancellationInterval: 10,
+      yieldToLoop: macrotask,
+      shouldCancel: () => cancel,
+    });
+    expect(result).toEqual({ status: "CANCELLED" });
+  });
+
+  it("does not cancel when the flag never flips, and TIMEOUT still comes from maxExpansions", async () => {
+    const g = grid();
+    const timeout = await searchLegAsync(g, farPair.from, farPair.to, defaultScenario, {
+      maxExpansions: 5,
+      yieldToLoop: macrotask,
+      shouldCancel: () => false,
+    });
+    expect(timeout).toEqual({ status: "TIMEOUT" });
+  });
+
+  it("never yields for a search shorter than one interval", async () => {
+    const g = grid();
+    let yields = 0;
+    await searchLegAsync(g, { x_m: 12.5, y_m: -12.5 }, { x_m: 17.5, y_m: -12.5 }, defaultScenario, {
+      yieldToLoop: async () => {
+        yields++;
+      },
+    });
+    expect(yields).toBe(0);
+  });
+});
+
+// BD-47: caution and LOW_TI multipliers multiply on the destination cell; LOW_TI bits are never set on the real site (U-03).
+describe("combined step multipliers (BD-47)", () => {
+  const row = () => {
+    const g = makePlaneGrid({ width: 3, height: 3, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+    const centre = 1 * 3 + 1;
+    g.slopeMax[centre] = 48; // 12 degrees, above the 10 degree caution limit
+    return { g, centre };
+  };
+  const from = { x_m: 2.5, y_m: -7.5 }; // (row 1, col 0)
+  const to = { x_m: 12.5, y_m: -7.5 }; // (row 1, col 2)
+
+  it("goes straight through a caution-only cell (1.5 x) because the detour is longer", () => {
+    const { g, centre } = row();
+    const result = searchLeg(g, from, to, defaultScenario);
+    expect(result.status === "OK" && result.cells.includes(centre)).toBe(true);
+  });
+
+  it("detours around a cell that is both caution and LOW_TI (1.5 x 1.3 = 1.95 x), not through it", () => {
+    const { g, centre } = row();
+    g.flags[centre] |= 1 << FLAG_BITS.LOW_TI;
+    const result = searchLeg(g, from, to, defaultScenario);
+    expect(result.status).toBe("OK");
+    if (result.status === "OK") expect(result.cells).not.toContain(centre);
+  });
+
+  it("charges the same product on the leg's walk time as the search used", () => {
+    const g = makePlaneGrid({ width: 3, height: 1, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+    g.slopeMax[1] = 48;
+    g.flags[1] |= 1 << FLAG_BITS.LOW_TI;
+    const search = searchLeg(g, { x_m: 2.5, y_m: -2.5 }, { x_m: 12.5, y_m: -2.5 }, defaultScenario);
+    expect(search.status).toBe("OK");
+    const leg = toLeg(g, "a", "b", search, defaultScenario);
+    const expectedH = stepTimeH(5, 0, defaultScenario.suited_flat_speed_kmh, 1.5 * 1.3) + stepTimeH(5, 0, defaultScenario.suited_flat_speed_kmh, 1);
+    expect(leg.status === "OK" && leg.walk_time_min).toBeCloseTo(expectedH * 60, 9);
   });
 });

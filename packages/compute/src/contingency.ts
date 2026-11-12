@@ -38,7 +38,7 @@ export interface ContingencyInputs {
    * (`proposeOptions` throws a RangeError without it); not needed for one crew member or when either
    * rendezvous is NO_RENDEZVOUS. A two-crew VEHICLE_RENDEZVOUS option reports the first-visited point
    * in `ContingencyOption.rendezvous`.
-   * TODO(decision): 05 has a single rendezvous point per option.
+   * 05 has a single rendezvous point per option (BD-58); the vehicle drives the second meeting from the logged state.
    */
   pair?: RendezvousPair;
   /** The plan being walked: "continue with skips" needs the dropped stops and the remaining legs (§D.15). */

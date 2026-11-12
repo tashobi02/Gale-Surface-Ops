@@ -123,21 +123,30 @@ export function isCellPassable(grid: LoadedGrid, idx: number, hardSlopeLimitDeg:
   return true;
 }
 
+/** Options for the cooperative (async) search; the caller owns the clock, so the yield is injected (NFR-06). */
+export interface AsyncSearchOptions {
+  maxExpansions?: number;
+  /** Read after every yield; `true` ends the search with CANCELLED (BD-41). */
+  shouldCancel?: () => boolean;
+  cancellationInterval?: number;
+  /** Lets other tasks (a newer COMPUTE_PLAN message) run; called once per cancellation interval. */
+  yieldToLoop: () => Promise<void>;
+}
+
 /**
- * Least-time path between two points. Input: start/end metres, scenario limits.
- * Output: unsimplified cell path or NO_ROUTE with reason and nearest reachable cell.
+ * The search as a generator: it yields once every `cancellationInterval` expansions, at the point where the old loop
+ * checked for cancellation, and returns the result. Both drivers below read the cancel flag at each yield, so the
+ * synchronous and the async search expand cells in the identical order (02 §D.2 (4), NFR-06).
  */
-export function searchLeg(
+export function* searchLegSteps(
   grid: LoadedGrid,
   from: { x_m: number; y_m: number },
   to: { x_m: number; y_m: number },
   scenario: MissionScenario,
-  maxExpansions = MAX_NODE_EXPANSIONS,
-  shouldCancel?: () => boolean,
-  cancellationInterval = CANCEL_CHECK_EVERY_EXPANSIONS,
-): LegSearch {
-  const { width, height, cell_m, origin_m } = grid.meta;
-  const [origin_x, origin_y] = origin_m;
+  maxExpansions: number,
+  cancellationInterval: number,
+): Generator<void, LegSearch, void> {
+  const { width, height, cell_m } = grid.meta;
   const totalCells = width * height;
 
   const startIdx = cellIndex(grid, from.x_m, from.y_m);
@@ -233,10 +242,9 @@ export function searchLeg(
     expansions++;
     exploredCells.push(u);
 
-    // Cooperative cancellation check every 50,000 expansions (02 §E.2). Nothing passes `shouldCancel` yet:
-    // TODO(decision): event-loop yielding or shared abort signalling (TASK-05 T05.18/T05.27).
-    if (expansions % cancellationInterval === 0 && shouldCancel?.()) {
-      return { status: "CANCELLED" };
+    // Cooperative point (BD-41): the driver reads the cancel flag here, after letting other tasks run if it is async.
+    if (expansions % cancellationInterval === 0) {
+      yield;
     }
 
     if (expansions >= maxExpansions) {
@@ -261,8 +269,8 @@ export function searchLeg(
         continue;
       }
 
-      // Diagonal corner cutting: only the destination cell is tested, the same as haven.ts (T05b.04) so haven and
-      // route agree on reachability. The rule is still Proposed / TODO(decision) in TASK-05b; 02 §D.2 does not state it.
+      // Diagonal corner cutting: only the destination cell is tested, the same as haven.ts so haven and route agree
+      // on reachability (BD-48).
       if (!isCellPassable(grid, v, scenario.hard_slope_limit_deg)) {
         continue;
       }
@@ -271,7 +279,7 @@ export function searchLeg(
       const dM = isDiag ? diagDistM : cell_m;
       const dzM = vElev - uElev;
 
-      // Caution and low-TI multipliers on the destination cell (02 §D.2)
+      // Caution and low-TI multipliers on the destination cell; when both apply they multiply (02 §D.2, BD-47).
       let multiplier = 1.0;
       const slopeMax = decodeSlopeDeg(grid.slopeMax[v]) ?? 0;
       if (slopeMax > scenario.caution_slope_deg) {
@@ -300,4 +308,52 @@ export function searchLeg(
     reason: noRouteInfo.reason,
     nearest_reachable: noRouteInfo.nearest_reachable,
   };
+}
+
+/**
+ * Least-time path between two points. Input: start/end metres, scenario limits.
+ * Output: unsimplified cell path or NO_ROUTE with reason and nearest reachable cell.
+ * Synchronous: `shouldCancel` is read every `cancellationInterval` expansions, but nothing else can run in between, so
+ * in-flight cancellation needs {@link searchLegAsync}.
+ */
+export function searchLeg(
+  grid: LoadedGrid,
+  from: { x_m: number; y_m: number },
+  to: { x_m: number; y_m: number },
+  scenario: MissionScenario,
+  maxExpansions = MAX_NODE_EXPANSIONS,
+  shouldCancel?: () => boolean,
+  cancellationInterval = CANCEL_CHECK_EVERY_EXPANSIONS,
+): LegSearch {
+  const steps = searchLegSteps(grid, from, to, scenario, maxExpansions, cancellationInterval);
+  for (let step = steps.next(); ; step = steps.next()) {
+    if (step.done) return step.value;
+    if (shouldCancel?.()) return { status: "CANCELLED" };
+  }
+}
+
+/**
+ * The same search as a cooperative loop (BD-41): after each `cancellationInterval` expansions it awaits
+ * `options.yieldToLoop()` so a newer request can set the flag, then reads `options.shouldCancel()`.
+ */
+export async function searchLegAsync(
+  grid: LoadedGrid,
+  from: { x_m: number; y_m: number },
+  to: { x_m: number; y_m: number },
+  scenario: MissionScenario,
+  options: AsyncSearchOptions,
+): Promise<LegSearch> {
+  const steps = searchLegSteps(
+    grid,
+    from,
+    to,
+    scenario,
+    options.maxExpansions ?? MAX_NODE_EXPANSIONS,
+    options.cancellationInterval ?? CANCEL_CHECK_EVERY_EXPANSIONS,
+  );
+  for (let step = steps.next(); ; step = steps.next()) {
+    if (step.done) return step.value;
+    await options.yieldToLoop();
+    if (options.shouldCancel?.()) return { status: "CANCELLED" };
+  }
 }

@@ -4,6 +4,7 @@
  * Hab Core (apps/hab-core). No AI computes any value here (ADR-006).
  */
 export * from "./grid";
+export * from "./paths";
 export * from "./sampling";
 export * from "./route";
 export * from "./timeModel";

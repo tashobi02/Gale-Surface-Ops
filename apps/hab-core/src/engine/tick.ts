@@ -352,8 +352,7 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
         // off the start waypoint (farther than SHELTER_REACH_M, the reach vehiclesTick uses): a
         // VEHICLE_RENDEZVOUS revision's last leg has `to` = start but ends at the meeting point, where the
         // crew hold until vehiclesTick shelters them in the vehicle. A planner loop that ends on a cell
-        // centre near the start still shelters in the hab (T23.07 rework, Proposed 2026-11-08).
-        // TODO(decision): a dedicated 05 Waypoint role ("rendezvous") would be cleaner; the spec owner's call.
+        // centre near the start still shelters in the hab (T23.07 rework, BD-59). There is no dedicated Waypoint role.
         cur = { ...next, phase: "hold" };
         const offStart = start === undefined || Math.hypot(x - start.x_m, y - start.y_m) > SHELTER_REACH_M;
         if (leg.to === startId && !(offStart && vehicleComing(state, c.crew_id))) {
@@ -387,8 +386,8 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
 /**
  * The plan was revised: put the crew member on the new legs (S7). Candidates are the legs from the
  * first whose `from` is the last waypoint reached (else all of them); the closest point wins, ties to
- * the earliest leg or segment. TODO(verify) with T23.07: assumes the new first leg starts near the crew
- * member and that abort legs end at the start waypoint. A held crew member is re-anchored too: it resumes
+ * the earliest leg or segment. BD-80, tested in contingencyOpsReal.test.ts: the new first leg starts within one
+ * routing cell of the crew member, and abort legs end at the start waypoint. A held crew member is re-anchored too: it resumes
  * walking unless the closest point is the end of its leg (then it stays held, so it does not arrive twice).
  */
 function reanchor(m: CrewMotion, legs: Leg[], c: Crew, revision: number, toHaven: boolean): CrewMotion {

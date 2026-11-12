@@ -10,32 +10,16 @@ import {
   type SampleResult,
 } from "@marswalk/protocol";
 import { cellIndex, decodeSlopeDeg, type LoadedGrid } from "./grid";
+import { MARS_RADIUS_M, parseEqcProjection, type ProjectionOrigin } from "./projection";
 import { snapToPassable } from "./snap";
 
-const MARS_RADIUS_M = 3396190;
+export { parseEqcProjection, type ProjectionOrigin };
+
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 
 /** Spacing in metres between profile samples (05 §C Leg.profile, FR-08). */
 export const PROFILE_SPACING_M = 5;
-
-/** Projection origin parameters for local Mars equirectangular projection. */
-export interface ProjectionOrigin {
-  lat_0: number;
-  lon_0: number;
-  lat_ts?: number;
-}
-
-/**
- * Default Gale crater / mock_site projection origin (02 §C.1, 05 §F.1).
- * TODO(decision): read the origin from the site manifest's working-projection `proj4` (05 §E.3) once a loader that
- * reads the manifest exists; until then every grid uses this constant.
- */
-export const DEFAULT_PROJECTION: ProjectionOrigin = {
-  lat_0: -4.7,
-  lon_0: 137.38,
-  lat_ts: -4.7,
-};
 
 /**
  * Spherical inverse Equirectangular projection (02 §B, 02 §C.1).
@@ -44,9 +28,9 @@ export const DEFAULT_PROJECTION: ProjectionOrigin = {
 export function inverseEqc(
   x_m: number,
   y_m: number,
-  proj: ProjectionOrigin = DEFAULT_PROJECTION,
+  proj: ProjectionOrigin,
 ): { lat: number; lon_e: number } {
-  const lat_ts = proj.lat_ts ?? proj.lat_0;
+  const lat_ts = proj.lat_ts;
   const lat = proj.lat_0 + (y_m / MARS_RADIUS_M) * RAD_TO_DEG;
   const cosLatTs = Math.cos(lat_ts * DEG_TO_RAD);
   const lon_e = proj.lon_0 + (x_m / (MARS_RADIUS_M * cosLatTs)) * RAD_TO_DEG;
@@ -99,7 +83,8 @@ export function interpolateElevation(grid: LoadedGrid, x_m: number, y_m: number)
 
 /**
  * Sample one point (02 §D.1, §E.2; FR-03, FR-08).
- * Input: x_m, y_m (m), snap radius (m), hard slope limit (°), optional projection origin.
+ * Input: x_m, y_m (m), snap radius (m), hard slope limit (°). Latitude and longitude come from the grid's own
+ * working projection `meta.proj4` (BD-45).
  * Output: SAMPLE_RESULT fields; OUTSIDE_AOI / NO_DATA give null values with a reason.
  */
 export function samplePoint(
@@ -108,7 +93,6 @@ export function samplePoint(
   y_m: number,
   snapRadiusM: number,
   hardSlopeLimitDeg: number,
-  proj: ProjectionOrigin = DEFAULT_PROJECTION,
 ): Omit<SampleResult, "type" | "request_id"> {
   const idx = cellIndex(grid, x_m, y_m);
 
@@ -160,7 +144,7 @@ export function samplePoint(
     };
   }
 
-  const { lat, lon_e } = inverseEqc(x_m, y_m, proj);
+  const { lat, lon_e } = inverseEqc(x_m, y_m, parseEqcProjection(grid.meta.proj4));
 
   let tiTiu: number | null = null;
   if (grid.ti !== undefined) {
@@ -313,10 +297,8 @@ export function sampleProfile(
     pushSample(s, x, y);
   }
 
-  // Proposed, not specified: 05 §C says the profile is "sampled every 5 m" and does not mention the leg end, so a
-  // sample at the exact leg end when the length is not a multiple of 5 m is new contract behaviour. It moves where
-  // warnings.ts closes the last slope run (to_m is the leg length, not the last 5 m multiple).
-  // TODO(decision): record the leg-end sample in 05 §C Leg.profile or drop it (TASK-05 T05.17/T05.18).
+  // BD-44: 05 §C Leg.profile is sampled every 5 m and at the leg end, so warnings.ts closes the last slope run at the
+  // leg length, not at the last 5 m multiple.
   if (totalDist > 0 && dist_m[dist_m.length - 1] < totalDist - 1e-6) {
     const endPt = path[path.length - 1];
     pushSample(totalDist, endPt[0], endPt[1]);

@@ -3,11 +3,12 @@
  * FR-03, FR-07. Implemented by TASK-05 (T05.05).
  */
 import { describe, expect, it } from "vitest";
-import { FLAG_BITS, type RoutingGrid } from "@marswalk/protocol";
+import { FLAG_BITS, type LoadedGridMeta } from "@marswalk/protocol";
+import { FIXTURE_PROJ4 } from "../../../apps/web/tests/fixtures/grids";
 import { cellIndex, decodeSlopeDeg, loadGrid } from "../src/grid";
 
 describe("grid loader and addressing (T05.05)", () => {
-  const dummyMeta: RoutingGrid = {
+  const dummyMeta: LoadedGridMeta = {
     cell_m: 10.0,
     width: 20,
     height: 15,
@@ -19,6 +20,7 @@ describe("grid loader and addressing (T05.05)", () => {
     flags_asset: "asset-flags",
     comm_hab_asset: "asset-comm-hab",
     hab_mast: { x_m: 1050, y_m: 450, height_m: 10 },
+    proj4: FIXTURE_PROJ4,
   };
 
   function createValidBuffers(width = 20, height = 15, includeTi = true) {
@@ -90,7 +92,7 @@ describe("grid loader and addressing (T05.05)", () => {
     });
 
     it("reads cell size from meta.cell_m without assuming 5 m", () => {
-      const metaCustom: RoutingGrid = {
+      const metaCustom: LoadedGridMeta = {
         ...dummyMeta,
         cell_m: 2.5,
         width: 10,
@@ -171,6 +173,34 @@ describe("grid loader and addressing (T05.05)", () => {
       expect(() => {
         loadGrid(dummyMeta, { ...valid, flags: wrongFlags });
       }).toThrow();
+    });
+
+    it("rejects a grid whose working projection is not the Mars eqc string (05 §E.3, BD-45)", () => {
+      const buffers = createValidBuffers(20, 15);
+      expect(() => loadGrid({ ...dummyMeta, proj4: "+proj=merc +R=6378137 +units=m +no_defs" }, buffers)).toThrow(/proj4|eqc/i);
+      expect(() => loadGrid({ ...dummyMeta, proj4: undefined as unknown as string }, buffers)).toThrow(/proj4|eqc/i);
+    });
+
+    it("keeps the manifest's proj4 string byte for byte on the grid meta (BD-45)", () => {
+      expect(loadGrid(dummyMeta, createValidBuffers(20, 15)).meta.proj4).toBe(FIXTURE_PROJ4);
+    });
+
+    // BD-53: arrays are read as host-order typed arrays; every target host is little-endian, and this pins the byte pattern.
+    it("reads a known little-endian byte pattern: f32 1.0 is 00 00 80 3F, u8 values are bytes", () => {
+      const meta: LoadedGridMeta = { ...dummyMeta, width: 2, height: 1 };
+      const elevation = new Uint8Array([0x00, 0x00, 0x80, 0x3f, 0x00, 0x00, 0x00, 0xc0]).buffer; // 1.0, -2.0
+      const grid = loadGrid(meta, {
+        elevation,
+        slopeP90: new Uint8Array([0x28, 0xff]).buffer,
+        slopeMax: new Uint8Array([0x30, 0xff]).buffer,
+        flags: new Uint8Array([0x00, 0x01]).buffer,
+        commHab: new Uint8Array([1, 255]).buffer,
+      });
+      expect(Array.from(grid.elevation)).toEqual([1, -2]);
+      expect(Array.from(grid.slopeP90)).toEqual([40, 255]);
+      expect(decodeSlopeDeg(grid.slopeP90[0])).toBe(10);
+      expect(decodeSlopeDeg(grid.slopeP90[1])).toBeNull();
+      expect(Array.from(grid.flags)).toEqual([0, 1]);
     });
   });
 });

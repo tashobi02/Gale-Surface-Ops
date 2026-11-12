@@ -5,7 +5,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { LoadGridRequest, SamplePointRequest } from "@marswalk/protocol";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { createPlanWorker, type PlanWorker } from "../../src/worker/planWorker";
 import { mockManifest } from "../ui/map/mapFixtures";
 
 const DIR = resolve(__dirname, "../../../../data/sites/mock_site");
@@ -38,42 +39,38 @@ function loadRequest(over: Partial<LoadGridRequest> = {}): LoadGridRequest {
 
 const sample: SamplePointRequest = { type: "SAMPLE_POINT", request_id: "req-sample", x_m: -1800, y_m: -1500, snap_radius_m: 50 };
 
-async function freshAdapter() {
-  vi.resetModules();
-  return import("../../src/worker/planWorker");
-}
-
 describe("planWorker LOAD_GRID (BD-40)", () => {
-  let adapter: Awaited<ReturnType<typeof freshAdapter>>;
-  beforeEach(async () => {
-    adapter = await freshAdapter();
+  // One fresh worker instance per test (the adapter holds no module state since BD-41/BD-50).
+  let adapter: PlanWorker;
+  beforeEach(() => {
+    adapter = createPlanWorker();
   });
 
-  it("before LOAD_GRID a request is answered GRID_NOT_LOADED", () => {
-    expect(adapter.handleMessage(sample)).toMatchObject({ type: "ERROR", code: "GRID_NOT_LOADED", request_id: "req-sample" });
+  it("before LOAD_GRID a request is answered GRID_NOT_LOADED", async () => {
+    expect(await adapter.handleMessage(sample)).toMatchObject({ type: "ERROR", code: "GRID_NOT_LOADED", request_id: "req-sample" });
   });
 
-  it("LOAD_GRID is answered GRID_LOADED with the site and data version, and the next SAMPLE_POINT is no longer GRID_NOT_LOADED", () => {
-    expect(adapter.handleMessage(loadRequest())).toEqual({
+  it("LOAD_GRID is answered GRID_LOADED with the site and data version, and the next SAMPLE_POINT is no longer GRID_NOT_LOADED", async () => {
+    expect(await adapter.handleMessage(loadRequest())).toMatchObject({
       type: "GRID_LOADED",
       request_id: "req-grid",
       site_id: manifest.site_id,
       data_version: manifest.data_version,
     });
-    const answer = adapter.handleMessage(sample);
+    const answer = await adapter.handleMessage(sample);
     expect(answer.type).toBe("SAMPLE_RESULT");
   });
 
-  it("a thermal-inertia-free load (ti: null) is accepted", () => {
+  it("a thermal-inertia-free load (ti: null) is accepted", async () => {
     const request = loadRequest();
     request.arrays.ti = null;
-    expect(adapter.handleMessage(request).type).toBe("GRID_LOADED");
+    expect((await adapter.handleMessage(request)).type).toBe("GRID_LOADED");
   });
 
-  it("a buffer whose size does not match the grid is an INVALID_INPUT error naming it, and the worker stays unloaded", () => {
+  it("a buffer whose size does not match the grid is an INVALID_INPUT error naming it, and the worker stays unloaded", async () => {
     const request = loadRequest();
     request.arrays.slopeP90 = new ArrayBuffer(3);
-    expect(adapter.handleMessage(request)).toMatchObject({ type: "ERROR", code: "INVALID_INPUT", request_id: "req-grid", message: expect.stringContaining("slopeP90") });
-    expect(adapter.handleMessage(sample)).toMatchObject({ code: "GRID_NOT_LOADED" });
+    expect(await adapter.handleMessage(request)).toMatchObject({ type: "ERROR", code: "INVALID_INPUT", request_id: "req-grid", message: expect.stringContaining("slopeP90") });
+    expect(await adapter.handleMessage(sample)).toMatchObject({ code: "GRID_NOT_LOADED" });
   });
 });

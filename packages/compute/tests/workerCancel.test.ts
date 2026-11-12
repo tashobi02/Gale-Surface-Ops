@@ -1,16 +1,9 @@
 import type { ComputePlanRequest } from "@marswalk/protocol";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { makePlaneGrid } from "../../../apps/web/tests/fixtures/grids";
-import { handleWorkerMessage } from "../src/handler";
+import { handleWorkerMessage, handleWorkerMessageAsync } from "../src/handler";
 
-// searchLeg is stubbed: nothing in the handler passes `shouldCancel` yet (TODO(decision) in TASK-05 T05.18/T05.27),
-// so this only pins how the handler reports a search that the route layer ended as CANCELLED (02 §E.2).
-vi.mock("../src/route", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/route")>();
-  return { ...actual, searchLeg: vi.fn(() => ({ status: "CANCELLED" as const })) };
-});
-
-const grid = makePlaneGrid({ width: 20, height: 20, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+const grid = makePlaneGrid({ width: 30, height: 30, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
 
 const request: ComputePlanRequest = {
   type: "COMPUTE_PLAN",
@@ -35,13 +28,31 @@ const request: ComputePlanRequest = {
   },
   waypoints: [
     { id: "wp-0", role: "start", x_m: 12.5, y_m: -12.5 },
-    { id: "wp-1", role: "stop", x_m: 37.5, y_m: -12.5 },
+    { id: "wp-1", role: "stop", x_m: 137.5, y_m: -137.5 },
   ],
 };
 
-describe("handleWorkerMessage with a cancelled search (02 §E.2)", () => {
-  it("answers ERROR CANCELLED with the request_id, not TIMEOUT or INTERNAL", () => {
-    const response = handleWorkerMessage(grid, request);
+// 02 §E.2, BD-41: a search that is cancelled while it runs ends the request with ERROR CANCELLED. No stub: the real
+// search runs and the flag is read at the real check interval.
+describe("handleWorkerMessage with a cancelled search (02 §E.2, BD-41)", () => {
+  it("answers ERROR CANCELLED with the request_id, not TIMEOUT or INTERNAL, when the flag is already set at the first check", () => {
+    const response = handleWorkerMessage(grid, request, undefined, { shouldCancel: () => true, cancellationInterval: 10 });
     expect(response).toMatchObject({ type: "ERROR", request_id: "req-cancel", code: "CANCELLED" });
+  });
+
+  it("completes normally when the flag never flips", () => {
+    const response = handleWorkerMessage(grid, request, undefined, { shouldCancel: () => false, cancellationInterval: 10 });
+    expect(response.type).toBe("PLAN_RESULT");
+  });
+
+  it("checks the flag after every yield, not once", async () => {
+    let checks = 0;
+    const response = await handleWorkerMessageAsync(grid, request, {
+      yieldToLoop: () => new Promise((resolve) => setTimeout(resolve, 0)),
+      cancellationInterval: 10,
+      shouldCancel: () => ++checks >= 3,
+    });
+    expect(checks).toBe(3);
+    expect(response).toMatchObject({ type: "ERROR", code: "CANCELLED" });
   });
 });

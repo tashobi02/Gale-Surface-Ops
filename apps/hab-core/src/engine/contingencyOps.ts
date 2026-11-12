@@ -7,7 +7,7 @@
  * kept legs plus a new leg built from the option's route), which replace the plan's in the reducer
  * (decided 2026-11-07).
  *
- * Rules (Proposed 2026-11-08 — TODO(decision); listed in TASK-23 under T23.07):
+ * Rules (decided by the orchestrator under Sadman Shaharier Mahim's authority, 12 Nov 2026, BD-59; listed in TASK-23 under T23.07):
  * - An alert is answered once: one OPTIONS_PROPOSED per `warning` alert, ever (`proposed_alerts`,
  *   reduced from OPTIONS_PROPOSED). So an approved CONTINUE_SKIP, whose crew stay WALKING, is not
  *   proposed again on the next tick. A new alert is answered again.
@@ -24,17 +24,20 @@
  *   walk `eta_crew_s`), `distance_m` is the polyline length in projected metres, `geometry` is the
  *   option's path. Climb, descent, max slope and profile come from compute (no slope or elevation
  *   maths here, CLAUDE.md §2), labelled `derived`, only when the grid is there (no grid: INVALID).
- *   Proposed 2026-11-09, TODO(decision):
+ *   BD-59 (first proposed 2026-11-09):
  *   - ABORT_TO_HAB / VEHICLE_RENDEZVOUS: `path_preview` is a cell-centre path; its cells (repeats
- *     collapsed) go to `toLeg` and the four fields are copied. They cover `path_preview` only;
- *     `distance_m` and `geometry` also include the final hop to the start waypoint (about one cell at most).
- *     A path off the grid's cell centres (`toLeg`'s distance differs from the path's own length: a field
- *     of another `cell_m`), an error from compute, a path leaving the grid, a non-finite result or an
- *     empty path keeps 0 and an empty profile, all `assumed`, for that leg and the revision proceeds
- *     (the metrics step is contained; geometry, legs and waypoints errors still surface).
- *   - CONTINUE_SKIP: `path_preview` is a display polyline, not a cell path. `profile` is
- *     `sampleProfile` of it (`derived`); climb, descent and max slope stay 0, `assumed`, until TASK-05
- *     has a helper that maps a polyline to cells (TODO(decision) in TASK-23).
+ *     collapsed) go to `toLeg` and the four fields are copied. A path off the grid's cell centres
+ *     (`toLeg`'s distance differs from the path's own length: a field of another `cell_m`), an error
+ *     from compute, a path leaving the grid, a non-finite result or an empty path keeps 0 and an empty
+ *     profile, all `assumed`, for that leg and the revision proceeds (the metrics step is contained;
+ *     geometry, legs and waypoints errors still surface).
+ *   - CONTINUE_SKIP: `path_preview` is a display polyline, so compute's `cellsAlongPath` maps it to the
+ *     cells it passes through and `toLeg` gives climb, descent and max slope, `derived`; `profile` is
+ *     `sampleProfile` of the polyline (`derived`).
+ *   - A hab-bound leg (ABORT_TO_HAB, CONTINUE_SKIP) ends on the start waypoint: the start waypoint's cell is
+ *     appended to the cell path before `toLeg` when the path stops in another cell, so compute measures
+ *     and times the last hop; `walk_time_min` adds that hop's time to the ETA's walk. Where the path
+ *     already ends in the start cell the hop is 0.
  * - A hab-bound new leg ends on the start waypoint; a VEHICLE_RENDEZVOUS leg ends at the meeting
  *   point (tick rule S5 then holds the crew there, and vehiclesTick shelters them in the vehicle).
  * - APPROVE_OPTION for VEHICLE_RENDEZVOUS dispatches through `dispatchVehicle` with the option's point.
@@ -53,6 +56,7 @@ import {
   vehiclePassable,
   vehicleTimeField,
   cellIndex,
+  cellsAlongPath,
   type ContingencyInputs,
   type LoadedGrid,
   type RendezvousOk,
@@ -252,12 +256,14 @@ function walkSeconds(option: ContingencyOption, hab_ingress_s: number): number {
   return Math.max(0, option.eta_shelter_min * 60 - hab_ingress_s);
 }
 
-/** The four 05 Leg fields that come from compute, with the label each carries. */
+/** The four 05 Leg fields that come from compute, with the label each carries, and the time of a final hop. */
 interface LegMetrics {
   climb_m: number;
   descent_m: number;
   max_slope_deg: number;
   profile: LegProfile;
+  /** Minutes compute gives the appended hop to the start waypoint's cell; 0 where there is none (BD-59). */
+  hop_min: number;
   labels: { climb_m: Provenance; descent_m: Provenance; max_slope_deg: Provenance; profile: Provenance };
 }
 
@@ -267,6 +273,7 @@ const assumedMetrics = (): LegMetrics => ({
   descent_m: 0,
   max_slope_deg: 0,
   profile: { dist_m: [], elev_m: [], slope_class: [] },
+  hop_min: 0,
   labels: { climb_m: "assumed", descent_m: "assumed", max_slope_deg: "assumed", profile: "assumed" },
 });
 
@@ -274,15 +281,53 @@ const assumedMetrics = (): LegMetrics => ({
  * Climb, descent, max slope and profile of the new leg, from compute only (no slope or elevation maths
  * here, CLAUDE.md §2). Built when a plan is revised, never per tick. A path not on the grid's cell
  * centres, a non-finite value or an error from compute gives `assumedMetrics()`: a display metric never
- * blocks a safety command (Proposed 2026-11-09, review). Only this step is contained.
+ * blocks a safety command (BD-59). Only this step is contained.
  */
-function computeLegMetrics(grid: LoadedGrid, option: ContingencyOption, from: string, to: string, geometry: Point[], scenario: MissionScenario): LegMetrics {
+function computeLegMetrics(grid: LoadedGrid, option: ContingencyOption, from: string, to: string, geometry: Point[], scenario: MissionScenario, start: Waypoint): LegMetrics {
+  const habBound = option.kind !== "VEHICLE_RENDEZVOUS";
+  const startCell = habBound ? cellIndex(grid, start.x_m, start.y_m) : null;
+  /** True when cell `b` is one of the 8 neighbours of cell `a`. */
+  const adjacent = (a: number, b: number): boolean => {
+    const w = grid.meta.width;
+    return Math.max(Math.abs(Math.floor(a / w) - Math.floor(b / w)), Math.abs((a % w) - (b % w))) === 1;
+  };
+  /**
+   * `toLeg` on `cells`, and on `cells` plus the start cell when the path stops in the neighbouring cell (BD-59).
+   * A path that stops anywhere else does not connect to the start waypoint: null (the metrics stay assumed).
+   */
+  const measure = (cells: number[]): { leg: OkLeg; plain: OkLeg } | null => {
+    const run = (c: number[]): OkLeg | null => {
+      const leg = toLeg(grid, from, to, { status: "OK", cells: c }, scenario);
+      return leg.status === "OK" ? leg : null;
+    };
+    const plain = run(cells);
+    if (!plain) return null;
+    const last = cells[cells.length - 1]!;
+    if (startCell === null || !Number.isInteger(startCell) || last === startCell) return { leg: plain, plain };
+    if (!adjacent(last, startCell)) return null;
+    const leg = run([...cells, startCell]);
+    return leg ? { leg, plain } : null;
+  };
+  const finish = (m: { leg: OkLeg; plain: OkLeg }, profile: LegProfile): LegMetrics => {
+    const { climb_m, descent_m, max_slope_deg } = m.leg;
+    const hop_min = m.leg.walk_time_min - m.plain.walk_time_min;
+    if (![climb_m, descent_m, max_slope_deg, hop_min].every(Number.isFinite) || !allFinite(profile)) return assumedMetrics();
+    return { climb_m, descent_m, max_slope_deg, profile, hop_min, labels: { climb_m: "derived", descent_m: "derived", max_slope_deg: "derived", profile: "derived" } };
+  };
+
   if (option.kind === "CONTINUE_SKIP") {
-    // A display polyline, not a cell path: only the profile can be sampled; the scalars wait for TASK-05.
-    // TODO(decision): ask TASK-05 (Mishkat) for a compute helper that maps a polyline to cells.
+    // A display polyline, not a cell path: compute maps it to the cells it passes through (BD-59). The profile is
+    // sampled from the polyline itself; the scalars need the whole polyline on the grid, because a part measured
+    // and the rest silently left out would be labelled derived for a leg it does not describe.
     const profile = sampleProfile(grid, geometry, scenario.caution_slope_deg, scenario.hard_slope_limit_deg);
-    const none = assumedMetrics();
-    return allFinite(profile) ? { ...none, profile, labels: { ...none.labels, profile: "derived" } } : none;
+    const profileOk = allFinite(profile);
+    const cells = cellsAlongPath(grid, geometry);
+    const last = geometry[geometry.length - 1];
+    const whole = last !== undefined && cells.length > 0 && cells[cells.length - 1] === cellIndex(grid, last[0], last[1]);
+    const m = whole ? measure(cells) : null;
+    const scalars = m ? finish(m, profile) : assumedMetrics();
+    if (scalars.labels.climb_m === "derived") return scalars;
+    return profileOk ? { ...scalars, profile, labels: { ...scalars.labels, profile: "derived" } } : scalars;
   }
   const path = option.path_preview;
   if (path.length === 0) return assumedMetrics();
@@ -293,22 +338,20 @@ function computeLegMetrics(grid: LoadedGrid, option: ContingencyOption, from: st
     if (cell === null || !Number.isInteger(cell)) return assumedMetrics();
     if (cells[cells.length - 1] !== cell) cells.push(cell);
   }
-  const leg = toLeg(grid, from, to, { status: "OK", cells }, scenario);
-  if (leg.status !== "OK") return assumedMetrics();
+  const m = measure(cells);
+  if (!m) return assumedMetrics();
   const length = polylineLength(path);
-  if (!(Math.abs(leg.distance_m - length) <= 1e-6 * Math.max(1, length))) {
+  if (!(Math.abs(m.plain.distance_m - length) <= 1e-6 * Math.max(1, length))) {
     // Not on this grid's cell centres (a field of another `cell_m` or origin): the numbers would be wrong.
     return assumedMetrics();
   }
-  const { climb_m, descent_m, max_slope_deg, profile } = leg;
-  if (![climb_m, descent_m, max_slope_deg].every(Number.isFinite) || !allFinite(profile)) return assumedMetrics();
-  return { climb_m, descent_m, max_slope_deg, profile, labels: { climb_m: "derived", descent_m: "derived", max_slope_deg: "derived", profile: "derived" } };
+  return finish(m, m.leg.profile);
 }
 
 /** `computeLegMetrics`, with any error from compute contained as `assumedMetrics()`. */
-function legMetrics(grid: LoadedGrid, option: ContingencyOption, from: string, to: string, geometry: Point[], scenario: MissionScenario): LegMetrics {
+function legMetrics(grid: LoadedGrid, option: ContingencyOption, from: string, to: string, geometry: Point[], scenario: MissionScenario, start: Waypoint): LegMetrics {
   try {
-    return computeLegMetrics(grid, option, from, to, geometry, scenario);
+    return computeLegMetrics(grid, option, from, to, geometry, scenario, start);
   } catch {
     return assumedMetrics();
   }
@@ -349,20 +392,20 @@ function buildPlanRevision(state: EngineState, scenario: LoadedScenario, option:
   const geometry: Point[] = option.path_preview.map(([x, y]) => [x, y]);
   // A hab-bound route ends on the start waypoint itself: compute's hab path ends at the hab cell's
   // centre, which may lie farther than SHELTER_REACH_M from the waypoint, and tick rule S5 shelters in
-  // the hab only at the waypoint (Proposed 2026-11-08).
+  // the hab only at the waypoint (BD-59).
   // A VEHICLE_RENDEZVOUS leg keeps `to` = start (05 Waypoint `role` is start|stop; T23.06 asserts it)
   // but ends at the meeting point, so S5 holds the crew there and vehiclesTick shelters them in the
-  // vehicle. TODO(decision): a dedicated 05 Waypoint role ("rendezvous") would be cleaner.
+  // vehicle. No new Waypoint role: rule S5 stands (BD-59).
   const end = geometry[geometry.length - 1];
   if (option.kind !== "VEHICLE_RENDEZVOUS" && (!end || end[0] !== start.x_m || end[1] !== start.y_m)) geometry.push([start.x_m, start.y_m]);
   const from = waypoints[waypoints.length - 1]!.id;
-  const metrics = legMetrics(grid, option, from, start.id, geometry, plan.scenario);
+  const metrics = legMetrics(grid, option, from, start.id, geometry, plan.scenario, start);
   const leg: OkLeg = {
     from,
     to: start.id,
     status: "OK",
     distance_m: polylineLength(geometry),
-    walk_time_min: walk_s / 60,
+    walk_time_min: walk_s / 60 + metrics.hop_min,
     climb_m: metrics.climb_m,
     descent_m: metrics.descent_m,
     max_slope_deg: metrics.max_slope_deg,
