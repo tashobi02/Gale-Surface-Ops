@@ -3,9 +3,7 @@
  * along-track distances and the extent of that stretch. Shared by the route layer (hazard overlay, T09.01) and the
  * click-to-zoom of a located warning (T09.04, T09.03). Plain arithmetic on projected metres: never `ol/sphere`.
  *
- * TODO(decision): the distance-to-position rule of 05 Warning `from_m`/`to_m` (T09 Spec questions). Here the distance
- * runs along the simplified `Leg.geometry` polyline, which is shorter than the cell path `distance_m` was measured on;
- * the ends are clamped to the polyline.
+ * FD-082: distances are along-leg; interpolation clamps to the simplified projected polyline.
  */
 import type { Leg } from "@marswalk/protocol";
 
@@ -49,4 +47,20 @@ export function legStretchExtent(legs: readonly Leg[], legIndex: number, from_m:
   const xs = stretch.map((p) => p[0]);
   const ys = stretch.map((p) => p[1]);
   return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+
+/** Interpolated display coordinate at an along-leg distance, clamped to the simplified projected line (FD-082). */
+export function pointAlongTrack(coords: readonly Coord[], distance_m: number): Coord | null {
+  if (!coords.length || !Number.isFinite(distance_m)) return null;
+  let remaining = Math.max(0, distance_m);
+  for (let i = 1; i < coords.length; i++) {
+    const a = coords[i - 1]!, b = coords[i]!;
+    const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (length > 0 && remaining <= length) {
+      const t = remaining / length;
+      return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    }
+    remaining -= length;
+  }
+  return [...coords[coords.length - 1]!];
 }

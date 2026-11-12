@@ -389,3 +389,4 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).
+| 2026-11-12 | GPT-6.1 Sol (Codex, xhigh) | Frontend package 11, T09.01–T09.05/T09.09 (FR-07–FR-12, FR-39, FR-42): SVG profile, two-way map hover, canvas hazard hatch, seventh metric, warnings and optional haven/comm bands; enabled results-states | Worker values only; no scientific numbers or dataset ids generated. Tests first: 12 initial + 4 review regressions red, ordering mutation killed, 1,374 web tests green; review fixes first-leg hit detection, keyboard tooltip and band alignment. Browser check blocked by tsx listen EPERM; rows remain wip pending orchestrator | Obidit Islam (frontend lane); automated web tests, typecheck, lint and docs-check | — |

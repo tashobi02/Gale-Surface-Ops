@@ -261,3 +261,11 @@ describe("createRouteLayer: hazard overlay along the route (05 Warning leg, from
     expect(featuresOf(layer, "hazard_segment")).toHaveLength(0);
   });
 });
+
+it("hazard overlay has a shared canvas hatch renderer", () => {
+  const { store } = fakePlanStore({ result: resultOf({ legs: [okLeg([[0, 0], [100, 0]])], warnings: [warning()] }) });
+  const layer = createRouteLayer(store);
+  const feature = featuresOf(layer, "hazard_segment")[0]!;
+  expect(stylesOf(layer, feature).some(style => typeof style.getRenderer() === "function")).toBe(true);
+  layer.destroy();
+});

@@ -19,7 +19,7 @@ import overLimitsFixture from "../fixtures/plan-results/over-limits.json";
 
 // The chart (T09.02) and the profile link (T09.05) belong to other tasks and are stubs on main: replace them so this file
 // tests the panel. A test that needs the real stub failing sets the implementation itself.
-vi.mock("../../src/ui/results/profileChart", () => ({ ProfileChart: vi.fn() }));
+vi.mock("../../src/ui/results/profileChart", async (original) => ({ ...await original<typeof import("../../src/ui/results/profileChart")>(), ProfileChart: vi.fn() }));
 vi.mock("../../src/ui/results/profileLink", () => ({ linkProfileToMap: vi.fn() }));
 
 const ok = okFixture as unknown as PlanResult;
@@ -294,12 +294,12 @@ describe("SCR-05 mounts the chart, warnings and profile link, each isolated (03 
   it("keeps the banner, metrics and warnings when the profile chart throws, and says the chart is unavailable", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(ProfileChart).mockImplementation(() => {
-      throw new Error("TODO(T09.02): ProfileChart not implemented");
+      throw new Error("Chart failed");
     });
     const { store } = fakePlanStore({ status: "OverLimits", result: overLimits });
     const view = await mount(ui({ planStore: store }));
     expect(view.container.textContent).toContain("Profile unavailable");
-    expect(view.container.textContent).toContain("TODO(T09.02)");
+    expect(view.container.textContent).toContain("Chart failed");
     expect(view.container.textContent).toContain("Over limits");
     expect(values(metric(view.container, "Distance"))[0]!.textContent).toBe("6.12");
     expect(view.container.querySelectorAll(".warnings-list li")).toHaveLength(2);
@@ -346,14 +346,14 @@ describe("SCR-05 mounts the chart, warnings and profile link, each isolated (03 
 
   it("reports a link failure in the panel instead of swallowing it, and the rest stays usable", async () => {
     vi.mocked(linkProfileToMap).mockImplementation(() => {
-      throw new Error("TODO(T09.05): linkProfileToMap not implemented");
+      throw new Error("Link failed");
     });
     const { handle } = fakeMapHandle();
     const { store } = fakePlanStore({ status: "OK", result: ok });
     const view = await mount(ui({ planStore: store, mapHandle: handle }));
     const note = must(view.container, ".scr05-link-note");
     expect(note.textContent).toContain("Profile ↔ map link unavailable");
-    expect(note.textContent).toContain("TODO(T09.05)");
+    expect(note.textContent).toContain("Link failed");
     expect(values(metric(view.container, "Distance"))[0]!.textContent).toBe("6.12");
     await view.unmount();
   });
@@ -375,4 +375,32 @@ describe("SCR-05 mounts the chart, warnings and profile link, each isolated (03 
     expect(fitted).toEqual([[50, 0, 100, 50]]);
     await view.unmount();
   });
+});
+
+it("seven metrics include sourced climb/descent and modelled EVA total", async () => {
+  const { store } = fakePlanStore({ status: "OK", result: ok });
+  const view = await mount(ui({ planStore: store }));
+  expect(view.container.querySelectorAll(".scr05-metric")).toHaveLength(7);
+  expect(metric(view.container, "Climb / descent").textContent).toContain("74");
+  expect(values(metric(view.container, "EVA total"))[0]!.getAttribute("data-provenance")).toBe("modelled");
+  await view.unmount();
+});
+it("missing haven and comm bands show sourced dashes with reasons", async () => {
+  const { store } = fakePlanStore({ status: "OK", result: ok });
+  const view = await mount(ui({ planStore: store }));
+  for (const band of ["haven", "comm"]) {
+    const row = must(view.container, `[data-band="${band}"]`);
+    expect(row.textContent).toContain("—");
+    expect(row.textContent).toMatch(/not supplied/i);
+    expect(row.querySelector("[data-source]")).not.toBeNull();
+  }
+  await view.unmount();
+});
+it("haven and comm bands render worker samples without computing them", async () => {
+  const leg = { ...ok.legs[0], profile: { dist_m: [0, 5, 10], elev_m: [0, 0, 0], slope_class: ["ok", "ok", "ok"], haven_min: [1, 2, 2], comm: [1, 0, 0] } } as OkLeg;
+  const { store } = fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } });
+  const view = await mount(ui({ planStore: store }));
+  expect(must(view.container, '[data-band="haven"]').textContent).toContain("modelled (approximation)");
+  expect(must(view.container, '[data-band="comm"]').textContent).toContain("NO SIGNAL");
+  await view.unmount();
 });

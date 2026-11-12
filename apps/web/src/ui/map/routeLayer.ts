@@ -9,8 +9,7 @@
  *
  * Shape cues: a hazard stretch is told apart by its dash pattern as well as its colour (04 §A.3 #2): caution is a long
  * dash, blocked a dash-dot, unknown dotted.
- * TODO(decision): the map hatch of the hazard overlay (04 §C.5 "hatch"); dash patterns stand in until the design
- * review picks the pattern fills.
+ * FD-070: shared canvas hatches supplement the severity dash patterns.
  */
 import Feature from "ol/Feature.js";
 import LineString from "ol/geom/LineString.js";
@@ -23,6 +22,7 @@ import type { Warning } from "@marswalk/protocol";
 import type { PlanHoverPosition, PlanState, PlanStore } from "../../state/planStore";
 import { LAYER_Z_INDEX } from "../context";
 import { sliceAlongTrack } from "./routeGeometry";
+import { canvasPattern, STATUS_PATTERN } from "../components/patterns";
 import { tokenColor } from "./tokenColors";
 
 /** 04 §C.1 route: 4 px line with a 2 px casing each side; 04 §C.5 hover: 6 px. */
@@ -83,10 +83,27 @@ export function createRouteLayer(planStore: PlanStore): RouteVectorLayer {
     }
     if (type === "hazard_segment") {
       const { token, dash } = hazardStyle(feature.get("severity"));
-      return new Style({
+      return [new Style({
         stroke: new Stroke({ color: tokenColor(token), width: HAZARD_WIDTH_PX, lineDash: dash, lineCap: token === "unknown" ? "round" : "butt" }),
         zIndex: 4,
-      });
+      }), new Style({
+        zIndex: 5,
+        renderer: (coordinates, state) => {
+          const context = state.context;
+          const points = coordinates as number[][];
+          if (!points.length) return;
+          const pattern = canvasPattern(context, STATUS_PATTERN[token], tokenColor(token));
+          if (!pattern) return;
+          context.save();
+          context.beginPath();
+          context.moveTo(points[0]![0]!, points[0]![1]!);
+          for (const point of points.slice(1)) context.lineTo(point[0]!, point[1]!);
+          context.strokeStyle = pattern;
+          context.lineWidth = HAZARD_WIDTH_PX * 2 * state.pixelRatio;
+          context.stroke();
+          context.restore();
+        },
+      })];
     }
     return undefined;
   };

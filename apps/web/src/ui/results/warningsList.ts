@@ -7,10 +7,7 @@
  * The list is also the text alternative for the warnings drawn on the map (04 §E) and is reusable by the briefing card
  * (T11.03). Status is never colour alone: StatusIcon draws shape, pattern and word (04 §A.3 #2).
  *
- * TODO(decision): "newest-severity first" (04 §F) has no exact rule yet; here: blocked, caution, unknown, then leg and
- * along-leg distance, unlocated warnings last.
- * TODO(decision): no animated fly-to under `prefers-reduced-motion` (04 §E): `MapHandle.fitExtent` (C10 v2) takes no
- * `animate` option; needs a contract-change in TASK-07.
+ * FD-062: severity, route position, leg. FD-063: reduced-motion fits are instant.
  */
 import { createElement, useMemo, type ReactElement } from "react";
 import type { Warning } from "@marswalk/protocol";
@@ -91,7 +88,7 @@ export function WarningsList({ warnings, mapHandle, getLegExtent, onZoom, classN
   const zoomTo = (w: Warning & { leg: number; from_m: number; to_m: number }): void => {
     onZoom?.(w);
     const extent = getLegExtent?.(w.leg, w.from_m, w.to_m) ?? null;
-    if (extent && mapHandle) mapHandle.fitExtent(extent);
+    if (extent && mapHandle) mapHandle.fitExtent(extent, { animate: !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches });
   };
 
   return createElement(
@@ -107,8 +104,8 @@ export function WarningsList({ warnings, mapHandle, getLegExtent, onZoom, classN
           className: `warning-item warning-${status}`,
           "data-severity": w.severity,
           // The message is computed by the route worker from the plan and the grid: derived (05 PlanResult).
-          // TODO(verify): 05 gives a Warning no source id; the code identifies the rule that produced it.
-          ...provAttrs({ prov: "derived", src: `result.warnings.${w.code}` }),
+          // FD-064: rule id and the source layers it reads.
+          ...provAttrs({ prov: "derived", src: `rule:${w.code} ${warningSources(w.code)}`.trim() }),
         },
         createElement(StatusIcon, { status, word: status.toUpperCase(), className: "warning-status" }),
         createElement(
@@ -132,4 +129,14 @@ export function WarningsList({ warnings, mapHandle, getLegExtent, onZoom, classN
       );
     }),
   );
+}
+
+/** Existing layer/model source ids read by each warning rule (05 §F.3; FD-064). */
+function warningSources(code: Warning["code"]): string {
+  if (code === "LOW_TI" || code === "TI_UNKNOWN") return "grid.ti_asset";
+  if (code === "DARKNESS") return "mars24-allison-mccewen-2000";
+  if (code === "EVA_DURATION_EXCEEDED" || code === "HAVEN_TIME_EXCEEDED" || code === "CONSUMABLES_LOW") return "tobler-1993 apollo17-planning";
+  if (code === "RADIATION_ALERT") return "hassler-2014-rad";
+  if (code === "COMM_SHADOW") return "grid.comm_hab_asset";
+  return "usgs-gale-dem-1m-v3";
 }

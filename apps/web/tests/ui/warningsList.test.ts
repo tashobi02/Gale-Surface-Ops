@@ -134,7 +134,7 @@ describe("WarningsList: four cues, never colour alone (04 §A.3 #2)", () => {
     const view = await mount(ui({ warnings: [w()] }));
     const item = must(view.container, "li");
     expect(item.getAttribute("data-provenance")).toBe("derived");
-    expect(item.getAttribute("data-source")).toBe("result.warnings.CAUTION_SLOPE");
+    expect(item.getAttribute("data-source")).toBe("rule:CAUTION_SLOPE usgs-gale-dem-1m-v3");
     await view.unmount();
   });
 
@@ -227,4 +227,19 @@ describe("WarningsList: React owns its DOM", () => {
     expect(ok.container.querySelectorAll("li")).toHaveLength(1);
     await ok.unmount();
   });
+});
+
+it("severity then position order", () => {
+  const input = [w({ severity: "unknown", from_m: 0 }), w({ from_m: 30 }), w({ from_m: 10 }), w({ severity: "blocked", from_m: 50 })];
+  expect(sortWarnings(input).map(x => [x.severity, x.from_m])).toEqual([["blocked", 50], ["caution", 10], ["caution", 30], ["unknown", 0]]);
+});
+it("reduced motion zoom is instant", async () => {
+  const { handle } = fakeMapHandle();
+  const fit = vi.spyOn(handle, "fitExtent");
+  Object.defineProperty(window, "matchMedia", { configurable: true, value: () => ({ matches: true }) });
+  const view = await mount(ui({ warnings: [w()], mapHandle: handle, getLegExtent: () => [0, 0, 1, 1] }));
+  await click(must(view.container, "button"));
+  expect(fit).toHaveBeenCalledWith([0, 0, 1, 1], { animate: false });
+  await view.unmount();
+  delete (window as unknown as Record<string, unknown>).matchMedia;
 });
