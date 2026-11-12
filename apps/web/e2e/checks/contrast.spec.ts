@@ -9,23 +9,40 @@ import { deflateSync } from "node:zlib";
 import { expectContrast } from "../lib/contrast";
 import { ratio, toRgb } from "../../tests/ui/wcag";
 import { waitForSnapshot } from "../lib/hab";
+import { openSetupFixture, type SetupFixtureState } from "../lib/setupFixture";
 
 const LIMITS = { text: 4.5, large: 3, hud: 7 };
 
 // Routes that render real content today. Each later package adds its own route here when it builds the screen.
 // `pending` marks a route the harness already measures as failing: the defect is the named package's to fix, and that package
 // removes the `pending` entry. The numbers below are what this check printed on 12 Nov 2026 (F4 site, fake scenario).
-const ROUTES: { hash: string; live: boolean; pending?: string }[] = [
+const ROUTES: { hash: string; live: boolean; pending?: string; site?: boolean }[] = [
   { hash: "#/join", live: false },
   { hash: "#/hud/EV1", live: true },
   { hash: "#/ops", live: true },
   { hash: "#/eva/EV1", live: true },
   { hash: "#/report", live: false },
+  // Packages 23 and 24: the presenter panel and the mission setup read the F4 site, so they carry `?site=mock_site`.
+  { hash: "#/presenter", live: true, site: true },
+  { hash: "#/setup", live: true, site: true },
 ];
 
-for (const { hash, live, pending } of ROUTES) {
+// Package 24: SCR-20 with candidate cards, the Computing note, a rejection and Locked (lib/setupFixture.ts).
+test("contrast: text on #/setup meets the OPS limit in every state (package 24)", async ({ page }) => {
+  for (const state of ["ready", "computing", "rejected", "locked"] as SetupFixtureState[]) {
+    const fixture = await openSetupFixture(page, state);
+    if (state === "computing" || state === "rejected") await page.getByRole("button", { name: "Select MOCK alternative" }).click();
+    if (state === "computing") await expect(page.locator(".setup-state")).toHaveText(/^Computing haven fields/);
+    if (state === "rejected") await expect(page.getByRole("alert")).toBeVisible();
+    const measured = await expectContrast(page, LIMITS);
+    expect(measured, `no text was measured in ${state}`).toBeGreaterThan(0);
+    fixture.answer();
+  }
+});
+
+for (const { hash, live, pending, site } of ROUTES) {
   const run = async ({ page }: { page: Page }): Promise<void> => {
-    await page.goto(`/${hash}`);
+    await page.goto(`/${site ? "?site=mock_site" : ""}${hash}`);
     await page.waitForLoadState("networkidle");
     if (live) await waitForSnapshot(page);
     const measured = await expectContrast(page, LIMITS);

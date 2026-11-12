@@ -86,6 +86,7 @@ text at 1.02 : 1 (ink on the dark card: the `.card` background overrides the `.s
 | `provenance.ts` | `unlabelledNumbers`, `expectNoUnlabelledNumbers` (FD-110 allowlist; some hooks marked `TODO(verify)`) |
 | `hab.ts` | `openRole`, `waitForSnapshot`, `sendAsOps` (UI only), `habHealth`, `killHab`, `restartHab` |
 | `fakeScenario.ts`, `siteBundle.ts` | N-01 workaround; which site and scenario a run uses |
+| `setupFixture.ts` | `openSetupFixture` (SCR-20 Ready, Computing, Command rejected, Locked: two MOCK candidates in the manifest response and a committed LOADED snapshot over a stubbed socket; FD-344) |
 
 ## CI
 

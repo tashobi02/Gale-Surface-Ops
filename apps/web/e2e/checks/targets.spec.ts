@@ -9,6 +9,7 @@ import { openOpsFixture } from "../lib/opsFixture";
 import { openEvaFixture } from "../lib/evaFixture";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
+import { openSetupFixture } from "../lib/setupFixture";
 
 const EVA_MIN = 56;
 const EVA_GAP = 8;
@@ -33,6 +34,21 @@ test("targets: ops targets are at least 32 px (enabled by package 19)", async ({
       expectTargetSize(await targets(page), OPS_MIN);
     } finally { await page.close(); }
   }
+});
+
+// Packages 23 and 24: the presenter panel and the mission setup are OPS screens, so the ops minimum applies (04 §C.3).
+test("targets: presenter panel and mission setup targets are at least 32 px (packages 23, 24)", async ({ page }) => {
+  for (const hash of ["#/presenter", "#/setup"]) {
+    await page.goto(`/?site=mock_site${hash}`);
+    await page.waitForLoadState("networkidle");
+    await waitForSnapshot(page);
+    expectTargetSize(await targets(page), OPS_MIN);
+  }
+  // The same, with two candidate cards and every setting enabled (lib/setupFixture.ts).
+  await openSetupFixture(page, "ready");
+  const list = await targets(page);
+  expect(list.length, "candidate buttons and settings are targets").toBeGreaterThanOrEqual(7);
+  expectTargetSize(list, OPS_MIN);
 });
 
 // Package 07 enables the planner workspace on the touch projects; package 09 adds the plan panel's targets to the same page.

@@ -10,22 +10,54 @@ import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 import { openEvaFixture, type EvaFixtureState } from "../lib/evaFixture";
 import { openOpsFixture } from "../lib/opsFixture";
 import { withManifestlessSite } from "../lib/siteBundle";
+import { REJECTION, openSetupFixture } from "../lib/setupFixture";
 
-const LIVE = /^#\/(ops|eva|hud|presenter)/;
+const LIVE = /^#\/(ops|eva|hud|presenter|setup)/;
 
 // Routes that render real content today. Each screen package adds its own route here when it builds the screen, until the
 // list equals `routeHashes()` (package 99 asserts that).
-const BUILT_ROUTES = ["#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report", "#/presenter"];
+const BUILT_ROUTES = ["#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report", "#/presenter", "#/setup"];
 
 test("axe: every built route has no serious or critical violation", async ({ page }, testInfo) => {
   for (const hash of BUILT_ROUTES) {
-    await page.goto(`/${hash}`);
+    await page.goto(`${hash === "#/setup" || hash === "#/presenter" ? "/?site=mock_site" : "/"}${hash}`);
     await page.waitForLoadState("networkidle");
     if (hash === "#/presenter") await expect(page.locator('[data-screen="SCR-19"]')).toBeVisible();
-    if (LIVE.test(hash)) await waitForSnapshot(page);
+    if (hash === "#/setup") {
+      await expect(page.locator('[data-screen="SCR-20"]')).toBeVisible();
+      await expect(page.locator('.setup-state')).toHaveText(/^(Ready|Locked)/);
+      await expect(page.getByRole("heading", { name: "Mission settings", exact: true })).toBeVisible();
+    }
+    // Below 1024 px the ops console is its "Use a larger screen" notice (package 19), which holds no snapshot value to wait for.
+    if (LIVE.test(hash) && (await page.getByRole("heading", { name: "Use a larger screen" }).count()) === 0) await waitForSnapshot(page);
     const mode = (await page.evaluate(() => document.documentElement.dataset.mode)) as HtmlMode;
     await axeScan(page, { mode, route: `${testInfo.project.name}-${hash}` });
   }
+});
+
+// Package 24: SCR-20 in each state of 03, from lib/setupFixture.ts (two MOCK candidate cards; a committed LOADED snapshot, because the
+// harness's own session already has a plan and would only ever show Locked). The real route is scanned above.
+test("axe: SCR-20 Ready, Computing, Command rejected and Locked states have no serious or critical violation (package 24)", async ({ page }, testInfo) => {
+  const ready = await openSetupFixture(page, "ready");
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-ready` });
+  expect(ready.sent).toEqual([]);
+
+  const computing = await openSetupFixture(page, "computing");
+  await page.getByRole("button", { name: "Select MOCK alternative" }).click();
+  await expect(page.locator(".setup-state")).toHaveText(/^Computing haven fields/);
+  expect(computing.sent).toEqual([{ kind: "SELECT_HAB_SITE", args: { candidate_id: "hab-mock-alternative" } }]);
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-computing` });
+  computing.answer();
+  await expect(page.locator(".setup-state")).toHaveText(/^Ready/);
+
+  await openSetupFixture(page, "rejected");
+  await page.getByRole("button", { name: "Select MOCK alternative" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: REJECTION })).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-rejected` });
+
+  await openSetupFixture(page, "locked");
+  await expect(page.getByRole("button", { name: "Select MOCK alternative" })).toBeDisabled();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-locked` });
 });
 
 // Package 06: SCR-00, the boot error, in OPS mode (FD-207). A site whose manifest was deleted makes the planner boot fail.
