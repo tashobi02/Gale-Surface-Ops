@@ -3,13 +3,15 @@
  * The real EventLog is mounted with explicit LogEvent fixtures. A missing field reads "—" (nothing is filled in from
  * defaults), the provenance chip comes from the event's own provenance map, and copying reports failure.
  *
- * Not claimed: the event log is not mounted in the ops console (placement is TODO(decision), see scr11OpsConsole).
+ * Includes the SCR-11 strip and keyboard drawer contract (FD-092).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import type { LogEvent, LogEventKind, ProvenanceMap } from "@marswalk/protocol";
+import { OpsConsole } from "../../src/ui/screens/scr11OpsConsole";
+import { storeFromBeat } from "./fixtureStore";
 import { EventLog, provenanceGlyph, summarizeEvent } from "../../src/ui/ops/EventLog";
-import { click, flush, installDom, mount, must, removeDom } from "./domHarness";
+import { click, keyDown, flush, installDom, mount, must, removeDom } from "./domHarness";
 
 beforeAll(() => installDom());
 afterAll(() => removeDom());
@@ -200,5 +202,31 @@ describe("EventLog COPY LOG reports what happened", () => {
     await click(copyButton(container));
     await flush();
     expect(copyButton(container).textContent).toMatch(/COPY FAILED/);
+  });
+});
+
+
+describe("SCR-11 log strip", () => {
+  it("strip opens drawer", async () => {
+    const client = storeFromBeat("radiation-alert", "ops");
+    const view = await mount(createElement(OpsConsole, { client }));
+    const strip = must(view.container, '[data-slot="event-log-strip"]');
+    expect(strip.textContent).toContain("Shelter now");
+    await click(strip);
+    expect(must(view.container, '[data-slot="event-log-drawer"] .event-row').textContent).toContain("Shelter now");
+    await view.unmount();
+    client.close();
+  });
+
+  it("escape returns focus", async () => {
+    const view = await mount(createElement(OpsConsole, { client: null }));
+    const strip = must<HTMLButtonElement>(view.container, '[data-slot="event-log-strip"]');
+    await click(strip);
+    const filter = must<HTMLButtonElement>(view.container, '[data-slot="event-log-drawer"] nav button');
+    filter.focus();
+    await keyDown(filter, "Escape");
+    expect(view.container.querySelector('[data-slot="event-log-drawer"]')).toBeNull();
+    expect(document.activeElement).toBe(strip);
+    await view.unmount();
   });
 });

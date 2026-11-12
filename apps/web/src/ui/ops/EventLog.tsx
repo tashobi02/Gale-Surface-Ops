@@ -14,21 +14,17 @@
  */
 
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type CSSProperties,
   type ReactElement,
 } from "react";
 import type { LogEvent, LogEventKind, Provenance } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
+import { useEvents } from "../../state/habSession";
 import { PROVENANCE_GLYPHS, UNAVAILABLE, provAttrs, unavailableOf } from "../components/provenance";
-
-/** Stable empty list for useSyncExternalStore: a new [] on every read would re-render forever. */
-const NO_EVENTS: LogEvent[] = [];
 
 /** A data field as text, or "—" when the event does not carry it. */
 function field(v: unknown): string {
@@ -198,12 +194,7 @@ export function EventLog({
   className = "",
   onSelectEvent,
 }: EventLogProps): ReactElement {
-  // Sync with client if events prop is not passed directly
-  const clientEvents = useSyncExternalStore(
-    useCallback((onStoreChange) => client?.subscribe(onStoreChange) ?? (() => {}), [client]),
-    useCallback(() => client?.events() ?? NO_EVENTS, [client]),
-    () => NO_EVENTS,
-  );
+  const clientEvents = useEvents(client);
 
   const rawEvents = propEvents ?? clientEvents;
 
@@ -311,7 +302,7 @@ export function EventLog({
           <span className="code" style={{ fontWeight: 600, color: "var(--text-1, #ECEFF2)" }}>
             [ HAB CORE /// EVENT LOG ]
           </span>
-          <span style={{ color: "var(--text-3, #8592A0)" }}>
+          <span data-provenance="simulated" data-source="session:events.count" style={{ color: "var(--text-3, #8592A0)" }}>
             {filteredEvents.length} / {sortedEvents.length}
           </span>
         </div>
@@ -366,7 +357,7 @@ export function EventLog({
       </nav>
 
       {/* Scrollable event list in seq order */}
-      <div style={listStyle} tabIndex={0} aria-label="Event rows">
+      <div style={listStyle} role="region" tabIndex={0} aria-label="Event rows">
         {filteredEvents.length === 0 ? (
           <div style={{ padding: "12px", color: "var(--text-3, #8592A0)", fontSize: "12px", textAlign: "center" }}>
             No events logged yet
@@ -498,4 +489,3 @@ export function EventLog({
     </section>
   );
 }
-
