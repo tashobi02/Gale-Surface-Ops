@@ -1,0 +1,1081 @@
+{
+  "aoi": {
+    "bbox_geo": [
+      137.329209,
+      -4.860612,
+      137.430791,
+      -4.759388
+    ],
+    "extent_m": [
+      -3000,
+      -3000,
+      3000,
+      3000
+    ]
+  },
+  "assets": [
+    {
+      "asset_id": "grid-comm-hab",
+      "byte_order": "little",
+      "bytes": 1440000,
+      "format": "u8",
+      "height": 1200,
+      "nodata": 255,
+      "path": "grid/comm_hab.u8",
+      "sha256": "ca181ad9623ea609cbcbf67f26f00d0a7f1e8737eb387605f8be0b57598470e2",
+      "width": 1200
+    },
+    {
+      "asset_id": "grid-comm-hab-alternative",
+      "byte_order": "little",
+      "bytes": 1440000,
+      "format": "u8",
+      "height": 1200,
+      "nodata": 255,
+      "path": "grid/comm_hab-alternative.u8",
+      "sha256": "5f274895c555770b77da342a566c62f702ff0b7893e759b465f784c697044604",
+      "width": 1200
+    },
+    {
+      "asset_id": "grid-elevation",
+      "byte_order": "little",
+      "bytes": 5760000,
+      "format": "f32",
+      "height": 1200,
+      "nodata": null,
+      "path": "grid/elevation.f32",
+      "sha256": "201a5d10fdb34d89daf55c7b1a9db45e181629bb63b42bc47266e41a97de1c7f",
+      "width": 1200
+    },
+    {
+      "asset_id": "grid-flags",
+      "byte_order": "little",
+      "bytes": 1440000,
+      "format": "u8",
+      "height": 1200,
+      "nodata": 255,
+      "path": "grid/flags.u8",
+      "sha256": "4a35e998503a791d2f809eb129205ec4457d48297c9f89e307f6591c8fae5513",
+      "width": 1200
+    },
+    {
+      "asset_id": "grid-slope-max",
+      "byte_order": "little",
+      "bytes": 1440000,
+      "format": "u8",
+      "height": 1200,
+      "nodata": 255,
+      "path": "grid/slope_max.u8",
+      "sha256": "d74ef4e7952781583a2ac029bb2d2e53da06cdf8cbc3d62d636bf82300db31a2",
+      "width": 1200
+    },
+    {
+      "asset_id": "grid-slope-p90",
+      "byte_order": "little",
+      "bytes": 1440000,
+      "format": "u8",
+      "height": 1200,
+      "nodata": 255,
+      "path": "grid/slope_p90.u8",
+      "sha256": "dae963ec2755d4c47cfe9162cf4cedaa657fd5a74a0279879d4887ac66a9587c",
+      "width": 1200
+    },
+    {
+      "asset_id": "grid-ti",
+      "byte_order": "little",
+      "bytes": 14400,
+      "format": "f32",
+      "height": 60,
+      "nodata": null,
+      "path": "grid/ti_100m.f32",
+      "sha256": "1395cb6b9c11604b139edde7077e2992d7f81a53a0cb3125adb57d3c8afc69af",
+      "width": 60
+    },
+    {
+      "asset_id": "img-boxwork-ridge",
+      "bytes": 453491,
+      "format": "jpg",
+      "height": 1024,
+      "path": "images/poi-boxwork-ridge.jpg",
+      "sha256": "35c36afae0f531385a7df2e16f6f79a0c7d2b201d7c2abe7b3e743f2b2026fc1",
+      "width": 1024
+    },
+    {
+      "asset_id": "img-boxwork-veins",
+      "bytes": 285886,
+      "format": "jpg",
+      "height": 512,
+      "path": "images/poi-boxwork-veins.jpg",
+      "sha256": "aa629735b3e64eab337326e21d0df405ae5879e7b5e2d15f9d06e692246ded99",
+      "width": 1024
+    },
+    {
+      "asset_id": "img-monte-grande-hollow",
+      "bytes": 230526,
+      "format": "jpg",
+      "height": 1184,
+      "path": "images/poi-monte-grande-hollow.jpg",
+      "sha256": "f88aa534df115fa2ed7990898f4fdfd61a099e1653bb4bd7f875ba35cd607f01",
+      "width": 1328
+    },
+    {
+      "asset_id": "img-nevado-sajama-ridge",
+      "bytes": 572395,
+      "format": "jpg",
+      "height": 1024,
+      "path": "images/poi-nevado-sajama-ridge.jpg",
+      "sha256": "1081f672b8d05fe13a882518299ebbb2eda3ee40768d93f3e8781960c5cce5a9",
+      "width": 1024
+    },
+    {
+      "asset_id": "img-sulfate-contact",
+      "bytes": 557503,
+      "format": "jpg",
+      "height": 1024,
+      "path": "images/poi-sulfate-contact.jpg",
+      "sha256": "785f5c64f27a727a910acbf366c2dbef2dba7423dbebf58dfdeb8ef786e0d8ef",
+      "width": 1024
+    },
+    {
+      "asset_id": "tiles-comm_hab",
+      "format": "tiles",
+      "path": "tiles/comm_hab",
+      "sha256": "ce848e0b1f7995fa2357cff1761511f632b6b82186cee130e28355f9c644535b"
+    },
+    {
+      "asset_id": "tiles-elevation",
+      "format": "tiles",
+      "path": "tiles/elevation",
+      "sha256": "93c6a8506bc9c2542b78ce5a162ca5e060a840bd6e14cda0dc6d33fbe4925ee4"
+    },
+    {
+      "asset_id": "tiles-hazard_flags",
+      "format": "tiles",
+      "path": "tiles/hazard_flags",
+      "sha256": "a6ce62651d428669dbd7d0c06f4e8a7d0f02f78cf376ec4eb60185b60e90a0cc"
+    },
+    {
+      "asset_id": "tiles-hillshade",
+      "format": "tiles",
+      "path": "tiles/hillshade",
+      "sha256": "ebe00059933ef5e31ffb68dc896db98ec86b98a1dd3b5f70c53979cf4b61951d"
+    },
+    {
+      "asset_id": "tiles-ortho",
+      "format": "tiles",
+      "path": "tiles/ortho",
+      "sha256": "d09fb7db233c526f2de0590837eae3aa64922e6b967c11d3efad58a218db5f57"
+    },
+    {
+      "asset_id": "tiles-slope",
+      "format": "tiles",
+      "path": "tiles/slope",
+      "sha256": "06c50141b787b02a859a09148e9553d458927493e7d82da3221c56d0dc08ecaa"
+    },
+    {
+      "asset_id": "tiles-thermal_inertia",
+      "format": "tiles",
+      "path": "tiles/thermal_inertia",
+      "sha256": "cf28af92942484a3dab69626e0ff41980314dc4d6fd1186541d68d7058241c33"
+    },
+    {
+      "asset_id": "vec-pois",
+      "bytes": 13231,
+      "format": "geojson",
+      "path": "vectors/pois.geojson",
+      "sha256": "7fc01568540067322e2fa446810e02064345df83e8b369591ca3316d436e683b"
+    },
+    {
+      "asset_id": "vec-traverse",
+      "bytes": 5613103,
+      "format": "geojson",
+      "path": "vectors/traverse.geojson",
+      "sha256": "0a9da408fa737ab3b1648f6a87b5c3ecc6e3f091ba167b82cd65a7b78e88d997"
+    }
+  ],
+  "body": "mars",
+  "crs": {
+    "base": "IAU_2015:49900",
+    "proj4": "+proj=eqc +lat_ts=-4.81 +lat_0=-4.81 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs"
+  },
+  "data_version": "gale_boxwork-2026.11.09",
+  "default_start": {
+    "label": "Habitat / rover",
+    "x_m": 1037,
+    "y_m": -1652
+  },
+  "env_constants": [
+    {
+      "conditions": {
+        "location": "Gale crater floor",
+        "period": "2012-2013",
+        "solar_phase": "max"
+      },
+      "const_id": "rad-gale-dose-eq-solar-max",
+      "high": 0.76,
+      "low": 0.52,
+      "provenance": "measured",
+      "quantity": "surface dose equivalent rate",
+      "source_id": "hassler-2014-rad",
+      "unit": "mSv/day",
+      "value": 0.64
+    },
+    {
+      "conditions": {
+        "location": "Gale crater floor",
+        "period": "~2019",
+        "solar_phase": "min"
+      },
+      "const_id": "rad-gale-dose-eq-solar-min",
+      "high": 1.0,
+      "low": 0.85,
+      "note": "Reported range, Simonsen et al. 2024; source_id confirmed by Obidit Islam (data lead), 2026-11-10.",
+      "provenance": "measured",
+      "quantity": "surface dose equivalent rate",
+      "source_id": "simonsen-2024-rad",
+      "unit": "mSv/day",
+      "value": 0.925
+    }
+  ],
+  "grid": {
+    "cell_m": 5,
+    "comm_hab_asset": "grid-comm-hab",
+    "elevation_asset": "grid-elevation",
+    "flags_asset": "grid-flags",
+    "hab_mast": {
+      "height_m": 10,
+      "x_m": 1037,
+      "y_m": -1652
+    },
+    "height": 1200,
+    "origin_m": [
+      -3000,
+      3000
+    ],
+    "row_order": "north_up",
+    "slope_max_asset": "grid-slope-max",
+    "slope_p90_asset": "grid-slope-p90",
+    "ti_asset": "grid-ti",
+    "ti_cell_m": 100,
+    "width": 1200
+  },
+  "hab_candidates": [
+    {
+      "candidate_id": "hab-first",
+      "comm_hab_asset": "grid-comm-hab",
+      "default_start": {
+        "label": "Habitat / rover",
+        "x_m": 1037,
+        "y_m": -1652
+      },
+      "hab_mast": {
+        "height_m": 10,
+        "x_m": 1037,
+        "y_m": -1652
+      },
+      "label": "First choice",
+      "lat": -4.837870239225606,
+      "lon_e": 137.39755664754512,
+      "note": "Ridges and knobs surround the site, so only part of the rover track is in line of sight and a crew walking the track moves in and out of comm shadow.",
+      "provenance": "assumed",
+      "rank": 1,
+      "source_ids": [
+        "usgs-gale-dem-1m-v3",
+        "pds-msl-places-localizations"
+      ]
+    },
+    {
+      "candidate_id": "hab-alternative",
+      "comm_hab_asset": "grid-comm-hab-alternative",
+      "default_start": {
+        "label": "Habitat / rover",
+        "x_m": 439,
+        "y_m": -652
+      },
+      "hab_mast": {
+        "height_m": 10,
+        "x_m": 439,
+        "y_m": -652
+      },
+      "label": "Alternative",
+      "lat": -4.8209996343674915,
+      "lon_e": 137.38743237056156,
+      "note": "A smooth open plain next to the track, the safer site; most of the track is in line of sight, so comm shadows would rarely appear.",
+      "provenance": "assumed",
+      "rank": 2,
+      "source_ids": [
+        "usgs-gale-dem-1m-v3",
+        "pds-msl-places-localizations"
+      ]
+    }
+  ],
+  "known_offsets_m": {
+    "elevation": 1.92
+  },
+  "layers": [
+    {
+      "asset_id": "tiles-comm_hab",
+      "category": "mission",
+      "default_visible": false,
+      "derived_from": [
+        "elevation"
+      ],
+      "display_resolution_m": 5,
+      "kind": "raster_tiles",
+      "layer_id": "comm_hab",
+      "legend": {
+        "classes": [
+          [
+            0,
+            0,
+            "not visible"
+          ],
+          [
+            1,
+            1,
+            "visible"
+          ]
+        ],
+        "type": "classes"
+      },
+      "limitations": "Binary LOS only: no Fresnel zone, diffraction, multipath or link budget",
+      "native_resolution_m": 5,
+      "optional": true,
+      "provenance": "derived",
+      "source_ids": [
+        "usgs-gale-dem-1m-v3"
+      ],
+      "tile_grid": {
+        "format": "png",
+        "origin_m": [
+          -3000,
+          3000
+        ],
+        "resolutions_m": [
+          32,
+          16,
+          8,
+          4,
+          2
+        ],
+        "tile_size_px": 256
+      },
+      "title": "Hab antenna coverage"
+    },
+    {
+      "asset_id": "tiles-elevation",
+      "category": "topographic",
+      "default_visible": false,
+      "display_resolution_m": 2,
+      "kind": "raster_tiles",
+      "layer_id": "elevation",
+      "legend": {
+        "stops": [
+          [
+            -4115.81884765625,
+            "-4115.8 m"
+          ],
+          [
+            -3107.6254833984385,
+            "-3107.6 m"
+          ]
+        ],
+        "type": "ramp"
+      },
+      "limitations": "Post spacing 1 m; effective resolution of photogrammetric DTMs is coarser than post spacing; features of a few metres may be smoothed. HiRISE DTM artifacts include boxes, CCD seams and faceted low-contrast areas; inspect hillshade before use.",
+      "native_resolution_m": 1,
+      "optional": true,
+      "provenance": "derived",
+      "source_ids": [
+        "usgs-gale-dem-1m-v3"
+      ],
+      "tile_grid": {
+        "format": "png",
+        "origin_m": [
+          -3000,
+          3000
+        ],
+        "resolutions_m": [
+          32,
+          16,
+          8,
+          4,
+          2
+        ],
+        "tile_size_px": 256
+      },
+      "title": "Elevation",
+      "units": "m"
+    },
+    {
+      "asset_id": "tiles-hazard_flags",
+      "category": "hazard",
+      "default_visible": false,
+      "display_resolution_m": 5,
+      "kind": "raster_tiles",
+      "layer_id": "hazard_flags",
+      "legend": {
+        "classes": [
+          [
+            1,
+            1,
+            "No data"
+          ],
+          [
+            2,
+            2,
+            "Hard hazard"
+          ],
+          [
+            4,
+            4,
+            "Low thermal inertia"
+          ],
+          [
+            8,
+            8,
+            "Thermal inertia unknown"
+          ],
+          [
+            16,
+            16,
+            "Low-resolution DEM"
+          ]
+        ],
+        "type": "classes"
+      },
+      "limitations": "Interpretive flags: HARD_HAZARD is team-digitised; LOW_TI is not set (no defensible TI threshold for this AOI, U-03 decided 2026-11-10), so no cell is marked as possible loose fines; TI_UNKNOWN marks missing TI coverage; LOW_RES_DEM identifies cells filled by lower-resolution DEM sources when source mapping is available. Tiles are drawn at the 5 m routing-grid cell size; a cell with several flags shows the colour of the highest-priority one (hard hazard, low thermal inertia, low-resolution DEM, thermal inertia unknown, no data); class values are the flag bit values.",
+      "native_resolution_m": 5,
+      "optional": true,
+      "provenance": "assumed",
+      "source_ids": [
+        "usgs-gale-dem-1m-v3",
+        "usgs-themis-ti-30s120e"
+      ],
+      "tile_grid": {
+        "format": "png",
+        "origin_m": [
+          -3000,
+          3000
+        ],
+        "resolutions_m": [
+          32,
+          16,
+          8,
+          4,
+          2
+        ],
+        "tile_size_px": 256
+      },
+      "title": "Hazard flags"
+    },
+    {
+      "asset_id": "tiles-hillshade",
+      "category": "topographic",
+      "default_visible": true,
+      "derived_from": [
+        "elevation"
+      ],
+      "display_resolution_m": 2,
+      "kind": "raster_tiles",
+      "layer_id": "hillshade",
+      "legend": {
+        "type": "none"
+      },
+      "limitations": "Post spacing 1 m; effective resolution of photogrammetric DTMs is coarser than post spacing; features of a few metres may be smoothed. HiRISE DTM artifacts include boxes, CCD seams and faceted low-contrast areas; inspect hillshade before use.",
+      "native_resolution_m": 1,
+      "optional": true,
+      "provenance": "derived",
+      "source_ids": [
+        "usgs-gale-dem-1m-v3"
+      ],
+      "tile_grid": {
+        "format": "png",
+        "origin_m": [
+          -3000,
+          3000
+        ],
+        "resolutions_m": [
+          32,
+          16,
+          8,
+          4,
+          2
+        ],
+        "tile_size_px": 256
+      },
+      "title": "Hillshade"
+    },
+    {
+      "asset_id": "tiles-ortho",
+      "category": "optical",
+      "default_visible": true,
+      "display_resolution_m": 0.5,
+      "kind": "raster_tiles",
+      "layer_id": "ortho",
+      "legend": {
+        "type": "none"
+      },
+      "limitations": "The colour COG has about 7.74% greyscale strips in the AOI window (nearest-neighbour sample). JPEG tiles have no alpha: pixels outside the source mask and outside the area of interest are written in the map background colour (04 `void`), not transparent, and the manifest has no coverage polygon. Black pixels the source marks valid are shown as they are; the product page does not say what black means.",
+      "native_resolution_m": 0.25,
+      "optional": false,
+      "provenance": "measured",
+      "source_ids": [
+        "usgs-gale-ortho-25cm-v3"
+      ],
+      "tile_grid": {
+        "format": "jpg",
+        "origin_m": [
+          -3000,
+          3000
+        ],
+        "resolutions_m": [
+          32,
+          16,
+          8,
+          4,
+          2,
+          0.5
+        ],
+        "tile_size_px": 256
+      },
+      "title": "Orthoimage"
+    },
+    {
+      "asset_id": "vec-pois",
+      "category": "mission",
+      "default_visible": true,
+      "display_resolution_m": 0,
+      "kind": "vector",
+      "layer_id": "pois",
+      "legend": {
+        "type": "none"
+      },
+      "limitations": "Five POIs curated from NASA Curiosity mission blog posts (drafted 2026-11-09, approved 2026-11-12, BD-14). Positions are the rover's PDS PLACES localized_interp.csv position at the sol of the cited image (a localized solution also present in localized_pos.csv), not surveyed positions of the features. position_uncertainty_m is 0.5, the PLACES SIS 1.3 Rev-A §4.4.1.2 expected accuracy of localized rover positions against the HiRISE base map; it excludes the offset between the rover and the imaged feature. Stop types and ez_theme labels are team framing (assumed); the resource framing of the sulfate contact has no NASA water-yield figure behind it. `engineering` is the team's own stop type: the NASA Exploration Zone sources name scientific and resource ROIs only (docs/ops/exploration-zone.md). Image files are fetched by the pipeline from sources.lock.json (BD-14) and not committed. Vector resolution values of 0 mean not applicable under C5.",
+      "native_resolution_m": 0,
+      "optional": false,
+      "provenance": "assumed",
+      "source_ids": [
+        "pds-msl-places-localizations",
+        "nasa-msl-blog-sols-4620-4621",
+        "nasa-msl-blog-sols-4649-4654",
+        "nasa-msl-blog-sols-4675-4681",
+        "nasa-msl-blog-sols-4695-4701",
+        "nasa-msl-blog-sols-4709-4715",
+        "nasa-msl-blog-sols-4716-4722",
+        "nasa-msl-blog-sols-4845-4851",
+        "nasa-msl-boxwork-article-2025-06",
+        "pds-msl-places-sis-1-3"
+      ],
+      "title": "Points of interest"
+    },
+    {
+      "asset_id": "tiles-slope",
+      "category": "topographic",
+      "default_visible": false,
+      "derived_from": [
+        "elevation"
+      ],
+      "display_resolution_m": 2,
+      "kind": "raster_tiles",
+      "layer_id": "slope",
+      "legend": {
+        "breaks_follow_scenario": true,
+        "classes": [
+          [
+            0,
+            5,
+            "flat"
+          ],
+          [
+            5,
+            10,
+            "gentle"
+          ],
+          [
+            10,
+            15,
+            "caution"
+          ],
+          [
+            15,
+            25,
+            "over limit"
+          ],
+          [
+            25,
+            90,
+            "steep"
+          ]
+        ],
+        "type": "classes"
+      },
+      "limitations": "Horn slope on 1 m posts; effective DTM resolution is coarser; artifacts possible.",
+      "native_resolution_m": 1,
+      "optional": true,
+      "provenance": "derived",
+      "source_ids": [
+        "usgs-gale-dem-1m-v3"
+      ],
+      "tile_grid": {
+        "format": "png",
+        "origin_m": [
+          -3000,
+          3000
+        ],
+        "resolutions_m": [
+          32,
+          16,
+          8,
+          4,
+          2
+        ],
+        "tile_size_px": 256
+      },
+      "title": "Slope",
+      "units": "deg"
+    },
+    {
+      "asset_id": "tiles-thermal_inertia",
+      "category": "thermal",
+      "default_visible": false,
+      "display_resolution_m": 2,
+      "kind": "raster_tiles",
+      "layer_id": "thermal_inertia",
+      "legend": {
+        "stops": [
+          [
+            281.4390618896484,
+            "281 tiu"
+          ],
+          [
+            487.8530364990234,
+            "488 tiu"
+          ]
+        ],
+        "type": "ramp"
+      },
+      "limitations": "THEMIS TI has 100 m pixels, approximately 20% absolute accuracy, and gaps where coverage or quality was poor; gaps are unknown, never zero. One TI pixel covers 400 routing cells at 5 m. The cube's ISIS label names no unit; tiu is taken from 02 §C.2 L4 (assumed).",
+      "native_resolution_m": 100,
+      "optional": true,
+      "provenance": "derived",
+      "source_ids": [
+        "usgs-themis-ti-30s120e"
+      ],
+      "tile_grid": {
+        "format": "png",
+        "origin_m": [
+          -3000,
+          3000
+        ],
+        "resolutions_m": [
+          32,
+          16,
+          8,
+          4,
+          2
+        ],
+        "tile_size_px": 256
+      },
+      "title": "Thermal inertia",
+      "units": "tiu (J m⁻² K⁻¹ s⁻½)"
+    },
+    {
+      "asset_id": "vec-traverse",
+      "category": "mission",
+      "default_visible": true,
+      "display_resolution_m": 0,
+      "kind": "vector",
+      "layer_id": "traverse",
+      "legend": {
+        "type": "none"
+      },
+      "limitations": "Intermediate positions and elevations are interpolated approximations. Localized rover positions have an expected accuracy of 0.5 m against the HiRISE base map (PLACES SIS 1.3 Rev-A section 4.4.1.2). The offset between this traverse and the rover tracks visible in the ortho was not measured in this build; the DEM-to-ortho offset is recorded separately. The cached traverse ends at sol 4868. In the rounded AOI bounding box, the 364 distinct sols from 3571 to 4868 are not continuous. Points are clipped to the AOI plus a 100 m margin.",
+      "native_resolution_m": 0,
+      "optional": true,
+      "provenance": "measured",
+      "source_ids": [
+        "pds-msl-places-localizations",
+        "pds-msl-places-sis-1-3"
+      ],
+      "title": "Curiosity traverse"
+    }
+  ],
+  "name": "Mount Sharp boxwork, Gale crater",
+  "pois_asset": "vec-pois",
+  "schema_version": "1.0.0",
+  "site_id": "gale_boxwork",
+  "sources": [
+    {
+      "accessed": "2026-11-09",
+      "accuracy_note": "The required source_id and technical specification name Apollo 17; the cited document identifies Apollo 15. Unreachable on 2026-11-12: HTTP 404 at https://www.nasa.gov/wp-content/uploads/static/history/alsj/19790073512_1979073512.pdf.",
+      "authors": "P. Benjamin",
+      "credit": "P. Benjamin, Bellcomm, Inc.; Memorandum for File B70 10028, 13 October 1970. PDF document courtesy NASA Technical Reports Server.",
+      "instruments": [],
+      "licence": "Not stated by the publisher: the document could not be retrieved (HTTP 404 on 2026-11-12), so no rights statement was read (https://www.nasa.gov/wp-content/uploads/static/history/alsj/19790073512_1979073512.pdf)",
+      "missions": [
+        "Apollo 15"
+      ],
+      "publisher": "Bellcomm, Inc.",
+      "source_id": "apollo17-planning",
+      "title": "Apollo 15 EVA Capability And Constraints Envelopes",
+      "url": "https://www.nasa.gov/wp-content/uploads/static/history/alsj/19790073512_1979073512.pdf",
+      "version": "Memorandum for File B70 10028, 13 October 1970; NTRS id 19790073512 (from the file name); no version number"
+    },
+    {
+      "accessed": "2026-11-12",
+      "accuracy_note": "Surface dose equivalent rate measured by MSL RAD inside Gale Crater during solar maximum (2012–2013).",
+      "authors": "Hassler, D. M. et al.",
+      "credit": "Hassler et al., 2014",
+      "doi": "10.1126/science.1244797",
+      "instruments": [
+        "RAD"
+      ],
+      "licence": "not stated by the publisher (checked 2026-11-12: Europe PMC record for DOI 10.1126/science.1244797 lists isOpenAccess N and no licence; the publisher page https://www.science.org/doi/10.1126/science.1244797 returned HTTP 403 to the fetch). The app cites the paper and uses two published numbers (0.64 +/- 0.12 mSv/day); no figure or text is reproduced",
+      "missions": [
+        "MSL"
+      ],
+      "publisher": "American Association for the Advancement of Science",
+      "source_id": "hassler-2014-rad",
+      "title": "Mars' surface radiation environment measured with the Mars Science Laboratory's Curiosity rover",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/24324275/",
+      "version": "Science 343(6169), 1244797"
+    },
+    {
+      "accessed": "2026-11-12",
+      "accuracy_note": "Missions are those the credits page thanks for timekeeping updates. Mars24 is software, so no instrument is listed; the algorithms are Allison (1997, doi:10.1029/97GL01950) and Allison and McEwen (2000).",
+      "authors": "Robert B. Schmunk; Michael D. Allison; Megan McEwen",
+      "credit": "Mars24: Robert B. Schmunk; algorithms: Michael D. Allison; algorithm reference: Allison, M., and M. McEwen (2000), A post-Pathfinder evaluation of aerocentric solar coordinates with improved timing recipes for Mars seasonal/diurnal climate studies (Planetary and Space Science; © 2000 Elsevier Science Ltd).",
+      "doi": "10.1016/S0032-0633(99)00092-6",
+      "instruments": [],
+      "licence": "Not stated by the publisher: the credits page gives the credits and the licences of third-party libraries only (checked 2026-11-12, https://www.giss.nasa.gov/tools/mars24/help/credits.html)",
+      "missions": [
+        "Mars Climate Orbiter",
+        "Mars Exploration Rover",
+        "Mars Phoenix",
+        "MSL",
+        "InSight",
+        "Mars 2020"
+      ],
+      "publisher": "NASA Goddard Institute for Space Studies",
+      "source_id": "mars24-allison-mcewen-2000",
+      "title": "Mars24 Sunclock — Time on Mars",
+      "url": "https://www.giss.nasa.gov/tools/mars24/help/credits.html",
+      "version": "Mars24 8.3.1, released 2023-05-18"
+    },
+    {
+      "accessed": "2026-11-12",
+      "authors": "Sharon Wilson Purdy; Mars Science Laboratory Mission Team Members",
+      "credit": "NASA/JPL-Caltech (Curiosity blog)",
+      "instruments": [
+        "APXS",
+        "MAHLI",
+        "ChemCam",
+        "Mastcam",
+        "Navcam"
+      ],
+      "licence": "NASA content is generally not subject to copyright in the United States; it is used under the NASA Images and Media Usage Guidelines (https://www.nasa.gov/nasa-brand-center/images-and-media/), which the page itself does not repeat (checked 2026-11-12)",
+      "missions": [
+        "MSL"
+      ],
+      "publisher": "NASA",
+      "source_id": "nasa-msl-blog-sols-4620-4621",
+      "title": "Curiosity Blog, Sols 4620-4621: Among the Hollows and the Ridges",
+      "url": "https://science.nasa.gov/blog/curiosity-blog-sols-4620-4621-among-the-hollows-and-the-ridges/",
+      "version": "Published 2025-08-05; blog post, no version number"
+    },
+    {
+      "accessed": "2026-11-12",
+      "authors": "Lucy Thompson; Mars Science Laboratory Mission Team Members",
+      "credit": "NASA/JPL-Caltech (Curiosity blog)",
+      "instruments": [
+        "APXS",
+        "MAHLI",
+        "Mastcam",
+        "ChemCam",
+        "Navcam",
+        "DAN",
+        "REMS",
+        "RAD"
+      ],
+      "licence": "NASA content is generally not subject to copyright in the United States; it is used under the NASA Images and Media Usage Guidelines (https://www.nasa.gov/nasa-brand-center/images-and-media/), which the page itself does not repeat (checked 2026-11-12)",
+      "missions": [
+        "MSL"
+      ],
+      "publisher": "NASA",
+      "source_id": "nasa-msl-blog-sols-4649-4654",
+      "title": "Curiosity Blog, Sols 4649-4654: Ridges, Hollows and Nodules, Oh My",
+      "url": "https://science.nasa.gov/blog/curiosity-blog-sols-4649-4654-ridges-hollows-and-nodules-oh-my/",
+      "version": "Published 2025-09-12; blog post, no version number"
+    },
+    {
+      "accessed": "2026-11-12",
+      "authors": "Michelle Minitti; Mars Science Laboratory Mission Team Members",
+      "credit": "NASA/JPL-Caltech (Curiosity blog)",
+      "instruments": [
+        "APXS",
+        "ChemCam",
+        "Mastcam",
+        "MAHLI",
+        "DAN",
+        "REMS",
+        "RAD",
+        "Navcam"
+      ],
+      "licence": "NASA content is generally not subject to copyright in the United States; it is used under the NASA Images and Media Usage Guidelines (https://www.nasa.gov/nasa-brand-center/images-and-media/), which the page itself does not repeat (checked 2026-11-12)",
+      "missions": [
+        "MSL"
+      ],
+      "publisher": "NASA",
+      "source_id": "nasa-msl-blog-sols-4675-4681",
+      "title": "Curiosity Blog, Sols 4675-4681: Deciding Where to Dig Into the Boxworks",
+      "url": "https://science.nasa.gov/blog/curiosity-blog-sols-4675-4681-deciding-where-to-dig-into-the-boxworks/",
+      "version": "Published 2025-11-13; blog post, no version number"
+    },
+    {
+      "accessed": "2026-11-12",
+      "authors": "William Farrand; Mars Science Laboratory Mission Team Members",
+      "credit": "NASA/JPL-Caltech (Curiosity blog)",
+      "instruments": [
+        "Mastcam",
+        "SAM",
+        "CheMin"
+      ],
+      "licence": "NASA content is generally not subject to copyright in the United States; it is used under the NASA Images and Media Usage Guidelines (https://www.nasa.gov/nasa-brand-center/images-and-media/), which the page itself does not repeat (checked 2026-11-12)",
+      "missions": [
+        "MSL"
+      ],
+      "publisher": "NASA",
+      "source_id": "nasa-msl-blog-sols-4695-4701",
+      "title": "Curiosity Blog, Sols 4695-4701: Searching for Answers at Monte Grande",
+      "url": "https://science.nasa.gov/blog/curiosity-blog-sols-4695-4701-searching-for-answers-at-monte-grande/",
+      "version": "Published 2025-11-13; blog post, no version number"
+    },
+    {
+      "accessed": "2026-11-12",
+      "authors": "Catherine O'Connell-Cooper; Mars Science Laboratory Mission Team Members",
+      "credit": "NASA/JPL-Caltech (Curiosity blog)",
+      "instruments": [
+        "APXS",
+        "ChemCam",
+        "MAHLI",
+        "Navcam"
+      ],
+      "licence": "NASA content is generally not subject to copyright in the United States; it is used under the NASA Images and Media Usage Guidelines (https://www.nasa.gov/nasa-brand-center/images-and-media/), which the page itself does not repeat (checked 2026-11-12)",
+      "missions": [
+        "MSL"
+      ],
+      "publisher": "NASA",
+      "source_id": "nasa-msl-blog-sols-4709-4715",
+      "title": "Curiosity Blog, Sols 4709-4715: Drilling High and Low in the Boxwork Unit",
+      "url": "https://science.nasa.gov/blog/curiosity-blog-sols-4709-4715-drilling-high-and-low-in-the-boxwork-unit/",
+      "version": "Published 2025-11-18; blog post, no version number"
+    },
+    {
+      "accessed": "2026-11-12",
+      "authors": "Michelle Minitti; Mars Science Laboratory Mission Team Members",
+      "credit": "NASA/JPL-Caltech (Curiosity blog)",
+      "instruments": [
+        "APXS",
+        "ChemCam",
+        "MAHLI",
+        "DAN",
+        "Mastcam",
+        "Navcam"
+      ],
+      "licence": "NASA content is generally not subject to copyright in the United States; it is used under the NASA Images and Media Usage Guidelines (https://www.nasa.gov/nasa-brand-center/images-and-media/), which the page itself does not repeat (checked 2026-11-12)",
+      "missions": [
+        "MSL"
+      ],
+      "publisher": "NASA",
+      "source_id": "nasa-msl-blog-sols-4716-4722",
+      "title": "Curiosity Blog, Sols 4716-4722: Drilling Success at Nevado Sajama",
+      "url": "https://science.nasa.gov/blog/curiosity-blog-sols-4716-4722-drilling-success-at-nevado-sajama/",
+      "version": "Published 2025-11-18; blog post, no version number"
+    },
+    {
+      "accessed": "2026-11-12",
+      "authors": "Lucy Thompson; Mars Science Laboratory Mission Team Members",
+      "credit": "NASA/JPL-Caltech (Curiosity blog)",
+      "instruments": [
+        "APXS",
+        "MAHLI",
+        "Mastcam",
+        "Navcam",
+        "DAN"
+      ],
+      "licence": "NASA content is generally not subject to copyright in the United States; it is used under the NASA Images and Media Usage Guidelines (https://www.nasa.gov/nasa-brand-center/images-and-media/), which the page itself does not repeat (checked 2026-11-12)",
+      "missions": [
+        "MSL"
+      ],
+      "publisher": "NASA",
+      "source_id": "nasa-msl-blog-sols-4845-4851",
+      "title": "Curiosity Blog, Sols 4845-4851: Bye-Bye Boxwork, Bye-Bye",
+      "url": "https://science.nasa.gov/blog/curiosity-blog-sols-4845-4851-bye-bye-boxwork-bye-bye/",
+      "version": "Published 2026-04-13; blog post, no version number"
+    },
+    {
+      "accessed": "2026-11-12",
+      "accuracy_note": "The page names no instrument, so none is listed.",
+      "authors": "Jet Propulsion Laboratory (NASA news release 2025-080, no byline); media contacts Andrew Good (JPL), Karen Fox and Molly Wasser (NASA Headquarters)",
+      "credit": "NASA/JPL-Caltech/MSSS (images on the page); text: NASA, Jet Propulsion Laboratory (release 2025-080)",
+      "instruments": [],
+      "licence": "NASA content is generally not subject to copyright in the United States; it is used under the NASA Images and Media Usage Guidelines (https://www.nasa.gov/nasa-brand-center/images-and-media/), which the page itself does not repeat (checked 2026-11-12)",
+      "missions": [
+        "MSL"
+      ],
+      "publisher": "NASA",
+      "source_id": "nasa-msl-boxwork-article-2025-06",
+      "title": "NASA's Curiosity Mars Rover Starts Unpacking Boxwork Formations",
+      "url": "https://www.nasa.gov/missions/mars-science-laboratory/curiosity-rover/nasas-curiosity-mars-rover-starts-unpacking-boxwork-formations/",
+      "version": "Published 2025-06-23; article, no version number"
+    },
+    {
+      "accessed": "2026-11-12",
+      "accuracy_note": "Concept document for a pressurized rover: it informs the assumed values of the pr1-assumed ParamSet (flat speed and crew capacity) and is not a measurement at Mars.",
+      "authors": "NASA (no individual author named)",
+      "credit": "NASA, The Space Exploration Vehicle Characteristics (Surface Concept), NASA Facts FS-2011-08-045-JSC",
+      "instruments": [],
+      "licence": "NASA content is generally not subject to copyright in the United States; it is used under the NASA Images and Media Usage Guidelines (https://www.nasa.gov/nasa-brand-center/images-and-media/), which the document itself does not repeat (checked 2026-11-12)",
+      "missions": [],
+      "publisher": "National Aeronautics and Space Administration (NASA Facts)",
+      "source_id": "nasa-sev-factsheet-2011",
+      "title": "The Space Exploration Vehicle Characteristics (Surface Concept)",
+      "url": "https://www.nasa.gov/wp-content/uploads/2015/08/464826main_sev_factsheet_508.pdf",
+      "version": "NASA Facts FS-2011-08-045-JSC; no version number"
+    },
+    {
+      "accessed": "2026-11-12",
+      "accuracy_note": "doi:10.17189/1520397, the identifier 02 §C.2 L6 gives, belongs to the older PDS3 data set MSL-M-ENG-6-RDR-PLACES-V1.0 (Deen, 2015, per its PDS data set page); the PDS4 bundle read here carries doi:10.17189/8nyv-8p60.",
+      "authors": "Robert G. Deen",
+      "credit": "Deen, Robert G. (2024), Mars Science Laboratory Rover PLACES Bundle, version 42.0, NASA Planetary Data System, doi:10.17189/8nyv-8p60; collection \"Collection of localization data products for Rover PLACES\" (Citation_Information of bundle.xml and collection_data_localizations.xml)",
+      "doi": "10.17189/8nyv-8p60",
+      "instruments": [
+        "Mars Science Laboratory Curiosity Rover"
+      ],
+      "licence": "The labels state no licence. The archive's footer links the JPL Image Use Policy (https://www.jpl.nasa.gov/jpl-image-use-policy/), which says images and video on JPL public web sites may be used for any purpose without prior permission, subject to the special cases it lists (checked 2026-11-12)",
+      "missions": [
+        "Mars Science Laboratory"
+      ],
+      "publisher": "NASA Planetary Data System, Imaging Node (planetarydata.jpl.nasa.gov)",
+      "source_id": "pds-msl-places-localizations",
+      "title": "Collection of localization data products for Rover PLACES",
+      "url": "https://planetarydata.jpl.nasa.gov/img/data/msl/msl_places/data_localizations/localized_interp.csv",
+      "version": "42.0; localized_interp.csv created 2026-05-01"
+    },
+    {
+      "accessed": "2026-11-12",
+      "accuracy_note": "Section 4.4.1.2: \"The localized positions have an expected accuracy of 0.5m compared to the base map.\" That sentence is in the localized_pos view; localized_interp contains those localized solutions plus interpolated values between them.",
+      "authors": "Robert Deen, MIPL/OPGS",
+      "credit": "Robert Deen (2016), PLACES Data Products for PDS SIS, JPL; Copyright 2016 California Institute of Technology, government sponsorship acknowledged",
+      "instruments": [
+        "Navcam",
+        "HiRISE"
+      ],
+      "licence": "The document states no licence beyond its copyright line (in `credit`). The archive's footer links the JPL Image Use Policy (https://www.jpl.nasa.gov/jpl-image-use-policy/), which says images and video on JPL public web sites may be used for any purpose without prior permission, subject to the special cases it lists (checked 2026-11-12)",
+      "missions": [
+        "MSL"
+      ],
+      "publisher": "Jet Propulsion Laboratory, California Institute of Technology",
+      "source_id": "pds-msl-places-sis-1-3",
+      "title": "Mars Science Laboratory Software Interface Specification: PLACES Data Products for PDS",
+      "url": "https://planetarydata.jpl.nasa.gov/img/data/msl/msl_places/document/PLACES_PDS_SIS.pdf",
+      "version": "Release 1.3 Rev-A; JPL D-78442; MSL-477-3984; 2016-07-01"
+    },
+    {
+      "accessed": "2026-11-12",
+      "accuracy_note": "Source_id confirmed by Obidit Islam (data lead), 2026-11-10 (map open point 12). Reported GCR dose equivalent rate at Gale Crater during solar minimum (~2019). Presentation (NTRS stiType PRESENTATION) to the National Academies panel 'A Science Strategy for the Human Exploration of Mars', Washington DC, 6 Aug 2024; the NTRS record lists one author.",
+      "authors": "Simonsen, L. C.",
+      "credit": "Simonsen et al., 2024",
+      "instruments": [
+        "RAD"
+      ],
+      "licence": "NASA Technical Reports Server record 20240009831, distribution PUBLIC since 2024-08-06 (checked 2026-11-12, https://ntrs.nasa.gov/api/citations/20240009831). NASA marks the presentation as possibly containing third-party copyrighted material (open-literature figures); the app uses one reported rate range as a cited number and reproduces no figure",
+      "missions": [
+        "MSL"
+      ],
+      "publisher": "NASA Technical Reports Server",
+      "source_id": "simonsen-2024-rad",
+      "title": "The Martian Radiation Environment and Human Health Risks",
+      "url": "https://ntrs.nasa.gov/api/citations/20240009831/downloads/NAS%20BPS%20Simonsen%20v4%20strives.pdf",
+      "version": "v4"
+    },
+    {
+      "accessed": "2026-11-12",
+      "accuracy_note": "The required source_id names Tobler's original 1993 work, but the URL in 02 Sources is a 2023 paper by Wood et al. that cites it; title, authors, publisher, version, credit and licence here describe that paper, not Tobler 1993. Reported as a 02 factual problem.",
+      "authors": "Andrew Wood; William Mackaness; T. Ian Simpson; J. Douglas Armstrong",
+      "credit": "Andrew Wood; William Mackaness; T. Ian Simpson; J. Douglas Armstrong; arXiv:2303.16065v6",
+      "instruments": [],
+      "licence": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+      "missions": [],
+      "publisher": "arXiv",
+      "source_id": "tobler-1993",
+      "title": "Improved prediction of hiking speeds using a data driven approach",
+      "url": "https://arxiv.org/pdf/2303.16065v6",
+      "version": "arXiv:2303.16065v6; revised 29 Aug 2023"
+    },
+    {
+      "accessed": "2026-11-02",
+      "accuracy_note": "HRSC controlled to MOLA (~100 m horizontal, ~1 m vertical)",
+      "authors": "Parker, T.; Calef III, F. J.",
+      "credit": "Please credit authors",
+      "instruments": [
+        "HiRISE",
+        "CTX",
+        "HRSC",
+        "MOLA"
+      ],
+      "licence": "Use constraints: none",
+      "missions": [
+        "MRO",
+        "Mars Express",
+        "MGS"
+      ],
+      "native_resolution_m": 1,
+      "publisher": "USGS Astrogeology Science Center",
+      "source_id": "usgs-gale-dem-1m-v3",
+      "title": "Mars MSL Gale Merged DEM 1m",
+      "url": "https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_dem_1m",
+      "version": "v3"
+    },
+    {
+      "accessed": "2026-11-06",
+      "accuracy_note": "The mosaic has real greyscale strips inside the colour mosaic (about 7.74% of the AOI window in a nearest-neighbour sample); 136,454 sampled window pixels have valid-mask black RGB values ; the product page does not document what they mean, so the tiles show them as they are (BD-18).",
+      "authors": "Parker and Calef",
+      "credit": "NASA/JPL-Caltech/University of Arizona; USGS Astrogeology (Calef & Parker 2016)",
+      "instruments": [
+        "HiRISE"
+      ],
+      "licence": "Use constraints: none, credit authors",
+      "missions": [
+        "MRO"
+      ],
+      "native_resolution_m": 0.25,
+      "publisher": "USGS Astrogeology Science Center",
+      "source_id": "usgs-gale-ortho-25cm-v3",
+      "title": "Mars MSL Gale Merged Orthophoto Mosaic 25cm, colour version HiRISE 78 quad color basemap",
+      "url": "https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_orthophoto_mosaic_25cm",
+      "version": "File name carries no version number; Last-Modified: Fri, 25 Jul 2025 16:58:53 GMT; ETag: \"adae62ea1be4cf769f7232a2a7dee80c-60\"; x-amz-version-id: 0ZDib2C._2LbtlqGD1_o4uHnz0whyvNj"
+    },
+    {
+      "accessed": "2026-11-06",
+      "accuracy_note": "The product page states absolute accuracy of approximately 20%. The cube's ISIS3 label names no unit (gdalinfo of the label, 2026-11-12), and neither does the product page; the unit is taken from 02 §C.2 L4, tiu (J m⁻² K⁻¹ s⁻½), as an assumption (BD-26).",
+      "authors": "Fergason",
+      "credit": "Please cite authors",
+      "instruments": [
+        "THEMIS"
+      ],
+      "licence": "Access constraints: public domain; use constraints: please cite authors",
+      "missions": [
+        "Mars Odyssey"
+      ],
+      "native_resolution_m": 100,
+      "publisher": "USGS Astrogeology Science Center",
+      "source_id": "usgs-themis-ti-30s120e",
+      "title": "THEMIS Thermal Inertia Mosaic Quantitative 30S120E 100mpp",
+      "url": "https://astrogeology.usgs.gov/search/map/themis_thermal_inertia_mosaic_quantitative_30s120e_100mpp",
+      "version": "Edition 1; Fergason (2014-05-30)"
+    }
+  ],
+  "traverse_asset": "vec-traverse"
+}

@@ -1,5 +1,5 @@
 {
-  "$comment": "SPICE kernels for the Earth-link table (T21.02, U-18; consumed by T21.04). Files live in pipeline/work/spice/ (git-ignored) and are never committed. Coverage is what spiceypy spkobj/spkcov report (et2utc ISOC, UTC); covers_window means one coverage interval spans the whole window. Unknowns are TODO(verify).",
+  "$comment": "SPICE kernels for the Earth-link table (T21.02, U-18; consumed by T21.04). Files live in pipeline/work/spice/ (git-ignored) and are never committed. Coverage is what spiceypy spkobj/spkcov report (et2utc ISOC, UTC); covers_window means one coverage interval spans the whole window. Unknowns are stated as unknown.",
   "task": "T21.02",
   "unresolved_item": "U-18",
   "access_date": "2026-11-07",
@@ -180,7 +180,7 @@
           "covers_window": true
         }
       ],
-      "notes": "Named in the ESA operational meta-kernel em16_ops.tm (fetched 2026-11-07). Segment centre Mars (499), frame J2000. Internal comments: delivered by Flight Dynamics on 17 May 2024 (source OEMS_DS_335_01_______00741.EXM). ESA spk/aareadme.txt: fsp files hold reconstructed and predicted data, and prediction starts around the day before delivery. So in this set the span 2024-05-18T00:00Z to 2024-05-20T22:45:10Z (where fsp_352 starts) probably comes from predicted data: TODO(verify). The listing also has fsp_336 to fsp_351, which em16_ops.tm does not name; whether one of them holds reconstructed data for 18-20 May is TODO(verify) (not downloaded). Load before em16_tgo_fsp_352."
+      "notes": "Named in the ESA operational meta-kernel em16_ops.tm (fetched 2026-11-07). Segment centre Mars (499), frame J2000. Internal comments: delivered by Flight Dynamics on 17 May 2024 (source OEMS_DS_335_01_______00741.EXM). ESA spk/aareadme.txt: fsp files hold reconstructed and predicted data, and prediction starts around the day before delivery. So in this set the span 2024-05-18T00:00Z to 2024-05-20T22:45:10Z (where fsp_352 starts) is treated as predicted data (BD-24). The listing also has fsp_336 to fsp_351, which em16_ops.tm does not name; they were not downloaded and are not used, so whether one of them holds reconstructed data for 18-20 May is not known. Load before em16_tgo_fsp_352."
     },
     {
       "file": "em16_tgo_fsp_352_01_20240520_20241102_v01.bsp",
@@ -241,12 +241,20 @@
         "em16_tgo_fsp_335_01_20240113_20240706_v01.bsp",
         "em16_tgo_fsp_352_01_20240520_20241102_v01.bsp"
       ],
-      "data_kind": "from 2024-05-20T22:45:10Z: fsp_352 (delivered 2024-09-23, reconstructed); before that: fsp_335 (delivered 2024-05-17), probably predicted: TODO(verify)"
+      "data_kind": "from 2024-05-20T22:45:10Z: fsp_352 (delivered 2024-09-23, reconstructed); before that: fsp_335 (delivered 2024-05-17), treated as predicted (BD-24)"
     }
   },
   "meta_kernels_read": {
     "mro": "https://naif.jpl.nasa.gov/pub/naif/pds/data/mro-m-spice-6-v1.0/mrosp_1000/extras/mk/mro_2024_v07.tm",
     "tgo": "https://spiftp.esac.esa.int/data/SPICE/ExoMars2016/kernels/mk/em16_ops.tm",
     "note": "Read on 2026-11-07, not kept in pipeline/work. mro_2024_v07.tm (created 27 May 2026) is the newest 2024 MRO meta-kernel in extras/mk/; mro_2024_v03.tm (named in data-downloads D13) names the same two psp71 files. em16_ops.tm is ESA's moving operational meta-kernel, so it may list other files on another day."
+  },
+  "mars_centre_light_time_difference": {
+    "max_s": 6.497202775790356e-10,
+    "window_utc": "2024-05-18T00:00:00Z to 2024-05-23T00:00:00Z",
+    "step_s": 60,
+    "computed_with": "marswalk_pipeline.spice_tables.mars_centre_light_time_difference_s",
+    "computed_on": "2026-11-12",
+    "note": "Largest |light time Earth to the Mars barycentre (NAIF 4) - light time Earth to the Mars body centre (NAIF 499)| over the scenario window, sampled every 60 s (spiceypy 8.3.0, de440s.bsp and mar099s.bsp as locked). About 0.2 m of range, against the 1 s of FR-43, so the Earth geometry keeps the barycentre (BD-24). TGO's pre-20-May-22:45:10Z segment is treated as predicted (see its notes)."
   }
 }

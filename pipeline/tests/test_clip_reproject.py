@@ -72,8 +72,7 @@ def _is_within_docstring(
     return False
 
 
-# TODO(decision): whether CI installs the geo stack or relies on pytest.importorskip
-# (shared with T14.01/T14.02; see docs/tasks/TASK-03_preprocessing-pipeline.md Spec question 2).
+# BD-32: pipeline tests keep pytest.importorskip for the geo stack; `make test` runs them in the pipeline conda env.
 
 
 def test_projection_round_trip_lat_lon_xy_within_1_mm() -> None:
@@ -220,8 +219,8 @@ def test_dem_nodata_becomes_nan_before_slope(tmp_path: Path) -> None:
 
     from marswalk_pipeline import clip_reproject
 
-    # TODO(verify): confirm whether the Gale DEM carries a declared GeoTIFF nodata tag or requires
-    # the PDS3 label value from T01.01 (docs/tasks/TASK-03_preprocessing-pipeline.md Spec question 15).
+    # BD-19: the no-data value is the GeoTIFF tag. The Gale DEM carries -32767 in its tag; neither PDS3 label
+    # states one (docs/ops/feasibility.md, T01.01), so a DEM without the tag is refused.
     declared_nodata = -32767.0
     valid_elevation = -4500.0
 
@@ -292,3 +291,20 @@ def test_no_epsg_3857_or_wgs84_in_code_paths() -> None:
             violations.append(f"{rel}: forbidden CRS expression {match.group(0)!r}")
 
     assert not violations, "Forbidden Earth CRS code paths found:\n" + "\n".join(violations)
+
+
+def test_bd19_dem_without_a_nodata_tag_is_refused(tmp_path: Path) -> None:
+    """No tag and no label value (T01.01): the pipeline stops rather than guess a no-data value."""
+    np = pytest.importorskip("numpy")
+    rasterio = pytest.importorskip("rasterio")
+    from rasterio.transform import from_origin
+
+    from marswalk_pipeline import clip_reproject
+
+    path = tmp_path / "untagged.tif"
+    with rasterio.open(path, "w", driver="GTiff", width=2, height=2, count=1, dtype="float32",
+                       transform=from_origin(0, 2, 1, 1)) as dst:
+        dst.write(np.full((2, 2), -32767.0, dtype="float32"), 1)
+    with pytest.raises(ValueError, match="no declared no-data value"):
+        clip_reproject.nodata_to_nan(path)
+

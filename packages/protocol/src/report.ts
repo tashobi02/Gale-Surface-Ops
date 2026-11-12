@@ -109,19 +109,21 @@ export interface PostEvaReport {
     headline: { crew_id: string; dose_event_ugy: number; dose_event_unsheltered_ugy: number | null } | null;
     provenance: { per_crew: "simulated"; headline: "derived"; planned_background_ugy: "modelled" };
     /**
-     * Planned-background dose. Unavailable (null) until a sourced planned-background result arrives through the
-     * report/session contract: no rate lives in this builder (science lives in packages/compute, AGENTS rule 2).
-     * TODO(decision): supply a sourced planned-background dose result through the agreed report/session contract;
-     * background dose remains unavailable until then.
+     * Background dose received during the EVA, apart from the event: the engine integrates one recorded series (background and
+     * event together) into `dose_event_ugy`, so there is no separate figure and this is null. The planned figure is
+     * `planned_background_ugy`.
      */
     background_dose_ugy: number | null;
     /**
-     * Planned background dose over the planned EVA: compute `estimateDose(EnvConstant for the scenario's solar phase,
-     * planned EVA duration from the plan totals)`, `modelled`; null with `planned_background_reason` when either input
-     * is missing (BD-76). Filled by work package 20.
+     * Planned background dose, µGy: the scenario's dose series' own `background_rate` (µGy/h) times the plan's planned EVA hours
+     * (`result.totals.eva_total_min`), no shielding factor, via compute `backgroundDoseUgy`; `modelled` (BD-132, which amends
+     * BD-76: `estimateDose` gives dose equivalent in mSv and 02 §D.13 forbids converting it to the µGy of this field). Null with
+     * `planned_background_reason` when the plan, its totals or the dose series is missing or unusable.
      */
     planned_background_ugy: number | null;
     planned_background_reason: string | null;
+    /** The dose series' `source_id` when `planned_background_ugy` is set, else null (FR-15). */
+    planned_background_source_id: string | null;
   };
   /**
    * Crew positions decimated to 30 s, `simulated`: sampled from engine state by the session and rebuilt on resume by

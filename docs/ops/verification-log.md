@@ -534,3 +534,123 @@ The prototype frames show every element 04 §B and §F name for both screens and
 | `tiles-all-levels` | Pass | All five levels of `slope` and `elevation` load with HTTP 200 and paint a non-empty canvas |
 | `scale-bar`, resolution | Pass | At each level the scale line's metres per pixel equals the view resolution within 1 % |
 | `scale-bar`, reference crater (38.87 m, [dem-quality.md](feasibility/dem-quality.md#reference-feature)) | Not run | `test.fixme`: needs the `gale_boxwork` bundle (T03.19) and the rim endpoints converted to site coordinates |
+
+## T03.19 — Real-site bundle v1 built from the locked inputs; served offline
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 23, run by Claude Code (Sonnet 5.5) for the orchestrator |
+| **Date** | 2026-11-13 |
+| **Status** | Done: `gale_boxwork-2026.11.09` built, `make validate SITE=gale_boxwork` exits 0, 80,030,936 bytes against the 250 × 10⁶ budget (NFR-09, BD-111), every file served from `localhost` |
+| **Inputs** | `pipeline/sources.lock.json` (26 inputs, verified by `acquire --offline`); GDAL 3.13.3, rasterio 1.5.2, NumPy from the `marswalk-pipeline` environment; inputs and scratch on the data SSD (BD-139) |
+
+Command (no `--skip-unstyled-optional`; `--work` holds links to the locked inputs, so its `runs/` scratch is new):
+
+```text
+python -m marswalk_pipeline gale_boxwork --work <SSD>/build23/work --traverse <SSD>/work/traverse/localized_interp.csv --offline
+```
+
+| Step | Seconds |
+| --- | --- |
+| acquire (offline verification of 26 files) | 6.6 |
+| clip_reproject (DEM, ortho 0.5 m, TI) | 32.3 |
+| derive (slope, hillshade, 5 m block means) | 30.6 |
+| flags, grid | 0.1 |
+| comm_grid (two candidates) | 56.8 |
+| tiles (seven layers, 3,574 files) | 190.1 |
+| vectors, manifest, validate | 0.8 |
+| **Wall time** | **317** (5 min 17 s) |
+
+| Part | Bytes |
+| --- | --- |
+| `tiles/` (3,574 files; `du` block sizes on the SSD overstate it) | 59,287,936 |
+| `grid/` | 12,974,400 |
+| `vectors/` | 5,626,334 |
+| `images/` | 2,099,801 |
+| manifest and README | 42,465 |
+| **Total (sum of file sizes, links followed)** | **80,030,936** (32 % of the budget) |
+
+**Display layers (BD-17):** all seven are built. The legend stops are the 2nd and 98th percentile of the valid cells, written by the tiles step into the layer records: elevation −4115.8 m to −3107.6 m, thermal inertia 281 tiu to 488 tiu. Hazard-flag tiles and `comm_hab` tiles use the encodings of C9 v1.2 (BD-136). Ortho pixels outside the source mask or the AOI are the map background `#0B0D10` (BD-18, BD-138).
+
+**Validator (BD-21, BD-140):** `make validate SITE=gale_boxwork` exit 0. The default start (9.75° p90) and both candidate masts (9.75°, 8.0°) pass at the schema default of 15°. 47.8 % of all cells are above that default, and four of the five POIs sit on 22.25° to 24.5° cells (the rover's recorded positions), so POIs are judged against the schema maximum (BD-140; spec-change in 05 §E.3).
+
+**Offline serving.** `make hab` needs `scenarios/storm-sol4190/scenario.json`, which package 25 writes, so the Hab Core was started on the same code path without a scenario (`tsx src/cli.ts start --site gale_boxwork --port 8091`, "no session"); the static route is the same one. Requests to `http://127.0.0.1:8091/sites/gale_boxwork/…`, all through the SSD links:
+
+| Path | HTTP | Bytes |
+| --- | --- | --- |
+| `site-manifest.json` | 200 | 41,048 |
+| `tiles/ortho/5/23/23.jpg` | 200 | 11,635 |
+| `tiles/elevation/4/10/10.png` | 200 | 6,967 |
+| `tiles/hillshade/index.json` | 200 | 28,198 |
+| `grid/comm_hab.u8` | 200 | 1,440,000 |
+| `grid/comm_hab-alternative.u8` | 200 | 1,440,000 |
+| `images/poi-sulfate-contact.jpg` | 200 | 557,503 |
+| `vectors/pois.geojson` | 200 | 13,231 |
+
+After the server was stopped the same URL gave no answer. `git status --porcelain` lists no tile, grid or image file (the three folders are links to the SSD and git-ignored); committed: the manifest, `vectors/` and the lock.
+
+**Not done, and notes.** The POI images are copied from the locked files and registered as `jpg` assets (their digests equal the lock's). The manifest has no traverse offset (BD-137). F5 is T03.21's, the clean rebuild T03.22's. With the bundle present, `packages/compute/tests/realGrid.test.ts` is no longer skipped; its 20-pair benchmark needed 6.2 s against vitest's 5 s default, so that one test got an explicit 60 s timeout (assertions unchanged); package 24 owns the rest of that file.
+
+## T03.21 — F5: ten real routing-grid cells
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 23, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: [real-grid-cells.json](../../pipeline/tests/fixtures/real-grid-cells.json) (seed 4190, the scenario seed of 05 §F), generated twice with identical bytes |
+| **Inputs** | `grid/elevation.f32`, `grid/slope_p90.u8` of the bundle above |
+
+`pipeline/tests/fixtures/make_real_grid_cells.py` draws 10 cells with `numpy.random.default_rng(4190).choice` from the cells that have a finite elevation and a slope code below 255, reads both arrays at the 05 §E.1 addresses and writes `x_m`, `y_m`, indices, values and the `data_version`. [test_real_grid_cells.py](../../pipeline/tests/test_real_grid_cells.py) checks the rule, the values against the arrays, byte-for-byte regeneration and the `data_version`. The README in `pipeline/tests/fixtures/` states the source and the 0.25° quantisation (BD-54). The frontend lane reads the file from `pipeline/tests/fixtures/`.
+
+## T03.22 — Clean rebuild reproduces every asset
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 23, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: a rebuild from a fresh `git clone` gave an identical manifest and 3,574 byte-identical tile files; no asset needed a decoded-pixel comparison (BD-33) |
+| **Inputs** | `git clone --no-hardlinks` of the committed tree into `<SSD>/rebuild/clone`; the same command as above with `--work <SSD>/rebuild/work` (new scratch) and `--out <SSD>/rebuild/out`; the same environment (tool versions are the lock's) |
+
+Wall time 326 s (tiles 196.9 s). Results: `site-manifest.json` is byte-identical to the committed one (`cmp`); all 21 asset SHA-256 values are equal; every one of the 3,574 tile files in `rebuild/out/tiles/` is byte-identical to the bundle's (`filecmp`, no shallow compare); the layer records the build rewrites (ramp stops) are byte-identical to the committed ones, so the clone stayed clean. The encoders are deterministic here (GDAL PNG and JPEG writers, NumPy 2.5, one thread), so the fallback of BD-33 was not needed. The sources were not re-downloaded: the clone's `acquire --offline` verified the locked SHA-256 of the SSD copies, which equal the lock (BD-134). `make test` in the SSD environment runs the real-bundle tests (no longer skipped): pytest 386 passed, 3 skipped; Vitest 735 (compute), 1213 (hab-core) and 1476 (web) passed. Two earlier `make test` runs hit a load-dependent timeout in `apps/hab-core/tests/server.test.ts` (load average 15 from other jobs; the file passes alone, 48 of 48), the third run was green.
+
+## T03.35 — Both hab candidates: validator and `gdal_viewshed`
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 23, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: the validator passes with both candidates; the alternative matches `gdal_viewshed` at 5 of 5 points and 99.815 % of the grid; the first choice reproduces T03.30 (4 of 5, 98.911 %) |
+| **Inputs** | the bundle's `grid/elevation.f32` written as one GeoTIFF read by both tools; `grid/comm_hab.u8`, `grid/comm_hab-alternative.u8`; mast 10 m, suit antenna 2 m from the ParamSets; `gdal_viewshed -cc 1.0 -vv 255 -iv 0 -ov 0 -a_nodata 254`; `pipeline/tests/fixtures/check_viewshed.py`, run by `test_comm_viewshed_real.py` |
+
+Points: the AOI centre and the centres of the four quadrants, snapped to cells (BD-139, the T03.30 rule). `comm_hab` 1 = line of sight; `gdal_viewshed` 255 = visible.
+
+| Candidate | Point | Row, col | x_m, y_m | `comm_hab` | `gdal_viewshed` | Match |
+| --- | --- | --- | --- | --- | --- | --- |
+| hab-first (1037, −1652) | AOI centre | 600, 600 | 2.5, −2.5 | 0 | 255 | no |
+| | NE quadrant | 300, 900 | 1502.5, 1497.5 | 0 | 0 | yes |
+| | NW quadrant | 300, 300 | −1497.5, 1497.5 | 0 | 0 | yes |
+| | SE quadrant | 900, 900 | 1502.5, −1502.5 | 0 | 0 | yes |
+| | SW quadrant | 900, 300 | −1497.5, −1502.5 | 0 | 0 | yes |
+| hab-alternative (439, −652) | AOI centre | 600, 600 | 2.5, −2.5 | 1 | 255 | yes |
+| | NE quadrant | 300, 900 | 1502.5, 1497.5 | 0 | 0 | yes |
+| | NW quadrant | 300, 300 | −1497.5, 1497.5 | 0 | 0 | yes |
+| | SE quadrant | 900, 900 | 1502.5, −1502.5 | 0 | 0 | yes |
+| | SW quadrant | 900, 300 | −1497.5, −1502.5 | 0 | 0 | yes |
+
+| Candidate | Agreement over the grid | `comm_hab` visible | `gdal_viewshed` visible |
+| --- | --- | --- | --- |
+| hab-first | 98.911 % | 5.962 % | 6.504 % |
+| hab-alternative | 99.815 % | 5.222 % | 5.346 % |
+
+The first choice's numbers equal T03.30's to the third decimal, which shows the pipeline's grid is the same block mean T03.30 used. Its one mismatch is the T03.30 one (point 1, a one-cell crest that `comm_hab` counts at full height and GDAL interpolates; `comm_hab` never shows what GDAL hides). The alternative has no mismatch at the five points; its grid is slightly conservative (5.222 % against 5.346 %). The validator accepts the manifest with both candidates (rank 1 matches `default_start`, `grid.comm_hab_asset` and `grid.hab_mast`; both masts and starts are inside the AOI on cells of at most 15°).
+
+## T04.08 — Traverse checks on the packaged vectors (BD-16)
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 23, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done as the automated replacement of BD-16; the offset against rover tracks in the ortho was **not measured** in this build |
+| **Inputs** | `data/sites/gale_boxwork/vectors/traverse.geojson`, `pois.geojson`; [test_traverse_checks.py](../../pipeline/tests/test_traverse_checks.py) |
+
+12,255 points, 375 distinct sols (3549 to 4868). Every point is inside `aoi.extent_m` widened by U-04's 100 m margin (x −52.17 to 1738.61 m, y −252.94 to 3099.69 m); sols never decrease along the track; each POI lies 0.000 m from the traverse point of the PLACES sol its `position_source` names (the last row before the image sol for three of five), against a limit of 0.5 m plus one 5 m cell. The traverse layer's `limitations` states the PLACES accuracy (0.5 m, SIS 1.3 Rev-A §4.4.1.2) and that the ortho offset was not measured (BD-137). The DEM-to-ortho offset is the separate T03.20 record (1.92 m).

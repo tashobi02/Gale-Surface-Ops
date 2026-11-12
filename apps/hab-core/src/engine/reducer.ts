@@ -82,6 +82,34 @@ export interface EngineState {
    * that was never updated or was dropped has no entry. Engine-only and JSON-safe, like `task_plan_rev`.
    */
   task_actor?: Record<string, Role | "system">;
+  /**
+   * The drive of each active utility-rover task (its head and queue), by `task_id`: path, time and energy from compute,
+   * written only by `roversTick` the first time it sees the task (BD-102, T29.03). Engine-only and JSON-safe, like `motion`;
+   * absent (= none planned yet) in states and snapshots written before the rover queue; it is then derived again, identically.
+   */
+  rover_legs?: Record<string, RoverLeg>;
+  /**
+   * The last `Vehicle.relay_coverage_rev` given to each utility rover, so a rover that parks as a relay again gets a new
+   * revision and never repeats an ETag (BD-112). Engine-only and JSON-safe; absent = none given yet.
+   */
+  relay_revs?: Record<string, number>;
+  /**
+   * Crew positions every 30 sim-s while the EVA ticks, `simulated`, for the post-EVA report (05 U-24, BD-76): sampled by the
+   * session after each tick from the state (`sampleTrace`, session.ts), so a resume re-derives the part after its snapshot by
+   * the same ticks. Engine-only and JSON-safe, saved in snapshots; absent = nothing sampled yet.
+   */
+  trace?: { crew_id: CrewId; points: { sim_time: string; x_m: number; y_m: number }[] }[];
+}
+
+/** One planned drive of a utility rover (BD-102). `path` lists the vertices ahead of the start, ending at the target. */
+export interface RoverLeg {
+  path: [number, number][];
+  /** Drive time from compute's vehicle time field, seconds, `modelled`. */
+  time_s: number;
+  /** Length of the polyline start → path, projected metres. */
+  length_m: number;
+  /** 02 §D.9 energy form, Wh, `modelled`. */
+  energy_wh: number;
 }
 
 /**

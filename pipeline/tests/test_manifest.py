@@ -30,17 +30,16 @@ REAL_SITE = ROOT / "data/sites" / REAL_SITE_ID
 REAL_MANIFEST = REAL_SITE / "site-manifest.json"
 WORK_DIR = ROOT / "pipeline/work"
 
-# NFR-09 (02 §F): site bundle <= 250 MB. TODO(verify): decimal MB (used here, the stricter
-# reading) or MiB; the spec does not say.
+# NFR-09 (02 §F): site bundle <= 250 MB, read as decimal MB (the stricter reading; BD-111).
 BUNDLE_LIMIT_BYTES = 250 * 1_000_000
 
 # Sample positions per axis for the real-bundle value check; the cells are the evenly spaced
 # lattice from sample_indices(), so the set is deterministic and includes the corners.
 SAMPLE_POSITIONS_PER_AXIS = 4
 
-# TODO(verify): file names of the 5 m source rasters under pipeline/work/. No spec fixes them yet
-# (T03.18 / T03.20 write them); update this table when they land. Elevation is metres, slopes are
-# degrees, row 0 = north (02 §C.4.3).
+# 5 m source rasters of the routing-grid arrays, when a local run left them under pipeline/work/ (git-ignored;
+# the pipeline's own intermediates are arrays under work/runs/, so the check skips when these are absent).
+# Elevation is metres, slopes are degrees, row 0 = north (02 §C.4.3).
 SOURCE_RASTERS_5M = {
     "elevation_asset": f"{REAL_SITE_ID}/elevation_5m.tif",
     "slope_p90_asset": f"{REAL_SITE_ID}/slope_p90_5m.tif",
@@ -399,8 +398,19 @@ def test_crs_proj4_byte_identical_to_pipeline_constant(site: Path, alteration: s
 # --------------------------------------------------------------------------------------
 # real bundle (skips while data/sites/gale_boxwork/site-manifest.json is absent; T03.19)
 
+def _real_bundle_present() -> bool:
+    """The manifest is committed, but its binaries (grid/*, tiles/*) are git-ignored: check one asset path from it."""
+    if not REAL_MANIFEST.exists():
+        return False
+    try:
+        assets = json.loads(REAL_MANIFEST.read_text(encoding="utf-8"))["assets"]
+    except (KeyError, ValueError):
+        return True  # a broken manifest must fail loudly in the tests, not skip
+    return all((REAL_SITE / asset["path"]).exists() for asset in assets[:1] + assets[-1:])
+
+
 real_bundle_only = pytest.mark.skipif(
-    not REAL_MANIFEST.exists(), reason=f"{REAL_MANIFEST.relative_to(ROOT)} absent until T03.19"
+    not _real_bundle_present(), reason="real bundle absent (manifest or git-ignored binary assets missing)"
 )
 
 
@@ -461,3 +471,133 @@ def test_excluded_layer_and_existing_tiles_are_omitted(tmp_path: Path):
     manifest = json.loads(path.read_text())
     assert layer_id not in {layer['layer_id'] for layer in manifest['layers']}
     assert 'tiles-elevation' not in {asset['asset_id'] for asset in manifest['assets']}
+
+
+# --------------------------------------------------------------------------------------
+# BD-21: the validator's passability limit is the 05 MissionScenario default, read from the schema
+
+
+def _plan_export_default_limit() -> float:
+    schema = json.loads((ROOT / "schemas/plan-export.schema.json").read_text())
+    return schema["$defs"]["MissionScenario"]["properties"]["hard_slope_limit_deg"]["default"]
+
+
+def test_bd21_validator_limit_is_read_from_the_plan_export_schema_default():
+    from marswalk_pipeline import validate_manifest
+
+    assert validate_manifest.hard_slope_limit_deg() == _plan_export_default_limit()
+    source = (ROOT / "pipeline/src/marswalk_pipeline/validate_manifest.py").read_text()
+    assert "TODO" not in source
+
+
+@pytest.mark.parametrize("degrees, passable", [(14.5, True), (15.0, True), (15.25, False), (17.5, False)])
+def test_bd21_start_cell_slope_is_judged_against_the_schema_default(site: Path, degrees: float, passable: bool):
+    manifest = load_manifest(site)
+    x, y = manifest["default_start"]["x_m"], manifest["default_start"]["y_m"]
+    grid = manifest["grid"]
+    col = int((x - grid["origin_m"][0]) // grid["cell_m"])
+    row = int((grid["origin_m"][1] - y) // grid["cell_m"])
+    record = asset_by_id(manifest, grid["slope_p90_asset"])
+    path = site / record["path"]
+    data = bytearray(path.read_bytes())
+    data[row * grid["width"] + col] = round(degrees * SLOPE_U8_SCALE)
+    path.write_bytes(bytes(data))
+    refresh_asset_record(site, grid["slope_p90_asset"])
+    problems = validate(site)
+    assert (not mentions(problems, "default_start")) == passable, problems
+
+
+def test_bd21_jsonschema_is_required_not_optional():
+    source = (ROOT / "pipeline/src/marswalk_pipeline/validate_manifest.py").read_text()
+    assert "except ImportError" not in source
+    assert "warnings.warn" not in source
+
+
+
+# --------------------------------------------------------------------------------------
+# BD-12 / BD-139: the real bundle's tiles, grid and images folders are links to the data SSD
+
+
+def test_asset_folders_that_are_links_to_other_storage_are_accepted(site: Path, tmp_path: Path):
+    elsewhere = tmp_path / "ssd"
+    elsewhere.mkdir()
+    shutil.move(str(site / "grid"), str(elsewhere / "grid"))
+    (site / "grid").symlink_to(elsewhere / "grid", target_is_directory=True)
+    assert validate(site) == []
+
+
+@pytest.mark.parametrize("path", ["../outside.u8", "/etc/hosts", "grid/../../x.u8"])
+def test_an_asset_path_that_climbs_out_of_the_bundle_is_still_refused(site: Path, path: str):
+    def climb(manifest: dict) -> None:
+        manifest["assets"][0]["path"] = path
+
+    assert mentions(problems_after(site, edit_manifest(climb)), "escapes")
+
+
+def _fake_jpeg(width: int, height: int) -> bytes:
+    """SOI + a baseline SOF0 header + EOI: enough for a size read, not a decodable picture."""
+    import struct
+
+    sof = b"\xff\xc0" + struct.pack(">HBHHB", 17, 8, height, width, 3) + b"\x01\x22\x00\x02\x11\x01\x03\x11\x01"
+    return b"\xff\xd8" + b"\xff\xe0" + struct.pack(">H", 4) + b"\x00\x00" + sof + b"\xff\xd9"
+
+
+def test_poi_images_are_registered_as_jpg_assets_named_after_the_poi(tmp_path: Path):
+    from marswalk_pipeline.manifest import _produced_assets
+
+    (tmp_path / "images").mkdir()
+    payload = _fake_jpeg(1328, 1184)
+    (tmp_path / "images/poi-boxwork-ridge.jpg").write_bytes(payload)
+    assets = {a["asset_id"]: a for a in _produced_assets(tmp_path, (1, 1), None)}
+    asset = assets["img-boxwork-ridge"]
+    assert asset["format"] == "jpg" and asset["path"] == "images/poi-boxwork-ridge.jpg"
+    assert (asset["width"], asset["height"]) == (1328, 1184)
+    assert asset["bytes"] == len(payload)
+    assert asset["sha256"] == hashlib.sha256(payload).hexdigest()
+
+
+def test_a_jpeg_without_a_size_header_is_refused(tmp_path: Path):
+    from marswalk_pipeline.manifest import _produced_assets
+
+    (tmp_path / "images").mkdir()
+    (tmp_path / "images/poi-x.jpg").write_bytes(b"not a jpeg")
+    with pytest.raises(ValueError, match="poi-x.jpg"):
+        _produced_assets(tmp_path, (1, 1), None)
+
+
+def test_a_poi_image_that_is_not_in_the_bundle_is_reported(site: Path):
+    def point_at_missing_image(manifest: dict) -> None:
+        manifest["assets"].append({"asset_id": "img-gone", "path": "images/poi-gone.jpg", "format": "jpg",
+                                   "sha256": "0" * 64, "bytes": 1})
+
+    assert mentions(problems_after(site, edit_manifest(point_at_missing_image)), "img-gone")
+
+
+# --------------------------------------------------------------------------------------
+# BD-140: a POI only has to be reachable under some allowed limit (the schema maximum); a start under the default
+
+
+def test_bd140_the_poi_limit_is_the_schema_maximum_read_from_the_schema():
+    from marswalk_pipeline import validate_manifest
+
+    schema = json.loads((ROOT / "schemas/plan-export.schema.json").read_text())
+    assert validate_manifest.max_slope_limit_deg() == schema["$defs"]["MissionScenario"]["properties"]["hard_slope_limit_deg"]["maximum"]
+    assert validate_manifest.max_slope_limit_deg() > validate_manifest.hard_slope_limit_deg()
+
+
+@pytest.mark.parametrize("degrees, passable", [(17.5, True), (24.5, True), (35.0, True), (35.25, False), (50.0, False)])
+def test_bd140_a_poi_cell_is_judged_against_the_schema_maximum(site: Path, degrees: float, passable: bool):
+    manifest = load_manifest(site)
+    feature = json.loads((site / asset_by_id(manifest, manifest["pois_asset"])["path"]).read_text())["features"][0]
+    x, y = feature["geometry"]["coordinates"]
+    grid = manifest["grid"]
+    col = int((x - grid["origin_m"][0]) // grid["cell_m"])
+    row = int((grid["origin_m"][1] - y) // grid["cell_m"])
+    record = asset_by_id(manifest, grid["slope_p90_asset"])
+    path = site / record["path"]
+    data = bytearray(path.read_bytes())
+    data[row * grid["width"] + col] = round(degrees * SLOPE_U8_SCALE)
+    path.write_bytes(bytes(data))
+    refresh_asset_record(site, grid["slope_p90_asset"])
+    problems = validate(site)
+    assert (not mentions(problems, feature["properties"]["poi_id"])) == passable, problems

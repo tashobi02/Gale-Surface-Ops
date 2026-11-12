@@ -1,0 +1,112 @@
+{
+  "cells": [
+    {
+      "col": 805,
+      "elevation_m": -3779.352783203125,
+      "row": 172,
+      "slope_p90_deg": 21.25,
+      "slope_p90_u8": 85,
+      "x_m": 1027.5,
+      "y_m": 2137.5
+    },
+    {
+      "col": 739,
+      "elevation_m": -3787.63623046875,
+      "row": 176,
+      "slope_p90_deg": 24.0,
+      "slope_p90_u8": 96,
+      "x_m": 697.5,
+      "y_m": 2117.5
+    },
+    {
+      "col": 332,
+      "elevation_m": -4030.630126953125,
+      "row": 230,
+      "slope_p90_deg": 17.75,
+      "slope_p90_u8": 71,
+      "x_m": -1337.5,
+      "y_m": 1847.5
+    },
+    {
+      "col": 1152,
+      "elevation_m": -3366.00830078125,
+      "row": 693,
+      "slope_p90_deg": 12.0,
+      "slope_p90_u8": 48,
+      "x_m": 2762.5,
+      "y_m": -467.5
+    },
+    {
+      "col": 598,
+      "elevation_m": -3478.41064453125,
+      "row": 753,
+      "slope_p90_deg": 26.25,
+      "slope_p90_u8": 105,
+      "x_m": -7.5,
+      "y_m": -767.5
+    },
+    {
+      "col": 234,
+      "elevation_m": -3622.2880859375,
+      "row": 829,
+      "slope_p90_deg": 10.5,
+      "slope_p90_u8": 42,
+      "x_m": -1827.5,
+      "y_m": -1147.5
+    },
+    {
+      "col": 301,
+      "elevation_m": -3547.182861328125,
+      "row": 939,
+      "slope_p90_deg": 25.25,
+      "slope_p90_u8": 101,
+      "x_m": -1492.5,
+      "y_m": -1697.5
+    },
+    {
+      "col": 715,
+      "elevation_m": -3263.373046875,
+      "row": 1080,
+      "slope_p90_deg": 10.0,
+      "slope_p90_u8": 40,
+      "x_m": 577.5,
+      "y_m": -2402.5
+    },
+    {
+      "col": 1032,
+      "elevation_m": -3114.71337890625,
+      "row": 1085,
+      "slope_p90_deg": 31.75,
+      "slope_p90_u8": 127,
+      "x_m": 2162.5,
+      "y_m": -2427.5
+    },
+    {
+      "col": 59,
+      "elevation_m": -3558.691650390625,
+      "row": 1116,
+      "slope_p90_deg": 5.25,
+      "slope_p90_u8": 21,
+      "x_m": -2702.5,
+      "y_m": -2582.5
+    }
+  ],
+  "data_version": "gale_boxwork-2026.11.09",
+  "fixture": "F5",
+  "grid": {
+    "cell_m": 5,
+    "height": 1200,
+    "origin_m": [
+      -3000,
+      3000
+    ],
+    "row_order": "north_up",
+    "width": 1200
+  },
+  "rule": "numpy.random.default_rng(seed).choice over the row-major indices of the cells with a finite elevation and a slope p90 code below 255, 10 cells without replacement, sorted by (row, col)",
+  "seed": 4190,
+  "source": {
+    "elevation": "grid/elevation.f32 (float32, little-endian)",
+    "slope_p90": "grid/slope_p90.u8 (degrees x 4; 255 = no data)"
+  }
+}

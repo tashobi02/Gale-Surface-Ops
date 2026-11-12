@@ -8,6 +8,7 @@
   "scripts": {
     "start": "tsx src/cli.ts start",
     "replay": "tsx src/cli.ts replay",
+    "local": "tsx src/cli.ts local",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
     "demo-numbers": "tsx scripts/demo-numbers.ts"

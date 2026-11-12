@@ -2,16 +2,15 @@
   "source_id": "nasa-msl-boxwork-article-2025-06",
   "title": "NASA's Curiosity Mars Rover Starts Unpacking Boxwork Formations",
   "publisher": "NASA",
-  "authors": "TODO(verify)",
+  "authors": "Jet Propulsion Laboratory (NASA news release 2025-080, no byline); media contacts Andrew Good (JPL), Karen Fox and Molly Wasser (NASA Headquarters)",
   "missions": [
     "MSL"
   ],
-  "instruments": [
-    "TODO(verify)"
-  ],
+  "instruments": [],
   "version": "Published 2025-06-23; article, no version number",
   "url": "https://www.nasa.gov/missions/mars-science-laboratory/curiosity-rover/nasas-curiosity-mars-rover-starts-unpacking-boxwork-formations/",
-  "credit": "NASA/JPL-Caltech/MSSS (images on the page); text credit TODO(verify)",
-  "licence": "TODO(verify)",
-  "accessed": "2026-11-09"
+  "credit": "NASA/JPL-Caltech/MSSS (images on the page); text: NASA, Jet Propulsion Laboratory (release 2025-080)",
+  "licence": "NASA content is generally not subject to copyright in the United States; it is used under the NASA Images and Media Usage Guidelines (https://www.nasa.gov/nasa-brand-center/images-and-media/), which the page itself does not repeat (checked 2026-11-12)",
+  "accessed": "2026-11-12",
+  "accuracy_note": "The page names no instrument, so none is listed."
 }

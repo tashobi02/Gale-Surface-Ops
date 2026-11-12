@@ -13,11 +13,13 @@
  * `session.advance(steps)`.
  */
 import { existsSync } from "node:fs";
+import { networkInterfaces, type NetworkInterfaceInfo } from "node:os";
 import { performance } from "node:perf_hooks";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
+import QRCode from "qrcode";
 import { WebSocketServer, type WebSocket } from "ws";
 import {
   CSP_HEADER,
@@ -70,6 +72,25 @@ export interface ServerOptions {
   webDir?: string;
   /** Site bundles; default `data/sites`. */
   sitesDir?: string;
+  /** The host the join QR codes name (`--public-host`, BD-82); default: the first non-internal IPv4 address, else `localhost`. */
+  publicHost?: string;
+}
+
+/** Roles a device can join as by QR (the web app's `#/join?role=` list, 03 SCR-10): every role but `presenter`, which has no join page. */
+const JOIN_QR_ROLES: readonly Role[] = ["planner", "ops", "eva:EV1", "eva:EV2", "hud:EV1", "hud:EV2", "earth"];
+
+/** BD-82: the host in the join URL: the flag, else the first non-internal IPv4 address, else `localhost`. Reads only the interface list. */
+export function defaultPublicHost(flag: string | undefined, nics: NodeJS.Dict<NetworkInterfaceInfo[]> = networkInterfaces()): string {
+  if (flag !== undefined && flag !== "") return flag;
+  for (const list of Object.values(nics)) {
+    for (const nic of list ?? []) if (nic.family === "IPv4" && !nic.internal) return nic.address;
+  }
+  return "localhost";
+}
+
+/** BD-82: `http://<host>:<port>/#/join?role=<role>`; `role` is one of `JOIN_QR_ROLES`, so it needs no escaping. */
+export function joinUrl(host: string, port: number, role: string): string {
+  return `http://${host}:${port}/#/join?role=${role}`;
 }
 
 export interface HabServer {
@@ -93,6 +114,8 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
   const startedAt = Date.now();
   const app: FastifyInstance = Fastify({ logger: false });
   const clients = new Set<Client>();
+  /** The port actually bound (set after `listen`; the join QR names it, `--port 0` included). */
+  let boundPort = options.port;
 
   app.addHook("onSend", async (_req, reply) => {
     reply.header("Content-Security-Policy", CSP);
@@ -134,19 +157,44 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     };
   });
 
-  app.get<{ Querystring: { after?: string } }>("/api/log", async (req, reply) => {
+  app.get<{ Querystring: { after?: string; download?: string } }>("/api/log", async (req, reply) => {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
     const after = Number(req.query.after ?? 0);
     if (!Number.isInteger(after) || after < 0) return reply.code(400).send({ error: "after must be a non-negative integer" });
     reply.type("application/x-ndjson");
+    // ?download=1 saves the log as `<session_id>.jsonl` (N-10; the ops console's "download the log").
+    if (req.query.download === "1") reply.header("Content-Disposition", `attachment; filename="${session.snapshot([]).session.session_id}.jsonl"`);
     return session.eventsAfter(after).map((e) => JSON.stringify(e)).join("\n");
+  });
+
+  // N-11 (BD-112): the coverage of a utility rover parked as a RELAY, a u8 grid in the comm_hab layout; 404 otherwise.
+  app.get<{ Params: { vehicle_id: string } }>("/api/relay-coverage/:vehicle_id", async (req, reply) => {
+    if (!session) return reply.code(404).send({ error: "no session loaded" });
+    const cov = session.relayCoverage(req.params.vehicle_id);
+    if (!cov) return reply.code(404).send({ error: `${req.params.vehicle_id} is not parked as a relay` });
+    const etag = `"${cov.rev}"`;
+    reply.header("ETag", etag).header("Cache-Control", "no-cache");
+    if (req.headers["if-none-match"] === etag) return reply.code(304).send();
+    reply.type("application/octet-stream");
+    return Buffer.from(cov.data.buffer, cov.data.byteOffset, cov.data.byteLength);
+  });
+
+  // T28.02 (BD-82): the join QR for one role, an SVG built locally (no outbound request, NFR-01).
+  app.get<{ Querystring: { role?: unknown } }>("/api/join-qr", async (req, reply) => {
+    const role = req.query.role;
+    if (typeof role !== "string" || !JOIN_QR_ROLES.includes(role as Role)) {
+      return reply.code(400).send({ error: `role must be one of ${JOIN_QR_ROLES.join(", ")}` });
+    }
+    const svg = await QRCode.toString(joinUrl(defaultPublicHost(options.publicHost), boundPort, role), { type: "svg" });
+    reply.type("image/svg+xml").header("Cache-Control", "no-store");
+    return svg;
   });
 
   app.get("/api/report", async (_req, reply) => {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
     const events = session.eventsAfter(0);
     const snap = session.snapshot([]);
-    const report = buildReport(events, snap.session.log_hash, session.initialPlan());
+    const report = buildReport(events, snap.session.log_hash, session.initialPlan(), session.reportInputs());
     if (report.session_id === "unknown" && snap.session.session_id) {
       report.session_id = snap.session.session_id;
       report.scenario_id = snap.session.scenario_id;
@@ -408,6 +456,7 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
   }
   const address = app.server.address();
   const port = typeof address === "object" && address ? address.port : options.port;
+  boundPort = port;
   const urlHost = host === "0.0.0.0" ? "127.0.0.1" : host;
 
   return {

@@ -30,6 +30,7 @@
  * The PostEvaReport types live in packages/protocol/src/report.ts since backend package 01a (BD-76); this file re-exports them.
  */
 
+import { backgroundDoseUgy } from "@marswalk/compute";
 import type {
   AlertCode,
   AlertLevel,
@@ -37,6 +38,7 @@ import type {
   AlertShelterResponse,
   CrewDoseRow,
   CrewId,
+  DoseSeries,
   LogEvent,
   LogEventData,
   PlanExport,
@@ -94,8 +96,31 @@ interface AlertRecord extends AlertReportDetail {
   open: boolean;
 }
 
+/** What the log does not hold: the scenario's dose series, and the crew trace the session samples (BD-76, BD-132). */
+export interface ReportExtras {
+  /** The scenario's dose series (`SessionHandle.reportInputs().dose`); null or absent: no planned background dose. */
+  dose?: DoseSeries | null;
+  /** Crew positions every 30 sim-s (`SessionHandle.reportInputs().trace`); absent: an empty trace. */
+  trace?: PostEvaReport["trace"];
+}
+
+/** Planned background dose over the plan's EVA hours, or why there is none (BD-132). Compute does the arithmetic. */
+function plannedBackground(plan: PlanExport | null | undefined, dose: DoseSeries | null | undefined): { ugy: number | null; reason: string | null; source_id: string | null } {
+  const none = (reason: string): { ugy: null; reason: string; source_id: null } => ({ ugy: null, reason, source_id: null });
+  if (!plan) return none("no plan is in force, so there is no planned EVA duration");
+  const totals = plan.result?.totals;
+  if (!totals) return none("the plan has no totals (a partial route), so there is no planned EVA duration");
+  if (!dose) return none("the scenario has no dose series, so there is no background rate");
+  try {
+    return { ugy: backgroundDoseUgy(dose, totals.eva_total_min * 60), reason: null, source_id: dose.source_id };
+  } catch (err) {
+    if (err instanceof RangeError) return none(err.message);
+    throw err;
+  }
+}
+
 /** `plan` is the scenario's initial plan (SessionHandle.initialPlan), never the engine's revised current plan. */
-export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: PlanExport | null): PostEvaReport {
+export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: PlanExport | null, extras: ReportExtras = {}): PostEvaReport {
   // Scope: the current session = everything after the last SESSION_LOADED (that event included).
   let from = 0;
   allEvents.forEach((e, i) => {
@@ -130,6 +155,8 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
   initialStops.forEach(noteStop);
   const planned = new Map<string, PlannedStop>();
   addPlanned(planned, plan);
+  // The plan the planned duration comes from: the initial one, or the last whole plan published before the EVA.
+  let plannedPlan: PlanExport | null | undefined = plan;
 
   const arrivalCrew: string[] = []; // crew seen at a stop
   const shelterCrew: string[] = []; // crew seen in CREW_SHELTERED
@@ -205,6 +232,7 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
         if (d.plan) {
           planned.clear(); // the published plan replaces the planned source; a stop it no longer has keeps nothing
           addPlanned(planned, d.plan);
+          plannedPlan = d.plan;
         }
         const next = Array.isArray(d.waypoints) ? stopIds(d.waypoints) : null;
         if (evaStartTime === null) {
@@ -414,6 +442,7 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
     }
   }
 
+  const background = plannedBackground(plannedPlan, extras.dose);
   return {
     session_id: sessionId,
     scenario_id: scenarioId,
@@ -448,11 +477,11 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
       headline,
       provenance: { per_crew: "simulated", headline: "derived", planned_background_ugy: "modelled" },
       background_dose_ugy: null,
-      // Filled by backend work package 20 (BD-76); until then the report says why it is missing.
-      planned_background_ugy: null,
-      planned_background_reason: "planned background dose not computed in this build yet",
+      planned_background_ugy: background.ugy,
+      planned_background_reason: background.reason,
+      planned_background_source_id: background.source_id,
     },
-    trace: [],
+    trace: (extras.trace ?? []).map((t) => ({ crew_id: t.crew_id, points: t.points.map((p) => ({ ...p })) })),
     plan_revisions: planRevisions,
     provenance_summary: provenanceSummary,
     disclaimer: REPORT_DISCLAIMER,

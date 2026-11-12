@@ -3,13 +3,17 @@
   "title": "Mars MSL Gale Merged Orthophoto Mosaic 25cm, colour version HiRISE 78 quad color basemap",
   "publisher": "USGS Astrogeology Science Center",
   "authors": "Parker and Calef",
-  "missions": ["MRO"],
-  "instruments": ["HiRISE"],
+  "missions": [
+    "MRO"
+  ],
+  "instruments": [
+    "HiRISE"
+  ],
   "version": "File name carries no version number; Last-Modified: Fri, 25 Jul 2025 16:58:53 GMT; ETag: \"adae62ea1be4cf769f7232a2a7dee80c-60\"; x-amz-version-id: 0ZDib2C._2LbtlqGD1_o4uHnz0whyvNj",
   "url": "https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_orthophoto_mosaic_25cm",
   "credit": "NASA/JPL-Caltech/University of Arizona; USGS Astrogeology (Calef & Parker 2016)",
   "licence": "Use constraints: none, credit authors",
   "accessed": "2026-11-06",
   "native_resolution_m": 0.25,
-  "accuracy_note": "The mosaic has real greyscale strips inside the colour mosaic (about 7.74% of the AOI window in a nearest-neighbour sample); 136,454 sampled window pixels have valid-mask black RGB values whose meaning is TODO(verify)."
+  "accuracy_note": "The mosaic has real greyscale strips inside the colour mosaic (about 7.74% of the AOI window in a nearest-neighbour sample); 136,454 sampled window pixels have valid-mask black RGB values ; the product page does not document what they mean, so the tiles show them as they are (BD-18)."
 }

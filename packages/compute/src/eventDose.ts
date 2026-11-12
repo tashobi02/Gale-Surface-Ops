@@ -148,3 +148,18 @@ export function integrateDose(
   }
   return out;
 }
+
+/**
+ * Planned background dose, µGy (docs/specs/05 PostEvaReport `planned_background_ugy`; BD-132): the series' own
+ * `background_rate` (µGy/h, the quiet-time rate of the same recorded series that drives the crew's event dose) times the
+ * duration in hours. Absorbed dose, never converted to or from Sv (02 §D.13), and with no shielding factor: the dose a
+ * body in the open would take. Throws RangeError for a negative or non-finite duration or a `background_rate` that is not a
+ * finite number ≥ 0. Pure.
+ */
+export function backgroundDoseUgy(series: DoseSeries, duration_s: number): number {
+  if (!Number.isFinite(duration_s) || duration_s < 0) throw new RangeError(`backgroundDoseUgy: duration_s must be a finite number >= 0, got ${duration_s}`);
+  if (!Number.isFinite(series.background_rate) || series.background_rate < 0) {
+    throw new RangeError(`backgroundDoseUgy: series ${series.series_id} needs a background_rate that is a finite number >= 0, got ${series.background_rate}`);
+  }
+  return (series.background_rate * duration_s) / 3600;
+}

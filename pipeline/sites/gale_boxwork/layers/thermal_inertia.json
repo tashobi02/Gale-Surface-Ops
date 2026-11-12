@@ -4,14 +4,42 @@
   "category": "thermal",
   "kind": "raster_tiles",
   "provenance": "derived",
-  "source_ids": ["usgs-themis-ti-30s120e"],
+  "source_ids": [
+    "usgs-themis-ti-30s120e"
+  ],
   "units": "tiu (J m⁻² K⁻¹ s⁻½)",
-  "legend": {"type": "ramp", "stops": "TODO(verify)"},
+  "legend": {
+    "type": "ramp",
+    "stops": [
+      [
+        281.4390618896484,
+        "281 tiu"
+      ],
+      [
+        487.8530364990234,
+        "488 tiu"
+      ]
+    ]
+  },
   "native_resolution_m": 100,
   "display_resolution_m": 2,
   "asset_id": "tiles-thermal_inertia",
-  "tile_grid": {"origin_m": [-3000, 3000], "resolutions_m": [32, 16, 8, 4, 2], "tile_size_px": 256, "format": "png"},
+  "tile_grid": {
+    "origin_m": [
+      -3000,
+      3000
+    ],
+    "resolutions_m": [
+      32,
+      16,
+      8,
+      4,
+      2
+    ],
+    "tile_size_px": 256,
+    "format": "png"
+  },
   "default_visible": false,
   "optional": true,
-  "limitations": "THEMIS TI has 100 m pixels, approximately 20% absolute accuracy, and gaps where coverage or quality was poor; gaps are unknown, never zero. One TI pixel covers 400 routing cells at 5 m. The cube unit is TODO(verify) against the ISIS label."
+  "limitations": "THEMIS TI has 100 m pixels, approximately 20% absolute accuracy, and gaps where coverage or quality was poor; gaps are unknown, never zero. One TI pixel covers 400 routing cells at 5 m. The cube's ISIS label names no unit; tiu is taken from 02 §C.2 L4 (assumed)."
 }

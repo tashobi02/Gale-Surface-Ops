@@ -11,6 +11,7 @@
     "test:web": "npm run --workspaces --if-present test",
     "dev": "npm --workspace @marswalk/web run dev",
     "hab:start": "npm --workspace @marswalk/hab-core run start --",
+    "hab:local": "npm --workspace @marswalk/hab-core run local --",
     "hab:replay": "npm --workspace @marswalk/hab-core run replay --",
     "hab:record": "npm --workspace @marswalk/hab-core run replay --",
     "check:todos": "python3 scripts/check_todos.py"

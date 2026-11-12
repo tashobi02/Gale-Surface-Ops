@@ -17,8 +17,8 @@ def _horn_gradients(dem: np.ndarray, cell_m: float) -> tuple[np.ndarray, np.ndar
     dz/dy = ((g + 2h + i) - (a + 2b + c)) / (8 * cell_m)   (positive towards south, i.e. row index)
 
     The outer ring has no full 3x3 stencil. Its edge policy is not fixed by 02 §C.2 L3, so the
-    ring is left NaN (TODO(decision): replicate-edge is the alternative). NaN in any stencil cell
-    gives NaN out. The centre cell `e` is not used by Horn, so a NaN centre is masked separately
+    ring is left NaN, never replicated from its neighbours (BD-19): an unknown slope is never
+    passable. NaN in any stencil cell gives NaN out. The centre cell `e` is not used by Horn, so a NaN centre is masked separately
     by the callers.
     """
     z = np.asarray(dem, dtype=np.float64)
@@ -62,7 +62,7 @@ def hillshade(dem: np.ndarray, cell_m: float, azimuth_deg: float = 315, altitude
 
     Returns illumination in [0, 1] as float64 (Lambertian: cos(zenith)·cos(slope) +
     sin(zenith)·sin(slope)·cos(sun azimuth − downslope bearing)). The output is not scaled to 0–255;
-    the tile step decides the display encoding (TODO(decision)). A NaN DEM cell gives NaN, as does
+    the tile step decides the display encoding (hillshade tiles: BD-17, tiles.py). A NaN DEM cell gives NaN, as does
     anything whose Horn stencil touches NaN or the outer ring.
     """
     z = np.asarray(dem, dtype=np.float64)
@@ -94,7 +94,7 @@ def aggregate_slope(slope_1m: np.ndarray, factor: int) -> tuple[np.ndarray, np.n
     NaN pixel does not poison its block.
 
     Input height and width must be exact multiples of `factor`; otherwise ValueError is raised
-    (TODO(verify): the pipeline's edge crop policy for the 6000 x 6000 window).
+    and nothing is cropped (BD-19; the 6000 x 6000 m window is 1200 x 1200 whole cells).
     """
     s = np.asarray(slope_1m, dtype=np.float64)
     if s.ndim != 2:

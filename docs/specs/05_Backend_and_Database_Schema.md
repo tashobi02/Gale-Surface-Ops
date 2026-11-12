@@ -644,7 +644,7 @@ Built from the log on demand (`GET /api/report`): planned vs. actual per stop (a
 | `stops` | `{completed, dropped, not_reached, incomplete, in_progress, pending, details[]}` | `details[]`: `{stop_id, stop_index?, status, crew[]}`; per crew member arrival and dwell, actual (`simulated`) against planned (`derived`) and their differences |
 | `alerts` | `{total, details[]}` | `details[]`: raise, ack and clear times, `ack_s`, and per crew member `shelter_response_s` |
 | `tasks` | `{total, done, skipped, dropped, per_stop}` | `per_stop` keyed by `stop_id` |
-| `dose` | `{per_crew[], headline, planned_background_ugy, planned_background_reason, provenance}` | `headline` is the highest individual `dose_event_ugy`, never a crew total. `planned_background_ugy` = compute `estimateDose(EnvConstant for the scenario's solar phase, planned EVA duration from the plan totals)`, `modelled`; null with `planned_background_reason` when either input is missing |
+| `dose` | `{per_crew[], headline, planned_background_ugy, planned_background_reason, planned_background_source_id, provenance}` | `headline` is the highest individual `dose_event_ugy`, never a crew total. `planned_background_ugy` = compute `backgroundDoseUgy(the scenario's dose series, planned EVA seconds from the plan totals)`: the series' own `background_rate` (µGy/h) times the planned EVA hours, `modelled`, absorbed dose with no shielding factor; `planned_background_source_id` is the series' `source_id`; null with `planned_background_reason` (and a null source id) when the plan, its totals or the dose series is missing or unusable. It is not `estimateDose` of the RAD `EnvConstant`: that gives dose equivalent in mSv, which 02 §D.13 forbids converting to this field's µGy *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-132, amending BD-76)* |
 | `trace` | `{crew_id, points: {sim_time, x_m, y_m}[]}[]` | 30 s decimated crew positions, `simulated`, sampled from engine state and rebuilt on resume by re-deriving |
 | `plan_revisions`, `provenance_summary`, `disclaimer` | int, map, string | |
 
@@ -747,7 +747,7 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
 - Every `*_asset`/`asset_id` resolves to an Asset whose file exists and whose SHA-256 matches.
 - Every `source_ids` entry resolves to a DataSource.
 - All grids share `width`, `height`, `cell_m`, `origin_m`.
-- All POIs and the default start lie inside `aoi.extent_m` and on passable cells.
+- All POIs and the default start lie inside `aoi.extent_m` and on passable cells. *(Proposed 2026-11-13; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026; BD-21, BD-140)* "Passable" is read from the `MissionScenario` schema (`hard_slope_limit_deg`), not typed: the default start and every candidate mast and start must have a slope p90 no steeper than the schema **default**, a POI no steeper than the schema **maximum** (a stop is reachable if some allowed limit reaches it; the planner reports the ones a plan's own limit cannot), and none may be a no-data or `HARD_HAZARD` cell.
 - *(2026-11-10)* When `hab_candidates` is present, every mast and `default_start` lies inside `aoi.extent_m` on a passable cell; `candidate_id`s and ranks are unique; the rank-1 candidate matches `default_start`, `grid.comm_hab_asset` and `grid.hab_mast`.
 - `crs.proj4` string is byte-identical to the pipeline constant.
 

@@ -5,7 +5,8 @@
   "kind": "vector",
   "provenance": "measured",
   "source_ids": [
-    "pds-msl-places-localizations"
+    "pds-msl-places-localizations",
+    "pds-msl-places-sis-1-3"
   ],
   "legend": {
     "type": "none"
@@ -15,5 +16,5 @@
   "asset_id": "vec-traverse",
   "default_visible": true,
   "optional": true,
-  "limitations": "Intermediate positions and elevations are interpolated approximations; alignment with the ortho is unverified. The cached traverse ends at sol 4868. In the rounded AOI bounding box, the 364 distinct sols from 3571 to 4868 are not continuous."
+  "limitations": "Intermediate positions and elevations are interpolated approximations. Localized rover positions have an expected accuracy of 0.5 m against the HiRISE base map (PLACES SIS 1.3 Rev-A section 4.4.1.2). The offset between this traverse and the rover tracks visible in the ortho was not measured in this build; the DEM-to-ortho offset is recorded separately. The cached traverse ends at sol 4868. In the rounded AOI bounding box, the 364 distinct sols from 3571 to 4868 are not continuous. Points are clipped to the AOI plus a 100 m margin."
 }

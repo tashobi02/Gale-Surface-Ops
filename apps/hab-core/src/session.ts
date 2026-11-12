@@ -23,13 +23,14 @@
  */
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { PROTOCOL_VERSION, type Command, type CommandRef, type CommandResult, type LogEvent, type LogEventData, type PlanExport, type ProvenanceMap, type Snapshot } from "@marswalk/protocol";
+import { PROTOCOL_VERSION, type Command, type DoseSeries, type CommandRef, type CommandResult, type LogEvent, type LogEventData, type PlanExport, type ProvenanceMap, type Snapshot } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand } from "./commands";
 import { SIM_STEP_S } from "./engine/clock";
 import { invalidateHavenCache } from "./engine/haven";
 import { buildHabSite, prepareSite, relocateCrew, type HabSite } from "./engine/liveSetup";
 import { arrivedAt, jumpEnded, nextStopTarget, type JumpEnd } from "./engine/nextStop";
 import { initialState, logged, reduce, type EngineState, type PendingEvent, type StateChange } from "./engine/reducer";
+import { relayCoverageGrid } from "./engine/rovers";
 import { seedTasks } from "./engine/tasks";
 import { tick } from "./engine/tick";
 import { canonicalJson, openLog, resumeLog, SNAPSHOT_EVERY, type EventLog } from "./log";
@@ -66,10 +67,22 @@ export interface SessionHandle {
    */
   habSite(): HabSite | null;
   /**
+   * The coverage grid of a utility rover parked as a relay (N-11, 02 §E.5 `GET /api/relay-coverage/<vehicle_id>`): the u8 grid in
+   * the `comm_hab` layout and the `relay_coverage_rev` it belongs to; null when the vehicle is not a parked relay. Derived from
+   * the state and the grid, cached per rover position and revision; not part of any snapshot or log.
+   */
+  relayCoverage(vehicle_id: string): { rev: number; width: number; height: number; data: Uint8Array } | null;
+  /**
    * The loaded scenario's own plan, unchanged by PLAN_REVISED (the snapshot's `plan` is the engine's current one, whose
    * waypoints the reducer replaces). The post-EVA report diffs revisions against it and reads its planned timing (FR-46).
    */
   initialPlan(): PlanExport | null;
+  /**
+   * What the post-EVA report needs that the log does not hold (FR-46; BD-76, BD-132): the scenario's dose series (the planned
+   * background dose is its `background_rate` times the planned EVA hours) and the crew trace sampled every 30 sim-s by this
+   * session, which a resume re-derives (U-24). Both are copied by the report builder.
+   */
+  reportInputs(): { dose: DoseSeries | null; trace: NonNullable<EngineState["trace"]> };
 }
 
 export interface SessionOptions {
@@ -127,6 +140,8 @@ class Session implements SessionHandle {
   private scenario: LoadedScenario;
   /** The chosen hab; undefined until first needed (the haven field costs a Dijkstra pass), null when there is none. */
   private site: HabSite | null | undefined;
+  /** Memo of `relayCoverageGrid` (a pure function of the rover and the scenario), keyed by rover, revision and position. */
+  private readonly relayCache = new Map<string, { width: number; height: number; data: Uint8Array }>();
 
   constructor(
     scenario: LoadedScenario,
@@ -150,6 +165,24 @@ class Session implements SessionHandle {
 
   initialPlan(): PlanExport | null {
     return this.scenario.scenario.plan ?? null;
+  }
+
+  relayCoverage(vehicle_id: string): { rev: number; width: number; height: number; data: Uint8Array } | null {
+    const v = this.state.vehicles.find((x) => x.vehicle_id === vehicle_id);
+    const rev = v?.relay_coverage_rev ?? null;
+    if (v === undefined || rev === null) return null;
+    const key = `${vehicle_id}|${rev}|${v.x_m}|${v.y_m}`;
+    const hit = this.relayCache.get(key);
+    if (hit !== undefined) return { rev, ...hit };
+    const grid = relayCoverageGrid(this.scenario, v);
+    if (grid === null) return null;
+    this.relayCache.clear(); // one live revision per rover is enough
+    this.relayCache.set(key, grid);
+    return { rev, ...grid };
+  }
+
+  reportInputs(): { dose: DoseSeries | null; trace: NonNullable<EngineState["trace"]> } {
+    return { dose: this.scenario.dose, trace: this.state.trace ?? [] };
   }
 
   habSite(): HabSite | null {
@@ -384,10 +417,27 @@ class Session implements SessionHandle {
   }
 }
 
-/** One 1-s step: sim time first (never logged), then tick (02 §D.14). */
+/** The report trace's period, sim seconds (05 U-24: "decimated to 30 s"; BD-76). */
+const TRACE_STEP_S = 30;
+
+/**
+ * Add one trace point per crew member when the sim clock, as a UTC second count, is a multiple of 30 s (BD-76). The points are
+ * the positions of the state the tick produced, `simulated`; they are state, not log, so the same ticks always give the same
+ * points and a resume re-derives the ones after its snapshot. Pure.
+ */
+function sampleTrace(state: EngineState): EngineState {
+  const seconds = Date.parse(state.session.clock.sim_time) / 1000;
+  if (!Number.isInteger(seconds) || seconds % TRACE_STEP_S !== 0) return state;
+  const previous = new Map((state.trace ?? []).map((t) => [t.crew_id, t.points]));
+  const trace = state.crew.map((c) => ({ crew_id: c.crew_id, points: [...(previous.get(c.crew_id) ?? []), { sim_time: state.session.clock.sim_time, x_m: c.x_m, y_m: c.y_m }] }));
+  return { ...state, trace };
+}
+
+/** One 1-s step: sim time first (never logged), then tick (02 §D.14), then the report trace sample. */
 function stepOnce(state: EngineState, scenario: LoadedScenario, next_seq: number): ReturnType<typeof tick> {
   const stepped: EngineState = { ...state, session: { ...state.session, clock: { ...state.session.clock, sim_time: addSeconds(state.session.clock.sim_time, SIM_STEP_S) } } };
-  return tick(stepped, scenario, SIM_STEP_S, next_seq);
+  const r = tick(stepped, scenario, SIM_STEP_S, next_seq);
+  return { ...r, state: sampleTrace(r.state) };
 }
 
 /** Next free `s-<n>` under `varDir/sessions` (05 Session). */

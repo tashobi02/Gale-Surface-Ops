@@ -1,16 +1,293 @@
 {
-  "$comment": "Template (docs/specs/05 §E.5): source URLs, versions, checksums and the exact GDAL/rasterio versions used for a data_version. Filled by TASK-03.",
-  "data_version": null,
+  "$comment": "Source lock (docs/specs/05 \u00a7E.5; plan backend 22; BD-134): every input the pipeline reads, with the URL, version, size, SHA-256 and the date the file was fetched, `verified` is the date its local copy was last compared with the lock. `dir` and `filename` place the file under pipeline/work/. Filled from pipeline/spice/kernels.lock.json, docs/ops/rad-series.md, the PLACES cache manifest, the POI image list and the checksums of docs/tasks/TASK-03 (Input checksums); every digest was recomputed from the files on 2026-11-12. `python -m marswalk_pipeline.acquire --offline` re-verifies them without a network.",
+  "data_version": "gale_boxwork-2026.11.09",
   "tools": {
-    "gdal": null,
-    "rasterio": null
+    "gdal": "3.13.3",
+    "rasterio": "1.5.2"
   },
   "sources": [
     {
-      "source_id": null,
-      "url": null,
-      "version": null,
-      "sha256": null
+      "source_id": "usgs-gale-dem-1m-v3",
+      "url": "https://planetarymaps.usgs.gov/mosaic/Mars/MSL/MSL_Gale_DEM_Mosaic_1m_v3.tif",
+      "version": "v3",
+      "size": 3868256546,
+      "sha256": "c481ae885b4827af68fbdb428e9fac8a824d6828aebfba492577ba39bf55e42e",
+      "accessed": "2026-11-02",
+      "verified": "2026-11-12",
+      "dir": "dem",
+      "note": "Whole file. Remote size equals local size (HTTP HEAD, 2026-11-12)."
+    },
+    {
+      "source_id": "usgs-gale-ortho-25cm-v3",
+      "url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Mars/MSL/MSL_Gale_HiRISE-LRGB_78quads_sharp_cog.tif",
+      "version": "Colour HiRISE LRGB COG, 78 quads; Last-Modified Fri, 25 Jul 2025 16:58:53 GMT",
+      "sha256": "cf61884fdc3d6a73d814d109537288dcdd929c3df057a619d6b4e21e13194aeb",
+      "accessed": "2026-11-06",
+      "verified": "2026-11-12",
+      "dir": "ortho",
+      "filename": "hirise_lrgb_aoi.tif",
+      "proj4": "+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs",
+      "extent_m": [
+        8140147.25,
+        -288111.5,
+        8146168.75,
+        -282111.25
+      ],
+      "note": "AOI window of the source COG, 24086 x 24001 px at 0.25 m, in the source's own Mars equirectangular CRS (R = 3396190 m, central meridian 0). A fresh window is not byte-stable, so a re-made file gets a new digest (and a new data_version)."
+    },
+    {
+      "source_id": "usgs-themis-ti-30s120e",
+      "url": "https://asc-astropedia.s3.us-west-2.amazonaws.com/Mars/Odyssey/THEMIS-Global-Thermal-Inertia-Mosaic/Quantitative-32-Bit/THEMIS_TI_Mosaic_Quant_30S120E_100mpp.cub",
+      "version": "Edition 1; Fergason (2014-05-30); file Last-Modified Sat, 17 Jun 2023 23:49:19 GMT",
+      "sha256": "c697c4836903b3f87c79853055c4647c62287e3a54ae96e574d873e747d20ee2",
+      "accessed": "2026-11-06",
+      "verified": "2026-11-12",
+      "dir": "ti",
+      "filename": "themis_ti_aoi_pad1km.tif",
+      "proj4": "+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs",
+      "extent_m": [
+        8139100.0,
+        -289200.0,
+        8147200.0,
+        -281100.0
+      ],
+      "note": "AOI window plus 1 km pad of the 100 m cube, 81 x 81 px, native CRS. The cube's ISIS3 label names no unit (gdalinfo, 2026-11-12); see usgs-themis-ti-30s120e.json."
+    },
+    {
+      "source_id": "pds-msl-places-localizations",
+      "url": "https://planetarydata.jpl.nasa.gov/img/data/msl/msl_places/data_localizations/localized_interp.csv",
+      "version": "42.0; label created 2026-05-01",
+      "size": 11755643,
+      "sha256": "09d4474e64aec6e788efdb4ec24a906f487fe1a58e26dd4431847c94d385faec",
+      "accessed": "2026-11-09",
+      "verified": "2026-11-12",
+      "dir": "traverse"
+    },
+    {
+      "source_id": "zenodo-msl-rad-dose-rates",
+      "url": "https://zenodo.org/api/records/20536564/files/doseE_sol_filter_update.txt/content",
+      "version": "Zenodo record 20536564 (doi:10.5281/zenodo.20536564), published 2026-06-04",
+      "size": 26590477,
+      "sha256": "220a113721248749980bc917b6e91dc7d297828cc373b4c9826bdff243a0f7b9",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "rad",
+      "filename": "doseE_sol_filter_update.txt"
+    },
+    {
+      "source_id": "spdf-msl-rad-obs-l2-2024138",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/aaa_planetary/msl/rad/cdf/obs-l2/2024/msl_rad_obs-l2_2024138_v03.cdf",
+      "version": "data version 03 (file name suffix)",
+      "size": 118784,
+      "sha256": "0968d309c1e61a34c784911b42bf0f8b27818939ede54ca6476275170cc0b557",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "rad/spdf-l2"
+    },
+    {
+      "source_id": "spdf-msl-rad-obs-l2-2024139",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/aaa_planetary/msl/rad/cdf/obs-l2/2024/msl_rad_obs-l2_2024139_v03.cdf",
+      "version": "data version 03 (file name suffix)",
+      "size": 118293,
+      "sha256": "bfdb6c3d1c574e2f5bd85d68e5cec2e25d87085f3e25a2e164a892c69f8213a9",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "rad/spdf-l2"
+    },
+    {
+      "source_id": "spdf-msl-rad-obs-l2-2024140",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/aaa_planetary/msl/rad/cdf/obs-l2/2024/msl_rad_obs-l2_2024140_v03.cdf",
+      "version": "data version 03 (file name suffix)",
+      "size": 118276,
+      "sha256": "498d7478d5023fa1ee8878273561d6e4e8e2ee7b7e86eb3e909f0546acbf3e30",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "rad/spdf-l2"
+    },
+    {
+      "source_id": "spdf-msl-rad-obs-l2-2024141",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/aaa_planetary/msl/rad/cdf/obs-l2/2024/msl_rad_obs-l2_2024141_v04.cdf",
+      "version": "data version 04 (file name suffix)",
+      "size": 189967,
+      "sha256": "b080d9e154e3ff33a963fc79e7467997db4715258e9d87e52abdc85fc2015c7e",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "rad/spdf-l2"
+    },
+    {
+      "source_id": "spdf-msl-rad-obs-l2-2024142",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/aaa_planetary/msl/rad/cdf/obs-l2/2024/msl_rad_obs-l2_2024142_v03.cdf",
+      "version": "data version 03 (file name suffix)",
+      "size": 145758,
+      "sha256": "6d8e4eac3ab8ecae485ca5bc9efdd7ec2b2b3d78916450669cddebfed2039697",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "rad/spdf-l2"
+    },
+    {
+      "source_id": "spdf-msl-rad-obs-l2-2024143",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/aaa_planetary/msl/rad/cdf/obs-l2/2024/msl_rad_obs-l2_2024143_v04.cdf",
+      "version": "data version 04 (file name suffix)",
+      "size": 122444,
+      "sha256": "d7a34008f5aece056b78d9f29fede41dc3e7dbde664e0cafd005e60de119f328",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "rad/spdf-l2"
+    },
+    {
+      "source_id": "spdf-msl-rad-obs-l2-2024144",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/aaa_planetary/msl/rad/cdf/obs-l2/2024/msl_rad_obs-l2_2024144_v03.cdf",
+      "version": "data version 03 (file name suffix)",
+      "size": 119595,
+      "sha256": "18920fef335986a12407510b145505ad61acead65b5f330c10a3104952c551cd",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "rad/spdf-l2"
+    },
+    {
+      "source_id": "naif-lsk",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/naif0012.tls",
+      "version": "lsk; naif0012.tls",
+      "size": 5257,
+      "sha256": "678e32bdb5a744117a467cd9601cd6b373f0e9bc9bbde1371d5eee39600a039b",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "spice/generic"
+    },
+    {
+      "source_id": "naif-de440s",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440s.bsp",
+      "version": "spk-planets; de440s.bsp",
+      "size": 32726016,
+      "sha256": "c1c7feeab882263fc493a9d5a5b2ddd71b54826cdf65d8d17a76126b260a49f2",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "spice/generic"
+    },
+    {
+      "source_id": "naif-pck00011",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc",
+      "version": "pck; pck00011.tpc",
+      "size": 131226,
+      "sha256": "3dff7b1dbeceaa01f25467767d3fa25816051c85d162d1edf04acb310ee28bb1",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "spice/generic"
+    },
+    {
+      "source_id": "naif-mar099s",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/mar099s.bsp",
+      "version": "spk-mars; mar099s.bsp",
+      "size": 67594240,
+      "sha256": "997dc93ba640e476da7a494d2237dcdeb145e528db37be8ccee588c615e4e1ff",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "spice/generic"
+    },
+    {
+      "source_id": "naif-mro-spk-psp71-ssd-mro95a",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/pds/data/mro-m-spice-6-v1.0/mrosp_1000/data/spk/mro_psp71_ssd_mro95a.bsp",
+      "version": "spk-mro; mro_psp71_ssd_mro95a.bsp",
+      "size": 44354560,
+      "sha256": "6701433ec64cb8ff7b3a554935d9728c7bd5fe08a60957bd3b927fd5d2bdf5b1",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "spice/mro"
+    },
+    {
+      "source_id": "naif-mro-spk-psp71",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/pds/data/mro-m-spice-6-v1.0/mrosp_1000/data/spk/mro_psp71.bsp",
+      "version": "spk-mro; mro_psp71.bsp",
+      "size": 144504832,
+      "sha256": "4a2eec4e051fdb661a5bdb65dd9366ba4410ca33d71b80e21c6ed7207b20757b",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "spice/mro"
+    },
+    {
+      "source_id": "naif-maven-spk",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/MAVEN/kernels/spk/maven_orb_rec_240401_240701_v1.bsp",
+      "version": "spk-maven; maven_orb_rec_240401_240701_v1.bsp",
+      "size": 42890240,
+      "sha256": "7567ade6fd714eceda3cb1a230427a69b4dbaa1ec006985e5536f3c2e9b1b3f2",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "spice/maven"
+    },
+    {
+      "source_id": "esa-tgo-spk-fsp-335",
+      "url": "https://spiftp.esac.esa.int/data/SPICE/ExoMars2016/kernels/spk/em16_tgo_fsp_335_01_20240113_20240706_v01.bsp",
+      "version": "spk-tgo; em16_tgo_fsp_335_01_20240113_20240706_v01.bsp",
+      "size": 62406656,
+      "sha256": "adb3654289c8c140874e4b9a19b76fe7d8ff4de97acf46a4fc90e5ddaf27c448",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "spice/tgo"
+    },
+    {
+      "source_id": "esa-tgo-spk-fsp-352",
+      "url": "https://spiftp.esac.esa.int/data/SPICE/ExoMars2016/kernels/spk/em16_tgo_fsp_352_01_20240520_20241102_v01.bsp",
+      "version": "spk-tgo; em16_tgo_fsp_352_01_20240520_20241102_v01.bsp",
+      "size": 63609856,
+      "sha256": "aaeae06d60a676969446b338b3d23d8062daa34c3eee584bc79ac212871fd411",
+      "accessed": "2026-11-07",
+      "verified": "2026-11-12",
+      "dir": "spice/tgo"
+    },
+    {
+      "source_id": "img-boxwork-veins",
+      "url": "https://assets.science.nasa.gov/content/dam/science/missions/msl/2025/curiosity-rover-updates/august/https___mars.nasa.gov_msl-raw-images_proj_msl_redops_ods_surface_sol_04619_opgs_edr_ncam_NRB_807537557EDR_S1180198NCAM00594M_.jpg",
+      "version": "NASA web asset behind the blog page's lead image; no version number",
+      "size": 285886,
+      "sha256": "aa629735b3e64eab337326e21d0df405ae5879e7b5e2d15f9d06e692246ded99",
+      "accessed": "2026-11-11",
+      "verified": "2026-11-12",
+      "dir": "images",
+      "filename": "poi-boxwork-veins.jpg"
+    },
+    {
+      "source_id": "img-boxwork-ridge",
+      "url": "https://assets.science.nasa.gov/content/dam/science/missions/msl/2025/curiosity-rover-updates/september/https___mars.nasa.gov_msl-raw-images_proj_msl_redops_ods_surface_sol_04650_opgs_edr_ncam_NLB_810299729EDR_F1182304NCAM00354M_.jpg",
+      "version": "NASA web asset behind the blog page's lead image; no version number",
+      "size": 453491,
+      "sha256": "35c36afae0f531385a7df2e16f6f79a0c7d2b201d7c2abe7b3e743f2b2026fc1",
+      "accessed": "2026-11-11",
+      "verified": "2026-11-12",
+      "dir": "images",
+      "filename": "poi-boxwork-ridge.jpg"
+    },
+    {
+      "source_id": "img-monte-grande-hollow",
+      "url": "https://assets.science.nasa.gov/content/dam/science/missions/msl/2025/curiosity-rover-updates/october/https___mars.nasa.gov_msl-raw-images_msss_04693_mcam_4693MR1084940032400976E01_DXXX.jpg",
+      "version": "NASA web asset behind the blog page's lead image; no version number",
+      "size": 230526,
+      "sha256": "f88aa534df115fa2ed7990898f4fdfd61a099e1653bb4bd7f875ba35cd607f01",
+      "accessed": "2026-11-11",
+      "verified": "2026-11-12",
+      "dir": "images",
+      "filename": "poi-monte-grande-hollow.jpg"
+    },
+    {
+      "source_id": "img-nevado-sajama-ridge",
+      "url": "https://assets.science.nasa.gov/content/dam/science/missions/msl/2025/curiosity-rover-updates/november/https___mars.nasa.gov_msl-raw-images_proj_msl-red-vol2_redops_ods_surface_sol_04718_opgs_edr_ncam_NLB_816331121EDR_F1200082NCAM00309M_.jpg",
+      "version": "NASA web asset behind the blog page's lead image; no version number",
+      "size": 572395,
+      "sha256": "1081f672b8d05fe13a882518299ebbb2eda3ee40768d93f3e8781960c5cce5a9",
+      "accessed": "2026-11-11",
+      "verified": "2026-11-12",
+      "dir": "images",
+      "filename": "poi-nevado-sajama-ridge.jpg"
+    },
+    {
+      "source_id": "img-sulfate-contact",
+      "url": "https://assets.science.nasa.gov/content/dam/science/missions/msl/2026/curiosity-rover-updates/march/https___mars.nasa.gov_msl-raw-images_proj_msl_redops_ods_surface_sol_04848_opgs_edr_ncam_NLB_827876004EDR_F1211446NCAM00354M_.jpg",
+      "version": "NASA web asset behind the blog page's lead image; no version number",
+      "size": 557503,
+      "sha256": "785f5c64f27a727a910acbf366c2dbef2dba7423dbebf58dfdeb8ef786e0d8ef",
+      "accessed": "2026-11-11",
+      "verified": "2026-11-12",
+      "dir": "images",
+      "filename": "poi-sulfate-contact.jpg"
     }
   ]
 }

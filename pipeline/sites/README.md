@@ -27,7 +27,7 @@ pipeline/sites/<site_id>/
 
 The file name equals the record's primary key. `sources/`, `layers/`, `env_constants/`, `known_offsets/` and `pois/` are append-only by file: each subtask adds and owns its own files ([map §c.3](../../docs/tasks/_coordination.md#c3-pipeline)).
 
-An unknown field holds the string `"TODO(verify)"` while the record is being written. None may remain when T03.19 builds the bundle.
+An unknown field is never filled from memory: it is read from the publisher's page with the access date, or it says that the page does not state it, with the URL and the date checked (BD-13). The two `legend.stops` of `elevation` and `thermal_inertia` are written by the pipeline from the layer data (BD-17).
 
 ## `site.json`
 

@@ -1,7 +1,7 @@
 {
   "source_id": "pds-msl-places-localizations",
   "title": "Collection of localization data products for Rover PLACES",
-  "publisher": "TODO(verify)",
+  "publisher": "NASA Planetary Data System, Imaging Node (planetarydata.jpl.nasa.gov)",
   "authors": "Robert G. Deen",
   "missions": [
     "Mars Science Laboratory"
@@ -11,7 +11,9 @@
   ],
   "version": "42.0; localized_interp.csv created 2026-05-01",
   "url": "https://planetarydata.jpl.nasa.gov/img/data/msl/msl_places/data_localizations/localized_interp.csv",
-  "credit": "Robert G. Deen (2024), Collection of localization data products for Rover PLACES; credit statement TODO(verify)",
-  "licence": "TODO(verify)",
-  "accessed": "2026-11-09"
+  "credit": "Deen, Robert G. (2024), Mars Science Laboratory Rover PLACES Bundle, version 42.0, NASA Planetary Data System, doi:10.17189/8nyv-8p60; collection \"Collection of localization data products for Rover PLACES\" (Citation_Information of bundle.xml and collection_data_localizations.xml)",
+  "licence": "The labels state no licence. The archive's footer links the JPL Image Use Policy (https://www.jpl.nasa.gov/jpl-image-use-policy/), which says images and video on JPL public web sites may be used for any purpose without prior permission, subject to the special cases it lists (checked 2026-11-12)",
+  "accessed": "2026-11-12",
+  "doi": "10.17189/8nyv-8p60",
+  "accuracy_note": "doi:10.17189/1520397, the identifier 02 §C.2 L6 gives, belongs to the older PDS3 data set MSL-M-ENG-6-RDR-PLACES-V1.0 (Deen, 2015, per its PDS data set page); the PDS4 bundle read here carries doi:10.17189/8nyv-8p60."
 }

@@ -42,7 +42,7 @@ import { nextStopTarget, warningLatched } from "./engine/nextStop";
 import { logged, type CommandOutcome, type EngineState, type PendingEvent } from "./engine/reducer";
 import { checkPublishedTasks, handleAddStopTask, handleUpdateStopTask, onPlanRevised, publishedTaskEvents } from "./engine/tasks";
 import { handleSummon } from "./engine/vehicles";
-import { handleTaskRover } from "./rover";
+import { handleTaskRover, taskRoverArgsError } from "./rover";
 import { checkPlan, type LoadedScenario } from "./scenario";
 
 export interface CommandContext {
@@ -287,9 +287,12 @@ function dispatch(state: EngineState, command: Command, ctx: CommandContext): Ha
     case "ABORT":
       requireState(state, DURING_EVA, "Aborting");
       return handleAbort(state, ctx.scenario, command);
-    case "TASK_ROVER":
+    case "TASK_ROVER": {
+      const bad = taskRoverArgsError(command.args);
+      if (bad !== null) reject("INVALID", bad);
       requireState(state, DURING_EVA, "Tasking the rover");
-      return handleTaskRover(state, command);
+      return handleTaskRover(state, ctx.scenario, command, ctx.next_seq); // vehicle, route and battery are checked there (BD-102)
+    }
     case "SEND_MESSAGE":
       return handleSendMessage(state, ctx.scenario, command, ctx.next_seq); // args, then state, are checked there (T26.04, 02 §D.12)
     case "UPDATE_STOP_TASK":

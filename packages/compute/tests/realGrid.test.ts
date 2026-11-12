@@ -194,6 +194,8 @@ function runSeededPairsBenchmark(grid: LoadedGrid, pairCount = 20, seed = 202611
   };
 }
 
+const REAL_GRID_PAIRS_TIMEOUT_MS = 60_000;
+
 describe("T05.28 — Seeded benchmark runner on disk fixture (mock_site)", () => {
   it.each([
     { records: [] }, { records: {} }, { records: null },
@@ -291,7 +293,8 @@ describe.skipIf(!hasRealBundle)("T05.28 — Verify on the real grid (gale_boxwor
     expect(results.count).toBe(20);
     expect(results.failures).toBe(0);
     expect(results.routes + results.noRoutes).toBe(20);
-  });
+    // 20 real-grid searches take seconds (6 s on the build machine), more than the 5 s default; the assertions are unchanged.
+  }, REAL_GRID_PAIRS_TIMEOUT_MS);
 
   it("runs a single timed real-grid 3-stop loop smoke check through the handler", () => {
     const grid = loadSiteGrid(REAL_SITE_DIR);
