@@ -53,10 +53,18 @@ function getSnapshot(beat: Beat): Snapshot {
   return JSON.parse(JSON.stringify(storeState(beat))) as Snapshot;
 }
 
-/** The connect SNAPSHOT with `patch` applied, delivered through the client store like any other SNAPSHOT. */
+/**
+ * The connect SNAPSHOT with `patch` applied, delivered through the client store like any other SNAPSHOT.
+ *
+ * The connect fixture carries the crew-wide jump target `{wp-2, 1}` for its own plan-less snapshot. A patch that brings
+ * its own plan brings its own target: the engine computes `next_stop_target` from the plan in force
+ * (apps/hab-core/src/engine/nextStop.ts), so a target left over from another plan would name a stop of it. The patch
+ * sets `next_stop_target` explicitly when it wants one.
+ */
 function snapshotWith(patch: Partial<Snapshot>): Snapshot {
   const connect = wsFixtures.connect[0] as Snapshot;
-  return storeState("connect", [{ ...connect, ...patch, seq: connect.seq + 1 }]);
+  const next_stop_target = patch.next_stop_target !== undefined ? patch.next_stop_target : patch.plan ? null : connect.next_stop_target;
+  return storeState("connect", [{ ...connect, ...patch, next_stop_target, seq: connect.seq + 1 }]);
 }
 
 /** Alert literals with the field values of the fixtures `radiation-alert` and `comm-shadow` (05 Alert). */
@@ -180,7 +188,10 @@ describe.skipIf(PENDING)("EVA view model on mock fixtures (T24.02)", () => {
     expect(vm.nextStop!.bearingDeg.v).toBe("—");
     expect(vm.nextStop!.distanceM.src).not.toMatch(/compute:geometry/);
     expect(vm.nextStop!.distanceM.unavailable).toBe(true);
-    expect(vm.nextStop!.distanceM.prov).toBeNull();
+    // An unavailable value keeps the class its field always has, so the reader knows what kind of number is missing.
+    expect(vm.nextStop!.distanceM.prov).toBe("derived");
+    expect(vm.nextStop!.bearingDeg.prov).toBe("derived");
+    expect(vm.nextStop!.etaMinutes.prov).toBe("modelled");
     expect(vm.nextStop!.distanceM.src).toBe("unavailable:next_stop.distance_m");
   });
 
@@ -371,9 +382,10 @@ describe("EVA view model without telemetry (no invented values)", () => {
 
     expect(next!.taskCount).toEqual({ done: 2, total: 3 });
 
-    // Another crew's tasks alone give this crew nothing at all (no stop, no fabricated total of 1).
+    // Another crew's task alone gives this crew nothing at that stop: the count is 0, never a fabricated total of 1.
+    // The stop itself is named by the Hab Core's next-stop target, not by the first task.
     snapshot.tasks = [mk("c", "EV2", "DONE")];
-    expect(selectNextStop(snapshot, "EV1")).toBeNull();
+    expect(selectNextStop(snapshot, "EV1")?.taskCount).toEqual({ done: 0, total: 0 });
   });
 });
 
@@ -390,13 +402,16 @@ describe("next stop follows the engine's one-based stop_index (T24.03; apps/hab-
     expect(selectNextStop(at("WALKING", 2), "EV1")).toMatchObject({ stopId: "wp-3" });
   });
 
-  it("at stop 2: that stop (the index is one-based, so wp-2 and not wp-3)", () => {
-    expect(selectNextStop(at("AT_STOP", 2), "EV1")).toMatchObject({ stopId: "wp-2" });
-    expect(selectNextStop(at("AT_STOP", 1), "EV1")).toMatchObject({ stopId: "wp-1" });
+  it("at a stop the next stop is the following one, not the one they stand at", () => {
+    // The Hab Core's own rule (apps/hab-core/tests/crewMargins.test.ts: "at a stop the next stop is the following one,
+    // not the one they stand at"): `stop_index` is one-based, so the stop they stand at is `stops[n - 1]` and the next is
+    // `stops[n]` — the very stop their bearing, distance and ETA point at (engine/crewMargins.ts).
+    expect(selectNextStop(at("AT_STOP", 1), "EV1")).toMatchObject({ stopId: "wp-2" });
+    expect(selectNextStop(at("AT_STOP", 2), "EV1")).toMatchObject({ stopId: "wp-3" });
   });
 
   it("an index outside the plan's stops is unknown: no fallback to stop 1 or to the hab", () => {
-    for (const [activity, index] of [["WALKING", 3], ["WALKING", 99], ["AT_STOP", 0], ["AT_STOP", 4], ["AT_STOP", -1], ["AT_STOP", 1.5]] as const) {
+    for (const [activity, index] of [["WALKING", 4], ["WALKING", 99], ["AT_STOP", 0], ["AT_STOP", -1], ["AT_STOP", 1.5]] as const) {
       expect(selectNextStop(at(activity, index), "EV1")).toBeNull();
     }
   });

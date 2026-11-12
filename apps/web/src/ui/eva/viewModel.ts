@@ -304,17 +304,24 @@ export function selectAlertSlot(snapshot: Snapshot | null, crewId: CrewId): EvaA
 }
 
 /**
- * The plan stop this crew member is at or heading for. The engine's `stop_index` is one-based and names the stop the
- * crew member last arrived at or left (apps/hab-core tick.ts), so against the zero-based list of plan stops:
- * AT_STOP is `stops[stop_index - 1]`; WALKING (or IN_HAB, before the first stop) is the stop after it, `stops[stop_index ?? 0]`.
+ * The plan stop this crew member is heading for. The engine's `stop_index` is one-based and names the stop the crew
+ * member last arrived at or left (apps/hab-core tick.ts, engine/tasks.ts): stop number n is `stops[n - 1]`. The stop that
+ * is next — the first one of the current plan revision not yet reached by this crew member (FD-047) — is therefore
+ * `stops[stop_index]` for both AT_STOP and WALKING: at stop n the next is n + 1 (`stops[n]`), and walking the next is
+ * the one after the last reached. This is the same array index the Hab Core's own crew margins use
+ * (apps/hab-core/src/engine/crewMargins.ts: "at a stop the next stop is the following one, not the one they stand at"),
+ * so the NEXT card's bearing, distance and ETA name the stop the card names.
+ *
  * TO_HAVEN and SHELTERED head for no stop, and an index outside the plan's stops is unknown: null, never stop 1 or the hab.
+ * `stop_index` is null before the crew member reached any stop: the next stop is then the first of the plan.
  */
 function planStopFor(stops: Waypoint[], activity: CrewActivity | null, stopIndex: number | null | undefined): Waypoint | null {
   if (activity === "TO_HAVEN" || activity === "SHELTERED") return null;
   const index = stopIndex ?? null;
   if (index !== null && !Number.isInteger(index)) return null;
-  const zeroBased = activity === "AT_STOP" ? (index === null ? NaN : index - 1) : (index ?? 0);
-  return stops[zeroBased] ?? null;
+  // The index is one-based: 0 is not a stop the engine names, so it is unknown, never the first stop.
+  if (index !== null && index < 1) return null;
+  return stops[index ?? 0] ?? null;
 }
 
 /**
@@ -326,25 +333,38 @@ export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNe
   const activity = activityOf(crew?.activity);
 
   const waypoints = snapshot.plan?.waypoints ?? [];
+  const stops = waypoints.filter((w) => w.role === "stop");
   // Tasks this crew member may see: their own or "either crew" (crew_id null). Never another crew's.
   const eligibleTasks = (snapshot.tasks ?? []).filter((t) => t.crew_id === null || t.crew_id === crewId);
   let stopId: string | null = null;
   let stopName = "";
 
-  if (waypoints.length > 0) {
-    const stops = waypoints.filter((w) => w.role === "stop");
-    const nextWp = planStopFor(stops, activity, crew?.stop_index);
-    if (nextWp) {
-      stopId = nextWp.id;
-      stopName = nextWp.label || `Stop ${stopId.replace(/^wp-/, "")}`;
-
-    }
-  } else if (eligibleTasks.length > 0) {
-    const task = eligibleTasks[0];
-    stopId = task.stop_id;
-    stopName = `Stop ${stopId.replace(/^wp-/, "")}`;
+  // The stop the NEXT card names is the stop the navigation points at (FD-047): the crew member's own next stop, which
+  // the Hab Core's crew margins compute as `stops[crew.stop_index]` (apps/hab-core/src/engine/crewMargins.ts) — the same
+  // array index the engine's own `next_stop_target` names for a single crew member
+  // (apps/hab-core/src/engine/nextStop.ts: `stops[min(stop_index)]`). The card's name, its task count and its bearing,
+  // distance and ETA therefore all name the same stop.
+  //
+  // `snapshot.next_stop_target` is the CREW-WIDE jump target (05 Snapshot: "the crew-wide next stop of 02 §D.17"), so it
+  // is not this crew member's navigation and must not override it: with two crew members at different stops the jump
+  // target and the per-crew navigation differ, and the card must follow the navigation it shows. The target is used only
+  // when the snapshot carries no plan stops to index into — then it is the only stop named by the server.
+  const target = snapshot.next_stop_target?.stop_id ?? null;
+  const targetWp = target ? stops.find((w) => w.id === target) ?? null : null;
+  const planWp = stops.length > 0 ? planStopFor(stops, activity, crew?.stop_index) : null;
+  if (planWp) {
+    stopId = planWp.id;
+    stopName = planWp.label || `Stop ${stopId.replace(/^wp-/, "")}`;
+  } else if (target && crew) {
+    // The crew member is in the snapshot but the plan's stops are not: the crew-wide target is then the only stop the
+    // server names, and it is this crew member's too.
+    stopId = target;
+    // The name comes from the plan when the plan carries the stop; otherwise from the target's own stop number.
+    stopName = targetWp?.label || `Stop ${String(snapshot.next_stop_target?.stop_index ?? target.replace(/^wp-/, ""))}`;
   }
 
+  // With no plan and no next-stop target there is no stop to navigate to: the NEXT card reads "—", never the stop of the
+  // first task.
   if (!stopId) {
     return null;
   }
@@ -360,9 +380,12 @@ export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNe
   return {
     stopId,
     stopName,
-    bearingDeg: isFiniteNumber(crew?.next_stop_bearing_deg) ? navigation(crew.next_stop_bearing_deg, "next_stop_bearing_deg", "°", "derived") : { v: UNAVAILABLE, unit: "", prov: null, src: "unavailable:next_stop.bearing_deg", unavailable: true },
-    distanceM: isFiniteNumber(crew?.next_stop_distance_m) ? navigation(crew.next_stop_distance_m, "next_stop_distance_m", "m", "derived") : { v: UNAVAILABLE, unit: "", prov: null, src: "unavailable:next_stop.distance_m", unavailable: true },
-    etaMinutes: isFiniteNumber(crew?.next_stop_eta_s) ? navigation(crew.next_stop_eta_s / 60, "next_stop_eta_s", "min", "modelled") : unavailable("next_stop.eta_min", null),
+    // An unavailable value keeps the class its field always has: the bearing and the distance are derived and the ETA is
+    // modelled whatever the snapshot supplies, so the reader can tell what kind of number is missing (never a bare "—"
+    // with no class).
+    bearingDeg: isFiniteNumber(crew?.next_stop_bearing_deg) ? navigation(crew.next_stop_bearing_deg, "next_stop_bearing_deg", "°", "derived") : unavailable("next_stop.bearing_deg", "derived"),
+    distanceM: isFiniteNumber(crew?.next_stop_distance_m) ? navigation(crew.next_stop_distance_m, "next_stop_distance_m", "m", "derived") : unavailable("next_stop.distance_m", "derived"),
+    etaMinutes: isFiniteNumber(crew?.next_stop_eta_s) ? navigation(crew.next_stop_eta_s / 60, "next_stop_eta_s", "min", "modelled") : unavailable("next_stop.eta_min", "modelled"),
     taskCount: {
       done,
       total: tasks.length,
