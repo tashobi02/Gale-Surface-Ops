@@ -939,6 +939,31 @@ describe("SCR-10 Join shows only what it is told (04 §D.1, §A.3.1)", () => {
 
 
 describe("package 19 ops interactions", () => {
+  it("clock shortcuts work from body and clock buttons, ignore editors and modifiers, and clean up", async () => {
+    const onCommand = vi.fn();
+    const view = await mount(createElement(OpsConsole, { client: null, snapshot: connectSnapshot(), crew: [ev1()], taskProgress: { EV1: { stop: { stopId: "wp-2", stopNo: 1, done: 0, total: 0 }, total: { done: 0, total: 0 } } }, onCommand }));
+    await keyDown(document.body, "3");
+    const speed = must<HTMLButtonElement>(view.container, '[aria-label="Set speed to 10x"]');
+    speed.focus();
+    await keyDown(speed, "3");
+    expect(onCommand.mock.calls.map(([command]) => command)).toEqual(Array.from({ length: 2 }, () => ({ kind: "SET_CLOCK", args: { speed: 60 } })));
+    await click(must(view.container, '[aria-label="Add task for EV1"]'));
+    const input = must<HTMLInputElement>(view.container, '[aria-label="Enter task description"]');
+    input.focus();
+    await keyDown(input, "3");
+    for (const modifier of ["altKey", "ctrlKey", "metaKey", "shiftKey"]) {
+      await act(async () => { document.body.dispatchEvent(new window.KeyboardEvent("keydown", { key: "3", bubbles: true, [modifier]: true })); });
+    }
+    const editable = document.createElement("div");
+    editable.setAttribute("contenteditable", "");
+    document.body.append(editable);
+    await keyDown(editable, "3");
+    expect(onCommand).toHaveBeenCalledTimes(2);
+    await view.unmount();
+    await keyDown(document.body, "3");
+    expect(onCommand).toHaveBeenCalledTimes(2);
+  });
+
   it("keys drive clock", async () => {
     const onCommand = vi.fn();
     const { container, unmount } = await mount(createElement(OpsConsole, { client: null, snapshot: connectSnapshot(), alerts: [warning()], onCommand }));

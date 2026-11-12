@@ -18,7 +18,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type KeyboardEvent,
   type CSSProperties,
   type ReactElement,
 } from "react";
@@ -189,6 +188,7 @@ export function OpsConsole({
     return activeSnapshot?.tasks ? activeSnapshot.tasks.filter((task) => task.stop_id === stop.stopId && task.state !== "DROPPED" && (task.crew_id === crewId || task.crew_id === null)).length >= 4 : stop.total >= 4;
   };
   const optionsRef = useRef<HTMLDivElement>(null);
+  const consoleRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (warningKey) {
       setActiveAddCrew(null);
@@ -317,8 +317,9 @@ export function OpsConsole({
     fontSize: "13px",
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || (event.target as Element).closest('input, textarea, select, button, a, [role="radio"], [contenteditable="true"]')) return;
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+    if (viewportWidth < 1024 || event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))) return;
     const key = event.key.toLowerCase();
     if (key === "o") {
       event.preventDefault();
@@ -327,7 +328,7 @@ export function OpsConsole({
       return;
     }
     if (key === "k") {
-      const button = event.currentTarget.querySelector<HTMLButtonElement>('.alert-bar button[aria-label^="Acknowledge"]');
+      const button = consoleRef.current?.querySelector<HTMLButtonElement>('.alert-bar button[aria-label^="Acknowledge"]');
       if (button) { event.preventDefault(); button.click(); }
       return;
     }
@@ -335,13 +336,16 @@ export function OpsConsole({
     if (key === " ") { event.preventDefault(); void issue({ kind: "SET_CLOCK", args: { paused: !session.clock.paused } }); }
     else if (["1", "2", "3"].includes(key)) { event.preventDefault(); void issue({ kind: "SET_CLOCK", args: { speed: ({ "1": 1, "2": 10, "3": 60 } as Record<string, number>)[key] } }); }
     else if (key === "n") { event.preventDefault(); void issue({ kind: "JUMP_NEXT_EVENT", args: {} }); }
-  };
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  });
 
   if (viewportWidth < 1024) return <main data-surface="ops" data-mode="ops" style={{ ...rootStyle, padding: "32px" }}><h1>Use a larger screen</h1><p>The ops console needs at least 1024 px width. Open it on the projector or a laptop.</p></main>;
 
   return (
     <div
-      onKeyDown={onKeyDown}
+      ref={consoleRef}
       className={`scr11-ops-console ${className}`}
       data-surface="ops"
       data-mode="ops"
