@@ -49,7 +49,7 @@ Behaviour changes went into the specs first, as `spec-change:` commits marked Pr
 | Backend | **Sadman Shaharier Mahim** | `core-backend` |
 | Frontend | **Obidit Islam** | `core-frontend` |
 
-- **Integration.** Sadman merges both lanes into `merging-core`. At the end, one PR goes `merging-core` → `main`, so CI runs once.
+- **Integration.** Each lane merges its own branch into `merging-core` after every batch (§5), so no hand-offs or messages are needed. At the end, Sadman's side opens one PR `merging-core` → `main`, so CI runs once.
 - **No PRs during the run.** Work is committed and pushed to your lane branch only.
 
 ### 2.1 Where each lane stands at handover (merging-core @ 5234c63, 53 %, 183/345 subtasks)
@@ -110,19 +110,35 @@ BOOKKEEPING:
 | `docs/tasks/status.md`, `docs/AI_USE.md`, `README.md` (progress block), `docs/tasks/_coordination.md` | Both (append/update own rows) | — (conflicts are mechanical, see §5) |
 | `docs/plan/<lane>/**` | That lane | read only |
 
-If a package needs a file the other lane owns, don't edit it. Note it in your report. Sadman's side makes the change and merges it into `merging-core`, and you pull it.
+If a package needs a file the other lane owns, don't edit it. Add a numbered line to your lane's needs file (§5) and publish; the owning lane picks it up at its next batch. Until it lands, show "—" for the missing value.
 
 ## 5. Branches, merging and conflicts
 
 ```text
-main  ←── (one PR at the end) ── merging-core ←── core-backend   (Sadman)
-                                      ↑ └──────→ core-backend    (pull merging-core before each batch)
-                                      └──────── core-frontend    (Obidit; pull merging-core before each batch)
+main  ←── (one PR at the end, Sadman) ── merging-core ⇄ core-backend   (Sadman's agent)
+                                              ⇄ core-frontend  (Obidit's agent)
+⇄ = before a batch: merge merging-core into your lane; after a batch: merge your lane into merging-core
 ```
 
-- **Only Sadman's side merges into `merging-core`**, after each lane batch and at least every few hours. Nobody pushes to `main` or `merging-core` by hand.
-- **Before every batch,** each lane runs `git fetch && git merge origin/merging-core` into its own branch.
-- **After every batch,** each lane pushes its branch. Sadman's side merges it into `merging-core`.
+No messages between the lanes are needed. Each lane's agent does both directions itself:
+
+- **Before every batch:** `git fetch && git merge origin/merging-core` into your lane branch. On conflicts run
+  `bash scripts/finish_merge.sh .` (§5.1, §5.2), then run the checks.
+- **After every batch:** push your lane, then publish it to `merging-core`:
+
+  ```bash
+  bash scripts/publish_lane.sh    # merges your pushed lane into merging-core and pushes; retries if the other lane pushed first
+  ```
+
+  `publish_lane.sh` runs `make lint typecheck test-web docs-check` on the merged result. It **refuses to push a red
+  `merging-core`**: if the checks fail, nothing is pushed. Fix it on your lane branch, then publish again.
+- **Nobody pushes to `main`.** Nobody force-pushes. Nobody edits `merging-core` directly except through `publish_lane.sh`.
+- **Collisions are prevented by the lane boundaries (§4), not by talking.** The only shared files are the mechanical
+  ones (status, AI_USE, README progress, and `spec-change:` sections), which the scripts merge the same way on both sides.
+- **The one exception is a cross-lane need.** The frontend needs a protocol or worker change, or the backend needs a UI
+  change. Write it as a numbered line in `docs/plan/frontend/01-needs-from-backend.md`, or
+  `docs/plan/backend/01-needs-from-frontend.md`, and publish. The owning lane's agent checks that file at the start of
+  every batch and picks it up. No chat is needed.
 
 ### 5.1 Resolving conflicts (mechanical files)
 
@@ -168,5 +184,5 @@ What it does:
 
 1. **Each lane finishes its packages.** Backend 30 is the TODO sweep; frontend 28–29 are the verification packages.
 2. **Reviewers run once per lane,** after all its packages are done. They use each lane's `99-verification.md`, then there is one fix round.
-3. **Sadman's side merges both lanes into `merging-core`** and runs the end-to-end check (backend `99-verification.md`), then opens the PR `merging-core` → `main`.
+3. **Both lanes are published to `merging-core`** (§5). Sadman's side runs the end-to-end check (backend `99-verification.md`), then opens the PR `merging-core` → `main`.
 4. **Submission** (frontend 31–32): Sadman or Obidit pastes the project page and uploads the videos using the team account, per `submit-now.md`, before **13 Nov, 18:00**.
