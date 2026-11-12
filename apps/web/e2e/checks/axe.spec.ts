@@ -9,7 +9,8 @@ import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 import { openEvaFixture, type EvaFixtureState } from "../lib/evaFixture";
 import { openOpsFixture } from "../lib/opsFixture";
-import { routeFixtureRecording } from "../lib/replayFixture";
+import { openReplayFixture, routeFixtureRecording } from "../lib/replayFixture";
+import { populatedReport } from "../../tests/fixtures/postEvaReport";
 import { withManifestlessSite } from "../lib/siteBundle";
 
 const LIVE = /^#\/(ops|eva|hud)/;
@@ -32,6 +33,23 @@ test("axe: every built route has no serious or critical violation", async ({ pag
     const mode = (await page.evaluate(() => document.documentElement.dataset.mode)) as HtmlMode;
     await axeScan(page, { mode, route: `${testInfo.project.name}-${hash}` });
   }
+});
+
+// Package 26 and 27 on every project, independent of the live routes above: SCR-17 populated (6 stops, 3 alerts, a trace) in
+// PRINT mode, and `#/replay` on the fixture recording with the event log drawer open where the console is shown (>= 1024 px).
+test("axe: SCR-17 populated and #/replay with its log drawer have no serious or critical violation (packages 26, 27)", async ({ page }, testInfo) => {
+  const body = JSON.stringify(populatedReport());
+  await page.route("**/api/report", (route) => route.fulfill({ status: 200, contentType: "application/json", body }));
+  await page.goto("/#/report");
+  await page.locator('[data-slot="report-trace"]').waitFor();
+  await axeScan(page, { mode: "print", route: `${testInfo.project.name}-report-populated` });
+  await openReplayFixture(page);
+  const strip = page.locator('[data-slot="event-log-strip"]');
+  if (await strip.count()) {
+    await strip.click();
+    await page.locator('[data-slot="event-log-drawer"]').waitFor();
+  }
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-replay-log` });
 });
 
 // Package 06: SCR-00, the boot error, in OPS mode (FD-207). A site whose manifest was deleted makes the planner boot fail.

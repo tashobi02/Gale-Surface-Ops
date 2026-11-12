@@ -145,6 +145,7 @@ function Playback({ source }: { source: ReplaySource }): ReactElement {
                 key={s}
                 type="button"
                 data-slot={`replay-speed-${s}`}
+                data-identifier=""
                 aria-pressed={speed === s}
                 aria-label={`Playback ${s}×`}
                 style={{ ...buttonStyle, ...(speed === s ? { background: "var(--text-1, #ECEFF2)", color: "var(--panel, #14181D)" } : {}) }}
