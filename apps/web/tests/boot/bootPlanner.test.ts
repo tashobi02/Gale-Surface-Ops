@@ -1,9 +1,9 @@
 /**
  * T07.03 — planner boot sequence (docs/specs/03 SCR-00, §D; 01 FR-01, FR-16): Worker check -> loadSite -> validateSite ->
- * worker client -> plan store. Any problem is a BootError that names the file or field; the stubs of T14.03 and T08.03
- * are skipped (and said so), never silently treated as success.
+ * worker client -> plan store. Any problem is a BootError that names the file or field; the T14.03 stub is skipped (and
+ * said so), never silently treated as success. T07.04: `?mock_worker=1` starts the F3 mock worker (FD-174).
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LoadedSite, WorkerClient } from "../../src/ui/context";
 import type { PlanStore } from "../../src/state/planStore";
 import { BootError } from "../../src/boot/loadSite";
@@ -81,24 +81,14 @@ describe("createPlannerBoot", () => {
     expect(boot.skipped).toEqual(["validateSite: TODO(T14.03): validateSite not implemented"]);
   });
 
-  it("a plan store that is still the T08.03 stub gives planStore null and is recorded; no context can be made", async () => {
-    const { deps: d } = deps({
-      createPlanStore: () => {
-        throw new Error("TODO(T08.03): not implemented");
-      },
-    });
-    const boot = await createPlannerBoot(d).get();
-    expect(boot.planStore).toBeNull();
-    expect(boot.skipped[0]).toContain("TODO(T08.03)");
-  });
-
-  it("a real failure of validateSite or the plan store is not mistaken for a stub", async () => {
+  it("a plan store that cannot start is PLAN_STORE_FAILED, and the worker it was given is stopped", async () => {
     const { deps: d } = deps({
       createPlanStore: () => {
         throw new Error("boom");
       },
     });
     await expect(createPlannerBoot(d).get()).rejects.toMatchObject({ problem: { code: "PLAN_STORE_FAILED" } });
+    expect(worker.terminate).toHaveBeenCalled();
   });
 
   it("a worker that cannot start is WORKER_FAILED", async () => {
@@ -162,7 +152,36 @@ describe("createBootPlanStore (T08.03: the plan store the boot builds)", () => {
       validateSite: () => [],
       createWorkerClient: () => client,
     }).get();
-    expect(boot.planStore?.get().waypoints[0]).toMatchObject({ id: "wp-0", role: "start" });
+    expect(boot.planStore.get().waypoints[0]).toMatchObject({ id: "wp-0", role: "start" });
     expect(boot.skipped).toEqual([]);
+  });
+});
+
+describe("the default worker client follows ?mock_worker (T07.04, FD-174)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("starts the F3 mock for ?mock_worker=1 and the plan worker otherwise", async () => {
+    const built: { url: string; name: string | undefined }[] = [];
+    class RecordingWorker {
+      onmessage: unknown = null;
+      constructor(url: URL, options?: WorkerOptions) {
+        built.push({ url: url.pathname, name: options?.name });
+      }
+      postMessage(): void {}
+      terminate(): void {}
+    }
+    vi.stubGlobal("Worker", RecordingWorker);
+    const bootWith = async (search: string) => {
+      vi.stubGlobal("location", { search });
+      const withStart = { site: { site_id: "mock_site", data_version: "v", default_start: { x_m: 1, y_m: 2, label: "Hab" } } } as unknown as LoadedSite;
+      const boot = await createPlannerBoot({ loadSite: async () => withStart, validateSite: () => [] }).get();
+      boot.workerClient.terminate();
+    };
+    await bootWith("?mock_worker=1&mock_worker_result=over-limits");
+    await bootWith("");
+    expect(built[0]!.url).toMatch(/tests\/fixtures\/mockWorker\.ts$/);
+    expect(built[0]!.name).toBe("mock:over-limits");
+    expect(built[1]!.url).toMatch(/src\/worker\/planWorker\.ts$/);
+    expect(built[1]!.name).toBeUndefined();
   });
 });

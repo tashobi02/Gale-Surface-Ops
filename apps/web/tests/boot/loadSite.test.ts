@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   BootError,
+  DEFAULT_SITE_ID,
   loadSite,
   parseSiteManifest,
   resolveSiteId,
@@ -228,7 +229,21 @@ describe("T07.02 resolveSiteId: ?site= is an allowlist (^[a-z0-9_]+$)", () => {
     expect(resolveSiteId("", "gale_boxwork")).toBe("gale_boxwork");
     expect(resolveSiteId("?site=gale_boxwork")).toBe("gale_boxwork");
     expect(resolveSiteId("?debug=1&site=mock_site")).toBe("mock_site");
-    expect(resolveSiteId("")).toBe("mock_site");
+    expect(resolveSiteId("")).toBe("gale_boxwork");
+  });
+
+  it("default site is gale_boxwork, and ?site=mock_site is allowed (FD-086)", () => {
+    expect(DEFAULT_SITE_ID).toBe("gale_boxwork");
+    expect(resolveSiteId("?site=mock_site")).toBe("mock_site");
+    expect(resolveSiteId("?site=gale_boxwork")).toBe("gale_boxwork");
+  });
+
+  it("a missing default bundle is a boot problem that names the manifest path (FD-086)", async () => {
+    const requested = stubFetch({});
+    const problem = await bootProblem(loadSite());
+    expect(problem.code).toBe("MANIFEST_NOT_FOUND");
+    expect(problem.missingFile).toBe("sites/gale_boxwork/site-manifest.json");
+    expect(requested).toEqual(["sites/gale_boxwork/site-manifest.json"]);
   });
 
   it.each(["../x", "a/b", "Mock_Site", "mock-site", "mock site", "%2e%2e", "a.b", "site\n", ""])(
@@ -236,7 +251,7 @@ describe("T07.02 resolveSiteId: ?site= is an allowlist (^[a-z0-9_]+$)", () => {
     (id) => {
       const rejected = () => resolveSiteId(`?site=${encodeURIComponent(id)}`);
       if (id === "") {
-        expect(rejected()).toBe("mock_site"); // an empty parameter is no parameter
+        expect(rejected()).toBe("gale_boxwork"); // an empty parameter is no parameter
       } else {
         expect(rejected).toThrow(BootError);
         expect(() => resolveSiteId("", id)).toThrow(BootError);

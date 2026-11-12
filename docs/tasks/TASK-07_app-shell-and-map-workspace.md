@@ -155,7 +155,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
   2. Give every request a unique `request_id` and resolve SAMPLE_POINT replies by that id (02 §E.2).
   3. For COMPUTE_PLAN, deliver only the result of the latest `plan_revision`; drop older results and treat `CANCELLED` as superseded, not as an error (02 §E.2, 03 §E.4).
   4. Send the grid to the worker the way T05.01 decides (open point 4); until then use only the 02 §E.2 messages.
-  5. On `onerror`, `messageerror`, `TIMEOUT` or `INTERNAL`, fail pending requests with a typed error, expose a crashed state, and offer `retry()`, which restarts the worker (NFR-10; 03 §D "Worker timeout/crash").
+  5. On `onerror`, `messageerror` or an `INTERNAL` error, fail every pending request with a typed error, expose a crashed state, and offer `retry()`, which restarts the worker; `TIMEOUT` and the other worker codes fail only the request they name and do not mark the client crashed (NFR-10; 03 §D "Worker timeout/crash"; FD-173, 12 Nov 2026, Proposed).
 - **Acceptance:**
   - Serves: FR-03, FR-07, NFR-10 · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows)
   - With the mock worker, SAMPLE_POINT and COMPUTE_PLAN round-trip and match by `request_id`.
@@ -588,9 +588,9 @@ The graph omits T07.15's transitive edges (it hard-depends on T07.05–T07.12).
 ## Spec questions
 
 1. Layer slots for the traverse and waypoints are not in the FR-02 order (map open point 7) — T07.01 `TODO(decision)`.
-2. NFR-05 requires a source id on every value but names no attribute (open point 8) — T07.01 `TODO(decision)`.
+2. NFR-05 requires a source id on every value but names no attribute (open point 8) — T07.01 `TODO(decision)`. Decided: FD-106 (12 Nov 2026, Proposed).
 3. Slope classes follow the current limits (04 §C.1), so slope tiles must be data-encoded and coloured in the browser (open point 6). 03 SCR-00 also lists "browser lacks Web Worker/WebGL-free fallback"; if T07.07 colours tiles with WebGL, a path without WebGL is needed — `TODO(verify)`.
-4. How the worker receives the grid (open point 4) decides T07.04's start-up messages.
+4. How the worker receives the grid (open point 4) decides T07.04's start-up messages. Decided: FD-108, FD-091 (12 Nov 2026, Proposed); the grid is delivered by `LOAD_GRID` (02 §E.2, BD-40), see FD-227.
 5. Demo plan location and shape (open point 15) — T07.14 proposes POI ids plus scenario defaults.
 6. 03 SCR-01 needs a context thumbnail, a one-sentence science objective, "What this tool does" and data badges, but 05 Site holds only `name`; where this copy and image come from is `TODO(decision)` (T07.05).
 7. 05 MissionScenario says `eva_start_utc` defaults to "site default", but 05 Site has no such field; this affects T07.14 and the plan-store defaults (T08.01).

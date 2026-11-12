@@ -12,6 +12,10 @@
  * - `TIMEOUT` when `defaultTimeoutMs` elapses; `CRASH` for what is pending at a worker script error;
  *   `SUPERSEDED` for what is pending at `retry()`; `TERMINATED` for what is pending at `terminate()`.
  * After `terminate()` every call rejects `TERMINATED` (and `postMessage` / `retry` throw it).
+ *
+ * Per-request `TIMEOUT` (FD-173): `defaultTimeoutMs` rejects only the request that timed out, and the client is not marked
+ * crashed; the app sets no client timeout, because the worker's own `TIMEOUT` (an expansion cap, 02 §D.2) is the limit.
+ * `?mock_worker=1` starts the F3 mock worker instead of the plan worker (FD-174; `mockWorkerFromSearch`).
  */
 import type {
   ComputePlanRequest,
@@ -22,7 +26,7 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "@marswalk/protocol";
-import type { WorkerClient } from "./context";
+import { URL_PARAMS, type WorkerClient } from "./context";
 
 /** The part of a Worker the client uses; a DOM `Worker` satisfies it, so do test doubles. */
 export interface WorkerLike {
@@ -52,9 +56,28 @@ export function isSupersededError(error: unknown): error is WorkerClientError {
   return error instanceof WorkerClientError && (error.code === "SUPERSEDED" || error.code === "CANCELLED");
 }
 
+/** Variant of the F3 mock's canned PLAN_RESULT (tests/fixtures/plan-results): `ok`, `partial` or `over-limits`. */
+export interface MockWorkerSwitch {
+  result: string;
+}
+
+/**
+ * The F3 mock worker switch (FD-174; dev and the verification harness only): `?mock_worker=1` turns it on, and
+ * `?mock_worker_result=<variant>` picks the canned result (default `ok`; a variant that is not lowercase letters and
+ * hyphens is ignored). Null when the switch is off; the variant alone never turns it on.
+ */
+export function mockWorkerFromSearch(search: string): MockWorkerSwitch | null {
+  const params = new URLSearchParams(search);
+  if (params.get(URL_PARAMS.MOCK_WORKER) !== "1") return null;
+  const wanted = params.get(`${URL_PARAMS.MOCK_WORKER}_result`) ?? "";
+  return { result: /^[a-z-]{1,20}$/.test(wanted) ? wanted : "ok" };
+}
+
 export interface WorkerClientOptions {
-  /** Creates the worker; default: the plan worker module (`../worker/planWorker.ts`). */
+  /** Creates the worker; default: the plan worker module (`../worker/planWorker.ts`), or the F3 mock with `mock`. */
   workerFactory?: () => WorkerLike;
+  /** Start the F3 mock worker instead of the plan worker (`mockWorkerFromSearch`); ignored when `workerFactory` is given. */
+  mock?: MockWorkerSwitch | null;
   /** Per-request timeout in ms; none when omitted. */
   defaultTimeoutMs?: number;
   /**
@@ -160,7 +183,9 @@ export function createWorkerClient(options: WorkerClientOptions = {}): WorkerCli
   function startWorker(): void {
     const created: WorkerLike = options.workerFactory
       ? options.workerFactory()
-      : createDefaultWorker();
+      : options.mock
+        ? createMockWorker(options.mock)
+        : createDefaultWorker();
     created.onmessage = handleWorkerResponse;
     // A message that cannot be read cannot be matched to a request, so it is treated like a script error.
     created.onerror = (event) => handleWorkerFailure(event);
@@ -241,4 +266,13 @@ export function createWorkerClient(options: WorkerClientOptions = {}): WorkerCli
 function createDefaultWorker(): WorkerLike {
   if (typeof Worker === "undefined") throw new Error("Web Worker environment not available");
   return new Worker(new URL("../worker/planWorker.ts", import.meta.url), { type: "module" });
+}
+
+/**
+ * The F3 mock worker (tests/fixtures/mockWorker.ts) as a module worker. Its variant travels in the worker's name, because a
+ * bundled worker's URL cannot carry a query. Built only when `?mock_worker=1` asks for it (FD-174).
+ */
+function createMockWorker(mock: MockWorkerSwitch): WorkerLike {
+  if (typeof Worker === "undefined") throw new Error("Web Worker environment not available");
+  return new Worker(new URL("../../tests/fixtures/mockWorker.ts", import.meta.url), { type: "module", name: `mock:${mock.result}` });
 }

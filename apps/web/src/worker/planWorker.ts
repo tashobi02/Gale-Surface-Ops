@@ -4,7 +4,12 @@
  * PLAN_RESULT: `computed_utc` (the genuine time of the run) and `timing_ms.total` (measured
  * handler duration; no minimum, and no routing/estimates split, which is not measured).
  * Stale-request rejection of older plan_revisions is implemented; effective in-flight
- * cancellation and grid delivery are not (TASK-05 T05.18, T05.27: TODO(decision)).
+ * cancellation and grid delivery are the backend's (T05.18, T05.27). Decided (FD-091, FD-108): cancellation is a revision
+ * supersede, which the client reports as `SUPERSEDED` and the plan store drops without an error; the grid reaches the worker
+ * once, at start, by the `LOAD_GRID` message of 02 §E.2 (protocol v0.2, BD-40), which supersedes FD-091's wording that the
+ * worker fetches it. A request before then is answered `GRID_NOT_LOADED`, which the plan store shows as an Error with
+ * Retry, never as a plan. The app does not send `LOAD_GRID` yet (no frontend package owns it); `?mock_worker=1` runs the
+ * F3 mock, which answers every request.
  * Input validation (02 §E.3) happens in the pure handler → INVALID_INPUT.
  */
 import type { PlanResultMessage, WorkerRequest, WorkerResponse } from "@marswalk/protocol";

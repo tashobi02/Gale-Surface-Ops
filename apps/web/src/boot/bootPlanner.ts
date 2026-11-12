@@ -2,25 +2,23 @@
  * Planner boot sequence (docs/specs/03 SCR-00, §D; 01 FR-01, FR-16; T07.03):
  * Web Worker check -> loadSite -> validateSite -> worker client -> plan store.
  *
- * Every failure is a `BootError` whose `problem` names the file or the field (03 §D "Boot asset failure"). Two steps are
- * stubs on main: `validateSite` (T14.03) and `createPlanStore` (T08.03). A stub's "TODO(...)" error is skipped and recorded
- * in `skipped`, never reported as success, and when the plan store is missing `planStore` is null (no AppContext can be
- * made, so a planner screen shows its not-built placeholder). Any other error is a real failure.
+ * Every failure is a `BootError` whose `problem` names the file or the field (03 §D "Boot asset failure"); SCR-00 shows it.
+ * `validateSite` is still a stub on main (T14.03): its "TODO(...)" error is skipped and recorded in `skipped`, never
+ * reported as success. Any other error is a real failure. `?mock_worker=1` starts the F3 mock worker (FD-174).
  *
  * Live roles (ops, EVA, HUD, report, join) do not boot this: a suit tablet must come up even when site tiles fail to load.
  */
 import type { BootProblem, LoadedSite, WorkerClient } from "../ui/context";
 import type { PlanStore } from "../state/planStore";
 import { DEFAULT_SCENARIO, createPlanStore } from "../state/planStore";
-import { createWorkerClient } from "../ui/workerClient";
+import { createWorkerClient, mockWorkerFromSearch } from "../ui/workerClient";
 import { BootError, loadSite } from "./loadSite";
 import { validateSite } from "./validateSite";
 
 export interface PlannerBoot {
   site: LoadedSite;
   workerClient: WorkerClient;
-  /** Null while `createPlanStore` is still the T08.03 stub. */
-  planStore: PlanStore | null;
+  planStore: PlanStore;
   /** Steps that were skipped because their module is still a stub, each "<step>: <stub message>". */
   skipped: string[];
 }
@@ -76,20 +74,17 @@ async function runBoot(deps: PlannerBootDeps): Promise<PlannerBoot> {
 
   let workerClient: WorkerClient;
   try {
-    workerClient = (deps.createWorkerClient ?? (() => createWorkerClient()))();
+    workerClient = (deps.createWorkerClient ?? (() => createWorkerClient({ mock: mockWorkerFromSearch(globalThis.location?.search ?? "") })))();
   } catch (err) {
     throw new BootError({ code: "WORKER_FAILED", message: `The compute worker could not start: ${message(err)}` });
   }
 
-  let planStore: PlanStore | null = null;
+  let planStore: PlanStore;
   try {
     planStore = (deps.createPlanStore ?? createBootPlanStore)(site, workerClient);
   } catch (err) {
-    if (!isNotBuilt(err)) {
-      workerClient.terminate();
-      throw new BootError({ code: "PLAN_STORE_FAILED", message: `The plan store could not start: ${message(err)}` });
-    }
-    skipped.push(`createPlanStore: ${message(err)}`);
+    workerClient.terminate();
+    throw new BootError({ code: "PLAN_STORE_FAILED", message: `The plan store could not start: ${message(err)}` });
   }
 
   return { site, workerClient, planStore, skipped };
