@@ -2,7 +2,7 @@
  * Route layer (T09.01; FR-07, FR-10; 04 §C.1 map overlays, §C.5 map annotations; 02 §C.1 projected metres).
  * Originally by Saba Atharique (#178); reworked in the review: token colours, `unknown` severity, no duplicate point.
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type Feature from "ol/Feature.js";
 import LineString from "ol/geom/LineString.js";
 import VectorLayer from "ol/layer/Vector.js";
@@ -260,4 +260,27 @@ describe("createRouteLayer: hazard overlay along the route (05 Warning leg, from
     const layer = createRouteLayer(fake.store);
     expect(featuresOf(layer, "hazard_segment")).toHaveLength(0);
   });
+});
+
+it("hazard overlay has a shared canvas hatch renderer", () => {
+  const { store } = fakePlanStore({ result: resultOf({ legs: [okLeg([[0, 0], [100, 0]])], warnings: [warning()] }) });
+  const layer = createRouteLayer(store);
+  const feature = featuresOf(layer, "hazard_segment")[0]!;
+  expect(stylesOf(layer, feature).some(style => typeof style.getRenderer() === "function")).toBe(true);
+  const pattern = { setTransform: vi.fn() };
+  const tile = { fillRect: vi.fn() };
+  const mock = vi.spyOn(window.HTMLCanvasElement.prototype, "getContext").mockReturnValue(tile as unknown as CanvasRenderingContext2D);
+  const context = { createPattern: vi.fn(() => pattern), save: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), restore: vi.fn(), strokeStyle: null, lineWidth: 0 };
+  const renderer = stylesOf(layer, feature).find(style => style.getRenderer())!.getRenderer()!;
+  try {
+    renderer([[30, 0], [70, 0]], { context, pixelRatio: 2 } as unknown as Parameters<typeof renderer>[1]);
+    expect(tile.fillRect).toHaveBeenCalled();
+    expect(context.createPattern).toHaveBeenCalledWith(expect.anything(), "repeat");
+    expect(context.moveTo).toHaveBeenCalledWith(30, 0);
+    expect(context.lineTo).toHaveBeenCalledWith(70, 0);
+    expect(context.strokeStyle).toBe(pattern);
+    expect(context.stroke).toHaveBeenCalledOnce();
+    expect(context.restore).toHaveBeenCalledOnce();
+  } finally { mock.mockRestore(); }
+  layer.destroy();
 });

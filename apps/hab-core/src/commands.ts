@@ -291,7 +291,7 @@ function dispatch(state: EngineState, command: Command, ctx: CommandContext): Ha
       requireState(state, DURING_EVA, "Tasking the rover");
       return handleTaskRover(state, command);
     case "SEND_MESSAGE":
-      return handleSendMessage(state, ctx.scenario, command);
+      return handleSendMessage(state, ctx.scenario, command, ctx.next_seq); // args, then state, are checked there (T26.04, 02 §D.12)
     case "UPDATE_STOP_TASK":
       requireState(state, DURING_EVA, "Updating a stop task");
       return handleUpdateStopTask(state, ctx.scenario, command);

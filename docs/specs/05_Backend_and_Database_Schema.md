@@ -597,7 +597,7 @@ Source column: where the fields are stated. **Proposed** fields are not stated i
 | `SESSION_LOADED` | `session_id, scenario_id, data_version, seed, plan_hash` (`plan_hash` is null for a plan-less session *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-96)*) | **Proposed** (Session fields) |
 | `EVA_STARTED` | `crew_ids, plan_revision` | **Proposed** |
 | `ARRIVED_STOP`, `LEFT_STOP` | `crew_id, stop_id, stop_index` | **Proposed** (Crew, StopTask) |
-| `ALERT_RAISED` | `alert_id, code, level, subjects, message`, plus the code's values (`RADIATION_ALERT`: `rate_ugy_h, threshold_ugy_h, source`; `CONSUMABLES_LOW`: `o2_remaining_min, haven_min, haven_kind, margin, threshold_margin`; `BUDDY_SEPARATION`: `distance_m, threshold_m`) | §F.6, fixtures `radiation-alert`, `comm-shadow`, 02 §E.6; `CONSUMABLES_LOW` and `BUDDY_SEPARATION` values **Proposed** (02 §D.14 rule decided 2026-11-07) |
+| `ALERT_RAISED` | `alert_id, code, level, subjects, message`, plus the code's values (`RADIATION_ALERT`: `rate_ugy_h, threshold_ugy_h, source`; `CONSUMABLES_LOW`: `o2_remaining_min, haven_min, haven_kind, margin, threshold_margin`; `BUDDY_SEPARATION`: `distance_m, threshold_m`; `COMM_SHADOW`: `distance_m`, along the remaining route to the first uncovered stretch, `derived`) | §F.6, fixtures `radiation-alert`, `comm-shadow`, 02 §E.6; `CONSUMABLES_LOW`, `BUDDY_SEPARATION` and `COMM_SHADOW` values **Proposed** (02 §D.14 rule decided 2026-11-07) |
 | `ALERT_ACKED` | `alert_id, acked_by` | **Proposed** (Alert) |
 | `ALERT_CLEARED` | `alert_id` | **Proposed** (Alert) |
 | `OPTIONS_PROPOSED` | `alert_id, options` (ContingencyOption[]) | §F.6, fixture `options-proposed` |

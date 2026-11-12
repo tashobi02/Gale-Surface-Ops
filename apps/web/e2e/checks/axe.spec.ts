@@ -15,12 +15,15 @@ const LIVE = /^#\/(ops|eva|hud)/;
 
 // Routes that render real content today. Each screen package adds its own route here when it builds the screen, until the
 // list equals `routeHashes()` (package 99 asserts that).
-const BUILT_ROUTES = ["#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report"];
+// Package 15 adds the two BRIEF routes it builds: `#/` (SCR-01) and `#/sources` (SCR-09).
+const BUILT_ROUTES = ["#/", "#/sources", "#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report"];
 
 test("axe: every built route has no serious or critical violation", async ({ page }, testInfo) => {
   for (const hash of BUILT_ROUTES) {
-    await page.goto(`/${hash}`);
+    await page.goto(`/?site=${process.env.E2E_SITE ?? "mock_site"}${hash}`);
     await page.waitForLoadState("networkidle");
+    if (hash === "#/") await expect(page.locator('[data-screen="SCR-01"] h1')).toContainText("Plan the walk");
+    if (hash === "#/sources") await expect(page.locator('[data-screen="SCR-09"] h1')).toContainText("What each value is");
     if (LIVE.test(hash)) await waitForSnapshot(page);
     const mode = (await page.evaluate(() => document.documentElement.dataset.mode)) as HtmlMode;
     await axeScan(page, { mode, route: `${testInfo.project.name}-${hash}` });

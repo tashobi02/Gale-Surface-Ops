@@ -1,0 +1,12 @@
+{
+  "$comment": "SCR-01 copy (FD-109): written from 01 §A/§E and 03 SCR-01. No numbers (the copy names no quantity; every number on the screen comes from the manifest and carries its provenance label). The data badges themselves come from the manifest's `sources`; this file only adds the sentence each badge carries.",
+  "objective": "Read the groundwater history preserved in the boxwork ridges of Mount Sharp: the mineral veins that formed in the layers of ancient lake beds, and the fractures that carried water through them.",
+  "what_this_tool_does": "Plan a two-person walk on Mars under a storm: choose where to go, how long each stop takes and how far you can wander before you must be back in the habitat. The route is computed over real NASA and ESA terrain data; every number the app shows is traced to the source it came from.",
+  "source_descriptions": {
+    "usgs-gale-ortho-25cm-v3": "The greyscale surface the plan is drawn on: the photograph of the ground the crew would walk.",
+    "usgs-gale-dem-1m-v3": "The terrain: how high the ground is and how steep, which is what decides whether a route is walkable.",
+    "usgs-themis-ti-30s120e": "How the ground holds its heat through the night, a hint at where the loose fines are.",
+    "hassler-2014-rad": "The radiation the surface crew receives every day at solar maximum, measured on Mars.",
+    "simonsen-2024-rad": "The same measurement for the quiet part of the solar cycle."
+  }
+}

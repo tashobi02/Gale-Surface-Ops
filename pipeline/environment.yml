@@ -1,5 +1,5 @@
 # The only environment for the pipeline (docs/specs/02 §B: GDAL ≥ 3.6, rasterio, numpy, pyproj ≥ 3.4;
-# spiceypy for the SPICE geometry tables in 02 §C.5 L10, TASK-21; marstime for the Mars24 reference fixture F6, TASK-06).
+# spiceypy for the SPICE geometry tables in 02 §C.5 L10, TASK-21; cdflib for the RAD CDF files, TASK-21; marstime for the Mars24 reference fixture F6, TASK-06).
 # Create or update with: make setup   (then: make check-env)
 # Python is pinned to 3.12; keep PYTHON in scripts/check_pipeline_env.py in step.
 name: marswalk-pipeline
@@ -18,4 +18,6 @@ dependencies:
   - pip:
       # F6 generator (apps/web/tests/fixtures/mars24-reference.json); the version F6 records in marstime_version (BD-55, BD-122).
       - marstime==0.4.6
+      # SPDF L2 CDF reader for the RAD series and its cross-check (TASK-21 rad.py, BD-110, BD-126); the version docs/ops/rad-series.md was produced with.
+      - cdflib==1.3.16
       - -e .

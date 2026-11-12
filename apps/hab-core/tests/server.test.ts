@@ -33,7 +33,8 @@ import {
   type Waypoint,
 } from "@marswalk/protocol";
 import type { StateChange } from "../src/engine/reducer";
-import { readScenario } from "../src/scenario";
+import { readScenario, type LoadedScenario } from "../src/scenario";
+import { commLayer, partialWall } from "./fixtures/wallWorld";
 import { startServer } from "../src/server";
 import { loadSession, type SessionHandle } from "../src/session";
 
@@ -761,4 +762,141 @@ describe("role take-over: newest wins (02 §E.4, §E.6; 05 ROLE_TAKEN_OVER)", ()
     second.send(hello(0, "c-second"));
     expect((await closed).code).toBe(4001);
   });
+});
+
+describe("LINK_STATE reaches only the suit's own clients (T26.02; 02 §A.5, §E.6; 05 Crew; BD-103)", () => {
+  type Link = Extract<ServerMessage, { type: "LINK_STATE" }>;
+  const linkStates = (c: TestClient): Link[] => c.received.filter((m): m is Link => m.type === "LINK_STATE");
+
+  /** A stub whose snapshot carries the crew's link fields and whose next advance logs the given link events. */
+  class LinkSession extends StubSession {
+    crew: Snapshot["crew"] = [
+      { crew_id: "EV1", x_m: 0, y_m: 0, activity: "WALKING", stop_index: null, o2_frac: 1, eva_elapsed_s: 0, dose_event_ugy: 0, dose_event_unsheltered_ugy: 0, haven: { minutes: 0, kind: "hab", target_x_m: 0, target_y_m: 0 }, linked: true, link_path: ["EV1", "HAB"], stale: false, link_hops: 1, link_via: "direct" },
+      { crew_id: "EV2", x_m: 0, y_m: 0, activity: "WALKING", stop_index: null, o2_frac: 1, eva_elapsed_s: 0, dose_event_ugy: 0, dose_event_unsheltered_ugy: 0, haven: { minutes: 0, kind: "hab", target_x_m: 0, target_y_m: 0 }, linked: true, link_path: ["EV2", "HAB"], stale: false, link_hops: 1, link_via: "direct" },
+    ];
+    snapshot(clients: Snapshot["clients"]): Snapshot {
+      return { ...super.snapshot(clients), crew: this.crew };
+    }
+    /** Make `kind` for `node` appear on the next advance, with the crew member's link fields as the engine would leave them. */
+    link(kind: "LINK_LOST" | "LINK_RESTORED", node: string, fields: Partial<Snapshot["crew"][number]>): void {
+      this.crew = this.crew.map((c) => (c.crew_id === node ? { ...c, linked: kind === "LINK_RESTORED", stale: kind === "LINK_LOST", ...fields } : c));
+      this.pending.push({ seq: ++this.lastSeq, sim_time: SIM_TIME, kind, actor: "system", data: { node_id: node }, provenance: {}, command_ref: null });
+    }
+  }
+
+  async function linkSetup(): Promise<{ server: HabServerUnderTest; session: LinkSession }> {
+    const session = new LinkSession(412);
+    const server = await start({ site: "mock_site", port: 0, host: "127.0.0.1", session });
+    open.server = server;
+    return { server, session };
+  }
+  async function joinAs(url: string, role: Role, id: string): Promise<TestClient> {
+    const c = await client(url);
+    c.send(hello(0, id, role));
+    await c.waitFor((m) => m.type === "SNAPSHOT");
+    return c;
+  }
+
+  it("a lost link goes to that suit's eva and hud clients, once each, and to nobody else", async () => {
+    const { server, session } = await linkSetup();
+    const eva1 = await joinAs(server.url, "eva:EV1", "c-eva1");
+    const hud1 = await joinAs(server.url, "hud:EV1", "c-hud1");
+    const eva2 = await joinAs(server.url, "eva:EV2", "c-eva2");
+    const ops = await joinAs(server.url, "ops", "c-ops");
+    session.link("LINK_LOST", "EV1", { link_path: [], link_hops: null, link_via: null });
+    for (const c of [eva1, hud1]) await c.waitFor((m) => m.type === "LINK_STATE");
+    await ops.waitFor((m) => m.type === "EVENT"); // the EVENT is broadcast; the LINK_STATE is not
+    await new Promise((r) => setTimeout(r, 60));
+    const expected = { v: 1, type: "LINK_STATE", seq: session.lastSeq, sim_time: SIM_TIME, crew_id: "EV1", linked: false, link_hops: null, link_via: null };
+    expect(linkStates(eva1)).toEqual([expected]);
+    expect(linkStates(hud1)).toEqual([expected]);
+    expect(linkStates(eva2)).toEqual([]);
+    expect(linkStates(ops)).toEqual([]);
+  });
+
+  it("a restored link says linked true with the hops and the first hop kind (no signal strength, BD-103)", async () => {
+    const { server, session } = await linkSetup();
+    const eva2 = await joinAs(server.url, "eva:EV2", "c-eva2");
+    session.link("LINK_RESTORED", "EV2", { link_path: ["EV2", "UR1", "HAB"], link_hops: 2, link_via: "relay" });
+    await eva2.waitFor((m) => m.type === "LINK_STATE");
+    expect(linkStates(eva2)).toEqual([expect.objectContaining({ crew_id: "EV2", linked: true, link_hops: 2, link_via: "relay" })]);
+    expect(Object.keys(linkStates(eva2)[0]).sort()).toEqual(["crew_id", "link_hops", "link_via", "linked", "seq", "sim_time", "type", "v"]);
+  });
+
+  it("an event that is not a link change sends no LINK_STATE, and a link event for a node that is no crew member is ignored", async () => {
+    const { server, session } = await linkSetup();
+    const eva1 = await joinAs(server.url, "eva:EV1", "c-eva1");
+    // An event of another kind that happens to name EV1 in its data, then a link event for a node that is no crew member.
+    session.pending.push({ seq: ++session.lastSeq, sim_time: SIM_TIME, kind: "ARRIVED_STOP", actor: "system", data: { node_id: "EV1" }, provenance: {}, command_ref: null });
+    session.pending.push({ seq: ++session.lastSeq, sim_time: SIM_TIME, kind: "CREW_SHELTERED", actor: "system", data: { node_id: "EV1" }, provenance: {}, command_ref: null });
+    session.link("LINK_LOST", "UR1", {});
+    await eva1.waitFor((m) => m.type === "EVENT", 3);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(linkStates(eva1)).toEqual([]);
+  });
+});
+
+describe("a real session behind the wall: NO_LINK while unlinked, the resent command accepted once linked (T26.02; 02 §E.6)", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
+  type Link = Extract<ServerMessage, { type: "LINK_STATE" }>;
+
+  /** The fake scenario on the wall world, its route shortened to 520 -> 460 -> 520 (start 15 m behind the wall, 40 m in front of it). */
+  function wallScenario(): LoadedScenario {
+    const fx = partialWall();
+    const plan = fake.scenario.plan!;
+    const leg = plan.result.legs[0];
+    if (leg.status !== "OK") throw new Error("fixture leg 0 is not OK");
+    const out = { ...leg, to: "wp-1", distance_m: 60, walk_time_min: leg.walk_time_min * 0.06, geometry: [[520, 0], [460, 0]] as [number, number][] };
+    const back = { ...out, from: "wp-1", to: "wp-0", geometry: [[460, 0], [520, 0]] as [number, number][] };
+    const shortPlan = { ...plan, waypoints: [{ ...plan.waypoints[0], x_m: 520 }, { id: "wp-1", role: "stop" as const, x_m: 460, y_m: 0 }], result: { ...plan.result, legs: [out, back] } };
+    const mast = fx.shape.mast;
+    return { ...fake, grid: fx.grid, comm: { comm_hab: commLayer(fx.grid, mast, fx.shape.targetHeight_m), hab_mast: mast }, scenario: { ...fake.scenario, plan: shortPlan, stop_tasks: [] } };
+  }
+
+  it("EV1 loses the link at once, its command is NO_LINK, and the same command with queued_offline is accepted after LINK_STATE linked=true", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "marswalk-link-server-"));
+    const session = loadSession(wallScenario(), dir);
+    const server = await start({ site: "mock_site", port: 0, host: "127.0.0.1", session });
+    open.server = { url: server.url, close: async () => { await server.close(); rmSync(dir, { recursive: true, force: true }); } };
+    const join_ = async (role: Role, id: string): Promise<TestClient> => {
+      const c = await client(server.url);
+      c.send(hello(0, id, role));
+      await c.waitFor((m) => m.type === "SNAPSHOT");
+      return c;
+    };
+    const ops = await join_("ops", "c-ops");
+    const eva1 = await join_("eva:EV1", "c-eva1");
+    const hud1 = await join_("hud:EV1", "c-hud1");
+    const eva2 = await join_("eva:EV2", "c-eva2");
+
+    ops.send({ v: 1, type: "COMMAND", command_id: "k-start", role: "ops", command: { kind: "START_EVA", args: {} } });
+    expect(await ops.waitFor((m) => m.type === "COMMAND_RESULT")).toMatchObject([{ ok: true }]);
+    const lost = (await eva1.waitFor((m) => m.type === "LINK_STATE", 1, 8000))[0] as Link;
+    expect(lost).toMatchObject({ crew_id: "EV1", linked: false, link_hops: null, link_via: null });
+    await hud1.waitFor((m) => m.type === "LINK_STATE", 1, 8000);
+
+    // The COMM_SHADOW caution for EV1 is in the log; EV1 tries to acknowledge it from behind the wall.
+    const raised = ops.received.find((m): m is Extract<ServerMessage, { type: "EVENT" }> => m.type === "EVENT" && m.event.kind === "ALERT_RAISED" && (m.event.data as LogEventData["ALERT_RAISED"]).subjects[0] === "EV1");
+    const alert_id = (raised!.event.data as LogEventData["ALERT_RAISED"]).alert_id;
+    const ack = { kind: "ACK_ALERT" as const, args: { alert_id } };
+    eva1.send({ v: 1, type: "COMMAND", command_id: "k-ack", role: "eva:EV1", command: ack });
+    const refused = (await eva1.waitFor((m) => m.type === "COMMAND_RESULT"))[0] as CommandResult;
+    expect(refused).toMatchObject({ command_id: "k-ack", ok: false, code: "NO_LINK" });
+
+    // Walk back into coverage (60x), then resend as the tablet does on linked=true.
+    ops.send({ v: 1, type: "COMMAND", command_id: "k-fast", role: "ops", command: { kind: "SET_CLOCK", args: { speed: 60 } } });
+    const restored = (await eva1.waitFor((m) => m.type === "LINK_STATE" && m.linked, 1, 8000))[0] as Link;
+    expect(restored).toMatchObject({ crew_id: "EV1", linked: true, link_hops: 1, link_via: "direct" });
+    eva1.send({ v: 1, type: "COMMAND", command_id: "k-ack", role: "eva:EV1", command: { ...ack, queued_offline: true } });
+    const accepted = (await eva1.waitFor((m) => m.type === "COMMAND_RESULT", 2))[1] as CommandResult;
+    expect(accepted).toMatchObject({ command_id: "k-ack", ok: true });
+
+    // Only the suit's own clients ever got a LINK_STATE.
+    const all = (c: TestClient) => c.received.filter((m): m is Link => m.type === "LINK_STATE");
+    expect(all(eva1).every((m) => m.crew_id === "EV1")).toBe(true);
+    expect(all(hud1).every((m) => m.crew_id === "EV1")).toBe(true);
+    expect(all(eva2).every((m) => m.crew_id === "EV2")).toBe(true);
+    expect(all(ops)).toEqual([]);
+  }, 30_000);
 });

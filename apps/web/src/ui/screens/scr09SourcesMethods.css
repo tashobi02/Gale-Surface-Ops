@@ -1,0 +1,318 @@
+/*
+ * SCR-09 sources & methods (04 §E.9, §C.1 BRIEF, §C.2 type, §C.3 shape; mockup #scr-09-default).
+ * BRIEF mode: an editorial long-form page with a left index and a right column of tables. Semantic tokens only.
+ * Long-form paragraphs use Source Serif 4 (04 P7); catalogue codes use the mono face (04 P1); every table row of a
+ * dataset is a specimen card with the DataSource id as its code.
+ */
+
+.scr09 {
+  min-height: 100vh;
+  padding: var(--pad-md) var(--pad-md) var(--gap-section);
+  background: var(--surface-0);
+  color: var(--fg-1);
+}
+
+.scr09-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-sm);
+  padding-bottom: var(--pad-md);
+  border-bottom: 1px solid var(--line);
+}
+
+.scr09-title {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.1;
+}
+
+.scr09-body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--gap-section);
+  align-items: start;
+  padding-top: var(--gap-section);
+}
+
+/* ------------------------------------------------------------------ index */
+.scr09-index {
+  position: sticky;
+  top: var(--pad-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-sm);
+}
+
+.scr09-index-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scr09-index-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-mouse);
+  color: var(--fg-1);
+  font-size: var(--text-ui);
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------------------- sections */
+.scr09-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-brief);
+  min-width: 0;
+}
+
+.scr09-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-md);
+  scroll-margin-top: var(--pad-md);
+}
+
+.scr09-section-title {
+  margin: 0;
+  padding-bottom: var(--pad-sm);
+  border-bottom: 1px solid var(--line);
+}
+
+.scr09-subtitle {
+  margin: var(--pad-md) 0 0;
+  font-size: var(--text-heading);
+}
+
+.scr09-caption,
+.scr09-note {
+  margin: 0;
+  color: var(--fg-2);
+}
+
+.scr09-note {
+  color: var(--fg-1);
+}
+
+/* ------------------------------------------------------------------ table */
+.scr09-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-micro);
+}
+
+.scr09-table caption {
+  padding-bottom: var(--pad-sm);
+  color: var(--fg-2);
+  text-align: left;
+  font-size: var(--text-micro);
+}
+
+.scr09-table th,
+.scr09-table td {
+  padding: var(--pad-sm);
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.scr09-table thead th {
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.scr09-dataset th[data-slot="dataset-name"] {
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------- datasets */
+.scr09-layer-list,
+.scr09-const-list,
+.scr09-param-list,
+.scr09-replay-list,
+.scr09-limitation-list,
+.scr09-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scr09-layer,
+.scr09-const,
+.scr09-param,
+.scr09-replay {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--pad-sm);
+  padding: var(--pad-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+}
+
+.scr09-layer-title,
+.scr09-const-name,
+.scr09-param-title,
+.scr09-replay-title {
+  font-weight: 600;
+}
+
+.scr09-layer-meta,
+.scr09-param-id,
+.scr09-replay-note,
+.scr09-param-note,
+.scr09-const-note,
+.scr09-layer-note {
+  color: var(--fg-2);
+  font-size: var(--text-micro);
+}
+
+.scr09-layer-note,
+.scr09-param-note,
+.scr09-const-note,
+.scr09-replay-note {
+  flex: 1 1 100%;
+}
+
+.scr09-param-id,
+.scr09-replay-note {
+  font-family: var(--font-mono);
+}
+
+/* The deep-link target is marked, never by colour alone (04 P10). */
+[data-anchor-target="true"] {
+  outline: 2px solid var(--fg-1);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------- steps / models */
+.scr09-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md, 24px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scr09-step,
+.scr09-model,
+.scr09-limitation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-sm);
+  padding: var(--pad-md);
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+}
+
+.scr09-step-title,
+.scr09-model-title,
+.scr09-limitation-title {
+  margin: 0;
+  font-size: var(--text-heading);
+}
+
+.scr09-step-ref,
+.scr09-model-ref,
+.scr09-limitation-ref,
+.scr09-ai-ref {
+  margin: 0;
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+.scr09-step-text,
+.scr09-model-text,
+.scr09-limitation-text,
+.scr09-ai-text {
+  margin: 0;
+}
+
+.scr09-model-label {
+  margin: 0;
+  color: var(--fg-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+/* The equations are the spec's own text (FD-110: an equation is not a measured number). */
+.scr09-equations {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--pad-sm);
+  border-left: 2px solid var(--control-edge);
+}
+
+.scr09-equation {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+/* ------------------------------------------------------------ diagnostics */
+.scr09-diagnostics {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: var(--pad-sm) var(--pad-md);
+  margin: 0;
+}
+
+.scr09-diagnostics dt {
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.scr09-diagnostics dd {
+  margin: 0;
+  font-size: var(--text-ui);
+}
+
+/* ------------------------------------------------------------- responsive */
+@media (max-width: 900px) {
+  .scr09-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scr09-index {
+    position: static;
+  }
+
+  .scr09-index-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--pad-sm);
+  }
+
+  .scr09-title {
+    font-size: 26px;
+  }
+
+  /* The table scrolls sideways rather than clipping its cells (04 §F). */
+  .scr09-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+@media (pointer: coarse) {
+  .scr09-index-link {
+    min-height: var(--target-touch);
+  }
+}

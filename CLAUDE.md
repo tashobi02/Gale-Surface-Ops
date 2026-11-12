@@ -48,7 +48,11 @@ Work follows the task windows and dependency order in [docs/tasks/_coordination.
 | `make progress` | Regenerates the README progress bar from `docs/tasks/status.md` |
 | `make dev` | Vite dev server for all role views; proxies `/sites`, `/api`, `/ws` to a running Hab Core |
 | `make hab` | Hab Core on `0.0.0.0:8080` with the `storm-sol4190` scenario (stub until TASK-20) |
-| `make replay` | Headless scenario replay; prints the event-log hash (stub until TASK-22) |
+| `make replay [COMMANDS=<file>]` | Headless scenario replay; prints the event-log hash. `COMMANDS` applies a recorded command list (02 §D.17) |
+| `make record` | Replays `storm-sol4190` with `reference_commands.json` and writes `recording.json` (the Pages recording, BD-105) |
+| `make ssd-link SSD=<folder>` | Links `pipeline/work/*` and `data/sites/gale_boxwork/{tiles,grid,images}` to the data SSD; idempotent ([docs/ops/ssd.md](docs/ops/ssd.md)) |
+| `make check-todos` | Fails while a `TODO(decision)` or `TODO(verify)` marker is left in the backend scope |
+| `make e2e` / `make e2e-one CHECK=<name>` | Playwright browser checks against a Hab Core the harness starts itself (`apps/web/e2e/README.md`) |
 | `make demo` | Production build, then the Hab Core serves it on the habitat LAN |
 | `make data` | Pipeline entry; not implemented yet (TASK-03) |
 

@@ -10,8 +10,8 @@ import type { ReactElement } from "react";
 import type { PlannerBootHandle } from "../boot/bootPlanner";
 import { ownClientId } from "../boot/session";
 import type { Route } from "./router";
-import { MissionBriefing } from "./screens/scr01MissionBriefing";
 import { EarthView } from "./screens/scr16EarthView";
+import { BriefingHost } from "./live/BriefingHost";
 import { EvaRoute } from "./live/EvaRoute";
 import { HudRoute } from "./live/HudRoute";
 import { JoinRoute } from "./live/JoinRoute";
@@ -32,11 +32,7 @@ export interface AppProps {
 export function App({ route, planner, fetchImpl }: AppProps): ReactElement {
   switch (route.id) {
     case "landing":
-      return (
-        <RouteBoundary screen="SCR-01" label="Mission briefing" task="T07.05">
-          <MissionBriefing />
-        </RouteBoundary>
-      );
+      return <BriefingHost planner={planner} />;
     case "join":
       return <JoinRoute fetchImpl={fetchImpl} joinRole={route.joinRole} ownClientId={ownClientId()} />;
     case "planner":

@@ -24,12 +24,14 @@ interface PlannerScreen {
   task: string;
   /** SCR-02 to SCR-07 are the planner desktop surface (04 §C.2). */
   surface?: "planner";
+  /** SCR-09 takes the deep-link anchor of its route (`#/sources#layer-slope`, FD-144). */
+  anchor?: boolean;
 }
 
 const SCREENS: Partial<Record<Route["id"], PlannerScreen>> = {
   planner: { Screen: MapWorkspace as ScreenComponent, label: "Map workspace", task: "T07.08", surface: "planner" },
   briefing: { Screen: BriefingCard as ScreenComponent, label: "Briefing card", task: "T11.03" },
-  sources: { Screen: SourcesMethods as ScreenComponent, label: "Sources & Methods", task: "T12.03" },
+  sources: { Screen: SourcesMethods as unknown as ScreenComponent, label: "Sources & Methods", task: "T12.03", anchor: true },
 };
 
 type State = { status: "loading" } | { status: "ready"; boot: PlannerBoot } | { status: "failed"; problem: BootProblem };
@@ -65,7 +67,7 @@ export function PlannerHost({ route, planner }: { route: Route; planner: Planner
 
   const entry = SCREENS[route.id];
   if (!entry) return <NotBuilt screen={route.screen ?? "—"} label={route.id} />;
-  const { Screen, label, task, surface } = entry;
+  const { Screen, label, task, surface, anchor } = entry;
 
   let body: ReactElement;
   if (state.status === "failed") {
@@ -81,7 +83,11 @@ export function PlannerHost({ route, planner }: { route: Route; planner: Planner
   } else if (ctx) {
     body = (
       <RouteBoundary screen={route.screen ?? "—"} label={label} task={task}>
-        <Screen ctx={ctx} />
+        {anchor ? (
+          <SourcesMethods site={ctx.site} anchor={route.anchor} />
+        ) : (
+          <Screen ctx={ctx} />
+        )}
       </RouteBoundary>
     );
   } else {

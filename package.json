@@ -11,7 +11,9 @@
     "test:web": "npm run --workspaces --if-present test",
     "dev": "npm --workspace @marswalk/web run dev",
     "hab:start": "npm --workspace @marswalk/hab-core run start --",
-    "hab:replay": "npm --workspace @marswalk/hab-core run replay --"
+    "hab:replay": "npm --workspace @marswalk/hab-core run replay --",
+    "hab:record": "npm --workspace @marswalk/hab-core run replay --",
+    "check:todos": "python3 scripts/check_todos.py"
   },
   "devDependencies": {
     "markdownlint-cli2": "^0.24.0",
