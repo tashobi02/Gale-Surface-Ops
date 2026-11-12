@@ -25,7 +25,7 @@ Dhaka, Bangladesh — Virtual Participation ([docs/ops/team.md](team.md), [docs/
 
 ## Project Summary (Short Description)
 
-> Marswalk Surface Ops is an offline, habitat-local surface operations and traverse planning system designed for a human exploration zone at Gale crater (Mount Sharp), created for the NASA Space Apps Challenge 2026 challenge 'Interplanetary Survival Guide: Martian Map'. Before an extravehicular activity (EVA), crew members plan an energy- and safety-optimal traverse on real USGS 1 m DEM elevation and 25 cm HiRISE imagery, incorporating slope limits, terrain caution flags, line-of-sight habitat communications, and pacing models. During the EVA, a local Hab Core server coordinates the mission clock, telemetry, consumables, and automated safety logic across in-EVA astronaut suit tablets and an operations console. When an unforecast solar energetic particle event strikes—replaying Curiosity's real RAD observations from the sol 4190 (20 May 2024) storm—the habitat autonomously detects the radiation spike, alerts crew before Earth notifications arrive, and coordinates pressurized rover rendezvous or haven abort. Every calculation is deterministic with zero AI computation at runtime; every displayed figure provides explicit provenance and data source traceability. The system operates fully self-contained on the habitat local area network.
+> Marswalk Surface Ops is an offline, habitat-local surface operations and traverse planning system designed for a human exploration zone at Gale crater (Mount Sharp), created for the NASA Space Apps Challenge 2026 challenge 'Interplanetary Survival Guide: Martian Map'. Before an extravehicular activity (EVA), crew members plan a slope-bounded, suit-safe traverse on real USGS 1 m DEM elevation and 25 cm HiRISE imagery, incorporating slope limits, terrain caution flags, line-of-sight habitat communications, and pacing models. During the EVA, a local Hab Core server coordinates the mission clock, telemetry, consumables, and automated safety logic across in-EVA astronaut suit tablets and an operations console. When an unforecast solar energetic particle event strikes—replaying Curiosity's real RAD observations from the sol 4190 (20 May 2024) storm—the habitat autonomously detects the radiation spike, alerts the crew without waiting for Earth, and offers a pressurized-rover rendezvous or a haven abort. Every calculation is deterministic with zero AI computation at runtime; every displayed figure provides explicit provenance and data source traceability. The system operates fully self-contained on the habitat local area network.
 
 *(Word count: 173 words; limit: ≤ 200 words; sources: [README.md](../../README.md), [docs/specs/01_Product_Requirements_Document.md](../specs/01_Product_Requirements_Document.md))*
 
@@ -37,10 +37,10 @@ Marswalk Surface Ops provides end-to-end mission planning and real-time executio
 
 1. **Pre-EVA Traverse Planning:**
    - Evaluates scientific Points of Interest (POIs) and resource exploration targets across real Gale crater terrain ([docs/specs/01_Product_Requirements_Document.md](../specs/01_Product_Requirements_Document.md) FR-01, FR-02).
-   - Computes least-cost, slope-bounded traversal paths via A* search over a 5 m resolution routing grid ([docs/specs/02_Technical_Requirements_Document.md](../specs/02_Technical_Requirements_Document.md) §D.2).
-   - Derives terrain slope via Horn's method on the 1 m USGS DEM (`usgs-gale-dem-1m-v3`), classifying slopes into flat, gentle, caution, over-limit, and steep classes, flagging micro-relief hazards and impassable zones ([docs/specs/02_Technical_Requirements_Document.md](../specs/02_Technical_Requirements_Document.md) §C.2, §D.3).
+   - Computes least-cost, slope-bounded traversal paths over a routing grid ([docs/specs/02_Technical_Requirements_Document.md](../specs/02_Technical_Requirements_Document.md) §D.2).
+   - Derives terrain slope via Horn's method on the 1 m USGS DEM (`usgs-gale-dem-1m-v3`), checking it against the scenario's caution and hard slope limits and flagging hazard and impassable cells ([docs/specs/02_Technical_Requirements_Document.md](../specs/02_Technical_Requirements_Document.md) §C.2, §D.3).
    - Verifies direct line-of-sight communication with the habitat antenna (`comm_hab` layer) and walkback haven safety margins continuously along the path ([docs/specs/01_Product_Requirements_Document.md](../specs/01_Product_Requirements_Document.md) FR-08, FR-20).
-   - Generates deterministic mission briefing cards, route elevation profiles, and cryptographic plan exports signed via RFC 8785 canonical JSON and SHA-256 hashes ([docs/specs/01_Product_Requirements_Document.md](../specs/01_Product_Requirements_Document.md) FR-16, FR-17).
+   - Generates deterministic mission briefing cards, route elevation profiles, and plan exports identified by a SHA-256 hash of their RFC 8785 canonical JSON ([docs/specs/01_Product_Requirements_Document.md](../specs/01_Product_Requirements_Document.md) FR-16, FR-17).
 
 2. **Hab Core Live Simulation & Coordination Server:**
    - Serves as the central mission clock authority (operating at 1×, 10×, or 60× sim speed) without referencing wall-clock time ([docs/specs/02_Technical_Requirements_Document.md](../specs/02_Technical_Requirements_Document.md) §D.14).
@@ -49,13 +49,13 @@ Marswalk Surface Ops provides end-to-end mission planning and real-time executio
 
 3. **Multi-Role User Interfaces:**
    - **EVA Suit Tablet (SCR-12):** Touch-friendly, high-contrast display designed for gloved astronaut interaction, featuring turn-by-turn navigation bearings, remaining time/distance, stop task tracking (FR-50), and hold-to-confirm contingency buttons ([docs/specs/03_App_Flow_and_Diagrams.md](../specs/03_App_Flow_and_Diagrams.md) SCR-12, [docs/specs/04_Design_Brief.md](../specs/04_Design_Brief.md) §D.3, §E.5).
-   - **Astronaut Heads-Up Display (HUD, SCR-13):** Glanceable, minimal view presenting heading tape, range to waypoint, oxygen time remaining, and warning badges ([docs/specs/03_App_Flow_and_Diagrams.md](../specs/03_App_Flow_and_Diagrams.md) SCR-13).
+   - **Astronaut Heads-Up Display (HUD, SCR-13):** Glanceable, read-only view of up to five values: haven time, bearing and distance to the next target, O₂ time remaining, the alert line and the link state ([docs/specs/03_App_Flow_and_Diagrams.md](../specs/03_App_Flow_and_Diagrams.md) SCR-13).
    - **Habitat Operations Console (SCR-11):** Desktop workstation showing real-time crew tracks on the shared map, comm link status, caution/warning alerts, contingency command authorization, and robotic rover dispatch ([docs/specs/03_App_Flow_and_Diagrams.md](../specs/03_App_Flow_and_Diagrams.md) SCR-11).
    - **Post-EVA Mission Report (SCR-17):** Printable summary detailing completed vs. dropped stops, planned vs. actual timeline, cumulative radiation exposure, and the verified event log hash ([docs/specs/03_App_Flow_and_Diagrams.md](../specs/03_App_Flow_and_Diagrams.md) SCR-17).
 
 4. **Realistic Solar Particle Event Contingency Replay:**
    - Replays Curiosity's actual Radiation Assessment Detector (RAD) observations from the intense solar particle event of 20 May 2024 (sol 4190) ([docs/ops/credits.md](credits.md), [docs/ops/rad-series.md](rad-series.md)).
-   - Demonstrates autonomous habitat detection: because solar storm particles reach Mars hours before communication from Earth can travel across interplanetary space, the habitat local system identifies the dosimetric spike independently, issues immediate emergency warnings, and routes a pressurized rover to shelter astronauts in the field ([docs/specs/01_Product_Requirements_Document.md](../specs/01_Product_Requirements_Document.md) FR-35–FR-40).
+   - Demonstrates autonomous habitat detection: the habitat's own system detects the dose spike without waiting for a call from Earth (Earth messages are delayed by the light time), issues the shelter warning, and offers options such as a pressurized-rover rendezvous or a haven abort ([docs/specs/01_Product_Requirements_Document.md](../specs/01_Product_Requirements_Document.md) FR-35–FR-40).
 
 ---
 
@@ -122,33 +122,21 @@ All spatial, elevation, spectral, and space weather data originate from official
 ## AI-Use Statement
 
 - **Runtime Application:** "No AI computes or generates values in this app" ([docs/specs/03_App_Flow_and_Diagrams.md](../specs/03_App_Flow_and_Diagrams.md) SCR-09, [docs/decisions/ADR-006-no-ai-in-mvp.md](../decisions/ADR-006-no-ai-in-mvp.md), [docs/specs/02_Technical_Requirements_Document.md](../specs/02_Technical_Requirements_Document.md) §D.7). All routing, physics, dosimetry, and timeline algorithms are deterministic.
-- **Development Tooling:** Generative AI tools (Claude Code, Claude 3.5/Opus on claude.ai, OpenAI Codex/Terra/Sol, Google Gemini via Antigravity CLI) were used as software engineering and documentation drafting assistants during project development.
+- **Development Tooling:** Generative AI tools were used as software-engineering and documentation-drafting assistants while building the project: Claude (Claude Code with Claude Sonnet 5.5 and Opus 5.5, Opus 4.8 through the puku CLI, and claude.ai for early spec drafting), OpenAI GPT-6.1 Sol, GPT-6.1 Terra and GPT-6 Astra through the Codex CLI, and Google Gemini 3.8 Flash through the agy CLI. Humans reviewed and approved the results; the exact tool and model for each change are in the log below.
 - **Audit & Traceability:** Every AI interaction is logged chronologically in [docs/AI_USE.md](../AI_USE.md), recording the tool, model version, exact actions performed, boundaries observed, and human oversight.
 
 ---
 
 ## Team Roster (Team CheesySpace)
 
-Registered for NASA Space Apps Challenge 2026, Dhaka, Bangladesh ([docs/ops/team.md](team.md)):
+Registered for NASA Space Apps Challenge 2026, Dhaka, Bangladesh ([docs/ops/team.md](team.md)). Names and roles only; TO BE FILLED BY THE TEAM: confirm that each member agrees to be listed and add any profile links they want public.
 
-1. **Obidit Islam** *(Team Owner / Lead)* — Handle: `@tashobi02` · [GitHub: tashobi02](https://github.com/tashobi02)
-   - Roles: Team Lead · Data/GIS lead · Story lead
-   - Profile: Computer Science & Engineering, Islamic University of Technology (IUT), Dhaka, Bangladesh.
-2. **Sadman Shaharier Mahim** *(Product & Systems Lead, v2)* — Handle: `@deatrax` · [GitHub: Deatrax](https://github.com/Deatrax)
-   - Roles: Product & systems lead (v2 surface-ops reframe) · Hab Core lead · Demo story
-   - Profile: Developer focusing on full-stack web, native systems, simulation, and cybersecurity.
-3. **Saba Atharique** — Handle: `@saba03` · [GitHub: sabaatharique](https://github.com/sabaatharique)
-   - Roles: Frontend engineer · Design & story lead
-   - Profile: CSE student at IUT; web development, simulation, modelling, interactive graphics.
-4. **Mishkat Ahmed Khan** — Handle: `@mishkat17` · [GitHub: MishkatAhmedKhan](https://github.com/MishkatAhmedKhan)
-   - Roles: Compute engineer · Data/GIS co-lead
-   - Profile: CSE student at IUT; scientific simulation, network models, algorithms.
-5. **Anjim Hossain** — Handle: `@lazymeow` · [GitHub: anjim-hossain](https://github.com/anjim-hossain)
-   - Roles: Compute engineer · Integration
-   - Profile: CSE student at IUT; algorithmic problem solving, software design.
-6. **Ridita Alam** — Handle: `@r_a110` · [GitHub: Ridita-A](https://github.com/Ridita-A)
-   - Roles: Design & story lead · Frontend
-   - Profile: CSE student at IUT; UI/UX, web development, story curation.
+1. Obidit Islam (Team Lead; data/GIS lead; story lead)
+2. Sadman Shaharier Mahim (product and systems lead; Hab Core lead; demo story)
+3. Saba Atharique (frontend engineer; design and story lead)
+4. Mishkat Ahmed Khan (compute engineer; data/GIS co-lead)
+5. Anjim Hossain (compute engineer; integration)
+6. Ridita Alam (design and story lead; frontend)
 
 ---
 

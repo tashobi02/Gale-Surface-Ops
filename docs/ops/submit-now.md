@@ -28,8 +28,8 @@ Per decision **FD-192** ([docs/plan/frontend/decisions.md](../plan/frontend/deci
 Complete these checks 45 to 30 minutes before the 18:00 Asia/Dhaka deadline:
 
 1. **Verify Video Assets (T - 45 min):**
-   - Confirm the 240-second local judging video exists in `var/videos/marswalk-240s.mp4` ([docs/plan/frontend/32-videos.md](../plan/frontend/32-videos.md), [docs/ops/submission-checklist.md](submission-checklist.md)).
-   - Confirm the 30-second global summary video exists in `var/videos/marswalk-30s.mp4` ([docs/plan/frontend/32-videos.md](../plan/frontend/32-videos.md), [docs/ops/submission-checklist.md](submission-checklist.md)).
+   - Confirm the 240-second local judging video exists in `var/videos/` (TO BE FILLED BY THE TEAM: file name, once package 32 has produced it) ([docs/plan/frontend/32-videos.md](../plan/frontend/32-videos.md), [docs/ops/submission-checklist.md](submission-checklist.md)).
+   - Confirm the 30-second global summary video exists in `var/videos/` (TO BE FILLED BY THE TEAM: file name, once package 32 has produced it) ([docs/plan/frontend/32-videos.md](../plan/frontend/32-videos.md), [docs/ops/submission-checklist.md](submission-checklist.md)).
    - Spot-check video playback: audio is audible, English subtitles are visible, datasets and POIs are credited on camera, no under-18 likeness appears, and the prototype boundary statement (01 §F.1) is stated clearly ([docs/ops/submission-checklist.md](submission-checklist.md)).
 
 2. **Verify Repository Cleanliness & Secret Scan (T - 40 min):**
@@ -83,7 +83,7 @@ Copy and paste the exact text prepared in [docs/ops/project-page.md](project-pag
      - **How It Works Offline on the Habitat LAN**
      - **Data and Credits** (including USGS, PDS, CCMC DONKI, MSL RAD, and ESA partner credits)
      - **AI-Use Statement** (emphasizing deterministic science, no AI in the app, and audit logging)
-     - **Team Roster** (all 6 registered members with roles and GitHub links)
+     - **Team Roster** (all 6 registered members with their roles; add profile links only for members who agreed)
 4. **Custom Portal Fields:**
    - If the 2026 submission form contains additional questionnaire prompts not in the repo:
      TO BE FILLED BY THE TEAM: portal custom questionnaire or field values
@@ -91,11 +91,11 @@ Copy and paste the exact text prepared in [docs/ops/project-page.md](project-pag
 ### Step 3.4: Provide Video Links
 
 1. **240-Second Local Judging Video:**
-   - Upload `var/videos/marswalk-240s.mp4` to YouTube, Vimeo, or the portal's video host.
+   - Upload the 240-second video from `var/videos/` to YouTube, Vimeo, or the portal's video host.
    - Enter the video URL into the primary project video field.
    - URL: TO BE FILLED BY THE TEAM: 240-second video URL
 2. **30-Second Global Summary Video:**
-   - Upload `var/videos/marswalk-30s.mp4` to the designated 30-second video host.
+   - Upload the 30-second video from `var/videos/` to the designated 30-second video host.
    - Enter the 30-second video URL into the designated field.
    - URL: TO BE FILLED BY THE TEAM: 30-second video URL
 
