@@ -6,7 +6,7 @@
  * cover HAVEN, O₂ and the action row to say "no options proposed yet" (04 §E.5: those never move and are never
  * covered). The crew member opens the sheet from the alert bar's OPTIONS button instead.
  *
- * The full-screen map is delivered in package 18.
+ * The full map fills only the body; all safety chrome remains in the tablet grid.
  */
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { CrewId } from "@marswalk/protocol";
@@ -14,9 +14,22 @@ import { useSnapshot } from "../../state/habSession";
 import { RoverTask } from "../screens/scr15RoverTask";
 import { routeHash } from "../router";
 import { EvaTablet } from "../screens/scr12EvaTablet";
+import { useLiveContrast } from "./LiveFrame";
+import { selectEvaViewModel } from "../eva/viewModel";
+import { FullScreenMap } from "../map/FullScreenMap";
 import { Options } from "../screens/scr14Options";
 
 export function EvaRoute({ crewId }: { crewId: CrewId }): ReactElement {
+  const { contrast, setContrast } = useLiveContrast();
+  const [fullMapOpen, setFullMapOpen] = useState(false);
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">(() => globalThis.matchMedia?.("(orientation: landscape)").matches ? "landscape" : "portrait");
+  useEffect(() => {
+    const query = globalThis.matchMedia?.("(orientation: landscape)");
+    if (!query) return;
+    const update = (): void => setOrientation(query.matches ? "landscape" : "portrait");
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [roverOpen, setRoverOpen] = useState(false);
   const snapshot = useSnapshot();
@@ -43,11 +56,16 @@ export function EvaRoute({ crewId }: { crewId: CrewId }): ReactElement {
     openedFor.current = warningId;
     setOptionsOpen(true);
   }, [warningId, warningHasOptions]);
+  useEffect(() => { if (warningId) setFullMapOpen(false); }, [warningId]);
+  const vm = selectEvaViewModel(snapshot, crewId);
   const rovers = snapshot?.vehicles.filter((vehicle) => vehicle.kind === "utility_rover") ?? [];
   return (
     <>
       <EvaTablet
         crewId={crewId}
+        contrast={contrast}
+        onContrastChange={setContrast}
+        onOpenFullScreenMap={() => { if (!warningId) setFullMapOpen(true); }}
         optionsOpen={optionsOpen}
         onOpenRoverTasking={() => setRoverOpen(true)}
         onOpenHud={() => {
@@ -56,15 +74,18 @@ export function EvaRoute({ crewId }: { crewId: CrewId }): ReactElement {
         onOpenOptions={() => setOptionsOpen(true)}
       />
       {roverOpen && <div data-screen="SCR-15" style={{ position: "fixed", inset: 0, zIndex: 50, overflow: "auto" }}><RoverTask vehicleId={rovers.length === 1 ? rovers[0]?.vehicle_id : undefined} onClose={() => setRoverOpen(false)} /></div>}
+      {fullMapOpen && !warningId && <div data-slot="eva-fullmap" className="eva-fullmap-body">
+        <FullScreenMap snapshot={snapshot} crewId={crewId} crew={snapshot?.crew} provenance={snapshot?.provenance} haven={vm.haven.minutes} o2={vm.o2.percent} orientation={orientation} hasWarning={Boolean(warningId)} onClose={() => setFullMapOpen(false)} />
+      </div>}
       {optionsOpen && (
         // The sheet is a bottom sheet over the tablet's BODY: it stops above the action row and below the telemetry
         // row, so HAVEN, O₂ and ABORT/SUMMON/TASK ROVER/HUD are never covered (04 §E.5, FD-081).
         <div
           data-slot="eva-options-sheet"
-          className="scr12-eva-options-sheet"
+          className="scr12-eva-options-sheet eva-options-body"
           style={{ position: "fixed", left: 0, right: 0, zIndex: 50, overflow: "auto" }}
         >
-          <Options variant="eva" crewId={crewId} onClose={() => setOptionsOpen(false)} />
+          <Options variant="eva" alertId={warningHasOptions ? warningId : vm.alertSlot?.alertId} crewId={crewId} onClose={() => setOptionsOpen(false)} />
         </div>
       )}
     </>

@@ -1,29 +1,38 @@
-/**
- * Check `link-lost` (replaces T24.11 link-lost). Enabled by package 18.
- * Kill the Hab Core child: SCR-18 within 3 s on EVA and ops, cached values with their ages, the reconnect counter. Restart it
- * (`restartHab` resumes the latest session): the snapshot resumes.
- * TODO(verify): the SCR-18 selectors (`[data-cached-age]`, `[data-reconnect-count]`) are package 18's.
- */
+/** T24.07: one common deadline for EVA and ops; cached data, real retry progress, actual restored snapshot. */
 import { expect, test } from "@playwright/test";
-import { killHab, openRole, restartHab, waitForSnapshot } from "../lib/hab";
+import type { Snapshot } from "@marswalk/protocol";
+import { killHab, openRole, restartHab } from "../lib/hab";
 
-const LINK_LOST_WITHIN_MS = 3_000;
-
-test.fixme("link-lost: SCR-18 within 3 s on EVA and ops, then the snapshot resumes (enabled by package 18)", async ({ context }) => {
+test("link-lost: both roles show SCR-18 within 3 s, actual retry counts, then restored values", async ({ context }) => {
   const eva = await openRole(context, "eva:EV1");
   const ops = await openRole(context, "ops");
-  await waitForSnapshot(eva);
-  await waitForSnapshot(ops);
-
-  killHab();
-  for (const page of [eva, ops]) {
-    await expect(page.getByRole("alert").filter({ hasText: /link lost/i })).toBeVisible({ timeout: LINK_LOST_WITHIN_MS });
-    await expect(page.locator("[data-cached-age]").first()).toBeVisible();
-    await expect(page.locator("[data-reconnect-count]")).toBeVisible();
-  }
-  await restartHab();
-  for (const page of [eva, ops]) {
-    await expect(page.getByRole("alert").filter({ hasText: /link lost/i })).toBeHidden({ timeout: 15_000 });
-    await waitForSnapshot(page);
+  let killed = false;
+  try {
+    const before = await (await eva.request.get('/api/session')).json() as Snapshot;
+    const member = before.crew.find((c) => c.crew_id === 'EV1')!;
+    const o2 = String(Math.round(member.o2_frac * 100));
+    await expect(eva.locator('[data-slot="o2"] .value')).toHaveText(o2);
+    await expect(ops.getByTestId('clock-control')).toBeVisible();
+    killHab(); killed = true;
+    await Promise.all([eva, ops].map(async (page) => {
+      await expect(page.locator('[data-screen="SCR-18"] [role="alert"]')).toBeVisible({ timeout: 3000 });
+      await expect(page.locator('[data-cached-age]')).toBeVisible();
+      const count = page.locator('[data-reconnect-count]');
+      await expect(count).toHaveText(/^\d+$/);
+      const first = Number(await count.textContent());
+      await expect.poll(async () => Number(await count.textContent()), { timeout: 2500 }).toBeGreaterThan(first);
+    }));
+    await expect(eva.locator('[data-slot="cached-telemetry"] .value').nth(1)).toHaveText(o2);
+    await restartHab(); killed = false;
+    const restored = await (await eva.request.get('/api/session')).json() as Snapshot;
+    const expected = restored.crew.find((c) => c.crew_id === 'EV1')!;
+    await Promise.all([eva, ops].map((page) => expect(page.locator('[data-screen="SCR-18"]')).toBeHidden({ timeout: 15_000 })));
+    await expect(eva.locator('[data-slot="o2"] .value')).toHaveText(String(Math.round(expected.o2_frac * 100)));
+    await expect(eva.locator('[data-slot="haven"] .value')).toHaveText(String(Math.round(expected.haven.minutes)));
+    await expect(ops.locator('[data-testid="clock-control"]')).toBeVisible();
+    await expect(ops.locator('[data-source="snapshot:crew.o2_frac"]').first()).toContainText(String(Math.round(expected.o2_frac * 100)));
+  } finally {
+    if (killed) await restartHab();
+    await eva.close(); await ops.close();
   }
 });

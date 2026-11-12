@@ -10,7 +10,7 @@ import { Options } from "../../src/ui/screens/scr14Options";
 import { EvaTablet } from "../../src/ui/screens/scr12EvaTablet";
 import { wsFixtures } from "../fixtures/ws";
 import { storeFromBeat } from "./fixtureStore";
-import { click, installDom, keyDown, mount, must, removeDom } from "./domHarness";
+import { click, installDom, keyDown, mount, must, pointerDown, removeDom } from "./domHarness";
 
 beforeAll(() => installDom());
 afterAll(() => removeDom());
@@ -98,15 +98,15 @@ describe("option values carry the provenance the Hab Core gave (FR-15)", () => {
     expect(must(radios(container)[0], '[data-source="snapshot:options.eta_shelter_min"]').getAttribute("data-provenance")).toBe("modelled");
   });
 
-  it("without an event ETA and dose show the class 05 gives them; the dropped-stops count, which 05 gives none, carries no class", async () => {
+  it("without an event ETA and dose show the class 05 gives them; the dropped-stops count is derived (FD-049)", async () => {
     const { container } = await mount(createElement(Options, { crewId: "EV1", snapshot: withOptions(three()) }));
     const first = radios(container)[0];
 
     expect(must(first, '[data-source="snapshot:options.eta_shelter_min"]').getAttribute("data-provenance")).toBe("modelled");
     expect(must(first, '[data-source="snapshot:options.expected_dose_ugy"]').getAttribute("data-provenance")).toBe("modelled");
-    const drops = must(first, '[data-source="snapshot:options.stops_dropped"]');
-    expect(drops.getAttribute("data-provenance")).toBeNull();
-    expect(drops.textContent).not.toMatch(/[■◆○△▶◇]/);
+    const drops = must(first, '[data-source="snapshot:options.o-1.stops_dropped"]');
+    expect(drops.getAttribute("data-provenance")).toBe("derived");
+    expect(drops.getAttribute("data-source")).toBe("snapshot:options.o-1.stops_dropped");
   });
 
   it("the event of another alert does not label this alert's options", async () => {
@@ -122,33 +122,33 @@ describe("option values carry the provenance the Hab Core gave (FR-15)", () => {
 
 describe("the choice resets when a new proposal arrives (04 §E.7: the top option is pre-selected)", () => {
   it("choosing rank 2, then a new proposal: the new top option is selected", async () => {
-    const view = await mount(createElement(Options, { crewId: "EV1", snapshot: withOptions(three("a-1", "o")) }));
+    const view = await mount(createElement(Options, { variant: "ops", snapshot: withOptions(three("a-1", "o")) }));
     await click(radios(view.container)[1]);
     expect(checked(view.container)).toEqual(["false", "true", "false"]);
 
-    await view.rerender(createElement(Options, { crewId: "EV1", snapshot: withOptions(three("a-2", "p")) }));
+    await view.rerender(createElement(Options, { variant: "ops", snapshot: withOptions(three("a-2", "p")) }));
     expect(checked(view.container)).toEqual(["true", "false", "false"]);
-    expect(must(view.container, "#action-confirm-option").getAttribute("aria-label")).toContain("Option 1");
+    expect(must(view.container, "#action-confirm-option").getAttribute("aria-label")).toMatch(/option 1/i);
   });
 
   it("the same proposal re-rendered keeps the choice", async () => {
-    const view = await mount(createElement(Options, { crewId: "EV1", snapshot: withOptions(three()) }));
+    const view = await mount(createElement(Options, { variant: "ops", snapshot: withOptions(three()) }));
     await click(radios(view.container)[2]);
-    await view.rerender(createElement(Options, { crewId: "EV1", snapshot: { ...withOptions(three()), seq: 999 } }));
+    await view.rerender(createElement(Options, { variant: "ops", snapshot: { ...withOptions(three()), seq: 999 } }));
     expect(checked(view.container)).toEqual(["false", "false", "true"]);
   });
 
   it("a proposal with the same option ids for another alert also resets it", async () => {
-    const view = await mount(createElement(Options, { crewId: "EV1", snapshot: withOptions(three("a-1")) }));
+    const view = await mount(createElement(Options, { variant: "ops", snapshot: withOptions(three("a-1")) }));
     await click(radios(view.container)[1]);
-    await view.rerender(createElement(Options, { crewId: "EV1", snapshot: withOptions(three("a-2")) }));
+    await view.rerender(createElement(Options, { variant: "ops", snapshot: withOptions(three("a-2")) }));
     expect(checked(view.container)).toEqual(["true", "false", "false"]);
   });
 });
 
 describe("the options radio group answers the keyboard (WAI-ARIA radio group)", () => {
   async function group() {
-    const view = await mount(createElement(Options, { crewId: "EV1", snapshot: withOptions(three()) }));
+    const view = await mount(createElement(Options, { variant: "ops", snapshot: withOptions(three()) }));
     radios(view.container)[0].focus();
     return view;
   }
@@ -230,4 +230,49 @@ describe("SCR-12 clickable areas are buttons, not clickable divs", () => {
 
 
   });
+});
+
+
+describe("package 18 options safety", () => {
+  it("EVA ops-only kinds are read-only cards without a Go control", async () => {
+    const { container, unmount } = await mount(createElement(Options, { crewId: "EV1", snapshot: withOptions([option({ kind: "CONTINUE_SKIP" }), option({ option_id: "o-2", rank: 2, kind: "TERRAIN_REFUGE" })]) }));
+    expect(radios(container)).toHaveLength(0);
+    expect(container.textContent?.match(/Ops approval needed/g)).toHaveLength(2);
+    expect(container.querySelector("#action-confirm-option")).toBeNull();
+    await unmount();
+  });
+  it("dose uses mGy with one decimal and drops use their option source", async () => {
+    const { container, unmount } = await mount(createElement(Options, { crewId: "EV1", snapshot: withOptions([option({ expected_dose_ugy: 120 })]) }));
+    expect(must(container, '[data-source="snapshot:options.expected_dose_ugy"]').textContent).toContain("0.1 mGy");
+    await unmount();
+  });
+  it("takes entry focus, Escape dismisses and unmount restores the opener", async () => {
+    const opener = document.createElement("button"); document.body.append(opener); opener.focus();
+    const onClose = vi.fn();
+    const { container, unmount } = await mount(createElement(Options, { crewId: "EV1", snapshot: withOptions(three()), onClose }));
+    expect(container.contains(document.activeElement)).toBe(true);
+    await keyDown(document.activeElement!, "Escape"); expect(onClose).toHaveBeenCalledOnce();
+    await unmount(); expect(document.activeElement).toBe(opener);
+  });
+});
+
+
+it("a dispatched option becomes queued immediately when its socket closes, even while crew.linked is true", async () => {
+  vi.useFakeTimers();
+  const { client, socket } = live();
+  const { container, unmount } = await mount(createElement(Options, { client, crewId: "EV1", snapshot: withOptions([option({})]) }));
+  const action = must(container, "#action-confirm-option");
+  await pointerDown(action);
+  await act(async () => { vi.advanceTimersByTime(800); });
+  await act(async () => { socket.readyState = 3; socket.onclose?.(); });
+  expect(action.textContent).toContain("Queued");
+  expect(client.linkLost().lost).toBe(false);
+  await unmount(); client.close();
+});
+
+it("the EVA route can restrict the sheet to the alert that opened it", async () => {
+  const { container, unmount } = await mount(createElement(Options, { crewId: "EV1", alertId: "a-current", snapshot: withOptions([option({ alert_id: "a-old" }), option({ alert_id: "a-current", option_id: "o-2", rank: 2 })]) }));
+  expect(radios(container)).toHaveLength(1);
+  expect(radios(container)[0].textContent).toContain("RANK 2");
+  await unmount();
 });

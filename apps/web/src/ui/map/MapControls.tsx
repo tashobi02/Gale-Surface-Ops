@@ -112,6 +112,7 @@ export function MapControls(props: MapControlsProps): ReactElement {
       role="toolbar"
       aria-label="Map navigation controls"
       data-slot="map-controls"
+      data-fullmap-controls={eva ? "true" : undefined}
       data-variant={props.variant}
       className={props.className}
       style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "8px", width: "100%", boxSizing: "border-box" }}

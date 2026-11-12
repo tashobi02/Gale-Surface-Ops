@@ -130,3 +130,27 @@ test("contrast: the rendered slope overlay keeps 3 : 1 against the map backgroun
   const background = toRgb(drawn.void_);
   for (const rgb of drawn.opaque) expect(ratio(rgb, background), `colour ${rgb.join(",")}`).toBeGreaterThanOrEqual(3);
 });
+
+// Package 18: the route palette also owns SCR-14, full map and SCR-18.
+test("contrast: EVA high contrast carries through options, map and transport loss", async ({ page }) => {
+  const { openSurfaceFixture, surfaceSnapshot } = await import("../lib/surfaceFixture");
+  const fixture = await openSurfaceFixture(page, "eva");
+  try {
+    await page.getByRole("button", { name: "Toggle high contrast" }).click();
+    await page.getByRole("button", { name: "Open full-screen map" }).click();
+    await expect(page.locator('[data-fullmap]')).toHaveAttribute('data-map-status', 'ready');
+    expect(await page.locator('[data-fullmap]').evaluate((el) => getComputedStyle(el).getPropertyValue('--text-2').trim())).toBe('#fff');
+    await expectContrast(page, { text: 7, large: 7, hud: 7 });
+    const warning = surfaceSnapshot("alerting-with-options");
+    warning.options[0]!.violations = ["HAVEN_TIME_EXCEEDED"];
+    fixture.send(warning);
+    await expect(page.locator('[data-screen="SCR-14"]')).toBeVisible();
+    expect(await page.locator('[data-screen="SCR-14"]').evaluate((el) => getComputedStyle(el).getPropertyValue('--text-2').trim())).toBe('#fff');
+    await expectContrast(page, { text: 7, large: 7, hud: 7 });
+    fixture.stop();
+    await expect(page.locator('[data-screen="SCR-18"]')).toBeVisible({ timeout: 3500 });
+    expect(await page.locator('[data-screen="SCR-18"]').evaluate((el) => getComputedStyle(el).getPropertyValue('--text-2').trim())).toBe('#fff');
+    expect(await page.locator('[data-screen="SCR-18"]').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
+    await expectContrast(page, { text: 7, large: 7, hud: 7 });
+  } finally { fixture.dispose(); }
+});

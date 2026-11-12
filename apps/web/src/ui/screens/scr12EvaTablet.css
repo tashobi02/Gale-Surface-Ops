@@ -101,3 +101,34 @@
   .scr12-eva-tablet [data-slot="stop-task-list"] { grid-column: 1; grid-row: 1; z-index: 1; margin: 64px 0 0 !important; background: var(--panel); }
   .scr12-eva-tablet [data-slot="mini-map"] { grid-column: 1; grid-row: 2; min-height: 0 !important; }
 }
+
+/* Package 18: overlays occupy the body. The alert, strip and action row remain outside their hit boxes. */
+.eva-fullmap-body { position: fixed; z-index: 40; left: 0; right: 0; top: 214px; bottom: 224px; }
+.eva-options-body { bottom: 224px; }
+.eva-options-body .scr14-options { padding: 8px !important; gap: 4px !important; overflow: hidden; }
+.eva-options-body .scr14-options > div:first-child { flex: 0 0 auto; padding-bottom: 0 !important; }
+.eva-options-body [role="radiogroup"], .eva-options-body .scr14-options > [role="group"] { min-height: 0; flex: 1 1 auto; }
+.eva-options-body .scr14-options > div:last-child { flex: 0 0 auto; padding-top: 0 !important; }
+.eva-live-surface[data-contrast="high"],
+.eva-live-surface[data-contrast="high"] [data-mode] {
+  --surface-0: #000; --surface-1: #000; --surface-2: #000;
+  --panel: #000; --raised: #000; --text-1: #fff; --text-2: #fff; --text-3: #fff;
+  --fg-1: #fff; --fg-2: #fff; --fg-3: #fff;
+  --nominal: var(--hud-nominal); --caution: var(--hud-caution); --warning: var(--hud-warning); --advisory: var(--hud-advisory);
+  --status-nominal: var(--hud-nominal); --status-caution: var(--hud-caution); --status-warning: var(--hud-warning); --status-advisory: var(--hud-advisory); --status-unknown: var(--hud-text-2);
+}
+.eva-live-surface[data-contrast="high"] [data-screen="SCR-18"] .alert-bar {
+  background: #000 !important; background-image: none; color: var(--hud-caution) !important; border: 4px solid currentColor;
+}
+@media (orientation: landscape) {
+  .eva-fullmap-body { top: 64px; bottom: 96px; }
+  [data-slot="eva-options-sheet"].eva-options-body { left: 51%; right: 0; top: 64px; bottom: 96px; }
+}
+
+.eva-live-surface[data-contrast="high"] .hold.done { background: #000 !important; color: #fff !important; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .eva-options-body [data-slot="options-recommendation"] { display: none; }
+}
+@media (min-width: 768px) and (min-height: 600px) {
+  .scr12-eva-tablet [data-slot="telemetry-row"] .value { font-size: 64px !important; }
+}

@@ -150,3 +150,22 @@ test("targets: stop task editor targets are at least 44 px under a coarse pointe
   expect(list.some(target => /input/i.test(target.label))).toBe(true);
   expectTargetSize(list, PLANNER_COARSE_MIN);
 });
+
+// Package 18: options and full-map controls, including their layer menu, use the EVA target size.
+test("targets: EVA options and full-map controls are at least 56 px", async ({ page }) => {
+  const { openSurfaceFixture, surfaceSnapshot } = await import("../lib/surfaceFixture");
+  const fixture = await openSurfaceFixture(page, "eva");
+  try {
+    await page.getByRole("button", { name: "Open full-screen map" }).click();
+    await page.locator('[data-fullmap][data-map-status="ready"]').waitFor();
+    const controls = await targets(page, '[data-fullmap-controls]');
+    expect(controls).toHaveLength(6); expectTargetSize(controls, EVA_MIN); expectGaps(controls, EVA_GAP);
+    await page.locator('#map-ctrl-layers').click();
+    const layers = await targets(page, '[aria-label="Scientific layers selection"]');
+    expect(layers).toHaveLength(4); expectTargetSize(layers, EVA_MIN); expectGaps(layers, EVA_GAP);
+    fixture.send(surfaceSnapshot("alerting-with-options"));
+    await page.locator('[data-screen="SCR-14"]').waitFor();
+    const sheet = await targets(page, '[data-screen="SCR-14"]');
+    expect(sheet.length).toBeGreaterThanOrEqual(2); expectTargetSize(sheet, EVA_MIN);
+  } finally { fixture.dispose(); }
+});

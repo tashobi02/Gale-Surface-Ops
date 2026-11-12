@@ -12,13 +12,21 @@
  * The link age is client time since the watchdog fired (`since_ms` from the client), shown as a `simulated` value with
  * the source `client:link-watchdog`, as SCR-18 does. It is a display tick only; nothing here feeds the simulation.
  */
-import { useEffect, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import type { CrewId } from "@marswalk/protocol";
-import { useLinkLost, useTakenOver } from "../../state/habSession";
+import { useLinkLost, useTakenOver, useReconnectCount } from "../../state/habSession";
 import { HabLinkLost } from "../screens/scr18HabLinkLost";
 import { TakenOverNotice } from "./TakenOverNotice";
 import { StatusIcon } from "../components/statusIcon";
 import { PROVENANCE_GLYPHS, UNAVAILABLE, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
+
+const LiveContrast = createContext<{ contrast: boolean; setContrast: (value: boolean) => void } | null>(null);
+/** Palette shared by the tablet and all of its overlays, including transport loss. */
+export function useLiveContrast() {
+  const inherited = useContext(LiveContrast);
+  const [contrast, setContrast] = useState(false);
+  return inherited ?? { contrast, setContrast };
+}
 
 export type LiveVariant = "eva" | "hud" | "ops";
 
@@ -52,7 +60,7 @@ const overlayStyle: CSSProperties = {
 };
 
 /** Ops: a full-screen notice with retry (03 SCR-18). No crew values: ops is not a crew member. */
-function OpsLinkLostNotice({ ageSeconds, onRetry }: { ageSeconds: number | undefined; onRetry: () => void }): ReactElement {
+function OpsLinkLostNotice({ ageSeconds, reconnectCount, onRetry }: { ageSeconds: number | undefined; reconnectCount: number | null; onRetry: () => void }): ReactElement {
   return (
     <div
       role="region"
@@ -95,6 +103,7 @@ function OpsLinkLostNotice({ ageSeconds, onRetry }: { ageSeconds: number | undef
       <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", display: "flex", gap: "8px", alignItems: "baseline" }}>
         <span>LINK LOST FOR</span>
         <span
+          data-cached-age="true"
           {...provAttrs(
             isFiniteNumber(ageSeconds) ? { prov: "simulated", src: "client:link-watchdog" } : unavailableOf("simulated", "link.age_seconds"),
           )}
@@ -104,6 +113,7 @@ function OpsLinkLostNotice({ ageSeconds, onRetry }: { ageSeconds: number | undef
         </span>
         <span>{isFiniteNumber(ageSeconds) ? `s ${PROVENANCE_GLYPHS.simulated}` : ""}</span>
       </div>
+      <p>Reconnect attempts: <span data-reconnect-count="true" {...provAttrs(reconnectCount === null ? unavailableOf("derived", "client.reconnect_count") : { prov: "derived", src: "client:reconnect-count" })}>{reconnectCount ?? UNAVAILABLE}</span></p>
       <p style={{ margin: 0, color: "var(--text-2, #A9B3BE)", fontSize: "14px" }}>
         The console reconnects by itself. Values behind this notice are the last ones received and are not current.
       </p>
@@ -131,12 +141,15 @@ function OpsLinkLostNotice({ ageSeconds, onRetry }: { ageSeconds: number | undef
 }
 
 export function LiveFrame({ variant, crewId, onRetry, children }: LiveFrameProps): ReactElement {
+  const [contrast, setContrast] = useState(false);
+  const reconnectCount = useReconnectCount();
   const link = useLinkLost();
   const takenOver = useTakenOver();
   const age = useLinkAgeSeconds(link.lost ? link.since_ms : null);
   const retry = onRetry ?? (() => globalThis.location?.reload());
   return (
-    <>
+    <LiveContrast.Provider value={{ contrast, setContrast }}>
+    <div className="eva-live-surface" data-contrast={contrast ? "high" : "normal"} style={{ display: "contents" }}>
       {/* display: contents keeps the layout; while taken over the screen is inert (no focus, no clicks) and hidden from assistive technology */}
       <div data-slot="live-screen" style={{ display: "contents" }} {...(takenOver ? { inert: true, "aria-hidden": true } : {})}>
         {children}
@@ -147,14 +160,15 @@ export function LiveFrame({ variant, crewId, onRetry, children }: LiveFrameProps
         </div>
       )}
       {link.lost && !takenOver && (
-        <div data-slot="link-lost-overlay" data-surface={variant === "ops" ? "ops" : "eva"} style={overlayStyle}>
+        <div data-slot="link-lost-overlay" data-mode={variant === "hud" ? "hud" : "ops"} data-surface={variant === "ops" ? "ops" : "eva"} style={overlayStyle}>
           {variant === "ops" || !crewId ? (
-            <OpsLinkLostNotice ageSeconds={age} onRetry={retry} />
+            <OpsLinkLostNotice ageSeconds={age} reconnectCount={reconnectCount} onRetry={retry} />
           ) : (
             <HabLinkLost crewId={crewId} ageSeconds={age} mode="eva" />
           )}
         </div>
       )}
-    </>
+    </div>
+    </LiveContrast.Provider>
   );
 }

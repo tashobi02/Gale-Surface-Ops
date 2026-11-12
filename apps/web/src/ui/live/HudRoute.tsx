@@ -4,25 +4,28 @@
  * The HUD stays read-only: no buttons. Exit is a tap-and-hold anywhere for 2 s back to the tablet of the same crew member
  * (03 SCR-13 "Actions"); Escape does the same for a keyboard. The screen reads the tab's session through the hooks.
  */
-import { useEffect, useRef, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { CrewId } from "@marswalk/protocol";
 import { routeHash } from "../router";
+import "./HudRoute.css";
 import { Hud } from "../screens/scr13Hud";
 
 /** 03 SCR-13: "tap-and-hold anywhere (2 s)". */
 export const HUD_EXIT_HOLD_MS = 2000;
 
 export function HudRoute({ crewId }: { crewId: CrewId }): ReactElement {
+  const [holding, setHolding] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const frame = useRef<HTMLDivElement>(null);
   const cancel = (): void => {
     if (timer.current !== null) clearTimeout(timer.current);
     timer.current = null;
+    setHolding(false);
   };
   const exit = (): void => {
     globalThis.location.hash = routeHash("eva", crewId);
   };
-  useEffect(() => cancel, []);
+  useEffect(() => () => { if (timer.current !== null) clearTimeout(timer.current); }, []);
   // Take focus on mount so Escape works without a tap first.
   useEffect(() => frame.current?.focus(), []);
   return (
@@ -30,20 +33,23 @@ export function HudRoute({ crewId }: { crewId: CrewId }): ReactElement {
     <div
       ref={frame}
       data-slot="hud-route"
-      tabIndex={0}
+      tabIndex={-1}
       style={{ minHeight: "100vh", outline: "none" }}
       onPointerDown={() => {
         cancel();
+        setHolding(true);
         timer.current = setTimeout(exit, HUD_EXIT_HOLD_MS);
       }}
       onPointerUp={cancel}
       onPointerCancel={cancel}
       onPointerLeave={cancel}
+      onBlur={cancel}
       onKeyDown={(e) => {
         if (e.key === "Escape") exit();
       }}
     >
       <Hud crewId={crewId} />
+      {holding && <div className="hud-exit-progress" data-slot="hud-exit-progress" data-holding="true" aria-hidden="true" style={{ position: "fixed", left: 0, bottom: 0, height: "3px", background: "var(--hud-text)" }} />}
     </div>
   );
 }

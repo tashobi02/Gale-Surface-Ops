@@ -62,3 +62,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 
 1. N-81 — Commit the storm recording required by N-21 and include the complete ordered session log in it (including events preceding the initial snapshot), so the Pages replay can independently verify the advertised log hash. The current collector begins with a snapshot and only records later events; this checkout has no recording file.
 | N-30 | SCR-09 scenario metadata | Supply the loaded scenario ParamSet files (including values, provenance and source ids) and the loaded dose-series source id and title to the planner; the site manifest and planner boot currently expose neither | FD-304, FR-15 | 15 (T12.03) |
+
+## Package 18 follow-up
+
+1. N-120 — Supply the hab walking-time field and its documented grid/source metadata to live EVA (the same dependency as N-100 for ops). The current site/snapshot contract has no transported field. Full-map haven bands show “— unavailable”; the specific haven-band browser check stays `test.fixme('needs N-120')`. No client time field or ETA is computed.
