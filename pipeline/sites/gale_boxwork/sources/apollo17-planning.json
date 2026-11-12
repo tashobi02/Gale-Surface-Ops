@@ -3,12 +3,14 @@
   "title": "Apollo 15 EVA Capability And Constraints Envelopes",
   "publisher": "Bellcomm, Inc.",
   "authors": "P. Benjamin",
-  "missions": ["Apollo 15"],
-  "instruments": ["TODO(verify)"],
-  "version": "TODO(verify)",
+  "missions": [
+    "Apollo 15"
+  ],
+  "instruments": [],
+  "version": "Memorandum for File B70 10028, 13 October 1970; NTRS id 19790073512 (from the file name); no version number",
   "url": "https://www.nasa.gov/wp-content/uploads/static/history/alsj/19790073512_1979073512.pdf",
   "credit": "P. Benjamin, Bellcomm, Inc.; Memorandum for File B70 10028, 13 October 1970. PDF document courtesy NASA Technical Reports Server.",
-  "licence": "TODO(verify)",
+  "licence": "Not stated by the publisher: the document could not be retrieved (HTTP 404 on 2026-11-12), so no rights statement was read (https://www.nasa.gov/wp-content/uploads/static/history/alsj/19790073512_1979073512.pdf)",
   "accessed": "2026-11-09",
-  "accuracy_note": "TODO(verify): The required source_id and technical specification name Apollo 17; the cited document identifies Apollo 15."
+  "accuracy_note": "The required source_id and technical specification name Apollo 17; the cited document identifies Apollo 15. Unreachable on 2026-11-12: HTTP 404 at https://www.nasa.gov/wp-content/uploads/static/history/alsj/19790073512_1979073512.pdf."
 }

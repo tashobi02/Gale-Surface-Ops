@@ -1,0 +1,14 @@
+{
+  "source_id": "nasa-sev-factsheet-2011",
+  "title": "The Space Exploration Vehicle Characteristics (Surface Concept)",
+  "publisher": "National Aeronautics and Space Administration (NASA Facts)",
+  "authors": "NASA (no individual author named)",
+  "missions": [],
+  "instruments": [],
+  "version": "NASA Facts FS-2011-08-045-JSC; no version number",
+  "url": "https://www.nasa.gov/wp-content/uploads/2015/08/464826main_sev_factsheet_508.pdf",
+  "credit": "NASA, The Space Exploration Vehicle Characteristics (Surface Concept), NASA Facts FS-2011-08-045-JSC",
+  "licence": "NASA content is generally not subject to copyright in the United States; it is used under the NASA Images and Media Usage Guidelines (https://www.nasa.gov/nasa-brand-center/images-and-media/), which the document itself does not repeat (checked 2026-11-12)",
+  "accessed": "2026-11-12",
+  "accuracy_note": "Concept document for a pressurized rover: it informs the assumed values of the pr1-assumed ParamSet (flat speed and crew capacity) and is not a measurement at Mars."
+}

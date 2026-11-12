@@ -13,5 +13,5 @@
   "tile_grid": {"origin_m": [-3000, 3000], "resolutions_m": [32, 16, 8, 4, 2], "tile_size_px": 256, "format": "png"},
   "default_visible": false,
   "optional": true,
-  "limitations": "THEMIS TI has 100 m pixels, approximately 20% absolute accuracy, and gaps where coverage or quality was poor; gaps are unknown, never zero. One TI pixel covers 400 routing cells at 5 m. The cube unit is TODO(verify) against the ISIS label."
+  "limitations": "THEMIS TI has 100 m pixels, approximately 20% absolute accuracy, and gaps where coverage or quality was poor; gaps are unknown, never zero. One TI pixel covers 400 routing cells at 5 m. The cube's ISIS label names no unit; tiu is taken from 02 §C.2 L4 (assumed)."
 }

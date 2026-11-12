@@ -67,8 +67,9 @@ def test_synthetic_rasters_run_through_grid_and_comm(tmp_path):
     raster(work / 'dem/aoi_1m.tif', 1, 100, 'float32', -9999)
     raster(work / 'ortho/hirise_lrgb_aoi.tif', .5, 90, 'uint8', 0)
     raster(work / 'ti/themis_ti_aoi_pad1km.tif', 100, 10, 'float32', -9999)
+    absent_lock = tmp_path / 'no-such.lock.json'  # the committed lock now names real files, which this synthetic work folder does not hold
     for step in runner.STEPS[1:6]:
-        runner._run_step(step, root, site, work, out)
+        runner._run_step(step, root, site, work, out, lock_path=absent_lock)
     elevation = np.fromfile(out / 'grid/elevation.f32', dtype='<f4')
     flags = np.fromfile(out / 'grid/flags.u8', dtype='u1')
     ti = np.fromfile(out / 'grid/ti_100m.f32', dtype='<f4')
@@ -441,6 +442,30 @@ def test_acquire_fills_scratch_lock_and_cli_forwards_it(tmp_path, monkeypatch):
     calls.clear()
     assert runner.main(['site']) == 0
     assert all(call['lock_path'] == tmp_path / 'pipeline/sources.lock.json' and not call['skip_unstyled_optional'] for call in calls)
+
+
+def test_offline_flag_reaches_the_acquire_step_only_when_given(tmp_path, monkeypatch):
+    (tmp_path / 'site.json').write_text('{"site_id": "site"}')
+    monkeypatch.setattr(runner, '_paths', lambda _: (tmp_path, tmp_path, tmp_path / 'w', tmp_path / 'o'))
+    calls = []
+    monkeypatch.setattr(runner, '_run_step', lambda *args, **kwargs: calls.append(kwargs))
+    assert runner.main(['site', '--offline']) == 0
+    assert calls and all(call['offline'] is True for call in calls)
+    calls.clear()
+    assert runner.main(['site']) == 0
+    assert calls and all(call['offline'] is False for call in calls)
+
+
+def test_acquire_step_passes_offline_to_fetch_sources(tmp_path, monkeypatch):
+    import json
+    from marswalk_pipeline import acquire
+    site = tmp_path / 'site'
+    site.mkdir()
+    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'data_version': 'v', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
+    seen = {}
+    monkeypatch.setattr(acquire, 'fetch_sources', lambda lock, work, **kw: seen.update(kw))
+    runner._run_step('acquire', tmp_path, site, tmp_path / 'work', tmp_path / 'out', offline=True)
+    assert seen == {'data_version': 'v', 'offline': True}
 
 
 def test_skip_does_not_hide_required_unstyled_layer(tmp_path, monkeypatch):

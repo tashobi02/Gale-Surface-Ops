@@ -36,7 +36,7 @@ def _skipped_layers(site_dir: Path) -> set[str]:
             if json.loads((site_dir / "layers" / f"{layer}.json").read_text(encoding="utf-8")).get("optional") is True}
 
 
-def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir: Path, *, inputs: dict[str, Path] | None = None, lock_path: Path | None = None, skip_unstyled_optional: bool = False, traverse: Path | None = None) -> None:
+def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir: Path, *, inputs: dict[str, Path] | None = None, lock_path: Path | None = None, skip_unstyled_optional: bool = False, traverse: Path | None = None, offline: bool = False) -> None:
     """Invoke one step, persisting intermediates separately from source inputs."""
     from . import config
 
@@ -49,7 +49,7 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
 
     if name == "acquire":
         from .acquire import fetch_sources
-        fetch_sources(lock_path or root / "pipeline" / "sources.lock.json", work_dir, data_version=site["data_version"])
+        fetch_sources(lock_path or root / "pipeline" / "sources.lock.json", work_dir, data_version=site["data_version"], offline=offline)
     elif name == "clip_reproject":
         from .clip_reproject import clip_and_reproject, nodata_to_nan
         # Local input paths are relative to --work, independent of the output bundle.
@@ -198,6 +198,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--work", type=Path, help="local inputs and intermediates (default: pipeline/work)")
     parser.add_argument("--lock", type=Path, help="source lock file (default: pipeline/sources.lock.json)")
     parser.add_argument("--traverse", type=Path, help="T04.01 cached traverse source for T04.03 vector packaging")
+    parser.add_argument("--offline", action="store_true", help="acquire makes no request: it verifies the files in --work against the lock and fails on a missing one")
     parser.add_argument("--skip-unstyled-optional", action="store_true", help="omit optional layers with unresolved display encoding")
     for source in ("dem", "ortho", "ti"):
         parser.add_argument(f"--{source}", type=Path, help=f"override local {source} input raster")
@@ -228,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
             inputs = {name: getattr(args, name) for name in ("dem", "ortho", "ti") if getattr(args, name) is not None}
             _run_step(step, root, site_dir, work_dir, bundle_dir, inputs=inputs,
                       lock_path=args.lock or root / "pipeline" / "sources.lock.json",
-                      skip_unstyled_optional=args.skip_unstyled_optional, traverse=args.traverse)
+                      skip_unstyled_optional=args.skip_unstyled_optional, traverse=args.traverse, offline=args.offline)
         except Exception as exc:
             print(f"Pipeline step '{step}' failed after {time.monotonic() - started:.3f}s: {exc}", file=sys.stderr, flush=True)
             return 1
