@@ -62,11 +62,16 @@ test("plan-rules: POI tasks are editable within FR-54 limits, removed with the s
   await text.fill("a".repeat(60));
   await text.blur();
   await expect(text).toHaveValue("a".repeat(60));
-  for (const invalid of ["", "a".repeat(61)]) {
+  for (const [invalid, problem] of [["", /empty or only spaces/], ["   ", /empty or only spaces/], ["a".repeat(61), /at most 60 characters/]] as const) {
     await text.fill(invalid);
+    await expect(editor.getByRole("alert")).toContainText(problem);
+    await expect(editor.getByRole("alert")).toContainText("Keeping the last valid text.");
+    await expect(text).toHaveAttribute("aria-invalid", "true");
     await text.blur();
-    await expect(editor.getByRole("alert")).toContainText("1–60 characters");
+    // The box shows the last valid text again, and the error about the rejected text goes with it.
     await expect(text).toHaveValue("a".repeat(60));
+    await expect(editor.getByRole("alert")).toHaveCount(0);
+    await expect(text).not.toHaveAttribute("aria-invalid", "true");
   }
   await text.fill(suggested[0]!.text);
   const kind = editor.locator("[data-task-kind]").first();
@@ -78,10 +83,16 @@ test("plan-rules: POI tasks are editable within FR-54 limits, removed with the s
     await editor.getByRole("button", { name: "Add task", exact: true }).click();
   }
   await expect(editor.locator("[data-task-text]")).toHaveCount(4);
-  await expect(editor.getByRole("button", { name: "Add task", exact: true })).toBeDisabled();
+  // aria-disabled, not disabled: a control that holds focus must keep it (package 25 review).
+  const add = editor.getByRole("button", { name: "Add task", exact: true });
+  await expect(add).toHaveAttribute("aria-disabled", "true");
+  await expect(add).not.toHaveAttribute("disabled", /.*/);
+  await expect(editor.locator("[data-new-task-text]")).toHaveAttribute("aria-disabled", "true");
   await expect(editor).toContainText("at most 4 tasks");
   for (let n = 4; n > 1; n--) await editor.locator("[data-delete-task]").last().click();
-  await expect(editor.locator("[data-delete-task]")).toBeDisabled();
+  const only = editor.locator("[data-delete-task]");
+  await expect(only).toHaveAttribute("aria-disabled", "true");
+  await expect(only).not.toHaveAttribute("disabled", /.*/);
   await expect(editor).toContainText("at least one task");
   await page.getByRole("button", { name: "Delete stop 1", exact: true }).click();
   await expect(page.locator("[data-stop-task-editor]")).toHaveCount(0);
@@ -99,6 +110,34 @@ test("plan-rules: a free stop starts without tasks and can author its first one 
   await editor.locator("[data-new-task-text]").fill("Observe the ridge");
   await editor.locator("[data-new-task-text]").press("Enter");
   await expect(editor.locator("[data-task-text]")).toHaveValue("Observe the ridge");
+});
+
+test("plan-rules: a POI stop says the task library is unavailable, not empty, and Retry loads it (package 25 review; FD-325)", async ({ page }) => {
+  // The library is Snapshot.task_library on GET api/session (N-07): a failing session leaves it unavailable.
+  await page.route("**/api/session", (route) => route.fulfill({ status: 503, body: "unavailable" }));
+  await openPlanTab(page);
+  await page.getByLabel(/EVA start/i).fill("2026-11-14T08:00:00Z");
+  const poi = page.locator("button[data-poi-id]").first();
+  await poi.focus();
+  await poi.press("Enter");
+  const detail = page.getByRole("region", { name: "POI detail", exact: true });
+  await expect(detail.getByRole("region", { name: "Suggested tasks" })).toContainText("Task library unavailable");
+  await detail.getByRole("button", { name: "Add as stop" }).click();
+  const left = page.locator('[data-drawer="left"]');
+  if (await left.isHidden()) await page.locator('[data-slot="drawer-toggle"][data-for="left"]').click();
+  await page.getByRole("tab", { name: "Plan", exact: true }).click();
+  const editor = page.locator('[data-waypoint-id="wp-1"] [data-stop-task-editor]');
+  await expect(editor).toContainText("Task library unavailable — suggested tasks not loaded");
+  await expect(editor.locator('[data-task-library] [data-unavailable="true"]')).toBeVisible();
+  await expect(editor).not.toContainText("No tasks");
+  await expect(editor.locator("[data-task-text]")).toHaveCount(0);
+
+  await page.unroute("**/api/session");
+  await editor.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(editor.locator("[data-task-text]").first()).toBeVisible();
+  await expect(editor.locator("[data-task-library]")).toHaveCount(0);
+  await expect(editor.locator("[data-new-task-text]")).toBeFocused();
+  await expect(detail.getByRole("region", { name: "Suggested tasks" })).not.toContainText("unavailable");
 });
 
 test.fixme("plan-rules: republishing replaces planner drafts at retained stops without duplicates (needs N-70)", async ({ page }) => {
