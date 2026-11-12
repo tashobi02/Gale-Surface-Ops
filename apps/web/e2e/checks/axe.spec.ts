@@ -21,7 +21,9 @@ test("axe: every built route has no serious or critical violation", async ({ pag
   for (const hash of BUILT_ROUTES) {
     await page.goto(`/${hash}`);
     await page.waitForLoadState("networkidle");
-    if (LIVE.test(hash)) await waitForSnapshot(page);
+    // FD-210: below 1024 px the ops route shows only the "Use a larger screen" notice, which has no values to wait for.
+    if (hash === "#/ops" && (page.viewportSize()?.width ?? 1280) < 1024) await page.getByRole("heading", { name: "Use a larger screen" }).waitFor();
+    else if (LIVE.test(hash)) await waitForSnapshot(page);
     const mode = (await page.evaluate(() => document.documentElement.dataset.mode)) as HtmlMode;
     await axeScan(page, { mode, route: `${testInfo.project.name}-${hash}` });
   }
@@ -91,9 +93,9 @@ test("axe: ops states have no serious or critical violation (package 19)", async
     await openOpsFixture(page, state);
     if ((page.viewportSize()?.width ?? 0) >= 1024 && state !== "ended") {
       const panels = page.getByRole("button", { name: "Conditions & options" });
-      if (await panels.count()) await panels.click();
+      if (await panels.count() && await panels.getAttribute("aria-expanded") === "false") await panels.click();
     }
-    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-${state}` });
+    await axeScan(page, { mode: state === "ended" ? "print" : "ops", route: `${testInfo.project.name}-ops-${state}` });
     } finally { await page.close(); }
   }
 });
