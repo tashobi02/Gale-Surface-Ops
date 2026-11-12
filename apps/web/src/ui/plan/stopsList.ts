@@ -17,7 +17,7 @@
  *
  * A `.ts` file with `createElement` on purpose (no JSX), like `components/metric.ts`; styles are in `screens/scr04PlanPanel.css`.
  */
-import { createElement as h, useCallback, useSyncExternalStore, type ReactElement } from "react";
+import { createElement as h, useCallback, useSyncExternalStore, type ReactElement, type ReactNode } from "react";
 import type { NoRouteLeg, POIFeature, PlanResult, Waypoint } from "@marswalk/protocol";
 import { MAX_STOPS } from "@marswalk/compute";
 import type { PlanState, PlanStore } from "../../state/planStore";
@@ -31,6 +31,8 @@ export interface StopsListProps {
   planStore: PlanStore;
   /** The loaded site: POI names, the manifest start and the projection (02 §C.1). */
   site: LoadedSite;
+  /** SCR-04 supplies its task editor; the list's existing row and linking contract stays intact. */
+  renderStopTasks?: (stopId: string) => ReactNode;
 }
 
 /** Source of every LTST and sun elevation (02 §D.3): the Mars24 algorithm. */
@@ -104,6 +106,7 @@ interface RowProps {
   /** 1-based stop number, or 0 for the start. */
   stopNumber: number;
   stopCount: number;
+  renderStopTasks?: StopsListProps["renderStopTasks"];
 }
 
 function blockedLeg(plan: PlanState, wp: Waypoint): NoRouteLeg | undefined {
@@ -197,11 +200,12 @@ function Row(props: RowProps): ReactElement {
     blocked
       ? h("p", { className: "stops-blocked", key: "blocked", "data-slot": "stop-blocked" }, h(StatusIcon, { status: "blocked" }), h("span", { key: "r" }, `No route: ${reasonWords(blocked.reason)}`))
       : null,
+    isStop ? props.renderStopTasks?.(wp.id) : null,
   );
 }
 
 /** The SCR-04 stops list (React, ADR-012). */
-export function StopsList({ planStore, site }: StopsListProps): ReactElement {
+export function StopsList({ planStore, site, renderStopTasks }: StopsListProps): ReactElement {
   const plan = usePlan(planStore);
   const stops = plan.waypoints.filter((w) => w.role === "stop");
   let stopNumber = 0;
@@ -221,7 +225,7 @@ export function StopsList({ planStore, site }: StopsListProps): ReactElement {
       { className: "stops-rows", key: "rows", "aria-label": "Stops" },
       plan.waypoints.map((wp, index) => {
         if (wp.role === "stop") stopNumber += 1;
-        return h(Row, { key: wp.id, plan, planStore, site, wp, index, stopNumber: wp.role === "stop" ? stopNumber : 0, stopCount: stops.length });
+        return h(Row, { key: wp.id, plan, planStore, site, wp, index, stopNumber: wp.role === "stop" ? stopNumber : 0, stopCount: stops.length, renderStopTasks });
       }),
     ),
     stops.length >= MAX_STOPS

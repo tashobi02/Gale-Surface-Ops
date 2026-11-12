@@ -68,7 +68,9 @@ export function KeyboardMove({ planStore, placement, mapHandle, cellM }: Keyboar
 
   return (
     <div className="scr02-keyboard-move" role="group" aria-label={`Move stop ${number}`} data-slot="keyboard-move" onKeyDown={onKeyDown}>
-      <span className="scr02-keyboard-move-title">Move stop {number}</span>
+      <span className="scr02-keyboard-move-title">
+        Move stop <span data-identifier>{number}</span>
+      </span>
       {BUTTONS.map((b) => (
         <button key={b.action} type="button" data-action={b.action} aria-label={`Move stop ${number} one cell ${b.word}`} onClick={() => nudge(b.d[0], b.d[1])}>
           <span aria-hidden="true">{b.glyph}</span> {b.word.toUpperCase()}

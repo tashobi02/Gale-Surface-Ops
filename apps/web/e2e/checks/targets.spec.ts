@@ -9,6 +9,7 @@ import { UTILITY_ROVER, openOpsFixture, openOpsPanel } from "../lib/opsFixture";
 import { openEvaFixture, type SentCommand } from "../lib/evaFixture";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
+import { openPoiTasks } from "../lib/plannerTasks";
 
 const EVA_MIN = 56;
 const EVA_GAP = 8;
@@ -140,4 +141,12 @@ test.fixme("needs N-29: the Hab Core accepts a skipped task's new reason (SKIPPE
   await page.getByRole("button", { name: /^Skip task:/ }).click();
   await page.getByRole("button", { name: /Change skip reason/ }).click();
   await expect(page.getByText("Reason: time", { exact: true })).toBeVisible();
+});
+
+test("targets: stop task editor targets are at least 44 px under a coarse pointer (package 25)", async ({ page, hasTouch }) => {
+  test.skip(!hasTouch, "a coarse pointer needs a touch project");
+  await openPoiTasks(page);
+  const list = await targets(page, "[data-stop-task-editor]");
+  expect(list.some(target => /input/i.test(target.label))).toBe(true);
+  expectTargetSize(list, PLANNER_COARSE_MIN);
 });

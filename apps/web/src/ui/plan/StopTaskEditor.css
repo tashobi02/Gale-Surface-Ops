@@ -1,0 +1,19 @@
+/* SCR-04 extension: the existing panel's tokens, controls, warning shape/word, and coarse targets (04 §C.3). */
+.stop-task-editor { margin-top: 8px; min-width: 0; }
+.stop-task-editor > summary { justify-content: space-between; }
+.stop-task-chevron { flex-shrink: 0; }
+.stop-task-editor[open] .stop-task-chevron { transform: rotate(90deg); }
+.stop-task-body { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
+.stop-task-rows { display: flex; flex-direction: column; gap: 12px; padding: 0; margin: 0; list-style: none; }
+.stop-task-row { display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--control-edge); }
+.stop-task-fields { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px; }
+.stop-task-editor select { padding: 0 6px; background: var(--surface-0); color: var(--fg-1); border: 1px solid var(--control-edge); }
+.stop-task-help { margin: 0; color: var(--fg-2); font-size: var(--text-micro); overflow-wrap: anywhere; }
+.stop-task-new { display: flex; flex-direction: column; gap: 8px; }
+.stop-task-editor button:not([aria-disabled="true"]):hover, .stop-task-editor > summary:hover { background: var(--surface-1); }
+/* aria-disabled, not disabled: a control that holds focus must keep it (the control stays in the tab order and says why it cannot act). */
+.stop-task-editor [aria-disabled="true"] { color: var(--fg-3); cursor: not-allowed; }
+.stop-task-library { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+@media (pointer: coarse) {
+  .stop-task-editor select, .stop-task-editor input { min-height: var(--target-touch); min-width: var(--target-touch); }
+}
