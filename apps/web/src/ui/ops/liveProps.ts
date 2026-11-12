@@ -2,17 +2,14 @@
  * Snapshot -> OpsConsole props (docs/specs/03 SCR-11; 05 Snapshot; 01 FR-15, FR-50; T25.01).
  *
  * Passes the Hab Core's values through and labels them. It computes nothing: counts are tallies of the tasks the server
- * sent, never estimates. What the snapshot does not carry stays `undefined`, so the console shows "—":
- * - `sol` and `ltst` (Mars24 needs the site longitude; no source is wired yet),
- * - `phase` (the snapshot has the session status, not an EVA phase),
- * - `conditions` (sun elevation, dose rates and the Earth link are not in the snapshot).
- * TODO(decision): the sources for sol, LTST and conditions on the live console (compute call in the UI, or fields in the
- * snapshot).
+ * sent, never estimates. N-06 conditions keep their supplied provenance and sources (FD-085).
+ * What the snapshot does not carry stays undefined, including the EVA phase.
  */
 import type { CrewId, LogEvent, Snapshot } from "@marswalk/protocol";
 import type { CrewTaskProgress, OpsConsoleProps, OpsLogLine } from "../screens/scr11OpsConsole";
 import { isProvenance, selectNextStop } from "../eva/viewModel";
 import { formatSimTime, summarizeEvent } from "./EventLog";
+import type { ProvenanceValue } from "./ConditionsPanel";
 
 const CREW_IDS: readonly CrewId[] = ["EV1", "EV2"];
 
@@ -23,13 +20,29 @@ function stopNumber(snapshot: Snapshot, stopId: string): number | null {
   return at === -1 ? null : at + 1;
 }
 
+/**
+ * The stop whose task progress the console shows for a crew member. A crew member AT a stop is working that stop's tasks, so ops
+ * sees THAT stop (`stop_index` is one-based in the engine, FD-047); otherwise it is the stop the navigation points at, the same
+ * stop the EVA tablet's NEXT card names. The EVA card's choice must not leak into this one: AT_STOP, the card names the FOLLOWING stop.
+ */
+function progressStopId(snapshot: Snapshot, crewId: CrewId): string | null {
+  const crew = snapshot.crew?.find((c) => c.crew_id === crewId);
+  const stops = (snapshot.plan?.waypoints ?? []).filter((w) => w.role === "stop");
+  if (crew?.activity === "AT_STOP" && typeof crew.stop_index === "number" && crew.stop_index >= 1) {
+    const here = stops[crew.stop_index - 1];
+    if (here) return here.id;
+  }
+  return selectNextStop(snapshot, crewId)?.stopId ?? null;
+}
+
 function taskProgressOf(snapshot: Snapshot, crewId: CrewId): CrewTaskProgress | null {
   const mine = (snapshot.tasks ?? []).filter((t) => t.crew_id === null || t.crew_id === crewId);
-  if (mine.length === 0) return null;
-  const next = selectNextStop(snapshot, crewId);
-  const stopNo = next ? stopNumber(snapshot, next.stopId) : null;
+  const stopId = progressStopId(snapshot, crewId);
+  const stopNo = stopId ? stopNumber(snapshot, stopId) : null;
+  if (mine.length === 0 && stopNo === null) return null;
+  const onStop = stopId ? mine.filter((t) => t.stop_id === stopId) : [];
   return {
-    stop: next && stopNo !== null ? { stopId: next.stopId, stopNo, done: next.taskCount.done, total: next.taskCount.total } : null,
+    stop: stopId && stopNo !== null ? { stopId, stopNo, done: onStop.filter((t) => t.state === "DONE").length, total: onStop.length } : null,
     total: { done: mine.filter((t) => t.state === "DONE").length, total: mine.length },
   };
 }
@@ -67,7 +80,25 @@ export function selectOpsProps(snapshot: Snapshot | null, events: LogEvent[]): L
     const p = taskProgressOf(snapshot, id);
     if (p) taskProgress[id] = p;
   }
+  const conditions = snapshot.conditions;
+  function value<T extends number | string>(field: keyof Snapshot["conditions"], unit?: string): ProvenanceValue<T> | undefined {
+    const v = conditions?.[field];
+    const prov = conditions?.provenance?.[field];
+    const src = conditions?.source_ids?.[field];
+    if ((typeof v !== "number" && typeof v !== "string") || (typeof v === "number" && !Number.isFinite(v)) || v === "" || !isProvenance(prov) || !src) return undefined;
+    return { v: v as T, prov, src, ...(unit ? { unit } : {}) };
+  }
+  const ltst = value<string>("ltst");
+  const fields = {
+    ltst,
+    sunElevationDeg: value<number>("sun_elevation_deg", "°"),
+    doseRateBackgroundUgyH: value<number>("dose_rate_background_ugy_h", "µGy/h"),
+    doseRateEventUgyH: value<number>("dose_rate_event_ugy_h", "µGy/h"),
+  };
   return {
+    sol: value<number>("sol"),
+    ltst,
+    conditions: Object.values(fields).some(Boolean) ? fields : undefined,
     scenarioName: snapshot.session.scenario_id,
     planRevision: { v: snapshot.session.plan_revision, prov: "simulated", src: "snapshot:session.plan_revision" },
     crew: snapshot.crew,

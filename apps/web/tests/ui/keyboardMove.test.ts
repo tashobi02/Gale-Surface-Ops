@@ -64,6 +64,13 @@ describe("KeyboardMove (T08.10; FD-119)", () => {
     expect(must(some.root, '[data-slot="keyboard-move"]').getAttribute("aria-label")).toBe("Move stop 2");
   });
 
+  it("the stop number in the visible title is an identifier, so the provenance check needs no value label for it (FD-110, FD-323)", async () => {
+    const r = await rig();
+    const title = must(r.root, ".scr02-keyboard-move-title");
+    expect(title.textContent).toBe("Move stop 2");
+    expect(must(title, "[data-identifier]").textContent).toBe("2");
+  });
+
   it("arrow nudges selected stop one cell: each button moves it one manifest grid cell, after validating the new point", async () => {
     const r = await rig();
     const before = { ...wp(r.plan, "wp-2") };

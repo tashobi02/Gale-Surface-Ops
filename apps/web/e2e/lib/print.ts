@@ -6,7 +6,10 @@ import type { Page } from "@playwright/test";
 
 export interface PdfOptions {
   format: "A4" | "Letter";
-  /** CSS length applied to all four sides; the packages use 12 mm. */
+  /**
+   * CSS length applied to all four sides; the packages use 12 mm. `"css"`: no margin is passed and the page's own CSS
+   * `@page` rule decides (preferCSSPageSize), as a browser print of that page would.
+   */
   margin?: string;
 }
 
@@ -20,11 +23,14 @@ export async function pdfPages(page: Page, options: PdfOptions): Promise<number>
   const margin = options.margin ?? "12mm";
   await page.emulateMedia({ media: "print" });
   try {
-    const pdf = await page.pdf({
-      format: options.format,
-      margin: { top: margin, right: margin, bottom: margin, left: margin },
-      printBackground: true,
-    });
+    const pdf =
+      margin === "css"
+        ? await page.pdf({ format: options.format, preferCSSPageSize: true, printBackground: true })
+        : await page.pdf({
+            format: options.format,
+            margin: { top: margin, right: margin, bottom: margin, left: margin },
+            printBackground: true,
+          });
     return countPdfPages(pdf);
   } finally {
     await page.emulateMedia({ media: null });

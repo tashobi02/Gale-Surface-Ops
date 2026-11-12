@@ -6,10 +6,12 @@
  * The primitives are read from tokens.css (`--signal`, `--signal-ink`), so a retuned orange is still caught. A route counts as
  * OPS or HUD by the router's mode table.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { openOpsFixture } from "../lib/opsFixture";
 import { routeHashesInMode } from "../lib/offline";
+import { e2eSite } from "../lib/siteBundle";
 
 const tokens = readFileSync(join(import.meta.dirname, "..", "..", "src", "ui", "styles", "tokens.css"), "utf8");
 
@@ -21,16 +23,8 @@ function primitive(name: string): string {
 
 const ORANGE = [primitive("signal"), primitive("signal-ink")];
 
-test("brand-orange: no computed colour equals a brand-orange primitive in any OPS or HUD route", async ({ page }) => {
-  const hashes = routeHashesInMode(["ops", "hud"]);
-  expect(hashes.length).toBeGreaterThan(0);
-  const hits: string[] = [];
-
-  for (const hash of hashes) {
-    await page.goto("about:blank");
-    await page.goto(`/${hash}`);
-    await page.waitForLoadState("networkidle");
-    const found = await page.evaluate((orange) => {
+async function orangeHits(page: Page): Promise<string[]> {
+  return page.evaluate((orange) => {
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 1;
       const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
@@ -59,8 +53,39 @@ test("brand-orange: no computed colour equals a brand-orange primitive in any OP
       }
       return out;
     }, ORANGE);
+}
+
+test("brand-orange: no computed colour equals a brand-orange primitive in any OPS or HUD route", async ({ page }) => {
+  // One page visits every OPS and HUD route in the router table in turn (about 4 s each): the list grows with each package,
+  // so the budget is per route, not the 60 s default.
+  const hashes = routeHashesInMode(["ops", "hud"]);
+  test.setTimeout(Math.max(60_000, hashes.length * 12_000));
+  expect(hashes.length).toBeGreaterThan(0);
+  const hits: string[] = [];
+
+  for (const hash of hashes) {
+    await page.goto("about:blank");
+    await page.goto(`/?site=${e2eSite()}${hash}`);
+    // A route that never goes idle must name itself in the failure, not eat the whole test budget.
+    const recent: string[] = [];
+    const record = (r: { method(): string; url(): string }): void => { recent.push(`${r.method()} ${r.url().replace(/^https?:\/\/[^/]+/, "")}`); };
+    page.on("request", record);
+    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch((error: Error) => { throw new Error(`${hash}: no network idle in 15 s; last requests: ${recent.slice(-8).join(" | ")} (${error.message.split("\n")[0]})`); });
+    page.off("request", record);
+    const found = await orangeHits(page);
     for (const f of found) hits.push(`${hash}: ${f}`);
   }
 
   expect(hits, "brand orange in an OPS or HUD route").toEqual([]);
+});
+
+
+test("brand-orange: ops loaded, paused and alerting states use no brand orange (package 19)", async ({ context }) => {
+  for (const state of ["loaded", "paused", "alerting"] as const) {
+    const page = await context.newPage();
+    try {
+      await openOpsFixture(page, state);
+      expect(await orangeHits(page), state).toEqual([]);
+    } finally { await page.close(); }
+  }
 });

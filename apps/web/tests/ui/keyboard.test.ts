@@ -2,7 +2,7 @@
  * T13.06 — Unit tests for keyboard map controls and global shortcuts (04 §E Keyboard, 03 §A, 03 SCR-08).
  */
 import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
-import { installDom, removeDom } from "./domHarness";
+import { installDom, must, removeDom } from "./domHarness";
 import {
   attachKeyboardControls,
   isCompositeWidget,
@@ -170,6 +170,71 @@ describe("T13.06 Keyboard Controls (keyboard.ts)", () => {
     expect(navigate).toHaveBeenCalledWith("#/sources");
 
     cleanup();
+  });
+
+  describe("map shortcuts leave other controls their own keys (package 25 review: Delete on a task button deleted the stop)", () => {
+    const planContext = () => {
+      const addStop = { isActive: () => false, toggle: vi.fn(), placeAtCrosshair: vi.fn() };
+      const context: KeyboardPlanContext = { getSelectedStopId: () => "wp-1", deleteStop: vi.fn(), canOpenBriefing: () => true, navigate: vi.fn(), addStop };
+      return { context, addStop };
+    };
+    const press = (target: Element, ...keys: string[]): void => {
+      for (const key of keys) target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    };
+    const cases: [string, string, string][] = [
+      ["a button", '<button type="button">Delete task</button>', "button"],
+      ["a summary", "<details open><summary>Stop tasks</summary><p>body</p></details>", "summary"],
+      ["a link", '<a href="#/x">Link</a>', "a"],
+      ["a [role=button]", '<div role="button" tabindex="0">Act</div>', '[role="button"]'],
+      ["a select", "<select><option>one</option></select>", "select"],
+      ["a checkbox", '<input type="checkbox">', 'input[type="checkbox"]'],
+      ["a textarea", "<textarea></textarea>", "textarea"],
+      ["a contenteditable", '<div contenteditable="true">text</div>', "[contenteditable]"],
+      ["an element inside a button", '<button type="button"><span id="inner">Delete</span></button>', "#inner"],
+    ];
+    it.each(cases)("Delete, b, ? and a do nothing on %s", (_name, html, selector) => {
+      container.insertAdjacentHTML("beforeend", html);
+      const { context, addStop } = planContext();
+      const cleanup = attachKeyboardControls({ planContext: context, mapHandle: { panBy: vi.fn(), zoomBy: vi.fn(), getTargetElement: () => mapElement } });
+      press(must(container, selector), "Delete", "b", "B", "?", "a");
+      expect(context.deleteStop).not.toHaveBeenCalled();
+      expect(context.navigate).not.toHaveBeenCalled();
+      expect(addStop.toggle).not.toHaveBeenCalled();
+      cleanup();
+    });
+
+    it("still fires from the map viewport, the body and a control inside the map", () => {
+      const control = document.createElement("button");
+      mapElement.appendChild(control);
+      const { context, addStop } = planContext();
+      const cleanup = attachKeyboardControls({ planContext: context, mapHandle: { panBy: vi.fn(), zoomBy: vi.fn(), getTargetElement: () => mapElement } });
+      press(mapElement, "Delete");
+      press(document.body, "Delete");
+      press(control, "Delete");
+      expect(context.deleteStop).toHaveBeenCalledTimes(3);
+      press(mapElement, "a");
+      press(control, "a");
+      expect(addStop.toggle).toHaveBeenCalledTimes(2);
+      press(document.body, "b");
+      expect(context.navigate).toHaveBeenCalledWith("#/briefing");
+      cleanup();
+    });
+
+    it("keeps arrow panning on a control inside the map but not on one outside it", () => {
+      const inside = document.createElement("button");
+      mapElement.appendChild(inside);
+      const outside = document.createElement("button");
+      container.appendChild(outside);
+      const panBy = vi.fn();
+      const cleanup = attachKeyboardControls({ mapHandle: { panBy, zoomBy: vi.fn(), getTargetElement: () => mapElement } });
+      inside.focus();
+      press(inside, "ArrowUp");
+      expect(panBy).toHaveBeenCalledTimes(1);
+      outside.focus();
+      press(outside, "ArrowUp");
+      expect(panBy).toHaveBeenCalledTimes(1);
+      cleanup();
+    });
   });
 
   it("does not open briefing when canOpenBriefing returns false", () => {

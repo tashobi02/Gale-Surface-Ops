@@ -8,17 +8,17 @@
  * whether or not a task is active. A value the snapshot does not carry is the dash with an `unavailable:` source
  * (04 §D.1); nothing is estimated here.
  *
- * Decision (Sadman Shaharier Mahim, 11 Nov): FR-41 says "tasks queue and show ETA", but 05 Vehicle holds one `task`.
- * The queued list therefore reads "—".
- * TODO(decision): contract-change to 05 Vehicle and the snapshot (a `queue` of tasks with their own ETA and battery
- * estimate) before this lists queued tasks. Until then no per-task ETA or battery-after exists to show.
+ * Queue (FR-41 "tasks queue and show ETA"; BD-102, N-12; FD-084): the head is `Vehicle.task`; the tasks after it are
+ * `Vehicle.queue`, each with the Hab Core's cumulative `eta_s` and `battery_wh_after`, labelled `modelled` with
+ * `snapshot:vehicles.queue.*` sources (01-contract provenance map). An empty queue reads "No queued tasks"; a snapshot
+ * without the field reads "—". `compact` leaves out the header and battery when the SCR-11 vehicle card shows them.
  *
  * `RoverQueue` renders any vehicle honestly; `UtilityRoverQueues` keeps the utility rovers, because SCR-15 tasks the
- * utility rover (SCOUT, CARRY, RELAY, RETURN) and SUMMON is the pressurized rover's (FR-39). Wiring into the vehicle
- * card of SCR-11 belongs to T25.01.
+ * utility rover (SCOUT, CARRY, RELAY, RETURN) and SUMMON is the pressurized rover's (FR-39). SCR-11 mounts it on the
+ * utility-rover card (package 21).
  */
 import type { CSSProperties, ReactElement } from "react";
-import type { Vehicle } from "@marswalk/protocol";
+import type { QueuedRoverTask, Vehicle } from "@marswalk/protocol";
 import {
   PROVENANCE_GLYPHS,
   UNAVAILABLE,
@@ -32,6 +32,8 @@ import {
 
 export interface RoverQueueProps {
   vehicle: Vehicle;
+  /** Leave out the header and battery (the SCR-11 vehicle card shows them). */
+  compact?: boolean;
   className?: string;
 }
 
@@ -48,8 +50,26 @@ interface Shown extends Sourced {
 function simulated(text: string, path: string): Shown {
   return { text, prov: "simulated", src: `snapshot:${path}` };
 }
-function missing(path: string): Shown {
-  return { text: UNAVAILABLE, ...unavailableOf("simulated", path) };
+function missing(path: string, prov: "simulated" | "modelled" = "simulated"): Shown {
+  return { text: UNAVAILABLE, ...unavailableOf(prov, path) };
+}
+function modelled(text: string, path: string): Shown {
+  return { text, prov: "modelled", src: `snapshot:${path}` };
+}
+
+/** One task of `Vehicle.queue`, numbered after the current task (1). */
+function QueuedTask({ task, position }: { task: QueuedRoverTask; position: number }): ReactElement {
+  const eta = isFiniteNumber(task.eta_s) && task.eta_s >= 0 ? modelled(fmtDuration(task.eta_s), "vehicles.queue.eta_s") : missing("vehicles.queue.eta_s", "modelled");
+  const after = isFiniteNumber(task.battery_wh_after) ? modelled(fmtInt(task.battery_wh_after), "vehicles.queue.battery_wh_after") : missing("vehicles.queue.battery_wh_after", "modelled");
+  return (
+    <li data-queued-task={task.task_id} style={{ display: "flex", flexDirection: "column", gap: "2px", paddingTop: "4px", borderTop: "1px solid var(--line)" }}>
+      <Value name="queue-kind" label="Task" p={simulated(`${position}. ${task.kind}`, "vehicles.queue")} />
+      {task.item ? <Value name="queue-item" label="Item" p={simulated(task.item, "vehicles.queue")} /> : null}
+      <Value name="queue-target" label="Target" p={simulated(task.target ? `X ${fmtInt(task.target.x_m)} m · Y ${fmtInt(task.target.y_m)} m` : "Hab", "vehicles.queue")} />
+      <Value name="queue-eta" label="ETA" p={eta} />
+      <Value name="queue-battery-after" label="Battery after" p={after} unit="Wh" />
+    </li>
+  );
 }
 
 const cardStyle: CSSProperties = {
@@ -98,23 +118,23 @@ function Value({ name, label, p, unit }: { name: string; label: string; p: Shown
 }
 
 /** One vehicle's state, current task, ETA and battery. */
-export function RoverQueue({ vehicle, className = "" }: RoverQueueProps): ReactElement {
-  const { vehicle_id, kind, state, task, eta_s, battery_wh } = vehicle;
+export function RoverQueue({ vehicle, compact = false, className = "" }: RoverQueueProps): ReactElement {
+  const { vehicle_id, kind, state, task, eta_s, battery_wh, queue } = vehicle;
   const eta = isFiniteNumber(eta_s) && eta_s >= 0 ? simulated(fmtDuration(eta_s), "vehicles.eta_s") : missing("vehicles.eta_s");
   // 05 Vehicle: the battery is the utility rover's consumable; a pressurized rover reports none.
   const battery =
     kind === "utility_rover" && isFiniteNumber(battery_wh) ? simulated(fmtInt(battery_wh), "vehicles.battery_wh") : missing("vehicles.battery_wh");
 
   return (
-    <article className={`rover-queue-card ${className}`.trim()} data-vehicle-id={vehicle_id} style={cardStyle}>
-      <header style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
+    <article className={`rover-queue-card ${className}`.trim()} data-vehicle-id={vehicle_id} style={compact ? { ...cardStyle, padding: 0, border: "none", backgroundColor: "transparent" } : cardStyle}>
+      {compact ? null : <header style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
         <span>
           [{vehicle_id}] {kind === "pressurized_rover" ? "Pressurised rover" : "Utility rover"}
         </span>
         <span data-field="state" style={{ ...valueStyle, color: "var(--fg-2)", fontSize: "var(--text-micro)" }} {...provAttrs(simulated("", "vehicles.state"))}>
           {state}
         </span>
-      </header>
+      </header>}
 
       <section aria-label={`${vehicle_id} current task`}>
         <div style={labelStyle}>Current task</div>
@@ -132,12 +152,24 @@ export function RoverQueue({ vehicle, className = "" }: RoverQueueProps): ReactE
           <div>No active task</div>
         )}
         <Value name="eta" label="ETA" p={eta} />
-        <Value name="battery" label="Battery" p={battery} unit="Wh" />
+        {compact ? null : <Value name="battery" label="Battery" p={battery} unit="Wh" />}
       </section>
 
       <section aria-label={`${vehicle_id} queued tasks`}>
-        {/* TODO(decision): queued tasks need a 05 Vehicle contract change (see the header). */}
-        <Value name="queued" label="Queued" p={missing("vehicles.queue")} />
+        {queue === undefined ? (
+          <Value name="queued" label="Queued" p={missing("vehicles.queue")} />
+        ) : queue.length === 0 ? (
+          <Value name="queued" label="Queued" p={simulated("No queued tasks", "vehicles.queue")} />
+        ) : (
+          <>
+            <Value name="queued" label="Queued" p={simulated(String(queue.length), "vehicles.queue")} />
+            <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "4px" }}>
+              {queue.map((t, i) => (
+                <QueuedTask key={t.task_id} task={t} position={i + 2} />
+              ))}
+            </ol>
+          </>
+        )}
       </section>
     </article>
   );

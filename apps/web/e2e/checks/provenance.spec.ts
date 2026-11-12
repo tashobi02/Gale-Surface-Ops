@@ -5,10 +5,12 @@
  */
 import { expect, test } from "@playwright/test";
 import { waitForSnapshot } from "../lib/hab";
-import { expectNoUnlabelledNumbers } from "../lib/provenance";
+import { expectNoUnlabelledNumbers, PROVENANCE_ALLOWLIST, unlabelledNumbers } from "../lib/provenance";
+import { openPoiTasks } from "../lib/plannerTasks";
+import { openReplayFixture } from "../lib/replayFixture";
 
 const DEMO_PATH = ["#/", "#/planner", "#/briefing"];
-const LIVE = ["#/ops", "#/eva/EV1", "#/hud/EV1", "#/report"];
+const LIVE = ["#/ops", "#/eva/EV1", "#/hud/EV1", "#/report", "#/replay"];
 
 // Package 07: the planner workspace alone, on the F4 site. The demo-path test below stays `fixme` until SCR-01 and SCR-08 exist.
 test("provenance: no unlabelled number on the planner workspace and every source id it shows is a known kind (package 07)", async ({ page }) => {
@@ -33,6 +35,29 @@ test("provenance: no unlabelled number in the plan panel, with an inline range e
   await expectNoUnlabelledNumbers(page, "#/planner Plan tab");
 });
 
+test("provenance: task text, kinds, counts and inline limits carry their source in SCR-04 (package 25)", async ({ page }) => {
+  const { editor, suggested } = await openPoiTasks(page);
+  for (const input of await editor.locator("[data-task-text], select").all()) {
+    await expect(input).toHaveAttribute("data-provenance", "assumed");
+    await expect(input).toHaveAttribute("data-source", /.+/);
+  }
+  const first = editor.locator("[data-task-text]").first();
+  await expect(first).toHaveAttribute("data-source", suggested[0]!.source_id ?? `scenario.task_library:${suggested[0]!.library_task_id}`);
+  await first.fill("Observe the ridge");
+  await expect(first).toHaveAttribute("data-source", /^user:stop_task\./);
+  await first.fill("");
+  await expect(editor.getByRole("alert")).toBeVisible();
+  await expectNoUnlabelledNumbers(page, "SCR-04 task editor and error", "[data-stop-task-editor]");
+});
+
+test("provenance: the keyboard-move title ordinal is an identifier and the live announcement's count is labelled (package 25 review; FD-323)", async ({ page }) => {
+  await openPoiTasks(page);
+  await page.locator(".scr02-keyboard-move-title").waitFor();
+  await expect(page.locator(".scr05-sr-only")).toContainText(/Plan updated: .*warning/);
+  await expectNoUnlabelledNumbers(page, "SCR-02 keyboard-move title", ".scr02-keyboard-move-title");
+  await expectNoUnlabelledNumbers(page, "SCR-05 live announcement", ".scr05-sr-only");
+});
+
 test.fixme("provenance: no unlabelled number on the demo path and every source id resolves in SCR-09 (enabled by package 28)", async ({ page }) => {
   const sources = new Set<string>();
   for (const hash of DEMO_PATH) {
@@ -48,7 +73,17 @@ test.fixme("provenance: no unlabelled number on the demo path and every source i
 test.fixme("provenance: no unlabelled number on any live role (enabled by package 29)", async ({ page }) => {
   for (const hash of LIVE) {
     await page.goto(`/${hash}`);
-    if (hash !== "#/report") await waitForSnapshot(page);
+    if (hash !== "#/report" && hash !== "#/replay") await waitForSnapshot(page);
     await expectNoUnlabelledNumbers(page, hash);
   }
+});
+
+// Package 27: `#/replay` on the fixture recording (N-81 pending): the replay bar (position, hashes). The ops console under it is
+// the live ops view, covered by the live-role check above (fixme until package 29), so it is left out here.
+test("provenance: no unlabelled number in the #/replay bar, paused and after a step (package 27)", async ({ page }) => {
+  await openReplayFixture(page);
+  const allow = [...PROVENANCE_ALLOWLIST, ".scr11-ops-console"];
+  expect(await unlabelledNumbers(page, allow), "#/replay").toEqual([]);
+  await page.locator('[data-slot="replay-step"]').click();
+  expect(await unlabelledNumbers(page, allow), "#/replay after a step").toEqual([]);
 });

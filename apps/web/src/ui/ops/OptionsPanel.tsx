@@ -9,23 +9,21 @@
  * Communicates path preview on option selection to the ops tactical map.
  */
 
-import { type ReactElement } from "react";
+import { useCallback, type ReactElement } from "react";
 import type { ContingencyOption, CrewId, Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
+import { useSnapshot } from "../../state/habSession";
+import { sortAlerts, isOnBar } from "./AlertStack";
+import { provAttrs, unavailableOf } from "../components/provenance";
 import { Options } from "../screens/scr14Options";
 
 export interface OptionsPanelProps {
   client?: HabClient | null;
-  /**
-   * The crew member this panel is shown for, taken from the caller or the session. Required: there is no default
-   * crew. null = the caller has none to give (no crew in the session yet).
-   * TODO(decision): scr14 `Options` still defaults its own `crewId` to "EV1" when this is null; for the ops variant it
-   * only affects the EVA-only "queued" flag, so nothing the ops console shows or sends depends on it.
-   */
+  /** Legacy caller crew; ops uses the alert's affected crew list (FD-055). */
   crewId: CrewId | null;
   snapshot?: Snapshot | null;
   onApproveOption?: (option: ContingencyOption) => void;
-  onPreviewPath?: (path: [number, number][]) => void;
+  onPreviewPath?: (path: [number, number][], option?: ContingencyOption | null) => void;
   className?: string;
 }
 
@@ -35,12 +33,17 @@ export interface OptionsPanelProps {
  */
 export function OptionsPanel({
   client,
-  crewId,
   snapshot,
   onApproveOption,
   onPreviewPath,
   className = "",
 }: OptionsPanelProps): ReactElement {
+  const stored = useSnapshot(client);
+  const active = snapshot === undefined ? stored : snapshot;
+  const alert = sortAlerts(active?.alerts.filter(isOnBar) ?? [])[0];
+  const relevant = alert && active ? { ...active, options: active.options.filter((option) => option.alert_id === alert.alert_id) } : active;
+  const affectedCrew = alert?.subjects.filter((subject): subject is CrewId => subject === "EV1" || subject === "EV2") ?? [];
+  const preview = useCallback((option: ContingencyOption | null) => onPreviewPath?.(option?.path_preview ?? [], option), [onPreviewPath]);
   return (
     <aside
       className={`ops-options-panel ${className}`}
@@ -54,17 +57,13 @@ export function OptionsPanel({
       }}
       aria-label="Contingency Options Panel"
     >
+      <div>Override for crew: <span data-slot="affected-crew" {...(affectedCrew.length ? provAttrs({ prov: "simulated", src: `snapshot:alerts/${alert!.alert_id}/subjects` }) : provAttrs(unavailableOf(null, "alerts.subjects")))}>{affectedCrew.join(", ") || "—"}</span></div>
       <Options
         client={client}
-        crewId={crewId ?? undefined}
-        snapshot={snapshot}
+        snapshot={relevant}
         variant="ops"
-        onSelectOption={(option) => {
-          if (option.path_preview && onPreviewPath) {
-            onPreviewPath(option.path_preview);
-          }
-          onApproveOption?.(option);
-        }}
+        onPreviewOption={preview}
+        onSelectOption={(option) => onApproveOption?.(option)}
       />
     </aside>
   );

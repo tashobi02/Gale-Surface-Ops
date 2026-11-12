@@ -17,6 +17,11 @@ export interface TasksButtonProps {
   /** Tasks at the current stop; null when no stop is known. */
   totalCount: number | null;
   active?: boolean;
+  /**
+   * The list cannot be opened right now (the crew member is walking, an alert holds the screen or the options sheet is
+   * open): the count stays in the NEXT header as a non-interactive figure, with no panel behind it (FD-032).
+   */
+  readOnly?: boolean;
   onClick?: () => void;
   className?: string;
   ariaLabel?: string;
@@ -26,6 +31,7 @@ export function TasksButton({
   doneCount,
   totalCount,
   active = false,
+  readOnly = false,
   onClick,
   className = "",
   ariaLabel,
@@ -60,6 +66,38 @@ export function TasksButton({
 
   const counts = isFiniteNumber(doneCount) && isFiniteNumber(totalCount) ? `${doneCount}/${totalCount}` : UNAVAILABLE;
 
+  const content = (
+    <>
+      <span aria-hidden="true" style={{ fontSize: "15px" }}>
+        ✓
+      </span>
+      <span>TASKS</span>
+      <span
+        style={countBadgeStyle}
+        data-provenance="simulated"
+        data-source="snapshot:tasks"
+        title="snapshot:tasks"
+      >
+        {counts}
+      </span>
+    </>
+  );
+
+  // The list cannot be opened: the count is a figure in the NEXT header, not a control (FD-032).
+  if (readOnly) {
+    return (
+      <span
+        className={`tasks-button tasks-button-readonly ${className}`}
+        data-testid="tasks-count"
+        data-tasks-readonly="true"
+        style={buttonStyle}
+        aria-label={ariaLabel ?? (counts === UNAVAILABLE ? "Tasks: count unavailable" : `Tasks: ${doneCount} of ${totalCount} completed`)}
+      >
+        {content}
+      </span>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -73,18 +111,7 @@ export function TasksButton({
       }
       aria-pressed={active}
     >
-      <span aria-hidden="true" style={{ fontSize: "15px" }}>
-        ✓
-      </span>
-      <span>TASKS</span>
-      <span
-        style={countBadgeStyle}
-        data-provenance="simulated"
-        data-source="snapshot:tasks"
-        title="snapshot:tasks"
-      >
-        {counts}
-      </span>
+      {content}
     </button>
   );
 }

@@ -257,6 +257,17 @@ describe("SCR-05 announcements and collapsing (04 §E, §B)", () => {
     await view.unmount();
   });
 
+  it("labels the warning count in the announcement as a derived value of result.warnings (FR-15, NFR-05)", async () => {
+    const { store } = fakePlanStore({ status: "OverLimits", result: overLimits });
+    const view = await mount(ui({ planStore: store }));
+    const live = must(view.container, "[aria-live]");
+    const count = must(live, "[data-provenance]");
+    expect(count.textContent).toBe("2");
+    expect(count.getAttribute("data-provenance")).toBe("derived");
+    expect(count.getAttribute("data-source")).toBe("result.warnings");
+    await view.unmount();
+  });
+
   it("collapses to the 48 px status strip: the banner stays, the body goes, and it comes back", async () => {
     const { store } = fakePlanStore({ status: "OK", result: ok });
     const view = await mount(ui({ planStore: store }));

@@ -75,6 +75,21 @@ describe("selectOpsProps", () => {
     expect(selectOpsProps({ ...connect, tasks: [] }, []).taskProgress?.EV1).toBeUndefined();
   });
 
+  it("every planned stop has 0/0 progress for each crew and allows its first task", async () => {
+    const waypoints = ["wp-1", "wp-2"].map((id) => ({ id, role: "stop" as const }));
+    const plan = { ...(connect.plan ?? {}), waypoints } as NonNullable<Snapshot["plan"]>;
+    for (let stop = 0; stop < waypoints.length; stop++) {
+      const snapshot = { ...connect, plan, tasks: [], crew: (["EV1", "EV2"] as const).map((crew_id) => ({ ...connect.crew[0], crew_id, activity: "AT_STOP" as const, stop_index: stop + 1 })) };
+      const props = selectOpsProps(snapshot, []);
+      for (const id of ["EV1", "EV2"] as const) {
+        expect(props.taskProgress?.[id]).toEqual({ stop: { stopId: waypoints[stop].id, stopNo: stop + 1, done: 0, total: 0 }, total: { done: 0, total: 0 } });
+      }
+      const view = await mount(createElement(OpsConsole, { ...props, client: null, snapshot }));
+      for (const id of ["EV1", "EV2"] as const) expect(must<HTMLButtonElement>(view.container, `[aria-label="Add task for ${id}"]`).disabled).toBe(false);
+      await view.unmount();
+    }
+  });
+
   it("is all empty without a snapshot", () => {
     const props = selectOpsProps(null, []);
     expect(props.crew).toBeUndefined();
@@ -195,5 +210,25 @@ describe("event log strip and drawer (03 SCR-11)", () => {
     expect(must(strip, "[data-unavailable]").textContent).toBe("—");
     await click(strip);
     expect(must(container, '[data-slot="event-log-drawer"]').textContent).toContain("No events logged yet");
+  });
+});
+
+
+describe("package 19 conditions contract", () => {
+  it("uses N-06 values with their supplied provenance and source", () => {
+    const conditions = {
+      sol: 4190, ltst: "13:05", sun_elevation_deg: 0,
+      dose_rate_background_ugy_h: 1, dose_rate_event_ugy_h: 2, event_series_utc: null,
+      source_ids: { sol: "mars24", ltst: "mars24", sun_elevation_deg: "mars24", dose_rate_background_ugy_h: "rad", dose_rate_event_ugy_h: "rad" },
+      provenance: { sol: "derived", ltst: "derived", sun_elevation_deg: "derived", dose_rate_background_ugy_h: "replayed", dose_rate_event_ugy_h: "replayed" },
+    } as Snapshot["conditions"];
+    const props = selectOpsProps({ ...connect, conditions }, []);
+    expect(props.sol).toEqual({ v: 4190, prov: "derived", src: "mars24" });
+    expect(props.ltst).toEqual({ v: "13:05", prov: "derived", src: "mars24" });
+    expect(props.conditions?.sunElevationDeg).toMatchObject({ v: 0, prov: "derived", src: "mars24" });
+    expect(props.conditions?.doseRateEventUgyH).toMatchObject({ v: 2, prov: "replayed", src: "rad" });
+    expect(selectOpsProps({ ...connect, conditions: { ...conditions, sol: null, ltst: null } }, []).sol).toBeUndefined();
+    expect(selectOpsProps({ ...connect, conditions: { ...conditions, source_ids: {} } }, []).ltst).toBeUndefined();
+    expect(props.phase).toBeUndefined();
   });
 });

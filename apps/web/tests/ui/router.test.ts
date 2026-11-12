@@ -86,7 +86,7 @@ describe("parseHash: connection role (one Hab Core connection per tab)", () => {
   });
 
   it("routes whose screen is not built open no connection either (SCR-16 earth, SCR-19 presenter, SCR-20 setup)", () => {
-    for (const h of ["#/earth", "#/presenter", "#/setup"]) expect(parseHash(h).role, h).toBeNull();
+    for (const h of ["#/presenter", "#/setup"]) expect(parseHash(h).role, h).toBeNull();
   });
 });
 

@@ -21,6 +21,11 @@ export interface AxeOptions {
   mode: HtmlMode;
   /** Name for `out/axe-<route>.json`; letters, digits, `-` and `_` only after sanitising. */
   route: string;
+  /**
+   * CSS selector of the one region to scan. A scan of the whole planner walks the SCR-05 profile chart (about 17,000 nodes, 16 to
+   * 22 s); a state that only changes one panel scans that panel (about 1 s). Omit it to scan the page.
+   */
+  include?: string;
 }
 
 export interface AxeSummary {
@@ -32,7 +37,9 @@ export async function axeScan(page: Page, options: AxeOptions): Promise<AxeSumma
   const mode = await page.evaluate(() => document.documentElement.dataset.mode ?? null);
   if (mode !== options.mode) throw new Error(`axeScan(${options.route}): page is in mode ${String(mode)}, expected ${options.mode}`);
 
-  const result = await new AxeBuilder({ page }).withTags([...AXE_TAGS]).analyze();
+  const builder = new AxeBuilder({ page }).withTags([...AXE_TAGS]);
+  if (options.include) builder.include(options.include);
+  const result = await builder.analyze();
   mkdirSync(OUT_DIR, { recursive: true });
   const name = options.route.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "root";
   writeFileSync(join(OUT_DIR, `axe-${name}.json`), `${JSON.stringify(result, null, 2)}\n`);

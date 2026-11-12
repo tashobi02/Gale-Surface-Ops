@@ -10,7 +10,7 @@
  *   provenance is taken directly from snapshot.provenance.
  * - Status comes from server alerts (HAVEN_TIME_EXCEEDED, RADIATION_ALERT, CONSUMABLES_LOW),
  *   never from client-side threshold math.
- * - Missing or unavailable values render "—" per 04 no-data rule with TODO(decision) recording.
+ * - Missing or unavailable values render "—" per the 04 no-data rule.
  * - A provenance label is read from the data and checked against the six classes (`isProvenance`), never cast. Where a
  *   snapshot's provenance map has no valid entry for a Crew field, the class 05 gives that field is shown.
  * - A cleared alert (`cleared_seq` set) no longer counts for status or for the alert slot.
@@ -84,15 +84,19 @@ export interface EvaMetadataStripView {
 /**
  * Link state of one crew member. `linked` and `stale` are null when the Hab Core has not reported
  * the crew member (unknown, never assumed linked). `ageSeconds` is null until the Hab Core supplies a
- * telemetry age: the client does not invent one (TODO(decision): see docs/tasks/status.md T24.03 and T24.07).
+ * last-linked sim time; the client does not invent one.
  */
 export interface EvaLinkView {
   readonly linked: boolean | null;
   /**
    * Link quality bars: always null for now. No Hab Core field carries link quality and the client does not derive
-   * one (the former `4 - hops` rule was invented). TODO(decision): TASK-32 T32.01 (Sadman) to supply it.
+   * one (N-04).
    */
   readonly bars: number | null;
+  /** Radio hops to HAB along the crew member's link path, from the crew record (N-04, BD-103). */
+  readonly hops: ProvenanceValue<number | string>;
+  /** The kind of the first hop of the link path, from the crew record (N-04, BD-103). */
+  readonly via: ProvenanceValue<string>;
   readonly ageSeconds: number | null;
   readonly stale: boolean | null;
 }
@@ -127,6 +131,11 @@ export interface HudViewModel {
 }
 
 const VALID_HAVEN_KINDS = ["hab", "vehicle", "refuge"] as const;
+
+/** The kinds of first hop the protocol names for a crew member's link path (N-04, BD-103). */
+export type LinkVia = "direct" | "relay" | "crew";
+
+const VALID_LINK_VIA: readonly string[] = ["direct", "relay", "crew"];
 
 const PROVENANCE_CLASSES: readonly string[] = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
 const CREW_ACTIVITIES: readonly string[] = ["IN_HAB", "WALKING", "AT_STOP", "TO_HAVEN", "SHELTERED"];
@@ -229,9 +238,10 @@ export function selectO2(snapshot: Snapshot | null, crewId: CrewId): EvaO2View {
     status = o2Alert.level === "warning" ? "warning" : "caution";
   }
 
-  // Time left: read from alert if available, otherwise "—". TODO(decision): Sadman to supply o2_time_left_min on crew.
+  // Time left comes from the crew record, or is unavailable.
   // Its class is the server's, from the alert's own provenance (simulated today); a number without a valid class is not
   // shown, because FR-15 allows no unlabelled value.
+  const crewTimeLeft = crew?.o2_remaining_min;
   const rawTimeLeft: unknown = o2Alert?.data.o2_remaining_min;
   const rawTimeLeftProv: unknown = o2Alert?.data.provenance?.["data.o2_remaining_min"];
   const alertTimeLeft = isFiniteNumber(rawTimeLeft) && isProvenance(rawTimeLeftProv) ? rawTimeLeft : undefined;
@@ -251,7 +261,10 @@ export function selectO2(snapshot: Snapshot | null, crewId: CrewId): EvaO2View {
 
   return {
     percent,
-    timeLeftMinutes: {
+    timeLeftMinutes: isFiniteNumber(crewTimeLeft) ? {
+      v: crewTimeLeft, unit: "min", prov: provenanceOr(snapshot?.provenance?.["crew.o2_remaining_min"], "simulated"),
+      src: "snapshot:crew.o2_remaining_min",
+    } : {
       v: timeLeftMinutes,
       unit: typeof timeLeftMinutes === "number" ? "min" : "",
       prov: timeLeftProv,
@@ -291,24 +304,28 @@ export function selectAlertSlot(snapshot: Snapshot | null, crewId: CrewId): EvaA
 }
 
 /**
- * The plan stop this crew member is at or heading for. The engine's `stop_index` is one-based and names the stop the
- * crew member last arrived at or left (apps/hab-core tick.ts), so against the zero-based list of plan stops:
- * AT_STOP is `stops[stop_index - 1]`; WALKING (or IN_HAB, before the first stop) is the stop after it, `stops[stop_index ?? 0]`.
+ * The plan stop this crew member is heading for. The engine's `stop_index` is one-based and names the stop the crew
+ * member last arrived at or left (apps/hab-core tick.ts, engine/tasks.ts): stop number n is `stops[n - 1]`. The stop that
+ * is next — the first one of the current plan revision not yet reached by this crew member (FD-047) — is therefore
+ * `stops[stop_index]` for both AT_STOP and WALKING: at stop n the next is n + 1 (`stops[n]`), and walking the next is
+ * the one after the last reached. This is the same array index the Hab Core's own crew margins use
+ * (apps/hab-core/src/engine/crewMargins.ts: "at a stop the next stop is the following one, not the one they stand at"),
+ * so the NEXT card's bearing, distance and ETA name the stop the card names.
+ *
  * TO_HAVEN and SHELTERED head for no stop, and an index outside the plan's stops is unknown: null, never stop 1 or the hab.
+ * `stop_index` is null before the crew member reached any stop: the next stop is then the first of the plan.
  */
 function planStopFor(stops: Waypoint[], activity: CrewActivity | null, stopIndex: number | null | undefined): Waypoint | null {
   if (activity === "TO_HAVEN" || activity === "SHELTERED") return null;
   const index = stopIndex ?? null;
   if (index !== null && !Number.isInteger(index)) return null;
-  const zeroBased = activity === "AT_STOP" ? (index === null ? NaN : index - 1) : (index ?? 0);
-  return stops[zeroBased] ?? null;
+  // The index is one-based: 0 is not a stop the engine names, so it is unknown, never the first stop.
+  if (index !== null && index < 1) return null;
+  return stops[index ?? 0] ?? null;
 }
 
 /**
- * Next stop card. Bearing and distance are NOT computed here: the UI holds no science (TASK-24, AGENTS
- * rule 2), and no authoritative navigation value reaches the snapshot yet, so both stay unavailable ("—").
- * TODO(decision): revised plans (a PLAN_REVISED that drops stops) against stop_index; with no plan in the snapshot the
- * stop is taken from the crew member's first task; authoritative navigation values from Hab Core/compute (TASK-32 T32.01).
+ * Next stop card. Navigation is supplied by Hab Core; the UI does not calculate route geometry.
  */
 export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNextStopView | null {
   if (!snapshot) return null;
@@ -316,53 +333,59 @@ export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNe
   const activity = activityOf(crew?.activity);
 
   const waypoints = snapshot.plan?.waypoints ?? [];
+  const stops = waypoints.filter((w) => w.role === "stop");
   // Tasks this crew member may see: their own or "either crew" (crew_id null). Never another crew's.
   const eligibleTasks = (snapshot.tasks ?? []).filter((t) => t.crew_id === null || t.crew_id === crewId);
   let stopId: string | null = null;
   let stopName = "";
-  // TODO(decision): Sadman to supply stop ETA in plan or snapshot when no leg gives one.
-  let etaMin: number | string = UNAVAILABLE;
 
-  if (waypoints.length > 0) {
-    const stops = waypoints.filter((w) => w.role === "stop");
-    const nextWp = planStopFor(stops, activity, crew?.stop_index);
-    if (nextWp) {
-      stopId = nextWp.id;
-      stopName = nextWp.label || `Stop ${stopId.replace(/^wp-/, "")}`;
-
-      const legs = snapshot.plan?.result?.legs ?? [];
-      const leg = legs.find((l) => l.to === nextWp.id);
-      if (leg && "walk_time_min" in leg && isFiniteNumber(leg.walk_time_min)) {
-        etaMin = Math.round(leg.walk_time_min);
-      }
-    }
-  } else if (eligibleTasks.length > 0) {
-    const task = eligibleTasks[0];
-    stopId = task.stop_id;
-    stopName = `Stop ${stopId.replace(/^wp-/, "")}`;
+  // The stop the NEXT card names is the stop the navigation points at (FD-047): the crew member's own next stop, which
+  // the Hab Core's crew margins compute as `stops[crew.stop_index]` (apps/hab-core/src/engine/crewMargins.ts) — the same
+  // array index the engine's own `next_stop_target` names for a single crew member
+  // (apps/hab-core/src/engine/nextStop.ts: `stops[min(stop_index)]`). The card's name, its task count and its bearing,
+  // distance and ETA therefore all name the same stop.
+  //
+  // `snapshot.next_stop_target` is the CREW-WIDE jump target (05 Snapshot: "the crew-wide next stop of 02 §D.17"), so it
+  // is not this crew member's navigation and must not override it: with two crew members at different stops the jump
+  // target and the per-crew navigation differ, and the card must follow the navigation it shows. The target is used only
+  // when the snapshot carries no plan stops to index into — then it is the only stop named by the server.
+  const target = snapshot.next_stop_target?.stop_id ?? null;
+  const targetWp = target ? stops.find((w) => w.id === target) ?? null : null;
+  const planWp = stops.length > 0 ? planStopFor(stops, activity, crew?.stop_index) : null;
+  if (planWp) {
+    stopId = planWp.id;
+    stopName = planWp.label || `Stop ${stopId.replace(/^wp-/, "")}`;
+  } else if (target && crew) {
+    // The crew member is in the snapshot but the plan's stops are not: the crew-wide target is then the only stop the
+    // server names, and it is this crew member's too.
+    stopId = target;
+    // The name comes from the plan when the plan carries the stop; otherwise from the target's own stop number.
+    stopName = targetWp?.label || `Stop ${String(snapshot.next_stop_target?.stop_index ?? target.replace(/^wp-/, ""))}`;
   }
 
+  // With no plan and no next-stop target there is no stop to navigate to: the NEXT card reads "—", never the stop of the
+  // first task.
   if (!stopId) {
     return null;
   }
 
-  // TODO(decision): authoritative navigation (bearing, distance) from Hab Core/compute.
-
   const tasks = eligibleTasks.filter((t) => t.stop_id === stopId);
   const done = tasks.filter((t) => t.state === "DONE").length;
+
+  const navigation = (value: unknown, field: string, unit: string, prov: Provenance): ProvenanceValue<number | string> =>
+    isFiniteNumber(value)
+      ? { v: value, unit, prov: provenanceOr(snapshot.provenance?.[`crew.${field}`], prov), src: `snapshot:crew.${field}` }
+      : unavailable(`crew.${field}`, prov);
 
   return {
     stopId,
     stopName,
-    bearingDeg: { v: UNAVAILABLE, unit: "", prov: null, src: "unavailable:next_stop.bearing_deg", unavailable: true },
-    distanceM: { v: UNAVAILABLE, unit: "", prov: null, src: "unavailable:next_stop.distance_m", unavailable: true },
-    etaMinutes: {
-      v: etaMin,
-      unit: typeof etaMin === "number" ? "min" : "",
-      prov: typeof etaMin === "number" ? "derived" : null,
-      src: typeof etaMin === "number" ? "plan.legs.walk_time_min" : "unavailable:next_stop.eta_min",
-      ...(typeof etaMin === "number" ? {} : { unavailable: true }),
-    },
+    // An unavailable value keeps the class its field always has: the bearing and the distance are derived and the ETA is
+    // modelled whatever the snapshot supplies, so the reader can tell what kind of number is missing (never a bare "—"
+    // with no class).
+    bearingDeg: isFiniteNumber(crew?.next_stop_bearing_deg) ? navigation(crew.next_stop_bearing_deg, "next_stop_bearing_deg", "°", "derived") : unavailable("next_stop.bearing_deg", "derived"),
+    distanceM: isFiniteNumber(crew?.next_stop_distance_m) ? navigation(crew.next_stop_distance_m, "next_stop_distance_m", "m", "derived") : unavailable("next_stop.distance_m", "derived"),
+    etaMinutes: isFiniteNumber(crew?.next_stop_eta_s) ? navigation(crew.next_stop_eta_s / 60, "next_stop_eta_s", "min", "modelled") : unavailable("next_stop.eta_min", "modelled"),
     taskCount: {
       done,
       total: tasks.length,
@@ -382,6 +405,23 @@ export function selectMetadataStrip(snapshot: Snapshot | null, crewId: CrewId): 
 
   const eva: unknown = crew?.eva_elapsed_s;
   const dose: unknown = crew?.dose_event_ugy;
+  const currentTime = snapshot?.sim_time ? Date.parse(snapshot.sim_time) : NaN;
+  const linkedTime = crew?.last_linked_sim_time ? Date.parse(crew.last_linked_sim_time) : NaN;
+  const ageSeconds = Number.isFinite(currentTime) && Number.isFinite(linkedTime) && currentTime >= linkedTime
+    ? (currentTime - linkedTime) / 1000 : null;
+
+  // The link path of N-04: the hops to HAB and the kind of the first hop, both from the crew record. The client
+  // computes neither, and there is no bar count to show: 02 §D.11 models line of sight only (BD-103).
+  const hopsProv = provenanceOr(snapshot?.provenance?.["crew.link_hops"], "simulated");
+  const viaProv = provenanceOr(snapshot?.provenance?.["crew.link_via"], "simulated");
+  const rawHops: unknown = crew?.link_hops;
+  const rawVia: unknown = crew?.link_via;
+  const hops: ProvenanceValue<number | string> = isFiniteNumber(rawHops)
+    ? { v: rawHops, unit: "hops", prov: hopsProv, src: "snapshot:crew.link_hops" }
+    : unavailable("crew.link_hops", hopsProv);
+  const via: ProvenanceValue<string> = VALID_LINK_VIA.includes(rawVia as LinkVia)
+    ? { v: rawVia as LinkVia, unit: "", prov: viaProv, src: "snapshot:crew.link_via" }
+    : unavailable("crew.link_via", viaProv);
 
   return {
     evaTimeSeconds: isFiniteNumber(eva)
@@ -393,9 +433,9 @@ export function selectMetadataStrip(snapshot: Snapshot | null, crewId: CrewId): 
     link: {
       linked,
       bars: null,
-      // No telemetry age reaches the snapshot: unavailable, not a placeholder.
-      // TODO(decision): Sadman to supply telemetry ageSeconds in snapshot.crew or derive from client linkLost().
-      ageSeconds: null,
+      hops,
+      via,
+      ageSeconds,
       stale,
     },
   };

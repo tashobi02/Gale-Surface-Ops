@@ -142,6 +142,11 @@ export function createMap(options: CreateMapOptions): MapHandle {
   if (attributionEl) {
     attributionEl.style.cssText = `${CHROME};left:8px;bottom:36px;white-space:normal;max-width:60%`;
     attributionEl.setAttribute("data-testid", "attribution");
+    // The attribution is not collapsible, so its toggle button is a dead control. The app styles its own map chrome and
+    // does not load OpenLayers' stylesheet, which is where that button is hidden: without this it shows as an "i"
+    // target on top of the map (04 §C.3).
+    const toggle = attributionEl.querySelector<HTMLElement>("button");
+    if (toggle) toggle.style.display = "none";
   }
   viewport.tabIndex = 0;
   viewport.setAttribute("role", "group");

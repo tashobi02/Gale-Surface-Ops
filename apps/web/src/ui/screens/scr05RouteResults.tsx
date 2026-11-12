@@ -100,13 +100,20 @@ function bannerOf(state: PlanState): Banner {
   return { status: "nominal", word: "OK", reason: "All legs routed, within limits" };
 }
 
-function announcementOf(state: PlanState, banner: Banner): string {
+/** The live-region text; the warning count is a shown value, so it carries its own label (FR-15) and the words around it do not. */
+function announcementOf(state: PlanState, banner: Banner): ReactNode {
   if (state.status === "Error") return `Plan computation failed: ${state.last_error_code ?? "error"}`;
   if (state.status === "Computing") return "Plan computing…";
   if (isEmpty(state)) return "Plan empty: add at least one stop";
   if (isPartial(state)) return "Plan updated: Partial route, unroutable legs";
   const count = state.result?.warnings.length ?? 0;
-  return `Plan updated: ${banner.word}, ${count} ${count === 1 ? "warning" : "warnings"}`;
+  return (
+    <>
+      {`Plan updated: ${banner.word}, `}
+      <span {...provAttrs({ prov: "derived", src: "result.warnings" })}>{count}</span>
+      {count === 1 ? " warning" : " warnings"}
+    </>
+  );
 }
 
 // ---------------------------------------------------------------------------

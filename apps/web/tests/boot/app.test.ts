@@ -214,11 +214,9 @@ describe("other routes", () => {
     expect(window.location.hash).toBe("#/planner");
   });
 
-  it("screens that are not built (SCR-16 earth) show a placeholder naming the screen", async () => {
+  it("renders the Earth view", async () => {
     const root = await boot("#/earth");
-    const screen = must(root, '[data-slot="not-built"]');
-    expect(screen.textContent).toContain("SCR-16");
-    expect(screen.textContent).toContain("—");
+    expect(must(root, '[data-screen="SCR-16"]').textContent).toContain("Earth support");
   });
 
   it("a navigation changes the screen without a reload and updates the title", async () => {
