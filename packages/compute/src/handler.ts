@@ -16,8 +16,8 @@ import type {
 import { assembleConditions } from "./conditions";
 import type { LoadedGrid } from "./grid";
 import { toLeg } from "./leg";
-import { searchLeg } from "./route";
-import { inverseEqc, samplePoint } from "./sampling";
+import { CANCEL_CHECK_EVERY_EXPANSIONS, MAX_NODE_EXPANSIONS, searchLeg, searchLegSteps, type LegSearch } from "./route";
+import { inverseEqc, parseEqcProjection, samplePoint } from "./sampling";
 import { evaTimeline } from "./timeModel";
 import { validateWorkerRequest } from "./validate";
 import { maxWalkbackKm } from "./walkback";
@@ -38,13 +38,52 @@ export interface HandlerOptions {
   /** The site's EnvConstant records (05 §E.3). Absent or without a matching rate: PLAN_RESULT has no `radiation`. */
   envConstants?: EnvConstant[];
   timer?: PhaseTimer;
+  /**
+   * SAMPLE_POINT's limit when the request carries none: the worker passes the scenario value it last received (BD-42).
+   * Neither present: INVALID_INPUT; compute holds no default.
+   */
+  hardSlopeLimitDeg?: number;
+  /** Cancel flag read at each cancellation check (BD-41). */
+  shouldCancel?: () => boolean;
+  /** Expansions between checks; default `CANCEL_CHECK_EVERY_EXPANSIONS`. */
+  cancellationInterval?: number;
+}
+
+/** The async handler additionally needs the adapter's yield (compute reads no clock and sets no timers). */
+export interface AsyncHandlerOptions extends HandlerOptions {
+  yieldToLoop: () => Promise<void>;
+  /** Test hook for TIMEOUT, as the third argument of the synchronous handler. */
+  maxExpansions?: number;
 }
 
 const runDirect: PhaseTimer = (_phase, fn) => fn();
 
+function errorOf(request: unknown, code: WorkerError["code"], message: string): WorkerError {
+  const req = request as Record<string, unknown> | null;
+  return { type: "ERROR", request_id: typeof req?.request_id === "string" ? req.request_id : "unknown", code, message };
+}
+
+/** Envelope, grid and input checks shared by both handlers; an error response, or null when the request may run. */
+function preflight(grid: LoadedGrid | null, request: WorkerRequest): WorkerError | null {
+  if (request === null || typeof request !== "object" || Array.isArray(request) || typeof request.type !== "string") {
+    return errorOf(request, "INVALID_INPUT", "Worker request must be an object with a type");
+  }
+  if (grid === null) {
+    return errorOf(request, "GRID_NOT_LOADED", "Routing grid failed checksum or did not load.");
+  }
+  if (request.type === "SAMPLE_POINT" || request.type === "COMPUTE_PLAN") {
+    const errors = validateWorkerRequest(request, grid);
+    if (errors.length > 0) {
+      return errorOf(request, "INVALID_INPUT", errors.map((error) => `${error.field}: ${error.message}`).join("; "));
+    }
+  }
+  return null;
+}
+
 /**
  * Handle a worker request message against the currently loaded grid.
- * Pure function: takes the grid and the request, returns the response.
+ * Pure function: takes the grid and the request, returns the response. Synchronous, so a cancel flag is read only at
+ * the check interval; in-flight cancellation is {@link handleWorkerMessageAsync}.
  * Optional maxExpansions parameter for testing TIMEOUT conditions.
  */
 export function handleWorkerMessage(
@@ -54,81 +93,97 @@ export function handleWorkerMessage(
   options: HandlerOptions = {},
 ): PureWorkerResponse {
   try {
-    if (request === null || typeof request !== "object" || Array.isArray(request) || typeof request.type !== "string") {
-      return {
-        type: "ERROR",
-        request_id: typeof request?.request_id === "string" ? request.request_id : "unknown",
-        code: "INVALID_INPUT",
-        message: "Worker request must be an object with a type",
-      };
-    }
-    if (grid === null) {
-      return {
-        type: "ERROR",
-        request_id: request.request_id,
-        code: "GRID_NOT_LOADED",
-        message: "Routing grid failed checksum or did not load.",
-      };
-    }
-
-    if (request.type === "SAMPLE_POINT" || request.type === "COMPUTE_PLAN") {
-      const errors = validateWorkerRequest(request, grid);
-      if (errors.length > 0) {
-        return {
-          type: "ERROR",
-          request_id: typeof request.request_id === "string" ? request.request_id : "unknown",
-          code: "INVALID_INPUT",
-          message: errors.map((error) => `${error.field}: ${error.message}`).join("; "),
-        };
-      }
-    }
-
-    if (request.type === "SAMPLE_POINT") {
-      return handleSamplePoint(grid, request);
-    }
-
-    if (request.type === "COMPUTE_PLAN") {
-      return handleComputePlan(grid, request, maxExpansions, options);
-    }
-
-    const req = request as unknown as Record<string, unknown>;
-    const reqId = typeof req?.request_id === "string" ? req.request_id : "unknown";
-    const reqType = typeof req?.type === "string" ? req.type : "unknown";
-    return {
-      type: "ERROR",
-      request_id: reqId,
-      code: "INTERNAL",
-      message: `Unknown worker request type: ${reqType}`,
-    };
+    const refused = preflight(grid, request);
+    if (refused) return refused;
+    const loaded = grid as LoadedGrid;
+    if (request.type === "SAMPLE_POINT") return handleSamplePoint(loaded, request, options);
+    if (request.type === "COMPUTE_PLAN") return handleComputePlan(loaded, request, maxExpansions, options);
+    return errorOf(request, "INTERNAL", `Unknown worker request type: ${String((request as { type: unknown }).type)}`);
   } catch (err) {
-    const req = request as unknown as Record<string, unknown>;
-    const reqId = typeof req?.request_id === "string" ? req.request_id : "unknown";
-    return {
-      type: "ERROR",
-      request_id: reqId,
-      code: "INTERNAL",
-      message: err instanceof Error ? err.message : String(err),
-    };
+    return errorOf(request, "INTERNAL", err instanceof Error ? err.message : String(err));
+  }
+}
+
+/**
+ * The same handler with in-flight cancellation (BD-41): each leg's search yields to the event loop every
+ * `cancellationInterval` expansions and reads `shouldCancel` afterwards. The result equals the synchronous handler's.
+ * The phase timer brackets only the synchronous slices, never an await.
+ */
+export async function handleWorkerMessageAsync(
+  grid: LoadedGrid | null,
+  request: WorkerRequest,
+  options: AsyncHandlerOptions,
+): Promise<PureWorkerResponse> {
+  try {
+    const refused = preflight(grid, request);
+    if (refused) return refused;
+    if (request.type !== "COMPUTE_PLAN") return handleWorkerMessage(grid, request, undefined, options);
+    const loaded = grid as LoadedGrid;
+    const time = options.timer ?? runDirect;
+    const maxExpansions = options.maxExpansions ?? MAX_NODE_EXPANSIONS;
+    const interval = options.cancellationInterval ?? CANCEL_CHECK_EVERY_EXPANSIONS;
+    const pairs = legPairsOf(request);
+    const searches: LegSearch[] = [];
+    for (const [fromWp, toWp] of pairs) {
+      const steps = searchLegSteps(loaded, fromWp, toWp, request.scenario, maxExpansions, interval);
+      let search: LegSearch | undefined;
+      while (search === undefined) {
+        const step = time("routing", () => steps.next());
+        if (step.done) {
+          search = step.value;
+        } else {
+          await options.yieldToLoop();
+          if (options.shouldCancel?.()) search = { status: "CANCELLED" };
+        }
+      }
+      const ended = searchEnd(search, request, fromWp, toWp);
+      if (ended) return ended;
+      searches.push(search);
+    }
+    return finishPlan(loaded, request, pairs, searches, options);
+  } catch (err) {
+    return errorOf(request, "INTERNAL", err instanceof Error ? err.message : String(err));
   }
 }
 
 function handleSamplePoint(
   grid: LoadedGrid,
   request: SamplePointRequest,
-): SampleResult {
-  const result = samplePoint(
-    grid,
-    request.x_m,
-    request.y_m,
-    request.snap_radius_m,
-    request.hard_slope_limit_deg ?? 15,
-  );
+  options: HandlerOptions,
+): SampleResult | WorkerError {
+  const limit = request.hard_slope_limit_deg ?? options.hardSlopeLimitDeg;
+  if (limit === undefined) {
+    return errorOf(request, "INVALID_INPUT", "hard_slope_limit_deg: the request has none and the worker holds no scenario yet");
+  }
+  const result = samplePoint(grid, request.x_m, request.y_m, request.snap_radius_m, limit);
 
   return {
     type: "SAMPLE_RESULT",
     request_id: request.request_id,
     ...result,
   };
+}
+
+type Waypoints = ComputePlanRequest["waypoints"];
+
+/** Consecutive waypoint pairs, plus the return leg to the first waypoint for a loop. */
+function legPairsOf(request: ComputePlanRequest): [Waypoints[number], Waypoints[number]][] {
+  const waypoints = request.waypoints;
+  const pairs: [Waypoints[number], Waypoints[number]][] = [];
+  for (let i = 0; i < waypoints.length - 1; i++) pairs.push([waypoints[i], waypoints[i + 1]]);
+  if (request.scenario.loop && waypoints.length >= 2) pairs.push([waypoints[waypoints.length - 1], waypoints[0]]);
+  return pairs;
+}
+
+/** The error response for a search that did not end in OK or NO_ROUTE; null otherwise. */
+function searchEnd(search: LegSearch, request: ComputePlanRequest, fromWp: Waypoints[number], toWp: Waypoints[number]): WorkerError | null {
+  if (search.status === "TIMEOUT") {
+    return errorOf(request, "TIMEOUT", `Routing search timed out between ${fromWp.id} and ${toWp.id}`);
+  }
+  if (search.status === "CANCELLED") {
+    return errorOf(request, "CANCELLED", `Routing search cancelled between ${fromWp.id} and ${toWp.id}`);
+  }
+  return null;
 }
 
 function handleComputePlan(
@@ -138,43 +193,37 @@ function handleComputePlan(
   options: HandlerOptions = {},
 ): PurePlanResultMessage | WorkerError {
   const time = options.timer ?? runDirect;
+  const pairs = legPairsOf(request);
+  const searches: LegSearch[] = [];
+  for (const [fromWp, toWp] of pairs) {
+    const search = time("routing", () =>
+      searchLeg(grid, fromWp, toWp, request.scenario, maxExpansions, options.shouldCancel, options.cancellationInterval),
+    );
+    const ended = searchEnd(search, request, fromWp, toWp);
+    if (ended) return ended;
+    searches.push(search);
+  }
+  return finishPlan(grid, request, pairs, searches, options);
+}
+
+/** Legs, totals, timeline, conditions, radiation and warnings from finished searches (shared by both handlers). */
+function finishPlan(
+  grid: LoadedGrid,
+  request: ComputePlanRequest,
+  pairs: [Waypoints[number], Waypoints[number]][],
+  searches: LegSearch[],
+  options: HandlerOptions,
+): PurePlanResultMessage {
+  const time = options.timer ?? runDirect;
   const waypoints = request.waypoints;
   const loop = request.scenario.loop;
-
-  // In-flight cancellation (BD-41) is the async search of the worker-grid package; this handler is synchronous.
-  // 2. Search legs between consecutive waypoints (+ return leg if loop)
-  const legPairs: [typeof waypoints[0], typeof waypoints[0]][] = [];
-  for (let i = 0; i < waypoints.length - 1; i++) {
-    legPairs.push([waypoints[i], waypoints[i + 1]]);
-  }
-  if (loop && waypoints.length >= 2) {
-    legPairs.push([waypoints[waypoints.length - 1], waypoints[0]]);
-  }
-
   const legs: PlanResult["legs"] = [];
   const cellPaths: (readonly number[] | undefined)[] = [];
-  for (const [fromWp, toWp] of legPairs) {
-    const search = time("routing", () => searchLeg(grid, fromWp, toWp, request.scenario, maxExpansions));
-    if (search.status === "TIMEOUT") {
-      return {
-        type: "ERROR",
-        request_id: request.request_id,
-        code: "TIMEOUT",
-        message: `Routing search timed out between ${fromWp.id} and ${toWp.id}`,
-      };
-    }
-    if (search.status === "CANCELLED") {
-      return {
-        type: "ERROR",
-        request_id: request.request_id,
-        code: "CANCELLED",
-        message: `Routing search cancelled between ${fromWp.id} and ${toWp.id}`,
-      };
-    }
-    const leg = toLeg(grid, fromWp.id, toWp.id, search, request.scenario);
-    legs.push(leg);
+  pairs.forEach(([fromWp, toWp], i) => {
+    const search = searches[i];
+    legs.push(toLeg(grid, fromWp.id, toWp.id, search, request.scenario));
     cellPaths.push(search.status === "OK" ? search.cells : undefined);
-  }
+  });
 
   const hasNoRoute = legs.some((l) => l.status === "NO_ROUTE");
 
@@ -236,7 +285,7 @@ function handleComputePlan(
   // routed walk times, so it has no timeline and no dose duration; its EVA-sol conditions still need only the start.
   const { stops_timeline, conditions, radiation, warnings } = time("estimates", () => {
     const startWp = waypoints.find((w) => w.role === "start") ?? waypoints[0];
-    const site = inverseEqc(startWp.x_m, startWp.y_m);
+    const site = inverseEqc(startWp.x_m, startWp.y_m, parseEqcProjection(grid.meta.proj4));
     const timeline = hasNoRoute
       ? []
       : evaTimeline(request.scenario, waypoints, legs.map((l) => (l.status === "OK" ? l.walk_time_min : Number.NaN)));
@@ -247,8 +296,8 @@ function handleComputePlan(
       envConstants: options.envConstants ?? [],
       durationH: totals === null ? null : totals.eva_total_min / 60,
     });
-    // `undefined` timeline: the DARKNESS check over the timeline instants is BD-49 (warnings package).
-    const collected = collectWarnings(legs, request.scenario, undefined, maxWbKm, grid, waypoints, cellPaths);
+    // DARKNESS reads the timeline instants and the site (BD-49); a PARTIAL plan has an empty timeline, so none is raised.
+    const collected = collectWarnings(legs, request.scenario, assembled.stops_timeline, maxWbKm, grid, waypoints, cellPaths, site);
     return { ...assembled, warnings: collected };
   });
   const status = planStatus(legs, warnings);

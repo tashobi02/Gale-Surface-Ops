@@ -5,12 +5,11 @@ import Ajv2020 from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 import { makePlaneGrid, makeWallWithGapGrid } from "../../../apps/web/tests/fixtures/grids";
-import { handleMessage, setWorkerGrid } from "../../../apps/web/src/worker/planWorker";
-import { handleWorkerMessage } from "../src/handler";
+import { handleWorkerMessage, handleWorkerMessageAsync } from "../src/handler";
 import { cellIndex } from "../src/grid";
 import { localTrueSolarTime, mslSol, solarLongitude } from "../src/mars24";
 import { estimateDose } from "../src/radiation";
-import { inverseEqc } from "../src/sampling";
+import { inverseEqc, parseEqcProjection } from "../src/sampling";
 import { solarPosition, sunriseSunset } from "../src/sun";
 
 const testGrid = makePlaneGrid({
@@ -144,7 +143,7 @@ describe("compute worker handler and entry", () => {
         snap_radius_m: 50,
       };
 
-      const response = handleWorkerMessage(testGrid, sampleReq);
+      const response = handleWorkerMessage(testGrid, sampleReq, undefined, { hardSlopeLimitDeg: 15 });
       expect(response.type).toBe("SAMPLE_RESULT");
       if (response.type === "SAMPLE_RESULT") {
         expect(response.request_id).toBe("sample-42");
@@ -156,8 +155,34 @@ describe("compute worker handler and entry", () => {
       }
     });
 
+    // BD-49: the handler now evaluates DARKNESS from the timeline, so the "OK" plan starts an hour after sunrise (derived
+    // from compute at the plan's own site, not typed) and the night plan starts an hour after sunset.
+    const evaStartAt = (offsetMin: number, which: "sunrise_utc" | "sunset_utc"): string => {
+      const site = inverseEqc(12.5, -12.5, parseEqcProjection(testGrid.meta.proj4));
+      const sun = sunriseSunset(new Date(defaultComputeRequest.scenario.eva_start_utc), site.lat, site.lon_e);
+      return new Date(Date.parse(sun[which]) + offsetMin * 60_000).toISOString();
+    };
+
+    it("raises DARKNESS and OVER_LIMITS for a plan that starts after sunset, and none for one after sunrise (BD-49)", () => {
+      const dark = handleWorkerMessage(testGrid, {
+        ...defaultComputeRequest,
+        scenario: { ...defaultComputeRequest.scenario, eva_start_utc: evaStartAt(60, "sunset_utc") },
+      });
+      const lit = handleWorkerMessage(testGrid, {
+        ...defaultComputeRequest,
+        scenario: { ...defaultComputeRequest.scenario, eva_start_utc: evaStartAt(60, "sunrise_utc") },
+      });
+      expect(dark).toMatchObject({ type: "PLAN_RESULT", status: "OVER_LIMITS" });
+      expect(dark.type === "PLAN_RESULT" && dark.warnings.filter((w) => w.code === "DARKNESS")).toMatchObject([{ severity: "caution", leg: 0 }]);
+      expect(lit).toMatchObject({ type: "PLAN_RESULT", status: "OK" });
+      expect(lit.type === "PLAN_RESULT" && lit.warnings.some((w) => w.code === "DARKNESS")).toBe(false);
+    });
+
     it("handles COMPUTE_PLAN with loop: true (3 waypoints -> 3 legs)", () => {
-      const response = handleWorkerMessage(testGrid, defaultComputeRequest);
+      const response = handleWorkerMessage(testGrid, {
+        ...defaultComputeRequest,
+        scenario: { ...defaultComputeRequest.scenario, eva_start_utc: evaStartAt(60, "sunrise_utc") },
+      });
       expect(response.type).toBe("PLAN_RESULT");
       if (response.type === "PLAN_RESULT") {
         expect(response.request_id).toBe("req-001");
@@ -404,7 +429,7 @@ describe("compute worker handler and entry", () => {
     const envConstants = [loadRate("max"), loadRate("min")];
     const start = defaultComputeRequest.waypoints[0];
     // The site is the plan's start waypoint through the inverse working projection (BD-50).
-    const site = inverseEqc(start.x_m, start.y_m);
+    const site = inverseEqc(start.x_m, start.y_m, parseEqcProjection(testGrid.meta.proj4));
 
     function plan(options: Parameters<typeof handleWorkerMessage>[3] = { envConstants }, request: ComputePlanRequest = defaultComputeRequest) {
       const response = handleWorkerMessage(testGrid, request, undefined, options);
@@ -488,7 +513,7 @@ describe("compute worker handler and entry", () => {
         ...defaultComputeRequest,
         waypoints: defaultComputeRequest.waypoints.map((w) => ({ ...w, x_m: w.x_m + shift })),
       };
-      const movedSite = inverseEqc(start.x_m + shift, start.y_m);
+      const movedSite = inverseEqc(start.x_m + shift, start.y_m, parseEqcProjection(testGrid.meta.proj4));
       expect(Math.abs(movedSite.lon_e - site.lon_e)).toBeGreaterThan(1);
 
       const res = handleWorkerMessage(farGrid, moved, undefined, { envConstants });
@@ -533,31 +558,87 @@ describe("compute worker handler and entry", () => {
     });
   });
 
-  describe("planWorker entry and stale-revision rejection (T05.27)", () => {
-    it("rejects an older plan_revision with CANCELLED after a newer request", () => {
-      setWorkerGrid(testGrid);
+  // BD-42: SAMPLE_POINT's hard slope limit is the request's own, else the one the worker holds; never a literal in compute.
+  describe("SAMPLE_POINT hard slope limit (BD-42)", () => {
+    const steep = makePlaneGrid({ width: 20, height: 20, cell_m: 5, slope_deg: 12, origin_m: [0, 0] });
+    const sample = (extra: Partial<SamplePointRequest> = {}): SamplePointRequest => ({
+      type: "SAMPLE_POINT", request_id: "s", x_m: 12.5, y_m: -12.5, snap_radius_m: 50, ...extra,
+    });
 
-      // Process revision 10
-      const reqRev10: ComputePlanRequest = {
-        ...defaultComputeRequest,
-        request_id: "req-rev10",
-        plan_revision: 10,
-      };
-      const res10 = handleMessage(reqRev10);
-      expect(res10.type).toBe("PLAN_RESULT");
+    it("uses the request's limit over the handler's", () => {
+      const strict = handleWorkerMessage(steep, sample({ hard_slope_limit_deg: 10 }), undefined, { hardSlopeLimitDeg: 15 });
+      const loose = handleWorkerMessage(steep, sample({ hard_slope_limit_deg: 20 }), undefined, { hardSlopeLimitDeg: 5 });
+      expect(strict).toMatchObject({ type: "SAMPLE_RESULT", passable: false, reason: "SLOPE_OVER_LIMIT" });
+      expect(loose).toMatchObject({ type: "SAMPLE_RESULT", passable: true });
+    });
 
-      // Now revision 5 arrives later (superseded)
-      const reqRev5: ComputePlanRequest = {
-        ...defaultComputeRequest,
-        request_id: "req-rev5",
-        plan_revision: 5,
+    it("falls back to the handler's limit when the request has none", () => {
+      expect(handleWorkerMessage(steep, sample(), undefined, { hardSlopeLimitDeg: 10 })).toMatchObject({ passable: false });
+      expect(handleWorkerMessage(steep, sample(), undefined, { hardSlopeLimitDeg: 15 })).toMatchObject({ passable: true });
+    });
+
+    it("answers INVALID_INPUT, not a guess, when neither the request nor the handler has a limit", () => {
+      const response = handleWorkerMessage(steep, sample());
+      expect(response).toMatchObject({ type: "ERROR", request_id: "s", code: "INVALID_INPUT" });
+      expect((response as { message: string }).message).toMatch(/hard_slope_limit_deg/);
+    });
+  });
+
+  // BD-41: the async handler yields between slices of the search and reads the cancel flag after each yield.
+  describe("handleWorkerMessageAsync (BD-41)", () => {
+    const macrotask = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+    const bigGrid = makePlaneGrid({ width: 40, height: 40, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+    const farRequest: ComputePlanRequest = {
+      ...defaultComputeRequest,
+      request_id: "req-far",
+      scenario: { ...defaultComputeRequest.scenario, loop: false },
+      waypoints: [
+        { id: "wp-0", role: "start", x_m: 12.5, y_m: -12.5 },
+        { id: "wp-1", role: "stop", x_m: 187.5, y_m: -187.5 },
+      ],
+    };
+
+    it("returns exactly what the synchronous handler returns", async () => {
+      const sync = handleWorkerMessage(testGrid, defaultComputeRequest);
+      const asyncResponse = await handleWorkerMessageAsync(testGrid, defaultComputeRequest, { yieldToLoop: macrotask });
+      expect(asyncResponse).toStrictEqual(sync);
+    });
+
+    it("answers CANCELLED with the request_id when the flag flips while the search is yielded", async () => {
+      let cancel = false;
+      setTimeout(() => { cancel = true; }, 0);
+      const response = await handleWorkerMessageAsync(bigGrid, farRequest, {
+        yieldToLoop: macrotask, cancellationInterval: 10, shouldCancel: () => cancel,
+      });
+      expect(response).toMatchObject({ type: "ERROR", request_id: "req-far", code: "CANCELLED" });
+    });
+
+    it("answers TIMEOUT through an injected maxExpansions", async () => {
+      const response = await handleWorkerMessageAsync(bigGrid, farRequest, { yieldToLoop: macrotask, maxExpansions: 5 });
+      expect(response).toMatchObject({ type: "ERROR", request_id: "req-far", code: "TIMEOUT" });
+    });
+
+    it("answers GRID_NOT_LOADED for every request until a grid is given", async () => {
+      expect(await handleWorkerMessageAsync(null, farRequest, { yieldToLoop: macrotask })).toMatchObject({ code: "GRID_NOT_LOADED", request_id: "req-far" });
+    });
+
+    it("brackets only its synchronous slices with the timer, so awaited time is not counted as routing", async () => {
+      let open = 0;
+      let maxOpen = 0;
+      let routingCalls = 0;
+      const timer = <T,>(phase: "routing" | "estimates", fn: () => T): T => {
+        open++;
+        maxOpen = Math.max(maxOpen, open);
+        if (phase === "routing") routingCalls++;
+        try { return fn(); } finally { open--; }
       };
-      const res5 = handleMessage(reqRev5);
-      expect(res5.type).toBe("ERROR");
-      if (res5.type === "ERROR") {
-        expect(res5.request_id).toBe("req-rev5");
-        expect(res5.code).toBe("CANCELLED");
-      }
+      let yields = 0;
+      await handleWorkerMessageAsync(bigGrid, farRequest, {
+        yieldToLoop: async () => { yields++; await macrotask(); }, cancellationInterval: 10, timer,
+      });
+      expect(yields).toBeGreaterThan(0);
+      expect(routingCalls).toBeGreaterThan(yields); // one slice per yield plus the last one
+      expect(open).toBe(0); // no timer is left open across an await
     });
   });
 });

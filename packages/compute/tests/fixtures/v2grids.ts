@@ -62,7 +62,7 @@
  * LOS tests should assert cells clearly inside and outside it.
  */
 import { FLAG_BITS } from "@marswalk/protocol";
-import type { MissionScenario, ParamSet, RoutingGrid } from "@marswalk/protocol";
+import type { LoadedGridMeta, MissionScenario, ParamSet, RoutingGrid } from "@marswalk/protocol";
 import type { LoadedGrid } from "../../src/grid";
 import { MARS_RADIUS_M } from "../../src/viewshed";
 
@@ -228,7 +228,7 @@ export function flatGrid(opts: FlatGridOptions): LoadedGrid {
   const width = cellsWest + cellsEast + 1;
   const height = cellsNorth + cellsSouth + 1;
   const n = width * height;
-  const meta: RoutingGrid = {
+  const meta: LoadedGridMeta = {
     cell_m,
     width,
     height,
@@ -240,6 +240,7 @@ export function flatGrid(opts: FlatGridOptions): LoadedGrid {
     flags_asset: "",
     comm_hab_asset: "",
     hab_mast: { x_m: HAB_XY.x_m, y_m: HAB_XY.y_m, height_m: MAST_HEIGHT_M },
+    proj4: V2_FIXTURE_PROJ4,
   };
   return {
     meta,
@@ -254,6 +255,10 @@ export function flatGrid(opts: FlatGridOptions): LoadedGrid {
 function setHazard(g: LoadedGrid, i: number, j: number): void {
   g.flags[i * g.meta.width + j]! |= HAZARD_BIT;
 }
+
+/** Fixture working projection (the mock site manifest's string, 05 §E.3); no v2 test reads a latitude from it. */
+const V2_FIXTURE_PROJ4 =
+  "+proj=eqc +lat_ts=-4.70 +lat_0=-4.70 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs";
 
 /** u8 encoding of a slope: degrees x 4 (05 §C RoutingGrid). */
 function encodeSlope(deg: number): number {

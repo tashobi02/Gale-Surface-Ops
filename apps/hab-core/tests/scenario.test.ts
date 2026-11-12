@@ -235,7 +235,7 @@ describe("loadSite (T22.11 follow-up, 05 §E.7; FR-39, FR-40)", () => {
   it("loads the mock site: every array has width x height cells, read from its manifest", () => {
     const { grid } = loadMock();
     const cells = MOCK.grid.width * MOCK.grid.height;
-    expect(grid.meta).toEqual(MOCK.grid);
+    expect(grid.meta).toEqual({ ...MOCK.grid, proj4: MOCK.crs.proj4 });
     for (const a of [grid.elevation, grid.slopeP90, grid.slopeMax, grid.flags, grid.commHab]) expect(a.length).toBe(cells);
     const ti = readFileSync(join(MOCK_SITE_DIR, assetOf(MOCK, MOCK.grid.ti_asset!).path));
     expect(grid.ti).toBeInstanceOf(Float32Array);
@@ -475,6 +475,22 @@ describe("loadSite: the TI sidecar is its own coarse grid (05 RoutingGrid ti_ass
     const err = siteRejection(dir);
     expect(err.check).toBe("grid_dims");
     expect(err.message).toContain(MOCK.grid.ti_asset!);
+  });
+});
+
+describe("loadSite: the grid carries the manifest's working projection (BD-45)", () => {
+  it("puts crs.proj4 on the loaded grid's meta, byte for byte", () => {
+    const { grid } = loadSite(siteCopy(() => {}), MOCK.site_id, MOCK.data_version);
+    expect(grid.meta.proj4).toBe(MOCK.crs.proj4);
+  });
+
+  it("rejects a manifest whose crs.proj4 is not the Mars eqc string, as a manifest fault", () => {
+    const dir = siteCopy((m) => {
+      m.crs.proj4 = "+proj=merc +R=6378137 +units=m +no_defs";
+    });
+    const err = siteRejection(dir);
+    expect(err.check).toBe("site_manifest");
+    expect(err.message).toMatch(/proj4/);
   });
 });
 

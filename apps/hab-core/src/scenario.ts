@@ -18,7 +18,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020, { type ErrorObject, type ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
-import { cellIndex, isCellPassable, loadGrid, vehiclePassable, type LoadedGrid } from "@marswalk/compute";
+import { cellIndex, isCellPassable, loadGrid, parseEqcProjection, vehiclePassable, type LoadedGrid } from "@marswalk/compute";
 import type { DoseSeries, EarthLinkTable, EventLibraryEntry, HabCandidate, ParamSet, PlanExport, Scenario, Site, TaskLibraryEntry } from "@marswalk/protocol";
 import { canonicalJson } from "./log";
 
@@ -161,7 +161,12 @@ export function loadSite(
   const ti = meta.ti_asset === undefined ? undefined : read(meta.ti_asset, "f32", false);
   let grid: LoadedGrid;
   try {
-    grid = loadGrid(meta, { elevation, slopeP90, slopeMax, flags, commHab, ...(ti === undefined ? {} : { ti }) });
+    parseEqcProjection(manifest.crs.proj4);
+  } catch (err) {
+    throw new ScenarioCheckError("site_manifest", `${manifestPath} crs.proj4 is not the Mars working projection: ${(err as Error).message}`);
+  }
+  try {
+    grid = loadGrid({ ...meta, proj4: manifest.crs.proj4 }, { elevation, slopeP90, slopeMax, flags, commHab, ...(ti === undefined ? {} : { ti }) });
   } catch (err) {
     throw new ScenarioCheckError("grid_dims", `${manifestPath} grid arrays do not match ${meta.width}x${meta.height}: ${(err as Error).message}`);
   }

@@ -7,7 +7,7 @@ import type { ComputePlanRequest, PlanResultMessage } from "@marswalk/protocol";
 import { handleWorkerMessage } from "@marswalk/compute";
 import { describe, expect, it } from "vitest";
 import { makePlaneGrid } from "../fixtures/grids";
-import { handleMessage, setWorkerGrid } from "../../src/worker/planWorker";
+import { createPlanWorker } from "../../src/worker/planWorker";
 
 const grid = makePlaneGrid({ width: 20, height: 20, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
 
@@ -39,10 +39,11 @@ const request: ComputePlanRequest = {
 };
 
 describe("planWorker adapter with the real pure handler", () => {
-  it("adds a real ISO timestamp and finite measured total, routing and estimates, and nothing else, to timing_ms", () => {
-    setWorkerGrid(grid);
+  it("adds a real ISO timestamp and finite measured total, routing and estimates, and nothing else, to timing_ms", async () => {
+    const worker = createPlanWorker({ yieldToLoop: () => new Promise((resolve) => setTimeout(resolve, 0)) });
+    worker.setGrid(grid);
     const before = Date.now();
-    const response = handleMessage(request) as PlanResultMessage;
+    const response = (await worker.handleMessage(request)) as PlanResultMessage;
     const after = Date.now();
 
     expect(response.type).toBe("PLAN_RESULT");
@@ -70,5 +71,30 @@ describe("planWorker adapter with the real pure handler", () => {
     expect(first).not.toHaveProperty("computed_utc");
     expect(first).not.toHaveProperty("timing_ms");
     expect(second).toEqual(first);
+  });
+
+  it("cancels a long real search in flight when a newer revision arrives, and answers the newer one", async () => {
+    const big = makePlaneGrid({ width: 120, height: 120, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+    const worker = createPlanWorker({ yieldToLoop: () => new Promise((resolve) => setTimeout(resolve, 0)), cancellationInterval: 50 });
+    worker.setGrid(big);
+    const far: ComputePlanRequest = {
+      ...request,
+      waypoints: [
+        { id: "wp-0", role: "start", x_m: 12.5, y_m: -12.5 },
+        { id: "wp-1", role: "stop", x_m: 587.5, y_m: -587.5 },
+      ],
+    };
+    const first = worker.handleMessage({ ...far, request_id: "old", plan_revision: 1 });
+    const second = worker.handleMessage({ ...far, request_id: "new", plan_revision: 2 });
+
+    expect(await first).toMatchObject({ type: "ERROR", request_id: "old", code: "CANCELLED" });
+    expect(await second).toMatchObject({ type: "PLAN_RESULT", request_id: "new", plan_revision: 2 });
+  });
+
+  it("answers the same plan as the pure synchronous handler, apart from run metadata", async () => {
+    const worker = createPlanWorker({ yieldToLoop: () => new Promise((resolve) => setTimeout(resolve, 0)) });
+    worker.setGrid(grid);
+    const { computed_utc: _c, timing_ms: _t, ...viaWorker } = (await worker.handleMessage(request)) as PlanResultMessage;
+    expect(viaWorker).toStrictEqual(handleWorkerMessage(grid, request));
   });
 });

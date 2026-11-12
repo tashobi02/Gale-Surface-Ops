@@ -60,7 +60,7 @@ export function douglasPeucker(
  * - Douglas–Peucker simplification (2 m tolerance) applied to geometry for display only.
  * - Computes walking duration using the walking-time model (timeModel.ts).
  *
- * TODO(decision): Leg metric definitions (spec question 10):
+ * Leg metric definitions (BD-43, written into 05 Leg):
  * - distance_m is horizontal 2D ground track distance sum(hypot(dx, dy)) along cell centres.
  * - walk_time_min is the sum of stepTimeH along cell steps converted to minutes (* 60).
  * - climb_m / descent_m are the positive/negative elevation deltas along the cell path.

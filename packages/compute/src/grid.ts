@@ -2,11 +2,13 @@
  * Routing-grid loading and addressing (docs/specs/05 §C RoutingGrid, §E.1, §E.3; 02 §E.1).
  * FR-03, FR-07. Implemented by TASK-05 (T05.16).
  */
-import type { RoutingGrid } from "@marswalk/protocol";
+import type { LoadedGridMeta } from "@marswalk/protocol";
+import { parseEqcProjection } from "./projection";
 
 /** In-memory arrays for one site, row-major, north-up (02 §E.1). */
 export interface LoadedGrid {
-  meta: RoutingGrid;
+  /** The 05 RoutingGrid record plus the manifest's working-projection `proj4` (BD-45). */
+  meta: LoadedGridMeta;
   /** Metres. */
   elevation: Float32Array;
   /** Degrees × 4, 255 = no data. */
@@ -28,10 +30,11 @@ export interface LoadedGrid {
  * Input: grid metadata + raw ArrayBuffers. Output: LoadedGrid. TASK-05 (T05.16).
  *
  * Referential integrity (05 §E.3):
- * Rejects buffers whose dimensions do not match the grid metadata width * height.
+ * Rejects buffers whose dimensions do not match the grid metadata width * height, and a `proj4` that is not the Mars eqc
+ * string (BD-45). Arrays are host-order typed arrays; every target host is little-endian (BD-53, pinned by a test).
  */
 export function loadGrid(
-  meta: RoutingGrid,
+  meta: LoadedGridMeta,
   buffers: {
     elevation: ArrayBuffer;
     slopeP90: ArrayBuffer;
@@ -42,6 +45,9 @@ export function loadGrid(
   },
 ): LoadedGrid {
   const expectedCount = meta.width * meta.height;
+
+  // The working projection is checked here, once, so every later latitude and distance rests on a Mars eqc string.
+  parseEqcProjection(meta.proj4);
 
   if (buffers.elevation.byteLength !== expectedCount * Float32Array.BYTES_PER_ELEMENT) {
     throw new Error(
