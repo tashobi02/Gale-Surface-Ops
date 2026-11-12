@@ -8,10 +8,10 @@ import { formatNumber } from "../components/format";
 import { pointAlongTrack } from "../map/routeGeometry";
 import { useProfileLayout } from "./profileLayout";
 
-export interface ProfileChartProps { result: PlanResult; hover?: PlanHoverPosition | null }
+export interface ProfileChartProps { result: PlanResult; hover?: PlanHoverPosition | null; print?: boolean }
 const source = { prov: "derived", src: "usgs-gale-dem-1m-v3" } as const;
 
-export function ProfileChart({ result, hover }: ProfileChartProps): ReactElement {
+export function ProfileChart({ result, hover, print = false }: ProfileChartProps): ReactElement {
   const id = `profile-${useId().replace(/:/g, "")}-`;
   const layout = useProfileLayout(result.legs);
   const plot = useRef<HTMLDivElement>(null);
@@ -39,7 +39,8 @@ export function ProfileChart({ result, hover }: ProfileChartProps): ReactElement
   const delta = (p: (typeof points)[number]) => hover?.distance_m !== undefined ? Math.abs(p.distance - hover.distance_m) : hover?.coord && p.coord ? Math.hypot(p.coord[0] - hover.coord[0], p.coord[1] - hover.coord[1]) : Infinity;
   const active = hover ? points.filter(p => hover.leg_index === undefined || p.leg === hover.leg_index).reduce<(typeof points)[number] | null>((best, p) => Number.isFinite(delta(p)) && (!best || delta(p) < delta(best)) ? p : best, null) : local && points.includes(local) ? local : null;
   const x = (p: { distance: number; gap: number }) => layout.x(p.distance, p.gap);
-  const y = (e: number) => 78 - (e - data.min) / Math.max(1, data.max - data.min) * 58;
+  const bottom = print ? 40 : 78;
+  const y = (e: number) => bottom - (e - data.min) / Math.max(1, data.max - data.min) * (print ? 22 : 58);
   const pattern = (slope: string) => slope === "caution" ? STATUS_PATTERN.caution : slope === "over_limit" ? STATUS_PATTERN.warning : STATUS_PATTERN.unknown;
   const totals = result.status === "PARTIAL" ? null : result.totals;
   const select = (index: number) => {
@@ -56,21 +57,21 @@ export function ProfileChart({ result, hover }: ProfileChartProps): ReactElement
   };
   return h("div", { className: "profile-chart", "data-profile": true, ref: layout.ref },
     points.length ? h("div", { className: "profile-plot", ref: plot, onPointerDown: (event: PointerEvent<HTMLDivElement>) => { if (event.button !== 0) return; event.preventDefault(); event.currentTarget.setPointerCapture?.(event.pointerId); scrub(event); }, onPointerMove: (event: PointerEvent<HTMLDivElement>) => { if (event.buttons & 1) scrub(event); } },
-      h("svg", { viewBox: `0 0 ${layout.width} 106`, height: 106, role: "group", "aria-label": "Elevation (m) by cumulative distance (m)", preserveAspectRatio: "xMinYMid meet", ...provAttrs(source) },
+      h("svg", { viewBox: `0 0 ${layout.width} ${print ? 56 : 106}`, height: print ? 56 : 106, role: "group", "aria-label": "Elevation (m) by cumulative distance (m)", preserveAspectRatio: "xMinYMid meet", ...provAttrs(source) },
         h("g", { dangerouslySetInnerHTML: { __html: svgPatternDefs("currentColor").replaceAll("pattern-", id) } }),
         ...data.samples.flatMap((legPoints, n) => legPoints.map((p, i) => {
           const next = legPoints[i + 1];
           return h("g", { key: `${n}:${i}` },
-            h("rect", { "data-slope-class": p.slope, fill: p.slope === "ok" ? "none" : `url(#${id}${pattern(p.slope)})`, x: x(p), y: 18, width: next ? Math.max(1, x(next) - x(p)) : 2, height: 62 }, h("title", null, p.slope.replaceAll("_", " "))),
+            h("rect", { "data-slope-class": p.slope, fill: p.slope === "ok" ? "none" : `url(#${id}${pattern(p.slope)})`, x: x(p), y: 18, width: next ? Math.max(1, x(next) - x(p)) : 2, height: print ? 24 : 62 }, h("title", null, p.slope.replaceAll("_", " "))),
             next ? h("path", { d: `M${x(p)},${y(p.elevation)} L${x(next)},${y(next.elevation)}`, fill: "none", stroke: "currentColor", strokeWidth: 1.5, vectorEffect: "non-scaling-stroke" }) : null,
           );
         })),
         ...data.stops.map((stop, i) => h("g", { key: i, "data-stop": stop.id, "data-distance-m": stop.distance, ...provAttrs(source) },
-          h("path", { d: `M${x(stop)},15 V82`, stroke: "var(--fg-3)", strokeDasharray: "2 3" }),
+          h("path", { d: `M${x(stop)},15 V${print ? 43 : 82}`, stroke: "var(--fg-3)", strokeDasharray: "2 3" }),
           h("text", { x: x(stop), y: 12, textAnchor: "middle" }, stop.id),
-          h("text", { x: x(stop), y: 99, textAnchor: "middle" }, `${formatNumber(stop.distance, "m")} m`))),
-        h("text", { x: layout.left - 60, y: 25, ...provAttrs(source) }, `${formatNumber(data.max, "m")} m`),
-        h("text", { x: layout.left - 60, y: 78, ...provAttrs(source) }, `${formatNumber(data.min, "m")} m`),
+          h("text", { x: x(stop), y: print ? 55 : 99, textAnchor: "middle" }, `${formatNumber(stop.distance, "m")} m`))),
+        h("text", { x: layout.left - 60, y: print ? 20 : 25, ...provAttrs(source) }, `${formatNumber(data.max, "m")} m`),
+        h("text", { x: layout.left - 60, y: bottom, ...provAttrs(source) }, `${formatNumber(data.min, "m")} m`),
       ),
       ...points.map((p, i) => h("span", {
         key: `${p.leg}:${i}`, className: "profile-sample", style: { left: x(p), top: y(p.elevation) },

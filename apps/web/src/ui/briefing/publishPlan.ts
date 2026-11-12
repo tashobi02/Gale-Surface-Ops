@@ -36,6 +36,8 @@ export interface PublishPlanOptions {
   plan: PlanExport;
   /** The stops' authored tasks, sent beside the plan (BD-91). */
   stopTasks?: readonly StopTaskSeed[];
+  /** Wire-named equivalent used by SCR-08 and the plan store. */
+  stop_tasks?: readonly StopTaskSeed[];
   /** Opens the connection; the default opens a real `planner` connection on the page's own host. */
   openClient?: OpenPublishClient;
   /** Closes the connection after the publish; the default closes the one it opened. */
@@ -69,7 +71,7 @@ export async function publishPlan(options: PublishPlanOptions): Promise<PublishO
 
   try {
     const args: PublishPlanArgs = { plan: options.plan };
-    const tasks = options.stopTasks ?? [];
+    const tasks = options.stop_tasks ?? options.stopTasks ?? [];
     if (tasks.length > 0) args.stop_tasks = [...tasks];
 
     let timer: ReturnType<typeof setTimeout> | undefined;
