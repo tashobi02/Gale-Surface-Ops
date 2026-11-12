@@ -556,7 +556,7 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
           <Tabs label="Right drawer" tabs={RIGHT_TABS} selected={rightTab} onSelect={setRightTab} idPrefix="scr02-right" />
           <div className="scr02-tabpanel" role="tabpanel" id="scr02-right-panel" aria-labelledby={`scr02-right-tab-${rightTab}`}>
             {rightTab === "poi" ? (
-              <PoiDetail ctx={ctx} selectedPoiId={selectedPoiId} />
+              <PoiDetail ctx={ctx} selectedPoiId={selectedPoiId} placement={kit.placement} />
             ) : (
               <Conditions ctx={ctx} />
             )}

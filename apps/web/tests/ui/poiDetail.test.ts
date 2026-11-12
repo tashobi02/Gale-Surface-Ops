@@ -5,6 +5,7 @@ import type { AppContext } from "../../src/ui/context";
 import { click, fire, installDom, mount, must, removeDom } from "./domHarness";
 import { fakePlanStore } from "./planStoreFake";
 import { mockLoadedSite } from "./map/mapFixtures";
+import { poiPlaceRequest } from "../../src/ui/map/waypointLayer";
 beforeAll(installDom);
 afterAll(removeDom);
 
@@ -24,16 +25,18 @@ function fixture(image = false) {
 it("image missing state stays usable", async () => {
   const { ctx, poi, fake } = fixture();
   const add = vi.spyOn(fake.store, "addWaypoint");
-  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id }));
+  const placement = { place: vi.fn().mockResolvedValue("placed") };
+  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id, placement }));
   expect(view.container.textContent).toContain("Image not available");
   expect(view.container.textContent).toContain(poi.properties.science_objective);
   await click(must(view.container, "button[data-add-stop]"));
-  expect(add).toHaveBeenCalledWith(expect.objectContaining({ id: "", role: "stop", poi_id: poi.properties.poi_id, x_m: poi.geometry.coordinates[0], y_m: poi.geometry.coordinates[1] }));
+  expect(placement.place).toHaveBeenCalledWith(poiPlaceRequest(poi));
+  expect(add).not.toHaveBeenCalled();
   await view.unmount();
 });
 it("credit and sol labelled", async () => {
   const { ctx, poi } = fixture(true);
-  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id }));
+  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id, placement: { place: vi.fn().mockResolvedValue("placed") } }));
   for (const field of ["credit", "sol", "date", "camera"]) {
     const el = must(view.container, `[data-image-${field}]`);
     expect(el.getAttribute("data-provenance")).toBe("measured");
@@ -52,7 +55,7 @@ it("credit and sol labelled", async () => {
 });
 it("stop type shape and word", async () => {
   const { ctx, poi } = fixture();
-  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id }));
+  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id, placement: { place: vi.fn().mockResolvedValue("placed") } }));
   expect(must(view.container, "[data-stop-type]").getAttribute("data-shape")).toBe("triangle");
   expect(must(view.container, "[data-stop-type]").textContent).toContain("SCIENCE");
   expect(view.container.textContent).toContain("EZ—SCI 01");
@@ -63,7 +66,7 @@ it("remove stop uses the existing waypoint id", async () => {
   const { ctx, poi, fake } = fixture();
   fake.emit({ waypoints: [...fake.store.get().waypoints, { id: "wp-2", role: "stop", x_m: 410, y_m: 325, poi_id: poi.properties.poi_id }] });
   const remove = vi.spyOn(fake.store, "deleteWaypoint");
-  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id }));
+  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id, placement: { place: vi.fn().mockResolvedValue("placed") } }));
   const button = must(view.container, "[data-remove-stop]");
   expect(button.textContent).toBe("Remove stop");
   await click(button);
@@ -73,7 +76,7 @@ it("remove stop uses the existing waypoint id", async () => {
 it("remote image assets are never requested", async () => {
   const { ctx, poi } = fixture(true);
   ctx.site.assets.get(poi.properties.image_asset!)!.url = poi.properties.image_source_url!;
-  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id }));
+  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id, placement: { place: vi.fn().mockResolvedValue("placed") } }));
   expect(view.container.querySelector("img")).toBeNull();
   expect(view.container.textContent).toContain("Image not available");
   await view.unmount();
@@ -82,7 +85,7 @@ it("native image dialog closes and returns focus", async () => {
   const { ctx, poi } = fixture(true);
   Object.defineProperty(window.HTMLDialogElement.prototype, "showModal", { configurable: true, value() { this.setAttribute("open", ""); } });
   Object.defineProperty(window.HTMLDialogElement.prototype, "close", { configurable: true, value() { this.removeAttribute("open"); this.dispatchEvent(new window.Event("close")); } });
-  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id }));
+  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id, placement: { place: vi.fn().mockResolvedValue("placed") } }));
   await fire(must(view.container, "img"), new window.Event("load"));
   const open = must<HTMLButtonElement>(view.container, "[data-enlarge-image]");
   await click(open);
@@ -103,7 +106,7 @@ it("EZ numbering follows global POI order across stop types", async () => {
 it("full plan disables Add as stop with a sourced limit reason", async () => {
   const { ctx, poi, fake } = fixture();
   fake.emit({ waypoints: [...fake.store.get().waypoints.slice(0, 1), ...Array.from({ length: 10 }, (_, i) => ({ id: `wp-${i + 1}`, role: "stop" as const, x_m: 0, y_m: 0 }))] });
-  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id }));
+  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id, placement: { place: vi.fn().mockResolvedValue("placed") } }));
   expect(must<HTMLButtonElement>(view.container, "[data-add-stop]").disabled).toBe(true);
   expect(must(view.container, "#scr06-stop-limit").textContent).toContain("10");
   expect(must(view.container, "#scr06-stop-limit [data-source]").getAttribute("data-source")).toBe("spec:02-E.3");

@@ -321,8 +321,8 @@ function ProfileBands({ result, havenLimit }: { result: PlanResult | null; haven
         const valid = isFiniteNumber(value) && (kind === "haven" ? value >= 0 : value === 0 || value === 1);
         const status = !valid || (kind === "haven" && !isFiniteNumber(havenLimit)) ? "unknown" : kind === "comm" ? value === 0 ? "unknown" : "nominal" : isFiniteNumber(havenLimit) && value > havenLimit ? "caution" : "nominal";
         const word = !valid ? "— Not supplied" : kind === "comm" ? value === 0 ? "? NO SIGNAL" : "○ SIGNAL" : `${status === "caution" ? "▲" : "○"} ${formatNumber(value, "min")} min`;
-        return <g key={`${legIndex}:${i}`}><rect data-band-status={status} x={x(start + distance)} y={2} width={Math.max(0, x(start + leg.profile.dist_m[i + 1]!) - x(start + distance))} height={12} fill={status === "nominal" ? "var(--nominal)" : status === "caution" ? "var(--caution)" : "var(--unknown)"} stroke="var(--surface-0)" strokeDasharray={status === "unknown" ? "2 2" : undefined} {...provAttrs({ prov, src: valid ? `result.legs[${legIndex}].profile.${kind === "haven" ? "haven_min" : "comm"}` : `unavailable:result.legs[${legIndex}].profile.${kind}` })}>
-          <title>{word}</title>
+        return <g key={`${legIndex}:${i}`}><rect data-band-status={status} x={x(start + distance)} y={2} width={Math.max(0, x(start + leg.profile.dist_m[i + 1]!) - x(start + distance))} height={12} fill={status === "nominal" ? "var(--nominal)" : status === "caution" ? "var(--caution)" : "var(--unknown)"} stroke="var(--surface-0)" strokeDasharray={status === "unknown" ? "2 2" : undefined} {...provAttrs({ prov, src: valid ? `result.legs[${legIndex}].profile.${kind === "haven" ? "haven_min" : "comm"}` : `unavailable:result.legs[${legIndex}].profile.${kind}`, unavailable: !valid })}>
+          <title {...provAttrs({ prov, src: valid ? `result.legs[${legIndex}].profile.${kind}` : `unavailable:result.legs[${legIndex}].profile.${kind}`, unavailable: !valid })}>{word}</title>
         </rect>{status !== "nominal" ? <rect x={x(start + distance)} y={2} width={Math.max(0, x(start + leg.profile.dist_m[i + 1]!) - x(start + distance))} height={12} fill={`url(#${patternId}-${kind}-hatch)`} aria-hidden="true" pointerEvents="none" /> : null}</g>;
       });
     }) ?? [];
@@ -330,7 +330,7 @@ function ProfileBands({ result, havenLimit }: { result: PlanResult | null; haven
       {segments.length ? <svg viewBox={`0 0 ${PROFILE_AXIS.width} 16`} role="img" aria-label={label} preserveAspectRatio="none">
         <g dangerouslySetInnerHTML={{ __html: svgPatternDefs("var(--surface-0)").replaceAll("pattern-", `${patternId}-${kind}-`) }} />
         <text x={0} y={12}>{label}</text>{segments}
-      </svg> : <><span className="profile-band-label">{label}</span><span {...provAttrs({ prov, src: `unavailable:result.legs.profile.${kind}` })}>— {kind === "haven" ? "Haven samples" : "Comm samples"} not supplied by worker</span></>}
+      </svg> : <><span className="profile-band-label">{label}</span><span {...provAttrs({ prov, src: `unavailable:result.legs.profile.${kind}`, unavailable: true })}>— {kind === "haven" ? "Haven samples" : "Comm samples"} not supplied by worker</span></>}
     </div>;
   })}<div className="profile-caption">○ SIGNAL / ? NO SIGNAL · ○ within haven rule / ▲ over rule</div></div>;
 }

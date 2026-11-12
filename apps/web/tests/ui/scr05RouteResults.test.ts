@@ -16,6 +16,7 @@ import { fakePlanStore, resultOf, SCENARIO } from "./planStoreFake";
 import okFixture from "../fixtures/plan-results/ok.json";
 import partialFixture from "../fixtures/plan-results/partial.json";
 import overLimitsFixture from "../fixtures/plan-results/over-limits.json";
+import { readFileSync } from "node:fs";
 
 // The chart (T09.02) and the profile link (T09.05) belong to other tasks and are stubs on main: replace them so this file
 // tests the panel. A test that needs the real stub failing sets the implementation itself.
@@ -402,5 +403,34 @@ it("haven and comm bands render worker samples without computing them", async ()
   const view = await mount(ui({ planStore: store }));
   expect(must(view.container, '[data-band="haven"]').textContent).toContain("modelled (approximation)");
   expect(must(view.container, '[data-band="comm"]').textContent).toContain("NO SIGNAL");
+  await view.unmount();
+});
+
+it.each(["empty", "partial", "ok", "invalid samples"] as const)("every rendered dash is unavailable in %s results", async kind => {
+  const real = await vi.importActual<typeof import("../../src/ui/results/profileChart")>("../../src/ui/results/profileChart");
+  vi.mocked(ProfileChart).mockImplementation(real.ProfileChart);
+  const result = kind === "empty" ? null : kind === "partial" ? partial : kind === "ok" ? ok : {
+    ...ok, legs: [{ ...ok.legs[0], profile: { dist_m: [0, 5, 10], elev_m: [], slope_class: [], haven_min: [NaN, 1, 1], comm: [NaN, 1, 1] } } as OkLeg],
+  };
+  const { store } = fakePlanStore({ status: kind === "empty" ? "Empty" : kind === "partial" ? "Partial" : "OK", result });
+  const view = await mount(ui({ planStore: store }));
+  if (result) await click(must(view.container, ".scr05-details-toggle"));
+  const dashes = [...view.container.querySelectorAll("*")].filter(el => [...el.childNodes].some(node => node.nodeType === 3 && node.textContent?.includes("—")));
+  expect(dashes.length).toBeGreaterThan(0);
+  for (const el of dashes) expect(el.getAttribute("data-unavailable"), el.outerHTML).toBe("true");
+  await view.unmount();
+});
+
+it("profile SVG labels use the secondary foreground fill on the OPS surface", async () => {
+  const real = await vi.importActual<typeof import("../../src/ui/results/profileChart")>("../../src/ui/results/profileChart");
+  vi.mocked(ProfileChart).mockImplementation(real.ProfileChart);
+  const leg = { ...ok.legs[0], profile: { dist_m: [0, 5], elev_m: [0, 1], slope_class: ["ok", "ok"] } } as OkLeg;
+  const view = await mount(ui({ planStore: fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } }).store }));
+  const style = document.createElement("style");
+  style.textContent = readFileSync(new URL("../../src/ui/screens/scr05RouteResults.css", import.meta.url), "utf8");
+  document.head.append(style);
+  view.container.style.setProperty("--fg-2", "rgb(169, 179, 190)");
+  expect(window.getComputedStyle(must(view.container, ".profile-chart text")).fill).toBe("rgb(169, 179, 190)");
+  style.remove();
   await view.unmount();
 });

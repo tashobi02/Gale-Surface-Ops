@@ -15,6 +15,7 @@ import type { MapHandle } from "../context";
 import type { Extent } from "../map/routeGeometry";
 import { StatusIcon, type OperationalStatus } from "../components/statusIcon";
 import { UNAVAILABLE, provAttrs } from "../components/provenance";
+import { LTST_SOURCE } from "../plan/stopsList";
 
 export interface WarningsListProps {
   warnings: Warning[];
@@ -134,7 +135,7 @@ export function WarningsList({ warnings, mapHandle, getLegExtent, onZoom, classN
 /** Existing layer/model source ids read by each warning rule (05 §F.3; FD-064). */
 function warningSources(code: Warning["code"]): string {
   if (code === "LOW_TI" || code === "TI_UNKNOWN") return "grid.ti_asset";
-  if (code === "DARKNESS") return "mars24-allison-mccewen-2000";
+  if (code === "DARKNESS") return LTST_SOURCE;
   if (code === "EVA_DURATION_EXCEEDED" || code === "HAVEN_TIME_EXCEEDED" || code === "CONSUMABLES_LOW") return "tobler-1993 apollo17-planning";
   if (code === "RADIATION_ALERT") return "hassler-2014-rad";
   if (code === "COMM_SHADOW") return "grid.comm_hab_asset";

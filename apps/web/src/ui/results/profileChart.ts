@@ -58,9 +58,9 @@ export function ProfileChart({ result, hover }: ProfileChartProps): ReactElement
         h("text", { x: x(stop.distance), y: 99, textAnchor: "middle" }, `${formatNumber(stop.distance, "m")} m`))),
       h("text", { x: 170, y: 25, ...provAttrs(source) }, `${formatNumber(data.max, "m")} m`),
       h("text", { x: 170, y: 78, ...provAttrs(source) }, `${formatNumber(data.min, "m")} m`),
-    ) : h("div", { className: "scr05-placeholder", ...provAttrs({ prov: "derived", src: "unavailable:result.legs.profile" }) }, "— No elevation samples supplied"),
+    ) : h("div", { className: "scr05-placeholder", ...provAttrs({ prov: "derived", src: "unavailable:result.legs.profile", unavailable: true }) }, "— No elevation samples supplied"),
     ...result.legs.filter(leg => leg.status === "NO_ROUTE").map((leg, i) => h("div", { key: i, className: "profile-no-route", ...provAttrs({ prov: "derived", src: "rule:NO_ROUTE" }) }, `? NO ROUTE · ${leg.from} → ${leg.to}`)),
     h("output", { "data-profile-tooltip": true, ...provAttrs(source) }, active ? `${formatNumber(active.distance, "m")} m · ${formatNumber(active.elevation, "m")} m elevation · ${active.slope.replaceAll("_", " ")}` : "Hover or focus the profile; ← / → move the cursor"),
-    h("div", { className: "profile-caption", ...provAttrs(totals ? source : { prov: "derived", src: "unavailable:result.totals" }) }, `Climb / descent: ${totals ? `${formatNumber(totals.climb_m, "m")} / ${formatNumber(totals.descent_m, "m")} m` : "—"} · Slope: ○ OK / ▧ caution / ▩ over limit`),
+    h("div", { className: "profile-caption", ...provAttrs(totals ? source : { prov: "derived", src: "unavailable:result.totals", unavailable: true }) }, `Climb / descent: ${totals ? `${formatNumber(totals.climb_m, "m")} / ${formatNumber(totals.descent_m, "m")} m` : "—"} · Slope: ○ OK / ▧ caution / ▩ over limit`),
   );
 }

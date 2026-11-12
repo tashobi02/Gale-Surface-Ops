@@ -267,6 +267,7 @@
 .profile-chart { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .profile-chart svg { width: 100%; flex: 1; min-height: 40px; color: var(--fg-1); overflow: visible; }
 .profile-chart text, .profile-caption, .profile-no-route, .profile-band { font-family: var(--font-mono); font-size: var(--text-micro); }
+.profile-chart text { fill: var(--fg-2); }
 .profile-chart circle { fill: var(--surface-1); stroke: var(--fg-2); cursor: crosshair; }
 .profile-chart circle[data-active="true"], .profile-chart circle:focus { fill: var(--route); stroke: var(--fg-1); stroke-width: 2px; outline: none; }
 .profile-caption, .profile-no-route { color: var(--fg-2); }

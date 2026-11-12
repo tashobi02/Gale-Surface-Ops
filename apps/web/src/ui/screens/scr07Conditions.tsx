@@ -6,9 +6,10 @@ import { StatusIcon } from "../components/statusIcon";
 import { Metric } from "../components/metric";
 import { provAttrs } from "../components/provenance";
 import { WarningsList, formatUtc } from "../results/warningsList";
+import { LTST_SOURCE } from "../plan/stopsList";
 import "./scr07Conditions.css";
 
-const MARS24 = "mars24-allison-mccewen-2000";
+const MARS24 = LTST_SOURCE;
 function Value({ value, prov = "modelled", src, path }: { value: string | number | undefined | null; prov?: Provenance; src: string; path: string }): ReactElement {
   const present = value !== undefined && value !== null && value !== "";
   return <span {...provAttrs({ prov, src: present ? src : `unavailable:${path}`, unavailable: !present })}>{present ? value : "—"}</span>;

@@ -48,7 +48,7 @@ it("supplied Mars24 fields are modelled and the last arrival is labelled at retu
   expect(must(view.container, '[data-condition="ltst-return"]').textContent).toContain("at return");
   expect(must(view.container, '[data-condition="ltst-return"]').textContent).toContain("09:00");
   expect(must(view.container, '[data-condition="sol"]').textContent).toContain("4190");
-  expect(view.container.querySelectorAll('[data-source="mars24-allison-mccewen-2000"][data-provenance="modelled"]').length).toBeGreaterThan(3);
+  expect(view.container.querySelectorAll('[data-source="mars24-allison-mcewen-2000"][data-provenance="modelled"]').length).toBeGreaterThan(3);
   await view.unmount();
 });
 it("one-way plans still show the final supplied arrival per FD-127", async () => {

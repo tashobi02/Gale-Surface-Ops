@@ -4,6 +4,7 @@ import { MAX_STOPS } from "@marswalk/compute";
 import type { POIFeature, TaskLibraryEntry } from "@marswalk/protocol";
 import type { AppContext } from "../context";
 import { EZ_STOP_TYPES } from "../map/ezLayer";
+import { poiPlaceRequest, type Placement } from "../map/waypointLayer";
 import { Metric } from "../components/metric";
 import { provAttrs, type Sourced } from "../components/provenance";
 import "./scr06PoiDetail.css";
@@ -11,6 +12,7 @@ import "./scr06PoiDetail.css";
 export interface PoiDetailProps {
   ctx: AppContext;
   selectedPoiId: string | null;
+  placement?: Pick<Placement, "place">;
   /** Package 25 supplies the scenario library; this screen only presents the entries. */
   suggestedTasks?: readonly TaskLibraryEntry[];
 }
@@ -30,7 +32,7 @@ function TextValue({ value, source, field }: { value: string | number | null | u
   return <span {...provAttrs(present ? source : { prov: source.prov, src: `unavailable:${source.src}${field ? `.${field}` : ""}`, unavailable: true })}>{present ? value : "—"}</span>;
 }
 
-function Specimen({ ctx, poi, suggestedTasks = [] }: { ctx: AppContext; poi: POIFeature; suggestedTasks?: readonly TaskLibraryEntry[] }): ReactElement {
+function Specimen({ ctx, poi, placement, suggestedTasks = [] }: { ctx: AppContext; poi: POIFeature; placement?: Pick<Placement, "place">; suggestedTasks?: readonly TaskLibraryEntry[] }): ReactElement {
   const subscribe = useCallback((notify: () => void) => ctx.planStore.subscribe(notify), [ctx.planStore]);
   const state = useSyncExternalStore(subscribe, ctx.planStore.get, ctx.planStore.get);
   const p = poi.properties;
@@ -89,7 +91,7 @@ function Specimen({ ctx, poi, suggestedTasks = [] }: { ctx: AppContext; poi: POI
     <h3>Position</h3>
     <p data-position {...provAttrs(source)}><TextValue value={p.position_source} source={source} /><br />±<Metric value={Number.isFinite(p.position_uncertainty_m) ? p.position_uncertainty_m : null} unit="m" prov={p.provenance} src={src} /></p>
     {suggestedTasks.some(task => task.poi_id === p.poi_id) ? <section aria-label="Suggested tasks"><h3>Suggested tasks</h3><ul>{suggestedTasks.filter(task => task.poi_id === p.poi_id).map(task => <li key={task.library_task_id} {...provAttrs({ prov: "assumed", src: task.source_id ?? `scenario.task_library:${task.library_task_id}` })}>{task.text}</li>)}</ul></section> : null}
-    {stop ? <button type="button" data-remove-stop onClick={() => ctx.planStore.deleteWaypoint(stop.id)}>Remove stop</button> : <button type="button" data-add-stop disabled={atLimit} aria-describedby={atLimit ? "scr06-stop-limit" : undefined} onClick={() => ctx.planStore.addWaypoint({ id: "", role: "stop", x_m: poi.geometry.coordinates[0], y_m: poi.geometry.coordinates[1], poi_id: p.poi_id, label: p.name.slice(0, 40) })}>Add as stop</button>}
+    {stop ? <button type="button" data-remove-stop onClick={() => ctx.planStore.deleteWaypoint(stop.id)}>Remove stop</button> : <button type="button" data-add-stop disabled={atLimit || !placement || !poiPlaceRequest(poi)} aria-describedby={atLimit ? "scr06-stop-limit" : undefined} onClick={() => { const request = poiPlaceRequest(poi); if (request) void placement?.place(request); }}>Add as stop</button>}
     {atLimit && !stop ? <p id="scr06-stop-limit">Stop limit reached (<span {...provAttrs({ prov: "assumed", src: "spec:02-E.3" })}>{MAX_STOPS}</span>). Remove a stop to add another.</p> : null}
     {imageUrl && imageState === "shown" ? <dialog ref={dialog} className="scr06-image-dialog" aria-label={`${p.name} image`} onClose={() => enlarge.current?.focus()}>
       <button type="button" onClick={() => dialog.current?.close()}>Close image</button><img src={imageUrl} alt={alt} {...provAttrs(imageSource)} />
@@ -98,7 +100,7 @@ function Specimen({ ctx, poi, suggestedTasks = [] }: { ctx: AppContext; poi: POI
   </section>;
 }
 
-export function PoiDetail({ ctx, selectedPoiId, suggestedTasks }: PoiDetailProps): ReactElement {
+export function PoiDetail({ ctx, selectedPoiId, placement, suggestedTasks }: PoiDetailProps): ReactElement {
   const poi = selectedPoiId ? ctx.site.pois.get(selectedPoiId) : undefined;
-  return poi ? <Specimen key={`${poi.properties.poi_id}:${poi.properties.image_asset ?? ""}`} ctx={ctx} poi={poi} suggestedTasks={suggestedTasks} /> : <section className="scr06-empty" data-poi-detail aria-label="POI detail">Select a POI on the map to see its objective and ground image.</section>;
+  return poi ? <Specimen key={`${poi.properties.poi_id}:${poi.properties.image_asset ?? ""}`} ctx={ctx} poi={poi} placement={placement} suggestedTasks={suggestedTasks} /> : <section className="scr06-empty" data-poi-detail aria-label="POI detail">Select a POI on the map to see its objective and ground image.</section>;
 }
