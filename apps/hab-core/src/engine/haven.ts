@@ -19,12 +19,13 @@
  *   x 60. The vehicle branch needs `vehicle_available` in the plan's MissionScenario and a PARKED pressurized rover with
  *   a usable ParamSet, as contingencyOps.ts; a compute RangeError on the vehicle side (rover off the grid) means no
  *   vehicle branch, never a stopped engine.
- * - Caching (BD-57): the hab field is rebuilt only when the grid, the plan's slope limits, suited speed and
+ * - Caching (BD-57, BD-146): the hab field is rebuilt only when the grid, the plan's slope limits, suited speed and
  *   `max_haven_min`, the hab position, the data version or the chosen hab candidate change; the rover's field and
- *   passable mask only when the grid, the rover's ParamSet or its position change. The caches are module state, not
- *   engine state, because the typed arrays are not JSON-safe and engine state is snapshotted; they only memoise a
- *   pure function, so the results do not depend on them. `invalidateHavenCache()` clears both (SELECT_HAB_SITE,
- *   RESET_SESSION, tests).
+ *   passable mask only when the grid, the rover's ParamSet or its position change. The memo is a `HavenCache` that the
+ *   session owns and hands in through `TickContext.haven_cache`: it is not engine state (the typed arrays are not
+ *   JSON-safe and engine state is snapshotted) and not module state either (two sessions in one process must not
+ *   share it). It only memoises a pure function, so the results do not depend on it; a context without one memoises
+ *   nothing between calls. `HavenCache.clear()` empties it (SELECT_HAB_SITE, RESET_SESSION, LOAD_SCENARIO, tests).
  * - HAVEN_TIME_EXCEEDED is a `caution` (04 §A: "the band beyond the haven rule gets a caution hatch"), subject the
  *   crew member, raised once when `haven.minutes` is above the plan's `max_haven_min` and cleared when it is at or under
  *   it, or when the crew member is no longer out. Data: `haven_min` (null when unreachable, `modelled`) and
@@ -75,19 +76,22 @@ interface LiveEntry {
   limit_s: number;
   live: LiveHaven | null;
 }
-let habCache: HabEntry | null = null;
-let vehicleCache: VehicleEntry | null = null;
-const liveCache = new Map<string, LiveEntry>();
+/** The memo of one session: the hab field, the rover's field and passable mask, and each crew member's live haven. */
+export class HavenCache {
+  hab: HabEntry | null = null;
+  vehicle: VehicleEntry | null = null;
+  readonly live = new Map<string, LiveEntry>();
 
-/** Forget the cached hab and rover fields (the next tick rebuilds them). */
-export function invalidateHavenCache(): void {
-  habCache = null;
-  vehicleCache = null;
-  liveCache.clear();
+  /** Forget everything (the next tick rebuilds it). */
+  clear(): void {
+    this.hab = null;
+    this.vehicle = null;
+    this.live.clear();
+  }
 }
 
 /** The hab field for the plan's start waypoint, cached on the key of BD-57 plus everything else the field reads. */
-function habField(state: EngineState, grid: LoadedGrid, hab: { x_m: number; y_m: number }, mission: MissionScenario): TimeField {
+function habField(cache: HavenCache, state: EngineState, grid: LoadedGrid, hab: { x_m: number; y_m: number }, mission: MissionScenario): TimeField {
   const key = JSON.stringify([
     state.session.data_version,
     state.session.hab_candidate_id,
@@ -98,9 +102,9 @@ function habField(state: EngineState, grid: LoadedGrid, hab: { x_m: number; y_m:
     hab.x_m,
     hab.y_m,
   ]);
-  if (habCache !== null && habCache.grid === grid && habCache.key === key) return habCache.field;
+  if (cache.hab !== null && cache.hab.grid === grid && cache.hab.key === key) return cache.hab.field;
   const field = habTimeField(grid, hab, mission);
-  habCache = { grid, key, field };
+  cache.hab = { grid, key, field };
   return field;
 }
 
@@ -115,20 +119,20 @@ function unlessRangeError<T>(f: () => T): T | null {
 }
 
 /** The vehicle branch inputs: a PARKED pressurized rover with a usable ParamSet, or null. */
-function vehicleInputs(state: EngineState, scenario: LoadedScenario, grid: LoadedGrid, mission: MissionScenario): { field: TimeField; passable: Uint8Array; vehicle_s: number } | null {
+function vehicleInputs(cache: HavenCache, state: EngineState, scenario: LoadedScenario, grid: LoadedGrid, mission: MissionScenario): { field: TimeField; passable: Uint8Array; vehicle_s: number } | null {
   if (!mission.vehicle_available) return null;
   const vehicle: Vehicle | undefined = state.vehicles.find((v) => v.kind === "pressurized_rover");
   if (!vehicle || vehicle.state !== "PARKED") return null;
   const params = scenario.params[vehicle.param_set];
   const ingressMin = params?.values.ingress_min;
   if (!params || params.kind !== vehicle.kind || typeof ingressMin !== "number" || !(Number.isFinite(ingressMin) && ingressMin >= 0)) return null;
-  const c = vehicleCache;
+  const c = cache.vehicle;
   if (c !== null && c.grid === grid && c.params === params && c.x_m === vehicle.x_m && c.y_m === vehicle.y_m) {
     return { field: c.field, passable: c.passable, vehicle_s: ingressMin * 60 };
   }
   const built = unlessRangeError(() => ({ field: vehicleTimeField(grid, { x_m: vehicle.x_m, y_m: vehicle.y_m }, params), passable: vehiclePassable(grid, params) }));
   if (built === null) return null;
-  vehicleCache = { grid, params, x_m: vehicle.x_m, y_m: vehicle.y_m, ...built };
+  cache.vehicle = { grid, params, x_m: vehicle.x_m, y_m: vehicle.y_m, ...built };
   return { ...built, vehicle_s: ingressMin * 60 };
 }
 
@@ -138,6 +142,7 @@ const openAlerts = (state: EngineState, crew_id: Crew["crew_id"]): Alert[] =>
 /** Recompute `crew[].haven`; raise HAVEN_TIME_EXCEEDED past the plan's haven rule. */
 export function havenTick(state: EngineState, ctx: TickContext): TickResult {
   const none: TickResult = { state, events: [], deltas: [] };
+  const cache = ctx.haven_cache ?? new HavenCache();
   const grid = ctx.scenario.grid;
   const plan = state.plan;
   if (!grid || !plan) return none;
@@ -168,11 +173,11 @@ export function havenTick(state: EngineState, ctx: TickContext): TickResult {
     const suit = entry === undefined ? undefined : ctx.scenario.params[entry.suit_param_set];
     if (!suit) throw new Error(`havenTick: crew ${c.crew_id} has no suit ParamSet in the scenario (05 Scenario)`);
     const hab_s = habIngressS(suit); // a missing hab_ingress_min throws, naming the key (BD-57)
-    hfield ??= habField(state, grid, hab, mission);
-    vehicle ??= vehicleInputs(state, ctx.scenario, grid, mission);
+    hfield ??= habField(cache, state, grid, hab, mission);
+    vehicle ??= vehicleInputs(cache, state, ctx.scenario, grid, mission);
     const cell = cellIndex(grid, c.x_m, c.y_m);
     const vehicle_s = vehicle?.vehicle_s ?? 0;
-    const kept = liveCache.get(c.crew_id);
+    const kept = cache.live.get(c.crew_id);
     let live: LiveHaven | null;
     if (kept !== undefined && cell !== null && kept.grid === grid && kept.cell === cell && kept.hab === hfield && kept.vehicle === (vehicle?.field ?? null) && kept.passable === (vehicle?.passable ?? null) && kept.hab_s === hab_s && kept.vehicle_s === vehicle_s && kept.limit_s === limit_s) {
       live = kept.live;
@@ -180,7 +185,7 @@ export function havenTick(state: EngineState, ctx: TickContext): TickResult {
       // The crew field is only read by the vehicle branch; without a vehicle the hab field (same geometry) stands in.
       const crewField = vehicle ? crewTimeField(grid, { x_m: c.x_m, y_m: c.y_m }, mission, limit_s) : hfield;
       live = liveHaven(hfield, crewField, vehicle?.field ?? null, vehicle?.passable ?? null, { hab_s, vehicle_s }, { x_m: c.x_m, y_m: c.y_m });
-      if (cell !== null) liveCache.set(c.crew_id, { grid, cell, hab: hfield, vehicle: vehicle?.field ?? null, passable: vehicle?.passable ?? null, hab_s, vehicle_s, limit_s, live });
+      if (cell !== null) cache.live.set(c.crew_id, { grid, cell, hab: hfield, vehicle: vehicle?.field ?? null, passable: vehicle?.passable ?? null, hab_s, vehicle_s, limit_s, live });
     }
 
     const haven: Crew["haven"] =
