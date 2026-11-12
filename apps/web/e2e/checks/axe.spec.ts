@@ -9,6 +9,8 @@ import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 import { openEvaFixture, type EvaFixtureState } from "../lib/evaFixture";
 import { UTILITY_ROVER, openOpsFixture, openOpsPanel } from "../lib/opsFixture";
+import { openReplayFixture, routeFixtureRecording } from "../lib/replayFixture";
+import { populatedReport } from "../../tests/fixtures/postEvaReport";
 import { withManifestlessSite } from "../lib/siteBundle";
 import { openPoiTasks } from "../lib/plannerTasks";
 
@@ -17,9 +19,11 @@ const LIVE = /^#\/(ops|eva|hud)/;
 // Routes that render real content today. Each screen package adds its own route here when it builds the screen, until the
 // list equals `routeHashes()` (package 99 asserts that).
 // Package 15 adds the two BRIEF routes it builds: `#/` (SCR-01) and `#/sources` (SCR-09); package 17 adds `#/eva/EV1`.
-const BUILT_ROUTES = ["#/", "#/sources", "#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report"];
+// Package 27 adds `#/replay`, on the fixture recording until N-81 commits the real one (lib/replayFixture.ts).
+const BUILT_ROUTES = ["#/", "#/sources", "#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report", "#/replay"];
 
 test("axe: every built route has no serious or critical violation", async ({ page }, testInfo) => {
+  await routeFixtureRecording(page);
   for (const hash of BUILT_ROUTES) {
     await page.goto(`/?site=${process.env.E2E_SITE ?? "mock_site"}${hash}`);
     await page.waitForLoadState("networkidle");
@@ -28,9 +32,27 @@ test("axe: every built route has no serious or critical violation", async ({ pag
     // FD-210: below 1024 px the ops route shows only the "Use a larger screen" notice, which has no values to wait for.
     if (hash === "#/ops" && (page.viewportSize()?.width ?? 1280) < 1024) await page.getByRole("heading", { name: "Use a larger screen" }).waitFor();
     else if (LIVE.test(hash)) await waitForSnapshot(page);
+    if (hash === "#/replay") await page.locator('[data-slot="replay-banner"]').waitFor();
     const mode = (await page.evaluate(() => document.documentElement.dataset.mode)) as HtmlMode;
     await axeScan(page, { mode, route: `${testInfo.project.name}-${hash}` });
   }
+});
+
+// Package 26 and 27 on every project, independent of the live routes above: SCR-17 populated (6 stops, 3 alerts, a trace) in
+// PRINT mode, and `#/replay` on the fixture recording with the event log drawer open where the console is shown (>= 1024 px).
+test("axe: SCR-17 populated and #/replay with its log drawer have no serious or critical violation (packages 26, 27)", async ({ page }, testInfo) => {
+  const body = JSON.stringify(populatedReport());
+  await page.route("**/api/report", (route) => route.fulfill({ status: 200, contentType: "application/json", body }));
+  await page.goto("/#/report");
+  await page.locator('[data-slot="report-trace"]').waitFor();
+  await axeScan(page, { mode: "print", route: `${testInfo.project.name}-report-populated` });
+  await openReplayFixture(page);
+  const strip = page.locator('[data-slot="event-log-strip"]');
+  if (await strip.count()) {
+    await strip.click();
+    await page.locator('[data-slot="event-log-drawer"]').waitFor();
+  }
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-replay-log` });
 });
 
 // Package 06: SCR-00, the boot error, in OPS mode (FD-207). A site whose manifest was deleted makes the planner boot fail.

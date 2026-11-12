@@ -9,6 +9,8 @@ import { deflateSync } from "node:zlib";
 import { expectContrast } from "../lib/contrast";
 import { ratio, toRgb } from "../../tests/ui/wcag";
 import { waitForSnapshot } from "../lib/hab";
+import { routeFixtureRecording } from "../lib/replayFixture";
+import { populatedReport } from "../../tests/fixtures/postEvaReport";
 
 const LIMITS = { text: 4.5, large: 3, hud: 7 };
 
@@ -21,13 +23,23 @@ const ROUTES: { hash: string; live: boolean; pending?: string }[] = [
   { hash: "#/ops", live: true },
   { hash: "#/eva/EV1", live: true },
   { hash: "#/report", live: false },
+  // Package 27: the replay (fixture recording until N-81) and SCR-17 populated (3 alerts, 6 stops, a trace).
+  { hash: "#/replay", live: false },
+  { hash: "#/report?populated", live: false },
 ];
 
 for (const { hash, live, pending } of ROUTES) {
   const run = async ({ page }: { page: Page }): Promise<void> => {
-    await page.goto(`/${hash}`);
+    if (hash === "#/replay") await routeFixtureRecording(page);
+    if (hash === "#/report?populated") {
+      const body = JSON.stringify(populatedReport());
+      await page.route("**/api/report", (route) => route.fulfill({ status: 200, contentType: "application/json", body }));
+    }
+    await page.goto(`/${hash.replace("?populated", "")}`);
     await page.waitForLoadState("networkidle");
     if (live) await waitForSnapshot(page);
+    if (hash === "#/replay") await page.locator('[data-slot="replay-banner"]').waitFor();
+    if (hash === "#/report?populated") await page.locator('[data-slot="report-trace"]').waitFor();
     const measured = await expectContrast(page, LIMITS);
     expect(measured, "no text was measured").toBeGreaterThan(0);
   };

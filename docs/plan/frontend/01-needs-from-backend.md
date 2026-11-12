@@ -53,3 +53,11 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 1. N-31 — N-23 `Snapshot.earth` has blackout and next-pass UTC but no current-pass or link-availability state. Supply the state with provenance and source, so the widget can distinguish available from waiting. It currently shows “—” unless blackout is true (CONJUNCTION).
 2. N-32 — Align the ADD_STOP_TASK handler with FD-031: fewer than four tasks per selected crew at a stop, with shared tasks counted for either crew. The current BD-109 handler counts tasks for all crews together. The frontend implements FD-031 and shows server rejections; live task-limit acceptance remains wip.
 | N-70 | Repeated PUBLISH_PLAN must replace/update/delete planner-origin drafts at retained stops while LOADED | —; current `checkPublishedTasks` rejects known task ids, while rotating ids appends duplicates because `onPlanRevised` only drops tasks at removed stops. Define retained-stop replacement semantics; keep stable draft ids until then | FR-54, FD-322; `apps/hab-core/src/engine/tasks.ts`; fixme in `plan-rules` | — (backend; package 25 shipped and keeps only the repeated-publish case `test.fixme`) |
+## Package 26 follow-up
+
+1. N-80 — Supply report source IDs with manifest-resolvable references and populate the 30-second crew trace in `/api/report`; this checkout's builder returns an empty trace and the protocol has no source IDs. SCR-17 shows — when unavailable.
+
+## Package 27 follow-up
+
+1. N-81 — Commit the storm recording required by N-21 and include the complete ordered session log in it (including events preceding the initial snapshot), so the Pages replay can independently verify the advertised log hash. The current collector begins with a snapshot and only records later events; this checkout has no recording file.
+| N-30 | SCR-09 scenario metadata | Supply the loaded scenario ParamSet files (including values, provenance and source ids) and the loaded dose-series source id and title to the planner; the site manifest and planner boot currently expose neither | FD-304, FR-15 | 15 (T12.03) |

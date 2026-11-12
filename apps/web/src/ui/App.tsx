@@ -4,7 +4,7 @@
  * Live roles read the tab's Hab Core session through the hooks (state/habSession.ts), which boot opened before this
  * renders (boot/session.ts): no client is passed down. Each live host sits in `LiveFrame`, which adds the SCR-18 overlay.
  * Screens that are still stubs throw their "TODO(...)" error and the boundary shows a placeholder, so no route is blank.
- * Not wired yet: SCR-15 rover tasking, SCR-16 earth, SCR-19 presenter, SCR-20 setup, replay mode (`#/replay`).
+ * Not wired yet: SCR-15 rover tasking, SCR-16 earth, SCR-19 presenter, SCR-20 setup.
  */
 import type { ReactElement } from "react";
 import type { PlannerBootHandle } from "../boot/bootPlanner";
@@ -20,11 +20,12 @@ import { OpsRoute } from "./live/OpsRoute";
 import { PlannerHost } from "./live/PlannerHost";
 import { NotBuilt, RouteBoundary, UnknownRoute } from "./live/placeholders";
 import { ReportRoute } from "./live/ReportRoute";
+import { ReplayRoute } from "./live/ReplayRoute";
 
 export interface AppProps {
   route: Route;
   planner: PlannerBootHandle;
-  /** Same-origin fetch for the join status and the report; default the global `fetch`. */
+  /** Same-origin fetch for the join status, the report and the replay recording; default the global `fetch`. */
   fetchImpl?: (url: string) => Promise<Response>;
 }
 
@@ -73,7 +74,11 @@ export function App({ route, planner, fetchImpl }: AppProps): ReactElement {
     case "setup":
       return <NotBuilt screen="SCR-20" label="Mission setup" task="T32.22" />;
     case "replay":
-      return <NotBuilt screen="—" label="Replay mode" task="T27.05" />;
+      return (
+        <RouteBoundary screen="—" label="Replayed recording" task="T27.05">
+          <ReplayRoute fetchImpl={fetchImpl} />
+        </RouteBoundary>
+      );
     case "unknown":
       return <UnknownRoute />;
   }
