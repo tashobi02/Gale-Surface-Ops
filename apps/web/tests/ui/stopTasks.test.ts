@@ -614,6 +614,19 @@ describe("EVA tablet task list: one UPDATE_STOP_TASK per action (FR-50)", () => 
     expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "SKIPPED", reason: "other" } }]);
   });
 
+  it("the REASON control in the undo strip revises the reason of the skip just made (FD-028)", async () => {
+    const { container, sent } = await tabletWithList();
+    await click(must(container, '[aria-label^="Skip task: Photograph"]'));
+    expect(sent).toHaveLength(1);
+
+    await click(must(container, '[aria-label="Change skip reason: other"]'));
+    expect(sent).toEqual([
+      { kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "SKIPPED", reason: "other" } },
+      { kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "SKIPPED", reason: "time" } },
+    ]);
+    expect(must(container, '[data-testid="task-row-t-s2-01"]').textContent).toMatch(/Reason: time/);
+  });
+
   it("without a client the list is read-only and nothing can be sent", async () => {
     const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotWithTasks() }));
     await click(must(view.container, '[data-testid="tasks-button"]'));
@@ -740,6 +753,59 @@ describe("task state and text carry their own provenance (FR-15, NFR-05; 05 Stop
   });
 });
 
+describe("package 17 stop task list row cap (04 §E.5: up to four rows of at least 56 px)", () => {
+  // The Hab Core caps a stop at four tasks (MAX_TASKS_PER_STOP in apps/hab-core/src/engine/tasks.ts), so the NEXT card
+  // never has to scroll. The list also refuses to render more than four rows: a snapshot that somehow carried five
+  // must not overflow the card.
+  const five: StopTask[] = [
+    ...mockTasks,
+    {
+      ...mockTasks[0]!,
+      task_id: "t-s2-05",
+      text: "Photograph the remaining fracture set",
+    },
+  ];
+
+  it("renders at most four rows for one stop", () => {
+    const html = renderToStaticMarkup(
+      createElement(StopTaskList, {
+        tasks: five,
+        crewId: "EV1",
+        stopId: "wp-2",
+        readOnly: false,
+        undo: null,
+        collapsed: false,
+        notSyncedTaskIds: [],
+        onTick: () => {},
+        onUndo: () => {},
+        onReason: () => {},
+      }),
+    );
+    const rows = html.match(/data-testid="task-row-/g) ?? [];
+    expect(rows.length).toBe(4);
+    expect(html).toContain('data-testid="task-row-t-s2-01"');
+    expect(html).not.toContain('data-testid="task-row-t-s2-05"');
+  });
+
+  it("still counts every task of the stop in the TASKS n/m count", () => {
+    const html = renderToStaticMarkup(
+      createElement(StopTaskList, {
+        tasks: five,
+        crewId: "EV1",
+        stopId: "wp-2",
+        readOnly: false,
+        undo: null,
+        collapsed: true,
+        notSyncedTaskIds: [],
+        onTick: () => {},
+        onUndo: () => {},
+        onReason: () => {},
+      }),
+    );
+    expect(html).toContain("1/5");
+  });
+});
+
 describe("package 17 skip interaction", () => {
   it("records other immediately", async () => {
     const onReason = vi.fn();
@@ -771,5 +837,55 @@ describe("package 17 dropped tasks", () => {
       onTick: () => {}, onUndo: () => {}, onReason: () => {},
     }));
     expect(html).not.toContain("Undo task change");
+  });
+});
+
+describe("package 17 skip reason control (FD-028; 04 §E.5, G-33)", () => {
+  const skipped = mockTasks[2]!; // t-s2-03, SKIPPED, reason "time"
+
+  it("a skipped task in the undo window shows one REASON control naming the current reason", () => {
+    const html = renderToStaticMarkup(createElement(StopTaskRow, {
+      task: skipped, readOnly: false, inUndoWindow: true, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason: () => {},
+    }));
+    expect(html).toMatch(/REASON: TIME/);
+    expect(html).toMatch(/aria-label="Change skip reason: time"/);
+  });
+
+  it("a task that is not skipped has no REASON control", () => {
+    const html = renderToStaticMarkup(createElement(StopTaskRow, {
+      task: mockTasks[0]!, readOnly: false, inUndoWindow: true, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason: () => {},
+    }));
+    expect(html).not.toMatch(/REASON:/);
+  });
+
+  it("one tap on the REASON control cycles the reason other -> time -> terrain -> alert -> other", async () => {
+    const onChangeReason = vi.fn();
+    const view = await mount(createElement(StopTaskRow, {
+      task: { ...skipped, reason: "other" }, readOnly: false, inUndoWindow: true, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason: () => {}, onChangeReason,
+    }));
+    const control = must(view.container, '[aria-label="Change skip reason: other"]');
+    expect(control.tagName).toBe("BUTTON");
+
+    await click(control);
+    expect(onChangeReason.mock.calls).toEqual([[skipped.task_id, "time"]]);
+  });
+
+  it("the REASON control is glove-sized (56 px) and neutral chrome", () => {
+    const html = renderToStaticMarkup(createElement(StopTaskRow, {
+      task: skipped, readOnly: false, inUndoWindow: true, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason: () => {},
+    }));
+    expect(html).toMatch(/min-height:\s*var\(--target-eva, 56px\)/);
+  });
+
+  it("a read-only row offers no REASON control", () => {
+    const html = renderToStaticMarkup(createElement(StopTaskRow, {
+      task: skipped, readOnly: true, inUndoWindow: true, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason: () => {},
+    }));
+    expect(html).not.toMatch(/REASON:/);
   });
 });

@@ -50,6 +50,8 @@ export interface StopTaskChanges {
   start(taskId: string, change: StopTaskChange): void;
   /** Reverses the change UNDO is offered for: cancels it if still waiting, else sends the reversal. */
   undo(taskId: string): void;
+  /** Revises the reason of a skip inside the undo window (FD-028): sends the new reason at once. */
+  changeReason(taskId: string, reason: StopTaskReason): void;
   /** The task UNDO is offered for (inside the window), or null. */
   undoTaskId: string | null;
   /** `tasks` with the changes in progress shown as their new state. */
@@ -92,9 +94,8 @@ export function useStopTaskChanges(send: Send, serverTasks: StopTask[], linked: 
     if (changed) rerender();
   }, [serverTasks]);
 
-  const dispatch = useCallback((taskId: string) => {
-    const entry = entries.current.get(taskId);
-    if (!entry || entry.phase === "sent") return;
+  /** Sends the entry's current args to the Hab Core and marks the entry as sent. */
+  const sendEntry = useCallback((taskId: string, entry: Entry) => {
     entry.phase = "sent";
     void latest.current
       .send({ kind: "UPDATE_STOP_TASK", args: { ...entry.args } })
@@ -108,6 +109,12 @@ export function useStopTaskChanges(send: Send, serverTasks: StopTask[], linked: 
         if (mounted.current) rerender();
       });
   }, []);
+
+  const dispatch = useCallback((taskId: string) => {
+    const entry = entries.current.get(taskId);
+    if (!entry || entry.phase === "sent") return;
+    sendEntry(taskId, entry);
+  }, [sendEntry]);
 
   const clearOffer = useCallback(() => {
     if (offer.current) clearTimeout(offer.current.timer);
@@ -176,6 +183,20 @@ export function useStopTaskChanges(send: Send, serverTasks: StopTask[], linked: 
     [begin, clearOffer, dispatch],
   );
 
+  // FD-028: the undo strip holds one REASON control that revises the reason of the skip just made. The revision is a
+  // change of the same kind, so it goes out at once (FR-50: the tap is never held back on the tablet).
+  const changeReason = useCallback(
+    (taskId: string, reason: StopTaskReason) => {
+      const entry = entries.current.get(taskId);
+      if (!entry || entry.shown !== "SKIPPED") return;
+      entry.reason = reason;
+      entry.args = updateStopTaskArgs(taskId, { state: "SKIPPED", reason });
+      sendEntry(taskId, entry);
+      rerender();
+    },
+    [sendEntry],
+  );
+
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -188,6 +209,7 @@ export function useStopTaskChanges(send: Send, serverTasks: StopTask[], linked: 
   return {
     start,
     undo,
+    changeReason,
     undoTaskId: offer.current?.taskId ?? null,
     overlay: (tasks) =>
       entries.current.size === 0
