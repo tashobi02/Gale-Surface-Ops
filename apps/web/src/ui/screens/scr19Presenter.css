@@ -3,7 +3,7 @@
 .presenter-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 16px; }
 .presenter h1 { font: 500 28px/1.2 var(--font-display); }
 .presenter h2 { font: 500 20px/1.4 var(--font-display); margin: 0 0 16px; }
-.presenter a { color: var(--fg-1); text-underline-offset: .2em; }
+.presenter a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 4px; color: var(--fg-1); text-underline-offset: .2em; }
 .presenter-session { display: flex; flex-wrap: wrap; gap: 20px 32px; padding: 20px 0; border-block: 1px solid var(--edge); }
 .presenter-session dt { font: 500 12px/1.5 var(--font-mono); color: var(--fg-2); text-transform: uppercase; }
 .presenter-session dd { margin: 4px 0 0; overflow-wrap: anywhere; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
