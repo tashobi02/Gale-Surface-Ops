@@ -9,7 +9,9 @@
  * - ?: opens Sources & Methods (#/sources) (03 SCR-02).
  * - A toggles and Enter places at the crosshair through `planContext.addStop`, the add-stop mode's own controller (T08.07, FD-117):
  *   this file only delegates. Without `addStop` neither key is bound. Enter on a button or link is left to that control.
- * - Shortcuts are ignored when focus is in an input or editable field.
+ * - Shortcuts fire only when the key goes to the map viewport, the page body or a control inside the map element (zoom, rotate,
+ *   attribution). A key pressed on any other button, summary, link, [role=button] (and the other interactive roles), input,
+ *   textarea, select or contenteditable belongs to that control: Delete on a "Delete task" button must not delete the selected stop.
  * - Arrow keys are never hijacked (no preventDefault, no pan) when focus is inside a composite widget
  *   (radio group, listbox, menu, slider, tabs, ...): those own the arrows (04 §E, WAI-ARIA APG).
  * - Mounted by `createMap` (ui/map/createMap.ts, T07.06), whose focusable viewport is `getTargetElement`; the planner
@@ -75,6 +77,38 @@ export function isEditableElement(target: EventTarget | null): boolean {
     return true;
   }
   return Boolean(target.isContentEditable);
+}
+
+/** Elements that take text or a choice: they keep every key, even inside the map element. */
+const ENTRY_SELECTOR = "input, textarea, select, [contenteditable]:not([contenteditable='false'])";
+
+/** Controls that act on Enter, Space and sometimes Delete themselves; only those inside the map element are map controls. */
+const CONTROL_SELECTOR = [
+  "button",
+  "summary",
+  "a",
+  ...["button", "link", "tab", "switch", "checkbox", "radio", "menuitem", "menuitemcheckbox", "menuitemradio", "option", "textbox", "searchbox", "combobox", "slider", "spinbutton"].map(
+    (role) => `[role="${role}"]`,
+  ),
+].join(",");
+
+/**
+ * True when the key belongs to the control it was pressed on rather than to the map layer: any text entry, picker, button, summary,
+ * link or ARIA control outside the map element. `mapElement` (the focusable viewport) and the controls inside it are the map's own,
+ * so the shortcuts keep working there. A target that is not an element (the window, in tests) is the page.
+ */
+export function ownsItsKeys(target: EventTarget | null, mapElement?: Element | null): boolean {
+  if (!target || !(target instanceof Element)) {
+    return false;
+  }
+  if (target.closest(ENTRY_SELECTOR) !== null) {
+    return true;
+  }
+  const control = target.closest(CONTROL_SELECTOR);
+  if (control === null) {
+    return false;
+  }
+  return !(mapElement && mapElement.contains(control));
 }
 
 /** ARIA roles whose widgets use the arrow keys themselves (WAI-ARIA Authoring Practices composite widgets). */
@@ -157,8 +191,9 @@ export function attachKeyboardControls(options: KeyboardControlsOptions = {}): (
   }
 
   const handleKeyDown = (event: KeyboardEvent) => {
-    // 1. Ignore shortcuts when typing in inputs or contentEditable (04 §E)
-    if (isEditableElement(event.target)) {
+    // 1. Ignore shortcuts when typing in inputs or contentEditable (04 §E), and when another control owns the key.
+    const mapElement = mapHandle?.getTargetElement?.() ?? null;
+    if (isEditableElement(event.target) || ownsItsKeys(event.target, mapElement)) {
       return;
     }
 
@@ -174,7 +209,6 @@ export function attachKeyboardControls(options: KeyboardControlsOptions = {}): (
     // 2. Map panning & zooming (04 §E)
     // Arrow keys and +/− must only pan/zoom when the map element actually has focus
     // (never hijack page-wide when no target element is set).
-    const mapElement = mapHandle?.getTargetElement?.();
     const mapHasFocus = Boolean(
       mapElement &&
         (mapElement === document.activeElement ||

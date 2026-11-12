@@ -357,3 +357,32 @@ it("N-07 library populates stops with Plan closed, feeds SCR-06 and the editor, 
   plan.store.addWaypoint({ ...STOP_POI, id: 'wp-2' });
   expect(plan.store.get().stop_tasks).toHaveLength(1);
 });
+
+it("Delete and B on a task button or the Stop tasks summary act on that control, not on the selected stop or the route (package 25 review)", async () => {
+  const plan = realPlan();
+  const library = [
+    { library_task_id: "lt-boxwork-01", poi_id: STOP_POI.poi_id, crew_id: "EV1", kind: "image", text: "Image the ridge crest", source_id: "poi-boxwork-ridge" },
+    { library_task_id: "lt-boxwork-02", poi_id: STOP_POI.poi_id, crew_id: null, kind: "other", text: "Note the boxwork pattern", source_id: "poi-boxwork-ridge" },
+  ];
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ task_library: library }) }));
+  const ctx: AppContext = { site: SITE, planStore: plan.store, workerClient, debug: false };
+  const m = await mountRaw(createElement(MapWorkspace, { ctx }));
+  open.push(m);
+  await act(async () => { plan.store.addWaypoint(STOP_POI); });
+  plan.answer();
+  await act(async () => { await Promise.resolve(); });
+  plan.store.selectWaypoint(STOP_POI.id);
+  await click(must(m.container, "#scr02-left-tab-plan"));
+  const del = vi.spyOn(plan.store, "deleteWaypoint");
+  const remove = must(m.container, "[data-delete-task]");
+  const summary = must(m.container, "[data-stop-task-editor] > summary");
+  for (const control of [remove, summary]) {
+    for (const key of ["Delete", "b", "B", "?", "a"]) await keyDown(control, key);
+  }
+  expect(del).not.toHaveBeenCalled();
+  expect(plan.store.get().waypoints.map((w) => w.id)).toContain(STOP_POI.id);
+  expect(plan.store.get().stop_tasks).toHaveLength(2);
+  expect(window.location.hash).toBe("");
+  await keyDown(document.body, "Delete");
+  expect(del).toHaveBeenCalledWith(STOP_POI.id);
+});
