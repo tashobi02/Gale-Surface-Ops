@@ -623,6 +623,19 @@ describe("EVA tablet task list: one UPDATE_STOP_TASK per action (FR-50)", () => 
     return { ...view, sent };
   }
 
+  it("read-only after ack", async () => {
+    const { client } = recordingClient(storeFromBeat("connect"));
+    const snap = snapshotWithTasks();
+    const warning = {
+      alert_id: "warning-1", code: "RADIATION_ALERT" as const, level: "warning" as const,
+      subjects: ["EV1"], raised_seq: 1, acked_seq: 2, cleared_seq: null,
+      acked_by: "eva:EV1" as const, message: "Shelter now", data: {},
+    };
+    const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot: { ...snap, alerts: [warning] } }));
+    await click(must(view.container, '[data-testid="tasks-button"]'));
+    expect(must(view.container, '[data-testid="stop-task-list"]').querySelectorAll("button")).toHaveLength(0);
+  });
+
   it("ticking sends one DONE at once, and the row keeps showing DONE until the snapshot says otherwise", async () => {
     vi.useFakeTimers();
     const { container, sent } = await tabletWithList();

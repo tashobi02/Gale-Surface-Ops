@@ -104,6 +104,36 @@ const withCrew = (snapshot: Snapshot, over: Partial<Snapshot["crew"][number]>): 
 
 const VALID_PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"] as const;
 
+describe("crew telemetry supplied by Hab Core", () => {
+  it("age from last-linked sim time", () => {
+    const snapshot = withCrew({ ...getSnapshot("connect"), sim_time: "2026-11-12T12:01:30Z" }, {
+      last_linked_sim_time: "2026-11-12T12:01:00Z",
+    });
+    expect(selectMetadataStrip(snapshot, "EV1").link.ageSeconds).toBe(30);
+    expect(selectMetadataStrip(withCrew(snapshot, { last_linked_sim_time: null }), "EV1").link.ageSeconds).toBeNull();
+    expect(selectMetadataStrip(withCrew(snapshot, { last_linked_sim_time: "invalid" }), "EV1").link.ageSeconds).toBeNull();
+    expect(selectMetadataStrip(withCrew(snapshot, { last_linked_sim_time: "2026-11-12T12:02:00Z" }), "EV1").link.ageSeconds).toBeNull();
+  });
+
+  it("navigation from crew record", () => {
+    const snapshot = withCrew(getSnapshot("walking"), {
+      next_stop_bearing_deg: 90, next_stop_distance_m: 120, next_stop_eta_s: 180, o2_remaining_min: 42,
+    });
+    expect(selectNextStop(snapshot, "EV1")).toMatchObject({
+      bearingDeg: { v: 90, prov: "derived", src: "snapshot:crew.next_stop_bearing_deg" },
+      distanceM: { v: 120, prov: "derived", src: "snapshot:crew.next_stop_distance_m" },
+      etaMinutes: { v: 3, prov: "modelled", src: "snapshot:crew.next_stop_eta_s" },
+    });
+    expect(selectO2(snapshot, "EV1").timeLeftMinutes).toMatchObject({ v: 42, prov: "simulated", src: "snapshot:crew.o2_remaining_min" });
+  });
+
+  it("does not substitute a planned leg duration for live arrival time", () => {
+    const plan = { ...PLAN, result: { ...PLAN.result, legs: [{ to: "wp-2", walk_time_min: 7 }] } } as unknown as PlanExport;
+    const snapshot = withCrew({ ...getSnapshot("walking"), plan }, { activity: "WALKING", stop_index: 1, next_stop_eta_s: null });
+    expect(selectNextStop(snapshot, "EV1")?.etaMinutes).toMatchObject({ v: "—", unavailable: true });
+  });
+});
+
 /**
  * Gating probe: red against the T24.01 stubs (they throw "TODO(TASK-24): not implemented").
  * When run on main before T24.03, these are skipped so CI remains green.

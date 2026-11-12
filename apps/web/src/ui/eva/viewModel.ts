@@ -232,6 +232,7 @@ export function selectO2(snapshot: Snapshot | null, crewId: CrewId): EvaO2View {
   // Time left: read from alert if available, otherwise "—". TODO(decision): Sadman to supply o2_time_left_min on crew.
   // Its class is the server's, from the alert's own provenance (simulated today); a number without a valid class is not
   // shown, because FR-15 allows no unlabelled value.
+  const crewTimeLeft = crew?.o2_remaining_min;
   const rawTimeLeft: unknown = o2Alert?.data.o2_remaining_min;
   const rawTimeLeftProv: unknown = o2Alert?.data.provenance?.["data.o2_remaining_min"];
   const alertTimeLeft = isFiniteNumber(rawTimeLeft) && isProvenance(rawTimeLeftProv) ? rawTimeLeft : undefined;
@@ -251,7 +252,10 @@ export function selectO2(snapshot: Snapshot | null, crewId: CrewId): EvaO2View {
 
   return {
     percent,
-    timeLeftMinutes: {
+    timeLeftMinutes: isFiniteNumber(crewTimeLeft) ? {
+      v: crewTimeLeft, unit: "min", prov: provenanceOr(snapshot?.provenance?.["crew.o2_remaining_min"], "simulated"),
+      src: "snapshot:crew.o2_remaining_min",
+    } : {
       v: timeLeftMinutes,
       unit: typeof timeLeftMinutes === "number" ? "min" : "",
       prov: timeLeftProv,
@@ -305,10 +309,7 @@ function planStopFor(stops: Waypoint[], activity: CrewActivity | null, stopIndex
 }
 
 /**
- * Next stop card. Bearing and distance are NOT computed here: the UI holds no science (TASK-24, AGENTS
- * rule 2), and no authoritative navigation value reaches the snapshot yet, so both stay unavailable ("—").
- * TODO(decision): revised plans (a PLAN_REVISED that drops stops) against stop_index; with no plan in the snapshot the
- * stop is taken from the crew member's first task; authoritative navigation values from Hab Core/compute (TASK-32 T32.01).
+ * Next stop card. Navigation is supplied by Hab Core; the UI does not calculate route geometry.
  */
 export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNextStopView | null {
   if (!snapshot) return null;
@@ -320,8 +321,6 @@ export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNe
   const eligibleTasks = (snapshot.tasks ?? []).filter((t) => t.crew_id === null || t.crew_id === crewId);
   let stopId: string | null = null;
   let stopName = "";
-  // TODO(decision): Sadman to supply stop ETA in plan or snapshot when no leg gives one.
-  let etaMin: number | string = UNAVAILABLE;
 
   if (waypoints.length > 0) {
     const stops = waypoints.filter((w) => w.role === "stop");
@@ -330,11 +329,6 @@ export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNe
       stopId = nextWp.id;
       stopName = nextWp.label || `Stop ${stopId.replace(/^wp-/, "")}`;
 
-      const legs = snapshot.plan?.result?.legs ?? [];
-      const leg = legs.find((l) => l.to === nextWp.id);
-      if (leg && "walk_time_min" in leg && isFiniteNumber(leg.walk_time_min)) {
-        etaMin = Math.round(leg.walk_time_min);
-      }
     }
   } else if (eligibleTasks.length > 0) {
     const task = eligibleTasks[0];
@@ -346,23 +340,20 @@ export function selectNextStop(snapshot: Snapshot | null, crewId: CrewId): EvaNe
     return null;
   }
 
-  // TODO(decision): authoritative navigation (bearing, distance) from Hab Core/compute.
-
   const tasks = eligibleTasks.filter((t) => t.stop_id === stopId);
   const done = tasks.filter((t) => t.state === "DONE").length;
+
+  const navigation = (value: unknown, field: string, unit: string, prov: Provenance): ProvenanceValue<number | string> =>
+    isFiniteNumber(value)
+      ? { v: value, unit, prov: provenanceOr(snapshot.provenance?.[`crew.${field}`], prov), src: `snapshot:crew.${field}` }
+      : unavailable(`crew.${field}`, prov);
 
   return {
     stopId,
     stopName,
-    bearingDeg: { v: UNAVAILABLE, unit: "", prov: null, src: "unavailable:next_stop.bearing_deg", unavailable: true },
-    distanceM: { v: UNAVAILABLE, unit: "", prov: null, src: "unavailable:next_stop.distance_m", unavailable: true },
-    etaMinutes: {
-      v: etaMin,
-      unit: typeof etaMin === "number" ? "min" : "",
-      prov: typeof etaMin === "number" ? "derived" : null,
-      src: typeof etaMin === "number" ? "plan.legs.walk_time_min" : "unavailable:next_stop.eta_min",
-      ...(typeof etaMin === "number" ? {} : { unavailable: true }),
-    },
+    bearingDeg: isFiniteNumber(crew?.next_stop_bearing_deg) ? navigation(crew.next_stop_bearing_deg, "next_stop_bearing_deg", "°", "derived") : { v: UNAVAILABLE, unit: "", prov: null, src: "unavailable:next_stop.bearing_deg", unavailable: true },
+    distanceM: isFiniteNumber(crew?.next_stop_distance_m) ? navigation(crew.next_stop_distance_m, "next_stop_distance_m", "m", "derived") : { v: UNAVAILABLE, unit: "", prov: null, src: "unavailable:next_stop.distance_m", unavailable: true },
+    etaMinutes: isFiniteNumber(crew?.next_stop_eta_s) ? navigation(crew.next_stop_eta_s / 60, "next_stop_eta_s", "min", "modelled") : unavailable("next_stop.eta_min", null),
     taskCount: {
       done,
       total: tasks.length,
@@ -382,6 +373,10 @@ export function selectMetadataStrip(snapshot: Snapshot | null, crewId: CrewId): 
 
   const eva: unknown = crew?.eva_elapsed_s;
   const dose: unknown = crew?.dose_event_ugy;
+  const currentTime = snapshot?.sim_time ? Date.parse(snapshot.sim_time) : NaN;
+  const linkedTime = crew?.last_linked_sim_time ? Date.parse(crew.last_linked_sim_time) : NaN;
+  const ageSeconds = Number.isFinite(currentTime) && Number.isFinite(linkedTime) && currentTime >= linkedTime
+    ? (currentTime - linkedTime) / 1000 : null;
 
   return {
     evaTimeSeconds: isFiniteNumber(eva)
@@ -393,9 +388,7 @@ export function selectMetadataStrip(snapshot: Snapshot | null, crewId: CrewId): 
     link: {
       linked,
       bars: null,
-      // No telemetry age reaches the snapshot: unavailable, not a placeholder.
-      // TODO(decision): Sadman to supply telemetry ageSeconds in snapshot.crew or derive from client linkLost().
-      ageSeconds: null,
+      ageSeconds,
       stale,
     },
   };

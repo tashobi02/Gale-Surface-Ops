@@ -15,22 +15,14 @@
  * the window ends, and a newer change sends an older waiting one first, so the queue keeps the order. These rows read
  * "not synced". Leaving the screen sends what is waiting rather than dropping it.
  *
- * TODO(decision): `undo` is not in a typed args shape of packages/protocol (Command.args is an open record), so
- * `updateStopTaskArgs` below is the local typed builder until the spec-change adds one.
  */
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import type { CommandResult, StopTask, StopTaskReason, StopTaskState } from "@marswalk/protocol";
+import type { CommandResult, StopTask, StopTaskReason, StopTaskState, UpdateStopTaskArgs } from "@marswalk/protocol";
 
 /** The undo window of 01 FR-50, in client wall-clock milliseconds. */
 export const STOP_TASK_UNDO_WINDOW_MS = 5000;
 
 export type StopTaskChange = { state: "DONE" } | { state: "SKIPPED"; reason: StopTaskReason };
-
-/** Args of UPDATE_STOP_TASK as this client sends them. */
-export type UpdateStopTaskArgs =
-  | { task_id: string; state: "DONE"; reason?: undefined; undo?: undefined }
-  | { task_id: string; state: "SKIPPED"; reason: StopTaskReason; undo?: undefined }
-  | { task_id: string; state: "TODO"; undo: true };
 
 /** The one place the command's args are built. Only a reversal carries `undo: true`. */
 export function updateStopTaskArgs(taskId: string, target: StopTaskChange | "UNDO"): UpdateStopTaskArgs {
@@ -105,7 +97,7 @@ export function useStopTaskChanges(send: Send, serverTasks: StopTask[], linked: 
     if (!entry || entry.phase === "sent") return;
     entry.phase = "sent";
     void latest.current
-      .send({ kind: "UPDATE_STOP_TASK", args: entry.args })
+      .send({ kind: "UPDATE_STOP_TASK", args: { ...entry.args } })
       .then((result) => {
         if (result.ok) return;
         // Only the entry that was sent may be undone by its own rejection: a newer one (the UNDO that replaced it) stays.

@@ -33,7 +33,6 @@ import {
   isFiniteNumber,
   provAttrs,
   unavailableOf,
-  PROVENANCE_GLYPHS,
 } from "../components/provenance";
 import { TasksButton } from "./scr12/TasksButton";
 import { StopTaskList } from "./scr12/StopTaskList";
@@ -102,8 +101,6 @@ export function EvaTablet({
   const vm: EvaViewModel = selectEvaViewModel(viewSnapshot, crewId);
 
   // Stop task list open state (TASKS button toggles the list).
-  // TODO(decision): resolve U-51 and U-59 with the named owners before changing task-list placement or post-ack
-  // read-only behaviour.
   const [tasksExpanded, setTasksExpanded] = useState<boolean>(false);
 
   // FR-50: the list is in full only while the crew member is at the stop; walking, heading for a haven, sheltered (or
@@ -217,6 +214,15 @@ export function EvaTablet({
             >
               OPTIONS
             </button>
+            {!vm.alertSlot.acknowledged && <button
+              type="button"
+              className="btn sm"
+              style={{ minHeight: "56px", minWidth: "56px", fontSize: "16px", cursor: "pointer" }}
+              aria-label="Acknowledge alert"
+              onClick={() => { void send({ kind: "ACK_ALERT", args: { alert_id: vm.alertSlot!.alertId } }); }}
+            >
+              ACK
+            </button>}
           </div>
         ) : (
           <div
@@ -372,7 +378,7 @@ export function EvaTablet({
                 tasks={viewSnapshot?.tasks ?? []}
                 crewId={crewId}
                 stopId={vm.nextStop?.stopId ?? ""}
-                readOnly={!hab || !crewId}
+                readOnly={!hab || !crewId || (vm.alertSlot?.level === "warning" && vm.alertSlot.acknowledged)}
                 undo={changes.undoTaskId === null ? null : { taskId: changes.undoTaskId }}
                 collapsed={collapsed}
                 notSyncedTaskIds={changes.notSyncedTaskIds()}
@@ -473,14 +479,13 @@ export function EvaTablet({
         <span>·</span>
         <span
           {...provAttrs(
-            vm.metadata.link.linked === null
-              ? unavailableOf("simulated", "crew.linked")
-              : { prov: "simulated", src: "snapshot:crew.linked" },
+            vm.metadata.link.bars === null
+              ? unavailableOf("simulated", "crew.link_quality")
+              : { prov: "simulated", src: "snapshot:crew.link_quality" },
           )}
           style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
         >
-          LINK {vm.metadata.link.linked === null ? UNAVAILABLE : vm.metadata.link.linked ? "▮▮▮" : "▯▯▯"}{" "}
-          {vm.metadata.link.linked === null ? "" : PROVENANCE_GLYPHS.simulated}
+          LINK {vm.metadata.link.bars === null ? UNAVAILABLE : vm.metadata.link.bars}
           {vm.metadata.link.stale === true && (
             <span className="tag">
               <StatusIcon status="caution" word="STALE" showWord={true} />

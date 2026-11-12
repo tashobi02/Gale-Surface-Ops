@@ -51,6 +51,24 @@ function valueText(root: HTMLElement, slot: string): string {
 }
 
 describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
+  it("does not invent link quality bars from the linked flag", async () => {
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
+    const strip = must(view.container, '[data-slot="meta-strip"]');
+    expect(strip.textContent).not.toMatch(/[▮▯]/);
+    expect(strip.textContent).toContain("LINK —");
+  });
+  it("ack sends ACK_ALERT", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect"));
+    const base = snapshotOf("connect");
+    const snapshot: Snapshot = { ...base, alerts: [{
+      alert_id: "alert-1", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"],
+      raised_seq: 1, acked_seq: null, cleared_seq: null, acked_by: null,
+      message: "Shelter now", data: {},
+    }] };
+    const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot }));
+    await click(must(view.container, '[aria-label="Acknowledge alert"]'));
+    expect(sent).toEqual([{ kind: "ACK_ALERT", args: { alert_id: "alert-1" } }]);
+  });
   it.each([...BEATS])("beat %s: shows the snapshot's own HAVEN and O₂, never NaN, every value labelled", async (beat) => {
     const client = storeFromBeat(beat);
     const snap = client.state()!;

@@ -387,6 +387,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-12 | Claude Code (Sonnet 5.5, frontend lane orchestrator) | Baseline repair before package 11: the `scale-bar` check now opens `/spike/?site=<E2E_SITE or mock_site>` because the spike page defaults to the real site since FD-086, and the scrollable SCR-05 warnings column got `role="region"`, an `aria-label` and `tabIndex={0}` so axe `scrollable-region-focusable` passes | Invented no number or id; changed no behaviour other than the check's URL and the column's focusability | Obidit Islam (frontend lane owner); `make lint typecheck test-web docs-check` and a full `make e2e` (99 passed, 52 skipped) green | — |
 | 2026-11-12 | Claude Code (Sonnet 5.5, frontend lane orchestrator) | Harness change for parallel worktrees: `HAB_PORT` reads `E2E_PORT` (default 8091) in `apps/web/e2e/lib/hab.ts`, with one row in the harness README | Invented no number or id; the default and every existing check are unchanged | Obidit Islam (frontend lane owner); `E2E_PORT=8101 make e2e-one CHECK=offline` green (27 passed) | — |
 
+| 2026-11-12 | GPT-6.1 Terra (Codex, xhigh), frontend implementer | Package 17 partial: tests first for crew navigation, link age, alert acknowledgement, missing link quality and task read-only state; typed undo | Uses protocol-supplied values and simulated time; missing N-04 bars remain unavailable; package remains wip | Web tests, lint and typecheck; browser checks pending outside sandbox | This Codex session |
+
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).
