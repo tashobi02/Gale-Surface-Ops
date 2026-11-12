@@ -1,6 +1,7 @@
 /** T32.19 / T32.20: SCR-19 commands use the real client contract and F7 session. */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { act, createElement } from "react";
+import { readFileSync } from "node:fs";
 import type { CommandResult, Snapshot } from "@marswalk/protocol";
 import type { HabClient, SocketLike } from "../../src/net/habClient";
 import { closeHabSessions, startHabSession } from "../../src/state/habSession";
@@ -71,6 +72,35 @@ describe("SCR-19 presenter", () => {
     expect(container.textContent).not.toMatch(/Approve|Abort|Summon|O₂|dose_event/);
     expect(must(container, '[data-source="snapshot:session.clock.sim_time"]').getAttribute("data-provenance")).toBe("simulated");
     expect(container.textContent).toContain("simulated");
+  });
+
+  it("uses no status colour on any presenter control: every button is a neutral token", async () => {
+    const { container } = await panel();
+    // The status tokens (04 §C.1) are the colours a status may use; a presenter control uses none of them, so the
+    // computed background and border colours are the neutral surfaces only. The primitives are read from tokens.css, so a
+    // retuned status colour is still caught.
+    const tokens = readFileSync(new URL("../../src/ui/styles/tokens.css", import.meta.url), "utf8");
+    const statusPrimitives = ["--nominal", "--caution", "--warning", "--advisory", "--unknown", "--signal", "--signal-ink"];
+    const resolved = new Set(statusPrimitives
+      .map((primitive) => new RegExp(`${primitive}:\\s*(#[0-9a-fA-F]{6})`).exec(tokens)?.[1]?.toUpperCase())
+      .filter((hex): hex is string => !!hex));
+    expect(resolved.size).toBe(statusPrimitives.length);
+    for (const el of container.querySelectorAll("button")) {
+      const style = getComputedStyle(el);
+      for (const prop of ["backgroundColor", "borderTopColor", "color"] as const) {
+        expect(resolved.has(style[prop].trim().toUpperCase()), `${el.getAttribute("aria-label")} ${prop}=${style[prop]}`).toBe(false);
+      }
+    }
+  });
+
+  it("follows a new session id with a fresh panel", async () => {
+    const { container } = await panel(running);
+    expect(must(container, ".presenter-session").textContent).toContain(running.session.scenario_id);
+    // A new session id re-keys the panel, so the new session's own status decides the controls.
+    const next = { ...running, seq: 2, session: { ...running.session, session_id: "s-0008", status: "LOADED" as const } };
+    const { container: after } = await panel(next);
+    expect(must(after, ".presenter-session").textContent).toContain("LOADED");
+    expect(must(after, '.presenter-actions button[aria-label="Load scenario"]')).not.toBeNull();
   });
 
   it("marks missing session values and failed QR images unavailable", async () => {

@@ -77,15 +77,19 @@ export function App({ route, planner, fetchImpl }: AppProps): ReactElement {
       );
     case "presenter":
       return (
-        <LiveFrame variant="ops">
-          <Presenter />
-        </LiveFrame>
+        <RouteBoundary screen="SCR-19" label="Presenter panel" task="T32.19">
+          <LiveFrame variant="ops">
+            <Presenter />
+          </LiveFrame>
+        </RouteBoundary>
       );
     case "setup":
       return (
-        <LiveFrame variant="ops">
-          <MissionSetup />
-        </LiveFrame>
+        <RouteBoundary screen="SCR-20" label="Mission setup" task="T32.21">
+          <LiveFrame variant="ops">
+            <MissionSetup />
+          </LiveFrame>
+        </RouteBoundary>
       );
     case "replay":
       return <NotBuilt screen="—" label="Replay mode" task="T27.05" />;

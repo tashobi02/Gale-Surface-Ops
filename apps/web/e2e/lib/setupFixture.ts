@@ -51,7 +51,9 @@ export async function openSetupFixture(page: Page, state: SetupFixtureState): Pr
       provenance: "assumed",
       source_ids: [manifest.sources[0]!.source_id],
     }));
-    await route.fulfill({ response, json: { ...manifest, hab_candidates } });
+    // The fixture serves one world: the manifest carries the same data version as the snapshot it answers HELLO with, so
+    // the screen does not report a site/session mismatch that the fixture itself created.
+    await route.fulfill({ response, json: { ...manifest, data_version: snapshot.session.data_version, hab_candidates } });
   });
 
   const fixture: SetupFixture = { answer: () => {}, sent: [] };

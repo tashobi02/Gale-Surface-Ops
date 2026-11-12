@@ -28,7 +28,8 @@ const clients: HabClient[] = []; const mounts: Mounted[] = [];
 beforeAll(() => {
   installDom();
   const tokens = readFileSync(new URL("../../src/ui/styles/tokens.css", import.meta.url), "utf8");
-  for (const [semantic, primitive] of [["--fg-1", "--text-1"], ["--surface-1", "--panel"]]) {
+  // The tokens the comm preview canvas reads: the three coverage fills (04 §A.3.2) and the card background.
+  for (const [semantic, primitive] of [["--fg-1", "--text-1"], ["--fg-3", "--text-3"], ["--route", "--route"], ["--surface-1", "--panel"]]) {
     document.documentElement.style.setProperty(semantic!, new RegExp(`${primitive}:\\s*(#[0-9a-fA-F]{6})`).exec(tokens)![1]!);
   }
 }); afterAll(removeDom);
@@ -146,6 +147,40 @@ describe("SCR-20 mission setup", () => {
     expect(sent).toEqual([{ kind: "SET_MISSION_SETUP", args: { vehicle_param_set: "pr1-assumed" } }]);
   });
 
+  it("marks absent values unavailable and never labels them assumed", async () => {
+    const { container } = await setup(null, null);
+    // No snapshot and no site: the settings fieldset has no values at all, so every one of them is "—".
+    const settings = must(container, ".setup-settings");
+    for (const el of settings.querySelectorAll("[data-source]")) {
+      expect(el.getAttribute("data-source"), el.outerHTML).toMatch(/^unavailable:/);
+      expect(el.getAttribute("data-unavailable"), el.outerHTML).toBe("true");
+      expect(el.getAttribute("data-provenance"), el.outerHTML).not.toBe("assumed");
+    }
+    expect(settings.textContent).toContain("—");
+  });
+
+  it("marks a candidate without a note unavailable instead of assuming one", async () => {
+    const withoutNote = candidates.map((candidate) => ({ ...candidate, note: undefined }));
+    const bundle = { ...site(), site: { ...manifest, hab_candidates: withoutNote } };
+    const { container } = await setup(loaded, bundle);
+    const card = must(container, '[data-candidate-id="hab-first"]');
+    const note = must(card, 'p[data-source^="unavailable:candidate:hab-first:note"]');
+    expect(note.textContent).toBe("—");
+    expect(note.getAttribute("data-unavailable")).toBe("true");
+    expect(note.getAttribute("data-provenance")).not.toBe("assumed");
+    expect(note.getAttribute("data-source")).toMatch(/^unavailable:/);
+  });
+
+  it("marks an unavailable coverage grid unavailable, never assumed", async () => {
+    const real = storeFromBeat("live-loaded", "ops"); clients.push(real);
+    const { client } = recordingClient({ ...real, role: "ops", state: () => loaded }, accepted);
+    const { MissionSetup } = await import("../../src/ui/screens/scr20MissionSetup");
+    const m = await mount(createElement(MissionSetup, { client, site: site(), fetchGrid: async () => new Response("Missing", { status: 404 }) })); mounts.push(m);
+    const note = must(must(m.container, '[data-candidate-id="hab-first"]'), "p[data-source^='unavailable:']");
+    expect(note.getAttribute("data-unavailable")).toBe("true");
+    expect(note.getAttribute("data-provenance")).not.toBe("assumed");
+  });
+
   it("shows — and no coverage when a candidate's grid cannot be fetched", async () => {
     const real = storeFromBeat("live-loaded", "ops"); clients.push(real);
     const { client } = recordingClient({ ...real, role: "ops", state: () => loaded }, accepted);
@@ -155,6 +190,97 @@ describe("SCR-20 mission setup", () => {
     expect(must<HTMLCanvasElement>(card, "canvas").hidden).toBe(true);
     expect(card.textContent).toContain("—");
     expect(card.textContent).not.toContain("Loading coverage");
+  });
+
+  it("commits the haven time on Enter and on Apply, and never snaps the field back mid-edit", async () => {
+    const { container, sent } = await setup();
+    const haven = must<HTMLInputElement>(container, 'input[aria-label="Maximum time to haven (min)"]');
+    haven.focus();
+    haven.value = "42";
+    await fire(haven, new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(sent).toContainEqual({ kind: "SET_MISSION_SETUP", args: { max_haven_min: 42 } });
+    // The field keeps what the user typed until the snapshot answers; it never snaps back to the old value.
+    expect(haven.value).toBe("42");
+
+    const apply = must<HTMLButtonElement>(container, 'button[aria-label="Apply maximum time to haven"]');
+    haven.value = "55";
+    await click(apply);
+    expect(sent).toContainEqual({ kind: "SET_MISSION_SETUP", args: { max_haven_min: 55 } });
+  });
+
+  it("keeps the status live region mounted before its text changes", async () => {
+    const { container } = await setup();
+    const status = must(container, ".setup-state");
+    expect(status.getAttribute("role")).toBe("status");
+    expect(status.getAttribute("aria-live")).toBe("polite");
+    // The element that carries the role is always in the tree, so a screen reader sees a region before it changes.
+    expect(status.isConnected).toBe(true);
+  });
+
+  it("says so when the loaded site and the session disagree on the data version", async () => {
+    const other = { ...site(), site: { ...manifest, data_version: "other-2026.11.09" } };
+    const { container } = await setup(loaded, other);
+    const notice = must(container, ".setup-mismatch");
+    expect(notice.textContent).toContain("other-2026.11.09");
+    expect(notice.textContent).toContain(loaded.session.data_version);
+    expect(notice.getAttribute("role")).toBe("alert");
+  });
+
+  it("shows no mismatch notice when the site and the session agree", async () => {
+    const matching = { ...site(), site: { ...manifest, data_version: loaded.session.data_version } };
+    const { container } = await setup(loaded, matching);
+    expect(container.querySelector(".setup-mismatch")).toBeNull();
+  });
+
+  it("refuses a candidate change once the session is not LOADED, and sends nothing", async () => {
+    for (const status of ["RUNNING", "PAUSED", "ENDED"] as const) {
+      const { container, sent } = await setup({ ...loaded, session: { ...loaded.session, status } });
+      const button = must<HTMLButtonElement>(container, 'button[aria-label="Select Mock alternative"]');
+      expect(button.disabled).toBe(true);
+      await click(button);
+      expect(sent).toEqual([]);
+    }
+  });
+
+  it("sends one command only while one is in flight", async () => {
+    let resolve!: (r: CommandResult) => void;
+    const { container, sent } = await setup(loaded, site(), () => new Promise((r) => { resolve = r; }));
+    const button = must<HTMLButtonElement>(container, 'button[aria-label="Select Mock alternative"]');
+    await click(button);
+    expect(sent).toHaveLength(1);
+    expect(button.disabled).toBe(true);
+    await click(button);
+    expect(sent).toHaveLength(1);
+    await act(async () => resolve(accepted()));
+    expect(sent).toHaveLength(1);
+  });
+
+  it("sends nothing when the link is lost or the role was taken over", async () => {
+    const real = storeFromBeat("live-loaded", "ops"); clients.push(real);
+    const listeners = new Set<() => void>(); let lost = false; let taken = false;
+    const { client, sent } = recordingClient({ ...real, role: "ops", state: () => loaded,
+      linkLost: () => ({ lost, since_ms: null }), takenOver: () => taken,
+      subscribe: (l) => { listeners.add(l); return () => { listeners.delete(l); }; },
+    });
+    const { MissionSetup } = await import("../../src/ui/screens/scr20MissionSetup");
+    const m = await mount(createElement(MissionSetup, { client, site: site() })); mounts.push(m);
+    await act(async () => { lost = true; for (const l of listeners) l(); });
+    await click(must(m.container, 'button[aria-label="Select Mock alternative"]'));
+    expect(sent).toEqual([]);
+    await act(async () => { lost = false; taken = true; for (const l of listeners) l(); });
+    await click(must(m.container, 'button[aria-label="Select Mock alternative"]'));
+    expect(sent).toEqual([]);
+  });
+
+  it("follows a new session id with a fresh, locked panel", async () => {
+    const matching = { ...site(), site: { ...manifest, data_version: loaded.session.data_version } };
+    const { container } = await setup(loaded, matching);
+    expect(must(container, ".setup-state").textContent).toBe("Ready");
+    // A new session id re-keys the panel, so the new session's own status decides whether it is locked.
+    const next = { ...loaded, seq: 2, session: { ...loaded.session, session_id: "s-0008", status: "RUNNING" as const } };
+    const { container: after } = await setup(next, matching);
+    expect(must(after, ".setup-state").textContent).toContain("Locked");
+    expect(must(container, ".setup-state").textContent).toBe("Ready");
   });
 
   it("loads the URL's site and recovers from a missing manifest with Retry", async () => {
