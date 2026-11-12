@@ -148,6 +148,12 @@ describe("C10 stubs throw TODO(<owner id>) and are React components where they r
     expect(() => ProfileChart({} as never)).toThrow("TODO(T09.02)");
     expect(() => linkProfileToMap({} as never, {} as never)).toThrow("TODO(T09.05)");
     await expect(createMapSnapshot({} as never)).rejects.toThrow("TODO(T11.04)");
-    expect(() => exportPlan({} as never, {} as never)).toThrow("TODO(T11.02)");
+  });
+
+  it("the implemented export throws its own reason, not a TODO marker (T11.02)", () => {
+    // `exportPlan` is implemented (T11.02), so it refuses a plan without a computed result
+    // with its own message instead of the c.4 stub's TODO marker.
+    expect(() => exportPlan({} as never, {} as never)).toThrow(/exportPlan: the plan has no computed result yet/);
+    expect(() => exportPlan({} as never, {} as never)).not.toThrow(/TODO\(/);
   });
 });
