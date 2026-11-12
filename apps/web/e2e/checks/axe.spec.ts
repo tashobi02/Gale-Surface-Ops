@@ -3,6 +3,7 @@
  * axe-core in real Chromium, tags wcag2a, wcag2aa, wcag21aa: zero serious or critical violations on every built route, in its
  * mode, and on each EVA and ops state fixture (FD-151). The full result of each scan goes to `out/axe-<route>.json`.
  */
+import { openBriefing, BRIEFING_STATES } from "../lib/briefing";
 import { expect, test } from "@playwright/test";
 import { axeScan, type HtmlMode } from "../lib/a11y";
 import { waitForSnapshot } from "../lib/hab";
@@ -197,4 +198,12 @@ test("axe: SCR-04 task editor four-task limit state has no serious or critical v
   }
   await expect(editor.locator("[data-task-text]")).toHaveCount(4);
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-task-limit`, include: PLAN_PANEL });
+});
+
+test("axe: SCR-08 computed briefing states have no serious or critical violation (package 14)", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  for (const state of BRIEFING_STATES) {
+    await openBriefing(page, state);
+    await axeScan(page, { mode: "print", route: `${testInfo.project.name}-scr08-${state}` });
+  }
 });

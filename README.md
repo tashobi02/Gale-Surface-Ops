@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`█████████████░░░░░░░` **67 %** — 232 of 345 subtasks done, 43 in progress.
+`██████████████░░░░░░` **68 %** — 235 of 345 subtasks done, 43 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -28,7 +28,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-08 Plan panel + waypoint editing](docs/tasks/TASK-08_plan-panel-and-waypoints.md) | `█████████░` 91 % | 10 | 0 | 11 |
 | [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `██████░░░░` 62 % | 5 | 1 | 8 |
 | [TASK-10 POI detail + Conditions panel](docs/tasks/TASK-10_poi-detail-and-conditions.md) | `████████░░` 75 % | 3 | 0 | 4 |
-| [TASK-11 Briefing card + JSON export](docs/tasks/TASK-11_briefing-card-and-export.md) | `████░░░░░░` 43 % | 3 | 0 | 7 |
+| [TASK-11 Briefing card + JSON export](docs/tasks/TASK-11_briefing-card-and-export.md) | `█████████░` 86 % | 6 | 0 | 7 |
 | [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `████░░░░░░` 43 % | 3 | 1 | 7 |
 | [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `███████░░░` 69 % | 9 | 0 | 13 |
 | [TASK-14 Integration + offline hardening + fault tests](docs/tasks/TASK-14_integration-offline-hardening.md) | `████░░░░░░` 36 % | 4 | 0 | 11 |
@@ -54,24 +54,19 @@ Totals leave out 43 fallback and desirable subtasks (they may never run); 3 of t
 
 Generated, do not edit by hand. Record finished subtasks in [docs/tasks/status.md](docs/tasks/status.md), then run `make progress`.
 
-## Run it
+## Quickstart
 
 Requirements: Node.js LTS, conda (Miniconda or Miniforge; the pipeline's only Python environment), GNU Make.
 
 ```sh
-make setup        # npm ci (all workspaces) + conda environment marswalk-pipeline + agent skills
+make setup        # npm ci (all workspaces) + conda environment marswalk-pipeline
 make check-env    # fails unless the pipeline interpreter, GDAL, rasterio and pyproj are right
-make lint typecheck test docs-check # static analysis, typechecking, full tests, link checks
+make lint typecheck test docs-check
 make test-web     # Vitest in every workspace; needs no conda
-make e2e          # Playwright end-to-end browser verification (headless Chromium, localhost)
-make e2e-one CHECK=<name> # run a single Playwright e2e check (e.g. CHECK=offline)
+make hab          # Hab Core on 0.0.0.0:8080 (habitat LAN) — stub until TASK-20
 make dev          # Vite dev server; proxies /sites, /api, /ws to the Hab Core
-make hab          # Hab Core on 0.0.0.0:8080 (serves web app, sites and WebSocket on habitat LAN)
 make demo         # production build served by the Hab Core (no internet needed)
-make replay       # headless scenario replay, prints the event-log hash (NFR-06, NFR-14)
-make record       # write static recording for GitHub Pages replay (scenarios/storm-sol4190/recording.json)
-make data         # offline preprocessing pipeline entry point (TASK-03)
-make progress     # regenerate the README progress bar from docs/tasks/status.md
+make replay       # headless scenario replay, prints the event-log hash — stub until TASK-22
 ```
 
 Demo setup (06 §D.3, TASK-28): one laptop runs `make demo`; phones join the same offline travel router and open the role URL (ops shows QR codes).
@@ -107,51 +102,7 @@ Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are 
 
 ## Credits
 
-Planned sources are listed in [02 Sources](docs/specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02). Partner-agency data: ESA Mars Express HRSC (in the Gale DEM) and ESA TGO trajectories (relay geometry).
-
-### DataSources
-
-Every dataset is credited per its official archive record ([docs/ops/credits.md](docs/ops/credits.md)):
-
-| source_id | Title | Credit |
-| --- | --- | --- |
-| `apollo17-planning` | Apollo 15 EVA Capability And Constraints Envelopes | P. Benjamin, Bellcomm, Inc.; Memorandum for File B70 10028, 13 October 1970. PDF document courtesy NASA Technical Reports Server. |
-| `hassler-2014-rad` | Mars' surface radiation environment measured with the Mars Science Laboratory's Curiosity rover | Hassler et al., 2014 |
-| `mars24-allison-mcewen-2000` | Mars24 Sunclock — Time on Mars | Mars24: Robert B. Schmunk; algorithms: Michael D. Allison; algorithm reference: Allison, M., and M. McEwen (2000), A post-Pathfinder evaluation of aerocentric solar coordinates with improved timing recipes for Mars seasonal/diurnal climate studies (Planetary and Space Science; © 2000 Elsevier Science Ltd). |
-| `nasa-msl-blog-sols-4620-4621` | Curiosity Blog, Sols 4620-4621: Among the Hollows and the Ridges | NASA/JPL-Caltech (Curiosity blog) |
-| `nasa-msl-blog-sols-4649-4654` | Curiosity Blog, Sols 4649-4654: Ridges, Hollows and Nodules, Oh My | NASA/JPL-Caltech (Curiosity blog) |
-| `nasa-msl-blog-sols-4675-4681` | Curiosity Blog, Sols 4675-4681: Deciding Where to Dig Into the Boxworks | NASA/JPL-Caltech (Curiosity blog) |
-| `nasa-msl-blog-sols-4695-4701` | Curiosity Blog, Sols 4695-4701: Searching for Answers at Monte Grande | NASA/JPL-Caltech (Curiosity blog) |
-| `nasa-msl-blog-sols-4709-4715` | Curiosity Blog, Sols 4709-4715: Drilling High and Low in the Boxwork Unit | NASA/JPL-Caltech (Curiosity blog) |
-| `nasa-msl-blog-sols-4716-4722` | Curiosity Blog, Sols 4716-4722: Drilling Success at Nevado Sajama | NASA/JPL-Caltech (Curiosity blog) |
-| `nasa-msl-blog-sols-4845-4851` | Curiosity Blog, Sols 4845-4851: Bye-Bye Boxwork, Bye-Bye | NASA/JPL-Caltech (Curiosity blog) |
-| `nasa-msl-boxwork-article-2025-06` | NASA's Curiosity Mars Rover Starts Unpacking Boxwork Formations | NASA/JPL-Caltech/MSSS (images on the page); text: NASA, Jet Propulsion Laboratory (release 2025-080) |
-| `nasa-sev-factsheet-2011` | The Space Exploration Vehicle Characteristics (Surface Concept) | NASA, The Space Exploration Vehicle Characteristics (Surface Concept), NASA Facts FS-2011-08-045-JSC |
-| `pds-msl-places-localizations` | Collection of localization data products for Rover PLACES | Deen, Robert G. (2024), Mars Science Laboratory Rover PLACES Bundle, version 42.0, NASA Planetary Data System, doi:10.17189/8nyv-8p60; collection "Collection of localization data products for Rover PLACES" (Citation_Information of bundle.xml and collection_data_localizations.xml) |
-| `pds-msl-places-sis-1-3` | Mars Science Laboratory Software Interface Specification: PLACES Data Products for PDS | Robert Deen (2016), PLACES Data Products for PDS SIS, JPL; Copyright 2016 California Institute of Technology, government sponsorship acknowledged |
-| `simonsen-2024-rad` | The Martian Radiation Environment and Human Health Risks | Simonsen et al., 2024 |
-| `tobler-1993` | Improved prediction of hiking speeds using a data driven approach | Andrew Wood; William Mackaness; T. Ian Simpson; J. Douglas Armstrong; arXiv:2303.16065v6 |
-| `usgs-gale-dem-1m-v3` | Mars MSL Gale Merged DEM 1m | Please credit authors |
-| `usgs-gale-ortho-25cm-v3` | Mars MSL Gale Merged Orthophoto Mosaic 25cm, colour version HiRISE 78 quad color basemap | NASA/JPL-Caltech/University of Arizona; USGS Astrogeology (Calef & Parker 2016) |
-| `usgs-themis-ti-30s120e` | THEMIS Thermal Inertia Mosaic Quantitative 30S120E 100mpp | Please cite authors |
-
-### POI Images
-
-- NASA/JPL-Caltech
-- NASA/JPL-Caltech/MSSS
-
-### Replay Data & Space Weather
-
-- NASA Community Coordinated Modeling Center (CCMC) / Moon-to-Mars (M2M) Space Weather Analysis Office, DONKI (Database Of Notifications, Knowledge, Information), NASA Goddard Space Flight Center.
-- Heber, Bernd; Löwe, Jan Leo (2026). *MSL/RAD Dose rates*. Zenodo. doi:10.5281/zenodo.20536564. CC BY 4.0
-- NASA PDS Planetary Plasma Interactions Node; RAD PI D. Hassler (SwRI)
-- NASA Navigation and Ancillary Information Facility (NAIF), Jet Propulsion Laboratory: SPICE kernels
-
-### Partner Agencies (02 §C.5)
-
-- "ESA Mars Express HRSC data are part of the USGS Gale merged DEM (L2)."
-- "ESA ExoMars Trace Gas Orbiter trajectory kernels (ESA SPICE Service) are used for the relay geometry (L10)."
-- "The X12 flare-class estimate for 20 May 2024 comes from ESA/NASA Solar Orbiter data, as reported in NASA's release of 10 June 2024 (L9)."
+TODO: dataset and image credits (NFR-07), filled from each `DataSource.credit` in the site manifest. Planned sources are listed in [02 Sources](docs/specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02). Partner-agency data: ESA Mars Express HRSC (in the Gale DEM) and ESA TGO trajectories (relay geometry).
 
 ## Licence
 

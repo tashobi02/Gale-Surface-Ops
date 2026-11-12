@@ -124,3 +124,10 @@ it("coordinate-only map hover selects the closest supplied sample", () => {
   const html = renderToStaticMarkup(createElement(ProfileChart, { result: resultOf({ legs: [leg] }), hover: { leg_index: 0, coord: [5, 0] } }));
   expect(html).toMatch(/<output[^>]*>5 m · 2 m elevation · caution<\/output>/);
 });
+
+it("PRINT profile has a 56-unit viewBox so 12px labels are not scaled down", () => {
+  const el = dom(renderToStaticMarkup(createElement(ProfileChart, { result: resultOf({ legs: [leg] }), print: true })));
+  expect(must(el, 'svg[viewBox]').getAttribute('viewBox')).toBe('0 0 720 56');
+  expect(must(el, 'svg[viewBox]').getAttribute('height')).toBe('56');
+  for (const text of el.querySelectorAll('svg text')) expect(Number(text.getAttribute('y'))).toBeLessThanOrEqual(55);
+});

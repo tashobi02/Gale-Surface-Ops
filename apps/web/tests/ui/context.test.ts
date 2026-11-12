@@ -143,7 +143,11 @@ describe("C10 WorkerClient carries retry (decision 11 Nov)", () => {
 describe("C10 stubs throw TODO(<owner id>) and are React components where they render", () => {
   it("throws the owner id from the c.4 register", async () => {
     expect(() => validateSite({} as never)).toThrow("TODO(T14.03)");
-    await expect(createMapSnapshot({} as never)).rejects.toThrow("TODO(T11.04)");
+
+  });
+
+  it("the implemented snapshot reports an invalid handle (T11.04)", async () => {
+    await expect(createMapSnapshot({} as never)).rejects.toThrow("Invalid MapHandle");
   });
 
   it("the implemented export throws its own reason, not a TODO marker (T11.02)", () => {

@@ -3,6 +3,7 @@
  * The demo path (SCR-01, SCR-02, SCR-05, SCR-07, SCR-08) and every live role: `unlabelledNumbers` is empty, and every source id
  * shown resolves in SCR-09.
  */
+import { openBriefing, BRIEFING_STATES } from "../lib/briefing";
 import { expect, test } from "@playwright/test";
 import { waitForSnapshot } from "../lib/hab";
 import { expectNoUnlabelledNumbers, PROVENANCE_ALLOWLIST, unlabelledNumbers } from "../lib/provenance";
@@ -86,4 +87,12 @@ test("provenance: no unlabelled number in the #/replay bar, paused and after a s
   expect(await unlabelledNumbers(page, allow), "#/replay").toEqual([]);
   await page.locator('[data-slot="replay-step"]').click();
   expect(await unlabelledNumbers(page, allow), "#/replay after a step").toEqual([]);
+});
+
+test("provenance: SCR-08 briefing states have no unlabelled number (package 14)", async ({ page }) => {
+  test.setTimeout(120_000);
+  for (const state of BRIEFING_STATES) {
+    await openBriefing(page, state);
+    await expectNoUnlabelledNumbers(page, `#/briefing ${state}`);
+  }
 });
