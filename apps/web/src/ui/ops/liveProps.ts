@@ -20,13 +20,29 @@ function stopNumber(snapshot: Snapshot, stopId: string): number | null {
   return at === -1 ? null : at + 1;
 }
 
+/**
+ * The stop whose task progress the console shows for a crew member. A crew member AT a stop is working that stop's tasks, so ops
+ * sees THAT stop (`stop_index` is one-based in the engine, FD-047); otherwise it is the stop the navigation points at, the same
+ * stop the EVA tablet's NEXT card names. The EVA card's choice must not leak into this one: AT_STOP, the card names the FOLLOWING stop.
+ */
+function progressStopId(snapshot: Snapshot, crewId: CrewId): string | null {
+  const crew = snapshot.crew?.find((c) => c.crew_id === crewId);
+  const stops = (snapshot.plan?.waypoints ?? []).filter((w) => w.role === "stop");
+  if (crew?.activity === "AT_STOP" && typeof crew.stop_index === "number" && crew.stop_index >= 1) {
+    const here = stops[crew.stop_index - 1];
+    if (here) return here.id;
+  }
+  return selectNextStop(snapshot, crewId)?.stopId ?? null;
+}
+
 function taskProgressOf(snapshot: Snapshot, crewId: CrewId): CrewTaskProgress | null {
   const mine = (snapshot.tasks ?? []).filter((t) => t.crew_id === null || t.crew_id === crewId);
-  const next = selectNextStop(snapshot, crewId);
-  const stopNo = next ? stopNumber(snapshot, next.stopId) : null;
+  const stopId = progressStopId(snapshot, crewId);
+  const stopNo = stopId ? stopNumber(snapshot, stopId) : null;
   if (mine.length === 0 && stopNo === null) return null;
+  const onStop = stopId ? mine.filter((t) => t.stop_id === stopId) : [];
   return {
-    stop: next && stopNo !== null ? { stopId: next.stopId, stopNo, done: next.taskCount.done, total: next.taskCount.total } : null,
+    stop: stopId && stopNo !== null ? { stopId, stopNo, done: onStop.filter((t) => t.state === "DONE").length, total: onStop.length } : null,
     total: { done: mine.filter((t) => t.state === "DONE").length, total: mine.length },
   };
 }
