@@ -66,7 +66,7 @@ function PresenterPanel({ client, snapshot }: { client: HabClient | null; snapsh
     <section className="presenter-beats" aria-labelledby="presenter-beats-title">
       <h2 id="presenter-beats-title">Session beats</h2>
       <div className="presenter-actions">
-        <button type="button" aria-label="Next stop" aria-describedby="presenter-next-target" disabled={disabled || !running || !target} onClick={() => void send("JUMP_NEXT_STOP")}>
+        <button type="button" aria-describedby="presenter-next-target" disabled={disabled || !running || !target} onClick={() => void send("JUMP_NEXT_STOP")}>
           Next stop — <span id="presenter-next-target" data-provenance="simulated" data-source="snapshot:next_stop_target">{target ? `Stop ${target.stop_index} · ${target.stop_id}` : "—"}</span>
         </button>
         <button type="button" aria-label="Start storm" disabled={disabled || !session || status === "ENDED" || !storm || stormRunning} onClick={() => { if (storm) void send("START_EVENT", { event_id: storm.event_id }); }}>Start storm</button>

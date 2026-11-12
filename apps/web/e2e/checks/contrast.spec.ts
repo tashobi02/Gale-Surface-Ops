@@ -32,7 +32,7 @@ const ROUTES: { hash: string; live: boolean; pending?: string; site?: boolean }[
 test("contrast: text on #/setup meets the OPS limit in every state (package 24)", async ({ page }) => {
   for (const state of ["ready", "computing", "rejected", "locked"] as SetupFixtureState[]) {
     const fixture = await openSetupFixture(page, state);
-    if (state === "computing" || state === "rejected") await page.getByRole("button", { name: "Select MOCK alternative" }).click();
+    if (state === "computing" || state === "rejected") await page.getByRole("button", { name: "Select site — MOCK alternative" }).click();
     if (state === "computing") await expect(page.locator(".setup-state")).toHaveText(/^Computing haven fields/);
     if (state === "rejected") await expect(page.getByRole("alert")).toBeVisible();
     const measured = await expectContrast(page, LIMITS);

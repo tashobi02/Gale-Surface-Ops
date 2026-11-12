@@ -166,7 +166,7 @@ function SetupPanel({ client, snapshot, site, fetchGrid, manifestVersion, sessio
             <div><dt>Planetocentric · east-positive</dt><dd {...data}>{candidate.lat}° latitude · {candidate.lon_e}° longitude</dd></div></dl>
           <p {...provAttrs(candidateFacts(candidate, typeof candidate.note === "string" && candidate.note.trim().length > 0, `candidate:${candidate.candidate_id}:note`))}>{candidate.note ?? "—"}</p>
           {site && <CommPreview candidate={candidate} site={site} fetchGrid={fetchGrid} />}
-          <button type="button" aria-label={`Select ${candidate.label}`} aria-pressed={selected} disabled={disabled} onClick={() => void send("SELECT_HAB_SITE", { candidate_id: candidate.candidate_id })}>
+          <button type="button" aria-label={`${selected ? "Selected" : "Select site"} — ${candidate.label}`} aria-pressed={selected} disabled={disabled} onClick={() => void send("SELECT_HAB_SITE", { candidate_id: candidate.candidate_id })}>
             {selected ? "Selected" : "Select site"}
           </button>
         </article>;

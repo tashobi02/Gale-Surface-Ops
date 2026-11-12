@@ -83,7 +83,7 @@ test("brand-orange: none in the SCR-20 mission setup states (package 24)", async
   const hits: string[] = [];
   for (const state of ["ready", "computing", "rejected", "locked"] as SetupFixtureState[]) {
     const fixture = await openSetupFixture(page, state);
-    if (state === "computing" || state === "rejected") await page.getByRole("button", { name: "Select MOCK alternative" }).click();
+    if (state === "computing" || state === "rejected") await page.getByRole("button", { name: "Select site — MOCK alternative" }).click();
     if (state === "computing") await expect(page.locator(".setup-state")).toHaveText(/^Computing haven fields/);
     if (state === "rejected") await expect(page.getByRole("alert")).toBeVisible();
     for (const found of await findOrange(page)) hits.push(`${state}: ${found}`);

@@ -70,11 +70,22 @@ describe("SCR-20 mission setup", () => {
     expect(container.textContent).toContain(`${manifest.default_start.x_m} m`);
   });
 
+  it("gives every candidate button an accessible name that contains its visible text (WCAG 2.5.3)", async () => {
+    const { container } = await setup();
+    const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>(".setup-candidate button"));
+    expect(buttons.length).toBe(candidates.length);
+    for (const button of buttons) {
+      const visible = (button.textContent ?? "").trim();
+      const name = button.getAttribute("aria-label") ?? visible;
+      expect(name, `the name "${name}" must contain the visible text "${visible}"`).toContain(visible);
+    }
+  });
+
   it("sends SELECT_HAB_SITE and SET_MISSION_SETUP without changing authoritative values", async () => {
     const { container, sent } = await setup();
-    await click(must(container, 'button[aria-label="Select Mock alternative"]'));
+    await click(must(container, 'button[aria-label="Select site — Mock alternative"]'));
     expect(sent).toEqual([{ kind: "SELECT_HAB_SITE", args: { candidate_id: "hab-alternative" } }]);
-    expect(must(container, 'button[aria-label="Select Mock first choice"]').getAttribute("aria-pressed")).toBe("true");
+    expect(must(container, 'button[aria-label="Selected — Mock first choice"]').getAttribute("aria-pressed")).toBe("true");
     await click(must(container, 'input[aria-label="Vehicle available"]'));
     await select(must(container, 'select[aria-label="Solar phase"]'), "min");
     const haven = must<HTMLInputElement>(container, 'input[aria-label="Maximum time to haven (min)"]');
@@ -92,7 +103,7 @@ describe("SCR-20 mission setup", () => {
     let resolve!: (r: CommandResult) => void;
     const computing = await setup(loaded, site(), () => new Promise((r) => { resolve = r; }));
     expect(computing.container.textContent).toContain("Ready");
-    await click(must(computing.container, 'button[aria-label="Select Mock alternative"]'));
+    await click(must(computing.container, 'button[aria-label="Select site — Mock alternative"]'));
     expect(computing.container.textContent).toContain("Computing haven fields");
     expect(must<HTMLAnchorElement>(computing.container, 'a[href="#/planner"]').hasAttribute("aria-disabled")).toBe(false);
     await act(async () => resolve(rejected("BUSY", "Server setup refusal")));
@@ -100,7 +111,7 @@ describe("SCR-20 mission setup", () => {
     // A non-null plan is the publication signal; the setup never reads the plan's contents.
     const locked = await setup({ ...loaded, plan: {} as NonNullable<Snapshot["plan"]>, session: { ...loaded.session, plan_revision: 1 } });
     expect(locked.container.textContent).toContain("Locked");
-    expect(must<HTMLButtonElement>(locked.container, 'button[aria-label="Select Mock alternative"]').disabled).toBe(true);
+    expect(must<HTMLButtonElement>(locked.container, 'button[aria-label="Select site — Mock alternative"]').disabled).toBe(true);
     expect(must<HTMLInputElement>(locked.container, 'input[aria-label="Maximum time to haven (min)"]').matches(":disabled")).toBe(true);
   });
 
@@ -235,7 +246,7 @@ describe("SCR-20 mission setup", () => {
   it("refuses a candidate change once the session is not LOADED, and sends nothing", async () => {
     for (const status of ["RUNNING", "PAUSED", "ENDED"] as const) {
       const { container, sent } = await setup({ ...loaded, session: { ...loaded.session, status } });
-      const button = must<HTMLButtonElement>(container, 'button[aria-label="Select Mock alternative"]');
+      const button = must<HTMLButtonElement>(container, 'button[aria-label="Select site — Mock alternative"]');
       expect(button.disabled).toBe(true);
       await click(button);
       expect(sent).toEqual([]);
@@ -245,7 +256,7 @@ describe("SCR-20 mission setup", () => {
   it("sends one command only while one is in flight", async () => {
     let resolve!: (r: CommandResult) => void;
     const { container, sent } = await setup(loaded, site(), () => new Promise((r) => { resolve = r; }));
-    const button = must<HTMLButtonElement>(container, 'button[aria-label="Select Mock alternative"]');
+    const button = must<HTMLButtonElement>(container, 'button[aria-label="Select site — Mock alternative"]');
     await click(button);
     expect(sent).toHaveLength(1);
     expect(button.disabled).toBe(true);
@@ -265,10 +276,10 @@ describe("SCR-20 mission setup", () => {
     const { MissionSetup } = await import("../../src/ui/screens/scr20MissionSetup");
     const m = await mount(createElement(MissionSetup, { client, site: site() })); mounts.push(m);
     await act(async () => { lost = true; for (const l of listeners) l(); });
-    await click(must(m.container, 'button[aria-label="Select Mock alternative"]'));
+    await click(must(m.container, 'button[aria-label="Select site — Mock alternative"]'));
     expect(sent).toEqual([]);
     await act(async () => { lost = false; taken = true; for (const l of listeners) l(); });
-    await click(must(m.container, 'button[aria-label="Select Mock alternative"]'));
+    await click(must(m.container, 'button[aria-label="Select site — Mock alternative"]'));
     expect(sent).toEqual([]);
   });
 

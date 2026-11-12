@@ -62,7 +62,7 @@ test("axe: SCR-20 Ready, Computing, Command rejected and Locked states have no s
   ready.stop();
 
   const computing = await openSetupFixture(page, "computing");
-  await page.getByRole("button", { name: "Select MOCK alternative" }).click();
+  await page.getByRole("button", { name: "Select site — MOCK alternative" }).click();
   await expect(page.locator(".setup-state")).toHaveText(/^Computing haven fields/);
   expect(computing.sent).toEqual([{ kind: "SELECT_HAB_SITE", args: { candidate_id: "hab-mock-alternative" } }]);
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-computing` });
@@ -71,13 +71,13 @@ test("axe: SCR-20 Ready, Computing, Command rejected and Locked states have no s
   computing.stop();
 
   const rejected = await openSetupFixture(page, "rejected");
-  await page.getByRole("button", { name: "Select MOCK alternative" }).click();
+  await page.getByRole("button", { name: "Select site — MOCK alternative" }).click();
   await expect(page.getByRole("alert").filter({ hasText: REJECTION })).toBeVisible();
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-rejected` });
   rejected.stop();
 
   const locked = await openSetupFixture(page, "locked");
-  await expect(page.getByRole("button", { name: "Select MOCK alternative" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Select site — MOCK alternative" })).toBeDisabled();
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-locked` });
   locked.stop();
 });

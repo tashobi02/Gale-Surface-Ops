@@ -24,7 +24,14 @@ async function panel(snapshot: Snapshot | null = running, answer: () => CommandR
   const m = await mount(createElement(Presenter, { client })); mounted.push(m);
   return { ...m, sent, client };
 }
-const button = (root: ParentNode, name: string) => must<HTMLButtonElement>(root, `button[aria-label="${name}"]`);
+/** The control whose accessible name is `name`: its `aria-label` if it has one, else its visible text. */
+const button = (root: ParentNode, name: string): HTMLButtonElement => {
+  const labelled = root.querySelector<HTMLButtonElement>(`button[aria-label="${name}"]`);
+  if (labelled) return labelled;
+  const named = Array.from(root.querySelectorAll<HTMLButtonElement>("button")).find((b) => (b.textContent ?? "").trim().startsWith(name));
+  if (!named) throw new Error(`no button is named ${name}`);
+  return named;
+};
 
 describe("SCR-19 presenter", () => {
   it("sends every primary command, confirms reset and never applies state locally", async () => {
@@ -121,6 +128,20 @@ describe("SCR-19 presenter", () => {
     expect(document.activeElement).toBe(button(container, "Confirm reset session"));
     await act(async () => document.activeElement?.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     expect(document.activeElement).toBe(reset);
+  });
+
+  it("gives every control an accessible name that contains its visible text (WCAG 2.5.3)", async () => {
+    const { container } = await panel();
+    // The presenter's own controls. The mission clock is the shared ClockControl of package 19, whose
+    // "LOAD" button carries a different visible text than its name; that file is not this package's.
+    const controls = Array.from(container.querySelectorAll<HTMLElement>(".presenter-actions button, .presenter-actions a, .presenter-confirm button, .presenter-qr a, .presenter-header a"));
+    expect(controls.length).toBeGreaterThan(0);
+    for (const control of controls) {
+      const visible = (control.textContent ?? "").trim();
+      if (!visible) continue; // an icon-only control carries its name in aria-label only
+      const name = control.getAttribute("aria-label") ?? visible;
+      expect(name, `the name "${name}" must contain the visible text "${visible}"`).toContain(visible);
+    }
   });
 
   it("describes the jump destination to screen readers", async () => {
