@@ -11,7 +11,7 @@
  */
 import { existsSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { REPO_ROOT, loadForReplay, replayHeadless, siteRefFor } from "./replay";
+import { REPO_ROOT, ReplayInputError, loadForReplay, replayHeadless, siteRefFor } from "./replay";
 import { ScenarioCheckError } from "./scenario";
 import { startServer } from "./server";
 import { loadSession, resumeSession, type SessionHandle } from "./session";
@@ -61,6 +61,11 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
+  if (err instanceof ReplayInputError) {
+    console.error(err.message);
+    process.exitCode = 2;
+    return;
+  }
   if (err instanceof ScenarioCheckError) console.error(`scenario check "${err.check}" failed: ${err.message}`);
   else console.error(err);
   process.exitCode = 1;

@@ -215,6 +215,7 @@ function dispatch(state: EngineState, command: Command, ctx: CommandContext): Ha
       return { result: okWithoutEvent(command), events: [], effect: { kind: "jump" } };
     case "START_EVA":
       requireState(state, ["LOADED"], "Starting the EVA");
+      if (state.plan === null) reject("INVALID", "START_EVA needs a published plan; send PUBLISH_PLAN first (02 §D.17)");
       return ok(state, command, "EVA_STARTED", { crew_ids: state.crew.map((c) => c.crew_id), plan_revision: state.session.plan_revision });
     case "PUBLISH_PLAN": {
       const plan = a.plan as Partial<PlanExport> | undefined;

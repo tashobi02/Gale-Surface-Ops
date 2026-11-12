@@ -238,3 +238,6 @@ After editing this file run `make progress`. Do not edit the README progress blo
 | T32.03 | done | 2026-11-12 | F7 live-session beats in [apps/web/tests/fixtures/ws/](../../apps/web/tests/fixtures/ws/) with sources in its README; fixture test green |
 | T32.04 | done | 2026-11-12 | [scenario.schema.json](../../schemas/scenario.schema.json) v2 (mission_setup, event_library, task_library; plan/events optional) |
 | T32.05 | done | 2026-11-12 | Fake scenario live shape, plan-less variant and two-candidate site in [fake-scenario/](../../apps/hab-core/tests/fixtures/fake-scenario/); byte-identical regeneration |
+| T32.06 | done | 2026-11-12 | [scenarioLive.test.ts](../../apps/hab-core/tests/scenarioLive.test.ts): loader rules and plan-less session, one named case each |
+| T32.07 | done | 2026-11-12 | Optional plan/events end to end; reference log_hash unchanged (test pins it) |
+| T32.08 | done | 2026-11-12 | Loader checks for mission_setup, event_library, task_library; loadCandidateComm in [scenario.ts](../../apps/hab-core/src/scenario.ts) |

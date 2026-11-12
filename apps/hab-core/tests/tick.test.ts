@@ -402,7 +402,7 @@ const memo = <T,>(make: () => T): (() => T) => {
 };
 
 // Plan constants, all from the fixture.
-const plan = fake.scenario.plan;
+const plan = fake.scenario.plan!;
 const okLegs = plan.result.legs.map((l): OkLeg => {
   if (l.status !== "OK") throw new Error("the fixture's legs are all OK");
   return l;
@@ -746,7 +746,7 @@ const revise = (s: EngineState, waypoints: typeof plan.waypoints, legs: AnyLeg[]
 
 /** A scenario whose plan is `waypoints` and `legs` with this dwell; crew, ParamSets and dose stay the fixture's. */
 function planOf(waypoints: typeof plan.waypoints, legs: AnyLeg[], dwell_min = plan.scenario.dwell_min_per_stop): LoadedScenario {
-  return { ...fake, scenario: { ...fake.scenario, plan: { ...plan, waypoints, scenario: { ...plan.scenario, dwell_min_per_stop: dwell_min }, result: { ...plan.result, legs } } } };
+  return { ...fake, scenario: { ...fake.scenario, plan: { ...plan, waypoints, scenario: { ...plan!.scenario, dwell_min_per_stop: dwell_min }, result: { ...plan!.result, legs } } } };
 }
 /** An OK leg with this geometry; the test numbers are hand-picked so the speed is 1 m/s. */
 const legOf = (from: string, to: string, geometry: [number, number][], walk_time_min: number): OkLeg => ({ ...okLegs[0], from, to, geometry, walk_time_min });
@@ -1014,7 +1014,7 @@ describe("tick: interpolation and re-anchoring pinned by hand-computed geometry"
     const r = tick(at(s0, Date.parse(s0.session.clock.sim_time) + dt * 1000), quick, dt, s0.session.last_seq + 1);
     expect(r.events.map((e) => [e.kind, (e.data as { crew_id: string }).crew_id])).toEqual([["ARRIVED_STOP", "EV1"], ["LEFT_STOP", "EV1"], ["ARRIVED_STOP", "EV2"], ["LEFT_STOP", "EV2"]]);
     expect(r.state.session.last_seq).toBe(s0.session.last_seq + 4);
-    const walked = dt - (leg0_s - n0) - quick.scenario.plan.scenario.dwell_min_per_stop * 60;
+    const walked = dt - (leg0_s - n0) - quick.scenario.plan!.scenario.dwell_min_per_stop * 60;
     expect(walked).toBeGreaterThan(0);
     for (const id of CREW) {
       expectPosition(pos(r.state, id), along(okLegs[1].geometry, walked / legSeconds(okLegs[1])), `${id} after the long step`);

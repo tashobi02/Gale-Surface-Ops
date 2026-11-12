@@ -135,7 +135,7 @@ function tilted(base: LoadedGrid): LoadedGrid {
 }
 const grid = tilted(havenFlat(10).grid);
 const sc: LoadedScenario = { ...fake, grid };
-const plan = sc.scenario.plan;
+const plan = sc.scenario.plan!;
 const START = plan.waypoints.find((w) => w.role === "start")!;
 const STOP1 = plan.waypoints.filter((w) => w.role === "stop")[0]!;
 const PR = sc.scenario.vehicles.find((v) => v.kind === "pressurized_rover")!;

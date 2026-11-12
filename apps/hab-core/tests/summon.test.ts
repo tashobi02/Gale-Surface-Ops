@@ -155,7 +155,7 @@ const T0 = fake.scenario.start_utc;
 const T0_MS = Date.parse(T0);
 const iso = (ms: number): string => new Date(ms).toISOString().replace(".000Z", "Z");
 
-const waypoints = fake.scenario.plan.waypoints;
+const waypoints = fake.scenario.plan!.waypoints;
 standIn.extent_m = Math.max(...waypoints.map((w) => w.x_m));
 const stop1 = waypoints.find((w) => w.id === "wp-1")!;
 const pr1Params = Object.values(fake.params).find((p) => p.kind === "pressurized_rover")!;
@@ -236,7 +236,7 @@ const expectEta = (actual: number, expected: number): void => {
 /** What the stand-in rendezvous gives for EV1 at `crew_x_m` and PR1 at its start. */
 function expectedRendezvous(crew_x_m: number, vehicle_x_m: number) {
   const r = standIn.solve(
-    standIn.crewTimeField(null, { x_m: crew_x_m }, fake.scenario.plan.scenario, Infinity),
+    standIn.crewTimeField(null, { x_m: crew_x_m }, fake.scenario.plan!.scenario, Infinity),
     standIn.vehicleTimeField(null, { x_m: vehicle_x_m }, pr1Params),
   );
   if (!r) throw new Error("fixture has no stand-in rendezvous");

@@ -105,7 +105,8 @@ function polylineLength(path: readonly Point[]): number {
   return s;
 }
 
-const currentPlan = (state: EngineState, scenario: LoadedScenario): PlanExport => state.plan ?? scenario.scenario.plan;
+/** The plan in force: the state's (published or revised), else the scenario's reference plan; null in a plan-less session (T32.07). */
+const currentPlan = (state: EngineState, scenario: LoadedScenario): PlanExport | null => state.plan ?? scenario.scenario.plan ?? null;
 const startOf = (plan: PlanExport): Waypoint | undefined => plan.waypoints.find((w) => w.role === "start");
 
 // ---------------------------------------------------------------------------
@@ -179,6 +180,7 @@ export function contingencyTick(state: EngineState, ctx: TickContext): TickResul
   const shielding = Object.values(ctx.scenario.params).find((p) => p.kind === "shielding");
   if (!shielding) return none;
   const plan = currentPlan(state, ctx.scenario);
+  if (!plan) return none;
   const start = startOf(plan);
   if (!start) return none;
 
@@ -305,6 +307,7 @@ function buildPlanRevision(state: EngineState, scenario: LoadedScenario, option:
   const grid = scenario.grid;
   if (!grid) return "the scenario has no routing grid";
   const plan = currentPlan(state, scenario);
+  if (!plan) return "no plan is published";
   const start = startOf(plan);
   if (!start) return "the plan has no start waypoint";
   const walk_s = walkSeconds(option);

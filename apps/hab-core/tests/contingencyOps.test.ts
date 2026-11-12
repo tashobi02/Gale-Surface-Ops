@@ -69,7 +69,7 @@ const here = dirname(fileURLToPath(import.meta.url));
  */
 const STAND_IN_GRID = Object.freeze({}) as unknown as LoadedGrid;
 const fake: LoadedScenario = { ...readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null }), grid: STAND_IN_GRID };
-const plan = fake.scenario.plan;
+const plan = fake.scenario.plan!;
 const legs = plan.result.legs;
 const T0 = fake.scenario.start_utc;
 const T_ALERT = new Date(Date.parse(T0) + 3600_000).toISOString().replace(".000Z", "Z");

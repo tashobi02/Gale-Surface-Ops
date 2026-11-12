@@ -56,8 +56,14 @@ export function loadForReplay(scenarioDir: string, options: ReplayOptions = {}, 
   return seed === undefined ? loaded : { ...loaded, scenario: { ...loaded.scenario, seed } };
 }
 
+/** The run cannot start from what was given (a caller error, not a scenario fault); the CLI exits with code 2. */
+export class ReplayInputError extends Error {}
+
 export async function replayHeadless(scenarioDir: string, seed?: number, options: ReplayOptions = {}): Promise<string> {
   const loaded = loadForReplay(scenarioDir, options, seed);
+  const reference = loaded.scenario.plan;
+  // A live-session scenario has no plan until PUBLISH_PLAN; the command-list replay that supplies one is T32.17.
+  if (reference === undefined) throw new ReplayInputError("scenario has no plan; pass --commands with a PUBLISH_PLAN");
   const base = join(options.varDir ?? DEFAULT_VAR, "replay");
   mkdirSync(base, { recursive: true });
   const session = loadSession(loaded, mkdtempSync(join(base, `${loaded.scenario.scenario_id}-`)));
@@ -65,7 +71,7 @@ export async function replayHeadless(scenarioDir: string, seed?: number, options
   const start = session.apply({ command_id: "replay-start", role: "ops", kind: "START_EVA", args: {} }, "replay");
   if (!start.result.ok) throw new Error(`replay: START_EVA rejected: ${start.result.code} ${start.result.message}`);
 
-  let remaining = Math.ceil(loaded.scenario.plan.scenario.max_eva_duration_h * 3600);
+  let remaining = Math.ceil(reference.scenario.max_eva_duration_h * 3600);
   while (remaining > 0 && session.snapshot([]).session.status === "RUNNING") {
     const steps = Math.min(CHUNK, remaining);
     session.advance(steps);

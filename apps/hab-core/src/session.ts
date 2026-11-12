@@ -91,8 +91,8 @@ const SNAPSHOT_PROVENANCE: ProvenanceMap = {
   "conditions.dose_rate_event_ugy_h": "replayed",
 };
 
-/** A step limit for JUMP_NEXT_EVENT when no event comes: the plan's maximum EVA duration. */
-const jumpLimitSteps = (scenario: LoadedScenario): number => Math.ceil((scenario.scenario.plan.scenario.max_eva_duration_h * 3600) / SIM_STEP_S);
+/** A step limit for JUMP_NEXT_EVENT when no event comes: the maximum EVA duration of the plan in force (0 with no plan, T32.07). */
+const jumpLimitSteps = (state: EngineState): number => (state.plan === null ? 0 : Math.ceil((state.plan.scenario.max_eva_duration_h * 3600) / SIM_STEP_S));
 
 const addSeconds = (iso: string, s: number): string => new Date(Date.parse(iso) + s * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
 
@@ -122,7 +122,7 @@ class Session implements SessionHandle {
   }
 
   initialPlan(): PlanExport | null {
-    return this.scenario.scenario.plan;
+    return this.scenario.scenario.plan ?? null;
   }
 
   snapshot(clients: Snapshot["clients"]): Snapshot {
@@ -165,7 +165,7 @@ class Session implements SessionHandle {
       return { result: { ...okResult(command, events[0].seq) }, events };
     }
     if (out.effect?.kind === "jump") {
-      const { events } = this.runTicks(jumpLimitSteps(this.scenario), true);
+      const { events } = this.runTicks(jumpLimitSteps(this.state), true);
       const result = okResult(command, events[0]?.seq ?? this.log.lastSeq());
       return { result, events };
     }
@@ -258,7 +258,7 @@ function startSession(scenario: LoadedScenario, varDir: string): { log: EventLog
   const log = openLog(dir);
   let state = initialState(scenario, session_id);
   const s = scenario.scenario;
-  const loadedData: LogEventData["SESSION_LOADED"] = { session_id, scenario_id: s.scenario_id, data_version: s.data_version, seed: s.seed, plan_hash: s.plan.plan_hash };
+  const loadedData: LogEventData["SESSION_LOADED"] = { session_id, scenario_id: s.scenario_id, data_version: s.data_version, seed: s.seed, plan_hash: s.plan?.plan_hash ?? null };
   const pending: PendingEvent[] = [{ sim_time: s.start_utc, kind: "SESSION_LOADED", actor: "system", data: loadedData, provenance: {}, command_ref: null }];
   if ((s.stop_tasks ?? []).length > 0) pending.push(...seedTasks(scenario).map((e) => ({ ...e, command_ref: null })));
   for (const p of pending) state = reduce(state, log.append(p));
@@ -283,7 +283,20 @@ export function resumeSession(sessionDir: string, scenario: LoadedScenario, opti
   if (!first || first.kind !== "SESSION_LOADED") throw new Error(`resumeSession: ${sessionDir} does not start with SESSION_LOADED`);
   const session_id = (first.data as LogEventData["SESSION_LOADED"]).session_id;
   // A snapshot written before T22.09 has no `motion`: start from none (the walk restarts from the plan's first leg).
-  let state: EngineState = snap ? { ...snap, motion: snap.motion ?? {} } : initialState(scenario, session_id);
+  // A snapshot written before the live-session fields (backend package 04, BD-100) lacks them: they start as the scenario's.
+  const fresh = initialState(scenario, session_id);
+  let state: EngineState = snap
+    ? {
+        ...snap,
+        motion: snap.motion ?? {},
+        session: {
+          ...snap.session,
+          hab_candidate_id: snap.session.hab_candidate_id === undefined ? fresh.session.hab_candidate_id : snap.session.hab_candidate_id,
+          mission_setup: snap.session.mission_setup ?? fresh.session.mission_setup,
+          started_events: snap.session.started_events ?? [],
+        },
+      }
+    : fresh;
 
   let i = 0;
   while (i < tail.length) {
