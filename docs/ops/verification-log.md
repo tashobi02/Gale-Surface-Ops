@@ -497,8 +497,7 @@ The measurements above are preserved as recorded. They establish a baseline on t
 
 - The "T05.28 acceptance: PASS" and "NFR-02 benchmark: PASS" lines in the Verdict above are superseded for acceptance purposes. T05.28 stays `wip` in [status.md](../tasks/status.md): the `gale_boxwork` bundle and the ten F5 cell records were not available, and no real-grid benchmark exists.
 - [ADR-002](../decisions/ADR-002-static-app-no-backend.md) cites different figures (1.22/8.79 ms, 10.19 ms) that do not appear in this section. See its 2026-11-09 reconciliation note; its decision is preserved.
-- TODO(verify): Obtain the gale_boxwork bundle and ten independent F5 cell records, resolve the F5 slope-raster choice with T03.21, and record real-grid pair timings plus repeated successful three-stop-loop p95 with machine, runtime and data_version. Mock-site and single-run timings do not establish this acceptance.
-- TODO(verify): Locate the run cited by ADR-002. TODO(decision): The compute lead must review the reconciled real-grid evidence and D-02 sign-off; preserve the existing ADR decision during this repair.
+- The real-grid measurement, the F5 comparison and the review of the ADR-002 evidence were done on 13 Nov 2026 (backend package 24); see the section [T05.28, T05b.05, T05b.20 — real-grid benchmarks and independent checks](#t0528-t05b05-t05b20--real-grid-benchmarks-and-independent-checks-backend-package-24). The cited ADR-002 run was not found and is superseded by that section.
 
 ## Corrections 2026-11-11 (audit)
 
@@ -654,3 +653,23 @@ The first choice's numbers equal T03.30's to the third decimal, which shows the 
 | **Inputs** | `data/sites/gale_boxwork/vectors/traverse.geojson`, `pois.geojson`; [test_traverse_checks.py](../../pipeline/tests/test_traverse_checks.py) |
 
 12,255 points, 375 distinct sols (3549 to 4868). Every point is inside `aoi.extent_m` widened by U-04's 100 m margin (x −52.17 to 1738.61 m, y −252.94 to 3099.69 m); sols never decrease along the track; each POI lies 0.000 m from the traverse point of the PLACES sol its `position_source` names (the last row before the image sol for three of five), against a limit of 0.5 m plus one 5 m cell. The traverse layer's `limitations` states the PLACES accuracy (0.5 m, SIS 1.3 Rev-A §4.4.1.2) and that the ortho offset was not measured (BD-137). The DEM-to-ortho offset is the separate T03.20 record (1.92 m).
+
+## T05.28, T05b.05, T05b.20 — real-grid benchmarks and independent checks (backend package 24)
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 24, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: every figure below is from the real `gale_boxwork-2026.11.09` bundle |
+| **Machine (BD-03)** | Apple M2, 8 cores, 8 GiB RAM, macOS 15.7.2 (darwin 24.6.0), Node v24.5.0; the Vitest runs and `npx tsx` runs are Node, not the browser worker |
+| **Inputs** | `data/sites/gale_boxwork/` (grid via the SSD symlinks), F5 [real-grid-cells.json](../../pipeline/tests/fixtures/real-grid-cells.json), [realGrid.test.ts](../../packages/compute/tests/realGrid.test.ts), [realGridVerify.test.ts](../../packages/compute/tests/realGridVerify.test.ts), [real.ts](../../packages/compute/bench/real.ts), [gdal_viewshed_reference.py](../../pipeline/tests/fixtures/gdal_viewshed_reference.py) |
+
+**T05.28 (FR-03, FR-07, NFR-02).** The ten F5 cells equal the decoded grid: elevation to the float32 bit, slope P90 to the u8 step. 20 seeded pairs (Mulberry32, seed 20261108): 14 routes, 6 no-route, no crash; min 0, p50 63, p95 1,081, max 1,081 ms. The no-route answers are random points on cells over the slope limit (47.8 % of cells, BD-140). 3-stop loop through the handler: runs 13, 14, 13, 12, 11 ms after one warm-up, p95 14 ms. p95 of the pairs is at most 2 s, so T05.31 does not run.
+
+**T05b.05 (FR-39, NFR-02), `npx tsx packages/compute/bench/haven.bench.ts --real`.** `habTimeField` from the rank-1 hab mast (1037, -1652), cold (fresh grid per run), 1 warm-up + 5 runs: min 52, median 53, max 57 ms (54 53 52 52 57); the field reaches 169,064 of 1,440,000 cells. `crewTimeField` (30 min bound): 30 to 35 ms. `vehicleTimeField`: 29 to 40 ms. Synthetic all-passable terrain of the same size (`npm --workspace @marswalk/compute run bench -- haven`): worst cold run 407 ms. Worst real run 57 ms against 2,000 ms: **GO**; T05b.21 does not run.
+
+**T05b.20 (FR-39, FR-40, FR-42), `realGridVerify.test.ts`.** On a 200 x 200 crop around the rank-1 hab: `habTimeField` and `crewTimeField` equal an independent heap Dijkstra written from 02 §D.2 at every cell (relative 1e-9); `rendezvous` equals the brute-force candidate sort (same cell, same two arrival times). Mutation checks: changing the caution multiplier fails both field tests (19,411 and 16,891 cells differ), replacing max(Tc, Tv) by Tc + Tv fails the rendezvous test. Viewshed against `gdal_viewshed` (`-cc 1.0`, `-md 4000`, the T03.30 method) at the AOI centre and the four quadrant centres, 160,000 cells each: agreement 99.75, 99.83, 99.73, 99.54 and 99.77 %; compute-only visible cells 0.02 to 0.08 %. Mutation check: raising every terrain sample by 3 m drops the AOI centre to 96.03 % and fails the test.
+
+**Viewshed time (NFR-02, 02 §D.11, BD-61), `npx tsx packages/compute/bench/viewshed.bench.ts --real`.** One 4 km / 20 m viewshed, 1 warm-up + 5 runs per viewpoint: hab-first mast 94 to 103 ms, AOI centre 134 to 154, NE 80 to 122, NW 74 to 75, SE 75 to 83, SW 75 to 76 ms. Worst 154 ms against 1,000 ms: **GO on the real grid**. The synthetic bench (`... run bench -- viewshed`) misses: flat, everything visible, 4,381 to 4,704 ms; rough 447 to 465 ms. The flat case has 125,676 visible cells, 24 times the real worst case (10,363); Gale has no such terrain. Decision BD-141: the real-grid result counts; the algorithm is not changed.
+
+**T05b.01 (BD-63).** `contracts.test.ts` is green (47 passed with `realGrid.test.ts`); the contracts are accepted as implemented.
