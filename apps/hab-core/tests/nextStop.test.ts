@@ -73,6 +73,8 @@ const jump = (s: SessionHandle) => s.apply(cmd("presenter", "JUMP_NEXT_STOP"), "
 const started = (scenario: LoadedScenario = fake): SessionHandle => {
   const s = loadSession(scenario, varDir());
   expect(s.apply(cmd("ops", "START_EVA"), "c-ops").result.ok).toBe(true);
+  // The shifted storm plays from the press at the EVA start (START_EVENT, T32.12); the other scenarios have no storm in reach.
+  if (scenario === shiftedStorm) expect(s.apply(cmd("presenter", "START_EVENT", { event_id: "storm" }), "c-presenter").result.ok).toBe(true);
   return s;
 };
 const jumpedOf = (events: LogEvent[]): LogEventData["CLOCK_JUMPED"] => {
@@ -87,7 +89,11 @@ const rejectedCode = (r: { result: { ok: boolean } }): string => {
 const strip = (e: LogEvent): unknown => [e.kind, e.sim_time, e.actor, e.data];
 
 /** The fake scenario with the dose series moved 50 min earlier: the storm starts at the EVA start (alert at tick 1200). */
-const shiftedStorm: LoadedScenario = { ...fake, dose: { ...fake.dose, samples: fake.dose.samples.map(([t, r]) => [iso(Date.parse(t) - 50 * 60_000), r] as [string, number | null]) } };
+const shiftedStorm: LoadedScenario = {
+  ...fake,
+  dose: { ...fake.dose, samples: fake.dose.samples.map(([t, r]) => [iso(Date.parse(t) - 50 * 60_000), r] as [string, number | null]) },
+  scenario: { ...fake.scenario, event_library: fake.scenario.event_library.map((e) => ({ ...e, series_start_utc: iso(Date.parse(e.series_start_utc) - 50 * 60_000) })) },
+};
 /** A dose series with no storm at all: nothing raises an alert. */
 const quiet: LoadedScenario = { ...fake, dose: { ...fake.dose, samples: fake.dose.samples.map(([t]) => [t, fake.dose.background_rate] as [string, number]) } };
 
@@ -402,6 +408,7 @@ describe("JUMP_NEXT_STOP: determinism and resume (NFR-06, NFR-10)", () => {
     n = 0;
     const s = loadSession(scenario, dir);
     s.apply(cmd("ops", "START_EVA"), "c-ops");
+    if (scenario === shiftedStorm) s.apply(cmd("presenter", "START_EVENT", { event_id: "storm" }), "c-presenter");
     s.apply(cmd("ops", "SET_CLOCK", { speed: 10 }), "c-ops");
     jump(s);
     jump(s);

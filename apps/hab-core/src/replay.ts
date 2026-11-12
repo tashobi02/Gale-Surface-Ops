@@ -72,6 +72,16 @@ export async function replayHeadless(scenarioDir: string, seed?: number, options
   if (!start.result.ok) throw new Error(`replay: START_EVA rejected: ${start.result.code} ${start.result.message}`);
 
   let remaining = Math.ceil(reference.scenario.max_eva_duration_h * 3600);
+  // The reference run presses the storm at `series_start_utc`, so the series plays at its recorded UTC (U-62, BD-97, T32.12).
+  // The recorded command list that replaces this fixed press is T32.17.
+  const storm = (loaded.scenario.event_library ?? [])[0];
+  if (storm !== undefined) {
+    const lead_s = Math.max(0, Math.round((Date.parse(storm.series_start_utc) - Date.parse(loaded.scenario.start_utc)) / 1000));
+    session.advance(Math.min(lead_s, remaining));
+    remaining -= Math.min(lead_s, remaining);
+    const press = session.apply({ command_id: "replay-storm", role: "presenter", kind: "START_EVENT", args: { event_id: storm.event_id } }, "replay");
+    if (!press.result.ok) throw new Error(`replay: START_EVENT rejected: ${press.result.code} ${press.result.message}`);
+  }
   while (remaining > 0 && session.snapshot([]).session.status === "RUNNING") {
     const steps = Math.min(CHUNK, remaining);
     session.advance(steps);

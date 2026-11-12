@@ -102,9 +102,18 @@ function applyEvents(state: EngineState, events: PendingEvent[]): EngineState {
   return events.reduce((s, e) => reduce(s, logged(e, s.session.last_seq + 1)), state);
 }
 
+/**
+ * The storm pressed at its recorded UTC (START_EVENT at `series_start_utc`, U-62, BD-97, T32.12): from that sim time the
+ * series plays at its own UTC, so every number below is the one the table-time storm gave; before it the rate is the
+ * background (the fixture's series is at the background there too).
+ */
+const STORM = fake.scenario.event_library[0];
+const SERIES_START_MS = Date.parse(STORM.series_start_utc);
+const pressedAtSeriesStart = (s: EngineState): EngineState => ({ ...s, session: { ...s.session, started_events: [{ event_id: STORM.event_id, t0_sim_time: STORM.series_start_utc }] } });
+
 function onEva(scenario: LoadedScenario = fake): EngineState {
   const s = initialState(scenario, "s-0001");
-  return reduce(s, { seq: 1, sim_time: fake.scenario.start_utc, kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, provenance: {}, command_ref: { client_id: "c-1", command_id: "k-1" } });
+  return pressedAtSeriesStart(reduce(s, { seq: 1, sim_time: fake.scenario.start_utc, kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, provenance: {}, command_ref: { client_id: "c-1", command_id: "k-1" } }));
 }
 
 const withCrew = (s: EngineState, id: CrewId, patch: Partial<EngineState["crew"][number]>): EngineState => ({
@@ -585,8 +594,10 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
     }
     expect(integrateDoseSpy).toHaveBeenCalledTimes(2 * (trace.states.length - 1));
     for (const [series, steps, set] of integrateDoseSpy.mock.calls) {
-      expect(series).toBe(fake.dose);
       expect(steps).toHaveLength(1);
+      // From the press (series_start_utc) the scenario's series; before it the constant background series (02 §D.17).
+      if (Date.parse(steps[0].t_utc) >= SERIES_START_MS) expect(series).toBe(fake.dose);
+      else expect(series.samples.map(([, r]) => r)).toEqual([fake.dose.background_rate]);
       expect(set).toBe(shielding);
     }
     const called = integrateDoseSpy.mock.calls.map(([, steps]) => steps[0]);

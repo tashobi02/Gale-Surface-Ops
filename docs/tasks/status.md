@@ -244,3 +244,5 @@ After editing this file run `make progress`. Do not edit the README progress blo
 | T32.08 | done | 2026-11-12 | Loader checks for mission_setup, event_library, task_library; loadCandidateComm in [scenario.ts](../../apps/hab-core/src/scenario.ts) |
 | T32.09 | done | 2026-11-12 | [nextStop.test.ts](../../apps/hab-core/tests/nextStop.test.ts): target, equivalence, five ended_by, rejections, determinism |
 | T32.10 | done | 2026-11-12 | [nextStop.ts](../../apps/hab-core/src/engine/nextStop.ts), commands.ts and session.ts; CLOCK_JUMPED after the jump's events (BD-92, BD-113) |
+| T32.11 | done | 2026-11-12 | [liveEvents.test.ts](../../apps/hab-core/tests/liveEvents.test.ts): background before press, shift, alert from press, rejections, determinism |
+| T32.12 | done | 2026-11-12 | [liveEvents.ts](../../apps/hab-core/src/engine/liveEvents.ts); tick/alerts/contingency read the shifted series; existing tests press at series_start_utc (U-62, BD-97, BD-114) with unchanged numbers |

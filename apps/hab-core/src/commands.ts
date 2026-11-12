@@ -7,7 +7,7 @@
  * Delegated (each stays in its owner's module, which checks its own args and state): SUMMON_VEHICLE
  * → engine/vehicles (T23.05), APPROVE_OPTION and ABORT → engine/contingencyOps (T23.07),
  * JUMP_NEXT_STOP → the session manager runs the ticks (effect "next_stop", engine/nextStop.ts, T32.10),
- * SEND_MESSAGE → engine/earth (TASK-26), TASK_ROVER → ./rover (FR-41, TASK-29), UPDATE_STOP_TASK and
+ * START_EVENT → engine/liveEvents (T32.12), SEND_MESSAGE → engine/earth (TASK-26), TASK_ROVER → ./rover (FR-41, TASK-29), UPDATE_STOP_TASK and
  * ADD_STOP_TASK → engine/tasks (FR-50, T31.04; "own tasks" and the undo rules are checked there, 02 §E.4, §E.6).
  * Every accepted PLAN_REVISED is followed by the TASK_DROPPED events of the stops it removed (`withTaskDrops`).
  * Rules where 02 is silent (proposed 2026-11-07, tests/commands.test.ts header): EVA "self" means
@@ -34,6 +34,7 @@ import {
 } from "@marswalk/protocol";
 import { handleAbort, handleApproveOption } from "./engine/contingencyOps";
 import { handleSendMessage } from "./engine/earth";
+import { startEvent } from "./engine/liveEvents";
 import { nextStopTarget, warningLatched } from "./engine/nextStop";
 import { logged, type CommandOutcome, type EngineState, type PendingEvent } from "./engine/reducer";
 import { handleAddStopTask, handleUpdateStopTask, onPlanRevised } from "./engine/tasks";
@@ -221,6 +222,8 @@ function dispatch(state: EngineState, command: Command, ctx: CommandContext): Ha
       if (nextStopTarget(state) === null) reject("INVALID", "JUMP_NEXT_STOP: no stop is left in the plan");
       if (warningLatched(state)) reject("BUSY", "A warning-level alert is latched; clear it before jumping to the next stop (U-63)");
       return { result: okWithoutEvent(command), events: [], effect: { kind: "next_stop" } };
+    case "START_EVENT":
+      return startEvent(state, ctx.scenario, command); // args and state are checked there (T32.12, 02 §D.17)
     case "START_EVA":
       requireState(state, ["LOADED"], "Starting the EVA");
       if (state.plan === null) reject("INVALID", "START_EVA needs a published plan; send PUBLISH_PLAN first (02 §D.17)");

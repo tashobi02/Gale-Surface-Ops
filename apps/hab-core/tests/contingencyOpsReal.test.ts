@@ -162,6 +162,9 @@ const tctx = (state: EngineState, scenario: LoadedScenario = sc): TickContext =>
 /** EVA running, both crew at stop 1 (AT_STOP, positioned on the stop), then a RADIATION_ALERT warning. */
 function alertedOn(scenario: LoadedScenario): EngineState {
   let s = apply(initialState(scenario, "s-0001"), "EVA_STARTED", { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, "ops");
+  // The storm was pressed at its recorded UTC (START_EVENT at series_start_utc, U-62, BD-97, T32.12), so the series plays at its own UTC.
+  const storm = scenario.scenario.event_library[0]!;
+  s = { ...s, session: { ...s.session, started_events: [{ event_id: storm.event_id, t0_sim_time: storm.series_start_utc }] } };
   for (const id of ["EV1", "EV2"] as const) {
     s = apply(s, "ARRIVED_STOP", { crew_id: id, stop_id: STOP1.id, stop_index: 1 });
     s = withCrew(s, id, { x_m: STOP1.x_m, y_m: STOP1.y_m });

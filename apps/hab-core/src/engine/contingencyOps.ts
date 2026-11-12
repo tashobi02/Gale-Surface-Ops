@@ -77,6 +77,7 @@ import {
   type Waypoint,
 } from "@marswalk/protocol";
 import type { LoadedScenario } from "../scenario";
+import { doseAt } from "./liveEvents";
 import type { CommandOutcome, EngineState, PendingEvent } from "./reducer";
 import type { TickContext, TickResult } from "./tick";
 import { dispatchVehicle } from "./vehicles";
@@ -188,6 +189,8 @@ export function contingencyTick(state: EngineState, ctx: TickContext): TickResul
   const answered = new Set(state.proposed_alerts ?? []);
   let hab: ContingencyInputs["hab"] | null = null;
   const events: PendingEvent[] = [];
+  // The expected dose reads the series the press maps this sim second to; the background before it (T32.12, 02 §D.17).
+  const dose = doseAt(state, ctx.scenario, state.session.clock.sim_time);
 
   for (const alert of state.alerts) {
     if (alert.level !== "warning" || alert.cleared_seq !== null) continue;
@@ -205,14 +208,14 @@ export function contingencyTick(state: EngineState, ctx: TickContext): TickResul
     const proposed = unlessRangeError(() => proposeOptions({
       alert_id: alert.alert_id,
       crew,
-      now_utc: state.session.clock.sim_time,
+      now_utc: dose.t_utc,
       hab: habField,
       rendezvous: v.rendezvous,
       ingress: { hab_s: crewHabIngressS(ctx.scenario, crew.map((c) => c.crew_id)), vehicle_s: v.vehicle_s },
       ...(v.pair ? { pair: v.pair } : {}),
       plan: { waypoints: plan.waypoints, legs: plan.result.legs },
       scenario: plan.scenario,
-      series: ctx.scenario.dose,
+      series: dose.series,
       shielding,
     }));
     if (proposed === null) continue;

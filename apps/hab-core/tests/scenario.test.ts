@@ -428,7 +428,9 @@ describe("the engine on a loaded site grid (T22.11 follow-up)", () => {
     const high = times.find(([, r]) => r !== times[0]![1])![0];
     const sim_time = new Date(high + step).toISOString().replace(".000Z", "Z");
     const started = reduce(initialState(sc, "s-0001"), { seq: 1, sim_time: sc.scenario.start_utc, kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, provenance: {}, command_ref: null });
-    const state: EngineState = { ...started, session: { ...started.session, clock: { ...started.session.clock, sim_time } } };
+    // The storm pressed at its recorded UTC (START_EVENT at series_start_utc, U-62, BD-97, T32.12).
+    const storm = sc.scenario.event_library[0]!;
+    const state: EngineState = { ...started, session: { ...started.session, started_events: [{ event_id: storm.event_id, t0_sim_time: storm.series_start_utc }], clock: { ...started.session.clock, sim_time } } };
 
     const r = tick(state, sc, 1, state.session.last_seq + 1);
     const kinds = r.events.map((e) => e.kind);

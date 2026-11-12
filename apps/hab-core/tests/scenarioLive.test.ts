@@ -494,10 +494,12 @@ describe("replay and the reference scenario (T32.06 step 3, T32.07)", () => {
     expect(r.stderr).toContain("scenario has no plan; pass --commands with a PUBLISH_PLAN");
   }, 30_000);
 
-  it("replays the fake scenario with its plan to the log_hash it had before the optional-plan change", async () => {
+  it("replays the fake scenario with its plan: the reference run presses the storm at series_start_utc (T32.12)", async () => {
     const hash = await replayHeadless(fixtureDir, undefined, { site: NO_SITE, varDir: tmp("var") });
-    // Hash of the fake scenario at 33b1ecb (core-backend after packages 02, 01a, 01b), before T32.07, from `replayHeadless`
-    // with the real tick. Any engine change that moves it needs a reason written next to the new value.
-    expect(hash).toBe("d75066e63b79d87dc1f35abd2687cbaeafd06f6a21734658290f00981da4ddd7");
+    // Before T32.12 the hash was d75066e6…ddd7 (33b1ecb, the storm in table time). The replay now presses START_EVENT at
+    // series_start_utc (U-62, BD-97), which adds one EVENT_STARTED line and the shifted alert_id (a-11 → a-12), and the
+    // RADIATION_ALERT text is "Shelter now — radiation surge" (N-17). Every other event, time and number is the old one
+    // (checked by diffing the two logs without that line). Any engine change that moves it needs a reason next to the value.
+    expect(hash).toBe("1e7f9a1a5a61a11eabf4d9cf13c1a74ade1d2c1f2cb1749b9bc0b1bb403f61dc");
   });
 });
