@@ -2,17 +2,14 @@
  * Snapshot -> OpsConsole props (docs/specs/03 SCR-11; 05 Snapshot; 01 FR-15, FR-50; T25.01).
  *
  * Passes the Hab Core's values through and labels them. It computes nothing: counts are tallies of the tasks the server
- * sent, never estimates. What the snapshot does not carry stays `undefined`, so the console shows "—":
- * - `sol` and `ltst` (Mars24 needs the site longitude; no source is wired yet),
- * - `phase` (the snapshot has the session status, not an EVA phase),
- * - `conditions` (sun elevation, dose rates and the Earth link are not in the snapshot).
- * TODO(decision): the sources for sol, LTST and conditions on the live console (compute call in the UI, or fields in the
- * snapshot).
+ * sent, never estimates. N-06 conditions keep their supplied provenance and sources (FD-085).
+ * What the snapshot does not carry stays undefined, including the EVA phase.
  */
 import type { CrewId, LogEvent, Snapshot } from "@marswalk/protocol";
 import type { CrewTaskProgress, OpsConsoleProps, OpsLogLine } from "../screens/scr11OpsConsole";
 import { isProvenance, selectNextStop } from "../eva/viewModel";
 import { formatSimTime, summarizeEvent } from "./EventLog";
+import type { ProvenanceValue } from "./ConditionsPanel";
 
 const CREW_IDS: readonly CrewId[] = ["EV1", "EV2"];
 
@@ -67,7 +64,25 @@ export function selectOpsProps(snapshot: Snapshot | null, events: LogEvent[]): L
     const p = taskProgressOf(snapshot, id);
     if (p) taskProgress[id] = p;
   }
+  const conditions = snapshot.conditions;
+  function value<T extends number | string>(field: keyof Snapshot["conditions"], unit?: string): ProvenanceValue<T> | undefined {
+    const v = conditions?.[field];
+    const prov = conditions?.provenance?.[field];
+    const src = conditions?.source_ids?.[field];
+    if ((typeof v !== "number" && typeof v !== "string") || (typeof v === "number" && !Number.isFinite(v)) || v === "" || !isProvenance(prov) || !src) return undefined;
+    return { v: v as T, prov, src, ...(unit ? { unit } : {}) };
+  }
+  const ltst = value<string>("ltst");
+  const fields = {
+    ltst,
+    sunElevationDeg: value<number>("sun_elevation_deg", "°"),
+    doseRateBackgroundUgyH: value<number>("dose_rate_background_ugy_h", "µGy/h"),
+    doseRateEventUgyH: value<number>("dose_rate_event_ugy_h", "µGy/h"),
+  };
   return {
+    sol: value<number>("sol"),
+    ltst,
+    conditions: Object.values(fields).some(Boolean) ? fields : undefined,
     scenarioName: snapshot.session.scenario_id,
     planRevision: { v: snapshot.session.plan_revision, prov: "simulated", src: "snapshot:session.plan_revision" },
     crew: snapshot.crew,

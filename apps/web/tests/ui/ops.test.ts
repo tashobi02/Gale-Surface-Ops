@@ -23,7 +23,7 @@ import { AlertStack } from "../../src/ui/ops/AlertStack";
 import { ConditionsPanel } from "../../src/ui/ops/ConditionsPanel";
 import { HOLD_DURATION_MS } from "../../src/ui/eva/HoldToConfirm";
 import { recordingClient, rejected, storeFromBeat } from "./fixtureStore";
-import { click, flush, installDom, mount, must, pointerDown, pointerUp, removeDom } from "./domHarness";
+import { click, keyDown, flush, installDom, mount as mountDom, must, pointerDown, pointerUp, removeDom } from "./domHarness";
 
 /*
  * The imports of Hab Core source above (commands, reducer, scenario) are deliberate: these are contract tests that run
@@ -66,9 +66,17 @@ async function submitForm(form: HTMLFormElement): Promise<void> {
 
 const PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
 
+const mounted: Awaited<ReturnType<typeof mountDom>>[] = [];
+async function mount(element: Parameters<typeof mountDom>[0]) {
+  const view = await mountDom(element);
+  mounted.push(view);
+  return view;
+}
 beforeAll(() => installDom());
 afterAll(() => removeDom());
-afterEach(() => {
+afterEach(async () => {
+  for (const view of mounted.splice(0)) await view.unmount();
+  delete (window as unknown as Record<string, unknown>).AudioContext;
   vi.useRealTimers();
   document.body.innerHTML = "";
 });
@@ -139,7 +147,7 @@ describe("SCR-11 Ops console with nothing supplied (04 §D.1: no sample data)", 
       expect(el.getAttribute("data-source")).toBeTruthy();
       const prov = el.getAttribute("data-provenance");
       if (prov !== null) expect(PROVENANCE).toContain(prov);
-      expect(prov).not.toBe("assumed");
+      if (el.getAttribute("data-source") !== "ui:ops.sound") expect(prov).not.toBe("assumed");
       // A missing value is flagged, shows no glyph, and its source says what is missing.
       if (el.getAttribute("data-unavailable") === "true") {
         expect(el.getAttribute("data-source")).toMatch(/^unavailable:|^docs\/specs\/01:FR-36$/);
@@ -733,7 +741,7 @@ describe("Join screen and keyboard access (NFR-04, 04 §E.4)", () => {
     const html = renderToStaticMarkup(createElement(OpsConsole, { crew: [ev1()], alerts: [warning()] }));
 
     expect(html).toMatch(/<button/);
-    expect(html).not.toMatch(/tabindex="-1"/);
+    expect(html).not.toMatch(/<(?:button|input|select)[^>]*tabindex="-1"/);
   });
 });
 
@@ -819,8 +827,8 @@ describe("Ops console controls added in the audit (NFR-04, FR-50)", () => {
     expect(container.querySelector('span[aria-label="Sound status"]')).toBeNull();
     const button = must<HTMLButtonElement>(container, 'button[aria-label^="Alert sound"]');
     expect(button.tabIndex).toBeGreaterThanOrEqual(0);
-    expect(button.getAttribute("aria-label")).toMatch(/unknown/i);
-    expect(button.getAttribute("aria-pressed")).toBeNull();
+    expect(button.getAttribute("aria-label")).toMatch(/on/i);
+    expect(button.getAttribute("aria-pressed")).toBe("true");
     await click(button);
     expect(onToggleSound).toHaveBeenCalledTimes(1);
   });
@@ -914,5 +922,90 @@ describe("SCR-10 Join shows only what it is told (04 §D.1, §A.3.1)", () => {
     expect(must(container, '[data-slot="join-scenario"]').textContent).toBe("my-scenario");
     expect(container.querySelectorAll(".role-taken")).toHaveLength(1);
     expect(container.innerHTML).not.toMatch(/--signal-ink|E7553D/i);
+  });
+});
+
+
+describe("package 19 ops interactions", () => {
+  it("keys drive clock", async () => {
+    const onCommand = vi.fn();
+    const { container, unmount } = await mount(createElement(OpsConsole, { client: null, snapshot: connectSnapshot(), alerts: [warning()], onCommand }));
+    const surface = must(container, '[data-surface="ops"]');
+    for (const key of [" ", "1", "2", "3", "n", "k"]) await keyDown(surface, key);
+    expect(onCommand.mock.calls.map(([command]) => command)).toEqual([
+      { kind: "SET_CLOCK", args: { paused: true } },
+      ...[1, 10, 60].map((speed) => ({ kind: "SET_CLOCK", args: { speed } })),
+      { kind: "JUMP_NEXT_EVENT", args: {} },
+      { kind: "ACK_ALERT", args: { alert_id: "a-w" } },
+    ]);
+    await keyDown(surface, "o");
+    expect(document.activeElement).toBe(must(container, '.options-panel'));
+    const input = document.createElement("input");
+    surface.append(input);
+    await keyDown(input, "3");
+    await keyDown(must(container, 'select'), "2");
+    expect(onCommand).toHaveBeenCalledTimes(6);
+    await unmount();
+  });
+
+  it("advisory dismisses after 10 s sim", async () => {
+    vi.useFakeTimers();
+    const advisory = warning({ level: "advisory" });
+    const view = await mount(createElement(AlertStack, { alerts: [advisory], simTime: "2024-05-20T13:05:00Z" }));
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    expect(view.container.textContent).toContain("ADVISORY");
+    await view.rerender(createElement(AlertStack, { alerts: [advisory], simTime: "2024-05-20T13:05:09.999Z" }));
+    expect(view.container.textContent).toContain("ADVISORY");
+    await view.rerender(createElement(AlertStack, { alerts: [advisory], simTime: "2024-05-20T13:05:10Z" }));
+    expect(view.container.querySelector('.alert-stack')).toBeNull();
+    await view.unmount();
+  });
+
+  it("sound arms on first gesture", async () => {
+    const resume = vi.fn().mockResolvedValue(undefined);
+    const close = vi.fn().mockResolvedValue(undefined);
+    const ctor = vi.fn(function () { return { resume, close, state: "running" }; });
+    Object.defineProperty(window, "AudioContext", { configurable: true, value: ctor });
+    const view = await mount(createElement(OpsConsole, { client: null }));
+    const button = must(view.container, 'button[aria-label^="Alert sound"]');
+    expect(button.textContent).toContain("SOUND ON — click to arm");
+    expect(ctor).not.toHaveBeenCalled();
+    await keyDown(must(view.container, '[data-surface="ops"]'), "Shift");
+    await flush();
+    expect(resume).toHaveBeenCalledTimes(1);
+    expect(button.textContent).toContain("SOUND ON");
+    expect(button.textContent).not.toContain("click to arm");
+    await pointerDown(button);
+    expect(ctor).toHaveBeenCalledTimes(1);
+    await click(button);
+    expect(button.textContent).toContain("SOUND OFF");
+    await view.unmount();
+    expect(close).toHaveBeenCalledTimes(1);
+    delete (window as unknown as Record<string, unknown>).AudioContext;
+  });
+
+  it("notice below 1024", async () => {
+    const old = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 900 });
+    const view = await mount(createElement(OpsConsole, { client: null }));
+    expect(view.container.textContent).toContain("Use a larger screen");
+    expect(view.container.querySelector('[data-testid="clock-control"]')).toBeNull();
+    await act(async () => {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: 1100 });
+      window.dispatchEvent(new window.Event("resize"));
+    });
+    expect(view.container.querySelector('[data-slot="ops-side-drawer"]')).not.toBeNull();
+    expect(view.container.querySelector('.ops-map-slot')).not.toBeNull();
+    await view.unmount();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: old });
+  });
+
+  it("ended session opens the report without inventing an end command", async () => {
+    const snapshot = connectSnapshot();
+    const view = await mount(createElement(OpsConsole, { client: null, snapshot }));
+    await view.rerender(createElement(OpsConsole, { client: null, snapshot: { ...snapshot, session: { ...snapshot.session, status: "ENDED" } } }));
+    expect(window.location.hash).toBe("#/report");
+    window.location.hash = "";
+    await view.unmount();
   });
 });

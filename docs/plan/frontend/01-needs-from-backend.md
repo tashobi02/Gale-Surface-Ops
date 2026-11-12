@@ -40,3 +40,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 | N-27 | EVA end | Session status `ended` and the command that ends an EVA, so SCR-11 → SCR-17 can be driven from the UI | 03 SCR-11 Ended | 19, 29 |
 | N-28 | Haven fields | Haven bands per tick for the ops map (T23.03) and planning haven values per leg (T05b.04) | FR-39 | 11, 21 |
 | N-29 | Revise a skipped task reason during the undo window | Permit an actor to change the reason on its own SKIPPED task without undoing and re-skipping it; preserve the audit and revision rules | FD-028; current engine accepts SKIPPED only from TODO | 17 |
+
+## Package 19 follow-up
+
+1. N-30 — N-06 supplies sol, LTST and the condition fields, but `ConditionsState` has no EVA phase. Supply the authoritative phase plus provenance and source; SCR-11 currently displays “—”.

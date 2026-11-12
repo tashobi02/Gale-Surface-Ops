@@ -5,6 +5,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { expectGaps, expectTargetSize, targets } from "../lib/geometry";
+import { openOpsFixture } from "../lib/opsFixture";
 import { openEvaFixture } from "../lib/evaFixture";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
@@ -24,10 +25,14 @@ test("targets: EVA and HUD targets are at least 56 px with 8 px gaps (enabled by
   }
 });
 
-test.fixme("targets: ops targets are at least 32 px (enabled by package 19)", async ({ page }) => {
-  await page.goto("/#/ops");
-  await waitForSnapshot(page);
-  expectTargetSize(await targets(page), OPS_MIN);
+test("targets: ops targets are at least 32 px (enabled by package 19)", async ({ context }) => {
+  for (const state of ["loaded", "running", "paused", "alerting"] as const) {
+    const page = await context.newPage();
+    try {
+      await openOpsFixture(page, state);
+      expectTargetSize(await targets(page), OPS_MIN);
+    } finally { await page.close(); }
+  }
 });
 
 // Package 07 enables the planner workspace on the touch projects; package 09 adds the plan panel's targets to the same page.

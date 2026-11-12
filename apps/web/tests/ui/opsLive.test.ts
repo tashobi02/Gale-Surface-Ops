@@ -197,3 +197,23 @@ describe("event log strip and drawer (03 SCR-11)", () => {
     expect(must(container, '[data-slot="event-log-drawer"]').textContent).toContain("No events logged yet");
   });
 });
+
+
+describe("package 19 conditions contract", () => {
+  it("uses N-06 values with their supplied provenance and source", () => {
+    const conditions = {
+      sol: 4190, ltst: "13:05", sun_elevation_deg: 0,
+      dose_rate_background_ugy_h: 1, dose_rate_event_ugy_h: 2, event_series_utc: null,
+      source_ids: { sol: "mars24", ltst: "mars24", sun_elevation_deg: "mars24", dose_rate_background_ugy_h: "rad", dose_rate_event_ugy_h: "rad" },
+      provenance: { sol: "derived", ltst: "derived", sun_elevation_deg: "derived", dose_rate_background_ugy_h: "replayed", dose_rate_event_ugy_h: "replayed" },
+    } as Snapshot["conditions"];
+    const props = selectOpsProps({ ...connect, conditions }, []);
+    expect(props.sol).toEqual({ v: 4190, prov: "derived", src: "mars24" });
+    expect(props.ltst).toEqual({ v: "13:05", prov: "derived", src: "mars24" });
+    expect(props.conditions?.sunElevationDeg).toMatchObject({ v: 0, prov: "derived", src: "mars24" });
+    expect(props.conditions?.doseRateEventUgyH).toMatchObject({ v: 2, prov: "replayed", src: "rad" });
+    expect(selectOpsProps({ ...connect, conditions: { ...conditions, sol: null, ltst: null } }, []).sol).toBeUndefined();
+    expect(selectOpsProps({ ...connect, conditions: { ...conditions, source_ids: {} } }, []).ltst).toBeUndefined();
+    expect(props.phase).toBeUndefined();
+  });
+});

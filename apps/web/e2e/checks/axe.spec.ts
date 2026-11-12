@@ -3,11 +3,12 @@
  * axe-core in real Chromium, tags wcag2a, wcag2aa, wcag21aa: zero serious or critical violations on every built route, in its
  * mode, and on each EVA and ops state fixture (FD-151). The full result of each scan goes to `out/axe-<route>.json`.
  */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { axeScan, type HtmlMode } from "../lib/a11y";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 import { openEvaFixture, type EvaFixtureState } from "../lib/evaFixture";
+import { openOpsFixture } from "../lib/opsFixture";
 import { withManifestlessSite } from "../lib/siteBundle";
 
 const LIVE = /^#\/(ops|eva|hud)/;
@@ -80,4 +81,25 @@ test("axe: EVA tablet states and high contrast have no serious or critical viola
     await page.getByRole("button", { name: "Toggle high contrast" }).click();
     await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}-contrast` });
   }
+});
+
+
+test("axe: ops states have no serious or critical violation (package 19)", async ({ context }, testInfo) => {
+  for (const state of ["no-session", "loaded", "running", "paused", "alerting", "ended"] as const) {
+    const page = await context.newPage();
+    try {
+    await openOpsFixture(page, state);
+    if ((page.viewportSize()?.width ?? 0) >= 1024 && state !== "ended") {
+      const panels = page.getByRole("button", { name: "Conditions & options" });
+      if (await panels.count()) await panels.click();
+    }
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-${state}` });
+    } finally { await page.close(); }
+  }
+});
+
+
+test.fixme("needs N-06: ops receives an authoritative EVA phase", async ({ page }) => {
+  await page.goto("/?site=mock_site#/ops");
+  await expect(page.locator('.phase-timeline [data-provenance]')).not.toHaveText(/—/);
 });

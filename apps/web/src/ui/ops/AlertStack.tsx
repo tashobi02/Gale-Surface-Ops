@@ -11,17 +11,20 @@
  * Each alert provides an accessible ACK button and displays acknowledged state with role.
  * Every alert shows its severity as shape plus word (04 §A.3 #2).
  * Advisories leave the bar once cleared ("cleared alerts move to the log", 04 §D.2).
- * TODO(decision): the advisory 10 s auto-dismiss (04 §D.2) needs authoritative sim time; it is not done here.
+ * Advisory expiry follows snapshot sim time (FD-083), with event timestamps when available.
  */
 
 import {
   useState,
+  useRef,
   type CSSProperties,
   type ReactElement,
 } from "react";
 import type { Alert, AlertLevel, Role } from "@marswalk/protocol";
 
 export interface AlertStackProps {
+  simTime?: string;
+  raisedTimes?: ReadonlyMap<number, string>;
   alerts: Alert[];
   activeRole?: Role;
   /** ACK_ALERT is addressed by `alert_id` (02 §E.4); the raised sequence is not part of the command. */
@@ -88,13 +91,25 @@ export function sortAlerts(alerts: Alert[]): Alert[] {
  */
 export function AlertStack({
   alerts,
+  simTime,
+  raisedTimes,
   activeRole = "ops",
   onAcknowledge,
   className = "",
 }: AlertStackProps): ReactElement | null {
   const [expanded, setExpanded] = useState<boolean>(false);
 
-  const live = (alerts ?? []).filter(isOnBar);
+  const seen = useRef(new Map<string, number>());
+  const now = simTime ? Date.parse(simTime) : NaN;
+  const live = (alerts ?? []).filter((alert) => {
+    if (!isOnBar(alert)) return false;
+    if (alert.level !== "advisory" || !Number.isFinite(now)) return true;
+    const key = `${alert.alert_id}/${alert.raised_seq}`;
+    const eventTime = raisedTimes?.get(alert.raised_seq);
+    const raised = eventTime ? Date.parse(eventTime) : NaN;
+    if (!seen.current.has(key)) seen.current.set(key, Number.isFinite(raised) ? raised : now);
+    return now - seen.current.get(key)! < 10_000;
+  });
   if (live.length === 0) {
     return null;
   }
@@ -165,6 +180,7 @@ export function AlertStack({
       className={`alert-stack alert-slot ${className}`}
       data-level={primary.level}
       style={rootStyle}
+      role="alert"
       aria-live="assertive"
     >
       {/* ------------------------------------- Primary Alert Bar (04 §D.2) */}
@@ -183,7 +199,7 @@ export function AlertStack({
               whiteSpace: "nowrap",
             }}
           >
-            {primary.message}
+            <span data-provenance="simulated" data-source={`snapshot:alerts/${primary.alert_id}/message`}>{primary.message}</span>
           </span>
 
           {othersCount > 0 && (
@@ -195,12 +211,12 @@ export function AlertStack({
                 border: "1px solid currentColor",
                 fontSize: "12px",
                 padding: "2px 8px",
-                minHeight: "26px",
+                minHeight: "32px",
               }}
               onClick={() => setExpanded(!expanded)}
               aria-label={`${othersCount} more alerts. Click to ${expanded ? "collapse" : "expand"} list`}
             >
-              +{othersCount} {expanded ? "▲" : "▼"}
+              <span data-provenance="simulated" data-source="snapshot:alerts">+{othersCount}</span> {expanded ? "▲" : "▼"}
             </button>
           )}
         </div>

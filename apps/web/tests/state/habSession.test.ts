@@ -18,6 +18,7 @@ import {
 import type { SocketLike } from "../../src/net/habClient";
 import {
   closeHabSessions,
+  closeHabSessionsExcept,
   currentHabClient,
   startHabSession,
   useCommand,
@@ -323,4 +324,19 @@ describe("taken over by another device (02 §E.4)", () => {
     expect(made).toHaveLength(2);
     expect(currentHabClient()).toBe(second);
   });
+});
+
+
+it("one session owner", async () => {
+  const { factory, made } = sockets();
+  open("eva:EV1", factory);
+  const ops = open("ops", factory);
+  closeHabSessionsExcept("ops");
+  const view = await mount(createElement("div", null, createElement(Probe), createElement(Probe), createElement(CommandProbe)));
+  await made[1].receive(...wsFixtures.connect);
+  expect(made).toHaveLength(2);
+  expect(made[0].readyState).toBe(3);
+  expect(currentHabClient()).toBe(ops);
+  expect(view.container.querySelectorAll('[data-session="s-0007"]')).toHaveLength(2);
+  await view.unmount();
 });

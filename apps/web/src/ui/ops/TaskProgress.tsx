@@ -72,7 +72,7 @@ export function TaskProgress({
   };
 
   const buttonStyle: CSSProperties = {
-    minHeight: "28px",
+    minHeight: "32px",
     padding: "2px 8px",
     backgroundColor: disabled ? "var(--panel, #14181D)" : "var(--raised, #1C2128)",
     color: disabled ? "var(--text-dim, #7B8794)" : "var(--text-1, #ECEFF2)",

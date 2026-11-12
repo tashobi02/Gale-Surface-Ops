@@ -18,13 +18,14 @@ import {
   useEffect,
   useRef,
   useState,
-  useSyncExternalStore,
+  type KeyboardEvent,
   type CSSProperties,
   type ReactElement,
 } from "react";
 import type { Crew, CrewId, Vehicle, Alert, Snapshot, Command, Provenance } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
-import { useHabClient } from "../../state/habSession";
+import { useCommand, useEvents, useHabClient, useSnapshot } from "../../state/habSession";
+import { useOpsSound } from "../ops/sound";
 import { EventLog } from "../ops/EventLog";
 import { AlertStack } from "../ops/AlertStack";
 import { OptionsPanel } from "../ops/OptionsPanel";
@@ -142,6 +143,17 @@ export function OpsConsole({
   onCommand,
   className = "",
 }: OpsConsoleProps): ReactElement {
+  const [viewportWidth, setViewportWidth] = useState(() => typeof window === "undefined" ? 1280 : window.innerWidth);
+  const [sideDrawer, setSideDrawer] = useState<"crew" | "mission" | null>(null);
+  const [localSoundOn, setLocalSoundOn] = useState(true);
+  const soundEnabled = soundOn ?? localSoundOn;
+  const { armed } = useOpsSound(alerts, soundEnabled);
+  useEffect(() => {
+    const resize = (): void => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+  const narrow = viewportWidth < 1280;
   const [activeAddCrew, setActiveAddCrew] = useState<string | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
   const client = useHabClient(clientProp);
@@ -156,10 +168,26 @@ export function OpsConsole({
     if (logOpen) closeRef.current?.focus();
   }, [logOpen]);
   // The session is read from the snapshot (given, or the client's own), so the clock and status follow the server.
-  const subscribe = useCallback((listener: () => void) => client?.subscribe(listener) ?? (() => {}), [client]);
-  const readState = useCallback(() => client?.state() ?? null, [client]);
-  const liveState = useSyncExternalStore(subscribe, readState, readState);
-  const session = (snapshot ?? liveState)?.session;
+  const liveState = useSnapshot(client);
+  const events = useEvents(client);
+  const send = useCommand(client);
+  const activeSnapshot = snapshot === undefined ? liveState : snapshot;
+  const session = activeSnapshot?.session;
+  const raisedTimes = new Map(events.filter((event) => event.kind === "ALERT_RAISED").map((event) => [event.seq, event.sim_time]));
+  useEffect(() => {
+    if (session?.status === "ENDED") window.location.hash = "#/report";
+  }, [session?.status]);
+  const warningKey = alerts.filter((alert) => alert.level === "warning" && (alert.acked_seq === null || alert.cleared_seq === null)).map((alert) => `${alert.alert_id}/${alert.raised_seq}`).join("|");
+  const optionsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (warningKey) {
+      if (narrow) setSideDrawer("mission");
+      optionsRef.current?.focus();
+    }
+  }, [warningKey, narrow]);
+  useEffect(() => {
+    if (sideDrawer === "mission") optionsRef.current?.focus();
+  }, [sideDrawer]);
 
   /**
    * Sends one command to the Hab Core (02 §E.4). Without a client the command goes to `onCommand` and counts as
@@ -171,7 +199,7 @@ export function OpsConsole({
       return true;
     }
     try {
-      const result = await client.send(command);
+      const result = await send(command);
       setCommandError(result.ok ? null : `${command.kind} rejected: ${result.message}`);
       return result.ok;
     } catch (err) {
@@ -185,7 +213,7 @@ export function OpsConsole({
     flexDirection: "column",
     width: "100%",
     minHeight: "100vh",
-    minWidth: "1280px", // 04 §E.4: Ops console is for ≥ 1280 px
+    minWidth: 0,
     backgroundColor: "var(--void, #0B0D10)",
     color: "var(--text-1, #ECEFF2)",
     fontFamily: "var(--font-ui, Inter, sans-serif)",
@@ -196,7 +224,8 @@ export function OpsConsole({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    height: "48px",
+    minHeight: "48px",
+    flexWrap: "wrap",
     padding: "0 16px",
     backgroundColor: "var(--panel, #14181D)",
     borderBottom: "1px solid var(--hairline, #2A313A)",
@@ -217,7 +246,8 @@ export function OpsConsole({
 
   const bodyGridStyle: CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "280px 1fr 320px",
+    gridTemplateColumns: narrow ? "1fr" : "280px minmax(0, 1fr) 320px",
+    position: "relative",
     flex: 1,
     overflow: "hidden",
   };
@@ -275,8 +305,31 @@ export function OpsConsole({
     fontSize: "13px",
   };
 
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || (event.target as Element).closest('input, textarea, select, button, a, [role="radio"], [contenteditable="true"]')) return;
+    const key = event.key.toLowerCase();
+    if (key === "o") {
+      event.preventDefault();
+      if (narrow) setSideDrawer("mission");
+      optionsRef.current?.focus();
+      return;
+    }
+    if (key === "k") {
+      const button = event.currentTarget.querySelector<HTMLButtonElement>('.alert-bar button[aria-label^="Acknowledge"]');
+      if (button) { event.preventDefault(); button.click(); }
+      return;
+    }
+    if (!session || session.status === "ENDED") return;
+    if (key === " ") { event.preventDefault(); void issue({ kind: "SET_CLOCK", args: { paused: !session.clock.paused } }); }
+    else if (["1", "2", "3"].includes(key)) { event.preventDefault(); void issue({ kind: "SET_CLOCK", args: { speed: ({ "1": 1, "2": 10, "3": 60 } as Record<string, number>)[key] } }); }
+    else if (key === "n") { event.preventDefault(); void issue({ kind: "JUMP_NEXT_EVENT", args: {} }); }
+  };
+
+  if (viewportWidth < 1024) return <main data-surface="ops" data-mode="ops" style={{ ...rootStyle, padding: "32px" }}><h1>Use a larger screen</h1><p>The ops console needs at least 1024 px width. Open it on the projector or a laptop.</p></main>;
+
   return (
     <div
+      onKeyDown={onKeyDown}
       className={`scr11-ops-console ${className}`}
       data-surface="ops"
       data-mode="ops"
@@ -285,7 +338,7 @@ export function OpsConsole({
       {/* ------------------------------------------------ Top Bar (04 §E.4) */}
       <header className="ops-top-bar" style={topBarStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontWeight: 600, letterSpacing: "0.02em" }}>
+          <span data-provenance="simulated" data-source={scenarioName ? "snapshot:session.scenario_id" : "unavailable:session.scenario_id"} data-unavailable={scenarioName ? undefined : "true"} style={{ fontWeight: 600, letterSpacing: "0.02em" }}>
             ⬢ OPS · {scenarioName ?? UNAVAILABLE}
           </span>
           <span
@@ -316,12 +369,11 @@ export function OpsConsole({
           <button
             type="button"
             style={{ ...buttonStyle, marginLeft: "8px", display: "inline-flex", alignItems: "center", gap: "6px" }}
-            aria-label={`Alert sound: ${soundOn === undefined ? "unknown" : soundOn ? "on" : "off"}`}
-            aria-pressed={soundOn}
-            onClick={() => onToggleSound?.()}
+            aria-label={`Alert sound: ${soundEnabled ? "on" : "off"}`}
+            aria-pressed={soundEnabled}
+            onClick={() => { setLocalSoundOn(!soundEnabled); onToggleSound?.(); }}
           >
-            <span aria-hidden="true">🔊</span>
-            <span>{soundOn === undefined ? UNAVAILABLE : soundOn ? "ON" : "OFF"}</span>
+            <span data-provenance="assumed" data-source="ui:ops.sound">{soundEnabled ? armed ? "SOUND ON" : "SOUND ON — click to arm" : "SOUND OFF"}</span>
           </button>
         </div>
       </header>
@@ -338,14 +390,17 @@ export function OpsConsole({
       </nav>
 
       {/* ------------------------------------- Alert Slot / Bar (04 §D.2, §E.4) */}
-      <AlertStack
+      <div style={{ minHeight: "48px" }}><AlertStack
+        key={session?.session_id}
+        simTime={session?.clock.sim_time}
+        raisedTimes={raisedTimes}
         alerts={alerts}
         onAcknowledge={(alertId) => {
           void issue({ kind: "ACK_ALERT", args: { alert_id: alertId } }).then((accepted) => {
             if (accepted) onAcknowledgeAlert?.(alertId);
           });
         }}
-      />
+      /></div>
       {commandError && (
         <div
           role="status"
@@ -364,9 +419,13 @@ export function OpsConsole({
       )}
 
       {/* ---------------------------------------------------- Main Body Grid */}
+      {narrow && <nav data-slot="ops-side-drawer" aria-label="Ops panels" style={{ display: "flex", gap: "8px", padding: "8px 16px" }}>
+        <button style={buttonStyle} aria-expanded={sideDrawer === "crew"} onClick={() => setSideDrawer(sideDrawer === "crew" ? null : "crew")}>Crew &amp; vehicles</button>
+        <button style={buttonStyle} aria-expanded={sideDrawer === "mission"} onClick={() => setSideDrawer(sideDrawer === "mission" ? null : "mission")}>Conditions &amp; options</button>
+      </nav>}
       <main style={bodyGridStyle}>
         {/* Left Column: CREW & VEHICLES */}
-        <aside style={columnStyle}>
+        <aside aria-label="Crew and vehicles" style={{ ...columnStyle, ...(narrow ? { display: sideDrawer === "crew" ? "flex" : "none", position: "absolute", left: 0, top: 0, bottom: 0, width: "280px", zIndex: 5 } : {}) }}>
           {/* Module Label: CREW (04 P2) */}
           <div className="module-label" style={moduleLabelStyle}>
             [ HAB CORE /// CREW ]
@@ -608,7 +667,7 @@ export function OpsConsole({
         </section>
 
         {/* Right Column: CONDITIONS, EARTH LINK, OPTIONS */}
-        <aside style={rightColumnStyle}>
+        <aside aria-label="Conditions and options" style={{ ...rightColumnStyle, ...(narrow ? { display: sideDrawer === "mission" ? "flex" : "none", position: "absolute", right: 0, top: 0, bottom: 0, width: "320px", zIndex: 5 } : {}) }}>
           {/* Module Label: CONDITIONS */}
           <div className="module-label" style={moduleLabelStyle}>
             [ ENVIRONMENT /// CONDITIONS ]
@@ -619,7 +678,7 @@ export function OpsConsole({
           <div className="module-label" style={{ ...moduleLabelStyle, marginTop: "12px" }}>
             [ SAFETY /// OPTIONS ]
           </div>
-          <div className="options-panel">
+          <div className="options-panel" ref={optionsRef} tabIndex={-1} role="region" aria-label="Options">
             <OptionsPanel
               client={client}
               snapshot={snapshot ?? liveState}
