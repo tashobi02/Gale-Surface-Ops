@@ -16,6 +16,7 @@ import { EXPORT_SCHEMA_VERSION, exportPlan, planHash } from "../../src/export/pl
 import type { PlanState } from "../../src/state/planStore";
 import { SCENARIO, WAYPOINTS, resultOf, stateOf } from "../ui/planStoreFake";
 import { mockManifest } from "../ui/map/mapFixtures";
+import provenanceMap from "../../src/ui/content/provenanceMap.json";
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);
@@ -73,6 +74,21 @@ function okState(overrides: Partial<PlanState> = {}): PlanState {
 }
 
 describe("plan export (T11.01, T11.02)", () => {
+  it("refuses retained results while the current revision is computing or failed", () => {
+    for (const status of ["Computing", "Error"] as const) {
+      expect(() => exportPlan(siteOf(), okState({ status }))).toThrow(/current|comput/i);
+    }
+  });
+
+  it("uses the shared provenance map for every value the export carries", () => {
+    const exported = exportPlan(siteOf(), okState());
+    for (const [path, entry] of Object.entries({ ...provenanceMap.result, ...provenanceMap.scenario })) {
+      const value = path.split(".").reduce<unknown>((v, key) => v && typeof v === "object" ? (v as Record<string, unknown>)[key] : undefined, exported);
+      if (value !== undefined && value !== null) {
+        expect(exported.provenance_summary).toContainEqual({ value_path: path, ...entry });
+      }
+    }
+  });
   it("canonical numbers", () => {
     // RFC 8785 (FD-134): keys sorted by UTF-16 code units at every level, no whitespace, numbers as
     // ECMAScript `Number::toString` writes them (1.0 -> 1, 1e21 -> 1e+21).

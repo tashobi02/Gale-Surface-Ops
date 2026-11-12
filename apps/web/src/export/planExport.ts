@@ -21,6 +21,7 @@ import type { PlanState } from "../state/planStore";
 import { canonicalJson } from "./jcs";
 import { sha256Hex } from "./sha256";
 import webPackage from "../../package.json";
+import provenanceMap from "../ui/content/provenanceMap.json";
 
 /** The version of `schemas/plan-export.schema.json` this file implements (FD-140). */
 export const EXPORT_SCHEMA_VERSION = "1.0.0";
@@ -44,65 +45,6 @@ export interface ProvenanceEntry {
   provenance: Provenance;
   source_ids: string[];
 }
-
-/**
- * The value paths of the export and their class and sources.
- *
- * The classes are the ones the specs record (FD-123 for the planner's metrics, FD-128 for the radiation
- * label): the DEM-derived distances and slopes are `derived`, the walking time and the dose are
- * `modelled` (the speed model and the radiation rate), and the conditions are `modelled` (Mars24). A
- * path the export does not carry is left out, so the summary never names a value the file does not have.
- */
-const PROVENANCE_TABLE: readonly ProvenanceEntry[] = [
-  { value_path: "result.totals.distance_m", provenance: "derived", source_ids: ["usgs-gale-dem-1m-v3"] },
-  { value_path: "result.totals.max_slope_deg", provenance: "derived", source_ids: ["usgs-gale-dem-1m-v3"] },
-  { value_path: "result.totals.max_walkback_km", provenance: "derived", source_ids: ["usgs-gale-dem-1m-v3"] },
-  { value_path: "result.totals.climb_m", provenance: "derived", source_ids: ["usgs-gale-dem-1m-v3"] },
-  { value_path: "result.totals.descent_m", provenance: "derived", source_ids: ["usgs-gale-dem-1m-v3"] },
-  {
-    value_path: "result.totals.walk_time_min",
-    provenance: "modelled",
-    source_ids: ["tobler-1993", "apollo17-planning"],
-  },
-  {
-    value_path: "result.totals.eva_total_min",
-    provenance: "modelled",
-    source_ids: ["tobler-1993", "apollo17-planning"],
-  },
-  {
-    value_path: "result.radiation.dose_mSv",
-    provenance: "modelled",
-    source_ids: ["hassler-2014-rad", "simonsen-2024-rad"],
-  },
-  {
-    value_path: "result.radiation.dose_low_mSv",
-    provenance: "modelled",
-    source_ids: ["hassler-2014-rad", "simonsen-2024-rad"],
-  },
-  {
-    value_path: "result.radiation.dose_high_mSv",
-    provenance: "modelled",
-    source_ids: ["hassler-2014-rad", "simonsen-2024-rad"],
-  },
-  { value_path: "result.conditions", provenance: "modelled", source_ids: ["mars24-allison-mcewen-2000"] },
-];
-
-/** The scenario inputs the planner chose: `assumed` (01 FR-05), each with the source of its own field. */
-const SCENARIO_PROVENANCE: readonly { value_path: string; source_ids: string[] }[] = [
-  { value_path: "scenario.eva_start_utc", source_ids: ["user:scenario.eva_start_utc"] },
-  { value_path: "scenario.max_eva_duration_h", source_ids: ["scenario.max_eva_duration_h"] },
-  { value_path: "scenario.dwell_min_per_stop", source_ids: ["scenario.dwell_min_per_stop"] },
-  { value_path: "scenario.hard_slope_limit_deg", source_ids: ["scenario.hard_slope_limit_deg"] },
-  { value_path: "scenario.caution_slope_deg", source_ids: ["scenario.caution_slope_deg"] },
-  { value_path: "scenario.walkback_limit_km", source_ids: ["scenario.walkback_limit_km"] },
-  { value_path: "scenario.suited_flat_speed_kmh", source_ids: ["scenario.suited_flat_speed_kmh"] },
-  { value_path: "scenario.solar_phase", source_ids: ["scenario.solar_phase"] },
-  { value_path: "scenario.loop", source_ids: ["scenario.loop"] },
-  { value_path: "scenario.max_haven_min", source_ids: ["scenario.max_haven_min"] },
-  { value_path: "scenario.crew_count", source_ids: ["scenario.crew_count"] },
-  { value_path: "scenario.vehicle_available", source_ids: ["scenario.vehicle_available"] },
-  { value_path: "scenario.vehicle_param_set", source_ids: ["scenario.vehicle_param_set"] },
-];
 
 /** What the hash is computed over (05 §C PlanExport): the data version, the scenario and the waypoints. */
 export interface PlanHashInput {
@@ -143,27 +85,14 @@ function resultOf(state: PlanState): PlanExport["result"] {
   };
 }
 
-/** Whether the result carries the value a path names (so the summary never names a missing value). */
-function carriesPath(result: PlanExport["result"], path: string): boolean {
-  const [head, tail] = path.split(".");
-  if (head !== "result" || tail === undefined) return true; // the scenario paths are always present
-  const [group, field] = tail.split(".");
-  const owner = result[group as keyof typeof result] as unknown;
-  if (owner === undefined || owner === null) return false;
-  if (field === undefined) return true;
-  return typeof owner === "object" && field in (owner as Record<string, unknown>);
-}
-
-/** The provenance summary of the export: one row per value the export carries. */
-function provenanceSummary(result: PlanExport["result"]): ProvenanceEntry[] {
-  const entries: ProvenanceEntry[] = [];
-  for (const entry of PROVENANCE_TABLE) {
-    if (carriesPath(result, entry.value_path)) entries.push({ ...entry, source_ids: [...entry.source_ids] });
-  }
-  for (const entry of SCENARIO_PROVENANCE) {
-    entries.push({ value_path: entry.value_path, provenance: "assumed", source_ids: [...entry.source_ids] });
-  }
-  return entries;
+/** The shared provenance map supplies the class and source of every carried value. */
+function provenanceSummary(plan: Pick<PlanExport, "result" | "scenario">): ProvenanceEntry[] {
+  return Object.entries({ ...provenanceMap.result, ...provenanceMap.scenario })
+    .filter(([path]) => path.split(".").reduce<unknown>(
+      (value, key) => value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined,
+      plan,
+    ) != null)
+    .map(([value_path, entry]) => ({ value_path, provenance: entry.provenance as Provenance, source_ids: [...entry.source_ids] }));
 }
 
 /**
@@ -175,6 +104,9 @@ function provenanceSummary(result: PlanExport["result"]): ProvenanceEntry[] {
  */
 export function exportPlan(site: Site, state: PlanState): PlanExport {
   const result = resultOf(state);
+  if (!["OK", "OverLimits", "Partial"].includes(state.status)) {
+    throw new Error("exportPlan: no computed result for the current plan revision");
+  }
   return {
     export_schema_version: EXPORT_SCHEMA_VERSION,
     app_version: APP_VERSION,
@@ -184,7 +116,7 @@ export function exportPlan(site: Site, state: PlanState): PlanExport {
     scenario: state.scenario,
     waypoints: state.waypoints,
     result,
-    provenance_summary: provenanceSummary(result),
+    provenance_summary: provenanceSummary({ result, scenario: state.scenario }),
     disclaimer: PROTOTYPE_DISCLAIMER,
   };
 }

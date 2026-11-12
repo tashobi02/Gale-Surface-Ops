@@ -6,7 +6,7 @@
  * `{data_version, scenario, waypoints}`, so an unchanged plan keeps it whatever the result is).
  */
 import { describe, expect, it } from "vitest";
-import type { Leg, PlanExport, Site } from "@marswalk/protocol";
+import type { ComputePlanRequest, Leg, PlanExport, Site } from "@marswalk/protocol";
 import { exportPlan, planHash } from "../../src/export/planExport";
 import { createPlanStore, type PlanState } from "../../src/state/planStore";
 import { SCENARIO, WAYPOINTS, resultOf, stateOf } from "../ui/planStoreFake";
@@ -37,13 +37,17 @@ function okLeg(): Leg {
   };
 }
 
+function distance(waypoints: typeof WAYPOINTS): number {
+  return Math.hypot(waypoints[1].x_m - waypoints[0].x_m, waypoints[1].y_m - waypoints[0].y_m);
+}
+
 function okState(): PlanState {
   return stateOf({
     status: "OK",
     result: resultOf({
       legs: [okLeg()],
       totals: {
-        distance_m: 6120,
+        distance_m: distance(WAYPOINTS),
         walk_time_min: 128,
         dwell_time_min: 20,
         eva_total_min: 148,
@@ -80,13 +84,14 @@ describe("plan export reload (T11.01, FD-142)", () => {
     const exported = exportPlan(site, before);
 
     // Reload: the export's scenario and waypoints go back into a fresh store, and the plan is
-    // recomputed. The worker is a stand-in that answers the same result the export carries.
+    // recomputed. The worker derives the distance from its own input waypoints.
     const workerClient = {
-      computePlan: async () => ({
+      computePlan: async (request: Omit<ComputePlanRequest, "type">) => ({
         type: "PLAN_RESULT" as const,
         request_id: "r-1",
-        plan_revision: 1,
+        plan_revision: request.plan_revision,
         ...(before.result as NonNullable<PlanState["result"]>),
+        totals: { ...before.result!.totals!, distance_m: distance(request.waypoints) },
       }),
       retry: () => {},
       isCrashed: () => false,
@@ -110,6 +115,19 @@ describe("plan export reload (T11.01, FD-142)", () => {
     expect(metricsOf(after)).toEqual(metricsOf(before));
     expect(after.scenario).toEqual(exported.scenario);
     expect(after.waypoints).toEqual(exported.waypoints);
+
+    const tampered = exported.waypoints.map((waypoint, index) => index === 1 ? { ...waypoint, x_m: waypoint.x_m + 100 } : waypoint);
+    const changed = new Promise<PlanState>((resolve) => {
+      const stop = store.subscribe((state) => {
+        if (state.status !== "OK") return;
+        stop();
+        resolve(state);
+      });
+    });
+    store.loadPlan(exported.scenario, tampered);
+    const changedState = await changed;
+    expect(planHash({ data_version: exported.data_version, scenario: changedState.scenario, waypoints: changedState.waypoints })).not.toBe(exported.plan_hash);
+    expect(metricsOf(changedState)).not.toEqual(metricsOf(before));
   });
 
   it("reload reproduces metrics: the plan_hash is unchanged", () => {
