@@ -107,7 +107,8 @@ export function AlertStack({
     const key = `${alert.alert_id}/${alert.raised_seq}`;
     const eventTime = raisedTimes?.get(alert.raised_seq);
     const raised = eventTime ? Date.parse(eventTime) : NaN;
-    if (!seen.current.has(key)) seen.current.set(key, Number.isFinite(raised) ? raised : now);
+    if (Number.isFinite(raised)) seen.current.set(key, raised);
+    else if (!seen.current.has(key)) seen.current.set(key, now);
     return now - seen.current.get(key)! < 10_000;
   });
   if (live.length === 0) {

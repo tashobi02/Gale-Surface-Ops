@@ -1016,6 +1016,17 @@ describe("package 19 ops interactions", () => {
     await view.unmount();
   });
 
+  it("authoritative ALERT_RAISED time replaces the reconnect advisory fallback", async () => {
+    const advisory = warning({ level: "advisory" });
+    const props = { alerts: [advisory], simTime: "2024-05-20T13:05:30Z" };
+    const view = await mount(createElement(AlertStack, props));
+    expect(view.container.textContent).toContain("ADVISORY");
+    await view.rerender(createElement(AlertStack, { ...props, raisedTimes: new Map([[advisory.raised_seq, "2024-05-20T13:05:00Z"]]) }));
+    expect(view.container.querySelector(".alert-stack")).toBeNull();
+    await view.rerender(createElement(AlertStack, { ...props, simTime: "2024-05-20T13:05:31Z" }));
+    expect(view.container.querySelector(".alert-stack")).toBeNull();
+  });
+
   it("sound arms on first gesture", async () => {
     const resume = vi.fn().mockResolvedValue(undefined);
     const close = vi.fn().mockResolvedValue(undefined);
