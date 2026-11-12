@@ -52,10 +52,18 @@ export function prepareFakeScenario(repoRoot: string, siteId: string): string {
 
   const manifest = JSON.parse(readFileSync(join(repoRoot, "data/sites", siteId, "site-manifest.json"), "utf8")) as {
     data_version: string;
+    hab_candidates?: unknown[];
   };
   const path = join(target, "scenario.json");
-  const scenario = JSON.parse(readFileSync(path, "utf8")) as { data_version: string; plan: PlanLike };
+  const scenario = JSON.parse(readFileSync(path, "utf8")) as {
+    data_version: string;
+    plan: PlanLike;
+    mission_setup?: { hab_candidate_id?: string };
+  };
   scenario.data_version = manifest.data_version;
+  // The Hab Core refuses a `hab_candidate_id` when the site has no `hab_candidates` (scenario check `hab_candidate`, 05 Scenario);
+  // the F4 mock site has none, so the copy omits the id (FD-236).
+  if (!Array.isArray(manifest.hab_candidates) || manifest.hab_candidates.length === 0) delete scenario.mission_setup?.hab_candidate_id;
   scenario.plan.data_version = manifest.data_version;
   scenario.plan.plan_hash = planHash(scenario.plan);
   writeFileSync(path, `${JSON.stringify(scenario, null, 2)}\n`);

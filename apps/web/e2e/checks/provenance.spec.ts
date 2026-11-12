@@ -21,6 +21,18 @@ test("provenance: no unlabelled number on the planner workspace and every source
   for (const id of ids) expect(id, "an empty source id").not.toBe("");
 });
 
+// Package 09: the Plan tab (inputs, LTST preview, an inline range error, stops list) shows no unlabelled number.
+test("provenance: no unlabelled number in the plan panel, with an inline range error showing (package 09)", async ({ page }) => {
+  await page.goto("/?site=mock_site#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  await page.getByRole("tab", { name: "Plan" }).click();
+  await page.locator('[data-slot="plan-panel"]').waitFor();
+  await page.getByLabel(/walkback limit/i).fill("99");
+  await expect(page.getByRole("alert").filter({ hasText: /walkback/i })).toBeVisible();
+  await expectNoUnlabelledNumbers(page, "#/planner Plan tab");
+});
+
 test.fixme("provenance: no unlabelled number on the demo path and every source id resolves in SCR-09 (enabled by package 28)", async ({ page }) => {
   const sources = new Set<string>();
   for (const hash of DEMO_PATH) {

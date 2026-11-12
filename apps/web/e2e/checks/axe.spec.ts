@@ -3,9 +3,10 @@
  * axe-core in real Chromium, tags wcag2a, wcag2aa, wcag21aa: zero serious or critical violations on every built route, in its
  * mode, and on each EVA and ops state fixture (FD-151). The full result of each scan goes to `out/axe-<route>.json`.
  */
-import { test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { axeScan, type HtmlMode } from "../lib/a11y";
 import { waitForSnapshot } from "../lib/hab";
+import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 import { withManifestlessSite } from "../lib/siteBundle";
 
 const LIVE = /^#\/(ops|eva|hud)/;
@@ -42,4 +43,29 @@ test("axe: SCR-02 planner workspace has no serious or critical violation", async
   await page.waitForLoadState("networkidle");
   await page.locator('[data-slot="map-workspace"]').waitFor();
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02` });
+});
+
+// Package 09: the SCR-04 plan panel in its Empty state (only the start) and its Invalid input state (an out-of-range entry shows
+// its range inline). Editing is scanned below (package 10).
+test("axe: SCR-04 plan panel Empty and Invalid input states have no serious or critical violation", async ({ page }, testInfo) => {
+  // 04 §F specifies the planner from 1024 px; its top bar does not fit a 360 or 390 px portrait phone, so the drawer button is
+  // out of reach there. The phone landscape (844 px) and every wider project are scanned.
+  test.skip((page.viewportSize()?.width ?? 0) < 800, "the planner is specified from 1024 px (04 §F)");
+  await openPlanTab(page);
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-empty` });
+  const duration = page.getByLabel(/max eva duration/i);
+  await duration.fill("-1");
+  await expect(page.getByRole("alert").filter({ hasText: /duration/i })).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-invalid` });
+});
+
+// Package 10: SCR-04 Editing (two stops, the first selected result of the keyboard path) with the keyboard-move group showing.
+test("axe: SCR-04 plan panel Editing state with a selected stop and the keyboard move has no serious or critical violation", async ({ page }, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 800, "the planner is specified from 1024 px (04 §F)");
+  await openPlanTab(page);
+  await page.getByLabel(/EVA start/i).fill("2026-11-14T08:00:00Z");
+  await addStopByKeyboard(page, 1);
+  await addStopByKeyboard(page, 2);
+  await page.getByRole("group", { name: "Move stop 2" }).waitFor();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-editing` });
 });

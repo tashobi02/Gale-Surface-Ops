@@ -114,6 +114,16 @@ describe("MapWorkspace layout (04 §E.3, §F)", () => {
     await click(must(root, '[data-drawer="left"] [role="tab"]:nth-child(2)'));
     expect(must(root, '[data-drawer="left"] [role="tab"][aria-selected="true"]').textContent).toContain("Plan");
   });
+
+  it("the Plan tab is the SCR-04 panel on the plan store: inputs, the defaults badge and the stops list (package 09)", async () => {
+    const { root } = await workspace(1280);
+    await click(must(root, '[data-drawer="left"] [role="tab"]:nth-child(2)'));
+    const plan = must(root, '[data-drawer="left"] [data-slot="plan-panel"]');
+    expect(plan.querySelector('[data-slot="defaults-badge"]')).not.toBeNull();
+    expect(plan.querySelector('[data-field="max_haven_min"] input')).not.toBeNull();
+    expect(plan.querySelector('[data-slot="stops-list"]')).not.toBeNull();
+    expect(root.querySelector('[data-drawer="left"] [data-slot="panel-pending"]')).toBeNull();
+  });
 });
 
 describe("MapWorkspace map mount (T07.06, T07.08)", () => {
@@ -147,10 +157,38 @@ describe("MapWorkspace map mount (T07.06, T07.08)", () => {
     expect(handle().getCenter()[1]).toBeCloseTo((y0 + y1) / 2, 6);
   });
 
-  it("a toolbar control whose module is not ready is hidden, not dead: Add stop (T08.07 is a stub) is absent (FD-118)", async () => {
+  it("every map module is built, so no control is hidden for a missing module (FD-118) and Add stop is on the toolbar", async () => {
     const { root } = await workspace(1280);
-    expect(root.querySelector('[data-control="add-stop"]')).toBeNull();
-    expect(root.querySelector('[data-slot="map-toolbar"]')).not.toBeNull();
+    expect(root.querySelector('[data-slot="modules-not-ready"]')).toBeNull();
+    const add = must(root, '[data-control="add-stop"]');
+    expect(add.getAttribute("aria-pressed")).toBe("false");
+    expect(add.textContent).toContain("Add stop");
+  });
+
+  it("A toggles add-stop mode: the crosshair shows and the toolbar button follows; pressing it again turns it off (package 10)", async () => {
+    const { root } = await workspace(1280);
+    const add = must(root, '[data-control="add-stop"]');
+    await keyDown(document.body, "a");
+    expect(add.getAttribute("aria-pressed")).toBe("true");
+    expect(root.querySelector('[data-slot="crosshair"]')).not.toBeNull();
+    await click(add);
+    expect(add.getAttribute("aria-pressed")).toBe("false");
+    expect(root.querySelector('[data-slot="crosshair"]')).toBeNull();
+  });
+
+  it("the keyboard-move group shows while a stop is selected and names it; nothing for the start (package 10)", async () => {
+    const stopSelected = await workspace(1280, { plan: { selected_waypoint_id: "wp-1" } });
+    expect(must(stopSelected.root, '[data-slot="keyboard-move"]').getAttribute("aria-label")).toBe("Move stop 1");
+    await open.pop()!.unmount();
+    const startSelected = await workspace(1280, { plan: { selected_waypoint_id: "wp-0" } });
+    expect(startSelected.root.querySelector('[data-slot="keyboard-move"]')).toBeNull();
+  });
+
+  it("a placement notice region is in the map box, empty until a placement says something (package 10)", async () => {
+    const { root } = await workspace(1280);
+    const region = must(root, '[data-slot="placement-notice"] [data-slot="notice"]');
+    expect(region.getAttribute("role")).toBe("status");
+    expect(region.getAttribute("data-empty")).toBe("true");
   });
 
   it("destroys the map and its listeners on unmount", async () => {

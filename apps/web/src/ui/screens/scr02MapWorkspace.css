@@ -238,6 +238,44 @@
   width: auto;
 }
 
+/* Add-stop toggle and the keyboard move of the selected stop (package 10). Neutral chrome; on is a thicker edge and the word ON. */
+.scr02-add-stop,
+.scr02-keyboard-move button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--target-mouse);
+  padding: 0 10px;
+  background: var(--surface-2);
+  color: var(--fg-1);
+  border: 2px solid var(--control-edge);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.scr02-add-stop[aria-pressed="true"] {
+  border: 3px solid var(--fg-1);
+}
+
+.scr02-keyboard-move {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: var(--surface-1);
+  border: 1px solid var(--control-edge);
+}
+
+.scr02-keyboard-move-title {
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+}
+
 .scr02-results {
   min-width: 0;
 }
@@ -253,6 +291,8 @@
     min-width: var(--target-touch);
   }
 
+  .scr02-add-stop,
+  .scr02-keyboard-move button,
   .scr02-map-toolbar [data-slot="map-controls"] button {
     min-height: var(--target-touch) !important;
     min-width: var(--target-touch) !important;
