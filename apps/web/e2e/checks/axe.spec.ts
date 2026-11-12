@@ -15,7 +15,8 @@ const LIVE = /^#\/(ops|eva|hud)/;
 // list equals `routeHashes()` (package 99 asserts that).
 // `#/eva/EV1` is left out until package 17: axe measures HAVEN and O2 card text at 1.02 : 1 (`.card` background overrides the
 // `.status-nominal` fill), the same defect the `contrast` check lists for that route.
-const BUILT_ROUTES = ["#/join", "#/ops", "#/hud/EV1", "#/report"];
+// Package 15 adds the two BRIEF routes it builds: `#/` (SCR-01) and `#/sources` (SCR-09).
+const BUILT_ROUTES = ["#/", "#/sources", "#/join", "#/ops", "#/hud/EV1", "#/report"];
 
 test("axe: every built route has no serious or critical violation", async ({ page }, testInfo) => {
   for (const hash of BUILT_ROUTES) {
