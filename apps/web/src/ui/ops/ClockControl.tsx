@@ -115,6 +115,7 @@ export function ClockControl({
   };
 
   const buttonStyle: CSSProperties = {
+    minWidth: "32px",
     minHeight: "32px",
     padding: "4px 10px",
     backgroundColor: "var(--raised, #1C2128)",
@@ -138,6 +139,7 @@ export function ClockControl({
   };
 
   const selectStyle: CSSProperties = {
+    minWidth: "32px",
     minHeight: "32px",
     padding: "4px 8px",
     backgroundColor: "var(--raised, #1C2128)",
@@ -162,6 +164,9 @@ export function ClockControl({
       {/* Scenario selector */}
       <select
         aria-label="Select mission scenario"
+        data-provenance="simulated"
+        data-source={activeScenarioId ? "snapshot:session.scenario_id" : "unavailable:session.scenario_id"}
+        data-unavailable={activeScenarioId ? undefined : "true"}
         value={activeScenarioId ?? ""}
         onChange={handleScenarioChange}
         style={selectStyle}
@@ -174,6 +179,12 @@ export function ClockControl({
           </option>
         ))}
       </select>
+
+      <button type="button" style={buttonStyle} disabled={!activeScenarioId} onClick={() => {
+        if (!activeScenarioId) return;
+        onLoadScenario?.(activeScenarioId);
+        onCommand?.({ kind: "LOAD_SCENARIO", args: { scenario_id: activeScenarioId } });
+      }} aria-label="Load scenario">LOAD</button>
 
       {/* Start EVA button if state is LOADED */}
       {sessionState === "LOADED" && (

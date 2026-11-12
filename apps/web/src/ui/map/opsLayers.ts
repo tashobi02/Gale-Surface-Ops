@@ -15,12 +15,19 @@
  * Canvas glyphs (chevron, vehicle squares, reticle, hatch) are `Style` renderers, so nothing needs a canvas until the
  * map draws. Layers carry `provenance` and `source_id` as layer properties because canvas values have no DOM
  * attributes; crew and vehicle state is `simulated` (05 Crew, Vehicle), the comm shadow `derived`, the haven bands
- * `modelled`.
+ * `modelled`. `rows()` (and `opsLayerRows` before a map exists) give the same classes and sources as DOM rows.
  *
- * TODO(decision): relay-rover coverage on the comm layer (FR-42) needs a viewshed per relay from the engine; not drawn.
- * TODO(decision): the caution hatch for the band beyond the haven rule (04 §C.1), the last-linked time on `Crew` (the
- * STALE age here counts from the first snapshot that shows the crew member unlinked), and the final scientific-layer
- * set (U-57; the toggles use FullScreenMap's four).
+ * Package 21 (12 Nov 2026):
+ * - Relay coverage (FR-42, FD-071): drawn from the u8 grid the Hab Core serves at `GET /api/relay-coverage/<vehicle_id>`
+ *   for a utility rover parked as RELAY (02 §E.5, BD-112); without one the row reads "Relay coverage — not computed".
+ *   No client viewshed. It is switched with the comm-shadow toggle (one coverage overlay, 04 §E.5).
+ * - Haven per crew (FR-39, N-28): a line from each crew member to the haven of `Crew.haven` with its minutes and kind,
+ *   `modelled`; beyond the session's haven rule (`mission_setup.max_haven_min`) it is caution: colour, dashed line,
+ *   ▲ and the word (04 §A.3). The 10/20/30 minute isochrones still need a time field (FD-350).
+ * - Caution hatch (FD-072): the cells of a time field beyond the haven rule, with the shared `patterns.ts` hatch.
+ * - Last-linked time (FD-072, N-03): the STALE age counts from `Crew.last_linked_sim_time` when the Hab Core sends it
+ *   (null reads "—"); without the field it counts from the first snapshot that showed the member unlinked.
+ * - The scientific-layer set is FullScreenMap's four (U-57, FD-351).
  */
 import Feature from "ol/Feature.js";
 import LineString from "ol/geom/LineString.js";
@@ -38,6 +45,7 @@ import type { FeatureLike } from "ol/Feature.js";
 import type { LoadedGrid, TimeField } from "@marswalk/compute";
 import type { Crew, Provenance, Snapshot, Vehicle } from "@marswalk/protocol";
 import { LAYER_Z_INDEX, type MapHandle } from "../context";
+import { canvasPattern } from "../components/patterns";
 import { fmtDuration } from "../components/provenance";
 import { MAX_SCIENCE_LAYERS, type FullScreenMapLayer } from "./FullScreenMap";
 import { tokenColor, tokenFont, tokenNumber, withAlpha, type MapToken } from "./tokenColors";
@@ -60,7 +68,9 @@ export const COMM_SHADOW_LEGEND = "NO SIGNAL — line of sight only";
  */
 export const OPS_LAYER_Z_INDEX = {
   commShadow: LAYER_Z_INDEX.SCIENTIFIC_OVERLAY + 1,
-  havenBands: LAYER_Z_INDEX.SCIENTIFIC_OVERLAY + 2,
+  relayCoverage: LAYER_Z_INDEX.SCIENTIFIC_OVERLAY + 2,
+  havenBands: LAYER_Z_INDEX.SCIENTIFIC_OVERLAY + 3,
+  havenLinks: LAYER_Z_INDEX.POIS + 8,
   vehicles: LAYER_Z_INDEX.POIS + 10,
   crew: LAYER_Z_INDEX.POIS + 12,
 } as const;
@@ -95,12 +105,67 @@ export function commGridFrom(grid: LoadedGrid, source_id: string): CommGridInput
   return { cell_m, width, height, origin_m, values: grid.commHab, source_id };
 }
 
+/** What `availability()` reports: which data-backed layers have data. */
+export interface OpsAvailability {
+  comm_shadow: boolean;
+  haven_bands: boolean;
+  /** Vehicle ids whose relay coverage grid is drawn. */
+  relay_coverage: string[];
+}
+
+/** One DOM row of the ops map's layer list: the layer, what it shows, and its class and source (FR-15). */
+export interface OpsLayerRow {
+  id: "crew" | "vehicles" | "comm_shadow" | "relay_coverage" | "haven_bands" | "haven_links";
+  text: string;
+  prov: Provenance;
+  src: string;
+  unavailable: boolean;
+}
+
+/** Counts and sources the rows need besides `availability()`. */
+export interface OpsRowState extends OpsAvailability {
+  crew: number;
+  vehicles: number;
+  havenCrew: number;
+  commSource: string | null;
+  havenSource: string | null;
+}
+
+/**
+ * The layer rows (FD-071): every row has a class and a source; a layer without data reads "— not computed" with an
+ * `unavailable:` source. `null` (no map yet) gives every data layer as not computed and no counts.
+ */
+export function opsLayerRows(state: OpsRowState | null): OpsLayerRow[] {
+  const s: OpsRowState = state ?? { comm_shadow: false, haven_bands: false, relay_coverage: [], crew: 0, vehicles: 0, havenCrew: 0, commSource: null, havenSource: null };
+  const count = (label: string, n: number | null, prov: Provenance, path: string): OpsLayerRow => ({
+    id: path === "crew" ? "crew" : path === "vehicles" ? "vehicles" : "haven_links",
+    text: `${label} — ${n === null ? "—" : n}`,
+    prov,
+    src: n === null ? `unavailable:${path}` : `snapshot:${path}`,
+    unavailable: n === null,
+  });
+  const data = (id: OpsLayerRow["id"], label: string, prov: Provenance, on: boolean, text: string, src: string | null): OpsLayerRow =>
+    on && src ? { id, text: `${label} — ${text}`, prov, src, unavailable: false } : { id, text: `${label} — not computed`, prov, src: `unavailable:${id}`, unavailable: true };
+  return [
+    count("Crew", state ? s.crew : null, "simulated", "crew"),
+    count("Vehicles", state ? s.vehicles : null, "simulated", "vehicles"),
+    data("comm_shadow", "Comm shadow", "derived", s.comm_shadow, COMM_SHADOW_LEGEND, s.commSource),
+    data("relay_coverage", "Relay coverage", "derived", s.relay_coverage.length > 0, s.relay_coverage.join(", "), s.relay_coverage.length > 0 ? s.relay_coverage.map((id) => `api:relay-coverage/${id}`).join(" ") : null),
+    data("haven_bands", "Haven bands", "modelled", s.haven_bands, HAVEN_BAND_MINUTES.map((m) => `${m}`).join("/") + " min", s.havenSource),
+    count("Haven per crew", state ? s.havenCrew : null, "modelled", "crew.haven"),
+  ];
+}
+
 export interface OpsLayers {
   crewLayer: VectorLayer<VectorSource>;
   /** Vehicles and, when `setHab` was called, the hab. */
   vehicleLayer: VectorLayer<VectorSource>;
   commShadowLayer: VectorLayer<VectorSource>;
   havenBandsLayer: VectorLayer<VectorSource>;
+  /** Line-of-sight cells of the relay rovers' coverage grids (FD-071). */
+  relayCoverageLayer: VectorLayer<VectorSource>;
+  /** Each crew member's line to the haven of `Crew.haven` (N-28). */
+  havenLinkLayer: VectorLayer<VectorSource>;
   /** Redraw crew, trails and vehicles from a snapshot; null clears them. */
   update(snapshot: Snapshot | null): void;
   /**
@@ -115,8 +180,14 @@ export interface OpsLayers {
   setCommGrid(grid: CommGridInput | null): void;
   /** The haven bands from a time field; null clears them. */
   setHavenField(field: HavenFieldInput | null): void;
+  /** The relay coverage grid of one vehicle (`GET /api/relay-coverage/<id>`); null removes it. */
+  setRelayCoverage(vehicle_id: string, grid: CommGridInput | null): void;
+  /** The haven rule in minutes (`mission_setup.max_haven_min`) for the caution hatch; null removes the hatch. */
+  setHavenRule(max_haven_min: number | null): void;
   /** Which data-backed layers have data. A toggle for one without data is disabled with a reason (04 §D.1). */
-  availability(): { comm_shadow: boolean; haven_bands: boolean };
+  availability(): OpsAvailability;
+  /** The DOM rows of the layer list (FD-071). */
+  rows(): OpsLayerRow[];
   /** Hand over a slope or thermal-inertia layer (raster layers) so the toggles switch it. */
   bindLayer(id: ExternalScientificLayerId, layer: BaseLayer): void;
   /**
@@ -145,8 +216,31 @@ interface LayerHost {
  * identical runs in consecutive rows are merged into one taller rectangle. Each polygon is `[ring]`.
  */
 export function commShadowPolygons(grid: CommGridInput): Coord[][][] {
-  const { cell_m, width, height, origin_m, values } = grid;
-  if (values.length !== width * height) throw new Error(`comm grid has ${values.length} cells, expected ${width * height}`);
+  if (grid.values.length !== grid.width * grid.height) throw new Error(`comm grid has ${grid.values.length} cells, expected ${grid.width * grid.height}`);
+  return cellRectangles(grid, (i) => grid.values[i] === 0);
+}
+
+/** Rectangles covering the line-of-sight cells (value 1) of a relay coverage grid; no-data (255) is not coverage. */
+export function relayCoveragePolygons(grid: CommGridInput): Coord[][][] {
+  if (grid.values.length !== grid.width * grid.height) throw new Error(`relay grid has ${grid.values.length} cells, expected ${grid.width * grid.height}`);
+  return cellRectangles(grid, (i) => grid.values[i] === 1);
+}
+
+/** Rectangles covering the cells of a time field reachable only after `rule_s` (finite times only). */
+export function havenCautionPolygons(field: HavenFieldInput, rule_s: number): Coord[][][] {
+  if (field.seconds.length !== field.width * field.height) throw new Error(`time field has ${field.seconds.length} cells, expected ${field.width * field.height}`);
+  return cellRectangles(field, (i) => {
+    const t = field.seconds[i]!;
+    return Number.isFinite(t) && t > rule_s;
+  });
+}
+
+/**
+ * Rectangles, in projected metres, covering the cells where `inside(index)` holds. Runs of cells in a row are merged,
+ * and identical runs in consecutive rows are merged into one taller rectangle. Row 0 is north. Each polygon is `[ring]`.
+ */
+function cellRectangles(grid: Pick<CommGridInput, "cell_m" | "width" | "height" | "origin_m">, inside: (index: number) => boolean): Coord[][][] {
+  const { cell_m, width, height, origin_m } = grid;
   const [ox, oy] = origin_m;
   const out: Coord[][][] = [];
   // Open rectangles by "start-end" column, with the row they started at.
@@ -162,12 +256,12 @@ export function commShadowPolygons(grid: CommGridInput): Coord[][][] {
     const next = new Map<string, { c0: number; c1: number; r0: number }>();
     let c = 0;
     while (c < width) {
-      if (values[r * width + c] !== 0) {
+      if (!inside(r * width + c)) {
         c++;
         continue;
       }
       const c0 = c;
-      while (c < width && values[r * width + c] === 0) c++;
+      while (c < width && inside(r * width + c)) c++;
       const key = `${c0}-${c}`;
       const above = open.get(key);
       next.set(key, above ?? { c0, c1: c, r0: r });
@@ -375,6 +469,50 @@ const shadowRenderer: RenderFunction = (coords, state) => {
   ctx.restore();
 };
 
+/** The rings of a polygon or multipolygon in pixels, as a renderer receives them. */
+function polygonsOf(coords: unknown): number[][][][] {
+  return (Array.isArray((coords as number[][][][])[0]?.[0]?.[0]) ? coords : [coords]) as number[][][][];
+}
+
+function tracePolygons(ctx: CanvasRenderingContext2D, coords: unknown): void {
+  ctx.beginPath();
+  for (const rings of polygonsOf(coords)) {
+    for (const ring of rings) {
+      ring.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x!, y!) : ctx.lineTo(x!, y!)));
+      ctx.closePath();
+    }
+  }
+}
+
+/** Beyond the haven rule: the shared caution hatch (patterns.ts, FD-072) with a caution outline. */
+const cautionRenderer: RenderFunction = (coords, state) => {
+  const ctx = state.context;
+  const colour = tokenColor("caution");
+  ctx.save();
+  tracePolygons(ctx, coords);
+  ctx.fillStyle = canvasPattern(ctx, "hatch", colour) ?? withAlpha(colour, 0.22);
+  ctx.fill();
+  ctx.strokeStyle = colour;
+  ctx.lineWidth = state.pixelRatio;
+  ctx.setLineDash([]);
+  ctx.stroke();
+  ctx.restore();
+};
+
+/** Relay coverage: a faint text-1 tint with a solid text-2 outline (coverage, not a status). */
+const relayRenderer: RenderFunction = (coords, state) => {
+  const ctx = state.context;
+  ctx.save();
+  tracePolygons(ctx, coords);
+  ctx.fillStyle = withAlpha(tokenColor("text-1"), 0.08);
+  ctx.fill();
+  ctx.strokeStyle = tokenColor("text-2");
+  ctx.lineWidth = state.pixelRatio;
+  ctx.setLineDash([]);
+  ctx.stroke();
+  ctx.restore();
+};
+
 // ---------------------------------------------------------------------------
 // Layers
 // ---------------------------------------------------------------------------
@@ -426,8 +564,21 @@ const vehicleStyle: StyleFunction = (feature: FeatureLike) => {
 
 const commShadowStyle: StyleFunction = () => new Style({ renderer: shadowRenderer });
 
+const relayStyle: StyleFunction = () => new Style({ renderer: relayRenderer });
+
+const havenLinkStyle: StyleFunction = (feature: FeatureLike) => {
+  const type = feature.get("type");
+  const caution = feature.get("caution") === true;
+  if (type === "haven_link") {
+    return new Style({ stroke: new Stroke({ color: tokenColor(caution ? "caution" : "text-2"), width: 1.5, lineDash: caution ? [6, 4] : undefined }) });
+  }
+  if (type === "haven_link_label") return textStyle(feature.get("label") as string, 14, caution ? "caution" : "text-2");
+  return undefined;
+};
+
 const havenStyle: StyleFunction = (feature: FeatureLike) => {
   const type = feature.get("type");
+  if (type === "haven_caution") return new Style({ renderer: cautionRenderer });
   if (type === "haven_band") return new Style({ stroke: new Stroke({ color: tokenColor("text-2"), width: 1 }) });
   if (type === "haven_label") return textStyle(feature.get("label") as string, 0, "text-2");
   return undefined;
@@ -441,12 +592,16 @@ export function createOpsLayers(mapHandle: MapHandle): OpsLayers {
   const vehicleSource = new VectorSource();
   const commSource = new VectorSource();
   const havenSource = new VectorSource();
+  const relaySource = new VectorSource();
+  const havenLinkSource = new VectorSource();
 
   const crewLayer = layerOf(crewSource, crewStyle, OPS_LAYER_Z_INDEX.crew, "simulated", "snapshot:crew");
   const vehicleLayer = layerOf(vehicleSource, vehicleStyle, OPS_LAYER_Z_INDEX.vehicles, "simulated", "snapshot:vehicles");
   const commShadowLayer = layerOf(commSource, commShadowStyle, OPS_LAYER_Z_INDEX.commShadow, "derived", "unavailable:comm_hab");
   const havenBandsLayer = layerOf(havenSource, havenStyle, OPS_LAYER_Z_INDEX.havenBands, "modelled", "unavailable:haven_field");
-  const layers = [crewLayer, vehicleLayer, commShadowLayer, havenBandsLayer];
+  const relayCoverageLayer = layerOf(relaySource, relayStyle, OPS_LAYER_Z_INDEX.relayCoverage, "derived", "unavailable:relay_coverage");
+  const havenLinkLayer = layerOf(havenLinkSource, havenLinkStyle, OPS_LAYER_Z_INDEX.havenLinks, "modelled", "snapshot:crew.haven");
+  const layers = [crewLayer, vehicleLayer, commShadowLayer, havenBandsLayer, relayCoverageLayer, havenLinkLayer];
 
   const host = mapHandle.getMap<LayerHost>();
   for (const layer of layers) host.addLayer(layer);
@@ -458,11 +613,16 @@ export function createOpsLayers(mapHandle: MapHandle): OpsLayers {
     id === "comm_shadow" ? commShadowLayer : id === "haven_bands" ? havenBandsLayer : external.get(id);
   const applyVisibility = (): void => {
     for (const id of ["slope", "thermal_inertia", "comm_shadow", "haven_bands"] as const) overlayLayer(id)?.setVisible(visible.includes(id));
+    relayCoverageLayer.setVisible(visible.includes("comm_shadow"));
   };
   applyVisibility();
 
   let hasComm = false;
   let hasHaven = false;
+  let commSourceId: string | null = null;
+  let havenField: HavenFieldInput | null = null;
+  let havenRule: number | null = null;
+  const relayGrids = new Map<string, CommGridInput>();
   let hab: { x_m: number; y_m: number } | null = null;
   let ownCrewId: string | null = null;
   let lastSnapshot: Snapshot | null = null;
@@ -520,7 +680,11 @@ export function createOpsLayers(mapHandle: MapHandle): OpsLayers {
       const unlinked = c.stale || !c.linked;
       const prev = links.get(c.crew_id);
       let since_ms: number | null = null;
-      if (unlinked) since_ms = prev?.unlinked ? prev.since_ms : prev && Number.isFinite(nowMs) ? nowMs : null;
+      if (unlinked && c.last_linked_sim_time !== undefined) {
+        // The Hab Core's last-linked sim time (FD-072, N-03); null is unknown.
+        const t = c.last_linked_sim_time === null ? NaN : Date.parse(c.last_linked_sim_time);
+        since_ms = Number.isFinite(t) ? t : null;
+      } else if (unlinked) since_ms = prev?.unlinked ? prev.since_ms : prev && Number.isFinite(nowMs) ? nowMs : null;
       links.set(c.crew_id, { unlinked, since_ms });
       const age = since_ms !== null && nowMs >= since_ms ? fmtDuration((nowMs - since_ms) / 1000) : "—";
       const label = unlinked ? `${c.crew_id}\nSTALE ${age}` : c.crew_id;
@@ -543,16 +707,52 @@ export function createOpsLayers(mapHandle: MapHandle): OpsLayers {
     });
   }
 
+  /** Each crew member's haven from `Crew.haven` (N-28); caution beyond the session's haven rule. */
+  function drawHavenLinks(snapshot: Snapshot | null): void {
+    havenLinkSource.clear();
+    const rule = snapshot?.session.mission_setup?.max_haven_min;
+    for (const c of snapshot?.crew ?? []) {
+      const h = c.haven;
+      if (!h || !Number.isFinite(h.minutes) || !Number.isFinite(h.target_x_m) || !Number.isFinite(h.target_y_m)) continue;
+      const caution = typeof rule === "number" && Number.isFinite(rule) && h.minutes > rule;
+      const label = `${c.crew_id} HAVEN ${Math.round(h.minutes)} MIN · ${h.kind.toUpperCase()}${caution ? " ▲ CAUTION" : ""}`;
+      havenLinkSource.addFeature(new Feature({ geometry: new LineString([[c.x_m, c.y_m], [h.target_x_m, h.target_y_m]]), type: "haven_link", crew_id: c.crew_id, caution }));
+      havenLinkSource.addFeature(new Feature({ geometry: new Point([h.target_x_m, h.target_y_m]), type: "haven_link_label", crew_id: c.crew_id, caution, label }));
+    }
+  }
+
+  function drawCaution(): void {
+    for (const f of havenSource.getFeatures().filter((x) => x.get("type") === "haven_caution")) havenSource.removeFeature(f);
+    if (!havenField || havenRule === null) return;
+    const polygons = havenCautionPolygons(havenField, havenRule * 60);
+    if (polygons.length > 0) havenSource.addFeature(new Feature({ geometry: new MultiPolygon(polygons), type: "haven_caution", rule_min: havenRule }));
+  }
+
+  function drawRelay(): void {
+    relaySource.clear();
+    const ids = [...relayGrids.keys()].sort();
+    relayCoverageLayer.set("source_id", ids.length ? ids.map((id) => `api:relay-coverage/${id}`).join(" ") : "unavailable:relay_coverage");
+    for (const id of ids) {
+      const polygons = relayCoveragePolygons(relayGrids.get(id)!);
+      if (polygons.length > 0) relaySource.addFeature(new Feature({ geometry: new MultiPolygon(polygons), type: "relay_coverage", vehicle_id: id }));
+    }
+  }
+
+  const availability = (): OpsAvailability => ({ comm_shadow: hasComm, haven_bands: hasHaven, relay_coverage: [...relayGrids.keys()].sort() });
+
   return {
     crewLayer,
     vehicleLayer,
     commShadowLayer,
     havenBandsLayer,
+    relayCoverageLayer,
+    havenLinkLayer,
 
     update(snapshot) {
       lastSnapshot = snapshot;
       drawCrew(snapshot);
       drawVehicles(snapshot);
+      drawHavenLinks(snapshot);
     },
 
     setOwnCrew(crewId) {
@@ -570,6 +770,7 @@ export function createOpsLayers(mapHandle: MapHandle): OpsLayers {
       commSource.clear();
       hasComm = false;
       commShadowLayer.set("source_id", grid ? grid.source_id : "unavailable:comm_hab");
+      commSourceId = grid ? grid.source_id : null;
       if (!grid) return;
       const polygons = commShadowPolygons(grid);
       if (polygons.length > 0) commSource.addFeature(new Feature({ geometry: new MultiPolygon(polygons), type: "comm_shadow" }));
@@ -580,6 +781,7 @@ export function createOpsLayers(mapHandle: MapHandle): OpsLayers {
       havenSource.clear();
       hasHaven = false;
       havenBandsLayer.set("source_id", field ? field.source_id : "unavailable:haven_field");
+      havenField = field;
       if (!field) return;
       for (const minutes of HAVEN_BAND_MINUTES) {
         const segments = havenContourSegments(field, minutes * 60);
@@ -596,9 +798,31 @@ export function createOpsLayers(mapHandle: MapHandle): OpsLayers {
         );
       }
       hasHaven = true;
+      drawCaution();
     },
 
-    availability: () => ({ comm_shadow: hasComm, haven_bands: hasHaven }),
+    setRelayCoverage(vehicle_id, grid) {
+      if (grid) relayGrids.set(vehicle_id, grid);
+      else relayGrids.delete(vehicle_id);
+      drawRelay();
+    },
+
+    setHavenRule(max_haven_min) {
+      havenRule = typeof max_haven_min === "number" && Number.isFinite(max_haven_min) ? max_haven_min : null;
+      drawCaution();
+    },
+
+    availability,
+
+    rows: () =>
+      opsLayerRows({
+        ...availability(),
+        crew: lastSnapshot?.crew.length ?? 0,
+        vehicles: lastSnapshot?.vehicles.length ?? 0,
+        havenCrew: havenLinkSource.getFeatures().filter((f) => f.get("type") === "haven_link").length,
+        commSource: commSourceId,
+        havenSource: havenField?.source_id ?? null,
+      }),
 
     bindLayer(id, layer) {
       external.set(id, layer);
@@ -621,7 +845,8 @@ export function createOpsLayers(mapHandle: MapHandle): OpsLayers {
 
     destroy() {
       for (const layer of layers) host.removeLayer(layer);
-      for (const source of [crewSource, vehicleSource, commSource, havenSource]) source.clear();
+      for (const source of [crewSource, vehicleSource, commSource, havenSource, relaySource, havenLinkSource]) source.clear();
+      relayGrids.clear();
       trails.clear();
       headings.clear();
       links.clear();

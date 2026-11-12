@@ -41,3 +41,14 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 | N-28 | Haven fields | Haven bands per tick for the ops map (T23.03) and planning haven values per leg (T05b.04) | FR-39 | 11, 21 |
 | N-30 | SCR-09 scenario metadata | Supply the loaded scenario ParamSet files (including values, provenance and source ids) and the loaded dose-series source id and title to the planner; the site manifest and planner boot currently expose neither | FD-304, FR-15 | 15 (T12.03) |
 | N-29 | Revise a skipped task reason during the undo window | Permit an actor to change the reason on its own SKIPPED task without undoing and re-skipping it; preserve the audit and revision rules | FD-028; current engine accepts SKIPPED only from TODO | 17 |
+| N-100 | Hab time field for the ops map | A per-session hab time field (seconds from the hab per grid cell, compute `habTimeField`) the ops client can fetch, for the 10/20/30 min haven isochrones and the caution hatch beyond `max_haven_min` | FD-350, FD-072 | 21 (soft) |
+| N-101 | Suggested relay point and the live rover handler | `TASK_ROVER` handler and `roversTick` (still `throw` in `apps/hab-core/src/rover.ts` and `engine/rovers.ts`, N-09), and a suggested RELAY target that closes the current comm shadow, so a RELAY can be placed from the EVA tablet in two taps and confirm (T29.04 acceptance) | FD-353, 03 SCR-15 "nearest ridge for relay" | 21 |
+
+## Package 19 follow-up
+
+1. N-30 — N-06 supplies sol, LTST and the condition fields, but `ConditionsState` has no EVA phase. Supply the authoritative phase plus provenance and source; SCR-11 currently displays “—”.
+
+## Package 20 follow-up
+
+1. N-31 — N-23 `Snapshot.earth` has blackout and next-pass UTC but no current-pass or link-availability state. Supply the state with provenance and source, so the widget can distinguish available from waiting. It currently shows “—” unless blackout is true (CONJUNCTION).
+2. N-32 — Align the ADD_STOP_TASK handler with FD-031: fewer than four tasks per selected crew at a stop, with shared tasks counted for either crew. The current BD-109 handler counts tasks for all crews together. The frontend implements FD-031 and shows server rejections; live task-limit acceptance remains wip.

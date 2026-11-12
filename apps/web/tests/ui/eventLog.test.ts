@@ -3,13 +3,15 @@
  * The real EventLog is mounted with explicit LogEvent fixtures. A missing field reads "—" (nothing is filled in from
  * defaults), the provenance chip comes from the event's own provenance map, and copying reports failure.
  *
- * Not claimed: the event log is not mounted in the ops console (placement is TODO(decision), see scr11OpsConsole).
+ * Includes the SCR-11 strip and keyboard drawer contract (FD-092).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
+import { act, createElement } from "react";
 import type { LogEvent, LogEventKind, ProvenanceMap } from "@marswalk/protocol";
+import { OpsConsole } from "../../src/ui/screens/scr11OpsConsole";
+import { storeFromBeat } from "./fixtureStore";
 import { EventLog, provenanceGlyph, summarizeEvent } from "../../src/ui/ops/EventLog";
-import { click, flush, installDom, mount, must, removeDom } from "./domHarness";
+import { click, keyDown, flush, installDom, mount, must, removeDom } from "./domHarness";
 
 beforeAll(() => installDom());
 afterAll(() => removeDom());
@@ -32,6 +34,37 @@ const ev = (seq: number, kind: LogEventKind, data: Record<string, unknown> = {},
 const rows = (root: ParentNode) => [...root.querySelectorAll<HTMLElement>(".event-row")];
 
 describe("EventLog rows", () => {
+  it("bounds 5000 events to the newest page and reveals earlier rows in keyboard-accessible steps", async () => {
+    const events = Array.from({ length: 5000 }, (_, index) => ev(index + 1, "CLOCK_CHANGED", { speed: 1, paused: false }));
+    const onSelectEvent = vi.fn();
+    const view = await mount(createElement(EventLog, { events, onSelectEvent }));
+    expect(rows(view.container)).toHaveLength(100);
+    expect(rows(view.container)[0].dataset.seq).toBe("4901");
+    expect(rows(view.container).at(-1)?.dataset.seq).toBe("5000");
+    const earlier = must<HTMLButtonElement>(view.container, '[aria-label="Show earlier events"]');
+    expect(earlier.tabIndex).toBe(0);
+    await click(earlier);
+    expect(rows(view.container)).toHaveLength(200);
+    expect(rows(view.container)[0].dataset.seq).toBe("4801");
+    await keyDown(rows(view.container)[0], "Enter");
+    expect(onSelectEvent).toHaveBeenLastCalledWith(events[4800]);
+    await click([...view.container.querySelectorAll("nav button")].find((button) => button.textContent === "SYSTEM")!);
+    expect(rows(view.container)).toHaveLength(100);
+    await view.unmount();
+  });
+
+  it("labels unavailable event metadata and summary fields instead of displaying missing data", async () => {
+    const event = { ...ev(1, "SESSION_LOADED"), seq: NaN, sim_time: "", actor: undefined } as unknown as LogEvent;
+    const view = await mount(createElement(EventLog, { events: [event] }));
+    for (const cell of [...rows(view.container)[0].children].slice(0, 4)) {
+      expect(cell.textContent).toContain("—");
+      expect(cell.getAttribute("data-unavailable")).toBe("true");
+      expect(cell.getAttribute("data-source")).toMatch(/^unavailable:/);
+    }
+    expect(view.container.textContent).not.toMatch(/NaN|undefined/);
+    await view.unmount();
+  });
+
   it("lists events in seq order whatever order they arrive in, with sim time, seq and actor", async () => {
     const { container } = await mount(
       createElement(EventLog, { events: [ev(3, "EVA_ENDED", { crew_ids: ["EV1"] }), ev(1, "SESSION_LOADED", { scenario_id: "s-a" }), ev(2, "LINK_LOST", { node_id: "EV1" })] }),
@@ -85,6 +118,27 @@ describe("EventLog with fields missing: — and nothing invented (04 §D.1)", ()
     expect(summarizeEvent(ev(1, "OPTIONS_PROPOSED", { options: [] }))).toContain("0 contingency");
   });
 
+  it("clock jump, library event, reset, site and mission setup events show their data (LogEventData)", async () => {
+    const jump = ev(1, "CLOCK_JUMPED", { reason: "next_stop", from_sim_time: "2024-05-20T13:05:00Z", to_sim_time: "2024-05-20T13:21:30Z", stop_id: "wp-2", ended_by: "alert" });
+    expect(summarizeEvent(jump)).toBe("Clock jumped to next stop wp-2: 13:05:00 → 13:21:30, ended by alert");
+    expect(summarizeEvent(ev(2, "EVENT_STARTED", { event_id: "spe-2024-05-20", t0_sim_time: "2024-05-20T13:10:00Z", series_start_utc: "2024-05-20T00:00:00Z", source_id: "donki-sep" })))
+      .toBe("Event spe-2024-05-20 started at 13:10:00 (series from 2024-05-20T00:00:00Z, source donki-sep)");
+    expect(summarizeEvent(ev(3, "SESSION_RESET", { session_id: "s-1", next_session_id: "s-2" }))).toBe("Session s-1 reset; next session s-2");
+    expect(summarizeEvent(ev(4, "SITE_SELECTED", { candidate_id: "cand-3" }))).toBe("Site candidate cand-3 selected");
+    expect(summarizeEvent(ev(5, "MISSION_SETUP_SET", { crew_count: 2, vehicle_available: false, vehicle_param_set: null, solar_phase: "max", max_haven_min: 30 })))
+      .toBe("Mission setup set: crew_count 2, vehicle_available no, vehicle_param_set none, solar_phase max, max_haven_min 30");
+    for (const kind of ["CLOCK_JUMPED", "EVENT_STARTED", "SESSION_RESET", "SITE_SELECTED", "MISSION_SETUP_SET"] as const) {
+      const text = summarizeEvent(ev(9, kind));
+      expect(text).toContain("—");
+      expect(text).not.toBe(kind);
+    }
+    const view = await mount(createElement(EventLog, { events: [jump] }));
+    const row = rows(view.container)[0]!;
+    expect(row.textContent).toContain("wp-2: 13:05:00 → 13:21:30");
+    expect([...row.querySelectorAll("[title]")].map((el) => el.getAttribute("title"))).toContain("Clock jumped to next stop wp-2: 13:05:00 → 13:21:30, ended by alert");
+    await view.unmount();
+  });
+
   it("Earth message events read the message_id field (05 EarthMessage), not msg_id", () => {
     expect(summarizeEvent(ev(1, "EARTH_MSG_QUEUED", { message_id: "m-17" }))).toContain("m-17");
     expect(summarizeEvent(ev(2, "EARTH_MSG_DELIVERED", { message_id: "m-18" }))).toContain("m-18");
@@ -96,7 +150,7 @@ describe("EventLog with fields missing: — and nothing invented (04 §D.1)", ()
 describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => {
   it("uses the class in the event's provenance map, with a source id", async () => {
     const { container } = await mount(createElement(EventLog, { events: [ev(1, "ALERT_RAISED", { message: "x", level: "caution" }, { rate_ugy_h: "replayed" })] }));
-    const chip = must(rows(container)[0], "[data-provenance]");
+    const chip = must(rows(container)[0], '[data-slot="event-provenance"] [data-provenance]');
     expect(chip.getAttribute("data-provenance")).toBe("replayed");
     expect(chip.getAttribute("data-source")).toBeTruthy();
     expect(chip.textContent).toContain(provenanceGlyph("replayed"));
@@ -107,8 +161,8 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
       createElement(EventLog, { events: [ev(1, "ALERT_RAISED", { message: "x", level: "warning" }), ev(2, "EVA_STARTED", { crew_ids: ["EV1"] })] }),
     );
     for (const row of rows(container)) {
-      expect(row.querySelector("[data-provenance]")).toBeNull();
-      const chip = must(row, "[data-unavailable]");
+      expect(row.querySelector('[data-slot="event-provenance"] [data-provenance]')).toBeNull();
+      const chip = must(row, '[data-slot="event-provenance"] [data-unavailable]');
       expect(chip.textContent).toBe("—");
       expect(chip.getAttribute("data-source")).toMatch(/^unavailable:/);
     }
@@ -118,7 +172,7 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
     const { container } = await mount(
       createElement(EventLog, { events: [ev(1, "CREW_SHELTERED", { crew_id: "EV1" }, { dose_event_ugy: "simulated", haven: "modelled", dose_event_unsheltered_ugy: "simulated" })] }),
     );
-    const classes = [...rows(container)[0].querySelectorAll("[data-provenance]")].map((c) => c.getAttribute("data-provenance"));
+    const classes = [...rows(container)[0].querySelectorAll('[data-slot="event-provenance"] [data-provenance]')].map((c) => c.getAttribute("data-provenance"));
     expect(classes.sort()).toEqual(["modelled", "simulated"]);
   });
 
@@ -133,7 +187,7 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
     expect(provenanceGlyph("constructor")).toBe("—");
     const map = JSON.parse('{"a":"toString","b":"__proto__","c":"constructor"}') as Record<string, never>;
     const { container } = await mount(createElement(EventLog, { events: [ev(1, "EVA_STARTED", { crew_ids: ["EV1"] }, map)] }));
-    expect(rows(container)[0].querySelector("[data-provenance]")).toBeNull();
+    expect(rows(container)[0].querySelector('[data-slot="event-provenance"] [data-provenance]')).toBeNull();
     expect(must(rows(container)[0], "[data-unavailable]").textContent).toBe("—");
   });
 });
@@ -163,7 +217,7 @@ describe("EventLog severity is shape + word, not colour alone (04 §A.3)", () =>
 
 describe("EventLog COPY LOG reports what happened", () => {
   const events = [ev(1, "SESSION_LOADED", { scenario_id: "s-a" })];
-  const copyButton = (root: ParentNode) => must<HTMLButtonElement>(root, 'button[title^="Copy visible log"]');
+const copyButton = (root: ParentNode) => must<HTMLButtonElement>(root, 'button[title^="Copy filtered log"]');
   const setClipboard = (writeText: ((t: string) => Promise<void>) | undefined) =>
     Object.defineProperty(navigator, "clipboard", { value: writeText ? { writeText } : undefined, configurable: true });
 
@@ -200,5 +254,49 @@ describe("EventLog COPY LOG reports what happened", () => {
     await click(copyButton(container));
     await flush();
     expect(copyButton(container).textContent).toMatch(/COPY FAILED/);
+  });
+});
+
+
+describe("SCR-11 log strip", () => {
+  it("log drawer traps Tab and Shift-Tab then Escape restores the opener", async () => {
+    const view = await mount(createElement(OpsConsole, { client: null }));
+    const strip = must<HTMLButtonElement>(view.container, '[data-slot="event-log-strip"]');
+    await click(strip);
+    const drawer = must(view.container, '[data-slot="event-log-drawer"]');
+    const close = must<HTMLButtonElement>(drawer, '[aria-label="Close event log"]');
+    const last = must<HTMLElement>(drawer, '[aria-label="Event rows"]');
+    last.focus();
+    await keyDown(last, "Tab");
+    expect(document.activeElement).toBe(close);
+    await act(async () => { close.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true })); });
+    expect(document.activeElement).toBe(last);
+    await keyDown(last, "Escape");
+    expect(view.container.querySelector('[data-slot="event-log-drawer"]')).toBeNull();
+    expect(document.activeElement).toBe(strip);
+    await view.unmount();
+  });
+
+  it("strip opens drawer", async () => {
+    const client = storeFromBeat("radiation-alert", "ops");
+    const view = await mount(createElement(OpsConsole, { client }));
+    const strip = must(view.container, '[data-slot="event-log-strip"]');
+    expect(strip.textContent).toContain("Shelter now");
+    await click(strip);
+    expect(must(view.container, '[data-slot="event-log-drawer"] .event-row').textContent).toContain("Shelter now");
+    await view.unmount();
+    client.close();
+  });
+
+  it("escape returns focus", async () => {
+    const view = await mount(createElement(OpsConsole, { client: null }));
+    const strip = must<HTMLButtonElement>(view.container, '[data-slot="event-log-strip"]');
+    await click(strip);
+    const filter = must<HTMLButtonElement>(view.container, '[data-slot="event-log-drawer"] nav button');
+    filter.focus();
+    await keyDown(filter, "Escape");
+    expect(view.container.querySelector('[data-slot="event-log-drawer"]')).toBeNull();
+    expect(document.activeElement).toBe(strip);
+    await view.unmount();
   });
 });

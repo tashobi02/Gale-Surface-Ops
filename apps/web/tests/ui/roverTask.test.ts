@@ -9,6 +9,7 @@ import { act, createElement } from "react";
 import type { CommandResult, Snapshot, Vehicle } from "@marswalk/protocol";
 import type { HabClient } from "../../src/net/habClient";
 import { RoverTask, type RoverTaskProps } from "../../src/ui/screens/scr15RoverTask";
+import { OpsConsole } from "../../src/ui/screens/scr11OpsConsole";
 import { click, installDom, mount, must, removeDom } from "./domHarness";
 import { accepted, rejected, storeFromBeat, type SentCommand } from "./fixtureStore";
 
@@ -353,6 +354,72 @@ describe("SCR-15 close and focus", () => {
     const view = await mount(ui({ client: hab, vehicleId: "UR1", selectedTarget: { x_m: 1, y_m: 2 } }));
     expect(view.container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,6}\b/);
     expect(view.container.innerHTML).not.toMatch(/--signal|--accent-text/);
+    await view.unmount();
+  });
+});
+
+describe("package 21: SCR-15 outcome by task id, and the SCR-11 entry (FR-41; BD-102; FD-051, FD-168)", () => {
+  const okAt = (event_seq: number): CommandResult => ({ ...(accepted() as Extract<CommandResult, { ok: true }>), event_seq });
+
+  it("queued only on ok", async () => {
+    for (const [answer, queued] of [[() => okAt(57), true], [() => rejected("BUSY", "rover busy"), false], [() => rejected("INVALID", "battery would run out"), false]] as const) {
+      const { hab } = client(answer);
+      const view = await mount(ui({ client: hab, vehicleId: "UR1", initialTask: "RETURN" }));
+      await click(confirm(view.container));
+      expect(view.container.querySelector("[data-state='queued']") !== null).toBe(queued);
+      expect(view.container.querySelector("[data-state='failed']") !== null).toBe(!queued);
+      expect(view.container.textContent!.includes("QUEUED")).toBe(queued);
+      await view.unmount();
+    }
+  });
+
+  it("follows its own task id rt-<event_seq>: QUEUED while in Vehicle.queue, EN ROUTE as the head, DONE once gone", async () => {
+    const c = client(() => okAt(57));
+    const view = await mount(ui({ client: c.hab, vehicleId: "UR1", initialTask: "RETURN" }));
+    await click(confirm(view.container));
+    // Another task runs; ours waits in the queue with the Hab Core's modelled ETA.
+    await c.setVehicles([ur({ state: "EN_ROUTE", task: { kind: "SCOUT", target: { x_m: 5, y_m: 5 } }, task_id: "rt-50", eta_s: 60, queue: [{ task_id: "rt-57", kind: "RETURN", target: null, eta_s: 400, battery_wh_after: 610 }] })]);
+    expect(must(view.container, "[data-state='queued']").textContent).toContain("QUEUED");
+    const eta = field(view.container, "eta");
+    expect(eta.textContent).toBe("6:40");
+    expect(eta.getAttribute("data-provenance")).toBe("modelled");
+    expect(eta.getAttribute("data-source")).toBe("snapshot:vehicles.queue.eta_s");
+    const after = field(view.container, "battery-after");
+    expect(after.textContent).toBe("610 Wh");
+    expect(after.getAttribute("data-provenance")).toBe("modelled");
+    // A different task of the same kind running is not ours.
+    await c.setVehicles([ur({ state: "RETURNING", task: { kind: "RETURN", target: { x_m: 0, y_m: 0 } }, task_id: "rt-50", queue: [{ task_id: "rt-57", kind: "RETURN", target: null, eta_s: 400, battery_wh_after: 610 }] })]);
+    expect(view.container.querySelector("[data-state='enroute']")).toBeNull();
+    await c.setVehicles([ur({ state: "RETURNING", task: { kind: "RETURN", target: { x_m: 0, y_m: 0 } }, task_id: "rt-57", eta_s: 120, queue: [] })]);
+    expect(must(view.container, "[data-state='enroute']").textContent).toContain("EN ROUTE");
+    expect(field(view.container, "eta").textContent).toBe("2:00");
+    await c.setVehicles([ur({ state: "PARKED", task: null, task_id: null, queue: [] })]);
+    expect(must(view.container, "[data-state='done']").textContent).toContain("DONE");
+    await view.unmount();
+  });
+
+  it("entry from vehicle card", async () => {
+    const c = client(() => okAt(60), [ur({ queue: [] }), { ...ur(), vehicle_id: "PR1", kind: "pressurized_rover", battery_wh: null }]);
+    const snapshot = c.hab.state()!;
+    const view = await mount(createElement(OpsConsole, { client: c.hab, snapshot, vehicles: snapshot.vehicles }));
+    // Only the utility rover can be tasked (SUMMON is the pressurized rover's, FR-39).
+    expect(view.container.querySelector("[aria-label='Task rover PR1']")).toBeNull();
+    const cards = [...view.container.querySelectorAll(".vehicle-card")];
+    expect(cards[0]!.querySelector("[data-field='queued']")!.textContent).toBe("No queued tasks");
+    await click(must(view.container, "[aria-label='Task rover UR1']"));
+    const dialog = must(view.container, "[data-screen='SCR-15']");
+    expect(dialog.getAttribute("role")).toBe("dialog");
+    expect(dialog.textContent).toContain("UR1 /// ROVER TASKING");
+    // Picking a target hands the map column to the pick.
+    await click(button(dialog, "Pick on map"));
+    expect(must(view.container, ".ops-map-slot").getAttribute("data-picking")).toBe("true");
+    await click(button(dialog, "Cancel"));
+    await click(tile(dialog, "RETURN"));
+    await click(confirm(dialog));
+    expect(c.sent).toEqual([{ kind: "TASK_ROVER", args: { vehicle_id: "UR1", task: "RETURN" } }]);
+    expect(must(dialog, "[data-state='queued']").textContent).toContain("QUEUED");
+    await click(must(dialog, "[aria-label='Close rover tasking']"));
+    expect(view.container.querySelector("[data-screen='SCR-15']")).toBeNull();
     await view.unmount();
   });
 });

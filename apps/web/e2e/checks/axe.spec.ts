@@ -3,11 +3,12 @@
  * axe-core in real Chromium, tags wcag2a, wcag2aa, wcag21aa: zero serious or critical violations on every built route, in its
  * mode, and on each EVA and ops state fixture (FD-151). The full result of each scan goes to `out/axe-<route>.json`.
  */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { axeScan, type HtmlMode } from "../lib/a11y";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 import { openEvaFixture, type EvaFixtureState } from "../lib/evaFixture";
+import { UTILITY_ROVER, openOpsFixture, openOpsPanel } from "../lib/opsFixture";
 import { withManifestlessSite } from "../lib/siteBundle";
 
 const LIVE = /^#\/(ops|eva|hud)/;
@@ -23,7 +24,9 @@ test("axe: every built route has no serious or critical violation", async ({ pag
     await page.waitForLoadState("networkidle");
     if (hash === "#/") await expect(page.locator('[data-screen="SCR-01"] h1')).toContainText("Plan the walk");
     if (hash === "#/sources") await expect(page.locator('[data-screen="SCR-09"] h1')).toContainText("What each value is");
-    if (LIVE.test(hash)) await waitForSnapshot(page);
+    // FD-210: below 1024 px the ops route shows only the "Use a larger screen" notice, which has no values to wait for.
+    if (hash === "#/ops" && (page.viewportSize()?.width ?? 1280) < 1024) await page.getByRole("heading", { name: "Use a larger screen" }).waitFor();
+    else if (LIVE.test(hash)) await waitForSnapshot(page);
     const mode = (await page.evaluate(() => document.documentElement.dataset.mode)) as HtmlMode;
     await axeScan(page, { mode, route: `${testInfo.project.name}-${hash}` });
   }
@@ -73,16 +76,70 @@ test("axe: SCR-04 plan panel Editing state with a selected stop and the keyboard
 });
 
 
-test("axe: EVA tablet states and high contrast have no serious or critical violation", async ({ page }, testInfo) => {
+test("axe: EVA tablet states and high contrast have no serious or critical violation", async ({ context }, testInfo) => {
+  test.setTimeout(180_000);
   const states: EvaFixtureState[] = ["walking", "at-stop", "undo-window", "ops-added-task", "alerting", "alerting-with-options", "no-hab-link", "to-haven"];
   for (const state of states) {
-    await openEvaFixture(page, state);
-    if (state === "at-stop" || state === "ops-added-task") await page.getByTestId("tasks-button").click();
-    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}` });
-    // The options sheet only opens for a warning that CARRIES options (FD-081). The plain alerting fixture raises a
-    // warning without any, so there is no sheet to close — the crew member opens it from the alert bar's OPTIONS button.
-    if (state === "alerting-with-options") await page.getByRole("button", { name: "Close options sheet" }).click();
-    await page.getByRole("button", { name: "Toggle high contrast" }).click();
-    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}-contrast` });
+    // A fresh page per state: the same `#/eva/EV1` URL is a fragment navigation, so an open task sheet and the contrast
+    // toggle would carry over into the next state.
+    const page = await context.newPage();
+    try {
+      await openEvaFixture(page, state);
+      if (state === "at-stop" || state === "ops-added-task") await page.getByTestId("tasks-button").click();
+      await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}` });
+      // The options sheet only opens for a warning that CARRIES options (FD-081). The plain alerting fixture raises a
+      // warning without any, so there is no sheet to close — the crew member opens it from the alert bar's OPTIONS button.
+      if (state === "alerting-with-options") await page.getByRole("button", { name: "Close options sheet" }).click();
+      await page.getByRole("button", { name: "Toggle high contrast" }).click();
+      await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}-contrast` });
+    } finally { await page.close(); }
   }
+});
+
+
+test("axe: ops states have no serious or critical violation (package 19)", async ({ context }, testInfo) => {
+  // Up to 26 scans (6 states x base, side panels, task editor, log drawer) do not fit the 60 s default.
+  test.setTimeout(240_000);
+  for (const state of ["no-session", "loaded", "running", "paused", "alerting", "ended"] as const) {
+    const page = await context.newPage();
+    try {
+      await openOpsFixture(page, state);
+      const route = `${testInfo.project.name}-ops-${state}`;
+      await axeScan(page, { mode: state === "ended" ? "print" : "ops", route });
+      if ((page.viewportSize()?.width ?? 0) >= 1024 && state !== "ended") {
+        await openOpsPanel(page, "mission");
+        await axeScan(page, { mode: "ops", route: `${route}-mission` });
+        await openOpsPanel(page, "crew");
+        await axeScan(page, { mode: "ops", route: `${route}-crew` });
+        if (state !== "no-session" && state !== "alerting") {
+          await page.getByRole("button", { name: "Add task for EV1" }).click();
+          await expect(page.getByRole("dialog", { name: "Add stop task" })).toBeVisible();
+          await axeScan(page, { mode: "ops", route: `${route}-task-editor` });
+          await page.getByRole("button", { name: "Close add task popover" }).click();
+        }
+        await page.locator('[data-slot="event-log-strip"]').click();
+        await expect(page.getByRole("dialog", { name: "Event log", exact: true })).toBeVisible();
+        await axeScan(page, { mode: "ops", route: `${route}-log` });
+        await page.keyboard.press("Escape");
+        await expect(page.locator('[data-slot="event-log-strip"]')).toBeFocused();
+      }
+    } finally { await page.close(); }
+  }
+});
+
+test("axe: ops rover card and SCR-15 rover tasking have no serious or critical violation (package 21)", async ({ page }, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 1024, "the ops console needs >= 1024 px");
+  await openOpsFixture(page, "running", { vehicles: [UTILITY_ROVER] });
+  await openOpsPanel(page, "crew");
+  await page.getByRole("button", { name: "Task rover UR1" }).click();
+  await expect(page.locator('[data-screen="SCR-15"]')).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-rover-task` });
+  await page.locator('[data-screen="SCR-15"] [data-task="SCOUT"]').click();
+  await page.getByRole("button", { name: "Pick on map" }).click();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-rover-placing` });
+});
+
+test.fixme("needs N-06: ops receives an authoritative EVA phase", async ({ page }) => {
+  await page.goto("/?site=mock_site#/ops");
+  await expect(page.locator('.phase-timeline [data-provenance]')).not.toHaveText(/—/);
 });

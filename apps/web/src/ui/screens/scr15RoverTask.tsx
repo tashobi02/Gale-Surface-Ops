@@ -12,13 +12,16 @@
  *
  * The vehicle has no default: the caller passes the utility rover that was tapped. A target is a working-projection
  * position in metres (IAU_2015:49900). One the operator picked is `assumed` with the pick as its source (`ui:map-pick`);
- * a suggestion carries the provenance and source of whoever computed it. ETA and battery after the task are "—":
- * the Hab Core gives no preview estimate before a task is accepted, and none is invented here.
+ * a suggestion carries the provenance and source of whoever computed it.
  *
- * TODO(decision): a rover-task preview (ETA, battery after) needs a Hab Core or compute estimate and a contract
- * (05 Vehicle has the live `eta_s` and `battery_wh` only). The `eta` row shows the snapshot's live ETA once the task runs.
- * TODO(verify): whether the Hab Core requires `item` for CARRY (FR-41 writes CARRY(item, to); 05 Vehicle calls it a
- * free-text label). A blank label is left out of the command, not sent empty.
+ * Decided (package 21, 12 Nov 2026):
+ * - FD-051: before the Hab Core accepts a task, ETA and battery after are "—" (no client estimate). Once accepted, the
+ *   task is followed by its id `rt-<event_seq>` (BD-102; the accepted task logs `VEHICLE_DISPATCHED` with that
+ *   `task_id`, FD-168): QUEUED while it is in `Vehicle.queue`, with that entry's `eta_s` and `battery_wh_after`
+ *   (`modelled`); EN ROUTE while it is the head (`Vehicle.task_id`), with the vehicle's `eta_s` (`simulated`); DONE once
+ *   it was seen and is gone. A snapshot without `task_id` falls back to the kind of `Vehicle.task`.
+ * - FD-052: CARRY's item is free text the Hab Core validates (BD-102: no fixed item list); a blank label is left out
+ *   of the command, not sent empty.
  */
 import { useEffect, useId, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import type { Provenance, RejectCode, RoverTaskKind, TaskRoverArgs, Vehicle } from "@marswalk/protocol";
@@ -48,6 +51,8 @@ export interface RoverTaskProps {
   selectedTarget?: { x_m: number; y_m: number } | null;
   /** Ask the map module to collect a target; without it the dialog only explains that one is needed. */
   onStartMapPlacement?: () => void;
+  /** The operator cancelled the pick: the map module stops collecting. */
+  onCancelMapPlacement?: () => void;
   onClose?: () => void;
   className?: string;
 }
@@ -71,7 +76,7 @@ const REJECT_HINT: Record<RejectCode, string> = {
 type Outcome =
   | { phase: "idle" }
   | { phase: "sending" }
-  | { phase: "queued"; task: RoverTaskKind }
+  | { phase: "queued"; task: RoverTaskKind; taskId: string }
   | { phase: "failed"; code: RejectCode; message: string };
 
 /** The vehicle's current task of the kind we sent: it was seen running. */
@@ -160,6 +165,7 @@ export function RoverTask({
   suggestedRelayTarget,
   selectedTarget = null,
   onStartMapPlacement,
+  onCancelMapPlacement,
   onClose,
   className = "",
 }: RoverTaskProps): ReactElement {
@@ -173,6 +179,7 @@ export function RoverTask({
   const [chosen, setChosen] = useState<"map" | "suggestion" | null>(selectedTarget ? "map" : null);
   const [outcome, setOutcome] = useState<Outcome>({ phase: "idle" });
   const [seenRunning, setSeenRunning] = useState(false);
+  const [seenQueued, setSeenQueued] = useState(false);
   const reasonId = useId();
   const itemId = useId();
 
@@ -184,10 +191,16 @@ export function RoverTask({
     }
   }, [selectedTarget]);
 
-  // Done is only shown for a task that was seen running in the snapshot.
+  // The accepted task in the snapshot: by its id when the Hab Core sends task ids (BD-102), else by the task's kind.
+  const byId = outcome.phase === "queued" && vehicle !== undefined && vehicle.task_id !== undefined;
+  const queuedEntry = outcome.phase === "queued" && byId ? vehicle?.queue?.find((t) => t.task_id === outcome.taskId) : undefined;
+  const isHead = outcome.phase === "queued" && (byId ? vehicle?.task_id === outcome.taskId : isRunning(vehicle, outcome.task));
+
+  // Done is only shown for a task that was seen in the snapshot (running, or queued when ids are known).
   useEffect(() => {
-    if (outcome.phase === "queued" && isRunning(vehicle, outcome.task)) setSeenRunning(true);
-  }, [outcome, vehicle]);
+    if (isHead) setSeenRunning(true);
+    if (queuedEntry) setSeenQueued(true);
+  }, [isHead, queuedEntry]);
 
   const needsTarget = task !== "RETURN";
   const suggestion = task === "RELAY" ? suggestedRelayTarget : undefined;
@@ -215,34 +228,42 @@ export function RoverTask({
     };
     setOutcome({ phase: "sending" });
     setSeenRunning(false);
+    setSeenQueued(false);
     const result = await send({ kind: "TASK_ROVER", args: { ...args } });
-    setOutcome(result.ok ? { phase: "queued", task } : { phase: "failed", code: result.code, message: result.message });
+    setOutcome(result.ok ? { phase: "queued", task, taskId: `rt-${result.event_seq}` } : { phase: "failed", code: result.code, message: result.message });
   }
 
   const reset = (): void => {
     setOutcome({ phase: "idle" });
     setSeenRunning(false);
+    setSeenQueued(false);
   };
 
   // ---- result states -------------------------------------------------------
-  const running = outcome.phase === "queued" && seenRunning;
   const resultState: "queued" | "enroute" | "done" | "failed" | null =
     outcome.phase === "failed"
       ? "failed"
       : outcome.phase === "queued"
-        ? running
-          ? vehicle?.task
-            ? "enroute"
-            : "done"
-          : "queued"
+        ? isHead && (byId || vehicle?.task)
+          ? "enroute"
+          : queuedEntry
+            ? "queued"
+            : seenRunning || seenQueued
+              ? "done"
+              : "queued"
         : null;
 
+  // FD-051: no estimate before acceptance; afterwards the Hab Core's values for this task only.
   const eta: Sourced & { text: string } =
     resultState === "enroute" && isFiniteNumber(vehicle?.eta_s) && vehicle.eta_s >= 0
       ? { text: fmtDuration(vehicle.eta_s), prov: "simulated", src: "snapshot:vehicles.eta_s" }
-      : { text: UNAVAILABLE, ...unavailableOf("simulated", "vehicles.eta_s") };
-  // TODO(decision): see the header; no estimate exists before the Hab Core accepts the task.
-  const batteryAfter = { text: UNAVAILABLE, ...unavailableOf(null, "rover_task.battery_after_wh") };
+      : resultState === "queued" && queuedEntry && isFiniteNumber(queuedEntry.eta_s) && queuedEntry.eta_s >= 0
+        ? { text: fmtDuration(queuedEntry.eta_s), prov: "modelled", src: "snapshot:vehicles.queue.eta_s" }
+        : { text: UNAVAILABLE, ...unavailableOf("simulated", "vehicles.eta_s") };
+  const batteryAfter: Sourced & { text: string } =
+    resultState === "queued" && queuedEntry && isFiniteNumber(queuedEntry.battery_wh_after)
+      ? { text: `${fmtInt(queuedEntry.battery_wh_after)} Wh`, prov: "modelled", src: "snapshot:vehicles.queue.battery_wh_after" }
+      : { text: UNAVAILABLE, ...unavailableOf("modelled", "vehicles.queue.battery_wh_after") };
 
   const resultBox = (state: NonNullable<typeof resultState>, status: "advisory" | "nominal" | "warning", word: string, body: ReactNode): ReactElement => (
     <div data-state={state} style={box} {...(state === "failed" && outcome.phase === "failed" ? { "data-reject-code": outcome.code } : {})} role="status">
@@ -361,7 +382,14 @@ export function RoverTask({
                 </button>
               ) : null}
               {placing ? (
-                <button type="button" style={button} onClick={() => setPlacing(false)}>
+                <button
+                  type="button"
+                  style={button}
+                  onClick={() => {
+                    setPlacing(false);
+                    onCancelMapPlacement?.();
+                  }}
+                >
                   Cancel
                 </button>
               ) : null}

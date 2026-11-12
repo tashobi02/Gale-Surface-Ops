@@ -3,8 +3,9 @@
  * EVA and HUD: every target at least 56 x 56 px with gaps of at least 8 px. Ops: at least 32 px. Planner: at least 44 px under
  * `pointer: coarse`. The limits are 04 §C.3's; this file only applies them.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { expectGaps, expectTargetSize, targets } from "../lib/geometry";
+import { UTILITY_ROVER, openOpsFixture, openOpsPanel } from "../lib/opsFixture";
 import { openEvaFixture, type SentCommand } from "../lib/evaFixture";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
@@ -24,10 +25,65 @@ test("targets: EVA and HUD targets are at least 56 px with 8 px gaps (enabled by
   }
 });
 
-test.fixme("targets: ops targets are at least 32 px (enabled by package 19)", async ({ page }) => {
-  await page.goto("/#/ops");
-  await waitForSnapshot(page);
-  expectTargetSize(await targets(page), OPS_MIN);
+async function checkOpsTargets(page: Page, scope = "body"): Promise<void> {
+  const list = await targets(page, scope);
+  expect(list.length, `visible ops targets in ${scope}`).toBeGreaterThan(0);
+  expectTargetSize(list, OPS_MIN);
+}
+
+async function checkOpsPanels(page: Page, allowTask: boolean): Promise<void> {
+  await openOpsPanel(page, "mission");
+  await checkOpsTargets(page, 'aside[aria-label="Conditions and options"]');
+  await openOpsPanel(page, "crew");
+  await checkOpsTargets(page, 'aside[aria-label="Crew and vehicles"]');
+  if (allowTask) {
+    await page.getByRole("button", { name: "Add task for EV1" }).click();
+    await expect(page.getByRole("dialog", { name: "Add stop task" })).toBeVisible();
+    await checkOpsTargets(page, '[data-testid="add-task-popover"]');
+    await page.getByRole("button", { name: "Close add task popover" }).click();
+  }
+  await page.locator('[data-slot="event-log-strip"]').click();
+  await expect(page.getByRole("dialog", { name: "Event log", exact: true })).toBeVisible();
+  await checkOpsTargets(page, '[data-slot="event-log-drawer"]');
+}
+
+test("targets: ops targets are at least 32 px (enabled by package 19)", async ({ context, page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 1024, "FD-210: ops controls require 1024px; the phone notice is checked separately");
+  for (const state of ["loaded", "running", "paused", "alerting"] as const) {
+    const opsPage = await context.newPage();
+    try {
+      await openOpsFixture(opsPage, state);
+      await checkOpsTargets(opsPage);
+      await checkOpsPanels(opsPage, state !== "alerting");
+    } finally { await opsPage.close(); }
+  }
+});
+
+test("targets: the rover card and SCR-15 on ops are at least 32 px, SCR-15 at least 56 px (package 21)", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 1024, "FD-210: ops controls require 1024px");
+  await openOpsFixture(page, "running", { vehicles: [UTILITY_ROVER] });
+  await openOpsPanel(page, "crew");
+  await page.getByRole("button", { name: "Task rover UR1" }).click();
+  await expect(page.locator('[data-screen="SCR-15"]')).toBeVisible();
+  await checkOpsTargets(page, '[data-slot="ops-map"]');
+  const rover = await targets(page, '[data-screen="SCR-15"]');
+  expect(rover.length).toBeGreaterThan(0);
+  expectTargetSize(rover, EVA_MIN);
+});
+
+test("targets: narrow ops opens every asserted panel at 1100px", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await openOpsFixture(page, "running");
+  await checkOpsPanels(page, true);
+  await page.getByRole("button", { name: "Close event log" }).click();
+  await expect(page.locator('[data-slot="event-log-strip"]')).toBeFocused();
+});
+
+test("targets: phone ops displays the larger-screen notice", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) >= 1024, "FD-210 notice only below 1024px");
+  await openOpsFixture(page, "loaded");
+  await expect(page.getByRole("heading", { name: "Use a larger screen" })).toBeVisible();
+  await expect(page.getByTestId("clock-control")).toHaveCount(0);
 });
 
 // Package 07 enables the planner workspace on the touch projects; package 09 adds the plan panel's targets to the same page.
