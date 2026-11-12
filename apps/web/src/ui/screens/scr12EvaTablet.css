@@ -37,23 +37,35 @@
 .eva-mini-map > button { position: absolute; z-index: 2; inset: 0; min-height: 56px; background: transparent; border: 0; color: var(--text-1); text-align: right; vertical-align: top; }
 .eva-mini-map > button span { display: inline-block; padding: 16px; background: var(--raised); border: 1px solid var(--edge); }
 .eva-mini-map > [data-unavailable] { position: absolute; left: 8px; bottom: 8px; }
-.scr12-eva-tablet .action-row > button { min-height: 56px; }
+.scr12-eva-tablet .action-row > button { min-height: 56px; background: var(--raised); color: var(--text-1); border: 2px solid var(--edge); }
+/* The `.btn` class inherits its colour (base.css), so a button that sets none takes the parent's mid-tone and reads
+   5.33 : 1 on the EVA surface — under the 7 : 1 the high-contrast EVA mode asks for (FD-011, NFR-04). The EVA action row
+   and the SCR-14 sheet's own controls name the text token instead, so they follow every palette. */
+.eva-live-surface .action-row > button,
+.eva-live-surface .eva-options-body .btn {
+  background: var(--raised);
+  color: var(--text-1);
+  border: 2px solid var(--edge);
+}
 /* The EVA options sheet (SCR-14) is a bottom sheet over the tablet's BODY. 04 §E.5: HAVEN, O₂ and the action row never
    move and are never covered, so the sheet stops above the action row and below the telemetry row. The reserved
    heights are the tablet's own grid rows: 64 px of alert slot plus 150 px of telemetry above, and the action row
    (200 px portrait, 72 px landscape) below. */
 [data-slot="eva-options-sheet"] {
-  bottom: var(--eva-action-row-height, 200px);
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--eva-action-row-height, 224px);
   top: var(--eva-options-sheet-top, 214px);
   max-height: none;
 }
 @media (orientation: landscape) {
-  /* In the landscape grid the telemetry row is a 1fr row, so its bottom is not a fixed number of pixels: the sheet's top
-     has to follow it. The grid is 64 px + 1fr + 1fr + 24 px + 72 px, so the telemetry row ends at
-     64 px + (100dvh − 160 px) / 2 — 179 px at 390 px of height and 368 px at 768 px. */
+  /* In landscape the sheet is a right panel over the map column (FD-010, 04 §E.5). */
   [data-slot="eva-options-sheet"] {
-    bottom: var(--eva-action-row-height, 72px);
-    top: var(--eva-options-sheet-top, calc(64px + (100dvh - 160px) / 2));
+    left: 50%;
+    right: 0;
+    top: 64px;
+    bottom: 96px;
   }
 }
 @media (orientation: landscape) {
@@ -114,6 +126,7 @@
   --surface-0: #000; --surface-1: #000; --surface-2: #000;
   --panel: #000; --raised: #000; --text-1: #fff; --text-2: #fff; --text-3: #fff;
   --fg-1: #fff; --fg-2: #fff; --fg-3: #fff;
+  --ink: var(--hud-pill-ink);
   --nominal: var(--hud-nominal); --caution: var(--hud-caution); --warning: var(--hud-warning); --advisory: var(--hud-advisory);
   --status-nominal: var(--hud-nominal); --status-caution: var(--hud-caution); --status-warning: var(--hud-warning); --status-advisory: var(--hud-advisory); --status-unknown: var(--hud-text-2);
 }
@@ -122,7 +135,7 @@
 }
 @media (orientation: landscape) {
   .eva-fullmap-body { top: 64px; bottom: 96px; }
-  [data-slot="eva-options-sheet"].eva-options-body { left: 51%; right: 0; top: 64px; bottom: 96px; }
+  [data-slot="eva-options-sheet"].eva-options-body { left: 50%; right: 0; top: 64px; bottom: 96px; }
 }
 
 .eva-live-surface[data-contrast="high"] .hold.done { background: #000 !important; color: #fff !important; }

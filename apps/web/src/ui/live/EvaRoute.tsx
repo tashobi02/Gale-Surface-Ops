@@ -83,7 +83,7 @@ export function EvaRoute({ crewId }: { crewId: CrewId }): ReactElement {
         <div
           data-slot="eva-options-sheet"
           className="scr12-eva-options-sheet eva-options-body"
-          style={{ position: "fixed", left: 0, right: 0, zIndex: 50, overflow: "auto" }}
+          style={{ position: "fixed", zIndex: 50, overflow: "auto" }}
         >
           <Options variant="eva" alertId={warningHasOptions ? warningId : vm.alertSlot?.alertId} crewId={crewId} onClose={() => setOptionsOpen(false)} />
         </div>
