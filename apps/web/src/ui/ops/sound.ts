@@ -2,10 +2,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { Alert } from "@marswalk/protocol";
 
-export function useOpsSound(alerts: Alert[], enabled: boolean): { armed: boolean } {
+export function useOpsSound(alerts: Alert[], enabled: boolean, sessionId?: string): { armed: boolean } {
   const audio = useRef<AudioContext | null>(null);
   const [armed, setArmed] = useState(false);
   const seenCautions = useRef(new Set<string>());
+  useEffect(() => { seenCautions.current.clear(); }, [sessionId]);
   useEffect(() => {
     let disposed = false;
     const arm = (): void => {
@@ -57,6 +58,6 @@ export function useOpsSound(alerts: Alert[], enabled: boolean): { armed: boolean
         oscillator.disconnect();
       }
     };
-  }, [armed, enabled, warningKey, cautionKey]);
+  }, [armed, enabled, warningKey, cautionKey, sessionId]);
   return { armed };
 }

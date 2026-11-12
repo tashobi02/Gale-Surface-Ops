@@ -148,7 +148,6 @@ export function OpsConsole({
   const [sideDrawer, setSideDrawer] = useState<"crew" | "mission" | null>(null);
   const [localSoundOn, setLocalSoundOn] = useState(true);
   const soundEnabled = soundOn ?? localSoundOn;
-  const { armed } = useOpsSound(alerts, soundEnabled);
   useEffect(() => {
     const resize = (): void => setViewportWidth(window.innerWidth);
     window.addEventListener("resize", resize);
@@ -176,6 +175,7 @@ export function OpsConsole({
   const send = useCommand(client);
   const activeSnapshot = snapshot === undefined ? liveState : snapshot;
   const session = activeSnapshot?.session;
+  const { armed } = useOpsSound(alerts, soundEnabled, session?.session_id);
   const logLines = logLinesProp ?? selectOpsProps(activeSnapshot, events).logLines ?? [];
   const raisedTimes = new Map(events.filter((event) => event.kind === "ALERT_RAISED").map((event) => [event.seq, event.sim_time]));
   useEffect(() => {

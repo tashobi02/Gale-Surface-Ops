@@ -939,6 +939,24 @@ describe("SCR-10 Join shows only what it is told (04 §D.1, §A.3.1)", () => {
 
 
 describe("package 19 ops interactions", () => {
+  it("caution chimes again when a new session reuses its id and sequence", async () => {
+    const tone = vi.fn(() => ({ frequency: { value: 0 }, connect() {}, start() {}, stop() {}, disconnect() {} }));
+    Object.defineProperty(window, "AudioContext", { configurable: true, value: function () { return {
+      state: "running", currentTime: 0, destination: {}, resume: async () => {}, close: async () => {},
+      createOscillator: tone, createGain: () => ({ gain: { value: 0 }, connect() {} }),
+    }; } });
+    const caution = warning({ level: "caution" });
+    const first = connectSnapshot();
+    const view = await mount(createElement(OpsConsole, { client: null, snapshot: first, alerts: [caution] }));
+    await pointerDown(document.body);
+    await flush();
+    expect(tone).toHaveBeenCalledTimes(1);
+    await view.rerender(createElement(OpsConsole, { client: null, snapshot: { ...first, session: { ...first.session, session_id: `${first.session.session_id}-reload` } }, alerts: [caution] }));
+    expect(tone).toHaveBeenCalledTimes(2);
+    await view.rerender(createElement(OpsConsole, { client: null, snapshot: { ...first, session: { ...first.session, session_id: `${first.session.session_id}-reload` } }, alerts: [caution] }));
+    expect(tone).toHaveBeenCalledTimes(2);
+  });
+
   it("clock shortcuts work from body and clock buttons, ignore editors and modifiers, and clean up", async () => {
     const onCommand = vi.fn();
     const view = await mount(createElement(OpsConsole, { client: null, snapshot: connectSnapshot(), crew: [ev1()], taskProgress: { EV1: { stop: { stopId: "wp-2", stopNo: 1, done: 0, total: 0 }, total: { done: 0, total: 0 } } }, onCommand }));
