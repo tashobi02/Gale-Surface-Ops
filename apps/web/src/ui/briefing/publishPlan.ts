@@ -14,6 +14,9 @@
 import type { CommandResult, PlanExport, StopTaskSeed } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 
+// Bound the UI wait when a disconnected Hab Core never answers; this does not drive simulation time.
+export const PUBLISH_TIMEOUT_MS = 30_000;
+
 /** What the publish button shows while and after it runs. */
 export type PublishOutcome =
   | { status: "pending" }
@@ -69,7 +72,13 @@ export async function publishPlan(options: PublishPlanOptions): Promise<PublishO
     const tasks = options.stopTasks ?? [];
     if (tasks.length > 0) args.stop_tasks = [...tasks];
 
-    const result = await client.send({ kind: "PUBLISH_PLAN", args });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const result = await Promise.race([
+      client.send({ kind: "PUBLISH_PLAN", args }),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Publishing the plan timed out waiting for the Hab Core.")), PUBLISH_TIMEOUT_MS);
+      }),
+    ]).finally(() => clearTimeout(timer));
     if (result.ok) return { status: "accepted", planHash: options.plan.plan_hash };
     return { status: "rejected", reason: result.message, code: result.code };
   } catch (error) {

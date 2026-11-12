@@ -76,6 +76,18 @@ const TASKS: StopTaskSeed[] = [
 ];
 
 describe("publish plan (T11.07)", () => {
+  it("times out and closes an unanswered publish", async () => {
+    vi.useFakeTimers();
+    try {
+      const close = vi.fn();
+      const client = { send: () => new Promise<CommandResult>(() => {}), close };
+      let outcome: PublishOutcome | undefined;
+      void publishPlan({ plan: exportedPlan(), openClient: () => client }).then((value) => { outcome = value; });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(outcome).toMatchObject({ status: "rejected", reason: expect.stringMatching(/timed out/i) });
+      expect(close).toHaveBeenCalledOnce();
+    } finally { vi.useRealTimers(); }
+  });
   it("tasks beside plan", async () => {
     const fake = fakeClient({ v: 1, type: "COMMAND_RESULT", command_id: "k-1", ok: true, event_seq: 42 });
     const plan = exportedPlan();
