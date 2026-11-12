@@ -4,11 +4,15 @@
  * Requirements: FR-01–FR-10, FR-16, FR-17.
  * Implemented by T07.06, T07.08, T07.13, T13.06.
  *
+ * Layers (package 08): the left drawer's Layers tab is the SCR-03 panel, fed by the layer controllers this screen creates;
+ * selecting a POI sets the screen's own `selected_poi_id` (FD-074, outside C11) and opens the POI detail drawer. With
+ * `?debug=1` the screen also installs `window.__onNextPostrender` for the verification harness (the `toggles` check).
+ *
  * Layout: top bar (logo to SCR-01, site, data-version chip, Briefing, Sources), metadata strip, left drawer (Layers,
  * Plan), the map, right drawer (POI detail, Conditions) and the bottom results panel (SCR-05). From 1280 px the drawers
- * are two columns beside the map; below it (down to 1024 px) one drawer at a time opens over the map (04 §F). The panels
- * of SCR-03, SCR-04, SCR-06 and SCR-07 mount in their drawer tabs as their packages land; until then the tab says so in
- * plain words and shows no value.
+ * are two columns beside the map; below it (down to 1024 px) one drawer at a time opens over the map (04 §F). SCR-03 is in
+ * the Layers tab; the panels of SCR-04, SCR-06 and SCR-07 mount in their drawer tabs as their packages land, and until then
+ * the tab says so in plain words and shows no value.
  *
  * Map: `createMap` (Mars projection, scale bar, north arrow, readout derived from `proj:IAU_2015:49900`, FD-080) with the
  * keyboard layer (A is the add-stop mode's; B opens the briefing, ? the sources, Delete removes the selected stop, arrows and
@@ -26,15 +30,18 @@ import { DebugOverlay } from "../debug";
 import { createMap, READOUT_SOURCE_ID } from "../map/createMap";
 import type { KeyboardPlanContext } from "../map/keyboard";
 import { MapControls, mapControlHandlers } from "../map/MapControls";
-import { createPoiLayer } from "../map/poiLayer";
-import { createRasterLayers } from "../map/rasterLayers";
+import { createEzLayer, type EzLayerController } from "../map/ezLayer";
+import { createPoiLayer, type PoiLayerController } from "../map/poiLayer";
+import { createRasterLayers, slopeLegend, type LayerStatus, type RasterLayersController } from "../map/rasterLayers";
 import { createRouteLayer } from "../map/routeLayer";
-import { createTraverseLayer } from "../map/traverseLayer";
+import { validateMapTokens } from "../map/tokenColors";
+import { createTraverseLayer, type TraverseLayerController } from "../map/traverseLayer";
 import { initPointInspector } from "../map/inspector";
 import { initAddStopMode } from "../map/addStopMode";
 import { createWaypointLayer } from "../map/waypointLayer";
 import { initWaypointDrag } from "../map/waypointDrag";
 import { initTouchInput } from "../map/touchInput";
+import { LayersPanel, isScientificOverlay, type PanelLayer, type PanelLegend, type RowStatus } from "./scr03LayersPanel";
 import { RouteResults } from "./scr05RouteResults";
 import "./scr02MapWorkspace.css";
 
@@ -134,6 +141,16 @@ const RIGHT_TABS = [
   { id: "conditions", name: "Conditions" },
 ] as const;
 
+/** The layer controllers SCR-02 creates; the Layers tab and its switches work on these. Absent = that module is not built. */
+interface LayerKit {
+  raster?: RasterLayersController;
+  traverse?: TraverseLayerController;
+  pois?: PoiLayerController;
+  ez?: EzLayerController;
+}
+
+const SCENARIO_EDGE_SOURCES = { caution: "scenario.caution_slope_deg", hard: "scenario.hard_slope_limit_deg" } as const;
+
 /** SCR-02 map workspace (React, ADR-012). */
 export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactElement {
   const layout = useSyncExternalStore(subscribeResize, layoutNow, () => "three-column" as WorkspaceLayout);
@@ -143,6 +160,10 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
   const [open, setOpen] = useState<DrawerSide | null>(null);
   const [handle, setHandle] = useState<MapHandle | null>(null);
   const [notReady, setNotReady] = useState<ReadonlySet<string>>(new Set());
+  const [kit, setKit] = useState<LayerKit>({});
+  const [layerTick, setLayerTick] = useState(0);
+  // FD-074: POI selection is this screen's own state, not the plan store's waypoint selection (C11 is unchanged).
+  const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const onMapReadyRef = useRef(onMapReady);
   onMapReadyRef.current = onMapReady;
@@ -197,8 +218,14 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
       }
     };
 
+    const held: LayerKit = {};
+    let alive = true;
+    const bump = (): void => {
+      if (alive) setLayerTick((n) => n + 1);
+    };
     attach("raster", () => {
-      const raster = createRasterLayers(ctx.site, { scenario: ctx.planStore, mapHandle: handle });
+      const raster = createRasterLayers(ctx.site, { scenario: ctx.planStore, mapHandle: handle, onStatusChange: bump });
+      held.raster = raster;
       const layers = raster.olLayers();
       for (const layer of layers) map.addLayer(layer);
       return () => {
@@ -208,6 +235,8 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
     });
     attach("traverse", () => {
       const traverse = createTraverseLayer(ctx.site);
+      held.traverse = traverse;
+      void traverse.ready().then(bump);
       map.addLayer(traverse.layer);
       const detach = traverse.attach(handle);
       return () => {
@@ -217,7 +246,16 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
       };
     });
     attach("pois", () => {
-      const pois = createPoiLayer(ctx.site);
+      const pois = createPoiLayer(ctx.site, {
+        onSelectPoi: (poiId) => {
+          setSelectedPoiId(poiId);
+          if (poiId !== null) {
+            setRightTab("poi");
+            setOpen("right");
+          }
+        },
+      });
+      held.pois = pois;
       map.addLayer(pois.layer);
       const detach = pois.attach(handle);
       return () => {
@@ -226,7 +264,18 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
         pois.destroy();
       };
     });
+    attach("ez", () => {
+      const ez = createEzLayer(ctx.site);
+      held.ez = ez;
+      map.addLayer(ez.layer);
+      return () => {
+        map.removeLayer(ez.layer);
+        ez.destroy();
+      };
+    });
     attach("route", () => {
+      // FD-065: the route layer draws from tokens inside style callbacks; check them here, once, so a missing one fails now.
+      validateMapTokens(["void", "route", "unknown", "caution", "warning"]);
       const route = createRouteLayer(ctx.planStore);
       map.addLayer(route);
       return () => {
@@ -243,11 +292,112 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
     attach("touch", () => initTouchInput(handle));
     attach("add-stop", () => initAddStopMode(handle, ctx.planStore));
     setNotReady(missing);
+    setKit(held);
+
+    // The harness's repaint hook (`toggles`): calls back after the next map render. Debug only, never in a plain page.
+    const win = window as unknown as { __onNextPostrender?: (callback: () => void) => void };
+    if (ctx.debug) win.__onNextPostrender = (callback) => map.once("postrender", () => callback());
 
     return () => {
+      alive = false;
+      if (ctx.debug) delete win.__onNextPostrender;
+      setKit({});
       for (const cleanup of cleanups.reverse()) cleanup();
     };
   }, [handle, ctx]);
+
+  // SCR-03 rows: described from the controllers and the manifest, in the order the spec lists them (basemap layers first).
+  const caution = plan.scenario.caution_slope_deg;
+  const hard = plan.scenario.hard_slope_limit_deg;
+  const panelLayers = useMemo<PanelLayer[]>(() => {
+    void layerTick; // a controller's status changed: rebuild the rows
+    const rows: PanelLayer[] = [];
+    for (const managed of kit.raster?.layers.values() ?? []) {
+      const def = ctx.site.layers.get(managed.layerId);
+      if (!def) continue;
+      let legend: PanelLegend = { type: "none" };
+      try {
+        if (def.legend.type === "classes" && def.legend.breaks_follow_scenario === true) {
+          legend = { type: "classes", items: slopeLegend(def.legend, { cautionDeg: caution, hardDeg: hard }), edgeSources: { ...SCENARIO_EDGE_SOURCES } };
+        } else if (def.legend.type === "ramp") {
+          legend = { type: "ramp", stops: def.legend.stops };
+        }
+      } catch {
+        legend = { type: "none" };
+      }
+      const status = managed.getStatus() as LayerStatus as RowStatus;
+      rows.push({
+        id: managed.layerId,
+        title: managed.title,
+        scientific: isScientificOverlay(def),
+        visible: managed.isVisible(),
+        opacity: managed.getOpacity(),
+        status,
+        ...(status === "unavailable" ? { unavailableReason: `the tile set "${def.asset_id}" is missing or did not load` } : {}),
+        provenance: managed.provenance,
+        sourceIds: managed.sourceIds,
+        nativeResolutionM: def.native_resolution_m,
+        ...(managed.units ? { units: managed.units } : {}),
+        legend,
+      });
+    }
+    rows.sort((a, b) => Number(a.scientific) - Number(b.scientific));
+    const asset = ctx.site.site.pois_asset;
+    if (kit.traverse) {
+      const described = kit.traverse.describe();
+      const traverseStatus = kit.traverse.getStatus();
+      rows.push({
+        id: "traverse",
+        title: "Curiosity traverse",
+        scientific: false,
+        visible: kit.traverse.isVisible(),
+        opacity: kit.traverse.getOpacity(),
+        status: traverseStatus === "unavailable" ? "unavailable" : traverseStatus === "loading" ? "loading" : "ready",
+        ...(traverseStatus === "unavailable" ? { unavailableReason: `the traverse file "${ctx.site.site.traverse_asset}" is missing or did not load` } : {}),
+        provenance: described?.provenance ?? null,
+        sourceIds: described ? [described.sourceId] : [ctx.site.site.traverse_asset],
+        showNative: false,
+        legend: { type: "none" },
+      });
+    }
+    const firstPoi = ctx.site.pois.values().next();
+    const poiProvenance = firstPoi.done ? null : firstPoi.value.properties.provenance;
+    if (kit.pois) {
+      rows.push({ id: "pois", title: "Points of interest", scientific: false, visible: kit.pois.isVisible(), opacity: null, status: "ready", provenance: poiProvenance, sourceIds: [asset], showNative: false, legend: { type: "none" } });
+    }
+    if (kit.ez) {
+      rows.push({
+        id: "ez",
+        title: "Exploration zone stop types",
+        scientific: false,
+        visible: kit.ez.isVisible(),
+        opacity: null,
+        status: "ready",
+        provenance: poiProvenance,
+        sourceIds: [asset],
+        showNative: false,
+        legend: { type: "ez", entries: kit.ez.legend().map((e) => ({ word: e.word, shape: e.shape, description: e.description })) },
+      });
+    }
+    return rows;
+  }, [kit, layerTick, ctx.site, caution, hard]);
+
+  const setLayerVisible = useCallback(
+    (id: string, visible: boolean): void => {
+      if (id === "traverse") kit.traverse?.setVisible(visible);
+      else if (id === "pois") kit.pois?.setVisible(visible);
+      else if (id === "ez") kit.ez?.setVisible(visible);
+      else kit.raster?.getLayer(id)?.setVisible(visible);
+    },
+    [kit],
+  );
+  const setLayerOpacity = useCallback(
+    (id: string, opacity: number): void => {
+      if (id === "traverse") kit.traverse?.setOpacity(opacity);
+      else kit.raster?.getLayer(id)?.setOpacity(opacity);
+    },
+    [kit],
+  );
 
   const fitAoi = useCallback((): void => {
     handle?.fitExtent(ctx.site.site.aoi.extent_m as [number, number, number, number]);
@@ -266,7 +416,7 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
   const mapCtx: AppContext = useMemo(() => ({ ...ctx, ...(handle ? { mapHandle: handle } : {}) }), [ctx, handle]);
 
   return (
-    <div className="scr02" data-slot="map-workspace" data-layout={layout}>
+    <div className="scr02" data-slot="map-workspace" data-layout={layout} {...(selectedPoiId !== null ? { "data-selected-poi-id": selectedPoiId } : {})}>
       <header className="scr02-top-bar" data-slot="top-bar">
         <a className="scr02-logo" data-slot="logo" href="#/" aria-label="Marswalk, back to the mission briefing">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -321,7 +471,7 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
           <Tabs label="Left drawer" tabs={LEFT_TABS} selected={leftTab} onSelect={setLeftTab} idPrefix="scr02-left" />
           <div className="scr02-tabpanel" role="tabpanel" id="scr02-left-panel" aria-labelledby={`scr02-left-tab-${leftTab}`}>
             {leftTab === "layers" ? (
-              <PanelPending screen="SCR-03" label="Layers" task="T07.07" />
+              <LayersPanel layers={panelLayers} onVisibleChange={setLayerVisible} onOpacityChange={setLayerOpacity} />
             ) : (
               <PanelPending screen="SCR-04" label="Plan" task="T08.04" />
             )}

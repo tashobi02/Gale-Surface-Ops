@@ -166,6 +166,8 @@ export const LAYER_Z_INDEX = {
   TRAVERSE: 45,
   ROUTE: 50,
   WAYPOINTS: 55,
+  /** FR-45 stop-type markers: above the waypoints, under the POI pins they annotate (T07.18). */
+  EZ: 58,
   POIS: 60,
 } as const;
 

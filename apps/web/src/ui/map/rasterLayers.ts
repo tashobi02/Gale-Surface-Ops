@@ -6,20 +6,23 @@
  *   EPSG:3857) with the C9 `TileGrid` from the manifest, limited to the AOI extent so no tile outside it is requested.
  * - Tile address: the layer's `asset_id` resolves to an Asset; its fetchable `url` plus `/{z}/{x}/{y}.{format}` (C9
  *   §3.1). Nothing is requested from outside the site folder, and no `crossOrigin` is set (same origin).
- * - Slope: the tiles are data (degrees × 4, 255 = no data, C9 §4) and are coloured in the browser. The class edges are
- *   the legend's, except that the caution and hard edges are the scenario's `caution_slope_deg` and
- *   `hard_slope_limit_deg`, read from the plan store and re-applied when they change (01 §E.1 step 6: 15° → 12°)
- *   without fetching a tile again. Colours and opacities are the `--slope-*` tokens (04 §C.1), read at run time; the
- *   over-limit class is hatched and the steepest cross-hatched.
+ * - Slope: the tiles are data (degrees × 4, 255 = no data, C9 §4) and are coloured in the browser. The only class edges are
+ *   the scenario's `caution_slope_deg` and `hard_slope_limit_deg`, read from the plan store and re-applied when they change
+ *   (01 §E.1 step 6: 15° → 12°) without fetching a tile again: below caution nothing is drawn, caution to hard is the
+ *   caution class, hard and above is the over-limit class, hatched. The legend's own 5° and 25° edges are not drawn
+ *   (FD-076; 04 §C.1 "class edges follow the current limits"). Colours and opacities are the `--slope-10-15` and
+ *   `--slope-15-25` tokens (04 §C.1), read and checked once when the layers are created (FD-065), so a missing token
+ *   fails there and not inside a tile load.
+ * - Elevation and thermal inertia are drawn as the pre-coloured PNG the pipeline writes (C9 §4, FD-077). Canvas 2D only,
+ *   never WebGL (FD-107). A layer of category `optical` (the ortho basemap) carries the class `marswalk-ortho`, which the
+ *   OPS stylesheet turns grayscale (FD-003); BRIEF slabs keep the colour.
  * - Per-layer state for SCR-03 (03 SCR-03, FR-16): `loading`, `unavailable` (the asset is missing, or every tile that
  *   has been tried failed), `out_of_range` (zoomed out beyond the coarsest tile level), else `ready`. A failed tile
  *   does not take the layer down: the other tiles keep loading and `failedTiles()` counts the failures.
  * - Stacking follows FR-02 through `LAYER_Z_INDEX`: basemap < hillshade < scientific overlay < hazards.
  * - Attribution (NFR-07): every layer credits its `source_ids` from the manifest DataSources.
  *
- * TODO(decision): the slope ramp's 5° and 25° edges (04 §C.1) are the legend's own and do not follow the scenario;
- * only the caution and hard edges do. `image_static` layers (the C9 §6 fallback, T02.06) are not built here.
- * TODO(decision): elevation and thermal inertia are drawn as the pre-coloured PNG the pipeline writes (C9 §4).
+ * `image_static` layers (the C9 §6 fallback, T02.06) are not built here.
  */
 import TileLayer from "ol/layer/Tile.js";
 import DataTile from "ol/source/DataTile.js";
@@ -53,20 +56,24 @@ export interface SlopeClassStyle {
   opacity: number;
 }
 
-/** The four drawn slope classes: 5–caution, caution–hard, hard–steep (hatched), beyond steep (cross-hatched). */
+/** The two drawn slope classes: caution to hard, and hard and above (hatched). */
 export interface SlopePalette {
-  gentle: SlopeClassStyle;
   caution: SlopeClassStyle;
   overLimit: SlopeClassStyle;
-  steep: SlopeClassStyle;
 }
 
-/** Class edges in degrees, ascending: below `lowDeg` is transparent. */
+/** Class edges in degrees: the scenario's limits, `hardDeg >= cautionDeg`. Below `cautionDeg` nothing is drawn. */
 export interface SlopeBands {
-  lowDeg: number;
   cautionDeg: number;
   hardDeg: number;
-  steepDeg: number;
+}
+
+/** One class of the legend: the manifest's word over the scenario's edges (`toDeg` null = no upper edge). */
+export interface SlopeLegendClass {
+  key: "caution" | "over_limit";
+  label: string;
+  fromDeg: number;
+  toDeg: number | null;
 }
 
 /** Browser operations, replaceable in tests (jsdom has no canvas and no `fetch` of tiles). */
@@ -119,30 +126,38 @@ export interface RasterLayersController {
   destroy(): void;
 }
 
-/** Class edges of the legend with the scenario's limits in place of the caution and hard edges (clamped ascending). */
-export function slopeBands(legend: ClassesLegend, limits: SlopeLimits): SlopeBands {
-  const edges = legend.classes;
-  if (edges.length < 5) {
-    throw new Error(`slope legend needs 5 classes (flat, gentle, caution, over limit, steep), has ${edges.length}`);
-  }
-  const lowDeg = edges[0][1];
-  const cautionDeg = Math.max(lowDeg, limits.cautionDeg);
-  const hardDeg = Math.max(cautionDeg, limits.hardDeg);
-  return { lowDeg, cautionDeg, hardDeg, steepDeg: Math.max(hardDeg, edges[3][1]) };
+/** The class edges: the scenario's caution and hard limits, the hard edge never below the caution edge. */
+export function slopeBands(limits: SlopeLimits): SlopeBands {
+  return { cautionDeg: limits.cautionDeg, hardDeg: Math.max(limits.cautionDeg, limits.hardDeg) };
 }
 
-/** Hatch geometry follows patterns.css: diagonal 4 px stripe in 8 px, cross-hatch 3 px stripe in 6 px. */
+/**
+ * The legend's two drawn classes, worded by the manifest (`classes[2]` caution, `classes[3]` over limit) and bounded by the
+ * scenario's limits. Throws when the manifest legend does not have the five classes of 05 §F.1.
+ */
+export function slopeLegend(legend: ClassesLegend, limits: SlopeLimits): SlopeLegendClass[] {
+  const classes = legend.classes;
+  if (classes.length < 5) {
+    throw new Error(`slope legend needs 5 classes (flat, gentle, caution, over limit, steep), has ${classes.length}`);
+  }
+  const bands = slopeBands(limits);
+  return [
+    { key: "caution", label: classes[2][2], fromDeg: bands.cautionDeg, toDeg: bands.hardDeg },
+    { key: "over_limit", label: classes[3][2], fromDeg: bands.hardDeg, toDeg: null },
+  ];
+}
+
+/** Hatch geometry follows patterns.css: diagonal 4 px stripe in 8 px. */
 const HATCH = { period: 8, stripe: 4 } as const;
-const CROSS_HATCH = { period: 6, stripe: 3 } as const;
 
 /** u8 steps per degree in the C9 slope encoding, and the no-data value. */
 const SLOPE_U8_PER_DEG = 4;
 const SLOPE_NO_DATA = 255;
 
 /**
- * Colour data-encoded slope pixels (C9 §4: R = G = B = round(deg × 4), alpha 0 and value 255 = no data). Below the
- * low edge and at no data the pixel is transparent. The over-limit class is hatched and the steepest cross-hatched;
- * hatch pixels are drawn opaque, the rest at the class opacity (04 §C.1). Pure: returns a new RGBA array.
+ * Colour data-encoded slope pixels (C9 §4: R = G = B = round(deg × 4), alpha 0 and value 255 = no data). Below the caution
+ * edge and at no data the pixel is transparent; caution to hard is the caution class; hard and above is the over-limit class,
+ * hatched. Hatch pixels are drawn opaque, the rest at the class opacity (04 §C.1). Pure: returns a new RGBA array.
  */
 export function classifySlopeTile(tile: DecodedTile, bands: SlopeBands, palette: SlopePalette): DecodedTile {
   const out = new Uint8ClampedArray(tile.data.length);
@@ -152,22 +167,15 @@ export function classifySlopeTile(tile: DecodedTile, bands: SlopeBands, palette:
       const value = tile.data[at];
       if (tile.data[at + 3] === 0 || value === SLOPE_NO_DATA) continue;
       const deg = value / SLOPE_U8_PER_DEG;
-      if (deg < bands.lowDeg) continue;
+      if (deg < bands.cautionDeg) continue;
 
       let style: SlopeClassStyle;
       let hatched = false;
-      if (deg < bands.cautionDeg) {
-        style = palette.gentle;
-      } else if (deg < bands.hardDeg) {
+      if (deg < bands.hardDeg) {
         style = palette.caution;
-      } else if (deg < bands.steepDeg) {
+      } else {
         style = palette.overLimit;
         hatched = (col + row) % HATCH.period < HATCH.stripe;
-      } else {
-        style = palette.steep;
-        hatched =
-          (col + row) % CROSS_HATCH.period < CROSS_HATCH.stripe ||
-          (col - row + CROSS_HATCH.period * tile.height) % CROSS_HATCH.period < CROSS_HATCH.stripe;
       }
       out[at] = style.rgb[0];
       out[at + 1] = style.rgb[1];
@@ -178,7 +186,7 @@ export function classifySlopeTile(tile: DecodedTile, bands: SlopeBands, palette:
   return { width: tile.width, height: tile.height, data: out };
 }
 
-/** The slope palette from the `--slope-*` colour and `--slope-opacity-*` tokens; throws naming a missing token. */
+/** The slope palette from the `--slope-10-15` and `--slope-15-25` colour and opacity tokens; throws naming a missing token. */
 export function readSlopePalette(readToken: (name: string) => string): SlopePalette {
   const token = (name: string): string => requireToken(readToken, name);
   const style = (colour: string, opacity: string): SlopeClassStyle => {
@@ -187,10 +195,8 @@ export function readSlopePalette(readToken: (name: string) => string): SlopePale
     return { rgb: parseHexColour(token(colour)), opacity: alpha };
   };
   return {
-    gentle: style("--slope-5-10", "--slope-opacity-5-10"),
     caution: style("--slope-10-15", "--slope-opacity-10-15"),
     overLimit: style("--slope-15-25", "--slope-opacity-15-25"),
-    steep: style("--slope-gt-25", "--slope-opacity-gt-25"),
   };
 }
 
@@ -253,6 +259,8 @@ export function createRasterLayers(site: LoadedSite, options: RasterLayersOption
     hardDeg: scenario.hard_slope_limit_deg,
   });
   let limits = scenarioLimits(options.scenario.get().scenario);
+  // FD-065: the tokens are checked once, here, so a missing one fails at creation and not inside a tile load.
+  const palette = readSlopePalette(deps.readToken);
 
   const layers = new Map<string, ManagedRasterLayer>();
   const redraws: (() => void)[] = [];
@@ -311,7 +319,6 @@ export function createRasterLayers(site: LoadedSite, options: RasterLayersOption
       // No asset: a source with no URL requests nothing.
       source = new XYZ({ projection, tileGrid, wrapX: false, attributions, tileUrlFunction: () => undefined });
     } else if (isScenarioColoured(def)) {
-      const legend = def.legend;
       const load = async (z: number, x: number, y: number): Promise<ImageLike> => {
         const url = template.replace("{z}", String(z)).replace("{x}", String(x)).replace("{y}", String(y));
         let raw = rawTiles.get(url);
@@ -321,8 +328,7 @@ export function createRasterLayers(site: LoadedSite, options: RasterLayersOption
           // A tile that failed is tried again on the next request.
           raw.catch(() => rawTiles.delete(url));
         }
-        const bands = slopeBands(legend, limits);
-        return deps.encodeTile(classifySlopeTile(await raw, bands, readSlopePalette(deps.readToken)));
+        return deps.encodeTile(classifySlopeTile(await raw, slopeBands(limits), palette));
       };
       const dataSource = new DataTile({ projection, tileGrid, wrapX: false, attributions, loader: load });
       source = dataSource;
@@ -347,7 +353,9 @@ export function createRasterLayers(site: LoadedSite, options: RasterLayersOption
     });
 
     const visible = def.default_visible;
-    const tileLayer = new TileLayer({ source, zIndex: zIndexOf(def), visible, opacity: 1 });
+    // The ortho basemap is grayscale in OPS by CSS on this class (FD-003): `filter` on that layer's canvas only.
+    const className = def.category === "optical" ? "ol-layer marswalk-ortho" : "ol-layer";
+    const tileLayer = new TileLayer({ source, zIndex: zIndexOf(def), visible, opacity: 1, className });
 
     const view = options.mapHandle;
     if (view && !assetMissing) {

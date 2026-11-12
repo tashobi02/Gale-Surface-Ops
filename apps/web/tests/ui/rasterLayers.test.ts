@@ -14,6 +14,7 @@ import {
   createRasterLayers,
   readSlopePalette,
   slopeBands,
+  slopeLegend,
   zIndexOf,
   type DecodedTile,
   type RasterDeps,
@@ -202,52 +203,46 @@ describe("attributions from source_ids (NFR-07)", () => {
   });
 });
 
-describe("slope classes follow the scenario's limits (01 §E.1 step 6)", () => {
+describe("slope classes follow the scenario's limits (01 §E.1 step 6; FD-076)", () => {
   const legend = mockManifest().layers.find((l) => l.layer_id === "slope")!.legend as ClassesLegend;
 
-  it("slopeBands: the legend's edges with the scenario's caution and hard limits, kept ascending", () => {
-    expect(slopeBands(legend, { cautionDeg: 10, hardDeg: 15 })).toEqual({ lowDeg: 5, cautionDeg: 10, hardDeg: 15, steepDeg: 25 });
-    expect(slopeBands(legend, { cautionDeg: 8, hardDeg: 12 })).toEqual({ lowDeg: 5, cautionDeg: 8, hardDeg: 12, steepDeg: 25 });
-    expect(slopeBands(legend, { cautionDeg: 3, hardDeg: 30 })).toEqual({ lowDeg: 5, cautionDeg: 5, hardDeg: 30, steepDeg: 30 });
-    expect(() => slopeBands({ type: "classes", classes: [[0, 5, "flat"]] }, { cautionDeg: 10, hardDeg: 15 })).toThrow(/5 classes/);
+  it("slope classes follow scenario limits: the only edges are the scenario's caution and hard limits, kept ascending", () => {
+    expect(slopeBands({ cautionDeg: 10, hardDeg: 15 })).toEqual({ cautionDeg: 10, hardDeg: 15 });
+    expect(slopeBands({ cautionDeg: 8, hardDeg: 12 })).toEqual({ cautionDeg: 8, hardDeg: 12 });
+    // a hard limit below the caution limit cannot make the classes overlap
+    expect(slopeBands({ cautionDeg: 20, hardDeg: 10 })).toEqual({ cautionDeg: 20, hardDeg: 20 });
   });
 
-  it("classifySlopeTile: transparent below 5° and at no data; the 04 §C.1 colour and opacity per class", () => {
-    const bands = slopeBands(legend, { cautionDeg: 10, hardDeg: 15 });
-    const out = classifySlopeTile(slopeTile([0, 4.75, 7, 12, 255]), bands, PALETTE);
-    expect(pixel(out, 0)[3]).toBe(0); // 0°: flat, transparent
-    expect(pixel(out, 1)[3]).toBe(0); // 4.75° < 5°
-    expect(pixel(out, 2)).toEqual([0xfd, 0xe7, 0xa9, Math.round(0.4 * 255)]); // 5-10°
-    expect(pixel(out, 3)).toEqual([0xf5, 0xa5, 0x24, Math.round(0.55 * 255)]); // 10-15°
-    expect(pixel(out, 4)[3]).toBe(0); // 255 = no data
+  it("classifySlopeTile: transparent below the caution limit and at no data; caution and over-limit take their 04 §C.1 colour and opacity", () => {
+    const bands = slopeBands({ cautionDeg: 10, hardDeg: 15 });
+    const out = classifySlopeTile(slopeTile([0, 7, 12, 255]), bands, PALETTE);
+    expect(pixel(out, 0)[3]).toBe(0); // 0°
+    expect(pixel(out, 1)[3]).toBe(0); // 7° < caution: no 5° edge any more
+    expect(pixel(out, 2)).toEqual([0xf5, 0xa5, 0x24, Math.round(0.55 * 255)]); // caution..hard
+    expect(pixel(out, 3)[3]).toBe(0); // 255 = no data
   });
 
   it("classifySlopeTile: alpha 0 in the data tile is no data, whatever the value", () => {
     const tile = slopeTile([20]);
     tile.data[3] = 0;
-    expect(pixel(classifySlopeTile(tile, slopeBands(legend, { cautionDeg: 10, hardDeg: 15 }), PALETTE), 0)[3]).toBe(0);
+    expect(pixel(classifySlopeTile(tile, slopeBands({ cautionDeg: 10, hardDeg: 15 }), PALETTE), 0)[3]).toBe(0);
   });
 
-  it("over-limit pixels are hatched and the steepest cross-hatched: stripe pixels opaque, the rest at the class opacity", () => {
-    const bands = slopeBands(legend, { cautionDeg: 10, hardDeg: 15 });
+  it("over-limit pixels are hatched, with no 25° edge: 20° and 60° look alike, stripe pixels opaque, the rest at the class opacity", () => {
+    const bands = slopeBands({ cautionDeg: 10, hardDeg: 15 });
     const over = classifySlopeTile(slopeTile(new Array(8).fill(20)), bands, PALETTE);
     const alphas = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => pixel(over, i)[3]);
     expect(alphas.filter((a) => a === 255)).toHaveLength(4); // 4 px stripe in 8 px
     expect(alphas.filter((a) => a === Math.round(0.65 * 255))).toHaveLength(4);
     expect(pixel(over, 0).slice(0, 3)).toEqual([0xe4, 0x57, 0x2e]);
-
-    const steep = classifySlopeTile(slopeTile(new Array(48).fill(30), 12, 4), bands, PALETTE);
-    const steepAlphas = new Set([...steep.data].filter((_, i) => i % 4 === 3));
-    expect([...steepAlphas].sort((a, b) => a - b)).toEqual([Math.round(0.75 * 255), 255]);
-    // cross-hatch: the second row is not simply the first shifted, both diagonals draw
-    const opaqueAt = (row: number) => [...Array(12).keys()].filter((c) => steep.data[(row * 12 + c) * 4 + 3] === 255);
-    expect(opaqueAt(0)).not.toEqual(opaqueAt(1));
+    const steeper = classifySlopeTile(slopeTile(new Array(8).fill(60)), bands, PALETTE);
+    expect([...steeper.data]).toEqual([...over.data]);
   });
 
   it("the same pixel changes class when the hard limit changes: 12° is caution at 15° and over-limit at 12°", () => {
     const tile = slopeTile([12]);
-    const at15 = classifySlopeTile(tile, slopeBands(legend, { cautionDeg: 10, hardDeg: 15 }), PALETTE);
-    const at12 = classifySlopeTile(tile, slopeBands(legend, { cautionDeg: 10, hardDeg: 12 }), PALETTE);
+    const at15 = classifySlopeTile(tile, slopeBands({ cautionDeg: 10, hardDeg: 15 }), PALETTE);
+    const at12 = classifySlopeTile(tile, slopeBands({ cautionDeg: 10, hardDeg: 12 }), PALETTE);
     expect(pixel(at15, 0).slice(0, 3)).toEqual([0xf5, 0xa5, 0x24]);
     expect(pixel(at12, 0).slice(0, 3)).toEqual([0xe4, 0x57, 0x2e]);
   });
@@ -258,7 +253,7 @@ describe("slope classes follow the scenario's limits (01 §E.1 step 6)", () => {
     await loadTile(sourceOf<DataTile>(controller, "slope"), 4, 0, 0);
     // decoded tile [0, 7, 12, 20, 30, 255] degrees
     const out = encoded.at(-1)!;
-    expect(pixel(out, 1).slice(0, 3)).toEqual([0xfd, 0xe7, 0xa9]); // 7° < caution 8: gentle
+    expect(pixel(out, 1)[3]).toBe(0); // 7° < caution 8
     expect(pixel(out, 2).slice(0, 3)).toEqual([0xe4, 0x57, 0x2e]); // 12° = hard: over limit
   });
 
@@ -291,19 +286,46 @@ describe("slope classes follow the scenario's limits (01 §E.1 step 6)", () => {
     await loadTile(sourceOf<DataTile>(controller, "slope"), 4, 3, 2);
     expect(decode).toHaveBeenCalledWith("sites/mock_site/tiles/slope/4/3/2.png");
   });
+
+  it("slopeLegend: the manifest's class labels over the scenario's edges, never a fixed 5° or 25°", () => {
+    expect(slopeLegend(legend, { cautionDeg: 10, hardDeg: 15 })).toEqual([
+      { key: "caution", label: "caution", fromDeg: 10, toDeg: 15 },
+      { key: "over_limit", label: "over limit", fromDeg: 15, toDeg: null },
+    ]);
+    expect(slopeLegend(legend, { cautionDeg: 8, hardDeg: 12 }).map((c) => [c.fromDeg, c.toDeg])).toEqual([[8, 12], [12, null]]);
+    expect(() => slopeLegend({ type: "classes", classes: [[0, 5, "flat"]] }, { cautionDeg: 10, hardDeg: 15 })).toThrow(/5 classes/);
+  });
 });
 
-describe("palette from design tokens", () => {
+describe("palette from design tokens (FD-065)", () => {
   it("parses hex colours and reads colours and opacities from tokens", () => {
     expect(parseHexColour("#FDE7A9")).toEqual([0xfd, 0xe7, 0xa9]);
     expect(parseHexColour("#fa0")).toEqual([0xff, 0xaa, 0x00]);
     expect(() => parseHexColour("orange")).toThrow(/hex colour/);
     expect(PALETTE.overLimit).toEqual({ rgb: [0xe4, 0x57, 0x2e], opacity: 0.65 });
+    expect(PALETTE.caution).toEqual({ rgb: [0xf5, 0xa5, 0x24], opacity: 0.55 });
   });
 
   it("names a missing or bad token instead of falling back to a hard-coded colour", () => {
-    expect(() => readSlopePalette((n) => (n === "--slope-gt-25" ? "" : TOKENS[n]))).toThrow("--slope-gt-25");
-    expect(() => readSlopePalette((n) => (n === "--slope-opacity-5-10" ? "40%" : TOKENS[n]))).toThrow("--slope-opacity-5-10");
+    expect(() => readSlopePalette((n) => (n === "--slope-15-25" ? "" : TOKENS[n]))).toThrow("--slope-15-25");
+    expect(() => readSlopePalette((n) => (n === "--slope-opacity-10-15" ? "55%" : TOKENS[n]))).toThrow("--slope-opacity-10-15");
+  });
+
+  it("validates the tokens once, at layer creation: a missing token throws from createRasterLayers, not from a tile load", () => {
+    const site = loadedSiteFrom(mockManifest());
+    registerMarsProjection(site.site);
+    const readToken = (name: string): string => (name === "--slope-opacity-15-25" ? "" : TOKENS[name] ?? "");
+    expect(() => createRasterLayers(site, { scenario: scenarioStore(10, 15), deps: { readToken } })).toThrow("--slope-opacity-15-25");
+  });
+});
+
+describe("the ortho basemap is grayscale in OPS only (FD-003)", () => {
+  it("an optical layer carries the marswalk-ortho class (CSS filters it in OPS); a scientific layer does not", () => {
+    const manifest = mockManifest();
+    manifest.layers = manifest.layers.map((l) => (l.layer_id === "elevation" ? { ...l, category: "optical" as const } : l));
+    const { controller } = build(loadedSiteFrom(manifest));
+    expect(controller.getLayer("elevation")!.layer.getClassName()).toContain("marswalk-ortho");
+    expect(controller.getLayer("slope")!.layer.getClassName()).not.toContain("marswalk-ortho");
   });
 });
 

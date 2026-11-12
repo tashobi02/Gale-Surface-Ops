@@ -221,3 +221,68 @@ describe("MapWorkspace debug overlay (T07.13)", () => {
     expect(on.root.ownerDocument.querySelector('[data-testid="debug-overlay"]')).not.toBeNull();
   });
 });
+
+describe("MapWorkspace layers and POI selection (package 08: SCR-03, FD-074, FD-111)", () => {
+  type Ol = { getLayers(): { getArray(): { getZIndex(): number | undefined; getVisible(): boolean }[] } };
+  const visibleAt = (h: MapHandle, z: number): number => h.getMap<Ol>().getLayers().getArray().filter((l) => l.getZIndex() === z && l.getVisible()).length;
+
+  it("the Layers tab is the SCR-03 panel: the manifest's layers, the traverse, the POIs and the EZ stop types, as switches", async () => {
+    const { root } = await workspace(1280);
+    const ids = [...root.querySelectorAll('[data-drawer="left"] [data-layer-id]')].map((r) => r.getAttribute("data-layer-id"));
+    expect(ids).toEqual(expect.arrayContaining(["slope", "elevation", "traverse", "pois", "ez"]));
+    expect(root.querySelector('[data-drawer="left"] [data-slot="panel-pending"]')).toBeNull();
+  });
+
+  it("a layer switch shows and hides the map layer, and the legend follows the scenario's limits", async () => {
+    const { root, handle } = await workspace(1280);
+    expect(visibleAt(handle(), 30)).toBe(0);
+    await click(must(root, '[data-layer-id="slope"] [role="switch"]'));
+    expect(visibleAt(handle(), 30)).toBe(1);
+    const legend = must(root, '[data-layer-id="slope"] [data-slot="layer-legend"]');
+    expect(legend.querySelector('[data-source="scenario.caution_slope_deg"]')!.textContent).toContain("10");
+    expect(legend.querySelector('[data-source="scenario.hard_slope_limit_deg"]')!.textContent).toContain("15");
+    await click(must(root, '[data-layer-id="slope"] [role="switch"]'));
+    expect(visibleAt(handle(), 30)).toBe(0);
+  });
+
+  it("the POI switch hides the POI pins and the EZ switch hides the stop-type markers", async () => {
+    const { root, handle } = await workspace(1280);
+    expect(visibleAt(handle(), 60)).toBe(1);
+    await click(must(root, '[data-layer-id="pois"] [role="switch"]'));
+    expect(visibleAt(handle(), 60)).toBe(0);
+    expect(visibleAt(handle(), 58)).toBe(1);
+    await click(must(root, '[data-layer-id="ez"] [role="switch"]'));
+    expect(visibleAt(handle(), 58)).toBe(0);
+  });
+
+  it("selecting a POI sets selected_poi_id and opens the POI detail drawer, in its own state and not the plan store's waypoint selection", async () => {
+    const { root, plan } = await workspace(1280);
+    const select = vi.spyOn(plan.store, "selectWaypoint");
+    await click(must(root, '[data-drawer="right"] [role="tab"]:nth-child(2)'));
+    const poi = must<HTMLButtonElement>(root, "[data-poi-id]");
+    await click(poi);
+    expect(root.getAttribute("data-selected-poi-id")).toBe(poi.dataset.poiId);
+    expect(must(root, '[data-drawer="right"] [role="tab"][aria-selected="true"]').textContent).toContain("POI detail");
+    expect(select).not.toHaveBeenCalled();
+  });
+
+  it("in the one-drawer layout selecting a POI opens the right drawer and closes the left", async () => {
+    const { root } = await workspace(1024);
+    await click(must(root, '[data-slot="drawer-toggle"][data-for="left"]'));
+    await click(must<HTMLButtonElement>(root, "[data-poi-id]"));
+    expect(must(root, '[data-drawer="right"]').hasAttribute("hidden")).toBe(false);
+    expect(must(root, '[data-drawer="left"]').hasAttribute("hidden")).toBe(true);
+  });
+
+  it("the repaint hook for the harness exists only with debug=1", async () => {
+    const w = window as unknown as { __onNextPostrender?: unknown };
+    delete w.__onNextPostrender;
+    await workspace(1280, { debug: false });
+    expect(w.__onNextPostrender).toBeUndefined();
+    await open.pop()!.unmount();
+    await workspace(1280, { debug: true });
+    expect(typeof w.__onNextPostrender).toBe("function");
+    await open.pop()!.unmount();
+    expect(w.__onNextPostrender).toBeUndefined();
+  });
+});
