@@ -389,6 +389,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 
 | 2026-11-12 | GPT-6.1 Terra (Codex, xhigh), frontend implementer | Package 17 partial: tests first for crew navigation, link age, alert acknowledgement, missing link quality and task read-only state; typed undo | Uses protocol-supplied values and simulated time; missing N-04 bars remain unavailable; package remains wip | Web tests, lint and typecheck; browser checks pending outside sandbox | This Codex session |
 
+| 2026-11-12 | GPT-6.1 Terra (Codex, xhigh), frontend implementer | Package 17 continuation: EVA map, responsive layout, contrast and tap confirmation, rover entry, warnings, stop tasks, and harness checks | Tests first; N-04 link quality and N-29 reason revision remain unavailable; browser checks await the orchestrator outside the sandbox | Obidit Islam | This Codex session |
+
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).

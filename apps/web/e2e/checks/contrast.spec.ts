@@ -19,12 +19,7 @@ const ROUTES: { hash: string; live: boolean; pending?: string }[] = [
   { hash: "#/join", live: false },
   { hash: "#/hud/EV1", live: true },
   { hash: "#/ops", live: true },
-  {
-    hash: "#/eva/EV1",
-    live: true,
-    pending:
-      "package 17: HAVEN and O2 card text 1.02 : 1 (ink #1A1A1A on the --panel card: `.card` background overrides `.status-nominal` fill)",
-  },
+  { hash: "#/eva/EV1", live: true },
   { hash: "#/report", live: false },
 ];
 

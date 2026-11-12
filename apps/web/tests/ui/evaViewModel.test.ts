@@ -239,7 +239,7 @@ describe.skipIf(PENDING)("EVA view model on mock fixtures (T24.02)", () => {
     // Link lost: unlinked and stale
     expect(metadata.link.linked).toBe(false);
     expect(metadata.link.stale).toBe(true);
-    // TODO(decision): a real telemetry age comes from the Hab Core; the selector must not fabricate one.
+    // The fixture has no last-linked time, so age is unavailable.
     expect(metadata.link.ageSeconds).toBeNull();
     // No server field gives link quality: the bars are unknown, not 0 and not a formula of the hop count.
     expect(metadata.link.bars).toBeNull();

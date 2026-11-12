@@ -681,3 +681,40 @@ describe("EVA type scale: status words and map labels are at least 16 px (04 §A
     expect(container.textContent).toContain("SELECT LAYERS");
   });
 });
+
+describe("package 17 accessibility controls", () => {
+  it("contrast toggle switches palette", async () => {
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
+    const button = must(view.container, '[aria-label="Toggle high contrast"]');
+    await click(button);
+    expect(must(view.container, '[data-screen="SCR-12"]').getAttribute("data-contrast")).toBe("high");
+  });
+  it("tap confirm fallback sends only after the second tap", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect"));
+    const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot: snapshotOf("connect") }));
+    await click(must(view.container, '[aria-label="Tap confirm"]'));
+    const summon = must(view.container, "#action-summon-rover");
+    await click(summon);
+    expect(sent).toHaveLength(0);
+    await click(summon);
+    expect(sent).toEqual([{ kind: "SUMMON_VEHICLE", args: { crew: ["EV1"] } }]);
+  });
+});
+
+describe("package 17 map and layout", () => {
+  it("provides a map host rather than the placeholder", async () => {
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
+    expect(view.container.querySelector('[data-slot="map-canvas"]')).not.toBeNull();
+    expect(view.container.textContent).not.toContain("[ Gale Crater");
+  });
+});
+
+describe("package 17 stale telemetry", () => {
+  it("shows last-linked age on HAVEN when unlinked", async () => {
+    const base = snapshotOf("connect");
+    const snapshot: Snapshot = { ...base, sim_time: "2024-05-20T13:05:30Z", crew: base.crew.map((crew) => ({ ...crew, linked: false, stale: true, last_linked_sim_time: "2024-05-20T13:05:00Z" })) };
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot }));
+    const age = must(view.container, '[data-slot="haven"] [data-source="snapshot:sim_time+crew.last_linked_sim_time"]');
+    expect(age.textContent).toContain("0:30");
+  });
+});

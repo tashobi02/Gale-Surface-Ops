@@ -117,8 +117,7 @@ describe("EvaRoute (SCR-12 with its HUD button and SCR-14 sheet)", () => {
         { alert_id: "a-1", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"], raised_seq: 5, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {} },
       ],
     });
-    expect(container.querySelector('[data-screen="SCR-14"]')).toBeNull();
-    await click(must(container, 'button[aria-label="Review alert options"]'));
+    expect(container.querySelector('[data-screen="SCR-14"]')).not.toBeNull();
     const sheet = must(container, '[data-screen="SCR-14"]');
     expect(sheet.getAttribute("data-variant")).toBe("eva");
     await click(must(sheet, 'button[aria-label="Close options sheet"]'));
@@ -258,5 +257,34 @@ describe("JoinRoute (SCR-10)", () => {
     await click(must(taken, 'button[aria-label="Cancel"]'));
     expect(window.location.hash).toBe("");
     expect(taken.textContent).not.toMatch(/will be disconnected/i);
+  });
+});
+
+describe("package 17 EVA rover entry", () => {
+  it("opens SCR-15 from TASK ROVER", async () => {
+    openSession("eva:EV1");
+    const view = await mount(createElement(EvaRoute, { crewId: "EV1" }));
+    await click(must(view.container, "#action-task-rover"));
+    expect(view.container.querySelector('[data-screen="SCR-15"]')).not.toBeNull();
+  });
+});
+
+describe("package 17 warning navigation", () => {
+  it("opens options when a new warning arrives", async () => {
+    const receive = openSession("eva:EV1");
+    const view = await mount(createElement(EvaRoute, { crewId: "EV1" }));
+    const base = wsFixtures.connect[0] as Snapshot;
+    await receive({ ...base, alerts: [{ alert_id: "a-new", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"], raised_seq: 5, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {} }] });
+    expect(view.container.querySelector('[data-screen="SCR-14"]')).not.toBeNull();
+  });
+});
+
+describe("package 17 crew-wide warning", () => {
+  it("opens options for a warning addressed to all crew", async () => {
+    const receive = openSession("eva:EV1");
+    const view = await mount(createElement(EvaRoute, { crewId: "EV1" }));
+    const base = wsFixtures.connect[0] as Snapshot;
+    await receive({ ...base, alerts: [{ alert_id: "a-all", code: "RADIATION_ALERT", level: "warning", subjects: [], raised_seq: 5, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {} }] });
+    expect(view.container.querySelector('[data-screen="SCR-14"]')).not.toBeNull();
   });
 });

@@ -19,6 +19,8 @@ import {
   selectMetadataStrip,
   type EvaViewModel,
 } from "../eva/viewModel";
+import { MiniMap } from "../eva/MiniMap";
+import "./scr12EvaTablet.css";
 import { EvaActionRow } from "../eva/HoldToConfirm";
 import { StatusIcon } from "../components/statusIcon";
 import {
@@ -49,6 +51,7 @@ export interface EvaTabletProps {
   onOpenHud?: () => void;
   /** Handler to open SCR-14 Options sheet. */
   onOpenOptions?: () => void;
+  optionsOpen?: boolean;
   /** Handler to open SCR-15 Rover tasking sheet. */
   onOpenRoverTasking?: () => void;
   /** Handler to open full-screen map mode. */
@@ -78,6 +81,7 @@ export function EvaTablet({
   snapshot,
   onOpenHud,
   onOpenOptions,
+  optionsOpen = false,
   onOpenRoverTasking,
   onOpenFullScreenMap,
   orientation = "portrait",
@@ -101,12 +105,14 @@ export function EvaTablet({
   const vm: EvaViewModel = selectEvaViewModel(viewSnapshot, crewId);
 
   // Stop task list open state (TASKS button toggles the list).
+  const [contrast, setContrast] = useState(false);
+  const [tapFallback, setTapFallback] = useState(false);
   const [tasksExpanded, setTasksExpanded] = useState<boolean>(false);
 
   // FR-50: the list is in full only while the crew member is at the stop; walking, heading for a haven, sheltered (or
-  // not out yet) and any unacknowledged warning or caution leave the count. U-59 (collapse rules) is still open.
+  // not out yet) and any unacknowledged warning or caution leave the count.
   const alertCollapses = vm.alertSlot !== null && !vm.alertSlot.acknowledged && (vm.alertSlot.level === "warning" || vm.alertSlot.level === "caution");
-  const collapsed = vm.activity !== "AT_STOP" || alertCollapses;
+  const collapsed = vm.activity !== "AT_STOP" || alertCollapses || optionsOpen;
   const showTasksList = tasksExpanded;
 
   const isLandscape = orientation === "landscape";
@@ -173,6 +179,8 @@ export function EvaTablet({
       data-surface="eva"
       data-mode="ops"
       data-orientation={orientation}
+      data-contrast={contrast ? "high" : "normal"}
+      data-tasks-open={showTasksList ? "true" : "false"}
       className={`scr12-eva-tablet ${className}`}
       style={rootStyle}
     >
@@ -196,6 +204,7 @@ export function EvaTablet({
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
+              gap: "8px",
               padding: "8px 16px",
             }}
           >
@@ -272,6 +281,11 @@ export function EvaTablet({
           <span style={{ fontSize: "16px", color: "var(--text-2, #A9B3BE)", fontFamily: "var(--font-mono, monospace)" }}>
             {havenTargetLabel(vm.haven)}
           </span>
+          {linked === false && <span {...provAttrs(vm.metadata.link.ageSeconds === null
+            ? unavailableOf("derived", "crew.last_linked_sim_time")
+            : { prov: "derived", src: "snapshot:sim_time+crew.last_linked_sim_time" })}>
+            STALE {fmtDuration(vm.metadata.link.ageSeconds)}
+          </span>}
         </div>
 
         {/* O2 card: immediately right on same row (04 §E.5) */}
@@ -330,7 +344,7 @@ export function EvaTablet({
             <span className="micro" style={{ color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>
               NEXT {vm.nextStop ? `· ${vm.nextStop.stopName}` : `· ${UNAVAILABLE}`}
             </span>
-            {/* TASKS button; counts are "—" until a stop is known (U-51 is still open) */}
+            {/* TASKS button; counts are "—" until a stop is known */}
             <TasksButton
               doneCount={vm.nextStop ? vm.nextStop.taskCount.done : null}
               totalCount={vm.nextStop ? vm.nextStop.taskCount.total : null}
@@ -364,6 +378,9 @@ export function EvaTablet({
             </span>
           </div>
 
+
+        </div>
+
           {/* Expanded Stop Tasks List (FR-50) */}
           {showTasksList && (
             <div
@@ -387,12 +404,11 @@ export function EvaTablet({
                 // UNDO is a reversal on the server ({state: "TODO", undo: true}); a bare TODO is never sent. While the link
                 // is down it cancels a waiting change on the client instead.
                 onUndo={(taskId) => changes.undo(taskId)}
-                // SKIP only opens reason capture; the chosen reason sends the one SKIPPED change.
+                // SKIP records other immediately; reason revision awaits N-29.
                 onReason={(taskId, reason) => changes.start(taskId, { state: "SKIPPED", reason })}
               />
             </div>
           )}
-        </div>
 
         {/* Mini-map Card (04 §E.5) */}
         <div
@@ -406,45 +422,7 @@ export function EvaTablet({
             background: "#080A0D",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="micro" style={{ color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>SURFACE MAP</span>
-            <button
-              id="action-open-full-map"
-              type="button"
-              className="btn"
-              style={{
-                minHeight: "56px",
-                padding: "8px 14px",
-                fontSize: "16px",
-                cursor: "pointer",
-              }}
-              onClick={onOpenFullScreenMap}
-            >
-              FULL MAP
-            </button>
-          </div>
-          {/* The map area is a real button (a large target for gloves), not a clickable div. */}
-          <button
-            type="button"
-            data-slot="mini-map-open"
-            aria-label="Open full-screen map"
-            onClick={onOpenFullScreenMap}
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              flex: 1,
-              minHeight: "56px",
-              background: "transparent",
-              border: "none",
-              color: "inherit",
-              cursor: "pointer",
-            }}
-          >
-            <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--text-3, #8592A0)" }}>
-              [ Gale Crater · Mount Sharp Traverse · IAU_2015:49900 ]
-            </span>
-          </button>
+          <MiniMap snapshot={activeSnapshot ?? null} onOpen={onOpenFullScreenMap} />
         </div>
       </div>
 
@@ -477,7 +455,7 @@ export function EvaTablet({
           {glyphOf(vm.metadata.doseUgy)}
         </span>
         <span>·</span>
-        <span
+        {changes.notSyncedTaskIds().length > 0 ? <span data-provenance="simulated" data-source="snapshot:tasks">NOT SYNCED</span> : <span
           {...provAttrs(
             vm.metadata.link.bars === null
               ? unavailableOf("simulated", "crew.link_quality")
@@ -491,7 +469,7 @@ export function EvaTablet({
               <StatusIcon status="caution" word="STALE" showWord={true} />
             </span>
           )}
-        </span>
+        </span>}
       </div>
 
       {/* ------------------------------------- Action Row (56–72 px) */}
@@ -507,6 +485,10 @@ export function EvaTablet({
         <EvaActionRow
           client={hab}
           crewId={crewId}
+          contrast={contrast}
+          tapFallback={tapFallback}
+          onContrast={() => setContrast((value) => !value)}
+          onTapFallback={() => setTapFallback((value) => !value)}
           linked={linked}
           onOpenHud={onOpenHud}
           onOpenRoverTasking={onOpenRoverTasking}

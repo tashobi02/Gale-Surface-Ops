@@ -7,15 +7,14 @@ import { expect, test, type Page } from "@playwright/test";
 import { axeScan, type HtmlMode } from "../lib/a11y";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
+import { openEvaFixture, type EvaFixtureState } from "../lib/evaFixture";
 import { withManifestlessSite } from "../lib/siteBundle";
 
 const LIVE = /^#\/(ops|eva|hud)/;
 
 // Routes that render real content today. Each screen package adds its own route here when it builds the screen, until the
 // list equals `routeHashes()` (package 99 asserts that).
-// `#/eva/EV1` is left out until package 17: axe measures HAVEN and O2 card text at 1.02 : 1 (`.card` background overrides the
-// `.status-nominal` fill), the same defect the `contrast` check lists for that route.
-const BUILT_ROUTES = ["#/join", "#/ops", "#/hud/EV1", "#/report"];
+const BUILT_ROUTES = ["#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report"];
 
 test("axe: every built route has no serious or critical violation", async ({ page }, testInfo) => {
   for (const hash of BUILT_ROUTES) {
@@ -68,4 +67,17 @@ test("axe: SCR-04 plan panel Editing state with a selected stop and the keyboard
   await addStopByKeyboard(page, 2);
   await page.getByRole("group", { name: "Move stop 2" }).waitFor();
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-editing` });
+});
+
+
+test("axe: EVA tablet states and high contrast have no serious or critical violation", async ({ page }, testInfo) => {
+  const states: EvaFixtureState[] = ["walking", "at-stop", "undo-window", "ops-added-task", "alerting", "no-hab-link", "to-haven"];
+  for (const state of states) {
+    await openEvaFixture(page, state);
+    if (state === "at-stop" || state === "ops-added-task") await page.getByTestId("tasks-button").click();
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}` });
+    if (state === "alerting") await page.getByRole("button", { name: "Close options sheet" }).click();
+    await page.getByRole("button", { name: "Toggle high contrast" }).click();
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}-contrast` });
+  }
 });

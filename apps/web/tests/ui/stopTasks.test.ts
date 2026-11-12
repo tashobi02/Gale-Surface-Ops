@@ -533,63 +533,22 @@ describe("StopTaskList interaction: real clicks (FR-50)", () => {
     expect(calls.tick.mock.calls).toEqual([["t-s2-01"]]);
   });
 
-  it("SKIP sends nothing until a reason is chosen, then exactly one reason-bearing call", async () => {
+  it("SKIP immediately records other", async () => {
     const { calls, element } = list();
     const { container } = await mount(element);
-
     await click(must(container, '[aria-label^="Skip task: Photograph"]'));
-    // Reason capture is open; nothing was sent for the SKIP tap itself.
-    expect(calls.reason).not.toHaveBeenCalled();
+    expect(calls.reason.mock.calls).toEqual([["t-s2-01", "other"]]);
     expect(calls.tick).not.toHaveBeenCalled();
-    const picker = must(container, '[role="group"][aria-label="Reason for skipping"]');
-    expect([...picker.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["time", "terrain", "alert", "other", "CANCEL"]);
-
-    await click(must(container, '[aria-label="Reason: terrain"]'));
-    expect(calls.reason.mock.calls).toEqual([["t-s2-01", "terrain"]]);
-    // The picker closes after the reason; no second send.
-    expect(container.querySelector('[role="group"]')).toBeNull();
-    expect(calls.reason).toHaveBeenCalledTimes(1);
   });
 
-  it("CANCEL closes the reason picker without a reason or a command, and SKIP is offered again", async () => {
-    const { calls, element } = list();
-    const { container } = await mount(element);
-
-    await click(must(container, '[aria-label^="Skip task: Photograph"]'));
-    expect(container.querySelector('[role="group"][aria-label="Reason for skipping"]')).not.toBeNull();
-    await click(must(container, '[aria-label="Cancel skip"]'));
-
-    expect(container.querySelector('[role="group"]')).toBeNull();
-    expect(container.querySelector('[aria-label^="Skip task: Photograph"]')).not.toBeNull();
-    expect(calls.reason).not.toHaveBeenCalled();
-    expect(calls.tick).not.toHaveBeenCalled();
-    expect(calls.undo).not.toHaveBeenCalled();
-  });
-
-  it("the CANCEL control is at least 56 px like the reasons", async () => {
+  it("tick and skip are glove-sized", async () => {
     const { element } = list();
     const { container } = await mount(element);
-    await click(must(container, '[aria-label^="Skip task: Photograph"]'));
-    const cancel = must<HTMLElement>(container, '[aria-label="Cancel skip"]');
-    expect(cancel.style.minHeight).toBe("var(--target-eva, 56px)");
-    expect(cancel.style.minWidth).toBe("var(--target-eva, 56px)");
-  });
-
-  it("reason and tick buttons are at least 56 px in both dimensions with at least 8 px between reasons", async () => {
-    const { element } = list();
-    const { container } = await mount(element);
-    await click(must(container, '[aria-label^="Skip task: Photograph"]'));
-
-    const targets = [
-      must<HTMLElement>(container, '[aria-label^="Mark task done"]'),
-      ...container.querySelectorAll<HTMLElement>('[aria-label^="Reason: "]'),
-    ];
-    expect(targets.length).toBe(5);
-    for (const el of targets) {
-      expect(el.style.minHeight).toBe("var(--target-eva, 56px)");
-      expect(el.style.minWidth).toBe("var(--target-eva, 56px)");
+    for (const selector of ['[aria-label^="Mark task done"]', '[aria-label^="Skip task"]']) {
+      const target = must<HTMLElement>(container, selector);
+      expect(target.style.minHeight).toBe("var(--target-eva, 56px)");
+      expect(target.style.minWidth).toBe("var(--target-eva, 56px)");
     }
-    expect(must<HTMLElement>(container, '[aria-label="Reason for skipping"]').style.gap).toBe("8px");
   });
 
   it("read-only shows no controls, so nothing can be sent", async () => {
@@ -649,15 +608,10 @@ describe("EVA tablet task list: one UPDATE_STOP_TASK per action (FR-50)", () => 
     expect(must(container, '[data-testid="task-row-t-s2-01"]').getAttribute("data-state")).toBe("DONE");
   });
 
-  it("skipping sends nothing until the reason is chosen, then one SKIPPED with that reason", async () => {
+  it("skipping sends SKIPPED with other immediately", async () => {
     const { container, sent } = await tabletWithList();
-
     await click(must(container, '[aria-label^="Skip task: Photograph"]'));
-    expect(sent).toHaveLength(0);
-    await click(must(container, '[aria-label="Reason: time"]'));
-    expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "SKIPPED", reason: "time" } }]);
-    // No reasonless SKIPPED was ever sent.
-    expect(sent.every((c) => c.args.reason !== undefined)).toBe(true);
+    expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "SKIPPED", reason: "other" } }]);
   });
 
   it("without a client the list is read-only and nothing can be sent", async () => {
@@ -783,5 +737,39 @@ describe("task state and text carry their own provenance (FR-15, NFR-05; 05 Stop
 
     const none = await row({ ...mockTasks[0], origin: undefined as never, provenance: {} });
     expect(must(none.container, '[data-field="text"]').getAttribute("data-origin")).toBe("—");
+  });
+});
+
+describe("package 17 skip interaction", () => {
+  it("records other immediately", async () => {
+    const onReason = vi.fn();
+    const view = await mount(createElement(StopTaskRow, {
+      task: mockTasks[0]!, readOnly: false, inUndoWindow: false, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason,
+    }));
+    await click(must(view.container, '[aria-label^="Skip task:"]'));
+    expect(onReason).toHaveBeenCalledWith(mockTasks[0]!.task_id, "other");
+  });
+});
+
+describe("package 17 placement", () => {
+  it("phone landscape list is a sibling of the map column", async () => {
+    const base = storeFromBeat("connect").state()!;
+    const snapshot: Snapshot = { ...base, plan: null as never, tasks: mockTasks, crew: base.crew.map((c) => ({ ...c, activity: "AT_STOP" as const })) };
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot }));
+    await click(must(view.container, '[data-testid="tasks-button"]'));
+    const list = must(view.container, '[data-slot="stop-task-list"]');
+    expect(list.parentElement).toBe(must(view.container, '[data-slot="mini-map"]').parentElement);
+  });
+});
+
+
+describe("package 17 dropped tasks", () => {
+  it("does not offer undo for a dropped task even during the previous undo window", () => {
+    const html = renderToStaticMarkup(createElement(StopTaskRow, {
+      task: mockTasks[3]!, readOnly: false, inUndoWindow: true, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason: () => {},
+    }));
+    expect(html).not.toContain("Undo task change");
   });
 });

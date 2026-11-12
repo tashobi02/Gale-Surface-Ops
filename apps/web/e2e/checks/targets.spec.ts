@@ -5,6 +5,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { expectGaps, expectTargetSize, targets } from "../lib/geometry";
+import { openEvaFixture } from "../lib/evaFixture";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 
@@ -13,7 +14,7 @@ const EVA_GAP = 8;
 const OPS_MIN = 32;
 const PLANNER_COARSE_MIN = 44;
 
-test.fixme("targets: EVA and HUD targets are at least 56 px with 8 px gaps (enabled by package 17)", async ({ page }) => {
+test("targets: EVA and HUD targets are at least 56 px with 8 px gaps (enabled by package 17)", async ({ page }) => {
   for (const hash of ["#/eva/EV1", "#/hud/EV1"]) {
     await page.goto(`/${hash}`);
     await waitForSnapshot(page);
@@ -57,4 +58,12 @@ test("targets: add-stop and keyboard-move targets are at least 44 px under a coa
   expect(list.some((t) => /Add stop/.test(t.label))).toBe(true);
   expect(list.some((t) => /one cell east/.test(t.label))).toBe(true);
   expectTargetSize(list, PLANNER_COARSE_MIN);
+});
+
+test.fixme("needs N-29: cycle a skipped task reason during the undo window", async ({ page }) => {
+  await openEvaFixture(page, "at-stop");
+  await page.getByTestId("tasks-button").click();
+  await page.getByRole("button", { name: /^Skip task:/ }).click();
+  await page.getByRole("button", { name: /reason/i }).click();
+  await expect(page.getByText(/reason: time/i)).toBeVisible();
 });

@@ -30,7 +30,7 @@ test("viewport360: BRIEF routes fit 360 px", async ({ page }) => {
   }
 });
 
-test.fixme("viewport360: the EVA tablet fits 360 px (enabled by package 17)", async ({ page }) => {
+test("viewport360: the EVA tablet fits 360 px (enabled by package 17)", async ({ page }) => {
   await page.goto("/#/eva/EV1");
   await page.waitForLoadState("networkidle");
   await expectNoOverflow(page, "#/eva/EV1");

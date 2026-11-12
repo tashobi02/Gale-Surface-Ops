@@ -10,7 +10,7 @@
  *   provenance is taken directly from snapshot.provenance.
  * - Status comes from server alerts (HAVEN_TIME_EXCEEDED, RADIATION_ALERT, CONSUMABLES_LOW),
  *   never from client-side threshold math.
- * - Missing or unavailable values render "—" per 04 no-data rule with TODO(decision) recording.
+ * - Missing or unavailable values render "—" per the 04 no-data rule.
  * - A provenance label is read from the data and checked against the six classes (`isProvenance`), never cast. Where a
  *   snapshot's provenance map has no valid entry for a Crew field, the class 05 gives that field is shown.
  * - A cleared alert (`cleared_seq` set) no longer counts for status or for the alert slot.
@@ -84,13 +84,13 @@ export interface EvaMetadataStripView {
 /**
  * Link state of one crew member. `linked` and `stale` are null when the Hab Core has not reported
  * the crew member (unknown, never assumed linked). `ageSeconds` is null until the Hab Core supplies a
- * telemetry age: the client does not invent one (TODO(decision): see docs/tasks/status.md T24.03 and T24.07).
+ * last-linked sim time; the client does not invent one.
  */
 export interface EvaLinkView {
   readonly linked: boolean | null;
   /**
    * Link quality bars: always null for now. No Hab Core field carries link quality and the client does not derive
-   * one (the former `4 - hops` rule was invented). TODO(decision): TASK-32 T32.01 (Sadman) to supply it.
+   * one (N-04).
    */
   readonly bars: number | null;
   readonly ageSeconds: number | null;
@@ -229,7 +229,7 @@ export function selectO2(snapshot: Snapshot | null, crewId: CrewId): EvaO2View {
     status = o2Alert.level === "warning" ? "warning" : "caution";
   }
 
-  // Time left: read from alert if available, otherwise "—". TODO(decision): Sadman to supply o2_time_left_min on crew.
+  // Time left comes from the crew record, or is unavailable.
   // Its class is the server's, from the alert's own provenance (simulated today); a number without a valid class is not
   // shown, because FR-15 allows no unlabelled value.
   const crewTimeLeft = crew?.o2_remaining_min;

@@ -10,9 +10,7 @@
  *     DONE: drawn check in square (never filled ■, G-32) + "DONE"
  *     SKIPPED: ⊘ + "SKIPPED"
  *     DROPPED: ⊘ + "DROPPED"
- * - One tap ticks DONE; SKIP opens reason capture (time, terrain, alert, other). Skipping sends exactly one
- *   command, after the reason is chosen (onReason); the SKIP tap itself sends nothing, and CANCEL closes the
- *   picker without a reason or a command.
+ * - One tap ticks DONE; SKIP records other immediately. Revising the reason awaits N-29.
  * - 5-s undo window shows UNDO button (the window itself is kept by the caller: useStopTaskChanges).
  * - Unsynced state shows "not synced" indicator.
  * - Ops-added task displays "added by ops" tag.
@@ -20,7 +18,7 @@
  * - Read-only mode renders without interactive controls.
  */
 
-import { useState, type CSSProperties, type ReactElement } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 import type { CrewId, Provenance, StopTask, StopTaskReason } from "@marswalk/protocol";
 import { isProvenance } from "../../eva/viewModel";
 import { provAttrs } from "../../components/provenance";
@@ -37,7 +35,7 @@ export interface StopTaskListProps {
   /** The Hab Core's reason for each change it rejected, by task id; shown on the row. */
   rejections?: Record<string, string>;
   onTick: (taskId: string) => void;
-  /** Notification only: fired when SKIP opens reason capture. It must not send a command; `onReason` does (once). */
+  /** Notification only: fired when SKIP records its default reason. */
   onSkip?: (taskId: string) => void;
   onUndo: (taskId: string) => void;
   onReason: (taskId: string, reason: StopTaskReason) => void;
@@ -52,7 +50,7 @@ export interface StopTaskRowProps {
   /** The Hab Core's reason for rejecting the last change to this task ("INVALID: …"). */
   rejection?: string;
   onTick: (taskId: string) => void;
-  /** Notification only: fired when SKIP opens reason capture. It must not send a command. */
+  /** Notification only: fired when SKIP records its default reason. */
   onSkip?: (taskId: string) => void;
   onUndo: (taskId: string) => void;
   onReason?: (taskId: string, reason: StopTaskReason) => void;
@@ -77,7 +75,6 @@ function taskFieldAttrs(task: StopTask, field: "state" | "text"): ReturnType<typ
   return provAttrs({ prov: isProvenance(given) ? given : fallback, src: `snapshot:tasks.${task.task_id}.${field}` });
 }
 
-const REASONS: StopTaskReason[] = ["time", "terrain", "alert", "other"];
 
 export function StopTaskRow({
   task,
@@ -91,7 +88,6 @@ export function StopTaskRow({
   onReason,
   className = "",
 }: StopTaskRowProps): ReactElement {
-  const [showReasonPicker, setShowReasonPicker] = useState(false);
 
   const rowStyle: CSSProperties = {
     minHeight: "var(--target-eva, 56px)",
@@ -137,19 +133,9 @@ export function StopTaskRow({
     color: "var(--text-1, #ECEFF2)",
   };
 
-  // SKIP only opens reason capture; the single UPDATE_STOP_TASK is sent by handleReasonSelect.
   const handleSkipClick = (): void => {
-    setShowReasonPicker(true);
     onSkip?.(task.task_id);
-  };
-
-  const handleReasonCancel = (): void => {
-    setShowReasonPicker(false);
-  };
-
-  const handleReasonSelect = (reason: StopTaskReason): void => {
-    setShowReasonPicker(false);
-    onReason?.(task.task_id, reason);
+    onReason?.(task.task_id, "other");
   };
 
   return (
@@ -248,7 +234,7 @@ export function StopTaskRow({
       </div>
 
       {/* Action controls (Tick, Skip, Undo, Reason picker) */}
-      {!readOnly && (
+      {!readOnly && task.state !== "DROPPED" && (
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {inUndoWindow && (
             <button
@@ -261,7 +247,7 @@ export function StopTaskRow({
             </button>
           )}
 
-          {task.state === "TODO" && !inUndoWindow && !showReasonPicker && (
+          {task.state === "TODO" && !inUndoWindow && (
             <button
               type="button"
               onClick={handleSkipClick}
@@ -272,29 +258,7 @@ export function StopTaskRow({
             </button>
           )}
 
-          {showReasonPicker && (
-            <div role="group" aria-label="Reason for skipping" style={{ display: "flex", gap: "8px" }}>
-              {REASONS.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => handleReasonSelect(r)}
-                  style={{ ...actionButtonStyle, padding: "4px 8px" }}
-                  aria-label={`Reason: ${r}`}
-                >
-                  {r}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={handleReasonCancel}
-                style={{ ...actionButtonStyle, padding: "4px 8px" }}
-                aria-label="Cancel skip"
-              >
-                CANCEL
-              </button>
-            </div>
-          )}
+
         </div>
       )}
     </div>

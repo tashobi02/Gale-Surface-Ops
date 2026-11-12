@@ -39,3 +39,4 @@ Rule for every frontend package: a field the backend has not shipped renders "â€
 | N-26 | Real worker results | Full `PLAN_RESULT` with radiation and `DARKNESS` warnings (T05.32, T06.x) | Verify checks | 28 |
 | N-27 | EVA end | Session status `ended` and the command that ends an EVA, so SCR-11 â†’ SCR-17 can be driven from the UI | 03 SCR-11 Ended | 19, 29 |
 | N-28 | Haven fields | Haven bands per tick for the ops map (T23.03) and planning haven values per leg (T05b.04) | FR-39 | 11, 21 |
+| N-29 | Revise a skipped task reason during the undo window | Permit an actor to change the reason on its own SKIPPED task without undoing and re-skipping it; preserve the audit and revision rules | FD-028; current engine accepts SKIPPED only from TODO | 17 |

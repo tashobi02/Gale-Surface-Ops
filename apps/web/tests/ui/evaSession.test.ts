@@ -179,12 +179,10 @@ describe("stop task changes are sent at once; UNDO reverses them on the server f
     expect(sent).toEqual([DONE]);
   });
 
-  it("SKIP sends the reason-bearing change when the reason is chosen; UNDO then reverses it", async () => {
+  it("SKIP sends other immediately; UNDO then reverses it", async () => {
     const { container, sent } = await tablet();
     await click(must(container, '[aria-label^="Skip task: Image"]'));
-    expect(sent).toHaveLength(0);
-    await click(must(container, '[aria-label="Reason: terrain"]'));
-    expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: TASK_ID, state: "SKIPPED", reason: "terrain" } }]);
+    expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: TASK_ID, state: "SKIPPED", reason: "other" } }]);
     expect(rowState(container)).toBe("SKIPPED");
     await click(must(container, '[aria-label^="Undo task change: Image"]'));
     expect(sent[1]).toEqual(UNDO);
