@@ -225,9 +225,7 @@ export function connectHab(options: HabClientOptions): HabClient {
         break;
       case "STATE_DELTA": {
         if (!snapshot || msg.seq < seq) return;
-        let next: Snapshot = snapshot;
-        for (const change of msg.changes) next = withPath(next, change.path.split("/"), change.value) as Snapshot;
-        snapshot = next;
+        snapshot = applyStateDelta(snapshot, msg.changes);
         seq = msg.seq;
         break;
       }
@@ -364,4 +362,18 @@ function withPath(node: unknown, parts: string[], value: unknown, list = ""): un
   }
   console.warn(`habClient: delta path ends at a non-object (${key})`);
   return node;
+}
+
+/**
+ * The one STATE_DELTA applicator (02 §E.6), shared by the live client and the recorded replay (net/replaySource.ts):
+ * a copy of `snapshot` with every change applied. A delta without `changes`, or a change without a string path, changes
+ * nothing; an unresolvable path leaves the snapshot unchanged and logs it.
+ */
+export function applyStateDelta(snapshot: Snapshot, changes: readonly { path: string; value: unknown }[] | undefined): Snapshot {
+  let next: Snapshot = snapshot;
+  for (const change of Array.isArray(changes) ? changes : []) {
+    if (!change || typeof change.path !== "string") continue;
+    next = withPath(next, change.path.split("/"), change.value) as Snapshot;
+  }
+  return next;
 }

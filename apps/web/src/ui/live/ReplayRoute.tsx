@@ -27,8 +27,8 @@ function Playback({ source, recording }: { source: ReplaySource; recording: Reco
       <button type="button" onClick={() => { setPlaying(false); source.step(); }} disabled={ended}>Step</button>{" "}
       <button type="button" onClick={() => { source.reset(); setPlaying(false); }}>Restart</button>
       <p>Recorded log hash: <span data-recorded-log-hash data-provenance="replayed" data-source="recording:log_hash">{recording.log_hash}</span></p>
-      <p>Verified log hash: <span data-log-hash data-provenance="derived" data-source={source.verifiedHash() ? "recording:events" : "unavailable:recording.events"}>{source.verifiedHash() ?? "—"}</span></p>
-      {!source.verifiedHash() && <p role="status">The recording does not contain a verifiable complete log.</p>}
+      <p>Verified log hash: <span data-log-hash data-provenance="derived" data-source={source.hashCheck().status === "verified" ? "recording:events" : "unavailable:recording.events"}>{source.hashCheck().status === "verified" ? source.hashCheck().computed : "—"}</span></p>
+      {source.hashCheck().status !== "verified" && <p role="status">{source.hashCheck().reason}</p>}
     </header>
     {snapshot?.session.status !== "ENDED" && <fieldset disabled aria-label="Read-only recorded ops view" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <OpsConsole client={source} snapshot={snapshot} {...selectOpsProps(snapshot, events)} />
