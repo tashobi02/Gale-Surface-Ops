@@ -34,6 +34,12 @@ function field(v: unknown): string {
   return UNAVAILABLE;
 }
 
+/** Event envelope and Hab Core text describe simulated session state; field chips retain their original classes. */
+function eventAttrs(event: LogEvent, path: string, present = true): ReturnType<typeof provAttrs> {
+  const source = `event:${event.kind}/${field(event.seq)}/${path}`;
+  return provAttrs(present ? { prov: "simulated", src: source } : unavailableOf("simulated", source));
+}
+
 export type EventCategory = "ALL" | "ALERTS" | "CREW" | "TASKS" | "VEHICLES" | "LINK" | "SYSTEM";
 
 export interface EventLogProps {
@@ -55,13 +61,13 @@ export interface EventLogProps {
 export function formatSimTime(iso: string): string {
   try {
     const d = new Date(iso);
-    if (isNaN(d.getTime())) return iso;
+    if (isNaN(d.getTime())) return UNAVAILABLE;
     const hh = String(d.getUTCHours()).padStart(2, "0");
     const mm = String(d.getUTCMinutes()).padStart(2, "0");
     const ss = String(d.getUTCSeconds()).padStart(2, "0");
     return `${hh}:${mm}:${ss}`;
   } catch {
-    return iso;
+    return UNAVAILABLE;
   }
 }
 
@@ -380,7 +386,7 @@ export function EventLog({
             return (
               <div
                 key={ev.seq}
-                data-seq={ev.seq}
+                data-seq={field(ev.seq)}
                 data-kind={ev.kind}
                 data-actor={ev.actor}
                 role="button"
@@ -408,17 +414,19 @@ export function EventLog({
               >
                 {/* Monotonic sequence number */}
                 <span
+                  {...eventAttrs(ev, "seq", field(ev.seq) !== UNAVAILABLE)}
                   style={{
                     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
                     color: "var(--text-3, #8592A0)",
                     fontSize: "11px",
                   }}
                 >
-                  #{ev.seq}
+                  {field(ev.seq) === UNAVAILABLE ? UNAVAILABLE : `#${ev.seq}`}
                 </span>
 
                 {/* Mission sim time */}
                 <span
+                  {...eventAttrs(ev, "sim_time", formatSimTime(ev.sim_time) !== UNAVAILABLE)}
                   style={{
                     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
                     color: "var(--text-2, #A9B3BE)",
@@ -431,6 +439,7 @@ export function EventLog({
 
                 {/* Actor */}
                 <span
+                  {...eventAttrs(ev, "actor", field(ev.actor) !== UNAVAILABLE)}
                   style={{
                     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
                     color: ev.actor === "system" ? "var(--text-3, #8592A0)" : "var(--route, #4CC9F0)",
@@ -441,11 +450,12 @@ export function EventLog({
                   }}
                   title={ev.actor}
                 >
-                  {ev.actor}
+                  {field(ev.actor)}
                 </span>
 
                 {/* Event Summary */}
                 <span
+                  {...eventAttrs(ev, "summary", !summarizeEvent(ev).includes(UNAVAILABLE))}
                   style={{
                     color: rowColor,
                     overflow: "hidden",
@@ -455,12 +465,13 @@ export function EventLog({
                   }}
                   title={summarizeEvent(ev)}
                 >
-                  {severity && <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px" }}>{severity.shape} {severity.word} </span>}
+                  {severity && <span {...eventAttrs(ev, "data.level")} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px" }}>{severity.shape} {severity.word} </span>}
                   {summarizeEvent(ev)}
                 </span>
 
                 {/* Provenance chip: one glyph per class in the event's provenance map, or "—" */}
                 <span
+                  data-slot="event-provenance"
                   style={{
                     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
                     color: "var(--text-3, #8592A0)",

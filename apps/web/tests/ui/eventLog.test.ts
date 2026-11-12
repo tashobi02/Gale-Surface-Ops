@@ -34,6 +34,18 @@ const ev = (seq: number, kind: LogEventKind, data: Record<string, unknown> = {},
 const rows = (root: ParentNode) => [...root.querySelectorAll<HTMLElement>(".event-row")];
 
 describe("EventLog rows", () => {
+  it("labels unavailable event metadata and summary fields instead of displaying missing data", async () => {
+    const event = { ...ev(1, "SESSION_LOADED"), seq: NaN, sim_time: "", actor: undefined } as unknown as LogEvent;
+    const view = await mount(createElement(EventLog, { events: [event] }));
+    for (const cell of [...rows(view.container)[0].children].slice(0, 4)) {
+      expect(cell.textContent).toContain("—");
+      expect(cell.getAttribute("data-unavailable")).toBe("true");
+      expect(cell.getAttribute("data-source")).toMatch(/^unavailable:/);
+    }
+    expect(view.container.textContent).not.toMatch(/NaN|undefined/);
+    await view.unmount();
+  });
+
   it("lists events in seq order whatever order they arrive in, with sim time, seq and actor", async () => {
     const { container } = await mount(
       createElement(EventLog, { events: [ev(3, "EVA_ENDED", { crew_ids: ["EV1"] }), ev(1, "SESSION_LOADED", { scenario_id: "s-a" }), ev(2, "LINK_LOST", { node_id: "EV1" })] }),
@@ -98,7 +110,7 @@ describe("EventLog with fields missing: — and nothing invented (04 §D.1)", ()
 describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => {
   it("uses the class in the event's provenance map, with a source id", async () => {
     const { container } = await mount(createElement(EventLog, { events: [ev(1, "ALERT_RAISED", { message: "x", level: "caution" }, { rate_ugy_h: "replayed" })] }));
-    const chip = must(rows(container)[0], "[data-provenance]");
+    const chip = must(rows(container)[0], '[data-slot="event-provenance"] [data-provenance]');
     expect(chip.getAttribute("data-provenance")).toBe("replayed");
     expect(chip.getAttribute("data-source")).toBeTruthy();
     expect(chip.textContent).toContain(provenanceGlyph("replayed"));
@@ -109,8 +121,8 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
       createElement(EventLog, { events: [ev(1, "ALERT_RAISED", { message: "x", level: "warning" }), ev(2, "EVA_STARTED", { crew_ids: ["EV1"] })] }),
     );
     for (const row of rows(container)) {
-      expect(row.querySelector("[data-provenance]")).toBeNull();
-      const chip = must(row, "[data-unavailable]");
+      expect(row.querySelector('[data-slot="event-provenance"] [data-provenance]')).toBeNull();
+      const chip = must(row, '[data-slot="event-provenance"] [data-unavailable]');
       expect(chip.textContent).toBe("—");
       expect(chip.getAttribute("data-source")).toMatch(/^unavailable:/);
     }
@@ -120,7 +132,7 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
     const { container } = await mount(
       createElement(EventLog, { events: [ev(1, "CREW_SHELTERED", { crew_id: "EV1" }, { dose_event_ugy: "simulated", haven: "modelled", dose_event_unsheltered_ugy: "simulated" })] }),
     );
-    const classes = [...rows(container)[0].querySelectorAll("[data-provenance]")].map((c) => c.getAttribute("data-provenance"));
+    const classes = [...rows(container)[0].querySelectorAll('[data-slot="event-provenance"] [data-provenance]')].map((c) => c.getAttribute("data-provenance"));
     expect(classes.sort()).toEqual(["modelled", "simulated"]);
   });
 
@@ -135,7 +147,7 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
     expect(provenanceGlyph("constructor")).toBe("—");
     const map = JSON.parse('{"a":"toString","b":"__proto__","c":"constructor"}') as Record<string, never>;
     const { container } = await mount(createElement(EventLog, { events: [ev(1, "EVA_STARTED", { crew_ids: ["EV1"] }, map)] }));
-    expect(rows(container)[0].querySelector("[data-provenance]")).toBeNull();
+    expect(rows(container)[0].querySelector('[data-slot="event-provenance"] [data-provenance]')).toBeNull();
     expect(must(rows(container)[0], "[data-unavailable]").textContent).toBe("—");
   });
 });

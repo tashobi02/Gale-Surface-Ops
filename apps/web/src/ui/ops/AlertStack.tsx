@@ -21,6 +21,12 @@ import {
   type ReactElement,
 } from "react";
 import type { Alert, AlertLevel, Role } from "@marswalk/protocol";
+import { UNAVAILABLE, provAttrs, unavailableOf } from "../components/provenance";
+
+function alertAttrs(alert: Alert, path: string, present = true): ReturnType<typeof provAttrs> {
+  const source = `alerts/${alert.alert_id}/${path}`;
+  return provAttrs(present ? { prov: "simulated", src: `snapshot:${source}` } : unavailableOf("simulated", source));
+}
 
 export interface AlertStackProps {
   simTime?: string;
@@ -187,10 +193,10 @@ export function AlertStack({
       {/* ------------------------------------- Primary Alert Bar (04 §D.2) */}
       <div className="alert-bar" style={primaryBarStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: "20px" }} aria-hidden="true">
+          <span {...alertAttrs(primary, "level")} style={{ fontSize: "20px" }} aria-hidden="true">
             {LEVEL_ICONS[primary.level]}
           </span>
-          <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "13px", letterSpacing: "0.06em" }}>
+          <span {...alertAttrs(primary, "level")} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "13px", letterSpacing: "0.06em" }}>
             {LEVEL_WORDS[primary.level]}
           </span>
           <span
@@ -200,7 +206,7 @@ export function AlertStack({
               whiteSpace: "nowrap",
             }}
           >
-            <span data-provenance="simulated" data-source={`snapshot:alerts/${primary.alert_id}/message`}>{primary.message}</span>
+            <span {...alertAttrs(primary, "message", Boolean(primary.message?.trim()))}>{primary.message?.trim() ? primary.message : UNAVAILABLE}</span>
           </span>
 
           {othersCount > 0 && (
@@ -241,7 +247,7 @@ export function AlertStack({
                 textTransform: "uppercase",
               }}
             >
-              ACK {primary.acked_by ? `by ${primary.acked_by}` : ""}
+              ACK by <span {...alertAttrs(primary, "acked_by", Boolean(primary.acked_by))}>{primary.acked_by ?? UNAVAILABLE}</span>
             </span>
           )}
         </div>
@@ -258,7 +264,7 @@ export function AlertStack({
             marginBottom: "4px",
           }}
         >
-          [ ACTIVE ALERT QUEUE /// {sorted.length} TOTAL ]
+          [ ACTIVE ALERT QUEUE /// <span data-provenance="simulated" data-source="snapshot:alerts/count">{sorted.length}</span> TOTAL ]
         </div>
 
         {sorted.map((alert) => {
@@ -284,20 +290,21 @@ export function AlertStack({
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
-                <span aria-hidden="true">{LEVEL_ICONS[alert.level]}</span>
-                <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "12px", letterSpacing: "0.06em" }}>
+                <span {...alertAttrs(alert, "level")} aria-hidden="true">{LEVEL_ICONS[alert.level]}</span>
+                <span {...alertAttrs(alert, "level")} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "12px", letterSpacing: "0.06em" }}>
                   {LEVEL_WORDS[alert.level]}
                 </span>
-                <span style={{ fontSize: "14px", fontWeight: 600 }}>{alert.message}</span>
-                {alert.subjects.length > 0 && (
+                <span {...alertAttrs(alert, "message", Boolean(alert.message?.trim()))} style={{ fontSize: "14px", fontWeight: 600 }}>{alert.message?.trim() ? alert.message : UNAVAILABLE}</span>
+                {(
                   <span
+                    {...alertAttrs(alert, "subjects", Boolean(alert.subjects?.length))}
                     style={{
                       fontFamily: "var(--font-mono, monospace)",
                       fontSize: "12px",
                       color: "var(--text-3, #8592A0)",
                     }}
                   >
-                    ({alert.subjects.join(", ")})
+                    ({alert.subjects?.length ? alert.subjects.join(", ") : UNAVAILABLE})
                   </span>
                 )}
               </div>
@@ -313,13 +320,14 @@ export function AlertStack({
                   </button>
                 ) : (
                   <span
+                    {...alertAttrs(alert, "acked_by", Boolean(alert.acked_by))}
                     style={{
                       fontFamily: "var(--font-mono, monospace)",
                       fontSize: "12px",
                       color: "var(--text-2, #A9B3BE)",
                     }}
                   >
-                    ACK {alert.acked_by ? `by ${alert.acked_by}` : ""}
+                    ACK by {alert.acked_by ?? UNAVAILABLE}
                   </span>
                 )}
               </div>

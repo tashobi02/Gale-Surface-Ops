@@ -158,6 +158,34 @@ describe("SCR-11 Ops console with nothing supplied (04 §D.1: no sample data)", 
 });
 
 describe("SCR-11 crew and vehicle cards from explicit fixtures (04 §A.3 #8, FR-15)", () => {
+  it("provenance sweep includes event log values and expanded alert details", async () => {
+    const client = storeFromBeat("radiation-alert", "ops");
+    const view = await mount(createElement(OpsConsole, { client, alerts: [warning(), warning({ alert_id: "a-c", level: "caution", subjects: ["EV2"], acked_seq: 8, acked_by: "ops" })] }));
+    await click(must(view.container, '[aria-label*="more alerts"]'));
+    await click(must(view.container, '[data-slot="event-log-strip"]'));
+    for (const scope of view.container.querySelectorAll('.event-row, .alert-item')) {
+      const walker = document.createTreeWalker(scope, window.NodeFilter.SHOW_TEXT);
+      let text: Node | null;
+      while ((text = walker.nextNode())) {
+        if (!text.textContent?.trim() || text.parentElement?.closest("button")) continue;
+        const value = text.parentElement?.closest("[data-source]");
+        expect(value, text.textContent ?? "value").not.toBeNull();
+        if (value?.getAttribute("data-unavailable") !== "true") expect(PROVENANCE).toContain(value?.getAttribute("data-provenance"));
+      }
+    }
+    client.close();
+  });
+
+  it("missing alert text and subjects show labelled unavailable values", async () => {
+    const view = await mount(createElement(AlertStack, { alerts: [warning({ message: "", subjects: [] })] }));
+    const details = must(view.container, ".alert-item");
+    for (const path of ["message", "subjects"]) {
+      const value = must(details, `[data-source="unavailable:alerts/a-w/${path}"]`);
+      expect(value.textContent).toContain("—");
+      expect(value.getAttribute("data-unavailable")).toBe("true");
+    }
+  });
+
   async function consoleWith(crew: Crew[], vehicles: Vehicle[] = [], alerts: Alert[] = []) {
     return mount(createElement(OpsConsole, { crew, vehicles, alerts }));
   }
