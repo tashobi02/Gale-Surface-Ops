@@ -3,10 +3,19 @@ import { readFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 import type { LogEvent, Snapshot } from "@marswalk/protocol";
 
+/** Open the panel before a scoped assertion; desktop panels are already visible. */
+export async function openOpsPanel(page: Page, panel: "crew" | "mission"): Promise<void> {
+  const opener = page.getByRole("button", { name: panel === "crew" ? "Crew & vehicles" : "Conditions & options", exact: true });
+  if (await opener.count() && await opener.getAttribute("aria-expanded") === "false") await opener.click();
+  await page.locator(`aside[aria-label="${panel === "crew" ? "Crew and vehicles" : "Conditions and options"}"]`).waitFor({ state: "visible" });
+}
+
 export type OpsFixtureState = "no-session" | "loaded" | "running" | "paused" | "alerting" | "ended";
 export async function openOpsFixture(page: Page, state: OpsFixtureState): Promise<{ commands: { kind: string; args: Record<string, unknown> }[] }> {
   const commands: { kind: string; args: Record<string, unknown> }[] = [];
   const snapshot = (JSON.parse(readFileSync(new URL("../../tests/fixtures/ws/connect.json", import.meta.url), "utf8")) as Snapshot[])[0]!;
+  // Use the committed fake-scenario plan so first-task controls are exercised at an actual planned stop.
+  snapshot.plan = (JSON.parse(readFileSync(new URL("../../../hab-core/tests/fixtures/fake-scenario/scenario.json", import.meta.url), "utf8")) as { plan: Snapshot["plan"] }).plan;
   snapshot.session.status = state === "ended" ? "ENDED" : state === "loaded" ? "LOADED" : state === "paused" ? "PAUSED" : "RUNNING";
   snapshot.session.clock.paused = state === "paused" || state === "loaded";
   const events: { event: LogEvent }[] = state === "alerting" ? [
