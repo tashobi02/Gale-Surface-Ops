@@ -7,7 +7,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { LoadedSite, WorkerClient } from "../../src/ui/context";
 import type { PlanStore } from "../../src/state/planStore";
 import { BootError } from "../../src/boot/loadSite";
-import { createPlannerBoot, isNotBuilt } from "../../src/boot/bootPlanner";
+import { createBootPlanStore, createPlannerBoot, isNotBuilt } from "../../src/boot/bootPlanner";
+import { DEFAULT_SCENARIO } from "../../src/state/planStore";
 
 const site = { site: { site_id: "mock_site" } } as unknown as LoadedSite;
 const worker = { terminate: vi.fn() } as unknown as WorkerClient;
@@ -131,5 +132,37 @@ describe("isNotBuilt", () => {
     expect(isNotBuilt(new Error("TODO(T08.03): not implemented"))).toBe(true);
     expect(isNotBuilt(new Error("boom"))).toBe(false);
     expect(isNotBuilt("TODO(x)")).toBe(false);
+  });
+});
+
+describe("createBootPlanStore (T08.03: the plan store the boot builds)", () => {
+  const mockSite = {
+    site: { site_id: "mock_site", data_version: "mock_site-2026.11.05", default_start: { x_m: 12, y_m: -34, label: "Hab" } },
+  } as unknown as LoadedSite;
+  const client = { computePlan: vi.fn(() => new Promise<never>(() => {})), retry: vi.fn(), isCrashed: () => false } as unknown as WorkerClient;
+
+  it("starts Empty at the manifest's default start with the FR-05 defaults, and no invented start time", () => {
+    const store = createBootPlanStore(mockSite, client);
+    expect(store.get().status).toBe("Empty");
+    expect(store.get().waypoints).toEqual([{ id: "wp-0", role: "start", x_m: 12, y_m: -34, label: "Hab" }]);
+    expect(store.get().scenario).toEqual(DEFAULT_SCENARIO);
+  });
+
+  it("sends COMPUTE_PLAN with the site's id and data_version once a stop and a start time exist", () => {
+    const store = createBootPlanStore(mockSite, client);
+    store.setScenario({ eva_start_utc: "2026-11-14T08:00:00Z" });
+    store.addWaypoint({ id: "wp-1", role: "stop", x_m: 50, y_m: 50 });
+    expect(client.computePlan).toHaveBeenCalledWith(expect.objectContaining({ site_id: "mock_site", data_version: "mock_site-2026.11.05", plan_revision: 2 }));
+  });
+
+  it("the boot hands the real store to the app: planStore is built from the site and the worker client", async () => {
+    const boot = await createPlannerBoot({
+      hasWorker: () => true,
+      loadSite: async () => mockSite,
+      validateSite: () => [],
+      createWorkerClient: () => client,
+    }).get();
+    expect(boot.planStore?.get().waypoints[0]).toMatchObject({ id: "wp-0", role: "start" });
+    expect(boot.skipped).toEqual([]);
   });
 });

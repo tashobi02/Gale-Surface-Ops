@@ -11,7 +11,7 @@
  */
 import type { BootProblem, LoadedSite, WorkerClient } from "../ui/context";
 import type { PlanStore } from "../state/planStore";
-import { createPlanStore } from "../state/planStore";
+import { DEFAULT_SCENARIO, createPlanStore } from "../state/planStore";
 import { createWorkerClient } from "../ui/workerClient";
 import { BootError, loadSite } from "./loadSite";
 import { validateSite } from "./validateSite";
@@ -30,7 +30,22 @@ export interface PlannerBootDeps {
   loadSite?: () => Promise<LoadedSite>;
   validateSite?: (site: LoadedSite["site"]) => BootProblem[];
   createWorkerClient?: () => WorkerClient;
-  createPlanStore?: () => PlanStore;
+  createPlanStore?: (site: LoadedSite, workerClient: WorkerClient) => PlanStore;
+}
+
+/**
+ * The plan store the boot builds (T08.03): Empty, with the FR-05 defaults and the manifest's `default_start` as the one
+ * start waypoint; COMPUTE_PLAN carries the site's `site_id` and `data_version` (02 §E.2). The start time stays empty (FD-042).
+ */
+export function createBootPlanStore(site: LoadedSite, workerClient: WorkerClient): PlanStore {
+  const start = site.site.default_start;
+  return createPlanStore(
+    {
+      scenario: { ...DEFAULT_SCENARIO },
+      waypoints: [{ id: "wp-0", role: "start", x_m: start.x_m, y_m: start.y_m, label: start.label.slice(0, 40) }],
+    },
+    { workerClient, siteId: site.site.site_id, dataVersion: site.site.data_version },
+  );
 }
 
 /** True for the "TODO(...)" error a not-yet-built module throws. */
@@ -68,7 +83,7 @@ async function runBoot(deps: PlannerBootDeps): Promise<PlannerBoot> {
 
   let planStore: PlanStore | null = null;
   try {
-    planStore = (deps.createPlanStore ?? (() => createPlanStore()))();
+    planStore = (deps.createPlanStore ?? createBootPlanStore)(site, workerClient);
   } catch (err) {
     if (!isNotBuilt(err)) {
       workerClient.terminate();

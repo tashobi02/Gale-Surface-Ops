@@ -45,7 +45,7 @@ const metric = (root: ParentNode, label: string): HTMLElement => {
   if (!tile) throw new Error(`no metric tile "${label}"`);
   return tile;
 };
-const values = (tile: HTMLElement): HTMLElement[] => [...tile.querySelectorAll<HTMLElement>(".scr05-metric-value")];
+const values = (tile: HTMLElement): HTMLElement[] => [...tile.querySelectorAll<HTMLElement>(".metric-value")];
 
 describe("SCR-05 states (03 SCR-05; 04 §D status banner)", () => {
   it("Empty: 'No plan yet', 'Add at least one stop', and every metric is the no-data dash with a needs-a-plan hint", async () => {
@@ -86,7 +86,7 @@ describe("SCR-05 states (03 SCR-05; 04 §D status banner)", () => {
     }
     // The scenario's limits are inputs, not totals: they stay.
     expect(values(metric(view.container, "EVA total"))[1]!.textContent).toBe("360");
-    expect(values(metric(view.container, "Max walkback"))[1]!.textContent).toBe("5");
+    expect(values(metric(view.container, "Max walkback"))[1]!.textContent).toBe("5.00");
     await view.unmount();
   });
 
@@ -147,9 +147,21 @@ describe("SCR-05 metrics: value, unit, provenance class and real source ids (FR-
     expect(text("Max slope")).toContain("12.6");
     expect(text("Max slope")).toContain("°");
     expect(text("Max walkback")).toContain("3.06");
-    expect(text("Dose")).toContain("0.066");
+    expect(text("Dose")).toContain("0.07"); // mSv at two decimals (FD-124), not the raw 0.066
     expect(text("Dose")).toContain("mSv");
     await view.unmount();
+  });
+
+  it("builds every tile from the shared Metric component (FD-058): its classes, units with a thin space, no unit beside a dash", async () => {
+    const view = await okTiles();
+    const tile = metric(view.container, "Distance");
+    expect(tile.querySelector(".metric")).not.toBeNull();
+    expect(tile.querySelector(".metric-unit")?.textContent).toBe("\u2009km");
+    expect(view.container.querySelector(".scr05-metric-value")).toBeNull();
+    await view.unmount();
+    const empty = await mount(ui({ planStore: fakePlanStore({ status: "Empty", result: null }).store }));
+    expect(metric(empty.container, "Distance").querySelector(".metric-unit")).toBeNull();
+    await empty.unmount();
   });
 
   it("labels walk time as modelled with the Tobler and Apollo sources, and dose as modelled from the RAD source", async () => {
@@ -185,7 +197,7 @@ describe("SCR-05 metrics: value, unit, provenance class and real source ids (FR-
     expect(limit!.getAttribute("data-provenance")).toBe("assumed");
     expect(limit!.getAttribute("data-source")).toBe("scenario.max_eva_duration_h");
     const [, wbLimit] = values(metric(view.container, "Max walkback"));
-    expect(wbLimit!.textContent).toBe("5");
+    expect(wbLimit!.textContent).toBe("5.00"); // km at two decimals (FD-124)
     expect(wbLimit!.getAttribute("data-provenance")).toBe("assumed");
     expect(wbLimit!.getAttribute("data-source")).toBe("scenario.walkback_limit_km");
     await view.unmount();
@@ -220,7 +232,7 @@ describe("SCR-05 metrics: value, unit, provenance class and real source ids (FR-
 
   it("draws provenance chips from the glyph table with the full class word, never an abbreviation", async () => {
     const view = await okTiles();
-    const chips = [...view.container.querySelectorAll<HTMLElement>(".scr05-chip")];
+    const chips = [...view.container.querySelectorAll<HTMLElement>(".metric-chip")];
     expect(chips.length).toBeGreaterThanOrEqual(6);
     for (const chip of chips) {
       const prov = chip.getAttribute("data-provenance") as keyof typeof PROVENANCE_GLYPHS;
