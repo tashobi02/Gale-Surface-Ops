@@ -11,7 +11,7 @@ import { expectLocalAssetsOk, expectNoExternal, guardNetwork } from "../lib/offl
 import { countPdfPages, pdfPages } from "../lib/print";
 import { axeScan } from "../lib/a11y";
 import { planHash } from "../lib/fakeScenario";
-import { unlabelledNumbers } from "../lib/provenance";
+import { PROVENANCE_ALLOWLIST, expectNoUnlabelledNumbers, unlabelledNumbers } from "../lib/provenance";
 
 const LIMITS = { text: 4.5, large: 3, hud: 7 };
 
@@ -127,6 +127,20 @@ test("provenance helper finds numbers with no label and skips identifiers", asyn
   );
   const bad = await unlabelledNumbers(page);
   expect(bad.map((b) => b.text)).toEqual(["bare 42 m"]);
+});
+
+test("provenance helper scope: numbers outside the scope are not looked at, one inside it is reported, an empty scope fails", async ({ page }) => {
+  await page.setContent(
+    "<body>" +
+      "<p>outside 42 m</p>" +
+      '<section id="s"><p>inside 7 m</p><p data-provenance="derived" data-source="t.plan">labelled 9</p><p data-identifier>stop 3</p></section></body>',
+  );
+  expect((await unlabelledNumbers(page)).map((b) => b.text)).toEqual(["outside 42 m", "inside 7 m"]);
+  expect((await unlabelledNumbers(page, PROVENANCE_ALLOWLIST, "#s")).map((b) => b.text)).toEqual(["inside 7 m"]);
+  await expect(expectNoUnlabelledNumbers(page, "scoped page", "#s")).rejects.toThrow(/"inside 7 m"/);
+  await expect(expectNoUnlabelledNumbers(page, "scoped page", "#nothing")).rejects.toThrow(/matches nothing/);
+  await page.setContent('<body><p>outside 42 m</p><section id="s"><p data-provenance="derived" data-source="t.plan">labelled 9</p></section></body>');
+  await expectNoUnlabelledNumbers(page, "scoped page", "#s");
 });
 
 test("axe scan scope: a violation outside the included region is not reported, one inside it is", async ({ page }) => {

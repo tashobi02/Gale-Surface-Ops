@@ -46,7 +46,15 @@ test("provenance: task text, kinds, counts and inline limits carry their source 
   await expect(first).toHaveAttribute("data-source", /^user:stop_task\./);
   await first.fill("");
   await expect(editor.getByRole("alert")).toBeVisible();
-  await expectNoUnlabelledNumbers(page, "SCR-04 task editor and error");
+  await expectNoUnlabelledNumbers(page, "SCR-04 task editor and error", "[data-stop-task-editor]");
+});
+
+test("provenance: the keyboard-move title ordinal is an identifier and the live announcement's count is labelled (package 25 review; FD-323)", async ({ page }) => {
+  await openPoiTasks(page);
+  await page.locator(".scr02-keyboard-move-title").waitFor();
+  await expect(page.locator(".scr05-sr-only")).toContainText(/Plan updated: .*warning/);
+  await expectNoUnlabelledNumbers(page, "SCR-02 keyboard-move title", ".scr02-keyboard-move-title");
+  await expectNoUnlabelledNumbers(page, "SCR-05 live announcement", ".scr05-sr-only");
 });
 
 test.fixme("provenance: no unlabelled number on the demo path and every source id resolves in SCR-09 (enabled by package 28)", async ({ page }) => {
