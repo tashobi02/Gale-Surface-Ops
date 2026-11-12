@@ -1,10 +1,10 @@
 {
   "hab": {
-    "lat": -4.83787,
-    "lonE": 137.39756,
+    "lat": -4.837870239225606,
+    "lonE": 137.39755664754512,
     "source": {
-      "path": "docs/ops/feasibility/hab-site.md",
-      "row": "Lat, lon °E (first choice)"
+      "path": "data/sites/gale_boxwork/site-manifest.json",
+      "row": "hab_candidates[hab-first].hab_mast through the inverse working projection (inverseEqc)"
     }
   },
   "alert": {
@@ -24,7 +24,7 @@
     "sunrise_ltst": "05:51",
     "sunset_ltst": "18:09",
     "source": {
-      "rule": "sunriseSunset(alert, lat, lonE) with the hab position from docs/ops/feasibility/hab-site.md"
+      "rule": "sunriseSunset(alert, lat, lonE) with the hab position from data/sites/gale_boxwork/site-manifest.json"
     }
   },
   "light_time": {

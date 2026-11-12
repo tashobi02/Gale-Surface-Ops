@@ -5,19 +5,21 @@
  * Rules fixed here (decided by the orchestrator, 12 Nov 2026, BD-105, BD-121):
  * - The recording is the message stream a client would have seen: the first message is the SNAPSHOT of the loaded
  *   session, then EVENT and STATE_DELTA messages. COMMAND_RESULT, PING and LINK_STATE are not part of it.
- * - EVENT `seq` strictly increases and every logged event after the SNAPSHOT is in it exactly once. A STATE_DELTA carries the
- *   log's last `seq` at its sim second, as the live server sends it, so the whole stream never decreases in `seq` and a
+ * - EVENT `seq` strictly increases and every logged event is in it exactly once: those the first SNAPSHOT already reflects
+ *   (SESSION_LOADED, the seeded tasks) follow it at once, so the EVENTs are the whole log and hash to `log_hash` (N-81, BD-148). A STATE_DELTA carries the
+ *   log's last `seq` at its sim second, as the live server sends it, so the stream never decreases in `seq` after the logged prefix and a
  *   delta never precedes an event of an earlier second (the contract's "seq strictly increases" is the EVENT rule).
  * - At most one STATE_DELTA per sim second, last value per path, no empty delta.
  * - The label is "replayed recording" (never "live"); the file is canonical JSON, so replaying the same list twice gives
  *   byte-identical bytes.
  */
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { canonicalJson, type CommandList, type EventMessage, type Recording, type RecordedCommand, type Snapshot, type StateDelta } from "@marswalk/protocol";
+import { canonicalJson, logHashOf, type CommandList, type EventMessage, type Recording, type RecordedCommand, type Snapshot, type StateDelta } from "@marswalk/protocol";
 import { replayHeadless } from "../src/replay";
 import { RecordingCollector, recordingJson } from "../src/recording";
 import { readScenario } from "../src/scenario";
@@ -45,10 +47,10 @@ const list: CommandList = {
   ] as RecordedCommand[],
 };
 
-async function record(): Promise<{ hash: string; recording: Recording }> {
+async function record(periodS?: number): Promise<{ hash: string; recording: Recording }> {
   const varDir = mkdtempSync(join(tmpdir(), "marswalk-recording-"));
   dirs.push(varDir);
-  const collector = new RecordingCollector();
+  const collector = new RecordingCollector(periodS);
   const hash = await replayHeadless(FAKE, undefined, { site: SITE, varDir, commands: list, record: collector });
   return { hash, recording: collector.finish() };
 }
@@ -72,19 +74,34 @@ describe("the recording of a headless run (BD-105)", () => {
     expect(new Set(recording.messages.map((m) => m.type))).toEqual(new Set(["SNAPSHOT", "EVENT", "STATE_DELTA"]));
   });
 
-  it("EVENT seq strictly increases, from the SNAPSHOT's seq on, with no gap: every logged event once", async () => {
+  it("the EVENTs are the whole log, seq 1..n with no gap, each once: the ones before the SNAPSHOT's seq come right after it (N-81)", async () => {
     const { recording } = await record();
     const first = recording.messages[0] as Snapshot;
-    const seqs = recording.messages.filter(isEvent).map((m) => m.seq);
-    expect(seqs.length).toBeGreaterThan(5);
-    expect(seqs).toEqual(seqs.map((_, i) => first.seq + 1 + i));
-    for (const m of recording.messages.filter(isEvent)) expect(m.event.seq).toBe(m.seq);
+    const events = recording.messages.filter(isEvent);
+    const seqs = events.map((m) => m.seq);
+    expect(first.seq).toBeGreaterThan(0); // the loaded session already holds SESSION_LOADED and the seeded tasks
+    expect(seqs.length).toBeGreaterThan(first.seq + 5);
+    expect(seqs).toEqual(seqs.map((_, i) => i + 1));
+    expect(events[0]!.event.kind).toBe("SESSION_LOADED");
+    for (const m of events) expect(m.event.seq).toBe(m.seq);
+    // The messages before the first later-than-snapshot event are the SNAPSHOT and the log it already reflects.
+    expect(recording.messages.slice(1, 1 + first.seq).every(isEvent)).toBe(true);
+  });
+
+  it("the recorded events alone hash to the recorded log_hash (what the Pages replay verifies; N-81)", async () => {
+    const { recording } = await record();
+    const events = recording.messages.filter(isEvent).map((m) => m.event);
+    expect(logHashOf(events, (text) => createHash("sha256").update(text, "utf8").digest("hex"))).toBe(recording.log_hash);
   });
 
   it("the stream's seq never decreases: a STATE_DELTA carries the last event seq of its second", async () => {
     const { recording } = await record();
-    const seqs = recording.messages.map((m) => ("seq" in m ? m.seq : -1));
-    for (let i = 1; i < seqs.length; i++) expect(seqs[i], `message ${i}`).toBeGreaterThanOrEqual(seqs[i - 1]);
+    const first = recording.messages[0] as Snapshot;
+    // From the end of the logged prefix (the events the SNAPSHOT already reflects, N-81) on, the stream never goes back.
+    const rest = recording.messages.slice(first.seq);
+    const seqs = rest.map((m) => ("seq" in m ? m.seq : -1));
+    expect(seqs[0]).toBe(first.seq);
+    for (let i = 1; i < seqs.length; i++) expect(seqs[i], `message ${first.seq + i}`).toBeGreaterThanOrEqual(seqs[i - 1]);
   });
 
   it("has at most one STATE_DELTA per sim second, never an empty one, and the last value per path", async () => {
@@ -130,5 +147,33 @@ describe("the recording of a headless run (BD-105)", () => {
     dirs.push(varDir);
     const plain = await replayHeadless(FAKE, undefined, { site: SITE, varDir, commands: list });
     expect((await record()).hash).toBe(plain);
+  });
+
+  describe("a coarser delta period keeps the file small (BD-148)", () => {
+    it("rejects a period that is not a whole number of seconds of at least 1", () => {
+      expect(() => new RecordingCollector(0)).toThrow(/period/);
+      expect(() => new RecordingCollector(2.5)).toThrow(/period/);
+    });
+
+    it("with 5 s there is at most one STATE_DELTA per 5-s window, fewer deltas than at 1 s, the same EVENTs and the same log_hash", async () => {
+      const fine = await record();
+      const coarse = await record(5);
+      const t0 = Date.parse(T0);
+      const windows = coarse.recording.messages.filter(isDelta).map((d) => Math.floor((Date.parse(d.sim_time) - t0) / 5000));
+      expect(new Set(windows).size).toBe(windows.length);
+      expect(coarse.recording.messages.filter(isDelta).length).toBeLessThan(fine.recording.messages.filter(isDelta).length / 2);
+      expect(coarse.recording.messages.filter(isEvent)).toEqual(fine.recording.messages.filter(isEvent));
+      expect(coarse.hash).toBe(fine.hash);
+      expect(recordingJson(coarse.recording).length).toBeLessThan(recordingJson(fine.recording).length);
+    });
+
+    it("keeps the sim-time order, and the last value per path is where the run ended", async () => {
+      const fine = await record();
+      const coarse = await record(5);
+      const times = coarse.recording.messages.slice(1).map((m) => Date.parse((m as EventMessage | StateDelta).sim_time));
+      for (let i = 1; i < times.length; i++) expect(times[i]).toBeGreaterThanOrEqual(times[i - 1]);
+      const last = (r: Recording, path: string): unknown => r.messages.filter(isDelta).flatMap((d) => d.changes.filter((c) => c.path === path)).pop()?.value;
+      expect(last(coarse.recording, "crew/EV1/x_m")).toEqual(last(fine.recording, "crew/EV1/x_m"));
+    });
   });
 });

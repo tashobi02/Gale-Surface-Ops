@@ -119,6 +119,21 @@ describe("replay (T22.13, T32.17)", () => {
     expect(a).toBe(`${canonicalJson(recording)}\n`);
   }, 60_000);
 
+  it("--record-period 5 writes fewer deltas and the same hash; a bad period exits 1 without writing", async () => {
+    const { dir, scenario } = mockSiteScenario();
+    const out = tmp("cli-rec");
+    const file = join(out, "list.json");
+    writeFileSync(file, JSON.stringify(listFor(scenario)));
+    const fine = await cli(["replay", dir, "--commands", file, "--record", join(out, "fine.json")]);
+    const coarse = await cli(["replay", dir, "--commands", file, "--record", join(out, "coarse.json"), "--record-period", "5"]);
+    expect(coarse.stdout).toBe(fine.stdout);
+    const count = (name: string): number => (JSON.parse(readFileSync(join(out, name), "utf8")) as Recording).messages.filter((m) => m.type === "STATE_DELTA").length;
+    expect(count("coarse.json")).toBeLessThan(count("fine.json") / 2);
+    const bad = await cli(["replay", dir, "--commands", file, "--record", join(out, "bad.json"), "--record-period", "0"]);
+    expect(bad.code).toBe(1);
+    expect(existsSync(join(out, "bad.json"))).toBe(false);
+  }, 60_000);
+
   it("--record without --commands records the old no-list run", async () => {
     const { dir } = mockSiteScenario();
     const file = join(tmp("cli-rec"), "plain.json");

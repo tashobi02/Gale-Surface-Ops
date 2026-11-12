@@ -20,6 +20,8 @@ scenarios/storm-sol4190/
 ├── plan.json            demo PlanExport (input to scenario.json; copied into its `plan`)
 ├── stop_tasks.json      authored stop task text (input to scenario.json; stop_tasks.md records the decisions)
 ├── stop_tasks.md        who wrote the text, the per-crew model (U-58, U-52)
+├── reference_commands.json  the reference run of 01 §E.1 as a CommandList (make replay COMMANDS=…); sim_times copied from the run's log
+├── recording.json       the Pages recording of that run (make record): SNAPSHOT, the whole log as EVENTs, STATE_DELTAs
 ├── dose_series.json     DoseSeries: replayed RAD surface dose rate (uGy/h)
 ├── earth_link.json      EarthLinkTable: SPICE light time, separation, elevations, relay passes
 └── param_sets/          one ParamSet per file, named <param_set_id>.json
@@ -47,6 +49,12 @@ The Hab Core loader is `readScenario` in [apps/hab-core/src/scenario.ts](../../a
 Passable crew and vehicle start cells (05 §E.7) are checked on load (T22.11 follow-up, Proposed 9 Nov): `readScenario` loads the site's routing grid and `comm_hab` from `data/sites/<site_id>` (`loadSite`), then rejects a start that is off the grid or on an impassable cell (`start_blocked`). Without the real `gale_boxwork` bundle (its binaries are git-ignored, a release asset), `make hab` and `make replay` with this scenario stop with a clear `ScenarioCheckError`: `site` (no `site-manifest.json`; raised by the CLI's `siteRefFor` in `replay.ts`, before the scenario loads), `site_manifest` (the manifest is unreadable or fails its schema; raised by `loadSite`) or `grid_missing` (a grid file the manifest lists is absent); these are the intended failures, not a bug.
 
 The rule "samples / rows strictly increasing in time" cannot be written in JSON Schema; the pipeline tests (T21.03: `pipeline/tests/test_rad.py`, `pipeline/tests/test_spice_tables.py`) check it.
+
+## The reference run and its recording
+
+`reference_commands.json` is the list behind the numbers of [01 §E.1](../../docs/specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video) (T32.18, BD-147): `make replay COMMANDS=scenarios/storm-sol4190/reference_commands.json` prints log_hash `5fdf8ec1e67958e508b88c97bbe55fb0c8ec1d6800ea6bfc2bfd9988c779afda` on every run. Its `$comment` cites, for each command time, the log line (`seq <n> <KIND>`) it was copied from.
+
+`recording.json` is `make record`: the message stream of that run for the Pages replay, label `replayed recording` (never live). Its EVENTs are the whole log (seq 1 to n, so a viewer can hash them to `log_hash`, N-81); its STATE_DELTAs are coalesced to one per **5 sim seconds** (`--record-period 5`, BD-148) because one per second came to 5.3 MB, over the 5 MB budget; with 5 s the file is 2.2 MB. Make it again and the bytes are identical; `referenceCommands.test.ts` compares them.
 
 ## Hashes written from Python
 

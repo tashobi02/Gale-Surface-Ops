@@ -697,3 +697,33 @@ The first choice's numbers equal T03.30's to the third decimal, which shows the 
 **T31.02.** The agent-drafted task text is approved (BD-06) and carried through: 10 `stop_tasks`, 10 `task_library` entries keyed by POI id (`test_scenario_build.py`).
 
 **Red counts.** `buildDemoPlan.test.ts` 0 of 21 ran (module missing), then 21 green; `test_scenario_build.py` collection error, then 25 green; `test_storm_excerpt.py` 4 failed 1 passed, then 5 green; `havenTick.test.ts` 3 red then green; `test_rad.py` / `test_donki.py` additions passed at once and were mutation-checked (right-hold integral fails the boundary test); `scenarioReal.test.ts` and `rateAtBoundary.test.ts` passed at once on committed data. Mutations of `build-demo-plan.ts` (limit step 2, hash 11 hex, placeholder start) and `scenario_build.py` (BD-98 form, offsets from the start, wrong `answers`) each fail a test; the "every leg OK" variant of the NO_ROUTE check is an equivalent mutant (a leg is OK or NO_ROUTE).
+
+## T21.15, T21.09, T21.10, T32.18 — demo numbers, the reference list and the recording (backend package 26)
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 26, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: 01 §E.1 holds only values of the reference run or of the committed tables, and the run and its recording are reproducible |
+| **Machine (BD-03)** | Apple M2, 8 cores, 8 GiB RAM, macOS 15.7.2 (darwin 24.6.0), Node v24.5.0 |
+| **Inputs** | [reference_commands.json](../../scenarios/storm-sol4190/reference_commands.json), [recording.json](../../scenarios/storm-sol4190/recording.json), [demo-numbers.ts](../../apps/hab-core/scripts/demo-numbers.ts), [relay-target.ts](../../apps/hab-core/scripts/relay-target.ts), [referenceCommands.test.ts](../../apps/hab-core/tests/referenceCommands.test.ts), the real `gale_boxwork-2026.11.09` bundle |
+
+**T21.15 (part b).** `demoNumbers.test.ts` has 59 tests and no skip: the plan-dependent tests always run (plan.json is committed). The hab position now comes from the manifest, as BD-107 says: the rank-1 candidate's `hab_mast` through `inverseEqc` gives lat -4.837870239225606, lon 137.39755664754512, equal to the stored pair to 9 decimals (a test). Only the hab source lines of `demoNumbers.alert.snap` changed; sunrise, sunset, LTST, X and Y are the same. `nextPassStart` was already in use.
+
+**T32.18 (reference list).** `make replay COMMANDS=scenarios/storm-sol4190/reference_commands.json` run five times (twice by hand, three inside `make record` runs) prints log_hash **5fdf8ec1e67958e508b88c97bbe55fb0c8ec1d6800ea6bfc2bfd9988c779afda** every time, 40 s each. The default course (`make replay`, no list) still prints a347721a13ae7be8167a33ce9c3c364e501a35b11629fe6095babe2e8806c66c: the haven memo change of BD-146 did not move it. Every `sim_time` of the list is a line of the run's log, cited in its `$comment` and checked by the test. 80 log events; the order alert (seq 45), options (46), rover dispatched (48), rover arrived (75), crew sheltered (76–77), EVA ended (80) is that of 01 §E.1.
+
+**T21.09 (01 §E.1).** The placeholders are replaced by values of the run, each with its seq in the sources list: options 50.0 / 77.4 / 90.7 min and 256.8 / 393.9 / 453.6 µGy, rendezvous walk 29.9 min and drive 45.0 min, steepest cell 23.25° under the 24° hard limit, shadow cautions 04:11:01 to 06:18:38, relay parked 05:36:33, both crew sheltered 06:35:31 with 254.0 µGy. The test formats each number from the log and finds it in the section, and checks that no `TODO(verify)`, "illustrative" or X / Y placeholder is left. The demo script's notes 7 and 8 carry the same values.
+
+**T21.10 (02 §D.13 timeline, source time against scenario time).** Nothing was adjusted.
+
+| 02 §D.13 row | Source time | Scenario time (reference run) | Match |
+| --- | --- | --- | --- |
+| Flare photons reach Mars | not in the scenario: the 20 May 2024 DONKI flare record precedes `start_utc`, and the scenario's `events` is empty | none | no source time to compare; not matched |
+| Earth learns of the flare | not in the scenario (same reason) | none | no source time to compare; not matched |
+| Earth forecast reaches Mars | issue `2024-05-20T05:36:00Z` (the `EARTH_MESSAGE` input, 1145 s after `series_start_utc`); compute `deliveryTime` gives `2024-05-20T08:50:00.000Z` (MAVEN pass `passes[16]`) | `EARTH_MSG_QUEUED` seq 32: sent `05:36:00Z`, deliver `2024-05-20T08:50:00.000Z` | match |
+| SEP onset at Gale | first RAD sample above the alert threshold `2024-05-20T05:33:44Z` (row 40 of `dose_series.json`); the trigger needs two in a row, the second is `05:50:32Z` (row 41) | `RADIATION_ALERT` seq 45 at `2024-05-20T05:50:32Z` | match to the second on the second sample; the onset sample is not a log event |
+| CME shock at Mars | not in the scenario: the WSA-ENLIL inputs carry an id and a summary, no arrival time | none | no source time to compare; not matched |
+
+**Recording (T27.05 output).** `make record` twice: identical bytes, **2,184,315 bytes**, 80 EVENTs (seq 1 to 80, which hash to the log hash: tested), STATE_DELTAs coalesced to 5 s (BD-148). With one delta per second the file was 5,352,768 bytes, over the 5 MB budget. N-81 is closed: the whole log is in the recording.
+
+**Red counts.** `relayTarget.test.ts` 0 of 7 ran (module missing), then 7 green (3 mutations of the rule each fail one test); `recording.test.ts` 2 red (the whole log, its hash), then green, plus 2 red for the delta period; `cli.test.ts` 1 red for `--record-period`; `demoNumbers.test.ts` 3 red (`habFromManifest`), then green, and the file snapshot regenerated; `referenceCommands.test.ts` 6 of 15 red (the section still had its placeholders, the list its old comment), then 15 green. The T21.10 tests, the recording byte comparison and the order test passed at once: each compares two independent derivations of the same time.

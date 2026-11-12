@@ -21,26 +21,50 @@ export class RecordingCollector {
   private pending = new Map<string, unknown>();
   private pendingTime: string | null = null;
   private lastSeq = 0;
+  /** The window of `period_s` sim seconds the pending changes belong to, counted from the first SNAPSHOT's sim time. */
+  private pendingWindow = 0;
+  private t0_ms = 0;
 
-  /** The first message: the SNAPSHOT of the session as loaded (no connected clients). */
-  begin(snapshot: Snapshot): void {
+  /**
+   * `period_s` is how many sim seconds one STATE_DELTA spans (default 1: one per sim second, as the live server sends them).
+   * A longer period coalesces the changes of the window (last value per path) and keeps a long run's file small (BD-148).
+   */
+  constructor(private readonly period_s: number = 1) {
+    if (!Number.isInteger(period_s) || period_s < 1) throw new Error(`RecordingCollector: the delta period must be a whole number of seconds, at least 1 (got ${period_s})`);
+  }
+
+  /**
+   * The first message: the SNAPSHOT of the session as loaded (no connected clients). `logged` is the log the snapshot already
+   * reflects (SESSION_LOADED and the seeded tasks, seq 1 to `snapshot.seq`): its EVENTs follow the SNAPSHOT at once, so the
+   * recording's EVENTs are the whole log and hash to `log_hash` (N-81, BD-148). A SNAPSHOT is never "after" its own events,
+   * so a viewer that applies the EVENTs in order only lists them.
+   */
+  begin(snapshot: Snapshot, logged: readonly LogEvent[] = []): void {
     if (this.messages.length > 0) throw new Error("RecordingCollector.begin: already begun");
+    if (logged.some((e, i) => e.seq !== i + 1 || e.seq > snapshot.seq) || (logged.length > 0 && logged.length !== snapshot.seq)) {
+      throw new Error(`RecordingCollector.begin: the logged events must be seq 1..${snapshot.seq} of the snapshot`);
+    }
     this.meta = { scenario_id: snapshot.session.scenario_id, seed: snapshot.session.seed, data_version: snapshot.session.data_version };
     this.lastSeq = snapshot.seq;
+    this.t0_ms = Date.parse(snapshot.sim_time);
     this.messages.push({ ...snapshot, clients: [] });
+    this.pushEvents(logged);
+    this.lastSeq = snapshot.seq;
   }
 
   /** What one step or one command did: its events, and the state change between the snapshots before and after it. */
   record(before: Snapshot, after: Snapshot, events: readonly LogEvent[], tickChanges: readonly StateChange[] = []): void {
     this.requireBegun();
-    // A new sim second closes the previous one: its delta goes out before this second's events.
-    if (this.pendingTime !== null && after.sim_time !== this.pendingTime) this.flush();
+    // A new window of `period_s` sim seconds closes the previous one: its delta goes out before this window's events.
+    const window = Math.floor((Date.parse(after.sim_time) - this.t0_ms) / (this.period_s * 1000));
+    if (this.pendingTime !== null && window !== this.pendingWindow) this.flush();
     this.pushEvents(events);
     for (const c of [...tickChanges, ...diffSnapshots(before, after)]) {
       this.pending.delete(c.path);
       this.pending.set(c.path, c.value);
     }
     this.pendingTime = after.sim_time;
+    this.pendingWindow = window;
   }
 
   /**

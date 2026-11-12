@@ -160,6 +160,7 @@ export interface Recording {
   messages: (Snapshot | EventMessage | StateDelta)[];   // first is the SNAPSHOT; seq order; deltas coalesced per sim second
 }
 // written to scenarios/storm-sol4190/recording.json by package 11
+// contract-change: (package 26, N-81, BD-148) the EVENTs are the whole log, seq 1..n: the events the first SNAPSHOT already reflects (SESSION_LOADED, the seeded tasks) follow it at once, so `logHashOf` over the recorded EVENTs equals `log_hash`.
 
 // packages/protocol/src/commandList.ts (new) — BD-93
 export interface RecordedCommand { sim_time: string; role: Role; kind: CommandKind; args: Record<string, unknown>; command_id?: string; client_id?: string }

@@ -2,7 +2,7 @@
  * Hab Core command line (docs/specs/02 §F deployment, NFR-10, NFR-14; §D.17 headless run). T22.13, T32.17.
  *   npm run hab:start  -- --site gale_boxwork [--scenario storm-sol4190 | --scenario-dir <path>] [--port 8080] [--resume latest|s-0003] [--var-dir <path>]
  *   npm run hab:local  -- [--open] [--port 8080] [start options]   (single laptop, BD-02)
- *   npm run hab:replay -- scenarios/storm-sol4190 [--seed 4190] [--commands <file>] [--record <file>] [--var-dir <path>]
+ *   npm run hab:replay -- scenarios/storm-sol4190 [--seed 4190] [--commands <file>] [--record <file> [--record-period <s>]] [--var-dir <path>]
  *   tsx src/cli.ts export-commands <sessionDir|sessionsDir> <outDir>
  * `--public-host <host>` is the host the join QR codes name (`GET /api/join-qr`, BD-82; default: the first non-internal IPv4 address).
  * `local` is `start` for the virtual event's one-laptop topology (T20.09, BD-02, BD-133): the scenario defaults to
@@ -12,7 +12,7 @@
  * session (or resumes one with `--resume`, NFR-10); `--scenario-dir` loads a scenario folder anywhere (same loader checks)
  * and takes the site from the scenario unless `--site` is given. `replay` runs the scenario headless at full speed and prints
  * the event-log hash: `--commands` applies a recorded command list (a `CommandList`, 02 §D.17) in list order, each command at
- * its sim second; `--record` writes the message stream of the run as the Pages recording (`Recording`, canonical JSON).
+ * its sim second; `--record` writes the message stream of the run as the Pages recording (`Recording`, canonical JSON); `--record-period <s>` coalesces its STATE_DELTAs to one per `s` sim seconds (default 1, BD-148).
  * `export-commands` writes `<session_id>.commands.json` for the session folder, or for every session under a `sessions`
  * folder, from their `commands.jsonl`; the files replay to the sessions' own hashes. A list the replay cannot run exits 2.
  * `--var-dir` moves the folder sessions are written to (default apps/hab-core/var).
@@ -112,7 +112,8 @@ async function main(): Promise<void> {
     const seed = arg("seed");
     const commandsFile = pathArg("commands");
     const recordFile = pathArg("record");
-    const record = recordFile === undefined ? undefined : new RecordingCollector();
+    const period = arg("record-period");
+    const record = recordFile === undefined ? undefined : new RecordingCollector(period === undefined ? undefined : Number(period));
     const hash = await replayHeadless(fromCwd(positional), seed === undefined ? undefined : Number(seed), {
       ...(pathArg("var-dir") === undefined ? {} : { varDir: pathArg("var-dir") }),
       ...(commandsFile === undefined ? {} : { commands: readCommandList(commandsFile) }),

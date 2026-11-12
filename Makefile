@@ -66,9 +66,9 @@ hab:
 replay:
 	npm run -s hab:replay -- scenarios/storm-sol4190 $(if $(COMMANDS),--commands $(COMMANDS))
 
-# Write the Pages recording (02 §D.17, BD-105) of the reference run with its reference commands (T27.05, T22.14).
+# Write the Pages recording (02 §D.17, BD-105) of the reference run with its reference commands (T27.05, T22.14). STATE_DELTAs are coalesced to 5 s so the file stays under 5 MB (BD-148).
 record:
-	npm run -s hab:record -- scenarios/storm-sol4190 --commands scenarios/storm-sol4190/reference_commands.json --record scenarios/storm-sol4190/recording.json
+	npm run -s hab:record -- scenarios/storm-sol4190 --commands scenarios/storm-sol4190/reference_commands.json --record scenarios/storm-sol4190/recording.json --record-period 5
 
 # Link the git-ignored data folders to the data SSD (BD-12, BD-126): make ssd-link SSD="/Volumes/<name>/<folder>". See docs/ops/ssd.md.
 ssd-link:

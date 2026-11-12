@@ -7,9 +7,8 @@
  *     plain date arithmetic on the synthetic inputs; nothing is a typed science number.
  * (b) the real committed tables: the derived values are stored as Vitest file snapshots, so a rebuilt
  *     table shows as a diff. Vitest writes the snapshot; nobody types the values.
- * (c) the stop-2 dwell rule against the real `plan.json`, skipped while that file is absent (T21.12).
- * (d) the docs-consistency check against 01 §E.1, skipped while it still has the X / Y placeholders or
- *     the "illustrative" note (T21.09 writes the values).
+ * (c) the stop-2 dwell rule against the real `plan.json` (committed, T21.12): nothing is skipped.
+ * (d) the docs-consistency check against 01 §E.1, which states the derived values (T21.09), so it always runs.
  *
  * Stop-2 dwell rule (decided by Sadman Shaharier Mahim, 2026-11-10): start = alert - (leg0 walk + dwell
  * + leg1 walk + dwell / 2), in minutes, rounded down to a whole UTC minute.
@@ -19,7 +18,7 @@ import { existsSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { localTrueSolarTime, sunriseSunset, triggerState } from "@marswalk/compute";
+import { inverseEqc, localTrueSolarTime, parseEqcProjection, sunriseSunset, triggerState } from "@marswalk/compute";
 import type { DoseSeries, EarthLinkTable, ParamSet } from "@marswalk/protocol";
 import { describe, expect, it } from "vitest";
 import {
@@ -27,7 +26,7 @@ import {
   formatMarkdown,
   loadInputs,
   parseE1Claims,
-  parseHabSite,
+  habFromManifest,
   isMainModule,
   type DemoTimingInputs,
   type PlanSlice,
@@ -432,25 +431,43 @@ describe("T21.15 (a) helpers and determinism", () => {
     expect(JSON.stringify(i)).toBe(before);
   });
 
-  it("parseHabSite reads the first-choice latitude and longitude, accepting the Unicode minus", () => {
-    const md = [
-      "| | First choice | Alternative |",
-      "| --- | --- | --- |",
-      "| Lat, lon °E | −1.5, 99.25 | −2.5, 100.5 |",
-      "",
-    ].join("\n");
-    expect(parseHabSite(md, "x/hab-site.md")).toEqual({ lat: -1.5, lonE: 99.25, source: { path: "x/hab-site.md", row: "Lat, lon °E (first choice)" } });
-    expect(parseHabSite(md.replace("−1.5", "1.5"), "x").lat).toBe(1.5);
+  it("habFromManifest takes the rank-1 candidate's hab_mast through the inverse working projection (BD-107)", () => {
+    const proj4 = "+proj=eqc +lat_ts=-4.8 +lat_0=-4.8 +lon_0=137.4 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs";
+    const origin = parseEqcProjection(proj4);
+    const manifest = {
+      crs: { proj4 },
+      // Listed out of rank order: the lowest rank wins, not the first entry. lat / lon_e as stored must not be what is read.
+      hab_candidates: [
+        { candidate_id: "b", rank: 2, hab_mast: { x_m: 500, y_m: -500, height_m: 10 }, lat: 0, lon_e: 0 },
+        { candidate_id: "a", rank: 1, hab_mast: { x_m: 1000, y_m: -2000, height_m: 10 }, lat: 0, lon_e: 0 },
+      ],
+    };
+    const expected = inverseEqc(1000, -2000, origin);
+    expect(habFromManifest(manifest, "x/site-manifest.json")).toEqual({
+      lat: expected.lat,
+      lonE: expected.lon_e,
+      source: { path: "x/site-manifest.json", row: "hab_candidates[a].hab_mast through the inverse working projection (inverseEqc)" },
+    });
   });
 
-  it("parseHabSite fails loudly when the row is missing or malformed", () => {
-    expect(() => parseHabSite("no table here", "x")).toThrow(/Lat, lon/);
-    expect(() => parseHabSite("| Lat, lon °E | abc, def | q |", "x")).toThrow(/first-choice/);
+  it("habFromManifest fails loudly when there is no candidate, no CRS or a malformed mast", () => {
+    const proj4 = "+proj=eqc +lat_ts=-4.8 +lat_0=-4.8 +lon_0=137.4 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs";
+    expect(() => habFromManifest({ crs: { proj4 }, hab_candidates: [] }, "x")).toThrow(/hab_candidates/);
+    expect(() => habFromManifest({ hab_candidates: [{ candidate_id: "a", rank: 1, hab_mast: { x_m: 0, y_m: 0 } }] }, "x")).toThrow(/crs\.proj4/);
+    expect(() => habFromManifest({ crs: { proj4 }, hab_candidates: [{ candidate_id: "a", rank: 1, hab_mast: { x_m: "0", y_m: 0 } }] }, "x")).toThrow(/hab_mast/);
+  });
+
+  it("the committed gale_boxwork manifest's stored lat / lon_e equal the inverse projection of the mast (the engine reads the stored pair, BD-127)", () => {
+    const manifest = JSON.parse(readFileSync(join(ROOT, "data/sites/gale_boxwork/site-manifest.json"), "utf8")) as { hab_candidates: { rank: number; lat: number; lon_e: number }[] };
+    const first = manifest.hab_candidates.find((c) => c.rank === 1)!;
+    const hab = habFromManifest(manifest, "data/sites/gale_boxwork/site-manifest.json");
+    expect(hab.lat).toBeCloseTo(first.lat, 9);
+    expect(hab.lonE).toBeCloseTo(first.lon_e, 9);
   });
 
   it("formatMarkdown names every value with its source path and row", () => {
     const md = formatMarkdown(deriveDemoTiming(inputs(NOON_ALERT_MS, { plan: plan() })));
-    for (const needle of ["synthetic/dose_series.json", "synthetic/earth_link.json", "row 3", "eva_start_utc", "hab-site.md"]) expect(md).toContain(needle);
+    for (const needle of ["synthetic/dose_series.json", "synthetic/earth_link.json", "row 3", "eva_start_utc", "synthetic/hab-site.md"]) expect(md).toContain(needle);
   });
 
   it("formatMarkdown prints the Y source as passes[i] only, and fixed decimals next to the exact value", () => {
@@ -572,14 +589,26 @@ describe("T21.15 (b) real committed tables", () => {
 // ---------------------------------------------------------------------------
 
 describe("T21.15 (c) stop-2 dwell rule on the real plan.json", () => {
-  it.skipIf(!existsSync(PLAN_FILE))("derives eva_start_utc, all asserts pass, stored as a file snapshot", async () => {
+  it("plan.json is committed (T21.12), so part (b) of the rule always runs", () => {
+    expect(existsSync(PLAN_FILE)).toBe(true);
+  });
+
+  it("derives eva_start_utc, all asserts pass, stored as a file snapshot", async () => {
     const timing = deriveDemoTiming(loadInputs(ROOT));
     expect(timing.eva).not.toBeNull();
     await expect(`${JSON.stringify(timing.eva, null, 2)}\n`).toMatchFileSnapshot("./__snapshots__/demoNumbers.eva.snap");
   });
 
-  it.skipIf(existsSync(PLAN_FILE))("is reported as absent, not faked, when plan.json is missing", () => {
-    expect(deriveDemoTiming(loadInputs(ROOT)).eva).toBeNull();
+  it("is reported as absent, not faked, when no plan is given", () => {
+    expect(deriveDemoTiming(loadInputs(ROOT, { withPlan: false })).eva).toBeNull();
+  });
+
+  it("the derived start is the one the scenario and the plan carry (BD-144)", () => {
+    const timing = deriveDemoTiming(loadInputs(ROOT));
+    const scenario = JSON.parse(readFileSync(join(ROOT, "scenarios/storm-sol4190/scenario.json"), "utf8")) as { start_utc: string; plan: { scenario: { eva_start_utc: string } } };
+    expect(timing.eva!.matches_plan_eva_start_utc).toBe(true);
+    expect(scenario.start_utc).toBe(timing.eva!.eva_start_utc);
+    expect(scenario.plan.scenario.eva_start_utc).toBe(timing.eva!.eva_start_utc);
   });
 });
 
@@ -590,16 +619,13 @@ describe("T21.15 (c) stop-2 dwell rule on the real plan.json", () => {
 describe("T21.15 (d) 01 §E.1 states the derived values", () => {
   const claims = parseE1Claims(readFileSync(SPEC_01, "utf8"));
 
-  it("guard: once the X / Y placeholders are gone, both stated values can be read, so the comparison below runs", () => {
-    // The comparison is gated only on the X / Y placeholders. If they are gone but the numbers are not in the
-    // 'light time <n> min' / 'next relay pass in <n> min' form, this fails instead of the comparison silently skipping.
-    if (!claims.xy_pending) {
-      expect(claims.light_time_min, "01 §E.1 has no 'light time <n> min'").toBeDefined();
-      expect(claims.next_pass_min, "01 §E.1 has no 'next relay pass in <n> min'").toBeDefined();
-    }
+  it("the X / Y placeholders are gone, and both stated values can be read (T21.09 wrote them)", () => {
+    expect(claims.xy_pending).toBe(false);
+    expect(claims.light_time_min, "01 §E.1 has no 'light time <n> min'").toBeDefined();
+    expect(claims.next_pass_min, "01 §E.1 has no 'next relay pass in <n> min'").toBeDefined();
   });
 
-  it.skipIf(claims.xy_pending)("the light time and the wait for the next pass equal the derived values at the precision written", () => {
+  it("the light time and the wait for the next pass equal the derived values at the precision written", () => {
     const timing = deriveDemoTiming(loadInputs(ROOT, { withPlan: false }));
     const decimals = (n: number): number => (String(n).split(".")[1] ?? "").length;
     const round = (x: number, d: number): number => Number(x.toFixed(d));
