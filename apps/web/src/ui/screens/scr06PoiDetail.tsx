@@ -6,7 +6,7 @@ import type { AppContext } from "../context";
 import { EZ_STOP_TYPES } from "../map/ezLayer";
 import { poiPlaceRequest, type Placement } from "../map/waypointLayer";
 import { Metric } from "../components/metric";
-import { provAttrs, type Sourced } from "../components/provenance";
+import { isUsableValue, provAttrs, type Sourced } from "../components/provenance";
 import "./scr06PoiDetail.css";
 
 export interface PoiDetailProps {
@@ -28,7 +28,7 @@ function localImage(url: string | undefined): string | null {
 }
 
 function TextValue({ value, source, field }: { value: string | number | null | undefined; source: Sourced; field?: string }): ReactElement {
-  const present = value !== null && value !== undefined && value !== "";
+  const present = isUsableValue(value);
   return <span {...provAttrs(present ? source : { prov: source.prov, src: `unavailable:${source.src}${field ? `.${field}` : ""}`, unavailable: true })}>{present ? value : "—"}</span>;
 }
 
@@ -85,11 +85,11 @@ function Specimen({ ctx, poi, placement, suggestedTasks = [] }: { ctx: AppContex
 
     <h3>Science objective</h3><p><TextValue value={p.science_objective} source={source} /></p>
     <h3>Why it matters</h3><p className="scr06-why"><TextValue value={p.why_it_matters} source={source} /></p>
-    <details className="scr06-evidence"><summary>Evidence <span {...provAttrs({ prov: "derived", src })}>{p.evidence.length} sources</span></summary>
+    <details className="scr06-evidence"><summary>Evidence <span {...provAttrs({ prov: "derived", src })}>{p.evidence.length} {p.evidence.length === 1 ? "source" : "sources"}</span></summary>
       <ul>{p.evidence.map((evidence, i) => <li key={i} {...provAttrs({ prov: p.provenance, src: evidence.source_id })}>{evidence.text || "—"} <span>{ctx.site.sources.get(evidence.source_id)?.title || evidence.source_id}</span></li>)}</ul>
     </details>
     <h3>Position</h3>
-    <p data-position {...provAttrs(source)}><TextValue value={p.position_source} source={source} /><br />±<Metric value={Number.isFinite(p.position_uncertainty_m) ? p.position_uncertainty_m : null} unit="m" prov={p.provenance} src={src} /></p>
+    <p data-position {...provAttrs(source)}><TextValue value={p.position_source} source={source} /><br />{Number.isFinite(p.position_uncertainty_m) ? "±" : null}<Metric value={Number.isFinite(p.position_uncertainty_m) ? p.position_uncertainty_m : null} unit="m" prov={p.provenance} src={src} /></p>
     {suggestedTasks.some(task => task.poi_id === p.poi_id) ? <section aria-label="Suggested tasks"><h3>Suggested tasks</h3><ul>{suggestedTasks.filter(task => task.poi_id === p.poi_id).map(task => <li key={task.library_task_id} {...provAttrs({ prov: "assumed", src: task.source_id ?? `scenario.task_library:${task.library_task_id}` })}>{task.text}</li>)}</ul></section> : null}
     {stop ? <button type="button" data-remove-stop onClick={() => ctx.planStore.deleteWaypoint(stop.id)}>Remove stop</button> : <button type="button" data-add-stop disabled={atLimit || !placement || !poiPlaceRequest(poi)} aria-describedby={atLimit ? "scr06-stop-limit" : undefined} onClick={() => { const request = poiPlaceRequest(poi); if (request) void placement?.place(request); }}>Add as stop</button>}
     {atLimit && !stop ? <p id="scr06-stop-limit">Stop limit reached (<span {...provAttrs({ prov: "assumed", src: "spec:02-E.3" })}>{MAX_STOPS}</span>). Remove a stop to add another.</p> : null}

@@ -70,3 +70,29 @@ it("failed recomputation shows sourced unknown fields instead of the previous do
   expect(view.container.querySelector(".status-unknown")).not.toBeNull();
   await view.unmount();
 });
+it("computing after deleting a stop pairs old sun elevations with waypoint ids", async () => {
+  const original = okFixture as unknown as PlanResult;
+  const result = { ...original, legs: [{ ...original.legs[0]!, from: "wp-0", to: "wp-1" }, { ...original.legs[0]!, from: "wp-1", to: "wp-2" }], stops_timeline: [10, 20, 30].map(sun_elevation_deg => ({ arrive_utc: "2026-11-14T08:00:00Z", depart_utc: "2026-11-14T08:00:00Z", arrive_ltst: "08:00", sun_elevation_deg })) };
+  const ctx = ctxFor(result);
+  ctx.planStore = fakePlanStore({ status: "Computing", result, waypoints: [{ id: "wp-0", role: "start", x_m: 0, y_m: 0, label: "Hab" }, { id: "wp-2", role: "stop", x_m: 100, y_m: 100, label: "Remaining stop" }] }).store;
+  const view = await mount(createElement(Conditions, { ctx }));
+  const remaining = must(view.container, '[data-sun-waypoint="wp-2"]');
+  expect(remaining.textContent).toContain("Remaining stop");
+  expect(remaining.querySelector(".metric-value")?.textContent).toBe("30.0");
+  expect(must(view.container, '[data-sun-waypoint="wp-1"]').textContent).not.toContain("Remaining stop");
+  await view.unmount();
+});
+it("invalid UTC values are unavailable and missing LTST has no orphan unit or separator", async () => {
+  const result = { ...okFixture, conditions: { mars_year: 38, ls_deg: 45, sunrise_ltst: "", sunset_ltst: "", sunrise_utc: "bad ISO", sunset_utc: "bad ISO" } } as unknown as PlanResult;
+  const view = await mount(createElement(Conditions, { ctx: ctxFor(result) }));
+  for (const field of ["sunrise", "sunset"]) {
+    const value = must(view.container, `[data-condition="${field}"] dd`);
+    expect(value.textContent).not.toContain("LTST");
+    expect(value.textContent).not.toContain("·");
+    const dashes = [...value.querySelectorAll("span")].filter(el => el.textContent === "—" && el.children.length === 0);
+    expect(dashes).toHaveLength(2);
+    for (const dash of dashes) expect(dash.getAttribute("data-unavailable")).toBe("true");
+  }
+  expect(view.container.querySelector('[data-condition-utc="bad ISO"]')).toBeNull();
+  await view.unmount();
+});

@@ -4,14 +4,14 @@ import type { Provenance } from "@marswalk/protocol";
 import type { ScreenProps } from "../context";
 import { StatusIcon } from "../components/statusIcon";
 import { Metric } from "../components/metric";
-import { provAttrs } from "../components/provenance";
+import { isUsableValue, provAttrs } from "../components/provenance";
 import { WarningsList, formatUtc } from "../results/warningsList";
 import { LTST_SOURCE } from "../plan/stopsList";
 import "./scr07Conditions.css";
 
 const MARS24 = LTST_SOURCE;
 function Value({ value, prov = "modelled", src, path }: { value: string | number | undefined | null; prov?: Provenance; src: string; path: string }): ReactElement {
-  const present = value !== undefined && value !== null && value !== "";
+  const present = isUsableValue(value);
   return <span {...provAttrs({ prov, src: present ? src : `unavailable:${path}`, unavailable: !present })}>{present ? value : "—"}</span>;
 }
 function Field({ id, label, children }: { id: string; label: string; children: ReactNode }): ReactElement {
@@ -29,6 +29,14 @@ export function Conditions({ ctx }: ScreenProps): ReactElement {
   const doseSource = constant?.source_id;
   const darkness = result?.warnings.filter(w => w.code === "DARKNESS") ?? [];
   const text = (value: string | number | undefined, path: string) => <Value value={value} src={MARS24} path={path} />;
+  const sunTime = (kind: "sunrise" | "sunset") => {
+    const ltst = c?.[`${kind}_ltst`];
+    const utc = c?.[`${kind}_utc`];
+    const formattedUtc = utc ? formatUtc(utc) : "—";
+    const hasLtst = isUsableValue(ltst);
+    const hasUtc = formattedUtc !== "—";
+    return <>{text(hasLtst ? `${ltst} LTST` : undefined, `result.conditions.${kind}_ltst`)}{hasLtst && hasUtc ? " · " : " "}<span data-condition-utc={hasUtc ? utc : undefined}>{text(formattedUtc, `result.conditions.${kind}_utc`)}</span></>;
+  };
   return <section className="scr07-conditions" data-conditions aria-label="Conditions" aria-busy={state.status === "Computing"} data-computing={state.status === "Computing"}>
     <h2>Conditions</h2>
     {state.status === "Computing" ? <p role="status">Computing conditions… Previous values are shown.</p> : state.status === "Error" ? <p role="status"><StatusIcon status="unknown" word="Conditions unavailable" /> Plan computation failed (<Value value={state.last_error_code} prov="derived" src="plan.last_error_code" path="plan.last_error_code" />). Retry the plan to refresh conditions.</p> : null}
@@ -40,13 +48,14 @@ export function Conditions({ ctx }: ScreenProps): ReactElement {
       {c?.sol !== undefined ? <Field id="sol" label="MSL sol"><Value value={c.sol} prov="derived" src={MARS24} path="result.conditions.sol" /></Field> : null}
       <Field id="ltst-start" label="LTST at start">{text(first?.arrive_ltst, "result.stops_timeline[0].arrive_ltst")}</Field>
       <Field id="ltst-return" label="LTST at return">{text(last?.arrive_ltst, "result.stops_timeline.return.arrive_ltst")}</Field>
-      <Field id="sunrise" label="Sunrise · flat horizon">{text(c?.sunrise_ltst, "result.conditions.sunrise_ltst")} <span>LTST · </span><span data-condition-utc={c?.sunrise_utc}>{text(c?.sunrise_utc ? formatUtc(c.sunrise_utc) : undefined, "result.conditions.sunrise_utc")}</span></Field>
-      <Field id="sunset" label="Sunset · flat horizon">{text(c?.sunset_ltst, "result.conditions.sunset_ltst")} <span>LTST · </span>{text(c?.sunset_utc ? formatUtc(c.sunset_utc) : undefined, "result.conditions.sunset_utc")}</Field>
+      <Field id="sunrise" label="Sunrise · flat horizon">{sunTime("sunrise")}</Field>
+      <Field id="sunset" label="Sunset · flat horizon">{sunTime("sunset")}</Field>
     </dl>
     <h3>Sun elevation per stop</h3>
     {timeline.length ? <ul className="scr07-stop-sun">{timeline.map((entry, i) => {
-      const waypoint = state.waypoints[i] ?? (state.scenario?.loop && i === state.waypoints.length ? state.waypoints.find(w => w.role === "start") : undefined);
-      return <li key={i}><Value value={waypoint?.label || waypoint?.id} prov="assumed" src="plan.waypoints" path={`plan.waypoints[${i}]`} /> <Metric value={entry.sun_elevation_deg} unit="°" prov="modelled" src={MARS24} /></li>;
+      const waypointId = i === 0 ? result?.legs[0]?.from : result?.legs[i - 1]?.to;
+      const waypoint = state.waypoints.find(w => w.id === waypointId);
+      return <li key={i} data-sun-waypoint={waypointId}><Value value={waypoint?.label || waypoint?.id || waypointId} prov={waypoint ? "assumed" : "derived"} src={waypoint ? "plan.waypoints" : "result.legs"} path={`result.stops_timeline[${i}].waypoint`} /> <Metric value={entry.sun_elevation_deg} unit="°" prov="modelled" src={MARS24} /></li>;
     })}</ul> : <p {...provAttrs({ prov: "modelled", src: "unavailable:result.stops_timeline", unavailable: true })}>— Sun elevations not supplied</p>}
     <p className="scr07-note">Terrain shadowing, atmospheric refraction and dust opacity are not modelled.</p>
     <section data-condition="radiation" aria-label="Radiation estimate"><h3>Radiation estimate</h3>

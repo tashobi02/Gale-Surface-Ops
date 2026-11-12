@@ -304,10 +304,9 @@ function LegTable({ result }: { result: PlanResult }): ReactElement {
 }
 
 /** Worker samples and warning statuses only; no UI haven threshold (FR-39, FR-42, FD-247). */
-const NO_LEGS: Leg[] = [];
-function ProfileBands({ result }: { result: PlanResult | null }): ReactElement {
+function ProfileBands({ result }: { result: PlanResult }): ReactElement {
   const patternId = `band-${useId().replace(/:/g, "")}`;
-  const layout = useProfileLayout(result?.legs ?? NO_LEGS);
+  const layout = useProfileLayout(result.legs);
   return <div className="profile-bands" ref={layout.ref}>{(["haven", "comm"] as const).map(kind => {
     const prov = "modelled";
     const label = kind === "haven" ? "Haven · modelled (approximation)" : "Comm · line of sight only";
@@ -453,7 +452,7 @@ export function RouteResults({ planStore, mapHandle, className = "", site }: Rou
                 </div>
               ) : null}
             </div>
-            <ProfileBands result={hasResult ? result : null} />
+            {hasResult && result ? <Isolated label="Profile bands" resetKey={result}><ProfileBands result={result} /></Isolated> : null}
           </div>
 
           <div className="scr05-right-col" role="region" aria-label="Route warnings" tabIndex={0}>

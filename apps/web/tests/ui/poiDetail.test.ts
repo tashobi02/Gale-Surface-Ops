@@ -122,3 +122,21 @@ it("full plan disables Add as stop with a sourced limit reason", async () => {
   expect(must(view.container, "#scr06-stop-limit [data-source]").getAttribute("data-source")).toBe("spec:02-E.3");
   await view.unmount();
 });
+it("missing position uncertainty has a sourced dash without an orphan plus/minus", async () => {
+  const { ctx, poi } = fixture();
+  poi.properties.position_uncertainty_m = NaN;
+  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id }));
+  const position = must(view.container, "[data-position]");
+  expect(position.textContent).not.toContain("±");
+  expect(must(position, ".metric-value").textContent).toBe("—");
+  expect(must(position, ".metric-value").getAttribute("data-unavailable")).toBe("true");
+  await view.unmount();
+});
+it("one evidence source uses singular grammar", async () => {
+  const { ctx, poi } = fixture();
+  poi.properties.evidence = poi.properties.evidence.slice(0, 1);
+  const view = await mount(createElement(PoiDetail, { ctx, selectedPoiId: poi.properties.poi_id }));
+  expect(must(view.container, ".scr06-evidence summary").textContent).toContain("1 source");
+  expect(must(view.container, ".scr06-evidence summary").textContent).not.toContain("1 sources");
+  await view.unmount();
+});

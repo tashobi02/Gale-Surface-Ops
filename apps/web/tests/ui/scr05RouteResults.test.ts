@@ -486,3 +486,22 @@ it("warnings receive the current site layer sources through the results panel", 
   expect(must(view.container, ".warning-item").getAttribute("data-source")).toBe("rule:LOW_TI usgs-themis-ti-30s120e");
   await view.unmount();
 });
+it("empty results do not announce worker bands before a plan exists", async () => {
+  const view = await mount(ui({ planStore: fakePlanStore({ status: "Empty", result: null }).store }));
+  expect(view.container.querySelector("[data-band]")).toBeNull();
+  expect(view.container.textContent).not.toContain("samples not supplied by worker");
+  await view.unmount();
+});
+it("a band rendering failure is isolated from metrics, warnings and profile", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  const profile = { dist_m: [0, 5], elev_m: [], slope_class: [] };
+  Object.defineProperty(profile, "haven_min", { get: () => { throw new Error("Band data unreadable"); } });
+  const leg = { ...ok.legs[0], profile } as OkLeg;
+  const view = await mount(ui({ planStore: fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } }).store }));
+  expect(view.container.textContent).toContain("Profile bands unavailable");
+  expect(view.container.textContent).toContain("Band data unreadable");
+  expect(values(metric(view.container, "Distance"))[0]!.textContent).toBe("6.12");
+  expect(view.container.querySelector('[data-testid="profile-chart"]')).not.toBeNull();
+  expect(view.container.querySelector(".warning-item")).not.toBeNull();
+  await view.unmount();
+});

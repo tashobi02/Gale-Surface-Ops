@@ -282,9 +282,6 @@
 .profile-band-summary { display: flex; gap: var(--pad-sm); list-style: none; margin: 0; padding: 0; max-height: var(--target-touch); overflow: auto; color: var(--fg-2); }
 .profile-band-summary li { flex: none; }
 
-
-
-
 .scr05-middle-col { overflow-y: auto; }
 .profile-chart output { font-family: var(--font-mono); font-size: var(--text-micro); color: var(--fg-2); }
 .profile-band svg { width: 100%; height: 24px; }
