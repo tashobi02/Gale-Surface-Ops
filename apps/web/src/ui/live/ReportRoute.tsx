@@ -6,8 +6,6 @@
  * every value (04 §D.1) and a status line says which it is and why; a failed request offers RETRY. A body that is not a
  * report is an error: a half-filled report would read as a result.
  *
- * TODO(decision): "Export log JSON" (03 SCR-17 actions) is not wired; it needs the log download (`/api/log`) and the
- * report trace and sources of the screen's own TODO.
  */
 import { useCallback, useEffect, useState, type CSSProperties, type ReactElement } from "react";
 import { adaptPostEvaReport, type ApiPostEvaReport } from "../report/reportAdapter";
@@ -89,6 +87,7 @@ const statusStyle: CSSProperties = {
 export function ReportRoute({ fetchImpl, onBack }: ReportRouteProps): ReactElement {
   const [report, setReport] = useState<ReportState>({ state: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const [exportError, setExportError] = useState("");
   const doFetch = fetchImpl ?? ((url: string) => fetch(url));
 
   useEffect(() => {
@@ -109,6 +108,24 @@ export function ReportRoute({ fetchImpl, onBack }: ReportRouteProps): ReactEleme
     else globalThis.location.hash = "#/ops";
   }, [onBack]);
 
+  const exportLog = async (): Promise<void> => {
+    try {
+      setExportError("");
+      const response = await doFetch("api/log");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const lines = (await response.text()).split("\n").filter((line) => line.trim() !== "");
+      const events: unknown[] = lines.map((line) => JSON.parse(line));
+      const url = URL.createObjectURL(new Blob([JSON.stringify(events, null, 2)], { type: "application/json" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `log-${report.state === "ready" ? report.data.sessionId ?? "session" : "session"}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(`Could not export log: ${err instanceof Error ? err.message : "request failed"}`);
+    }
+  };
+
   return (
     <>
       {report.state !== "ready" && (
@@ -128,7 +145,8 @@ export function ReportRoute({ fetchImpl, onBack }: ReportRouteProps): ReactEleme
           )}
         </div>
       )}
-      <PostEvaReport report={report.state === "ready" ? report.data : undefined} onBack={back} />
+      {exportError && <p role="alert">{exportError}</p>}
+      <PostEvaReport report={report.state === "ready" ? report.data : undefined} onBack={back} onExportLog={report.state === "ready" ? () => { void exportLog(); } : undefined} />
     </>
   );
 }

@@ -19,7 +19,7 @@ test.fixme("print: SCR-08 is one page on A4 and Letter for OK, Over limits and P
   }
 });
 
-test.fixme("print: SCR-17 is at most two pages on A4 and Letter (enabled by package 29)", async ({ page }) => {
+test("print: SCR-17 is at most two pages on A4 and Letter", async ({ page }) => {
   await page.goto("/#/report");
   await page.waitForLoadState("networkidle");
   for (const format of FORMATS) expect(await pdfPages(page, { format, margin: "12mm" }), format).toBeLessThanOrEqual(SCR17_MAX_PAGES);

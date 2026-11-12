@@ -44,3 +44,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 ## Package 19 follow-up
 
 1. N-30 — N-06 supplies sol, LTST and the condition fields, but `ConditionsState` has no EVA phase. Supply the authoritative phase plus provenance and source; SCR-11 currently displays “—”.
+
+## Package 26 follow-up
+
+1. N-80 — Supply report source IDs with manifest-resolvable references and populate the 30-second crew trace in `/api/report`; this checkout's builder returns an empty trace and the protocol has no source IDs. SCR-17 shows — when unavailable.

@@ -99,4 +99,21 @@ describe("ReportRoute", () => {
     expect(container.querySelector('[data-slot="report-status"]')).toBeNull();
     expect(must(container, '[data-surface="report"]').textContent).toContain("feedbeef");
   });
+  it("export downloads log JSON", async () => {
+    const fetchImpl = vi.fn(async (url: string) => url === "api/log" ? new Response('{"seq":1}\n{"seq":2}', { status: 200 }) : json({ ...realReport(), session_id: "session-test" }));
+    const create = vi.fn(() => "blob:report");
+    const revoke = vi.fn();
+    Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke });
+    const clicked = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const { container } = await mount(createElement(ReportRoute, { fetchImpl }));
+    await flush();
+    await click(must(container, '[data-slot="export-log"]'));
+    await flush();
+    expect(fetchImpl).toHaveBeenCalledWith("api/log");
+    expect(create).toHaveBeenCalledOnce();
+    expect(clicked).toHaveBeenCalledOnce();
+    expect(revoke).toHaveBeenCalledWith("blob:report");
+    clicked.mockRestore();
+  });
+
 });

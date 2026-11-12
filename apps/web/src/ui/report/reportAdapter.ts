@@ -5,78 +5,12 @@
  *
  * `ui/live/ReportRoute.tsx` fetches `api/report` and feeds this adapter (T27.03).
  *
- * TODO(decision): `ApiPostEvaReport` mirrors apps/hab-core/src/report.ts because apps/web cannot import the Hab Core. Move
- * the type into packages/protocol (contract change) so both sides share one definition.
  */
 
-import type { AlertCode, AlertLevel } from "@marswalk/protocol";
+import type { PostEvaReport } from "@marswalk/protocol";
 import { REPORT_DISCLAIMER, type PostEvaReportData } from "../screens/scr17PostEvaReport";
 
-export interface ApiStopCrewTiming {
-  crew_id: string;
-  arrived_sim_time: string | null;
-  departed_sim_time: string | null;
-  arrival_offset_s: number | null;
-  dwell_s: number | null;
-  planned_arrival_offset_s: number | null;
-  planned_departure_offset_s: number | null;
-  planned_dwell_s: number | null;
-  arrival_diff_s: number | null;
-  dwell_diff_s: number | null;
-}
-
-export interface ApiPostEvaReport {
-  session_id: string;
-  scenario_id: string;
-  data_version: string;
-  seed: number;
-  generated_at: string;
-  log_hash: string;
-  eva_duration_s: number | null;
-  stops: {
-    completed: number;
-    dropped: number;
-    not_reached: number;
-    incomplete: number;
-    in_progress: number;
-    pending: number;
-    details: { stop_id: string; status: "completed" | "in_progress" | "incomplete" | "dropped" | "not_reached" | "pending"; crew: ApiStopCrewTiming[] }[];
-  };
-  alerts: {
-    total: number;
-    details: {
-      alert_id: string;
-      code: AlertCode;
-      level: AlertLevel;
-      raised_sim_time: string;
-      acked_sim_time: string | null;
-      cleared_sim_time: string | null;
-      ack_s: number | null;
-      shelter: { crew_id: string; shelter_response_s: number | null; sheltered_sim_time: string | null }[];
-    }[];
-  };
-  tasks: {
-    total: number;
-    done: number;
-    skipped: number;
-    dropped: number;
-    per_stop: Record<string, { done: number; skipped: number; dropped: number; total: number }>;
-  };
-  dose: {
-    per_crew: {
-      crew_id: string;
-      sheltered: boolean;
-      sheltered_sim_time: string | null;
-      haven_kind: string | null;
-      dose_event_ugy: number | null;
-      dose_event_unsheltered_ugy: number | null;
-    }[];
-    headline: { crew_id: string; dose_event_ugy: number; dose_event_unsheltered_ugy: number | null } | null;
-    background_dose_ugy: number | null;
-  };
-  plan_revisions: number;
-  disclaimer: string;
-}
+export type ApiPostEvaReport = PostEvaReport;
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
@@ -176,6 +110,8 @@ export function adaptPostEvaReport(api: ApiPostEvaReport): PostEvaReportData {
     tasks: Object.entries(api.tasks.per_stop)
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)) // code-unit order: the same on every host
       .map(([stopName, c]) => ({ stopName, done: c.done, skipped: c.skipped, dropped: c.dropped, total: c.total })),
+    trace: api.trace ?? [],
+    plannedBackgroundUgy: api.dose.planned_background_ugy ?? null,
     doseRows: api.dose.per_crew.map((c) => ({ crewId: c.crew_id, doseReceivedUgy: c.dose_event_ugy, doseUnshelteredUgy: c.dose_event_unsheltered_ugy })),
     disclaimer: commentary(api.disclaimer),
   };

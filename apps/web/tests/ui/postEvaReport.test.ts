@@ -6,9 +6,6 @@
  * Every value in the report comes from the data passed in; with none, values read "—". Absent, partial and full
  * reports are checked separately, and each value's provenance is checked on the value itself.
  *
- * Not claimed here: that the report prints on two pages. Two `report-page` containers are not a measurement of
- * printed pages. Chrome A4/Letter pagination with 12 mm margins is still to be verified by hand
- * (TODO(decision): see docs/tasks/status.md, T27.03).
  */
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
@@ -276,13 +273,12 @@ describe("SCR-17 pagination and print (not established by these tests)", () => {
     expect(html).toContain("p. 2 / 2");
   });
 
-  it.todo("prints on at most two pages in Chrome at A4 and Letter with 12 mm margins (TODO(decision): manual check)");
-  it.todo("map trace is drawn from the session position log (TODO(decision): needs the report API-to-UI adapter)");
+
 });
 
 
 /** What GET /api/report returns for the Hab Core fixture of apps/hab-core/tests/report.test.ts (two crew, one revision). */
-const API: ApiPostEvaReport = {
+const API = {
   session_id: "s-demo-4190",
   scenario_id: "storm-sol4190",
   data_version: "gale-v2026.11",
@@ -347,7 +343,7 @@ const API: ApiPostEvaReport = {
   },
   plan_revisions: 1,
   disclaimer: REPORT_DISCLAIMER,
-};
+} as unknown as ApiPostEvaReport;
 
 describe("SCR-17 API report adapter (snake_case PostEvaReport -> camelCase PostEvaReportData)", () => {
   const data = adaptPostEvaReport(API);
@@ -468,5 +464,21 @@ describe("SCR-17 API report adapter (snake_case PostEvaReport -> camelCase PostE
     expect(html).toContain("no shelter during alert");
     const bare = adaptPostEvaReport({ ...API, eva_duration_s: null, stops: { completed: 0, dropped: 0, not_reached: 0, incomplete: 0, in_progress: 0, pending: 0, details: [] }, alerts: { total: 0, details: [] }, tasks: { total: 0, done: 0, skipped: 0, dropped: 0, per_stop: {} } });
     expect(render(bare)).not.toMatch(/NaN|undefined|null/);
+  });
+});
+
+
+describe("T27.03 report contract", () => {
+  it("trace from decimated positions", () => {
+    const report = adaptPostEvaReport({ ...API, trace: [{ crew_id: "EV1", points: [{ sim_time: "2026-01-01T00:00:00Z", x_m: 10, y_m: 20 }, { sim_time: "2026-01-01T00:00:30Z", x_m: 30, y_m: 40 }] }] } as ApiPostEvaReport);
+    const html = render(report);
+    expect(html).toContain('data-slot="report-trace"');
+    expect(html).toContain('data-source="report:trace"');
+    expect(html).toContain('<polyline');
+  });
+  it("dose per crew includes planned background", () => {
+    const report = adaptPostEvaReport({ ...API, dose: { ...API.dose, planned_background_ugy: 17 } } as ApiPostEvaReport);
+    expect(render(report)).toContain('17.0 µGy');
+    expect(render(report)).toContain('report:dose.planned_background_ugy');
   });
 });

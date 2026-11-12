@@ -18,8 +18,6 @@
  * response per alert and crew only while the alert is open; dose per crew (`simulated`) with the highest individual picked
  * as the headline (the pick is `derived`, the values stay `simulated`), no crew total; a crew member who never sheltered reads "not sheltered".
  *
- * TODO(decision): complete real report trace, sources and Export log JSON integration, then verify Chrome A4/Letter
- * pagination with 12 mm margins; article-container counts do not prove two printed pages.
  */
 
 import type { CSSProperties, ReactElement } from "react";
@@ -33,6 +31,8 @@ export interface PostEvaReportData {
   seed?: number;
   logHash?: string;
   /** Headline dose: the highest individual's values (`simulated`; the pick is `derived`), never a crew total. Absent when nobody sheltered. */
+  trace?: Array<{ crew_id: string; points: Array<{ sim_time: string; x_m: number; y_m: number }> }>;
+  plannedBackgroundUgy?: number | null;
   doseReceivedUgy?: number;
   doseUnshelteredUgy?: number;
   doseHeadlineCrew?: string;
@@ -98,6 +98,7 @@ export interface PostEvaReportData {
 export interface PostEvaReportProps {
   report?: PostEvaReportData;
   onPrint?: () => void;
+  onExportLog?: () => void;
   onBack?: () => void;
   className?: string;
 }
@@ -131,6 +132,7 @@ const glyphIf = (present: boolean, prov: Provenance): string => (present ? PROVE
 export function PostEvaReport({
   report,
   onPrint,
+  onExportLog,
   onBack,
   className = "",
 }: PostEvaReportProps): ReactElement {
@@ -233,6 +235,13 @@ export function PostEvaReport({
         fontFamily: "var(--font-ui, Inter, sans-serif)",
       }}
     >
+      <style>{`@page { margin: 12mm; }
+        @media print {
+          .scr17-post-eva-report { background: white !important; min-height: 0 !important; padding: 0 !important; }
+          .scr17-post-eva-report .no-print { display: none !important; }
+          .scr17-post-eva-report .report-page { min-height: 0 !important; margin: 0 !important; padding: 0 !important; max-width: none !important; border: 0 !important; box-shadow: none !important; gap: 6px !important; }
+          .scr17-post-eva-report .report-page + .report-page { break-before: page; }
+        }`}</style>
       {/* Top action toolbar (hidden when printing) */}
       <div
         className="no-print"
@@ -268,6 +277,7 @@ export function PostEvaReport({
             SCR-17 · POST-EVA REPORT
           </span>
         </div>
+        <button type="button" data-slot="export-log" onClick={onExportLog} disabled={!onExportLog}>EXPORT LOG JSON</button>
         <button
           type="button"
           onClick={handlePrint}
@@ -350,6 +360,9 @@ export function PostEvaReport({
             </span>
             <span style={{ fontSize: "12px", color: "#4B5563" }} {...reportAttrs(hasHeadline, "derived", "dose.headline")}>
               {`highest individual: ${hasHeadline ? data.doseHeadlineCrew : UNAVAILABLE}`} {glyphIf(hasHeadline, "derived")}
+            </span>
+            <span {...reportAttrs(isFiniteNumber(data.plannedBackgroundUgy), "modelled", "dose.planned_background_ugy")}>
+              Planned background: {isFiniteNumber(data.plannedBackgroundUgy) ? `${fmtFixed(data.plannedBackgroundUgy, 1)} µGy` : UNAVAILABLE}
             </span>
             {(data.doseRows ?? []).length > 0 && (
               <ul style={{ margin: 0, padding: 0, listStyle: "none", fontSize: "12px", fontFamily: "var(--font-mono, monospace)" }}>
@@ -572,26 +585,18 @@ export function PostEvaReport({
           </table>
         </section>
 
-        {/* Map trace: no fabricated schematic. The real trace needs the session position log (not wired). */}
         <section aria-label="Map Trace">
-          <h2
-            style={{
-              fontSize: "12px",
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: "#4B5563",
-              margin: "8px 0 2px 0",
-            }}
-          >
-            [ MAP /// MAP TRACE ]
-          </h2>
-          <p
-            style={{ fontSize: "12px", color: "#4B5563", margin: "4px 0" }}
-            {...reportAttrs(false, "simulated", "map_trace")}
-          >
-            {UNAVAILABLE} Trace not available: it needs the session position log.
-          </p>
+          <h2>MAP TRACE</h2>
+          {(data.trace ?? []).some((row) => row.points.length > 0) ? (() => {
+            const points = (data.trace ?? []).flatMap((row) => row.points);
+            const minX = Math.min(...points.map((p) => p.x_m));
+            const maxX = Math.max(...points.map((p) => p.x_m));
+            const minY = Math.min(...points.map((p) => p.y_m));
+            const maxY = Math.max(...points.map((p) => p.y_m));
+            return <svg data-slot="report-trace" {...reportAttrs(true, "simulated", "trace")} role="img" aria-label="Crew position traces" viewBox={`${minX} ${-maxY} ${Math.max(maxX - minX, 1)} ${Math.max(maxY - minY, 1)}`} style={{ width: "100%", height: "100px" }}>
+              {data.trace?.map((row) => <polyline key={row.crew_id} aria-label={row.crew_id} points={row.points.map((p) => `${p.x_m},${-p.y_m}`).join(" ")} fill="none" stroke="currentColor" vectorEffect="non-scaling-stroke" />)}
+            </svg>;
+          })() : <p {...reportAttrs(false, "simulated", "map_trace")}>{UNAVAILABLE} Trace not available.</p>}
         </section>
       </article>
 
