@@ -25,7 +25,7 @@ import { ReplayRoute } from "./live/ReplayRoute";
 export interface AppProps {
   route: Route;
   planner: PlannerBootHandle;
-  /** Same-origin fetch for the join status and the report; default the global `fetch`. */
+  /** Same-origin fetch for the join status, the report and the replay recording; default the global `fetch`. */
   fetchImpl?: (url: string) => Promise<Response>;
 }
 
@@ -74,7 +74,11 @@ export function App({ route, planner, fetchImpl }: AppProps): ReactElement {
     case "setup":
       return <NotBuilt screen="SCR-20" label="Mission setup" task="T32.22" />;
     case "replay":
-      return <ReplayRoute />;
+      return (
+        <RouteBoundary screen="—" label="Replayed recording" task="T27.05">
+          <ReplayRoute fetchImpl={fetchImpl} />
+        </RouteBoundary>
+      );
     case "unknown":
       return <UnknownRoute />;
   }

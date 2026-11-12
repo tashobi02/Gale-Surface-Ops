@@ -6,9 +6,10 @@
 import { expect, test } from "@playwright/test";
 import { waitForSnapshot } from "../lib/hab";
 import { expectNoUnlabelledNumbers } from "../lib/provenance";
+import { openReplayFixture } from "../lib/replayFixture";
 
 const DEMO_PATH = ["#/", "#/planner", "#/briefing"];
-const LIVE = ["#/ops", "#/eva/EV1", "#/hud/EV1", "#/report"];
+const LIVE = ["#/ops", "#/eva/EV1", "#/hud/EV1", "#/report", "#/replay"];
 
 // Package 07: the planner workspace alone, on the F4 site. The demo-path test below stays `fixme` until SCR-01 and SCR-08 exist.
 test("provenance: no unlabelled number on the planner workspace and every source id it shows is a known kind (package 07)", async ({ page }) => {
@@ -48,7 +49,15 @@ test.fixme("provenance: no unlabelled number on the demo path and every source i
 test.fixme("provenance: no unlabelled number on any live role (enabled by package 29)", async ({ page }) => {
   for (const hash of LIVE) {
     await page.goto(`/${hash}`);
-    if (hash !== "#/report") await waitForSnapshot(page);
+    if (hash !== "#/report" && hash !== "#/replay") await waitForSnapshot(page);
     await expectNoUnlabelledNumbers(page, hash);
   }
+});
+
+// Package 27: `#/replay` on the fixture recording (N-81 pending): the replay bar (position, hashes) and the ops view under it.
+test("provenance: no unlabelled number on #/replay, paused and after a step (package 27)", async ({ page }) => {
+  await openReplayFixture(page);
+  await expectNoUnlabelledNumbers(page, "#/replay");
+  await page.locator('[data-slot="replay-step"]').click();
+  await expectNoUnlabelledNumbers(page, "#/replay after a step");
 });
