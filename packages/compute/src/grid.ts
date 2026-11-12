@@ -132,3 +132,21 @@ export function decodeSlopeDeg(value: number): number | null {
   }
   return value / 4;
 }
+
+/** What `centreOfCell` needs of a grid or a time field: row-major, north-up, `origin_m` the top-left corner. */
+export interface CellLayout {
+  origin_m: readonly [number, number];
+  cell_m: number;
+  width: number;
+}
+
+/**
+ * Centre of the cell at array offset `k`, in projected metres (05 §E.1, the inverse of {@link cellIndex}). The one
+ * helper the haven, rendezvous and path code share (BD-62). A negative zero is returned as 0.
+ */
+export function centreOfCell(layout: CellLayout, k: number): [number, number] {
+  const row = Math.floor(k / layout.width);
+  const col = k - row * layout.width;
+  // "+ 0" turns a negative zero into 0.
+  return [layout.origin_m[0] + (col + 0.5) * layout.cell_m + 0, layout.origin_m[1] - (row + 0.5) * layout.cell_m + 0];
+}
