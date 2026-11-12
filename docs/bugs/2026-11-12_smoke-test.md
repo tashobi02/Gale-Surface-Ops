@@ -18,7 +18,7 @@ Across 33 TASKs (including 05b and 18; there is no TASK-19): **19 PASS, 5 FAIL, 
 - TASK-14: workspace lint includes ignored scratch files; SMK-003.
 - TASK-07: browser reaches the unfinished landing screen; SMK-004.
 
-No application code was changed. `docs/bugs/2026-11-12_system-test.md` did not exist at the tested commit or in this working tree, so there is no system-test report to link or duplicate. This report does not infer that past findings are fixed.
+No application code was changed. The [earlier system-test report](2026-11-12_system-test.md) was absent from the smoke-tested commit and working tree, but preserved on `keep/task14-system-test-findings` at `fa25bee`. It was subsequently restored to main with its command ledger and reproduction probes. Its findings concern an earlier tested commit; this smoke report does not infer that those findings are fixed.
 
 ## 2. Environment
 
