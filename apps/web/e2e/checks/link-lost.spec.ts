@@ -1,9 +1,16 @@
 /** T24.07: one common deadline for EVA and ops; cached data, real retry progress, actual restored snapshot. */
 import { expect, test } from "@playwright/test";
-import type { Snapshot } from "@marswalk/protocol";
+import { HEARTBEAT_MS, LINK_LOST_AFTER_MS, type Snapshot } from "@marswalk/protocol";
 import { killHab, openRole, restartHab } from "../lib/hab";
 
-test("link-lost: both roles show SCR-18 within 3 s, actual retry counts, then restored values", async ({ context }) => {
+/**
+ * The deadline runs from the LAST SERVER MESSAGE, not from the moment the Hab Core dies (FD-372, 02 §D.14: the server
+ * sends PING every 2 s and the client shows "HAB LINK LOST" after 3 s without one). The last PING can be up to one
+ * heartbeat before the kill, so the banner appears at most LINK_LOST_AFTER_MS + HEARTBEAT_MS after it.
+ */
+const DEADLINE_AFTER_KILL_MS = LINK_LOST_AFTER_MS + HEARTBEAT_MS;
+
+test("link-lost: both roles show SCR-18 within 3 s of the last server message, actual retry counts, then restored values", async ({ context }) => {
   const eva = await openRole(context, "eva:EV1");
   const ops = await openRole(context, "ops");
   let killed = false;
@@ -14,9 +21,14 @@ test("link-lost: both roles show SCR-18 within 3 s, actual retry counts, then re
     await expect(eva.locator('[data-slot="o2"] .value')).toHaveText(o2);
     await expect(ops.getByTestId('clock-control')).toBeVisible();
     killHab(); killed = true;
+    const killedAt = Date.now();
     await Promise.all([eva, ops].map(async (page) => {
-      await expect(page.locator('[data-screen="SCR-18"] [role="alert"]')).toBeVisible({ timeout: 3000 });
-      await expect(page.locator('[data-cached-age]')).toBeVisible();
+      await expect(page.locator('[data-screen="SCR-18"] [role="alert"]')).toBeVisible({ timeout: DEADLINE_AFTER_KILL_MS + 2000 });
+      // The age counts the seconds since the last server message, so it is the deadline the client really keeps: it never
+      // passes LINK_LOST_AFTER_MS while the banner is up.
+      const age = await page.locator('[data-cached-age]').first().textContent();
+      expect(Number(age), 'the cached age in seconds').toBeLessThanOrEqual(LINK_LOST_AFTER_MS / 1000);
+      expect(Date.now() - killedAt, 'the time from the kill to the banner').toBeLessThanOrEqual(DEADLINE_AFTER_KILL_MS);
       const count = page.locator('[data-reconnect-count]');
       await expect(count).toHaveText(/^\d+$/);
       const first = Number(await count.textContent());
