@@ -5,3 +5,8 @@ export * from "./worker";
 export * from "./runtime";
 export * from "./ws";
 export * from "./csp";
+export * from "./report";
+export * from "./recording";
+export * from "./commandList";
+export * from "./args";
+export * from "./logHash";

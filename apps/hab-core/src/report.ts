@@ -27,134 +27,29 @@
  * - Dose: one row per crew member from that crew's last CREW_SHELTERED; the headline is the highest individual
  *   dose_event_ugy; there is no crew total.
  *
- * TODO(decision): contract change in packages/protocol if PostEvaReport moves there; the type lives in this file for now.
+ * The PostEvaReport types live in packages/protocol/src/report.ts since backend package 01a (BD-76); this file re-exports them.
  */
 
 import type {
   AlertCode,
   AlertLevel,
+  AlertReportDetail,
+  AlertShelterResponse,
+  CrewDoseRow,
   CrewId,
   LogEvent,
   LogEventData,
   PlanExport,
+  PostEvaReport,
   Provenance,
+  StopCrewTiming,
+  StopReportDetail,
+  StopStatus,
+  TaskCounts,
   Waypoint,
 } from "@marswalk/protocol";
 
-/**
- * `pending`: not reached yet and the EVA has not ended; `not_reached`: never reached, not dropped, EVA ended;
- * `incomplete`: reached but not every EVA crew left by EVA_ENDED; `in_progress`: the same while the EVA runs.
- */
-export type StopStatus = "completed" | "in_progress" | "incomplete" | "dropped" | "not_reached" | "pending";
-
-/** One crew member at one stop. Offsets are seconds from EVA_STARTED; all of them null when not known. */
-export interface StopCrewTiming {
-  crew_id: string;
-  arrived_sim_time: string | null;
-  departed_sim_time: string | null;
-  arrival_offset_s: number | null;
-  dwell_s: number | null;
-  planned_arrival_offset_s: number | null;
-  planned_departure_offset_s: number | null;
-  planned_dwell_s: number | null;
-  /** actual minus planned (positive = later / longer). */
-  arrival_diff_s: number | null;
-  dwell_diff_s: number | null;
-  provenance: { actual: "simulated"; planned: "derived"; differences: "derived" };
-}
-
-export interface StopReportDetail {
-  stop_id: string;
-  stop_index?: number;
-  status: StopStatus;
-  crew: StopCrewTiming[];
-}
-
-export interface AlertShelterResponse {
-  crew_id: string;
-  /** Null: no shelter during the alert. */
-  shelter_response_s: number | null;
-  sheltered_sim_time: string | null;
-}
-
-export interface AlertReportDetail {
-  alert_id: string;
-  code: AlertCode;
-  level: AlertLevel;
-  raised_sim_time: string;
-  acked_sim_time: string | null;
-  cleared_sim_time: string | null;
-  /** First ALERT_ACKED minus ALERT_RAISED. */
-  ack_s: number | null;
-  shelter: AlertShelterResponse[];
-  provenance: { times: "simulated"; durations: "derived" };
-}
-
-export interface TaskCounts {
-  done: number;
-  skipped: number;
-  dropped: number;
-  total: number;
-}
-
-export interface CrewDoseRow {
-  crew_id: string;
-  sheltered: boolean;
-  sheltered_sim_time: string | null;
-  haven_kind: string | null;
-  /** Null: not sheltered. */
-  dose_event_ugy: number | null;
-  dose_event_unsheltered_ugy: number | null;
-}
-
-export interface PostEvaReport {
-  session_id: string;
-  scenario_id: string;
-  data_version: string;
-  seed: number;
-  generated_at: string;
-  log_hash: string;
-  /** Null without both EVA_STARTED and EVA_ENDED. */
-  eva_duration_s: number | null;
-  stops: {
-    completed: number;
-    dropped: number;
-    not_reached: number;
-    incomplete: number;
-    /** Reached, not every EVA crew has left, EVA still running. */
-    in_progress: number;
-    /** Not reached yet, EVA still running. */
-    pending: number;
-    details: StopReportDetail[];
-  };
-  alerts: {
-    total: number;
-    details: AlertReportDetail[];
-  };
-  tasks: {
-    total: number;
-    done: number;
-    skipped: number;
-    dropped: number;
-    per_stop: Record<string, TaskCounts>;
-  };
-  dose: {
-    per_crew: CrewDoseRow[];
-    /** The crew member with the highest dose_event_ugy; null when nobody sheltered. Never a crew total. */
-    headline: { crew_id: string; dose_event_ugy: number; dose_event_unsheltered_ugy: number | null } | null;
-    provenance: { per_crew: "simulated"; headline: "derived" };
-    /**
-     * Planned-background dose. Unavailable (null) until a sourced planned-background result arrives through the
-     * report/session contract: no rate lives in this builder (science lives in packages/compute, AGENTS rule 2).
-     * TODO(decision): supply a sourced planned-background dose result through the agreed report/session contract;
-     * background dose remains unavailable until then.
-     */
-    background_dose_ugy: number | null;
-  };
-  plan_revisions: number;
-  provenance_summary: Record<Provenance, number>;
-  disclaimer: string;
-}
+export type { AlertReportDetail, AlertShelterResponse, CrewDoseRow, PostEvaReport, StopCrewTiming, StopReportDetail, StopStatus, TaskCounts };
 
 export const REPORT_DISCLAIMER =
   "NASA Space Apps Challenge 2026 — Interplanetary Survival Guide: Martian Map. " +
@@ -551,9 +446,13 @@ export function buildReport(allEvents: LogEvent[], logHash: string = "", plan?: 
     dose: {
       per_crew: perCrewDose,
       headline,
-      provenance: { per_crew: "simulated", headline: "derived" },
+      provenance: { per_crew: "simulated", headline: "derived", planned_background_ugy: "modelled" },
       background_dose_ugy: null,
+      // Filled by backend work package 20 (BD-76); until then the report says why it is missing.
+      planned_background_ugy: null,
+      planned_background_reason: "planned background dose not computed in this build yet",
     },
+    trace: [],
     plan_revisions: planRevisions,
     provenance_summary: provenanceSummary,
     disclaimer: REPORT_DISCLAIMER,

@@ -1,18 +1,25 @@
 """Deterministic generator for the fake scenario fixture (T22.02, fixture F8).
 
-Run: python3 apps/hab-core/tests/fixtures/fake-scenario/make_fake_scenario.py
-Writes scenario.json, dose_series.json and earth_link.json next to this file. Standard library only.
+Run: python3 apps/hab-core/tests/fixtures/fake-scenario/make_fake_scenario.py [--out <dir>]
+Writes scenario.json, scenario.planless.json, dose_series.json, earth_link.json and the two-candidate-site/
+folder next to this file (or into <dir>). Standard library only. Running it twice gives identical bytes.
 
 Every number is (a) copied from a cited spec example, (b) a declared synthetic shape parameter
 below, (c) computed here from (a) and (b), or (d) a placeholder (0, "", [], null). See README.md.
 The demo never loads this scenario; it lives under site_id `mock_site` (map §e fixture value rule).
 """
+import argparse
 import hashlib
 import json
+import math
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[4]
+MOCK_SITE = ROOT / "data" / "sites" / "mock_site"
+OUT = HERE  # replaced by --out
 
 # ---- Declared synthetic shape parameters (not data) -------------------------------------------
 STOP_SPACING_M = 1000          # straight line along +x: start at x=0, stops every 1000 m
@@ -107,12 +114,102 @@ def iso(t):
 
 def write(name, obj):
     text = json.dumps(obj, indent=2, ensure_ascii=False) + "\n"
-    with open(HERE / name, "w", encoding="utf-8", newline="\n") as f:
+    path = OUT / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def write_bytes(name, payload):
+    path = OUT / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(payload)
+    return hashlib.sha256(payload).hexdigest()
+
+
+def series_start_utc(samples, background, trigger_factor):
+    """BD-98: the time of the last sample whose rate is at or below the background before the first sample whose
+    trigger state is not nominal. The trigger rule is that of 05 ParamSet kind `alert`: an alert starts at the
+    second of two consecutive samples above trigger_factor x background (compute `triggerState`)."""
+    highs = 0
+    first_alert = None
+    for i, (_, rate) in enumerate(samples):
+        highs = highs + 1 if rate is not None and rate > trigger_factor * background else 0
+        if highs >= 2:
+            first_alert = i
+            break
+    assert first_alert is not None, "the synthetic step never triggers the alert"
+    last = max(i for i in range(first_alert) if samples[i][1] is not None and samples[i][1] <= background)
+    return samples[last][0]
+
+
+# ---- Declared synthetic shape of the two-candidate site (not data) -------------------------------------
+# The second mast mirrors the first across x = 0, and its comm grid is the first grid's 0/1 mask mirrored
+# left to right (no-data cells stay where they are). Neither is a computed viewshed.
+SECOND_CANDIDATE_ID = "hab-alternative"
+FIRST_CANDIDATE_ID = "hab-first"
+
+
+def mirror_comm(comm, width):
+    out = bytearray(len(comm))
+    for i in range(0, len(comm), width):
+        row = comm[i:i + width]
+        for col, value in enumerate(row):
+            out[i + col] = value if value == 255 else row[width - 1 - col]
+    return bytes(out)
+
+
+def two_candidate_site():
+    """data/sites/mock_site's manifest and grid files with two HabCandidates (05 HabCandidate; rank-1 mirrors the Site)."""
+    manifest = json.loads((MOCK_SITE / "site-manifest.json").read_text(encoding="utf-8"))
+    # data_version stays the mock site's: the manifest schema wants a dated version, which the fake scenario's "mock_site-fixture" is not.
+    grid = manifest["grid"]
+    proj = manifest["crs"]["proj4"]
+    num = lambda key: float(re.search(r"\+" + key + r"=(-?[\d.]+)", proj).group(1))
+    radius_m = num("R")
+    lat_0, lon_0, lat_ts = num("lat_0"), num("lon_0"), num("lat_ts")
+
+    def inverse(x_m, y_m):  # spherical inverse equirectangular, as compute inverseEqc (02 §C.1)
+        lat = lat_0 + math.degrees(y_m / radius_m)
+        lon_e = lon_0 + math.degrees(x_m / (radius_m * math.cos(math.radians(lat_ts))))
+        return lat, lon_e
+
+    first_mast = dict(grid["hab_mast"])
+    second_mast = {**first_mast, "x_m": -first_mast["x_m"]}
+    width = grid["width"]
+    comm = (MOCK_SITE / "grid" / "comm_hab.u8").read_bytes()
+    second_file = f"grid/comm_{SECOND_CANDIDATE_ID}.u8"
+    second_bytes = mirror_comm(comm, width)
+    second_sha = write_bytes(f"two-candidate-site/{second_file}", second_bytes)
+    for asset in manifest["assets"]:
+        if asset["path"].startswith("grid/"):
+            write_bytes(f"two-candidate-site/{asset['path']}", (MOCK_SITE / asset["path"]).read_bytes())
+    manifest["assets"].append({
+        "asset_id": f"grid-comm-{SECOND_CANDIDATE_ID}", "path": second_file, "format": "u8", "sha256": second_sha,
+        "bytes": len(second_bytes), "width": width, "height": grid["height"], "nodata": 255, "byte_order": "little"})
+    manifest["assets"].sort(key=lambda a: a["asset_id"])
+
+    def candidate(cid, label, rank, mast, asset_id):
+        lat, lon_e = inverse(mast["x_m"], mast["y_m"])
+        return {"candidate_id": cid, "label": label, "rank": rank, "hab_mast": mast, "lat": lat, "lon_e": lon_e,
+                "comm_hab_asset": asset_id,
+                "default_start": {"x_m": mast["x_m"], "y_m": mast["y_m"], "label": "Habitat / rover"},
+                "note": "fixture - not a real source", "provenance": "assumed", "source_ids": []}
+
+    manifest["hab_candidates"] = [
+        candidate(FIRST_CANDIDATE_ID, "First choice", 1, first_mast, grid["comm_hab_asset"]),
+        candidate(SECOND_CANDIDATE_ID, "Alternative", 2, second_mast, f"grid-comm-{SECOND_CANDIDATE_ID}"),
+    ]
+    manifest["name"] = "Two-candidate fixture site (synthetic, from the mock site F4)"
+    write("two-candidate-site/site-manifest.json", manifest)
+
+
 def main():
+    global OUT
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--out", type=Path, default=HERE, help="folder to write into (default: next to this file)")
+    OUT = parser.parse_args().out.resolve()
     self_check()
     suit = load_param("suit-assumed")["values"]
     alert = load_param("alert-assumed")["values"]
@@ -191,29 +288,65 @@ def main():
         "provenance_summary": [], "disclaimer": DISCLAIMER,
     }
 
-    write("scenario.json", {
+    # Live-session shape (05 Scenario, 2026-11-10): the setup values are those of plan.scenario (05 §F.4), and the
+    # library has one event over the synthetic step series (BD-98 gives its series start).
+    mission_setup = {
+        "hab_candidate_id": FIRST_CANDIDATE_ID, "crew_count": mission["crew_count"],
+        "vehicle_available": mission["vehicle_available"], "vehicle_param_set": mission["vehicle_param_set"],
+        "solar_phase": mission["solar_phase"], "max_haven_min": mission["max_haven_min"],
+    }
+    event_library = [{
+        "event_id": "storm", "title": "Fixture solar particle event (synthetic)", "kind": "SPACE_WEATHER",
+        "dose_series": "dose_series",
+        "series_start_utc": series_start_utc(samples, BACKGROUND_UGY_H, alert["rad_k_background"]),
+        "label": "fixture - synthetic step series, not RAD data",
+        "source_id": "fixture-synthetic", "provenance": "replayed",
+    }]
+    # Suggested tasks for the POI of the mock site (data/sites/mock_site/vectors/pois.geojson); text as the stop tasks above.
+    poi_id = json.loads((MOCK_SITE / "vectors" / "pois.geojson").read_text(encoding="utf-8"))["features"][0]["properties"]["poi_id"]
+    task_library = [
+        {"library_task_id": "lt-boxwork-01", "poi_id": poi_id, "crew_id": "EV1", "kind": "image", "text": "Image the ridge crest"},
+        {"library_task_id": "lt-boxwork-02", "poi_id": poi_id, "crew_id": None, "kind": "other", "text": "Fixture task"},
+    ]
+    crew = [{"crew_id": "EV1", "suit_param_set": "suit-assumed", "start_offset_s": 0},
+            {"crew_id": "EV2", "suit_param_set": "suit-assumed", "start_offset_s": 0}]
+    vehicles = [{"vehicle_id": "PR1", "kind": "pressurized_rover", "param_set": "pr1-assumed", "start_x_m": 0, "start_y_m": 0}]
+    param_sets = ["suit-assumed", "pr1-assumed", "link-assumed", "alert-assumed", "shielding-assumed"]
+    tables = {"dose_series": {"path": "dose_series.json", "sha256": dose_sha},
+              "earth_link": {"path": "earth_link.json", "sha256": earth_sha}}
+    head = {
         "scenario_schema_version": "1.0.0",  # 05 §F.4
+        "site_id": SITE_ID, "data_version": DATA_VERSION, "seed": SEED, "start_utc": START_UTC,
+    }
+    tail = {"mission_setup": mission_setup, "crew": crew, "vehicles": vehicles, "param_sets": param_sets,
+            "event_library": event_library, "task_library": task_library, "tables": tables,
+            "source_ids": ["fixture-synthetic"]}
+
+    write("scenario.json", {
+        "scenario_schema_version": head["scenario_schema_version"],
         "scenario_id": "fake-straight-line",
         "title": "Fake scenario: straight line, stepped dose (test fixture, not data)",
-        "site_id": SITE_ID, "data_version": DATA_VERSION, "seed": SEED, "start_utc": START_UTC,
+        **{k: head[k] for k in ("site_id", "data_version", "seed", "start_utc")},
         "plan": plan,
         "stop_tasks": [
             {"task_id": "t-s1-01", "stop_id": "wp-1", "crew_id": "EV1", "kind": "image", "text": "Image the ridge crest"},
             {"task_id": "t-s2-01", "stop_id": "wp-2", "crew_id": None, "kind": "other", "text": "Fixture task"},
         ],
-        "crew": [{"crew_id": "EV1", "suit_param_set": "suit-assumed", "start_offset_s": 0},
-                 {"crew_id": "EV2", "suit_param_set": "suit-assumed", "start_offset_s": 0}],
-        "vehicles": [{"vehicle_id": "PR1", "kind": "pressurized_rover", "param_set": "pr1-assumed",
-                      "start_x_m": 0, "start_y_m": 0}],
-        "param_sets": ["suit-assumed", "pr1-assumed", "link-assumed", "alert-assumed", "shielding-assumed"],
+        **tail,
         "events": [{"event_id": "e1", "t_utc": iso(t0 + timedelta(seconds=EARTH_MESSAGE_OFFSET_S)),
                     "kind": "EARTH_MESSAGE", "provenance": "simulated",
                     "payload": {"sent_earth_utc": iso(t0 + timedelta(seconds=EARTH_MESSAGE_OFFSET_S)),
                                 "body": "SEP event in progress. Recommend shelter."}}],  # 05 §F.4 e2 body
-        "tables": {"dose_series": {"path": "dose_series.json", "sha256": dose_sha},
-                   "earth_link": {"path": "earth_link.json", "sha256": earth_sha}},
-        "source_ids": ["fixture-synthetic"],
     })
+    # The plan-less variant: the live session before any plan is published (no plan, stop tasks or fixed events).
+    write("scenario.planless.json", {
+        "scenario_schema_version": head["scenario_schema_version"],
+        "scenario_id": "fake-planless",
+        "title": "Fake scenario, plan-less: live session before PUBLISH_PLAN (test fixture, not data)",
+        **{k: head[k] for k in ("site_id", "data_version", "seed", "start_utc")},
+        **tail,
+    })
+    two_candidate_site()
 
 
 if __name__ == "__main__":

@@ -346,6 +346,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 
 - **Tasks:** `SCOUT(point)` (drive, capture curated imagery, report terrain class), `CARRY(item, to)`, `RELAY(point)` (park to extend radio coverage), `RETURN`.
 - **Behavior:** goal-level commands only; the rover routes autonomously; battery is its consumable. Tasks queue and show ETA.
+  - Tasks run first-in first-out per utility rover; each queued task shows its ETA and predicted battery, and a task the battery cannot complete is refused (05 Vehicle). *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-102)*
 - **Acceptance:** a `RELAY` task placed on a ridge removes a comm shadow on the remaining route (FR-42) and the warnings update.
 
 #### FR-42 — Comm coverage and comm shadows [T1, M]
@@ -386,6 +387,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 #### FR-49 — Dust advisory replay [T2, S]
 
 - Qualitative advisory replayed from orbiter weather imagery records for the scenario window, if a suitable event is found (U-17). Never quantitative.
+- Not built in this release: no usable dust record for the window (U-17). *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-28)*
 
 ---
 
@@ -418,7 +420,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 - **Behavior:**
   - A `presenter` role and panel (SCR-19), separate from the ops console. The ops console is in-story (the habitat operator); the presenter panel is the team's control surface.
   - Buttons: **Next stop** (`JUMP_NEXT_STOP`), **Start storm** (`START_EVENT`, FR-52), clock speed 1× / 10× / 60× and pause (`SET_CLOCK`, existing), **Reset session** (`RESET_SESSION`). The panel may also use the existing `LOAD_SCENARIO` and `JUMP_NEXT_EVENT`.
-  - **Next stop** fast-forwards the sim clock until the crew arrive at the next stop. It is not a teleport: crew keep walking along the planned route under the hood, and consumables, dose, alerts and time accrue normally (02 §D.17). The fast-forward also ends at a plan revision, the end of the EVA, crew sheltering, or a warning-level alert (`TODO(decision)`, U-63), and is refused while such an alert is latched (02 §D.17).
+  - **Next stop** fast-forwards the sim clock until the crew arrive at the next stop. It is not a teleport: crew keep walking along the planned route under the hood, and consumables, dose, alerts and time accrue normally (02 §D.17). The fast-forward also ends at a plan revision, the end of the EVA, crew sheltering, or a warning-level alert (U-63, resolved *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-97)*), and is refused while such an alert is latched (02 §D.17).
   - **Reset session** returns to a fresh loaded session of the same scenario (02 §D.17).
   - Every press is a command that the Hab Core validates, and the event it produces is written to the event log, so a run replays deterministically (NFR-06). Presses are never applied on the client.
 - **Provenance:** the panel shows the clock as sim time, labelled `simulated`; it shows no new measured value.
@@ -498,7 +500,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 
 ETAs and slope values in this table are **illustrative** until the reference-run replay (the headless replay of the recorded command list) produces them (T23.08; determinism T22.14). The *t (video)* column is the edit plan (06 §G), not a schedule the system keeps. The light time and relay pass come from the committed tables (sources below; TASK-21 writes the final script).
 
-The 0:20 row and the sources below are derived with the dose series at its recorded UTC (alert `2024-05-20T05:50:32Z`). The live Start storm shifts the series to the press (FR-52), so a reference run presses it at the sim time that puts the onset there, or T21.15 re-derives the values for the press time it uses. `TODO(decision)` (U-62): which of the two the reference run uses.
+The 0:20 row and the sources below are derived with the dose series at its recorded UTC (alert `2024-05-20T05:50:32Z`). The live Start storm shifts the series to the press (FR-52), so a reference run presses it at the sim time that puts the onset there, or T21.15 re-derives the values for the press time it uses. U-62 is resolved: the reference run presses Start storm at `t0 = series_start_utc`, so the numbers here stand *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-97)*.
 
 Sources for the §E.1 numbers (T21.09, 2026-11-10):
 
@@ -578,12 +580,12 @@ The v1 planning walkthrough below is retained; task files cite its step numbers.
 | D-10 | Scenario date | **20 May 2024 (sol 4190)** — real SEP event at Gale; confirm the AOI is in daylight at the chosen LTST |
 | D-11 | Haven rule default | 30 min; revisit with mentor |
 | U-15 | RAD time series availability for sol 4190 | Check PDS PPI MSL RAD archive in TASK-04 |
-| U-16 | NASA Exploration Zone terminology citation | Find the human landing site workshop source in TASK-04 |
-| U-17 | Usable orbiter dust-storm record in the scenario window | Check in TASK-04; otherwise drop FR-49 |
-| U-46 | FR-50 sign-off: Tier 1 (in the dry run) as proposed, and whether ops may add tasks during an active alert | Tier 1; ops adds tasks only when no warning is latched |
-| U-62 | Reference run (§E.1): press Start storm at the sim time that keeps the series at its recorded UTC (the §E.1 numbers stand), or press at another time and re-derive the numbers | `TODO(decision)`: product & systems lead; either way T21.15 prints the values for the press time used |
-| U-63 | Does **Next stop** stop at the first alert raised on the way (FR-51)? | Yes at a warning, and it is rejected with `BUSY` while one is latched, so the presenter cannot skip past a safety alert; `TODO(decision)` |
-| U-64 | Where does the stop task library live: the scenario file or the site's POI data (FR-54)? | Scenario file, beside `stop_tasks`, as U-48 decided for tasks; the library is keyed by POI id; `TODO(decision)` |
+| U-16 | NASA Exploration Zone terminology citation | Find the human landing site workshop source in TASK-04. **Resolved 2026-11-12**: cited in [exploration-zone.md](../ops/exploration-zone.md) *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-29)* |
+| U-17 | Usable orbiter dust-storm record in the scenario window | Check in TASK-04; otherwise drop FR-49. **Resolved 2026-11-12**: no usable record (T04.11, 11 Nov); FR-49 is not built in this release *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-28)* |
+| U-46 | FR-50 sign-off: Tier 1 (in the dry run) as proposed, and whether ops may add tasks during an active alert | Tier 1; ops adds tasks only when no warning is latched. **Resolved 2026-11-12**: Tier 1; ops adds tasks only while no warning is latched *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-81)* |
+| U-62 | Reference run (§E.1): press Start storm at the sim time that keeps the series at its recorded UTC (the §E.1 numbers stand), or press at another time and re-derive the numbers | **Resolved 2026-11-12**: Start storm is pressed at `t0 = series_start_utc` in the reference run, so the series plays at its recorded UTC and the §E.1 numbers stand; T21.15 prints the values for the press time used *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-97)* |
+| U-63 | Does **Next stop** stop at the first alert raised on the way (FR-51)? | Yes at a warning, and it is rejected with `BUSY` while one is latched, so the presenter cannot skip past a safety alert; **Resolved 2026-11-12**: yes. Next stop ends at the first warning-level `ALERT_RAISED` and is `BUSY` while one is latched *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-97)* |
+| U-64 | Where does the stop task library live: the scenario file or the site's POI data (FR-54)? | Scenario file, beside `stop_tasks`, as U-48 decided for tasks; the library is keyed by POI id; **Resolved 2026-11-12**: the scenario file, keyed by POI id *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-97)* |
 
 ---
 

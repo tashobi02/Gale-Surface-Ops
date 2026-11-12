@@ -1,0 +1,32 @@
+[
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 450,
+    "sim_time": "2024-05-20T13:05:00Z",
+    "event": {
+      "seq": 450,
+      "sim_time": "2024-05-20T13:05:00Z",
+      "kind": "EVENT_STARTED",
+      "actor": "presenter",
+      "data": {
+        "event_id": "storm",
+        "t0_sim_time": "2024-05-20T13:05:00Z",
+        "series_start_utc": "",
+        "source_id": "rad-sol4190"
+      },
+      "provenance": {},
+      "command_ref": {
+        "client_id": "c-1a2b",
+        "command_id": "k-0210"
+      }
+    }
+  },
+  {
+    "v": 1,
+    "type": "COMMAND_RESULT",
+    "command_id": "k-0210",
+    "ok": true,
+    "event_seq": 450
+  }
+]

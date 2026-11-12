@@ -144,6 +144,14 @@
       "text": "Fixture task"
     }
   ],
+  "mission_setup": {
+    "hab_candidate_id": "hab-first",
+    "crew_count": 2,
+    "vehicle_available": true,
+    "vehicle_param_set": "pr1-assumed",
+    "solar_phase": "max",
+    "max_haven_min": 30
+  },
   "crew": [
     {
       "crew_id": "EV1",
@@ -172,16 +180,32 @@
     "alert-assumed",
     "shielding-assumed"
   ],
-  "events": [
+  "event_library": [
     {
-      "event_id": "e1",
-      "t_utc": "2024-05-20T01:00:00Z",
-      "kind": "EARTH_MESSAGE",
-      "provenance": "simulated",
-      "payload": {
-        "sent_earth_utc": "2024-05-20T01:00:00Z",
-        "body": "SEP event in progress. Recommend shelter."
-      }
+      "event_id": "storm",
+      "title": "Fixture solar particle event (synthetic)",
+      "kind": "SPACE_WEATHER",
+      "dose_series": "dose_series",
+      "series_start_utc": "2024-05-20T00:50:00Z",
+      "label": "fixture - synthetic step series, not RAD data",
+      "source_id": "fixture-synthetic",
+      "provenance": "replayed"
+    }
+  ],
+  "task_library": [
+    {
+      "library_task_id": "lt-boxwork-01",
+      "poi_id": "poi-boxwork-ridge",
+      "crew_id": "EV1",
+      "kind": "image",
+      "text": "Image the ridge crest"
+    },
+    {
+      "library_task_id": "lt-boxwork-02",
+      "poi_id": "poi-boxwork-ridge",
+      "crew_id": null,
+      "kind": "other",
+      "text": "Fixture task"
     }
   ],
   "tables": {
@@ -196,5 +220,17 @@
   },
   "source_ids": [
     "fixture-synthetic"
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "t_utc": "2024-05-20T01:00:00Z",
+      "kind": "EARTH_MESSAGE",
+      "provenance": "simulated",
+      "payload": {
+        "sent_earth_utc": "2024-05-20T01:00:00Z",
+        "body": "SEP event in progress. Recommend shelter."
+      }
+    }
   ]
 }

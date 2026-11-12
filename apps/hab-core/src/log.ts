@@ -13,7 +13,7 @@
 import { createHash, type Hash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { LogEvent } from "@marswalk/protocol";
+import { canonicalJson, type LogEvent } from "@marswalk/protocol";
 import { logged, type EngineState, type PendingEvent } from "./engine/reducer";
 
 /** Events between snapshots (U-23). */
@@ -155,26 +155,5 @@ function latestSnapshotSeq(dir: string, lastSeq: number): number | null {
   return seqs.length === 0 ? null : Math.max(...seqs);
 }
 
-/**
- * Canonical JSON (RFC 8785, JCS; 05 PlanExport and Session, decided 2026-11-07): object keys sorted
- * by UTF-16 code units (JavaScript's default sort), no whitespace, strings and numbers as
- * JSON.stringify writes them (ECMAScript Number::toString). Properties whose value is undefined are
- * left out and undefined array items become null, as in JSON.stringify. Non-finite numbers throw.
- */
-export function canonicalJson(value: unknown): string {
-  if (value === null || typeof value === "boolean" || typeof value === "string") return JSON.stringify(value);
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new Error(`canonicalJson: ${value} is not a JSON number`);
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) return `[${value.map((v) => (v === undefined ? "null" : canonicalJson(v))).join(",")}]`;
-  if (typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    const parts = Object.keys(obj)
-      .filter((k) => obj[k] !== undefined)
-      .sort()
-      .map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`);
-    return `{${parts.join(",")}}`;
-  }
-  throw new Error(`canonicalJson: cannot encode a ${typeof value}`);
-}
+/** Canonical JSON (RFC 8785) lives in packages/protocol (logHash.ts) so the web replay hashes the same bytes; re-exported here. */
+export { canonicalJson };

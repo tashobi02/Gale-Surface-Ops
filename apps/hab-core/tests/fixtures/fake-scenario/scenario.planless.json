@@ -1,0 +1,86 @@
+{
+  "scenario_schema_version": "1.0.0",
+  "scenario_id": "fake-planless",
+  "title": "Fake scenario, plan-less: live session before PUBLISH_PLAN (test fixture, not data)",
+  "site_id": "mock_site",
+  "data_version": "mock_site-fixture",
+  "seed": 4190,
+  "start_utc": "2024-05-20T00:00:00Z",
+  "mission_setup": {
+    "hab_candidate_id": "hab-first",
+    "crew_count": 2,
+    "vehicle_available": true,
+    "vehicle_param_set": "pr1-assumed",
+    "solar_phase": "max",
+    "max_haven_min": 30
+  },
+  "crew": [
+    {
+      "crew_id": "EV1",
+      "suit_param_set": "suit-assumed",
+      "start_offset_s": 0
+    },
+    {
+      "crew_id": "EV2",
+      "suit_param_set": "suit-assumed",
+      "start_offset_s": 0
+    }
+  ],
+  "vehicles": [
+    {
+      "vehicle_id": "PR1",
+      "kind": "pressurized_rover",
+      "param_set": "pr1-assumed",
+      "start_x_m": 0,
+      "start_y_m": 0
+    }
+  ],
+  "param_sets": [
+    "suit-assumed",
+    "pr1-assumed",
+    "link-assumed",
+    "alert-assumed",
+    "shielding-assumed"
+  ],
+  "event_library": [
+    {
+      "event_id": "storm",
+      "title": "Fixture solar particle event (synthetic)",
+      "kind": "SPACE_WEATHER",
+      "dose_series": "dose_series",
+      "series_start_utc": "2024-05-20T00:50:00Z",
+      "label": "fixture - synthetic step series, not RAD data",
+      "source_id": "fixture-synthetic",
+      "provenance": "replayed"
+    }
+  ],
+  "task_library": [
+    {
+      "library_task_id": "lt-boxwork-01",
+      "poi_id": "poi-boxwork-ridge",
+      "crew_id": "EV1",
+      "kind": "image",
+      "text": "Image the ridge crest"
+    },
+    {
+      "library_task_id": "lt-boxwork-02",
+      "poi_id": "poi-boxwork-ridge",
+      "crew_id": null,
+      "kind": "other",
+      "text": "Fixture task"
+    }
+  ],
+  "tables": {
+    "dose_series": {
+      "path": "dose_series.json",
+      "sha256": "a3d0d97da52c93b764e8a1ff63e0a211e5c4490e241e0f4a2c26c5fea954585d"
+    },
+    "earth_link": {
+      "path": "earth_link.json",
+      "sha256": "870c6ba1f663b591400c8333928501a54d094c08840cc83fb35e82f61adc9f81"
+    }
+  },
+  "source_ids": [
+    "fixture-synthetic"
+  ]
+}

@@ -4,6 +4,8 @@
  *
  * Protocol v0 — freeze date 2026-11-07 (M1; T20.01, contract C13). After the freeze, changes go through a
  * `contract-change:` subtask in TASK-20. The wire version stays `v: 1` (02 §E.6); "v0" names the freeze.
+ * Protocol v0.2 (2026-11-12, T32.01): the live-session additions of docs/plan/backend/01-contract.md, all
+ * additive, so `PROTOCOL_VERSION` stays 1. Their text is in 02 §D.17, §E.5, §E.6 and 05 (Proposed 2026-11-12).
  *
  * Conventions: `sim_time` is ISO-8601 UTC on the mission clock (never wall-clock); `seq` is the
  * Hab Core's monotonic event number; positions are working-projection metres.
@@ -15,8 +17,11 @@ import type { RejectCode } from "./ws";
 export type ProvenanceMap = Record<string, Provenance>;
 
 export type CrewId = "EV1" | "EV2";
-/** `hud:EVn` (added 2026-11-12, Proposed): the EVA HUD, a read-only viewer with no commands (02 §E.4). */
-export type Role = "planner" | "eva:EV1" | "eva:EV2" | "hud:EV1" | "hud:EV2" | "ops" | "earth";
+/**
+ * `hud:EVn` (added 2026-11-12, Proposed): the EVA HUD, a read-only viewer with no commands (02 §E.4).
+ * `presenter` (added 2026-11-10, Proposed): drives the live session (02 §D.17, §E.4).
+ */
+export type Role = "planner" | "eva:EV1" | "eva:EV2" | "hud:EV1" | "hud:EV2" | "ops" | "earth" | "presenter";
 
 // ---------------------------------------------------------------------------
 // Parameters and scenario files
@@ -65,8 +70,65 @@ export interface Scenario {
   vehicles: { vehicle_id: string; kind: VehicleKind; param_set: string; start_x_m: number; start_y_m: number }[];
   param_sets: string[];
   events: ScenarioEvent[];
+  /** Mission settings in force at load (05 Scenario `mission_setup`, 2026-11-10, Proposed). */
+  mission_setup: Partial<MissionSetup> & { hab_candidate_id?: string };
+  /** Events the presenter starts on demand with START_EVENT (05 EventLibraryEntry). */
+  event_library: EventLibraryEntry[];
+  /** Suggested tasks per POI (05 TaskLibraryEntry, FR-54). */
+  task_library?: TaskLibraryEntry[];
   tables: { dose_series: { path: string; sha256: string }; earth_link: { path: string; sha256: string } };
   source_ids: string[];
+}
+
+/** The mission settings in force (05 Session `mission_setup`; ranges 02 §E.3; BD-96). */
+export interface MissionSetup {
+  /** Must equal the scenario `crew[]` length. */
+  crew_count: number;
+  vehicle_available: boolean;
+  /** FK -> ParamSet of kind `pressurized_rover`. */
+  vehicle_param_set: string | null;
+  /** 05 MissionScenario name and values (`max` or `min`). */
+  solar_phase: string;
+  /** 05 MissionScenario range. */
+  max_haven_min: number;
+}
+
+/** A scheduled input of a library event, timed at `t0 + t_offset_s` (05 EventLibraryEntry `inputs`, BD-99). */
+export interface EventLibraryInput {
+  input_id: string;
+  t_offset_s: number;
+  kind: ScenarioEventKind;
+  payload: Record<string, unknown>;
+  provenance: Provenance;
+  source_id?: string;
+}
+
+/** An event the presenter starts at the current sim time with START_EVENT (05 EventLibraryEntry, 02 §D.17). */
+export interface EventLibraryEntry {
+  event_id: string;
+  title: string;
+  kind: "SPACE_WEATHER";
+  /** Key in `Scenario.tables`. */
+  dose_series: "dose_series";
+  series_start_utc: string;
+  label: string;
+  source_id: string;
+  provenance: "replayed";
+  inputs?: EventLibraryInput[];
+}
+
+/** What SNAPSHOT carries of a library event (BD-104). */
+export type EventLibrarySummary = Pick<EventLibraryEntry, "event_id" | "title" | "kind" | "label" | "source_id" | "provenance">;
+
+/** A suggested task for a POI (05 TaskLibraryEntry, FR-54). */
+export interface TaskLibraryEntry {
+  library_task_id: string;
+  poi_id: string;
+  crew_id: CrewId | null;
+  kind: StopTaskKind;
+  /** <= 60 characters; any ASCII digit in it requires `source_id` (BD-101). */
+  text: string;
+  source_id?: string;
 }
 
 /** Replayed surface dose rate (05 DoseSeries). Absorbed dose; never Sv for the event. */
@@ -114,6 +176,12 @@ export interface Session {
   plan_revision: number;
   last_seq: number;
   log_hash: string;
+  /** The chosen HabCandidate; changed only by SELECT_HAB_SITE (05 Session). Optional until work package 04, then required (BD-100). */
+  hab_candidate_id?: string | null;
+  /** The settings in force (05 Session). Optional until work package 04, then required (BD-100). */
+  mission_setup?: MissionSetup;
+  /** Library events started so far, reduced from EVENT_STARTED (05 Session). Optional until work package 04 (BD-100). */
+  started_events?: { event_id: string; t0_sim_time: string }[];
 }
 
 export interface ClientConnection {
@@ -141,6 +209,20 @@ export interface Crew {
   linked: boolean;
   link_path: string[];
   stale: boolean;
+  /** Minutes of O2 left at the current activity, from compute `o2RemainingS`; `simulated` (BD-95). */
+  o2_remaining_min?: number | null;
+  /** 0-360 clockwise from grid north (+y of the working projection) to this member's next stop; `derived` (BD-95). */
+  next_stop_bearing_deg?: number | null;
+  /** Straight-line horizontal distance to that stop, projected metres; `derived` (BD-95). */
+  next_stop_distance_m?: number | null;
+  /** Seconds until arrival at that stop, including the remaining dwell at the current stop; `modelled` (BD-95). */
+  next_stop_eta_s?: number | null;
+  /** Radio hops to HAB along `link_path`, null when unlinked; `simulated` (BD-103). No signal strength exists. */
+  link_hops?: number | null;
+  /** The kind of the first hop of `link_path`; `simulated` (BD-103). */
+  link_via?: "direct" | "relay" | "crew" | null;
+  /** Sim time of the last tick this member was linked; `simulated` (BD-112). */
+  last_linked_sim_time?: string | null;
 }
 
 export type VehicleKind = "pressurized_rover" | "utility_rover";
@@ -164,6 +246,26 @@ export interface Vehicle {
   eta_s: number | null;
   /** Utility rover only. */
   battery_wh: number | null;
+  /** Id of the active task (the head of the queue), utility rover only (BD-102). */
+  task_id?: string | null;
+  /** Tasks after the head; `[]` for the pressurized rover (BD-102). */
+  queue?: QueuedRoverTask[];
+  /** A utility rover parked as RELAY: increments when its coverage grid changes; null otherwise (BD-112, N-11). */
+  relay_coverage_rev?: number | null;
+}
+
+/** One queued utility-rover task (05 Vehicle `queue`, BD-102). */
+export interface QueuedRoverTask {
+  /** `rt-<seq of its VEHICLE_DISPATCHED>`. */
+  task_id: string;
+  kind: RoverTaskKind;
+  /** null for RETURN. */
+  target: { x_m: number; y_m: number } | null;
+  item?: string;
+  /** Seconds from now until this task completes; `modelled`. null until the tick fills it. */
+  eta_s: number | null;
+  /** Battery after this task, 02 §D.9 energy form; `modelled`. null until the tick fills it. */
+  battery_wh_after: number | null;
 }
 
 /** Utility rover goal-level tasks (FR-41). SUMMON is the pressurized rover's (FR-39). */
@@ -274,7 +376,13 @@ export type CommandKind =
   | "SEND_MESSAGE"
   | "INJECT_EVENT"
   | "UPDATE_STOP_TASK"
-  | "ADD_STOP_TASK";
+  | "ADD_STOP_TASK"
+  // Live session (02 §D.17, added 2026-11-10, Proposed).
+  | "JUMP_NEXT_STOP"
+  | "START_EVENT"
+  | "RESET_SESSION"
+  | "SELECT_HAB_SITE"
+  | "SET_MISSION_SETUP";
 
 export interface Command {
   command_id: string;
@@ -313,6 +421,12 @@ export type LogEventKind =
   | "TASK_ADDED"
   | "TASK_UPDATED"
   | "TASK_DROPPED"
+  // Live session (05 LogEvent, 2026-11-10, Proposed).
+  | "CLOCK_JUMPED"
+  | "EVENT_STARTED"
+  | "SESSION_RESET"
+  | "SITE_SELECTED"
+  | "MISSION_SETUP_SET"
   /** A HELLO for a held role displaced its holder (02 §E.4, added 2026-11-12, Proposed). Actor `system`, `command_ref` null. */
   | "ROLE_TAKEN_OVER";
 
@@ -348,7 +462,8 @@ export interface LogEvent {
 type Point = { x_m: number; y_m: number };
 
 export interface LogEventData {
-  SESSION_LOADED: Pick<Session, "session_id" | "scenario_id" | "data_version" | "seed"> & { plan_hash: string };
+  /** `plan_hash` is null for a plan-less session (BD-96). */
+  SESSION_LOADED: Pick<Session, "session_id" | "scenario_id" | "data_version" | "seed"> & { plan_hash: string | null };
   EVA_STARTED: { crew_ids: CrewId[]; plan_revision: number };
   ARRIVED_STOP: { crew_id: CrewId; stop_id: string; stop_index: number };
   LEFT_STOP: { crew_id: CrewId; stop_id: string; stop_index: number };
@@ -384,6 +499,8 @@ export interface LogEventData {
     task?: RoverTaskKind;
     target?: Point;
     item?: string;
+    /** Accepted TASK_ROVER only: `rt-<seq of this event>` (BD-102). */
+    task_id?: string;
   };
   VEHICLE_ARRIVED: { vehicle_id: string } & Point;
   CREW_SHELTERED: Pick<Crew, "crew_id" | "dose_event_ugy" | "dose_event_unsheltered_ugy"> & {
@@ -400,6 +517,20 @@ export interface LogEventData {
   /** `undo: true` marks a reversal to TODO (05 LogEvent, 01 FR-50; added 2026-11-11, Proposed, spec change #202). */
   TASK_UPDATED: Pick<StopTask, "task_id" | "stop_id" | "crew_id" | "state" | "reason"> & { undo?: boolean };
   TASK_DROPPED: { task_id: string; stop_id: string; plan_revision: number };
+  /** Logged after the events of the jump, because `to_sim_time` is known only then (BD-92). */
+  CLOCK_JUMPED: {
+    reason: "next_stop";
+    from_sim_time: string;
+    to_sim_time: string;
+    stop_id: string;
+    ended_by: "arrival" | "alert" | "plan_revised" | "eva_ended" | "sheltered";
+  };
+  EVENT_STARTED: { event_id: string; t0_sim_time: string; series_start_utc: string; source_id: string };
+  /** Last line of the old log (02 §D.17). */
+  SESSION_RESET: { session_id: string; next_session_id: string };
+  SITE_SELECTED: { candidate_id: string };
+  /** The keys set, `vehicle_param_set` included (BD-96). */
+  MISSION_SETUP_SET: Partial<MissionSetup>;
   /** 05 LogEvent `ROLE_TAKEN_OVER`; `crew_id` only for an `eva:EVn` or `hud:EVn` role (the key is absent otherwise). Changes no state. */
   ROLE_TAKEN_OVER: { role: Role; crew_id?: CrewId; old_client_id: string; new_client_id: string };
 }
@@ -428,8 +559,24 @@ export interface LinkState {
   since_sim_time: string;
 }
 
-/*
- * PostEvaReport (05 §C.2) has no type in v0: 05 lists its contents in prose but defines no field
- * names, so a type here would invent them. TODO(decision): add a field table to 05 PostEvaReport,
- * then the type, in T27.01 (`GET /api/report`).
+/**
+ * FR-36 conditions at the hab, in SNAPSHOT `conditions` and STATE_DELTA paths `conditions/<key>` (BD-75).
+ * Temperature and pressure are absent ("not included in this build", FR-36). Pure engine output; sim time only.
  */
+export interface ConditionsState {
+  /** "HH:MM" local true solar time at the hab; `derived`. */
+  ltst: string | null;
+  /** Flat-horizon model, 02 §D.5; `derived`. */
+  sun_elevation_deg: number | null;
+  /** `replayed` (DoseSeries.background_rate). */
+  dose_rate_background_ugy_h: number | null;
+  /** `replayed`; equals the background before START_EVENT. */
+  dose_rate_event_ugy_h: number | null;
+  /** The series time being played (time-shifted); null before START_EVENT. */
+  event_series_utc: string | null;
+  /** MSL mission sol at sim time, compute `mslSol()`; `derived` (N-06). */
+  sol: number | null;
+  /** Field -> source id, e.g. dose rates -> "rad-sol4190", ltst -> "mars24-allison-mcewen-2000". */
+  source_ids: Record<string, string>;
+  provenance: ProvenanceMap;
+}

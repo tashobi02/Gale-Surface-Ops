@@ -1,0 +1,18 @@
+[
+  {
+    "v": 1,
+    "type": "COMMAND_RESULT",
+    "command_id": "k-0230",
+    "ok": false,
+    "code": "FORBIDDEN_ROLE",
+    "message": "presenter may not send ABORT (02 §E.4)"
+  },
+  {
+    "v": 1,
+    "type": "COMMAND_RESULT",
+    "command_id": "k-0231",
+    "ok": false,
+    "code": "BUSY",
+    "message": "Next stop is refused while a warning-level alert is latched (02 §D.17)"
+  }
+]
