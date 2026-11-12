@@ -393,6 +393,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-12 | GPT-6.1 Sol (Codex, xhigh), frontend implementer | Package 24: SCR-20 manifest candidate cards, exact-cell comm previews, mission defaults, command pending/rejection, publication lock, ops guard and site retry; FD-342–343 | Tests first: 7 red, then 8 green; additional grid/loader checks mutation-tested (both killed); no UI science or invented site facts | Web tests, lint, typecheck, docs-check and code review; browser checks await package 22 and orchestrator outside sandbox | This Codex session |
 | 2026-11-12 | Claude Sonnet 5.5 (Claude Code), frontend implementer | Packages 23–24 completion: review of the uncut SCR-20 work, three more SCR-20 tests, minimal `#/presenter` and `#/setup` routes, 44 px link targets, SCR-20 harness fixture and its axe, brand-orange, contrast and targets checks; FD-342–345 | No UI science or invented site facts: the fixture candidates and snapshot are labelled MOCK or committed fixtures. 3 new SCR-20 tests written against existing behaviour and each mutation-tested (5 mutations killed); router test red first (1) | Web tests (1401), lint, typecheck, docs-check; axe, offline, brand-orange, contrast and targets run on port 8107 on every project they name | This Claude Code session |
 
+| 2026-11-13 | GPT-6.1 Terra (Codex, xhigh), frontend implementer | SCR-19 review: missing provenance, pending sim time, reset focus and accessible label | Regression tests first: 6 red; no invented values | Presenter unit tests green; browser checks pending orchestrator | This Codex session |
+
 ## Prompts location
 
 TODO(decision): where prompts and transcripts are stored (for example `docs/ai-prompts/`).

@@ -1,8 +1,9 @@
 /** SCR-19: presenter-only command surface (FR-51, FR-52; T32.19, T32.20). */
-import { useRef, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { PERMISSIONS, type Command, type CommandResult, type Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 import { useCommand, useHabClient, useLinkLost, useSnapshot, useTakenOver } from "../../state/habSession";
+import { provAttrs, unavailableOf } from "../components/provenance";
 import { ClockControl } from "../ops/ClockControl";
 import "./scr19Presenter.css";
 
@@ -24,6 +25,10 @@ function PresenterPanel({ client, snapshot }: { client: HabClient | null; snapsh
   const inFlight = useRef(false);
   const [results, setResults] = useState<Result[]>([]);
   const [confirm, setConfirm] = useState(false);
+  const resetRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { if (confirm) confirmRef.current?.focus(); }, [confirm]);
+  const closeConfirm = (): void => { setConfirm(false); resetRef.current?.focus(); };
   const [failedQR, setFailedQR] = useState<string[]>([]);
   const session = snapshot?.session;
   const status = session?.status;
@@ -48,7 +53,7 @@ function PresenterPanel({ client, snapshot }: { client: HabClient | null; snapsh
     setPending(null);
   }
 
-  const value = (field: string, text: string | number | undefined | null): ReactElement => <span data-provenance="simulated" data-source={`${text == null ? "unavailable" : "snapshot"}:session.${field}`}>{text ?? "—"}</span>;
+  const value = (field: string, text: string | number | undefined | null): ReactElement => <span {...provAttrs(text == null ? unavailableOf(null, `session.${field}`) : { prov: "simulated", src: `snapshot:session.${field}` })}>{text ?? "—"}</span>;
   return <main className="presenter" data-screen="SCR-19" data-mode="ops">
     <header className="presenter-header"><h1>Presenter panel</h1><a href="#/join">Join devices</a></header>
     <dl className="presenter-session" aria-label="Session">
@@ -56,7 +61,7 @@ function PresenterPanel({ client, snapshot }: { client: HabClient | null; snapsh
       <div><dt>Hab site</dt><dd>{value("hab_candidate_id", session?.hab_candidate_id)}</dd></div>
       <div><dt>Sim time · simulated</dt><dd>{value("clock.sim_time", session?.clock.sim_time)}</dd></div>
       <div><dt>Speed</dt><dd>{value("clock.speed", session ? `${session.clock.speed}×` : null)}</dd></div>
-      <div><dt>Status</dt><dd>{value("status", status ?? "No session")}</dd></div>
+      <div><dt>Status</dt><dd>{status ? value("status", status) : <span {...provAttrs(unavailableOf(null, "session.status"))}>Not connected</span>}</dd></div>
     </dl>
     <section className="presenter-beats" aria-labelledby="presenter-beats-title">
       <h2 id="presenter-beats-title">Session beats</h2>
@@ -68,7 +73,7 @@ function PresenterPanel({ client, snapshot }: { client: HabClient | null; snapsh
       </div>
       {storm && <p data-provenance={storm.provenance} data-source={storm.source_id}>{storm.label}</p>}
       <p role="status" aria-live="polite" data-provenance="simulated" data-source="command:pending">
-        {pending?.kind === "JUMP_NEXT_STOP" ? `Advancing to stop ${pending.stop ?? "—"}` : pending ? `${pending.kind} pending` : stormRunning ? "Storm running" : ""}
+        {pending?.kind === "JUMP_NEXT_STOP" ? `Advancing to stop ${pending.stop ?? "—"} · ${session?.clock.sim_time ?? "—"}` : pending ? `${pending.kind} pending` : stormRunning ? "Storm running" : ""}
       </p>
       <fieldset className="presenter-clock" data-provenance="simulated" data-source="snapshot:session.clock" disabled={disabled || !session || status === "ENDED"}>
         <legend>Mission clock · simulated</legend>
@@ -76,13 +81,13 @@ function PresenterPanel({ client, snapshot }: { client: HabClient | null; snapsh
       </fieldset>
       <div className="presenter-actions">
         {loadable && <button type="button" aria-label="Load scenario" disabled={disabled} onClick={() => void send("LOAD_SCENARIO", { scenario_id: session?.scenario_id })}>Load scenario</button>}
-        {running && <button type="button" aria-label="Jump to next scheduled event" disabled={disabled} onClick={() => void send("JUMP_NEXT_EVENT")}>Jump to next event</button>}
-        <button type="button" aria-label="Reset session" disabled={disabled || !session} aria-expanded={confirm} onClick={() => setConfirm(true)}>Reset session</button>
+        {running && <button type="button" aria-label="Jump to next event" disabled={disabled} onClick={() => void send("JUMP_NEXT_EVENT")}>Jump to next event</button>}
+        <button ref={resetRef} type="button" aria-label="Reset session" aria-disabled={disabled || !session} aria-expanded={confirm} onClick={() => { if (!disabled && session) setConfirm(true); }}>Reset session</button>
       </div>
-      {confirm && <div className="presenter-confirm" role="group" aria-label="Confirm session reset">
+      {confirm && <div className="presenter-confirm" role="group" aria-label="Confirm session reset" onKeyDown={(e) => { if (e.key === "Escape") closeConfirm(); }}>
         <p>Reset ends this run and loads a fresh session of the same scenario.</p>
-        <button type="button" aria-label="Confirm reset session" disabled={disabled} onClick={() => { setConfirm(false); void send("RESET_SESSION"); }}>Confirm reset session</button>
-        <button type="button" disabled={disabled} onClick={() => setConfirm(false)}>Keep this session</button>
+        <button ref={confirmRef} type="button" aria-label="Confirm reset session" aria-disabled={disabled} onClick={() => { if (!disabled) { closeConfirm(); void send("RESET_SESSION"); } }}>Confirm reset session</button>
+        <button type="button" onClick={closeConfirm}>Keep this session</button>
       </div>}
     </section>
     <section aria-labelledby="presenter-results-title"><h2 id="presenter-results-title">Last command results</h2>
@@ -93,7 +98,7 @@ function PresenterPanel({ client, snapshot }: { client: HabClient | null; snapsh
     </section>
     <section aria-labelledby="presenter-join-title"><h2 id="presenter-join-title">Join this session</h2>
       <div className="presenter-qr">{(Object.keys(PERMISSIONS) as (keyof typeof PERMISSIONS)[]).map((role) => <figure key={role}>
-        {failedQR.includes(role) ? <p data-provenance="assumed" data-source="unavailable:api/join-qr">—</p> : <img src={`api/join-qr?role=${encodeURIComponent(role)}`} alt={`Join as ${role}`} width="144" height="144" onError={() => setFailedQR((previous) => [...previous, role])} />}
+        {failedQR.includes(role) ? <p {...provAttrs(unavailableOf(null, "api/join-qr"))}>—</p> : <img data-provenance="derived" data-source={`api/join-qr?role=${encodeURIComponent(role)}`} src={`api/join-qr?role=${encodeURIComponent(role)}`} alt={`Join as ${role}`} width="144" height="144" onError={() => setFailedQR((previous) => [...previous, role])} />}
         <figcaption data-provenance="assumed" data-source="spec:02-E.4"><a href={`#/join?role=${encodeURIComponent(role)}`}>{role}</a></figcaption>
       </figure>)}</div>
     </section>

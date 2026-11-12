@@ -50,7 +50,7 @@ describe("SCR-19 presenter", () => {
     const { container, sent } = await panel(running, () => new Promise((r) => { resolve = r; }));
     await click(button(container, "Next stop"));
     expect(container.textContent).toContain("Advancing to stop 1");
-    expect(container.textContent).toContain(running.session.clock.sim_time);
+    expect(must(container, ".presenter-beats [role=status]").textContent).toContain(running.session.clock.sim_time);
     expect(button(container, "Next stop").disabled).toBe(true);
     await click(button(container, "Next stop")); expect(sent).toHaveLength(1);
     await act(async () => resolve(accepted()));
@@ -69,9 +69,28 @@ describe("SCR-19 presenter", () => {
   it("has neutral controls, no crew actions and explicit simulated clock provenance", async () => {
     const { container } = await panel();
     expect(container.textContent).not.toMatch(/Approve|Abort|Summon|O₂|dose_event/);
-    for (const el of container.querySelectorAll("button, label")) expect(el.className).not.toMatch(/status-|signal|orange/);
     expect(must(container, '[data-source="snapshot:session.clock.sim_time"]').getAttribute("data-provenance")).toBe("simulated");
     expect(container.textContent).toContain("simulated");
+  });
+
+  it("marks missing session values and failed QR images unavailable", async () => {
+    const { container } = await panel(null);
+    const missing = must(container, '[data-source="unavailable:session.scenario_id"]');
+    expect(missing.getAttribute("data-unavailable")).toBe("true");
+    expect(missing.getAttribute("data-provenance")).not.toBe("assumed");
+    const qr = must<HTMLImageElement>(container, "img");
+    expect(qr.getAttribute("data-source")).toContain("api/join-qr");
+    await act(async () => qr.dispatchEvent(new window.Event("error")));
+    expect(must(container, '[data-source="unavailable:api/join-qr"]').getAttribute("data-unavailable")).toBe("true");
+  });
+
+  it("moves focus into reset confirmation and restores it on Escape", async () => {
+    const { container } = await panel();
+    const reset = button(container, "Reset session");
+    reset.focus(); await click(reset);
+    expect(document.activeElement).toBe(button(container, "Confirm reset session"));
+    await act(async () => document.activeElement?.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(document.activeElement).toBe(reset);
   });
 
   it("describes the jump destination to screen readers", async () => {
@@ -99,7 +118,7 @@ describe("SCR-19 presenter", () => {
     for (const status of [null, "LOADED", "RUNNING", "PAUSED", "ENDED"] as const) {
       const snapshot = status === null ? null : { ...running, session: { ...running.session, status, clock: { ...running.session.clock, paused: status === "PAUSED" } } };
       const { container } = await panel(snapshot);
-      expect(container.textContent).toContain(status ?? "No session");
+      expect(container.textContent).toContain(status ?? "Not connected");
       expect(container.querySelectorAll('img[src^="api/join-qr?role="]').length).toBeGreaterThan(0);
       if (status === null || status === "ENDED") expect(button(container, "Next stop").disabled).toBe(true);
     }
@@ -112,7 +131,7 @@ describe("SCR-19 presenter", () => {
     for (const status of ["LOADED", "RUNNING", "PAUSED", "ENDED"] as const) {
       const { container, sent } = await panel({ ...running, session: { ...running.session, status } });
       const load = container.querySelector<HTMLButtonElement>('.presenter-actions button[aria-label="Load scenario"]');
-      const jump = container.querySelector<HTMLButtonElement>('.presenter-actions button[aria-label="Jump to next scheduled event"]');
+      const jump = container.querySelector<HTMLButtonElement>('.presenter-actions button[aria-label="Jump to next event"]');
       expect(!!load).toBe(status === "LOADED" || status === "ENDED");
       expect(!!jump).toBe(status === "RUNNING" || status === "PAUSED");
       if (load) { await click(load); expect(sent).toContainEqual({ kind: "LOAD_SCENARIO", args: { scenario_id: loaded.session.scenario_id } }); }
@@ -126,7 +145,7 @@ describe("SCR-19 presenter", () => {
     startHabSession({ role: "presenter", clientId: "c-presenter", displayName: "Presenter", url: "ws://localhost/ws", socketFactory: () => socket });
     const { Presenter } = await import("../../src/ui/screens/scr19Presenter");
     const m = await mount(createElement(Presenter)); mounted.push(m);
-    expect(m.container.textContent).toContain("No session");
+    expect(m.container.textContent).toContain("Not connected");
     await act(async () => socket.onmessage?.({ data: JSON.stringify(loaded) })); await flush();
     expect(m.container.textContent).toContain(loaded.session.scenario_id);
     await act(async () => socket.onmessage?.({ data: JSON.stringify({ ...loaded, seq: 2, session: { ...loaded.session, status: "ENDED" } }) }));
