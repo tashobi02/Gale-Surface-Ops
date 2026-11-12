@@ -1,5 +1,5 @@
 /** Package 25: exercise the real N-07 snapshot, SCR-06 placement and SCR-04 task editor on F4. */
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import type { TaskLibraryEntry } from "@marswalk/protocol";
 import { openPlanTab } from "./planner";
 
@@ -25,4 +25,18 @@ export async function openPoiTasks(page: Page) {
   await expect(editor.locator("[data-task-text]")).toHaveCount(suggested.length);
   await expect(page.locator('[data-slot="plan-panel"]')).toHaveAttribute("data-plan-state", "editing");
   return { editor, suggested };
+}
+
+/**
+ * Presses Tab (Shift+Tab with `back`) until `target` holds focus, so the path to a control is the one a keyboard user takes. Key presses
+ * also put the page in keyboard modality, which `:focus-visible` needs: a scripted `focus()` after a pointer click matches only
+ * `:focus`, not the ring that `keyboard-path` asserts. Fails when `limit` presses do not reach it.
+ */
+export async function tabTo(page: Page, target: Locator, { back = false, limit = 40 } = {}): Promise<void> {
+  const key = back ? "Shift+Tab" : "Tab";
+  for (let presses = 0; presses < limit; presses++) {
+    await page.keyboard.press(key);
+    if (await target.evaluate((el) => el === document.activeElement)) return;
+  }
+  throw new Error(`${key} did not reach ${String(target)} in ${limit} presses`);
 }

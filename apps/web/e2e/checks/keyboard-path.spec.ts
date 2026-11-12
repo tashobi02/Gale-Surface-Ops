@@ -6,7 +6,7 @@
  * TODO(verify): control names and the keyboard-move keys come from packages 15, 10 and 14; adjust when they land.
  */
 import { expect, test, type Page } from "@playwright/test";
-import { openPoiTasks } from "../lib/plannerTasks";
+import { openPoiTasks, tabTo } from "../lib/plannerTasks";
 
 const MIN_RING_PX = 2;
 
@@ -83,33 +83,64 @@ test("keyboard-path: add two stops at the crosshair and move stop 2 by the keybo
   await expect(coords).toHaveText(before);
 });
 
+// Package 25: every step below is a key press. `openPoiTasks` ends with pointer clicks, after which a scripted focus() matches `:focus`
+// but not `:focus-visible`, so the first control is reached with Shift+Tab / Tab and the rest with Tab, Enter and typing.
 test("keyboard-path: edit, add and delete a stop task through native keyboard controls (package 25)", async ({ page }) => {
   const { editor, suggested } = await openPoiTasks(page);
+  expect(suggested.length, "the fixture leaves room to add a task").toBeLessThan(4);
   const summary = editor.locator("summary");
   await summary.focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(summary).toBeFocused();
   await expectFocusVisible(page, "task disclosure");
   await page.keyboard.press("Enter");
   await expect(editor).not.toHaveAttribute("open");
   await page.keyboard.press("Enter");
   await expect(editor).toHaveAttribute("open", "");
+
   await page.keyboard.press("Tab");
   await expect(editor.locator("[data-task-kind]").first()).toBeFocused();
   await expectFocusVisible(page, "task kind");
+  await page.keyboard.press("Tab");
+  const firstDelete = editor.locator("[data-delete-task]").first();
+  await expect(firstDelete).toBeFocused();
+  await expectFocusVisible(page, "delete task");
+  // Delete on a task button belongs to the button: it must not delete the selected stop and its tasks (FD-324).
+  await page.keyboard.press("Delete");
+  await expect(page.locator('[data-waypoint-id="wp-1"]')).toBeVisible();
+  await expect(editor.locator("[data-task-text]")).toHaveCount(suggested.length);
+  await page.keyboard.press("Tab");
   const text = editor.locator("[data-task-text]").first();
-  await text.focus();
+  await expect(text).toBeFocused();
   await expectFocusVisible(page, "task text");
   await page.keyboard.press("ControlOrMeta+A");
   await page.keyboard.insertText("Observe the ridge");
-  await text.press("Tab");
+  await page.keyboard.press("Tab");
   await expect(text).toHaveValue("Observe the ridge");
+
+  // Enter in the new-task box adds the task and the box keeps focus, also on the 4th task, where it stops accepting text but stays reachable.
   const newText = editor.locator("[data-new-task-text]");
-  await newText.focus();
-  await page.keyboard.insertText(suggested[0]!.text);
-  await page.keyboard.press("Enter");
-  await expect(editor.locator("[data-task-text]")).toHaveCount(suggested.length + 1);
-  const remove = editor.locator("[data-delete-task]").last();
-  await remove.focus();
+  await tabTo(page, newText);
+  await expectFocusVisible(page, "new task text");
+  for (let n = suggested.length; n < 4; n++) {
+    await page.keyboard.insertText(`Image the ledge ${"abcd"[n]}`);
+    await page.keyboard.press("Enter");
+    await expect(editor.locator("[data-task-text]")).toHaveCount(n + 1);
+    await expect(newText).toBeFocused();
+    await expect(newText).toHaveValue("");
+  }
+  await expect(newText).toHaveAttribute("aria-disabled", "true");
+  await expect(editor.getByRole("button", { name: "Add task", exact: true })).toHaveAttribute("aria-disabled", "true");
+  await expect(newText).toBeFocused();
+
+  // Enter on the last Delete removes that task; focus moves to a task's text instead of falling to the page.
+  const lastDelete = editor.locator("[data-delete-task]").last();
+  await tabTo(page, lastDelete, { back: true });
   await expectFocusVisible(page, "delete task");
   await page.keyboard.press("Enter");
-  await expect(editor.locator("[data-task-text]")).toHaveCount(suggested.length);
+  await expect(editor.locator("[data-task-text]")).toHaveCount(3);
+  await expect(editor.locator("[data-task-text]").last()).toBeFocused();
+  await expectFocusVisible(page, "task text after delete");
+  await expect(newText).not.toHaveAttribute("aria-disabled", "true");
 });
