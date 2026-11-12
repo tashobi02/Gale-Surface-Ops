@@ -44,3 +44,8 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 ## Package 19 follow-up
 
 1. N-30 — N-06 supplies sol, LTST and the condition fields, but `ConditionsState` has no EVA phase. Supply the authoritative phase plus provenance and source; SCR-11 currently displays “—”.
+
+## Package 20 follow-up
+
+1. N-31 — N-23 `Snapshot.earth` has blackout and next-pass UTC but no current-pass or link-availability state. Supply the state with provenance and source, so the widget can distinguish available from waiting. It currently shows “—” unless blackout is true (CONJUNCTION).
+2. N-32 — Align the ADD_STOP_TASK handler with FD-031: fewer than four tasks per selected crew at a stop, with shared tasks counted for either crew. The current BD-109 handler counts tasks for all crews together. The frontend implements FD-031 and shows server rejections; live task-limit acceptance remains wip.
