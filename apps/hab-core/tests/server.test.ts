@@ -346,6 +346,45 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
     expect(body).toMatchObject({ data_version: "gale_boxwork-2026.11.08", session_id: "s-0007", sim_time: SIM_TIME });
   });
 
+  // N-05 (docs/plan/backend/01-contract.md §7a; BD-112): a small lobby summary; GET /api/session stays the full SNAPSHOT.
+  describe("GET /api/session/summary (N-05)", () => {
+    const planStub = { plan_hash: "x" } as unknown as PlanExport;
+
+    it("returns {session_id, scenario_id, status, sim_time, speed, paused, eva_start_utc, hab_candidate_id, plan_published}, with eva_start_utc null before the EVA", async () => {
+      const { server } = await setup();
+      const res = await fetch(`${server.url}/api/session/summary`);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        session_id: "s-0007",
+        scenario_id: "storm-sol4190",
+        status: "RUNNING",
+        sim_time: SIM_TIME,
+        speed: 60,
+        paused: false,
+        eva_start_utc: null,
+        hab_candidate_id: null,
+        plan_published: false,
+      });
+    });
+
+    it("reads eva_start_utc from the log's EVA_STARTED and plan_published from the plan in force", async () => {
+      const { server, session } = await setup();
+      session.current = planStub;
+      session.log = [
+        { seq: 1, sim_time: "2024-05-20T00:00:00Z", kind: "SESSION_LOADED", actor: "system", data: {}, provenance: {}, command_ref: null },
+        { seq: 2, sim_time: "2024-05-20T12:30:00Z", kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1"], plan_revision: 1 }, provenance: {}, command_ref: null },
+      ];
+      const body = (await (await fetch(`${server.url}/api/session/summary`)).json()) as Record<string, unknown>;
+      expect(body).toMatchObject({ eva_start_utc: "2024-05-20T12:30:00Z", plan_published: true });
+    });
+
+    it("is 404 with no session", async () => {
+      const server = await startServer({ site: "mock_site", port: 0, host: "127.0.0.1" });
+      open.server = server;
+      expect((await fetch(`${server.url}/api/session/summary`)).status).toBe(404);
+    });
+  });
+
   it("GET /api/report returns PostEvaReport (01 FR-46)", async () => {
     const { server } = await setup();
     const res = await fetch(`${server.url}/api/report`);
