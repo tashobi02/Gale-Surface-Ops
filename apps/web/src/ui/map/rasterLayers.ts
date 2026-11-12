@@ -213,6 +213,12 @@ export function zIndexOf(layer: Layer): number {
   return LAYER_Z_INDEX.SCIENTIFIC_OVERLAY;
 }
 
+/**
+ * The class an optical (ortho) tile layer carries, and the rule the OPS mode greys it with (FD-003). Every map that draws
+ * the ortho uses this name, so the grayscale reaches the EVA mini-map and the planner alike.
+ */
+export const OPS_ORTHO_LAYER_CLASS = "ol-layer marswalk-ortho";
+
 const browserDeps: RasterDeps = {
   async decodeTile(url) {
     const response = await fetch(url);
@@ -354,7 +360,7 @@ export function createRasterLayers(site: LoadedSite, options: RasterLayersOption
 
     const visible = def.default_visible;
     // The ortho basemap is grayscale in OPS by CSS on this class (FD-003): `filter` on that layer's canvas only.
-    const className = def.category === "optical" ? "ol-layer marswalk-ortho" : "ol-layer";
+    const className = def.category === "optical" ? OPS_ORTHO_LAYER_CLASS : "ol-layer";
     const tileLayer = new TileLayer({ source, zIndex: zIndexOf(def), visible, opacity: 1, className });
 
     const view = options.mapHandle;

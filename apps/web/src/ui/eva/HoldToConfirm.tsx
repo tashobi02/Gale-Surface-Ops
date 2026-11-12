@@ -461,6 +461,7 @@ async function sendAndReport(
 }
 
 export interface SummonRoverButtonProps {
+  tapFallback?: boolean;
   /** Hab WebSocket client instance. Without one the control is disabled. */
   client?: HabClient | null;
   /** Crew member acting; SUMMON_VEHICLE needs `args.crew` to include the issuer (02 §E.4). Without one the control is disabled. */
@@ -488,6 +489,7 @@ export function SummonRoverButton({
   linked,
   optionId,
   onDispatched,
+  tapFallback = false,
   disabled = false,
   disabledReason,
   className,
@@ -509,6 +511,7 @@ export function SummonRoverButton({
   return (
     <HoldToConfirm
       id="action-summon-rover"
+      tapFallback={tapFallback}
       data-hold-key="eva-summon"
       label="Summon rover"
       outcome="Summon accepted"
@@ -523,6 +526,7 @@ export function SummonRoverButton({
 }
 
 export interface AbortToHabButtonProps {
+  tapFallback?: boolean;
   /** Hab WebSocket client instance. Without one the control is disabled. */
   client?: HabClient | null;
   /** Crew member acting; ABORT needs `args.crew` to include the issuer (02 §E.4). Without one the control is disabled. */
@@ -547,6 +551,7 @@ export function AbortToHabButton({
   crewId,
   linked,
   onAborted,
+  tapFallback = false,
   disabled = false,
   disabledReason,
   className,
@@ -561,6 +566,7 @@ export function AbortToHabButton({
   return (
     <HoldToConfirm
       id="action-abort-hab"
+      tapFallback={tapFallback}
       data-hold-key="eva-abort"
       label="Abort to hab"
       outcome="Abort accepted"
@@ -628,6 +634,10 @@ export function TaskRoverButton({
 }
 
 export interface EvaActionRowProps {
+  tapFallback?: boolean;
+  contrast?: boolean;
+  onContrast?: () => void;
+  onTapFallback?: () => void;
   client?: HabClient | null;
   /** Crew member the row acts for; SUMMON and ABORT are disabled without one. */
   crewId?: CrewId;
@@ -652,6 +662,10 @@ export function EvaActionRow({
   linked,
   onOpenRoverTasking,
   onOpenHud,
+  tapFallback = false,
+  contrast = false,
+  onContrast,
+  onTapFallback,
   disabledSummon = false,
   disabledAbort = false,
   disabledRover = false,
@@ -677,12 +691,14 @@ export function EvaActionRow({
         client={client}
         crewId={crewId}
         linked={linked}
+        tapFallback={tapFallback}
         disabled={disabledSummon}
       />
       <AbortToHabButton
         client={client}
         crewId={crewId}
         linked={linked}
+        tapFallback={tapFallback}
         disabled={disabledAbort}
       />
       <TaskRoverButton
@@ -713,6 +729,8 @@ export function EvaActionRow({
       >
         <span>HUD</span>
       </button>
+      {onContrast && <button type="button" className="btn xl" aria-label="Toggle high contrast" aria-pressed={contrast} onClick={onContrast}>CONTRAST</button>}
+      {onTapFallback && <button type="button" className="btn xl" aria-label="Tap confirm" aria-pressed={tapFallback} onClick={onTapFallback}>TAP CONFIRM</button>}
     </div>
   );
 }

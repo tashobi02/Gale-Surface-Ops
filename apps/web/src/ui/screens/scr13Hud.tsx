@@ -240,8 +240,13 @@ export function Hud({
             hud.link.linked === null ? unavailableOf("simulated", "crew.linked") : { prov: "simulated", src: "snapshot:crew.linked" },
           )}
         >
-          LINK {hud.link.linked === null ? UNAVAILABLE : hud.link.linked ? "▮▮▮" : "▯▯▯"}
+          LINK {hud.link.linked === null ? UNAVAILABLE : hud.link.linked ? "UP" : "DOWN"}
         </span>
+        <span {...provAttrs(hud.link.hops)}>
+          {hud.link.hops.v}
+          {hud.link.hops.v !== UNAVAILABLE && ` ${hud.link.hops.unit}`}
+        </span>
+        <span {...provAttrs(hud.link.via)}>VIA {hud.link.via.v}</span>
         <span>{hud.link.stale === null ? UNAVAILABLE : hud.link.stale ? "STALE" : "◇ SIM"}</span>
       </div>
     </div>

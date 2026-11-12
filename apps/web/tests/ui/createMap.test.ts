@@ -335,6 +335,15 @@ describe("createMap: coordinate readout, north arrow, scale bar (FR-01, FR-15)",
     expect(readoutOf(host).getAttribute("style")).toContain("var(--text-1)");
     expect(readoutOf(host).getAttribute("style")).toContain("var(--text-micro)");
   });
+
+  it("hides the attribution's toggle button: the attribution is not collapsible, so the button is a stray target", () => {
+    // The app styles its own map chrome and does not load OpenLayers' stylesheet, so the control's own "i" button would
+    // show as a touch target on top of the map (04 §C.3: every target at least 56 px, 8 px apart).
+    const { host } = make();
+    const toggle = host.querySelector<HTMLElement>(".ol-attribution button");
+    expect(toggle, "the attribution toggle button").not.toBeNull();
+    expect(toggle!.style.display).toBe("none");
+  });
 });
 
 describe("createMap: keyboard and destroy (04 §E, T13.06)", () => {

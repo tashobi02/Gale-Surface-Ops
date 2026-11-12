@@ -12,6 +12,10 @@ async function expectNoOverflow(page: Page, where: string): Promise<void> {
     for (const el of Array.from(document.querySelectorAll<HTMLElement>("body *"))) {
       const s = getComputedStyle(el);
       if (s.display === "none" || s.visibility === "hidden" || !el.textContent?.trim()) continue;
+      // A box that cuts its text on purpose (text-overflow: ellipsis) is not a clipped text box: the EVA tablet's 24 px
+      // metadata strip is one fixed row, so a part that does not fit is cut with an ellipsis (FD-032). What must never
+      // happen is a box whose text is cut off without saying so.
+      if (s.textOverflow === "ellipsis") continue;
       if (el.scrollWidth > el.clientWidth + 1 && s.overflowX !== "auto" && s.overflowX !== "scroll" && el.clientWidth > 0) {
         clipped.push(`${el.tagName.toLowerCase()}.${el.className}`);
       }
@@ -32,7 +36,7 @@ test("viewport360: BRIEF routes fit 360 px", async ({ page }) => {
   }
 });
 
-test.fixme("viewport360: the EVA tablet fits 360 px (enabled by package 17)", async ({ page }) => {
+test("viewport360: the EVA tablet fits 360 px (enabled by package 17)", async ({ page }) => {
   await page.goto("/#/eva/EV1");
   await page.waitForLoadState("networkidle");
   await expectNoOverflow(page, "#/eva/EV1");

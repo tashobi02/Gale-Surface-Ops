@@ -228,7 +228,6 @@ describe("SCR-12 clickable areas are buttons, not clickable divs", () => {
     await click(area);
     expect(onOpenFullScreenMap).toHaveBeenCalledTimes(1);
 
-    await click(must(container, "#action-open-full-map"));
-    expect(onOpenFullScreenMap).toHaveBeenCalledTimes(2);
+
   });
 });

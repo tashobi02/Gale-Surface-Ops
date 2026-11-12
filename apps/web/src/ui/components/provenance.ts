@@ -113,6 +113,16 @@ export function fmtBearing(deg: unknown): string {
   return isFiniteNumber(deg) ? `${String(Math.round(deg)).padStart(3, "0")}°` : UNAVAILABLE;
 }
 
+/**
+ * The arrow that points along a bearing: eight compass points, so the arrow agrees with the degrees beside it
+ * (a fixed arrow did not). "—" when the bearing is missing: the direction is unknown, so no arrow is drawn.
+ */
+export function fmtBearingArrow(deg: unknown): string {
+  if (!isFiniteNumber(deg)) return UNAVAILABLE;
+  const index = Math.round(((((deg % 360) + 360) % 360) / 45)) % 8;
+  return ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"][index]!;
+}
+
 /** Kilometres with two decimals from metres, or "—". */
 export function fmtKilometres(metres: unknown): string {
   return isFiniteNumber(metres) ? (metres / 1000).toFixed(2) : UNAVAILABLE;

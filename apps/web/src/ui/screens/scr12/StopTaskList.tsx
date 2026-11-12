@@ -10,9 +10,9 @@
  *     DONE: drawn check in square (never filled ■, G-32) + "DONE"
  *     SKIPPED: ⊘ + "SKIPPED"
  *     DROPPED: ⊘ + "DROPPED"
- * - One tap ticks DONE; SKIP opens reason capture (time, terrain, alert, other). Skipping sends exactly one
- *   command, after the reason is chosen (onReason); the SKIP tap itself sends nothing, and CANCEL closes the
- *   picker without a reason or a command.
+ * - One tap ticks DONE; SKIP records other immediately.
+ * - Inside the 5-s undo window a skipped task shows one REASON control that cycles the reason
+ *   other → time → terrain → alert → other (FD-028, mockup G-33).
  * - 5-s undo window shows UNDO button (the window itself is kept by the caller: useStopTaskChanges).
  * - Unsynced state shows "not synced" indicator.
  * - Ops-added task displays "added by ops" tag.
@@ -20,10 +20,26 @@
  * - Read-only mode renders without interactive controls.
  */
 
-import { useState, type CSSProperties, type ReactElement } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 import type { CrewId, Provenance, StopTask, StopTaskReason } from "@marswalk/protocol";
 import { isProvenance } from "../../eva/viewModel";
 import { provAttrs } from "../../components/provenance";
+
+/** The reasons a task may be skipped for, in the cycle order of FD-028 (mockup G-33). */
+export const SKIP_REASON_CYCLE: readonly StopTaskReason[] = ["other", "time", "terrain", "alert"];
+
+/**
+ * The most task rows the NEXT card renders (04 §E.5: "up to four rows of at least 56 px"). The Hab Core caps a stop
+ * at four tasks (`MAX_TASKS_PER_STOP` in apps/hab-core/src/engine/tasks.ts), so this is the count the tablet sees; the
+ * cap here keeps the card from scrolling if a snapshot ever carried more. The TASKS n/m count still covers every task.
+ */
+export const MAX_TASK_ROWS = 4;
+
+/** The next reason in the cycle: other → time → terrain → alert → other. */
+export function nextSkipReason(reason: StopTaskReason | null): StopTaskReason {
+  const index = reason === null ? -1 : SKIP_REASON_CYCLE.indexOf(reason);
+  return SKIP_REASON_CYCLE[(index + 1) % SKIP_REASON_CYCLE.length]!;
+}
 
 export interface StopTaskListProps {
   tasks: StopTask[];
@@ -37,10 +53,12 @@ export interface StopTaskListProps {
   /** The Hab Core's reason for each change it rejected, by task id; shown on the row. */
   rejections?: Record<string, string>;
   onTick: (taskId: string) => void;
-  /** Notification only: fired when SKIP opens reason capture. It must not send a command; `onReason` does (once). */
+  /** Notification only: fired when SKIP records its default reason. */
   onSkip?: (taskId: string) => void;
   onUndo: (taskId: string) => void;
   onReason: (taskId: string, reason: StopTaskReason) => void;
+  /** The REASON control cycles the reason of a skipped task (FD-028). */
+  onChangeReason?: (taskId: string, reason: StopTaskReason) => void;
   className?: string;
 }
 
@@ -52,10 +70,12 @@ export interface StopTaskRowProps {
   /** The Hab Core's reason for rejecting the last change to this task ("INVALID: …"). */
   rejection?: string;
   onTick: (taskId: string) => void;
-  /** Notification only: fired when SKIP opens reason capture. It must not send a command. */
+  /** Notification only: fired when SKIP records its default reason. */
   onSkip?: (taskId: string) => void;
   onUndo: (taskId: string) => void;
   onReason?: (taskId: string, reason: StopTaskReason) => void;
+  /** The REASON control cycles the reason of a skipped task (FD-028). */
+  onChangeReason?: (taskId: string, reason: StopTaskReason) => void;
   className?: string;
 }
 
@@ -77,7 +97,6 @@ function taskFieldAttrs(task: StopTask, field: "state" | "text"): ReturnType<typ
   return provAttrs({ prov: isProvenance(given) ? given : fallback, src: `snapshot:tasks.${task.task_id}.${field}` });
 }
 
-const REASONS: StopTaskReason[] = ["time", "terrain", "alert", "other"];
 
 export function StopTaskRow({
   task,
@@ -89,9 +108,9 @@ export function StopTaskRow({
   onSkip,
   onUndo,
   onReason,
+  onChangeReason,
   className = "",
 }: StopTaskRowProps): ReactElement {
-  const [showReasonPicker, setShowReasonPicker] = useState(false);
 
   const rowStyle: CSSProperties = {
     minHeight: "var(--target-eva, 56px)",
@@ -137,19 +156,9 @@ export function StopTaskRow({
     color: "var(--text-1, #ECEFF2)",
   };
 
-  // SKIP only opens reason capture; the single UPDATE_STOP_TASK is sent by handleReasonSelect.
   const handleSkipClick = (): void => {
-    setShowReasonPicker(true);
     onSkip?.(task.task_id);
-  };
-
-  const handleReasonCancel = (): void => {
-    setShowReasonPicker(false);
-  };
-
-  const handleReasonSelect = (reason: StopTaskReason): void => {
-    setShowReasonPicker(false);
-    onReason?.(task.task_id, reason);
+    onReason?.(task.task_id, "other");
   };
 
   return (
@@ -248,7 +257,7 @@ export function StopTaskRow({
       </div>
 
       {/* Action controls (Tick, Skip, Undo, Reason picker) */}
-      {!readOnly && (
+      {!readOnly && task.state !== "DROPPED" && (
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {inUndoWindow && (
             <button
@@ -261,7 +270,7 @@ export function StopTaskRow({
             </button>
           )}
 
-          {task.state === "TODO" && !inUndoWindow && !showReasonPicker && (
+          {task.state === "TODO" && !inUndoWindow && (
             <button
               type="button"
               onClick={handleSkipClick}
@@ -272,28 +281,17 @@ export function StopTaskRow({
             </button>
           )}
 
-          {showReasonPicker && (
-            <div role="group" aria-label="Reason for skipping" style={{ display: "flex", gap: "8px" }}>
-              {REASONS.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => handleReasonSelect(r)}
-                  style={{ ...actionButtonStyle, padding: "4px 8px" }}
-                  aria-label={`Reason: ${r}`}
-                >
-                  {r}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={handleReasonCancel}
-                style={{ ...actionButtonStyle, padding: "4px 8px" }}
-                aria-label="Cancel skip"
-              >
-                CANCEL
-              </button>
-            </div>
+          {/* The undo strip holds one REASON control for the skip just made (FD-028, mockup G-33): it cycles the
+              reason other → time → terrain → alert → other. */}
+          {task.state === "SKIPPED" && inUndoWindow && (
+            <button
+              type="button"
+              onClick={() => onChangeReason?.(task.task_id, nextSkipReason(task.reason ?? null))}
+              style={actionButtonStyle}
+              aria-label={`Change skip reason: ${task.reason ?? "other"}`}
+            >
+              REASON: {(task.reason ?? "other").toUpperCase()}
+            </button>
           )}
         </div>
       )}
@@ -314,6 +312,7 @@ export function StopTaskList({
   onSkip,
   onUndo,
   onReason,
+  onChangeReason,
   className = "",
 }: StopTaskListProps): ReactElement {
   // Filter tasks for this stop and crew (crew_id === null means either crew)
@@ -323,6 +322,15 @@ export function StopTaskList({
 
   const doneCount = stopTasks.filter((t) => t.state === "DONE").length;
   const totalCount = stopTasks.length;
+  // The row cap counts the tasks the crew member can still act on: a DROPPED task is a record of what was dropped, not
+  // work to do, so it never takes a row from an actionable task. It is listed after them, and only when there is room
+  // in the four rows of 56 px (04 §E.5).
+  const actionable = stopTasks.filter((t) => t.state !== "DROPPED");
+  const dropped = stopTasks.filter((t) => t.state === "DROPPED");
+  const listedTasks = [
+    ...actionable.slice(0, MAX_TASK_ROWS),
+    ...dropped.slice(0, Math.max(0, MAX_TASK_ROWS - Math.min(actionable.length, MAX_TASK_ROWS))),
+  ];
 
   if (collapsed) {
     // Collapsed state: during walking or alerting, renders count only (04 §E.5, U-59)
@@ -402,7 +410,7 @@ export function StopTaskList({
           No tasks assigned for this stop
         </div>
       ) : (
-        stopTasks.map((t) => (
+        listedTasks.map((t) => (
           <StopTaskRow
             key={t.task_id}
             task={t}
@@ -414,6 +422,7 @@ export function StopTaskList({
             onSkip={onSkip}
             onUndo={onUndo}
             onReason={onReason}
+            onChangeReason={onChangeReason}
           />
         ))
       )}
