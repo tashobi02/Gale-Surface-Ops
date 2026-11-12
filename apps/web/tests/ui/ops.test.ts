@@ -1132,6 +1132,40 @@ describe("package 19 ops interactions", () => {
     delete (window as unknown as Record<string, unknown>).AudioContext;
   });
 
+  it("the click that arms sound keeps it on; a later click toggles it off", async () => {
+    const context = { state: "suspended", resume: vi.fn(), close: vi.fn().mockResolvedValue(undefined) };
+    context.resume.mockImplementation(async () => { context.state = "running"; });
+    Object.defineProperty(window, "AudioContext", { configurable: true, value: vi.fn(function () { return context; }) });
+    const view = await mount(createElement(OpsConsole, { client: null }));
+    const button = must(view.container, 'button[aria-label^="Alert sound"]');
+    expect(button.textContent).toContain("click to arm");
+    await pointerDown(button);
+    await click(button);
+    await flush();
+    expect(context.resume).toHaveBeenCalledTimes(1);
+    expect(button.textContent).toBe("SOUND ON");
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    await pointerDown(button);
+    await click(button);
+    expect(button.textContent).toBe("SOUND OFF");
+    await view.unmount();
+    delete (window as unknown as Record<string, unknown>).AudioContext;
+  });
+
+  it("Space on a focused button activates that button instead of pausing the clock", async () => {
+    const onCommand = vi.fn();
+    const view = await mount(createElement(OpsConsole, { client: null, snapshot: connectSnapshot(), onCommand }));
+    const speed = must<HTMLButtonElement>(view.container, '[aria-label="Set speed to 10x"]');
+    speed.focus();
+    const event = new window.KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+    await act(async () => { speed.dispatchEvent(event); });
+    expect(event.defaultPrevented).toBe(false);
+    expect(onCommand).not.toHaveBeenCalled();
+    await keyDown(document.body, " ");
+    expect(onCommand).toHaveBeenCalledWith(expect.objectContaining({ kind: "SET_CLOCK" }));
+    await view.unmount();
+  });
+
   it("notice below 1024", async () => {
     const old = window.innerWidth;
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 900 });

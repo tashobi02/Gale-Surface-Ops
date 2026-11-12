@@ -2,16 +2,23 @@
 import { useEffect, useRef, useState } from "react";
 import type { Alert } from "@marswalk/protocol";
 
-export function useOpsSound(alerts: Alert[], enabled: boolean, sessionId?: string): { armed: boolean } {
+/**
+ * `consumeArmingGesture` reports (once) whether the current pointer/key gesture is the one that started arming audio, so the
+ * sound button's click that follows that gesture only arms and does not also switch sound off (FD-296).
+ */
+export function useOpsSound(alerts: Alert[], enabled: boolean, sessionId?: string): { armed: boolean; consumeArmingGesture: () => boolean } {
   const audio = useRef<AudioContext | null>(null);
   const [armed, setArmed] = useState(false);
+  const armingGesture = useRef(false);
   const seenCautions = useRef(new Set<string>());
   useEffect(() => { seenCautions.current.clear(); }, [sessionId]);
   useEffect(() => {
     let disposed = false;
     const arm = (): void => {
       const Audio = window.AudioContext;
+      armingGesture.current = false;
       if (!Audio || audio.current?.state === "running") return;
+      armingGesture.current = true;
       audio.current ??= new Audio();
       void audio.current.resume().then(() => { if (!disposed) setArmed(true); }).catch(() => {});
     };
@@ -59,5 +66,10 @@ export function useOpsSound(alerts: Alert[], enabled: boolean, sessionId?: strin
       }
     };
   }, [armed, enabled, warningKey, cautionKey, sessionId]);
-  return { armed };
+  const consumeArmingGesture = (): boolean => {
+    const arming = armingGesture.current;
+    armingGesture.current = false;
+    return arming;
+  };
+  return { armed, consumeArmingGesture };
 }

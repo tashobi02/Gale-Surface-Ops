@@ -177,7 +177,7 @@ export function OpsConsole({
   const send = useCommand(client);
   const activeSnapshot = snapshot === undefined ? liveState : snapshot;
   const session = activeSnapshot?.session;
-  const { armed } = useOpsSound(alerts, soundEnabled, session?.session_id);
+  const { armed, consumeArmingGesture } = useOpsSound(alerts, soundEnabled, session?.session_id);
   const logLines = logLinesProp ?? selectOpsProps(activeSnapshot, events).logLines ?? [];
   const raisedTimes = new Map(events.filter((event) => event.kind === "ALERT_RAISED").map((event) => [event.seq, event.sim_time]));
   useEffect(() => {
@@ -333,6 +333,8 @@ export function OpsConsole({
     const onKeyDown = (event: KeyboardEvent): void => {
     if (viewportWidth < 1024 || event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))) return;
     const key = event.key.toLowerCase();
+    // Space activates a focused control (button, link, row, radio); only digits and letters reach the clock from there.
+    if (key === " " && event.target instanceof Element && event.target.closest('button, a[href], [role="button"], [role="radio"], [role="checkbox"], [role="switch"], [role="tab"]')) return;
     if (key === "o") {
       event.preventDefault();
       if (narrow) { setLogOpen(false); setSideDrawer("mission"); }
@@ -399,7 +401,7 @@ export function OpsConsole({
             style={{ ...buttonStyle, marginLeft: "8px", display: "inline-flex", alignItems: "center", gap: "6px" }}
             aria-label={`Alert sound: ${soundEnabled ? "on" : "off"}`}
             aria-pressed={soundEnabled}
-            onClick={() => { setLocalSoundOn(!soundEnabled); onToggleSound?.(); }}
+            onClick={() => { if (consumeArmingGesture() && soundEnabled) return; setLocalSoundOn(!soundEnabled); onToggleSound?.(); }}
           >
             <span data-provenance="assumed" data-source="ui:ops.sound">{soundEnabled ? armed ? "SOUND ON" : "SOUND ON — click to arm" : "SOUND OFF"}</span>
           </button>
