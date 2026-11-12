@@ -42,6 +42,9 @@ function eventAttrs(event: LogEvent, path: string, present = true): ReturnType<t
 
 export type EventCategory = "ALL" | "ALERTS" | "CREW" | "TASKS" | "VEHICLES" | "LINK" | "SYSTEM";
 
+/** FD-295: an interface paging limit, never a mission/science value. */
+export const EVENT_LOG_PAGE_SIZE = 100;
+
 export interface EventLogProps {
   /** Array of LogEvents to display. If omitted and `client` is provided, reads from client. */
   events?: LogEvent[];
@@ -210,6 +213,7 @@ export function EventLog({
   }, [rawEvents]);
 
   const [filter, setFilter] = useState<EventCategory>(initialCategory);
+  const [visibleCount, setVisibleCount] = useState(EVENT_LOG_PAGE_SIZE);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -220,6 +224,7 @@ export function EventLog({
     if (filter === "ALL") return sortedEvents;
     return sortedEvents.filter((e) => categorizeEvent(e.kind) === filter);
   }, [sortedEvents, filter]);
+  const visibleEvents = filteredEvents.slice(-visibleCount);
 
   const handleCopyLog = async (): Promise<void> => {
     const text = filteredEvents
@@ -327,7 +332,7 @@ export function EventLog({
               cursor: "pointer",
               textTransform: "uppercase",
             }}
-            title="Copy visible log lines to clipboard"
+            title="Copy filtered log lines to clipboard"
           >
             {copyState === "copied" ? "COPIED ✓" : copyState === "failed" ? "COPY FAILED ✕" : "COPY LOG"}
           </button>
@@ -342,7 +347,7 @@ export function EventLog({
             <button
               key={cat}
               type="button"
-              onClick={() => setFilter(cat)}
+              onClick={() => { setFilter(cat); setVisibleCount(EVENT_LOG_PAGE_SIZE); }}
               style={{
                 padding: "2px 8px",
                 fontSize: "11px",
@@ -364,12 +369,13 @@ export function EventLog({
 
       {/* Scrollable event list in seq order */}
       <div style={listStyle} role="region" tabIndex={0} aria-label="Event rows">
+        {filteredEvents.length > visibleCount && <button type="button" aria-label="Show earlier events" onClick={() => setVisibleCount((count) => count + EVENT_LOG_PAGE_SIZE)} style={{ minHeight: "32px", color: "var(--text-1)", background: "var(--raised)", border: "1px solid var(--edge)" }}>Show earlier events</button>}
         {filteredEvents.length === 0 ? (
           <div style={{ padding: "12px", color: "var(--text-3, #8592A0)", fontSize: "12px", textAlign: "center" }}>
             No events logged yet
           </div>
         ) : (
-          filteredEvents.map((ev) => {
+          visibleEvents.map((ev) => {
             const isAlert = ev.kind.startsWith("ALERT");
             const isWarning = isAlert && (ev.data as { level?: string })?.level === "warning";
             const isCaution = isAlert && (ev.data as { level?: string })?.level === "caution";

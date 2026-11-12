@@ -34,6 +34,25 @@ const ev = (seq: number, kind: LogEventKind, data: Record<string, unknown> = {},
 const rows = (root: ParentNode) => [...root.querySelectorAll<HTMLElement>(".event-row")];
 
 describe("EventLog rows", () => {
+  it("bounds 5000 events to the newest page and reveals earlier rows in keyboard-accessible steps", async () => {
+    const events = Array.from({ length: 5000 }, (_, index) => ev(index + 1, "CLOCK_CHANGED", { speed: 1, paused: false }));
+    const onSelectEvent = vi.fn();
+    const view = await mount(createElement(EventLog, { events, onSelectEvent }));
+    expect(rows(view.container)).toHaveLength(100);
+    expect(rows(view.container)[0].dataset.seq).toBe("4901");
+    expect(rows(view.container).at(-1)?.dataset.seq).toBe("5000");
+    const earlier = must<HTMLButtonElement>(view.container, '[aria-label="Show earlier events"]');
+    expect(earlier.tabIndex).toBe(0);
+    await click(earlier);
+    expect(rows(view.container)).toHaveLength(200);
+    expect(rows(view.container)[0].dataset.seq).toBe("4801");
+    await keyDown(rows(view.container)[0], "Enter");
+    expect(onSelectEvent).toHaveBeenLastCalledWith(events[4800]);
+    await click([...view.container.querySelectorAll("nav button")].find((button) => button.textContent === "SYSTEM")!);
+    expect(rows(view.container)).toHaveLength(100);
+    await view.unmount();
+  });
+
   it("labels unavailable event metadata and summary fields instead of displaying missing data", async () => {
     const event = { ...ev(1, "SESSION_LOADED"), seq: NaN, sim_time: "", actor: undefined } as unknown as LogEvent;
     const view = await mount(createElement(EventLog, { events: [event] }));
@@ -177,7 +196,7 @@ describe("EventLog severity is shape + word, not colour alone (04 §A.3)", () =>
 
 describe("EventLog COPY LOG reports what happened", () => {
   const events = [ev(1, "SESSION_LOADED", { scenario_id: "s-a" })];
-  const copyButton = (root: ParentNode) => must<HTMLButtonElement>(root, 'button[title^="Copy visible log"]');
+const copyButton = (root: ParentNode) => must<HTMLButtonElement>(root, 'button[title^="Copy filtered log"]');
   const setClipboard = (writeText: ((t: string) => Promise<void>) | undefined) =>
     Object.defineProperty(navigator, "clipboard", { value: writeText ? { writeText } : undefined, configurable: true });
 
