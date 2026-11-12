@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { routeHashesInMode } from "../lib/offline";
 import { openSetupFixture, type SetupFixtureState } from "../lib/setupFixture";
+import { openPresenterFixture, type PresenterFixtureState } from "../lib/presenterFixture";
 
 const tokens = readFileSync(join(import.meta.dirname, "..", "..", "src", "ui", "styles", "tokens.css"), "utf8");
 
@@ -87,6 +88,19 @@ test("brand-orange: none in the SCR-20 mission setup states (package 24)", async
     if (state === "rejected") await expect(page.getByRole("alert")).toBeVisible();
     for (const found of await findOrange(page)) hits.push(`${state}: ${found}`);
     fixture.answer();
+    fixture.stop();
   }
   expect(hits, "brand orange in SCR-20").toEqual([]);
+});
+
+// Package 23: SCR-19 in each state, from the fixture (Advancing, the open reset question, the refusal, the storm, Ended).
+test("brand-orange: none in the SCR-19 presenter states (package 23)", async ({ page }) => {
+  const hits: string[] = [];
+  for (const state of ["pending", "reset-confirm", "rejected", "storm-running", "ended"] as PresenterFixtureState[]) {
+    const fixture = await openPresenterFixture(page, state);
+    for (const found of await findOrange(page)) hits.push(`${state}: ${found}`);
+    fixture.answer();
+    fixture.stop();
+  }
+  expect(hits, "brand orange in SCR-19").toEqual([]);
 });

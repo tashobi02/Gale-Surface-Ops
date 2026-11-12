@@ -87,6 +87,8 @@ text at 1.02 : 1 (ink on the dark card: the `.card` background overrides the `.s
 | `hab.ts` | `openRole`, `waitForSnapshot`, `sendAsOps` (UI only), `habHealth`, `killHab`, `restartHab` |
 | `fakeScenario.ts`, `siteBundle.ts` | N-01 workaround; which site and scenario a run uses |
 | `setupFixture.ts` | `openSetupFixture` (SCR-20 Ready, Computing, Command rejected, Locked: two MOCK candidates in the manifest response and a committed LOADED snapshot over a stubbed socket; FD-344) |
+| `presenterFixture.ts` | `openPresenterFixture` (SCR-19 Advancing, Reset confirm, Command rejected, Storm running, Ended: a committed snapshot over a stubbed socket; FD-344) |
+| `heartbeat.ts` | `startHeartbeat` (the ping the Hab Core sends every 2 s; a fixture that replaces the server must send it too, or a slow scan trips SCR-18) |
 
 ## CI
 

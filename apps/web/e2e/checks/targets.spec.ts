@@ -10,6 +10,7 @@ import { openEvaFixture } from "../lib/evaFixture";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 import { openSetupFixture } from "../lib/setupFixture";
+import { openPresenterFixture, type PresenterFixtureState } from "../lib/presenterFixture";
 
 const EVA_MIN = 56;
 const EVA_GAP = 8;
@@ -45,10 +46,23 @@ test("targets: presenter panel and mission setup targets are at least 32 px (pac
     expectTargetSize(await targets(page), OPS_MIN);
   }
   // The same, with two candidate cards and every setting enabled (lib/setupFixture.ts).
-  await openSetupFixture(page, "ready");
+  const setup = await openSetupFixture(page, "ready");
   const list = await targets(page);
   expect(list.length, "candidate buttons and settings are targets").toBeGreaterThanOrEqual(7);
   expectTargetSize(list, OPS_MIN);
+  setup.stop();
+});
+
+// Package 23: the presenter panel's own states (lib/presenterFixture.ts), including the open reset question.
+test("targets: presenter panel targets are at least 32 px in every state (package 23)", async ({ page }) => {
+  for (const state of ["pending", "reset-confirm", "rejected", "storm-running", "ended"] as PresenterFixtureState[]) {
+    const fixture = await openPresenterFixture(page, state);
+    const list = await targets(page);
+    expect(list.length, `the panel has targets in ${state}`).toBeGreaterThan(0);
+    expectTargetSize(list, OPS_MIN);
+    fixture.answer();
+    fixture.stop();
+  }
 });
 
 // Package 07 enables the planner workspace on the touch projects; package 09 adds the plan panel's targets to the same page.

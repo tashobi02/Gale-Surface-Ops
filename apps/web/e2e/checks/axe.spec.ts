@@ -11,6 +11,7 @@ import { openEvaFixture, type EvaFixtureState } from "../lib/evaFixture";
 import { openOpsFixture } from "../lib/opsFixture";
 import { withManifestlessSite } from "../lib/siteBundle";
 import { REJECTION, openSetupFixture } from "../lib/setupFixture";
+import { openPresenterFixture, type PresenterFixtureState } from "../lib/presenterFixture";
 
 const LIVE = /^#\/(ops|eva|hud|presenter|setup)/;
 
@@ -35,12 +36,30 @@ test("axe: every built route has no serious or critical violation", async ({ pag
   }
 });
 
+// Package 23: SCR-19 in each state of 03, from lib/presenterFixture.ts (the committed `live-loaded` snapshot over a stubbed
+// socket, because the harness's own session is already running and would only ever show the running state).
+test("axe: SCR-19 Advancing, Reset confirm, Command rejected, Storm running and Ended states have no serious or critical violation (package 23)", async ({ page }, testInfo) => {
+  const states: PresenterFixtureState[] = ["pending", "reset-confirm", "rejected", "storm-running", "ended"];
+  for (const state of states) {
+    const fixture = await openPresenterFixture(page, state);
+    if (state === "pending") await expect(page.locator(".presenter-beats [role=status]")).toContainText("Advancing to stop");
+    if (state === "reset-confirm") await expect(page.getByRole("group", { name: "Confirm session reset" })).toBeVisible();
+    if (state === "rejected") await expect(page.getByRole("list", { name: "Last command results" })).toContainText("BUSY");
+    if (state === "storm-running") await expect(page.locator(".presenter-beats [role=status]")).toContainText("Storm running");
+    if (state === "ended") await expect(page.locator(".presenter-session")).toContainText("ENDED");
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr19-${state}` });
+    fixture.answer();
+    fixture.stop();
+  }
+});
+
 // Package 24: SCR-20 in each state of 03, from lib/setupFixture.ts (two MOCK candidate cards; a committed LOADED snapshot, because the
 // harness's own session already has a plan and would only ever show Locked). The real route is scanned above.
 test("axe: SCR-20 Ready, Computing, Command rejected and Locked states have no serious or critical violation (package 24)", async ({ page }, testInfo) => {
   const ready = await openSetupFixture(page, "ready");
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-ready` });
   expect(ready.sent).toEqual([]);
+  ready.stop();
 
   const computing = await openSetupFixture(page, "computing");
   await page.getByRole("button", { name: "Select MOCK alternative" }).click();
@@ -49,15 +68,18 @@ test("axe: SCR-20 Ready, Computing, Command rejected and Locked states have no s
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-computing` });
   computing.answer();
   await expect(page.locator(".setup-state")).toHaveText(/^Ready/);
+  computing.stop();
 
-  await openSetupFixture(page, "rejected");
+  const rejected = await openSetupFixture(page, "rejected");
   await page.getByRole("button", { name: "Select MOCK alternative" }).click();
   await expect(page.getByRole("alert").filter({ hasText: REJECTION })).toBeVisible();
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-rejected` });
+  rejected.stop();
 
-  await openSetupFixture(page, "locked");
+  const locked = await openSetupFixture(page, "locked");
   await expect(page.getByRole("button", { name: "Select MOCK alternative" })).toBeDisabled();
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-locked` });
+  locked.stop();
 });
 
 // Package 06: SCR-00, the boot error, in OPS mode (FD-207). A site whose manifest was deleted makes the planner boot fail.

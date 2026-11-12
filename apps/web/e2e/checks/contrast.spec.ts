@@ -10,6 +10,7 @@ import { expectContrast } from "../lib/contrast";
 import { ratio, toRgb } from "../../tests/ui/wcag";
 import { waitForSnapshot } from "../lib/hab";
 import { openSetupFixture, type SetupFixtureState } from "../lib/setupFixture";
+import { openPresenterFixture, type PresenterFixtureState } from "../lib/presenterFixture";
 
 const LIMITS = { text: 4.5, large: 3, hud: 7 };
 
@@ -37,6 +38,18 @@ test("contrast: text on #/setup meets the OPS limit in every state (package 24)"
     const measured = await expectContrast(page, LIMITS);
     expect(measured, `no text was measured in ${state}`).toBeGreaterThan(0);
     fixture.answer();
+    fixture.stop();
+  }
+});
+
+// Package 23: SCR-19 in each state of 03 (lib/presenterFixture.ts).
+test("contrast: text on #/presenter meets the OPS limit in every state (package 23)", async ({ page }) => {
+  for (const state of ["pending", "reset-confirm", "rejected", "storm-running", "ended"] as PresenterFixtureState[]) {
+    const fixture = await openPresenterFixture(page, state);
+    const measured = await expectContrast(page, LIMITS);
+    expect(measured, `no text was measured in ${state}`).toBeGreaterThan(0);
+    fixture.answer();
+    fixture.stop();
   }
 });
 

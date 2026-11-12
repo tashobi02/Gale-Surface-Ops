@@ -14,6 +14,7 @@
 import { readFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 import type { Snapshot } from "@marswalk/protocol";
+import { startHeartbeat } from "./heartbeat";
 
 export const MOCK_CANDIDATES = ["hab-mock-first", "hab-mock-alternative"] as const;
 export type SetupFixtureState = "ready" | "computing" | "rejected" | "locked";
@@ -24,6 +25,8 @@ export interface SetupFixture {
   answer(): void;
   /** The commands the page sent, as `{kind, args}`, in order. */
   sent: { kind: string; args: Record<string, unknown> }[];
+  /** Stops the fixture's heartbeat; the caller does this when the page closes. */
+  stop(): void;
 }
 
 export async function openSetupFixture(page: Page, state: SetupFixtureState): Promise<SetupFixture> {
@@ -56,10 +59,15 @@ export async function openSetupFixture(page: Page, state: SetupFixtureState): Pr
     await route.fulfill({ response, json: { ...manifest, data_version: snapshot.session.data_version, hab_candidates } });
   });
 
-  const fixture: SetupFixture = { answer: () => {}, sent: [] };
+  const fixture: SetupFixture = { answer: () => {}, sent: [], stop: () => {} };
   const held: (() => void)[] = [];
   fixture.answer = () => held.splice(0).forEach((send) => send());
+  let stopHeartbeat = (): void => {};
   await page.routeWebSocket("**/ws", (socket) => {
+    // The Hab Core pings every 2 s and the client reports the link lost after 3 s of silence (02 §E.6). The fixture replaces
+    // the server, so it pings too: without it a slow scan (axe on a small project) trips SCR-18 and the overlay covers the
+    // screen the check is about to measure.
+    stopHeartbeat = startHeartbeat(socket, snapshot.sim_time);
     socket.onMessage((message) => {
       const request = JSON.parse(String(message)) as { type?: string; command_id?: string; command?: { kind: string; args: Record<string, unknown> } };
       if (request.type === "HELLO") socket.send(JSON.stringify(snapshot));
@@ -79,5 +87,6 @@ export async function openSetupFixture(page: Page, state: SetupFixtureState): Pr
   await page.locator('[data-screen="SCR-20"]').waitFor();
   await page.locator('[data-candidate-id="hab-mock-first"] canvas').waitFor({ state: "visible" });
   await page.locator(".setup-state").filter({ hasText: state === "locked" ? /^Locked/ : /^Ready/ }).waitFor();
+  fixture.stop = stopHeartbeat;
   return fixture;
 }
