@@ -8,12 +8,15 @@
  * - `replay <scenarioDir>` prints one SHA-256 line, the same twice; `--commands <file>` applies a command list,
  *   `--record <file>` writes the recording (canonical JSON); a bad list exits 2 with the reason and no output.
  * - `export-commands <sessionDir|sessionsDir> <outDir>` writes `<session_id>.commands.json` per session and prints the paths.
+ * - `local` (T20.09, BD-02, BD-133) starts the Hab Core as `start` does and lists the four localhost windows (ops, presenter,
+ *   EVA EV1, HUD EV1); without `--open` it opens nothing. `start --public-host <host>` is the host the join QR names (BD-82).
  * - `start --scenario-dir <path>` loads a scenario folder outside `scenarios/` (same loader checks), takes the site from the
  *   scenario unless `--site` is given, and serves `GET /api/health` with the session id on the port asked for.
  */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -224,5 +227,46 @@ describe("start --scenario-dir (N-01; T22.13 make hab smoke)", () => {
     const r = await cli(["start", "--scenario-dir", dir, "--port", "0", "--site", "mock_site"]);
     expect(r.code).toBe(1);
     expect(r.stderr).toMatch(/scenario check/);
+  }, 30_000);
+});
+
+describe("local (T20.09; BD-02) and --public-host (T28.02; BD-82)", () => {
+  const freePort = (): Promise<number> =>
+    new Promise((resolve, reject) => {
+      const probe = createServer();
+      probe.once("error", reject);
+      probe.listen(0, "127.0.0.1", () => {
+        const { port } = probe.address() as { port: number };
+        probe.close(() => resolve(port));
+      });
+    });
+
+  it("starts the Hab Core, prints the four localhost windows with the bound port, and the join QR names --public-host", async () => {
+    const { dir } = mockSiteScenario();
+    const port = await freePort();
+    const child = execFile(TSX, ["src/cli.ts", "local", "--scenario-dir", dir, "--site", "mock_site", "--port", String(port), "--public-host", "192.0.2.7", "--var-dir", tmp("cli-var")], { cwd: HAB_CORE });
+    try {
+      const out = await new Promise<string>((resolve, reject) => {
+        let text = "";
+        child.stdout!.on("data", (d: Buffer) => {
+          text += d.toString();
+          if (text.includes(`#/hud/EV1`)) resolve(text);
+        });
+        child.once("exit", (code) => reject(new Error(`cli exited ${code}: ${text}`)));
+        setTimeout(() => reject(new Error(`no window list: ${text}`)), 20_000);
+      });
+      for (const route of ["ops", "presenter", "eva/EV1", "hud/EV1"]) expect(out).toContain(`http://localhost:${port}/#/${route}`);
+      const health = await fetch(`http://127.0.0.1:${port}/api/health`);
+      expect(((await health.json()) as { status: string }).status).toBe("ok");
+      expect((await fetch(`http://127.0.0.1:${port}/api/join-qr?role=ops`)).headers.get("content-type")).toMatch(/svg/);
+    } finally {
+      child.kill();
+    }
+  }, 40_000);
+
+  it("a bad --port exits 1 before anything starts", async () => {
+    const r = await cli(["local", "--port", "70000"]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toMatch(/port must be/);
   }, 30_000);
 });

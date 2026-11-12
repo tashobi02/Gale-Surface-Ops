@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import QRCode from "qrcode";
 import WebSocket from "ws";
 import {
   CSP_HEADER,
@@ -35,7 +36,7 @@ import {
 import type { StateChange } from "../src/engine/reducer";
 import { readScenario, type LoadedScenario } from "../src/scenario";
 import { commLayer, partialWall } from "./fixtures/wallWorld";
-import { startServer } from "../src/server";
+import { defaultPublicHost, joinUrl, startServer } from "../src/server";
 import { loadSession, type SessionHandle } from "../src/session";
 
 interface HabServerUnderTest {
@@ -905,4 +906,120 @@ describe("a real session behind the wall: NO_LINK while unlinked, the resent com
     expect(all(eva2).every((m) => m.crew_id === "EV2")).toBe(true);
     expect(all(ops)).toEqual([]);
   }, 30_000);
+});
+
+// ---- Join QR (T28.02; BD-02, BD-82; 02 §E.5; NFR-01) ----------------------------------------------------------------
+
+/**
+ * The dark modules of an SVG made by the `qrcode` package (`<path stroke d="M4 4.5h7m2 0h1…">`: one run per segment,
+ * a quiet zone of 4 modules) as a row-major boolean matrix of the symbol itself (quiet zone removed).
+ */
+function svgModules(svg: string, size: number): boolean[][] {
+  const quiet = 4;
+  const viewBox = /viewBox="0 0 (\d+) (\d+)"/.exec(svg);
+  expect(Number(viewBox?.[1])).toBe(size + 2 * quiet);
+  const d = /<path stroke="#000000" d="([^"]+)"/.exec(svg)?.[1] ?? "";
+  const rows: boolean[][] = Array.from({ length: size }, () => Array<boolean>(size).fill(false));
+  for (const line of d.split("M").filter((t) => t !== "")) {
+    const head = /^(\d+) (\d+)\.5/.exec(line);
+    if (!head) throw new Error(`unexpected path segment ${line}`);
+    let x = Number(head[1]);
+    const y = Number(head[2]);
+    for (const [, op, n] of line.slice(head[0].length).matchAll(/([hm])(\d+)(?: 0)?/g)) {
+      if (op === "h") for (let i = 0; i < Number(n); i++) rows[y - quiet][x + i - quiet] = true;
+      x += Number(n);
+    }
+  }
+  return rows;
+}
+
+const portOf = (url: string): number => Number(new URL(url).port);
+
+describe("GET /api/join-qr?role= (T28.02; BD-82; NFR-01)", () => {
+  async function qrSetup(publicHost?: string): Promise<{ server: HabServerUnderTest; session: StubSession }> {
+    const session = new StubSession(1);
+    const server = await (startServer as unknown as (o: Record<string, unknown>) => Promise<HabServerUnderTest>)({
+      site: "mock_site", port: 0, host: "127.0.0.1", session, ...(publicHost === undefined ? {} : { publicHost }),
+    });
+    open.server = server;
+    return { server, session };
+  }
+
+  it("serves image/svg+xml whose QR modules are exactly those of the BD-82 join URL (--public-host, the bound port, the role)", async () => {
+    const { server } = await qrSetup("192.0.2.7");
+    const res = await fetch(`${server.url}/api/join-qr?role=ops`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/^image\/svg\+xml/);
+    const url = `http://192.0.2.7:${portOf(server.url)}/#/join?role=ops`;
+    const expected = QRCode.create(url, {}).modules;
+    const got = svgModules(await res.text(), expected.size);
+    for (let y = 0; y < expected.size; y++) for (let x = 0; x < expected.size; x++) expect(got[y][x], `module ${x},${y}`).toBe(expected.get(y, x) === 1);
+  });
+
+  it("differs per role: the EVA tablet of EV1 encodes role=eva:EV1, not the ops URL", async () => {
+    const { server } = await qrSetup("192.0.2.7");
+    const ops = await (await fetch(`${server.url}/api/join-qr?role=ops`)).text();
+    const eva = await (await fetch(`${server.url}/api/join-qr?role=eva:EV1`)).text();
+    expect(eva).not.toBe(ops);
+    const url = `http://192.0.2.7:${portOf(server.url)}/#/join?role=eva:EV1`;
+    const expected = QRCode.create(url, {}).modules;
+    expect(svgModules(eva, expected.size).flat()).toEqual(Array.from({ length: expected.size * expected.size }, (_, i) => expected.get(Math.floor(i / expected.size), i % expected.size) === 1));
+  });
+
+  it("answers 400 for a missing or unknown role, never a QR", async () => {
+    const { server } = await qrSetup("192.0.2.7");
+    for (const q of ["", "?role=", "?role=admin", "?role=__proto__", "?role=toString", "?role=ops&role=earth", "?role=OPS", "?role=eva:EV3", "?role=presenter", "?role=%3Cscript%3E"]) {
+      const res = await fetch(`${server.url}/api/join-qr${q}`);
+      expect(res.status, q).toBe(400);
+      expect(res.headers.get("content-type") ?? "").not.toMatch(/svg/);
+    }
+  });
+
+  it("asks nothing of the network beyond this server: the SVG holds no link, script or image reference", async () => {
+    const { server } = await qrSetup("192.0.2.7");
+    const seen: string[] = [];
+    const real = globalThis.fetch;
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      seen.push(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+      return real(input, init);
+    });
+    try {
+      const res = await fetch(`${server.url}/api/join-qr?role=hud:EV2`);
+      expect(res.status).toBe(200);
+      const svg = await res.text();
+      expect(svg.startsWith("<svg")).toBe(true);
+      expect(seen).toHaveLength(1);
+      expect(new URL(seen[0]).host).toBe(new URL(server.url).host);
+      expect(svg).not.toMatch(/href|<script|<image|<use|<foreignObject|https?:\/\/(?!www\.w3\.org\/2000\/svg)/);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("works with no session loaded (it needs only the address)", async () => {
+    const server = await (startServer as unknown as (o: Record<string, unknown>) => Promise<HabServerUnderTest>)({ site: "mock_site", port: 0, host: "127.0.0.1", publicHost: "192.0.2.7" });
+    open.server = server;
+    expect((await fetch(`${server.url}/api/join-qr?role=planner`)).status).toBe(200);
+  });
+});
+
+describe("join URL and public host (BD-82)", () => {
+  it("joinUrl is http://<host>:<port>/#/join?role=<role>", () => {
+    expect(joinUrl("192.0.2.7", 8080, "eva:EV1")).toBe("http://192.0.2.7:8080/#/join?role=eva:EV1");
+    expect(joinUrl("localhost", 80, "ops")).toBe("http://localhost:80/#/join?role=ops");
+  });
+
+  it("defaultPublicHost: the flag, else the first non-internal IPv4 address, else localhost", () => {
+    const nics = {
+      lo0: [{ address: "127.0.0.1", family: "IPv4", internal: true }],
+      utun0: [{ address: "fe80::1", family: "IPv6", internal: false }],
+      en0: [{ address: "fe80::2", family: "IPv6", internal: false }, { address: "192.0.2.9", family: "IPv4", internal: false }],
+      en1: [{ address: "198.51.100.3", family: "IPv4", internal: false }],
+    } as unknown as NodeJS.Dict<import("node:os").NetworkInterfaceInfo[]>;
+    expect(defaultPublicHost("example.test", nics)).toBe("example.test");
+    expect(defaultPublicHost(undefined, nics)).toBe("192.0.2.9");
+    expect(defaultPublicHost(undefined, { lo0: nics.lo0, utun0: nics.utun0 })).toBe("localhost");
+    expect(defaultPublicHost(undefined, {})).toBe("localhost");
+    expect(defaultPublicHost("", nics)).toBe("192.0.2.9");
+  });
 });
