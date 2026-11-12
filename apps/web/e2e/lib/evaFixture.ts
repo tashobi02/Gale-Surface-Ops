@@ -23,6 +23,10 @@ export async function openEvaFixture(page: Page, state: EvaFixtureState): Promis
       if (request.type === "HELLO") socket.send(JSON.stringify(snapshot));
     });
   });
+  // A goto to the URL the page already shows is a same-document (hash) navigation: the React state of the tablet survives, so
+  // the list the last fixture opened would still be open here and the tap on TASKS would close it. Going to about:blank first
+  // makes the next goto a real document load, so every state starts from the same blank tablet.
+  await page.goto("about:blank");
   await page.goto("/?site=mock_site#/eva/EV1");
   await page.locator('[data-slot="haven"] .value').filter({ hasText: String(Math.round(snapshot.crew.find((member) => member.crew_id === "EV1")!.haven.minutes)) }).waitFor();
   if (state === "undo-window") {
