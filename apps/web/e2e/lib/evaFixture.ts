@@ -5,6 +5,15 @@ import type { Snapshot } from "@marswalk/protocol";
 
 export type EvaFixtureState = "walking" | "at-stop" | "undo-window" | "ops-added-task" | "alerting" | "alerting-with-options" | "no-hab-link" | "to-haven";
 
+/** A command the client sent over the mocked WebSocket. */
+export interface SentCommand {
+  /** The command kind (`UPDATE_STOP_TASK`, `ACK_ALERT`, …), read out of the wire message. */
+  kind?: string;
+  /** The command's args. */
+  args?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export function evaFixture(state: EvaFixtureState): Snapshot {
   const snapshot = (JSON.parse(readFileSync(new URL("../../tests/fixtures/ws/connect.json", import.meta.url), "utf8")) as Snapshot[])[0]!;
   const crew = snapshot.crew.find((member) => member.crew_id === "EV1")!;
@@ -36,11 +45,16 @@ export function evaFixture(state: EvaFixtureState): Snapshot {
   return snapshot;
 }
 
-export async function openEvaFixture(page: Page, state: EvaFixtureState): Promise<void> {
+export async function openEvaFixture(page: Page, state: EvaFixtureState, sent?: SentCommand[]): Promise<void> {
   const snapshot = evaFixture(state);
   await page.routeWebSocket("**/ws", (socket) => {
     socket.onMessage((message) => {
-      const request = JSON.parse(String(message)) as { type?: string };
+      const request = JSON.parse(String(message)) as { type?: string; command?: { kind?: string; args?: Record<string, unknown> } };
+      // Every command the client sends is recorded, so a check can see what the tablet asked the Hab Core to do. The wire
+      // message carries the command inside `command` ({ kind, args }), not at the top level.
+      if (sent && request.type === "COMMAND" && request.command) {
+        sent.push({ kind: request.command.kind, args: request.command.args });
+      }
       if (request.type === "HELLO") socket.send(JSON.stringify(snapshot));
     });
   });
