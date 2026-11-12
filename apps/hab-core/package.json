@@ -13,14 +13,18 @@
     "demo-numbers": "tsx scripts/demo-numbers.ts"
   },
   "dependencies": {
+    "@fastify/static": "^8.0.0",
     "@marswalk/compute": "0.2.0",
     "@marswalk/protocol": "0.2.0",
-    "@fastify/static": "^8.0.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "fastify": "^5.0.0",
+    "qrcode": "^1.5.4",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/qrcode": "^1.5.6",
     "@types/ws": "^8.5.0",
     "tsx": "^4.19.0"
   }

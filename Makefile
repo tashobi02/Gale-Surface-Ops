@@ -7,7 +7,7 @@ CONDA_ENV ?= marswalk-pipeline
 CONDA_BIN ?= $(if $(CONDA_EXE),$(CONDA_EXE),conda)
 
 .PHONY: setup setup-web setup-pipeline lint typecheck test test-web docs-check dev demo data \
-	conda-check check-env pipeline-python validate progress hab replay agent-skills design-check e2e e2e-one
+	conda-check check-env pipeline-python validate progress hab replay record ssd-link check-todos agent-skills design-check e2e e2e-one
 
 setup: setup-web setup-pipeline agent-skills
 
@@ -62,8 +62,22 @@ hab:
 	npm run -s hab:start -- --site gale_boxwork --scenario storm-sol4190
 
 # Headless scenario replay; prints the event-log hash (NFR-06, NFR-14).
+# COMMANDS=<file> applies a recorded command list (02 §D.17): make replay COMMANDS=scenarios/storm-sol4190/reference_commands.json
 replay:
-	npm run -s hab:replay -- scenarios/storm-sol4190
+	npm run -s hab:replay -- scenarios/storm-sol4190 $(if $(COMMANDS),--commands $(COMMANDS))
+
+# Write the Pages recording (02 §D.17, BD-105) of the reference run with its reference commands (T27.05, T22.14).
+record:
+	npm run -s hab:record -- scenarios/storm-sol4190 --commands scenarios/storm-sol4190/reference_commands.json --record scenarios/storm-sol4190/recording.json
+
+# Link the git-ignored data folders to the data SSD (BD-12, BD-126): make ssd-link SSD="/Volumes/<name>/<folder>". See docs/ops/ssd.md.
+ssd-link:
+	@test -n "$(SSD)" || { echo "usage: make ssd-link SSD=<SSD data folder> (see docs/ops/ssd.md)" >&2; exit 2; }
+	bash scripts/ssd-link.sh "$(SSD)"
+
+# Fail while any open-choice marker is left in the backend scope (docs/plan/backend/decisions-index.md).
+check-todos:
+	python3 scripts/check_todos.py
 
 # Production build served by the Hab Core on the habitat LAN, no internet (02 §F deployment, NFR-01).
 demo:

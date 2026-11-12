@@ -329,7 +329,33 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
   }
 
   function broadcastEvents(events: LogEvent[]): void {
-    for (const event of events) broadcast(eventMessage(event));
+    for (const event of events) {
+      broadcast(eventMessage(event));
+      sendLinkState(event);
+    }
+  }
+
+  /**
+   * T26.02 (02 §A.5, §E.6): when a suit's simulated surface link changes, its own `eva:` and `hud:` sockets get one
+   * LINK_STATE, with the hops and first hop kind the engine left on the crew member (BD-103); no other client does. The
+   * EVENT itself went to everyone just before. A link event for a node that is not a crew member sends nothing.
+   */
+  function sendLinkState(event: LogEvent): void {
+    if (event.kind !== "LINK_LOST" && event.kind !== "LINK_RESTORED") return;
+    const crew_id = (event.data as LogEventData["LINK_LOST"]).node_id;
+    const member = session?.snapshot([]).crew.find((c) => c.crew_id === crew_id);
+    if (!member) return;
+    const msg: ServerMessage = {
+      v: PROTOCOL_VERSION,
+      type: "LINK_STATE",
+      seq: event.seq,
+      sim_time: event.sim_time,
+      crew_id: member.crew_id,
+      linked: event.kind === "LINK_RESTORED",
+      link_hops: member.link_hops ?? null,
+      link_via: member.link_via ?? null,
+    };
+    for (const c of clients) if (c.joined && (c.role === `eva:${crew_id}` || c.role === `hud:${crew_id}`)) send(c, msg);
   }
 
   function broadcast(msg: ServerMessage): void {
