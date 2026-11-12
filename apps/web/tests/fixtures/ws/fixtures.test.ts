@@ -29,10 +29,10 @@ import type {
   VehicleKind,
   VehicleState,
 } from "@marswalk/protocol";
-import { BEATS, wsFixtures } from "./index";
+import { BEATS, wsFixtures, type Beat } from "./index";
 
 type Keys<T> = Record<keyof T, true>;
-/** Every key of T marked "req" or "opt". The keys added by protocol v0.2 (backend package 01a) are "opt" here until 01b updates the fixtures. */
+/** Every key of T marked "req" or "opt". The optional keys added by protocol v0.2 (backend packages 01a, 01b) are "opt". */
 type Spec<T> = Record<keyof T, "req" | "opt">;
 /** Every key of T, marked "req" or "opt" by whether T allows it to be absent. */
 type KeySpec<T> = { [K in keyof T]-?: undefined extends T[K] ? "opt" : "req" };
@@ -40,7 +40,7 @@ type Msg<K extends ServerMessage["type"]> = Extract<ServerMessage, { type: K }>;
 
 const MESSAGE_KEYS: { [K in Exclude<ServerMessage["type"], "COMMAND_RESULT">]: Spec<Msg<K>> } = {
   SNAPSHOT: { v: "req", type: "req", seq: "req", sim_time: "req", session: "req", plan: "req", crew: "req", vehicles: "req", alerts: "req", options: "req", tasks: "req", earth: "req", clients: "req", provenance: "req",
-    conditions: "opt", task_library: "opt", event_library: "opt", next_stop_target: "opt" },
+    conditions: "req", task_library: "req", event_library: "req", next_stop_target: "req" },
   STATE_DELTA: { v: "req", type: "req", seq: "req", sim_time: "req", changes: "req" },
   EVENT: { v: "req", type: "req", seq: "req", sim_time: "req", event: "req" },
   LINK_STATE: { v: "req", type: "req", seq: "req", sim_time: "req", crew_id: "req", linked: "req", link_hops: "opt", link_via: "opt" },
@@ -199,6 +199,90 @@ describe("mock WebSocket fixtures (T20.02, F7)", () => {
         const ref = ev?.type === "EVENT" ? ev.event.command_ref : undefined;
         expect(ref?.command_id, `${beat} event ${m.event_seq} command_ref (05 LogEvent)`).toBe(m.command_id);
       }
+    }
+  });
+});
+
+// ---- Live-session beats (backend package 01b, T32.03; docs/plan/backend/01-contract.md §9) ----------------------------
+
+const events = (beat: Beat): Extract<ServerMessage, { type: "EVENT" }>[] =>
+  wsFixtures[beat].filter((m): m is Extract<ServerMessage, { type: "EVENT" }> => m.type === "EVENT");
+const results = (beat: Beat): CommandResult[] => wsFixtures[beat].filter((m): m is CommandResult => m.type === "COMMAND_RESULT");
+const snapshots = (beat: Beat): Snapshot[] => wsFixtures[beat].filter((m): m is Snapshot => m.type === "SNAPSHOT");
+
+describe("live-session beats (T32.03, protocol v0.2)", () => {
+  it("live-loaded: a SNAPSHOT in LOADED with no plan, carrying the live-session fields", () => {
+    const [s] = snapshots("live-loaded");
+    expect(s.session.status).toBe("LOADED");
+    expect(s.plan).toBeNull();
+    expect(s.session.hab_candidate_id).toBe("hab-first");
+    expect(s.session.mission_setup).toMatchObject({ crew_count: 2, vehicle_available: true });
+    expect(s.session.started_events).toEqual([]);
+    expect(s.task_library.length).toBeGreaterThan(0);
+    expect(s.event_library.map((e) => e.event_id)).toContain("storm");
+    expect(s.next_stop_target).toBeNull();
+    expect(Object.keys(s.conditions).sort()).toEqual(["dose_rate_background_ugy_h", "dose_rate_event_ugy_h", "event_series_utc", "ltst", "provenance", "sol", "source_ids", "sun_elevation_deg"]);
+  });
+
+  it("site-selected and mission-setup-set are the log events of those names, caused by ops commands", () => {
+    const [site] = events("site-selected");
+    expect(site.event.kind).toBe("SITE_SELECTED");
+    expect(site.event.actor).toBe("ops");
+    const [setup] = events("mission-setup-set");
+    expect(setup.event.kind).toBe("MISSION_SETUP_SET");
+    expect(setup.event.data).toHaveProperty("vehicle_param_set");
+  });
+
+  it("jump-next-stop: CLOCK_JUMPED ends by arrival, then by alert, each after the events of its jump", () => {
+    const jumps = events("jump-next-stop").filter((e) => e.event.kind === "CLOCK_JUMPED");
+    expect(jumps.map((e) => (e.event.data as LogEventData["CLOCK_JUMPED"]).ended_by)).toEqual(["arrival", "alert"]);
+    for (const e of jumps) expect(e.event.actor).toBe("presenter");
+    // The jump's own events come first in seq order (BD-92): an ARRIVED_STOP, then CLOCK_JUMPED.
+    const all = events("jump-next-stop");
+    expect(all.map((e) => e.event.kind)).toEqual(["ARRIVED_STOP", "CLOCK_JUMPED", "ALERT_RAISED", "CLOCK_JUMPED"]);
+    expect(all.map((e) => e.seq)).toEqual([...all.map((e) => e.seq)].sort((a, b) => a - b));
+  });
+
+  it("event-started: EVENT_STARTED with the series start and source, answered ok", () => {
+    const [e] = events("event-started");
+    expect(e.event.kind).toBe("EVENT_STARTED");
+    expect(Object.keys(e.event.data).sort()).toEqual(["event_id", "series_start_utc", "source_id", "t0_sim_time"]);
+    expect(results("event-started")[0]).toMatchObject({ ok: true });
+  });
+
+  it("session-reset: SESSION_RESET is the last line of the old log, then a fresh SNAPSHOT with a new session_id", () => {
+    const msgs = wsFixtures["session-reset"];
+    expect(msgs.map((m) => m.type)).toEqual(["EVENT", "COMMAND_RESULT", "SNAPSHOT"]);
+    const reset = events("session-reset")[0].event.data as LogEventData["SESSION_RESET"];
+    const [fresh] = snapshots("session-reset");
+    expect(fresh.session.session_id).toBe(reset.next_session_id);
+    expect(fresh.session.session_id).not.toBe(reset.session_id);
+    expect(fresh.session.status).toBe("LOADED");
+    expect(fresh.seq).toBe(fresh.session.last_seq);
+  });
+
+  it("command-rejected-live: FORBIDDEN_ROLE for a presenter ABORT and BUSY for Next stop while an alert is latched", () => {
+    const codes = results("command-rejected-live").map((r) => (r.ok ? "ok" : r.code));
+    expect(codes).toEqual(["FORBIDDEN_ROLE", "BUSY"]);
+  });
+
+  it("crew-live-delta: one STATE_DELTA carries the six new crew fields", () => {
+    const [d] = wsFixtures["crew-live-delta"];
+    expect(d.type).toBe("STATE_DELTA");
+    const paths = (d as Extract<ServerMessage, { type: "STATE_DELTA" }>).changes.map((c) => c.path).sort();
+    expect(paths).toEqual(
+      ["o2_remaining_min", "next_stop_bearing_deg", "next_stop_distance_m", "next_stop_eta_s", "link_hops", "link_via"].map((f) => `crew/EV1/${f}`).sort(),
+    );
+  });
+
+  it("rover-queue: a utility-rover SNAPSHOT with a two-task queue, head task_id and rt-<seq> ids", () => {
+    const [s] = snapshots("rover-queue");
+    const rover = s.vehicles.find((v) => v.kind === "utility_rover");
+    expect(rover?.task_id).toMatch(/^rt-\d+$/);
+    expect(rover?.queue).toHaveLength(2);
+    for (const q of rover?.queue ?? []) {
+      expect(q.task_id).toMatch(/^rt-\d+$/);
+      expect(Object.keys(q).sort()).toEqual(expect.arrayContaining(["battery_wh_after", "eta_s", "kind", "target", "task_id"]));
     }
   });
 });

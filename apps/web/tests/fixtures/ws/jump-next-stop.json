@@ -1,0 +1,113 @@
+[
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 430,
+    "sim_time": "2024-05-20T13:12:00Z",
+    "event": {
+      "seq": 430,
+      "sim_time": "2024-05-20T13:12:00Z",
+      "kind": "ARRIVED_STOP",
+      "actor": "system",
+      "data": {
+        "crew_id": "EV1",
+        "stop_id": "wp-2",
+        "stop_index": 1
+      },
+      "provenance": {},
+      "command_ref": null
+    }
+  },
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 431,
+    "sim_time": "2024-05-20T13:12:00Z",
+    "event": {
+      "seq": 431,
+      "sim_time": "2024-05-20T13:12:00Z",
+      "kind": "CLOCK_JUMPED",
+      "actor": "presenter",
+      "data": {
+        "reason": "next_stop",
+        "from_sim_time": "2024-05-20T13:05:00Z",
+        "to_sim_time": "2024-05-20T13:12:00Z",
+        "stop_id": "wp-2",
+        "ended_by": "arrival"
+      },
+      "provenance": {},
+      "command_ref": {
+        "client_id": "c-1a2b",
+        "command_id": "k-0200"
+      }
+    }
+  },
+  {
+    "v": 1,
+    "type": "COMMAND_RESULT",
+    "command_id": "k-0200",
+    "ok": true,
+    "event_seq": 431
+  },
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 440,
+    "sim_time": "2024-05-20T13:14:00Z",
+    "event": {
+      "seq": 440,
+      "sim_time": "2024-05-20T13:14:00Z",
+      "kind": "ALERT_RAISED",
+      "actor": "system",
+      "data": {
+        "alert_id": "a-440",
+        "code": "RADIATION_ALERT",
+        "level": "warning",
+        "subjects": [
+          "EV1",
+          "EV2"
+        ],
+        "message": "Shelter now — radiation surge",
+        "rate_ugy_h": null,
+        "threshold_ugy_h": null,
+        "source": "replayed:rad-sol4190"
+      },
+      "provenance": {
+        "data.rate_ugy_h": "replayed",
+        "data.threshold_ugy_h": "assumed"
+      },
+      "command_ref": null
+    }
+  },
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 441,
+    "sim_time": "2024-05-20T13:14:00Z",
+    "event": {
+      "seq": 441,
+      "sim_time": "2024-05-20T13:14:00Z",
+      "kind": "CLOCK_JUMPED",
+      "actor": "presenter",
+      "data": {
+        "reason": "next_stop",
+        "from_sim_time": "2024-05-20T13:12:00Z",
+        "to_sim_time": "2024-05-20T13:14:00Z",
+        "stop_id": "wp-3",
+        "ended_by": "alert"
+      },
+      "provenance": {},
+      "command_ref": {
+        "client_id": "c-1a2b",
+        "command_id": "k-0201"
+      }
+    }
+  },
+  {
+    "v": 1,
+    "type": "COMMAND_RESULT",
+    "command_id": "k-0201",
+    "ok": true,
+    "event_seq": 441
+  }
+]
