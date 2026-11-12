@@ -13,7 +13,7 @@
  * `COMPUTE_PLAN` with a higher `plan_revision` cancels the running one, which is answered `ERROR` `CANCELLED` (BD-41).
  * SAMPLE_POINT keeps the optional `hard_slope_limit_deg` (BD-42). `VALIDATE_MANUAL_LEG` is the manual-leg fallback (T05.30).
  */
-import type { FlagName, Leg, MissionScenario, PlanResult, RoutingGrid, Waypoint, Warning } from "./schema";
+import type { EnvConstant, FlagName, Leg, MissionScenario, PlanResult, RoutingGrid, Waypoint, Warning } from "./schema";
 
 export interface SamplePointRequest {
   type: "SAMPLE_POINT";
@@ -101,6 +101,11 @@ export interface LoadGridRequest {
     ti: ArrayBuffer | null;
     commHab: ArrayBuffer;
   };
+  /**
+   * The site's EnvConstant records (the manifest's `env_constants`, 05 §E.3), delivered with the grid so the worker can
+   * estimate the background dose (BD-122, 02 §D.4). Absent: PLAN_RESULT carries no `radiation`.
+   */
+  env_constants?: EnvConstant[];
 }
 
 export interface GridLoaded {

@@ -175,6 +175,8 @@ export interface LoadGridRequest {
 }
 // contract-change: (01a, 12 Nov) the array keys are the compute names (`slopeP90`, `slopeMax`, `commHab`, as `loadGrid` takes them;
 // `commHab` is required there), as the note below this block says; `LoadedGridMeta = RoutingGrid & { proj4: string }` is defined in protocol.
+// contract-change: (package 13, BD-122) `LoadGridRequest` gains the optional `env_constants?: EnvConstant[]` (the manifest's records, so the worker can
+// fill `PlanResult.radiation`); `PlanResult.conditions.sol?: number` (N-15) is in `schema.ts`; `timing_ms` carries `total`, `routing`, `estimates` (BD-50).
 export interface GridLoaded { type: "GRID_LOADED"; request_id: string; site_id: string; data_version: string }
 export type WorkerRequest = LoadGridRequest | SamplePointRequest | ComputePlanRequest;
 export type WorkerResponse = GridLoaded | SampleResult | PlanResultMessage | WorkerError;

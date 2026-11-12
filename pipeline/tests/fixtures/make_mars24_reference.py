@@ -11,9 +11,15 @@ Sunrise/sunset selection (repair 2026-11-10): both events are taken from the loc
 contains the timestamp (LTST 0 h to the next 0 h), never from a neighbouring sol, and a sol with
 no sunrise/sunset pair raises instead of falling back to the nearest event. The earlier selection
 could return a sunrise of the next sol with a sunset of this sol for timestamps after sunset.
-The committed F6 JSON was NOT regenerated (marstime is not pinned; TODO(verify)): its four records
-lie in sols whose events the corrected selection also returns (checked against the TypeScript
-implementation within 2 s in packages/compute/tests/sun.test.ts).
+
+
+Sol labels (BD-55, 12 Nov 2026): no sol number is typed by hand. Each record carries `msl_sol`, computed
+from its UTC with marstime's Mars Solar Date (see `msl_sol`), and its `description` no longer names a sol.
+The timestamps are unchanged. The earlier description "Sol 4190" on 2024-05-18T06:00:00Z was wrong: that
+instant is MSL sol 4188 (sol 4190 is 2024-05-20, 02 §C L9 event date).
+
+Regeneration needs the pinned `marstime` in the pipeline environment (pipeline/environment.yml); run it twice
+and compare bytes (`main` already refuses to rewrite identical bytes).
 """
 
 from __future__ import annotations
@@ -50,7 +56,7 @@ REFERENCE_TIMESTAMPS = [
     },
     {
         "utc": "2024-05-18T06:00:00Z",
-        "description": "Sol 4190 solar particle event scenario start (May 2024)",
+        "description": "Solar particle event period of May 2024 (before the 20 May 2024 surge)",
     },
     {
         "utc": "2012-08-06T05:17:57Z",
@@ -65,6 +71,25 @@ def get_j2000_ott(dt: datetime) -> float:
     jday_utc = marstime.julian(m)
     jday_tt = marstime.julian_tt(jday_utc)
     return marstime.j2000_offset_tt(jday_tt)
+
+
+# MSL touchdown (sol 0): NASA, "Five Years Ago and 154 Million Miles Away: Touchdown!" (Webster, Cantillo,
+# Brown, 2 Aug 2017): 2012-08-06T05:17:57Z. MSL sols change at local mean solar midnight at the rover's longitude,
+# so sol N = floor(local mean solar date) - floor(local mean solar date at touchdown). Identical to
+# `mslSol` in packages/compute/src/mars24.ts.
+MSL_TOUCHDOWN_UTC = datetime(2012, 8, 6, 5, 17, 57, tzinfo=timezone.utc)
+
+
+def local_mean_solar_date(dt: datetime, lon_w: float) -> float:
+    """Mars Solar Date at the prime meridian minus the west longitude in sols (marstime)."""
+    return float(marstime.Mars_Solar_Date(get_j2000_ott(dt))) - lon_w / 360.0
+
+
+def msl_sol(dt: datetime, lon_w: float) -> int:
+    """MSL mission sol of `dt` at west longitude `lon_w`; computed, never typed."""
+    return math.floor(local_mean_solar_date(dt, lon_w)) - math.floor(
+        local_mean_solar_date(MSL_TOUCHDOWN_UTC, lon_w)
+    )
 
 
 def format_ltst(ltst_hours: float) -> str:
@@ -208,7 +233,7 @@ def build_fixture() -> dict:
         elev = float(marstime.solar_elevation(SITE_LON_W, SITE_LAT, ott))
         az_raw = float(marstime.solar_azimuth(SITE_LON_W, SITE_LAT, ott))
 
-        # Standard spherical trigonometry azimuth (Allison & McEwen 2000 Eq. 41)
+        # Standard spherical trigonometry azimuth (GISS Mars24 D-6)
         ha = float(marstime.hourangle(SITE_LON_W, ott))
         dec_rad = math.radians(dec)
         lat_rad = math.radians(SITE_LAT)
@@ -224,6 +249,7 @@ def build_fixture() -> dict:
             "msd": round(msd, 6),
             "ls_deg": round(ls, 4),
             "mars_year": my,
+            "msl_sol": msl_sol(dt, SITE_LON_W),
             "equation_of_time_deg": round(eot, 4),
             "ltst_hours": round(ltst_h, 6),
             "ltst": ltst_str,

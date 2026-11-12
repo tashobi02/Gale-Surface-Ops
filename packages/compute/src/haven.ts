@@ -5,7 +5,7 @@
  */
 import { FLAG_BITS } from "@marswalk/protocol";
 import type { MissionScenario, ParamSet, Provenance } from "@marswalk/protocol";
-import { cellIndex, decodeSlopeDeg, type LoadedGrid } from "./grid";
+import { cellIndex, centreOfCell, decodeSlopeDeg, type LoadedGrid } from "./grid";
 import { CAUTION_SLOPE_MULTIPLIER, LOW_TI_MULTIPLIER, isCellPassable } from "./route";
 
 /**
@@ -544,13 +544,6 @@ function computeVehiclePassable(grid: LoadedGrid, hard: number): Uint8Array {
 export function timeAt(field: TimeField, x_m: number, y_m: number): number {
   const k = cellOf(field.origin_m, field.cell_m, field.width, field.height, x_m, y_m);
   return k < 0 ? Infinity : field.seconds[k]!;
-}
-
-function centreOfCell(field: TimeField, k: number): [number, number] {
-  const row = Math.floor(k / field.width);
-  const col = k - row * field.width;
-  // "+ 0" turns a negative zero into 0.
-  return [field.origin_m[0] + (col + 0.5) * field.cell_m + 0, field.origin_m[1] - (row + 0.5) * field.cell_m + 0];
 }
 
 /**

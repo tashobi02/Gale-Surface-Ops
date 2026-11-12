@@ -303,6 +303,8 @@ All defaults carry provenance `assumed` in the UI.
 
 **Warning:** `code` (`OVER_HARD_SLOPE`, `CAUTION_SLOPE`, `LOW_TI`, `TI_UNKNOWN`, `LOW_RES_DEM`, `NO_DATA_ADJACENT`, `NO_ROUTE`, `EVA_DURATION_EXCEEDED`, `WALKBACK_EXCEEDED`, `DARKNESS`; v2: `COMM_SHADOW`, `HAVEN_TIME_EXCEEDED`, `RADIATION_ALERT`, `CONSUMABLES_LOW`), `severity` (`caution \| blocked \| unknown`), `leg` (index or null), `from_m`, `to_m` (along-leg distance; null when the warning has no location, e.g. `EVA_DURATION_EXCEEDED`), `at_utc` (for time warnings), `message`.
 
+**Route warnings** *(2026-11-12)*: `LOW_RES_DEM` and `NO_DATA_ADJACENT` have severity `caution`, one warning per contiguous run of route cells per leg (`from_m`, `to_m` along the unsimplified cell path); `NO_DATA_ADJACENT` marks a route cell with a no-data cell (NO_DATA flag, NaN elevation or slope 255) among its 8 neighbours. `LOW_TI` is never emitted (U-03). `DARKNESS` has severity `caution`, `from_m` and `to_m` null, `at_utc` the first instant the sun is below the flat horizon at a timeline instant (each leg's departure and arrival, each dwell's end), `leg` the leg that ends or starts there; when every instant is lit but the sol's sunset lies between two of them, `at_utc` is that sunset *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-49)*
+
 ### PlanExport
 
 | Field | Type | Req |

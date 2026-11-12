@@ -6,6 +6,8 @@ import {
   makePlaneGrid,
   makeRampGrid,
 } from "../../../apps/web/tests/fixtures/grids";
+import { FLAG_BITS } from "@marswalk/protocol";
+import { determineNoRoute } from "../src/noRoute";
 import { searchLeg } from "../src/route";
 
 const defaultScenario: MissionScenario = {
@@ -185,5 +187,48 @@ describe("noRoute reasons and nearest reachable cell", () => {
       expect(result.nearest_reachable.x_m).toBe(95);
       expect(result.nearest_reachable.y_m).toBe(-55);
     }
+  });
+});
+
+// BD-46: most frequent barrier on the explored boundary; ties go to hazard, then slope, then no-data. The caller passes the limit.
+describe("mixed-barrier precedence (BD-46)", () => {
+  /** Explored column 0; its east boundary is column 1, rows 0-2 (one barrier cell per row unless overridden). */
+  const boundary = (kinds: ("hazard" | "slope" | "nodata" | "open")[]) => {
+    const grid = makePlaneGrid({ width: 4, height: kinds.length, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+    kinds.forEach((kind, row) => {
+      const idx = row * 4 + 1;
+      if (kind === "hazard") grid.flags[idx] |= 1 << FLAG_BITS.HARD_HAZARD;
+      if (kind === "slope") grid.slopeP90[idx] = 20 * 4;
+      if (kind === "nodata") {
+        grid.flags[idx] |= 1 << FLAG_BITS.NO_DATA;
+        grid.elevation[idx] = Number.NaN;
+        grid.slopeP90[idx] = 255;
+      }
+    });
+    const explored = kinds.map((_k, row) => row * 4);
+    return determineNoRoute(grid, { x_m: 17.5, y_m: -2.5 }, explored, 15).reason;
+  };
+
+  it("hazard beats slope and no-data on a three-way tie", () => {
+    expect(boundary(["slope", "hazard", "nodata"])).toBe("DISCONNECTED_BY_HAZARD");
+  });
+  it("hazard beats no-data on a tie", () => {
+    expect(boundary(["hazard", "nodata", "open"])).toBe("DISCONNECTED_BY_HAZARD");
+  });
+  it("slope beats no-data on a tie", () => {
+    expect(boundary(["nodata", "slope", "open"])).toBe("DISCONNECTED_BY_SLOPE");
+  });
+  it("the most frequent barrier wins over the tie order", () => {
+    expect(boundary(["slope", "hazard", "slope"])).toBe("DISCONNECTED_BY_SLOPE");
+    expect(boundary(["nodata", "nodata", "hazard"])).toBe("DISCONNECTED_BY_NODATA");
+    expect(boundary(["hazard", "hazard", "slope"])).toBe("DISCONNECTED_BY_HAZARD");
+  });
+  it("uses the limit it is given: a 12 degree wall is a slope barrier at 10 and no barrier at 15", () => {
+    const grid = makePlaneGrid({ width: 4, height: 1, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+    grid.slopeP90[1] = 12 * 4;
+    const at = (limit: number) => determineNoRoute(grid, { x_m: 17.5, y_m: -2.5 }, [0], limit).reason;
+    expect(at(10)).toBe("DISCONNECTED_BY_SLOPE");
+    // No barrier cell counted: the existing fall-through reason applies, and it is also DISCONNECTED_BY_SLOPE.
+    expect(at(15)).toBe("DISCONNECTED_BY_SLOPE");
   });
 });

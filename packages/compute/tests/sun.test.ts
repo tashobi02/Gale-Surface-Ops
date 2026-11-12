@@ -33,8 +33,7 @@ describe("sun position and sunrise/sunset (T06.03 / T06.07, FR-11)", () => {
       const utc = new Date(record.utc);
       const res = sunriseSunset(utc, lat, lonE);
 
-      // Sunrise and sunset times match F6 within 2 min
-      // TODO(decision): 2-minute tolerance for sunrise/sunset times vs marstime reference (discrete bisection search vs continuous orbital solution; spec 02 §D.5 does not fix a numeric time tolerance for rise/set instants)
+      // Sunrise and sunset times match F6 within 2 min (120 s, ratified by BD-56; observed <= 2 s)
       const srDiffMin = Math.abs(
         (new Date(res.sunrise_utc).getTime() - new Date(record.sunrise_sunset.sunrise_utc).getTime()) / 60000
       );
@@ -102,15 +101,15 @@ describe("sun position and sunrise/sunset (T06.03 / T06.07, FR-11)", () => {
 // ---------------------------------------------------------------------------------------------
 // T06.07 repair (2026-11-10): same-sol event selection, explicit no-crossing contract, azimuth.
 // Reference values come only from F6 (marstime) or from closed-form geometry; none is typed from
-// the implementation's own output. Time tolerances below are provisional: TODO(decision).
+// the implementation's own output. The time tolerance below is the 120 s ratified by BD-56.
 // ---------------------------------------------------------------------------------------------
 
 /** Mean Mars solar day in ms: 1.027491252 Earth days (Allison & McEwen 2000, as used in mars24.ts). */
 const SOL_MS = 1.027491252 * 86_400_000;
 /** One local true solar hour in ms. */
 const SOLAR_HOUR_MS = SOL_MS / 24;
-/** Provisional bound for sunrise/sunset instants (observed <= 2 s against F6). TODO(decision). */
-const EVENT_TOL_S = 30;
+/** Ratified bound for sunrise/sunset instants (BD-56, 120 s; observed <= 2 s against F6). */
+const EVENT_TOL_S = 120;
 
 function ltstHours(utc: Date, lonE: number): number {
   const [h, m] = localTrueSolarTime(utc, lonE).split(":").map(Number);
@@ -157,7 +156,7 @@ describe("sunriseSunset selects both events inside the local sol containing utc 
     const before = sunriseSunset(new Date(solEndMs - 5 * 60_000), lat, lonE);
     const after = sunriseSunset(new Date(solEndMs + 5 * 60_000), lat, lonE);
     // Before: this sol. After: next sol, one mean solar day later (a few tens of seconds of drift from
-    // declination and equation-of-time change are allowed; 120 s is provisional, TODO(decision)).
+    // declination and equation-of-time change are allowed; the bound is the ratified 120 s, BD-56).
     expect(Math.abs(secondsBetween(before.sunrise_utc, solEvents.sunrise_utc))).toBeLessThanOrEqual(EVENT_TOL_S);
     const dRise = secondsBetween(after.sunrise_utc, before.sunrise_utc);
     const dSet = secondsBetween(after.sunset_utc, before.sunset_utc);
@@ -218,7 +217,7 @@ describe("sunriseSunset selects both events inside the local sol containing utc 
 describe("sunriseSunset when the sun does not cross the flat horizon (|cos H0| > 1) (T06.07 contract)", () => {
   // Contract: no fabricated events. A sol with no sunrise/sunset pair throws SunEventsUnavailableError
   // (a RangeError subclass) whose reason says whether the sun stays up or down. 05 PlanResult.conditions
-  // has no absent-event form, so the C8 assembler (T06.09) must catch it. TODO(decision) for the team.
+  // has no absent-event form, so the C8 assembler (T06.09) must catch it. Contract ratified by BD-56.
   const utc = new Date(f6.records[0].utc); // declination about +9.2 degrees (F6 record 0)
 
   it.each([
@@ -267,9 +266,8 @@ describe("solarPosition azimuth against independent geometry (T06.07, FR-11)", (
    * cos(A) = (sin dec - sin el * sin lat) / (cos el * cos lat), east of north in the morning (LTST < 12 h),
    * west of north in the afternoon. Inputs are the marstime elevation and declination stored in F6, so this
    * does not reuse sun.ts's atan2 hour-angle formula (Mars24 algorithm, Allison & McEwen 2000, azimuth
-   * relation; textbook spherical astronomy). TODO(verify): add the NASA Mars24 worked example from
-   * https://www.giss.nasa.gov/tools/mars24/help/algorithm.html with its exact printed inputs; the page was
-   * not reachable when this test was written (no network), and no value is typed here from memory.
+   * relation; textbook spherical astronomy). The NASA Mars24 worked examples (page D-5, D-6) are checked in
+   * the describe block at the end of this file.
    */
   function referenceAzimuthDeg(elDeg: number, decDeg: number, latDeg: number, morning: boolean): number {
     const cosA =
@@ -288,7 +286,7 @@ describe("solarPosition azimuth against independent geometry (T06.07, FR-11)", (
     }
   });
 
-  it("agrees with the F6 generator's standard azimuth (Allison & McEwen 2000 Eq. 41 on marstime's hour angle) within 0.1 degree", () => {
+  it("agrees with the F6 generator's standard azimuth (GISS Mars24 D-6 on marstime's hour angle) within 0.1 degree", () => {
     for (const record of f6.records) {
       const got = solarPosition(new Date(record.utc), lat, lonE).azimuth_deg;
       const diff = Math.abs(((got - record.solar_azimuth_standard_deg + 540) % 360) - 180);
@@ -303,5 +301,22 @@ describe("solarPosition azimuth against independent geometry (T06.07, FR-11)", (
     expect(morning.azimuth_deg).toBeLessThan(180);
     expect(afternoon.azimuth_deg).toBeGreaterThan(180);
     expect(afternoon.azimuth_deg).toBeLessThan(360);
+  });
+});
+
+// NASA GISS Mars24 worked examples, steps D-5 (zenith angle Z, elevation = 90 - Z) and D-6 (azimuth A), from
+// https://www.giss.nasa.gov/tools/mars24/help/algorithm.html (updated 2025-01-07, fetched 12 Nov 2026).
+// Printed to 5 decimals; the bounds are 0.01 deg (well inside FR-11's 0.1 deg).
+describe("NASA GISS Mars24 worked examples: solar elevation and azimuth (BD-56, FR-11)", () => {
+  it("2000-01-06T00:00:00Z at 0 W, 0 N: Z = 154.26182 deg, A = 191.03905 deg", () => {
+    const pos = solarPosition(new Date(947_116_800_000), 0, 0);
+    expect(Math.abs(pos.elevation_deg - (90 - 154.26182))).toBeLessThanOrEqual(0.01);
+    expect(Math.abs(((pos.azimuth_deg - 191.03905 + 540) % 360) - 180)).toBeLessThanOrEqual(0.01);
+  });
+
+  it("MER-A Spirit 2004-01-03T13:46:31Z at 184.702 W, -14.640 N: Z = 151.93895 deg, A = 179.99383 deg", () => {
+    const pos = solarPosition(new Date(1_073_137_591_000), -14.64, 360 - 184.702);
+    expect(Math.abs(pos.elevation_deg - (90 - 151.93895))).toBeLessThanOrEqual(0.01);
+    expect(Math.abs(((pos.azimuth_deg - 179.99383 + 540) % 360) - 180)).toBeLessThanOrEqual(0.01);
   });
 });

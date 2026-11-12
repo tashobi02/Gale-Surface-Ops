@@ -6,7 +6,7 @@ import { cellIndex, loadGrid, type LoadedGrid } from "../src/grid.js";
 import { samplePoint } from "../src/sampling.js";
 import { searchLeg } from "../src/route.js";
 import { handleWorkerMessage } from "../src/handler.js";
-import type { ComputePlanRequest, MissionScenario, RoutingGrid } from "@marswalk/protocol";
+import type { ComputePlanRequest, LoadedGridMeta, MissionScenario, RoutingGrid } from "@marswalk/protocol";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,7 +59,7 @@ function mulberry32(seed: number) {
 /** Loads site grid arrays directly from a site directory using its site-manifest.json. */
 function loadSiteGrid(siteDir: string): LoadedGrid {
   const manifest = JSON.parse(fs.readFileSync(path.join(siteDir, "site-manifest.json"), "utf8"));
-  const gridMeta = manifest.grid as RoutingGrid;
+  const gridMeta: LoadedGridMeta = { ...(manifest.grid as RoutingGrid), proj4: manifest.crs.proj4 };
   const assetMap = new Map<string, string>();
   for (const asset of manifest.assets ?? []) {
     assetMap.set(asset.asset_id, asset.path);

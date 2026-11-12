@@ -6,11 +6,14 @@
  * Flat-horizon sphere (IAU_2015:49900). Terrain shadowing, atmospheric refraction,
  * and atmospheric dust opacity are explicitly not modelled.
  *
- * Geometry (NASA GISS Mars24 algorithm page, https://www.giss.nasa.gov/tools/mars24/help/algorithm.html,
- * formulas D-1, D-5 and D-6 as cited by the 2026-11-10 review; D-1 is attributed there to Allison 1997 eq. 5;
- * TODO(verify) the numbering against the page): declination delta = asin(0.42565 sin Ls) + 0.25 deg sin Ls;
- * west-positive subsolar longitude 15 deg * MTC + EOT + 180 deg; hour angle H = west longitude - subsolar
- * longitude, so H = 15 deg * (12 - LTST) modulo 360 deg (H > 0 in the morning).
+ * Geometry (NASA GISS Mars24 algorithm page, https://www.giss.nasa.gov/tools/mars24/help/algorithm.html, page
+ * updated 2025-01-07, fetched 12 Nov 2026; numbering checked against the page, BD-56):
+ * D-1 declination delta = asin(0.42565 sin Ls) + 0.25 deg sin Ls (Allison 1997 eq. 5);
+ * C-5 west-positive subsolar longitude = 15 deg * MST + EOT + 180 deg; D-5 hour angle H = west longitude - subsolar
+ * longitude, so H = 15 deg * (12 - LTST) modulo 360 deg (H > 0 in the morning), zenith angle
+ * Z = acos(sin delta sin phi + cos delta cos phi cos H), elevation = 90 - Z; D-6 azimuth
+ * A = atan2(sin H, cos phi tan delta - sin phi cos H). The page's two worked examples are tests in
+ * packages/compute/tests/sun.test.ts and mars24.test.ts.
  */
 
 import {
@@ -23,7 +26,7 @@ import {
 } from "./mars24";
 
 /**
- * Solar declination delta in degrees from areocentric solar longitude L_s (Allison & McEwen 2000 Eq. 21).
+ * Solar declination delta in degrees from areocentric solar longitude L_s (GISS D-1; Allison 1997 eq. 5).
  */
 export function solarDeclination(lsDeg: number): number {
   const lsRad = (lsDeg * Math.PI) / 180;
@@ -35,10 +38,9 @@ export function solarDeclination(lsDeg: number): number {
  * Thrown by {@link sunriseSunset} when the sun has no sunrise/sunset pair inside the local sol, i.e. it
  * does not cross the flat horizon (|cos H0| > 1 with cos H0 = -tan(lat) tan(dec); polar day or polar night).
  *
- * Contract: no event instant is invented. Callers must catch this error. 05 PlanResult.conditions has no
- * form for an absent event, so the C8 assembler (T06.09) either omits `conditions` or decides the DARKNESS
- * semantics. TODO(decision): the team confirms this contract with the spec owners (not reachable at Gale,
- * lat about -4.7 deg, where the sun always crosses the horizon).
+ * Contract (ratified by BD-56): no event instant is invented. Callers must catch this error. 05
+ * PlanResult.conditions has no form for an absent event, so the C8 assembler (conditions.ts) omits the sun
+ * fields for such a sol. Not reachable at Gale (lat about -4.7 deg), where the sun always crosses the horizon.
  */
 export class SunEventsUnavailableError extends RangeError {
   /** SUN_ALWAYS_UP: above the horizon at local midnight; SUN_NEVER_UP: below it at local noon. */
@@ -130,7 +132,7 @@ export function solarPosition(
   const zDeg = (Math.acos(Math.max(-1, Math.min(1, cosZ))) * 180) / Math.PI;
   const elevationDeg = 90 - zDeg;
 
-  // Standard spherical azimuth (Allison & McEwen 2000 Eq. 41)
+  // Azimuth, GISS D-6 (atan2 form), north-referenced, clockwise
   const denom = Math.cos(latRad) * Math.tan(decRad) - Math.sin(latRad) * Math.cos(haRad);
   const num = Math.sin(haRad);
   const azimuthDeg = ((360.0 + (Math.atan2(num, denom) * 180.0) / Math.PI) % 360 + 360) % 360;
