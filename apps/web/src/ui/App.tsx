@@ -4,7 +4,8 @@
  * Live roles read the tab's Hab Core session through the hooks (state/habSession.ts), which boot opened before this
  * renders (boot/session.ts): no client is passed down. Each live host sits in `LiveFrame`, which adds the SCR-18 overlay.
  * Screens that are still stubs throw their "TODO(...)" error and the boundary shows a placeholder, so no route is blank.
- * Not wired yet: SCR-15 rover tasking, SCR-16 earth, SCR-19 presenter, SCR-20 setup, replay mode (`#/replay`).
+ * Not wired yet: SCR-15 rover tasking, SCR-16 earth, replay mode (`#/replay`). SCR-19 and SCR-20 are mounted here as the minimal
+ * registration the harness checks need; T32.23 (package 22) adds the join tile and owns these two cases.
  */
 import type { ReactElement } from "react";
 import type { PlannerBootHandle } from "../boot/bootPlanner";
@@ -12,6 +13,8 @@ import { ownClientId } from "../boot/session";
 import type { Route } from "./router";
 import { MissionBriefing } from "./screens/scr01MissionBriefing";
 import { EarthView } from "./screens/scr16EarthView";
+import { Presenter } from "./screens/scr19Presenter";
+import { MissionSetup } from "./screens/scr20MissionSetup";
 import { EvaRoute } from "./live/EvaRoute";
 import { HudRoute } from "./live/HudRoute";
 import { JoinRoute } from "./live/JoinRoute";
@@ -73,9 +76,17 @@ export function App({ route, planner, fetchImpl }: AppProps): ReactElement {
         </RouteBoundary>
       );
     case "presenter":
-      return <NotBuilt screen="SCR-19" label="Presenter panel" task="T32.20" />;
+      return (
+        <LiveFrame variant="ops">
+          <Presenter />
+        </LiveFrame>
+      );
     case "setup":
-      return <NotBuilt screen="SCR-20" label="Mission setup" task="T32.22" />;
+      return (
+        <LiveFrame variant="ops">
+          <MissionSetup />
+        </LiveFrame>
+      );
     case "replay":
       return <NotBuilt screen="—" label="Replay mode" task="T27.05" />;
     case "unknown":

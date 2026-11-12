@@ -9,8 +9,8 @@
  * `eva:<crew>` and the HUD is its own read-only `hud:<crew>` (02 §E.4); a tab keeps one connection, so going from one to the
  * other closes the first (boot/session.ts). The planner, join,
  * report, briefing and sources routes open none: the planner works without a Hab Core, join and report only fetch.
- * SCR-16 (earth), SCR-19 (presenter) and SCR-20 (setup) are not built, so they open none either; when they are, give them
- * their role here (the `presenter` role is T32.01).
+ * SCR-16 (earth) is not built, so it opens none either. SCR-19 (presenter) opens the `presenter` role and SCR-20 (setup) the
+ * `ops` role; T32.23 (package 22) owns this table and may restate both entries.
  */
 import type { CrewId, Role } from "@marswalk/protocol";
 
@@ -43,7 +43,7 @@ export interface RouteEntry {
   /** True when the path takes a crew member (`/EV1`, `/EV2`). */
   crew?: true;
   /** Role of the Hab Core connection the route needs; null = none. */
-  role: "ops" | "eva" | "hud" | null;
+  role: "ops" | "eva" | "hud" | "presenter" | null;
 }
 
 /** 03 §A, in the order it lists them. */
@@ -53,12 +53,12 @@ export const ROUTES: readonly RouteEntry[] = [
   { id: "planner", path: "planner", screen: "SCR-02", mode: "ops", role: null },
   { id: "briefing", path: "briefing", screen: "SCR-08", mode: "print", role: null },
   { id: "ops", path: "ops", screen: "SCR-11", mode: "ops", role: "ops" },
-  { id: "setup", path: "setup", screen: "SCR-20", mode: "ops", role: null },
+  { id: "setup", path: "setup", screen: "SCR-20", mode: "ops", role: "ops" },
   { id: "report", path: "report", screen: "SCR-17", mode: "print", role: null },
   { id: "eva", path: "eva", screen: "SCR-12", mode: "ops", crew: true, role: "eva" },
   { id: "hud", path: "hud", screen: "SCR-13", mode: "hud", crew: true, role: "hud" },
   { id: "earth", path: "earth", screen: "SCR-16", mode: "ops", role: null },
-  { id: "presenter", path: "presenter", screen: "SCR-19", mode: "ops", role: null },
+  { id: "presenter", path: "presenter", screen: "SCR-19", mode: "ops", role: "presenter" },
   { id: "sources", path: "sources", screen: "SCR-09", mode: "brief", role: null },
   { id: "replay", path: "replay", screen: "—", mode: "ops", role: null },
 ];
@@ -149,7 +149,7 @@ export function parseHash(hash: string): Route {
       return unknown(requested);
     }
   }
-  const role: Role | null = entry.role === "ops" ? "ops" : (entry.role === "eva" || entry.role === "hud") && crewId ? (`${entry.role}:${crewId}` as Role) : null;
+  const role: Role | null = entry.role === "ops" || entry.role === "presenter" ? entry.role : (entry.role === "eva" || entry.role === "hud") && crewId ? (`${entry.role}:${crewId}` as Role) : null;
   const route: Route = {
     id: entry.id,
     screen: entry.screen,

@@ -85,8 +85,13 @@ describe("parseHash: connection role (one Hab Core connection per tab)", () => {
     }
   });
 
-  it("routes whose screen is not built open no connection either (SCR-16 earth, SCR-19 presenter, SCR-20 setup)", () => {
-    for (const h of ["#/earth", "#/presenter", "#/setup"]) expect(parseHash(h).role, h).toBeNull();
+  it("routes whose screen is not built open no connection either (SCR-16 earth)", () => {
+    expect(parseHash("#/earth").role).toBeNull();
+  });
+
+  it("the presenter panel opens the presenter role and the mission setup the ops role (placeholder for T32.23)", () => {
+    expect(parseHash("#/presenter").role).toBe("presenter");
+    expect(parseHash("#/setup").role).toBe("ops");
   });
 });
 
