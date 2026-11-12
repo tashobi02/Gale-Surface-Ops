@@ -508,12 +508,43 @@ describe("HAVEN target is the vehicle the server tied to this crew member by its
   });
 });
 
-describe("link bars are unknown until the Hab Core supplies link quality (T24.03)", () => {
+describe("link hops and via come from the crew record, never from a bar count (T24.03; N-04, BD-103)", () => {
   it("a linked crew member with a relay path has no invented bar count", () => {
     for (const link_path of [[], ["PR1"], ["PR1", "RELAY"], ["a", "b", "c", "d"]]) {
       const snapshot = withCrew(snapshotWith({}), { linked: true, link_path });
       expect(selectMetadataStrip(snapshot, "EV1").link.bars).toBeNull();
     }
+  });
+
+  it("reads the hops and the via the Hab Core supplies", () => {
+    const snapshot = withCrew(snapshotWith({}), { linked: true, link_hops: 2, link_via: "relay" });
+    const link = selectMetadataStrip(snapshot, "EV1").link;
+    expect(link.hops).toEqual({ v: 2, unit: "hops", prov: "simulated", src: "snapshot:crew.link_hops" });
+    expect(link.via).toEqual({ v: "relay", unit: "", prov: "simulated", src: "snapshot:crew.link_via" });
+  });
+
+  it("an absent hop count or via reads unavailable, never zero", () => {
+    const snapshot = withCrew(snapshotWith({}), { linked: true, link_hops: null, link_via: null });
+    const link = selectMetadataStrip(snapshot, "EV1").link;
+    expect(link.hops.v).toBe("—");
+    expect(link.hops.unavailable).toBe(true);
+    expect(link.hops.src).toBe("unavailable:crew.link_hops");
+    expect(link.via.v).toBe("—");
+    expect(link.via.unavailable).toBe(true);
+    expect(link.via.src).toBe("unavailable:crew.link_via");
+  });
+
+  it("a zero hop count is a real value, not a missing one", () => {
+    const snapshot = withCrew(snapshotWith({}), { linked: true, link_hops: 0, link_via: "direct" });
+    const link = selectMetadataStrip(snapshot, "EV1").link;
+    expect(link.hops.v).toBe(0);
+    expect(link.hops.unavailable).toBeUndefined();
+    expect(link.via.v).toBe("direct");
+  });
+
+  it("an unknown via kind is unavailable, never passed through", () => {
+    const snapshot = withCrew(snapshotWith({}), { linked: true, link_hops: 1, link_via: "satellite" as "direct" });
+    expect(selectMetadataStrip(snapshot, "EV1").link.via.v).toBe("—");
   });
 });
 

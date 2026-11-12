@@ -93,6 +93,10 @@ export interface EvaLinkView {
    * one (N-04).
    */
   readonly bars: number | null;
+  /** Radio hops to HAB along the crew member's link path, from the crew record (N-04, BD-103). */
+  readonly hops: ProvenanceValue<number | string>;
+  /** The kind of the first hop of the link path, from the crew record (N-04, BD-103). */
+  readonly via: ProvenanceValue<string>;
   readonly ageSeconds: number | null;
   readonly stale: boolean | null;
 }
@@ -127,6 +131,11 @@ export interface HudViewModel {
 }
 
 const VALID_HAVEN_KINDS = ["hab", "vehicle", "refuge"] as const;
+
+/** The kinds of first hop the protocol names for a crew member's link path (N-04, BD-103). */
+export type LinkVia = "direct" | "relay" | "crew";
+
+const VALID_LINK_VIA: readonly string[] = ["direct", "relay", "crew"];
 
 const PROVENANCE_CLASSES: readonly string[] = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
 const CREW_ACTIVITIES: readonly string[] = ["IN_HAB", "WALKING", "AT_STOP", "TO_HAVEN", "SHELTERED"];
@@ -378,6 +387,19 @@ export function selectMetadataStrip(snapshot: Snapshot | null, crewId: CrewId): 
   const ageSeconds = Number.isFinite(currentTime) && Number.isFinite(linkedTime) && currentTime >= linkedTime
     ? (currentTime - linkedTime) / 1000 : null;
 
+  // The link path of N-04: the hops to HAB and the kind of the first hop, both from the crew record. The client
+  // computes neither, and there is no bar count to show: 02 §D.11 models line of sight only (BD-103).
+  const hopsProv = provenanceOr(snapshot?.provenance?.["crew.link_hops"], "simulated");
+  const viaProv = provenanceOr(snapshot?.provenance?.["crew.link_via"], "simulated");
+  const rawHops: unknown = crew?.link_hops;
+  const rawVia: unknown = crew?.link_via;
+  const hops: ProvenanceValue<number | string> = isFiniteNumber(rawHops)
+    ? { v: rawHops, unit: "hops", prov: hopsProv, src: "snapshot:crew.link_hops" }
+    : unavailable("crew.link_hops", hopsProv);
+  const via: ProvenanceValue<string> = VALID_LINK_VIA.includes(rawVia as LinkVia)
+    ? { v: rawVia as LinkVia, unit: "", prov: viaProv, src: "snapshot:crew.link_via" }
+    : unavailable("crew.link_via", viaProv);
+
   return {
     evaTimeSeconds: isFiniteNumber(eva)
       ? { v: eva, unit: "s", prov: evaProv, src: "snapshot:crew.eva_elapsed_s" }
@@ -388,6 +410,8 @@ export function selectMetadataStrip(snapshot: Snapshot | null, crewId: CrewId): 
     link: {
       linked,
       bars: null,
+      hops,
+      via,
       ageSeconds,
       stale,
     },

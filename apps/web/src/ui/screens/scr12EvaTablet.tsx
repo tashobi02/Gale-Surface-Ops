@@ -404,8 +404,9 @@ export function EvaTablet({
                 // UNDO is a reversal on the server ({state: "TODO", undo: true}); a bare TODO is never sent. While the link
                 // is down it cancels a waiting change on the client instead.
                 onUndo={(taskId) => changes.undo(taskId)}
-                // SKIP records other immediately; reason revision awaits N-29.
+                // SKIP records other immediately; the REASON control in the undo strip revises it (FD-028).
                 onReason={(taskId, reason) => changes.start(taskId, { state: "SKIPPED", reason })}
+                onChangeReason={(taskId, reason) => changes.changeReason(taskId, reason)}
               />
             </div>
           )}
@@ -457,13 +458,15 @@ export function EvaTablet({
         <span>·</span>
         {changes.notSyncedTaskIds().length > 0 ? <span data-provenance="simulated" data-source="snapshot:tasks">NOT SYNCED</span> : <span
           {...provAttrs(
-            vm.metadata.link.bars === null
-              ? unavailableOf("simulated", "crew.link_quality")
-              : { prov: "simulated", src: "snapshot:crew.link_quality" },
+            vm.metadata.link.hops.unavailable
+              ? unavailableOf("simulated", "crew.link_hops")
+              : { prov: vm.metadata.link.hops.prov ?? "simulated", src: vm.metadata.link.hops.src },
           )}
           style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
         >
-          LINK {vm.metadata.link.bars === null ? UNAVAILABLE : vm.metadata.link.bars}
+          LINK {vm.metadata.link.hops.v}
+          {vm.metadata.link.hops.v !== UNAVAILABLE && ` ${vm.metadata.link.hops.unit}`}
+          <span {...provAttrs(vm.metadata.link.via)}>VIA {vm.metadata.link.via.v}</span>
           {vm.metadata.link.stale === true && (
             <span className="tag">
               <StatusIcon status="caution" word="STALE" showWord={true} />
