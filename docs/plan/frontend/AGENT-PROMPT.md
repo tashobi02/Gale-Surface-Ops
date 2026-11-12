@@ -49,10 +49,13 @@ c. When it reports, check: both packages committed; status rows + README progres
    `make lint typecheck test-web docs-check` green; the harness checks the packages name pass
    (`make e2e-one CHECK=<name>`).
 
-d. `git push origin core-frontend` (never --force, never push to merging-core or main, no PRs).
+d. `git push origin core-frontend` (never --force, never push to main, no PRs), then publish the lane:
+   `bash scripts/publish_lane.sh`. It merges core-frontend into merging-core, runs the checks on the result,
+   pushes only if they are green, and retries if the backend lane pushed first. If it refuses (red checks),
+   fix on core-frontend and run it again. No message to anyone is needed.
 
-e. Write a 3-line status to Obidit: packages done, checks, anything blocked. Obidit forwards it to Sadman, who
-   merges core-frontend into merging-core.
+e. Write a 3-line status for Obidit (packages done, checks, anything blocked). It's only for him to read;
+   nobody has to act on it.
 
 ## 4. Hard rules (from docs/plan/README.md — repeat them to every sub-agent)
 - Lane boundary — you may edit:
@@ -71,8 +74,11 @@ e. Write a 3-line status to Obidit: packages done, checks, anything blocked. Obi
   - scenarios/**
   - schemas/**
   - data/sites/** (except mock tile fixtures your package names)
-  If you need a change there, add a line to docs/plan/frontend/01-needs-from-backend.md (N-xx, what and why),
-  commit it, and tell Obidit to pass it to Sadman. Until it lands, show "—" for the missing value (never invent it).
+  If you need a change there, add a numbered line to docs/plan/frontend/01-needs-from-backend.md (N-xx, what and
+  why), commit and publish it. The backend lane's agent picks it up at its next batch; no message is needed.
+  Until it lands, show "—" for the missing value (never invent it).
+- At the start of EVERY batch, read docs/plan/backend/01-needs-from-frontend.md (if it exists). Requests the
+  backend lane made of the frontend go there; do them as part of your batch.
 - Tests first, and run them RED before implementing. Mutation-check any new test that passes at once.
 - No new TODO markers. Decide from 03/04/the mockup (docs/design/prototype, docs/design/mockup-handoff.md; 04 wins
   over the mockup), append an FD-row to docs/plan/frontend/decisions.md labelled
@@ -108,6 +114,6 @@ e. Write a 3-line status to Obidit: packages done, checks, anything blocked. Obi
   finished work, then resume the batch from the first unfinished package. Never redo a committed package.
 - Harness or browser issue: fix it inside apps/web/e2e. Don't disable a check; mark it `test.fixme` only with
   the package that will enable it.
-- A merge conflict you can't resolve under §5.2: stop that batch, commit nothing broken, and report the exact
-  files to Obidit for Sadman.
+- A merge conflict you can't resolve under §5.2 (it should only happen if a lane boundary was crossed): stop
+  that batch, push nothing broken, and write the exact files in your status for Obidit.
 ```
