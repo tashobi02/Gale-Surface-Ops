@@ -78,7 +78,7 @@ function snapshot(over: Partial<Snapshot> & { crew?: Crew[]; vehicles?: Vehicle[
     type: "SNAPSHOT",
     seq: 1,
     sim_time: "2024-05-20T13:00:00Z",
-    session: { session_id: "s-1", scenario_id: "storm-sol4190", data_version: "d", seed: 1, status: "RUNNING", clock: { sim_time: "2024-05-20T13:00:00Z", speed: 1, paused: false }, plan_revision: 1, last_seq: 1, log_hash: "h" },
+    session: { session_id: "s-1", scenario_id: "storm-sol4190", data_version: "d", seed: 1, status: "RUNNING", clock: { sim_time: "2024-05-20T13:00:00Z", speed: 1, paused: false }, plan_revision: 1, last_seq: 1, log_hash: "h", hab_candidate_id: null, mission_setup: { crew_count: 2, vehicle_available: true, vehicle_param_set: "pr1-assumed", solar_phase: "max", max_haven_min: 30 }, started_events: [] },
     plan: null,
     crew: [],
     vehicles: [],

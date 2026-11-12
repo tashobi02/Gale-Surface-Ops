@@ -125,11 +125,49 @@ export interface StateChange {
   value: unknown;
 }
 
+/**
+ * Where the crew start: the plan's start waypoint when the scenario has a plan; else the chosen candidate's
+ * `default_start`, else the Site's `default_start` (05 Scenario `mission_setup`, HabCandidate; T32.07). A plan-less
+ * scenario with no site folder has no position to read; only a site-less fixture reaches that case, and the working
+ * projection's origin stands in.
+ */
+function crewStart(scenario: LoadedScenario): { x_m: number; y_m: number } {
+  const s = scenario.scenario;
+  if (s.plan !== undefined) {
+    const start = s.plan.waypoints.find((w) => w.role === "start") ?? s.plan.waypoints[0];
+    return { x_m: start?.x_m ?? 0, y_m: start?.y_m ?? 0 };
+  }
+  const site = scenario.site;
+  const candidate = site?.hab_candidates.find((c) => c.candidate_id === s.mission_setup.hab_candidate_id);
+  const from = candidate?.default_start ?? site?.default_start;
+  return { x_m: from?.x_m ?? 0, y_m: from?.y_m ?? 0 };
+}
+
+/**
+ * The settings in force at load (05 Session `mission_setup`): each key from the scenario's `mission_setup`, else
+ * from the reference plan's MissionScenario, else the 05 MissionScenario default (`solar_phase` max, `max_haven_min`
+ * 30, `vehicle_available` true when the scenario has a pressurized rover, `crew_count` = the number of `crew[]`
+ * entries, `vehicle_param_set` = that rover's ParamSet or null). Exported for the reset and setup commands (T32.14).
+ */
+export function missionSetupOf(scenario: LoadedScenario): MissionSetup {
+  const s = scenario.scenario;
+  const m = s.mission_setup;
+  const p = s.plan?.scenario;
+  const rover = s.vehicles.find((v) => v.kind === "pressurized_rover");
+  const vehicle_param_set = m.vehicle_param_set !== undefined ? m.vehicle_param_set : (p?.vehicle_param_set ?? rover?.param_set ?? null);
+  return {
+    crew_count: m.crew_count ?? p?.crew_count ?? s.crew.length,
+    vehicle_available: m.vehicle_available ?? p?.vehicle_available ?? vehicle_param_set !== null,
+    vehicle_param_set,
+    solar_phase: m.solar_phase ?? p?.solar_phase ?? "max",
+    max_haven_min: m.max_haven_min ?? p?.max_haven_min ?? 30,
+  };
+}
+
 /** State at `scenario.start_utc` before any event: crew in the hab, vehicles at their starts. T22.06. */
 export function initialState(scenario: LoadedScenario, session_id: string): EngineState {
   const s = scenario.scenario;
-  const start = s.plan.waypoints.find((w) => w.role === "start") ?? s.plan.waypoints[0];
-  const hab = { x_m: start?.x_m ?? 0, y_m: start?.y_m ?? 0 };
+  const hab = crewStart(scenario);
   const firstEarthRow = scenario.earthLink.rows[0];
   return {
     session: {
@@ -144,8 +182,11 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
       plan_revision: 1,
       last_seq: 0,
       log_hash: "",
+      hab_candidate_id: s.mission_setup.hab_candidate_id ?? null,
+      mission_setup: missionSetupOf(scenario),
+      started_events: [],
     },
-    plan: s.plan,
+    plan: s.plan ?? null,
     crew: s.crew.map(
       (c): Crew => ({
         crew_id: c.crew_id,
@@ -160,6 +201,11 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
         linked: true,
         link_path: [c.crew_id, "HAB"],
         stale: false,
+        // Margins for the tablet and HUD (BD-95): nothing to report in the hab; crewMargins fills them once the EVA runs.
+        o2_remaining_min: null,
+        next_stop_bearing_deg: null,
+        next_stop_distance_m: null,
+        next_stop_eta_s: null,
       }),
     ),
     vehicles: s.vehicles.map(
@@ -365,11 +411,11 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
       return { ...next, session: { ...next.session, hab_candidate_id: e.data.candidate_id } };
     case "MISSION_SETUP_SET":
       // The keys set are merged; a session that has no settings yet keeps just those keys (work package 04 sets the full object at load).
-      return { ...next, session: { ...next.session, mission_setup: { ...next.session.mission_setup, ...e.data } as MissionSetup } };
+      return { ...next, session: { ...next.session, mission_setup: { ...next.session.mission_setup, ...e.data } } };
     case "EVENT_STARTED":
       return {
         ...next,
-        session: { ...next.session, started_events: [...(next.session.started_events ?? []), { event_id: e.data.event_id, t0_sim_time: e.data.t0_sim_time }] },
+        session: { ...next.session, started_events: [...next.session.started_events, { event_id: e.data.event_id, t0_sim_time: e.data.t0_sim_time }] },
       };
     case "ROLE_TAKEN_OVER":
       return next; // connection bookkeeping (02 §E.4): seq and sim time advance, nothing else changes

@@ -140,7 +140,9 @@ export function dispatchVehicle(state: EngineState, scenario: LoadedScenario, re
     return { ok: true, events: [dispatchedEvent(state, req, vehicle.vehicle_id, { ...rv })] };
   }
 
-  const plan = scenario.scenario.plan.scenario;
+  const mission = (state.plan ?? scenario.scenario.plan)?.scenario;
+  if (!mission) return reject("INVALID", "no plan is published, so there is no mission scenario to find a rendezvous for");
+  const plan = mission;
   const limit_s = plan.max_haven_min * 60;
   if (!(Number.isFinite(limit_s) && limit_s >= 0)) return reject("INVALID", `max_haven_min must be a number >= 0, got ${plan.max_haven_min}`);
   const grid = scenario.grid;
@@ -330,12 +332,13 @@ export function moveAlongPath(state: EngineState, vehicle_id: string, ctx: TickC
  * so the only candidate is the target cell and the result is the compute `vehicle_path` to it (the
  * same field and back-pointers as the dispatch). Null if there is none, or it does not end at the target.
  */
-function pathToTarget(scenario: LoadedScenario, v: Vehicle): [number, number][] | null {
+function pathToTarget(state: EngineState, scenario: LoadedScenario, v: Vehicle): [number, number][] | null {
   const target = v.task?.target;
   const grid = scenario.grid;
   const params = ownParams(scenario, v);
-  if (!target || !grid || typeof params === "string") return null;
-  const atTarget = crewTimeField(grid, target, scenario.scenario.plan.scenario, 0);
+  const mission = (state.plan ?? scenario.scenario.plan)?.scenario;
+  if (!target || !grid || !mission || typeof params === "string") return null;
+  const atTarget = crewTimeField(grid, target, mission, 0);
   const rv = rendezvous(atTarget, vehicleTimeField(grid, { x_m: v.x_m, y_m: v.y_m }, params), vehiclePassable(grid, params));
   if (rv.status !== "OK") return null;
   const last = rv.vehicle_path[rv.vehicle_path.length - 1];
@@ -380,7 +383,7 @@ export function vehiclesTick(state: EngineState, ctx: TickContext): TickResult {
       if (v.state === "DISPATCHED") {
         // No logged ETA (a VEHICLE_DISPATCHED without a rendezvous): nothing to time the drive by, so stay put.
         if (v.eta_s === null || !Number.isFinite(v.eta_s)) continue;
-        const path = pathToTarget(ctx.scenario, v);
+        const path = pathToTarget(state, ctx.scenario, v);
         // TODO(decision): with no path the vehicle stays DISPATCHED and the tick retries; no event exists for "cannot go".
         if (!path) continue;
         moving = { ...v, state: "EN_ROUTE", path };

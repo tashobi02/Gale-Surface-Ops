@@ -8,7 +8,7 @@ import { diffSnapshots } from "../src/stateDelta";
 
 const base: Snapshot = {
   v: 1, type: "SNAPSHOT", seq: 10, sim_time: "2024-05-20T13:05:00Z",
-  session: { session_id: "s-0007", scenario_id: "x", data_version: "d", seed: 1, status: "RUNNING", clock: { sim_time: "2024-05-20T13:05:00Z", speed: 1, paused: false }, plan_revision: 1, last_seq: 10, log_hash: "h1" },
+  session: { session_id: "s-0007", scenario_id: "x", data_version: "d", seed: 1, status: "RUNNING", clock: { sim_time: "2024-05-20T13:05:00Z", speed: 1, paused: false }, plan_revision: 1, last_seq: 10, log_hash: "h1", hab_candidate_id: null, mission_setup: { crew_count: 2, vehicle_available: true, vehicle_param_set: "pr1-assumed", solar_phase: "max", max_haven_min: 30 }, started_events: [] },
   plan: null,
   crew: [{ crew_id: "EV1", x_m: 1, y_m: 2, activity: "WALKING", stop_index: null, o2_frac: 0.7, eva_elapsed_s: 0, dose_event_ugy: 0, dose_event_unsheltered_ugy: 0, haven: { minutes: 10, kind: "hab", target_x_m: 0, target_y_m: 0 }, linked: true, link_path: [], stale: false }],
   vehicles: [], alerts: [], options: [], tasks: [],

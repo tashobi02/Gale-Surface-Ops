@@ -83,9 +83,9 @@ describe("protocol v0.2 types (compile-time)", () => {
     expectTypeOf<Scenario["event_library"]>().toEqualTypeOf<EventLibraryEntry[]>();
     expectTypeOf<Scenario["task_library"]>().toEqualTypeOf<TaskLibraryEntry[] | undefined>();
     expectTypeOf<Scenario["mission_setup"]>().toEqualTypeOf<Partial<MissionSetup> & { hab_candidate_id?: string }>();
-    expectTypeOf<Session["hab_candidate_id"]>().toEqualTypeOf<string | null | undefined>();
-    expectTypeOf<Session["mission_setup"]>().toEqualTypeOf<MissionSetup | undefined>();
-    expectTypeOf<Session["started_events"]>().toEqualTypeOf<{ event_id: string; t0_sim_time: string }[] | undefined>();
+    expectTypeOf<Session["hab_candidate_id"]>().toEqualTypeOf<string | null>();
+    expectTypeOf<Session["mission_setup"]>().toEqualTypeOf<MissionSetup>();
+    expectTypeOf<Session["started_events"]>().toEqualTypeOf<{ event_id: string; t0_sim_time: string }[]>();
     expectTypeOf<EventLibrarySummary>().toHaveProperty("source_id");
   });
 
@@ -148,6 +148,9 @@ function fakeScenario(): LoadedScenario {
     scenario,
     dose: readJson<DoseSeries>(join(fixtureDir, scenario.tables.dose_series.path)),
     earthLink: readJson<EarthLinkTable>(join(fixtureDir, scenario.tables.earth_link.path)),
+    eventLibrary: scenario.event_library,
+    taskLibrary: scenario.task_library ?? [],
+    site: null,
     params,
     grid: null,
     comm: null,
@@ -175,9 +178,10 @@ describe("reducer: the five live-session cases (contract §6)", () => {
     expect(start.session.mission_setup).toEqual(full); // pure: the input is not mutated
   });
 
-  it("MISSION_SETUP_SET on a session without mission_setup keeps just the keys set", () => {
+  it("MISSION_SETUP_SET on the settings loaded from the scenario changes only the keys set (BD-100: mission_setup is always present)", () => {
+    const loaded = base().session.mission_setup;
     const s = reduce(base(), event("MISSION_SETUP_SET", { crew_count: 1 }));
-    expect(s.session.mission_setup).toEqual({ crew_count: 1 });
+    expect(s.session.mission_setup).toEqual({ ...loaded, crew_count: 1 });
   });
 
   it("EVENT_STARTED appends {event_id, t0_sim_time} to session.started_events, in order", () => {

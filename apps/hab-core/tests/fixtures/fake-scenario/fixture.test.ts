@@ -75,12 +75,12 @@ describe("fake scenario fixture (T22.02, F8)", () => {
   });
 
   it("plan_hash = first 12 hex of SHA-256 over canonical {data_version, scenario, waypoints} (05 PlanExport)", () => {
-    const { data_version, scenario: mission, waypoints } = scenario.plan;
-    expect(sha256(canonical({ data_version, scenario: mission, waypoints })).slice(0, 12)).toBe(scenario.plan.plan_hash);
+    const { data_version, scenario: mission, waypoints } = scenario.plan!;
+    expect(sha256(canonical({ data_version, scenario: mission, waypoints })).slice(0, 12)).toBe(scenario.plan!.plan_hash);
   });
 
   it("stop tasks name stop Waypoints, 1–4 per stop (FR-50, U-61)", () => {
-    const stops = new Set(scenario.plan.waypoints.filter((w) => w.role === "stop").map((w) => w.id));
+    const stops = new Set(scenario.plan!.waypoints.filter((w) => w.role === "stop").map((w) => w.id));
     const perStop = new Map<string, number>();
     for (const t of scenario.stop_tasks ?? []) {
       expect(stops.has(t.stop_id), t.task_id).toBe(true);
@@ -96,21 +96,21 @@ describe("fake scenario fixture (T22.02, F8)", () => {
     const listed = new Set(scenario.param_sets);
     for (const c of scenario.crew) expect(listed.has(c.suit_param_set), c.crew_id).toBe(true);
     for (const v of scenario.vehicles) expect(listed.has(v.param_set), v.vehicle_id).toBe(true);
-    const vps = scenario.plan.scenario.vehicle_param_set;
+    const vps = scenario.plan!.scenario.vehicle_param_set;
     if (vps) expect(listed.has(vps)).toBe(true);
-    const times = scenario.events.map((e) => Date.parse(e.t_utc));
+    const times = scenario.events!.map((e) => Date.parse(e.t_utc));
     expect(times).toEqual([...times].sort((a, b) => a - b));
   });
 
   it("a loop plan has one leg per waypoint pair plus the return leg, and OK has totals (05 PlanResult)", () => {
-    const { result, waypoints, scenario: mission } = scenario.plan;
+    const { result, waypoints, scenario: mission } = scenario.plan!;
     expect(result.legs.length).toBe(waypoints.length - 1 + (mission.loop ? 1 : 0));
     if (result.status === "OK") expect(result.totals).not.toBeNull();
   });
 
   it("is mock data: site_id mock_site, synthetic source, dose integral consistent", () => {
     expect(scenario.site_id).toBe("mock_site");
-    expect(scenario.plan.site_id).toBe("mock_site");
+    expect(scenario.plan!.site_id).toBe("mock_site");
     const dose = readJson<DoseSeries>(join(here, "dose_series.json"));
     expect(dose.source_id).toBe("fixture-synthetic");
     // Independent recompute: each sample's rate holds until the next sample (piecewise constant).
@@ -136,11 +136,11 @@ describe("fake scenario, live shape (T32.05)", () => {
   it("carries mission_setup from the 05 §F.4 values and the first candidate id", () => {
     expect(scenario.mission_setup).toEqual({
       hab_candidate_id: "hab-first",
-      crew_count: scenario.plan.scenario.crew_count,
-      vehicle_available: scenario.plan.scenario.vehicle_available,
-      vehicle_param_set: scenario.plan.scenario.vehicle_param_set,
-      solar_phase: scenario.plan.scenario.solar_phase,
-      max_haven_min: scenario.plan.scenario.max_haven_min,
+      crew_count: scenario.plan!.scenario.crew_count,
+      vehicle_available: scenario.plan!.scenario.vehicle_available,
+      vehicle_param_set: scenario.plan!.scenario.vehicle_param_set,
+      solar_phase: scenario.plan!.scenario.solar_phase,
+      max_haven_min: scenario.plan!.scenario.max_haven_min,
     });
     expect(scenario.mission_setup.crew_count).toBe(scenario.crew.length);
   });
@@ -179,9 +179,9 @@ describe("fake scenario, live shape (T32.05)", () => {
   });
 
   it("keeps the old reference shape: plan, stop tasks and the Earth event stay (replay hashes depend on the plan)", () => {
-    expect(scenario.plan.plan_hash).toHaveLength(12);
+    expect(scenario.plan!.plan_hash).toHaveLength(12);
     expect(scenario.stop_tasks?.length).toBe(2);
-    expect(scenario.events.map((e) => e.event_id)).toEqual(["e1"]);
+    expect(scenario.events!.map((e) => e.event_id)).toEqual(["e1"]);
   });
 });
 

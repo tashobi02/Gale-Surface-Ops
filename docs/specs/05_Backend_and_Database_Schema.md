@@ -333,7 +333,7 @@ Every number the simulation uses that is not data. Shown in the UI next to whate
 
 | `kind` | Required `values` keys (02 reference) |
 | --- | --- |
-| `suit` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, o2_nominal_h, p_walk_w, p_rest_w, p_ref_w, antenna_m` (§D.3, §D.14) |
+| `suit` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, o2_nominal_h, p_walk_w, p_rest_w, p_ref_w, antenna_m` (§D.3, §D.14); `hab_ingress_min` *(2026-11-12)*: minutes to enter the hab and be sheltered, 02 §D.8 `t_ingress`, `assumed` (source "02 §D.8"), read by the haven module and the contingency options *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-57)* |
 | `pressurized_rover` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, low_ti_cost, min_speed_frac, capacity, ingress_min, antenna_m` (§D.9) |
 | `utility_rover` | as above + `battery_wh, p_base_w, mass_kg, climb_eff` |
 | `link` | `range_hab_suit_m, range_suit_suit_m, range_rover_m, hab_mast_m, relay_min_elev_deg, conjunction_deg, dte_enabled` (§D.11–D.12) |
@@ -489,7 +489,7 @@ The `SNAPSHOT` message (02 §E.6) carries these fields besides the entities abov
 | `link_via` *(2026-11-12)* | `direct \| relay \| crew` \| null | `simulated` | The kind of the first hop of `link_path`; null when unlinked *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-103)* |
 | `last_linked_sim_time` *(2026-11-12)* | ISO \| null | `simulated` | Sim time of the last tick this crew member was linked *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-112)* |
 
-The next stop is **per crew member**: that member's lowest-index stop without their `ARRIVED_STOP`, for the HUD. `JUMP_NEXT_STOP` keeps the crew-wide target of 02 §D.17. The three `next_stop_*` fields and `o2_remaining_min` are null with no plan or no stop left *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-95)*
+The next stop is **per crew member**: that member's lowest-index stop without their `ARRIVED_STOP`, for the HUD. `JUMP_NEXT_STOP` keeps the crew-wide target of 02 §D.17. The three `next_stop_*` fields and `o2_remaining_min` are null with no plan or no stop left *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-95)*. Refined: the three `next_stop_*` fields are null with no plan, no stop left, or a crew member not on EVA (WALKING or AT_STOP); `next_stop_eta_s` is also null when the planned route cannot be walked to that stop; `o2_remaining_min` is a number whenever the suit is consuming O₂ (walking, resting) and null in the hab, while waiting out a start offset and when sheltered in a vehicle or the hab; bearing is 0 for two coincident points *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-119)*
 
 ### Vehicle
 

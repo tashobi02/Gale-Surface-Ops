@@ -308,6 +308,30 @@ export function ridgeScenario(): MissionScenario {
   return { ...defaultScenario(), hard_slope_limit_deg: 35 };
 }
 
+/**
+ * The suit ParamSet of `scenarios/storm-sol4190/param_sets/suit-assumed.json` (frozen). `hab_ingress_min` 5 is 02 §D.8
+ * `t_ingress` (Assumed), the value the haven code used to carry as a constant (BD-57).
+ */
+export const suitParams: ParamSet = Object.freeze({
+  param_set_id: "suit-assumed",
+  kind: "suit",
+  title: "Suited crew member",
+  values: Object.freeze({
+    flat_speed_kmh: 3.3,
+    hard_slope_deg: 15,
+    caution_slope_deg: 10,
+    o2_nominal_h: 8,
+    p_walk_w: 351.7,
+    p_rest_w: 250,
+    p_ref_w: 300,
+    antenna_m: 2,
+    hab_ingress_min: 5,
+  }),
+  provenance: "assumed",
+  source_ids: Object.freeze(["apollo17-planning", "tobler-1993"]) as unknown as string[],
+  note: "02 §D.9 values; hab_ingress_min is 02 §D.8 t_ingress, Assumed",
+});
+
 /** 05 §F.5 verbatim (frozen). */
 export const pr1Params: ParamSet = Object.freeze({
   param_set_id: "pr1-assumed",

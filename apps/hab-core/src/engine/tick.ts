@@ -14,8 +14,10 @@ import type { LoadedScenario } from "../scenario";
 import { buddyTick, consumablesTick, radiationTick } from "./alerts";
 import { conditionsTick } from "./conditions";
 import { contingencyTick } from "./contingencyOps";
+import { crewMargins, legSeconds } from "./crewMargins";
 import { earthTick } from "./earth";
 import { havenTick } from "./haven";
+import { doseAt } from "./liveEvents";
 import { linksTick } from "./links";
 import { isWaiting, logged, reduce, type CrewMotion, type EngineState, type PendingEvent, type StateChange } from "./reducer";
 import { roversTick } from "./rovers";
@@ -87,6 +89,8 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
   const shielding = Object.values(scenario.params).find((p) => p.kind === "shielding");
   if (!shielding) throw new Error("tick: the scenario has no shielding ParamSet (05 Scenario)");
   const t_utc = isoSeconds(Date.parse(state.session.clock.sim_time) - dt_s * 1000);
+  // The dose series and the time to read it at: shifted by START_EVENT, the background before it (T32.12, 02 §D.17).
+  const dose_source = doseAt(state, scenario, t_utc);
 
   const crew: Crew[] = [];
   const motion: Partial<Record<CrewId, CrewMotion>> = {};
@@ -101,7 +105,7 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
 
     // Dose, then O₂, then elapsed time, all by the activity at the start of the step (S9).
     const mode = stepMode(c, m, offset_s);
-    const dose = integrateDose(scenario.dose, [{ t_utc, dt_s, shelter: mode.shelter }], shielding);
+    const dose = integrateDose(dose_source.series, [{ t_utc: dose_source.t_utc, dt_s, shelter: mode.shelter }], shielding);
     const walked = advance(state, scenario, c, m, dt_s, offset_s);
     const next: Crew = {
       ...c,
@@ -144,8 +148,18 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
     deltas.push(...r.deltas);
   }
 
+  // Per-crew margins for the tablet and HUD (T32.31, BD-95), from the step's final state; the O₂ activity is the one that
+  // `stepMode` uses for the same crew member's consumption.
+  const margins = crewMargins(current, scenario, (c) => {
+    const offset_s = scenario.scenario.crew.find((x) => x.crew_id === c.crew_id)?.start_offset_s ?? 0;
+    return stepMode(c, current.motion[c.crew_id], offset_s).o2;
+  });
+  current = { ...current, crew: margins.crew };
+  deltas.push(...margins.deltas);
+
   // Running → Ended: all crew sheltered or in the hab (03 §E.6). The reducer then sets ENDED, so this fires once.
-  if (current.session.status === "RUNNING" && current.crew.length > 0 && current.crew.every((c) => c.activity === "IN_HAB" || c.activity === "SHELTERED")) {
+  // A jump (JUMP_NEXT_STOP) also ticks a paused EVA, so PAUSED counts as running here (T32.10, BD-113).
+  if ((current.session.status === "RUNNING" || current.session.status === "PAUSED") && current.crew.length > 0 && current.crew.every((c) => c.activity === "IN_HAB" || c.activity === "SHELTERED")) {
     apply([{ sim_time: current.session.clock.sim_time, kind: "EVA_ENDED", actor: "system", data: { crew_ids: current.crew.map((c) => c.crew_id) }, provenance: {} }]);
   }
   return { state: current, events, deltas };
@@ -191,13 +205,6 @@ function segmentLengths(geometry: Point[]): number[] {
     lengthCache.set(geometry, lengths);
   }
   return lengths;
-}
-
-/** Seconds a leg takes; a NaN, infinite or negative `walk_time_min` is a plan error (S11), never an instant arrival. */
-function legSeconds(leg: OkLeg): number {
-  const s = leg.walk_time_min * 60;
-  if (!Number.isFinite(s) || s < 0) throw new Error(`tick: leg ${leg.from}→${leg.to} has an invalid walk_time_min (${leg.walk_time_min})`);
-  return s;
 }
 
 /** The point `d_m` metres along the polyline (the end point from its length on). */

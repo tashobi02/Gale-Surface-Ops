@@ -318,8 +318,30 @@ describe("ADD_STOP_TASK", () => {
     expect((out.result as Extract<CommandResult, { ok: false }>).code).toBe("INVALID");
   });
 
-  // TODO(decision): U-52 — the 1–4 limit per stop or per crew member at a stop (the prototype counts per crew).
-  it.todo("a fifth task on a stop is INVALID (1–4 per stop)");
+  // U-52 / BD-109: the 1–4 limit is per stop (FR-50 and the schema count per stop), whoever the tasks belong to.
+  it("a fifth task on a stop is INVALID (1–4 per stop), whichever crew member it is for", () => {
+    const atStop1 = applyEvent(runningWithTasks, "ARRIVED_STOP", { crew_id: "EV1", stop_id: "wp-1", stop_index: 1 });
+    const countAt = (s: EngineState): number => s.tasks.filter((t) => t.stop_id === "wp-1").length;
+    let s = atStop1;
+    while (countAt(s) < 4) {
+      const out = handleCommand(s, cmd("ops", "ADD_STOP_TASK", { stop_id: "wp-1", text: `Extra ${countAt(s)}`, crew_id: countAt(s) % 2 ? "EV2" : "EV1" }), ctx(s));
+      expect(out.result.ok).toBe(true);
+      s = out.events.reduce((acc, e) => reduce(acc, logged(e, acc.session.last_seq + 1)), s);
+    }
+    for (const crew_id of [null, "EV1", "EV2"]) {
+      const out = handleCommand(s, cmd("ops", "ADD_STOP_TASK", { stop_id: "wp-1", text: "One too many", crew_id }), ctx(s));
+      expect(out.result.ok, String(crew_id)).toBe(false);
+      expect((out.result as Extract<CommandResult, { ok: false }>).code).toBe("INVALID");
+      expect(out.events.map((e) => e.kind)).toEqual(["COMMAND_REJECTED"]);
+    }
+  });
+
+  it("a dropped task does not count towards the four of its stop", () => {
+    const atStop1 = applyEvent(runningWithTasks, "ARRIVED_STOP", { crew_id: "EV1", stop_id: "wp-1", stop_index: 1 });
+    const four: StopTask[] = [1, 2, 3, 4].map((i) => ({ ...sampleTaskEV1, task_id: `t-c${i}`, stop_id: "wp-1", crew_id: null, state: i === 4 ? "DROPPED" : "TODO" }));
+    const s = four.reduce<EngineState>((acc, t) => withTask(acc, t), { ...atStop1, tasks: [] });
+    expect(handleCommand(s, cmd("ops", "ADD_STOP_TASK", { stop_id: "wp-1", text: "Fits" }), ctx(s)).result.ok).toBe(true);
+  });
 
   it("empty text or text over 60 characters is INVALID", () => {
     const atStop1 = applyEvent(runningWithTasks, "ARRIVED_STOP", {
@@ -544,6 +566,31 @@ describe("stop tasks in the engine", () => {
       data: { task_id: "t-ev2-1", state: "DONE" },
     });
     expect(tickResult.state.tasks[0].state).toBe("DONE");
+  });
+
+  // U-52 / BD-109: an either-task (crew_id null) is completed by the simulated crew member at dwell end, like its own tasks.
+  it("an either-task (crew_id null) at the stop is completed by the simulated crew member at dwell end (BD-109)", () => {
+    const either: StopTask = { ...sampleTaskEV1, task_id: "t-either", stop_id: "wp-1", crew_id: null, state: "TODO" };
+    const state: EngineState = { ...running, tasks: [either], motion: { EV2: { plan_revision: 1, phase: "walk", leg_index: 2, t_s: 0, last_wp_id: "wp-1" } } };
+    const out = tasksTick(state, { scenario: fake, dt_s: 1, next_seq: 20 });
+    expect(out.events).toHaveLength(1);
+    expect(out.events[0]).toMatchObject({ kind: "TASK_UPDATED", actor: "system", data: { task_id: "t-either", crew_id: null, state: "DONE" } });
+  });
+
+  it("a task assigned to EV1 is never auto-completed, even when EV1 is the one at the stop (BD-109)", () => {
+    const own: StopTask = { ...sampleTaskEV1, task_id: "t-ev1-own", stop_id: "wp-1", crew_id: "EV1", state: "TODO" };
+    const motion = (id: "EV1" | "EV2") => ({ [id]: { plan_revision: 1, phase: "walk" as const, leg_index: 2, t_s: 0, last_wp_id: "wp-1" } });
+    for (const id of ["EV1", "EV2"] as const) {
+      const out = tasksTick({ ...running, tasks: [own], motion: motion(id) }, { scenario: fake, dt_s: 1, next_seq: 20 });
+      expect(out.events, id).toEqual([]);
+      expect(out.state.tasks[0].state).toBe("TODO");
+    }
+  });
+
+  it("an either-task at another stop than the one just left stays open", () => {
+    const elsewhere: StopTask = { ...sampleTaskEV1, task_id: "t-elsewhere", stop_id: "wp-2", crew_id: null, state: "TODO" };
+    const state: EngineState = { ...running, tasks: [elsewhere], motion: { EV2: { plan_revision: 1, phase: "walk", leg_index: 2, t_s: 0, last_wp_id: "wp-1" } } };
+    expect(tasksTick(state, { scenario: fake, dt_s: 1, next_seq: 20 }).events).toEqual([]);
   });
 
   it("seedTasks is a pure function of the scenario: two calls give equal events", () => {

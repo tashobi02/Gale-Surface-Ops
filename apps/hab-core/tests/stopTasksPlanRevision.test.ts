@@ -30,7 +30,7 @@ import { havenFlat } from "../../../packages/compute/tests/fixtures/v2grids";
 const here = dirname(fileURLToPath(import.meta.url));
 const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
 const sc: LoadedScenario = { ...fake, grid: havenFlat(10).grid };
-const plan = sc.scenario.plan;
+const plan = sc.scenario.plan!;
 const STOP1 = plan.waypoints.filter((w) => w.role === "stop")[0]!;
 const STOPS = plan.waypoints.filter((w) => w.role === "stop");
 const T_ALERT = new Date(Date.parse(sc.scenario.start_utc) + 3600_000).toISOString().replace(".000Z", "Z");
@@ -159,7 +159,7 @@ describe("PUBLISH_PLAN drops the open tasks of stops the new plan no longer has"
   function planWithout(stopId: string): PlanExport {
     const p = structuredClone(plan);
     p.waypoints = p.waypoints.filter((w) => w.id !== stopId);
-    p.result = { ...p.result, legs: p.result.legs.slice(0, p.waypoints.length - 1) };
+    p.result = { ...p!.result, legs: p.result.legs.slice(0, p.waypoints.length - 1) };
     p.plan_hash = createHash("sha256").update(canonicalJson({ data_version: p.data_version, scenario: p.scenario, waypoints: p.waypoints }), "utf8").digest("hex").slice(0, 12);
     return p;
   }
@@ -202,7 +202,7 @@ describe("a real session: drops, undo and determinism (NFR-06)", () => {
     const s = loadSession(fake, varDir());
     const p = structuredClone(plan);
     p.waypoints = p.waypoints.filter((w) => w.id !== "wp-2");
-    p.result = { ...p.result, legs: p.result.legs.slice(0, 1) };
+    p.result = { ...p!.result, legs: p.result.legs.slice(0, 1) };
     p.plan_hash = createHash("sha256").update(canonicalJson({ data_version: p.data_version, scenario: p.scenario, waypoints: p.waypoints }), "utf8").digest("hex").slice(0, 12);
     const out = send(s, "planner", "PUBLISH_PLAN", { plan: p });
     expect(out.result.ok).toBe(true);

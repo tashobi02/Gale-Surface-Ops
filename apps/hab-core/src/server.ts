@@ -116,6 +116,24 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     return session.snapshot(clientList(clients));
   });
 
+  // N-05 (01-contract §7a): the lobby's small summary; GET /api/session stays the full SNAPSHOT (02 §E.5).
+  app.get("/api/session/summary", async (_req, reply) => {
+    if (!session) return reply.code(404).send({ error: "no session loaded" });
+    const snap = session.snapshot([]);
+    const evaStarted = session.eventsAfter(0).find((e) => e.kind === "EVA_STARTED");
+    return {
+      session_id: snap.session.session_id,
+      scenario_id: snap.session.scenario_id,
+      status: snap.session.status,
+      sim_time: snap.sim_time,
+      speed: snap.session.clock.speed,
+      paused: snap.session.clock.paused,
+      eva_start_utc: evaStarted?.sim_time ?? null,
+      hab_candidate_id: snap.session.hab_candidate_id,
+      plan_published: snap.plan !== null,
+    };
+  });
+
   app.get<{ Querystring: { after?: string } }>("/api/log", async (req, reply) => {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
     const after = Number(req.query.after ?? 0);
@@ -281,6 +299,17 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
       app.log.error(err);
       return send(client, reject(command_id, "INVALID", "command failed"));
     }
+    const after = session.snapshot([]);
+    if (outcome.replaced === true || after.session.session_id !== before.session.session_id) {
+      // The session was replaced (RESET_SESSION, LOAD_SCENARIO; T32.15): a new session restarts seq, which a delta cannot
+      // express. The old session's closing events go out, the commander gets its result, then every client gets a fresh
+      // SNAPSHOT of the new session; the new session's own events are in it, and a client's feed restarts at it.
+      broadcastEvents(outcome.events);
+      send(client, outcome.result);
+      const list = clientList(clients);
+      for (const c of clients) if (c.joined) send(c, { ...after, clients: list });
+      return;
+    }
     publish(before, outcome.events);
     send(client, outcome.result);
   }
@@ -288,17 +317,11 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
   /**
    * Tell every client what a command or a batch of ticks did: the EVENTs, then the STATE_DELTA between the session's
    * state before and after, so `state()` on each client follows (alerts, options, tasks, clock, not only crew fields).
-   * A new session (LOAD_SCENARIO) restarts seq, which a delta cannot express: every client gets a fresh SNAPSHOT first.
+   * A command that replaces the session never comes here (see onCommand); a tick never does.
    */
   function publish(before: Snapshot, events: LogEvent[], tickChanges: StateChange[] = []): void {
     if (!session) return;
     const after = session.snapshot([]);
-    if (after.session.session_id !== before.session.session_id) {
-      const list = clientList(clients);
-      for (const c of clients) if (c.joined) send(c, { ...after, clients: list });
-      broadcastEvents(events);
-      return;
-    }
     broadcastEvents(events);
     // The diff comes last, so it wins a path the tick also reported (last value per path, 02 §D.14).
     const changes = [...tickChanges, ...diffSnapshots(before, after)];

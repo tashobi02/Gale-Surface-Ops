@@ -82,7 +82,7 @@ const PR1_ID = fake.scenario.vehicles.find((v) => v.kind === "pressurized_rover"
 
 function scenarioWith(grid: LoadedGrid, plan: MissionScenario, params: ParamSet[]): LoadedScenario {
   const extra = Object.fromEntries(params.map((p) => [p.param_set_id, p]));
-  return { ...fake, grid, scenario: { ...fake.scenario, plan: { ...fake.scenario.plan, scenario: plan } }, params: { ...fake.params, ...extra } };
+  return { ...fake, grid, scenario: { ...fake.scenario, plan: { ...fake.scenario.plan!, scenario: plan } }, params: { ...fake.params, ...extra } };
 }
 
 function apply(state: EngineState, kind: LogEventKind, data: LogEventData[LogEventKind], actor: Role | "system" = "system"): EngineState {
@@ -116,7 +116,7 @@ const summonCmd = (args: Record<string, unknown>, role: Role = "ops"): Command =
 
 /** The oracle: 02 §D.10 with the real compute, crew field bounded at max_haven_min (02 §D.8). */
 function oracle(sc: LoadedScenario, crew: XY, vehicle: XY, params: ParamSet, limit_s?: number) {
-  const plan = sc.scenario.plan.scenario;
+  const plan = sc.scenario.plan!.scenario;
   const L = limit_s ?? plan.max_haven_min * 60;
   return rendezvous(crewTimeField(sc.grid!, crew, plan, L), vehicleTimeField(sc.grid!, vehicle, params), vehiclePassable(sc.grid!, params));
 }
@@ -329,7 +329,7 @@ describe("the vehicle's own ParamSet and the bound L (02 §D.8, §D.10)", () => 
   });
 
   it("bounds the crew field at max_haven_min × 60 s", () => {
-    const L = sc.scenario.plan.scenario.max_haven_min * 60;
+    const L = sc.scenario.plan!.scenario.max_haven_min * 60;
     const bounded = ok(oracle(sc, flat.shape.crew, flat.shape.vehicle, slowVehicleParams));
     const unbounded = ok(oracle(sc, flat.shape.crew, flat.shape.vehicle, slowVehicleParams, Infinity));
     expect(unbounded.eta_crew_s, "set-up: without the bound the crew would walk longer than L").toBeGreaterThan(L);

@@ -10,6 +10,12 @@ export interface RecordedCommand {
   role: Role;
   kind: CommandKind;
   args: Record<string, unknown>;
+  /**
+   * The ids the command was sent with. `command_ref` is part of every command event, so an exact replay of a live session
+   * needs them (BD-121); a hand-written list leaves them out and the replay uses `replay` and `replay-<n>`.
+   */
+  command_id?: string;
+  client_id?: string;
 }
 
 /** The shape of `scenarios/<id>/reference_commands.json`. */
@@ -18,6 +24,10 @@ export interface CommandList {
   scenario_id: string;
   seed: number;
   commands: RecordedCommand[];
+  /** The session id the list was exported from (`s-0002`): the replay starts its session under the same id, which SESSION_LOADED holds (BD-121). */
+  session_id?: string;
+  /** The sim time of the exported session's last event: the replay runs no further. Without it the replay runs to ENDED or the maximum EVA duration (BD-121). */
+  until_sim_time?: string;
 }
 
 /** One line of `commands.jsonl`: every command the Hab Core evaluated, accepted or rejected, in evaluation order. */

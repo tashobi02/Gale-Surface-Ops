@@ -182,7 +182,7 @@ describe("handleCommand: results and events (02 §E.6, 05 Command)", () => {
   });
 
   it("PUBLISH_PLAN logs PLAN_REVISED with the whole plan and its waypoints and legs (decided 2026-11-07)", () => {
-    const plan = structuredClone(fake.scenario.plan);
+    const plan = structuredClone(fake.scenario.plan!);
     const out = handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan }), ctx(loaded));
     expect(out.result.ok).toBe(true);
     expect(out.events.map((e) => [e.kind, e.data])).toEqual([
@@ -192,7 +192,7 @@ describe("handleCommand: results and events (02 §E.6, 05 Command)", () => {
   });
 
   it("rejects PUBLISH_PLAN whose plan_hash does not verify, or that fails the plan schema, with INVALID", () => {
-    const tampered = { ...fake.scenario.plan, waypoints: fake.scenario.plan.waypoints.slice(0, 2) };
+    const tampered = { ...fake.scenario.plan, waypoints: fake.scenario.plan!.waypoints.slice(0, 2) };
     const out = handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan: tampered }), ctx(loaded));
     expect(rejected(out.result)).toBe("INVALID");
     expect((out.result as { message: string }).message).toMatch(/plan_hash/);
@@ -201,7 +201,7 @@ describe("handleCommand: results and events (02 §E.6, 05 Command)", () => {
   });
 
   it("rejects PUBLISH_PLAN without waypoints or legs with INVALID", () => {
-    const noLegs = { ...fake.scenario.plan, result: { ...fake.scenario.plan.result, legs: undefined } };
+    const noLegs = { ...fake.scenario.plan, result: { ...fake.scenario.plan!.result, legs: undefined } };
     expect(rejected(handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan: noLegs }), ctx(loaded)).result)).toBe("INVALID");
     const noWaypoints = { ...fake.scenario.plan, waypoints: undefined };
     expect(rejected(handleCommand(loaded, cmd("planner", "PUBLISH_PLAN", { plan: noWaypoints }), ctx(loaded)).result)).toBe("INVALID");
