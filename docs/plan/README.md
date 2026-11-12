@@ -178,6 +178,16 @@ What it does:
   - The pipeline needs the `marswalk-pipeline` conda env (`make setup`; `make check-env` must pass). It also needs `cdflib`; backend package 03 adds it to `pipeline/environment.yml`.
   - Real-site data is not in git. Point `pipeline/work/<name>` and `data/sites/gale_boxwork/{tiles,grid,images}` at your data folder with symlinks. Those folders are git-ignored and excluded from markdownlint.
   - The data inventory, with source URLs and SHA-256, is kept with the data, as `INVENTORY.md`.
+- **Real Gale map, for both lanes:** the built `gale_boxwork` bundle (data_version `gale_boxwork-2026.11.09`) is a GitHub Release asset. The release is private while the repo is private, so download it with your own `gh` login:
+
+  ```bash
+  gh release download data-gale_boxwork-2026.11.09 -p 'gale_boxwork-2026.11.09.zip'
+  shasum -a 256 gale_boxwork-2026.11.09.zip   # 7eebbf6013605d77b69d193df16c6adc0585b3427bc312f7d4f8b8aac5c9ca67
+  unzip -o gale_boxwork-2026.11.09.zip -d data/sites/
+  make validate SITE=gale_boxwork
+  ```
+
+  After that, frontend checks can open the planner with the real site, which is the default `gale_boxwork`, instead of `?site=mock_site`. CI skips the real-bundle tests when the bundle is absent.
 - **Never commit** datasets, large binaries or `node_modules`.
 
 ## 7. Finishing
