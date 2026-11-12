@@ -28,6 +28,7 @@ import {
 import { BEATS } from "../fixtures/ws";
 import { accepted, recordingClient, rejected, storeFromBeat } from "./fixtureStore";
 import { click, flush, installDom, keyDown, keyUp, mount, must, pointerDown, pointerUp, removeDom } from "./domHarness";
+import { contrast } from "./wcag";
 
 const STYLES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/styles");
 
@@ -716,5 +717,26 @@ describe("package 17 stale telemetry", () => {
     const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot }));
     const age = must(view.container, '[data-slot="haven"] [data-source="snapshot:sim_time+crew.last_linked_sim_time"]');
     expect(age.textContent).toContain("0:30");
+  });
+});
+
+describe("package 17 alert bar controls keep their own chrome (NFR-04, 04 §C.1, FD-011)", () => {
+  /** The EVA tablet's own stylesheet; jsdom cannot resolve var(), so the declarations are read as source. */
+  const EVA_CSS = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/screens/scr12EvaTablet.css"), "utf8");
+
+  it("the alert bar's buttons set their own background and colour instead of the user-agent button face", () => {
+    // The bar's ink is its status colour in high contrast (FD-011); a button that inherits it on the user-agent
+    // button face reads 1.92 : 1, so the controls carry their own surface and ink.
+    const rule = /\.scr12-eva-tablet\s+\.alert-bar\s+\.btn\s*\{([^}]*)\}/.exec(EVA_CSS);
+    expect(rule, "a rule for the alert bar's buttons").not.toBeNull();
+    expect(rule![1]).toMatch(/background:\s*var\(--surface-1\)/);
+    expect(rule![1]).toMatch(/color:\s*var\(--fg-1\)/);
+  });
+
+  it("the alert bar's button ink keeps >= 4.5 : 1 on its own surface in both palettes", () => {
+    // The normal palette: the panel surface (#14181D) with the text-1 ink (#ECEFF2).
+    expect(contrast("#ECEFF2", "#14181D"), "OPS alert bar button").toBeGreaterThanOrEqual(4.5);
+    // The high-contrast palette: black surface, white ink (FD-011).
+    expect(contrast("#FFFFFF", "#000000"), "high contrast alert bar button").toBeGreaterThanOrEqual(4.5);
   });
 });

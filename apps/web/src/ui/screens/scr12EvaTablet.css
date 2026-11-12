@@ -17,6 +17,12 @@
   border: 4px solid currentColor;
 }
 .scr12-eva-tablet[data-contrast="high"] .alert-bar.status-caution { color: var(--hud-caution); }
+/* The alert bar's own controls (OPTIONS, ACK) carry their own chrome. They would otherwise inherit the bar's ink — the
+   status colour in high contrast (FD-011) — and sit on the user-agent button face, which reads 1.92 : 1 there. */
+.scr12-eva-tablet .alert-bar .btn {
+  background: var(--surface-1);
+  color: var(--fg-1);
+}
 .eva-mini-map { position: relative; flex: 1; min-height: 100px; }
 .eva-mini-map [data-slot="map-canvas"] { position: absolute; inset: 0; }
 .eva-mini-map > button { position: absolute; z-index: 2; inset: 0; min-height: 56px; background: transparent; border: 0; color: var(--text-1); text-align: right; vertical-align: top; }
@@ -24,7 +30,7 @@
 .eva-mini-map > [data-unavailable] { position: absolute; left: 8px; bottom: 8px; }
 .scr12-eva-tablet .action-row > button { min-height: 56px; }
 @media (orientation: landscape) {
-  .scr12-eva-tablet { display: grid !important; grid-template-columns: 1fr 1fr; grid-template-rows: 64px minmax(0, 1fr) minmax(0, 1fr) 24px 72px; height: 100dvh; min-height: 0 !important; padding: 0 !important; gap: 0 8px !important; }
+  .scr12-eva-tablet { display: grid !important; grid-template-columns: 1fr 1fr; grid-template-rows: 64px minmax(0, 1fr) minmax(0, 1fr) 24px 72px; height: 100dvh; min-height: 0 !important; padding: 0 !important; gap: 0 8px !important; overflow: hidden; }
   .scr12-eva-tablet > [data-slot="alert-slot"] { grid-column: 1 / -1; }
   .scr12-eva-tablet > [data-slot="telemetry-row"] { grid-column: 1; grid-row: 2; min-height: 0; }
   .scr12-eva-tablet > [aria-label="Navigation and tasks"] { display: contents !important; }
@@ -32,7 +38,18 @@
   .scr12-eva-tablet [data-slot="mini-map"] { grid-column: 2; grid-row: 2 / 4; min-height: 0 !important; }
   .scr12-eva-tablet > [data-slot="meta-strip"] { grid-column: 1 / -1; grid-row: 4; }
   .scr12-eva-tablet > [data-slot="action-row"] { grid-column: 1 / -1; grid-row: 5; }
-  .scr12-eva-tablet .action-row { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+  /* The action row is 72 px of the 844 × 390 budget (04 §E.5). Its buttons keep the 56 px EVA target, so the row adds
+     no padding of its own and no button grows past the row: the body never scrolls (FD-010). The buttons carry their
+     padding inline, so the rule that trims it has to be important. */
+  .scr12-eva-tablet .action-row { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; padding: 0 !important; }
+  .scr12-eva-tablet .action-row button,
+  .scr12-eva-tablet .action-row .hold-container > button {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    height: var(--target-eva, 56px) !important;
+    min-height: var(--target-eva, 56px) !important;
+  }
+  .scr12-eva-tablet .action-row .hold-container { min-height: var(--target-eva, 56px) !important; }
 }
 .scr12-eva-tablet [data-slot="stop-task-list"] { overflow: auto; min-height: 0; }
 @media (orientation: landscape) {
