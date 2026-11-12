@@ -66,3 +66,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 ## Package 36 follow-up
 
 1. N-130 — Supply Earth-visible delayed crew and alert summary with its simulated as-of timestamp and provenance/source ids. Current Snapshot crew and alerts are current Mars state, not the delayed Earth view; SCR-16 shows — until supplied. Link available/waiting remains N-31.
+
+## Package 23 follow-up
+
+1. N-90 — Implement N-16 `GET /api/join-qr?role=<role>` for the protocol roles, including presenter and HUD. The contract lists it but apps/hab-core/src has no handler in this checkout; SCR-19 shows “—” when an image is unavailable and keeps the same-origin join link.

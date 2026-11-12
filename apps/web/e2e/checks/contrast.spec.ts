@@ -12,13 +12,15 @@ import { ratio, toRgb } from "../../tests/ui/wcag";
 import { waitForSnapshot } from "../lib/hab";
 import { routeFixtureRecording } from "../lib/replayFixture";
 import { populatedReport } from "../../tests/fixtures/postEvaReport";
+import { openSetupFixture, type SetupFixtureState } from "../lib/setupFixture";
+import { openPresenterFixture, type PresenterFixtureState } from "../lib/presenterFixture";
 
 const LIMITS = { text: 4.5, large: 3, hud: 7 };
 
 // Routes that render real content today. Each later package adds its own route here when it builds the screen.
 // `pending` marks a route the harness already measures as failing: the defect is the named package's to fix, and that package
 // removes the `pending` entry. The numbers below are what this check printed on 12 Nov 2026 (F4 site, fake scenario).
-const ROUTES: { hash: string; live: boolean; pending?: string }[] = [
+const ROUTES: { hash: string; live: boolean; pending?: string; site?: boolean }[] = [
   { hash: "#/join", live: false },
   { hash: "#/hud/EV1", live: true },
   { hash: "#/ops", live: true },
@@ -27,16 +29,44 @@ const ROUTES: { hash: string; live: boolean; pending?: string }[] = [
   // Package 27: the replay (fixture recording until N-81) and SCR-17 populated (3 alerts, 6 stops, a trace).
   { hash: "#/replay", live: false },
   { hash: "#/report?populated", live: false },
+  // Packages 23 and 24: the presenter panel and the mission setup read the F4 site, so they carry `?site=mock_site`.
+  { hash: "#/presenter", live: true, site: true },
+  { hash: "#/setup", live: true, site: true },
 ];
 
-for (const { hash, live, pending } of ROUTES) {
+// Package 24: SCR-20 with candidate cards, the Computing note, a rejection and Locked (lib/setupFixture.ts).
+test("contrast: text on #/setup meets the OPS limit in every state (package 24)", async ({ page }) => {
+  for (const state of ["ready", "computing", "rejected", "locked"] as SetupFixtureState[]) {
+    const fixture = await openSetupFixture(page, state);
+    if (state === "computing" || state === "rejected") await page.getByRole("button", { name: "Select site — MOCK alternative" }).click();
+    if (state === "computing") await expect(page.locator(".setup-state")).toHaveText(/^Computing haven fields/);
+    if (state === "rejected") await expect(page.getByRole("alert")).toBeVisible();
+    const measured = await expectContrast(page, LIMITS);
+    expect(measured, `no text was measured in ${state}`).toBeGreaterThan(0);
+    fixture.answer();
+    fixture.stop();
+  }
+});
+
+// Package 23: SCR-19 in each state of 03 (lib/presenterFixture.ts).
+test("contrast: text on #/presenter meets the OPS limit in every state (package 23)", async ({ page }) => {
+  for (const state of ["pending", "reset-confirm", "rejected", "storm-running", "ended"] as PresenterFixtureState[]) {
+    const fixture = await openPresenterFixture(page, state);
+    const measured = await expectContrast(page, LIMITS);
+    expect(measured, `no text was measured in ${state}`).toBeGreaterThan(0);
+    fixture.answer();
+    fixture.stop();
+  }
+});
+
+for (const { hash, live, pending, site } of ROUTES) {
   const run = async ({ page }: { page: Page }): Promise<void> => {
     if (hash === "#/replay") await routeFixtureRecording(page);
     if (hash === "#/report?populated") {
       const body = JSON.stringify(populatedReport());
       await page.route("**/api/report", (route) => route.fulfill({ status: 200, contentType: "application/json", body }));
     }
-    await page.goto(`/${hash.replace("?populated", "")}`);
+    await page.goto(`/${site ? "?site=mock_site" : ""}${hash.replace("?populated", "")}`);
     await page.waitForLoadState("networkidle");
     if (live) await waitForSnapshot(page);
     if (hash === "#/replay") await page.locator('[data-slot="replay-banner"]').waitFor();
