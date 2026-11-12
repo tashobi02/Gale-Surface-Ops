@@ -20,7 +20,7 @@ const LIVE = /^#\/(ops|eva|hud)/;
 // list equals `routeHashes()` (package 99 asserts that).
 // Package 15 adds the two BRIEF routes it builds: `#/` (SCR-01) and `#/sources` (SCR-09); package 17 adds `#/eva/EV1`.
 // Package 27 adds `#/replay`, on the fixture recording until N-81 commits the real one (lib/replayFixture.ts).
-const BUILT_ROUTES = ["#/", "#/sources", "#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report", "#/replay"];
+const BUILT_ROUTES = ["#/", "#/sources", "#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report", "#/replay", "#/earth"];
 
 test("axe: every built route has no serious or critical violation", async ({ page }, testInfo) => {
   await routeFixtureRecording(page);

@@ -150,3 +150,11 @@ test("targets: stop task editor targets are at least 44 px under a coarse pointe
   expect(list.some(target => /input/i.test(target.label))).toBe(true);
   expectTargetSize(list, PLANNER_COARSE_MIN);
 });
+
+test("targets: Earth composer controls are at least 32 px (package 36)", async ({ page }) => {
+  await page.goto("/#/earth");
+  await page.getByLabel("Message", { exact: true }).fill("Test message");
+  await checkOpsTargets(page, '[data-screen="SCR-16"]');
+});
+
+test.fixme("needs N-130 and N-31: Earth delayed summary and available/waiting link states", async () => {});

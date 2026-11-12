@@ -43,7 +43,7 @@ export interface RouteEntry {
   /** True when the path takes a crew member (`/EV1`, `/EV2`). */
   crew?: true;
   /** Role of the Hab Core connection the route needs; null = none. */
-  role: "ops" | "eva" | "hud" | null;
+  role: "ops" | "eva" | "hud" | "earth" | null;
 }
 
 /** 03 §A, in the order it lists them. */
@@ -57,7 +57,7 @@ export const ROUTES: readonly RouteEntry[] = [
   { id: "report", path: "report", screen: "SCR-17", mode: "print", role: null },
   { id: "eva", path: "eva", screen: "SCR-12", mode: "ops", crew: true, role: "eva" },
   { id: "hud", path: "hud", screen: "SCR-13", mode: "hud", crew: true, role: "hud" },
-  { id: "earth", path: "earth", screen: "SCR-16", mode: "ops", role: null },
+  { id: "earth", path: "earth", screen: "SCR-16", mode: "ops", role: "earth" },
   { id: "presenter", path: "presenter", screen: "SCR-19", mode: "ops", role: null },
   { id: "sources", path: "sources", screen: "SCR-09", mode: "brief", role: null },
   { id: "replay", path: "replay", screen: "—", mode: "ops", role: null },
@@ -149,7 +149,7 @@ export function parseHash(hash: string): Route {
       return unknown(requested);
     }
   }
-  const role: Role | null = entry.role === "ops" ? "ops" : (entry.role === "eva" || entry.role === "hud") && crewId ? (`${entry.role}:${crewId}` as Role) : null;
+  const role: Role | null = (entry.role === "ops" || entry.role === "earth") ? entry.role : (entry.role === "eva" || entry.role === "hud") && crewId ? (`${entry.role}:${crewId}` as Role) : null;
   const route: Route = {
     id: entry.id,
     screen: entry.screen,
