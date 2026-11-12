@@ -195,6 +195,21 @@ describe("Hab Core web client (T20.05 → T20.06)", () => {
     expect(c.events().map((e) => e.seq)).toEqual([2, 420]);
   });
 
+  it("a SNAPSHOT with a new session_id also resets last_seq: the next HELLO carries the new session's seq, not the old one (T32.15 client half)", () => {
+    const c = start();
+    latest().open();
+    latest().receive(snapshot, wsFixtures["radiation-alert"][0]); // s-0007, last event 420
+    expect(c.lastSeq()).toBe(420);
+
+    latest().receive({ ...snapshot, seq: 1, session: { ...snapshot.session, session_id: "s-0008", last_seq: 1 } });
+    expect(c.lastSeq()).toBe(1);
+
+    latest().drop();
+    vi.advanceTimersByTime(500);
+    latest().open();
+    expect(latest().sent[0]).toMatchObject({ type: "HELLO", last_seq: 1 });
+  });
+
   it("a SNAPSHOT of the same session on reconnect keeps the feed (only a different session_id resets it)", () => {
     const c = start();
     latest().open();

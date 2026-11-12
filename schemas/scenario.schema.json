@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/tashobi02/CheesySpace-NasaSpaceAppChallenge/schemas/scenario.schema.json",
-  "title": "Scenario (docs/specs/05 §C.2 Scenario, ScenarioEvent)",
-  "$comment": "plan must validate against plan-export.schema.json and its plan_hash must verify; table checksums are checked by the Hab Core loader (05 §E.7).",
+  "title": "Scenario (docs/specs/05 §C.2 Scenario, ScenarioEvent, EventLibraryEntry, TaskLibraryEntry)",
+  "$comment": "plan must validate against plan-export.schema.json and its plan_hash must verify; table checksums are checked by the Hab Core loader (05 §E.7). v2 (2026-11-12, backend package 01b): mission_setup and event_library are required; plan and events are optional (a plan-less live session); stop_tasks requires plan. Cross-field rules belong to the loader (backend package 04), not to this schema: crew_count equals the number of crew entries, a vehicle ParamSet when vehicle_available, unique ids, simulated-input offsets, sample times, 1-4 tasks per POI and stop, any digit in a task text requires source_id, poi_id resolves to a POI of the Site.",
   "type": "object",
   "$defs": {
     "Provenance": {
@@ -127,6 +127,197 @@
         "text"
       ],
       "additionalProperties": false
+    },
+    "MissionSetup": {
+      "type": "object",
+      "$comment": "05 Scenario mission_setup (2026-11-10, Proposed); every key optional; ranges from 02 §E.3 (inclusive at both ends). The defaults of the setup screen.",
+      "properties": {
+        "hab_candidate_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "$comment": "FK -> HabCandidate of the Site; resolved by the loader"
+        },
+        "crew_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2
+        },
+        "vehicle_available": {
+          "type": "boolean"
+        },
+        "vehicle_param_set": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "solar_phase": {
+          "enum": [
+            "max",
+            "min"
+          ]
+        },
+        "max_haven_min": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 120
+        }
+      },
+      "additionalProperties": false
+    },
+    "EventLibraryInput": {
+      "type": "object",
+      "$comment": "05 EventLibraryEntry inputs: as ScenarioEvent but timed at t0 + t_offset_s",
+      "properties": {
+        "input_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "t_offset_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "kind": {
+          "enum": [
+            "EARTH_MESSAGE",
+            "DONKI_RECORD",
+            "ADVISORY",
+            "INJECT"
+          ]
+        },
+        "payload": {
+          "type": "object"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "source_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "input_id",
+        "t_offset_s",
+        "kind",
+        "payload",
+        "provenance"
+      ],
+      "if": {
+        "properties": {
+          "provenance": {
+            "not": {
+              "const": "simulated"
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "source_id"
+        ]
+      },
+      "additionalProperties": false
+    },
+    "EventLibraryEntry": {
+      "type": "object",
+      "$comment": "05 EventLibraryEntry (2026-11-10, Proposed): started on demand by START_EVENT",
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "SPACE_WEATHER"
+        },
+        "dose_series": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "key in tables; the loader checks it exists"
+        },
+        "series_start_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "const": "replayed"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EventLibraryInput"
+          }
+        }
+      },
+      "required": [
+        "event_id",
+        "title",
+        "kind",
+        "dose_series",
+        "series_start_utc",
+        "label",
+        "source_id",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "TaskLibraryEntry": {
+      "type": "object",
+      "$comment": "05 TaskLibraryEntry (2026-11-10, Proposed): a suggested task for a POI (FR-54)",
+      "properties": {
+        "library_task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "poi_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "crew_id": {
+          "enum": [
+            "EV1",
+            "EV2",
+            null
+          ]
+        },
+        "kind": {
+          "enum": [
+            "observe",
+            "image",
+            "sample",
+            "measure",
+            "deploy",
+            "other"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "source_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "library_task_id",
+        "poi_id",
+        "crew_id",
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false
     }
   },
   "properties": {
@@ -159,7 +350,7 @@
     },
     "plan": {
       "type": "object",
-      "$comment": "PlanExport — validate with plan-export.schema.json"
+      "$comment": "PlanExport — validate with plan-export.schema.json. Optional since v2: a live session starts plan-less and the plan arrives with PUBLISH_PLAN"
     },
     "stop_tasks": {
       "type": "array",
@@ -167,6 +358,9 @@
       "items": {
         "$ref": "#/$defs/StopTaskSeed"
       }
+    },
+    "mission_setup": {
+      "$ref": "#/$defs/MissionSetup"
     },
     "crew": {
       "type": "array",
@@ -242,7 +436,8 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/ScenarioEvent"
-      }
+      },
+      "$comment": "Optional since v2: inputs tied to a library event move into event_library; events keeps any other scheduled input"
     },
     "tables": {
       "type": "object",
@@ -265,6 +460,20 @@
       "items": {
         "type": "string"
       }
+    },
+    "event_library": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/EventLibraryEntry"
+      }
+    },
+    "task_library": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TaskLibraryEntry"
+      },
+      "$comment": "Optional (05 Scenario, FR-54)"
     }
   },
   "required": [
@@ -275,13 +484,18 @@
     "data_version",
     "seed",
     "start_utc",
-    "plan",
+    "mission_setup",
     "crew",
     "vehicles",
     "param_sets",
-    "events",
+    "event_library",
     "tables",
     "source_ids"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "dependentRequired": {
+    "stop_tasks": [
+      "plan"
+    ]
+  }
 }

@@ -189,6 +189,8 @@ AOI (Proposed): a ~6 × 6 km box around Curiosity's 2025 boxwork campaign, **ins
 | Attribution | "NASA/JPL-Caltech/University of Arizona; USGS Astrogeology (Calef & Parker 2016)"; use constraints: none, credit authors — **Confirmed** |
 | Fallback | Mars Trek WMTS HiRISE tiles cached pre-event (product-specific endpoint from GetCapabilities) |
 
+*Ortho outside the source mask* *(2026-11-12)*: the ortho stays JPEG without alpha. Tiles are clipped to `aoi.extent_m`, and pixels outside the source mask are written as the 04 map background colour; the layer record's `limitations` says so, and the manifest has no coverage polygon field *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-18)*
+
 #### L2 — Topography: elevation, hillshade (FR-02, FR-03, FR-08)
 
 | Field | Value |
@@ -352,6 +354,8 @@ D.1–D.6 *(v1, unchanged)*; D.7 revised; D.8–D.16 new. All functions live in 
 | Along-leg distances | *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-082)* `Leg.profile.dist_m` and `Warning.from_m`/`to_m` are along-leg; the UI maps them to positions by interpolating `Leg.geometry` in projected metres |
 | Known limitations | Grid-aligned paths (8 directions); micro-relief below effective DTM resolution invisible; rocks/boulders not mapped; caution multipliers are judgement, not physiology |
 
+A no-data slope code (255) is impassable for the suit and for the vehicle, in addition to the rule in the Impassable row *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-57)*
+
 ### D.3 Walking time model (FR-09)
 
 Reference values (v₀ = 3.3 km/h), computed:
@@ -403,6 +407,7 @@ Definitions (all times in seconds of sim time):
 - `T_hab(x)`: suited walking time from cell *x* to the hab entrance cell = **reverse Dijkstra** from the hab over the suited cost (v1 D.2 step cost, but with gradient sign flipped because travel is *toward* the hab). One full-grid field per plan/scenario (data or limits change ⇒ recompute).
 - `T_veh(x)`: pressurized-rover driving time from its current position to *x* (forward Dijkstra over the vehicle cost, §D.9). Computed on a **10 m** aggregate grid (360 k cells for 6 × 6 km) for speed.
 - `t_ingress`: 5 min to enter hab or vehicle (**Assumed**; suitport-style).
+  - Hab ingress lives in the suit ParamSet as `hab_ingress_min` with this value (`t_ingress`, `assumed`, source "02 §D.8"); no constant in code carries it. *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-57)*
 
 **Live (exact, 1–2 crew positions):**
 
@@ -446,6 +451,7 @@ output: q*, eta_crew = T_c(q*), eta_vehicle = T_v(q*), paths by back-pointers
 ```
 
 - If no candidate exists within L: return `NO_RENDEZVOUS` and fall back to hab.
+- Two crew, driving: the second meeting of a two-crew summon is driven after the first crew member is sheltered; the vehicle then drives to the second point of the pair and shelters the second member. *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-58)*
 - Two crew: run with each crew member, then choose the **vehicle path visiting both** in the order that minimises the later arrival (2 permutations — exhaustive, deterministic).
 - Validation: crew on a ridge the vehicle cannot climb ⇒ rendezvous at the ridge foot; vehicle blocked entirely ⇒ `NO_RENDEZVOUS`.
 
@@ -499,6 +505,8 @@ Precomputed table rows (1 min): `t_utc, light_time_s, sep_angle_deg, earth_elev_
 | Broadcast | State deltas coalesced to ≤ 10 Hz per client; semantic events sent immediately |
 | Determinism | No wall-clock, no unseeded randomness; floating point kept in compute functions with fixed iteration order |
 
+**Module order** *(2026-11-12)*: after the per-crew step, the engine runs its modules in this order: vehicles, rovers, conditions, earth, tasks, then the fixed alert order above (radiation, consumables, haven time, comm link, buddy distance), and the contingency module last. Motion runs before link and haven evaluation so alerts see current positions *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-70)*
+
 ### D.15 Contingency options (FR-44)
 
 For each crew member on alert: candidate actions = {abort to hab, vehicle rendezvous, terrain refuge (T2), continue with remaining stops skipped}. For each: ETA to shelter, expected event dose until sheltered (D.13 with the projected path), stops dropped, constraint violations. Rank by expected dose, then ETA. Shown to EVA and ops; executing one emits `PLAN_REVISED` with a new `plan_revision` and, when stops or the route change, the revised waypoints and legs, which every view's map then shows *(decided 2026-11-07)*.
@@ -513,13 +521,17 @@ Behaviour of the presenter commands (§E.4). Command and event names and payload
 
 | Command | Behaviour |
 | --- | --- |
-| `JUMP_NEXT_STOP {}` | Runs the engine tick (§D.14) repeatedly, without waiting for wall-clock time, until every crew member on EVA has arrived at the next stop. The **next stop** is the lowest-index stop of the current plan that not every crew member on EVA has reached yet (a stop is reached by a crew member when `ARRIVED_STOP` is logged for them; Proposed: one target for the crew, not one per crew member). Crew keep walking along the planned route; consumables, dose, dwell, alerts, link state and task auto-completion accrue normally, and every event raised on the way is logged at its own sim second. It is a fast-forward, not a teleport. It also ends when a `PLAN_REVISED`, `EVA_ENDED` or `CREW_SHELTERED` event is logged, and at the first `ALERT_RAISED` of level `warning` (`TODO(decision)`, 01 U-63). The speed and pause state of the clock are unchanged after it. Rejected with `INVALID` when no EVA is running or no stop remains, and with `BUSY` while a warning-level alert is latched (raised and not yet cleared). Logs `CLOCK_JUMPED {reason: "next_stop", from_sim_time, to_sim_time, stop_id, ended_by: "arrival" \| "alert" \| "plan_revised" \| "eva_ended" \| "sheltered"}` |
+| `JUMP_NEXT_STOP {}` | Runs the engine tick (§D.14) repeatedly, without waiting for wall-clock time, until every crew member on EVA has arrived at the next stop. The **next stop** is the lowest-index stop of the current plan that not every crew member on EVA has reached yet (a stop is reached by a crew member when `ARRIVED_STOP` is logged for them; Proposed: one target for the crew, not one per crew member). Crew keep walking along the planned route; consumables, dose, dwell, alerts, link state and task auto-completion accrue normally, and every event raised on the way is logged at its own sim second. It is a fast-forward, not a teleport. It also ends when a `PLAN_REVISED`, `EVA_ENDED` or `CREW_SHELTERED` event is logged, and at the first `ALERT_RAISED` of level `warning` (01 U-63, resolved *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-97)*). The speed and pause state of the clock are unchanged after it. Rejected with `INVALID` when no EVA is running or no stop remains, and with `BUSY` while a warning-level alert is latched (raised and not yet cleared). Logs `CLOCK_JUMPED {reason: "next_stop", from_sim_time, to_sim_time, stop_id, ended_by: "arrival" \| "alert" \| "plan_revised" \| "eva_ended" \| "sheltered"}` |
 | `START_EVENT {event_id}` | Starts a library event (05 Scenario `event_library`) at the current sim time `t0`. For the storm: the dose rate at sim time `t ≥ t0` is the recorded series sampled at `series_start_utc + (t − t0)` (binary search, step-hold, 05 §E.7); before `t0` it is `DoseSeries.background_rate`. The event's scheduled inputs (DONKI records, Earth messages) fire at `t0 + t_offset_s`. Everything else reads sim time directly: Mars24 sun and LTST (§D.5), light time and relay passes (§D.12), so they stay true whenever the press happens. Rejected with `INVALID` for an unknown `event_id` and `BUSY` if that event already started in this session. Logs `EVENT_STARTED {event_id, t0_sim_time, series_start_utc, source_id}`; the app labels the curve `replayed — Curiosity RAD measurements` and Sources & Methods says it is time-shifted |
 | `RESET_SESSION {}` | Appends `SESSION_RESET` to the current log, then starts a new session `s-<n+1>` of the same scenario and seed in `LOADED`, as `LOAD_SCENARIO` does: clock at the scenario start, mission-setup defaults from the scenario, library events available again. The earlier log stays on disk. Clients stay connected and receive a fresh `SNAPSHOT` |
 | `SELECT_HAB_SITE {candidate_id}` | **Ops only.** Allowed in `LOADED`, before a plan is published. Loads that candidate's `comm_hab` grid and hab mast (05 Site `hab_candidates`) and recomputes the haven fields (§D.8; NFR-02). Logs `SITE_SELECTED {candidate_id}`. A candidate is chosen from the manifest list only; free placement is out of scope (01 §C.4) |
 | `SET_MISSION_SETUP {…}` | **Ops only.** Allowed in `LOADED`. Sets the Proposed mission settings of 01 FR-53 (`crew_count`, `vehicle_available`, `vehicle_param_set`, `solar_phase`, `max_haven_min`; ranges as §E.3). They are the defaults the planner's scenario parameters start from; once a plan is published, the plan's values win and a later `SET_MISSION_SETUP` does not change that plan. Rejected with `INVALID` when `crew_count` differs from the number of scenario `crew[]` entries, or when `vehicle_available` is true and no `vehicle_param_set` is given or already set. Logs `MISSION_SETUP_SET` |
 
-**Headless run.** `npm run hab:replay` accepts a recorded command list beside the scenario (`TODO(verify)`: file name and flag, T22.x) and applies the commands as the named role in **list order** (the order of the log `seq`), not sorted by `sim_time`. A command recorded at sim second `t` is applied before the tick at `t`. A list covers **one session**: a live run with `RESET_SESSION` is exported as one list per session, split at the reset. A live session can export the list it ran from its log. The reference run (01 §E.1) is one such list.
+**Series start and simulated inputs** *(2026-11-12)*: `series_start_utc` is the time of the last sample whose rate is at or below `background_rate` before the first sample whose compute `triggerState` (with the scenario's alert ParamSet) is not nominal; the scenario builder prints the rule and the value *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-98)* A simulated input of an event takes the `t_offset_s` of the replayed record it answers (for example the Earth forecast takes the offset of the DONKI record it reports); the pipeline writes the pairing in the input's `payload.answers`, and a simulated input that answers no record is not allowed in the library *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-99)*
+
+**Headless run.** `npm run hab:replay` accepts a recorded command list (`--commands <file>`, a `CommandList`, below *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-93)*) and applies the commands as the named role in **list order** (the order of the log `seq`), not sorted by `sim_time`. A command recorded at sim second `t` is applied before the tick at `t`. A list covers **one session**: a live run with `RESET_SESSION` is exported as one list per session, split at the reset. A live session can export the list it ran from its log. The reference run (01 §E.1) is one such list.
+
+**Command list file** *(2026-11-12)*: a live session writes `commands.jsonl` beside `session.jsonl` (05 Command journal; not part of `log_hash`); export is that file split per session. The reference list is `scenarios/storm-sol4190/reference_commands.json` with the shape `{"$comment", "scenario_id", "seed", "commands": [{"sim_time", "role", "kind", "args"}]}` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-93)*
 
 **Time-shift caveat.** Shifting the series changes the UTC at which the real event is replayed. Its shape, integral and the trigger rule (§D.13) are unchanged. Earth light time and the relay pass at the shifted time come from the tables at the new time, so values such as those in 01 §E.1 hold for the reference run only.
 
@@ -544,6 +556,8 @@ Boot validation: manifest `schema_version` must equal the app's expected major v
 ### E.2 Worker message protocol
 
 All requests carry `request_id`; the worker processes only the **latest** `plan_revision`. A newer request cancels an older one (cooperative check every 50,000 expansions).
+
+**Grid delivery and cancellation** *(2026-11-12)*: the main thread sends `LOAD_GRID` (the grid arrays transferred as `ArrayBuffer`s, with the grid meta including the working-projection `proj4`), and the worker answers `GRID_LOADED` or `ERROR`; until then every request is answered `GRID_NOT_LOADED` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-40)* Cancellation is cooperative: the search runs as an async loop that yields to the event loop every 50,000 expansions, and a newer `COMPUTE_PLAN` sets the cancel flag the search reads; the cancelled request is answered `ERROR` `CANCELLED`. No `SharedArrayBuffer` is used, because it needs cross-origin isolation, which GitHub Pages cannot give *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-41)*
 
 #### Request/response — sample point
 
@@ -644,6 +658,8 @@ Error codes: `GRID_NOT_LOADED`, `INVALID_INPUT`, `TIMEOUT`, `CANCELLED`, `INTERN
 
 Validation runs in the UI (inline messages) **and** in the worker and Hab Core (defence in depth → `INVALID_INPUT`).
 
+Ranges are inclusive at both ends. *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-52)*
+
 ### E.4 Authentication and roles
 
 No accounts. A client joins with a **role** and a display name; the Hab Core trusts the LAN (the router has no WAN and a WPA2 password). Role permissions (`presenter` added 2026-11-10, **Proposed**):
@@ -682,6 +698,9 @@ The presenter panel is read-only for crew actions: a presenter cannot approve op
 | `GET /api/log?after=<seq>` | Event log page (JSON lines) |
 | `GET /api/report` | Post-EVA report data (FR-46) |
 | `GET /api/join-qr?role=` | SVG QR code for the join URL |
+| `GET /api/session/summary` *(2026-11-12)* | `{session_id, scenario_id, status, sim_time, speed, paused, eva_start_utc \| null, hab_candidate_id \| null, plan_published}`; `GET /api/session` stays the full snapshot *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-112)* |
+| `GET /api/relay-coverage/<vehicle_id>` *(2026-11-12)* | u8 grid in the `comm_hab` layout for a utility rover parked as `RELAY`; 404 otherwise; `ETag` is `Vehicle.relay_coverage_rev` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-112)* |
+| `GET /api/log` *(2026-11-12)* | Without `after`: the whole current log as JSON lines; `?download=1` adds `Content-Disposition: attachment; filename=session-<id>.jsonl` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-112)* |
 
 ### E.6 WebSocket protocol (`/ws`)
 
@@ -699,6 +718,17 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
  "vehicles":[{"vehicle_id":"PR1","kind":"pressurized_rover","x_m":-1800,"y_m":-1500,"state":"PARKED"}],
  "alerts":[],"options":[],"tasks":[],"earth":{"light_time_s":"…","next_pass_utc":"…","blackout":false,"queue":[]},"clients":[],
  "provenance":{"crew.o2_frac":"simulated","crew.haven.minutes":"modelled","earth.light_time_s":"derived"}}
+```
+
+`SNAPSHOT` additions *(2026-11-12)*: the fields below are added to the message above (05 Snapshot additions, Crew). *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-90, BD-104, BD-75, BD-95, BD-103)*
+
+```json
+{"task_library":[{"library_task_id":"…","poi_id":"…","crew_id":null,"kind":"image","text":"…"}],
+ "event_library":[{"event_id":"storm","title":"…","kind":"SPACE_WEATHER","label":"…","source_id":"rad-sol4190","provenance":"replayed"}],
+ "next_stop_target":{"stop_id":"wp-2","stop_index":1},
+ "conditions":{"ltst":"…","sun_elevation_deg":"…","sol":"…","dose_rate_background_ugy_h":"…","dose_rate_event_ugy_h":"…","event_series_utc":null,"source_ids":{},"provenance":{}},
+ "crew":[{"crew_id":"EV1","o2_remaining_min":"…","next_stop_bearing_deg":"…","next_stop_distance_m":"…","next_stop_eta_s":"…",
+          "link_hops":1,"link_via":"direct","last_linked_sim_time":"…"}]}
 ```
 
 ```json
@@ -721,6 +751,16 @@ Every message: `{"v": 1, "type": "...", ...}`. Server messages carry `seq` (mono
 ```json
 {"v":1,"type":"COMMAND_RESULT","command_id":"k-0091","ok":true,"event_seq":421}
 ```
+
+`PUBLISH_PLAN` carries the tasks beside the plan *(2026-11-12)*: *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-91)*
+
+```json
+{"v":1,"type":"COMMAND","command_id":"k-0010","role":"planner",
+ "command":{"kind":"PUBLISH_PLAN","args":{"plan":"<PlanExport>",
+   "stop_tasks":[{"stop_id":"wp-2","crew_id":null,"kind":"image","text":"…"}]}}}
+```
+
+The Hab Core logs one `TASK_ADDED` per seed at publish (05 Command).
 
 ```json
 {"v":1,"type":"TAKEN_OVER","seq":430,"sim_time":"2024-05-20T13:14:00Z","role":"eva:EV1"}
@@ -869,11 +909,11 @@ The accepted reversal is logged as `TASK_UPDATED` with `{task_id, stop_id, crew_
 | D-12 | Hab Core language | Node.js + TS unless TS capacity < 2 people (U-13) |
 | D-14 | Web UI library | React + Vite chosen 2026-11-06 by the product & systems lead ([ADR-012](../decisions/ADR-012-react-vite-web-app.md)); kickoff sign-off |
 | U-01 | DEM quality inside AOI | **Resolved 2026-11-07** on the data lead's method ([feasibility.md](../ops/feasibility.md#dem-quality-check-u-01-a-01), [ADR-001](../decisions/ADR-001-site-selection.md#outcome-2026-11-07)); TASK-01 (v1) |
-| U-02 | Elevation datum wording | TASK-01 (v1) |
-| U-03 | TI "loose fines" threshold | TASK-04 (v1) |
-| U-04 | Traverse source | **Proposed 2026-11-09**: PDS PLACES, data lead to confirm ([DataSource](../../pipeline/sites/gale_boxwork/sources/pds-msl-places-localizations.json), [T04.01 row](../tasks/status.md)); TASK-04 (v1) |
+| U-02 | Elevation datum wording | TASK-01 (v1). **Resolved 2026-11-12**: taken from the PDS3 label recorded in [dem-label.md](../ops/feasibility/dem-label.md) *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-27)* |
+| U-03 | TI "loose fines" threshold | TASK-04 (v1). **Resolved 10 Nov** in [ti-threshold.md](../ops/ti-threshold.md); recorded 2026-11-12 *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-30)* |
+| U-04 | Traverse source | **Proposed 2026-11-09**: PDS PLACES, data lead to confirm ([DataSource](../../pipeline/sites/gale_boxwork/sources/pds-msl-places-localizations.json), [T04.01 row](../tasks/status.md)); TASK-04 (v1). **Resolved 2026-11-12**: PDS PLACES, confirmed by the data lead on 10 Nov *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-30)* |
 | U-05 | CRISM coverage of AOI | **Resolved 2026-11-07** ([feasibility.md](../ops/feasibility.md#crism-coverage-u-05)); TASK-01 (v1) |
 | U-15 | RAD sol-4190 time series — sources found 2026-11-05 ([ops/data-downloads.md](../ops/data-downloads.md) D8–D9); coverage of sol 4190 to verify on download | TASK-04; fallbacks in §C.5 L9 |
-| U-18 | Exact SPICE kernel files covering May 2024 for MRO, MAVEN, TGO | TASK-04 |
+| U-18 | Exact SPICE kernel files covering May 2024 for MRO, MAVEN, TGO | TASK-04. **Resolved 2026-11-12**: `pipeline/spice/kernels.lock.json` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-30)* |
 | U-19 | Shielding factors (A-11), alert threshold k, relay min elevation, conjunction angle, O₂ alert margins `o2_caution_margin` / `o2_warning_margin` / `o2_clear_margin` (added 2026-11-07) | Keep as labelled assumptions; ask mentor; cite any found value |
 | U-20 | Pressurized rover speed/slope values (D.9) | **Partly resolved 2026-11-04**: speed 10 km/h, range 125 km, 2 crew (4 emergency) and suitport ingress taken from the NASA SEV concept (NASA fact sheet FS-2011-08-045-JSC; Wikipedia "Space Exploration Vehicle"). Slope limit and ingress time remain assumptions |

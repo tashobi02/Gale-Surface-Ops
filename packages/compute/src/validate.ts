@@ -257,6 +257,9 @@ export function validateWorkerRequest(request: WorkerRequest, grid: LoadedGrid):
 
   if (!nonempty(request.request_id)) add("request_id", "request_id must be a nonempty string", request.request_id);
 
+  // LOAD_GRID and VALIDATE_MANUAL_LEG (protocol v0.2) are checked by the worker adapter (backend packages 14, 29), not here.
+  if (request.type === "LOAD_GRID" || request.type === "VALIDATE_MANUAL_LEG") return errors;
+
   if (request.type === "SAMPLE_POINT") {
     for (const field of ["x_m", "y_m", "snap_radius_m"] as const) {
       if (!finite(request[field])) add(field, `${field} must be finite`, request[field]);

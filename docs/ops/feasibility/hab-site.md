@@ -7,6 +7,10 @@
 | **Status** | Chosen by the data lead; a second person's check on the hillshade is still to do |
 | **Related** | [AOI bounds](aoi.md) · [DEM quality](dem-quality.md) · [01 FR-39](../../specs/01_Product_Requirements_Document.md#fr-39--time-to-safe-haven-t0t1-m) · [01 FR-42](../../specs/01_Product_Requirements_Document.md#fr-42--comm-coverage-and-comm-shadows-t1-m) · [01 FR-45](../../specs/01_Product_Requirements_Document.md#fr-45--exploration-zone-layer-t0-m) |
 
+## Decision (12 Nov)
+
+The hab site is the first choice, candidate `hab-first` (rank 1 in `pipeline/sites/gale_boxwork/hab_candidates.json`); its `hab_mast` and `default_start` are the scenario defaults, and the alternative (`hab-alternative`) stays selectable through `SELECT_HAB_SITE`. The pending hillshade check by a second person is replaced by the automated passability check of the pipeline build (work package 23 of the backend plan). *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-10)*
+
 ## Result
 
 | | First choice | Alternative |

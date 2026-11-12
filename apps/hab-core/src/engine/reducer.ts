@@ -27,7 +27,9 @@ import type {
   EarthMessage,
   LinkState,
   LogEvent,
+  MissionSetup,
   PlanExport,
+  QueuedRoverTask,
   Role,
   Session,
   StopTask,
@@ -180,7 +182,16 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
     links: [],
     earth: { light_time_s: firstEarthRow?.light_time_s ?? 0, next_pass_utc: null, blackout: false },
     earthQueue: [],
-    conditions: { ltst: null, sun_elevation_deg: null, dose_rate_background_ugy_h: null, dose_rate_event_ugy_h: null, provenance: {} },
+    conditions: {
+      ltst: null,
+      sun_elevation_deg: null,
+      dose_rate_background_ugy_h: null,
+      dose_rate_event_ugy_h: null,
+      event_series_utc: null,
+      sol: null,
+      source_ids: {},
+      provenance: {},
+    },
     motion: {},
   };
 }
@@ -254,8 +265,25 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
         ...next,
         vehicles: updateVehicle(next.vehicles, d.vehicle_id, (v): Partial<Vehicle> => {
           if (d.task) {
+            // A task that carries `task_id` is a utility-rover task (BD-102): the first one becomes the head, the
+            // next ones wait in `queue` (FIFO) with eta and battery null until the tick fills them.
+            if (d.task_id !== undefined && v.state === "TASKED" && v.task !== null) {
+              const queued: QueuedRoverTask = {
+                task_id: d.task_id,
+                kind: d.task,
+                target: d.target ? { ...d.target } : null,
+                ...(d.item === undefined ? {} : { item: d.item }),
+                eta_s: null,
+                battery_wh_after: null,
+              };
+              return { queue: [...(v.queue ?? []), queued] };
+            }
             const target = d.target ?? { x_m: v.x_m, y_m: v.y_m };
-            return { state: "TASKED", task: { kind: d.task, target: { ...target }, ...(d.item === undefined ? {} : { item: d.item }) } };
+            return {
+              state: "TASKED",
+              task: { kind: d.task, target: { ...target }, ...(d.item === undefined ? {} : { item: d.item }) },
+              ...(d.task_id === undefined ? {} : { task_id: d.task_id, queue: v.queue ?? [] }),
+            };
           }
           const option = state.options.find((o) => o.option_id === d.option_id);
           const rv = d.rendezvous ?? null;
@@ -274,7 +302,29 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
       };
     }
     case "VEHICLE_ARRIVED":
-      return { ...next, vehicles: updateVehicle(next.vehicles, e.data.vehicle_id, () => ({ state: "ARRIVED", x_m: e.data.x_m, y_m: e.data.y_m, eta_s: 0 })) };
+      return {
+        ...next,
+        vehicles: updateVehicle(next.vehicles, e.data.vehicle_id, (v): Partial<Vehicle> => {
+          const arrived: Partial<Vehicle> = { state: "ARRIVED", x_m: e.data.x_m, y_m: e.data.y_m, eta_s: 0 };
+          if (v.kind !== "utility_rover") return arrived;
+          // The head is done (BD-102): the next queued task, if any, becomes the head.
+          const [following, ...rest] = v.queue ?? [];
+          if (following === undefined) return { ...arrived, task_id: null, queue: [] };
+          return {
+            state: "TASKED",
+            x_m: e.data.x_m,
+            y_m: e.data.y_m,
+            eta_s: following.eta_s === null ? null : Math.ceil(following.eta_s),
+            task: {
+              kind: following.kind,
+              target: following.target ?? { x_m: e.data.x_m, y_m: e.data.y_m },
+              ...(following.item === undefined ? {} : { item: following.item }),
+            },
+            task_id: following.task_id,
+            queue: rest,
+          };
+        }),
+      };
     case "CREW_SHELTERED":
       return {
         ...next,
@@ -308,6 +358,19 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
     case "TASK_UPDATED":
     case "TASK_DROPPED":
       return reduceTaskEvent(next, event);
+    case "CLOCK_JUMPED":
+    case "SESSION_RESET":
+      return next; // only seq and sim time advance (05 LogEvent; the jump's own events were reduced as they were logged)
+    case "SITE_SELECTED":
+      return { ...next, session: { ...next.session, hab_candidate_id: e.data.candidate_id } };
+    case "MISSION_SETUP_SET":
+      // The keys set are merged; a session that has no settings yet keeps just those keys (work package 04 sets the full object at load).
+      return { ...next, session: { ...next.session, mission_setup: { ...next.session.mission_setup, ...e.data } as MissionSetup } };
+    case "EVENT_STARTED":
+      return {
+        ...next,
+        session: { ...next.session, started_events: [...(next.session.started_events ?? []), { event_id: e.data.event_id, t0_sim_time: e.data.t0_sim_time }] },
+      };
     case "ROLE_TAKEN_OVER":
       return next; // connection bookkeeping (02 §E.4): seq and sim time advance, nothing else changes
     default:

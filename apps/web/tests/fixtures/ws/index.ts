@@ -1,5 +1,6 @@
 /**
- * Mock WebSocket message sequences for the killer-demo beats (T20.02, fixture F7; 01 §E.1, 03 §C.6).
+ * Mock WebSocket message sequences for the killer-demo beats (T20.02, fixture F7; 01 §E.1, 03 §C.6) and, since
+ * protocol v0.2, the live-session beats (T32.03; 02 §D.17).
  * MOCK DATA for tests and mock-mode screens only: it never ships and the demo never loads it.
  * Value sources: README.md in this folder (02 §E.6 examples or placeholders).
  *
@@ -18,6 +19,16 @@ export const BEATS = [
   "comm-shadow",
   "link-lost-restored",
   "stop-task-ticked",
+  // Live session (protocol v0.2, backend package 01b; 02 §D.17)
+  "live-loaded",
+  "site-selected",
+  "mission-setup-set",
+  "jump-next-stop",
+  "event-started",
+  "session-reset",
+  "command-rejected-live",
+  "crew-live-delta",
+  "rover-queue",
 ] as const;
 export type Beat = (typeof BEATS)[number];
 

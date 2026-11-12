@@ -1,0 +1,34 @@
+[
+  {
+    "v": 1,
+    "type": "STATE_DELTA",
+    "seq": 470,
+    "sim_time": "",
+    "changes": [
+      {
+        "path": "crew/EV1/o2_remaining_min",
+        "value": 0
+      },
+      {
+        "path": "crew/EV1/next_stop_bearing_deg",
+        "value": 0
+      },
+      {
+        "path": "crew/EV1/next_stop_distance_m",
+        "value": 0
+      },
+      {
+        "path": "crew/EV1/next_stop_eta_s",
+        "value": 0
+      },
+      {
+        "path": "crew/EV1/link_hops",
+        "value": 1
+      },
+      {
+        "path": "crew/EV1/link_via",
+        "value": "direct"
+      }
+    ]
+  }
+]

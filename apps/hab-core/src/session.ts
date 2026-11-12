@@ -75,6 +75,20 @@ const SNAPSHOT_PROVENANCE: ProvenanceMap = {
   "vehicles.y_m": "simulated",
   "vehicles.eta_s": "modelled",
   "earth.light_time_s": "derived",
+  // Protocol v0.2 (contract §4, §5): a view never computes or defaults these; null renders as "—".
+  "crew.o2_remaining_min": "simulated",
+  "crew.next_stop_bearing_deg": "derived",
+  "crew.next_stop_distance_m": "derived",
+  "crew.next_stop_eta_s": "modelled",
+  "crew.link_hops": "simulated",
+  "crew.link_via": "simulated",
+  "vehicles.queue.eta_s": "modelled",
+  "vehicles.queue.battery_wh_after": "modelled",
+  "conditions.ltst": "derived",
+  "conditions.sun_elevation_deg": "derived",
+  "conditions.sol": "derived",
+  "conditions.dose_rate_background_ugy_h": "replayed",
+  "conditions.dose_rate_event_ugy_h": "replayed",
 };
 
 /** A step limit for JUMP_NEXT_EVENT when no event comes: the plan's maximum EVA duration. */
@@ -128,6 +142,12 @@ class Session implements SessionHandle {
       earth: { ...s.earth, queue: s.earthQueue },
       clients,
       provenance: SNAPSHOT_PROVENANCE,
+      conditions: s.conditions,
+      task_library: this.scenario.scenario.task_library ?? [],
+      // Scenario files written before the live-session shape (backend 01b, 25) have no event_library: [] until then.
+      event_library: (this.scenario.scenario.event_library ?? []).map(({ event_id, title, kind, label, source_id, provenance }) => ({ event_id, title, kind, label, source_id, provenance })),
+      // Next stop target: computed by work package 06 (BD-104); null until then.
+      next_stop_target: null,
     };
   }
 

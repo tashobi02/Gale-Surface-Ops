@@ -380,7 +380,7 @@ describe("PostEvaReport builder (01 FR-46, 05 PostEvaReport)", () => {
     ]);
     // headline = highest individual (EV1), not a crew total and not 300 + 120.5
     expect(report.dose.headline).toEqual({ crew_id: "EV1", dose_event_ugy: 300, dose_event_unsheltered_ugy: 9000 });
-    expect(report.dose.provenance).toEqual({ per_crew: "simulated", headline: "derived" });
+    expect(report.dose.provenance).toEqual({ per_crew: "simulated", headline: "derived", planned_background_ugy: "modelled" }); // BD-76
     expect(report.dose).not.toHaveProperty("dose_event_ugy");
     // TODO(decision): a sourced planned-background result comes through the report/session contract; until
     // then the background dose is null. A rate hard-coded in the builder would be an invented number.

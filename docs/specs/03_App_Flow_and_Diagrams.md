@@ -611,5 +611,5 @@ stateDiagram-v2
 | --- | --- | --- |
 | U-06 | Should free placement be allowed in the demo, or POIs only? | Allow both; demo uses the scenario's precomputed plan |
 | U-07 | Tablet editing depth | View + stop add/delete only in MVP; drag on tablet if time permits — **resolved 2026-11-02** (01 Clarifications) |
-| U-28 | Do vehicle-rendezvous options need ops approval? | No (crew safety first); only "continue with skipped stops" does — confirm with team |
+| U-28 | Do vehicle-rendezvous options need ops approval? | No (crew safety first); only "continue with skipped stops" does — confirm with team. **Resolved 2026-11-12**: crew may summon without ops approval (`SUMMON_VEHICLE` by `eva:EVn`); `APPROVE_OPTION` is ops-only, as `PERMISSIONS` says *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-81)* |
 | U-29 | Should judges be able to join as EV2 from their own phone during judging? | Yes if the router allows guests; keep a spare phone. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-009)* Resolution: no guest join; the event is virtual (06 U-14) |

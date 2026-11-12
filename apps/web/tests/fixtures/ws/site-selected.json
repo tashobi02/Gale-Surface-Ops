@@ -1,0 +1,29 @@
+[
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 2,
+    "sim_time": "",
+    "event": {
+      "seq": 2,
+      "sim_time": "",
+      "kind": "SITE_SELECTED",
+      "actor": "ops",
+      "data": {
+        "candidate_id": "hab-alternative"
+      },
+      "provenance": {},
+      "command_ref": {
+        "client_id": "c-9b21",
+        "command_id": "k-0150"
+      }
+    }
+  },
+  {
+    "v": 1,
+    "type": "COMMAND_RESULT",
+    "command_id": "k-0150",
+    "ok": true,
+    "event_seq": 2
+  }
+]

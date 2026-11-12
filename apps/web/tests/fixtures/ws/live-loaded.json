@@ -1,0 +1,179 @@
+[
+  {
+    "v": 1,
+    "type": "SNAPSHOT",
+    "seq": 1,
+    "sim_time": "2024-05-20T13:05:00Z",
+    "session": {
+      "session_id": "s-0007",
+      "scenario_id": "storm-sol4190",
+      "data_version": "gale_boxwork-2026.11.08",
+      "seed": 4190,
+      "status": "LOADED",
+      "clock": {
+        "sim_time": "2024-05-20T13:05:00Z",
+        "speed": 1,
+        "paused": false
+      },
+      "plan_revision": 0,
+      "last_seq": 1,
+      "log_hash": "",
+      "hab_candidate_id": "hab-first",
+      "mission_setup": {
+        "crew_count": 2,
+        "vehicle_available": true,
+        "vehicle_param_set": "pr1-assumed",
+        "solar_phase": "max",
+        "max_haven_min": 30
+      },
+      "started_events": []
+    },
+    "plan": null,
+    "crew": [
+      {
+        "crew_id": "EV1",
+        "x_m": -1800,
+        "y_m": -1500,
+        "activity": "IN_HAB",
+        "stop_index": null,
+        "o2_frac": 1,
+        "eva_elapsed_s": 0,
+        "dose_event_ugy": 0,
+        "dose_event_unsheltered_ugy": 0,
+        "haven": {
+          "minutes": 0,
+          "kind": "hab",
+          "target_x_m": -1800,
+          "target_y_m": -1500
+        },
+        "linked": true,
+        "link_path": [
+          "EV1",
+          "HAB"
+        ],
+        "stale": false,
+        "o2_remaining_min": null,
+        "next_stop_bearing_deg": null,
+        "next_stop_distance_m": null,
+        "next_stop_eta_s": null,
+        "link_hops": 1,
+        "link_via": "direct",
+        "last_linked_sim_time": "2024-05-20T13:05:00Z"
+      },
+      {
+        "crew_id": "EV2",
+        "x_m": -1800,
+        "y_m": -1500,
+        "activity": "IN_HAB",
+        "stop_index": null,
+        "o2_frac": 1,
+        "eva_elapsed_s": 0,
+        "dose_event_ugy": 0,
+        "dose_event_unsheltered_ugy": 0,
+        "haven": {
+          "minutes": 0,
+          "kind": "hab",
+          "target_x_m": -1800,
+          "target_y_m": -1500
+        },
+        "linked": true,
+        "link_path": [
+          "EV2",
+          "HAB"
+        ],
+        "stale": false,
+        "o2_remaining_min": null,
+        "next_stop_bearing_deg": null,
+        "next_stop_distance_m": null,
+        "next_stop_eta_s": null,
+        "link_hops": 1,
+        "link_via": "direct",
+        "last_linked_sim_time": "2024-05-20T13:05:00Z"
+      }
+    ],
+    "vehicles": [
+      {
+        "vehicle_id": "PR1",
+        "kind": "pressurized_rover",
+        "param_set": "pr1-assumed",
+        "x_m": -1800,
+        "y_m": -1500,
+        "state": "PARKED",
+        "task": null,
+        "path": [],
+        "eta_s": null,
+        "battery_wh": null,
+        "task_id": null,
+        "queue": []
+      }
+    ],
+    "alerts": [],
+    "options": [],
+    "tasks": [],
+    "earth": {
+      "light_time_s": 0,
+      "next_pass_utc": null,
+      "blackout": false,
+      "queue": []
+    },
+    "clients": [],
+    "provenance": {
+      "crew.o2_frac": "simulated",
+      "crew.haven.minutes": "modelled",
+      "earth.light_time_s": "derived",
+      "crew.o2_remaining_min": "simulated",
+      "crew.next_stop_bearing_deg": "derived",
+      "crew.next_stop_distance_m": "derived",
+      "crew.next_stop_eta_s": "modelled",
+      "crew.link_hops": "simulated",
+      "crew.link_via": "simulated",
+      "vehicles.queue.eta_s": "modelled",
+      "vehicles.queue.battery_wh_after": "modelled",
+      "conditions.ltst": "derived",
+      "conditions.sun_elevation_deg": "derived",
+      "conditions.sol": "derived",
+      "conditions.dose_rate_background_ugy_h": "replayed",
+      "conditions.dose_rate_event_ugy_h": "replayed"
+    },
+    "conditions": {
+      "ltst": null,
+      "sun_elevation_deg": null,
+      "dose_rate_background_ugy_h": null,
+      "dose_rate_event_ugy_h": null,
+      "event_series_utc": null,
+      "sol": null,
+      "source_ids": {
+        "ltst": "mars24-allison-mcewen-2000",
+        "dose_rate_background_ugy_h": "rad-sol4190",
+        "dose_rate_event_ugy_h": "rad-sol4190"
+      },
+      "provenance": {
+        "ltst": "derived",
+        "sun_elevation_deg": "derived",
+        "sol": "derived",
+        "dose_rate_background_ugy_h": "replayed",
+        "dose_rate_event_ugy_h": "replayed"
+      }
+    },
+    "task_library": [
+      {
+        "library_task_id": "lt-boxwork-01",
+        "poi_id": "poi-boxwork-ridge",
+        "crew_id": "EV1",
+        "kind": "image",
+        "text": "Image the ridge crest"
+      }
+    ],
+    "event_library": [
+      {
+        "event_id": "storm",
+        "title": "Solar particle event",
+        "kind": "SPACE_WEATHER",
+        "label": "replayed — Curiosity RAD measurements",
+        "source_id": "rad-sol4190",
+        "provenance": "replayed"
+      }
+    ],
+    "next_stop_target": null
+  }
+]

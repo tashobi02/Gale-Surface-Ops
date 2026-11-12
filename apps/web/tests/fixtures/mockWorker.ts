@@ -91,6 +91,13 @@ export function handleMockWorkerMessage(
     return response;
   }
 
+  if (request.type === "LOAD_GRID") {
+    return { type: "GRID_LOADED", request_id: request.request_id, site_id: request.site_id, data_version: request.data_version };
+  }
+  if (request.type === "VALIDATE_MANUAL_LEG") {
+    return { type: "ERROR", request_id: request.request_id, code: "INVALID_INPUT", message: "VALIDATE_MANUAL_LEG is not mocked" };
+  }
+
   const exhaustiveCheck: never = request;
   throw new Error(`Unhandled request type: ${(exhaustiveCheck as { type: string }).type}`);
 }
