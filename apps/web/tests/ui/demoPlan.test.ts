@@ -102,8 +102,19 @@ describe("demo plan (T07.14)", () => {
     expect(nonDefault.sort()).toEqual(reasons.sort());
   });
 
-  it("does not invent eva_start_utc: it stays unresolved until decided", () => {
+  it("does not invent eva_start_utc: it stays empty and the decision is recorded (FD-042)", () => {
     expect(demoPlan.scenario).not.toHaveProperty("eva_start_utc");
-    expect(demoPlan.notes.unresolved.join(" ")).toContain("eva_start_utc");
+    expect(demoPlan.notes.decisions.join(" ")).toContain("eva_start_utc");
+  });
+
+  it("the recorded decisions name the dose the screen shows, not a narrated number (FD-043)", () => {
+    expect(demoPlan.notes.decisions.join(" ")).toContain("the dose shown");
+    // The narrated 0.19 mSv of 01 §E.2 step 8 is gone: the screen shows the computed dose.
+    expect(demoPlan.notes.decisions.join(" ")).not.toContain("0.19 mSv");
+  });
+
+  it("no TODO marker is left in the file", () => {
+    const text = JSON.stringify(demoPlan);
+    expect(text).not.toContain("TODO(");
   });
 });

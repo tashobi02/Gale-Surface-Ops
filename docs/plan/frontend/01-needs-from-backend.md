@@ -39,3 +39,4 @@ Rule for every frontend package: a field the backend has not shipped renders "â€
 | N-26 | Real worker results | Full `PLAN_RESULT` with radiation and `DARKNESS` warnings (T05.32, T06.x) | Verify checks | 28 |
 | N-27 | EVA end | Session status `ended` and the command that ends an EVA, so SCR-11 â†’ SCR-17 can be driven from the UI | 03 SCR-11 Ended | 19, 29 |
 | N-28 | Haven fields | Haven bands per tick for the ops map (T23.03) and planning haven values per leg (T05b.04) | FR-39 | 11, 21 |
+| N-30 | SCR-09 scenario metadata | Supply the loaded scenario ParamSet files (including values, provenance and source ids) and the loaded dose-series source id and title to the planner; the site manifest and planner boot currently expose neither | FD-304, FR-15 | 15 (T12.03) |

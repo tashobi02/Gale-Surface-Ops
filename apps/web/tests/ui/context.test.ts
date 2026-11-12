@@ -144,6 +144,12 @@ describe("C10 stubs throw TODO(<owner id>) and are React components where they r
   it("throws the owner id from the c.4 register", async () => {
     expect(() => validateSite({} as never)).toThrow("TODO(T14.03)");
     await expect(createMapSnapshot({} as never)).rejects.toThrow("TODO(T11.04)");
-    expect(() => exportPlan({} as never, {} as never)).toThrow("TODO(T11.02)");
+  });
+
+  it("the implemented export throws its own reason, not a TODO marker (T11.02)", () => {
+    // `exportPlan` is implemented (T11.02), so it refuses a plan without a computed result
+    // with its own message instead of the c.4 stub's TODO marker.
+    expect(() => exportPlan({} as never, {} as never)).toThrow(/exportPlan: the plan has no computed result yet/);
+    expect(() => exportPlan({} as never, {} as never)).not.toThrow(/TODO\(/);
   });
 });

@@ -1,0 +1,255 @@
+/*
+ * SCR-01 mission briefing (04 §E.1, §C.1 BRIEF, §C.2 type, §C.3 shape; mockup #scr-01-ready).
+ * BRIEF mode: paper surface, ink text, one signal accent (04 P5). Semantic tokens only — no hex values here.
+ * The disclaimer box is dotted (04 §E.1); buttons have a visible edge and a text label (04 P8); the focus ring comes
+ * from base.css and is never removed.
+ */
+
+.scr01 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-brief);
+  min-height: 100vh;
+  padding: var(--pad-md) var(--pad-md) var(--gap-section);
+  background: var(--surface-0);
+  color: var(--fg-1);
+}
+
+/* ---------------------------------------------------------------- top bar */
+.scr01-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--pad-sm);
+  padding-bottom: var(--pad-sm);
+  border-bottom: 1px solid var(--line);
+}
+
+.scr01-mark {
+  font-size: 22px;
+  line-height: 1;
+  color: var(--fg-1);
+}
+
+.scr01-wordmark {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+.scr01-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--pad-sm);
+  margin-left: auto;
+}
+
+.scr01-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-mouse);
+  padding: 0 var(--pad-sm);
+  color: var(--fg-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------- hero */
+.scr01-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--gap-section);
+  align-items: start;
+}
+
+/* The context slab: a black-and-white crop of the terrain (04 §C.5, §E.1). */
+.scr01-slab {
+  background: var(--surface-dark);
+  /* The chamfer of 04 §C.3 (cut-l is 48 px; the slab uses the large cut). */
+  clip-path: polygon(0 0, calc(100% - var(--cut-l)) 0, 100% var(--cut-l), 100% 100%, var(--cut-l) 100%, 0 calc(100% - var(--cut-l)));
+  min-height: 220px;
+}
+
+.scr01-thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  object-fit: cover;
+  /* 04 §C.5: grayscale conversion is allowed for decorative slabs only. */
+  filter: grayscale(1);
+}
+
+.scr01-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+}
+
+.scr01-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-sm);
+}
+
+.scr01-kicker {
+  margin: 0;
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.scr01-headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 500;
+  line-height: 1.05;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+.scr01-site {
+  margin: 0;
+}
+
+.scr01-site-name {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.scr01-objective,
+.scr01-what {
+  margin: 0;
+  max-width: 62ch;
+}
+
+/* ----------------------------------------------------------------- badges */
+.scr01-badges {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-sm);
+}
+
+.scr01-badge-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pad-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scr01-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--pad-sm);
+  border: 1px solid var(--control-edge);
+  background: var(--surface-1);
+  color: var(--fg-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+/* ---------------------------------------------------------------- actions */
+.scr01-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pad-sm);
+}
+
+.scr01-button {
+  min-height: var(--target-mouse);
+  padding: 0 var(--pad-md);
+  border: 1px solid var(--control-edge);
+  background: var(--surface-1);
+  color: var(--fg-1);
+  font-family: var(--font-display);
+  font-size: var(--text-ui);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+/* One accent per view in BRIEF (04 P5). */
+.scr01-button-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+.scr01-button:active {
+  background: var(--fg-1);
+  color: var(--surface-0);
+}
+
+/* ----------------------------------------------------------------- notice */
+.scr01-notice {
+  margin: 0;
+  padding: var(--pad-sm);
+  border: 1px solid var(--control-edge);
+  color: var(--fg-1);
+  font-size: var(--text-micro);
+}
+
+.scr01-notice span {
+  font-family: var(--font-mono);
+}
+
+/* ------------------------------------------------------------- disclaimer */
+.scr01-disclaimer {
+  padding: var(--pad-md);
+  border: 1px dotted var(--control-edge);
+}
+
+.scr01-disclaimer-text {
+  margin: 0;
+  max-width: 76ch;
+  color: var(--fg-1);
+  font-size: var(--text-ui);
+  line-height: 1.55;
+}
+
+/* ------------------------------------------------------------- responsive */
+@media (max-width: 900px) {
+  .scr01-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scr01-headline {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 520px) {
+  .scr01 {
+    gap: var(--gap-section);
+  }
+
+  .scr01-headline {
+    font-size: 28px;
+  }
+
+  .scr01-actions .scr01-button {
+    width: 100%;
+  }
+}
+
+@media (pointer: coarse) {
+  .scr01-button,
+  .scr01-link {
+    min-height: var(--target-touch);
+  }
+}
