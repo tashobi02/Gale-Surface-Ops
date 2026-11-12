@@ -10,10 +10,12 @@ import {
   type CrewId,
   type LogEvent,
   type LogEventData,
+  type PlanExport,
   type RejectCode,
   type StopTask,
   type StopTaskKind,
   type StopTaskReason,
+  type StopTaskSeed,
   type Waypoint,
 } from "@marswalk/protocol";
 import type { LoadedScenario } from "../scenario";
@@ -55,26 +57,69 @@ function accepted(command: Command, events: PendingEvent[]): CommandOutcome {
 /** A task's text is team-authored content (05 StopTask); the key names the `text` field of TASK_ADDED's data. */
 const TEXT_PROVENANCE = { "data.text": "assumed" } as const;
 
+/** The most tasks one stop may have (01 FR-50 "1–4 per stop"; BD-109 counts per stop, not per crew member). */
+export const MAX_TASKS_PER_STOP = 4;
+/** The longest task text (05 StopTask). */
+export const MAX_TASK_TEXT = 60;
+
+/** The TASK_ADDED a seed becomes, authored by the plan: actor `system`, origin `plan`, text labelled `assumed`. */
+function seedEvent(t: StopTaskSeed, sim_time: string): PendingEvent {
+  const data: LogEventData["TASK_ADDED"] = {
+    task_id: t.task_id,
+    stop_id: t.stop_id,
+    crew_id: t.crew_id ?? null,
+    kind: t.kind,
+    text: t.text,
+    origin: "plan",
+  };
+  return { sim_time, kind: "TASK_ADDED", actor: "system", data: data as Record<string, unknown>, provenance: { ...TEXT_PROVENANCE } };
+}
+
 /** TASK_ADDED events seeded from `scenario.stop_tasks` at session load. Called by session.ts (T22.12) after SESSION_LOADED. */
 export function seedTasks(scenario: LoadedScenario): PendingEvent[] {
-  const stopTasks = scenario.scenario.stop_tasks ?? [];
-  return stopTasks.map((t) => {
-    const data: LogEventData["TASK_ADDED"] = {
-      task_id: t.task_id,
-      stop_id: t.stop_id,
-      crew_id: t.crew_id ?? null,
-      kind: t.kind,
-      text: t.text,
-      origin: "plan",
-    };
-    return {
-      sim_time: scenario.scenario.start_utc,
-      kind: "TASK_ADDED",
-      actor: "system",
-      data: data as Record<string, unknown>,
-      provenance: { ...TEXT_PROVENANCE },
-    };
-  });
+  return (scenario.scenario.stop_tasks ?? []).map((t) => seedEvent(t, scenario.scenario.start_utc));
+}
+
+/**
+ * The tasks of `PUBLISH_PLAN {plan, stop_tasks?}` (01 FR-54, FR-50; BD-91, BD-120): `raw` is checked against the plan being
+ * published, with the rules the loader applies to scenario `stop_tasks` plus those of ADD_STOP_TASK. Returns the seeds,
+ * or the reason the command is `INVALID`. A stop with no entry has no task, so the FR-50 "1–4" is "at most 4" here.
+ * `state` supplies the task ids already in the session.
+ */
+export function checkPublishedTasks(state: EngineState, plan: PlanExport, raw: unknown): { seeds: StopTaskSeed[] } | { error: string } {
+  if (raw === undefined) return { seeds: [] };
+  if (!Array.isArray(raw)) return { error: "PUBLISH_PLAN stop_tasks must be an array of tasks" };
+  const stops = new Set(plan.waypoints.filter((w) => w.role === "stop").map((w) => w.id));
+  const known = new Set(state.tasks.map((t) => t.task_id));
+  const ids = new Set<string>();
+  const perStop = new Map<string, number>();
+  const seeds: StopTaskSeed[] = [];
+  for (const [i, entry] of raw.entries()) {
+    const at = `PUBLISH_PLAN stop_tasks[${i}]`;
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) return { error: `${at} must be an object` };
+    const t = entry as Record<string, unknown>;
+    if (typeof t.task_id !== "string" || t.task_id.length === 0) return { error: `${at} needs a task_id` };
+    // "/" would break the STATE_DELTA path of the task ("tasks/<task_id>/state").
+    if (t.task_id.includes("/")) return { error: `${at} task_id may not contain /` };
+    if (ids.has(t.task_id)) return { error: `${at} task_id ${t.task_id} appears twice` };
+    if (known.has(t.task_id)) return { error: `${at} task_id ${t.task_id} is already a task of this session` };
+    ids.add(t.task_id);
+    if (typeof t.stop_id !== "string" || !stops.has(t.stop_id)) return { error: `${at} stop_id ${String(t.stop_id)} is not a stop Waypoint of the plan (U-61)` };
+    if (typeof t.text !== "string" || t.text.trim().length === 0 || t.text.length > MAX_TASK_TEXT) return { error: `${at} text must be 1-${MAX_TASK_TEXT} characters` };
+    if (!KINDS.includes(t.kind as StopTaskKind)) return { error: `${at} kind must be one of ${KINDS.join(", ")}` };
+    const crew_id = t.crew_id ?? null;
+    if (crew_id !== null && !CREW_IDS.includes(crew_id as CrewId)) return { error: `${at} crew_id must be EV1, EV2 or null` };
+    const count = (perStop.get(t.stop_id) ?? 0) + 1;
+    if (count > MAX_TASKS_PER_STOP) return { error: `stop ${t.stop_id} has more than ${MAX_TASKS_PER_STOP} tasks; FR-50 allows 1-${MAX_TASKS_PER_STOP}` };
+    perStop.set(t.stop_id, count);
+    seeds.push({ task_id: t.task_id, stop_id: t.stop_id, crew_id: crew_id as CrewId | null, kind: t.kind as StopTaskKind, text: t.text });
+  }
+  return { seeds };
+}
+
+/** One TASK_ADDED per published task, in list order, at `sim_time`; the same events as `seedTasks` gives at load. */
+export function publishedTaskEvents(seeds: readonly StopTaskSeed[], sim_time: string): PendingEvent[] {
+  return seeds.map((t) => seedEvent(t, sim_time));
 }
 
 const REASONS: readonly StopTaskReason[] = ["time", "terrain", "alert", "other"];
@@ -247,6 +292,11 @@ export function handleAddStopTask(
     return reject(command, "INVALID", `stop ${stopId} is not the current or next stop`);
   }
 
+  // 1-4 tasks per stop, whoever they are for (BD-109, U-52); a dropped task no longer occupies the stop.
+  if (state.tasks.filter((t) => t.stop_id === stopId && t.state !== "DROPPED").length >= MAX_TASKS_PER_STOP) {
+    return reject(command, "INVALID", `stop ${stopId} already has ${MAX_TASKS_PER_STOP} tasks (FR-50)`);
+  }
+
   const base = `t-ops-${state.session.last_seq + 1}`;
   let taskId = base;
   for (let k = 2; state.tasks.some((t) => t.task_id === taskId); k++) taskId = `${base}-${k}`;
@@ -312,15 +362,21 @@ export function onPlanRevised(state: EngineState, revised: LogEvent): PendingEve
   return events;
 }
 
-/** At the end of each dwell the simulated crew member's open tasks become DONE. */
+/**
+ * The crew member the simulation completes tasks for (01 FR-50 "for example EV2 in the demo"; BD-73): a one-crew scenario
+ * has no simulated completions. Chosen by this constant, never by who is connected (NFR-06).
+ */
+export const SIMULATED_CREW_ID: CrewId = "EV2";
+
+/**
+ * At the end of each dwell the simulated crew member's open tasks at that stop become DONE: its own and the either-tasks
+ * (`crew_id: null`). A task assigned to the other crew member is never completed here (BD-109).
+ */
 export function tasksTick(state: EngineState, ctx: TickContext): TickResult {
   const events: PendingEvent[] = [];
   let current = state;
 
-  // TODO(decision): EV2 is hard-coded as the simulated crew member (01 FR-50 "for example EV2 in the demo");
-  // the scenario file has no field for which crew member nobody drives. Add one (05 Scenario) before a
-  // live session where EV2 is a person, or this completes a person's tasks at dwell end.
-  const simulatedCrewIds: CrewId[] = ["EV2"];
+  const simulatedCrewIds: CrewId[] = [SIMULATED_CREW_ID];
 
   for (const crewId of simulatedCrewIds) {
     const c = current.crew.find((cr) => cr.crew_id === crewId);

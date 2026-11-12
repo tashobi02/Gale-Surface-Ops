@@ -14,6 +14,7 @@ import type { LoadedScenario } from "../scenario";
 import { buddyTick, consumablesTick, radiationTick } from "./alerts";
 import { conditionsTick } from "./conditions";
 import { contingencyTick } from "./contingencyOps";
+import { crewMargins, legSeconds } from "./crewMargins";
 import { earthTick } from "./earth";
 import { havenTick } from "./haven";
 import { doseAt } from "./liveEvents";
@@ -147,6 +148,15 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
     deltas.push(...r.deltas);
   }
 
+  // Per-crew margins for the tablet and HUD (T32.31, BD-95), from the step's final state; the O₂ activity is the one that
+  // `stepMode` uses for the same crew member's consumption.
+  const margins = crewMargins(current, scenario, (c) => {
+    const offset_s = scenario.scenario.crew.find((x) => x.crew_id === c.crew_id)?.start_offset_s ?? 0;
+    return stepMode(c, current.motion[c.crew_id], offset_s).o2;
+  });
+  current = { ...current, crew: margins.crew };
+  deltas.push(...margins.deltas);
+
   // Running → Ended: all crew sheltered or in the hab (03 §E.6). The reducer then sets ENDED, so this fires once.
   // A jump (JUMP_NEXT_STOP) also ticks a paused EVA, so PAUSED counts as running here (T32.10, BD-113).
   if ((current.session.status === "RUNNING" || current.session.status === "PAUSED") && current.crew.length > 0 && current.crew.every((c) => c.activity === "IN_HAB" || c.activity === "SHELTERED")) {
@@ -195,13 +205,6 @@ function segmentLengths(geometry: Point[]): number[] {
     lengthCache.set(geometry, lengths);
   }
   return lengths;
-}
-
-/** Seconds a leg takes; a NaN, infinite or negative `walk_time_min` is a plan error (S11), never an instant arrival. */
-function legSeconds(leg: OkLeg): number {
-  const s = leg.walk_time_min * 60;
-  if (!Number.isFinite(s) || s < 0) throw new Error(`tick: leg ${leg.from}→${leg.to} has an invalid walk_time_min (${leg.walk_time_min})`);
-  return s;
 }
 
 /** The point `d_m` metres along the polyline (the end point from its length on). */

@@ -78,7 +78,10 @@ class StubSession implements SessionHandle {
       conditions: { ltst: null, sun_elevation_deg: null, dose_rate_background_ugy_h: null, dose_rate_event_ugy_h: null, event_series_utc: null, sol: null, source_ids: {}, provenance: {} }, task_library: [], event_library: [], next_stop_target: null,
     };
   }
-  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[] } {
+  habSite(): ReturnType<SessionHandle["habSite"]> {
+    return null;
+  }
+  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[]; replaced?: boolean } {
     this.applied.push(command);
     this.clientIds.push(client_id);
     const ev = logEvent(++this.lastSeq);
@@ -120,7 +123,7 @@ class StatefulSession extends StubSession {
     const snap = super.snapshot(clients);
     return { ...snap, session: { ...snap.session, session_id: this.sessionId }, alerts: this.alerts, tasks: this.tasks };
   }
-  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[] } {
+  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[]; replaced?: boolean } {
     const out = super.apply(command, client_id);
     const seq = out.events[0].seq;
     const args = command.args as Record<string, string>;
@@ -129,7 +132,14 @@ class StatefulSession extends StubSession {
     } else if (command.kind === "UPDATE_STOP_TASK") {
       this.tasks = this.tasks.map((t) => (t.task_id === args.task_id ? { ...t, state: args.state as StopTask["state"], updated_by: command.role } : t));
     } else if (command.kind === "LOAD_SCENARIO") {
+      // The new session's own events are in its SNAPSHOT: a replaced outcome carries only the old session's closing events (T32.15).
       this.sessionId = "s-0008";
+      return { ...out, events: [], replaced: true };
+    } else if (command.kind === "RESET_SESSION") {
+      const data: LogEventData["SESSION_RESET"] = { session_id: this.sessionId, next_session_id: "s-0008" };
+      const closing: LogEvent = { ...out.events[0], kind: "SESSION_RESET", actor: command.role, data, command_ref: { client_id: client_id ?? command.role, command_id: command.command_id } };
+      this.sessionId = "s-0008";
+      return { result: out.result, events: [closing], replaced: true };
     }
     return out;
   }
@@ -336,6 +346,45 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
     expect(body).toMatchObject({ data_version: "gale_boxwork-2026.11.08", session_id: "s-0007", sim_time: SIM_TIME });
   });
 
+  // N-05 (docs/plan/backend/01-contract.md §7a; BD-112): a small lobby summary; GET /api/session stays the full SNAPSHOT.
+  describe("GET /api/session/summary (N-05)", () => {
+    const planStub = { plan_hash: "x" } as unknown as PlanExport;
+
+    it("returns {session_id, scenario_id, status, sim_time, speed, paused, eva_start_utc, hab_candidate_id, plan_published}, with eva_start_utc null before the EVA", async () => {
+      const { server } = await setup();
+      const res = await fetch(`${server.url}/api/session/summary`);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        session_id: "s-0007",
+        scenario_id: "storm-sol4190",
+        status: "RUNNING",
+        sim_time: SIM_TIME,
+        speed: 60,
+        paused: false,
+        eva_start_utc: null,
+        hab_candidate_id: null,
+        plan_published: false,
+      });
+    });
+
+    it("reads eva_start_utc from the log's EVA_STARTED and plan_published from the plan in force", async () => {
+      const { server, session } = await setup();
+      session.current = planStub;
+      session.log = [
+        { seq: 1, sim_time: "2024-05-20T00:00:00Z", kind: "SESSION_LOADED", actor: "system", data: {}, provenance: {}, command_ref: null },
+        { seq: 2, sim_time: "2024-05-20T12:30:00Z", kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1"], plan_revision: 1 }, provenance: {}, command_ref: null },
+      ];
+      const body = (await (await fetch(`${server.url}/api/session/summary`)).json()) as Record<string, unknown>;
+      expect(body).toMatchObject({ eva_start_utc: "2024-05-20T12:30:00Z", plan_published: true });
+    });
+
+    it("is 404 with no session", async () => {
+      const server = await startServer({ site: "mock_site", port: 0, host: "127.0.0.1" });
+      open.server = server;
+      expect((await fetch(`${server.url}/api/session/summary`)).status).toBe(404);
+    });
+  });
+
   it("GET /api/report returns PostEvaReport (01 FR-46)", async () => {
     const { server } = await setup();
     const res = await fetch(`${server.url}/api/report`);
@@ -452,7 +501,7 @@ describe("command effects reach every client (T20.04; 02 §D.14, §E.6)", () => 
     }
   });
 
-  it("LOAD_SCENARIO (a new session id) sends every client a fresh SNAPSHOT before the new events, and no delta", async () => {
+  it("LOAD_SCENARIO (a new session id) sends every client a fresh SNAPSHOT of the new session and no delta (T32.15)", async () => {
     const session = new StatefulSession(412);
     const { ev1, ops } = await twoClients(session);
 
@@ -461,13 +510,89 @@ describe("command effects reach every client (T20.04; 02 §D.14, §E.6)", () => 
     for (const c of [ev1, ops]) {
       const [, second] = await c.waitFor((m) => m.type === "SNAPSHOT", 2);
       expect((second as Snapshot).session.session_id).toBe("s-0008");
-      const after = c.received.slice(c.received.indexOf(second) + 1).map((m) => m.type);
-      expect(after[0]).toBe("EVENT");
+      expect(deltas(c)).toHaveLength(0);
+      // The new session's events are in the snapshot; the old session's events are not replayed after it.
+      expect(c.received.slice(c.received.indexOf(second) + 1).filter((m) => m.type === "EVENT")).toEqual([]);
+    }
+  });
+
+  it("RESET_SESSION: every client gets the old log's SESSION_RESET, the commander its COMMAND_RESULT, then a fresh SNAPSHOT, in that order and no delta (T32.15)", async () => {
+    const session = new StatefulSession(412);
+    const { ev1, ops } = await twoClients(session);
+
+    ops.send({ v: 1, type: "COMMAND", command_id: "k-reset", role: "ops", command: { kind: "RESET_SESSION", args: {} } });
+    await ops.waitFor((m) => m.type === "SNAPSHOT", 2);
+    await ev1.waitFor((m) => m.type === "SNAPSHOT", 2);
+    const afterHello = (c: TestClient): string[] => c.received.slice(1).map((m) => m.type);
+    expect(afterHello(ops)).toEqual(["EVENT", "COMMAND_RESULT", "SNAPSHOT"]);
+    expect(afterHello(ev1)).toEqual(["EVENT", "SNAPSHOT"]);
+    for (const c of [ev1, ops]) {
+      const event = c.received.find((m) => m.type === "EVENT") as Extract<ServerMessage, { type: "EVENT" }>;
+      expect(event.event).toMatchObject({ kind: "SESSION_RESET", data: { session_id: "s-0007", next_session_id: "s-0008" } });
+      expect((c.received[c.received.length - 1] as Snapshot).session.session_id).toBe("s-0008");
       expect(deltas(c)).toHaveLength(0);
     }
   });
+
+  it("a fresh SNAPSHOT after a replace lists the connected clients (T32.15)", async () => {
+    const session = new StatefulSession(412);
+    const { ops } = await twoClients(session);
+    ops.send({ v: 1, type: "COMMAND", command_id: "k-reset2", role: "ops", command: { kind: "RESET_SESSION", args: {} } });
+    const [, fresh] = await ops.waitFor((m) => m.type === "SNAPSHOT", 2);
+    expect((fresh as Snapshot).clients.map((c) => c.client_id).sort()).toEqual(["c-7f3a", "c-ops"]);
+  });
 });
 
+describe("a real session replaced by RESET_SESSION (T32.15; 02 §D.17; NFR-13)", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const planless = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
+  const hello = (role: Role, client_id: string, last_seq = 0): ClientMessage => ({ v: 1, type: "HELLO", role, client_id, display_name: "", last_seq });
+
+  async function liveServer() {
+    const dir = mkdtempSync(join(tmpdir(), "marswalk-reset-server-"));
+    const session = loadSession(planless, dir);
+    const server = await start({ site: "mock_site", port: 0, host: "127.0.0.1", session });
+    open.server = { url: server.url, close: async () => { await server.close(); rmSync(dir, { recursive: true, force: true }); } };
+    return { server, session };
+  }
+
+  it("the presenter's reset reaches the connected EVA tablet as SESSION_RESET then a SNAPSHOT of s-0002 in LOADED, and the presenter's result sits between", async () => {
+    const { server } = await liveServer();
+    const pres = await client(server.url);
+    const ev1 = await client(server.url);
+    pres.send(hello("presenter", "c-pres"));
+    ev1.send(hello("eva:EV1", "c-ev1"));
+    await pres.waitFor((m) => m.type === "SNAPSHOT");
+    await ev1.waitFor((m) => m.type === "SNAPSHOT");
+    pres.send({ v: 1, type: "COMMAND", command_id: "k-r", role: "presenter", command: { kind: "RESET_SESSION", args: {} } });
+    await pres.waitFor((m) => m.type === "SNAPSHOT", 2);
+    await ev1.waitFor((m) => m.type === "SNAPSHOT", 2);
+    expect(pres.received.slice(1).map((m) => m.type)).toEqual(["EVENT", "COMMAND_RESULT", "SNAPSHOT"]);
+    expect(ev1.received.slice(1).map((m) => m.type)).toEqual(["EVENT", "SNAPSHOT"]);
+    const fresh = ev1.received[ev1.received.length - 1] as Snapshot;
+    expect(fresh.session).toMatchObject({ session_id: "s-0002", status: "LOADED", last_seq: fresh.seq });
+    const result = pres.received.find((m) => m.type === "COMMAND_RESULT") as CommandResult;
+    const event = pres.received.find((m) => m.type === "EVENT") as Extract<ServerMessage, { type: "EVENT" }>;
+    expect(result).toMatchObject({ ok: true, event_seq: event.seq });
+    expect(event.event.kind).toBe("SESSION_RESET");
+  });
+
+  it("an ordinary reconnect after the reset still gets one fresh SNAPSHOT of the new session and no stale replay", async () => {
+    const { server } = await liveServer();
+    const pres = await client(server.url);
+    pres.send(hello("presenter", "c-pres"));
+    await pres.waitFor((m) => m.type === "SNAPSHOT");
+    pres.send({ v: 1, type: "COMMAND", command_id: "k-r2", role: "presenter", command: { kind: "RESET_SESSION", args: {} } });
+    await pres.waitFor((m) => m.type === "SNAPSHOT", 2);
+    // A tablet that was on s-0001 at seq 40 reconnects: its last_seq is above the new session's seq, so it gets the SNAPSHOT only.
+    const ev1 = await client(server.url);
+    ev1.send(hello("eva:EV1", "c-ev1", 40));
+    await ev1.waitFor((m) => m.type === "SNAPSHOT");
+    await new Promise((r) => setTimeout(r, 100));
+    expect(ev1.received.map((m) => m.type)).toEqual(["SNAPSHOT"]);
+    expect((ev1.received[0] as Snapshot).session.session_id).toBe("s-0002");
+  });
+});
 
 describe("role take-over: newest wins (02 §E.4, §E.6; 05 ROLE_TAKEN_OVER)", () => {
   const closeOf = (c: TestClient) => new Promise<{ code: number; reason: string }>((resolve) => c.ws.once("close", (code, reason) => resolve({ code, reason: reason.toString() })));
