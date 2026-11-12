@@ -562,6 +562,8 @@ export function OpsConsole({
           {activeAddCrew && !warningKey && taskProgress[activeAddCrew as CrewId]?.stop?.stopId && (
             <div style={{ marginTop: "8px" }}>
               <AddTaskPopover
+                sessionId={session?.session_id}
+                planRevision={session?.plan_revision}
                 crewId={activeAddCrew as CrewId}
                 stopId={taskProgress[activeAddCrew as CrewId]!.stop!.stopId!}
                 stopNo={taskProgress[activeAddCrew as CrewId]!.stop!.stopNo}

@@ -820,6 +820,35 @@ describe("Alert latching: what leaves the bar (04 §D.2, 03 §E.7)", () => {
 });
 
 describe("Ops console controls added in the audit (NFR-04, FR-50)", () => {
+  it("task editor resets crew, stop and draft when crew, stop, session or revision changes", async () => {
+    const first = connectSnapshot();
+    const progress = { EV1: { stop: { stopId: "wp-1", stopNo: 1, done: 0, total: 0 }, total: { done: 0, total: 0 } }, EV2: { stop: { stopId: "wp-2", stopNo: 2, done: 0, total: 0 }, total: { done: 0, total: 0 } } };
+    const onCommand = vi.fn();
+    const props = { client: null, snapshot: first, crew: [ev1(), crewMember({ crew_id: "EV2" })], taskProgress: progress, onCommand };
+    const view = await mount(createElement(OpsConsole, props));
+    await click(must(view.container, '[aria-label="Add task for EV1"]'));
+    await typeInto(must(view.container, 'input'), "EV1 draft");
+    await click(must(view.container, '[aria-label="Add task for EV2"]'));
+    const expectReset = (stop: string) => {
+      expect(must<HTMLSelectElement>(view.container, '[aria-label="Select crew member"]').value).toBe("EV2");
+      expect(must<HTMLSelectElement>(view.container, '[aria-label="Select stop"]').value).toBe(stop);
+      expect(must<HTMLInputElement>(view.container, 'input').value).toBe("");
+      expect(must<HTMLSelectElement>(view.container, '[aria-label="Select task kind"]').value).toBe("observe");
+    };
+    expectReset("wp-2");
+    let snapshot = first;
+    for (const change of ["stop", "session", "revision"] as const) {
+      await typeInto(must(view.container, 'input'), "Old draft");
+      if (change === "stop") progress.EV2.stop = { ...progress.EV2.stop, stopId: "wp-3", stopNo: 3 };
+      else snapshot = { ...snapshot, session: { ...snapshot.session, ...(change === "session" ? { session_id: `${snapshot.session.session_id}-reload` } : { plan_revision: snapshot.session.plan_revision + 1 }) } };
+      await view.rerender(createElement(OpsConsole, { ...props, snapshot, taskProgress: { ...progress } }));
+      expectReset("wp-3");
+    }
+    await typeInto(must(view.container, 'input'), "Observe new stop");
+    await submitForm(must(view.container, 'form'));
+    expect(onCommand).toHaveBeenLastCalledWith({ kind: "ADD_STOP_TASK", args: { crew_id: "EV2", stop_id: "wp-3", kind: "observe", text: "Observe new stop" } });
+  });
+
   it("the sound toggle is a focusable button with a name, and reports a click; it states what is not known", async () => {
     const onToggleSound = vi.fn();
     const { container } = await mount(createElement(OpsConsole, { onToggleSound }));

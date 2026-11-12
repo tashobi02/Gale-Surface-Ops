@@ -21,6 +21,8 @@ export interface StopOption {
 }
 
 export interface AddTaskPopoverProps {
+  sessionId?: string;
+  planRevision?: number;
   crewId: CrewId;
   stopId: string;
   /** Plan number of `stopId`, from the data. Absent = the label reads "—" (it is never cut out of the id). */
@@ -42,7 +44,11 @@ function stopLabel(stopNo: number | undefined): string {
   return typeof stopNo === "number" && Number.isFinite(stopNo) ? `Stop ${stopNo}` : "—";
 }
 
-export function AddTaskPopover({
+export function AddTaskPopover(props: AddTaskPopoverProps): ReactElement {
+  return <AddTaskForm key={JSON.stringify([props.crewId, props.stopId, props.sessionId, props.planRevision])} {...props} />;
+}
+
+function AddTaskForm({
   crewId,
   stopId,
   stopNo,
