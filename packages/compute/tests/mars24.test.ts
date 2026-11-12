@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import f6 from "../../../apps/web/tests/fixtures/mars24-reference.json";
 import {
+  coordinatedMarsTime,
   eastToWestLongitude,
   j2000OffsetTt,
   localTrueSolarTime,
   marsSolDate,
   solarLongitude,
 } from "../src/mars24";
+import { solarDeclination } from "../src/sun";
 
 /** Helper: difference between two "HH:MM" times in minutes, handling midnight wrap. */
 function timeDiffMinutes(a: string, b: string): number {
@@ -52,9 +54,9 @@ describe("mars24 time functions (T06.03 / T06.06, FR-11)", () => {
     expect(eastToWestLongitude(270)).toBe(90);
   });
 
-  // TODO(verify): Pin marstime in the approved pipeline environment, verify its APIs, longitude and azimuth conventions, UTC-to-TT handling and version reporting, then regenerate F6 twice and compare bytes. Identify direct package outputs separately from generator-derived azimuth and sunrise/sunset.
-  // TODO(verify): Reconcile the F6 record labelled Sol 4190 at 2024-05-18T06:00:00Z with the specifications' 2024-05-20 event date. Preserve existing numerical outputs until an approved regeneration or documented relabelling.
-  // TODO(verify): Independently verify the Clancy Mars Year offset table and reference UTC-to-TT handling. TODO(decision): Ratify L_s, equation-of-time and sunrise/sunset tolerances; provisional test bounds do not establish new requirements.
+  // BD-55 / BD-56 (12 Nov 2026): the tolerances below are the ratified ones: L_s 0.05 deg, MSD 0.001 sol,
+  // LTST 1 min (FR-11). The Mars Year table and the UTC-to-TT handling are checked independently further down
+  // (Ls wrap instants, NASA GISS worked examples), not only against F6.
   it("matches F6 MSD within 0.001 sol at all reference timestamps (02 §D.5)", () => {
     for (const record of f6.records) {
       const utc = new Date(record.utc);
@@ -68,8 +70,7 @@ describe("mars24 time functions (T06.03 / T06.06, FR-11)", () => {
       const utc = new Date(record.utc);
       const res = solarLongitude(utc);
       expect(res.mars_year, `Mars Year for ${record.utc}`).toBe(record.mars_year);
-      // Provisional bound 0.05° (strictly less than); TODO(decision): ratify, see
-      // docs/tasks/TASK-06_mars24-and-radiation.md#spec-questions
+      // Bound 0.05° (strictly less than), ratified by BD-55.
       expect(Math.abs(res.ls_deg - record.ls_deg), `L_s for ${record.utc}`).toBeLessThan(0.05);
     }
   });
@@ -103,11 +104,10 @@ describe("mars24 time functions (T06.03 / T06.06, FR-11)", () => {
     }
   });
 
-  // TODO(verify): the MSL touchdown cross-check below is a sanity case, not an independent reference. The
-  // touchdown instant and L_s 150.7° / Mars Year 31 were taken from the branch author's notes and have no
-  // citation in this repo; confirm them against a published MSL landing source before treating this as
-  // evidence. The F6 record for the same instant (2012-08-06T05:17:57Z) is the checked reference; the former
-  // LTST assertion (15.6 h) was this implementation's own output and has been dropped.
+  // Touchdown instant 2012-08-06T05:17:57Z: NASA, "Five Years Ago and 154 Million Miles Away: Touchdown!"
+  // (Webster, Cantillo, Brown, 2 Aug 2017), as quoted by the Curiosity (rover) article, accessed 12 Nov 2026.
+  // The F6 record for the same instant is the checked reference; L_s about 150.7 deg is this file's
+  // sanity bound, matched to the F6 value within 0.05 deg.
   it("MSL touchdown instant (2012-08-06T05:17:57Z): L_s about 150.7° and Mars Year 31, matching F6", () => {
     const landingUtc = new Date("2012-08-06T05:17:57Z");
     const sol = solarLongitude(landingUtc);
@@ -146,5 +146,82 @@ describe("mars24 time functions (T06.03 / T06.06, FR-11)", () => {
     expect(() => eastToWestLongitude(NaN)).toThrow(RangeError);
     expect(() => eastToWestLongitude(Infinity)).toThrow(RangeError);
     expect(() => localTrueSolarTime(utc, NaN)).toThrow(RangeError);
+  });
+
+  it("every L_s wrap (L_s = 0 deg) between 1972 and 2100 starts the next Mars Year (Clancy table check, BD-55)", () => {
+    // Independent of the Clancy table: scan the L_s model for its own 360 -> 0 wraps and require the Mars
+    // Year to change within one day of each (the model and the Clancy zero crossings differ by well under a day).
+    const stepMs = 86_400_000;
+    const end = Date.UTC(2100, 0, 1);
+    let prevMs = Date.UTC(1972, 0, 2);
+    let prev = solarLongitude(new Date(prevMs));
+    let wraps = 0;
+    for (let ms = prevMs + stepMs; ms < end; ms += stepMs) {
+      const cur = solarLongitude(new Date(ms));
+      if (cur.ls_deg < prev.ls_deg) {
+        wraps += 1;
+        const before = solarLongitude(new Date(ms - 2 * stepMs)).mars_year;
+        const after = solarLongitude(new Date(ms + 2 * stepMs)).mars_year;
+        expect(after, `Mars Year after the wrap near ${new Date(ms).toISOString()}`).toBe(before + 1);
+        expect(prev.mars_year, `Mars Year the day before the wrap`).toBe(before);
+        expect(cur.mars_year, `Mars Year the day of the wrap`).toBe(before + 1);
+      }
+      prev = cur;
+      prevMs = ms;
+    }
+    // 128 years at 686.98 days per Mars Year.
+    expect(wraps).toBeGreaterThanOrEqual(68);
+    expect(wraps).toBeLessThanOrEqual(69);
+  });
+
+  it("uses TT - UTC = 69.184 s after 2017-01-01 and IERS Bulletin C 72 adds no leap second in 2026 (BD-55)", () => {
+    // IERS Bulletin C 72 (Paris, 6 July 2026): no leap second at the end of December 2026; UTC-TAI = -37 s
+    // from 2017-01-01 until further notice. Checked 12 Nov 2026 (https://hpiers.obspm.fr/iers/bul/bulc/bulletinc.dat).
+    for (const timestamp of ["2026-06-30T23:59:59Z", "2026-11-14T08:00:00Z", "2027-01-01T00:00:00Z", "2030-01-01T00:00:00Z"]) {
+      const utc = new Date(timestamp);
+      const utcJ2000Days = utc.getTime() / 86_400_000 + (2_440_587.5 - 2_451_545);
+      const ttMinusUtcSeconds = (j2000OffsetTt(utc) - utcJ2000Days) * 86_400;
+      expect(Math.abs(ttMinusUtcSeconds - 69.184), timestamp).toBeLessThanOrEqual(0.0001);
+    }
+  });
+});
+
+// NASA GISS Mars24 "Algorithm and Worked Examples" (https://www.giss.nasa.gov/tools/mars24/help/algorithm.html,
+// page updated 2025-01-07, fetched 12 Nov 2026). The page's equations B-1, B-2, C-2 and D-2 were revised in 2015
+// (Allison 2015), so these printed values pin the current constants. Tolerances follow the printed precision
+// (5 decimals, so 0.001 deg or 0.0005 h) widened only for the chain of roundings in the page's own steps.
+describe("NASA GISS Mars24 worked examples (BD-56, FR-11)", () => {
+  // Example 1: 2000-01-06T00:00:00Z at 0 W, 0 N (MST 23:59:39).
+  // Example 2: MER-A Spirit, 2004-01-03T13:46:31Z (millis 1073137591000) at 184.702 W (175.298 E), -14.640 N.
+  const examples = [
+    {
+      name: "2000-01-06T00:00:00Z (0 W)",
+      utc: new Date(947_116_800_000),
+      lonE: 0,
+      ls: 277.18758, // B-5 (mod 360 of 1047.32416 in example 2)
+      mtcHours: 23.99425, // C-2
+      declination: -25.22825, // D-1
+      ltstHours: 23.6484, // C-4
+    },
+    {
+      name: "2004-01-03T13:46:31Z (Spirit)",
+      utc: new Date(1_073_137_591_000),
+      lonE: 360 - 184.702,
+      ls: 327.32416,
+      mtcHours: 13.16537,
+      declination: -13.42065,
+      ltstHours: 0.00025,
+    },
+  ];
+
+  it.each(examples)("$name: L_s, MTC, declination and LTST match the page", (ex) => {
+    expect(Math.abs(solarLongitude(ex.utc).ls_deg - ex.ls), "L_s (B-5)").toBeLessThanOrEqual(0.001);
+    const ott = j2000OffsetTt(ex.utc);
+    expect(Math.abs(coordinatedMarsTime(ott) - ex.mtcHours), "MST at the prime meridian (C-2)").toBeLessThanOrEqual(0.0005);
+    expect(Math.abs(solarDeclination(ex.ls) - ex.declination), "declination (D-1)").toBeLessThanOrEqual(0.001);
+    const [h, m] = localTrueSolarTime(ex.utc, ex.lonE).split(":").map(Number);
+    let diffMin = Math.abs(h * 60 + m - ex.ltstHours * 60);
+    diffMin = Math.min(diffMin, 1440 - diffMin);
+    expect(diffMin, "LTST (C-4) within the HH:MM resolution").toBeLessThanOrEqual(1);
   });
 });

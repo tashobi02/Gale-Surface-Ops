@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`████████░░░░░░░░░░░░` **41 %** — 140 of 345 subtasks done, 79 in progress.
+`████████░░░░░░░░░░░░` **41 %** — 143 of 345 subtasks done, 76 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -23,7 +23,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-03 Preprocessing pipeline](docs/tasks/TASK-03_preprocessing-pipeline.md) | `█████████░` 88 % | 28 | 1 | 32 |
 | [TASK-04 Vectors, POIs and images](docs/tasks/TASK-04_vectors-pois-images.md) | `████░░░░░░` 44 % | 4 | 4 | 9 |
 | [TASK-05 Compute core: grid loader, sampling, A*, profile, time model, walkback, warnings](docs/tasks/TASK-05_compute-core.md) | `████░░░░░░` 44 % | 22 | 8 | 50 |
-| [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `███░░░░░░░` 30 % | 3 | 7 | 10 |
+| [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `██████░░░░` 60 % | 6 | 4 | 10 |
 | [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `█░░░░░░░░░` 12 % | 2 | 10 | 17 |
 | [TASK-08 Plan panel + waypoint editing](docs/tasks/TASK-08_plan-panel-and-waypoints.md) | `█░░░░░░░░░` 9 % | 1 | 0 | 11 |
 | [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `░░░░░░░░░░` 0 % | 0 | 3 | 8 |

@@ -1,13 +1,14 @@
 """F6 generator: sunrise/sunset selection inside the local sol (T06.02 / T06.07 repair, 2026-11-10).
 
-`marstime` is not pinned in the pipeline environment (TODO(verify) in docs/tasks/TASK-06), so this test
-loads the generator with a small synthetic stand-in for `marstime`: a flat-horizon sun that rises at
-LTST 06:00 and sets at LTST 18:00. It checks only the selection logic. It does not check any Mars24
-number, and it does not regenerate F6. Tests never touch the network.
+This test loads the generator with a small synthetic stand-in for `marstime`: a flat-horizon sun that
+rises at LTST 06:00 and sets at LTST 18:00. It checks only the selection logic and the sol label
+arithmetic (BD-55). It does not check any Mars24 number, and it does not regenerate F6 (that needs the
+pinned `marstime`). Tests never touch the network.
 """
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 import types
 from datetime import datetime, timedelta, timezone
@@ -34,6 +35,8 @@ def _stub_marstime() -> types.ModuleType:
         return (LTST_AT_EPOCH_H + 24.0 * ott / SOL_DAYS) % 24.0
 
     m.Local_True_Solar_Time = ltst
+    # Stub Mars Solar Date: one sol per SOL_DAYS Earth days from the stub epoch (value at the epoch is arbitrary).
+    m.Mars_Solar_Date = lambda ott: 50000.0 + ott / SOL_DAYS
     m.solar_elevation = lambda lon_w, lat, ott: 60.0 * math.cos(math.radians(15.0 * (ltst(lon_w, ott) - 12.0)))
     return m
 
@@ -86,3 +89,19 @@ def test_no_crossing_in_the_sol_is_an_error_not_a_fallback(gen):
     crossings = [(t0 + timedelta(hours=6), "sunrise"), (t0 + timedelta(hours=30), "sunset")]
     with pytest.raises(ValueError):
         gen.select_sol_events(crossings, t0, t0 + timedelta(hours=24.66))
+
+
+def test_msl_sol_is_computed_from_the_utc_not_typed(gen):
+    lon_w = 222.62
+    # Touchdown is sol 0 by definition; the stub clock advances one sol per SOL_DAYS Earth days.
+    assert gen.msl_sol(gen.MSL_TOUCHDOWN_UTC, lon_w) == 0
+    assert gen.msl_sol(gen.MSL_TOUCHDOWN_UTC + timedelta(days=SOL_DAYS * 100 + 0.01), lon_w) in (100, 101)
+    later = gen.MSL_TOUCHDOWN_UTC + timedelta(days=SOL_DAYS * 4190)
+    assert gen.msl_sol(later, lon_w) in (4189, 4190, 4191)
+    assert gen.msl_sol(later + timedelta(days=SOL_DAYS), lon_w) == gen.msl_sol(later, lon_w) + 1
+
+
+def test_reference_descriptions_name_no_sol(gen):
+    # A hand-typed sol in a description caused the "Sol 4190 on 2024-05-18" mislabel; the label is `msl_sol`.
+    for item in gen.REFERENCE_TIMESTAMPS:
+        assert not re.search(r"\bsol\s*\d", item["description"], re.IGNORECASE), item["description"]
