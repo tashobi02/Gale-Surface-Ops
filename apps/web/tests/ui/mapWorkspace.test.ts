@@ -386,3 +386,72 @@ it("Delete and B on a task button or the Stop tasks summary act on that control,
   await keyDown(document.body, "Delete");
   expect(del).toHaveBeenCalledWith(STOP_POI.id);
 });
+
+describe("N-07 task library states in the workspace: loading, unavailable, retry (package 25 review)", () => {
+  const library = [{ library_task_id: "lt-boxwork-01", poi_id: STOP_POI.poi_id, crew_id: "EV1", kind: "image", text: "Image the ridge crest", source_id: "poi-boxwork-ridge" }];
+  async function planner(fetcher: ReturnType<typeof vi.fn>) {
+    const plan = realPlan();
+    vi.stubGlobal("fetch", fetcher);
+    const ctx: AppContext = { site: SITE, planStore: plan.store, workerClient, debug: false };
+    const m = await mountRaw(createElement(MapWorkspace, { ctx }));
+    open.push(m);
+    return { plan, root: m.container };
+  }
+  const poiDetail = (root: ParentNode) => must(root, '[aria-label="Suggested tasks"]');
+  // The Plan tab also reads `api/session` for the EVA start; the library request is the one that carries an abort signal.
+  const libraryCalls = (fetcher: ReturnType<typeof vi.fn>) => fetcher.mock.calls.filter((call) => call[1]?.signal);
+
+  it("SCR-06 says the library is loading while the request is in flight, then lists the suggestions", async () => {
+    let answer!: (response: unknown) => void;
+    const fetcher = vi.fn().mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    const { root } = await planner(fetcher);
+    await click(must(root, "button[data-poi-id]"));
+    expect(poiDetail(root).textContent).toContain("Loading suggested tasks");
+    expect(poiDetail(root).textContent).not.toMatch(/unavailable/i);
+    await act(async () => { answer({ ok: true, json: async () => ({ task_library: library }) }); });
+    expect(poiDetail(root).textContent).toContain(library[0]!.text);
+    expect(poiDetail(root).textContent).not.toContain("Loading");
+  });
+
+  it("a failed fetch leaves the POI stop saying 'Task library unavailable', never 'No tasks'; Retry fetches again and backfills the stop", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce({ ok: false }).mockResolvedValue({ ok: true, json: async () => ({ task_library: library }) });
+    const { plan, root } = await planner(fetcher);
+    await act(async () => { plan.store.addWaypoint(STOP_POI); });
+    await click(must(root, "#scr02-left-tab-plan"));
+    const editor = must(root, "[data-stop-task-editor]");
+    expect(must(editor, "[data-task-library]").textContent).toContain("Task library unavailable — suggested tasks not loaded");
+    expect(editor.querySelector('[data-unavailable="true"]')).not.toBeNull();
+    expect(editor.textContent).not.toContain("No tasks");
+    expect(plan.store.get().stop_tasks).toEqual([]);
+    expect(libraryCalls(fetcher)).toHaveLength(1);
+    await click(must(editor, "[data-retry-task-library]"));
+    expect(libraryCalls(fetcher)).toHaveLength(2);
+    expect(plan.store.get().stop_tasks.map((t) => t.text)).toEqual([library[0]!.text]);
+    expect(root.querySelector("[data-task-library]")).toBeNull();
+    expect(document.activeElement).toBe(must(root, "[data-new-task-text]"));
+  });
+
+  it("a second failure keeps the notice and the Retry button, and the retry request is aborted on exit", async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: false });
+    const { plan, root } = await planner(fetcher);
+    await act(async () => { plan.store.addWaypoint(STOP_POI); });
+    await click(must(root, "#scr02-left-tab-plan"));
+    await click(must(root, "[data-retry-task-library]"));
+    expect(libraryCalls(fetcher)).toHaveLength(2);
+    expect(must(root, "[data-task-library]").textContent).toContain("Task library unavailable");
+    expect(root.querySelector("[data-retry-task-library]")).not.toBeNull();
+    await open.pop()!.unmount();
+    expect(libraryCalls(fetcher)[1]![1].signal.aborted).toBe(true);
+  });
+
+  it("an empty loaded library is an honest empty list: no notice, 'No suggested tasks for this POI'", async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ task_library: [] }) });
+    const { plan, root } = await planner(fetcher);
+    await act(async () => { plan.store.addWaypoint(STOP_POI); });
+    await click(must(root, "button[data-poi-id]"));
+    expect(poiDetail(root).textContent).toContain("No suggested tasks for this POI");
+    await click(must(root, "#scr02-left-tab-plan"));
+    expect(root.querySelector("[data-task-library]")).toBeNull();
+    expect(must(root, "[data-stop-task-editor]").textContent).toContain("No tasks");
+  });
+});

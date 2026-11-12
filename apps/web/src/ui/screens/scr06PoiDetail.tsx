@@ -2,6 +2,7 @@
 import { useCallback, useRef, useState, useSyncExternalStore, type ReactElement } from "react";
 import { MAX_STOPS } from "@marswalk/compute";
 import type { POIFeature, TaskLibraryEntry } from "@marswalk/protocol";
+import type { TaskLibraryStatus } from "../../state/stopTaskDraft";
 import type { AppContext } from "../context";
 import { EZ_STOP_TYPES } from "../map/ezLayer";
 import { poiPlaceRequest, type Placement } from "../map/waypointLayer";
@@ -15,6 +16,19 @@ export interface PoiDetailProps {
   placement?: Pick<Placement, "place">;
   /** Package 25 supplies the scenario library; this screen only presents the entries. */
   suggestedTasks?: readonly TaskLibraryEntry[];
+  /** N-07 fetch state. Default: loaded when `suggestedTasks` is supplied, unavailable when it is not. */
+  taskLibraryStatus?: TaskLibraryStatus;
+}
+
+/** The suggestions for this POI. In flight, loaded-but-empty and failed are three different statements. */
+function SuggestedTasks({ poiId, tasks, status }: { poiId: string; tasks?: readonly TaskLibraryEntry[]; status: TaskLibraryStatus }): ReactElement {
+  const forPoi = (tasks ?? []).filter(task => task.poi_id === poiId);
+  return <section aria-label="Suggested tasks" aria-busy={status === "loading" ? true : undefined}><h3>Suggested tasks</h3>
+    {status === "loading" ? <p role="status">Loading suggested tasks…</p>
+      : status === "unavailable" || !tasks ? <p><span {...provAttrs({ prov: "assumed", src: "unavailable:scenario.task_library", unavailable: true })}>—</span> Task library unavailable.</p>
+      : forPoi.length ? <ul>{forPoi.map(task => <li key={task.library_task_id} {...provAttrs({ prov: "assumed", src: task.source_id ?? `scenario.task_library:${task.library_task_id}` })}>{task.text}</li>)}</ul>
+      : <p>No suggested tasks for this POI.</p>}
+  </section>;
 }
 
 /** Only the local manifest asset is requested; a catalogue source URL is reference text. */
@@ -32,7 +46,7 @@ function TextValue({ value, source, field }: { value: string | number | null | u
   return <span {...provAttrs(present ? source : { prov: source.prov, src: `unavailable:${source.src}${field ? `.${field}` : ""}`, unavailable: true })}>{present ? value : "—"}</span>;
 }
 
-function Specimen({ ctx, poi, placement, suggestedTasks }: { ctx: AppContext; poi: POIFeature; placement?: Pick<Placement, "place">; suggestedTasks?: readonly TaskLibraryEntry[] }): ReactElement {
+function Specimen({ ctx, poi, placement, suggestedTasks, taskLibraryStatus }: { ctx: AppContext; poi: POIFeature; placement?: Pick<Placement, "place">; suggestedTasks?: readonly TaskLibraryEntry[]; taskLibraryStatus: TaskLibraryStatus }): ReactElement {
   const subscribe = useCallback((notify: () => void) => ctx.planStore.subscribe(notify), [ctx.planStore]);
   const state = useSyncExternalStore(subscribe, ctx.planStore.get, ctx.planStore.get);
   const p = poi.properties;
@@ -90,7 +104,7 @@ function Specimen({ ctx, poi, placement, suggestedTasks }: { ctx: AppContext; po
     </details>
     <h3>Position</h3>
     <p data-position {...provAttrs(source)}><TextValue value={p.position_source} source={source} /><br />{Number.isFinite(p.position_uncertainty_m) ? "±" : null}<Metric value={Number.isFinite(p.position_uncertainty_m) ? p.position_uncertainty_m : null} unit="m" prov={p.provenance} src={src} /></p>
-    <section aria-label="Suggested tasks"><h3>Suggested tasks</h3>{suggestedTasks ? suggestedTasks.some(task => task.poi_id === p.poi_id) ? <ul>{suggestedTasks.filter(task => task.poi_id === p.poi_id).map(task => <li key={task.library_task_id} {...provAttrs({ prov: "assumed", src: task.source_id ?? `scenario.task_library:${task.library_task_id}` })}>{task.text}</li>)}</ul> : <p>No suggested tasks for this POI.</p> : <p><span {...provAttrs({ prov: "assumed", src: "unavailable:scenario.task_library", unavailable: true })}>—</span> Task library unavailable.</p>}</section>
+    <SuggestedTasks poiId={p.poi_id} tasks={suggestedTasks} status={taskLibraryStatus} />
     {stop ? <button type="button" data-remove-stop onClick={() => ctx.planStore.deleteWaypoint(stop.id)}>Remove stop</button> : <button type="button" data-add-stop disabled={atLimit || !placement || !poiPlaceRequest(poi)} aria-describedby={atLimit ? "scr06-stop-limit" : undefined} onClick={() => { const request = poiPlaceRequest(poi); if (request) void placement?.place(request); }}>Add as stop</button>}
     {atLimit && !stop ? <p id="scr06-stop-limit">Stop limit reached (<span {...provAttrs({ prov: "assumed", src: "spec:02-E.3" })}>{MAX_STOPS}</span>). Remove a stop to add another.</p> : null}
     {imageUrl && imageState === "shown" ? <dialog ref={dialog} className="scr06-image-dialog" aria-label={`${p.name} image`} onClose={() => enlarge.current?.focus()}>
@@ -100,7 +114,7 @@ function Specimen({ ctx, poi, placement, suggestedTasks }: { ctx: AppContext; po
   </section>;
 }
 
-export function PoiDetail({ ctx, selectedPoiId, placement, suggestedTasks }: PoiDetailProps): ReactElement {
+export function PoiDetail({ ctx, selectedPoiId, placement, suggestedTasks, taskLibraryStatus = suggestedTasks ? "ready" : "unavailable" }: PoiDetailProps): ReactElement {
   const poi = selectedPoiId ? ctx.site.pois.get(selectedPoiId) : undefined;
-  return poi ? <Specimen key={`${poi.properties.poi_id}:${poi.properties.image_asset ?? ""}`} ctx={ctx} poi={poi} placement={placement} suggestedTasks={suggestedTasks} /> : <section className="scr06-empty" data-poi-detail aria-label="POI detail">Select a POI on the map to see its objective and ground image.</section>;
+  return poi ? <Specimen key={`${poi.properties.poi_id}:${poi.properties.image_asset ?? ""}`} ctx={ctx} poi={poi} placement={placement} suggestedTasks={suggestedTasks} taskLibraryStatus={taskLibraryStatus} /> : <section className="scr06-empty" data-poi-detail aria-label="POI detail">Select a POI on the map to see its objective and ground image.</section>;
 }
