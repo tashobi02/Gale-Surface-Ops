@@ -5,7 +5,7 @@
  * six columns of 03 SCR-09, the deep-link anchor (`#/sources#layer-slope`) scrolls to the named entry, and every
  * section of 03 SCR-09 is present.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { SourcesMethods } from "../../src/ui/screens/scr09SourcesMethods";
 import { click, installDom, mount as mountRaw, must, removeDom, type Mounted } from "./domHarness";
@@ -84,6 +84,50 @@ describe("SCR-09 sources and methods (T12.03)", () => {
       const href = link.getAttribute("href") ?? "";
       expect(href, link.textContent ?? "").toMatch(/^#(datasets|processing|models|assumptions|replay-sources|limitations|ai-use|diagnostics)$/);
     }
+  });
+
+  it("scrolls without changing the router hash and honours reduced motion", async () => {
+    const { root } = await sources();
+    const scroll = vi.fn();
+    must<HTMLElement>(root, "#datasets").scrollIntoView = scroll;
+    const oldMatch = window.matchMedia;
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+    const hash = window.location.hash;
+    await click(must(root, '[data-slot="index-link"]'));
+    expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "auto" });
+    expect(window.location.hash).toBe(hash);
+    window.matchMedia = oldMatch;
+  });
+
+  it("marks missing scenario data unavailable and links back to the map", async () => {
+    const { root, site } = await sources();
+    for (const section of ["assumptions", "replay-sources"]) {
+      expect(must(root, `[data-slot="section-${section}"] [data-unavailable]`).textContent).toBe("—");
+    }
+    expect(must(root, '[data-slot="checksum-status"]').getAttribute("data-source")).toBe(`manifest:${site.site.site_id}`);
+    expect(must(root, 'a[href="#/planner"]').textContent).toMatch(/back to map/i);
+  });
+
+  it("marks missing dataset text unavailable", async () => {
+    const site = mockLoadedSite();
+    site.site.sources[0] = { ...site.site.sources[0], missions: [], instruments: [], version: "", licence: "", url: "" };
+    const m = await mountRaw(createElement(SourcesMethods, { site }));
+    open.push(m);
+    for (const slot of ["dataset-mission", "dataset-version", "dataset-licence", "dataset-link"]) {
+      expect(must(m.container, `[data-slot="${slot}"]`).hasAttribute("data-unavailable")).toBe(true);
+    }
+  });
+
+  it("shows supplied parameter values and the replay series source", async () => {
+    const site = mockLoadedSite();
+    const paramSets = [{ param_set_id: "pr1-assumed", kind: "pressurized_rover" as const, title: "Rover", values: { speed_kmh: 8 }, provenance: "assumed" as const, source_ids: ["nasa-sev-factsheet-2011"] }];
+    const replaySource = { source_id: "rad-sol4190", title: "RAD event" };
+    const m = await mountRaw(createElement(SourcesMethods, { site, paramSets, replaySource }));
+    open.push(m);
+    const param = must(m.container, '[data-slot="param-entry"]');
+    expect(param.getAttribute("data-source")).toBe("nasa-sev-factsheet-2011");
+    expect(param.textContent).toContain("speed_kmh: 8");
+    expect(must(m.container, '[data-slot="replay-entry"]').getAttribute("data-source")).toBe("rad-sol4190");
   });
 
   it("the AI-use statement is the 03 SCR-09 wording", async () => {

@@ -18,7 +18,7 @@
  * renders "—". The equations of the models are the spec's own text (they are not numbers, FD-110).
  */
 import { useEffect, useRef, type ReactElement } from "react";
-import type { Layer } from "@marswalk/protocol";
+import type { Layer, ParamSet } from "@marswalk/protocol";
 import type { LoadedSite } from "../context";
 import { Metric } from "../components/metric";
 import { UNAVAILABLE } from "../components/provenance";
@@ -45,6 +45,9 @@ export interface SourcesMethodsProps {
   site: LoadedSite;
   /** The SCR-09 deep-link anchor (`#/sources#layer-slope`), when the route carries one. */
   anchor?: string;
+  /** Scenario files when the host can supply them. */
+  paramSets?: readonly ParamSet[];
+  replaySource?: { source_id: string; title: string };
 }
 
 /** The catalogue code of a dataset row: the DataSource id (04 P1, P3). */
@@ -67,7 +70,7 @@ function anchorId(prefix: string, id: string): string {
 }
 
 /** SCR-09 sources and methods (React, ADR-012). */
-export function SourcesMethods({ site, anchor }: SourcesMethodsProps): ReactElement {
+export function SourcesMethods({ site, anchor, paramSets = [], replaySource }: SourcesMethodsProps): ReactElement {
   const root = useRef<HTMLDivElement | null>(null);
 
   // The deep link scrolls its entry into view. The scroll is instant under `prefers-reduced-motion` (04 §C.6): the CSS
@@ -87,6 +90,7 @@ export function SourcesMethods({ site, anchor }: SourcesMethodsProps): ReactElem
   return (
     <div className="scr09" ref={root} data-screen="SCR-09" data-surface="brief">
       <header className="scr09-header">
+        <a className="scr09-index-link" href="#/planner">Back to map</a>
         <p className="module-label">Sources &amp; methods</p>
         <h1 className="scr09-title display">What each value is, and where it comes from</h1>
       </header>
@@ -97,7 +101,12 @@ export function SourcesMethods({ site, anchor }: SourcesMethodsProps): ReactElem
           <ul className="scr09-index-list">
             {SECTIONS.map((section) => (
               <li key={section.id}>
-                <a className="scr09-index-link" data-slot="index-link" href={`#${section.id}`}>
+                <a className="scr09-index-link" data-slot="index-link" href={`#${section.id}`} onClick={(event) => {
+                  event.preventDefault();
+                  const target = root.current?.querySelector<HTMLElement>(`#${section.id}`);
+                  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+                  target?.scrollIntoView?.({ block: "start", behavior: reduced ? "auto" : "smooth" });
+                }}>
                   {section.title}
                 </a>
               </li>
@@ -136,10 +145,10 @@ export function SourcesMethods({ site, anchor }: SourcesMethodsProps): ReactElem
                     <th scope="row" data-slot="dataset-name" data-provenance="measured" data-source={source.source_id}>
                       {source.title}
                     </th>
-                    <td data-slot="dataset-version" data-provenance="measured" data-source={source.source_id}>
+                    <td data-slot="dataset-version" data-unavailable={!source.version ? "true" : undefined} data-provenance="measured" data-source={source.source_id}>
                       {source.version || UNAVAILABLE}
                     </td>
-                    <td data-slot="dataset-mission" data-provenance="measured" data-source={source.source_id}>
+                    <td data-slot="dataset-mission" data-unavailable={source.missions.length + source.instruments.length === 0 ? "true" : undefined} data-provenance="measured" data-source={source.source_id}>
                       {missionLine(source.missions, source.instruments)}
                     </td>
                     <td data-slot="dataset-resolution" data-provenance="measured" data-source={source.source_id}>
@@ -151,11 +160,11 @@ export function SourcesMethods({ site, anchor }: SourcesMethodsProps): ReactElem
                         chip="glyph"
                       />
                     </td>
-                    <td data-slot="dataset-licence" data-provenance="measured" data-source={source.source_id}>
+                    <td data-slot="dataset-licence" data-unavailable={!source.licence ? "true" : undefined} data-provenance="measured" data-source={source.source_id}>
                       {source.licence || UNAVAILABLE}
                       {source.credit ? ` · ${source.credit}` : ""}
                     </td>
-                    <td data-slot="dataset-link" data-provenance="measured" data-source={source.source_id}>
+                    <td data-slot="dataset-link" data-unavailable={!source.url ? "true" : undefined} data-provenance="measured" data-source={source.source_id}>
                       {source.url ? (
                         <a href={source.url} rel="noreferrer noopener">
                           Open the source
@@ -267,18 +276,13 @@ export function SourcesMethods({ site, anchor }: SourcesMethodsProps): ReactElem
               The vehicle parameter sets the scenario loads. Each value is an assumption we chose, never a measurement of
               Mars.
             </p>
-            <ul className="scr09-param-list">
-              <li className="scr09-param" data-slot="param-entry" data-param-id="pr1-assumed" data-anchor-id={anchorId("param", "pr1-assumed")} data-provenance="assumed" data-source="param:pr1-assumed">
-                <span className="scr09-param-title">Pressurized rover (SEV-class concept)</span>
-                <span className="scr09-param-id" data-identifier>
-                  pr1-assumed
-                </span>
-                <span className="scr09-param-note">
-                  Assumed values from the NASA Space Exploration Vehicle concept; the slope and ingress limits are
-                  assumptions.
-                </span>
-              </li>
-            </ul>
+            {paramSets.length ? <ul className="scr09-param-list">
+              {paramSets.map((param) => <li key={param.param_set_id} className="scr09-param" data-slot="param-entry" data-param-id={param.param_set_id} data-anchor-id={anchorId("param", param.param_set_id)} data-provenance={param.provenance} data-source={param.source_ids?.[0] ?? `unavailable:param-set-source`}>
+                <span className="scr09-param-title">{param.title}</span>
+                <span className="scr09-param-id" data-identifier>{param.param_set_id}</span>
+                {Object.entries(param.values).map(([key, value]) => <span key={key} data-provenance={param.provenance} data-source={param.source_ids?.[0] ?? `unavailable:param-set-source`}>{key}: {String(value)}</span>)}
+              </li>)}
+            </ul> : <span data-unavailable="true" data-source="unavailable:scenario.param_sets">{UNAVAILABLE}</span>}
           </section>
 
           {/* ------------------------------------------------------ replay sources */}
@@ -290,16 +294,8 @@ export function SourcesMethods({ site, anchor }: SourcesMethodsProps): ReactElem
               The solar events the scenario replays. They are real historical records on a simulated clock, never a live
               feed.
             </p>
-            <ul className="scr09-replay-list">
-              <li className="scr09-replay" data-slot="replay-entry" data-source-id="hassler-2014-rad" data-anchor-id={anchorId("source", "hassler-2014-rad")} data-provenance="replayed" data-source="hassler-2014-rad">
-                <span className="scr09-replay-title">Hassler et al., 2014</span>
-                <span className="scr09-replay-note">The surface dose rate the storm scenario replays at solar maximum.</span>
-              </li>
-              <li className="scr09-replay" data-slot="replay-entry" data-source-id="simonsen-2024-rad" data-anchor-id={anchorId("source", "simonsen-2024-rad")} data-provenance="replayed" data-source="simonsen-2024-rad">
-                <span className="scr09-replay-title">Simonsen et al., 2024</span>
-                <span className="scr09-replay-note">The reported dose-rate range for the quiet part of the solar cycle.</span>
-              </li>
-            </ul>
+            {replaySource ? <ul className="scr09-replay-list"><li className="scr09-replay" data-slot="replay-entry" data-source-id={replaySource.source_id} data-anchor-id={anchorId("source", replaySource.source_id)} data-provenance="replayed" data-source={replaySource.source_id}>{replaySource.title}</li></ul>
+              : <span data-unavailable="true" data-source="unavailable:scenario.dose_series.source_id">{UNAVAILABLE}</span>}
           </section>
 
           {/* --------------------------------------------------------- limitations */}
@@ -346,7 +342,7 @@ export function SourcesMethods({ site, anchor }: SourcesMethodsProps): ReactElem
               <dt>Working projection</dt>
               <dd data-identifier>{site.site.crs.base}</dd>
               <dt>Checksums</dt>
-              <dd data-slot="checksum-status">
+              <dd data-slot="checksum-status" data-provenance="derived" data-source={`manifest:${site.site.site_id}`}>
                 {site.site.assets.length} files carry a SHA-256 checksum in the manifest
               </dd>
             </dl>
