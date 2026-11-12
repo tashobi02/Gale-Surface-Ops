@@ -41,11 +41,19 @@ export async function openRole(context: BrowserContext, role: HarnessRole): Prom
 }
 
 /**
- * Resolves once the page shows a value that came from a Hab Core snapshot. A snapshot-fed value carries `data-provenance`
- * (FR-15), and the live routes render none before the first snapshot.
- * TODO(verify): packages 17 and 19 may add a dedicated ready hook; use it here when they do.
+ * Resolves once the page shows a value that came from a Hab Core snapshot.
+ *
+ * A snapshot-fed value carries `data-provenance` (FR-15), but the presenter panel renders its session strip statically, so
+ * `[data-provenance]` is attached before the first snapshot arrives and a scan would run against a pre-snapshot panel. The
+ * wait is therefore on a value only a snapshot can produce: the session status cell, which reads "Not connected" until the
+ * Hab Core answers and then carries the session's own status.
  */
 export async function waitForSnapshot(page: Page, timeoutMs = 10_000): Promise<void> {
+  const status = page.locator(".presenter-session dd").filter({ hasText: /^(LOADED|RUNNING|PAUSED|ENDED)$/ });
+  if (await status.count()) {
+    await status.first().waitFor({ state: "attached", timeout: timeoutMs });
+    return;
+  }
   await page.waitForSelector("[data-provenance]", { state: "attached", timeout: timeoutMs });
 }
 

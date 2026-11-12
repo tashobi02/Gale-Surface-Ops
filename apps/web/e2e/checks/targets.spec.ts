@@ -10,6 +10,8 @@ import { openEvaFixture, type SentCommand } from "../lib/evaFixture";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 import { openPoiTasks } from "../lib/plannerTasks";
+import { openSetupFixture } from "../lib/setupFixture";
+import { openPresenterFixture, type PresenterFixtureState } from "../lib/presenterFixture";
 
 const EVA_MIN = 56;
 const EVA_GAP = 8;
@@ -85,6 +87,34 @@ test("targets: phone ops displays the larger-screen notice", async ({ page }) =>
   await openOpsFixture(page, "loaded");
   await expect(page.getByRole("heading", { name: "Use a larger screen" })).toBeVisible();
   await expect(page.getByTestId("clock-control")).toHaveCount(0);
+});
+
+// Packages 23 and 24: the presenter panel and the mission setup are OPS screens, so the ops minimum applies (04 §C.3).
+test("targets: presenter panel and mission setup targets are at least 32 px (packages 23, 24)", async ({ page }) => {
+  for (const hash of ["#/presenter", "#/setup"]) {
+    await page.goto(`/?site=mock_site${hash}`);
+    await page.waitForLoadState("networkidle");
+    await waitForSnapshot(page);
+    expectTargetSize(await targets(page), OPS_MIN);
+  }
+  // The same, with two candidate cards and every setting enabled (lib/setupFixture.ts).
+  const setup = await openSetupFixture(page, "ready");
+  const list = await targets(page);
+  expect(list.length, "candidate buttons and settings are targets").toBeGreaterThanOrEqual(7);
+  expectTargetSize(list, OPS_MIN);
+  setup.stop();
+});
+
+// Package 23: the presenter panel's own states (lib/presenterFixture.ts), including the open reset question.
+test("targets: presenter panel targets are at least 32 px in every state (package 23)", async ({ page }) => {
+  for (const state of ["pending", "reset-confirm", "rejected", "storm-running", "ended"] as PresenterFixtureState[]) {
+    const fixture = await openPresenterFixture(page, state);
+    const list = await targets(page);
+    expect(list.length, `the panel has targets in ${state}`).toBeGreaterThan(0);
+    expectTargetSize(list, OPS_MIN);
+    fixture.answer();
+    fixture.stop();
+  }
 });
 
 // Package 07 enables the planner workspace on the touch projects; package 09 adds the plan panel's targets to the same page.

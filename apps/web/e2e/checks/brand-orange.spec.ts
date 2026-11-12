@@ -12,6 +12,8 @@ import { join } from "node:path";
 import { openOpsFixture } from "../lib/opsFixture";
 import { routeHashesInMode } from "../lib/offline";
 import { e2eSite } from "../lib/siteBundle";
+import { openSetupFixture, type SetupFixtureState } from "../lib/setupFixture";
+import { openPresenterFixture, type PresenterFixtureState } from "../lib/presenterFixture";
 
 const tokens = readFileSync(join(import.meta.dirname, "..", "..", "src", "ui", "styles", "tokens.css"), "utf8");
 
@@ -58,7 +60,7 @@ async function orangeHits(page: Page): Promise<string[]> {
 test("brand-orange: no computed colour equals a brand-orange primitive in any OPS or HUD route", async ({ page }) => {
   // One page visits every OPS and HUD route in the router table in turn (about 4 s each): the list grows with each package,
   // so the budget is per route, not the 60 s default.
-  const hashes = routeHashesInMode(["ops", "hud"]);
+  const hashes = [...new Set([...routeHashesInMode(["ops", "hud"]), "#/presenter", "#/setup"])];
   test.setTimeout(Math.max(60_000, hashes.length * 12_000));
   expect(hashes.length).toBeGreaterThan(0);
   const hits: string[] = [];
@@ -72,6 +74,12 @@ test("brand-orange: no computed colour equals a brand-orange primitive in any OP
     page.on("request", record);
     await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch((error: Error) => { throw new Error(`${hash}: no network idle in 15 s; last requests: ${recent.slice(-8).join(" | ")} (${error.message.split("\n")[0]})`); });
     page.off("request", record);
+    if (hash === "#/presenter") await expect(page.locator('[data-screen="SCR-19"]')).toBeVisible();
+    if (hash === "#/setup") {
+      await expect(page.locator('[data-screen="SCR-20"]')).toBeVisible();
+      await expect(page.locator('.setup-state')).toHaveText(/^(Ready|Locked)/);
+      await expect(page.getByRole("heading", { name: "Mission settings", exact: true })).toBeVisible();
+    }
     const found = await orangeHits(page);
     for (const f of found) hits.push(`${hash}: ${f}`);
   }
@@ -88,4 +96,31 @@ test("brand-orange: ops loaded, paused and alerting states use no brand orange (
       expect(await orangeHits(page), state).toEqual([]);
     } finally { await page.close(); }
   }
+});
+
+// Package 24: SCR-20 in each state, from the fixture (candidate cards, settings, the Computing note, the rejection, Locked).
+test("brand-orange: none in the SCR-20 mission setup states (package 24)", async ({ page }) => {
+  const hits: string[] = [];
+  for (const state of ["ready", "computing", "rejected", "locked"] as SetupFixtureState[]) {
+    const fixture = await openSetupFixture(page, state);
+    if (state === "computing" || state === "rejected") await page.getByRole("button", { name: "Select site — MOCK alternative" }).click();
+    if (state === "computing") await expect(page.locator(".setup-state")).toHaveText(/^Computing haven fields/);
+    if (state === "rejected") await expect(page.getByRole("alert")).toBeVisible();
+    for (const found of await orangeHits(page)) hits.push(`${state}: ${found}`);
+    fixture.answer();
+    fixture.stop();
+  }
+  expect(hits, "brand orange in SCR-20").toEqual([]);
+});
+
+// Package 23: SCR-19 in each state, from the fixture (Advancing, the open reset question, the refusal, the storm, Ended).
+test("brand-orange: none in the SCR-19 presenter states (package 23)", async ({ page }) => {
+  const hits: string[] = [];
+  for (const state of ["pending", "reset-confirm", "rejected", "storm-running", "ended"] as PresenterFixtureState[]) {
+    const fixture = await openPresenterFixture(page, state);
+    for (const found of await orangeHits(page)) hits.push(`${state}: ${found}`);
+    fixture.answer();
+    fixture.stop();
+  }
+  expect(hits, "brand orange in SCR-19").toEqual([]);
 });

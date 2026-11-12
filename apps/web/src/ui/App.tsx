@@ -4,7 +4,8 @@
  * Live roles read the tab's Hab Core session through the hooks (state/habSession.ts), which boot opened before this
  * renders (boot/session.ts): no client is passed down. Each live host sits in `LiveFrame`, which adds the SCR-18 overlay.
  * Screens that are still stubs throw their "TODO(...)" error and the boundary shows a placeholder, so no route is blank.
- * Not wired yet: SCR-15 rover tasking, SCR-16 earth, SCR-19 presenter, SCR-20 setup.
+ * Not wired yet: SCR-15 rover tasking. SCR-19 and SCR-20 are mounted here as the minimal registration the harness checks need;
+ * T32.23 (package 22) adds the join tile and owns these two cases.
  */
 import type { ReactElement } from "react";
 import type { PlannerBootHandle } from "../boot/bootPlanner";
@@ -12,6 +13,8 @@ import { ownClientId } from "../boot/session";
 import type { Route } from "./router";
 import { EarthView } from "./screens/scr16EarthView";
 import { BriefingHost } from "./live/BriefingHost";
+import { Presenter } from "./screens/scr19Presenter";
+import { MissionSetup } from "./screens/scr20MissionSetup";
 import { EvaRoute } from "./live/EvaRoute";
 import { HudRoute } from "./live/HudRoute";
 import { JoinRoute } from "./live/JoinRoute";
@@ -70,9 +73,21 @@ export function App({ route, planner, fetchImpl }: AppProps): ReactElement {
         </RouteBoundary>
       );
     case "presenter":
-      return <NotBuilt screen="SCR-19" label="Presenter panel" task="T32.20" />;
+      return (
+        <RouteBoundary screen="SCR-19" label="Presenter panel" task="T32.19">
+          <LiveFrame variant="ops">
+            <Presenter />
+          </LiveFrame>
+        </RouteBoundary>
+      );
     case "setup":
-      return <NotBuilt screen="SCR-20" label="Mission setup" task="T32.22" />;
+      return (
+        <RouteBoundary screen="SCR-20" label="Mission setup" task="T32.21">
+          <LiveFrame variant="ops">
+            <MissionSetup />
+          </LiveFrame>
+        </RouteBoundary>
+      );
     case "replay":
       return (
         <RouteBoundary screen="—" label="Replayed recording" task="T27.05">
