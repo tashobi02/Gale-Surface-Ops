@@ -102,6 +102,7 @@ const SNAPSHOT_PROVENANCE: ProvenanceMap = {
   "crew.next_stop_eta_s": "modelled",
   "crew.link_hops": "simulated",
   "crew.link_via": "simulated",
+  "crew.last_linked_sim_time": "simulated",
   "vehicles.queue.eta_s": "modelled",
   "vehicles.queue.battery_wh_after": "modelled",
   "conditions.ltst": "derived",
