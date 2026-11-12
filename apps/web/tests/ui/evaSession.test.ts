@@ -335,7 +335,9 @@ describe("the task list is full only at the stop and collapses to its count othe
   async function open(snapshot: Snapshot) {
     const { client } = recordingClient(storeFromBeat("connect"));
     const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot }));
-    await click(must(view.container, '[data-testid="tasks-button"]'));
+    // The TASKS control is a button only while the list can be opened; while collapsed the count is a figure (FD-032).
+    const button = view.container.querySelector('[data-testid="tasks-button"]');
+    if (button) await click(button);
     return view;
   }
   const alert = (level: "warning" | "caution" | "advisory", acked_seq: number | null = null): Snapshot["alerts"][number] => ({
@@ -346,13 +348,17 @@ describe("the task list is full only at the stop and collapses to its count othe
   it("at the stop with no alert the full list shows", async () => {
     const { container } = await open(atStop());
     expect(full(container)).toBe(true);
-    expect(container.querySelector('[data-testid="tasks-collapsed-count"]')).toBeNull();
+    expect(container.querySelector('[data-testid="tasks-count"]')).toBeNull();
   });
 
   it.each(["WALKING", "TO_HAVEN", "SHELTERED", "IN_HAB"] as const)("while %s only the count shows", async (activity) => {
     const { container } = await open(atStop({ activity }));
+    // FD-032: no panel is mounted over the NEXT card; the count stays in the NEXT header, as a figure and not a control.
     expect(full(container)).toBe(false);
-    expect(must(container, '[data-testid="tasks-collapsed-count"]').textContent).toContain("TASKS 0/1");
+    expect(container.querySelector('[data-slot="stop-task-list"]')).toBeNull();
+    expect(must(container, '[data-testid="tasks-count"]').textContent).toContain("TASKS");
+    expect(must(container, '[data-testid="tasks-count"]').textContent).toContain("0/1");
+    expect(container.querySelector('[data-testid="tasks-button"]')).toBeNull();
   });
 
   it("a crew member who is not in the snapshot gets the count only", async () => {
@@ -363,7 +369,8 @@ describe("the task list is full only at the stop and collapses to its count othe
   it.each(["warning", "caution"] as const)("during an unacknowledged %s alert only the count shows", async (level) => {
     const { container } = await open({ ...atStop(), alerts: [alert(level)] });
     expect(full(container)).toBe(false);
-    expect(container.querySelector('[data-testid="tasks-collapsed-count"]')).not.toBeNull();
+    expect(container.querySelector('[data-slot="stop-task-list"]')).toBeNull();
+    expect(container.querySelector('[data-testid="tasks-count"]')).not.toBeNull();
   });
 
   it("an acknowledged alert, an advisory and a cleared alert do not collapse it", async () => {
@@ -399,8 +406,10 @@ describe("crewId is required: nothing defaults to EV1 (T24.04)", () => {
     expect(valueText(tablet.container, "o2")).toBe("—");
     expect(must<HTMLButtonElement>(tablet.container, "#action-summon-rover").disabled).toBe(true);
     expect(must<HTMLButtonElement>(tablet.container, "#action-abort-hab").disabled).toBe(true);
-    await click(must(tablet.container, '[data-testid="tasks-button"]'));
-    expect(must(tablet.container, '[data-slot="stop-task-list"]').querySelectorAll("button")).toHaveLength(0);
+    // Without a crew member there is no stop and so no list: the count reads "—" and nothing can be acted on.
+    expect(tablet.container.querySelector('[data-slot="stop-task-list"]')).toBeNull();
+    expect(must(tablet.container, '[data-testid="tasks-count"]').textContent).toContain("—");
+    expect(tablet.container.querySelector('[data-testid="tasks-button"]')).toBeNull();
     await tablet.unmount();
 
     const hud = await mount(createElement(Hud, { snapshot } as unknown as HudProps));

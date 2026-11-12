@@ -166,10 +166,21 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
     const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("walking") }));
     const next = must(container, '[data-slot="next"]');
     expect(next.textContent).not.toMatch(/NaN/);
-    expect(next.textContent).toContain("↗ —");
+    // With no bearing there is no arrow: the arrow follows the bearing, it is never a fixed glyph.
+    expect(next.textContent).toContain("— —");
+    expect(next.textContent).not.toMatch(/[↑↗→↘↓↙←↖]/);
     for (const el of next.querySelectorAll("[data-provenance]")) {
       expect(el.getAttribute("data-source")).toBeTruthy();
     }
+  });
+
+  it("the bearing arrow follows the bearing the Hab Core supplies", async () => {
+    const base = snapshotOf("connect");
+    const snapshot = { ...base, crew: base.crew.map((c) => ({ ...c, next_stop_bearing_deg: 90 })) };
+    const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot }));
+    const next = must(container, '[data-slot="next"]');
+    expect(next.textContent).toContain("→");
+    expect(next.textContent).toContain("90°");
   });
 
   it("the alert slot, HAVEN, O₂ and the action row keep one DOM order across fixture states (04 §A.3 #4)", async () => {
@@ -184,6 +195,57 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
       orders.push(["alert-slot", "haven", "o2", "action-row"].map((n) => pick(n)).join(","));
       document.body.innerHTML = "";
     }
+    expect(new Set(orders).size).toBe(1);
+  });
+
+  it("fixed geography all states: the same slots in the same order in every state (04 §A.3 #4, §E.5)", async () => {
+    // The named test of `docs/plan/frontend/17-eva-tablet.md`. The browser check `eva-geometry` measures the boxes; this
+    // one covers the structure they come from: in every state the alert slot, HAVEN, O₂, the strip and the action row
+    // are all there, in the same order, and nothing is inserted between them.
+    const FIXED = ["alert-slot", "haven", "o2", "meta-strip", "action-row"] as const;
+    const states: { name: string; snapshot: Snapshot }[] = [];
+    const connect = snapshotOf("connect");
+    const walking = snapshotOf("walking");
+    const alerting = snapshotOf("radiation-alert");
+    const noLink = snapshotOf("comm-shadow");
+    const opsTask: Snapshot = {
+      ...connect,
+      tasks: [{ ...connect.tasks[0]!, origin: "ops", text: "Re-image the fracture set" }],
+    };
+    const toHaven: Snapshot = {
+      ...walking,
+      crew: walking.crew.map((c) => ({ ...c, activity: "TO_HAVEN" })),
+    };
+    const atStop: Snapshot = {
+      ...connect,
+      crew: connect.crew.map((c) => ({ ...c, activity: "AT_STOP" })),
+    };
+    const undoWindow: Snapshot = { ...atStop, tasks: [{ ...atStop.tasks[0]!, state: "DONE" }] };
+    for (const [name, snapshot] of [
+      ["walking", walking],
+      ["at stop", atStop],
+      ["undo window", undoWindow],
+      ["ops-added task", opsTask],
+      ["alerting", alerting],
+      ["no hab link", noLink],
+      ["to haven", toHaven],
+    ] as const) {
+      states.push({ name, snapshot });
+    }
+
+    const orders: string[] = [];
+    for (const { name, snapshot } of states) {
+      const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot }));
+      const slots = [...container.querySelectorAll("[data-slot]")].map((el) => el.getAttribute("data-slot"));
+      const pick = (slot: string) => slots.indexOf(slot);
+      for (const slot of FIXED) expect(pick(slot), `${name} is missing ${slot}`).toBeGreaterThanOrEqual(0);
+      for (let i = 1; i < FIXED.length; i += 1) {
+        expect(pick(FIXED[i - 1]!), `${name}: ${FIXED[i - 1]} must come before ${FIXED[i]}`).toBeLessThan(pick(FIXED[i]!));
+      }
+      orders.push(FIXED.map((s) => pick(s)).join(","));
+      document.body.innerHTML = "";
+    }
+    // The same slots in the same places: no state inserts a slot between two fixed ones.
     expect(new Set(orders).size).toBe(1);
   });
 
@@ -230,6 +292,40 @@ describe("SCR-13 HUD and SCR-18 link-lost on fixture snapshots", () => {
       expect(indicator.querySelector(".status-glyph")?.textContent).toBeTruthy();
       expect(indicator.querySelector(".status-label")?.textContent).toBeTruthy();
     }
+  });
+
+  it("HUD names the link state, the hop count and the first hop in words, not colour alone", async () => {
+    // The HUD's link strip is the crew member's only read on the radio path (N-04, BD-103): LINK UP/DOWN, how many hops to
+    // HAB and which kind of hop the first one is. The words carry the state; the colours only decorate it.
+    const base = snapshotOf("live-loaded");
+    const up = await mount(createElement(Hud, { crewId: "EV1", snapshot: base }));
+    const linkUp = must(up.container, '[data-slot="hud-link"]');
+    expect(linkUp.textContent).toContain("LINK UP");
+    expect(linkUp.textContent).toContain("VIA direct");
+    expect(linkUp.textContent).toMatch(/\d+\s*hops?/);
+    // The hops and the via each carry their own provenance and source: every displayed value does (CLAUDE.md).
+    const hops = must(linkUp, '[data-source="snapshot:crew.link_hops"]');
+    expect(hops.getAttribute("data-provenance")).toBeTruthy();
+    const via = must(linkUp, '[data-source="snapshot:crew.link_via"]');
+    expect(via.getAttribute("data-provenance")).toBeTruthy();
+    await up.unmount();
+
+    const down = await mount(
+      createElement(Hud, {
+        crewId: "EV1",
+        snapshot: { ...base, crew: base.crew.map((c) => ({ ...c, linked: false })) },
+      }),
+    );
+    expect(must(down.container, '[data-slot="hud-link"]').textContent).toContain("LINK DOWN");
+    await down.unmount();
+
+    // No snapshot: the link state is unknown, never "UP" by default.
+    const none = await mount(createElement(Hud, { crewId: "EV1", snapshot: null }));
+    const linkNone = must(none.container, '[data-slot="hud-link"]');
+    expect(linkNone.textContent).not.toContain("LINK UP");
+    expect(linkNone.textContent).not.toContain("LINK DOWN");
+    expect(must(linkNone, '[data-unavailable="true"]')).toBeTruthy();
+    await none.unmount();
   });
 
   it("link-lost keeps cached values labelled and shows the age as — unless one is supplied; never 'measured'", async () => {
@@ -690,6 +786,69 @@ describe("package 17 accessibility controls", () => {
     await click(button);
     expect(must(view.container, '[data-screen="SCR-12"]').getAttribute("data-contrast")).toBe("high");
   });
+
+  it("contrast toggle switches the palette and back, and the high-contrast rule is scoped per alert level (FD-017)", async () => {
+    // The high-contrast alert is the outlined variant (04 §C.1, FD-017) and each level keeps its OWN status colour: an
+    // advisory is never drawn in the warning colour. jsdom does not resolve var(), so the declarations are read as source.
+    const EVA_CSS = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/screens/scr12EvaTablet.css"), "utf8");
+    const TOKENS = readFileSync(join(STYLES_DIR, "tokens.css"), "utf8");
+    const tokenOf = (name: string): string => {
+      const m = new RegExp(`--${name}:\\s*(#[0-9A-Fa-f]{6})`).exec(TOKENS);
+      expect(m, `the token --${name}`).not.toBeNull();
+      return m![1]!;
+    };
+    const LEVELS = { warning: "hud-warning", caution: "hud-caution", advisory: "hud-advisory" } as const;
+    for (const [level, token] of Object.entries(LEVELS)) {
+      // The rule names the level twice (the status class and the data attribute) and its body sits on the next line, so
+      // the whole rule block is read across lines.
+      const rule = new RegExp(`\\[data-contrast="high"\\][\\s\\S]*?${level}"\\][\\s\\S]*?\\{([^}]*)\\}`).exec(EVA_CSS);
+      expect(rule, `a high-contrast rule for the ${level} alert bar`).not.toBeNull();
+      expect(rule![1]).toMatch(new RegExp(`color:\\s*var\\(--${token}\\)`));
+    }
+    // The three levels are three different colours: no level borrows another's.
+    const colours = Object.values(LEVELS).map(tokenOf);
+    expect(new Set(colours).size).toBe(3);
+
+    // The toggle really switches the palette on the screen, both ways.
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("radiation-alert") }));
+    const screen = must(view.container, '[data-screen="SCR-12"]');
+    expect(screen.getAttribute("data-contrast")).not.toBe("high");
+    await click(must(view.container, '[aria-label="Toggle high contrast"]'));
+    expect(screen.getAttribute("data-contrast")).toBe("high");
+    await click(must(view.container, '[aria-label="Toggle high contrast"]'));
+    expect(screen.getAttribute("data-contrast")).not.toBe("high");
+  });
+
+  it("the alert bar names its level, so the level's own colour can be scoped to it", async () => {
+    // The bar carries the level twice: the data attribute the CSS scopes by, and the status class. Without both, an
+    // advisory could be painted in the warning colour (FD-017).
+    const base = snapshotOf("connect");
+    for (const level of ["warning", "caution", "advisory"] as const) {
+      const snapshot: Snapshot = {
+        ...base,
+        alerts: [
+          {
+            alert_id: `a-${level}`,
+            code: "RADIATION_ALERT",
+            level,
+            subjects: ["EV1"],
+            raised_seq: 5,
+            acked_seq: null,
+            cleared_seq: null,
+            acked_by: null,
+            message: `${level} message`,
+            data: {},
+          },
+        ],
+      };
+      const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot }));
+      const bar = must(view.container, '[data-slot="alert"]');
+      expect(bar.getAttribute("data-level")).toBe(level);
+      expect(bar.className).toContain(`status-${level}`);
+      document.body.innerHTML = "";
+    }
+  });
+
   it("tap confirm fallback sends only after the second tap", async () => {
     const { client, sent } = recordingClient(storeFromBeat("connect"));
     const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot: snapshotOf("connect") }));

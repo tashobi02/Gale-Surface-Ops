@@ -35,6 +35,23 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
+/** A contingency option the Hab Core proposed for an alert (05 ContingencyOption). */
+function option(alertId: string, optionId: string): Snapshot["options"][number] {
+  return {
+    option_id: optionId,
+    alert_id: alertId,
+    kind: "ABORT_TO_HAB",
+    crew_ids: ["EV1"],
+    eta_shelter_min: 14,
+    expected_dose_ugy: 0,
+    stops_dropped: [],
+    violations: [],
+    rank: 1,
+    path_preview: [],
+    rendezvous: null,
+  };
+}
+
 beforeAll(() => installDom());
 afterAll(() => removeDom());
 afterEach(() => {
@@ -116,6 +133,7 @@ describe("EvaRoute (SCR-12 with its HUD button and SCR-14 sheet)", () => {
       alerts: [
         { alert_id: "a-1", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"], raised_seq: 5, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {} },
       ],
+      options: [option("a-1", "o1")],
     });
     expect(container.querySelector('[data-screen="SCR-14"]')).not.toBeNull();
     const sheet = must(container, '[data-screen="SCR-14"]');
@@ -270,12 +288,30 @@ describe("package 17 EVA rover entry", () => {
 });
 
 describe("package 17 warning navigation", () => {
-  it("opens options when a new warning arrives", async () => {
+  it("opens options when a new warning arrives with options for it", async () => {
     const receive = openSession("eva:EV1");
     const view = await mount(createElement(EvaRoute, { crewId: "EV1" }));
     const base = wsFixtures.connect[0] as Snapshot;
-    await receive({ ...base, alerts: [{ alert_id: "a-new", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"], raised_seq: 5, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {} }] });
+    await receive({
+      ...base,
+      alerts: [{ alert_id: "a-new", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"], raised_seq: 5, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {} }],
+      options: [option("a-new", "o-new")],
+    });
     expect(view.container.querySelector('[data-screen="SCR-14"]')).not.toBeNull();
+  });
+
+  it("a warning with no options does not open the sheet over the tablet (FD-081)", async () => {
+    // The sheet covers the action row and the HAVEN and O₂ values (04 §E.5), so it opens only when there is something in
+    // it to choose.
+    const receive = openSession("eva:EV1");
+    const view = await mount(createElement(EvaRoute, { crewId: "EV1" }));
+    const base = wsFixtures.connect[0] as Snapshot;
+    await receive({
+      ...base,
+      alerts: [{ alert_id: "a-bare", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"], raised_seq: 5, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {} }],
+      options: [],
+    });
+    expect(view.container.querySelector('[data-screen="SCR-14"]')).toBeNull();
   });
 });
 
@@ -284,7 +320,11 @@ describe("package 17 crew-wide warning", () => {
     const receive = openSession("eva:EV1");
     const view = await mount(createElement(EvaRoute, { crewId: "EV1" }));
     const base = wsFixtures.connect[0] as Snapshot;
-    await receive({ ...base, alerts: [{ alert_id: "a-all", code: "RADIATION_ALERT", level: "warning", subjects: [], raised_seq: 5, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {} }] });
+    await receive({
+      ...base,
+      alerts: [{ alert_id: "a-all", code: "RADIATION_ALERT", level: "warning", subjects: [], raised_seq: 5, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {} }],
+      options: [option("a-all", "o-all")],
+    });
     expect(view.container.querySelector('[data-screen="SCR-14"]')).not.toBeNull();
   });
 });
