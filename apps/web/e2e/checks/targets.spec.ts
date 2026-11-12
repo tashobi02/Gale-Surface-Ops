@@ -5,7 +5,7 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { expectGaps, expectTargetSize, targets } from "../lib/geometry";
-import { openOpsFixture, openOpsPanel } from "../lib/opsFixture";
+import { UTILITY_ROVER, openOpsFixture, openOpsPanel } from "../lib/opsFixture";
 import { openEvaFixture } from "../lib/evaFixture";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
@@ -57,6 +57,18 @@ test("targets: ops targets are at least 32 px (enabled by package 19)", async ({
       await checkOpsPanels(opsPage, state !== "alerting");
     } finally { await opsPage.close(); }
   }
+});
+
+test("targets: the rover card and SCR-15 on ops are at least 32 px, SCR-15 at least 56 px (package 21)", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 1024, "FD-210: ops controls require 1024px");
+  await openOpsFixture(page, "running", { vehicles: [UTILITY_ROVER] });
+  await openOpsPanel(page, "crew");
+  await page.getByRole("button", { name: "Task rover UR1" }).click();
+  await expect(page.locator('[data-screen="SCR-15"]')).toBeVisible();
+  await checkOpsTargets(page, '[data-slot="ops-map"]');
+  const rover = await targets(page, '[data-screen="SCR-15"]');
+  expect(rover.length).toBeGreaterThan(0);
+  expectTargetSize(rover, EVA_MIN);
 });
 
 test("targets: narrow ops opens every asserted panel at 1100px", async ({ page }) => {

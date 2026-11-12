@@ -9,6 +9,9 @@
  * Right column (Conditions, Earth Link, Contingency Options with 800ms hold-to-confirm),
  * Bottom bar (Event log).
  *
+ * Package 21: the map column is the shared map with the ops layers (`OpsMap`, T25.02); the utility-rover card shows the
+ * rover queue (`RoverQueue`, T29.05) and opens SCR-15 (`RoverTask`, T29.04), whose target is picked on that map.
+ *
  * Every mission value carries data-provenance (04 §A.3 #8, FR-15).
  * Status colours mean status only — never brand orange in OPS (04 §A.3.1).
  */
@@ -34,6 +37,9 @@ import { ClockControl } from "../ops/ClockControl";
 import { ConditionsPanel, type ConditionsState, type ProvenanceValue } from "../ops/ConditionsPanel";
 import { TaskProgress } from "../ops/TaskProgress";
 import { AddTaskPopover } from "../ops/AddTaskPopover";
+import { OpsMap } from "../ops/OpsMap";
+import { RoverQueue } from "../ops/RoverQueue";
+import { RoverTask } from "./scr15RoverTask";
 import {
   PROVENANCE_GLYPHS,
   UNAVAILABLE,
@@ -161,6 +167,25 @@ export function OpsConsole({
   const [preview, setPreview] = useState<ContingencyOption | null>(null);
   const previewPath = useCallback((_path: [number, number][], option?: ContingencyOption | null) => setPreview(option ?? null), []);
   const client = useHabClient(clientProp);
+  const [roverTask, setRoverTask] = useState<string | null>(null);
+  const roverOpener = useRef<HTMLButtonElement | null>(null);
+  const roverPanelRef = useRef<HTMLDivElement>(null);
+  const [picking, setPicking] = useState(false);
+  const [pickedTarget, setPickedTarget] = useState<{ x_m: number; y_m: number } | null>(null);
+  const openRoverTask = (vehicleId: string, opener: HTMLButtonElement): void => {
+    roverOpener.current = opener;
+    setPickedTarget(null);
+    setPicking(false);
+    setRoverTask(vehicleId);
+  };
+  const closeRoverTask = (): void => {
+    setRoverTask(null);
+    setPicking(false);
+    roverOpener.current?.focus();
+  };
+  useEffect(() => {
+    if (roverTask) roverPanelRef.current?.focus();
+  }, [roverTask]);
   const [logOpen, setLogOpen] = useState(false);
   const stripRef = useRef<HTMLButtonElement>(null);
   const closeLog = useCallback(() => {
@@ -625,6 +650,20 @@ export function OpsConsole({
                       : UNAVAILABLE}
                   </span>
                 </div>
+                {v.kind === "utility_rover" && (
+                  <>
+                    <RoverQueue vehicle={v} compact />
+                    <button
+                      type="button"
+                      style={buttonStyle}
+                      aria-label={`Task rover ${v.vehicle_id}`}
+                      aria-expanded={roverTask === v.vehicle_id}
+                      onClick={(event) => openRoverTask(v.vehicle_id, event.currentTarget)}
+                    >
+                      TASK ROVER
+                    </button>
+                  </>
+                )}
               </article>
             ))}
           </div>
@@ -633,6 +672,7 @@ export function OpsConsole({
         {/* Center Column: SHARED MAP SLOT */}
         <section
           className="ops-map-slot"
+          data-picking={picking ? "true" : "false"}
           style={{
             position: "relative",
             backgroundColor: "#080A0D",
@@ -643,46 +683,30 @@ export function OpsConsole({
           }}
           aria-label="Operations Tactical Surface Map"
         >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div className="module-label" style={moduleLabelStyle}>
-              [ TACTICAL MAP /// IAU_2015:49900 ]
-            </div>
-            <div style={{ display: "flex", gap: "4px" }}>
-              <button style={buttonStyle} aria-label="Zoom in">+</button>
-              <button style={buttonStyle} aria-label="Zoom out">−</button>
-              <button style={buttonStyle} aria-label="Fit view">FIT</button>
-            </div>
+          <div className="module-label" style={moduleLabelStyle}>
+            [ TACTICAL MAP /// IAU_2015:49900 ]
           </div>
 
-          {/* Center tactical canvas placeholder */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flex: 1,
-              color: "var(--text-3, #8592A0)",
-              fontFamily: "var(--font-mono, monospace)",
-              fontSize: "13px",
+          <OpsMap
+            snapshot={activeSnapshot ?? null}
+            picking={picking}
+            onPick={(target) => {
+              setPickedTarget(target);
+              setPicking(false);
             }}
-          >
-            {preview && Array.isArray(preview.path_preview) && preview.path_preview.length > 0 && preview.path_preview.every((point) => point.length === 2 && point.every(Number.isFinite)) ? (() => {
-              const points = preview.path_preview;
-              const xs = points.map(([x]) => x);
-              const ys = points.map(([, y]) => y);
-              const width = Math.max(1, Math.max(...xs) - Math.min(...xs));
-              const height = Math.max(1, Math.max(...ys) - Math.min(...ys));
-              return <svg data-slot="option-path-preview" data-provenance="modelled" data-source={`snapshot:options/${preview.option_id}/path_preview`} role="img" aria-label="Option path preview in Mars projected metres" viewBox={`${Math.min(...xs) - width * 0.05} ${-Math.max(...ys) - height * 0.05} ${width * 1.1} ${height * 1.1}`} style={{ width: "100%", height: "100%", minHeight: "240px" }}>
-                <polyline points={points.map(([x, y]) => `${x},${y}`).join(" ")} transform="scale(1,-1)" fill="none" stroke="var(--route)" strokeWidth="3" vectorEffect="non-scaling-stroke" />
-              </svg>;
-            })() : "MAP VIEWPORT · PROJECTION IAU_2015:49900"}
-          </div>
+          />
+
+          {/* Option path preview (modelled, the Hab Core's path_preview) as an inset until the option is approved */}
+          {preview && Array.isArray(preview.path_preview) && preview.path_preview.length > 0 && preview.path_preview.every((point) => point.length === 2 && point.every(Number.isFinite)) ? (() => {
+            const points = preview.path_preview;
+            const xs = points.map(([x]) => x);
+            const ys = points.map(([, y]) => y);
+            const width = Math.max(1, Math.max(...xs) - Math.min(...xs));
+            const height = Math.max(1, Math.max(...ys) - Math.min(...ys));
+            return <svg data-slot="option-path-preview" data-provenance="modelled" data-source={`snapshot:options/${preview.option_id}/path_preview`} role="img" aria-label="Option path preview in Mars projected metres" viewBox={`${Math.min(...xs) - width * 0.05} ${-Math.max(...ys) - height * 0.05} ${width * 1.1} ${height * 1.1}`} style={{ position: "absolute", left: "24px", bottom: "56px", zIndex: 3, width: "240px", height: "160px", backgroundColor: "var(--panel, #14181D)", border: "1px solid var(--edge, #5C6670)" }}>
+              <polyline points={points.map(([x, y]) => `${x},${y}`).join(" ")} transform="scale(1,-1)" fill="none" stroke="var(--route)" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+            </svg>;
+          })() : null}
 
           <footer
             style={{
@@ -707,6 +731,36 @@ export function OpsConsole({
                 ]}
           </footer>
         </section>
+
+        {/* SCR-15 rover tasking over the crew column, so the map stays free for the target pick (T29.04) */}
+        {roverTask && (
+          <div
+            ref={roverPanelRef}
+            tabIndex={-1}
+            data-screen="SCR-15"
+            role="dialog"
+            aria-label={`Rover tasking ${roverTask}`}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.stopPropagation();
+                closeRoverTask();
+              }
+            }}
+            style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "min(480px, 100%)", zIndex: 10, overflowY: "auto", backgroundColor: "var(--panel, #14181D)", borderRight: "1px solid var(--hairline, #2A313A)" }}
+          >
+            <RoverTask
+              vehicleId={roverTask}
+              client={client}
+              selectedTarget={pickedTarget}
+              onStartMapPlacement={() => {
+                if (narrow) setSideDrawer(null);
+                setPicking(true);
+              }}
+              onCancelMapPlacement={() => setPicking(false)}
+              onClose={closeRoverTask}
+            />
+          </div>
+        )}
 
         {/* Right Column: CONDITIONS, EARTH LINK, OPTIONS */}
         <aside onKeyDown={(event) => { if (narrow && event.key === "Escape") { event.stopPropagation(); closeSideDrawer(); } }} aria-label="Conditions and options" style={{ ...rightColumnStyle, ...(narrow ? { display: sideDrawer === "mission" ? "flex" : "none", position: "absolute", right: 0, top: 0, bottom: 0, width: "320px", zIndex: 5 } : {}) }}>

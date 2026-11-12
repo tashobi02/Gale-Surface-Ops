@@ -211,6 +211,6 @@ flowchart LR
 
 ## Spec questions
 
-1. **Accepted-task event kind.** 05 LogEvent has no rover-specific kind; `VEHICLE_DISPATCHED` is the closest. `TODO(verify)` until T20.01.
-2. **CARRY items.** FR-41 names no item list. `TODO(decision)`.
+1. **Accepted-task event kind.** 05 LogEvent has no rover-specific kind; `VEHICLE_DISPATCHED` is the closest. `TODO(verify)` until T20.01. Decided: FD-168 (12 Nov 2026, Proposed).
+2. **CARRY items.** FR-41 names no item list. `TODO(decision)`. Decided: FD-052 (12 Nov 2026, Proposed).
 3. **Rover relay in the 240-s video.** Adding the relay beat to 01 §E.1 and the demo script is the product & systems lead's call (session handoff §F.4).

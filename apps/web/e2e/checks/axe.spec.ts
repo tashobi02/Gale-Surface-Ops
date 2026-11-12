@@ -8,7 +8,7 @@ import { axeScan, type HtmlMode } from "../lib/a11y";
 import { waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 import { openEvaFixture, type EvaFixtureState } from "../lib/evaFixture";
-import { openOpsFixture, openOpsPanel } from "../lib/opsFixture";
+import { UTILITY_ROVER, openOpsFixture, openOpsPanel } from "../lib/opsFixture";
 import { withManifestlessSite } from "../lib/siteBundle";
 
 const LIVE = /^#\/(ops|eva|hud)/;
@@ -122,6 +122,17 @@ test("axe: ops states have no serious or critical violation (package 19)", async
   }
 });
 
+test("axe: ops rover card and SCR-15 rover tasking have no serious or critical violation (package 21)", async ({ page }, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 1024, "the ops console needs >= 1024 px");
+  await openOpsFixture(page, "running", { vehicles: [UTILITY_ROVER] });
+  await openOpsPanel(page, "crew");
+  await page.getByRole("button", { name: "Task rover UR1" }).click();
+  await expect(page.locator('[data-screen="SCR-15"]')).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-rover-task` });
+  await page.locator('[data-screen="SCR-15"] [data-task="SCOUT"]').click();
+  await page.getByRole("button", { name: "Pick on map" }).click();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-rover-placing` });
+});
 
 test.fixme("needs N-06: ops receives an authoritative EVA phase", async ({ page }) => {
   await page.goto("/?site=mock_site#/ops");

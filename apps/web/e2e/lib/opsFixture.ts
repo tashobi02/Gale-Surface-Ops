@@ -10,14 +10,19 @@ export async function openOpsPanel(page: Page, panel: "crew" | "mission"): Promi
   await page.locator(`aside[aria-label="${panel === "crew" ? "Crew and vehicles" : "Conditions and options"}"]`).waitFor({ state: "visible" });
 }
 
+/** A parked utility rover with an empty queue (package 21), added to a fixture to open SCR-15 from its card. */
+export const UTILITY_ROVER: Snapshot["vehicles"][number] = { vehicle_id: "UR1", kind: "utility_rover", param_set: "ur1-assumed", x_m: -1700, y_m: -1450, state: "PARKED", task: null, path: [], eta_s: null, battery_wh: 900, task_id: null, queue: [], relay_coverage_rev: null };
+
 export type OpsFixtureState = "no-session" | "loaded" | "running" | "paused" | "alerting" | "ended";
-export async function openOpsFixture(page: Page, state: OpsFixtureState): Promise<{ commands: { kind: string; args: Record<string, unknown> }[] }> {
+/** `vehicles` are added to the fixture's vehicle list (package 21: a utility rover to task). */
+export async function openOpsFixture(page: Page, state: OpsFixtureState, extra: { vehicles?: Snapshot["vehicles"] } = {}): Promise<{ commands: { kind: string; args: Record<string, unknown> }[] }> {
   const commands: { kind: string; args: Record<string, unknown> }[] = [];
   const snapshot = (JSON.parse(readFileSync(new URL("../../tests/fixtures/ws/connect.json", import.meta.url), "utf8")) as Snapshot[])[0]!;
   // Use the committed fake-scenario plan so first-task controls are exercised at an actual planned stop.
   snapshot.plan = (JSON.parse(readFileSync(new URL("../../../hab-core/tests/fixtures/fake-scenario/scenario.json", import.meta.url), "utf8")) as { plan: Snapshot["plan"] }).plan;
   snapshot.session.status = state === "ended" ? "ENDED" : state === "loaded" ? "LOADED" : state === "paused" ? "PAUSED" : "RUNNING";
   snapshot.session.clock.paused = state === "paused" || state === "loaded";
+  snapshot.vehicles = [...snapshot.vehicles, ...(extra.vehicles ?? [])];
   const events: { event: LogEvent }[] = state === "alerting" ? [
     ...JSON.parse(readFileSync(new URL("../../tests/fixtures/ws/radiation-alert.json", import.meta.url), "utf8")),
     ...JSON.parse(readFileSync(new URL("../../tests/fixtures/ws/options-proposed.json", import.meta.url), "utf8")),
@@ -30,7 +35,7 @@ export async function openOpsFixture(page: Page, state: OpsFixtureState): Promis
     socket.onMessage((message) => {
       // 02 §E.6 / ws.ts: per-kind fields are nested in `command`.
       const request = JSON.parse(String(message)) as { type?: string; command_id?: string; command?: { kind?: string; args?: Record<string, unknown> } };
-      if (request.type === "COMMAND" && request.command?.kind === "APPROVE_OPTION") {
+      if (request.type === "COMMAND" && (request.command?.kind === "APPROVE_OPTION" || request.command?.kind === "TASK_ROVER")) {
         commands.push({ kind: request.command.kind, args: request.command.args ?? {} });
         socket.send(JSON.stringify({ v: snapshot.v, type: "COMMAND_RESULT", command_id: request.command_id, ok: true, event_seq: snapshot.seq }));
       }

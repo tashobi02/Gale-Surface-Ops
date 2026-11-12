@@ -40,6 +40,8 @@ Rule for every frontend package: a field the backend has not shipped renders "â€
 | N-27 | EVA end | Session status `ended` and the command that ends an EVA, so SCR-11 â†’ SCR-17 can be driven from the UI | 03 SCR-11 Ended | 19, 29 |
 | N-28 | Haven fields | Haven bands per tick for the ops map (T23.03) and planning haven values per leg (T05b.04) | FR-39 | 11, 21 |
 | N-29 | Revise a skipped task reason during the undo window | Permit an actor to change the reason on its own SKIPPED task without undoing and re-skipping it; preserve the audit and revision rules | FD-028; current engine accepts SKIPPED only from TODO | 17 |
+| N-100 | Hab time field for the ops map | A per-session hab time field (seconds from the hab per grid cell, compute `habTimeField`) the ops client can fetch, for the 10/20/30 min haven isochrones and the caution hatch beyond `max_haven_min` | FD-350, FD-072 | 21 (soft) |
+| N-101 | Suggested relay point and the live rover handler | `TASK_ROVER` handler and `roversTick` (still `throw` in `apps/hab-core/src/rover.ts` and `engine/rovers.ts`, N-09), and a suggested RELAY target that closes the current comm shadow, so a RELAY can be placed from the EVA tablet in two taps and confirm (T29.04 acceptance) | FD-353, 03 SCR-15 "nearest ridge for relay" | 21 |
 
 ## Package 19 follow-up
 

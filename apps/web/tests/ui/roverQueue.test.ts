@@ -1,8 +1,8 @@
 /**
  * Rover task display on the vehicle card (T29.05; docs/specs/01 FR-41, NFR-05; 03 SCR-11; 04 §E.10, §D.1 vehicle card;
- * 05 Vehicle). Originally by Saba Atharique (#168). Decision by Sadman Shaharier Mahim, 11 Nov: show the single current
- * `Vehicle.task` from the snapshot; a queue of further tasks needs a contract change (05 Vehicle has one `task`), so it
- * reads "—" and stays `TODO(decision)`. ETA and battery are the snapshot's own values, labelled `simulated`.
+ * 05 Vehicle). Originally by Saba Atharique (#168). The current `Vehicle.task` with the snapshot's ETA and battery
+ * (`simulated`), then the queue of `Vehicle.queue` (BD-102, N-12; FD-084) with each task's ETA and battery after
+ * (`modelled`, the Hab Core's values). A snapshot without the field reads "—".
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement } from "react";
@@ -156,12 +156,63 @@ describe("RoverQueue: no task, and missing values (04 §D.1: a missing value is 
     }
   });
 
-  it("shows the further-queued tasks as unavailable: 05 Vehicle holds one task, a queue is a contract change", async () => {
+  it("shows the queue as unavailable when the snapshot carries no queue field", async () => {
     const view = await mount(createElement(RoverQueue, { vehicle: ur() }));
     const queued = field(view.container, "queued");
     expect(queued.textContent).toBe("—");
     expect(queued.getAttribute("data-unavailable")).toBe("true");
     expect(queued.getAttribute("data-source")).toBe("unavailable:vehicles.queue");
+    await view.unmount();
+  });
+});
+
+describe("RoverQueue: the queued tasks of Vehicle.queue (BD-102, N-12; FD-084)", () => {
+  it("says 'No queued tasks' for an empty queue", async () => {
+    const view = await mount(createElement(RoverQueue, { vehicle: ur({ queue: [] }) }));
+    const queued = field(view.container, "queued");
+    expect(queued.textContent).toBe("No queued tasks");
+    expect(queued.getAttribute("data-provenance")).toBe("simulated");
+    expect(queued.getAttribute("data-source")).toBe("snapshot:vehicles.queue");
+    await view.unmount();
+  });
+
+  it("lists each queued task in order with its target, item, ETA and battery after, modelled by the Hab Core", async () => {
+    const vehicle = ur({
+      task_id: "rt-40",
+      queue: [
+        { task_id: "rt-41", kind: "CARRY", target: { x_m: 1700, y_m: 2400 }, item: "core sample bag", eta_s: 540, battery_wh_after: 700 },
+        { task_id: "rt-42", kind: "RETURN", target: null, eta_s: null, battery_wh_after: null },
+      ],
+    });
+    const view = await mount(createElement(RoverQueue, { vehicle }));
+    const rows = [...view.container.querySelectorAll("[data-queued-task]")];
+    expect(rows.map((r) => r.getAttribute("data-queued-task"))).toEqual(["rt-41", "rt-42"]);
+    expect(field(rows[0]!, "queue-kind").textContent).toBe("2. CARRY");
+    expect(field(rows[0]!, "queue-item").textContent).toBe("core sample bag");
+    expect(field(rows[0]!, "queue-target").textContent).toContain("1700");
+    const eta = field(rows[0]!, "queue-eta");
+    expect(eta.textContent).toBe("9:00");
+    expect(eta.getAttribute("data-provenance")).toBe("modelled");
+    expect(eta.getAttribute("data-source")).toBe("snapshot:vehicles.queue.eta_s");
+    const after = field(rows[0]!, "queue-battery-after");
+    expect(after.textContent).toBe("700");
+    expect(after.getAttribute("data-provenance")).toBe("modelled");
+    expect(after.getAttribute("data-source")).toBe("snapshot:vehicles.queue.battery_wh_after");
+    // RETURN has no target; values the tick has not filled are the dash, never a guess.
+    expect(field(rows[1]!, "queue-target").textContent).toBe("Hab");
+    for (const name of ["queue-eta", "queue-battery-after"]) {
+      expect(field(rows[1]!, name).textContent).toBe("—");
+      expect(field(rows[1]!, name).getAttribute("data-unavailable")).toBe("true");
+    }
+    await view.unmount();
+  });
+
+  it("can leave out the header and battery when the vehicle card already shows them (compact)", async () => {
+    const view = await mount(createElement(RoverQueue, { vehicle: ur({ queue: [] }), compact: true }));
+    expect(view.container.querySelector("header")).toBeNull();
+    expect(view.container.querySelector('[data-field="battery"]')).toBeNull();
+    expect(field(view.container, "task-kind").textContent).toBe("RELAY");
+    expect(field(view.container, "queued").textContent).toBe("No queued tasks");
     await view.unmount();
   });
 });
