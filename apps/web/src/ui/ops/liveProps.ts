@@ -22,9 +22,9 @@ function stopNumber(snapshot: Snapshot, stopId: string): number | null {
 
 function taskProgressOf(snapshot: Snapshot, crewId: CrewId): CrewTaskProgress | null {
   const mine = (snapshot.tasks ?? []).filter((t) => t.crew_id === null || t.crew_id === crewId);
-  if (mine.length === 0) return null;
   const next = selectNextStop(snapshot, crewId);
   const stopNo = next ? stopNumber(snapshot, next.stopId) : null;
+  if (mine.length === 0 && stopNo === null) return null;
   return {
     stop: next && stopNo !== null ? { stopId: next.stopId, stopNo, done: next.taskCount.done, total: next.taskCount.total } : null,
     total: { done: mine.filter((t) => t.state === "DONE").length, total: mine.length },

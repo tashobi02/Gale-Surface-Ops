@@ -75,6 +75,21 @@ describe("selectOpsProps", () => {
     expect(selectOpsProps({ ...connect, tasks: [] }, []).taskProgress?.EV1).toBeUndefined();
   });
 
+  it("every planned stop has 0/0 progress for each crew and allows its first task", async () => {
+    const waypoints = ["wp-1", "wp-2"].map((id) => ({ id, role: "stop" as const }));
+    const plan = { ...(connect.plan ?? {}), waypoints } as NonNullable<Snapshot["plan"]>;
+    for (let stop = 0; stop < waypoints.length; stop++) {
+      const snapshot = { ...connect, plan, tasks: [], crew: (["EV1", "EV2"] as const).map((crew_id) => ({ ...connect.crew[0], crew_id, activity: "AT_STOP" as const, stop_index: stop + 1 })) };
+      const props = selectOpsProps(snapshot, []);
+      for (const id of ["EV1", "EV2"] as const) {
+        expect(props.taskProgress?.[id]).toEqual({ stop: { stopId: waypoints[stop].id, stopNo: stop + 1, done: 0, total: 0 }, total: { done: 0, total: 0 } });
+      }
+      const view = await mount(createElement(OpsConsole, { ...props, client: null, snapshot }));
+      for (const id of ["EV1", "EV2"] as const) expect(must<HTMLButtonElement>(view.container, `[aria-label="Add task for ${id}"]`).disabled).toBe(false);
+      await view.unmount();
+    }
+  });
+
   it("is all empty without a snapshot", () => {
     const props = selectOpsProps(null, []);
     expect(props.crew).toBeUndefined();
