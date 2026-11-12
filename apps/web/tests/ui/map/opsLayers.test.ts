@@ -88,6 +88,10 @@ function snapshot(over: Partial<Snapshot> & { crew?: Crew[]; vehicles?: Vehicle[
     earth: { light_time_s: 0, next_pass_utc: null, blackout: false, queue: [] },
     clients: [],
     provenance: {},
+    conditions: { ltst: null, sun_elevation_deg: null, dose_rate_background_ugy_h: null, dose_rate_event_ugy_h: null, event_series_utc: null, sol: null, source_ids: {}, provenance: {} },
+    task_library: [],
+    event_library: [],
+    next_stop_target: null,
     ...over,
   };
 }

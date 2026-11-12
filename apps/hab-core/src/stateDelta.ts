@@ -7,7 +7,7 @@
  * Path syntax is the client's (habClient `withPath`): "crew/EV1/o2_frac", array items matched by their `*_id` field.
  * A client cannot add or remove an array item by path, so a list that gained, lost or reordered items is sent whole
  * ("alerts"); one with the same items changes field by field. The connected-client list and the constant provenance
- * map are not state and are never diffed.
+ * map are not state and are never diffed; neither are the static `task_library` and `event_library`.
  */
 import type { Snapshot } from "@marswalk/protocol";
 import type { StateChange } from "./engine/reducer";
@@ -40,6 +40,15 @@ export function diffSnapshots(before: Snapshot, after: Snapshot): StateChange[] 
 
   if (!same(before.plan, after.plan)) changes.push({ path: "plan", value: after.plan });
   if (!same(before.earth, after.earth)) changes.push({ path: "earth", value: after.earth });
+  // Conditions change field by field at `conditions/<key>` (BD-75); the next stop target is one small object (BD-104).
+  // `task_library` and `event_library` are static scenario data and never diffed.
+  const conditionKeys = new Set([...Object.keys(before.conditions), ...Object.keys(after.conditions)]);
+  for (const key of conditionKeys) {
+    const b = (before.conditions as unknown as Record<string, unknown>)[key];
+    const a = (after.conditions as unknown as Record<string, unknown>)[key];
+    if (!same(a, b)) changes.push({ path: `conditions/${key}`, value: a });
+  }
+  if (!same(before.next_stop_target, after.next_stop_target)) changes.push({ path: "next_stop_target", value: after.next_stop_target });
 
   for (const list of Object.keys(ID_FIELD) as Keyed[]) {
     const b = before[list] as unknown as Record<string, unknown>[];

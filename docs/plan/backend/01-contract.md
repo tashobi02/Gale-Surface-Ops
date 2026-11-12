@@ -170,8 +170,10 @@ export interface CommandJournalLine extends RecordedCommand { after_seq: number;
 export interface LoadGridRequest {
   type: "LOAD_GRID"; request_id: string; site_id: string; data_version: string;
   meta: LoadedGridMeta;                         // the compute LoadedGrid meta incl. working-projection proj4
-  arrays: { elevation: ArrayBuffer; slope_u8: ArrayBuffer; flags: ArrayBuffer; ti: ArrayBuffer | null; comm_hab: ArrayBuffer | null };
+  arrays: { elevation: ArrayBuffer; slopeP90: ArrayBuffer; slopeMax: ArrayBuffer; flags: ArrayBuffer; ti: ArrayBuffer | null; commHab: ArrayBuffer };
 }
+// contract-change: (01a, 12 Nov) the array keys are the compute names (`slopeP90`, `slopeMax`, `commHab`, as `loadGrid` takes them;
+// `commHab` is required there), as the note below this block says; `LoadedGridMeta = RoutingGrid & { proj4: string }` is defined in protocol.
 export interface GridLoaded { type: "GRID_LOADED"; request_id: string; site_id: string; data_version: string }
 export type WorkerRequest = LoadGridRequest | SamplePointRequest | ComputePlanRequest;
 export type WorkerResponse = GridLoaded | SampleResult | PlanResultMessage | WorkerError;
@@ -196,8 +198,11 @@ export type CommandArgs = { ADD_STOP_TASK: AddStopTaskArgs; UPDATE_STOP_TASK: Up
 
 // packages/protocol/src/logHash.ts (new, pure; N-21)
 export function canonicalJson(value: unknown): string;               // RFC 8785 (JCS), as the Hab Core log uses
-export function logHashStep(prevHex: string, event: LogEvent, sha256Hex: (s: string) => string | Promise<string>): string | Promise<string>;
-// apps/hab-core/src/log.ts uses it with node:crypto; the web replay with WebCrypto. A test proves both give the committed hash.
+export function logLine(event: LogEvent): string;                    // canonicalJson(event) + "\n"
+export function logHashOf<T extends string | Promise<string>>(events: readonly LogEvent[], sha256Hex: (text: string) => T): T;
+// apps/hab-core/src/log.ts uses canonicalJson with node:crypto; the web replay uses logHashOf with WebCrypto. A test proves logHashOf gives the Hab Core's hash.
+// contract-change: (01a, 12 Nov) `logHashStep(prevHex, event, sha256Hex)` is replaced by `logLine` and `logHashOf`: `log_hash` is the SHA-256 of the
+// bytes of session.jsonl (apps/hab-core/src/log.ts), which cannot be extended from a hex digest, so a one-event step cannot give the committed hash.
 ```
 
 ## 7a. HTTP and CLI additions
