@@ -5,7 +5,7 @@ import re
 import sys
 from pathlib import Path
 
-NAME_PLACEHOLDER = '[PRODUCT NAME PENDING ADR-013]'
+NAME_PLACEHOLDER = 'Gale Surface Ops'
 
 
 def validate_windows(beats, duration):

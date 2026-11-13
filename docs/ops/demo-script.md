@@ -28,7 +28,7 @@ Video rules from 06 TASK-17: English subtitles, datasets named on camera (NASA *
 
 Notes (not spoken; screen references and resolved items for the narration above):
 
-1. 0:00–0:20: "3–22 light-minutes" is read from the title card (01 §A.2). Team names are from [team.md](team.md). Product name (D-08): [FD-006 / FD-163](../plan/frontend/decisions.md) record `Gale Surface Ops` pending ADR-013 (package 31, in flight); [storyboard.md](storyboard.md) carries the explicit ADR-013 placeholder for on-camera replacement once ADR-013 lands.
+1. 0:00–0:20: "3–22 light-minutes" is read from the title card (01 §A.2). Team names are from [team.md](team.md). Product name (D-08): **Gale Surface Ops**, decided in [ADR-013](../decisions/ADR-013-product-name.md) on 13 Nov 2026 ([FD-006 / FD-163](../plan/frontend/decisions.md)); [storyboard.md](storyboard.md) carries the same name.
 2. 0:20–0:35: slope and thermal-inertia legends are on SCR-03. Authoritative titles from [credits.md](credits.md) and `site-manifest.json`: L2 *Mars MSL Gale Merged DEM 1m* v3 (`usgs-gale-dem-1m-v3`); L4 *THEMIS Thermal Inertia Mosaic Quantitative 30S120E 100mpp* Edition 1 (`usgs-themis-ti-30s120e`) (see [credits.md](credits.md#disagreements-between-02-and-the-records) for minor wording differences from 02 §C.2).
 3. 0:35–0:50: route, profile and time-to-haven band are on SCR-05 (route results). Per [credits.md](credits.md#not-built-so-not-credited), CRISM (L5), REMS, and MARCI (L12) are not included in this build and are omitted on camera.
 4. 0:50–1:00: no-feasible-route reason is on SCR-05; briefing card is SCR-08, published to the Hab Core.
@@ -52,7 +52,7 @@ End card (on screen during `0:25–0:30`, FD-490): verbatim 01 §F.1 statement �
 
 Notes (not spoken):
 
-1. 0:00–0:05: product name D-08 governed by [FD-006 / FD-163](../plan/frontend/decisions.md) and pending ADR-013 (package 31); see [storyboard.md](storyboard.md) placeholder.
+1. 0:00–0:05: product name D-08 governed by [FD-006 / FD-163](../plan/frontend/decisions.md) and [ADR-013](../decisions/ADR-013-product-name.md): `Gale Surface Ops`; see [storyboard.md](storyboard.md).
 2. 0:05–0:20: "20 May 2024" is on the SCR-13 HUD alert; "One action summons the rover" is the SCR-14 options action / SCR-12 `"Summon rover"` hold-to-confirm (SCR-13 HUD is read-only); crew sheltered is shown on SCR-11. Use the same verb ("summons") in both videos.
 3. 0:20–0:25: authoritative titles verified against [credits.md](credits.md) and SCR-09 (L1 HiRISE, L9 RAD, L8 DONKI, ESA HRSC in L2, ESA TGO in L10).
 4. 0:25–0:30: the 5 s closing slot pairs the brief spoken line with the readable 01 §F.1 disclaimer card overlay (FD-490).
