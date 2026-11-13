@@ -42,3 +42,13 @@ E2E_PORT=8119 E2E_SKIP_BUILD=1 timeout 600s bash -c 'make e2e-one CHECK=ops-no-t
 ```
 
 `T24.11`, `T27.06`, and `T31.08` are marked `done`. `T25.08` remains `wip` because the complete storm-in-SCR-11 flow is gated on `N-200` (`START_EVENT` has no ops control) and the live utility-rover dispatch case skips when `gale_boxwork` is absent (`bundle absent`).
+
+## Package 32 video inventory — 13 Nov 2026
+
+On `fe-vidcheck`, searched `var/`, `docs/ops/` and `apps/web/e2e/` for MP4, WebM, MOV, MKV, SRT and capture manifests. No such files were found. In particular, `var/videos/capture-manifest.json`, raw clips and both assembled cuts are absent. There are therefore no sizes, durations, resolutions, frames, subtitles or spoken narration to verify. A prior capture-pass entry in `docs/AI_USE.md` does not establish that its local outputs are present here.
+
+`E2E_PORT=4179 timeout 1800s make e2e-one CHECK=capture` failed before any test assertion: Hab Core exited with `Error: listen EPERM: operation not permitted /tmp/tsx-1000/327.pipe` from `tsx`. No capture or manifest was produced. `bash scripts/make_video.sh` exited 1 with `error: capture manifest missing: .../var/videos/capture-manifest.json`; it produced no plan, subtitles or MP4. `ffmpeg` and `ffprobe` are installed. The existing Python video-plan suite passes 4 tests, but that does not verify actual footage.
+
+The assembler reads only `clip_path`, the first matching clip, for each beat: `scripts/video_plan.py` stores all roles in `clips`, but `scripts/make_video.sh` consumes only the first. Thus a successful capture alone would not establish the multi-role 30-02 sequence; the content, including sheltered crew, must be verified and any defect fixed with a red test and mutation check. Beat order, narration, exact subtitles and non-flat frames remain unverified for both cuts.
+
+Outside the sandbox, rerun `E2E_PORT=4179 timeout 1800s make e2e-one CHECK=capture`, then `bash scripts/make_video.sh`; verify both outputs against the demo script and with `ffprobe` and sampled frames before marking any T17 acceptance done. Uploads remain outstanding.
