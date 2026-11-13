@@ -79,6 +79,23 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
     await click(must(view.container, '[aria-label="Acknowledge alert"]'));
     expect(sent).toEqual([{ kind: "ACK_ALERT", args: { alert_id: "alert-1" } }]);
   });
+  it("a refused ACK carries StatusIcon warning shape and word alongside ACK REFUSED, never colour alone (04 §A.3)", async () => {
+    const { client } = recordingClient(storeFromBeat("connect"), () => rejected("INVALID", "already cleared"));
+    const base = snapshotOf("connect");
+    const snapshot: Snapshot = { ...base, alerts: [{
+      alert_id: "alert-1", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"],
+      raised_seq: 1, acked_seq: null, cleared_seq: null, acked_by: null,
+      message: "Shelter now", data: {},
+    }] };
+    const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot }));
+    await click(must(view.container, '[aria-label="Acknowledge alert"]'));
+    await flush();
+    const banner = must(view.container, '[data-slot="ack-rejection"]');
+    const icon = must(banner, '.status-indicator[data-status="warning"]');
+    expect(icon.querySelector(".status-glyph svg polygon")).not.toBeNull();
+    expect(icon.textContent).toContain("WARNING");
+    expect(banner.textContent).toContain("ACK REFUSED");
+  });
   it.each([...BEATS])("beat %s: shows the snapshot's own HAVEN and O₂, never NaN, every value labelled", async (beat) => {
     const client = storeFromBeat(beat);
     const snap = client.state()!;

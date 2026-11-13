@@ -142,23 +142,8 @@ describe("crew telemetry supplied by Hab Core", () => {
   });
 });
 
-/**
- * Gating probe: red against the T24.01 stubs (they throw "TODO(TASK-24): not implemented").
- * When run on main before T24.03, these are skipped so CI remains green.
- * Run with PENDING_RED=1 to see them fail against the stubs.
- */
-const PENDING = !process.env.PENDING_RED && ([
-  () => selectEvaViewModel(undefined as never, "EV1"),
-] as (() => unknown)[]).some((probe) => {
-  try {
-    probe();
-    return false;
-  } catch (err) {
-    return /TODO\(TASK-24\): not implemented/.test(String(err));
-  }
-});
-
-describe.skipIf(PENDING)("EVA view model on mock fixtures (T24.02)", () => {
+/** Active EVA view model suite on mock fixtures (T24.02). */
+describe("EVA view model on mock fixtures (T24.02)", () => {
   it("beat connect: gives expected HAVEN kind (vehicle), nominal O₂, and active link", () => {
     const snapshot = getSnapshot("connect");
     const vm: EvaViewModel = selectEvaViewModel(snapshot, "EV1");

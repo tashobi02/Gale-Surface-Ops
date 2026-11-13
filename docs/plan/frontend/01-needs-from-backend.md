@@ -47,7 +47,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 
 ## Package 19 follow-up
 
-1. N-30 — N-06 supplies sol, LTST and the condition fields, but `ConditionsState` has no EVA phase. Supply the authoritative phase plus provenance and source; SCR-11 currently displays “—”.
+1. N-06 follow-up — N-06 supplies sol, LTST and the condition fields, but `ConditionsState` has no EVA phase. Supply the authoritative phase plus provenance and source; SCR-11 currently displays “—” (see `axe.spec.ts` `needs N-06`).
 
 ## Package 20 follow-up
 
@@ -62,7 +62,6 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 ## Package 27 follow-up
 
 1. N-81 — Commit the storm recording required by N-21 and include the complete ordered session log in it (including events preceding the initial snapshot), so the Pages replay can independently verify the advertised log hash. The current collector begins with a snapshot and only records later events; this checkout has no recording file.
-| N-30 | SCR-09 scenario metadata | Supply the loaded scenario ParamSet files (including values, provenance and source ids) and the loaded dose-series source id and title to the planner; the site manifest and planner boot currently expose neither | FD-304, FR-15 | 15 (T12.03) |
 
 ## Package 36 follow-up
 
@@ -94,3 +93,8 @@ Rule for every frontend package: a field the backend has not shipped renders "�
    - `apps/hab-core/tests/buildDemoPlan.test.ts` ("T21.12 (a) the export carries the web app's disclaimer") reads the web copy with the regex `/export const PROTOTYPE_DISCLAIMER =([\s\S]*?);\n/` against `apps/web/src/export/planExport.ts`. The literal now lives in `apps/web/src/ui/content/disclaimer.ts` and `planExport.ts` re-exports it, so the regex matches nothing and the test throws on `null`. The test should read the new location (or read the re-export's source) so the cross-lane consistency invariant — the one thing that catches the two copies drifting apart — keeps working. The invariant itself is sound and worth keeping; only the path it reads changed.
 
    Until that pair lands, `make test-web` is red on exactly this one backend test. No frontend test depends on the backend copy.
+
+## Package 99 follow-up
+
+1. N-210 — Annotate lines 28, 57 and 62 of backend-owned `apps/web/tests/fixtures/README.md` individually with `N-13` so literal `TODO(decision)`/`TODO(verify)` greps match the `99-verification.md` §B.2 N-13 exception per line.
+2. N-211 — Provide a worker/backend-owned mechanism to fail a live routing computation on demand so `release-recovery.spec.ts` can verify the T09.07 "Computation failed" + Retry path without adding a production debug hook (`FD-543`).
