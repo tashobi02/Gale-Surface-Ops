@@ -62,6 +62,7 @@ import { PlanPanel } from "./scr04PlanPanel";
 import { PoiDetail } from "./scr06PoiDetail";
 import { Conditions } from "./scr07Conditions";
 import { RouteResults } from "./scr05RouteResults";
+import { CoachMarks } from "../coachMarks";
 import "./scr02MapWorkspace.css";
 
 /** 04 §F: planner and ops are three columns from 1280 px; from 1024 to 1279 px one drawer at a time. */
@@ -675,6 +676,7 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
       </section>}
         <RouteResults planStore={ctx.planStore} mapHandle={handle ?? undefined} site={ctx.site} />
       </div>
+      <CoachMarks />
     </div>
   );
 }

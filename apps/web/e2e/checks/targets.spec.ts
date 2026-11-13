@@ -225,3 +225,14 @@ test("targets: EVA options and full-map controls are at least 56 px", async ({ p
     expect(sheet.length).toBeGreaterThanOrEqual(2); expectTargetSize(sheet, EVA_MIN);
   } finally { fixture.dispose(); }
 });
+
+test("targets: coach mark controls meet pointer target sizes (package 35)", async ({ page, hasTouch }) => {
+  await page.goto("/?site=mock_site&theme=light#/planner");
+  await page.locator(".coach-marks-popover").waitFor();
+  for (let step = 0; step < 3; step += 1) {
+    const list = await targets(page, ".coach-marks-popover");
+    expect(list.length).toBe(2);
+    expectTargetSize(list, hasTouch ? PLANNER_COARSE_MIN : OPS_MIN);
+    await page.locator('.coach-marks-popover [data-action="next"]').click();
+  }
+});

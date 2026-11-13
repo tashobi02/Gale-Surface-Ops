@@ -67,6 +67,6 @@ export function Conditions({ ctx }: ScreenProps): ReactElement {
       <p>Background rate: <Metric value={constant?.value ?? null} unit={constant?.unit ?? "mSv/day"} prov={constant?.provenance ?? "measured"} src={constant?.source_id ?? "result.radiation.const_id"} /></p>
       <p className="scr07-note">Excluded: solar energetic particle events, suit/habitat shielding, terrain sky-blocking, altitude differences within AOI.</p>
     </section>
-    <section data-condition="seasonal-weather"><h3>Seasonal weather</h3><p>Not included in this build</p></section>
+    <section data-condition="seasonal-weather"><h3>Seasonal weather</h3><p><Value value={null} prov="derived" src="N-24" path="N-24" /> Not included in this build</p></section>
   </section>;
 }
