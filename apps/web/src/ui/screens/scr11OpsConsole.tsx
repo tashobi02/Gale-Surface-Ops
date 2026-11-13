@@ -531,7 +531,7 @@ export function OpsConsole({
                       fontWeight: 600,
                     }}
                   >
-                    <span>[{member.crew_id}]</span>
+                    <span data-identifier>[{member.crew_id}]</span>
                     <span style={{ fontSize: "12px", textTransform: "uppercase" }} {...crewAttr("crew.activity")}>
                       {member.activity ?? UNAVAILABLE}
                     </span>
@@ -649,7 +649,7 @@ export function OpsConsole({
                   }}
                 >
                   <span>
-                    [{v.vehicle_id}] {v.kind === "pressurized_rover" ? "Pressurised rover" : "Utility rover"}
+                    <span data-identifier>[{v.vehicle_id}]</span> {v.kind === "pressurized_rover" ? "Pressurised rover" : "Utility rover"}
                   </span>
                   {/* Activity is a state word in neutral text; no status colour without an actual safety status */}
                   <span
@@ -711,7 +711,7 @@ export function OpsConsole({
           aria-label="Operations Tactical Surface Map"
         >
           <div className="module-label" style={moduleLabelStyle}>
-            [ TACTICAL MAP /// IAU_2015:49900 ]
+            [ TACTICAL MAP /// <span data-identifier>IAU_2015:49900</span> ]
           </div>
 
           <OpsMap

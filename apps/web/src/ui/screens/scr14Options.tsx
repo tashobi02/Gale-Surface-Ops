@@ -410,6 +410,7 @@ export function Options({
           data-hold-key="confirm-option"
           label={selectedOption ? isEva ? `Go — Option ${selectedOption.rank}` : `Approve option ${selectedOption.rank}` : "Confirm option"}
           outcome={selectedOption ? `Option ${selectedOption.rank} accepted` : "Accepted"}
+          labelSource={selectedOption ? { prov: "simulated", src: "snapshot:options.rank" } : undefined}
           queued={!socketConnected || (isEva && linked === false)}
           kind="warning"
           holdDurationMs={800}
