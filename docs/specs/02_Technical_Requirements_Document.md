@@ -548,6 +548,8 @@ Behaviour of the presenter commands (§E.4). Command and event names and payload
 
 *Proposed; recorded by OpenAI Codex at the user's request to document BUG-002 (`e5eb088`); T22.12, T23.02, FR-30, FR-31, NFR-06.*
 
+<!-- Commit classification follow-up (T22.12, T23.02): re-record the unchanged amendment from 688da57 through a spec-change: commit, as required by docs/plan/README.md §4; preserve the original commit and amendment wording. -->
+
 This amendment supersedes only [BD-121](../plan/backend/decisions.md)'s exclusion of a `LOAD_SCENARIO` that replaces the session. The original decision remains as recorded.
 
 - A successful command-triggered `LOAD_SCENARIO` is journaled once in the session it creates, after its initial events are written, with `after_seq: 0`. The creating command is not journaled in the preceding session.
