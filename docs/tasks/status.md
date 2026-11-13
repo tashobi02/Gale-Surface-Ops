@@ -335,3 +335,20 @@ After editing this file run `make progress`. Do not edit the README progress blo
 | T28.01 | done | 2026-11-12 | No router for a virtual event (U-14, BD-02); [demo-kit.md](../ops/demo-kit.md) records the localhost topology |
 | T28.04 | done | 2026-11-12 | [demo-kit.md](../ops/demo-kit.md) checklist, run by [demo-preflight.sh](../../scripts/demo-preflight.sh) (tested by `scripts/tests/test_demo_preflight.py`); the bundle and replay steps skip with a printed reason until packages 23 and 25 |
 | T28.05 | wip | 2026-11-13 | Server half done: [resume.test.ts](../../apps/hab-core/tests/resume.test.ts) SIGKILLs the Hab Core at the storm alert and restarts it with `--resume latest`: same last_seq, hash and state, 21.2 s to listening, SNAPSHOT 6 to 23 ms after a reconnect ([verification log](../ops/verification-log.md#t2214-t2308-t3229-t2607-t2906-t3108-t2008-t2805-server-level--headless-verification-on-the-real-scenario-backend-package-27)). **Why wip:** the browser half (a client reconnecting through the real UI, package 28) is not done |
+| T03.23 | done | 2026-11-13 | --max-zoom option, tested (opt-in, BD-01, BD-151); [config.limit_resolutions](../../pipeline/src/marswalk_pipeline/config.py), [test_fallback_options.py](../../pipeline/tests/test_fallback_options.py) |
+| T03.24 | done | 2026-11-13 | --cell-m 10 option, tested (opt-in, BD-151); compute reads `cell_m` ([gridCell10.test.ts](../../packages/compute/tests/gridCell10.test.ts)) |
+| T03.25 | done | 2026-11-13 | --static-images option, tested (opt-in, BD-151); [static_images.py](../../pipeline/src/marswalk_pipeline/static_images.py) |
+| T05.30 | done | 2026-11-13 | validateManualLeg + VALIDATE_MANUAL_LEG (opt-in, BD-150); [manualLeg.ts](../../packages/compute/src/manualLeg.ts), [manualLeg.test.ts](../../packages/compute/tests/manualLeg.test.ts) |
+| T05.31 | done | 2026-11-13 | Not triggered: real-grid p95 1,081 ms, at most 2 s ([verification log](../ops/verification-log.md#t0106-t0323t0327-t0409-t0530-t0531-t05b21-t0611-t2113-t2114-t2215-t2309-t2608-t2907--fallbacks-backend-package-29)); trigger test in test_fallback_triggers.py |
+| T05b.21 | done | 2026-11-13 | Not triggered: haven benchmark GO (worst real run 57 ms against 2,000 ms); trigger test in test_fallback_triggers.py |
+| T06.11 | done | 2026-11-13 | Not triggered: mars24 and sun tests green, 0 skipped; trigger test in test_fallback_triggers.py |
+| T01.06 | done | 2026-11-13 | Not triggered: ADR-001 Accepted (Gale); trigger test in test_fallback_triggers.py |
+| T03.26 | done | 2026-11-13 | Not triggered: colour COG covers the AOI, bundle has tiles-ortho; trigger test |
+| T03.27 | done | 2026-11-13 | Not triggered: quantitative TI grid covers the AOI; trigger test |
+| T04.09 | done | 2026-11-13 | Not triggered: PLACES packaging in use; trigger test |
+| T21.13 | done | 2026-11-13 | Not triggered: archive series covers sol 4190; trigger test |
+| T21.14 | done | 2026-11-13 | Not triggered: SPICE kernels obtained and cover the window; trigger test |
+| T22.15 | done | 2026-11-13 | Not triggered: the consumables model is O2 only; trigger test |
+| T23.09 | done | 2026-11-13 | Not triggered: exact rendezvous passes (summonReal.test.ts, 0 skipped); trigger test |
+| T26.08 | done | 2026-11-13 | Not triggered: cut 5 not called, link tests active; trigger test |
+| T29.07 | done | 2026-11-13 | Not triggered: cut 2 not called, rover tests active; trigger test |

@@ -18,6 +18,9 @@ WORKING_PROJ_TEMPLATE = (
 
 # Routing grid cell size, metres (02 §D.2, 05 §F.1).
 GRID_CELL_M = 5
+# Opt-in fallback (T03.24, `--cell-m 10`): the 10 m cell is the vehicle lattice size of 02 §D.9 (compute VEHICLE_GRID_CELL_M).
+# Nothing else is accepted: the 1 m DEM and the 100 m TI grid both divide into these cells.
+GRID_CELL_CHOICES_M = (GRID_CELL_M, 10)
 
 # Slope encoding: u8 = degrees × 4 (0.25° steps); 255 = no data (05 §C RoutingGrid).
 SLOPE_U8_SCALE = 4
@@ -53,6 +56,19 @@ PROJ4_BY_SITE = {
 TILE_RESOLUTIONS_M = [32, 16, 8, 4, 2]
 # 02 §C.3 ortho finest level is 0.5 m (data lead, 10 Nov 2026).
 ORTHO_TILE_RESOLUTIONS_M = [*TILE_RESOLUTIONS_M, 0.5]
+
+
+def limit_resolutions(resolutions_m, max_zoom):
+    """The kept tile ladder of the opt-in `--max-zoom` fallback (T03.23): level 0 (coarsest) up to and including `max_zoom`.
+
+    The one place that drops finer levels: the tiles step and the manifest writer both call it, so the tiles on disk and the
+    manifest's `tile_grid.resolutions_m` cannot disagree. `None` keeps every level; a level above the finest keeps all.
+    """
+    if max_zoom is None:
+        return list(resolutions_m)
+    if isinstance(max_zoom, bool) or not isinstance(max_zoom, int) or max_zoom < 0:
+        raise ValueError(f"max-zoom must be a non-negative integer level, got {max_zoom!r}")
+    return list(resolutions_m)[: max_zoom + 1]
 
 # 04 §C.1 OPS `void` token: the app and map background. Ortho pixels outside the source mask or
 # outside aoi.extent_m are written in this colour (BD-18, 02 §C.2 L1).

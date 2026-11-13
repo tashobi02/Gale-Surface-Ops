@@ -9,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 
+from . import config
+
 STEPS = ("acquire", "clip_reproject", "derive", "flags", "grid", "comm_grid", "tiles", "vectors", "manifest", "validate")
 
 
@@ -22,6 +24,8 @@ def _paths(site_id: str) -> tuple[Path, Path, Path, Path]:
 DERIVED_DISPLAY_LAYERS = ("elevation", "thermal_inertia", "hazard_flags", "comm_hab")
 # Ramp layers: (source raster in the scratch folder, unit of the legend labels, decimals of the labels).
 RAMP_LAYERS = {"elevation": ("dem.tif", "m", 1), "thermal_inertia": ("ti.tif", "tiu", 0)}
+# The layers `--static-images` renders as one PNG: those displayed at 2 m (02 §B, C9 §6). The 0.5 m ortho stays a tiled basemap.
+STATIC_IMAGE_RESOLUTION_M = 2
 
 
 def _skipped_layers(site_dir: Path) -> set[str]:
@@ -34,9 +38,14 @@ def _skipped_layers(site_dir: Path) -> set[str]:
     return result
 
 
-def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir: Path, *, inputs: dict[str, Path] | None = None, lock_path: Path | None = None, skip_unstyled_optional: bool = False, traverse: Path | None = None, offline: bool = False) -> None:
-    """Invoke one step, persisting intermediates separately from source inputs."""
-    from . import config
+def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir: Path, *, inputs: dict[str, Path] | None = None, lock_path: Path | None = None, skip_unstyled_optional: bool = False, traverse: Path | None = None, offline: bool = False, max_zoom: int | None = None, cell_m: int | None = None, static_images: bool = False) -> None:
+    """Invoke one step, persisting intermediates separately from source inputs.
+
+    The three trailing options are the opt-in fallbacks (backend package 29): `max_zoom` drops tile levels finer than it
+    (T03.23), `cell_m` is the routing-grid cell (T03.24; default `config.GRID_CELL_M`), `static_images` renders the 2 m layers
+    as one PNG each instead of tiles (T03.25). Each defaults to the normal build.
+    """
+    cell_m = config.GRID_CELL_M if cell_m is None else cell_m
 
     site = json.loads((site_dir / "site.json").read_text(encoding="utf-8"))
     projection = config.PROJ4_BY_SITE[site["site_id"]]
@@ -72,7 +81,7 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
                 raise ValueError(f"Override checksum mismatch for {kind}: {path}")
         sources.update(inputs or {})
         jobs = (("dem", "dem.tif", 1, "bilinear"), ("ortho", "ortho.tif", 0.5, "bilinear"),
-                ("ti", "ti.tif", 100, "bilinear"), ("ti", "ti_flags.tif", config.GRID_CELL_M, "nearest"))
+                ("ti", "ti.tif", 100, "bilinear"), ("ti", "ti_flags.tif", cell_m, "nearest"))
         for source, target, resolution, method in jobs:
             clip_and_reproject(sources[source], scratch / target, projection, extent, resolution, resampling=method, preserve_unknown=source == "ti")
         nodata_to_nan(scratch / "dem.tif")
@@ -81,7 +90,7 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
         import rasterio
         from rasterio.windows import Window
         from .derive import aggregate_slope, hillshade, horn_slope_deg
-        factor = int(config.GRID_CELL_M)
+        factor = int(cell_m)
         with rasterio.open(scratch / "dem.tif") as dem:
             if dem.width % factor or dem.height % factor:
                 raise ValueError("DEM dimensions must be multiples of the grid cell size")
@@ -123,7 +132,7 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
         threshold_file = site_dir / "ti_threshold.json"
         threshold = json.loads(threshold_file.read_text(encoding="utf-8"))["value"] if threshold_file.exists() else None
         height, width = elevation.shape
-        masks = [rasterize_mask(site_dir / filename, width, height, config.GRID_CELL_M, origin) for filename in ("hazards.geojson", "low_res_dem.geojson")]
+        masks = [rasterize_mask(site_dir / filename, width, height, cell_m, origin, all_touched=cell_m != config.GRID_CELL_M) for filename in ("hazards.geojson", "low_res_dem.geojson")]
         np.save(scratch / "flags.npy", hazard_flags(elevation, values, threshold, *masks))
     elif name == "grid":
         import numpy as np
@@ -146,13 +155,13 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
                 mast = candidate["hab_mast"]
                 write_comm_hab(
                     bundle_dir,
-                    build_comm_hab(elevation, config.GRID_CELL_M, origin, mast["x_m"], mast["y_m"], root),
+                    build_comm_hab(elevation, cell_m, origin, mast["x_m"], mast["y_m"], root),
                     file_name=candidate_file_name(candidate),
                 )
         else:
             # No hab_candidates.json: the single site mast, exactly as before.
             mast = site["hab_mast"]
-            write_comm_hab(bundle_dir, build_comm_hab(elevation, config.GRID_CELL_M, origin, mast["x_m"], mast["y_m"], root))
+            write_comm_hab(bundle_dir, build_comm_hab(elevation, cell_m, origin, mast["x_m"], mast["y_m"], root))
     elif name == "tiles":
         import numpy as np
         import rasterio
@@ -179,14 +188,28 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
                 set_legend_stops(record_path, stops)
                 options["ramp"] = (stops[0][0], stops[1][0])
             elif layer == "hazard_flags":
-                write_rgba_raster(scratch / raster, hazard_rgba(np.load(scratch / "flags.npy")), origin, config.GRID_CELL_M, projection)
+                write_rgba_raster(scratch / raster, hazard_rgba(np.load(scratch / "flags.npy")), origin, cell_m, projection)
                 options["categorical"] = True
             elif layer == "comm_hab":
                 shape = np.load(scratch / "flags.npy").shape
                 visibility = np.fromfile(bundle_dir / "grid" / "comm_hab.u8", dtype=np.uint8).reshape(shape)
-                write_rgba_raster(scratch / raster, comm_rgba(visibility), origin, config.GRID_CELL_M, projection)
+                write_rgba_raster(scratch / raster, comm_rgba(visibility), origin, cell_m, projection)
                 options["categorical"] = True
-            render_tiles(scratch / raster, layer, tuple(tile_grid["origin_m"]), tile_grid["resolutions_m"], tile_grid["tile_size_px"], tile_grid["format"], bundle_dir, data_encoded=layer == "slope", hillshade=layer == "hillshade", aoi_extent_m=extent, **options)
+            static_png = bundle_dir / "images" / f"{layer}.png"
+            if static_images and record.get("display_resolution_m") == STATIC_IMAGE_RESOLUTION_M:
+                # T03.25: one PNG for the whole AOI instead of tiles; a stale tiles folder is removed so the manifest follows the image.
+                from .static_images import render_static_image
+                old = bundle_dir / "tiles" / layer
+                if old.is_symlink():
+                    old.unlink()
+                elif old.exists():
+                    shutil.rmtree(old)
+                render_static_image(scratch / raster, layer, extent, STATIC_IMAGE_RESOLUTION_M, static_png, data_encoded=layer == "slope", hillshade=layer == "hillshade", **options)
+                continue
+            if static_png.exists():
+                static_png.unlink()  # a stale static image of an earlier --static-images run
+            resolutions = config.limit_resolutions(tile_grid["resolutions_m"], max_zoom)
+            render_tiles(scratch / raster, layer, tuple(tile_grid["origin_m"]), resolutions, tile_grid["tile_size_px"], tile_grid["format"], bundle_dir, data_encoded=layer == "slope", hillshade=layer == "hillshade", aoi_extent_m=extent, **options)
     elif name == "vectors":
         from .vectors import package_poi_images, package_pois, package_traverse
         if traverse is None:
@@ -196,7 +219,7 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
         package_poi_images(site_dir / "pois", work_dir / "images", bundle_dir / "images")
     elif name == "manifest":
         from .manifest import write_manifest
-        write_manifest(bundle_dir, site["data_version"], projection, site_dir, exclude_layers=_skipped_layers(site_dir) if skip_unstyled_optional else set())
+        write_manifest(bundle_dir, site["data_version"], projection, site_dir, exclude_layers=_skipped_layers(site_dir) if skip_unstyled_optional else set(), cell_m=cell_m, max_zoom=max_zoom)
     elif name == "validate":
         from .validate_manifest import validate
         problems = validate(bundle_dir)
@@ -204,6 +227,16 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
             raise RuntimeError("; ".join(problems))
     else:
         raise AssertionError(f"unrecognized pipeline step: {name}")
+
+
+def _non_negative_level(text: str) -> int:
+    try:
+        level = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"max-zoom must be a whole number, got {text!r}") from None
+    if level < 0:
+        raise argparse.ArgumentTypeError("max-zoom must not be negative")
+    return level
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -215,6 +248,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--traverse", type=Path, help="T04.01 cached traverse source for T04.03 vector packaging")
     parser.add_argument("--offline", action="store_true", help="acquire makes no request: it verifies the files in --work against the lock and fails on a missing one")
     parser.add_argument("--skip-unstyled-optional", action="store_true", help="omit the optional derived display layers (elevation, thermal_inertia, hazard_flags, comm_hab); the build does not use it")
+    parser.add_argument("--max-zoom", type=_non_negative_level, help="fallback T03.23: write only tile levels 0..N (drops the finer ones; the manifest follows)")
+    parser.add_argument("--cell-m", type=int, choices=config.GRID_CELL_CHOICES_M, default=config.GRID_CELL_M, help="fallback T03.24: routing-grid cell in metres (default %(default)s)")
+    parser.add_argument("--static-images", action="store_true", help="fallback T03.25: render each 2 m layer as one images/<layer_id>.png instead of tiles")
     for source in ("dem", "ortho", "ti"):
         parser.add_argument(f"--{source}", type=Path, help=f"override local {source} input raster")
     args = parser.parse_args(argv)
@@ -244,7 +280,8 @@ def main(argv: list[str] | None = None) -> int:
             inputs = {name: getattr(args, name) for name in ("dem", "ortho", "ti") if getattr(args, name) is not None}
             _run_step(step, root, site_dir, work_dir, bundle_dir, inputs=inputs,
                       lock_path=args.lock or root / "pipeline" / "sources.lock.json",
-                      skip_unstyled_optional=args.skip_unstyled_optional, traverse=args.traverse, offline=args.offline)
+                      skip_unstyled_optional=args.skip_unstyled_optional, traverse=args.traverse, offline=args.offline,
+                      max_zoom=args.max_zoom, cell_m=args.cell_m, static_images=args.static_images)
         except Exception as exc:
             print(f"Pipeline step '{step}' failed after {time.monotonic() - started:.3f}s: {exc}", file=sys.stderr, flush=True)
             return 1
