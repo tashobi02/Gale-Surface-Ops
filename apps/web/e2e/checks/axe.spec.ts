@@ -74,6 +74,14 @@ test("axe: SCR-02 planner workspace has no serious or critical violation", async
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02` });
 });
 
+// Package 35: the planner workspace in light theme (?theme=light).
+test("axe: SCR-02 planner workspace in light theme has no serious or critical violation (package 35)", async ({ page }, testInfo) => {
+  await page.goto("/?site=mock_site&theme=light#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-light` });
+});
+
 // Package 09: the SCR-04 plan panel in its Empty state (only the start) and its Invalid input state (an out-of-range entry shows
 // its range inline). Editing is scanned below (package 10).
 test("axe: SCR-04 plan panel Empty and Invalid input states have no serious or critical violation", async ({ page }, testInfo) => {

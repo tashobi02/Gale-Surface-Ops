@@ -13,7 +13,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 ## Progress
 
 <!-- progress:start -->
-`██████████████░░░░░░` **68 %** — 235 of 345 subtasks done, 43 in progress.
+`██████████████░░░░░░` **68 %** — 235 of 345 subtasks done, 44 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -30,7 +30,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-10 POI detail + Conditions panel](docs/tasks/TASK-10_poi-detail-and-conditions.md) | `████████░░` 75 % | 3 | 0 | 4 |
 | [TASK-11 Briefing card + JSON export](docs/tasks/TASK-11_briefing-card-and-export.md) | `█████████░` 86 % | 6 | 0 | 7 |
 | [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `████░░░░░░` 43 % | 3 | 1 | 7 |
-| [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `███████░░░` 69 % | 9 | 0 | 13 |
+| [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `███████░░░` 69 % | 9 | 1 | 13 |
 | [TASK-14 Integration + offline hardening + fault tests](docs/tasks/TASK-14_integration-offline-hardening.md) | `████░░░░░░` 36 % | 4 | 0 | 11 |
 | [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `██░░░░░░░░` 25 % | 1 | 1 | 4 |
 | [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `░░░░░░░░░░` 0 % | 0 | 7 | 7 |

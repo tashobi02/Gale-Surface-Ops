@@ -66,6 +66,14 @@ test("contrast: text on #/planner with the layers panel open meets the limit of 
   expect(measured, "no text was measured").toBeGreaterThan(0);
 });
 
+test("contrast: text on #/planner in light theme meets the limit of its mode (package 35)", async ({ page }) => {
+  await page.goto("/?site=mock_site&theme=light#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  const measured = await expectContrast(page, LIMITS);
+  expect(measured, "no text was measured").toBeGreaterThan(0);
+});
+
 /** An 8-bit grayscale PNG of `size` x `size` pixels, the left half `left`, the right half `right` (C9 §4 slope data: degrees x 4). */
 function slopePng(size: number, left: number, right: number): Buffer {
   const crcTable = Array.from({ length: 256 }, (_, n) => {
