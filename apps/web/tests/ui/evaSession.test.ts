@@ -328,7 +328,9 @@ describe("stop task changes are sent at once; UNDO reverses them on the server f
     expect(must(container, '[data-testid="tasks-button"]').textContent).toContain("1/1");
   });
 
-  it.todo("server side (T31.04): UPDATE_STOP_TASK {state: TODO, undo: true} is accepted by the actor of the last change, rejected INVALID after a later change or a PLAN_REVISED, FORBIDDEN_ROLE for another sender, and logged as TASK_UPDATED with data.undo true");
+  // Server-side T31.04 rules for UPDATE_STOP_TASK {state: TODO, undo: true} (last-actor check,
+  // INVALID after later change or PLAN_REVISED, FORBIDDEN_ROLE, TASK_UPDATED data.undo) are implemented
+  // in apps/hab-core/src/engine/tasks.ts and verified in apps/hab-core/tests/stopTasks.test.ts.
 });
 
 describe("the task list is full only at the stop and collapses to its count otherwise (FR-50, 04 §E.5; U-59)", () => {

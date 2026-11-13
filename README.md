@@ -13,7 +13,7 @@ The planner, habitat server and role views are implemented; the task progress an
 ## Progress
 
 <!-- progress:start -->
-`████████████████░░░░` **82 %** — 282 of 345 subtasks done, 41 in progress.
+`████████████████░░░░` **82 %** — 283 of 345 subtasks done, 40 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ The planner, habitat server and role views are implemented; the task progress an
 | [TASK-24 EVA client and HUD: SCR-12 tablet, SCR-13 HUD, SCR-14 options sheet, SCR-18 link lost, full-screen map](docs/tasks/TASK-24_eva-client-and-hud.md) | `█████░░░░░` 45 % | 5 | 6 | 11 |
 | [TASK-25 Ops console: SCR-11 with the shared map, alerts, options approval, clock control, SCR-10 join](docs/tasks/TASK-25_ops-console.md) | `███░░░░░░░` 33 % | 3 | 6 | 9 |
 | [TASK-26 Links: surface link graph and `LINK_STATE`, comm-shadow warnings, Earth link widget and delayed queue](docs/tasks/TASK-26_links.md) | `█████████░` 86 % | 6 | 1 | 7 |
-| [TASK-27 Event log view, post-EVA report, replay mode for GitHub Pages](docs/tasks/TASK-27_report-and-replay.md) | `████████░░` 83 % | 5 | 1 | 6 |
+| [TASK-27 Event log view, post-EVA report, replay mode for GitHub Pages](docs/tasks/TASK-27_report-and-replay.md) | `██████████` 100 % | 6 | 0 | 6 |
 | [TASK-28 Network kit and rehearsal: router, static IP, QR join, device matrix, venue checklist](docs/tasks/TASK-28_network-kit.md) | `████████░░` 80 % | 4 | 1 | 5 |
 | [TASK-29 Robotic rover tasking: SCOUT, CARRY, RELAY, RETURN](docs/tasks/TASK-29_rover-tasking.md) | `████████░░` 83 % | 5 | 1 | 6 |
 | [TASK-30 Score-sheet single points: challenge named, repo public, page drafted, AI use current](docs/tasks/TASK-30_score-sheet-points.md) | `░░░░░░░░░░` 0 % | 0 | 3 | 3 |

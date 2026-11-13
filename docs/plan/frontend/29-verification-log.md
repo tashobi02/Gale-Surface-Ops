@@ -52,3 +52,40 @@ On `fe-vidcheck`, searched `var/`, `docs/ops/` and `apps/web/e2e/` for MP4, WebM
 The assembler read only `clip_path`, the first matching clip, for each beat: `scripts/video_plan.py` stores all roles in `clips`, but `scripts/make_video.sh` consumed only the first. **Fixed 13 Nov (FD-541):** the assembler now cuts each role's own segment and lays them side by side (`scripts/stack_roles.py`), so a beat that drove the HUD, the EVA tablet and the ops console keeps all three in the picture rather than the first role only. The regression test fails when the stack is narrowed to one role. A successful capture still does not establish the multi-role 30-02 sequence: the content, including sheltered crew, must be verified. Beat order, narration, exact subtitles and non-flat frames remain unverified for both cuts.
 
 Outside the sandbox, rerun `E2E_PORT=4179 timeout 1800s make e2e-one CHECK=capture`, then `bash scripts/make_video.sh`; verify both outputs against the demo script and with `ffprobe` and sampled frames before marking any T17 acceptance done. Uploads remain outstanding.
+
+## Package 32 capture and assembly — 13 Nov 2026 (the orchestrator, later the same day)
+
+The earlier `tsx` EPERM did not reproduce: the same host that could not start a Hab Core for the capture now starts one. `E2E_PORT=8165 timeout 1800s npx playwright test -c apps/web/e2e/playwright.config.ts "checks/capture\.spec"` passed (1 passed, 22.3 s) and produced the artefacts that were absent before:
+
+- `var/videos/capture-manifest.json` (5,213 bytes, `generated_utc` 2026-11-13T07:54:29Z, site `mock_site`), every beat recording `reachedInMs` inside its `windowMs`;
+- five raw clips in `var/videos/raw/`: `planner.webm` (1.46 MB), `ops.webm` (1.25 MB), `hud.webm` (364 KB), `eva.webm` (508 KB), `report.webm` (253 KB).
+
+`bash scripts/make_video.sh` then assembled both cuts and verified their own durations:
+
+| Cut | File | Size | Duration (ffprobe) | Frames | Video |
+| --- | --- | --- | --- | --- | --- |
+| 240 s | `var/videos/marswalk-240s.mp4` | 5,196,320 B | 240.000000 s (window [235, 245]) | 7,200 | h264 1440×900 |
+| 30 s | `var/videos/marswalk-30s.mp4` | 568,484 B | 30.000000 s (window [28, 32]) | 900 | h264 1440×900 |
+
+`var/videos/marswalk-240s.srt` (3,253 B) and `var/videos/marswalk-30s.srt` (435 B) were written with it.
+
+**The multi-role stacking of FD-541 is confirmed by a sampled frame, not only by the plan.** Beat `30-02` of the manifest carries three clips (`hud.webm`, `eva.webm`, `ops.webm`) for one window, and the frame taken at t=12 s of `marswalk-30s.mp4` shows all three side by side: the HUD with its `Shelter now — radiation surge` warning and `LINK UP ✓ NOMINAL`, the EVA tablet with `HAVEN 50 MIN`, `O₂ 80%`, the shelter options sheet and the SUMMON ROVER / ABORT TO HAB controls, and the ops console with its event log and the contingency options. The burned-in subtitle is present in the frame. Before FD-541 only the first of the three clips would have been cut.
+
+Two things are still not established, so no T17 acceptance is claimed on this evidence alone: there is no narration track (`make_video.sh` reports no TTS binary on this host, so the cuts carry burned-in English subtitles and `.srt` only), and the sampled frame is one frame of one beat — the beat order, the exact subtitle text and the non-flatness of every beat have not each been read through. The real `gale_boxwork` bundle is still absent here, so this capture ran against `mock_site`. Uploads remain outstanding.
+
+## Browser checks the orchestrator ran on 13 Nov 2026 (after the livefb2 fixes)
+
+All against the rebuilt `apps/web/dist`, one check at a time, each on its own port, with the mock site (`?site=mock_site`); the real `gale_boxwork` bundle is absent on this machine, so the cases that need it are expected skips.
+
+| Check | Port | Result |
+| --- | --- | --- |
+| `fallbacks-live` | 8152 | **10 passed**, 0 failed — the taken-over inert case and the new transport-lost case are both green |
+| `queued-resend` | 8153 | **2 passed**, 0 failed — including "a queued SUMMON survives a page reload and resends once" |
+| `link-lost` | 8154 | **16 passed**, 0 failed — 8 viewports × 2 cases |
+| `fullmap` | 8161 | **4 passed**, 1 skipped (N-120, the haven bands) |
+| `offline` | 8162 | **55 passed**, 11 skipped (N-90, the join QR images), 0 failed |
+| `ops-no-terminal` | 8163 | **3 passed**, 2 skipped (N-200 the storm flow, N-140 the utility-rover dispatch), 0 failed |
+| `release-offline`, `release-recovery`, `release-roles`, `release-timings`, `release-csp` | 8164 | **98 passed**, 2 skipped, 0 failed |
+| `capture` | 8165 | **1 passed** — the artefacts are recorded in the section above |
+
+The `axe` run was also started on port 8166; it needs a budget longer than 600 s (it takes about 15 minutes) and its result is recorded with the others when it finishes.
