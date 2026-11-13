@@ -195,6 +195,9 @@
   position: relative;
   min-width: 0;
   min-height: 0;
+  /* On a short screen the results row can leave the map almost no height: the toolbar is clipped to the map and never covers the
+     results panel below it (package 33: it blocked the manual-leg buttons at 844 x 390). */
+  overflow: hidden;
   grid-column: 2;
   grid-row: 1;
 }
@@ -286,7 +289,7 @@
   }
 }
 
-.scr02-manual-legs { max-height: 220px; overflow: auto; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface-1); }
+.scr02-manual-legs { max-height: min(220px, 24vh); overflow: auto; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface-1); }
 .scr02-manual-legs h2 { font: 500 16px/1.25 var(--font-ui); margin: 0 0 8px; }
 .scr02-manual-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .scr02-manual-actions button { min-height: 44px; }
