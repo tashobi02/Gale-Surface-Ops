@@ -28,7 +28,6 @@ import { expectNoUnlabelledNumbers, PROVENANCE_ALLOWLIST, unlabelledNumbers } fr
 import { openPoiTasks } from "../lib/plannerTasks";
 import { openReplayFixture } from "../lib/replayFixture";
 import { fetchManifest } from "../lib/siteGrid";
-import { openOpsFixture } from "../lib/opsFixture";
 
 test("provenance: ops join drawer", async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
