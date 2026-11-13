@@ -3,7 +3,9 @@
  * Buttons, not gestures: every action has a button, so the map works without drag, wheel or pinch (04 §A.3 #9: no
  * hidden controls; each control carries a word or a conventional symbol with an accessible name). The full-screen
  * EVA map shows +, −, FIT, FOLLOW, LAYERS and CLOSE; ops and planner maps show + / − / FIT (drag and wheel are
- * extras). With `onPan`, four pan buttons labelled NORTH, SOUTH, EAST and WEST are added.
+ * extras). With `onPan`, four pan buttons labelled NORTH, SOUTH, EAST and WEST are added. The EVA mini-map
+ * (`eva-mini`, QoL Q4) shows +, − and RECENTRE at the EVA 56 px target; RECENTRE is the FIT slot, returning the view
+ * to the crew member and their next stop.
  * Implemented by TASK-07 (planner, ops) and TASK-24 (EVA).
  *
  * - Chrome is neutral (`--raised`, `--edge`, `--text-1`): status colours mean status only (04 §A.3 #1). A pressed
@@ -18,7 +20,7 @@ import type { CSSProperties, ReactElement } from "react";
 import type { MapHandle } from "../context";
 
 /** Which button set to show. */
-export type MapControlsVariant = "eva-full" | "ops" | "planner";
+export type MapControlsVariant = "eva-full" | "eva-mini" | "ops" | "planner";
 
 export interface MapControlsProps {
   variant: MapControlsVariant;
@@ -47,6 +49,7 @@ export const MAP_CONTROL_TARGET_PX: Record<MapControlsVariant, number> = {
   planner: 32,
   ops: 44,
   "eva-full": 56,
+  "eva-mini": 56,
 };
 
 /** Pixels one pan-button press moves the view (the keyboard step of keyboard.ts). */
@@ -84,6 +87,8 @@ const PAN_BUTTONS = [
 /** Labelled map buttons. TASK-07, TASK-24. */
 export function MapControls(props: MapControlsProps): ReactElement {
   const eva = props.variant === "eva-full";
+  const mini = props.variant === "eva-mini";
+  const gloves = eva || mini;
   const target = `${MAP_CONTROL_TARGET_PX[props.variant]}px`;
 
   const button = (pressed: boolean): CSSProperties => ({
@@ -93,7 +98,7 @@ export function MapControls(props: MapControlsProps): ReactElement {
     gap: "4px",
     minWidth: target,
     minHeight: target,
-    padding: eva ? "10px 14px" : "4px 10px",
+    padding: gloves ? "10px 14px" : "4px 10px",
     boxSizing: "border-box",
     background: "var(--raised)",
     // Selection is neutral chrome with a word; status colours mean status only
@@ -101,7 +106,7 @@ export function MapControls(props: MapControlsProps): ReactElement {
     color: "var(--text-1)",
     fontFamily: "var(--font-mono)",
     fontWeight: 700,
-    fontSize: eva ? "16px" : "var(--text-ui)",
+    fontSize: gloves ? "16px" : "var(--text-ui)",
     textTransform: "uppercase",
     cursor: "pointer",
   });
@@ -124,8 +129,8 @@ export function MapControls(props: MapControlsProps): ReactElement {
         <button type="button" data-control="zoom-out" id={eva ? "map-ctrl-zoom-out" : undefined} className="btn" style={button(false)} aria-label="Zoom out" onClick={() => props.onZoom(-1)}>
           −
         </button>
-        <button type="button" data-control="fit" id={eva ? "map-ctrl-fit" : undefined} className="btn" style={button(false)} aria-label="Fit route into view" onClick={() => props.onFit()}>
-          FIT
+        <button type="button" data-control="fit" id={eva ? "map-ctrl-fit" : undefined} className="btn" style={button(false)} aria-label={mini ? "Recentre on crew member and next stop" : "Fit route into view"} onClick={() => props.onFit()}>
+          {mini ? "RECENTRE" : "FIT"}
         </button>
       </div>
 
