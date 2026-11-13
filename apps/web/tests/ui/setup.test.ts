@@ -47,6 +47,28 @@ async function setup(snapshot: Snapshot | null = loaded, bundle: LoadedSite | nu
 }
 async function select(el: HTMLSelectElement, value: string) { el.value = value; await fire(el, new window.Event("change", { bubbles: true })); }
 
+describe("SCR-20 unavailable vehicle parameter set (FR-15)", () => {
+  it("shows a sourced unavailable dash when the optional set is null", async () => {
+    const snapshot = structuredClone(loaded);
+    snapshot.session.mission_setup!.vehicle_param_set = null;
+    snapshot.session.mission_setup!.vehicle_available = false;
+    snapshot.vehicles = [];
+    const { container } = await setup(snapshot, site(false));
+    const field = must<HTMLSelectElement>(container, 'select[aria-label="Vehicle parameter set"]');
+    expect(field.getAttribute("data-unavailable")).toBe("true");
+    expect(field.getAttribute("data-provenance")).toBe("derived");
+    expect(field.getAttribute("data-source")).toBe("unavailable:session.mission_setup.vehicle_param_set");
+    expect(field.selectedOptions[0]?.textContent).toBe("—");
+  });
+  it("shows an unavailable dash before mission settings arrive", async () => {
+    const { container } = await setup(null, site(false));
+    const field = must<HTMLSelectElement>(container, 'select[aria-label="Vehicle parameter set"]');
+    expect(field.getAttribute("data-unavailable")).toBe("true");
+    expect(field.getAttribute("data-provenance")).toBe("derived");
+    expect(field.selectedOptions[0]?.textContent).toBe("—");
+  });
+});
+
 describe("SCR-20 mission setup", () => {
   it("reads every card fact, preview asset and provenance from hab_candidates", async () => {
     const { container, fetchGrid, putImageData } = await setup();
