@@ -136,11 +136,12 @@ function SetupPanel({ client, snapshot, site, fetchGrid, manifestVersion, sessio
   /**
    * A setting the Hab Core has not supplied is unavailable ("—" with `data-unavailable`), never `assumed`: `assumed` is a
    * value we chose, and a missing one has none (04 §D.1, the provenance module's rule). Its class is unknown while it is
-   * missing, so it carries no `data-provenance` at all.
+   * missing. For the vehicle selector, the derived marker describes the absence detected from the snapshot, not an
+   * assumed parameter value; the unavailable source and dash still make that distinction explicit.
    */
-  const attrs = (field: keyof SetupValues) => provAttrs(settings
+  const attrs = (field: keyof SetupValues) => provAttrs(settings && settings[field] != null
     ? { prov: "assumed", src: `snapshot:session.mission_setup.${field}` }
-    : unavailableOf(null, `session.mission_setup.${field}`));
+    : unavailableOf(field === "vehicle_param_set" ? "derived" : null, `session.mission_setup.${field}`));
   const commitHaven = (input: HTMLInputElement): void => {
     if (!input.value || !input.validity.valid || !Number.isFinite(input.valueAsNumber)) { setInputError("Maximum time to haven must be between 5 and 120 min."); return; }
     setInputError(null);
@@ -187,6 +188,7 @@ function SetupPanel({ client, snapshot, site, fetchGrid, manifestVersion, sessio
         </select></label>
         <label className="setup-vehicle"><input type="checkbox" role="switch" aria-label="Vehicle available" {...attrs("vehicle_available")} checked={settings?.vehicle_available ?? false} disabled={!settings || (!settings.vehicle_available && !settings.vehicle_param_set)} onChange={(e) => set({ vehicle_available: e.target.checked })} />Vehicle available <span {...attrs("vehicle_available")}>{settings ? settings.vehicle_available ? "ON" : "OFF" : "—"}</span></label>
         <label>Vehicle parameter set<select aria-label="Vehicle parameter set" {...attrs("vehicle_param_set")} value={settings?.vehicle_param_set ?? ""} onChange={(e) => { if (e.target.value) set({ vehicle_param_set: e.target.value }); }}>
+          {settings?.vehicle_param_set == null && <option value="" disabled>—</option>}
           {[...new Set([...(settings?.vehicle_param_set ? [settings.vehicle_param_set] : []), ...(snapshot?.vehicles.filter((v) => v.kind === "pressurized_rover").map((v) => v.param_set) ?? [])])].map((id) => <option key={id} value={id}>{id}</option>)}
         </select></label>
         <label>Solar phase<select aria-label="Solar phase" {...attrs("solar_phase")} value={settings?.solar_phase ?? ""} onChange={(e) => set({ solar_phase: e.target.value })}>

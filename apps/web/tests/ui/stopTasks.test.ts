@@ -431,6 +431,17 @@ describe("TaskProgress (ops crew card)", () => {
   });
 });
 
+describe("ops task-limit provenance (FR-15)", () => {
+  it("labels the maximum task count with its rule source", () => {
+    const html = renderToStaticMarkup(createElement(AddTaskPopover, {
+      crewId: "EV1", stopId: "wp-2", maxReached: true, onAdd: () => {},
+    }));
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const message = [...doc.querySelectorAll("div")].find((element) => element.textContent === "Maximum limit of 4 tasks reached for this stop.");
+    expect(message?.closest('[data-provenance="assumed"][data-source="ui:stop-task.limit"]')).not.toBeNull();
+  });
+});
+
 describe("TaskProgress without counts shows —, labelled, and no chrome radius", () => {
   it("null counts render — flagged unavailable, not 0/0 or a sample fraction", () => {
     const html = renderToStaticMarkup(

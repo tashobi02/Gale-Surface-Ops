@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 import type { LogEvent, Snapshot, ServerMessage } from "@marswalk/protocol";
+import { startPageHeartbeat } from "./heartbeat";
 
 /** Open the panel before a scoped assertion; desktop panels are already visible. */
 export async function openOpsPanel(page: Page, panel: "crew" | "mission"): Promise<void> {
@@ -45,6 +46,7 @@ export async function openOpsFixture(page: Page, state: OpsFixtureState, extra: 
       }
       if (request.type === "HELLO" && state !== "no-session") {
         socket.send(JSON.stringify(snapshot));
+        startPageHeartbeat(page, socket, snapshot.sim_time);
         for (const event of events) socket.send(JSON.stringify(event));
       }
     });

@@ -19,6 +19,7 @@ import XYZ from "ol/source/XYZ.js";
 import { loadSite } from "../../boot/loadSite";
 import type { LoadedSite, MapHandle } from "../context";
 import { createMap } from "../map/createMap";
+import { attachKeyboardControls } from "../map/keyboard";
 import { createOpsLayers, opsLayerRows, type CommGridInput, type OpsLayerRow, type OpsLayers } from "../map/opsLayers";
 import { createTileGrid, ensureMarsProjection } from "../map/projection";
 import { PROVENANCE_GLYPHS, provAttrs, unavailableOf } from "../components/provenance";
@@ -91,10 +92,12 @@ export function OpsMap({ snapshot, picking = false, onPick, disableRelayFetch = 
     let cancelled = false;
     let handle: MapHandle | undefined;
     let ops: OpsLayers | undefined;
+    let detachKeyboard: (() => void) | undefined;
     void loadSite(siteId)
       .then((site) => {
         if (cancelled || !host.current) return;
         handle = createMap({ target: host.current, site, keyboard: false });
+        detachKeyboard = attachKeyboardControls({ mapHandle: handle, target: handle.getTargetElement() });
         const map = handle.getMap<OlMap>();
         addOpticalTiles(map, site);
         ops = createOpsLayers(handle);
@@ -137,10 +140,20 @@ export function OpsMap({ snapshot, picking = false, onPick, disableRelayFetch = 
       handleRef.current = null;
       siteRef.current = null;
       setReady(false);
+      detachKeyboard?.();
       ops?.destroy();
       handle?.destroy();
     };
   }, [siteId]);
+
+  useEffect(() => {
+    const viewport = handleRef.current?.getTargetElement();
+    if (!viewport) return;
+    if (picking) {
+      viewport.setAttribute("aria-describedby", "ops-rover-pick-hint");
+      viewport.focus();
+    } else viewport.removeAttribute("aria-describedby");
+  }, [picking, ready]);
 
   // Crew, vehicles, havens and the relay grids follow the snapshot.
   useEffect(() => {
@@ -195,15 +208,24 @@ export function OpsMap({ snapshot, picking = false, onPick, disableRelayFetch = 
           FIT
         </button>
       </div>
-      <div
-        ref={host}
-        data-slot="map-canvas"
-        aria-label={picking ? "Ops map: click to place the rover target" : "Ops map"}
-        style={{ flex: 1, minHeight: "280px", cursor: picking ? "crosshair" : "default", outline: picking ? "var(--selection-width, 2px) solid var(--route)" : "none" }}
-      />
+      <div style={{ flex: 1, minHeight: "280px", position: "relative" }}>
+        <div
+          ref={host}
+          data-slot="map-canvas"
+          aria-label={picking ? "Ops map: click or use arrow keys and Enter to place the rover target" : "Ops map"}
+          onKeyDown={(event) => {
+            const handle = handleRef.current;
+            if (!picking || !onPick || event.key !== "Enter" || event.target !== handle?.getTargetElement()) return;
+            const [x, y] = handle.getCenter();
+            if (Number.isFinite(x) && Number.isFinite(y)) { event.preventDefault(); onPick({ x_m: x, y_m: y }); }
+          }}
+          style={{ position: "absolute", inset: 0, cursor: picking ? "crosshair" : "default", outline: picking ? "var(--selection-width, 2px) solid var(--route)" : "none" }}
+        />
+        {picking && <div data-slot="pick-crosshair" aria-hidden="true" style={{ position: "absolute", left: "50%", top: "50%", width: "20px", height: "20px", transform: "translate(-50%, -50%)", border: "2px solid var(--route)", borderRadius: "50%", pointerEvents: "none" }} />}
+      </div>
       {picking ? (
-        <div role="status" data-slot="pick-hint" style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-1)" }}>
-          ▸ PICK TARGET — click the map
+        <div id="ops-rover-pick-hint" role="status" data-slot="pick-hint" style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-1)" }}>
+          ▸ PICK TARGET — click the map, or pan with arrow keys and press Enter at the centre
         </div>
       ) : null}
       {unavailable ? (
