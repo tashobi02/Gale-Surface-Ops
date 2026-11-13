@@ -98,3 +98,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 
 1. N-210 — Annotate lines 28, 57 and 62 of backend-owned `apps/web/tests/fixtures/README.md` individually with `N-13` so literal `TODO(decision)`/`TODO(verify)` greps match the `99-verification.md` §B.2 N-13 exception per line.
 2. N-211 — Provide a worker/backend-owned mechanism to fail a live routing computation on demand so `release-recovery.spec.ts` can verify the T09.07 "Computation failed" + Retry path without adding a production debug hook (`FD-543`).
+
+## QoL pass follow-up
+
+1. N-212 — QoL Q2's SCR-12 top bar (`CrewMotionButton` beside the alert slot, backend-owned for Q2 per [the QoL brief](../qol/README.md) §2) breaks fixed geography: `eva-geometry` and `fullmap` fail on `tablet-landscape-1024x768` because `[data-slot=alert-slot]` is 329 px wide and 64 px high in one state and 389 × 72 px in another, and `haven`/`o2` widen with it (205 vs 235 px). Give the HOLD / RESUME button and the alert slot the same box in every crew state (for example, always render the button, disabled when not walking, at a stop or holding), so 04 §A.3 fixed position holds. Reproduced on core-frontend `af2a7f6`, independent of the frontend's alert-message `flex` line.
