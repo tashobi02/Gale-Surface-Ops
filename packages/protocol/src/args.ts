@@ -23,6 +23,11 @@ export interface SummonVehicleArgs {
   crew: CrewId[];
   option_id?: string;
 }
+export interface RideVehicleArgs {
+  crew_id: CrewId;
+  vehicle_id: string;
+  to_stop_id: string;
+}
 export interface AbortArgs {
   crew: CrewId[];
 }
@@ -69,6 +74,7 @@ export interface CommandArgs {
   START_EVA: Record<string, never>;
   PUBLISH_PLAN: PublishPlanArgs;
   SUMMON_VEHICLE: SummonVehicleArgs;
+  RIDE_VEHICLE: RideVehicleArgs;
   ABORT: AbortArgs;
   ACK_ALERT: AckAlertArgs;
   APPROVE_OPTION: ApproveOptionArgs;

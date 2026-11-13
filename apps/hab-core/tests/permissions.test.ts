@@ -12,7 +12,7 @@ type Kind = Command["kind"];
 const ALL_KINDS: readonly Kind[] = [
   "LOAD_SCENARIO", "SET_CLOCK", "JUMP_NEXT_EVENT", "START_EVA", "PUBLISH_PLAN", "SUMMON_VEHICLE", "ABORT", "ACK_ALERT",
   "APPROVE_OPTION", "TASK_ROVER", "SEND_MESSAGE", "INJECT_EVENT", "UPDATE_STOP_TASK", "ADD_STOP_TASK",
-  "JUMP_NEXT_STOP", "START_EVENT", "RESET_SESSION", "SELECT_HAB_SITE", "SET_MISSION_SETUP",
+  "JUMP_NEXT_STOP", "START_EVENT", "RESET_SESSION", "SELECT_HAB_SITE", "SET_MISSION_SETUP", "RIDE_VEHICLE",
 ];
 
 type Column = "planner" | "eva" | "ops" | "earth" | "presenter";
@@ -25,7 +25,7 @@ const ROWS: { kinds: Kind[]; columns: Column[] }[] = [
   { kinds: ["PUBLISH_PLAN"], columns: ["planner", "ops"] },
   { kinds: ["START_EVA", "APPROVE_OPTION"], columns: ["ops"] },
   { kinds: ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT"], columns: ["eva", "ops"] },
-  { kinds: ["TASK_ROVER"], columns: ["eva", "ops"] },
+  { kinds: ["TASK_ROVER", "RIDE_VEHICLE"], columns: ["eva", "ops"] },
   { kinds: ["SEND_MESSAGE"], columns: ["eva", "ops", "earth"] },
   { kinds: ["UPDATE_STOP_TASK"], columns: ["eva", "ops"] },
   { kinds: ["ADD_STOP_TASK"], columns: ["ops"] },

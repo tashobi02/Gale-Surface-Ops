@@ -175,8 +175,8 @@ export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
   // The presenter drives the live session; no crew or planner action (02 §E.4, 2026-11-10, Proposed).
   presenter: ["LOAD_SCENARIO", "SET_CLOCK", "JUMP_NEXT_EVENT", "JUMP_NEXT_STOP", "START_EVENT", "RESET_SESSION"],
   planner: ["PUBLISH_PLAN"],
-  "eva:EV1": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
-  "eva:EV2": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
+  "eva:EV1": ["SUMMON_VEHICLE", "RIDE_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
+  "eva:EV2": ["SUMMON_VEHICLE", "RIDE_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
   // The HUD is a viewer: no command at all (02 §E.4, added 2026-11-12, Proposed).
   "hud:EV1": [],
   "hud:EV2": [],
@@ -188,6 +188,7 @@ export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
     "START_EVA",
     "APPROVE_OPTION",
     "SUMMON_VEHICLE",
+    "RIDE_VEHICLE",
     "ABORT",
     "ACK_ALERT",
     "TASK_ROVER",

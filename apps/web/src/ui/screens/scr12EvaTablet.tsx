@@ -39,6 +39,7 @@ import {
   unavailableOf,
 } from "../components/provenance";
 import { TasksButton } from "./scr12/TasksButton";
+import { GoByRover, selectRide } from "./scr12/GoByRover";
 import { StopTaskList } from "./scr12/StopTaskList";
 import { useStopTaskChanges } from "./scr12/useStopTaskChanges";
 
@@ -148,6 +149,7 @@ export function EvaTablet({
   const suitLinked = selectMetadataStrip(activeSnapshot, crewId).link.linked;
   const linked = socketLost ? false : suitLinked;
   const changes = useStopTaskChanges(send, serverTasks, linked);
+  const [rideRejection, setRideRejection] = useState<string | null>(null);
   const viewSnapshot = activeSnapshot ? { ...activeSnapshot, tasks: changes.overlay(serverTasks) } : activeSnapshot;
   const vm: EvaViewModel = selectEvaViewModel(viewSnapshot, crewId);
 
@@ -460,6 +462,16 @@ export function EvaTablet({
             </span>
           </div>
 
+          {/* GO BY ROVER (QoL Q3): the pressurized rover carries this crew member to the next stop. */}
+          <GoByRover
+            ride={selectRide(activeSnapshot, crewId)}
+            rejection={rideRejection}
+            onGo={({ vehicleId, stopId }) => {
+              void send({ kind: "RIDE_VEHICLE", args: { crew_id: crewId, vehicle_id: vehicleId, to_stop_id: stopId } }).then((result) => {
+                setRideRejection(result.ok ? null : (result.message ?? "The Hab Core refused the ride"));
+              });
+            }}
+          />
 
         </div>
 

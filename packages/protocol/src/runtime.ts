@@ -195,7 +195,7 @@ export interface ClientConnection {
   last_seq_acked: number;
 }
 
-export type CrewActivity = "IN_HAB" | "WALKING" | "AT_STOP" | "TO_HAVEN" | "SHELTERED";
+export type CrewActivity = "IN_HAB" | "WALKING" | "AT_STOP" | "TO_HAVEN" | "SHELTERED" | "RIDING";
 
 export interface Crew {
   crew_id: CrewId;
@@ -238,9 +238,11 @@ export interface Vehicle {
   y_m: number;
   state: VehicleState;
   task: {
-    kind: "SUMMON" | "SCOUT" | "CARRY" | "RELAY" | "RETURN";
+    kind: "SUMMON" | "SCOUT" | "CARRY" | "RELAY" | "RETURN" | "RIDE";
     target: { x_m: number; y_m: number };
     crew_ids?: CrewId[];
+    /** RIDE only: the plan stop the rider is carried to (RIDE_VEHICLE, QoL Q3). */
+    stop_id?: string;
     /** CARRY only: a free-text label (05 Vehicle; FR-41 names no item list; decided 2026-11-07). */
     item?: string;
   } | null;
@@ -371,6 +373,7 @@ export type CommandKind =
   | "START_EVA"
   | "PUBLISH_PLAN"
   | "SUMMON_VEHICLE"
+  | "RIDE_VEHICLE"
   | "ABORT"
   | "ACK_ALERT"
   | "APPROVE_OPTION"
@@ -413,6 +416,9 @@ export type LogEventKind =
   | "VEHICLE_DISPATCHED"
   | "VEHICLE_ARRIVED"
   | "CREW_SHELTERED"
+  /** QoL Q3: a crew member boards the pressurized rover / steps out at the stop (RIDE_VEHICLE). */
+  | "CREW_BOARDED"
+  | "CREW_DISMOUNTED"
   | "LINK_LOST"
   | "LINK_RESTORED"
   | "EARTH_MSG_QUEUED"
@@ -508,6 +514,10 @@ export interface LogEventData {
   CREW_SHELTERED: Pick<Crew, "crew_id" | "dose_event_ugy" | "dose_event_unsheltered_ugy"> & {
     haven_kind: Crew["haven"]["kind"];
   };
+  /** RIDE_VEHICLE (QoL Q3, Proposed 2026-11-13): the rider boards; the drive is the VEHICLE_DISPATCHED that follows. */
+  CREW_BOARDED: { crew_id: CrewId; vehicle_id: string; to_stop_id: string };
+  /** The rider steps out at the stop the vehicle reached; the crew member is then AT_STOP. */
+  CREW_DISMOUNTED: { crew_id: CrewId; vehicle_id: string; stop_id: string; stop_index: number } & Point;
   LINK_LOST: { node_id: string };
   LINK_RESTORED: { node_id: string };
   EARTH_MSG_QUEUED: Pick<EarthMessage, "message_id" | "direction" | "body" | "sent_utc" | "deliver_utc" | "via">;
