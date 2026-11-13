@@ -46,7 +46,7 @@
 - **Parallel with:** T22.01, T05b.01, T21.01
 - **Steps:**
   1. Compare every interface in `runtime.ts` and `ws.ts` with the 05 §C.2 tables and the 02 §E.6 messages, field by field; list differences in the PR.
-  2. Fix differences only by following 05 or 02. Where they disagree (for example the flat `command` body in the 02 §E.6 example against `args` in the type), write a `TODO(decision)` and raise it in Spec questions; do not pick silently.
+  2. Fix differences only by following 05 or 02. Where they disagree (for example the flat `command` body in the 02 §E.6 example against `args` in the type), write it as a question and raise it in Spec questions; do not pick silently.
   3. Check the `PERMISSIONS` table against 02 §E.4 row by row.
   4. Confirm `TaskRoverArgs` (FR-41) with Mishkat and Saba, the two TASK-29 owners.
   5. Tag the result as v0 in the file headers and announce the freeze to the team on 7 Nov (06 §D.3).
@@ -54,9 +54,9 @@
   - Serves: FR-30, FR-31 · [02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws) · [05 §C.2](../specs/05_Backend_and_Database_Schema.md#c2-runtime-entities-hab-core-v2)
   - Every 05 §C.2 entity and every 02 §E.6 message has a type, with field names copied from the spec.
   - `PERMISSIONS` matches 02 §E.4 for every role and command.
-  - Open mismatches are listed as `TODO(decision)`, not resolved silently.
+  - Open mismatches are listed as questions, not resolved silently.
 - **Verify:** `make typecheck`; a second person (Mishkat) reviews the field-by-field list in the PR.
-- **Agent brief:** Review `packages/protocol/src/runtime.ts` and `ws.ts` against 05 §C.2 and 02 §E.4/§E.6 and correct only what the specs state. Keep the FR-50 additions. Do not add fields the specs do not define; mark gaps `TODO(decision)`. Types only, no behaviour.
+- **Agent brief:** Review `packages/protocol/src/runtime.ts` and `ws.ts` against 05 §C.2 and 02 §E.4/§E.6 and correct only what the specs state. Keep the FR-50 additions. Do not add fields the specs do not define; list gaps as questions. Types only, no behaviour.
 - **Conflict notes:** After the freeze, changes go through a `contract-change:` subtask in this task (map §d change process). `schema.ts` belongs to T03.01 (C1) and is read-only here.
 
 ### T20.02 — Fixture: mock WebSocket message sequences for the demo beats
@@ -282,7 +282,7 @@
 - **Parallel with:** T22.17
 - **Steps:**
   1. Add `LogEventData`, one interface per LogEvent kind from the 05 table, and `LogEvent.command_ref`.
-  2. Make `Vehicle.task` and `TaskRoverArgs` match 05 (`item` free text) and remove the T20.01 `TODO(verify)` on the rover shape.
+  2. Make `Vehicle.task` and `TaskRoverArgs` match 05 (`item` free text) and remove the T20.01 decided (BD-102) on the rover shape.
   3. Update the `ws.ts` reconnect comment (SNAPSHOT, then replay).
   4. Update the F7 fixtures whose event `data` changed and add a fixture test that every fixture event has the keys of its `LogEventData` entry.
 - **Acceptance:**
@@ -326,7 +326,7 @@
 - **Parallel with:** T20.12
 - **Steps:**
   1. Tests first: the retry delay never exceeds 1 s; a SNAPSHOT on reconnect keeps the event feed, and replayed EVENTs at or below its seq join the feed without changing state.
-  2. Change `habClient.ts` to pass them and remove the two T20.06 `TODO(decision)`s this settles.
+  2. Change `habClient.ts` to pass them and remove the two T20.06 open-choice notes this settles.
 - **Acceptance:**
   - Serves: FR-31, FR-32, NFR-13 · [02 §E.6](../specs/02_Technical_Requirements_Document.md#e6-websocket-protocol-ws)
   - The client tests pass, with the new cases red before the change.
@@ -364,6 +364,6 @@ flowchart LR
 
 ## Spec questions
 
-1. **Command body shape.** The 02 §E.6 examples put command fields beside `kind` (`{"kind":"SUMMON_VEHICLE","crew":[…]}`), while `CommandMessage` nests them in `args`. Which is the wire format? `TODO(decision)` in T20.01.
+1. **Command body shape.** The 02 §E.6 examples put command fields beside `kind` (`{"kind":"SUMMON_VEHICLE","crew":[…]}`), while `CommandMessage` nests them in `args`. Which is the wire format? Decided in T20.01: `args` (02 §E.6).
 2. **`SNAPSHOT` example vs type.** The 02 §E.6 example uses `haven_min` and `haven_kind` on crew and a `link.earth` object; 05 Crew has `haven: {minutes, kind, …}` and the type has `earth`. T20.01 follows 05 and lists the example as out of date.
 3. **Join QR.** `GET /api/join-qr` needs a QR library (a new dependency through T14.01); T28.02 owns it.

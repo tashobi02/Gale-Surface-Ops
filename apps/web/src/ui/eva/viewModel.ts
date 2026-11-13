@@ -138,7 +138,7 @@ export type LinkVia = "direct" | "relay" | "crew";
 const VALID_LINK_VIA: readonly string[] = ["direct", "relay", "crew"];
 
 const PROVENANCE_CLASSES: readonly string[] = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
-const CREW_ACTIVITIES: readonly string[] = ["IN_HAB", "WALKING", "AT_STOP", "TO_HAVEN", "SHELTERED"];
+const CREW_ACTIVITIES: readonly string[] = ["IN_HAB", "WALKING", "AT_STOP", "TO_HAVEN", "SHELTERED", "HOLDING"];
 
 /** True for exactly the six provenance classes (01 FR-15); anything else, including "live", is not a label. */
 export function isProvenance(value: unknown): value is Provenance {

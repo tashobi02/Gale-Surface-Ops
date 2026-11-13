@@ -2,7 +2,7 @@
  * T23.05 review (8 Nov): summon, dispatch and vehicle motion against the REAL @marswalk/compute
  * (docs/specs/02 §D.8, §D.10; 03 §E.9; 05 Vehicle; FR-40, NFR-06). TASK-23.
  *
- * Proposed 2026-11-08 — TODO(decision): this file is new. `summon.test.ts` (T23.04) mocks compute
+ * Proposed 2026-11-08, ratified (BD-71): this file is new. `summon.test.ts` (T23.04) mocks compute
  * with a 1-D stand-in, so it cannot see what the engine does with a real path (cell centres, a path
  * that bends, a 5 m crew grid over the 10 m vehicle field). The only `vi.mock` is a pass-through of
  * `rendezvousPair` that one test makes throw (its RangeError path cannot be reached on a real grid,
@@ -25,7 +25,7 @@
  *   the chosen order.
  * - Unknown crew ids, more than two crew, duplicates, unknown option, and no pressurized rover answer
  *   INVALID.
- * - Sheltering reach: SHELTER_REACH_M = 1 m is the T23.04 TODO(decision) value (summon.test.ts header).
+ * - Sheltering reach: SHELTER_REACH_M = 1 m is the T23.04 value, ratified as a numerical "same point" tolerance (BD-72; summon.test.ts header).
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,7 +76,7 @@ const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock
 const T0_MS = Date.parse(fake.scenario.start_utc);
 const iso = (ms: number): string => new Date(ms).toISOString().replace(".000Z", "Z");
 const DT_S = 1;
-/** The T23.04 TODO(decision) reach (summon.test.ts header, "Sheltering"); declared, not read from the code. */
+/** The T23.04 reach, ratified as a numerical tolerance (BD-72; summon.test.ts header, "Sheltering"); declared, not read from the code. */
 const DECIDED_REACH_M = 1;
 const PR1_ID = fake.scenario.vehicles.find((v) => v.kind === "pressurized_rover")!.vehicle_id;
 
@@ -576,7 +576,7 @@ describe("dispatchVehicle (shared with T23.07)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Sheltering reach (T23.04 TODO(decision): SHELTER_REACH_M = 1 m)
+// Sheltering reach (T23.04, ratified BD-72: SHELTER_REACH_M = 1 m)
 // ---------------------------------------------------------------------------
 
 describe("CREW_SHELTERED reach and provenance", () => {

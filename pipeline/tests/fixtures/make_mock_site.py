@@ -3,7 +3,7 @@
 Run from the worktree root with $(make -s pipeline-python). Spec examples are
 read locally, never fetched. No fixture value represents a new measurement.
 Tile layout follows C9 v1.1 §3.2 (top-left origin, eastward x, southward y).
-TODO(verify): the tiles-root index format is not part of C9 (tiles.py).
+The tiles-root index format is the one `docs/contracts/tile-grid.md` (C9) names (decided, BD-22).
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ def build() -> dict[str, bytes]:
                        **metadata})
 
     # 05 §F.1 has illustrated hab_candidates (null positions) since 2026-11-10. F4 stays
-    # the single-site case (map open point 11: candidates in F4 are TODO(decision)).
+    # the single-site case (decided, BD-31: F4 has no hab candidates; the Hab Core keeps its own two-candidate fixture).
     manifest.pop("hab_candidates", None)
     manifest["site_id"] = "mock_site"
     manifest["name"] = "Mock site (synthetic fixture F4)"
@@ -179,9 +179,9 @@ def build() -> dict[str, bytes]:
         manifest["sources"].append({
             "source_id": source_id, "title": label, "publisher": "", "missions": [],
             "instruments": [], "version": "", "url": url[1], "credit": label,
-            "licence": "TODO(verify)", "accessed": manifest["sources"][0]["accessed"],
+            "licence": "fixture — not a real source", "accessed": manifest["sources"][0]["accessed"],
             "accuracy_note": "Fixture bibliography from local reference §9; accessed date copied "
-                             "from F.1, not a retrieval. TODO(verify): complete metadata."})
+                             "from F.1, not a retrieval. Metadata fields read 'fixture — not a real source' (BD-31)."})
 
     poi_sol = poi["properties"]["image_sol"]
     poi["properties"] = {key: value for key, value in poi["properties"].items()

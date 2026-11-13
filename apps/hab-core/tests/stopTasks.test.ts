@@ -373,8 +373,15 @@ describe("ADD_STOP_TASK", () => {
     expect(valid60.result.ok).toBe(true);
   });
 
-  // TODO(decision): U-46 proposes "ops adds tasks only when no warning is latched"; reject code not chosen.
-  it.todo("adding while a warning is latched is rejected");
+  // Decided (BD-05, orchestrator, 13 Nov 2026): U-46 is not adopted. Ops may add a task while a warning is latched: FR-50 limits
+  // tasks by stop and count only, and a latched warning is when ops most needs to annotate the stop.
+  it("adding while a warning is latched is accepted: the limit is the stop and the count, nothing else (BD-05)", () => {
+    const atStop1 = applyEvent(runningWithTasks, "ARRIVED_STOP", { crew_id: "EV1", stop_id: "wp-1", stop_index: 1 });
+    const latched = applyEvent(atStop1, "ALERT_RAISED", { alert_id: "a-1", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1", "EV2"], message: "Shelter now — radiation surge" });
+    expect(latched.alerts.some((a) => a.level === "warning" && a.cleared_seq === null)).toBe(true);
+    const out = handleCommand(latched, cmd("ops", "ADD_STOP_TASK", { stop_id: "wp-1", crew_id: "EV1", kind: "other", text: "Note the hazard" }), ctx(latched));
+    expect(out.result.ok).toBe(true);
+  });
 });
 
 // docs/specs/01 FR-50 (acceptance criteria); 05 StopTask, Scenario stop_tasks. TASK-31.
@@ -528,8 +535,17 @@ describe("stop tasks in the engine", () => {
     expect(dropped[0].data.task_id).toBe("t-wp2");
   });
 
-  // TODO(decision): U-56 — open tasks at the current stop on abort or rendezvous.
-  it.todo("open tasks at the current stop on abort follow the U-56 decision");
+  // Decided (BD-59, orchestrator, 13 Nov 2026): U-56 — an abort or rendezvous drops only the open tasks of stops the revision
+  // removes; the stop the crew stands at is kept in the plan, so its open tasks stay (the dropped-stop rule above, and the
+  // "abort in the killer demo" case below, cover it).
+  it("open tasks at the current stop stay open on a revision that keeps that stop (BD-59, U-56)", () => {
+    const plan = runningWithTasks.plan!;
+    const revised = { ...runningWithTasks };
+    const event = { seq: 9, sim_time: T0, kind: "PLAN_REVISED" as const, actor: "ops" as const, data: { plan_revision: 2, option_id: "o-1", stops_dropped: [2], waypoints: plan.waypoints.filter((w) => w.id !== "wp-2"), legs: [] }, provenance: {}, command_ref: null };
+    const drops = onPlanRevised(revised, event);
+    expect(drops.map((d) => d.data.task_id)).toEqual(["t-s2-01"]);
+    expect(drops.some((d) => d.data.stop_id === "wp-1")).toBe(false);
+  });
 
   it("the simulated crew member (EV2 in the demo) completes its open tasks at the end of each dwell", () => {
     const ev2OpenTask: StopTask = {
@@ -762,12 +778,9 @@ describe("UPDATE_STOP_TASK transitions (FR-50)", () => {
     }
   });
 
-  it("SKIPPED to DONE and SKIPPED to SKIPPED are INVALID", () => {
+  it("SKIPPED to DONE is INVALID; SKIPPED to SKIPPED is a reason revision (N-29, BD-153), tested below", () => {
     const skipped = send(seeded(), "ops", { task_id: "t-s1-01", state: "SKIPPED", reason: "terrain" }).next;
-    for (const target of [{ state: "DONE" }, { state: "SKIPPED", reason: "time" }]) {
-      const out = send(skipped, "ops", { task_id: "t-s1-01", ...target }).out;
-      expect(codeOf(out.result)).toBe("INVALID");
-    }
+    expect(codeOf(send(skipped, "ops", { task_id: "t-s1-01", state: "DONE" }).out.result)).toBe("INVALID");
   });
 
   it("TODO without undo true is INVALID, even from DONE and even for a task already TODO", () => {
@@ -809,6 +822,70 @@ describe("UPDATE_STOP_TASK transitions (FR-50)", () => {
   it("a state outside TODO, DONE, SKIPPED is INVALID", () => {
     expect(codeOf(send(seeded(), "ops", { task_id: "t-s1-01", state: "DROPPED" }).out.result)).toBe("INVALID");
     expect(codeOf(send(seeded(), "ops", { task_id: "t-s1-01" }).out.result)).toBe("INVALID");
+  });
+});
+
+describe("UPDATE_STOP_TASK revises the reason of a SKIPPED task (N-29, BD-153; FR-50, FD-028)", () => {
+  const revise = (reason: unknown) => ({ task_id: "t-s1-01", state: "SKIPPED", reason });
+  const skippedBy = (role: Role, reason = "other"): EngineState => send(seeded(), role, revise(reason)).next;
+
+  it("the actor of the SKIP changes the reason on the same task: one TASK_UPDATED with state SKIPPED and the new reason, no undo field", () => {
+    const skipped = skippedBy("eva:EV1");
+    const { out, next } = send(skipped, "eva:EV1", revise("terrain"));
+    expect(out.result.ok).toBe(true);
+    expect(out.events).toHaveLength(1);
+    expect(out.events[0]).toMatchObject({ kind: "TASK_UPDATED", actor: "eva:EV1" });
+    expect(out.events[0].data).toEqual({ task_id: "t-s1-01", stop_id: "wp-1", crew_id: "EV1", state: "SKIPPED", reason: "terrain" });
+    expect(taskOf(next, "t-s1-01")).toMatchObject({ state: "SKIPPED", reason: "terrain", updated_by: "eva:EV1" });
+  });
+
+  it("the reason can be cycled more than once (time, terrain, alert, other), each change is its own logged event", () => {
+    let s = skippedBy("eva:EV1");
+    for (const reason of ["time", "terrain", "alert"]) {
+      const step = send(s, "eva:EV1", revise(reason));
+      expect(step.out.result.ok, reason).toBe(true);
+      s = step.next;
+      expect(taskOf(s, "t-s1-01").reason).toBe(reason);
+    }
+  });
+
+  it("a revision then an undo still returns the task to TODO", () => {
+    const s = send(skippedBy("eva:EV1"), "eva:EV1", revise("time")).next;
+    const undone = send(s, "eva:EV1", { task_id: "t-s1-01", state: "TODO", undo: true });
+    expect(undone.out.result.ok).toBe(true);
+    expect(taskOf(undone.next, "t-s1-01")).toMatchObject({ state: "TODO", reason: null });
+  });
+
+  it("another role may not revise: FORBIDDEN_ROLE, as for an undo (ops did not make the SKIP, the EVA role did)", () => {
+    const skipped = skippedBy("eva:EV1");
+    expect(codeOf(send(skipped, "ops", revise("time")).out.result)).toBe("FORBIDDEN_ROLE");
+    expect(taskOf(skipped, "t-s1-01").reason).toBe("other");
+  });
+
+  it("ops may revise a SKIP that ops made", () => {
+    expect(send(skippedBy("ops"), "ops", revise("alert")).out.result.ok).toBe(true);
+  });
+
+  it("a reason outside time, terrain, alert, other, or none at all, is INVALID", () => {
+    const skipped = skippedBy("eva:EV1");
+    for (const reason of ["boredom", undefined, 3, null]) expect(codeOf(send(skipped, "eva:EV1", revise(reason)).out.result), String(reason)).toBe("INVALID");
+  });
+
+  it("the same reason again is INVALID: nothing would change", () => {
+    expect(codeOf(send(skippedBy("eva:EV1", "time"), "eva:EV1", revise("time")).out.result)).toBe("INVALID");
+  });
+
+  it("after a PLAN_REVISED since the SKIP the reason is final (INVALID), as for an undo", () => {
+    const skipped = skippedBy("eva:EV1");
+    const plan = skipped.plan!;
+    const revised = applyEvent(skipped, "PLAN_REVISED", { plan_revision: 2, option_id: null, stops_dropped: [], waypoints: plan.waypoints, legs: plan.result.legs });
+    expect(codeOf(send(revised, "eva:EV1", revise("terrain")).out.result)).toBe("INVALID");
+  });
+
+  it("a SKIP that the system made cannot be revised, and a DONE or TODO task has no reason to revise (SKIPPED stays allowed from TODO only)", () => {
+    const done = send(seeded(), "eva:EV1", { task_id: "t-s1-01", state: "DONE" }).next;
+    expect(codeOf(send(done, "eva:EV1", revise("time")).out.result)).toBe("INVALID");
+    expect(send(seeded(), "eva:EV1", revise("time")).out.result.ok).toBe(true); // from TODO: the ordinary skip
   });
 });
 

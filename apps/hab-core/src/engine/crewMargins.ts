@@ -76,13 +76,13 @@ export function crewMargins(state: EngineState, scenario: LoadedScenario, o2Mode
     if (!suit) throw new Error(`crewMargins: crew ${c.crew_id} has no suit ParamSet in the scenario (05 Scenario)`);
 
     const mode = o2Mode(c);
-    const target = c.activity === "WALKING" || c.activity === "AT_STOP" ? stops[c.stop_index ?? 0] : undefined;
+    const target = c.activity === "WALKING" || c.activity === "AT_STOP" || c.activity === "HOLDING" ? stops[c.stop_index ?? 0] : undefined;
     const here = { x_m: c.x_m, y_m: c.y_m };
     const next: Pick<Crew, (typeof FIELDS)[number]> = {
       o2_remaining_min: mode === null ? null : clean(o2RemainingS(c.o2_frac, mode, suit) / 60),
       next_stop_bearing_deg: target === undefined ? null : bearingDeg(here, target),
       next_stop_distance_m: target === undefined ? null : clean(horizontalDistanceM(here, target)),
-      next_stop_eta_s: target === undefined ? null : etaS(state, scenario, c, target),
+      next_stop_eta_s: target === undefined || c.activity === "HOLDING" ? null : etaS(state, scenario, c, target),
     };
     const changed = FIELDS.filter((k) => c[k] !== next[k]);
     if (changed.length === 0) return c;

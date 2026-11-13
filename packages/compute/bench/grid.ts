@@ -4,7 +4,7 @@
  * Synthetic benchmark input, never science and never site data. Only the SIZE and the hab position come from the
  * site: the grid covers `aoi.extent_m` of `pipeline/sites/gale_boxwork/site.json` at the 5 m haven cell
  * (`HAVEN_CELL_M`, 02 §D.2), so no cell count is typed here; a non-whole number of cells throws. The cell size lives
- * in a test fixture today (`TODO(decision)`: a shared `ROUTING_CELL_M` constant in `src` would remove the copy).
+ * in a test fixture today (decided, BD-57: the copy stays; a shared constant is not worth a `src` export for a benchmark).
  *
  * Layout (05 §C RoutingGrid, §E.1): row 0 is north, `origin_m` is the top-left corner (min x, max y). Slope is the
  * u8 degrees x 4 encoding. `commHab` is 255 (no data) because the haven does not read it. No NaN, no NO_DATA.

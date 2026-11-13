@@ -45,6 +45,31 @@ export function activePass(table: EarthLinkTable, t_utc: string): RelayPassFindi
   return null;
 }
 
+export interface EarthLinkStateResult {
+  /** BLACKOUT: in conjunction; AVAILABLE: a carrier is up now; WAITING: neither (the next pass is `nextPassStart`). */
+  state: "AVAILABLE" | "WAITING" | "BLACKOUT";
+  /** The carrier of an AVAILABLE link: the orbiter in its pass, or `dte`; null otherwise. */
+  via: "mro" | "maven" | "tgo" | "dte" | null;
+  /** End of the pass that carries an AVAILABLE relay link; null for DTE, WAITING and BLACKOUT. */
+  until_utc: string | null;
+}
+
+/**
+ * Can the Earth link carry a message at t_utc (N-31, BD-156; 02 §D.12)? Conjunction wins (BLACKOUT, the same test as
+ * `inConjunction`); else DTE when the ParamSet enables it and Earth is at or above `DTE_MIN_ELEV_DEG`; else the relay pass that is
+ * active at t (`activePass`); else WAITING. Null before the first table row (geometry unknown), as `linkAt`. Throws RangeError
+ * for an unparseable time or a ParamSet with no `conjunction_deg`. The delivery rule `deliveryTime` uses the same three inputs.
+ */
+export function earthLinkState(table: EarthLinkTable, t_utc: string, params: ParamSet): EarthLinkStateResult | null {
+  const row = linkAt(table, t_utc);
+  if (row === null) return null;
+  if (inConjunction(table, t_utc, params)) return { state: "BLACKOUT", via: null, until_utc: null };
+  if (params.values?.dte_enabled === true && row.earth_elev_deg >= DTE_MIN_ELEV_DEG) return { state: "AVAILABLE", via: "dte", until_utc: null };
+  const pass = activePass(table, t_utc);
+  if (pass !== null) return { state: "AVAILABLE", via: pass.orbiter, until_utc: pass.end_utc };
+  return { state: "WAITING", via: null, until_utc: null };
+}
+
 /**
  * Row at or before t (binary search on 60 s rows). Null before the first row. Throws RangeError when t_utc or an
  * examined row time does not parse. TASK-05b.
@@ -147,7 +172,7 @@ function assertPassesUsable(table: EarthLinkTable): void {
  * Delivery time for a message, or null during conjunction blackout or if no pass exists.
  * Simplified DTN model (02 §D.12). Throws RangeError for an empty or unsorted pass list, a missing
  * `conjunction_deg`, an unparseable time, or a send time before the first table row (blackout is null, not an error).
- * A message queued for a later pass is also blocked when that pass starts in conjunction (Proposed; 02 §D.12 is silent, `TODO(decision)`).
+ * A message queued for a later pass is also blocked when that pass starts in conjunction (ratified, BD-60; 02 §D.12 is silent).
  * For "to_mars", `t_send_utc` is the Earth send time (sent_earth_utc).
  * TASK-05b.
  */

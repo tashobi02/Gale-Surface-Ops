@@ -1,0 +1,20 @@
+# QoL pass — decisions
+
+| | |
+| --- | --- |
+| **Owner** | Orchestrator (Claude), for Sadman Shaharier Mahim (product lead) |
+| **Date** | 2026-11-13 |
+| **Status** | Decided for the QoL pass; behaviour changes are **Proposed** in 02 and 05 |
+| **Related** | [QoL brief](README.md) · [02 §E.4, §E.6](../../specs/02_Technical_Requirements_Document.md) · [05 Command, LogEvent](../../specs/05_Backend_and_Database_Schema.md) |
+
+The five QoL changes themselves are decided by Sadman Shaharier Mahim, 13 Nov 2026. The rows below are the small choices the brief left open.
+
+| ID | Item | Decision | Rationale | Label |
+| --- | --- | --- | --- | --- |
+| QD-001 | Q2: who may hold whom | `eva:EVn` may name only its own `crew_id` (a different one is `FORBIDDEN_ROLE`); `ops` may name either. A missing `crew_id` is `INVALID`, as for `SUMMON_VEHICLE` `crew` | Same "self" convention as SUMMON_VEHICLE and ACK_ALERT in `commands.ts` | decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026 |
+| QD-002 | Q2: when HOLD is possible | Only for a crew member who is `WALKING` or `AT_STOP` and has left the hab. `IN_HAB`, `SHELTERED`, `TO_HAVEN` and a crew member still waiting out `start_offset_s` get `INVALID`; outside `RUNNING` and `PAUSED` it is `BUSY`. A repeated `HOLD`, or a `RESUME` when not `HOLDING`, is `INVALID` and logs nothing | A hold must never stop a crew member who is heading for shelter; the UI flips its label from the snapshot, so a refused repeat is harmless | decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026 |
+| QD-003 | Q2: what keeps running while held | Position and walk progress (the engine `motion` record, including the stop dwell timer) freeze. O₂, dose and EVA time keep running, at the resting rate in the suit (the same mode as a held crew member at the end of a route) | A standing crew member rests; consumables and dose still run, as the brief requires | decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026 |
+| QD-004 | Q2: what RESUME restores | `AT_STOP` when the hold interrupted a stop dwell (the motion phase is `dwell`), otherwise `WALKING`; the walk continues from the held point with no re-anchoring | Needs no extra stored field: the reducer reads the motion record | decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026 |
+| QD-005 | Q2: a held crew member in other engine rules | Counts as out on the surface for the link graph, haven time, contingency options and `crew.next_stop_*` (bearing and distance stay; the ETA is `null` while held, as for a held crew member). It is left out of the crew a `JUMP_NEXT_STOP` waits for, because a held crew member never arrives | A hold must not hide a crew member from safety logic | decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026 |
+| QD-006 | Q2: tablet layout | The top bar is a flex row: the alert slot takes the remaining width (`flex: 1 1 0`, its message truncates with an ellipsis and a `title`), the HOLD / RESUME button sits at the right with a "SIM" tag under it. Neutral chrome, label from `crew.activity` (`simulated`), disabled unless the crew member is walking, at a stop or holding. A refusal shows the Hab Core's message | Brief: shorten the alert bar from the right; colour, shape and word of the alert stay | decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026 |
+| QD-007 | Q2: HUD | The HUD shows `HOLDING` in the bottom row only while the crew member is held, so the five-value rule of a normal HUD is unchanged | Brief: the HUD shows HOLDING as the activity | decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026 |

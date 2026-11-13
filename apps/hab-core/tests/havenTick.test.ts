@@ -289,7 +289,8 @@ describe("the memo belongs to one session, not to the module (NFR-06; BD-146)", 
   const withCache = (c: HavenCache | undefined): TickContext => ({ scenario: sc, dt_s: 1, next_seq: 1, ...(c === undefined ? {} : { haven_cache: c }) });
 
   it("the module exports no process-wide cache control", () => {
-    expect(Object.keys(havenModule).sort()).toEqual(["HavenCache", "havenTick"]);
+    // currentHabField (N-100) takes the session's cache as an argument: it is a reader, not a process-wide control
+    expect(Object.keys(havenModule).sort()).toEqual(["HavenCache", "currentHabField", "havenTick"]);
   });
 
   it("two caches do not share entries: each builds its own hab, rover and crew fields", () => {

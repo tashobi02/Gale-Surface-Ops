@@ -19,7 +19,7 @@
  * an event at the end of phase k (cumulative time B_k) lands at tick ceil(B_k), because tick adds
  * whole 1-s steps and carries the overshoot into the next phase.
  *
- * Rules these tests fix for T22.09 (proposed 2026-11-07, TODO(decision); docs/tasks/TASK-22 T22.09):
+ * Rules these tests fix for T22.09 (proposed 2026-11-07, ratified BD-71; docs/tasks/TASK-22 T22.09):
  * - Constant speed within a leg; position is the arc-length fraction along `leg.geometry`.
  * - `stop_index` is 1-based among the plan's `role: "stop"` waypoints.
  * - `start_offset_s` holds the crew member at the start (shielding hab, no O₂ used) until it elapses.
@@ -631,8 +631,8 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
     expect(conditionPaths[2]).toEqual([]);
     expect(conditionPaths.flat().every((p) => ["conditions/dose_rate_background_ugy_h", "conditions/dose_rate_event_ugy_h", "conditions/event_series_utc"].includes(p))).toBe(true);
     // The fake scenario's one Earth-link row has a Sun-Earth-Mars angle of 0 degrees, inside `conjunction_deg`, so the first tick
-    // reports `earth/blackout` once (T26.04, BD-129); light time (0 s) and next pass (none) are unchanged.
-    expect(trace.deltas.flat().filter((d) => d.path.startsWith("earth/"))).toEqual([{ path: "earth/blackout", value: true }]);
+    // reports `earth/blackout` and `earth/link_state` once (T26.04, BD-129, BD-156); light time (0 s) and next pass (none) are unchanged.
+    expect(trace.deltas.flat().filter((d) => d.path.startsWith("earth/"))).toEqual([{ path: "earth/blackout", value: true }, { path: "earth/link_state", value: "BLACKOUT" }]);
     expect(trace.deltas.flat().filter((d) => !d.path.startsWith("conditions/") && !d.path.startsWith("earth/")).every((d) => /^crew\/(EV1|EV2)\/(x_m|y_m|o2_frac|eva_elapsed_s|dose_event_ugy|dose_event_unsheltered_ugy|o2_remaining_min|next_stop_bearing_deg|next_stop_distance_m|next_stop_eta_s)$/.test(d.path))).toBe(true);
     // Applying the deltas to the start reproduces the end state (what a client does).
     const folded = new Map<string, unknown>();
@@ -722,9 +722,9 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
     });
     expect(() => step(s)).toThrow(/not implemented yet/);
     earth.mockImplementationOnce(() => {
-      throw new Error("TODO(verify): T26.04 not implemented");
+      throw new Error("FIXME: T26.04 not implemented");
     });
-    expect(() => step(s)).toThrow(/TODO\(verify\)/);
+    expect(() => step(s)).toThrow(/FIXME/);
     // Skipped on every call, nothing cached: the guard still works afterwards.
     expect(() => step(s)).not.toThrow();
   });

@@ -99,7 +99,7 @@ Per [02 §B](../specs/02_Technical_Requirements_Document.md#b-technology-choices
 * **Layer Manifest Definition**: `kind: "image_static"` ([05 §C Layer](../specs/05_Backend_and_Database_Schema.md#layer)).
 * **Asset Form**: One pre-rendered PNG per layer at 2 m/pixel display resolution (approx. $3000 \times 3000\text{ px}$ for a $6 \times 6\text{ km}$ AOI).
 * **OpenLayers Class**: `ol/source/ImageStatic` with `imageExtent: aoi.extent_m` and projection set to the local Mars projection.
-* **Ortho Basemap in Fallback**: Retains a 0.5 m tiled basemap if XYZ tiles function for standard imagery, or a single downsampled static PNG if tiling fails completely (`TODO(decision)` per spec question 2 in [TASK-02](../tasks/TASK-02_projection-spike.md#spec-questions)).
+* **Ortho Basemap in Fallback**: Retains a 0.5 m tiled basemap if XYZ tiles function for standard imagery, or a single downsampled static PNG if tiling fails completely (decided, BD-18, from spec question 2 in [TASK-02](../tasks/TASK-02_projection-spike.md#spec-questions); built by the opt-in `--static-images`, BD-151).
 
 ---
 
@@ -118,5 +118,5 @@ Any modification after initial merge must:
 | Version | Date | Change |
 | --- | --- | --- |
 | v1 | 7 Nov 2026 | Fields, path template, per-layer encodings, no-data rules, ImageStatic form (T02.01, Saba Atharique) |
-| v1.1 | 11 Nov 2026 | `{y}` counts southward from `origin_m[1]` (§3.1, §3.2), matching `tiles.py`; slope encoding cites `tiles.py` and `grid.py` instead of a `TODO(decision)` (§4). No field, value or path changed, so no `contract-change:` subtask is appended (T02.03 acceptance: only "if it differs from v1"). Decided by Sadman Shaharier Mahim (product lead) after the review of PR #169 |
+| v1.1 | 11 Nov 2026 | `{y}` counts southward from `origin_m[1]` (§3.1, §3.2), matching `tiles.py`; slope encoding cites `tiles.py` and `grid.py` instead of an open-choice note (§4). No field, value or path changed, so no `contract-change:` subtask is appended (T02.03 acceptance: only "if it differs from v1"). Decided by Sadman Shaharier Mahim (product lead) after the review of PR #169 |
 | v1.2 | 13 Nov 2026 | §3.3 records the index file; §4 settles the elevation, thermal-inertia, hazard-flag and comm-coverage encodings (they were open or unspecified); §5 item 1 replaces the black fill and the coverage polygon of JPEG ortho tiles with the map background colour. Decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026 (BD-17, BD-18, BD-22, BD-135, BD-136). No manifest field, value or path changed, so no `contract-change:` subtask is appended |

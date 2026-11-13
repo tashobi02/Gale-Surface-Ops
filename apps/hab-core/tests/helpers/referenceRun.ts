@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CommandList, EventMessage, LogEvent, Recording } from "@marswalk/protocol";
 import { RecordingCollector, recordingJson } from "../../src/recording";
+import { cliExecArgs } from "./cliProcess";
 import { REPO_ROOT, replayHeadless } from "../../src/replay";
 
 export const ROOT = REPO_ROOT;
@@ -54,10 +55,8 @@ export function firstOf(events: readonly LogEvent[], kind: LogEvent["kind"], whe
 /** A headless replay through the CLI (`tsx src/cli.ts replay`, what `make replay` runs), so several can run in parallel processes. */
 export async function cliReplay(args: string[], varDir: string, scenarioDir: string = SCENARIO_DIR): Promise<string> {
   const { execFile } = await import("node:child_process");
-  const tsx = join(ROOT, "node_modules/.bin/tsx");
-  const cli = join(ROOT, "apps/hab-core/src/cli.ts");
   return new Promise((resolve, reject) => {
-    execFile(tsx, [cli, "replay", scenarioDir, ...args, "--var-dir", varDir], { cwd: ROOT, maxBuffer: 1 << 24 }, (err, stdout, stderr) => {
+    execFile(process.execPath, cliExecArgs(["replay", scenarioDir, ...args, "--var-dir", varDir]), { cwd: ROOT, maxBuffer: 1 << 24 }, (err, stdout, stderr) => {
       if (err) reject(new Error(`replay ${args.join(" ")} failed: ${stderr || err.message}`));
       else resolve(stdout.trim().split("\n").at(-1)!);
     });

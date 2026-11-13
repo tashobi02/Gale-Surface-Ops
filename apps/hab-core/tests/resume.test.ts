@@ -11,19 +11,18 @@
  *   snapshot) is measured and printed with the machine (BD-03, BD-77). The 500-event snapshot cadence is BD-77's ratified figure.
  * Skipped with a printed reason without the real bundle; the finishing run has it, and 0 may be skipped there.
  */
-import { spawn, type ChildProcess } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { cpus, platform, release, tmpdir, totalmem } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import type { Snapshot } from "@marswalk/protocol";
-import { ROOT, SKIP_REASON, hasRealBundle } from "./helpers/referenceRun";
+import { SKIP_REASON, hasRealBundle } from "./helpers/referenceRun";
+import { spawnCli } from "./helpers/cliProcess";
 import { connectWs } from "./helpers/wsClient";
 
 if (!hasRealBundle) console.warn(`resume.test.ts skipped: ${SKIP_REASON}`);
 
-const TSX = join(ROOT, "node_modules/.bin/tsx");
-const CLI = join(ROOT, "apps/hab-core/src/cli.ts");
 
 interface Running {
   child: ChildProcess;
@@ -35,7 +34,7 @@ interface Running {
 
 function startProcess(varDir: string, extra: string[]): Promise<Running> {
   const t0 = performance.now();
-  const child = spawn(TSX, [CLI, "start", "--site", "gale_boxwork", "--scenario", "storm-sol4190", "--port", "0", "--var-dir", varDir, ...extra], { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawnCli(["start", "--site", "gale_boxwork", "--scenario", "storm-sol4190", "--port", "0", "--var-dir", varDir, ...extra]);
   let text = "";
   let errors = "";
   child.stderr!.on("data", (d: Buffer) => (errors += d.toString()));

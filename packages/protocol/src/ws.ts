@@ -70,7 +70,18 @@ export interface Snapshot {
   options: ContingencyOption[];
   /** Current stop tasks (02 §E.6, FR-50). */
   tasks: StopTask[];
-  earth: { light_time_s: number; next_pass_utc: string | null; blackout: boolean; queue: EarthMessage[] };
+  earth: {
+    light_time_s: number;
+    next_pass_utc: string | null;
+    blackout: boolean;
+    queue: EarthMessage[];
+    /** Whether the link carries a message now: `AVAILABLE` (an orbiter pass or DTE), `WAITING` (between passes), `BLACKOUT` (conjunction); null before the Earth table starts (N-31, BD-156). Derived by compute `earthLinkState`. */
+    link_state?: "AVAILABLE" | "WAITING" | "BLACKOUT" | null;
+    /** The carrier of an AVAILABLE link; null otherwise. */
+    link_via?: "mro" | "maven" | "tgo" | "dte" | null;
+    /** End of the relay pass that carries an AVAILABLE link; null for DTE, WAITING and BLACKOUT. */
+    link_until_utc?: string | null;
+  };
   clients: Pick<ClientConnection, "client_id" | "role" | "display_name">[];
   provenance: ProvenanceMap;
   /** FR-36 conditions at the hab (BD-75); deltas at `conditions/<key>`. */
@@ -164,8 +175,8 @@ export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
   // The presenter drives the live session; no crew or planner action (02 §E.4, 2026-11-10, Proposed).
   presenter: ["LOAD_SCENARIO", "SET_CLOCK", "JUMP_NEXT_EVENT", "JUMP_NEXT_STOP", "START_EVENT", "RESET_SESSION"],
   planner: ["PUBLISH_PLAN"],
-  "eva:EV1": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
-  "eva:EV2": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
+  "eva:EV1": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK", "SET_CREW_MOTION"],
+  "eva:EV2": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK", "SET_CREW_MOTION"],
   // The HUD is a viewer: no command at all (02 §E.4, added 2026-11-12, Proposed).
   "hud:EV1": [],
   "hud:EV2": [],
@@ -188,6 +199,8 @@ export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
     // Ops only (02 §D.17, 2026-11-10, Proposed).
     "SELECT_HAB_SITE",
     "SET_MISSION_SETUP",
+    // Simulation control (02 §E.6, 2026-11-13, Proposed): ops for either crew member; an EVA role only for itself.
+    "SET_CREW_MOTION",
   ],
   earth: ["SEND_MESSAGE"],
 };

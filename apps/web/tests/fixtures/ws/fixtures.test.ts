@@ -82,6 +82,7 @@ const LOG_EVENT_DATA_KEYS: { [K in LogEventKind]: KeySpec<LogEventData[K]> } = {
   SESSION_RESET: { session_id: "req", next_session_id: "req" },
   SITE_SELECTED: { candidate_id: "req" },
   MISSION_SETUP_SET: { crew_count: "opt", vehicle_available: "opt", vehicle_param_set: "opt", solar_phase: "opt", max_haven_min: "opt" },
+  CREW_MOTION_SET: { crew_id: "req", motion: "req", actor: "req" },
 };
 const CREW_KEYS: Spec<Crew> = { crew_id: "req", x_m: "req", y_m: "req", activity: "req", stop_index: "req", o2_frac: "req", eva_elapsed_s: "req", dose_event_ugy: "req", dose_event_unsheltered_ugy: "req", haven: "req", linked: "req", link_path: "req", stale: "req",
   o2_remaining_min: "opt", next_stop_bearing_deg: "opt", next_stop_distance_m: "opt", next_stop_eta_s: "opt", link_hops: "opt", link_via: "opt", last_linked_sim_time: "opt" };
@@ -90,9 +91,9 @@ const SESSION_KEYS: Spec<Session> = { session_id: "req", scenario_id: "req", dat
   hab_candidate_id: "opt", mission_setup: "opt", started_events: "opt" };
 const VEHICLE_KEYS: Spec<Vehicle> = { vehicle_id: "req", kind: "req", param_set: "req", x_m: "req", y_m: "req", state: "req", task: "req", path: "req", eta_s: "req", battery_wh: "req",
   task_id: "opt", queue: "opt", relay_coverage_rev: "opt" };
-const EARTH_KEYS: Keys<Snapshot["earth"]> = { light_time_s: true, next_pass_utc: true, blackout: true, queue: true };
+const EARTH_KEYS: Spec<Snapshot["earth"]> = { light_time_s: "req", next_pass_utc: "req", blackout: "req", queue: "req", link_state: "opt", link_via: "opt", link_until_utc: "opt" };
 const OPTION_KEYS: Keys<ContingencyOption> = { option_id: true, alert_id: true, kind: true, crew_ids: true, eta_shelter_min: true, expected_dose_ugy: true, stops_dropped: true, violations: true, rank: true, path_preview: true, rendezvous: true };
-const ACTIVITY: Record<CrewActivity, true> = { IN_HAB: true, WALKING: true, AT_STOP: true, TO_HAVEN: true, SHELTERED: true };
+const ACTIVITY: Record<CrewActivity, true> = { IN_HAB: true, WALKING: true, AT_STOP: true, TO_HAVEN: true, SHELTERED: true, HOLDING: true };
 const SESSION_STATUS: Record<Session["status"], true> = { LOADED: true, RUNNING: true, PAUSED: true, ENDED: true };
 const VEHICLE_KIND: Record<VehicleKind, true> = { pressurized_rover: true, utility_rover: true };
 const VEHICLE_STATE: Record<VehicleState, true> = { PARKED: true, DISPATCHED: true, EN_ROUTE: true, ARRIVED: true, RETURNING: true, TASKED: true };
@@ -106,7 +107,7 @@ const LOG_EVENT_KINDS: Record<LogEventKind, true> = {
   ALERT_CLEARED: true, OPTIONS_PROPOSED: true, PLAN_REVISED: true, VEHICLE_DISPATCHED: true, VEHICLE_ARRIVED: true,
   CREW_SHELTERED: true, LINK_LOST: true, LINK_RESTORED: true, EARTH_MSG_QUEUED: true, EARTH_MSG_DELIVERED: true,
   COMMAND_REJECTED: true, CLOCK_CHANGED: true, EVA_ENDED: true, TASK_ADDED: true, TASK_UPDATED: true, TASK_DROPPED: true,
-  ROLE_TAKEN_OVER: true, CLOCK_JUMPED: true, EVENT_STARTED: true, SESSION_RESET: true, SITE_SELECTED: true, MISSION_SETUP_SET: true,
+  ROLE_TAKEN_OVER: true, CLOCK_JUMPED: true, EVENT_STARTED: true, SESSION_RESET: true, SITE_SELECTED: true, MISSION_SETUP_SET: true, CREW_MOTION_SET: true,
 };
 
 function expectExactKeys(obj: object, keys: object, where: string): void {
@@ -158,7 +159,7 @@ function checkMessage(m: ServerMessage, where: string): void {
 function checkSnapshot(s: Snapshot, where: string): void {
   expectSpecKeys(s.session, SESSION_KEYS, `${where} session`);
   expectMember(s.session.status, SESSION_STATUS, `${where} session.status`);
-  expectExactKeys(s.earth, EARTH_KEYS, `${where} earth`);
+  expectSpecKeys(s.earth, EARTH_KEYS, `${where} earth`);
   s.crew.forEach((c, i) => {
     expectSpecKeys(c, CREW_KEYS, `${where} crew[${i}]`);
     expectMember(c.activity, ACTIVITY, `${where} crew[${i}].activity`);

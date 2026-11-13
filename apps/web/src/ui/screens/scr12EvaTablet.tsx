@@ -40,6 +40,7 @@ import {
   unavailableOf,
 } from "../components/provenance";
 import { TasksButton } from "./scr12/TasksButton";
+import { CrewMotionButton } from "./scr12/CrewMotionButton";
 import { StopTaskList } from "./scr12/StopTaskList";
 import { useStopTaskChanges } from "./scr12/useStopTaskChanges";
 
@@ -209,7 +210,9 @@ export function EvaTablet({
   // Fixed 64px Alert slot (04 §E.5: "ALERT BAR (when present) fixed, 64 px")
   const alertSlotStyle: CSSProperties = {
     minHeight: "64px",
-    width: "100%",
+    // Shortened from the right so the crew-motion control fits beside it (QoL Q2).
+    flex: "1 1 0",
+    minWidth: 0,
     display: "flex",
     alignItems: "center",
     boxSizing: "border-box",
@@ -254,7 +257,8 @@ export function EvaTablet({
       className={`scr12-eva-tablet ${className}`}
       style={rootStyle}
     >
-      {/* ------------------------------------------------ Alert Slot (64 px) */}
+      {/* ------------------------------------------------ Top bar: alert slot (64 px) and the crew-motion control (top right) */}
+      <div data-slot="top-bar" style={{ display: "flex", alignItems: "flex-start", gap: "8px", width: "100%" }}>
       <div
         role="region"
         aria-label="Alert banner"
@@ -280,7 +284,7 @@ export function EvaTablet({
           >
             <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: "1 1 auto" }}>
               <StatusIcon status={vm.alertSlot.level} showWord={true} />
-              <span style={{ fontWeight: 700, fontSize: "var(--text-alert-eva, 22px)" }}>
+              <span style={{ fontWeight: 700, fontSize: "var(--text-alert-eva, 22px)", overflow: "hidden", textOverflow: "ellipsis" }} title={vm.alertSlot.message}>
                 {vm.alertSlot.message}
               </span>
             </div>
@@ -322,6 +326,8 @@ export function EvaTablet({
             <StatusIcon status={bannerStatus} showWord={true} />
           </div>
         )}
+      </div>
+      <CrewMotionButton crewId={crewId} activity={vm.activity} send={send} />
       </div>
 
       {/* The transport to the Hab Core went down. This is not the simulated suit link: `linked: false` in the

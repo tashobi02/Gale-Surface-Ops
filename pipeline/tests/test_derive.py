@@ -142,8 +142,8 @@ def test_all_nan_dem_gives_all_nan_slope():
 
 
 # --- Aggregation to the routing grid ----------------------------------------------------------
-# The percentile method is TODO(decision) for T03.09, so these blocks are built such that every
-# common percentile definition gives the same p90.
+# The p90 method is NumPy's default linear interpolation (decided, BD-19); these blocks are built such that every
+# common percentile definition gives the same p90, so the test does not depend on that choice.
 
 FACTOR = 5  # 1 m slope grid -> 5 m routing grid (02 §C.2 L3)
 

@@ -255,6 +255,22 @@ Source: `origin/core-frontend:docs/plan/frontend/01-needs-from-backend.md` (02da
 | N-26 full PLAN_RESULT | radiation, conditions, timeline, `DARKNESS` | 13, 14 | Accepted |
 | N-27 EVA end | `Session.status` `"ENDED"` (05 casing) after the engine's `EVA_ENDED` (all crew back or the plan's maximum EVA duration); no END_EVA command exists in 02 §E.4 — the presenter reaches it with Next stop, or ops with `ABORT` | — | Changed: no new command (02 §E.4 has none) |
 | N-28 haven | `Crew.haven` per tick (package 05); planning haven per leg stays a compute output of `havenAlongRoute` (T05b.04, on `main`) | 05 | Accepted |
+| N-29 revise a skipped reason | `UPDATE_STOP_TASK` `SKIPPED → SKIPPED` with a new reason under the undo rules (BD-153) | 30 | Accepted |
+| N-30 SCR-09 metadata | `GET /api/scenario-meta` (BD-158) | 30 | Accepted |
+| N-30 (package 19) EVA phase | `Session.status` and `Crew.activity` (BD-162) | — | Rejected: duplicates them |
+| N-31 Earth link state | `Snapshot.earth.link_state`, `link_via`, `link_until_utc` (BD-156) | 30 | Accepted |
+| N-32 task limit per crew | BD-109 per stop stands (BD-154) | — | Declined: FR-50 counts per stop |
+| N-70 repeated publish | a published list replaces the planner's drafts (BD-155) | 30 | Accepted |
+| N-80 report source ids and trace | the trace is populated (BD-132); `planned_background_source_id` resolves through `GET /api/scenario-meta` (BD-158) | 20, 30 | Accepted |
+| N-81 whole log in the recording | `scenarios/storm-sol4190/recording.json` holds events 1..n (BD-148) | 26 | Accepted (on `main`) |
+| N-90 join QR | `GET /api/join-qr?role=` for every protocol role (BD-82) | 21 | Accepted (on `main`) |
+| N-100, N-120 hab time field | `GET /api/hab-time-field` (BD-159) | 30 | Accepted |
+| N-101 relay | the handler and `roversTick` are on `main` (BD-102, BD-112); no live suggestion (BD-161) | 19, 30 | Handler accepted; suggestion declined |
+| N-130 Earth-visible delayed summary | `GET /api/earth-view` (BD-157) | 30 | Accepted |
+| N-140 real grid assets | served at `/sites/gale_boxwork/grid/…` wherever the bundle is installed (BD-160) | 23 | Accepted |
+| N-160 (a) manual-leg answer | the worker answers `VALIDATE_MANUAL_LEG` with `MANUAL_LEG_RESULT` (BD-150) | 29 | Accepted (on `main`) |
+| N-160 (b) static images for the real site | opt-in `--static-images` exists (BD-151); the release is built without it (BD-160) | 29 | Declined for the release asset |
+| N-160 (c) validated legs in the plan | frontend work: the worker returns one leg's result; totals come from a `COMPUTE_PLAN` | — | Not a backend change |
 
 ## 8. Scenario schema v2 (`schemas/scenario.schema.json`) — 01b
 

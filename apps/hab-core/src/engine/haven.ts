@@ -31,7 +31,7 @@
  *   it, or when the crew member is no longer out. Data: `haven_min` (null when unreachable, `modelled`) and
  *   `haven_kind`; the limit is the plan's own `scenario.max_haven_min`, which a client already has, so no new field.
  *   Wording is action first, at most 60 characters (04 §D.2).
- *   TODO(decision): caution level and the two wordings are this package's proposal; 02 §D.13 does not name them.
+ *   Decided (BD-57, orchestrator, 13 Nov 2026): the caution level and the two wordings are this package's; 02 §D.13 names none.
  */
 import { cellIndex, crewTimeField, habIngressS, habTimeField, liveHaven, vehiclePassable, vehicleTimeField, type LiveHaven, type LoadedGrid, type TimeField } from "@marswalk/compute";
 import type { Alert, Crew, LogEventData, MissionScenario, ParamSet, Vehicle } from "@marswalk/protocol";
@@ -108,6 +108,20 @@ function habField(cache: HavenCache, state: EngineState, grid: LoadedGrid, hab: 
   return field;
 }
 
+/**
+ * The hab walking-time field of the current plan, from the memo the tick uses (N-100, N-120: the ops and EVA maps draw the
+ * 10/20/30 min isochrones from it). `key` names the inputs it was built from. Null with no plan, no grid, no start waypoint,
+ * or a hab outside the grid.
+ */
+export function currentHabField(cache: HavenCache, state: EngineState, scenario: LoadedScenario): { field: TimeField; key: string } | null {
+  const grid = scenario.grid;
+  const plan = state.plan;
+  const hab = plan?.waypoints.find((w) => w.role === "start");
+  if (grid === null || plan === null || plan === undefined || hab === undefined) return null;
+  const field = unlessRangeError(() => habField(cache, state, grid, hab, plan.scenario));
+  return field === null || cache.hab === null ? null : { field, key: cache.hab.key };
+}
+
 /** `f()`, or null when it throws a RangeError (compute's "bad input" error); any other error propagates. */
 function unlessRangeError<T>(f: () => T): T | null {
   try {
@@ -158,7 +172,7 @@ export function havenTick(state: EngineState, ctx: TickContext): TickResult {
 
   const crew = state.crew.map((c): Crew => {
     const entry = ctx.scenario.scenario.crew.find((x) => x.crew_id === c.crew_id);
-    const out = c.activity === "WALKING" || c.activity === "AT_STOP" || c.activity === "TO_HAVEN";
+    const out = c.activity === "WALKING" || c.activity === "AT_STOP" || c.activity === "TO_HAVEN" || c.activity === "HOLDING";
     const waiting = isWaiting(c, state.motion[c.crew_id], entry?.start_offset_s ?? 0);
     const mine = openAlerts(state, c.crew_id);
 

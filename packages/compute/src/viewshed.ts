@@ -26,7 +26,7 @@ export const LOS_STEP_CELL_FRACTION = 0.5;
 /**
  * Upper bound of the ray sampling step in metres, for grids with cells coarser than 40 m. Chosen equal to the 20 m
  * relay viewshed cell (02 §D.11) so a coarse grid is never sampled more sparsely than the dynamic viewshed grid.
- * Not a spec number; `TODO(decision)` for the 02 §D.11 owner.
+ * Decided (BD-61, orchestrator, 13 Nov 2026): equal to the 20 m relay viewshed cell of 02 §D.11, so it is a spec-derived value.
  */
 export const LOS_MAX_STEP_M = 20;
 

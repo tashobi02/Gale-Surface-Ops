@@ -2,9 +2,7 @@
  * T22.02: the fake scenario fixture (F8) validates against the repo schemas and its derived values
  * (table SHA-256s, plan_hash) match what the generator wrote. Mock data under `mock_site`.
  *
- * ajv comes through fastify (a declared hab-core dependency).
- * TODO(decision): declare `ajv` and `ajv-formats` directly in the next dependency batch (T14.01);
- * the scenario loader (T22.11) also needs them.
+ * `ajv` and `ajv-formats` are declared hab-core dependencies (T14.01; decided, BD-79); the scenario loader (T22.11) uses them too.
  */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";

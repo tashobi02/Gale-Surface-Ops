@@ -473,7 +473,7 @@ The `SNAPSHOT` message (02 §E.6) carries these fields besides the entities abov
 | --- | --- | --- | --- |
 | `crew_id` | `EV1 \| EV2` | — | |
 | `x_m`, `y_m` | number | `simulated` | |
-| `activity` | enum | `simulated` | `IN_HAB \| WALKING \| AT_STOP \| TO_HAVEN \| SHELTERED` |
+| `activity` | enum | `simulated` | `IN_HAB \| WALKING \| AT_STOP \| TO_HAVEN \| SHELTERED \| HOLDING` *(`HOLDING` added 2026-11-13, Proposed: set by the simulation control `SET_CREW_MOTION`)* |
 | `stop_index` | int \| null | `simulated` | |
 | `o2_frac` | 0–1 | `simulated` (rate `modelled`) | |
 | `eva_elapsed_s` | int | `simulated` | |
@@ -535,7 +535,7 @@ The next stop is **per crew member**: that member's lowest-index stop without th
 | --- | --- | --- |
 | `command_id` | string | client-generated, unique per client |
 | `role` | role | must have permission (02 §E.4) |
-| `kind` | enum | `LOAD_SCENARIO \| SET_CLOCK \| JUMP_NEXT_EVENT \| START_EVA \| PUBLISH_PLAN \| SUMMON_VEHICLE \| ABORT \| ACK_ALERT \| APPROVE_OPTION \| TASK_ROVER \| SEND_MESSAGE \| INJECT_EVENT \| UPDATE_STOP_TASK \| ADD_STOP_TASK \| JUMP_NEXT_STOP \| START_EVENT \| RESET_SESSION \| SELECT_HAB_SITE \| SET_MISSION_SETUP` (the last five added 2026-11-10, **Proposed**, 02 §D.17) |
+| `kind` | enum | `LOAD_SCENARIO \| SET_CLOCK \| JUMP_NEXT_EVENT \| START_EVA \| PUBLISH_PLAN \| SUMMON_VEHICLE \| ABORT \| ACK_ALERT \| APPROVE_OPTION \| TASK_ROVER \| SEND_MESSAGE \| INJECT_EVENT \| UPDATE_STOP_TASK \| ADD_STOP_TASK \| JUMP_NEXT_STOP \| START_EVENT \| RESET_SESSION \| SELECT_HAB_SITE \| SET_MISSION_SETUP \| SET_CREW_MOTION` (the five before the last added 2026-11-10, **Proposed**, 02 §D.17; `SET_CREW_MOTION` added 2026-11-13, **Proposed**: a **simulation control**, not a real EVA function, args `{crew_id, motion: HOLD \| RESUME}`, 02 §E.6) |
 | `args` | object | per kind |
 | `queued_offline` | bool | set by an EVA client that resends after `LINK_STATE linked=true` |
 
@@ -543,7 +543,7 @@ Commands are **not** logged themselves; the LogEvent they produce (or a `COMMAND
 
 **Command journal** *(2026-11-12)*: besides `session.jsonl`, each session directory has `commands.jsonl` with one line per command the Hab Core evaluated (accepted or rejected), in evaluation order: `{sim_time, after_seq, role, kind, args, command_id, client_id}`. It is not part of `log_hash` and the engine never reads it. A live session exports it, split per session, as the command list that `--commands <file>` replays (02 §D.17); exact replay needs the rejected commands too, because they write the hashed `COMMAND_REJECTED` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-93)*
 
-**`PUBLISH_PLAN` args** *(2026-11-12)*: `{plan: PlanExport, stop_tasks?: StopTaskSeed[]}`. `StopTaskSeed` is the element of Scenario `stop_tasks` (`{task_id?, stop_id, crew_id, kind, text}`). The Hab Core seeds one `TASK_ADDED` (`origin` `plan`) per task at publish. `plan_hash` is computed over `plan` alone, so the seeds do not change it *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-91)*
+**`PUBLISH_PLAN` args** *(2026-11-12)*: `{plan: PlanExport, stop_tasks?: StopTaskSeed[]}`. `StopTaskSeed` is the element of Scenario `stop_tasks` (`{task_id?, stop_id, crew_id, kind, text}`). The Hab Core seeds one `TASK_ADDED` (`origin` `plan`) per task at publish. `plan_hash` is computed over `plan` alone, so the seeds do not change it *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-91)*. While the session is `LOADED` a repeated publish replaces the session's `plan`-origin tasks by the list (02 §E.5) *(Proposed 2026-11-13; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026; BD-155)*
 
 **Repeated `command_id`** *(decided 2026-11-07)*: a command whose `command_id` the same client already sent and the Hab Core accepted is answered with the first `COMMAND_RESULT` (same `event_seq`) and not run again. A rejected `command_id` may be retried and is evaluated afresh. The LogEvent's `command_ref` keeps the rule true after a Hab Core restart: on load, the accepted `command_id`s are rebuilt from the log.
 
@@ -571,7 +571,7 @@ State is reduced from `TASK_ADDED`, `TASK_UPDATED` and `TASK_DROPPED` events; it
 | Arg | Type | Rules |
 | --- | --- | --- |
 | `task_id` | string | an existing StopTask |
-| `state` | `DONE \| SKIPPED \| TODO` | `DONE` and `SKIPPED` from `TODO`; `TODO` only with `undo: true` |
+| `state` | `DONE \| SKIPPED \| TODO` | `DONE` and `SKIPPED` from `TODO`; `TODO` only with `undo: true`; `SKIPPED` from `SKIPPED` only to revise the `reason` (02 §E.6 reason revision) *(Proposed 2026-11-13; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026; BD-153)* |
 | `reason` | enum | for `SKIPPED` only (`time \| terrain \| alert \| other`) |
 | `undo` | bool, optional | `true` = reversal to `TODO` (`DONE \| SKIPPED → TODO`) of the last change to this task, by the sender's role as the `actor` of that `TASK_UPDATED` (a `system` actor cannot be undone), accepted only while that change is the task's last event and not stale (the task's stop is still in the current plan and no `PLAN_REVISED` since). Any `state` other than `TODO` with `undo: true` is `INVALID`. The 5-s window is enforced on the tablet, not by the Hab Core |
 
@@ -581,7 +581,7 @@ State is reduced from `TASK_ADDED`, `TASK_UPDATED` and `TASK_DROPPED` events; it
 | --- | --- | --- |
 | `seq` | int | monotonic, gap-free |
 | `sim_time` | ISO | |
-| `kind` | enum | `SESSION_LOADED, EVA_STARTED, ARRIVED_STOP, LEFT_STOP, ALERT_RAISED, ALERT_ACKED, ALERT_CLEARED, OPTIONS_PROPOSED, PLAN_REVISED, VEHICLE_DISPATCHED, VEHICLE_ARRIVED, CREW_SHELTERED, LINK_LOST, LINK_RESTORED, EARTH_MSG_QUEUED, EARTH_MSG_DELIVERED, COMMAND_REJECTED, CLOCK_CHANGED, EVA_ENDED, TASK_ADDED, TASK_UPDATED, TASK_DROPPED, CLOCK_JUMPED, EVENT_STARTED, SESSION_RESET, SITE_SELECTED, MISSION_SETUP_SET, ROLE_TAKEN_OVER` (the five before the last added 2026-11-10; `ROLE_TAKEN_OVER` added 2026-11-12, Proposed) |
+| `kind` | enum | `SESSION_LOADED, EVA_STARTED, ARRIVED_STOP, LEFT_STOP, ALERT_RAISED, ALERT_ACKED, ALERT_CLEARED, OPTIONS_PROPOSED, PLAN_REVISED, VEHICLE_DISPATCHED, VEHICLE_ARRIVED, CREW_SHELTERED, LINK_LOST, LINK_RESTORED, EARTH_MSG_QUEUED, EARTH_MSG_DELIVERED, COMMAND_REJECTED, CLOCK_CHANGED, EVA_ENDED, TASK_ADDED, TASK_UPDATED, TASK_DROPPED, CLOCK_JUMPED, EVENT_STARTED, SESSION_RESET, SITE_SELECTED, MISSION_SETUP_SET, ROLE_TAKEN_OVER, CREW_MOTION_SET` (the five before the last two added 2026-11-10; `ROLE_TAKEN_OVER` added 2026-11-12, Proposed; `CREW_MOTION_SET` added 2026-11-13, Proposed) |
 | `actor` | role \| `system` | |
 | `data` | object | values needed to reduce state without recomputation |
 | `provenance` | object | field path → class |
@@ -620,6 +620,7 @@ Source column: where the fields are stated. **Proposed** fields are not stated i
 | `SITE_SELECTED` | `candidate_id` | **Proposed** (HabCandidate) |
 | `MISSION_SETUP_SET` | the settings set (`crew_count, vehicle_available, solar_phase, max_haven_min`, and `vehicle_param_set` when it is set *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-96)*) | **Proposed** (Session `mission_setup`) |
 | `ROLE_TAKEN_OVER` | `role, crew_id?, old_client_id, new_client_id` | **Proposed** (02 §E.4, decision of Sadman Shaharier Mahim, 2026-11-12); `actor` `system`, `command_ref` `null`; `crew_id` only for an `eva:EVn` or `hud:EVn` role; client ids are the HELLO `client_id`s (random per page load, no personal data); changes no state |
+| `CREW_MOTION_SET` | `crew_id, motion, actor` | **Proposed** (2026-11-13; decided by Sadman Shaharier Mahim); `motion` `HOLD \| RESUME`; `actor` is the issuing role; **spec-change:** logged by the **simulation control** `SET_CREW_MOTION`, which is not a real EVA function (02 §E.6); `HOLD` sets the crew activity to `HOLDING`, `RESUME` to `WALKING` (`AT_STOP` when the hold interrupted a stop dwell) |
 
 Per-tick position updates are **not** logged; they are re-derived on replay from the plan and the logged events (determinism, NFR-06).
 

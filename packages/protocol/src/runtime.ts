@@ -195,7 +195,8 @@ export interface ClientConnection {
   last_seq_acked: number;
 }
 
-export type CrewActivity = "IN_HAB" | "WALKING" | "AT_STOP" | "TO_HAVEN" | "SHELTERED";
+/** `HOLDING`: stopped by SET_CREW_MOTION, a simulation control (02 §E.6, 05 Command; Q2, Proposed 2026-11-13). */
+export type CrewActivity = "IN_HAB" | "WALKING" | "AT_STOP" | "TO_HAVEN" | "SHELTERED" | "HOLDING";
 
 export interface Crew {
   crew_id: CrewId;
@@ -384,7 +385,9 @@ export type CommandKind =
   | "START_EVENT"
   | "RESET_SESSION"
   | "SELECT_HAB_SITE"
-  | "SET_MISSION_SETUP";
+  | "SET_MISSION_SETUP"
+  // Simulation control (02 §E.6, 05 Command, added 2026-11-13, Proposed): not a real EVA function.
+  | "SET_CREW_MOTION";
 
 export interface Command {
   command_id: string;
@@ -430,7 +433,9 @@ export type LogEventKind =
   | "SITE_SELECTED"
   | "MISSION_SETUP_SET"
   /** A HELLO for a held role displaced its holder (02 §E.4, added 2026-11-12, Proposed). Actor `system`, `command_ref` null. */
-  | "ROLE_TAKEN_OVER";
+  | "ROLE_TAKEN_OVER"
+  /** A crew member was held or resumed by SET_CREW_MOTION, a simulation control (05 LogEvent, added 2026-11-13, Proposed). */
+  | "CREW_MOTION_SET";
 
 /** The command that produced a LogEvent (05 LogEvent `command_ref`, added 2026-11-07). */
 export interface CommandRef {
@@ -505,6 +510,8 @@ export interface LogEventData {
     task_id?: string;
   };
   VEHICLE_ARRIVED: { vehicle_id: string } & Point;
+  /** `actor` repeats the LogEvent actor (the issuing role) so the hold is readable on its own. */
+  CREW_MOTION_SET: { crew_id: CrewId; motion: "HOLD" | "RESUME"; actor: Role };
   CREW_SHELTERED: Pick<Crew, "crew_id" | "dose_event_ugy" | "dose_event_unsheltered_ugy"> & {
     haven_kind: Crew["haven"]["kind"];
   };

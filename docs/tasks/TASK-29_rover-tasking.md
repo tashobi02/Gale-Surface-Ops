@@ -58,7 +58,7 @@
   3. "RELAY closes the demo comm shadow" on the fake scenario's wall.
 - **Acceptance:**
   - Serves: FR-41, FR-42 · [01 FR-41](../specs/01_Product_Requirements_Document.md#fr-41--robotic-rover-tasking-t1-m)
-  - Each rule above is one named test; the event kind for an accepted task stays `TODO(verify)` until T20.01 settles it.
+  - Each rule above is one named test; the event kind for an accepted task follows BD-102 until T20.01 settles it.
 - **Verify:** `npm --workspace @marswalk/hab-core test -- rover` fails before T29.02/T29.03 and passes after.
 - **Agent brief:** Make the rover todos real; battery expected values follow from the ParamSet inside the test.
 - **Conflict notes:** Pairs T29.01 → T29.02, T29.03.
@@ -211,6 +211,6 @@ flowchart LR
 
 ## Spec questions
 
-1. **Accepted-task event kind.** 05 LogEvent has no rover-specific kind; `VEHICLE_DISPATCHED` is the closest. `TODO(verify)` until T20.01. Decided: FD-168 (12 Nov 2026, Proposed).
-2. **CARRY items.** FR-41 names no item list. `TODO(decision)`. Decided: FD-052 (12 Nov 2026, Proposed).
+1. **Accepted-task event kind.** 05 LogEvent has no rover-specific kind; `VEHICLE_DISPATCHED` is the closest. Decided (BD-102) until T20.01. Decided: FD-168 (12 Nov 2026, Proposed).
+2. **CARRY items.** FR-41 names no item list. Decided (BD-102). Decided: FD-052 (12 Nov 2026, Proposed).
 3. **Rover relay in the 240-s video.** Adding the relay beat to 01 §E.1 and the demo script is the product & systems lead's call (session handoff §F.4).

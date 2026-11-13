@@ -81,13 +81,13 @@
 - **Parallel with:** T21.05, T21.06
 - **Steps:**
   1. Download the generic kernels (D12) and the MRO, MAVEN and TGO SPKs that cover 18–22 May 2024 (D13–D15) into `pipeline/work/spice/` (git-ignored).
-  2. Record each file's name, URL, size and SHA-256 in the lock file; mark anything not confirmed `TODO(verify)`.
+  2. Record each file's name, URL, size and SHA-256 in the lock file; mark anything not confirmed decided (BD-13).
   3. Update U-18 in `data-downloads.md` with what was found, and link U-15, U-44 and U-45 to the notes where T21.05 and T21.06 record their answers.
 - **Acceptance:**
   - Serves: FR-43, NFR-07 · [02 L10](../specs/02_Technical_Requirements_Document.md#l10--spice-geometry-fr-43) · U-18
   - Every kernel the table step needs is listed with a checksum; no kernel binary is committed.
 - **Verify:** `git status` shows no files under `pipeline/work/`; manual check that the lock file lists one SPK per orbiter.
-- **Agent brief:** A person downloads; an agent may write the lock file from the downloaded folder's checksums. Never invent a file name: unknowns stay `TODO(verify)`.
+- **Agent brief:** A person downloads; an agent may write the lock file from the downloaded folder's checksums. Never invent a file name: unknowns follow BD-13.
 - **Conflict notes:** Single owner of `docs/ops/data-downloads.md` in v2. T21.05 and T21.06 record their answers in their own files; the same person (Obidit) links them here.
 
 ### T21.03 — Tests: SPICE table, DONKI extraction and RAD series
@@ -153,7 +153,7 @@
   - Serves: FR-37 · [02 L8](../specs/02_Technical_Requirements_Document.md#l8--space-weather-records-fr-37) · U-44
   - The DONKI cases of T21.03 pass; the cache is committed so the build never fetches again.
 - **Verify:** `$(make -s pipeline-python) -m pytest pipeline/tests/test_donki.py`.
-- **Agent brief:** Extract DONKI records into scenario events. Paths the CCMC docs do not list (SEP, WSA-ENLIL) are `TODO(verify)` until fetched.
+- **Agent brief:** Extract DONKI records into scenario events. Paths the CCMC docs do not list (SEP, WSA-ENLIL) are *unknown* until fetched.
 - **Conflict notes:** The cache is small JSON (a few hundred KB, D11) and is committed on purpose; raw downloads stay in `pipeline/work/`.
 
 ### T21.06 — Download the RAD series; verify sol-4190 coverage (U-15) and the product (U-45)
@@ -197,7 +197,7 @@
   - T21.03 RAD cases pass; any difference between expected and computed integral is explained in `rad-series.md`.
 - **Verify:** `$(make -s pipeline-python) -m pytest pipeline/tests/test_rad.py`.
 - **Agent brief:** Extract the series exactly; the unit conversion follows the product's own documentation, cited in a comment.
-- **U-45 follow-up:** `TODO(decision)` — reconcile this subtask's published-total wording and the archive description in `schemas/dose-series.schema.json` with Obidit Islam's 2026-11-10 decision to use the flag-excluded SPDF L2 integral over the same window for an archive series. 05 DoseSeries requires the published total specifically for `digitised`/`template_scaled`; it does not specify that requirement for `archive`. Review the 01 FR-37 and 02 L9 presentation of NASA's 8,100 µGy alongside the unreproduced archive total; do not change spec text without its owner. T12.03/T12.04 must carry the [Sources & methods disclosure](../ops/rad-series.md#sources--methods-wording-for-scr-09) when that screen and content are built.
+- **U-45 follow-up:** Decided (BD-25) — reconcile this subtask's published-total wording and the archive description in `schemas/dose-series.schema.json` with Obidit Islam's 2026-11-10 decision to use the flag-excluded SPDF L2 integral over the same window for an archive series. 05 DoseSeries requires the published total specifically for `digitised`/`template_scaled`; it does not specify that requirement for `archive`. Review the 01 FR-37 and 02 L9 presentation of NASA's 8,100 µGy alongside the unreproduced archive total; do not change spec text without its owner. T12.03/T12.04 must carry the [Sources & methods disclosure](../ops/rad-series.md#sources--methods-wording-for-scr-09) when that screen and content are built.
 - **Conflict notes:** Single owner of both paths.
 
 ### T21.08 — Assemble `scenario.json` with checksums and initial stop tasks
@@ -360,7 +360,7 @@
 - **Parallel with:** T21.08
 - **Steps:**
   1. Test first (`demoNumbers.test.ts`): rule invariants; the derived values stored as Vitest file snapshots, so a rebuilt table shows as a diff; a docs-consistency check that skips while 01 §E.1 still has the `X`/`Y` placeholders (the 'illustrative' note does not gate it, since it also covers T23.08's ETAs and slope), a guard test that fails if the placeholders are gone but the comparison would not run, and fails if a stated value differs from the derived one; the rule-(b) parts below as `it.skipIf(!plan.json)`.
-  2. `deriveDemoTiming(...)`: a pure thin layer over `@marswalk/compute` with no science of its own and no `Date.now()`. Hab position: lat/lon from the `docs/ops/feasibility/hab-site.md` first-choice row; `TODO(decision)`: read them from the site manifest once it carries geographic coordinates. It computes:
+  2. `deriveDemoTiming(...)`: a pure thin layer over `@marswalk/compute` with no science of its own and no `Date.now()`. Hab position: lat/lon from the `docs/ops/feasibility/hab-site.md` first-choice row; decided (BD-107): read them from the site manifest once it carries geographic coordinates. It computes:
      - (a) the first `alert` sample time, by `triggerState` over `dose_series.json` with the `alert-assumed.json` ParamSet;
      - the local true solar time at the alert and at `eva_start_utc`, and sunrise and sunset from `sunriseSunset(alert, lat, lonE)`;
      - the light time X from the `earth_link.json` row at or before the alert;
@@ -411,5 +411,5 @@ flowchart LR
 
 1. **DONKI window** (U-44): proposed 13–24 May 2024. Decision in T21.05.
 2. **RAD product** (U-45): which detector matches the published total. Decision in T21.06.
-3. **Dose-series step.** 05 DoseSeries gives no fixed sample step; the product's own cadence is kept (`TODO(verify)` on download).
+3. **Dose-series step.** 05 DoseSeries gives no fixed sample step; the product's own cadence is kept (Decided (BD-25) on download).
 4. **Committed tables.** The scenario tables are small derived JSON and are committed; `CLAUDE.md` forbids committing downloaded datasets, not derived tables. Confirm with the team lead.

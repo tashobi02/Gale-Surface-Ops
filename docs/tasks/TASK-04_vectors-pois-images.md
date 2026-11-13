@@ -56,8 +56,8 @@
   1. Compare the preferred source, the PDS PLACES archive (`doi:10.17189/1520397`), with the MMGIS fallback ([02 §C.2 L6](../specs/02_Technical_Requirements_Document.md#l6--mission-vectors-fr-04-fr-17)); check the PLACES field layout, which 02 marks "to verify".
   2. Cache the traverse source that covers the AOI recorded in `docs/ops/feasibility.md` into `pipeline/work/` (git-ignored); apply the data-lead range and clipping decision recorded below when packaging.
   3. Record the U-04 decision, the cached file names, the field layout and the cache path where T04.02 and T04.03 can read them.
-  4. Write the DataSource record with every required 05 field (source id, title, publisher, missions, instruments, version, url, credit, licence, accessed) copied from the source page; unknown values stay `TODO(verify)`.
-  5. Write the traverse Layer record: category `mission`, kind `vector`, provenance `measured` (05 TraversePoint), visible by default (03 SCR-03 "Curiosity traverse (on)"), its source id, and the asset id `vec-traverse` used in 05 §F.1. Legend and resolution fields follow C2 and C5 (`TODO(decision)`, see Spec questions).
+  4. Write the DataSource record with every required 05 field (source id, title, publisher, missions, instruments, version, url, credit, licence, accessed) copied from the source page; unknown values follow BD-13.
+  5. Write the traverse Layer record: category `mission`, kind `vector`, provenance `measured` (05 TraversePoint), visible by default (03 SCR-03 "Curiosity traverse (on)"), its source id, and the asset id `vec-traverse` used in 05 §F.1. Legend and resolution fields follow C2 and C5 (Decided (BD-17), see Spec questions).
 - **Acceptance:**
   - Serves: FR-17, U-04 · [02 §C.2 L6](../specs/02_Technical_Requirements_Document.md#l6--mission-vectors-fr-04-fr-17)
   - The chosen source, its URL or DOI and the field layout are written down where T04.02, T04.03 and T16.02 can read them.
@@ -67,15 +67,15 @@
 - **Verify:** `python3 -m json.tool pipeline/sites/gale_boxwork/layers/traverse.json`; the same for the DataSource record; `git status --short` lists no `pipeline/work/` file; manual check of both records against 05 §C.
 - **Agent brief:** The data lead chooses between PDS PLACES and MMGIS and caches the traverse data. An agent may compare the two formats and draft the two JSON records from the source pages and 05 §C. It never invents URLs, DOIs, versions or field names.
 - **Conflict notes:** Both files are new in the append-only-by-file folders `sources/` and `layers/` (map §c.3); never edit another subtask's record. The cached data stays in `pipeline/work/`. T04.09 may replace `layers/traverse.json` if its trigger fires.
-- **U-04 decision:** Obidit Islam (data lead), 2026-11-10: use PDS PLACES `localized_interp.csv`, source `pds-msl-places-localizations`, over the cached rover file's range, sol 0 through sol 4868. Clip to the AOI plus a 100 m margin; this margin is a data-lead decision, not a value from PDS. The cached file is `pipeline/work/traverse/localized_interp.csv` in the original checkout; it is not committed. It has CSV fields `frame`, `site`, `drive`, `planetocentric_latitude`, `longitude`, `elevation` and `sol` among its columns; use `ROVER` rows and east-positive longitude. Interpolated positions are approximate; the AOI-clipped output is not yet packaged. Publisher, credit and licence remain `TODO(verify)` until the PDS label is read; the 02 DOI was not found in the checked labels.
-- **Coverage and record notes:** The cached PLACES file has 11,954 ROVER rows in the rounded AOI bounding box, covering 364 distinct, non-continuous sols from 3571 to 4868; this is not a count for the chosen 100 m margin. The AOI selection used MMGIS sols through 5045. The zero vector resolution values mean not applicable under C5; the 05 vector-field question remains `TODO(decision)` (Spec question 5).
+- **U-04 decision:** Obidit Islam (data lead), 2026-11-10: use PDS PLACES `localized_interp.csv`, source `pds-msl-places-localizations`, over the cached rover file's range, sol 0 through sol 4868. Clip to the AOI plus a 100 m margin; this margin is a data-lead decision, not a value from PDS. The cached file is `pipeline/work/traverse/localized_interp.csv` in the original checkout; it is not committed. It has CSV fields `frame`, `site`, `drive`, `planetocentric_latitude`, `longitude`, `elevation` and `sol` among its columns; use `ROVER` rows and east-positive longitude. Interpolated positions are approximate; the AOI-clipped output is not yet packaged. Publisher, credit and licence follow BD-13 until the PDS label is read; the 02 DOI was not found in the checked labels.
+- **Coverage and record notes:** The cached PLACES file has 11,954 ROVER rows in the rounded AOI bounding box, covering 364 distinct, non-continuous sols from 3571 to 4868; this is not a count for the chosen 100 m margin. The AOI selection used MMGIS sols through 5045. The zero vector resolution values mean not applicable under C5; the 05 vector-field question follows BD-30 (Spec question 5).
 - **Range evidence:** From the worktree root, the following read-only command on the cached file returned `ROVER rows=49194, sol_min=0, sol_max=4868`:
 
   ```sh
   python3 -c 'import csv; from pathlib import Path; p=Path("/home/obidit/secondBrain/coding/CheesySpace-NasaSpaceAppChallenge/pipeline/work/traverse/localized_interp.csv"); rows=[int(r["sol"]) for r in csv.DictReader(p.open(newline="", encoding="utf-8")) if r["frame"] == "ROVER"]; print(f"ROVER rows={len(rows)}, sol_min={min(rows)}, sol_max={max(rows)}")'
   ```
 
-- **TODO(decision) spec-change:** 02's U-04 row still calls the source Proposed and awaits the data lead. T16.02 should sync that label to the recorded 2026-11-10 decision in a separate spec-change; no spec text is changed here.
+- **Decided (BD-30) spec-change:** 02's U-04 row still calls the source Proposed and awaits the data lead. T16.02 should sync that label to the recorded 2026-11-10 decision in a separate spec-change; no spec text is changed here.
 
 ### T04.02 — Tests: traverse and POI packaging
 
@@ -147,9 +147,9 @@
 - **Depends on:** T03.01 (soft), T04.01 (hard: positions come from the cached traverse), T01.05 (hard: POIs must lie inside the chosen AOI), T04.10 (soft: stop-type list, v2)
 - **Parallel with:** T04.02, T04.03, T04.05, T04.07
 - **Steps:**
-  1. Choose four POIs from NASA mission blog and photojournal descriptions of the boxwork campaign (02 §C.2 L6), including "Boxwork ridge" (01 §E step 3). Ids other than `poi-boxwork-ridge` are `TODO(decision)`.
+  1. Choose four POIs from NASA mission blog and photojournal descriptions of the boxwork campaign (02 §C.2 L6), including "Boxwork ridge" (01 §E step 3). Ids other than `poi-boxwork-ridge` are decided (BD-14).
   2. For each, fill the 05 POI fields: name, `lat`, `lon_e`, `science_objective` and `why_it_matters` (at most 300 characters each), `position_source`, `position_uncertainty_m` and provenance `assumed`. Positions come from a cited source, such as a traverse waypoint at a sol.
-  3. Pick one Curiosity Navcam or Mastcam image per POI from NASA raw-image or photojournal pages and save it by hand as `pipeline/work/images/<poi_id>.jpg` (git-ignored; `TODO(decision)` on this staging path, see Spec questions).
+  3. Pick one Curiosity Navcam or Mastcam image per POI from NASA raw-image or photojournal pages and save it by hand as `pipeline/work/images/<poi_id>.jpg` (git-ignored; decided (BD-14) on this staging path, see Spec questions).
   4. Record `image_credit` ("NASA/JPL-Caltech", with MSSS for Mastcam, 02 §C.2 L6), the exact `image_source_url`, `image_sol`, `image_date`, `image_camera` and the `image_asset` id (05 example style `img-boxwork-ridge`).
   5. Check each POI against the AOI recorded by T01.05; replace any that falls outside.
   6. Write the POI Layer record: category `mission`, kind `vector`, provenance `assumed`, visible by default (03 SCR-03 "POIs (on)"), asset id `vec-pois` (05 §F.1); legend and resolution fields per C2 and C5.
@@ -176,7 +176,7 @@
 - **Depends on:** T03.01 (soft), T04.01 (hard: positions come from the cached traverse), T01.05 (hard: POIs must lie inside the chosen AOI), T04.10 (soft: stop-type list, v2)
 - **Parallel with:** T04.02, T04.03, T04.04, T04.07
 - **Steps:**
-  1. Choose one to four further POIs so the site has 5–8 (01 FR-04); ids are `TODO(decision)`.
+  1. Choose one to four further POIs so the site has 5–8 (01 FR-04); ids are decided (BD-14).
   2. Fill the 05 POI fields as in T04.04 steps 2–4, saving each image by hand to `pipeline/work/images/<poi_id>.jpg`.
   3. Check each POI against the AOI recorded by T01.05.
   4. Drop the unused placeholder files from the PR; only curated POIs are committed.
@@ -204,14 +204,14 @@
   1. List each planned dataset of 02 §C.2 (L1–L4, L6, L7; L5 only if built) with publisher, credit and use constraints copied from 02 and its source page.
   2. List each POI image: POI id, camera, sol, credit and source URL, copied from the POI records.
   3. Add the traverse source with its credit.
-  4. Mark anything not yet known (for example the THEMIS file name) `TODO(verify)`.
+  4. Mark anything not yet known (for example the THEMIS file name) decided (BD-13).
 - **Acceptance:**
   - Serves: FR-04, NFR-07 · [02 §F](../specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation)
   - Every POI image appears with its credit and source URL.
   - Every 02 §C.2 dataset in the build appears with the credit 02 states (e.g. L1: "NASA/JPL-Caltech/University of Arizona; USGS Astrogeology (Calef & Parker 2016)").
   - No credit text is written from memory; each line traces to 02 or a source page.
 - **Verify:** manual cross-check of every `image_credit` in `pipeline/sites/gale_boxwork/pois/` against the list; `npx --no-install markdownlint-cli2 docs/ops/credits.md`; `python3 scripts/check_links.py docs/ops/credits.md`.
-- **Agent brief:** Compile `docs/ops/credits.md` from 02 §C.2, 02 Sources and the curated POI and source records. Copy credit strings exactly; mark unknowns `TODO(verify)`. The story lead reviews.
+- **Agent brief:** Compile `docs/ops/credits.md` from 02 §C.2, 02 Sources and the curated POI and source records. Copy credit strings exactly; mark unknowns decided (BD-13). The story lead reviews.
 - **Conflict notes:** New file. The README (T16.03) and SCR-09 (T12.03) read it but own their own copies; T16.05 checks they agree.
 
 ### T04.07 — Resolve U-03: TI "loose fines" threshold from the AOI histogram and literature
@@ -227,12 +227,12 @@
 - **Parallel with:** T04.01–T04.06, T04.08
 - **Steps:**
   1. Compute the AOI TI histogram with a short `rasterio`/`numpy` command on the clipped raster, and record the exact command and its output in the note so it can be re-run.
-  2. Look up the published interpretation of low thermal inertia as loose fines and cite it (`TODO(verify)`: sources).
+  2. Look up the published interpretation of low thermal inertia as loose fines and cite it (name the source; write *unknown* if none is found).
   3. The data lead chooses a threshold in tiu, or decides there is no defensible one.
   4. If chosen, write `ti_threshold.json` in the C5 layout with value, unit and an "interpretive" label.
   5. Write `docs/ops/ti-threshold.md`: method, histogram, citation, the interpretive label (02 §C.2 L4), and the limits from 01 A-05 and 02 L4 (100 m pixels, ~20 % absolute accuracy).
 - **Decision note (U-03, Obidit Islam, 2026-11-10):** **no defensible TI "loose fines" threshold for the AOI.** The data lead's decision, on the evidence recorded in [ti-threshold.md](../ops/ti-threshold.md), is that no threshold in tiu is defensible. The evidence this note records supports the following reasons: the native 100 m support cannot resolve walking-scale patches (02 L4: a TI pixel covers 400 routing cells at 5 m); the mosaic's ~20 % absolute accuracy is not a margin a single cut can respect; the opened literature gives a qualitative association only and explicitly not a calibration for this AOI; the material inference is confounded; and the histogram selects no break. **Consequence:** `pipeline/sites/gale_boxwork/ti_threshold.json` is **not written**, so per [C5](../../pipeline/sites/README.md#records) T03.10 sets no `LOW_TI` bits and the 1.3 `LOW_TI` cost multiplier stays dormant. [01 A-05](../specs/01_Product_Requirements_Document.md#f2-key-assumptions) stays an **Assumed interpretation** and TI gaps stay *unknown*, never zero. No threshold number is proposed or implied.
-  - **TODO(decision) spec-change (owner: T16.02):** the U-03 row in [02 Unresolved](../specs/02_Technical_Requirements_Document.md#unresolved-decisions-owned-by-this-document) still reads *TI "loose fines" threshold | TASK-04 (v1)* and needs a status label for the decision. `docs/specs/**` is not edited by T04.07; T16.02 changes only that status row, linking [ti-threshold.md](../ops/ti-threshold.md#decision) as the evidence, and writes no threshold value into the spec. The `docs/README.md` *Key assumptions and blockers* row is already updated here to *Resolved* (U-03, 2026-11-10).
+  - **Spec-change (owner: T16.02, decided BD-30):** the U-03 row in [02 Unresolved](../specs/02_Technical_Requirements_Document.md#unresolved-decisions-owned-by-this-document) still reads *TI "loose fines" threshold | TASK-04 (v1)* and needs a status label for the decision. `docs/specs/**` is not edited by T04.07; T16.02 changes only that status row, linking [ti-threshold.md](../ops/ti-threshold.md#decision) as the evidence, and writes no threshold value into the spec. The `docs/README.md` *Key assumptions and blockers* row is already updated here to *Resolved* (U-03, 2026-11-10).
 - **Acceptance:**
   - Serves: FR-10, U-03 · [02 §C.2 L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10)
   - The threshold traces to the recorded histogram and a cited interpretation, and is labelled interpretive.
@@ -280,8 +280,8 @@
 - **Parallel with:** T04.04, T04.05, T04.07
 - **Steps:**
   1. Confirm the trigger with the data lead: PLACES parsing is too slow (06 §C TASK-04 risk).
-  2. Find the MSL MMGIS JSON path, which 02 §C.2 L6 marks unverified (`TODO(verify)`), and fetch it once into `pipeline/work/`.
-  3. Write the MMGIS DataSource record and point `layers/traverse.json` at it, labelling the source unofficial in the layer `limitations` text (exact wording `TODO(decision)`).
+  2. Find the MSL MMGIS JSON path, which 02 §C.2 L6 marks unverified (Decided (BD-30)), and fetch it once into `pipeline/work/`.
+  3. Write the MMGIS DataSource record and point `layers/traverse.json` at it, labelling the source unofficial in the layer `limitations` text (exact wording decided (BD-30)).
   4. Add the MMGIS parse path to `package_traverse` plus one test case on a synthetic sample in the cached layout.
   5. Repeat the T04.08 alignment check on the new traverse, update the offset file and append a log section.
 - **Acceptance:**
@@ -305,7 +305,7 @@
 - **Depends on:** T01.05 (hard: AOI and site)
 - **Parallel with:** T04.04
 - **Steps:**
-  1. Write the Exploration Zone framing for Gale (one paragraph) with its citation (U-16), or `TODO(verify)` if none is found.
+  1. Write the Exploration Zone framing for Gale (one paragraph) with its citation (U-16), or decided (BD-29) if none is found.
   2. Define the stop types (science, resource and any others 01 FR-45 names) with one line each; T04.04 and T04.05 give every POI a `stop_type`, an objective and its evidence.
 - **Acceptance:**
   - Serves: FR-45 · U-16
@@ -368,12 +368,12 @@ flowchart LR
 1. **Checkpoint count** (map open point 9): FR-17 and 06 TASK-04 say ≥ 3 locations; 01 §B and 02 §F.1 say 5. T04.08 checks 5 and records both counts.
 2. **Field name:** 01 FR-04 acceptance names `source_url`; 05 §C POI names `image_source_url`. The plan uses the 05 name, because 05 owns field names (`CLAUDE.md` §6); the FR-04 wording is not changed here.
 3. **Image required?** 01 FR-04 says every POI has `image_credit` populated; 05 §C makes the image fields conditional, and 05 §E.6 keeps a POI valid with null image fields. The curators aim for an image on every POI; validation follows 05.
-4. **Look direction:** 01 FR-04 shows an "approximate look direction if known", but 05 §C POI has no field for it — `TODO(decision)`: add it to 05 or drop it.
-5. **Vector layers:** 05 §C Layer requires `legend`, `native_resolution_m`, `display_resolution_m` and a tiles-root `asset_id` for every layer, but the traverse and POI layers are vectors — `TODO(decision)` at C2 and C5 (T03.01).
+4. **Look direction:** 01 FR-04 shows an "approximate look direction if known", but 05 §C POI has no field for it — Decided (BD-15): add it to 05 or drop it.
+5. **Vector layers:** 05 §C Layer requires `legend`, `native_resolution_m`, `display_resolution_m` and a tiles-root `asset_id` for every layer, but the traverse and POI layers are vectors — Decided (BD-22) at C2 and C5 (T03.01).
 6. **TI threshold home** (map open point 10): 05 has no manifest field for it, and 02 assigns U-03 to TASK-04 while 06 TASK-04 does not list it. T04.07 records the outcome in `docs/ops/ti-threshold.md`; under the 2026-11-10 decision (no defensible threshold) there is no `ti_threshold.json`, so 05 still has no field and no manifest change follows.
 7. **"In/near the AOI"** (01 FR-17) gives no distance. Obidit Islam (data lead), 2026-11-10 chose the cached rover range (sol 0 through 4868) and the AOI plus a 100 m margin for packaging. The frozen `package_traverse` signature has no extent argument; T04.03 must still implement the clip.
-8. **MMGIS path:** 02 §C.2 L6 says the MSL path is unverified — `TODO(verify)` in T04.09.
+8. **MMGIS path:** 02 §C.2 L6 says the MSL path is unverified — Decided (BD-30) in T04.09.
 9. **Map change proposed:** §c gives T04.01 no separate document for the U-04 outcome and the PLACES field layout, while U-03 has `docs/ops/ti-threshold.md`. The decision and layout are recorded in T04.01 above; a separate `docs/ops/traverse-source.md` would need an ownership change.
 10. **Map change proposed (optional):** 06 §C makes TASK-04 depend on TASK-01, but the map has no edge from T01.05 to T04.01, T04.04 or T04.05. The plan relies on M0 ending before M1 and on validate-manifest (05 §E.3) at T03.19. Add T01.05 → T04.01, T04.04, T04.05 (hard: the AOI bounds) if the team wants it enforced.
-11. **Image staging:** the specs say where images end up (`images/<poi_id>.jpg`, 02 §E.1) but not where curated images wait before the run. This plan uses the git-ignored `pipeline/work/images/` (05 §B lists `pipeline/work/` for downloads) — `TODO(decision)` with T03.19. How team laptops share them depends on bundle hosting (map open point 13).
-12. **Position uncertainty:** 05 §C requires `position_uncertainty_m` but gives no method — `TODO(decision)`; each curator states the basis in `position_source`.
+11. **Image staging:** the specs say where images end up (`images/<poi_id>.jpg`, 02 §E.1) but not where curated images wait before the run. This plan uses the git-ignored `pipeline/work/images/` (05 §B lists `pipeline/work/` for downloads) — decided with T03.19 (BD-14). How team laptops share them depends on bundle hosting (map open point 13).
+12. **Position uncertainty:** 05 §C requires `position_uncertainty_m` but gives no method — Decided (BD-15); each curator states the basis in `position_source`.

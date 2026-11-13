@@ -60,18 +60,18 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Parallel with:** T05.02, T05.03, T06.01, T07.01, T08.01
 - **Steps:**
   1. Compare `protocol.ts` with 02 §E.2 field by field (message types, the `reason` set, error codes, cancel-check interval); fix mismatches, make the SAMPLE_RESULT value fields nullable as 02 §D.1 requires ("null values with reason"), and drop comments that no longer match 02.
-  2. Record the C6 decisions as `TODO(decision)` in `protocol.ts`, each with its options: how the worker receives the routing grid (open point 4) and how a newer `plan_revision` cancels a running search (open point 5).
+  2. Record the C6 decisions in `protocol.ts` (as questions), each with its options: how the worker receives the routing grid (open point 4) and how a newer `plan_revision` cancels a running search (open point 5).
   3. Split the stubs without implementing anything: move `snapToPassable` to `snap.ts` and `toLeg` to `leg.ts` unchanged; move `handleMessage` from `worker.ts` to `handler.ts` with the loaded grid and site data as explicit inputs; add `noRoute.ts` (no-route reason and nearest reachable cell from the explored set) and `validate.ts` (field-level errors the UI can show, mapped to `INVALID_INPUT` by the worker). Every stub throws like the existing ones (`TODO(TASK-05)`, `CLAUDE.md` §3).
-  4. Record the C7 decisions as `TODO(decision)`: projection maths in the worker (proj4 or hand-written eqc, 02 §B) and how `samplePoint` and `collectWarnings` get the inputs they lack (spec questions 5–6); whether `searchLeg` takes an injectable expansion limit so the TIMEOUT test stays small.
+  4. Record the C7 decisions as decided (BD-45): projection maths in the worker (proj4 or hand-written eqc, 02 §B) and how `samplePoint` and `collectWarnings` get the inputs they lack (spec questions 5–6); whether `searchLeg` takes an injectable expansion limit so the TIMEOUT test stays small.
   5. List every exported signature in `packages/compute/src/` in the PR description as C7 v1, then run `make typecheck test`.
 - **Acceptance:**
   - Serves: FR-03, FR-06, FR-07, NFR-06 · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol)
   - `protocol.ts` matches 02 §E.2: request, response and error shapes, the `reason` set, error codes `GRID_NOT_LOADED`, `INVALID_INPUT`, `TIMEOUT`, `CANCELLED`, `INTERNAL`, and the cooperative check every 50,000 expansions.
   - `route.ts` keeps only `searchLeg`, `LegSearch` and the 02 §D.2 limits; `worker.ts` keeps only the entry; each new stub exports the signature its paired test subtask needs.
   - No function body is implemented (phase gate); `make typecheck test` passes with the existing `it.todo` suites.
-  - Every open choice is a `TODO(decision)` that names its options; none is resolved without the lane owner's review.
-- **Verify:** `make typecheck test`; `git grep -n "TODO(decision)" packages/compute/src/` lists the C6 and C7 decisions.
-- **Agent brief:** Freeze the compute contracts. Align `packages/protocol/src/worker.ts` with 02 §E.2 and §D.1, split the compute stubs into the files map §c.4 lists (stubs only, no logic), and record the open C6/C7 choices as `TODO(decision)` with their options. Signatures must typecheck.
+  - Every open choice is recorded with its options; none is resolved without the lane owner's review.
+- **Verify:** `make typecheck test`; the C6 and C7 decisions are listed in the decisions table.
+- **Agent brief:** Freeze the compute contracts. Align `packages/protocol/src/worker.ts` with 02 §E.2 and §D.1, split the compute stubs into the files map §c.4 lists (stubs only, no logic), and record the open C6/C7 choices as decided (BD-00) with their options. Signatures must typecheck.
 - **Conflict notes:** Blocking — do first. Writes stub-only edits to files that T05.17–T05.27 own after it merges; later signature changes go through a `contract-change:` subtask that lists consumers (map §d). T07.04, T08.03 and T08.04 consume `protocol.ts` and `validate.ts`, so announce the freeze in the PR.
 
 ### T05.02 — Fixture: synthetic routing grids
@@ -239,7 +239,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
   5. Run every case through `searchLeg`, so the suite passes once T05.18 and T05.19 have both landed.
 - **Acceptance:**
   - Serves: FR-07 · [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10)
-  - Covers the allocated cases D.2 (2) and "START_BLOCKED, END_BLOCKED, DISCONNECTED_BY_HAZARD, DISCONNECTED_BY_NODATA; nearest_reachable"; mixed-barrier cases wait for the T05.19 `TODO(decision)`.
+  - Covers the allocated cases D.2 (2) and "START_BLOCKED, END_BLOCKED, DISCONNECTED_BY_HAZARD, DISCONNECTED_BY_NODATA; nearest_reachable"; mixed-barrier cases wait for the T05.19 decided (BD-46).
   - FR-07 (compute part): "Given no passable connection, then the leg is marked 'No feasible route' with the reason … and the nearest reachable point toward the target is shown."
 - **Verify:** `npx vitest run tests/compute/noRoute.test.ts` (run in `apps/web/`).
 - **Agent brief:** Create `packages/compute/tests/noRoute.test.ts` with the no-route cases of 02 §D.2, run through `searchLeg` on F1 grids: slope, hazard and no-data barriers, blocked endpoints and the nearest reachable cell.
@@ -260,7 +260,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
   1. Create the file with the snapping cases that leave `route.test.ts`.
   2. An impassable point snaps to the nearest passable cell within 50 m, reporting `distance_m`.
   3. `null` when no passable cell lies within the radius (02 §E.2).
-  4. Passability uses the scenario's current hard limit; equal-distance candidates resolve deterministically (`TODO(decision)`: by cell index).
+  4. Passability uses the scenario's current hard limit; equal-distance candidates resolve deterministically (decided: by cell index).
 - **Acceptance:**
   - Serves: FR-06 · [02 §D.2](../specs/02_Technical_Requirements_Document.md#d2-route-planning-fr-06-fr-07-fr-10)
   - Covers the allocated case "Snap to the nearest passable cell within 50 m, else rejected".
@@ -362,7 +362,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
   - Covers the allocated case "Any `NO_ROUTE` leg → `PARTIAL`, `totals` null"; the 02 §F.1 Recovery "missing TI layer" case stays with T14.05 — this file tests the 05 §E.6 unit rule only.
   - 01 §B: "100 % of route segments that exceed the configured slope limit or cross no-data/hazard cells are flagged" (compute part).
 - **Verify:** `npx vitest run tests/compute/warnings.test.ts` (run in `apps/web/`).
-- **Agent brief:** Write the `collectWarnings` and `planStatus` tests in `packages/compute/tests/warnings.test.ts` from 01 FR-10, 05 §C Warning, 05 §E.6, 02 §E.2 and 03 §E.4. Severities follow 04 §C.1; leave `TODO(decision)` where the spec does not map a code.
+- **Agent brief:** Write the `collectWarnings` and `planStatus` tests in `packages/compute/tests/warnings.test.ts` from 01 FR-10, 05 §C Warning, 05 §E.6, 02 §E.2 and 03 §E.4. Severities follow 04 §C.1; leave decided (BD-49) where the spec does not map a code.
 - **Conflict notes:** Draft until T05.24 passes it; T05.24 stacks on this branch.
 
 ### T05.14 — Tests: input validation (02 §E.3)
@@ -380,7 +380,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
   1. Create the file against the `validate.ts` stub signature from T05.01.
   2. For each 02 §E.3 rule, one value inside, one at each limit and one outside: `eva_start_utc` ISO-8601 UTC with year 2000–2100; `max_eva_duration_h` 0.5–10; `dwell_min_per_stop` 0–180; `hard_slope_limit_deg` 5–35 and above `caution_slope_deg`; `caution_slope_deg` 2–30; `walkback_limit_km` 0.5–20; `suited_flat_speed_kmh` 0.5–6; `solar_phase` max or min.
   3. Waypoints: 2–11 (start + ≤ 10 stops), exactly one start (05 Waypoint), all inside the AOI.
-  4. Each error names the field and the allowed range, so the UI can show it inline (FR-05); limits are inclusive per the `TODO(decision)` in spec question 12.
+  4. Each error names the field and the allowed range, so the UI can show it inline (FR-05); limits are inclusive per the decision BD-52 in spec question 12.
 - **Acceptance:**
   - Serves: FR-05 · [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules)
   - Covers the allocated case "Ranges of 02 §E.3 → `INVALID_INPUT`".
@@ -404,7 +404,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
   2. COMPUTE_PLAN → PLAN_RESULT that echoes `request_id` and `plan_revision`, with one leg per consecutive waypoint pair plus the return leg when `loop` is on (05 PlanResult).
   3. No grid → ERROR `GRID_NOT_LOADED`; a search TIMEOUT → ERROR `TIMEOUT`; a thrown exception → ERROR `INTERNAL`, never a crashed worker (NFR-10).
   4. Only the latest `plan_revision` is processed; a superseded request ends with ERROR `CANCELLED`, using the C6 cancellation decision (02 §E.2).
-  5. The same plan twice gives an identical result, comparing every field except the per-run `computed_utc` and `timing_ms` (05 §D separates the run from the result; `TODO(decision)`, spec question 13).
+  5. The same plan twice gives an identical result, comparing every field except the per-run `computed_utc` and `timing_ms` (05 §D separates the run from the result; decided (BD-51), spec question 13).
 - **Acceptance:**
   - Serves: FR-07, NFR-02, NFR-06, NFR-10 · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol)
   - Covers the allocated cases "Only the latest `plan_revision` is processed; cooperative cancel" and "Same plan twice → identical result"; the 02 §E.3 ranges stay with T05.14.
@@ -425,7 +425,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Depends on:** T05.05 (hard: its tests define done), T03.01 (soft)
 - **Parallel with:** T05.20–T05.25
 - **Steps:**
-  1. `loadGrid`: wrap the little-endian buffers as typed arrays (DataView, or confirm little-endian hosts — `TODO(verify)`); check each array against `width × height` and the TI sidecar against its own size from `ti_cell_m`; reject any mismatch.
+  1. `loadGrid`: wrap the little-endian buffers as typed arrays (DataView, or confirm little-endian hosts — Decided (BD-53)); check each array against `width × height` and the TI sidecar against its own size from `ti_cell_m`; reject any mismatch.
   2. `cellIndex`: the 05 §E.1 formula; null outside the grid.
   3. `decodeSlopeDeg`: u8 / 4; 255 → null.
   4. Use `meta.cell_m` and `meta.origin_m` everywhere; no literal cell size.
@@ -449,7 +449,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Depends on:** T05.06 (hard: its tests define done), T05.16 (hard: uses the grid addressing), T05.01 (soft)
 - **Parallel with:** T05.18, T05.20, T05.22–T05.25
 - **Steps:**
-  1. `samplePoint`: nearest cell for slope and flags, bilinear elevation, TI nearest from the sidecar or null; reasons `OUTSIDE_AOI`, `NO_DATA`, `HARD_HAZARD`, `SLOPE_OVER_LIMIT` with null values where 02 §D.1 says so (precedence between reasons `TODO(decision)`).
+  1. `samplePoint`: nearest cell for slope and flags, bilinear elevation, TI nearest from the sidecar or null; reasons `OUTSIDE_AOI`, `NO_DATA`, `HARD_HAZARD`, `SLOPE_OVER_LIMIT` with null values where 02 §D.1 says so (precedence between reasons decided (BD-46)).
   2. Compute `lat` / `lon_e` with the T05.01 projection decision (proj4 or hand-written eqc, 02 §B).
   3. For impassable inside-AOI points, ask `snapToPassable` for `snap`.
   4. `sampleProfile`: one sample every 5 m (05 §C Leg), bilinear elevation, `slope_class` against the current caution and hard limits.
@@ -460,7 +460,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `npx vitest run tests/compute/sampling.test.ts` (run in `apps/web/`).
 - **Agent brief:** Implement `samplePoint` and `sampleProfile` in `packages/compute/src/sampling.ts` until `packages/compute/tests/sampling.test.ts` passes, following 02 §D.1 and the T05.01 projection decision. No DOM, no fetch.
 - **Conflict notes:** Stacks on T05.06's branch. Snap offers work at run time only after T05.20 merges; until then the UI uses the F3 mock worker. Profile spacing is the 05 Leg value (5 m) even if T03.24 moves the grid to 10 m cells.
-- **Follow-up (2026-11-11):** TODO(decision): `sampleProfile` appends a sample at the exact leg end when the leg length is not a multiple of 5 m, which 05 §C ("sampled every 5 m") does not specify. It is Proposed behaviour from review of #208: it also moves the `to_m` of the last `OVER_HARD_SLOPE` or `CAUTION_SLOPE` run in `warnings.ts` from the last 5 m multiple to the leg length. Record it in 05 §C `Leg.profile` or drop it.
+- **Follow-up (2026-11-11):** Decided (BD-44): `sampleProfile` appends a sample at the exact leg end when the leg length is not a multiple of 5 m, which 05 §C ("sampled every 5 m") does not specify. It is Proposed behaviour from review of #208: it also moves the `to_m` of the last `OVER_HARD_SLOPE` or `CAUTION_SLOPE` run in `warnings.ts` from the last 5 m multiple to the leg length. Record it in 05 §C `Leg.profile` or drop it.
 
 ### T05.18 — Implement the A* least-time search
 
@@ -475,7 +475,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Parallel with:** T05.17, T05.20, T05.23–T05.25
 - **Steps:**
   1. 8-connected search; step length `cell_m` orthogonally and `cell_m·√2` diagonally (02 §D.2 gives 5 m and 7.071 m for the 5 m grid).
-  2. Impassable: `flags & NO_DATA`, `flags & HARD_HAZARD`, or `slope_p90 > hard_slope_limit_deg`; directional gradient S = Δz / d; step cost through `stepTimeH` with the Assumed multipliers 1.5 (`slope_max > caution_slope_deg`) and 1.3 (`LOW_TI`) as named constants — the case where both apply, and which cell decides, is `TODO(decision)` (spec question 7).
+  2. Impassable: `flags & NO_DATA`, `flags & HARD_HAZARD`, or `slope_p90 > hard_slope_limit_deg`; directional gradient S = Δz / d; step cost through `stepTimeH` with the Assumed multipliers 1.5 (`slope_max > caution_slope_deg`) and 1.3 (`LOW_TI`) as named constants — the case where both apply, and which cell decides, is decided (BD-47) (spec question 7).
   3. A* with h = straight-line distance / v_max, v_max = v₀ · 6 / 5.037; binary heap; ties broken by cell index.
   4. Count expansions: TIMEOUT at `MAX_NODE_EXPANSIONS`; cancellation check every `CANCEL_CHECK_EVERY_EXPANSIONS` per the C6 decision.
   5. When the open set empties, hand the explored set to `noRoute.ts` for the reason and nearest reachable cell.
@@ -486,7 +486,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `npx vitest run tests/compute/route.test.ts` (run in `apps/web/`).
 - **Agent brief:** Implement `searchLeg` in `packages/compute/src/route.ts` exactly as 02 §D.2 defines it (impassable rule, Tobler step cost with multipliers, admissible heuristic, cell-index tie-break, expansion limit, cancellation hook) until `packages/compute/tests/route.test.ts` passes.
 - **Conflict notes:** Stacks on T05.07's branch. T05.01's stub edit removed `snapToPassable` and `toLeg` from this file before this subtask starts. Cut 7 drops it; the fallbacks are T05.30 and T09.08.
-- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Choose event-loop yielding or shared abort signalling for effective in-flight cancellation. Preserve the 02 §E.2 check interval of 50,000 expansions; stale-request rejection alone does not satisfy cancellation.
+- **Follow-up (2026-11-09 reconciliation):** Decided (BD-41): Choose event-loop yielding or shared abort signalling for effective in-flight cancellation. Preserve the 02 §E.2 check interval of 50,000 expansions; stale-request rejection alone does not satisfy cancellation.
 
 ### T05.19 — Implement no-route reasons and nearest reachable cell
 
@@ -501,7 +501,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Parallel with:** T05.20, T05.23–T05.25
 - **Steps:**
   1. Before the search: `START_BLOCKED` or `END_BLOCKED` when an endpoint is impassable.
-  2. After exhaustion: classify the barrier as `DISCONNECTED_BY_SLOPE`, `DISCONNECTED_BY_HAZARD` or `DISCONNECTED_BY_NODATA`; the rule for mixed barriers is `TODO(decision)` (spec question 8).
+  2. After exhaustion: classify the barrier as `DISCONNECTED_BY_SLOPE`, `DISCONNECTED_BY_HAZARD` or `DISCONNECTED_BY_NODATA`; the rule for mixed barriers is decided (BD-46) (spec question 8).
   3. `nearest_reachable`: the explored cell with the smallest Euclidean distance to the target, as cell-centre `x_m` / `y_m`.
   4. Every NO_ROUTE result carries a reason (no silent failure, 01 §B).
 - **Acceptance:**
@@ -509,7 +509,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
   - T05.08 passes.
   - FR-07: "Given no passable connection, then the leg is marked 'No feasible route' with the reason … and the nearest reachable point toward the target is shown" (compute part).
 - **Verify:** `npx vitest run tests/compute/noRoute.test.ts` (run in `apps/web/`).
-- **Agent brief:** Implement the no-route pre-checks, barrier classification and nearest reachable cell in `packages/compute/src/noRoute.ts` until `packages/compute/tests/noRoute.test.ts` passes. Leave the mixed-barrier rule as a `TODO(decision)` unless the lane owner has decided it.
+- **Agent brief:** Implement the no-route pre-checks, barrier classification and nearest reachable cell in `packages/compute/src/noRoute.ts` until `packages/compute/tests/noRoute.test.ts` passes. Leave the mixed-barrier rule as the decision BD-46 unless the lane owner has decided it.
 - **Conflict notes:** Stacks on T05.08's branch and rebases on T05.18. Cut 7 drops it.
 
 ### T05.20 — Implement snapping
@@ -547,7 +547,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Depends on:** T05.10 (hard: its tests define done), T05.17 (hard: uses `sampleProfile`), T05.22 (hard: uses the time model), T05.01 (soft)
 - **Parallel with:** T05.18–T05.20, T05.23–T05.25
 - **Steps:**
-  1. Metrics on the unsimplified cell path: `distance_m`, `walk_time_min`, `climb_m`, `descent_m`, `max_slope_deg`, `cell_path_length` (definitions where 02 and 05 are silent: `TODO(decision)`, spec question 10).
+  1. Metrics on the unsimplified cell path: `distance_m`, `walk_time_min`, `climb_m`, `descent_m`, `max_slope_deg`, `cell_path_length` (definitions where 02 and 05 are silent: decided, BD-48, spec question 10).
   2. `geometry`: the path as `[x_m, y_m]` pairs, Douglas–Peucker simplified at 2 m for display only.
   3. `profile` from `sampleProfile` with the scenario's limits.
   4. NO_ROUTE results become legs with `reason` and `nearest_reachable`; other fields per the C1 decision (open point 3).
@@ -616,7 +616,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Parallel with:** T05.17–T05.23, T05.25
 - **Steps:**
   1. `collectWarnings`: one rule per FR-10 code, with inputs per the T05.01 decision on grid flags (spec question 6).
-  2. Severities from 04 §C.1 (caution, blocked, unknown); `LOW_RES_DEM` and `DARKNESS` severities and how darkness is judged along a leg are `TODO(decision)` (spec question 9).
+  2. Severities from 04 §C.1 (caution, blocked, unknown); `LOW_RES_DEM` and `DARKNESS` severities and how darkness is judged along a leg are decided (BD-49) (spec question 9).
   3. Missing TI → `TI_UNKNOWN` (unknown), never silence (05 §E.6).
   4. `planStatus`: PARTIAL if any leg is NO_ROUTE; OVER_LIMITS if EVA duration, walkback or darkness is exceeded; else OK (03 §E.4).
 - **Acceptance:**
@@ -624,11 +624,11 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
   - T05.13 passes.
   - FR-10 (compute part): each warning carries severity, the affected segment or time and a message.
 - **Verify:** `npx vitest run tests/compute/warnings.test.ts` (run in `apps/web/`).
-- **Agent brief:** Implement `collectWarnings` and `planStatus` in `packages/compute/src/warnings.ts` from 01 FR-10, 05 §C Warning, 05 §E.6 and 03 §E.4 until `packages/compute/tests/warnings.test.ts` passes. Keep undecided severities as `TODO(decision)`.
+- **Agent brief:** Implement `collectWarnings` and `planStatus` in `packages/compute/src/warnings.ts` from 01 FR-10, 05 §C Warning, 05 §E.6 and 03 §E.4 until `packages/compute/tests/warnings.test.ts` passes. Keep undecided severities as decided (BD-49).
 - **Conflict notes:** Stacks on T05.13's branch. The 1.3 LOW_TI cost and the LOW_TI warning stay dormant under v1 cut 4 (no v2 cut item) (no threshold, map §h.6).
 - **Follow-up (2026-11-09 reconciliation, resolved 2026-11-10):** U-03 is decided by the data lead (Obidit Islam, 2026-11-10): **no defensible TI "loose fines" threshold for the AOI**, so `ti_threshold.json` is not written, T03.10 sets no `LOW_TI` bits and the 1.3 `LOW_TI` cost and the `LOW_TI` warning stay dormant for good ([ti-threshold.md](../ops/ti-threshold.md#decision)). Never infer a threshold from fixture values.
-- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Confirm LOW_RES_DEM warning severity before emitting bit-4 route warnings; the bit encoding is defined, but TASK-05 spec question 9 leaves severity open.
-- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Define NO_DATA_ADJACENT neighbourhood, distance, severity and affected-segment policy before implementation; the routing graph's eight neighbours do not by themselves define this warning.
+- **Follow-up (2026-11-09 reconciliation):** Decided (BD-49): Confirm LOW_RES_DEM warning severity before emitting bit-4 route warnings; the bit encoding is defined, but TASK-05 spec question 9 leaves severity open.
+- **Follow-up (2026-11-09 reconciliation):** Decided (BD-49): Define NO_DATA_ADJACENT neighbourhood, distance, severity and affected-segment policy before implementation; the routing graph's eight neighbours do not by themselves define this warning.
 
 ### T05.25 — Implement input validation
 
@@ -701,8 +701,8 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `npx vitest run tests/compute/worker.test.ts` (run in `apps/web/`); manual: in a dev build, two quick edits produce one PLAN_RESULT for the newer revision.
 - **Agent brief:** Implement the worker entry in `apps/web/src/worker/planWorker.ts`: message wiring, grid initialisation and latest-revision cancellation per the recorded C6 decisions, until the cancellation cases in `packages/compute/tests/worker.test.ts` pass.
 - **Conflict notes:** Stacks on T05.15's branch after T05.26. T07.04 (worker client) is the main-thread side of the same protocol; coordinate any C6 change through a `contract-change:`.
-- **Follow-up (2026-11-09 reconciliation):** TODO(decision): C6 owners must choose worker grid delivery and initialization, including the matching client path and failure handling; do not add a delivery message or fetch path in this reconciliation.
-- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Choose event-loop yielding or shared abort signalling for effective in-flight cancellation. Preserve the 02 §E.2 check interval of 50,000 expansions; stale-request rejection alone does not satisfy cancellation.
+- **Follow-up (2026-11-09 reconciliation):** Decided (BD-40): C6 owners must choose worker grid delivery and initialization, including the matching client path and failure handling; do not add a delivery message or fetch path in this reconciliation.
+- **Follow-up (2026-11-09 reconciliation):** Decided (BD-41): Choose event-loop yielding or shared abort signalling for effective in-flight cancellation. Preserve the 02 §E.2 check interval of 50,000 expansions; stale-request rejection alone does not satisfy cancellation.
 
 ### T05.28 — Verify on the real grid: 10 sampled cells; 20 pairs p50/p95; 3-stop loop ≤ 2 s
 
@@ -717,7 +717,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Parallel with:** T05.23–T05.25, T05.32
 - **Steps:**
   1. Load the real bundle's grid in Node; skip the whole file when the bundle is absent (it is git-ignored).
-  2. FR-03: compare the 10 F5 cells — elevation exact at the routing-grid cell, slope within ±0.1° (which raster F5 reads is `TODO(decision)`, spec question 11).
+  2. FR-03: compare the 10 F5 cells — elevation exact at the routing-grid cell, slope within ±0.1° (which raster F5 reads is decided (BD-54), spec question 11).
   3. 20 scripted pairs inside the AOI from a seeded generator: each returns a route or an explicit no-route reason — 0 crashes, 0 silent failures (01 §B); report p50 and p95 time.
   4. Time 3-stop loops through the handler and report p95 against 2 s (06 §C done-when, NFR-02).
   5. Append `## T05.28 — Verify on the real grid` to the verification log: machine, Node version, `data_version`, p50/p95, failures.
@@ -728,7 +728,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `npx vitest run tests/compute/realGrid.test.ts` (run in `apps/web/` with the bundle present); check the new verification-log section.
 - **Agent brief:** Write `packages/compute/tests/realGrid.test.ts` that skips without the real bundle and otherwise checks the 10 F5 cells, 20 seeded pairs (p50/p95, no silent failures) and the 3-stop loop time, then log the numbers it measured in `docs/ops/verification-log.md`.
 - **Conflict notes:** The verification log is append-only. These are Node timings; the browser check on the weakest laptop is T14.07. Feeds D-02 (T05.29).
-- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Obtain the gale_boxwork bundle and ten independent F5 cell records, resolve the F5 slope-raster choice with T03.21, and record real-grid pair timings plus repeated successful three-stop-loop p95 with machine, runtime and data_version. Mock-site and single-run timings do not establish this acceptance.
+- **Follow-up (2026-11-09 reconciliation):** Decided (BD-54): Obtain the gale_boxwork bundle and ten independent F5 cell records, resolve the F5 slope-raster choice with T03.21, and record real-grid pair timings plus repeated successful three-stop-loop p95 with machine, runtime and data_version. Mock-site and single-run timings do not establish this acceptance.
 
 ### T05.29 — Record D-02 from the benchmark in ADR-002
 
@@ -752,7 +752,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `make docs-check`; the lane owner reads the ADR.
 - **Agent brief:** Human decision by the Compute engineer. An agent may draft the ADR-002 text from the T05.28 log section; the human checks the numbers and signs off the outcome.
 - **Conflict notes:** Single owner of ADR-002. Triggers T03.24 or T05.31 only when the rule says so.
-- **Follow-up (2026-11-09 reconciliation):** TODO(verify): Locate the run cited by ADR-002. TODO(decision): The compute lead must review the reconciled real-grid evidence and D-02 sign-off; preserve the existing ADR decision during this repair.
+- **Follow-up (2026-11-09 reconciliation):** (answered by BD-54) Locate the run cited by ADR-002. Decided (BD-00): The compute lead must review the reconciled real-grid evidence and D-02 sign-off; preserve the existing ADR decision during this repair.
 
 ### T05.30 — Fallback — start only if T09.06 says no-go: manual polyline validation (compute side)
 
@@ -792,9 +792,9 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Parallel with:** T05.32
 - **Steps:**
   1. Start only if ADR-002 records p95 > 2 s after the 10 m grid (T03.24) was tried (map §h.7).
-  2. FastAPI app in `server/` serving `/route` with scikit-image `MCP_Geometric` on the same grid arrays and impassable rule (02 §A.3); whether `/estimate` is needed or estimates stay in the worker is `TODO(decision)`.
+  2. FastAPI app in `server/` serving `/route` with scikit-image `MCP_Geometric` on the same grid arrays and impassable rule (02 §A.3); whether `/estimate` is needed or estimates stay in the worker is decided (BD-01).
   3. Repeat the 02 §E.3 validation (02 §A.3 names the duplication as a cost).
-  4. Bind to localhost only; put the start command and Python requirements in `server/` (`TODO(verify)` the exact command).
+  4. Bind to localhost only; put the start command and Python requirements in `server/` (Decided (BD-01) the exact command).
   5. Hand the UI switch to TASK-07's worker client (spec question 16).
 - **Acceptance:**
   - Serves: FR-07, NFR-02 · [02 §A.3](../specs/02_Technical_Requirements_Document.md#a3-why-a-habitat-server-now-proposed--reverses-v1-d-02)
@@ -802,7 +802,7 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
   - No request leaves `localhost` (NFR-01, NFR-08).
 - **Verify:** Manual: start the server, request a leg between two passable points of the real grid, re-sample its steps, compare its time with the browser route.
 - **Agent brief:** Only if ADR-002 says the browser router is too slow: build a localhost-only FastAPI `/route` in `server/` with scikit-image `MCP_Geometric` over the routing grid, with the 02 §E.3 validation, returning 05 Leg fields.
-- **Conflict notes:** Its Python dependencies stay inside `server/`, apart from `pipeline/pyproject.toml` (T14.01). A CSP of `default-src 'self'` may block a server on another port (`TODO(verify)`, spec question 16).
+- **Conflict notes:** Its Python dependencies stay inside `server/`, apart from `pipeline/pyproject.toml` (T14.01). A CSP of `default-src 'self'` may block a server on another port (Decided (BD-01), spec question 16).
 
 ### T05.32 — follow-up: complete PLAN_RESULT assembly (totals, timeline, warnings, status, conditions)
 
@@ -828,8 +828,8 @@ At run time the full PLAN_RESULT also needs the TASK-06 implementations behind C
 - **Verify:** `npx vitest run tests/compute/worker.test.ts` (run in `apps/web/`); `make test`.
 - **Agent brief:** Finish `handleMessage` in `packages/compute/src/handler.ts`: totals, timeline, conditions and radiation via the C8 interface, warnings, status and worker-side validation, test-first in `packages/compute/tests/worker.test.ts`. Mock `conditions.ts` until TASK-06 lands.
 - **Conflict notes:** Follow-up after T05.26 and T05.15 merge; T05.30 may also have edited `handler.ts`, so rebase and keep both. T11.05 needs this before export metrics can be reproduced.
-- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Complete C8 assembly into PlanResult after deciding the site coordinate, EnvConstant selection, PARTIAL-plan dose duration and darkness inputs. Until then, return the existing M3 empty timeline and omit conditions and radiation.
-- **Follow-up (2026-11-09 reconciliation):** TODO(decision): Define routing and estimates timing boundaries before reporting phase timings; this repair reports only measured total handler duration in timing_ms.total.
+- **Follow-up (2026-11-09 reconciliation):** Decided (BD-50): Complete C8 assembly into PlanResult after deciding the site coordinate, EnvConstant selection, PARTIAL-plan dose duration and darkness inputs. Until then, return the existing M3 empty timeline and omit conditions and radiation.
+- **Follow-up (2026-11-09 reconciliation):** Decided (BD-50): Define routing and estimates timing boundaries before reporting phase timings; this repair reports only measured total handler duration in timing_ms.total.
 
 ## Internal dependency graph
 
@@ -909,20 +909,20 @@ Cross-task edges, drawn in the map's §f: T03.01 (soft) → T05.01, T05.02, T05.
 ## Spec questions
 
 1. **Grid delivery to the worker** — 02 §E.2 defines `GRID_NOT_LOADED` but no message that delivers the grid (map open point 4). T05.01 records the options; a new message needs a `spec-change:` to 02 §E.2.
-2. **Cancellation mechanism** — a check every 50,000 expansions (02 §E.2) only sees newer messages if the search yields to the worker's event loop; the stub `searchLeg` is synchronous (open point 5). `TODO(decision)` in T05.01.
+2. **Cancellation mechanism** — a check every 50,000 expansions (02 §E.2) only sees newer messages if the search yields to the worker's event loop; the stub `searchLeg` is synchronous (open point 5). recorded in T05.01.
 3. **M3 without TASK-06** — the legs-only slice (T05.26) can fill `conditions`, `radiation` and `stops_timeline` only if C1 makes them optional (open point 3). Otherwise M3 needs a hard dependency on T06.09, which the map does not list.
 4. **Nullable SAMPLE_RESULT values** — 02 §D.1 says outside-AOI and NaN samples return null values, but `protocol.ts` types `lat`, `lon_e`, `elevation_m` and `slope_p90_deg` as numbers. T05.01 fixes C6.
 5. **Projection input for `samplePoint`** — the skeleton signature has no way to compute `lat` / `lon_e` (02 §B: proj4 or hand-written eqc). Map change proposed: give T05.01 a stub edit on `packages/compute/src/sampling.ts` (stub → T05.17) so the C7 freeze can set the signature before T05.06 is written.
 6. **Grid flags for `collectWarnings`** — the skeleton signature `(legs, scenario, timeline, maxWalkbackKm)` cannot see the flags behind LOW_TI, TI_UNKNOWN, LOW_RES_DEM and NO_DATA_ADJACENT, and 05 Leg.profile carries no flags. Map change proposed: give T05.01 a stub edit on `packages/compute/src/warnings.ts` (stub → T05.24) for the same reason.
-7. **Caution multipliers** — 02 §D.2 gives m = 1.5 (caution slope) and 1.3 (LOW_TI) but not the value when both apply, nor whether the source or destination cell of a step decides. `TODO(decision)` in T05.18.
-8. **Mixed barriers** — 02 §D.2 does not say which `DISCONNECTED_BY_*` reason wins when slope, hazard and no-data cells all bound the explored region. `TODO(decision)` in T05.19.
-9. **Warning severities and darkness** — 04 §C.1 maps most codes to caution, blocked or unknown, but not LOW_RES_DEM or DARKNESS; and 05 `stops_timeline` holds sun elevation only at arrivals, so "segment in darkness" (FR-10) has no defined evaluation along a leg. `TODO(decision)` in T05.24.
-10. **Leg metric definitions** — 02 and 05 do not fix whether `distance_m` is horizontal or 3D, whether `max_slope_deg` comes from `slope_p90` or the step gradient, or which numeric fields a NO_ROUTE leg carries (open point 3). `TODO(decision)` in T05.21.
-11. **FR-03 slope tolerance** — FR-03 allows ±0.1° slope, but the grid stores slope in 0.25° steps (05 RoutingGrid); if F5 reads the float slope raster, rounding alone can exceed the tolerance. `TODO(decision)` with T03.21 on which raster F5 reads.
-12. **Range limits** — 02 §E.3 does not say whether its range limits are inclusive. `TODO(decision)` in T05.14 and T05.25.
-13. **Determinism comparison** — NFR-06 asks for "identical results", but `computed_utc` and `timing_ms` change per run (05 §D separates the run from the result). `TODO(decision)` in T05.15: compare without them.
-14. **TIMEOUT test size** — reaching 3 × 10⁶ expansions needs either an injectable limit (C7) or a very large synthetic grid. `TODO(decision)` in T05.01.
+7. **Caution multipliers** — 02 §D.2 gives m = 1.5 (caution slope) and 1.3 (LOW_TI) but not the value when both apply, nor whether the source or destination cell of a step decides. Decided (BD-47) in T05.18.
+8. **Mixed barriers** — 02 §D.2 does not say which `DISCONNECTED_BY_*` reason wins when slope, hazard and no-data cells all bound the explored region. Decided (BD-46) in T05.19.
+9. **Warning severities and darkness** — 04 §C.1 maps most codes to caution, blocked or unknown, but not LOW_RES_DEM or DARKNESS; and 05 `stops_timeline` holds sun elevation only at arrivals, so "segment in darkness" (FR-10) has no defined evaluation along a leg. Decided (BD-49) in T05.24.
+10. **Leg metric definitions** — 02 and 05 do not fix whether `distance_m` is horizontal or 3D, whether `max_slope_deg` comes from `slope_p90` or the step gradient, or which numeric fields a NO_ROUTE leg carries (open point 3). Decided (BD-43) in T05.21.
+11. **FR-03 slope tolerance** — FR-03 allows ±0.1° slope, but the grid stores slope in 0.25° steps (05 RoutingGrid); if F5 reads the float slope raster, rounding alone can exceed the tolerance. Decided (BD-54) with T03.21 on which raster F5 reads.
+12. **Range limits** — 02 §E.3 does not say whether its range limits are inclusive. Decided (BD-52) in T05.14 and T05.25.
+13. **Determinism comparison** — NFR-06 asks for "identical results", but `computed_utc` and `timing_ms` change per run (05 §D separates the run from the result). Decided (BD-51) in T05.15: compare without them.
+14. **TIMEOUT test size** — reaching 3 × 10⁶ expansions needs either an injectable limit (C7) or a very large synthetic grid. Decided (BD-53) in T05.01.
 15. **Manual-leg fallback** — COMPUTE_PLAN (02 §E.2) has no field for hand-drawn leg vertices, so T05.30 needs a C6 `contract-change:` and a 02 §E.2 `spec-change:`. Map change proposed: add `packages/compute/tests/manualLeg.test.ts` owned by T05.30.
-16. **FastAPI fallback wiring** — switching the UI to a localhost server belongs to `apps/web/src/ui/workerClient.ts` (T07.04), and CSP `default-src 'self'` (NFR-08) may block a server on another port (`TODO(verify)`). Map change proposed: a `follow-up:` in TASK-07 if T05.31 is triggered.
+16. **FastAPI fallback wiring** — switching the UI to a localhost server belongs to `apps/web/src/ui/workerClient.ts` (T07.04), and CSP `default-src 'self'` (NFR-08) may block a server on another port (Decided (BD-01)). Map change proposed: a `follow-up:` in TASK-07 if T05.31 is triggered.
 17. **Effort** — 06 gives 8–12 h for TASK-05; the tests-first split here adds up to more (map open point 18; totals come from `scripts/check_tasks.py --summary`).
 18. **Node vs browser timing** — T05.28 measures in Node; NFR-02 is judged in browsers on the weakest laptop (T14.07). The two numbers can differ.
