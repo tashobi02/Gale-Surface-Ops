@@ -977,3 +977,7 @@ The EVA-phase case stays `test.fixme('needs N-06')`: the ops console receives no
 | Focus never lands on a hidden element | **Pass** | Every step asserts the focused element is visible and carries a focus ring |
 
 The check found a real defect and it is fixed: the SCR-05 metric tiles collapsed to 0 px in the short results panel, so the values were no longer readable outside the map (FR-08, FR-15). The metrics row now keeps its content height (FD-402, `apps/web/src/ui/screens/scr05RouteResults.css`).
+
+## T17.04 — capture continuation, 2026-11-13
+
+`E2E_PORT=18132 timeout 900s make e2e-one CHECK=capture` stopped in global setup: `listen EPERM` on the `tsx` IPC socket. No browser test or duration check ran. The capture and assembly remain incomplete; no output video is certified.
