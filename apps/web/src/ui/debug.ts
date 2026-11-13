@@ -15,9 +15,7 @@ import "./debug.css";
  *   12 px minimum (04 §C.2).
  */
 import { createElement, useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
-import "./debug.css";
 import type { RoutingGrid } from "@marswalk/protocol";
-import "./debug.css";
 import type { AppContext } from "./context";
 import { UNAVAILABLE, provAttrs, unavailableOf, type Sourced } from "./components/provenance";
 

@@ -13,7 +13,7 @@ The planner, habitat server and role views are implemented; the task progress an
 ## Progress
 
 <!-- progress:start -->
-`████████████████░░░░` **80 %** — 277 of 345 subtasks done, 42 in progress.
+`████████████████░░░░` **81 %** — 280 of 345 subtasks done, 41 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -33,7 +33,7 @@ The planner, habitat server and role views are implemented; the task progress an
 | [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `████████░░` 85 % | 11 | 2 | 13 |
 | [TASK-14 Integration + offline hardening + fault tests](docs/tasks/TASK-14_integration-offline-hardening.md) | `███████░░░` 73 % | 8 | 1 | 11 |
 | [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `████████░░` 75 % | 3 | 1 | 4 |
-| [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `░░░░░░░░░░` 0 % | 0 | 7 | 7 |
+| [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `█░░░░░░░░░` 14 % | 1 | 6 | 7 |
 | [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `░░░░░░░░░░` 0 % | 0 | 1 | 3 |
 | [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `██████████` 100 % | 12 | 0 | 12 |
 | [TASK-21 Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers](docs/tasks/TASK-21_scenario-builder.md) | `██████████` 100 % | 13 | 0 | 13 |
