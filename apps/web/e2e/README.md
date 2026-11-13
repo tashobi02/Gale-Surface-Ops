@@ -94,3 +94,25 @@ text at 1.02 : 1 (ink on the dark card: the `.card` background overrides the `.s
 
 `.github/workflows/ci.yml` runs Node jobs, but CI ownership is T14.02's and this package adds no workflow. A CI job would run
 `make e2e` after `make setup`; it needs a Chromium that Playwright can find.
+
+## Backend release checks (backend package 28)
+
+Backend-owned files in this harness: `checks/release-*.spec.ts` and `lib/release.ts` (decision [BD-152](../../../docs/plan/backend/decisions.md)). They verify
+the release on the built app: offline, timings, device matrix, CSP and built files, recovery, roles, network faults and `make demo`.
+They run in the same `make e2e`; `release-demo` is its own last project because `make demo` rebuilds `apps/web/dist`.
+
+| Check | Replaces | State | Enabled by |
+| --- | --- | --- | --- |
+| `release-offline` | T14.06 | active: the planning scenario of 01 §E.2 twice, WAN unplugged, same `plan_hash` | |
+| `release-timings` | T14.07 | active: first paint, layer toggle, recompute; long tasks are judged on the real bundle (`E2E_SITE=gale_boxwork`), recorded on F4 (B-02) | |
+| `release-matrix` | T14.08 | active on desktop 1280, tablet 768 and phone 390, on F4 (one plan compared across them); the phone drawer tap is `fixme` (B-04) | frontend 07 |
+| `release-csp` | T14.09 (browser) | active: no CSP violation on any route, the header, `?debug=1` items; the debug overlay's own violation is `fixme` (B-05) | frontend 07 |
+| `release-demo` | T14.09 (files), `make demo` | active: `GET /`, `GET /api/health`, no external URL, gzip and bundle size | |
+| `release-recovery` | T14.10 | missing manifest, deleted layer, short grid active; worker failure and dev-build corruption `fixme` | frontend 09, 06 |
+| `release-roles` | T28.03 | active: every live role on every project receives a SNAPSHOT | |
+| `release-network` | T28.05, T31.08 | socket drop, kill and restart, `hab:local` active; SCR-18 within 3 s (B-03), the killer demo through the UI and the tap latency `fixme` | frontend 17, 18, 29 |
+
+Notes: the app is reached as `http://127.0.0.1:8091` (`E2E_PORT`); `release-demo` starts `make demo` on 8080 and skips when the real
+`gale_boxwork` bundle is absent or 8080 answers. The backup recording of `release-offline` is a video when Playwright's ffmpeg is
+installed, otherwise a screenshot, in `out/release-offline/`. After the frontend lane merges, run `make e2e` again and remove the
+`fixme` of every B- item that is fixed.
