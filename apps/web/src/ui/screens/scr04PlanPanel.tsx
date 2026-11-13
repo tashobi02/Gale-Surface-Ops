@@ -207,8 +207,31 @@ export function PlanPanel({ ctx, taskLibrary, taskLibraryStatus, onRetryTaskLibr
   const [open, setOpen] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
+  const startInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingSessionStart = useRef<string | null>(null);
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
   const fetchRef = useRef(fetchSession);
   fetchRef.current = fetchSession;
+
+  /**
+   * FD-042/FD-482: the Hab Core's answer is a default for an empty field, never an edit of a field the user is in. Applying it
+   * while the field has focus put its text behind the caret, so what the user then typed was appended to it. It is held until
+   * the user leaves the field, and dropped once they have set a start of their own.
+   */
+  const applySessionStart = (start: string): void => {
+    if (planStore.get().scenario.eva_start_utc !== "") return;
+    pendingSessionStart.current = null;
+    setSessionStart(true);
+    planStore.setScenario({ eva_start_utc: start });
+  };
+  const maybeApplyPendingStart = (draftCleared = false): void => {
+    const pending = pendingSessionStart.current;
+    if (pending === null) return;
+    if (!draftCleared && draftsRef.current.eva_start_utc !== undefined) return;
+    if (errorFor(planStore.get().scenario, "eva_start_utc", pending)) return;
+    applySessionStart(pending);
+  };
 
   // FD-042: the start time's only default is the Hab Core's scenario; ask once while the field is empty.
   useEffect(() => {
@@ -219,8 +242,12 @@ export function PlanPanel({ ctx, taskLibrary, taskLibraryStatus, onRetryTaskLibr
         const start = summary?.eva_start_utc;
         if (!alive || typeof start !== "string") return;
         if (planStore.get().scenario.eva_start_utc !== "" || errorFor(planStore.get().scenario, "eva_start_utc", start)) return;
-        setSessionStart(true);
-        planStore.setScenario({ eva_start_utc: start });
+        const inField = startInputRef.current !== null && document.activeElement === startInputRef.current;
+        if (inField || draftsRef.current.eva_start_utc !== undefined) {
+          pendingSessionStart.current = start;
+          return;
+        }
+        applySessionStart(start);
       },
       () => undefined,
     );
@@ -239,6 +266,7 @@ export function PlanPanel({ ctx, taskLibrary, taskLibraryStatus, onRetryTaskLibr
   const shownText = (key: NumberKey | "eva_start_utc"): string => drafts[key] ?? String(scenario[key]);
 
   const commit = (key: FieldKey, value: unknown): void => {
+    if (key === "eva_start_utc") pendingSessionStart.current = null;
     setEdited((current) => new Set(current).add(key));
     setNotice(null);
     planStore.setScenario({ [key]: value } as Partial<MissionScenario>);
@@ -265,6 +293,9 @@ export function PlanPanel({ ctx, taskLibrary, taskLibraryStatus, onRetryTaskLibr
       delete next[key];
       return next;
     });
+    if (key !== "eva_start_utc") return;
+    // The draft is being cleared here, so a start the Hab Core answered while the user was in the field may now apply.
+    maybeApplyPendingStart(true);
   };
 
   const pick = <K extends "solar_phase" | "crew_count" | "loop" | "vehicle_available">(key: K, value: MissionScenario[K]): void => {
@@ -414,6 +445,7 @@ export function PlanPanel({ ctx, taskLibrary, taskLibraryStatus, onRetryTaskLibr
               <div className="scr04-input">
                 <input
                   id={startId}
+                  ref={startInputRef}
                   type="text"
                   autoComplete="off"
                   spellCheck={false}

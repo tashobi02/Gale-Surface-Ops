@@ -79,6 +79,7 @@ export async function mount(element: ReactElement): Promise<Mounted> {
   await act(async () => {
     root.render(element);
   });
+  let mounted = true;
   return {
     container,
     async rerender(next) {
@@ -86,7 +87,10 @@ export async function mount(element: ReactElement): Promise<Mounted> {
         root.render(next);
       });
     },
+    /** Idempotent, so a suite's `afterEach` can unmount every mount a test already unmounted (FD-482). */
     async unmount() {
+      if (!mounted) return;
+      mounted = false;
       await act(async () => {
         root.unmount();
       });
