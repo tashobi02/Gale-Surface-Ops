@@ -47,7 +47,11 @@ describe("Package 99 boundary audit (science, time, CRS, brand orange)", () => {
       const allowed = hit.file === "ui/live/LiveFrame.tsx" || hit.file === "net/habClient.ts";
       expect(allowed, `Unexpected Date.now() in ${hit.file}:${hit.line}: ${hit.text}`).toBe(true);
     }
-    expect(dateNowHits.length).toBe(6);
+    // The exact number of hits is deliberately NOT asserted. A count would break on any legitimate new
+    // client-side timer (a debounce, an animation) even though the boundary itself still holds. What must hold is
+    // the rule: every hit is in a file whose only wall-clock use is display or a watchdog. The audit records the
+    // count as of 13 Nov 2026 (six: three in `LiveFrame.tsx`, three in `habClient.ts`) for the record.
+    expect(dateNowHits.length).toBeGreaterThan(0);
   });
 
   it("time boundary: performance.now() is used only for UI hold timing and worker timing metadata", () => {
