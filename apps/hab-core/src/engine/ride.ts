@@ -13,6 +13,9 @@
  *
  * Rules:
  * - Only the scenario's pressurized rover carries crew (a utility rover is INVALID). It must be PARKED (else BUSY).
+ * - QD-014: a crew member SHELTERED in (or HOLDING at) the pressurized rover that has ARRIVED at them after a summon can ride
+ *   from there; boarding counts as already aboard, and a held crew member steps to the rendezvous point (no distance check).
+ *   The rover then drives on with the RIDE task.
  * - The rider is WALKING (out of the waiting at the start), AT_STOP or HOLDING, and in the same routing-grid cell as the
  *   vehicle (the ParamSet has no boarding distance; "same cell" is the README's own wording). Otherwise INVALID.
  * - The stop is a stop waypoint of the plan in force, later than the rider's last stop, and some leg ends at it.
@@ -67,11 +70,21 @@ export function handleRide(state: EngineState, scenario: LoadedScenario, command
   if (stop_index <= (crew.stop_index ?? 0)) return fail(command, "INVALID", `${crew.crew_id} has already reached ${stop.id}`);
 
   if (crew.activity === "RIDING") return fail(command, "BUSY", `${crew.crew_id} is already riding`);
-  if (!RIDEABLE.includes(crew.activity)) return fail(command, "INVALID", `${crew.crew_id} is ${crew.activity}; a rider must be walking, at a stop or holding`);
+  // QD-014: the rover has arrived at the rider after a summon (SUMMON task naming them), so boarding counts as already aboard.
+  // A SUMMON_VEHICLE without an option names no crew in the task, so a HOLDING crew member counts as the one it came for.
+  const named = vehicle.task?.crew_ids ?? [];
+  const arrivedAtRider = vehicle.state === "ARRIVED" && vehicle.task?.kind === "SUMMON" && (named.includes(crew.crew_id) || (named.length === 0 && crew.activity === "HOLDING"));
+  const aboard = crew.activity === "SHELTERED" && arrivedAtRider;
+  if (!RIDEABLE.includes(crew.activity) && !aboard) return fail(command, "INVALID", `${crew.crew_id} is ${crew.activity}; a rider must be walking, at a stop or holding (or sheltered in the rover that has arrived at them)`);
   if (crew.activity === "WALKING" && state.motion[crew.crew_id]?.phase === "wait") return fail(command, "INVALID", `${crew.crew_id} has not left the hab yet`);
-  if (vehicle.state !== "PARKED") return fail(command, "BUSY", `${vehicle.vehicle_id} is ${vehicle.state}`);
+  if (vehicle.state !== "PARKED" && !arrivedAtRider) return fail(command, "BUSY", `${vehicle.vehicle_id} is ${vehicle.state}`);
+  if (arrivedAtRider) {
+    const waiting = named.filter((id) => id !== crew.crew_id && !["SHELTERED", "IN_HAB"].includes(state.crew.find((c) => c.crew_id === id)?.activity ?? "IN_HAB"));
+    if (waiting.length > 0) return fail(command, "BUSY", `${vehicle.vehicle_id} is still serving ${waiting.join(", ")}`);
+  }
   if (!scenario.grid) return fail(command, "INVALID", "no terrain grid is loaded, so there is no vehicle route");
-  if (!sameCell(scenario, crew, vehicle)) return fail(command, "INVALID", `${crew.crew_id} is not at ${vehicle.vehicle_id}; walk to it or hold beside it`);
+  // An arrived summon is the meeting: a held crew member steps to the rendezvous (QD-014), so no distance check there.
+  if (!arrivedAtRider && !sameCell(scenario, crew, vehicle)) return fail(command, "INVALID", `${crew.crew_id} is not at ${vehicle.vehicle_id}; walk to it or hold beside it`);
 
   const params = scenario.params[vehicle.param_set];
   if (!params || params.kind !== vehicle.kind) return fail(command, "INVALID", `ParamSet ${vehicle.param_set} of ${vehicle.vehicle_id} is not a loaded ${vehicle.kind} set`);

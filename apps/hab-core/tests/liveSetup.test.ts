@@ -102,7 +102,7 @@ const lines = (path: string): LogEvent[] =>
     .filter((l) => l.length > 0)
     .map((l) => JSON.parse(l) as LogEvent);
 
-/** The 20 command kinds, each with an argument object that is plausible for it (the matrix only needs the role check to run). */
+/** The 21 command kinds, each with an argument object that is plausible for it (the matrix only needs the role check to run). */
 const KINDS = [
   "LOAD_SCENARIO", "SET_CLOCK", "JUMP_NEXT_EVENT", "START_EVA", "PUBLISH_PLAN", "SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "APPROVE_OPTION", "TASK_ROVER",
   "SEND_MESSAGE", "INJECT_EVENT", "UPDATE_STOP_TASK", "ADD_STOP_TASK", "JUMP_NEXT_STOP", "START_EVENT", "RESET_SESSION", "SELECT_HAB_SITE", "SET_MISSION_SETUP", "SET_CREW_MOTION", "RIDE_VEHICLE",
@@ -468,10 +468,10 @@ describe("SET_MISSION_SETUP (02 §D.17, §E.3; 01 FR-53)", () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
-describe("role matrix: 20 command kinds x 8 roles (02 §E.4; 01 FR-31)", () => {
+describe("role matrix: 21 command kinds x 8 roles (02 §E.4; 01 FR-31)", () => {
   it("covers every command kind and every role", () => {
-    expect(KINDS).toHaveLength(20);
-    expect(new Set(KINDS).size).toBe(20);
+    expect(KINDS).toHaveLength(21);
+    expect(new Set(KINDS).size).toBe(21);
     expect(new Set(Object.values(PERMISSIONS).flat())).toEqual(new Set(KINDS));
     expect(Object.keys(PERMISSIONS).sort()).toEqual([...ROLES].sort());
   });

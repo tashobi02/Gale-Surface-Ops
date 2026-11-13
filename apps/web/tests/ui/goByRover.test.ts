@@ -80,4 +80,13 @@ describe("GO BY ROVER on the next-stop card (QoL Q3)", () => {
     expect(selectRide(snapshotWith([UR1]), "EV1")).toMatchObject({ available: false });
     expect(selectRide(null, "EV1")).toMatchObject({ available: false, riding: false });
   });
+
+  it("selectRide offers the ride to a held or sheltered crew member whose summoned rover has arrived (QD-014)", () => {
+    const summon = (crew_ids?: string[]): Partial<Vehicle> => ({ ...PR1, state: "ARRIVED", task: { kind: "SUMMON", target: { x_m: 5, y_m: 0 }, ...(crew_ids ? { crew_ids: crew_ids as never } : {}) } });
+    expect(selectRide(snapshotWith([summon()], "HOLDING"), "EV1")).toMatchObject({ available: true, stopId: "wp-1" });
+    expect(selectRide(snapshotWith([summon(["EV1"])], "SHELTERED"), "EV1")).toMatchObject({ available: true, stopId: "wp-1" });
+    expect(selectRide(snapshotWith([summon()], "WALKING"), "EV1")).toMatchObject({ available: false });
+    expect(selectRide(snapshotWith([summon()], "SHELTERED"), "EV1")).toMatchObject({ available: false });
+    expect(selectRide(snapshotWith([{ ...summon(), state: "EN_ROUTE" }], "HOLDING"), "EV1")).toMatchObject({ available: false });
+  });
 });

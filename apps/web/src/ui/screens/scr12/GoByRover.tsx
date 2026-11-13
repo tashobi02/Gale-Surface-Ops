@@ -40,7 +40,12 @@ export function selectRide(snapshot: Snapshot | null, crewId: CrewId): RideView 
   }
   const stops = (snapshot.plan?.waypoints ?? []).filter((w) => w.role === "stop");
   const next = stops[crew.stop_index ?? 0];
-  if (!rover || !next || rover.state !== "PARKED" || !CAN_BOARD.includes(crew.activity)) return NONE;
+  if (!rover || !next) return NONE;
+  // QD-014: the summoned rover has arrived at a held (no crew named in the task) or sheltered (named) crew member.
+  const named = rover.task?.crew_ids ?? [];
+  const arrived = rover.state === "ARRIVED" && rover.task?.kind === "SUMMON" && (named.includes(crewId) || (named.length === 0 && crew.activity === "HOLDING"));
+  const boardable = CAN_BOARD.includes(crew.activity) || (crew.activity === "SHELTERED" && arrived);
+  if (!boardable || (rover.state !== "PARKED" && !arrived)) return NONE;
   return { available: true, riding: false, vehicleId: rover.vehicle_id, stopId: next.id, etaS: null };
 }
 

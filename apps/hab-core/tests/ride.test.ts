@@ -138,6 +138,77 @@ describe("RIDE_VEHICLE: board, ride, dismount", () => {
   });
 });
 
+describe("RIDE_VEHICLE: from an arrived summon (hold, summon, go by rover)", () => {
+  /** A command of another kind than RIDE_VEHICLE, through the same handler. */
+  function sendKind(s: EngineState, kind: Command["kind"], args: Record<string, unknown>, role: Role = "ops"): Sent {
+    const command: Command = { command_id: `ride-${++n}`, role, kind, args };
+    const out = handleCommand(s, command, { scenario: sc, client_id: "c1", next_seq: s.session.last_seq + 1, accepted: new AcceptedCommands() });
+    const state = applyAll(s, out.events);
+    return out.result.ok ? { state, ok: true, events: out.events } : { state, ok: false, code: out.result.code, events: out.events };
+  }
+  /** EV1 walks to x > 20 m, is held, and the pressurized rover is summoned (no option); ticks until the rover has ARRIVED. */
+  function summonedAndArrived(): EngineState {
+    const walked = until(running(), (s) => crewOf(s).x_m > 20).state;
+    const held = sendKind(walked, "SET_CREW_MOTION", { crew_id: "EV1", motion: "HOLD" });
+    expect(held.ok).toBe(true);
+    const summoned = sendKind(held.state, "SUMMON_VEHICLE", { crew: ["EV1"] });
+    expect(summoned.ok).toBe(true);
+    const arrived = until(summoned.state, (s) => pr(s).state === "ARRIVED");
+    expect(crewOf(arrived.state).activity).toBe("HOLDING");
+    return arrived.state;
+  }
+  /** The same, as the contingency flow leaves it: the rover's SUMMON task names EV1 and EV1 is SHELTERED in it. */
+  function shelteredInRover(): EngineState {
+    const s = summonedAndArrived();
+    return {
+      ...s,
+      crew: s.crew.map((c) => (c.crew_id === "EV1" ? { ...c, activity: "SHELTERED" as const, haven: { ...c.haven, kind: "vehicle" as const } } : c)),
+      vehicles: s.vehicles.map((v) => (v.vehicle_id === "PR1" ? { ...v, task: { ...v.task!, crew_ids: ["EV1" as CrewId] } } : v)),
+    };
+  }
+  function rideToStopOne(from: EngineState): void {
+    const r = send(from, ride);
+    expect(r.ok).toBe(true);
+    expect(kinds(r.events)).toEqual(["CREW_BOARDED", "VEHICLE_DISPATCHED"]);
+    expect(crewOf(r.state).activity).toBe("RIDING");
+    const done = until(r.state, (s) => crewOf(s).activity === "AT_STOP");
+    expect(crewOf(done.state)).toMatchObject({ activity: "AT_STOP", stop_index: 1, x_m: STOP_1.x_m, y_m: STOP_1.y_m });
+    expect(pr(done.state)).toMatchObject({ state: "PARKED", task: null });
+    expect(kinds(done.events)).toEqual(expect.arrayContaining(["VEHICLE_ARRIVED", "CREW_DISMOUNTED", "ARRIVED_STOP"]));
+  }
+
+  it("HOLD, then SUMMON_VEHICLE (pressurized), the rover arrives, then RIDE_VEHICLE to the next stop ends AT_STOP", () => {
+    rideToStopOne(summonedAndArrived());
+  });
+
+  it("a crew member SHELTERED in the arrived rover rides to the next stop and ends AT_STOP", () => {
+    rideToStopOne(shelteredInRover());
+  });
+
+  it("a held crew member far from a parked rover, or one whose summoned rover is still driving, is still refused", () => {
+    const arrived = summonedAndArrived();
+    const far: EngineState = { ...arrived, crew: arrived.crew.map((c) => (c.crew_id === "EV1" ? { ...c, x_m: 200 } : c)), vehicles: arrived.vehicles.map((v) => (v.vehicle_id === "PR1" ? { ...v, state: "PARKED" as const, task: null } : v)) };
+    expect(send(far, ride)).toMatchObject({ ok: false, code: "INVALID" });
+    const driving: EngineState = { ...arrived, vehicles: arrived.vehicles.map((v) => (v.vehicle_id === "PR1" ? { ...v, state: "EN_ROUTE" as const } : v)) };
+    expect(send(driving, ride)).toMatchObject({ ok: false, code: "BUSY" });
+    const stale = shelteredInRover();
+    const gone: EngineState = { ...stale, vehicles: stale.vehicles.map((v) => (v.vehicle_id === "PR1" ? { ...v, state: "PARKED" as const, task: null } : v)) };
+    expect(send(gone, ride)).toMatchObject({ ok: false, code: "INVALID" });
+  });
+
+  it("the rover still serving another named crew member is BUSY", () => {
+    const s = shelteredInRover();
+    const two: EngineState = { ...s, crew: s.crew.map((c) => (c.crew_id === "EV2" ? { ...c, activity: "WALKING" as const, x_m: 300 } : c)), vehicles: s.vehicles.map((v) => (v.vehicle_id === "PR1" ? { ...v, task: { ...v.task!, crew_ids: ["EV1" as CrewId, "EV2" as CrewId] } } : v)) };
+    expect(send(two, ride)).toMatchObject({ ok: false, code: "BUSY" });
+  });
+
+  it("a crew member in the hab still cannot ride", () => {
+    const s = running();
+    const inHab: EngineState = { ...s, crew: s.crew.map((c) => (c.crew_id === "EV1" ? { ...c, activity: "IN_HAB" as const } : c)) };
+    expect(send(inHab, ride)).toMatchObject({ ok: false, code: "INVALID" });
+  });
+});
+
 describe("RIDE_VEHICLE: what is refused", () => {
   it("a utility rover cannot carry crew: INVALID, nothing logged", () => {
     const r = send(running(), { ...ride, vehicle_id: "UR1" });
