@@ -1,0 +1,6 @@
+/* CSP-safe print rule for DebugOverlay (B-05: no inline <style> element under default-src 'self'). */
+@media print {
+  [data-testid="debug-overlay"] {
+    display: none !important;
+  }
+}

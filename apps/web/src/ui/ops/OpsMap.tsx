@@ -29,6 +29,8 @@ export interface OpsMapProps {
   picking?: boolean;
   /** The picked position in working-projection metres. */
   onPick?: (target: { x_m: number; y_m: number }) => void;
+  /** When true (static #/replay), never fetch live /api/relay-coverage grids from a Hab Core. */
+  disableRelayFetch?: boolean;
 }
 
 const controlStyle: CSSProperties = {
@@ -66,7 +68,7 @@ function gridOf(site: LoadedSite, buffer: ArrayBuffer, source_id: string): CommG
   return { cell_m: g.cell_m, width: g.width, height: g.height, origin_m: g.origin_m, values: new Uint8Array(buffer), source_id };
 }
 
-export function OpsMap({ snapshot, picking = false, onPick }: OpsMapProps): ReactElement {
+export function OpsMap({ snapshot, picking = false, onPick, disableRelayFetch = false }: OpsMapProps): ReactElement {
   const host = useRef<HTMLDivElement>(null);
   const handleRef = useRef<MapHandle | null>(null);
   const layersRef = useRef<OpsLayers | null>(null);
@@ -156,22 +158,24 @@ export function OpsMap({ snapshot, picking = false, onPick }: OpsMapProps): Reac
         ops.setRelayCoverage(id, null);
       }
     }
-    for (const rover of rovers) {
-      const rev = rover.relay_coverage_rev;
-      if (typeof rev !== "number" || revs.get(rover.vehicle_id) === rev) continue;
-      revs.set(rover.vehicle_id, rev);
-      const id = rover.vehicle_id;
-      void fetch(`/api/relay-coverage/${encodeURIComponent(id)}`)
-        .then((response) => (response.ok ? response.arrayBuffer() : null))
-        .then((buffer) => {
-          if (layersRef.current !== ops || revs.get(id) !== rev) return;
-          ops.setRelayCoverage(id, buffer ? gridOf(site, buffer, `api:relay-coverage/${id}`) : null);
-          refreshRows();
-        })
-        .catch(() => undefined);
+    if (!disableRelayFetch) {
+      for (const rover of rovers) {
+        const rev = rover.relay_coverage_rev;
+        if (typeof rev !== "number" || revs.get(rover.vehicle_id) === rev) continue;
+        revs.set(rover.vehicle_id, rev);
+        const id = rover.vehicle_id;
+        void fetch(`/api/relay-coverage/${encodeURIComponent(id)}`)
+          .then((response) => (response.ok ? response.arrayBuffer() : null))
+          .then((buffer) => {
+            if (layersRef.current !== ops || revs.get(id) !== rev) return;
+            ops.setRelayCoverage(id, buffer ? gridOf(site, buffer, `api:relay-coverage/${id}`) : null);
+            refreshRows();
+          })
+          .catch(() => undefined);
+      }
     }
     refreshRows();
-  }, [snapshot, ready]);
+  }, [snapshot, ready, disableRelayFetch]);
 
   const fit = (): void => {
     const site = siteRef.current;

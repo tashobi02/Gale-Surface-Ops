@@ -269,7 +269,7 @@ export function EvaTablet({
               padding: "8px 16px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: "1 1 auto" }}>
               <StatusIcon status={vm.alertSlot.level} showWord={true} />
               <span style={{ fontWeight: 700, fontSize: "var(--text-alert-eva, 22px)" }}>
                 {vm.alertSlot.message}

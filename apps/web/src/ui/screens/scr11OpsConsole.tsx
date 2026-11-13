@@ -102,6 +102,8 @@ export interface OpsConsoleProps {
   /** Alert sound state, when the caller knows it; unset = unknown. */
   soundOn?: boolean;
   onToggleSound?: () => void;
+  /** When true (static #/replay), disable live /api fetches such as /api/relay-coverage. */
+  staticReplay?: boolean;
   className?: string;
 }
 
@@ -152,6 +154,7 @@ export function OpsConsole({
   soundOn,
   onToggleSound,
   onCommand,
+  staticReplay = false,
   className = "",
 }: OpsConsoleProps): ReactElement {
   const [viewportWidth, setViewportWidth] = useState(() => typeof window === "undefined" ? 1280 : window.innerWidth);
@@ -730,6 +733,7 @@ export function OpsConsole({
           <OpsMap
             snapshot={activeSnapshot ?? null}
             picking={picking}
+            disableRelayFetch={staticReplay}
             onPick={(target) => {
               setPickedTarget(target);
               setPicking(false);

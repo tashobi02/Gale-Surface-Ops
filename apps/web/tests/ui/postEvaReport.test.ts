@@ -544,4 +544,9 @@ describe("T27.03 report contract", () => {
     // The trace heading is styled like every other section heading.
     expect(html).toMatch(/<h2[^>]*>\[ MAP \/\/\/ CREW TRACE \]<\/h2>/);
   });
+
+  it("carries data-screen=\"SCR-17\" on the report root so live ops redirect verification finds SCR-17", () => {
+    const html = render(FULL);
+    expect(html).toMatch(/<div[^>]*data-screen="SCR-17"/);
+  });
 });

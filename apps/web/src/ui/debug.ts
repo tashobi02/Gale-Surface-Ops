@@ -15,6 +15,7 @@
  */
 import { createElement, useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import type { RoutingGrid } from "@marswalk/protocol";
+import "./debug.css";
 import type { AppContext } from "./context";
 import { UNAVAILABLE, provAttrs, unavailableOf, type Sourced } from "./components/provenance";
 
@@ -55,8 +56,6 @@ interface PointerSource {
   on(type: "pointermove", listener: (event: { coordinate: number[] }) => void): unknown;
   un(type: "pointermove", listener: (event: { coordinate: number[] }) => void): void;
 }
-
-const PRINT_CSS = "@media print { [data-testid='debug-overlay'] { display: none !important; } }";
 
 const PANEL: CSSProperties = {
   position: "fixed",
@@ -151,7 +150,6 @@ function DebugPanel({ ctx }: DebugOverlayProps): ReactElement {
   return createElement(
     "div",
     { "data-testid": "debug-overlay", role: "group", "aria-label": "Diagnostics", style: PANEL },
-    createElement("style", null, PRINT_CSS),
     createElement("div", { style: { color: "var(--text-2)" } }, "DIAGNOSTICS ?debug=1"),
     createElement(Row, {
       name: "fps",
