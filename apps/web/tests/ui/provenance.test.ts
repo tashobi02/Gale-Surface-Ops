@@ -36,6 +36,7 @@ import { Hud } from "../../src/ui/screens/scr13Hud";
 import { Options } from "../../src/ui/screens/scr14Options";
 import { PostEvaReport } from "../../src/ui/screens/scr17PostEvaReport";
 import { HabLinkLost } from "../../src/ui/screens/scr18HabLinkLost";
+import { RoverQueue } from "../../src/ui/ops/RoverQueue";
 import { adaptPostEvaReport } from "../../src/ui/report/reportAdapter";
 import { selectOpsProps } from "../../src/ui/ops/liveProps";
 import { populatedReport } from "../fixtures/postEvaReport";
@@ -295,5 +296,25 @@ describe("SCR-17 post-EVA report: populated reports and no report", () => {
 describe("SCR-18 hab link lost", () => {
   it.each([["with an age", 42], ["without an age", undefined]] as const)("%s", async (_name, ageSeconds) => {
     await expectLabelled(createElement(HabLinkLost, { crewId: "EV1", snapshot: snapshotOf("link-lost-restored"), ageSeconds }));
+  });
+});
+
+describe("numbers review: values outside the text-node sweep (FR-15)", () => {
+  it("labels the opacity control's displayed numeric value with its UI source", async () => {
+    const view = await mount(createElement(LayersPanel, {
+      layers: [{ id: "slope", title: "Slope", scientific: true, visible: true, opacity: 0.5, status: "ready", provenance: "derived", sourceIds: ["usgs-gale-dem-1m-v3"], legend: { type: "none" } }],
+      onVisibleChange: () => {}, onOpacityChange: () => {},
+    }));
+    try {
+      const input = view.container.querySelector<HTMLInputElement>('input[type="range"]')!;
+      expect(input.value).toBe("50");
+      expect(input.getAttribute("data-provenance")).toBe("assumed");
+      expect(input.getAttribute("data-source")).toBe("user:layer.slope.opacity");
+    } finally { await view.unmount(); }
+  });
+
+  it("classifies the standalone rover card's numeric identifier as an identifier", async () => {
+    const vehicle = snapshotOf("rover-queue").vehicles.find(v => v.kind === "utility_rover")!;
+    await expectLabelled(createElement(RoverQueue, { vehicle }));
   });
 });
