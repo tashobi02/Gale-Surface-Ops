@@ -190,6 +190,55 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
     expect(rows(container)[0].querySelector('[data-slot="event-provenance"] [data-provenance]')).toBeNull();
     expect(must(rows(container)[0], "[data-unavailable]").textContent).toBe("—");
   });
+
+  it("labels header count and every populated row cell with expected provenance and source id, without a client (BUG-004, BUG-003)", async () => {
+    const events: LogEvent[] = [
+      { ...ev(1, "PLAN_REVISED", { plan_revision: 7 }, { "data.plan_revision": "simulated" }), actor: "ops", sim_time: "2024-05-20T00:00:00Z" },
+      { ...ev(2, "ALERT_RAISED", { message: "Shelter now", level: "warning" }, { "data.rate_ugy_h": "replayed" }), sim_time: "2024-05-20T00:01:00Z" },
+      { ...ev(3, "PLAN_REVISED", {}), actor: "ops" },
+    ];
+    const view = await mount(createElement(EventLog, { events }));
+
+    const count = must(view.container, '[data-source="session:events.count"]');
+    expect(count.getAttribute("data-provenance")).toBe("simulated");
+    expect(count.textContent?.trim()).toBe("3 / 3");
+
+    const [revised, alert, missingSummary] = rows(view.container);
+    for (const [cell, path] of [
+      [revised.children[0]!, "seq"],
+      [revised.children[1]!, "sim_time"],
+      [revised.children[2]!, "actor"],
+      [revised.children[3]!, "summary"],
+    ] as const) {
+      expect(cell.getAttribute("data-provenance")).toBe("simulated");
+      expect(cell.getAttribute("data-source")).toBe(`event:PLAN_REVISED/1/${path}`);
+      expect(cell.getAttribute("data-unavailable")).toBeNull();
+    }
+    const revisedChip = must(revised, '[data-slot="event-provenance"] [data-provenance]');
+    expect(revisedChip.getAttribute("data-provenance")).toBe("simulated");
+    expect(revisedChip.getAttribute("data-source")).toBe("event:1:data.plan_revision");
+
+    const severity = must(alert, '[data-source="event:ALERT_RAISED/2/data.level"]');
+    expect(severity.getAttribute("data-provenance")).toBe("simulated");
+    expect(severity.textContent).toMatch(/⬣\s*WARNING/);
+    const alertChip = must(alert, '[data-slot="event-provenance"] [data-provenance]');
+    expect(alertChip.getAttribute("data-provenance")).toBe("replayed");
+    expect(alertChip.getAttribute("data-source")).toBe("event:2:data.rate_ugy_h");
+
+    const missingSummaryCell = missingSummary.children[3]!;
+    expect(missingSummaryCell.textContent).toContain("—");
+    expect(missingSummaryCell.getAttribute("data-provenance")).toBe("simulated");
+    expect(missingSummaryCell.getAttribute("data-unavailable")).toBe("true");
+    expect(missingSummaryCell.getAttribute("data-source")).toBe("unavailable:event:PLAN_REVISED/3/summary");
+    const unknownChip = must(missingSummary, '[data-slot="event-provenance"] [data-unavailable]');
+    expect(unknownChip.getAttribute("data-provenance")).toBeNull();
+    expect(unknownChip.getAttribute("data-source")).toBe("unavailable:event_log.provenance");
+
+    await click([...view.container.querySelectorAll("nav button")].find((b) => b.textContent === "ALERTS")!);
+    expect(count.textContent?.trim()).toBe("1 / 3");
+    expect(count.getAttribute("data-provenance")).toBe("simulated");
+    await view.unmount();
+  });
 });
 
 describe("EventLog severity is shape + word, not colour alone (04 §A.3)", () => {
