@@ -208,7 +208,7 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
       [revised.children[0]!, "seq"],
       [revised.children[1]!, "sim_time"],
       [revised.children[2]!, "actor"],
-      [revised.children[3]!, "summary"],
+      [revised.children[3]!, "data.plan_revision"],
     ] as const) {
       expect(cell.getAttribute("data-provenance")).toBe("simulated");
       expect(cell.getAttribute("data-source")).toBe(`event:PLAN_REVISED/1/${path}`);
@@ -229,7 +229,7 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
     expect(missingSummaryCell.textContent).toContain("—");
     expect(missingSummaryCell.getAttribute("data-provenance")).toBe("simulated");
     expect(missingSummaryCell.getAttribute("data-unavailable")).toBe("true");
-    expect(missingSummaryCell.getAttribute("data-source")).toBe("unavailable:event:PLAN_REVISED/3/summary");
+    expect(missingSummaryCell.getAttribute("data-source")).toBe("unavailable:event:PLAN_REVISED/3/data.plan_revision");
     const unknownChip = must(missingSummary, '[data-slot="event-provenance"] [data-unavailable]');
     expect(unknownChip.getAttribute("data-provenance")).toBeNull();
     expect(unknownChip.getAttribute("data-source")).toBe("unavailable:event_log.provenance");
@@ -239,12 +239,123 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
     expect(count.getAttribute("data-provenance")).toBe("simulated");
     await view.unmount();
   });
+
+  it("annotates a seeded TASK_ADDED summary as assumed and names data.text, agreeing with its provenance chip", async () => {
+    const seededTask: LogEvent = {
+      seq: 1,
+      sim_time: "2024-05-20T13:05:00Z",
+      kind: "TASK_ADDED",
+      actor: "system",
+      data: {
+        task_id: "t-s2-01",
+        stop_id: "wp-2",
+        crew_id: "EV1",
+        kind: "image",
+        text: "Image the ridge crest",
+        origin: "plan",
+      },
+      provenance: { "data.text": "assumed" },
+      command_ref: null,
+    };
+    const view = await mount(createElement(EventLog, { events: [seededTask] }));
+    const row = rows(view.container)[0]!;
+    const summary = row.children[3] as HTMLElement;
+    const chip = must(row, '[data-slot="event-provenance"] [data-provenance]');
+
+    expect(summary.textContent).toContain("Task added: Image the ridge crest");
+    expect(summary.getAttribute("data-provenance")).toBe("assumed");
+    expect(summary.getAttribute("data-provenance")).not.toBe("simulated");
+    expect(summary.getAttribute("data-source")).toBe("event:TASK_ADDED/1/data.text");
+    expect(summary.getAttribute("data-unavailable")).toBeNull();
+    expect(chip.getAttribute("data-provenance")).toBe("assumed");
+    expect(summary.getAttribute("data-provenance")).toBe(chip.getAttribute("data-provenance"));
+    await view.unmount();
+  });
+
+  it("keeps TASK_UPDATED and TASK_DROPPED summaries as simulated and names their displayed fields", async () => {
+    const updated: LogEvent = {
+      seq: 2,
+      sim_time: "2024-05-20T13:10:00Z",
+      kind: "TASK_UPDATED",
+      actor: "eva:EV1",
+      data: { task_id: "t-s2-01", stop_id: "wp-2", crew_id: "EV1", state: "DONE", reason: null },
+      provenance: { "data.state": "simulated" },
+      command_ref: { client_id: "c-1", command_id: "k-1" },
+    };
+    const dropped: LogEvent = {
+      seq: 3,
+      sim_time: "2024-05-20T13:12:00Z",
+      kind: "TASK_DROPPED",
+      actor: "system",
+      data: { task_id: "t-s2-02", stop_id: "wp-3", plan_revision: 2 },
+      provenance: { "data.plan_revision": "simulated" },
+      command_ref: null,
+    };
+    const view = await mount(createElement(EventLog, { events: [updated, dropped] }));
+    const [updatedRow, droppedRow] = rows(view.container);
+    const updatedSummary = updatedRow.children[3] as HTMLElement;
+    const droppedSummary = droppedRow.children[3] as HTMLElement;
+
+    expect(updatedSummary.getAttribute("data-provenance")).toBe("simulated");
+    expect(updatedSummary.getAttribute("data-source")).toBe("event:TASK_UPDATED/2/data.state");
+    expect(droppedSummary.getAttribute("data-provenance")).toBe("simulated");
+    expect(droppedSummary.getAttribute("data-source")).toBe("event:TASK_DROPPED/3/data.plan_revision");
+    await view.unmount();
+  });
+
+  it("honours event.provenance overrides, annotates mixed EVENT_STARTED as replayed, and avoids assumed on missing task text", async () => {
+    const started = ev(1, "EVENT_STARTED", {
+      event_id: "storm",
+      t0_sim_time: "2024-05-20T13:10:00Z",
+      series_start_utc: "2024-05-20T00:00:00Z",
+      source_id: "rad-sol4190",
+    });
+    const reclassified = ev(2, "TASK_ADDED", { task_id: "t-1", stop_id: "wp-2", text: "Check outcrop" }, { "data.text": "derived" });
+    const missingTaskText = ev(3, "TASK_ADDED", {});
+
+    const view = await mount(createElement(EventLog, { events: [started, reclassified, missingTaskText] }));
+    const [startedRow, reclassifiedRow, missingRow] = rows(view.container);
+
+    const startedSummary = startedRow.children[3] as HTMLElement;
+    expect(startedSummary.getAttribute("data-provenance")).toBe("replayed");
+    expect(startedSummary.getAttribute("data-source")).toBe("event:EVENT_STARTED/1/summary");
+
+    const reclassifiedSummary = reclassifiedRow.children[3] as HTMLElement;
+    expect(reclassifiedSummary.getAttribute("data-provenance")).toBe("derived");
+    expect(reclassifiedSummary.getAttribute("data-source")).toBe("event:TASK_ADDED/2/data.text");
+
+    const missingSummary = missingRow.children[3] as HTMLElement;
+    expect(missingSummary.textContent).toContain("—");
+    expect(missingSummary.getAttribute("data-unavailable")).toBe("true");
+    expect(missingSummary.getAttribute("data-source")).toBe("unavailable:event:TASK_ADDED/3/data.text");
+    expect(missingSummary.getAttribute("data-provenance")).toBeNull();
+    await view.unmount();
+  });
 });
 
 describe("EventLog severity is shape + word, not colour alone (04 §A.3)", () => {
-  it("an advisory alert row carries ◆ ADVISORY (04 §D.2)", async () => {
-    const { container } = await mount(createElement(EventLog, { events: [ev(1, "ALERT_RAISED", { message: "Forecast received", level: "advisory" })] }));
-    expect(rows(container)[0].textContent).toMatch(/◆\s*ADVISORY/);
+  it("an advisory alert row carries colour (--status-advisory/--advisory) + shape ◆ + word ADVISORY, alongside warning and caution", async () => {
+    const { container } = await mount(
+      createElement(EventLog, {
+        events: [
+          ev(1, "ALERT_RAISED", { message: "Forecast received", level: "advisory" }),
+          ev(2, "ALERT_RAISED", { message: "Shelter now", level: "warning" }),
+          ev(3, "ALERT_RAISED", { message: "Comm shadow", level: "caution" }),
+        ],
+      }),
+    );
+    const [advisoryRow, warningRow, cautionRow] = rows(container);
+    const advisorySummary = advisoryRow.children[3] as HTMLElement;
+    const warningSummary = warningRow.children[3] as HTMLElement;
+    const cautionSummary = cautionRow.children[3] as HTMLElement;
+
+    expect(advisorySummary.textContent).toMatch(/◆\s*ADVISORY/);
+    expect(advisorySummary.style.color).toMatch(/--status-advisory/);
+    expect(advisorySummary.style.color).toMatch(/--advisory/);
+    expect(warningSummary.textContent).toMatch(/⬣\s*WARNING/);
+    expect(warningSummary.style.color).toMatch(/--warning/);
+    expect(cautionSummary.textContent).toMatch(/▲\s*CAUTION/);
+    expect(cautionSummary.style.color).toMatch(/--caution/);
   });
 
   it("a warning alert row carries ⬣ WARNING, a caution row ▲ CAUTION; other rows carry neither", async () => {
@@ -279,25 +390,45 @@ describe("EventLog chrome uses neutral instrument colours, not route cyan (BUG-0
     const stripe = must<HTMLElement>(view.container, '[aria-hidden="true"]');
     const stripeStyle = stripe.getAttribute("style") ?? "";
     expect(stripeStyle).not.toMatch(/--route|#4cc9f0/i);
+    expect(stripe.style.height).toBe("4px");
+    expect(stripeStyle).toMatch(/linear-gradient\(.*--text-1.*--text-3.*--hairline/);
 
     const activeFilter = must<HTMLButtonElement>(view.container, 'nav button[aria-pressed="true"]');
     expect(activeFilter.style.backgroundColor).not.toMatch(/--route|#4cc9f0/i);
     expect(activeFilter.style.border).not.toMatch(/--route|#4cc9f0/i);
     expect(activeFilter.style.borderColor).not.toMatch(/--route|#4cc9f0/i);
+    expect(activeFilter.style.backgroundColor).toMatch(/--text-1/);
+    expect(activeFilter.style.color).toMatch(/--void/);
+    expect(activeFilter.style.border).toMatch(/--text-1/);
+
+    for (const inactiveFilter of view.container.querySelectorAll<HTMLButtonElement>('nav button[aria-pressed="false"]')) {
+      expect(inactiveFilter.style.backgroundColor).toBe("transparent");
+      expect(inactiveFilter.style.color).toMatch(/--text-2/);
+      expect(inactiveFilter.style.border).toMatch(/--edge/);
+    }
 
     await click([...view.container.querySelectorAll("nav button")].find((b) => b.textContent === "ALERTS")!);
     const alertsFilter = must<HTMLButtonElement>(view.container, 'nav button[aria-pressed="true"]');
     expect(alertsFilter.textContent).toBe("ALERTS");
     expect(alertsFilter.style.backgroundColor).not.toMatch(/--route|#4cc9f0/i);
     expect(alertsFilter.style.border).not.toMatch(/--route|#4cc9f0/i);
+    expect(alertsFilter.style.backgroundColor).toMatch(/--text-1/);
+    expect(alertsFilter.style.color).toMatch(/--void/);
+    expect(alertsFilter.style.border).toMatch(/--text-1/);
+
+    for (const inactiveFilter of view.container.querySelectorAll<HTMLButtonElement>('nav button[aria-pressed="false"]')) {
+      expect(inactiveFilter.style.border).toMatch(/--edge/);
+    }
 
     const [warningRow, cautionRow] = rows(view.container);
     const opsActor = warningRow.children[2] as HTMLElement;
     const ev1Actor = cautionRow.children[2] as HTMLElement;
     expect(opsActor.textContent).toBe("ops");
     expect(opsActor.style.color).not.toMatch(/--route|#4cc9f0/i);
+    expect(opsActor.style.color).toMatch(/--text-1/);
     expect(ev1Actor.textContent).toBe("eva:EV1");
     expect(ev1Actor.style.color).not.toMatch(/--route|#4cc9f0/i);
+    expect(ev1Actor.style.color).toMatch(/--text-1/);
 
     const warningSummary = warningRow.children[3] as HTMLElement;
     const cautionSummary = cautionRow.children[3] as HTMLElement;

@@ -34,10 +34,160 @@ function field(v: unknown): string {
   return UNAVAILABLE;
 }
 
-/** Event envelope and Hab Core text describe simulated session state; field chips retain their original classes. */
+/**
+ * Specificity order for mixed-provenance event summaries (FR-15, NFR-05, 05 LogEvent):
+ * empirical, replayed, computed, or team-authored origins take precedence over the `simulated`
+ * session envelope when one summary combines fields of different classes, while the row's
+ * `[data-slot="event-provenance"]` chip still lists every distinct class in `event.provenance`.
+ */
+const PROVENANCE_PRECEDENCE: readonly Provenance[] = [
+  "measured",
+  "replayed",
+  "derived",
+  "modelled",
+  "assumed",
+  "simulated",
+];
+
+function readEventProvenance(event: LogEvent, key: string): Provenance | null {
+  const map = event.provenance;
+  if (!map || !Object.hasOwn(map, key)) return null;
+  const prov = map[key];
+  return typeof prov === "string" && Object.hasOwn(PROVENANCE_GLYPHS, prov) ? (prov as Provenance) : null;
+}
+
+function strongestProvenance(classes: readonly (Provenance | null | undefined)[]): Provenance | null {
+  for (const candidate of PROVENANCE_PRECEDENCE) {
+    if (classes.includes(candidate)) return candidate;
+  }
+  return null;
+}
+
+interface SummaryFieldSpec {
+  path: string;
+  keys: string[];
+  fallback: Provenance;
+  missingFallback: Provenance | null;
+}
+
+function summaryFieldSpec(event: LogEvent, d: Record<string, unknown>): SummaryFieldSpec {
+  switch (event.kind) {
+    case "TASK_ADDED":
+      // 05 StopTask: task text is team-authored content (`assumed`); only the task_id fallback is `simulated`.
+      if (field(d.text) === UNAVAILABLE && field(d.task_id) !== UNAVAILABLE) {
+        return { path: "data.task_id", keys: ["data.task_id"], fallback: "simulated", missingFallback: "simulated" };
+      }
+      return { path: "data.text", keys: ["data.text"], fallback: "assumed", missingFallback: null };
+    case "TASK_UPDATED":
+      return {
+        path: "data.state",
+        keys: d.reason ? ["data.state", "data.reason"] : ["data.state"],
+        fallback: "simulated",
+        missingFallback: "simulated",
+      };
+    case "TASK_DROPPED":
+    case "PLAN_REVISED":
+      return { path: "data.plan_revision", keys: ["data.plan_revision"], fallback: "simulated", missingFallback: "simulated" };
+    case "SESSION_LOADED":
+      return { path: "data.scenario_id", keys: ["data.scenario_id"], fallback: "simulated", missingFallback: "simulated" };
+    case "CLOCK_CHANGED":
+      return { path: "data.speed", keys: ["data.speed", "data.paused"], fallback: "simulated", missingFallback: "simulated" };
+    case "EVA_STARTED":
+      return { path: "data.crew_ids", keys: ["data.crew_ids"], fallback: "simulated", missingFallback: "simulated" };
+    case "ARRIVED_STOP":
+    case "LEFT_STOP":
+      return { path: "summary", keys: ["data.stop_id", "data.crew_id"], fallback: "simulated", missingFallback: "simulated" };
+    case "ALERT_RAISED": {
+      const primary = field(d.message) !== UNAVAILABLE ? "data.message" : "data.code";
+      return { path: primary, keys: [primary], fallback: "simulated", missingFallback: "simulated" };
+    }
+    case "ALERT_ACKED":
+      return { path: "summary", keys: ["data.alert_id", "data.acked_by"], fallback: "simulated", missingFallback: "simulated" };
+    case "ALERT_CLEARED":
+      return { path: "data.alert_id", keys: ["data.alert_id"], fallback: "simulated", missingFallback: "simulated" };
+    case "OPTIONS_PROPOSED": {
+      const optionKeys = Object.keys(event.provenance ?? {}).filter(
+        (k) => k === "data.options" || k.startsWith("data.options[]."),
+      );
+      return {
+        path: "data.options",
+        keys: optionKeys.length > 0 ? optionKeys : ["data.options"],
+        fallback: "modelled",
+        missingFallback: "modelled",
+      };
+    }
+    case "VEHICLE_DISPATCHED":
+    case "VEHICLE_ARRIVED":
+      return { path: "data.vehicle_id", keys: ["data.vehicle_id"], fallback: "simulated", missingFallback: "simulated" };
+    case "CREW_SHELTERED":
+      return { path: "summary", keys: ["data.haven_kind", "data.crew_id"], fallback: "simulated", missingFallback: "simulated" };
+    case "CREW_MOTION_SET":
+      return { path: "data.motion", keys: ["data.motion", "data.crew_id"], fallback: "simulated", missingFallback: "simulated" };
+    case "LINK_LOST":
+    case "LINK_RESTORED":
+      return { path: "data.node_id", keys: ["data.node_id"], fallback: "simulated", missingFallback: "simulated" };
+    case "COMMAND_REJECTED":
+      return { path: "summary", keys: ["data.code", "data.message"], fallback: "simulated", missingFallback: "simulated" };
+    case "EARTH_MSG_QUEUED":
+    case "EARTH_MSG_DELIVERED":
+      return { path: "data.message_id", keys: ["data.message_id"], fallback: "simulated", missingFallback: "simulated" };
+    case "EVA_ENDED":
+      return { path: "summary", keys: [], fallback: "simulated", missingFallback: "simulated" };
+    case "ROLE_TAKEN_OVER":
+      return { path: "data.role", keys: ["data.role"], fallback: "simulated", missingFallback: "simulated" };
+    case "CLOCK_JUMPED":
+      return {
+        path: "summary",
+        keys: ["data.to_sim_time", "data.from_sim_time", "data.stop_id", "data.reason", "data.ended_by"],
+        fallback: "simulated",
+        missingFallback: "simulated",
+      };
+    case "EVENT_STARTED": {
+      // 01 FR-52 / 05 EventLibraryEntry: mixes sim press time (`t0_sim_time`, simulated) with recorded
+      // series metadata (`series_start_utc`, `source_id`, replayed); `replayed` takes precedence.
+      const hasReplayedSeries = field(d.series_start_utc) !== UNAVAILABLE || field(d.source_id) !== UNAVAILABLE;
+      return {
+        path: "summary",
+        keys: ["data.series_start_utc", "data.source_id", "data.t0_sim_time", "data.event_id"],
+        fallback: hasReplayedSeries ? "replayed" : "simulated",
+        missingFallback: null,
+      };
+    }
+    case "SESSION_RESET":
+      return { path: "summary", keys: ["data.session_id", "data.next_session_id"], fallback: "simulated", missingFallback: "simulated" };
+    case "SITE_SELECTED":
+      return { path: "data.candidate_id", keys: ["data.candidate_id"], fallback: "simulated", missingFallback: "simulated" };
+    case "MISSION_SETUP_SET":
+    default:
+      return {
+        path: "summary",
+        keys: Object.keys(d).map((k) => `data.${k}`),
+        fallback: "simulated",
+        missingFallback: event.kind === "MISSION_SETUP_SET" ? "simulated" : null,
+      };
+  }
+}
+
+/** Event envelope and metadata cells default to `simulated` unless `event.provenance` overrides the path. */
 function eventAttrs(event: LogEvent, path: string, present = true): ReturnType<typeof provAttrs> {
   const source = `event:${event.kind}/${field(event.seq)}/${path}`;
-  return provAttrs(present ? { prov: "simulated", src: source } : unavailableOf("simulated", source));
+  const prov = readEventProvenance(event, path) ?? "simulated";
+  return provAttrs(present ? { prov, src: source } : unavailableOf(prov, source));
+}
+
+/**
+ * Annotates the summary cell with the provenance of the field(s) rendered by `summarizeEvent`
+ * (FR-15, NFR-05): prefers `event.provenance` where it names the displayed field, falls back to the
+ * spec-owned class when omitted, and marks missing values via `unavailableOf`.
+ */
+function summaryAttrs(event: LogEvent, summary: string): ReturnType<typeof provAttrs> {
+  const d = (event.data ?? {}) as Record<string, unknown>;
+  const present = !summary.includes(UNAVAILABLE);
+  const spec = summaryFieldSpec(event, d);
+  const fromMap = strongestProvenance(spec.keys.map((k) => readEventProvenance(event, k)));
+  const prov = present ? (fromMap ?? spec.fallback) : (fromMap ?? spec.missingFallback);
+  const source = `event:${event.kind}/${field(event.seq)}/${spec.path}`;
+  return provAttrs(present ? { prov: prov!, src: source } : unavailableOf(prov, source));
 }
 
 export type EventCategory = "ALL" | "ALERTS" | "CREW" | "TASKS" | "VEHICLES" | "LINK" | "SYSTEM";
@@ -403,15 +553,19 @@ export function EventLog({
             const isAlert = ev.kind.startsWith("ALERT");
             const isWarning = isAlert && (ev.data as { level?: string })?.level === "warning";
             const isCaution = isAlert && (ev.data as { level?: string })?.level === "caution";
+            const isAdvisory = isAlert && (ev.data as { level?: string })?.level === "advisory";
             const rowColor = isWarning
               ? "var(--warning, #FF4D4D)"
               : isCaution
                 ? "var(--caution, #FFB020)"
-                : "var(--text-1, #ECEFF2)";
+                : isAdvisory
+                  ? "var(--status-advisory, var(--advisory, #4CC9F0))"
+                  : "var(--text-1, #ECEFF2)";
 
             // Provenance classes come from the event's own map; none = unknown (shown as "—", never a guessed class).
             const classes = provenanceClasses(ev);
             const severity = severityOf(ev);
+            const summary = summarizeEvent(ev);
 
             return (
               <div
@@ -485,7 +639,7 @@ export function EventLog({
 
                 {/* Event Summary */}
                 <span
-                  {...eventAttrs(ev, "summary", !summarizeEvent(ev).includes(UNAVAILABLE))}
+                  {...summaryAttrs(ev, summary)}
                   style={{
                     color: rowColor,
                     overflow: "hidden",
@@ -493,10 +647,10 @@ export function EventLog({
                     whiteSpace: "nowrap",
                     lineHeight: 1.3,
                   }}
-                  title={summarizeEvent(ev)}
+                  title={summary}
                 >
                   {severity && <span {...eventAttrs(ev, "data.level")} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px" }}>{severity.shape} {severity.word} </span>}
-                  {summarizeEvent(ev)}
+                  {summary}
                 </span>
 
                 {/* Provenance chip: one glyph per class in the event's provenance map, or "—" */}
