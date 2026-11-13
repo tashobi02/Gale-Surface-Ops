@@ -75,7 +75,10 @@ export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProp
       handle.getTargetElement().tabIndex = -1;
       const map = handle.getMap<OlMap>();
       const projection = ensureMarsProjection(site.site);
+      // The basemap is the only part of this map that can fail on its own (FD-505): the route, crew and hab markers are vectors.
+      // Counted across the optical tile layers: HUD-only is chosen when every tile attempted has failed, never for one lost tile.
       let optical = false;
+      const attempt = { pending: 0, loaded: 0 };
       for (const def of site.site.layers) {
         if (def.kind !== "raster_tiles" || !def.tile_grid || def.category !== "optical") continue;
         const asset = site.assets.get(def.asset_id);
@@ -84,8 +87,9 @@ export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProp
         // The shared OPS grayscale class (FD-003): the ortho is grey in OPS here as it is on the planner's map.
         optical = true;
         const tiles = new XYZ({ projection, tileGrid: createTileGrid(def.tile_grid, site.site.aoi.extent_m), wrapX: false, url: `${asset.url}/{z}/{x}/{y}.${def.tile_grid.format}`, attributions: attribution });
-        tiles.on("tileloaderror", fail);
-        tiles.on("tileloadend", () => clearTimeout(deadline));
+        tiles.on("tileloadstart", () => { attempt.pending += 1; });
+        tiles.on("tileloadend", () => { attempt.pending = Math.max(0, attempt.pending - 1); attempt.loaded += 1; clearTimeout(deadline); });
+        tiles.on("tileloaderror", () => { attempt.pending = Math.max(0, attempt.pending - 1); if (attempt.loaded === 0 && attempt.pending === 0) fail(); });
         map.addLayer(new TileLayer({ source: tiles, className: OPS_ORTHO_LAYER_CLASS }));
       }
       const source = new VectorSource();
@@ -122,7 +126,8 @@ export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProp
       for (const leg of routeLegsOf(latest.current)) {
         source.addFeature(new Feature(new LineString(leg.geometry)));
       }
-      if (!optical) fail();
+      // A site that declares no optical basemap has nothing to wait for: the map is complete as it was before package 34.
+      if (!optical) clearTimeout(deadline);
     }).catch((error: unknown) => {
       // The failure is logged, not swallowed: a silent "map unavailable" would hide a broken site or a missing token.
       console.error("mini-map site load", error);
