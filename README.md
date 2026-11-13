@@ -134,6 +134,17 @@ Credits below reproduce the source and image credits in the site manifests and P
 
 POI images: NASA/JPL-Caltech; NASA/JPL-Caltech/MSSS. See the [POI records](data/sites/gale_boxwork/vectors/pois.geojson) for the individual image credits.
 
+### Storm replay and partner-agency sources
+
+- **DONKI** (Database Of Notifications, Knowledge, Information, L8): NASA Community Coordinated Modeling Center (CCMC) / Moon-to-Mars (M2M) Space Weather Analysis Office, NASA Goddard Space Flight Center.
+- **MSL/RAD Dose rates** (L9): Heber, Bernd; Löwe, Jan Leo (2026). *MSL/RAD Dose rates*. Zenodo. doi:10.5281/zenodo.20536564. CC BY 4.0 (with NASA SPDF `msl_rad_obs-l2` CDF and NASA PDS Planetary Plasma Interactions Node `MSL-M-RAD-3-RDR-V1.0`; acknowledging RAD PI Dr. Donald M. Hassler, Southwest Research Institute Boulder).
+- **NASA NAIF SPICE kernels** (L10): NASA Navigation and Ancillary Information Facility (NAIF), Jet Propulsion Laboratory: generic, MRO and MAVEN SPICE kernels.
+- **ESA SPICE Service ExoMars 2016 Trace Gas Orbiter kernels** (L10): ESA SPICE Service, ExoMars 2016 Trace Gas Orbiter kernels.
+- **Partner-agency credits (02 §C.5):**
+  - ESA Mars Express HRSC data are part of the USGS Gale merged DEM (L2).
+  - ESA ExoMars Trace Gas Orbiter trajectory kernels (ESA SPICE Service) are used for the relay geometry (L10).
+  - The X12 flare-class estimate for 20 May 2024 comes from ESA/NASA Solar Orbiter data, as reported in NASA's release of 10 June 2024 (L9).
+
 ## Licence
 
 Code: [Apache-2.0](LICENSE). Data and images keep their original credits and use constraints.

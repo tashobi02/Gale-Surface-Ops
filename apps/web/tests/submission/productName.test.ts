@@ -39,4 +39,11 @@ describe("T16.01 product name", () => {
       .filter((name) => frontend.test(name) && !exempt.has(name));
     expect(found).toEqual([]);
   });
+  it("shows no retired working title on visible UI surfaces in apps/web/src or index.html", () => {
+    const technicalTokens = /@marswalk\/|marswalk-ortho|marswalk-recording|marswalk-crosshair|marswalk_grid/g;
+    const retired = /\bmarswalk\b/i;
+    const targets = ["apps/web/index.html", ...matchingFiles(join(root, "apps/web/src"), "")];
+    const hits = targets.filter((name) => retired.test(readFileSync(join(root, name), "utf8").replace(technicalTokens, "")));
+    expect(hits).toEqual([]);
+  });
 });

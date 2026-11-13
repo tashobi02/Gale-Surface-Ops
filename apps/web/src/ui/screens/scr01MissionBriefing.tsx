@@ -23,7 +23,7 @@ import { Metric } from "../components/metric";
 import { UNAVAILABLE } from "../components/provenance";
 import briefingCopy from "../content/briefing.json";
 import demoPlan from "../demoPlan.json";
-import { PROTOTYPE_DISCLAIMER } from "../content/disclaimer";
+import { PRODUCT_NAME, PROTOTYPE_DISCLAIMER } from "../content/disclaimer";
 import "./scr01MissionBriefing.css";
 
 /** The 01 §F.1 prototype boundary, verbatim (FR-52: it must appear in the app). */
@@ -112,7 +112,7 @@ export function MissionBriefing({ site, planStore, onNavigate }: MissionBriefing
         <span className="scr01-mark" aria-hidden="true">
           ⬢
         </span>
-        <span className="scr01-wordmark">Marswalk</span>
+        <span className="scr01-wordmark">{PRODUCT_NAME}</span>
         <nav className="scr01-nav" aria-label="Mission briefing">
           <a className="scr01-link" href="#/join" data-slot="join-as">
             Join as ▸

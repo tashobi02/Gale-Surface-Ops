@@ -19,4 +19,19 @@ describe("T16.05 README credits", () => {
       for (const poi of pois.features) if (poi.properties.image_credit) expect(readme).toContain(poi.properties.image_credit);
     });
   }
+
+  it("names storm replay (L8-L10) and partner-agency (02 §C.5) credits", () => {
+    const readme = read("README.md");
+    for (const credit of [
+      "DONKI",
+      "MSL/RAD Dose rates",
+      "doi:10.5281/zenodo.20536564",
+      "NAIF",
+      "ESA Mars Express HRSC",
+      "ESA ExoMars Trace Gas Orbiter",
+      "ESA/NASA Solar Orbiter",
+    ]) {
+      expect(readme, credit).toContain(credit);
+    }
+  });
 });

@@ -129,7 +129,7 @@ All spatial, elevation, spectral, and space weather data originate from official
 
 ## Team Roster (Team CheesySpace)
 
-Registered for NASA Space Apps Challenge 2026, Dhaka, Bangladesh ([docs/ops/team.md](team.md)). Names and roles only; TO BE FILLED BY THE TEAM: confirm that each member agrees to be listed and add any profile links they want public.
+Registered for NASA Space Apps Challenge 2026, Dhaka, Bangladesh ([docs/ops/team.md](team.md)). Names and roles only; TO BE FILLED BY THE TEAM (human action — requires explicit individual consent from each member): confirm that each member agrees to be listed and add any profile links they want public.
 
 1. Obidit Islam (Team Lead; data/GIS lead; story lead)
 2. Sadman Shaharier Mahim (product and systems lead; Hab Core lead; demo story)
@@ -142,8 +142,10 @@ Registered for NASA Space Apps Challenge 2026, Dhaka, Bangladesh ([docs/ops/team
 
 ## Project Links & Submission Placeholders
 
-- **Project Repository:** TO BE FILLED BY THE TEAM: repository URL
-- **Public Interactive Replay Demo:** TO BE FILLED BY THE TEAM: public replay demo URL
-- **240-Second Video (Local Judging):** TO BE FILLED BY THE TEAM: 240-second video URL
-- **30-Second Video (Global Cut):** TO BE FILLED BY THE TEAM: 30-second video URL
-- **Additional Portal Fields:** TO BE FILLED BY THE TEAM: any custom portal questionnaire fields
+No external upload, public repository toggle, or portal submission has happened yet. Every item below stays blank until the named person performs the outward-facing step in [submit-now.md](submit-now.md) (§1 Remaining Human Actions):
+
+- **Project Repository:** TO BE FILLED BY THE TEAM (human action — requires GitHub repo admin credentials and team consent to make public per [hosting.md](hosting.md)): repository URL
+- **Public Interactive Replay Demo:** TO BE FILLED BY THE TEAM (human action — requires GitHub Pages enablement and live private-browser verification): public replay demo URL
+- **240-Second Video (Local Judging):** TO BE FILLED BY THE TEAM (human action — requires local voice/playback review and authenticated YouTube/Vimeo upload): 240-second video URL
+- **30-Second Video (Global Cut):** TO BE FILLED BY THE TEAM (human action — requires local review and authenticated video-host upload): 30-second video URL
+- **Additional Portal Fields:** TO BE FILLED BY THE TEAM (human action — depends on authenticated 2026 portal forms and guides outside this repository): any custom portal questionnaire fields

@@ -20,6 +20,18 @@ Per decision **FD-192** ([docs/plan/frontend/decisions.md](../plan/frontend/deci
 - **Team Name on Portal:** CheesySpace ([docs/ops/team.md](team.md))
 - **Registered Challenge:** *Interplanetary Survival Guide: Martian Map* ([docs/ops/team.md](team.md))
 - **Hard Cutoff:** 13 Nov 2026, 18:00 Asia/Dhaka ([docs/ops/submission-checklist.md](submission-checklist.md))
+- **Publication Status:** Nothing has been uploaded, made public, or submitted on external portals yet; every remaining step below requires a human team member.
+
+### Remaining Human Actions (Cannot Be Automated)
+
+| Remaining human action | Owner | Why it cannot be automated |
+| --- | --- | --- |
+| Make repository public (or package private archive) and upload `gale_boxwork` bundle release asset ([hosting.md](hosting.md)) | Team owner / Data lead | Requires GitHub repository admin credentials, external network upload of large binary archives outside Git, and team consent for public visibility (FD-160). |
+| Enable GitHub Pages (`#/replay`) and verify public repo + Pages URLs in a private browser window | Team lead / Systems lead | Requires GitHub repository settings access and unauthenticated external browser verification against live GitHub hosting. |
+| Assemble/voice-check 240-s & 30-s videos in `var/videos/`, upload to video host, and record URLs | Story lead / Team lead | Local macOS `say` / human voiceover recording, audio/caption spot-check, and uploading to YouTube/Vimeo require local workstation audio hardware and personal/team account credentials (FD-492). |
+| Confirm each team member's consent for public listing and optional profile links | All 6 team members | Publishing personal profile links requires explicit individual human consent ([team.md](team.md)). |
+| Check live 2026 Project Submission & Judging guides and complete any custom portal questionnaire fields | Team owner / Systems lead | Official 2026 portal forms and participant guides sit behind authenticated event login outside this repository. |
+| Enter fields, attach links, click **Submit Project** before 18:00 Asia/Dhaka, and record confirmation timestamp/ID | Obidit Islam / Sadman Shaharier Mahim | Requires authenticated NASA Space Apps team-lead portal credentials and binding team sign-off (FD-192). |
 
 ---
 
