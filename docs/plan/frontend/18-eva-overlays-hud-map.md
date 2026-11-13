@@ -57,3 +57,33 @@ Row format: `| Txx.yy | done | 2026-11-DD | <evidence links: test file, harness 
 4. In the TASK file, add "Decided: FD-nnn (12 Nov 2026, Proposed)" under each Spec question this package closes; remove the code markers listed in the FD rows.
 5. Update `docs/tasks/status.md` rows exactly as below, run `make progress`, stage `status.md` and `README.md` in the same commit; append a `docs/AI_USE.md` row.
 6. Commit with the subtask ids and FR ids in the title, explicit paths (never `git add -A`), ending with the two attribution lines.
+
+## Implementation handoff — 13 Nov 2026
+
+FD-370–375 declare the implementation choices and extra files. TASK-24 Spec questions 1 and 3 are decided by FD-027/209 and FD-033 (12 Nov 2026, Proposed); their implementation is present. This stream leaves the TASK file unchanged under its stricter lane boundary.
+
+Tests-first evidence: 9 initial red tests, 4 map/age red tests, 1 alert-scope red test and 1 thermal-category red test (15 total). The initially passing release-cancel and in-flight resend cases failed under mutation; the added immediate-queue case also failed under mutation. No manual acceptance is claimed. The three former MapControls placeholders had already become active tests on the base branch; they remain active.
+
+The F4 site has no thermal or optical raster, so those controls/readouts honestly show unavailable. The thermal-category unit case verifies wiring when the manifest supplies it. N-120 (also N-100) blocks haven bands; its browser case remains fixme. All five status rows stay wip.
+
+The attempted `timeout 60s make e2e-one CHECK=hud-glance` failed before Chromium: `Error: listen EPERM: operation not permitted /tmp/tsx-1000/334.pipe`. The foreground harness cleaned up its child. No harness configuration was weakened. `graphify update .` completed; its generated tracked report was restored because it is outside this lane.
+
+The orchestrator had already synchronized the worktree; ancestry confirms origin/merging-core is contained in HEAD. A local `git merge origin/merging-core` verification attempt failed creating `.git/worktrees/hud2/ORIG_HEAD.lock` with `Read-only file system`; it changed no branch state.
+
+Run outside the restricted sandbox (foreground, with a timeout):
+
+```sh
+timeout 180s make e2e-one CHECK=hud-glance
+timeout 180s make e2e-one CHECK=fullmap
+timeout 180s make e2e-one CHECK=link-lost
+timeout 180s make e2e-one CHECK=queued-resend
+timeout 180s make e2e-one CHECK=contrast
+timeout 300s make e2e-one CHECK=axe
+timeout 180s make e2e-one CHECK=targets
+timeout 180s make e2e-one CHECK=eva-geometry
+timeout 180s make e2e-one CHECK=eva-warning
+timeout 180s make e2e-one CHECK=eva-portrait
+timeout 180s make e2e-one CHECK=rotation
+```
+
+Commit locally only; the orchestrator reviews, runs the browser and Hab Core checks, then pushes and publishes.

@@ -13,19 +13,21 @@ import {
   type KeyboardEvent,
   type ReactElement,
 } from "react";
-import type { ContingencyOption, CrewId, LogEvent, Provenance, Snapshot } from "@marswalk/protocol";
+import type { AbortArgs, ApproveOptionArgs, SummonVehicleArgs, ContingencyOption, CrewId, LogEvent, Provenance, Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
-import { useCommand, useEvents, useHabClient, useSnapshot } from "../../state/habSession";
+import { useCommand, useEvents, useHabClient, useSnapshot, useSocketConnected } from "../../state/habSession";
 import { HoldToConfirm, type ConfirmOutcome } from "../eva/HoldToConfirm";
 import { isProvenance, selectMetadataStrip } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
-import { UNAVAILABLE, fmtInt, glyphOf, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
+import { UNAVAILABLE, fmtFixed, fmtInt, glyphOf, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
 
 interface OptionsCommonProps {
   /** Hab Core client for command dispatch; omitted means the tab's session (state/habSession.ts), null means none. */
   client?: HabClient | null;
   /** Direct Snapshot override. */
   snapshot?: Snapshot | null;
+  /** The alert that opened the EVA sheet; superseded proposals cannot be selected. */
+  alertId?: string;
   /** Callback fired when an option is selected. */
   onSelectOption?: (option: ContingencyOption) => void;
   /** Selection preview, before approval; null removes a superseded path. */
@@ -46,13 +48,14 @@ export type OptionsProps = OptionsCommonProps &
 const OPTION_FIELD_CLASS: Record<string, Provenance | undefined> = {
   eta_shelter_min: "modelled",
   expected_dose_ugy: "modelled",
+  stops_dropped: "derived",
 };
 
 /**
  * The class the Hab Core gave an option field: the provenance of the newest OPTIONS_PROPOSED event for the option's alert
  * (the key is spelled as in 05 §F.6, `data.options[].<field>`, which the Hab Core writes; no other spelling is read).
  * Null when no such event is in the store or it names no valid class.
- * TODO(decision): 05 gives `stops_dropped` no class, so it shows none.
+ * Dropped stops are derived (FD-049).
  */
 function eventClass(events: LogEvent[], option: ContingencyOption, field: string): Provenance | null {
   for (let i = events.length - 1; i >= 0; i--) {
@@ -67,7 +70,7 @@ function eventClass(events: LogEvent[], option: ContingencyOption, field: string
 /** Label for an option value: the Hab Core's class (else 05's); a non-finite value reads "—", flagged unavailable. */
 function optionAttrs(events: LogEvent[], option: ContingencyOption, field: string, v: unknown): { attrs: ReturnType<typeof provAttrs>; glyph: string } {
   const prov = eventClass(events, option, field) ?? OPTION_FIELD_CLASS[field] ?? null;
-  const sourced = isFiniteNumber(v) ? { prov, src: `snapshot:options.${field}` } : unavailableOf(prov, `options.${field}`);
+  const sourced = isFiniteNumber(v) ? { prov, src: field === "stops_dropped" ? `snapshot:options.${option.option_id}.${field}` : `snapshot:options.${field}` } : unavailableOf(prov, `options.${field}`);
   return { attrs: provAttrs(sourced), glyph: glyphOf(sourced) };
 }
 
@@ -80,15 +83,16 @@ const KIND_LABELS: Record<string, string> = {
 
 /** The Hab Core command that executes an option for the acting role, or why this role cannot send one. */
 export type OptionCommand =
-  | { supported: true; kind: "APPROVE_OPTION" | "SUMMON_VEHICLE" | "ABORT"; args: Record<string, unknown> }
+  | { supported: true; kind: "APPROVE_OPTION"; args: ApproveOptionArgs }
+  | { supported: true; kind: "SUMMON_VEHICLE"; args: SummonVehicleArgs }
+  | { supported: true; kind: "ABORT"; args: AbortArgs }
   | { supported: false; reason: string };
 
 /**
  * Maps a selected option to the command the acting role is allowed to send (02 §E.4, PERMISSIONS).
  * Ops approves with APPROVE_OPTION. An EVA role may only SUMMON_VEHICLE or ABORT, for a crew list that
  * includes itself; CONTINUE_SKIP needs ops approval and is not available to EVA.
- * TODO(decision): define authorized EVA handling for unsupported option kinds; CONTINUE_SKIP requires ops
- * approval. Unsupported EVA actions remain disabled.
+ * Unsupported EVA kinds are read-only cards with no Go control (FD-050).
  */
 export function commandForOption(variant: "eva" | "ops", option: ContingencyOption, crewId: CrewId | undefined): OptionCommand {
   if (variant === "ops") {
@@ -104,7 +108,7 @@ export function commandForOption(variant: "eva" | "ops", option: ContingencyOpti
     case "ABORT_TO_HAB":
       return { supported: true, kind: "ABORT", args: { crew: [...option.crew_ids] } };
     default:
-      return { supported: false, reason: "Needs ops approval" };
+      return { supported: false, reason: "Ops approval needed" };
   }
 }
 
@@ -117,6 +121,7 @@ export function Options({
   client,
   crewId,
   snapshot,
+  alertId,
   variant = "eva",
   onSelectOption,
   onPreviewOption,
@@ -129,45 +134,52 @@ export function Options({
   const events = useEvents(client);
   const activeSnapshot = snapshot === undefined ? stored : snapshot;
   // No sample options: when the Hab Core has proposed none the sheet says so and cannot confirm anything.
-  const rawOptions = activeSnapshot?.options ?? [];
+  const rawOptions = (activeSnapshot?.options ?? []).filter((option) => (!alertId || option.alert_id === alertId) && (variant === "ops" || (crewId && option.crew_ids.includes(crewId))));
 
   // Options are kept strictly in server-provided rank order (04 §E.7)
   const options = [...rawOptions].sort((a, b) => a.rank - b.rank);
+  const alert = activeSnapshot?.alerts.find((a) => a.alert_id === (alertId ?? options[0]?.alert_id));
 
   // Top-ranked option is pre-selected (04 §E.7: "the top option pre-selected"). A choice belongs to the proposal it was
   // made on: a new proposal (other alert or other option ids) starts again at the top option.
   const proposalKey = options.map((o) => `${o.alert_id}/${o.option_id}`).join("|");
   const [choice, setChoice] = useState<{ key: string; rank: number } | null>(null);
   const selectedRank = choice && choice.key === proposalKey ? choice.rank : null;
-  const selectedOption = options.find((o) => o.rank === selectedRank) ?? options[0];
+  const selectable = options.filter((option) => commandForOption(variant, option, crewId).supported);
+  const selectedOption = selectable.find((o) => o.rank === selectedRank) ?? selectable[0];
   useEffect(() => { onPreviewOption?.(selectedOption ?? null); }, [selectedOption, onPreviewOption]);
   const radioRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const choose = (index: number): void => {
     const target = options[index];
-    if (!target) return;
+    if (!target || !commandForOption(variant, target, crewId).supported) return;
     setChoice({ key: proposalKey, rank: target.rank });
     radioRefs.current[index]?.focus();
   };
 
   // Radio group keys: arrows move the choice (wrapping), Home and End jump, Space and Enter choose the focused radio.
   const onRadioKeyDown = (e: KeyboardEvent<HTMLDivElement>, index: number): void => {
-    const last = options.length - 1;
+    const indices = options.flatMap((option, i) => commandForOption(variant, option, crewId).supported ? [i] : []);
+    const current = indices.indexOf(index);
+    const forward = indices[(current + 1) % indices.length];
+    const back = indices[(current + indices.length - 1) % indices.length];
     const next: Record<string, number> = {
-      ArrowDown: index === last ? 0 : index + 1,
-      ArrowRight: index === last ? 0 : index + 1,
-      ArrowUp: index === 0 ? last : index - 1,
-      ArrowLeft: index === 0 ? last : index - 1,
-      Home: 0,
-      End: last,
-      " ": index,
-      Enter: index,
+      ArrowDown: forward, ArrowRight: forward, ArrowUp: back, ArrowLeft: back,
+      Home: indices[0], End: indices[indices.length - 1], " ": index, Enter: index,
     };
     if (!(e.key in next)) return;
     e.preventDefault();
     choose(next[e.key]);
   };
 
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const opener = document.activeElement;
+    const entry = rootRef.current?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ?? rootRef.current;
+    entry?.focus({ preventScroll: true });
+    return () => { if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true }); };
+  }, []);
+  const socketConnected = useSocketConnected(client);
   const isEva = variant === "eva";
   const linked = isEva && crewId ? selectMetadataStrip(activeSnapshot, crewId).link.linked : null;
   const command = selectedOption ? commandForOption(variant, selectedOption, crewId) : null;
@@ -186,7 +198,7 @@ export function Options({
     ...(isEva
       ? {
           // Bottom sheet covering 70% of screen on warning (04 §E.7)
-          maxHeight: "70vh",
+          height: "100%", minHeight: 0, maxHeight: "100%",
           borderTop: "3px solid var(--status-warning, #FF4D4D)",
           boxShadow: "0 -8px 24px rgba(0, 0, 0, 0.7)",
         }
@@ -201,7 +213,7 @@ export function Options({
   const handleConfirm = async (): Promise<ConfirmOutcome> => {
     if (!hab || !selectedOption || !command) return { ok: false, message: missing };
     if (!command.supported) return { ok: false, message: command.reason };
-    const result = await send({ kind: command.kind, args: command.args });
+    const result = await send({ kind: command.kind, args: { ...command.args } });
     if (result.ok) {
       onSelectOption?.(selectedOption);
       onClose?.();
@@ -211,6 +223,9 @@ export function Options({
 
   return (
     <div
+      ref={rootRef}
+      tabIndex={-1}
+      onKeyDown={(event) => { if (event.key === "Escape" && onClose) { event.preventDefault(); event.stopPropagation(); onClose(); } }}
       role="region"
       aria-label="Contingency options selection"
       data-screen="SCR-14"
@@ -230,8 +245,8 @@ export function Options({
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <StatusIcon status="warning" showWord={true} />
-          <span style={{ fontWeight: 700, fontSize: "18px", textTransform: "uppercase" }}>
-            CONTINGENCY OPTIONS — SELECT RESPONSE
+          <span data-provenance={alert ? "simulated" : undefined} data-source={alert ? "snapshot:alerts.message" : undefined} style={{ fontWeight: 700, fontSize: "18px", overflowWrap: "anywhere" }}>
+            {alert?.message ?? "Contingency options — select response"}
           </span>
         </div>
         {onClose && (
@@ -248,8 +263,8 @@ export function Options({
       </div>
 
       {/* 2. Pre-selection note (04 §E.7: the top option is pre-selected) */}
-      {options.length > 0 && (
-        <div
+      {selectedOption && (
+        <div data-slot="options-recommendation"
           style={{
             padding: "6px 10px",
             background: "var(--surface-2, #1C2128)",
@@ -258,13 +273,13 @@ export function Options({
             color: "var(--text-2, #A9B3BE)",
           }}
         >
-          Recommended option pre-selected
+          {selectedOption.rank === options[0]?.rank ? "Recommended option pre-selected" : "Available safety option pre-selected"}
         </div>
       )}
 
       {/* 3. Ranked Options List (1–3) */}
       <div
-        role="radiogroup"
+        role={selectable.length ? "radiogroup" : "group"}
         aria-label="Ranked evacuation options"
         style={{
           display: "flex",
@@ -288,6 +303,7 @@ export function Options({
           </div>
         )}
         {options.map((opt, index) => {
+          const readOnly = !commandForOption(variant, opt, crewId).supported;
           const isSelected = opt.option_id === selectedOption?.option_id;
           const eta = optionAttrs(events, opt, "eta_shelter_min", opt.eta_shelter_min);
           const dose = optionAttrs(events, opt, "expected_dose_ugy", opt.expected_dose_ugy);
@@ -296,14 +312,15 @@ export function Options({
           return (
             <div
               key={opt.option_id}
-              role="radio"
-              aria-checked={isSelected}
-              tabIndex={isSelected ? 0 : -1}
+              role={readOnly ? "group" : "radio"}
+              data-option-kind={opt.kind}
+              aria-checked={readOnly ? undefined : isSelected}
+              tabIndex={readOnly ? undefined : isSelected ? 0 : -1}
               ref={(el) => {
                 radioRefs.current[index] = el;
               }}
-              onClick={() => choose(index)}
-              onKeyDown={(e) => onRadioKeyDown(e, index)}
+              onClick={readOnly ? undefined : () => choose(index)}
+              onKeyDown={readOnly ? undefined : (e) => onRadioKeyDown(e, index)}
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -312,7 +329,7 @@ export function Options({
                 border: isSelected
                   ? "3px solid var(--text-1, #ECEFF2)"
                   : "1px solid var(--control-edge, #5C6670)",
-                cursor: "pointer",
+                cursor: readOnly ? "default" : "pointer",
                 gap: "6px",
                 minHeight: "56px",
               }}
@@ -331,7 +348,7 @@ export function Options({
                   >
                     <span data-provenance="simulated" data-source="snapshot:options.rank">{isSelected ? "▣ " : ""}RANK {opt.rank}</span>
                   </span>
-                  <span style={{ fontWeight: 600, fontSize: "16px" }}>
+                  <span data-provenance="simulated" data-source="snapshot:options.kind" style={{ fontWeight: 600, fontSize: "16px" }}>
                     {KIND_LABELS[opt.kind] ?? opt.kind}
                   </span>
                 </div>
@@ -349,6 +366,7 @@ export function Options({
                 </span>
               </div>
 
+              {readOnly && <span data-slot="ops-approval-needed">Ops approval needed</span>}
               <div
                 style={{
                   display: "flex",
@@ -361,7 +379,7 @@ export function Options({
                 }}
               >
                 <span {...dose.attrs}>
-                  DOSE {fmtInt(opt.expected_dose_ugy)} µGy {dose.glyph}
+                  DOSE {fmtFixed(isFiniteNumber(opt.expected_dose_ugy) ? opt.expected_dose_ugy / 1000 : undefined, 1)} mGy {dose.glyph}
                 </span>
                 <span>·</span>
                 <span {...drops.attrs}>
@@ -369,7 +387,7 @@ export function Options({
                   {drops.glyph ? ` ${drops.glyph}` : ""}
                 </span>
                 {opt.violations.length > 0 && (
-                  <span style={{ color: "var(--status-warning, #FF4D4D)" }}>
+                  <span data-provenance="derived" data-source="snapshot:options.violations" style={{ color: "var(--status-warning, #FF4D4D)" }}>
                     <StatusIcon status="warning" showWord={true} /> {opt.violations.join(", ")}
                   </span>
                 )}
@@ -380,7 +398,7 @@ export function Options({
       </div>
 
       {/* 4. Action Footer: Hold-to-confirm Button (800 ms hold) */}
-      <div
+      {(!options.length || selectedOption) && <div
         style={{
           marginTop: "auto",
           paddingTop: "10px",
@@ -392,14 +410,14 @@ export function Options({
           data-hold-key="confirm-option"
           label={selectedOption ? isEva ? `Go — Option ${selectedOption.rank}` : `Approve option ${selectedOption.rank}` : "Confirm option"}
           outcome={selectedOption ? `Option ${selectedOption.rank} accepted` : "Accepted"}
-          queued={isEva && linked === false}
+          queued={!socketConnected || (isEva && linked === false)}
           kind="warning"
           holdDurationMs={800}
           disabled={missing !== undefined}
           disabledReason={missing}
           onConfirm={handleConfirm}
         />
-      </div>
+      </div>}
     </div>
   );
 }

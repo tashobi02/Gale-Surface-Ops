@@ -392,8 +392,25 @@ export function OpsConsole({
     >
       {/* ------------------------------------------------ Top Bar (04 §E.4) */}
       <header className="ops-top-bar" style={topBarStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span data-provenance="simulated" data-source={scenarioName ? "snapshot:session.scenario_id" : "unavailable:session.scenario_id"} data-unavailable={scenarioName ? undefined : "true"} style={{ fontWeight: 600, letterSpacing: "0.02em" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+          {/* The scenario name is unknown until the first snapshot, so the title sits in a fixed-width slot: the bar's
+              controls must not move when the name arrives, or a click on them lands on another control. A name longer
+              than the slot is cut with an ellipsis (the same fixed-row rule as the EVA metadata strip, FD-032). */}
+          <span
+            data-provenance="simulated"
+            data-source={scenarioName ? "snapshot:session.scenario_id" : "unavailable:session.scenario_id"}
+            data-unavailable={scenarioName ? undefined : "true"}
+            title={scenarioName ?? undefined}
+            style={{
+              fontWeight: 600,
+              letterSpacing: "0.02em",
+              flex: "0 0 auto",
+              width: "18ch",
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
+            }}
+          >
             ⬢ OPS · {scenarioName ?? UNAVAILABLE}
           </span>
           <span
@@ -428,7 +445,17 @@ export function OpsConsole({
             aria-pressed={soundEnabled}
             onClick={() => { if (consumeArmingGesture() && soundEnabled) return; setLocalSoundOn(!soundEnabled); onToggleSound?.(); }}
           >
-            <span data-provenance="assumed" data-source="ui:ops.sound">{soundEnabled ? armed ? "SOUND ON" : "SOUND ON — click to arm" : "SOUND OFF"}</span>
+            {/* The label sits in a fixed-width slot (FD-380): the arming hint disappears on the FIRST pointerdown anywhere
+                on the page (the AudioContext arms on any user gesture, 04 §C.7), so a label that grew and shrank with
+                its text would move the whole control group while a pointer was down — and the click would land on the
+                wrong control. The slot is as wide as the longest label; a longer one is cut with an ellipsis. */}
+            <span
+              data-provenance="assumed"
+              data-source="ui:ops.sound"
+              style={{ width: "21ch", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}
+            >
+              {soundEnabled ? armed ? "SOUND ON" : "SOUND ON — click to arm" : "SOUND OFF"}
+            </span>
           </button>
         </div>
       </header>

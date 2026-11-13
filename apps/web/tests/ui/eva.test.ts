@@ -693,17 +693,14 @@ describe("SCR-14 Options (04 §E.7)", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("EVA cannot confirm CONTINUE_SKIP (needs ops approval): the control is disabled and sends nothing", async () => {
+  it("EVA CONTINUE_SKIP is read-only without a Go control and sends nothing", async () => {
     vi.useFakeTimers();
     const { client, sent } = recordingClient(storeFromBeat("connect"));
     const { container } = await mount(
       createElement(Options, { crewId: "EV1", client, variant: "eva", snapshot: withOptions([option({ kind: "CONTINUE_SKIP" })]) }),
     );
-    const button = must<HTMLButtonElement>(container, "#action-confirm-option");
-
-    expect(button.disabled).toBe(true);
-    await pointerDown(button);
-    await act(async () => { vi.advanceTimersByTime(HOLD_DURATION_MS + 50); });
+    expect(container.querySelector("#action-confirm-option")).toBeNull();
+    expect(container.textContent).toContain("Ops approval needed");
     expect(sent).toHaveLength(0);
   });
 
@@ -897,5 +894,16 @@ describe("package 17 alert bar controls keep their own chrome (NFR-04, 04 §C.1,
     expect(contrast("#ECEFF2", "#14181D"), "OPS alert bar button").toBeGreaterThanOrEqual(4.5);
     // The high-contrast palette: black surface, white ink (FD-011).
     expect(contrast("#FFFFFF", "#000000"), "high contrast alert bar button").toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("package 18 cached age", () => {
+  it("N-03 last-linked sim time takes precedence over the watchdog fallback", async () => {
+    const base = snapshotOf("connect");
+    const snapshot = { ...base, sim_time: "2026-11-13T00:02:00Z", crew: base.crew.map((c) => ({ ...c, last_linked_sim_time: "2026-11-13T00:00:00Z" })) };
+    const { container } = await mount(createElement(HabLinkLost, { crewId: "EV1", snapshot, ageSeconds: 3 }));
+    const age = must(container, '[data-cached-age]');
+    expect(age.textContent).toBe("120");
+    expect(age.getAttribute("data-source")).toBe("snapshot:crew.last_linked_sim_time");
   });
 });

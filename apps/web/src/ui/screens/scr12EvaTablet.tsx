@@ -13,7 +13,7 @@ import {
 } from "react";
 import type { CrewId, Snapshot, StopTask } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
-import { useCommand, useHabClient, useLinkLost, useSnapshot } from "../../state/habSession";
+import { useCommand, useHabClient, useSocketConnected, useSnapshot } from "../../state/habSession";
 import {
   havenTargetLabel,
   selectEvaViewModel,
@@ -54,6 +54,8 @@ export interface EvaTabletProps {
   /** Handler to open SCR-14 Options sheet. */
   onOpenOptions?: () => void;
   optionsOpen?: boolean;
+  contrast?: boolean;
+  onContrastChange?: (value: boolean) => void;
   /** Handler to open SCR-15 Rover tasking sheet. */
   onOpenRoverTasking?: () => void;
   /** Handler to open full-screen map mode. */
@@ -125,6 +127,8 @@ export function EvaTablet({
   onOpenHud,
   onOpenOptions,
   optionsOpen = false,
+  contrast: controlledContrast,
+  onContrastChange,
   onOpenRoverTasking,
   onOpenFullScreenMap,
   orientation,
@@ -140,7 +144,7 @@ export function EvaTablet({
   // read the snapshot with the changes in progress applied.
   const serverTasks = activeSnapshot?.tasks ?? NO_TASKS;
   // Linked means the suit link is up (snapshot) and this tablet's own socket to the Hab Core is not lost.
-  const socketLost = useLinkLost(client).lost;
+  const socketLost = !useSocketConnected(client);
   const suitLinked = selectMetadataStrip(activeSnapshot, crewId).link.linked;
   const linked = socketLost ? false : suitLinked;
   const changes = useStopTaskChanges(send, serverTasks, linked);
@@ -148,7 +152,9 @@ export function EvaTablet({
   const vm: EvaViewModel = selectEvaViewModel(viewSnapshot, crewId);
 
   // Stop task list open state (TASKS button toggles the list).
-  const [contrast, setContrast] = useState(false);
+  const [localContrast, setLocalContrast] = useState(false);
+  const contrast = controlledContrast ?? localContrast;
+  const setContrast = onContrastChange ?? setLocalContrast;
   const [tapFallback, setTapFallback] = useState(false);
   const [tasksExpanded, setTasksExpanded] = useState<boolean>(false);
   // The Hab Core's reason for a refused ACK_ALERT, shown under the alert bar until the next alert (04 §D.5).
@@ -569,7 +575,7 @@ export function EvaTablet({
           crewId={crewId}
           contrast={contrast}
           tapFallback={tapFallback}
-          onContrast={() => setContrast((value) => !value)}
+          onContrast={() => setContrast(!contrast)}
           onTapFallback={() => setTapFallback((value) => !value)}
           linked={linked}
           onOpenHud={onOpenHud}

@@ -1,0 +1,18 @@
+.fullscreen-map [data-slot="map-canvas"] { min-height: 0; touch-action: none; overflow: hidden; }
+.fullscreen-map [data-slot="ol-map"] .ol-viewport { width: 100%; height: 100%; }
+.fullscreen-map [data-slot="map-controls"] { flex: 0 0 auto; background: var(--surface-0); z-index: 2; }
+.fullscreen-map [data-fullmap-value] { line-height: 1; white-space: nowrap; }
+.fullscreen-map [data-testid="coord-readout"],
+.fullscreen-map [data-testid="attribution"],
+.fullscreen-map [data-testid="north-arrow"],
+.fullscreen-map [data-testid="scale-bar"] { font-size: 16px !important; }
+.fullscreen-map > div > div:first-child { flex: 0 0 auto; }
+.fullscreen-map [role="dialog"] { max-height: 100%; overflow: auto; box-sizing: border-box; bottom: 0 !important; }
+@media (orientation: portrait) {
+  .fullscreen-map [data-slot="map-controls"] { justify-content: flex-start !important; }
+  .fullscreen-map [data-slot="crew-readout"] { display: none; }
+}
+.fullscreen-map { --text-value-landscape: 40px; }
+@media (min-width: 768px) and (min-height: 600px) {
+  .fullscreen-map { --text-value-landscape: 48px; }
+}

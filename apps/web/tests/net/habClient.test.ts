@@ -278,7 +278,11 @@ describe("Hab Core web client (T20.05 → T20.06)", () => {
     vi.advanceTimersByTime(1);
     expect(c.linkLost().lost).toBe(true);
     expect(c.linkLost().since_ms).not.toBeNull();
-    latest().receive(wsFixtures.walking[1]); // PING
+    latest().receive(wsFixtures.walking[1]); // A closed socket cannot restore the link.
+    expect(c.linkLost().lost).toBe(true);
+    vi.advanceTimersByTime(500);
+    latest().open();
+    latest().receive(wsFixtures.walking[1]); // PING on the new connection
     expect(c.linkLost()).toEqual({ lost: false, since_ms: null });
   });
 
@@ -384,5 +388,53 @@ describe("Hab Core web client: taken over by another device (02 §E.4, §E.6)", 
     latest().open();
     latest().receive(snapshot, taken("ops"));
     expect(c.takenOver()).toBe(false);
+  });
+});
+
+describe("T24.07 link deadline and T24.10 resend", () => {
+  it("a close at 2.9 seconds and a new socket open cannot extend the last-message deadline", () => {
+    const client = start();
+    latest().open(); latest().receive(snapshot);
+    vi.advanceTimersByTime(2900);
+    latest().drop();
+    vi.advanceTimersByTime(100);
+    expect(client.linkLost().lost).toBe(true);
+    client.close();
+  });
+  it("repeated opens without server messages do not postpone loss", () => {
+    const client = start(); latest().open(); latest().receive(snapshot);
+    vi.advanceTimersByTime(2400); latest().drop();
+    vi.advanceTimersByTime(500); latest().open();
+    vi.advanceTimersByTime(100);
+    expect(client.linkLost().lost).toBe(true);
+    client.close();
+  });
+  it("reports actual socket state and reconnect attempts before the heartbeat deadline", () => {
+    const client = start() as ReturnType<typeof habClientModule.connectHab>;
+    latest().open(); latest().receive(snapshot);
+    latest().drop();
+    expect(client.socketConnected?.()).toBe(false);
+    vi.advanceTimersByTime(500);
+    expect(client.reconnectCount?.()).toBe(1);
+    latest().drop(); vi.advanceTimersByTime(1000);
+    expect(client.reconnectCount?.()).toBe(2);
+    client.close();
+  });
+  it("drops AFTER a command dispatch, resends its stable id once and settles one result", async () => {
+    const client = start(); latest().open(); latest().receive(snapshot);
+    const resolved = vi.fn();
+    const pending = client.send({ kind: "SUMMON_VEHICLE", args: { crew: ["EV1"] } }).then(resolved);
+    const first = latest().sent.find((m) => m.type === "COMMAND")! as Extract<ClientMessage, {type: "COMMAND"}>;
+    expect(first).toBeTruthy();
+    latest().drop(); vi.advanceTimersByTime(500); latest().open();
+    const sent = latest().sent.filter((m) => m.type === "COMMAND") as Extract<ClientMessage, {type: "COMMAND"}>[];
+    expect(sent).toHaveLength(1);
+    expect(sent[0].command_id).toBe(first.command_id);
+    expect(sent[0].command.queued_offline).toBe(true);
+    const result: CommandResult = { v: 1, type: "COMMAND_RESULT", command_id: first.command_id, ok: true, event_seq: 421 };
+    latest().receive(result, result);
+    await pending;
+    expect(resolved).toHaveBeenCalledTimes(1);
+    client.close();
   });
 });

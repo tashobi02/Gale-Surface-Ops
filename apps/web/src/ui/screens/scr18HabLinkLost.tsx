@@ -8,7 +8,7 @@
 import type { CSSProperties, ReactElement } from "react";
 import type { CrewId, Snapshot } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
-import { useSnapshot } from "../../state/habSession";
+import { useSnapshot, useReconnectCount } from "../../state/habSession";
 import {
   havenTargetLabel,
   selectEvaViewModel,
@@ -49,6 +49,14 @@ export function HabLinkLost({
 }: HabLinkLostProps): ReactElement {
   const stored = useSnapshot(client);
   const activeSnapshot = snapshot ?? stored;
+  const reconnectCount = useReconnectCount(client);
+  const metadata = activeSnapshot?.crew.find((member) => member.crew_id === crewId);
+  const now = activeSnapshot ? Date.parse(activeSnapshot.sim_time) : NaN;
+  const last = metadata?.last_linked_sim_time ? Date.parse(metadata.last_linked_sim_time) : NaN;
+  const simAge = Number.isFinite(now) && Number.isFinite(last) && now >= last ? (now - last) / 1000 : undefined;
+  // An explicitly unknown N-03 stays unknown; only older snapshots without the field use the watchdog fallback.
+  const age = metadata?.last_linked_sim_time !== undefined ? simAge : ageSeconds;
+  const ageSource = metadata?.last_linked_sim_time !== undefined ? "snapshot:crew.last_linked_sim_time" : "client:link-watchdog";
   const vm: EvaViewModel = selectEvaViewModel(activeSnapshot, crewId);
 
   const isOps = mode === "ops";
@@ -118,11 +126,11 @@ export function HabLinkLost({
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <StatusIcon status="caution" showWord={true} />
           <span style={{ fontSize: "18px", letterSpacing: "0.02em" }}>
-            HAB LINK LOST — SHOWING CACHED PLAN
+            HAB LINK LOST — HAB SERVER UNREACHABLE — showing cached plan
           </span>
         </div>
         <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", fontWeight: 600 }}>
-          AUTO-RECONNECTING (≤ 1s)
+          AUTO-RECONNECTING · attempts <span data-reconnect-count="true" {...provAttrs(reconnectCount === null ? unavailableOf("derived", "client.reconnect_count") : { prov: "derived", src: "client:reconnect-count" })}>{reconnectCount ?? UNAVAILABLE}</span>
         </span>
       </div>
 
@@ -151,7 +159,7 @@ export function HabLinkLost({
               {vm.haven.minutes.unit} {glyphOf(vm.haven.minutes)}
             </span>
           </div>
-          <span style={{ fontSize: "16px", color: "var(--fg-3, #8592A0)", fontFamily: "var(--font-mono, monospace)" }}>
+          <span data-provenance="modelled" data-source="snapshot:crew.haven" style={{ fontSize: "16px", color: "var(--fg-3, #8592A0)", fontFamily: "var(--font-mono, monospace)" }}>
             {havenTargetLabel(vm.haven)}
           </span>
         </div>
@@ -186,21 +194,22 @@ export function HabLinkLost({
           <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
             <span
               className="value is-stale"
+              data-cached-age="true"
               {...provAttrs(
-                isFiniteNumber(ageSeconds)
-                  ? { prov: "simulated", src: "client:link-watchdog" }
+                isFiniteNumber(age)
+                  ? { prov: "simulated", src: ageSource }
                   : unavailableOf("simulated", "link.age_seconds"),
               )}
               style={{ ...numberStyle, color: "var(--status-caution, #FFB020)" }}
             >
-              {isFiniteNumber(ageSeconds) ? Math.round(ageSeconds) : UNAVAILABLE}
+              {isFiniteNumber(age) ? Math.round(age!) : UNAVAILABLE}
             </span>
             <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--status-caution, #FFB020)" }}>
-              {isFiniteNumber(ageSeconds) ? `s ${PROVENANCE_GLYPHS.simulated}` : ""}
+              {isFiniteNumber(age) ? `s ${PROVENANCE_GLYPHS.simulated}` : ""}
             </span>
           </div>
           <span style={{ fontSize: "16px", color: "var(--text-2, #A9B3BE)", fontFamily: "var(--font-mono, monospace)" }}>
-            stale tracking
+            {metadata?.last_linked_sim_time !== undefined ? "sim seconds since last linked" : "seconds since last server message"}
           </span>
         </div>
       </div>

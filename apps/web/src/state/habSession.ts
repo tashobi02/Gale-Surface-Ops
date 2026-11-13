@@ -166,6 +166,18 @@ export function useTakenOver(client?: HabClient | null): boolean {
   return useClientStore(useHabClient(client), readTakenOver, false);
 }
 
+/** Real transport state: a closed socket queues immediately, without waiting for SCR-18. */
+export function useSocketConnected(client?: HabClient | null): boolean {
+  return useClientStore(useHabClient(client), readSocketConnected, false);
+}
+const readSocketConnected = (client: HabClient): boolean => (client.socketConnected?.() ?? true) && !client.linkLost().lost;
+
+/** Actual reconnect attempts, never a static retry promise. */
+export function useReconnectCount(client?: HabClient | null): number | null {
+  return useClientStore(useHabClient(client), readReconnectCount, null);
+}
+const readReconnectCount = (client: HabClient): number | null => client.reconnectCount?.() ?? null;
+
 /** What `useCommand` resolves when there is no connection to send on. */
 function noConnection(): CommandResult {
   return { v: PROTOCOL_VERSION, type: "COMMAND_RESULT", command_id: "", ok: false, code: "BUSY", message: "No Hab Core connection" };

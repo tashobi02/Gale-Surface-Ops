@@ -70,3 +70,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 ## Package 23 follow-up
 
 1. N-90 — Implement N-16 `GET /api/join-qr?role=<role>` for the protocol roles, including presenter and HUD. The contract lists it but apps/hab-core/src has no handler in this checkout; SCR-19 shows “—” when an image is unavailable and keeps the same-origin join link.
+
+## Package 18 follow-up
+
+1. N-120 — Supply the hab walking-time field and its documented grid/source metadata to live EVA (the same dependency as N-100 for ops). The current site/snapshot contract has no transported field. Full-map haven bands show “— unavailable”; the specific haven-band browser check stays `test.fixme('needs N-120')`. No client time field or ETA is computed.

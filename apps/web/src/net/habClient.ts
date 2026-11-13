@@ -29,10 +29,7 @@
  * or external host: the default URL is the page's own host (NFR-01). Path syntax for deltas:
  * "crew/EV1/x_m" — array items are matched by their `*_id` field.
  *
- * Open points for the product & systems lead:
- * - TODO(verify): a command in flight when the socket drops is resent flagged `queued_offline`; it
- *   may already have run. The Hab Core ignores a repeated `command_id` of the same client (T23.02), so ids are
- *   `<client_id>-<per-connection nonce>-k<n>`: unique across reloads and duplicated tabs, stable across a resend.
+ * In-flight commands retain their id on reconnect; the Hab Core deduplicates by client/id (FD-088).
  */
 import {
   LINK_LOST_AFTER_MS,
@@ -73,6 +70,10 @@ export interface HabClient {
   linkLost(): { lost: boolean; since_ms: number | null };
   /** True once the Hab Core told this client a newer device took its role (02 §E.4); final for this client. */
   takenOver(): boolean;
+  /** Optional for older read-only adapters; live clients report the actual socket, before the watchdog expires. */
+  socketConnected?(): boolean;
+  /** Number of reconnect attempts (the initial connection is not a retry). */
+  reconnectCount?(): number;
   send(command: Pick<Command, "kind" | "args">): Promise<CommandResult>;
   subscribe(listener: () => void): () => void;
   close(): void;
@@ -110,6 +111,9 @@ export function connectHab(options: HabClientOptions): HabClient {
   let events: LogEvent[] = [];
   let seq = 0;
   let lost = false;
+  let lastHeardMs = Date.now();
+  let attempts = 0;
+  let openedOnce = false;
   let lostSince: number | null = null;
   let socket: SocketLike | null = null;
   let backoff = BACKOFF_START_MS;
@@ -140,14 +144,15 @@ export function connectHab(options: HabClientOptions): HabClient {
     watchdog = setTimeout(() => {
       if (closed || takenOver) return;
       lost = true;
-      lostSince = Date.now();
+      lostSince = lastHeardMs;
       notify();
       // A half-open socket may never fire onclose: close it so the reconnect loop starts.
       socket?.close();
-    }, LINK_LOST_AFTER_MS);
+    }, Math.max(0, lastHeardMs + LINK_LOST_AFTER_MS - Date.now()));
   }
 
   function heard(): void {
+    lastHeardMs = Date.now();
     if (lost) {
       lost = false;
       lostSince = null;
@@ -163,6 +168,11 @@ export function connectHab(options: HabClientOptions): HabClient {
   }
 
   function open(): void {
+    if (closed || takenOver) return;
+    reconnectTimer = null;
+    if (openedOnce) attempts += 1;
+    openedOnce = true;
+    notify();
     let s: SocketLike;
     try {
       s = factory(url);
@@ -175,7 +185,7 @@ export function connectHab(options: HabClientOptions): HabClient {
     s.onopen = () => {
       backoff = BACKOFF_START_MS;
       write({ v: PROTOCOL_VERSION, type: "HELLO", role, client_id: clientId, display_name: displayName, last_seq: seq });
-      armWatchdog();
+      notify();
       flush();
     };
     s.onmessage = (ev) => {
@@ -186,6 +196,7 @@ export function connectHab(options: HabClientOptions): HabClient {
       } catch {
         return;
       }
+      if (socket !== s) return;
       heard();
       apply(msg);
     };
@@ -194,7 +205,7 @@ export function connectHab(options: HabClientOptions): HabClient {
       socket = null;
       for (const p of pending.values()) if (p.inFlight) Object.assign(p, { inFlight: false, queued: true });
       if (closed || takenOver) return;
-      if (!lost) armWatchdog();
+      notify();
       scheduleReconnect();
     };
   }
@@ -288,6 +299,8 @@ export function connectHab(options: HabClientOptions): HabClient {
     lastSeq: () => seq,
     linkLost: () => ({ lost, since_ms: lostSince }),
     takenOver: () => takenOver,
+    socketConnected: () => socket?.readyState === SOCKET_OPEN,
+    reconnectCount: () => attempts,
     send(command) {
       if (closed) return Promise.resolve(failed("", "client closed"));
       if (takenOver) return Promise.resolve(failed("", "Taken over by another device"));

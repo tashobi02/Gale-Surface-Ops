@@ -1,44 +1,86 @@
-/**
- * Check `fullmap` (replaces T24.09, UT-9, U-60). Enabled by package 18.
- * The full-screen map opens and closes; in landscape it is at least 80 % of the width; HAVEN and O2 are at least 40 px (phone)
- * or 48 px (tablet) and still the largest numbers; six labelled controls are at least 56 px; a warning closes it; a synthetic
- * two-touch pinch zooms (FD-030).
- * TODO(verify): control labels and the pinch hook are package 18's.
- */
+/** T24.09: actual map viewport/view, safety geography, data layers and real OL touch zoom. */
 import { expect, test } from "@playwright/test";
-import { expectTargetSize, targets } from "../lib/geometry";
-import { waitForSnapshot } from "../lib/hab";
+import { expectTargetSize, targets, boxes, expectSameBoxes } from "../lib/geometry";
+import { openSurfaceFixture, surfaceSnapshot } from "../lib/surfaceFixture";
 
-const MAP_MIN_WIDTH_FRACTION = 0.8;
-const PHONE_MIN_FONT_PX = 40;
-const CONTROLS = 6;
-const CONTROL_MIN_PX = 56;
+for (const viewport of [{ width: 844, height: 390 }, { width: 1024, height: 768 }, { width: 390, height: 844 }, { width: 768, height: 1024 }]) {
+  test(`fullmap: safety geography, real layers, follow and pinch ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const fixture = await openSurfaceFixture(page, "eva");
+    try {
+      const safety = ["[data-slot=alert-slot]", "[data-slot=meta-strip]", "[data-slot=action-row]"];
+      const original = await boxes(page, safety);
+      await page.getByRole("button", { name: "Open full-screen map" }).click();
+      const map = page.locator("[data-fullmap]");
+      await expect(map).toHaveAttribute("data-map-status", "ready");
+      await expect(page.locator('[data-fullmap] .ol-viewport canvas').first()).toBeVisible();
+      expectSameBoxes(original, await boxes(page, safety), 0.5);
+      const landscape = viewport.width > viewport.height;
+      const area = page.locator('[data-fullmap] [data-slot="map-canvas"]');
+      const box = (await area.boundingBox())!;
+      if (landscape) expect(box.width).toBeGreaterThanOrEqual(viewport.width * 0.8);
+      const valueSelector = landscape ? "[data-fullmap-value]" : '[data-slot="telemetry-row"] .value';
+      const values = page.locator(valueSelector);
+      expect(await values.count()).toBe(2);
+      const minimum = landscape ? (viewport.width >= 1024 ? 48 : 40) : (viewport.width >= 768 ? 64 : 56);
+      for (const value of await values.all()) {
+        expect(await value.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(minimum);
+        expect(await value.evaluate((el) => {
+          const b = el.getBoundingClientRect(); const top = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+          return top === el || el.contains(top);
+        })).toBe(true);
+      }
+      // Both safety values remain the largest numbers actually visible, excluding occluded tablet cards.
+      const largest = await map.locator('[data-source]').evaluateAll((els) => Math.max(0, ...els.filter((el) => /\d/.test(el.textContent ?? "")).map((el) => parseFloat(getComputedStyle(el).fontSize))));
+      if (landscape) for (const value of await values.all()) expect(await value.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(largest);
+      const controls = await targets(page, "[data-fullmap-controls]");
+      expect(controls).toHaveLength(6); expectTargetSize(controls, 56);
+      const actualView = page.locator('[data-fullmap] [data-slot="ol-map"]');
+      const own = fixture.snapshot.crew[0]!;
+      await expect(actualView).toHaveAttribute("data-map-center", `${own.x_m},${own.y_m}`);
+      fixture.send({ ...fixture.snapshot, crew: fixture.snapshot.crew.map((c) => c.crew_id === "EV1" ? { ...c, x_m: c.x_m + 1 } : c) });
+      await expect(actualView).toHaveAttribute("data-map-center", `${own.x_m + 1},${own.y_m}`);
+      await page.locator('#map-ctrl-follow').click();
+      const center = await actualView.getAttribute("data-map-center");
+      fixture.send({ ...fixture.snapshot, crew: fixture.snapshot.crew.map((c) => c.crew_id === "EV1" ? { ...c, x_m: c.x_m + 2 } : c) });
+      await expect(actualView).toHaveAttribute("data-map-center", center!);
+      const before = Number(await actualView.getAttribute("data-map-zoom"));
+      expect(Number.isFinite(before)).toBe(true);
+      const client = await page.context().newCDPSession(page);
+      try {
+        const c = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+        await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: c.x - 20, y: c.y, id: 1 }, { x: c.x + 20, y: c.y, id: 2 }] });
+        // OpenLayers establishes its distance on the first move, then applies the scale on later moves.
+        for (const dx of [25, 40, 60, 80]) await client.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: c.x - dx, y: c.y, id: 1 }, { x: c.x + dx, y: c.y, id: 2 }] });
+        await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await expect.poll(async () => Number(await actualView.getAttribute("data-map-zoom"))).toBeGreaterThan(before);
+      } finally { await client.detach(); }
+      await page.locator('#map-ctrl-layers').click();
+      await expect(page.locator('[data-layer="haven_bands"]')).toBeDisabled();
+      await expect(page.locator('[data-layer="haven_bands"]')).toContainText("— unavailable");
+      for (const layer of ["slope", "comm_shadow"] as const) await expect(page.locator(`[data-layer="${layer}"]`)).toBeEnabled();
+      await expect(page.locator('[data-layer="thermal_inertia"]')).toBeDisabled();
+      await expect(page.locator('[data-layer="thermal_inertia"]')).toContainText("— unavailable");
+      await page.locator('[data-layer="comm_shadow"]').click();
+      await expect(page.locator('[data-fullmap]')).toContainText("LAYER: Comm shadow");
+      // A new warning closes the map even while its layer menu is open; safety values/actions stay reachable.
+      fixture.send(surfaceSnapshot("alerting-with-options"));
+      await expect(map).toBeHidden();
+      await expect(page.locator('[data-screen="SCR-14"]')).toBeVisible();
+      expectSameBoxes(original, await boxes(page, safety), 0.5);
+    } finally { fixture.dispose(); }
+  });
+}
 
-test.fixme("fullmap: opens, fills 80 % of the width, keeps HAVEN and O2 large, six controls, closes on a warning, pinches (enabled by package 18)", async ({ page }) => {
-  await page.goto("/#/eva/EV1");
-  await waitForSnapshot(page);
-  await page.getByRole("button", { name: /full map/i }).click();
-  const map = page.locator("[data-fullmap]");
-  await expect(map).toBeVisible();
-  const box = (await map.boundingBox())!;
-  expect(box.width).toBeGreaterThanOrEqual(page.viewportSize()!.width * MAP_MIN_WIDTH_FRACTION);
 
-  const sizes = await page.locator("[data-fullmap-value]").evaluateAll((els) => els.map((e) => parseFloat(getComputedStyle(e).fontSize)));
-  for (const px of sizes) expect(px).toBeGreaterThanOrEqual(PHONE_MIN_FONT_PX);
-
-  const controls = await targets(page, "[data-fullmap] [data-fullmap-controls]");
-  expect(controls).toHaveLength(CONTROLS);
-  expectTargetSize(controls, CONTROL_MIN_PX);
-
-  const before = await page.evaluate(() => (window as unknown as { __map?: { zoom(): number } }).__map?.zoom());
-  const client = await page.context().newCDPSession(page);
-  const c = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-  await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: c.x - 20, y: c.y, id: 1 }, { x: c.x + 20, y: c.y, id: 2 }] });
-  await client.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: c.x - 80, y: c.y, id: 1 }, { x: c.x + 80, y: c.y, id: 2 }] });
-  await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  const after = await page.evaluate(() => (window as unknown as { __map?: { zoom(): number } }).__map?.zoom());
-  expect(after).toBeGreaterThan(before!);
-
-  await page.getByRole("button", { name: /close map/i }).click();
-  await expect(map).toBeHidden();
+test.fixme("needs N-120: haven bands use the supplied hab time field", async ({ page }) => {
+  const fixture = await openSurfaceFixture(page, "eva");
+  try {
+    await page.getByRole("button", { name: "Open full-screen map" }).click();
+    await page.locator('[data-fullmap][data-map-status="ready"]').waitFor();
+    await page.locator('#map-ctrl-layers').click();
+    await expect(page.locator('[data-layer="haven_bands"]')).toBeEnabled();
+    await page.locator('[data-layer="haven_bands"]').click();
+    await expect(page.locator('[data-fullmap]')).toContainText("LAYER: Haven bands");
+  } finally { fixture.dispose(); }
 });

@@ -261,3 +261,19 @@ test("axe: SCR-08 computed briefing states have no serious or critical violation
     await axeScan(page, { mode: "print", route: `${testInfo.project.name}-scr08-${state}` });
   }
 });
+
+test("axe: EVA full map, options and cached transport-loss overlay (package 18)", async ({ page }, testInfo) => {
+  const { openSurfaceFixture, surfaceSnapshot } = await import("../lib/surfaceFixture");
+  const fixture = await openSurfaceFixture(page, "eva");
+  try {
+    await page.getByRole("button", { name: "Open full-screen map" }).click();
+    await page.locator('[data-fullmap][data-map-status="ready"]').waitFor();
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-fullmap` });
+    fixture.send(surfaceSnapshot("alerting-with-options"));
+    await page.locator('[data-screen="SCR-14"]').waitFor();
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-options` });
+    fixture.stop();
+    await page.locator('[data-screen="SCR-18"]').waitFor();
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-link-lost` });
+  } finally { fixture.dispose(); }
+});
