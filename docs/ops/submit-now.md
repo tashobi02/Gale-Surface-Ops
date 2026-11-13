@@ -4,12 +4,24 @@
 | --- | --- |
 | **Owner** | Story lead / Team lead · Obidit Islam ([docs/ops/team.md](team.md)) |
 | **Date** | 2026-11-13 |
-| **Status** | Actionable submission procedure for human team leads ([docs/plan/frontend/decisions.md](../plan/frontend/decisions.md) FD-160, FD-192) |
+| **Status** | Submitted — team lead confirmed completion on 13 November 2026; the procedure below is retained as a historical runbook |
 | **Deadline** | **13 Nov 2026, 18:00 Asia/Dhaka** ([docs/ops/submission-checklist.md](submission-checklist.md), [docs/specs/06_High_Level_Implementation_Plan.md](../specs/06_High_Level_Implementation_Plan.md) §A) |
 | **Responsible** | **Obidit Islam** (`@tashobi02`) or **Sadman Shaharier Mahim** (`@deatrax`) ([docs/ops/team.md](team.md)) |
 | **Related** | [Project Page Text](project-page.md) · [Submission Checklist](submission-checklist.md) · [Hosting](hosting.md) · [Rules](rules.md) · [Team Roster](team.md) |
 
 ---
+
+## Submission confirmation
+
+On **13 November 2026**, Obidit Islam confirmed: **"the video and all other stuff has been submitted"**. This is the team's completion evidence for the project materials and video deliverables (T16.06, T17.01–T17.03, T30.01).
+
+- **Submitted video:** [YouTube link supplied by the team](https://www.youtube.com/watch?v=ovzdp5B8Hh8&feature=youtu.be). The team supplied one link without specifying which duration it covers; no second video URL is inferred.
+- **Code package:** `Gale-Surface-Ops-Submission-main.zip`, built from main commit `a6c6a569f74ed00501d033aad45b5ef5c6106b15`, with a submission README and the verified `data-gale_boxwork-2026.11.09` runtime bundle. Archive SHA-256: `63b904025a5b8fa7c335e4aab172d40bd8c5f80404d7f7ecddc4109039dbae1e`.
+- **Local package verification:** clean locked dependency installation, production build, TypeScript checks, Hab Core startup, WebSocket role join, data and report APIs, asset checksums, ZIP integrity, and reference replay passed. The replay reproduced log hash `5fdf8ec1e67958e508b88c97bbe55fb0c8ec1d6800ea6bfc2bfd9988c779afda`.
+- **Submission route:** the team's existing private-repository/archive decision remains in effect ([hosting](hosting.md)). GitHub repository metadata still reports private visibility; submission does not assert that a public repository or Pages deployment was published.
+- **Evidence limits:** the project-page URL, portal confirmation ID, exact upload times and a second video URL were not supplied. The YouTube page could not be independently fetched during this documentation update; the link is recorded as supplied by the team. Historical video-content and engineering audit notes remain in the [verification log](verification-log.md#submission-completion--13-november-2026).
+
+The following instructions describe the pre-submission workflow and are retained for reference. Their template fields are historical, not a request to submit again.
 
 ## 1. Context and Ownership (FD-192)
 
@@ -20,18 +32,15 @@ Per decision **FD-192** ([docs/plan/frontend/decisions.md](../plan/frontend/deci
 - **Team Name on Portal:** CheesySpace ([docs/ops/team.md](team.md))
 - **Registered Challenge:** *Interplanetary Survival Guide: Martian Map* ([docs/ops/team.md](team.md))
 - **Hard Cutoff:** 13 Nov 2026, 18:00 Asia/Dhaka ([docs/ops/submission-checklist.md](submission-checklist.md))
-- **Publication Status:** Nothing has been uploaded, made public, or submitted on external portals yet; every remaining step below requires a human team member.
+- **Publication Status:** Videos and project materials submitted, as confirmed by the team lead above. Public repository/Pages publication is not claimed.
 
-### Remaining Human Actions (Cannot Be Automated)
+### Submitted deliverables
 
-| Remaining human action | Owner | Why it cannot be automated |
+| Deliverable | Owner | Completion evidence |
 | --- | --- | --- |
-| Make repository public (or package private archive) and upload `gale_boxwork` bundle release asset ([hosting.md](hosting.md)) | Team owner / Data lead | Requires GitHub repository admin credentials, external network upload of large binary archives outside Git, and team consent for public visibility (FD-160). |
-| Enable GitHub Pages (`#/replay`) and verify public repo + Pages URLs in a private browser window | Team lead / Systems lead | Requires GitHub repository settings access and unauthenticated external browser verification against live GitHub hosting. |
-| Assemble/voice-check 240-s & 30-s videos in `var/videos/`, upload to video host, and record URLs | Story lead / Team lead | Local macOS `say` / human voiceover recording, audio/caption spot-check, and uploading to YouTube/Vimeo require local workstation audio hardware and personal/team account credentials (FD-492). |
-| Confirm each team member's consent for public listing and optional profile links | All 6 team members | Publishing personal profile links requires explicit individual human consent ([team.md](team.md)). |
-| Check live 2026 Project Submission & Judging guides and complete any custom portal questionnaire fields | Team owner / Systems lead | Official 2026 portal forms and participant guides sit behind authenticated event login outside this repository. |
-| Enter fields, attach links, click **Submit Project** before 18:00 Asia/Dhaka, and record confirmation timestamp/ID | Obidit Islam / Sadman Shaharier Mahim | Requires authenticated NASA Space Apps team-lead portal credentials and binding team sign-off (FD-192). |
+| Video deliverables (T17.01–T17.03) | Story lead / Team lead | Team confirmation and the submitted YouTube link above. |
+| Project materials and portal submission (T16.06, T30.01) | Team lead | Team confirmation above; exact portal timestamp and confirmation ID were not provided. |
+| Main-branch source archive | Team owner / Data lead | Verified archive source, checksum and runtime checks above; submission confirmed by the team. |
 
 ---
 

@@ -8,12 +8,14 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 
 ## Status
 
-The planner, habitat server and role views are implemented; the task progress and remaining verification are tracked below. The full Gale site bundle is distributed separately. See the [submission guide](docs/ops/submit-now.md) for remaining team actions.
+**Submitted.** On 13 November 2026, team lead Obidit Islam confirmed that the videos and all other project materials had been submitted. [Watch the submitted video](https://www.youtube.com/watch?v=ovzdp5B8Hh8&feature=youtu.be) and see the [submission record](docs/ops/submit-now.md#submission-confirmation) for the archive source and verification evidence.
+
+The planner, habitat server and role views are implemented. The progress block below tracks engineering acceptance and documentation audits; submission completion is recorded separately. The submission archive includes the complete Gale site bundle; repository users obtain it through the [bundle download instructions](docs/ops/hosting.md#3-team-release-asset-fetch-route).
 
 ## Progress
 
 <!-- progress:start -->
-`████████████████░░░░` **81 %** — 279 of 345 subtasks done, 44 in progress.
+`█████████████████░░░` **83 %** — 286 of 345 subtasks done, 37 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -33,8 +35,8 @@ The planner, habitat server and role views are implemented; the task progress an
 | [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `█████████░` 92 % | 12 | 1 | 13 |
 | [TASK-14 Integration + offline hardening + fault tests](docs/tasks/TASK-14_integration-offline-hardening.md) | `███████░░░` 73 % | 8 | 1 | 11 |
 | [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `████████░░` 75 % | 3 | 1 | 4 |
-| [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `█░░░░░░░░░` 14 % | 1 | 6 | 7 |
-| [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `░░░░░░░░░░` 0 % | 0 | 3 | 3 |
+| [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `██████░░░░` 57 % | 4 | 3 | 7 |
+| [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `██████████` 100 % | 3 | 0 | 3 |
 | [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `██████████` 100 % | 12 | 0 | 12 |
 | [TASK-21 Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers](docs/tasks/TASK-21_scenario-builder.md) | `██████████` 100 % | 13 | 0 | 13 |
 | [TASK-22 Simulation engine: clock, crew motion, consumables, alerts, event log, replay](docs/tasks/TASK-22_simulation-engine.md) | `██████████` 100 % | 16 | 0 | 16 |
@@ -45,7 +47,7 @@ The planner, habitat server and role views are implemented; the task progress an
 | [TASK-27 Event log view, post-EVA report, replay mode for GitHub Pages](docs/tasks/TASK-27_report-and-replay.md) | `████████░░` 83 % | 5 | 1 | 6 |
 | [TASK-28 Network kit and rehearsal: router, static IP, QR join, device matrix, venue checklist](docs/tasks/TASK-28_network-kit.md) | `████████░░` 80 % | 4 | 1 | 5 |
 | [TASK-29 Robotic rover tasking: SCOUT, CARRY, RELAY, RETURN](docs/tasks/TASK-29_rover-tasking.md) | `████████░░` 83 % | 5 | 1 | 6 |
-| [TASK-30 Score-sheet single points: challenge named, repo public, page drafted, AI use current](docs/tasks/TASK-30_score-sheet-points.md) | `░░░░░░░░░░` 0 % | 0 | 3 | 3 |
+| [TASK-30 Score-sheet single points: challenge named, repo public, page drafted, AI use current](docs/tasks/TASK-30_score-sheet-points.md) | `███░░░░░░░` 33 % | 1 | 2 | 3 |
 | [TASK-31 Stop task list (FR-50): protocol, engine, EVA list, ops progress, task text](docs/tasks/TASK-31_stop-task-list.md) | `██████░░░░` 62 % | 5 | 3 | 8 |
 | [TASK-32 Live operations session: presenter panel, event on demand, mission setup, stop task library](docs/tasks/TASK-32_live-session.md) | `████████░░` 84 % | 27 | 5 | 32 |
 
@@ -56,7 +58,17 @@ Generated, do not edit by hand. Record finished subtasks in [docs/tasks/status.m
 
 ## Quickstart
 
-Requirements: Node.js LTS, conda (Miniconda or Miniforge; the pipeline's only Python environment), GNU Make.
+To run the application, use Node.js 26.x with npm (verified with Node.js 26.13.0). The submission archive includes the Gale runtime data. For a repository checkout, first obtain the [site bundle](docs/ops/hosting.md#3-team-release-asset-fetch-route).
+
+```sh
+npm ci
+npm run build
+npm run hab:local -- --open
+```
+
+Open `http://localhost:8080/#/` for the mission briefing. The local launcher also prints and opens the ops, presenter, EV1 tablet and EV1 HUD URLs. Use `#/planner` to plan a route, `#/sources` to inspect provenance, and `#/replay` to watch the reference recording. The runtime needs no internet after installation and building.
+
+The offline preprocessing pipeline and full development checks additionally require conda (Miniconda or Miniforge) and GNU Make:
 
 ```sh
 make setup        # npm ci (all workspaces) + conda environment marswalk-pipeline
@@ -144,6 +156,14 @@ POI images: NASA/JPL-Caltech; NASA/JPL-Caltech/MSSS. See the [POI records](data/
   - ESA Mars Express HRSC data are part of the USGS Gale merged DEM (L2).
   - ESA ExoMars Trace Gas Orbiter trajectory kernels (ESA SPICE Service) are used for the relay geometry (L10).
   - The X12 flare-class estimate for 20 May 2024 comes from ESA/NASA Solar Orbiter data, as reported in NASA's release of 10 June 2024 (L9).
+
+### Fonts and icons
+
+Inter, IBM Plex Mono, Chakra Petch and Source Serif 4 are bundled under SIL Open Font License 1.1; their licence files are included under [apps/web/public/fonts](apps/web/public/fonts/). Lucide icons use the bundled [ISC licence](apps/web/public/icons/LICENSE).
+
+## Prototype boundary
+
+Gale Surface Ops is an exploratory hackathon prototype. It is not astronaut operations software. Crew, suit, rover and vehicle states are simulated. Solar events are real historical records replayed on a simulated clock — not a live feed from Mars. Slope limits, speeds, consumables and shelter values are illustrative assumptions from Earth and Apollo-era references. Radio coverage is line-of-sight only.
 
 ## Licence
 
