@@ -543,7 +543,7 @@ Commands are **not** logged themselves; the LogEvent they produce (or a `COMMAND
 
 **Command journal** *(2026-11-12)*: besides `session.jsonl`, each session directory has `commands.jsonl` with one line per command the Hab Core evaluated (accepted or rejected), in evaluation order: `{sim_time, after_seq, role, kind, args, command_id, client_id}`. It is not part of `log_hash` and the engine never reads it. A live session exports it, split per session, as the command list that `--commands <file>` replays (02 §D.17); exact replay needs the rejected commands too, because they write the hashed `COMMAND_REJECTED` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-93)*
 
-**`PUBLISH_PLAN` args** *(2026-11-12)*: `{plan: PlanExport, stop_tasks?: StopTaskSeed[]}`. `StopTaskSeed` is the element of Scenario `stop_tasks` (`{task_id?, stop_id, crew_id, kind, text}`). The Hab Core seeds one `TASK_ADDED` (`origin` `plan`) per task at publish. `plan_hash` is computed over `plan` alone, so the seeds do not change it *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-91)*
+**`PUBLISH_PLAN` args** *(2026-11-12)*: `{plan: PlanExport, stop_tasks?: StopTaskSeed[]}`. `StopTaskSeed` is the element of Scenario `stop_tasks` (`{task_id?, stop_id, crew_id, kind, text}`). The Hab Core seeds one `TASK_ADDED` (`origin` `plan`) per task at publish. `plan_hash` is computed over `plan` alone, so the seeds do not change it *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-91)*. While the session is `LOADED` a repeated publish replaces the session's `plan`-origin tasks by the list (02 §E.5) *(Proposed 2026-11-13; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026; BD-155)*
 
 **Repeated `command_id`** *(decided 2026-11-07)*: a command whose `command_id` the same client already sent and the Hab Core accepted is answered with the first `COMMAND_RESULT` (same `event_seq`) and not run again. A rejected `command_id` may be retried and is evaluated afresh. The LogEvent's `command_ref` keeps the rule true after a Hab Core restart: on load, the accepted `command_id`s are rebuilt from the log.
 
@@ -571,7 +571,7 @@ State is reduced from `TASK_ADDED`, `TASK_UPDATED` and `TASK_DROPPED` events; it
 | Arg | Type | Rules |
 | --- | --- | --- |
 | `task_id` | string | an existing StopTask |
-| `state` | `DONE \| SKIPPED \| TODO` | `DONE` and `SKIPPED` from `TODO`; `TODO` only with `undo: true` |
+| `state` | `DONE \| SKIPPED \| TODO` | `DONE` and `SKIPPED` from `TODO`; `TODO` only with `undo: true`; `SKIPPED` from `SKIPPED` only to revise the `reason` (02 §E.6 reason revision) *(Proposed 2026-11-13; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026; BD-153)* |
 | `reason` | enum | for `SKIPPED` only (`time \| terrain \| alert \| other`) |
 | `undo` | bool, optional | `true` = reversal to `TODO` (`DONE \| SKIPPED → TODO`) of the last change to this task, by the sender's role as the `actor` of that `TASK_UPDATED` (a `system` actor cannot be undone), accepted only while that change is the task's last event and not stale (the task's stop is still in the current plan and no `PLAN_REVISED` since). Any `state` other than `TODO` with `undo: true` is `INVALID`. The 5-s window is enforced on the tablet, not by the Hab Core |
 
