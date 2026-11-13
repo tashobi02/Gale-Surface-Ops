@@ -103,6 +103,35 @@ test("ops-no-terminal: rover step from the vehicle card, target picked on the ma
   await expect(page.locator('[data-layer="relay_coverage"]')).toHaveText(/Relay coverage — not computed/);
 });
 
+test("ops-no-terminal: dispatch a rover target using keyboard traversal and map controls", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 1280) < 1024, "the ops console needs >= 1024 px");
+  const { commands } = await openOpsFixture(page, "running", { vehicles: [UTILITY_ROVER] });
+  await openOpsPanel(page, "crew");
+  const tabTo = async (locator: import("@playwright/test").Locator) => {
+    for (let i = 0; i < 150; i++) {
+      if (await locator.evaluate((element) => element === document.activeElement)) return;
+      await page.keyboard.press("Tab");
+    }
+    throw new Error("Control was not reached by keyboard traversal");
+  };
+  await tabTo(page.getByRole("button", { name: "Task rover UR1" }));
+  await page.keyboard.press("Enter");
+  const dialog = page.locator('[data-screen="SCR-15"]');
+  await tabTo(dialog.locator('[data-task="SCOUT"]'));
+  await page.keyboard.press("Enter");
+  await tabTo(dialog.getByRole("button", { name: "Pick on map" }));
+  await page.keyboard.press("Enter");
+  const viewport = page.locator('[data-slot="map-canvas"] [tabindex="0"]');
+  await expect(viewport).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  await expect(dialog.locator('[data-field="target"]')).toHaveAttribute("data-source", "ui:map-pick");
+  await tabTo(dialog.locator('[data-action="confirm"]'));
+  await page.keyboard.press("Enter");
+  await expect.poll(() => commands.filter((command) => command.kind === "TASK_ROVER").length).toBe(1);
+  expect(commands.find((command) => command.kind === "TASK_ROVER")?.args).toMatchObject({ vehicle_id: "UR1", task: "SCOUT" });
+});
+
 test("ops-no-terminal: utility rover dispatch is acknowledged by the real Hab Core", async ({ context }) => {
   test.skip(e2eSite() !== REAL_SITE, "bundle absent (gale_boxwork utility rover scenario; F4 fake scenario has only PR1)");
   const { ops, wire } = await openFreshOps(context);
