@@ -492,6 +492,7 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 | 2026-11-13 | GPT-6.1 Terra (Codex, xhigh), frontend resolver | Package 98 H-04: labelled the ops task-limit count with its rule source; regression first (one red) | No backend or science changes; T31.06 stays wip for N-32 and browser verification | Targeted web regression passes; full suite and static gates run for this commit | This Codex session |
 | 2026-11-13 | GPT-6.1 Terra (Codex, xhigh), frontend resolver | Package 98 H-05: show an unavailable vehicle parameter set as a sourced dash; FD-547 | Two regressions red first and two provenance assertions red during refinement; no fabricated parameter value | Targeted web regressions pass; full suite and static gates run for this commit | This Codex session |
 | 2026-11-13 | GPT-6.1 Terra (Codex, xhigh), frontend resolver | Package 98 H-02: link-loss focus, inert covered screen and reconnect restoration; FD-548 | One regression red first; inert mutation killed; browser acceptance pending | Web unit suite and static gates run for this commit; `link-lost` requires the orchestrator | This Codex session |
+| 2026-11-13 | GPT-6.1 Terra (Codex, xhigh), frontend resolver | Package 98 H-03: heartbeat connected EVA and ops browser fixtures, clean up timers, and assert connected axe surfaces | Two fixture regressions red first; no Hab Core or protocol changes | Web unit suite and static gates run for this commit; `axe` browser acceptance requires the orchestrator | This Codex session |
 
 ## Prompts location
 

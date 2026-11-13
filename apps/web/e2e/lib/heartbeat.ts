@@ -7,7 +7,7 @@
  * The timer lives in the Node process, not the page, and sends through the routed socket; the caller stops it when the
  * fixture's page closes.
  */
-import type { WebSocketRoute } from "@playwright/test";
+import type { Page, WebSocketRoute } from "@playwright/test";
 import { HEARTBEAT_MS } from "@marswalk/protocol";
 
 /** Starts the ping on the routed socket; returns the function that stops it. */
@@ -19,4 +19,12 @@ export function startHeartbeat(socket: WebSocketRoute, simTime: string): () => v
   }, HEARTBEAT_MS);
   timer.unref?.();
   return () => clearInterval(timer);
+}
+
+const pageHeartbeats = new WeakMap<Page, () => void>();
+/** One routed connection per page; stop the old timer on reconnect and the current one on page close. */
+export function startPageHeartbeat(page: Page, socket: WebSocketRoute, simTime: string): void {
+  if (!pageHeartbeats.has(page)) page.once("close", () => { pageHeartbeats.get(page)?.(); pageHeartbeats.delete(page); });
+  pageHeartbeats.get(page)?.();
+  pageHeartbeats.set(page, startHeartbeat(socket, simTime));
 }
