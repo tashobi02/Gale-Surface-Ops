@@ -56,7 +56,7 @@ const EVERY_PROJECT = ["offline", "axe"];
 const ONLY_DESKTOP_1440 = [
   "_harness", "tiles-all-levels", "scale-bar", "keyboard-path", "grayscale", "contrast", "brand-orange", "toggles",
   "plan-rules", "results-states", "walking-skeleton", "poi-conditions", "print", "plan-hash", "provenance", "credits",
-  "ops-no-terminal", "task-latency", "replay", "usability", "capture", "queued-resend", "link-lost", "targets",
+  "fallbacks-planner", "ops-no-terminal", "task-latency", "replay", "usability", "capture", "queued-resend", "link-lost", "targets",
   // The EVA checks drive their own viewport (the portrait grid and the options sheet are viewport-specific), so they run
   // once on the desktop project instead of on every project's fixed size.
   "eva-warning", "eva-portrait",
