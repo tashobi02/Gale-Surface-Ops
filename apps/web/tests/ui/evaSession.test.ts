@@ -330,7 +330,8 @@ describe("stop task changes are sent at once; UNDO reverses them on the server f
 
   // Server-side T31.04 rules for UPDATE_STOP_TASK {state: TODO, undo: true} (last-actor check,
   // INVALID after later change or PLAN_REVISED, FORBIDDEN_ROLE, TASK_UPDATED data.undo) are implemented
-  // in apps/hab-core/src/engine/tasks.ts and verified in apps/hab-core/tests/stopTasks.test.ts.});
+  // in apps/hab-core/src/engine/tasks.ts and verified in apps/hab-core/tests/stopTasks.test.ts.
+});
 
 describe("the task list is full only at the stop and collapses to its count otherwise (FR-50, 04 §E.5; U-59)", () => {
   async function open(snapshot: Snapshot) {
