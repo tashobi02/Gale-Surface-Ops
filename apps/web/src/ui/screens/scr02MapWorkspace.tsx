@@ -331,7 +331,19 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
     });
     attach("inspector", () => {
       const inspector = initPointInspector(handle, mapCtx, { shouldInspect: () => !addStopRef.current?.isActive() });
-      return () => inspector.destroy();
+      // The harness's inspector hook (`toggles`, T07.15): samples a point in projected metres, so the check can compare
+      // the values the popover shows with the manifest grid cell it read from the site bundle. Debug only, never in a
+      // plain page.
+      if (ctx.debug) {
+        (window as unknown as { __inspectAt?: unknown }).__inspectAt = async (x_m: number, y_m: number) => {
+          await inspector.inspectAt(x_m, y_m);
+          return true;
+        };
+      }
+      return () => {
+        if (ctx.debug) delete (window as unknown as { __inspectAt?: unknown }).__inspectAt;
+        inspector.destroy();
+      };
     });
     attach("waypoints", () => {
       const waypoints = createWaypointLayer(ctx.planStore);

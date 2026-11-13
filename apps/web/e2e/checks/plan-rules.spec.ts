@@ -6,19 +6,102 @@
 import { expect, test } from "@playwright/test";
 import { openPoiTasks } from "../lib/plannerTasks";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
+import { installWorkerHold, releaseWorkerAnswers } from "../lib/workerHold";
 import type { Snapshot } from "@marswalk/protocol";
 
 const MAX_SNAP_M = 50;
 
-test.fixme("plan-rules: invalid inputs show an inline error and keep the last valid value (enabled by package 28)", async ({ page }) => {
-  await page.goto("/#/planner");
+/**
+ * The 02 §E.3 input rules, one row per numeric field: the label the user sees, a value below the range, a value above
+ * it and the range the error must name. The ranges are the ones `packages/compute/src/validate.ts` enforces (the same
+ * function the worker and the Hab Core run), so the check and the app cannot drift apart.
+ */
+const E3_RULES = [
+  { label: /max eva duration/i, below: "0.4", above: "10.1", range: "0.5–10 h" },
+  { label: /dwell per stop/i, below: "-1", above: "181", range: "0–180 min" },
+  { label: /caution slope/i, below: "1", above: "31", range: "2–30°" },
+  { label: /hard slope limit/i, below: "4", above: "36", range: "5–35°" },
+  { label: /walkback limit/i, below: "0.4", above: "20.1", range: "0.5–20 km" },
+  { label: /suited flat speed/i, below: "0.4", above: "6.1", range: "0.5–6 km/h" },
+  { label: /haven rule/i, below: "4", above: "121", range: "5–120 min" },
+] as const;
+
+// Package 28 (T08.11): every 02 §E.3 input rule, one value below and one above the range. The inline error names the
+// range and the value that stays in effect; the last valid value never leaves the plan.
+test("plan-rules: every 02 §E.3 input shows an inline error and keeps the last valid value", async ({ page }) => {
+  await page.goto("/?site=mock_site#/planner");
   await page.waitForLoadState("networkidle");
-  const field = page.getByLabel(/max eva duration/i);
-  const valid = await field.inputValue();
-  await field.fill("-1");
-  await field.blur();
-  await expect(page.getByRole("alert").filter({ hasText: /duration/i })).toBeVisible();
-  await expect(field).toHaveValue(valid);
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  await page.getByRole("tab", { name: "Plan", exact: true }).click();
+  const panel = page.locator('[data-slot="plan-panel"]');
+  await panel.waitFor();
+
+  for (const rule of E3_RULES) {
+    const field = page.getByLabel(rule.label);
+    await expect(field, `${rule.label} is in the panel`).toBeVisible();
+    const lastValid = await field.inputValue();
+    expect(lastValid, `${rule.label} has a default`).not.toBe("");
+
+    for (const bad of [rule.below, rule.above]) {
+      await field.fill(bad);
+      const alert = panel.getByRole("alert").filter({ hasText: new RegExp(escapeRegExp(rule.range)) });
+      await expect(alert, `${rule.label} = ${bad}: the error names the range`).toBeVisible();
+      // The error states which value stays in effect (FD-236: the last valid value, not the rejected one).
+      await expect(alert, `${rule.label} = ${bad}: the error names the kept value`).toContainText(lastValid);
+      await expect(field, `${rule.label} = ${bad}: the field is marked invalid`).toHaveAttribute("aria-invalid", "true");
+      // Leaving the field returns its text to the last valid value; the rejected value was never sent. FD-236: the error
+      // stays until the next edit or Reset, so it is still shown after the field is left.
+      await field.blur();
+      await expect(field, `${rule.label} = ${bad}: the text returns to the last valid value`).toHaveValue(lastValid);
+      await expect(alert, `${rule.label} = ${bad}: the error stays until the next edit (FD-236)`).toBeVisible();
+    }
+  }
+});
+
+/** A regular-expression metacharacter in a range is escaped. */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Package 28 (T08.11): the SCR-04 states of 03 SCR-04 — Empty (only the start), Editing (a stop is on the plan),
+// Invalid input (a rejected value) and Computing (the worker is solving the latest revision).
+test("plan-rules: SCR-04 shows Empty, Editing, Invalid and Computing", async ({ page }) => {
+  // The worker's plan answer is held back, so Computing is a state the check can observe instead of a frame it may
+  // miss: the plan store marks the plan Computing the moment the edit lands (03 §E.4).
+  await installWorkerHold(page);
+  await page.goto("/?site=mock_site&mock_worker=1#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  await page.getByRole("tab", { name: "Plan", exact: true }).click();
+  const panel = page.locator('[data-slot="plan-panel"]');
+  await panel.waitFor();
+  // `data-plan-state` is on the panel section itself (03 SCR-04).
+  const state = panel;
+
+  // Empty: the start is set and the plan has no stop. The Hab Core's session answer may land while the check types, so the
+  // field is emptied first and the value is typed into it afterwards (FD-042: the start has no default of its own).
+  const start = page.getByLabel(/EVA start/i);
+  await start.fill("");
+  await start.fill("2026-11-14T08:00:00Z");
+  await expect(start, "the start is the value the check typed").toHaveValue("2026-11-14T08:00:00Z");
+  await expect(state, "the plan starts empty").toHaveAttribute("data-plan-state", "empty");
+
+  // Computing: the edit has landed and the worker has not answered yet.
+  await addStopByKeyboard(page, 1);
+  await expect(state, "the plan is computing").toHaveAttribute("data-plan-state", "computing");
+
+  // Editing: the worker answered and the plan holds a stop.
+  await releaseWorkerAnswers(page);
+  await expect(state, "the plan is editing").toHaveAttribute("data-plan-state", "editing");
+
+  // Invalid: a rejected value puts the panel back into its invalid state and names the range. The Constraints accordion
+  // collapses after the first edit (04 §B), so it is opened again to reach the field.
+  const constraints = panel.getByRole("button", { name: "Constraints" });
+  if ((await constraints.getAttribute("aria-expanded")) === "false") await constraints.click();
+  const duration = page.getByLabel(/max eva duration/i);
+  await duration.fill("-1");
+  await expect(state, "the plan is invalid").toHaveAttribute("data-plan-state", "invalid");
+  await expect(panel.getByRole("alert").filter({ hasText: /0\.5–10 h/ })).toBeVisible();
 });
 
 // Package 10: the placement rules on the F4 site (60 x 60 cells of 100 m; its wall of 20-degree cells has x from 0 to 100 m and a gap at
@@ -47,13 +130,8 @@ test("plan-rules: outside-AOI and impassable placements are refused, a passable 
   await expect(notice).toHaveAttribute("data-empty", "true");
 });
 
-test.fixme("plan-rules: SCR-04 shows Empty, Editing, Invalid and Computing (enabled by package 28)", async ({ page }) => {
-  await page.goto("/#/planner");
-  for (const state of ["Empty", "Editing", "Invalid", "Computing"]) {
-    await page.goto(`/#/planner?mock_state=${state.toLowerCase()}`);
-    await expect(page.locator("[data-plan-state]")).toHaveAttribute("data-plan-state", state.toLowerCase());
-  }
-});
+// The placeholder that stood for package 28 (T08.11) is gone: the SCR-04 states are checked above against the real app,
+// not against a `?mock_state=` switch that the app does not have.
 
 test("plan-rules: POI tasks are editable within FR-54 limits, removed with the stop and restored by Undo (package 25)", async ({ page }) => {
   const { editor, suggested } = await openPoiTasks(page);

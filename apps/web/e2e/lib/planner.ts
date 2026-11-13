@@ -22,5 +22,17 @@ export async function addStopByKeyboard(page: Page, nth: number): Promise<void> 
   await page.keyboard.press(nth === 1 ? "ArrowLeft" : "ArrowDown");
   await page.keyboard.press("a");
   await page.keyboard.press("Enter");
+  // 03 §D: a point that is not walkable but has a passable neighbour within the snap radius is offered, not refused. The
+  // keyboard user accepts that offer like any other button, so the helper does the same when it is shown. The offer arrives
+  // after the sample, so it is waited for; when it never comes the stop was placed outright.
+  const snap = page.locator('[data-slot="placement-notice"] [data-action="accept-snap"]');
+  const offered = await snap
+    .waitFor({ state: "visible", timeout: 3000 })
+    .then(() => true)
+    .catch(() => false);
+  if (offered) {
+    await snap.focus();
+    await page.keyboard.press("Enter");
+  }
   await expect(page.locator(`[data-waypoint-id="wp-${nth}"]`)).toBeVisible();
 }

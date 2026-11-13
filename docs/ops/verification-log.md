@@ -805,3 +805,174 @@ All budgets are met on the real bundle, which is what the demo serves. The F4 lo
 **T28.05 and T31.08 (network, browser half).** `release-network`: a dropped EVA socket (closed through `page.routeWebSocket`, kept down 3.5 s) is back with a SNAPSHOT **32 ms** after the link returns (NFR-13: 2 s); the Hab Core process killed and started again with `--resume latest`: both EVA and ops take a fresh SNAPSHOT **358 ms** after `/api/health` answers; `npm run hab:local` serves its four windows, each with a SNAPSHOT. Finding B-03: **SCR-18 never appeared**, neither after the socket was closed for 3.5 s nor with the Hab Core gone for 15 s (`data-screen="SCR-18"` absent; the tablet kept its last values as NOMINAL): a `fixme`. Also `fixme`: the killer demo through the UI in single-laptop mode and the tap-to-ops latency (the EVA tablet has no task list before the first stop; server level is `latency.test.ts`, p95 under 3 ms).
 
 **Red counts.** These are checks of built behaviour, so most passed at first run; each passing check was mutation-checked (a changed expectation or a removed precondition turned it red): `release-csp` (a `ws:` in the policy), `release-roles` (a wrong message type), `release-recovery` (the manifest not restored, the layer not deleted, the grid not truncated), `release-network` (the link never returning, no restart, a wrong window count), `release-matrix` (a different EVA start on the phone), `release-demo` (an empty host allowlist, a 1 KB budget, a wrong status). Reds that found things: `release-offline` (two runs gave different hashes: the crosshair and the EVA-start prefill), `release-timings` (long tasks), `release-network` (SCR-18), `release-matrix` (the phone top bar), `release-offline` again on `?debug=1` (B-05). Full `make e2e` on the F4 fixture: first run 333 passed, 92 skipped, 1 failed (`release-offline`); after the fixes 334 passed, 92 skipped (`fixme`, each naming its frontend package), 0 failed, 10.7 minutes.
+## T07.15 — Verify SCR-01, SCR-02, SCR-03: toggles ≤ 300 ms, inspector values match the grid
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done on the F4 `mock_site` (`data_version` `mock_site-2026.11.05`), Chromium (Playwright); the real-site half waits for N-140 |
+| **Inputs** | [toggles.spec.ts](../../apps/web/e2e/checks/toggles.spec.ts); `apps/web/tests/fixtures/real/sample_cells.json` (the F5 grid cells); [01 FR-02](../specs/01_Product_Requirements_Document.md#fr-02--scientific-layers-with-legend-and-opacity), [01 FR-03](../specs/01_Product_Requirements_Document.md#fr-03--point-inspection) |
+| **Check commit** | `f533d53` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Layer toggles (SCR-03) repaint within 300 ms with the tiles cached (FR-02) | **Pass** | `toggles: every layer toggle repaints within 300 ms (package 08)` — each toggle's repaint is timed in the browser and is under the 300 ms budget |
+| The inspector's values equal the manifest grid cell at three points (FR-03) | **Pass** | `toggles: inspector values equal the manifest grid cell at three points` — the three sampled cells are compared against the site's own grid assets, read through the app's debug hook |
+| SCR-01, SCR-02, SCR-03 content, disclaimer, the three actions, the scale bar in metres, the north arrow, the coordinate readout and the data-version chip | **Pass** | Covered by the `axe` scan of `#/`, `#/sources` and `#/planner` (T13.09) and by the `provenance` demo-path walk (T12.06); the disclaimer and the demo-plan action are asserted in the `keyboard-path` run (T13.10) |
+| No request leaves `localhost` during the run (FR-01) | **Pass** | The harness serves the built app and the site bundle from `http://127.0.0.1`; the `offline` check (T14.06) is the dedicated proof |
+
+The real-site variant of the inspector comparison stays open with N-140: this checkout ships the `gale_boxwork` manifest and vectors but no `grid/` directory, so the inspector has no real grid to compare against.
+
+## T08.11 — Verify the 02 §E.3 rules and SCR-04 states in the UI
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done on the F4 `mock_site`; the worker-side `INVALID_INPUT` and impossible placements stay with T05.14 and T14.05 |
+| **Inputs** | [plan-rules.spec.ts](../../apps/web/e2e/checks/plan-rules.spec.ts); [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules) through `packages/compute/src/validate.ts` (T05.25) |
+| **Check commit** | `f533d53` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Every 02 §E.3 row is refused inline and the last valid value stays in effect (FD-236) | **Pass** | `plan-rules: every 02 §E.3 input shows an inline error and keeps the last valid value` — each row is driven below and above its range; the error appears as a `role="alert"`, the refused value is never sent to the worker and the previous valid value is the one the plan carries |
+| SCR-04 shows its four states: Empty, Editing, Invalid and Computing | **Pass** | `plan-rules: SCR-04 shows Empty, Editing, Invalid and Computing` — the panel's own `data-plan-state` is read in each state; the Computing state is held by the test-side `Worker` wrapper `apps/web/e2e/lib/workerHold.ts`, so no app behaviour changes to make it visible (FD-400) |
+| A placement outside the AOI or on an impassable cell is refused; a passable one is placed | **Pass** | `plan-rules: outside-AOI and impassable placements are refused, a passable one is placed (package 10)` |
+| The defaults badge and the inline ranges match 01 FR-05 | **Pass** | The same test reads the ranges the form shows against the ranges `validate.ts` enforces |
+
+The worker-side `INVALID_INPUT` message and the impossible-stop placement remain with T05.14 and T14.05, as the task's own conflict note requires; the repeated-publish case stays `test.fixme('needs N-70')`.
+
+## T09.06 — Run the M3 walking-skeleton check; decide auto-routing go/no-go in ADR-004
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | **Go for the auto-routing slice**, recorded in ADR-004 (FD-404); the 3-stop real-site confirmation stays open until N-140 and N-20 |
+| **Inputs** | [walking-skeleton.spec.ts](../../apps/web/e2e/checks/walking-skeleton.spec.ts); the real plan worker (`apps/web/src/worker/planWorker.ts`), **not** the F3 mock; the NFR-02 budget is read from 02 §F at run time; the outcome file `apps/web/e2e/out/walking-skeleton.json` |
+| **Check commit** | `f533d53` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| The map renders the AOI in the right projection and a scale bar shows metres | **Pass** | `scale-bar` (T02.04) and `tiles-all-levels`; the projection is IAU_2015:49900 in the site's own manifest |
+| Two points produce a routed line and an elevation profile (06 §B M3 exit) | **Pass** | Both legs of the demo plan are routed `OK` and the profile carries the worker's own slope classes and samples |
+| The computation is within the NFR-02 budget | **Pass** | `timing_ms.total` **16.6 ms** against the 2 000 ms budget read from 02 §F (`routing` 6 ms, `estimates` 3.2 ms) |
+| The result is one of the three routed states of 03 §D | **Pass** | `OVER_LIMITS`, with the `DARKNESS` caution naming the leg and the time |
+
+The ADR-004 decision (FD-404) is **go** for the auto-routing slice on this evidence. The M3 exit criterion of a **3-stop** route on the **real** site is not met by this run: the F4 bundle holds one of the demo plan's three POIs, and the real site ships no `grid/` assets yet (N-140), so the real worker cannot route on it. That confirmation stays open until N-140 and N-20 land.
+
+## T09.07 — Verify SCR-05 states against the OK, PARTIAL and OVER_LIMITS fixtures
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done on the F2 fixtures through the F3 mock worker; the profile's slope classes in the browser are proved by the real-worker run of T09.06 |
+| **Inputs** | [results-states.spec.ts](../../apps/web/e2e/checks/results-states.spec.ts); `apps/web/tests/fixtures/plan-results/`; [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows) |
+| **Check commit** | `f533d53` |
+
+| Fixture | Result | Evidence |
+| --- | --- | --- |
+| `ok` | **Pass** | The banner says OK with its glyph, the seven metric tiles show, the totals are shown and the profile and the warnings are drawn |
+| `partial` | **Pass** | The banner names the result, the totals are hidden (`data-totals-hidden="true"`), the Distance tile shows "—" and the profile shows NO ROUTE for the leg that could not be routed (03 §D) |
+| `over-limits` | **Pass** | The banner says Over limits and the warning list carries the block |
+| `error` | **Pass** | The banner says "Computation failed", offers a Retry and the panel pretends no result |
+
+Every shown value carries `data-provenance` and `data-source` (FR-15), every warning carries a shape, its word, its message and where it applies, and a located warning zooms the map (FR-10). The F2 fixtures carry no elevation samples, so the profile says so honestly with the dash and `unavailable:result.legs.profile`; the real worker's samples and slope classes are proved by T09.06.
+
+## T10.03 — Verify POI images with credits and the daylight warning for a pre-dawn start
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done on the F4 `mock_site`; the real bundle's POI images stay with N-20 |
+| **Inputs** | [poi-conditions.spec.ts](../../apps/web/e2e/checks/poi-conditions.spec.ts); the real plan worker (N-26); [03 SCR-06](../specs/03_App_Flow_and_Diagrams.md#scr-06--poi-detail-panel), [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel) |
+| **Check commit** | `20896fa` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| SCR-06 shows the objective, the stop type, the position source and the image state | **Pass** | `poi-conditions: POI image metadata and honest missing-image state stay usable` — the F4 bundle's one POI has no image, so the "Image missing" state and the honest dash are checked there |
+| The daylight warning appears for a pre-dawn start (01 §E step 7) | **Pass** | `poi-conditions: a pre-dawn start shows the real worker DARKNESS warning (N-26)` — the start is moved to one hour before the sunrise the worker itself supplied, and the warning names the UTC time |
+| SCR-07 shows the computed conditions, the radiation block and its caveats | **Pass** | `poi-conditions: SCR-07 shows the computed conditions, the radiation block and its caveats` — the Mars date, the Ls, both LTSTs, the sunrise and the sunset, the sun elevation per stop, the dose with its range, its solar phase, its rate source and its background rate, and the "Not included in this build" seasonal-weather row with the terrain-shadowing note |
+| The panel computes nothing itself | **Pass** | The panel shows the worker's own `PlanResult.conditions` (FD-126); every value carries its provenance and its source, and the F4 bundle's missing dose is the dash with `unavailable:result.radiation.dose_mSv` |
+
+## T11.05 — Verify one-page print in Chrome and plan_hash reproduction
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: the plan hash reproduces across two independent runs and SCR-08 prints on one A4/Letter page |
+| **Inputs** | [plan-hash.spec.ts](../../apps/web/e2e/checks/plan-hash.spec.ts); [print.spec.ts](../../apps/web/e2e/checks/print.spec.ts); the real plan worker; [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export) |
+| **Check commit** | `20896fa` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| The exported plan is complete and the hash is the app's own | **Pass** | `plan-hash: export, reload and recompute give the same metrics and plan_hash` — the export carries `export_schema_version`, the app, site and data versions, the disclaimer and the waypoints; `plan_hash` is 12 hex characters; SCR-08 shows the same hash |
+| Re-running the exported plan gives the same hash and identical metrics (FR-14) | **Pass** | The same plan is rebuilt and exported a second time; the two exports agree on the hash, the data version, the scenario, the waypoints, the status, the totals, the radiation block and the legs |
+| The hash works on a plain origin (FD-141) | **Pass** | The check asserts the origin is plain `http://127.0.0.1`; the hash is pure TypeScript, so it needs no secure context |
+| SCR-08 prints on one A4/Letter page without clipping | **Pass** | `print: SCR-08 is one page on A4 and Letter for OK, Over limits and Partial (package 14)` and `print: SCR-08 prints on the CSS @page margin, not a PDF option (package 14)` (FD-366) |
+
+The app has no "import plan" screen (nothing in 03 SCR-08 asks for one), so the reproduction is done in the app that exists: the same scenario and the same waypoints are computed again by the real worker and exported again (FD-400).
+
+## T12.06 — Verify no unlabelled metric on the demo path and every credited source in SCR-09
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | **Wip**: the demo path passes; the live-role walk waits for package 29, and the real bundle's walk-time dataset ids wait for N-140 |
+| **Inputs** | [provenance.spec.ts](../../apps/web/e2e/checks/provenance.spec.ts); `apps/web/tests/ui/provenance.test.ts`; the F4 `mock_site` manifest (`data_version` `mock_site-2026.11.05`) |
+| **Check commit** | `20896fa` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| No number on the 01 §E demo path lacks a provenance label (FR-15) | **Pass** | `provenance: no unlabelled number on the demo path and every credited source resolves in SCR-09` — SCR-01, SCR-02, SCR-04, SCR-05, SCR-07 and SCR-08 are walked and every number is either labelled with `data-provenance` and `data-source` or on the decided allowlist (FD-110) |
+| Every dataset of the bundle manifest is listed in SCR-09 with all six columns | **Pass** | The same test reads each manifest `source_id`, finds its `dataset-row`, checks the six columns and the anchor `source-<id>` |
+| Every SCR-08 source chip lands on its anchor (FD-144) | **Pass** | The test follows each chip's `#/sources#source-<id>` link and asserts the anchor exists and is the one the deep link marked |
+| The live roles carry no unlabelled number | **Not run** | `test.fixme`: the live-role walk is package 29's |
+| The walk-time dataset ids the app hard-codes | **Recorded, not passed silently** | `tobler-1993` and `apollo17-planning` belong to the real bundle (N-140); on the F4 site the check records them as an annotation instead of passing them |
+
+## T13.09 — Verify the axe scan: 0 serious issues
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: zero serious or critical violations on every built route, in both HTML modes and on each EVA and ops state fixture |
+| **Inputs** | [axe.spec.ts](../../apps/web/e2e/checks/axe.spec.ts); `@axe-core/playwright` 4.14 in real Chromium; the tags `wcag2a`, `wcag2aa`, `wcag21aa` (FD-151) |
+| **Check commit** | `20896fa` |
+
+| Scan | Result | Evidence |
+| --- | --- | --- |
+| Every built route (`#/`, `#/sources`, `#/join`, `#/ops`, `#/hud/EV1`, `#/eva/EV1`, `#/report`, `#/replay`, `#/earth`) | **Pass** | `axe: every built route has no serious or critical violation`; the full result of each scan is written to `apps/web/e2e/out/axe-<route>.json` |
+| SCR-00 (the boot error), SCR-02 (the planner workspace), SCR-04 (Empty, Invalid input, Editing), SCR-07 (the conditions panel on the real worker) | **Pass** | One scoped scan per state; the SCR-07 scan is scoped to the conditions panel because a full-page scan walks the SCR-05 profile chart |
+| SCR-17 populated and `#/replay` with its log drawer (packages 26, 27) | **Pass** | The report fixture with 6 stops, 3 alerts and a trace in PRINT mode, and the replay drawer in OPS mode |
+| The EVA tablet states and the high-contrast pair | **Pass** | Eight EVA states, each scanned twice (normal and high contrast) |
+| The ops states and their side panels, the task editor and the log drawer | **Pass** | Six ops states with their panels; the ended state is scanned in PRINT mode |
+
+The EVA-phase case stays `test.fixme('needs N-06')`: the ops console receives no authoritative EVA phase, so SCR-11 shows "—" (the N-06 follow-up of package 19).
+
+## T13.10 — Verify a keyboard-only run of the core scenario
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: the nine 01 §E steps complete with the keyboard only |
+| **Inputs** | [keyboard-path.spec.ts](../../apps/web/e2e/checks/keyboard-path.spec.ts); [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior); the app's own key map (`apps/web/src/ui/map/keyboard.ts`) |
+| **Check commit** | `20896fa` |
+
+| Step | Result | Evidence |
+| --- | --- | --- |
+| 1: read the brief and start planning | **Pass** | The "Start planning" button is reached with Tab and activated with Enter; the focus ring is at least 2 px at every step |
+| 4: open the demo plan | **Pass** | The same, with the Enter key |
+| 5: move a stop | **Pass** | The stop is moved with the **keyboard-move control** of the selected stop (FD-119), the method 01 §E step 5 uses (Spec question 6, FD-401); a drag is not used because it needs a pointer |
+| The result is announced and readable outside the map | **Pass** | The live region carries "Plan updated: … warning" with `aria-live="polite"`, the stops table lists the stop, and the Distance tile shows its value in km |
+| 8: open the briefing card and export the plan | **Pass** | `B` opens the card, the card shows the plan hash and the disclaimer, and Enter on the export button downloads the JSON |
+| 9: open Sources & methods | **Pass** | `?` opens SCR-09 |
+| Focus never lands on a hidden element | **Pass** | Every step asserts the focused element is visible and carries a focus ring |
+
+The check found a real defect and it is fixed: the SCR-05 metric tiles collapsed to 0 px in the short results panel, so the values were no longer readable outside the map (FR-08, FR-15). The metrics row now keeps its content height (FD-402, `apps/web/src/ui/screens/scr05RouteResults.css`).

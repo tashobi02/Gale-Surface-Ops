@@ -124,6 +124,10 @@
 
 .scr05-metrics-row {
   display: flex;
+  /* The row keeps its content height and never shrinks. `overflow-x: auto` makes the automatic minimum height 0, so without
+     this the row collapses in a short results panel and the metric tiles end up 0 px high — the values stop being readable
+     outside the map (FR-08, FR-15). The column around it scrolls instead. */
+  flex: none;
   gap: var(--gap-section);
   padding-bottom: var(--pad-sm);
   border-bottom: 1px solid var(--line);
