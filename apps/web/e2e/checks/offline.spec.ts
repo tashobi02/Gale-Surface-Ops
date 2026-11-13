@@ -8,6 +8,7 @@
 import { expect, test } from "@playwright/test";
 import { countResponses, expectLocalAssetsOk, expectNoExternal, guardNetwork, routeHashes } from "../lib/offline";
 import { withManifestlessSite } from "../lib/siteBundle";
+import { routeFixtureRecording } from "../lib/replayFixture";
 
 test("offline: every route loads with no external request and local fonts and icons answer 2xx", async ({ page }) => {
   const guard = await guardNetwork(page);
@@ -16,14 +17,22 @@ test("offline: every route loads with no external request and local fonts and ic
 
   for (const hash of hashes) {
     const before = guard.blocked.length;
+    const seen = guard.responses.length;
     // A fresh document each time, so an asset a route needs is requested again and not served from the previous route's page.
     await page.goto("about:blank");
+    // The replay plays a recording of the real scenario, whose map asks for the real site's tiles (git-ignored data that a checkout
+    // may not have): serve the fixture recording, as the other checks do.
+    if (hash === "#/replay") await routeFixtureRecording(page);
     await page.goto(`/?site=${process.env.E2E_SITE ?? "mock_site"}${hash}`);
     await page.waitForLoadState("networkidle");
     if (hash === "#/") await expect(page.locator('[data-screen="SCR-01"] h1')).toContainText("Plan the walk");
     if (hash === "#/sources") await expect(page.locator('[data-screen="SCR-09"] h1')).toContainText("What each value is");
     await page.evaluate(() => document.fonts.ready);
     expect(guard.blocked.slice(before), `external requests on ${hash}`).toEqual([]);
+    // Name the route that asked its own origin for something that did not come back (a tile of a site other than ?site= means the
+    // route ignored the query), instead of failing once at the end without saying which route it was.
+    const failed = guard.responses.slice(seen).filter((r) => (r.type === "font" || r.type === "image") && r.status >= 400 && !r.url.includes("/api/join-qr?"));
+    expect(failed.map((r) => `${r.status} ${r.url}`), `local font/image requests that failed on ${hash}`).toEqual([]);
   }
 
   expectNoExternal(guard);
