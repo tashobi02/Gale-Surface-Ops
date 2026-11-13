@@ -51,3 +51,58 @@ test("link-lost: both roles show SCR-18 within 3 s of the last server message, a
     await eva.close(); await ops.close();
   }
 });
+
+test("link-lost: SCR-18 does not appear before LINK_LOST_AFTER_MS, engages after it, and never drives simulated state", async ({ page }) => {
+  let blockServer = false;
+  let lastHeardAt = 0;
+  let initialSnapshot: Snapshot | null = null;
+  await page.routeWebSocket("**/ws", (ws) => {
+    if (blockServer) {
+      ws.close({ code: 1012, reason: "Harness: suppress reconnect during silence window" });
+      return;
+    }
+    const server = ws.connectToServer();
+    ws.onMessage((raw) => server.send(raw));
+    server.onMessage((raw) => {
+      if (blockServer) return;
+      const msg = JSON.parse(String(raw)) as { type?: string };
+      if (msg.type === "SNAPSHOT" && !initialSnapshot) initialSnapshot = msg as unknown as Snapshot;
+      lastHeardAt = Date.now();
+      ws.send(raw);
+    });
+  });
+
+  await page.goto("/?site=mock_site#/eva/EV1");
+  await expect(page.locator('[data-slot="o2"] .value')).not.toHaveText("—");
+  expect(initialSnapshot).not.toBeNull();
+  const initialO2 = String(Math.round(initialSnapshot!.crew.find((c) => c.crew_id === "EV1")!.o2_frac * 100));
+  const initialHaven = String(Math.round(initialSnapshot!.crew.find((c) => c.crew_id === "EV1")!.haven.minutes));
+
+  // Cut server silence cleanly right now and observe SCR-18 before LINK_LOST_AFTER_MS.
+  blockServer = true;
+  const silenceStart = lastHeardAt;
+  await page.evaluate(() => {
+    const win = window as unknown as { __scr18SeenAt?: number };
+    const observer = new MutationObserver(() => {
+      if (win.__scr18SeenAt === undefined && document.querySelector('[data-screen="SCR-18"]')) {
+        win.__scr18SeenAt = Date.now();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+
+  // Well before LINK_LOST_AFTER_MS (allow margin for last message timestamp), SCR-18 must NOT be shown yet.
+  const preDeadlineRemaining = Math.max(200, silenceStart + LINK_LOST_AFTER_MS - 700 - Date.now());
+  await page.waitForTimeout(preDeadlineRemaining);
+  await expect(page.locator('[data-screen="SCR-18"]')).toHaveCount(0);
+  // Simulated values remain untouched by the countdown timer.
+  await expect(page.locator('[data-slot="o2"] .value')).toHaveText(initialO2);
+  await expect(page.locator('[data-slot="haven"] .value')).toHaveText(initialHaven);
+
+  // After LINK_LOST_AFTER_MS has elapsed from the last server message, SCR-18 appears and never drove simulated state.
+  await expect(page.locator('[data-screen="SCR-18"] [role="alert"]')).toBeVisible({ timeout: LINK_LOST_AFTER_MS + 2000 });
+  const seenAt = await page.evaluate(() => (window as unknown as { __scr18SeenAt?: number }).__scr18SeenAt ?? Date.now());
+  expect(seenAt - silenceStart, "SCR-18 appeared before LINK_LOST_AFTER_MS").toBeGreaterThanOrEqual(LINK_LOST_AFTER_MS - 100);
+  await expect(page.locator('[data-slot="cached-telemetry"] .value').nth(0)).toHaveText(initialHaven);
+  await expect(page.locator('[data-slot="cached-telemetry"] .value').nth(1)).toHaveText(initialO2);
+});

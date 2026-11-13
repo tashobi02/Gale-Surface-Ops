@@ -13,7 +13,7 @@ import {
 } from "react";
 import type { CrewId, Snapshot, StopTask } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
-import { useCommand, useHabClient, useSocketConnected, useSnapshot } from "../../state/habSession";
+import { useCommand, useHabClient, useSocketConnected, useSnapshot, useTransportLost } from "../../state/habSession";
 import {
   havenTargetLabel,
   selectEvaViewModel,
@@ -146,6 +146,9 @@ export function EvaTablet({
   const serverTasks = activeSnapshot?.tasks ?? NO_TASKS;
   // Linked means the suit link is up (snapshot) and this tablet's own socket to the Hab Core is not lost.
   const socketLost = !useSocketConnected(client);
+  // The transport itself went down (the socket was up and closed). The simulated suit link is a separate thing and
+  // is read from the snapshot, so the two are never confused.
+  const transportLost = useTransportLost(client);
   const suitLinked = selectMetadataStrip(activeSnapshot, crewId).link.linked;
   const linked = socketLost ? false : suitLinked;
   const changes = useStopTaskChanges(send, serverTasks, linked);
@@ -320,6 +323,39 @@ export function EvaTablet({
           </div>
         )}
       </div>
+
+      {/* The transport to the Hab Core went down. This is not the simulated suit link: `linked: false` in the
+          snapshot is the suit's own radio, and the tablet still receives the Hab Core over a working socket. A closed
+          socket is known the moment it closes, so this notice comes at once, before the 3-second watchdog raises
+          SCR-18 (FR-32) for a half-open socket that merely stops answering.
+
+          It is a strip, not an overlay: an active safety alert and its ACK control stay visible and usable while it
+          is up (a crew member must be able to acknowledge a radiation alert with the transport down). It carries no
+          number of its own, so it needs no provenance; the values behind it are the last ones received. */}
+      {transportLost && (
+        <div
+          role="status"
+          data-slot="transport-lost-notice"
+          data-fallback="transport-lost"
+          data-status="caution"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            width: "100%",
+            boxSizing: "border-box",
+            padding: "6px 8px",
+            borderLeft: "4px solid var(--status-caution, #FFB020)",
+            background: "var(--caution-fill, #FFB020)",
+            color: "#000000",
+            fontWeight: 700,
+            fontSize: "16px",
+          }}
+        >
+          <StatusIcon status="caution" showWord={true} />
+          <span>HAB TRANSPORT LOST — VALUES BELOW ARE THE LAST ONES RECEIVED</span>
+        </div>
+      )}
 
       {/* A refused ACK_ALERT says so, with the Hab Core's own reason (04 §D.5): a command that failed must not look
           like one that worked. */}

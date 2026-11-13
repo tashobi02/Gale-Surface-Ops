@@ -172,6 +172,17 @@ export function useSocketConnected(client?: HabClient | null): boolean {
 }
 const readSocketConnected = (client: HabClient): boolean => (client.socketConnected?.() ?? true) && !client.linkLost().lost;
 
+/**
+ * True when the transport to the Hab Core went down: the socket was up and is now closed. Distinct from the
+ * 3-second watchdog (FR-32), which fires only on a half-open socket that stops answering; a closed socket is known
+ * at once, so a view can say so at once. False when there is no client at all: a screen that was never connected is
+ * not a screen whose transport was lost.
+ */
+export function useTransportLost(client?: HabClient | null): boolean {
+  return useClientStore(useHabClient(client), readTransportLost, false);
+}
+const readTransportLost = (client: HabClient): boolean => client.transportLost?.() ?? false;
+
 /** Actual reconnect attempts, never a static retry promise. */
 export function useReconnectCount(client?: HabClient | null): number | null {
   return useClientStore(useHabClient(client), readReconnectCount, null);

@@ -450,4 +450,62 @@ describe("SCR-12 banner and surface", () => {
     const { container } = await mount(createElement(EvaTablet, { snapshot: atStop(), crewId: "EV1" }));
     expect(must(container, '[data-screen="SCR-12"]').getAttribute("data-surface")).toBe("eva");
   });
+
+  it("shows a dedicated transport-lost notice immediately on socket close before SCR-18, distinct from simulated suit unlinked", async () => {
+    vi.useFakeTimers();
+    const { client, socket } = liveClient();
+    const { container } = await mount(createElement(EvaTablet, { client, crewId: "EV1" }));
+    await socket.receive({ ...connect(), alerts: [] });
+    expect(container.querySelector('[data-slot="transport-lost-notice"]')).toBeNull();
+
+    // Simulated suit link down with open socket is NOT a lost transport notice.
+    await socket.receive({
+      ...connect(),
+      alerts: [],
+      crew: connect().crew.map((c) => ({ ...c, linked: false })),
+    });
+    expect(container.querySelector('[data-slot="transport-lost-notice"]')).toBeNull();
+
+    // Closing the WebSocket transport shows the dedicated transport-lost notice immediately (before 3 s SCR-18).
+    await socket.receive({ ...connect(), alerts: [] });
+    await act(async () => {
+      socket.readyState = 3;
+      socket.onclose?.();
+    });
+    expect(client.linkLost().lost).toBe(false);
+    const notice = must(container, '[data-slot="transport-lost-notice"]');
+    expect(notice.getAttribute("data-fallback")).toBe("transport-lost");
+    expect(notice.textContent).toMatch(/transport|hab link/i);
+    client.close();
+  });
+
+  it("keeps active safety alerts and controls usable alongside the transport-lost notice", async () => {
+    vi.useFakeTimers();
+    const { client, socket } = liveClient();
+    const { container } = await mount(createElement(EvaTablet, { client, crewId: "EV1" }));
+    const alertSnap: Snapshot = {
+      ...connect(),
+      alerts: [{
+        alert_id: "a-rad",
+        code: "RADIATION_ALERT",
+        level: "warning",
+        subjects: ["EV1"],
+        raised_seq: 1,
+        acked_seq: null,
+        cleared_seq: null,
+        acked_by: null,
+        message: "Radiation event",
+        data: {},
+      }],
+    };
+    await socket.receive(alertSnap);
+    await act(async () => {
+      socket.readyState = 3;
+      socket.onclose?.();
+    });
+    expect(must(container, '[data-slot="alert"]').textContent).toContain("Radiation event");
+    expect(must(container, '[aria-label="Acknowledge alert"]')).toBeTruthy();
+    expect(must(container, '[data-slot="transport-lost-notice"]')).toBeTruthy();
+    client.close();
+  });
 });

@@ -112,14 +112,92 @@ test("fallbacks-live: denied task authoring becomes view-only and still receives
 });
 
 test("fallbacks-live: report 500 and unavailable log terminate with labelled absence and retry", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", err => pageErrors.push(err.message));
   await page.route("**/api/report", route => route.fulfill({ status: 500, body: '{"error":"report unavailable"}' }));
-  await page.route("**/api/log", route => route.fulfill({ status: 500, body: "log unavailable" }));
+  await page.route("**/api/log", route => route.fulfill({ status: 404, body: "log not found" }));
   await page.goto("/?site=mock_site#/report");
   const fallback = page.locator('[data-fallback="report-log"]');
   await expect(fallback).toContainText("Log unavailable");
   await expect(fallback.locator('[data-unavailable="true"]').first()).toHaveText("—");
+  await expect(fallback.locator('td[data-unavailable="true"]')).toContainText("—");
   await expect(page.locator('[data-slot="report-retry"]')).toBeEnabled();
   await expect(fallback.getByRole("button", { name: "← BACK", exact: true })).toBeEnabled();
+  expect(pageErrors).toEqual([]);
+});
+
+test("fallbacks-live: taken-over screen makes previous screen inert and hidden from assistive technology", async ({ page, context }) => {
+  await page.goto("/?site=mock_site#/eva/EV1");
+  await expect(page.locator("#action-open-hud")).toBeVisible();
+
+  const taker = await context.newPage();
+  try {
+    await taker.goto("/?site=mock_site#/eva/EV1");
+    await expect(taker.locator('[data-slot="o2"] .value')).not.toHaveText("—");
+
+    const overlay = page.locator('[data-slot="taken-over-overlay"]');
+    await expect(overlay).toBeVisible();
+    await expect(overlay).toContainText("TAKEN OVER BY ANOTHER DEVICE");
+    await expect(overlay).toContainText("EV1");
+
+    const under = page.locator('[data-slot="live-screen"]');
+    await expect(under).toHaveAttribute("inert", "");
+    await expect(under).toHaveAttribute("aria-hidden", "true");
+    // Assistive technology sees no controls inside the displaced screen.
+    await expect(under.getByRole("button")).toHaveCount(0);
+
+    // Underlying buttons cannot take focus or act while inert.
+    await page.evaluate(() => (document.querySelector("#action-open-hud") as HTMLElement | null)?.focus());
+    expect(await page.evaluate(() => Boolean(document.querySelector('[data-slot="live-screen"]')?.contains(document.activeElement)))).toBe(false);
+    // A real pointer click on an inert element is refused by the browser: the button never receives the click and
+    // the route does not change. (A synthetic `element.click()` from script is a different thing and is not what a
+    // crew member can do, so it is not what this check asserts.)
+    await page.locator("#action-open-hud").click({ timeout: 2000 }).catch(() => {});
+    expect(page.url()).toContain("#/eva/EV1");
+
+    await expect(page.getByRole("button", { name: "BACK TO ROLE SELECT", exact: true })).toBeVisible();
+    await page.waitForTimeout(LINK_LOST_AFTER_MS + 300);
+    await expect(page.locator('[data-screen="SCR-18"]')).toHaveCount(0);
+  } finally {
+    await taker.close();
+  }
+});
+
+test("fallbacks-live: lost transport on EVA tablet shows its own notice distinct from simulated suit unlinked", async ({ page }) => {
+  const snapshot = surfaceSnapshot("walking");
+  let activeWs: import("@playwright/test").WebSocketRoute | undefined;
+  let suppressReconnect = false;
+  await page.routeWebSocket("**/ws", (ws) => {
+    if (suppressReconnect) {
+      ws.close({ code: 1012, reason: "Harness: keep transport offline" });
+      return;
+    }
+    activeWs = ws;
+    ws.onMessage((raw) => {
+      const msg = JSON.parse(String(raw)) as { type?: string };
+      if (msg.type === "HELLO") ws.send(JSON.stringify(snapshot));
+    });
+  });
+
+  await page.goto("/?site=mock_site#/eva/EV1");
+  await expect(page.locator('[data-slot="o2"] .value')).not.toHaveText("—");
+  await expect(page.locator('[data-slot="transport-lost-notice"]')).toHaveCount(0);
+
+  // Simulated L-surf suit unlinked while transport stays open must NOT show the transport-lost notice.
+  const simUnlinked = structuredClone(snapshot);
+  simUnlinked.seq += 1;
+  simUnlinked.crew.forEach((c) => { c.linked = false; c.stale = true; });
+  activeWs!.send(JSON.stringify(simUnlinked));
+  await expect(page.locator('[data-slot="haven"]')).toContainText("STALE");
+  await expect(page.locator('[data-slot="transport-lost-notice"]')).toHaveCount(0);
+
+  // Dropping WebSocket transport shows the dedicated transport-lost notice immediately (before SCR-18).
+  suppressReconnect = true;
+  activeWs!.close({ code: 1012, reason: "Harness: drop transport" });
+  const notice = page.locator('[data-slot="transport-lost-notice"]');
+  await expect(notice).toBeVisible({ timeout: 1500 });
+  await expect(notice).toHaveAttribute("data-fallback", "transport-lost");
+  await expect(page.locator('[data-screen="SCR-18"]')).toHaveCount(0);
 });
 
 test("fallbacks-live: stale snapshot with no options retains ACK and abort without a map", async ({ page }) => {

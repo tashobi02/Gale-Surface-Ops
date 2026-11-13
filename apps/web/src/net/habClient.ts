@@ -72,6 +72,13 @@ export interface HabClient {
   takenOver(): boolean;
   /** Optional for older read-only adapters; live clients report the actual socket, before the watchdog expires. */
   socketConnected?(): boolean;
+  /**
+   * True when the transport to the Hab Core went down: the socket was open and is now closed. This is distinct from
+   * the 3-second watchdog (FR-32), which only fires when the socket is half open and no message arrives: a closed
+   * socket is known at once, so a view can say so at once. False before the first connection, so a screen that has
+   * not connected yet does not claim the transport is lost.
+   */
+  transportLost?(): boolean;
   /** Number of reconnect attempts (the initial connection is not a retry). */
   reconnectCount?(): number;
   send(command: Pick<Command, "kind" | "args">): Promise<CommandResult>;
@@ -91,6 +98,25 @@ interface Pending {
   queued: boolean;
   /** true while a copy is on the wire awaiting its result. */
   inFlight: boolean;
+}
+
+/** What the store holds for one role: the commands waiting, and the session they were queued in. */
+interface StoredQueue {
+  /** The `session_id` of the Hab Core session the commands were queued in; null before any SNAPSHOT. */
+  session_id: string | null;
+  commands: Extract<ClientMessage, { type: "COMMAND" }>[];
+}
+
+/** The store's key for one role. A role's queue is its own: EVA and ops never share a queued command. */
+const queueKey = (role: Role): string => `mwp:queued:${role}`;
+
+/** `sessionStorage` may be unavailable (a private window, a sandboxed frame); storage is then a no-op, not an error. */
+function storageOf(): Storage | null {
+  try {
+    return globalThis.sessionStorage ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Lower-case hex of `bytes` random bytes (crypto.getRandomValues also exists on a LAN page that is not a secure context). */
@@ -116,6 +142,7 @@ export function connectHab(options: HabClientOptions): HabClient {
   let openedOnce = false;
   let lostSince: number | null = null;
   let socket: SocketLike | null = null;
+  let everOpen = false;
   let backoff = BACKOFF_START_MS;
   let closed = false;
   let takenOver = false;
@@ -127,6 +154,49 @@ export function connectHab(options: HabClientOptions): HabClient {
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   const pending = new Map<string, Pending>();
   const listeners = new Set<() => void>();
+
+  // ---- The queue that outlives a page reload (T24.10) ----------------------------------------------
+  // A command sent while the transport is down is kept in `sessionStorage`, so a reload does not lose it. The
+  // store holds the session the commands were queued in: a SNAPSHOT of another session is a different mission and
+  // must not receive them.
+  const KEY = queueKey(role);
+
+  const readStored = (): StoredQueue | null => {
+    const storage = storageOf();
+    if (!storage) return null;
+    try {
+      const raw = storage.getItem(KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as StoredQueue;
+      if (!parsed || !Array.isArray(parsed.commands)) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
+  const writeStored = (queue: StoredQueue | null): void => {
+    const storage = storageOf();
+    if (!storage) return;
+    try {
+      if (queue === null || queue.commands.length === 0) storage.removeItem(KEY);
+      else storage.setItem(KEY, JSON.stringify(queue));
+    } catch {
+      // A full or blocked store must not break the live connection; the command is still queued in memory.
+    }
+  };
+
+  /**
+   * The commands left by a previous page load for this role. They are not sent until the Hab Core confirms the
+   * session: a command from a mission that has ended must not land in the next one.
+   */
+  let restored: Extract<ClientMessage, { type: "COMMAND" }>[] = [];
+  let restoredSession: string | null = null;
+  const stored = readStored();
+  if (stored) {
+    restored = stored.commands;
+    restoredSession = stored.session_id;
+  }
 
   const notify = (): void => {
     for (const l of listeners) {
@@ -152,6 +222,9 @@ export function connectHab(options: HabClientOptions): HabClient {
   }
 
   function heard(): void {
+    // A server message proves the transport was up. This is the marker used when the socket closes: the socket's own
+    // readyState is already CLOSED by the time `onclose` runs, so what "was up" means has to be remembered.
+    everOpen = true;
     lastHeardMs = Date.now();
     if (lost) {
       lost = false;
@@ -184,6 +257,7 @@ export function connectHab(options: HabClientOptions): HabClient {
     socket = s;
     s.onopen = () => {
       backoff = BACKOFF_START_MS;
+      everOpen = true;
       write({ v: PROTOCOL_VERSION, type: "HELLO", role, client_id: clientId, display_name: displayName, last_seq: seq });
       notify();
       flush();
@@ -205,6 +279,7 @@ export function connectHab(options: HabClientOptions): HabClient {
       socket = null;
       for (const p of pending.values()) if (p.inFlight) Object.assign(p, { inFlight: false, queued: true });
       if (closed || takenOver) return;
+      syncStored(); // a command whose reply was lost is queued again, and must survive a reload
       notify();
       scheduleReconnect();
     };
@@ -225,6 +300,69 @@ export function connectHab(options: HabClientOptions): HabClient {
     }
   }
 
+  /**
+   * The commands left by a previous page load, put back into the queue once the Hab Core has confirmed the session.
+   *
+   * A SNAPSHOT of another session is a different mission: the commands were issued against the old one and are
+   * dropped rather than sent into a mission that never heard of them. A stored command with no session at all
+   * (queued before the first SNAPSHOT) is dropped for the same reason: nothing confirms where it belongs.
+   *
+   * The commands keep the ids they were issued with. The Hab Core dedupes by (client_id, command_id) (FD-088), so a
+   * command it already executed is not executed twice by the resend.
+   */
+  function restoreQueued(sessionId: string): void {
+    if (restored.length === 0) return;
+    const kept = restoredSession !== null && restoredSession === sessionId ? restored : [];
+    restored = [];
+    if (kept.length === 0) {
+      // Another session: the stored commands are not this mission's.
+      writeStored(null);
+      return;
+    }
+    for (const message of kept) {
+      pending.set(message.command_id, {
+        message,
+        // The promise of the previous page is gone; the caller of that page is not waiting any more.
+        resolve: () => {},
+        queued: true,
+        inFlight: false,
+      });
+    }
+    flush(); // resend once, flagged queued_offline
+    syncStored();
+  }
+
+  /**
+   * The commands that must survive a page reload: the ones waiting and the ones on the wire whose result was not
+   * seen. Both are resent after a reload, and the Hab Core dedupes the second case (FD-088).
+   */
+  const persistedCommands = (): Extract<ClientMessage, { type: "COMMAND" }>[] =>
+    [...pending.values()].filter((p) => p.queued || p.inFlight).map((p) => p.message);
+
+  /** Writes the store from the live queue. */
+  const syncStored = (): void => {
+    const commands = persistedCommands();
+    if (commands.length === 0) writeStored(null);
+    else writeStored({ session_id: snapshot?.session.session_id ?? null, commands });
+  };
+
+  /** Removes this client's own commands from the store, leaving any that belong to another live client. */
+  const dropOwnStored = (): void => {
+    const mine = new Set([...pending.keys()]);
+    const storage = storageOf();
+    if (!storage) return;
+    try {
+      const raw = storage.getItem(KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as StoredQueue;
+      const commands = (parsed?.commands ?? []).filter((m) => !mine.has(m.command_id));
+      if (commands.length === 0) storage.removeItem(KEY);
+      else storage.setItem(KEY, JSON.stringify({ session_id: parsed.session_id, commands }));
+    } catch {
+      // A store that cannot be read or written is not a reason to fail the connection.
+    }
+  };
+
   function apply(msg: ServerMessage): void {
     switch (msg.type) {
       case "SNAPSHOT":
@@ -233,6 +371,7 @@ export function connectHab(options: HabClientOptions): HabClient {
         if (snapshot && snapshot.session.session_id !== msg.session.session_id) events = [];
         snapshot = msg;
         seq = msg.seq;
+        restoreQueued(msg.session.session_id);
         break;
       case "STATE_DELTA": {
         if (!snapshot || msg.seq < seq) return;
@@ -257,10 +396,12 @@ export function connectHab(options: HabClientOptions): HabClient {
         p.inFlight = false;
         if (!msg.ok && msg.code === "NO_LINK") {
           p.queued = true; // resent on LINK_STATE linked=true (02 §E.6)
+          syncStored();
           return;
         }
         pending.delete(msg.command_id);
         p.resolve(msg);
+        syncStored(); // the command is done: it must not be sent again after a reload
         return;
       }
       case "TAKEN_OVER":
@@ -281,6 +422,8 @@ export function connectHab(options: HabClientOptions): HabClient {
     lost = false;
     lostSince = null;
     for (const [id, p] of pending) p.resolve(failed(id, "Taken over by another device"));
+    // The other device owns the role now; its commands are not this tab's to send.
+    dropOwnStored();
     pending.clear();
     socket?.close(); // the Hab Core closes it too; this covers a socket it left open
   }
@@ -300,6 +443,9 @@ export function connectHab(options: HabClientOptions): HabClient {
     linkLost: () => ({ lost, since_ms: lostSince }),
     takenOver: () => takenOver,
     socketConnected: () => socket?.readyState === SOCKET_OPEN,
+    // The transport is lost once it was up and is not now. A socket that never came up is not lost: the client is
+    // still trying, and the 3-second watchdog (FR-32) is the notice for a half-open socket that stops answering.
+    transportLost: () => everOpen && socket?.readyState !== SOCKET_OPEN,
     reconnectCount: () => attempts,
     send(command) {
       if (closed) return Promise.resolve(failed("", "client closed"));
@@ -311,6 +457,7 @@ export function connectHab(options: HabClientOptions): HabClient {
         pending.set(command_id, p);
         if (write(message)) p.inFlight = true;
         else p.queued = true;
+        syncStored(); // a command that could not go on the wire must survive a reload
       });
     },
     subscribe(listener) {
@@ -322,6 +469,9 @@ export function connectHab(options: HabClientOptions): HabClient {
       if (watchdog) clearTimeout(watchdog);
       if (reconnectTimer) clearTimeout(reconnectTimer);
       socket?.close();
+      // A deliberate close ends this client's part in the queue: the commands are resolved as failed, so they must
+      // not be sent later by a reload either.
+      dropOwnStored();
       for (const [id, p] of pending) p.resolve(failed(id, "client closed"));
       pending.clear();
       listeners.clear();

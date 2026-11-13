@@ -83,6 +83,20 @@ it("report and log failure give a labelled unavailable table, with retry and bac
   expect(root.querySelector('[data-slot="report-retry"]')).not.toBeNull();
 });
 
+it("missing log (404) or malformed NDJSON on report fallback shows em dash and data-unavailable without crashing", async () => {
+  for (const logResp of [() => new Response("not found", { status: 404 }), () => new Response("{broken json\n", { status: 200 })]) {
+    const root = await open(createElement(ReportRoute, {
+      fetchImpl: async (url: string) => url === "api/report" ? new Response('{"error":"missing"}', { status: 404 }) : logResp(),
+    }));
+    await flush();
+    const table = must(root, '[data-fallback="report-log"]');
+    const unavailable = table.querySelectorAll('[data-unavailable="true"]');
+    expect(unavailable.length).toBeGreaterThan(0);
+    expect([...unavailable].some((el) => (el.textContent ?? "").includes("—"))).toBe(true);
+    expect(table.textContent).toContain("Log unavailable");
+  }
+});
+
 it.each([["FORBIDDEN_ROLE", "not supported"], ["INVALID", "unknown command kind ADD_STOP_TASK"]] as const)("%s ADD_STOP_TASK removes authoring while retaining live task progress", async (code, message) => {
   const store = storeFromBeat("connect");
   Object.assign(window, { innerWidth: 1440 });
