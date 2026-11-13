@@ -13,7 +13,7 @@
  * - `start --scenario-dir <path>` loads a scenario folder outside `scenarios/` (same loader checks), takes the site from the
  *   scenario unless `--site` is given, and serves `GET /api/health` with the session id on the port asked for.
  */
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
@@ -22,6 +22,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
+import { cliExecArgs, spawnCli, stopCli } from "./helpers/cliProcess";
 import { canonicalJson, type CommandList, type Recording, type Scenario } from "@marswalk/protocol";
 import { loadSession } from "../src/session";
 import { readScenario } from "../src/scenario";
@@ -29,7 +30,6 @@ import { readScenario } from "../src/scenario";
 const exec = promisify(execFile);
 const here = dirname(fileURLToPath(import.meta.url));
 const HAB_CORE = join(here, "..");
-const TSX = join(here, "../../../node_modules/.bin/tsx");
 const SITE_VERSION = "mock_site-2026.11.05";
 
 const dirs: string[] = [];
@@ -63,7 +63,7 @@ const withVar = (args: string[]): string[] => ((args[0] === "replay" || args[0] 
 
 async function cli(args: string[], env: NodeJS.ProcessEnv = {}): Promise<{ stdout: string; stderr: string; code: number }> {
   try {
-    const { stdout, stderr } = await exec(TSX, ["src/cli.ts", ...withVar(args)], { cwd: HAB_CORE, env: { ...process.env, ...env } });
+    const { stdout, stderr } = await exec(process.execPath, cliExecArgs(withVar(args)), { cwd: HAB_CORE, env: { ...process.env, ...env } });
     return { stdout, stderr, code: 0 };
   } catch (err) {
     const e = err as { stdout: string; stderr: string; code: number };
@@ -214,7 +214,7 @@ describe("export-commands (T32.17)", () => {
 describe("start --scenario-dir (N-01; T22.13 make hab smoke)", () => {
   it("serves /api/health with the session id for a scenario folder outside scenarios/, on the requested host and port", async () => {
     const { dir } = mockSiteScenario();
-    const child = execFile(TSX, ["src/cli.ts", "start", "--scenario-dir", dir, "--port", "0", "--var-dir", tmp("cli-var")], { cwd: HAB_CORE });
+    const child = spawnCli(["start", "--scenario-dir", dir, "--port", "0", "--var-dir", tmp("cli-var")], { cwd: HAB_CORE });
     try {
       const url = await new Promise<string>((resolve, reject) => {
         let out = "";
@@ -232,7 +232,7 @@ describe("start --scenario-dir (N-01; T22.13 make hab smoke)", () => {
       expect(body.status).toBe("ok");
       expect(body.session_id).toMatch(/^s-\d{4}$/);
     } finally {
-      child.kill();
+      await stopCli(child);
     }
   }, 40_000);
 
@@ -259,7 +259,7 @@ describe("local (T20.09; BD-02) and --public-host (T28.02; BD-82)", () => {
   it("starts the Hab Core, prints the four localhost windows with the bound port, and the join QR names --public-host", async () => {
     const { dir } = mockSiteScenario();
     const port = await freePort();
-    const child = execFile(TSX, ["src/cli.ts", "local", "--scenario-dir", dir, "--site", "mock_site", "--port", String(port), "--public-host", "192.0.2.7", "--var-dir", tmp("cli-var")], { cwd: HAB_CORE });
+    const child = spawnCli(["local", "--scenario-dir", dir, "--site", "mock_site", "--port", String(port), "--public-host", "192.0.2.7", "--var-dir", tmp("cli-var")], { cwd: HAB_CORE });
     try {
       const out = await new Promise<string>((resolve, reject) => {
         let text = "";
@@ -275,7 +275,7 @@ describe("local (T20.09; BD-02) and --public-host (T28.02; BD-82)", () => {
       expect(((await health.json()) as { status: string }).status).toBe("ok");
       expect((await fetch(`http://127.0.0.1:${port}/api/join-qr?role=ops`)).headers.get("content-type")).toMatch(/svg/);
     } finally {
-      child.kill();
+      await stopCli(child);
     }
   }, 40_000);
 
@@ -284,4 +284,56 @@ describe("local (T20.09; BD-02) and --public-host (T28.02; BD-82)", () => {
     expect(r.code).toBe(1);
     expect(r.stderr).toMatch(/port must be/);
   }, 30_000);
+});
+
+describe("the CLI child is the server itself, so a kill leaves nothing behind (test hygiene)", () => {
+  // `node_modules/.bin/tsx` starts a second node process for the script; SIGKILL on the wrapper orphaned that server (it kept
+  // listening after the run and had to be killed by PID). The tests start `node --import tsx cli.ts`: one process.
+  const listening = (child: ReturnType<typeof spawnCli>): Promise<void> =>
+    new Promise((resolve, reject) => {
+      let out = "";
+      child.stdout!.on("data", (d: Buffer) => {
+        out += d.toString();
+        if (/Hab Core on http/.test(out)) resolve();
+      });
+      child.once("exit", (code) => reject(new Error(`cli exited ${code}: ${out}`)));
+      setTimeout(() => reject(new Error(`no start line: ${out}`)), 20_000);
+    });
+  const isRunning = (pid: number): boolean => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  it("runs the script in the process it spawned: no grandchild, and SIGKILL ends the server", async () => {
+    const { dir } = mockSiteScenario();
+    const child = spawnCli(["start", "--scenario-dir", dir, "--port", "0", "--var-dir", tmp("cli-var")], { cwd: HAB_CORE });
+    try {
+      await listening(child);
+      expect(execFileSync("pgrep", ["-P", String(child.pid), "-l"], { encoding: "utf8" }).trim()).toBe("");
+    } catch (err) {
+      // pgrep exits 1 when it finds no child, which is what is wanted
+      if ((err as { status?: number }).status !== 1) throw err;
+    } finally {
+      await stopCli(child, "SIGKILL");
+    }
+    expect(isRunning(child.pid!)).toBe(false);
+  }, 40_000);
+
+  it("stopCli waits for the exit, so a following test never sees the port or the process", async () => {
+    const { dir } = mockSiteScenario();
+    const child = spawnCli(["start", "--scenario-dir", dir, "--port", "0", "--var-dir", tmp("cli-var")], { cwd: HAB_CORE });
+    await listening(child);
+    await stopCli(child);
+    expect(child.exitCode !== null || child.signalCode !== null).toBe(true);
+    expect(isRunning(child.pid!)).toBe(false);
+  }, 40_000);
+
+  it("cliExecArgs puts the loader before the script, as spawnCli does", () => {
+    expect(cliExecArgs(["replay", "x"]).slice(0, 2)).toEqual(["--import", "tsx"]);
+    expect(cliExecArgs(["replay", "x"]).slice(-2)).toEqual(["replay", "x"]);
+  });
 });
