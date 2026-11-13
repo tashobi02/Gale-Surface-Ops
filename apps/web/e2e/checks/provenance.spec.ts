@@ -96,3 +96,14 @@ test("provenance: SCR-08 briefing states have no unlabelled number (package 14)"
     await expectNoUnlabelledNumbers(page, `#/briefing ${state}`);
   }
 });
+
+test("provenance: light planner coach counters have provenance at every step (package 35)", async ({ page }) => {
+  await page.goto("/?site=mock_site&theme=light#/planner");
+  await page.locator(".coach-marks-popover").waitFor();
+  for (let step = 0; step < 3; step += 1) {
+    await expect(page.locator(".coach-mark-step-counter")).toHaveAttribute("data-provenance", "derived");
+    await expect(page.locator(".coach-mark-step-counter")).toHaveAttribute("data-source", "ui.coachMarks.steps");
+    await expectNoUnlabelledNumbers(page, `light planner coach step ${step + 1}`);
+    await page.locator('.coach-marks-popover [data-action="next"]').click();
+  }
+});

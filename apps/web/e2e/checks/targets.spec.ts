@@ -158,3 +158,14 @@ test("targets: Earth composer controls are at least 32 px (package 36)", async (
 });
 
 test.fixme("needs N-130 and N-31: Earth delayed summary and available/waiting link states", async () => {});
+
+test("targets: coach mark controls meet pointer target sizes (package 35)", async ({ page, hasTouch }) => {
+  await page.goto("/?site=mock_site&theme=light#/planner");
+  await page.locator(".coach-marks-popover").waitFor();
+  for (let step = 0; step < 3; step += 1) {
+    const list = await targets(page, ".coach-marks-popover");
+    expect(list.length).toBe(2);
+    expectTargetSize(list, hasTouch ? PLANNER_COARSE_MIN : OPS_MIN);
+    await page.locator('.coach-marks-popover [data-action="next"]').click();
+  }
+});
