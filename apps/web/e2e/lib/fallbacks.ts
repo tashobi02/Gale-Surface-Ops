@@ -199,3 +199,28 @@ export async function stubManualLegWorker(page: Page): Promise<void> {
 
 export const manualLegRequests = (page: Page): Promise<ManualLegRequest[]> =>
   page.evaluate(() => (window as unknown as { __manualLegRequests?: ManualLegRequest[] }).__manualLegRequests ?? []);
+
+/**
+ * The worker finds no route anywhere: every `COMPUTE_PLAN` is answered with a PARTIAL result whose legs are all NO_ROUTE (02 §E.2:
+ * any NO_ROUTE leg means status PARTIAL and totals null). Other messages reach the real worker. Must run before navigation.
+ */
+export async function answerPlansWithNoRoute(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const Native = window.Worker;
+    window.Worker = class extends Native {
+      override postMessage(message: unknown, ...rest: unknown[]): void {
+        const request = message as { type?: string; request_id: string; plan_revision: number; scenario: { loop?: boolean }; waypoints: { id: string }[] };
+        if (request?.type !== "COMPUTE_PLAN") return (super.postMessage as (...a: unknown[]) => void)(message, ...rest);
+        const stops = request.waypoints;
+        const pairs = stops.slice(1).map((stop, i) => [stops[i]!.id, stop.id] as const);
+        if (request.scenario.loop && stops.length > 1) pairs.push([stops[stops.length - 1]!.id, stops[0]!.id]);
+        const data = {
+          type: "PLAN_RESULT", request_id: request.request_id, plan_revision: request.plan_revision, status: "PARTIAL",
+          legs: pairs.map(([from, to]) => ({ from, to, status: "NO_ROUTE", reason: "DISCONNECTED_BY_SLOPE" })),
+          totals: null, stops_timeline: [], warnings: [], computed_utc: "2026-11-14T08:00:00Z", timing_ms: { routing: 1, estimates: 0 },
+        };
+        setTimeout(() => this.dispatchEvent(new MessageEvent("message", { data })), 0);
+      }
+    } as typeof Worker;
+  });
+}

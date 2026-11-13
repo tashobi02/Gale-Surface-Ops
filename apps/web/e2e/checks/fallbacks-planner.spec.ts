@@ -11,7 +11,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { guardNetwork, expectNoExternal } from "../lib/offline";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
-import { asOrtho, declareStaticImage, failTiles, manualLegRequests, paintedPixels, STATIC_PNG_SIZE, stubManualLegWorker } from "../lib/fallbacks";
+import { answerPlansWithNoRoute, asOrtho, declareStaticImage, failTiles, manualLegRequests, paintedPixels, STATIC_PNG_SIZE, stubManualLegWorker } from "../lib/fallbacks";
 
 const ROW = '[data-drawer="left"] [data-layer-id]';
 const row = (page: Page, id: string) => page.locator(`${ROW}[data-layer-id="${id}"]`);
@@ -153,6 +153,24 @@ test("fallbacks: Escape cancels a manual leg and sends nothing (T09.08)", async 
   await expect(status(page)).toContainText("Ready");
   await expect(page.getByRole("button", { name: "Finish leg" })).toBeDisabled();
   expect(await manualLegRequests(page)).toEqual([]);
+});
+
+test("fallbacks: the manual-leg panel opens by itself when the worker finds no route anywhere, and not for a routed plan (T09.08)", async ({ page }) => {
+  // Primary path first: a routed plan on the F4 site shows no manual-leg panel.
+  await openPlanTab(page);
+  await addStopByKeyboard(page, 1);
+  await expect(page.locator('[data-results-banner]')).toBeVisible();
+  await expect(page.locator(PANEL)).toHaveCount(0);
+
+  // Then break it: every plan comes back as NO ROUTE.
+  const broken = await page.context().newPage();
+  await answerPlansWithNoRoute(broken);
+  await openPlanTab(broken);
+  await addStopByKeyboard(broken, 1);
+  await expect(broken.locator(PANEL)).toBeVisible();
+  await expect(broken.locator(`${PANEL} .scr02-manual-actions button`).first()).toContainText(/^Draw /);
+  await expect(broken.locator("[data-results-banner]")).toContainText(/Partial|No route/i);
+  await broken.close();
 });
 
 test("fallbacks: with the real worker the manual-leg panel is honest about what it answered (T09.08, N-25)", async ({ page }) => {

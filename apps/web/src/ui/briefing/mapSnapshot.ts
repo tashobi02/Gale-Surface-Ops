@@ -153,8 +153,11 @@ export async function captureBriefingMap(target: HTMLCanvasElement, site: Loaded
   }
 }
 
-/** Height of the map in the card, CSS px (FD-204); the fallback's SVG uses one unit per CSS px at this height. */
-const FALLBACK_HEIGHT = 235;
+/**
+ * Height of the fallback map, CSS px; the SVG uses one unit per CSS px at this height. Shorter than the 235 px canvas (FD-204): the
+ * notice that names the failure shares the card's 253 px map block, so the card still prints on one page.
+ */
+const FALLBACK_HEIGHT = 180;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /**

@@ -78,12 +78,12 @@ describe("map snapshot", () => {
     expect(image.getAttribute("data-provenance")).toBeTruthy(); expect(image.getAttribute("data-source")).toBeTruthy();
     // North up, linear from aoi.extent_m, one projected metre per unit on both axes (a square AOI gives a square frame).
     const svg = fallback.querySelector("svg")!;
-    expect(svg.getAttribute("viewBox")).toBe("0 0 235 235");
+    expect(svg.getAttribute("viewBox")).toBe("0 0 180 180");
     const frame = fallback.querySelector<HTMLElement>(".scr08-fallback-frame")!;
-    expect(frame.style.width).toBe("235px");
+    expect(frame.style.width).toBe("180px");
     // A NO ROUTE leg is the straight dashed line between its stops, labelled by class (dashes live in the .css file, CSP).
     const route = svg.querySelector("polyline.route")!;
-    expect(route.getAttribute("points")).toBe("0,0 235,235");
+    expect(route.getAttribute("points")).toBe("0,0 180,180");
     expect(route.classList.contains("no-route")).toBe(true);
     expect(svg.querySelectorAll("circle.stop")).toHaveLength(2);
     expect([...svg.querySelectorAll("text")].map(t => t.textContent)).toEqual(["0", "1"]);
@@ -99,8 +99,8 @@ describe("map snapshot", () => {
     } as never);
     const route = fallback.querySelector("polyline.route")!;
     expect(route.classList.contains("no-route")).toBe(false);
-    // x = (x_m + 3000) / 6000 * 235 and y = (3000 - y_m) / 6000 * 235: north is up, so a larger y_m is a smaller y.
-    expect(route.getAttribute("points")).toBe("117.5,117.5 176.25,117.5 176.25,58.75");
+    // x = (x_m + 3000) / 6000 * 180 and y = (3000 - y_m) / 6000 * 180: north is up, so a larger y_m is a smaller y.
+    expect(route.getAttribute("points")).toBe("90,90 135,90 135,45");
     fallback.querySelector("img")!.dispatchEvent(new window.Event("error"));
     expect(fallback.querySelector("img")).toBeNull();
     const missing = fallback.querySelector<HTMLElement>(".scr08-thumbnail-missing")!;

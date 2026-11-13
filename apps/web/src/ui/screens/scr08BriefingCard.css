@@ -74,8 +74,7 @@
 /* T11.06: the thumbnail and the route as SVG when the canvas capture fails. Stroke, dash and marker styles are here, not in
    attributes: the CSP forbids inline styles, and a class survives printing. Dashes and numbers carry NO ROUTE and the stop
    order in black and white. */
-.scr08-map:has(.scr08-fallback) { height: auto; }
-.scr08-fallback { display: flex; justify-content: center; width: 100%; height: 235px; overflow: hidden; background: var(--surface-2); }
+.scr08-fallback { display: flex; justify-content: center; width: 100%; height: 180px; overflow: hidden; background: var(--surface-2); }
 .scr08-fallback-frame { position: relative; height: 100%; max-width: 100%; overflow: hidden; background: var(--surface-1); }
 .scr08-fallback img { position: absolute; max-width: none; filter: grayscale(1); }
 .scr08-fallback svg { position: absolute; inset: 0; width: 100%; height: 100%; }
