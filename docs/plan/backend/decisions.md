@@ -188,3 +188,9 @@ Attribution used in the last column, written out in full on every row as require
 ## Count
 
 144 decision rows (BD-00 … BD-162, ids not contiguous so later rows can be inserted). [decisions-index.md](decisions-index.md) maps all 515 markers found in scope on 12 Nov to these ids.
+
+## BD-121 amendment (2026-11-13)
+
+*Proposed; recorded by OpenAI Codex at the user's request to document BUG-002 (`e5eb088`); T22.12, T23.02, FR-30, FR-31, NFR-06.*
+
+The [02 §D.17 command-triggered load journal amendment](../../specs/02_Technical_Requirements_Document.md#command-triggered-load-journal-amendment-bd-121-2026-11-13) supersedes BD-121's exclusion of a successful `LOAD_SCENARIO`: the creating command is journaled in the new session with `after_seq: 0` and exported as `initial_load` to reproduce the first event's command actor and `command_ref`, which affect `log_hash`. BD-115 still applies to `RESET_SESSION`: its journal entry stays in the old session, and the new session starts with empty accepted-command memory and no reset journal entry. The original decision rows above are preserved.

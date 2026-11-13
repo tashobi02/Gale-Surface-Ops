@@ -544,6 +544,17 @@ Behaviour of the presenter commands (§E.4). Command and event names and payload
 
 **Time-shift caveat.** Shifting the series changes the UTC at which the real event is replayed. Its shape, integral and the trigger rule (§D.13) are unchanged. Earth light time and the relay pass at the shifted time come from the tables at the new time, so values such as those in 01 §E.1 hold for the reference run only.
 
+#### Command-triggered load journal amendment (BD-121, 2026-11-13)
+
+*Proposed; recorded by OpenAI Codex at the user's request to document BUG-002 (`e5eb088`); T22.12, T23.02, FR-30, FR-31, NFR-06.*
+
+This amendment supersedes only [BD-121](../plan/backend/decisions.md)'s exclusion of a `LOAD_SCENARIO` that replaces the session. The original decision remains as recorded.
+
+- A successful command-triggered `LOAD_SCENARIO` is journaled once in the session it creates, after its initial events are written, with `after_seq: 0`. The creating command is not journaled in the preceding session.
+- The exported command list carries that creating entry as optional `initial_load` (`RecordedCommand`), rather than in `commands[]`. It retains `sim_time`, `role`, `kind`, `args`, `command_id` and `client_id`; replay uses it during initialization to reproduce the creating command and its first event.
+- That first event, `SESSION_LOADED`, records the command role as `actor` and its `client_id` and `command_id` in `command_ref`. These fields are part of `log_hash`, so a command-triggered load's event-log hash differs from an otherwise identical initial or reset session, whose first event has `actor: "system"` and `command_ref: null`. The journal itself remains outside `log_hash`.
+- `RESET_SESSION` retains [BD-115](../plan/backend/decisions.md): it is journaled only in the old session; the new session starts with empty accepted-command memory and no journal entry for the reset. An initial load without a command also has no creating journal entry.
+
 ---
 
 ## E. Interfaces and contracts
