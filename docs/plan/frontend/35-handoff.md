@@ -22,12 +22,12 @@ The orchestrator ran the checks the package could not. Port 8161 onward, one che
 | provenance | desktop-1440 | 17 passed, 2 skipped (both `test.fixme` naming N-24) |
 | print | desktop-1440 | 8 passed |
 | targets | every project | 125 passed, 35 skipped |
-| axe | every project | 191 passed, 49 skipped, 2 failed — see below |
+| axe | every project | 193 passed, 49 skipped, 0 failed (after the fix below) |
 
-Two axe failures came out of the run, and one was a real defect:
+The first axe run found two failures, and one was a real defect:
 
-- `phone-360x740` "EVA full map, options and cached transport-loss overlay": a **serious** `scrollable-region-focusable` violation on `div[data-slot="link-lost-overlay"]`. The overlay scrolls on a narrow phone and the EVA notice carries no focusable control of its own, so the scrollable region had no keyboard access. Fixed in FD-519: the overlay is now `tabIndex={0}` with `role="region"` and a label, with a regression test whose mutation (reverting the attributes) fails it.
-- `desktop-1280` "EVA tablet states and high contrast": the test timed out at 3.0 m. It runs 16 axe scans (8 EVA states × base and high contrast) inside a 180 s budget, which is about 11 s per scan; it passed on every other project in the same run, so this is the known load-dependent timeout family, not an accessibility regression. The check is unchanged.
+- `phone-360x740` "EVA full map, options and cached transport-loss overlay": a **serious** `scrollable-region-focusable` violation on `div[data-slot="link-lost-overlay"]`. The overlay scrolls on a narrow phone and the EVA notice carries no focusable control of its own, so the scrollable region had no keyboard access. Fixed in FD-519: the overlay is now `tabIndex={0}` with `role="region"` and a label, with a regression test whose mutation (reverting the attributes) fails it. The rerun is green.
+- `desktop-1280` "EVA tablet states and high contrast": the test timed out at 3.0 m while three Playwright runs shared the machine. It runs 16 axe scans (8 EVA states × base and high contrast) inside a 180 s budget, about 11 s per scan. It passed on every project of the clean rerun (12.1 m, 193 passed, 49 skipped, 0 failed), so it is the known load-dependent timeout family, not an accessibility regression. The check is unchanged.
 
 The `planner-drawer` check added by the package-25 drawer fix also passes on all six registered viewports (desktop-1440, phone-landscape-844x390, phone-portrait-390x844, phone-360x740, tablet-landscape-1024x768, tablet-portrait-768x1024).
 
@@ -35,8 +35,8 @@ The `planner-drawer` check added by the package-25 drawer fix also passes on all
 
 | Row | Final state | Reason |
 | --- | --- | --- |
-| T13.07 | wip | Keyboard and memory-only dismissal unit checks pass; the browser toggles, targets, axe and provenance checks pass too. The row stays wip on the desktop-1280 axe timeout above, which is the load-dependent family and not a coach-mark defect |
-| T13.08 | wip | Explicit light planner theme and PRINT contrast unit checks pass; the browser contrast (including light planner) and axe (including the light planner and the light coach steps) checks pass |
+| T13.07 | done | Keyboard and memory-only dismissal unit checks pass, and the browser toggles, targets, axe and provenance checks pass on every project |
+| T13.08 | done | Explicit light planner theme and PRINT contrast unit checks pass, and the browser contrast (including light planner) and axe (including the light planner and the light coach steps) checks pass |
 | T18.03 | wip | N-24 REMS context absent; sourced unavailable dash; harness `test.fixme` names N-24 |
 | T18.06 | wip | N-24 O₂ output absent; illustrative sourced unavailable dash; harness `test.fixme` names N-24 |
 | T18.07 | done | Fifteen persistence unit/integration checks pass, including restore/recompute through the real store and ignored blocked storage |
