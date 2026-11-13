@@ -431,7 +431,7 @@ export function EvaTablet({
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span className="micro" style={{ color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>
-              NEXT {vm.nextStop ? `· ${vm.nextStop.stopName}` : `· ${UNAVAILABLE}`}
+              NEXT {vm.nextStop ? <>· <span data-identifier>{vm.nextStop.stopName}</span></> : `· ${UNAVAILABLE}`}
             </span>
             {/* TASKS button; counts are "—" until a stop is known. While the list is collapsed the count stays here as a
                 figure, not a control, and no panel is behind it (FD-032). */}

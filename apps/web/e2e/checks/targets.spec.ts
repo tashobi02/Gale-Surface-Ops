@@ -257,3 +257,14 @@ test("targets: SUMMON and ABORT need one hold; TASK ROVER opens SCR-15 within tw
   expect(sent.find((c) => c.kind === "TASK_ROVER")?.args).toMatchObject({ vehicle_id: UTILITY_ROVER.vehicle_id, task: "RETURN" });
   test.info().annotations.push({ type: "action-taps", description: "TASK ROVER RETURN: 2 taps + confirm dispatches once" });
 });
+
+test("targets: coach mark controls meet pointer target sizes (package 35)", async ({ page, hasTouch }) => {
+  await page.goto("/?site=mock_site&theme=light#/planner");
+  await page.locator(".coach-marks-popover").waitFor();
+  for (let step = 0; step < 3; step += 1) {
+    const list = await targets(page, ".coach-marks-popover");
+    expect(list.length).toBe(2);
+    expectTargetSize(list, hasTouch ? PLANNER_COARSE_MIN : OPS_MIN);
+    await page.locator('.coach-marks-popover [data-action="next"]').click();
+  }
+});

@@ -306,6 +306,10 @@ function LegTable({ result }: { result: PlanResult }): ReactElement {
           })}
         </tbody>
       </table>
+      <div className="scr05-consumables-note micro">
+        <span>O₂ rate (illustrative): </span>
+        <Metric value={null} prov="modelled" src="compute.o2LitresPerMinute" unit="L/min" />
+      </div>
     </div>
   );
 }

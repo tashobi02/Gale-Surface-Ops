@@ -13,6 +13,7 @@ import { createElement } from "react";
 import { closeHabSessions } from "../state/habSession";
 import { App } from "../ui/App";
 import { parseHash, type Route } from "../ui/router";
+import { applyTheme } from "../ui/theme";
 import { createPlannerBoot, type PlannerBootHandle } from "./bootPlanner";
 import { ensureSessionForRoute, type SessionBootDeps } from "./session";
 
@@ -46,6 +47,7 @@ export async function startApp(options: StartAppOptions): Promise<AppHandle> {
       globalThis.location.replace(route.hash); // fires hashchange, which renders the canonical route
       return;
     }
+    applyTheme(globalThis.location?.search, route.query, route.id === "planner");
     document.documentElement.setAttribute("data-mode", route.mode);
     document.title = route.screen && route.screen !== "—" ? `${TITLE} — ${route.screen}` : TITLE;
     try {
