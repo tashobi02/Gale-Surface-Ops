@@ -106,6 +106,8 @@ export interface SessionOptions {
    * command list starts under the id the list came from, which SESSION_LOADED holds, so the hash can match (BD-121).
    */
   firstSessionId?: string;
+  /** Reproduce the command that created an exported session (05 Command; BD-121). */
+  initialLoad?: { command: Command; client_id: string; sim_time: string };
 }
 
 /** Provenance classes of the SNAPSHOT fields (05 §C.2 Crew, Vehicle; 02 §E.6 example). */
@@ -175,10 +177,10 @@ class Session implements SessionHandle {
       this.state = resumed.state;
       this.accepted = resumed.accepted;
     } else {
-      const started = startSession(scenario, varDir, options.firstSessionId);
+      const started = startSession(scenario, varDir, options.firstSessionId, options.initialLoad);
       this.log = started.log;
       this.state = started.state;
-      this.accepted = new AcceptedCommands();
+      this.accepted = AcceptedCommands.fromLog(this.log.after(0));
     }
   }
 
@@ -258,7 +260,7 @@ class Session implements SessionHandle {
   /**
    * Evaluate one command and journal it (BD-93, BD-121): one `CommandJournalLine` goes to `commands.jsonl` of the session the
    * command was evaluated in, after its events are written. Not journaled: a resent command id (answered from memory, nothing
-   * logged), a LOAD_SCENARIO that replaced the session or found no scenario (nothing was logged), anything else that logged no
+   * logged), a LOAD_SCENARIO that found no scenario (nothing was logged), anything else that logged no
    * event. A JUMP_NEXT_EVENT that ran to the limit without an event is journaled: it moved sim time.
    */
   apply(command: Command, client_id: string = command.role): { result: CommandResult; events: LogEvent[]; replaced?: boolean } {
@@ -278,14 +280,15 @@ class Session implements SessionHandle {
       // Reloading the scenario in use starts from the scenario as loaded, not with the comm grid of a chosen candidate.
       const scenario = out.effect.scenario_id === this.scenario.scenario.scenario_id ? this.baseScenario : this.options.resolveScenario?.(out.effect.scenario_id);
       if (!scenario) return { result: { v: PROTOCOL_VERSION, type: "COMMAND_RESULT", command_id: command.command_id, ok: false, code: "INVALID", message: `unknown scenario ${out.effect.scenario_id}` }, events: [] };
-      const started = startSession(scenario, this.varDir);
+      const started = startSession(scenario, this.varDir, undefined, { command, client_id, sim_time: this.state.session.clock.sim_time });
       this.baseScenario = scenario;
       this.scenario = scenario;
       this.site = undefined;
       this.havenCache.clear();
       this.log = started.log;
       this.state = started.state;
-      this.accepted = new AcceptedCommands();
+      // 05 Command / 02 §E.6: retain the creating load only; RESET_SESSION still starts empty (BD-115).
+      this.accepted = AcceptedCommands.fromLog(this.log.after(0));
       return { result: okResult(command, this.log.after(0)[0].seq), events: [], replaced: true };
     }
     if (out.effect?.kind === "reset") return this.resetSession(command, client_id);
@@ -493,7 +496,7 @@ function nextSessionId(varDir: string): string {
 }
 
 /** New session folder: initial state, SESSION_LOADED, then the seeded TASK_ADDED events (FR-50). */
-function startSession(scenario: LoadedScenario, varDir: string, firstId?: string): { log: EventLog; state: EngineState } {
+function startSession(scenario: LoadedScenario, varDir: string, firstId?: string, load?: { command: Command; client_id: string; sim_time: string }): { log: EventLog; state: EngineState } {
   const session_id = firstId ?? nextSessionId(varDir);
   const dir = join(varDir, "sessions", session_id);
   mkdirSync(dir, { recursive: true });
@@ -501,9 +504,11 @@ function startSession(scenario: LoadedScenario, varDir: string, firstId?: string
   let state = initialState(scenario, session_id);
   const s = scenario.scenario;
   const loadedData: LogEventData["SESSION_LOADED"] = { session_id, scenario_id: s.scenario_id, data_version: s.data_version, seed: s.seed, plan_hash: s.plan?.plan_hash ?? null };
-  const pending: PendingEvent[] = [{ sim_time: s.start_utc, kind: "SESSION_LOADED", actor: "system", data: loadedData, provenance: {}, command_ref: null }];
+  const pending: PendingEvent[] = [{ sim_time: s.start_utc, kind: "SESSION_LOADED", actor: load?.command.role ?? "system", data: loadedData, provenance: {}, command_ref: load ? { client_id: load.client_id, command_id: load.command.command_id } : null }];
   if ((s.stop_tasks ?? []).length > 0) pending.push(...seedTasks(scenario).map((e) => ({ ...e, command_ref: null })));
   for (const p of pending) state = reduce(state, log.append(p));
+  // The creating command belongs to the new session; seq 0 distinguishes it from commands evaluated after its initial events.
+  if (load) log.journal({ sim_time: load.sim_time, after_seq: 0, role: load.command.role, kind: load.command.kind, args: load.command.args ?? {}, command_id: load.command.command_id, client_id: load.client_id });
   state = { ...state, session: { ...state.session, log_hash: log.hash() } };
   return { log, state };
 }

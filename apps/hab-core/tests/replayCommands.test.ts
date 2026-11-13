@@ -16,8 +16,8 @@
  *   a command that follows RESET_SESSION is a `ReplayInputError` before anything runs. A command the clock cannot reach
  *   (the session is not running and its time is earlier) is one too, at that command.
  * - `commands.jsonl` (one `CommandJournalLine` per evaluated command, accepted or rejected, in evaluation order) is written
- *   beside `session.jsonl`. Not journaled: a resent command id (answered from memory), a LOAD_SCENARIO that replaced the
- *   session and one that found no scenario (neither changes any log). It is not in `log_hash`.
+ *   beside `session.jsonl`. A creating LOAD_SCENARIO is journaled in the new session at after_seq 0; a resent id and a load
+ *   that found no scenario are not journaled. The journal is not in `log_hash`.
  * - Export: the journal becomes a `CommandList` carrying each command's `command_id` and `client_id`, the session id and the
  *   sim time of the session's last event, so replaying it gives the session's own `log_hash`. ROLE_TAKEN_OVER lines are not
  *   commands: a session that logged one exports and replays deterministically, but to a different hash.
@@ -258,7 +258,7 @@ describe("the command journal, commands.jsonl (BD-93, BD-121)", () => {
     expect(linesOf(join(dir(), "commands.jsonl"))).toHaveLength(1);
   });
 
-  it("does not journal a LOAD_SCENARIO that replaced the session, or found no scenario; it journals a rejected one", () => {
+  it("journals a successful LOAD_SCENARIO in the new session, omits an unknown scenario and journals a rejected one", () => {
     const { session, dir } = live();
     const unknown = send(session, "ops", "LOAD_SCENARIO", { scenario_id: "nowhere" });
     expect(unknown.result.ok).toBe(false);
@@ -267,7 +267,7 @@ describe("the command journal, commands.jsonl (BD-93, BD-121)", () => {
     expect(linesOf(join(dir("s-0001"), "commands.jsonl"))).toHaveLength(0);
     send(session, "ops", "START_EVA"); // session 2 is LOADED; a load while the EVA runs is BUSY and is logged
     send(session, "ops", "LOAD_SCENARIO", { scenario_id: fake.scenario.scenario_id });
-    expect(linesOf<CommandJournalLine>(join(dir("s-0002"), "commands.jsonl")).map((l) => l.kind)).toEqual(["START_EVA", "LOAD_SCENARIO"]);
+    expect(linesOf<CommandJournalLine>(join(dir("s-0002"), "commands.jsonl")).map((l) => l.kind)).toEqual(["LOAD_SCENARIO", "START_EVA", "LOAD_SCENARIO"]);
   });
 
   it("journals RESET_SESSION in the old session's file and starts an empty one for the new session", () => {
@@ -364,4 +364,3 @@ describe("export from a live session replays to the session's own log_hash (T32.
     expect(() => exportCommandList(tmp("nothing"))).toThrow(/commands\.jsonl/);
   });
 });
-

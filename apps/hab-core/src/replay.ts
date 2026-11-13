@@ -79,6 +79,12 @@ export function checkCommandList(list: CommandList, scenario_id: string): void {
   if (typeof list !== "object" || list === null || !Array.isArray(list.commands)) throw new ReplayInputError("command list: `commands` must be an array");
   if (list.scenario_id !== scenario_id) throw new ReplayInputError(`command list is for scenario ${String(list.scenario_id)}, not ${scenario_id}`);
   if (list.until_sim_time !== undefined && !isUtc(list.until_sim_time)) throw new ReplayInputError(`command list: until_sim_time ${String(list.until_sim_time)} is not a UTC time (YYYY-MM-DDTHH:MM:SSZ)`);
+  if (list.initial_load !== undefined) {
+    const c = list.initial_load;
+    if (!c || c.kind !== "LOAD_SCENARIO" || !isUtc(c.sim_time) || (c.role !== "ops" && c.role !== "presenter") || c.args?.scenario_id !== scenario_id || typeof c.command_id !== "string" || typeof c.client_id !== "string") {
+      throw new ReplayInputError("command list: initial_load must identify the LOAD_SCENARIO that created this session");
+    }
+  }
   list.commands.forEach((c, i) => {
     const at = `command ${i + 1}`;
     if (typeof c !== "object" || c === null) throw new ReplayInputError(`${at} is not an object`);
@@ -113,7 +119,11 @@ export async function replayHeadless(scenarioDir: string, seed?: number, options
   const base = join(options.varDir ?? DEFAULT_VAR, "replay");
   mkdirSync(base, { recursive: true });
   const folder = mkdtempSync(join(base, `${loaded.scenario.scenario_id}-`));
-  const session = loadSession(loaded, folder, list.session_id === undefined ? {} : { firstSessionId: list.session_id });
+  const initial = list.initial_load;
+  const session = loadSession(loaded, folder, {
+    ...(list.session_id === undefined ? {} : { firstSessionId: list.session_id }),
+    ...(initial === undefined ? {} : { initialLoad: { command: { command_id: initial.command_id!, role: initial.role, kind: initial.kind, args: initial.args }, client_id: initial.client_id!, sim_time: initial.sim_time } }),
+  });
   const rec = options.record;
   const snap = () => session.snapshot([]);
   rec?.begin(snap(), session.eventsAfter(0));
@@ -172,7 +182,7 @@ export async function replayHeadless(scenarioDir: string, seed?: number, options
  * The command list of one session, from its `commands.jsonl` and `session.jsonl` (BD-93, BD-121): every journaled command with the
  * ids it was sent with, the scenario and seed and the session id from SESSION_LOADED, and `until_sim_time`, the sim time of the
  * session's last event. Replaying it gives the session's own `log_hash` (a ROLE_TAKEN_OVER event, which no command makes, is
- * the one thing it cannot reproduce).
+ * the one thing it cannot reproduce). A creating load is represented by `initial_load` so it reproduces the first event.
  */
 export function exportCommandList(sessionDir: string): CommandList {
   const journal = join(sessionDir, JOURNAL_FILE);
@@ -184,15 +194,17 @@ export function exportCommandList(sessionDir: string): CommandList {
   const first = events[0];
   if (!first || first.kind !== "SESSION_LOADED") throw new Error(`${logFile} does not start with SESSION_LOADED`);
   const loaded = first.data as unknown as LogEventData["SESSION_LOADED"];
-  const commands: RecordedCommand[] = lines(journal).map((l) => {
-    const { sim_time, role, kind, args, command_id, client_id } = JSON.parse(l) as CommandJournalLine;
-    return { sim_time, role, kind, args, command_id, client_id };
-  });
+  const entries = lines(journal).map((l) => JSON.parse(l) as CommandJournalLine);
+  // A load creates the first event in this session, so replay it as initialization, not as another replacement (BD-121).
+  const creating = entries[0]?.after_seq === 0 && first.command_ref !== null ? entries.shift() : undefined;
+  const recorded = ({ sim_time, role, kind, args, command_id, client_id }: CommandJournalLine): RecordedCommand => ({ sim_time, role, kind, args, command_id, client_id });
+  const commands: RecordedCommand[] = entries.map(recorded);
   return {
     $comment: `exported from the command journal of session ${loaded.session_id}; a replay applies the commands in list order (02 §D.17)`,
     scenario_id: loaded.scenario_id,
     seed: loaded.seed,
     commands,
+    ...(creating === undefined ? {} : { initial_load: recorded(creating) }),
     session_id: loaded.session_id,
     until_sim_time: events[events.length - 1].sim_time,
   };

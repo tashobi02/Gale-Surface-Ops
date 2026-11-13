@@ -24,6 +24,8 @@ export interface CommandList {
   scenario_id: string;
   seed: number;
   commands: RecordedCommand[];
+  /** Command that created this session, when SESSION_LOADED was caused by LOAD_SCENARIO (BD-121). */
+  initial_load?: RecordedCommand;
   /** The session id the list was exported from (`s-0002`): the replay starts its session under the same id, which SESSION_LOADED holds (BD-121). */
   session_id?: string;
   /** The sim time of the exported session's last event: the replay runs no further. Without it the replay runs to ENDED or the maximum EVA duration (BD-121). */

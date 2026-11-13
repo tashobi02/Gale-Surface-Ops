@@ -564,6 +564,28 @@ describe("a real session replaced by RESET_SESSION (T32.15; 02 §D.17; NFR-13)",
     return { server, session };
   }
 
+  it("deduplicates a LOAD_SCENARIO resent by the same client after reconnect (BUG-002)", async () => {
+    const { server, session } = await liveServer();
+    const firstClient = await client(server.url);
+    firstClient.send(hello("ops", "c-load"));
+    await firstClient.waitFor((m) => m.type === "SNAPSHOT");
+    const load: ClientMessage = { v: 1, type: "COMMAND", command_id: "k-load-reconnect", role: "ops", command: { kind: "LOAD_SCENARIO", args: { scenario_id: planless.scenario.scenario_id } } };
+    firstClient.send(load);
+    const [firstResult] = await firstClient.waitFor((m) => m.type === "COMMAND_RESULT");
+    await firstClient.waitFor((m) => m.type === "SNAPSHOT", 2);
+    const id = session.snapshot([]).session.session_id;
+    firstClient.ws.close();
+    await new Promise<void>((resolve) => firstClient.ws.once("close", () => resolve()));
+    const reconnected = await client(server.url);
+    reconnected.send(hello("ops", "c-load"));
+    await reconnected.waitFor((m) => m.type === "SNAPSHOT");
+    reconnected.send(load);
+    const [secondResult] = await reconnected.waitFor((m) => m.type === "COMMAND_RESULT");
+    expect(secondResult).toEqual(firstResult);
+    expect(session.snapshot([]).session.session_id).toBe(id);
+    expect(reconnected.received.filter((m) => m.type === "SNAPSHOT")).toHaveLength(1);
+  });
+
   it("the presenter's reset reaches the connected EVA tablet as SESSION_RESET then a SNAPSHOT of s-0002 in LOADED, and the presenter's result sits between", async () => {
     const { server } = await liveServer();
     const pres = await client(server.url);
