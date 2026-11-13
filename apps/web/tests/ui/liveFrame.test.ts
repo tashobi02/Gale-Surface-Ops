@@ -140,6 +140,33 @@ describe("LiveFrame", () => {
     expect(age.getAttribute("data-provenance")).toBe("simulated");
   });
 
+  it("moves focus to the link-loss notice, makes the covered screen inert, and restores focus on reconnect", async () => {
+    vi.useFakeTimers();
+    const made = open("ops");
+    const view = await mount(createElement(LiveFrame, { variant: "ops" }, createElement("button", { id: "under-overlay" }, "Clock")));
+    await made[0].receive(...wsFixtures.connect);
+    const button = must<HTMLButtonElement>(view.container, "#under-overlay");
+    button.focus();
+    expect(document.activeElement).toBe(button);
+    await silence(LINK_LOST_AFTER_MS + 50);
+    const overlay = must(view.container, '[data-slot="link-lost-overlay"]');
+    const screen = must(view.container, '[data-slot="live-screen"]');
+    expect(screen.hasAttribute("inert")).toBe(true);
+    expect(screen.getAttribute("aria-hidden")).toBe("true");
+    expect(overlay.contains(document.activeElement)).toBe(true);
+    const retry = must<HTMLButtonElement>(overlay, '[data-slot="link-lost-retry"]');
+    retry.focus();
+    await act(async () => { retry.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })); });
+    expect(document.activeElement).toBe(overlay);
+    await act(async () => { overlay.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true })); });
+    expect(document.activeElement).toBe(retry);
+    await silence(1100);
+    await made[made.length - 1].receive(...wsFixtures.walking);
+    expect(screen.hasAttribute("inert")).toBe(false);
+    expect(document.activeElement).toBe(button);
+    await view.unmount();
+  });
+
   it("the overlay goes away when the server is heard again", async () => {
     vi.useFakeTimers();
     const made = open("ops");

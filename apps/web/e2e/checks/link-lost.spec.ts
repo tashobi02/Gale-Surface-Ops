@@ -23,6 +23,9 @@ test("link-lost: both roles show SCR-18 within 3 s of the last server message, a
     const o2 = String(Math.round(member.o2_frac * 100));
     await expect(eva.locator('[data-slot="o2"] .value')).toHaveText(o2);
     await expect(ops.getByTestId('clock-control')).toBeVisible();
+    const clockButton = ops.getByTestId('clock-control').locator('button:not([disabled])').first();
+    await clockButton.focus();
+    await expect(clockButton).toBeFocused();
     killHab(); killed = true;
     const killedAt = Date.now();
     await Promise.all([eva, ops].map(async (page) => {
@@ -38,6 +41,12 @@ test("link-lost: both roles show SCR-18 within 3 s of the last server message, a
       await expect.poll(async () => Number(await count.textContent()), { timeout: 2500 }).toBeGreaterThan(first);
     }));
     await expect(eva.locator('[data-slot="cached-telemetry"] .value').nth(1)).toHaveText(o2);
+    await expect(ops.locator('[data-slot="live-screen"]')).toHaveAttribute('inert', '');
+    await expect(ops.locator('[data-slot="link-lost-overlay"]')).toBeFocused();
+    await ops.keyboard.press('Shift+Tab');
+    await expect(ops.locator('[data-slot="link-lost-retry"]')).toBeFocused();
+    await ops.keyboard.press('Tab');
+    await expect(ops.locator('[data-slot="link-lost-overlay"]')).toBeFocused();
     await restartHab(); killed = false;
     const restored = await (await eva.request.get('/api/session')).json() as Snapshot;
     const expected = restored.crew.find((c) => c.crew_id === 'EV1')!;
@@ -45,6 +54,7 @@ test("link-lost: both roles show SCR-18 within 3 s of the last server message, a
     await expect(eva.locator('[data-slot="o2"] .value')).toHaveText(String(Math.round(expected.o2_frac * 100)));
     await expect(eva.locator('[data-slot="haven"] .value')).toHaveText(String(Math.round(expected.haven.minutes)));
     await expect(ops.locator('[data-testid="clock-control"]')).toBeVisible();
+    await expect(clockButton).toBeFocused();
     await expect(ops.locator('[data-source="snapshot:crew.o2_frac"]').first()).toContainText(String(Math.round(expected.o2_frac * 100)));
   } finally {
     if (killed) await restartHab();
