@@ -13,7 +13,7 @@ The planner, habitat server and role views are implemented; the task progress an
 ## Progress
 
 <!-- progress:start -->
-`████████████████░░░░` **81 %** — 279 of 345 subtasks done, 44 in progress.
+`████████████████░░░░` **81 %** — 278 of 345 subtasks done, 45 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -30,7 +30,7 @@ The planner, habitat server and role views are implemented; the task progress an
 | [TASK-10 POI detail + Conditions panel](docs/tasks/TASK-10_poi-detail-and-conditions.md) | `██████████` 100 % | 4 | 0 | 4 |
 | [TASK-11 Briefing card + JSON export](docs/tasks/TASK-11_briefing-card-and-export.md) | `██████████` 100 % | 7 | 0 | 7 |
 | [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `███████░░░` 71 % | 5 | 2 | 7 |
-| [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `█████████░` 92 % | 12 | 1 | 13 |
+| [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `████████░░` 85 % | 11 | 2 | 13 |
 | [TASK-14 Integration + offline hardening + fault tests](docs/tasks/TASK-14_integration-offline-hardening.md) | `███████░░░` 73 % | 8 | 1 | 11 |
 | [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `████████░░` 75 % | 3 | 1 | 4 |
 | [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `█░░░░░░░░░` 14 % | 1 | 6 | 7 |
