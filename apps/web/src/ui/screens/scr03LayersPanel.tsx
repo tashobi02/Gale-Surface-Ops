@@ -20,7 +20,8 @@ import { useState, type ReactElement } from "react";
 import type { Layer, Provenance } from "@marswalk/protocol";
 import { Metric } from "../components/metric";
 import { PROVENANCE_GLYPHS, UNAVAILABLE, provAttrs, unavailableOf } from "../components/provenance";
-import type { SlopeLegendClass } from "../map/rasterLayers";
+import { StatusIcon } from "../components/statusIcon";
+import type { RasterFallbackKind, SlopeLegendClass } from "../map/rasterLayers";
 import "./scr03LayersPanel.css";
 
 export type RowStatus = "ready" | "loading" | "unavailable" | "out_of_range";
@@ -36,6 +37,13 @@ export type PanelLegend =
   | { type: "ramp"; stops: [number, string][] }
   | { type: "ez"; entries: { word: string; shape: "triangle" | "square" | "hexagon"; description: string }[] };
 
+/** A layer drawn from its ImageStatic stand-in because its tiles did not load (T07.16, FD-193). */
+export interface PanelFallback {
+  kind: RasterFallbackKind;
+  /** Metres per image pixel; null reads "—". */
+  resolutionM: number | null;
+}
+
 export interface PanelLayer {
   id: string;
   title: string;
@@ -47,6 +55,8 @@ export interface PanelLayer {
   status: RowStatus;
   /** Words for an unavailable row, shown after "Unavailable". */
   unavailableReason?: string;
+  /** Set while the layer draws its fallback image; ignored for an unavailable row. */
+  fallback?: PanelFallback;
   /** The layer's class, or null when it is not known (a layer with nothing drawn): the chip then reads "—". */
   provenance: Provenance | null;
   sourceIds: readonly string[];
@@ -208,6 +218,13 @@ export function LayersPanel({ layers, onVisibleChange, onOpacityChange }: Layers
               {unavailable && (
                 <p className="scr03-reason" data-slot="layer-reason">
                   Unavailable{layer.unavailableReason ? `: ${layer.unavailableReason}` : ""}
+                </p>
+              )}
+              {!unavailable && layer.fallback && (
+                <p className="scr03-fallback" data-slot="layer-fallback">
+                  <StatusIcon status="caution" word="FALLBACK IMAGE" />{" "}
+                  Tiles did not load. Showing {layer.fallback.kind === "coarsest_tile" ? "the coarsest tile as one image" : "the static image"} at{" "}
+                  <Metric value={layer.fallback.resolutionM} unit="m" prov="derived" src={`layer.${layer.id}.tile_grid`} chip="glyph" /> per pixel.
                 </p>
               )}
               {layer.status === "loading" && (

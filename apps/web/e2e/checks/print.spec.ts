@@ -38,6 +38,32 @@ test("print: SCR-08 is one page on A4 and Letter for OK, Over limits and Partial
   }
 });
 
+// Package 33 (T11.06): the same one-page rule with the canvas export forced to throw. The card prints the site thumbnail with the
+// route as SVG and the notice that says why; NO ROUTE legs stay dashed in the stylesheet, which also prints.
+test("print: SCR-08 with the canvas export forced to fail is one page on A4 and Letter and keeps the route legible (package 33)", async ({ page }) => {
+  test.setTimeout(120_000);
+  for (const fixture of BRIEFING_STATES) {
+    await openBriefing(page, fixture, { captureFails: true });
+    await expect(page.locator('[data-slot="disclaimer"]')).toContainText("It is not astronaut operations software.");
+    for (const format of FORMATS) {
+      expect(await pdfPages(page, { format, margin: "12mm" }), `${fixture} ${format}`).toBe(SCR08_PAGES);
+      await page.emulateMedia({ media: "print" });
+      const clipped = await page.locator('.scr08-card').evaluate(card => [...card.querySelectorAll('th,td,p,h1,h2,span,div,figcaption,li')]
+        .filter(el => el.children.length === 0 && el.scrollWidth > el.clientWidth + 1).map(el => el.textContent));
+      expect(clipped, `${fixture}: clipped print text`).toEqual([]);
+      await page.emulateMedia({ media: null });
+    }
+  }
+});
+
+// The same with a plan the worker could not route: the straight dashed NO ROUTE line between the stops prints on one page too.
+test("print: SCR-08 with no route and the canvas export forced to fail prints dashed NO ROUTE lines on one page (package 33)", async ({ page }) => {
+  test.setTimeout(120_000);
+  await openBriefing(page, "partial", { captureFails: true, noRoute: true });
+  await expect(page.locator('[data-slot="map-fallback"] polyline.route.no-route').first()).toBeAttached();
+  for (const format of FORMATS) expect(await pdfPages(page, { format, margin: "12mm" }), `no route ${format}`).toBe(SCR08_PAGES);
+});
+
 test("print: SCR-08 prints on the CSS @page margin, not a PDF option (package 14)", async ({ page }) => {
   test.setTimeout(120_000);
   await openBriefing(page, "ok");

@@ -30,6 +30,7 @@ import {
 } from "react";
 import type { CrewId } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
+import { provAttrs, type Sourced } from "../components/provenance";
 
 /** Hold duration in milliseconds for critical actions (04 §D.3, C12 token --hold-to-confirm). */
 export const HOLD_DURATION_MS = 800;
@@ -74,6 +75,11 @@ export interface HoldToConfirmProps {
   disabledReason?: string;
   /** Optional icon shown to the left of the label. */
   icon?: ReactNode;
+  /**
+   * Set when the label or the outcome copy shows a value (an option's rank): its class and source id go on every span that
+   * shows that copy, so the value is labelled where it is displayed (FR-15). Labels that only name an action leave it unset.
+   */
+  labelSource?: Sourced;
   /** Explicit hold duration override in ms (defaults to 800 ms per 04 §D.3). */
   holdDurationMs?: number;
   /** Explicit outcome duration override in ms (defaults to 300 ms per 04 §D.3). */
@@ -106,6 +112,7 @@ export function HoldToConfirm({
   disabled = false,
   disabledReason,
   icon,
+  labelSource,
   holdDurationMs = HOLD_DURATION_MS,
   outcomeDurationMs = OUTCOME_DURATION_MS,
   fallbackTimeoutMs = CONFIRM_FALLBACK_MS,
@@ -352,6 +359,8 @@ export function HoldToConfirm({
     touchAction: "none",
   };
 
+  const labelAttrs = labelSource ? provAttrs(labelSource) : {};
+
   return (
     <div style={containerStyle} className={`hold-container ${className}`}>
       <button
@@ -411,12 +420,12 @@ export function HoldToConfirm({
         ) : phase === "done" ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
             <span aria-hidden="true">✓</span>
-            <span>{outcome}</span>
+            <span {...labelAttrs}>{outcome}</span>
           </span>
         ) : phase === "confirm" ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
             <span aria-hidden="true">✓</span>
-            <span>Confirm — {label}</span>
+            <span {...labelAttrs}>Confirm — {label}</span>
           </span>
         ) : phase === "cancelled" ? (
           <span style={{ color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>
@@ -425,7 +434,7 @@ export function HoldToConfirm({
         ) : (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
             {icon && <span aria-hidden="true">{icon}</span>}
-            <span>{label}</span>
+            <span {...labelAttrs}>{label}</span>
             {disabledReason && disabled && (
               <span style={{ fontSize: "16px", color: "var(--text-3, #8592A0)", textTransform: "none" }}>
                 ({disabledReason})

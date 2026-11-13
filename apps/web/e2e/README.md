@@ -63,7 +63,8 @@ that enables it in its title. The package removes its own `fixme` and makes it g
 | `queued-resend`, `link-lost` | FD-088, T24.11 | fixme | 18 |
 | `toggles` | T07.15 | 300 ms part active (08); inspector part fixme | 08, 28 |
 | `keyboard-path`, `plan-rules`, `results-states`, `walking-skeleton`, `poi-conditions`, `plan-hash` | T13.10, T07.15, T08.11, T09.07, T09.06, T10.03, T11.05 | `plan-rules` placement case and `keyboard-path` "move stop 2" active (10); the rest fixme | 10, 28 |
-| `print`, `provenance` | T11.05, T27.06 pages, T12.06 | `provenance` on `#/planner` active (07); the rest fixme | 07, 28, 29 |
+| `print`, `provenance` | T11.05, T27.06 pages, T12.06 | `provenance` on `#/planner` active (07); the rest fixme. `print` also runs SCR-08 with the canvas export forced to throw (one page, dashed NO ROUTE lines; T11.06) | 07, 28, 29, 33 |
+| `fallbacks-planner` | T02.06, T07.16, T09.08 Verify lines | active on desktop-1440: refused tile pyramid (ortho coarsest tile, declared PNG, unavailable row), manual legs from keyboard and pointer, the NO ROUTE trigger, the real worker's ERROR; `fixme` needs N-160 for the positive real-worker case. `offline` (every project), `axe` and `targets` run the same forced failures | 33 |
 | `ops-no-terminal`, `task-latency`, `replay` | T25.08, T31.08, T27.06 | fixme | 29 |
 | `usability` (UT-1 to UT-9, 5-minute briefing) | T15.02 | fixme | 30 |
 | `credits` | T16.05 | fixme | 31 |

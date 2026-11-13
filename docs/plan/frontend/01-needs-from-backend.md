@@ -75,3 +75,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 ## Package 18 follow-up
 
 1. N-120 — Supply the hab walking-time field and its documented grid/source metadata to live EVA (the same dependency as N-100 for ops). The current site/snapshot contract has no transported field. Full-map haven bands show “— unavailable”; the specific haven-band browser check stays `test.fixme('needs N-120')`. No client time field or ETA is computed.
+
+## Package 33 follow-up
+
+1. N-160 — Complete N-25. (a) Answer C6 `VALIDATE_MANUAL_LEG` in the worker with a `MANUAL_LEG_RESULT` (today the worker answers `ERROR`, "Unknown worker request type", so the manual-leg panel of T09.08 shows Unavailable and "—"). (b) Give each site manifest the BD-23 static PNGs (`images/<layer_id>.png`, pipeline `--static-images`), so a 2 m overlay can fall back to an image on the real site (the ortho already falls back to its own coarsest tile). (c) Take validated legs into the plan authoritatively (totals, timeline, conditions, radiation and computed time): the page shows only the worker's one-leg result and "—" for totals, and never computes them. T09.08 stays `wip` until (a) and (c); the check `fallbacks-planner` has the `fixme("needs N-160")` that passes once they land.

@@ -57,6 +57,13 @@ async function orangeHits(page: Page): Promise<string[]> {
     }, ORANGE);
 }
 
+test("brand-orange: ops join drawer", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await openOpsFixture(page, "running");
+  await page.getByRole("button", { name: "Join QR codes" }).click();
+  expect(await orangeHits(page)).toEqual([]);
+});
+
 test("brand-orange: no computed colour equals a brand-orange primitive in any OPS or HUD route", async ({ page }) => {
   // One page visits every OPS and HUD route in the router table in turn (about 4 s each): the list grows with each package,
   // so the budget is per route, not the 60 s default.

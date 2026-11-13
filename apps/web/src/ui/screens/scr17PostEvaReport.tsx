@@ -292,7 +292,7 @@ export function PostEvaReport({
             </button>
           )}
           <span style={{ fontSize: "14px", fontWeight: 700, color: "#1F2937", alignSelf: "center" }}>
-            SCR-17 · POST-EVA REPORT
+            <span data-identifier>SCR-17</span> · POST-EVA REPORT
           </span>
         </div>
         <button type="button" data-slot="export-log" onClick={onExportLog} disabled={!onExportLog}>EXPORT LOG JSON</button>
@@ -310,7 +310,7 @@ export function PostEvaReport({
             fontSize: "13px",
           }}
         >
-          PRINT REPORT (≤ 2 PAGES)
+          PRINT REPORT <span data-identifier>(≤ 2 PAGES)</span>
         </button>
       </div>
 
@@ -328,7 +328,7 @@ export function PostEvaReport({
                 letterSpacing: "0.06em",
               }}
             >
-              [ SCR-17 /// POST-EVA REPORT ]
+              [ <span data-identifier>SCR-17</span> /// POST-EVA REPORT ]
             </div>
             <h1
               style={{
@@ -338,7 +338,7 @@ export function PostEvaReport({
                 color: "#111827",
               }}
             >
-              Mission Debrief{data.scenarioId ? ` — ${data.scenarioId}` : ""}
+              Mission Debrief{data.scenarioId ? <> — <span {...reportAttrs(true, "simulated", "scenario_id")}>{data.scenarioId}</span></> : ""}
             </h1>
           </div>
           <span
@@ -349,7 +349,7 @@ export function PostEvaReport({
               color: "#4B5563",
             }}
           >
-            {pageLabel(1)}
+            <span data-identifier>{pageLabel(1)}</span>
           </span>
         </header>
 
@@ -502,8 +502,8 @@ export function PostEvaReport({
               )}
               {data.timeline?.map((row, idx) => (
                 <tr key={idx}>
-                  <td style={tdStyle}>{row.stopId}</td>
-                  <td style={tdStyle}>{row.crewId ?? UNAVAILABLE}</td>
+                  <td style={tdStyle} data-identifier>{row.stopId}</td>
+                  <td style={tdStyle} data-identifier>{row.crewId ?? UNAVAILABLE}</td>
                   <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
                     <span {...reportAttrs(row.plannedArrival !== null, "derived", "timeline.arrival_planned")}>{row.plannedArrival ?? UNAVAILABLE}</span>
                     {" / "}
@@ -655,7 +655,8 @@ export function PostEvaReport({
                   )}
                 </svg>
                 <p className="report-note" style={{ fontSize: "12px", color: "#4B5563", margin: "2px 0" }}>
-                  {rows.map((row, k) => `${row.crew_id} ${TRACE_WORD[k] ?? "dotted"}`).join(" / ")} · positions every 30 s, projected metres
+                  <span data-identifier>{rows.map((row, k) => `${row.crew_id} ${TRACE_WORD[k] ?? "dotted"}`).join(" / ")}</span> · positions every{" "}
+                  <span {...reportAttrs(true, "assumed", "trace.period_s", "docs/specs/05:U-24")}>30 s</span>, projected metres
                   (local equirectangular), north up · extent{" "}
                   <span {...reportAttrs(true, "derived", "trace.extent")}>
                     {`${Math.round(maxX - minX)} m × ${Math.round(maxY - minY)} m`}
@@ -682,7 +683,7 @@ export function PostEvaReport({
                 letterSpacing: "0.06em",
               }}
             >
-              [ SCR-17 /// EVENT LOG AND SOURCES ]
+              [ <span data-identifier>SCR-17</span> /// EVENT LOG AND SOURCES ]
             </div>
             <h1
               style={{
@@ -703,7 +704,7 @@ export function PostEvaReport({
               color: "#4B5563",
             }}
           >
-            {pageLabel(2)}
+            <span data-identifier>{pageLabel(2)}</span>
           </span>
         </header>
 
@@ -720,7 +721,7 @@ export function PostEvaReport({
                 margin: "4px 0",
               }}
             >
-              [ TASKS /// STOP TASKS — DONE / SKIPPED / DROPPED (FR-50) ]
+              [ TASKS /// STOP TASKS — DONE / SKIPPED / DROPPED <span data-identifier>(FR-50)</span> ]
             </h2>
             <span
               data-provenance="simulated"
@@ -753,7 +754,7 @@ export function PostEvaReport({
               )}
               {data.tasks?.map((t, idx) => (
                 <tr key={idx}>
-                  <td style={tdStyle}>{t.stopName}</td>
+                  <td style={tdStyle} data-identifier>{t.stopName}</td>
                   <td style={{ ...tdStyle, fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(true, "simulated", "tasks.counts")}>
                     {`${t.done} / ${t.skipped} / ${t.dropped}`}
                   </td>
@@ -770,7 +771,7 @@ export function PostEvaReport({
               : `All stops: ${UNAVAILABLE}`}
           </p>
           <p style={{ fontSize: "12px", color: "#4B5563", margin: "4px 0 8px 0" }}>
-            Dropped tasks: open tasks closed by the system when a plan revision dropped their stop (FR-50).
+            Dropped tasks: open tasks closed by the system when a plan revision dropped their stop (<span data-identifier>FR-50</span>).
           </p>
         </section>
 
@@ -833,7 +834,7 @@ export function PostEvaReport({
           <p className="report-note" style={{ fontSize: "12px", margin: "4px 0" }}>
             Source ids:{" "}
             <span {...reportAttrs(false, "derived", "source_ids")}>{UNAVAILABLE}</span> — the report does not list source ids yet;
-            every dataset and method is listed in Sources and methods (SCR-09, <a href="#/sources">#/sources</a>).
+            every dataset and method is listed in Sources and methods (<span data-identifier>SCR-09</span>, <a href="#/sources">#/sources</a>).
           </p>
           <p className="report-note" style={{ fontSize: "12px", margin: "4px 0", fontFamily: "var(--font-mono, monospace)" }}>
             Values by provenance:{" "}
@@ -910,7 +911,7 @@ export function PostEvaReport({
               paddingTop: "6px",
             }}
           >
-            {REPORT_DISCLAIMER}
+            <span data-identifier>{REPORT_DISCLAIMER}</span>
             {commentary ? ` ${commentary}` : ""}
           </p>
         </footer>

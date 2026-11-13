@@ -21,7 +21,7 @@ import { useEffect, useRef, type ReactElement } from "react";
 import type { Layer, ParamSet } from "@marswalk/protocol";
 import type { LoadedSite } from "../context";
 import { Metric } from "../components/metric";
-import { UNAVAILABLE } from "../components/provenance";
+import { UNAVAILABLE, provAttrs } from "../components/provenance";
 import methodsContent from "../content/methods.json";
 import type { MethodsContent } from "../content/contentTypes";
 import "./scr09SourcesMethods.css";
@@ -196,7 +196,13 @@ export function SourcesMethods({ site, anchor, paramSets = [], replaySource }: S
                     Native{" "}
                     <Metric value={layer.native_resolution_m} unit="m" prov={layer.provenance} src={layer.source_ids[0] ?? `layer:${layer.layer_id}`} chip="glyph" />
                   </span>
-                  <span className="scr09-layer-note">{layer.limitations}</span>
+                  {/* The note is the manifest's own words about the layer, numbers included ("1 m posts"): it takes the layer's class (FD-481). */}
+                  <span
+                    className="scr09-layer-note"
+                    {...(layer.limitations ? provAttrs({ prov: layer.provenance, src: `manifest:layers.${layer.layer_id}.limitations` }) : {})}
+                  >
+                    {layer.limitations}
+                  </span>
                 </li>
               ))}
             </ul>

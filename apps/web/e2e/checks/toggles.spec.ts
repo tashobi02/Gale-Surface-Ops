@@ -158,3 +158,23 @@ test("toggles: inspector values equal the manifest grid cell at three points", a
     }
   }
 });
+
+// T13.07: keyboard-only walkthrough; no coach state is stored across reloads.
+test("toggles: coach marks advance, dismiss and restart only on reload (package 35)", async ({ page }) => {
+  await page.goto("/?site=mock_site#/planner");
+  const coach = page.getByRole("dialog", { name: "Turn on Slope" });
+  await expect(coach).toBeVisible();
+  await expect(coach.getByRole("button", { name: "Next" })).toBeFocused();
+  const keys = await page.evaluate(() => [Object.keys(localStorage), Object.keys(sessionStorage)]);
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Click a POI → Add as stop" })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Open Briefing" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".coach-marks-popover")).toHaveCount(0);
+  expect(await page.evaluate(() => [Object.keys(localStorage), Object.keys(sessionStorage)])).toEqual(keys);
+  await page.reload();
+  await expect(coach).toBeVisible();
+  await coach.getByRole("button", { name: "Dismiss" }).click();
+  await expect(page.locator(".coach-marks-popover")).toHaveCount(0);
+});

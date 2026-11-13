@@ -996,6 +996,55 @@ describe("SCR-10 Join shows only what it is told (04 §D.1, §A.3.1)", () => {
 
 
 describe("package 19 ops interactions", () => {
+  it("the join drawer and narrow ops drawers replace each other and restore focus", async () => {
+    const old = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1100 });
+    try {
+      const view = await mount(createElement(OpsConsole, { client: null }));
+      const join = must<HTMLButtonElement>(view.container, 'button[aria-label="Join QR codes"]');
+      const strip = must<HTMLButtonElement>(view.container, '[data-slot="event-log-strip"]');
+      const side = must<HTMLButtonElement>(view.container, '[data-slot="ops-side-drawer"] button');
+      await click(side);
+      await click(join);
+      expect(side.getAttribute("aria-expanded")).toBe("false");
+      expect(join.getAttribute("aria-expanded")).toBe("true");
+      await keyDown(must(view.container, '[aria-label="Join QR codes"][role="group"]'), "Escape");
+      expect(join.getAttribute("aria-expanded")).toBe("false");
+      expect(document.activeElement).toBe(join);
+      await click(join);
+      await click(strip);
+      expect(join.getAttribute("aria-expanded")).toBe("false");
+      await click(join);
+      expect(view.container.querySelector('[data-slot="event-log-drawer"]')).toBeNull();
+      await click(side);
+      expect(join.getAttribute("aria-expanded")).toBe("false");
+      await view.unmount();
+    } finally { Object.defineProperty(window, "innerWidth", { configurable: true, value: old }); }
+  });
+  it("arming sound does not change the layout, and the join popover hangs from the top bar", async () => {
+    // A top bar that fits in one row only with the short label reflowed under the arming press and moved the control the
+    // user was clicking (the press and the release landed on different elements, so the click was lost; T25.06 browser fix).
+    const resume = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window, "AudioContext", { configurable: true, value: vi.fn(function () { return { resume, close: vi.fn().mockResolvedValue(undefined), state: "suspended" }; }) });
+    try {
+      const view = await mount(createElement(OpsConsole, { client: null }));
+      const sound = must<HTMLButtonElement>(view.container, 'button[aria-label^="Alert sound"]');
+      const before = sound.style.minWidth;
+      expect(before).toContain("ch");
+      await pointerDown(sound);
+      await flush();
+      expect(sound.textContent).toBe("SOUND ON");
+      expect(sound.style.minWidth).toBe(before);
+      const join = must<HTMLButtonElement>(view.container, 'button[aria-label="Join QR codes"]');
+      await click(join);
+      const group = must<HTMLElement>(view.container, '[role="group"][aria-label="Join QR codes"]');
+      expect(group.style.position).toBe("absolute");
+      expect(group.style.right).toBe("16px");
+      expect(must<HTMLElement>(view.container, "header.ops-top-bar").style.position).toBe("relative");
+      for (const link of group.querySelectorAll<HTMLElement>("a")) expect(link.style.minWidth).toBe("44px");
+      await view.unmount();
+    } finally { delete (window as unknown as Record<string, unknown>).AudioContext; }
+  });
   it("at 1100px the log and side drawers replace each other and restore opener focus", async () => {
     const old = window.innerWidth;
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 1100 });

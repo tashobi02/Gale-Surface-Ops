@@ -19,14 +19,24 @@
  */
 import { openBriefing, BRIEFING_STATES } from "../lib/briefing";
 import { expect, test } from "@playwright/test";
-import { waitForSnapshot } from "../lib/hab";
+import { openOpsFixture } from "../lib/opsFixture";
+import { openEvaFixture } from "../lib/evaFixture";
+import { openSurfaceFixture } from "../lib/surfaceFixture";
+import { openPresenterFixture } from "../lib/presenterFixture";
+import { openSetupFixture } from "../lib/setupFixture";
 import { expectNoUnlabelledNumbers, PROVENANCE_ALLOWLIST, unlabelledNumbers } from "../lib/provenance";
 import { openPoiTasks } from "../lib/plannerTasks";
 import { openReplayFixture } from "../lib/replayFixture";
 import { fetchManifest } from "../lib/siteGrid";
 
+test("provenance: ops join drawer", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await openOpsFixture(page, "running");
+  await page.getByRole("button", { name: "Join QR codes" }).click();
+  await expectNoUnlabelledNumbers(page, "ops join drawer", '[role="group"][aria-label="Join QR codes"]');
+});
+
 const DEMO_PATH = ["#/", "#/planner", "#/briefing"];
-const LIVE = ["#/ops", "#/eva/EV1", "#/hud/EV1", "#/report", "#/replay"];
 
 /** The dataset ids the app hard-codes; they belong to the real bundle (N-20), not to the F4 fixture. */
 const REAL_BUNDLE_DATASET_IDS = ["tobler-1993", "apollo17-planning"];
@@ -171,13 +181,46 @@ test("provenance: no unlabelled number on the demo path and every credited sourc
   }
 });
 
-test.fixme("provenance: no unlabelled number on any live role (enabled by package 29)", async ({ page }) => {
-  for (const hash of LIVE) {
-    await page.goto(`/${hash}`);
-    if (hash !== "#/report" && hash !== "#/replay") await waitForSnapshot(page);
-    await expectNoUnlabelledNumbers(page, hash);
+test("provenance: ops fixture states", async ({ page }) => {
+  for (const state of ["no-session", "loaded", "running", "paused", "alerting", "ended"] as const) {
+    await openOpsFixture(page, state);
+    await expectNoUnlabelledNumbers(page, `#/ops ${state}`);
   }
 });
+
+test("provenance: EVA fixture states", async ({ page }) => {
+  for (const state of ["walking", "at-stop", "undo-window", "ops-added-task", "alerting", "alerting-with-options", "no-hab-link", "to-haven"] as const) {
+    await openEvaFixture(page, state);
+    await expectNoUnlabelledNumbers(page, `#/eva/EV1 ${state}`);
+  }
+});
+
+test("provenance: HUD fixture", async ({ page }) => {
+  await openSurfaceFixture(page, "hud");
+  await expectNoUnlabelledNumbers(page, "#/hud/EV1");
+});
+
+test("provenance: presenter fixture states", async ({ page }) => {
+  for (const state of ["pending", "reset-confirm", "rejected", "storm-running", "ended"] as const) {
+    await openPresenterFixture(page, state);
+    await expectNoUnlabelledNumbers(page, `#/presenter ${state}`);
+  }
+});
+
+test("provenance: setup fixture states", async ({ page }) => {
+  for (const state of ["ready", "computing", "rejected", "locked"] as const) {
+    await openSetupFixture(page, state);
+    await expectNoUnlabelledNumbers(page, `#/setup ${state}`);
+  }
+});
+
+for (const hash of ["#/report", "#/join", "#/earth"] as const) {
+  test(`provenance: ${hash}`, async ({ page }) => {
+    await page.goto(`/?site=mock_site${hash}`);
+    await page.waitForLoadState("networkidle");
+    await expectNoUnlabelledNumbers(page, hash);
+  });
+}
 
 // Package 27: `#/replay` on the fixture recording (N-81 pending): the replay bar (position, hashes). The ops console under it is
 // the live ops view, covered by the live-role check above (fixme until package 29), so it is left out here.
@@ -195,4 +238,28 @@ test("provenance: SCR-08 briefing states have no unlabelled number (package 14)"
     await openBriefing(page, state);
     await expectNoUnlabelledNumbers(page, `#/briefing ${state}`);
   }
+});
+
+test("provenance: light planner coach counters have provenance at every step (package 35)", async ({ page }) => {
+  await page.goto("/?site=mock_site&theme=light#/planner");
+  await page.locator(".coach-marks-popover").waitFor();
+  for (let step = 0; step < 3; step += 1) {
+    await expect(page.locator(".coach-mark-step-counter")).toHaveAttribute("data-provenance", "derived");
+    await expect(page.locator(".coach-mark-step-counter")).toHaveAttribute("data-source", "ui.coachMarks.steps");
+    await expectNoUnlabelledNumbers(page, `light planner coach step ${step + 1}`);
+    await page.locator('.coach-marks-popover [data-action="next"]').click();
+  }
+});
+
+test.fixme("needs N-24: REMS seasonal context displays the supplied derived values (T18.03)", async ({ page }) => {
+  await page.goto("/?site=mock_site#/planner");
+  await page.getByRole("tab", { name: "Conditions" }).click();
+  await expect(page.locator('[data-condition="seasonal-weather"] [data-unavailable="true"]')).toHaveCount(0);
+  await expect(page.locator('[data-condition="seasonal-weather"] [data-provenance][data-source]')).not.toHaveCount(0);
+});
+
+test.fixme("needs N-24: illustrative O₂ rate is supplied on SCR-08 (T18.06)", async ({ page }) => {
+  await openBriefing(page);
+  await expect(page.locator('[data-source="unavailable:compute.o2LitresPerMinute"]')).toHaveCount(0);
+  await expect(page.getByText("O₂ rate (illustrative)")).toBeVisible();
 });

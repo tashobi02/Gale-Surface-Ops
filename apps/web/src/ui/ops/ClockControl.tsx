@@ -178,6 +178,9 @@ export function ClockControl({
   };
 
   const SPEEDS: ClockSpeed[] = [1, 10, 60];
+  // The multiplier in force is a displayed value of the simulated session clock (FR-15). The other two are the labels of
+  // the controls that would set it, so their digits only name a preset (FD-480).
+  const speedInForce = { "data-provenance": "simulated", "data-source": "snapshot:session.clock.speed" } as const;
 
   if (keysOnly) return <div data-testid="clock-control" data-fallback="clock-keys" role="group" aria-label="Mission clock keyboard controls" style={containerStyle}>
     <StatusIcon status="unknown" showWord />
@@ -267,7 +270,7 @@ export function ClockControl({
             aria-pressed={isActive}
             title={`Speed ${s}×`}
           >
-            {s}×
+            <span {...(isActive ? speedInForce : { "data-identifier": "" })}>{s}×</span>
           </button>
         );
       })}

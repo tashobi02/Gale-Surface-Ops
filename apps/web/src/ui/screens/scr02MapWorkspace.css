@@ -195,6 +195,9 @@
   position: relative;
   min-width: 0;
   min-height: 0;
+  /* On a short screen the results row can leave the map almost no height: the toolbar is clipped to the map and never covers the
+     results panel below it (package 33: it blocked the manual-leg buttons at 844 x 390). */
+  overflow: hidden;
   grid-column: 2;
   grid-row: 1;
 }
@@ -284,4 +287,41 @@
     min-height: var(--target-touch) !important;
     min-width: var(--target-touch) !important;
   }
+}
+
+.scr02-manual-legs { max-height: min(220px, 24vh); overflow: auto; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface-1); }
+.scr02-manual-legs h2 { font: 500 16px/1.25 var(--font-ui); margin: 0 0 8px; }
+.scr02-manual-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.scr02-manual-actions button { min-height: 44px; }
+
+/* First-run coach marks (04 §D Discoverability; T13.07), positioned against real controls. */
+.coach-marks-popover {
+  position: fixed;
+  z-index: 100;
+  top: var(--topbar-height);
+  left: var(--pad-sm);
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+}
+.coach-mark-card {
+  background: var(--surface-1);
+  border: 1px solid var(--control-edge);
+  padding: var(--pad-md);
+  color: var(--fg-1);
+}
+.coach-mark-title { margin: 0 0 8px; font: 500 var(--text-heading) var(--font-display); text-transform: uppercase; }
+.coach-mark-desc { margin: 0; font-size: var(--text-ui); line-height: var(--line-height-ui); color: var(--fg-2); }
+.coach-mark-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: var(--pad-md); }
+.coach-mark-step-counter { margin-right: auto; color: var(--fg-3); }
+.coach-mark-btn-dismiss, .coach-mark-btn-next {
+  min-width: var(--target-mouse);
+  min-height: var(--target-mouse);
+  padding: 6px 12px;
+  font: 500 var(--text-micro) var(--font-ui);
+  cursor: pointer;
+}
+.coach-mark-btn-dismiss { background: var(--surface-2); color: var(--fg-1); }
+@media (pointer: coarse) {
+  .coach-mark-btn-dismiss, .coach-mark-btn-next { min-width: var(--target-touch); min-height: var(--target-touch); }
 }

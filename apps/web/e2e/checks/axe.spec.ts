@@ -14,6 +14,7 @@ import { openReplayFixture, routeFixtureRecording } from "../lib/replayFixture";
 import { populatedReport } from "../../tests/fixtures/postEvaReport";
 import { withManifestlessSite } from "../lib/siteBundle";
 import { openPoiTasks } from "../lib/plannerTasks";
+import { asOrtho, failTiles, stubManualLegWorker } from "../lib/fallbacks";
 import { REJECTION, openSetupFixture } from "../lib/setupFixture";
 import { openPresenterFixture, type PresenterFixtureState } from "../lib/presenterFixture";
 
@@ -24,6 +25,13 @@ const LIVE = /^#\/(ops|eva|hud|presenter|setup)/;
 // Package 15 adds the two BRIEF routes it builds: `#/` (SCR-01) and `#/sources` (SCR-09); package 17 adds `#/eva/EV1`.
 // Package 27 adds `#/replay`, on the fixture recording until N-81 commits the real one (lib/replayFixture.ts); 36 adds `#/earth`; 23 and 24 add `#/presenter` and `#/setup`.
 const BUILT_ROUTES = ["#/", "#/sources", "#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report", "#/replay", "#/earth", "#/presenter", "#/setup"];
+
+test("axe: ops join drawer", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await openOpsFixture(page, "running");
+  await page.getByRole("button", { name: "Join QR codes" }).click();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-join` });
+});
 
 test("axe: every built route has no serious or critical violation", async ({ page }, testInfo) => {
   await routeFixtureRecording(page);
@@ -126,6 +134,19 @@ test("axe: SCR-02 planner workspace has no serious or critical violation", async
   await page.waitForLoadState("networkidle");
   await page.locator('[data-slot="map-workspace"]').waitFor();
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02` });
+});
+
+// Package 35: the planner workspace in light theme (?theme=light).
+test("axe: SCR-02 planner workspace in light theme has no serious or critical violation (package 35)", async ({ page }, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 800, "the planner is specified from 1024 px (04 §F); its top bar does not fit a 360 or 390 px portrait phone");
+  await page.goto("/?site=mock_site&theme=light#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  for (let step = 0; step < 3; step += 1) {
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-light-coach-${step}` });
+    await page.locator('.coach-marks-popover [data-action="next"]').click();
+  }
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-light` });
 });
 
 // Package 09: the SCR-04 plan panel in its Empty state (only the start) and its Invalid input state (an out-of-range entry shows
@@ -310,4 +331,37 @@ test("axe: EVA full map, options and cached transport-loss overlay (package 18)"
     await page.locator('[data-screen="SCR-18"]').waitFor();
     await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-link-lost` });
   } finally { fixture.dispose(); }
+});
+
+// Package 33: the planner's degraded states. A layer on its fallback image (layer row and the map's caution notice), and the manual-leg
+// panel before drawing, while drawing and with a validated leg. The panel and the notice are scanned as regions (a full planner scan walks
+// the profile chart); the planner is specified from 1024 px (04 §F).
+test("axe: SCR-02 layer fallback notice and manual-leg panel states have no serious or critical violation (package 33)", async ({ page }, testInfo) => {
+  skipBelowPlanner(page.viewportSize()?.width);
+  await stubManualLegWorker(page);
+  await asOrtho(page);
+  await failTiles(page, "elevation", { keepCoarsest: true });
+  await openPlanTab(page, "&draw_legs=1");
+  await addStopByKeyboard(page, 1);
+  await page.getByRole("tab", { name: "Layers" }).click();
+  await expect(page.locator('[data-slot="layer-fallback-notice"] .notice[data-status="caution"]')).toBeVisible();
+  await expect(page.locator('[data-layer-id="elevation"] [data-slot="layer-fallback"]')).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-fallback-notice`, include: '[data-slot="map-box"]' });
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr03-fallback-row`, include: '[data-layer-id="elevation"]' });
+
+  const panel = '[data-slot="draw-legs"]';
+  await expect(page.locator(panel)).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-draw-legs-ready`, include: panel });
+  await page.locator(`${panel} .scr02-manual-actions button`).first().click();
+  await expect(page.locator(`${panel} [data-slot="manual-leg-status"]`)).toContainText("Drawing");
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-draw-legs-drawing`, include: panel });
+  await page.getByRole("button", { name: "Finish leg" }).click();
+  await expect(page.locator(`${panel} [data-slot="manual-leg-status"]`)).toContainText("Leg validation");
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-draw-legs-validated`, include: panel });
+});
+
+test("axe: SCR-08 with the map snapshot fallback has no serious or critical violation (package 33)", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  await openBriefing(page, "partial", { captureFails: true, noRoute: true });
+  await axeScan(page, { mode: "print", route: `${testInfo.project.name}-scr08-map-fallback` });
 });

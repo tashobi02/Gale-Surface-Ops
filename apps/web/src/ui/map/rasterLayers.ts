@@ -22,9 +22,15 @@
  * - Stacking follows FR-02 through `LAYER_Z_INDEX`: basemap < hillshade < scientific overlay < hazards.
  * - Attribution (NFR-07): every layer credits its `source_ids` from the manifest DataSources.
  *
- * `image_static` layers (the C9 §6 fallback, T02.06) are not built here.
+ * - Degradation (T02.06/T07.16, FD-101, FD-193): when every tile a layer tried has failed, the layer switches itself to an
+ *   ImageStatic layer in the Mars projection and says so (`getFallback`). The image is the pipeline's static PNG when the
+ *   manifest declares one (`images/<layer_id>.png`, BD-23); the ortho basemap (category `optical`) otherwise uses the coarsest
+ *   tile of its own tile set (FD-101). Any other layer without a PNG stays `unavailable`. The primary tile path is unchanged and adds no layer to the map until it fails.
  */
 import TileLayer from "ol/layer/Tile.js";
+import ImageLayer from "ol/layer/Image.js";
+import type Static from "ol/source/ImageStatic.js";
+import { createImageStatic, createImageStaticSource } from "./imageStatic";
 import DataTile from "ol/source/DataTile.js";
 import XYZ from "ol/source/XYZ.js";
 import type { ImageLike } from "ol/DataTile.js";
@@ -86,12 +92,28 @@ export interface RasterDeps {
   readToken(name: string): string;
 }
 
+/** Which image stands in for a layer whose tiles did not load. */
+export type RasterFallbackKind = "declared_image" | "coarsest_tile";
+
+/** The degradation in force for one layer (FD-193): shown on the layer row and in the map's notice. */
+export interface RasterFallback {
+  readonly kind: RasterFallbackKind;
+  /** The file the ImageStatic layer draws. */
+  readonly url: string;
+  /** Metres per image pixel when the manifest says (the coarsest tile's resolution, or the PNG's width over the AOI). */
+  readonly resolutionM: number | null;
+  /** The ImageStatic layer; the map shows it in place of the tile layer. */
+  readonly layer: ImageLayer<Static>;
+}
+
 export interface RasterLayersOptions {
   /** The plan store: its scenario carries the slope limits (05 §C MissionScenario) and tells when they change. */
   scenario: Pick<PlanStore, "get" | "subscribe">;
   /** The map, so a layer can report `out_of_range` when the view is coarser than its tiles. */
   mapHandle?: Pick<MapHandle, "getResolution" | "onViewChange">;
   onStatusChange?: (layerId: string, status: LayerStatus) => void;
+  /** Called once per layer, when its tiles failed and its ImageStatic layer replaces them: add `layer` to the map. */
+  onFallbackLayer?: (layerId: string, layer: ImageLayer<Static>) => void;
   deps?: Partial<RasterDeps>;
 }
 
@@ -101,7 +123,7 @@ export interface ManagedRasterLayer {
   readonly title: string;
   readonly category: Layer["category"];
   /** The OpenLayers layer; add it to the map. */
-  readonly layer: TileLayer;
+  readonly layer: TileLayer | ImageLayer<Static>;
   readonly provenance: Layer["provenance"];
   readonly sourceIds: readonly string[];
   readonly units?: string;
@@ -109,6 +131,8 @@ export interface ManagedRasterLayer {
   getStatus(): LayerStatus;
   /** Tiles that failed to load so far; the layer keeps drawing the others. */
   failedTiles(): number;
+  /** The ImageStatic stand-in once every attempted tile failed, else null (the primary path is in use). */
+  getFallback(): RasterFallback | null;
   setVisible(visible: boolean): void;
   isVisible(): boolean;
   setOpacity(opacity: number): void;
@@ -119,7 +143,7 @@ export interface RasterLayersController {
   layers: Map<string, ManagedRasterLayer>;
   getLayer(layerId: string): ManagedRasterLayer | undefined;
   /** The OpenLayers layers in manifest order, for `map.addLayer`. */
-  olLayers(): TileLayer[];
+  olLayers(): (TileLayer | ImageLayer<Static>)[];
   /** Set the slope limits directly (the controller also follows the plan store's scenario). */
   setSlopeLimits(cautionDeg: number, hardDeg: number): void;
   getSlopeLimits(): SlopeLimits;
@@ -251,6 +275,20 @@ function isScenarioColoured(layer: Layer): layer is Layer & { legend: ClassesLeg
   return layer.legend.type === "classes" && layer.legend.breaks_follow_scenario === true;
 }
 
+/** The ImageStatic source events and the layer status each one means. */
+const STATIC_EVENTS = [["imageloadstart", "loading"], ["imageloadend", "ready"], ["imageloaderror", "unavailable"]] as const;
+
+/** A managed layer over one OpenLayers layer whose visibility and opacity are the layer's own (an image-only definition). */
+function managedOf(def: Layer, layer: TileLayer | ImageLayer<Static>, state: { status: () => LayerStatus }): ManagedRasterLayer {
+  return {
+    layerId: def.layer_id, title: def.title, category: def.category, layer,
+    provenance: def.provenance, sourceIds: def.source_ids, units: def.units, limitations: def.limitations,
+    getStatus: state.status, failedTiles: () => 0, getFallback: () => null,
+    setVisible: (v) => layer.setVisible(v), isVisible: () => layer.getVisible(),
+    setOpacity: (o) => layer.setOpacity(o), getOpacity: () => layer.getOpacity(),
+  };
+}
+
 /**
  * Builds the raster layers of a site. Layers whose asset is missing are returned with status `unavailable` and
  * request nothing; every other layer still renders (FR-16).
@@ -271,6 +309,7 @@ export function createRasterLayers(site: LoadedSite, options: RasterLayersOption
   const layers = new Map<string, ManagedRasterLayer>();
   const redraws: (() => void)[] = [];
   const disposers: (() => void)[] = [];
+  let destroyed = false;
   const rawTiles = new Map<string, Promise<DecodedTile>>();
 
   const applyLimits = (next: SlopeLimits): void => {
@@ -282,7 +321,46 @@ export function createRasterLayers(site: LoadedSite, options: RasterLayersOption
     options.scenario.subscribe((state) => applyLimits(scenarioLimits(state.scenario))),
   );
 
+  /** A tile's decoded pixels, fetched once per url; a tile that failed is tried again on the next request. */
+  const rawTile = (url: string): Promise<DecodedTile> => {
+    let raw = rawTiles.get(url);
+    if (!raw) {
+      raw = deps.decodeTile(url);
+      rawTiles.set(url, raw);
+      raw.catch(() => rawTiles.delete(url));
+    }
+    return raw;
+  };
+  /** The loader of a data-encoded slope image: decode, then colour by the scenario's current limits. */
+  const colouredImage = (url: string) => async (): Promise<ImageLike> =>
+    deps.encodeTile(classifySlopeTile(await rawTile(url), slopeBands(limits), palette));
+
   for (const def of site.site.layers) {
+    if (def.kind === "image_static") {
+      // A layer the manifest declares as one image: no tile grid, no tile request (T07.16).
+      const staticAsset = site.assets.get(def.asset_id);
+      if (!staticAsset || staticAsset.format !== "png") {
+        const placeholder = new ImageLayer<Static>({ visible: def.default_visible, zIndex: zIndexOf(def) });
+        layers.set(def.layer_id, managedOf(def, placeholder, { status: () => "unavailable" }));
+        continue;
+      }
+      const imageOptions = { zIndex: zIndexOf(def), className: def.category === "optical" ? OPS_ORTHO_LAYER_CLASS : "ol-layer" };
+      const loader = (): { load?: () => Promise<ImageLike> } => (isScenarioColoured(def) ? { load: colouredImage(staticAsset.url) } : {});
+      let imageStatus: LayerStatus = "loading";
+      const image = createImageStatic(site, def, { ...imageOptions, ...loader() });
+      const bind = (): void => {
+        for (const [event, next] of STATIC_EVENTS) {
+          image.getSource()!.on(event, () => { if (!destroyed) { imageStatus = next; options.onStatusChange?.(def.layer_id, next); } });
+        }
+      };
+      bind();
+      if (isScenarioColoured(def)) redraws.push(() => {
+        image.setSource(createImageStaticSource(site, def, loader()));
+        imageStatus = "loading"; bind(); options.onStatusChange?.(def.layer_id, imageStatus);
+      });
+      layers.set(def.layer_id, managedOf(def, image, { status: () => imageStatus }));
+      continue;
+    }
     if (def.kind !== "raster_tiles" || !def.tile_grid) continue;
     const spec = def.tile_grid;
     const asset: LoadedAsset | undefined = site.assets.get(def.asset_id);
@@ -295,17 +373,22 @@ export function createRasterLayers(site: LoadedSite, options: RasterLayersOption
     let outOfRange = false;
     const coarsest = spec.resolutions_m[0];
 
+    let fallback: RasterFallback | null = null;
+    let fallbackStatus: LayerStatus = "loading";
     const compute = (): LayerStatus =>
-      assetMissing || (failed > 0 && loaded === 0 && pending === 0)
-        ? "unavailable"
-        : outOfRange
-          ? "out_of_range"
-          : pending > 0
-            ? "loading"
-            : "ready";
+      fallback
+        ? fallbackStatus
+        : assetMissing || (failed > 0 && loaded === 0 && pending === 0)
+          ? "unavailable"
+          : outOfRange
+            ? "out_of_range"
+            : pending > 0
+              ? "loading"
+              : "ready";
     let status: LayerStatus = compute();
 
     const notify = (): void => {
+      if (destroyed) return;
       const next = compute();
       if (next !== status) {
         status = next;
@@ -327,14 +410,7 @@ export function createRasterLayers(site: LoadedSite, options: RasterLayersOption
     } else if (isScenarioColoured(def)) {
       const load = async (z: number, x: number, y: number): Promise<ImageLike> => {
         const url = template.replace("{z}", String(z)).replace("{x}", String(x)).replace("{y}", String(y));
-        let raw = rawTiles.get(url);
-        if (!raw) {
-          raw = deps.decodeTile(url);
-          rawTiles.set(url, raw);
-          // A tile that failed is tried again on the next request.
-          raw.catch(() => rawTiles.delete(url));
-        }
-        return deps.encodeTile(classifySlopeTile(await raw, slopeBands(limits), palette));
+        return deps.encodeTile(classifySlopeTile(await rawTile(url), slopeBands(limits), palette));
       };
       const dataSource = new DataTile({ projection, tileGrid, wrapX: false, attributions, loader: load });
       source = dataSource;
@@ -352,16 +428,61 @@ export function createRasterLayers(site: LoadedSite, options: RasterLayersOption
       loaded += 1;
       notify();
     });
+
+    // The ortho basemap is grayscale in OPS by CSS on this class (FD-003): `filter` on that layer's canvas only.
+    const className = def.category === "optical" ? OPS_ORTHO_LAYER_CLASS : "ol-layer";
+    let wantVisible = def.default_visible;
+    let wantOpacity = 1;
+    const tileLayer = new TileLayer({ source, zIndex: zIndexOf(def), visible: wantVisible, opacity: 1, className });
+    const showWhatDraws = (): void => {
+      tileLayer.setVisible(wantVisible && !fallback);
+      fallback?.layer.setVisible(wantVisible);
+    };
+
+    /** The image that can stand in for this layer's tiles: the pipeline's PNG (BD-23) first, else the ortho's coarsest tile (FD-101). */
+    const standIn = (): Omit<RasterFallback, "layer"> & { imageExtent: [number, number, number, number] } | null => {
+      const declared = [...site.assets.values()].find((a) => a.format === "png" && a.path === `images/${def.layer_id}.png`);
+      if (declared) {
+        const widthM = aoiExtent[2] - aoiExtent[0];
+        return { kind: "declared_image", url: declared.url, imageExtent: [...aoiExtent], resolutionM: declared.width ? widthM / declared.width : null };
+      }
+      // FD-101: only the ortho basemap falls back to its own coarsest tile; a 2 m overlay without a PNG stays unavailable.
+      if (tilesOk && def.category === "optical" && coarsest !== undefined) {
+        const size = spec.tile_size_px * coarsest;
+        const [originX, originY] = spec.origin_m;
+        return { kind: "coarsest_tile", url: `${asset.url}/0/0/0.${spec.format}`, imageExtent: [originX, originY - size, originX + size, originY], resolutionM: coarsest };
+      }
+      return null;
+    };
+    const switchToImage = (): void => {
+      if (destroyed || fallback || loaded > 0 || pending > 0) return;
+      const plan = standIn();
+      if (!plan) return;
+      const { imageExtent, ...info } = plan;
+      const base = { url: plan.url, imageExtent };
+      const loader = (): { load?: () => Promise<ImageLike> } => (isScenarioColoured(def) ? { load: colouredImage(plan.url) } : {});
+      const layer = createImageStatic(site, def, { ...base, ...loader(), className, zIndex: zIndexOf(def), visible: wantVisible });
+      layer.setOpacity(wantOpacity);
+      const bind = (): void => {
+        for (const [event, next] of STATIC_EVENTS) layer.getSource()!.on(event, () => { fallbackStatus = next; notify(); });
+      };
+      bind();
+      if (isScenarioColoured(def)) redraws.push(() => {
+        layer.setSource(createImageStaticSource(site, def, { ...base, ...loader() }));
+        fallbackStatus = "loading"; bind(); notify();
+      });
+      fallback = { ...info, layer };
+      showWhatDraws();
+      options.onFallbackLayer?.(def.layer_id, layer);
+      notify();
+    };
     source.on("tileloaderror", () => {
       pending = Math.max(0, pending - 1);
       failed += 1;
+      switchToImage();
       notify();
     });
-
-    const visible = def.default_visible;
-    // The ortho basemap is grayscale in OPS by CSS on this class (FD-003): `filter` on that layer's canvas only.
-    const className = def.category === "optical" ? OPS_ORTHO_LAYER_CLASS : "ol-layer";
-    const tileLayer = new TileLayer({ source, zIndex: zIndexOf(def), visible, opacity: 1, className });
+    if (assetMissing) switchToImage();
 
     const view = options.mapHandle;
     if (view && !assetMissing) {
@@ -374,24 +495,16 @@ export function createRasterLayers(site: LoadedSite, options: RasterLayersOption
     }
 
     layers.set(def.layer_id, {
-      layerId: def.layer_id,
-      title: def.title,
-      category: def.category,
-      layer: tileLayer,
-      provenance: def.provenance,
-      sourceIds: def.source_ids,
-      units: def.units,
-      limitations: def.limitations,
-      getStatus: () => status,
+      ...managedOf(def, tileLayer, { status: () => status }),
       failedTiles: () => failed,
-      setVisible: (v) => tileLayer.setVisible(v),
-      isVisible: () => tileLayer.getVisible(),
-      setOpacity: (o) => tileLayer.setOpacity(o),
-      getOpacity: () => tileLayer.getOpacity(),
+      getFallback: () => fallback,
+      setVisible: (v) => { wantVisible = v; showWhatDraws(); },
+      isVisible: () => wantVisible,
+      setOpacity: (o) => { wantOpacity = o; tileLayer.setOpacity(o); fallback?.layer.setOpacity(o); },
+      getOpacity: () => wantOpacity,
     });
   }
 
-  let destroyed = false;
   return {
     layers,
     getLayer: (layerId) => layers.get(layerId),
@@ -405,7 +518,10 @@ export function createRasterLayers(site: LoadedSite, options: RasterLayersOption
       disposers.length = 0;
       redraws.length = 0;
       rawTiles.clear();
-      for (const managed of layers.values()) managed.layer.dispose();
+      for (const managed of layers.values()) {
+        managed.getFallback()?.layer.dispose();
+        managed.layer.dispose();
+      }
       layers.clear();
     },
   };

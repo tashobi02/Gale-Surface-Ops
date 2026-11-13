@@ -5,6 +5,7 @@ import type { HabClient } from "../../net/habClient";
 import { useCommand, useHabClient, useLinkLost, useSnapshot, useTakenOver } from "../../state/habSession";
 import { provAttrs, unavailableOf } from "../components/provenance";
 import { ClockControl } from "../ops/ClockControl";
+import { QrDrawer } from "../ops/QrDrawer";
 import "./scr19Presenter.css";
 
 export interface PresenterProps { client?: HabClient | null }
@@ -29,7 +30,6 @@ function PresenterPanel({ client, snapshot }: { client: HabClient | null; snapsh
   const confirmRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (confirm) confirmRef.current?.focus(); }, [confirm]);
   const closeConfirm = (): void => { setConfirm(false); resetRef.current?.focus(); };
-  const [failedQR, setFailedQR] = useState<string[]>([]);
   const session = snapshot?.session;
   const status = session?.status;
   const running = status === "RUNNING" || status === "PAUSED";
@@ -96,11 +96,6 @@ function PresenterPanel({ client, snapshot }: { client: HabClient | null; snapsh
       </li>)}</ol>
       {!results.length && <p>No commands sent in this view.</p>}
     </section>
-    <section aria-labelledby="presenter-join-title"><h2 id="presenter-join-title">Join this session</h2>
-      <div className="presenter-qr">{(Object.keys(PERMISSIONS) as (keyof typeof PERMISSIONS)[]).map((role) => <figure key={role}>
-        {failedQR.includes(role) ? <p {...provAttrs(unavailableOf(null, "api/join-qr"))}>—</p> : <img data-provenance="derived" data-source={`api/join-qr?role=${encodeURIComponent(role)}`} src={`api/join-qr?role=${encodeURIComponent(role)}`} alt={`Join as ${role}`} width="144" height="144" onError={() => setFailedQR((previous) => [...previous, role])} />}
-        <figcaption data-provenance="assumed" data-source="spec:02-E.4"><a href={`#/join?role=${encodeURIComponent(role)}`}>{role}</a></figcaption>
-      </figure>)}</div>
-    </section>
+    <QrDrawer initiallyOpen />
   </main>;
 }

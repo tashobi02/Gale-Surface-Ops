@@ -34,6 +34,13 @@ async function checkOpsTargets(page: Page, scope = "body"): Promise<void> {
   expectTargetSize(list, OPS_MIN);
 }
 
+test("targets: ops join drawer", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await openOpsFixture(page, "running");
+  await page.getByRole("button", { name: "Join QR codes" }).click();
+  await checkOpsTargets(page, '[role="group"][aria-label="Join QR codes"]');
+});
+
 async function checkOpsPanels(page: Page, allowTask: boolean): Promise<void> {
   await openOpsPanel(page, "mission");
   await checkOpsTargets(page, 'aside[aria-label="Conditions and options"]');
@@ -147,6 +154,17 @@ test("targets: add-stop and keyboard-move targets are at least 44 px under a coa
   expectTargetSize(list, PLANNER_COARSE_MIN);
 });
 
+// Package 33: the manual-leg panel (shown by ?draw_legs=1) on the touch projects.
+test("targets: manual-leg panel targets are at least 44 px under a coarse pointer (package 33)", async ({ page, hasTouch }) => {
+  test.skip(!hasTouch, "a coarse pointer needs a touch project");
+  await openPlanTab(page, "&draw_legs=1");
+  await addStopByKeyboard(page, 1);
+  const list = await targets(page, '[data-slot="draw-legs"]');
+  expect(list.some((t) => /Draw /.test(t.label)), "a Draw button per leg").toBe(true);
+  expect(list.some((t) => /Finish leg/.test(t.label))).toBe(true);
+  expectTargetSize(list, PLANNER_COARSE_MIN);
+});
+
 test("the REASON control cycles a skipped task's reason and sends the revision (FD-028, FD-262)", async ({ page }) => {
   // The client's own side of FD-028: the control exists in the undo strip, it cycles the reason and it sends the revision
   // as a second UPDATE_STOP_TASK on the same task. The Hab Core's acceptance of that revision is the N-29 need below.
@@ -206,4 +224,15 @@ test("targets: EVA options and full-map controls are at least 56 px", async ({ p
     const sheet = await targets(page, '[data-screen="SCR-14"]');
     expect(sheet.length).toBeGreaterThanOrEqual(2); expectTargetSize(sheet, EVA_MIN);
   } finally { fixture.dispose(); }
+});
+
+test("targets: coach mark controls meet pointer target sizes (package 35)", async ({ page, hasTouch }) => {
+  await page.goto("/?site=mock_site&theme=light#/planner");
+  await page.locator(".coach-marks-popover").waitFor();
+  for (let step = 0; step < 3; step += 1) {
+    const list = await targets(page, ".coach-marks-popover");
+    expect(list.length).toBe(2);
+    expectTargetSize(list, hasTouch ? PLANNER_COARSE_MIN : OPS_MIN);
+    await page.locator('.coach-marks-popover [data-action="next"]').click();
+  }
 });

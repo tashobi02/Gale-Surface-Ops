@@ -233,3 +233,33 @@ describe("LayersPanel states (03 SCR-03: Default, Loading, Unavailable, Out of r
     expect(value.textContent).toBe("—");
   });
 });
+
+describe("LayersPanel fallback image (T02.06, T07.16, FD-193)", () => {
+  it("a layer on its fallback image says so with a shape, a word and the pixel size as a labelled number, and keeps its controls", async () => {
+    const { root, switchOf } = await panel([sci("elevation", { visible: true, fallback: { kind: "coarsest_tile", resolutionM: 32 } })]);
+    const r = must(root, '[data-layer-id="elevation"]');
+    const note = must(r, '[data-slot="layer-fallback"]');
+    expect(note.textContent).toMatch(/fallback image/i);
+    expect(note.textContent).toMatch(/tiles did not load/i);
+    expect(note.querySelector('[data-status="caution"] .status-glyph')).not.toBeNull();
+    const size = must(note, "[data-provenance][data-source]");
+    expect(size.textContent).toContain("32");
+    expect(size.getAttribute("data-provenance")).toBe("derived");
+    expect(switchOf("elevation").disabled).toBe(false);
+    expect(r.querySelector('[data-slot="layer-reason"]')).toBeNull();
+  });
+
+  it("a declared PNG with no stated pixel size shows the dash, never a number", async () => {
+    const { root } = await panel([sci("slope", { visible: true, fallback: { kind: "declared_image", resolutionM: null } })]);
+    const note = must(root, '[data-layer-id="slope"] [data-slot="layer-fallback"]');
+    expect(note.textContent).toMatch(/static image/i);
+    expect(must(note, '[data-unavailable="true"]').textContent).toBe("—");
+  });
+
+  it("an unavailable row names the failure and does not claim a fallback", async () => {
+    const { root } = await panel([sci("slope", { visible: true, status: "unavailable", fallback: { kind: "coarsest_tile", resolutionM: 32 } })]);
+    const r = must(root, '[data-layer-id="slope"]');
+    expect(r.querySelector('[data-slot="layer-fallback"]')).toBeNull();
+    expect(must(r, '[data-slot="layer-reason"]').textContent).toMatch(/Unavailable/);
+  });
+});
