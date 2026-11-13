@@ -226,6 +226,38 @@ test("targets: EVA options and full-map controls are at least 56 px", async ({ p
   } finally { fixture.dispose(); }
 });
 
+// T24.11: count actual pointer/tap activations to the confirmation, on the iOS/Android device projects.
+test("targets: SUMMON and ABORT need one hold; TASK ROVER opens SCR-15 within two taps", async ({ page, hasTouch }) => {
+  test.skip(!hasTouch, "T24.11 uses the emulated touch projects (FD-197)");
+  for (const [key, kind] of [["eva-summon", "SUMMON_VEHICLE"], ["eva-abort", "ABORT"]] as const) {
+    const sent: SentCommand[] = [];
+    await openEvaFixture(page, "walking", sent);
+    const button = page.locator(`[data-hold-key="${key}"]`);
+    await expect(button).toBeEnabled();
+    await expect(button).toHaveAttribute("data-hold-duration", "800ms");
+    const box = (await button.boundingBox())!;
+    // One activation, held through confirmation; no hidden opener or terminal step.
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(850);
+    await page.mouse.up();
+    await expect.poll(() => sent.filter((c) => c.kind === kind).length).toBe(1);
+    expect(sent.filter((c) => c.kind === kind)[0]?.args).toMatchObject({ crew: ["EV1"] });
+    test.info().annotations.push({ type: "action-taps", description: `${kind}: 1 hold, no navigation tap` });
+  }
+  const sent: SentCommand[] = [];
+  await openEvaFixture(page, "walking", sent, { vehicles: [UTILITY_ROVER] });
+  await page.getByRole("button", { name: "Task rover", exact: true }).tap();
+  await expect(page.locator('[data-screen="SCR-15"]')).toBeVisible();
+  const returnTask = page.locator('[data-screen="SCR-15"] [data-task="RETURN"]');
+  await expect(returnTask).toBeVisible();
+  await returnTask.tap();
+  await page.locator('[data-screen="SCR-15"] [data-action="confirm"]').tap();
+  await expect.poll(() => sent.filter((c) => c.kind === "TASK_ROVER").length).toBe(1);
+  expect(sent.find((c) => c.kind === "TASK_ROVER")?.args).toMatchObject({ vehicle_id: UTILITY_ROVER.vehicle_id, task: "RETURN" });
+  test.info().annotations.push({ type: "action-taps", description: "TASK ROVER RETURN: 2 taps + confirm dispatches once" });
+});
+
 test("targets: coach mark controls meet pointer target sizes (package 35)", async ({ page, hasTouch }) => {
   await page.goto("/?site=mock_site&theme=light#/planner");
   await page.locator(".coach-marks-popover").waitFor();

@@ -175,7 +175,7 @@ function Playback({ source }: { source: ReplaySource }): ReactElement {
         </main>
       ) : (
         // The ops console redirects to the live report on ENDED; the replay never shows it an ENDED snapshot.
-        <OpsConsole client={source} snapshot={snapshot} {...selectOpsProps(snapshot, events)} />
+        <OpsConsole client={source} snapshot={snapshot} staticReplay={true} {...selectOpsProps(snapshot, events)} />
       )}
     </div>
   );

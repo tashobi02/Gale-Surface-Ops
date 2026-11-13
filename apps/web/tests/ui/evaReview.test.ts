@@ -47,7 +47,7 @@ describe("review round: the REASON control stays live while the server confirms 
   it("a snapshot that turns the task SKIPPED inside the undo window keeps the REASON control and it still sends", async () => {
     vi.useFakeTimers();
     const { client, sent } = recordingClient(storeFromBeat("connect"));
-    const before = snapshotWithStops({ activity: "AT_STOP", stop_index: 1 });
+    const before = snapshotWithStops({ activity: "AT_STOP", stop_index: 2 });
     const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot: before }));
     await click(must(view.container, '[data-testid="tasks-button"]'));
     await click(must(view.container, '[aria-label^="Skip task:"]'));
@@ -73,7 +73,7 @@ describe("review round: the REASON control stays live while the server confirms 
   it("the undo window still ends after the server confirms: the control goes away with the window", async () => {
     vi.useFakeTimers();
     const { client } = recordingClient(storeFromBeat("connect"));
-    const before = snapshotWithStops({ activity: "AT_STOP", stop_index: 1 });
+    const before = snapshotWithStops({ activity: "AT_STOP", stop_index: 2 });
     const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot: before }));
     await click(must(view.container, '[data-testid="tasks-button"]'));
     await click(must(view.container, '[aria-label^="Skip task:"]'));
@@ -87,6 +87,22 @@ describe("review round: the REASON control stays live while the server confirms 
     });
     expect(view.container.querySelector('[aria-label^="Change skip reason:"]')).toBeNull();
   });
+});
+
+describe("package 29: current-stop tasks (FR-50)", () => {
+  for (const [stopIndex, taskId] of [[2, "t-s2-01"], [3, "t-s3-01"]] as const) {
+    it(`at stop ${stopIndex} opens that stop's tasks, including the final stop`, async () => {
+      const { client, sent } = recordingClient(storeFromBeat("connect"));
+      const snapshot = snapshotWithStops({ activity: "AT_STOP", stop_index: stopIndex });
+      const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot }));
+      try {
+        await click(must(view.container, '[data-testid="tasks-button"]'));
+        expect(view.container.querySelector(`[data-task-id="${taskId}"]`)).not.toBeNull();
+        await click(must(view.container, '[aria-label^="Mark task done:"]'));
+        expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: taskId, state: "DONE" } }]);
+      } finally { await view.unmount(); client.close(); }
+    });
+  }
 });
 
 describe("review round: the NEXT card names the stop the navigation points at (FD-047)", () => {

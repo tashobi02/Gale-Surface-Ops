@@ -250,6 +250,7 @@ export function PostEvaReport({
 
   return (
     <div
+      data-screen="SCR-17"
       className={`scr17-post-eva-report ${className}`}
       data-surface="report"
       data-mode="print"

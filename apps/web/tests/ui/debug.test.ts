@@ -176,12 +176,12 @@ describe("DebugOverlay on", () => {
     expect(cancel).toHaveBeenCalledWith(42);
   });
 
-  it("is hidden in print with a real @media print rule, not an invalid inline declaration", async () => {
+  it("is hidden in print via an external stylesheet (no inline <style>, CSP-safe per B-05)", async () => {
     const container = await show(fakes(true));
     const overlay = must(container, "[data-testid='debug-overlay']");
     expect(overlay.getAttribute("style")).not.toContain("@media");
-    expect(container.querySelector("style")).toBeNull();
-    const css = readFileSync(resolve(import.meta.dirname, "../../src/ui/debug.css"), "utf8");
+    expect(container.querySelectorAll("style")).toHaveLength(0);
+    const css = readFileSync(resolve(__dirname, "../../src/ui/debug.css"), "utf8");
     expect(css).toMatch(/@media print\s*\{[^}]*\[data-testid=["']?debug-overlay["']?\][^}]*display:\s*none\s*!important/);
   });
 

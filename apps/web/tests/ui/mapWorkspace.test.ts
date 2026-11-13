@@ -454,4 +454,12 @@ describe("N-07 task library states in the workspace: loading, unavailable, retry
     expect(root.querySelector("[data-task-library]")).toBeNull();
     expect(must(root, "[data-stop-task-editor]").textContent).toContain("No tasks");
   });
+
+  it("B-04: scr02MapWorkspace.css allows the top bar to wrap and clip long text so it never overlaps the drawer tabs on narrow phones", () => {
+    const css = readFileSync(resolve(__dirname, "../../src/ui/screens/scr02MapWorkspace.css"), "utf8");
+    expect(css).toMatch(/\.scr02\s*\{[^}]*grid-template-rows:\s*minmax\(var\(--topbar-height\),\s*auto\)/);
+    expect(css).toMatch(/\.scr02-top-bar\s*\{[^}]*flex-wrap:\s*wrap/);
+    expect(css).toMatch(/\.scr02-site-name,\s*\n\.scr02-chip\s*\{[^}]*overflow:\s*hidden/);
+    expect(css).toMatch(/@media\s*\(max-height:\s*500px\)\s*\{[\s\S]*\.scr02-results\s*\{[^}]*overflow-y:\s*auto/);
+  });
 });

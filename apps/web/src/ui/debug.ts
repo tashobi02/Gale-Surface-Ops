@@ -16,6 +16,7 @@ import "./debug.css";
  */
 import { createElement, useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import type { RoutingGrid } from "@marswalk/protocol";
+import "./debug.css";
 import type { AppContext } from "./context";
 import { UNAVAILABLE, provAttrs, unavailableOf, type Sourced } from "./components/provenance";
 
@@ -56,7 +57,6 @@ interface PointerSource {
   on(type: "pointermove", listener: (event: { coordinate: number[] }) => void): unknown;
   un(type: "pointermove", listener: (event: { coordinate: number[] }) => void): void;
 }
-
 
 const PANEL: CSSProperties = {
   position: "fixed",

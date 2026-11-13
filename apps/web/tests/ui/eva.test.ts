@@ -917,3 +917,17 @@ describe("package 18 cached age", () => {
     expect(age.getAttribute("data-source")).toBe("snapshot:crew.last_linked_sim_time");
   });
 });
+
+describe("SCR-12 narrow 360 px portrait fit (T24.11, task-latency on phone-360x740)", () => {
+  const EVA_CSS = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/screens/scr12EvaTablet.css"), "utf8");
+
+  it("portrait action row and tablet root prevent >360 px horizontal overflow that pushes SCR-14 Close outside 360 px", () => {
+    expect(EVA_CSS).toMatch(/\.scr12-eva-tablet\s+\.action-row\s*\{[^}]*minmax\(0,\s*1fr\)/);
+    expect(EVA_CSS).toMatch(/\.scr12-eva-tablet\s*\{[^}]*max-width:\s*100%/);
+  });
+
+  it("alert banner message wrapper allows shrinking (minWidth: 0) instead of forcing row overflow on 360 px", () => {
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/screens/scr12EvaTablet.tsx"), "utf8");
+    expect(src).toMatch(/data-slot="alert"[\s\S]{0,600}minWidth:\s*0/);
+  });
+});

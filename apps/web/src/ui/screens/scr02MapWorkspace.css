@@ -8,7 +8,7 @@
 
 .scr02 {
   display: grid;
-  grid-template-rows: var(--topbar-height) var(--meta-strip-height) minmax(0, 1fr) auto;
+  grid-template-rows: minmax(var(--topbar-height), auto) var(--meta-strip-height) minmax(0, 1fr) auto;
   height: 100vh;
   min-height: 0;
   background: var(--surface-0);
@@ -20,9 +20,12 @@
 
 .scr02-top-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  padding: 0 12px;
+  gap: 4px 12px;
+  padding: 4px 12px;
+  min-height: var(--topbar-height);
+  box-sizing: border-box;
   background: var(--surface-1);
   border-bottom: 1px solid var(--control-edge);
   min-width: 0;
@@ -56,6 +59,10 @@
   font-family: var(--font-mono);
   font-size: var(--text-micro);
   white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .scr02-chip {
@@ -268,6 +275,13 @@
 
 .scr02-results {
   min-width: 0;
+}
+
+@media (max-height: 500px) {
+  .scr02-results {
+    max-height: 36dvh;
+    overflow-y: auto;
+  }
 }
 
 /* Touch targets under a coarse pointer are 44 px (04 §C.3). The links and the shared map controls size themselves, so the
