@@ -9,6 +9,8 @@ import { expect, test } from "@playwright/test";
 import { countResponses, expectLocalAssetsOk, expectNoExternal, guardNetwork, routeHashes } from "../lib/offline";
 import { withManifestlessSite } from "../lib/siteBundle";
 import { routeFixtureRecording } from "../lib/replayFixture";
+import { asOrtho, failTiles } from "../lib/fallbacks";
+import { openBriefing } from "../lib/briefing";
 
 test("offline: ops join drawer only requests local assets", async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
@@ -98,4 +100,28 @@ test("offline: SCR-00 names the deleted manifest, loads nothing external, and st
     await expect(screen.locator('[data-slot="missing-file"]')).toHaveText(manifestPath);
     expectNoExternal(guard);
   });
+});
+
+// Package 33: the degraded paths (FD-193) fetch nothing but local files. The tile pyramid is refused, so the ortho draws its coarsest
+// tile as an ImageStatic; the canvas export of the briefing throws, so the card draws the thumbnail and the route as SVG. A refused
+// tile is the point of the test, so only the 404s of the refused tile set are allowed among the failed images.
+test("offline: with the tile pyramid refused and the briefing canvas export failing, the fallbacks contact only the Hab Core (package 33)", async ({ page }) => {
+  const guard = await guardNetwork(page);
+  await asOrtho(page);
+  const attempts = await failTiles(page, "elevation", { keepCoarsest: true });
+  await page.goto("/?site=mock_site#/planner");
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator('[data-slot="layer-fallback-notice"] .notice[data-status="caution"]')).toContainText(/drawn from a fallback image/);
+  expect(attempts.refused.length, "the pyramid was attempted and refused").toBeGreaterThan(0);
+  expect(guard.responses.some((r) => r.url.endsWith("/tiles/elevation/0/0/0.png") && r.status === 200), "the coarsest image answered").toBe(true);
+  expectNoExternal(guard);
+  expectLocalAssetsOk({ ...guard, responses: guard.responses.filter((r) => !/\/tiles\/elevation\//.test(r.url)) }, ["font", "image"]);
+
+  const briefing = await page.context().newPage();
+  const briefingGuard = await guardNetwork(briefing);
+  await openBriefing(briefing, "ok", { captureFails: true });
+  await briefing.waitForLoadState("networkidle");
+  expectNoExternal(briefingGuard);
+  expectLocalAssetsOk(briefingGuard, ["font", "image"]);
+  await briefing.close();
 });

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactE
 import type { Provenance } from "@marswalk/protocol";
 import type { ScreenProps } from "../context";
 import { exportFileName, exportPlan, exportPlanJson } from "../../export/planExport";
-import { captureBriefingMap } from "../briefing/mapSnapshot";
+import { captureBriefingMap, createBriefingFallback } from "../briefing/mapSnapshot";
 import { publishPlan, type PublishOutcome } from "../briefing/publishPlan";
 import { Metric } from "../components/metric";
 import { provAttrs } from "../components/provenance";
@@ -36,6 +36,8 @@ export function BriefingCard({ ctx }: ScreenProps): ReactElement {
   const status = partial ? "warning" : over ? "caution" : "nominal";
   const outcome = published?.plan === plan && published.tasks === state.stop_tasks ? published.outcome : null;
   const snapshot = map?.plan === plan ? map : null;
+  // T11.06: the canvas capture failed, so the card shows the thumbnail with the route as SVG, and says so (FD-137, FD-392).
+  const fallback = useMemo(() => snapshot?.error ? createBriefingFallback(ctx.site, state) : null, [snapshot?.error, ctx.site, state.waypoints, state.result]);
   const value = (v: string | number | null | undefined, path: string, prov: Provenance = "derived", unit?: string) => {
     const entry = plan.provenance_summary.find(e => e.value_path === path);
     return <Metric value={v ?? null} prov={entry?.provenance ?? prov} src={entry?.source_ids.join(" ") || `plan-export:${path}`} unit={unit} />;
@@ -79,8 +81,8 @@ export function BriefingCard({ ctx }: ScreenProps): ReactElement {
     </div>
     <div className="scr08-summary">
       <figure className="scr08-map">
-        {snapshot?.error
-          ? <p role="alert" data-slot="map-error">Map snapshot unavailable: {snapshot.error}</p>
+        {fallback
+          ? <FallbackMap element={fallback} />
           : <>
             {/* A canvas, not an `<img src="data:...">`: the CSP is `default-src 'self'` and refuses a data image source (FD-363). */}
             <canvas ref={target} className="scr08-map-canvas" width={860} height={470} role="img"
@@ -89,6 +91,9 @@ export function BriefingCard({ ctx }: ScreenProps): ReactElement {
             {!snapshot?.drawn && <p role="status" data-slot="map-pending">Preparing local map snapshot…</p>}
           </>}
         <figcaption>Route in projected metres · north up</figcaption>
+        {snapshot?.error && <p role="status" data-slot="map-error" className="scr08-map-notice">
+          <StatusIcon status="caution" word="MAP SNAPSHOT UNAVAILABLE" /> Map snapshot unavailable: {snapshot.error}. Showing the site thumbnail with the route drawn as SVG.
+        </p>}
       </figure>
       <div className="scr08-metrics">
         {!partial && <div data-slot="totals">
@@ -139,4 +144,10 @@ export function BriefingCard({ ctx }: ScreenProps): ReactElement {
       <p data-slot="disclaimer">{plan.disclaimer}</p>
     </footer>
   </main>;
+}
+
+function FallbackMap({ element }: { element: HTMLElement }): ReactElement {
+  const host = useRef<HTMLDivElement>(null);
+  useEffect(() => { host.current?.replaceChildren(element); return () => element.remove(); }, [element]);
+  return <div ref={host} />;
 }

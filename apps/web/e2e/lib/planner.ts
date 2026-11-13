@@ -5,9 +5,9 @@
  */
 import { expect, type Page } from "@playwright/test";
 
-/** Opens `#/planner` on the F4 site, the left drawer (one-drawer layouts) and its Plan tab, and sets the EVA start. */
-export async function openPlanTab(page: Page): Promise<void> {
-  await page.goto("/?site=mock_site#/planner");
+/** Opens `#/planner` on the F4 site (plus `extraQuery`, e.g. `&draw_legs=1`), the left drawer (one-drawer layouts) and its Plan tab. */
+export async function openPlanTab(page: Page, extraQuery = ""): Promise<void> {
+  await page.goto(`/?site=mock_site${extraQuery}#/planner`);
   await page.waitForLoadState("networkidle");
   await page.locator('[data-slot="map-workspace"]').waitFor();
   const toggle = page.locator('[data-slot="drawer-toggle"][data-for="left"]');

@@ -14,6 +14,7 @@ import { openReplayFixture, routeFixtureRecording } from "../lib/replayFixture";
 import { populatedReport } from "../../tests/fixtures/postEvaReport";
 import { withManifestlessSite } from "../lib/siteBundle";
 import { openPoiTasks } from "../lib/plannerTasks";
+import { asOrtho, failTiles, stubManualLegWorker } from "../lib/fallbacks";
 import { REJECTION, openSetupFixture } from "../lib/setupFixture";
 import { openPresenterFixture, type PresenterFixtureState } from "../lib/presenterFixture";
 
@@ -317,4 +318,37 @@ test("axe: EVA full map, options and cached transport-loss overlay (package 18)"
     await page.locator('[data-screen="SCR-18"]').waitFor();
     await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-link-lost` });
   } finally { fixture.dispose(); }
+});
+
+// Package 33: the planner's degraded states. A layer on its fallback image (layer row and the map's caution notice), and the manual-leg
+// panel before drawing, while drawing and with a validated leg. The panel and the notice are scanned as regions (a full planner scan walks
+// the profile chart); the planner is specified from 1024 px (04 §F).
+test("axe: SCR-02 layer fallback notice and manual-leg panel states have no serious or critical violation (package 33)", async ({ page }, testInfo) => {
+  skipBelowPlanner(page.viewportSize()?.width);
+  await stubManualLegWorker(page);
+  await asOrtho(page);
+  await failTiles(page, "elevation", { keepCoarsest: true });
+  await openPlanTab(page, "&draw_legs=1");
+  await addStopByKeyboard(page, 1);
+  await page.getByRole("tab", { name: "Layers" }).click();
+  await expect(page.locator('[data-slot="layer-fallback-notice"] .notice[data-status="caution"]')).toBeVisible();
+  await expect(page.locator('[data-layer-id="elevation"] [data-slot="layer-fallback"]')).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-fallback-notice`, include: '[data-slot="map-box"]' });
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr03-fallback-row`, include: '[data-layer-id="elevation"]' });
+
+  const panel = '[data-slot="draw-legs"]';
+  await expect(page.locator(panel)).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-draw-legs-ready`, include: panel });
+  await page.locator(`${panel} .scr02-manual-actions button`).first().click();
+  await expect(page.locator(`${panel} [data-slot="manual-leg-status"]`)).toContainText("Drawing");
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-draw-legs-drawing`, include: panel });
+  await page.getByRole("button", { name: "Finish leg" }).click();
+  await expect(page.locator(`${panel} [data-slot="manual-leg-status"]`)).toContainText("Leg validation");
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-draw-legs-validated`, include: panel });
+});
+
+test("axe: SCR-08 with the map snapshot fallback has no serious or critical violation (package 33)", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  await openBriefing(page, "partial", { captureFails: true, noRoute: true });
+  await axeScan(page, { mode: "print", route: `${testInfo.project.name}-scr08-map-fallback` });
 });

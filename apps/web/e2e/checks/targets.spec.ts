@@ -154,6 +154,17 @@ test("targets: add-stop and keyboard-move targets are at least 44 px under a coa
   expectTargetSize(list, PLANNER_COARSE_MIN);
 });
 
+// Package 33: the manual-leg panel (shown by ?draw_legs=1) on the touch projects.
+test("targets: manual-leg panel targets are at least 44 px under a coarse pointer (package 33)", async ({ page, hasTouch }) => {
+  test.skip(!hasTouch, "a coarse pointer needs a touch project");
+  await openPlanTab(page, "&draw_legs=1");
+  await addStopByKeyboard(page, 1);
+  const list = await targets(page, '[data-slot="draw-legs"]');
+  expect(list.some((t) => /Draw /.test(t.label)), "a Draw button per leg").toBe(true);
+  expect(list.some((t) => /Finish leg/.test(t.label))).toBe(true);
+  expectTargetSize(list, PLANNER_COARSE_MIN);
+});
+
 test("the REASON control cycles a skipped task's reason and sends the revision (FD-028, FD-262)", async ({ page }) => {
   // The client's own side of FD-028: the control exists in the undo strip, it cycles the reason and it sends the revision
   // as a second UPDATE_STOP_TASK on the same task. The Hab Core's acceptance of that revision is the N-29 need below.

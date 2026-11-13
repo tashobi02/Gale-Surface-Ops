@@ -23,7 +23,7 @@ import okJson from "../fixtures/plan-results/ok.json";
 import partialJson from "../fixtures/plan-results/partial.json";
 import overLimitsJson from "../fixtures/plan-results/over-limits.json";
 
-vi.mock("../../src/ui/briefing/mapSnapshot", () => ({ captureBriefingMap: vi.fn(async () => undefined) }));
+vi.mock("../../src/ui/briefing/mapSnapshot", async (importOriginal) => ({ ...(await importOriginal<typeof import("../../src/ui/briefing/mapSnapshot")>()), captureBriefingMap: vi.fn(async () => undefined) }));
 vi.mock("../../src/ui/briefing/publishPlan", () => ({ publishPlan: vi.fn(async () => ({ status: "accepted", planHash: "test" })) }));
 import { captureBriefingMap } from "../../src/ui/briefing/mapSnapshot";
 import { publishPlan } from "../../src/ui/briefing/publishPlan";
@@ -222,12 +222,23 @@ describe("SCR-08 — Briefing Card (T11.03, T11.08)", () => {
     await view.unmount();
   });
 
-  it("failed capture shows an explicit error and no stale image", async () => {
+  it("failed capture shows an explicit notice with the reason, and the thumbnail with the route as SVG, never a stale image (T11.06)", async () => {
     vi.mocked(captureBriefingMap).mockRejectedValueOnce(new Error("Canvas is tainted"));
-    const { ctx } = createTestContext({});
+    const routed = { ...(okJson as PlanResult), legs: [{ ...(okJson as PlanResult).legs[0]!, geometry: [[0, 0], [50, 40], [100, 100]] }] } as PlanResult;
+    const { ctx } = createTestContext({ result: routed });
     const view = await mount(h(BriefingCard, { ctx }));
-    expect(view.container.querySelector("[data-slot='map-error']")?.textContent).toContain("Canvas is tainted");
-    expect(view.container.querySelector("img")).toBeNull();
+    const notice = view.container.querySelector("[data-slot='map-error']")!;
+    expect(notice.textContent).toContain("Canvas is tainted");
+    expect(notice.textContent).toMatch(/thumbnail/i);
+    expect(notice.getAttribute("role")).toBe("status");
+    expect(notice.querySelector("[data-status='caution'] .status-glyph")).not.toBeNull(); // shape + word, not colour alone
+    const fallback = view.container.querySelector("[data-slot='map-fallback']")!;
+    expect(fallback.querySelector("svg polyline.route")).not.toBeNull();
+    expect(fallback.querySelectorAll("svg text")).toHaveLength(3); // start and two stops, numbered
+    // The only image is the site's own thumbnail file: nothing drawn from an earlier plan, no data: or blob: source.
+    expect([...view.container.querySelectorAll("img")].map(i => i.getAttribute("src"))).toEqual([expect.stringMatching(/^sites\/mock_site\/tiles\//)]);
+    expect(view.container.querySelector("canvas")).toBeNull();
+    expect(view.container.querySelector<HTMLButtonElement>("nav button")!.disabled).toBe(false); // Print stays available
     await view.unmount();
   });
 
