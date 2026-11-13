@@ -49,14 +49,14 @@ And the work-package exit criterion from the implementation plan:
 ## 3. Timing and End Conditions
 
 - **Start of timing:** The timer starts immediately when the participant clicks **Start planning** on SCR-01 (or opens the workspace).
-- **End condition:** `TODO(decision)`: Whether opening the briefing card (SCR-08) is sufficient to stop the clock, or whether the participant must click Print / Export JSON, and whether the plan status must be strictly `OK` or may include `OVER_LIMITS` / `PARTIAL` warning banners ([01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications) allows opening SCR-08 with warning banners).
+- **End condition:** **Decided ([FD-540](../plan/frontend/decisions.md)):** The clock stops once **SCR-08** renders a computed 3-stop briefing card (`OK`, `OVER_LIMITS`, or `PARTIAL` warning banners allowed per [01 Clarifications](../specs/01_Product_Requirements_Document.md#clarifications)) with provenance and export controls ready.
 - **Time cap:** 5 minutes (300 seconds). If 5 minutes elapse before the end condition is reached, the session is marked as incomplete (`Finished: No`, `Target met: Fail`).
 
 ---
 
 ## 4. Facilitator Rules
 
-- **Help definition:** `TODO(decision)`: What interactions constitute "help".
+- **Help definition:** **Decided ([FD-540](../plan/frontend/decisions.md)):** Help is any hint naming a specific control, drawer, field, or constraint; restating the goal statement or reading visible system state text aloud does not count as help.
   - **Permitted interactions:** Clarifying the original goal statement ("Your task is to plan a 3-stop route and create a briefing card"); answering questions about Mars context (e.g., "Yes, Gale Crater is the exploration zone"); taking notes.
   - **Forbidden interactions (counts as help):** Pointing at UI controls, explaining how to open layers or drawers, telling the participant where to click, or warning them about constraints before the tool does.
   - If the facilitator provides forbidden help to unblock a participant, the session continues to collect qualitative feedback, but the participant is recorded as `Help given: Yes` and fails the "without help" criterion.
@@ -95,11 +95,13 @@ The expected standard path from [03 §C.1](../specs/03_App_Flow_and_Diagrams.md#
 
 ### Participant Log
 
+Automated Chromium heuristic results (`FD-156`–`FD-158`, `?site=mock_site`) are generated into [usability-results.md](usability-results.md) by `scripts/build_usability_results.py` (never hand-typed). Human-only criteria (`P1`–`P3` live think-aloud and physical neoprene glove handling per `FD-540`) use the virtual/local tablet protocol below and remain tracked in [status.md](../tasks/status.md):
+
 | Participant | Date / Venue | Finished (≤ 5 min)? | Time (mm:ss) | Help Given? | Status at Finish | Target Met? |
 | --- | --- | --- | --- | --- | --- | --- |
-| P1 | `TODO(decision)` | Yes / No | --:-- | No / Yes | OK / Other | Pass / Fail |
-| P2 | `TODO(decision)` | Yes / No | --:-- | No / Yes | OK / Other | Pass / Fail |
-| P3 | `TODO(decision)` | Yes / No | --:-- | No / Yes | OK / Other | Pass / Fail |
+| P1 | Virtual / local tablet (`FD-540`) | Pending human run | - | - | - | Pending |
+| P2 | Virtual / local tablet (`FD-540`) | Pending human run | - | - | - | Pending |
+| P3 | Virtual / local tablet (`FD-540`) | Pending human run | - | - | - | Pending |
 
 ### Hesitations and Screen Issues
 
@@ -238,9 +240,9 @@ All tests use three non-team volunteer participants (P1–P3). For touch tests, 
 
 ---
 
-## 11. Open Decisions
+## 11. Resolved Decisions (`FD-540`, `FD-156`–`FD-158`)
 
-1. **`TODO(decision)`: Exact end condition (v1):** Does the timer stop upon rendering SCR-08 (Briefing card) on screen, or upon clicking Print / Download JSON?
-2. **`TODO(decision)`: Help threshold:** Explicitly formalize whether confirming system state (e.g. "Yes, it is calculating") constitutes help.
-3. **`TODO(decision)`: Recruiting venue:** Identity of testing venue (physical venue vs. remote screenshare, dependent on U-14).
-4. **`TODO(decision)`: Glove specification (v2):** Define standard thickness/material of simulated suit gloves for UT-8 and summon tests (e.g. standard neoprene/work gloves simulating pressurized suit dexterity).
+1. **Exact end condition (v1 — decided `FD-540`):** Clock stops once `SCR-08` renders a computed 3-stop briefing card (`OK`, `OVER_LIMITS`, or `PARTIAL` allowed per 01 Clarifications) with provenance and export controls ready.
+2. **Help threshold (decided `FD-540`):** Confirming printed system status text does not count as help; pointing out any control, drawer, input field, or constraint threshold does.
+3. **Venue and automation (`FD-156`–`FD-158`, `FD-540`):** Automated heuristic suite (`apps/web/e2e/checks/usability.spec.ts`) executes `briefing-5-min` (`?site=mock_site`, pending `N-140` for `gale_boxwork`) and `UT-1`..`UT-9` against visible labelled controls, generating [usability-results.md](usability-results.md); human sessions use virtual screenshare / local tablet hardware.
+4. **Glove specification (v2 — decided `FD-540`):** ≥ 5 mm insulated neoprene utility gloves on physical hardware for human dexterity pass; automated suite verifies the `≥ 56 × 56 px` target, `≥ 8 px` spacing, and `800 ms` hold-to-confirm proxy (`04 §C.3`).
