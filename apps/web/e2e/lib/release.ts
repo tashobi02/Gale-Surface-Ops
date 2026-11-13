@@ -199,11 +199,18 @@ export async function addPoiStopAndExport(page: Page, site = e2eSiteId()): Promi
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("about:blank"); // a fresh document: the same URL again would only be a hash navigation that keeps the old state
   await page.goto(`/?site=${site}#/planner`);
+  // The planner restores the last computed plan from localStorage (T18.07), so a device that ran a bigger scenario before this call
+  // would export that bigger plan and the device matrix would compare different plans. The export must start from the same inputs on
+  // every device, so the stored plan is cleared and the planner is loaded again. The clear has to run on the app's own origin: on
+  // `about:blank` the storage belongs to an opaque origin and the app's own entries are untouched.
+  await page.evaluate(() => { try { window.localStorage.clear(); } catch { /* Storage is optional. */ } });
+  await page.reload();
   await page.waitForLoadState("networkidle");
   await page.locator('[data-slot="map-workspace"]').waitFor();
   const toggle = page.locator('[data-slot="drawer-toggle"][data-for="left"]');
-  // At 390 px the site name and the data-version chip of the top bar lie over the "Layers · Plan" button and take its pointer events
-  // (B-04); the check is the `fixme` of release-matrix, so the export path presses the button where it is (force) to go on.
+  // At 390 px the site name and the data-version chip of the top bar used to lie over the "Layers · Plan" button and take its pointer
+  // events (B-04). Fixed 13 Nov 2026 (FD-425): the top bar wraps, the labels truncate and the coach marks move clear of the drawer, so
+  // the toggle is clicked normally and the `force` is kept only as a fallback.
   const phone = (page.viewportSize()?.width ?? 1440) < 768;
   if (await toggle.isVisible()) await toggle.click({ force: phone });
   await page.getByRole("tab", { name: "Plan" }).click();

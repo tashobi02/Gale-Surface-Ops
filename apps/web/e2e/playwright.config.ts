@@ -112,6 +112,8 @@ export default defineConfig({
         project("galaxy-tablet-portrait-712x1138", chromiumDevice("Galaxy Tab S4", { width: 712, height: 1138 }), [...EVERY_PROJECT, ...LIVE_DEVICE_CHECKS]),
         project("hud-844x390", chromiumDevice("iPhone 14 landscape", { width: 844, height: 390 }), [...EVERY_PROJECT, "hud-glance"]),
         // `make demo` rebuilds apps/web/dist without the spike page, so it runs after every project that serves the harness build.
-        project("release-demo", desktop(1440, 900), RELEASE_DEMO),
+        // `release-matrix` runs here too, but only its cross-device comparison: Playwright does not order the projects, so the
+        // comparison has to happen in the last project, after all three device exports exist.
+        project("release-demo", desktop(1440, 900), [...RELEASE_DEMO, "release-matrix"]),
       ],
 });

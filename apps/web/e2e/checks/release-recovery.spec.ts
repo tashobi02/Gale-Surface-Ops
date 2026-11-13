@@ -64,6 +64,11 @@ test("release-recovery: a grid file of the wrong length is named by SCR-00 in th
   });
 });
 
+// The app now has the failure state and the Retry (frontend package 09, T09.07): the results panel's banner reads "Computation failed"
+// and offers a Retry. The `results-states` check proves it on the route-results screen. This case stays a placeholder because the
+// trigger differs: it wants a `__failWorker` hook on the page, and the app exposes no such hook (the failure is driven by the plan
+// store's own error state). Adding a debug-only failure hook to the app would be a test hook in production code, so the acceptance
+// stays with `results-states` until the backend can fail a live computation on demand.
 test.fixme("release-recovery: a worker failure shows Computation failed with Retry (enabled by frontend package 09, results states: the app has no failure hook or Retry yet)", async ({ page }) => {
   await page.goto("/?site=mock_site#/planner");
   await page.evaluate(() => (window as unknown as { __failWorker?: () => void }).__failWorker?.());

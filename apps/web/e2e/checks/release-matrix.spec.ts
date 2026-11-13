@@ -8,6 +8,9 @@
  *    mode (it is fully usable), which is more than the specification asks.
  * On every device one plan, the first POI as the only stop, is exported; the exports are normalised (no run time, no timings) and
  * compared across the three projects: the same inputs give the same JSON, plan_hash included.
+ *
+ * The comparison runs in the last project of the run (`release-demo`), because Playwright does not order the projects and a device
+ * could compare before the other two had written their export.
  */
 import { expect, test } from "@playwright/test";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -21,9 +24,13 @@ test.use({ actionTimeout: 15_000 });
 const SITE = "mock_site";
 const DIR = join(OUT_DIR, "release-matrix");
 const MATRIX = ["desktop-1280", "tablet-portrait-768x1024", "phone-portrait-390x844"];
+// The project that runs last; only it compares, so all three exports exist when it does.
+const COMPARING_PROJECT = "release-demo";
 
 test("release-matrix: the device's own scenario runs and its plan export is the same on every device", async ({ page }, info) => {
   test.setTimeout(150_000);
+  // The comparing project only compares; the three devices export.
+  test.skip(info.project.name === COMPARING_PROJECT, "the comparing project only compares the three device exports");
   const faults = await watchFaults(page);
   const width = page.viewportSize()!.width;
 
@@ -60,20 +67,35 @@ test("release-matrix: the device's own scenario runs and its plan export is the 
   expect(faults.pageErrors).toEqual([]);
   mkdirSync(DIR, { recursive: true });
   writeFileSync(join(DIR, `${info.project.name}.json`), `${JSON.stringify(exported.exportNormalised)}\n`);
+});
 
-  // The last project of the matrix compares what the earlier ones wrote in this run.
-  if (info.project.name === MATRIX[MATRIX.length - 1]) {
-    const written = readdirSync(DIR).filter((f) => f.endsWith(".json") && MATRIX.includes(f.replace(/\.json$/, "")));
-    expect(written.length, "the exports of the three projects").toBe(MATRIX.length);
-    const texts = written.map((f) => readFileSync(join(DIR, f), "utf8"));
-    for (const text of texts) expect(JSON.parse(text)).toEqual(JSON.parse(texts[0]!));
+// The cross-device half. It runs in the last project of the run, so all three device exports exist when it compares them.
+test("release-matrix: the three devices exported the same plan", async ({}, info) => {
+  test.setTimeout(180_000);
+  test.skip(info.project.name !== COMPARING_PROJECT, "only the last project of the run compares the three device exports");
+  await expect
+    .poll(() => readdirSync(DIR).filter((f) => f.endsWith(".json") && MATRIX.includes(f.replace(/\.json$/, ""))).length, {
+      message: "the exports of the three matrix devices",
+      timeout: 150_000,
+    })
+    .toBe(MATRIX.length);
+  const parsed = MATRIX.map((name) => JSON.parse(readFileSync(join(DIR, `${name}.json`), "utf8")));
+  for (let i = 1; i < parsed.length; i += 1) {
+    expect(parsed[i], `${MATRIX[i]} exports the same plan as ${MATRIX[0]}`).toEqual(parsed[0]);
+    expect(parsed[i].plan_hash, `${MATRIX[i]} has the same plan hash as ${MATRIX[0]}`).toBe(parsed[0].plan_hash);
   }
 });
 
 // Observed on 13 Nov 2026 (phone-portrait-390x844): the site name and the data-version chip of the top bar lie over the "Layers · Plan" and
 // "POI · Conditions" buttons and receive their pointer events, so a finger or a mouse cannot open either drawer (Playwright: "<span
 // class=scr02-site-name> intercepts pointer events"). B-04 in docs/plan/backend/01-needs-from-frontend.md; SCR-02 is frontend package 07.
-test.fixme("release-matrix: the Layers · Plan button is tappable on a 390 px phone (enabled by frontend package 07, B-04)", async ({ page }) => {
+// Fixed 13 Nov 2026 (FD-425): the top bar wraps below 640 px, the site name and the data-version chip truncate, and the first-run coach
+// marks move clear of an open one-drawer drawer instead of intercepting its clicks. The `planner-drawer` check covers the same drawer on
+// five viewports.
+// The one-drawer layout with its "Layers · Plan" toggle exists only below 768 px; the wider layout shows both drawers at once, so the
+// toggle is absent there and this case is phone-only.
+test("release-matrix: the Layers · Plan button is tappable on a 390 px phone (enabled by frontend package 07, B-04)", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) >= 768, "the one-drawer layout with the Layers · Plan toggle exists only below 768 px");
   await page.goto(`/?site=${SITE}#/planner`);
   await page.locator('[data-slot="map-workspace"]').waitFor();
   await page.locator('[data-slot="drawer-toggle"][data-for="left"]').click(); // actionability: nothing may cover it
