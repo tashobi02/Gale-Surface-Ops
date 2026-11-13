@@ -429,6 +429,16 @@ export function EvaTablet({
             </span>
             {/* TASKS button; counts are "—" until a stop is known. While the list is collapsed the count stays here as a
                 figure, not a control, and no panel is behind it (FD-032). */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {/* GO BY ROVER (QoL Q3): the pressurized rover carries this crew member to the next stop. */}
+            <GoByRover
+              ride={selectRide(activeSnapshot, crewId)}
+              onGo={({ vehicleId, stopId }) => {
+                void send({ kind: "RIDE_VEHICLE", args: { crew_id: crewId, vehicle_id: vehicleId, to_stop_id: stopId } }).then((result) => {
+                  setRideRejection(result.ok ? null : (result.message ?? "The Hab Core refused the ride"));
+                });
+              }}
+            />
             <TasksButton
               doneCount={vm.nextStop ? vm.nextStop.taskCount.done : null}
               totalCount={vm.nextStop ? vm.nextStop.taskCount.total : null}
@@ -436,7 +446,13 @@ export function EvaTablet({
               readOnly={collapsed}
               onClick={() => setTasksExpanded(!tasksExpanded)}
             />
+            </div>
           </div>
+          {rideRejection && (
+            <div role="alert" data-slot="ride-rejection" style={{ fontSize: "16px", marginTop: "4px" }}>
+              {rideRejection}
+            </div>
+          )}
 
           <div
             style={{
@@ -461,17 +477,6 @@ export function EvaTablet({
               {fmtEta(vm.nextStop?.etaMinutes.v)}
             </span>
           </div>
-
-          {/* GO BY ROVER (QoL Q3): the pressurized rover carries this crew member to the next stop. */}
-          <GoByRover
-            ride={selectRide(activeSnapshot, crewId)}
-            rejection={rideRejection}
-            onGo={({ vehicleId, stopId }) => {
-              void send({ kind: "RIDE_VEHICLE", args: { crew_id: crewId, vehicle_id: vehicleId, to_stop_id: stopId } }).then((result) => {
-                setRideRejection(result.ok ? null : (result.message ?? "The Hab Core refused the ride"));
-              });
-            }}
-          />
 
         </div>
 

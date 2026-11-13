@@ -47,18 +47,21 @@ export function selectRide(snapshot: Snapshot | null, crewId: CrewId): RideView 
 const buttonStyle: CSSProperties = {
   minHeight: "var(--target-eva, 56px)",
   minWidth: "56px",
-  padding: "8px 16px",
+  padding: "4px 12px",
   fontSize: "16px",
   fontWeight: 600,
+  lineHeight: 1.1,
   cursor: "pointer",
   textTransform: "uppercase",
+  display: "inline-flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
 };
 
 export interface GoByRoverProps {
   ride: RideView;
   onGo: (ride: { vehicleId: string; stopId: string }) => void;
-  /** The Hab Core's reason when the last RIDE_VEHICLE was refused; null otherwise. */
-  rejection?: string | null;
 }
 
 function fmtRideEta(etaS: number | null): string {
@@ -67,31 +70,30 @@ function fmtRideEta(etaS: number | null): string {
   return minutes < 1 ? "<1 min" : `${Math.round(minutes)} min`;
 }
 
-export function GoByRover({ ride, onGo, rejection = null }: GoByRoverProps): ReactElement {
+/**
+ * One button, two short lines (the word, then the ride ETA), so it sits in the NEXT card's header row beside TASKS and adds
+ * no height to the card (a taller card scrolls on the phone-landscape tablet, which axe flags). The Hab Core's refusal reason
+ * is shown by the caller below the card's figures.
+ */
+export function GoByRover({ ride, onGo }: GoByRoverProps): ReactElement {
   const sourced = ride.etaS === null ? unavailableOf("simulated", "ride.eta_s") : { prov: "simulated" as const, src: "snapshot:vehicles.eta_s" };
   return (
-    <div data-slot="go-by-rover" style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "8px", flexWrap: "wrap" }}>
-      <button
-        type="button"
-        className="btn sm"
-        data-action="go-by-rover"
-        style={buttonStyle}
-        disabled={!ride.available}
-        aria-label="Go to the next stop by rover"
-        onClick={() => {
-          if (ride.available && ride.vehicleId && ride.stopId) onGo({ vehicleId: ride.vehicleId, stopId: ride.stopId });
-        }}
-      >
-        GO BY ROVER
-      </button>
-      <span data-slot="ride-eta" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px" }}>
+    <button
+      type="button"
+      className="btn sm"
+      data-slot="go-by-rover"
+      data-action="go-by-rover"
+      style={buttonStyle}
+      disabled={!ride.available}
+      aria-label="Go to the next stop by rover"
+      onClick={() => {
+        if (ride.available && ride.vehicleId && ride.stopId) onGo({ vehicleId: ride.vehicleId, stopId: ride.stopId });
+      }}
+    >
+      <span>GO BY ROVER</span>
+      <span data-slot="ride-eta" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "12px", fontWeight: 400 }}>
         RIDE <span {...provAttrs(sourced)}>{fmtRideEta(ride.etaS)}</span>
       </span>
-      {rejection && (
-        <span role="alert" data-slot="ride-rejection" style={{ fontSize: "16px" }}>
-          {rejection}
-        </span>
-      )}
-    </div>
+    </button>
   );
 }
