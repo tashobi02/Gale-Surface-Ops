@@ -656,6 +656,29 @@ describe("package 21: relay coverage, haven per crew, caution hatch, last-linked
     expect(labelOf(stylesOf(ops.crewLayer, byType(ops.crewLayer, "crew_marker")[0]!))).toBe("EV1\nSTALE —");
   });
 
+  it("keeps absent snapshot counts unavailable instead of inventing zero crew, vehicles or havens", () => {
+    const { ops } = setup();
+    const counts = () => ops.rows().filter(row => ["crew", "vehicles", "haven_links"].includes(row.id));
+    const expectMissing = () => {
+      for (const row of counts()) {
+        expect(row.text).toBe(`${row.id === "crew" ? "Crew" : row.id === "vehicles" ? "Vehicles" : "Haven per crew"} — —`);
+        expect(row.unavailable).toBe(true);
+        expect(row.src).toMatch(/^unavailable:/);
+      }
+    };
+    try {
+      expectMissing();
+      ops.update(snapshot());
+      for (const row of counts()) {
+        expect(row.text).toMatch(/ — 0$/);
+        expect(row.unavailable).toBe(false);
+        expect(row.src).toMatch(/^snapshot:/);
+      }
+      ops.update(null);
+      expectMissing();
+    } finally { ops.destroy(); }
+  });
+
   it("lists one row per layer, each with a provenance class and a source id", () => {
     const { ops } = setup();
     ops.update(snapshot({ crew: [crew("EV1", 0, 0)], vehicles: [vehicle("UR1", "utility_rover", 1, 1)] }));

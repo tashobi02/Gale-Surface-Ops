@@ -68,6 +68,10 @@ test("provenance: no unlabelled number on the planner workspace and every source
   const ids = await page.locator("[data-source]").evaluateAll((els) => els.map((e) => e.getAttribute("data-source")!));
   expect(ids.length).toBeGreaterThan(0);
   for (const id of ids) expect(id, "an empty source id").not.toBe("");
+  // Range values are rendered by the browser, outside the text-node sweep (package 99 A.5).
+  const opacity = page.getByRole("slider").first();
+  await expect(opacity).toHaveAttribute("data-provenance", "assumed");
+  await expect(opacity).toHaveAttribute("data-source", /^user:layer\..+\.opacity$/);
 });
 
 // Package 09: the Plan tab (inputs, LTST preview, an inline range error, stops list) shows no unlabelled number.
