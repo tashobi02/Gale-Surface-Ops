@@ -325,9 +325,9 @@ export function EventLog({
       <div
         aria-hidden="true"
         style={{
-          height: "2px",
+          height: "4px",
           width: "100%",
-          background: "linear-gradient(90deg, var(--route, #4CC9F0) 0%, var(--hairline, #2A313A) 100%)",
+          background: "linear-gradient(90deg, var(--text-1, #ECEFF2) 0 33%, var(--text-3, #8592A0) 33% 66%, var(--hairline, #2A313A) 66% 100%)",
         }}
       />
 
@@ -377,9 +377,9 @@ export function EventLog({
                 fontSize: "11px",
                 fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
                 fontWeight: isActive ? 600 : 400,
-                color: isActive ? "var(--ink, #1A1A1A)" : "var(--text-2, #A9B3BE)",
-                backgroundColor: isActive ? "var(--route, #4CC9F0)" : "transparent",
-                border: isActive ? "1px solid var(--route, #4CC9F0)" : "1px solid var(--hairline, #2A313A)",
+                color: isActive ? "var(--void, #0B0D10)" : "var(--text-2, #A9B3BE)",
+                backgroundColor: isActive ? "var(--text-1, #ECEFF2)" : "transparent",
+                border: isActive ? "1px solid var(--text-1, #ECEFF2)" : "1px solid var(--edge, #5C6670)",
                 cursor: "pointer",
                 borderRadius: "0px",
               }}
@@ -472,7 +472,7 @@ export function EventLog({
                   {...eventAttrs(ev, "actor", field(ev.actor) !== UNAVAILABLE)}
                   style={{
                     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
-                    color: ev.actor === "system" ? "var(--text-3, #8592A0)" : "var(--route, #4CC9F0)",
+                    color: ev.actor === "system" ? "var(--text-3, #8592A0)" : "var(--text-1, #ECEFF2)",
                     fontSize: "11px",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
