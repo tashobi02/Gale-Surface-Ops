@@ -8,8 +8,7 @@
  * 2026-11-12): `plan`, `events` and `stop_tasks` are optional (`stop_tasks` needs `plan`), and the loader checks
  * `mission_setup`, `event_library` and `task_library` against the Site (05 Scenario, §E.3; BD-78, BD-101).
  *
- * ajv comes through fastify (a declared hab-core dependency), as in the T22.02 fixture test.
- * TODO(decision): declare `ajv` and `ajv-formats` directly in the next dependency batch (T14.01).
+ * `ajv` and `ajv-formats` are declared hab-core dependencies (T14.01; decided, BD-79).
  */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";

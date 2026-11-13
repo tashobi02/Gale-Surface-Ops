@@ -67,10 +67,10 @@
 - **Parallel with:** T00.01–T00.03, T01.01–T01.05, T02.01, T05.01, T05.03, T06.01
 - **Steps:**
   1. Diff every field of `schema.ts` and both JSON Schemas against 05 §C (names, types, required flags, enums, defaults); fix each mismatch in favour of 05.
-  2. C1: record the decision on required PlanResult, Leg and Warning fields (the existing `TODO(decision)`), including whether `conditions`, `radiation` and `stops_timeline` may be absent in the M3 slice (map open point 3). Keep it a visible `TODO(decision)` until the data lead signs off, and list the 05 wording it needs under Spec questions.
-  3. C2/C3: model `legend` on the 05 §F.1 example (`type`, `breaks_follow_scenario`, `classes`); record U-11 (store profile arrays in the export; 05 recommends storing) as `TODO(decision)`.
+  2. C1: record the decision on required PlanResult, Leg and Warning fields (the decision BD-50), including whether `conditions`, `radiation` and `stops_timeline` may be absent in the M3 slice (map open point 3). Keep it the decision BD-50 until the data lead signs off, and list the 05 wording it needs under Spec questions.
+  3. C2/C3: model `legend` on the 05 §F.1 example (`type`, `breaks_follow_scenario`, `classes`); record U-11 (store profile arrays in the export; 05 recommends storing) as decided (BD-64).
   4. C4 by review only: compare the `config.py` constants, `FLAG_BITS` in `schema.ts` and `LoadedGrid` in `packages/compute/src/grid.ts` with 05 RoutingGrid and flag bits. Report any mismatch to its owner (T03.07, T05.16); do not edit those files.
-  5. C5: write `pipeline/sites/README.md` — one JSON file per DataSource, Layer, EnvConstant, POI and known offset under `pipeline/sites/<site_id>/`, plus `site.json`, `hazards.geojson`, `low_res_dem.geojson` and the optional `ti_threshold.json` layout (the file itself is absent: U-03 decided 2026-11-10 that no defensible threshold exists); record the layer ids (`TODO(decision)`; 05 §F.1 uses `slope` and `elevation`).
+  5. C5: write `pipeline/sites/README.md` — one JSON file per DataSource, Layer, EnvConstant, POI and known offset under `pipeline/sites/<site_id>/`, plus `site.json`, `hazards.geojson`, `low_res_dem.geojson` and the optional `ti_threshold.json` layout (the file itself is absent: U-03 decided 2026-11-10 that no defensible threshold exists); record the layer ids (05 §F.1 uses `slope` and `elevation`; decided, BD-17).
   6. Move the `hazard_flags` stub from `derive.py` into a new `flags.py`, adding inputs for the HARD_HAZARD and LOW_RES_DEM masks (its docstring says they come from inputs); it keeps raising `NotImplementedError`.
   7. Check `data/sites/gale_boxwork/README.md` still matches 02 §E.1; state contract versions C1–C5 = v1 in the PR description.
 - **Acceptance:**
@@ -78,10 +78,10 @@
   - Every 05 entity (Site, DataSource, Layer, Asset, RoutingGrid, POI, TraversePoint, EnvConstant, MissionScenario, Waypoint, PlanResult, Leg, Warning, PlanExport) has one TypeScript definition and its JSON Schema definition, with field names copied from 05.
   - Flag bit positions and the slope encoding (degrees × 4, 255 = no data) are identical in 05, `config.py` and `schema.ts`.
   - The schemas state that `crs.proj4` must be byte-identical to the pipeline constant (05 §E.3).
-  - Every decision the map lists for C1–C5 is either recorded or left as a visible `TODO(decision)`.
+  - Every decision the map lists for C1–C5 is recorded, or is written as an open question with its options.
   - The stubs still import: `make test` reports only skipped or todo tests.
 - **Verify:** `make typecheck` · `python3 -m json.tool schemas/site-manifest.schema.json` · `python3 -m json.tool schemas/plan-export.schema.json` · `make test` · `make lint`
-- **Agent brief:** Freeze data contracts C1–C5 from `docs/tasks/_coordination.md` §d. Diff `packages/protocol/src/schema.ts` and `schemas/*.schema.json` against 05 §C and fix them in favour of 05; write `pipeline/sites/README.md`; move the `hazard_flags` stub into `flags.py`. Invent no fields; leave open choices as `TODO(decision)`.
+- **Agent brief:** Freeze data contracts C1–C5 from `docs/tasks/_coordination.md` §d. Diff `packages/protocol/src/schema.ts` and `schemas/*.schema.json` against 05 §C and fix them in favour of 05; write `pipeline/sites/README.md`; move the `hazard_flags` stub into `flags.py`. Invent no fields; write open choices as questions with their options.
 - **Conflict notes:** Blocking — merge before T03.02 and before any TASK-03 test or implement PR. Afterwards C1–C3 change only through `contract-change:` subtasks (map §d), and 05 itself only through a `spec-change:` subtask. `derive.py` passes to T03.09 and `flags.py` to T03.10 when this PR merges. This subtask never writes `config.py` or `grid.ts`.
 
 ### T03.02 — Fixture: mock site bundle (manifest, placeholder tiles, tiny grid, sample POI and traverse GeoJSON)
@@ -129,7 +129,7 @@
   3. Round trip: lat/lon ↔ x/y through the `config.py` working projection (red until T03.07 fills it) at the AOI corners and centre, asserting ≤ 1 mm.
   4. CRS guard: scan `pipeline/src/` for EPSG:3857 / WGS84 code paths (02 §C.1 "Never").
   5. Delete `test_scale_bar_vs_dem_measured_feature_within_2_percent`: that case belongs to T02.04 (map open point 11).
-  6. Guard geo imports with `pytest.importorskip` so `make test` skips cleanly where GDAL, rasterio or pyproj are missing (`TODO(decision)` with T14.01, see Spec questions).
+  6. Guard geo imports with `pytest.importorskip` so `make test` skips cleanly where GDAL, rasterio or pyproj are missing (Decided (BD-32) with T14.01, see Spec questions).
 - **Acceptance:**
   - Serves: FR-01, FR-02, FR-03 · [02 §C.4](../specs/02_Technical_Requirements_Document.md#c4-mars-specific-pitfalls-to-test-explicitly)
   - Allocated cases, each one test: lat/lon ↔ x/y round trip within 1 mm (02 §F.1 Projection); no EPSG:3857/WGS84 path in the pipeline (02 §C.4.2); row 0 = north after reprojection (02 §C.4.3); DEM no-data → NaN before slope (02 §C.4.4).
@@ -152,7 +152,7 @@
 - **Steps:**
   1. Synthetic planes of 0°, 10° and 30° on a 1 m grid: Horn slope within ±0.05° (also covers the 02 §C.2 L3 10° ramp).
   2. A NaN border: cells that touch NaN come out NaN, not as spikes.
-  3. Aggregation per routing-grid cell: p90 and max on blocks whose answer follows from construction (uniform blocks; one block with a single steep pixel); the percentile method is `TODO(decision)` for T03.09.
+  3. Aggregation per routing-grid cell: p90 and max on blocks whose answer follows from construction (uniform blocks; one block with a single steep pixel); the percentile method is decided (BD-19) for T03.09.
   4. Hillshade at azimuth 315° and altitude 45° (02 §C.2 L2): output shape and NaN propagation only.
   5. Flags: NO_DATA where elevation is NaN; TI_UNKNOWN where TI is missing or NaN, never zero; LOW_TI only when a threshold is passed; HARD_HAZARD and LOW_RES_DEM from the input masks; bits 5–7 stay 0.
   6. Guard geo imports with `pytest.importorskip`.
@@ -227,7 +227,7 @@
 - **Parallel with:** T03.08, T03.09, T03.10, T03.11, T03.12, T03.16, T03.17
 - **Steps:**
   1. Fill the working projection from the `config.py` template with the AOI centre recorded by T01.05; every other token of the 02 §C.1 string stays unchanged.
-  2. Keep the grid, slope-encoding and flag constants exactly as frozen by C4; add the tile resolutions of C9 v1 as constants so T03.23 can drop the finest level in one place (`TODO(decision)` if C9 keeps them per layer instead).
+  2. Keep the grid, slope-encoding and flag constants exactly as frozen by C4; add the tile resolutions of C9 v1 as constants so T03.23 can drop the finest level in one place (Decided (BD-22) if C9 keeps them per layer instead).
   3. Implement `fetch_sources`: read each lock-file entry, window-read COGs through GDAL `/vsicurl/` (02 §C.2 L1), reuse files already in `pipeline/work/` (the DEM from T01.01), and record SHA-256 plus the exact GDAL and rasterio versions (05 §E.5).
   4. Contact external sources only in this step; nothing here runs at app runtime (02 §A.1).
   5. Make the T03.03 round-trip and CRS-guard tests pass.
@@ -254,7 +254,7 @@
 - **Steps:**
   1. `clip_and_reproject`: window-read the source, warp to the given eqc string and `extent_m` at `resolution_m`, row 0 = north (02 §C.4.3).
   2. Resampling per 02 §C.2: bilinear for elevation and TI display, nearest for flag inputs; the 5 m grid elevation is the bilinear-resampled mean of the 1 m DEM (05 RoutingGrid).
-  3. `nodata_to_nan`: replace the DEM's declared no-data value with NaN before slope (02 §C.4.4); if the file declares none, use the PDS3-label value recorded by T01.01 (`TODO(verify)` which applies).
+  3. `nodata_to_nan`: replace the DEM's declared no-data value with NaN before slope (02 §C.4.4); if the file declares none, use the PDS3-label value recorded by T01.01 (Decided (BD-19) which applies).
   4. Pass the Mars CRS string straight to GDAL/rasterio; never route through EPSG:3857 or WGS84 (02 §C.1).
   5. Make the T03.03 row-0 and no-data tests pass.
 - **Acceptance:**
@@ -279,7 +279,7 @@
 - **Steps:**
   1. `horn_slope_deg`: Horn method on the reprojected 1 m DEM, degrees 0–90; NaN in → NaN out (02 §C.2 L3).
   2. `hillshade`: azimuth 315°, altitude 45° (02 §C.2 L2).
-  3. `aggregate_slope`: p90 (used for the hard limit) and max (caution, "micro-relief") per routing-grid cell; the factor comes from the grid cell constant, never a literal 5 (C4); record the percentile method chosen for the `TODO(decision)` in T03.04.
+  3. `aggregate_slope`: p90 (used for the hard limit) and max (caution, "micro-relief") per routing-grid cell; the factor comes from the grid cell constant, never a literal 5 (C4); record the percentile method chosen for the decision BD-19 in T03.04.
   4. Make the T03.04 slope, NaN-edge, hillshade and aggregation tests pass.
 - **Acceptance:**
   - Serves: FR-02, FR-07 · [02 §C.2 L3](../specs/02_Technical_Requirements_Document.md#l3--slope-fr-02-fr-07-fr-10)
@@ -325,7 +325,7 @@
 - **Depends on:** T03.05 (hard: tests-first pair), T03.01 (soft)
 - **Parallel with:** T03.07, T03.08, T03.09, T03.10, T03.12
 - **Steps:**
-  1. `encode_slope_u8`: degrees × 4 in 0.25° steps, NaN → 255 (05 RoutingGrid); slopes beyond the encodable range follow the decision recorded here (`TODO(decision)`, Spec questions).
+  1. `encode_slope_u8`: degrees × 4 in 0.25° steps, NaN → 255 (05 RoutingGrid); slopes beyond the encodable range follow the decision recorded here (Decided (BD-19), Spec questions).
   2. `write_grid`: raw little-endian, row-major, north-up arrays at the 02 §E.1 paths; f32 no-data NaN, u8 no-data 255 (05 Asset).
   3. TI sidecar `grid/ti_100m.f32` on its own grid with `ti_cell_m` (05 RoutingGrid); omitted when TI is unavailable.
   4. Refuse grids where `width*height` exceeds the 05 limit.
@@ -350,20 +350,20 @@
 - **Depends on:** T02.01 (soft), T03.01 (soft)
 - **Parallel with:** T03.07, T03.08, T03.09, T03.10, T03.11, T03.13, T03.14
 - **Steps:**
-  1. `render_tiles` writes `tiles/<layer_id>/{z}/{x}/{y}.{ext}` with the origin, resolutions, tile size, addressing and y direction of C9 (`TODO(verify)` until T02.04 confirms them on real tiles).
+  1. `render_tiles` writes `tiles/<layer_id>/{z}/{x}/{y}.{ext}` with the origin, resolutions, tile size, addressing and y direction of C9 (Decided (BD-22) until T02.04 confirms them on real tiles).
   2. Formats per 02 §C.3: ortho JPEG at 0.5 m; hillshade, slope, elevation and TI PNG or WebP at 2 m (06 §C TASK-03 deliverable).
   3. Pixel encoding per C9: slope tiles are data-encoded because their classes follow the current limits (04 §C.1, 05 §F.1 `breaks_follow_scenario`); colour ramps from 04 §C.1 only where C9 asks for pre-coloured tiles (map open point 6).
   4. Missing data stays transparent (02 §C.2 L1).
-  5. Write the tiles-root index file whose SHA-256 the manifest stores (05 Asset); its format is `TODO(decision)` in C9.
+  5. Write the tiles-root index file whose SHA-256 the manifest stores (05 Asset); its format is decided (BD-22) in C9.
 - **Acceptance:**
   - Serves: FR-01, FR-02 · [02 §E.1](../specs/02_Technical_Requirements_Document.md#e1-static-asset-contract)
   - Given a small synthetic raster, tiles land at the C9 paths and open in the T02.03 spike page.
   - The index file lists every tile written.
   - No paired test subtask: tile addressing is verified on real tiles by T02.04.
 - **Verify:** manual: render a small synthetic raster into a temporary folder, compare the paths with C9, open them in the T02.03 spike page
-- **Agent brief:** Implement `render_tiles` in `tiles.py` exactly as the C9 tile-grid contract specifies (paths, origin, resolutions, tile size, addressing, pixel encoding, index file). Formats from 02 §C.3; missing data transparent. Leave anything C9 has not settled as `TODO(verify)`.
+- **Agent brief:** Implement `render_tiles` in `tiles.py` exactly as the C9 tile-grid contract specifies (paths, origin, resolutions, tile size, addressing, pixel encoding, index file). Formats from 02 §C.3; missing data transparent. Leave anything C9 has not settled as decided (BD-22).
 - **Conflict notes:** T02.04 depends on this subtask (cross-task hard). V1 cut 7 (no v2 cut item) or a failed spike adds static PNGs through T03.25 instead of editing this file; T03.23 lowers the max zoom through `config.py`, not here.
-- **Bundle v1 decision:** Obidit Islam (data lead), 2026-11-10: ship ortho and hillshade as the only raster tile layers in v1. Elevation, thermal-inertia, hazard and comm display layers are deferred to a later `data_version` (v1.1), after Saba Atharique sets their ramps or encodings per 04; status colours are never data ramps. Excluding slope display tiles is an inference from that scope, `TODO(decision)` for the data lead to confirm; routing-grid slope data is unaffected. The existing `--skip-unstyled-optional` option alone does not exclude slope tiles. `TODO(verify)`: T02.04 must still check tile addressing, alignment and hillshade encoding.
+- **Bundle v1 decision:** Obidit Islam (data lead), 2026-11-10: ship ortho and hillshade as the only raster tile layers in v1. Elevation, thermal-inertia, hazard and comm display layers are deferred to a later `data_version` (v1.1), after Saba Atharique sets their ramps or encodings per 04; status colours are never data ramps. Excluding slope display tiles is an inference from that scope, decided (BD-17) for the data lead to confirm; routing-grid slope data is unaffected. The existing `--skip-unstyled-optional` option alone does not exclude slope tiles. Decided (BD-22): T02.04 must still check tile addressing, alignment and hillshade encoding.
 - **JPEG coverage guard (2026-11-10):** Before writing JPEG tiles, check the source's masks at native resolution within `aoi.extent_m`; fail if an invalid pixel or an uncovered area falls inside it. Tile padding outside the AOI is allowed. This guard and the viewer clip still leave the spec questions in T03.19 open.
 
 ### T03.13 — Implement the manifest writer from site-config records and assets
@@ -407,7 +407,7 @@
   1. Validate the manifest against `schemas/site-manifest.schema.json` with the validator T14.01 adds.
   2. Every `*_asset` / `asset_id` resolves to an Asset whose file exists and whose SHA-256 matches; every `source_ids` entry resolves to a DataSource (05 §E.3).
   3. All grids share `width`, `height`, `cell_m` and `origin_m`; array byte sizes match their dimensions.
-  4. All POIs and the default start lie inside `aoi.extent_m` and on passable cells — impassable as in 02 §D.2, with the slope limit used for this check a `TODO(decision)` (Spec questions).
+  4. All POIs and the default start lie inside `aoi.extent_m` and on passable cells — impassable as in 02 §D.2, with the slope limit used for this check the decision BD-21 (Spec questions).
   5. `crs.proj4` is byte-identical to the `config.py` constant; the `schema_version` major is checked (05 §E.4).
   6. `main()`: `validate-manifest <site_dir>` prints every problem and exits 1 on any.
 - **Acceptance:**
@@ -441,7 +441,7 @@
 - **Verify:** `$(make -s pipeline-python) -m marswalk_pipeline --help`
 - **Agent brief:** Write `pipeline/src/marswalk_pipeline/__main__.py` that chains the existing pipeline functions for one site in the `CLAUDE.md` §5 order, writes intermediates to `pipeline/work/` and the bundle to `data/sites/<site_id>/`, and stops with the failing step's name. No network outside acquire.
 - **Conflict notes:** `make data` is wired to this entry point by T14.01 (Makefile owner). Fallback T03.25 may replace this file to route 2 m layers to static images.
-- **Open v1 scope implementation:** `TODO(decision)`: Obidit Islam (T03.12/T03.15) must confirm the inferred exclusion of slope display tiles, then arrange to skip those tiles and exclude the slope Layer from the v1 manifest. The routing-grid slope data stays. This is not implemented by the current `--skip-unstyled-optional` option.
+- **Open v1 scope implementation:** Decided (BD-17): Obidit Islam (T03.12/T03.15) must confirm the inferred exclusion of slope display tiles, then arrange to skip those tiles and exclude the slope Layer from the v1 manifest. The routing-grid slope data stays. This is not implemented by the current `--skip-unstyled-optional` option.
 
 ### T03.16 — Write the site record (AOI, default start, data version)
 
@@ -480,16 +480,16 @@
 - **Parallel with:** T03.07, T03.12, T03.16
 - **Steps:**
   1. DEM DataSource: copy the 05 §F.1 record verbatim.
-  2. Ortho and THEMIS DataSources from 02 §C.2 L1 and L4 and 02 Sources (title, publisher, authors, version, url, credit, licence); `accessed` is the team's own access date. The THEMIS tile page and any field 02 lacks stay `TODO(verify)` until T01.04's coverage note supplies them.
+  2. Ortho and THEMIS DataSources from 02 §C.2 L1 and L4 and 02 Sources (title, publisher, authors, version, url, credit, licence); `accessed` is the team's own access date. The THEMIS tile page and any field 02 lacks follow BD-13 until T01.04's coverage note supplies them.
   3. Layer records for ortho, hillshade, elevation, slope (05 §F.1 verbatim), thermal inertia and hazard flags, with ids from C5; category, provenance, units, `default_visible` and `optional` per 05 Layer and 03 SCR-03 (orthoimage and hillshade on, basemap not optional).
-  4. Display resolutions from 06 §C TASK-03 (ortho 0.5 m; hillshade, slope, elevation, TI 2 m); the hazard-flags resolution is `TODO(decision)`.
+  4. Display resolutions from 06 §C TASK-03 (ortho 0.5 m; hillshade, slope, elevation, TI 2 m); the hazard-flags resolution is decided (BD-17).
   5. `limitations` text copied from 02 §C.2 (effective DTM resolution and artifacts, TI 100 m pixels and accuracy, interpretive flags).
 - **Acceptance:**
   - Serves: FR-02, FR-15, NFR-07 · [05 DataSource](../specs/05_Backend_and_Database_Schema.md#datasource)
   - Every record has every field 05 marks required; every Layer `source_ids` entry resolves.
-  - No value comes from memory: each cites 02, 05 or the coverage note, or is `TODO(verify)`.
+  - No value comes from memory: each cites 02, 05 or the coverage note, or is decided (BD-13).
 - **Verify:** `for f in pipeline/sites/gale_boxwork/sources/*.json pipeline/sites/gale_boxwork/layers/*.json; do python3 -m json.tool "$f" > /dev/null || echo "$f"; done` · manual source-by-source check against 02 §C.2
-- **Agent brief:** Write the DataSource records (DEM, ortho, THEMIS TI) and Layer records (ortho, hillshade, elevation, slope, thermal inertia, hazard flags) as one JSON file each under `pipeline/sites/gale_boxwork/`, copying values from 05 §F.1 and 02 §C.2. Unknown fields stay `TODO(verify)`; never fill them from memory.
+- **Agent brief:** Write the DataSource records (DEM, ortho, THEMIS TI) and Layer records (ortho, hillshade, elevation, slope, thermal inertia, hazard flags) as one JSON file each under `pipeline/sites/gale_boxwork/`, copying values from 05 §F.1 and 02 §C.2. Unknown fields follow BD-17; never fill them from memory.
 - **Conflict notes:** `sources/` and `layers/` are append-only by file: other subtasks add their own records (T04.01, T04.04, T06.10, T12.05, T18.01). Start after T01.04's coverage note if possible (Spec questions: map change proposed).
 
 ### T03.18 — Digitise HARD_HAZARD features and LOW_RES_DEM coverage
@@ -550,7 +550,7 @@
 
 Obidit Islam requested this fresh real-data **dry run**, not bundle v1. The 2026-11-09 [status row](status.md) recorded the previous run's summary, not its exact CLI command; the DEM and ortho choices below follow the preserved `pipeline/work/t03/dryrun/run.py` in the original checkout, and the TI input follows [ti-threshold.md](../ops/ti-threshold.md). The previous `dryrun3` elevation and TI grids have the same SHA-256 as this run's grids (values below). This establishes equality of those grids, not a complete reproduction of the old run. All run products, logs and the temporary lock are under the git-ignored `pipeline/work/runs/dry-2026-11-10/`; the original checkout's inputs were read only. No source was downloaded.
 
-**Result.** The pipeline exited 1 at `vectors`: both T04.03 packaging functions are stubs. The earlier stages completed; `--skip-unstyled-optional` omitted elevation, thermal-inertia, hazard and comm display tiles. A separate call to the existing manifest step produced a **diagnostic** manifest after that failure; it did not fabricate the missing vectors. The validator exited 1 with five messages: the POI and traverse layer `asset_id` references and their top-level asset references are missing (four messages); solar-minimum `source_id` is `TODO(decision)` and matches no DataSource (one message). JSON Schema validation was available. The incomplete site directory is `55M` by `du -sh`; that size does not establish the final bundle budget. The static-file check returned HTTP 200 for the diagnostic manifest and one ortho tile with byte-for-byte matching bodies. The sandbox first denied loopback sockets; the retry used localhost access outside the sandbox, without an external request. Wi-Fi was not switched off, and a full application load was not checked.
+**Result.** The pipeline exited 1 at `vectors`: both T04.03 packaging functions are stubs. The earlier stages completed; `--skip-unstyled-optional` omitted elevation, thermal-inertia, hazard and comm display tiles. A separate call to the existing manifest step produced a **diagnostic** manifest after that failure; it did not fabricate the missing vectors. The validator exited 1 with five messages: the POI and traverse layer `asset_id` references and their top-level asset references are missing (four messages); solar-minimum `source_id` is decided (BD-30) and matches no DataSource (one message). JSON Schema validation was available. The incomplete site directory is `55M` by `du -sh`; that size does not establish the final bundle budget. The static-file check returned HTTP 200 for the diagnostic manifest and one ortho tile with byte-for-byte matching bodies. The sandbox first denied loopback sockets; the retry used localhost access outside the sandbox, without an external request. Wi-Fi was not switched off, and a full application load was not checked.
 
 **Input checksums.** The three supplied TIFFs were hashed by the lock-creation command below and written to the git-ignored lock; the same values were re-read and re-verified from the lock afterwards. They identify the cached input files only — the URLs and versions are null, so they are not full source provenance.
 
@@ -588,22 +588,22 @@ The TI grid hash is the same one recorded in [ti-threshold.md](../ops/ti-thresho
 
 **Input and output checks.** The generated flags contain **0 LOW_TI cells out of 1,440,000**, using `FLAG_BITS['LOW_TI']`; `ti_threshold.json` is absent, as required by U-03 (Obidit Islam, 2026-11-10). Five proposed POI input records exist and the diagnostic manifest contains their `pois` Layer referring to `vec-pois`; **no POI feature file was packaged or validated**, because T04.03 stopped first. Both measured RAD EnvConstants and both RAD DataSource records were read into the diagnostic manifest; the solar-minimum source reference is unresolved. The three T12.05 model DataSources are present. The manifest carries the existing elevation offset, but no traverse offset. The T21.07 `dose_series.json` is a separate scenario artifact, not a site-manifest asset: its `rad-sol4190` record is labelled `replayed` and has 264 samples. T21.06's second-person review remains open; this run did not validate or regenerate the dose series.
 
-The tiler emitted 582 `NotGeoreferencedWarning` messages while writing PNG tiles. The warning originates at rasterio's in-memory image writer used by `tiles.py`; it does not by itself establish a tile-alignment failure. TODO(verify), T02.04 / T03.12: Saba Atharique and Obidit Islam should check the generated tiles' addressing, alignment and hillshade encoding against C9 and the real-map check. The TI input's external `.msk` was present and read by rasterio; its SHA-256 is recorded above. The diagnostic lock binds the three supplied TIFF bytes but is **not** the 05 §E.5 release lock: its per-source URLs and versions and its `tools` fields are empty and it does not bind that mask; its `data_version` is not null — the `acquire` step copied `gale_boxwork-2026.11.09` from `site.json`, which T03.16 recorded as the planned M2 bundle date. GDAL 3.13.3, rasterio 1.5.2 and numpy 2.5.4 were reported by the environment version command below.
+The tiler emitted 582 `NotGeoreferencedWarning` messages while writing PNG tiles. The warning originates at rasterio's in-memory image writer used by `tiles.py`; it does not by itself establish a tile-alignment failure. Check (T02.04 / T03.12): Saba Atharique and Obidit Islam should check the generated tiles' addressing, alignment and hillshade encoding against C9 and the real-map check. The TI input's external `.msk` was present and read by rasterio; its SHA-256 is recorded above. The diagnostic lock binds the three supplied TIFF bytes but is **not** the 05 §E.5 release lock: its per-source URLs and versions and its `tools` fields are empty and it does not bind that mask; its `data_version` is not null — the `acquire` step copied `gale_boxwork-2026.11.09` from `site.json`, which T03.16 recorded as the planned M2 bundle date. GDAL 3.13.3, rasterio 1.5.2 and numpy 2.5.4 were reported by the environment version command below.
 
 **Default-start passability.** T03.16 records that T03.14 checks the start cell at T03.19, and T03.19 is where that check happened. The validator's `default_start` passability check ([validate_manifest.py](../../pipeline/src/marswalk_pipeline/validate_manifest.py)) ran against the diagnostic manifest and reported **no `default_start` finding**: `default_start` is `(1037, −1652)` inside `aoi.extent_m`, and the manifest's `grid.flags_asset` (`grid-flags`) and `grid.slope_p90_asset` (`grid-slope-p90`) both resolve, so the cell was read and found passable. The validator output below lists only the five unresolved references; neither `default_start` nor `hab_mast` appears in it. This is the T03.16→T03.14 check satisfied for the diagnostic manifest only — the same check must still pass on the complete bundle, with the packaged POI and traverse assets present.
 
 **Still required before bundle v1:**
 
-- **Decided — ortho ladder and size fallback:** Obidit Islam (data lead), 2026-11-10: use the 02 §C.3 ortho JPEG at 0.5 m; retain the existing coarser levels and the other layers' ladders. If the complete bundle exceeds the NFR-09 250 MB budget, cap ortho at 1 m and record that fallback; it is not implemented now. The 05 §F.1 example ladder is for slope, not ortho. Review of a decimated sample of the real cached RGB+alpha `ortho.tif` found alpha == 0 on 0% of sampled pixels inside `aoi.extent_m`; black in the inspected z0 (8192 m) and z1 (4096 m) edge tiles appeared only in padding outside that extent. The sample does not prove complete coverage. The tiles step now checks source masks at full resolution inside the AOI and fails on invalid pixels or uncovered areas; it does not treat valid black as missing. The colour COG has about 7.74% real greyscale strips in the AOI window (nearest-neighbour sample); `TODO(verify)`: valid-mask black RGB pixels. **Open viewer clip:** Saba Atharique (map owner, T07.07 per [map §c](_coordination.md#c-path-ownership)) must clip the ortho layer to `aoi.extent_m` so JPEG edge padding is not displayed; her files are unchanged. `TODO(verify)`: coarse pixels can straddle the AOI edge and JPEG compression can blend padding into valid imagery, so check the boundary inside the clip too and resolve any visible bleed.
-- **TODO(decision) spec-change:** 02 §C.2 L1 requires transparent missing data and a manifest coverage polygon, while 02 §C.3 budgets JPEG tiles without alpha and 05 defines no coverage-polygon field. T16.02 must resolve and sync these requirements; the guard and proposed viewer clip do not by themselves change the specs.
-- **Upstream mask follow-up:** `TODO(verify)`: Obidit Islam (T03.08) must check mask and no-data preservation through reprojection and downsampling. Reprojection can discard a dataset mask, and downsampling can erase a small alpha hole; the JPEG guard checks the 0.5 m reprojected `ortho.tif` at its native resolution, not the original source. The cached original and reprojected rasters both have RGB+alpha and no independent mask sidecar. This fix does not change reprojection.
-- **Decided — display scope; open — ramps and slope:** Obidit Islam (data lead), 2026-11-10: v1 ships ortho and hillshade only as raster tile layers. Elevation, TI, hazard and comm display layers are deferred to a later `data_version` (v1.1), once Saba Atharique sets ramps or encodings per 04; status colours are never used in data ramps. Excluding slope display tiles is an inference from that scope, `TODO(decision)` for the data lead to confirm; routing-grid data remains. **Open implementation:** Obidit Islam (T03.12/T03.15) must skip slope tiles and exclude the slope Layer from the v1 manifest after confirmation. The current `--skip-unstyled-optional` option still renders slope, so it alone does not implement this v1 scope. `TODO(verify)`: check the hillshade encoding and real-tile alignment under T03.12 / T02.04.
+- **Decided — ortho ladder and size fallback:** Obidit Islam (data lead), 2026-11-10: use the 02 §C.3 ortho JPEG at 0.5 m; retain the existing coarser levels and the other layers' ladders. If the complete bundle exceeds the NFR-09 250 MB budget, cap ortho at 1 m and record that fallback; it is not implemented now. The 05 §F.1 example ladder is for slope, not ortho. Review of a decimated sample of the real cached RGB+alpha `ortho.tif` found alpha == 0 on 0% of sampled pixels inside `aoi.extent_m`; black in the inspected z0 (8192 m) and z1 (4096 m) edge tiles appeared only in padding outside that extent. The sample does not prove complete coverage. The tiles step now checks source masks at full resolution inside the AOI and fails on invalid pixels or uncovered areas; it does not treat valid black as missing. The colour COG has about 7.74% real greyscale strips in the AOI window (nearest-neighbour sample); decided (BD-18): valid-mask black RGB pixels. **Open viewer clip:** Saba Atharique (map owner, T07.07 per [map §c](_coordination.md#c-path-ownership)) must clip the ortho layer to `aoi.extent_m` so JPEG edge padding is not displayed; her files are unchanged. Decided (BD-18): coarse pixels can straddle the AOI edge and JPEG compression can blend padding into valid imagery, so check the boundary inside the clip too and resolve any visible bleed.
+- **Decided (BD-18) spec-change:** 02 §C.2 L1 requires transparent missing data and a manifest coverage polygon, while 02 §C.3 budgets JPEG tiles without alpha and 05 defines no coverage-polygon field. T16.02 must resolve and sync these requirements; the guard and proposed viewer clip do not by themselves change the specs.
+- **Upstream mask follow-up:** Decided (BD-18): Obidit Islam (T03.08) must check mask and no-data preservation through reprojection and downsampling. Reprojection can discard a dataset mask, and downsampling can erase a small alpha hole; the JPEG guard checks the 0.5 m reprojected `ortho.tif` at its native resolution, not the original source. The cached original and reprojected rasters both have RGB+alpha and no independent mask sidecar. This fix does not change reprojection.
+- **Decided — display scope; open — ramps and slope:** Obidit Islam (data lead), 2026-11-10: v1 ships ortho and hillshade only as raster tile layers. Elevation, TI, hazard and comm display layers are deferred to a later `data_version` (v1.1), once Saba Atharique sets ramps or encodings per 04; status colours are never used in data ramps. Excluding slope display tiles is an inference from that scope, decided (BD-17) for the data lead to confirm; routing-grid data remains. **Open implementation:** Obidit Islam (T03.12/T03.15) must skip slope tiles and exclude the slope Layer from the v1 manifest after confirmation. The current `--skip-unstyled-optional` option still renders slope, so it alone does not implement this v1 scope. Decided (BD-17): check the hillshade encoding and real-tile alignment under T03.12 / T02.04.
 - **Decided — #132 ownership:** Obidit Islam (data lead), 2026-11-10: recorded as data-lead preparation under T03.19; ownership is unchanged. The affected registered paths and [owner notification](https://github.com/tashobi02/CheesySpace-NasaSpaceAppChallenge/pull/132#issuecomment-6766096046) are listed in the follow-up above.
 - **T04.02 (tests), T04.03 and T04.08:** Mishkat Ahmed Khan must write the traverse/POI packaging tests (T04.02), implement the packaging (T04.03), then measure and record the traverse alignment (T04.08). T04.03's packaging functions are stubs, so the run stopped there. The cached T04.01 traverse file exists; no vector was generated and `known_offsets_m.traverse` is absent.
 - **T04.04 and T04.05:** Sadman Shaharier Mahim must review the proposed POIs and complete the human image work or resolve the documented unavailable-image handling. These records are not yet approved, and the dry run could not package or validate their features.
-- **Decided — T06.10 and map open point 12:** Obidit Islam (data lead), 2026-11-10: solar-minimum `source_id` is `simonsen-2024-rad`, matching the existing DataSource. Mishkat Ahmed Khan's remaining RAD metadata and access-date checks stay `TODO(verify)`; the complete bundle still needs validator and SCR-09 checks.
+- **Decided — T06.10 and map open point 12:** Obidit Islam (data lead), 2026-11-10: solar-minimum `source_id` is `simonsen-2024-rad`, matching the existing DataSource. Mishkat Ahmed Khan's remaining RAD metadata and access-date checks follow BD-13; the complete bundle still needs validator and SCR-09 checks.
 - **Decided — T03.20; open — visual overlay:** Obidit Islam (data lead), 2026-11-10: the recorded 1.92 m offset, not GIS-checked, does not block bundle v1. He will perform a short visual QGIS overlay check while judging v1 outputs. The existing T03.20 status row is unchanged.
-- **Decided — T04.01 / U-04:** Obidit Islam (data lead), 2026-11-10: use PDS PLACES `localized_interp.csv` (`pds-msl-places-localizations`), the cached file's rover range (sol 0 through sol 4868), clipped to the AOI plus a 100 m margin. The margin is a data-lead decision, not a sourced value. See [T04.01](TASK-04_vectors-pois-images.md#t0401--choose-and-cache-the-traverse-source-u-04-write-its-datasource-and-layer-records) for the cache check, field layout and remaining `TODO(verify)` metadata. T12.05 remains `done`.
+- **Decided — T04.01 / U-04:** Obidit Islam (data lead), 2026-11-10: use PDS PLACES `localized_interp.csv` (`pds-msl-places-localizations`), the cached file's rover range (sol 0 through sol 4868), clipped to the AOI plus a 100 m margin. The margin is a data-lead decision, not a sourced value. See [T04.01](TASK-04_vectors-pois-images.md#t0401--choose-and-cache-the-traverse-source-u-04-write-its-datasource-and-layer-records) for the cache check, field layout and remaining decided (BD-30) metadata. T12.05 remains `done`.
 - **T03.19 final release checks:** Obidit Islam must judge the outputs, prepare the actual source lock with URLs, versions and checksums, build the complete bundle with the decided raster scope, obtain a passing validator, check the final size and verify the offline application load. Obidit Islam (data lead), 2026-11-10: set `data_version` to the actual build date, `gale_boxwork-YYYY.MM.DD`, when building bundle v1; `site.json` is not changed yet. Any later asset change needs a new `data_version` (T03.19 step 5; 05 §E.6). The [T03.20 verification record](../ops/verification-log.md#delegated-closure-and-remaining-checks) also leaves the LOW_RES_DEM interpretation and empty-hazards review for him. No generated artifact is staged or committed by this dry run.
 
 **Commands and evidence.** Every command below is run from the worktree root with the pipeline interpreter taken from the Makefile, per CLAUDE.md §4: `PY="$(make -s pipeline-python)"`. `SRC` is the read-only input cache in the original checkout; it is only read. The temporary checksum lock was created with the following command. Its null URLs prevent the acquisition step from initiating a download; the raster overrides are checksum-checked by the CLI. The source TIFF checksums are printed by the command and remain in the ignored lock.
@@ -810,7 +810,7 @@ PY
 - **Steps:**
   1. `git clone` into a temporary folder; create the pipeline environment from `pipeline/environment.yml` with the tool versions recorded in the lock file.
   2. Run the pipeline from the clean checkout, re-downloading sources.
-  3. Compare every asset SHA-256 with the committed manifest; explain any difference (`TODO(verify)`: encoder determinism).
+  3. Compare every asset SHA-256 with the committed manifest; explain any difference (Decided (BD-33): encoder determinism).
   4. Run the pipeline tests with the geo stack (real-bundle tests included) and record the bundle size.
 - **Acceptance:**
   - Serves: NFR-06, NFR-09 · [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints)
@@ -905,14 +905,14 @@ PY
 - **Parallel with:** none
 - **Steps:**
   1. Confirm the trigger: T01.04's coverage note says the colour COG does not cover the AOI.
-  2. Human chooses the grayscale 25 cm ortho window (range reads or full download, 02 §C.2 L1) or cached Mars Trek HiRISE tiles (product endpoint from GetCapabilities, `TODO(verify)`).
+  2. Human chooses the grayscale 25 cm ortho window (range reads or full download, 02 §C.2 L1) or cached Mars Trek HiRISE tiles (product endpoint from GetCapabilities; write *unknown* until read).
   3. Add the replacement DataSource record and adjust acquisition.
   4. If T03.17 already wrote the ortho Layer record, its `source_ids` change needs an appended `follow-up:` subtask (map §h.5).
 - **Acceptance:**
   - Serves: FR-01 · [06 §D.5](../specs/06_High_Level_Implementation_Plan.md#d5-data-and-service-fallbacks)
   - The basemap covers the AOI; credit and use constraints of the new source are recorded.
 - **Verify:** manual: the new source downloads into `pipeline/work/` and covers the AOI extent
-- **Agent brief:** Human: pick the replacement ortho source. Agent may adapt `fetch_sources` to it and write the DataSource record, copying fields from 02 §C.2 L1; unknown endpoints stay `TODO(verify)`.
+- **Agent brief:** Human: pick the replacement ortho source. Agent may adapt `fetch_sources` to it and write the DataSource record, copying fields from 02 §C.2 L1; unknown endpoints are written *unknown*.
 - **Conflict notes:** Never open at the same time as T03.27 (same `acquire.py`). `sources/` is append-only by file.
 
 ### T03.27 — Fallback — start only if quantitative TI misses the AOI: THEMIS Day IR 100 m (qualitative)
@@ -1017,7 +1017,7 @@ PY
   1. C1: add a `HabCandidate` type to `schema.ts` with the 05 field names (`candidate_id`, `label`, `rank`, `hab_mast`, `lat`, `lon_e`, `comm_hab_asset`, `default_start`, `note?`, `provenance`, `source_ids`) and an optional `hab_candidates?: HabCandidate[]` on the Site type.
   2. C2: add optional `hab_candidates` to `site-manifest.schema.json` (`minItems` 1; `candidate_id` pattern `^[a-z0-9-]+$`; `label` ≤ 80 characters; integer `rank` ≥ 1; `hab_mast` with `height_m`). Uniqueness of ids and ranks, exactly one rank 1, and the rank-1 mirror rules are cross-field rules: leave them to `validate-manifest` (T03.34) and say so in a schema `description`.
   3. C5 v2: document `pipeline/sites/<site_id>/hab_candidates.json` in `pipeline/sites/README.md`: an optional array of `{candidate_id, label, rank, hab_mast: {x_m, y_m}, default_start: {x_m, y_m, label}, note, provenance, source_ids}`. The pipeline adds `hab_mast.height_m` (link ParamSet `hab_mast_m`, as for the single mast today), `lat` and `lon_e` (inverse of the working `+proj=eqc` with pyproj) and `comm_hab_asset`; none of them is typed by hand.
-  4. Record the asset id rule (Proposed): the rank-1 candidate keeps the existing `grid-comm-hab` asset (`grid/comm_hab.u8`), so `grid.comm_hab_asset` and every current consumer are unchanged; any other candidate gets `grid-comm-<candidate_id>` at `grid/comm_<candidate_id>.u8`. If the reviewer prefers the 05 §F.1 example ids for every candidate, leave it as `TODO(decision)` and list it under Spec questions.
+  4. Record the asset id rule (Proposed): the rank-1 candidate keeps the existing `grid-comm-hab` asset (`grid/comm_hab.u8`), so `grid.comm_hab_asset` and every current consumer are unchanged; any other candidate gets `grid-comm-<candidate_id>` at `grid/comm_<candidate_id>.u8`. If the reviewer prefers the 05 §F.1 example ids for every candidate, record the question under Spec questions.
   5. State contract versions C1, C2 and C5 = v2 in the PR description.
 - **Acceptance:**
   - Serves: FR-53, FR-42 · [05 HabCandidate](../specs/05_Backend_and_Database_Schema.md#habcandidate-2026-11-10-proposed)
@@ -1047,7 +1047,7 @@ PY
   - The rank-1 entry's mast and start equal `site.json` `hab_mast` and `default_start`; both positions match hab-site.md to the metre.
 - **Verify:** `python3 -m json.tool pipeline/sites/gale_boxwork/hab_candidates.json` · `make lint`
 - **Agent brief:** Copy the two decided hab sites into the site-config file; add no new site assessment.
-- **Conflict notes:** New file. The second-person check of hab-site.md (`TODO(verify)`) still applies to both positions.
+- **Conflict notes:** New file. The second-person check of hab-site.md (Decided (BD-00)) still applies to both positions.
 
 ### T03.33 — Tests: per-candidate `comm_hab` grids, the manifest `hab_candidates` list and its validator rules
 
@@ -1134,8 +1134,8 @@ PY
 - **Steps:**
   1. Write placeholder tiles for every entry of `tile_grid.resolutions_m` instead of the two coarsest; keep the tile payload, the path layout and the per-layer `index.json` format unchanged.
   2. Regenerate F4 twice from the repo root and confirm the second run changes nothing.
-  3. Remove the provisional-layout `TODO(verify)` notes in the generator that C9 v1.1 §3.2 now answers (top-left origin, eastward x, southward y).
-  4. Keep F4 single-site: 05 §F.1 has carried illustrative `hab_candidates` (null positions) since 2026-11-10, and the generator copies §F.1; drop that key so a regenerated manifest still validates (map open point 11 keeps candidates in F4 a `TODO(decision)`).
+  3. Remove the provisional-layout decided (BD-22) notes in the generator that C9 v1.1 §3.2 now answers (top-left origin, eastward x, southward y).
+  4. Keep F4 single-site: 05 §F.1 has carried illustrative `hab_candidates` (null positions) since 2026-11-10, and the generator copies §F.1; drop that key so a regenerated manifest still validates (map open point 11 keeps candidates in F4 the decision BD-31).
   5. Append a dated note to the F4 section of `apps/web/tests/fixtures/README.md`: every level is populated now.
 - **Acceptance:**
   - Serves: FR-01, D-03 · T02.03 acceptance ("renders at every level of the mock tile grid")
@@ -1159,8 +1159,8 @@ PY
 - **Steps:**
   1. 05 HabCandidate: state the asset-id rule in the `comm_hab_asset` row (rank 1 = `grid.comm_hab_asset`, `grid-comm-hab`; any other rank `grid-comm-<candidate_id>`), with the example `"grid-comm-hab"`.
   2. 05 §F.1: change the rank-1 example id from `grid-comm-hab-first` to `grid-comm-hab`; `grid-comm-hab-alternative` already follows the rule.
-  3. C5: mark the candidate asset-id rule decided (data lead, 2026-11-11, by this subtask) and drop its `TODO(decision)`; update every link to the renamed heading.
-  4. `manifest.py`: replace the `TODO(decision)` comment with the decision reference; no code change.
+  3. C5: mark the candidate asset-id rule decided (data lead, 2026-11-11, by this subtask) and drop its open-choice note; update every link to the renamed heading.
+  4. `manifest.py`: replace the open-choice comment with the decision reference; no code change.
   5. Mark Spec question 16 resolved.
 - **Acceptance:**
   - Serves: FR-53, FR-42 · [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds) (rank-1 entry mirrors `grid.comm_hab_asset`)
@@ -1229,24 +1229,24 @@ flowchart LR
 - `make lint typecheck test docs-check` passes; geo-dependent tests skip cleanly where the geo stack is absent.
 - No pipeline path uses EPSG:3857 or WGS84; `crs.proj4` is byte-identical in `config.py` and the manifest.
 - No downloaded dataset or large binary is committed: only the manifest, vectors, lock file and the small F4/F5 fixtures.
-- Contracts C1–C5 are at v1 with their decisions recorded or left as visible `TODO(decision)`; fixtures F4 and F5 have their README sections.
+- Contracts C1–C5 are at v1 with their decisions recorded or listed as open questions; fixtures F4 and F5 have their README sections.
 
 ## Spec questions
 
 1. **PlanResult required fields (map open point 3).** 05 has no *Req* column for PlanResult, Leg and Warning; T03.01 can record a proposal but 05 must change through a `spec-change:` subtask. Map change proposed: append a `spec-change:` subtask for that 05 wording and U-11 after T03.01, or widen T16.02's scope to include it.
-2. **CI and the geo stack.** `make setup` installs only `pipeline[dev]` (no GDAL, rasterio, numpy or pyproj), so real pipeline tests would fail in CI. This plan guards them with `pytest.importorskip`; whether CI should install the geo stack instead is `TODO(decision)` for T14.01 and T14.02.
+2. **CI and the geo stack.** `make setup` installs only `pipeline[dev]` (no GDAL, rasterio, numpy or pyproj), so real pipeline tests would fail in CI. This plan guards them with `pytest.importorskip`; whether CI should install the geo stack instead is decided (BD-32) for T14.01 and T14.02.
 3. **THEMIS and ortho records need T01.04.** 02 Sources gives the THEMIS page only for example tile 30S060E; the AOI tile (pattern `30S120E`) and colour-COG coverage come from T01.04. Map change proposed: add T01.04 → T03.17 (hard: the exact THEMIS tile and ortho product come from the coverage check).
 4. **TI threshold before bundle v1.** Resolved by the U-03 decision (Obidit Islam, 2026-11-10): there is no defensible TI "loose fines" threshold for the AOI, so `ti_threshold.json` is not written and T03.10 sets no `LOW_TI` bits ([ti-threshold.md](../ops/ti-threshold.md#decision)). T03.19 does not wait on T04.07 and no T04.07 → T03.19 edge is added.
 5. **TI threshold has no manifest field (map open point 10).** The threshold's home would have been `pipeline/sites/gale_boxwork/ti_threshold.json` (C5) and the methods text; under the 2026-11-10 U-03 decision that file stays absent, so 05 still has no manifest field and no manifest change follows ([ti-threshold.md](../ops/ti-threshold.md#decision)).
 6. **Slope tile encoding (map open point 6).** Slope classes follow the current limits (04 §C.1, 05 §F.1), so T03.12 depends on C9's encoding decision.
 7. **Duplicate test (map open point 11).** T03.03 deletes the pipeline stub `test_scale_bar_vs_dem_measured_feature_within_2_percent`; the case belongs to T02.04.
-8. **Slope encoding range.** 05 RoutingGrid encodes 0–63.5° in u8 with 255 = no data; behaviour for steeper cells is unspecified — `TODO(decision)` at T03.11.
-9. **Passability for validation.** 05 §E.3 requires POIs and the default start on passable cells, but the hard slope limit is a user input (02 §E.3); which limit `validate-manifest` uses is `TODO(decision)` at T03.14.
-10. **Tiles-root checksum.** 05 Asset says tiles roots store the hash of an index file, but no index format is defined — `TODO(decision)` in C9 / T03.12.
+8. **Slope encoding range.** 05 RoutingGrid encodes 0–63.5° in u8 with 255 = no data; behaviour for steeper cells is unspecified — Decided (BD-19) at T03.11.
+9. **Passability for validation.** 05 §E.3 requires POIs and the default start on passable cells, but the hard slope limit is a user input (02 §E.3); which limit `validate-manifest` uses is decided (BD-21) at T03.14.
+10. **Tiles-root checksum.** 05 Asset says tiles roots store the hash of an index file, but no index format is defined — Decided (BD-22) in C9 / T03.12.
 11. **DEM–ortho tolerance.** The specs give an alignment tolerance only for the traverse (02 §C.2 L6, ≤ 5 m); T03.20 records the measured DEM offset without a pass/fail threshold.
-12. **Reproducible checksums.** The 12 Nov check (06 §D.3) assumes deterministic encoders and pinned GDAL/rasterio versions (05 §E.5) — `TODO(verify)` in T03.22.
-13. **Hazard-flags layer.** 03 SCR-03 lists a "Hazard flags" layer but 06 TASK-03 names display resolutions only for ortho, hillshade, slope, elevation and TI — `TODO(decision)` at T03.17.
+12. **Reproducible checksums.** The 12 Nov check (06 §D.3) assumes deterministic encoders and pinned GDAL/rasterio versions (05 §E.5) — Decided (BD-33) in T03.22.
+13. **Hazard-flags layer.** 03 SCR-03 lists a "Hazard flags" layer but 06 TASK-03 names display resolutions only for ortho, hillshade, slope, elevation and TI — Decided (BD-17) at T03.17.
 14. **10 m fallback.** If T03.24 triggers, 02 §D.2 ("8-connected 5 m grid") and ADR-004 become outdated and need a `spec-change:`.
-15. **DEM no-data value.** 02 §C.4.4 gives examples only; T03.08 uses the file's declared value or T01.01's label value — `TODO(verify)` which applies.
+15. **DEM no-data value.** 02 §C.4.4 gives examples only; T03.08 uses the file's declared value or T01.01's label value — Decided (BD-19) which applies.
 16. **Candidate asset ids (2026-11-10).** Resolved by T03.37 (data lead Obidit Islam, 2026-11-11): the rank-1 candidate keeps `grid-comm-hab` (= `grid.comm_hab_asset`) and any other candidate gets `grid-comm-<candidate_id>`. 05 HabCandidate now states the rule and its §F.1 example uses `grid-comm-hab` for rank 1 (it showed `grid-comm-hab-first`); C5 and `manifest.py` cite the decision. No asset id, file, schema or consumer changed.
 17. **`lat`, `lon_e` consistency.** 05 HabCandidate asks for consistency with `hab_mast` but gives no tolerance; T03.34 derives both from the mast with the pyproj inverse, so they agree exactly by construction.

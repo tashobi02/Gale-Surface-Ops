@@ -52,7 +52,7 @@ No subtask of this task depends on another task (map §f).
 - **Parallel with:** T01.02, T02.01, T03.01, T03.02
 - **Steps:**
   1. Check the data laptop has the free disk 06 §A assumes (≥ 40 GB) and use the campus network, not venue Wi-Fi (02 §F external limits).
-  2. Download the USGS Mars MSL Gale Merged DEM 1 m v3 from its Astropedia page (02 Sources) into `pipeline/work/` (git-ignored, 05 §B). Record the exact file URL as read from the page (`TODO(verify)` until then) and the access date.
+  2. Download the USGS Mars MSL Gale Merged DEM 1 m v3 from its Astropedia page (02 Sources) into `pipeline/work/` (git-ignored, 05 §B). Record the exact file URL as read from the page (write *unknown* until then) and the access date.
   3. Record `sha256sum` and the `gdalinfo` summary (size, CRS radius, extent, NoData value) for the downloaded file.
   4. Open the PDS3 label and quote verbatim, with line references, the elevation datum statement (U-02) and the no-data value (02 §C.4 item 4).
   5. Compare rows × columns and the lat/lon extent with 02 §C.2 (L2 dimensions; DEM extent); list any difference as a spec question.
@@ -67,7 +67,7 @@ No subtask of this task depends on another task (map §f).
   - `gdalinfo pipeline/work/<DEM file>` — NoData value, size, sphere radius 3396190.
   - `sha256sum pipeline/work/<DEM file>`
   - `git status --short` shows no dataset; `make docs-check` passes.
-- **Agent brief:** The data lead downloads the 3.6 GB DEM on campus and reads its PDS3 label. An agent may run `gdalinfo` and `sha256sum` and draft `docs/ops/feasibility/dem-label.md` from pasted label text, quoting verbatim and leaving anything unread as `TODO(verify)`.
+- **Agent brief:** The data lead downloads the 3.6 GB DEM on campus and reads its PDS3 label. An agent may run `gdalinfo` and `sha256sum` and draft `docs/ops/feasibility/dem-label.md` from pasted label text, quoting verbatim and leaving anything unread as *unknown* with the reason.
 - **Conflict notes:** Writes only its own note. Never commit the DEM. T01.05 copies the values into `docs/ops/feasibility.md`; do not edit that file here.
 
 ### T01.02 — Propose AOI bounds from Curiosity's 2025 traverse, inside the DEM extent
@@ -84,7 +84,7 @@ No subtask of this task depends on another task (map §f).
 - **Steps:**
   1. View Curiosity's 2025 traverse (sols ≈ 4,450–4,750, 02 §C.2) in PDS PLACES or the MMGIS map (02 §C.2 L6). View only: T04.01 chooses and caches the source.
   2. Choose the AOI centre (lat, lon_e) so that a box of the size 02 §C.2 proposes (~6 × 6 km) covers the 2025 boxwork campaign and stays inside the DEM extent given in 02 §C.2.
-  3. Fill the 02 §C.1 working-projection template with that centre and record the exact string once; the number of decimals is `TODO(decision)`.
+  3. Fill the 02 §C.1 working-projection template with that centre and record the exact string once; the number of decimals is decided (BD-11).
   4. Set `extent_m` around the origin (0, 0) at the AOI centre (02 §C.1); compute `bbox_geo` from the corners with PROJ (`invproj`), never by hand.
   5. Check with a tool that a 5 m grid over `extent_m` respects `width*height ≤ 4e6` (05 §C RoutingGrid).
   6. Write `docs/ops/feasibility/aoi.md`: centre, projection string, `extent_m`, `bbox_geo`, the traverse source and sols covered, and every command with its output.
@@ -95,7 +95,7 @@ No subtask of this task depends on another task (map §f).
   - The string is `+proj=eqc` with `lat_ts` = `lat_0` = centre latitude, `lon_0` = centre east longitude and `R=3396190` (02 §C.1).
   - Every number is a human reading or a tool output shown in the note; no agent-typed coordinates.
 - **Verify:**
-  - `echo "<lon_e> <lat>" | proj -f "%.3f" <working proj string>` and `echo "<x_m> <y_m>" | invproj -f "%.6f" <working proj string>` for each corner (`proj` in the pipeline environment is `TODO(verify)`).
+  - `echo "<lon_e> <lat>" | proj -f "%.3f" <working proj string>` and `echo "<x_m> <y_m>" | invproj -f "%.6f" <working proj string>` for each corner (`make check-env` proves `proj` is in the pipeline environment).
   - Manual: compare `bbox_geo` with the DEM extent in 02 §C.2; `make docs-check` passes.
 - **Agent brief:** A human chooses the AOI (map §a.2). An agent may run the PROJ commands on the human's chosen centre and extent and format `docs/ops/feasibility/aoi.md`; it never proposes coordinates itself.
 - **Conflict notes:** Writes only its own note. After T01.05 freezes the AOI (5 Nov), T03.07 copies the projection string byte-for-byte into `config.py` and T03.16 copies the AOI into `site.json`; a later change needs a new subtask (§h.5).
@@ -127,7 +127,7 @@ No subtask of this task depends on another task (map §f).
   - No raster, polygon file or screenshot is committed.
 - **Verify:**
   - `gdaldem hillshade -az 315 -alt 45 pipeline/work/<window>.tif pipeline/work/<hillshade>.tif`, then `gdalinfo pipeline/work/<hillshade>.tif` (CRS, size).
-  - Area share: `ogrinfo -dialect SQLite -sql "SELECT SUM(ST_Area(geometry)) FROM <layer>" pipeline/work/<polygons>.geojson` on polygons drawn in the working projection (exact syntax `TODO(verify)`), or the QGIS area tool.
+  - Area share: `ogrinfo -dialect SQLite -sql "SELECT SUM(ST_Area(geometry)) FROM <layer>" pipeline/work/<polygons>.geojson` on polygons drawn in the working projection (syntax as in `ogrinfo --help`; write *unknown* if it differs), or the QGIS area tool.
   - Manual: re-measure the reference feature once and compare; `make docs-check` passes.
 - **Agent brief:** The data lead judges the texture and draws the polygons; this is a judgement call (map §a.2). An agent may run `gdal_translate`/`gdaldem`, compute the area share and the great-circle length with pyproj from the human's polygons and endpoints, and draft the note.
 - **Conflict notes:** Writes only its own note. Rough polygons stay in `pipeline/work/`; T03.18 may reuse them for `low_res_dem.geojson`. T02.04 hard-depends on the reference feature (map §f).
@@ -145,21 +145,21 @@ No subtask of this task depends on another task (map §f).
 - **Parallel with:** T01.03
 - **Steps:**
   1. Take the AOI bounds and the working projection string from `docs/ops/feasibility/aoi.md`.
-  2. Find the exact product URLs on the pages named in 02 Sources: the colour HiRISE LRGB COG (02 §C.2 L1), the THEMIS quantitative TI tile covering 0…30°S, 120…180°E (pattern `30S120E`, 02 §C.2 L4) and the CRISM MTRDR bundle (02 §C.2 L5). Never guess a URL; if one is not found, write `TODO(verify)` and continue.
+  2. Find the exact product URLs on the pages named in 02 Sources: the colour HiRISE LRGB COG (02 §C.2 L1), the THEMIS quantitative TI tile covering 0…30°S, 120…180°E (pattern `30S120E`, 02 §C.2 L4) and the CRISM MTRDR bundle (02 §C.2 L5). Never guess a URL; if one is not found, write *unknown* and continue (BD-71).
   3. For each raster: `gdalinfo /vsicurl/<url>`, a window read clipped to the AOI with `gdal_translate -projwin … -projwin_srs "<working proj string>"` into `pipeline/work/`, then `gdalinfo -stats` for the valid-pixel share.
-  4. For CRISM, list the MTRDR observations whose footprints intersect the AOI, using the index the bundle readme describes (method `TODO(verify)`).
+  4. For CRISM, list the MTRDR observations whose footprints intersect the AOI, using the index the bundle readme describes (write *unknown* if the readme gives none).
   5. Write `docs/ops/feasibility/coverage.md` (per product: URL, version, tile or observation ids, CRS, native resolution, AOI coverage, gaps, commands and outputs) and append a `## T01.04 — …` section summarising the results to `docs/ops/verification-log.md`.
 - **Acceptance:**
   - Serves: FR-02, FR-18, U-05, U-09 · [02 §C.2 L1](../specs/02_Technical_Requirements_Document.md#l1--optical-basemap-fr-01), [02 §C.2 L4](../specs/02_Technical_Requirements_Document.md#l4--thermal-inertia-fr-02-fr-10), [02 §C.2 L5](../specs/02_Technical_Requirements_Document.md#l5--spectral-fr-18-desirable)
-  - Each of the three products has a result — covered, partial, not covered, or `TODO(verify)` with the reason — so T01.05 is never blocked.
+  - Each of the three products has a result — covered, partial, not covered, or *unknown* with the reason — so T01.05 is never blocked.
   - The THEMIS tile id is recorded exactly as published (06 TASK-01 deliverable).
   - Coverage figures come from `gdalinfo -stats` or the footprint index, not estimates; TI gaps are reported as gaps ("unknown", never zero, 02 §C.2 L4).
   - Every coordinate passed to GDAL is in the Mars working projection; no EPSG:4326 or EPSG:3857 path (02 §C.1, §C.4 item 2).
   - Only AOI window extracts are written, under `pipeline/work/`; nothing is committed.
 - **Verify:**
-  - `gdalinfo /vsicurl/<url>` per raster; `gdal_translate -projwin <ulx> <uly> <lrx> <lry> -projwin_srs "<working proj string>" /vsicurl/<url> pipeline/work/<product>_aoi.tif`; `gdalinfo -stats pipeline/work/<product>_aoi.tif` (valid-pixel share in recent GDAL, `TODO(verify)`).
+  - `gdalinfo /vsicurl/<url>` per raster; `gdal_translate -projwin <ulx> <uly> <lrx> <lry> -projwin_srs "<working proj string>" /vsicurl/<url> pipeline/work/<product>_aoi.tif`; `gdalinfo -stats pipeline/work/<product>_aoi.tif` (valid-pixel share as `gdalinfo -stats` reports it; write *unknown* if it does not).
   - `make docs-check` passes.
-- **Agent brief:** With GDAL and network access, read the AOI from `docs/ops/feasibility/aoi.md`, find each product URL on the pages listed in 02 Sources (never guess), window-read the AOI via `/vsicurl/`, and record coverage in `docs/ops/feasibility/coverage.md` plus one section in `docs/ops/verification-log.md`. Unknown URLs become `TODO(verify)`.
+- **Agent brief:** With GDAL and network access, read the AOI from `docs/ops/feasibility/aoi.md`, find each product URL on the pages listed in 02 Sources (never guess), window-read the AOI via `/vsicurl/`, and record coverage in `docs/ops/feasibility/coverage.md` plus one section in `docs/ops/verification-log.md`. Unknown URLs are written *unknown*, with the reason.
 - **Conflict notes:** Owns `coverage.md`. `verification-log.md` is append-only: add one section at the end and keep other sections on rebase. Results reach T03.07, T03.19 (URLs), T03.26, T03.27 (fallback triggers) and T18.01 (CRISM trigger) through T01.05.
 
 ### T01.05 — Decide D-01; write the feasibility summary and ADR-001
@@ -174,10 +174,10 @@ No subtask of this task depends on another task (map §f).
 - **Depends on:** T01.01 (hard: label facts), T01.02 (hard: AOI bounds), T01.03 (hard: DEM-quality verdict), T01.04 (hard: coverage results)
 - **Parallel with:** T03.01, T03.02, T05.01
 - **Steps:**
-  1. Confirm T01.01–T01.04 are merged and every row of their notes is filled or marked `TODO(verify)` with a reason.
+  1. Confirm T01.01–T01.04 are merged and every row of their notes is filled or marked *unknown* with a reason.
   2. Decide D-01 as a team with the 06 §E rule: Gale boxwork if the DEM passes (AOI inside the DEM extent and HiRISE-scale texture across ≥ 80 % of the AOI), else Jezero (USGS M2020 TRN HiRISE DTM mosaic).
   3. Fill the AOI, DEM-quality, datum, THEMIS, CRISM (with the FR-18 decision), colour-COG and D-01 tables of `docs/ops/feasibility.md` by copying values from the notes and linking them. Leave "Large tiles in the repo" to T16.07.
-  4. Record the decision, date and evidence links in ADR-001; the status word is `TODO(decision)`, since the ADRs use only "Proposed" so far.
+  4. Record the decision, date and evidence links in ADR-001; the status word is decided (BD-11), since the ADRs use only "Proposed" so far.
   5. Tell the data lane the AOI is frozen (06 §D.3, 5 Nov): T03.07, T03.16 and T16.02 may start; if the decision is Jezero, start T01.06 the same day.
 - **Acceptance:**
   - Serves: D-01 · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [06 §D.3](../specs/06_High_Level_Implementation_Plan.md#d3-integration-checkpoints), [06 §E](../specs/06_High_Level_Implementation_Plan.md#e-first-concrete-actions-today--6-nov)
@@ -206,21 +206,21 @@ No subtask of this task depends on another task (map §f).
 - **Steps:**
   1. Confirm the trigger: ADR-001 records Jezero because the AOI DEM is not HiRISE-quality.
   2. List every spec passage that names the Gale site, its datasets, Curiosity data or the Gale RAD rates (for example 01 A-01, A-06, FR-04, FR-12, FR-17 and §E; 02 §C; 03 SCR-01; 05 §C and §F examples).
-  3. Write the spec-change: name the Jezero DEM from 06 §C and §D.5 (USGS M2020 TRN HiRISE DTM mosaic) and mark every other Jezero property (extent, AOI, ortho, TI tile, traverse, rover images) `TODO(verify)` until re-checked. Change no requirement id.
-  4. Record the radiation question: FR-12 and A-06 rely on the Gale RAD rate, so this is a `TODO(decision)` for the team, not resolved here.
+  3. Write the spec-change: name the Jezero DEM from 06 §C and §D.5 (USGS M2020 TRN HiRISE DTM mosaic) and mark every other Jezero property (extent, AOI, ortho, TI tile, traverse, rover images) decided (BD-102) until re-checked. Change no requirement id.
+  4. Record the radiation question: FR-12 and A-06 rely on the Gale RAD rate, so this is the decision BD-11 for the team, not resolved here.
   5. Update ADR-001 (consequences, links) and mark the Gale results in `feasibility.md` as superseded, with the date.
   6. Open a `coord:` PR (§h.5) that renames the `gale_boxwork` paths and appends Jezero re-runs of T01.01–T01.04; if this work exceeds 3 h, split it there.
 - **Acceptance:**
   - Serves: D-01 · [06 §C](../specs/06_High_Level_Implementation_Plan.md#c-work-packages), [06 §D.5](../specs/06_High_Level_Implementation_Plan.md#d5-data-and-service-fallbacks)
-  - The spec diffs touch only site-specific text; requirement ids and priorities are unchanged; every new fact cites a source or is `TODO(verify)`.
-  - The FR-12 / A-06 consequence is recorded as `TODO(decision)` and not resolved.
+  - The spec diffs touch only site-specific text; requirement ids and priorities are unchanged; every new fact cites a source or is written *unknown*.
+  - The FR-12 / A-06 consequence is recorded as a decision for the team (BD-11) and not resolved here.
   - ADR-001 and `feasibility.md` show the switch and its date.
   - The `coord:` PR is open and lists every affected subtask and path.
   - `docs/README.md` is left for T16.02.
 - **Verify:**
   - `git diff --stat docs/specs` lists only the four files above; `make docs-check` passes.
-  - Manual: each changed spec line has a source or a `TODO(verify)`.
-- **Agent brief:** Human-led, because it judges trade-offs. An agent may find every Gale-specific passage in `docs/specs/` (search for Gale, Curiosity, boxwork, RAD), draft the spec-change with `TODO(verify)` markers and draft the `coord:` PR for review.
+  - Manual: each changed spec line has a source or is written *unknown*.
+- **Agent brief:** Human-led, because it judges trade-offs. An agent may find every Gale-specific passage in `docs/specs/` (search for Gale, Curiosity, boxwork, RAD), draft the spec-change with *unknown* where a fact has no source and draft the `coord:` PR for review.
 - **Conflict notes:** Spec files change only through spec-change subtasks, one open PR at a time (map §c.2); T16.02 rebases on it. ADR-001 and `feasibility.md` are replaced only because this is the T01.05 fallback. T03.07 and T03.16 wait for the `coord:` PR.
 
 ### T01.07 — Choose the hab site inside the AOI (v2)
@@ -270,11 +270,11 @@ All edges are hard. Outgoing hard edges (map §f): T01.05 → T03.07, T03.16, T1
 
 ## Spec questions
 
-1. **Texture-share method.** 06 TASK-01 done-when needs "HiRISE-scale texture across ≥ 80 % of AOI", but no spec says how to measure it (02 §C.2 L2 key risk). T01.03 proposes a tool-computed area of hand-drawn polygons — `TODO(decision)` whether that suffices.
-2. **THEMIS tile URL.** 02 Sources links only the example tile `30S060E`; the AOI tile (pattern `30S120E`, 02 §C.2 L4) has no URL in the specs — `TODO(verify)` in T01.04.
-3. **CRISM coverage method.** U-05 has no stated query method for MTRDR footprints — `TODO(verify)` in T01.04.
-4. **Jezero and radiation.** If T01.06 runs, FR-12 and A-06 lose their basis (A-06 assumes the Gale RAD rate is representative "same crater"), and FR-04 and FR-17 name Curiosity data — `TODO(decision)`, recorded by T01.06, not resolved.
+1. **Texture-share method.** 06 TASK-01 done-when needs "HiRISE-scale texture across ≥ 80 % of AOI", but no spec says how to measure it (02 §C.2 L2 key risk). T01.03 proposes a tool-computed area of hand-drawn polygons — BD-11 decides that it suffices.
+2. **THEMIS tile URL.** 02 Sources links only the example tile `30S060E`; the AOI tile (pattern `30S120E`, 02 §C.2 L4) has no URL in the specs — Decided (BD-71) in T01.04.
+3. **CRISM coverage method.** U-05 has no stated query method for MTRDR footprints — answered in T01.04 (*unknown* where the bundle readme gives none).
+4. **Jezero and radiation.** If T01.06 runs, FR-12 and A-06 lose their basis (A-06 assumes the Gale RAD rate is representative "same crater"), and FR-04 and FR-17 name Curiosity data — Decided (BD-11), recorded by T01.06, not resolved.
 5. **Site-specific paths.** The map hard-codes `gale_boxwork` in many §c paths, so a Jezero switch needs a `coord:` PR (§h.5). This is a consequence of the fallback; no map change is proposed now.
-6. **ADR status word.** Every ADR says "Proposed"; no term is defined for a decided ADR — `TODO(decision)` in T01.05.
-7. **Projection-string format.** 05 §E.3 requires byte-identical strings, but no spec fixes how many decimals the AOI centre gets (05 §F.1 shows two, illustratively) — `TODO(decision)` in T01.02.
+6. **ADR status word.** Every ADR says "Proposed"; no term is defined for a decided ADR — Decided (BD-11) in T01.05.
+7. **Projection-string format.** 05 §E.3 requires byte-identical strings, but no spec fixes how many decimals the AOI centre gets (05 §F.1 shows two, illustratively) — Decided (BD-11) in T01.02.
 8. **Large tiles.** The "Large tiles in the repo" section of `feasibility.md` is decided: GitHub release asset (map open point 13, closed). T16.07 implements it.

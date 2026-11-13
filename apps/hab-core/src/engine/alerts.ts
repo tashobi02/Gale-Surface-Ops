@@ -118,8 +118,8 @@ function suitParams(ctx: TickContext, crew_id: CrewId): ParamSet {
  * A haven 0 min away (or less) means the crew member is there, so nothing is raised. A haven that
  * cannot be reached (`minutes` Infinity) gives margin 0, a warning with `haven_min` null. A NaN
  * O₂ fraction or haven time is an engine error and throws, so it can never clear a live alert.
- * TODO(verify): a terrain refuge (T2) gives shelter but no O₂; until T2 the haven is the hab or a
- * pressurized rover, and a refuge haven is worded as the hab.
+ * Decided (BD-74, orchestrator, 13 Nov 2026): the haven kinds for CONSUMABLES_LOW are the hab and a pressurized rover; a terrain
+ * refuge (FR-47, Tier 2) gives shelter but no O₂ and is not produced by the backend, so no refuge haven is worded here.
  */
 export function consumablesTick(state: EngineState, ctx: TickContext): TickResult {
   const params = alertParams(ctx);

@@ -849,7 +849,7 @@ describe("the revised leg's climb, descent, max slope and profile (T23.07 follow
     });
   });
 
-  // BD-80 (closes the TODO(verify) in tick.ts): after a revision, each crew member stands within one routing cell of
+  // BD-80 (the open question in tick.ts): after a revision, each crew member stands within one routing cell of
   // the first vertex of the new leg, so the tick re-anchors them on it.
   describe("the crew stand at the new leg's first vertex (BD-80, rule S7)", () => {
     const cell = grid.meta.cell_m;

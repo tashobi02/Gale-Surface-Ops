@@ -180,7 +180,7 @@ describe("rendezvous", () => {
 
       // Of all cells with the winning key and crew time, the winner has the lowest index
       // (02 §D.10 tie-break). Several rows tie on this fixture, so the foot row y = 0 is not
-      // necessarily the one chosen: TODO(decision) in TASK-05b, T05b.07 notes.
+      // necessarily the one chosen (ratified, BD-58: the tie-break is min T_c, then cell index).
       const ties = oracle.all.filter((c) => c.key === oracle.best!.key && c.tc === oracle.best!.tc);
       expect(ties.length).toBeGreaterThan(0);
       expect(Math.min(...ties.map((c) => c.q))).toBe(oracle.best.q);
@@ -338,7 +338,7 @@ describe("rendezvous", () => {
 
   it("a cyclic back-pointer chain gives an empty path while status stays OK (Proposed, documented)", () => {
     // pathTo returns [] for a corrupt (cyclic) field; `rendezvous` passes that through rather
-    // than inventing a path. TODO(decision) in TASK-05b, T05b.07 notes.
+    // than inventing a path (ratified, BD-58).
     const crew = makeField({ width: 2, height: 1, cell_m: 5, seconds: [10, 20], prev: [1, 0] });
     const veh = makeField({ width: 2, height: 1, cell_m: 5, seconds: [10, 20] });
     const res = rendezvous(crew, veh, Uint8Array.of(1, 1));

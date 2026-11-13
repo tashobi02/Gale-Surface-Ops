@@ -7,7 +7,7 @@
  * - Every `sim_time` of the list is the sim time of a log line of the same run, and the list's `$comment` cites those lines
  *   as `seq <n> <KIND>`; this test reads the cited seq from the log and checks the kind and the time.
  * - 01 §E.1 states only values of this run (or of the committed tables, the other test); each number below is formatted from
- *   the log and must appear in the section, and the section has no placeholder, `TODO(verify)` or "illustrative" left.
+ *   the log and must appear in the section, and the section has no placeholder, open-choice marker or "illustrative" left.
  * - The committed recording is this run's: same bytes, and its EVENTs alone hash to the log hash (N-81).
  * - T21.10: each 02 §D.13 timeline row has its source time, its scenario time and a match; a row whose source time is not in
  *   the scenario is shown as such, never matched and never adjusted.
@@ -129,7 +129,7 @@ describe.skipIf(!hasRealBundle)("the reference run of 01 §E.1 (real scenario, r
     const min1 = (x: number): string => (x / 60).toFixed(1);
     const ugy1 = (x: number): string => x.toFixed(1);
 
-    it("has no placeholder, TODO(verify) or 'illustrative' left", () => {
+    it("has no placeholder, open-choice marker or 'illustrative' left", () => {
       const s = section();
       expect(s).not.toMatch(/TODO\((verify|decision)\)/);
       expect(s).not.toMatch(/illustrative/i);

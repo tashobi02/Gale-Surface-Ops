@@ -97,7 +97,7 @@
 - **Parallel with:** T31.07
 - **Steps:**
   1. Turn the existing `it.todo` cases into tests (permissions, validation, events, seeding, DROPPED on revision, auto-complete at dwell end, determinism, report counts).
-  2. Leave the cases tied to open decisions (U-46, U-52, U-56, undo) as `it.todo` with their `TODO(decision)` until decided.
+  2. Leave the cases tied to open decisions (U-46, U-52, U-56, undo) as `it.todo` until decided (BD-05, BD-59: now real tests).
 - **Acceptance:**
   - Serves: FR-50, NFR-06 · [01 FR-50](../specs/01_Product_Requirements_Document.md#fr-50--stop-task-list-on-the-eva-tablet-synced-to-ops-t1-m)
   - Every FR-50 acceptance criterion has at least one test.

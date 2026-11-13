@@ -46,7 +46,7 @@ The modules, in `MODULE_ORDER`:
 | 10 | `alerts.buddyTick` | `BUDDY_SEPARATION` | T22.10 |
 | 11 | `contingencyOps.contingencyTick` | `OPTIONS_PROPOSED` on a new warning | T23.07 |
 
-Rows 6–10 keep the fixed alert order of 02 §D.14: radiation → consumables → haven time → comm link → buddy distance. The order of rows 1–5 and 11 is proposed by T22.01 (`TODO(decision)` in `tick.ts`).
+Rows 6–10 keep the fixed alert order of 02 §D.14: radiation → consumables → haven time → comm link → buddy distance. The order of rows 1–5 and 11 was proposed by T22.01 and is ratified (BD-70).
 
 Command handlers in the modules: `vehicles.handleSummon`, `contingencyOps.handleApproveOption`, `contingencyOps.handleAbort`, `earth.handleSendMessage`, `tasks.handleUpdateStopTask`, `tasks.handleAddStopTask`. `src/commands.ts` (T23.02) checks roles and dispatches to them; `TASK_ROVER` goes to `src/rover.ts` (T29.01–T29.02). `tasks.ts` also provides `seedTasks` and `onPlanRevised`, which `src/session.ts` (T22.12) calls after `SESSION_LOADED` and after each `PLAN_REVISED`, and the reducer case `reduceTaskEvent`, which `reduce` (T22.06) calls. `vehiclesTick` moves only the pressurized rover and `roversTick` only the utility rover.
 

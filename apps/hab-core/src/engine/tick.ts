@@ -63,8 +63,8 @@ export type EngineModule = (state: EngineState, ctx: TickContext) => TickResult;
 
 /**
  * Call order after crew motion, consumables and dose (tick.ts).
- * TODO(decision): 02 §D.14 fixes only the alert order; the order of the non-alert modules here
- * (vehicles, rovers, conditions, earth, tasks before alerts; contingency last) is proposed by T22.01.
+ * 02 §D.14 fixes only the alert order; the order of the non-alert modules here (vehicles, rovers, conditions, earth, tasks
+ * before alerts; contingency last) is ratified (BD-70) and written into 02 §D.14 as Proposed.
  */
 export const MODULE_ORDER: readonly EngineModule[] = [
   vehiclesTick, // T23.05: pressurized rover motion, arrival, sheltering
