@@ -116,7 +116,7 @@ export async function replayHeadless(scenarioDir: string, seed?: number, options
   const session = loadSession(loaded, folder, list.session_id === undefined ? {} : { firstSessionId: list.session_id });
   const rec = options.record;
   const snap = () => session.snapshot([]);
-  rec?.begin(snap());
+  rec?.begin(snap(), session.eventsAfter(0));
 
   /** Run 1-s steps while the EVA runs, until the clock reads `until_ms`; a recorder sees every step. */
   const runTo = (until_ms: number): void => {

@@ -26,7 +26,7 @@ import { join } from "node:path";
 import { PROTOCOL_VERSION, type Command, type DoseSeries, type CommandRef, type CommandResult, type LogEvent, type LogEventData, type PlanExport, type ProvenanceMap, type Snapshot } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand } from "./commands";
 import { SIM_STEP_S } from "./engine/clock";
-import { invalidateHavenCache } from "./engine/haven";
+import { HavenCache } from "./engine/haven";
 import { buildHabSite, prepareSite, relocateCrew, type HabSite } from "./engine/liveSetup";
 import { arrivedAt, jumpEnded, nextStopTarget, type JumpEnd } from "./engine/nextStop";
 import { initialState, logged, reduce, type EngineState, type PendingEvent, type StateChange } from "./engine/reducer";
@@ -141,14 +141,17 @@ class Session implements SessionHandle {
   /** The chosen hab; undefined until first needed (the haven field costs a Dijkstra pass), null when there is none. */
   private site: HabSite | null | undefined;
   /** Memo of `relayCoverageGrid` (a pure function of the rover and the scenario), keyed by rover, revision and position. */
+  /** Memo of the per-tick haven fields (BD-145, BD-146): this session's own, so sessions in one process share nothing. */
+  private readonly havenCache: HavenCache;
   private readonly relayCache = new Map<string, { width: number; height: number; data: Uint8Array }>();
 
   constructor(
     scenario: LoadedScenario,
     private readonly varDir: string,
     private readonly options: SessionOptions,
-    resumed?: { log: EventLog; state: EngineState; accepted: AcceptedCommands; scenario: LoadedScenario },
+    resumed?: { log: EventLog; state: EngineState; accepted: AcceptedCommands; scenario: LoadedScenario; havenCache: HavenCache },
   ) {
+    this.havenCache = resumed?.havenCache ?? new HavenCache();
     this.baseScenario = scenario;
     this.scenario = resumed?.scenario ?? scenario;
     if (resumed) {
@@ -242,7 +245,7 @@ class Session implements SessionHandle {
       this.baseScenario = scenario;
       this.scenario = scenario;
       this.site = undefined;
-      invalidateHavenCache();
+      this.havenCache.clear();
       this.log = started.log;
       this.state = started.state;
       this.accepted = new AcceptedCommands();
@@ -281,7 +284,7 @@ class Session implements SessionHandle {
     if ((started.state.session.session_id) !== data.next_session_id) throw new Error(`resetSession: started ${started.state.session.session_id}, SESSION_RESET named ${data.next_session_id}`);
     this.scenario = this.baseScenario;
     this.site = undefined;
-    invalidateHavenCache();
+    this.havenCache.clear();
     this.log = started.log;
     this.state = started.state;
     this.accepted = new AcceptedCommands();
@@ -308,7 +311,7 @@ class Session implements SessionHandle {
     }
     this.scenario = prepared.scenario;
     this.site = prepared.site;
-    invalidateHavenCache();
+    this.havenCache.clear();
     const events = this.appendAll(out.events, (e) => {
       this.state = relocateCrew(reduce(this.state, e), this.scenario, effect.candidate_id);
     });
@@ -334,7 +337,7 @@ class Session implements SessionHandle {
     const ticked: PendingEvent[] = [];
     let ended_by: JumpEnd | null = null;
     for (let i = 0; i < limit && ended_by === null && (state.session.status === "RUNNING" || state.session.status === "PAUSED"); i++) {
-      const r = stepOnce(state, this.scenario, seq);
+      const r = stepOnce(state, this.scenario, seq, this.havenCache);
       state = r.state;
       ticked.push(...r.events);
       seq += r.events.length;
@@ -386,7 +389,7 @@ class Session implements SessionHandle {
     const deltas: StateChange[] = [];
     for (let i = 0; i < steps && this.state.session.status === "RUNNING"; i++) {
       const next_seq = this.log.lastSeq() + 1;
-      const r = stepOnce(this.state, this.scenario, next_seq);
+      const r = stepOnce(this.state, this.scenario, next_seq, this.havenCache);
       // tick's state already contains its events. Store it first: appendAll fills in `log_hash` and
       // writes the snapshot from `this.state`, which must be the state after the tick (T22.12).
       this.state = r.state;
@@ -434,9 +437,9 @@ function sampleTrace(state: EngineState): EngineState {
 }
 
 /** One 1-s step: sim time first (never logged), then tick (02 §D.14), then the report trace sample. */
-function stepOnce(state: EngineState, scenario: LoadedScenario, next_seq: number): ReturnType<typeof tick> {
+function stepOnce(state: EngineState, scenario: LoadedScenario, next_seq: number, havenCache: HavenCache): ReturnType<typeof tick> {
   const stepped: EngineState = { ...state, session: { ...state.session, clock: { ...state.session.clock, sim_time: addSeconds(state.session.clock.sim_time, SIM_STEP_S) } } };
-  const r = tick(stepped, scenario, SIM_STEP_S, next_seq);
+  const r = tick(stepped, scenario, SIM_STEP_S, next_seq, havenCache);
   return { ...r, state: sampleTrace(r.state) };
 }
 
@@ -500,12 +503,13 @@ export function resumeSession(sessionDir: string, scenario: LoadedScenario, opti
       }
     : fresh;
 
+  const havenCache = new HavenCache();
   let i = 0;
   while (i < tail.length) {
     const e = tail[i];
     // A paused clock also re-runs ticks here: only a JUMP_NEXT_STOP moves sim time while paused (its tick events, then CLOCK_JUMPED).
     if (Date.parse(e.sim_time) > Date.parse(state.session.clock.sim_time) && (state.session.status === "RUNNING" || state.session.status === "PAUSED")) {
-      const r = stepOnce(state, scenario, state.session.last_seq + 1);
+      const r = stepOnce(state, scenario, state.session.last_seq + 1, havenCache);
       for (const produced of r.events) {
         const line = tail[i];
         if (!line || canonicalJson(logged(produced, line.seq)) !== canonicalJson(line)) {
@@ -530,5 +534,5 @@ export function resumeSession(sessionDir: string, scenario: LoadedScenario, opti
   const inUse = chosen !== null && chosen !== (scenario.scenario.mission_setup.hab_candidate_id ?? null) && scenario.site_ref !== undefined
     ? { ...scenario, comm: loadCandidateComm(scenario.site_ref, chosen) }
     : scenario;
-  return new Session(scenario, varDir, options, { log, state, accepted: AcceptedCommands.fromLog(log.after(0)), scenario: inUse });
+  return new Session(scenario, varDir, options, { log, state, accepted: AcceptedCommands.fromLog(log.after(0)), scenario: inUse, havenCache });
 }

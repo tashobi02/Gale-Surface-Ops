@@ -14,6 +14,9 @@ export interface Recording {
   log_hash: string;
   /** Shown by the Pages replay; never "live". */
   label: "replayed recording";
-  /** The first message is the SNAPSHOT; then EVENT and STATE_DELTA in `seq` order, deltas coalesced per sim second. */
+  /**
+   * The first message is the SNAPSHOT; then the EVENTs it already reflects (seq 1 to its `seq`), then EVENT and STATE_DELTA in
+   * `seq` order, deltas coalesced per sim second. The EVENTs are the whole log: they hash to `log_hash` (N-81).
+   */
   messages: (Snapshot | EventMessage | StateDelta)[];
 }

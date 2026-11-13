@@ -26,6 +26,7 @@ export * from "./skyView";
 export * from "./snap";
 export * from "./leg";
 export * from "./noRoute";
+export * from "./manualLeg";
 export * from "./validate";
 export * from "./handler";
 export * from "./geometry";

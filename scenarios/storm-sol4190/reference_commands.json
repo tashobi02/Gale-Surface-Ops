@@ -1,0 +1,61 @@
+{
+  "$comment": "The reference run of 01 §E.1 (BD-97, BD-147). Each sim_time is copied from a line of session.jsonl of this same run: START_EVA at seq 12 EVA_STARTED (04:11:00Z, plan.scenario.eva_start_utc); TASK_ROVER (UR1 RELAY to the cell scripts/relay-target.ts returns for this run) and the first JUMP_NEXT_STOP at 04:11:01Z, the time of seq 13 ALERT_RAISED (the first COMM_SHADOW caution); START_EVENT at seq 27 EVENT_STARTED (05:16:55Z, series_start_utc, U-62); the second JUMP_NEXT_STOP at that same time; the third at 05:40:16Z, when the crew reach stop 2 (seq 44 CLOCK_JUMPED, arrival), and it ends at the alert (seq 45 ALERT_RAISED, RADIATION_ALERT); APPROVE_OPTION for the VEHICLE_RENDEZVOUS option at 05:50:32Z, the time of seq 46 OPTIONS_PROPOSED (option id = alert id a-45 + the kind). Ops sends the approval, not eva:EV1: both suits are unlinked at the alert (LINK_LOST, the NO_LINK rule would refuse a suit command). Regenerate with make replay COMMANDS=scenarios/storm-sol4190/reference_commands.json; an engine change that moves a seq changes the alert id.",
+  "scenario_id": "storm-sol4190",
+  "seed": 4190,
+  "commands": [
+    {
+      "sim_time": "2024-05-20T04:11:00Z",
+      "role": "ops",
+      "kind": "START_EVA",
+      "args": {}
+    },
+    {
+      "sim_time": "2024-05-20T04:11:01Z",
+      "role": "ops",
+      "kind": "TASK_ROVER",
+      "args": {
+        "vehicle_id": "UR1",
+        "task": "RELAY",
+        "target": {
+          "x_m": -95,
+          "y_m": -905
+        }
+      }
+    },
+    {
+      "sim_time": "2024-05-20T04:11:01Z",
+      "role": "presenter",
+      "kind": "JUMP_NEXT_STOP",
+      "args": {}
+    },
+    {
+      "sim_time": "2024-05-20T05:16:55Z",
+      "role": "presenter",
+      "kind": "START_EVENT",
+      "args": {
+        "event_id": "storm"
+      }
+    },
+    {
+      "sim_time": "2024-05-20T05:16:55Z",
+      "role": "presenter",
+      "kind": "JUMP_NEXT_STOP",
+      "args": {}
+    },
+    {
+      "sim_time": "2024-05-20T05:40:16Z",
+      "role": "presenter",
+      "kind": "JUMP_NEXT_STOP",
+      "args": {}
+    },
+    {
+      "sim_time": "2024-05-20T05:50:32Z",
+      "role": "ops",
+      "kind": "APPROVE_OPTION",
+      "args": {
+        "option_id": "a-45:VEHICLE_RENDEZVOUS"
+      }
+    }
+  ],
+  "session_id": "s-0001"
+}

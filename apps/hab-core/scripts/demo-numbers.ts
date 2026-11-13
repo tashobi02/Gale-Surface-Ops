@@ -7,8 +7,7 @@
  * What it derives, each with its source path and row or index:
  * - the first `alert` sample: `triggerState` over `dose_series.json` with the `alert-assumed` ParamSet;
  * - the local true solar time, sun elevation, sunrise and sunset at the alert (`localTrueSolarTime`,
- *   `solarPosition`, `sunriseSunset`; hab lat / lon °E from `docs/ops/feasibility/hab-site.md`,
- *   TODO(decision): read them from the site manifest once it carries geographic coordinates);
+ *   `solarPosition`, `sunriseSunset`; hab lat / lon °E from the site manifest's rank-1 candidate, BD-107);
  * - the light time X: the `earth_link.json` row at or before the alert;
  * - the next relay pass Y: the first pass with `start_utc` >= alert, and "alert inside pass" as a
  *   separate field. Row and pass selection use `linkAt`, `nextPassStart` and `activePass` from
@@ -24,7 +23,7 @@
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { activePass, linkAt, localTrueSolarTime, nextPassStart, solarPosition, sunriseSunset, triggerState } from "@marswalk/compute";
+import { activePass, inverseEqc, linkAt, localTrueSolarTime, nextPassStart, parseEqcProjection, solarPosition, sunriseSunset, triggerState } from "@marswalk/compute";
 import type { DoseSeries, EarthLinkTable, MissionScenario, NoRouteLeg, OkLeg, ParamSet, Waypoint } from "@marswalk/protocol";
 
 const MIN_MS = 60_000;
@@ -37,7 +36,7 @@ export const PATHS = {
   alert_params: `${SCENARIO_DIR}/param_sets/alert-assumed.json`,
   earth_link: `${SCENARIO_DIR}/earth_link.json`,
   plan: `${SCENARIO_DIR}/plan.json`,
-  hab_site: "docs/ops/feasibility/hab-site.md",
+  site_manifest: "data/sites/gale_boxwork/site-manifest.json",
   spec_01: "docs/specs/01_Product_Requirements_Document.md",
 } as const;
 
@@ -271,14 +270,29 @@ function stopTwoStart(plan: PlanSlice, hab: HabSite, plan_path: string, alert_ms
   };
 }
 
-/** First-choice hab position from the "Lat, lon °E" row of hab-site.md (first value column). */
-export function parseHabSite(markdown: string, path: string): HabSite {
-  const line = markdown.split("\n").find((l) => /^\|\s*Lat, lon °E\s*\|/.test(l));
-  if (!line) throw new Error(`demo-numbers: no "Lat, lon °E" row in ${path}`);
-  const cell = line.split("|")[2] ?? "";
-  const [lat, lonE] = cell.replace(/−/g, "-").split(",").map((s) => Number(s.trim()));
-  if (!Number.isFinite(lat) || !Number.isFinite(lonE) || cell.split(",").length !== 2) throw new Error(`demo-numbers: the first-choice "Lat, lon °E" cell in ${path} is not "lat, lon": ${JSON.stringify(cell.trim())}`);
-  return { lat, lonE, source: { path, row: "Lat, lon °E (first choice)" } };
+/** The part of the site manifest the hab position reads (05 Site; `crs.proj4`, `hab_candidates[].hab_mast`, `rank`). */
+export interface HabManifestSlice {
+  crs?: { proj4?: unknown };
+  hab_candidates?: { candidate_id?: unknown; rank?: unknown; hab_mast?: { x_m?: unknown; y_m?: unknown } }[];
+}
+
+/**
+ * The hab position of the demo (BD-107): the rank-1 candidate's `hab_mast` through the inverse working projection
+ * (compute `inverseEqc`, with the origin parsed from the manifest's own `crs.proj4`). Not the stored `lat` / `lon_e`
+ * pair and not the table in hab-site.md: one source of truth, the manifest the grid and the scenario already use.
+ */
+export function habFromManifest(manifest: HabManifestSlice, path: string): HabSite {
+  const candidates = manifest.hab_candidates;
+  if (!Array.isArray(candidates) || candidates.length === 0) throw new Error(`demo-numbers: ${path} has no hab_candidates`);
+  const first = [...candidates].sort((a, b) => Number(a.rank) - Number(b.rank))[0]!;
+  const mast = first.hab_mast;
+  if (typeof mast?.x_m !== "number" || typeof mast.y_m !== "number" || !Number.isFinite(mast.x_m) || !Number.isFinite(mast.y_m)) {
+    throw new Error(`demo-numbers: the rank-1 hab candidate of ${path} has no numeric hab_mast {x_m, y_m}`);
+  }
+  const proj4 = manifest.crs?.proj4;
+  if (typeof proj4 !== "string") throw new Error(`demo-numbers: ${path} has no crs.proj4`);
+  const { lat, lon_e } = inverseEqc(mast.x_m, mast.y_m, parseEqcProjection(proj4));
+  return { lat, lonE: lon_e, source: { path, row: `hab_candidates[${String(first.candidate_id)}].hab_mast through the inverse working projection (inverseEqc)` } };
 }
 
 /**
@@ -308,7 +322,7 @@ export function loadInputs(root: string, options: { withPlan?: boolean } = {}): 
     dose_series: read<DoseSeries>(PATHS.dose_series),
     alert_params: read<ParamSet>(PATHS.alert_params),
     earth_link: read<EarthLinkTable>(PATHS.earth_link),
-    hab: parseHabSite(readFileSync(join(root, PATHS.hab_site), "utf8"), PATHS.hab_site),
+    hab: habFromManifest(JSON.parse(readFileSync(join(root, PATHS.site_manifest), "utf8")) as HabManifestSlice, PATHS.site_manifest),
   };
   if (options.withPlan !== false && existsSync(join(root, PATHS.plan))) {
     out.plan = read<PlanSlice>(PATHS.plan).data;

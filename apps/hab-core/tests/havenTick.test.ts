@@ -17,12 +17,15 @@
  *   `max_haven_min` and cleared when back at or under it (or when the crew member is no longer out).
  * - No grid, or no plan: nothing changes and nothing is raised.
  */
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { crewTimeField, habIngressS, habTimeField, liveHaven, vehiclePassable, vehicleTimeField, type LoadedGrid } from "@marswalk/compute";
 import type { CrewId, LogEventData } from "@marswalk/protocol";
-import { havenTick, invalidateHavenCache } from "../src/engine/haven";
+import * as havenModule from "../src/engine/haven";
+import { HavenCache, havenTick } from "../src/engine/haven";
 import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
 import type { TickContext, TickResult } from "../src/engine/tick";
 import { loadSession } from "../src/session";
@@ -48,9 +51,11 @@ vi.mock("@marswalk/compute", async () => {
     },
   };
 });
+/** The per-session memo (BD-145, BD-146): each test starts with a fresh one, as each session does. */
+let cache = new HavenCache();
 beforeEach(() => {
   spies.hab = spies.crew = spies.vehicle = 0;
-  invalidateHavenCache();
+  cache = new HavenCache();
 });
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -64,7 +69,7 @@ const rover = sc.params["pr1-assumed"]!;
 const v0 = (mission.suited_flat_speed_kmh * 1000) / 3600;
 const ingress = { hab_s: habIngressS(suit), vehicle_s: Number(rover.values.ingress_min) * 60 };
 
-const ctxOf = (scenario: LoadedScenario = sc, next_seq = 1): TickContext => ({ scenario, dt_s: 1, next_seq });
+const ctxOf = (scenario: LoadedScenario = sc, next_seq = 1): TickContext => ({ scenario, dt_s: 1, next_seq, haven_cache: cache });
 
 /** An EVA state: crew WALKING at the given x (y = 0), no vehicle unless `vehicle` gives its x, PARKED. */
 function evaState(positions: Partial<Record<CrewId, number>>, vehicle: number | null = null, scenario: LoadedScenario = sc): EngineState {
@@ -172,7 +177,7 @@ describe("haven per tick (FR-39, 02 §D.8 live form)", () => {
 
   it("the haven values of the same state are identical on every call (NFR-06)", () => {
     const a = havenTick(evaState({ EV1: 600, EV2: 900 }, -2000), ctxOf());
-    invalidateHavenCache();
+    cache.clear();
     const b = havenTick(evaState({ EV1: 600, EV2: 900 }, -2000), ctxOf());
     expect(JSON.stringify(b)).toBe(JSON.stringify(a));
   });
@@ -207,7 +212,7 @@ describe("the hab field is computed once per grid, limits and candidate, and reu
     expect(tickTwice(base, other)).toBe(2);
   });
 
-  it("another grid rebuilds it, and invalidateHavenCache() forces a rebuild", () => {
+  it("another grid rebuilds it, and cache.clear() forces a rebuild", () => {
     const base = evaState({ EV1: 600 });
     havenTick(base, ctxOf());
     spies.hab = 0;
@@ -215,7 +220,7 @@ describe("the hab field is computed once per grid, limits and candidate, and reu
     havenTick(base, ctxOf({ ...sc, grid: copy }));
     expect(spies.hab).toBe(1);
     spies.hab = 0;
-    invalidateHavenCache();
+    cache.clear();
     havenTick(base, ctxOf({ ...sc, grid: copy }));
     expect(spies.hab).toBe(1);
   });
@@ -262,20 +267,81 @@ describe("the live haven is computed once per crew cell (replay speed on the rea
   it("the cached result equals a cold computation at the same place, in the same cell and in the next one", () => {
     for (const x of [X0, X0 + cell / 4, X0 + 2 * cell]) {
       const warm = havenTick(state(x), ctxOf()).state.crew.find((c) => c.crew_id === "EV1")!.haven;
-      invalidateHavenCache();
+      cache.clear();
       const cold = havenTick(state(x), ctxOf()).state.crew.find((c) => c.crew_id === "EV1")!.haven;
       expect(warm).toEqual(cold);
     }
   });
 
-  it("a change of the rover, the plan limits or invalidateHavenCache() recomputes", () => {
+  it("a change of the rover, the plan limits or cache.clear() recomputes", () => {
     havenTick(state(X0), ctxOf());
     const moved: EngineState = { ...state(X0), vehicles: state(X0).vehicles.map((v) => ({ ...v, x_m: -1900 })) };
     havenTick(moved, ctxOf());
     expect(spies.crew).toBe(2);
-    invalidateHavenCache();
+    cache.clear();
     havenTick(moved, ctxOf());
     expect(spies.crew).toBe(3);
+  });
+});
+
+describe("the memo belongs to one session, not to the module (NFR-06; BD-146)", () => {
+  const two = evaState({ EV1: 600, EV2: 900 }, -2000);
+  const withCache = (c: HavenCache | undefined): TickContext => ({ scenario: sc, dt_s: 1, next_seq: 1, ...(c === undefined ? {} : { haven_cache: c }) });
+
+  it("the module exports no process-wide cache control", () => {
+    expect(Object.keys(havenModule).sort()).toEqual(["HavenCache", "havenTick"]);
+  });
+
+  it("two caches do not share entries: each builds its own hab, rover and crew fields", () => {
+    const a = new HavenCache();
+    const b = new HavenCache();
+    havenTick(two, withCache(a));
+    expect([spies.hab, spies.vehicle, spies.crew]).toEqual([1, 1, 2]);
+    havenTick(two, withCache(b));
+    expect([spies.hab, spies.vehicle, spies.crew]).toEqual([2, 2, 4]);
+    havenTick(two, withCache(a)); // its own entries are still there
+    havenTick(two, withCache(b));
+    expect([spies.hab, spies.vehicle, spies.crew]).toEqual([2, 2, 4]);
+  });
+
+  it("a context without a cache memoises nothing between calls, and still gives the same haven", () => {
+    const first = havenTick(two, withCache(undefined));
+    const second = havenTick(two, withCache(undefined));
+    expect(spies.hab).toBe(2);
+    expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+    expect(JSON.stringify(first)).toBe(JSON.stringify(havenTick(two, withCache(new HavenCache()))));
+  });
+
+  it("clear() empties one cache and leaves the other alone", () => {
+    const a = new HavenCache();
+    const b = new HavenCache();
+    havenTick(two, withCache(a));
+    havenTick(two, withCache(b));
+    a.clear();
+    spies.hab = 0;
+    havenTick(two, withCache(a));
+    havenTick(two, withCache(b));
+    expect(spies.hab).toBe(1);
+  });
+
+  it("two sessions on the same scenario object do not share the memo", () => {
+    const dirA = mkdtempSync(join(tmpdir(), "havenTick-a-"));
+    const dirB = mkdtempSync(join(tmpdir(), "havenTick-b-"));
+    try {
+      const run = (dir: string): number => {
+        const session = loadSession(sc, dir);
+        const before = spies.hab;
+        expect(session.apply({ command_id: "c-1", role: "ops", kind: "START_EVA", args: {} }, "c-ops").result.ok).toBe(true);
+        session.advance(5);
+        return spies.hab - before;
+      };
+      const a = run(dirA);
+      expect(a).toBeGreaterThan(0); // the crew were out, so the haven was evaluated
+      expect(run(dirB)).toBe(a); // the second session builds as many as the first: nothing came from the first
+    } finally {
+      rmSync(dirA, { recursive: true, force: true });
+      rmSync(dirB, { recursive: true, force: true });
+    }
   });
 });
 

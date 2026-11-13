@@ -46,3 +46,14 @@ If the frontend plan already ships an `e2e/` harness, add these specs to it inst
 ## Done when
 
 `make e2e` passes on `merging-core` with the real bundle.
+
+## Done (13 Nov 2026)
+
+Built as `apps/web/e2e/checks/release-*.spec.ts` in the frontend harness (no second config), with the decisions of
+[BD-152](decisions.md). Parts that need frontend screens that are not merged are `test.fixme` and name the package and the
+B- item in [01-needs-from-frontend.md](01-needs-from-frontend.md): B-03 (SCR-18 never
+appears), B-04 (phone top bar covers the drawer buttons), B-05 (`?debug=1` breaks the CSP); B-02 is an observation on the F4 fixture only, the worker-failure and dev-build corruption hooks (frontend 09, 06), the
+killer demo through the UI and the tap latency (frontend 17, 29). **Package 28 must be run again after the frontend lane has
+completed** (`make e2e`, then `E2E_SITE=gale_boxwork make e2e`), and the `fixme` of every fixed item removed; the status rows of
+T14.10, T28.05 and T31.08 stay `wip` until then. Results and figures are in the
+[verification log](../../ops/verification-log.md#t1406t1410-t2803-t2805-t3108-make-demo--browser-release-verification-backend-package-28).

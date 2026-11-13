@@ -16,7 +16,7 @@ import { conditionsTick } from "./conditions";
 import { contingencyTick } from "./contingencyOps";
 import { crewMargins, legSeconds } from "./crewMargins";
 import { earthTick } from "./earth";
-import { havenTick } from "./haven";
+import { havenTick, type HavenCache } from "./haven";
 import { doseAt } from "./liveEvents";
 import { linksTick } from "./links";
 import { isWaiting, logged, reduce, type CrewMotion, type EngineState, type PendingEvent, type StateChange } from "./reducer";
@@ -33,6 +33,11 @@ export interface TickContext {
    * consecutive seqs from here before calling the next module (see "State rule" below).
    */
   next_seq: number;
+  /**
+   * The session's haven memo (BD-146). Owned by the session, so two sessions never share it; absent in a context built
+   * by a test or a one-off call, where `havenTick` then memoises nothing between calls. Never read by any other module.
+   */
+  haven_cache?: HavenCache;
 }
 
 export interface TickResult {
@@ -85,7 +90,7 @@ const STUB_ERROR = /^TODO\(TASK-\d+\): T\d+\.\d+ not implemented$/;
  * The returned state already contains every event, so `last_seq = next_seq + events.length − 1`.
  * The clock has already advanced by `dt_s`: this step covers `[sim_time − dt_s, sim_time)`.
  */
-export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number, next_seq: number): TickResult {
+export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number, next_seq: number, haven_cache?: HavenCache): TickResult {
   const shielding = Object.values(scenario.params).find((p) => p.kind === "shielding");
   if (!shielding) throw new Error("tick: the scenario has no shielding ParamSet (05 Scenario)");
   const t_utc = isoSeconds(Date.parse(state.session.clock.sim_time) - dt_s * 1000);
@@ -134,7 +139,7 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
   };
   apply(motionEvents);
 
-  const ctx: TickContext = { scenario, dt_s, next_seq };
+  const ctx: TickContext = { scenario, dt_s, next_seq, ...(haven_cache === undefined ? {} : { haven_cache }) };
   for (const module of MODULE_ORDER) {
     let r: TickResult;
     try {

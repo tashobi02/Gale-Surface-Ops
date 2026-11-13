@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
     "demo-numbers": "tsx scripts/demo-numbers.ts",
-    "build-demo-plan": "tsx scripts/build-demo-plan.ts"
+    "build-demo-plan": "tsx scripts/build-demo-plan.ts",
+    "relay-target": "tsx scripts/relay-target.ts"
   },
   "dependencies": {
     "@fastify/static": "^8.0.0",

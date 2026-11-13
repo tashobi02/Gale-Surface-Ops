@@ -321,15 +321,19 @@ def _layer(record: dict, produced: dict[str, dict]) -> dict:
     return layer
 
 
-def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Path, *, exclude_layers: set[str] | None = None) -> Path:
+def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Path, *, exclude_layers: set[str] | None = None, cell_m: float | None = None, max_zoom: int | None = None) -> Path:
     """Assemble and write site-manifest.json (schema: schemas/site-manifest.schema.json). TASK-03.
 
     site_dir holds the produced assets; config_dir is pipeline/sites/<site_id>/ (C5).
     Returns site_dir/site-manifest.json. Output is deterministic: sorted keys, no timestamps.
+
+    Opt-in fallbacks (backend package 29): `cell_m` is the routing-grid cell of a `--cell-m 10` build (default
+    `config.GRID_CELL_M`); `max_zoom` is the `--max-zoom` level, so each raster layer's `tile_grid.resolutions_m` lists only
+    the levels the tiles step wrote (`config.limit_resolutions`, the one place that drops them).
     """
     site = _read_json(config_dir / "site.json")
     minx, miny, maxx, maxy = site["aoi"]["extent_m"]
-    cell_m = config.GRID_CELL_M
+    cell_m = config.GRID_CELL_M if cell_m is None else cell_m
     grid_width = _whole_cells(maxx - minx, cell_m)
     grid_height = _whole_cells(maxy - miny, cell_m)
     ti_present = (site_dir / FILE_ASSETS[TI_ASSET][0]).is_file()
@@ -351,6 +355,14 @@ def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Pa
     sources = _records(config_dir / "sources", "source_id")
     layers = [_layer(record, produced) for record in _records(config_dir / "layers", "layer_id")
               if record["layer_id"] not in excluded]
+    if max_zoom is not None:
+        for layer in layers:
+            grid_record = layer.get("tile_grid")
+            if layer["kind"] == "raster_tiles" and grid_record:
+                kept = config.limit_resolutions(grid_record["resolutions_m"], max_zoom)
+                layer["tile_grid"] = {**grid_record, "resolutions_m": kept}
+                # the finest level that is shown is no longer the one the record names
+                layer["display_resolution_m"] = max(layer["display_resolution_m"], kept[-1])
     env_constants = _records(config_dir / "env_constants", "const_id")
     known_offsets = {
         path.stem: _read_json(path)["offset_m"]
