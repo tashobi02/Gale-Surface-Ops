@@ -199,7 +199,8 @@ describe("SCR-17 Post-EVA report with a full report (01 FR-46)", () => {
 
   it("shows the supplied hash and scenario line, and headlines the scenario id rather than a fixed title", () => {
     expect(bySource(html, "report:log_hash")).toContain("abc123");
-    expect(html).toContain("Mission Debrief — scn-test");
+    // The id in the heading is a labelled value (FD-481), so it sits in its own span.
+    expect(html).toMatch(/Mission Debrief — <span data-provenance="simulated" data-source="report:scenario_id"[^>]*>scn-test<\/span>/);
     expect(html).toContain("scn-test");
     expect(html).toContain("dv-test");
     expect(bySource(html, "report:seed")).toMatch(/>7$/);

@@ -17,7 +17,7 @@ import {
   type ReactElement,
 } from "react";
 import type { Role } from "@marswalk/protocol";
-import { UNAVAILABLE } from "../components/provenance";
+import { UNAVAILABLE, provAttrs, unavailableOf } from "../components/provenance";
 
 export type ClientRoleOption = "planner" | "ops" | "eva:EV1" | "eva:EV2" | "hud:EV1" | "hud:EV2" | "earth";
 
@@ -235,7 +235,12 @@ export function Join({
             SELECT CLIENT ROLE
           </h1>
           <div style={{ color: "var(--ink-2, #5A5A5A)", fontSize: "14px" }}>
-            Assign this device to a mission role. Scenario: <strong data-slot="join-scenario">{sessionScenario ?? UNAVAILABLE}</strong>
+            Assign this device to a mission role. Scenario: <strong
+              data-slot="join-scenario"
+              {...provAttrs(sessionScenario ? { prov: "simulated", src: "snapshot:session.scenario_id" } : unavailableOf("simulated", "session.scenario_id"))}
+            >
+              {sessionScenario ?? UNAVAILABLE}
+            </strong>
           </div>
         </div>
 
@@ -281,6 +286,7 @@ export function Join({
                   }}
                 >
                   <span
+                    data-identifier
                     style={{
                       fontFamily: "var(--font-mono, monospace)",
                       fontSize: "14px",
@@ -309,6 +315,7 @@ export function Join({
                 </div>
 
                 <h2
+                  data-identifier
                   style={{
                     fontSize: "20px",
                     fontWeight: 600,
@@ -319,6 +326,7 @@ export function Join({
                 </h2>
 
                 <p
+                  data-identifier
                   style={{
                     fontSize: "14px",
                     lineHeight: 1.45,
@@ -362,6 +370,7 @@ export function Join({
                   </div>
                 ) : (
                   <button
+                    data-identifier
                     style={{
                       ...buttonStyle,
                       width: "100%",
@@ -394,10 +403,10 @@ export function Join({
         }}
       >
         <div>
-          OPS QR DEEP LINK: <code>#/join?role=eva:EV1</code> · SESSION MEMORY ONLY (04 §E.2)
+          OPS QR DEEP LINK: <code data-identifier>#/join?role=eva:EV1</code> · SESSION MEMORY ONLY (<span data-identifier>04 §E.2</span>)
         </div>
         <div>
-          LOCAL AIR-GAPPED NETWORK · NFR-01 VERIFIED
+          LOCAL AIR-GAPPED NETWORK · <span data-identifier>NFR-01</span> VERIFIED
         </div>
       </footer>
     </div>

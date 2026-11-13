@@ -225,7 +225,7 @@ export function HabLinkLost({
           color: "var(--text-2, #A9B3BE)",
         }}
       >
-        <span>STATUS: Offline queue active. Critical commands (SUMMON, ABORT) queue locally and dispatch automatically upon link restoration (NFR-13).</span>
+        <span>STATUS: Offline queue active. Critical commands (SUMMON, ABORT) queue locally and dispatch automatically upon link restoration (<span data-identifier>NFR-13</span>).</span>
       </div>
     </div>
   );
