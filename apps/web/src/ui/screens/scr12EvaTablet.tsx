@@ -150,6 +150,14 @@ export function EvaTablet({
   const changes = useStopTaskChanges(send, serverTasks, linked);
   const viewSnapshot = activeSnapshot ? { ...activeSnapshot, tasks: changes.overlay(serverTasks) } : activeSnapshot;
   const vm: EvaViewModel = selectEvaViewModel(viewSnapshot, crewId);
+  // FR-50: at a stop the task list belongs to the stop underfoot. NEXT navigation still points ahead (FD-266).
+  const member = viewSnapshot?.crew.find((c) => c.crew_id === crewId);
+  const index = member?.stop_index;
+  const currentStop = member?.activity === "AT_STOP" && Number.isInteger(index) && index! >= 1
+    ? viewSnapshot?.plan?.waypoints.filter((w) => w.role === "stop")[index! - 1] : undefined;
+  const taskStopId = currentStop?.id ?? vm.nextStop?.stopId;
+  const atTasks = viewSnapshot?.tasks.filter((t) => t.stop_id === taskStopId && (t.crew_id === null || t.crew_id === crewId)) ?? NO_TASKS;
+  const taskCount = taskStopId ? { done: atTasks.filter((t) => t.state === "DONE").length, total: atTasks.length } : null;
 
   // Stop task list open state (TASKS button toggles the list).
   const [localContrast, setLocalContrast] = useState(false);
@@ -428,8 +436,8 @@ export function EvaTablet({
             {/* TASKS button; counts are "—" until a stop is known. While the list is collapsed the count stays here as a
                 figure, not a control, and no panel is behind it (FD-032). */}
             <TasksButton
-              doneCount={vm.nextStop ? vm.nextStop.taskCount.done : null}
-              totalCount={vm.nextStop ? vm.nextStop.taskCount.total : null}
+              doneCount={taskCount?.done ?? null}
+              totalCount={taskCount?.total ?? null}
               active={showTasksList}
               readOnly={collapsed}
               onClick={() => setTasksExpanded(!tasksExpanded)}
@@ -478,7 +486,7 @@ export function EvaTablet({
               <StopTaskList
                 tasks={viewSnapshot?.tasks ?? []}
                 crewId={crewId}
-                stopId={vm.nextStop?.stopId ?? ""}
+                stopId={taskStopId ?? ""}
                 readOnly={!hab || !crewId || (vm.alertSlot?.level === "warning" && vm.alertSlot.acknowledged)}
                 undo={changes.undoTaskId === null ? null : { taskId: changes.undoTaskId }}
                 collapsed={false}

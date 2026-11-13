@@ -57,6 +57,7 @@ const RELEASE_EVERY_PROJECT = ["release-roles"];
 const RELEASE_DEMO = ["release-demo"];
 
 /** Spec files by project (names without `.spec.ts`). A viewport-specific check runs on its own project; the rest on desktop-1440. */
+const LIVE_DEVICE_CHECKS = ["targets", "task-latency", "link-lost"];
 const EVERY_PROJECT = ["offline", "axe", ...RELEASE_EVERY_PROJECT];
 const ONLY_DESKTOP_1440 = [
   "_harness", "tiles-all-levels", "scale-bar", "keyboard-path", "grayscale", "contrast", "brand-orange", "toggles",
@@ -102,11 +103,13 @@ export default defineConfig({
         project("desktop-1440", desktop(1440, 900), [...EVERY_PROJECT, ...ONLY_DESKTOP_1440]),
         project("desktop-1280", desktop(1280, 800), [...EVERY_PROJECT, "release-matrix"]),
         project("desktop-1024", desktop(1024, 768), EVERY_PROJECT),
-        project("phone-landscape-844x390", chromiumDevice("iPhone 14 landscape", { width: 844, height: 390 }), [...EVERY_PROJECT, "fullmap", "targets"]),
-        project("phone-portrait-390x844", chromiumDevice("iPhone 14", { width: 390, height: 844 }), [...EVERY_PROJECT, "release-matrix"]),
-        project("phone-360x740", chromiumDevice("Pixel 7", { width: 360, height: 740 }), [...EVERY_PROJECT, "viewport360"]),
-        project("tablet-landscape-1024x768", chromiumDevice("iPad Mini landscape", { width: 1024, height: 768 }), [...EVERY_PROJECT, "eva-geometry", "rotation", "targets"]),
-        project("tablet-portrait-768x1024", chromiumDevice("iPad Mini", { width: 768, height: 1024 }), [...EVERY_PROJECT, "release-matrix"]),
+        project("phone-landscape-844x390", chromiumDevice("iPhone 14 landscape", { width: 844, height: 390 }), [...EVERY_PROJECT, "fullmap", ...LIVE_DEVICE_CHECKS]),
+        project("phone-portrait-390x844", chromiumDevice("iPhone 14", { width: 390, height: 844 }), [...EVERY_PROJECT, "release-matrix", ...LIVE_DEVICE_CHECKS]),
+        project("phone-360x740", chromiumDevice("Pixel 7", { width: 360, height: 740 }), [...EVERY_PROJECT, "viewport360", ...LIVE_DEVICE_CHECKS]),
+        project("tablet-landscape-1024x768", chromiumDevice("iPad Mini landscape", { width: 1024, height: 768 }), [...EVERY_PROJECT, "eva-geometry", "rotation", ...LIVE_DEVICE_CHECKS]),
+        project("tablet-portrait-768x1024", chromiumDevice("iPad Mini", { width: 768, height: 1024 }), [...EVERY_PROJECT, "release-matrix", ...LIVE_DEVICE_CHECKS]),
+        project("galaxy-tablet-landscape-1138x712", chromiumDevice("Galaxy Tab S4 landscape", { width: 1138, height: 712 }), [...EVERY_PROJECT, ...LIVE_DEVICE_CHECKS]),
+        project("galaxy-tablet-portrait-712x1138", chromiumDevice("Galaxy Tab S4", { width: 712, height: 1138 }), [...EVERY_PROJECT, ...LIVE_DEVICE_CHECKS]),
         project("hud-844x390", chromiumDevice("iPhone 14 landscape", { width: 844, height: 390 }), [...EVERY_PROJECT, "hud-glance"]),
         // `make demo` rebuilds apps/web/dist without the spike page, so it runs after every project that serves the harness build.
         project("release-demo", desktop(1440, 900), RELEASE_DEMO),

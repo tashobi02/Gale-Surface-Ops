@@ -1,7 +1,7 @@
 /** T24.07: one common deadline for EVA and ops; cached data, real retry progress, actual restored snapshot. */
 import { expect, test } from "@playwright/test";
 import { HEARTBEAT_MS, LINK_LOST_AFTER_MS, type Snapshot } from "@marswalk/protocol";
-import { killHab, openRole, restartHab } from "../lib/hab";
+import { killHab, restartHab } from "../lib/hab";
 
 /**
  * The deadline runs from the LAST SERVER MESSAGE, not from the moment the Hab Core dies (FD-372, 02 §D.14: the server
@@ -11,8 +11,11 @@ import { killHab, openRole, restartHab } from "../lib/hab";
 const DEADLINE_AFTER_KILL_MS = LINK_LOST_AFTER_MS + HEARTBEAT_MS;
 
 test("link-lost: both roles show SCR-18 within 3 s of the last server message, actual retry counts, then restored values", async ({ context }) => {
-  const eva = await openRole(context, "eva:EV1");
-  const ops = await openRole(context, "ops");
+  const eva = await context.newPage();
+  const ops = await context.newPage();
+  await ops.setViewportSize({ width: 1440, height: 900 });
+  await eva.goto("/?site=mock_site#/eva/EV1");
+  await ops.goto("/?site=mock_site#/ops");
   let killed = false;
   try {
     const before = await (await eva.request.get('/api/session')).json() as Snapshot;

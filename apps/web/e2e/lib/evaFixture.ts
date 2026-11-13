@@ -45,8 +45,8 @@ export function evaFixture(state: EvaFixtureState): Snapshot {
   return snapshot;
 }
 
-export async function openEvaFixture(page: Page, state: EvaFixtureState, sent?: SentCommand[]): Promise<void> {
-  const snapshot = evaFixture(state);
+export async function openEvaFixture(page: Page, state: EvaFixtureState, sent?: SentCommand[], extra: Pick<Partial<Snapshot>, "vehicles"> = {}): Promise<void> {
+  const snapshot = { ...evaFixture(state), ...extra };
   await page.routeWebSocket("**/ws", (socket) => {
     socket.onMessage((message) => {
       const request = JSON.parse(String(message)) as { type?: string; command?: { kind?: string; args?: Record<string, unknown> } };
