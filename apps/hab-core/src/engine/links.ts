@@ -81,7 +81,7 @@ const suitOf = (scenario: LoadedScenario, crew_id: CrewId): ParamSet => {
 
 /** A crew member out on the surface and not waiting out `start_offset_s` (the radio-node test). */
 function isOut(state: EngineState, scenario: LoadedScenario, c: Crew): boolean {
-  if (c.activity !== "WALKING" && c.activity !== "AT_STOP" && c.activity !== "TO_HAVEN") return false;
+  if (c.activity !== "WALKING" && c.activity !== "AT_STOP" && c.activity !== "TO_HAVEN" && c.activity !== "HOLDING") return false;
   const offset_s = scenario.scenario.crew.find((x) => x.crew_id === c.crew_id)?.start_offset_s ?? 0;
   return !isWaiting(c, state.motion[c.crew_id], offset_s);
 }

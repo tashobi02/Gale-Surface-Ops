@@ -11,6 +11,7 @@ import type { HabClient } from "../../net/habClient";
 import { useSnapshot } from "../../state/habSession";
 import {
   havenTargetLabel,
+  selectEvaViewModel,
   selectHudViewModel,
   type HudViewModel,
 } from "../eva/viewModel";
@@ -243,6 +244,11 @@ export function Hud({
           letterSpacing: "0.06em",
         }}
       >
+        {selectEvaViewModel(activeSnapshot, crewId).activity === "HOLDING" && (
+          <span data-hud-value="activity" data-provenance="simulated" data-source="snapshot:crew.activity" style={{ fontSize: "56px", lineHeight: 1, color: "var(--hud-text, #FFFFFF)" }}>
+            HOLDING
+          </span>
+        )}
         <span
           data-hud-value="link"
           style={{ fontSize: "56px", lineHeight: 1 }}

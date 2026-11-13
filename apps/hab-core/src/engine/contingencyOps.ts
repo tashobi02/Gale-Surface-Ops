@@ -199,7 +199,7 @@ export function contingencyTick(state: EngineState, ctx: TickContext): TickResul
   for (const alert of state.alerts) {
     if (alert.level !== "warning" || alert.cleared_seq !== null) continue;
     if (answered.has(alert.alert_id) || state.options.some((o) => o.alert_id === alert.alert_id)) continue;
-    const crew = state.crew.filter((c) => alert.subjects.includes(c.crew_id) && (c.activity === "WALKING" || c.activity === "AT_STOP"));
+    const crew = state.crew.filter((c) => alert.subjects.includes(c.crew_id) && (c.activity === "WALKING" || c.activity === "AT_STOP" || c.activity === "HOLDING"));
     if (crew.length === 0) continue;
 
     // A compute RangeError (hab or rover off the grid, a malformed ParamSet) never stops the engine:

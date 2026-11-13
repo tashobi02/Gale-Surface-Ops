@@ -194,6 +194,8 @@ function stepMode(c: Crew, m: CrewMotion | undefined, offset_s: number): { shelt
       // Holding (the route ended, or waiting at a vehicle rendezvous) rests in the suit.
       return { shelter: "suit", o2: m?.phase === "hold" ? "resting" : "walking" };
     case "AT_STOP":
+    case "HOLDING":
+      // A held crew member stands in the suit at the resting rate; dose and O₂ keep running (SET_CREW_MOTION, Q2).
       return { shelter: "suit", o2: "resting" };
     case "SHELTERED":
       // A terrain refuge has no factor before T2: conservative suit shielding at the resting rate.
@@ -278,6 +280,8 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
   const hold = (motion: CrewMotion | undefined): Walked => ({ x_m: c.x_m, y_m: c.y_m, motion, events: () => [], waited_s: 0 });
   const plan = state.plan;
   const moving = c.activity === "WALKING" || c.activity === "AT_STOP" || c.activity === "TO_HAVEN";
+  // A held crew member keeps its walk progress, so RESUME continues from the same point (SET_CREW_MOTION, Q2).
+  if (c.activity === "HOLDING") return hold(m);
   if (!moving || !plan) return hold(undefined);
   const legs = plan.result.legs;
   const waypoints = plan.waypoints;

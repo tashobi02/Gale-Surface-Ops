@@ -11,6 +11,8 @@
  * RESET_SESSION → the session manager (effect "reset"; any status, presenter only), SEND_MESSAGE → engine/earth (TASK-26), TASK_ROVER → ./rover (FR-41, TASK-29), UPDATE_STOP_TASK and
  * ADD_STOP_TASK → engine/tasks (FR-50, T31.04; "own tasks" and the undo rules are checked there, 02 §E.4, §E.6).
  * Every accepted PLAN_REVISED is followed by the TASK_DROPPED events of the stops it removed (`withTaskDrops`).
+ * SET_CREW_MOTION (QoL Q2, Proposed 2026-11-13) is a simulation control, not a real EVA function: HOLD or RESUME one crew
+ * member's walk. Its "self" rule: an EVA role names its own `crew_id`; ops may name either (decided 2026-11-13, docs/plan/qol/decisions.md).
  * Rules where 02 is silent (proposed 2026-11-07, tests/commands.test.ts header): EVA "self" means
  * SUMMON_VEHICLE `args.crew` includes the issuer, and ACK_ALERT's alert has the issuer in `subjects`.
  *
@@ -39,7 +41,7 @@ import { handleSendMessage } from "./engine/earth";
 import { startEvent } from "./engine/liveEvents";
 import { selectHabSite, setMissionSetup, type SiteEffect } from "./engine/liveSetup";
 import { nextStopTarget, warningLatched } from "./engine/nextStop";
-import { logged, type CommandOutcome, type EngineState, type PendingEvent } from "./engine/reducer";
+import { isWaiting, logged, type CommandOutcome, type EngineState, type PendingEvent } from "./engine/reducer";
 import { checkPublishedTasks, handleAddStopTask, handleUpdateStopTask, onPlanRevised, publishedTaskEvents, replacedTaskDrops } from "./engine/tasks";
 import { handleSummon } from "./engine/vehicles";
 import { handleTaskRover, taskRoverArgsError } from "./rover";
@@ -178,6 +180,7 @@ function checkRole(state: EngineState, command: Command): void {
     const crew = command.args.crew;
     if (Array.isArray(crew) && !crew.includes(self)) reject("FORBIDDEN_ROLE", `${command.role} may summon only for a crew that includes ${self}`);
   }
+  if (command.kind === "SET_CREW_MOTION" && typeof command.args?.crew_id === "string" && command.args.crew_id !== self) reject("FORBIDDEN_ROLE", `${command.role} may hold or resume only ${self}`);
   if (command.kind === "ACK_ALERT") {
     const alert = state.alerts.find((a) => a.alert_id === command.args.alert_id);
     if (alert && !alert.subjects.includes(self)) reject("FORBIDDEN_ROLE", `${command.role} may acknowledge only alerts about ${self}`);
@@ -304,6 +307,21 @@ function dispatch(state: EngineState, command: Command, ctx: CommandContext): Ha
     case "ADD_STOP_TASK":
       requireState(state, DURING_EVA, "Adding a stop task");
       return handleAddStopTask(state, ctx.scenario, command);
+    case "SET_CREW_MOTION": {
+      const member = state.crew.find((x) => x.crew_id === a.crew_id);
+      if (!member) reject("INVALID", "SET_CREW_MOTION needs args.crew_id of a crew member");
+      if (a.motion !== "HOLD" && a.motion !== "RESUME") reject("INVALID", "SET_CREW_MOTION needs args.motion HOLD or RESUME");
+      requireState(state, DURING_EVA, "Holding or resuming a crew member");
+      const crew = member!;
+      if (a.motion === "HOLD") {
+        const offset_s = ctx.scenario.scenario.crew.find((x) => x.crew_id === crew.crew_id)?.start_offset_s ?? 0;
+        if (crew.activity !== "WALKING" && crew.activity !== "AT_STOP") reject("INVALID", `${crew.crew_id} is ${crew.activity}: only a crew member walking or at a stop can hold`);
+        if (isWaiting(crew, state.motion[crew.crew_id], offset_s)) reject("INVALID", `${crew.crew_id} has not left the hab yet`);
+      } else if (crew.activity !== "HOLDING") {
+        reject("INVALID", `${crew.crew_id} is ${crew.activity}, not HOLDING`);
+      }
+      return ok(state, command, "CREW_MOTION_SET", { crew_id: crew.crew_id, motion: a.motion as "HOLD" | "RESUME", actor: command.role });
+    }
     default:
       return reject("INVALID", `unknown command kind ${String((command as Command).kind)}`);
   }

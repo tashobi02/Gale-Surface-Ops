@@ -12,7 +12,7 @@ type Kind = Command["kind"];
 const ALL_KINDS: readonly Kind[] = [
   "LOAD_SCENARIO", "SET_CLOCK", "JUMP_NEXT_EVENT", "START_EVA", "PUBLISH_PLAN", "SUMMON_VEHICLE", "ABORT", "ACK_ALERT",
   "APPROVE_OPTION", "TASK_ROVER", "SEND_MESSAGE", "INJECT_EVENT", "UPDATE_STOP_TASK", "ADD_STOP_TASK",
-  "JUMP_NEXT_STOP", "START_EVENT", "RESET_SESSION", "SELECT_HAB_SITE", "SET_MISSION_SETUP",
+  "JUMP_NEXT_STOP", "START_EVENT", "RESET_SESSION", "SELECT_HAB_SITE", "SET_MISSION_SETUP", "SET_CREW_MOTION",
 ];
 
 type Column = "planner" | "eva" | "ops" | "earth" | "presenter";
@@ -30,6 +30,8 @@ const ROWS: { kinds: Kind[]; columns: Column[] }[] = [
   { kinds: ["UPDATE_STOP_TASK"], columns: ["eva", "ops"] },
   { kinds: ["ADD_STOP_TASK"], columns: ["ops"] },
   { kinds: ["INJECT_EVENT"], columns: ["ops"] },
+  // QoL Q2 (2026-11-13, Proposed): a simulation control; an EVA role only for its own crew member (checked in commands.ts).
+  { kinds: ["SET_CREW_MOTION"], columns: ["eva", "ops"] },
 ];
 
 const ROLES: { role: Role; column: Column | "hud" }[] = [

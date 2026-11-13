@@ -277,6 +277,12 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
         session: { ...next.session, status: "RUNNING", plan_revision: e.data.plan_revision },
         crew: updateCrew(next.crew, e.data.crew_ids, () => ({ activity: "WALKING" })),
       };
+    case "CREW_MOTION_SET":
+      // HOLD stops the walk (the motion record is kept by tick.ts). RESUME goes back to the stop dwell it interrupted, else to walking.
+      return {
+        ...next,
+        crew: updateCrew(next.crew, [e.data.crew_id], () => ({ activity: e.data.motion === "HOLD" ? "HOLDING" : next.motion[e.data.crew_id]?.phase === "dwell" ? "AT_STOP" : "WALKING" })),
+      };
     case "ARRIVED_STOP":
       return { ...next, crew: updateCrew(next.crew, [e.data.crew_id], () => ({ activity: "AT_STOP", stop_index: e.data.stop_index })) };
     case "LEFT_STOP":

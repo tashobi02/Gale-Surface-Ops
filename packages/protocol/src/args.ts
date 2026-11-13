@@ -59,6 +59,10 @@ export interface StartEventArgs {
 export interface SelectHabSiteArgs {
   candidate_id: string;
 }
+export interface SetCrewMotionArgs {
+  crew_id: CrewId;
+  motion: "HOLD" | "RESUME";
+}
 export type SetMissionSetupArgs = Partial<MissionSetup>;
 
 /** Command kind -> its `args`. */
@@ -82,4 +86,5 @@ export interface CommandArgs {
   RESET_SESSION: Record<string, never>;
   SELECT_HAB_SITE: SelectHabSiteArgs;
   SET_MISSION_SETUP: SetMissionSetupArgs;
+  SET_CREW_MOTION: SetCrewMotionArgs;
 }

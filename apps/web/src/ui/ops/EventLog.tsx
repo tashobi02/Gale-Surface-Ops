@@ -86,6 +86,7 @@ export function categorizeEvent(kind: LogEventKind): EventCategory {
     case "ARRIVED_STOP":
     case "LEFT_STOP":
     case "CREW_SHELTERED":
+    case "CREW_MOTION_SET":
     case "EVA_ENDED":
       return "CREW";
     case "TASK_ADDED":
@@ -149,6 +150,8 @@ export function summarizeEvent(event: LogEvent): string {
       return `Vehicle ${field(d.vehicle_id)} arrived at destination`;
     case "CREW_SHELTERED":
       return `${field(d.crew_id)} sheltered in ${field(d.haven_kind)}`;
+    case "CREW_MOTION_SET":
+      return `${field(d.crew_id)} ${d.motion === "HOLD" ? "held" : "resumed"} (simulation control)`;
     case "TASK_ADDED":
       return `Task added: ${field(d.text) !== UNAVAILABLE ? field(d.text) : field(d.task_id)}`;
     case "TASK_UPDATED":

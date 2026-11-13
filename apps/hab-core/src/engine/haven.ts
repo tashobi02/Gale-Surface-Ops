@@ -172,7 +172,7 @@ export function havenTick(state: EngineState, ctx: TickContext): TickResult {
 
   const crew = state.crew.map((c): Crew => {
     const entry = ctx.scenario.scenario.crew.find((x) => x.crew_id === c.crew_id);
-    const out = c.activity === "WALKING" || c.activity === "AT_STOP" || c.activity === "TO_HAVEN";
+    const out = c.activity === "WALKING" || c.activity === "AT_STOP" || c.activity === "TO_HAVEN" || c.activity === "HOLDING";
     const waiting = isWaiting(c, state.motion[c.crew_id], entry?.start_offset_s ?? 0);
     const mine = openAlerts(state, c.crew_id);
 
