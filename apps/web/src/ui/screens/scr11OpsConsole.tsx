@@ -42,6 +42,7 @@ import { OpsMap } from "../ops/OpsMap";
 import { RoverQueue } from "../ops/RoverQueue";
 import { QrDrawer } from "../ops/QrDrawer";
 import { RoverTask } from "./scr15RoverTask";
+import { StatusIcon } from "../components/statusIcon";
 import {
   PROVENANCE_GLYPHS,
   UNAVAILABLE,
@@ -618,17 +619,25 @@ export function OpsConsole({
 
                   {isUnlinked && (
                     <footer
+                      data-status="caution"
                       style={{
+                        display: "flex",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "6px",
                         fontSize: "12px",
                         color: "var(--status-caution, #FFB020)",
                         fontFamily: "var(--font-mono, monospace)",
                       }}
                     >
-                      ⚠ LAST HEARD{" "}
-                      <span {...provAttrs(unavailableOf("simulated", "link.age_seconds"))}>
-                        {UNAVAILABLE}
-                      </span>{" "}
-                      (cached values)
+                      <StatusIcon status="caution" showWord={true} />
+                      <span>
+                        LAST HEARD{" "}
+                        <span {...provAttrs(unavailableOf("simulated", "link.age_seconds"))}>
+                          {UNAVAILABLE}
+                        </span>{" "}
+                        (cached values)
+                      </span>
                     </footer>
                   )}
                 </article>

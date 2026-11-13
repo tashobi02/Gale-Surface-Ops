@@ -41,8 +41,8 @@ test("scale-bar: scale line equals the view resolution within 1 % at every level
   }
 });
 
-test.fixme("scale-bar: reference crater matches its DEM size within 2 % at every visible level (needs T03.19: the real gale_boxwork bundle)", async () => {
-  test.skip(process.env.E2E_SITE !== "gale_boxwork", "needs the real site bundle (T03.19)");
+test.fixme("needs N-140: scale-bar reference crater matches its DEM size within 2 % at every visible level (real gale_boxwork bundle; T03.19)", async () => {
+  test.skip(process.env.E2E_SITE !== "gale_boxwork", "needs N-140: the real gale_boxwork bundle (T03.19)");
   // Two rim points are picked on the map in projected metres; their distance is compared with the DEM-measured crater size
   // from docs/ops/feasibility/dem-quality.md (38.87 m rim to rim). The expected size is read from that document, not written
   // here, and the rim endpoints must first be converted to site coordinates with the manifest's own CRS. The spike exposes

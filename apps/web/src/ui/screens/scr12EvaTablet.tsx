@@ -363,6 +363,7 @@ export function EvaTablet({
         <div
           role="status"
           data-slot="ack-rejection"
+          data-status="warning"
           data-provenance="simulated"
           data-source="snapshot:alerts"
           style={{
@@ -376,7 +377,8 @@ export function EvaTablet({
             paddingLeft: "8px",
           }}
         >
-          ACK REFUSED — {ackRejection}
+          <StatusIcon status="warning" showWord={true} />
+          <span>ACK REFUSED — {ackRejection}</span>
         </div>
       )}
 

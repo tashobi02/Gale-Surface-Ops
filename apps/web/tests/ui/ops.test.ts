@@ -1313,3 +1313,13 @@ it("a dropped task frees an ops task slot", async () => {
   await typeInto(must(view.container, 'input'), "Observe the ridge");
   expect(must<HTMLButtonElement>(view.container, '[type="submit"]').disabled).toBe(false);
 });
+
+it("an unlinked or stale crew card footer uses StatusIcon caution shape and word (▲ CAUTION), never colour alone (04 §A.3)", async () => {
+  const { container } = await mount(createElement(OpsConsole, { crew: [crewMember({ linked: false, stale: true })] }));
+  const footer = must(container, ".crew-card footer");
+  const icon = must(footer, '.status-indicator[data-status="caution"]');
+  expect(icon.textContent).toContain("▲");
+  expect(icon.textContent).toContain("CAUTION");
+  expect(footer.textContent).toContain("LAST HEARD");
+  expect(footer.textContent).not.toContain("⚠");
+});

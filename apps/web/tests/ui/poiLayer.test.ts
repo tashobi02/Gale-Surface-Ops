@@ -1,5 +1,5 @@
 /**
- * T07.11 — POI layer and selection (FR-04, 03 SCR-06, 04 §C.3, §C.5, §F; C11 POI selection is TODO(decision)).
+ * T07.11 — POI layer and selection (FR-04, 03 SCR-06, 04 §C.3, §C.5, §F; C11 POI selection separate per FD-074).
  * Real OpenLayers and the mock site's own POIs.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -119,7 +119,7 @@ describe("createPoiLayer: markers from the boot POI map (FR-04)", () => {
   });
 });
 
-describe("POI selection is separate from waypoint selection (C11 TODO(decision))", () => {
+describe("POI selection is separate from waypoint selection (C11, FD-074)", () => {
   it("selectPoi records the POI and calls onSelectPoi with the POI id; null clears", () => {
     const onSelectPoi = vi.fn();
     const c = make(SITE, { onSelectPoi });
