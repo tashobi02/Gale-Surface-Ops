@@ -40,7 +40,7 @@ import { startEvent } from "./engine/liveEvents";
 import { selectHabSite, setMissionSetup, type SiteEffect } from "./engine/liveSetup";
 import { nextStopTarget, warningLatched } from "./engine/nextStop";
 import { logged, type CommandOutcome, type EngineState, type PendingEvent } from "./engine/reducer";
-import { checkPublishedTasks, handleAddStopTask, handleUpdateStopTask, onPlanRevised, publishedTaskEvents } from "./engine/tasks";
+import { checkPublishedTasks, handleAddStopTask, handleUpdateStopTask, onPlanRevised, publishedTaskEvents, replacedTaskDrops } from "./engine/tasks";
 import { handleSummon } from "./engine/vehicles";
 import { handleTaskRover, taskRoverArgsError } from "./rover";
 import { checkPlan, type LoadedScenario } from "./scenario";
@@ -154,7 +154,7 @@ function withTaskDrops(state: EngineState, events: PendingEvent[], first_seq: nu
   const out: PendingEvent[] = [];
   for (const e of events) {
     // A task seeded by the published plan is a system event, like the ones seeded at load (05 LogEvent): no command_ref.
-    out.push({ ...e, command_ref: e.kind === "TASK_ADDED" && e.actor === "system" ? null : ref });
+    out.push({ ...e, command_ref: (e.kind === "TASK_ADDED" || e.kind === "TASK_DROPPED") && e.actor === "system" ? null : ref });
     if (e.kind === "PLAN_REVISED") out.push(...onPlanRevised(state, logged(e, first_seq + out.length - 1)).map((d) => ({ ...d, command_ref: null })));
   }
   return out;
@@ -259,8 +259,11 @@ function dispatch(state: EngineState, command: Command, ctx: CommandContext): Ha
       // The new plan comes whole; its waypoints and legs are the route the map shows (decided 2026-11-07).
       const p = plan as PlanExport;
       const revised = ok(state, command, "PLAN_REVISED", { plan_revision: state.session.plan_revision + 1, option_id: null, stops_dropped: [], waypoints: p.waypoints, legs: p.result.legs, plan: p });
-      // One TASK_ADDED per task after the PLAN_REVISED (so `event_seq` is the plan's own), as the load path seeds them.
-      return { ...revised, events: [...revised.events, ...publishedTaskEvents((tasks as { seeds: StopTaskSeed[] }).seeds, state.session.clock.sim_time)] };
+      // After the PLAN_REVISED (so `event_seq` is the plan's own): a TASK_DROPPED per draft the list no longer names (N-70), then one
+      // TASK_ADDED per new or changed task, as the load path seeds them.
+      const { seeds, drops } = tasks as { seeds: StopTaskSeed[]; drops: string[] };
+      const sim_time = state.session.clock.sim_time;
+      return { ...revised, events: [...revised.events, ...replacedTaskDrops(state, drops, state.session.plan_revision + 1, sim_time), ...publishedTaskEvents(seeds, sim_time)] };
     }
     case "ACK_ALERT": {
       if (typeof a.alert_id !== "string") reject("INVALID", "ACK_ALERT needs args.alert_id");

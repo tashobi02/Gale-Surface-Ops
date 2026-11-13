@@ -81,19 +81,28 @@ export function seedTasks(scenario: LoadedScenario): PendingEvent[] {
 }
 
 /**
- * The tasks of `PUBLISH_PLAN {plan, stop_tasks?}` (01 FR-54, FR-50; BD-91, BD-120): `raw` is checked against the plan being
- * published, with the rules the loader applies to scenario `stop_tasks` plus those of ADD_STOP_TASK. Returns the seeds,
- * or the reason the command is `INVALID`. A stop with no entry has no task, so the FR-50 "1–4" is "at most 4" here.
- * `state` supplies the task ids already in the session.
+ * The tasks of `PUBLISH_PLAN {plan, stop_tasks?}` (01 FR-54, FR-50; BD-91, BD-120, BD-155): `raw` is checked against the plan
+ * being published, with the rules the loader applies to scenario `stop_tasks` plus those of ADD_STOP_TASK. Returns what the
+ * command logs after PLAN_REVISED, or the reason it is `INVALID`. A stop with no entry has no task, so the FR-50 "1–4" is
+ * "at most 4" here, counting the tasks ops added by hand (BD-109).
+ *
+ * A published list is the planner's whole set of drafts (N-70, BD-155): the session's tasks of origin `plan` are replaced by it.
+ * `seeds` are the entries to add: new ones, and ones whose stop, crew, kind or text differ from the task of that id (the reducer
+ * puts the new task in place of the old). An entry equal to its task is kept, with no event, so a repeated publish adds nothing.
+ * `drops` are the ids of open `plan` tasks at a stop that is still in the plan and that the list no longer names; the tasks at a
+ * removed stop are dropped by `onPlanRevised`, not here. An id that names a task of another origin is `INVALID`: a planner
+ * replaces its own drafts only. `state` is the state before the command; with no `stop_tasks` nothing changes.
  */
-export function checkPublishedTasks(state: EngineState, plan: PlanExport, raw: unknown): { seeds: StopTaskSeed[] } | { error: string } {
-  if (raw === undefined) return { seeds: [] };
+export function checkPublishedTasks(state: EngineState, plan: PlanExport, raw: unknown): { seeds: StopTaskSeed[]; drops: string[] } | { error: string } {
+  if (raw === undefined) return { seeds: [], drops: [] };
   if (!Array.isArray(raw)) return { error: "PUBLISH_PLAN stop_tasks must be an array of tasks" };
   const stops = new Set(plan.waypoints.filter((w) => w.role === "stop").map((w) => w.id));
-  const known = new Set(state.tasks.map((t) => t.task_id));
+  const byId = new Map(state.tasks.map((t) => [t.task_id, t]));
   const ids = new Set<string>();
   const perStop = new Map<string, number>();
-  const seeds: StopTaskSeed[] = [];
+  // Open tasks of other origin stay at their stop and count towards its four; a draft of origin plan is replaced by the list.
+  for (const t of state.tasks) if (t.state !== "DROPPED" && t.origin !== "plan") perStop.set(t.stop_id, (perStop.get(t.stop_id) ?? 0) + 1);
+  const entries: StopTaskSeed[] = [];
   for (const [i, entry] of raw.entries()) {
     const at = `PUBLISH_PLAN stop_tasks[${i}]`;
     if (typeof entry !== "object" || entry === null || Array.isArray(entry)) return { error: `${at} must be an object` };
@@ -102,7 +111,8 @@ export function checkPublishedTasks(state: EngineState, plan: PlanExport, raw: u
     // "/" would break the STATE_DELTA path of the task ("tasks/<task_id>/state").
     if (t.task_id.includes("/")) return { error: `${at} task_id may not contain /` };
     if (ids.has(t.task_id)) return { error: `${at} task_id ${t.task_id} appears twice` };
-    if (known.has(t.task_id)) return { error: `${at} task_id ${t.task_id} is already a task of this session` };
+    const existing = byId.get(t.task_id);
+    if (existing !== undefined && existing.origin !== "plan") return { error: `${at} task_id ${t.task_id} is a task that ${existing.origin} added; a published list replaces only the plan's own tasks` };
     ids.add(t.task_id);
     if (typeof t.stop_id !== "string" || !stops.has(t.stop_id)) return { error: `${at} stop_id ${String(t.stop_id)} is not a stop Waypoint of the plan (U-61)` };
     if (typeof t.text !== "string" || t.text.trim().length === 0 || t.text.length > MAX_TASK_TEXT) return { error: `${at} text must be 1-${MAX_TASK_TEXT} characters` };
@@ -112,14 +122,28 @@ export function checkPublishedTasks(state: EngineState, plan: PlanExport, raw: u
     const count = (perStop.get(t.stop_id) ?? 0) + 1;
     if (count > MAX_TASKS_PER_STOP) return { error: `stop ${t.stop_id} has more than ${MAX_TASKS_PER_STOP} tasks; FR-50 allows 1-${MAX_TASKS_PER_STOP}` };
     perStop.set(t.stop_id, count);
-    seeds.push({ task_id: t.task_id, stop_id: t.stop_id, crew_id: crew_id as CrewId | null, kind: t.kind as StopTaskKind, text: t.text });
+    entries.push({ task_id: t.task_id, stop_id: t.stop_id, crew_id: crew_id as CrewId | null, kind: t.kind as StopTaskKind, text: t.text });
   }
-  return { seeds };
+  const same = (e: StopTaskSeed): boolean => {
+    const old = byId.get(e.task_id);
+    return old !== undefined && old.state !== "DROPPED" && old.stop_id === e.stop_id && old.crew_id === e.crew_id && old.kind === e.kind && old.text === e.text;
+  };
+  const drops = state.tasks.filter((t) => t.origin === "plan" && t.state === "TODO" && stops.has(t.stop_id) && !ids.has(t.task_id)).map((t) => t.task_id);
+  return { seeds: entries.filter((e) => !same(e)), drops };
 }
 
 /** One TASK_ADDED per published task, in list order, at `sim_time`; the same events as `seedTasks` gives at load. */
 export function publishedTaskEvents(seeds: readonly StopTaskSeed[], sim_time: string): PendingEvent[] {
   return seeds.map((t) => seedEvent(t, sim_time));
+}
+
+/** One TASK_DROPPED (actor `system`) per draft a published list no longer names, for the revision `plan_revision`. */
+export function replacedTaskDrops(state: EngineState, ids: readonly string[], plan_revision: number, sim_time: string): PendingEvent[] {
+  return ids.map((task_id) => {
+    const task = state.tasks.find((t) => t.task_id === task_id)!;
+    const data: LogEventData["TASK_DROPPED"] = { task_id, stop_id: task.stop_id, plan_revision };
+    return { sim_time, kind: "TASK_DROPPED" as const, actor: "system" as const, data: data as Record<string, unknown>, provenance: { "data.plan_revision": "simulated" } };
+  });
 }
 
 const REASONS: readonly StopTaskReason[] = ["time", "terrain", "alert", "other"];
@@ -138,7 +162,8 @@ const stopsOf = (state: EngineState): Waypoint[] => (state.plan?.waypoints ?? []
  * must be the actor of the task's last change, never `system` (FORBIDDEN_ROLE); then everything else is INVALID.
  * NO_LINK comes first, in commands.ts. Transitions: DONE and SKIPPED only from TODO; TODO only with
  * `undo: true`, from DONE or SKIPPED, while no PLAN_REVISED has been logged since the change and its stop is
- * still in the plan. The 5-s window is the tablet's; nothing here reads a clock (NFR-06).
+ * still in the plan. SKIPPED -> SKIPPED with a different reason is a reason revision (N-29, BD-153): the same actor rule
+ * and the same staleness rule as an undo. The 5-s window is the tablet's; nothing here reads a clock (NFR-06).
  */
 export function handleUpdateStopTask(
   state: EngineState,
@@ -170,6 +195,11 @@ export function handleUpdateStopTask(
   if (a.undo === true && (task.state === "DONE" || task.state === "SKIPPED") && lastActor !== undefined && (lastActor === "system" || lastActor !== command.role)) {
     return reject(command, "FORBIDDEN_ROLE", `${command.role} is not the actor of the last change to ${taskId} (${lastActor}); only that role may undo it`);
   }
+  // Revising the reason of a SKIPPED task (N-29, BD-153) is judged like an undo: only the actor of the SKIP may do it.
+  const revising = a.undo !== true && a.state === "SKIPPED" && task.state === "SKIPPED";
+  if (revising && lastActor !== undefined && (lastActor === "system" || lastActor !== command.role)) {
+    return reject(command, "FORBIDDEN_ROLE", `${command.role} is not the actor of the last change to ${taskId} (${lastActor}); only that role may revise its reason`);
+  }
   if (a.undo !== undefined && typeof a.undo !== "boolean") {
     return reject(command, "INVALID", "UPDATE_STOP_TASK args.undo must be true or false");
   }
@@ -191,6 +221,20 @@ export function handleUpdateStopTask(
     }
     if (!stopsOf(state).some((w) => w.id === task.stop_id)) {
       return reject(command, "INVALID", `stop ${task.stop_id} is no longer in the plan; ${taskId} cannot be undone`);
+    }
+  } else if (revising) {
+    // SKIPPED -> SKIPPED with another reason, while the SKIP is still the last change and its plan revision is current
+    // (the same staleness rule as an undo, so no clock is read, NFR-06). The log keeps every reason, so the audit is whole.
+    if (lastActor === undefined) return reject(command, "INVALID", `${taskId} has no recorded change to revise`);
+    if (typeof a.reason !== "string" || !REASONS.includes(a.reason as StopTaskReason)) {
+      return reject(command, "INVALID", "SKIPPED requires reason: time | terrain | alert | other");
+    }
+    if (a.reason === task.reason) return reject(command, "INVALID", `${taskId} is already skipped for ${task.reason}`);
+    if (state.task_plan_rev?.[taskId] !== state.session.plan_revision) {
+      return reject(command, "INVALID", `the plan was revised since the last change to ${taskId}; its reason is final`);
+    }
+    if (!stopsOf(state).some((w) => w.id === task.stop_id)) {
+      return reject(command, "INVALID", `stop ${task.stop_id} is no longer in the plan; the reason of ${taskId} is final`);
     }
   } else {
     if (target === "TODO") return reject(command, "INVALID", "state TODO needs undo: true");

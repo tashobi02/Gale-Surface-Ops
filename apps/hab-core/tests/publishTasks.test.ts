@@ -81,6 +81,13 @@ const planless = planlessScenario();
 const fresh = (): EngineState => initialState(planless, "s-0001");
 const publish = (state: EngineState, args: Record<string, unknown>, role: Role = "planner", scenario: LoadedScenario = planless) => handleCommand(state, cmd(role, "PUBLISH_PLAN", args), ctxOf(state, scenario));
 
+/** The session with one task that ops added by hand (origin ops), as ADD_STOP_TASK logs it. */
+function withOpsTask(state: EngineState, task_id: string, stop_id: string): EngineState {
+  return fold(state, [{ sim_time: planless.scenario.start_utc, kind: "TASK_ADDED", actor: "ops", data: { task_id, stop_id, crew_id: null, kind: "other", text: "Ops task", origin: "ops" }, provenance: {} }]);
+}
+/** The tasks that are still open (not dropped), as `[task_id, text]`. */
+const openTasks = (state: EngineState): [string, string][] => state.tasks.filter((t) => t.state !== "DROPPED").map((t) => [t.task_id, t.text]);
+
 describe("PUBLISH_PLAN with stop_tasks seeds TASK_ADDED (FR-54, FR-50, BD-91)", () => {
   it("logs PLAN_REVISED first, then one TASK_ADDED per task, so event_seq is the plan's own", () => {
     const state = fresh();
@@ -157,9 +164,9 @@ describe("PUBLISH_PLAN rejects bad stop_tasks with INVALID and logs only COMMAND
     });
   }
 
-  it("rejects a task_id that names a task the session already has", () => {
-    const state = fold(initialState(reference, "s-0001"), seedTasks(reference));
-    const out = handleCommand(state, cmd("planner", "PUBLISH_PLAN", { plan, stop_tasks: [seed("t-s1-01", STOP1.id)] }), ctxOf(state, reference));
+  it("rejects a task_id that names a task the session already has from ops (a planner may replace only its own drafts, N-70)", () => {
+    const state = withOpsTask(fresh(), "t-ops-1", STOP1.id);
+    const out = publish(state, { plan, stop_tasks: [seed("t-ops-1", STOP1.id)] });
     expect(codeOf(out.result)).toBe("INVALID");
     expect(kinds(out.events)).toEqual(["COMMAND_REJECTED"]);
   });
@@ -169,6 +176,61 @@ describe("PUBLISH_PLAN rejects bad stop_tasks with INVALID and logs only COMMAND
     expect(codeOf(publish(running, { plan, stop_tasks: [seed("pt-x", "wp-99")] }).result)).toBe("INVALID");
     // a plan-less state cannot START_EVA, but the status gate is the same for any state that is no longer LOADED
     expect(codeOf(publish(running, { plan, stop_tasks: AUTHORED }).result)).toBe("BUSY");
+  });
+});
+
+describe("a repeated PUBLISH_PLAN replaces the planner's drafts while the session is LOADED (N-70, BD-155; FR-54)", () => {
+  const firstPublish = (): EngineState => {
+    const s = fresh();
+    return fold(s, publish(s, { plan, stop_tasks: AUTHORED }).events);
+  };
+
+  it("the same list again keeps the drafts as they are: one PLAN_REVISED, no TASK_ADDED, no duplicate", () => {
+    const state = firstPublish();
+    const out = publish(state, { plan, stop_tasks: AUTHORED });
+    expect(kinds(out.events)).toEqual(["PLAN_REVISED"]);
+    expect(openTasks(fold(state, out.events)).map(([id]) => id)).toEqual(["pt-1", "pt-2", "pt-3"]);
+  });
+
+  it("a draft whose text changed under the same id is replaced once, in place", () => {
+    const state = firstPublish();
+    const edited = AUTHORED.map((t) => (t.task_id === "pt-2" ? { ...t, text: "Note the vein texture" } : t));
+    const out = publish(state, { plan, stop_tasks: edited });
+    expect(kinds(out.events)).toEqual(["PLAN_REVISED", "TASK_ADDED"]);
+    expect(openTasks(fold(state, out.events))).toEqual([["pt-1", "Image the ridge crest"], ["pt-3", "Brush and bag the contact"], ["pt-2", "Note the vein texture"]]);
+  });
+
+  it("drafts that are not in the new list are dropped by the system, with no command_ref, and the new ones added: rotating ids appends nothing", () => {
+    const state = firstPublish();
+    const out = publish(state, { plan, stop_tasks: [seed("pt-9", STOP1.id, "Fresh draft")] });
+    expect(kinds(out.events)).toEqual(["PLAN_REVISED", "TASK_DROPPED", "TASK_DROPPED", "TASK_DROPPED", "TASK_ADDED"]);
+    const drops = out.events.filter((e) => e.kind === "TASK_DROPPED");
+    expect(drops.map((e) => (e.data as { task_id: string }).task_id)).toEqual(["pt-1", "pt-2", "pt-3"]);
+    for (const e of drops) expect(e).toMatchObject({ actor: "system", command_ref: null });
+    const after = fold(state, out.events);
+    expect(openTasks(after)).toEqual([["pt-9", "Fresh draft"]]);
+    expect(after.tasks.filter((t) => t.state === "DROPPED").map((t) => t.task_id).sort()).toEqual(["pt-1", "pt-2", "pt-3"]);
+  });
+
+  it("an empty list removes every draft; no stop_tasks key leaves them alone", () => {
+    const state = firstPublish();
+    expect(openTasks(fold(state, publish(state, { plan, stop_tasks: [] }).events))).toEqual([]);
+    expect(openTasks(fold(state, publish(state, { plan }).events)).map(([id]) => id)).toEqual(["pt-1", "pt-2", "pt-3"]);
+  });
+
+  it("a task ops added by hand is not a draft: it stays, and it counts towards the four of its stop (BD-109)", () => {
+    const state = withOpsTask(firstPublish(), "t-ops-1", STOP1.id);
+    const after = fold(state, publish(state, { plan, stop_tasks: [seed("pt-9", STOP1.id)] }).events);
+    expect(openTasks(after).map(([id]) => id).sort()).toEqual(["pt-9", "t-ops-1"]);
+    const four = [1, 2, 3, 4].map((i) => seed(`pt-f${i}`, STOP1.id));
+    expect(codeOf(publish(state, { plan, stop_tasks: four }).result)).toBe("INVALID");
+    expect(codeOf(publish(state, { plan, stop_tasks: four.slice(0, 3) }).result)).toBe("ok");
+  });
+
+  it("the rule is applied to the log alone: a restart that replays the events holds the same drafts", () => {
+    let state = firstPublish();
+    state = fold(state, publish(state, { plan, stop_tasks: [seed("pt-9", STOP1.id, "Fresh draft"), AUTHORED[2]!] }).events);
+    expect(openTasks(state)).toEqual([["pt-3", "Brush and bag the contact"], ["pt-9", "Fresh draft"]]);
   });
 });
 
