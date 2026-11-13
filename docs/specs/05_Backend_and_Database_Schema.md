@@ -473,7 +473,7 @@ The `SNAPSHOT` message (02 §E.6) carries these fields besides the entities abov
 | --- | --- | --- | --- |
 | `crew_id` | `EV1 \| EV2` | — | |
 | `x_m`, `y_m` | number | `simulated` | |
-| `activity` | enum | `simulated` | `IN_HAB \| WALKING \| AT_STOP \| TO_HAVEN \| SHELTERED` |
+| `activity` | enum | `simulated` | `IN_HAB \| WALKING \| AT_STOP \| TO_HAVEN \| SHELTERED \| RIDING` (`RIDING`: aboard the pressurized rover on a `RIDE_VEHICLE`, added 2026-11-13, **Proposed**, QoL Q3) |
 | `stop_index` | int \| null | `simulated` | |
 | `o2_frac` | 0–1 | `simulated` (rate `modelled`) | |
 | `eva_elapsed_s` | int | `simulated` | |
@@ -502,7 +502,7 @@ The next stop is **per crew member**: that member's lowest-index stop without th
 | `param_set` | FK → ParamSet | |
 | `x_m`, `y_m` | number | `simulated` |
 | `state` | enum | `PARKED \| DISPATCHED \| EN_ROUTE \| ARRIVED \| RETURNING \| TASKED` |
-| `task` | `{kind: SUMMON\|SCOUT\|CARRY\|RELAY\|RETURN, target, crew_ids?, item?}` \| null | `item`: CARRY only, a free-text label (FR-41 names no item list; decided 2026-11-07). `TASK_ROVER` args are `{vehicle_id, task: SCOUT\|CARRY\|RELAY\|RETURN, target?, item?}` with the same rule (`target` absent for RETURN) |
+| `task` | `{kind: SUMMON\|SCOUT\|CARRY\|RELAY\|RETURN\|RIDE, target, crew_ids?, item?, stop_id?}` \| null | `item`: CARRY only, a free-text label (FR-41 names no item list; decided 2026-11-07). `TASK_ROVER` args are `{vehicle_id, task: SCOUT\|CARRY\|RELAY\|RETURN, target?, item?}` with the same rule (`target` absent for RETURN) |
 | `path` | `[x_m,y_m][]` | display-simplified |
 | `eta_s` | int \| null | `modelled` |
 | `battery_wh` | number \| null | utility rover only, `simulated` |
@@ -535,7 +535,7 @@ The next stop is **per crew member**: that member's lowest-index stop without th
 | --- | --- | --- |
 | `command_id` | string | client-generated, unique per client |
 | `role` | role | must have permission (02 §E.4) |
-| `kind` | enum | `LOAD_SCENARIO \| SET_CLOCK \| JUMP_NEXT_EVENT \| START_EVA \| PUBLISH_PLAN \| SUMMON_VEHICLE \| ABORT \| ACK_ALERT \| APPROVE_OPTION \| TASK_ROVER \| SEND_MESSAGE \| INJECT_EVENT \| UPDATE_STOP_TASK \| ADD_STOP_TASK \| JUMP_NEXT_STOP \| START_EVENT \| RESET_SESSION \| SELECT_HAB_SITE \| SET_MISSION_SETUP` (the last five added 2026-11-10, **Proposed**, 02 §D.17) |
+| `kind` | enum | `LOAD_SCENARIO \| SET_CLOCK \| JUMP_NEXT_EVENT \| START_EVA \| PUBLISH_PLAN \| SUMMON_VEHICLE \| ABORT \| ACK_ALERT \| APPROVE_OPTION \| TASK_ROVER \| SEND_MESSAGE \| INJECT_EVENT \| UPDATE_STOP_TASK \| ADD_STOP_TASK \| JUMP_NEXT_STOP \| START_EVENT \| RESET_SESSION \| SELECT_HAB_SITE \| SET_MISSION_SETUP \| RIDE_VEHICLE` (the five before the last added 2026-11-10, **Proposed**, 02 §D.17; `RIDE_VEHICLE` `{crew_id, vehicle_id, to_stop_id}` added 2026-11-13, **Proposed**, QoL Q3, 02 §E.4) |
 | `args` | object | per kind |
 | `queued_offline` | bool | set by an EVA client that resends after `LINK_STATE linked=true` |
 
@@ -581,7 +581,7 @@ State is reduced from `TASK_ADDED`, `TASK_UPDATED` and `TASK_DROPPED` events; it
 | --- | --- | --- |
 | `seq` | int | monotonic, gap-free |
 | `sim_time` | ISO | |
-| `kind` | enum | `SESSION_LOADED, EVA_STARTED, ARRIVED_STOP, LEFT_STOP, ALERT_RAISED, ALERT_ACKED, ALERT_CLEARED, OPTIONS_PROPOSED, PLAN_REVISED, VEHICLE_DISPATCHED, VEHICLE_ARRIVED, CREW_SHELTERED, LINK_LOST, LINK_RESTORED, EARTH_MSG_QUEUED, EARTH_MSG_DELIVERED, COMMAND_REJECTED, CLOCK_CHANGED, EVA_ENDED, TASK_ADDED, TASK_UPDATED, TASK_DROPPED, CLOCK_JUMPED, EVENT_STARTED, SESSION_RESET, SITE_SELECTED, MISSION_SETUP_SET, ROLE_TAKEN_OVER` (the five before the last added 2026-11-10; `ROLE_TAKEN_OVER` added 2026-11-12, Proposed) |
+| `kind` | enum | `SESSION_LOADED, EVA_STARTED, ARRIVED_STOP, LEFT_STOP, ALERT_RAISED, ALERT_ACKED, ALERT_CLEARED, OPTIONS_PROPOSED, PLAN_REVISED, VEHICLE_DISPATCHED, VEHICLE_ARRIVED, CREW_SHELTERED, CREW_BOARDED, CREW_DISMOUNTED, LINK_LOST, LINK_RESTORED, EARTH_MSG_QUEUED, EARTH_MSG_DELIVERED, COMMAND_REJECTED, CLOCK_CHANGED, EVA_ENDED, TASK_ADDED, TASK_UPDATED, TASK_DROPPED, CLOCK_JUMPED, EVENT_STARTED, SESSION_RESET, SITE_SELECTED, MISSION_SETUP_SET, ROLE_TAKEN_OVER` (the five before the last added 2026-11-10; `ROLE_TAKEN_OVER` added 2026-11-12, Proposed; `CREW_BOARDED` and `CREW_DISMOUNTED` added 2026-11-13, Proposed, QoL Q3) |
 | `actor` | role \| `system` | |
 | `data` | object | values needed to reduce state without recomputation |
 | `provenance` | object | field path → class |
@@ -604,6 +604,8 @@ Source column: where the fields are stated. **Proposed** fields are not stated i
 | `PLAN_REVISED` | `plan_revision` (02 §D.13); `option_id \| null, stops_dropped`; `waypoints` (Waypoint[]) and `legs` (Leg[]) of the revised plan, which replace the current ones so the map shows the new route; `plan` (PlanExport) only when the planner publishes a new plan | `plan_revision`: 02; `waypoints`, `legs` and `plan` decided 2026-11-07; rest **Proposed** |
 | `VEHICLE_DISPATCHED` | summon: `vehicle_id, option_id, rendezvous`; `TASK_ROVER`: `vehicle_id, task, target`, plus `item` for CARRY and `task_id` (`rt-<seq>` of this event *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-102)*) | summon: §F.6, fixture `summon-accepted`; rover: decided 2026-11-06 (T20.01) |
 | `VEHICLE_ARRIVED` | `vehicle_id, x_m, y_m` | **Proposed** (Vehicle) |
+| `CREW_BOARDED` | `crew_id, vehicle_id, to_stop_id` | QoL Q3 (**Proposed** 2026-11-13): the crew member is `RIDING` and the vehicle's task is `RIDE` (`crew_ids`, `stop_id`); the `VEHICLE_DISPATCHED` of the drive follows, with the stop as its `rendezvous` point and `eta_crew_s` 0 |
+| `CREW_DISMOUNTED` | `crew_id, vehicle_id, stop_id, stop_index, x_m, y_m` | QoL Q3 (**Proposed** 2026-11-13): logged after `VEHICLE_ARRIVED`; the crew member is `AT_STOP` at the stop and the vehicle is `PARKED` again; `ARRIVED_STOP` follows |
 | `CREW_SHELTERED` | `crew_id, haven_kind, dose_event_ugy, dose_event_unsheltered_ugy` | dose received vs. unsheltered: 03 §C; names from Crew; `haven_kind` **Proposed**; `haven_kind "hab"` sets the crew activity to `IN_HAB` only when the crew member was `WALKING` or `AT_STOP` (03 §E.8 "plan complete"); otherwise (`TO_HAVEN`, or any other kind) it sets `SHELTERED` (03 §E.8 "ToHaven → Sheltered") (**Proposed** 2026-11-07, T22.09) |
 | `LINK_LOST`, `LINK_RESTORED` | `node_id` | fixture `link-lost-restored` |
 | `EARTH_MSG_QUEUED` | `message_id, direction, body, sent_utc, deliver_utc, via` | **Proposed** (EarthMessage) |
