@@ -101,3 +101,23 @@ test("release-matrix: the Layers · Plan button is tappable on a 390 px phone (e
   await page.locator('[data-slot="drawer-toggle"][data-for="left"]').click(); // actionability: nothing may cover it
   await expect(page.locator('[data-drawer="left"]')).toBeVisible();
 });
+
+// B-04 names both toggles. Nothing in the top bar may overlap either toggle's box, and the "POI · Conditions" toggle opens its drawer.
+test("release-matrix: the top bar overlaps neither drawer toggle, and POI · Conditions is tappable on a phone (B-04)", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) >= 768, "the one-drawer layout with its drawer toggles exists only below 768 px");
+  await page.goto(`/?site=${SITE}#/planner`);
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  const boxes = async (selector: string) =>
+    (await page.locator(selector).evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON()))) as DOMRect[];
+  const toggles = await boxes('[data-slot="drawer-toggle"]');
+  expect(toggles.length, "both drawer toggles are rendered").toBe(2);
+  const bar = await boxes(".scr02-site-name, .scr02-chip");
+  for (const t of toggles) {
+    for (const b of bar) {
+      const overlap = b.left < t.right && t.left < b.right && b.top < t.bottom && t.top < b.bottom;
+      expect(overlap, `a top-bar item at (${b.left}, ${b.top}) overlaps a drawer toggle at (${t.left}, ${t.top})`).toBe(false);
+    }
+  }
+  await page.locator('[data-slot="drawer-toggle"][data-for="right"]').click(); // actionability: nothing may cover it
+  await expect(page.locator('[data-drawer="right"]')).toBeVisible();
+});
