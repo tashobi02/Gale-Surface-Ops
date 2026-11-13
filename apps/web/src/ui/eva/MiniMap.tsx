@@ -48,7 +48,7 @@ const SITE_LOAD_DEADLINE_MS = LINK_LOST_AFTER_MS;
 /** The key of the route geometry: when it is unchanged the drawn route is left alone. */
 function routeKeyOf(snapshot: Snapshot | null): string {
   const legs = snapshot?.plan?.result.legs ?? [];
-  return legs.map((leg) => `${leg.status}:${leg.status === "OK" ? leg.geometry.length : 0}`).join("|");
+  return JSON.stringify(legs.map((leg) => leg.status === "OK" ? leg.geometry : null));
 }
 
 /** The legs with a route to draw: only an OK leg has geometry (05 §C Leg). */

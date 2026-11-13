@@ -121,6 +121,14 @@ describe("SCR-19 presenter", () => {
     expect(must(container, '[data-source="unavailable:api/join-qr"]').getAttribute("data-unavailable")).toBe("true");
   });
 
+  it("marks a missing next stop unavailable", async () => {
+    const { container } = await panel(null);
+    const target = must(container, "#presenter-next-target");
+    expect(target.textContent).toBe("—");
+    expect(target.getAttribute("data-unavailable")).toBe("true");
+    expect(target.getAttribute("data-source")).toBe("unavailable:next_stop_target");
+  });
+
   it("moves focus into reset confirmation and restores it on Escape", async () => {
     const { container } = await panel();
     const reset = button(container, "Reset session");

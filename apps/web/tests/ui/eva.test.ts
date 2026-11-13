@@ -337,6 +337,14 @@ describe("SCR-13 HUD and SCR-18 link-lost on fixture snapshots", () => {
     await none.unmount();
   });
 
+  it("marks the HUD stale state unavailable when the crew snapshot is absent", async () => {
+    const view = await mount(createElement(Hud, { crewId: "EV1", snapshot: null }));
+    const stale = must(view.container, '[data-source="unavailable:crew.stale"]');
+    expect(stale.textContent).toBe("—");
+    expect(stale.getAttribute("data-unavailable")).toBe("true");
+    await view.unmount();
+  });
+
   it("link-lost keeps cached values labelled and shows the age as — unless one is supplied; never 'measured'", async () => {
     const noAge = await mount(createElement(HabLinkLost, { crewId: "EV1", snapshot: snapshotOf("link-lost-restored") }));
     expect(noAge.container.textContent).not.toMatch(/NaN|Infinity|undefined/);
