@@ -82,22 +82,46 @@ build_track() {
   local count
   count="$(python3 -c "import json; d=json.load(open('${PLAN_JSON}')); print(len(d['${track_key}']))")"
   for ((i=0; i<count; i++)); do
-    local beat_info
-    beat_info="$(python3 - "${PLAN_JSON}" "${track_key}" "${i}" <<'PYEOF'
+    # A beat that drove several roles has one recording per role; the cut lays them side by side, so every role's
+    # footage is in the picture rather than only the first role's (FD-517).
+    local role_rows
+    role_rows="$(python3 - "${PLAN_JSON}" "${track_key}" "${i}" <<'PYEOF'
 import json, sys
 d = json.load(open(sys.argv[1]))[sys.argv[2]][int(sys.argv[3])]
-print(f"{d['id']}\t{d['clip_path']}\t{d['clip_start_s']:.3f}\t{d['clip_end_s']:.3f}\t{d['dur_s']:.3f}")
+for clip in d["clips"]:
+    print("\t".join([d["id"], clip["path"], f"{clip['start_s']:.3f}", f"{clip['end_s']:.3f}", f"{d['dur_s']:.3f}"]))
 PYEOF
 )"
-    IFS=$'\t' read -r bid clip_path cstart cend dur <<< "${beat_info}"
+    local bid
+    bid="$(head -n 1 <<< "${role_rows}" | cut -f1)"
+    local dur
+    dur="$(head -n 1 <<< "${role_rows}" | cut -f5)"
     local seg_mp4="${SEG_DIR}/${label}-${bid}.mp4"
-    local span
-    span="$(python3 -c "print(max(0.5, float('${cend}') - float('${cstart}')))")"
-    # Scale cleanly to 1440x900 (keeps EVA/HUD 844x390 crisp without stretching), clone last frame to match exact slot duration.
-    ffmpeg -y -v error \
-      -ss "${cstart}" -t "${span}" -i "${clip_path}" \
-      -vf "scale=1440:900:force_original_aspect_ratio=decrease,pad=1440:900:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=30,tpad=stop_mode=clone:stop_duration=${dur},trim=duration=${dur},format=yuv420p" \
-      -an -c:v libx264 -preset fast -crf 20 "${seg_mp4}"
+
+    # Cut each role's own segment first.
+    local role_files=()
+    local clip_index=0
+    local IFS_TAB=$'\t'
+    while read -r _bid clip_path cstart cend _dur; do
+      [[ -z "${clip_path}" ]] && continue
+      local span
+      span="$(python3 -c "print(max(0.5, float('${cend}') - float('${cstart}')))")"
+      local role_mp4="${SEG_DIR}/${label}-${bid}-${clip_index}.mp4"
+      # Scale cleanly to 1440x900 (keeps EVA/HUD 844x390 crisp without stretching), clone last frame to match exact slot duration.
+      ffmpeg -y -v error \
+        -ss "${cstart}" -t "${span}" -i "${clip_path}" \
+        -vf "scale=1440:900:force_original_aspect_ratio=decrease,pad=1440:900:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=30,tpad=stop_mode=clone:stop_duration=${dur},trim=duration=${dur},format=yuv420p" \
+        -an -c:v libx264 -preset fast -crf 20 "${role_mp4}"
+      role_files+=("${role_mp4}")
+      clip_index=$((clip_index + 1))
+    done <<< "${role_rows}"
+
+    if [[ "${#role_files[@]}" -eq 1 ]]; then
+      cp "${role_files[0]}" "${seg_mp4}"
+    else
+      # Several roles in one beat: lay them side by side so every role's screen is visible at once.
+      python3 "${ROOT_DIR}/scripts/stack_roles.py" "${seg_mp4}" "${#role_files[@]}" "${role_files[@]}"
+    fi
     printf "file '%s'\n" "${seg_mp4}" >> "${concat_list}"
   done
 
