@@ -22,6 +22,7 @@ import { canonicalJson } from "./jcs";
 import { sha256Hex } from "./sha256";
 import webPackage from "../../package.json";
 import provenanceMap from "../ui/content/provenanceMap.json";
+import { PROTOTYPE_DISCLAIMER } from "../ui/content/disclaimer";
 
 /** The version of `schemas/plan-export.schema.json` this file implements (FD-140). */
 export const EXPORT_SCHEMA_VERSION = "1.0.0";
@@ -31,13 +32,10 @@ export const APP_VERSION: string = webPackage.version;
 
 /**
  * The prototype disclaimer (01 §F.1): it must appear in the app, and the export carries it (TASK-11
- * spec question 3, FD-135: the card footer and the export carry the full text).
+ * spec question 3, FD-135: the card footer and the export carry the full text). The text itself lives in
+ * `ui/content/disclaimer.ts`, the single source shared with the launchpad and the post-EVA report.
  */
-export const PROTOTYPE_DISCLAIMER =
-  "Marswalk Surface Ops is an exploratory hackathon prototype. It is not astronaut operations software. " +
-  "Crew, suit, rover and vehicle states are simulated. Solar events are real historical records replayed " +
-  "on a simulated clock — not a live feed from Mars. Slope limits, speeds, consumables and shelter values " +
-  "are illustrative assumptions from Earth and Apollo-era references. Radio coverage is line-of-sight only.";
+export { PROTOTYPE_DISCLAIMER };
 
 /** The provenance of every value the export carries, with the source ids it comes from. */
 export interface ProvenanceEntry {

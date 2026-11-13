@@ -47,7 +47,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 
 ## Package 19 follow-up
 
-1. N-30 — N-06 supplies sol, LTST and the condition fields, but `ConditionsState` has no EVA phase. Supply the authoritative phase plus provenance and source; SCR-11 currently displays “—”.
+1. N-06 follow-up — N-06 supplies sol, LTST and the condition fields, but `ConditionsState` has no EVA phase. Supply the authoritative phase plus provenance and source; SCR-11 currently displays “—” (see `axe.spec.ts` `needs N-06`).
 
 ## Package 20 follow-up
 
@@ -62,7 +62,6 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 ## Package 27 follow-up
 
 1. N-81 — Commit the storm recording required by N-21 and include the complete ordered session log in it (including events preceding the initial snapshot), so the Pages replay can independently verify the advertised log hash. The current collector begins with a snapshot and only records later events; this checkout has no recording file.
-| N-30 | SCR-09 scenario metadata | Supply the loaded scenario ParamSet files (including values, provenance and source ids) and the loaded dose-series source id and title to the planner; the site manifest and planner boot currently expose neither | FD-304, FR-15 | 15 (T12.03) |
 
 ## Package 36 follow-up
 
@@ -79,3 +78,23 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 ## Package 33 follow-up
 
 1. N-160 — Complete N-25. (a) Answer C6 `VALIDATE_MANUAL_LEG` in the worker with a `MANUAL_LEG_RESULT` (today the worker answers `ERROR`, "Unknown worker request type", so the manual-leg panel of T09.08 shows Unavailable and "—"). (b) Give each site manifest the BD-23 static PNGs (`images/<layer_id>.png`, pipeline `--static-images`), so a 2 m overlay can fall back to an image on the real site (the ortho already falls back to its own coarsest tile). (c) Take validated legs into the plan authoritatively (totals, timeline, conditions, radiation and computed time): the page shows only the worker's one-leg result and "—" for totals, and never computes them. T09.08 stays `wip` until (a) and (c); the check `fallbacks-planner` has the `fixme("needs N-160")` that passes once they land.
+
+## Package 29 follow-up
+
+1. N-200 — The SCR-11-only mission acceptance (T25.08) needs a supported way for ops to start the library storm. `START_EVENT` is presenter-only in `packages/protocol/src/ws.ts` (02 §D.17), SCR-11 has no Start storm control, and `engine/liveEvents.ts` deliberately keeps dose at background until that command. Event-clock jumps cannot start it. Please resolve the ops permission/surface contract or revise the acceptance explicitly; frontend cannot grant protocol permission in this lane. The complete `ops-no-terminal` storm case remains `test.fixme('needs N-200')`, T25.08 stays wip. The active console-only unstormed mission, approval fixture and presenter-started task/abort check do not claim that missing acceptance.
+
+## Package 31 follow-up
+
+1. N-170 — Complete the product-name migration in backend-owned `apps/hab-core/scripts/build-demo-plan.ts`, `pipeline/cache/donki/README.md` and `scenarios/storm-sol4190/{plan.json,scenario.json,recording.json}`, coordinating the mandatory disclaimer in 01 §F.1 and its consumers. The recorded scenario and replay need their owning lane to preserve reproducibility and hashes. The specs 01 and 03, the shared contract `docs/contracts/tile-grid.md`, the Makefile and the constitution are outside this package's permitted files and also retain the working title. **Frontend side is done:** the launchpad briefing, the post-EVA report and the exported plan JSON now carry one shared boundary statement (`apps/web/src/ui/content/disclaimer.ts`, the ADR-013 name), and the demo script's spoken name matches the on-screen name. The repo-wide rename check stays skipped until the owners above reconcile the title; no historical record should be rewritten.
+
+   Two backend-owned artefacts must change with it, so the pair can be finished in one edit:
+
+   - `apps/hab-core/scripts/build-demo-plan.ts` still declares `PROTOTYPE_DISCLAIMER` with the retired working title in the first sentence. The disclaimer names the product (ADR-013), so the backend copy must adopt the ADR-013 name to stay word-for-word identical to the web copy.
+   - `apps/hab-core/tests/buildDemoPlan.test.ts` ("T21.12 (a) the export carries the web app's disclaimer") reads the web copy with the regex `/export const PROTOTYPE_DISCLAIMER =([\s\S]*?);\n/` against `apps/web/src/export/planExport.ts`. The literal now lives in `apps/web/src/ui/content/disclaimer.ts` and `planExport.ts` re-exports it, so the regex matches nothing and the test throws on `null`. The test should read the new location (or read the re-export's source) so the cross-lane consistency invariant — the one thing that catches the two copies drifting apart — keeps working. The invariant itself is sound and worth keeping; only the path it reads changed.
+
+   Until that pair lands, `make test-web` is red on exactly this one backend test. No frontend test depends on the backend copy.
+
+## Package 99 follow-up
+
+1. N-210 — Annotate lines 28, 57 and 62 of backend-owned `apps/web/tests/fixtures/README.md` individually with `N-13` so literal `TODO(decision)`/`TODO(verify)` greps match the `99-verification.md` §B.2 N-13 exception per line.
+2. N-211 — Provide a worker/backend-owned mechanism to fail a live routing computation on demand so `release-recovery.spec.ts` can verify the T09.07 "Computation failed" + Retry path without adding a production debug hook (`FD-543`).

@@ -218,6 +218,7 @@ test("axe: EVA tablet states and high contrast have no serious or critical viola
     const page = await context.newPage();
     try {
       await openEvaFixture(page, state);
+      await expect(page.locator('[data-slot="link-lost-overlay"]')).toHaveCount(0);
       if (state === "at-stop" || state === "ops-added-task") await page.getByTestId("tasks-button").click();
       await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}` });
       // The options sheet only opens for a warning that CARRIES options (FD-081). The plain alerting fixture raises a
@@ -225,6 +226,7 @@ test("axe: EVA tablet states and high contrast have no serious or critical viola
       if (state === "alerting-with-options") await page.getByRole("button", { name: "Close options sheet" }).click();
       await page.getByRole("button", { name: "Toggle high contrast" }).click();
       await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}-contrast` });
+      await expect(page.locator('[data-slot="link-lost-overlay"]')).toHaveCount(0);
     } finally { await page.close(); }
   }
 });
@@ -237,8 +239,10 @@ test("axe: ops states have no serious or critical violation (package 19)", async
     const page = await context.newPage();
     try {
       await openOpsFixture(page, state);
+      if (state !== "no-session" && state !== "ended") await expect(page.locator('[data-slot="link-lost-overlay"]')).toHaveCount(0);
       const route = `${testInfo.project.name}-ops-${state}`;
       await axeScan(page, { mode: state === "ended" ? "print" : "ops", route });
+      if (state !== "no-session" && state !== "ended") await expect(page.locator('[data-slot="link-lost-overlay"]')).toHaveCount(0);
       if ((page.viewportSize()?.width ?? 0) >= 1024 && state !== "ended") {
         await openOpsPanel(page, "mission");
         await axeScan(page, { mode: "ops", route: `${route}-mission` });

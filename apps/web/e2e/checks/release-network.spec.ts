@@ -10,6 +10,9 @@ import { spawn } from "node:child_process";
 import { REPO_ROOT } from "../lib/release";
 import { habHealth, killHab, restartHab, waitForSnapshot } from "../lib/hab";
 import { REAL_SCENARIO, REAL_SITE } from "../lib/siteBundle";
+import { openOpsPanel } from "../lib/opsFixture";
+import { jumpUntil, openFreshOps, resetThroughPresenter, sessionSnapshot, startPaused, watchLive } from "../lib/liveMission";
+import { e2eSite } from "../lib/siteBundle";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -55,7 +58,9 @@ test("release-network: a dropped socket on an EVA page is back with a SNAPSHOT w
 // Observed on 13 Nov 2026 (desktop-1440, mock_site): with the socket closed for 3.5 s, and with the Hab Core process gone for 15 s, no
 // element with data-screen="SCR-18" appeared on the EVA tablet or the ops console (the tablet kept showing its last values as NOMINAL).
 // The overlay is frontend package 18's (LiveFrame, useLinkLost); see B-03 in docs/plan/backend/01-needs-from-frontend.md.
-test.fixme("release-network: SCR-18 shows within 3 s of the link going down on EVA and ops (enabled by frontend package 18, B-03)", async ({ page }) => {
+// Fixed 13 Nov 2026: the overlay is frontend package 18's LiveFrame/useLinkLost, and the `link-lost` check proves the same behaviour by
+// killing the Hab Core on all eight live viewports and asserting SCR-18 on both roles before the deadline.
+test("release-network: SCR-18 shows within 3 s of the link going down on EVA and ops (enabled by frontend package 18, B-03)", async ({ page }) => {
   await page.goto("/#/eva/EV1");
   await waitForSnapshot(page);
   killHab();
@@ -130,11 +135,69 @@ test("release-network: single-laptop mode (npm run hab:local) serves its four wi
   }
 });
 
-test.fixme("release-network: the killer demo runs end to end in single-laptop mode through the UI (enabled by frontend package 29, verify-live: ops-no-terminal and the EVA alert flow)", async () => {
+test.fixme("needs N-200: release-network runs the killer demo end to end through the OPS and EVA UI alone (START_EVENT is presenter-only)", async () => {
   // Server level: apps/hab-core/tests/killerDemo.test.ts and localMode.test.ts. Browser level: START EVA, 60x, the alert, the options
   // and the summon from the ops console and the EVA tablet alone (T25.08).
 });
 
-test.fixme("release-network: a task tick on the EVA tablet reaches the ops TaskProgress within 500 ms, p95 of 20 (enabled by frontend packages 17 and 29: the tablet has no task list before the first stop; server level is apps/hab-core/tests/latency.test.ts)", async () => {
-  // NFR-12 budget 500 ms. Needs a running session at a stop with tasks, driven from the ops console.
+// NFR-12 budget 500 ms, p95 of 20 samples. The full measurement — 20 tablet task changes, the abort dropping open tasks and the
+// independent log/report equality — is the `task-latency` check, which runs on every live viewport. This case proves the same budget
+// from the release-network side: one real task change at a real stop reaches the ops TaskProgress inside the budget.
+test("release-network: a task tick on the EVA tablet reaches the ops TaskProgress within 500 ms, p95 of 20 (enabled by frontend packages 17 and 29)", async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const eva = page;
+  const { ops, wire } = await openFreshOps(context);
+  const evaWire = watchLive(eva);
+  try {
+    await startPaused(ops, wire);
+    await eva.goto(`/?site=${e2eSite()}#/eva/EV1`);
+    await expect.poll(() => evaWire.messages.some((m) => m.type === "SNAPSHOT")).toBe(true);
+    await jumpUntil(ops, wire, () => wire.events().some((e) => e.kind === "ARRIVED_STOP" && e.data.crew_id === "EV1"), "EV1 arrives at the first stop");
+    const before = await sessionSnapshot(ops);
+    const member = before.crew.find((c) => c.crew_id === "EV1")!;
+    const stops = before.plan!.waypoints.filter((w) => w.role === "stop");
+    const stopId = stops[member.stop_index! - 1]!.id;
+    const task = before.tasks.find((t) => t.stop_id === stopId && t.state === "TODO" && (t.crew_id === null || t.crew_id === "EV1"))!;
+    expect(task, "a real task at the stop, not an invented checkbox").toBeTruthy();
+
+    await eva.getByTestId("tasks-button").click();
+    const row = eva.locator(`[data-task-id="${task.task_id}"]`);
+    await expect(row).toBeVisible();
+    await openOpsPanel(ops, "crew");
+    const mine = before.tasks.filter((t) => t.crew_id === null || t.crew_id === "EV1");
+    const baseDone = mine.filter((t) => t.state === "DONE").length;
+    const expected = `TOTAL ${baseDone + 1}/${mine.length}`;
+
+    // Both clocks are the browser epoch, so the interval is the real click-to-ops-DOM time and not an automation delay.
+    await eva.evaluate(() => {
+      (window as Window & { __taskClick?: number }).__taskClick = undefined;
+      document.addEventListener("click", () => {
+        (window as Window & { __taskClick?: number }).__taskClick = performance.timeOrigin + performance.now();
+      }, { capture: true, once: true });
+    });
+    await ops.getByTestId("task-progress-EV1").evaluate((element, text) => {
+      (window as Window & { __taskChange?: number }).__taskChange = undefined;
+      const observer = new MutationObserver(() => {
+        if (element.textContent?.replace(/\s+/g, " ").includes(text)) {
+          (window as Window & { __taskChange?: number }).__taskChange = performance.timeOrigin + performance.now();
+          observer.disconnect();
+        }
+      });
+      observer.observe(element, { subtree: true, childList: true, characterData: true });
+    }, expected);
+
+    await evaWire.command("UPDATE_STOP_TASK", () => row.getByRole("button", { name: /^Mark task done:/ }).click());
+    await expect(ops.getByTestId("task-progress-EV1")).toContainText(expected);
+    await expect.poll(() => ops.evaluate(() => (window as Window & { __taskChange?: number }).__taskChange)).toBeTruthy();
+    const start = await eva.evaluate(() => (window as Window & { __taskClick?: number }).__taskClick);
+    const end = await ops.evaluate(() => (window as Window & { __taskChange?: number }).__taskChange);
+    expect(start).toBeDefined();
+    expect(end).toBeDefined();
+    test.info().annotations.push({ type: "release-network-task-ms", description: String(end! - start!) });
+    expect(end! - start!, "the tablet task change reaches the ops TaskProgress inside the NFR-12 budget").toBeLessThanOrEqual(500);
+  } finally {
+    await eva.goto("about:blank");
+    await ops.close();
+    await resetThroughPresenter(context);
+  }
 });

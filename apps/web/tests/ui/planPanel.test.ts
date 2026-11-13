@@ -211,6 +211,61 @@ describe("PlanPanel start time (FD-042, FD-113)", () => {
     expect(input(root, "eva_start_utc").value).toBe("");
   });
 
+  // The Hab Core's answer is a default for an empty field, never an edit of a field the user is in. Playwright's fill (and a person)
+  // focuses the field, then types; a default that lands in between puts its text in the field with the caret after it, and the typed
+  // start is appended to it ("2024-05-20T00:00:00Z2026-11-14T08:00:00Z": invalid, for good). T32.26-T32.28 (flaky package-25 checks).
+  describe("a session start that arrives while the user is in the field", () => {
+    const SESSION_START = "2024-05-20T00:00:00Z";
+    async function inFieldWhenSessionAnswers(plan: RealPlan): Promise<{ root: HTMLElement; start: HTMLInputElement; deliver: () => Promise<void> }> {
+      let answer!: (summary: SessionSummary) => void;
+      const root = await panel(plan, () => new Promise<SessionSummary | null>((resolve) => (answer = resolve)));
+      const start = input(root, "eva_start_utc");
+      await act(async () => {
+        start.focus();
+        start.select();
+      });
+      return { root, start, deliver: () => act(async () => answer({ eva_start_utc: SESSION_START })) };
+    }
+
+    it("is not written into the focused field: what the user types is the whole value", async () => {
+      const plan = realPlan({ scenario: { ...DEFAULT_SCENARIO }, waypoints: [START, STOP_POI] });
+      const { root, start, deliver } = await inFieldWhenSessionAnswers(plan);
+      await deliver();
+      expect(start.value).toBe("");
+      expect(plan.store.get().scenario.eva_start_utc).toBe("");
+      await type(start, START_UTC);
+      expect(start.value).toBe(START_UTC);
+      expect(root.getAttribute("data-plan-state")).not.toBe("invalid");
+      await blur(start);
+      expect(start.value).toBe(START_UTC);
+      expect(plan.store.get().scenario.eva_start_utc).toBe(START_UTC);
+      expect(start.getAttribute("data-source")).toBe("user:scenario.eva_start_utc");
+    });
+
+    it("waits for the user to leave the field, then fills it when it is still empty", async () => {
+      const plan = realPlan({ scenario: { ...DEFAULT_SCENARIO }, waypoints: [START, STOP_POI] });
+      const { root, start, deliver } = await inFieldWhenSessionAnswers(plan);
+      await deliver();
+      expect(start.value).toBe("");
+      await blur(start);
+      expect(start.value).toBe(SESSION_START);
+      expect(start.getAttribute("data-source")).toBe("session.eva_start_utc");
+      expect(plan.store.get().scenario.eva_start_utc).toBe(SESSION_START);
+      expect(root.querySelector('[data-slot="start-required"]')).toBeNull();
+    });
+
+    it("is dropped, not applied later, once the user has set a start of their own", async () => {
+      const plan = realPlan({ scenario: { ...DEFAULT_SCENARIO }, waypoints: [START, STOP_POI] });
+      const { start, deliver } = await inFieldWhenSessionAnswers(plan);
+      await type(start, START_UTC);
+      await deliver();
+      await blur(start);
+      await type(start, "");
+      await blur(start);
+      expect(plan.store.get().scenario.eva_start_utc).toBe(START_UTC);
+    });
+  });
+
   it("the start is entered in UTC and previews LTST at the start waypoint, modelled from Mars24 (FD-113)", async () => {
     const root = await panel(withStops());
     const ltst = must(root, '[data-slot="start-ltst"]');

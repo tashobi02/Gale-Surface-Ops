@@ -1,3 +1,4 @@
+import * as siteLoader from "../../src/boot/loadSite";
 /**
  * T24.10 — EVA DOM tests (docs/specs/01 FR-32, FR-33, FR-40, FR-44; 04 §A.3, §D.3, §E.5, §E.6, §E.7).
  * The real components are rendered and driven: snapshots from the fixture store flow into SCR-12/13/18,
@@ -26,17 +27,25 @@ import {
   CONFIRM_FALLBACK_MS,
 } from "../../src/ui/eva/HoldToConfirm";
 import { BEATS } from "../fixtures/ws";
-import { accepted, recordingClient, rejected, storeFromBeat } from "./fixtureStore";
-import { click, flush, installDom, keyDown, keyUp, mount, must, pointerDown, pointerUp, removeDom } from "./domHarness";
+import { accepted, recordingClient, rejected, storeFromBeat as createStore } from "./fixtureStore";
+import { click, flush, installDom, keyDown, keyUp, mount as mountDom, must, pointerDown, pointerUp, removeDom } from "./domHarness";
 import { contrast } from "./wcag";
 
 const STYLES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/styles");
 
 const PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
 
+const mountedViews: Awaited<ReturnType<typeof mountDom>>[] = [];
+const stores: ReturnType<typeof createStore>[] = [];
+async function mount(...args: Parameters<typeof mountDom>) { const view = await mountDom(...args); mountedViews.push(view); return view; }
+function storeFromBeat(...args: Parameters<typeof createStore>) { const store = createStore(...args); stores.push(store); return store; }
+
 beforeAll(() => installDom());
 afterAll(() => removeDom());
-afterEach(() => {
+afterEach(async () => {
+  for (const view of mountedViews.splice(0)) await view.unmount();
+  for (const store of stores.splice(0)) store.close();
+  vi.restoreAllMocks();
   vi.useRealTimers();
   document.body.innerHTML = "";
 });
@@ -69,6 +78,23 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
     const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot }));
     await click(must(view.container, '[aria-label="Acknowledge alert"]'));
     expect(sent).toEqual([{ kind: "ACK_ALERT", args: { alert_id: "alert-1" } }]);
+  });
+  it("a refused ACK carries StatusIcon warning shape and word alongside ACK REFUSED, never colour alone (04 §A.3)", async () => {
+    const { client } = recordingClient(storeFromBeat("connect"), () => rejected("INVALID", "already cleared"));
+    const base = snapshotOf("connect");
+    const snapshot: Snapshot = { ...base, alerts: [{
+      alert_id: "alert-1", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"],
+      raised_seq: 1, acked_seq: null, cleared_seq: null, acked_by: null,
+      message: "Shelter now", data: {},
+    }] };
+    const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot }));
+    await click(must(view.container, '[aria-label="Acknowledge alert"]'));
+    await flush();
+    const banner = must(view.container, '[data-slot="ack-rejection"]');
+    const icon = must(banner, '.status-indicator[data-status="warning"]');
+    expect(icon.querySelector(".status-glyph svg polygon")).not.toBeNull();
+    expect(icon.textContent).toContain("WARNING");
+    expect(banner.textContent).toContain("ACK REFUSED");
   });
   it.each([...BEATS])("beat %s: shows the snapshot's own HAVEN and O₂, never NaN, every value labelled", async (beat) => {
     const client = storeFromBeat(beat);
@@ -326,6 +352,14 @@ describe("SCR-13 HUD and SCR-18 link-lost on fixture snapshots", () => {
     expect(linkNone.textContent).not.toContain("LINK DOWN");
     expect(must(linkNone, '[data-unavailable="true"]')).toBeTruthy();
     await none.unmount();
+  });
+
+  it("marks the HUD stale state unavailable when the crew snapshot is absent", async () => {
+    const view = await mount(createElement(Hud, { crewId: "EV1", snapshot: null }));
+    const stale = must(view.container, '[data-source="unavailable:crew.stale"]');
+    expect(stale.textContent).toBe("—");
+    expect(stale.getAttribute("data-unavailable")).toBe("true");
+    await view.unmount();
   });
 
   it("link-lost keeps cached values labelled and shows the age as — unless one is supplied; never 'measured'", async () => {
@@ -859,7 +893,8 @@ describe("package 17 accessibility controls", () => {
 });
 
 describe("package 17 map and layout", () => {
-  it("provides a map host rather than the placeholder", async () => {
+  it("provides a map host while loading rather than the placeholder", async () => {
+    vi.spyOn(siteLoader, "loadSite").mockImplementationOnce(() => new Promise(() => {}));
     const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
     expect(view.container.querySelector('[data-slot="map-canvas"]')).not.toBeNull();
     expect(view.container.textContent).not.toContain("[ Gale Crater");
@@ -905,5 +940,45 @@ describe("package 18 cached age", () => {
     const age = must(container, '[data-cached-age]');
     expect(age.textContent).toBe("120");
     expect(age.getAttribute("data-source")).toBe("snapshot:crew.last_linked_sim_time");
+  });
+});
+
+describe("SCR-12 narrow 360 px portrait fit (T24.11, task-latency on phone-360x740)", () => {
+  const EVA_CSS = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/screens/scr12EvaTablet.css"), "utf8");
+
+  it("portrait action row and tablet root prevent >360 px horizontal overflow that pushes SCR-14 Close outside 360 px", () => {
+    expect(EVA_CSS).toMatch(/\.scr12-eva-tablet\s+\.action-row\s*\{[^}]*minmax\(0,\s*1fr\)/);
+    expect(EVA_CSS).toMatch(/\.scr12-eva-tablet\s*\{[^}]*max-width:\s*100%/);
+  });
+
+  it("alert banner message wrapper allows shrinking (minWidth: 0) instead of forcing row overflow on 360 px", () => {
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/screens/scr12EvaTablet.tsx"), "utf8");
+    expect(src).toMatch(/data-slot="alert"[\s\S]{0,600}minWidth:\s*0/);
+  });
+});
+
+/**
+ * A scrollable region must be reachable by keyboard (WCAG 2.1.1, and the axe rule
+ * `scrollable-region-focusable`). The NEXT card is given `overflow: auto` in the
+ * landscape and portrait grids so its task list can scroll inside the fixed EVA
+ * layout. A region that scrolls but cannot be focused is unreachable by keyboard:
+ * the crew member cannot scroll it, so anything below the fold is invisible to them.
+ *
+ * The browser check `axe` found this on 6 of the 8 viewports: the EVA full-map,
+ * options and cached transport-loss overlay route reported
+ * `scrollable-region-focusable` on `.next`.
+ */
+describe("SCR-12 NEXT card is keyboard-reachable when it scrolls", () => {
+  it("the scrolling NEXT card carries a tabindex and an accessible name", async () => {
+    const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
+    const next = must(container, '[data-slot="next"]');
+    // A scrollable region with no tabindex is not reachable by keyboard.
+    expect(next.getAttribute("tabindex")).toBe("0");
+    // It needs a name, so the focus ring says what it landed on.
+    const label =
+      next.getAttribute("aria-label") ??
+      next.getAttribute("aria-labelledby") ??
+      next.querySelector("[id]")?.id;
+    expect(label, "the focusable NEXT card needs an accessible name").toBeTruthy();
   });
 });

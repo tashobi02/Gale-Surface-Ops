@@ -10,6 +10,11 @@ export async function openPlanTab(page: Page, extraQuery = ""): Promise<void> {
   await page.goto(`/?site=mock_site${extraQuery}#/planner`);
   await page.waitForLoadState("networkidle");
   await page.locator('[data-slot="map-workspace"]').waitFor();
+  const dismissCoach = page.locator('.coach-marks-popover [data-action="dismiss"]');
+  if (await dismissCoach.isVisible()) {
+    await dismissCoach.click();
+    await page.locator(".coach-marks-popover").waitFor({ state: "hidden" });
+  }
   const toggle = page.locator('[data-slot="drawer-toggle"][data-for="left"]');
   if (await toggle.isVisible()) await toggle.click();
   await page.getByRole("tab", { name: "Plan" }).click();

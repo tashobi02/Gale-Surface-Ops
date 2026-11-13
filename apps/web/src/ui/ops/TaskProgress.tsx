@@ -11,6 +11,7 @@
 
 import type { CSSProperties, ReactElement } from "react";
 import type { CrewId } from "@marswalk/protocol";
+import { StatusIcon } from "../components/statusIcon";
 import { UNAVAILABLE, isFiniteNumber } from "../components/provenance";
 
 export interface TaskProgressProps {
@@ -20,6 +21,7 @@ export interface TaskProgressProps {
   /** Whole EVA for this crew member. null shows "—". */
   total: { done: number; total: number } | null;
   onAdd: (crewId: CrewId) => void;
+  viewOnly?: boolean;
   disabled?: boolean;
   disabledReason?: string;
   className?: string;
@@ -41,6 +43,7 @@ export function TaskProgress({
   stopCount,
   total,
   onAdd,
+  viewOnly = false,
   disabled = false,
   disabledReason,
   className = "",
@@ -105,7 +108,8 @@ export function TaskProgress({
         </span>
       </div>
 
-      <button
+      {viewOnly && <span data-fallback="tasks-view-only" data-provenance="simulated" data-source="result:command.ADD_STOP_TASK"><StatusIcon status="unknown" showWord /> View only</span>}
+      {!viewOnly && <button
         type="button"
         style={buttonStyle}
         onClick={() => !disabled && onAdd(crewId)}
@@ -115,7 +119,7 @@ export function TaskProgress({
         aria-label={`Add task for ${crewId}`}
       >
         + TASK
-      </button>
+      </button>}
     </div>
   );
 }

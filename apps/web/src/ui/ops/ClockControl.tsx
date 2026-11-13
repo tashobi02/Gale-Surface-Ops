@@ -16,7 +16,9 @@
  * Mode OPS: Projector-readable, keyboard accessible (NFR-04).
  */
 
-import type { CSSProperties, ReactElement, ChangeEvent } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactElement, type ChangeEvent } from "react";
+import { StatusIcon } from "../components/statusIcon";
+import { logLiveFallback } from "../live/fallbackDebug";
 import type { CommandKind } from "@marswalk/protocol";
 
 export type ClockSpeed = 1 | 10 | 60;
@@ -60,6 +62,8 @@ export function ClockControl({
   onCommand,
   className = "",
 }: ClockControlProps): ReactElement {
+  const keysOnly = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("clock") === "keys";
+  const scenarioAvailable = availableScenarios.some((item) => item.id === activeScenarioId);
   const paused = isPaused ?? null;
   const currentSpeed = speed ?? null;
 
@@ -97,6 +101,13 @@ export function ClockControl({
     });
   };
 
+  /**
+   * The keydown listener is registered once (it must not be re-registered on every render), so it reads the current
+   * session state and the current handlers from this ref instead of closing over the ones of the registering render.
+   */
+  const latest = useRef({ sessionState, handlePauseToggle, handleJumpNext, handleStartEva, handleSpeedSelect });
+  latest.current = { sessionState, handlePauseToggle, handleJumpNext, handleStartEva, handleSpeedSelect };
+
   const handleScenarioChange = (e: ChangeEvent<HTMLSelectElement>): void => {
     const nextId = e.target.value;
     onLoadScenario?.(nextId);
@@ -105,6 +116,32 @@ export function ClockControl({
       args: { scenario_id: nextId },
     });
   };
+
+  useEffect(() => {
+    if (!keysOnly) return;
+    logLiveFallback("clock-keys");
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+        (event.target instanceof Element && event.target.closest('input, textarea, select, button, a[href], [contenteditable]:not([contenteditable="false"]), [role="dialog"]'))) return;
+      // The listener is registered once, so it reads the current session state and the current handlers from the ref
+      // rather than closing over the ones of the render that registered it.
+      const current = latest.current;
+      const state = current.sessionState;
+      if (!state || state === "ENDED") return;
+      const key = event.key.toLowerCase();
+      if (!["1", "2", "3", " ", "n", "s"].includes(key)) return;
+      event.preventDefault();
+      if (key === " ") current.handlePauseToggle();
+      else if (key === "n") current.handleJumpNext();
+      else if (key === "s" && state === "LOADED") current.handleStartEva();
+      else if (key === "1") current.handleSpeedSelect(1);
+      else if (key === "2") current.handleSpeedSelect(10);
+      else if (key === "3") current.handleSpeedSelect(60);
+    };
+    // Capture prevents the console's existing shortcuts from issuing the same command a second time.
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [keysOnly]);
 
   const containerStyle: CSSProperties = {
     display: "flex",
@@ -156,6 +193,11 @@ export function ClockControl({
   // the controls that would set it, so their digits only name a preset (FD-480).
   const speedInForce = { "data-provenance": "simulated", "data-source": "snapshot:session.clock.speed" } as const;
 
+  if (keysOnly) return <div data-testid="clock-control" data-fallback="clock-keys" role="group" aria-label="Mission clock keyboard controls" style={containerStyle}>
+    <StatusIcon status="unknown" showWord />
+    <span data-provenance="assumed" data-source="rule:T25.09">Keyboard only: Space pause/resume · 1/2/3 speed · N jump · S start EVA</span>
+  </div>;
+
   return (
     <div
       className={`clock-control ${className}`}
@@ -168,9 +210,9 @@ export function ClockControl({
       <select
         aria-label="Select mission scenario"
         data-provenance="simulated"
-        data-source={activeScenarioId ? "snapshot:session.scenario_id" : "unavailable:session.scenario_id"}
-        data-unavailable={activeScenarioId ? undefined : "true"}
-        value={activeScenarioId ?? ""}
+        data-source={scenarioAvailable ? "snapshot:session.scenario_id" : "unavailable:session.scenario_id"}
+        data-unavailable={scenarioAvailable ? undefined : "true"}
+        value={scenarioAvailable ? activeScenarioId : ""}
         onChange={handleScenarioChange}
         style={selectStyle}
         title="Load scenario"
@@ -183,8 +225,8 @@ export function ClockControl({
         ))}
       </select>
 
-      <button type="button" style={buttonStyle} disabled={!activeScenarioId} onClick={() => {
-        if (!activeScenarioId) return;
+      <button type="button" style={buttonStyle} disabled={!scenarioAvailable} onClick={() => {
+        if (!scenarioAvailable || !activeScenarioId) return;
         onLoadScenario?.(activeScenarioId);
         onCommand?.({ kind: "LOAD_SCENARIO", args: { scenario_id: activeScenarioId } });
       }} aria-label="Load scenario">LOAD</button>

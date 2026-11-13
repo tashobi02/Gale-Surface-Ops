@@ -92,7 +92,7 @@
 .scr05-details-toggle:focus-visible,
 .scr05-collapse-toggle:focus-visible,
 .warning-zoom-btn:focus-visible {
-  outline: none;
+  /* Keep base.css's transparent 2 px outline: it is the ring in forced-colors mode, where box-shadow is dropped. */
   box-shadow: var(--focus-ring);
 }
 
@@ -275,7 +275,7 @@
 .profile-plot { position: relative; touch-action: none; min-height: var(--target-touch); }
 .profile-sample { position: absolute; display: block; box-sizing: border-box; width: 6px; height: 6px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--surface-1); border: 1px solid var(--fg-2); cursor: crosshair; }
 .profile-sample[data-active="true"], .profile-sample:focus { background: var(--route); border-color: var(--fg-1); }
-.profile-sample:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.profile-sample:focus-visible { box-shadow: var(--focus-ring); }
 .profile-caption, .profile-no-route { color: var(--fg-2); }
 .profile-no-route { color: var(--unknown); }
 .profile-bands { flex: none; margin-top: 2px; }

@@ -4,14 +4,18 @@
  * hash badge says what is verified, playback is paced by sim time with 1×/10×/60×, and every error path says why.
  */
 import { createHash } from "node:crypto";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { canonicalJson, PROTOCOL_VERSION, type LogEvent, type Recording, type Snapshot } from "@marswalk/protocol";
 import connect from "../fixtures/ws/connect.json";
 import type { SocketLike } from "../../src/net/habClient";
 import { closeHabSessions, startHabSession } from "../../src/state/habSession";
 import { ReplayRoute } from "../../src/ui/live/ReplayRoute";
-import { click, flush, installDom, mount, must, removeDom } from "./domHarness";
+import { click, flush, installDom, mount, must, removeDom, type Mounted } from "./domHarness";
+import { mockManifest, stubReducedMotion, stubResizeObserver } from "./map/mapFixtures";
 
 const nodeSha = (text: string): string => createHash("sha256").update(text).digest("hex");
 const hashOf = (events: LogEvent[]): string => nodeSha(events.map((e) => `${canonicalJson(e)}\n`).join(""));
@@ -38,13 +42,17 @@ function recording(logHash?: string): Recording {
 
 const json = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
+const openRoutes: Mounted[] = [];
+
 async function open(fetchImpl: (url: string) => Promise<Response>) {
   const mounted = await mount(createElement(ReplayRoute, { fetchImpl }));
-  // The hash is computed asynchronously (WebCrypto): wait until the route left its loading state.
-  for (let i = 0; i < 200 && mounted.container.querySelector('[data-replay-state="loading"]'); i++) {
+  openRoutes.push(mounted);
+  // WebCrypto completes on a worker thread; a fixed number of event-loop turns can expire before it answers under load.
+  for (let i = 0; i < 500 && mounted.container.querySelector('[data-replay-state="loading"]'); i++) {
+    await delay(5);
     await flush();
-    await new Promise((resolve) => setImmediate(resolve));
   }
+  expect(mounted.container.querySelector('[data-replay-state="loading"]')).toBeNull();
   return mounted;
 }
 
@@ -52,10 +60,22 @@ const pause = async (root: ParentNode) => click(must(root, '[data-slot="replay-p
 
 beforeAll(() => installDom());
 afterAll(() => removeDom());
-afterEach(() => {
-  vi.useRealTimers();
+// Every timer this file creates is fake from before the route mounts, so a playback tick never runs on wall-clock time: it
+// advances only where a test drives the clock (FD-482).
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+});
+afterEach(async () => {
+  // A route left mounted keeps its playback interval, which then fires into a closed jsdom ("window is not defined", B-01).
+  // Unmount and close sessions before restoring real timers. jsdom schedules a one-frame focus fixup on focus changes.
+  for (const mounted of openRoutes.splice(0)) await mounted.unmount();
   closeHabSessions();
+  await vi.advanceTimersByTimeAsync(20);
+  expect(vi.getTimerCount()).toBe(0);
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
   document.body.innerHTML = "";
+  window.location.hash = "";
   Object.assign(window, { innerWidth: 1024 });
 });
 
@@ -145,7 +165,6 @@ describe("ReplayRoute", () => {
   it("plays by sim time with 1×/10×/60× and a labelled position readout", async () => {
     const { container } = await open(async () => json(recording()));
     await pause(container);
-    vi.useFakeTimers();
     const position = must(container, '[data-slot="replay-position"]');
     expect(position.getAttribute("data-provenance")).toBe("replayed");
     expect(position.textContent).toContain("1 of 5");
@@ -197,5 +216,40 @@ describe("ReplayRoute", () => {
     startHabSession({ role: "ops", clientId: "c-1", displayName: "Ops console", url: "ws://localhost/ws", socketFactory: () => socket });
     await open(async () => json(recording()));
     expect(close).toHaveBeenCalled();
+  });
+
+  it("never calls /api/relay-coverage when a replayed rover carries relay_coverage_rev", async () => {
+    stubResizeObserver();
+    const restoreMotion = stubReducedMotion(true);
+    const style = document.createElement("style");
+    style.textContent = readFileSync(resolve(__dirname, "../../src/ui/styles/tokens.css"), "utf8");
+    document.head.appendChild(style);
+    try {
+      const manifest = mockManifest();
+      const networkFetch = vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("site-manifest.json")) return json(manifest);
+        if (url.endsWith(".geojson")) return json({ type: "FeatureCollection", features: [] });
+        return new Response(null, { status: 404 });
+      });
+      vi.stubGlobal("fetch", networkFetch);
+      Object.assign(window, { innerWidth: 1280 });
+      const rec = recording();
+      const snap = rec.messages[0] as Snapshot;
+      snap.plan = { plan_id: "p-1", plan_revision: 1, site_id: manifest.site_id, waypoints: [], legs: [], route_polyline_m: [] } as unknown as Snapshot["plan"];
+      snap.vehicles = [{ vehicle_id: "UR1", kind: "utility_rover", state: "IDLE", x_m: 0, y_m: 0, path: [], task: null, relay_coverage_rev: 1 } as unknown as Snapshot["vehicles"][number]];
+      const { container } = await open(async () => json(rec));
+      await pause(container);
+      for (let i = 0; i < 30; i++) {
+        await flush();
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      expect(must(container, '[data-slot="ops-map"] button[aria-label="Zoom in"]').hasAttribute("disabled")).toBe(false);
+      const apiCalls = networkFetch.mock.calls.map(([input]) => String(input)).filter((url) => url.startsWith("/api/"));
+      expect(apiCalls).toEqual([]);
+    } finally {
+      style.remove();
+      restoreMotion();
+    }
   });
 });

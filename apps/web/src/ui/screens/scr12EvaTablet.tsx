@@ -13,13 +13,14 @@ import {
 } from "react";
 import type { CrewId, Snapshot, StopTask } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
-import { useCommand, useHabClient, useSocketConnected, useSnapshot } from "../../state/habSession";
+import { useCommand, useHabClient, useSocketConnected, useSnapshot, useTransportLost } from "../../state/habSession";
 import {
   havenTargetLabel,
   selectEvaViewModel,
   selectMetadataStrip,
   type EvaViewModel,
 } from "../eva/viewModel";
+import { logLiveFallback } from "../live/fallbackDebug";
 import { MiniMap } from "../eva/MiniMap";
 import "./scr12EvaTablet.css";
 import { EvaActionRow } from "../eva/HoldToConfirm";
@@ -147,17 +148,33 @@ export function EvaTablet({
   const serverTasks = activeSnapshot?.tasks ?? NO_TASKS;
   // Linked means the suit link is up (snapshot) and this tablet's own socket to the Hab Core is not lost.
   const socketLost = !useSocketConnected(client);
+  // The transport itself went down (the socket was up and closed). The simulated suit link is a separate thing and
+  // is read from the snapshot, so the two are never confused.
+  const transportLost = useTransportLost(client);
   const suitLinked = selectMetadataStrip(activeSnapshot, crewId).link.linked;
   const linked = socketLost ? false : suitLinked;
   const changes = useStopTaskChanges(send, serverTasks, linked);
   const [rideRejection, setRideRejection] = useState<string | null>(null);
   const viewSnapshot = activeSnapshot ? { ...activeSnapshot, tasks: changes.overlay(serverTasks) } : activeSnapshot;
   const vm: EvaViewModel = selectEvaViewModel(viewSnapshot, crewId);
+  // FR-50: at a stop the task list belongs to the stop underfoot. NEXT navigation still points ahead (FD-266).
+  const member = viewSnapshot?.crew.find((c) => c.crew_id === crewId);
+  const index = member?.stop_index;
+  const currentStop = member?.activity === "AT_STOP" && Number.isInteger(index) && index! >= 1
+    ? viewSnapshot?.plan?.waypoints.filter((w) => w.role === "stop")[index! - 1] : undefined;
+  const taskStopId = currentStop?.id ?? vm.nextStop?.stopId;
+  const atTasks = viewSnapshot?.tasks.filter((t) => t.stop_id === taskStopId && (t.crew_id === null || t.crew_id === crewId)) ?? NO_TASKS;
+  const taskCount = taskStopId ? { done: atTasks.filter((t) => t.state === "DONE").length, total: atTasks.length } : null;
 
   // Stop task list open state (TASKS button toggles the list).
   const [localContrast, setLocalContrast] = useState(false);
   const contrast = controlledContrast ?? localContrast;
   const setContrast = onContrastChange ?? setLocalContrast;
+  const [mapUnavailable, setMapUnavailable] = useState(false);
+  // The mini-map is unmounted once it has failed (FD-500), so a failed attempt cannot recover on its own. The attempt
+  // counter remounts it, and the retry control below lets the crew ask for another attempt: a transient failure (a
+  // tile that was lost on a busy LAN) must not cost the map for the rest of the session.
+  const [mapAttempt, setMapAttempt] = useState(0);
   const [tapFallback, setTapFallback] = useState(false);
   const [tasksExpanded, setTasksExpanded] = useState<boolean>(false);
   // The Hab Core's reason for a refused ACK_ALERT, shown under the alert bar until the next alert (04 §D.5).
@@ -267,7 +284,7 @@ export function EvaTablet({
               padding: "8px 16px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: "1 1 auto" }}>
               <StatusIcon status={vm.alertSlot.level} showWord={true} />
               <span style={{ fontWeight: 700, fontSize: "var(--text-alert-eva, 22px)", overflow: "hidden", textOverflow: "ellipsis" }} title={vm.alertSlot.message}>
                 {vm.alertSlot.message}
@@ -315,12 +332,46 @@ export function EvaTablet({
       <CrewMotionButton crewId={crewId} activity={vm.activity} send={send} />
       </div>
 
+      {/* The transport to the Hab Core went down. This is not the simulated suit link: `linked: false` in the
+          snapshot is the suit's own radio, and the tablet still receives the Hab Core over a working socket. A closed
+          socket is known the moment it closes, so this notice comes at once, before the 3-second watchdog raises
+          SCR-18 (FR-32) for a half-open socket that merely stops answering.
+
+          It is a strip, not an overlay: an active safety alert and its ACK control stay visible and usable while it
+          is up (a crew member must be able to acknowledge a radiation alert with the transport down). It carries no
+          number of its own, so it needs no provenance; the values behind it are the last ones received. */}
+      {transportLost && (
+        <div
+          role="status"
+          data-slot="transport-lost-notice"
+          data-fallback="transport-lost"
+          data-status="caution"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            width: "100%",
+            boxSizing: "border-box",
+            padding: "6px 8px",
+            borderLeft: "4px solid var(--status-caution, #FFB020)",
+            background: "var(--caution-fill, #FFB020)",
+            color: "#000000",
+            fontWeight: 700,
+            fontSize: "16px",
+          }}
+        >
+          <StatusIcon status="caution" showWord={true} />
+          <span>HAB TRANSPORT LOST — VALUES BELOW ARE THE LAST ONES RECEIVED</span>
+        </div>
+      )}
+
       {/* A refused ACK_ALERT says so, with the Hab Core's own reason (04 §D.5): a command that failed must not look
           like one that worked. */}
       {ackRejection !== null && (
         <div
           role="status"
           data-slot="ack-rejection"
+          data-status="warning"
           data-provenance="simulated"
           data-source="snapshot:alerts"
           style={{
@@ -334,7 +385,8 @@ export function EvaTablet({
             paddingLeft: "8px",
           }}
         >
-          ACK REFUSED — {ackRejection}
+          <StatusIcon status="warning" showWord={true} />
+          <span>ACK REFUSED — {ackRejection}</span>
         </div>
       )}
 
@@ -424,6 +476,14 @@ export function EvaTablet({
         <div
           data-slot="next"
           className="card next cut-s"
+          /* The NEXT card scrolls in the landscape and portrait grids (`overflow: auto`), so its task list can be
+             read without scrolling the whole tablet. A region that scrolls but cannot be focused is unreachable by
+             keyboard: a crew member who cannot use a mouse could not scroll it, so anything below the fold would be
+             invisible to them. `tabIndex` makes the region a focus stop and the browser scrolls it into view when it
+             takes focus; the label says what the focus landed on. The axe rule `scrollable-region-focusable` caught
+             this on 6 of the 8 viewports. */
+          tabIndex={0}
+          aria-label="Next task"
           style={{
             ...cardStyle,
             minHeight: "96px",
@@ -446,8 +506,8 @@ export function EvaTablet({
               }}
             />
             <TasksButton
-              doneCount={vm.nextStop ? vm.nextStop.taskCount.done : null}
-              totalCount={vm.nextStop ? vm.nextStop.taskCount.total : null}
+              doneCount={taskCount?.done ?? null}
+              totalCount={taskCount?.total ?? null}
               active={showTasksList}
               readOnly={collapsed}
               onClick={() => setTasksExpanded(!tasksExpanded)}
@@ -501,7 +561,7 @@ export function EvaTablet({
               <StopTaskList
                 tasks={viewSnapshot?.tasks ?? []}
                 crewId={crewId}
-                stopId={vm.nextStop?.stopId ?? ""}
+                stopId={taskStopId ?? ""}
                 readOnly={!hab || !crewId || (vm.alertSlot?.level === "warning" && vm.alertSlot.acknowledged)}
                 undo={changes.undoTaskId === null ? null : { taskId: changes.undoTaskId }}
                 collapsed={false}
@@ -530,7 +590,18 @@ export function EvaTablet({
             background: "#080A0D",
           }}
         >
-          <MiniMap snapshot={activeSnapshot ?? null} crewId={crewId} onOpen={onOpenFullScreenMap} />
+          {mapUnavailable ? <div role="status" data-fallback="hud-only">
+            <StatusIcon status="unknown" showWord />
+            <span data-provenance="measured" data-source="unavailable:site.map" data-unavailable="true">Map unavailable — HUD only. Use HAVEN and NEXT above; abort and acknowledge remain available.</span>
+            <button
+              type="button"
+              data-slot="map-retry"
+              onClick={() => { setMapUnavailable(false); setMapAttempt((n) => n + 1); }}
+              style={{ minHeight: "44px", padding: "4px 12px", border: "1px solid currentColor", background: "transparent", color: "inherit", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              RETRY MAP
+            </button>
+          </div> : <MiniMap key={mapAttempt} snapshot={activeSnapshot ?? null} crewId={crewId} onOpen={onOpenFullScreenMap} onUnavailable={() => { setMapUnavailable(true); logLiveFallback("hud-only"); }} />}
         </div>
       </div>
 

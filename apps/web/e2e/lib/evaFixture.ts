@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 import type { Snapshot } from "@marswalk/protocol";
+import { startPageHeartbeat } from "./heartbeat";
 
 export type EvaFixtureState = "walking" | "at-stop" | "undo-window" | "ops-added-task" | "alerting" | "alerting-with-options" | "no-hab-link" | "to-haven";
 
@@ -45,8 +46,8 @@ export function evaFixture(state: EvaFixtureState): Snapshot {
   return snapshot;
 }
 
-export async function openEvaFixture(page: Page, state: EvaFixtureState, sent?: SentCommand[]): Promise<void> {
-  const snapshot = evaFixture(state);
+export async function openEvaFixture(page: Page, state: EvaFixtureState, sent?: SentCommand[], extra: Pick<Partial<Snapshot>, "vehicles"> = {}): Promise<void> {
+  const snapshot = { ...evaFixture(state), ...extra };
   await page.routeWebSocket("**/ws", (socket) => {
     socket.onMessage((message) => {
       const request = JSON.parse(String(message)) as { type?: string; command?: { kind?: string; args?: Record<string, unknown> } };
@@ -55,7 +56,10 @@ export async function openEvaFixture(page: Page, state: EvaFixtureState, sent?: 
       if (sent && request.type === "COMMAND" && request.command) {
         sent.push({ kind: request.command.kind, args: request.command.args });
       }
-      if (request.type === "HELLO") socket.send(JSON.stringify(snapshot));
+      if (request.type === "HELLO") {
+        socket.send(JSON.stringify(snapshot));
+        startPageHeartbeat(page, socket, snapshot.sim_time);
+      }
     });
   });
   // A goto to the URL the page already shows is a same-document (hash) navigation: the React state of the tablet survives, so

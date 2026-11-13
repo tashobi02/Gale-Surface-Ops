@@ -515,7 +515,7 @@
   - T32.19 passes except the route and tile cases (T32.23); keyboard reachable.
 - **Verify:** `npm --workspace @marswalk/web test -- presenter` · `make typecheck`
 - **Agent brief:** Build SCR-19 from the 03 table; reuse the tokens and the client, add no colour of your own.
-- **Conflict notes:** New files only; the route is registered by T32.23. `#/setup` needs the ops role, so a second device that opens it takes the ops role from the ops console and the console on the first device is taken over (FD-353); the routing is unchanged here, because the role table belongs to package 22.
+- **Conflict notes:** New files only; the route is registered by T32.23. `#/setup` needs the ops role, so a second device that opens it takes the ops role from the ops console and the console on the first device is taken over (FD-499); the routing is unchanged here, because the role table belongs to package 22.
 
 ### T32.21 — Tests: SCR-20 mission setup
 

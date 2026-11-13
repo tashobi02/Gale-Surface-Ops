@@ -1,6 +1,6 @@
-# Marswalk Surface Ops — CheesySpace
+# Gale Surface Ops — CheesySpace
 
-*(working title)* Team CheesySpace's entry for the **NASA Space Apps Challenge 2026**, challenge *Interplanetary Survival Guide: Martian Map* (Bangladesh event, 13–14 Nov 2026).
+Team CheesySpace's entry for the **NASA Space Apps Challenge 2026**, challenge *Interplanetary Survival Guide: Martian Map* (Bangladesh event, 13–14 Nov 2026).
 
 A habitat-local surface operations system for one Mars **Exploration Zone** at Gale crater (Mount Sharp). Before the walk, a planner builds a suit-safe EVA through science and resource-prospecting stops on real HiRISE terrain. During the walk, a **Hab Core** server inside the habitat runs the mission clock: two simulated astronauts follow the plan on their suit tablets and HUDs while an ops console watches everyone. Then the real solar particle event of **20 May 2024 (sol 4190)**, recorded by Curiosity's RAD, is replayed — the habitat detects it before Earth's warning can arrive, and the crew summon a pressurized rover to shelter.
 
@@ -8,12 +8,12 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 
 ## Status
 
-**v2 skeleton (surface ops reframe, 2026-11-04).** Specs v2, monorepo layout, types, stubs and design tokens are in place; no functional code yet. Application code is allowed before the event (Track P, [docs/ops/rules.md](docs/ops/rules.md)). The progress bar below counts the v1 atomized subtasks; v2 tasks (TASK-05b, TASK-20–30) are listed in [06 §C.2](docs/specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) and are not yet atomized.
+The planner, habitat server and role views are implemented; the task progress and remaining verification are tracked below. The full Gale site bundle is distributed separately. See the [submission guide](docs/ops/submit-now.md) for remaining team actions.
 
 ## Progress
 
 <!-- progress:start -->
-`████████████████░░░░` **79 %** — 274 of 345 subtasks done, 42 in progress.
+`████████████████░░░░` **81 %** — 279 of 345 subtasks done, 44 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -30,24 +30,24 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 | [TASK-10 POI detail + Conditions panel](docs/tasks/TASK-10_poi-detail-and-conditions.md) | `██████████` 100 % | 4 | 0 | 4 |
 | [TASK-11 Briefing card + JSON export](docs/tasks/TASK-11_briefing-card-and-export.md) | `██████████` 100 % | 7 | 0 | 7 |
 | [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `███████░░░` 71 % | 5 | 2 | 7 |
-| [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `████████░░` 85 % | 11 | 2 | 13 |
+| [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `█████████░` 92 % | 12 | 1 | 13 |
 | [TASK-14 Integration + offline hardening + fault tests](docs/tasks/TASK-14_integration-offline-hardening.md) | `███████░░░` 73 % | 8 | 1 | 11 |
-| [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `██░░░░░░░░` 25 % | 1 | 1 | 4 |
-| [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `░░░░░░░░░░` 0 % | 0 | 7 | 7 |
-| [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `░░░░░░░░░░` 0 % | 0 | 1 | 3 |
+| [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `████████░░` 75 % | 3 | 1 | 4 |
+| [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `█░░░░░░░░░` 14 % | 1 | 6 | 7 |
+| [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `░░░░░░░░░░` 0 % | 0 | 3 | 3 |
 | [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `██████████` 100 % | 12 | 0 | 12 |
 | [TASK-21 Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers](docs/tasks/TASK-21_scenario-builder.md) | `██████████` 100 % | 13 | 0 | 13 |
 | [TASK-22 Simulation engine: clock, crew motion, consumables, alerts, event log, replay](docs/tasks/TASK-22_simulation-engine.md) | `██████████` 100 % | 16 | 0 | 16 |
 | [TASK-23 Safety ops in the Hab Core: commands, haven per tick, summon and rendezvous, contingency options, abort](docs/tasks/TASK-23_safety-ops.md) | `██████████` 100 % | 8 | 0 | 8 |
-| [TASK-24 EVA client and HUD: SCR-12 tablet, SCR-13 HUD, SCR-14 options sheet, SCR-18 link lost, full-screen map](docs/tasks/TASK-24_eva-client-and-hud.md) | `████░░░░░░` 36 % | 4 | 6 | 11 |
-| [TASK-25 Ops console: SCR-11 with the shared map, alerts, options approval, clock control, SCR-10 join](docs/tasks/TASK-25_ops-console.md) | `███░░░░░░░` 33 % | 3 | 5 | 9 |
+| [TASK-24 EVA client and HUD: SCR-12 tablet, SCR-13 HUD, SCR-14 options sheet, SCR-18 link lost, full-screen map](docs/tasks/TASK-24_eva-client-and-hud.md) | `████░░░░░░` 36 % | 4 | 7 | 11 |
+| [TASK-25 Ops console: SCR-11 with the shared map, alerts, options approval, clock control, SCR-10 join](docs/tasks/TASK-25_ops-console.md) | `███░░░░░░░` 33 % | 3 | 6 | 9 |
 | [TASK-26 Links: surface link graph and `LINK_STATE`, comm-shadow warnings, Earth link widget and delayed queue](docs/tasks/TASK-26_links.md) | `█████████░` 86 % | 6 | 1 | 7 |
-| [TASK-27 Event log view, post-EVA report, replay mode for GitHub Pages](docs/tasks/TASK-27_report-and-replay.md) | `███████░░░` 67 % | 4 | 1 | 6 |
+| [TASK-27 Event log view, post-EVA report, replay mode for GitHub Pages](docs/tasks/TASK-27_report-and-replay.md) | `████████░░` 83 % | 5 | 1 | 6 |
 | [TASK-28 Network kit and rehearsal: router, static IP, QR join, device matrix, venue checklist](docs/tasks/TASK-28_network-kit.md) | `████████░░` 80 % | 4 | 1 | 5 |
 | [TASK-29 Robotic rover tasking: SCOUT, CARRY, RELAY, RETURN](docs/tasks/TASK-29_rover-tasking.md) | `████████░░` 83 % | 5 | 1 | 6 |
 | [TASK-30 Score-sheet single points: challenge named, repo public, page drafted, AI use current](docs/tasks/TASK-30_score-sheet-points.md) | `░░░░░░░░░░` 0 % | 0 | 3 | 3 |
-| [TASK-31 Stop task list (FR-50): protocol, engine, EVA list, ops progress, task text](docs/tasks/TASK-31_stop-task-list.md) | `█████░░░░░` 50 % | 4 | 4 | 8 |
-| [TASK-32 Live operations session: presenter panel, event on demand, mission setup, stop task library](docs/tasks/TASK-32_live-session.md) | `█████████░` 88 % | 28 | 4 | 32 |
+| [TASK-31 Stop task list (FR-50): protocol, engine, EVA list, ops progress, task text](docs/tasks/TASK-31_stop-task-list.md) | `██████░░░░` 62 % | 5 | 3 | 8 |
+| [TASK-32 Live operations session: presenter panel, event on demand, mission setup, stop task library](docs/tasks/TASK-32_live-session.md) | `████████░░` 84 % | 27 | 5 | 32 |
 
 Totals leave out 43 fallback and desirable subtasks (they may never run); 23 of them done. Source: [docs/tasks/status.md](docs/tasks/status.md), regenerated by `make progress`.
 <!-- progress:end -->
@@ -63,10 +63,10 @@ make setup        # npm ci (all workspaces) + conda environment marswalk-pipelin
 make check-env    # fails unless the pipeline interpreter, GDAL, rasterio and pyproj are right
 make lint typecheck test docs-check
 make test-web     # Vitest in every workspace; needs no conda
-make hab          # Hab Core on 0.0.0.0:8080 (habitat LAN) — stub until TASK-20
+make hab          # Hab Core on 0.0.0.0:8080 (habitat LAN)
 make dev          # Vite dev server; proxies /sites, /api, /ws to the Hab Core
 make demo         # production build served by the Hab Core (no internet needed)
-make replay       # headless scenario replay, prints the event-log hash — stub until TASK-22
+make replay       # headless scenario replay, prints the event-log hash
 ```
 
 Demo setup (06 §D.3, TASK-28): one laptop runs `make demo`; phones join the same offline travel router and open the role URL (ops shows QR codes).
@@ -86,7 +86,7 @@ The full pipeline environment (GDAL ≥ 3.6, rasterio, numpy, pyproj) is in [pip
 
 ## Data is not in git
 
-Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are never committed. The offline pipeline (`make data`, TASK-03, not implemented yet) downloads into the git-ignored `pipeline/work/` and writes the site bundle to `data/sites/<site_id>/` (layout: [data/sites/gale_boxwork/README.md](data/sites/gale_boxwork/README.md)). Source URLs, versions and checksums go in `pipeline/sources.lock.json`. The large tiles, grid and images are shared as a GitHub release asset (chosen route, not Git LFS); see [docs/ops/feasibility.md](docs/ops/feasibility.md).
+Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are never committed. The offline pipeline (`make data`) downloads into the git-ignored `pipeline/work/` and writes the site bundle to `data/sites/<site_id>/` (layout: [data/sites/gale_boxwork/README.md](data/sites/gale_boxwork/README.md)). Source URLs, versions and checksums go in `pipeline/sources.lock.json`. The large tiles, grid and images are shared as a GitHub release asset (chosen route, not Git LFS); see [docs/ops/feasibility.md](docs/ops/feasibility.md).
 
 ## Documentation
 
@@ -102,7 +102,48 @@ Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are 
 
 ## Credits
 
-TODO: dataset and image credits (NFR-07), filled from each `DataSource.credit` in the site manifest. Planned sources are listed in [02 Sources](docs/specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02). Partner-agency data: ESA Mars Express HRSC (in the Gale DEM) and ESA TGO trajectories (relay geometry).
+Credits below reproduce the source and image credits in the site manifests and POI records. The mock-site data are synthetic fixtures.
+
+### Gale site sources
+
+- **Apollo 15 EVA Capability And Constraints Envelopes** (`apollo17-planning`): P. Benjamin, Bellcomm, Inc.; Memorandum for File B70 10028, 13 October 1970. PDF document courtesy NASA Technical Reports Server.
+- **Mars' surface radiation environment measured with the Mars Science Laboratory's Curiosity rover** (`hassler-2014-rad`): Hassler et al., 2014
+- **Mars24 Sunclock — Time on Mars** (`mars24-allison-mcewen-2000`): Mars24: Robert B. Schmunk; algorithms: Michael D. Allison; algorithm reference: Allison, M., and M. McEwen (2000), A post-Pathfinder evaluation of aerocentric solar coordinates with improved timing recipes for Mars seasonal/diurnal climate studies (Planetary and Space Science; © 2000 Elsevier Science Ltd).
+- **Curiosity Blog, Sols 4620-4621: Among the Hollows and the Ridges** (`nasa-msl-blog-sols-4620-4621`): NASA/JPL-Caltech (Curiosity blog)
+- **Curiosity Blog, Sols 4649-4654: Ridges, Hollows and Nodules, Oh My** (`nasa-msl-blog-sols-4649-4654`): NASA/JPL-Caltech (Curiosity blog)
+- **Curiosity Blog, Sols 4675-4681: Deciding Where to Dig Into the Boxworks** (`nasa-msl-blog-sols-4675-4681`): NASA/JPL-Caltech (Curiosity blog)
+- **Curiosity Blog, Sols 4695-4701: Searching for Answers at Monte Grande** (`nasa-msl-blog-sols-4695-4701`): NASA/JPL-Caltech (Curiosity blog)
+- **Curiosity Blog, Sols 4709-4715: Drilling High and Low in the Boxwork Unit** (`nasa-msl-blog-sols-4709-4715`): NASA/JPL-Caltech (Curiosity blog)
+- **Curiosity Blog, Sols 4716-4722: Drilling Success at Nevado Sajama** (`nasa-msl-blog-sols-4716-4722`): NASA/JPL-Caltech (Curiosity blog)
+- **Curiosity Blog, Sols 4845-4851: Bye-Bye Boxwork, Bye-Bye** (`nasa-msl-blog-sols-4845-4851`): NASA/JPL-Caltech (Curiosity blog)
+- **NASA's Curiosity Mars Rover Starts Unpacking Boxwork Formations** (`nasa-msl-boxwork-article-2025-06`): NASA/JPL-Caltech/MSSS (images on the page); text: NASA, Jet Propulsion Laboratory (release 2025-080)
+- **The Space Exploration Vehicle Characteristics (Surface Concept)** (`nasa-sev-factsheet-2011`): NASA, The Space Exploration Vehicle Characteristics (Surface Concept), NASA Facts FS-2011-08-045-JSC
+- **Collection of localization data products for Rover PLACES** (`pds-msl-places-localizations`): Deen, Robert G. (2024), Mars Science Laboratory Rover PLACES Bundle, version 42.0, NASA Planetary Data System, doi:10.17189/8nyv-8p60; collection "Collection of localization data products for Rover PLACES" (Citation_Information of bundle.xml and collection_data_localizations.xml)
+- **Mars Science Laboratory Software Interface Specification: PLACES Data Products for PDS** (`pds-msl-places-sis-1-3`): Robert Deen (2016), PLACES Data Products for PDS SIS, JPL; Copyright 2016 California Institute of Technology, government sponsorship acknowledged
+- **The Martian Radiation Environment and Human Health Risks** (`simonsen-2024-rad`): Simonsen et al., 2024
+- **Improved prediction of hiking speeds using a data driven approach** (`tobler-1993`): Andrew Wood; William Mackaness; T. Ian Simpson; J. Douglas Armstrong; arXiv:2303.16065v6
+- **Mars MSL Gale Merged DEM 1m** (`usgs-gale-dem-1m-v3`): Please credit authors
+- **Mars MSL Gale Merged Orthophoto Mosaic 25cm, colour version HiRISE 78 quad color basemap** (`usgs-gale-ortho-25cm-v3`): NASA/JPL-Caltech/University of Arizona; USGS Astrogeology (Calef & Parker 2016)
+- **THEMIS Thermal Inertia Mosaic Quantitative 30S120E 100mpp** (`usgs-themis-ti-30s120e`): Please cite authors
+
+### Mock-site fixture sources
+
+- **Mars MSL Gale Merged DEM 1m** (`usgs-gale-dem-1m-v3`): Please credit authors
+- **Hassler et al., 2014** (`hassler-2014-rad`): Hassler et al., 2014
+- **Simonsen et al., 2024** (`simonsen-2024-rad`): Simonsen et al., 2024
+
+POI images: NASA/JPL-Caltech; NASA/JPL-Caltech/MSSS. See the [POI records](data/sites/gale_boxwork/vectors/pois.geojson) for the individual image credits.
+
+### Storm replay and partner-agency sources
+
+- **DONKI** (Database Of Notifications, Knowledge, Information, L8): NASA Community Coordinated Modeling Center (CCMC) / Moon-to-Mars (M2M) Space Weather Analysis Office, NASA Goddard Space Flight Center.
+- **MSL/RAD Dose rates** (L9): Heber, Bernd; Löwe, Jan Leo (2026). *MSL/RAD Dose rates*. Zenodo. doi:10.5281/zenodo.20536564. CC BY 4.0 (with NASA SPDF `msl_rad_obs-l2` CDF and NASA PDS Planetary Plasma Interactions Node `MSL-M-RAD-3-RDR-V1.0`; acknowledging RAD PI Dr. Donald M. Hassler, Southwest Research Institute Boulder).
+- **NASA NAIF SPICE kernels** (L10): NASA Navigation and Ancillary Information Facility (NAIF), Jet Propulsion Laboratory: generic, MRO and MAVEN SPICE kernels.
+- **ESA SPICE Service ExoMars 2016 Trace Gas Orbiter kernels** (L10): ESA SPICE Service, ExoMars 2016 Trace Gas Orbiter kernels.
+- **Partner-agency credits (02 §C.5):**
+  - ESA Mars Express HRSC data are part of the USGS Gale merged DEM (L2).
+  - ESA ExoMars Trace Gas Orbiter trajectory kernels (ESA SPICE Service) are used for the relay geometry (L10).
+  - The X12 flare-class estimate for 20 May 2024 comes from ESA/NASA Solar Orbiter data, as reported in NASA's release of 10 June 2024 (L9).
 
 ## Licence
 

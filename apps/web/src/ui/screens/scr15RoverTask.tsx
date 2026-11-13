@@ -367,7 +367,7 @@ export function RoverTask({
               {target ? (
                 <Row label="Position" name="target" p={target.p} text={`X ${fmtInt(target.x_m)} m · Y ${fmtInt(target.y_m)} m`} />
               ) : placing ? (
-                <div>Tap the map to place the target</div>
+                <div>Tap the map to place the target, or use the arrow keys and Enter at the map centre.</div>
               ) : null}
               {onStartMapPlacement && !placing ? (
                 <button

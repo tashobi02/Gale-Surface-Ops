@@ -20,7 +20,7 @@
 .scr06-evidence[open] summary::marker { content: "− "; }
 .scr06-specimen button { min-height: var(--target-mouse); border: 1px solid var(--control-edge); padding: var(--pad-sm); color: var(--fg-1); background: var(--surface-2); cursor: pointer; }
 .scr06-specimen button:disabled { opacity: .5; cursor: default; }
-.scr06-specimen :is(button, summary, a):focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.scr06-specimen :is(button, summary, a):focus-visible { box-shadow: var(--focus-ring); }
 .scr06-specimen a { color: var(--fg-1); text-underline-offset: .2em; }
 .scr06-image-dialog { max-width: min(92vw, 1200px); max-height: 90vh; color: var(--fg-1); background: var(--surface-1); border: 1px solid var(--control-edge); }
 .scr06-image-dialog img { display: block; max-width: 100%; max-height: 72vh; object-fit: contain; }

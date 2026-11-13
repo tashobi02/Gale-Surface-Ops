@@ -129,7 +129,7 @@ export function RoverQueue({ vehicle, compact = false, className = "" }: RoverQu
     <article className={`rover-queue-card ${className}`.trim()} data-vehicle-id={vehicle_id} style={compact ? { ...cardStyle, padding: 0, border: "none", backgroundColor: "transparent" } : cardStyle}>
       {compact ? null : <header style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
         <span>
-          [{vehicle_id}] {kind === "pressurized_rover" ? "Pressurised rover" : "Utility rover"}
+          <span data-identifier>[{vehicle_id}]</span> {kind === "pressurized_rover" ? "Pressurised rover" : "Utility rover"}
         </span>
         <span data-field="state" style={{ ...valueStyle, color: "var(--fg-2)", fontSize: "var(--text-micro)" }} {...provAttrs(simulated("", "vehicles.state"))}>
           {state}

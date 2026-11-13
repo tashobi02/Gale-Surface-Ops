@@ -328,7 +328,9 @@ describe("stop task changes are sent at once; UNDO reverses them on the server f
     expect(must(container, '[data-testid="tasks-button"]').textContent).toContain("1/1");
   });
 
-  it.todo("server side (T31.04): UPDATE_STOP_TASK {state: TODO, undo: true} is accepted by the actor of the last change, rejected INVALID after a later change or a PLAN_REVISED, FORBIDDEN_ROLE for another sender, and logged as TASK_UPDATED with data.undo true");
+  // Server-side T31.04 rules for UPDATE_STOP_TASK {state: TODO, undo: true} (last-actor check,
+  // INVALID after later change or PLAN_REVISED, FORBIDDEN_ROLE, TASK_UPDATED data.undo) are implemented
+  // in apps/hab-core/src/engine/tasks.ts and verified in apps/hab-core/tests/stopTasks.test.ts.
 });
 
 describe("the task list is full only at the stop and collapses to its count otherwise (FR-50, 04 §E.5; U-59)", () => {
@@ -449,5 +451,63 @@ describe("SCR-12 banner and surface", () => {
   it("the root declares data-surface=eva so the 56 px target rule of base.css applies", async () => {
     const { container } = await mount(createElement(EvaTablet, { snapshot: atStop(), crewId: "EV1" }));
     expect(must(container, '[data-screen="SCR-12"]').getAttribute("data-surface")).toBe("eva");
+  });
+
+  it("shows a dedicated transport-lost notice immediately on socket close before SCR-18, distinct from simulated suit unlinked", async () => {
+    vi.useFakeTimers();
+    const { client, socket } = liveClient();
+    const { container } = await mount(createElement(EvaTablet, { client, crewId: "EV1" }));
+    await socket.receive({ ...connect(), alerts: [] });
+    expect(container.querySelector('[data-slot="transport-lost-notice"]')).toBeNull();
+
+    // Simulated suit link down with open socket is NOT a lost transport notice.
+    await socket.receive({
+      ...connect(),
+      alerts: [],
+      crew: connect().crew.map((c) => ({ ...c, linked: false })),
+    });
+    expect(container.querySelector('[data-slot="transport-lost-notice"]')).toBeNull();
+
+    // Closing the WebSocket transport shows the dedicated transport-lost notice immediately (before 3 s SCR-18).
+    await socket.receive({ ...connect(), alerts: [] });
+    await act(async () => {
+      socket.readyState = 3;
+      socket.onclose?.();
+    });
+    expect(client.linkLost().lost).toBe(false);
+    const notice = must(container, '[data-slot="transport-lost-notice"]');
+    expect(notice.getAttribute("data-fallback")).toBe("transport-lost");
+    expect(notice.textContent).toMatch(/transport|hab link/i);
+    client.close();
+  });
+
+  it("keeps active safety alerts and controls usable alongside the transport-lost notice", async () => {
+    vi.useFakeTimers();
+    const { client, socket } = liveClient();
+    const { container } = await mount(createElement(EvaTablet, { client, crewId: "EV1" }));
+    const alertSnap: Snapshot = {
+      ...connect(),
+      alerts: [{
+        alert_id: "a-rad",
+        code: "RADIATION_ALERT",
+        level: "warning",
+        subjects: ["EV1"],
+        raised_seq: 1,
+        acked_seq: null,
+        cleared_seq: null,
+        acked_by: null,
+        message: "Radiation event",
+        data: {},
+      }],
+    };
+    await socket.receive(alertSnap);
+    await act(async () => {
+      socket.readyState = 3;
+      socket.onclose?.();
+    });
+    expect(must(container, '[data-slot="alert"]').textContent).toContain("Radiation event");
+    expect(must(container, '[aria-label="Acknowledge alert"]')).toBeTruthy();
+    expect(must(container, '[data-slot="transport-lost-notice"]')).toBeTruthy();
+    client.close();
   });
 });

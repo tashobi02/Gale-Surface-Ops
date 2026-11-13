@@ -1,6 +1,6 @@
 # Self-Hosted Fonts
 
-This directory contains offline font assets bundled for Marswalk Surface Ops per
+This directory contains offline font assets bundled for Gale Surface Ops per
 [04 §C.2](../../../../docs/specs/04_Design_Brief.md#c2-typography) and
 [02 §F NFR-01, NFR-07](../../../../docs/specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation).
 No external font network requests or CDNs are permitted.

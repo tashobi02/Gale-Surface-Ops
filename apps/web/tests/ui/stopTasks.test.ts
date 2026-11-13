@@ -431,6 +431,17 @@ describe("TaskProgress (ops crew card)", () => {
   });
 });
 
+describe("ops task-limit provenance (FR-15)", () => {
+  it("labels the maximum task count with its rule source", () => {
+    const html = renderToStaticMarkup(createElement(AddTaskPopover, {
+      crewId: "EV1", stopId: "wp-2", maxReached: true, onAdd: () => {},
+    }));
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const message = [...doc.querySelectorAll("div")].find((element) => element.textContent === "Maximum limit of 4 tasks reached for this stop.");
+    expect(message?.closest('[data-provenance="assumed"][data-source="ui:stop-task.limit"]')).not.toBeNull();
+  });
+});
+
 describe("TaskProgress without counts shows —, labelled, and no chrome radius", () => {
   it("null counts render — flagged unavailable, not 0/0 or a sample fraction", () => {
     const html = renderToStaticMarkup(
@@ -706,6 +717,31 @@ describe("Ops add-task callback (FR-50)", () => {
     await setText("  Photograph the vein  ");
     await submit();
     expect(onAdd.mock.calls).toEqual([[{ crew_id: "EV1", stop_id: "wp-2", kind: "observe", text: "Photograph the vein" }]]);
+  });
+
+  it("AddTaskPopover limitReached notice carries StatusIcon caution shape and word, never colour alone (04 §A.3)", async () => {
+    const { container } = await mount(createElement(AddTaskPopover, { crewId: "EV1", stopId: "wp-2", maxReached: true, onAdd: () => {} }));
+    const icon = must(container, '.status-indicator[data-status="caution"]');
+    expect(icon.textContent).toContain("▲");
+    expect(icon.textContent).toContain("CAUTION");
+    expect(container.textContent).toMatch(/Maximum limit of 4 tasks/i);
+  });
+
+  it("AddTaskPopover over-length counter carries StatusIcon warning shape and word, never warning colour alone (04 §A.3)", async () => {
+    const { container } = await mount(createElement(AddTaskPopover, { crewId: "EV1", stopId: "wp-2", onAdd: () => {} }));
+    const input = must<HTMLInputElement>(container, '[aria-label="Enter task description"]');
+    const { act } = await import("react");
+    await act(async () => {
+      const proto = Object.getPrototypeOf(input) as { value?: unknown };
+      const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+      setter?.call(input, "x".repeat(61));
+      input.dispatchEvent(new window.Event("input", { bubbles: true }));
+    });
+    const counter = must(container, '[data-source="ui:stop-task.text-length"]');
+    const icon = must(counter, '.status-indicator[data-status="warning"]');
+    expect(icon.querySelector(".status-glyph svg polygon")).not.toBeNull();
+    expect(icon.textContent).toContain("WARNING");
+    expect(counter.textContent).toContain("61/60");
   });
 });
 

@@ -3,7 +3,7 @@
  * The 02 §E.3 rules in the UI: each invalid input shows its inline error and keeps the last valid value; an outside-AOI or
  * impassable placement is refused or snapped by at most 50 m; SCR-04 shows Empty, Editing, Invalid and Computing.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openPoiTasks } from "../lib/plannerTasks";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 import { installWorkerHold, releaseWorkerAnswers } from "../lib/workerHold";
@@ -216,6 +216,67 @@ test("plan-rules: a POI stop says the task library is unavailable, not empty, an
   await expect(editor.locator("[data-task-library]")).toHaveCount(0);
   await expect(editor.locator("[data-new-task-text]")).toBeFocused();
   await expect(detail.getByRole("region", { name: "Suggested tasks" })).not.toContainText("unavailable");
+});
+
+// T32.26-T32.28 (FR-54): the Hab Core's start is a default for an EMPTY field, never an edit of one the user is in. Playwright's `fill`, and a
+// person, focus the field and then type; a default that landed in between put its text in the field with the caret after it, so the typed
+// start was appended to it ("2024-05-20T00:00:00Z2026-11-14T08:00:00Z": invalid for good, `data-plan-state="invalid"`). It showed only when the
+// answer was slow, i.e. in a full run on a loaded machine. The check holds the answer and sends it between the two halves of a `fill`.
+const SESSION_START = "2024-05-20T00:00:00Z";
+const TYPED_START = "2026-11-14T08:00:00Z";
+
+async function openPlanTabWithHeldSessionStart(page: Page): Promise<{ start: Locator; panel: Locator; answerBetweenFocusAndTyping(): Promise<void> }> {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route("**/api/session/summary", async (route) => {
+    await held;
+    await route.fulfill({ json: { eva_start_utc: SESSION_START } });
+  });
+  await page.goto("/?site=mock_site#/planner");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  const toggle = page.locator('[data-slot="drawer-toggle"][data-for="left"]');
+  if (await toggle.isVisible()) await toggle.click();
+  await page.getByRole("tab", { name: "Plan" }).click();
+  const panel = page.locator('[data-slot="plan-panel"]');
+  await panel.waitFor();
+  const start = page.getByLabel(/EVA start/i);
+  await expect(start).toHaveValue("");
+  return {
+    start,
+    panel,
+    async answerBetweenFocusAndTyping() {
+      // The first half of Playwright's fill: focus and select what is there. The second half is `keyboard.insertText`.
+      await start.evaluate((el) => {
+        (el as HTMLInputElement).focus();
+        (el as HTMLInputElement).select();
+      });
+      const answered = page.waitForResponse("**/api/session/summary");
+      release();
+      await answered;
+      await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+    },
+  };
+}
+
+test("plan-rules: the Hab Core's start default does not land in the EVA start field while the user is filling it (T32.26)", async ({ page }) => {
+  const { start, panel, answerBetweenFocusAndTyping } = await openPlanTabWithHeldSessionStart(page);
+  await answerBetweenFocusAndTyping();
+  await page.keyboard.insertText(TYPED_START);
+  await expect(start).toHaveValue(TYPED_START);
+  await expect(panel).toHaveAttribute("data-plan-state", "empty");
+  await page.keyboard.press("Tab");
+  await expect(start).toHaveValue(TYPED_START);
+  await expect(start).toHaveAttribute("data-source", "user:scenario.eva_start_utc");
+});
+
+test("plan-rules: the Hab Core's start default fills the EVA start field once the user leaves it empty (T32.26; FD-042)", async ({ page }) => {
+  const { start, panel, answerBetweenFocusAndTyping } = await openPlanTabWithHeldSessionStart(page);
+  await answerBetweenFocusAndTyping();
+  await expect(start).toHaveValue("");
+  await page.keyboard.press("Tab");
+  await expect(start).toHaveValue(SESSION_START);
+  await expect(start).toHaveAttribute("data-source", "session.eva_start_utc");
+  await expect(panel).toHaveAttribute("data-plan-state", "empty");
 });
 
 test.fixme("plan-rules: republishing replaces planner drafts at retained stops without duplicates (needs N-70)", async ({ page }) => {

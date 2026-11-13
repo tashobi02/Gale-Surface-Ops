@@ -3,11 +3,11 @@
 | | |
 | --- | --- |
 | **Owner** | Story lead ([06 §C TASK-16, TASK-17](../specs/06_High_Level_Implementation_Plan.md#c-work-packages)) |
-| **Date** | TODO |
-| **Status** | Skeleton — items below come only from the specs |
+| **Date** | 2026-11-13 |
+| **Status** | Team submission actions pending; see [submit-now.md](submit-now.md) |
 | **Related** | [06 §B M6](../specs/06_High_Level_Implementation_Plan.md#b-milestones) · [06 §D.6 Demo freeze criteria](../specs/06_High_Level_Implementation_Plan.md#d6-demo-freeze-criteria-day-2-0600) · [Demo script](demo-script.md) · [AI use log](../AI_USE.md) |
 
-The Participants Guide (source of the Bangladesh schedule, judging sheet and submission fields) is not in this repo. Items it would add are marked TODO(verify).
+The team must verify current submission fields, judging requirements and dates against the official guides and its local event before submitting.
 
 ## Deadlines (06 §A, Confirmed)
 
@@ -30,14 +30,14 @@ The Participants Guide (source of the Bangladesh schedule, judging sheet and sub
 - [ ] Apache-2.0 `LICENSE`
 - [ ] `docs/AI_USE.md` complete
 - [ ] Credits list (datasets and images)
-- [ ] Repo public; link opens in a private window
+- [ ] Verify the permitted repository or archive link in a private window (FD-160).
 - [ ] Repo builds from a clean clone with documented commands (06 §D.6)
 - [ ] Public repository/link scoring item (02 §B Hosting)
 
 ## NASA project page fields
 
-- [ ] TODO(verify) — field list from the Participants Guide / Project Submission guide
+- [ ] Verify the field list in the current Project Submission guide and complete the portal form.
 
 ## Bangladesh score sheet
 
-- [ ] TODO(verify) — judging-sheet items from the Participants Guide
+- [ ] Verify the Bangladesh judging-sheet items with the local event.

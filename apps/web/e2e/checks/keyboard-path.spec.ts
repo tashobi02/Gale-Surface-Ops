@@ -13,7 +13,7 @@
  * places at the crosshair, `Delete` removes the selected stop, `B` opens the briefing card, `?` opens Sources & methods, and
  * the arrow keys pan the map when the map has focus.
  */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openPoiTasks, tabTo } from "../lib/plannerTasks";
 
 const MIN_RING_PX = 2;
@@ -34,6 +34,17 @@ async function expectFocusVisible(page: Page, step: string): Promise<void> {
     expect(state.hidden, `${step}: focus on a hidden element`).toBe(false);
     expect(state.ring, `${step}: no visible focus ring (>= ${MIN_RING_PX} px)`).toBe(true);
   }
+}
+
+/** Traverse the real tab order, checking each in-page focus stop, with a bounded search. */
+async function tabToChecked(page: Page, target: Locator, step: string): Promise<void> {
+  for (let presses = 0; presses < 150; presses++) {
+    if (await target.evaluate((element) => element === document.activeElement)) return;
+    await page.keyboard.press("Tab");
+    const inPage = await page.evaluate(() => document.activeElement !== document.body);
+    if (inPage) await expectFocusVisible(page, `${step} traversal`);
+  }
+  throw new Error(`Tab did not reach ${step}`);
 }
 
 /**
@@ -57,29 +68,39 @@ test("keyboard-path: 01 §E steps 1–9 run with the keyboard only, focus visibl
   await page.keyboard.press("Tab");
   await expectFocusVisible(page, "first tab stop");
   const start = page.getByRole("button", { name: /start planning/i });
-  await start.focus();
+  await tabToChecked(page, start, "Start planning");
   await expectFocusVisible(page, "Start planning");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/#\/planner/);
   await page.locator('[data-slot="map-workspace"]').waitFor();
 
   // --- Step 4/1: open the demo plan with the keyboard ------------------------------------------------------------
-  await page.goto("/?site=mock_site#/");
-  await page.waitForLoadState("networkidle");
+  // Browser Back (Alt+← in a real browser). Playwright's synthetic key events do not reach the browser's own
+  // accelerators, so the step uses the history API that the shortcut triggers.
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/$/);
   const demo = page.getByRole("button", { name: /open demo plan/i });
-  await demo.focus();
+  await tabToChecked(page, demo, "Open demo plan");
   await expectFocusVisible(page, "Open demo plan");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/#\/planner/);
+  await page.locator('[data-slot="map-workspace"]').waitFor();
 
   // The demo plan names no start time (FD-042), so the plan is invalid until the start is set. The Plan tab holds the input.
-  await page.getByRole("tab", { name: "Plan", exact: true }).click();
+  const leftDrawer = page.locator('[data-slot="drawer-toggle"][data-for="left"]');
+  if (await leftDrawer.count() && await leftDrawer.getAttribute("aria-expanded") === "false") {
+    await tabToChecked(page, leftDrawer, "Layers and Plan drawer");
+    await page.keyboard.press("Enter");
+  }
+  const planTab = page.getByRole("tab", { name: "Plan", exact: true });
+  await tabToChecked(page, planTab, "Plan tab");
+  await page.keyboard.press("Enter");
   const startField = page.getByLabel(/EVA start/i);
-  await startField.focus();
+  await tabToChecked(page, startField, "EVA start");
   await expectFocusVisible(page, "EVA start");
-  await startField.fill("");
-  await startField.fill("2026-11-14T08:00:00Z");
-  await startField.press("Tab");
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.insertText("2026-11-14T08:00:00Z");
+  await page.keyboard.press("Tab");
 
   // The worker answers: the banner leaves its Computing state and the results are readable outside the map.
   const banner = page.locator("[data-results-banner]");
@@ -108,14 +129,14 @@ test("keyboard-path: 01 §E steps 1–9 run with the keyboard only, focus visibl
   const movedStopNumber = stopCount >= 2 ? 2 : 1;
   const movedStop = stopRows.nth(movedStopNumber - 1);
   const movedId = await movedStop.getAttribute("data-waypoint-id");
-  await movedStop.locator('[data-action="select"]').focus();
+  await tabToChecked(page, movedStop.locator('[data-action="select"]'), `select stop ${movedStopNumber}`);
   await expectFocusVisible(page, `select stop ${movedStopNumber}`);
   await page.keyboard.press("Enter");
 
   const moveGroup = page.getByRole("group", { name: `Move stop ${movedStopNumber}` });
   await expect(moveGroup, "the keyboard-move group is shown for the selected stop").toBeVisible();
   const east = moveGroup.getByRole("button", { name: /one cell east/i });
-  await east.focus();
+  await tabToChecked(page, east, "nudge east");
   await expectFocusVisible(page, "nudge east");
   const coords = stops.locator(`[data-waypoint-id="${movedId}"] [data-slot="stop-coords"]`);
   const before = await coords.innerText();
@@ -130,7 +151,7 @@ test("keyboard-path: 01 §E steps 1–9 run with the keyboard only, focus visibl
 
   // --- Step 8: open the briefing card with `B` -------------------------------------------------------------------
   // The map keys are read by the map container, so the map must have focus for the shortcut to reach it (04 §E).
-  await page.locator(".ol-viewport").focus();
+  await tabToChecked(page, page.locator(".ol-viewport"), "map");
   await page.keyboard.press("b");
   await expect(page).toHaveURL(/#\/briefing/);
   await page.locator('[data-slot="briefing-card"]').waitFor();
@@ -144,15 +165,15 @@ test("keyboard-path: 01 §E steps 1–9 run with the keyboard only, focus visibl
 
   // --- Step 8: export the plan with the keyboard ------------------------------------------------------------------
   const exportButton = page.getByRole("button", { name: /export plan json/i });
-  await exportButton.focus();
+  await tabToChecked(page, exportButton, "export button");
   await expectFocusVisible(page, "export button");
   const [download] = await Promise.all([page.waitForEvent("download"), page.keyboard.press("Enter")]);
   expect(download.suggestedFilename(), "the export is a JSON file").toMatch(/\.json$/);
 
   // --- Step 9: open Sources & methods with `?` --------------------------------------------------------------------
-  await page.goto("/?site=mock_site#/planner");
-  await page.waitForLoadState("networkidle");
-  await page.locator(".ol-viewport").focus();
+  await page.goBack(); // browser Back (Alt+←), see step 4/1
+  await expect(page).toHaveURL(/#\/planner/);
+  await tabToChecked(page, page.locator(".ol-viewport"), "map");
   await page.keyboard.press("?");
   await expect(page).toHaveURL(/#\/sources/);
   await expect(page.locator('[data-screen="SCR-09"] h1')).toContainText("What each value is");

@@ -124,7 +124,8 @@ describe("SCR-01 mission briefing (T07.05)", () => {
     expect(must(root, '[data-slot="objective"]').textContent?.trim().length).toBeGreaterThan(0);
     expect(must(root, '[data-slot="what-this-tool-does"]').textContent?.trim().length).toBeGreaterThan(0);
     const disclaimer = must(root, '[data-slot="disclaimer"]').textContent ?? "";
-    expect(disclaimer).toContain("Marswalk Surface Ops is an exploratory hackathon prototype.");
+    // The ADR-013 product name (FD-006): the boundary statement follows the name.
+    expect(disclaimer).toContain("Gale Surface Ops is an exploratory hackathon prototype.");
     expect(disclaimer).toContain("not astronaut operations software");
     expect(disclaimer).toContain("Radio coverage is line-of-sight only.");
   });

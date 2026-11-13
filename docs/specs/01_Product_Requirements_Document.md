@@ -6,7 +6,7 @@
 | **Date** | 2026-11-05 |
 | **Status** | Draft v2 — supersedes v1 (2026-11-02); pending team review |
 | **Related** | [Docs index](../README.md) · [02 Technical](02_Technical_Requirements_Document.md) · [03 App Flow](03_App_Flow_and_Diagrams.md) · [04 Design](04_Design_Brief.md) · [05 Schema](05_Backend_and_Database_Schema.md) · [06 Plan](06_High_Level_Implementation_Plan.md) |
-| **Product** | Marswalk Surface Ops *(working title — rename before submission, D-08)* |
+| **Product** | Gale Surface Ops |
 | **Challenge** | NASA Space Apps 2026 — *Interplanetary Survival Guide: Martian Map* |
 | **Target award** | Local judging; global category *Best Mission Concept* (organizer Build Guide names this challenge as aimed at it) |
 

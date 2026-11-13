@@ -659,7 +659,7 @@ Superseded by [§E.9](#e9-scr-09-sources--methods-brief).
 | --- | --- | --- |
 | D-13 | Design language (this document) | **Proposed 2026-11-04**: mission brutalism with BRIEF/OPS/HUD/PRINT modes ([ADR-010](../decisions/ADR-010-mission-brutalist-design-language.md)) |
 | U-08 | Light OPS variant for a washed-out venue projector | BRIEF mode already covers judge-facing screens; add an OPS high-contrast variant only if the projector test fails. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-002, FD-061)* Decided: opt-in light theme from PRINT tokens (`?theme=light`) |
-| U-09 | Colour vs. grayscale HiRISE basemap | Toggle; grayscale default in OPS (better hazard-overlay contrast), colour in BRIEF slabs |
+| U-09 | Colour vs. grayscale HiRISE basemap | Toggle; grayscale default in OPS (better hazard-overlay contrast), colour in BRIEF slabs. **Resolved** ([FD-003](../plan/frontend/decisions.md), FD-196) |
 | U-25 | Visual mockups of key screens | Produce before 7 Nov so R3/R5 build from a shared picture. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-005)* Resolved: prototype |
 | U-26 | Product name and logo mark (D-08) | Chamfered-hexagon mark in the reference image's style; name decided at kickoff |
 | U-27 | Chakra Petch, Source Serif 4 and Lucide licences | Verify in TASK-13; fallback display face: Space Grotesk (OFL) |

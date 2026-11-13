@@ -923,7 +923,7 @@ The accepted reversal is logged as `TASK_UPDATED` with `{task_id, stop_id, crew_
 | ID | Item | Resolution path |
 | --- | --- | --- |
 | D-02 | Static vs. backend | **Resolved 2026-11-04: Hab Core (local server) added**; planner keeps its worker |
-| D-03 | OpenLayers tiles vs. ImageStatic fallback | TASK-02 spike (v1) |
+| D-03 | OpenLayers tiles vs. ImageStatic fallback | **Resolved 2026-11-12**: tiled OpenLayers in the local Mars projection; [ADR-003 outcome](../decisions/ADR-003-openlayers-mars-projection.md#outcome) (Proposed; FD-097, FD-100–FD-105) |
 | D-12 | Hab Core language | Node.js + TS unless TS capacity < 2 people (U-13) |
 | D-14 | Web UI library | React + Vite chosen 2026-11-06 by the product & systems lead ([ADR-012](../decisions/ADR-012-react-vite-web-app.md)); kickoff sign-off |
 | U-01 | DEM quality inside AOI | **Resolved 2026-11-07** on the data lead's method ([feasibility.md](../ops/feasibility.md#dem-quality-check-u-01-a-01), [ADR-001](../decisions/ADR-001-site-selection.md#outcome-2026-11-07)); TASK-01 (v1) |

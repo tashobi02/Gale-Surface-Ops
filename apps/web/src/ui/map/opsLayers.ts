@@ -124,9 +124,9 @@ export interface OpsLayerRow {
 
 /** Counts and sources the rows need besides `availability()`. */
 export interface OpsRowState extends OpsAvailability {
-  crew: number;
-  vehicles: number;
-  havenCrew: number;
+  crew: number | null;
+  vehicles: number | null;
+  havenCrew: number | null;
   commSource: string | null;
   havenSource: string | null;
 }
@@ -136,7 +136,7 @@ export interface OpsRowState extends OpsAvailability {
  * `unavailable:` source. `null` (no map yet) gives every data layer as not computed and no counts.
  */
 export function opsLayerRows(state: OpsRowState | null): OpsLayerRow[] {
-  const s: OpsRowState = state ?? { comm_shadow: false, haven_bands: false, relay_coverage: [], crew: 0, vehicles: 0, havenCrew: 0, commSource: null, havenSource: null };
+  const s: OpsRowState = state ?? { comm_shadow: false, haven_bands: false, relay_coverage: [], crew: null, vehicles: null, havenCrew: null, commSource: null, havenSource: null };
   const count = (label: string, n: number | null, prov: Provenance, path: string): OpsLayerRow => ({
     id: path === "crew" ? "crew" : path === "vehicles" ? "vehicles" : "haven_links",
     text: `${label} — ${n === null ? "—" : n}`,
@@ -817,9 +817,9 @@ export function createOpsLayers(mapHandle: MapHandle): OpsLayers {
     rows: () =>
       opsLayerRows({
         ...availability(),
-        crew: lastSnapshot?.crew.length ?? 0,
-        vehicles: lastSnapshot?.vehicles.length ?? 0,
-        havenCrew: havenLinkSource.getFeatures().filter((f) => f.get("type") === "haven_link").length,
+        crew: lastSnapshot?.crew.length ?? null,
+        vehicles: lastSnapshot?.vehicles.length ?? null,
+        havenCrew: lastSnapshot ? havenLinkSource.getFeatures().filter((f) => f.get("type") === "haven_link").length : null,
         commSource: commSourceId,
         havenSource: havenField?.source_id ?? null,
       }),

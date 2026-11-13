@@ -31,6 +31,7 @@ import { createStopTaskDraft, fetchTaskLibrary, type TaskLibraryStatus } from ".
 import type { AppContext, MapHandle } from "../context";
 import { isNotBuilt } from "../../boot/bootPlanner";
 import { provAttrs } from "../components/provenance";
+import { PRODUCT_NAME } from "../content/disclaimer";
 import { DebugOverlay } from "../debug";
 import { createMap, READOUT_SOURCE_ID } from "../map/createMap";
 import type { KeyboardPlanContext } from "../map/keyboard";
@@ -548,11 +549,11 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
   return (
     <div className="scr02" data-slot="map-workspace" data-layout={layout} {...(selectedPoiId !== null ? { "data-selected-poi-id": selectedPoiId } : {})}>
       <header className="scr02-top-bar" data-slot="top-bar">
-        <a className="scr02-logo" data-slot="logo" href="#/" aria-label="Marswalk, back to the mission briefing">
+        <a className="scr02-logo" data-slot="logo" href="#/" aria-label={`${PRODUCT_NAME}, back to the mission briefing`}>
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M7 2h10l5 5v10l-5 5H7l-5-5V7Z" />
           </svg>
-          Marswalk
+          {PRODUCT_NAME}
         </a>
         <span className="scr02-site-name" {...site}>
           {ctx.site.site.name}

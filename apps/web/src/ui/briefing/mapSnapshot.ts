@@ -161,7 +161,7 @@ const FALLBACK_HEIGHT = 180;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /**
- * The map when the canvas capture failed (T11.06, FD-137, FD-392): the SCR-01 thumbnail (the basemap's coarsest tile, no new
+ * The map when the canvas capture failed (T11.06, FD-137, FD-442): the SCR-01 thumbnail (the basemap's coarsest tile, no new
  * asset) with the route as SVG over it. Projected metres map linearly from `aoi.extent_m`, north up, one scale on both axes, so
  * the frame has the AOI's shape. OK legs follow their geometry; a NO ROUTE leg is the dashed straight line between its stops;
  * every stop is numbered, so it reads in black and white. Line and marker styles live in `scr08BriefingCard.css` (the CSP

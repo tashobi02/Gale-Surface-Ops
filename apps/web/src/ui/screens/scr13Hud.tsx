@@ -264,7 +264,7 @@ export function Hud({
           {hud.link.hops.v !== UNAVAILABLE && ` ${hud.link.hops.unit}`}
         </span>
         <span {...provAttrs(hud.link.via)}>VIA {hud.link.via.v}</span>
-        <span data-provenance="simulated" data-source="snapshot:crew.stale">{hud.link.stale === null ? UNAVAILABLE : hud.link.stale ? "STALE" : "◇ SIM"}</span>
+        <span {...provAttrs(hud.link.stale === null ? unavailableOf("simulated", "crew.stale") : { prov: "simulated", src: "snapshot:crew.stale" })}>{hud.link.stale === null ? UNAVAILABLE : hud.link.stale ? "STALE" : "◇ SIM"}</span>
       </div>
     </div>
   );

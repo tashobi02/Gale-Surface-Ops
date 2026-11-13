@@ -1,4 +1,4 @@
-# Agent instructions — Marswalk Surface Ops
+# Agent instructions — Gale Surface Ops
 
 For any coding agent (Codex, Cursor, Gemini CLI, …). This file is the single rule set; Claude Code users also get [CLAUDE.md](CLAUDE.md), and Gemini CLI reads this file through `.gemini/settings.json`. How each agent runs the shared pipeline, skills and design checks: [docs/ops/agentic-workflow.md](docs/ops/agentic-workflow.md).
 

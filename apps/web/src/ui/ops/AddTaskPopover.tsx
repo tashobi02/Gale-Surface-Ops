@@ -11,6 +11,7 @@
  */
 
 import { useState, type CSSProperties, type ReactElement, type FormEvent } from "react";
+import { StatusIcon } from "../components/statusIcon";
 import type { AddStopTaskArgs, CrewId, StopTask, StopTaskKind } from "@marswalk/protocol";
 
 export interface StopOption {
@@ -133,6 +134,12 @@ function AddTaskForm({
 
   const submitDisabled = Boolean(disabledReason) || limitReached || taskText.trim().length === 0 || taskText.length > MAX_CHARS;
 
+  if (disabledReason) return <section style={popoverStyle} data-testid="add-task-popover" data-fallback="tasks-view-only" role="status">
+    <StatusIcon status="unknown" showWord />
+    <p data-provenance="simulated" data-source="result:command.ADD_STOP_TASK">View only — {disabledReason}. Crew task progress continues to sync.</p>
+    {onCancel && <button type="button" style={buttonStyle} onClick={onCancel}>CLOSE</button>}
+  </section>;
+
   return (
     <form
       className={`add-task-popover ${className}`}
@@ -177,14 +184,20 @@ function AddTaskForm({
       {disabledReason && <p role="status">{disabledReason}</p>}
       {limitReached && (
         <div
-          style={{
+          data-provenance="assumed"
+          data-source="ui:stop-task.limit"
+          data-status="caution"          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
             color: "var(--status-caution, #FFB020)",
             fontSize: "12px",
             padding: "4px",
             border: "1px dashed var(--status-caution, #FFB020)",
           }}
         >
-          Maximum limit of 4 tasks reached for this stop.
+          <StatusIcon status="caution" showWord={true} />
+          <span>Maximum limit of 4 tasks reached for this stop.</span>
         </div>
       )}
 
@@ -243,8 +256,19 @@ function AddTaskForm({
       <label style={labelStyle}>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <span>Description</span>
-          <span data-provenance="assumed" data-source="ui:stop-task.text-length" style={{ color: taskText.length > MAX_CHARS ? "var(--status-warning, #FF453A)" : "var(--text-2, #A9B3BE)" }}>
-            {taskText.length}/{MAX_CHARS}
+          <span
+            data-provenance="assumed"
+            data-source="ui:stop-task.text-length"
+            data-status={taskText.length > MAX_CHARS ? "warning" : undefined}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              color: taskText.length > MAX_CHARS ? "var(--status-warning, #FF453A)" : "var(--text-2, #A9B3BE)",
+            }}
+          >
+            {taskText.length > MAX_CHARS && <StatusIcon status="warning" showWord={true} />}
+            <span>{taskText.length}/{MAX_CHARS}</span>
           </span>
         </div>
         <input

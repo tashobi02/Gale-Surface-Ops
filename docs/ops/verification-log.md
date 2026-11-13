@@ -977,3 +977,24 @@ The EVA-phase case stays `test.fixme('needs N-06')`: the ops console receives no
 | Focus never lands on a hidden element | **Pass** | Every step asserts the focused element is visible and carries a focus ring |
 
 The check found a real defect and it is fixed: the SCR-05 metric tiles collapsed to 0 px in the short results panel, so the values were no longer readable outside the map (FR-08, FR-15). The metrics row now keeps its content height (FD-402, `apps/web/src/ui/screens/scr05RouteResults.css`).
+
+## T15.02 / T15.03 — Automated usability heuristic run (Frontend package 30)
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 30 (`fe-usab`) |
+| **Date** | 2026-11-13 |
+| **Status** | Automated suite green (`10/10` passing on `?site=mock_site`); human glove & 3-user physical verification stays open (`T15.02` `wip`) |
+| **Inputs** | [usability.spec.ts](../../apps/web/e2e/checks/usability.spec.ts); [usability-script.md](usability-script.md); [build_usability_results.py](../../scripts/build_usability_results.py); [usability-results.md](usability-results.md) |
+| **Scope & locators** | Strictly visible labelled controls (`getByRole`, `getByLabel`, `getByText`, keyboard navigation) — zero test ids, zero URL hash hacks mid-flow |
+
+| Case | Result | Measured highlights & provenance |
+| --- | --- | --- |
+| `usability-briefing-5-min` | **Pass** | `?site=mock_site` with real worker (`Start planning` -> `Dismiss` guide -> `EVA start` -> 3 stops -> `Briefing`): `11/15` actions, `3017 ms` total, `63 ms` worker wait (`measured`, `e2e:usability.spec.ts` / `worker:route-planner`). Blocked on `gale_boxwork` by `N-140`. |
+| `usability-UT-1`..`UT-9` | **Pass** | All 9 Surface Ops & grayscale heuristics pass (`>= 56 px` targets, `>= 8 px` gaps, `7.57:1` HUD alert contrast at `64 px`, distinct grayscale lumas `79/183/32` with shape+word, orientation parity & mid-alert rotation, quiet NOMINAL slot, stop tasks `607 ms`, full-screen map `40 px` stacked readouts + `Escape` focus return). |
+
+**Unautomatable / triage (`T15.03`):** Physical neoprene glove press dexterity, live 3-user think-aloud / 3-s subjective reading speed, and real `gale_boxwork` routing (`N-140`) remain human/hardware steps under `T15.02` (`wip`). Non-blocking UX notes (`StopTaskList` skip-reason accessible label omitting task text, `B-04` 390 px planner drawer overlap) are recorded in [usability-results.md](usability-results.md#findings-and-triage-t1503).
+
+## T17.04 — capture continuation, 2026-11-13
+
+`E2E_PORT=18132 timeout 900s make e2e-one CHECK=capture` stopped in global setup: `listen EPERM` on the `tsx` IPC socket. No browser test or duration check ran. The capture and assembly remain incomplete; no output video is certified.

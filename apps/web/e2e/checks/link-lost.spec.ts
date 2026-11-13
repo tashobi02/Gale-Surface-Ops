@@ -1,7 +1,7 @@
 /** T24.07: one common deadline for EVA and ops; cached data, real retry progress, actual restored snapshot. */
 import { expect, test } from "@playwright/test";
 import { HEARTBEAT_MS, LINK_LOST_AFTER_MS, type Snapshot } from "@marswalk/protocol";
-import { killHab, openRole, restartHab } from "../lib/hab";
+import { killHab, restartHab } from "../lib/hab";
 
 /**
  * The deadline runs from the LAST SERVER MESSAGE, not from the moment the Hab Core dies (FD-372, 02 §D.14: the server
@@ -11,8 +11,11 @@ import { killHab, openRole, restartHab } from "../lib/hab";
 const DEADLINE_AFTER_KILL_MS = LINK_LOST_AFTER_MS + HEARTBEAT_MS;
 
 test("link-lost: both roles show SCR-18 within 3 s of the last server message, actual retry counts, then restored values", async ({ context }) => {
-  const eva = await openRole(context, "eva:EV1");
-  const ops = await openRole(context, "ops");
+  const eva = await context.newPage();
+  const ops = await context.newPage();
+  await ops.setViewportSize({ width: 1440, height: 900 });
+  await eva.goto("/?site=mock_site#/eva/EV1");
+  await ops.goto("/?site=mock_site#/ops");
   let killed = false;
   try {
     const before = await (await eva.request.get('/api/session')).json() as Snapshot;
@@ -20,6 +23,9 @@ test("link-lost: both roles show SCR-18 within 3 s of the last server message, a
     const o2 = String(Math.round(member.o2_frac * 100));
     await expect(eva.locator('[data-slot="o2"] .value')).toHaveText(o2);
     await expect(ops.getByTestId('clock-control')).toBeVisible();
+    const clockButton = ops.getByTestId('clock-control').locator('button:not([disabled])').first();
+    await clockButton.focus();
+    await expect(clockButton).toBeFocused();
     killHab(); killed = true;
     const killedAt = Date.now();
     await Promise.all([eva, ops].map(async (page) => {
@@ -35,6 +41,12 @@ test("link-lost: both roles show SCR-18 within 3 s of the last server message, a
       await expect.poll(async () => Number(await count.textContent()), { timeout: 2500 }).toBeGreaterThan(first);
     }));
     await expect(eva.locator('[data-slot="cached-telemetry"] .value').nth(1)).toHaveText(o2);
+    await expect(ops.locator('[data-slot="live-screen"]')).toHaveAttribute('inert', '');
+    await expect(ops.locator('[data-slot="link-lost-overlay"]')).toBeFocused();
+    await ops.keyboard.press('Shift+Tab');
+    await expect(ops.locator('[data-slot="link-lost-retry"]')).toBeFocused();
+    await ops.keyboard.press('Tab');
+    await expect(ops.locator('[data-slot="link-lost-overlay"]')).toBeFocused();
     await restartHab(); killed = false;
     const restored = await (await eva.request.get('/api/session')).json() as Snapshot;
     const expected = restored.crew.find((c) => c.crew_id === 'EV1')!;
@@ -42,9 +54,65 @@ test("link-lost: both roles show SCR-18 within 3 s of the last server message, a
     await expect(eva.locator('[data-slot="o2"] .value')).toHaveText(String(Math.round(expected.o2_frac * 100)));
     await expect(eva.locator('[data-slot="haven"] .value')).toHaveText(String(Math.round(expected.haven.minutes)));
     await expect(ops.locator('[data-testid="clock-control"]')).toBeVisible();
+    await expect(clockButton).toBeFocused();
     await expect(ops.locator('[data-source="snapshot:crew.o2_frac"]').first()).toContainText(String(Math.round(expected.o2_frac * 100)));
   } finally {
     if (killed) await restartHab();
     await eva.close(); await ops.close();
   }
+});
+
+test("link-lost: SCR-18 does not appear before LINK_LOST_AFTER_MS, engages after it, and never drives simulated state", async ({ page }) => {
+  let blockServer = false;
+  let lastHeardAt = 0;
+  let initialSnapshot: Snapshot | null = null;
+  await page.routeWebSocket("**/ws", (ws) => {
+    if (blockServer) {
+      ws.close({ code: 1012, reason: "Harness: suppress reconnect during silence window" });
+      return;
+    }
+    const server = ws.connectToServer();
+    ws.onMessage((raw) => server.send(raw));
+    server.onMessage((raw) => {
+      if (blockServer) return;
+      const msg = JSON.parse(String(raw)) as { type?: string };
+      if (msg.type === "SNAPSHOT" && !initialSnapshot) initialSnapshot = msg as unknown as Snapshot;
+      lastHeardAt = Date.now();
+      ws.send(raw);
+    });
+  });
+
+  await page.goto("/?site=mock_site#/eva/EV1");
+  await expect(page.locator('[data-slot="o2"] .value')).not.toHaveText("—");
+  expect(initialSnapshot).not.toBeNull();
+  const initialO2 = String(Math.round(initialSnapshot!.crew.find((c) => c.crew_id === "EV1")!.o2_frac * 100));
+  const initialHaven = String(Math.round(initialSnapshot!.crew.find((c) => c.crew_id === "EV1")!.haven.minutes));
+
+  // Cut server silence cleanly right now and observe SCR-18 before LINK_LOST_AFTER_MS.
+  blockServer = true;
+  const silenceStart = lastHeardAt;
+  await page.evaluate(() => {
+    const win = window as unknown as { __scr18SeenAt?: number };
+    const observer = new MutationObserver(() => {
+      if (win.__scr18SeenAt === undefined && document.querySelector('[data-screen="SCR-18"]')) {
+        win.__scr18SeenAt = Date.now();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+
+  // Well before LINK_LOST_AFTER_MS (allow margin for last message timestamp), SCR-18 must NOT be shown yet.
+  const preDeadlineRemaining = Math.max(200, silenceStart + LINK_LOST_AFTER_MS - 700 - Date.now());
+  await page.waitForTimeout(preDeadlineRemaining);
+  await expect(page.locator('[data-screen="SCR-18"]')).toHaveCount(0);
+  // Simulated values remain untouched by the countdown timer.
+  await expect(page.locator('[data-slot="o2"] .value')).toHaveText(initialO2);
+  await expect(page.locator('[data-slot="haven"] .value')).toHaveText(initialHaven);
+
+  // After LINK_LOST_AFTER_MS has elapsed from the last server message, SCR-18 appears and never drove simulated state.
+  await expect(page.locator('[data-screen="SCR-18"] [role="alert"]')).toBeVisible({ timeout: LINK_LOST_AFTER_MS + 2000 });
+  const seenAt = await page.evaluate(() => (window as unknown as { __scr18SeenAt?: number }).__scr18SeenAt ?? Date.now());
+  expect(seenAt - silenceStart, "SCR-18 appeared before LINK_LOST_AFTER_MS").toBeGreaterThanOrEqual(LINK_LOST_AFTER_MS - 100);
+  await expect(page.locator('[data-slot="cached-telemetry"] .value').nth(0)).toHaveText(initialHaven);
+  await expect(page.locator('[data-slot="cached-telemetry"] .value').nth(1)).toHaveText(initialO2);
 });
