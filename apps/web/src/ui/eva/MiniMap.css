@@ -1,0 +1,7 @@
+/* QoL Q4: the mini-map's + / − / RECENTRE sit in a strip at the bottom-right of the map, outside the full-map tap
+   target, so no two targets overlap and the EVA 8 px gap holds (04 §E). The tap target keeps the rest of the map: it
+   ends 76 px above the bottom, 12 px clear of the 56 px controls set 8 px from the edge. The toolbar is only as wide as
+   its buttons. Neutral chrome comes from MapControls (status colours mean status only, 04 §A.3 #1). */
+.eva-mini-map > button[data-slot="mini-map-open"] { bottom: 76px; }
+.eva-mini-map-controls { position: absolute; z-index: 3; right: 8px; bottom: 8px; width: max-content; max-width: calc(100% - 16px); }
+div.eva-mini-map { min-height: 160px; }
