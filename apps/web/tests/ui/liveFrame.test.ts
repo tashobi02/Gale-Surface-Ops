@@ -97,6 +97,23 @@ describe("LiveFrame", () => {
     expect(must(container, '[data-slot="link-lost-overlay"]').getAttribute("data-surface")).toBe("eva");
   });
 
+  it("the link-lost overlay is reachable by keyboard: it scrolls and the EVA notice has no control of its own", async () => {
+    // The overlay scrolls on a narrow phone and the EVA notice carries no focusable control, so the scrollable region
+    // must itself be focusable (WCAG 2.1.1; axe's `scrollable-region-focusable`).
+    vi.useFakeTimers();
+    const made = open("eva:EV1");
+    const { container } = await mount(createElement(LiveFrame, { variant: "eva", crewId: "EV1" }, child()));
+    await made[0].receive(...wsFixtures.connect);
+    await silence(LINK_LOST_AFTER_MS + 50);
+
+    const overlay = must(container, '[data-slot="link-lost-overlay"]');
+    expect(overlay.getAttribute("tabindex")).toBe("0");
+    expect(overlay.getAttribute("role")).toBe("region");
+    expect(overlay.getAttribute("aria-label")).toBeTruthy();
+    // The EVA notice has no button of its own, so the overlay is the only way in.
+    expect(overlay.querySelector("button")).toBeNull();
+  });
+
   it("ops host: a full-screen notice with retry, data-surface ops (12 px codes), not the EVA surface", async () => {
     vi.useFakeTimers();
     const made = open("ops");

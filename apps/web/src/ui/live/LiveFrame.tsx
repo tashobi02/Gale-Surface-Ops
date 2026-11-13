@@ -160,7 +160,17 @@ export function LiveFrame({ variant, crewId, onRetry, children }: LiveFrameProps
         </div>
       )}
       {link.lost && !takenOver && (
-        <div data-slot="link-lost-overlay" data-mode={variant === "hud" ? "hud" : "ops"} data-surface={variant === "ops" ? "ops" : "eva"} style={overlayStyle}>
+        // The overlay scrolls on a narrow phone, and the EVA notice carries no focusable control of its own, so the
+        // scrollable region must itself be reachable by keyboard (WCAG 2.1.1; axe's `scrollable-region-focusable`).
+        <div
+          data-slot="link-lost-overlay"
+          data-mode={variant === "hud" ? "hud" : "ops"}
+          data-surface={variant === "ops" ? "ops" : "eva"}
+          tabIndex={0}
+          role="region"
+          aria-label="Hab link lost overlay"
+          style={overlayStyle}
+        >
           {variant === "ops" || !crewId ? (
             <OpsLinkLostNotice ageSeconds={age} reconnectCount={reconnectCount} onRetry={retry} />
           ) : (

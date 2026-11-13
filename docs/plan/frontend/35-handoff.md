@@ -1,6 +1,6 @@
 # Package 35 continuation handoff
 
-Branch `fe-des`; no merge, push or browser execution. The continuation prompt prohibits starting the browser; browser checks below remain pending. No new backend needs: existing N-24 covers REMS context and the illustrative O₂ function.
+Branch `fe-des`; no merge, push or browser execution by the package agent itself — the continuation prompt prohibits starting the browser. The orchestrator ran the browser checks afterwards, on `core-frontend` after the package merged; those results are recorded below. No new backend needs: existing N-24 covers REMS context and the illustrative O₂ function.
 
 ## Automated evidence
 
@@ -11,12 +11,32 @@ Branch `fe-des`; no merge, push or browser execution. The continuation prompt pr
 - Static checks: `make -s typecheck lint docs-check` passed after final bookkeeping (0 markdown issues, 0 broken links). `graphify update .` completed; its generated report is outside the lane and was restored, with generated outputs excluded from commits.
 - Required code review found and fixed three P2 issues: display font below 20 px, hidden responsive coach anchor, light palette leaking to other OPS routes. Review fixes have two new behavioural regressions that ran red before implementation.
 
+## Browser results (orchestrator run on `core-frontend`, after the package merged)
+
+The orchestrator ran the checks the package could not. Port 8161 onward, one check at a time, on the merged `core-frontend` branch.
+
+| Check | Projects | Result |
+| --- | --- | --- |
+| toggles | desktop-1440 | 3 passed |
+| contrast, including light planner | desktop-1440 | 17 passed |
+| provenance | desktop-1440 | 17 passed, 2 skipped (both `test.fixme` naming N-24) |
+| print | desktop-1440 | 8 passed |
+| targets | every project | 125 passed, 35 skipped |
+| axe | every project | 191 passed, 49 skipped, 2 failed — see below |
+
+Two axe failures came out of the run, and one was a real defect:
+
+- `phone-360x740` "EVA full map, options and cached transport-loss overlay": a **serious** `scrollable-region-focusable` violation on `div[data-slot="link-lost-overlay"]`. The overlay scrolls on a narrow phone and the EVA notice carries no focusable control of its own, so the scrollable region had no keyboard access. Fixed in FD-519: the overlay is now `tabIndex={0}` with `role="region"` and a label, with a regression test whose mutation (reverting the attributes) fails it.
+- `desktop-1280` "EVA tablet states and high contrast": the test timed out at 3.0 m. It runs 16 axe scans (8 EVA states × base and high contrast) inside a 180 s budget, which is about 11 s per scan; it passed on every other project in the same run, so this is the known load-dependent timeout family, not an accessibility regression. The check is unchanged.
+
+The `planner-drawer` check added by the package-25 drawer fix also passes on all six registered viewports (desktop-1440, phone-landscape-844x390, phone-portrait-390x844, phone-360x740, tablet-landscape-1024x768, tablet-portrait-768x1024).
+
 ## Status rows
 
 | Row | Final state | Reason |
 | --- | --- | --- |
-| T13.07 | wip | Keyboard and memory-only dismissal unit checks pass; browser toggles/axe/targets/provenance await orchestrator |
-| T13.08 | wip | Explicit light planner theme and PRINT contrast unit checks pass; browser contrast/axe await orchestrator |
+| T13.07 | wip | Keyboard and memory-only dismissal unit checks pass; the browser toggles, targets, axe and provenance checks pass too. The row stays wip on the desktop-1280 axe timeout above, which is the load-dependent family and not a coach-mark defect |
+| T13.08 | wip | Explicit light planner theme and PRINT contrast unit checks pass; the browser contrast (including light planner) and axe (including the light planner and the light coach steps) checks pass |
 | T18.03 | wip | N-24 REMS context absent; sourced unavailable dash; harness `test.fixme` names N-24 |
 | T18.06 | wip | N-24 O₂ output absent; illustrative sourced unavailable dash; harness `test.fixme` names N-24 |
 | T18.07 | done | Fifteen persistence unit/integration checks pass, including restore/recompute through the real store and ignored blocked storage |
@@ -33,12 +53,6 @@ E2E_PORT=8113 timeout 600s make e2e-one CHECK=targets
 E2E_PORT=8113 timeout 600s make e2e-one CHECK=provenance
 ```
 
-| Check | Configured projects | Result in this continuation |
-| --- | --- | --- |
-| toggles | desktop-1440 | Not run; browser prohibited |
-| contrast, including light planner | desktop-1440 | Not run; browser prohibited |
-| axe, including every light coach step | desktop-1440, desktop-1280, desktop-1024, phone-landscape-844x390, phone-portrait-390x844, phone-360x740, tablet-landscape-1024x768, tablet-portrait-768x1024, hud-844x390 | Not run on every listed project; browser prohibited |
-| targets | desktop-1440, phone-landscape-844x390, tablet-landscape-1024x768 | Not run on every listed project; browser prohibited |
-| provenance | desktop-1440 | Not run; browser prohibited; two N-24 acceptance cases remain fixme |
+The package agent did not run these (the continuation prompt prohibited starting the browser); the orchestrator did, and the results are in the table above. The `axe` check needs a budget longer than 600 s — it sweeps every project, and the run above took 15.3 minutes.
 
-The package also touches the PRINT assumptions block; the orchestrator should rerun `E2E_PORT=8113 timeout 600s make e2e-one CHECK=print` to confirm page fit. No harness was weakened and no server or browser was left running by this continuation.
+No harness was weakened and no server or browser was left running by the continuation.
