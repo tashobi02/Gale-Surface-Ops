@@ -196,13 +196,16 @@ test("targets: stop task editor targets are at least 44 px under a coarse pointe
   await openPoiTasks(page);
   const list = await targets(page, "[data-stop-task-editor]");
   expect(list.some(target => /input/i.test(target.label))).toBe(true);
+  expect(list.some(target => /^summary\b/.test(target.label))).toBe(true);
   expectTargetSize(list, PLANNER_COARSE_MIN);
 });
 
 test("targets: Earth composer controls are at least 32 px (package 36)", async ({ page }) => {
   await page.goto("/#/earth");
   await page.getByLabel("Message", { exact: true }).fill("Test message");
-  await checkOpsTargets(page, '[data-screen="SCR-16"]');
+  const list = await targets(page, '[data-screen="SCR-16"]');
+  expect(list.some((target) => /^textarea\b/.test(target.label))).toBe(true);
+  expectTargetSize(list, OPS_MIN);
 });
 
 test.fixme("needs N-130 and N-31: Earth delayed summary and available/waiting link states", async () => {});

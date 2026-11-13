@@ -11,8 +11,8 @@ export interface Box {
   height: number;
 }
 
-/** Every touch target of 04 §C.3: buttons, links, role=button, inputs, selects and tab stops. */
-export const TARGET_SELECTOR = 'button, a, [role=button], input, select, [tabindex="0"]';
+/** Every touch target of 04 §C.3, including native text areas and disclosures. */
+export const TARGET_SELECTOR = 'button, a, [role=button], input, select, textarea, summary, [tabindex="0"]';
 
 /** The box of each selector's first visible match, or null when nothing visible matches. */
 export async function boxes(page: Page, selectors: readonly string[]): Promise<Record<string, Box | null>> {
