@@ -53,19 +53,19 @@ export interface EngineState {
   /** Surface link graph, recomputed each tick for mobile nodes (05 LinkState). TASK-26. */
   links: LinkState[];
   /** Earth link status for SNAPSHOT `earth` (02 §E.6). TASK-26. */
-  earth: { light_time_s: number; next_pass_utc: string | null; blackout: boolean };
+  earth: { light_time_s: number; next_pass_utc: string | null; blackout: boolean; link_state: "AVAILABLE" | "WAITING" | "BLACKOUT" | null; link_via: "mro" | "maven" | "tgo" | "dte" | null; link_until_utc: string | null };
   earthQueue: EarthMessage[];
   /** FR-36 conditions feed values. TASK-22 (T22.16). */
   conditions: ConditionsState;
   /**
-   * Walk progress per crew member, written only by tick.ts (T22.09; `TODO(decision)` S1). Engine-only:
+   * Walk progress per crew member, written only by tick.ts (T22.09; rule S1, ratified, BD-71). Engine-only:
    * it is saved in snapshots so resume continues the walk, and never sent to clients.
    */
   motion: Partial<Record<CrewId, CrewMotion>>;
   /**
    * Alert ids that already had an OPTIONS_PROPOSED, in log order; contingencyOps.ts (T23.07) answers
    * an alert once. Engine-only and JSON-safe, like `motion`; absent (= none) in states and snapshots
-   * written before 2026-11-08. Added by the T23.07 rework, Proposed 2026-11-08 — TODO(decision).
+   * written before 2026-11-08. Added by the T23.07 rework, Proposed 2026-11-08, ratified (BD-71).
    */
   proposed_alerts?: string[];
   /**
@@ -73,7 +73,7 @@ export interface EngineState {
    * from it whether an undo is stale ("no PLAN_REVISED since that change", 01 FR-50, 02 §E.6; spec
    * change #202, Proposed 2026-11-11). Engine-only and JSON-safe, like `motion`; absent in states and
    * snapshots written before that change (an undo is then refused as stale). Added to the T20 reducer
-   * state with the authorisation of its owner (Sadman Shaharier Mahim) — TODO(decision) until #194 merges.
+   * state with the authorisation of its owner (Sadman Shaharier Mahim); #194 merged, ratified (BD-71).
    */
   task_plan_rev?: Record<string, number>;
   /**
@@ -254,7 +254,7 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
     options: [],
     tasks: [],
     links: [],
-    earth: { light_time_s: firstEarthRow?.light_time_s ?? 0, next_pass_utc: null, blackout: false },
+    earth: { light_time_s: firstEarthRow?.light_time_s ?? 0, next_pass_utc: null, blackout: false, link_state: null, link_via: null, link_until_utc: null },
     earthQueue: [],
     conditions: conditionsFrame(scenario),
     motion: {},

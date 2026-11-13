@@ -179,6 +179,39 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     return Buffer.from(cov.data.buffer, cov.data.byteOffset, cov.data.byteLength);
   });
 
+  // N-30 (BD-158): the loaded scenario's ParamSets, dose series and Earth-link span, for SCR-09. Static for a session.
+  app.get("/api/scenario-meta", async (_req, reply) => {
+    if (!session?.scenarioMeta) return reply.code(404).send({ error: "no session loaded" });
+    return session.scenarioMeta();
+  });
+
+  // N-130 (BD-157): the crew and alerts as Earth sees them, one light time old; the Earth console polls it.
+  app.get("/api/earth-view", async (_req, reply) => {
+    if (!session?.earthView) return reply.code(404).send({ error: "no session loaded" });
+    reply.header("Cache-Control", "no-store");
+    return session.earthView();
+  });
+
+  // N-100, N-120 (BD-159): the walking time to the hab for every grid cell, float32 seconds, row 0 = north (compute habTimeField).
+  app.get("/api/hab-time-field", async (req, reply) => {
+    const field = session?.habTimeField?.() ?? null;
+    if (field === null) return reply.code(404).send({ error: "no hab time field: the session has no plan, grid or start waypoint" });
+    const etag = field.etag;
+    reply
+      .header("ETag", etag)
+      .header("Cache-Control", "no-cache")
+      .header("X-Grid-Width", String(field.width))
+      .header("X-Grid-Height", String(field.height))
+      .header("X-Grid-Origin-M", field.origin_m.join(","))
+      .header("X-Grid-Cell-M", String(field.cell_m))
+      .header("X-Unit", "s")
+      .header("X-Provenance", "modelled")
+      .header("X-Data-Version", field.data_version);
+    if (req.headers["if-none-match"] === etag) return reply.code(304).send();
+    reply.type("application/octet-stream");
+    return Buffer.from(field.seconds.buffer, field.seconds.byteOffset, field.seconds.byteLength);
+  });
+
   // T28.02 (BD-82): the join QR for one role, an SVG built locally (no outbound request, NFR-01).
   app.get<{ Querystring: { role?: unknown } }>("/api/join-qr", async (req, reply) => {
     const role = req.query.role;

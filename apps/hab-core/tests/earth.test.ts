@@ -23,7 +23,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { deliveryTime, inConjunction, linkAt, nextPassStart } from "@marswalk/compute";
+import { deliveryTime, earthLinkState, inConjunction, linkAt, nextPassStart } from "@marswalk/compute";
 import type { Command, EarthLinkTable, EventLibraryEntry, EventLibraryInput, LogEventData, ParamSet, Role, ScenarioEvent } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand } from "../src/commands";
 import { earthTick, handleSendMessage } from "../src/engine/earth";
@@ -375,6 +375,10 @@ describe("Snapshot.earth from compute (FR-43)", () => {
         light_time_s: row.light_time_s,
         next_pass_utc: nextPassStart(scenario.earthLink, iso(t))?.start_utc ?? null,
         blackout: inConjunction(scenario.earthLink, iso(t), link),
+        // N-31: the state of the link now, from compute
+        link_state: earthLinkState(scenario.earthLink, iso(t), link)!.state,
+        link_via: earthLinkState(scenario.earthLink, iso(t), link)!.via,
+        link_until_utc: earthLinkState(scenario.earthLink, iso(t), link)!.until_utc,
       });
     }
     expect(tickAt(running(sc, T0 + 35 * MIN), T0 + 35 * MIN).state.earth.next_pass_utc).toBe(iso(T0 + PASS_STARTS[1])); // the pass in progress is not "next"
@@ -384,9 +388,26 @@ describe("Snapshot.earth from compute (FR-43)", () => {
   it("reports a STATE_DELTA per changed field and none when nothing changed", () => {
     const t = T0 + 3 * HOUR + 5 * MIN;
     const first = tickAt(running(scConj, t), t, scConj);
-    expect(first.deltas.map((d) => d.path).sort()).toEqual(["earth/blackout", "earth/next_pass_utc"].sort());
+    expect(first.deltas.map((d) => d.path).sort()).toEqual(["earth/blackout", "earth/link_state", "earth/next_pass_utc"].sort());
     const again = tickAt(first.state, t + 1000, scConj);
     expect(again.deltas).toEqual([]);
+  });
+
+  it("link_state says whether a message can be carried now (N-31, BD-156): AVAILABLE in a pass with its orbiter and end, WAITING between passes, BLACKOUT in conjunction", () => {
+    const inPass = tickAt(running(sc, T0 + PASS_STARTS[0] + 5 * MIN), T0 + PASS_STARTS[0] + 5 * MIN).state.earth;
+    expect(inPass).toMatchObject({ link_state: "AVAILABLE", link_via: ORBITERS[0], link_until_utc: iso(T0 + PASS_STARTS[0] + PASS_LEN) });
+    const between = tickAt(running(sc, T0 + 2 * HOUR), T0 + 2 * HOUR).state.earth;
+    expect(between).toMatchObject({ link_state: "WAITING", link_via: null, link_until_utc: null });
+    const conj = tickAt(running(scConj, T0 + 3 * HOUR + 5 * MIN), T0 + 3 * HOUR + 5 * MIN, scConj).state.earth;
+    expect(conj).toMatchObject({ link_state: "BLACKOUT", link_via: null, link_until_utc: null });
+  });
+
+  it("the state changes at the pass edges, and each change is one STATE_DELTA per changed field", () => {
+    const t0 = T0 + PASS_STARTS[0] - 1000;
+    const before = tickAt(running(sc, t0), t0);
+    expect(before.state.earth.link_state).toBe("WAITING");
+    const at = tickAt(before.state, T0 + PASS_STARTS[0]);
+    expect(at.deltas.map((d) => d.path).sort()).toEqual(["earth/link_state", "earth/link_until_utc", "earth/link_via"].sort());
   });
 
   it("is left alone before the table's first row", () => {

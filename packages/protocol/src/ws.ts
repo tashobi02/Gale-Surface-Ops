@@ -70,7 +70,18 @@ export interface Snapshot {
   options: ContingencyOption[];
   /** Current stop tasks (02 §E.6, FR-50). */
   tasks: StopTask[];
-  earth: { light_time_s: number; next_pass_utc: string | null; blackout: boolean; queue: EarthMessage[] };
+  earth: {
+    light_time_s: number;
+    next_pass_utc: string | null;
+    blackout: boolean;
+    queue: EarthMessage[];
+    /** Whether the link carries a message now: `AVAILABLE` (an orbiter pass or DTE), `WAITING` (between passes), `BLACKOUT` (conjunction); null before the Earth table starts (N-31, BD-156). Derived by compute `earthLinkState`. */
+    link_state?: "AVAILABLE" | "WAITING" | "BLACKOUT" | null;
+    /** The carrier of an AVAILABLE link; null otherwise. */
+    link_via?: "mro" | "maven" | "tgo" | "dte" | null;
+    /** End of the relay pass that carries an AVAILABLE link; null for DTE, WAITING and BLACKOUT. */
+    link_until_utc?: string | null;
+  };
   clients: Pick<ClientConnection, "client_id" | "role" | "display_name">[];
   provenance: ProvenanceMap;
   /** FR-36 conditions at the hab (BD-75); deltas at `conditions/<key>`. */

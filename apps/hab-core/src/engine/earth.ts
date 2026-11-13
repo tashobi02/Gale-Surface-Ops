@@ -18,10 +18,11 @@
  *   of kind EARTH_MESSAGE at its `t_utc`, a started library event's input of that kind at `t0 + t_offset_s` (`dueInputs`,
  *   BD-99). Both are Earth to Mars messages sent at `payload.sent_earth_utc`, else at the firing time (05 ScenarioEvent:
  *   `t_utc` is the Earth issue time). Other kinds (DONKI_RECORD, ADVISORY, INJECT) have no engine effect.
- * - `state.earth` (the SNAPSHOT block): light time, next relay pass start and blackout from the table at sim time, unchanged
+ * - `state.earth` (the SNAPSHOT block): light time, next relay pass start, blackout and the link state (AVAILABLE with its
+ *   carrier and the pass end, WAITING, BLACKOUT; compute `earthLinkState`, N-31, BD-156) from the table at sim time, unchanged
  *   before the table's first row; a changed field is a STATE_DELTA at `earth/<field>`.
  */
-import { deliveryTime, inConjunction, linkAt, nextPassStart, type EarthDeliveryResult } from "@marswalk/compute";
+import { deliveryTime, earthLinkState, linkAt, nextPassStart, type EarthDeliveryResult } from "@marswalk/compute";
 import { PROTOCOL_VERSION, type Command, type CommandResult, type EarthLinkTable, type LogEventData, type ParamSet } from "@marswalk/protocol";
 import type { LoadedScenario } from "../scenario";
 import { dueInputs } from "./liveEvents";
@@ -103,8 +104,16 @@ export function earthTick(state: EngineState, ctx: TickContext): TickResult {
   let earth = state.earth;
   const row = linkAt(table, now);
   if (row !== null) {
-    const next = { light_time_s: row.light_time_s, next_pass_utc: nextPassStart(table, now)?.start_utc ?? null, blackout: inConjunction(table, now, params) };
-    for (const key of ["light_time_s", "next_pass_utc", "blackout"] as const) if (next[key] !== earth[key]) deltas.push({ path: `earth/${key}`, value: next[key] });
+    const link = earthLinkState(table, now, params)!; // a row exists, so the state does
+    const next: EngineState["earth"] = {
+      light_time_s: row.light_time_s,
+      next_pass_utc: nextPassStart(table, now)?.start_utc ?? null,
+      blackout: link.state === "BLACKOUT",
+      link_state: link.state,
+      link_via: link.via,
+      link_until_utc: link.until_utc,
+    };
+    for (const key of ["light_time_s", "next_pass_utc", "blackout", "link_state", "link_via", "link_until_utc"] as const) if (next[key] !== earth[key]) deltas.push({ path: `earth/${key}`, value: next[key] });
     if (deltas.length > 0) earth = next;
   }
 

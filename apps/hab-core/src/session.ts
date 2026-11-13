@@ -26,7 +26,10 @@ import { join } from "node:path";
 import { PROTOCOL_VERSION, type Command, type DoseSeries, type CommandRef, type CommandResult, type LogEvent, type LogEventData, type PlanExport, type ProvenanceMap, type Snapshot } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand } from "./commands";
 import { SIM_STEP_S } from "./engine/clock";
-import { HavenCache } from "./engine/haven";
+import { createHash } from "node:crypto";
+import { currentHabField, HavenCache } from "./engine/haven";
+import { earthView, type EarthView } from "./earthView";
+import { scenarioMeta, type ScenarioMeta } from "./scenarioMeta";
 import { buildHabSite, prepareSite, relocateCrew, type HabSite } from "./engine/liveSetup";
 import { arrivedAt, jumpEnded, nextStopTarget, type JumpEnd } from "./engine/nextStop";
 import { initialState, logged, reduce, type EngineState, type PendingEvent, type StateChange } from "./engine/reducer";
@@ -73,6 +76,16 @@ export interface SessionHandle {
    */
   relayCoverage(vehicle_id: string): { rev: number; width: number; height: number; data: Uint8Array } | null;
   /**
+   * The hab walking-time field of the current plan for `GET /api/hab-time-field` (N-100, N-120): seconds per cell of the routing
+   * grid (Infinity = unreachable), row 0 = north, with the grid geometry and an `etag` naming its inputs. Null with no plan or
+   * grid. Optional so that a stub session needs none.
+   */
+  habTimeField?(): { width: number; height: number; origin_m: [number, number]; cell_m: number; seconds: Float32Array; etag: string; data_version: string } | null;
+  /** The Earth console's delayed view of the crew and alerts for `GET /api/earth-view` (N-130). Optional, as `habTimeField`. */
+  earthView?(): EarthView & { link_state: "AVAILABLE" | "WAITING" | "BLACKOUT" | null };
+  /** The loaded scenario's own metadata for `GET /api/scenario-meta` (N-30). Optional, as `habTimeField`. */
+  scenarioMeta?(): ScenarioMeta;
+  /**
    * The loaded scenario's own plan, unchanged by PLAN_REVISED (the snapshot's `plan` is the engine's current one, whose
    * waypoints the reducer replaces). The post-EVA report diffs revisions against it and reads its planned timing (FR-46).
    */
@@ -108,6 +121,9 @@ const SNAPSHOT_PROVENANCE: ProvenanceMap = {
   "vehicles.y_m": "simulated",
   "vehicles.eta_s": "modelled",
   "earth.light_time_s": "derived",
+  "earth.link_state": "derived",
+  "earth.link_via": "derived",
+  "earth.link_until_utc": "derived",
   // Protocol v0.2 (contract §4, §5): a view never computes or defaults these; null renders as "—".
   "crew.o2_remaining_min": "simulated",
   "crew.next_stop_bearing_deg": "derived",
@@ -164,6 +180,27 @@ class Session implements SessionHandle {
       this.state = started.state;
       this.accepted = new AcceptedCommands();
     }
+  }
+
+  /** The last hab field sent as float32, by the field object it came from (the haven memo returns the same object until its inputs change). */
+  private habF32: { field: object; seconds: Float32Array } | null = null;
+
+  habTimeField(): { width: number; height: number; origin_m: [number, number]; cell_m: number; seconds: Float32Array; etag: string; data_version: string } | null {
+    const hit = currentHabField(this.havenCache, this.state, this.scenario);
+    if (hit === null) return null;
+    if (this.habF32 === null || this.habF32.field !== hit.field) this.habF32 = { field: hit.field, seconds: Float32Array.from(hit.field.seconds) };
+    const { field } = hit;
+    return { width: field.width, height: field.height, origin_m: field.origin_m, cell_m: field.cell_m, seconds: this.habF32.seconds, etag: `"${createHash("sha256").update(hit.key).digest("hex").slice(0, 16)}"`, data_version: this.state.session.data_version };
+  }
+
+  earthView(): EarthView & { link_state: "AVAILABLE" | "WAITING" | "BLACKOUT" | null } {
+    const s = this.state;
+    const view = earthView({ now_utc: s.session.clock.sim_time, light_time_s: s.earth.link_state === null ? null : s.earth.light_time_s, trace: s.trace ?? [], events: this.eventsAfter(0) });
+    return { ...view, link_state: s.earth.link_state };
+  }
+
+  scenarioMeta(): ScenarioMeta {
+    return scenarioMeta(this.scenario);
   }
 
   initialPlan(): PlanExport | null {
