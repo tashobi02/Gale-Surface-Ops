@@ -12,7 +12,7 @@
  *   absent (04 §D.1: a missing value says so).
  */
 import { useEffect, useRef, useState, type ReactElement } from "react";
-import type { Snapshot } from "@marswalk/protocol";
+import { LINK_LOST_AFTER_MS, type Snapshot } from "@marswalk/protocol";
 import OlMap from "ol/Map.js";
 import Feature from "ol/Feature.js";
 import LineString from "ol/geom/LineString.js";
@@ -35,6 +35,7 @@ export interface MiniMapProps {
   /** The crew member this tablet belongs to: their marker is drawn as "me". */
   crewId?: string;
   onOpen?: () => void;
+  onUnavailable?: () => void;
 }
 
 /** The key of the route geometry: when it is unchanged the drawn route is left alone. */
@@ -49,11 +50,13 @@ function routeLegsOf(snapshot: Snapshot | null): { geometry: [number, number][] 
   return legs.flatMap((leg) => (leg.status === "OK" && leg.geometry.length >= 2 ? [{ geometry: leg.geometry }] : []));
 }
 
-export function MiniMap({ snapshot, crewId, onOpen }: MiniMapProps): ReactElement {
+export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProps): ReactElement {
   const host = useRef<HTMLDivElement>(null);
   const layers = useRef<OpsLayers | null>(null);
   const route = useRef<VectorSource | null>(null);
   const routeKey = useRef<string | null>(null);
+  const failure = useRef(onUnavailable);
+  failure.current = onUnavailable;
   const latest = useRef(snapshot);
   latest.current = snapshot;
   const [unavailable, setUnavailable] = useState(false);
@@ -64,19 +67,26 @@ export function MiniMap({ snapshot, crewId, onOpen }: MiniMapProps): ReactElemen
     let cancelled = false;
     let handle: MapHandle | undefined;
     let ops: OpsLayers | undefined;
+    const fail = (): void => { if (!cancelled) { clearTimeout(deadline); setUnavailable(true); failure.current?.(); } };
+    const deadline = setTimeout(fail, LINK_LOST_AFTER_MS);
     void loadSite(siteId).then((site) => {
       if (cancelled || !host.current) return;
       handle = createMap({ target: host.current, site, keyboard: false });
       handle.getTargetElement().tabIndex = -1;
       const map = handle.getMap<OlMap>();
       const projection = ensureMarsProjection(site.site);
+      let optical = false;
       for (const def of site.site.layers) {
         if (def.kind !== "raster_tiles" || !def.tile_grid || def.category !== "optical") continue;
         const asset = site.assets.get(def.asset_id);
         if (!asset || asset.format !== "tiles") continue;
         const attribution = def.source_ids.map((id) => site.sources.get(id)?.credit).filter((value): value is string => Boolean(value));
         // The shared OPS grayscale class (FD-003): the ortho is grey in OPS here as it is on the planner's map.
-        map.addLayer(new TileLayer({ source: new XYZ({ projection, tileGrid: createTileGrid(def.tile_grid, site.site.aoi.extent_m), wrapX: false, url: `${asset.url}/{z}/{x}/{y}.${def.tile_grid.format}`, attributions: attribution }), className: OPS_ORTHO_LAYER_CLASS }));
+        optical = true;
+        const tiles = new XYZ({ projection, tileGrid: createTileGrid(def.tile_grid, site.site.aoi.extent_m), wrapX: false, url: `${asset.url}/{z}/{x}/{y}.${def.tile_grid.format}`, attributions: attribution });
+        tiles.on("tileloaderror", fail);
+        tiles.on("tileloadend", () => clearTimeout(deadline));
+        map.addLayer(new TileLayer({ source: tiles, className: OPS_ORTHO_LAYER_CLASS }));
       }
       const source = new VectorSource();
       const routeLayer = new VectorLayer({ source, style: new Style({ stroke: new Stroke({ color: tokenColor("route"), width: 4 }) }) });
@@ -112,13 +122,13 @@ export function MiniMap({ snapshot, crewId, onOpen }: MiniMapProps): ReactElemen
       for (const leg of routeLegsOf(latest.current)) {
         source.addFeature(new Feature(new LineString(leg.geometry)));
       }
-      setUnavailable(false);
+      if (!optical) fail();
     }).catch((error: unknown) => {
       // The failure is logged, not swallowed: a silent "map unavailable" would hide a broken site or a missing token.
       console.error("mini-map site load", error);
-      if (!cancelled) setUnavailable(true);
+      fail();
     });
-    return () => { cancelled = true; layers.current = null; route.current = null; routeKey.current = null; ops?.destroy(); handle?.destroy(); };
+    return () => { cancelled = true; clearTimeout(deadline); layers.current = null; route.current = null; routeKey.current = null; ops?.destroy(); handle?.destroy(); };
     // `crewId` is applied by the update effect below, so the map is not rebuilt when it changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteId]);

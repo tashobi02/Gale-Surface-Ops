@@ -4,6 +4,7 @@
  * 12 mm margins. SCR-17 is printed populated (`/api/report` answered with a complete report of 3, 5 and 6 stops, up to 3
  * alerts and a crew trace; tests/fixtures/postEvaReport.ts) and with the page's own CSS `@page` margin, not one passed here.
  */
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { openBriefing, BRIEFING_STATES } from "../lib/briefing";
 import { cssPageMarginApplies, pdfMediaBox, pdfPages } from "../lib/print";
@@ -71,3 +72,23 @@ for (const [stops, alerts] of [[3, 1], [5, 2], [6, 3]] as const) {
     for (const format of FORMATS) expect(await pdfPages(page, { format, margin: "css" }), `${stops} stops, ${alerts} alerts, ${format}`).toBeLessThanOrEqual(SCR17_MAX_PAGES);
   });
 }
+
+test("print: SCR-17 report endpoint 500 prints the raw log, hash availability and disclaimer", async ({ page }) => {
+  const messages = JSON.parse(readFileSync(new URL("../../tests/fixtures/ws/radiation-alert.json", import.meta.url), "utf8")) as { event: unknown }[];
+  await page.route("**/api/report", route => route.fulfill({ status: 500, contentType: "application/json", body: '{"error":"report failed"}' }));
+  await page.route("**/api/log", route => route.fulfill({ status: 200, contentType: "application/x-ndjson", body: messages.map(message => JSON.stringify(message.event)).join("\n") }));
+  await page.goto("/?site=mock_site#/report");
+  const fallback = page.locator('[data-fallback="report-log"]');
+  await expect(fallback.getByRole("cell", { name: "ALERT_RAISED", exact: true })).toBeVisible();
+  await expect(fallback).toContainText("not certified for actual Martian flight");
+  await expect(fallback.locator('[data-slot="fallback-log-hash"]')).toHaveAttribute("data-source", /session.log_hash/);
+  for (const cell of await fallback.locator("tbody td").all()) {
+    await expect(cell).toHaveAttribute("data-provenance", "simulated");
+    await expect(cell).toHaveAttribute("data-source", /^api\/log:/);
+  }
+  for (const format of FORMATS) {
+    const pages = await pdfPages(page, { format, margin: "css" });
+    expect(pages).toBeGreaterThan(0);
+    expect(pages).toBeLessThanOrEqual(SCR17_MAX_PAGES);
+  }
+});

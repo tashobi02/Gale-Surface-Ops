@@ -90,12 +90,12 @@ describe("ReportRoute", () => {
 
   it("RETRY fetches again and shows the report when it is there", async () => {
     let calls = 0;
-    const fetchImpl = vi.fn(async () => (++calls === 1 ? json({ error: "no session loaded" }, 404) : json(realReport())));
+    const fetchImpl = vi.fn(async (url: string) => url === "api/log" ? new Response("") : (++calls === 1 ? json({ error: "no session loaded" }, 404) : json(realReport())));
     const { container } = await mount(createElement(ReportRoute, { fetchImpl }));
     await flush();
     await click(must(container, '[data-slot="report-retry"]'));
     await flush();
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl.mock.calls.filter(([url]) => url === "api/report")).toHaveLength(2);
     expect(container.querySelector('[data-slot="report-status"]')).toBeNull();
     expect(must(container, '[data-surface="report"]').textContent).toContain("feedbeef");
   });

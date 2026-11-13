@@ -180,7 +180,8 @@ describe("DebugOverlay on", () => {
     const container = await show(fakes(true));
     const overlay = must(container, "[data-testid='debug-overlay']");
     expect(overlay.getAttribute("style")).not.toContain("@media");
-    const css = [...container.querySelectorAll("style")].map((s) => s.textContent).join("\n");
+    expect(container.querySelector("style")).toBeNull();
+    const css = readFileSync(resolve(import.meta.dirname, "../../src/ui/debug.css"), "utf8");
     expect(css).toMatch(/@media print\s*\{[^}]*\[data-testid=["']?debug-overlay["']?\][^}]*display:\s*none\s*!important/);
   });
 

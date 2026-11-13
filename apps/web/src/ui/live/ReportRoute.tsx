@@ -7,9 +7,12 @@
  * report is an error: a half-filled report would read as a result.
  *
  */
+import { LINK_LOST_AFTER_MS } from "@marswalk/protocol";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { adaptPostEvaReport, type ApiPostEvaReport } from "../report/reportAdapter";
-import { PostEvaReport, type PostEvaReportData } from "../screens/scr17PostEvaReport";
+import { logLiveFallback } from "./fallbackDebug";
+import { useSnapshot } from "../../state/habSession";
+import { PostEvaReport, type PostEvaReportProps, type PostEvaReportData } from "../screens/scr17PostEvaReport";
 
 export const REPORT_URL = "api/report";
 export const LOG_URL = "api/log";
@@ -88,6 +91,8 @@ const statusStyle: CSSProperties = {
 };
 
 export function ReportRoute({ fetchImpl, onBack }: ReportRouteProps): ReactElement {
+  const snapshot = useSnapshot();
+  const [logFallback, setLogFallback] = useState<PostEvaReportProps["logFallback"]>();
   const [report, setReport] = useState<ReportState>({ state: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [exportError, setExportError] = useState("");
@@ -96,12 +101,45 @@ export function ReportRoute({ fetchImpl, onBack }: ReportRouteProps): ReactEleme
 
   useEffect(() => {
     let live = true;
+    const controller = new AbortController();
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const request = fetchImpl ?? ((url: string) => fetch(url, { signal: controller.signal }));
+    const bounded = async <T,>(operation: Promise<T>): Promise<T> => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([operation, new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("Hab Core request timed out")), LINK_LOST_AFTER_MS);
+          timers.add(timer);
+        })]);
+      } finally {
+        if (timer !== undefined) { clearTimeout(timer); timers.delete(timer); }
+      }
+    };
     setReport({ state: "loading" });
-    void loadReport(doFetch).then((next) => {
-      if (live) setReport(next);
+    setLogFallback(undefined);
+    void bounded(loadReport(request)).catch((error: unknown): ReportState => ({ state: "error", message: error instanceof Error ? error.message : "request failed" })).then((next) => {
+      if (!live) return;
+      setReport(next);
+      if (next.state !== "error") return;
+      logLiveFallback("report-log");
+      setLogFallback({ events: [], loading: true });
+      void bounded((async () => {
+          const response = await request(LOG_URL);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const events = (await response.text()).split("\n").filter(line => line.trim()).map(line => {
+            const event: unknown = JSON.parse(line);
+            if (!isRecord(event) || !Number.isInteger(event.seq) || typeof event.sim_time !== "string" || typeof event.actor !== "string" || typeof event.kind !== "string") throw new Error("invalid event log");
+            return { seq: event.seq as number, time: event.sim_time, actor: event.actor, event: event.kind, prov: "simulated" as const };
+          });
+          return events;
+      })()).then(events => { if (live) setLogFallback({ events }); }).catch((error: unknown) => {
+        if (live) setLogFallback({ events: [], error: error instanceof Error ? error.message : "request failed" });
+      });
     });
     return () => {
       live = false;
+      controller.abort();
+      for (const timer of timers) clearTimeout(timer);
     };
     // `doFetch` is rebuilt from the prop on each render; only a new prop or an explicit retry refetches.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,7 +205,7 @@ export function ReportRoute({ fetchImpl, onBack }: ReportRouteProps): ReactEleme
           </p>
         </div>
       )}
-      <PostEvaReport report={report.state === "ready" ? report.data : undefined} onBack={back} onExportLog={report.state === "ready" ? () => { void exportLog(); } : undefined} />
+      <PostEvaReport report={report.state === "ready" ? report.data : undefined} logFallback={logFallback ? { ...logFallback, logHash: snapshot?.session.log_hash } : undefined} onBack={back} onExportLog={report.state !== "loading" ? () => { void exportLog(); } : undefined} />
     </>
   );
 }

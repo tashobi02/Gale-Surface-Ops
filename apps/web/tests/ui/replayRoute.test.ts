@@ -11,7 +11,7 @@ import connect from "../fixtures/ws/connect.json";
 import type { SocketLike } from "../../src/net/habClient";
 import { closeHabSessions, startHabSession } from "../../src/state/habSession";
 import { ReplayRoute } from "../../src/ui/live/ReplayRoute";
-import { click, flush, installDom, mount, must, removeDom } from "./domHarness";
+import { click, flush, installDom, mount, must, removeDom, type Mounted } from "./domHarness";
 
 const nodeSha = (text: string): string => createHash("sha256").update(text).digest("hex");
 const hashOf = (events: LogEvent[]): string => nodeSha(events.map((e) => `${canonicalJson(e)}\n`).join(""));
@@ -38,8 +38,11 @@ function recording(logHash?: string): Recording {
 
 const json = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
+const mountedViews: Mounted[] = [];
+
 async function open(fetchImpl: (url: string) => Promise<Response>) {
   const mounted = await mount(createElement(ReplayRoute, { fetchImpl }));
+  mountedViews.push(mounted);
   // The hash is computed asynchronously (WebCrypto): wait until the route left its loading state.
   for (let i = 0; i < 200 && mounted.container.querySelector('[data-replay-state="loading"]'); i++) {
     await flush();
@@ -52,7 +55,8 @@ const pause = async (root: ParentNode) => click(must(root, '[data-slot="replay-p
 
 beforeAll(() => installDom());
 afterAll(() => removeDom());
-afterEach(() => {
+afterEach(async () => {
+  for (const view of mountedViews.splice(0)) await view.unmount();
   vi.useRealTimers();
   closeHabSessions();
   document.body.innerHTML = "";

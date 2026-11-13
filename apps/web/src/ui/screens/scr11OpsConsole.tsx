@@ -33,6 +33,7 @@ import { EarthLinkWidget } from "../ops/EarthLinkWidget";
 import { EventLog } from "../ops/EventLog";
 import { AlertStack } from "../ops/AlertStack";
 import { OptionsPanel } from "../ops/OptionsPanel";
+import { logLiveFallback } from "../live/fallbackDebug";
 import { ClockControl } from "../ops/ClockControl";
 import { ConditionsPanel, type ConditionsState, type ProvenanceValue } from "../ops/ConditionsPanel";
 import { TaskProgress } from "../ops/TaskProgress";
@@ -163,6 +164,7 @@ export function OpsConsole({
   }, []);
   const narrow = viewportWidth < 1280;
   const [activeAddCrew, setActiveAddCrew] = useState<string | null>(null);
+  const [taskAuthoringUnavailable, setTaskAuthoringUnavailable] = useState<string | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ContingencyOption | null>(null);
   const previewPath = useCallback((_path: [number, number][], option?: ContingencyOption | null) => setPreview(option ?? null), []);
@@ -208,6 +210,7 @@ export function OpsConsole({
   useEffect(() => {
     if (session?.status === "ENDED") window.location.hash = "#/report";
   }, [session?.status]);
+  useEffect(() => { setTaskAuthoringUnavailable(null); }, [session?.session_id]);
   const warningKey = alerts.filter((alert) => alert.level === "warning" && (alert.acked_seq === null || alert.cleared_seq === null)).map((alert) => `${alert.alert_id}/${alert.raised_seq}`).join("|");
   const atTaskLimit = (crewId: CrewId): boolean => {
     const stop = taskProgress[crewId]?.stop;
@@ -249,6 +252,10 @@ export function OpsConsole({
     }
     try {
       const result = await send(command);
+      if (command.kind === "ADD_STOP_TASK" && !result.ok && (result.code === "FORBIDDEN_ROLE" || (result.code === "INVALID" && result.message === "unknown command kind ADD_STOP_TASK"))) {
+        setTaskAuthoringUnavailable(result.message);
+        logLiveFallback("tasks-view-only");
+      }
       setCommandError(result.ok ? null : `${command.kind} rejected: ${result.message}`);
       return result.ok;
     } catch (err) {
@@ -588,6 +595,7 @@ export function OpsConsole({
                     stopCount={taskProgress[member.crew_id]?.stop ?? null}
                     total={taskProgress[member.crew_id]?.total ?? null}
                     onAdd={(cid) => setActiveAddCrew(cid)}
+                    viewOnly={taskAuthoringUnavailable !== null}
                     disabled={Boolean(warningKey) || !taskProgress[member.crew_id]?.stop?.stopId || atTaskLimit(member.crew_id)}
                     disabledReason={warningKey ? "Warning latched — acknowledge and clear before adding tasks" : atTaskLimit(member.crew_id) ? "Maximum 4 tasks reached for this crew at this stop" : !taskProgress[member.crew_id]?.stop?.stopId ? "No current or next planned stop" : undefined}
                   />
@@ -622,6 +630,7 @@ export function OpsConsole({
                 stopId={taskProgress[activeAddCrew as CrewId]!.stop!.stopId!}
                 stopNo={taskProgress[activeAddCrew as CrewId]!.stop!.stopNo}
                 tasks={activeSnapshot?.tasks}
+                disabledReason={taskAuthoringUnavailable ?? undefined}
                 onAdd={(task) => {
                   // N-08 typed authoring fields; the Hab Core assigns task_id and origin.
                   void issue({ kind: "ADD_STOP_TASK", args: { ...task } }).then((accepted) => {

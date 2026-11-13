@@ -11,6 +11,7 @@
  */
 
 import { useState, type CSSProperties, type ReactElement, type FormEvent } from "react";
+import { StatusIcon } from "../components/statusIcon";
 import type { AddStopTaskArgs, CrewId, StopTask, StopTaskKind } from "@marswalk/protocol";
 
 export interface StopOption {
@@ -132,6 +133,12 @@ function AddTaskForm({
   };
 
   const submitDisabled = Boolean(disabledReason) || limitReached || taskText.trim().length === 0 || taskText.length > MAX_CHARS;
+
+  if (disabledReason) return <section style={popoverStyle} data-testid="add-task-popover" data-fallback="tasks-view-only" role="status">
+    <StatusIcon status="unknown" showWord />
+    <p data-provenance="simulated" data-source="command-result:ADD_STOP_TASK">View only — {disabledReason}. Crew task progress continues to sync.</p>
+    {onCancel && <button type="button" style={buttonStyle} onClick={onCancel}>CLOSE</button>}
+  </section>;
 
   return (
     <form

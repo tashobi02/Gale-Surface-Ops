@@ -11,14 +11,18 @@ export function surfaceSnapshot(state: EvaFixtureState = "walking"): Snapshot {
   return snapshot;
 }
 
-export async function openSurfaceFixture(page: Page, role: "eva" | "hud", snapshot = surfaceSnapshot()) {
+export async function openSurfaceFixture(page: Page, role: "eva" | "hud", snapshot = surfaceSnapshot(), commands?: { kind: string; args: Record<string, unknown> }[]) {
   let socket: WebSocketRoute | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   const stopHeartbeat = (): void => { if (heartbeat) clearInterval(heartbeat); heartbeat = undefined; };
   await page.routeWebSocket("**/ws", (ws) => {
     socket = ws;
     ws.onMessage((message) => {
-      const request = JSON.parse(String(message)) as { type?: string };
+      const request = JSON.parse(String(message)) as { type?: string; command_id?: string; command?: { kind: string; args: Record<string, unknown> } };
+      if (request.type === "COMMAND" && request.command) {
+        commands?.push(request.command);
+        ws.send(JSON.stringify({ v: snapshot.v, type: "COMMAND_RESULT", command_id: request.command_id, ok: true, event_seq: snapshot.seq }));
+      }
       if (request.type === "HELLO") {
         ws.send(JSON.stringify(snapshot));
         stopHeartbeat();

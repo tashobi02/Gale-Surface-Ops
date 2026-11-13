@@ -1,3 +1,4 @@
+import "./debug.css";
 /**
  * Debug diagnostics overlay for `?debug=1` (T07.13; NFR-11, 02 §F, 05 §E.1; C10 v2 React component).
  *
@@ -56,7 +57,6 @@ interface PointerSource {
   un(type: "pointermove", listener: (event: { coordinate: number[] }) => void): void;
 }
 
-const PRINT_CSS = "@media print { [data-testid='debug-overlay'] { display: none !important; } }";
 
 const PANEL: CSSProperties = {
   position: "fixed",
@@ -151,7 +151,6 @@ function DebugPanel({ ctx }: DebugOverlayProps): ReactElement {
   return createElement(
     "div",
     { "data-testid": "debug-overlay", role: "group", "aria-label": "Diagnostics", style: PANEL },
-    createElement("style", null, PRINT_CSS),
     createElement("div", { style: { color: "var(--text-2)" } }, "DIAGNOSTICS ?debug=1"),
     createElement(Row, {
       name: "fps",
