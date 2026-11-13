@@ -44,9 +44,45 @@ export function CoachMarks({ onDismiss }: CoachMarksProps): ReactElement | null 
       const target = anchor.getBoundingClientRect();
       const box = panel.getBoundingClientRect();
       const gap = 12;
-      // Attach to the actual workspace control; clamp the panel to the visible viewport.
-      panel.style.left = `${Math.max(gap, Math.min(step === 0 ? target.right + gap : target.left, window.innerWidth - box.width - gap))}px`;
-      panel.style.top = `${Math.max(gap, Math.min(step === 1 ? target.top + gap : target.bottom + gap, window.innerHeight - box.height - gap))}px`;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const topBar = document.querySelector(".scr02-top-bar");
+      const topBarBottom = topBar ? topBar.getBoundingClientRect().bottom : 0;
+      const minTop = topBarBottom > 0 ? Math.max(gap, topBarBottom + gap) : gap;
+
+      panel.style.visibility = "";
+      panel.style.pointerEvents = "";
+
+      // Attach to the actual workspace control; clamp the panel to the visible viewport below any top bar.
+      let left = Math.max(gap, Math.min(step === 0 ? target.right + gap : target.left, vw - box.width - gap));
+      let top = Math.max(minTop, Math.min(step === 1 ? target.top + gap : target.bottom + gap, vh - box.height - gap));
+
+      // In one-drawer mode, keep the popover clear of an open drawer so it never intercepts drawer controls or the top bar.
+      const openDrawer = document.querySelector('.scr02[data-layout="one-drawer"] [data-drawer]:not([hidden])');
+      if (openDrawer) {
+        const dr = openDrawer.getBoundingClientRect();
+        const overlaps =
+          dr.width > 0 && dr.height > 0 &&
+          left < dr.right && left + box.width > dr.left &&
+          top < dr.bottom && top + box.height > dr.top;
+        if (overlaps) {
+          const side = openDrawer.getAttribute("data-drawer");
+          if (side === "right" && dr.left - box.width - gap >= gap) {
+            left = Math.min(left, dr.left - box.width - gap);
+          } else if (side === "left" && dr.right + gap + box.width <= vw - gap) {
+            left = Math.max(left, dr.right + gap);
+          } else if (dr.bottom + gap + box.height <= vh - gap) {
+            top = dr.bottom + gap;
+          } else {
+            // Narrow viewports leave no clear space outside the open drawer and top bar; yield pointer interception while the drawer is open.
+            panel.style.visibility = "hidden";
+            panel.style.pointerEvents = "none";
+          }
+        }
+      }
+
+      panel.style.left = `${left}px`;
+      panel.style.top = `${top}px`;
     };
     position();
     window.addEventListener("resize", position);

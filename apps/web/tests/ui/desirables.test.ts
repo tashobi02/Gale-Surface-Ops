@@ -186,6 +186,91 @@ describe("T13.07 coach marks dismiss and keyboard ownership", () => {
     await c.unmount();
   });
 
+  it("moves clear of an open one-drawer overlay so it never intercepts drawer controls", async () => {
+    const originalInnerWidth = window.innerWidth;
+    const originalInnerHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 844 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 390 });
+    try {
+      const workspace = document.createElement("div");
+      workspace.className = "scr02";
+      workspace.dataset.layout = "one-drawer";
+      const toggle = document.createElement("button");
+      toggle.dataset.slot = "drawer-toggle";
+      toggle.dataset.for = "left";
+      const rightDrawer = document.createElement("aside");
+      rightDrawer.dataset.drawer = "right";
+      workspace.append(toggle, rightDrawer);
+      document.body.append(workspace);
+
+      const rect = (left: number, top: number, width: number, height: number) => ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON() {} });
+      toggle.getBoundingClientRect = () => rect(535, 2, 66, 44);
+      rightDrawer.getBoundingClientRect = () => rect(524, 72, 320, 138);
+
+      const { CoachMarks } = await import("../../src/ui/coachMarks");
+      const { createElement } = await import("react");
+      const c = await mount(createElement(CoachMarks));
+      const popover = c.container.firstChild as HTMLElement;
+      popover.getBoundingClientRect = () => {
+        const left = parseFloat(popover.style.left || "0");
+        const top = parseFloat(popover.style.top || "0");
+        return rect(left, top, 320, 169);
+      };
+      await c.rerender(createElement(CoachMarks));
+      const popLeft = parseFloat(popover.style.left);
+      expect(popLeft + 320).toBeLessThanOrEqual(524);
+      expect(popLeft).toBeGreaterThanOrEqual(12);
+      await c.unmount();
+    } finally {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalInnerWidth });
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: originalInnerHeight });
+    }
+  });
+
+  it("yields pointer events when a narrow one-drawer screen leaves no non-overlapping space outside the top bar", async () => {
+    const originalInnerWidth = window.innerWidth;
+    const originalInnerHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 360 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 740 });
+    try {
+      const workspace = document.createElement("div");
+      workspace.className = "scr02";
+      workspace.dataset.layout = "one-drawer";
+      const topBar = document.createElement("header");
+      topBar.className = "scr02-top-bar";
+      const toggle = document.createElement("button");
+      toggle.dataset.slot = "drawer-toggle";
+      toggle.dataset.for = "left";
+      topBar.append(toggle);
+      const rightDrawer = document.createElement("aside");
+      rightDrawer.dataset.drawer = "right";
+      workspace.append(topBar, rightDrawer);
+      document.body.append(workspace);
+
+      const rect = (left: number, top: number, width: number, height: number) => ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON() {} });
+      topBar.getBoundingClientRect = () => rect(0, 0, 360, 152);
+      toggle.getBoundingClientRect = () => rect(12, 50, 96, 44);
+      rightDrawer.getBoundingClientRect = () => rect(40, 180, 320, 530);
+
+      const { CoachMarks } = await import("../../src/ui/coachMarks");
+      const { createElement } = await import("react");
+      const c = await mount(createElement(CoachMarks));
+      const popover = c.container.firstChild as HTMLElement;
+      popover.getBoundingClientRect = () => {
+        const left = parseFloat(popover.style.left || "0");
+        const top = parseFloat(popover.style.top || "0");
+        return rect(left, top, 320, 150);
+      };
+      await c.rerender(createElement(CoachMarks));
+      expect(popover.style.pointerEvents).toBe("none");
+      expect(popover.style.visibility).toBe("hidden");
+      await c.unmount();
+    } finally {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalInnerWidth });
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: originalInnerHeight });
+    }
+  });
+
   it("uses existing anchors, remains available on small screens and obeys pointer targets", async () => {
     const { COACH_MARK_STEPS } = await import("../../src/ui/coachMarks");
     expect(COACH_MARK_STEPS.map(step => step.anchorSelector)).toEqual([
