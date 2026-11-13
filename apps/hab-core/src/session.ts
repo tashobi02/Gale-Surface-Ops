@@ -258,10 +258,15 @@ class Session implements SessionHandle {
   }
 
   /**
-   * Evaluate one command and journal it (BD-93, BD-121): one `CommandJournalLine` goes to `commands.jsonl` of the session the
-   * command was evaluated in, after its events are written. Not journaled: a resent command id (answered from memory, nothing
-   * logged), a LOAD_SCENARIO that found no scenario (nothing was logged), anything else that logged no
-   * event. A JUMP_NEXT_EVENT that ran to the limit without an event is journaled: it moved sim time.
+   * Evaluate one command and journal it (BD-93; BD-121 amendment, 02 §D.17): one `CommandJournalLine` goes to `commands.jsonl`
+   * of the session the command was evaluated in, after its events are written. A successful command-triggered LOAD_SCENARIO
+   * is journaled once by startSession in the new session with `after_seq: 0`, not in the preceding session. Export carries
+   * it as `initial_load` to reproduce SESSION_LOADED's command actor and `command_ref`, which are part of `log_hash`.
+   * RESET_SESSION is journaled only in the old session; the new session has empty accepted-command memory and no reset
+   * journal entry (BD-115). An initial load without a command has no creating journal entry.
+   * Not journaled: a resent accepted command id (answered from memory, nothing logged), a LOAD_SCENARIO that found no
+   * scenario (nothing logged), anything else that logged no event. A JUMP_NEXT_EVENT that ran to the limit without an event
+   * is journaled: it moved sim time.
    */
   apply(command: Command, client_id: string = command.role): { result: CommandResult; events: LogEvent[]; replaced?: boolean } {
     const log = this.log;
