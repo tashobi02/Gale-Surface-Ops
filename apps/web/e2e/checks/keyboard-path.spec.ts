@@ -82,6 +82,7 @@ test("keyboard-path: 01 §E steps 1–9 run with the keyboard only, focus visibl
   await expectFocusVisible(page, "Open demo plan");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/#\/planner/);
+  await page.locator('[data-slot="map-workspace"]').waitFor();
 
   // The demo plan names no start time (FD-042), so the plan is invalid until the start is set. The Plan tab holds the input.
   const leftDrawer = page.locator('[data-slot="drawer-toggle"][data-for="left"]');

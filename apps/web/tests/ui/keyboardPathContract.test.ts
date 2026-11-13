@@ -8,6 +8,7 @@ it("the claimed keyboard-only core path does not click or assign focus directly"
   expect(core.match(/page\.goto\s*\(/g)).toHaveLength(1);
   expect(core).toContain("tabToChecked(");
   expect(core).toContain('data-slot="drawer-toggle"');
+  expect(core.slice(core.indexOf("const demo"), core.indexOf("const leftDrawer"))).toContain("map-workspace");
 });
 
 it("the rover keyboard-dispatch case opens its panel by keyboard", () => {
