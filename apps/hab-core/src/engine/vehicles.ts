@@ -352,6 +352,7 @@ function pathToTarget(state: EngineState, scenario: LoadedScenario, v: Vehicle):
 
 function shelterEvents(state: EngineState, v: Vehicle): PendingEvent[] {
   const events: PendingEvent[] = [];
+  if (v.task?.kind === "RIDE") return events; // a rider steps out at the stop (ride.ts), never sheltered here
   for (const id of v.task?.crew_ids ?? []) {
     const c = state.crew.find((x) => x.crew_id === id);
     if (!c || c.activity === "SHELTERED" || c.activity === "IN_HAB") continue;

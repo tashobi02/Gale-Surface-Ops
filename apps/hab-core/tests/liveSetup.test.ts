@@ -102,10 +102,10 @@ const lines = (path: string): LogEvent[] =>
     .filter((l) => l.length > 0)
     .map((l) => JSON.parse(l) as LogEvent);
 
-/** The 19 command kinds, each with an argument object that is plausible for it (the matrix only needs the role check to run). */
+/** The 20 command kinds, each with an argument object that is plausible for it (the matrix only needs the role check to run). */
 const KINDS = [
   "LOAD_SCENARIO", "SET_CLOCK", "JUMP_NEXT_EVENT", "START_EVA", "PUBLISH_PLAN", "SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "APPROVE_OPTION", "TASK_ROVER",
-  "SEND_MESSAGE", "INJECT_EVENT", "UPDATE_STOP_TASK", "ADD_STOP_TASK", "JUMP_NEXT_STOP", "START_EVENT", "RESET_SESSION", "SELECT_HAB_SITE", "SET_MISSION_SETUP", "SET_CREW_MOTION",
+  "SEND_MESSAGE", "INJECT_EVENT", "UPDATE_STOP_TASK", "ADD_STOP_TASK", "JUMP_NEXT_STOP", "START_EVENT", "RESET_SESSION", "SELECT_HAB_SITE", "SET_MISSION_SETUP", "SET_CREW_MOTION", "RIDE_VEHICLE",
 ] as const satisfies readonly Command["kind"][];
 const ROLES: Role[] = ["presenter", "planner", "eva:EV1", "eva:EV2", "hud:EV1", "hud:EV2", "ops", "earth"];
 

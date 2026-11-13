@@ -685,10 +685,13 @@ No accounts. A client joins with a **role** and a display name; the Hab Core tru
 | `SUMMON_VEHICLE`, `ABORT`, `ACK_ALERT` | — | ✓ (self) | ✓ (any crew) | — | — |
 | `SET_CREW_MOTION` *(simulation control, 2026-11-13, Proposed)* | — | ✓ (self) | ✓ (any crew) | — | — |
 | `TASK_ROVER` | — | ✓ | ✓ | — | — |
+| `RIDE_VEHICLE` (*added 2026-11-13, Proposed*) | — | ✓ (self) | ✓ (any crew) | — | — |
 | `SEND_MESSAGE` | — | ✓ | ✓ | ✓ (delayed) | — |
 | `UPDATE_STOP_TASK` (FR-50; the undo form, `undo: true`, only by the role that is the `actor` of the change, *added 2026-11-11, Proposed*) | — | ✓ (own tasks) | ✓ (any crew) | — | — |
 | `ADD_STOP_TASK` (FR-50) | — | — | ✓ | — | — |
 | `INJECT_EVENT` | — | — | ✓ | — | — |
+
+**`RIDE_VEHICLE`** *(added 2026-11-13, Proposed; decided by Sadman Shaharier Mahim, QoL Q3)*: `RIDE_VEHICLE {crew_id, vehicle_id, to_stop_id}` lets a crew member who stands in the same routing-grid cell as the parked pressurized rover ride it to a later stop of the plan: the Hab Core logs `CREW_BOARDED` and the `VEHICLE_DISPATCHED` of the drive, the rover drives the compute vehicle route at its ParamSet speed with the crew member `RIDING` at its position, and on `VEHICLE_ARRIVED` it logs `CREW_DISMOUNTED` (and `ARRIVED_STOP`) and the crew member is `AT_STOP`; a utility rover is `INVALID`, a vehicle that is not `PARKED` is `BUSY`.
 
 The presenter panel is read-only for crew actions: a presenter cannot approve options, abort or summon on a crew member's behalf (those stay in story). Every row is checked per command (05 §E.2).
 

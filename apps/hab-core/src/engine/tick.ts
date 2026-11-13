@@ -20,6 +20,7 @@ import { havenTick, type HavenCache } from "./haven";
 import { doseAt } from "./liveEvents";
 import { linksTick } from "./links";
 import { isWaiting, logged, reduce, type CrewMotion, type EngineState, type PendingEvent, type StateChange } from "./reducer";
+import { rideTick } from "./ride";
 import { roversTick } from "./rovers";
 import { tasksTick } from "./tasks";
 import { SHELTER_REACH_M, vehiclesTick } from "./vehicles";
@@ -68,6 +69,7 @@ export type EngineModule = (state: EngineState, ctx: TickContext) => TickResult;
  */
 export const MODULE_ORDER: readonly EngineModule[] = [
   vehiclesTick, // T23.05: pressurized rover motion, arrival, sheltering
+  rideTick, // QoL Q3: a rider follows the pressurized rover and steps out at the stop
   roversTick, // T29.03: utility rover motion, battery, relay node
   conditionsTick, // T22.16: FR-36 conditions feed
   earthTick, // T26.04: Earth message delivery, forecasts
@@ -197,6 +199,9 @@ function stepMode(c: Crew, m: CrewMotion | undefined, offset_s: number): { shelt
     case "HOLDING":
       // A held crew member stands in the suit at the resting rate; dose and O₂ keep running (SET_CREW_MOTION, Q2).
       return { shelter: "suit", o2: "resting" };
+    case "RIDING":
+      // QoL Q3: the pressurized cabin shields like a vehicle haven and uses no suit O2 (as SHELTERED in a vehicle).
+      return { shelter: "pressurized_rover", o2: null };
     case "SHELTERED":
       // A terrain refuge has no factor before T2: conservative suit shielding at the resting rate.
       return c.haven.kind === "hab" ? { shelter: "hab", o2: null } : c.haven.kind === "vehicle" ? { shelter: "pressurized_rover", o2: null } : { shelter: "suit", o2: "resting" };

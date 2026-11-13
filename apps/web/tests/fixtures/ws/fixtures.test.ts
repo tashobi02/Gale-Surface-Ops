@@ -66,6 +66,8 @@ const LOG_EVENT_DATA_KEYS: { [K in LogEventKind]: KeySpec<LogEventData[K]> } = {
   VEHICLE_DISPATCHED: { vehicle_id: "req", option_id: "opt", rendezvous: "opt", task: "opt", target: "opt", item: "opt", task_id: "opt" },
   VEHICLE_ARRIVED: { vehicle_id: "req", x_m: "req", y_m: "req" },
   CREW_SHELTERED: { crew_id: "req", haven_kind: "req", dose_event_ugy: "req", dose_event_unsheltered_ugy: "req" },
+  CREW_BOARDED: { crew_id: "req", vehicle_id: "req", to_stop_id: "req" },
+  CREW_DISMOUNTED: { crew_id: "req", vehicle_id: "req", stop_id: "req", stop_index: "req", x_m: "req", y_m: "req" },
   LINK_LOST: { node_id: "req" },
   LINK_RESTORED: { node_id: "req" },
   EARTH_MSG_QUEUED: { message_id: "req", direction: "req", body: "req", sent_utc: "req", deliver_utc: "req", via: "req" },
@@ -93,7 +95,7 @@ const VEHICLE_KEYS: Spec<Vehicle> = { vehicle_id: "req", kind: "req", param_set:
   task_id: "opt", queue: "opt", relay_coverage_rev: "opt" };
 const EARTH_KEYS: Spec<Snapshot["earth"]> = { light_time_s: "req", next_pass_utc: "req", blackout: "req", queue: "req", link_state: "opt", link_via: "opt", link_until_utc: "opt" };
 const OPTION_KEYS: Keys<ContingencyOption> = { option_id: true, alert_id: true, kind: true, crew_ids: true, eta_shelter_min: true, expected_dose_ugy: true, stops_dropped: true, violations: true, rank: true, path_preview: true, rendezvous: true };
-const ACTIVITY: Record<CrewActivity, true> = { IN_HAB: true, WALKING: true, AT_STOP: true, TO_HAVEN: true, SHELTERED: true, HOLDING: true };
+const ACTIVITY: Record<CrewActivity, true> = { IN_HAB: true, WALKING: true, AT_STOP: true, TO_HAVEN: true, SHELTERED: true, HOLDING: true, RIDING: true };
 const SESSION_STATUS: Record<Session["status"], true> = { LOADED: true, RUNNING: true, PAUSED: true, ENDED: true };
 const VEHICLE_KIND: Record<VehicleKind, true> = { pressurized_rover: true, utility_rover: true };
 const VEHICLE_STATE: Record<VehicleState, true> = { PARKED: true, DISPATCHED: true, EN_ROUTE: true, ARRIVED: true, RETURNING: true, TASKED: true };
@@ -105,7 +107,7 @@ const ALERT_CODE: Record<AlertCode, true> = { RADIATION_ALERT: true, HAVEN_TIME_
 const LOG_EVENT_KINDS: Record<LogEventKind, true> = {
   SESSION_LOADED: true, EVA_STARTED: true, ARRIVED_STOP: true, LEFT_STOP: true, ALERT_RAISED: true, ALERT_ACKED: true,
   ALERT_CLEARED: true, OPTIONS_PROPOSED: true, PLAN_REVISED: true, VEHICLE_DISPATCHED: true, VEHICLE_ARRIVED: true,
-  CREW_SHELTERED: true, LINK_LOST: true, LINK_RESTORED: true, EARTH_MSG_QUEUED: true, EARTH_MSG_DELIVERED: true,
+  CREW_SHELTERED: true, CREW_BOARDED: true, CREW_DISMOUNTED: true, LINK_LOST: true, LINK_RESTORED: true, EARTH_MSG_QUEUED: true, EARTH_MSG_DELIVERED: true,
   COMMAND_REJECTED: true, CLOCK_CHANGED: true, EVA_ENDED: true, TASK_ADDED: true, TASK_UPDATED: true, TASK_DROPPED: true,
   ROLE_TAKEN_OVER: true, CLOCK_JUMPED: true, EVENT_STARTED: true, SESSION_RESET: true, SITE_SELECTED: true, MISSION_SETUP_SET: true, CREW_MOTION_SET: true,
 };

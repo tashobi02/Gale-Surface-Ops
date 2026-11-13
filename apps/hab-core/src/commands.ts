@@ -43,6 +43,7 @@ import { selectHabSite, setMissionSetup, type SiteEffect } from "./engine/liveSe
 import { nextStopTarget, warningLatched } from "./engine/nextStop";
 import { isWaiting, logged, type CommandOutcome, type EngineState, type PendingEvent } from "./engine/reducer";
 import { checkPublishedTasks, handleAddStopTask, handleUpdateStopTask, onPlanRevised, publishedTaskEvents, replacedTaskDrops } from "./engine/tasks";
+import { handleRide } from "./engine/ride";
 import { handleSummon } from "./engine/vehicles";
 import { handleTaskRover, taskRoverArgsError } from "./rover";
 import { checkPlan, type LoadedScenario } from "./scenario";
@@ -181,6 +182,7 @@ function checkRole(state: EngineState, command: Command): void {
     if (Array.isArray(crew) && !crew.includes(self)) reject("FORBIDDEN_ROLE", `${command.role} may summon only for a crew that includes ${self}`);
   }
   if (command.kind === "SET_CREW_MOTION" && typeof command.args?.crew_id === "string" && command.args.crew_id !== self) reject("FORBIDDEN_ROLE", `${command.role} may hold or resume only ${self}`);
+  if (command.kind === "RIDE_VEHICLE" && typeof command.args.crew_id === "string" && command.args.crew_id !== self) reject("FORBIDDEN_ROLE", `${command.role} may ride only as ${self}`);
   if (command.kind === "ACK_ALERT") {
     const alert = state.alerts.find((a) => a.alert_id === command.args.alert_id);
     if (alert && !alert.subjects.includes(self)) reject("FORBIDDEN_ROLE", `${command.role} may acknowledge only alerts about ${self}`);
@@ -287,6 +289,10 @@ function dispatch(state: EngineState, command: Command, ctx: CommandContext): Ha
       if (!Array.isArray(a.crew) || a.crew.length === 0) reject("INVALID", "SUMMON_VEHICLE needs args.crew");
       requireState(state, DURING_EVA, "Summoning the vehicle");
       return handleSummon(state, ctx.scenario, command);
+    case "RIDE_VEHICLE":
+      if (typeof a.crew_id !== "string" || typeof a.vehicle_id !== "string" || typeof a.to_stop_id !== "string") reject("INVALID", "RIDE_VEHICLE needs args.crew_id, args.vehicle_id and args.to_stop_id");
+      requireState(state, DURING_EVA, "Riding the vehicle");
+      return handleRide(state, ctx.scenario, command); // vehicle kind, crew, stop and position are checked there (QoL Q3)
     case "APPROVE_OPTION":
       requireState(state, DURING_EVA, "Approving an option");
       return handleApproveOption(state, ctx.scenario, command);

@@ -358,6 +358,10 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
           }
           const option = state.options.find((o) => o.option_id === d.option_id);
           const rv = d.rendezvous ?? null;
+          // RIDE_VEHICLE (QoL Q3): CREW_BOARDED set the RIDE task (rider, stop); the drive to the stop keeps it.
+          if (v.task?.kind === "RIDE" && rv) {
+            return { state: "DISPATCHED", task: { ...v.task, target: { x_m: rv.x_m, y_m: rv.y_m } }, eta_s: Math.ceil(rv.eta_vehicle_s) };
+          }
           return {
             state: "DISPATCHED",
             task: {
@@ -407,6 +411,26 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
           dose_event_unsheltered_ugy: e.data.dose_event_unsheltered_ugy,
           haven: { ...c.haven, kind: e.data.haven_kind },
         })),
+      };
+    case "CREW_BOARDED": {
+      // QoL Q3: the rider is RIDING and the vehicle's task names them and the stop; VEHICLE_DISPATCHED follows with the drive.
+      const stop = next.plan?.waypoints.find((w) => w.id === e.data.to_stop_id);
+      return {
+        ...next,
+        crew: updateCrew(next.crew, [e.data.crew_id], () => ({ activity: "RIDING" })),
+        vehicles: updateVehicle(next.vehicles, e.data.vehicle_id, (v): Partial<Vehicle> => ({
+          task: { kind: "RIDE", target: { x_m: stop?.x_m ?? v.x_m, y_m: stop?.y_m ?? v.y_m }, crew_ids: [e.data.crew_id], stop_id: e.data.to_stop_id },
+        })),
+      };
+    }
+    case "CREW_DISMOUNTED":
+      // The rider is AT_STOP; the vehicle, which has ARRIVED with the RIDE task, is PARKED again where it stands.
+      return {
+        ...next,
+        crew: updateCrew(next.crew, [e.data.crew_id], () => ({ activity: "AT_STOP", stop_index: e.data.stop_index, x_m: e.data.x_m, y_m: e.data.y_m })),
+        vehicles: updateVehicle(next.vehicles, e.data.vehicle_id, (v): Partial<Vehicle> =>
+          v.task?.kind === "RIDE" ? { state: "PARKED", task: null, path: [], eta_s: null } : {},
+        ),
       };
     case "LINK_LOST":
       return { ...next, crew: updateCrew(next.crew, [e.data.node_id], () => ({ linked: false, stale: true })) };
