@@ -135,7 +135,7 @@ test("release-network: single-laptop mode (npm run hab:local) serves its four wi
   }
 });
 
-test.fixme("release-network: the killer demo runs end to end in single-laptop mode through the UI (enabled by frontend package 29, verify-live: ops-no-terminal and the EVA alert flow)", async () => {
+test.fixme("needs N-200: release-network runs the killer demo end to end through the OPS and EVA UI alone (START_EVENT is presenter-only)", async () => {
   // Server level: apps/hab-core/tests/killerDemo.test.ts and localMode.test.ts. Browser level: START EVA, 60x, the alert, the options
   // and the summon from the ops console and the EVA tablet alone (T25.08).
 });
