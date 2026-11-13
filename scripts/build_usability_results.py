@@ -8,7 +8,8 @@ from an executed Chromium run (never hand-typed).
 
 Every rendered value carries `data-provenance` (one of
 `measured|derived|modelled|assumed|replayed|simulated`, never `"live"`) and
-`data-source`, and missing values render as `"-"`.
+`data-source`, and a missing value renders as the em dash `—` with
+`data-unavailable="true"` (04 §D.1: a value the run did not produce says so).
 """
 from __future__ import annotations
 
@@ -20,6 +21,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 METRICS_PATH = ROOT / "apps" / "web" / "e2e" / "out" / "usability-metrics.json"
 OUT_PATH = ROOT / "docs" / "ops" / "usability-results.md"
+
+# The app-wide convention for a value that was not produced (04 §D.1): the em dash, marked unavailable.
+MISSING = "—"
 
 ALLOWED_PROVENANCE = {"measured", "derived", "modelled", "assumed", "replayed", "simulated"}
 CASE_ORDER = [
@@ -44,8 +48,13 @@ def fmt_val(entry: dict) -> str:
     raw = entry.get("value")
     unit = entry.get("unit", "")
     if raw is None or raw == "":
-        display = "-"
-    elif isinstance(raw, bool):
+        # A value the run did not produce says so (04 §D.1): the em dash, marked unavailable.
+        return (
+            f'<span data-provenance="{html.escape(prov, quote=True)}" '
+            f'data-source="{html.escape(src, quote=True)}" '
+            f'data-unavailable="true">{MISSING}</span>'
+        )
+    if isinstance(raw, bool):
         display = "yes" if raw else "no"
     else:
         display = f"{raw} {unit}".strip() if unit else str(raw)
@@ -74,7 +83,7 @@ def build_markdown(data: dict) -> str:
         "",
         f"Generated from `apps/web/e2e/checks/usability.spec.ts` on `{METRICS_PATH.relative_to(ROOT).as_posix()}` "
         f"(<span data-provenance=\"derived\" data-source=\"e2e:usability.spec.ts\">{passed_count}/{total_count}</span> automated cases passing).",
-        "Every rendered measurement carries `data-provenance` (`measured|derived|modelled|assumed|replayed|simulated`) and `data-source`; missing values render as `-`.",
+        "Every rendered measurement carries `data-provenance` (`measured|derived|modelled|assumed|replayed|simulated`) and `data-source`; a value the run did not produce renders as `—` with `data-unavailable=\"true\"`.",
         "",
         "## Automated heuristic summary",
         "",
@@ -98,9 +107,9 @@ def build_markdown(data: dict) -> str:
             f"err:{fmt_val(c['errorGuidanceOk'])}"
         )
         orange_str = fmt_val(c["noBrandOrange"])
-        notes = html.escape(str(c.get("notes") or "-")).replace("|", "\\|")
-        spec_ref = html.escape(str(c.get("specRef", "-"))).replace("|", "\\|")
-        vp = html.escape(str(c.get("viewport", "-"))).replace("|", "\\|")
+        notes = html.escape(str(c.get("notes") or MISSING)).replace("|", "\\|")
+        spec_ref = html.escape(str(c.get("specRef") or MISSING)).replace("|", "\\|")
+        vp = html.escape(str(c.get("viewport") or MISSING)).replace("|", "\\|")
         lines.append(
             f"| `{cid}` | {spec_ref} | {vp} | {status_span} | {steps_str} | {dur_str} | {wait_str} | {targ_str} | {gap_str} | {a11y_str} | {orange_str} | {notes} |"
         )
@@ -120,7 +129,7 @@ def build_markdown(data: dict) -> str:
     )
     for cid in ordered_ids:
         c = cases[cid]
-        crit = html.escape(str(c.get("unautomatable") or "-")).replace("|", "\\|")
+        crit = html.escape(str(c.get("unautomatable") or MISSING)).replace("|", "\\|")
         lines.append(
             f"| `{cid}` | {crit} | `assumed` | `spec:TASK-15` |"
         )

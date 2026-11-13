@@ -343,31 +343,37 @@ test("capture: each beat reached within its window", async ({ browser }) => {
 
   const recordBeat = async (
     id: string,
-    clipName: string,
-    contextStartedAt: number,
+    clipName: string | string[],
+    contextStartedAt: number | number[],
     dwellMs: number,
     fn: () => Promise<void>,
   ): Promise<void> => {
     const spec = beatById.get(id);
     if (!spec) throw new Error(`Storyboard is missing expected beat ${id}`);
-    const clipStartMs = Date.now() - contextStartedAt;
+    // A beat that drives more than one role records one clip per role: the HUD, the EVA tablet and the ops console
+    // were all recording while the beat was reached, so all three are the footage of that beat (the 30-s cut
+    // assembles the storm from them).
+    const clipNames = Array.isArray(clipName) ? clipName : [clipName];
+    const starts = Array.isArray(contextStartedAt) ? contextStartedAt : [contextStartedAt];
+    if (starts.length !== clipNames.length) throw new Error(`Beat ${id}: one start time per clip is needed`);
     const t0 = Date.now();
     await fn();
     const reachedInMs = Date.now() - t0;
     expect(reachedInMs, `Beat ${id} exceeded its ${spec.windowMs} ms window`).toBeLessThanOrEqual(spec.windowMs);
     await new Promise((r) => setTimeout(r, dwellMs));
-    const clipEndMs = Date.now() - contextStartedAt;
-    recordedBeats.push({
-      id,
-      track: spec.track,
-      clip: clipName,
-      clipStartMs,
-      clipEndMs,
-      reachedInMs,
-      windowMs: spec.windowMs,
-      targetStartSec: spec.startSec,
-      targetEndSec: spec.endSec,
-      screen: spec.screen,
+    clipNames.forEach((clip, index) => {
+      recordedBeats.push({
+        id,
+        track: spec.track,
+        clip,
+        clipStartMs: t0 - starts[index]!,
+        clipEndMs: Date.now() - starts[index]!,
+        reachedInMs,
+        windowMs: spec.windowMs,
+        targetStartSec: spec.startSec,
+        targetEndSec: spec.endSec,
+        screen: spec.screen,
+      });
     });
   };
 
@@ -513,7 +519,7 @@ test("capture: each beat reached within its window", async ({ browser }) => {
     // Beat 240-07 (1:30–2:00): Radiation surge alert + OPTIONS_PROPOSED + EVA Summon rover + HUD alert + Ops approval
     bridge.advanceToMessage(132); // RADIATION_ALERT a-45 + OPTIONS_PROPOSED active before auto-dispatch at msg 134
     bridge.setCrewLinked("EV1", true); // UR1 relay active so EVA Summon sends immediately
-    await recordBeat("240-07", "hud.webm", hudSession.startedAt, 1500, async () => {
+    await recordBeat("240-07", ["hud.webm", "eva.webm", "ops.webm"], [hudSession.startedAt, evaSession.startedAt, opsSession.startedAt], 1500, async () => {
       await expect(hudPage.locator('[data-hud-value="alert"]')).toContainText(/radiation surge/i);
       await expect(evaPage.locator('[data-screen="SCR-14"]')).toBeVisible();
       // Hold "Summon rover" button (HoldToConfirm) -> "Summon accepted"
@@ -573,21 +579,24 @@ test("capture: each beat reached within its window", async ({ browser }) => {
 
     for (const item of reuseFrom240) {
       const spec = beatById.get(item.id);
-      const src = recordedBeats.find((b) => b.id === item.sourceId);
-      if (!spec || !src) throw new Error(`Missing beat spec or source recording for ${item.id}`);
-      expect(src.reachedInMs, `30-s beat ${item.id} exceeded window`).toBeLessThanOrEqual(spec.windowMs);
-      recordedBeats.push({
-        id: item.id,
-        track: "30s",
-        clip: src.clip,
-        clipStartMs: src.clipStartMs,
-        clipEndMs: src.clipEndMs,
-        reachedInMs: src.reachedInMs,
-        windowMs: spec.windowMs,
-        targetStartSec: spec.startSec,
-        targetEndSec: spec.endSec,
-        screen: spec.screen,
-      });
+      // A source beat that drove several roles has one recorded clip per role; the 30-s cut reuses all of them.
+      const sources = recordedBeats.filter((b) => b.id === item.sourceId);
+      if (!spec || sources.length === 0) throw new Error(`Missing beat spec or source recording for ${item.id}`);
+      for (const src of sources) {
+        expect(src.reachedInMs, `30-s beat ${item.id} exceeded window`).toBeLessThanOrEqual(spec.windowMs);
+        recordedBeats.push({
+          id: item.id,
+          track: "30s",
+          clip: src.clip,
+          clipStartMs: src.clipStartMs,
+          clipEndMs: src.clipEndMs,
+          reachedInMs: src.reachedInMs,
+          windowMs: spec.windowMs,
+          targetStartSec: spec.startSec,
+          targetEndSec: spec.endSec,
+          screen: spec.screen,
+        });
+      }
     }
 
     // Each reused clip currently contains only one role, while the storyboard requires multi-role sequences.

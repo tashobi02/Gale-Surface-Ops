@@ -195,7 +195,7 @@ describe("the mini-map falls back to HUD-only only when the basemap itself faile
     expect(tileSources).toHaveLength(0);
     expect(onUnavailable).not.toHaveBeenCalled();
     expect(view.container.querySelector('[data-slot="mini-map-open"]')).not.toBeNull();
-    expect(view.container.querySelector('[data-source="site:manifest"]')).toBeNull();
+    expect(view.container.querySelector('[data-source="unavailable:basemap"]')).toBeNull();
   });
 
   it("one lost tile among tiles that loaded keeps the map, and the first tile that loads cancels the deadline", async () => {
@@ -222,7 +222,7 @@ describe("the mini-map falls back to HUD-only only when the basemap itself faile
     expect(onUnavailable).not.toHaveBeenCalled();
     await act(async () => { tiles!.dispatchEvent("tileloaderror"); });
     expect(onUnavailable).toHaveBeenCalledTimes(1);
-    expect(view.container.querySelector('[data-source="site:manifest"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-source="unavailable:basemap"]')).not.toBeNull();
   });
 
   it("a first tile that never answers reports the map unavailable at the link watchdog deadline", async () => {
@@ -234,6 +234,57 @@ describe("the mini-map falls back to HUD-only only when the basemap itself faile
     await act(async () => { await vi.advanceTimersByTimeAsync(LINK_LOST_AFTER_MS - 1); });
     expect(onUnavailable).not.toHaveBeenCalled();
     await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(onUnavailable).toHaveBeenCalledTimes(1);
+  });
+
+  it("a slow site load does not spend the tile budget: the deadline starts when the tiles are asked for", async () => {
+    // FD-505: the tile watchdog watches the tiles. A cold LAN load of the site bundle is a bundle of local files,
+    // not a link heartbeat, so the tile budget must not have been running while the bundle was still in flight.
+    vi.useFakeTimers();
+    let releaseSite: (() => void) | undefined;
+    loadSite.mockReturnValue(new Promise((resolve) => { releaseSite = () => resolve(siteWithOrtho()); }));
+    const onUnavailable = vi.fn();
+    await mount(createElement(MiniMap, { snapshot: snapshotWithPlan(), onUnavailable }));
+    await settle();
+    // The site load is still in flight, close to its own budget: the tile budget was never started.
+    await act(async () => { await vi.advanceTimersByTimeAsync(LINK_LOST_AFTER_MS - 1); });
+    expect(onUnavailable).not.toHaveBeenCalled();
+    // The bundle arrives; the tiles are asked for and one of them answers.
+    await act(async () => { releaseSite?.(); });
+    await settle();
+    tileSources[0]!.dispatchEvent("tileloadend");
+    await act(async () => { await vi.advanceTimersByTimeAsync(LINK_LOST_AFTER_MS * 2); });
+    expect(onUnavailable).not.toHaveBeenCalled();
+  });
+
+  it("a tile that never answers still reports the map unavailable one full interval after the tiles were asked for", async () => {
+    // The other half of the same rule: the tile budget is a full interval of its own, starting when the tiles are
+    // asked for, not the moment the component mounted.
+    vi.useFakeTimers();
+    let releaseSite: (() => void) | undefined;
+    loadSite.mockReturnValue(new Promise((resolve) => { releaseSite = () => resolve(siteWithOrtho()); }));
+    const onUnavailable = vi.fn();
+    await mount(createElement(MiniMap, { snapshot: snapshotWithPlan(), onUnavailable }));
+    await settle();
+    await act(async () => { await vi.advanceTimersByTimeAsync(LINK_LOST_AFTER_MS - 1); });
+    await act(async () => { releaseSite?.(); });
+    await settle();
+    tileSources[0]!.dispatchEvent("tileloadstart");
+    // The tile budget has not run yet: the tiles were only just asked for.
+    await act(async () => { await vi.advanceTimersByTimeAsync(LINK_LOST_AFTER_MS - 1); });
+    expect(onUnavailable).not.toHaveBeenCalled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(onUnavailable).toHaveBeenCalledTimes(1);
+  });
+
+  it("a site load that never settles reports the map unavailable", async () => {
+    // FD-505: "the site load fails or stalls" is a fallback trigger of its own.
+    vi.useFakeTimers();
+    loadSite.mockReturnValue(new Promise(() => {}));
+    const onUnavailable = vi.fn();
+    await mount(createElement(MiniMap, { snapshot: snapshotWithPlan(), onUnavailable }));
+    await settle();
+    await act(async () => { await vi.advanceTimersByTimeAsync(LINK_LOST_AFTER_MS * 2); });
     expect(onUnavailable).toHaveBeenCalledTimes(1);
   });
 });

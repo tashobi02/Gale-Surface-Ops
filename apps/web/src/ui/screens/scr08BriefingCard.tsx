@@ -36,7 +36,7 @@ export function BriefingCard({ ctx }: ScreenProps): ReactElement {
   const status = partial ? "warning" : over ? "caution" : "nominal";
   const outcome = published?.plan === plan && published.tasks === state.stop_tasks ? published.outcome : null;
   const snapshot = map?.plan === plan ? map : null;
-  // T11.06: the canvas capture failed, so the card shows the thumbnail with the route as SVG, and says so (FD-137, FD-392).
+  // T11.06: the canvas capture failed, so the card shows the thumbnail with the route as SVG, and says so (FD-137, FD-442).
   const fallback = useMemo(() => snapshot?.error ? createBriefingFallback(ctx.site, state) : null, [snapshot?.error, ctx.site, state.waypoints, state.result]);
   const value = (v: string | number | null | undefined, path: string, prov: Provenance = "derived", unit?: string) => {
     const entry = plan.provenance_summary.find(e => e.value_path === path);

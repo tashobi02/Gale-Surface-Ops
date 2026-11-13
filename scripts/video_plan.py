@@ -5,7 +5,9 @@ import re
 import sys
 from pathlib import Path
 
-NAME_PLACEHOLDER = 'Gale Surface Ops'
+# The ADR-013 product name (FD-006). The demo script carries it verbatim; the constant names it once so the
+# narration and the on-screen app cannot drift apart.
+PRODUCT_NAME = 'Gale Surface Ops'
 
 
 def validate_windows(beats, duration):
@@ -21,7 +23,11 @@ def validate_windows(beats, duration):
 def load_narration(path):
     tracks = {'240s': [], '30s': []}
     current = None
-    for line in path.read_text(encoding='utf8').splitlines():
+    text = path.read_text(encoding='utf8')
+    # The spoken name must be the name on screen (ADR-013). A script that names another product is a stale script.
+    if PRODUCT_NAME not in text:
+        raise ValueError(f'The demo script does not name the product ({PRODUCT_NAME}); it is stale.')
+    for line in text.splitlines():
         if re.match(r'^## 240-s\b', line):
             current = '240s'
         elif re.match(r'^## 30-s\b', line):
@@ -33,7 +39,7 @@ def load_narration(path):
                 continue
             start = int(match[1]) * 60 + int(match[2])
             end = int(match[3]) * 60 + int(match[4])
-            narration = re.sub(r'\*+', '', cells[-1]).replace('Marswalk Surface Ops', NAME_PLACEHOLDER)
+            narration = re.sub(r'\*+', '', cells[-1])
             tracks[current].append({'id': f"{current[:-1]}-{len(tracks[current]) + 1:02d}", 'start_s': start,
                                     'end_s': end, 'dur_s': end - start, 'narration': narration})
     for name, duration in [('240s', 240), ('30s', 30)]:
@@ -43,18 +49,25 @@ def load_narration(path):
 
 def match_recordings(beats, recordings, raw_dir):
     for beat in beats:
+        # A beat that drove more than one role has one recording per role; the cut assembles all of them.
         matching = [record for record in recordings if record.get('id') == beat['id']]
-        if len(matching) != 1:
-            raise ValueError(f"Expected exactly one recording for {beat['id']}")
-        record = matching[0]
-        path = raw_dir / record['clip']
-        if not path.is_file():
-            raise ValueError(f'Missing capture clip: {path}')
-        start = record['clipStartMs'] / 1000
-        end = record['clipEndMs'] / 1000
-        if start < 0 or end <= start or record['reachedInMs'] > beat['dur_s'] * 1000:
-            raise ValueError(f"Invalid capture timing for {beat['id']}")
-        beat.update(clip_path=str(path), clip_start_s=start, clip_end_s=end)
+        if not matching:
+            raise ValueError(f"Expected at least one recording for {beat['id']}")
+        names = [record.get('clip') for record in matching]
+        if len(set(names)) != len(names):
+            raise ValueError(f"Duplicate capture clip for {beat['id']}: {names}")
+        clips = []
+        for record in matching:
+            path = raw_dir / record['clip']
+            if not path.is_file():
+                raise ValueError(f'Missing capture clip: {path}')
+            start = record['clipStartMs'] / 1000
+            end = record['clipEndMs'] / 1000
+            if start < 0 or end <= start or record['reachedInMs'] > beat['dur_s'] * 1000:
+                raise ValueError(f"Invalid capture timing for {beat['id']}")
+            clips.append({'clip': record['clip'], 'path': str(path), 'start_s': start, 'end_s': end})
+        beat['clips'] = clips
+        beat.update(clip_path=clips[0]['path'], clip_start_s=clips[0]['start_s'], clip_end_s=clips[0]['end_s'])
 
 
 def timestamp(seconds):

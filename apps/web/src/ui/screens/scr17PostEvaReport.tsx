@@ -23,6 +23,7 @@
 import type { CSSProperties, ReactElement } from "react";
 import type { Provenance } from "@marswalk/protocol";
 import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
+import { PROTOTYPE_DISCLAIMER } from "../content/disclaimer";
 import "./scr17PostEvaReport.css";
 import { StatusIcon } from "../components/statusIcon";
 
@@ -126,6 +127,13 @@ const mmss = (totalS: number): string => {
 export const REPORT_DISCLAIMER =
   "NASA Space Apps Challenge 2026 — Interplanetary Survival Guide: Martian Map. " +
   "For simulation and educational demonstration only; not certified for actual Martian flight or surface operations.";
+
+/**
+ * The prototype boundary statement (01 §F.1, FR-52): it must appear in the app, so the judge-facing report
+ * carries the same text as the launchpad and the export. The wording lives in `ui/content/disclaimer.ts`,
+ * the single source shared by all three (FD-491).
+ */
+export const REPORT_PROTOTYPE_DISCLAIMER = PROTOTYPE_DISCLAIMER;
 
 /**
  * Attributes for a report value. Present: its class and `report:<path>` source. Missing: the field's own class is kept,
@@ -874,7 +882,10 @@ export function PostEvaReport({
                 color: "#111827",
               }}
             >
-              <span {...reportAttrs(typeof data.logHash === "string" && data.logHash.length > 0, "derived", "log_hash")}>
+              <span
+                data-log-hash=""
+                {...reportAttrs(typeof data.logHash === "string" && data.logHash.length > 0, "derived", "log_hash")}
+              >
                 {data.logHash ? data.logHash : UNAVAILABLE}
               </span>
             </span>
@@ -915,6 +926,16 @@ export function PostEvaReport({
             <span data-identifier>{REPORT_DISCLAIMER}</span>
             {commentary ? ` ${commentary}` : ""}
           </p>
+          <p
+            style={{
+              fontSize: "12px",
+              color: "#4B5563",
+              margin: "4px 0 0 0",
+              lineHeight: 1.4,
+            }}
+          >
+            <span data-identifier>{REPORT_PROTOTYPE_DISCLAIMER}</span>
+          </p>
         </footer>
       </article>
     </div>
@@ -942,5 +963,6 @@ function ReportLogFallback({ events, error, loading, logHash, onPrint, onExportL
       </tr>) : <tr><td colSpan={4} data-provenance="simulated" data-source="unavailable:api/log.events" data-unavailable="true">— {loading ? "Waiting for log" : error ? "Log unavailable" : "No recorded events"}</td></tr>}</tbody>
     </table>
     <p>{REPORT_DISCLAIMER}</p>
+    <p>{REPORT_PROTOTYPE_DISCLAIMER}</p>
   </main>;
 }

@@ -16,7 +16,7 @@
  * Mode OPS: Projector-readable, keyboard accessible (NFR-04).
  */
 
-import { useEffect, type CSSProperties, type ReactElement, type ChangeEvent } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactElement, type ChangeEvent } from "react";
 import { StatusIcon } from "../components/statusIcon";
 import { logLiveFallback } from "../live/fallbackDebug";
 import type { CommandKind } from "@marswalk/protocol";
@@ -101,6 +101,13 @@ export function ClockControl({
     });
   };
 
+  /**
+   * The keydown listener is registered once (it must not be re-registered on every render), so it reads the current
+   * session state and the current handlers from this ref instead of closing over the ones of the registering render.
+   */
+  const latest = useRef({ sessionState, handlePauseToggle, handleJumpNext, handleStartEva, handleSpeedSelect });
+  latest.current = { sessionState, handlePauseToggle, handleJumpNext, handleStartEva, handleSpeedSelect };
+
   const handleScenarioChange = (e: ChangeEvent<HTMLSelectElement>): void => {
     const nextId = e.target.value;
     onLoadScenario?.(nextId);
@@ -116,21 +123,25 @@ export function ClockControl({
     const onKey = (event: KeyboardEvent): void => {
       if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
         (event.target instanceof Element && event.target.closest('input, textarea, select, button, a[href], [contenteditable]:not([contenteditable="false"]), [role="dialog"]'))) return;
-      if (!sessionState || sessionState === "ENDED") return;
+      // The listener is registered once, so it reads the current session state and the current handlers from the ref
+      // rather than closing over the ones of the render that registered it.
+      const current = latest.current;
+      const state = current.sessionState;
+      if (!state || state === "ENDED") return;
       const key = event.key.toLowerCase();
       if (!["1", "2", "3", " ", "n", "s"].includes(key)) return;
       event.preventDefault();
-      if (key === " ") handlePauseToggle();
-      else if (key === "n") handleJumpNext();
-      else if (key === "s" && sessionState === "LOADED") handleStartEva();
-      else if (key === "1") handleSpeedSelect(1);
-      else if (key === "2") handleSpeedSelect(10);
-      else if (key === "3") handleSpeedSelect(60);
+      if (key === " ") current.handlePauseToggle();
+      else if (key === "n") current.handleJumpNext();
+      else if (key === "s" && state === "LOADED") current.handleStartEva();
+      else if (key === "1") current.handleSpeedSelect(1);
+      else if (key === "2") current.handleSpeedSelect(10);
+      else if (key === "3") current.handleSpeedSelect(60);
     };
     // Capture prevents the console's existing shortcuts from issuing the same command a second time.
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
-  });
+  }, [keysOnly]);
 
   const containerStyle: CSSProperties = {
     display: "flex",

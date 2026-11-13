@@ -38,6 +38,13 @@ export interface MiniMapProps {
   onUnavailable?: () => void;
 }
 
+/**
+ * The budget for loading the site bundle (FD-505: "the site load fails or stalls" is a fallback trigger of its
+ * own). It is a separate timer from the tile deadline: the tile budget starts when the tiles are asked for, so a
+ * site load that takes its whole interval does not also spend the tiles' interval.
+ */
+const SITE_LOAD_DEADLINE_MS = LINK_LOST_AFTER_MS;
+
 /** The key of the route geometry: when it is unchanged the drawn route is left alone. */
 function routeKeyOf(snapshot: Snapshot | null): string {
   const legs = snapshot?.plan?.result.legs ?? [];
@@ -67,9 +74,20 @@ export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProp
     let cancelled = false;
     let handle: MapHandle | undefined;
     let ops: OpsLayers | undefined;
-    const fail = (): void => { if (!cancelled) { clearTimeout(deadline); setUnavailable(true); failure.current?.(); } };
-    const deadline = setTimeout(fail, LINK_LOST_AFTER_MS);
+    // FD-505: the tile deadline starts when the map is asked for its tiles, not when the effect runs. A cold LAN
+    // load of the site bundle must not spend the tile budget before the first tile is ever requested.
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    const fail = (): void => {
+      if (cancelled) return;
+      if (deadline !== undefined) clearTimeout(deadline);
+      setUnavailable(true);
+      failure.current?.();
+    };
+    // The site bundle has its own budget: it is a bundle of files, not a link heartbeat, so a slow first load is not a
+    // lost link. It only bounds a load that never settles (FD-505: "the site load fails or stalls").
+    const siteDeadline = setTimeout(fail, SITE_LOAD_DEADLINE_MS);
     void loadSite(siteId).then((site) => {
+      clearTimeout(siteDeadline);
       if (cancelled || !host.current) return;
       handle = createMap({ target: host.current, site, keyboard: false });
       handle.getTargetElement().tabIndex = -1;
@@ -88,7 +106,7 @@ export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProp
         optical = true;
         const tiles = new XYZ({ projection, tileGrid: createTileGrid(def.tile_grid, site.site.aoi.extent_m), wrapX: false, url: `${asset.url}/{z}/{x}/{y}.${def.tile_grid.format}`, attributions: attribution });
         tiles.on("tileloadstart", () => { attempt.pending += 1; });
-        tiles.on("tileloadend", () => { attempt.pending = Math.max(0, attempt.pending - 1); attempt.loaded += 1; clearTimeout(deadline); });
+        tiles.on("tileloadend", () => { attempt.pending = Math.max(0, attempt.pending - 1); attempt.loaded += 1; if (deadline !== undefined) clearTimeout(deadline); });
         tiles.on("tileloaderror", () => { attempt.pending = Math.max(0, attempt.pending - 1); if (attempt.loaded === 0 && attempt.pending === 0) fail(); });
         map.addLayer(new TileLayer({ source: tiles, className: OPS_ORTHO_LAYER_CLASS }));
       }
@@ -127,13 +145,13 @@ export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProp
         source.addFeature(new Feature(new LineString(leg.geometry)));
       }
       // A site that declares no optical basemap has nothing to wait for: the map is complete as it was before package 34.
-      if (!optical) clearTimeout(deadline);
+      if (optical) deadline = setTimeout(fail, LINK_LOST_AFTER_MS);
     }).catch((error: unknown) => {
       // The failure is logged, not swallowed: a silent "map unavailable" would hide a broken site or a missing token.
       console.error("mini-map site load", error);
       fail();
     });
-    return () => { cancelled = true; clearTimeout(deadline); layers.current = null; route.current = null; routeKey.current = null; ops?.destroy(); handle?.destroy(); };
+    return () => { cancelled = true; clearTimeout(siteDeadline); if (deadline !== undefined) clearTimeout(deadline); layers.current = null; route.current = null; routeKey.current = null; ops?.destroy(); handle?.destroy(); };
     // `crewId` is applied by the update effect below, so the map is not rebuilt when it changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteId]);
@@ -158,7 +176,7 @@ export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProp
 
   return <div className="eva-mini-map">
     <div data-slot="map-canvas" ref={host} aria-label="Surface map" />
-    {unavailable && <span data-provenance="derived" data-source="site:manifest" data-unavailable="true">Map unavailable —</span>}
+    {unavailable && <span data-provenance="derived" data-source="unavailable:basemap" data-unavailable="true">Map unavailable —</span>}
     {commUnavailable && <span data-provenance="derived" data-source="unavailable:comm_hab" data-unavailable="true">Comms grid unavailable —</span>}
     <button type="button" data-slot="mini-map-open" aria-label="Open full-screen map" onClick={onOpen}><span>FULL MAP</span></button>
   </div>;

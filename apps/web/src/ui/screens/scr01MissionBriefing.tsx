@@ -23,11 +23,12 @@ import { Metric } from "../components/metric";
 import { UNAVAILABLE } from "../components/provenance";
 import briefingCopy from "../content/briefing.json";
 import demoPlan from "../demoPlan.json";
+import { PROTOTYPE_DISCLAIMER } from "../content/disclaimer";
 import "./scr01MissionBriefing.css";
 
 /** The 01 §F.1 prototype boundary, verbatim (FR-52: it must appear in the app). */
-export const DISCLAIMER =
-  "Marswalk Surface Ops is an exploratory hackathon prototype. It is not astronaut operations software. Crew, suit, rover and vehicle states are simulated. Solar events are real historical records replayed on a simulated clock — not a live feed from Mars. Slope limits, speeds, consumables and shelter values are illustrative assumptions from Earth and Apollo-era references. Radio coverage is line-of-sight only.";
+const DISCLAIMER = PROTOTYPE_DISCLAIMER;
+export { DISCLAIMER };
 
 export interface MissionBriefingProps {
   /** The loaded site bundle (the manifest, its layers, sources, assets and POIs). */

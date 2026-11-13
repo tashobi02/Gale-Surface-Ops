@@ -90,6 +90,24 @@ const statusStyle: CSSProperties = {
   justifyContent: "space-between",
 };
 
+/**
+ * Bound a Hab Core request by the link watchdog interval (FD-502): every request, including its body read,
+ * must settle within `LINK_LOST_AFTER_MS`, so a wedged session surfaces as an error instead of a button
+ * that never resolves. The caller owns the timer so it can clear it on unmount.
+ */
+function withDeadline<T>(operation: Promise<T>, onTimeout: () => void): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      onTimeout();
+      reject(new Error("Hab Core request timed out"));
+    }, LINK_LOST_AFTER_MS);
+    operation.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error: unknown) => { clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
 export function ReportRoute({ fetchImpl, onBack }: ReportRouteProps): ReactElement {
   const snapshot = useSnapshot();
   const [logFallback, setLogFallback] = useState<PostEvaReportProps["logFallback"]>();
@@ -156,9 +174,12 @@ export function ReportRoute({ fetchImpl, onBack }: ReportRouteProps): ReactEleme
     exporting.current = true;
     try {
       setExportError("");
-      const response = await doFetch(LOG_URL);
+      // FD-502: the export request is bounded by the same watchdog interval as the in-page log fetch, so a
+      // wedged Hab Core surfaces as an error instead of a button that never resolves.
+      const response = await withDeadline(doFetch(LOG_URL), () => logLiveFallback("report-export"));
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const lines = (await response.text()).split("\n").filter((line) => line.trim() !== "");
+      const lines = (await withDeadline(response.text(), () => logLiveFallback("report-export")))
+        .split("\n").filter((line) => line.trim() !== "");
       const events: unknown[] = lines.map((line, i) => {
         try {
           return JSON.parse(line);

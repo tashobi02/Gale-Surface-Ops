@@ -108,7 +108,7 @@ export function TaskProgress({
         </span>
       </div>
 
-      {viewOnly && <span data-fallback="tasks-view-only" data-provenance="simulated" data-source="command-result:ADD_STOP_TASK"><StatusIcon status="unknown" showWord /> View only</span>}
+      {viewOnly && <span data-fallback="tasks-view-only" data-provenance="simulated" data-source="result:command.ADD_STOP_TASK"><StatusIcon status="unknown" showWord /> View only</span>}
       {!viewOnly && <button
         type="button"
         style={buttonStyle}

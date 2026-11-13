@@ -46,7 +46,7 @@ export async function expectBriefingMap(page: Page): Promise<void> {
 }
 
 /**
- * The degraded briefing map (T11.06, FD-137, FD-392): no canvas; a notice that names the failure with a shape and a word; the
+ * The degraded briefing map (T11.06, FD-137, FD-442): no canvas; a notice that names the failure with a shape and a word; the
  * site thumbnail (a file of the bundle, actually decoded) and the route as SVG with every stop numbered; dashes for NO ROUTE legs,
  * styled by the .css file (the CSP forbids inline styles).
  */

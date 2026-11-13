@@ -165,6 +165,10 @@ export function EvaTablet({
   const contrast = controlledContrast ?? localContrast;
   const setContrast = onContrastChange ?? setLocalContrast;
   const [mapUnavailable, setMapUnavailable] = useState(false);
+  // The mini-map is unmounted once it has failed (FD-500), so a failed attempt cannot recover on its own. The attempt
+  // counter remounts it, and the retry control below lets the crew ask for another attempt: a transient failure (a
+  // tile that was lost on a busy LAN) must not cost the map for the rest of the session.
+  const [mapAttempt, setMapAttempt] = useState(0);
   const [tapFallback, setTapFallback] = useState(false);
   const [tasksExpanded, setTasksExpanded] = useState<boolean>(false);
   // The Hab Core's reason for a refused ACK_ALERT, shown under the alert bar until the next alert (04 §D.5).
@@ -520,7 +524,15 @@ export function EvaTablet({
           {mapUnavailable ? <div role="status" data-fallback="hud-only">
             <StatusIcon status="unknown" showWord />
             <span data-provenance="measured" data-source="unavailable:site.map" data-unavailable="true">Map unavailable — HUD only. Use HAVEN and NEXT above; abort and acknowledge remain available.</span>
-          </div> : <MiniMap snapshot={activeSnapshot ?? null} crewId={crewId} onOpen={onOpenFullScreenMap} onUnavailable={() => { setMapUnavailable(true); logLiveFallback("hud-only"); }} />}
+            <button
+              type="button"
+              data-slot="map-retry"
+              onClick={() => { setMapUnavailable(false); setMapAttempt((n) => n + 1); }}
+              style={{ minHeight: "44px", padding: "4px 12px", border: "1px solid currentColor", background: "transparent", color: "inherit", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              RETRY MAP
+            </button>
+          </div> : <MiniMap key={mapAttempt} snapshot={activeSnapshot ?? null} crewId={crewId} onOpen={onOpenFullScreenMap} onUnavailable={() => { setMapUnavailable(true); logLiveFallback("hud-only"); }} />}
         </div>
       </div>
 

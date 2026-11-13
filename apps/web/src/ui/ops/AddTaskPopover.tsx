@@ -136,7 +136,7 @@ function AddTaskForm({
 
   if (disabledReason) return <section style={popoverStyle} data-testid="add-task-popover" data-fallback="tasks-view-only" role="status">
     <StatusIcon status="unknown" showWord />
-    <p data-provenance="simulated" data-source="command-result:ADD_STOP_TASK">View only — {disabledReason}. Crew task progress continues to sync.</p>
+    <p data-provenance="simulated" data-source="result:command.ADD_STOP_TASK">View only — {disabledReason}. Crew task progress continues to sync.</p>
     {onCancel && <button type="button" style={buttonStyle} onClick={onCancel}>CLOSE</button>}
   </section>;
 

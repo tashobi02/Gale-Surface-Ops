@@ -305,11 +305,16 @@ export function PlanPanel({ ctx, taskLibrary, taskLibraryStatus, onRetryTaskLibr
 
   const reset = (): void => {
     const start = planStore.get().scenario.eva_start_utc;
+    // The start the panel keeps is the user's own, so the session must not be credited for it (FR-15, NFR-05):
+    // `sessionStart` marks the value as the Hab Core's answer, and after a reset the kept value is whatever the
+    // user typed.
+    const keepWasSessionStart = sessionStart && !edited.has("eva_start_utc");
     planStore.resetDefaults();
     if (start !== "" && planStore.get().scenario.eva_start_utc !== start) planStore.setScenario({ eva_start_utc: start });
     setDrafts({});
     setErrors({});
     setEdited(new Set());
+    if (!keepWasSessionStart) setSessionStart(false);
     setNotice(start === "" ? "Defaults restored." : "Defaults restored. The start time is kept.");
   };
 

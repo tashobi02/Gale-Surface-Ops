@@ -26,7 +26,17 @@ describe("T16.01 product name", () => {
       expect(readFileSync(join(root, file), "utf8"), file).not.toContain(["Marswalk", "Surface", "Ops"].join(" "));
     }
   });
-  it.skip("needs N-170: keeps the former working title only in historical records", () => {
-    expect(matchingFiles(root, ["Marswalk", "Surface", "Ops"].join(" "))).toEqual([]);
+  // N-170: the backend-owned scenario, replay, hub-core script, the specs, the shared contract, the Makefile and
+  // the constitution still carry the retired working title. The frontend surfaces are done (FD-490): the launchpad,
+  // the post-EVA report and the export share one boundary statement.
+  it.todo("needs N-170: keeps the former working title only in historical records");
+  it("the frontend surfaces carry the ADR-013 name only", () => {
+    // The frontend lane's own files must not name the retired product. The negative assertion in the video-plan
+    // test needs the literal, so that one file is exempt with a reason.
+    const exempt = new Set(["apps/web/tests/video/video_plan_test.py"]);
+    const frontend = /^(apps\/web\/|docs\/design\/|docs\/ops\/demo-script\.md$)/;
+    const found = matchingFiles(root, ["Marswalk", "Surface", "Ops"].join(" "))
+      .filter((name) => frontend.test(name) && !exempt.has(name));
+    expect(found).toEqual([]);
   });
 });
