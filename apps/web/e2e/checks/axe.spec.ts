@@ -76,6 +76,7 @@ test("axe: SCR-02 planner workspace has no serious or critical violation", async
 
 // Package 35: the planner workspace in light theme (?theme=light).
 test("axe: SCR-02 planner workspace in light theme has no serious or critical violation (package 35)", async ({ page }, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 800, "the planner is specified from 1024 px (04 §F); its top bar does not fit a 360 or 390 px portrait phone");
   await page.goto("/?site=mock_site&theme=light#/planner");
   await page.waitForLoadState("networkidle");
   await page.locator('[data-slot="map-workspace"]').waitFor();
