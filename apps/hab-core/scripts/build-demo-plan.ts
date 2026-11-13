@@ -27,9 +27,13 @@ import { canonicalJson } from "../src/log";
 import { loadSite } from "../src/scenario";
 import { deriveDemoTiming, loadInputs, type DemoTiming } from "./demo-numbers";
 
-/** The prototype disclaimer (01 §F.1, FD-135). Equal to `PROTOTYPE_DISCLAIMER` in apps/web/src/export/planExport.ts (a test compares them). */
+/**
+ * The prototype disclaimer (01 §F.1, FD-135), with the ADR-013 product name. Equal to `PROTOTYPE_DISCLAIMER` in
+ * apps/web/src/ui/content/disclaimer.ts (a test compares them). The committed scenario files still carry the old
+ * name until they are regenerated (N-170).
+ */
 export const PROTOTYPE_DISCLAIMER =
-  "Marswalk Surface Ops is an exploratory hackathon prototype. It is not astronaut operations software. " +
+  "Gale Surface Ops is an exploratory hackathon prototype. It is not astronaut operations software. " +
   "Crew, suit, rover and vehicle states are simulated. Solar events are real historical records replayed " +
   "on a simulated clock — not a live feed from Mars. Slope limits, speeds, consumables and shelter values " +
   "are illustrative assumptions from Earth and Apollo-era references. Radio coverage is line-of-sight only.";

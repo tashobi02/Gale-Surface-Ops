@@ -75,7 +75,9 @@ test("keyboard-path: 01 §E steps 1–9 run with the keyboard only, focus visibl
   await page.locator('[data-slot="map-workspace"]').waitFor();
 
   // --- Step 4/1: open the demo plan with the keyboard ------------------------------------------------------------
-  await page.keyboard.press("Alt+ArrowLeft");
+  // Browser Back (Alt+← in a real browser). Playwright's synthetic key events do not reach the browser's own
+  // accelerators, so the step uses the history API that the shortcut triggers.
+  await page.goBack();
   await expect(page).toHaveURL(/#\/$/);
   const demo = page.getByRole("button", { name: /open demo plan/i });
   await tabToChecked(page, demo, "Open demo plan");
@@ -169,7 +171,7 @@ test("keyboard-path: 01 §E steps 1–9 run with the keyboard only, focus visibl
   expect(download.suggestedFilename(), "the export is a JSON file").toMatch(/\.json$/);
 
   // --- Step 9: open Sources & methods with `?` --------------------------------------------------------------------
-  await page.keyboard.press("Alt+ArrowLeft");
+  await page.goBack(); // browser Back (Alt+←), see step 4/1
   await expect(page).toHaveURL(/#\/planner/);
   await tabToChecked(page, page.locator(".ol-viewport"), "map");
   await page.keyboard.press("?");

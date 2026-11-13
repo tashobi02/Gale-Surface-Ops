@@ -106,10 +106,16 @@ describe("T21.12 (a) planHashOf", () => {
 });
 
 describe("T21.12 (a) the export carries the web app's disclaimer", () => {
-  it("equals PROTOTYPE_DISCLAIMER in apps/web/src/export/planExport.ts word for word", () => {
-    const source = readFileSync(join(ROOT, "apps/web/src/export/planExport.ts"), "utf8");
+  it("equals PROTOTYPE_DISCLAIMER in apps/web/src/ui/content/disclaimer.ts word for word", () => {
+    // The web app's single home for the 01 §F.1 statement (FD-509); it starts with a `${PRODUCT_NAME}` template part.
+    const source = readFileSync(join(ROOT, "apps/web/src/ui/content/disclaimer.ts"), "utf8");
+    const name = /export const PRODUCT_NAME = "([^"]*)";/.exec(source)![1]!;
     const block = /export const PROTOTYPE_DISCLAIMER =([\s\S]*?);\n/.exec(source)![1]!;
-    const web = [...block.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`) as string).join("");
+    const parts = [...block.matchAll(/"((?:[^"\\]|\\.)*)"|`([^`]*)`/g)];
+    const web = parts
+      .map((m) => (m[1] !== undefined ? (JSON.parse(`"${m[1]}"`) as string) : m[2]!.replace("${PRODUCT_NAME}", name)))
+      .join("");
+    expect(web.startsWith(`${name} is an exploratory hackathon prototype.`)).toBe(true);
     expect(PROTOTYPE_DISCLAIMER).toBe(web);
   });
 });
