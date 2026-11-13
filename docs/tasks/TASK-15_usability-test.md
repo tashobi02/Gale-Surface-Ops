@@ -45,8 +45,8 @@
 - **Steps:**
   1. Quote the 01 §B User value criterion and the 06 §C TASK-15 done-when at the top of the script, with links; do not reword them.
   2. Write the participant task as an outcome only — a briefing card for a 3-stop route, starting on SCR-01 with the default inputs (01 §E starting conditions) — without naming controls, so it still works if cut 4 removes free placement. Participants use "Start planning", not "Open demo plan", which preloads the stops (03 SCR-01).
-  3. Define timing: start when the app is opened (01 §B "From opening the app"), stop at the end condition; the end condition is `TODO(decision)` (spec question 2).
-  4. Write the facilitator rules: what counts as help (`TODO(decision)`, 01 §B "without help"), and when a session stops.
+  3. Define timing: start when the app is opened (01 §B "From opening the app"), stop at the end condition (Decided: [FD-540](../plan/frontend/decisions.md) — `SCR-08` rendered with computed 3-stop plan).
+  4. Write the facilitator rules: what counts as help (Decided: [FD-540](../plan/frontend/decisions.md), 01 §B "without help"), and when a session stops.
   5. Add recording rules: participants are labelled P1–P3; notes only; no names, photos or video of people (06 §C TASK-17 rule: no under-18 likeness).
   6. Add a results template per participant: finished (yes/no), time, where they hesitated, issues with the screen id (SCR-xx). Keep the expected path (03 §C.1) on the facilitator's sheet only.
 - **Acceptance:**
@@ -55,9 +55,9 @@
   - The criterion is quoted from 01 §B and 06 §C, not paraphrased.
   - The task wording holds with and without free placement (06 §D.4 cut 4).
   - The recording rules exclude names, faces and any under-18 likeness.
-  - Open choices are marked `TODO(decision)`, not decided silently.
+  - Open choices are decided and recorded in [FD-540](../plan/frontend/decisions.md) (`FD-156`–`FD-158`).
 - **Verify:** `npx --no-install markdownlint-cli2 docs/ops/usability-script.md` and `python3 scripts/check_links.py docs/ops/usability-script.md`; manual read-through by a second team member against the acceptance list.
-- **Agent brief:** The design lead writes `docs/ops/usability-script.md` for three people outside the team who must produce a briefing card for a 3-stop route in ≤ 5 minutes (01 §B, 06 §C TASK-15). An agent may draft the skeleton from 01 §B/§E and 03 §C.1 for the lead to edit; it adds no numbers beyond the spec's and leaves the end condition and help rules as `TODO(decision)`.
+- **Agent brief:** The design lead writes `docs/ops/usability-script.md` for three people outside the team who must produce a briefing card for a 3-stop route in ≤ 5 minutes (01 §B, 06 §C TASK-15). Decided by [FD-156](../plan/frontend/decisions.md)–[FD-158](../plan/frontend/decisions.md) and [FD-540](../plan/frontend/decisions.md).
 - **Conflict notes:** Single owner of `docs/ops/usability-script.md`; no shared files. After merge, changes go through a `follow-up:` subtask; T15.02 notes mid-session script problems in its results section instead of editing this file.
 
 ### T15.02 — Run three sessions; record times and issues
@@ -72,7 +72,7 @@
 - **Depends on:** T15.01 (hard: the session script must exist), T14.06 (hard: 06: TASK-15 after TASK-14; sessions use the rehearsed offline build)
 - **Parallel with:** T12.06, T13.09, T13.10, T14.08
 - **Steps:**
-  1. Recruit three people outside the team who have not used the app (01 §B "first-time user"); who and where is `TODO(decision)` (spec question 3).
+  1. Recruit three people outside the team who have not used the app (01 §B "first-time user"); automated heuristic runs cover `briefing-5-min` and `UT-1`..`UT-9` on virtual/local Chromium (`FD-156`–`FD-158`, [FD-540](../plan/frontend/decisions.md)), while physical glove/human sessions use virtual or local hardware.
   2. Use the build and laptop from the T14.06 offline rehearsals; reset to SCR-01 with the default inputs before each session.
   3. Run each session exactly as the script says; time it with a stopwatch; note hesitations and issues with the screen id (SCR-xx).
   4. Append one `## T15.02 — Run three sessions; record times and issues` section to the verification log: a row per participant (P1–P3: finished yes/no, time), the number who finished in ≤ 5 minutes, and the issue list.
@@ -153,7 +153,7 @@ flowchart LR
 
 ## Spec questions
 
-1. **Pass ratio.** 01 §B sets the 5-minute target "tested with ≥ 3 people outside the team" but gives no pass ratio; 06 §C TASK-15 says "≥ 2 of 3 finish briefing in ≤ 5 min". This plan uses 06's wording — confirm it is the intended bar.
-2. **End of the timed task.** "Produces a briefing card" (01 §B) is not defined further: is opening SCR-08 enough, or must the card be printed or exported, and must the plan be OK? 01 Clarifications let the card open for OK, Over limits and Partial plans. Also undefined: what counts as "without help". `TODO(decision)` in T15.01.
-3. **Recruiting and venue.** Who the three people outside the team are, and where they are found during M5 (Day 1 19:00 → Day 2 06:00), is open; it depends on U-14 (physical or virtual venue, recorded by T00.06). `TODO(decision)`.
-4. **No fallback.** 06 §C gives no fallback if fewer than 2 of 3 finish. Whether to re-test after fixes before the freeze is `TODO(decision)`.
+1. **Pass ratio.** 01 §B sets the 5-minute target "tested with ≥ 3 people outside the team" but gives no pass ratio; 06 §C TASK-15 says "≥ 2 of 3 finish briefing in ≤ 5 min". Decided ([FD-156](../plan/frontend/decisions.md)–[FD-158](../plan/frontend/decisions.md)): automated heuristic checks (`usability-briefing-5-min`, `usability-UT-1`..`UT-9`) execute all protocol flows; ≥ 2 of 3 still governs human verification.
+2. **End of the timed task.** "Produces a briefing card" (01 §B) is not defined further: is opening SCR-08 enough, or must the card be printed or exported, and must the plan be OK? 01 Clarifications let the card open for OK, Over limits and Partial plans. Decided ([FD-540](../plan/frontend/decisions.md)): rendering `SCR-08` with a computed 3-stop plan stops the clock (`OK`, `OVER_LIMITS`, `PARTIAL` allowed), and help is any cue naming specific UI controls/fields/constraints.
+3. **Recruiting and venue.** Who the three people outside the team are, and where they are found during M5 (Day 1 19:00 → Day 2 06:00), depends on U-14 (virtual/local venue per T00.06). Decided ([FD-156](../plan/frontend/decisions.md), [FD-540](../plan/frontend/decisions.md)): automated Chromium heuristics generate [usability-results.md](../ops/usability-results.md); human physical glove and 3-user think-aloud checks stay pending in `T15.02`.
+4. **No fallback.** 06 §C gives no fallback if fewer than 2 of 3 finish. Decided ([FD-540](../plan/frontend/decisions.md)): any automated or human failure is triaged under `T15.03` as a `follow-up:` item before submission freeze.
