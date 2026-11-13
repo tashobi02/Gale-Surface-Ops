@@ -51,6 +51,9 @@ import {
   unavailableOf,
 } from "../components/provenance";
 
+/** FD-018: the sound indicator's longest label, shown until the first gesture arms audio. It also sizes the button. */
+const SOUND_LABEL_ARM = "SOUND ON — click to arm";
+
 /** Task counts for one crew member, reduced from the task list by the caller. null counts render "—". */
 export interface CrewTaskProgress {
   stop: { stopId?: string; stopNo: number; done: number; total: number } | null;
@@ -279,6 +282,8 @@ export function OpsConsole({
     justifyContent: "space-between",
     minHeight: "48px",
     flexWrap: "wrap",
+    // The join popover hangs from the top bar (QrDrawer), so it stays inside the viewport however the bar wraps.
+    position: "relative",
     padding: "0 16px",
     backgroundColor: "var(--panel, #14181D)",
     borderBottom: "1px solid var(--hairline, #2A313A)",
@@ -428,12 +433,15 @@ export function OpsConsole({
           />
           <button
             type="button"
-            style={{ ...buttonStyle, marginLeft: "8px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+            // The first pointer or key gesture arms audio and shortens this label. A header that fits in one row only with the short
+            // label would reflow under that very gesture and move the control it is about to click (the press lands on one element,
+            // the release on another, so the click is lost). Reserve the longest label's width so arming never changes the layout.
+            style={{ ...buttonStyle, marginLeft: "8px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px", boxSizing: "border-box", minWidth: `calc(${SOUND_LABEL_ARM.length + 1}ch + 26px)` }}
             aria-label={`Alert sound: ${soundEnabled ? "on" : "off"}`}
             aria-pressed={soundEnabled}
             onClick={() => { if (consumeArmingGesture() && soundEnabled) return; setLocalSoundOn(!soundEnabled); onToggleSound?.(); }}
           >
-            <span data-provenance="assumed" data-source="ui:ops.sound">{soundEnabled ? armed ? "SOUND ON" : "SOUND ON — click to arm" : "SOUND OFF"}</span>
+            <span data-provenance="assumed" data-source="ui:ops.sound">{soundEnabled ? armed ? "SOUND ON" : SOUND_LABEL_ARM : "SOUND OFF"}</span>
           </button>
         </div>
       </header>
