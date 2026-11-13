@@ -106,7 +106,6 @@ test("ops-no-terminal: rover step from the vehicle card, target picked on the ma
 test("ops-no-terminal: dispatch a rover target using keyboard traversal and map controls", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 1280) < 1024, "the ops console needs >= 1024 px");
   const { commands } = await openOpsFixture(page, "running", { vehicles: [UTILITY_ROVER] });
-  await openOpsPanel(page, "crew");
   const tabTo = async (locator: import("@playwright/test").Locator) => {
     for (let i = 0; i < 150; i++) {
       if (await locator.evaluate((element) => element === document.activeElement)) return;
@@ -114,6 +113,11 @@ test("ops-no-terminal: dispatch a rover target using keyboard traversal and map 
     }
     throw new Error("Control was not reached by keyboard traversal");
   };
+  const crewPanel = page.getByRole("button", { name: "Crew & vehicles", exact: true });
+  if (await crewPanel.count() && await crewPanel.getAttribute("aria-expanded") === "false") {
+    await tabTo(crewPanel);
+    await page.keyboard.press("Enter");
+  }
   await tabTo(page.getByRole("button", { name: "Task rover UR1" }));
   await page.keyboard.press("Enter");
   const dialog = page.locator('[data-screen="SCR-15"]');

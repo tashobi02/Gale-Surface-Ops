@@ -84,6 +84,11 @@ test("keyboard-path: 01 §E steps 1–9 run with the keyboard only, focus visibl
   await expect(page).toHaveURL(/#\/planner/);
 
   // The demo plan names no start time (FD-042), so the plan is invalid until the start is set. The Plan tab holds the input.
+  const leftDrawer = page.locator('[data-slot="drawer-toggle"][data-for="left"]');
+  if (await leftDrawer.count() && await leftDrawer.getAttribute("aria-expanded") === "false") {
+    await tabToChecked(page, leftDrawer, "Layers and Plan drawer");
+    await page.keyboard.press("Enter");
+  }
   const planTab = page.getByRole("tab", { name: "Plan", exact: true });
   await tabToChecked(page, planTab, "Plan tab");
   await page.keyboard.press("Enter");
