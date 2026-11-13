@@ -2,7 +2,7 @@
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Command, CommandJournalLine } from "@marswalk/protocol";
+import type { Command, CommandJournalLine, LogEvent } from "@marswalk/protocol";
 import { AcceptedCommands } from "../src/commands";
 import { exportCommandList, replayHeadless } from "../src/replay";
 import { readScenario } from "../src/scenario";
@@ -60,11 +60,17 @@ describe("LOAD_SCENARIO dedupe (BUG-002)", () => {
     const loaded = scenario();
     const dir = tmp();
     const session = loadSession(loaded, dir);
-    session.apply(command(loaded.scenario.scenario_id), "client-a");
+    const load = command(loaded.scenario.scenario_id);
+    session.apply(load, "client-a");
     session.apply({ command_id: "clock-after-load", role: "ops", kind: "SET_CLOCK", args: { speed: 10 } }, "client-a");
     const snap = session.snapshot([]);
     const list = exportCommandList(join(dir, "sessions", snap.session.session_id));
-    const hash = await replayHeadless(fixture, undefined, { site, varDir: tmp(), commands: list });
+    expect.soft(list.initial_load).toMatchObject({ command_id: load.command_id, client_id: "client-a", role: load.role, kind: load.kind, args: load.args });
+    const replayDir = tmp();
+    const hash = await replayHeadless(fixture, undefined, { site, varDir: replayDir, commands: list });
+    const [replayFolder] = readdirSync(join(replayDir, "replay"));
+    const replayed = lines<LogEvent>(join(replayDir, "replay", replayFolder, "sessions", snap.session.session_id, "session.jsonl"));
+    expect.soft(replayed[0]).toMatchObject({ kind: "SESSION_LOADED", actor: "ops", command_ref: { client_id: "client-a", command_id: "load-once" } });
     expect(hash).toBe(snap.session.log_hash);
     expect(await replayHeadless(fixture, undefined, { site, varDir: tmp(), commands: list })).toBe(hash);
   });

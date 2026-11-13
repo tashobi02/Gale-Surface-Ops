@@ -6,6 +6,7 @@
  * Includes the SCR-11 strip and keyboard drawer contract (FD-092).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { act, createElement } from "react";
 import type { LogEvent, LogEventKind, ProvenanceMap } from "@marswalk/protocol";
 import { OpsConsole } from "../../src/ui/screens/scr11OpsConsole";
@@ -32,6 +33,10 @@ const ev = (seq: number, kind: LogEventKind, data: Record<string, unknown> = {},
 });
 
 const rows = (root: ParentNode) => [...root.querySelectorAll<HTMLElement>(".event-row")];
+
+// Real event shapes and OPTIONS_PROVENANCE emitted by contingencyOps.ts, without duplicating its map.
+const recording = JSON.parse(readFileSync(new URL("../../../../scenarios/storm-sol4190/recording.json", import.meta.url), "utf8")) as { messages: { event?: LogEvent }[] };
+const recordedEvent = (kind: LogEventKind): LogEvent => recording.messages.find((m) => m.event?.kind === kind)!.event!;
 
 describe("EventLog rows", () => {
   it("bounds 5000 events to the newest page and reveals earlier rows in keyboard-accessible steps", async () => {
@@ -303,7 +308,7 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
     await view.unmount();
   });
 
-  it("honours event.provenance overrides, annotates mixed EVENT_STARTED as replayed, and avoids assumed on missing task text", async () => {
+  it("honours field overrides, separates EVENT_STARTED origins, and avoids assumed on missing task text", async () => {
     const started = ev(1, "EVENT_STARTED", {
       event_id: "storm",
       t0_sim_time: "2024-05-20T13:10:00Z",
@@ -317,8 +322,9 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
     const [startedRow, reclassifiedRow, missingRow] = rows(view.container);
 
     const startedSummary = startedRow.children[3] as HTMLElement;
-    expect(startedSummary.getAttribute("data-provenance")).toBe("replayed");
-    expect(startedSummary.getAttribute("data-source")).toBe("event:EVENT_STARTED/1/summary");
+    expect(startedSummary.getAttribute("data-provenance")).toBe("simulated");
+    expect(startedSummary.getAttribute("data-source")).toBe("event:EVENT_STARTED/1/data.t0_sim_time");
+    expect(must(startedSummary, '[data-source="event:EVENT_STARTED/1/data.series_start_utc"]').getAttribute("data-provenance")).toBe("replayed");
 
     const reclassifiedSummary = reclassifiedRow.children[3] as HTMLElement;
     expect(reclassifiedSummary.getAttribute("data-provenance")).toBe("derived");
@@ -329,6 +335,82 @@ describe("EventLog provenance chip comes from the event (FR-15, NFR-05)", () => 
     expect(missingSummary.getAttribute("data-unavailable")).toBe("true");
     expect(missingSummary.getAttribute("data-source")).toBe("unavailable:event:TASK_ADDED/3/data.text");
     expect(missingSummary.getAttribute("data-provenance")).toBeNull();
+    await view.unmount();
+  });
+
+  it.each([false, true])("attributes the real EVENT_STARTED press and series separately (explicit field map: %s)", async (explicitMap) => {
+    const started = recordedEvent("EVENT_STARTED");
+    const event = { ...started, provenance: explicitMap ? {
+      "data.t0_sim_time": "simulated", "data.series_start_utc": "replayed", "data.source_id": "replayed",
+    } as ProvenanceMap : started.provenance };
+    const view = await mount(createElement(EventLog, { events: [event] }));
+    const summary = rows(view.container)[0].children[3] as HTMLElement;
+    expect(summary.dataset.provenance).toBe("simulated");
+    expect(summary.dataset.source).toBe(`event:EVENT_STARTED/${event.seq}/data.t0_sim_time`);
+    for (const [path, text, provenance] of [
+      ["t0_sim_time", String(event.data.t0_sim_time).slice(11, 19), "simulated"],
+      ["series_start_utc", event.data.series_start_utc, "replayed"],
+      ["source_id", event.data.source_id, "replayed"],
+    ]) {
+      const part = must(summary, `[data-source="event:EVENT_STARTED/${event.seq}/data.${path}"]`);
+      expect(part.textContent).toBe(text);
+      expect(part.getAttribute("data-provenance")).toBe(provenance);
+    }
+    expect(summary.querySelector('[data-provenance="replayed"]')?.textContent).not.toContain("started at");
+    await view.unmount();
+  });
+
+  it("labels every MISSION_SETUP_SET chosen setting assumed with its own field source (05 MissionScenario)", async () => {
+    // liveSetup.ts emits an empty provenance map; SCR-20 supplies assumed for these same settings.
+    const event = ev(1, "MISSION_SETUP_SET", { max_haven_min: 30, crew_count: 2, vehicle_available: false, solar_phase: "max", vehicle_param_set: "pr1-assumed" });
+    const view = await mount(createElement(EventLog, { events: [event] }));
+    const summary = rows(view.container)[0].children[3] as HTMLElement;
+    expect(summary.dataset.provenance).toBe("assumed");
+    for (const [key, value] of Object.entries(event.data)) {
+      const part = must(summary, `[data-source="event:MISSION_SETUP_SET/1/data.${key}"]`);
+      expect(part.getAttribute("data-provenance")).toBe("assumed");
+      expect(part.textContent).toBe(`${key} ${value === false ? "no" : value}`);
+    }
+    await view.unmount();
+  });
+
+  it("counts OPTIONS_PROPOSED session objects as simulated regardless of the real modelled content map", async () => {
+    const proposed = recordedEvent("OPTIONS_PROPOSED");
+    expect(proposed.provenance).toEqual({
+      "data.options[].eta_shelter_min": "modelled",
+      "data.options[].expected_dose_ugy": "modelled",
+      "data.options[].rendezvous": "modelled",
+    });
+    const events = [{}, { "data.options[].eta_shelter_min": "modelled" }, proposed.provenance].map((provenance, index) => ({
+      ...proposed, seq: index + 1, provenance: provenance as ProvenanceMap,
+    }));
+    const view = await mount(createElement(EventLog, { events }));
+    for (const row of rows(view.container)) {
+      const summary = row.children[3] as HTMLElement;
+      expect(summary.dataset.provenance).toBe("simulated");
+      expect(summary.dataset.source).toBe(`event:OPTIONS_PROPOSED/${row.dataset.seq}/data.options`);
+      expect(summary.textContent).toBe(`${(proposed.data.options as unknown[]).length} contingency options proposed`);
+    }
+    await view.unmount();
+  });
+
+  it("never ranks constituent classes: a reason cannot reclassify the summary's simulated task state", async () => {
+    const classes = ["measured", "replayed", "derived", "modelled", "assumed", "simulated"] as const;
+    const events = classes.map((prov, index) => ev(index + 1, "TASK_UPDATED", { task_id: "t-1", state: "SKIPPED", reason: "terrain" }, {
+      "data.state": "simulated", "data.reason": prov,
+    }));
+    const view = await mount(createElement(EventLog, { events }));
+    for (const [index, row] of rows(view.container).entries()) {
+      const summary = row.children[3] as HTMLElement;
+      expect(summary.dataset.source).toBe(`event:TASK_UPDATED/${index + 1}/data.state`);
+      expect(summary.dataset.provenance).toBe("simulated");
+      const reason = must(summary, `[data-source="event:TASK_UPDATED/${index + 1}/data.reason"]`);
+      expect(reason.textContent).toBe("terrain");
+      expect(reason.getAttribute("data-provenance")).toBe(classes[index]);
+      const state = must(summary, `[data-source="event:TASK_UPDATED/${index + 1}/data.state"]`);
+      expect(state.textContent).toBe("SKIPPED");
+      expect(state.getAttribute("data-provenance")).toBe("simulated");
+    }
     await view.unmount();
   });
 });
