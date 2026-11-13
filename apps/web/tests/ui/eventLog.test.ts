@@ -215,6 +215,52 @@ describe("EventLog severity is shape + word, not colour alone (04 §A.3)", () =>
   });
 });
 
+describe("EventLog chrome uses neutral instrument colours, not route cyan (BUG-005; 04 §A.3, §B.2, §C)", () => {
+  it("keeps --route and #4CC9F0 off the livery stripe, active filter and non-system actor while keeping alert status cues", async () => {
+    const view = await mount(
+      createElement(EventLog, {
+        events: [
+          { ...ev(1, "ALERT_RAISED", { message: "Shelter now", level: "warning" }), actor: "ops" },
+          { ...ev(2, "ALERT_RAISED", { message: "Comm shadow", level: "caution" }), actor: "eva:EV1" },
+          ev(3, "LINK_LOST", { node_id: "EV1" }),
+        ],
+      }),
+    );
+
+    const stripe = must<HTMLElement>(view.container, '[aria-hidden="true"]');
+    const stripeStyle = stripe.getAttribute("style") ?? "";
+    expect(stripeStyle).not.toMatch(/--route|#4cc9f0/i);
+
+    const activeFilter = must<HTMLButtonElement>(view.container, 'nav button[aria-pressed="true"]');
+    expect(activeFilter.style.backgroundColor).not.toMatch(/--route|#4cc9f0/i);
+    expect(activeFilter.style.border).not.toMatch(/--route|#4cc9f0/i);
+    expect(activeFilter.style.borderColor).not.toMatch(/--route|#4cc9f0/i);
+
+    await click([...view.container.querySelectorAll("nav button")].find((b) => b.textContent === "ALERTS")!);
+    const alertsFilter = must<HTMLButtonElement>(view.container, 'nav button[aria-pressed="true"]');
+    expect(alertsFilter.textContent).toBe("ALERTS");
+    expect(alertsFilter.style.backgroundColor).not.toMatch(/--route|#4cc9f0/i);
+    expect(alertsFilter.style.border).not.toMatch(/--route|#4cc9f0/i);
+
+    const [warningRow, cautionRow] = rows(view.container);
+    const opsActor = warningRow.children[2] as HTMLElement;
+    const ev1Actor = cautionRow.children[2] as HTMLElement;
+    expect(opsActor.textContent).toBe("ops");
+    expect(opsActor.style.color).not.toMatch(/--route|#4cc9f0/i);
+    expect(ev1Actor.textContent).toBe("eva:EV1");
+    expect(ev1Actor.style.color).not.toMatch(/--route|#4cc9f0/i);
+
+    const warningSummary = warningRow.children[3] as HTMLElement;
+    const cautionSummary = cautionRow.children[3] as HTMLElement;
+    expect(warningSummary.textContent).toMatch(/⬣\s*WARNING/);
+    expect(warningSummary.style.color).toMatch(/--warning/);
+    expect(cautionSummary.textContent).toMatch(/▲\s*CAUTION/);
+    expect(cautionSummary.style.color).toMatch(/--caution/);
+
+    await view.unmount();
+  });
+});
+
 describe("EventLog COPY LOG reports what happened", () => {
   const events = [ev(1, "SESSION_LOADED", { scenario_id: "s-a" })];
 const copyButton = (root: ParentNode) => must<HTMLButtonElement>(root, 'button[title^="Copy filtered log"]');
