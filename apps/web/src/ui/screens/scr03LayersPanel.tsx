@@ -251,6 +251,7 @@ export function LayersPanel({ layers, onVisibleChange, onOpacityChange }: Layers
                     min={0}
                     max={100}
                     value={Math.round(value * 100)}
+                    {...provAttrs({ prov: "assumed", src: `user:layer.${layer.id}.opacity` })}
                     aria-label={`${layer.title} opacity`}
                     onChange={(event) => {
                       const next = Number(event.currentTarget.value) / 100;

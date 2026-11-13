@@ -79,6 +79,23 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
     await click(must(view.container, '[aria-label="Acknowledge alert"]'));
     expect(sent).toEqual([{ kind: "ACK_ALERT", args: { alert_id: "alert-1" } }]);
   });
+  it("a refused ACK carries StatusIcon warning shape and word alongside ACK REFUSED, never colour alone (04 §A.3)", async () => {
+    const { client } = recordingClient(storeFromBeat("connect"), () => rejected("INVALID", "already cleared"));
+    const base = snapshotOf("connect");
+    const snapshot: Snapshot = { ...base, alerts: [{
+      alert_id: "alert-1", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"],
+      raised_seq: 1, acked_seq: null, cleared_seq: null, acked_by: null,
+      message: "Shelter now", data: {},
+    }] };
+    const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot }));
+    await click(must(view.container, '[aria-label="Acknowledge alert"]'));
+    await flush();
+    const banner = must(view.container, '[data-slot="ack-rejection"]');
+    const icon = must(banner, '.status-indicator[data-status="warning"]');
+    expect(icon.querySelector(".status-glyph svg polygon")).not.toBeNull();
+    expect(icon.textContent).toContain("WARNING");
+    expect(banner.textContent).toContain("ACK REFUSED");
+  });
   it.each([...BEATS])("beat %s: shows the snapshot's own HAVEN and O₂, never NaN, every value labelled", async (beat) => {
     const client = storeFromBeat(beat);
     const snap = client.state()!;
@@ -937,5 +954,31 @@ describe("SCR-12 narrow 360 px portrait fit (T24.11, task-latency on phone-360x7
   it("alert banner message wrapper allows shrinking (minWidth: 0) instead of forcing row overflow on 360 px", () => {
     const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/screens/scr12EvaTablet.tsx"), "utf8");
     expect(src).toMatch(/data-slot="alert"[\s\S]{0,600}minWidth:\s*0/);
+  });
+});
+
+/**
+ * A scrollable region must be reachable by keyboard (WCAG 2.1.1, and the axe rule
+ * `scrollable-region-focusable`). The NEXT card is given `overflow: auto` in the
+ * landscape and portrait grids so its task list can scroll inside the fixed EVA
+ * layout. A region that scrolls but cannot be focused is unreachable by keyboard:
+ * the crew member cannot scroll it, so anything below the fold is invisible to them.
+ *
+ * The browser check `axe` found this on 6 of the 8 viewports: the EVA full-map,
+ * options and cached transport-loss overlay route reported
+ * `scrollable-region-focusable` on `.next`.
+ */
+describe("SCR-12 NEXT card is keyboard-reachable when it scrolls", () => {
+  it("the scrolling NEXT card carries a tabindex and an accessible name", async () => {
+    const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
+    const next = must(container, '[data-slot="next"]');
+    // A scrollable region with no tabindex is not reachable by keyboard.
+    expect(next.getAttribute("tabindex")).toBe("0");
+    // It needs a name, so the focus ring says what it landed on.
+    const label =
+      next.getAttribute("aria-label") ??
+      next.getAttribute("aria-labelledby") ??
+      next.querySelector("[id]")?.id;
+    expect(label, "the focusable NEXT card needs an accessible name").toBeTruthy();
   });
 });

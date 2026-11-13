@@ -363,6 +363,7 @@ export function EvaTablet({
         <div
           role="status"
           data-slot="ack-rejection"
+          data-status="warning"
           data-provenance="simulated"
           data-source="snapshot:alerts"
           style={{
@@ -376,7 +377,8 @@ export function EvaTablet({
             paddingLeft: "8px",
           }}
         >
-          ACK REFUSED — {ackRejection}
+          <StatusIcon status="warning" showWord={true} />
+          <span>ACK REFUSED — {ackRejection}</span>
         </div>
       )}
 
@@ -466,6 +468,14 @@ export function EvaTablet({
         <div
           data-slot="next"
           className="card next cut-s"
+          /* The NEXT card scrolls in the landscape and portrait grids (`overflow: auto`), so its task list can be
+             read without scrolling the whole tablet. A region that scrolls but cannot be focused is unreachable by
+             keyboard: a crew member who cannot use a mouse could not scroll it, so anything below the fold would be
+             invisible to them. `tabIndex` makes the region a focus stop and the browser scrolls it into view when it
+             takes focus; the label says what the focus landed on. The axe rule `scrollable-region-focusable` caught
+             this on 6 of the 8 viewports. */
+          tabIndex={0}
+          aria-label="Next task"
           style={{
             ...cardStyle,
             minHeight: "96px",

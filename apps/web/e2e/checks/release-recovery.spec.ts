@@ -68,14 +68,14 @@ test("release-recovery: a grid file of the wrong length is named by SCR-00 in th
 // and offers a Retry. The `results-states` check proves it on the route-results screen. This case stays a placeholder because the
 // trigger differs: it wants a `__failWorker` hook on the page, and the app exposes no such hook (the failure is driven by the plan
 // store's own error state). Adding a debug-only failure hook to the app would be a test hook in production code, so the acceptance
-// stays with `results-states` until the backend can fail a live computation on demand.
-test.fixme("release-recovery: a worker failure shows Computation failed with Retry (enabled by frontend package 09, results states: the app has no failure hook or Retry yet)", async ({ page }) => {
+// stays with `results-states` until the backend/worker provides a way to fail a live computation on demand (N-211).
+test.fixme("needs N-211: a worker failure shows Computation failed with Retry without a frontend debug hook (T09.07 UI verified in results-states)", async ({ page }) => {
   await page.goto("/?site=mock_site#/planner");
   await page.evaluate(() => (window as unknown as { __failWorker?: () => void }).__failWorker?.());
   await expect(page.getByRole("alert").filter({ hasText: /Computation failed/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Retry$/ })).toBeVisible();
 });
 
-test.fixme("release-recovery: a corrupted grid in a dev build names the file at SCR-00 (enabled by frontend package 06, a dev-build checksum path that production does not have: BD-83)", async () => {
+test.skip("not applicable to production e2e: corrupted-grid checksum is dev-build only (BD-83, 02 §E.1)", async () => {
   // Production does not hash the grid (02 §E.1); the dev build would. `make e2e` serves only the production build.
 });

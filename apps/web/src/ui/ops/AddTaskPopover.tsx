@@ -186,14 +186,18 @@ function AddTaskForm({
         <div
           data-provenance="assumed"
           data-source="ui:stop-task.limit"
-          style={{
+          data-status="caution"          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
             color: "var(--status-caution, #FFB020)",
             fontSize: "12px",
             padding: "4px",
             border: "1px dashed var(--status-caution, #FFB020)",
           }}
         >
-          Maximum limit of 4 tasks reached for this stop.
+          <StatusIcon status="caution" showWord={true} />
+          <span>Maximum limit of 4 tasks reached for this stop.</span>
         </div>
       )}
 
@@ -252,8 +256,19 @@ function AddTaskForm({
       <label style={labelStyle}>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <span>Description</span>
-          <span data-provenance="assumed" data-source="ui:stop-task.text-length" style={{ color: taskText.length > MAX_CHARS ? "var(--status-warning, #FF453A)" : "var(--text-2, #A9B3BE)" }}>
-            {taskText.length}/{MAX_CHARS}
+          <span
+            data-provenance="assumed"
+            data-source="ui:stop-task.text-length"
+            data-status={taskText.length > MAX_CHARS ? "warning" : undefined}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              color: taskText.length > MAX_CHARS ? "var(--status-warning, #FF453A)" : "var(--text-2, #A9B3BE)",
+            }}
+          >
+            {taskText.length > MAX_CHARS && <StatusIcon status="warning" showWord={true} />}
+            <span>{taskText.length}/{MAX_CHARS}</span>
           </span>
         </div>
         <input
