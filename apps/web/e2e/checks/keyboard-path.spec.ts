@@ -253,3 +253,31 @@ test("keyboard-path: edit, add and delete a stop task through native keyboard co
   await expectFocusVisible(page, "task text after delete");
   await expect(newText).not.toHaveAttribute("aria-disabled", "true");
 });
+
+test("keyboard-path: presenter QR drawer closes and restores focus", async ({ page }) => {
+  await page.goto("/?site=mock_site#/presenter");
+  const trigger = page.getByRole("button", { name: "Join QR codes" });
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  const close = page.getByRole("button", { name: "Close", exact: true });
+  await close.focus();
+  await expectFocusVisible(page, "QR close");
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await page.keyboard.press("Enter");
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+});
+
+test("keyboard-path: ops QR drawer closes and restores focus", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.goto("/?site=mock_site#/ops");
+  const trigger = page.getByRole("button", { name: "Join QR codes" });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  const drawer = page.getByRole("group", { name: "Join QR codes" });
+  await drawer.getByRole("button", { name: "Close", exact: true }).focus();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+});

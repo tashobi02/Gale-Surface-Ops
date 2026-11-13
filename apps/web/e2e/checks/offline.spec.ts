@@ -10,6 +10,16 @@ import { countResponses, expectLocalAssetsOk, expectNoExternal, guardNetwork, ro
 import { withManifestlessSite } from "../lib/siteBundle";
 import { routeFixtureRecording } from "../lib/replayFixture";
 
+test("offline: ops join drawer only requests local assets", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  const guard = await guardNetwork(page);
+  await page.goto("/?site=mock_site#/ops");
+  await page.getByRole("button", { name: "Join QR codes" }).click();
+  await page.waitForLoadState("networkidle");
+  expectNoExternal(guard);
+  await expect(page.getByRole("link", { name: "presenter" })).toBeVisible();
+});
+
 test("offline: every route loads with no external request and local fonts and icons answer 2xx", async ({ page }) => {
   const guard = await guardNetwork(page);
   const hashes = routeHashes();

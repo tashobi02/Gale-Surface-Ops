@@ -39,6 +39,7 @@ import { TaskProgress } from "../ops/TaskProgress";
 import { AddTaskPopover } from "../ops/AddTaskPopover";
 import { OpsMap } from "../ops/OpsMap";
 import { RoverQueue } from "../ops/RoverQueue";
+import { QrDrawer } from "../ops/QrDrawer";
 import { RoverTask } from "./scr15RoverTask";
 import {
   PROVENANCE_GLYPHS,
@@ -49,6 +50,9 @@ import {
   provAttrs,
   unavailableOf,
 } from "../components/provenance";
+
+/** FD-018: the sound indicator's longest label, shown until the first gesture arms audio. It also sizes the button. */
+const SOUND_LABEL_ARM = "SOUND ON — click to arm";
 
 /** Task counts for one crew member, reduced from the task list by the caller. null counts render "—". */
 export interface CrewTaskProgress {
@@ -152,6 +156,7 @@ export function OpsConsole({
 }: OpsConsoleProps): ReactElement {
   const [viewportWidth, setViewportWidth] = useState(() => typeof window === "undefined" ? 1280 : window.innerWidth);
   const [sideDrawer, setSideDrawer] = useState<"crew" | "mission" | null>(null);
+  const [joinOpen, setJoinOpen] = useState(false);
   const sideOpener = useRef<HTMLButtonElement | null>(null);
   const crewPanelRef = useRef<HTMLElement>(null);
   const [localSoundOn, setLocalSoundOn] = useState(true);
@@ -220,6 +225,7 @@ export function OpsConsole({
     if (warningKey) {
       setActiveAddCrew(null);
       setLogOpen(false);
+      setJoinOpen(false);
       if (narrow) setSideDrawer("mission");
       optionsRef.current?.focus();
     }
@@ -231,6 +237,7 @@ export function OpsConsole({
   const toggleSideDrawer = (drawer: "crew" | "mission", opener: HTMLButtonElement): void => {
     sideOpener.current = opener;
     setLogOpen(false);
+    setJoinOpen(false);
     setSideDrawer(sideDrawer === drawer ? null : drawer);
   };
   const closeSideDrawer = (): void => {
@@ -275,6 +282,8 @@ export function OpsConsole({
     justifyContent: "space-between",
     minHeight: "48px",
     flexWrap: "wrap",
+    // The join popover hangs from the top bar (QrDrawer), so it stays inside the viewport however the bar wraps.
+    position: "relative",
     padding: "0 16px",
     backgroundColor: "var(--panel, #14181D)",
     borderBottom: "1px solid var(--hairline, #2A313A)",
@@ -362,7 +371,7 @@ export function OpsConsole({
     if (key === " " && event.target instanceof Element && event.target.closest('button, a[href], [role="button"], [role="radio"], [role="checkbox"], [role="switch"], [role="tab"]')) return;
     if (key === "o") {
       event.preventDefault();
-      if (narrow) { setLogOpen(false); setSideDrawer("mission"); }
+      if (narrow) { setLogOpen(false); setJoinOpen(false); setSideDrawer("mission"); }
       optionsRef.current?.focus();
       return;
     }
@@ -431,6 +440,7 @@ export function OpsConsole({
 
         {/* Mission clock controls: ⏸ 1× 10× [60×] ⏭ */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <QrDrawer open={joinOpen} onOpenChange={(open) => { setJoinOpen(open); if (open) { setSideDrawer(null); setLogOpen(false); } }} />
           <ClockControl
             speed={session?.clock.speed ?? clockSpeed ?? null}
             isPaused={session?.clock.paused ?? isPaused ?? null}
@@ -440,21 +450,24 @@ export function OpsConsole({
           />
           <button
             type="button"
-            style={{ ...buttonStyle, marginLeft: "8px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+            // The first pointer or key gesture arms audio and shortens this label. A header that fits in one row only with the short
+            // label would reflow under that very gesture and move the control it is about to click (the press lands on one element,
+            // the release on another, so the click is lost). Reserve the longest label's width so arming never changes the layout.
+            style={{ ...buttonStyle, marginLeft: "8px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px", boxSizing: "border-box", minWidth: `calc(${SOUND_LABEL_ARM.length + 1}ch + 26px)` }}
             aria-label={`Alert sound: ${soundEnabled ? "on" : "off"}`}
             aria-pressed={soundEnabled}
             onClick={() => { if (consumeArmingGesture() && soundEnabled) return; setLocalSoundOn(!soundEnabled); onToggleSound?.(); }}
           >
-            {/* The label sits in a fixed-width slot (FD-380): the arming hint disappears on the FIRST pointerdown anywhere
+            {/* The label sits in a fixed-width slot (FD-380, FD-462): the arming hint disappears on the FIRST pointerdown anywhere
                 on the page (the AudioContext arms on any user gesture, 04 §C.7), so a label that grew and shrank with
                 its text would move the whole control group while a pointer was down — and the click would land on the
-                wrong control. The slot is as wide as the longest label; a longer one is cut with an ellipsis. */}
+                wrong control. The slot is exactly as wide as the longest label (SOUND_LABEL_ARM); nothing is cut. */}
             <span
               data-provenance="assumed"
               data-source="ui:ops.sound"
-              style={{ width: "21ch", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}
+              style={{ width: `${SOUND_LABEL_ARM.length}ch`, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}
             >
-              {soundEnabled ? armed ? "SOUND ON" : "SOUND ON — click to arm" : "SOUND OFF"}
+              {soundEnabled ? armed ? "SOUND ON" : SOUND_LABEL_ARM : "SOUND OFF"}
             </span>
           </button>
         </div>
@@ -839,7 +852,7 @@ export function OpsConsole({
           aria-expanded={logOpen}
           aria-haspopup="dialog"
           aria-controls="ops-event-log-drawer"
-          onClick={() => { setSideDrawer(null); setLogOpen((open) => !open); }}
+          onClick={() => { setSideDrawer(null); setJoinOpen(false); setLogOpen((open) => !open); }}
           style={{
             display: "flex",
             alignItems: "center",

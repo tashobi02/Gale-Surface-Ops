@@ -130,3 +130,9 @@ describe("routeHash", () => {
     }
   });
 });
+
+it("setup and presenter roles", () => {
+  expect(parseHash("#/setup").role).toBe("ops");
+  expect(parseHash("#/presenter").role).toBe("presenter");
+  expect(parseHash("#/join?role=presenter").joinRole).toBe("presenter");
+});

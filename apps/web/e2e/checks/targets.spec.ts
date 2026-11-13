@@ -34,6 +34,13 @@ async function checkOpsTargets(page: Page, scope = "body"): Promise<void> {
   expectTargetSize(list, OPS_MIN);
 }
 
+test("targets: ops join drawer", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await openOpsFixture(page, "running");
+  await page.getByRole("button", { name: "Join QR codes" }).click();
+  await checkOpsTargets(page, '[role="group"][aria-label="Join QR codes"]');
+});
+
 async function checkOpsPanels(page: Page, allowTask: boolean): Promise<void> {
   await openOpsPanel(page, "mission");
   await checkOpsTargets(page, 'aside[aria-label="Conditions and options"]');

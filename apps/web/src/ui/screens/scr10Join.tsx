@@ -19,7 +19,7 @@ import {
 import type { Role } from "@marswalk/protocol";
 import { UNAVAILABLE } from "../components/provenance";
 
-export type ClientRoleOption = "planner" | "ops" | "eva:EV1" | "eva:EV2" | "hud:EV1" | "hud:EV2" | "earth";
+export type ClientRoleOption = "planner" | "ops" | "eva:EV1" | "eva:EV2" | "hud:EV1" | "hud:EV2" | "earth" | "presenter";
 
 export interface RoleDescriptor {
   role: ClientRoleOption;
@@ -71,6 +71,13 @@ export const ROLE_DESCRIPTORS: RoleDescriptor[] = [
     code: "HUD EV2",
     description: "Read-only suit HUD view for EV2: shows values, sends no commands. Does not replace the EV2 tablet.",
     route: "#/hud/EV2",
+  },
+  {
+    role: "presenter",
+    label: "Presenter",
+    code: "PRESENTER",
+    description: "Control the session and share join links.",
+    route: "#/presenter",
   },
   {
     role: "earth",
@@ -235,7 +242,7 @@ export function Join({
             SELECT CLIENT ROLE
           </h1>
           <div style={{ color: "var(--ink-2, #5A5A5A)", fontSize: "14px" }}>
-            Assign this device to a mission role. Scenario: <strong data-slot="join-scenario">{sessionScenario ?? UNAVAILABLE}</strong>
+            Assign this device to a mission role. Scenario: <strong data-slot="join-scenario" {...(sessionScenario ? { "data-provenance": "simulated", "data-source": "snapshot:session.scenario_id" } : { "data-unavailable": "true", "data-source": "unavailable:session.scenario_id" })}>{sessionScenario ?? UNAVAILABLE}</strong>
           </div>
         </div>
 
