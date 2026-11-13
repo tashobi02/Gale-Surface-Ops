@@ -41,6 +41,7 @@ export function realPlan(initial: Partial<PlanState> = {}): RealPlan {
       },
       siteId: "mock_site",
       dataVersion: "mock_site-test",
+      autoRestore: false,
     },
   );
   return {

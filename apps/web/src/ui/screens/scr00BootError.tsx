@@ -94,7 +94,7 @@ export function BootErrorScreen({ problem, onRetry }: BootErrorScreenProps): Rea
       {(["tl", "tr", "bl", "br"] as const).map((corner) => (
         <i key={corner} className={`scr00-reg scr00-reg-${corner}`} aria-hidden="true" />
       ))}
-      <span className="code">[ SCR-00 /// BOOT ]</span>
+      <span className="code">[ <span data-identifier>SCR-00</span> /// BOOT ]</span>
       <StatusIcon status="warning" word="CANNOT START" />
       <h1 id="scr00-title" ref={heading} tabIndex={-1} className="scr00-title">
         {title}
@@ -126,7 +126,7 @@ export function BootErrorScreen({ problem, onRetry }: BootErrorScreenProps): Rea
           The site data is not in the repository. Put the site bundle in <span className="scr00-mono">data/sites/&lt;site_id&gt;/</span>, then
           start the app:
         </p>
-        <pre className="scr00-mono">
+        <pre className="scr00-mono" data-identifier>
           {`make demo   # production build served by the Hab Core (no internet needed)
 make hab    # Hab Core on 0.0.0.0:8080 (habitat LAN)
 make dev    # Vite dev server; proxies /sites, /api, /ws to the Hab Core`}

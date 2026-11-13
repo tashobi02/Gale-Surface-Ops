@@ -19,6 +19,14 @@ export const PROVENANCE_ALLOWLIST = [
   '[data-testid="debug-overlay"]',
 ] as const;
 
+/** FD-403: source paths or dataset ids named by the site's manifest. */
+export function isKnownSource(source: string, datasetIds: readonly string[]): boolean {
+  const tokens = source.trim().split(/\s+/).filter(Boolean);
+  return tokens.length > 0 && tokens.every((token) =>
+    datasetIds.includes(token) || /^(?:scenario\.|result\.|plan-export:|manifest:|user:|unavailable:|rule:|proj:|pois:).+/.test(token),
+  );
+}
+
 export interface UnlabelledNumber {
   text: string;
   selector: string;

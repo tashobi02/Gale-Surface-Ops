@@ -293,3 +293,35 @@
 .scr02-manual-legs h2 { font: 500 16px/1.25 var(--font-ui); margin: 0 0 8px; }
 .scr02-manual-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .scr02-manual-actions button { min-height: 44px; }
+
+/* First-run coach marks (04 §D Discoverability; T13.07), positioned against real controls. */
+.coach-marks-popover {
+  position: fixed;
+  z-index: 100;
+  top: var(--topbar-height);
+  left: var(--pad-sm);
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+}
+.coach-mark-card {
+  background: var(--surface-1);
+  border: 1px solid var(--control-edge);
+  padding: var(--pad-md);
+  color: var(--fg-1);
+}
+.coach-mark-title { margin: 0 0 8px; font: 500 var(--text-heading) var(--font-display); text-transform: uppercase; }
+.coach-mark-desc { margin: 0; font-size: var(--text-ui); line-height: var(--line-height-ui); color: var(--fg-2); }
+.coach-mark-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: var(--pad-md); }
+.coach-mark-step-counter { margin-right: auto; color: var(--fg-3); }
+.coach-mark-btn-dismiss, .coach-mark-btn-next {
+  min-width: var(--target-mouse);
+  min-height: var(--target-mouse);
+  padding: 6px 12px;
+  font: 500 var(--text-micro) var(--font-ui);
+  cursor: pointer;
+}
+.coach-mark-btn-dismiss { background: var(--surface-2); color: var(--fg-1); }
+@media (pointer: coarse) {
+  .coach-mark-btn-dismiss, .coach-mark-btn-next { min-width: var(--target-touch); min-height: var(--target-touch); }
+}

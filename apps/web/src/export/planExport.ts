@@ -102,7 +102,7 @@ function provenanceSummary(plan: Pick<PlanExport, "result" | "scenario">): Prove
  * waypoints and result come from the store. The stop tasks are not in the export: they travel beside the
  * plan in `PUBLISH_PLAN` (BD-91), so editing a task never changes `plan_hash` (U-48).
  */
-export function exportPlan(site: Site, state: PlanState): PlanExport {
+export function exportPlan(site: Pick<Site, "site_id" | "data_version">, state: PlanState): PlanExport {
   const result = resultOf(state);
   if (!["OK", "OverLimits", "Partial"].includes(state.status)) {
     throw new Error("exportPlan: no computed result for the current plan revision");
