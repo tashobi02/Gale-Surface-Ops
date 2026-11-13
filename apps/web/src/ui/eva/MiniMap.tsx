@@ -10,8 +10,11 @@
  *   the drawn geometry alone instead of clearing and rebuilding it.
  * - The comm grid is fetched once. A failure is logged and the comm layer is shown as unavailable, never silently
  *   absent (04 §D.1: a missing value says so).
+ * - QoL Q4: the view is centred on this crew member and framed to hold their next stop (`miniMapView.ts`), and it
+ *   follows them. + / − keep following at the chosen zoom; RECENTRE returns to the crew + next-stop frame. The controls
+ *   are the shared `MapControls` at the EVA 56 px target; tapping anywhere else still opens the full-screen map.
  */
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { LINK_LOST_AFTER_MS, type Snapshot } from "@marswalk/protocol";
 import OlMap from "ol/Map.js";
 import Feature from "ol/Feature.js";
@@ -29,6 +32,12 @@ import { createTileGrid, ensureMarsProjection } from "../map/projection";
 import { OPS_ORTHO_LAYER_CLASS } from "../map/rasterLayers";
 import { tokenColor } from "../map/tokenColors";
 import type { MapHandle } from "../context";
+import { MapControls } from "../map/MapControls";
+import { crewPosition, followExtent, minFollowWidth, nextStopPosition } from "./miniMapView";
+import "./MiniMap.css";
+
+/** How the view follows the crew member: `frame` fits crew + next stop; `centre` keeps a zoom the crew chose (Q4-02). */
+type FollowMode = "frame" | "centre";
 
 export interface MiniMapProps {
   snapshot: Snapshot | null;
@@ -69,6 +78,20 @@ export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProp
   const [unavailable, setUnavailable] = useState(false);
   const [commUnavailable, setCommUnavailable] = useState(false);
   const siteId = snapshot?.plan?.site_id;
+  const mapHandle = useRef<MapHandle | null>(null);
+  const minWidth = useRef(0);
+  const mode = useRef<FollowMode>("frame");
+  const crew = useRef(crewId);
+  crew.current = crewId;
+
+  /** Put the view on the crew member: framed with their next stop, or centred at the crew's own zoom (Q4-02). */
+  const follow = useCallback((): void => {
+    const current = mapHandle.current;
+    const at = crewPosition(latest.current, crew.current);
+    if (!current || !at) return;
+    if (mode.current === "centre") { current.setCenter(at); return; }
+    current.fitExtent(followExtent(at, nextStopPosition(latest.current, crew.current), minWidth.current), { animate: false });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,6 +143,9 @@ export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProp
       ops.setOwnCrew(crewId ?? null);
       ops.update(latest.current);
       ops.setHab(site.site.grid.hab_mast);
+      mapHandle.current = handle;
+      minWidth.current = minFollowWidth(site.site.aoi.extent_m);
+      follow();
       const grid = site.site.grid;
       const commAsset = site.assets.get(grid.comm_hab_asset);
       if (commAsset) {
@@ -151,7 +177,7 @@ export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProp
       console.error("mini-map site load", error);
       fail();
     });
-    return () => { cancelled = true; clearTimeout(siteDeadline); if (deadline !== undefined) clearTimeout(deadline); layers.current = null; route.current = null; routeKey.current = null; ops?.destroy(); handle?.destroy(); };
+    return () => { cancelled = true; mapHandle.current = null; clearTimeout(siteDeadline); if (deadline !== undefined) clearTimeout(deadline); layers.current = null; route.current = null; routeKey.current = null; ops?.destroy(); handle?.destroy(); };
     // `crewId` is applied by the update effect below, so the map is not rebuilt when it changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteId]);
@@ -159,7 +185,8 @@ export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProp
   useEffect(() => {
     layers.current?.setOwnCrew(crewId ?? null);
     layers.current?.update(snapshot);
-  }, [snapshot, crewId]);
+    follow();
+  }, [snapshot, crewId, follow]);
 
   useEffect(() => {
     const source = route.current;
@@ -179,5 +206,14 @@ export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProp
     {unavailable && <span data-provenance="derived" data-source="unavailable:basemap" data-unavailable="true">Map unavailable —</span>}
     {commUnavailable && <span data-provenance="derived" data-source="unavailable:comm_hab" data-unavailable="true">Comms grid unavailable —</span>}
     <button type="button" data-slot="mini-map-open" aria-label="Open full-screen map" onClick={onOpen}><span>FULL MAP</span></button>
+    {!unavailable && <div data-slot="mini-map-controls" className="eva-mini-map-controls">
+      <MapControls
+        variant="eva-mini"
+        onZoom={(direction) => { mode.current = "centre"; mapHandle.current?.zoomBy(direction, { animate: false }); follow(); }}
+        onFit={() => { mode.current = "frame"; follow(); }}
+        follow
+        layersOpen={false}
+      />
+    </div>}
   </div>;
 }

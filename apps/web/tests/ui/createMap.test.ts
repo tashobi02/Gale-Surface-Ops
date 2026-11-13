@@ -325,7 +325,7 @@ describe("createMap: coordinate readout, north arrow, scale bar (FR-01, FR-15)",
 
   it("uses design tokens and no text below 12 px (04 §C.2)", () => {
     const { host } = make();
-    const styled = [...host.querySelectorAll<HTMLElement>("[data-testid], .ol-scale-line, .ol-attribution")];
+    const styled = [...host.querySelectorAll<HTMLElement>("[data-testid], .ol-scale-line")];
     expect(styled.length).toBeGreaterThanOrEqual(3);
     for (const el of styled) {
       const style = el.getAttribute("style") ?? "";
@@ -334,15 +334,6 @@ describe("createMap: coordinate readout, north arrow, scale bar (FR-01, FR-15)",
     }
     expect(readoutOf(host).getAttribute("style")).toContain("var(--text-1)");
     expect(readoutOf(host).getAttribute("style")).toContain("var(--text-micro)");
-  });
-
-  it("hides the attribution's toggle button: the attribution is not collapsible, so the button is a stray target", () => {
-    // The app styles its own map chrome and does not load OpenLayers' stylesheet, so the control's own "i" button would
-    // show as a touch target on top of the map (04 §C.3: every target at least 56 px, 8 px apart).
-    const { host } = make();
-    const toggle = host.querySelector<HTMLElement>(".ol-attribution button");
-    expect(toggle, "the attribution toggle button").not.toBeNull();
-    expect(toggle!.style.display).toBe("none");
   });
 });
 

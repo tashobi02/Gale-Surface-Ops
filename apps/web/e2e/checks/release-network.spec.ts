@@ -58,10 +58,46 @@ test("release-network: a dropped socket on an EVA page is back with a SNAPSHOT w
 // Observed on 13 Nov 2026 (desktop-1440, mock_site): with the socket closed for 3.5 s, and with the Hab Core process gone for 15 s, no
 // element with data-screen="SCR-18" appeared on the EVA tablet or the ops console (the tablet kept showing its last values as NOMINAL).
 // The overlay is frontend package 18's (LiveFrame, useLinkLost); see B-03 in docs/plan/backend/01-needs-from-frontend.md.
-// Fixed 13 Nov 2026: the overlay is frontend package 18's LiveFrame/useLinkLost, and the `link-lost` check proves the same behaviour by
+// Fixed 13 Nov 2026 (QD-B03-01): it reproduced only on a merging-core without package 18 and FD-545. The `link-lost` check proves it by
 // killing the Hab Core on all eight live viewports and asserting SCR-18 on both roles before the deadline.
 test("release-network: SCR-18 shows within 3 s of the link going down on EVA and ops (enabled by frontend package 18, B-03)", async ({ page }) => {
   await page.goto("/#/eva/EV1");
+  await waitForSnapshot(page);
+  killHab();
+  await expect(page.locator('[data-screen="SCR-18"]')).toBeVisible({ timeout: LINK_LOST_MS + 1_000 });
+  await restartHab();
+});
+
+// B-03, the second observation: the socket closed (and every reconnect refused) for 3.5 s, on the EVA tablet and on the ops console.
+for (const [role, hash] of [["EVA", "/#/eva/EV1"], ["ops", "/#/ops"]] as const) {
+  test(`release-network: SCR-18 shows on ${role} when the socket is closed and reconnects are refused (B-03, FR-32)`, async ({ page }) => {
+    if (role === "ops") await page.setViewportSize({ width: 1440, height: 900 });
+    let linkUp = true;
+    const open: WebSocketRoute[] = [];
+    await page.routeWebSocket(/\/ws(\?.*)?$/, (ws) => {
+      if (!linkUp) {
+        void ws.close();
+        return;
+      }
+      open.push(ws);
+      const server = ws.connectToServer();
+      server.onMessage((message) => ws.send(message));
+      ws.onMessage((message) => server.send(message));
+    });
+    await page.goto(hash);
+    await waitForSnapshot(page);
+    linkUp = false;
+    for (const ws of open.splice(0)) await ws.close();
+    await expect(page.locator('[data-screen="SCR-18"]')).toBeVisible({ timeout: LINK_LOST_MS + 500 });
+    linkUp = true;
+    await expect(page.locator('[data-screen="SCR-18"]')).toBeHidden({ timeout: RECONNECT_MS + 3_000 });
+  });
+}
+
+// B-03: the Hab Core process gone, seen from the ops console too.
+test("release-network: SCR-18 shows on ops within 3 s of the Hab Core going away (B-03, FR-32)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/#/ops");
   await waitForSnapshot(page);
   killHab();
   await expect(page.locator('[data-screen="SCR-18"]')).toBeVisible({ timeout: LINK_LOST_MS + 1_000 });

@@ -606,6 +606,8 @@ Desktop layout (≥ 1280 px):
 
 **Selection and keyboard focus are two different things** *(changed 2026-11-11, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead); replaces the selected waypoint's "`focus` ring 3 px")*: the selected waypoint is drawn with an outline of `--selection-width`, 2 px, in the `route` colour plus a marker (P10: selection is never by colour alone). Keyboard focus is the white 2 px ring with a 2 px gap of §C.1 and §F (unchanged), drawn from `--focus-ring`, on every interactive element including a waypoint marker; a selected waypoint that also has focus shows both. The two share neither token nor colour.
 
+**No credits box on a map** *(2026-11-13, Proposed 2026-11-13, decided by Sadman Shaharier Mahim (product lead); QoL Q1)*: map views (SCR-02, SCR-11, the SCR-12 mini-map and full-screen map, SCR-13) carry no credits box; credits are in SCR-09, the briefing card and the report (NFR-07 still met).
+
 ### D. Interaction and component behavior
 
 | Component | Default | Selected/active | Loading | Disabled | Empty | Error |
