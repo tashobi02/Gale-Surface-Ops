@@ -8,6 +8,10 @@
  * layer's `tile_grid`. It hard-codes none of them and imports nothing from data/. Panel values carry
  * data-provenance and data-source (FR-15, NFR-05).
  * Site: `?site=<id>` (`^[a-z0-9_]+$`), default `mock_site` (F4).
+ * Harness hooks (package 04; read-only measurements for the `tiles-all-levels` and `scale-bar` checks):
+ *   `?layer=<layer_id>` shows only that raster layer; `?zoom=<n>` opens at `resolutions_m[n]` (n is the tile z);
+ *   `window.__spike` offers `levels()`, `resolution()`, `setZoom(z)`, `setCenter(x_m, y_m)` and `pixelOf(x_m, y_m)`.
+ *   Nothing here computes a quantity: the resolution is the view's own value in metres per pixel.
  */
 import Map from "ol/Map.js";
 import View from "ol/View.js";
@@ -20,6 +24,14 @@ import type { Provenance, Site } from "@marswalk/protocol";
 import { registerMarsProjection, getMarsProjectionCode, createTileGrid } from "../src/ui/map/projection.js";
 import { DEFAULT_SITE_ID, SITE_ID_PATTERN, parseSiteManifest } from "../src/boot/loadSite.js";
 import { provAttrs } from "../src/ui/components/provenance.js";
+
+interface SpikeHook {
+  levels(): number;
+  resolution(): number;
+  setZoom(z: number): void;
+  setCenter(x_m: number, y_m: number): void;
+  pixelOf(x_m: number, y_m: number): [number, number] | null;
+}
 
 function siteIdFromUrl(): string {
   const requested = new URLSearchParams(window.location.search).get("site") ?? DEFAULT_SITE_ID;
@@ -69,6 +81,7 @@ async function init(): Promise<void> {
     const proj = registerMarsProjection(site);
     log(`Registered projection code: ${getMarsProjectionCode(site)}`);
 
+    const onlyLayer = new URLSearchParams(window.location.search).get("layer");
     const rasterLayers: TileLayer<XYZ>[] = [];
     const grids: TileGrid[] = [];
     let resolutions: number[] | null = null;
@@ -85,7 +98,8 @@ async function init(): Promise<void> {
         continue;
       }
 
-      const tileGrid = createTileGrid(spec);
+      // The AOI extent keeps OpenLayers from requesting tiles outside the grid (they would be 404s).
+      const tileGrid = createTileGrid(spec, site.aoi.extent_m);
       grids.push(tileGrid);
       const tileUrl = `../sites/${site.site_id}/tiles/${layer.layer_id}/{z}/{x}/{y}.${spec.format}`;
       log(`Layer "${layer.title}" -> ${tileUrl}`);
@@ -94,7 +108,7 @@ async function init(): Promise<void> {
       source.on("tileloaderror", () => log(`Tile load error on layer "${layer.layer_id}"`));
       const tileLayer = new TileLayer({
         source,
-        visible: layer.default_visible,
+        visible: onlyLayer === null ? layer.default_visible : layer.layer_id === onlyLayer,
         properties: { layerId: layer.layer_id, title: layer.title },
       });
       rasterLayers.push(tileLayer);
@@ -126,13 +140,18 @@ async function init(): Promise<void> {
     const scaleLineControl = new ScaleLine({ units: "metric", bar: false, text: true, minWidth: 100 });
 
     const [minX, minY, maxX, maxY] = site.aoi.extent_m;
+    const zoomParam = new URLSearchParams(window.location.search).get("zoom");
+    const openAt = zoomParam === null ? 0 : Number(zoomParam);
+    if (!Number.isInteger(openAt) || openAt < 0 || openAt >= resolutions.length) {
+      throw new Error(`?zoom= must be an integer from 0 to ${resolutions.length - 1}`);
+    }
     const view = new View({
       projection: proj,
       center: [(minX + maxX) / 2, (minY + maxY) / 2],
       resolutions,
-      resolution: resolutions[0],
-      extent: site.aoi.extent_m,
-      showFullExtent: true,
+      resolution: resolutions[openAt],
+      // No `extent` or `showFullExtent`: either one clamps the resolution so the AOI fills the window, which makes the
+      // coarsest levels unreachable on a normal screen; the checks need every tile_grid level.
     });
 
     const map = new Map({
@@ -158,10 +177,26 @@ async function init(): Promise<void> {
     view.on("change:center", updateViewInfo);
     updateViewInfo();
 
+    const levels = resolutions;
+    const hook: SpikeHook = {
+      levels: () => levels.length,
+      resolution: () => view.getResolution() ?? Number.NaN,
+      setZoom: (z) => {
+        const r = levels[z];
+        if (r === undefined) throw new Error(`no level ${z}`);
+        view.setResolution(r);
+      },
+      setCenter: (x, y) => view.setCenter([x, y]),
+      pixelOf: (x, y) => {
+        const px = map.getPixelFromCoordinate([x, y]);
+        return px ? [px[0], px[1]] : null;
+      },
+    };
+    (window as unknown as { __spike: SpikeHook }).__spike = hook;
+
     log("Map initialised.");
     log(`Extent: [${site.aoi.extent_m.join(", ")}] m`);
     log(`Resolutions: [${resolutions.join(", ")}] m/px`);
-    void map;
   } catch (err: unknown) {
     log(`ERROR: ${err instanceof Error ? err.message : String(err)}`);
   }

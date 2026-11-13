@@ -39,7 +39,8 @@ describe("T13.05 statusIcon component and renderer", () => {
     expect(caution.querySelector(".status-glyph")?.textContent).toBe("▲");
 
     const blocked = renderStatusIcon("blocked");
-    expect(blocked.querySelector(".status-glyph")?.textContent).toBe("⬣");
+    // 04 §C.1 says "octagon": it is drawn as an SVG polygon (FD-208), not the hexagon character U+2B23.
+    expect(blocked.querySelector(".status-glyph svg polygon")).not.toBeNull();
 
     const unknown = renderStatusIcon("unknown");
     expect(unknown.querySelector(".status-glyph")?.textContent).toBe("?");
@@ -48,7 +49,7 @@ describe("T13.05 statusIcon component and renderer", () => {
   it("renders React StatusIcon component with match", () => {
     const htmlStatic = renderToString(StatusIcon({ status: "warning", live: false }));
     expect(htmlStatic).toContain("status-warning");
-    expect(htmlStatic).toContain("⬣");
+    expect(htmlStatic).toContain("<polygon");
     expect(htmlStatic).toContain("WARNING");
     expect(htmlStatic).not.toContain('role="status"');
 

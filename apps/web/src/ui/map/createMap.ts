@@ -8,17 +8,19 @@
  *   (02 §C.4.2). Rotation is off, so the north arrow is fixed (top right).
  * - The map owns its OpenLayers viewport only: the host element is not restyled (no forced `position`, no
  *   `tabindex`). `getTargetElement()` is that viewport with `tabindex="0"`, which is what the keyboard layer
- *   (keyboard.ts, 04 §E) needs to pan and zoom only while the map has focus. North arrow, readout, scale bar and
- *   attribution are OpenLayers controls inside the viewport, so `destroy()` removes them with it.
+ *   (keyboard.ts, 04 §E) needs to pan and zoom only while the map has focus. North arrow, readout and scale bar are
+ *   OpenLayers controls inside the viewport, so `destroy()` removes them with it.
+ * - No credits box (QoL Q1, 04 §F): map views carry no attribution control; the layers' sources still name their
+ *   credits, and the credits are shown in SCR-09, the briefing card and the report (NFR-07).
  * - The coordinate readout shows "—" until a position is measured, then planetocentric latitude, east-positive
- *   longitude (5 decimals) and projected x/y metres, labelled `derived` with a manifest DataSource id (FR-15).
- * - Motion: `panBy`, `zoomBy` and fits are instant under `prefers-reduced-motion` or `{ animate: false }` (04 §E).
+ *   longitude (5 decimals) and projected x/y metres, labelled `derived` with the source `proj:IAU_2015:49900` (FR-15, FD-080).
+ * - Motion: `panBy`, `zoomBy` and fits (`fitExtent(extent, { animate })`, FD-063) are instant under
+ *   `prefers-reduced-motion` or `{ animate: false }` (04 §E).
  * - `attachKeyboardControls` is mounted here (T13.06): pass `keyboard: { planContext }` for the planner's Delete, B
  *   and ? shortcuts, or `keyboard: false` where the page mounts them itself.
  */
 import OlMap from "ol/Map.js";
 import OlView from "ol/View.js";
-import Attribution from "ol/control/Attribution.js";
 import Control from "ol/control/Control.js";
 import ScaleLine from "ol/control/ScaleLine.js";
 import { unByKey } from "ol/Observable.js";
@@ -33,11 +35,6 @@ export interface CreateMapOptions {
   /** The host element, or its id. A missing id throws. */
   target: HTMLElement | string;
   site: LoadedSite;
-  /**
-   * The DataSource the coordinate readout cites. Default: the first source of the basemap layer (the layer that is
-   * not optional), else of the first layer. TODO(decision): which DataSource a projection-derived readout cites.
-   */
-  readoutSourceId?: string;
   /** Keyboard layer (04 §E): options for `attachKeyboardControls`, or `false` to mount none. Default: map keys only. */
   keyboard?: false | Pick<KeyboardControlsOptions, "planContext" | "panStepPx" | "target">;
 }
@@ -49,24 +46,11 @@ const FIT_PADDING_PX = 24;
 
 type Animate = { animate?: boolean } | undefined;
 
-/** Source the readout cites: the option, else the basemap layer's first source, else the first layer's. */
-function resolveReadoutSource(site: LoadedSite, requested: string | undefined): string {
-  if (requested !== undefined) {
-    if (!site.sources.has(requested)) {
-      throw new Error(`createMap: readoutSourceId ${JSON.stringify(requested)} is not a source of site ${site.site.site_id}`);
-    }
-    return requested;
-  }
-  const layers = [...site.layers.values()];
-  const basemap = layers.find((layer) => !layer.optional);
-  for (const layer of basemap ? [basemap, ...layers] : layers) {
-    const id = layer.source_ids.find((sourceId) => site.sources.has(sourceId));
-    if (id !== undefined) return id;
-  }
-  const first = site.sources.keys().next();
-  if (first.done) throw new Error(`createMap: site ${site.site.site_id} lists no DataSource to cite`);
-  return first.value;
-}
+/**
+ * The source id the coordinate readout and the scale bar cite: the working projection, not a dataset (FD-080). They are
+ * `derived` from the projected position by the eqc inverse (02 §C.4), so the source is the projection itself.
+ */
+export const READOUT_SOURCE_ID = "proj:IAU_2015:49900";
 
 function resolveHost(target: HTMLElement | string): HTMLElement {
   if (typeof target !== "string") return target;
@@ -103,7 +87,7 @@ export function createMap(options: CreateMapOptions): MapHandle {
   const { site: loaded } = options;
   const site = loaded.site;
   const host = resolveHost(options.target);
-  const readoutSource = resolveReadoutSource(loaded, options.readoutSourceId);
+  const readoutSource = READOUT_SOURCE_ID;
 
   const projection = registerMarsProjection(site);
   const extent = site.aoi.extent_m as Extent;
@@ -121,8 +105,6 @@ export function createMap(options: CreateMapOptions): MapHandle {
 
   // Scale bar in projected metres: ScaleLine asks the projection for its point resolution (identity).
   const scaleLine = new ScaleLine({ units: "metric" });
-  // Attributions come from the layers' sources (NFR-07); the layer modules set them from DataSource credits.
-  const attribution = new Attribution({ collapsible: false });
 
   const northArrow = chromeElement("north-arrow", "top:8px;right:8px;text-align:center");
   northArrow.setAttribute("role", "img");
@@ -141,24 +123,19 @@ export function createMap(options: CreateMapOptions): MapHandle {
   const map = new OlMap({
     target: host,
     view,
-    controls: [scaleLine, attribution, new Control({ element: northArrow }), new Control({ element: readout })],
+    controls: [scaleLine, new Control({ element: northArrow }), new Control({ element: readout })],
     layers: [],
   });
 
   const viewport = map.getViewport();
   if (!viewport) throw new Error("createMap: OpenLayers created no viewport");
-  // OpenLayers builds the scale bar and attribution elements itself; they are styled once they are in the viewport.
+  // OpenLayers builds the scale bar element itself; it is styled once it is in the viewport.
   const scaleEl = viewport.querySelector<HTMLElement>(".ol-scale-line");
   if (scaleEl) {
     scaleEl.style.cssText = `${CHROME};left:8px;bottom:8px`;
     scaleEl.setAttribute("data-testid", "scale-bar");
     scaleEl.setAttribute("data-provenance", "derived");
     scaleEl.setAttribute("data-source", readoutSource);
-  }
-  const attributionEl = viewport.querySelector<HTMLElement>(".ol-attribution");
-  if (attributionEl) {
-    attributionEl.style.cssText = `${CHROME};left:8px;bottom:36px;white-space:normal;max-width:60%`;
-    attributionEl.setAttribute("data-testid", "attribution");
   }
   viewport.tabIndex = 0;
   viewport.setAttribute("role", "group");
@@ -216,8 +193,8 @@ export function createMap(options: CreateMapOptions): MapHandle {
       return viewport;
     },
 
-    fitExtent(target: [number, number, number, number]): void {
-      fit(target);
+    fitExtent(target: [number, number, number, number], opts?: { animate?: boolean }): void {
+      fit(target, opts);
     },
 
     setCenter(coord: [number, number]): void {

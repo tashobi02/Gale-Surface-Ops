@@ -1,3 +1,4 @@
+import * as siteLoader from "../../src/boot/loadSite";
 /**
  * T24.10 — EVA DOM tests (docs/specs/01 FR-32, FR-33, FR-40, FR-44; 04 §A.3, §D.3, §E.5, §E.6, §E.7).
  * The real components are rendered and driven: snapshots from the fixture store flow into SCR-12/13/18,
@@ -26,16 +27,25 @@ import {
   CONFIRM_FALLBACK_MS,
 } from "../../src/ui/eva/HoldToConfirm";
 import { BEATS } from "../fixtures/ws";
-import { accepted, recordingClient, rejected, storeFromBeat } from "./fixtureStore";
-import { click, flush, installDom, keyDown, keyUp, mount, must, pointerDown, pointerUp, removeDom } from "./domHarness";
+import { accepted, recordingClient, rejected, storeFromBeat as createStore } from "./fixtureStore";
+import { click, flush, installDom, keyDown, keyUp, mount as mountDom, must, pointerDown, pointerUp, removeDom } from "./domHarness";
+import { contrast } from "./wcag";
 
 const STYLES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/styles");
 
 const PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
 
+const mountedViews: Awaited<ReturnType<typeof mountDom>>[] = [];
+const stores: ReturnType<typeof createStore>[] = [];
+async function mount(...args: Parameters<typeof mountDom>) { const view = await mountDom(...args); mountedViews.push(view); return view; }
+function storeFromBeat(...args: Parameters<typeof createStore>) { const store = createStore(...args); stores.push(store); return store; }
+
 beforeAll(() => installDom());
 afterAll(() => removeDom());
-afterEach(() => {
+afterEach(async () => {
+  for (const view of mountedViews.splice(0)) await view.unmount();
+  for (const store of stores.splice(0)) store.close();
+  vi.restoreAllMocks();
   vi.useRealTimers();
   document.body.innerHTML = "";
 });
@@ -51,6 +61,41 @@ function valueText(root: HTMLElement, slot: string): string {
 }
 
 describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
+  it("does not invent link quality bars from the linked flag", async () => {
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
+    const strip = must(view.container, '[data-slot="meta-strip"]');
+    expect(strip.textContent).not.toMatch(/[▮▯]/);
+    expect(strip.textContent).toContain("LINK —");
+  });
+  it("ack sends ACK_ALERT", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect"));
+    const base = snapshotOf("connect");
+    const snapshot: Snapshot = { ...base, alerts: [{
+      alert_id: "alert-1", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"],
+      raised_seq: 1, acked_seq: null, cleared_seq: null, acked_by: null,
+      message: "Shelter now", data: {},
+    }] };
+    const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot }));
+    await click(must(view.container, '[aria-label="Acknowledge alert"]'));
+    expect(sent).toEqual([{ kind: "ACK_ALERT", args: { alert_id: "alert-1" } }]);
+  });
+  it("a refused ACK carries StatusIcon warning shape and word alongside ACK REFUSED, never colour alone (04 §A.3)", async () => {
+    const { client } = recordingClient(storeFromBeat("connect"), () => rejected("INVALID", "already cleared"));
+    const base = snapshotOf("connect");
+    const snapshot: Snapshot = { ...base, alerts: [{
+      alert_id: "alert-1", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"],
+      raised_seq: 1, acked_seq: null, cleared_seq: null, acked_by: null,
+      message: "Shelter now", data: {},
+    }] };
+    const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot }));
+    await click(must(view.container, '[aria-label="Acknowledge alert"]'));
+    await flush();
+    const banner = must(view.container, '[data-slot="ack-rejection"]');
+    const icon = must(banner, '.status-indicator[data-status="warning"]');
+    expect(icon.querySelector(".status-glyph svg polygon")).not.toBeNull();
+    expect(icon.textContent).toContain("WARNING");
+    expect(banner.textContent).toContain("ACK REFUSED");
+  });
   it.each([...BEATS])("beat %s: shows the snapshot's own HAVEN and O₂, never NaN, every value labelled", async (beat) => {
     const client = storeFromBeat(beat);
     const snap = client.state()!;
@@ -147,10 +192,21 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
     const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("walking") }));
     const next = must(container, '[data-slot="next"]');
     expect(next.textContent).not.toMatch(/NaN/);
-    expect(next.textContent).toContain("↗ —");
+    // With no bearing there is no arrow: the arrow follows the bearing, it is never a fixed glyph.
+    expect(next.textContent).toContain("— —");
+    expect(next.textContent).not.toMatch(/[↑↗→↘↓↙←↖]/);
     for (const el of next.querySelectorAll("[data-provenance]")) {
       expect(el.getAttribute("data-source")).toBeTruthy();
     }
+  });
+
+  it("the bearing arrow follows the bearing the Hab Core supplies", async () => {
+    const base = snapshotOf("connect");
+    const snapshot = { ...base, crew: base.crew.map((c) => ({ ...c, next_stop_bearing_deg: 90 })) };
+    const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot }));
+    const next = must(container, '[data-slot="next"]');
+    expect(next.textContent).toContain("→");
+    expect(next.textContent).toContain("90°");
   });
 
   it("the alert slot, HAVEN, O₂ and the action row keep one DOM order across fixture states (04 §A.3 #4)", async () => {
@@ -165,6 +221,57 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
       orders.push(["alert-slot", "haven", "o2", "action-row"].map((n) => pick(n)).join(","));
       document.body.innerHTML = "";
     }
+    expect(new Set(orders).size).toBe(1);
+  });
+
+  it("fixed geography all states: the same slots in the same order in every state (04 §A.3 #4, §E.5)", async () => {
+    // The named test of `docs/plan/frontend/17-eva-tablet.md`. The browser check `eva-geometry` measures the boxes; this
+    // one covers the structure they come from: in every state the alert slot, HAVEN, O₂, the strip and the action row
+    // are all there, in the same order, and nothing is inserted between them.
+    const FIXED = ["alert-slot", "haven", "o2", "meta-strip", "action-row"] as const;
+    const states: { name: string; snapshot: Snapshot }[] = [];
+    const connect = snapshotOf("connect");
+    const walking = snapshotOf("walking");
+    const alerting = snapshotOf("radiation-alert");
+    const noLink = snapshotOf("comm-shadow");
+    const opsTask: Snapshot = {
+      ...connect,
+      tasks: [{ ...connect.tasks[0]!, origin: "ops", text: "Re-image the fracture set" }],
+    };
+    const toHaven: Snapshot = {
+      ...walking,
+      crew: walking.crew.map((c) => ({ ...c, activity: "TO_HAVEN" })),
+    };
+    const atStop: Snapshot = {
+      ...connect,
+      crew: connect.crew.map((c) => ({ ...c, activity: "AT_STOP" })),
+    };
+    const undoWindow: Snapshot = { ...atStop, tasks: [{ ...atStop.tasks[0]!, state: "DONE" }] };
+    for (const [name, snapshot] of [
+      ["walking", walking],
+      ["at stop", atStop],
+      ["undo window", undoWindow],
+      ["ops-added task", opsTask],
+      ["alerting", alerting],
+      ["no hab link", noLink],
+      ["to haven", toHaven],
+    ] as const) {
+      states.push({ name, snapshot });
+    }
+
+    const orders: string[] = [];
+    for (const { name, snapshot } of states) {
+      const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot }));
+      const slots = [...container.querySelectorAll("[data-slot]")].map((el) => el.getAttribute("data-slot"));
+      const pick = (slot: string) => slots.indexOf(slot);
+      for (const slot of FIXED) expect(pick(slot), `${name} is missing ${slot}`).toBeGreaterThanOrEqual(0);
+      for (let i = 1; i < FIXED.length; i += 1) {
+        expect(pick(FIXED[i - 1]!), `${name}: ${FIXED[i - 1]} must come before ${FIXED[i]}`).toBeLessThan(pick(FIXED[i]!));
+      }
+      orders.push(FIXED.map((s) => pick(s)).join(","));
+      document.body.innerHTML = "";
+    }
+    // The same slots in the same places: no state inserts a slot between two fixed ones.
     expect(new Set(orders).size).toBe(1);
   });
 
@@ -211,6 +318,48 @@ describe("SCR-13 HUD and SCR-18 link-lost on fixture snapshots", () => {
       expect(indicator.querySelector(".status-glyph")?.textContent).toBeTruthy();
       expect(indicator.querySelector(".status-label")?.textContent).toBeTruthy();
     }
+  });
+
+  it("HUD names the link state, the hop count and the first hop in words, not colour alone", async () => {
+    // The HUD's link strip is the crew member's only read on the radio path (N-04, BD-103): LINK UP/DOWN, how many hops to
+    // HAB and which kind of hop the first one is. The words carry the state; the colours only decorate it.
+    const base = snapshotOf("live-loaded");
+    const up = await mount(createElement(Hud, { crewId: "EV1", snapshot: base }));
+    const linkUp = must(up.container, '[data-slot="hud-link"]');
+    expect(linkUp.textContent).toContain("LINK UP");
+    expect(linkUp.textContent).toContain("VIA direct");
+    expect(linkUp.textContent).toMatch(/\d+\s*hops?/);
+    // The hops and the via each carry their own provenance and source: every displayed value does (CLAUDE.md).
+    const hops = must(linkUp, '[data-source="snapshot:crew.link_hops"]');
+    expect(hops.getAttribute("data-provenance")).toBeTruthy();
+    const via = must(linkUp, '[data-source="snapshot:crew.link_via"]');
+    expect(via.getAttribute("data-provenance")).toBeTruthy();
+    await up.unmount();
+
+    const down = await mount(
+      createElement(Hud, {
+        crewId: "EV1",
+        snapshot: { ...base, crew: base.crew.map((c) => ({ ...c, linked: false })) },
+      }),
+    );
+    expect(must(down.container, '[data-slot="hud-link"]').textContent).toContain("LINK DOWN");
+    await down.unmount();
+
+    // No snapshot: the link state is unknown, never "UP" by default.
+    const none = await mount(createElement(Hud, { crewId: "EV1", snapshot: null }));
+    const linkNone = must(none.container, '[data-slot="hud-link"]');
+    expect(linkNone.textContent).not.toContain("LINK UP");
+    expect(linkNone.textContent).not.toContain("LINK DOWN");
+    expect(must(linkNone, '[data-unavailable="true"]')).toBeTruthy();
+    await none.unmount();
+  });
+
+  it("marks the HUD stale state unavailable when the crew snapshot is absent", async () => {
+    const view = await mount(createElement(Hud, { crewId: "EV1", snapshot: null }));
+    const stale = must(view.container, '[data-source="unavailable:crew.stale"]');
+    expect(stale.textContent).toBe("—");
+    expect(stale.getAttribute("data-unavailable")).toBe("true");
+    await view.unmount();
   });
 
   it("link-lost keeps cached values labelled and shows the age as — unless one is supplied; never 'measured'", async () => {
@@ -578,17 +727,14 @@ describe("SCR-14 Options (04 §E.7)", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("EVA cannot confirm CONTINUE_SKIP (needs ops approval): the control is disabled and sends nothing", async () => {
+  it("EVA CONTINUE_SKIP is read-only without a Go control and sends nothing", async () => {
     vi.useFakeTimers();
     const { client, sent } = recordingClient(storeFromBeat("connect"));
     const { container } = await mount(
       createElement(Options, { crewId: "EV1", client, variant: "eva", snapshot: withOptions([option({ kind: "CONTINUE_SKIP" })]) }),
     );
-    const button = must<HTMLButtonElement>(container, "#action-confirm-option");
-
-    expect(button.disabled).toBe(true);
-    await pointerDown(button);
-    await act(async () => { vi.advanceTimersByTime(HOLD_DURATION_MS + 50); });
+    expect(container.querySelector("#action-confirm-option")).toBeNull();
+    expect(container.textContent).toContain("Ops approval needed");
     expect(sent).toHaveLength(0);
   });
 
@@ -661,5 +807,178 @@ describe("EVA type scale: status words and map labels are at least 16 px (04 §A
     expect(micros.length).toBeGreaterThanOrEqual(3);
     for (const el of micros) expect(px(el)).toBeGreaterThanOrEqual(16);
     expect(container.textContent).toContain("SELECT LAYERS");
+  });
+});
+
+describe("package 17 accessibility controls", () => {
+  it("contrast toggle switches palette", async () => {
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
+    const button = must(view.container, '[aria-label="Toggle high contrast"]');
+    await click(button);
+    expect(must(view.container, '[data-screen="SCR-12"]').getAttribute("data-contrast")).toBe("high");
+  });
+
+  it("contrast toggle switches the palette and back, and the high-contrast rule is scoped per alert level (FD-017)", async () => {
+    // The high-contrast alert is the outlined variant (04 §C.1, FD-017) and each level keeps its OWN status colour: an
+    // advisory is never drawn in the warning colour. jsdom does not resolve var(), so the declarations are read as source.
+    const EVA_CSS = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/screens/scr12EvaTablet.css"), "utf8");
+    const TOKENS = readFileSync(join(STYLES_DIR, "tokens.css"), "utf8");
+    const tokenOf = (name: string): string => {
+      const m = new RegExp(`--${name}:\\s*(#[0-9A-Fa-f]{6})`).exec(TOKENS);
+      expect(m, `the token --${name}`).not.toBeNull();
+      return m![1]!;
+    };
+    const LEVELS = { warning: "hud-warning", caution: "hud-caution", advisory: "hud-advisory" } as const;
+    for (const [level, token] of Object.entries(LEVELS)) {
+      // The rule names the level twice (the status class and the data attribute) and its body sits on the next line, so
+      // the whole rule block is read across lines.
+      const rule = new RegExp(`\\[data-contrast="high"\\][\\s\\S]*?${level}"\\][\\s\\S]*?\\{([^}]*)\\}`).exec(EVA_CSS);
+      expect(rule, `a high-contrast rule for the ${level} alert bar`).not.toBeNull();
+      expect(rule![1]).toMatch(new RegExp(`color:\\s*var\\(--${token}\\)`));
+    }
+    // The three levels are three different colours: no level borrows another's.
+    const colours = Object.values(LEVELS).map(tokenOf);
+    expect(new Set(colours).size).toBe(3);
+
+    // The toggle really switches the palette on the screen, both ways.
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("radiation-alert") }));
+    const screen = must(view.container, '[data-screen="SCR-12"]');
+    expect(screen.getAttribute("data-contrast")).not.toBe("high");
+    await click(must(view.container, '[aria-label="Toggle high contrast"]'));
+    expect(screen.getAttribute("data-contrast")).toBe("high");
+    await click(must(view.container, '[aria-label="Toggle high contrast"]'));
+    expect(screen.getAttribute("data-contrast")).not.toBe("high");
+  });
+
+  it("the alert bar names its level, so the level's own colour can be scoped to it", async () => {
+    // The bar carries the level twice: the data attribute the CSS scopes by, and the status class. Without both, an
+    // advisory could be painted in the warning colour (FD-017).
+    const base = snapshotOf("connect");
+    for (const level of ["warning", "caution", "advisory"] as const) {
+      const snapshot: Snapshot = {
+        ...base,
+        alerts: [
+          {
+            alert_id: `a-${level}`,
+            code: "RADIATION_ALERT",
+            level,
+            subjects: ["EV1"],
+            raised_seq: 5,
+            acked_seq: null,
+            cleared_seq: null,
+            acked_by: null,
+            message: `${level} message`,
+            data: {},
+          },
+        ],
+      };
+      const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot }));
+      const bar = must(view.container, '[data-slot="alert"]');
+      expect(bar.getAttribute("data-level")).toBe(level);
+      expect(bar.className).toContain(`status-${level}`);
+      document.body.innerHTML = "";
+    }
+  });
+
+  it("tap confirm fallback sends only after the second tap", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect"));
+    const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot: snapshotOf("connect") }));
+    await click(must(view.container, '[aria-label="Tap confirm"]'));
+    const summon = must(view.container, "#action-summon-rover");
+    await click(summon);
+    expect(sent).toHaveLength(0);
+    await click(summon);
+    expect(sent).toEqual([{ kind: "SUMMON_VEHICLE", args: { crew: ["EV1"] } }]);
+  });
+});
+
+describe("package 17 map and layout", () => {
+  it("provides a map host while loading rather than the placeholder", async () => {
+    vi.spyOn(siteLoader, "loadSite").mockImplementationOnce(() => new Promise(() => {}));
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
+    expect(view.container.querySelector('[data-slot="map-canvas"]')).not.toBeNull();
+    expect(view.container.textContent).not.toContain("[ Gale Crater");
+  });
+});
+
+describe("package 17 stale telemetry", () => {
+  it("shows last-linked age on HAVEN when unlinked", async () => {
+    const base = snapshotOf("connect");
+    const snapshot: Snapshot = { ...base, sim_time: "2024-05-20T13:05:30Z", crew: base.crew.map((crew) => ({ ...crew, linked: false, stale: true, last_linked_sim_time: "2024-05-20T13:05:00Z" })) };
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot }));
+    const age = must(view.container, '[data-slot="haven"] [data-source="snapshot:sim_time+crew.last_linked_sim_time"]');
+    expect(age.textContent).toContain("0:30");
+  });
+});
+
+describe("package 17 alert bar controls keep their own chrome (NFR-04, 04 §C.1, FD-011)", () => {
+  /** The EVA tablet's own stylesheet; jsdom cannot resolve var(), so the declarations are read as source. */
+  const EVA_CSS = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/screens/scr12EvaTablet.css"), "utf8");
+
+  it("the alert bar's buttons set their own background and colour instead of the user-agent button face", () => {
+    // The bar's ink is its status colour in high contrast (FD-011); a button that inherits it on the user-agent
+    // button face reads 1.92 : 1, so the controls carry their own surface and ink.
+    const rule = /\.scr12-eva-tablet\s+\.alert-bar\s+\.btn\s*\{([^}]*)\}/.exec(EVA_CSS);
+    expect(rule, "a rule for the alert bar's buttons").not.toBeNull();
+    expect(rule![1]).toMatch(/background:\s*var\(--surface-1\)/);
+    expect(rule![1]).toMatch(/color:\s*var\(--fg-1\)/);
+  });
+
+  it("the alert bar's button ink keeps >= 4.5 : 1 on its own surface in both palettes", () => {
+    // The normal palette: the panel surface (#14181D) with the text-1 ink (#ECEFF2).
+    expect(contrast("#ECEFF2", "#14181D"), "OPS alert bar button").toBeGreaterThanOrEqual(4.5);
+    // The high-contrast palette: black surface, white ink (FD-011).
+    expect(contrast("#FFFFFF", "#000000"), "high contrast alert bar button").toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("package 18 cached age", () => {
+  it("N-03 last-linked sim time takes precedence over the watchdog fallback", async () => {
+    const base = snapshotOf("connect");
+    const snapshot = { ...base, sim_time: "2026-11-13T00:02:00Z", crew: base.crew.map((c) => ({ ...c, last_linked_sim_time: "2026-11-13T00:00:00Z" })) };
+    const { container } = await mount(createElement(HabLinkLost, { crewId: "EV1", snapshot, ageSeconds: 3 }));
+    const age = must(container, '[data-cached-age]');
+    expect(age.textContent).toBe("120");
+    expect(age.getAttribute("data-source")).toBe("snapshot:crew.last_linked_sim_time");
+  });
+});
+
+describe("SCR-12 narrow 360 px portrait fit (T24.11, task-latency on phone-360x740)", () => {
+  const EVA_CSS = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/screens/scr12EvaTablet.css"), "utf8");
+
+  it("portrait action row and tablet root prevent >360 px horizontal overflow that pushes SCR-14 Close outside 360 px", () => {
+    expect(EVA_CSS).toMatch(/\.scr12-eva-tablet\s+\.action-row\s*\{[^}]*minmax\(0,\s*1fr\)/);
+    expect(EVA_CSS).toMatch(/\.scr12-eva-tablet\s*\{[^}]*max-width:\s*100%/);
+  });
+
+  it("alert banner message wrapper allows shrinking (minWidth: 0) instead of forcing row overflow on 360 px", () => {
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/screens/scr12EvaTablet.tsx"), "utf8");
+    expect(src).toMatch(/data-slot="alert"[\s\S]{0,600}minWidth:\s*0/);
+  });
+});
+
+/**
+ * A scrollable region must be reachable by keyboard (WCAG 2.1.1, and the axe rule
+ * `scrollable-region-focusable`). The NEXT card is given `overflow: auto` in the
+ * landscape and portrait grids so its task list can scroll inside the fixed EVA
+ * layout. A region that scrolls but cannot be focused is unreachable by keyboard:
+ * the crew member cannot scroll it, so anything below the fold is invisible to them.
+ *
+ * The browser check `axe` found this on 6 of the 8 viewports: the EVA full-map,
+ * options and cached transport-loss overlay route reported
+ * `scrollable-region-focusable` on `.next`.
+ */
+describe("SCR-12 NEXT card is keyboard-reachable when it scrolls", () => {
+  it("the scrolling NEXT card carries a tabindex and an accessible name", async () => {
+    const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
+    const next = must(container, '[data-slot="next"]');
+    // A scrollable region with no tabindex is not reachable by keyboard.
+    expect(next.getAttribute("tabindex")).toBe("0");
+    // It needs a name, so the focus ring says what it landed on.
+    const label =
+      next.getAttribute("aria-label") ??
+      next.getAttribute("aria-labelledby") ??
+      next.querySelector("[id]")?.id;
+    expect(label, "the focusable NEXT card needs an accessible name").toBeTruthy();
   });
 });

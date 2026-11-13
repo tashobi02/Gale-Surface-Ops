@@ -46,6 +46,7 @@ export interface ConditionsState {
 }
 
 export interface ConditionsPanelProps {
+  showEarthLink?: boolean;
   variant?: "ops" | "eva";
   conditions?: Partial<ConditionsState>;
   className?: string;
@@ -84,6 +85,7 @@ const numTight = (v: number, unit: string): string => (isFiniteNumber(v) ? `${v}
 const plain = (v: string): string => (typeof v === "string" && v.length > 0 ? v : UNAVAILABLE);
 
 export function ConditionsPanel({
+  showEarthLink = true,
   variant = "ops",
   conditions = {},
   className = "",
@@ -204,7 +206,7 @@ export function ConditionsPanel({
             {...provAttrs(unavailableOf(null, "conditions.remsClimatology"))}
             data-source="docs/specs/01:FR-36"
             title="docs/specs/01:FR-36"
-            style={{ color: "var(--text-dim, #7B8794)", fontSize: "12px" }}
+            style={{ color: "var(--text-3)", fontSize: "12px" }}
           >
             {remsNote}
           </span>
@@ -212,7 +214,7 @@ export function ConditionsPanel({
       </div>
 
       {/* Earth Link Card: rows stay in place and read "—" until the Hab Core supplies them */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      {showEarthLink && <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
         <div
           className="module-label"
           style={{
@@ -244,7 +246,7 @@ export function ConditionsPanel({
             </span>
           </div>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

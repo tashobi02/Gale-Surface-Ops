@@ -6,11 +6,9 @@
  * two scientific layers; a third turns the oldest off and says so. Projected metres only, never
  * EPSG:3857 or `ol/sphere` (02 §C.1). Implemented by TASK-24 (T24.09, Ridita Alam).
  *
- * Crew: each `crew` member is listed with its position (labelled, class from the snapshot's provenance map or the
- * `simulated` class 05 gives Crew positions) and, when a `view` is known, marked at its offset from the view centre
- * (metres / resolution, north up). The control bar is the shared `MapControls` (T07.17, eva-full set). The map tiles and
- * the shared Mars map instance (`createMap`, T07.06) are not mounted here yet; the screen that composes them passes
- * `mapControlHandlers(handle, …)` as `onZoom`, `onFit` and `onPan`. Keyboard: Escape closes the layers menu first, then the map, and focus returns to what opened it.
+ * The shared Mars map mounts local raster layers, crew/vehicle geometry, the supplied route and comm grid.
+ * FOLLOW centers the OpenLayers view on the current crew snapshot. Missing layers say unavailable.
+ * Escape closes the layers menu first, then the map, and focus returns to its opener.
  */
 import {
   useEffect,
@@ -19,9 +17,11 @@ import {
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { Crew, Provenance, ProvenanceMap } from "@marswalk/protocol";
-import { isProvenance, type ProvenanceValue } from "../eva/viewModel";
+import type { Crew, CrewId, Snapshot, Provenance, ProvenanceMap } from "@marswalk/protocol";
+import { isProvenance, selectEvaViewModel, type ProvenanceValue } from "../eva/viewModel";
 import { StatusIcon } from "../components/statusIcon";
+import { useFullMap } from "./useFullMap";
+import "./FullScreenMap.css";
 import { MapControls } from "./MapControls";
 import { UNAVAILABLE, fmtFixed, fmtInt, glyphOf, isFiniteNumber, isUsableValue, provAttrs, unavailableOf } from "../components/provenance";
 
@@ -32,6 +32,8 @@ export type FullScreenMapLayer = "slope" | "thermal_inertia" | "comm_shadow" | "
 export const MAX_SCIENCE_LAYERS = 2;
 
 export interface FullScreenMapProps {
+  snapshot?: Snapshot | null;
+  crewId?: CrewId;
   /** Crew members to show (positions in working-projection metres). Omitted means none: nothing is invented. */
   crew?: Crew[];
   /** The snapshot's provenance map, for the class of `crew.x_m` and `crew.y_m`; absent or invalid entries read `simulated` (05 Crew). */
@@ -56,7 +58,7 @@ export interface FullScreenMapProps {
 }
 
 const LAYER_LABELS: Record<FullScreenMapLayer, string> = {
-  slope: "Slope (>15°)",
+  slope: "Slope",
   thermal_inertia: "Thermal inertia",
   comm_shadow: "Comm shadow",
   haven_bands: "Haven bands",
@@ -68,6 +70,8 @@ const LAYER_LABELS: Record<FullScreenMapLayer, string> = {
  * Positions are drawn strictly in working-projection metres (IAU_2015:49900).
  */
 export function FullScreenMap({
+  snapshot,
+  crewId,
   crew = [],
   provenance,
   view,
@@ -126,9 +130,16 @@ export function FullScreenMap({
   const [following, setFollowing] = useState<boolean>(true);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const live = useFullMap(snapshot, crewId, following, activeLayers);
+  const shownView = live.view ?? view;
+  const telemetry = crewId ? selectEvaViewModel(snapshot ?? null, crewId) : null;
+  const layerAttrs = (layer: FullScreenMapLayer) => provAttrs(live.layerStates[layer] === "unavailable"
+    ? unavailableOf(layer === "haven_bands" ? "modelled" : "derived", `site.layer.${layer}`)
+    : live.layerSources?.[layer] ?? { prov: "derived", src: "site:manifest" });
   const isLandscape = orientation === "landscape";
 
   const handleToggleLayer = (layer: FullScreenMapLayer) => {
+    if (live.layerStates[layer] === "unavailable") return;
     let next: FullScreenMapLayer[];
     if (activeLayers.includes(layer)) {
       next = activeLayers.filter((l) => l !== layer);
@@ -170,13 +181,15 @@ export function FullScreenMap({
 
   const mapAreaStyle: CSSProperties = {
     flex: 1,
-    width: isLandscape ? "82%" : "100%", // Landscape map takes ≥ 80% width (04 §E.5)
+    width: isLandscape ? "82%" : "100%",
+    minWidth: 0,
+    minHeight: 0, // Landscape map takes ≥ 80% width (04 §E.5)
     height: "100%",
     position: "relative",
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
-    padding: "12px",
+    padding: "0",
     boxSizing: "border-box",
   };
 
@@ -218,6 +231,8 @@ export function FullScreenMap({
       role="region"
       aria-label="Full-screen surface operations map"
       data-screen="SCR-12-FULLMAP"
+      data-fullmap="true"
+      data-map-status={live.status}
       data-orientation={orientation}
       data-crs="IAU_2015:49900"
       className={`fullscreen-map ${className}`}
@@ -229,29 +244,33 @@ export function FullScreenMap({
           data-slot="landscape-telemetry-stack"
           style={{
             width: "18%",
+            flex: "0 0 18%",
+            minWidth: 0,
+            boxSizing: "border-box",
             display: "flex",
             flexDirection: "column",
             gap: "8px",
-            padding: "8px",
+            padding: "0",
             borderRight: "1px solid var(--hairline, #2A313A)",
           }}
         >
           <div data-slot="haven-compact" style={{ padding: "8px", background: "var(--surface-1, #14181D)" }}>
-            <span className="micro" style={{ fontSize: "16px" }}>HAVEN</span>
+            <span className="micro" style={{ fontSize: "16px" }}>HAVEN <StatusIcon status={telemetry?.haven.status ?? "unknown"} showWord /></span>
             <div
+              data-fullmap-value="haven"
               {...provAttrs(havenShown)}
               style={landscapeValueStyle}
             >
               {havenOk ? fmtInt(haven!.v) : UNAVAILABLE}
-              {havenOk && typeof haven!.v === "number" ? " MIN" : ""} {glyphOf(havenShown)}
             </div>
+            <span>{havenOk ? `MIN ${glyphOf(havenShown)}` : ""}</span>
           </div>
           <div data-slot="o2-compact" style={{ padding: "8px", background: "var(--surface-1, #14181D)" }}>
-            <span className="micro" style={{ fontSize: "16px" }}>O₂</span>
-            <div {...provAttrs(o2Shown)} style={landscapeValueStyle}>
+            <span className="micro" style={{ fontSize: "16px" }}>O₂ <StatusIcon status={telemetry?.o2.status ?? "unknown"} showWord /></span>
+            <div data-fullmap-value="o2" {...provAttrs(o2Shown)} style={landscapeValueStyle}>
               {o2Ok ? o2!.v : UNAVAILABLE}
-              {o2Ok && typeof o2!.v === "number" ? " %" : ""} {glyphOf(o2Shown)}
             </div>
+            <span>{o2Ok ? `% ${glyphOf(o2Shown)}` : ""}</span>
           </div>
         </div>
       )}
@@ -270,16 +289,16 @@ export function FullScreenMap({
                 textTransform: "uppercase",
               }}
             >
-              Gale Crater · Working Projection: IAU_2015:49900 (+proj=eqc) · Metres
+              Gale Crater · IAU_2015:49900 · m
             </span>
             {/* View state, not a measurement: derived from the map's own extent (no sample centre when unknown) */}
             <span
               className="value"
-              {...provAttrs(view ? { prov: "derived", src: "map:view" } : unavailableOf(null, "map.view"))}
+              {...provAttrs(shownView ? { prov: "derived", src: "map:view" } : unavailableOf(null, "map.view"))}
               style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", color: "var(--text-2, #A9B3BE)" }}
             >
-              X: {fmtFixed(view?.center_x_m, 1)} m · Y: {fmtFixed(view?.center_y_m, 1)} m ·{" "}
-              {view ? view.resolution_m_per_px : UNAVAILABLE} m/px
+              X: {fmtFixed(shownView?.center_x_m, 1)} m · Y: {fmtFixed(shownView?.center_y_m, 1)} m ·{" "}
+              {shownView ? shownView.resolution_m_per_px : UNAVAILABLE} m/px
             </span>
           </div>
 
@@ -312,10 +331,13 @@ export function FullScreenMap({
             position: "relative",
           }}
         >
+          <div ref={live.host} data-slot="ol-map" data-map-zoom={live.zoom} data-map-center={shownView ? `${shownView.center_x_m},${shownView.center_y_m}` : undefined} style={{ position: "absolute", inset: 0 }} />
+          {live.status !== "ready" && <span data-provenance="derived" data-source="site:manifest" data-unavailable={live.status === "unavailable" ? "true" : undefined} style={{ zIndex: 1, background: "var(--panel)" }}>{live.status === "loading" ? "Loading map…" : "Map unavailable —"}</span>}
+          {live.status === "ready" && !live.basemapAvailable && <span data-provenance="derived" data-source="unavailable:site.optical" data-unavailable="true" style={{ position: "absolute", top: "8px", right: "8px", background: "var(--panel)", pointerEvents: "none" }}>Basemap unavailable —</span>}
           {/* Crew markers: offset from the view centre in pixels (metres / resolution; north is up). No view, no marker. */}
           {crew.map((member) => {
             const placed = viewIsKnown(view) && isFiniteNumber(member.x_m) && isFiniteNumber(member.y_m);
-            if (!placed || !view) return null;
+            if (!placed || !view || live.status === "ready") return null;
             const dx = round2((member.x_m - view.center_x_m) / view.resolution_m_per_px);
             const dy = round2(-(member.y_m - view.center_y_m) / view.resolution_m_per_px);
             return (
@@ -376,6 +398,7 @@ export function FullScreenMap({
           {/* Active Layers Badges */}
           <div
             style={{
+              pointerEvents: "none",
               position: "absolute",
               top: "8px",
               left: "8px",
@@ -383,7 +406,7 @@ export function FullScreenMap({
               gap: "6px",
             }}
           >
-            {activeLayers.map((l) => (
+            {activeLayers.filter((l) => live.layerStates[l] !== "unavailable").map((l) => (
               <span
                 key={l}
                 style={{
@@ -395,7 +418,7 @@ export function FullScreenMap({
                   textTransform: "uppercase",
                 }}
               >
-                LAYER: {LAYER_LABELS[l]}
+                <span {...layerAttrs(l)}>LAYER: {LAYER_LABELS[l]} {live.layerStates[l] === "ready" ? "" : live.layerStates[l]}</span>
               </span>
             ))}
           </div>
@@ -426,6 +449,8 @@ export function FullScreenMap({
                 return (
                   <button
                     key={layerKey}
+                    data-layer={layerKey}
+                    disabled={live.layerStates[layerKey] === "unavailable"}
                     type="button"
                     onClick={() => handleToggleLayer(layerKey)}
                     style={{
@@ -440,7 +465,7 @@ export function FullScreenMap({
                     }}
                   >
                     <span>{LAYER_LABELS[layerKey]}</span>
-                    <span>{isActive ? "ON" : "OFF"}</span>
+                    <span {...layerAttrs(layerKey)}>{live.layerStates[layerKey] === "unavailable" ? "— unavailable" : isActive ? "ON" : "OFF"}</span>
                   </button>
                 );
               })}
@@ -451,8 +476,8 @@ export function FullScreenMap({
         {/* Bottom control bar: the shared MapControls, eva-full set (+, −, FIT, FOLLOW, LAYERS, CLOSE; all ≥ 56 px) */}
         <MapControls
           variant="eva-full"
-          onZoom={(direction) => onZoom?.(direction)}
-          onFit={() => onFit?.()}
+          onZoom={(direction) => { live.zoomBy(direction); onZoom?.(direction); }}
+          onFit={() => { setFollowing(false); live.fit(); onFit?.(); }}
           onPan={onPan}
           follow={following}
           onFollow={() => handleFollowToggle()}

@@ -1,9 +1,9 @@
-# Marswalk Surface Ops — Claude Code instructions
+# Gale Surface Ops — Claude Code instructions
 
 ## 1. Project
 
 Team CheesySpace's NASA Space Apps 2026 entry for *Interplanetary Survival Guide: Martian Map* (Bangladesh event, 13–14 Nov 2026).
-**Marswalk Surface Ops** *(working title)*: a habitat-local surface operations system for one Mars Exploration Zone at Gale crater (Mount Sharp). A planner builds a suit-safe EVA; during the walk a **Hab Core** server runs the mission clock and simulation, EVA crew use a suit tablet / HUD, an ops console watches everyone, and a real solar particle event (20 May 2024, sol 4190) is replayed so the crew can shelter. Every number is labelled.
+**Gale Surface Ops**: a habitat-local surface operations system for one Mars Exploration Zone at Gale crater (Mount Sharp). A planner builds a suit-safe EVA; during the walk a **Hab Core** server runs the mission clock and simulation, EVA crew use a suit tablet / HUD, an ops console watches everyone, and a real solar particle event (20 May 2024, sol 4190) is replayed so the crew can shelter. Every number is labelled.
 
 Layout (02 §A): `apps/web` (one web app, role views planner / ops / EVA / HUD / Earth) · `apps/hab-core` (Node.js server on the habitat LAN) · `packages/compute` (all deterministic science) · `packages/protocol` (shared types and wire format) · `pipeline/` (offline Python preprocessing) · `data/sites/` · `scenarios/`. No database; the Hab Core keeps an append-only event log.
 
@@ -48,7 +48,11 @@ Work follows the task windows and dependency order in [docs/tasks/_coordination.
 | `make progress` | Regenerates the README progress bar from `docs/tasks/status.md` |
 | `make dev` | Vite dev server for all role views; proxies `/sites`, `/api`, `/ws` to a running Hab Core |
 | `make hab` | Hab Core on `0.0.0.0:8080` with the `storm-sol4190` scenario (stub until TASK-20) |
-| `make replay` | Headless scenario replay; prints the event-log hash (stub until TASK-22) |
+| `make replay [COMMANDS=<file>]` | Headless scenario replay; prints the event-log hash. `COMMANDS` applies a recorded command list (02 §D.17) |
+| `make record` | Replays `storm-sol4190` with `reference_commands.json` and writes `recording.json` (the Pages recording, BD-105) |
+| `make ssd-link SSD=<folder>` | Links `pipeline/work/*` and `data/sites/gale_boxwork/{tiles,grid,images}` to the data SSD; idempotent ([docs/ops/ssd.md](docs/ops/ssd.md)) |
+| `make check-todos` | Fails while a `TODO(decision)` or `TODO(verify)` marker is left in the backend scope |
+| `make e2e` / `make e2e-one CHECK=<name>` | Playwright browser checks against a Hab Core the harness starts itself (`apps/web/e2e/README.md`) |
 | `make demo` | Production build, then the Hab Core serves it on the habitat LAN |
 | `make data` | Pipeline entry; not implemented yet (TASK-03) |
 

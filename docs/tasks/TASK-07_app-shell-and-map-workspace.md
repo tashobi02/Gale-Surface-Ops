@@ -155,7 +155,7 @@ TASK-07 builds the browser shell: site loading, hash routes `#/` and `#/map`, SC
   2. Give every request a unique `request_id` and resolve SAMPLE_POINT replies by that id (02 §E.2).
   3. For COMPUTE_PLAN, deliver only the result of the latest `plan_revision`; drop older results and treat `CANCELLED` as superseded, not as an error (02 §E.2, 03 §E.4).
   4. Send the grid to the worker the way T05.01 decides (open point 4); until then use only the 02 §E.2 messages.
-  5. On `onerror`, `messageerror`, `TIMEOUT` or `INTERNAL`, fail pending requests with a typed error, expose a crashed state, and offer `retry()`, which restarts the worker (NFR-10; 03 §D "Worker timeout/crash").
+  5. On `onerror`, `messageerror` or an `INTERNAL` error, fail every pending request with a typed error, expose a crashed state, and offer `retry()`, which restarts the worker; `TIMEOUT` and the other worker codes fail only the request they name and do not mark the client crashed (NFR-10; 03 §D "Worker timeout/crash"; FD-173, 12 Nov 2026, Proposed).
 - **Acceptance:**
   - Serves: FR-03, FR-07, NFR-10 · [02 §E.2](../specs/02_Technical_Requirements_Document.md#e2-worker-message-protocol), [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows)
   - With the mock worker, SAMPLE_POINT and COMPUTE_PLAN round-trip and match by `request_id`.
@@ -587,16 +587,16 @@ The graph omits T07.15's transitive edges (it hard-depends on T07.05–T07.12).
 
 ## Spec questions
 
-1. Layer slots for the traverse and waypoints are not in the FR-02 order (map open point 7) — T07.01 `TODO(decision)`.
-2. NFR-05 requires a source id on every value but names no attribute (open point 8) — T07.01 `TODO(decision)`.
-3. Slope classes follow the current limits (04 §C.1), so slope tiles must be data-encoded and coloured in the browser (open point 6). 03 SCR-00 also lists "browser lacks Web Worker/WebGL-free fallback"; if T07.07 colours tiles with WebGL, a path without WebGL is needed — `TODO(verify)`.
-4. How the worker receives the grid (open point 4) decides T07.04's start-up messages.
-5. Demo plan location and shape (open point 15) — T07.14 proposes POI ids plus scenario defaults.
-6. 03 SCR-01 needs a context thumbnail, a one-sentence science objective, "What this tool does" and data badges, but 05 Site holds only `name`; where this copy and image come from is `TODO(decision)` (T07.05).
-7. 05 MissionScenario says `eva_start_utc` defaults to "site default", but 05 Site has no such field; this affects T07.14 and the plan-store defaults (T08.01).
-8. 01 §E step 8 shows 0.19 mSv for a 7 h EVA at solar maximum, but the default max EVA duration is 6 h (01 FR-05) and 05 §F.3 derives the dose from the planned EVA total; the demo plan cannot show 0.19 mSv without changing inputs — `TODO(decision)` (T07.14, T17.01).
+1. Layer slots for the traverse and waypoints are not in the FR-02 order (map open point 7) — T07.01 `TODO(decision)`. Decided: FD-040 (12 Nov 2026, Proposed); the slots 45 and 55 stay, in `context.ts` (C10 v3).
+2. NFR-05 requires a source id on every value but names no attribute (open point 8) — T07.01 `TODO(decision)`. Decided: FD-106 (12 Nov 2026, Proposed).
+3. Slope classes follow the current limits (04 §C.1), so slope tiles must be data-encoded and coloured in the browser (open point 6). 03 SCR-00 also lists "browser lacks Web Worker/WebGL-free fallback"; if T07.07 colours tiles with WebGL, a path without WebGL is needed — `TODO(verify)`. Decided: FD-107 (12 Nov 2026, Proposed); tiles are coloured on a 2D canvas, so no WebGL path is needed.
+4. How the worker receives the grid (open point 4) decides T07.04's start-up messages. Decided: FD-108, FD-091 (12 Nov 2026, Proposed); the grid is delivered by `LOAD_GRID` (02 §E.2, BD-40), see FD-227. Decided: FD-228, FD-229 (12 Nov 2026, Proposed); the boot sends `LOAD_GRID` and the real worker answers it.
+5. Demo plan location and shape (open point 15) — T07.14 proposes POI ids plus scenario defaults. Decided: FD-041, FD-043 (12 Nov 2026, Proposed); the file is `apps/web/src/ui/demoPlan.json` and the shape is POI ids plus scenario defaults.
+6. 03 SCR-01 needs a context thumbnail, a one-sentence science objective, "What this tool does" and data badges, but 05 Site holds only `name`; where this copy and image come from is `TODO(decision)` (T07.05). Decided: FD-109, FD-301 (12 Nov 2026, Proposed); the copy is in `apps/web/src/ui/content/briefing.json` and the thumbnail is the coarsest tile of the manifest's basemap layer.
+7. 05 MissionScenario says `eva_start_utc` defaults to "site default", but 05 Site has no such field; this affects T07.14 and the plan-store defaults (T08.01). Decided: FD-042 (12 Nov 2026, Proposed); there is no start time until the user sets one.
+8. 01 §E step 8 shows 0.19 mSv for a 7 h EVA at solar maximum, but the default max EVA duration is 6 h (01 FR-05) and 05 §F.3 derives the dose from the planned EVA total; the demo plan cannot show 0.19 mSv without changing inputs — `TODO(decision)` (T07.14, T17.01). Decided: FD-047, FD-302 (12 Nov 2026, Proposed); the dose is the one the plan computes from the planned EVA total, and the demo stops are the ones the bundle can resolve.
 9. OpenLayers may compute scale through a geographic transform with an Earth radius unless the projection provides its own point resolution (02 §C.4.2); the spike (T02.02–T02.04) must confirm the scale bar uses projection metres — `TODO(verify)`; T07.06 relies on it.
-10. FR-15 says no numeric value without a provenance label; whether the scale bar, coordinate readout, data-version chip and debug overlay count is T12.02's rule — `TODO(decision)`.
-11. 04 §D limits visible "scientific overlays" to two but does not say which layers count — `TODO(decision)` (T07.09).
+10. FR-15 says no numeric value without a provenance label; whether the scale bar, coordinate readout, data-version chip and debug overlay count is T12.02's rule — `TODO(decision)`. Decided: FD-080 (12 Nov 2026, Proposed) for the readout (`derived`, source `proj:IAU_2015:49900`); the chip and the debug overlay carry `derived` with the manifest as source.
+11. 04 §D limits visible "scientific overlays" to two but does not say which layers count — `TODO(decision)` (T07.09). Decided: FD-111, FD-234 (12 Nov 2026, Proposed).
 12. Map change proposed: add T02.06 → T07.16 and T03.25 → T07.16 to the §f cross-task hard table; they are the v1 cut 7 (no v2 cut item) chain of §h.6 and T07.16 cannot work without them.
 13. Map change proposed: §c.5 gives TASK-07 no test files, so request matching and revision dropping (T07.04), site loading (T07.02) and slope class edges (T07.07) are checked only by hand; proposed `apps/web/tests/ui/workerClient.test.ts`, `apps/web/tests/ui/loadSite.test.ts` and `apps/web/tests/ui/rasterLayers.test.ts`, owned by those subtasks.

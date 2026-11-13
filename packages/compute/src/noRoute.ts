@@ -14,14 +14,14 @@ export interface NoRouteInfo {
  * Determine the reason why a leg could not be routed and find the nearest
  * explored/reachable cell to the destination.
  *
- * TODO(decision): mixed barrier precedence rule (spec question 8).
- * Currently resolves by highest barrier frequency along the explored boundary.
+ * Mixed barriers (BD-46): the reason is the barrier kind that is most frequent on the explored boundary; ties go to
+ * hazard, then slope, then no-data. The slope limit is the caller's (the scenario's), never a default here.
  */
 export function determineNoRoute(
   grid: LoadedGrid,
   target: { x_m: number; y_m: number },
   exploredCells: Set<number> | number[],
-  hardSlopeLimitDeg = 15,
+  hardSlopeLimitDeg: number,
 ): NoRouteInfo {
   const { width, height, cell_m, origin_m } = grid.meta;
   const [origin_x, origin_y] = origin_m;
@@ -124,10 +124,10 @@ export function determineNoRoute(
 
   if (hazardCount > 0 && hazardCount >= slopeCount && hazardCount >= noDataCount) {
     reason = "DISCONNECTED_BY_HAZARD";
-  } else if (noDataCount > 0 && noDataCount >= slopeCount && noDataCount >= hazardCount) {
-    reason = "DISCONNECTED_BY_NODATA";
-  } else if (slopeCount > 0) {
+  } else if (slopeCount > 0 && slopeCount >= noDataCount && slopeCount >= hazardCount) {
     reason = "DISCONNECTED_BY_SLOPE";
+  } else if (noDataCount > 0) {
+    reason = "DISCONNECTED_BY_NODATA";
   }
 
   return {

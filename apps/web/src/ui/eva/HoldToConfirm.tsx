@@ -30,6 +30,7 @@ import {
 } from "react";
 import type { CrewId } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
+import { provAttrs, type Sourced } from "../components/provenance";
 
 /** Hold duration in milliseconds for critical actions (04 §D.3, C12 token --hold-to-confirm). */
 export const HOLD_DURATION_MS = 800;
@@ -74,6 +75,11 @@ export interface HoldToConfirmProps {
   disabledReason?: string;
   /** Optional icon shown to the left of the label. */
   icon?: ReactNode;
+  /**
+   * Set when the label or the outcome copy shows a value (an option's rank): its class and source id go on every span that
+   * shows that copy, so the value is labelled where it is displayed (FR-15). Labels that only name an action leave it unset.
+   */
+  labelSource?: Sourced;
   /** Explicit hold duration override in ms (defaults to 800 ms per 04 §D.3). */
   holdDurationMs?: number;
   /** Explicit outcome duration override in ms (defaults to 300 ms per 04 §D.3). */
@@ -106,6 +112,7 @@ export function HoldToConfirm({
   disabled = false,
   disabledReason,
   icon,
+  labelSource,
   holdDurationMs = HOLD_DURATION_MS,
   outcomeDurationMs = OUTCOME_DURATION_MS,
   fallbackTimeoutMs = CONFIRM_FALLBACK_MS,
@@ -352,6 +359,8 @@ export function HoldToConfirm({
     touchAction: "none",
   };
 
+  const labelAttrs = labelSource ? provAttrs(labelSource) : {};
+
   return (
     <div style={containerStyle} className={`hold-container ${className}`}>
       <button
@@ -411,12 +420,12 @@ export function HoldToConfirm({
         ) : phase === "done" ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
             <span aria-hidden="true">✓</span>
-            <span>{outcome}</span>
+            <span {...labelAttrs}>{outcome}</span>
           </span>
         ) : phase === "confirm" ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
             <span aria-hidden="true">✓</span>
-            <span>Confirm — {label}</span>
+            <span {...labelAttrs}>Confirm — {label}</span>
           </span>
         ) : phase === "cancelled" ? (
           <span style={{ color: "var(--text-2, #A9B3BE)", fontSize: "16px" }}>
@@ -425,7 +434,7 @@ export function HoldToConfirm({
         ) : (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
             {icon && <span aria-hidden="true">{icon}</span>}
-            <span>{label}</span>
+            <span {...labelAttrs}>{label}</span>
             {disabledReason && disabled && (
               <span style={{ fontSize: "16px", color: "var(--text-3, #8592A0)", textTransform: "none" }}>
                 ({disabledReason})
@@ -461,6 +470,7 @@ async function sendAndReport(
 }
 
 export interface SummonRoverButtonProps {
+  tapFallback?: boolean;
   /** Hab WebSocket client instance. Without one the control is disabled. */
   client?: HabClient | null;
   /** Crew member acting; SUMMON_VEHICLE needs `args.crew` to include the issuer (02 §E.4). Without one the control is disabled. */
@@ -488,6 +498,7 @@ export function SummonRoverButton({
   linked,
   optionId,
   onDispatched,
+  tapFallback = false,
   disabled = false,
   disabledReason,
   className,
@@ -509,6 +520,7 @@ export function SummonRoverButton({
   return (
     <HoldToConfirm
       id="action-summon-rover"
+      tapFallback={tapFallback}
       data-hold-key="eva-summon"
       label="Summon rover"
       outcome="Summon accepted"
@@ -523,6 +535,7 @@ export function SummonRoverButton({
 }
 
 export interface AbortToHabButtonProps {
+  tapFallback?: boolean;
   /** Hab WebSocket client instance. Without one the control is disabled. */
   client?: HabClient | null;
   /** Crew member acting; ABORT needs `args.crew` to include the issuer (02 §E.4). Without one the control is disabled. */
@@ -547,6 +560,7 @@ export function AbortToHabButton({
   crewId,
   linked,
   onAborted,
+  tapFallback = false,
   disabled = false,
   disabledReason,
   className,
@@ -561,6 +575,7 @@ export function AbortToHabButton({
   return (
     <HoldToConfirm
       id="action-abort-hab"
+      tapFallback={tapFallback}
       data-hold-key="eva-abort"
       label="Abort to hab"
       outcome="Abort accepted"
@@ -628,6 +643,10 @@ export function TaskRoverButton({
 }
 
 export interface EvaActionRowProps {
+  tapFallback?: boolean;
+  contrast?: boolean;
+  onContrast?: () => void;
+  onTapFallback?: () => void;
   client?: HabClient | null;
   /** Crew member the row acts for; SUMMON and ABORT are disabled without one. */
   crewId?: CrewId;
@@ -652,6 +671,10 @@ export function EvaActionRow({
   linked,
   onOpenRoverTasking,
   onOpenHud,
+  tapFallback = false,
+  contrast = false,
+  onContrast,
+  onTapFallback,
   disabledSummon = false,
   disabledAbort = false,
   disabledRover = false,
@@ -677,12 +700,14 @@ export function EvaActionRow({
         client={client}
         crewId={crewId}
         linked={linked}
+        tapFallback={tapFallback}
         disabled={disabledSummon}
       />
       <AbortToHabButton
         client={client}
         crewId={crewId}
         linked={linked}
+        tapFallback={tapFallback}
         disabled={disabledAbort}
       />
       <TaskRoverButton
@@ -713,6 +738,8 @@ export function EvaActionRow({
       >
         <span>HUD</span>
       </button>
+      {onContrast && <button type="button" className="btn xl" aria-label="Toggle high contrast" aria-pressed={contrast} onClick={onContrast}>CONTRAST</button>}
+      {onTapFallback && <button type="button" className="btn xl" aria-label="Tap confirm" aria-pressed={tapFallback} onClick={onTapFallback}>TAP CONFIRM</button>}
     </div>
   );
 }

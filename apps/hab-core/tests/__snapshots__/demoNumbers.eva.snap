@@ -1,0 +1,18 @@
+{
+  "eva_start_utc": "2024-05-20T04:11:00Z",
+  "ltst": "09:33",
+  "sun_elevation_deg": 49.53,
+  "walk_leg0_min": 59.044532926640805,
+  "walk_leg1_min": 10.216424365681615,
+  "dwell_min": 20,
+  "arr2_min": 89.26095729232243,
+  "offset_min": 99.26095729232243,
+  "max_eva_duration_h": 6,
+  "eva_end_utc": "2024-05-20T10:11:00Z",
+  "plan_eva_start_utc": "2024-05-20T04:11:00Z",
+  "matches_plan_eva_start_utc": true,
+  "source": {
+    "path": "scenarios/storm-sol4190/plan.json",
+    "rule": "stop-2 dwell rule: start = alert - (legs[0].walk_time_min + dwell + legs[1].walk_time_min + dwell / 2), floored to the UTC minute"
+  }
+}

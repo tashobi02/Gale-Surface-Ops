@@ -94,6 +94,9 @@ const factory = (url: string): SocketLike => {
 };
 const latest = (): FakeSocket => sockets[sockets.length - 1];
 
+/** A socket factory that always makes a fresh fake socket, like a page load would. */
+const latestFactory = (): ((url: string) => SocketLike) => factory;
+
 function start(role: Role = "eva:EV1"): ClientUnderTest {
   return connect({ role, clientId: "c-7f3a", displayName: "", url: "ws://hab.test/ws", socketFactory: factory }); // 02 §E.6 HELLO client_id
 }
@@ -195,6 +198,21 @@ describe("Hab Core web client (T20.05 → T20.06)", () => {
     expect(c.events().map((e) => e.seq)).toEqual([2, 420]);
   });
 
+  it("a SNAPSHOT with a new session_id also resets last_seq: the next HELLO carries the new session's seq, not the old one (T32.15 client half)", () => {
+    const c = start();
+    latest().open();
+    latest().receive(snapshot, wsFixtures["radiation-alert"][0]); // s-0007, last event 420
+    expect(c.lastSeq()).toBe(420);
+
+    latest().receive({ ...snapshot, seq: 1, session: { ...snapshot.session, session_id: "s-0008", last_seq: 1 } });
+    expect(c.lastSeq()).toBe(1);
+
+    latest().drop();
+    vi.advanceTimersByTime(500);
+    latest().open();
+    expect(latest().sent[0]).toMatchObject({ type: "HELLO", last_seq: 1 });
+  });
+
   it("a SNAPSHOT of the same session on reconnect keeps the feed (only a different session_id resets it)", () => {
     const c = start();
     latest().open();
@@ -263,7 +281,11 @@ describe("Hab Core web client (T20.05 → T20.06)", () => {
     vi.advanceTimersByTime(1);
     expect(c.linkLost().lost).toBe(true);
     expect(c.linkLost().since_ms).not.toBeNull();
-    latest().receive(wsFixtures.walking[1]); // PING
+    latest().receive(wsFixtures.walking[1]); // A closed socket cannot restore the link.
+    expect(c.linkLost().lost).toBe(true);
+    vi.advanceTimersByTime(500);
+    latest().open();
+    latest().receive(wsFixtures.walking[1]); // PING on the new connection
     expect(c.linkLost()).toEqual({ lost: false, since_ms: null });
   });
 
@@ -369,5 +391,164 @@ describe("Hab Core web client: taken over by another device (02 §E.4, §E.6)", 
     latest().open();
     latest().receive(snapshot, taken("ops"));
     expect(c.takenOver()).toBe(false);
+  });
+});
+
+describe("T24.07 link deadline and T24.10 resend", () => {
+  it("a close at 2.9 seconds and a new socket open cannot extend the last-message deadline", () => {
+    const client = start();
+    latest().open(); latest().receive(snapshot);
+    vi.advanceTimersByTime(2900);
+    latest().drop();
+    vi.advanceTimersByTime(100);
+    expect(client.linkLost().lost).toBe(true);
+    client.close();
+  });
+  it("repeated opens without server messages do not postpone loss", () => {
+    const client = start(); latest().open(); latest().receive(snapshot);
+    vi.advanceTimersByTime(2400); latest().drop();
+    vi.advanceTimersByTime(500); latest().open();
+    vi.advanceTimersByTime(100);
+    expect(client.linkLost().lost).toBe(true);
+    client.close();
+  });
+  it("reports actual socket state and reconnect attempts before the heartbeat deadline", () => {
+    const client = start() as ReturnType<typeof habClientModule.connectHab>;
+    latest().open(); latest().receive(snapshot);
+    latest().drop();
+    expect(client.socketConnected?.()).toBe(false);
+    vi.advanceTimersByTime(500);
+    expect(client.reconnectCount?.()).toBe(1);
+    latest().drop(); vi.advanceTimersByTime(1000);
+    expect(client.reconnectCount?.()).toBe(2);
+    client.close();
+  });
+  it("drops AFTER a command dispatch, resends its stable id once and settles one result", async () => {
+    const client = start(); latest().open(); latest().receive(snapshot);
+    const resolved = vi.fn();
+    const pending = client.send({ kind: "SUMMON_VEHICLE", args: { crew: ["EV1"] } }).then(resolved);
+    const first = latest().sent.find((m) => m.type === "COMMAND")! as Extract<ClientMessage, {type: "COMMAND"}>;
+    expect(first).toBeTruthy();
+    latest().drop(); vi.advanceTimersByTime(500); latest().open();
+    const sent = latest().sent.filter((m) => m.type === "COMMAND") as Extract<ClientMessage, {type: "COMMAND"}>[];
+    expect(sent).toHaveLength(1);
+    expect(sent[0].command_id).toBe(first.command_id);
+    expect(sent[0].command.queued_offline).toBe(true);
+    const result: CommandResult = { v: 1, type: "COMMAND_RESULT", command_id: first.command_id, ok: true, event_seq: 421 };
+    latest().receive(result, result);
+    await pending;
+    expect(resolved).toHaveBeenCalledTimes(1);
+    client.close();
+  });
+
+  it("the 3-second watchdog marks linkLost without mutating simulated snapshot state", () => {
+    const c = start();
+    latest().open();
+    latest().receive(snapshot);
+    const before = c.state()!;
+    const beforeSimTime = before.sim_time;
+    const beforeO2 = before.crew.map((m) => m.o2_frac);
+    const beforeHaven = before.crew.map((m) => m.haven.minutes);
+
+    vi.advanceTimersByTime(LINK_LOST_AFTER_MS - 1);
+    expect(c.linkLost().lost).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(c.linkLost().lost).toBe(true);
+    expect(c.state()).toBe(before);
+    expect(c.state()!.sim_time).toBe(beforeSimTime);
+    expect(c.state()!.crew.map((m) => m.o2_frac)).toEqual(beforeO2);
+    expect(c.state()!.crew.map((m) => m.haven.minutes)).toEqual(beforeHaven);
+    c.close();
+  });
+
+  it("persists queued commands across a page reload (sessionStorage) and resends once on the same session", () => {
+    const store = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    } as unknown as Storage;
+    Object.defineProperty(globalThis, "sessionStorage", { value: storage, configurable: true });
+    try {
+      // First page load: connect, get SNAPSHOT, drop socket, queue SUMMON_VEHICLE, reload WITHOUT calling close().
+      const c1 = start("eva:EV1");
+      latest().open();
+      latest().receive(snapshot);
+      latest().drop();
+      void c1.send({ kind: "SUMMON_VEHICLE", args: { crew: ["EV1"] } });
+      expect(store.size).toBe(1);
+
+      // Simulate page reload: fresh connectHab for same role with a new client_id; wait for matching SNAPSHOT.
+      const c2 = connect({
+        role: "eva:EV1",
+        clientId: "c-reloaded",
+        displayName: "EV1 tablet",
+        url: "ws://localhost/ws",
+        socketFactory: latestFactory(),
+      });
+      latest().open();
+      // Before SNAPSHOT arrives, restored command waits so stale sessions never receive it.
+      expect(latest().sent.filter((m) => m.type === "COMMAND")).toHaveLength(0);
+      latest().receive(snapshot);
+      const resent = latest().sent.filter((m) => m.type === "COMMAND") as Extract<ClientMessage, { type: "COMMAND" }>[];
+      expect(resent).toHaveLength(1);
+      expect(resent[0].command.kind).toBe("SUMMON_VEHICLE");
+      expect(resent[0].command.queued_offline).toBe(true);
+
+      // Once confirmed by COMMAND_RESULT, storage clears so a subsequent reload does not resend again.
+      latest().receive({ v: 1, type: "COMMAND_RESULT", command_id: resent[0].command_id, ok: true, event_seq: 422 });
+      const c3 = connect({
+        role: "eva:EV1",
+        clientId: "c-reloaded-2",
+        displayName: "EV1 tablet",
+        url: "ws://localhost/ws",
+        socketFactory: latestFactory(),
+      });
+      latest().open();
+      latest().receive(snapshot);
+      expect(latest().sent.filter((m) => m.type === "COMMAND")).toHaveLength(0);
+      c3.close();
+      c2.close();
+    } finally {
+      Reflect.deleteProperty(globalThis, "sessionStorage");
+    }
+  });
+
+  it("drops stored commands from a different session_id and clears storage on close() or TAKEN_OVER", () => {
+    const store = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    } as unknown as Storage;
+    Object.defineProperty(globalThis, "sessionStorage", { value: storage, configurable: true });
+    try {
+      const c1 = start("eva:EV1");
+      latest().open();
+      latest().receive(snapshot);
+      latest().drop();
+      void c1.send({ kind: "ABORT", args: { crew: ["EV1"] } });
+      expect(store.size).toBe(1);
+
+      const c2 = connect({
+        role: "eva:EV1",
+        clientId: "c-new-session",
+        displayName: "EV1 tablet",
+        url: "ws://localhost/ws",
+        socketFactory: latestFactory(),
+      });
+      latest().open();
+      latest().receive({ ...snapshot, session: { ...snapshot.session, session_id: "s-different" } });
+      expect(latest().sent.filter((m) => m.type === "COMMAND")).toHaveLength(0);
+      expect(store.size).toBe(0);
+
+      latest().drop();
+      void c2.send({ kind: "ABORT", args: { crew: ["EV1"] } });
+      expect(store.size).toBe(1);
+      c2.close();
+      expect(store.size).toBe(0);
+    } finally {
+      Reflect.deleteProperty(globalThis, "sessionStorage");
+    }
   });
 });

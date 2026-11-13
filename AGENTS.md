@@ -1,8 +1,10 @@
-# Agent instructions — Marswalk Surface Ops
+# Agent instructions — Gale Surface Ops
 
 For any coding agent (Codex, Cursor, Gemini CLI, …). This file is the single rule set; Claude Code users also get [CLAUDE.md](CLAUDE.md), and Gemini CLI reads this file through `.gemini/settings.json`. How each agent runs the shared pipeline, skills and design checks: [docs/ops/agentic-workflow.md](docs/ops/agentic-workflow.md).
 
 **Project.** Team CheesySpace's NASA Space Apps 2026 entry: a habitat-local Mars surface operations system for one Exploration Zone at Gale crater — planner, Hab Core server, EVA tablet/HUD, ops console, with a replayed real solar particle event. npm workspaces: `apps/web` (TypeScript, Vite, OpenLayers, proj4), `apps/hab-core` (Node.js, Fastify, ws), `packages/compute`, `packages/protocol`; offline Python pipeline in `pipeline/`. Start at [docs/README.md](docs/README.md); `docs/specs/01–06` are the source of truth.
+
+**Full run, 12–13 Nov 2026 (read first).** Until the submission deadline (13 Nov 18:00) the product is finished in two lanes, backend (`core-backend`, Sadman) and frontend (`core-frontend`, Obidit), integrated on `merging-core`. Read [docs/plan/README.md](docs/plan/README.md) before any work: lane boundaries, package order, implementer prompt and conflict handling. It overrides task ownership in `_coordination.md` for the duration of the run.
 
 ## Phase gate
 

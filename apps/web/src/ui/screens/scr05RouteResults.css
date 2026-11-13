@@ -92,8 +92,19 @@
 .scr05-details-toggle:focus-visible,
 .scr05-collapse-toggle:focus-visible,
 .warning-zoom-btn:focus-visible {
-  outline: none;
+  /* Keep base.css's transparent 2 px outline: it is the ring in forced-colors mode, where box-shadow is dropped. */
   box-shadow: var(--focus-ring);
+}
+
+/* Touch targets under a coarse pointer are 44 px (04 §C.3); the 32 px mouse size above is the default. */
+@media (pointer: coarse) {
+  .scr05-collapse-toggle,
+  .scr05-details-toggle,
+  .scr05-retry-btn,
+  .warning-zoom-btn {
+    min-height: var(--target-touch);
+    min-width: var(--target-touch);
+  }
 }
 
 .scr05-body {
@@ -113,6 +124,10 @@
 
 .scr05-metrics-row {
   display: flex;
+  /* The row keeps its content height and never shrinks. `overflow-x: auto` makes the automatic minimum height 0, so without
+     this the row collapses in a short results panel and the metric tiles end up 0 px high — the values stop being readable
+     outside the map (FR-08, FR-15). The column around it scrolls instead. */
+  flex: none;
   gap: var(--gap-section);
   padding-bottom: var(--pad-sm);
   border-bottom: 1px solid var(--line);
@@ -138,38 +153,9 @@
   gap: 4px;
 }
 
-.scr05-metric-value {
-  color: var(--fg-1);
-  font-family: var(--font-mono);
-  font-size: var(--text-value-ops);
-  font-variant-numeric: tabular-nums slashed-zero;
-}
-
-.scr05-metric-value[data-unavailable="true"] {
-  color: var(--fg-3);
-}
-
-.scr05-metric-sep,
-.scr05-metric-unit {
-  color: var(--fg-3);
-  font-family: var(--font-mono);
-  font-size: var(--text-micro);
-}
-
-/* Provenance chip: outline, mono 11 px uppercase, text-2 (04 §C.1). */
-.scr05-chip {
-  padding: 0 4px;
-  border: 1px solid var(--control-edge);
-  color: var(--fg-2);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
 .scr05-profile-container {
-  flex: 1;
-  min-height: 0;
+  flex: none;
+  min-height: 110px;
   margin-top: var(--pad-sm);
   border: 1px solid var(--line);
   overflow: hidden;
@@ -275,3 +261,31 @@
     transition: none;
   }
 }
+
+.scr05-metric-sep {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+.profile-chart { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.profile-chart svg { width: 100%; height: 106px; min-height: var(--target-touch); color: var(--fg-1); overflow: visible; }
+.profile-chart text, .profile-caption, .profile-no-route, .profile-band { font-family: var(--font-mono); font-size: var(--text-micro); }
+.profile-chart text { fill: var(--fg-2); }
+.profile-plot { position: relative; touch-action: none; min-height: var(--target-touch); }
+.profile-sample { position: absolute; display: block; box-sizing: border-box; width: 6px; height: 6px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--surface-1); border: 1px solid var(--fg-2); cursor: crosshair; }
+.profile-sample[data-active="true"], .profile-sample:focus { background: var(--route); border-color: var(--fg-1); }
+.profile-sample:focus-visible { box-shadow: var(--focus-ring); }
+.profile-caption, .profile-no-route { color: var(--fg-2); }
+.profile-no-route { color: var(--unknown); }
+.profile-bands { flex: none; margin-top: 2px; }
+.profile-band { min-width: 0; }
+.profile-band-track { position: relative; display: flex; align-items: center; gap: var(--pad-sm); }
+.profile-band-label { flex: 0 0 190px; color: var(--fg-3); font-size: var(--text-micro); }
+.profile-band-track:has(svg) .profile-band-label { position: absolute; left: 0; max-width: 30%; }
+.profile-band-summary { display: flex; gap: var(--pad-sm); list-style: none; margin: 0; padding: 0; max-height: var(--target-touch); overflow: auto; color: var(--fg-2); }
+.profile-band-summary li { flex: none; }
+
+.scr05-middle-col { overflow-y: auto; }
+.profile-chart output { font-family: var(--font-mono); font-size: var(--text-micro); color: var(--fg-2); }
+.profile-band svg { width: 100%; height: 24px; }

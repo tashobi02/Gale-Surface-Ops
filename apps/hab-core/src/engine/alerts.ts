@@ -22,11 +22,12 @@
  */
 import { o2RemainingS, rateAt, triggerState } from "@marswalk/compute";
 import type { Alert, AlertCode, AlertLevel, CrewId, LogEventData, ParamSet, ProvenanceMap } from "@marswalk/protocol";
+import { doseAt } from "./liveEvents";
 import { isWaiting, type EngineState, type PendingEvent } from "./reducer";
 import type { TickContext, TickResult } from "./tick";
 
 const MESSAGES = {
-  radiation: "Radiation surge — shelter now", // 05 §F.6 example
+  radiation: "Shelter now — radiation surge", // 05 §F.6 example, 04 §D.4 (N-17)
   o2CautionHab: "O₂ low — plan return to hab",
   o2CautionRover: "O₂ low — plan restock at rover",
   o2WarningHab: "O₂ critical — return to hab now",
@@ -72,8 +73,9 @@ const onEva = (state: EngineState, ctx: TickContext) => state.crew.filter((c) =>
 /** RADIATION_ALERT raise and clear from the replayed rate (02 §D.13). */
 export function radiationTick(state: EngineState, ctx: TickContext): TickResult {
   const params = alertParams(ctx);
-  const t = state.session.clock.sim_time;
-  const trigger = triggerState(ctx.scenario.dose, t, params);
+  // The series is read at the time the press maps this sim second to; before the press it is the background (02 §D.17).
+  const dose = doseAt(state, ctx.scenario, state.session.clock.sim_time);
+  const trigger = triggerState(dose.series, dose.t_utc, params);
   const open = active(state, "RADIATION_ALERT");
   const events: PendingEvent[] = [];
   if (trigger === "alert" && open.length === 0) {
@@ -86,7 +88,7 @@ export function radiationTick(state: EngineState, ctx: TickContext): TickResult 
         "warning",
         state.crew.map((c) => c.crew_id),
         MESSAGES.radiation,
-        { rate_ugy_h: rateAt(ctx.scenario.dose, t), threshold_ugy_h: threshold, source: `replayed:${ctx.scenario.dose.source_id}` },
+        { rate_ugy_h: rateAt(dose.series, dose.t_utc), threshold_ugy_h: threshold, source: `replayed:${ctx.scenario.dose.source_id}` },
         { "data.rate_ugy_h": "replayed", "data.threshold_ugy_h": "assumed" },
       ),
     );
@@ -116,8 +118,8 @@ function suitParams(ctx: TickContext, crew_id: CrewId): ParamSet {
  * A haven 0 min away (or less) means the crew member is there, so nothing is raised. A haven that
  * cannot be reached (`minutes` Infinity) gives margin 0, a warning with `haven_min` null. A NaN
  * O₂ fraction or haven time is an engine error and throws, so it can never clear a live alert.
- * TODO(verify): a terrain refuge (T2) gives shelter but no O₂; until T2 the haven is the hab or a
- * pressurized rover, and a refuge haven is worded as the hab.
+ * Decided (BD-74, orchestrator, 13 Nov 2026): the haven kinds for CONSUMABLES_LOW are the hab and a pressurized rover; a terrain
+ * refuge (FR-47, Tier 2) gives shelter but no O₂ and is not produced by the backend, so no refuge haven is worded here.
  */
 export function consumablesTick(state: EngineState, ctx: TickContext): TickResult {
   const params = alertParams(ctx);

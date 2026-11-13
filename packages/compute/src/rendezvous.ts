@@ -4,6 +4,7 @@
  * tie-break: min T_crew, then cell index (NFR-06).
  * Signatures frozen by T05b.01 (contract C15). Positions are working-projection metres.
  */
+import { centreOfCell } from "./grid";
 import { pathTo, timeAt } from "./haven";
 import type { TimeField } from "./haven";
 
@@ -37,18 +38,6 @@ export type RendezvousOk = Extract<RendezvousResult, { status: "OK" }>;
 export interface RendezvousPair {
   order: [0, 1] | [1, 0];
   later_arrival_s: number;
-}
-
-// TODO(verify): duplicates the private `centreOfCell` in haven.ts (owned by T05b.04). Keep the two in sync,
-// or export one of them once T05b.04 and this branch are both on main.
-function centreOfCell(field: TimeField, k: number): [number, number] {
-  const row = Math.floor(k / field.width);
-  const col = k - row * field.width;
-  // "+ 0" turns a negative zero into 0.
-  return [
-    field.origin_m[0] + (col + 0.5) * field.cell_m + 0,
-    field.origin_m[1] - (row + 0.5) * field.cell_m + 0,
-  ];
 }
 
 function checkField(who: string, f: TimeField): void {

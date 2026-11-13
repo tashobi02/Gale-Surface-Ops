@@ -1,6 +1,6 @@
 /**
  * SCR-05 — Route Results panel (docs/specs/03 §B; layout in docs/specs/04 §F; mode OPS, 04 §B.2).
- * Purpose: show whether the plan works and why: status banner, six headline metrics, the elevation profile and the
+ * Purpose: show whether the plan works and why: status banner, seven headline metrics, the elevation profile and the
  * warnings list; collapsible to the 48 px status strip (04 §B), with a per-leg Details table (04 §D).
  * Requirements: FR-07–FR-12, FR-15, NFR-05. Implemented by T09.03 (Saba Atharique, #179; reworked in the review).
  *
@@ -11,18 +11,16 @@
  * a PARTIAL plan (02 §E.2). The chart (T09.02), the warnings list (T09.04) and the profile link (T09.05) are mounted
  * each behind a boundary so one failing leaves the rest usable.
  *
- * TODO(decision): the exact metric set (03 SCR-05 lists climb/descent, 04 §D/§F do not; T09 Spec questions). The six
- * of 04 §F are shown; climb and descent are in the Details table.
- * TODO(decision): layout. This keeps the v1 status strip on top (04 Appendix A "status strip remains when collapsed")
- * where 04 §F draws the banner as a 280 px left column.
- * TODO(decision): `Metric` (T12.01) is a stub on main; the tiles here use `provAttrs`/`glyphOf` directly and move to it
- * when it lands.
+ * FD-056/FD-057: seven metrics, status strip retained when collapsed.
+ * The tiles are the shared `Metric` component (T12.01, FD-058) and its number formats (`format.ts`, FD-124): km two
+ * decimals, min integer, ° one decimal, mSv two decimals.
  */
 import {
   Component,
   useCallback,
   useEffect,
   useMemo,
+  useId,
   useRef,
   useState,
   useSyncExternalStore,
@@ -31,21 +29,15 @@ import {
 } from "react";
 import type { Leg, NoRouteLeg, PlanResult, Provenance } from "@marswalk/protocol";
 import type { PlanState, PlanStore } from "../../state/planStore";
-import type { MapHandle } from "../context";
+import type { LoadedSite, MapHandle } from "../context";
 import { StatusIcon, type ExtendedStatus } from "../components/statusIcon";
-import {
-  PROVENANCE_GLYPHS,
-  UNAVAILABLE,
-  fmtFixed,
-  fmtInt,
-  fmtKilometres,
-  isFiniteNumber,
-  provAttrs,
-  unavailableOf,
-  type Sourced,
-} from "../components/provenance";
+import { STATUS_PATTERN, svgPatternDefs } from "../components/patterns";
+import { Metric } from "../components/metric";
+import { formatNumber, metresToKilometres, type FormatUnit } from "../components/format";
+import { UNAVAILABLE, isFiniteNumber, provAttrs, unavailableOf, type Sourced } from "../components/provenance";
 import { legStretchExtent } from "../map/routeGeometry";
 import { ProfileChart } from "../results/profileChart";
+import { useProfileLayout } from "../results/profileLayout";
 import { linkProfileToMap } from "../results/profileLink";
 import { WarningsList } from "../results/warningsList";
 import "./scr05RouteResults.css";
@@ -55,6 +47,7 @@ export interface RouteResultsProps {
   /** The shared map: the profile link and click-to-zoom of the warnings use it. Absent: neither is wired. */
   mapHandle?: MapHandle;
   className?: string;
+  site?: LoadedSite;
 }
 
 /** 05 §F.3 provenance_summary and §F.1 slope layer. */
@@ -66,11 +59,6 @@ const SRC_DOSE = "hassler-2014-rad";
 function words(code: string): string {
   const w = code.toLowerCase().replace(/_/g, " ");
   return w.charAt(0).toUpperCase() + w.slice(1);
-}
-
-/** A number without trailing zeros, at most two decimals ("5", "3.06"). */
-function trimmed(n: number): string {
-  return String(Number(n.toFixed(2)));
 }
 
 interface Banner {
@@ -112,13 +100,20 @@ function bannerOf(state: PlanState): Banner {
   return { status: "nominal", word: "OK", reason: "All legs routed, within limits" };
 }
 
-function announcementOf(state: PlanState, banner: Banner): string {
+/** The live-region text; the warning count is a shown value, so it carries its own label (FR-15) and the words around it do not. */
+function announcementOf(state: PlanState, banner: Banner): ReactNode {
   if (state.status === "Error") return `Plan computation failed: ${state.last_error_code ?? "error"}`;
   if (state.status === "Computing") return "Plan computing…";
   if (isEmpty(state)) return "Plan empty: add at least one stop";
   if (isPartial(state)) return "Plan updated: Partial route, unroutable legs";
   const count = state.result?.warnings.length ?? 0;
-  return `Plan updated: ${banner.word}, ${count} ${count === 1 ? "warning" : "warnings"}`;
+  return (
+    <>
+      {`Plan updated: ${banner.word}, `}
+      <span {...provAttrs({ prov: "derived", src: "result.warnings" })}>{count}</span>
+      {count === 1 ? " warning" : " warnings"}
+    </>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -141,45 +136,42 @@ function numeric(v: unknown, format: (n: number) => string, prov: Provenance, sr
   return isFiniteNumber(v) ? shown(format(v), prov, src) : missing(prov, path);
 }
 
-function Chip({ p }: { p: Sourced }): ReactElement | null {
-  if (!p.prov || p.unavailable) return null;
-  return (
-    <span className="scr05-chip" {...provAttrs(p)}>
-      {PROVENANCE_GLYPHS[p.prov]} {p.prov.toUpperCase()}
-    </span>
-  );
+/** One value of a tile: a number in the unit it is formatted by, and who says so (`path` names it when it is missing). */
+interface TilePart {
+  value: number | null;
+  prov: Provenance;
+  src: string;
 }
 
 interface MetricTileProps {
   label: string;
   /** One value, or a value and its limit. */
-  parts: Shown[];
-  unit: string;
+  parts: TilePart[];
+  unit: FormatUnit;
   hint?: string;
 }
 
 function MetricTile({ label, parts, unit, hint }: MetricTileProps): ReactElement {
-  const allMissing = parts.every((p) => p.unavailable);
   // The plan-derived value is the first part; a limit that follows is the scenario's own input and stays shown.
+  const first = parts[0];
   return (
-    <div className="scr05-metric" title={parts[0]?.unavailable ? hint : undefined}>
+    <div className="scr05-metric" title={first && first.value === null ? hint : undefined}>
       <div className="scr05-metric-label">{label}</div>
       <div className="scr05-metric-line">
         {parts.map((p, i) => (
           <span key={i} className="scr05-metric-part">
             {i > 0 ? <span className="scr05-metric-sep"> / </span> : null}
-            <span className="scr05-metric-value" {...provAttrs(p)}>
-              {p.text}
-            </span>
+            <Metric value={p.value} unit={unit} prov={p.prov} src={p.src} />
           </span>
-        ))}
-        {allMissing ? null : <span className="scr05-metric-unit">{unit}</span>}
-        {parts.map((p, i) => (
-          <Chip key={i} p={p} />
         ))}
       </div>
     </div>
   );
+}
+
+/** A tile part: the value when it is a finite number, else missing with the `unavailable:<path>` source. */
+function part(value: number | null | undefined, prov: Provenance, src: string, path: string): TilePart {
+  return isFiniteNumber(value) ? { value, prov, src } : { value: null, prov, src: path };
 }
 
 function metricsOf(state: PlanState, hide: boolean): MetricTileProps[] {
@@ -189,48 +181,29 @@ function metricsOf(state: PlanState, hide: boolean): MetricTileProps[] {
   const hint = "Needs a plan";
   const evaLimitMin = isFiniteNumber(sc?.max_eva_duration_h) ? sc.max_eva_duration_h * 60 : undefined;
   return [
-    {
-      label: "Distance",
-      unit: "km",
-      hint,
-      parts: [numeric(t?.distance_m, (n) => fmtKilometres(n), "derived", SRC_DEM, "result.totals.distance_m")],
-    },
-    {
-      label: "Walk time",
-      unit: "min",
-      hint,
-      parts: [numeric(t?.walk_time_min, fmtInt, "modelled", SRC_WALK_TIME, "result.totals.walk_time_min")],
-    },
+    { label: "Distance", unit: "km", hint, parts: [part(metresToKilometres(t?.distance_m), "derived", SRC_DEM, "result.totals.distance_m")] },
+    { label: "Walk time", unit: "min", hint, parts: [part(t?.walk_time_min, "modelled", SRC_WALK_TIME, "result.totals.walk_time_min")] },
     {
       label: "EVA total",
       unit: "min",
       hint,
       parts: [
-        numeric(t?.eva_total_min, fmtInt, "derived", SRC_WALK_TIME, "result.totals.eva_total_min"),
-        numeric(evaLimitMin, fmtInt, "assumed", "scenario.max_eva_duration_h", "scenario.max_eva_duration_h"),
+        part(t?.eva_total_min, "modelled", SRC_WALK_TIME, "result.totals.eva_total_min"),
+        part(evaLimitMin, "assumed", "scenario.max_eva_duration_h", "scenario.max_eva_duration_h"),
       ],
     },
-    {
-      label: "Max slope",
-      unit: "°",
-      hint,
-      parts: [numeric(t?.max_slope_deg, (n) => fmtFixed(n, 1), "derived", SRC_DEM, "result.totals.max_slope_deg")],
-    },
+    { label: "Max slope", unit: "°", hint, parts: [part(t?.max_slope_deg, "derived", SRC_DEM, "result.totals.max_slope_deg")] },
     {
       label: "Max walkback",
       unit: "km",
       hint,
       parts: [
-        numeric(t?.max_walkback_km, trimmed, "derived", SRC_DEM, "result.totals.max_walkback_km"),
-        numeric(sc?.walkback_limit_km, trimmed, "assumed", "scenario.walkback_limit_km", "scenario.walkback_limit_km"),
+        part(t?.max_walkback_km, "derived", SRC_DEM, "result.totals.max_walkback_km"),
+        part(sc?.walkback_limit_km, "assumed", "scenario.walkback_limit_km", "scenario.walkback_limit_km"),
       ],
     },
-    {
-      label: "Dose",
-      unit: "mSv",
-      hint,
-      parts: [numeric(radiation?.dose_mSv, (n) => fmtFixed(n, 3), "modelled", SRC_DOSE, "result.radiation.dose_mSv")],
-    },
+    { label: "Climb / descent", unit: "m", hint, parts: [part(t?.climb_m, "derived", SRC_DEM, "result.totals.climb_m"), part(t?.descent_m, "derived", SRC_DEM, "result.totals.descent_m")] },
+    { label: "Dose", unit: "mSv", hint, parts: [part(radiation?.dose_mSv, "modelled", SRC_DOSE, "result.radiation.dose_mSv")] },
   ];
 }
 
@@ -292,7 +265,7 @@ function Cell({ p }: { p: Shown }): ReactElement {
 function LegTable({ result }: { result: PlanResult }): ReactElement {
   const keys = useMemo(() => legKeys(result.legs), [result.legs]);
   return (
-    <div className="scr05-details-table-wrap">
+    <div className="scr05-details-table-wrap" role="group" aria-label="Leg details" tabIndex={0}>
       <table className="scr05-details-table">
         <thead>
           <tr>
@@ -311,20 +284,20 @@ function LegTable({ result }: { result: PlanResult }): ReactElement {
             const okLeg = leg.status === "OK" ? leg : null;
             return (
               <tr key={keys[i]}>
-                <td>{i + 1}</td>
-                <td>
+                <td {...provAttrs({ prov: "derived", src: path })}>{i + 1}</td>
+                <td {...provAttrs({ prov: "derived", src: path })}>
                   {leg.from} → {leg.to}
                 </td>
                 <td>
                   {okLeg ? <StatusIcon status="nominal" word="OK" /> : <StatusIcon status="warning" word="NO ROUTE" />}
                 </td>
-                <Cell p={numeric(okLeg?.distance_m, (n) => fmtKilometres(n), "derived", SRC_DEM, `${path}.distance_m`)} />
-                <Cell p={numeric(okLeg?.walk_time_min, fmtInt, "modelled", SRC_WALK_TIME, `${path}.walk_time_min`)} />
-                <Cell p={numeric(okLeg?.max_slope_deg, (n) => fmtFixed(n, 1), "derived", SRC_DEM, `${path}.max_slope_deg`)} />
+                <Cell p={numeric(okLeg?.distance_m, (n) => formatNumber(metresToKilometres(n), "km"), "derived", SRC_DEM, `${path}.distance_m`)} />
+                <Cell p={numeric(okLeg?.walk_time_min, (n) => formatNumber(n, "min"), "modelled", SRC_WALK_TIME, `${path}.walk_time_min`)} />
+                <Cell p={numeric(okLeg?.max_slope_deg, (n) => formatNumber(n, "°"), "derived", SRC_DEM, `${path}.max_slope_deg`)} />
                 <Cell
                   p={
                     okLeg && isFiniteNumber(okLeg.climb_m) && isFiniteNumber(okLeg.descent_m)
-                      ? shown(`+${fmtInt(okLeg.climb_m)} / −${fmtInt(okLeg.descent_m)}`, "derived", SRC_DEM)
+                      ? shown(`+${formatNumber(okLeg.climb_m, "m")} / −${formatNumber(okLeg.descent_m, "m")}`, "derived", SRC_DEM)
                       : missing("derived", `${path}.climb_m`)
                   }
                 />
@@ -333,12 +306,55 @@ function LegTable({ result }: { result: PlanResult }): ReactElement {
           })}
         </tbody>
       </table>
+      <div className="scr05-consumables-note micro">
+        <span>O₂ rate (illustrative): </span>
+        <Metric value={null} prov="modelled" src="compute.o2LitresPerMinute" unit="L/min" />
+      </div>
     </div>
   );
 }
 
+/** Worker samples and warning statuses only; no UI haven threshold (FR-39, FR-42, FD-247). */
+function ProfileBands({ result }: { result: PlanResult }): ReactElement {
+  const patternId = `band-${useId().replace(/:/g, "")}`;
+  const layout = useProfileLayout(result.legs);
+  return <div className="profile-bands" ref={layout.ref}>{(["haven", "comm"] as const).map(kind => {
+    const prov = "modelled";
+    const label = kind === "haven" ? "Haven · modelled (approximation)" : "Comm · line of sight only";
+    const segments = layout.entries.flatMap(({ leg, index: legIndex, start, gap }) => {
+      if (leg.status !== "OK") return [];
+      const values = kind === "haven" ? leg.profile.haven_min : leg.profile.comm;
+      return leg.profile.dist_m.slice(0, -1).flatMap((distance, i) => {
+        const end = leg.profile.dist_m[i + 1]!;
+        if (!isFiniteNumber(distance) || !isFiniteNumber(end) || end < distance) return [];
+        const value = values?.[i];
+        const valid = isFiniteNumber(value) && (kind === "haven" ? value >= 0 : value === 0 || value === 1);
+        const flag = result?.warnings.find(w => w.code === "HAVEN_TIME_EXCEEDED" && w.leg === legIndex && isFiniteNumber(w.from_m) && isFiniteNumber(w.to_m) && w.from_m < end && w.to_m > distance);
+        const status: "neutral" | "nominal" | keyof typeof STATUS_PATTERN = !valid ? "unknown" : kind === "comm" ? value === 0 ? "caution" : "nominal" : flag ? flag.severity === "blocked" ? "warning" : flag.severity : "neutral";
+        const word = !valid ? "? — Not supplied" : kind === "comm" ? value === 0 ? "▲ NO SIGNAL" : "○ SIGNAL" : `${status === "caution" ? "▲" : status === "warning" ? "⬣" : "○"} ${formatNumber(value, "min")} min · ${flag ? "over haven rule (worker warning)" : "not classified"}`;
+        const sourced = valid ? { prov, src: `result.legs[${legIndex}].profile.${kind === "haven" ? "haven_min" : "comm"}` } as const : unavailableOf(prov, `result.legs[${legIndex}].profile.${kind}`);
+        return [{ key: `${legIndex}:${i}`, legIndex, distance, end, status, word, sourced, x: layout.x(start + distance, gap), width: Math.max(0, layout.x(start + end, gap) - layout.x(start + distance, gap)) }];
+      });
+    });
+    return <div key={kind} className="profile-band" data-band={kind}>
+      <div className="profile-band-track"><span className="profile-band-label">{label}</span>
+        {segments.length ? <svg viewBox={`0 0 ${layout.width} 24`} role="img" aria-label={label} preserveAspectRatio="xMinYMid meet">
+          <g dangerouslySetInnerHTML={{ __html: svgPatternDefs("var(--surface-0)").replaceAll("pattern-", `${patternId}-${kind}-`) }} />
+          {segments.map(segment => <g key={segment.key}>
+            <rect data-band-status={segment.status} x={segment.x} y={6} width={segment.width} height={12} fill={segment.status === "neutral" ? "var(--fg-2)" : `var(--${segment.status})`} stroke="var(--surface-0)" strokeDasharray={segment.status === "unknown" ? "2 2" : undefined} {...provAttrs(segment.sourced)}>
+              <title {...provAttrs(segment.sourced)}>{segment.word}</title>
+            </rect>
+            {segment.status !== "neutral" && segment.status !== "nominal" ? <rect x={segment.x} y={6} width={segment.width} height={12} fill={`url(#${patternId}-${kind}-${STATUS_PATTERN[segment.status]})`} aria-hidden="true" pointerEvents="none" /> : null}
+          </g>)}
+        </svg> : <span {...provAttrs(unavailableOf(prov, `result.legs.profile.${kind}`))}>— {kind === "haven" ? "Haven samples" : "Comm samples"} not supplied by worker</span>}
+      </div>
+      {segments.length ? <ul className="profile-band-summary" data-band-summary tabIndex={0} aria-label={`${label} segment values`}>{segments.map(segment => <li key={segment.key} {...provAttrs(segment.sourced)}>Leg {segment.legIndex + 1} · {formatNumber(segment.distance, "m")}–{formatNumber(segment.end, "m")} m · {segment.word}</li>)}</ul> : null}
+    </div>;
+  })}<div className="profile-caption">○ SIGNAL / ▲ NO SIGNAL · Haven status from worker warnings; unflagged samples are neutral</div></div>;
+}
+
 /** SCR-05 Route Results (React, ADR-012). */
-export function RouteResults({ planStore, mapHandle, className = "" }: RouteResultsProps): ReactElement {
+export function RouteResults({ planStore, mapHandle, className = "", site }: RouteResultsProps): ReactElement {
   const subscribe = useCallback((onChange: () => void) => planStore.subscribe(() => onChange()), [planStore]);
   const read = useCallback(() => planStore.get(), [planStore]);
   const state = useSyncExternalStore(subscribe, read, read);
@@ -363,14 +379,14 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
       return undefined;
     }
     try {
-      const unlink = linkProfileToMap(mapHandle, element);
+      const unlink = linkProfileToMap(mapHandle, element, planStore);
       setLinkError(null);
       return unlink;
     } catch (err) {
       setLinkError(err instanceof Error ? err.message : String(err));
       return undefined;
     }
-  }, [mapHandle, hasResult, collapsed]);
+  }, [mapHandle, hasResult, collapsed, result, planStore]);
 
   const getLegExtent = useCallback(
     (leg: number, from_m: number, to_m: number) => (result ? legStretchExtent(result.legs, leg, from_m, to_m) : null),
@@ -391,7 +407,7 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
         {announcementOf(state, banner)}
       </div>
 
-      <div className="scr05-status-strip">
+      <div className="scr05-status-strip" data-results-banner {...provAttrs({ prov: "derived", src: "result.status" })}>
         <div className="scr05-banner-status">
           <StatusIcon status={banner.status} word={banner.word} />
           <span className="scr05-banner-reason">{banner.reason}</span>
@@ -426,8 +442,8 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
 
       {collapsed ? null : (
         <div className="scr05-body">
-          <div className="scr05-middle-col">
-            <div className="scr05-metrics-row" data-totals-hidden={hideTotals} style={{ opacity: computing ? 0.5 : 1 }}>
+          <div className="scr05-middle-col" role="group" aria-label="Route profile and bands" tabIndex={0}>
+            <div className="scr05-metrics-row" role="group" aria-label="Route metrics" tabIndex={0} data-totals-hidden={hideTotals} style={{ opacity: computing ? 0.5 : 1 }}>
               {metrics.map((m) => (
                 <MetricTile key={m.label} {...m} />
               ))}
@@ -436,7 +452,7 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
             <div className="scr05-profile-container" ref={profileRef}>
               {hasResult && result ? (
                 <Isolated label="Profile" resetKey={result}>
-                  <ProfileChart result={result} />
+                  <ProfileChart result={result} hover={state.hover} />
                 </Isolated>
               ) : (
                 <div className="scr05-placeholder">{empty ? "Profile appears after stops are added" : "Profile loading…"}</div>
@@ -447,12 +463,13 @@ export function RouteResults({ planStore, mapHandle, className = "" }: RouteResu
                 </div>
               ) : null}
             </div>
+            {hasResult && result ? <Isolated label="Profile bands" resetKey={result}><ProfileBands result={result} /></Isolated> : null}
           </div>
 
-          <div className="scr05-right-col">
+          <div className="scr05-right-col" role="region" aria-label="Route warnings" tabIndex={0}>
             <div className="scr05-warnings-header">Warnings</div>
             <Isolated label="Warnings" resetKey={warnings}>
-              <WarningsList warnings={warnings} mapHandle={mapHandle} getLegExtent={getLegExtent} />
+              <WarningsList warnings={warnings} mapHandle={mapHandle} getLegExtent={getLegExtent} site={site} />
             </Isolated>
           </div>
         </div>

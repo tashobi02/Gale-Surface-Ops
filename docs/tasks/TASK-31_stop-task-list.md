@@ -97,7 +97,7 @@
 - **Parallel with:** T31.07
 - **Steps:**
   1. Turn the existing `it.todo` cases into tests (permissions, validation, events, seeding, DROPPED on revision, auto-complete at dwell end, determinism, report counts).
-  2. Leave the cases tied to open decisions (U-46, U-52, U-56, undo) as `it.todo` with their `TODO(decision)` until decided.
+  2. Leave the cases tied to open decisions (U-46, U-52, U-56, undo) as `it.todo` until decided (BD-05, BD-59: now real tests).
 - **Acceptance:**
   - Serves: FR-50, NFR-06 · [01 FR-50](../specs/01_Product_Requirements_Document.md#fr-50--stop-task-list-on-the-eva-tablet-synced-to-ops-t1-m)
   - Every FR-50 acceptance criterion has at least one test.
@@ -258,3 +258,4 @@ flowchart LR
 
 1. **U-46** ops adding tasks during an alert; **U-52** per-crew task model; **U-56** current-stop tasks on abort; **U-58** who writes the text and where (this plan proposes `stop_tasks.json`, copied into `scenario.json`).
 2. **Undo.** *Decided 11 Nov 2026 by the product & systems lead (spec change #202, Proposed):* the undo is server-side, `UPDATE_STOP_TASK` with state `TODO` and `undo: true` (01 FR-50 Undo, 02 §E.6, 05 StopTask). Tests: T31.03 (`stopTasks.test.ts`).
+3. **Skip reason** (U-55). *Decided: FD-028 and FD-262 (12 Nov 2026, Proposed); built in the browser round of 12 Nov (package 17)* — one tap on SKIP records `other` and the 5-s undo strip holds one REASON control cycling time, terrain, alert, other. The revision is a second `UPDATE_STOP_TASK {state: "SKIPPED", reason}` on the same task, so the Hab Core must accept `SKIPPED → SKIPPED`: until it does, the command is refused and the refusal is shown (need N-29; the harness check stays `test.fixme('needs N-29')`).

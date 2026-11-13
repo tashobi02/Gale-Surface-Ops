@@ -8,8 +8,15 @@
  * - cell_m, width, height, and origin_m are parameters; 5 m cell size is never hardcoded.
  */
 
-import { FLAG_BITS, type RoutingGrid } from "@marswalk/protocol";
+import { FLAG_BITS, type LoadedGridMeta } from "@marswalk/protocol";
 import type { LoadedGrid } from "@marswalk/compute";
+
+/**
+ * Working projection of the synthetic grids: the byte-identical `crs.proj4` of `data/sites/mock_site/site-manifest.json`
+ * (05 §E.3; BD-45). A fixture value, not a Gale value (the real site centres on lat -4.81).
+ */
+export const FIXTURE_PROJ4 =
+  "+proj=eqc +lat_ts=-4.70 +lat_0=-4.70 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs";
 
 /** u8 representation of no-data (05 §C Asset / RoutingGrid). */
 export const U8_NODATA = 255;
@@ -70,7 +77,7 @@ export interface HazardWallGridOptions extends SyntheticGridOptions {
   gap_row?: number;
 }
 
-function createMeta(options: SyntheticGridOptions): RoutingGrid {
+function createMeta(options: SyntheticGridOptions): LoadedGridMeta {
   const origin_m: [number, number] = options.origin_m ?? [0, 0];
   const hab_mast = options.hab_mast ?? {
     x_m: origin_m[0],
@@ -78,7 +85,7 @@ function createMeta(options: SyntheticGridOptions): RoutingGrid {
     height_m: 10.0,
   };
 
-  const meta: RoutingGrid = {
+  const meta: LoadedGridMeta = {
     cell_m: options.cell_m,
     width: options.width,
     height: options.height,
@@ -90,6 +97,7 @@ function createMeta(options: SyntheticGridOptions): RoutingGrid {
     flags_asset: "asset-synthetic-flags-u8",
     comm_hab_asset: "asset-synthetic-comm-hab-u8",
     hab_mast,
+    proj4: FIXTURE_PROJ4,
   };
 
   if (options.includeTi !== false) {
@@ -278,7 +286,7 @@ export function withoutTi(grid: LoadedGrid): LoadedGrid {
   const { ti_asset: _a, ti_cell_m: _c, ...restMeta } = grid.meta;
   return {
     ...grid,
-    meta: restMeta as RoutingGrid,
+    meta: restMeta as LoadedGridMeta,
     ti: undefined,
   };
 }

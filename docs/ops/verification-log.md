@@ -497,8 +497,7 @@ The measurements above are preserved as recorded. They establish a baseline on t
 
 - The "T05.28 acceptance: PASS" and "NFR-02 benchmark: PASS" lines in the Verdict above are superseded for acceptance purposes. T05.28 stays `wip` in [status.md](../tasks/status.md): the `gale_boxwork` bundle and the ten F5 cell records were not available, and no real-grid benchmark exists.
 - [ADR-002](../decisions/ADR-002-static-app-no-backend.md) cites different figures (1.22/8.79 ms, 10.19 ms) that do not appear in this section. See its 2026-11-09 reconciliation note; its decision is preserved.
-- TODO(verify): Obtain the gale_boxwork bundle and ten independent F5 cell records, resolve the F5 slope-raster choice with T03.21, and record real-grid pair timings plus repeated successful three-stop-loop p95 with machine, runtime and data_version. Mock-site and single-run timings do not establish this acceptance.
-- TODO(verify): Locate the run cited by ADR-002. TODO(decision): The compute lead must review the reconciled real-grid evidence and D-02 sign-off; preserve the existing ADR decision during this repair.
+- The real-grid measurement, the F5 comparison and the review of the ADR-002 evidence were done on 13 Nov 2026 (backend package 24); see the section [T05.28, T05b.05, T05b.20 — real-grid benchmarks and independent checks](#t0528-t05b05-t05b20--real-grid-benchmarks-and-independent-checks-backend-package-24). The cited ADR-002 run was not found and is superseded by that section.
 
 ## Corrections 2026-11-11 (audit)
 
@@ -508,3 +507,498 @@ An independent audit on 11 Nov checked the T13 entries above against the files o
 - **T13.04, "no text renders below 12 px".** False: `.code` and `.module-label` in `tokens.css` are set to 11 px. The "Verified against 04 §C.2" line is also contradicted by the headings: h1 is 20 px/600, not uppercase, and its Chakra Petch is declared but not self-hosted; h2/h3 are Inter 16 px/600 (04 v2 §C.2 specifies Chakra Petch 20–28 px/500 uppercase), where 04 v2 §C.2 specifies Chakra Petch 20–28 px at 500 uppercase. "Verified offline, zero external requests" cites a build and `@font-face` rules but no recorded network trace.
 - **T13.05, "Done" / "Print preview Pass" / "100 % compliant".** Not supported. No print preview or B&W print output was produced or recorded; the `@media print` rules were only read. "100 %" is not a measured quantity (the only automated check is five jsdom tests in `statusIcon.test.ts`). The print colours `#F3F4F6`, `#D1D5DB` and `#4B5563` that the print theme uses are not defined in 04 §C.1 (`TODO(decision)` in `tokens.css`).
 - **T13.06, "implemented and verified".** Not supported. `attachKeyboardControls` in `keyboard.ts` is imported only by its own test; SCR-02 (`MapWorkspace`) still throws "not implemented", so the shortcuts cannot be exercised in the app and no manual keyboard check was possible. At that date there were no unit tests either; #167 added 10 in `keyboard.test.ts`, which cover the module in isolation only.
+
+## T13.03 — Wireframe evidence for SCR-02 and SCR-08
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 03, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-12 |
+| **Status** | Done: the wireframes are the prototype frames of the mockup, not paper sketches (FD-154, Proposed) |
+| **Inputs** | [Mockup handoff, Screen inventory](../design/mockup-handoff.md#screen-inventory): `#scr-02-idle` (SCR-02 map workspace, idle) and `#scr-08-ok` (SCR-08 briefing card, OK plan) |
+
+The prototype frames show every element 04 §B and §F name for both screens and have no person in the images (06 TASK-17 media rule). `docs/design/wireframes/` is not created. Open layout questions are the Unresolved items of the mockup handoff, decided by FD rows (see `docs/plan/frontend/decisions.md`).
+
+## T02.04 — Scale line against the view resolution, every tile-grid level
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 04, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-12 |
+| **Status** | Partly done: the resolution check passes on F4; the reference-crater check waits for the real bundle (T03.19), so T02.04 stays `wip` |
+| **Inputs** | F4 `mock_site` (five levels, 32 to 2 m/px); `make e2e-one CHECK=scale-bar` and `CHECK=tiles-all-levels` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| `tiles-all-levels` | Pass | All five levels of `slope` and `elevation` load with HTTP 200 and paint a non-empty canvas |
+| `scale-bar`, resolution | Pass | At each level the scale line's metres per pixel equals the view resolution within 1 % |
+| `scale-bar`, reference crater (38.87 m, [dem-quality.md](feasibility/dem-quality.md#reference-feature)) | Not run | `test.fixme`: needs the `gale_boxwork` bundle (T03.19) and the rim endpoints converted to site coordinates |
+
+## T03.19 — Real-site bundle v1 built from the locked inputs; served offline
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 23, run by Claude Code (Sonnet 5.5) for the orchestrator |
+| **Date** | 2026-11-13 |
+| **Status** | Done: `gale_boxwork-2026.11.09` built, `make validate SITE=gale_boxwork` exits 0, 80,030,936 bytes against the 250 × 10⁶ budget (NFR-09, BD-111), every file served from `localhost` |
+| **Inputs** | `pipeline/sources.lock.json` (26 inputs, verified by `acquire --offline`); GDAL 3.13.3, rasterio 1.5.2, NumPy from the `marswalk-pipeline` environment; inputs and scratch on the data SSD (BD-139) |
+
+Command (no `--skip-unstyled-optional`; `--work` holds links to the locked inputs, so its `runs/` scratch is new):
+
+```text
+python -m marswalk_pipeline gale_boxwork --work <SSD>/build23/work --traverse <SSD>/work/traverse/localized_interp.csv --offline
+```
+
+| Step | Seconds |
+| --- | --- |
+| acquire (offline verification of 26 files) | 6.6 |
+| clip_reproject (DEM, ortho 0.5 m, TI) | 32.3 |
+| derive (slope, hillshade, 5 m block means) | 30.6 |
+| flags, grid | 0.1 |
+| comm_grid (two candidates) | 56.8 |
+| tiles (seven layers, 3,574 files) | 190.1 |
+| vectors, manifest, validate | 0.8 |
+| **Wall time** | **317** (5 min 17 s) |
+
+| Part | Bytes |
+| --- | --- |
+| `tiles/` (3,574 files; `du` block sizes on the SSD overstate it) | 59,287,936 |
+| `grid/` | 12,974,400 |
+| `vectors/` | 5,626,334 |
+| `images/` | 2,099,801 |
+| manifest and README | 42,465 |
+| **Total (sum of file sizes, links followed)** | **80,030,936** (32 % of the budget) |
+
+**Display layers (BD-17):** all seven are built. The legend stops are the 2nd and 98th percentile of the valid cells, written by the tiles step into the layer records: elevation −4115.8 m to −3107.6 m, thermal inertia 281 tiu to 488 tiu. Hazard-flag tiles and `comm_hab` tiles use the encodings of C9 v1.2 (BD-136). Ortho pixels outside the source mask or the AOI are the map background `#0B0D10` (BD-18, BD-138).
+
+**Validator (BD-21, BD-140):** `make validate SITE=gale_boxwork` exit 0. The default start (9.75° p90) and both candidate masts (9.75°, 8.0°) pass at the schema default of 15°. 47.8 % of all cells are above that default, and four of the five POIs sit on 22.25° to 24.5° cells (the rover's recorded positions), so POIs are judged against the schema maximum (BD-140; spec-change in 05 §E.3).
+
+**Offline serving.** `make hab` needs `scenarios/storm-sol4190/scenario.json`, which package 25 writes, so the Hab Core was started on the same code path without a scenario (`tsx src/cli.ts start --site gale_boxwork --port 8091`, "no session"); the static route is the same one. Requests to `http://127.0.0.1:8091/sites/gale_boxwork/…`, all through the SSD links:
+
+| Path | HTTP | Bytes |
+| --- | --- | --- |
+| `site-manifest.json` | 200 | 41,048 |
+| `tiles/ortho/5/23/23.jpg` | 200 | 11,635 |
+| `tiles/elevation/4/10/10.png` | 200 | 6,967 |
+| `tiles/hillshade/index.json` | 200 | 28,198 |
+| `grid/comm_hab.u8` | 200 | 1,440,000 |
+| `grid/comm_hab-alternative.u8` | 200 | 1,440,000 |
+| `images/poi-sulfate-contact.jpg` | 200 | 557,503 |
+| `vectors/pois.geojson` | 200 | 13,231 |
+
+After the server was stopped the same URL gave no answer. `git status --porcelain` lists no tile, grid or image file (the three folders are links to the SSD and git-ignored); committed: the manifest, `vectors/` and the lock.
+
+**Not done, and notes.** The POI images are copied from the locked files and registered as `jpg` assets (their digests equal the lock's). The manifest has no traverse offset (BD-137). F5 is T03.21's, the clean rebuild T03.22's. With the bundle present, `packages/compute/tests/realGrid.test.ts` is no longer skipped; its 20-pair benchmark needed 6.2 s against vitest's 5 s default, so that one test got an explicit 60 s timeout (assertions unchanged); package 24 owns the rest of that file.
+
+## T03.21 — F5: ten real routing-grid cells
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 23, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: [real-grid-cells.json](../../pipeline/tests/fixtures/real-grid-cells.json) (seed 4190, the scenario seed of 05 §F), generated twice with identical bytes |
+| **Inputs** | `grid/elevation.f32`, `grid/slope_p90.u8` of the bundle above |
+
+`pipeline/tests/fixtures/make_real_grid_cells.py` draws 10 cells with `numpy.random.default_rng(4190).choice` from the cells that have a finite elevation and a slope code below 255, reads both arrays at the 05 §E.1 addresses and writes `x_m`, `y_m`, indices, values and the `data_version`. [test_real_grid_cells.py](../../pipeline/tests/test_real_grid_cells.py) checks the rule, the values against the arrays, byte-for-byte regeneration and the `data_version`. The README in `pipeline/tests/fixtures/` states the source and the 0.25° quantisation (BD-54). The frontend lane reads the file from `pipeline/tests/fixtures/`.
+
+## T03.22 — Clean rebuild reproduces every asset
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 23, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: a rebuild from a fresh `git clone` gave an identical manifest and 3,574 byte-identical tile files; no asset needed a decoded-pixel comparison (BD-33) |
+| **Inputs** | `git clone --no-hardlinks` of the committed tree into `<SSD>/rebuild/clone`; the same command as above with `--work <SSD>/rebuild/work` (new scratch) and `--out <SSD>/rebuild/out`; the same environment (tool versions are the lock's) |
+
+Wall time 326 s (tiles 196.9 s). Results: `site-manifest.json` is byte-identical to the committed one (`cmp`); all 21 asset SHA-256 values are equal; every one of the 3,574 tile files in `rebuild/out/tiles/` is byte-identical to the bundle's (`filecmp`, no shallow compare); the layer records the build rewrites (ramp stops) are byte-identical to the committed ones, so the clone stayed clean. The encoders are deterministic here (GDAL PNG and JPEG writers, NumPy 2.5, one thread), so the fallback of BD-33 was not needed. The sources were not re-downloaded: the clone's `acquire --offline` verified the locked SHA-256 of the SSD copies, which equal the lock (BD-134). `make test` in the SSD environment runs the real-bundle tests (no longer skipped): pytest 386 passed, 3 skipped; Vitest 735 (compute), 1213 (hab-core) and 1476 (web) passed. Two earlier `make test` runs hit a load-dependent timeout in `apps/hab-core/tests/server.test.ts` (load average 15 from other jobs; the file passes alone, 48 of 48), the third run was green.
+
+## T03.35 — Both hab candidates: validator and `gdal_viewshed`
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 23, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: the validator passes with both candidates; the alternative matches `gdal_viewshed` at 5 of 5 points and 99.815 % of the grid; the first choice reproduces T03.30 (4 of 5, 98.911 %) |
+| **Inputs** | the bundle's `grid/elevation.f32` written as one GeoTIFF read by both tools; `grid/comm_hab.u8`, `grid/comm_hab-alternative.u8`; mast 10 m, suit antenna 2 m from the ParamSets; `gdal_viewshed -cc 1.0 -vv 255 -iv 0 -ov 0 -a_nodata 254`; `pipeline/tests/fixtures/check_viewshed.py`, run by `test_comm_viewshed_real.py` |
+
+Points: the AOI centre and the centres of the four quadrants, snapped to cells (BD-139, the T03.30 rule). `comm_hab` 1 = line of sight; `gdal_viewshed` 255 = visible.
+
+| Candidate | Point | Row, col | x_m, y_m | `comm_hab` | `gdal_viewshed` | Match |
+| --- | --- | --- | --- | --- | --- | --- |
+| hab-first (1037, −1652) | AOI centre | 600, 600 | 2.5, −2.5 | 0 | 255 | no |
+| | NE quadrant | 300, 900 | 1502.5, 1497.5 | 0 | 0 | yes |
+| | NW quadrant | 300, 300 | −1497.5, 1497.5 | 0 | 0 | yes |
+| | SE quadrant | 900, 900 | 1502.5, −1502.5 | 0 | 0 | yes |
+| | SW quadrant | 900, 300 | −1497.5, −1502.5 | 0 | 0 | yes |
+| hab-alternative (439, −652) | AOI centre | 600, 600 | 2.5, −2.5 | 1 | 255 | yes |
+| | NE quadrant | 300, 900 | 1502.5, 1497.5 | 0 | 0 | yes |
+| | NW quadrant | 300, 300 | −1497.5, 1497.5 | 0 | 0 | yes |
+| | SE quadrant | 900, 900 | 1502.5, −1502.5 | 0 | 0 | yes |
+| | SW quadrant | 900, 300 | −1497.5, −1502.5 | 0 | 0 | yes |
+
+| Candidate | Agreement over the grid | `comm_hab` visible | `gdal_viewshed` visible |
+| --- | --- | --- | --- |
+| hab-first | 98.911 % | 5.962 % | 6.504 % |
+| hab-alternative | 99.815 % | 5.222 % | 5.346 % |
+
+The first choice's numbers equal T03.30's to the third decimal, which shows the pipeline's grid is the same block mean T03.30 used. Its one mismatch is the T03.30 one (point 1, a one-cell crest that `comm_hab` counts at full height and GDAL interpolates; `comm_hab` never shows what GDAL hides). The alternative has no mismatch at the five points; its grid is slightly conservative (5.222 % against 5.346 %). The validator accepts the manifest with both candidates (rank 1 matches `default_start`, `grid.comm_hab_asset` and `grid.hab_mast`; both masts and starts are inside the AOI on cells of at most 15°).
+
+## T04.08 — Traverse checks on the packaged vectors (BD-16)
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 23, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done as the automated replacement of BD-16; the offset against rover tracks in the ortho was **not measured** in this build |
+| **Inputs** | `data/sites/gale_boxwork/vectors/traverse.geojson`, `pois.geojson`; [test_traverse_checks.py](../../pipeline/tests/test_traverse_checks.py) |
+
+12,255 points, 375 distinct sols (3549 to 4868). Every point is inside `aoi.extent_m` widened by U-04's 100 m margin (x −52.17 to 1738.61 m, y −252.94 to 3099.69 m); sols never decrease along the track; each POI lies 0.000 m from the traverse point of the PLACES sol its `position_source` names (the last row before the image sol for three of five), against a limit of 0.5 m plus one 5 m cell. The traverse layer's `limitations` states the PLACES accuracy (0.5 m, SIS 1.3 Rev-A §4.4.1.2) and that the ortho offset was not measured (BD-137). The DEM-to-ortho offset is the separate T03.20 record (1.92 m).
+
+## T05.28, T05b.05, T05b.20 — real-grid benchmarks and independent checks (backend package 24)
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 24, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: every figure below is from the real `gale_boxwork-2026.11.09` bundle |
+| **Machine (BD-03)** | Apple M2, 8 cores, 8 GiB RAM, macOS 15.7.2 (darwin 24.6.0), Node v24.5.0; the Vitest runs and `npx tsx` runs are Node, not the browser worker |
+| **Inputs** | `data/sites/gale_boxwork/` (grid via the SSD symlinks), F5 [real-grid-cells.json](../../pipeline/tests/fixtures/real-grid-cells.json), [realGrid.test.ts](../../packages/compute/tests/realGrid.test.ts), [realGridVerify.test.ts](../../packages/compute/tests/realGridVerify.test.ts), [real.ts](../../packages/compute/bench/real.ts), [gdal_viewshed_reference.py](../../pipeline/tests/fixtures/gdal_viewshed_reference.py) |
+
+**T05.28 (FR-03, FR-07, NFR-02).** The ten F5 cells equal the decoded grid: elevation to the float32 bit, slope P90 to the u8 step. 20 seeded pairs (Mulberry32, seed 20261108): 14 routes, 6 no-route, no crash; min 0, p50 63, p95 1,081, max 1,081 ms. The no-route answers are random points on cells over the slope limit (47.8 % of cells, BD-140). 3-stop loop through the handler: runs 13, 14, 13, 12, 11 ms after one warm-up, p95 14 ms. p95 of the pairs is at most 2 s, so T05.31 does not run.
+
+**T05b.05 (FR-39, NFR-02), `npx tsx packages/compute/bench/haven.bench.ts --real`.** `habTimeField` from the rank-1 hab mast (1037, -1652), cold (fresh grid per run), 1 warm-up + 5 runs: min 52, median 53, max 57 ms (54 53 52 52 57); the field reaches 169,064 of 1,440,000 cells. `crewTimeField` (30 min bound): 30 to 35 ms. `vehicleTimeField`: 29 to 40 ms. Synthetic all-passable terrain of the same size (`npm --workspace @marswalk/compute run bench -- haven`): worst cold run 407 ms. Worst real run 57 ms against 2,000 ms: **GO**; T05b.21 does not run.
+
+**T05b.20 (FR-39, FR-40, FR-42), `realGridVerify.test.ts`.** On a 200 x 200 crop around the rank-1 hab: `habTimeField` and `crewTimeField` equal an independent heap Dijkstra written from 02 §D.2 at every cell (relative 1e-9); `rendezvous` equals the brute-force candidate sort (same cell, same two arrival times). Mutation checks: changing the caution multiplier fails both field tests (19,411 and 16,891 cells differ), replacing max(Tc, Tv) by Tc + Tv fails the rendezvous test. Viewshed against `gdal_viewshed` (`-cc 1.0`, `-md 4000`, the T03.30 method) at the AOI centre and the four quadrant centres, 160,000 cells each: agreement 99.75, 99.83, 99.73, 99.54 and 99.77 %; compute-only visible cells 0.02 to 0.08 %. Mutation check: raising every terrain sample by 3 m drops the AOI centre to 96.03 % and fails the test.
+
+**Viewshed time (NFR-02, 02 §D.11, BD-61), `npx tsx packages/compute/bench/viewshed.bench.ts --real`.** One 4 km / 20 m viewshed, 1 warm-up + 5 runs per viewpoint: hab-first mast 94 to 103 ms, AOI centre 134 to 154, NE 80 to 122, NW 74 to 75, SE 75 to 83, SW 75 to 76 ms. Worst 154 ms against 1,000 ms: **GO on the real grid**. The synthetic bench (`... run bench -- viewshed`) misses: flat, everything visible, 4,381 to 4,704 ms; rough 447 to 465 ms. The flat case has 125,676 visible cells, 24 times the real worst case (10,363); Gale has no such terrain. Decision BD-141: the real-grid result counts; the algorithm is not changed.
+
+**T05b.01 (BD-63).** `contracts.test.ts` is green (47 passed with `realGrid.test.ts`); the contracts are accepted as implemented.
+
+## T21.06, T21.08, T21.11, T21.12, T22.13, T31.02, T32.32 — the real scenario (backend package 25)
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 25, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: `make replay` and `make hab` run on `scenarios/storm-sol4190` on the real `gale_boxwork-2026.11.09` bundle |
+| **Machine (BD-03)** | Apple M2, 8 cores, 8 GiB RAM, macOS 15.7.2 (darwin 24.6.0), Node v24.5.0 |
+| **Inputs** | [build-demo-plan.ts](../../apps/hab-core/scripts/build-demo-plan.ts), [plan.json](../../scenarios/storm-sol4190/plan.json), [scenario_build.py](../../pipeline/src/marswalk_pipeline/scenario_build.py), [scenario.json](../../scenarios/storm-sol4190/scenario.json), [storm-excerpt](../../apps/hab-core/tests/fixtures/storm-excerpt/README.md) |
+
+**T21.12 (plan).** `npm --workspace @marswalk/hab-core run build-demo-plan`, run twice: `plan_hash` d9919915db7e both times, file bytes equal. The three demo stops as `demoPlan.json` has them; hard slope limit **24°** where the file says 15° (BD-142: the smallest whole-degree limit at which every leg routes; four of the five POIs sit on 22.25° to 24.5° cells). Legs 59.0, 10.2, 5.7 and 79.9 min (2,389, 326, 243 and 2,319 m), status OK, total EVA 214.9 min against 360 min allowed, margin 145.1 min, max slope 24°, max walk-back 2.64 km. `eva_start_utc` **2024-05-20T04:11:00Z** by the T21.15 stop-2 dwell rule (the alert sample is 05:50:32Z), inside daylight (sunrise 00:22:19Z, sunset 13:01:00Z).
+
+**T21.08 / T32.32 (scenario).** `$(make -s pipeline-python) -m marswalk_pipeline.scenario_build`: prints the rule "last sample below `rad_clear_k` x `background_rate` before the first alert sample" and **`series_start_utc` 2024-05-20T05:16:55Z** (BD-143; the BD-98 form "at or below `background_rate`" would give 2024-05-19T19:45:15Z, before the sim clock starts). The press at that time is 65 min into the EVA and 33.6 min before the alert. `start_utc` = the plan's start; hab candidate `hab-first` (BD-10); crew EV1 and EV2; vehicles PR1 and UR1 at the hab mast (1037, -1652); 30 library inputs (29 DONKI records from the press to the end of the series, offsets from `series_start_utc`, plus one simulated Earth message answering the first, the 05:36 CME record, at its offset 1,145 s); no `events` (no DONKI record between the start and the press); 10 library tasks. Validates against `schemas/scenario.schema.json`; the Hab Core loader accepts it (`scenarioReal.test.ts`). sha256 of `scenario.json` f05e531353139ebec39cc894f2ec44371fbeb0512610ab54d71e90bc7e87ffb1; two builds give the same bytes. The Vitest check recomputes the first alert sample (05:50:32Z) and `series_start_utc` with compute `triggerState`.
+
+**T22.13 (`make replay`, `make hab`).** `make replay` on the real scenario, twice: **log_hash a347721a13ae7be8167a33ce9c3c364e501a35b11629fe6095babe2e8806c66c** both times, 40 to 41 s each. This hash is **new** because it is the first reference replay of the real scenario: every earlier hash is the fake scenario's (pinned by `cli.test.ts` and `logHash.test.ts`, unchanged). Before the haven memo (BD-145) the same replay did not finish in 5 minutes (profile: 28 of 33 s in `dijkstra` for 600 s of sim time). `make hab` (on port 18099 here) answers `/api/health` with `data_version gale_boxwork-2026.11.09` and `session_id s-0001`, and `/api/session` with the `storm-sol4190` snapshot.
+
+**T21.06 (RAD re-read, BD-25).** `test_rad.py::test_reread_of_the_raw_archive_recomputes_sol_4190_coverage_and_the_product_id` recomputes from the raw files: D8 88 samples with sol 4190.000 to 4190.989, SPDF L2 142 records on 20 May 2024, PDS `PRODUCT_ID` RAD_RDR_2024_140_18_30_4190_V00; each equals the number parsed out of `rad-series.md`. The step-hold boundary is left-closed in both languages (`test_rad.py` and `rateAtBoundary.test.ts` on every real sample instant); the Python mutation (right-hold) fails the test.
+
+**T21.11 (excerpt).** `make_storm_excerpt.py`: the 05 UTC hour holding `series_start_utc`: 4 dose samples, 60 Earth-link rows, byte-identical on re-run (`test_storm_excerpt.py`).
+
+**T31.02.** The agent-drafted task text is approved (BD-06) and carried through: 10 `stop_tasks`, 10 `task_library` entries keyed by POI id (`test_scenario_build.py`).
+
+**Red counts.** `buildDemoPlan.test.ts` 0 of 21 ran (module missing), then 21 green; `test_scenario_build.py` collection error, then 25 green; `test_storm_excerpt.py` 4 failed 1 passed, then 5 green; `havenTick.test.ts` 3 red then green; `test_rad.py` / `test_donki.py` additions passed at once and were mutation-checked (right-hold integral fails the boundary test); `scenarioReal.test.ts` and `rateAtBoundary.test.ts` passed at once on committed data. Mutations of `build-demo-plan.ts` (limit step 2, hash 11 hex, placeholder start) and `scenario_build.py` (BD-98 form, offsets from the start, wrong `answers`) each fail a test; the "every leg OK" variant of the NO_ROUTE check is an equivalent mutant (a leg is OK or NO_ROUTE).
+
+## T21.15, T21.09, T21.10, T32.18 — demo numbers, the reference list and the recording (backend package 26)
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 26, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: 01 §E.1 holds only values of the reference run or of the committed tables, and the run and its recording are reproducible |
+| **Machine (BD-03)** | Apple M2, 8 cores, 8 GiB RAM, macOS 15.7.2 (darwin 24.6.0), Node v24.5.0 |
+| **Inputs** | [reference_commands.json](../../scenarios/storm-sol4190/reference_commands.json), [recording.json](../../scenarios/storm-sol4190/recording.json), [demo-numbers.ts](../../apps/hab-core/scripts/demo-numbers.ts), [relay-target.ts](../../apps/hab-core/scripts/relay-target.ts), [referenceCommands.test.ts](../../apps/hab-core/tests/referenceCommands.test.ts), the real `gale_boxwork-2026.11.09` bundle |
+
+**T21.15 (part b).** `demoNumbers.test.ts` has 59 tests and no skip: the plan-dependent tests always run (plan.json is committed). The hab position now comes from the manifest, as BD-107 says: the rank-1 candidate's `hab_mast` through `inverseEqc` gives lat -4.837870239225606, lon 137.39755664754512, equal to the stored pair to 9 decimals (a test). Only the hab source lines of `demoNumbers.alert.snap` changed; sunrise, sunset, LTST, X and Y are the same. `nextPassStart` was already in use.
+
+**T32.18 (reference list).** `make replay COMMANDS=scenarios/storm-sol4190/reference_commands.json` run five times (twice by hand, three inside `make record` runs) prints log_hash **5fdf8ec1e67958e508b88c97bbe55fb0c8ec1d6800ea6bfc2bfd9988c779afda** every time, 40 s each. The default course (`make replay`, no list) still prints a347721a13ae7be8167a33ce9c3c364e501a35b11629fe6095babe2e8806c66c: the haven memo change of BD-146 did not move it. Every `sim_time` of the list is a line of the run's log, cited in its `$comment` and checked by the test. 80 log events; the order alert (seq 45), options (46), rover dispatched (48), rover arrived (75), crew sheltered (76–77), EVA ended (80) is that of 01 §E.1.
+
+**T21.09 (01 §E.1).** The placeholders are replaced by values of the run, each with its seq in the sources list: options 50.0 / 77.4 / 90.7 min and 256.8 / 393.9 / 453.6 µGy, rendezvous walk 29.9 min and drive 45.0 min, steepest cell 23.25° under the 24° hard limit, shadow cautions 04:11:01 to 06:18:38, relay parked 05:36:33, both crew sheltered 06:35:31 with 254.0 µGy. The test formats each number from the log and finds it in the section, and checks that no `TODO(verify)`, "illustrative" or X / Y placeholder is left. The demo script's notes 7 and 8 carry the same values.
+
+**T21.10 (02 §D.13 timeline, source time against scenario time).** Nothing was adjusted.
+
+| 02 §D.13 row | Source time | Scenario time (reference run) | Match |
+| --- | --- | --- | --- |
+| Flare photons reach Mars | not in the scenario: the 20 May 2024 DONKI flare record precedes `start_utc`, and the scenario's `events` is empty | none | no source time to compare; not matched |
+| Earth learns of the flare | not in the scenario (same reason) | none | no source time to compare; not matched |
+| Earth forecast reaches Mars | issue `2024-05-20T05:36:00Z` (the `EARTH_MESSAGE` input, 1145 s after `series_start_utc`); compute `deliveryTime` gives `2024-05-20T08:50:00.000Z` (MAVEN pass `passes[16]`) | `EARTH_MSG_QUEUED` seq 32: sent `05:36:00Z`, deliver `2024-05-20T08:50:00.000Z` | match |
+| SEP onset at Gale | first RAD sample above the alert threshold `2024-05-20T05:33:44Z` (row 40 of `dose_series.json`); the trigger needs two in a row, the second is `05:50:32Z` (row 41) | `RADIATION_ALERT` seq 45 at `2024-05-20T05:50:32Z` | match to the second on the second sample; the onset sample is not a log event |
+| CME shock at Mars | not in the scenario: the WSA-ENLIL inputs carry an id and a summary, no arrival time | none | no source time to compare; not matched |
+
+**Recording (T27.05 output).** `make record` twice: identical bytes, **2,184,315 bytes**, 80 EVENTs (seq 1 to 80, which hash to the log hash: tested), STATE_DELTAs coalesced to 5 s (BD-148). With one delta per second the file was 5,352,768 bytes, over the 5 MB budget. N-81 is closed: the whole log is in the recording.
+
+**Red counts.** `relayTarget.test.ts` 0 of 7 ran (module missing), then 7 green (3 mutations of the rule each fail one test); `recording.test.ts` 2 red (the whole log, its hash), then green, plus 2 red for the delta period; `cli.test.ts` 1 red for `--record-period`; `demoNumbers.test.ts` 3 red (`habFromManifest`), then green, and the file snapshot regenerated; `referenceCommands.test.ts` 6 of 15 red (the section still had its placeholders, the list its old comment), then 15 green. The T21.10 tests, the recording byte comparison and the order test passed at once: each compares two independent derivations of the same time.
+
+## T22.14, T23.08, T32.29, T26.07, T29.06, T31.08, T20.08, T28.05 (server level) — headless verification on the real scenario (backend package 27)
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 27, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: `npm --workspace @marswalk/hab-core test -- killerDemo liveSession realLinks latency resume` runs 15 tests, 0 skipped, all passing on the real `gale_boxwork-2026.11.09` bundle (one project `real`, one file at a time, BD-149) |
+| **Machine (BD-03)** | Apple M2, 8 cores, 8 GiB RAM, macOS 15.7.2 (darwin 24.6.0), Node v24.5.0; the server, the clients and the replays are all on this laptop (BD-02) |
+| **Inputs** | [killerDemo](../../apps/hab-core/tests/killerDemo.test.ts), [liveSession](../../apps/hab-core/tests/liveSession.test.ts), [realLinks](../../apps/hab-core/tests/realLinks.test.ts), [latency](../../apps/hab-core/tests/latency.test.ts) and [resume](../../apps/hab-core/tests/resume.test.ts) tests, [helpers](../../apps/hab-core/tests/helpers/referenceRun.ts) |
+
+**T22.14 (determinism, 60x).** The scenario's own course twice and the reference list twice, in four parallel processes through the CLI: log_hash **a347721a13ae7be8167a33ce9c3c364e501a35b11629fe6095babe2e8806c66c** both times for the course and **5fdf8ec1e67958e508b88c97bbe55fb0c8ec1d6800ea6bfc2bfd9988c779afda** both times for the reference list (the hash the recording and 01 §E.1 name). The 60x run: a live server and one connected ops client, from the crew's arrival at stop 2 for 20 sim minutes (the alert, its options and the storm inside): 1200 sim seconds in 20.1 to 20.2 s of wall time, about 215 messages to the client, CPU used by the whole process (server, client and engine) **8.2 to 9.4 % of one core** over three runs, against the 30 % limit.
+
+**T23.08 (the beats of 01 §E.1 0:30 to 1:10, headless).** In the reference run, in `seq` order: `RADIATION_ALERT` (45), `OPTIONS_PROPOSED` (46), the rover dispatched by the approval (48), the rover arrived (75), `CREW_SHELTERED` twice at 06:35:31 with `haven_kind` vehicle (76, 77), `EVA_ENDED` (80). Log hash 5fdf8ec1… (above). The dose the crew received (253.98 µGy) is below the alert-time estimate for walking to the hab (393.95 µGy).
+
+**T32.29 (a whole live session).** Session 1, from a plan-less copy of the real scenario: `SELECT_HAB_SITE` `hab-alternative` **26 to 65 ms** and back to `hab-first` 55 to 341 ms (limit 2 s), `SET_MISSION_SETUP`, `PUBLISH_PLAN` with the ten stop tasks, `START_EVA`, the relay, Next stop to stop 1, `START_EVENT` storm, Next stop to stop 2, Next stop on to the alert, `APPROVE_OPTION` of the rover rendezvous, both crew sheltered, `RESET_SESSION`. Session 2 (`s-0002`, LOADED again): both site selections, publish, start, one Next stop. Both exported with `export-commands`, each replayed twice in its own process: the closed session's SHA-256 of `session.jsonl` ec0d611c52bacf6359b58b29c4b380181b6e1f656bcdd1604bc203715fa0f7bb and the open session's `log_hash` 10fb97bcdb92bb3b52e3c51e24a0e135fe1d0ef905c6abab71aa6bfbfbf2a391 are the replays' hashes, both times. BD-108: `earth_link.json` runs from 2024-05-18T00:00:00Z to 2024-05-22T23:59:00Z, which holds the sessions (04:11 to 07:45 on 20 May) and the end of the dose series; it needs no widening.
+
+**T26.07 (shadow and forecast).** The `COMM_SHADOW` cautions on EV1 and EV2 are raised 04:11:01Z and cleared 06:18:38Z, the times the committed recording holds, and the shadow appears within 2 s of the EVA start. The Earth message issued 05:36:00Z is queued for delivery 2024-05-20T08:50:00.000Z via MAVEN, which is compute's `deliveryTime` for that issue time, and that is after the alert (05:50:32Z).
+
+**T29.06 (relay).** The Boxwork ridge stop is out of UR1's reach: `TASK_ROVER` answers INVALID (BD-147), so the relay goes to the cell the reference list names. UR1 parks there 05:36:33Z; the cautions clear **06:18:38Z with the relay and 06:20:27Z without it** (the reference list minus its `TASK_ROVER`, run through the session API, the approval given the new option id). Shortened, not removed: the cell links 213 of the 233 samples of the rendezvous route (BD-147). The SNAPSHOT, 60 s after a RELAY and a queued RETURN: UR1 `eta_s` and `battery_wh` are numbers, the queue holds the RETURN with `eta_s` after the head's and `battery_wh_after` below the battery now.
+
+**T31.08 (tap, abort, report).** 50 taps (`UPDATE_STOP_TASK` from `eva:EV1`): tap to the ops client's EVENT **p95 0.4 to 2.8 ms, worst 0.6 to 10.3 ms**, against 500 ms. `ABORT` as ops with the alert up: stop 3 dropped, and ops, EV1 and EV2 each receive `TASK_DROPPED` for t-s3-01, t-s3-02 and t-s3-03. The report's task counts (total, done, skipped, dropped, and per stop) equal the counts reduced from `session.jsonl`. The browser half is package 28.
+
+**T20.08 (fan-out, loopback and LAN address).** Three clients (ops, EV1, EV2), 300 events, 900 arrivals: loopback worst **1.6 to 6.1 ms** (p95 about 1.2 ms), "GO"; through the machine's address 192.168.68.111 worst **4.1 to 383.7 ms**, "GO" (a Wi-Fi interface; about 380 ms came in three of five runs and is one slow arrival, still under the 500 ms of NFR-12). In one run where five heavy files shared the cores the loopback worst was 860.7 ms: that is why BD-149 runs these files one at a time.
+
+**T28.05 (kill and restart, server level).** The Hab Core process, brought to the storm alert (last_seq 37) over websockets, gets SIGKILL and is started again with `--resume latest`: **21.2 s to listening** (grid load and the re-run of the ticks since the start of the log: no 500-event snapshot yet at seq 37, BD-77), a reconnecting client's SNAPSHOT **6 to 23 ms** after it connects (limit 2 s), the same session id, `last_seq`, `log_hash`, sim time, crew, vehicles, alerts, options, tasks, plan and conditions as before the kill. T28.05 stays `wip` until package 28 (the browser half).
+
+**Red counts.** These tests check behaviour that earlier packages built, so they could not be red before an implementation; each ran its first time against the real scenario. Defects found and fixed in the tests themselves: `liveSession` first ran 1 red (SELECT_HAB_SITE is BUSY once a plan is published, so the script now starts from a plan-less copy); `latency` first ran 3 red (task updates need a running EVA, and only the role that made a change may undo it). Mutation checks: the CPU limit set to 0.3 % fails the 60x test (measured 9.2 %); the relay filter turned off fails the "clears earlier" test (06:18:38 against 06:18:38).
+
+## T01.06, T03.23–T03.27, T04.09, T05.30, T05.31, T05b.21, T06.11, T21.13, T21.14, T22.15, T23.09, T26.08, T29.07 — fallbacks (backend package 29)
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 29, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: four fallbacks are opt-in options with tests, three are conditional with a trigger test that reads the recorded figure, ten are closed with a trigger test that fails if the trigger becomes true |
+| **Inputs** | [test_fallback_options.py](../../pipeline/tests/test_fallback_options.py), [test_fallback_triggers.py](../../scripts/tests/test_fallback_triggers.py), [manualLeg.test.ts](../../packages/compute/tests/manualLeg.test.ts), [gridCell10.test.ts](../../packages/compute/tests/gridCell10.test.ts), [planWorker.manualLeg.test.ts](../../apps/web/tests/worker/planWorker.manualLeg.test.ts), decisions [BD-150, BD-151](../plan/backend/decisions.md) |
+
+**Options (A).** `--max-zoom N` (T03.23), `--cell-m 10` (T03.24) and `--static-images` (T03.25) are options of the pipeline entry point and are off by default (the default build is the one tested before: `pipeline/tests` 447 passed, 1 skipped). `test_fallback_options.py` has 24 tests: the kept ladder, the tiles on disk, the manifest's `tile_grid.resolutions_m` and the validator on an F4 copy with the finer levels removed, a 10 m grid built from synthetic 1 m rasters (100 cells for the 100 m square, slope maximum never below P90), the manifest with an explicit cell size, one PNG per 2 m layer with the C9 encoding (slope u8 = degrees x 4, alpha 255) and no tiles for it, the 0.5 m ortho staying tiled, `image_static` layers in the manifest, stale static images removed by a normal build, and the argument checks. Compute needs nothing for 10 m: `gridCell10.test.ts` (3 tests) loads a grid through `loadGrid` at both cell sizes and measures the same ground track as 80 m. T05.30 is `validateManualLeg` and the `VALIDATE_MANUAL_LEG` worker message (BD-150): `manualLeg.test.ts` 22 tests, the worker adapter 3 tests.
+
+**Conditional (B), not triggered.** T05.31: the T05.28 pair timing on the real grid is p50 63, p95 1,081, max 1,081 ms, within the 2 s of NFR-02. T05b.21: the worst real haven run is 57 ms against 2,000 ms, GO. T06.11: the mars24 and sun tests run (95 tests with the rendezvous and link-graph files, 0 skipped). `test_fallback_triggers.py` reads each figure from this log and the test files and fails when the figure or a skip marker changes.
+
+**Closed (C), trigger false.** ADR-001 Accepted for Gale (T01.06); the colour COG covers the AOI and the bundle has `tiles-ortho` (T03.26); the bundle's TI grid has valid cells, checked on the binary when it is present (T03.27); the traverse is PLACES-sourced and has a line (T04.09); the dose series is the archive and covers 20 May 2024, sol 4190 (T21.13); `earth_link.json` lists kernels and the lock covers 18 to 22 May 2024 for the planets and the three orbiters (T21.14); the consumables are O2 only (T22.15); the exact-rendezvous cases of `summonReal.test.ts` are active (T23.09); cut 5 is not called and the link tests are active (T26.08); cut 2 is not called, all four rover task kinds exist and `rover.test.ts` is active (T29.07). `npm --workspace @marswalk/hab-core test -- summonReal links rover` ran 4 files, 109 tests, 0 skipped, all passing.
+
+**Red counts.** `test_fallback_options.py`: 20 of 23 red before the options existed (3 passed at once: the unchanged default tiles, no `images/` by default, the default cell constant). `manualLeg.test.ts`: the file failed to load (22 tests red); the adapter file 1 of 3 red (the other two passed at once: GRID_NOT_LOADED, and "a manual validation does not raise the latest plan revision", which a mutation of the adapter turned red). `gridCell10.test.ts` passed at once (compute already reads `cell_m`); replacing the cell size in `cellIndex` by 5 turned 2 of 3 red. `test_fallback_triggers.py`: 12 of 13 passed at once by design (a closed fallback is a fact that already holds); each of the 13 was mutation-checked by changing the fact it reads (status line, coverage row, asset id, traverse asset, archive method, kernels, consumables, a skipped case, a cut rover task list, the recorded p95, the haven verdict) and turned red; the 13th was red on a wrong file name in the test, fixed.
+
+## T14.06–T14.10, T28.03, T28.05, T31.08, `make demo` — browser release verification (backend package 28)
+
+| | |
+| --- | --- |
+| **Owner** | Backend plan package 28, run by Claude Code (Sonnet 5.5) |
+| **Date** | 2026-11-13 |
+| **Status** | Done for the parts the merged app supports; four parts are `test.fixme` and name their frontend package, so **package 28 must be run again after the frontend lane has completed** (`make e2e`, then `E2E_SITE=gale_boxwork make e2e`). Rows T14.10, T28.05 and T31.08 stay `wip` until then |
+| **Machine (BD-03)** | Apple M2, 8 cores, 8 GiB RAM, macOS 15.7.2 (darwin 24.6.0), Node v24.5.0, headless Chromium (Playwright), the Hab Core and the browser on this laptop (BD-02) |
+| **Inputs** | `apps/web/e2e/checks/release-*.spec.ts`, [lib/release.ts](../../apps/web/e2e/lib/release.ts), [e2e README](../../apps/web/e2e/README.md), decision [BD-152](../plan/backend/decisions.md), cross-lane items B-02 to B-05 in [01-needs-from-frontend.md](../plan/backend/01-needs-from-frontend.md) |
+
+**T14.06 (offline, twice).** `release-offline`: the planning scenario of 01 §E.2 (Start planning, two layer toggles, EVA start, three stops at fixed places, route computed, briefing card, Export, Sources and methods) runs twice in fresh contexts with every non-local request aborted and counted; zero were blocked, every request went to the harness origin, no CSP violation, no console error. Both exports carry the same `plan_hash` and the same JSON once `computed_utc` and `timing_ms` are removed, on `mock_site` (3 of 3 repeats) and again on the real `gale_boxwork` bundle. No ffmpeg is installed and nothing is downloaded (free disk 1.2 GiB), so the backup recording of run 1 is a screenshot, `out/release-offline/run-1-step-final.png`. Two findings on the way: stops placed by the keyboard crosshair are not exact (the first map fit depends on layout timing), so the scenario places them through the app's own placement controller (`?debug=1`); and SCR-04's EVA-start prefill from the Hab Core can overwrite a typed value, so the check waits for it first. Step 3, 5 and 6 of 01 §E.2 (POI detail, the drag onto a steep slope, the slope limit) are the frontend checks `poi-conditions` and `plan-rules`.
+
+**T14.07 (NFR-02 v1 targets of T14.07: first paint 5 s, 3-stop route 2 s, toggle 300 ms, UI never blocks 100 ms).** `release-timings`, desktop 1440 x 900, 3 runs on the F4 fixture and the real bundle:
+
+| Site | First map paint | Slowest layer toggle | Recompute after each of 3 stops (worker total) | Long tasks during interaction |
+| --- | --- | --- | --- | --- |
+| `mock_site` | 113 to 115 ms | 16 to 17 ms (10 toggles) | 136 to 324 ms (worker 1.1 to 5.7 ms) | 5 of 55 to 206 ms (B-02) |
+| `gale_boxwork` | 154 to 225 ms | 33 to 34 ms (20 toggles) | 231 to 265 ms (worker 129 to 137 ms) | none |
+
+All budgets are met on the real bundle, which is what the demo serves. The F4 long tasks are recorded and handed to the frontend lane as B-02 (not a demo path); the "never blocks" assertion runs with `E2E_SITE=gale_boxwork`.
+
+**T14.08 (device matrix).** `release-matrix` on desktop 1280, iPad Mini portrait 768 and iPhone 14 portrait 390 (Chromium with the Playwright device descriptors, BD-02): the desktop runs the whole planning scenario, the tablet places three stops and deletes one, the phone opens the planner and reads and exports; on all three the first POI as the only stop is exported and the three normalised exports are equal, `plan_hash` included. Firefox: **not tested** (not installed; the download does not fit the free disk). The app has no view-only mode below 768 px (it is fully usable, more than 01 §D asks). Finding B-04: at 390 px the top bar's site name and data-version chip cover the "Layers · Plan" and "POI · Conditions" buttons and take their pointer events, so neither drawer opens by a tap; the export path presses the button with `force`, and the `fixme` fails until it is fixed.
+
+**T14.09 (CSP and built files).** `release-csp`: all 15 routes (13 entries of the router table, the two crew routes counted for both crew members) load with no `securitypolicyviolation` and no uncaught error; the watcher itself is proven by a blocked cross-origin script; the Hab Core sends the one policy of `packages/protocol/src/csp.ts` on `/`, `/api/health` and the site manifest, and the page's meta tag is the same policy without `frame-ancestors`; `?debug=1` shows `fps`, `worker`, `cell` and `data-version`, each with a provenance, and nothing without it. Finding B-05: the debug overlay's inline `<style>` is blocked by the policy (two reports per page), a `fixme`. `release-demo`, after `make demo`'s own build: no inline script in `index.html`, no absolute external URL in `apps/web/dist` other than the text-only namespace and documentation strings of `www.w3.org`, `www.opengis.net`, `react.dev`, `json-schema.org` and `localhost`, gzipped JavaScript **357.5 KB of 600 KB** (5 files; the plan text said 500 KB, 02 §F NFR-09 says 600, the specification wins), site bundle **80.0 MB of 250 MB** (apparent bytes).
+
+**T14.10 (recovery).** `release-recovery` on scratch copies of F4: a missing manifest is named by SCR-00 and Retry, reached by Tab and pressed with Enter, boots once the file is back; a deleted optional layer (`tiles/elevation`) shows as unavailable while the slope layer is untouched and two stops route; a truncated `grid/elevation.f32` is named at SCR-00 in the production build (BD-83: production does not hash, the length check catches it). Two parts are `fixme`: a worker failure showing "Computation failed — Retry" (the app has no failure hook and no such message, frontend package 09) and a dev-build corruption (production only is served).
+
+**T28.03 (roles).** `release-roles`: ops, setup, presenter, EVA EV1 and EV2, HUD EV1 and EV2 and Earth each open on all nine projects (72 runs) and their socket receives a SNAPSHOT with no CSP violation; the ops console and setup screen show "Use a larger screen" below the width they name (1024 px), which is the correct view.
+
+**T28.05 and T31.08 (network, browser half).** `release-network`: a dropped EVA socket (closed through `page.routeWebSocket`, kept down 3.5 s) is back with a SNAPSHOT **32 ms** after the link returns (NFR-13: 2 s); the Hab Core process killed and started again with `--resume latest`: both EVA and ops take a fresh SNAPSHOT **358 ms** after `/api/health` answers; `npm run hab:local` serves its four windows, each with a SNAPSHOT. Finding B-03: **SCR-18 never appeared**, neither after the socket was closed for 3.5 s nor with the Hab Core gone for 15 s (`data-screen="SCR-18"` absent; the tablet kept its last values as NOMINAL): a `fixme`. Also `fixme`: the killer demo through the UI in single-laptop mode and the tap-to-ops latency (the EVA tablet has no task list before the first stop; server level is `latency.test.ts`, p95 under 3 ms).
+
+**Red counts.** These are checks of built behaviour, so most passed at first run; each passing check was mutation-checked (a changed expectation or a removed precondition turned it red): `release-csp` (a `ws:` in the policy), `release-roles` (a wrong message type), `release-recovery` (the manifest not restored, the layer not deleted, the grid not truncated), `release-network` (the link never returning, no restart, a wrong window count), `release-matrix` (a different EVA start on the phone), `release-demo` (an empty host allowlist, a 1 KB budget, a wrong status). Reds that found things: `release-offline` (two runs gave different hashes: the crosshair and the EVA-start prefill), `release-timings` (long tasks), `release-network` (SCR-18), `release-matrix` (the phone top bar), `release-offline` again on `?debug=1` (B-05). Full `make e2e` on the F4 fixture: first run 333 passed, 92 skipped, 1 failed (`release-offline`); after the fixes 334 passed, 92 skipped (`fixme`, each naming its frontend package), 0 failed, 10.7 minutes.
+
+## T07.15 — Verify SCR-01, SCR-02, SCR-03: toggles ≤ 300 ms, inspector values match the grid
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done on the F4 `mock_site` (`data_version` `mock_site-2026.11.05`), Chromium (Playwright); the real-site half waits for N-140 |
+| **Inputs** | [toggles.spec.ts](../../apps/web/e2e/checks/toggles.spec.ts); `apps/web/tests/fixtures/real/sample_cells.json` (the F5 grid cells); [01 FR-02](../specs/01_Product_Requirements_Document.md#fr-02--scientific-layers-with-legend-and-opacity), [01 FR-03](../specs/01_Product_Requirements_Document.md#fr-03--point-inspection) |
+| **Check commit** | `f533d53` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Layer toggles (SCR-03) repaint within 300 ms with the tiles cached (FR-02) | **Pass** | `toggles: every layer toggle repaints within 300 ms (package 08)` — each toggle's repaint is timed in the browser and is under the 300 ms budget |
+| The inspector's values equal the manifest grid cell at three points (FR-03) | **Pass** | `toggles: inspector values equal the manifest grid cell at three points` — the three sampled cells are compared against the site's own grid assets, read through the app's debug hook |
+| SCR-01, SCR-02, SCR-03 content, disclaimer, the three actions, the scale bar in metres, the north arrow, the coordinate readout and the data-version chip | **Pass** | Covered by the `axe` scan of `#/`, `#/sources` and `#/planner` (T13.09) and by the `provenance` demo-path walk (T12.06); the disclaimer and the demo-plan action are asserted in the `keyboard-path` run (T13.10) |
+| No request leaves `localhost` during the run (FR-01) | **Pass** | The harness serves the built app and the site bundle from `http://127.0.0.1`; the `offline` check (T14.06) is the dedicated proof |
+
+The real-site variant of the inspector comparison stays open with N-140: this checkout ships the `gale_boxwork` manifest and vectors but no `grid/` directory, so the inspector has no real grid to compare against.
+
+## T08.11 — Verify the 02 §E.3 rules and SCR-04 states in the UI
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done on the F4 `mock_site`; the worker-side `INVALID_INPUT` and impossible placements stay with T05.14 and T14.05 |
+| **Inputs** | [plan-rules.spec.ts](../../apps/web/e2e/checks/plan-rules.spec.ts); [02 §E.3](../specs/02_Technical_Requirements_Document.md#e3-input-validation-rules) through `packages/compute/src/validate.ts` (T05.25) |
+| **Check commit** | `f533d53` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Every 02 §E.3 row is refused inline and the last valid value stays in effect (FD-236) | **Pass** | `plan-rules: every 02 §E.3 input shows an inline error and keeps the last valid value` — each row is driven below and above its range; the error appears as a `role="alert"`, the refused value is never sent to the worker and the previous valid value is the one the plan carries |
+| SCR-04 shows its four states: Empty, Editing, Invalid and Computing | **Pass** | `plan-rules: SCR-04 shows Empty, Editing, Invalid and Computing` — the panel's own `data-plan-state` is read in each state; the Computing state is held by the test-side `Worker` wrapper `apps/web/e2e/lib/workerHold.ts`, so no app behaviour changes to make it visible (FD-400) |
+| A placement outside the AOI or on an impassable cell is refused; a passable one is placed | **Pass** | `plan-rules: outside-AOI and impassable placements are refused, a passable one is placed (package 10)` |
+| The defaults badge and the inline ranges match 01 FR-05 | **Pass** | The same test reads the ranges the form shows against the ranges `validate.ts` enforces |
+
+The worker-side `INVALID_INPUT` message and the impossible-stop placement remain with T05.14 and T14.05, as the task's own conflict note requires; the repeated-publish case stays `test.fixme('needs N-70')`.
+
+## T09.06 — Run the M3 walking-skeleton check; decide auto-routing go/no-go in ADR-004
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | **Go for the auto-routing slice**, recorded in ADR-004 (FD-404); the 3-stop real-site confirmation stays open until N-140 and N-20 |
+| **Inputs** | [walking-skeleton.spec.ts](../../apps/web/e2e/checks/walking-skeleton.spec.ts); the real plan worker (`apps/web/src/worker/planWorker.ts`), **not** the F3 mock; the NFR-02 budget is read from 02 §F at run time; the outcome file `apps/web/e2e/out/walking-skeleton.json` |
+| **Check commit** | `f533d53` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| The map renders the AOI in the right projection and a scale bar shows metres | **Pass** | `scale-bar` (T02.04) and `tiles-all-levels`; the projection is IAU_2015:49900 in the site's own manifest |
+| Two points produce a routed line and an elevation profile (06 §B M3 exit) | **Pass** | Both legs of the demo plan are routed `OK` and the profile carries the worker's own slope classes and samples |
+| The computation is within the NFR-02 budget | **Pass** | `timing_ms.total` **16.6 ms** against the 2 000 ms budget read from 02 §F (`routing` 6 ms, `estimates` 3.2 ms) |
+| The result is one of the three routed states of 03 §D | **Pass** | `OVER_LIMITS`, with the `DARKNESS` caution naming the leg and the time |
+
+The ADR-004 decision (FD-404) is **go** for the auto-routing slice on this evidence. The M3 exit criterion of a **3-stop** route on the **real** site is not met by this run: the F4 bundle holds one of the demo plan's three POIs, and the real site ships no `grid/` assets yet (N-140), so the real worker cannot route on it. That confirmation stays open until N-140 and N-20 land.
+
+## T09.07 — Verify SCR-05 states against the OK, PARTIAL and OVER_LIMITS fixtures
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done on the F2 fixtures through the F3 mock worker; the profile's slope classes in the browser are proved by the real-worker run of T09.06 |
+| **Inputs** | [results-states.spec.ts](../../apps/web/e2e/checks/results-states.spec.ts); `apps/web/tests/fixtures/plan-results/`; [03 §D](../specs/03_App_Flow_and_Diagrams.md#d-error-and-recovery-flows) |
+| **Check commit** | `f533d53` |
+
+| Fixture | Result | Evidence |
+| --- | --- | --- |
+| `ok` | **Pass** | The banner says OK with its glyph, the seven metric tiles show, the totals are shown and the profile and the warnings are drawn |
+| `partial` | **Pass** | The banner names the result, the totals are hidden (`data-totals-hidden="true"`), the Distance tile shows "—" and the profile shows NO ROUTE for the leg that could not be routed (03 §D) |
+| `over-limits` | **Pass** | The banner says Over limits and the warning list carries the block |
+| `error` | **Pass** | The banner says "Computation failed", offers a Retry and the panel pretends no result |
+
+Every shown value carries `data-provenance` and `data-source` (FR-15), every warning carries a shape, its word, its message and where it applies, and a located warning zooms the map (FR-10). The F2 fixtures carry no elevation samples, so the profile says so honestly with the dash and `unavailable:result.legs.profile`; the real worker's samples and slope classes are proved by T09.06.
+
+## T10.03 — Verify POI images with credits and the daylight warning for a pre-dawn start
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done on the F4 `mock_site`; the real bundle's POI images stay with N-20 |
+| **Inputs** | [poi-conditions.spec.ts](../../apps/web/e2e/checks/poi-conditions.spec.ts); the real plan worker (N-26); [03 SCR-06](../specs/03_App_Flow_and_Diagrams.md#scr-06--poi-detail-panel), [03 SCR-07](../specs/03_App_Flow_and_Diagrams.md#scr-07--conditions-panel) |
+| **Check commit** | `20896fa` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| SCR-06 shows the objective, the stop type, the position source and the image state | **Pass** | `poi-conditions: POI image metadata and honest missing-image state stay usable` — the F4 bundle's one POI has no image, so the "Image missing" state and the honest dash are checked there |
+| The daylight warning appears for a pre-dawn start (01 §E step 7) | **Pass** | `poi-conditions: a pre-dawn start shows the real worker DARKNESS warning (N-26)` — the start is moved to one hour before the sunrise the worker itself supplied, and the warning names the UTC time |
+| SCR-07 shows the computed conditions, the radiation block and its caveats | **Pass** | `poi-conditions: SCR-07 shows the computed conditions, the radiation block and its caveats` — the Mars date, the Ls, both LTSTs, the sunrise and the sunset, the sun elevation per stop, the dose with its range, its solar phase, its rate source and its background rate, and the "Not included in this build" seasonal-weather row with the terrain-shadowing note |
+| The panel computes nothing itself | **Pass** | The panel shows the worker's own `PlanResult.conditions` (FD-126); every value carries its provenance and its source, and the F4 bundle's missing dose is the dash with `unavailable:result.radiation.dose_mSv` |
+
+## T11.05 — Verify one-page print in Chrome and plan_hash reproduction
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: the plan hash reproduces across two independent runs and SCR-08 prints on one A4/Letter page |
+| **Inputs** | [plan-hash.spec.ts](../../apps/web/e2e/checks/plan-hash.spec.ts); [print.spec.ts](../../apps/web/e2e/checks/print.spec.ts); the real plan worker; [01 FR-14](../specs/01_Product_Requirements_Document.md#fr-14--briefing-card-and-plan-export) |
+| **Check commit** | `20896fa` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| The exported plan is complete and the hash is the app's own | **Pass** | `plan-hash: export, reload and recompute give the same metrics and plan_hash` — the export carries `export_schema_version`, the app, site and data versions, the disclaimer and the waypoints; `plan_hash` is 12 hex characters; SCR-08 shows the same hash |
+| Re-running the exported plan gives the same hash and identical metrics (FR-14) | **Pass** | The same plan is rebuilt and exported a second time; the two exports agree on the hash, the data version, the scenario, the waypoints, the status, the totals, the radiation block and the legs |
+| The hash works on a plain origin (FD-141) | **Pass** | The check asserts the origin is plain `http://127.0.0.1`; the hash is pure TypeScript, so it needs no secure context |
+| SCR-08 prints on one A4/Letter page without clipping | **Pass** | `print: SCR-08 is one page on A4 and Letter for OK, Over limits and Partial (package 14)` and `print: SCR-08 prints on the CSS @page margin, not a PDF option (package 14)` (FD-366) |
+
+The app has no "import plan" screen (nothing in 03 SCR-08 asks for one), so the reproduction is done in the app that exists: the same scenario and the same waypoints are computed again by the real worker and exported again (FD-400).
+
+## T12.06 — Verify no unlabelled metric on the demo path and every credited source in SCR-09
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | **Wip**: the demo path passes; the live-role walk waits for package 29, and the real bundle's walk-time dataset ids wait for N-140 |
+| **Inputs** | [provenance.spec.ts](../../apps/web/e2e/checks/provenance.spec.ts); `apps/web/tests/ui/provenance.test.ts`; the F4 `mock_site` manifest (`data_version` `mock_site-2026.11.05`) |
+| **Check commit** | `20896fa` |
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| No number on the 01 §E demo path lacks a provenance label (FR-15) | **Pass** | `provenance: no unlabelled number on the demo path and every credited source resolves in SCR-09` — SCR-01, SCR-02, SCR-04, SCR-05, SCR-07 and SCR-08 are walked and every number is either labelled with `data-provenance` and `data-source` or on the decided allowlist (FD-110) |
+| Every dataset of the bundle manifest is listed in SCR-09 with all six columns | **Pass** | The same test reads each manifest `source_id`, finds its `dataset-row`, checks the six columns and the anchor `source-<id>` |
+| Every SCR-08 source chip lands on its anchor (FD-144) | **Pass** | The test follows each chip's `#/sources#source-<id>` link and asserts the anchor exists and is the one the deep link marked |
+| The live roles carry no unlabelled number | **Not run** | `test.fixme`: the live-role walk is package 29's |
+| The walk-time dataset ids the app hard-codes | **Recorded, not passed silently** | `tobler-1993` and `apollo17-planning` belong to the real bundle (N-140); on the F4 site the check records them as an annotation instead of passing them |
+
+## T13.09 — Verify the axe scan: 0 serious issues
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: zero serious or critical violations on every built route, in both HTML modes and on each EVA and ops state fixture |
+| **Inputs** | [axe.spec.ts](../../apps/web/e2e/checks/axe.spec.ts); `@axe-core/playwright` 4.14 in real Chromium; the tags `wcag2a`, `wcag2aa`, `wcag21aa` (FD-151) |
+| **Check commit** | `20896fa` |
+
+| Scan | Result | Evidence |
+| --- | --- | --- |
+| Every built route (`#/`, `#/sources`, `#/join`, `#/ops`, `#/hud/EV1`, `#/eva/EV1`, `#/report`, `#/replay`, `#/earth`) | **Pass** | `axe: every built route has no serious or critical violation`; the full result of each scan is written to `apps/web/e2e/out/axe-<route>.json` |
+| SCR-00 (the boot error), SCR-02 (the planner workspace), SCR-04 (Empty, Invalid input, Editing), SCR-07 (the conditions panel on the real worker) | **Pass** | One scoped scan per state; the SCR-07 scan is scoped to the conditions panel because a full-page scan walks the SCR-05 profile chart |
+| SCR-17 populated and `#/replay` with its log drawer (packages 26, 27) | **Pass** | The report fixture with 6 stops, 3 alerts and a trace in PRINT mode, and the replay drawer in OPS mode |
+| The EVA tablet states and the high-contrast pair | **Pass** | Eight EVA states, each scanned twice (normal and high contrast) |
+| The ops states and their side panels, the task editor and the log drawer | **Pass** | Six ops states with their panels; the ended state is scanned in PRINT mode |
+
+The EVA-phase case stays `test.fixme('needs N-06')`: the ops console receives no authoritative EVA phase, so SCR-11 shows "—" (the N-06 follow-up of package 19).
+
+## T13.10 — Verify a keyboard-only run of the core scenario
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 28, run by Claude Opus 4.8 (puku-cli) |
+| **Date** | 2026-11-13 |
+| **Status** | Done: the nine 01 §E steps complete with the keyboard only |
+| **Inputs** | [keyboard-path.spec.ts](../../apps/web/e2e/checks/keyboard-path.spec.ts); [04 §E](../specs/04_Design_Brief.md#f-accessibility-and-responsive-behavior); the app's own key map (`apps/web/src/ui/map/keyboard.ts`) |
+| **Check commit** | `20896fa` |
+
+| Step | Result | Evidence |
+| --- | --- | --- |
+| 1: read the brief and start planning | **Pass** | The "Start planning" button is reached with Tab and activated with Enter; the focus ring is at least 2 px at every step |
+| 4: open the demo plan | **Pass** | The same, with the Enter key |
+| 5: move a stop | **Pass** | The stop is moved with the **keyboard-move control** of the selected stop (FD-119), the method 01 §E step 5 uses (Spec question 6, FD-401); a drag is not used because it needs a pointer |
+| The result is announced and readable outside the map | **Pass** | The live region carries "Plan updated: … warning" with `aria-live="polite"`, the stops table lists the stop, and the Distance tile shows its value in km |
+| 8: open the briefing card and export the plan | **Pass** | `B` opens the card, the card shows the plan hash and the disclaimer, and Enter on the export button downloads the JSON |
+| 9: open Sources & methods | **Pass** | `?` opens SCR-09 |
+| Focus never lands on a hidden element | **Pass** | Every step asserts the focused element is visible and carries a focus ring |
+
+The check found a real defect and it is fixed: the SCR-05 metric tiles collapsed to 0 px in the short results panel, so the values were no longer readable outside the map (FR-08, FR-15). The metrics row now keeps its content height (FD-402, `apps/web/src/ui/screens/scr05RouteResults.css`).
+
+## T15.02 / T15.03 — Automated usability heuristic run (Frontend package 30)
+
+| | |
+| --- | --- |
+| **Owner** | Frontend plan package 30 (`fe-usab`) |
+| **Date** | 2026-11-13 |
+| **Status** | Automated suite green (`10/10` passing on `?site=mock_site`); human glove & 3-user physical verification stays open (`T15.02` `wip`) |
+| **Inputs** | [usability.spec.ts](../../apps/web/e2e/checks/usability.spec.ts); [usability-script.md](usability-script.md); [build_usability_results.py](../../scripts/build_usability_results.py); [usability-results.md](usability-results.md) |
+| **Scope & locators** | Strictly visible labelled controls (`getByRole`, `getByLabel`, `getByText`, keyboard navigation) — zero test ids, zero URL hash hacks mid-flow |
+
+| Case | Result | Measured highlights & provenance |
+| --- | --- | --- |
+| `usability-briefing-5-min` | **Pass** | `?site=mock_site` with real worker (`Start planning` -> `Dismiss` guide -> `EVA start` -> 3 stops -> `Briefing`): `11/15` actions, `3017 ms` total, `63 ms` worker wait (`measured`, `e2e:usability.spec.ts` / `worker:route-planner`). Blocked on `gale_boxwork` by `N-140`. |
+| `usability-UT-1`..`UT-9` | **Pass** | All 9 Surface Ops & grayscale heuristics pass (`>= 56 px` targets, `>= 8 px` gaps, `7.57:1` HUD alert contrast at `64 px`, distinct grayscale lumas `79/183/32` with shape+word, orientation parity & mid-alert rotation, quiet NOMINAL slot, stop tasks `607 ms`, full-screen map `40 px` stacked readouts + `Escape` focus return). |
+
+**Unautomatable / triage (`T15.03`):** Physical neoprene glove press dexterity, live 3-user think-aloud / 3-s subjective reading speed, and real `gale_boxwork` routing (`N-140`) remain human/hardware steps under `T15.02` (`wip`). Non-blocking UX notes (`StopTaskList` skip-reason accessible label omitting task text, `B-04` 390 px planner drawer overlap) are recorded in [usability-results.md](usability-results.md#findings-and-triage-t1503).
+
+## T17.04 — capture continuation, 2026-11-13
+
+`E2E_PORT=18132 timeout 900s make e2e-one CHECK=capture` stopped in global setup: `listen EPERM` on the `tsx` IPC socket. No browser test or duration check ran. The capture and assembly remain incomplete; no output video is certified.
+
+## N-170 — product name in the scenario files, 2026-11-13
+
+`apps/hab-core/scripts/build-demo-plan.ts` writes the 01 §F.1 disclaimer with the ADR-013 name "Gale Surface Ops", so `scenarios/storm-sol4190/plan.json` (`build-demo-plan`), `scenario.json` (`scenario_build`) and `recording.json` (`make record`) were regenerated with it; the only text change in each is that disclaimer. `plan_hash` stays `d9919915db7e` and the reference-run `log_hash` stays `5fdf8ec1e67958e508b88c97bbe55fb0c8ec1d6800ea6bfc2bfd9988c779afda` (the hashes do not cover the disclaimer); `make replay` without commands stays `a347721a13ae7be8167a33ce9c3c364e501a35b11629fe6095babe2e8806c66c`, two runs each. File sha256, old to new: `plan.json` aae19587cbbeeedfbc820e47bbf1597ebb7f75bef35f65e9a17a4a049f46152b to 05083e03b03007673baa3ac540f7a0155cc1a3e93e4757380532ad31bfd30e0f; `scenario.json` f05e531353139ebec39cc894f2ec44371fbeb0512610ab54d71e90bc7e87ffb1 (quoted in the T21.08 entry above, now historical) to `0261e1c76edefc26a2045f5329a73a0c75e29087c25df9fe3b3095a2694040f0`; `recording.json` 776e6bd59c28087d478a687b72ef5d38d1d479c7b17b1c01da553989ac4007ad to b930e068749c3b06d82e4b618854878fd1faf5bab6b195ab6dc374057a890449. No science or number changed.

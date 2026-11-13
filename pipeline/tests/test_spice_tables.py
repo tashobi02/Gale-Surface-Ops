@@ -35,8 +35,8 @@ Pure functions (no SPICE, no kernels):
 SPICE-backed functions (need spiceypy and the kernels; the tests that call them skip when either is
 missing). `kernel_dir` is a folder searched recursively for the kernels (02 L10). Each call loads what
 it needs and does not rely on kernels left in the pool by an earlier call. Earth geometry takes Mars
-as the Mars barycenter (NAIF 4), which is in de440s.bsp (that it agrees with the body centre to metres
-is unverified, see the TODO(verify) below). Orbiter geometry uses the Mars body centre (NAIF 499).
+as the Mars barycenter (NAIF 4), which is in de440s.bsp (its measured difference from the body centre is in
+kernels.lock.json, BD-24). Orbiter geometry uses the Mars body centre (NAIF 499).
 
     light_time_s(t_utc, kernel_dir) -> float
         One-way Mars-Earth light time at t_utc (02 §D.12).
@@ -72,15 +72,13 @@ Committed tables. When `scenarios/storm-sol4190/earth_link.json` exists (written
 Decided by the data lead (Obidit Islam), 2026-11-07: a pass is a maximal run of samples with
 elevation >= minimum, start/end = first/last such sample on the 60 s grid (no interpolated
 crossings), a run touching either end of the series is kept, and passes sort by (start_utc, orbiter).
-05 EarthLinkTable does not state this yet: it needs a "05 EarthLinkTable doc change".
+05 EarthLinkTable states it ("Sampled-pass convention", 2026-11-12).
 
-TODO(verify): orbiter SPKs (MRO, MAVEN, TGO) are usually centred on Mars (499). The independent
-orbiter checks request positions relative to MARS (499) in IAU_MARS, matching the site vector's
-origin and frame, so they do not need a Mars-system SPK to chain 499 -> 4 (Mars barycenter).
-Such a bridge is needed only if an implementation asks for barycentric orbiter states; 02 L10 and
-data-downloads D12-D15 list no such kernel. For Earth geometry, treating Mars as the barycenter
-(NAIF 4) and the claim that this agrees with the body centre to metres remain UNVERIFIED
-(Phobos and Deimos masses are tiny, but no number was checked).
+The MRO and MAVEN SPKs are centred on the Mars barycenter (4) and TGO's on Mars (499) (checked with spkgps on
+2026-11-12). The independent orbiter checks request positions relative to MARS (499) in IAU_MARS, matching the site
+vector's origin and frame, so mar099s (data-downloads D12) is loaded to chain 4 -> 499. For Earth geometry the
+code treats Mars as the barycenter (NAIF 4); the difference from the body centre is measured by
+`mars_centre_light_time_difference_s` (tested below) and recorded in kernels.lock.json (BD-24).
 """
 from __future__ import annotations
 
@@ -530,12 +528,12 @@ class _IndependentSpice:
         self.sp.kclear()
         if self.with_orbiters:
             for f in sorted((self.kernel_dir / "generic").glob("mar*.bsp")):
-                self.sp.furnsh(str(f))
+                self.sp.furnsh(str(f.resolve()))  # resolved: CSPICE refuses paths over 255 characters, which a linked worktree exceeds
         for role, files in _kernel_files_by_role(self.kernel_dir).items():
             if self.with_orbiters or role not in ORBITERS:
                 # Load every matching file: orbiter SPKs may split the scenario window.
                 for f in files:
-                    self.sp.furnsh(str(f))
+                    self.sp.furnsh(str(f.resolve()))  # resolved: CSPICE refuses paths over 255 characters, which a linked worktree exceeds
         return self
 
     def orbiter_elev_deg(self, orbiter: str, t_utc: str, lat_deg: float, lon_east_deg: float) -> float:
@@ -546,7 +544,7 @@ class _IndependentSpice:
         except self.sp.SpiceyError as exc:
             pytest.fail(
                 f"spiceypy cannot place {orbiter} relative to MARS (499) in IAU_MARS at {t_utc}: {exc}. "
-                "TODO(verify): check the orbiter SPK coverage and the LSK/PCK for 02 L10.",
+                "Check the orbiter SPK coverage and the LSK/PCK for 02 L10.",
                 pytrace=False,
             )
         lat, lon = math.radians(lat_deg), math.radians(lon_east_deg)
@@ -620,6 +618,52 @@ def test_earth_elevation_matches_independent_spiceypy_with_east_positive_longitu
         wrong = ref.earth_elev_deg(CHECK_UTC, lat, (360.0 - lon_east) % 360.0)
     assert got == pytest.approx(expected, abs=ANGLE_TOL_DEG)
     assert abs(got - wrong) > ANGLE_TOL_DEG  # the check can tell east from west at this epoch
+
+
+def test_mars_centre_light_time_difference_rejects_a_bad_window_before_any_kernel_is_read():
+    """BD-24: the measured difference needs an ordered window and a positive step; checked first, so no kernel is needed."""
+    mod = _mod()
+    nowhere = Path("/nonexistent-kernel-folder")
+    later = _fmt(_parse(CHECK_UTC) + timedelta(hours=1))
+    with pytest.raises(ValueError):
+        mod.mars_centre_light_time_difference_s(later, CHECK_UTC, nowhere)
+    for step in (0, -60):
+        with pytest.raises(ValueError):
+            mod.mars_centre_light_time_difference_s(CHECK_UTC, later, nowhere, step_s=step)
+    with pytest.raises(ValueError):
+        mod.mars_centre_light_time_difference_s("2024-05-20 12:00", later, nowhere)
+
+
+def test_barycentre_versus_body_centre_light_time_difference_matches_independent_spiceypy():
+    """BD-24: the largest |light time to the Mars barycentre - light time to the Mars body centre| over a window, in seconds,
+    equals what spiceypy gives for the same epochs, and is far inside the 1 s of FR-43 (02 §D.12)."""
+    mod, kernel_dir = _prepare()
+    step = 3600
+    end = _fmt(_parse(CHECK_UTC) + timedelta(hours=6))
+    got = mod.mars_centre_light_time_difference_s(CHECK_UTC, end, kernel_dir, step_s=step)
+    with _IndependentSpice(kernel_dir) as ref:
+        for f in sorted(kernel_dir.rglob("mar099s.bsp")):
+            ref.sp.furnsh(str(f.resolve()))
+        expected = max(
+            abs(ref.sp.spkpos("EARTH", ref.et(t), "J2000", "LT", "MARS BARYCENTER")[1]
+                - ref.sp.spkpos("EARTH", ref.et(t), "J2000", "LT", "MARS")[1])
+            for t in _mod().time_grid(CHECK_UTC, end, step)
+        )
+    assert got > 0.0  # a real, non-zero offset (about 0.2 m of range)
+    assert got == pytest.approx(expected, rel=1e-6, abs=1e-13)
+    assert 0.0 <= got < LIGHT_TIME_TOL_S
+
+
+def test_kernel_lock_records_the_measured_barycentre_difference_and_the_predicted_tgo_span():
+    """BD-24: kernels.lock.json holds the measured light-time difference (inside FR-43's 1 s) and says TGO's early span is predicted."""
+    lock = json.loads((REPO_ROOT / "pipeline" / "spice" / "kernels.lock.json").read_text(encoding="utf-8"))
+    diff = lock["mars_centre_light_time_difference"]
+    assert isinstance(diff["max_s"], float) and 0.0 < diff["max_s"] < LIGHT_TIME_TOL_S
+    assert diff["step_s"] == STEP_S
+    assert diff["window_utc"] == f"{lock['window_utc']['start']} to {lock['window_utc']['stop']}"
+    assert "treated as predicted" in lock["orbiter_summary"]["tgo"]["data_kind"]
+    tgo_early = next(k for k in lock["kernels"] if k["file"].startswith("em16_tgo_fsp_335"))
+    assert "treated as predicted" in tgo_early["notes"]
 
 
 N_BUILT_ROWS = 4  # rows built from the real kernels in the end-to-end tests

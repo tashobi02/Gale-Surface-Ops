@@ -5,17 +5,20 @@
  */
 import { FLAG_BITS } from "@marswalk/protocol";
 import type { MissionScenario, ParamSet, Provenance } from "@marswalk/protocol";
-import { cellIndex, decodeSlopeDeg, type LoadedGrid } from "./grid";
+import { cellIndex, centreOfCell, decodeSlopeDeg, type LoadedGrid } from "./grid";
 import { CAUTION_SLOPE_MULTIPLIER, LOW_TI_MULTIPLIER, isCellPassable } from "./route";
 
 /**
- * Time to enter the hab and be sheltered: 5 min (02 §D.8 `t_ingress`, labelled **Assumed**).
- * A named constant because no ParamSet kind has a hab-ingress key. The vehicle's ingress comes from
- * the rover ParamSet (`ingress_min` × 60).
- * TODO(decision): 05 says every non-data number lives in a ParamSet, so a `hab_ingress_min` key
- * may be wanted (in `suit` or `link`?). Raised in the T05b.01 PR; 05 is not edited here.
+ * Seconds to enter the hab and be sheltered, from the suit ParamSet key `hab_ingress_min` x 60 (02 §D.8 `t_ingress`,
+ * Assumed, source "02 §D.8"; 05 ParamSet; BD-57). It replaces the former hab-ingress constant: every non-data number
+ * lives in a ParamSet. Throws TypeError for a ParamSet that is not a suit set and RangeError, naming the key, when
+ * `hab_ingress_min` is missing, not a number, not finite or negative. The vehicle's ingress is the rover ParamSet's
+ * `ingress_min` x 60.
  */
-export const HAB_INGRESS_S = 5 * 60;
+export function habIngressS(suit: ParamSet): number {
+  if (suit.kind !== "suit") throw new TypeError(`ParamSet "${suit.param_set_id}": hab ingress comes from a suit ParamSet, got kind "${suit.kind}"`);
+  return paramNumber(suit, "hab_ingress_min", (v) => v >= 0, ">= 0") * 60;
+}
 
 /** Cell size of the vehicle time field, an aggregate of the 5 m routing grid (02 §D.8). */
 export const VEHICLE_GRID_CELL_M = 10;
@@ -541,13 +544,6 @@ function computeVehiclePassable(grid: LoadedGrid, hard: number): Uint8Array {
 export function timeAt(field: TimeField, x_m: number, y_m: number): number {
   const k = cellOf(field.origin_m, field.cell_m, field.width, field.height, x_m, y_m);
   return k < 0 ? Infinity : field.seconds[k]!;
-}
-
-function centreOfCell(field: TimeField, k: number): [number, number] {
-  const row = Math.floor(k / field.width);
-  const col = k - row * field.width;
-  // "+ 0" turns a negative zero into 0.
-  return [field.origin_m[0] + (col + 0.5) * field.cell_m + 0, field.origin_m[1] - (row + 0.5) * field.cell_m + 0];
 }
 
 /**

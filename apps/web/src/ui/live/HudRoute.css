@@ -1,0 +1,3 @@
+/* A time-only interaction affordance, never a simulated/scientific value. External CSS respects the offline CSP. */
+.hud-exit-progress { animation: hud-exit-hold 2s linear forwards; }
+@keyframes hud-exit-hold { from { width: 0; } to { width: 100%; } }

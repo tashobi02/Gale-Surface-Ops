@@ -129,6 +129,30 @@ def _png_size(path: Path) -> tuple[int, int]:
     return width, height
 
 
+def _jpeg_size(path: Path) -> tuple[int, int]:
+    """(width, height) from the first start-of-frame marker of a JPEG file (standard library only)."""
+    data = path.read_bytes()
+    if data[:2] != b"\xff\xd8":
+        raise ValueError(f"{path.name} is not a JPEG file")
+    position = 2
+    while position + 4 <= len(data):
+        if data[position] != 0xFF:
+            break
+        marker = data[position + 1]
+        if marker == 0xFF:
+            position += 1
+            continue
+        if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+            position += 2
+            continue
+        length = struct.unpack(">H", data[position + 2:position + 4])[0]
+        if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+            height, width = struct.unpack(">HH", data[position + 5:position + 9])
+            return width, height
+        position += 2 + length
+    raise ValueError(f"{path.name}: no JPEG frame header found")
+
+
 def _file_asset(site_dir: Path, asset_id: str, path: str, fmt: str, dims: tuple[int, int] | None) -> dict:
     file = site_dir / path
     size = file.stat().st_size
@@ -169,8 +193,21 @@ def _produced_assets(site_dir: Path, grid_dims: tuple[int, int], ti_dims: tuple[
             "sha256": sha256_file(index),
         })
 
-    # Single static images (T03.25 fallback). TODO(verify): images/<name>.png is not fixed by C5 or 05.
+    # POI images (02 §E.1 `images/<poi_id>.jpg`): the asset id is `img-<poi_id without its `poi-` prefix>`,
+    # the id the POI record's `image_asset` carries; the files are the locked source images, copied as they are.
     images = site_dir / "images"
+    for image in sorted(images.glob("*.jpg")) if images.is_dir() else []:
+        width, height = _jpeg_size(image)
+        assets.append({
+            "asset_id": f"img-{image.stem.removeprefix('poi-')}",
+            "path": f"images/{image.name}",
+            "format": "jpg",
+            "sha256": sha256_file(image),
+            "bytes": image.stat().st_size,
+            "width": width,
+            "height": height,
+        })
+    # Single static images (T03.25 fallback): images/<layer_id>.png, one per 2 m layer (C9 §6); not built in v1.
     for image in sorted(images.glob("*.png")) if images.is_dir() else []:
         width, height = _png_size(image)
         assets.append({
@@ -284,15 +321,19 @@ def _layer(record: dict, produced: dict[str, dict]) -> dict:
     return layer
 
 
-def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Path, *, exclude_layers: set[str] | None = None) -> Path:
+def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Path, *, exclude_layers: set[str] | None = None, cell_m: float | None = None, max_zoom: int | None = None) -> Path:
     """Assemble and write site-manifest.json (schema: schemas/site-manifest.schema.json). TASK-03.
 
     site_dir holds the produced assets; config_dir is pipeline/sites/<site_id>/ (C5).
     Returns site_dir/site-manifest.json. Output is deterministic: sorted keys, no timestamps.
+
+    Opt-in fallbacks (backend package 29): `cell_m` is the routing-grid cell of a `--cell-m 10` build (default
+    `config.GRID_CELL_M`); `max_zoom` is the `--max-zoom` level, so each raster layer's `tile_grid.resolutions_m` lists only
+    the levels the tiles step wrote (`config.limit_resolutions`, the one place that drops them).
     """
     site = _read_json(config_dir / "site.json")
     minx, miny, maxx, maxy = site["aoi"]["extent_m"]
-    cell_m = config.GRID_CELL_M
+    cell_m = config.GRID_CELL_M if cell_m is None else cell_m
     grid_width = _whole_cells(maxx - minx, cell_m)
     grid_height = _whole_cells(maxy - miny, cell_m)
     ti_present = (site_dir / FILE_ASSETS[TI_ASSET][0]).is_file()
@@ -314,6 +355,14 @@ def write_manifest(site_dir: Path, data_version: str, proj4: str, config_dir: Pa
     sources = _records(config_dir / "sources", "source_id")
     layers = [_layer(record, produced) for record in _records(config_dir / "layers", "layer_id")
               if record["layer_id"] not in excluded]
+    if max_zoom is not None:
+        for layer in layers:
+            grid_record = layer.get("tile_grid")
+            if layer["kind"] == "raster_tiles" and grid_record:
+                kept = config.limit_resolutions(grid_record["resolutions_m"], max_zoom)
+                layer["tile_grid"] = {**grid_record, "resolutions_m": kept}
+                # the finest level that is shown is no longer the one the record names
+                layer["display_resolution_m"] = max(layer["display_resolution_m"], kept[-1])
     env_constants = _records(config_dir / "env_constants", "const_id")
     known_offsets = {
         path.stem: _read_json(path)["offset_m"]

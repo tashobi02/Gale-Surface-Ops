@@ -7,8 +7,8 @@
  * - The popover shows planetocentric latitude and east-positive longitude (5 decimals), elevation, slope and thermal
  *   inertia. Each value carries `data-provenance` and `data-source` taken from the manifest Layer it comes from
  *   (`elevation`, `slope`, `ti`: the C9 layer ids; `Layer.provenance`, `Layer.source_ids`); the position takes the
- *   elevation layer's, because the DEM gives the grid its frame (TODO(decision)). A value whose layer is not in the
- *   manifest is not shown: it reads "—", flagged unavailable. TI with no coverage reads "no data". Outside the AOI it
+ *   elevation layer's, because the DEM gives the grid its frame (FD-079; 05 §E.1). A value whose layer is not in the
+ *   manifest is not shown: it reads "—", flagged unavailable. TI with no coverage reads "— no data". Outside the AOI it
  *   says "Outside mapped area" and shows no value (FR-03).
  * - Text nodes only (no `innerHTML`). The chrome is neutral (`--panel`, `--edge`, `--text-1`, 12 px minimum); colour is
  *   used for status only, with icon and word: BLOCKED (⬣) for a hard hazard or a slope over the limit, UNKNOWN (?) for
@@ -202,7 +202,7 @@ export function initPointInspector(mapHandle: MapHandle, ctx: AppContext, option
     const slp = shown(slope.known, result.slope_p90_deg, (v) => `${fixed(v, 1)}°`, UNAVAILABLE);
     row(body, "SLOPE (P90)", "slope", slp.text, mark(slope, slp.unavailable));
 
-    const tiShown = shown(ti.known, result.ti_tiu, (v) => `${Math.round(v)} tiu`, ti.known ? "no data" : UNAVAILABLE);
+    const tiShown = shown(ti.known, result.ti_tiu, (v) => `${Math.round(v)} tiu`, ti.known ? `${UNAVAILABLE} no data` : UNAVAILABLE);
     row(body, "THERMAL INERTIA", "ti", tiShown.text, mark(ti, tiShown.unavailable));
 
     if (!result.passable && result.reason && result.reason !== "OUTSIDE_AOI") {

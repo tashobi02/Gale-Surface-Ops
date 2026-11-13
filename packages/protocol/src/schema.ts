@@ -472,6 +472,8 @@ export interface PlanResult {
     sunset_ltst: string;
     sunrise_utc: string;
     sunset_utc: string;
+    /** MSL mission sol of the EVA start, `derived` by compute `mslSol` (N-15, BD-122). Absent in exports made before it existed. */
+    sol?: number;
   };
   /** May be absent in the M3 slice. */
   radiation?: {

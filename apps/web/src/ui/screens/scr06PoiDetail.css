@@ -1,0 +1,28 @@
+/* SCR-06 specimen card, 04 §E.10 and Appendix A: neutral type shapes; original image proportions. */
+.scr06-specimen, .scr06-empty { padding: var(--pad-md); color: var(--fg-1); font: var(--text-ui)/var(--line-height-ui) var(--font-ui); }
+.scr06-header { border-bottom: 1px solid var(--line); padding-bottom: var(--pad-sm); }
+.scr06-code, .scr06-stop-type, .scr06-specimen h3, .scr06-image figcaption { font-family: var(--font-mono); font-size: var(--text-micro); }
+.scr06-header h2 { margin: var(--pad-sm) 0; font-family: var(--font-display); font-size: 20px; font-weight: 500; }
+.scr06-stop-type { display: flex; gap: var(--pad-sm); align-items: center; }
+.scr06-specimen h3 { margin: var(--pad-md) 0 var(--pad-sm); color: var(--fg-2); text-transform: uppercase; }
+.scr06-specimen p { margin: var(--pad-sm) 0; overflow-wrap: anywhere; }
+.scr06-why { font-family: var(--font-serif); }
+.scr06-image { margin: var(--pad-md) 0; }
+.scr06-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.scr06-image button { width: 100%; aspect-ratio: 16 / 9; padding: 0; background: var(--surface-2); }
+.scr06-image-loading { filter: blur(4px); opacity: .5; }
+.scr06-image-missing { padding: var(--pad-md); border: 1px solid var(--line); background: var(--surface-2); }
+.scr06-image figcaption { display: flex; flex-wrap: wrap; gap: var(--pad-sm); margin-top: var(--pad-sm); color: var(--fg-2); }
+.scr06-source-url { width: 100%; overflow-wrap: anywhere; }
+.scr06-evidence { margin-block: var(--pad-md); }
+.scr06-evidence summary { cursor: pointer; min-height: var(--target-mouse); }
+.scr06-evidence summary::marker { content: "+ "; }
+.scr06-evidence[open] summary::marker { content: "− "; }
+.scr06-specimen button { min-height: var(--target-mouse); border: 1px solid var(--control-edge); padding: var(--pad-sm); color: var(--fg-1); background: var(--surface-2); cursor: pointer; }
+.scr06-specimen button:disabled { opacity: .5; cursor: default; }
+.scr06-specimen :is(button, summary, a):focus-visible { box-shadow: var(--focus-ring); }
+.scr06-specimen a { color: var(--fg-1); text-underline-offset: .2em; }
+.scr06-image-dialog { max-width: min(92vw, 1200px); max-height: 90vh; color: var(--fg-1); background: var(--surface-1); border: 1px solid var(--control-edge); }
+.scr06-image-dialog img { display: block; max-width: 100%; max-height: 72vh; object-fit: contain; }
+.scr06-image-dialog::backdrop { background: var(--surface-0); opacity: .85; }
+@media (pointer: coarse) { .scr06-specimen :is(button, summary, a) { min-height: var(--target-touch); } }

@@ -2,7 +2,7 @@
   "source_id": "simonsen-2024-rad",
   "title": "The Martian Radiation Environment and Human Health Risks",
   "publisher": "NASA Technical Reports Server",
-  "authors": "Simonsen, L. C. et al.",
+  "authors": "Simonsen, L. C.",
   "missions": [
     "MSL"
   ],
@@ -12,7 +12,7 @@
   "version": "v4",
   "url": "https://ntrs.nasa.gov/api/citations/20240009831/downloads/NAS%20BPS%20Simonsen%20v4%20strives.pdf",
   "credit": "Simonsen et al., 2024",
-  "licence": "TODO(verify)",
-  "accessed": "2026-11-02",
-  "accuracy_note": "Source_id confirmed by Obidit Islam (data lead), 2026-11-10 (map open point 12). Reported GCR dose equivalent rate at Gale Crater during solar minimum (~2019)."
+  "licence": "NASA Technical Reports Server record 20240009831, distribution PUBLIC since 2024-08-06 (checked 2026-11-12, https://ntrs.nasa.gov/api/citations/20240009831). NASA marks the presentation as possibly containing third-party copyrighted material (open-literature figures); the app uses one reported rate range as a cited number and reproduces no figure",
+  "accessed": "2026-11-12",
+  "accuracy_note": "Source_id confirmed by Obidit Islam (data lead), 2026-11-10 (map open point 12). Reported GCR dose equivalent rate at Gale Crater during solar minimum (~2019). Presentation (NTRS stiType PRESENTATION) to the National Academies panel 'A Science Strategy for the Human Exploration of Mars', Washington DC, 6 Aug 2024; the NTRS record lists one author."
 }

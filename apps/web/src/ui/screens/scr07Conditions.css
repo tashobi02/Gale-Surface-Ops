@@ -1,0 +1,14 @@
+/* SCR-07: labelled measurements and limitations; values follow the supplied worker result. */
+.scr07-conditions { padding: var(--pad-md); color: var(--fg-1); font: var(--text-ui)/var(--line-height-ui) var(--font-ui); }
+.scr07-conditions h2 { font-family: var(--font-display); font-size: 20px; font-weight: 500; margin: 0 0 var(--pad-md); }
+.scr07-conditions h3 { font: var(--text-micro)/var(--line-height-ui) var(--font-mono); color: var(--fg-2); text-transform: uppercase; margin: var(--pad-md) 0 var(--pad-sm); }
+.scr07-conditions dl { margin: 0; }
+.scr07-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--pad-sm); padding: var(--pad-sm) 0; border-bottom: 1px solid var(--line); }
+.scr07-field dt { color: var(--fg-2); }
+.scr07-field dd { margin: 0; font-family: var(--font-mono); overflow-wrap: anywhere; }
+.scr07-conditions p { margin: var(--pad-sm) 0; overflow-wrap: anywhere; }
+.scr07-note { color: var(--fg-2); font-size: var(--text-micro); }
+.scr07-stop-sun { list-style: none; margin: 0; padding: 0; }
+.scr07-stop-sun li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--pad-sm); padding: var(--pad-sm) 0; border-bottom: 1px solid var(--line); }
+.scr07-conditions[data-computing="true"] dl, .scr07-conditions[data-computing="true"] .scr07-dose { opacity: .5; }
+.scr07-conditions [role="alert"] { padding: var(--pad-sm); border: 1px solid var(--control-edge); }

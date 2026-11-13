@@ -1,33 +1,23 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { cellIndex, loadGrid, type LoadedGrid } from "../src/grid.js";
+import { cellIndex, decodeSlopeDeg, type LoadedGrid } from "../src/grid.js";
 import { samplePoint } from "../src/sampling.js";
 import { searchLeg } from "../src/route.js";
 import { handleWorkerMessage } from "../src/handler.js";
-import type { ComputePlanRequest, MissionScenario, RoutingGrid } from "@marswalk/protocol";
+import type { ComputePlanRequest, MissionScenario } from "@marswalk/protocol";
+import { F5_PATH, REAL_MANIFEST_PATH, REAL_SITE_DIR, ROOT, hasRealBundle, loadSiteGrid, machineLine, mulberry32, percentile } from "./fixtures/realSite.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const ROOT = path.resolve(__dirname, "../../..");
-const REAL_SITE_DIR = path.join(ROOT, "data/sites/gale_boxwork");
-const REAL_MANIFEST_PATH = path.join(REAL_SITE_DIR, "site-manifest.json");
-const SAMPLE_CELLS_PATH = path.join(ROOT, "apps/web/tests/fixtures/real/sample_cells.json");
 const MOCK_SITE_DIR = path.join(ROOT, "data/sites/mock_site");
 
-const hasRealBundle =
-  fs.existsSync(REAL_MANIFEST_PATH) &&
-  fs.existsSync(path.join(REAL_SITE_DIR, "grid/elevation.f32"));
-
-const hasSampleCells = fs.existsSync(SAMPLE_CELLS_PATH);
-
 interface F5Cell {
+  row: number;
+  col: number;
   x_m: number;
   y_m: number;
   elevation_m: number;
-  slope_deg: number;
+  slope_p90_u8: number;
+  slope_p90_deg: number;
 }
 
 function validateF5Records(records: unknown): F5Cell[] {
@@ -36,7 +26,7 @@ function validateF5Records(records: unknown): F5Cell[] {
   }
   for (const record of records) {
     if (!record || typeof record !== "object" ||
-      ![record.x_m, record.y_m, record.elevation_m, record.slope_deg].every(
+      ![record.x_m, record.y_m, record.elevation_m, record.slope_p90_deg, record.slope_p90_u8].every(
         (value) => typeof value === "number" && Number.isFinite(value),
       )) {
       throw new Error("Invalid F5: each cell needs finite coordinates, elevation and slope");
@@ -45,66 +35,8 @@ function validateF5Records(records: unknown): F5Cell[] {
   return records as F5Cell[];
 }
 
-/** Seeded PRNG (Mulberry32) for reproducible benchmark point generation. */
-function mulberry32(seed: number) {
-  let s = seed >>> 0;
-  return function () {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** Loads site grid arrays directly from a site directory using its site-manifest.json. */
-function loadSiteGrid(siteDir: string): LoadedGrid {
-  const manifest = JSON.parse(fs.readFileSync(path.join(siteDir, "site-manifest.json"), "utf8"));
-  const gridMeta = manifest.grid as RoutingGrid;
-  const assetMap = new Map<string, string>();
-  for (const asset of manifest.assets ?? []) {
-    assetMap.set(asset.asset_id, asset.path);
-  }
-
-  const elevPath = path.join(siteDir, assetMap.get(gridMeta.elevation_asset) ?? "grid/elevation.f32");
-  const p90Path = path.join(siteDir, assetMap.get(gridMeta.slope_p90_asset) ?? "grid/slope_p90.u8");
-  const maxPath = path.join(siteDir, assetMap.get(gridMeta.slope_max_asset) ?? "grid/slope_max.u8");
-  const flagsPath = path.join(siteDir, assetMap.get(gridMeta.flags_asset) ?? "grid/flags.u8");
-
-  const elevBuf = fs.readFileSync(elevPath);
-  const p90Buf = fs.readFileSync(p90Path);
-  const maxBuf = fs.readFileSync(maxPath);
-  const flagsBuf = fs.readFileSync(flagsPath);
-
-  let tiBuf: ArrayBuffer | undefined;
-  const tiRel = assetMap.get(gridMeta.ti_asset ?? "") ?? "grid/ti_100m.f32";
-  const tiPath = path.join(siteDir, tiRel);
-  if (fs.existsSync(tiPath)) {
-    const raw = fs.readFileSync(tiPath);
-    tiBuf = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
-  }
-
-  let commBuf: ArrayBuffer | undefined;
-  if (gridMeta.comm_hab_asset) {
-    const commRel = assetMap.get(gridMeta.comm_hab_asset) ?? "grid/comm_hab.u8";
-    const commPath = path.join(siteDir, commRel);
-    if (fs.existsSync(commPath)) {
-      const raw = fs.readFileSync(commPath);
-      commBuf = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
-    }
-  }
-
-  return loadGrid(
-    gridMeta,
-    {
-      elevation: elevBuf.buffer.slice(elevBuf.byteOffset, elevBuf.byteOffset + elevBuf.byteLength),
-      slopeP90: p90Buf.buffer.slice(p90Buf.byteOffset, p90Buf.byteOffset + p90Buf.byteLength),
-      slopeMax: maxBuf.buffer.slice(maxBuf.byteOffset, maxBuf.byteOffset + maxBuf.byteLength),
-      flags: flagsBuf.buffer.slice(flagsBuf.byteOffset, flagsBuf.byteOffset + flagsBuf.byteLength),
-      ti: tiBuf,
-      commHab: commBuf ?? new ArrayBuffer(gridMeta.width * gridMeta.height),
-    },
-  );
-}
+const readF5 = (): F5Cell[] => validateF5Records((JSON.parse(fs.readFileSync(F5_PATH, "utf8")) as { cells: unknown }).cells);
+const hasSampleCells = fs.existsSync(F5_PATH);
 
 interface BenchmarkResults {
   count: number;
@@ -194,6 +126,8 @@ function runSeededPairsBenchmark(grid: LoadedGrid, pairCount = 20, seed = 202611
   };
 }
 
+const REAL_GRID_PAIRS_TIMEOUT_MS = 60_000;
+
 describe("T05.28 — Seeded benchmark runner on disk fixture (mock_site)", () => {
   it.each([
     { records: [] }, { records: {} }, { records: null },
@@ -256,44 +190,42 @@ describe("T05.28 — Seeded benchmark runner on disk fixture (mock_site)", () =>
   });
 });
 
-// TODO(verify): Obtain the gale_boxwork bundle and ten independent F5 cell records, resolve the F5 slope-raster choice with T03.21, and record real-grid pair timings plus repeated successful three-stop-loop p95 with machine, runtime and data_version. Mock-site and single-run timings do not establish this acceptance.
+// Step 1: skip, with the reason printed, when data/sites/gale_boxwork/grid/ is absent (clean clone, CI)
+if (!hasRealBundle) console.log("realGrid: real-grid checks skipped, data/sites/gale_boxwork/grid/ is absent");
+
 it.skipIf(!hasSampleCells)("F5 contains exactly ten usable independent cell records", () => {
-  validateF5Records(JSON.parse(fs.readFileSync(SAMPLE_CELLS_PATH, "utf8")));
+  expect(readF5()).toHaveLength(10);
 });
 
-// Step 1: Skip real bundle verification when data/sites/gale_boxwork/ is absent (clean clone)
-describe.skipIf(!hasRealBundle)("T05.28 — Verify on the real grid (gale_boxwork)", () => {
-  it.skipIf(!hasSampleCells)("FR-03: compares 10 sampled F5 cells against rasterio readout", () => {
-    const sampleCells = validateF5Records(JSON.parse(fs.readFileSync(SAMPLE_CELLS_PATH, "utf8")));
+describe.skipIf(!hasRealBundle || !hasSampleCells)("T05.28 — Verify on the real grid (gale_boxwork)", () => {
+  it("FR-03: the ten F5 cells equal the decoded grid exactly (elevation to the float32 bit, slope P90 to the u8 step)", () => {
     const grid = loadSiteGrid(REAL_SITE_DIR);
-
-    for (const cell of sampleCells) {
-      const pt = samplePoint(grid, cell.x_m, cell.y_m, 50, 25);
-      expect(pt.reason).toBeNull();
+    for (const cell of readF5()) {
       const index = cellIndex(grid, cell.x_m, cell.y_m);
-      expect(index).not.toBeNull();
+      expect(index, `cell (${cell.row}, ${cell.col}) inside the grid`).toBe(cell.row * grid.meta.width + cell.col);
       expect(grid.elevation[index!]).toBe(Math.fround(cell.elevation_m));
-      const row = Math.floor(index! / grid.meta.width);
-      const col = index! % grid.meta.width;
-      const centerX = grid.meta.origin_m[0] + (col + 0.5) * grid.meta.cell_m;
-      const centerY = grid.meta.origin_m[1] - (row + 0.5) * grid.meta.cell_m;
-      const centerSample = samplePoint(grid, centerX, centerY, 50, 25);
-      expect(centerSample.elevation_m).toBe(Math.fround(cell.elevation_m));
-      expect(typeof pt.slope_p90_deg).toBe("number");
-      expect(Math.abs(pt.slope_p90_deg! - cell.slope_deg)).toBeLessThanOrEqual(0.1);
+      expect(grid.slopeP90[index!]).toBe(cell.slope_p90_u8);
+      expect(decodeSlopeDeg(grid.slopeP90[index!]!)).toBe(cell.slope_p90_deg);
+      const pt = samplePoint(grid, cell.x_m, cell.y_m, 50, 25);
+      expect(pt.elevation_m).toBe(Math.fround(cell.elevation_m));
+      expect(pt.slope_p90_deg).toBe(cell.slope_p90_deg);
     }
   });
 
-  it("FR-07 / 01 §B: 20 scripted pairs inside AOI from seeded generator (p50/p95, 0 failures)", () => {
+  it("FR-07 / 01 §B: 20 scripted pairs inside AOI from the seeded generator, p50 and p95 recorded with the BD-03 machine line", () => {
     const grid = loadSiteGrid(REAL_SITE_DIR);
     const results = runSeededPairsBenchmark(grid, 20);
 
     expect(results.count).toBe(20);
     expect(results.failures).toBe(0);
     expect(results.routes + results.noRoutes).toBe(20);
-  });
+    console.log(
+      `T05.28 real-grid pairs (gale_boxwork): ${results.routes} routes, ${results.noRoutes} no-route; ` +
+        `min ${results.min_ms.toFixed(0)} p50 ${results.p50_ms.toFixed(0)} p95 ${results.p95_ms.toFixed(0)} max ${results.max_ms.toFixed(0)} ms; machine: ${machineLine()}`,
+    );
+  }, REAL_GRID_PAIRS_TIMEOUT_MS);
 
-  it("runs a single timed real-grid 3-stop loop smoke check through the handler", () => {
+  it("NFR-02: a 3-stop loop through the handler, repeated 5 times after one warm-up, has its worst run at most 2 s", () => {
     const grid = loadSiteGrid(REAL_SITE_DIR);
     const manifest = JSON.parse(fs.readFileSync(REAL_MANIFEST_PATH, "utf8"));
     expect(Number.isFinite(manifest.default_start?.x_m)).toBe(true);
@@ -331,11 +263,18 @@ describe.skipIf(!hasRealBundle)("T05.28 — Verify on the real grid (gale_boxwor
       },
     };
 
-    const t0 = performance.now();
-    const res = handleWorkerMessage(grid, req);
-    const duration = performance.now() - t0;
-
-    expect(res.type).toBe("PLAN_RESULT");
-    expect(duration).toBeLessThanOrEqual(2000);
-  });
+    handleWorkerMessage(grid, req); // warm-up (JIT)
+    const runs: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const t0 = performance.now();
+      const res = handleWorkerMessage(grid, req);
+      runs.push(performance.now() - t0);
+      expect(res.type).toBe("PLAN_RESULT");
+    }
+    const sorted = [...runs].sort((a, b) => a - b);
+    console.log(
+      `T05.28 real-grid 3-stop loop (${manifest.data_version}): runs ${runs.map((v) => v.toFixed(0)).join(" ")} ms, p95 ${percentile(sorted, 0.95).toFixed(0)} ms; machine: ${machineLine()}`,
+    );
+    expect(sorted[sorted.length - 1]).toBeLessThanOrEqual(2000);
+  }, REAL_GRID_PAIRS_TIMEOUT_MS);
 });

@@ -3,7 +3,7 @@
  * (docs/specs/03 SCR-17; 01 FR-46, NFR-01). The fetch is stubbed; the report is built by the Hab Core's own builder, so
  * the wire shape under test is the real one. Loading and failure keep the layout with "—" and say why.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { buildReport } from "../../../hab-core/src/report";
 import { ReportRoute } from "../../src/ui/live/ReportRoute";
@@ -90,13 +90,90 @@ describe("ReportRoute", () => {
 
   it("RETRY fetches again and shows the report when it is there", async () => {
     let calls = 0;
-    const fetchImpl = vi.fn(async () => (++calls === 1 ? json({ error: "no session loaded" }, 404) : json(realReport())));
+    const fetchImpl = vi.fn(async (url: string) => url === "api/log" ? new Response("") : (++calls === 1 ? json({ error: "no session loaded" }, 404) : json(realReport())));
     const { container } = await mount(createElement(ReportRoute, { fetchImpl }));
     await flush();
     await click(must(container, '[data-slot="report-retry"]'));
     await flush();
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl.mock.calls.filter(([url]) => url === "api/report")).toHaveLength(2);
     expect(container.querySelector('[data-slot="report-status"]')).toBeNull();
     expect(must(container, '[data-surface="report"]').textContent).toContain("feedbeef");
+  });
+  describe("Export log JSON (FD-053)", () => {
+    const realCreate = URL.createObjectURL;
+    const realRevoke = URL.revokeObjectURL;
+    let blobs: Blob[];
+    let downloads: string[];
+    let revoke: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      blobs = [];
+      downloads = [];
+      revoke = vi.fn();
+      Object.assign(URL, { createObjectURL: vi.fn((b: Blob) => { blobs.push(b); return `blob:report-${blobs.length}`; }), revokeObjectURL: revoke });
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) { downloads.push(this.download); });
+    });
+    afterEach(() => {
+      Object.assign(URL, { createObjectURL: realCreate, revokeObjectURL: realRevoke });
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    });
+
+    const route = (log: () => Promise<Response>) =>
+      vi.fn(async (url: string) => (url === "api/log" ? log() : json({ ...realReport(), session_id: "session-test" })));
+
+    it("export downloads log JSON: GET api/log, the events as a JSON array, named log-<session_id>.json", async () => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      const fetchImpl = route(async () => new Response('{"seq":1,"kind":"SESSION_LOADED"}\n{"seq":2,"kind":"EVA_STARTED"}\n', { status: 200 }));
+      const { container } = await mount(createElement(ReportRoute, { fetchImpl }));
+      await flush();
+      await click(must(container, '[data-slot="export-log"]'));
+      await flush();
+      expect(fetchImpl).toHaveBeenCalledWith("api/log");
+      expect(downloads).toEqual(["log-session-test.json"]);
+      expect(JSON.parse(await blobs[0]!.text())).toEqual([{ seq: 1, kind: "SESSION_LOADED" }, { seq: 2, kind: "EVA_STARTED" }]);
+      expect(blobs[0]!.type).toBe("application/json");
+      // The URL is revoked after the download had time to start, not right after the click.
+      expect(revoke).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(revoke).toHaveBeenCalledWith("blob:report-1");
+    });
+
+    it("a second click while the export runs does not start another", async () => {
+      let release: (r: Response) => void = () => {};
+      const fetchImpl = route(() => new Promise<Response>((resolve) => { release = resolve; }));
+      const { container } = await mount(createElement(ReportRoute, { fetchImpl }));
+      await flush();
+      await click(must(container, '[data-slot="export-log"]'));
+      await click(must(container, '[data-slot="export-log"]'));
+      release(new Response('{"seq":1}', { status: 200 }));
+      await flush();
+      await flush();
+      expect(fetchImpl.mock.calls.filter(([url]) => url === "api/log")).toHaveLength(1);
+      expect(downloads).toHaveLength(1);
+    });
+
+    it("an HTTP error says so in an alert that is not printed, and downloads nothing", async () => {
+      const fetchImpl = route(async () => new Response("no", { status: 503 }));
+      const { container } = await mount(createElement(ReportRoute, { fetchImpl }));
+      await flush();
+      await click(must(container, '[data-slot="export-log"]'));
+      await flush();
+      const alert = must(container, '[data-slot="report-export-error"]');
+      expect(alert.getAttribute("role")).toBe("alert");
+      expect(alert.textContent).toContain("HTTP 503");
+      expect(alert.closest(".report-route-no-print")).not.toBeNull();
+      expect(downloads).toEqual([]);
+    });
+
+    it("a log line that is not JSON says so and downloads nothing", async () => {
+      const fetchImpl = route(async () => new Response('{"seq":1}\nnot json\n', { status: 200 }));
+      const { container } = await mount(createElement(ReportRoute, { fetchImpl }));
+      await flush();
+      await click(must(container, '[data-slot="export-log"]'));
+      await flush();
+      expect(must(container, '[data-slot="report-export-error"]').textContent).toContain("Could not export log");
+      expect(downloads).toEqual([]);
+      expect(blobs).toEqual([]);
+    });
   });
 });

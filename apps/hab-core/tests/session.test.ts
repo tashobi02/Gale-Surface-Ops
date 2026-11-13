@@ -84,7 +84,7 @@ describe("session manager (T22.12)", () => {
     expect(snap.session).toMatchObject({ session_id: "s-0001", scenario_id: "fake-straight-line", status: "LOADED", last_seq: 1 + SEEDED });
     expect(snap.tasks.map((t) => t.task_id)).toEqual(fake.scenario.stop_tasks!.map((t) => t.task_id));
     expect(s.eventsAfter(0).map((e) => [e.kind, e.command_ref])).toEqual([["SESSION_LOADED", null], ...fake.scenario.stop_tasks!.map(() => ["TASK_ADDED", null])]);
-    expect(s.eventsAfter(0)[0]!.data).toEqual({ session_id: "s-0001", scenario_id: "fake-straight-line", data_version: "mock_site-fixture", seed: 4190, plan_hash: fake.scenario.plan.plan_hash });
+    expect(s.eventsAfter(0)[0]!.data).toEqual({ session_id: "s-0001", scenario_id: "fake-straight-line", data_version: "mock_site-fixture", seed: 4190, plan_hash: fake.scenario.plan!.plan_hash });
     expect(snap.session.log_hash).toBe(sha256(readFileSync(join(sessionDir(dir), "session.jsonl"), "utf8")));
   });
 

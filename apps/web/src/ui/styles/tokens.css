@@ -82,6 +82,9 @@
   --print-caution: #9A5B00;
   --print-warning: #B42318;
   --print-nominal: #0E7A4F;
+  /* PRINT advisory and unknown (mockup DV-07, 04 §C.1 PRINT, FD-013) */
+  --print-advisory: #1D4ED8;
+  --print-unknown: #6D28D9;
 
   /* Map overlays (04 §C.1; slope ramp retained from v1) */
   --slope-5-10: #FDE7A9;   /* 40 % */
@@ -99,6 +102,30 @@
   --slope-opacity-gt-25: 0.75;  /* 04 §C.1 */
   /* Comm shadow (04 §C.1 v2): 45° hatch, text-3 at 35 % */
   --comm-shadow-opacity: 0.35;  /* 04 §C.1 v2 */
+
+  /* Status pattern geometry (04 §C.1 hatch, cross-hatch, dotted; FD-150). The one source for the CSS gradients in
+     patterns.css; ui/components/patterns.ts mirrors it for SVG <pattern> defs and canvas patterns, and
+     tests/ui/sharedPatterns.test.ts keeps the two equal. PRINT draws its own coarser strokes (@media print). */
+  --pattern-hatch-period: 8px;
+  --pattern-hatch-stripe: 4px;
+  --pattern-hatch-alpha: 0.22;
+  --pattern-cross-period: 6px;
+  --pattern-cross-stripe: 3px;
+  --pattern-cross-alpha: 0.28;
+  --pattern-dot-period: 8px;
+  --pattern-dot-radius: 22%;
+  --pattern-dot-alpha: 0.35;
+
+  /* Status icon size (FD-215): every status glyph takes its box from these; EVA and HUD screens use the larger one. */
+  --status-icon-size: 18px;
+  --status-icon-size-eva: 22px;
+
+  /* HUD status pill pattern alpha (FD-155): the largest black alpha for which the pill keeps >= 7 : 1 on its fill.
+     Found by the search in tests/ui/patterns.test.ts (step 0.01), which is the source of these three values.
+     The warning pill is a lighter cross-hatch instead (see patterns.css). */
+  --hud-pill-alpha-caution: 0.22;
+  --hud-pill-alpha-advisory: 0.20;
+  --hud-pill-alpha-unknown: 0.16;
 
   /* Typography (04 §C.2) — self-hosted, offline; licences verified in TASK-13 */
   --font-display: "Chakra Petch", "Space Grotesk", sans-serif;
@@ -179,7 +206,7 @@
   --accent: var(--signal);
   --accent-text: var(--signal-ink);
   --on-accent: var(--ink);
-  /* TODO(decision): 04 §C.1 `focus` is white (a white ring is invisible on paper); the BRIEF ring uses ink on a paper gap. 04 spec-change needed. */
+  /* 04 §C.1 `focus` row, BRIEF value (FD-066): an ink ring on a paper gap, because the white ring is invisible on paper (NFR-04). */
   --focus-ring: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink);
   color-scheme: light;
 }
@@ -200,8 +227,8 @@
   --status-unknown: var(--hud-text-2);
   /* 04 §C.1 `focus`: white ring 2 px + 2 px gap; HUD gap is its own black (hud-bg), ring is hud-text (#FFFFFF) */
   --focus-ring: 0 0 0 2px var(--hud-bg), 0 0 0 4px var(--hud-text);
-  /* 04 §C.1 defines no HUD-specific edge; the OPS `edge` is reused (≥ 3 : 1 non-text on black).
-     TODO(decision): 04 spec-change if the HUD needs its own control-edge value. */
+  /* No HUD-specific edge token (FD-067): the HUD has no controls (03 SCR-13 is read-only), so the OPS `edge` is reused
+     (≥ 3 : 1 non-text on black). */
   --control-edge: var(--edge);
   /* Proposed HUD tokens (not explicitly named in 04 §C.1; 04 §E.6, NFR-04) */
   --font-hud: var(--font-mono);
@@ -212,7 +239,7 @@
 }
 
 [data-mode="print"] {
-  /* TODO(decision): 04 §C.1 defines no PRINT focus ring; print is not interactive, so none is set and the OPS value is inherited. 04 spec-change needed. */
+  /* No PRINT focus ring (FD-068): print is not interactive, so none is set and the OPS value is inherited. */
   --surface-0: #FFFFFF;
   --surface-1: #FFFFFF;
   /* Print neutrals (04 §C.1 PRINT): fill #F3F4F6, rule #D1D5DB (hairlines only, never text), secondary text #4B5563 */
@@ -226,8 +253,8 @@
   --status-nominal: var(--print-nominal);
   --status-caution: var(--print-caution);
   --status-warning: var(--print-warning);
-  --status-advisory: var(--print-text);
-  --status-unknown: var(--print-text);
+  --status-advisory: var(--print-advisory);
+  --status-unknown: var(--print-unknown);
   color-scheme: light;
 }
 
@@ -346,10 +373,20 @@ button,
   min-height: var(--target-mouse);
 }
 /* Pressed: inverted (04 §D.1 action button, P8), token-based so it works in every mode.
-   TODO(decision): a primary button (text-1 fill, void text, 04 §D) already looks like this; give it its own pressed state when that class lands. */
+   The primary button has its own pressed state below (FD-069). */
 button:not(:disabled):active,
 .btn:not(:disabled):not([aria-disabled="true"]):active {
   background: var(--fg-1);
+  color: var(--surface-0);
+}
+/* Primary button (04 §D.1): text-1 fill with void text; pressed = text-2 fill with void text (FD-069), so the pressed state
+   differs from the default one and uses existing tokens only. */
+.btn-primary {
+  background: var(--fg-1);
+  color: var(--surface-0);
+}
+.btn-primary:not(:disabled):not([aria-disabled="true"]):active {
+  background: var(--fg-2);
   color: var(--surface-0);
 }
 a { text-decoration: underline; text-underline-offset: 2px; }
@@ -387,8 +424,8 @@ a { text-decoration: underline; text-underline-offset: 2px; }
     --status-nominal: var(--print-nominal);
     --status-caution: var(--print-caution);
     --status-warning: var(--print-warning);
-    --status-advisory: var(--print-text);
-    --status-unknown: var(--print-text);
+    --status-advisory: var(--print-advisory);
+    --status-unknown: var(--print-unknown);
   }
 }
 

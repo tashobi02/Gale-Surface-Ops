@@ -14,10 +14,13 @@ import type { LoadedScenario } from "../scenario";
 import { buddyTick, consumablesTick, radiationTick } from "./alerts";
 import { conditionsTick } from "./conditions";
 import { contingencyTick } from "./contingencyOps";
+import { crewMargins, legSeconds } from "./crewMargins";
 import { earthTick } from "./earth";
-import { havenTick } from "./haven";
+import { havenTick, type HavenCache } from "./haven";
+import { doseAt } from "./liveEvents";
 import { linksTick } from "./links";
 import { isWaiting, logged, reduce, type CrewMotion, type EngineState, type PendingEvent, type StateChange } from "./reducer";
+import { rideTick } from "./ride";
 import { roversTick } from "./rovers";
 import { tasksTick } from "./tasks";
 import { SHELTER_REACH_M, vehiclesTick } from "./vehicles";
@@ -31,6 +34,11 @@ export interface TickContext {
    * consecutive seqs from here before calling the next module (see "State rule" below).
    */
   next_seq: number;
+  /**
+   * The session's haven memo (BD-146). Owned by the session, so two sessions never share it; absent in a context built
+   * by a test or a one-off call, where `havenTick` then memoises nothing between calls. Never read by any other module.
+   */
+  haven_cache?: HavenCache;
 }
 
 export interface TickResult {
@@ -56,11 +64,12 @@ export type EngineModule = (state: EngineState, ctx: TickContext) => TickResult;
 
 /**
  * Call order after crew motion, consumables and dose (tick.ts).
- * TODO(decision): 02 §D.14 fixes only the alert order; the order of the non-alert modules here
- * (vehicles, rovers, conditions, earth, tasks before alerts; contingency last) is proposed by T22.01.
+ * 02 §D.14 fixes only the alert order; the order of the non-alert modules here (vehicles, rovers, conditions, earth, tasks
+ * before alerts; contingency last) is ratified (BD-70) and written into 02 §D.14 as Proposed.
  */
 export const MODULE_ORDER: readonly EngineModule[] = [
   vehiclesTick, // T23.05: pressurized rover motion, arrival, sheltering
+  rideTick, // QoL Q3: a rider follows the pressurized rover and steps out at the stop
   roversTick, // T29.03: utility rover motion, battery, relay node
   conditionsTick, // T22.16: FR-36 conditions feed
   earthTick, // T26.04: Earth message delivery, forecasts
@@ -83,10 +92,12 @@ const STUB_ERROR = /^TODO\(TASK-\d+\): T\d+\.\d+ not implemented$/;
  * The returned state already contains every event, so `last_seq = next_seq + events.length − 1`.
  * The clock has already advanced by `dt_s`: this step covers `[sim_time − dt_s, sim_time)`.
  */
-export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number, next_seq: number): TickResult {
+export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number, next_seq: number, haven_cache?: HavenCache): TickResult {
   const shielding = Object.values(scenario.params).find((p) => p.kind === "shielding");
   if (!shielding) throw new Error("tick: the scenario has no shielding ParamSet (05 Scenario)");
   const t_utc = isoSeconds(Date.parse(state.session.clock.sim_time) - dt_s * 1000);
+  // The dose series and the time to read it at: shifted by START_EVENT, the background before it (T32.12, 02 §D.17).
+  const dose_source = doseAt(state, scenario, t_utc);
 
   const crew: Crew[] = [];
   const motion: Partial<Record<CrewId, CrewMotion>> = {};
@@ -101,7 +112,7 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
 
     // Dose, then O₂, then elapsed time, all by the activity at the start of the step (S9).
     const mode = stepMode(c, m, offset_s);
-    const dose = integrateDose(scenario.dose, [{ t_utc, dt_s, shelter: mode.shelter }], shielding);
+    const dose = integrateDose(dose_source.series, [{ t_utc: dose_source.t_utc, dt_s, shelter: mode.shelter }], shielding);
     const walked = advance(state, scenario, c, m, dt_s, offset_s);
     const next: Crew = {
       ...c,
@@ -130,7 +141,7 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
   };
   apply(motionEvents);
 
-  const ctx: TickContext = { scenario, dt_s, next_seq };
+  const ctx: TickContext = { scenario, dt_s, next_seq, ...(haven_cache === undefined ? {} : { haven_cache }) };
   for (const module of MODULE_ORDER) {
     let r: TickResult;
     try {
@@ -144,8 +155,18 @@ export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number,
     deltas.push(...r.deltas);
   }
 
+  // Per-crew margins for the tablet and HUD (T32.31, BD-95), from the step's final state; the O₂ activity is the one that
+  // `stepMode` uses for the same crew member's consumption.
+  const margins = crewMargins(current, scenario, (c) => {
+    const offset_s = scenario.scenario.crew.find((x) => x.crew_id === c.crew_id)?.start_offset_s ?? 0;
+    return stepMode(c, current.motion[c.crew_id], offset_s).o2;
+  });
+  current = { ...current, crew: margins.crew };
+  deltas.push(...margins.deltas);
+
   // Running → Ended: all crew sheltered or in the hab (03 §E.6). The reducer then sets ENDED, so this fires once.
-  if (current.session.status === "RUNNING" && current.crew.length > 0 && current.crew.every((c) => c.activity === "IN_HAB" || c.activity === "SHELTERED")) {
+  // A jump (JUMP_NEXT_STOP) also ticks a paused EVA, so PAUSED counts as running here (T32.10, BD-113).
+  if ((current.session.status === "RUNNING" || current.session.status === "PAUSED") && current.crew.length > 0 && current.crew.every((c) => c.activity === "IN_HAB" || c.activity === "SHELTERED")) {
     apply([{ sim_time: current.session.clock.sim_time, kind: "EVA_ENDED", actor: "system", data: { crew_ids: current.crew.map((c) => c.crew_id) }, provenance: {} }]);
   }
   return { state: current, events, deltas };
@@ -175,7 +196,12 @@ function stepMode(c: Crew, m: CrewMotion | undefined, offset_s: number): { shelt
       // Holding (the route ended, or waiting at a vehicle rendezvous) rests in the suit.
       return { shelter: "suit", o2: m?.phase === "hold" ? "resting" : "walking" };
     case "AT_STOP":
+    case "HOLDING":
+      // A held crew member stands in the suit at the resting rate; dose and O₂ keep running (SET_CREW_MOTION, Q2).
       return { shelter: "suit", o2: "resting" };
+    case "RIDING":
+      // QoL Q3: the pressurized cabin shields like a vehicle haven and uses no suit O2 (as SHELTERED in a vehicle).
+      return { shelter: "pressurized_rover", o2: null };
     case "SHELTERED":
       // A terrain refuge has no factor before T2: conservative suit shielding at the resting rate.
       return c.haven.kind === "hab" ? { shelter: "hab", o2: null } : c.haven.kind === "vehicle" ? { shelter: "pressurized_rover", o2: null } : { shelter: "suit", o2: "resting" };
@@ -191,13 +217,6 @@ function segmentLengths(geometry: Point[]): number[] {
     lengthCache.set(geometry, lengths);
   }
   return lengths;
-}
-
-/** Seconds a leg takes; a NaN, infinite or negative `walk_time_min` is a plan error (S11), never an instant arrival. */
-function legSeconds(leg: OkLeg): number {
-  const s = leg.walk_time_min * 60;
-  if (!Number.isFinite(s) || s < 0) throw new Error(`tick: leg ${leg.from}→${leg.to} has an invalid walk_time_min (${leg.walk_time_min})`);
-  return s;
 }
 
 /** The point `d_m` metres along the polyline (the end point from its length on). */
@@ -266,6 +285,8 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
   const hold = (motion: CrewMotion | undefined): Walked => ({ x_m: c.x_m, y_m: c.y_m, motion, events: () => [], waited_s: 0 });
   const plan = state.plan;
   const moving = c.activity === "WALKING" || c.activity === "AT_STOP" || c.activity === "TO_HAVEN";
+  // A held crew member keeps its walk progress, so RESUME continues from the same point (SET_CREW_MOTION, Q2).
+  if (c.activity === "HOLDING") return hold(m);
   if (!moving || !plan) return hold(undefined);
   const legs = plan.result.legs;
   const waypoints = plan.waypoints;
@@ -345,8 +366,7 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
         // off the start waypoint (farther than SHELTER_REACH_M, the reach vehiclesTick uses): a
         // VEHICLE_RENDEZVOUS revision's last leg has `to` = start but ends at the meeting point, where the
         // crew hold until vehiclesTick shelters them in the vehicle. A planner loop that ends on a cell
-        // centre near the start still shelters in the hab (T23.07 rework, Proposed 2026-11-08).
-        // TODO(decision): a dedicated 05 Waypoint role ("rendezvous") would be cleaner; the spec owner's call.
+        // centre near the start still shelters in the hab (T23.07 rework, BD-59). There is no dedicated Waypoint role.
         cur = { ...next, phase: "hold" };
         const offStart = start === undefined || Math.hypot(x - start.x_m, y - start.y_m) > SHELTER_REACH_M;
         if (leg.to === startId && !(offStart && vehicleComing(state, c.crew_id))) {
@@ -380,8 +400,8 @@ function advance(state: EngineState, scenario: LoadedScenario, c: Crew, m: CrewM
 /**
  * The plan was revised: put the crew member on the new legs (S7). Candidates are the legs from the
  * first whose `from` is the last waypoint reached (else all of them); the closest point wins, ties to
- * the earliest leg or segment. TODO(verify) with T23.07: assumes the new first leg starts near the crew
- * member and that abort legs end at the start waypoint. A held crew member is re-anchored too: it resumes
+ * the earliest leg or segment. BD-80, tested in contingencyOpsReal.test.ts: the new first leg starts within one
+ * routing cell of the crew member, and abort legs end at the start waypoint. A held crew member is re-anchored too: it resumes
  * walking unless the closest point is the end of its leg (then it stays held, so it does not arrive twice).
  */
 function reanchor(m: CrewMotion, legs: Leg[], c: Crew, revision: number, toHaven: boolean): CrewMotion {

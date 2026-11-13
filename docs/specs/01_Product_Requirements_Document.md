@@ -6,7 +6,7 @@
 | **Date** | 2026-11-05 |
 | **Status** | Draft v2 — supersedes v1 (2026-11-02); pending team review |
 | **Related** | [Docs index](../README.md) · [02 Technical](02_Technical_Requirements_Document.md) · [03 App Flow](03_App_Flow_and_Diagrams.md) · [04 Design](04_Design_Brief.md) · [05 Schema](05_Backend_and_Database_Schema.md) · [06 Plan](06_High_Level_Implementation_Plan.md) |
-| **Product** | Marswalk Surface Ops *(working title — rename before submission, D-08)* |
+| **Product** | Gale Surface Ops |
 | **Challenge** | NASA Space Apps 2026 — *Interplanetary Survival Guide: Martian Map* |
 | **Target award** | Local judging; global category *Best Mission Concept* (organizer Build Guide names this challenge as aimed at it) |
 
@@ -288,7 +288,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 - **Full-screen map** *(added 2026-11-05, Tier 1, product & systems lead's decision)*: tapping the mini-map or FULL opens a full-screen map with labelled on-screen controls (+, −, FIT, FOLLOW, LAYERS, CLOSE) and up to two scientific layers at once (slope, thermal inertia, comm shadow, haven bands). HAVEN and O₂ stay on screen, the alert slot and action row never move, and a warning closes it. Layout: 04 §E.5; prototype: [mockup handoff](../design/mockup-handoff.md) DV-13, G-42, G-43.
 - **Content:** next stop (name, bearing, distance, ETA), mini-map with route and my position, margins strip (time to haven, O₂ remaining, EVA time remaining, dose so far), alert banner, three primary actions: **Summon vehicle**, **Task rover**, **Abort to haven**.
 - **Acceptance criteria:**
-  - Works on a phone/tablet ≥ 360 px wide in portrait; touch targets ≥ 56 px (glove use, **Assumed**).
+  - *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-010)* Works on a phone/tablet ≥ 360 px wide in portrait **or ≥ 844 × 390 px in landscape**; touch targets ≥ 56 px (glove use, **Assumed**); the alert bar, HAVEN (top-left), O₂, metadata strip and action row keep their positions in both orientations.
   - Each primary action is ≤ 2 taps + confirm.
   - When the Hab Core link is lost, shows "HAB LINK LOST" and continues to display the cached plan and last known margins, labelled stale with age.
 
@@ -346,6 +346,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 
 - **Tasks:** `SCOUT(point)` (drive, capture curated imagery, report terrain class), `CARRY(item, to)`, `RELAY(point)` (park to extend radio coverage), `RETURN`.
 - **Behavior:** goal-level commands only; the rover routes autonomously; battery is its consumable. Tasks queue and show ETA.
+  - Tasks run first-in first-out per utility rover; each queued task shows its ETA and predicted battery, and a task the battery cannot complete is refused (05 Vehicle). *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-102)*
 - **Acceptance:** a `RELAY` task placed on a ridge removes a comm shadow on the remaining route (FR-42) and the warnings update.
 
 #### FR-42 — Comm coverage and comm shadows [T1, M]
@@ -386,6 +387,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 #### FR-49 — Dust advisory replay [T2, S]
 
 - Qualitative advisory replayed from orbiter weather imagery records for the scenario window, if a suitable event is found (U-17). Never quantitative.
+- Not built in this release: no usable dust record for the window (U-17). *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-28)*
 
 ---
 
@@ -418,7 +420,7 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 - **Behavior:**
   - A `presenter` role and panel (SCR-19), separate from the ops console. The ops console is in-story (the habitat operator); the presenter panel is the team's control surface.
   - Buttons: **Next stop** (`JUMP_NEXT_STOP`), **Start storm** (`START_EVENT`, FR-52), clock speed 1× / 10× / 60× and pause (`SET_CLOCK`, existing), **Reset session** (`RESET_SESSION`). The panel may also use the existing `LOAD_SCENARIO` and `JUMP_NEXT_EVENT`.
-  - **Next stop** fast-forwards the sim clock until the crew arrive at the next stop. It is not a teleport: crew keep walking along the planned route under the hood, and consumables, dose, alerts and time accrue normally (02 §D.17). The fast-forward also ends at a plan revision, the end of the EVA, crew sheltering, or a warning-level alert (`TODO(decision)`, U-63), and is refused while such an alert is latched (02 §D.17).
+  - **Next stop** fast-forwards the sim clock until the crew arrive at the next stop. It is not a teleport: crew keep walking along the planned route under the hood, and consumables, dose, alerts and time accrue normally (02 §D.17). The fast-forward also ends at a plan revision, the end of the EVA, crew sheltering, or a warning-level alert (U-63, resolved *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-97)*), and is refused while such an alert is latched (02 §D.17).
   - **Reset session** returns to a fresh loaded session of the same scenario (02 §D.17).
   - Every press is a command that the Hab Core validates, and the event it produces is written to the event log, so a run replays deterministically (NFR-06). Presses are never applied on the client.
 - **Provenance:** the panel shows the clock as sim time, labelled `simulated`; it shows no new measured value.
@@ -483,22 +485,22 @@ The full v1 text of FR-01–FR-21, with acceptance criteria, is kept in [Appendi
 
 **Live session** *(reframed 2026-11-10, decision of the product & systems lead; **Proposed**)*: the demo is not a fixed timeline. The team sets up the mission (site and settings, FR-53), plans a normal walk with its stop tasks (FR-54), publishes it and starts the EVA. The beats below happen **when a presenter triggers them** (FR-51): Next stop, then Start storm (FR-52), then the crew's own actions on their devices. The numbers in this section are the values of one **reference run**, the deterministic headless replay of a recorded command list (02 §D.17, NFR-06, NFR-14); they are not a fixed schedule, and a live session that presses Start storm at another sim time reads other Earth-link values from the same tables.
 
-**Setup:** Three or four devices on an offline router. Laptop A = Hab Core + ops console on the projector. Phone 1 = EV1 suit tablet (HUD mode). Phone 2 = EV2 (optional; tablet acceptable). The presenter panel (SCR-19) runs on a fourth device (a second laptop or tablet) or, with three devices, as a window on laptop A. Scenario: two-person EVA at Gale (default date **20 May 2024**, D-10), EVA start TODO(verify) (derived by T21.15 from the stop-2 dwell rule once T21.12 builds the demo plan; in a live session the planner sets it), clock at 60×.
+**Setup:** Three or four devices on an offline router. Laptop A = Hab Core + ops console on the projector. Phone 1 = EV1 suit tablet (HUD mode). Phone 2 = EV2 (optional; tablet acceptable). The presenter panel (SCR-19) runs on a fourth device (a second laptop or tablet) or, with three devices, as a window on laptop A. Scenario: two-person EVA at Gale (default date **20 May 2024**, D-10), EVA start `2024-05-20T04:11:00Z` (derived by T21.15 from the stop-2 dwell rule on `scenarios/storm-sol4190/plan.json`; in a live session the planner sets it), clock at 60×.
 
 | t (video) | Beat (what happens; triggered by) | What is shown | Value demonstrated |
 | --- | --- | --- | --- |
 | 0:00 | Crew are at stop 2, a hydrated-sulfate resource stop on Mount Sharp (presenter: Next stop, once or twice) | Ops map: EV1/EV2 markers, route, rover parked at hab; HUD: next stop, margins | In-EVA use; Exploration Zone |
 | 0:10 | Dose rate climbs; local trigger fires (presenter: Start storm) | Red alert on all devices simultaneously; dose-rate chart labelled `replayed — Curiosity RAD measurements` (Sources & Methods names the 20 May 2024 record, sol 4190; FR-52) | Real event, real data |
 | 0:20 | Earth status: forecast message is still in transit / waiting for relay pass | Earth link widget: light time 15.8 min (SPICE), next relay pass in 179.5 min (MAVEN) | Earth can't help in time |
-| 0:30 | System proposes options | Abort to hab 41 min vs. rover rendezvous 14 min; expected event dose for each | Decision support |
-| 0:40 | EV1 taps **Summon vehicle** → confirm | Rover route draws; rendezvous point avoids a 17° slope; ETAs converge | Vehicle summon, realistic routing |
-| 0:55 | Route to rendezvous crosses a comm shadow | `COMM_SHADOW` warning; robotic rover tasked to relay closes it (FR-41) | Terrain-aware comms |
-| 1:10 | Crew reach the rover | Dose received vs. unsheltered estimate; event log | Outcome |
+| 0:30 | System proposes options | Rover rendezvous 50.0 min to shelter, 256.8 µGy; abort to hab 77.4 min, 393.9 µGy; continue with stop 3 dropped 90.7 min, 453.6 µGy | Decision support |
+| 0:40 | EV1 taps **Summon vehicle** → confirm | Rover route draws; the crew's walk to the rendezvous point takes 29.9 min and the rover's drive 45.0 min; the steepest cell on the route is 23.25°, under the plan's 24° hard limit | Vehicle summon, realistic routing |
+| 0:55 | Route to rendezvous crosses a comm shadow | `COMM_SHADOW` cautions on EV1 and EV2 from 04:11:01; the robotic rover UR1 is tasked to relay at (−95, −905), parks there at 05:36:33 (FR-41); the cautions clear at 06:18:38 | Terrain-aware comms |
+| 1:10 | Crew reach the rover | Both crew sheltered in the rover at 06:35:31: 254.0 µGy received since the event began, 254.0 µGy if unsheltered (they were out until the rover arrived); event log | Outcome |
 | 1:20 | Ops opens post-EVA report | Planned vs. actual, alerts, dose, provenance | Credible output |
 
-ETAs and slope values in this table are **illustrative** until the reference-run replay (the headless replay of the recorded command list) produces them (T23.08; determinism T22.14). The *t (video)* column is the edit plan (06 §G), not a schedule the system keeps. The light time and relay pass come from the committed tables (sources below; TASK-21 writes the final script).
+The ETAs, doses and slope in this table are values of the reference run, the headless replay of `scenarios/storm-sol4190/reference_commands.json` (T23.08; determinism T22.14), and the times are its sim times (sources below). The *t (video)* column is the edit plan (06 §G), not a schedule the system keeps. The light time and relay pass come from the committed tables (sources below).
 
-The 0:20 row and the sources below are derived with the dose series at its recorded UTC (alert `2024-05-20T05:50:32Z`). The live Start storm shifts the series to the press (FR-52), so a reference run presses it at the sim time that puts the onset there, or T21.15 re-derives the values for the press time it uses. `TODO(decision)` (U-62): which of the two the reference run uses.
+The 0:20 row and the sources below are derived with the dose series at its recorded UTC (alert `2024-05-20T05:50:32Z`). The live Start storm shifts the series to the press (FR-52), so a reference run presses it at the sim time that puts the onset there, or T21.15 re-derives the values for the press time it uses. U-62 is resolved: the reference run presses Start storm at `t0 = series_start_utc`, so the numbers here stand *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-97)*.
 
 Sources for the §E.1 numbers (T21.09, 2026-11-10):
 
@@ -507,7 +509,13 @@ Sources for the §E.1 numbers (T21.09, 2026-11-10):
 - Light time (the X in the 0:20 row): `scenarios/storm-sol4190/earth_link.json`, row `t_utc` `2024-05-20T05:50:00Z`, `light_time_s` 950.190644 s = 15.84 min, shown to 0.1 min in the table (SPICE, **derived**).
 - Next relay pass (the Y in the 0:20 row): MAVEN, `start_utc` `2024-05-20T08:50:00Z`, `passes[16]` of `earth_link.json`, 179.5 min after the alert (`wait_min` 179.46666666666667). A pass needs the orbiter at or above 10° elevation (02 §D.12, **Assumed** minimum elevation, U-19); this pass peaks at `max_elev_deg` 12.832075°.
 - Command: `npm --workspace @marswalk/hab-core run demo-numbers` (the T21.15 script `apps/hab-core/scripts/demo-numbers.ts`, PR #163), which prints every value with its source.
-- ETAs, slope and doses: TODO(verify), pending the reference-run replay (T23.08; determinism T22.14).
+- Reference run (T21.09, 13 Nov 2026): `make replay COMMANDS=scenarios/storm-sol4190/reference_commands.json` prints log_hash `5fdf8ec1e67958e508b88c97bbe55fb0c8ec1d6800ea6bfc2bfd9988c779afda`, the same on every run; every value below is a line of that run's `session.jsonl` (its `seq` in brackets), and `apps/hab-core/tests/referenceCommands.test.ts` formats each from the log and finds it in this section.
+- Crew at stop 2: the presses of the reference run are Next stop to stop 1 (pressed `04:11:01Z`, ends `05:10:03Z`, seq 26), Start storm (`05:16:55Z`, seq 27, U-62), Next stop to stop 2 (pressed `05:16:55Z`, seq 44) and Next stop on to the alert (pressed `05:40:16Z`, seq 47); the crew arrived at stop 2 `2024-05-20T05:40:16Z` (seq 42–43). Alert: `RADIATION_ALERT` `2024-05-20T05:50:32Z` (seq 45), the second consecutive RAD sample above the threshold of `alert-assumed` (the first, `05:33:44Z`, is row 40 of `dose_series.json`).
+- Options (`OPTIONS_PROPOSED`, seq 46; time to shelter and expected dose from `proposeOptions` in `packages/compute/src/contingency.ts`, **modelled**, Assumed shielding A-11): `VEHICLE_RENDEZVOUS` rank 1, 49.97 min, 256.85 µGy; `ABORT_TO_HAB` rank 2, 77.45 min, 393.95 µGy; `CONTINUE_SKIP` rank 3, 90.67 min, 453.63 µGy; stop 3 dropped in each.
+- Rendezvous (`VEHICLE_DISPATCHED`, seq 48): the crew's walk `eta_crew_s` 1794.6 s = 29.9 min, the rover's drive `eta_vehicle_s` 2697.9 s = 45.0 min, plus the pressurized rover's 5-min ingress (`pr1-assumed` `ingress_min`) = the 49.97 min above. The revised leg (`PLAN_REVISED`, seq 49) has `max_slope_deg` 23.25 against `hard_slope_limit_deg` 24 in `plan.json` (BD-142).
+- Comm shadow: `COMM_SHADOW` cautions raised `04:11:01Z` (seq 13–14), UR1 tasked to relay at (−95, −905) in the same second (seq 15), parked `05:36:33Z` (seq 33), cautions cleared `06:18:38Z` (seq 67–68). The relay cell is the one `apps/hab-core/scripts/relay-target.ts` returns for this run (BD-147).
+- Outcome: rover arrived `06:35:30Z` (seq 75); both crew `CREW_SHELTERED` `06:35:31Z` (seq 76–77) with `dose_event_ugy` 253.98 and `dose_event_unsheltered_ugy` 253.98 µGy.
+- The reference list approves the option as `ops`, not `eva:EV1`: both suits are unlinked at the alert, and an EVA suit command is refused with `NO_LINK` (02 §E.6); a live session lets EV1 tap it once the suit has a link (BD-147).
 
 ### E.2 Supporting scenario — planning (the v1 flow, condensed to ~40 s)
 
@@ -524,7 +532,7 @@ The v1 planning walkthrough below is retained; task files cite its step numbers.
 | 5 | Drags stop 2 onto a steep slope | Leg turns "blocked/no feasible route" with reason; nearest reachable point shown | Honest failure behavior |
 | 6 | Moves stop 2 back; changes hard slope limit 15° → 12° | Route re-routes around a ridge; time increases | Explicit trade-off |
 | 7 | Sets EVA start to early morning | Daylight warning on first leg; sun elevation shown | Conditions integration |
-| 8 | Opens **Briefing card** | One-page summary: route, timeline, radiation 0.19 mSv (7 h, solar max), warnings, assumptions, sources | Usable output |
+| 8 | Opens **Briefing card** | One-page summary: route, timeline, radiation estimate as computed for the plan's EVA total *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-043)*, warnings, assumptions, sources | Usable output |
 | 9 | Opens **Sources & methods** | Dataset list, versions, processing steps, labels | Credibility |
 
 **Result produced:** an exportable plan and briefing card for a 3-stop Marswalk with explicit constraints and uncertainty.
@@ -573,17 +581,17 @@ The v1 planning walkthrough below is retained; task files cite its step numbers.
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| D-08 | Final product name | Team to choose; avoid names used by other public 2026 repos |
+| D-08 | Final product name | Team to choose; avoid names used by other public 2026 repos. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-006)* Decided: "Gale Surface Ops"; search of 12 Nov 2026 found no repository with that name; recorded in ADR-013 (written by package 31) |
 | D-09 | Default suited slope/walkback/speed | Keep editable; ask a NASA mentor at the 11:30 round |
 | D-10 | Scenario date | **20 May 2024 (sol 4190)** — real SEP event at Gale; confirm the AOI is in daylight at the chosen LTST |
 | D-11 | Haven rule default | 30 min; revisit with mentor |
 | U-15 | RAD time series availability for sol 4190 | Check PDS PPI MSL RAD archive in TASK-04 |
-| U-16 | NASA Exploration Zone terminology citation | Find the human landing site workshop source in TASK-04 |
-| U-17 | Usable orbiter dust-storm record in the scenario window | Check in TASK-04; otherwise drop FR-49 |
-| U-46 | FR-50 sign-off: Tier 1 (in the dry run) as proposed, and whether ops may add tasks during an active alert | Tier 1; ops adds tasks only when no warning is latched |
-| U-62 | Reference run (§E.1): press Start storm at the sim time that keeps the series at its recorded UTC (the §E.1 numbers stand), or press at another time and re-derive the numbers | `TODO(decision)`: product & systems lead; either way T21.15 prints the values for the press time used |
-| U-63 | Does **Next stop** stop at the first alert raised on the way (FR-51)? | Yes at a warning, and it is rejected with `BUSY` while one is latched, so the presenter cannot skip past a safety alert; `TODO(decision)` |
-| U-64 | Where does the stop task library live: the scenario file or the site's POI data (FR-54)? | Scenario file, beside `stop_tasks`, as U-48 decided for tasks; the library is keyed by POI id; `TODO(decision)` |
+| U-16 | NASA Exploration Zone terminology citation | Find the human landing site workshop source in TASK-04. **Resolved 2026-11-12**: cited in [exploration-zone.md](../ops/exploration-zone.md) *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-29)* |
+| U-17 | Usable orbiter dust-storm record in the scenario window | Check in TASK-04; otherwise drop FR-49. **Resolved 2026-11-12**: no usable record (T04.11, 11 Nov); FR-49 is not built in this release *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-28)* |
+| U-46 | FR-50 sign-off: Tier 1 (in the dry run) as proposed, and whether ops may add tasks during an active alert | Tier 1; ops adds tasks only when no warning is latched. **Resolved 2026-11-12**: Tier 1; ops adds tasks only while no warning is latched *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-81)* |
+| U-62 | Reference run (§E.1): press Start storm at the sim time that keeps the series at its recorded UTC (the §E.1 numbers stand), or press at another time and re-derive the numbers | **Resolved 2026-11-12**: Start storm is pressed at `t0 = series_start_utc` in the reference run, so the series plays at its recorded UTC and the §E.1 numbers stand; T21.15 prints the values for the press time used *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-97)* |
+| U-63 | Does **Next stop** stop at the first alert raised on the way (FR-51)? | Yes at a warning, and it is rejected with `BUSY` while one is latched, so the presenter cannot skip past a safety alert; **Resolved 2026-11-12**: yes. Next stop ends at the first warning-level `ALERT_RAISED` and is `BUSY` while one is latched *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-97)* |
+| U-64 | Where does the stop task library live: the scenario file or the site's POI data (FR-54)? | Scenario file, beside `stop_tasks`, as U-48 decided for tasks; the library is keyed by POI id; **Resolved 2026-11-12**: the scenario file, keyed by POI id *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-97)* |
 
 ---
 
@@ -693,7 +701,7 @@ Carried over verbatim from v1 (2026-11-02) so the acceptance criteria stay citab
 - **User story:** As a planner, I see the expected surface radiation dose for this excursion and how solid that number is.
 - **Priority:** M
 - **Behavior:** Dose equivalent = measured Gale surface rate × EVA duration, for selected solar-cycle phase. Show rate source (Curiosity RAD), uncertainty, and caveats (no suit shielding, no SEP events, no terrain shielding).
-- **Acceptance criteria:** For a 7 h EVA at solar-maximum rate 0.64 mSv/day the card shows 0.19 mSv (verified arithmetic: 0.64 × 7/24 = 0.187). Label: "measured rate × planned duration (simplified)."
+- **Acceptance criteria:** For a 7 h EVA at solar-maximum rate 0.64 mSv/day the card shows 0.19 mSv (verified arithmetic: 0.64 × 7/24 = 0.187). Label: "measured rate × planned duration (simplified)." *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-128)* The label text is "measured background rate × planned duration (simplified)" (the 02 §D.4 wording), so SCR-07, SCR-09 and the cards show one string.
 
 ### FR-13 — Environmental context (seasonal weather)
 
@@ -712,7 +720,7 @@ Carried over verbatim from v1 (2026-11-02) so the acceptance criteria stay citab
 
 - **Priority:** M
 - **Behavior:** Every layer and computed value has a provenance label and a link into the Sources & Methods panel (SCR-09), which lists datasets, versions, resolution, licence/credit, processing steps and known limitations.
-- **Acceptance criteria:** No numeric value is displayed without a provenance label (automated UI test checks `data-provenance` attribute on every metric element).
+- **Acceptance criteria:** No numeric value is displayed without a provenance label (automated UI test checks `data-provenance` attribute on every metric element). *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-110)* Identifiers and chrome are not metrics and carry no provenance label: data version, plan hash, log hash, generated time, dataset version and accessed dates, sol labels in headings, the scale bar, the `?debug=1` overlay, equations in SCR-09, and task ids. Every other digit does, including the coordinate readout.
 
 ### FR-16 — Offline and degraded operation
 

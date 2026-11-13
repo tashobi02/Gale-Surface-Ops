@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import QRCode from "qrcode";
 import WebSocket from "ws";
 import {
   CSP_HEADER,
@@ -33,8 +34,9 @@ import {
   type Waypoint,
 } from "@marswalk/protocol";
 import type { StateChange } from "../src/engine/reducer";
-import { readScenario } from "../src/scenario";
-import { startServer } from "../src/server";
+import { readScenario, type LoadedScenario } from "../src/scenario";
+import { commLayer, partialWall } from "./fixtures/wallWorld";
+import { defaultPublicHost, joinUrl, startServer } from "../src/server";
 import { loadSession, type SessionHandle } from "../src/session";
 
 interface HabServerUnderTest {
@@ -71,12 +73,23 @@ class StubSession implements SessionHandle {
     return {
       v: 1, type: "SNAPSHOT", seq: this.lastSeq, sim_time: SIM_TIME,
       session: { session_id: "s-0007", scenario_id: "storm-sol4190", data_version: "gale_boxwork-2026.11.08", seed: 0,
-        status: "RUNNING", clock: { sim_time: SIM_TIME, speed: 60, paused: false }, plan_revision: 0, last_seq: this.lastSeq, log_hash: "" },
+        status: "RUNNING", clock: { sim_time: SIM_TIME, speed: 60, paused: false }, plan_revision: 0, last_seq: this.lastSeq, log_hash: "",
+        hab_candidate_id: null, mission_setup: { crew_count: 2, vehicle_available: true, vehicle_param_set: "pr1-assumed", solar_phase: "max", max_haven_min: 30 }, started_events: [] },
       plan: this.current, crew: [], vehicles: [], alerts: [], options: [], tasks: [],
       earth: { light_time_s: 0, next_pass_utc: null, blackout: false, queue: [] }, clients, provenance: {},
+      conditions: { ltst: null, sun_elevation_deg: null, dose_rate_background_ugy_h: null, dose_rate_event_ugy_h: null, event_series_utc: null, sol: null, source_ids: {}, provenance: {} }, task_library: [], event_library: [], next_stop_target: null,
     };
   }
-  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[] } {
+  habSite(): ReturnType<SessionHandle["habSite"]> {
+    return null;
+  }
+  relayCoverage(_vehicle_id: string): ReturnType<SessionHandle["relayCoverage"]> {
+    return null;
+  }
+  reportInputs(): ReturnType<SessionHandle["reportInputs"]> {
+    return { dose: null, trace: [] };
+  }
+  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[]; replaced?: boolean } {
     this.applied.push(command);
     this.clientIds.push(client_id);
     const ev = logEvent(++this.lastSeq);
@@ -118,7 +131,7 @@ class StatefulSession extends StubSession {
     const snap = super.snapshot(clients);
     return { ...snap, session: { ...snap.session, session_id: this.sessionId }, alerts: this.alerts, tasks: this.tasks };
   }
-  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[] } {
+  apply(command: Command, client_id?: string): { result: CommandResult; events: LogEvent[]; replaced?: boolean } {
     const out = super.apply(command, client_id);
     const seq = out.events[0].seq;
     const args = command.args as Record<string, string>;
@@ -127,7 +140,14 @@ class StatefulSession extends StubSession {
     } else if (command.kind === "UPDATE_STOP_TASK") {
       this.tasks = this.tasks.map((t) => (t.task_id === args.task_id ? { ...t, state: args.state as StopTask["state"], updated_by: command.role } : t));
     } else if (command.kind === "LOAD_SCENARIO") {
+      // The new session's own events are in its SNAPSHOT: a replaced outcome carries only the old session's closing events (T32.15).
       this.sessionId = "s-0008";
+      return { ...out, events: [], replaced: true };
+    } else if (command.kind === "RESET_SESSION") {
+      const data: LogEventData["SESSION_RESET"] = { session_id: this.sessionId, next_session_id: "s-0008" };
+      const closing: LogEvent = { ...out.events[0], kind: "SESSION_RESET", actor: command.role, data, command_ref: { client_id: client_id ?? command.role, command_id: command.command_id } };
+      this.sessionId = "s-0008";
+      return { result: out.result, events: [closing], replaced: true };
     }
     return out;
   }
@@ -334,6 +354,45 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
     expect(body).toMatchObject({ data_version: "gale_boxwork-2026.11.08", session_id: "s-0007", sim_time: SIM_TIME });
   });
 
+  // N-05 (docs/plan/backend/01-contract.md §7a; BD-112): a small lobby summary; GET /api/session stays the full SNAPSHOT.
+  describe("GET /api/session/summary (N-05)", () => {
+    const planStub = { plan_hash: "x" } as unknown as PlanExport;
+
+    it("returns {session_id, scenario_id, status, sim_time, speed, paused, eva_start_utc, hab_candidate_id, plan_published}, with eva_start_utc null before the EVA", async () => {
+      const { server } = await setup();
+      const res = await fetch(`${server.url}/api/session/summary`);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        session_id: "s-0007",
+        scenario_id: "storm-sol4190",
+        status: "RUNNING",
+        sim_time: SIM_TIME,
+        speed: 60,
+        paused: false,
+        eva_start_utc: null,
+        hab_candidate_id: null,
+        plan_published: false,
+      });
+    });
+
+    it("reads eva_start_utc from the log's EVA_STARTED and plan_published from the plan in force", async () => {
+      const { server, session } = await setup();
+      session.current = planStub;
+      session.log = [
+        { seq: 1, sim_time: "2024-05-20T00:00:00Z", kind: "SESSION_LOADED", actor: "system", data: {}, provenance: {}, command_ref: null },
+        { seq: 2, sim_time: "2024-05-20T12:30:00Z", kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1"], plan_revision: 1 }, provenance: {}, command_ref: null },
+      ];
+      const body = (await (await fetch(`${server.url}/api/session/summary`)).json()) as Record<string, unknown>;
+      expect(body).toMatchObject({ eva_start_utc: "2024-05-20T12:30:00Z", plan_published: true });
+    });
+
+    it("is 404 with no session", async () => {
+      const server = await startServer({ site: "mock_site", port: 0, host: "127.0.0.1" });
+      open.server = server;
+      expect((await fetch(`${server.url}/api/session/summary`)).status).toBe(404);
+    });
+  });
+
   it("GET /api/report returns PostEvaReport (01 FR-46)", async () => {
     const { server } = await setup();
     const res = await fetch(`${server.url}/api/report`);
@@ -354,7 +413,7 @@ describe("Hab Core server (T20.03 → T20.04)", () => {
       try {
         const session = loadSession(fake, dir);
         expect(session.initialPlan()).toBe(fake.scenario.plan);
-        expect(session.snapshot([]).plan?.plan_hash).toBe(fake.scenario.plan.plan_hash);
+        expect(session.snapshot([]).plan?.plan_hash).toBe(fake.scenario.plan!.plan_hash);
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
@@ -450,7 +509,7 @@ describe("command effects reach every client (T20.04; 02 §D.14, §E.6)", () => 
     }
   });
 
-  it("LOAD_SCENARIO (a new session id) sends every client a fresh SNAPSHOT before the new events, and no delta", async () => {
+  it("LOAD_SCENARIO (a new session id) sends every client a fresh SNAPSHOT of the new session and no delta (T32.15)", async () => {
     const session = new StatefulSession(412);
     const { ev1, ops } = await twoClients(session);
 
@@ -459,13 +518,89 @@ describe("command effects reach every client (T20.04; 02 §D.14, §E.6)", () => 
     for (const c of [ev1, ops]) {
       const [, second] = await c.waitFor((m) => m.type === "SNAPSHOT", 2);
       expect((second as Snapshot).session.session_id).toBe("s-0008");
-      const after = c.received.slice(c.received.indexOf(second) + 1).map((m) => m.type);
-      expect(after[0]).toBe("EVENT");
+      expect(deltas(c)).toHaveLength(0);
+      // The new session's events are in the snapshot; the old session's events are not replayed after it.
+      expect(c.received.slice(c.received.indexOf(second) + 1).filter((m) => m.type === "EVENT")).toEqual([]);
+    }
+  });
+
+  it("RESET_SESSION: every client gets the old log's SESSION_RESET, the commander its COMMAND_RESULT, then a fresh SNAPSHOT, in that order and no delta (T32.15)", async () => {
+    const session = new StatefulSession(412);
+    const { ev1, ops } = await twoClients(session);
+
+    ops.send({ v: 1, type: "COMMAND", command_id: "k-reset", role: "ops", command: { kind: "RESET_SESSION", args: {} } });
+    await ops.waitFor((m) => m.type === "SNAPSHOT", 2);
+    await ev1.waitFor((m) => m.type === "SNAPSHOT", 2);
+    const afterHello = (c: TestClient): string[] => c.received.slice(1).map((m) => m.type);
+    expect(afterHello(ops)).toEqual(["EVENT", "COMMAND_RESULT", "SNAPSHOT"]);
+    expect(afterHello(ev1)).toEqual(["EVENT", "SNAPSHOT"]);
+    for (const c of [ev1, ops]) {
+      const event = c.received.find((m) => m.type === "EVENT") as Extract<ServerMessage, { type: "EVENT" }>;
+      expect(event.event).toMatchObject({ kind: "SESSION_RESET", data: { session_id: "s-0007", next_session_id: "s-0008" } });
+      expect((c.received[c.received.length - 1] as Snapshot).session.session_id).toBe("s-0008");
       expect(deltas(c)).toHaveLength(0);
     }
   });
+
+  it("a fresh SNAPSHOT after a replace lists the connected clients (T32.15)", async () => {
+    const session = new StatefulSession(412);
+    const { ops } = await twoClients(session);
+    ops.send({ v: 1, type: "COMMAND", command_id: "k-reset2", role: "ops", command: { kind: "RESET_SESSION", args: {} } });
+    const [, fresh] = await ops.waitFor((m) => m.type === "SNAPSHOT", 2);
+    expect((fresh as Snapshot).clients.map((c) => c.client_id).sort()).toEqual(["c-7f3a", "c-ops"]);
+  });
 });
 
+describe("a real session replaced by RESET_SESSION (T32.15; 02 §D.17; NFR-13)", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const planless = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
+  const hello = (role: Role, client_id: string, last_seq = 0): ClientMessage => ({ v: 1, type: "HELLO", role, client_id, display_name: "", last_seq });
+
+  async function liveServer() {
+    const dir = mkdtempSync(join(tmpdir(), "marswalk-reset-server-"));
+    const session = loadSession(planless, dir);
+    const server = await start({ site: "mock_site", port: 0, host: "127.0.0.1", session });
+    open.server = { url: server.url, close: async () => { await server.close(); rmSync(dir, { recursive: true, force: true }); } };
+    return { server, session };
+  }
+
+  it("the presenter's reset reaches the connected EVA tablet as SESSION_RESET then a SNAPSHOT of s-0002 in LOADED, and the presenter's result sits between", async () => {
+    const { server } = await liveServer();
+    const pres = await client(server.url);
+    const ev1 = await client(server.url);
+    pres.send(hello("presenter", "c-pres"));
+    ev1.send(hello("eva:EV1", "c-ev1"));
+    await pres.waitFor((m) => m.type === "SNAPSHOT");
+    await ev1.waitFor((m) => m.type === "SNAPSHOT");
+    pres.send({ v: 1, type: "COMMAND", command_id: "k-r", role: "presenter", command: { kind: "RESET_SESSION", args: {} } });
+    await pres.waitFor((m) => m.type === "SNAPSHOT", 2);
+    await ev1.waitFor((m) => m.type === "SNAPSHOT", 2);
+    expect(pres.received.slice(1).map((m) => m.type)).toEqual(["EVENT", "COMMAND_RESULT", "SNAPSHOT"]);
+    expect(ev1.received.slice(1).map((m) => m.type)).toEqual(["EVENT", "SNAPSHOT"]);
+    const fresh = ev1.received[ev1.received.length - 1] as Snapshot;
+    expect(fresh.session).toMatchObject({ session_id: "s-0002", status: "LOADED", last_seq: fresh.seq });
+    const result = pres.received.find((m) => m.type === "COMMAND_RESULT") as CommandResult;
+    const event = pres.received.find((m) => m.type === "EVENT") as Extract<ServerMessage, { type: "EVENT" }>;
+    expect(result).toMatchObject({ ok: true, event_seq: event.seq });
+    expect(event.event.kind).toBe("SESSION_RESET");
+  });
+
+  it("an ordinary reconnect after the reset still gets one fresh SNAPSHOT of the new session and no stale replay", async () => {
+    const { server } = await liveServer();
+    const pres = await client(server.url);
+    pres.send(hello("presenter", "c-pres"));
+    await pres.waitFor((m) => m.type === "SNAPSHOT");
+    pres.send({ v: 1, type: "COMMAND", command_id: "k-r2", role: "presenter", command: { kind: "RESET_SESSION", args: {} } });
+    await pres.waitFor((m) => m.type === "SNAPSHOT", 2);
+    // A tablet that was on s-0001 at seq 40 reconnects: its last_seq is above the new session's seq, so it gets the SNAPSHOT only.
+    const ev1 = await client(server.url);
+    ev1.send(hello("eva:EV1", "c-ev1", 40));
+    await ev1.waitFor((m) => m.type === "SNAPSHOT");
+    await new Promise((r) => setTimeout(r, 100));
+    expect(ev1.received.map((m) => m.type)).toEqual(["SNAPSHOT"]);
+    expect((ev1.received[0] as Snapshot).session.session_id).toBe("s-0002");
+  });
+});
 
 describe("role take-over: newest wins (02 §E.4, §E.6; 05 ROLE_TAKEN_OVER)", () => {
   const closeOf = (c: TestClient) => new Promise<{ code: number; reason: string }>((resolve) => c.ws.once("close", (code, reason) => resolve({ code, reason: reason.toString() })));
@@ -633,5 +768,258 @@ describe("role take-over: newest wins (02 §E.4, §E.6; 05 ROLE_TAKEN_OVER)", ()
     const second = await client(server.url);
     second.send(hello(0, "c-second"));
     expect((await closed).code).toBe(4001);
+  });
+});
+
+describe("LINK_STATE reaches only the suit's own clients (T26.02; 02 §A.5, §E.6; 05 Crew; BD-103)", () => {
+  type Link = Extract<ServerMessage, { type: "LINK_STATE" }>;
+  const linkStates = (c: TestClient): Link[] => c.received.filter((m): m is Link => m.type === "LINK_STATE");
+
+  /** A stub whose snapshot carries the crew's link fields and whose next advance logs the given link events. */
+  class LinkSession extends StubSession {
+    crew: Snapshot["crew"] = [
+      { crew_id: "EV1", x_m: 0, y_m: 0, activity: "WALKING", stop_index: null, o2_frac: 1, eva_elapsed_s: 0, dose_event_ugy: 0, dose_event_unsheltered_ugy: 0, haven: { minutes: 0, kind: "hab", target_x_m: 0, target_y_m: 0 }, linked: true, link_path: ["EV1", "HAB"], stale: false, link_hops: 1, link_via: "direct" },
+      { crew_id: "EV2", x_m: 0, y_m: 0, activity: "WALKING", stop_index: null, o2_frac: 1, eva_elapsed_s: 0, dose_event_ugy: 0, dose_event_unsheltered_ugy: 0, haven: { minutes: 0, kind: "hab", target_x_m: 0, target_y_m: 0 }, linked: true, link_path: ["EV2", "HAB"], stale: false, link_hops: 1, link_via: "direct" },
+    ];
+    snapshot(clients: Snapshot["clients"]): Snapshot {
+      return { ...super.snapshot(clients), crew: this.crew };
+    }
+    /** Make `kind` for `node` appear on the next advance, with the crew member's link fields as the engine would leave them. */
+    link(kind: "LINK_LOST" | "LINK_RESTORED", node: string, fields: Partial<Snapshot["crew"][number]>): void {
+      this.crew = this.crew.map((c) => (c.crew_id === node ? { ...c, linked: kind === "LINK_RESTORED", stale: kind === "LINK_LOST", ...fields } : c));
+      this.pending.push({ seq: ++this.lastSeq, sim_time: SIM_TIME, kind, actor: "system", data: { node_id: node }, provenance: {}, command_ref: null });
+    }
+  }
+
+  async function linkSetup(): Promise<{ server: HabServerUnderTest; session: LinkSession }> {
+    const session = new LinkSession(412);
+    const server = await start({ site: "mock_site", port: 0, host: "127.0.0.1", session });
+    open.server = server;
+    return { server, session };
+  }
+  async function joinAs(url: string, role: Role, id: string): Promise<TestClient> {
+    const c = await client(url);
+    c.send(hello(0, id, role));
+    await c.waitFor((m) => m.type === "SNAPSHOT");
+    return c;
+  }
+
+  it("a lost link goes to that suit's eva and hud clients, once each, and to nobody else", async () => {
+    const { server, session } = await linkSetup();
+    const eva1 = await joinAs(server.url, "eva:EV1", "c-eva1");
+    const hud1 = await joinAs(server.url, "hud:EV1", "c-hud1");
+    const eva2 = await joinAs(server.url, "eva:EV2", "c-eva2");
+    const ops = await joinAs(server.url, "ops", "c-ops");
+    session.link("LINK_LOST", "EV1", { link_path: [], link_hops: null, link_via: null });
+    for (const c of [eva1, hud1]) await c.waitFor((m) => m.type === "LINK_STATE");
+    await ops.waitFor((m) => m.type === "EVENT"); // the EVENT is broadcast; the LINK_STATE is not
+    await new Promise((r) => setTimeout(r, 60));
+    const expected = { v: 1, type: "LINK_STATE", seq: session.lastSeq, sim_time: SIM_TIME, crew_id: "EV1", linked: false, link_hops: null, link_via: null };
+    expect(linkStates(eva1)).toEqual([expected]);
+    expect(linkStates(hud1)).toEqual([expected]);
+    expect(linkStates(eva2)).toEqual([]);
+    expect(linkStates(ops)).toEqual([]);
+  });
+
+  it("a restored link says linked true with the hops and the first hop kind (no signal strength, BD-103)", async () => {
+    const { server, session } = await linkSetup();
+    const eva2 = await joinAs(server.url, "eva:EV2", "c-eva2");
+    session.link("LINK_RESTORED", "EV2", { link_path: ["EV2", "UR1", "HAB"], link_hops: 2, link_via: "relay" });
+    await eva2.waitFor((m) => m.type === "LINK_STATE");
+    expect(linkStates(eva2)).toEqual([expect.objectContaining({ crew_id: "EV2", linked: true, link_hops: 2, link_via: "relay" })]);
+    expect(Object.keys(linkStates(eva2)[0]).sort()).toEqual(["crew_id", "link_hops", "link_via", "linked", "seq", "sim_time", "type", "v"]);
+  });
+
+  it("an event that is not a link change sends no LINK_STATE, and a link event for a node that is no crew member is ignored", async () => {
+    const { server, session } = await linkSetup();
+    const eva1 = await joinAs(server.url, "eva:EV1", "c-eva1");
+    // An event of another kind that happens to name EV1 in its data, then a link event for a node that is no crew member.
+    session.pending.push({ seq: ++session.lastSeq, sim_time: SIM_TIME, kind: "ARRIVED_STOP", actor: "system", data: { node_id: "EV1" }, provenance: {}, command_ref: null });
+    session.pending.push({ seq: ++session.lastSeq, sim_time: SIM_TIME, kind: "CREW_SHELTERED", actor: "system", data: { node_id: "EV1" }, provenance: {}, command_ref: null });
+    session.link("LINK_LOST", "UR1", {});
+    await eva1.waitFor((m) => m.type === "EVENT", 3);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(linkStates(eva1)).toEqual([]);
+  });
+});
+
+describe("a real session behind the wall: NO_LINK while unlinked, the resent command accepted once linked (T26.02; 02 §E.6)", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null });
+  type Link = Extract<ServerMessage, { type: "LINK_STATE" }>;
+
+  /** The fake scenario on the wall world, its route shortened to 520 -> 460 -> 520 (start 15 m behind the wall, 40 m in front of it). */
+  function wallScenario(): LoadedScenario {
+    const fx = partialWall();
+    const plan = fake.scenario.plan!;
+    const leg = plan.result.legs[0];
+    if (leg.status !== "OK") throw new Error("fixture leg 0 is not OK");
+    const out = { ...leg, to: "wp-1", distance_m: 60, walk_time_min: leg.walk_time_min * 0.06, geometry: [[520, 0], [460, 0]] as [number, number][] };
+    const back = { ...out, from: "wp-1", to: "wp-0", geometry: [[460, 0], [520, 0]] as [number, number][] };
+    const shortPlan = { ...plan, waypoints: [{ ...plan.waypoints[0], x_m: 520 }, { id: "wp-1", role: "stop" as const, x_m: 460, y_m: 0 }], result: { ...plan.result, legs: [out, back] } };
+    const mast = fx.shape.mast;
+    return { ...fake, grid: fx.grid, comm: { comm_hab: commLayer(fx.grid, mast, fx.shape.targetHeight_m), hab_mast: mast }, scenario: { ...fake.scenario, plan: shortPlan, stop_tasks: [] } };
+  }
+
+  it("EV1 loses the link at once, its command is NO_LINK, and the same command with queued_offline is accepted after LINK_STATE linked=true", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "marswalk-link-server-"));
+    const session = loadSession(wallScenario(), dir);
+    const server = await start({ site: "mock_site", port: 0, host: "127.0.0.1", session });
+    open.server = { url: server.url, close: async () => { await server.close(); rmSync(dir, { recursive: true, force: true }); } };
+    const join_ = async (role: Role, id: string): Promise<TestClient> => {
+      const c = await client(server.url);
+      c.send(hello(0, id, role));
+      await c.waitFor((m) => m.type === "SNAPSHOT");
+      return c;
+    };
+    const ops = await join_("ops", "c-ops");
+    const eva1 = await join_("eva:EV1", "c-eva1");
+    const hud1 = await join_("hud:EV1", "c-hud1");
+    const eva2 = await join_("eva:EV2", "c-eva2");
+
+    ops.send({ v: 1, type: "COMMAND", command_id: "k-start", role: "ops", command: { kind: "START_EVA", args: {} } });
+    expect(await ops.waitFor((m) => m.type === "COMMAND_RESULT")).toMatchObject([{ ok: true }]);
+    const lost = (await eva1.waitFor((m) => m.type === "LINK_STATE", 1, 8000))[0] as Link;
+    expect(lost).toMatchObject({ crew_id: "EV1", linked: false, link_hops: null, link_via: null });
+    await hud1.waitFor((m) => m.type === "LINK_STATE", 1, 8000);
+
+    // The COMM_SHADOW caution for EV1 is in the log; EV1 tries to acknowledge it from behind the wall.
+    const raised = ops.received.find((m): m is Extract<ServerMessage, { type: "EVENT" }> => m.type === "EVENT" && m.event.kind === "ALERT_RAISED" && (m.event.data as LogEventData["ALERT_RAISED"]).subjects[0] === "EV1");
+    const alert_id = (raised!.event.data as LogEventData["ALERT_RAISED"]).alert_id;
+    const ack = { kind: "ACK_ALERT" as const, args: { alert_id } };
+    eva1.send({ v: 1, type: "COMMAND", command_id: "k-ack", role: "eva:EV1", command: ack });
+    const refused = (await eva1.waitFor((m) => m.type === "COMMAND_RESULT"))[0] as CommandResult;
+    expect(refused).toMatchObject({ command_id: "k-ack", ok: false, code: "NO_LINK" });
+
+    // Walk back into coverage (60x), then resend as the tablet does on linked=true.
+    ops.send({ v: 1, type: "COMMAND", command_id: "k-fast", role: "ops", command: { kind: "SET_CLOCK", args: { speed: 60 } } });
+    const restored = (await eva1.waitFor((m) => m.type === "LINK_STATE" && m.linked, 1, 8000))[0] as Link;
+    expect(restored).toMatchObject({ crew_id: "EV1", linked: true, link_hops: 1, link_via: "direct" });
+    eva1.send({ v: 1, type: "COMMAND", command_id: "k-ack", role: "eva:EV1", command: { ...ack, queued_offline: true } });
+    const accepted = (await eva1.waitFor((m) => m.type === "COMMAND_RESULT", 2))[1] as CommandResult;
+    expect(accepted).toMatchObject({ command_id: "k-ack", ok: true });
+
+    // Only the suit's own clients ever got a LINK_STATE.
+    const all = (c: TestClient) => c.received.filter((m): m is Link => m.type === "LINK_STATE");
+    expect(all(eva1).every((m) => m.crew_id === "EV1")).toBe(true);
+    expect(all(hud1).every((m) => m.crew_id === "EV1")).toBe(true);
+    expect(all(eva2).every((m) => m.crew_id === "EV2")).toBe(true);
+    expect(all(ops)).toEqual([]);
+  }, 30_000);
+});
+
+// ---- Join QR (T28.02; BD-02, BD-82; 02 §E.5; NFR-01) ----------------------------------------------------------------
+
+/**
+ * The dark modules of an SVG made by the `qrcode` package (`<path stroke d="M4 4.5h7m2 0h1…">`: one run per segment,
+ * a quiet zone of 4 modules) as a row-major boolean matrix of the symbol itself (quiet zone removed).
+ */
+function svgModules(svg: string, size: number): boolean[][] {
+  const quiet = 4;
+  const viewBox = /viewBox="0 0 (\d+) (\d+)"/.exec(svg);
+  expect(Number(viewBox?.[1])).toBe(size + 2 * quiet);
+  const d = /<path stroke="#000000" d="([^"]+)"/.exec(svg)?.[1] ?? "";
+  const rows: boolean[][] = Array.from({ length: size }, () => Array<boolean>(size).fill(false));
+  for (const line of d.split("M").filter((t) => t !== "")) {
+    const head = /^(\d+) (\d+)\.5/.exec(line);
+    if (!head) throw new Error(`unexpected path segment ${line}`);
+    let x = Number(head[1]);
+    const y = Number(head[2]);
+    for (const [, op, n] of line.slice(head[0].length).matchAll(/([hm])(\d+)(?: 0)?/g)) {
+      if (op === "h") for (let i = 0; i < Number(n); i++) rows[y - quiet][x + i - quiet] = true;
+      x += Number(n);
+    }
+  }
+  return rows;
+}
+
+const portOf = (url: string): number => Number(new URL(url).port);
+
+describe("GET /api/join-qr?role= (T28.02; BD-82; NFR-01)", () => {
+  async function qrSetup(publicHost?: string): Promise<{ server: HabServerUnderTest; session: StubSession }> {
+    const session = new StubSession(1);
+    const server = await (startServer as unknown as (o: Record<string, unknown>) => Promise<HabServerUnderTest>)({
+      site: "mock_site", port: 0, host: "127.0.0.1", session, ...(publicHost === undefined ? {} : { publicHost }),
+    });
+    open.server = server;
+    return { server, session };
+  }
+
+  it("serves image/svg+xml whose QR modules are exactly those of the BD-82 join URL (--public-host, the bound port, the role)", async () => {
+    const { server } = await qrSetup("192.0.2.7");
+    const res = await fetch(`${server.url}/api/join-qr?role=ops`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/^image\/svg\+xml/);
+    const url = `http://192.0.2.7:${portOf(server.url)}/#/join?role=ops`;
+    const expected = QRCode.create(url, {}).modules;
+    const got = svgModules(await res.text(), expected.size);
+    for (let y = 0; y < expected.size; y++) for (let x = 0; x < expected.size; x++) expect(got[y][x], `module ${x},${y}`).toBe(expected.get(y, x) === 1);
+  });
+
+  it("differs per role: the EVA tablet of EV1 encodes role=eva:EV1, not the ops URL", async () => {
+    const { server } = await qrSetup("192.0.2.7");
+    const ops = await (await fetch(`${server.url}/api/join-qr?role=ops`)).text();
+    const eva = await (await fetch(`${server.url}/api/join-qr?role=eva:EV1`)).text();
+    expect(eva).not.toBe(ops);
+    const url = `http://192.0.2.7:${portOf(server.url)}/#/join?role=eva:EV1`;
+    const expected = QRCode.create(url, {}).modules;
+    expect(svgModules(eva, expected.size).flat()).toEqual(Array.from({ length: expected.size * expected.size }, (_, i) => expected.get(Math.floor(i / expected.size), i % expected.size) === 1));
+  });
+
+  it("answers 400 for a missing or unknown role, never a QR", async () => {
+    const { server } = await qrSetup("192.0.2.7");
+    for (const q of ["", "?role=", "?role=admin", "?role=__proto__", "?role=toString", "?role=ops&role=earth", "?role=OPS", "?role=eva:EV3", "?role=presenter", "?role=%3Cscript%3E"]) {
+      const res = await fetch(`${server.url}/api/join-qr${q}`);
+      expect(res.status, q).toBe(400);
+      expect(res.headers.get("content-type") ?? "").not.toMatch(/svg/);
+    }
+  });
+
+  it("asks nothing of the network beyond this server: the SVG holds no link, script or image reference", async () => {
+    const { server } = await qrSetup("192.0.2.7");
+    const seen: string[] = [];
+    const real = globalThis.fetch;
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      seen.push(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+      return real(input, init);
+    });
+    try {
+      const res = await fetch(`${server.url}/api/join-qr?role=hud:EV2`);
+      expect(res.status).toBe(200);
+      const svg = await res.text();
+      expect(svg.startsWith("<svg")).toBe(true);
+      expect(seen).toHaveLength(1);
+      expect(new URL(seen[0]).host).toBe(new URL(server.url).host);
+      expect(svg).not.toMatch(/href|<script|<image|<use|<foreignObject|https?:\/\/(?!www\.w3\.org\/2000\/svg)/);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("works with no session loaded (it needs only the address)", async () => {
+    const server = await (startServer as unknown as (o: Record<string, unknown>) => Promise<HabServerUnderTest>)({ site: "mock_site", port: 0, host: "127.0.0.1", publicHost: "192.0.2.7" });
+    open.server = server;
+    expect((await fetch(`${server.url}/api/join-qr?role=planner`)).status).toBe(200);
+  });
+});
+
+describe("join URL and public host (BD-82)", () => {
+  it("joinUrl is http://<host>:<port>/#/join?role=<role>", () => {
+    expect(joinUrl("192.0.2.7", 8080, "eva:EV1")).toBe("http://192.0.2.7:8080/#/join?role=eva:EV1");
+    expect(joinUrl("localhost", 80, "ops")).toBe("http://localhost:80/#/join?role=ops");
+  });
+
+  it("defaultPublicHost: the flag, else the first non-internal IPv4 address, else localhost", () => {
+    const nics = {
+      lo0: [{ address: "127.0.0.1", family: "IPv4", internal: true }],
+      utun0: [{ address: "fe80::1", family: "IPv6", internal: false }],
+      en0: [{ address: "fe80::2", family: "IPv6", internal: false }, { address: "192.0.2.9", family: "IPv4", internal: false }],
+      en1: [{ address: "198.51.100.3", family: "IPv4", internal: false }],
+    } as unknown as NodeJS.Dict<import("node:os").NetworkInterfaceInfo[]>;
+    expect(defaultPublicHost("example.test", nics)).toBe("example.test");
+    expect(defaultPublicHost(undefined, nics)).toBe("192.0.2.9");
+    expect(defaultPublicHost(undefined, { lo0: nics.lo0, utun0: nics.utun0 })).toBe("localhost");
+    expect(defaultPublicHost(undefined, {})).toBe("localhost");
+    expect(defaultPublicHost("", nics)).toBe("192.0.2.9");
   });
 });

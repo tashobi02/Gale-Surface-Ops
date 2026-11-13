@@ -20,31 +20,31 @@
  * - For a rendezvous option VEHICLE_DISPATCHED is logged before PLAN_REVISED.
  *
  * Rules fixed here for T23.07 where the specs are silent (proposed 2026-11-07, not yet in the specs):
- * TODO(decision): options per alert, not per crew. One OPTIONS_PROPOSED per new warning, with
+ * Decided (BD-59): options per alert, not per crew. One OPTIONS_PROPOSED per new warning, with
  *   `alert_id`; every option's `crew_ids` is the crew on the alert who are still out (activity
  *   WALKING or AT_STOP; not IN_HAB, TO_HAVEN or SHELTERED). The module hands `proposeOptions` exactly
  *   those crew, the alert id and the sim time, and logs its options verbatim in rank order (the
  *   reducer drops all of an alert's options when one is executed, so per-crew options would lose
  *   the buddy's).
- * TODO(decision): "a new warning" = an alert of level `warning` that has no OPTIONS_PROPOSED
+ * Decided (BD-59): "a new warning" = an alert of level `warning` that has no OPTIONS_PROPOSED
  *   answering it. A caution or advisory gets none. The module is pure, so it detects "new" from the
  *   state: options standing for the alert, or its crew already on the way to a haven (after an
  *   option was executed), mean "already answered". Provenance keys for the option fields are not
  *   fixed here (05 labels `eta_shelter_min` and `expected_dose_ugy` `modelled`).
- * TODO(decision): stale option = the `option_id` is not in `state.options` (never proposed, or
+ * Decided (BD-59): stale option = the `option_id` is not in `state.options` (never proposed, or
  *   removed when an option of that alert was executed), or its alert has been cleared. Both are
  *   INVALID. Whether a PUBLISH_PLAN after the proposal also makes options stale is open (an option
  *   carries no plan_revision).
- * TODO(decision): APPROVE_OPTION needs `args.option_id`. ABORT needs `args.crew` (a non-empty list
+ * Decided (BD-59): APPROVE_OPTION needs `args.option_id`. ABORT needs `args.crew` (a non-empty list
  *   of crew ids, like SUMMON_VEHICLE); an EVA role may abort only for a list that includes itself
  *   (02 §E.4 "self"; FORBIDDEN_ROLE otherwise), ops for any crew; an unknown crew id is INVALID.
  *   Either place (commands.ts or handleAbort) may enforce the self rule: these tests go through
  *   `handleCommand`.
- * TODO(decision): ABORT executes the ABORT_TO_HAB option that covers the listed crew, so it logs the
+ * Decided (BD-59): ABORT executes the ABORT_TO_HAB option that covers the listed crew, so it logs the
  *   same PLAN_REVISED as approving that option (its `option_id`, dropped stops and route) and never
  *   dispatches a vehicle. The option's whole crew goes TO_HAVEN (the buddies are not split). ABORT
  *   with no active alert (no option to execute) is not specified: left as `it.todo`.
- * TODO(decision): the new leg's `from` is the last remaining waypoint before the dropped stops, its
+ * Decided (BD-59): the new leg's `from` is the last remaining waypoint before the dropped stops, its
  *   `to` is the plan's start waypoint (the hab; the plan is a loop), `status` "OK", and its
  *   `geometry` is the option's `path_preview`. Its metrics are not asserted.
  *
@@ -69,7 +69,7 @@ const here = dirname(fileURLToPath(import.meta.url));
  */
 const STAND_IN_GRID = Object.freeze({}) as unknown as LoadedGrid;
 const fake: LoadedScenario = { ...readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock_site", data_version: "mock_site-fixture", dir: null }), grid: STAND_IN_GRID };
-const plan = fake.scenario.plan;
+const plan = fake.scenario.plan!;
 const legs = plan.result.legs;
 const T0 = fake.scenario.start_utc;
 const T_ALERT = new Date(Date.parse(T0) + 3600_000).toISOString().replace(".000Z", "Z");
@@ -417,6 +417,6 @@ describe.skipIf(PENDING)("ABORT (02 §D.15, §E.4; FR-44)", () => {
     expect(rejected(handleCommand(aborted, cmd("ops", "APPROVE_OPTION", { option_id: rendezvousOpt.option_id }), cctx(aborted)).result)).toBe("INVALID");
   });
 
-  // TODO(decision): no alert means no option to execute, and the reducer sends crew TO_HAVEN only via an option.
+  // Decided (BD-59): no alert means no option to execute, and the reducer sends crew TO_HAVEN only via an option.
   it.todo("ABORT with no active alert (no ABORT_TO_HAB option) revises the plan and sends the crew to the hab");
 });

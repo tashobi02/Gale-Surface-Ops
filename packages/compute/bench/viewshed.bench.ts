@@ -18,6 +18,7 @@
  */
 import { cpus, platform, release, totalmem } from "node:os";
 import { describe, test } from "vitest";
+import { runViewshedReal, realMode } from "./real";
 import { RELAY_VIEWSHED_CELL_M, RELAY_VIEWSHED_RADIUS_M, viewshed } from "../src/viewshed";
 import { MAST_HEIGHT_M, SUIT_ANTENNA_M } from "../tests/fixtures/v2grids";
 import { buildBenchGrid, readBenchSite } from "./grid";
@@ -41,6 +42,9 @@ function median(xs: number[]): number {
   return s.length % 2 === 1 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
 }
 
+if (realMode()) {
+  runViewshedReal();
+} else {
 describe("T05b.09 viewshed benchmark", () => {
   test(
     "one 4 km / 20 m relay viewshed",
@@ -80,3 +84,4 @@ describe("T05b.09 viewshed benchmark", () => {
     900_000,
   );
 });
+}

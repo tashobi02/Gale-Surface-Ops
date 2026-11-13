@@ -16,10 +16,12 @@ import { fakePlanStore, resultOf, SCENARIO } from "./planStoreFake";
 import okFixture from "../fixtures/plan-results/ok.json";
 import partialFixture from "../fixtures/plan-results/partial.json";
 import overLimitsFixture from "../fixtures/plan-results/over-limits.json";
+import { readFileSync } from "node:fs";
+import { mockLoadedSite } from "./map/mapFixtures";
 
 // The chart (T09.02) and the profile link (T09.05) belong to other tasks and are stubs on main: replace them so this file
 // tests the panel. A test that needs the real stub failing sets the implementation itself.
-vi.mock("../../src/ui/results/profileChart", () => ({ ProfileChart: vi.fn() }));
+vi.mock("../../src/ui/results/profileChart", async (original) => ({ ...await original<typeof import("../../src/ui/results/profileChart")>(), ProfileChart: vi.fn() }));
 vi.mock("../../src/ui/results/profileLink", () => ({ linkProfileToMap: vi.fn() }));
 
 const ok = okFixture as unknown as PlanResult;
@@ -45,7 +47,7 @@ const metric = (root: ParentNode, label: string): HTMLElement => {
   if (!tile) throw new Error(`no metric tile "${label}"`);
   return tile;
 };
-const values = (tile: HTMLElement): HTMLElement[] => [...tile.querySelectorAll<HTMLElement>(".scr05-metric-value")];
+const values = (tile: HTMLElement): HTMLElement[] => [...tile.querySelectorAll<HTMLElement>(".metric-value")];
 
 describe("SCR-05 states (03 SCR-05; 04 §D status banner)", () => {
   it("Empty: 'No plan yet', 'Add at least one stop', and every metric is the no-data dash with a needs-a-plan hint", async () => {
@@ -86,7 +88,7 @@ describe("SCR-05 states (03 SCR-05; 04 §D status banner)", () => {
     }
     // The scenario's limits are inputs, not totals: they stay.
     expect(values(metric(view.container, "EVA total"))[1]!.textContent).toBe("360");
-    expect(values(metric(view.container, "Max walkback"))[1]!.textContent).toBe("5");
+    expect(values(metric(view.container, "Max walkback"))[1]!.textContent).toBe("5.00");
     await view.unmount();
   });
 
@@ -147,9 +149,21 @@ describe("SCR-05 metrics: value, unit, provenance class and real source ids (FR-
     expect(text("Max slope")).toContain("12.6");
     expect(text("Max slope")).toContain("°");
     expect(text("Max walkback")).toContain("3.06");
-    expect(text("Dose")).toContain("0.066");
+    expect(text("Dose")).toContain("0.07"); // mSv at two decimals (FD-124), not the raw 0.066
     expect(text("Dose")).toContain("mSv");
     await view.unmount();
+  });
+
+  it("builds every tile from the shared Metric component (FD-058): its classes, units with a thin space, no unit beside a dash", async () => {
+    const view = await okTiles();
+    const tile = metric(view.container, "Distance");
+    expect(tile.querySelector(".metric")).not.toBeNull();
+    expect(tile.querySelector(".metric-unit")?.textContent).toBe("\u2009km");
+    expect(view.container.querySelector(".scr05-metric-value")).toBeNull();
+    await view.unmount();
+    const empty = await mount(ui({ planStore: fakePlanStore({ status: "Empty", result: null }).store }));
+    expect(metric(empty.container, "Distance").querySelector(".metric-unit")).toBeNull();
+    await empty.unmount();
   });
 
   it("labels walk time as modelled with the Tobler and Apollo sources, and dose as modelled from the RAD source", async () => {
@@ -185,7 +199,7 @@ describe("SCR-05 metrics: value, unit, provenance class and real source ids (FR-
     expect(limit!.getAttribute("data-provenance")).toBe("assumed");
     expect(limit!.getAttribute("data-source")).toBe("scenario.max_eva_duration_h");
     const [, wbLimit] = values(metric(view.container, "Max walkback"));
-    expect(wbLimit!.textContent).toBe("5");
+    expect(wbLimit!.textContent).toBe("5.00"); // km at two decimals (FD-124)
     expect(wbLimit!.getAttribute("data-provenance")).toBe("assumed");
     expect(wbLimit!.getAttribute("data-source")).toBe("scenario.walkback_limit_km");
     await view.unmount();
@@ -220,7 +234,7 @@ describe("SCR-05 metrics: value, unit, provenance class and real source ids (FR-
 
   it("draws provenance chips from the glyph table with the full class word, never an abbreviation", async () => {
     const view = await okTiles();
-    const chips = [...view.container.querySelectorAll<HTMLElement>(".scr05-chip")];
+    const chips = [...view.container.querySelectorAll<HTMLElement>(".metric-chip")];
     expect(chips.length).toBeGreaterThanOrEqual(6);
     for (const chip of chips) {
       const prov = chip.getAttribute("data-provenance") as keyof typeof PROVENANCE_GLYPHS;
@@ -240,6 +254,17 @@ describe("SCR-05 announcements and collapsing (04 §E, §B)", () => {
     const live = must(view.container, "[aria-live]");
     expect(live.getAttribute("aria-live")).toBe("polite");
     expect(live.textContent).toBe("Plan updated: Over limits, 2 warnings");
+    await view.unmount();
+  });
+
+  it("labels the warning count in the announcement as a derived value of result.warnings (FR-15, NFR-05)", async () => {
+    const { store } = fakePlanStore({ status: "OverLimits", result: overLimits });
+    const view = await mount(ui({ planStore: store }));
+    const live = must(view.container, "[aria-live]");
+    const count = must(live, "[data-provenance]");
+    expect(count.textContent).toBe("2");
+    expect(count.getAttribute("data-provenance")).toBe("derived");
+    expect(count.getAttribute("data-source")).toBe("result.warnings");
     await view.unmount();
   });
 
@@ -282,12 +307,12 @@ describe("SCR-05 mounts the chart, warnings and profile link, each isolated (03 
   it("keeps the banner, metrics and warnings when the profile chart throws, and says the chart is unavailable", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(ProfileChart).mockImplementation(() => {
-      throw new Error("TODO(T09.02): ProfileChart not implemented");
+      throw new Error("Chart failed");
     });
     const { store } = fakePlanStore({ status: "OverLimits", result: overLimits });
     const view = await mount(ui({ planStore: store }));
     expect(view.container.textContent).toContain("Profile unavailable");
-    expect(view.container.textContent).toContain("TODO(T09.02)");
+    expect(view.container.textContent).toContain("Chart failed");
     expect(view.container.textContent).toContain("Over limits");
     expect(values(metric(view.container, "Distance"))[0]!.textContent).toBe("6.12");
     expect(view.container.querySelectorAll(".warnings-list li")).toHaveLength(2);
@@ -334,14 +359,14 @@ describe("SCR-05 mounts the chart, warnings and profile link, each isolated (03 
 
   it("reports a link failure in the panel instead of swallowing it, and the rest stays usable", async () => {
     vi.mocked(linkProfileToMap).mockImplementation(() => {
-      throw new Error("TODO(T09.05): linkProfileToMap not implemented");
+      throw new Error("Link failed");
     });
     const { handle } = fakeMapHandle();
     const { store } = fakePlanStore({ status: "OK", result: ok });
     const view = await mount(ui({ planStore: store, mapHandle: handle }));
     const note = must(view.container, ".scr05-link-note");
     expect(note.textContent).toContain("Profile ↔ map link unavailable");
-    expect(note.textContent).toContain("TODO(T09.05)");
+    expect(note.textContent).toContain("Link failed");
     expect(values(metric(view.container, "Distance"))[0]!.textContent).toBe("6.12");
     await view.unmount();
   });
@@ -363,4 +388,131 @@ describe("SCR-05 mounts the chart, warnings and profile link, each isolated (03 
     expect(fitted).toEqual([[50, 0, 100, 50]]);
     await view.unmount();
   });
+});
+
+it("seven metrics include sourced climb/descent and modelled EVA total", async () => {
+  const { store } = fakePlanStore({ status: "OK", result: ok });
+  const view = await mount(ui({ planStore: store }));
+  expect(view.container.querySelectorAll(".scr05-metric")).toHaveLength(7);
+  expect(metric(view.container, "Climb / descent").textContent).toContain("74");
+  expect(values(metric(view.container, "EVA total"))[0]!.getAttribute("data-provenance")).toBe("modelled");
+  await view.unmount();
+});
+it("missing haven and comm bands show sourced dashes with reasons", async () => {
+  const { store } = fakePlanStore({ status: "OK", result: ok });
+  const view = await mount(ui({ planStore: store }));
+  for (const band of ["haven", "comm"]) {
+    const row = must(view.container, `[data-band="${band}"]`);
+    expect(row.textContent).toContain("—");
+    expect(row.textContent).toMatch(/not supplied/i);
+    expect(row.querySelector("[data-source]")).not.toBeNull();
+  }
+  await view.unmount();
+});
+it("haven and comm bands render worker samples without computing them", async () => {
+  const leg = { ...ok.legs[0], profile: { dist_m: [0, 5, 10], elev_m: [0, 0, 0], slope_class: ["ok", "ok", "ok"], haven_min: [1, 2, 2], comm: [1, 0, 0] } } as OkLeg;
+  const { store } = fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } });
+  const view = await mount(ui({ planStore: store }));
+  expect(must(view.container, '[data-band="haven"]').textContent).toContain("modelled (approximation)");
+  expect(must(view.container, '[data-band="comm"]').textContent).toContain("NO SIGNAL");
+  await view.unmount();
+});
+
+it.each(["empty", "partial", "ok", "invalid samples"] as const)("every rendered dash is unavailable in %s results", async kind => {
+  const real = await vi.importActual<typeof import("../../src/ui/results/profileChart")>("../../src/ui/results/profileChart");
+  vi.mocked(ProfileChart).mockImplementation(real.ProfileChart);
+  const result = kind === "empty" ? null : kind === "partial" ? partial : kind === "ok" ? ok : {
+    ...ok, legs: [{ ...ok.legs[0], profile: { dist_m: [0, 5, 10], elev_m: [], slope_class: [], haven_min: [NaN, 1, 1], comm: [NaN, 1, 1] } } as OkLeg],
+  };
+  const { store } = fakePlanStore({ status: kind === "empty" ? "Empty" : kind === "partial" ? "Partial" : "OK", result });
+  const view = await mount(ui({ planStore: store }));
+  if (result) await click(must(view.container, ".scr05-details-toggle"));
+  const dashes = [...view.container.querySelectorAll("*")].filter(el => [...el.childNodes].some(node => node.nodeType === 3 && node.textContent?.includes("—")));
+  expect(dashes.length).toBeGreaterThan(0);
+  for (const el of dashes) expect(el.getAttribute("data-unavailable"), el.outerHTML).toBe("true");
+  await view.unmount();
+});
+
+it("profile SVG labels use the secondary foreground fill on the OPS surface", async () => {
+  const real = await vi.importActual<typeof import("../../src/ui/results/profileChart")>("../../src/ui/results/profileChart");
+  vi.mocked(ProfileChart).mockImplementation(real.ProfileChart);
+  const leg = { ...ok.legs[0], profile: { dist_m: [0, 5], elev_m: [0, 1], slope_class: ["ok", "ok"] } } as OkLeg;
+  const view = await mount(ui({ planStore: fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } }).store }));
+  const style = document.createElement("style");
+  style.textContent = readFileSync(new URL("../../src/ui/screens/scr05RouteResults.css", import.meta.url), "utf8");
+  document.head.append(style);
+  view.container.style.setProperty("--fg-2", "rgb(169, 179, 190)");
+  expect(window.getComputedStyle(must(view.container, ".profile-chart text")).fill).toBe("rgb(169, 179, 190)");
+  style.remove();
+  await view.unmount();
+});
+
+it("bands expose keyboard-readable segments and distinguish modelled NO SIGNAL from missing samples", async () => {
+  const leg = { ...ok.legs[0], profile: { dist_m: [0, 5, 10], elev_m: [0, 0, 0], slope_class: ["ok", "ok", "ok"], haven_min: [1, 2, 2], comm: [0, NaN, 1] } } as OkLeg;
+  const view = await mount(ui({ planStore: fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } }).store }));
+  for (const kind of ["haven", "comm"]) {
+    const summary = must(view.container, `[data-band="${kind}"] [data-band-summary]`);
+    expect(summary.getAttribute("tabindex")).toBe("0");
+    expect(summary.textContent).toMatch(/0–5 m/);
+  }
+  const known = must(view.container, '[data-band="comm"] [data-band-status="caution"]');
+  const missing = must(view.container, '[data-band="comm"] [data-band-status="unknown"]');
+  expect(known.getAttribute("data-unavailable")).toBeNull();
+  expect(known.getAttribute("data-provenance")).toBe("modelled");
+  expect(missing.getAttribute("data-unavailable")).toBe("true");
+  const summary = must(view.container, '[data-band="comm"] [data-band-summary]');
+  expect(summary.textContent).toContain("▲ NO SIGNAL");
+  expect(summary.textContent).toContain("? — Not supplied");
+  await view.unmount();
+});
+
+it("haven band status comes only from located worker warnings, never a client threshold", async () => {
+  const leg = { ...ok.legs[0], profile: { dist_m: [0, 5, 10], elev_m: [], slope_class: [], haven_min: [31, 1, 1] } } as OkLeg;
+  const fake = fakePlanStore({ status: "OK", result: { ...ok, warnings: [], legs: [leg] } });
+  const view = await mount(ui({ planStore: fake.store }));
+  expect([...view.container.querySelectorAll('[data-band="haven"] [data-band-status]')].map(el => el.getAttribute("data-band-status"))).toEqual(["neutral", "neutral"]);
+  await act(async () => fake.emit({ result: { ...ok, legs: [leg], warnings: [{ code: "HAVEN_TIME_EXCEEDED", severity: "caution", leg: 0, from_m: 5, to_m: 10, message: "Worker flagged this segment" }] } }));
+  expect([...view.container.querySelectorAll('[data-band="haven"] [data-band-status]')].map(el => el.getAttribute("data-band-status"))).toEqual(["neutral", "caution"]);
+  await view.unmount();
+});
+
+it("bands keep text at the micro token size and reserve stretching for geometry", async () => {
+  const style = document.createElement("style");
+  style.textContent = readFileSync(new URL("../../src/ui/screens/scr05RouteResults.css", import.meta.url), "utf8");
+  document.head.append(style);
+  const leg = { ...ok.legs[0], profile: { dist_m: [0, 5], elev_m: [], slope_class: [], haven_min: [1, 2] } } as OkLeg;
+  const view = await mount(ui({ planStore: fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } }).store }));
+  view.container.style.setProperty("--text-micro", "12px");
+  const label = must(view.container, '[data-band="haven"] .profile-band-label, [data-band="haven"] text');
+  expect(window.getComputedStyle(label).fontSize).toBe("12px");
+  for (const svg of view.container.querySelectorAll('.profile-band svg[preserveAspectRatio="none"]')) expect(svg.querySelector("text, circle")).toBeNull();
+  style.remove();
+  await view.unmount();
+});
+
+it("warnings receive the current site layer sources through the results panel", async () => {
+  const site = mockLoadedSite();
+  site.layers.set("thermal_inertia", { ...site.layers.get("slope")!, source_ids: ["usgs-themis-ti-30s120e"] });
+  const view = await mount(ui({ site, planStore: fakePlanStore({ status: "OK", result: { ...ok, warnings: [{ code: "LOW_TI", severity: "caution", leg: null, from_m: null, to_m: null, message: "Low inertia" }] } }).store }));
+  expect(must(view.container, ".warning-item").getAttribute("data-source")).toBe("rule:LOW_TI usgs-themis-ti-30s120e");
+  await view.unmount();
+});
+it("empty results do not announce worker bands before a plan exists", async () => {
+  const view = await mount(ui({ planStore: fakePlanStore({ status: "Empty", result: null }).store }));
+  expect(view.container.querySelector("[data-band]")).toBeNull();
+  expect(view.container.textContent).not.toContain("samples not supplied by worker");
+  await view.unmount();
+});
+it("a band rendering failure is isolated from metrics, warnings and profile", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  const profile = { dist_m: [0, 5], elev_m: [], slope_class: [] };
+  Object.defineProperty(profile, "haven_min", { get: () => { throw new Error("Band data unreadable"); } });
+  const leg = { ...ok.legs[0], profile } as OkLeg;
+  const view = await mount(ui({ planStore: fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } }).store }));
+  expect(view.container.textContent).toContain("Profile bands unavailable");
+  expect(view.container.textContent).toContain("Band data unreadable");
+  expect(values(metric(view.container, "Distance"))[0]!.textContent).toBe("6.12");
+  expect(view.container.querySelector('[data-testid="profile-chart"]')).not.toBeNull();
+  expect(view.container.querySelector(".warning-item")).not.toBeNull();
+  await view.unmount();
 });

@@ -75,7 +75,7 @@ def hab_viewshed(
     target_height_m: receiver height above ground. 0.0 for a ground-level target.
 
     Returns 1 = line of sight, 0 = no line of sight, 255 = no data (NaN target cell).
-    A NaN cell on the ray does not block it (TODO(decision): NaN could instead count as blocking).
+    A NaN cell on the ray does not block it (decided, BD-20: the rule T03.30 checked against `gdal_viewshed`).
     """
     z = np.asarray(elevation, dtype=np.float64)
     if z.ndim != 2:

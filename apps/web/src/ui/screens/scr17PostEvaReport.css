@@ -1,0 +1,33 @@
+/*
+ * SCR-17 Post-EVA report, print layout (04 §B.2 PRINT, §E.8; ≤ 2 pages on A4 and Letter at 12 mm margins).
+ * A stylesheet, not an inline <style>: the CSP (default-src 'self') blocks inline style elements.
+ * Headings stay with what follows, rows and blocks do not split; print type and spacing are tighter than on screen.
+ */
+@page {
+  margin: 12mm;
+}
+
+@media print {
+  .scr17-post-eva-report { background: white !important; min-height: 0 !important; padding: 0 !important; }
+  .scr17-post-eva-report .no-print,
+  .report-route-no-print { display: none !important; }
+  .scr17-post-eva-report .report-page { min-height: 0 !important; margin: 0 !important; padding: 0 !important; max-width: none !important; border: 0 !important; box-shadow: none !important; gap: 6px !important; }
+  .scr17-post-eva-report .report-page + .report-page { break-before: page; }
+  .scr17-post-eva-report h1 { font-size: 18px !important; }
+  .scr17-post-eva-report h2 { break-after: avoid; margin: 2px 0 !important; }
+  .scr17-post-eva-report tr,
+  .scr17-post-eva-report .report-block { break-inside: avoid; }
+  .scr17-post-eva-report table { font-size: 10px !important; margin-top: 2px !important; }
+  .scr17-post-eva-report th,
+  .scr17-post-eva-report td { padding: 2px 4px !important; font-size: 10px !important; }
+  .scr17-post-eva-report .report-slab { min-height: 0 !important; padding: 6px 8px !important; }
+  .scr17-post-eva-report .report-note { margin: 2px 0 !important; font-size: 10px !important; }
+  .scr17-post-eva-report .report-trace-svg { height: 72px !important; }
+}
+
+.report-log-fallback { max-width: 800px; margin: 16px auto; padding: 16px; background: white; color: #111827; }
+.report-log-fallback nav { display: flex; gap: 12px; flex-wrap: wrap; }
+.report-log-fallback button { min-height: 44px; padding: 8px 12px; }
+.report-log-fallback table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); }
+.report-log-fallback th, .report-log-fallback td { border: 1px solid #111827; padding: 6px; text-align: left; overflow-wrap: anywhere; }
+.report-log-fallback p { overflow-wrap: anywhere; }

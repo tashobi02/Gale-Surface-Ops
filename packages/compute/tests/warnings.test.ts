@@ -1,7 +1,31 @@
 import { FLAG_BITS, type Leg, type MissionScenario, type NoRouteLeg, type OkLeg, type PlanResult, type Waypoint } from "@marswalk/protocol";
 import { describe, expect, it } from "vitest";
 import { makePlaneGrid, withoutTi } from "../../../apps/web/tests/fixtures/grids";
+import { solarPosition, sunriseSunset } from "../src/sun";
 import { collectWarnings, countStops, planStatus } from "../src/warnings";
+
+/** Site of the solar checks: a fixture coordinate (lat planetocentric, lon east-positive), not a Gale claim. */
+const SITE = { lat: -4.7, lon_e: 137.38 };
+const MIN_MS = 60_000;
+
+/** One sol's flat-horizon sunrise and sunset around `anchor`, from compute (the expected values are derived, not typed). */
+function dayOf(anchor: string): { sunrise: number; sunset: number } {
+  const sun = sunriseSunset(new Date(anchor), SITE.lat, SITE.lon_e);
+  return { sunrise: Date.parse(sun.sunrise_utc), sunset: Date.parse(sun.sunset_utc) };
+}
+
+/** A timeline entry from two instants (ms); LTST text and elevation are not read by the DARKNESS check. */
+function stamp(arriveMs: number, departMs: number): PlanResult["stops_timeline"][number] {
+  return {
+    arrive_utc: new Date(arriveMs).toISOString(),
+    depart_utc: new Date(departMs).toISOString(),
+    arrive_ltst: "00:00",
+    sun_elevation_deg: Number.NaN,
+  };
+}
+
+const ANCHOR = "2026-11-14T08:00:00Z";
+const DAY = dayOf(ANCHOR);
 
 const defaultScenario: MissionScenario = {
   eva_start_utc: "2026-11-14T08:00:00Z",
@@ -51,10 +75,10 @@ const mockNoRouteLeg: NoRouteLeg = {
 describe("warnings and plan status", () => {
   it("makes routed DARKNESS OVER_LIMITS while NO_ROUTE retains PARTIAL precedence", () => {
     const legs: Leg[] = [makeOkLeg()];
-    const timeline: PlanResult["stops_timeline"] = [
-      { arrive_utc: "2026-11-14T08:00:00Z", depart_utc: "2026-11-14T08:00:00Z", arrive_ltst: "09:00", sun_elevation_deg: -5 },
-    ];
-    const warnings = collectWarnings(legs, defaultScenario, timeline, 2);
+    const night = DAY.sunset + 30 * MIN_MS;
+    expect(solarPosition(new Date(night), SITE.lat, SITE.lon_e).elevation_deg).toBeLessThan(0);
+    const timeline = [stamp(night, night), stamp(night + 20 * MIN_MS, night + 20 * MIN_MS)];
+    const warnings = collectWarnings(legs, defaultScenario, timeline, 2, undefined, undefined, undefined, SITE);
     expect(warnings.some((warning) => warning.code === "DARKNESS")).toBe(true);
     expect(planStatus(legs, warnings)).toBe("OVER_LIMITS");
     expect(planStatus([...legs, mockNoRouteLeg], warnings)).toBe("PARTIAL");
@@ -74,10 +98,9 @@ describe("warnings and plan status", () => {
   it("reports route TI_UNKNOWN independently of a DARKNESS warning", () => {
     const grid = makePlaneGrid({ width: 10, height: 10, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
     grid.flags[23] |= 1 << FLAG_BITS.TI_UNKNOWN;
-    const timeline: PlanResult["stops_timeline"] = [
-      { arrive_utc: "2026-11-14T08:00:00Z", depart_utc: "2026-11-14T08:00:00Z", arrive_ltst: "09:00", sun_elevation_deg: -5 },
-    ];
-    const warnings = collectWarnings([makeOkLeg()], defaultScenario, timeline, 0, grid, undefined, [[21, 22, 23]]);
+    const night = DAY.sunset + 30 * MIN_MS;
+    const timeline = [stamp(night, night), stamp(night + 20 * MIN_MS, night + 20 * MIN_MS)];
+    const warnings = collectWarnings([makeOkLeg()], defaultScenario, timeline, 0, grid, undefined, [[21, 22, 23]], SITE);
     expect(warnings.map((warning) => warning.code)).toContain("DARKNESS");
     expect(warnings.map((warning) => warning.code)).toContain("TI_UNKNOWN");
   });
@@ -209,23 +232,6 @@ describe("warnings and plan status", () => {
     expect(tiWarn!.message).toMatch(/thermal inertia/i);
   });
 
-  it("emits DARKNESS warning when solar conditions indicate sun below horizon during EVA", () => {
-    const legs = [makeOkLeg()];
-    const timeline: PlanResult["stops_timeline"] = [
-      {
-        arrive_utc: "2026-11-14T08:00:00Z",
-        depart_utc: "2026-11-14T08:20:00Z",
-        arrive_ltst: "09:00",
-        sun_elevation_deg: -5.0, // below horizon
-      },
-    ];
-
-    const warnings = collectWarnings(legs, defaultScenario, timeline, 2.0);
-    const darkWarn = warnings.find((w) => w.code === "DARKNESS");
-    expect(darkWarn).toBeDefined();
-    expect(darkWarn!.severity).toBe("caution");
-  });
-
   it("emits EVA_DURATION_EXCEEDED and OVER_LIMITS when true margin is negative (probe: 4.8 h max, -4.6 min margin)", () => {
     // 3 waypoints: 1 start + 2 stops
     const waypoints: Waypoint[] = [
@@ -267,19 +273,127 @@ describe("warnings and plan status", () => {
     expect(planStatus(legs, warnings)).toBe("OVER_LIMITS");
   });
 
-  it("skips DARKNESS warning when timeline has no sun elevation data", () => {
-    const legs = [makeOkLeg()];
-    const timelineWithoutSun = [
-      {
-        arrive_utc: "2026-11-14T08:00:00Z",
-        depart_utc: "2026-11-14T08:20:00Z",
-        arrive_ltst: "09:00",
-        sun_elevation_deg: NaN,
-      },
-    ];
+});
 
-    const warnings = collectWarnings(legs, defaultScenario, timelineWithoutSun, 2.0);
-    const darkWarn = warnings.find((w) => w.code === "DARKNESS");
-    expect(darkWarn).toBeUndefined();
+// BD-49: DARKNESS is evaluated at the timeline instants (each leg's departure and arrival, each dwell's end) with compute
+// solarPosition, and against sunriseSunset's sunset; the warning sits on the first leg where it happens.
+describe("DARKNESS along the EVA (BD-49)", () => {
+  const twoLegs = (): Leg[] => [makeOkLeg(), makeOkLeg({ from: "wp-1", to: "wp-2" })];
+  const run = (timeline: PlanResult["stops_timeline"], legs: Leg[] = twoLegs(), scenario: MissionScenario = defaultScenario) =>
+    collectWarnings(legs, scenario, timeline, 0, undefined, undefined, undefined, SITE).filter((w) => w.code === "DARKNESS");
+
+  it("raises nothing when every instant is above the horizon and the sunset is after the interval", () => {
+    const t0 = DAY.sunrise + 120 * MIN_MS;
+    const timeline = [stamp(t0, t0), stamp(t0 + 60 * MIN_MS, t0 + 80 * MIN_MS), stamp(t0 + 140 * MIN_MS, t0 + 140 * MIN_MS)];
+    expect(run(timeline)).toEqual([]);
+  });
+
+  it("raises one caution on the leg that ends after sunset, at the arrival instant", () => {
+    const t0 = DAY.sunset - 30 * MIN_MS;
+    const arrive = t0 + 60 * MIN_MS;
+    const timeline = [stamp(t0, t0), stamp(arrive, arrive + 20 * MIN_MS), stamp(arrive + 80 * MIN_MS, arrive + 80 * MIN_MS)];
+    const darkness = run(timeline);
+    expect(darkness).toHaveLength(1);
+    expect(darkness[0]).toMatchObject({ code: "DARKNESS", severity: "caution", leg: 0, from_m: null, to_m: null, at_utc: new Date(arrive).toISOString() });
+  });
+
+  it("puts the warning on the departing leg when the sun sets during a dwell (the dwell's end is the first dark instant)", () => {
+    const arrive = DAY.sunset - 5 * MIN_MS;
+    const depart = DAY.sunset + 15 * MIN_MS;
+    const t0 = arrive - 40 * MIN_MS;
+    const timeline = [stamp(t0, t0), stamp(arrive, depart), stamp(depart + 40 * MIN_MS, depart + 40 * MIN_MS)];
+    const darkness = run(timeline);
+    expect(darkness).toHaveLength(1);
+    expect(darkness[0]).toMatchObject({ leg: 1, at_utc: new Date(depart).toISOString() });
+  });
+
+  it("puts the warning on leg 0 when the EVA already starts in the dark", () => {
+    const t0 = DAY.sunset + 60 * MIN_MS;
+    const timeline = [stamp(t0, t0), stamp(t0 + 30 * MIN_MS, t0 + 30 * MIN_MS), stamp(t0 + 60 * MIN_MS, t0 + 60 * MIN_MS)];
+    expect(run(timeline)).toMatchObject([{ leg: 0, at_utc: new Date(t0).toISOString() }]);
+  });
+
+  it("raises one warning even when many instants are dark, at the earliest one", () => {
+    const t0 = DAY.sunset + 10 * MIN_MS;
+    const timeline = [stamp(t0, t0), stamp(t0 + 30 * MIN_MS, t0 + 30 * MIN_MS), stamp(t0 + 60 * MIN_MS, t0 + 60 * MIN_MS)];
+    expect(run(timeline)).toHaveLength(1);
+  });
+
+  it("raises a sunset-in-interval warning when the sunset lies between two lit instants (an interval longer than the night)", () => {
+    // Not reachable with an EVA of at most 10 h; the rule is still the stated one and is pinned at function level.
+    const t0 = DAY.sunset - 60 * MIN_MS;
+    const next = dayOf(new Date(DAY.sunset + 12 * 3_600_000).toISOString());
+    const t1 = next.sunrise + 60 * MIN_MS > DAY.sunset ? Math.max(next.sunrise, DAY.sunset) + 60 * MIN_MS : DAY.sunset + 14 * 3_600_000;
+    for (const ms of [t0, t1]) expect(solarPosition(new Date(ms), SITE.lat, SITE.lon_e).elevation_deg).toBeGreaterThan(0);
+    const timeline = [stamp(t0, t0), stamp(t1, t1)];
+    const darkness = run(timeline, [makeOkLeg()]);
+    expect(darkness).toMatchObject([{ leg: 0, severity: "caution", at_utc: new Date(DAY.sunset).toISOString() }]);
+  });
+
+  it("needs the site: without one no DARKNESS is raised (the sun cannot be computed, nothing is guessed)", () => {
+    const t0 = DAY.sunset + 60 * MIN_MS;
+    const timeline = [stamp(t0, t0), stamp(t0 + 30 * MIN_MS, t0 + 30 * MIN_MS)];
+    const warnings = collectWarnings([makeOkLeg()], defaultScenario, timeline, 0);
+    expect(warnings.filter((w) => w.code === "DARKNESS")).toEqual([]);
+  });
+
+  it("raises nothing for an empty timeline (a PARTIAL plan)", () => {
+    expect(run([], [mockNoRouteLeg])).toEqual([]);
+  });
+});
+
+// BD-49: LOW_RES_DEM and NO_DATA_ADJACENT are cautions, one warning per contiguous run of route cells per leg; LOW_TI is never emitted (U-03).
+describe("route-cell warnings from grid flags (BD-49)", () => {
+  const flat = () => makePlaneGrid({ width: 10, height: 10, cell_m: 5, slope_deg: 0, origin_m: [0, 0] });
+  const rowPath = [21, 22, 23, 24, 25];
+  const collect = (grid: ReturnType<typeof flat>, paths: (readonly number[] | undefined)[], legs: Leg[] = [makeOkLeg()]) =>
+    collectWarnings(legs, defaultScenario, undefined, 0, grid, undefined, paths);
+
+  it("emits LOW_RES_DEM caution once per contiguous run of flagged route cells, located along the leg", () => {
+    const grid = flat();
+    grid.flags[22] |= 1 << FLAG_BITS.LOW_RES_DEM;
+    grid.flags[23] |= 1 << FLAG_BITS.LOW_RES_DEM;
+    grid.flags[25] |= 1 << FLAG_BITS.LOW_RES_DEM;
+    const found = collect(grid, [rowPath]).filter((w) => w.code === "LOW_RES_DEM");
+    expect(found).toMatchObject([
+      { severity: "caution", leg: 0, from_m: 5, to_m: 10 },
+      { severity: "caution", leg: 0, from_m: 20, to_m: 20 },
+    ]);
+  });
+
+  it("does not flag LOW_RES_DEM cells the route does not cross", () => {
+    const grid = flat();
+    grid.flags[60] |= 1 << FLAG_BITS.LOW_RES_DEM;
+    expect(collect(grid, [rowPath]).filter((w) => w.code === "LOW_RES_DEM")).toEqual([]);
+  });
+
+  it("emits NO_DATA_ADJACENT caution for route cells with a NaN cell among their 8 neighbours (diagonals included), one run per leg", () => {
+    const grid = flat();
+    grid.elevation[13] = Number.NaN; // row 1, column 3: touches route cells 22, 23, 24 (24 diagonally)
+    const found = collect(grid, [rowPath]).filter((w) => w.code === "NO_DATA_ADJACENT");
+    expect(found).toMatchObject([{ severity: "caution", leg: 0, from_m: 5, to_m: 15 }]);
+  });
+
+  it("counts a NO_DATA-flagged neighbour as a no-data cell", () => {
+    const grid = flat();
+    grid.flags[13] |= 1 << FLAG_BITS.NO_DATA;
+    const found = collect(grid, [rowPath]).filter((w) => w.code === "NO_DATA_ADJACENT");
+    expect(found).toMatchObject([{ leg: 0, from_m: 5, to_m: 15 }]);
+  });
+
+  it("reports each leg's runs against that leg's index and skips a NO_ROUTE leg", () => {
+    const grid = flat();
+    grid.elevation[13] = Number.NaN;
+    grid.flags[62] |= 1 << FLAG_BITS.LOW_RES_DEM;
+    const legs = [mockNoRouteLeg, makeOkLeg(), makeOkLeg()];
+    const found = collect(grid, [undefined, rowPath, [61, 62, 63]], legs);
+    expect(found.filter((w) => w.code === "NO_DATA_ADJACENT").map((w) => w.leg)).toEqual([1]);
+    expect(found.filter((w) => w.code === "LOW_RES_DEM")).toMatchObject([{ leg: 2, from_m: 5, to_m: 5 }]);
+  });
+
+  it("never emits LOW_TI, even with the LOW_TI bit set on route cells (U-03)", () => {
+    const grid = flat();
+    for (const cell of rowPath) grid.flags[cell] |= 1 << FLAG_BITS.LOW_TI;
+    expect(collect(grid, [rowPath]).filter((w) => w.code === "LOW_TI")).toEqual([]);
   });
 });

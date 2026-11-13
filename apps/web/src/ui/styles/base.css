@@ -8,7 +8,8 @@
  */
 
 /* ------------------------------------------------------------- 1. @font-face
- * Self-hosted Inter (400, 500, 600) and IBM Plex Mono (500).
+ * Self-hosted Inter (400, 500, 600), IBM Plex Mono (500), Chakra Petch (500) and Source Serif 4 (400); OFL and licence
+ * files sit beside each family under apps/web/public/fonts (T13.13).
  * Relative URL form: url('/fonts/...') is rebased by Vite (base: './') to
  * url('../fonts/...') in production CSS, guaranteeing local offline resolution
  * under any static hosting or local Hab Core port (NFR-01, ADR-012).
@@ -46,11 +47,27 @@
   font-display: block;
 }
 
+@font-face {
+  font-family: "Chakra Petch";
+  src: url("/fonts/chakra-petch/ChakraPetch-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  src: url("/fonts/source-serif-4/SourceSerif4-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
 /* -------------------------------------------------------- 2. Element defaults
  * Set typography defaults from 04 §C.2:
  * - body text Inter 14 px / 400 with line-height 1.45
- * - panel headings 16 px / 600
- * - screen titles 20 px / 600
+ * - panel headings: Chakra Petch 20 px / 500 uppercase (04 §C.2 Headings row; never Chakra Petch under 20 px)
+ * - screen titles: Chakra Petch 20 px / 500 uppercase (04 §C.2 Display row, OPS screen titles >= 20 px)
  * - nothing below 12 px (--text-micro), except .code/.module-label at 11 px in BRIEF and planner desktop (04 §C.2
  *   Minimum text size; see tokens.css)
  * - app background and text from 04 §C.1 (mapped to --surface-0 and --fg-1)
@@ -76,31 +93,30 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Headings keep the v1 style (Inter 600, sentence case) under the 04 §C.2 "Headings during the font roll-out"
-   exception: v1 screens (SCR-00 to SCR-09) until Chakra Petch and Source Serif 4 are self-hosted; from then on the
-   04 §C.2 Display and Headings rows apply (Chakra Petch / 500 uppercase, P6).
-   TODO(decision): self-hosting Chakra Petch and Source Serif 4 under apps/web/public/fonts with OFL credits (04 §C.2;
-   owner T13.04). */
-/* Screen titles (04 §C.2): 20 px / 600 */
+/* Headings (04 §C.2, FD-073). Ended 2026-11-12 (04 §C.2 font roll-out): Chakra Petch and Source Serif 4 are self-hosted (T13.13),
+   so the Display and Headings rows apply to every screen, v1 included: Chakra Petch / 500 uppercase (P6, never bold). */
+/* Screen titles (04 §C.2 Display row, OPS screen titles >= 20 px) */
 h1,
 .screen-title {
-  font-family: var(--font-display, "Inter", sans-serif);
+  font-family: var(--font-display);
   font-size: var(--text-heading, 20px);
-  font-weight: 600;
+  font-weight: 500;
+  text-transform: uppercase;
   line-height: 1.2;
   margin: 0;
   color: var(--fg-1);
 }
 
-/* Panel headings (04 §C.2): 16 px / 600 */
+/* Panel headings (04 §C.2 Headings row: 20-28 px) */
 h2,
 h3,
 .panel-title,
 .panel-heading {
-  font-family: var(--font-ui, "Inter", sans-serif);
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.25;
+  font-family: var(--font-display);
+  font-size: var(--text-heading, 20px);
+  font-weight: 500;
+  text-transform: uppercase;
+  line-height: 1.2;
   margin: 0;
   color: var(--fg-1);
 }

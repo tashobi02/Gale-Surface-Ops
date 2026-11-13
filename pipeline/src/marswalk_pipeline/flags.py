@@ -18,8 +18,13 @@ def rasterize_mask(
     height: int,
     cell_m: float,
     origin_m: tuple[float, float],
+    all_touched: bool = False,
 ) -> np.ndarray:
-    """Rasterize C5 polygons in working metres onto a north-up routing grid."""
+    """Rasterize C5 polygons in working metres onto a north-up routing grid.
+
+    `all_touched` marks every cell a polygon touches (the 10 m fallback grid, T03.24: a cell is closed if any part of it is
+    hazard, the conservative direction of the vehicle lattice rule); the default marks cells whose centre is inside.
+    """
     from rasterio.features import rasterize
     from rasterio.transform import from_origin
 
@@ -33,6 +38,7 @@ def rasterize_mask(
         out_shape=(height, width),
         transform=from_origin(*origin_m, cell_m, cell_m),
         dtype="uint8",
+        all_touched=all_touched,
     ).astype(bool)
 
 

@@ -4,7 +4,7 @@
  * Synthetic benchmark input, never science and never site data. Only the SIZE and the hab position come from the
  * site: the grid covers `aoi.extent_m` of `pipeline/sites/gale_boxwork/site.json` at the 5 m haven cell
  * (`HAVEN_CELL_M`, 02 §D.2), so no cell count is typed here; a non-whole number of cells throws. The cell size lives
- * in a test fixture today (`TODO(decision)`: a shared `ROUTING_CELL_M` constant in `src` would remove the copy).
+ * in a test fixture today (decided, BD-57: the copy stays; a shared constant is not worth a `src` export for a benchmark).
  *
  * Layout (05 §C RoutingGrid, §E.1): row 0 is north, `origin_m` is the top-left corner (min x, max y). Slope is the
  * u8 degrees x 4 encoding. `commHab` is 255 (no data) because the haven does not read it. No NaN, no NO_DATA.
@@ -29,7 +29,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FLAG_BITS } from "@marswalk/protocol";
-import type { RoutingGrid } from "@marswalk/protocol";
+import type { LoadedGridMeta } from "@marswalk/protocol";
 import type { LoadedGrid } from "../src/grid";
 import { HAVEN_CELL_M } from "../tests/fixtures/v2grids";
 
@@ -45,6 +45,9 @@ export interface BenchSite {
   extent_m: [number, number, number, number];
   hab: { x_m: number; y_m: number };
 }
+
+/** Bench-only working projection (the mock site manifest's string); haven reads no latitude from it. */
+const BENCH_PROJ4 = "+proj=eqc +lat_ts=-4.70 +lat_0=-4.70 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs";
 
 /** Assumed, bench-only (placeholder; haven does not read it): `RoutingGrid.hab_mast.height_m`. */
 const HAB_MAST_HEIGHT_PLACEHOLDER_M = 0;
@@ -134,7 +137,7 @@ export function buildBenchGrid(site: BenchSite, terrain: Terrain, cell_m: number
     throw new RangeError(`hab (${site.hab.x_m}, ${site.hab.y_m}) is outside the extent [${site.extent_m.join(", ")}]`);
   }
   const n = width * height;
-  const meta: RoutingGrid = {
+  const meta: LoadedGridMeta = {
     cell_m,
     width,
     height,
@@ -146,6 +149,7 @@ export function buildBenchGrid(site: BenchSite, terrain: Terrain, cell_m: number
     flags_asset: "",
     comm_hab_asset: "",
     hab_mast: { x_m: site.hab.x_m, y_m: site.hab.y_m, height_m: HAB_MAST_HEIGHT_PLACEHOLDER_M },
+    proj4: BENCH_PROJ4,
   };
   const grid: LoadedGrid = {
     meta,

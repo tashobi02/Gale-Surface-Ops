@@ -238,3 +238,14 @@ def test_write_grid_refuses_grid_larger_than_05_limit(tmp_path: Path) -> None:
             flags=flags,
             ti=None,
         )
+
+
+def test_bd19_slope_beyond_the_u8_range_encodes_as_the_largest_finite_code() -> None:
+    """Slopes the u8 cannot hold take 254, above the hard limit (impassable either way); only NaN is 255."""
+    np = pytest.importorskip("numpy")
+    from marswalk_pipeline import grid as grid_mod
+
+    encoded = grid_mod.encode_slope_u8(np.array([63.5, 63.75, 80.0, 90.0, 1e9, np.inf, np.nan]))
+    assert encoded.tolist() == [254, 254, 254, 254, 254, 254, config.U8_NODATA]
+    assert 254 > 35 * config.SLOPE_U8_SCALE
+

@@ -1,5 +1,8 @@
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
+import { fileURLToPath } from "node:url";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 
 // Relative base so the build runs from the Hab Core or any static folder offline (NFR-01).
@@ -25,10 +28,45 @@ function devInlineScript(): Plugin {
   };
 }
 
+/**
+ * The T02.03 spike page is built only for the verification harness (`MARSWALK_SPIKE=1`, set by e2e/globalSetup.ts), so the
+ * `tiles-all-levels` and `scale-bar` checks can load it from the Hab Core; the demo build never contains it.
+ */
+const spikeInput =
+  process.env.MARSWALK_SPIKE === "1"
+    ? { main: fileURLToPath(new URL("./index.html", import.meta.url)), spike: fileURLToPath(new URL("./spike/index.html", import.meta.url)) }
+    : undefined;
+
+/**
+ * Build only: copies the Hab Core's recording (N-21, N-81) next to the built page as `replay/recording.json`, so `#/replay`
+ * works from a static folder. Warns when the recording is absent (the route then says it is unavailable).
+ */
+function copyReplayRecording(): Plugin {
+  const recording = fileURLToPath(new URL("../../scenarios/storm-sol4190/recording.json", import.meta.url));
+  let outDir = resolve(import.meta.dirname, "dist");
+  return {
+    name: "copy-replay-recording",
+    apply: "build",
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    closeBundle() {
+      if (!existsSync(recording)) {
+        console.warn(`copy-replay-recording: ${recording} is absent (N-81); #/replay will report the recording as unavailable`);
+        return;
+      }
+      const destination = resolve(outDir, "replay");
+      mkdirSync(destination, { recursive: true });
+      copyFileSync(recording, resolve(destination, "recording.json"));
+    },
+  };
+}
+
 // React + Vite (ADR-012): static build, no server rendering.
 export default defineConfig({
-  plugins: [react(), devInlineScript()],
+  plugins: [react(), devInlineScript(), copyReplayRecording()],
   base: "./",
+  build: spikeInput ? { rollupOptions: { input: spikeInput } } : {},
   server: {
     host: true,
     proxy: {
@@ -37,5 +75,6 @@ export default defineConfig({
       "/ws": { target: HAB.replace(/^http/, "ws"), ws: true },
     },
   },
+  // Vitest runs only tests/; the Playwright harness in e2e/ is run by `make e2e`, never by `make test-web`.
   test: { include: ["tests/**/*.test.ts"] },
 });

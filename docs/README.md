@@ -1,4 +1,4 @@
-# Marswalk Surface Ops — Documentation Package
+# Gale Surface Ops — Documentation Package
 
 *(working title)* · NASA Space Apps 2026 · Challenge: **Interplanetary Survival Guide: Martian Map** · Team: CheesySpace
 

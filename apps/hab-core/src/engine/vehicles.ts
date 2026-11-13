@@ -9,7 +9,7 @@
  * - `vehiclesTick`: the pressurized rover's DISPATCHED → EN_ROUTE → ARRIVED motion and sheltering.
  * - `moveAlongPath`: the motion helper TASK-29 reuses for the utility rover (T29.03).
  *
- * Rules (Proposed 2026-11-08 — TODO(decision); listed in TASK-23 under T23.05):
+ * Rules (decided by the orchestrator under Sadman Shaharier Mahim's authority, 12 Nov 2026, BD-58; listed in TASK-23 under T23.05):
  * - The crew field is bounded at L = `max_haven_min` × 60 s (02 §D.10 "limit L"; 02 §D.8 "the haven rule").
  * - The logged ETAs are whole seconds (Math.round; 05 Vehicle `eta_s` is an int).
  * - The path is not in VEHICLE_DISPATCHED (05 has no field for it), so on the first tick after the
@@ -17,6 +17,9 @@
  *   not moved since it was PARKED) and the logged target. It never looks at where the crew are now.
  * - Motion: constant speed = remaining path length ÷ `eta_s`, so the vehicle arrives on tick `eta_s`;
  *   `eta_s` counts down as an integer. No path ⇒ no motion.
+ * - The second meeting (BD-58): once a crew member named in the SUMMON task is sheltered, and another named member is
+ *   still out beyond SHELTER_REACH_M, the ARRIVED vehicle drives to that member (see `secondMeeting`). Same event
+ *   kinds and keys: VEHICLE_ARRIVED, then CREW_SHELTERED. A member compute cannot reach is not served.
  */
 import {
   crewTimeField,
@@ -41,8 +44,8 @@ import type { CommandOutcome, EngineState, PendingEvent, StateChange } from "./r
 import type { TickContext, TickResult } from "./tick";
 
 /**
- * A crew member counts as "at the vehicle" within this distance (metres). TODO(decision): the value
- * is the T23.04 test header's proposal (summon.test.ts, "Sheltering"), standing for "same point".
+ * A crew member counts as "at the vehicle" within this distance (metres). The value is the T23.04 test header's
+ * proposal (summon.test.ts, "Sheltering"), standing for "same point"; ratified as BD-58.
  */
 export const SHELTER_REACH_M = 1;
 
@@ -98,11 +101,12 @@ function ownParams(scenario: LoadedScenario, vehicle: Vehicle): ParamSet | strin
  *
  * Two crew: both rendezvous, then `rendezvousPair`; the event carries the first meeting point of the
  * chosen order. If `rendezvousPair` throws (the vehicle cannot drive between the two points) the one
- * with the earlier meeting, ties to the first named (Proposed 2026-11-08). The second meeting is not
- * driven yet: TODO(decision).
+ * with the earlier meeting, ties to the first named (BD-58). The second meeting is driven by `vehiclesTick`
+ * once the first crew member is sheltered (`secondMeeting`).
  * If only one of two crew has a rendezvous, the vehicle goes to that one: a rover reaching one person
- * in a storm is still useful (Proposed 2026-11-08). TODO(decision): the unreachable crew member is not
- * served, and the event cannot say so because T23.04 pins the VEHICLE_DISPATCHED data keys.
+ * in a storm is still useful (BD-58). The unreachable crew member is not served by this dispatch, and the event
+ * cannot say so because T23.04 pins the VEHICLE_DISPATCHED data keys; their alert stays latched, so the next
+ * contingency tick offers them an ABORT_TO_HAB option.
  * `eta_vehicle_s` is at least 1 s whenever the path from the vehicle has length, so the vehicle never
  * covers a path in zero time (Proposed 2026-11-08).
  */
@@ -140,7 +144,9 @@ export function dispatchVehicle(state: EngineState, scenario: LoadedScenario, re
     return { ok: true, events: [dispatchedEvent(state, req, vehicle.vehicle_id, { ...rv })] };
   }
 
-  const plan = scenario.scenario.plan.scenario;
+  const mission = (state.plan ?? scenario.scenario.plan)?.scenario;
+  if (!mission) return reject("INVALID", "no plan is published, so there is no mission scenario to find a rendezvous for");
+  const plan = mission;
   const limit_s = plan.max_haven_min * 60;
   if (!(Number.isFinite(limit_s) && limit_s >= 0)) return reject("INVALID", `max_haven_min must be a number >= 0, got ${plan.max_haven_min}`);
   const grid = scenario.grid;
@@ -244,7 +250,7 @@ export function handleSummon(state: EngineState, scenario: LoadedScenario, comma
 // ---------------------------------------------------------------------------
 
 /** Vehicle fields a tick may change; each change goes out as one STATE_DELTA. */
-const DELTA_KEYS = ["state", "x_m", "y_m", "path", "eta_s"] as const;
+const DELTA_KEYS = ["state", "x_m", "y_m", "path", "eta_s", "task"] as const;
 
 function vehicleDeltas(before: Vehicle, after: Vehicle): StateChange[] {
   const out: StateChange[] = [];
@@ -330,12 +336,13 @@ export function moveAlongPath(state: EngineState, vehicle_id: string, ctx: TickC
  * so the only candidate is the target cell and the result is the compute `vehicle_path` to it (the
  * same field and back-pointers as the dispatch). Null if there is none, or it does not end at the target.
  */
-function pathToTarget(scenario: LoadedScenario, v: Vehicle): [number, number][] | null {
+function pathToTarget(state: EngineState, scenario: LoadedScenario, v: Vehicle): [number, number][] | null {
   const target = v.task?.target;
   const grid = scenario.grid;
   const params = ownParams(scenario, v);
-  if (!target || !grid || typeof params === "string") return null;
-  const atTarget = crewTimeField(grid, target, scenario.scenario.plan.scenario, 0);
+  const mission = (state.plan ?? scenario.scenario.plan)?.scenario;
+  if (!target || !grid || !mission || typeof params === "string") return null;
+  const atTarget = crewTimeField(grid, target, mission, 0);
   const rv = rendezvous(atTarget, vehicleTimeField(grid, { x_m: v.x_m, y_m: v.y_m }, params), vehiclePassable(grid, params));
   if (rv.status !== "OK") return null;
   const last = rv.vehicle_path[rv.vehicle_path.length - 1];
@@ -345,6 +352,7 @@ function pathToTarget(scenario: LoadedScenario, v: Vehicle): [number, number][] 
 
 function shelterEvents(state: EngineState, v: Vehicle): PendingEvent[] {
   const events: PendingEvent[] = [];
+  if (v.task?.kind === "RIDE") return events; // a rider steps out at the stop (ride.ts), never sheltered here
   for (const id of v.task?.crew_ids ?? []) {
     const c = state.crew.find((x) => x.crew_id === id);
     if (!c || c.activity === "SHELTERED" || c.activity === "IN_HAB") continue;
@@ -360,11 +368,66 @@ function shelterEvents(state: EngineState, v: Vehicle): PendingEvent[] {
   return events;
 }
 
+const SAFE_ACTIVITIES: readonly string[] = ["SHELTERED", "IN_HAB"];
+
+/**
+ * The ARRIVED rover's drive to its second meeting (BD-58), or null when there is none. It applies only to a SUMMON
+ * task that names two crew: one is already SHELTERED or IN_HAB (so the first meeting is done) and another is still out,
+ * farther than SHELTER_REACH_M. The target is where that crew member stands now (rule S5 holds them at their
+ * meeting point): compute's rendezvous with a zero-time crew field at that position, so the only candidate is the
+ * member's own cell, and the path is compute's `vehicle_path` from the vehicle's position, then the member's exact
+ * position so the vehicle ends within reach. Null if compute finds no path (the member is not served; their alert
+ * stays latched and the contingency tick offers them ABORT_TO_HAB) or throws RangeError. `eta_s` is the compute
+ * ETA in whole seconds, at least 1 when the path has length.
+ */
+function secondMeeting(state: EngineState, scenario: LoadedScenario, v: Vehicle): Vehicle | null {
+  const task = v.task;
+  if (!task || task.kind !== "SUMMON" || !task.crew_ids || task.crew_ids.length < 2) return null;
+  const named = task.crew_ids.map((id) => state.crew.find((c) => c.crew_id === id));
+  if (!named.some((c) => c !== undefined && SAFE_ACTIVITIES.includes(c.activity))) return null;
+  const waiting = named.find((c) => c !== undefined && !SAFE_ACTIVITIES.includes(c.activity) && Math.hypot(c.x_m - v.x_m, c.y_m - v.y_m) > SHELTER_REACH_M);
+  if (!waiting) return null;
+
+  const grid = scenario.grid;
+  const params = ownParams(scenario, v);
+  const mission = (state.plan ?? scenario.scenario.plan)?.scenario;
+  if (!grid || !mission || typeof params === "string") return null;
+  try {
+    const rv = rendezvous(
+      crewTimeField(grid, { x_m: waiting.x_m, y_m: waiting.y_m }, mission, 0),
+      vehicleTimeField(grid, { x_m: v.x_m, y_m: v.y_m }, params),
+      vehiclePassable(grid, params),
+    );
+    if (rv.status !== "OK") return null;
+    const path: [number, number][] = rv.vehicle_path.map((p) => [p[0], p[1]]);
+    const end = path[path.length - 1] ?? [v.x_m, v.y_m];
+    if (end[0] !== waiting.x_m || end[1] !== waiting.y_m) path.push([waiting.x_m, waiting.y_m]);
+    let length = 0;
+    let from: readonly [number, number] = [v.x_m, v.y_m];
+    for (const p of path) {
+      length += Math.hypot(p[0] - from[0], p[1] - from[1]);
+      from = p;
+    }
+    const eta = Math.round(rv.eta_vehicle_s);
+    return {
+      ...v,
+      state: "EN_ROUTE",
+      task: { ...task, target: { x_m: waiting.x_m, y_m: waiting.y_m } },
+      path,
+      eta_s: length > 0 ? Math.max(1, eta) : eta,
+    };
+  } catch (err) {
+    if (err instanceof RangeError) return null;
+    throw err;
+  }
+}
+
 /**
  * Move `pressurized_rover` vehicles along their paths; VEHICLE_ARRIVED, CREW_SHELTERED. Skips
  * `utility_rover` (rovers.ts). DISPATCHED: derive the path to the logged target (no path, or no
  * logged `eta_s` ⇒ stays DISPATCHED and does not move), set EN_ROUTE and move for this tick. EN_ROUTE: move. ARRIVED: one
- * CREW_SHELTERED per SUMMON crew member within SHELTER_REACH_M. Returns events, never applies them.
+ * CREW_SHELTERED per SUMMON crew member within SHELTER_REACH_M; when none is left to shelter here and another named
+ * member is still out, set off for the second meeting (`secondMeeting`). Returns events, never applies them.
  */
 export function vehiclesTick(state: EngineState, ctx: TickContext): TickResult {
   let current = state;
@@ -380,8 +443,8 @@ export function vehiclesTick(state: EngineState, ctx: TickContext): TickResult {
       if (v.state === "DISPATCHED") {
         // No logged ETA (a VEHICLE_DISPATCHED without a rendezvous): nothing to time the drive by, so stay put.
         if (v.eta_s === null || !Number.isFinite(v.eta_s)) continue;
-        const path = pathToTarget(ctx.scenario, v);
-        // TODO(decision): with no path the vehicle stays DISPATCHED and the tick retries; no event exists for "cannot go".
+        const path = pathToTarget(state, ctx.scenario, v);
+        // With no path the vehicle stays DISPATCHED and the tick retries; no event exists for "cannot go" (BD-58).
         if (!path) continue;
         moving = { ...v, state: "EN_ROUTE", path };
       }
@@ -390,7 +453,16 @@ export function vehiclesTick(state: EngineState, ctx: TickContext): TickResult {
       events.push(...r.events);
       deltas.push(...vehicleDeltas(v, current.vehicles.find((x) => x.vehicle_id === vehicle_id)!));
     } else if (v.state === "ARRIVED") {
-      events.push(...shelterEvents(current, v));
+      const sheltering = shelterEvents(current, v);
+      events.push(...sheltering);
+      // Nobody left to shelter here: if a named crew member is still out, drive on to them (BD-58).
+      const next = sheltering.length === 0 ? secondMeeting(current, ctx.scenario, v) : null;
+      if (next) {
+        const r = moveAlongPath(replaceVehicle(current, next), vehicle_id, ctx);
+        current = r.state;
+        events.push(...r.events);
+        deltas.push(...vehicleDeltas(v, current.vehicles.find((x) => x.vehicle_id === vehicle_id)!));
+      }
     }
   }
   return { state: current, events, deltas };

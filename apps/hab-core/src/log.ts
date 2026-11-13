@@ -7,13 +7,17 @@
  * `snapshot-<seq>.json` (every SNAPSHOT_EVERY events, called by the session) plus `meta.json`;
  * resume = latest snapshot + the lines after it.
  *
+ * `commands.jsonl` beside it is the command journal (BD-93): one JSON `CommandJournalLine` per command the session
+ * evaluated, appended by the session manager after the command's events are written. It is not part of `log_hash`, the
+ * engine never reads it, and `exportCommandList` (replay.ts) turns it into the list a headless replay applies.
+ *
  * Writes are synchronous so an event is on disk before its COMMAND_RESULT goes out. Nothing here
  * reads wall-clock time.
  */
 import { createHash, type Hash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { LogEvent } from "@marswalk/protocol";
+import { canonicalJson, logLine, type CommandJournalLine, type LogEvent } from "@marswalk/protocol";
 import { logged, type EngineState, type PendingEvent } from "./engine/reducer";
 
 /** Events between snapshots (U-23). */
@@ -28,6 +32,8 @@ export interface EventLog {
   hash(): string;
   /** Write `snapshot-<seq>.json` of the reduced state. */
   snapshot(state: EngineState): void;
+  /** Append one line to `commands.jsonl` (the command journal); never touches the log or its hash. */
+  journal(line: CommandJournalLine): void;
 }
 
 /**
@@ -44,6 +50,8 @@ export interface ResumedLog {
 }
 
 const LOG_FILE = "session.jsonl";
+/** The command journal's file name, beside the log (BD-93). */
+export const JOURNAL_FILE = "commands.jsonl";
 const META_FILE = "meta.json";
 const SNAPSHOT_RE = /^snapshot-(\d+)\.json$/;
 
@@ -70,7 +78,7 @@ class FileEventLog implements EventLog {
   append(pending: PendingEvent): LogEvent {
     if ("seq" in pending) throw new Error("append: a pending event must not carry a seq");
     const event = logged(pending, this.lastSeq() + 1);
-    const line = `${canonicalJson(event)}\n`;
+    const line = logLine(event);
     appendFileSync(join(this.dir, LOG_FILE), line, "utf8");
     this.hasher.update(line, "utf8");
     this.events.push(event);
@@ -88,6 +96,12 @@ class FileEventLog implements EventLog {
 
   hash(): string {
     return this.hasher.copy().digest("hex");
+  }
+
+  journal(line: CommandJournalLine): void {
+    // Plain JSON, not canonical: a client's args may hold a value canonical JSON refuses (NaN), which JSON writes as null. The
+    // command was rejected for it, and the journal must never fail a command.
+    appendFileSync(join(this.dir, JOURNAL_FILE), `${JSON.stringify(line)}\n`, "utf8");
   }
 
   snapshot(state: EngineState): void {
@@ -118,6 +132,7 @@ export function openLog(sessionDir: string): EventLog {
     throw new Error(`openLog: ${path} already has events; use resumeLog`);
   }
   writeFileSync(path, "", "utf8");
+  writeFileSync(join(sessionDir, JOURNAL_FILE), "", "utf8");
   writeMeta(sessionDir, null);
   return new FileEventLog(sessionDir, [], "", null);
 }
@@ -155,26 +170,5 @@ function latestSnapshotSeq(dir: string, lastSeq: number): number | null {
   return seqs.length === 0 ? null : Math.max(...seqs);
 }
 
-/**
- * Canonical JSON (RFC 8785, JCS; 05 PlanExport and Session, decided 2026-11-07): object keys sorted
- * by UTF-16 code units (JavaScript's default sort), no whitespace, strings and numbers as
- * JSON.stringify writes them (ECMAScript Number::toString). Properties whose value is undefined are
- * left out and undefined array items become null, as in JSON.stringify. Non-finite numbers throw.
- */
-export function canonicalJson(value: unknown): string {
-  if (value === null || typeof value === "boolean" || typeof value === "string") return JSON.stringify(value);
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new Error(`canonicalJson: ${value} is not a JSON number`);
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) return `[${value.map((v) => (v === undefined ? "null" : canonicalJson(v))).join(",")}]`;
-  if (typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    const parts = Object.keys(obj)
-      .filter((k) => obj[k] !== undefined)
-      .sort()
-      .map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`);
-    return `{${parts.join(",")}}`;
-  }
-  throw new Error(`canonicalJson: cannot encode a ${typeof value}`);
-}
+/** Canonical JSON (RFC 8785) lives in packages/protocol (logHash.ts) so the web replay hashes the same bytes; re-exported here. */
+export { canonicalJson };

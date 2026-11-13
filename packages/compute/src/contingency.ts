@@ -30,7 +30,7 @@ export interface ContingencyInputs {
   hab: TimeField;
   /** Per crew member; absent = no vehicle for that member. */
   rendezvous: Partial<Record<CrewId, RendezvousResult>>;
-  /** Hab and vehicle ingress, seconds (HAB_INGRESS_S; rover ParamSet `ingress_min` × 60). */
+  /** Hab and vehicle ingress, seconds (suit ParamSet `hab_ingress_min` × 60, compute `habIngressS`; rover ParamSet `ingress_min` × 60). */
   ingress: HavenIngress;
   /**
    * For two crew with a vehicle: the visiting order and later arrival, precomputed by the caller
@@ -38,7 +38,7 @@ export interface ContingencyInputs {
    * (`proposeOptions` throws a RangeError without it); not needed for one crew member or when either
    * rendezvous is NO_RENDEZVOUS. A two-crew VEHICLE_RENDEZVOUS option reports the first-visited point
    * in `ContingencyOption.rendezvous`.
-   * TODO(decision): 05 has a single rendezvous point per option.
+   * 05 has a single rendezvous point per option (BD-58); the vehicle drives the second meeting from the logged state.
    */
   pair?: RendezvousPair;
   /** The plan being walked: "continue with skips" needs the dropped stops and the remaining legs (§D.15). */

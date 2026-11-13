@@ -51,18 +51,16 @@
  * size does not help: the points cannot be centres at both 5 m and the 2 x 2 aggregate lattice.) T05b.04's
  * aggregation rule must handle that offset, and its tests need a tolerance of at least 2.5 m there.
  *
- * SPEC GAP (reported, not fixed here; TODO(decision) for the 02 §D.10 owner): at the default limits
+ * Spec gap, decided (BD-57, orchestrator, 13 Nov 2026): at the default limits
  * (suit 15 deg, 02 §D.9 and §E.3; pressurized rover 20 deg) the D.10 validation "crew on a ridge the vehicle
  * cannot climb" cannot be built: any flank steeper than 20 deg is also above the crew's 15 deg, so the crew
  * could not stand on, or leave, the ridge. The fixture keeps the 25 deg flank and relies on `ridgeScenario()`
- * (crew hard limit 35 deg, the 02 §E.3 maximum). TODO(decision) option for the D.10 owner: keep the default crew
- * limits (15 deg) and give the vehicle a low-limit ParamSet instead (hard limit below the crew's, for example
- * under 15 deg), so the crew climbs the ridge and the vehicle cannot; the current 35 deg design is kept until
- * decided. Exact boundary cells of a horizon are unreliable in Float32:
+ * (crew hard limit 35 deg, the 02 §E.3 maximum). The other design (keep the default crew limits of 15 deg and give
+ * the vehicle a low-limit ParamSet, hard limit below the crew's) was not chosen: the 35 deg design is kept. Exact boundary cells of a horizon are unreliable in Float32:
  * LOS tests should assert cells clearly inside and outside it.
  */
 import { FLAG_BITS } from "@marswalk/protocol";
-import type { MissionScenario, ParamSet, RoutingGrid } from "@marswalk/protocol";
+import type { LoadedGridMeta, MissionScenario, ParamSet, RoutingGrid } from "@marswalk/protocol";
 import type { LoadedGrid } from "../../src/grid";
 import { MARS_RADIUS_M } from "../../src/viewshed";
 
@@ -228,7 +226,7 @@ export function flatGrid(opts: FlatGridOptions): LoadedGrid {
   const width = cellsWest + cellsEast + 1;
   const height = cellsNorth + cellsSouth + 1;
   const n = width * height;
-  const meta: RoutingGrid = {
+  const meta: LoadedGridMeta = {
     cell_m,
     width,
     height,
@@ -240,6 +238,7 @@ export function flatGrid(opts: FlatGridOptions): LoadedGrid {
     flags_asset: "",
     comm_hab_asset: "",
     hab_mast: { x_m: HAB_XY.x_m, y_m: HAB_XY.y_m, height_m: MAST_HEIGHT_M },
+    proj4: V2_FIXTURE_PROJ4,
   };
   return {
     meta,
@@ -254,6 +253,10 @@ export function flatGrid(opts: FlatGridOptions): LoadedGrid {
 function setHazard(g: LoadedGrid, i: number, j: number): void {
   g.flags[i * g.meta.width + j]! |= HAZARD_BIT;
 }
+
+/** Fixture working projection (the mock site manifest's string, 05 §E.3); no v2 test reads a latitude from it. */
+const V2_FIXTURE_PROJ4 =
+  "+proj=eqc +lat_ts=-4.70 +lat_0=-4.70 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs";
 
 /** u8 encoding of a slope: degrees x 4 (05 §C RoutingGrid). */
 function encodeSlope(deg: number): number {
@@ -307,6 +310,30 @@ export function defaultScenario(): MissionScenario {
 export function ridgeScenario(): MissionScenario {
   return { ...defaultScenario(), hard_slope_limit_deg: 35 };
 }
+
+/**
+ * The suit ParamSet of `scenarios/storm-sol4190/param_sets/suit-assumed.json` (frozen). `hab_ingress_min` 5 is 02 §D.8
+ * `t_ingress` (Assumed), the value the haven code used to carry as a constant (BD-57).
+ */
+export const suitParams: ParamSet = Object.freeze({
+  param_set_id: "suit-assumed",
+  kind: "suit",
+  title: "Suited crew member",
+  values: Object.freeze({
+    flat_speed_kmh: 3.3,
+    hard_slope_deg: 15,
+    caution_slope_deg: 10,
+    o2_nominal_h: 8,
+    p_walk_w: 351.7,
+    p_rest_w: 250,
+    p_ref_w: 300,
+    antenna_m: 2,
+    hab_ingress_min: 5,
+  }),
+  provenance: "assumed",
+  source_ids: Object.freeze(["apollo17-planning", "tobler-1993"]) as unknown as string[],
+  note: "02 §D.9 values; hab_ingress_min is 02 §D.8 t_ingress, Assumed",
+});
 
 /** 05 §F.5 verbatim (frozen). */
 export const pr1Params: ParamSet = Object.freeze({

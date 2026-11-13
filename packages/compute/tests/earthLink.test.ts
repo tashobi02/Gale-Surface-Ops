@@ -301,7 +301,7 @@ describe("Earth to Mars with direct-to-Earth enabled (02 §D.12)", () => {
   });
 });
 
-describe("conjunction at the queued pass start (Proposed; 02 §D.12 is silent, TODO(decision))", () => {
+describe("conjunction at the queued pass start (ratified, BD-60; 02 §D.12 is silent)", () => {
   // The table enters conjunction (2 deg < 3 deg) at 13:00Z, the start of the TGO pass; before that it is clear.
   const enters: EarthLinkTable = {
     ...syntheticTable,

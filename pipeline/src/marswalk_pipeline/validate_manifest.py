@@ -7,18 +7,39 @@ import json
 import math
 from pathlib import Path
 import re
-import warnings
+
+import jsonschema
 
 from . import config
 
-# 02 §E.3 permits a hard slope limit up to 35 degrees.
-# TODO(decision) T03.14: confirm the passability limit with the data lead.
-MAX_ALLOWED_SLOPE_DEG = 35
 # 05 §F.1 and 05 §E.4.
 _SCHEMA_MAJOR = 1
 # 05 §C RoutingGrid maximum.
 _MAX_GRID_CELLS = 4_000_000
 _SCHEMA = Path(__file__).resolve().parents[3] / "schemas/site-manifest.schema.json"
+_PLAN_EXPORT_SCHEMA = Path(__file__).resolve().parents[3] / "schemas/plan-export.schema.json"
+
+
+def _limit_field(name: str) -> float:
+    schema = json.loads(_PLAN_EXPORT_SCHEMA.read_text(encoding="utf-8"))
+    return schema["$defs"]["MissionScenario"]["properties"]["hard_slope_limit_deg"][name]
+
+
+def hard_slope_limit_deg() -> float:
+    """The passability limit for a start: the 05 MissionScenario default `hard_slope_limit_deg` (BD-21).
+
+    Read from the plan-export schema, so the validator and the planner start from one number.
+    """
+    return _limit_field("default")
+
+
+def max_slope_limit_deg() -> float:
+    """The passability limit for a POI: the largest `hard_slope_limit_deg` a plan may set (BD-140).
+
+    A POI is a place of interest, reachable if some allowed limit reaches it; the planner reports the stops a
+    plan's own limit cannot reach.
+    """
+    return _limit_field("maximum")
 
 
 def validate(site_dir: Path) -> list[str]:
@@ -32,20 +53,14 @@ def validate(site_dir: Path) -> list[str]:
     if not isinstance(manifest, dict):
         return ["site-manifest.json must contain an object"]
 
-    # TODO(verify) T14.01: make jsonschema a required pipeline dependency when it lands.
     try:
-        import jsonschema
-    except ImportError:
-        warnings.warn("T14.01: jsonschema unavailable; skipping manifest schema validation", stacklevel=2)
-    else:
-        try:
-            schema = json.loads(_SCHEMA.read_text(encoding="utf-8"))
-            validator = jsonschema.Draft202012Validator(schema)
-            for error in validator.iter_errors(manifest):
-                location = ".".join(str(part) for part in error.absolute_path) or "manifest"
-                problems.append(f"schema {location}: {error.message}")
-        except (OSError, ValueError, jsonschema.exceptions.SchemaError) as exc:
-            problems.append(f"manifest schema: {exc}")
+        schema = json.loads(_SCHEMA.read_text(encoding="utf-8"))
+        validator = jsonschema.Draft202012Validator(schema)
+        for error in validator.iter_errors(manifest):
+            location = ".".join(str(part) for part in error.absolute_path) or "manifest"
+            problems.append(f"schema {location}: {error.message}")
+    except (OSError, ValueError, jsonschema.exceptions.SchemaError) as exc:
+        problems.append(f"manifest schema: {exc}")
 
     version = manifest.get("schema_version")
     if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", version) or version.split(".")[0].lstrip("0") != str(_SCHEMA_MAJOR):
@@ -118,7 +133,9 @@ def validate(site_dir: Path) -> list[str]:
         if asset.get("format") == "tiles":
             target = target / "index.json"
         try:
-            if not target.resolve().is_relative_to(site_dir.resolve()):
+            # Lexical check: the bundle's tiles, grid and images folders may be links to the data SSD (BD-12),
+            # so a resolved path is not required to stay under the bundle folder; `..` and absolute paths are.
+            if Path(path).is_absolute() or ".." in Path(path).parts:
                 raise ValueError("path escapes site directory")
             payload = target.read_bytes()
         except (OSError, ValueError) as exc:
@@ -168,10 +185,13 @@ def validate(site_dir: Path) -> list[str]:
     def payload_for(value: object) -> bytes | None:
         return payloads.get(value) if isinstance(value, str) else None
 
+    slope_limit_u8 = hard_slope_limit_deg() * config.SLOPE_U8_SCALE
     flags = payload_for(grid.get("flags_asset"))
     slopes = payload_for(grid.get("slope_p90_asset"))
 
-    def check_point(label: str, x: object, y: object) -> None:
+    poi_limit_u8 = max_slope_limit_deg() * config.SLOPE_U8_SCALE
+
+    def check_point(label: str, x: object, y: object, limit_u8: float | None = None) -> None:
         if not (finite_number(x) and finite_number(y)):
             problems.append(f"{label}: invalid coordinates")
             return
@@ -196,7 +216,7 @@ def validate(site_dir: Path) -> list[str]:
         mask = (1 << config.FLAG_BITS["NO_DATA"]) | (1 << config.FLAG_BITS["HARD_HAZARD"])
         if (flags[index] == config.U8_NODATA or flags[index] & mask
                 or slopes[index] == config.U8_NODATA
-                or slopes[index] > MAX_ALLOWED_SLOPE_DEG * config.SLOPE_U8_SCALE):
+                or slopes[index] > (slope_limit_u8 if limit_u8 is None else limit_u8)):
             problems.append(f"{label}: impassable grid cell")
 
     start = manifest.get("default_start")
@@ -232,7 +252,7 @@ def validate(site_dir: Path) -> list[str]:
                 if not isinstance(coords, list) or len(coords) < 2:
                     problems.append(f"{label}: invalid coordinates")
                 else:
-                    check_point(label, coords[0], coords[1])
+                    check_point(label, coords[0], coords[1], poi_limit_u8)
         except (ValueError, UnicodeDecodeError) as exc:
             problems.append(f"pois asset: invalid GeoJSON: {exc}")
     return problems

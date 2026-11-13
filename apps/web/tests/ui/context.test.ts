@@ -19,16 +19,8 @@ import { provAttrs, glyphOf, PROVENANCE_GLYPHS } from "../../src/ui/components/p
 import { attachKeyboardControls, type KeyboardMapHandle } from "../../src/ui/map/keyboard";
 import type { FullScreenMapProps } from "../../src/ui/map/FullScreenMap";
 import { validateSite } from "../../src/boot/validateSite";
-import { createWaypointLayer } from "../../src/ui/map/waypointLayer";
-import { initAddStopMode } from "../../src/ui/map/addStopMode";
-import { initWaypointDrag } from "../../src/ui/map/waypointDrag";
-import { initTouchInput } from "../../src/ui/map/touchInput";
-import { StopsList } from "../../src/ui/plan/stopsList";
-import { ProfileChart } from "../../src/ui/results/profileChart";
-import { linkProfileToMap } from "../../src/ui/results/profileLink";
 import { createMapSnapshot } from "../../src/ui/briefing/mapSnapshot";
 import { exportPlan } from "../../src/export/planExport";
-import { Metric } from "../../src/ui/components/metric";
 import { installDom, removeDom } from "./domHarness";
 
 const SIX_CLASSES: Provenance[] = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
@@ -151,15 +143,17 @@ describe("C10 WorkerClient carries retry (decision 11 Nov)", () => {
 describe("C10 stubs throw TODO(<owner id>) and are React components where they render", () => {
   it("throws the owner id from the c.4 register", async () => {
     expect(() => validateSite({} as never)).toThrow("TODO(T14.03)");
-    expect(() => createWaypointLayer({} as never)).toThrow("TODO(T08.06)");
-    expect(() => initAddStopMode({} as never, {} as never)).toThrow("TODO(T08.07)");
-    expect(() => initWaypointDrag({} as never, {} as never)).toThrow("TODO(T08.08)");
-    expect(() => initTouchInput({} as never)).toThrow("TODO(T08.09)");
-    expect(() => StopsList({} as never)).toThrow("TODO(T08.05)");
-    expect(() => ProfileChart({} as never)).toThrow("TODO(T09.02)");
-    expect(() => linkProfileToMap({} as never, {} as never)).toThrow("TODO(T09.05)");
-    await expect(createMapSnapshot({} as never)).rejects.toThrow("TODO(T11.04)");
-    expect(() => exportPlan({} as never, {} as never)).toThrow("TODO(T11.02)");
-    expect(() => Metric({} as never)).toThrow("TODO(T12.01)");
+
+  });
+
+  it("the implemented snapshot reports an invalid handle (T11.04)", async () => {
+    await expect(createMapSnapshot({} as never)).rejects.toThrow("Invalid MapHandle");
+  });
+
+  it("the implemented export throws its own reason, not a TODO marker (T11.02)", () => {
+    // `exportPlan` is implemented (T11.02), so it refuses a plan without a computed result
+    // with its own message instead of the c.4 stub's TODO marker.
+    expect(() => exportPlan({} as never, {} as never)).toThrow(/exportPlan: the plan has no computed result yet/);
+    expect(() => exportPlan({} as never, {} as never)).not.toThrow(/TODO\(/);
   });
 });

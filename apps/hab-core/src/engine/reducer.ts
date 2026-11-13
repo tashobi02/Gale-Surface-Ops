@@ -27,7 +27,9 @@ import type {
   EarthMessage,
   LinkState,
   LogEvent,
+  MissionSetup,
   PlanExport,
+  QueuedRoverTask,
   Role,
   Session,
   StopTask,
@@ -35,7 +37,7 @@ import type {
   Vehicle,
 } from "@marswalk/protocol";
 import type { LoadedScenario } from "../scenario";
-import type { ConditionsState } from "./conditions";
+import { conditionsFrame, type ConditionsState } from "./conditions";
 import { reduceTaskEvent } from "./tasks";
 
 export interface EngineState {
@@ -51,19 +53,19 @@ export interface EngineState {
   /** Surface link graph, recomputed each tick for mobile nodes (05 LinkState). TASK-26. */
   links: LinkState[];
   /** Earth link status for SNAPSHOT `earth` (02 §E.6). TASK-26. */
-  earth: { light_time_s: number; next_pass_utc: string | null; blackout: boolean };
+  earth: { light_time_s: number; next_pass_utc: string | null; blackout: boolean; link_state: "AVAILABLE" | "WAITING" | "BLACKOUT" | null; link_via: "mro" | "maven" | "tgo" | "dte" | null; link_until_utc: string | null };
   earthQueue: EarthMessage[];
   /** FR-36 conditions feed values. TASK-22 (T22.16). */
   conditions: ConditionsState;
   /**
-   * Walk progress per crew member, written only by tick.ts (T22.09; `TODO(decision)` S1). Engine-only:
+   * Walk progress per crew member, written only by tick.ts (T22.09; rule S1, ratified, BD-71). Engine-only:
    * it is saved in snapshots so resume continues the walk, and never sent to clients.
    */
   motion: Partial<Record<CrewId, CrewMotion>>;
   /**
    * Alert ids that already had an OPTIONS_PROPOSED, in log order; contingencyOps.ts (T23.07) answers
    * an alert once. Engine-only and JSON-safe, like `motion`; absent (= none) in states and snapshots
-   * written before 2026-11-08. Added by the T23.07 rework, Proposed 2026-11-08 — TODO(decision).
+   * written before 2026-11-08. Added by the T23.07 rework, Proposed 2026-11-08, ratified (BD-71).
    */
   proposed_alerts?: string[];
   /**
@@ -71,7 +73,7 @@ export interface EngineState {
    * from it whether an undo is stale ("no PLAN_REVISED since that change", 01 FR-50, 02 §E.6; spec
    * change #202, Proposed 2026-11-11). Engine-only and JSON-safe, like `motion`; absent in states and
    * snapshots written before that change (an undo is then refused as stale). Added to the T20 reducer
-   * state with the authorisation of its owner (Sadman Shaharier Mahim) — TODO(decision) until #194 merges.
+   * state with the authorisation of its owner (Sadman Shaharier Mahim); #194 merged, ratified (BD-71).
    */
   task_plan_rev?: Record<string, number>;
   /**
@@ -80,6 +82,34 @@ export interface EngineState {
    * that was never updated or was dropped has no entry. Engine-only and JSON-safe, like `task_plan_rev`.
    */
   task_actor?: Record<string, Role | "system">;
+  /**
+   * The drive of each active utility-rover task (its head and queue), by `task_id`: path, time and energy from compute,
+   * written only by `roversTick` the first time it sees the task (BD-102, T29.03). Engine-only and JSON-safe, like `motion`;
+   * absent (= none planned yet) in states and snapshots written before the rover queue; it is then derived again, identically.
+   */
+  rover_legs?: Record<string, RoverLeg>;
+  /**
+   * The last `Vehicle.relay_coverage_rev` given to each utility rover, so a rover that parks as a relay again gets a new
+   * revision and never repeats an ETag (BD-112). Engine-only and JSON-safe; absent = none given yet.
+   */
+  relay_revs?: Record<string, number>;
+  /**
+   * Crew positions every 30 sim-s while the EVA ticks, `simulated`, for the post-EVA report (05 U-24, BD-76): sampled by the
+   * session after each tick from the state (`sampleTrace`, session.ts), so a resume re-derives the part after its snapshot by
+   * the same ticks. Engine-only and JSON-safe, saved in snapshots; absent = nothing sampled yet.
+   */
+  trace?: { crew_id: CrewId; points: { sim_time: string; x_m: number; y_m: number }[] }[];
+}
+
+/** One planned drive of a utility rover (BD-102). `path` lists the vertices ahead of the start, ending at the target. */
+export interface RoverLeg {
+  path: [number, number][];
+  /** Drive time from compute's vehicle time field, seconds, `modelled`. */
+  time_s: number;
+  /** Length of the polyline start → path, projected metres. */
+  length_m: number;
+  /** 02 §D.9 energy form, Wh, `modelled`. */
+  energy_wh: number;
 }
 
 /**
@@ -123,11 +153,49 @@ export interface StateChange {
   value: unknown;
 }
 
+/**
+ * Where the crew start: the plan's start waypoint when the scenario has a plan; else the chosen candidate's
+ * `default_start`, else the Site's `default_start` (05 Scenario `mission_setup`, HabCandidate; T32.07). A plan-less
+ * scenario with no site folder has no position to read; only a site-less fixture reaches that case, and the working
+ * projection's origin stands in.
+ */
+function crewStart(scenario: LoadedScenario): { x_m: number; y_m: number } {
+  const s = scenario.scenario;
+  if (s.plan !== undefined) {
+    const start = s.plan.waypoints.find((w) => w.role === "start") ?? s.plan.waypoints[0];
+    return { x_m: start?.x_m ?? 0, y_m: start?.y_m ?? 0 };
+  }
+  const site = scenario.site;
+  const candidate = site?.hab_candidates.find((c) => c.candidate_id === s.mission_setup.hab_candidate_id);
+  const from = candidate?.default_start ?? site?.default_start;
+  return { x_m: from?.x_m ?? 0, y_m: from?.y_m ?? 0 };
+}
+
+/**
+ * The settings in force at load (05 Session `mission_setup`): each key from the scenario's `mission_setup`, else
+ * from the reference plan's MissionScenario, else the 05 MissionScenario default (`solar_phase` max, `max_haven_min`
+ * 30, `vehicle_available` true when the scenario has a pressurized rover, `crew_count` = the number of `crew[]`
+ * entries, `vehicle_param_set` = that rover's ParamSet or null). Exported for the reset and setup commands (T32.14).
+ */
+export function missionSetupOf(scenario: LoadedScenario): MissionSetup {
+  const s = scenario.scenario;
+  const m = s.mission_setup;
+  const p = s.plan?.scenario;
+  const rover = s.vehicles.find((v) => v.kind === "pressurized_rover");
+  const vehicle_param_set = m.vehicle_param_set !== undefined ? m.vehicle_param_set : (p?.vehicle_param_set ?? rover?.param_set ?? null);
+  return {
+    crew_count: m.crew_count ?? p?.crew_count ?? s.crew.length,
+    vehicle_available: m.vehicle_available ?? p?.vehicle_available ?? vehicle_param_set !== null,
+    vehicle_param_set,
+    solar_phase: m.solar_phase ?? p?.solar_phase ?? "max",
+    max_haven_min: m.max_haven_min ?? p?.max_haven_min ?? 30,
+  };
+}
+
 /** State at `scenario.start_utc` before any event: crew in the hab, vehicles at their starts. T22.06. */
 export function initialState(scenario: LoadedScenario, session_id: string): EngineState {
   const s = scenario.scenario;
-  const start = s.plan.waypoints.find((w) => w.role === "start") ?? s.plan.waypoints[0];
-  const hab = { x_m: start?.x_m ?? 0, y_m: start?.y_m ?? 0 };
+  const hab = crewStart(scenario);
   const firstEarthRow = scenario.earthLink.rows[0];
   return {
     session: {
@@ -142,8 +210,11 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
       plan_revision: 1,
       last_seq: 0,
       log_hash: "",
+      hab_candidate_id: s.mission_setup.hab_candidate_id ?? null,
+      mission_setup: missionSetupOf(scenario),
+      started_events: [],
     },
-    plan: s.plan,
+    plan: s.plan ?? null,
     crew: s.crew.map(
       (c): Crew => ({
         crew_id: c.crew_id,
@@ -158,6 +229,11 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
         linked: true,
         link_path: [c.crew_id, "HAB"],
         stale: false,
+        // Margins for the tablet and HUD (BD-95): nothing to report in the hab; crewMargins fills them once the EVA runs.
+        o2_remaining_min: null,
+        next_stop_bearing_deg: null,
+        next_stop_distance_m: null,
+        next_stop_eta_s: null,
       }),
     ),
     vehicles: s.vehicles.map(
@@ -178,9 +254,9 @@ export function initialState(scenario: LoadedScenario, session_id: string): Engi
     options: [],
     tasks: [],
     links: [],
-    earth: { light_time_s: firstEarthRow?.light_time_s ?? 0, next_pass_utc: null, blackout: false },
+    earth: { light_time_s: firstEarthRow?.light_time_s ?? 0, next_pass_utc: null, blackout: false, link_state: null, link_via: null, link_until_utc: null },
     earthQueue: [],
-    conditions: { ltst: null, sun_elevation_deg: null, dose_rate_background_ugy_h: null, dose_rate_event_ugy_h: null, provenance: {} },
+    conditions: conditionsFrame(scenario),
     motion: {},
   };
 }
@@ -200,6 +276,12 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
         ...next,
         session: { ...next.session, status: "RUNNING", plan_revision: e.data.plan_revision },
         crew: updateCrew(next.crew, e.data.crew_ids, () => ({ activity: "WALKING" })),
+      };
+    case "CREW_MOTION_SET":
+      // HOLD stops the walk (the motion record is kept by tick.ts). RESUME goes back to the stop dwell it interrupted, else to walking.
+      return {
+        ...next,
+        crew: updateCrew(next.crew, [e.data.crew_id], () => ({ activity: e.data.motion === "HOLD" ? "HOLDING" : next.motion[e.data.crew_id]?.phase === "dwell" ? "AT_STOP" : "WALKING" })),
       };
     case "ARRIVED_STOP":
       return { ...next, crew: updateCrew(next.crew, [e.data.crew_id], () => ({ activity: "AT_STOP", stop_index: e.data.stop_index })) };
@@ -254,11 +336,32 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
         ...next,
         vehicles: updateVehicle(next.vehicles, d.vehicle_id, (v): Partial<Vehicle> => {
           if (d.task) {
+            // A task that carries `task_id` is a utility-rover task (BD-102): the first one becomes the head, the
+            // next ones wait in `queue` (FIFO) with eta and battery null until the tick fills them.
+            if (d.task_id !== undefined && v.state === "TASKED" && v.task !== null) {
+              const queued: QueuedRoverTask = {
+                task_id: d.task_id,
+                kind: d.task,
+                target: d.target ? { ...d.target } : null,
+                ...(d.item === undefined ? {} : { item: d.item }),
+                eta_s: null,
+                battery_wh_after: null,
+              };
+              return { queue: [...(v.queue ?? []), queued] };
+            }
             const target = d.target ?? { x_m: v.x_m, y_m: v.y_m };
-            return { state: "TASKED", task: { kind: d.task, target: { ...target }, ...(d.item === undefined ? {} : { item: d.item }) } };
+            return {
+              state: "TASKED",
+              task: { kind: d.task, target: { ...target }, ...(d.item === undefined ? {} : { item: d.item }) },
+              ...(d.task_id === undefined ? {} : { task_id: d.task_id, queue: v.queue ?? [] }),
+            };
           }
           const option = state.options.find((o) => o.option_id === d.option_id);
           const rv = d.rendezvous ?? null;
+          // RIDE_VEHICLE (QoL Q3): CREW_BOARDED set the RIDE task (rider, stop); the drive to the stop keeps it.
+          if (v.task?.kind === "RIDE" && rv) {
+            return { state: "DISPATCHED", task: { ...v.task, target: { x_m: rv.x_m, y_m: rv.y_m } }, eta_s: Math.ceil(rv.eta_vehicle_s) };
+          }
           return {
             state: "DISPATCHED",
             task: {
@@ -274,7 +377,29 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
       };
     }
     case "VEHICLE_ARRIVED":
-      return { ...next, vehicles: updateVehicle(next.vehicles, e.data.vehicle_id, () => ({ state: "ARRIVED", x_m: e.data.x_m, y_m: e.data.y_m, eta_s: 0 })) };
+      return {
+        ...next,
+        vehicles: updateVehicle(next.vehicles, e.data.vehicle_id, (v): Partial<Vehicle> => {
+          const arrived: Partial<Vehicle> = { state: "ARRIVED", x_m: e.data.x_m, y_m: e.data.y_m, eta_s: 0 };
+          if (v.kind !== "utility_rover") return arrived;
+          // The head is done (BD-102): the next queued task, if any, becomes the head.
+          const [following, ...rest] = v.queue ?? [];
+          if (following === undefined) return { ...arrived, task_id: null, queue: [] };
+          return {
+            state: "TASKED",
+            x_m: e.data.x_m,
+            y_m: e.data.y_m,
+            eta_s: following.eta_s === null ? null : Math.ceil(following.eta_s),
+            task: {
+              kind: following.kind,
+              target: following.target ?? { x_m: e.data.x_m, y_m: e.data.y_m },
+              ...(following.item === undefined ? {} : { item: following.item }),
+            },
+            task_id: following.task_id,
+            queue: rest,
+          };
+        }),
+      };
     case "CREW_SHELTERED":
       return {
         ...next,
@@ -286,6 +411,26 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
           dose_event_unsheltered_ugy: e.data.dose_event_unsheltered_ugy,
           haven: { ...c.haven, kind: e.data.haven_kind },
         })),
+      };
+    case "CREW_BOARDED": {
+      // QoL Q3: the rider is RIDING and the vehicle's task names them and the stop; VEHICLE_DISPATCHED follows with the drive.
+      const stop = next.plan?.waypoints.find((w) => w.id === e.data.to_stop_id);
+      return {
+        ...next,
+        crew: updateCrew(next.crew, [e.data.crew_id], () => ({ activity: "RIDING" })),
+        vehicles: updateVehicle(next.vehicles, e.data.vehicle_id, (v): Partial<Vehicle> => ({
+          task: { kind: "RIDE", target: { x_m: stop?.x_m ?? v.x_m, y_m: stop?.y_m ?? v.y_m }, crew_ids: [e.data.crew_id], stop_id: e.data.to_stop_id },
+        })),
+      };
+    }
+    case "CREW_DISMOUNTED":
+      // The rider is AT_STOP; the vehicle, which has ARRIVED with the RIDE task, is PARKED again where it stands.
+      return {
+        ...next,
+        crew: updateCrew(next.crew, [e.data.crew_id], () => ({ activity: "AT_STOP", stop_index: e.data.stop_index, x_m: e.data.x_m, y_m: e.data.y_m })),
+        vehicles: updateVehicle(next.vehicles, e.data.vehicle_id, (v): Partial<Vehicle> =>
+          v.task?.kind === "RIDE" ? { state: "PARKED", task: null, path: [], eta_s: null } : {},
+        ),
       };
     case "LINK_LOST":
       return { ...next, crew: updateCrew(next.crew, [e.data.node_id], () => ({ linked: false, stale: true })) };
@@ -308,6 +453,19 @@ export function reduce(state: EngineState, event: LogEvent): EngineState {
     case "TASK_UPDATED":
     case "TASK_DROPPED":
       return reduceTaskEvent(next, event);
+    case "CLOCK_JUMPED":
+    case "SESSION_RESET":
+      return next; // only seq and sim time advance (05 LogEvent; the jump's own events were reduced as they were logged)
+    case "SITE_SELECTED":
+      return { ...next, session: { ...next.session, hab_candidate_id: e.data.candidate_id } };
+    case "MISSION_SETUP_SET":
+      // The keys set are merged; a session that has no settings yet keeps just those keys (work package 04 sets the full object at load).
+      return { ...next, session: { ...next.session, mission_setup: { ...next.session.mission_setup, ...e.data } } };
+    case "EVENT_STARTED":
+      return {
+        ...next,
+        session: { ...next.session, started_events: [...next.session.started_events, { event_id: e.data.event_id, t0_sim_time: e.data.t0_sim_time }] },
+      };
     case "ROLE_TAKEN_OVER":
       return next; // connection bookkeeping (02 §E.4): seq and sim time advance, nothing else changes
     default:

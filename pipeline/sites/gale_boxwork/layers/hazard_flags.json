@@ -4,13 +4,59 @@
   "category": "hazard",
   "kind": "raster_tiles",
   "provenance": "assumed",
-  "source_ids": ["usgs-gale-dem-1m-v3", "usgs-themis-ti-30s120e"],
-  "legend": {"type": "none"},
+  "source_ids": [
+    "usgs-gale-dem-1m-v3",
+    "usgs-themis-ti-30s120e"
+  ],
+  "legend": {
+    "type": "classes",
+    "classes": [
+      [
+        1,
+        1,
+        "No data"
+      ],
+      [
+        2,
+        2,
+        "Hard hazard"
+      ],
+      [
+        4,
+        4,
+        "Low thermal inertia"
+      ],
+      [
+        8,
+        8,
+        "Thermal inertia unknown"
+      ],
+      [
+        16,
+        16,
+        "Low-resolution DEM"
+      ]
+    ]
+  },
   "native_resolution_m": 5,
   "display_resolution_m": 5,
   "asset_id": "tiles-hazard_flags",
-  "tile_grid": {"origin_m": [-3000, 3000], "resolutions_m": [32, 16, 8, 4, 2], "tile_size_px": 256, "format": "png"},
+  "tile_grid": {
+    "origin_m": [
+      -3000,
+      3000
+    ],
+    "resolutions_m": [
+      32,
+      16,
+      8,
+      4,
+      2
+    ],
+    "tile_size_px": 256,
+    "format": "png"
+  },
   "default_visible": false,
   "optional": true,
-  "limitations": "Interpretive flags: HARD_HAZARD is team-digitised; LOW_TI is not set (no defensible TI threshold for this AOI, U-03 decided 2026-11-10), so no cell is marked as possible loose fines; TI_UNKNOWN marks missing TI coverage; LOW_RES_DEM identifies cells filled by lower-resolution DEM sources when source mapping is available."
+  "limitations": "Interpretive flags: HARD_HAZARD is team-digitised; LOW_TI is not set (no defensible TI threshold for this AOI, U-03 decided 2026-11-10), so no cell is marked as possible loose fines; TI_UNKNOWN marks missing TI coverage; LOW_RES_DEM identifies cells filled by lower-resolution DEM sources when source mapping is available. Tiles are drawn at the 5 m routing-grid cell size; a cell with several flags shows the colour of the highest-priority one (hard hazard, low thermal inertia, low-resolution DEM, thermal inertia unknown, no data); class values are the flag bit values."
 }

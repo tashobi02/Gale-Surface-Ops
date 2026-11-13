@@ -1,0 +1,219 @@
+/**
+ * SCR-12 surface map: locally served Mars tiles and snapshot geometry (04 §E.5; plan step 2 of
+ * `docs/plan/frontend/17-eva-tablet.md`).
+ *
+ * - The ortho basemap carries the shared `OPS_ORTHO_LAYER_CLASS` (FD-003), so the OPS grayscale rule reaches this
+ *   mini-map as well as the planner's map: one name for "the ortho", used by `rasterLayers.ts` and here.
+ * - "Me" and "buddy" are told apart: the crew member this tablet belongs to is drawn with a ring around the chevron
+ *   and labelled "ME"; the others keep the plain chevron.
+ * - The route source is updated only when the route itself changed: a snapshot that does not change the route leaves
+ *   the drawn geometry alone instead of clearing and rebuilding it.
+ * - The comm grid is fetched once. A failure is logged and the comm layer is shown as unavailable, never silently
+ *   absent (04 §D.1: a missing value says so).
+ * - QoL Q4: the view is centred on this crew member and framed to hold their next stop (`miniMapView.ts`), and it
+ *   follows them. + / − keep following at the chosen zoom; RECENTRE returns to the crew + next-stop frame. The controls
+ *   are the shared `MapControls` at the EVA 56 px target; tapping anywhere else still opens the full-screen map.
+ */
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import { LINK_LOST_AFTER_MS, type Snapshot } from "@marswalk/protocol";
+import OlMap from "ol/Map.js";
+import Feature from "ol/Feature.js";
+import LineString from "ol/geom/LineString.js";
+import VectorLayer from "ol/layer/Vector.js";
+import TileLayer from "ol/layer/Tile.js";
+import VectorSource from "ol/source/Vector.js";
+import XYZ from "ol/source/XYZ.js";
+import Stroke from "ol/style/Stroke.js";
+import Style from "ol/style/Style.js";
+import { loadSite } from "../../boot/loadSite";
+import { createMap } from "../map/createMap";
+import { createOpsLayers, type OpsLayers } from "../map/opsLayers";
+import { createTileGrid, ensureMarsProjection } from "../map/projection";
+import { OPS_ORTHO_LAYER_CLASS } from "../map/rasterLayers";
+import { tokenColor } from "../map/tokenColors";
+import type { MapHandle } from "../context";
+import { MapControls } from "../map/MapControls";
+import { crewPosition, followExtent, minFollowWidth, nextStopPosition } from "./miniMapView";
+import "./MiniMap.css";
+
+/** How the view follows the crew member: `frame` fits crew + next stop; `centre` keeps a zoom the crew chose (Q4-02). */
+type FollowMode = "frame" | "centre";
+
+export interface MiniMapProps {
+  snapshot: Snapshot | null;
+  /** The crew member this tablet belongs to: their marker is drawn as "me". */
+  crewId?: string;
+  onOpen?: () => void;
+  onUnavailable?: () => void;
+}
+
+/**
+ * The budget for loading the site bundle (FD-505: "the site load fails or stalls" is a fallback trigger of its
+ * own). It is a separate timer from the tile deadline: the tile budget starts when the tiles are asked for, so a
+ * site load that takes its whole interval does not also spend the tiles' interval.
+ */
+const SITE_LOAD_DEADLINE_MS = LINK_LOST_AFTER_MS;
+
+/** The key of the route geometry: when it is unchanged the drawn route is left alone. */
+function routeKeyOf(snapshot: Snapshot | null): string {
+  const legs = snapshot?.plan?.result.legs ?? [];
+  return JSON.stringify(legs.map((leg) => leg.status === "OK" ? leg.geometry : null));
+}
+
+/** The legs with a route to draw: only an OK leg has geometry (05 §C Leg). */
+function routeLegsOf(snapshot: Snapshot | null): { geometry: [number, number][] }[] {
+  const legs = snapshot?.plan?.result.legs ?? [];
+  return legs.flatMap((leg) => (leg.status === "OK" && leg.geometry.length >= 2 ? [{ geometry: leg.geometry }] : []));
+}
+
+export function MiniMap({ snapshot, crewId, onOpen, onUnavailable }: MiniMapProps): ReactElement {
+  const host = useRef<HTMLDivElement>(null);
+  const layers = useRef<OpsLayers | null>(null);
+  const route = useRef<VectorSource | null>(null);
+  const routeKey = useRef<string | null>(null);
+  const failure = useRef(onUnavailable);
+  failure.current = onUnavailable;
+  const latest = useRef(snapshot);
+  latest.current = snapshot;
+  const [unavailable, setUnavailable] = useState(false);
+  const [commUnavailable, setCommUnavailable] = useState(false);
+  const siteId = snapshot?.plan?.site_id;
+  const mapHandle = useRef<MapHandle | null>(null);
+  const minWidth = useRef(0);
+  const mode = useRef<FollowMode>("frame");
+  const crew = useRef(crewId);
+  crew.current = crewId;
+
+  /** Put the view on the crew member: framed with their next stop, or centred at the crew's own zoom (Q4-02). */
+  const follow = useCallback((): void => {
+    const current = mapHandle.current;
+    const at = crewPosition(latest.current, crew.current);
+    if (!current || !at) return;
+    if (mode.current === "centre") { current.setCenter(at); return; }
+    current.fitExtent(followExtent(at, nextStopPosition(latest.current, crew.current), minWidth.current), { animate: false });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let handle: MapHandle | undefined;
+    let ops: OpsLayers | undefined;
+    // FD-505: the tile deadline starts when the map is asked for its tiles, not when the effect runs. A cold LAN
+    // load of the site bundle must not spend the tile budget before the first tile is ever requested.
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    const fail = (): void => {
+      if (cancelled) return;
+      if (deadline !== undefined) clearTimeout(deadline);
+      setUnavailable(true);
+      failure.current?.();
+    };
+    // The site bundle has its own budget: it is a bundle of files, not a link heartbeat, so a slow first load is not a
+    // lost link. It only bounds a load that never settles (FD-505: "the site load fails or stalls").
+    const siteDeadline = setTimeout(fail, SITE_LOAD_DEADLINE_MS);
+    void loadSite(siteId).then((site) => {
+      clearTimeout(siteDeadline);
+      if (cancelled || !host.current) return;
+      handle = createMap({ target: host.current, site, keyboard: false });
+      handle.getTargetElement().tabIndex = -1;
+      const map = handle.getMap<OlMap>();
+      const projection = ensureMarsProjection(site.site);
+      // The basemap is the only part of this map that can fail on its own (FD-505): the route, crew and hab markers are vectors.
+      // Counted across the optical tile layers: HUD-only is chosen when every tile attempted has failed, never for one lost tile.
+      let optical = false;
+      const attempt = { pending: 0, loaded: 0 };
+      for (const def of site.site.layers) {
+        if (def.kind !== "raster_tiles" || !def.tile_grid || def.category !== "optical") continue;
+        const asset = site.assets.get(def.asset_id);
+        if (!asset || asset.format !== "tiles") continue;
+        const attribution = def.source_ids.map((id) => site.sources.get(id)?.credit).filter((value): value is string => Boolean(value));
+        // The shared OPS grayscale class (FD-003): the ortho is grey in OPS here as it is on the planner's map.
+        optical = true;
+        const tiles = new XYZ({ projection, tileGrid: createTileGrid(def.tile_grid, site.site.aoi.extent_m), wrapX: false, url: `${asset.url}/{z}/{x}/{y}.${def.tile_grid.format}`, attributions: attribution });
+        tiles.on("tileloadstart", () => { attempt.pending += 1; });
+        tiles.on("tileloadend", () => { attempt.pending = Math.max(0, attempt.pending - 1); attempt.loaded += 1; if (deadline !== undefined) clearTimeout(deadline); });
+        tiles.on("tileloaderror", () => { attempt.pending = Math.max(0, attempt.pending - 1); if (attempt.loaded === 0 && attempt.pending === 0) fail(); });
+        map.addLayer(new TileLayer({ source: tiles, className: OPS_ORTHO_LAYER_CLASS }));
+      }
+      const source = new VectorSource();
+      const routeLayer = new VectorLayer({ source, style: new Style({ stroke: new Stroke({ color: tokenColor("route"), width: 4 }) }) });
+      routeLayer.setZIndex(55);
+      map.addLayer(routeLayer);
+      route.current = source;
+      ops = createOpsLayers(handle);
+      layers.current = ops;
+      ops.setOwnCrew(crewId ?? null);
+      ops.update(latest.current);
+      ops.setHab(site.site.grid.hab_mast);
+      mapHandle.current = handle;
+      minWidth.current = minFollowWidth(site.site.aoi.extent_m);
+      follow();
+      const grid = site.site.grid;
+      const commAsset = site.assets.get(grid.comm_hab_asset);
+      if (commAsset) {
+        void fetch(commAsset.url).then((response) => {
+          if (!response.ok) throw new Error(`comm grid unavailable: HTTP ${response.status}`);
+          return response.arrayBuffer();
+        }).then((buffer) => {
+          if (cancelled) return;
+          if (buffer.byteLength !== grid.width * grid.height) throw new Error(`comm grid has ${buffer.byteLength} bytes, expected ${grid.width * grid.height}`);
+          ops?.setCommGrid({ cell_m: grid.cell_m, width: grid.width, height: grid.height, origin_m: grid.origin_m, values: new Uint8Array(buffer), source_id: grid.comm_hab_asset });
+        }).catch((error: unknown) => {
+          // The failure is logged, not swallowed, and the comm layer is shown as unavailable (04 §D.1).
+          console.error("mini-map comm grid", error);
+          if (!cancelled) setCommUnavailable(true);
+        });
+      } else {
+        console.error("mini-map comm grid unavailable: no asset", grid.comm_hab_asset);
+        setCommUnavailable(true);
+      }
+      const key = routeKeyOf(latest.current);
+      routeKey.current = key;
+      for (const leg of routeLegsOf(latest.current)) {
+        source.addFeature(new Feature(new LineString(leg.geometry)));
+      }
+      // A site that declares no optical basemap has nothing to wait for: the map is complete as it was before package 34.
+      if (optical) deadline = setTimeout(fail, LINK_LOST_AFTER_MS);
+    }).catch((error: unknown) => {
+      // The failure is logged, not swallowed: a silent "map unavailable" would hide a broken site or a missing token.
+      console.error("mini-map site load", error);
+      fail();
+    });
+    return () => { cancelled = true; mapHandle.current = null; clearTimeout(siteDeadline); if (deadline !== undefined) clearTimeout(deadline); layers.current = null; route.current = null; routeKey.current = null; ops?.destroy(); handle?.destroy(); };
+    // `crewId` is applied by the update effect below, so the map is not rebuilt when it changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteId]);
+
+  useEffect(() => {
+    layers.current?.setOwnCrew(crewId ?? null);
+    layers.current?.update(snapshot);
+    follow();
+  }, [snapshot, crewId, follow]);
+
+  useEffect(() => {
+    const source = route.current;
+    if (!source) return;
+    // The route is redrawn only when it changed: a snapshot that leaves the route alone keeps the drawn geometry.
+    const key = routeKeyOf(snapshot);
+    if (routeKey.current === key) return;
+    routeKey.current = key;
+    source.clear();
+    for (const leg of routeLegsOf(snapshot)) {
+      source.addFeature(new Feature(new LineString(leg.geometry)));
+    }
+  }, [snapshot]);
+
+  return <div className="eva-mini-map">
+    <div data-slot="map-canvas" ref={host} aria-label="Surface map" />
+    {unavailable && <span data-provenance="derived" data-source="unavailable:basemap" data-unavailable="true">Map unavailable —</span>}
+    {commUnavailable && <span data-provenance="derived" data-source="unavailable:comm_hab" data-unavailable="true">Comms grid unavailable —</span>}
+    <button type="button" data-slot="mini-map-open" aria-label="Open full-screen map" onClick={onOpen}><span>FULL MAP</span></button>
+    {!unavailable && <div data-slot="mini-map-controls" className="eva-mini-map-controls">
+      <MapControls
+        variant="eva-mini"
+        onZoom={(direction) => { mode.current = "centre"; mapHandle.current?.zoomBy(direction, { animate: false }); follow(); }}
+        onFit={() => { mode.current = "frame"; follow(); }}
+        follow
+        layersOpen={false}
+      />
+    </div>}
+  </div>;
+}

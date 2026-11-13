@@ -5,9 +5,9 @@
 | Objective | Turn the scripted demo into a session a presenter drives: a `presenter` role and panel (SCR-19) with Next stop, Start storm, clock speed and Reset; the Hab Core commands behind them (`JUMP_NEXT_STOP`, `START_EVENT`, `RESET_SESSION`) and the two ops-only setup commands (`SELECT_HAB_SITE`, `SET_MISSION_SETUP`) with the mission setup screen (SCR-20); `scenario.json` reshaped to mission setup + event library + task library; headless replay of a recorded command list; planner-side editing of the per-POI suggested tasks (FR-54). Deliverable (06 §C.2, "Live operations session"): a recorded command list replays headless to the same log hash twice, and Next stop leaves the crew at the next stop with the same O₂ and dose as a walked run. Added the same day by the product lead: three per-crew values the EVA tablet and HUD show (O₂ time left, bearing and distance to the next stop, ETA to the next stop), computed by the engine and sent in the SNAPSHOT (T32.01, T32.30, T32.31) |
 | Requirements | FR-51, FR-52, FR-53, FR-54 (01 §D); also FR-31, FR-32, FR-33, FR-34, FR-35, FR-39, FR-50, NFR-05, NFR-06, NFR-10, NFR-14. Decisions U-62, U-63, U-64 (01 §G) and U-65 (06) |
 | Lane / owner role | hab-core — R4 Hab Core: Sadman Shaharier Mahim, who is also the owner of every UI subtask here (SCR-19, the Hab Core work and the planner task editing are his by 06 §C.2; SCR-20 is registered to him instead of the Proposed R5 owner, see T32.21 and T32.22) |
-| Milestone | M4 (offline dry run 11 Nov) for the Hab Core, protocol, replay, SCR-19 and SCR-20, as for T03.31–T03.35; M4b for the planner task editing, which waits for the planner subtasks of PRs #168–#174. 06 §C.2 gives no "When" for these packages (`TODO(decision)`), so the milestones are board placements, not commitments; the team lead signs them off on the registering PR (U-65) |
+| Milestone | M4 (offline dry run 11 Nov) for the Hab Core, protocol, replay, SCR-19 and SCR-20, as for T03.31–T03.35; M4b for the planner task editing, which waits for the planner subtasks of PRs #168–#174. 06 §C.2 gives no "When" for these packages (Decided (BD-05)), so the milestones are board placements, not commitments; the team lead signs them off on the registering PR (U-65) |
 | Window | pre-event-allowed for contract, spec-change, fixture and data subtasks; pre-event-if-permitted for code (Track P recorded 2026-11-04) |
-| Effort (doc 06) | `TODO(decision)`: 06 §C.2 gives none for this package. The subtask estimates are planning guesses by analogy with subtasks of the same type in TASK-22 and TASK-23, as in [map v2 open point 1](_coordination.md#v2-open-points-2026-11-06) |
+| Effort (doc 06) | decided (BD-05): 06 §C.2 gives none for this package. The subtask estimates are planning guesses by analogy with subtasks of the same type in TASK-22 and TASK-23, as in [map v2 open point 1](_coordination.md#v2-open-points-2026-11-06) |
 | Done when (doc 06) | A recorded command list replays headless to the same log hash twice; Next stop leaves the crew at the next stop with the same O₂ and dose as a walked run; the loader validates the new scenario shape; choosing the other candidate changes the haven field, the comm layer and the planner start; adding a library POI shows its tasks and an edit reaches the EVA tablet after publishing (06 §C.2) |
 | Main risk → fallback | Time runs short → 06 §C.2 names these fallbacks, none registered as a subtask yet: keep SET_CLOCK and JUMP_NEXT_EVENT as the only presenter buttons; keep the fixed timeline as one `event_library` entry started by the loader; tasks come from the library unedited and ops adds by hand (FR-50); the candidate is fixed to the rank-1 site |
 | Spec sections | [01 FR-51](../specs/01_Product_Requirements_Document.md#fr-51--live-session-and-presenter-panel-t1-m) · [01 FR-52](../specs/01_Product_Requirements_Document.md#fr-52--event-on-demand-the-storm-t1-m) · [01 FR-53](../specs/01_Product_Requirements_Document.md#fr-53--mission-site-selection-at-setup-t1-m) · [01 FR-54](../specs/01_Product_Requirements_Document.md#fr-54--stop-task-library-t1-m) · [02 §D.17](../specs/02_Technical_Requirements_Document.md#d17-live-session-next-stop-event-on-demand-reset-fr-51-fr-52-fr-53-added-2026-11-10-proposed) · [02 §E.4](../specs/02_Technical_Requirements_Document.md#e4-authentication-and-roles) · [02 §E.5](../specs/02_Technical_Requirements_Document.md#e5-hab-core-http-endpoints) · [02 §E.7](../specs/02_Technical_Requirements_Document.md#e7-scenario-file-scenariosidscenariojson) · [03 SCR-19](../specs/03_App_Flow_and_Diagrams.md#scr-19--presenter-panel-live-session-2026-11-10-proposed) · [03 SCR-20](../specs/03_App_Flow_and_Diagrams.md#scr-20--mission-setup-live-session-2026-11-10-proposed) · [03 §C.9](../specs/03_App_Flow_and_Diagrams.md#c9-live-session-journey-2026-11-10-proposed-01-fr-51fr-54) · [05 Scenario](../specs/05_Backend_and_Database_Schema.md#scenario) · [05 Session](../specs/05_Backend_and_Database_Schema.md#session) · [05 Command](../specs/05_Backend_and_Database_Schema.md#command) · [05 LogEvent](../specs/05_Backend_and_Database_Schema.md#logevent-one-line-of-sessionjsonl) · [06 §C.2](../specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) |
@@ -54,20 +54,20 @@
 - **Estimate:** 2–3 h
 - **Owns (writes):** `packages/protocol/src/runtime.ts` (after T20.01), `packages/protocol/src/ws.ts` (after T20.01), `apps/hab-core/src/engine/reducer.ts` (after T22.06)
 - **Reads:** [02 §E.4](../specs/02_Technical_Requirements_Document.md#e4-authentication-and-roles) (presenter column), [02 §D.17](../specs/02_Technical_Requirements_Document.md#d17-live-session-next-stop-event-on-demand-reset-fr-51-fr-52-fr-53-added-2026-11-10-proposed), [05 Command](../specs/05_Backend_and_Database_Schema.md#command), [05 LogEvent](../specs/05_Backend_and_Database_Schema.md#logevent-one-line-of-sessionjsonl), [05 Session](../specs/05_Backend_and_Database_Schema.md#session), [05 Scenario](../specs/05_Backend_and_Database_Schema.md#scenario), [05 EventLibraryEntry](../specs/05_Backend_and_Database_Schema.md#eventlibraryentry-2026-11-10-proposed), [05 TaskLibraryEntry](../specs/05_Backend_and_Database_Schema.md#tasklibraryentry-2026-11-10-proposed), `packages/protocol/src/schema.ts` (HabCandidate, T03.31), [01 FR-32](../specs/01_Product_Requirements_Document.md#fr-32--eva-client-suit-tablet-t1-m), [01 FR-33](../specs/01_Product_Requirements_Document.md#fr-33--hud-mode-t1-m), [05 Crew](../specs/05_Backend_and_Database_Schema.md#crew), `packages/compute/src/consumables.ts`
-- **Depends on:** T20.01 (hard: owner of runtime.ts and ws.ts), T20.11 (hard: the previous contract-change on the same files), T22.06 (hard: owner of reducer.ts), T03.31 (soft: the HabCandidate type is read from schema.ts, merged first in practice), T32.02 (soft: spec gaps this subtask marks as TODO(decision))
+- **Depends on:** T20.01 (hard: owner of runtime.ts and ws.ts), T20.11 (hard: the previous contract-change on the same files), T22.06 (hard: owner of reducer.ts), T03.31 (soft: the HabCandidate type is read from schema.ts, merged first in practice), T32.02 (soft: spec gaps this subtask marks as open questions)
 - **Parallel with:** T32.02
 - **Steps:**
   1. `runtime.ts`: add `"presenter"` to `Role`; add the five command kinds (`JUMP_NEXT_STOP`, `START_EVENT`, `RESET_SESSION`, `SELECT_HAB_SITE`, `SET_MISSION_SETUP`) to `CommandKind` and the five log kinds (`CLOCK_JUMPED`, `EVENT_STARTED`, `SESSION_RESET`, `SITE_SELECTED`, `MISSION_SETUP_SET`) to `LogEventKind`, each with a `LogEventData` entry whose field names are copied from the 05 LogEvent table. `SESSION_LOADED.plan_hash` is typed `string | null` (a plan-less session has no plan to hash; 05 makes it required: T32.02) and `MISSION_SETUP_SET` carries `vehicle_param_set` as well, because `SET_MISSION_SETUP` takes it (05 omits it: T32.02). `CLOCK_JUMPED.ended_by` takes the five values of 02 §D.17 (`arrival | alert | plan_revised | eva_ended | sheltered`); 05 lists two, which is a spec gap raised in T32.02.
-  2. `Session`: add `hab_candidate_id`, `mission_setup` and `started_events` (05 Session). Type them as optional for now so older snapshots and the F7 fixtures still typecheck; tightening them is `TODO(decision)` after T32.07.
+  2. `Session`: add `hab_candidate_id`, `mission_setup` and `started_events` (05 Session). Type them as optional for now so older snapshots and the F7 fixtures still typecheck; tightening them is decided (BD-100) after T32.07.
   3. `Scenario`: add `mission_setup`, `event_library`, `task_library?` and the `MissionSetup`, `EventLibraryEntry` and `TaskLibraryEntry` types with the 05 field names. Leave `plan` and `events` required in this subtask: T32.07 makes them optional together with the null checks, so `main` stays green.
   4. `ws.ts` `PERMISSIONS`: add the `presenter` row (`LOAD_SCENARIO`, `SET_CLOCK`, `JUMP_NEXT_EVENT`, `JUMP_NEXT_STOP`, `START_EVENT`, `RESET_SESSION`); add `SELECT_HAB_SITE` and `SET_MISSION_SETUP` to `ops` only. Check every role and command against the 02 §E.4 table row by row; presenter has no `APPROVE_OPTION`, `ABORT`, `SUMMON_VEHICLE`, `START_EVA`, `PUBLISH_PLAN`. `server.ts` `isRole` reads `PERMISSIONS`, so it accepts the new role without an edit.
   5. `reducer.ts`: add the five cases so `reduce` stays exhaustive and typechecks: `SITE_SELECTED` sets `session.hab_candidate_id`, `MISSION_SETUP_SET` merges the settings, `EVENT_STARTED` appends to `started_events`; `CLOCK_JUMPED` and `SESSION_RESET` change nothing beyond `last_seq` and `sim_time`. Pure, no I/O.
-  6. `Crew` (SNAPSHOT and STATE_DELTA): add three per-crew fields for the EVA tablet and HUD, **Proposed names, final names `TODO(decision)`**: `o2_remaining_min` (minutes of O₂ left at the current activity; the name matches 05 `CONSUMABLES_LOW` and `LogEventData`), `next_stop_bearing_deg` and `next_stop_distance_m` (to the next stop; the compass convention is part of the decision), `next_stop_eta_s` (to reach it). Type them as optional and nullable (null when there is no plan or no stop left) so older snapshots and the F7 fixtures still typecheck. The engine computes them (T32.31, from `o2RemainingS` in `packages/compute` and the crew's motion); no view computes or defaults them. Provenance, Proposed: `simulated` for the O₂ time, `derived` for bearing and distance, `modelled` for the ETA (as `eta_s` in 05 Vehicle and the option ETAs), in the SNAPSHOT provenance map. `o2_remaining_min` is the name 05 already uses for the same quantity in `CONSUMABLES_LOW`. 01 FR-32 and FR-33 name the values; neither 05 Crew nor 02 §E.6 lists these fields, so a follow-up spec-change is needed (T32.02, open point 20).
+  6. `Crew` (SNAPSHOT and STATE_DELTA): add three per-crew fields for the EVA tablet and HUD, **Proposed names, final names decided (BD-95)**: `o2_remaining_min` (minutes of O₂ left at the current activity; the name matches 05 `CONSUMABLES_LOW` and `LogEventData`), `next_stop_bearing_deg` and `next_stop_distance_m` (to the next stop; the compass convention is part of the decision), `next_stop_eta_s` (to reach it). Type them as optional and nullable (null when there is no plan or no stop left) so older snapshots and the F7 fixtures still typecheck. The engine computes them (T32.31, from `o2RemainingS` in `packages/compute` and the crew's motion); no view computes or defaults them. Provenance, Proposed: `simulated` for the O₂ time, `derived` for bearing and distance, `modelled` for the ETA (as `eta_s` in 05 Vehicle and the option ETAs), in the SNAPSHOT provenance map. `o2_remaining_min` is the name 05 already uses for the same quantity in `CONSUMABLES_LOW`. 01 FR-32 and FR-33 name the values; neither 05 Crew nor 02 §E.6 lists these fields, so a follow-up spec-change is needed (T32.02, open point 20).
   7. State the protocol change in the PR description as additive (C13 v0 → v0.1) and list the consumer subtasks to rebase (§d change process): T32.03, T32.04, T32.07 and later.
 - **Acceptance:**
   - Serves: FR-51, FR-52, FR-53, FR-31, FR-32, FR-33, FR-35 · [02 §E.4](../specs/02_Technical_Requirements_Document.md#e4-authentication-and-roles)
-  - `make typecheck test-web` passes; every added name is copied from 02 or 05 (the three crew fields are Proposed and marked `TODO(decision)`); `PERMISSIONS` matches 02 §E.4 for the presenter and the two ops-only rows (the role matrix test is T32.13).
-  - Gaps in the specs are `TODO(decision)` in the file, not resolved silently.
+  - `make typecheck test-web` passes; every added name is copied from 02 or 05 (the three crew fields are Proposed and marked as decided (BD-13)); `PERMISSIONS` matches 02 §E.4 for the presenter and the two ops-only rows (the role matrix test is T32.13).
+  - Gaps in the specs are written in the file as questions, not resolved silently.
 - **Verify:** `make typecheck` · `npm --workspace @marswalk/hab-core test` · a second person (Mishkat) reviews the field-by-field list in the PR.
 - **Agent brief:** Add the live-session types, the three per-crew EVA/HUD fields, the `presenter` permissions and the five reducer cases, following 02 §D.17, §E.4 and 05 exactly. Types and one pure reducer change only; no command handling.
 - **Conflict notes:** One open contract-change on C13 at a time (§d); T20.11 is merged. `schema.ts` is read-only here (T03.31 owns the HabCandidate edit). `reducer.ts` is edited again by T32.07 (chain).
@@ -84,19 +84,19 @@
 - **Depends on:** none
 - **Parallel with:** T32.01
 - **Steps:**
-  1. Decide how the planner receives `task_library` (and with it nothing else the Session does not already carry): 02 §E.5, §E.6 and the 05 Snapshot list no field or endpoint for it. Record the decision (for example a `SNAPSHOT` field for the planner role, or a `GET` endpoint) in 02 §E.5 or §E.6 and 05. `TODO(decision)`: product & systems lead.
+  1. Decide how the planner receives `task_library` (and with it nothing else the Session does not already carry): 02 §E.5, §E.6 and the 05 Snapshot list no field or endpoint for it. Record the decision (for example a `SNAPSHOT` field for the planner role, or a `GET` endpoint) in 02 §E.5 or §E.6 and 05. Decided (BD-90): product & systems lead.
   2. Name the `PUBLISH_PLAN` argument that carries the edited tasks beside `plan` (01 FR-54 says "beside `plan`" and the shape of `stop_tasks`; no spec names the argument) and say that the Hab Core seeds `TASK_ADDED` events from it at publish.
   3. Align 05 `CLOCK_JUMPED.ended_by` (`arrival | alert`) with 02 §D.17 (five values).
   4. Resolve the wording gap in 02 §D.17: it says a live session can export its command list "from its log", while 05 says commands are never logged. Either define the reconstruction from events (and its limits) or log what the export needs.
-  5. Fix the file name and flag of the recorded command list (02 §D.17 `TODO(verify)`).
+  5. Fix the file name and flag of the recorded command list (02 §D.17 decided (BD-93)).
   6. 06 §C.2: set the owner of the ops setup screen to Sadman Shaharier Mahim (product lead's call, 10 Nov; Ridita Alam informed on the PR) instead of the Proposed R5; update U-65's status to registered.
-  7. Add the three per-crew fields of T32.01 (`o2_remaining_min`, bearing and distance to the next stop, ETA to the next stop) to 05 Crew and the 02 §E.6 example, with their final names, units, bearing convention and provenance (`TODO(decision)`: product & systems lead). T32.30 picks the next stop per crew member, while 02 §D.17 uses one next stop for the whole crew (the stop not every crew member has reached): say which one the HUD shows.
+  7. Add the three per-crew fields of T32.01 (`o2_remaining_min`, bearing and distance to the next stop, ETA to the next stop) to 05 Crew and the 02 §E.6 example, with their final names, units, bearing convention and provenance (Decided (BD-95): product & systems lead). T32.30 picks the next stop per crew member, while 02 §D.17 uses one next stop for the whole crew (the stop not every crew member has reached): say which one the HUD shows.
   8. 05 LogEvent `SESSION_LOADED` requires `plan_hash`, but a plan-less session has none (`session.ts` reads `plan.plan_hash` today): make it nullable or absent.
   9. 05 LogEvent `MISSION_SETUP_SET` lists `crew_count, vehicle_available, solar_phase, max_haven_min` but `SET_MISSION_SETUP` also takes `vehicle_param_set` (02 §D.17): add it.
   10. Keep every Proposed or Confirmed label as it is; change no number and no id.
 - **Acceptance:**
   - Serves: FR-51, FR-54, FR-53, FR-32, FR-33, U-65 · [06 §C.2](../specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked)
-  - Each gap in steps 1 to 9 is decided in the spec or left as a visible `TODO(decision)`; `make lint docs-check` passes.
+  - Each gap in steps 1 to 9 is decided in the spec or left as a visible question; `make lint docs-check` passes.
 - **Verify:** `make lint docs-check`
 - **Agent brief:** Draft the edits of steps 1 to 9 for the product lead to approve; do not choose a transport yourself.
 - **Conflict notes:** One open spec-change PR at a time (map §c.2). The only subtask that edits 02, 05 and 06 in this plan.
@@ -160,7 +160,7 @@
 - **Steps:**
   1. Extend the generator: `mission_setup` (`crew_count` equal to the two crew, `vehicle_available` true with the fixture's ParamSet, other keys declared placeholders), an `event_library` with one entry that replays the fixture's synthetic step series (its `series_start_utc` a sample time of that series), and a `task_library` for the fixture plan's POIs.
   2. Add a plan-less variant (no `plan`, `events` or `stop_tasks`) for the sessions that start in `LOADED` and receive `PUBLISH_PLAN`.
-  3. Add a small two-candidate site folder generated by a committed script from the mock site's grid (a second mast), for `SELECT_HAB_SITE` tests. Whether the F4 mock site itself gets candidates is `TODO(decision)` (map v2 open point 11); this folder avoids waiting for it.
+  3. Add a small two-candidate site folder generated by a committed script from the mock site's grid (a second mast), for `SELECT_HAB_SITE` tests. Whether the F4 mock site itself gets candidates is decided (BD-31) (map v2 open point 11); this folder avoids waiting for it.
   4. Label every synthetic value in the README; nothing pretends to be the real storm.
 - **Acceptance:**
   - Serves: FR-52, FR-53, FR-54, NFR-06
@@ -206,7 +206,7 @@
   1. Types: `Scenario.plan?` and `Scenario.events?` optional, `Snapshot.plan` and `EngineState.plan` nullable. This is the edit T32.01 deferred so that `main` stays green.
   2. Loader: skip the plan checks when `plan` is absent; `stop_tasks` still requires a plan; read `events` as an empty list when absent.
   3. Engine null checks, no behaviour change when a plan exists: `initialState` puts the crew at the chosen candidate's `default_start` (or the site's) when there is no plan and fills the Session live fields; `tick.ts` does not move crew without a plan; `vehicles.ts` and `contingencyOps.ts` read the current plan from state; `session.ts` bounds `JUMP_NEXT_EVENT` from the plan only when present and writes `SESSION_LOADED.plan_hash` as null without a plan (per T32.01; the 05 wording is gap 8 of T32.02); `replay.ts` stops with a clear message when a scenario has no plan and no command list yet (T32.17 adds the list).
-  4. Tighten the optional Session fields of T32.01 if the tests allow; otherwise leave the `TODO(decision)`.
+  4. Tighten the optional Session fields of T32.01 if the tests allow; otherwise leave the decision BD-100.
 - **Acceptance:**
   - Serves: FR-53, FR-54, NFR-06, NFR-10
   - The plan-less tests of T32.06 pass; every existing Hab Core test passes unchanged and the replay hash of a scenario that carries a plan is unchanged. The storm semantics change only in T32.12, which restates the reference-run acceptance.
@@ -228,7 +228,7 @@
 - **Steps:**
   1. `mission_setup`: `crew_count` equals the length of `crew[]`; `vehicle_available: true` needs `vehicle_param_set` (and the ParamSet must be listed); `hab_candidate_id` must be a `candidate_id` of the Site's `hab_candidates` read from the manifest, and may be omitted only when the manifest has none; other keys within the 02 §E.3 ranges.
   2. `event_library`: unique `event_id`; `dose_series` resolves in `tables`; `series_start_utc` is a sample time of that series; input offsets are non-negative.
-  3. `task_library`: each `poi_id` resolves to a POI of the Site (`vectors/pois.geojson`); 1–4 entries per POI; text at most 60 characters; `source_id` required when the text states a number (a digit test; `TODO(decision)` if the team wants a stricter rule).
+  3. `task_library`: each `poi_id` resolves to a POI of the Site (`vectors/pois.geojson`); 1–4 entries per POI; text at most 60 characters; `source_id` required when the text states a number (a digit test; decided (BD-101) if the team wants a stricter rule).
   4. Expose the validated libraries on `LoadedScenario`, and `loadCandidateComm(site, candidate_id)`, which reads one candidate's `comm_hab` grid and mast through the existing `loadSite` checks, for `SELECT_HAB_SITE` (T32.14).
 - **Acceptance:**
   - Serves: FR-52, FR-53, FR-54 · [05 §E.3](../specs/05_Backend_and_Database_Schema.md#e3-referential-integrity-validated-by-the-validate-manifest-command-and-at-app-boot-in-dev-builds)
@@ -275,14 +275,14 @@
 - **Steps:**
   1. `nextStop.ts`: `nextStopTarget(state)` (lowest-index stop not reached by every crew member on EVA) and the end conditions of 02 §D.17.
   2. `commands.ts`: validate in the role → link → args → state order (presenter only; `INVALID` without a running EVA or a remaining stop; `BUSY` while a warning-level alert is latched) and return a session effect, as `JUMP_NEXT_EVENT` does.
-  3. `session.ts`: run the existing 1-s ticks without waiting for wall-clock time until the target arrives or a stop event occurs (`ALERT_RAISED` at warning level, `PLAN_REVISED`, `EVA_ENDED`, `CREW_SHELTERED`), bounded by the plan's maximum EVA duration; append the tick events at their own sim seconds; then append `CLOCK_JUMPED`. Where `CLOCK_JUMPED` sits relative to the events of the jump is not in 02 or 05: place it after them, since `to_sim_time` is known only then (`TODO(verify)`).
+  3. `session.ts`: run the existing 1-s ticks without waiting for wall-clock time until the target arrives or a stop event occurs (`ALERT_RAISED` at warning level, `PLAN_REVISED`, `EVA_ENDED`, `CREW_SHELTERED`), bounded by the plan's maximum EVA duration; append the tick events at their own sim seconds; then append `CLOCK_JUMPED`. Where `CLOCK_JUMPED` sits relative to the events of the jump is not in 02 or 05: place it after them, since `to_sim_time` is known only then (Decided (BD-92)).
   4. Clock speed and pause stay as they were; no `Date.now()` anywhere in the engine (NFR-06).
 - **Acceptance:**
   - Serves: FR-51, NFR-06, U-63 · [02 §D.17](../specs/02_Technical_Requirements_Document.md#d17-live-session-next-stop-event-on-demand-reset-fr-51-fr-52-fr-53-added-2026-11-10-proposed)
   - T32.09 passes; the NFR-06 wall-clock scan of `src/engine/` still passes.
 - **Verify:** `npm --workspace @marswalk/hab-core test -- nextStop clock engine`
 - **Agent brief:** Implement the fast-forward by reusing the session's tick loop; never move crew by any other route.
-- **Conflict notes:** Edits `commands.ts` and `session.ts` before T32.12, T32.14 and T32.25 (chain). U-63 (stop at the first warning) is `TODO(decision)` in 01; if the lead changes it, only the end condition changes.
+- **Conflict notes:** Edits `commands.ts` and `session.ts` before T32.12, T32.14 and T32.25 (chain). U-63 (stop at the first warning) is decided (BD-97) in 01; if the lead changes it, only the end condition changes.
 
 ### T32.11 — Tests: `START_EVENT` and the time-shifted storm
 
@@ -417,7 +417,7 @@
   3. A list covers one session: a live run containing `RESET_SESSION` exports as one list per session, split at the reset; each list replays to the hash of its own session log.
   4. A rejected command in the list is logged as `COMMAND_REJECTED` and does not stop the run; an unknown kind is an error before the run.
   5. A plan-less scenario replays when the list starts with `PUBLISH_PLAN`.
-  6. Export: `exportCommandList` rebuilt from a live session's log replays to the same hash, within the limits T32.02 records (`TODO(verify)`).
+  6. Export: `exportCommandList` rebuilt from a live session's log replays to the same hash, within the limits T32.02 records (Decided (BD-93)).
 - **Acceptance:**
   - Serves: NFR-14, NFR-06, FR-51 · [02 §D.17](../specs/02_Technical_Requirements_Document.md#d17-live-session-next-stop-event-on-demand-reset-fr-51-fr-52-fr-53-added-2026-11-10-proposed)
   - Each rule is one named test, red before T32.17 and green after.
@@ -438,7 +438,7 @@
 - **Parallel with:** none
 - **Steps:**
   1. `replayHeadless(scenarioDir, seed, { commands })`: apply the list in order before the tick at each command's sim second, run 1-s steps until the session ends or the plan's maximum EVA duration passes, and print `log_hash`. Without a list the behaviour and hash are unchanged.
-  2. `cli.ts`: a `--commands <file>` option on `replay` (name `TODO(verify)` until T32.02 fixes it), documented in the file header; `make replay` and `npm run hab:replay -- <scenario>` keep working (the root `package.json` and `Makefile` belong to T14.01 and are not edited).
+  2. `cli.ts`: a `--commands <file>` option on `replay` (name decided (BD-93) until T32.02 fixes it), documented in the file header; `make replay` and `npm run hab:replay -- <scenario>` keep working (the root `package.json` and `Makefile` belong to T14.01 and are not edited).
   3. `exportCommandList(sessionDir)`: rebuild the list from the log's events and their `command_ref`, split at `SESSION_RESET`, per the T32.02 decision.
 - **Acceptance:**
   - Serves: NFR-14, NFR-06, FR-51
@@ -461,7 +461,7 @@
 - **Steps:**
   1. Decide the press time of Start storm (U-62, product & systems lead): the sim time that keeps the series at its recorded UTC, or another time with the numbers re-derived by T21.15.
   2. Write the list for the reference run: `START_EVA`, `SET_CLOCK`, `JUMP_NEXT_STOP` as needed, `START_EVENT {storm}`, then the crew commands of the 01 §E.1 beats (summon, approve). Every `sim_time` is copied from a first replay's log or from the `demo-numbers` output, never typed from memory; record the source in the file's header comment field.
-  3. Name the file as T32.02 decides; `reference_commands.json` is Proposed (`TODO(verify)`).
+  3. Name the file as T32.02 decides; `reference_commands.json` is Proposed (Decided (BD-93)).
 - **Acceptance:**
   - Serves: FR-51, FR-52, NFR-14, U-62 · [01 §E.1](../specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video)
   - The list replays to the same hash twice and reproduces the 0:30–1:10 event order (T23.08 asserts it).
@@ -515,7 +515,7 @@
   - T32.19 passes except the route and tile cases (T32.23); keyboard reachable.
 - **Verify:** `npm --workspace @marswalk/web test -- presenter` · `make typecheck`
 - **Agent brief:** Build SCR-19 from the 03 table; reuse the tokens and the client, add no colour of your own.
-- **Conflict notes:** New files only; the route is registered by T32.23.
+- **Conflict notes:** New files only; the route is registered by T32.23. `#/setup` needs the ops role, so a second device that opens it takes the ops role from the ops console and the console on the first device is taken over (FD-499); the routing is unchanged here, because the role table belongs to package 22.
 
 ### T32.21 — Tests: SCR-20 mission setup
 
@@ -711,7 +711,7 @@
   1. A scripted headless session on the real scenario: `SELECT_HAB_SITE` (the second candidate), `SET_MISSION_SETUP`, `PUBLISH_PLAN` with tasks, `START_EVA`, `JUMP_NEXT_STOP` until the last stop, `START_EVENT {storm}`, the alert, options, summon and approve, `CREW_SHELTERED`, then `RESET_SESSION` and a second short session.
   2. Export the command list of each session; replay each twice; the hashes equal the live run's and each other (records both sessions' hashes).
   3. Time `SELECT_HAB_SITE` on the real grid on the weakest laptop against the NFR-02 target of 2 s for the haven field; record the value.
-  4. Check that `earth_link.json` covers the whole sim day of the session (01 FR-52 `TODO(verify)`); record the first and last rows used.
+  4. Check that `earth_link.json` covers the whole sim day of the session (01 FR-52 decided (BD-108)); record the first and last rows used.
   5. Append a section to the verification log with the hashes, the timing and pass or fail.
 - **Acceptance:**
   - Serves: FR-51, FR-52, FR-53, NFR-06, NFR-14 · [06 §C.2](../specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) TASK-32 done-when
@@ -734,7 +734,7 @@
 - **Steps:**
   1. `o2_remaining_min` equals `o2RemainingS(o2_frac, activity, suit) / 60` for walking and for resting, for each crew member's own suit ParamSet; the test calls the compute function for its expected value and types no constant.
   2. Bearing and distance point from the crew position to the next stop (the lowest-index stop not yet reached by that crew member) and follow the convention T32.02 records; both are null after the last stop and in a session with no plan.
-  3. `next_stop_eta_s` equals the walking time left to the next stop at the engine's leg speed (`TODO(decision)`: whether dwell at the current stop is included; the test names the choice).
+  3. `next_stop_eta_s` equals the walking time left to the next stop at the engine's leg speed (Decided (BD-95): whether dwell at the current stop is included; the test names the choice).
   4. The values change tick by tick during a walk, appear in `STATE_DELTA` only when changed, and are identical in two runs (NFR-06); after `JUMP_NEXT_STOP` they equal those of a run walked at 60×.
 - **Acceptance:**
   - Serves: FR-32, FR-33, FR-35, NFR-05, NFR-06 · [01 FR-33](../specs/01_Product_Requirements_Document.md#fr-33--hud-mode-t1-m)
@@ -781,7 +781,7 @@
   1. Add `mission_setup` to the built file: `hab_candidate_id` the rank-1 candidate of `hab_candidates.json`, `crew_count` equal to the crew written, the other keys the planner defaults; none typed by the model.
   2. Add an `event_library` with one `storm` entry: the DONKI records and Earth messages that belong to the storm move out of `events` into `inputs` as offsets from `series_start_utc`; `label` `replayed — Curiosity RAD measurements`, `source_id` `rad-sol4190`, provenance `replayed`. `events` keeps any input not tied to the storm; the reference `plan` and `stop_tasks` stay.
   3. Add a `task_library` re-keyed from `stop_tasks.json` (keyed there by `stop_id` `wp-1…wp-3`) to `poi_id` through the demo plan's Waypoint `poi_id`, 1–4 entries per POI.
-  4. `series_start_utc`: the sample time where the pre-onset rise begins, chosen by `scenario_build.py` by a stated rule and printed (05 `TODO(verify)`); the rule needs the product lead's approval.
+  4. `series_start_utc`: the sample time where the pre-onset rise begins, chosen by `scenario_build.py` by a stated rule and printed (05 decided (BD-98)); the rule needs the product lead's approval.
   5. Validate against `schemas/scenario.schema.json` and the loader (T32.08).
 - **Acceptance:**
   - Serves: FR-52, FR-54, NFR-06 · [05 Scenario](../specs/05_Backend_and_Database_Schema.md#scenario)
@@ -835,12 +835,12 @@ flowchart LR
 
 ## Spec questions
 
-1. **Task library transport (T32.02).** 02 §E.5, §E.6 and the 05 Snapshot give the planner no way to receive `task_library`; the decision is the product lead's (`TODO(decision)`). T32.25 and T32.27 wait for it.
+1. **Task library transport (T32.02).** 02 §E.5, §E.6 and the 05 Snapshot give the planner no way to receive `task_library`; the decision is the product lead's (Decided (BD-90)). T32.25 and T32.27 wait for it.
 2. **`ended_by` values.** 05 `CLOCK_JUMPED` lists `arrival | alert`; 02 §D.17 lists five. T32.01 follows 02; T32.02 aligns 05.
-3. **Command list "from its log".** 02 §D.17 says a live session can export its list from its log; 05 says commands are not logged. The export (T32.17) is a reconstruction from events; its limits are `TODO(verify)` until T32.02 decides.
-4. **Position of `CLOCK_JUMPED`** among the events of the jump is not specified (T32.10 places it after them, `TODO(verify)`).
-5. **`series_start_utc`** is a sample time chosen from the dose series (05 `TODO(verify)`); the rule is part of T32.32 and needs the lead's approval.
+3. **Command list "from its log".** 02 §D.17 says a live session can export its list from its log; 05 says commands are not logged. The export (T32.17) is a reconstruction from events; its limits are decided (BD-93) until T32.02 decides.
+4. **Position of `CLOCK_JUMPED`** among the events of the jump is not specified (T32.10 places it after them, decided (BD-92)).
+5. **`series_start_utc`** is a sample time chosen from the dose series (05 decided (BD-98)); the rule is part of T32.32 and needs the lead's approval.
 6. **U-62 and U-63** (01 §G) decide the press time of the reference run (T32.18) and whether Next stop stops at the first warning (T32.10).
-7. **Simulated library inputs** have no recorded time; how their `t_offset_s` is set is `TODO(decision)` in 05 and belongs to T26.04.
-8. **Two-candidate mock.** Whether the F4 mock site (T03.02) gains candidates is `TODO(decision)` (map v2 open point 11); T32.05 builds a two-candidate site under the Hab Core fixtures meanwhile.
-9. **Crew HUD fields (2026-11-10).** 05 Crew and 02 §E.6 do not list `o2_remaining_min` (the name 05 already uses in `CONSUMABLES_LOW`), `next_stop_bearing_deg`, `next_stop_distance_m` and `next_stop_eta_s` (Proposed names, `TODO(decision)`), though 01 FR-32 and FR-33 name the values. Straight-line or along-route distance, the bearing convention, whether the ETA includes dwell, whether the HUD's next stop is per crew member or the one crew target of 02 §D.17, and their provenance classes (Proposed: ETA `modelled`) are `TODO(decision)` for the product lead; T32.02 writes them back into 05 and 02.
+7. **Simulated library inputs** have no recorded time; how their `t_offset_s` is set is decided (BD-99) in 05 and belongs to T26.04.
+8. **Two-candidate mock.** Whether the F4 mock site (T03.02) gains candidates is decided (BD-31) (map v2 open point 11); T32.05 builds a two-candidate site under the Hab Core fixtures meanwhile. Decided: FD-344 (12 Nov 2026, Proposed): the F4 site gains no candidates; the web tests and the SCR-20 harness fixture carry explicit MOCK candidates.
+9. **Crew HUD fields (2026-11-10).** 05 Crew and 02 §E.6 do not list `o2_remaining_min` (the name 05 already uses in `CONSUMABLES_LOW`), `next_stop_bearing_deg`, `next_stop_distance_m` and `next_stop_eta_s` (Proposed names, decided (BD-95)), though 01 FR-32 and FR-33 name the values. Straight-line or along-route distance, the bearing convention, whether the ETA includes dwell, whether the HUD's next stop is per crew member or the one crew target of 02 §D.17, and their provenance classes (Proposed: ETA `modelled`) are decided (BD-95); T32.02 writes them back into 05 and 02.

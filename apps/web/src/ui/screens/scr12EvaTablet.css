@@ -1,0 +1,153 @@
+.scr12-eva-tablet[data-contrast="high"] {
+  --surface-0: #000;
+  --surface-1: #000;
+  --text-1: #fff;
+  --text-2: #fff;
+  --text-3: #fff;
+  --fg-1: #fff;
+}
+.scr12-eva-tablet .card.status-nominal,
+.scr12-eva-tablet .card.status-caution,
+.scr12-eva-tablet .card.status-warning,
+.scr12-eva-tablet .card.status-unknown { color: var(--text-1); background-image: none; }
+/* FD-017: the high-contrast alert is the outlined variant — a black bar with a 4 px outline in the level's own status
+   colour. The colour is per level (04 §C.1): an advisory is never drawn in the warning colour. */
+.scr12-eva-tablet[data-contrast="high"] .alert-bar {
+  background: #000;
+  background-image: none;
+  color: var(--text-1);
+  border: 4px solid currentColor;
+}
+.scr12-eva-tablet[data-contrast="high"] .alert-bar.status-warning,
+.scr12-eva-tablet[data-contrast="high"] .alert-bar[data-level="warning"] { color: var(--hud-warning); }
+.scr12-eva-tablet[data-contrast="high"] .alert-bar.status-caution,
+.scr12-eva-tablet[data-contrast="high"] .alert-bar[data-level="caution"] { color: var(--hud-caution); }
+.scr12-eva-tablet[data-contrast="high"] .alert-bar.status-advisory,
+.scr12-eva-tablet[data-contrast="high"] .alert-bar[data-level="advisory"] { color: var(--hud-advisory); }
+.scr12-eva-tablet[data-contrast="high"] .alert-bar.status-unknown,
+.scr12-eva-tablet[data-contrast="high"] .alert-bar[data-level="unknown"] { color: var(--text-1); }
+/* The alert bar's own controls (OPTIONS, ACK) carry their own chrome. They would otherwise inherit the bar's ink — the
+   status colour in high contrast (FD-011) — and sit on the user-agent button face, which reads 1.92 : 1 there. */
+.scr12-eva-tablet .alert-bar .btn {
+  background: var(--surface-1);
+  color: var(--fg-1);
+}
+.eva-mini-map { position: relative; flex: 1; min-height: 100px; }
+.eva-mini-map [data-slot="map-canvas"] { position: absolute; inset: 0; }
+.eva-mini-map > button { position: absolute; z-index: 2; inset: 0; min-height: 56px; background: transparent; border: 0; color: var(--text-1); text-align: right; vertical-align: top; }
+.eva-mini-map > button span { display: inline-block; padding: 16px; background: var(--raised); border: 1px solid var(--edge); }
+.eva-mini-map > [data-unavailable] { position: absolute; left: 8px; bottom: 8px; }
+.scr12-eva-tablet .action-row > button { min-height: 56px; background: var(--raised); color: var(--text-1); border: 2px solid var(--edge); }
+/* The `.btn` class inherits its colour (base.css), so a button that sets none takes the parent's mid-tone and reads
+   5.33 : 1 on the EVA surface — under the 7 : 1 the high-contrast EVA mode asks for (FD-011, NFR-04). The EVA action row
+   and the SCR-14 sheet's own controls name the text token instead, so they follow every palette. */
+.eva-live-surface .action-row > button,
+.eva-live-surface .eva-options-body .btn {
+  background: var(--raised);
+  color: var(--text-1);
+  border: 2px solid var(--edge);
+}
+/* The EVA options sheet (SCR-14) is a bottom sheet over the tablet's BODY. 04 §E.5: HAVEN, O₂ and the action row never
+   move and are never covered, so the sheet stops above the action row and below the telemetry row. The reserved
+   heights are the tablet's own grid rows: 64 px of alert slot plus 150 px of telemetry above, and the action row
+   (200 px portrait, 72 px landscape) below. */
+[data-slot="eva-options-sheet"] {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--eva-action-row-height, 224px);
+  top: var(--eva-options-sheet-top, 214px);
+  max-height: none;
+}
+/* Constrains narrow phones (360×740) so action buttons never expand the layout beyond 100vw. */
+.scr12-eva-tablet { max-width: 100%; overflow-x: hidden; }
+.scr12-eva-tablet .action-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; max-width: 100%; }
+.scr12-eva-tablet .action-row button,
+.scr12-eva-tablet .action-row .hold-container,
+.scr12-eva-tablet .action-row .hold-container > button { min-width: 0 !important; max-width: 100%; }
+@media (orientation: landscape) {
+  /* In landscape the sheet is a right panel over the map column (FD-010, 04 §E.5). */
+  [data-slot="eva-options-sheet"] {
+    left: 50%;
+    right: 0;
+    top: 64px;
+    bottom: 96px;
+  }
+}
+@media (orientation: landscape) {
+  .scr12-eva-tablet { display: grid !important; grid-template-columns: 1fr 1fr; grid-template-rows: 64px minmax(0, 1fr) minmax(0, 1fr) 24px 72px; height: 100dvh; min-height: 0 !important; padding: 0 !important; gap: 0 8px !important; overflow: hidden; }
+  .scr12-eva-tablet > [data-slot="alert-slot"] { grid-column: 1 / -1; }
+  .scr12-eva-tablet > [data-slot="telemetry-row"] { grid-column: 1; grid-row: 2; min-height: 0; }
+  .scr12-eva-tablet > [aria-label="Navigation and tasks"] { display: contents !important; }
+  .scr12-eva-tablet [data-slot="next"] { grid-column: 1; grid-row: 3; min-height: 0 !important; overflow: auto; }
+  .scr12-eva-tablet [data-slot="mini-map"] { grid-column: 2; grid-row: 2 / 4; min-height: 0 !important; }
+  .scr12-eva-tablet > [data-slot="meta-strip"] { grid-column: 1 / -1; grid-row: 4; }
+  .scr12-eva-tablet > [data-slot="action-row"] { grid-column: 1 / -1; grid-row: 5; }
+  /* The action row is 72 px of the 844 × 390 budget (04 §E.5). Its buttons keep the 56 px EVA target, so the row adds
+     no padding of its own and no button grows past the row: the body never scrolls (FD-010). The buttons carry their
+     padding inline, so the rule that trims it has to be important. */
+  .scr12-eva-tablet .action-row { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; padding: 0 !important; }
+  .scr12-eva-tablet .action-row button,
+  .scr12-eva-tablet .action-row .hold-container > button {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    height: var(--target-eva, 56px) !important;
+    min-height: var(--target-eva, 56px) !important;
+  }
+  .scr12-eva-tablet .action-row .hold-container { min-height: var(--target-eva, 56px) !important; }
+}
+.scr12-eva-tablet [data-slot="stop-task-list"] { overflow: auto; min-height: 0; }
+/* The metadata strip is one 24 px row: its parts never wrap onto a second line and never grow past the row. A part that
+   does not fit is cut with an ellipsis (FD-032's geometry: the strip is a fixed row, not a paragraph). */
+.scr12-eva-tablet [data-slot="meta-strip"] { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
+.scr12-eva-tablet [data-slot="meta-strip"] > * { flex: 0 0 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.scr12-eva-tablet [data-slot="meta-strip"] > span:last-child { flex: 1 1 auto; }
+@media (orientation: landscape) {
+  .scr12-eva-tablet [data-slot="stop-task-list"] { grid-column: 1; grid-row: 3; z-index: 1; margin: 64px 0 0 !important; background: var(--panel); }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .scr12-eva-tablet [data-slot="stop-task-list"] { grid-column: 2; grid-row: 2 / 4; margin: 0 !important; }
+  .scr12-eva-tablet[data-tasks-open="true"] [data-slot="mini-map"] { visibility: hidden; }
+}
+@media (orientation: portrait) {
+  .scr12-eva-tablet { display: grid !important; grid-template-columns: minmax(0, 1fr); grid-template-rows: 64px 150px minmax(0, 1fr) 24px 200px; height: 100dvh; min-height: 0 !important; padding: 0 !important; gap: 0 !important; }
+  .scr12-eva-tablet > [aria-label="Navigation and tasks"] { display: grid !important; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; min-height: 0; }
+  /* FD-024: the portrait body is ONE column. NEXT and the task list share the first row, so the list is drawn over the
+     NEXT card (as in landscape) instead of beside it: auto-placement put the two into two columns of an implicit grid,
+     which shrank NEXT to half the width. */
+  .scr12-eva-tablet [data-slot="next"] { grid-column: 1; grid-row: 1; min-height: 0 !important; overflow: auto; }
+  .scr12-eva-tablet [data-slot="stop-task-list"] { grid-column: 1; grid-row: 1; z-index: 1; margin: 64px 0 0 !important; background: var(--panel); }
+  .scr12-eva-tablet [data-slot="mini-map"] { grid-column: 1; grid-row: 2; min-height: 0 !important; }
+}
+
+/* Package 18: overlays occupy the body. The alert, strip and action row remain outside their hit boxes. */
+.eva-fullmap-body { position: fixed; z-index: 40; left: 0; right: 0; top: 214px; bottom: 224px; }
+.eva-options-body { bottom: 224px; }
+.eva-options-body .scr14-options { padding: 8px !important; gap: 4px !important; overflow: hidden; }
+.eva-options-body .scr14-options > div:first-child { flex: 0 0 auto; padding-bottom: 0 !important; }
+.eva-options-body [role="radiogroup"], .eva-options-body .scr14-options > [role="group"] { min-height: 0; flex: 1 1 auto; }
+.eva-options-body .scr14-options > div:last-child { flex: 0 0 auto; padding-top: 0 !important; }
+.eva-live-surface[data-contrast="high"],
+.eva-live-surface[data-contrast="high"] [data-mode] {
+  --surface-0: #000; --surface-1: #000; --surface-2: #000;
+  --panel: #000; --raised: #000; --text-1: #fff; --text-2: #fff; --text-3: #fff;
+  --fg-1: #fff; --fg-2: #fff; --fg-3: #fff;
+  --ink: var(--hud-pill-ink);
+  --nominal: var(--hud-nominal); --caution: var(--hud-caution); --warning: var(--hud-warning); --advisory: var(--hud-advisory);
+  --status-nominal: var(--hud-nominal); --status-caution: var(--hud-caution); --status-warning: var(--hud-warning); --status-advisory: var(--hud-advisory); --status-unknown: var(--hud-text-2);
+}
+.eva-live-surface[data-contrast="high"] [data-screen="SCR-18"] .alert-bar {
+  background: #000 !important; background-image: none; color: var(--hud-caution) !important; border: 4px solid currentColor;
+}
+@media (orientation: landscape) {
+  .eva-fullmap-body { top: 64px; bottom: 96px; }
+  [data-slot="eva-options-sheet"].eva-options-body { left: 50%; right: 0; top: 64px; bottom: 96px; }
+}
+
+.eva-live-surface[data-contrast="high"] .hold.done { background: #000 !important; color: #fff !important; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .eva-options-body [data-slot="options-recommendation"] { display: none; }
+}
+@media (min-width: 768px) and (min-height: 600px) {
+  .scr12-eva-tablet [data-slot="telemetry-row"] .value { font-size: 64px !important; }
+}

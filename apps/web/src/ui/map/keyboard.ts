@@ -7,13 +7,17 @@
  * - Delete: removes selected stop (C11, 03 §C.3).
  * - B: opens Briefing (#/briefing) when plan is computed; disabled if no stops or on error (03 SCR-08, 04 §D).
  * - ?: opens Sources & Methods (#/sources) (03 SCR-02).
- * - A and Enter are deliberately NOT bound here (reserved for T08.07 add-stop crosshair mode).
- * - Shortcuts are ignored when focus is in an input or editable field.
+ * - A toggles and Enter places at the crosshair through `planContext.addStop`, the add-stop mode's own controller (T08.07, FD-117):
+ *   this file only delegates. Without `addStop` neither key is bound. Enter on a button or link is left to that control.
+ * - Shortcuts fire only when the key goes to the map viewport, the page body or a control inside the map element (zoom, rotate,
+ *   attribution). A key pressed on any other button, summary, link, [role=button] (and the other interactive roles), input,
+ *   textarea, select or contenteditable belongs to that control: Delete on a "Delete task" button must not delete the selected stop.
  * - Arrow keys are never hijacked (no preventDefault, no pan) when focus is inside a composite widget
  *   (radio group, listbox, menu, slider, tabs, ...): those own the arrows (04 §E, WAI-ARIA APG).
  * - Mounted by `createMap` (ui/map/createMap.ts, T07.06), whose focusable viewport is `getTargetElement`; the planner
  *   passes its `planContext` (Delete, B, ?) through `createMap`'s `keyboard` option. The screen that composes the
- *   map (SCR-02, T07.08) is the other mount point; until it exists no running app shows the keys.
+ *   map (SCR-02, T07.08, scr02MapWorkspace.tsx) passes its `planContext` there: the start waypoint is never offered to
+ *   Delete, and B is enabled only for OK, Over limits or Partial with a stop.
  * - Instant view transitions when prefers-reduced-motion is active (04 §E Motion).
  */
 
@@ -39,6 +43,14 @@ export interface KeyboardPlanContext {
   canOpenBriefing: () => boolean;
   /** Optional custom navigation handler (defaults to hash assignment). */
   navigate?: (route: string) => void;
+  /** The add-stop mode (T08.07): `A` toggles it and `Enter` places at the crosshair while it is on (FD-117). */
+  addStop?: AddStopControl;
+}
+
+export interface AddStopControl {
+  isActive: () => boolean;
+  toggle: () => void;
+  placeAtCrosshair: () => void | Promise<void>;
 }
 
 export interface KeyboardControlsOptions {
@@ -65,6 +77,38 @@ export function isEditableElement(target: EventTarget | null): boolean {
     return true;
   }
   return Boolean(target.isContentEditable);
+}
+
+/** Elements that take text or a choice: they keep every key, even inside the map element. */
+const ENTRY_SELECTOR = "input, textarea, select, [contenteditable]:not([contenteditable='false'])";
+
+/** Controls that act on Enter, Space and sometimes Delete themselves; only those inside the map element are map controls. */
+const CONTROL_SELECTOR = [
+  "button",
+  "summary",
+  "a",
+  ...["button", "link", "tab", "switch", "checkbox", "radio", "menuitem", "menuitemcheckbox", "menuitemradio", "option", "textbox", "searchbox", "combobox", "slider", "spinbutton"].map(
+    (role) => `[role="${role}"]`,
+  ),
+].join(",");
+
+/**
+ * True when the key belongs to the control it was pressed on rather than to the map layer: any text entry, picker, button, summary,
+ * link or ARIA control outside the map element. `mapElement` (the focusable viewport) and the controls inside it are the map's own,
+ * so the shortcuts keep working there. A target that is not an element (the window, in tests) is the page.
+ */
+export function ownsItsKeys(target: EventTarget | null, mapElement?: Element | null): boolean {
+  if (!target || !(target instanceof Element)) {
+    return false;
+  }
+  if (target.closest(ENTRY_SELECTOR) !== null) {
+    return true;
+  }
+  const control = target.closest(CONTROL_SELECTOR);
+  if (control === null) {
+    return false;
+  }
+  return !(mapElement && mapElement.contains(control));
 }
 
 /** ARIA roles whose widgets use the arrow keys themselves (WAI-ARIA Authoring Practices composite widgets). */
@@ -147,8 +191,9 @@ export function attachKeyboardControls(options: KeyboardControlsOptions = {}): (
   }
 
   const handleKeyDown = (event: KeyboardEvent) => {
-    // 1. Ignore shortcuts when typing in inputs or contentEditable (04 §E)
-    if (isEditableElement(event.target)) {
+    // 1. Ignore shortcuts when typing in inputs or contentEditable (04 §E), and when another control owns the key.
+    const mapElement = mapHandle?.getTargetElement?.() ?? null;
+    if (isEditableElement(event.target) || ownsItsKeys(event.target, mapElement)) {
       return;
     }
 
@@ -164,7 +209,6 @@ export function attachKeyboardControls(options: KeyboardControlsOptions = {}): (
     // 2. Map panning & zooming (04 §E)
     // Arrow keys and +/− must only pan/zoom when the map element actually has focus
     // (never hijack page-wide when no target element is set).
-    const mapElement = mapHandle?.getTargetElement?.();
     const mapHasFocus = Boolean(
       mapElement &&
         (mapElement === document.activeElement ||
@@ -205,6 +249,23 @@ export function attachKeyboardControls(options: KeyboardControlsOptions = {}): (
       }
     }
 
+    // 2b. Add-stop mode (T08.07, FD-117): A toggles; Enter places at the crosshair, unless a button or link has focus.
+    if (planContext?.addStop) {
+      if (key === "a" || key === "A") {
+        event.preventDefault();
+        planContext.addStop.toggle();
+        return;
+      }
+      if (key === "Enter" && planContext.addStop.isActive()) {
+        const control = event.target instanceof Element ? event.target.closest("button, a, [role='button'], [role='switch'], [role='radio'], [role='tab']") : null;
+        if (!control) {
+          event.preventDefault();
+          void planContext.addStop.placeAtCrosshair();
+          return;
+        }
+      }
+    }
+
     // 3. Delete selected stop (C11, 03 §C.3)
     if (key === "Delete" && planContext) {
       const selectedId = planContext.getSelectedStopId();
@@ -234,7 +295,6 @@ export function attachKeyboardControls(options: KeyboardControlsOptions = {}): (
       return;
     }
 
-    // Note: 'A' and 'Enter' are reserved for T08.07 (add-stop crosshair mode) and NOT bound here.
   };
 
   target.addEventListener("keydown", handleKeyDown as EventListener);

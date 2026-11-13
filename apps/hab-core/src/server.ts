@@ -13,11 +13,13 @@
  * `session.advance(steps)`.
  */
 import { existsSync } from "node:fs";
+import { networkInterfaces, type NetworkInterfaceInfo } from "node:os";
 import { performance } from "node:perf_hooks";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
+import QRCode from "qrcode";
 import { WebSocketServer, type WebSocket } from "ws";
 import {
   CSP_HEADER,
@@ -70,6 +72,25 @@ export interface ServerOptions {
   webDir?: string;
   /** Site bundles; default `data/sites`. */
   sitesDir?: string;
+  /** The host the join QR codes name (`--public-host`, BD-82); default: the first non-internal IPv4 address, else `localhost`. */
+  publicHost?: string;
+}
+
+/** Roles a device can join as by QR (the web app's `#/join?role=` list, 03 SCR-10): every role but `presenter`, which has no join page. */
+const JOIN_QR_ROLES: readonly Role[] = ["planner", "ops", "eva:EV1", "eva:EV2", "hud:EV1", "hud:EV2", "earth"];
+
+/** BD-82: the host in the join URL: the flag, else the first non-internal IPv4 address, else `localhost`. Reads only the interface list. */
+export function defaultPublicHost(flag: string | undefined, nics: NodeJS.Dict<NetworkInterfaceInfo[]> = networkInterfaces()): string {
+  if (flag !== undefined && flag !== "") return flag;
+  for (const list of Object.values(nics)) {
+    for (const nic of list ?? []) if (nic.family === "IPv4" && !nic.internal) return nic.address;
+  }
+  return "localhost";
+}
+
+/** BD-82: `http://<host>:<port>/#/join?role=<role>`; `role` is one of `JOIN_QR_ROLES`, so it needs no escaping. */
+export function joinUrl(host: string, port: number, role: string): string {
+  return `http://${host}:${port}/#/join?role=${role}`;
 }
 
 export interface HabServer {
@@ -93,6 +114,8 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
   const startedAt = Date.now();
   const app: FastifyInstance = Fastify({ logger: false });
   const clients = new Set<Client>();
+  /** The port actually bound (set after `listen`; the join QR names it, `--port 0` included). */
+  let boundPort = options.port;
 
   app.addHook("onSend", async (_req, reply) => {
     reply.header("Content-Security-Policy", CSP);
@@ -116,19 +139,95 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     return session.snapshot(clientList(clients));
   });
 
-  app.get<{ Querystring: { after?: string } }>("/api/log", async (req, reply) => {
+  // N-05 (01-contract §7a): the lobby's small summary; GET /api/session stays the full SNAPSHOT (02 §E.5).
+  app.get("/api/session/summary", async (_req, reply) => {
+    if (!session) return reply.code(404).send({ error: "no session loaded" });
+    const snap = session.snapshot([]);
+    const evaStarted = session.eventsAfter(0).find((e) => e.kind === "EVA_STARTED");
+    return {
+      session_id: snap.session.session_id,
+      scenario_id: snap.session.scenario_id,
+      status: snap.session.status,
+      sim_time: snap.sim_time,
+      speed: snap.session.clock.speed,
+      paused: snap.session.clock.paused,
+      eva_start_utc: evaStarted?.sim_time ?? null,
+      hab_candidate_id: snap.session.hab_candidate_id,
+      plan_published: snap.plan !== null,
+    };
+  });
+
+  app.get<{ Querystring: { after?: string; download?: string } }>("/api/log", async (req, reply) => {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
     const after = Number(req.query.after ?? 0);
     if (!Number.isInteger(after) || after < 0) return reply.code(400).send({ error: "after must be a non-negative integer" });
     reply.type("application/x-ndjson");
+    // ?download=1 saves the log as `<session_id>.jsonl` (N-10; the ops console's "download the log").
+    if (req.query.download === "1") reply.header("Content-Disposition", `attachment; filename="${session.snapshot([]).session.session_id}.jsonl"`);
     return session.eventsAfter(after).map((e) => JSON.stringify(e)).join("\n");
+  });
+
+  // N-11 (BD-112): the coverage of a utility rover parked as a RELAY, a u8 grid in the comm_hab layout; 404 otherwise.
+  app.get<{ Params: { vehicle_id: string } }>("/api/relay-coverage/:vehicle_id", async (req, reply) => {
+    if (!session) return reply.code(404).send({ error: "no session loaded" });
+    const cov = session.relayCoverage(req.params.vehicle_id);
+    if (!cov) return reply.code(404).send({ error: `${req.params.vehicle_id} is not parked as a relay` });
+    const etag = `"${cov.rev}"`;
+    reply.header("ETag", etag).header("Cache-Control", "no-cache");
+    if (req.headers["if-none-match"] === etag) return reply.code(304).send();
+    reply.type("application/octet-stream");
+    return Buffer.from(cov.data.buffer, cov.data.byteOffset, cov.data.byteLength);
+  });
+
+  // N-30 (BD-158): the loaded scenario's ParamSets, dose series and Earth-link span, for SCR-09. Static for a session.
+  app.get("/api/scenario-meta", async (_req, reply) => {
+    if (!session?.scenarioMeta) return reply.code(404).send({ error: "no session loaded" });
+    return session.scenarioMeta();
+  });
+
+  // N-130 (BD-157): the crew and alerts as Earth sees them, one light time old; the Earth console polls it.
+  app.get("/api/earth-view", async (_req, reply) => {
+    if (!session?.earthView) return reply.code(404).send({ error: "no session loaded" });
+    reply.header("Cache-Control", "no-store");
+    return session.earthView();
+  });
+
+  // N-100, N-120 (BD-159): the walking time to the hab for every grid cell, float32 seconds, row 0 = north (compute habTimeField).
+  app.get("/api/hab-time-field", async (req, reply) => {
+    const field = session?.habTimeField?.() ?? null;
+    if (field === null) return reply.code(404).send({ error: "no hab time field: the session has no plan, grid or start waypoint" });
+    const etag = field.etag;
+    reply
+      .header("ETag", etag)
+      .header("Cache-Control", "no-cache")
+      .header("X-Grid-Width", String(field.width))
+      .header("X-Grid-Height", String(field.height))
+      .header("X-Grid-Origin-M", field.origin_m.join(","))
+      .header("X-Grid-Cell-M", String(field.cell_m))
+      .header("X-Unit", "s")
+      .header("X-Provenance", "modelled")
+      .header("X-Data-Version", field.data_version);
+    if (req.headers["if-none-match"] === etag) return reply.code(304).send();
+    reply.type("application/octet-stream");
+    return Buffer.from(field.seconds.buffer, field.seconds.byteOffset, field.seconds.byteLength);
+  });
+
+  // T28.02 (BD-82): the join QR for one role, an SVG built locally (no outbound request, NFR-01).
+  app.get<{ Querystring: { role?: unknown } }>("/api/join-qr", async (req, reply) => {
+    const role = req.query.role;
+    if (typeof role !== "string" || !JOIN_QR_ROLES.includes(role as Role)) {
+      return reply.code(400).send({ error: `role must be one of ${JOIN_QR_ROLES.join(", ")}` });
+    }
+    const svg = await QRCode.toString(joinUrl(defaultPublicHost(options.publicHost), boundPort, role), { type: "svg" });
+    reply.type("image/svg+xml").header("Cache-Control", "no-store");
+    return svg;
   });
 
   app.get("/api/report", async (_req, reply) => {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
     const events = session.eventsAfter(0);
     const snap = session.snapshot([]);
-    const report = buildReport(events, snap.session.log_hash, session.initialPlan());
+    const report = buildReport(events, snap.session.log_hash, session.initialPlan(), session.reportInputs());
     if (report.session_id === "unknown" && snap.session.session_id) {
       report.session_id = snap.session.session_id;
       report.scenario_id = snap.session.scenario_id;
@@ -281,6 +380,17 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
       app.log.error(err);
       return send(client, reject(command_id, "INVALID", "command failed"));
     }
+    const after = session.snapshot([]);
+    if (outcome.replaced === true || after.session.session_id !== before.session.session_id) {
+      // The session was replaced (RESET_SESSION, LOAD_SCENARIO; T32.15): a new session restarts seq, which a delta cannot
+      // express. The old session's closing events go out, the commander gets its result, then every client gets a fresh
+      // SNAPSHOT of the new session; the new session's own events are in it, and a client's feed restarts at it.
+      broadcastEvents(outcome.events);
+      send(client, outcome.result);
+      const list = clientList(clients);
+      for (const c of clients) if (c.joined) send(c, { ...after, clients: list });
+      return;
+    }
     publish(before, outcome.events);
     send(client, outcome.result);
   }
@@ -288,17 +398,11 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
   /**
    * Tell every client what a command or a batch of ticks did: the EVENTs, then the STATE_DELTA between the session's
    * state before and after, so `state()` on each client follows (alerts, options, tasks, clock, not only crew fields).
-   * A new session (LOAD_SCENARIO) restarts seq, which a delta cannot express: every client gets a fresh SNAPSHOT first.
+   * A command that replaces the session never comes here (see onCommand); a tick never does.
    */
   function publish(before: Snapshot, events: LogEvent[], tickChanges: StateChange[] = []): void {
     if (!session) return;
     const after = session.snapshot([]);
-    if (after.session.session_id !== before.session.session_id) {
-      const list = clientList(clients);
-      for (const c of clients) if (c.joined) send(c, { ...after, clients: list });
-      broadcastEvents(events);
-      return;
-    }
     broadcastEvents(events);
     // The diff comes last, so it wins a path the tick also reported (last value per path, 02 §D.14).
     const changes = [...tickChanges, ...diffSnapshots(before, after)];
@@ -306,7 +410,33 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
   }
 
   function broadcastEvents(events: LogEvent[]): void {
-    for (const event of events) broadcast(eventMessage(event));
+    for (const event of events) {
+      broadcast(eventMessage(event));
+      sendLinkState(event);
+    }
+  }
+
+  /**
+   * T26.02 (02 §A.5, §E.6): when a suit's simulated surface link changes, its own `eva:` and `hud:` sockets get one
+   * LINK_STATE, with the hops and first hop kind the engine left on the crew member (BD-103); no other client does. The
+   * EVENT itself went to everyone just before. A link event for a node that is not a crew member sends nothing.
+   */
+  function sendLinkState(event: LogEvent): void {
+    if (event.kind !== "LINK_LOST" && event.kind !== "LINK_RESTORED") return;
+    const crew_id = (event.data as LogEventData["LINK_LOST"]).node_id;
+    const member = session?.snapshot([]).crew.find((c) => c.crew_id === crew_id);
+    if (!member) return;
+    const msg: ServerMessage = {
+      v: PROTOCOL_VERSION,
+      type: "LINK_STATE",
+      seq: event.seq,
+      sim_time: event.sim_time,
+      crew_id: member.crew_id,
+      linked: event.kind === "LINK_RESTORED",
+      link_hops: member.link_hops ?? null,
+      link_via: member.link_via ?? null,
+    };
+    for (const c of clients) if (c.joined && (c.role === `eva:${crew_id}` || c.role === `hud:${crew_id}`)) send(c, msg);
   }
 
   function broadcast(msg: ServerMessage): void {
@@ -359,6 +489,7 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
   }
   const address = app.server.address();
   const port = typeof address === "object" && address ? address.port : options.port;
+  boundPort = port;
   const urlHost = host === "0.0.0.0" ? "127.0.0.1" : host;
 
   return {

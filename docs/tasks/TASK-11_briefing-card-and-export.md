@@ -280,16 +280,16 @@ T11.03 and T11.04 also code against the T11.02 stub signature (soft, through T07
 
 ## Spec questions
 
-1. **Plan name.** 03 SCR-08 and 04 §F put a "plan name" in the header, but no 05 entity has a name field — `TODO(decision)`.
+1. **Plan name.** 03 SCR-08 and 04 §F put a "plan name" in the header, but no 05 entity has a name field. Decided: FD-133 (12 Nov 2026, Proposed); the header reads "Plan for <site name> — <EVA start date>".
 2. **Canonical numbers.** 05 §C says the hash input uses "numbers as written"; JavaScript serialises `6.0` as `6`, so another implementation could hash differently — `TODO(decision)` on the number format.
-3. **Disclaimer text.** 05 §F.3 shows a short disclaimer; 01 §F.1 gives the full prototype boundary that "must appear in the app" — which one goes into the export and the card footer? `TODO(decision)`.
+3. **Disclaimer text.** 05 §F.3 shows a short disclaimer; 01 §F.1 gives the full prototype boundary that "must appear in the app" — which one goes into the export and the card footer? Decided: FD-135 (12 Nov 2026, Proposed); the export and the card footer carry the full 01 §F.1 text.
 4. **Provenance mapping.** 05 §C requires `provenance_summary` but lists value paths only in the 05 §F.3 example, and no contract owns the value-path → provenance and source-id table that the metric chips and the export should share. Map change proposed: give that table an owner (C10 or the T12.04 content file).
 5. **Demo radiation value.** 01 §E step 8 expects 0.19 mSv for a 7 h EVA, but the default maximum EVA duration is 6 h (FR-05) and the dose uses the planned EVA total (05 §F.3), so that demo plan would be Over limits unless the limit is raised — `TODO(decision)` for T07.14 and T17.01.
-6. **Fallback thumbnail.** No thumbnail asset exists in 02 §E.1 or 05 Asset for the 06 fallback — `TODO(decision)` (a T03.25 PNG or the SCR-01 context thumbnail).
-7. **Header and table sources.** 03's "generated time" (`computed_utc` or print time?) and the 04 §F "notes" column have no defined source — `TODO(decision)`.
-8. **Direct `#/briefing`.** 03 SCR-08 defines when the Briefing button is disabled but not what the route shows with no computed plan — `TODO(decision)`.
+6. **Fallback thumbnail.** No thumbnail asset exists in 02 §E.1 or 05 Asset for the 06 fallback — `TODO(decision)` (a T03.25 PNG or the SCR-01 context thumbnail). Decided: FD-137 (12 Nov 2026, Proposed).
+7. **Header and table sources.** 03's "generated time" (`computed_utc` or print time?) and the 04 §F "notes" column have no defined source. Decided: FD-138 (12 Nov 2026, Proposed); the generated time is the exported `computed_utc` and the notes column carries the POI name and the authored task count.
+8. **Direct `#/briefing`.** 03 SCR-08 defines when the Briefing button is disabled but not what the route shows with no computed plan. Decided: FD-139 (12 Nov 2026, Proposed); the card shows the empty banner "Add at least one stop" and a Back to map action.
 9. **Version strings.** 05 §F.3 gives `export_schema_version` "1.0.0" and `app_version` "0.1.0" as examples only; whether `app_version` follows `apps/web/package.json` is `TODO(decision)`.
-10. **U-11** (store profile arrays in the export or recompute them) is open in contract C3 (map [§d](_coordination.md#d-contracts-registry)); it changes the export size, not the card.
+10. **U-11** (store profile arrays in the export or recompute them) is open in contract C3 (map [§d](_coordination.md#d-contracts-registry)); it changes the export size, not the card. Decided: FD-204 (12 Nov 2026, Proposed); the export stores the profile arrays and SCR-08 renders from the export.
 11. **Web Crypto.** SHA-256 through Web Crypto needs a secure context — `TODO(verify)` for `make demo` on 127.0.0.1 and for any LAN or projector address used at the venue.
 12. **Map change proposed — two cross-task hard edges not in map §f:** T07.06 → T11.04 (a snapshot needs a rendered map) and T07.03 → T11.05 (print and export are checked on the `#/briefing` route of the integrated app). Both are already ordered by the milestones (M3 before M4).
 13. **Reload test.** FR-14 says re-loading the export "in a test"; T11.05 does it with an uncommitted scratch script. Map change proposed if a committed regression test is wanted: a `follow-up:` subtask owning a new reload test, after T05.32.

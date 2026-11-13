@@ -57,3 +57,7 @@ docs/design/prototype/test/*.png
 !data/sites/mock_site/tiles/**
 !data/sites/mock_site/grid/
 !data/sites/mock_site/grid/**
+# Frontend verification harness (plan 01): run output, scenario copy, capture footage (FD-164) never enter git
+apps/web/e2e/out/
+scenarios/e2e-fake/
+var/videos/

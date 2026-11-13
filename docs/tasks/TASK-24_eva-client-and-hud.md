@@ -326,5 +326,5 @@ flowchart LR
 ## Spec questions
 
 1. **Task count on the HUD** (U-54): sixth value or STOP sub-label. Decision before T24.08.
-2. **TASKS button and list placement on a phone in landscape** (U-51) and **collapse rules during an alert** (U-59): decide before T24.04.
+2. **TASKS button and list placement on a phone in landscape** (U-51) and **collapse rules during an alert** (U-59): decide before T24.04. *Decided: FD-024 and FD-032 (12 Nov 2026, Proposed); built and checked in the browser round of 12 Nov (package 17)* — the TASKS n/m button sits in the NEXT card header, the list takes the map column on a phone in landscape and the NEXT position on tablets and in portrait, and the list collapses to a non-interactive count while the options sheet is open or a warning is unacknowledged.
 3. **Landscape full-screen map card size** (U-60): 40/48 px against the 56 px rule; decided by usability test UT-9 (TASK-15).

@@ -5,8 +5,9 @@ import {
   makePlaneGrid,
   makeRampGrid,
   withoutTi,
+  FIXTURE_PROJ4,
 } from "../../../apps/web/tests/fixtures/grids";
-import { samplePoint, sampleProfile } from "../src/sampling";
+import { inverseEqc, parseEqcProjection, samplePoint, sampleProfile } from "../src/sampling";
 import * as snapModule from "../src/snap";
 
 // Mock snap.ts so samplePoint tests can verify snap integration (T05.06 / T05.17)
@@ -194,6 +195,52 @@ describe("samplePoint", () => {
     const resultOrigin = samplePoint(grid, 0, 0, 50, 15);
     expect(resultOrigin.lat!).toBeCloseTo(-4.70, 4);
     expect(resultOrigin.lon_e!).toBeCloseTo(137.38, 4);
+  });
+});
+
+/** The gale_boxwork working projection (`pipeline/src/marswalk_pipeline/config.py` WORKING_PROJ): a different AOI centre. */
+const GALE_PROJ4 = "+proj=eqc +lat_ts=-4.81 +lat_0=-4.81 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs";
+
+// BD-45: the projection origin is read from the manifest's working-projection proj4 string, never from a constant.
+describe("parseEqcProjection and the grid's own projection (BD-45)", () => {
+  it("reads lat_0, lon_0 and lat_ts from the string", () => {
+    expect(parseEqcProjection(FIXTURE_PROJ4)).toEqual({ lat_0: -4.7, lon_0: 137.38, lat_ts: -4.7 });
+    expect(parseEqcProjection(GALE_PROJ4)).toEqual({ lat_0: -4.81, lon_0: 137.38, lat_ts: -4.81 });
+  });
+
+  it("takes lat_ts as 0 when absent (the PROJ default), independent of lat_0", () => {
+    const origin = parseEqcProjection("+proj=eqc +lat_0=-4.81 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs");
+    expect(origin).toEqual({ lat_0: -4.81, lon_0: 137.38, lat_ts: 0 });
+  });
+
+  it.each([
+    ["not eqc", "+proj=merc +lat_ts=-4.7 +lat_0=-4.7 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs"],
+    ["missing lon_0", "+proj=eqc +lat_ts=-4.7 +lat_0=-4.7 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs"],
+    ["missing lat_0", "+proj=eqc +lat_ts=-4.7 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs"],
+    ["Earth radius", "+proj=eqc +lat_ts=-4.7 +lat_0=-4.7 +lon_0=137.38 +x_0=0 +y_0=0 +R=6378137 +units=m +no_defs"],
+    ["no radius", "+proj=eqc +lat_ts=-4.7 +lat_0=-4.7 +lon_0=137.38 +x_0=0 +y_0=0 +units=m +no_defs"],
+    ["false easting", "+proj=eqc +lat_ts=-4.7 +lat_0=-4.7 +lon_0=137.38 +x_0=100 +y_0=0 +R=3396190 +units=m +no_defs"],
+    ["non-numeric", "+proj=eqc +lat_ts=-4.7 +lat_0=north +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs"],
+    ["empty", ""],
+  ])("rejects a string that is %s", (_name, proj4) => {
+    expect(() => parseEqcProjection(proj4)).toThrow(/proj4|eqc|projection/i);
+  });
+
+  it("puts the origin cell centre at (lat_0, lon_0) whatever the AOI centre is", () => {
+    const origin = parseEqcProjection(GALE_PROJ4);
+    expect(inverseEqc(0, 0, origin)).toEqual({ lat: -4.81, lon_e: 137.38 });
+    // One degree of latitude on the 3,396,190 m sphere is R * pi / 180 metres.
+    const oneDegM = (3396190 * Math.PI) / 180;
+    expect(inverseEqc(0, oneDegM, origin).lat).toBeCloseTo(-3.81, 9);
+  });
+
+  it("samplePoint reports lat and lon from the grid's own proj4, which differs from the old constant", () => {
+    const plane = makePlaneGrid({ width: 100, height: 100, cell_m: 100, origin_m: [-5000, 5000] });
+    const gale = { ...plane, meta: { ...plane.meta, proj4: GALE_PROJ4 } };
+    const atOrigin = samplePoint(gale, 0, 0, 50, 15);
+    expect(atOrigin.lat!).toBeCloseTo(-4.81, 9);
+    expect(atOrigin.lon_e!).toBeCloseTo(137.38, 9);
+    expect(samplePoint(plane, 0, 0, 50, 15).lat!).toBeCloseTo(-4.7, 9);
   });
 });
 

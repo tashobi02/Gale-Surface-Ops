@@ -88,8 +88,10 @@ describe("C15 not frozen (Anjim's modules): exported names only", () => {
 });
 
 describe("C15 named constants carry their cited spec numbers", () => {
-  it("HAB_INGRESS_S is 5 min (02 §D.8 t_ingress, Assumed)", () => {
-    expect(compute.HAB_INGRESS_S).toBe(5 * 60);
+  it("the old hab-ingress constant no longer exists: hab ingress is the suit ParamSet key hab_ingress_min, read by habIngressS (BD-57)", () => {
+    const removed = ["HAB", "INGRESS", "S"].join("_"); // spelled out so a grep for the old name finds nothing
+    expect((compute as Record<string, unknown>)[removed]).toBeUndefined();
+    expect(typeof (compute as Record<string, unknown>).habIngressS).toBe("function");
   });
   it("VEHICLE_GRID_CELL_M is 10 m (02 §D.8)", () => {
     expect(compute.VEHICLE_GRID_CELL_M).toBe(10);

@@ -7,9 +7,9 @@
  * - A point is a protocol `TraversePoint` (`sol`, `source_id`, optional `site_drive`, `lat`, `lon_e`,
  *   `elevation_m`). A point with no numeric sol, no `source_id` that names a manifest DataSource, bad coordinates or
  *   no provenance class is skipped and listed in `skipped()`; nothing is defaulted (no sol 0, no stand-in source).
- * - Provenance is the manifest Layer's: the layer whose `asset_id` is the `traverse_asset`. Only when the manifest has
- *   no such layer (the mock site) is the feature's own class used, if it is one of the six. TODO(decision): the mock
- *   manifest has no traverse layer; the real one should declare it so the class comes from the manifest alone.
+ * - Provenance is the manifest Layer's: the layer whose `asset_id` is the `traverse_asset` (the real site declares it). Only
+ *   when the manifest has no such layer (the mock site) is the feature's own class used, if it is one of the six (FD-075):
+ *   no class is invented.
  * - Show/hide and opacity use the same names as the raster layers (SCR-03). The asset is fetched here; a failed or
  *   missing asset leaves the layer `unavailable` and everything else running (FR-16).
  * - `attach(handle)` listens to the map's pointer: hover labels the nearest point and a click selects it, within a
@@ -88,6 +88,8 @@ export interface TraverseLayerController {
   setOpacity(opacity: number): void;
   getOpacity(): number;
   getPointFeatures(): Feature<Point>[];
+  /** The class and DataSource the SCR-03 row shows: the first drawn point's (FD-075). Null when no point is drawn. */
+  describe(): { provenance: Provenance; sourceId: string } | null;
   /** Mark the point within `toleranceM` of `coord` as hovered (its sol label shows); null clears it. */
   setHover(coord: [number, number] | null, toleranceM?: number): void;
   getHoverLabel(coord: [number, number], toleranceM?: number): string | null;
@@ -285,6 +287,10 @@ export function createTraverseLayer(site: LoadedSite, options: TraverseLayerOpti
     setOpacity: (opacity) => layer.setOpacity(opacity),
     getOpacity: () => layer.getOpacity(),
     getPointFeatures: () => points,
+    describe() {
+      const first = points.length > 0 ? infos.get(points[0]) : undefined;
+      return first ? { provenance: first.provenance, sourceId: first.point.source_id } : null;
+    },
 
     setHover(coord, toleranceM = DEFAULT_HIT_TOLERANCE_M) {
       const next = coord ? nearest(coord, toleranceM) : null;

@@ -236,6 +236,34 @@ describe("createMap: reduced motion (04 §E Motion)", () => {
   });
 });
 
+describe("createMap: fitExtent options (FD-063)", () => {
+  it("fitExtent(extent, { animate: false }) is instant without the reduced-motion preference, and a plain call animates", () => {
+    const restore = stubReducedMotion(false);
+    try {
+      const { handle, map } = make(sizedHost(800, 600));
+      map.getView().cancelAnimations();
+      handle.fitExtent([-500, -500, 500, 500], { animate: false });
+      expect(map.getView().getAnimating()).toBe(false);
+      expect(handle.getCenter()[0]).toBeCloseTo(0, 6);
+      handle.fitExtent([-1500, -1500, 1500, 1500]);
+      expect(map.getView().getAnimating()).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+
+  it("under prefers-reduced-motion the fit is instant even when animation is asked for", () => {
+    const restore = stubReducedMotion(true);
+    try {
+      const { handle, map } = make(sizedHost(800, 600));
+      handle.fitExtent([-500, -500, 500, 500], { animate: true });
+      expect(map.getView().getAnimating()).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+});
+
 describe("createMap: coordinate readout, north arrow, scale bar (FR-01, FR-15)", () => {
   const readoutOf = (host: HTMLElement): HTMLElement => host.querySelector<HTMLElement>("[data-testid='coord-readout']")!;
 
@@ -269,20 +297,13 @@ describe("createMap: coordinate readout, north arrow, scale bar (FR-01, FR-15)",
     expect(readout.getAttribute("data-provenance")).toBe("derived");
   });
 
-  it("cites a DataSource that exists in the manifest (not an invented MARS_LOCAL id)", () => {
+  it("cites the working projection, not a dataset: derived, source proj:IAU_2015:49900 (FD-080)", () => {
     const { host, map } = make();
     pointerMove(map, [0, 0]);
-    const source = readoutOf(host).getAttribute("data-source")!;
-    expect(source).not.toMatch(/^MARS_LOCAL/);
-    expect(SITE.sources.has(source)).toBe(true);
-  });
-
-  it("uses the readoutSourceId option when it names a manifest source, and rejects one that does not", () => {
-    const other = [...SITE.sources.keys()].at(-1)!;
-    const { host, map } = make(undefined, { readoutSourceId: other });
-    pointerMove(map, [0, 0]);
-    expect(readoutOf(host).getAttribute("data-source")).toBe(other);
-    expect(() => createMap({ target: sizedHost(), site: SITE, readoutSourceId: "not-a-source" })).toThrow(/not-a-source/);
+    const readout = readoutOf(host);
+    expect(readout.getAttribute("data-provenance")).toBe("derived");
+    expect(readout.getAttribute("data-source")).toBe("proj:IAU_2015:49900");
+    expect(host.querySelector(".ol-scale-line")!.getAttribute("data-source")).toBe("proj:IAU_2015:49900");
   });
 
   it("goes back to — when the pointer leaves the map", () => {
@@ -304,7 +325,7 @@ describe("createMap: coordinate readout, north arrow, scale bar (FR-01, FR-15)",
 
   it("uses design tokens and no text below 12 px (04 §C.2)", () => {
     const { host } = make();
-    const styled = [...host.querySelectorAll<HTMLElement>("[data-testid], .ol-scale-line, .ol-attribution")];
+    const styled = [...host.querySelectorAll<HTMLElement>("[data-testid], .ol-scale-line")];
     expect(styled.length).toBeGreaterThanOrEqual(3);
     for (const el of styled) {
       const style = el.getAttribute("style") ?? "";

@@ -1,0 +1,30 @@
+[
+  {
+    "v": 1,
+    "type": "EVENT",
+    "seq": 3,
+    "sim_time": "",
+    "event": {
+      "seq": 3,
+      "sim_time": "",
+      "kind": "MISSION_SETUP_SET",
+      "actor": "ops",
+      "data": {
+        "vehicle_available": true,
+        "vehicle_param_set": "pr1-assumed"
+      },
+      "provenance": {},
+      "command_ref": {
+        "client_id": "c-9b21",
+        "command_id": "k-0151"
+      }
+    }
+  },
+  {
+    "v": 1,
+    "type": "COMMAND_RESULT",
+    "command_id": "k-0151",
+    "ok": true,
+    "event_seq": 3
+  }
+]

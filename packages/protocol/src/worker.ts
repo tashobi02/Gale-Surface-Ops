@@ -7,16 +7,13 @@
  *
  * Protocol v0 — freeze date 2026-11-07 (M1; T05.01, contract C6).
  *
- * Open decisions (coordination map open points 4, 5, 19):
- * - TODO(decision): Grid delivery to the worker. 02 §E.2 defines GRID_NOT_LOADED but no
- *   message that delivers the grid. Options: dedicated LOAD_GRID message transferring
- *   ArrayBuffers, or worker fetches grid binary directly from site assets.
- * - TODO(decision): Cancellation mechanism. Check every 50,000 expansions (02 §E.2) only sees
- *   newer messages if the search yields to the worker event loop or checks an abort flag.
- * - TODO(decision): SAMPLE_POINT passability depends on hard_slope_limit_deg (02 §D.2), but
- *   02 §E.2 example carries none; optional hard_slope_limit_deg supported below.
+ * Protocol v0.2 (2026-11-12, T32.01, C6 v1): decided in docs/plan/backend/decisions.md and written into 02 §E.2
+ * (Proposed 2026-11-12). Grid delivery: `LOAD_GRID` (BD-40), answered `GRID_LOADED` or `ERROR`; until then requests
+ * get `GRID_NOT_LOADED`. Cancellation: a cooperative yield every `CANCEL_CHECK_EVERY_EXPANSIONS` expansions, and a
+ * `COMPUTE_PLAN` with a higher `plan_revision` cancels the running one, which is answered `ERROR` `CANCELLED` (BD-41).
+ * SAMPLE_POINT keeps the optional `hard_slope_limit_deg` (BD-42). `VALIDATE_MANUAL_LEG` is the manual-leg fallback (T05.30).
  */
-import type { FlagName, MissionScenario, PlanResult, Waypoint } from "./schema";
+import type { EnvConstant, FlagName, Leg, MissionScenario, PlanResult, RoutingGrid, Waypoint, Warning } from "./schema";
 
 export interface SamplePointRequest {
   type: "SAMPLE_POINT";
@@ -79,8 +76,68 @@ export interface WorkerError {
   message: string;
 }
 
-export type WorkerRequest = SamplePointRequest | ComputePlanRequest;
-export type WorkerResponse = SampleResult | PlanResultMessage | WorkerError;
+/**
+ * The routing-grid metadata the worker needs: the 05 RoutingGrid record (the compute `LoadedGrid.meta`) plus the
+ * working-projection `proj4` string, byte-identical to the manifest's (05 §E.3; BD-45). No other new field.
+ */
+export type LoadedGridMeta = RoutingGrid & { proj4: string };
+
+/**
+ * Main thread -> worker: deliver the grid (BD-40). The arrays are transferred, not copied. Key names follow
+ * `LoadedGrid` / `loadGrid` in packages/compute/src/grid.ts (`slopeP90`, `slopeMax`, `commHab`); `ti` is null when the
+ * TI layer is unavailable (05 §E.6).
+ */
+export interface LoadGridRequest {
+  type: "LOAD_GRID";
+  request_id: string;
+  site_id: string;
+  data_version: string;
+  meta: LoadedGridMeta;
+  arrays: {
+    elevation: ArrayBuffer;
+    slopeP90: ArrayBuffer;
+    slopeMax: ArrayBuffer;
+    flags: ArrayBuffer;
+    ti: ArrayBuffer | null;
+    commHab: ArrayBuffer;
+  };
+  /**
+   * The site's EnvConstant records (the manifest's `env_constants`, 05 §E.3), delivered with the grid so the worker can
+   * estimate the background dose (BD-122, 02 §D.4). Absent: PLAN_RESULT carries no `radiation`.
+   */
+  env_constants?: EnvConstant[];
+}
+
+export interface GridLoaded {
+  type: "GRID_LOADED";
+  request_id: string;
+  site_id: string;
+  data_version: string;
+}
+
+/** Manual-leg fallback (T05.30, N-25): validate a hand-drawn leg against the grid and the scenario limits. */
+export interface ValidateManualLegRequest {
+  type: "VALIDATE_MANUAL_LEG";
+  request_id: string;
+  plan_revision: number;
+  scenario: MissionScenario;
+  /** Waypoint ids. */
+  from: string;
+  to: string;
+  /** Working-projection metres. */
+  vertices: [number, number][];
+}
+
+export interface ManualLegResult {
+  type: "MANUAL_LEG_RESULT";
+  request_id: string;
+  plan_revision: number;
+  leg: Leg;
+  warnings: Warning[];
+}
+
+export type WorkerRequest = LoadGridRequest | SamplePointRequest | ComputePlanRequest | ValidateManualLegRequest;
+export type WorkerResponse = GridLoaded | SampleResult | PlanResultMessage | ManualLegResult | WorkerError;
 
 /** Cooperative cancellation check interval, node expansions (02 §E.2). */
 export const CANCEL_CHECK_EVERY_EXPANSIONS = 50_000;

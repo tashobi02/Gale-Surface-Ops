@@ -67,8 +67,9 @@ def test_synthetic_rasters_run_through_grid_and_comm(tmp_path):
     raster(work / 'dem/aoi_1m.tif', 1, 100, 'float32', -9999)
     raster(work / 'ortho/hirise_lrgb_aoi.tif', .5, 90, 'uint8', 0)
     raster(work / 'ti/themis_ti_aoi_pad1km.tif', 100, 10, 'float32', -9999)
+    absent_lock = tmp_path / 'no-such.lock.json'  # the committed lock now names real files, which this synthetic work folder does not hold
     for step in runner.STEPS[1:6]:
-        runner._run_step(step, root, site, work, out)
+        runner._run_step(step, root, site, work, out, lock_path=absent_lock)
     elevation = np.fromfile(out / 'grid/elevation.f32', dtype='<f4')
     flags = np.fromfile(out / 'grid/flags.u8', dtype='u1')
     ti = np.fromfile(out / 'grid/ti_100m.f32', dtype='<f4')
@@ -271,73 +272,6 @@ def test_local_source_paths_are_configurable(tmp_path, monkeypatch):
     assert observed[0] == {'dem': Path('a.tif'), 'ortho': Path('b.tif'), 'ti': Path('c.tif')}
 
 
-def test_tiles_follow_record_and_stop_on_unknown_ramp(tmp_path, monkeypatch):
-    import json
-    from marswalk_pipeline import tiles
-    site = tmp_path / 'site'
-    (site / 'layers').mkdir(parents=True)
-    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
-    for name in ('ortho', 'hillshade', 'slope', 'elevation'):
-        record = {'tile_grid': {'origin_m': [0, 100], 'resolutions_m': [32, 2], 'tile_size_px': 256, 'format': 'png'}, 'legend': {'stops': 'TODO(verify)'}}
-        (site / 'layers' / f'{name}.json').write_text(json.dumps(record))
-    rendered = []
-    monkeypatch.setattr(tiles, 'render_tiles', lambda *args, **kwargs: rendered.append((args, kwargs)))
-    with pytest.raises(ValueError, match='elevation.*colour ramp'):
-        runner._run_step('tiles', tmp_path, site, tmp_path / 'work', tmp_path / 'out')
-    assert [args[1] for args, _ in rendered] == ['ortho', 'hillshade', 'slope']
-    assert rendered[0][0][3] == [32, 2]
-    assert rendered[1][1]['hillshade']
-    assert rendered[2][1]['data_encoded']
-
-
-def test_gale_ortho_is_tiled_as_jpeg_at_half_metre(tmp_path, capsys, monkeypatch):
-    import shutil
-    import numpy as np
-    rasterio = pytest.importorskip('rasterio')
-    from rasterio.transform import from_origin
-    from marswalk_pipeline import config
-
-    root = Path(runner.__file__).resolve().parents[3]
-    source_layers = root / 'pipeline/sites/gale_boxwork/layers'
-    site = tmp_path / 'site'
-    shutil.copytree(source_layers, site / 'layers')
-    ortho = json.loads((site / 'layers/ortho.json').read_text())
-    assert ortho['tile_grid']['resolutions_m'] == config.ORTHO_TILE_RESOLUTIONS_M
-    assert ortho['tile_grid']['resolutions_m'] == [32, 16, 8, 4, 2, 0.5]
-    assert ortho['tile_grid']['format'] == 'jpg'
-    x, y = ortho['tile_grid']['origin_m']
-    resolution = ortho['tile_grid']['resolutions_m'][-1]
-    size = 2  # Synthetic raster shape, not a terrain measurement.
-    (site / 'site.json').write_text(json.dumps({
-        'site_id': 'gale_boxwork', 'aoi': {'extent_m': [x, y - size * resolution, x + size * resolution, y]},
-    }))
-    for name in ('hillshade', 'slope', 'elevation', 'thermal_inertia', 'hazard_flags', 'comm_hab'):
-        layer = json.loads((site / 'layers' / f'{name}.json').read_text())
-        assert layer['tile_grid']['resolutions_m'] == config.TILE_RESOLUTIONS_M
-        assert layer['tile_grid']['format'] == 'png'
-
-    # This test is about the ortho ladder, not the state of other layers' ramps.
-    deferred = {'elevation', 'thermal_inertia', 'hazard_flags', 'comm_hab'}
-    monkeypatch.setattr(runner, '_unstyled_layers', lambda _: {name: 'test' for name in deferred})
-    monkeypatch.setattr(runner, '_skipped_layers', lambda _: deferred)
-
-    scratch = tmp_path / 'work/runs/gale_boxwork'
-    scratch.mkdir(parents=True)
-    for name, dtype in (('ortho', 'uint8'), ('hillshade', 'float32'), ('slope', 'float32')):
-        with rasterio.open(scratch / f'{name}.tif', 'w', driver='GTiff', width=size, height=size,
-                           count=1, dtype=dtype, transform=from_origin(x, y, resolution, resolution)) as dst:
-            dst.write(np.zeros((size, size), dtype=dtype), 1)
-
-    output = tmp_path / 'out'
-    runner._run_step('tiles', root, site, tmp_path / 'work', output, skip_unstyled_optional=True)
-    levels = ortho['tile_grid']['resolutions_m']
-    finest = output / f'tiles/ortho/{len(levels) - 1}/0/0.jpg'
-    with rasterio.open(finest) as tile:
-        assert tile.driver == 'JPEG'
-    index = json.loads((output / 'tiles/ortho/index.json').read_text())
-    assert {entry['path'] for entry in index['tiles']} == {f'{z}/0/0.jpg' for z in range(len(levels))}
-    assert not list((output / 'tiles/ortho').rglob('*.png'))
-    assert 'ortho record PNG/2 m' not in capsys.readouterr().err
 
 
 def test_site_id_mismatch_stops_before_steps(tmp_path, monkeypatch, capsys):
@@ -359,41 +293,6 @@ def test_lock_argument_and_version_are_passed_to_acquire(tmp_path, monkeypatch):
     assert json.loads(lock.read_text())['data_version'] == 'v1'
 
 
-def test_skip_unstyled_optional_and_manifest_exclusion(tmp_path, monkeypatch, capsys):
-    import json
-    from marswalk_pipeline import tiles, manifest
-    site = tmp_path / 'site'
-    (site / 'layers').mkdir(parents=True)
-    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'data_version': 'v', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
-    for name in ('ortho', 'hillshade', 'slope', 'elevation', 'thermal_inertia', 'hazard_flags', 'comm_hab'):
-        record = {'layer_id': name, 'optional': name in ('elevation', 'thermal_inertia', 'hazard_flags', 'comm_hab'), 'tile_grid': {'origin_m': [0, 100], 'resolutions_m': [1], 'tile_size_px': 2, 'format': 'png'}}
-        if name in ('elevation', 'thermal_inertia'):
-            record['legend'] = {'stops': 'TODO(verify)'}
-        (site / 'layers' / f'{name}.json').write_text(json.dumps(record))
-    rendered, excluded = [], []
-    monkeypatch.setattr(tiles, 'render_tiles', lambda *args, **kwargs: rendered.append(args[1]))
-    monkeypatch.setattr(manifest, 'write_manifest', lambda *args, **kwargs: excluded.extend(kwargs['exclude_layers']))
-    for step in ('tiles', 'manifest'):
-        runner._run_step(step, tmp_path, site, tmp_path / 'work', tmp_path / 'out', skip_unstyled_optional=True)
-    assert rendered == ['ortho', 'hillshade', 'slope']
-    assert set(excluded) == {'elevation', 'thermal_inertia', 'hazard_flags', 'comm_hab'}
-    warnings = capsys.readouterr().err
-    assert all(name in warnings for name in excluded)
-    assert 'TODO(decision)' in warnings
-
-
-def test_thermal_inertia_unresolved_ramp_stops(tmp_path, monkeypatch):
-    import json
-    from marswalk_pipeline import tiles
-    site = tmp_path / 'site'
-    (site / 'layers').mkdir(parents=True)
-    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
-    for name in ('ortho', 'hillshade', 'slope', 'elevation', 'thermal_inertia'):
-        legend = {'stops': 'TODO(verify)'} if name == 'thermal_inertia' else {}
-        (site / 'layers' / f'{name}.json').write_text(json.dumps({'layer_id': name, 'legend': legend, 'tile_grid': {'origin_m': [0, 100], 'resolutions_m': [1], 'tile_size_px': 2, 'format': 'png'}}))
-    monkeypatch.setattr(tiles, 'render_tiles', lambda *args, **kwargs: None)
-    with pytest.raises(ValueError, match='thermal_inertia.*colour ramp'):
-        runner._run_step('tiles', tmp_path, site, tmp_path / 'work', tmp_path / 'out')
 
 
 def test_clip_resolves_acquired_sources_and_respects_override(tmp_path, monkeypatch):
@@ -443,15 +342,234 @@ def test_acquire_fills_scratch_lock_and_cli_forwards_it(tmp_path, monkeypatch):
     assert all(call['lock_path'] == tmp_path / 'pipeline/sources.lock.json' and not call['skip_unstyled_optional'] for call in calls)
 
 
-def test_skip_does_not_hide_required_unstyled_layer(tmp_path, monkeypatch):
+def test_offline_flag_reaches_the_acquire_step_only_when_given(tmp_path, monkeypatch):
+    (tmp_path / 'site.json').write_text('{"site_id": "site"}')
+    monkeypatch.setattr(runner, '_paths', lambda _: (tmp_path, tmp_path, tmp_path / 'w', tmp_path / 'o'))
+    calls = []
+    monkeypatch.setattr(runner, '_run_step', lambda *args, **kwargs: calls.append(kwargs))
+    assert runner.main(['site', '--offline']) == 0
+    assert calls and all(call['offline'] is True for call in calls)
+    calls.clear()
+    assert runner.main(['site']) == 0
+    assert calls and all(call['offline'] is False for call in calls)
+
+
+def test_acquire_step_passes_offline_to_fetch_sources(tmp_path, monkeypatch):
     import json
-    from marswalk_pipeline import tiles
+    from marswalk_pipeline import acquire
     site = tmp_path / 'site'
-    (site / 'layers').mkdir(parents=True)
-    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
-    for name in ('ortho', 'hillshade', 'slope', 'elevation'):
-        record = {'layer_id': name, 'optional': False, 'legend': {'stops': 'TODO(verify)'} if name == 'elevation' else {}, 'tile_grid': {'origin_m': [0, 100], 'resolutions_m': [1], 'tile_size_px': 2, 'format': 'png'}}
-        (site / 'layers' / f'{name}.json').write_text(json.dumps(record))
-    monkeypatch.setattr(tiles, 'render_tiles', lambda *args, **kwargs: None)
-    with pytest.raises(ValueError, match='elevation.*colour ramp'):
-        runner._run_step('tiles', tmp_path, site, tmp_path / 'work', tmp_path / 'out', skip_unstyled_optional=True)
+    site.mkdir()
+    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'data_version': 'v', 'aoi': {'extent_m': [0, 0, 100, 100]}}))
+    seen = {}
+    monkeypatch.setattr(acquire, 'fetch_sources', lambda lock, work, **kw: seen.update(kw))
+    runner._run_step('acquire', tmp_path, site, tmp_path / 'work', tmp_path / 'out', offline=True)
+    assert seen == {'data_version': 'v', 'offline': True}
+
+
+# --- Display tiles (BD-17, BD-18, BD-22; C9) ---------------------------------------------------
+
+DISPLAY_LAYERS = ('ortho', 'hillshade', 'slope', 'elevation', 'thermal_inertia', 'hazard_flags', 'comm_hab')
+SITE_ROOT = Path(runner.__file__).resolve().parents[3]
+
+
+def _tiles_fixture(tmp_path, *, elevation=None, ti=None, flags=None, comm=None):
+    """A 10 m x 10 m corner of the real tile grid with every raster the tiles step reads."""
+    import shutil
+    import numpy as np
+    rasterio = pytest.importorskip('rasterio')
+    from rasterio.enums import ColorInterp
+    from rasterio.transform import from_origin
+    from marswalk_pipeline.comm_grid import write_comm_hab
+
+    site = tmp_path / 'site'
+    shutil.copytree(SITE_ROOT / 'pipeline/sites/gale_boxwork/layers', site / 'layers')
+    extent = [-3000, 2990, -2990, 3000]
+    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': extent}}))
+    scratch = tmp_path / 'work/runs/gale_boxwork'
+    scratch.mkdir(parents=True)
+    out = tmp_path / 'out'
+
+    def write(name, array, cell, dtype, nodata=None):
+        rows, cols = array.shape[-2:]
+        count = array.shape[0] if array.ndim == 3 else 1
+        with rasterio.open(scratch / name, 'w', driver='GTiff', width=cols, height=rows, count=count, dtype=dtype,
+                           transform=from_origin(-3000, 3000, cell, cell), nodata=nodata) as dst:
+            dst.write(array if array.ndim == 3 else array[np.newaxis])
+            if name == 'ortho.tif':
+                dst.colorinterp = (ColorInterp.red, ColorInterp.green, ColorInterp.blue, ColorInterp.alpha)
+
+    elevation = np.arange(100, dtype='float32').reshape(10, 10) if elevation is None else elevation
+    ti = np.arange(4, dtype='float32').reshape(2, 2) if ti is None else ti
+    write('dem.tif', elevation, 1, 'float32', np.nan)
+    write('ti.tif', ti, 5, 'float32', np.nan)
+    ortho = np.full((4, 20, 20), 120, dtype='uint8')
+    ortho[3] = 255
+    write('ortho.tif', ortho, .5, 'uint8')
+    write('hillshade.tif', np.full((10, 10), .5, dtype='float32'), 1, 'float32', np.nan)
+    write('slope.tif', np.full((10, 10), 5, dtype='float32'), 1, 'float32', np.nan)
+    np.save(scratch / 'flags.npy', np.zeros((2, 2), dtype='uint8') if flags is None else flags)
+    write_comm_hab(out, np.array([[0, 1], [255, 1]], dtype='uint8') if comm is None else comm)
+    return site, tmp_path / 'work', out, scratch
+
+
+def _pixel(out, layer, z=0, x=0, y=0, ext='png'):
+    rasterio = pytest.importorskip('rasterio')
+    with rasterio.open(out / f'tiles/{layer}/{z}/{x}/{y}.{ext}') as tile:
+        return tile.read()
+
+
+def test_every_display_layer_is_built_by_default(tmp_path):
+    """BD-17: nothing is deferred; all seven display layers are tiled and indexed."""
+    site, work, out, _ = _tiles_fixture(tmp_path)
+    runner._run_step('tiles', SITE_ROOT, site, work, out)
+    for layer in DISPLAY_LAYERS:
+        assert (out / f'tiles/{layer}/index.json').is_file(), layer
+
+
+def test_bd17_ramp_stops_are_data_p2_p98_and_written_to_the_layer_records(tmp_path):
+    import numpy as np
+    elevation = np.arange(100, dtype='float32').reshape(10, 10)
+    elevation[0, :3] = np.nan                         # unknown cells never count
+    ti = np.array([[10, 20], [np.nan, 40]], dtype='float32')
+    site, work, out, _ = _tiles_fixture(tmp_path, elevation=elevation, ti=ti)
+    runner._run_step('tiles', SITE_ROOT, site, work, out)
+    for layer, values, unit in (('elevation', elevation, 'm'), ('thermal_inertia', ti, 'tiu')):
+        valid = values[np.isfinite(values)].astype('float64')
+        low, high = (float(np.percentile(valid, q)) for q in (2, 98))
+        record = json.loads((site / f'layers/{layer}.json').read_text())
+        assert record['legend']['type'] == 'ramp'
+        (low_value, low_label), (high_value, high_label) = record['legend']['stops']
+        assert (low_value, high_value) == pytest.approx((low, high), abs=1e-6)
+        assert low_label.endswith(unit) and high_label.endswith(unit)
+        assert 'TODO' not in (site / f'layers/{layer}.json').read_text()
+
+
+def test_bd17_ramp_tiles_use_the_stops(tmp_path):
+    from marswalk_pipeline import config
+    site, work, out, _ = _tiles_fixture(tmp_path)
+    runner._run_step('tiles', SITE_ROOT, site, work, out)
+    pixels = _pixel(out, 'elevation', z=4)          # 2 m: the 10 m corner spans five pixels
+    assert pixels[3, 0, 0] == 255
+    low, high = (tuple(pixels[:3, row, col]) for row, col in ((0, 0), (4, 4)))
+    assert low[0] < high[0]
+    assert all(config.DATA_RAMP_RGB[0][i] <= low[i] <= config.DATA_RAMP_RGB[-1][i] for i in range(3))
+
+
+def test_bd17_ramp_stops_are_deterministic(tmp_path):
+    site, work, out, _ = _tiles_fixture(tmp_path)
+    runner._run_step('tiles', SITE_ROOT, site, work, out)
+    first = (site / 'layers/elevation.json').read_text()
+    runner._run_step('tiles', SITE_ROOT, site, work, out)
+    assert (site / 'layers/elevation.json').read_text() == first
+
+
+def test_bd17_hazard_flag_tiles_use_the_status_colours(tmp_path):
+    import numpy as np
+    from marswalk_pipeline import config
+    flags = np.array([[1 << config.FLAG_BITS['HARD_HAZARD'], 0],
+                      [(1 << config.FLAG_BITS['LOW_RES_DEM']) | (1 << config.FLAG_BITS['TI_UNKNOWN']), 1 << config.FLAG_BITS['NO_DATA']]], dtype='uint8')
+    site, work, out, _ = _tiles_fixture(tmp_path, flags=flags)
+    runner._run_step('tiles', SITE_ROOT, site, work, out)
+    pixels = _pixel(out, 'hazard_flags', z=4)          # 2 m pixels; cells are 5 m: rows and columns 0-1 = first cell
+    colours = dict(config.HAZARD_DISPLAY_RGB)
+    assert tuple(pixels[:3, 0, 0]) == colours['HARD_HAZARD'] and pixels[3, 0, 0] == 255
+    assert pixels[3, 0, 4] == 0                         # no flag: transparent
+    assert tuple(pixels[:3, 4, 0]) == colours['LOW_RES_DEM']   # the higher-priority of two flags
+    assert tuple(pixels[:3, 4, 4]) == colours['NO_DATA']
+
+
+def test_bd17_comm_tiles_are_white_where_visible_and_transparent_elsewhere(tmp_path):
+    from marswalk_pipeline import config
+    site, work, out, _ = _tiles_fixture(tmp_path)
+    runner._run_step('tiles', SITE_ROOT, site, work, out)
+    pixels = _pixel(out, 'comm_hab', z=4)
+    assert pixels[3, 0, 0] == 0                         # cell (0,0) shadow
+    assert tuple(pixels[:3, 0, 4]) == config.COMM_VISIBLE_RGB and pixels[3, 0, 4] == 255
+    assert pixels[3, 4, 0] == 0                         # cell (1,0) no data
+
+
+def test_bd18_ortho_layer_record_states_the_background_rule():
+    record = json.loads((SITE_ROOT / 'pipeline/sites/gale_boxwork/layers/ortho.json').read_text())
+    assert 'background' in record['limitations'] and 'source mask' in record['limitations']
+    assert 'padding' not in record['limitations']
+
+
+def test_c9_tile_grids_of_the_gale_layer_records():
+    """C9: origin is the AOI's top-left corner, 256 px tiles, ladders from config, PNG except the JPEG ortho."""
+    from marswalk_pipeline import config
+    site = json.loads((SITE_ROOT / 'pipeline/sites/gale_boxwork/site.json').read_text())
+    minx, miny, maxx, maxy = site['aoi']['extent_m']
+    for layer in DISPLAY_LAYERS:
+        text = (SITE_ROOT / f'pipeline/sites/gale_boxwork/layers/{layer}.json').read_text()
+        assert 'TODO' not in text, layer
+        grid = json.loads(text)['tile_grid']
+        assert grid['origin_m'] == [minx, maxy]
+        assert grid['tile_size_px'] == 256
+        assert grid['resolutions_m'] == (config.ORTHO_TILE_RESOLUTIONS_M if layer == 'ortho' else config.TILE_RESOLUTIONS_M)
+        assert grid['format'] == ('jpg' if layer == 'ortho' else 'png')
+
+
+def test_ortho_is_tiled_as_jpeg_at_half_metre(tmp_path):
+    site, work, out, _ = _tiles_fixture(tmp_path)
+    runner._run_step('tiles', SITE_ROOT, site, work, out)
+    index = json.loads((out / 'tiles/ortho/index.json').read_text())
+    assert {entry['path'] for entry in index['tiles']} == {f'{z}/0/0.jpg' for z in range(6)}
+    assert not list((out / 'tiles/ortho').rglob('*.png'))
+    pixels = _pixel(out, 'ortho', z=5, ext='jpg')
+    assert abs(int(pixels[0, 5, 5]) - 120) <= 8
+
+
+def test_skip_unstyled_optional_skips_the_four_derived_display_layers(tmp_path, capsys):
+    """`--skip-unstyled-optional` stays an option (BD-17): optional derived layers are omitted and excluded from the manifest."""
+    from marswalk_pipeline import manifest
+    site, work, out, _ = _tiles_fixture(tmp_path)
+    runner._run_step('tiles', SITE_ROOT, site, work, out, skip_unstyled_optional=True)
+    assert {path.name for path in (out / 'tiles').iterdir()} == {'ortho', 'hillshade', 'slope'}
+    assert runner._skipped_layers(site) == {'elevation', 'thermal_inertia', 'hazard_flags', 'comm_hab'}
+    assert 'TODO' not in capsys.readouterr().err
+
+
+def test_vectors_step_copies_the_locked_poi_images_into_the_bundle(tmp_path):
+    """The POI image files of the lock (work/images/<poi_id>.jpg) are copied byte for byte to images/ of the bundle."""
+    pytest.importorskip('pyproj')
+    site = tmp_path / 'site'
+    (site / 'pois').mkdir(parents=True)
+    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [-1000, -1000, 1000, 1000]}}))
+    (site / 'pois' / 'poi-a.json').write_text(json.dumps({
+        'poi_id': 'poi-a', 'name': 'A', 'lat': -4.81, 'lon_e': 137.38, 'science_objective': 'x', 'why_it_matters': 'y',
+        'image_asset': 'img-a', 'image_credit': 'c', 'image_source_url': 'u',
+        'position_source': 'synthetic', 'position_uncertainty_m': 1, 'provenance': 'assumed'}))
+    (tmp_path / 'work/images').mkdir(parents=True)
+    (tmp_path / 'work/images/poi-a.jpg').write_bytes(b'jpeg-bytes')
+    traverse = tmp_path / 'localized_interp.csv'
+    traverse.write_text('frame,site,drive,planetocentric_latitude,longitude,elevation,sol\nROVER,1,2,-4.81,137.38,-4000,100\n')
+    out = tmp_path / 'out'
+    runner._run_step('vectors', tmp_path, site, tmp_path / 'work', out, traverse=traverse)
+    assert (out / 'images/poi-a.jpg').read_bytes() == b'jpeg-bytes'
+
+
+def test_a_poi_whose_image_file_is_missing_stops_the_vectors_step(tmp_path):
+    pytest.importorskip('pyproj')
+    site = tmp_path / 'site'
+    (site / 'pois').mkdir(parents=True)
+    (site / 'site.json').write_text(json.dumps({'site_id': 'gale_boxwork', 'aoi': {'extent_m': [-1000, -1000, 1000, 1000]}}))
+    (site / 'pois' / 'poi-a.json').write_text(json.dumps({
+        'poi_id': 'poi-a', 'name': 'A', 'lat': -4.81, 'lon_e': 137.38, 'science_objective': 'x', 'why_it_matters': 'y',
+        'image_asset': 'img-a', 'image_credit': 'c', 'image_source_url': 'u',
+        'position_source': 'synthetic', 'position_uncertainty_m': 1, 'provenance': 'assumed'}))
+    traverse = tmp_path / 'localized_interp.csv'
+    traverse.write_text('frame,site,drive,planetocentric_latitude,longitude,elevation,sol\nROVER,1,2,-4.81,137.38,-4000,100\n')
+    with pytest.raises(FileNotFoundError, match='poi-a'):
+        runner._run_step('vectors', tmp_path, site, tmp_path / 'work', tmp_path / 'out', traverse=traverse)
+
+
+def test_a_poi_image_asset_id_must_follow_the_poi_id(tmp_path):
+    pytest.importorskip('pyproj')
+    from marswalk_pipeline.vectors import package_poi_images
+    (tmp_path / 'pois').mkdir()
+    (tmp_path / 'pois/poi-a.json').write_text(json.dumps({'poi_id': 'poi-a', 'image_asset': 'img-other'}))
+    (tmp_path / 'images').mkdir()
+    (tmp_path / 'images/poi-a.jpg').write_bytes(b'x')
+    with pytest.raises(ValueError, match='img-a'):
+        package_poi_images(tmp_path / 'pois', tmp_path / 'images', tmp_path / 'out/images')
+

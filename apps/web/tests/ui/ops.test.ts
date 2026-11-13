@@ -23,7 +23,7 @@ import { AlertStack } from "../../src/ui/ops/AlertStack";
 import { ConditionsPanel } from "../../src/ui/ops/ConditionsPanel";
 import { HOLD_DURATION_MS } from "../../src/ui/eva/HoldToConfirm";
 import { recordingClient, rejected, storeFromBeat } from "./fixtureStore";
-import { click, flush, installDom, mount, must, pointerDown, pointerUp, removeDom } from "./domHarness";
+import { click, keyDown, flush, installDom, mount as mountDom, must, pointerDown, pointerUp, removeDom } from "./domHarness";
 
 /*
  * The imports of Hab Core source above (commands, reducer, scenario) are deliberate: these are contract tests that run
@@ -66,9 +66,17 @@ async function submitForm(form: HTMLFormElement): Promise<void> {
 
 const PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
 
+const mounted: Awaited<ReturnType<typeof mountDom>>[] = [];
+async function mount(element: Parameters<typeof mountDom>[0]) {
+  const view = await mountDom(element);
+  mounted.push(view);
+  return view;
+}
 beforeAll(() => installDom());
 afterAll(() => removeDom());
-afterEach(() => {
+afterEach(async () => {
+  for (const view of mounted.splice(0)) await view.unmount();
+  delete (window as unknown as Record<string, unknown>).AudioContext;
   vi.useRealTimers();
   document.body.innerHTML = "";
 });
@@ -139,7 +147,7 @@ describe("SCR-11 Ops console with nothing supplied (04 §D.1: no sample data)", 
       expect(el.getAttribute("data-source")).toBeTruthy();
       const prov = el.getAttribute("data-provenance");
       if (prov !== null) expect(PROVENANCE).toContain(prov);
-      expect(prov).not.toBe("assumed");
+      if (el.getAttribute("data-source") !== "ui:ops.sound") expect(prov).not.toBe("assumed");
       // A missing value is flagged, shows no glyph, and its source says what is missing.
       if (el.getAttribute("data-unavailable") === "true") {
         expect(el.getAttribute("data-source")).toMatch(/^unavailable:|^docs\/specs\/01:FR-36$/);
@@ -150,6 +158,34 @@ describe("SCR-11 Ops console with nothing supplied (04 §D.1: no sample data)", 
 });
 
 describe("SCR-11 crew and vehicle cards from explicit fixtures (04 §A.3 #8, FR-15)", () => {
+  it("provenance sweep includes event log values and expanded alert details", async () => {
+    const client = storeFromBeat("radiation-alert", "ops");
+    const view = await mount(createElement(OpsConsole, { client, alerts: [warning(), warning({ alert_id: "a-c", level: "caution", subjects: ["EV2"], acked_seq: 8, acked_by: "ops" })] }));
+    await click(must(view.container, '[aria-label*="more alerts"]'));
+    await click(must(view.container, '[data-slot="event-log-strip"]'));
+    for (const scope of view.container.querySelectorAll('.event-row, .alert-item')) {
+      const walker = document.createTreeWalker(scope, window.NodeFilter.SHOW_TEXT);
+      let text: Node | null;
+      while ((text = walker.nextNode())) {
+        if (!text.textContent?.trim() || text.parentElement?.closest("button")) continue;
+        const value = text.parentElement?.closest("[data-source]");
+        expect(value, text.textContent ?? "value").not.toBeNull();
+        if (value?.getAttribute("data-unavailable") !== "true") expect(PROVENANCE).toContain(value?.getAttribute("data-provenance"));
+      }
+    }
+    client.close();
+  });
+
+  it("missing alert text and subjects show labelled unavailable values", async () => {
+    const view = await mount(createElement(AlertStack, { alerts: [warning({ message: "", subjects: [] })] }));
+    const details = must(view.container, ".alert-item");
+    for (const path of ["message", "subjects"]) {
+      const value = must(details, `[data-source="unavailable:alerts/a-w/${path}"]`);
+      expect(value.textContent).toContain("—");
+      expect(value.getAttribute("data-unavailable")).toBe("true");
+    }
+  });
+
   async function consoleWith(crew: Crew[], vehicles: Vehicle[] = [], alerts: Alert[] = []) {
     return mount(createElement(OpsConsole, { crew, vehicles, alerts }));
   }
@@ -336,7 +372,7 @@ describe("Alert system (04 §D.2, §E.4)", () => {
     await flush();
     expect(sent).toHaveLength(1);
     const answer = serverAnswer(raised, "ops", sent[0]);
-    expect(answer.result.ok).toBe(true);
+    expect(answer.result).toMatchObject({ ok: true });
     expect(answer.events.map((e) => e.kind)).toEqual(["ALERT_ACKED"]);
     expect(answer.events[0].data).toMatchObject({ alert_id: "a-2", acked_by: "ops" });
 
@@ -733,7 +769,7 @@ describe("Join screen and keyboard access (NFR-04, 04 §E.4)", () => {
     const html = renderToStaticMarkup(createElement(OpsConsole, { crew: [ev1()], alerts: [warning()] }));
 
     expect(html).toMatch(/<button/);
-    expect(html).not.toMatch(/tabindex="-1"/);
+    expect(html).not.toMatch(/<(?:button|input|select)[^>]*tabindex="-1"/);
   });
 });
 
@@ -812,6 +848,35 @@ describe("Alert latching: what leaves the bar (04 §D.2, 03 §E.7)", () => {
 });
 
 describe("Ops console controls added in the audit (NFR-04, FR-50)", () => {
+  it("task editor resets crew, stop and draft when crew, stop, session or revision changes", async () => {
+    const first = connectSnapshot();
+    const progress = { EV1: { stop: { stopId: "wp-1", stopNo: 1, done: 0, total: 0 }, total: { done: 0, total: 0 } }, EV2: { stop: { stopId: "wp-2", stopNo: 2, done: 0, total: 0 }, total: { done: 0, total: 0 } } };
+    const onCommand = vi.fn();
+    const props = { client: null, snapshot: first, crew: [ev1(), crewMember({ crew_id: "EV2" })], taskProgress: progress, onCommand };
+    const view = await mount(createElement(OpsConsole, props));
+    await click(must(view.container, '[aria-label="Add task for EV1"]'));
+    await typeInto(must(view.container, 'input'), "EV1 draft");
+    await click(must(view.container, '[aria-label="Add task for EV2"]'));
+    const expectReset = (stop: string) => {
+      expect(must<HTMLSelectElement>(view.container, '[aria-label="Select crew member"]').value).toBe("EV2");
+      expect(must<HTMLSelectElement>(view.container, '[aria-label="Select stop"]').value).toBe(stop);
+      expect(must<HTMLInputElement>(view.container, 'input').value).toBe("");
+      expect(must<HTMLSelectElement>(view.container, '[aria-label="Select task kind"]').value).toBe("observe");
+    };
+    expectReset("wp-2");
+    let snapshot = first;
+    for (const change of ["stop", "session", "revision"] as const) {
+      await typeInto(must(view.container, 'input'), "Old draft");
+      if (change === "stop") progress.EV2.stop = { ...progress.EV2.stop, stopId: "wp-3", stopNo: 3 };
+      else snapshot = { ...snapshot, session: { ...snapshot.session, ...(change === "session" ? { session_id: `${snapshot.session.session_id}-reload` } : { plan_revision: snapshot.session.plan_revision + 1 }) } };
+      await view.rerender(createElement(OpsConsole, { ...props, snapshot, taskProgress: { ...progress } }));
+      expectReset("wp-3");
+    }
+    await typeInto(must(view.container, 'input'), "Observe new stop");
+    await submitForm(must(view.container, 'form'));
+    expect(onCommand).toHaveBeenLastCalledWith({ kind: "ADD_STOP_TASK", args: { crew_id: "EV2", stop_id: "wp-3", kind: "observe", text: "Observe new stop" } });
+  });
+
   it("the sound toggle is a focusable button with a name, and reports a click; it states what is not known", async () => {
     const onToggleSound = vi.fn();
     const { container } = await mount(createElement(OpsConsole, { onToggleSound }));
@@ -819,8 +884,8 @@ describe("Ops console controls added in the audit (NFR-04, FR-50)", () => {
     expect(container.querySelector('span[aria-label="Sound status"]')).toBeNull();
     const button = must<HTMLButtonElement>(container, 'button[aria-label^="Alert sound"]');
     expect(button.tabIndex).toBeGreaterThanOrEqual(0);
-    expect(button.getAttribute("aria-label")).toMatch(/unknown/i);
-    expect(button.getAttribute("aria-pressed")).toBeNull();
+    expect(button.getAttribute("aria-label")).toMatch(/on/i);
+    expect(button.getAttribute("aria-pressed")).toBe("true");
     await click(button);
     expect(onToggleSound).toHaveBeenCalledTimes(1);
   });
@@ -857,8 +922,20 @@ describe("Ops console controls added in the audit (NFR-04, FR-50)", () => {
     expect(container.querySelector('[data-testid="add-task-popover"]')).toBeNull();
   });
 
-  // TODO(decision): the ADD_STOP_TASK args are not defined in 02 §E.4 / 05; the console sends the TASK_ADDED fields.
-  it.todo("contract: the ADD_STOP_TASK payload is accepted by the real handleAddStopTask for ops (once T31.04 lands)");
+  it("contract: the typed ADD_STOP_TASK payload is accepted by the real Hab Core handler", async () => {
+    const state = initialState(fake, "s-0001");
+    const plan = { waypoints: [{ id: "wp-2", role: "stop" }] } as unknown as NonNullable<Snapshot["plan"]>;
+    const running = { ...state, session: { ...state.session, status: "RUNNING" as const }, plan, crew: connectSnapshot().crew, tasks: [] };
+    const stop = plan.waypoints.find((point) => point.role === "stop")!;
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const { container } = await openPopover({ crew: [ev1()], taskProgress: { EV1: { stop: { stopId: stop.id, stopNo: 1, done: 0, total: 0 }, total: { done: 0, total: 0 } } }, client });
+    await typeInto(must(container, 'input'), "Observe the ridge");
+    await submitForm(must(container, 'form'));
+    await flush();
+    expect(sent).toHaveLength(1);
+    const answer = serverAnswer(running, "ops", sent[0]);
+    expect(answer.result).toMatchObject({ ok: true });
+  });
 
   it("ops: a rejected ADD_STOP_TASK keeps the popover open and shows the reason", async () => {
     const { client } = recordingClient(storeFromBeat("connect", "ops"), () => rejected("INVALID", "stop is not the current or next one"));
@@ -915,4 +992,334 @@ describe("SCR-10 Join shows only what it is told (04 §D.1, §A.3.1)", () => {
     expect(container.querySelectorAll(".role-taken")).toHaveLength(1);
     expect(container.innerHTML).not.toMatch(/--signal-ink|E7553D/i);
   });
+});
+
+
+describe("package 19 ops interactions", () => {
+  it("the join drawer and narrow ops drawers replace each other and restore focus", async () => {
+    const old = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1100 });
+    try {
+      const view = await mount(createElement(OpsConsole, { client: null }));
+      const join = must<HTMLButtonElement>(view.container, 'button[aria-label="Join QR codes"]');
+      const strip = must<HTMLButtonElement>(view.container, '[data-slot="event-log-strip"]');
+      const side = must<HTMLButtonElement>(view.container, '[data-slot="ops-side-drawer"] button');
+      await click(side);
+      await click(join);
+      expect(side.getAttribute("aria-expanded")).toBe("false");
+      expect(join.getAttribute("aria-expanded")).toBe("true");
+      await keyDown(must(view.container, '[aria-label="Join QR codes"][role="group"]'), "Escape");
+      expect(join.getAttribute("aria-expanded")).toBe("false");
+      expect(document.activeElement).toBe(join);
+      await click(join);
+      await click(strip);
+      expect(join.getAttribute("aria-expanded")).toBe("false");
+      await click(join);
+      expect(view.container.querySelector('[data-slot="event-log-drawer"]')).toBeNull();
+      await click(side);
+      expect(join.getAttribute("aria-expanded")).toBe("false");
+      await view.unmount();
+    } finally { Object.defineProperty(window, "innerWidth", { configurable: true, value: old }); }
+  });
+  it("arming sound does not change the layout, and the join popover hangs from the top bar", async () => {
+    // A top bar that fits in one row only with the short label reflowed under the arming press and moved the control the
+    // user was clicking (the press and the release landed on different elements, so the click was lost; T25.06 browser fix).
+    const resume = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window, "AudioContext", { configurable: true, value: vi.fn(function () { return { resume, close: vi.fn().mockResolvedValue(undefined), state: "suspended" }; }) });
+    try {
+      const view = await mount(createElement(OpsConsole, { client: null }));
+      const sound = must<HTMLButtonElement>(view.container, 'button[aria-label^="Alert sound"]');
+      const before = sound.style.minWidth;
+      expect(before).toContain("ch");
+      await pointerDown(sound);
+      await flush();
+      expect(sound.textContent).toBe("SOUND ON");
+      expect(sound.style.minWidth).toBe(before);
+      const join = must<HTMLButtonElement>(view.container, 'button[aria-label="Join QR codes"]');
+      await click(join);
+      const group = must<HTMLElement>(view.container, '[role="group"][aria-label="Join QR codes"]');
+      expect(group.style.position).toBe("absolute");
+      expect(group.style.right).toBe("16px");
+      expect(must<HTMLElement>(view.container, "header.ops-top-bar").style.position).toBe("relative");
+      for (const link of group.querySelectorAll<HTMLElement>("a")) expect(link.style.minWidth).toBe("44px");
+      await view.unmount();
+    } finally { delete (window as unknown as Record<string, unknown>).AudioContext; }
+  });
+  it("at 1100px the log and side drawers replace each other and restore opener focus", async () => {
+    const old = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1100 });
+    try {
+      const view = await mount(createElement(OpsConsole, { client: null }));
+      const strip = must<HTMLButtonElement>(view.container, '[data-slot="event-log-strip"]');
+      const buttons = [...view.container.querySelectorAll<HTMLButtonElement>('[data-slot="ops-side-drawer"] button')];
+      for (const button of buttons) {
+        await click(strip);
+        expect(view.container.querySelector('[data-slot="event-log-drawer"]')).not.toBeNull();
+        await click(button);
+        expect(view.container.querySelector('[data-slot="event-log-drawer"]')).toBeNull();
+        expect(button.getAttribute("aria-expanded")).toBe("true");
+        await keyDown(document.activeElement!, "Escape");
+        expect(button.getAttribute("aria-expanded")).toBe("false");
+        expect(document.activeElement).toBe(button);
+        await click(button);
+        await click(strip);
+        expect(button.getAttribute("aria-expanded")).toBe("false");
+        await keyDown(document.activeElement!, "Escape");
+        expect(document.activeElement).toBe(strip);
+      }
+    } finally { Object.defineProperty(window, "innerWidth", { configurable: true, value: old }); }
+  });
+
+  it("caution chimes again when a new session reuses its id and sequence", async () => {
+    const tone = vi.fn(() => ({ frequency: { value: 0 }, connect() {}, start() {}, stop() {}, disconnect() {} }));
+    Object.defineProperty(window, "AudioContext", { configurable: true, value: function () { return {
+      state: "running", currentTime: 0, destination: {}, resume: async () => {}, close: async () => {},
+      createOscillator: tone, createGain: () => ({ gain: { value: 0 }, connect() {} }),
+    }; } });
+    const caution = warning({ level: "caution" });
+    const first = connectSnapshot();
+    const view = await mount(createElement(OpsConsole, { client: null, snapshot: first, alerts: [caution] }));
+    await pointerDown(document.body);
+    await flush();
+    expect(tone).toHaveBeenCalledTimes(1);
+    await view.rerender(createElement(OpsConsole, { client: null, snapshot: { ...first, session: { ...first.session, session_id: `${first.session.session_id}-reload` } }, alerts: [caution] }));
+    expect(tone).toHaveBeenCalledTimes(2);
+    await view.rerender(createElement(OpsConsole, { client: null, snapshot: { ...first, session: { ...first.session, session_id: `${first.session.session_id}-reload` } }, alerts: [caution] }));
+    expect(tone).toHaveBeenCalledTimes(2);
+  });
+
+  it("clock shortcuts work from body and clock buttons, ignore editors and modifiers, and clean up", async () => {
+    const onCommand = vi.fn();
+    const view = await mount(createElement(OpsConsole, { client: null, snapshot: connectSnapshot(), crew: [ev1()], taskProgress: { EV1: { stop: { stopId: "wp-2", stopNo: 1, done: 0, total: 0 }, total: { done: 0, total: 0 } } }, onCommand }));
+    await keyDown(document.body, "3");
+    const speed = must<HTMLButtonElement>(view.container, '[aria-label="Set speed to 10x"]');
+    speed.focus();
+    await keyDown(speed, "3");
+    expect(onCommand.mock.calls.map(([command]) => command)).toEqual(Array.from({ length: 2 }, () => ({ kind: "SET_CLOCK", args: { speed: 60 } })));
+    await click(must(view.container, '[aria-label="Add task for EV1"]'));
+    const input = must<HTMLInputElement>(view.container, '[aria-label="Enter task description"]');
+    input.focus();
+    await keyDown(input, "3");
+    for (const modifier of ["altKey", "ctrlKey", "metaKey", "shiftKey"]) {
+      await act(async () => { document.body.dispatchEvent(new window.KeyboardEvent("keydown", { key: "3", bubbles: true, [modifier]: true })); });
+    }
+    const editable = document.createElement("div");
+    editable.setAttribute("contenteditable", "");
+    document.body.append(editable);
+    await keyDown(editable, "3");
+    expect(onCommand).toHaveBeenCalledTimes(2);
+    await view.unmount();
+    await keyDown(document.body, "3");
+    expect(onCommand).toHaveBeenCalledTimes(2);
+  });
+
+  it("keys drive clock", async () => {
+    const onCommand = vi.fn();
+    const { container, unmount } = await mount(createElement(OpsConsole, { client: null, snapshot: connectSnapshot(), alerts: [warning()], onCommand }));
+    const surface = must(container, '[data-surface="ops"]');
+    for (const key of [" ", "1", "2", "3", "n", "k"]) await keyDown(surface, key);
+    expect(onCommand.mock.calls.map(([command]) => command)).toEqual([
+      { kind: "SET_CLOCK", args: { paused: true } },
+      ...[1, 10, 60].map((speed) => ({ kind: "SET_CLOCK", args: { speed } })),
+      { kind: "JUMP_NEXT_EVENT", args: {} },
+      { kind: "ACK_ALERT", args: { alert_id: "a-w" } },
+    ]);
+    await keyDown(surface, "o");
+    expect(document.activeElement).toBe(must(container, '.options-panel'));
+    const input = document.createElement("input");
+    surface.append(input);
+    await keyDown(input, "3");
+    await keyDown(must(container, 'select'), "2");
+    expect(onCommand).toHaveBeenCalledTimes(6);
+    await unmount();
+  });
+
+  it("advisory dismisses after 10 s sim", async () => {
+    vi.useFakeTimers();
+    const advisory = warning({ level: "advisory" });
+    const view = await mount(createElement(AlertStack, { alerts: [advisory], simTime: "2024-05-20T13:05:00Z" }));
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    expect(view.container.textContent).toContain("ADVISORY");
+    await view.rerender(createElement(AlertStack, { alerts: [advisory], simTime: "2024-05-20T13:05:09.999Z" }));
+    expect(view.container.textContent).toContain("ADVISORY");
+    await view.rerender(createElement(AlertStack, { alerts: [advisory], simTime: "2024-05-20T13:05:10Z" }));
+    expect(view.container.querySelector('.alert-stack')).toBeNull();
+    await view.unmount();
+  });
+
+  it("authoritative ALERT_RAISED time replaces the reconnect advisory fallback", async () => {
+    const advisory = warning({ level: "advisory" });
+    const props = { alerts: [advisory], simTime: "2024-05-20T13:05:30Z" };
+    const view = await mount(createElement(AlertStack, props));
+    expect(view.container.textContent).toContain("ADVISORY");
+    await view.rerender(createElement(AlertStack, { ...props, raisedTimes: new Map([[advisory.raised_seq, "2024-05-20T13:05:00Z"]]) }));
+    expect(view.container.querySelector(".alert-stack")).toBeNull();
+    await view.rerender(createElement(AlertStack, { ...props, simTime: "2024-05-20T13:05:31Z" }));
+    expect(view.container.querySelector(".alert-stack")).toBeNull();
+  });
+
+  it("sound arms on first gesture", async () => {
+    const resume = vi.fn().mockResolvedValue(undefined);
+    const close = vi.fn().mockResolvedValue(undefined);
+    const ctor = vi.fn(function () { return { resume, close, state: "running" }; });
+    Object.defineProperty(window, "AudioContext", { configurable: true, value: ctor });
+    const view = await mount(createElement(OpsConsole, { client: null }));
+    const button = must(view.container, 'button[aria-label^="Alert sound"]');
+    expect(button.textContent).toContain("SOUND ON — click to arm");
+    expect(ctor).not.toHaveBeenCalled();
+    await keyDown(must(view.container, '[data-surface="ops"]'), "Shift");
+    await flush();
+    expect(resume).toHaveBeenCalledTimes(1);
+    expect(button.textContent).toContain("SOUND ON");
+    expect(button.textContent).not.toContain("click to arm");
+    await pointerDown(button);
+    expect(ctor).toHaveBeenCalledTimes(1);
+    await click(button);
+    expect(button.textContent).toContain("SOUND OFF");
+    await view.unmount();
+    expect(close).toHaveBeenCalledTimes(1);
+    delete (window as unknown as Record<string, unknown>).AudioContext;
+  });
+
+  it("the click that arms sound keeps it on; a later click toggles it off", async () => {
+    const context = { state: "suspended", resume: vi.fn(), close: vi.fn().mockResolvedValue(undefined) };
+    context.resume.mockImplementation(async () => { context.state = "running"; });
+    Object.defineProperty(window, "AudioContext", { configurable: true, value: vi.fn(function () { return context; }) });
+    const view = await mount(createElement(OpsConsole, { client: null }));
+    const button = must(view.container, 'button[aria-label^="Alert sound"]');
+    expect(button.textContent).toContain("click to arm");
+    await pointerDown(button);
+    await click(button);
+    await flush();
+    expect(context.resume).toHaveBeenCalledTimes(1);
+    expect(button.textContent).toBe("SOUND ON");
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    await pointerDown(button);
+    await click(button);
+    expect(button.textContent).toBe("SOUND OFF");
+    await view.unmount();
+    delete (window as unknown as Record<string, unknown>).AudioContext;
+  });
+
+  it("Space on a focused button activates that button instead of pausing the clock", async () => {
+    const onCommand = vi.fn();
+    const view = await mount(createElement(OpsConsole, { client: null, snapshot: connectSnapshot(), onCommand }));
+    const speed = must<HTMLButtonElement>(view.container, '[aria-label="Set speed to 10x"]');
+    speed.focus();
+    const event = new window.KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+    await act(async () => { speed.dispatchEvent(event); });
+    expect(event.defaultPrevented).toBe(false);
+    expect(onCommand).not.toHaveBeenCalled();
+    await keyDown(document.body, " ");
+    expect(onCommand).toHaveBeenCalledWith(expect.objectContaining({ kind: "SET_CLOCK" }));
+    await view.unmount();
+  });
+
+  it("notice below 1024", async () => {
+    const old = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 900 });
+    const view = await mount(createElement(OpsConsole, { client: null }));
+    expect(view.container.textContent).toContain("Use a larger screen");
+    expect(view.container.querySelector('[data-testid="clock-control"]')).toBeNull();
+    await act(async () => {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: 1100 });
+      window.dispatchEvent(new window.Event("resize"));
+    });
+    expect(view.container.querySelector('[data-slot="ops-side-drawer"]')).not.toBeNull();
+    expect(view.container.querySelector('.ops-map-slot')).not.toBeNull();
+    await view.unmount();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: old });
+  });
+
+  it("ended session opens the report without inventing an end command", async () => {
+    const snapshot = connectSnapshot();
+    const view = await mount(createElement(OpsConsole, { client: null, snapshot }));
+    await view.rerender(createElement(OpsConsole, { client: null, snapshot: { ...snapshot, session: { ...snapshot.session, status: "ENDED" } } }));
+    expect(window.location.hash).toBe("#/report");
+    window.location.hash = "";
+    await view.unmount();
+  });
+});
+
+
+describe("package 20 ops panels", () => {
+  const withTasks = (count: number) => ({
+    crew: [ev1()],
+    taskProgress: { EV1: { stop: { stopId: "wp-2", stopNo: 2, done: 0, total: count }, total: { done: 0, total: count } } },
+  });
+
+  it("add task disabled while warning latched", async () => {
+    const props = { ...withTasks(1), client: null, alerts: [warning({ acked_seq: 8 })] };
+    const view = await mount(createElement(OpsConsole, props));
+    const add = must<HTMLButtonElement>(view.container, '[aria-label="Add task for EV1"]');
+    expect(add.getAttribute("aria-disabled")).toBe("true");
+    expect(add.getAttribute("title")).toMatch(/warning/i);
+    await click(add);
+    expect(view.container.querySelector('form')).toBeNull();
+    await view.rerender(createElement(OpsConsole, { ...props, alerts: [warning({ acked_seq: 8, cleared_seq: 9 })] }));
+    expect(add.disabled).toBe(false);
+    await click(add);
+    expect(view.container.querySelector('form')).not.toBeNull();
+    await view.rerender(createElement(OpsConsole, { ...props, alerts: [warning()] }));
+    expect(view.container.querySelector('form')).toBeNull();
+  });
+
+  it("maximum four tasks follows the selected crew and stop", async () => {
+    const snapshot = connectSnapshot();
+    snapshot.tasks = Array.from({ length: 4 }, (_, i) => ({ ...snapshot.tasks[0], task_id: `test-${i}`, stop_id: "wp-2", crew_id: "EV2" as const }));
+    const view = await mount(createElement(OpsConsole, { ...withTasks(1), client: null, snapshot }));
+    await click(must(view.container, '[aria-label="Add task for EV1"]'));
+    const crewSelect = must<HTMLSelectElement>(view.container, '[aria-label="Select crew member"]');
+    await act(async () => { crewSelect.value = "EV2"; crewSelect.dispatchEvent(new window.Event("change", { bubbles: true })); });
+    await typeInto(must(view.container, 'input'), "Observe the ridge");
+    expect(must<HTMLButtonElement>(view.container, '[type="submit"]').disabled).toBe(true);
+    expect(view.container.textContent).toMatch(/maximum.*4/i);
+    await act(async () => { crewSelect.value = "EV1"; crewSelect.dispatchEvent(new window.Event("change", { bubbles: true })); });
+    expect(must<HTMLButtonElement>(view.container, '[type="submit"]').disabled).toBe(false);
+  });
+
+  it("ops previews before approval and names the alert affected crew", async () => {
+    const snapshot = connectSnapshot();
+    const option: ContingencyOption = { option_id: "ops-preview", alert_id: "a-w", crew_ids: ["EV2"], kind: "ABORT_TO_HAB", rank: 1, eta_shelter_min: 12, expected_dose_ugy: 3, stops_dropped: [], violations: [], path_preview: [[10, 20], [30, 40]], rendezvous: null };
+    const { client, sent } = recordingClient(storeFromBeat("connect", "ops"));
+    const view = await mount(createElement(OpsConsole, { client, snapshot: { ...snapshot, options: [option], alerts: [warning({ subjects: ["EV2"] })] }, alerts: [warning({ subjects: ["EV2"] })] }));
+    expect(must(view.container, '[data-slot="affected-crew"]').textContent).toBe("EV2");
+    expect(must(view.container, '[data-slot="option-path-preview"] polyline').getAttribute("points")).toBe("10,20 30,40");
+    expect(sent).toHaveLength(0);
+    expect(must(view.container, '#action-confirm-option').textContent).toContain("Approve option 1");
+    await view.rerender(createElement(OpsConsole, { client, snapshot: { ...snapshot, options: [] } }));
+    expect(view.container.querySelector('[data-slot="option-path-preview"]')).toBeNull();
+  });
+});
+
+
+it("a newer alert blocks approval of a superseded option", async () => {
+  const snapshot = connectSnapshot();
+  const option: ContingencyOption = { option_id: "old-option", alert_id: "old-alert", crew_ids: ["EV2"], kind: "ABORT_TO_HAB", rank: 1, eta_shelter_min: 12, expected_dose_ugy: 3, stops_dropped: [], violations: [], path_preview: [], rendezvous: null };
+  const { client } = recordingClient(storeFromBeat("connect", "ops"));
+  const view = await mount(createElement(OptionsPanel, { client, crewId: null, snapshot: { ...snapshot, options: [option], alerts: [warning()] } }));
+  expect(view.container.querySelectorAll('[role="radio"]')).toHaveLength(0);
+  expect(must<HTMLButtonElement>(view.container, '#action-confirm-option').disabled).toBe(true);
+});
+
+
+it("a dropped task frees an ops task slot", async () => {
+  const snapshot = connectSnapshot();
+  snapshot.tasks = Array.from({ length: 4 }, (_, i) => ({ ...snapshot.tasks[0], task_id: `test-${i}`, stop_id: "wp-2", crew_id: "EV1" as const, state: i === 0 ? "DROPPED" as const : "DONE" as const }));
+  const view = await mount(createElement(OpsConsole, { client: null, snapshot, crew: [ev1()], taskProgress: { EV1: { stop: { stopId: "wp-2", stopNo: 2, done: 3, total: 4 }, total: { done: 3, total: 4 } } } }));
+  const add = must<HTMLButtonElement>(view.container, '[aria-label="Add task for EV1"]');
+  expect(add.disabled).toBe(false);
+  await click(add);
+  await typeInto(must(view.container, 'input'), "Observe the ridge");
+  expect(must<HTMLButtonElement>(view.container, '[type="submit"]').disabled).toBe(false);
+});
+
+it("an unlinked or stale crew card footer uses StatusIcon caution shape and word (▲ CAUTION), never colour alone (04 §A.3)", async () => {
+  const { container } = await mount(createElement(OpsConsole, { crew: [crewMember({ linked: false, stale: true })] }));
+  const footer = must(container, ".crew-card footer");
+  const icon = must(footer, '.status-indicator[data-status="caution"]');
+  expect(icon.textContent).toContain("▲");
+  expect(icon.textContent).toContain("CAUTION");
+  expect(footer.textContent).toContain("LAST HEARD");
+  expect(footer.textContent).not.toContain("⚠");
 });

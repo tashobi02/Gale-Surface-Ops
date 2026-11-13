@@ -8,16 +8,32 @@ import { diffSnapshots } from "../src/stateDelta";
 
 const base: Snapshot = {
   v: 1, type: "SNAPSHOT", seq: 10, sim_time: "2024-05-20T13:05:00Z",
-  session: { session_id: "s-0007", scenario_id: "x", data_version: "d", seed: 1, status: "RUNNING", clock: { sim_time: "2024-05-20T13:05:00Z", speed: 1, paused: false }, plan_revision: 1, last_seq: 10, log_hash: "h1" },
+  session: { session_id: "s-0007", scenario_id: "x", data_version: "d", seed: 1, status: "RUNNING", clock: { sim_time: "2024-05-20T13:05:00Z", speed: 1, paused: false }, plan_revision: 1, last_seq: 10, log_hash: "h1", hab_candidate_id: null, mission_setup: { crew_count: 2, vehicle_available: true, vehicle_param_set: "pr1-assumed", solar_phase: "max", max_haven_min: 30 }, started_events: [] },
   plan: null,
   crew: [{ crew_id: "EV1", x_m: 1, y_m: 2, activity: "WALKING", stop_index: null, o2_frac: 0.7, eva_elapsed_s: 0, dose_event_ugy: 0, dose_event_unsheltered_ugy: 0, haven: { minutes: 10, kind: "hab", target_x_m: 0, target_y_m: 0 }, linked: true, link_path: [], stale: false }],
   vehicles: [], alerts: [], options: [], tasks: [],
   earth: { light_time_s: 0, next_pass_utc: null, blackout: false, queue: [] }, clients: [], provenance: {},
+  conditions: { ltst: null, sun_elevation_deg: null, dose_rate_background_ugy_h: null, dose_rate_event_ugy_h: null, event_series_utc: null, sol: null, source_ids: {}, provenance: {} }, task_library: [], event_library: [], next_stop_target: null,
 };
 const alert: Alert = { alert_id: "a-1", code: "COMM_SHADOW", level: "caution", subjects: ["EV1"], raised_seq: 11, acked_seq: null, cleared_seq: null, acked_by: null, message: "m", data: {} };
 const task: StopTask = { task_id: "t-1", stop_id: "wp-2", crew_id: "EV1", kind: "image", text: "t", state: "TODO", reason: null, origin: "plan", updated_sim_time: "", updated_by: "system", provenance: {} };
 
 describe("diffSnapshots", () => {
+  it("sends a conditions change as conditions/<key> and a next-stop change whole; the static libraries are never diffed (BD-75, BD-104)", () => {
+    const after: Snapshot = {
+      ...base,
+      conditions: { ...base.conditions, sol: 4190, sun_elevation_deg: 12.5, provenance: { sol: "derived" } },
+      next_stop_target: { stop_id: "wp-2", stop_index: 1 },
+      task_library: [{ library_task_id: "lt-1", poi_id: "poi-1", crew_id: null, kind: "image", text: "Image the ridge crest" }],
+    };
+    expect(diffSnapshots(base, after)).toEqual([
+      { path: "conditions/sun_elevation_deg", value: 12.5 },
+      { path: "conditions/sol", value: 4190 },
+      { path: "conditions/provenance", value: { sol: "derived" } },
+      { path: "next_stop_target", value: { stop_id: "wp-2", stop_index: 1 } },
+    ]);
+  });
+
   it("is empty for the same snapshot and for equal copies", () => {
     expect(diffSnapshots(base, base)).toEqual([]);
     expect(diffSnapshots(base, JSON.parse(JSON.stringify(base)))).toEqual([]);

@@ -1,0 +1,213 @@
+/*
+ * SCR-03 layers panel (04 §F, §C.1 map overlays, §C.3 targets; mockup #scr-03-*). Semantic tokens only: no hex values, no brand
+ * orange in OPS (04 §A.3 #1). Status is never colour alone: the switch says ON or OFF, an unavailable row says so in words.
+ * The slope swatches use the same tokens as the map's slope ramp (`--slope-10-15`, `--slope-15-25`, tokens.css).
+ */
+
+/* FD-003: the ortho basemap is grayscale in OPS (U-09, hazard-overlay contrast), colour in BRIEF; the class is on that layer
+   only (rasterLayers.ts), so the filter never touches a scientific overlay or a marker. */
+[data-mode="ops"] .marswalk-ortho {
+  filter: grayscale(1);
+}
+
+.scr03 {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--fg-1);
+  font-size: var(--text-ui);
+  line-height: var(--line-height-ui);
+}
+
+.scr03-rule,
+.scr03-notice {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: var(--text-micro);
+}
+
+.scr03-notice {
+  padding: 6px 8px;
+  border: 1px solid var(--control-edge);
+  background: var(--surface-2);
+  color: var(--fg-1);
+}
+
+.scr03-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scr03-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--control-edge);
+}
+
+.scr03-row[data-state="unavailable"] {
+  opacity: 0.8;
+}
+
+.scr03-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.scr03-switch {
+  background: var(--surface-1);
+  color: var(--fg-1);
+  border: 2px solid var(--control-edge);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  cursor: pointer;
+}
+
+/* On is a thicker edge and the word, not a colour (04 §A.3 #2). */
+.scr03-switch[aria-checked="true"] {
+  border-width: 3px;
+  border-color: var(--fg-1);
+}
+
+.scr03-switch:disabled {
+  cursor: not-allowed;
+}
+
+.scr03-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.scr03-chip {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--fg-2);
+  border: 1px solid var(--control-edge);
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+.scr03-info {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-mouse);
+  padding: 0 8px;
+  color: var(--fg-1);
+  font-size: var(--text-micro);
+}
+
+.scr03-reason,
+.scr03-hint,
+.scr03-native,
+.scr03-fallback {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: var(--text-micro);
+}
+
+.scr03-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg-2);
+  font-size: var(--text-micro);
+}
+
+.scr03-skeleton {
+  display: inline-block;
+  width: 120px;
+  height: 10px;
+  background: var(--control-edge);
+}
+
+.scr03-opacity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scr03-opacity input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.scr03-note {
+  color: var(--fg-2);
+  font-size: var(--text-micro);
+}
+
+.scr03-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-micro);
+}
+
+.scr03-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scr03-range {
+  margin-left: auto;
+  font-family: var(--font-mono);
+}
+
+.scr03-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 12px;
+  border: 1px solid var(--control-edge);
+}
+
+.scr03-swatch-caution {
+  background: var(--slope-10-15);
+  opacity: 0.9;
+}
+
+/* The over-limit class is hatched on the map (04 §C.1); the swatch shows the same diagonal hatch. */
+.scr03-swatch-over_limit {
+  background: repeating-linear-gradient(135deg, var(--slope-15-25) 0 4px, transparent 4px 8px);
+}
+
+/* Stop-type shapes (FR-45): the same corners as the map markers, in neutral ink. */
+.scr03-shape {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background: var(--fg-1);
+}
+
+.scr03-shape-triangle {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.scr03-shape-square {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  transform: scale(0.8);
+}
+
+.scr03-shape-hexagon {
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+}
+
+@media (pointer: coarse) {
+  .scr03-switch,
+  .scr03-info {
+    min-height: var(--target-touch);
+    min-width: var(--target-touch);
+  }
+}

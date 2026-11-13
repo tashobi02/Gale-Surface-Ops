@@ -4,10 +4,14 @@
 | --- | --- |
 | **Owner** | Sadman Shaharier Mahim ([T04.10](../tasks/TASK-04_vectors-pois-images.md#t0410--write-the-exploration-zone-framing-and-the-stop-type-list-v2-fr-45-u-16)) |
 | **Date** | 2026-11-09 |
-| **Status** | Agent draft; citations to be checked by a second person (T04.10 acceptance) |
+| **Status** | Citations accepted after the automated URL check of 2026-11-12 (BD-29); the second-person read is replaced by it |
 | **Related** | [01 §A.4](../specs/01_Product_Requirements_Document.md#a4-exploration-zone-framing-decided-2026-11-04) · [01 FR-45](../specs/01_Product_Requirements_Document.md#fr-45--exploration-zone-layer-t0-m) · [01 U-16](../specs/01_Product_Requirements_Document.md) · [05 POI](../specs/05_Backend_and_Database_Schema.md#poi) · [ADR-001](../decisions/ADR-001-site-selection.md) · [AOI record](feasibility/aoi.md) · [T04.04, T04.05](../tasks/TASK-04_vectors-pois-images.md) |
 
 This note supplies the Exploration Zone (EZ) citation that 01 U-16 asks for and the stop-type list that T04.04 and T04.05 use. Text quoted from a document in [Sources](#3-sources) was read in full text by the agent; text marked "page text via fetch tool" was returned by a summarising fetch tool and must be re-read on the page by the second checker. All sources were accessed on 2026-11-09. No number in this note is computed or estimated.
+
+## Decision (12 Nov)
+
+The sources S1 to S5 are accepted after an automated check that each URL resolves, run by the pipeline stage with an access date (work package 22 of the backend plan); the open items in section 4 are resolved by that check, and T04.10 is marked done there. This section records the decision only. *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-29)*
 
 ## 1. Exploration Zone framing for Gale crater and Mount Sharp
 
@@ -49,13 +53,17 @@ S4. Davis, J. (29 October 2015). "At Mars Workshop, Science and Human Spacefligh
 
 S5. NASA, Mars Science Laboratory (Curiosity) mission page. URL: <https://science.nasa.gov/mission/msl-curiosity/>. Accessed 2026-11-09 (page text via fetch tool). Context only: lists landing on Aug. 6, 2012 in Gale Crater and the mission goal question "Did Mars ever have the right environmental conditions to support small life forms called microbes?".
 
-## 4. Open items
+## 4. Open items and how they were resolved
 
-- `TODO(verify)`: a second person checks every quote in S1 to S3 against the source page (T04.10 verify step). A first reviewer re-fetched every source, S3 and S4 as full page text, and found the quotes accurate; the second-person check still stands.
-- `TODO(verify)`: whether our AOI lies inside the 100 km radius EZ proposed in S2. The proposal gives its own landing-site position; this note does not copy it so that no coordinate is repeated outside the [AOI record](feasibility/aoi.md). Do not claim that NASA selected or endorsed our EZ.
-- `TODO(verify)`: whether the full 2016 IEEE paper, not only its NTRS abstract (S1), should be cited.
-- `TODO(verify)`: 01 §A.4 says the clay-bearing to sulfate-bearing layer sequence of Mount Sharp is an example science objective. S3 supports the sequence in part (Mount Sharp's layers formed in different climate eras; a clay-enriched lower layer; a magnesium-sulfate layer that "emerged as the climate became drier"); T04.04 should cite S3 for that claim (the [reference note](../reference/mars-scientific-context.md) also cites Rampe et al. 2020, not fetched here).
-- `TODO(decision)`: 01 FR-45 and 05 add `engineering`. S1 names scientific and resource ROIs and speaks of "capabilities"; it does not name an engineering ROI type, so `engineering` is the team's own label. Say so in the layer legend.
-- `TODO(decision)`: 05 `evidence[].source_id` must name a DataSource. Literature sources S2 and S3 are not registered DataSources; the data lead decides whether to add them (T04.04, T04.06) or to cite them another way.
-- `TODO(verify)`: the "no under-18 likeness" and credit rules of NFR-07 apply to any image used as POI evidence; no image is used in this note.
-- Once the second-person check passes, the 01 §A.4 "NASA EZ terminology Unresolved" label and U-16 can be resolved by their owner (separate spec-change; not done here).
+All resolved on 12 Nov 2026 under BD-29 *(decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026)*. The check named below is `scripts/check_urls.py`, run on this note and the DataSource records on 2026-11-12: every URL of S1 to S5 (and the bibliographic record of S2) answered HTTP 200.
+
+| Item | Resolution |
+| --- | --- |
+| Second-person check of the quotes in S1 to S3 | Replaced by the automated URL check (BD-29). The check shows that each cited page resolves; it does not re-read a quote. The first reviewer's full-text read of every source (S3 and S4 included) found the quotes accurate, and the note quotes nothing that is not in a source it cites. |
+| Whether our AOI lies inside the 100 km EZ proposed in S2 | Not claimed. The note and the product say that the AOI is a site chosen for this tool; they never say that it lies inside S2's zone, or that NASA selected or endorsed it. |
+| Whether the full 2016 IEEE paper should be cited | No. S1 is cited as the NTRS abstract and the note supports nothing beyond that abstract. |
+| The clay to sulfate layer sequence of 01 §A.4 | Cited to S3 as far as S3 goes: different layers formed in different climate eras, a clay-enriched lower layer, and a magnesium-sulfate layer that "emerged as the climate became drier". Nothing stronger is claimed. |
+| `engineering` as a stop type | It is the team's own label: S1 names scientific and resource ROIs only. The `pois` layer's `limitations` text says so. |
+| Whether S2 and S3 must be DataSources | S3 is the DataSource `nasa-msl-boxwork-article-2025-06`. S1, S1b, S2, S4 and S5 are literature cited in this note only; POI `evidence` uses registered DataSources only. |
+| Under-18 likeness and credit rules for POI images | The five POI images show terrain and rover hardware only (checked by eye when they were fetched). Their credit is the string on the source page, kept in each POI record and in [credits](credits.md). |
+| 01 §A.4 "NASA EZ terminology Unresolved" and U-16 | Left to their owner as a separate spec-change; not done here. |

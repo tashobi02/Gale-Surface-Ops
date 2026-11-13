@@ -124,6 +124,32 @@ def package_pois(curated: Path, proj4: str, out: Path) -> None:
     _write_feature_collection(out, features)
 
 
+def package_poi_images(curated: Path, images_src: Path, out_dir: Path) -> None:
+    """Copy the locked image of every POI that names one to `out_dir/<poi_id>.jpg` (02 §E.1), byte for byte.
+
+    The POI's `image_asset` must be `img-<poi_id without its `poi-` prefix>` (the manifest's asset id rule) and
+    the source file `images_src/<poi_id>.jpg` must exist; either failure stops the build. A site with no POI
+    folder has nothing to copy.
+    """
+    import shutil
+
+    if not curated.is_dir():
+        return
+    for file_path in sorted(curated.glob("*.json")):
+        record = json.loads(file_path.read_text(encoding="utf-8"))
+        if not record.get("image_asset"):
+            continue
+        poi_id = record["poi_id"]
+        expected = f"img-{poi_id.removeprefix('poi-')}"
+        if record["image_asset"] != expected:
+            raise ValueError(f"{poi_id}: image_asset {record['image_asset']!r} must be {expected!r}")
+        source = images_src / f"{poi_id}.jpg"
+        if not source.is_file():
+            raise FileNotFoundError(f"{poi_id}: image file not found: {source}")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, out_dir / f"{poi_id}.jpg")
+
+
 def _site_drive(site: Any, drive: Any, fallback: Any) -> str | None:
     if _present(site) and _present(drive):
         return f"{site}_{drive}"

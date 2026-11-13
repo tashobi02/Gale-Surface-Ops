@@ -200,13 +200,13 @@ describe("what the popover shows (FR-03, FR-15, NFR-05)", () => {
     expect(field("ti").getAttribute("data-source")).toMatch(/^unavailable:/);
   });
 
-  it("TI with no coverage reads 'no data'; a null elevation or slope reads —, flagged unavailable, keeping the layer's class", async () => {
+  it("TI with no coverage reads '— no data'; a null elevation or slope reads —, flagged unavailable, keeping the layer's class", async () => {
     const site = siteWithTi();
     const r = rig({ site });
     const done = r.inspector.inspectAt(0, 0);
     r.resolveNext({ ...INSIDE, ti_tiu: null, elevation_m: null, slope_p90_deg: null });
     await done;
-    expect(field("ti").textContent).toContain("no data");
+    expect(field("ti").textContent).toMatch(/^—.*no data/);
     expect(field("ti").getAttribute("data-unavailable")).toBe("true");
     expect(field("elevation").textContent).toContain("—");
     expect(field("elevation").getAttribute("data-unavailable")).toBe("true");
@@ -231,7 +231,7 @@ describe("what the popover shows (FR-03, FR-15, NFR-05)", () => {
     await done;
     const status = popover()!.querySelector<HTMLElement>("[data-field='passable'] .status-indicator")!;
     expect(status.classList.contains("status-warning")).toBe(true);
-    expect(status.textContent).toContain("⬣");
+    expect(status.querySelector(".status-glyph svg polygon")).not.toBeNull(); // the drawn octagon (FD-208)
     expect(status.textContent).toContain("BLOCKED");
     expect(popover()!.querySelector("[data-field='passable']")!.textContent).toMatch(/hard hazard/i);
   });

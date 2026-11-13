@@ -11,20 +11,27 @@
  * - SNAPSHOT crew `haven` is nested (05 Crew), not `haven_min`/`haven_kind`;
  * - SNAPSHOT `earth` is top level with `queue` (02 shows `link.earth`; 05 defines no SNAPSHOT);
  * - EVENT alert fields sit in `event.data` with `level` (05 Alert), not `code`/`severity` on the event.
+ *
+ * Protocol v0.2 (2026-11-12, T32.01; docs/plan/backend/01-contract.md): additive. SNAPSHOT gains `conditions`,
+ * `task_library`, `event_library`, `next_stop_target`; PERMISSIONS gains `presenter` and the live-session commands;
+ * LINK_STATE gains `link_hops` and `link_via`. `PROTOCOL_VERSION` stays 1.
  */
 import type {
   Alert,
   ClientConnection,
   Command,
+  ConditionsState,
   ContingencyOption,
   Crew,
   CrewId,
   EarthMessage,
+  EventLibrarySummary,
   LogEvent,
   ProvenanceMap,
   Role,
   Session,
   StopTask,
+  TaskLibraryEntry,
   Vehicle,
 } from "./runtime";
 import type { PlanExport } from "./schema";
@@ -63,9 +70,28 @@ export interface Snapshot {
   options: ContingencyOption[];
   /** Current stop tasks (02 §E.6, FR-50). */
   tasks: StopTask[];
-  earth: { light_time_s: number; next_pass_utc: string | null; blackout: boolean; queue: EarthMessage[] };
+  earth: {
+    light_time_s: number;
+    next_pass_utc: string | null;
+    blackout: boolean;
+    queue: EarthMessage[];
+    /** Whether the link carries a message now: `AVAILABLE` (an orbiter pass or DTE), `WAITING` (between passes), `BLACKOUT` (conjunction); null before the Earth table starts (N-31, BD-156). Derived by compute `earthLinkState`. */
+    link_state?: "AVAILABLE" | "WAITING" | "BLACKOUT" | null;
+    /** The carrier of an AVAILABLE link; null otherwise. */
+    link_via?: "mro" | "maven" | "tgo" | "dte" | null;
+    /** End of the relay pass that carries an AVAILABLE link; null for DTE, WAITING and BLACKOUT. */
+    link_until_utc?: string | null;
+  };
   clients: Pick<ClientConnection, "client_id" | "role" | "display_name">[];
   provenance: ProvenanceMap;
+  /** FR-36 conditions at the hab (BD-75); deltas at `conditions/<key>`. */
+  conditions: ConditionsState;
+  /** The scenario's task library, `[]` when it has none; static, sent to every role (BD-90). */
+  task_library: TaskLibraryEntry[];
+  /** Summaries of the scenario's event library; started ones are in `Session.started_events` (BD-104). */
+  event_library: EventLibrarySummary[];
+  /** The crew-wide next stop of 02 §D.17, computed by the engine; null with no plan or no stop left (BD-104). */
+  next_stop_target: { stop_id: string; stop_index: number } | null;
 }
 
 export interface StateDelta {
@@ -94,6 +120,9 @@ export interface LinkStateMessage {
   sim_time: string;
   crew_id: CrewId;
   linked: boolean;
+  /** Same meaning as on Crew (BD-103, N-04). Optional until the link module fills them (work package 17). */
+  link_hops?: number | null;
+  link_via?: Crew["link_via"];
 }
 
 export interface CommandMessage {
@@ -143,9 +172,11 @@ export type ServerMessage = Snapshot | StateDelta | EventMessage | LinkStateMess
  * including UPDATE_STOP_TASK "own tasks" for EVA roles (FR-50).
  */
 export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
+  // The presenter drives the live session; no crew or planner action (02 §E.4, 2026-11-10, Proposed).
+  presenter: ["LOAD_SCENARIO", "SET_CLOCK", "JUMP_NEXT_EVENT", "JUMP_NEXT_STOP", "START_EVENT", "RESET_SESSION"],
   planner: ["PUBLISH_PLAN"],
-  "eva:EV1": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
-  "eva:EV2": ["SUMMON_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK"],
+  "eva:EV1": ["SUMMON_VEHICLE", "RIDE_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK", "SET_CREW_MOTION"],
+  "eva:EV2": ["SUMMON_VEHICLE", "RIDE_VEHICLE", "ABORT", "ACK_ALERT", "TASK_ROVER", "SEND_MESSAGE", "UPDATE_STOP_TASK", "SET_CREW_MOTION"],
   // The HUD is a viewer: no command at all (02 §E.4, added 2026-11-12, Proposed).
   "hud:EV1": [],
   "hud:EV2": [],
@@ -157,6 +188,7 @@ export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
     "START_EVA",
     "APPROVE_OPTION",
     "SUMMON_VEHICLE",
+    "RIDE_VEHICLE",
     "ABORT",
     "ACK_ALERT",
     "TASK_ROVER",
@@ -165,6 +197,11 @@ export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
     "INJECT_EVENT",
     "UPDATE_STOP_TASK",
     "ADD_STOP_TASK",
+    // Ops only (02 §D.17, 2026-11-10, Proposed).
+    "SELECT_HAB_SITE",
+    "SET_MISSION_SETUP",
+    // Simulation control (02 §E.6, 2026-11-13, Proposed): ops for either crew member; an EVA role only for itself.
+    "SET_CREW_MOTION",
   ],
   earth: ["SEND_MESSAGE"],
 };

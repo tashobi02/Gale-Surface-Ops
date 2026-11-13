@@ -14,21 +14,17 @@
  */
 
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type CSSProperties,
   type ReactElement,
 } from "react";
 import type { LogEvent, LogEventKind, Provenance } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
+import { useEvents } from "../../state/habSession";
 import { PROVENANCE_GLYPHS, UNAVAILABLE, provAttrs, unavailableOf } from "../components/provenance";
-
-/** Stable empty list for useSyncExternalStore: a new [] on every read would re-render forever. */
-const NO_EVENTS: LogEvent[] = [];
 
 /** A data field as text, or "—" when the event does not carry it. */
 function field(v: unknown): string {
@@ -38,7 +34,16 @@ function field(v: unknown): string {
   return UNAVAILABLE;
 }
 
+/** Event envelope and Hab Core text describe simulated session state; field chips retain their original classes. */
+function eventAttrs(event: LogEvent, path: string, present = true): ReturnType<typeof provAttrs> {
+  const source = `event:${event.kind}/${field(event.seq)}/${path}`;
+  return provAttrs(present ? { prov: "simulated", src: source } : unavailableOf("simulated", source));
+}
+
 export type EventCategory = "ALL" | "ALERTS" | "CREW" | "TASKS" | "VEHICLES" | "LINK" | "SYSTEM";
+
+/** FD-295: an interface paging limit, never a mission/science value. */
+export const EVENT_LOG_PAGE_SIZE = 100;
 
 export interface EventLogProps {
   /** Array of LogEvents to display. If omitted and `client` is provided, reads from client. */
@@ -59,13 +64,13 @@ export interface EventLogProps {
 export function formatSimTime(iso: string): string {
   try {
     const d = new Date(iso);
-    if (isNaN(d.getTime())) return iso;
+    if (isNaN(d.getTime())) return UNAVAILABLE;
     const hh = String(d.getUTCHours()).padStart(2, "0");
     const mm = String(d.getUTCMinutes()).padStart(2, "0");
     const ss = String(d.getUTCSeconds()).padStart(2, "0");
     return `${hh}:${mm}:${ss}`;
   } catch {
-    return iso;
+    return UNAVAILABLE;
   }
 }
 
@@ -81,6 +86,7 @@ export function categorizeEvent(kind: LogEventKind): EventCategory {
     case "ARRIVED_STOP":
     case "LEFT_STOP":
     case "CREW_SHELTERED":
+    case "CREW_MOTION_SET":
     case "EVA_ENDED":
       return "CREW";
     case "TASK_ADDED":
@@ -102,6 +108,11 @@ export function categorizeEvent(kind: LogEventKind): EventCategory {
     default:
       return "SYSTEM";
   }
+}
+
+/** A sim-time field as HH:MM:SS, or "—" when absent or not a valid time. */
+function simClock(v: unknown): string {
+  return typeof v === "string" ? formatSimTime(v) : UNAVAILABLE;
 }
 
 /** Converts event data into human-readable text description. Missing fields read "—". */
@@ -139,6 +150,8 @@ export function summarizeEvent(event: LogEvent): string {
       return `Vehicle ${field(d.vehicle_id)} arrived at destination`;
     case "CREW_SHELTERED":
       return `${field(d.crew_id)} sheltered in ${field(d.haven_kind)}`;
+    case "CREW_MOTION_SET":
+      return `${field(d.crew_id)} ${d.motion === "HOLD" ? "held" : "resumed"} (simulation control)`;
     case "TASK_ADDED":
       return `Task added: ${field(d.text) !== UNAVAILABLE ? field(d.text) : field(d.task_id)}`;
     case "TASK_UPDATED":
@@ -160,6 +173,22 @@ export function summarizeEvent(event: LogEvent): string {
       return "EVA completed / ended";
     case "ROLE_TAKEN_OVER":
       return `Role ${field(d.role)} connection replaced`;
+    case "CLOCK_JUMPED": {
+      const reason = d.reason === "next_stop" ? "next stop" : field(d.reason);
+      return `Clock jumped to ${reason} ${field(d.stop_id)}: ${simClock(d.from_sim_time)} → ${simClock(d.to_sim_time)}, ended by ${field(d.ended_by)}`;
+    }
+    case "EVENT_STARTED":
+      return `Event ${field(d.event_id)} started at ${simClock(d.t0_sim_time)} (series from ${field(d.series_start_utc)}, source ${field(d.source_id)})`;
+    case "SESSION_RESET":
+      return `Session ${field(d.session_id)} reset; next session ${field(d.next_session_id)}`;
+    case "SITE_SELECTED":
+      return `Site candidate ${field(d.candidate_id)} selected`;
+    case "MISSION_SETUP_SET": {
+      // Partial<MissionSetup>: only the keys that were set, in the event's order; null vehicle_param_set means none.
+      const parts = Object.entries(d).map(([key, value]) =>
+        `${key} ${typeof value === "boolean" ? (value ? "yes" : "no") : value === null && key === "vehicle_param_set" ? "none" : field(value)}`);
+      return `Mission setup set: ${parts.length > 0 ? parts.join(", ") : UNAVAILABLE}`;
+    }
     default:
       return `${event.kind}`;
   }
@@ -198,12 +227,7 @@ export function EventLog({
   className = "",
   onSelectEvent,
 }: EventLogProps): ReactElement {
-  // Sync with client if events prop is not passed directly
-  const clientEvents = useSyncExternalStore(
-    useCallback((onStoreChange) => client?.subscribe(onStoreChange) ?? (() => {}), [client]),
-    useCallback(() => client?.events() ?? NO_EVENTS, [client]),
-    () => NO_EVENTS,
-  );
+  const clientEvents = useEvents(client);
 
   const rawEvents = propEvents ?? clientEvents;
 
@@ -213,6 +237,7 @@ export function EventLog({
   }, [rawEvents]);
 
   const [filter, setFilter] = useState<EventCategory>(initialCategory);
+  const [visibleCount, setVisibleCount] = useState(EVENT_LOG_PAGE_SIZE);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -223,6 +248,7 @@ export function EventLog({
     if (filter === "ALL") return sortedEvents;
     return sortedEvents.filter((e) => categorizeEvent(e.kind) === filter);
   }, [sortedEvents, filter]);
+  const visibleEvents = filteredEvents.slice(-visibleCount);
 
   const handleCopyLog = async (): Promise<void> => {
     const text = filteredEvents
@@ -311,7 +337,7 @@ export function EventLog({
           <span className="code" style={{ fontWeight: 600, color: "var(--text-1, #ECEFF2)" }}>
             [ HAB CORE /// EVENT LOG ]
           </span>
-          <span style={{ color: "var(--text-3, #8592A0)" }}>
+          <span data-provenance="simulated" data-source="session:events.count" style={{ color: "var(--text-3, #8592A0)" }}>
             {filteredEvents.length} / {sortedEvents.length}
           </span>
         </div>
@@ -330,7 +356,7 @@ export function EventLog({
               cursor: "pointer",
               textTransform: "uppercase",
             }}
-            title="Copy visible log lines to clipboard"
+            title="Copy filtered log lines to clipboard"
           >
             {copyState === "copied" ? "COPIED ✓" : copyState === "failed" ? "COPY FAILED ✕" : "COPY LOG"}
           </button>
@@ -345,7 +371,7 @@ export function EventLog({
             <button
               key={cat}
               type="button"
-              onClick={() => setFilter(cat)}
+              onClick={() => { setFilter(cat); setVisibleCount(EVENT_LOG_PAGE_SIZE); }}
               style={{
                 padding: "2px 8px",
                 fontSize: "11px",
@@ -366,13 +392,14 @@ export function EventLog({
       </nav>
 
       {/* Scrollable event list in seq order */}
-      <div style={listStyle} tabIndex={0} aria-label="Event rows">
+      <div style={listStyle} role="region" tabIndex={0} aria-label="Event rows">
+        {filteredEvents.length > visibleCount && <button type="button" aria-label="Show earlier events" onClick={() => setVisibleCount((count) => count + EVENT_LOG_PAGE_SIZE)} style={{ minHeight: "32px", color: "var(--text-1)", background: "var(--raised)", border: "1px solid var(--edge)" }}>Show earlier events</button>}
         {filteredEvents.length === 0 ? (
           <div style={{ padding: "12px", color: "var(--text-3, #8592A0)", fontSize: "12px", textAlign: "center" }}>
             No events logged yet
           </div>
         ) : (
-          filteredEvents.map((ev) => {
+          visibleEvents.map((ev) => {
             const isAlert = ev.kind.startsWith("ALERT");
             const isWarning = isAlert && (ev.data as { level?: string })?.level === "warning";
             const isCaution = isAlert && (ev.data as { level?: string })?.level === "caution";
@@ -389,7 +416,7 @@ export function EventLog({
             return (
               <div
                 key={ev.seq}
-                data-seq={ev.seq}
+                data-seq={field(ev.seq)}
                 data-kind={ev.kind}
                 data-actor={ev.actor}
                 role="button"
@@ -417,17 +444,19 @@ export function EventLog({
               >
                 {/* Monotonic sequence number */}
                 <span
+                  {...eventAttrs(ev, "seq", field(ev.seq) !== UNAVAILABLE)}
                   style={{
                     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
                     color: "var(--text-3, #8592A0)",
                     fontSize: "11px",
                   }}
                 >
-                  #{ev.seq}
+                  {field(ev.seq) === UNAVAILABLE ? UNAVAILABLE : `#${ev.seq}`}
                 </span>
 
                 {/* Mission sim time */}
                 <span
+                  {...eventAttrs(ev, "sim_time", formatSimTime(ev.sim_time) !== UNAVAILABLE)}
                   style={{
                     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
                     color: "var(--text-2, #A9B3BE)",
@@ -440,6 +469,7 @@ export function EventLog({
 
                 {/* Actor */}
                 <span
+                  {...eventAttrs(ev, "actor", field(ev.actor) !== UNAVAILABLE)}
                   style={{
                     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
                     color: ev.actor === "system" ? "var(--text-3, #8592A0)" : "var(--route, #4CC9F0)",
@@ -450,11 +480,12 @@ export function EventLog({
                   }}
                   title={ev.actor}
                 >
-                  {ev.actor}
+                  {field(ev.actor)}
                 </span>
 
                 {/* Event Summary */}
                 <span
+                  {...eventAttrs(ev, "summary", !summarizeEvent(ev).includes(UNAVAILABLE))}
                   style={{
                     color: rowColor,
                     overflow: "hidden",
@@ -464,12 +495,13 @@ export function EventLog({
                   }}
                   title={summarizeEvent(ev)}
                 >
-                  {severity && <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px" }}>{severity.shape} {severity.word} </span>}
+                  {severity && <span {...eventAttrs(ev, "data.level")} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px" }}>{severity.shape} {severity.word} </span>}
                   {summarizeEvent(ev)}
                 </span>
 
                 {/* Provenance chip: one glyph per class in the event's provenance map, or "—" */}
                 <span
+                  data-slot="event-provenance"
                   style={{
                     fontFamily: "var(--font-mono, 'IBM Plex Mono', monospace)",
                     color: "var(--text-3, #8592A0)",
@@ -498,4 +530,3 @@ export function EventLog({
     </section>
   );
 }
-

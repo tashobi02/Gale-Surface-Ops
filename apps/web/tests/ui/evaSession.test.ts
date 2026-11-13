@@ -179,12 +179,10 @@ describe("stop task changes are sent at once; UNDO reverses them on the server f
     expect(sent).toEqual([DONE]);
   });
 
-  it("SKIP sends the reason-bearing change when the reason is chosen; UNDO then reverses it", async () => {
+  it("SKIP sends other immediately; UNDO then reverses it", async () => {
     const { container, sent } = await tablet();
     await click(must(container, '[aria-label^="Skip task: Image"]'));
-    expect(sent).toHaveLength(0);
-    await click(must(container, '[aria-label="Reason: terrain"]'));
-    expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: TASK_ID, state: "SKIPPED", reason: "terrain" } }]);
+    expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: TASK_ID, state: "SKIPPED", reason: "other" } }]);
     expect(rowState(container)).toBe("SKIPPED");
     await click(must(container, '[aria-label^="Undo task change: Image"]'));
     expect(sent[1]).toEqual(UNDO);
@@ -330,14 +328,18 @@ describe("stop task changes are sent at once; UNDO reverses them on the server f
     expect(must(container, '[data-testid="tasks-button"]').textContent).toContain("1/1");
   });
 
-  it.todo("server side (T31.04): UPDATE_STOP_TASK {state: TODO, undo: true} is accepted by the actor of the last change, rejected INVALID after a later change or a PLAN_REVISED, FORBIDDEN_ROLE for another sender, and logged as TASK_UPDATED with data.undo true");
+  // Server-side T31.04 rules for UPDATE_STOP_TASK {state: TODO, undo: true} (last-actor check,
+  // INVALID after later change or PLAN_REVISED, FORBIDDEN_ROLE, TASK_UPDATED data.undo) are implemented
+  // in apps/hab-core/src/engine/tasks.ts and verified in apps/hab-core/tests/stopTasks.test.ts.
 });
 
 describe("the task list is full only at the stop and collapses to its count otherwise (FR-50, 04 §E.5; U-59)", () => {
   async function open(snapshot: Snapshot) {
     const { client } = recordingClient(storeFromBeat("connect"));
     const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot }));
-    await click(must(view.container, '[data-testid="tasks-button"]'));
+    // The TASKS control is a button only while the list can be opened; while collapsed the count is a figure (FD-032).
+    const button = view.container.querySelector('[data-testid="tasks-button"]');
+    if (button) await click(button);
     return view;
   }
   const alert = (level: "warning" | "caution" | "advisory", acked_seq: number | null = null): Snapshot["alerts"][number] => ({
@@ -348,13 +350,17 @@ describe("the task list is full only at the stop and collapses to its count othe
   it("at the stop with no alert the full list shows", async () => {
     const { container } = await open(atStop());
     expect(full(container)).toBe(true);
-    expect(container.querySelector('[data-testid="tasks-collapsed-count"]')).toBeNull();
+    expect(container.querySelector('[data-testid="tasks-count"]')).toBeNull();
   });
 
   it.each(["WALKING", "TO_HAVEN", "SHELTERED", "IN_HAB"] as const)("while %s only the count shows", async (activity) => {
     const { container } = await open(atStop({ activity }));
+    // FD-032: no panel is mounted over the NEXT card; the count stays in the NEXT header, as a figure and not a control.
     expect(full(container)).toBe(false);
-    expect(must(container, '[data-testid="tasks-collapsed-count"]').textContent).toContain("TASKS 0/1");
+    expect(container.querySelector('[data-slot="stop-task-list"]')).toBeNull();
+    expect(must(container, '[data-testid="tasks-count"]').textContent).toContain("TASKS");
+    expect(must(container, '[data-testid="tasks-count"]').textContent).toContain("0/1");
+    expect(container.querySelector('[data-testid="tasks-button"]')).toBeNull();
   });
 
   it("a crew member who is not in the snapshot gets the count only", async () => {
@@ -365,7 +371,8 @@ describe("the task list is full only at the stop and collapses to its count othe
   it.each(["warning", "caution"] as const)("during an unacknowledged %s alert only the count shows", async (level) => {
     const { container } = await open({ ...atStop(), alerts: [alert(level)] });
     expect(full(container)).toBe(false);
-    expect(container.querySelector('[data-testid="tasks-collapsed-count"]')).not.toBeNull();
+    expect(container.querySelector('[data-slot="stop-task-list"]')).toBeNull();
+    expect(container.querySelector('[data-testid="tasks-count"]')).not.toBeNull();
   });
 
   it("an acknowledged alert, an advisory and a cleared alert do not collapse it", async () => {
@@ -401,8 +408,10 @@ describe("crewId is required: nothing defaults to EV1 (T24.04)", () => {
     expect(valueText(tablet.container, "o2")).toBe("—");
     expect(must<HTMLButtonElement>(tablet.container, "#action-summon-rover").disabled).toBe(true);
     expect(must<HTMLButtonElement>(tablet.container, "#action-abort-hab").disabled).toBe(true);
-    await click(must(tablet.container, '[data-testid="tasks-button"]'));
-    expect(must(tablet.container, '[data-slot="stop-task-list"]').querySelectorAll("button")).toHaveLength(0);
+    // Without a crew member there is no stop and so no list: the count reads "—" and nothing can be acted on.
+    expect(tablet.container.querySelector('[data-slot="stop-task-list"]')).toBeNull();
+    expect(must(tablet.container, '[data-testid="tasks-count"]').textContent).toContain("—");
+    expect(tablet.container.querySelector('[data-testid="tasks-button"]')).toBeNull();
     await tablet.unmount();
 
     const hud = await mount(createElement(Hud, { snapshot } as unknown as HudProps));
@@ -442,5 +451,63 @@ describe("SCR-12 banner and surface", () => {
   it("the root declares data-surface=eva so the 56 px target rule of base.css applies", async () => {
     const { container } = await mount(createElement(EvaTablet, { snapshot: atStop(), crewId: "EV1" }));
     expect(must(container, '[data-screen="SCR-12"]').getAttribute("data-surface")).toBe("eva");
+  });
+
+  it("shows a dedicated transport-lost notice immediately on socket close before SCR-18, distinct from simulated suit unlinked", async () => {
+    vi.useFakeTimers();
+    const { client, socket } = liveClient();
+    const { container } = await mount(createElement(EvaTablet, { client, crewId: "EV1" }));
+    await socket.receive({ ...connect(), alerts: [] });
+    expect(container.querySelector('[data-slot="transport-lost-notice"]')).toBeNull();
+
+    // Simulated suit link down with open socket is NOT a lost transport notice.
+    await socket.receive({
+      ...connect(),
+      alerts: [],
+      crew: connect().crew.map((c) => ({ ...c, linked: false })),
+    });
+    expect(container.querySelector('[data-slot="transport-lost-notice"]')).toBeNull();
+
+    // Closing the WebSocket transport shows the dedicated transport-lost notice immediately (before 3 s SCR-18).
+    await socket.receive({ ...connect(), alerts: [] });
+    await act(async () => {
+      socket.readyState = 3;
+      socket.onclose?.();
+    });
+    expect(client.linkLost().lost).toBe(false);
+    const notice = must(container, '[data-slot="transport-lost-notice"]');
+    expect(notice.getAttribute("data-fallback")).toBe("transport-lost");
+    expect(notice.textContent).toMatch(/transport|hab link/i);
+    client.close();
+  });
+
+  it("keeps active safety alerts and controls usable alongside the transport-lost notice", async () => {
+    vi.useFakeTimers();
+    const { client, socket } = liveClient();
+    const { container } = await mount(createElement(EvaTablet, { client, crewId: "EV1" }));
+    const alertSnap: Snapshot = {
+      ...connect(),
+      alerts: [{
+        alert_id: "a-rad",
+        code: "RADIATION_ALERT",
+        level: "warning",
+        subjects: ["EV1"],
+        raised_seq: 1,
+        acked_seq: null,
+        cleared_seq: null,
+        acked_by: null,
+        message: "Radiation event",
+        data: {},
+      }],
+    };
+    await socket.receive(alertSnap);
+    await act(async () => {
+      socket.readyState = 3;
+      socket.onclose?.();
+    });
+    expect(must(container, '[data-slot="alert"]').textContent).toContain("Radiation event");
+    expect(must(container, '[aria-label="Acknowledge alert"]')).toBeTruthy();
+    expect(must(container, '[data-slot="transport-lost-notice"]')).toBeTruthy();
+    client.close();
   });
 });

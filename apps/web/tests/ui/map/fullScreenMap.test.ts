@@ -19,6 +19,10 @@ import type { Crew } from "@marswalk/protocol";
 import { click, installDom, keyDown, mount as mountRaw, must, removeDom, type Mounted } from "../domHarness";
 import { storeFromBeat } from "../fixtureStore";
 
+vi.mock("../../../src/ui/map/useFullMap", () => ({ useFullMap: () => ({
+  host: { current: null }, status: "unavailable", layerStates: { slope: "ready", thermal_inertia: "ready", comm_shadow: "ready", haven_bands: "ready" }, zoomBy: () => {}, fit: () => {},
+}) }));
+
 beforeAll(() => installDom());
 afterAll(() => removeDom());
 
@@ -287,7 +291,7 @@ describe("FullScreenMap behaviour (04 §E.5)", () => {
     expect(centre.textContent).toContain("Y: -3.0 m");
     expect(centre.getAttribute("data-provenance")).toBe("derived");
     const haven = must(container, '[data-slot="haven-compact"] > div');
-    expect(haven.textContent).toContain("22 MIN");
+    expect(haven.textContent).toContain("22");
     expect(haven.getAttribute("data-provenance")).toBe("modelled");
     expect(haven.getAttribute("data-source")).toBe("snapshot:crew.haven.minutes");
     expect(must(container, '[data-slot="o2-compact"] > div').getAttribute("data-provenance")).toBe("simulated");
@@ -325,9 +329,9 @@ describe("FullScreenMap behaviour (04 §E.5)", () => {
       }),
     );
     const haven = must(container, '[data-slot="haven-compact"] > div');
-    expect(haven.textContent).toContain("0 MIN");
+    expect(haven.textContent).toContain("0");
     expect(haven.getAttribute("data-unavailable")).toBeNull();
-    expect(must(container, '[data-slot="o2-compact"] > div').textContent).toContain("0 %");
+    expect(must(container, '[data-slot="o2-compact"] > div').textContent).toContain("0");
   });
 
   it("landscape stacks HAVEN above O₂ at the left; portrait has no stack (the cards keep their row)", async () => {

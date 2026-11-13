@@ -4,13 +4,15 @@ UTC inputs/outputs use YYYY-MM-DDTHH:MM:SSZ. The CLI writes sorted JSON keys,
 rounds floats to six decimal places, and derives passes from those rounded rows.
 Pass boundaries are the first/last qualifying samples, including series edges;
 there is no crossing interpolation (data lead decision, 2026-11-07).
-TODO(verify): carry this sampled-pass convention into 05 EarthLinkTable.
+This sampled-pass convention is in 05 EarthLinkTable ("Sampled-pass convention").
 
 Earth geometry uses MARS BARYCENTER (4), as specified by the T21.03 API
 contract. Light time uses spkpos LT in J2000; the angle at Earth and all
 elevations use geometric (NONE) positions at the observation epoch. Directions
 are rotated into IAU_MARS at that epoch before subtracting the spherical site.
-TODO(verify): quantify the barycenter/body-centre difference for Earth geometry.
+The barycentre/body-centre difference is measured by `mars_centre_light_time_difference_s` and recorded in
+pipeline/spice/kernels.lock.json (BD-24): at most 6.5e-10 s over 18-23 May 2024, far inside the 1 s of FR-43, so the
+barycentre stays.
 Orbiter positions are always relative to MARS (499). mar099s bridges the
 MRO/MAVEN segments centred on 4 to 499. Load DE440s after mar099s so its
 planetary states take precedence over the planetary states embedded in mar099s.
@@ -20,8 +22,8 @@ MRO mro_2024_v07.tm loads mro_psp71.bsp then mro_psp71_ssd_mro95a.bsp;
 TGO em16_ops.tm loads fsp_335 then fsp_352. Later files take priority where
 coverage overlaps. Continuous combined coverage is checked with spkcov.
 MAVEN selection is unchanged (fewest covering intervals, ties by filename).
-Before 2024-05-20T22:45:10Z, TGO comes from fsp_335 only and is likely
-predicted: TODO(verify), see T21.02. From that epoch fsp_352 takes priority;
+Before 2024-05-20T22:45:10Z, TGO comes from fsp_335 only and is treated as
+predicted (BD-24; kernels.lock.json). From that epoch fsp_352 takes priority;
 its May data are reconstructed (delivered September 2024; T21.02).
 Only selected, loaded files appear in the manifest. Kernel quality notes stay
 in this docstring and CLI output because EarthLinkTable forbids extra fields.
@@ -248,6 +250,25 @@ def light_time_s(t_utc: str, kernel_dir) -> float:
         return _light_time(sp, sp.str2et(t_utc))
 
 
+def mars_centre_light_time_difference_s(start_utc: str, end_utc: str, kernel_dir, step_s: int = STEP_S) -> float:
+    """Largest |light time to the Mars barycentre - light time to the Mars body centre| over the window, in seconds.
+
+    Earth geometry uses the Mars barycentre (NAIF 4) while the site sits on Mars (499), so this is the error that choice
+    can cause; BD-24 records it in kernels.lock.json and changes the code only if it exceeds the 1 s of FR-43.
+    Samples every `step_s` seconds from `start_utc` through `end_utc` (a bad window or step raises ValueError first).
+    """
+    if step_s <= 0:
+        raise ValueError("step_s must be positive")
+    grid = time_grid(start_utc, end_utc, step_s)
+    with _geometry_kernels(kernel_dir, start_utc, end_utc) as (sp, _):
+        worst = 0.0
+        for t in grid:
+            et = sp.str2et(t)
+            centre = float(sp.spkpos("EARTH", et, "J2000", "LT", "MARS")[1])
+            worst = max(worst, abs(_light_time(sp, et) - centre))
+        return worst
+
+
 def sun_earth_mars_angle_deg(t_utc: str, kernel_dir) -> float:
     """Geometric Sun-Earth-Mars angle, with the vertex at Earth."""
     _parse_utc(t_utc)
@@ -312,8 +333,8 @@ def main(argv: list[str] | None = None) -> int:
     args.out.write_bytes(encoded)
     print("Kernels: MRO psp71 then psp71_ssd_mro95a; TGO fsp_335 then fsp_352 "
           "(later files take priority). Mars bridge: mar099s then de440s.")
-    print("TGO before 2024-05-20T22:45:10Z comes from fsp_335 only and is likely "
-          "predicted: TODO(verify), see T21.02. From that epoch fsp_352 takes "
+    print("TGO before 2024-05-20T22:45:10Z comes from fsp_335 only and is treated as "
+          "predicted (BD-24). From that epoch fsp_352 takes "
           "priority (May data reconstructed; delivered September 2024).")
     print(f"{hashlib.sha256(encoded).hexdigest()}  {args.out}")
     return 0

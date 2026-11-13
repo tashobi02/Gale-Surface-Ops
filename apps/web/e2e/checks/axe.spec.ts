@@ -1,0 +1,371 @@
+/**
+ * Check `axe` (replaces T13.09). Enabled by package 03 (shell) and by each screen package for its route.
+ * axe-core in real Chromium, tags wcag2a, wcag2aa, wcag21aa: zero serious or critical violations on every built route, in its
+ * mode, and on each EVA and ops state fixture (FD-151). The full result of each scan goes to `out/axe-<route>.json`.
+ */
+import { openBriefing, BRIEFING_STATES } from "../lib/briefing";
+import { expect, test } from "@playwright/test";
+import { axeScan, type HtmlMode } from "../lib/a11y";
+import { waitForSnapshot } from "../lib/hab";
+import { addStopByKeyboard, openPlanTab } from "../lib/planner";
+import { openEvaFixture, type EvaFixtureState } from "../lib/evaFixture";
+import { UTILITY_ROVER, openOpsFixture, openOpsPanel } from "../lib/opsFixture";
+import { openReplayFixture, routeFixtureRecording } from "../lib/replayFixture";
+import { populatedReport } from "../../tests/fixtures/postEvaReport";
+import { withManifestlessSite } from "../lib/siteBundle";
+import { openPoiTasks } from "../lib/plannerTasks";
+import { asOrtho, failTiles, stubManualLegWorker } from "../lib/fallbacks";
+import { REJECTION, openSetupFixture } from "../lib/setupFixture";
+import { openPresenterFixture, type PresenterFixtureState } from "../lib/presenterFixture";
+
+const LIVE = /^#\/(ops|eva|hud|presenter|setup)/;
+
+// Routes that render real content today. Each screen package adds its own route here when it builds the screen, until the
+// list equals `routeHashes()` (package 99 asserts that).
+// Package 15 adds the two BRIEF routes it builds: `#/` (SCR-01) and `#/sources` (SCR-09); package 17 adds `#/eva/EV1`.
+// Package 27 adds `#/replay`, on the fixture recording until N-81 commits the real one (lib/replayFixture.ts); 36 adds `#/earth`; 23 and 24 add `#/presenter` and `#/setup`.
+const BUILT_ROUTES = ["#/", "#/sources", "#/join", "#/ops", "#/hud/EV1", "#/eva/EV1", "#/report", "#/replay", "#/earth", "#/presenter", "#/setup"];
+
+test("axe: ops join drawer", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await openOpsFixture(page, "running");
+  await page.getByRole("button", { name: "Join QR codes" }).click();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-join` });
+});
+
+test("axe: every built route has no serious or critical violation", async ({ page }, testInfo) => {
+  await routeFixtureRecording(page);
+  for (const hash of BUILT_ROUTES) {
+    await page.goto(`/?site=${process.env.E2E_SITE ?? "mock_site"}${hash}`);
+    await page.waitForLoadState("networkidle");
+    if (hash === "#/") await expect(page.locator('[data-screen="SCR-01"] h1')).toContainText("Plan the walk");
+    if (hash === "#/sources") await expect(page.locator('[data-screen="SCR-09"] h1')).toContainText("What each value is");
+    // FD-210: below 1024 px the ops route shows only the "Use a larger screen" notice, which has no values to wait for.
+    if (hash === "#/ops" && (page.viewportSize()?.width ?? 1280) < 1024) await page.getByRole("heading", { name: "Use a larger screen" }).waitFor();
+    else if (LIVE.test(hash)) await waitForSnapshot(page);
+    if (hash === "#/replay") await page.locator('[data-slot="replay-banner"]').waitFor();
+    if (hash === "#/presenter") await expect(page.locator('[data-screen="SCR-19"]')).toBeVisible();
+    if (hash === "#/setup") {
+      await expect(page.locator('[data-screen="SCR-20"]')).toBeVisible();
+      await expect(page.locator('.setup-state')).toHaveText(/^(Ready|Locked)/);
+      await expect(page.getByRole("heading", { name: "Mission settings", exact: true })).toBeVisible();
+    }
+    const mode = (await page.evaluate(() => document.documentElement.dataset.mode)) as HtmlMode;
+    await axeScan(page, { mode, route: `${testInfo.project.name}-${hash}` });
+  }
+});
+
+// Package 26 and 27 on every project, independent of the live routes above: SCR-17 populated (6 stops, 3 alerts, a trace) in
+// PRINT mode, and `#/replay` on the fixture recording with the event log drawer open where the console is shown (>= 1024 px).
+test("axe: SCR-17 populated and #/replay with its log drawer have no serious or critical violation (packages 26, 27)", async ({ page }, testInfo) => {
+  const body = JSON.stringify(populatedReport());
+  await page.route("**/api/report", (route) => route.fulfill({ status: 200, contentType: "application/json", body }));
+  await page.goto("/#/report");
+  await page.locator('[data-slot="report-trace"]').waitFor();
+  await axeScan(page, { mode: "print", route: `${testInfo.project.name}-report-populated` });
+  await openReplayFixture(page);
+  const strip = page.locator('[data-slot="event-log-strip"]');
+  if (await strip.count()) {
+    await strip.click();
+    await page.locator('[data-slot="event-log-drawer"]').waitFor();
+  }
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-replay-log` });
+});
+
+// Package 23: SCR-19 in each state of 03, from lib/presenterFixture.ts (the committed `live-loaded` snapshot over a stubbed
+// socket, because the harness's own session is already running and would only ever show the running state).
+test("axe: SCR-19 Advancing, Reset confirm, Command rejected, Storm running and Ended states have no serious or critical violation (package 23)", async ({ page }, testInfo) => {
+  const states: PresenterFixtureState[] = ["pending", "reset-confirm", "rejected", "storm-running", "ended"];
+  for (const state of states) {
+    const fixture = await openPresenterFixture(page, state);
+    if (state === "pending") await expect(page.locator(".presenter-beats [role=status]")).toContainText("Advancing to stop");
+    if (state === "reset-confirm") await expect(page.getByRole("group", { name: "Confirm session reset" })).toBeVisible();
+    if (state === "rejected") await expect(page.getByRole("list", { name: "Last command results" })).toContainText("BUSY");
+    if (state === "storm-running") await expect(page.locator(".presenter-beats [role=status]")).toContainText("Storm running");
+    if (state === "ended") await expect(page.locator(".presenter-session")).toContainText("ENDED");
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr19-${state}` });
+    fixture.answer();
+    fixture.stop();
+  }
+});
+
+// Package 24: SCR-20 in each state of 03, from lib/setupFixture.ts (two MOCK candidate cards; a committed LOADED snapshot, because the
+// harness's own session already has a plan and would only ever show Locked). The real route is scanned above.
+test("axe: SCR-20 Ready, Computing, Command rejected and Locked states have no serious or critical violation (package 24)", async ({ page }, testInfo) => {
+  const ready = await openSetupFixture(page, "ready");
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-ready` });
+  expect(ready.sent).toEqual([]);
+  ready.stop();
+
+  const computing = await openSetupFixture(page, "computing");
+  await page.getByRole("button", { name: "Select site — MOCK alternative" }).click();
+  await expect(page.locator(".setup-state")).toHaveText(/^Computing haven fields/);
+  expect(computing.sent).toEqual([{ kind: "SELECT_HAB_SITE", args: { candidate_id: "hab-mock-alternative" } }]);
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-computing` });
+  computing.answer();
+  await expect(page.locator(".setup-state")).toHaveText(/^Ready/);
+  computing.stop();
+
+  const rejected = await openSetupFixture(page, "rejected");
+  await page.getByRole("button", { name: "Select site — MOCK alternative" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: REJECTION })).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-rejected` });
+  rejected.stop();
+
+  const locked = await openSetupFixture(page, "locked");
+  await expect(page.getByRole("button", { name: "Select site — MOCK alternative" })).toBeDisabled();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr20-locked` });
+  locked.stop();
+});
+
+// Package 06: SCR-00, the boot error, in OPS mode (FD-207). A site whose manifest was deleted makes the planner boot fail.
+test("axe: SCR-00 boot error has no serious or critical violation", async ({ page }, testInfo) => {
+  await withManifestlessSite(async (siteId) => {
+    await page.goto(`/?site=${siteId}#/planner`);
+    await page.waitForLoadState("networkidle");
+    await page.locator('[data-screen="SCR-00"]').waitFor();
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr00` });
+  });
+});
+
+// Package 07: the planner workspace SCR-02 on the F4 site, in OPS mode.
+test("axe: SCR-02 planner workspace has no serious or critical violation", async ({ page }, testInfo) => {
+  await page.goto("/?site=mock_site#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02` });
+});
+
+// Package 35: the planner workspace in light theme (?theme=light).
+test("axe: SCR-02 planner workspace in light theme has no serious or critical violation (package 35)", async ({ page }, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 800, "the planner is specified from 1024 px (04 §F); its top bar does not fit a 360 or 390 px portrait phone");
+  await page.goto("/?site=mock_site&theme=light#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  for (let step = 0; step < 3; step += 1) {
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-light-coach-${step}` });
+    await page.locator('.coach-marks-popover [data-action="next"]').click();
+  }
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-light` });
+});
+
+// Package 09: the SCR-04 plan panel in its Empty state (only the start) and its Invalid input state (an out-of-range entry shows
+// its range inline). Editing is scanned below (package 10).
+test("axe: SCR-04 plan panel Empty and Invalid input states have no serious or critical violation", async ({ page }, testInfo) => {
+  // 04 §F specifies the planner from 1024 px; its top bar does not fit a 360 or 390 px portrait phone, so the drawer button is
+  // out of reach there. The phone landscape (844 px) and every wider project are scanned.
+  test.skip((page.viewportSize()?.width ?? 0) < 800, "the planner is specified from 1024 px (04 §F)");
+  await openPlanTab(page);
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-empty` });
+  const duration = page.getByLabel(/max eva duration/i);
+  await duration.fill("-1");
+  await expect(page.getByRole("alert").filter({ hasText: /duration/i })).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-invalid` });
+});
+
+// Package 10: SCR-04 Editing (two stops, the first selected result of the keyboard path) with the keyboard-move group showing.
+test("axe: SCR-04 plan panel Editing state with a selected stop and the keyboard move has no serious or critical violation", async ({ page }, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 800, "the planner is specified from 1024 px (04 §F)");
+  await openPlanTab(page);
+  await page.getByLabel(/EVA start/i).fill("2026-11-14T08:00:00Z");
+  await addStopByKeyboard(page, 1);
+  await addStopByKeyboard(page, 2);
+  await page.getByRole("group", { name: "Move stop 2" }).waitFor();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-editing` });
+});
+
+
+// Package 28: SCR-07 (the conditions panel) on the real worker, in the state the demo path reaches — the plan is computed
+// and the panel shows its values, its radiation block and its daylight warning. The panel lives in the right drawer, so the
+// scan is scoped to it (a full-page scan walks the SCR-05 profile chart).
+test("axe: SCR-07 conditions panel on the real worker has no serious or critical violation", async ({ page }, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 800, "the planner is specified from 1024 px (04 §F)");
+  await page.goto("/?site=mock_site#/");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: /open demo plan/i }).click();
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  // The planner's drawers hold the tabs. Below 1024 px the layout is one drawer, so its toggle button opens the drawer
+  // the tab lives in; above it the drawers are open and the toggle is not rendered (04 §F). The toggle is waited for
+  // rather than polled: on a slow run the shell is still rendering when the check first looks for it.
+  const leftToggle = page.locator('[data-slot="drawer-toggle"][data-for="left"]');
+  const oneDrawer = await leftToggle.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false);
+  if (oneDrawer) await leftToggle.click();
+  await page.getByRole("tab", { name: "Plan", exact: true }).click();
+  const start = page.getByLabel(/EVA start/i);
+  await start.fill("");
+  await start.fill("2026-11-14T08:00:00Z");
+  await expect(page.locator("[data-results-banner]")).not.toContainText("Computing…", { timeout: 30_000 });
+  // The conditions panel is in the right drawer, on its Conditions tab. In the one-drawer layout the right toggle
+  // replaces the left one, so the drawer is opened again before its tab is chosen.
+  if (oneDrawer) {
+    const rightToggle = page.locator('[data-slot="drawer-toggle"][data-for="right"]');
+    await rightToggle.waitFor({ state: "visible", timeout: 5000 });
+    await rightToggle.click();
+  }
+  await page.getByRole("tab", { name: "Conditions", exact: true }).click();
+  const conditions = page.locator('[data-conditions]');
+  await expect(conditions, "the conditions panel is shown").toBeVisible();
+  await expect(conditions).toHaveAttribute("aria-busy", "false");
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr07`, include: "[data-conditions]" });
+});
+
+test("axe: EVA tablet states and high contrast have no serious or critical violation", async ({ context }, testInfo) => {
+  test.setTimeout(180_000);
+  const states: EvaFixtureState[] = ["walking", "at-stop", "undo-window", "ops-added-task", "alerting", "alerting-with-options", "no-hab-link", "to-haven"];
+  for (const state of states) {
+    // A fresh page per state: the same `#/eva/EV1` URL is a fragment navigation, so an open task sheet and the contrast
+    // toggle would carry over into the next state.
+    const page = await context.newPage();
+    try {
+      await openEvaFixture(page, state);
+      await expect(page.locator('[data-slot="link-lost-overlay"]')).toHaveCount(0);
+      if (state === "at-stop" || state === "ops-added-task") await page.getByTestId("tasks-button").click();
+      await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}` });
+      // The options sheet only opens for a warning that CARRIES options (FD-081). The plain alerting fixture raises a
+      // warning without any, so there is no sheet to close — the crew member opens it from the alert bar's OPTIONS button.
+      if (state === "alerting-with-options") await page.getByRole("button", { name: "Close options sheet" }).click();
+      await page.getByRole("button", { name: "Toggle high contrast" }).click();
+      await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-${state}-contrast` });
+      await expect(page.locator('[data-slot="link-lost-overlay"]')).toHaveCount(0);
+    } finally { await page.close(); }
+  }
+});
+
+
+test("axe: ops states have no serious or critical violation (package 19)", async ({ context }, testInfo) => {
+  // Up to 26 scans (6 states x base, side panels, task editor, log drawer) do not fit the 60 s default.
+  test.setTimeout(240_000);
+  for (const state of ["no-session", "loaded", "running", "paused", "alerting", "ended"] as const) {
+    const page = await context.newPage();
+    try {
+      await openOpsFixture(page, state);
+      if (state !== "no-session" && state !== "ended") await expect(page.locator('[data-slot="link-lost-overlay"]')).toHaveCount(0);
+      const route = `${testInfo.project.name}-ops-${state}`;
+      await axeScan(page, { mode: state === "ended" ? "print" : "ops", route });
+      if (state !== "no-session" && state !== "ended") await expect(page.locator('[data-slot="link-lost-overlay"]')).toHaveCount(0);
+      if ((page.viewportSize()?.width ?? 0) >= 1024 && state !== "ended") {
+        await openOpsPanel(page, "mission");
+        await axeScan(page, { mode: "ops", route: `${route}-mission` });
+        await openOpsPanel(page, "crew");
+        await axeScan(page, { mode: "ops", route: `${route}-crew` });
+        if (state !== "no-session" && state !== "alerting") {
+          await page.getByRole("button", { name: "Add task for EV1" }).click();
+          await expect(page.getByRole("dialog", { name: "Add stop task" })).toBeVisible();
+          await axeScan(page, { mode: "ops", route: `${route}-task-editor` });
+          await page.getByRole("button", { name: "Close add task popover" }).click();
+        }
+        await page.locator('[data-slot="event-log-strip"]').click();
+        await expect(page.getByRole("dialog", { name: "Event log", exact: true })).toBeVisible();
+        await axeScan(page, { mode: "ops", route: `${route}-log` });
+        await page.keyboard.press("Escape");
+        await expect(page.locator('[data-slot="event-log-strip"]')).toBeFocused();
+      }
+    } finally { await page.close(); }
+  }
+});
+
+test("axe: ops rover card and SCR-15 rover tasking have no serious or critical violation (package 21)", async ({ page }, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 1024, "the ops console needs >= 1024 px");
+  await openOpsFixture(page, "running", { vehicles: [UTILITY_ROVER] });
+  await openOpsPanel(page, "crew");
+  await page.getByRole("button", { name: "Task rover UR1" }).click();
+  await expect(page.locator('[data-screen="SCR-15"]')).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-rover-task` });
+  await page.locator('[data-screen="SCR-15"] [data-task="SCOUT"]').click();
+  await page.getByRole("button", { name: "Pick on map" }).click();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-rover-placing` });
+});
+
+test.fixme("needs N-06: ops receives an authoritative EVA phase", async ({ page }) => {
+  await page.goto("/?site=mock_site#/ops");
+  await expect(page.locator('.phase-timeline [data-provenance]')).not.toHaveText(/—/);
+});
+
+// Package 25: one axe scan per test, scoped to the plan panel. Three full-page scans plus their setup in one test passed the 60 s limit
+// on the phone-landscape and HUD projects (a full planner scan walks the SCR-05 profile chart: 16 to 22 s on a quiet machine, more under
+// load). The task editor states change only the plan panel; the rest of the page is scanned by the SCR-02 and SCR-04 tests above.
+const TASK_EDITOR_MIN_WIDTH = 800;
+const PLAN_PANEL = '[data-slot="plan-panel"]';
+const skipBelowPlanner = (width: number | undefined): void => test.skip((width ?? 0) < TASK_EDITOR_MIN_WIDTH, "the planner is specified from 1024 px (04 §F)");
+
+test("axe: SCR-04 task editor populated state has no serious or critical violation (package 25)", async ({ page }, testInfo) => {
+  skipBelowPlanner(page.viewportSize()?.width);
+  await openPoiTasks(page);
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-tasks`, include: PLAN_PANEL });
+});
+
+test("axe: SCR-04 task editor invalid-text state has no serious or critical violation (package 25)", async ({ page }, testInfo) => {
+  skipBelowPlanner(page.viewportSize()?.width);
+  const { editor } = await openPoiTasks(page);
+  await editor.locator("[data-task-text]").first().fill("");
+  await expect(editor.getByRole("alert")).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-task-invalid`, include: PLAN_PANEL });
+});
+
+test("axe: SCR-04 task editor four-task limit state has no serious or critical violation (package 25)", async ({ page }, testInfo) => {
+  skipBelowPlanner(page.viewportSize()?.width);
+  const { editor, suggested } = await openPoiTasks(page);
+  for (let n = suggested.length; n < 4; n++) {
+    await editor.locator("[data-new-task-text]").fill(suggested[0]!.text);
+    await editor.getByRole("button", { name: "Add task", exact: true }).click();
+  }
+  await expect(editor.locator("[data-task-text]")).toHaveCount(4);
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr04-task-limit`, include: PLAN_PANEL });
+});
+
+test("axe: SCR-08 computed briefing states have no serious or critical violation (package 14)", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  for (const state of BRIEFING_STATES) {
+    await openBriefing(page, state);
+    await axeScan(page, { mode: "print", route: `${testInfo.project.name}-scr08-${state}` });
+  }
+});
+
+test("axe: EVA full map, options and cached transport-loss overlay (package 18)", async ({ page }, testInfo) => {
+  const { openSurfaceFixture, surfaceSnapshot } = await import("../lib/surfaceFixture");
+  const fixture = await openSurfaceFixture(page, "eva");
+  try {
+    await page.getByRole("button", { name: "Open full-screen map" }).click();
+    await page.locator('[data-fullmap][data-map-status="ready"]').waitFor();
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-fullmap` });
+    fixture.send(surfaceSnapshot("alerting-with-options"));
+    await page.locator('[data-screen="SCR-14"]').waitFor();
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-options` });
+    fixture.stop();
+    await page.locator('[data-screen="SCR-18"]').waitFor();
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-eva-link-lost` });
+  } finally { fixture.dispose(); }
+});
+
+// Package 33: the planner's degraded states. A layer on its fallback image (layer row and the map's caution notice), and the manual-leg
+// panel before drawing, while drawing and with a validated leg. The panel and the notice are scanned as regions (a full planner scan walks
+// the profile chart); the planner is specified from 1024 px (04 §F).
+test("axe: SCR-02 layer fallback notice and manual-leg panel states have no serious or critical violation (package 33)", async ({ page }, testInfo) => {
+  skipBelowPlanner(page.viewportSize()?.width);
+  await stubManualLegWorker(page);
+  await asOrtho(page);
+  await failTiles(page, "elevation", { keepCoarsest: true });
+  await openPlanTab(page, "&draw_legs=1");
+  await addStopByKeyboard(page, 1);
+  await page.getByRole("tab", { name: "Layers" }).click();
+  await expect(page.locator('[data-slot="layer-fallback-notice"] .notice[data-status="caution"]')).toBeVisible();
+  await expect(page.locator('[data-layer-id="elevation"] [data-slot="layer-fallback"]')).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-fallback-notice`, include: '[data-slot="map-box"]' });
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr03-fallback-row`, include: '[data-layer-id="elevation"]' });
+
+  const panel = '[data-slot="draw-legs"]';
+  await expect(page.locator(panel)).toBeVisible();
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-draw-legs-ready`, include: panel });
+  await page.locator(`${panel} .scr02-manual-actions button`).first().click();
+  await expect(page.locator(`${panel} [data-slot="manual-leg-status"]`)).toContainText("Drawing");
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-draw-legs-drawing`, include: panel });
+  await page.getByRole("button", { name: "Finish leg" }).click();
+  await expect(page.locator(`${panel} [data-slot="manual-leg-status"]`)).toContainText("Leg validation");
+  await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-draw-legs-validated`, include: panel });
+});
+
+test("axe: SCR-08 with the map snapshot fallback has no serious or critical violation (package 33)", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  await openBriefing(page, "partial", { captureFails: true, noRoute: true });
+  await axeScan(page, { mode: "print", route: `${testInfo.project.name}-scr08-map-fallback` });
+});

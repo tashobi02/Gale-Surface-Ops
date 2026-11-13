@@ -431,6 +431,17 @@ describe("TaskProgress (ops crew card)", () => {
   });
 });
 
+describe("ops task-limit provenance (FR-15)", () => {
+  it("labels the maximum task count with its rule source", () => {
+    const html = renderToStaticMarkup(createElement(AddTaskPopover, {
+      crewId: "EV1", stopId: "wp-2", maxReached: true, onAdd: () => {},
+    }));
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const message = [...doc.querySelectorAll("div")].find((element) => element.textContent === "Maximum limit of 4 tasks reached for this stop.");
+    expect(message?.closest('[data-provenance="assumed"][data-source="ui:stop-task.limit"]')).not.toBeNull();
+  });
+});
+
 describe("TaskProgress without counts shows —, labelled, and no chrome radius", () => {
   it("null counts render — flagged unavailable, not 0/0 or a sample fraction", () => {
     const html = renderToStaticMarkup(
@@ -533,63 +544,22 @@ describe("StopTaskList interaction: real clicks (FR-50)", () => {
     expect(calls.tick.mock.calls).toEqual([["t-s2-01"]]);
   });
 
-  it("SKIP sends nothing until a reason is chosen, then exactly one reason-bearing call", async () => {
+  it("SKIP immediately records other", async () => {
     const { calls, element } = list();
     const { container } = await mount(element);
-
     await click(must(container, '[aria-label^="Skip task: Photograph"]'));
-    // Reason capture is open; nothing was sent for the SKIP tap itself.
-    expect(calls.reason).not.toHaveBeenCalled();
+    expect(calls.reason.mock.calls).toEqual([["t-s2-01", "other"]]);
     expect(calls.tick).not.toHaveBeenCalled();
-    const picker = must(container, '[role="group"][aria-label="Reason for skipping"]');
-    expect([...picker.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["time", "terrain", "alert", "other", "CANCEL"]);
-
-    await click(must(container, '[aria-label="Reason: terrain"]'));
-    expect(calls.reason.mock.calls).toEqual([["t-s2-01", "terrain"]]);
-    // The picker closes after the reason; no second send.
-    expect(container.querySelector('[role="group"]')).toBeNull();
-    expect(calls.reason).toHaveBeenCalledTimes(1);
   });
 
-  it("CANCEL closes the reason picker without a reason or a command, and SKIP is offered again", async () => {
-    const { calls, element } = list();
-    const { container } = await mount(element);
-
-    await click(must(container, '[aria-label^="Skip task: Photograph"]'));
-    expect(container.querySelector('[role="group"][aria-label="Reason for skipping"]')).not.toBeNull();
-    await click(must(container, '[aria-label="Cancel skip"]'));
-
-    expect(container.querySelector('[role="group"]')).toBeNull();
-    expect(container.querySelector('[aria-label^="Skip task: Photograph"]')).not.toBeNull();
-    expect(calls.reason).not.toHaveBeenCalled();
-    expect(calls.tick).not.toHaveBeenCalled();
-    expect(calls.undo).not.toHaveBeenCalled();
-  });
-
-  it("the CANCEL control is at least 56 px like the reasons", async () => {
+  it("tick and skip are glove-sized", async () => {
     const { element } = list();
     const { container } = await mount(element);
-    await click(must(container, '[aria-label^="Skip task: Photograph"]'));
-    const cancel = must<HTMLElement>(container, '[aria-label="Cancel skip"]');
-    expect(cancel.style.minHeight).toBe("var(--target-eva, 56px)");
-    expect(cancel.style.minWidth).toBe("var(--target-eva, 56px)");
-  });
-
-  it("reason and tick buttons are at least 56 px in both dimensions with at least 8 px between reasons", async () => {
-    const { element } = list();
-    const { container } = await mount(element);
-    await click(must(container, '[aria-label^="Skip task: Photograph"]'));
-
-    const targets = [
-      must<HTMLElement>(container, '[aria-label^="Mark task done"]'),
-      ...container.querySelectorAll<HTMLElement>('[aria-label^="Reason: "]'),
-    ];
-    expect(targets.length).toBe(5);
-    for (const el of targets) {
-      expect(el.style.minHeight).toBe("var(--target-eva, 56px)");
-      expect(el.style.minWidth).toBe("var(--target-eva, 56px)");
+    for (const selector of ['[aria-label^="Mark task done"]', '[aria-label^="Skip task"]']) {
+      const target = must<HTMLElement>(container, selector);
+      expect(target.style.minHeight).toBe("var(--target-eva, 56px)");
+      expect(target.style.minWidth).toBe("var(--target-eva, 56px)");
     }
-    expect(must<HTMLElement>(container, '[aria-label="Reason for skipping"]').style.gap).toBe("8px");
   });
 
   it("read-only shows no controls, so nothing can be sent", async () => {
@@ -623,6 +593,19 @@ describe("EVA tablet task list: one UPDATE_STOP_TASK per action (FR-50)", () => 
     return { ...view, sent };
   }
 
+  it("read-only after ack", async () => {
+    const { client } = recordingClient(storeFromBeat("connect"));
+    const snap = snapshotWithTasks();
+    const warning = {
+      alert_id: "warning-1", code: "RADIATION_ALERT" as const, level: "warning" as const,
+      subjects: ["EV1"], raised_seq: 1, acked_seq: 2, cleared_seq: null,
+      acked_by: "eva:EV1" as const, message: "Shelter now", data: {},
+    };
+    const view = await mount(createElement(EvaTablet, { client, crewId: "EV1", snapshot: { ...snap, alerts: [warning] } }));
+    await click(must(view.container, '[data-testid="tasks-button"]'));
+    expect(must(view.container, '[data-testid="stop-task-list"]').querySelectorAll("button")).toHaveLength(0);
+  });
+
   it("ticking sends one DONE at once, and the row keeps showing DONE until the snapshot says otherwise", async () => {
     vi.useFakeTimers();
     const { container, sent } = await tabletWithList();
@@ -636,15 +619,23 @@ describe("EVA tablet task list: one UPDATE_STOP_TASK per action (FR-50)", () => 
     expect(must(container, '[data-testid="task-row-t-s2-01"]').getAttribute("data-state")).toBe("DONE");
   });
 
-  it("skipping sends nothing until the reason is chosen, then one SKIPPED with that reason", async () => {
+  it("skipping sends SKIPPED with other immediately", async () => {
     const { container, sent } = await tabletWithList();
-
     await click(must(container, '[aria-label^="Skip task: Photograph"]'));
-    expect(sent).toHaveLength(0);
-    await click(must(container, '[aria-label="Reason: time"]'));
-    expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "SKIPPED", reason: "time" } }]);
-    // No reasonless SKIPPED was ever sent.
-    expect(sent.every((c) => c.args.reason !== undefined)).toBe(true);
+    expect(sent).toEqual([{ kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "SKIPPED", reason: "other" } }]);
+  });
+
+  it("the REASON control in the undo strip revises the reason of the skip just made (FD-028)", async () => {
+    const { container, sent } = await tabletWithList();
+    await click(must(container, '[aria-label^="Skip task: Photograph"]'));
+    expect(sent).toHaveLength(1);
+
+    await click(must(container, '[aria-label="Change skip reason: other"]'));
+    expect(sent).toEqual([
+      { kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "SKIPPED", reason: "other" } },
+      { kind: "UPDATE_STOP_TASK", args: { task_id: "t-s2-01", state: "SKIPPED", reason: "time" } },
+    ]);
+    expect(must(container, '[data-testid="task-row-t-s2-01"]').textContent).toMatch(/Reason: time/);
   });
 
   it("without a client the list is read-only and nothing can be sent", async () => {
@@ -727,6 +718,31 @@ describe("Ops add-task callback (FR-50)", () => {
     await submit();
     expect(onAdd.mock.calls).toEqual([[{ crew_id: "EV1", stop_id: "wp-2", kind: "observe", text: "Photograph the vein" }]]);
   });
+
+  it("AddTaskPopover limitReached notice carries StatusIcon caution shape and word, never colour alone (04 §A.3)", async () => {
+    const { container } = await mount(createElement(AddTaskPopover, { crewId: "EV1", stopId: "wp-2", maxReached: true, onAdd: () => {} }));
+    const icon = must(container, '.status-indicator[data-status="caution"]');
+    expect(icon.textContent).toContain("▲");
+    expect(icon.textContent).toContain("CAUTION");
+    expect(container.textContent).toMatch(/Maximum limit of 4 tasks/i);
+  });
+
+  it("AddTaskPopover over-length counter carries StatusIcon warning shape and word, never warning colour alone (04 §A.3)", async () => {
+    const { container } = await mount(createElement(AddTaskPopover, { crewId: "EV1", stopId: "wp-2", onAdd: () => {} }));
+    const input = must<HTMLInputElement>(container, '[aria-label="Enter task description"]');
+    const { act } = await import("react");
+    await act(async () => {
+      const proto = Object.getPrototypeOf(input) as { value?: unknown };
+      const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+      setter?.call(input, "x".repeat(61));
+      input.dispatchEvent(new window.Event("input", { bubbles: true }));
+    });
+    const counter = must(container, '[data-source="ui:stop-task.text-length"]');
+    const icon = must(counter, '.status-indicator[data-status="warning"]');
+    expect(icon.querySelector(".status-glyph svg polygon")).not.toBeNull();
+    expect(icon.textContent).toContain("WARNING");
+    expect(counter.textContent).toContain("61/60");
+  });
 });
 
 describe("task state and text carry their own provenance (FR-15, NFR-05; 05 StopTask)", () => {
@@ -770,5 +786,173 @@ describe("task state and text carry their own provenance (FR-15, NFR-05; 05 Stop
 
     const none = await row({ ...mockTasks[0], origin: undefined as never, provenance: {} });
     expect(must(none.container, '[data-field="text"]').getAttribute("data-origin")).toBe("—");
+  });
+});
+
+describe("package 17 stop task list row cap (04 §E.5: up to four rows of at least 56 px)", () => {
+  // The Hab Core caps a stop at four tasks (MAX_TASKS_PER_STOP in apps/hab-core/src/engine/tasks.ts), so the NEXT card
+  // never has to scroll. The list also refuses to render more than four rows: a snapshot that somehow carried five
+  // must not overflow the card.
+  const five: StopTask[] = [
+    ...mockTasks,
+    {
+      ...mockTasks[0]!,
+      task_id: "t-s2-05",
+      text: "Photograph the remaining fracture set",
+    },
+  ];
+
+  it("renders at most four rows for one stop", () => {
+    const html = renderToStaticMarkup(
+      createElement(StopTaskList, {
+        tasks: five,
+        crewId: "EV1",
+        stopId: "wp-2",
+        readOnly: false,
+        undo: null,
+        collapsed: false,
+        notSyncedTaskIds: [],
+        onTick: () => {},
+        onUndo: () => {},
+        onReason: () => {},
+      }),
+    );
+    const rows = html.match(/data-testid="task-row-/g) ?? [];
+    expect(rows.length).toBe(4);
+    expect(html).toContain('data-testid="task-row-t-s2-01"');
+    expect(html).toContain('data-testid="task-row-t-s2-05"');
+  });
+
+  it("a DROPPED task does not take one of the four rows from a task that can still be acted on", () => {
+    // A DROPPED task is a record of what was dropped, not work to do: the cap counts the tasks the crew member can act
+    // on, so the fifth actionable task still gets its row.
+    const tasks: StopTask[] = [
+      { ...mockTasks[0]!, task_id: "t-a", state: "TODO" },
+      { ...mockTasks[0]!, task_id: "t-b", state: "TODO" },
+      { ...mockTasks[0]!, task_id: "t-c", state: "TODO" },
+      { ...mockTasks[0]!, task_id: "t-d", state: "TODO" },
+      { ...mockTasks[3]!, task_id: "t-dropped", state: "DROPPED" },
+    ];
+    const html = renderToStaticMarkup(
+      createElement(StopTaskList, {
+        tasks,
+        crewId: "EV1",
+        stopId: "wp-2",
+        readOnly: false,
+        undo: null,
+        collapsed: false,
+        notSyncedTaskIds: [],
+        onTick: () => {},
+        onUndo: () => {},
+        onReason: () => {},
+      }),
+    );
+    const rows = html.match(/data-testid="task-row-/g) ?? [];
+    expect(rows.length).toBe(4);
+    for (const id of ["t-a", "t-b", "t-c", "t-d"]) expect(html).toContain(`data-testid="task-row-${id}"`);
+    // The dropped task is listed only when there is room left in the four rows.
+    expect(html).not.toContain('data-testid="task-row-t-dropped"');
+  });
+
+  it("still counts every task of the stop in the TASKS n/m count", () => {
+    const html = renderToStaticMarkup(
+      createElement(StopTaskList, {
+        tasks: five,
+        crewId: "EV1",
+        stopId: "wp-2",
+        readOnly: false,
+        undo: null,
+        collapsed: true,
+        notSyncedTaskIds: [],
+        onTick: () => {},
+        onUndo: () => {},
+        onReason: () => {},
+      }),
+    );
+    expect(html).toContain("1/5");
+  });
+});
+
+describe("package 17 skip interaction", () => {
+  it("records other immediately", async () => {
+    const onReason = vi.fn();
+    const view = await mount(createElement(StopTaskRow, {
+      task: mockTasks[0]!, readOnly: false, inUndoWindow: false, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason,
+    }));
+    await click(must(view.container, '[aria-label^="Skip task:"]'));
+    expect(onReason).toHaveBeenCalledWith(mockTasks[0]!.task_id, "other");
+  });
+});
+
+describe("package 17 placement", () => {
+  it("phone landscape list is a sibling of the map column", async () => {
+    const base = storeFromBeat("connect").state()!;
+    const snapshot: Snapshot = { ...base, plan: null as never, tasks: mockTasks, crew: base.crew.map((c) => ({ ...c, activity: "AT_STOP" as const })) };
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot }));
+    await click(must(view.container, '[data-testid="tasks-button"]'));
+    const list = must(view.container, '[data-slot="stop-task-list"]');
+    expect(list.parentElement).toBe(must(view.container, '[data-slot="mini-map"]').parentElement);
+  });
+});
+
+
+describe("package 17 dropped tasks", () => {
+  it("does not offer undo for a dropped task even during the previous undo window", () => {
+    const html = renderToStaticMarkup(createElement(StopTaskRow, {
+      task: mockTasks[3]!, readOnly: false, inUndoWindow: true, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason: () => {},
+    }));
+    expect(html).not.toContain("Undo task change");
+  });
+});
+
+describe("package 17 skip reason control (FD-028; 04 §E.5, G-33)", () => {
+  const skipped = mockTasks[2]!; // t-s2-03, SKIPPED, reason "time"
+
+  it("a skipped task in the undo window shows one REASON control naming the current reason", () => {
+    const html = renderToStaticMarkup(createElement(StopTaskRow, {
+      task: skipped, readOnly: false, inUndoWindow: true, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason: () => {},
+    }));
+    expect(html).toMatch(/REASON: TIME/);
+    expect(html).toMatch(/aria-label="Change skip reason: time"/);
+  });
+
+  it("a task that is not skipped has no REASON control", () => {
+    const html = renderToStaticMarkup(createElement(StopTaskRow, {
+      task: mockTasks[0]!, readOnly: false, inUndoWindow: true, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason: () => {},
+    }));
+    expect(html).not.toMatch(/REASON:/);
+  });
+
+  it("one tap on the REASON control cycles the reason other -> time -> terrain -> alert -> other", async () => {
+    const onChangeReason = vi.fn();
+    const view = await mount(createElement(StopTaskRow, {
+      task: { ...skipped, reason: "other" }, readOnly: false, inUndoWindow: true, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason: () => {}, onChangeReason,
+    }));
+    const control = must(view.container, '[aria-label="Change skip reason: other"]');
+    expect(control.tagName).toBe("BUTTON");
+
+    await click(control);
+    expect(onChangeReason.mock.calls).toEqual([[skipped.task_id, "time"]]);
+  });
+
+  it("the REASON control is glove-sized (56 px) and neutral chrome", () => {
+    const html = renderToStaticMarkup(createElement(StopTaskRow, {
+      task: skipped, readOnly: false, inUndoWindow: true, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason: () => {},
+    }));
+    expect(html).toMatch(/min-height:\s*var\(--target-eva, 56px\)/);
+  });
+
+  it("a read-only row offers no REASON control", () => {
+    const html = renderToStaticMarkup(createElement(StopTaskRow, {
+      task: skipped, readOnly: true, inUndoWindow: true, notSynced: false,
+      onTick: () => {}, onUndo: () => {}, onReason: () => {},
+    }));
+    expect(html).not.toMatch(/REASON:/);
   });
 });

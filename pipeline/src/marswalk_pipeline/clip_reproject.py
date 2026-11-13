@@ -46,8 +46,8 @@ def clip_and_reproject(
         raise ValueError("Extent dimensions must be multiples of resolution")
     transform = from_origin(minx, maxy, resolution_m, resolution_m)
 
-    # TODO(verify): T03.19 interprets grid elevation as a block mean of the
-    # bilinear-warped 1 m DEM, rather than a direct warp to the grid.
+    # BD-19: the routing-grid elevation is the block mean of this bilinear-warped 1 m DEM (the
+    # derive step), not a direct warp to the 5 m grid.
     with rasterio.open(src) as source:
         profile = source.profile.copy()
         profile.update(driver="GTiff", crs=proj4, transform=transform, width=width, height=height)
@@ -75,10 +75,10 @@ def nodata_to_nan(path: Path) -> None:
     """Convert declared DEM no-data values to NaN in place, block by block."""
     with rasterio.open(path, "r+") as dataset:
         nodata = dataset.nodata
-        # TODO(verify): whether T01.01's PDS3 label value applies when the
-        # Gale DEM has no declared no-data tag.
+        # BD-19: the no-data value is the GeoTIFF tag. Neither PDS3 label states one (T01.01,
+        # docs/ops/feasibility.md), so an untagged DEM is refused rather than guessed.
         if nodata is None:
-            raise ValueError("DEM has no declared no-data value; verify its PDS3 label")
+            raise ValueError("DEM has no declared no-data value and its PDS3 labels state none (T01.01)")
         if any(not np.issubdtype(np.dtype(dtype), np.floating) for dtype in dataset.dtypes):
             raise ValueError("DEM must have a floating-point dtype to store NaN")
         for band in dataset.indexes:

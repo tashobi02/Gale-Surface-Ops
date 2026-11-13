@@ -6,8 +6,9 @@
  * error on a safety display.
  *
  * Failure mode (review 12 Nov): layers call this from OpenLayers style callbacks, where a throw escapes React error
- * boundaries and stops the map drawing. Every token used here must therefore be defined in tokens.css :root (tests
- * load the real tokens.css). TODO(decision): validate the tokens once at layer creation instead.
+ * boundaries and stops the map drawing. Decided (FD-065): a layer therefore calls `validateMapTokens` once when it is
+ * created, so a missing token fails there, naming the token, and never inside a style callback. Every token used here must
+ * be defined in tokens.css :root (tests load the real tokens.css).
  */
 
 /** Primitive tokens the map layers draw with. */
@@ -41,6 +42,14 @@ function readToken(name: string): string {
 /** The colour of a design token as a CSS colour string usable on a canvas. */
 export function tokenColor(name: MapToken): string {
   return readToken(name);
+}
+
+/**
+ * Check, once, that the design tokens a layer will draw with are defined; throws naming the first missing one (FD-065).
+ * Call it from the layer's creation function with the names its style callbacks use.
+ */
+export function validateMapTokens(names: readonly (MapToken | MapValueToken)[]): void {
+  for (const name of names) readToken(name);
 }
 
 /** The mono font stack of the design tokens (`--font-mono`), for canvas text. */

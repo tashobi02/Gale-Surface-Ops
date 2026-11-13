@@ -2,7 +2,7 @@
  * T23.05 review (8 Nov): summon, dispatch and vehicle motion against the REAL @marswalk/compute
  * (docs/specs/02 §D.8, §D.10; 03 §E.9; 05 Vehicle; FR-40, NFR-06). TASK-23.
  *
- * Proposed 2026-11-08 — TODO(decision): this file is new. `summon.test.ts` (T23.04) mocks compute
+ * Proposed 2026-11-08, ratified (BD-71): this file is new. `summon.test.ts` (T23.04) mocks compute
  * with a 1-D stand-in, so it cannot see what the engine does with a real path (cell centres, a path
  * that bends, a 5 m crew grid over the 10 m vehicle field). The only `vi.mock` is a pass-through of
  * `rendezvousPair` that one test makes throw (its RangeError path cannot be reached on a real grid,
@@ -25,7 +25,7 @@
  *   the chosen order.
  * - Unknown crew ids, more than two crew, duplicates, unknown option, and no pressurized rover answer
  *   INVALID.
- * - Sheltering reach: SHELTER_REACH_M = 1 m is the T23.04 TODO(decision) value (summon.test.ts header).
+ * - Sheltering reach: SHELTER_REACH_M = 1 m is the T23.04 value, ratified as a numerical "same point" tolerance (BD-72; summon.test.ts header).
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,13 +76,13 @@ const fake = readScenario(join(here, "fixtures/fake-scenario"), { site_id: "mock
 const T0_MS = Date.parse(fake.scenario.start_utc);
 const iso = (ms: number): string => new Date(ms).toISOString().replace(".000Z", "Z");
 const DT_S = 1;
-/** The T23.04 TODO(decision) reach (summon.test.ts header, "Sheltering"); declared, not read from the code. */
+/** The T23.04 reach, ratified as a numerical tolerance (BD-72; summon.test.ts header, "Sheltering"); declared, not read from the code. */
 const DECIDED_REACH_M = 1;
 const PR1_ID = fake.scenario.vehicles.find((v) => v.kind === "pressurized_rover")!.vehicle_id;
 
 function scenarioWith(grid: LoadedGrid, plan: MissionScenario, params: ParamSet[]): LoadedScenario {
   const extra = Object.fromEntries(params.map((p) => [p.param_set_id, p]));
-  return { ...fake, grid, scenario: { ...fake.scenario, plan: { ...fake.scenario.plan, scenario: plan } }, params: { ...fake.params, ...extra } };
+  return { ...fake, grid, scenario: { ...fake.scenario, plan: { ...fake.scenario.plan!, scenario: plan } }, params: { ...fake.params, ...extra } };
 }
 
 function apply(state: EngineState, kind: LogEventKind, data: LogEventData[LogEventKind], actor: Role | "system" = "system"): EngineState {
@@ -116,7 +116,7 @@ const summonCmd = (args: Record<string, unknown>, role: Role = "ops"): Command =
 
 /** The oracle: 02 §D.10 with the real compute, crew field bounded at max_haven_min (02 §D.8). */
 function oracle(sc: LoadedScenario, crew: XY, vehicle: XY, params: ParamSet, limit_s?: number) {
-  const plan = sc.scenario.plan.scenario;
+  const plan = sc.scenario.plan!.scenario;
   const L = limit_s ?? plan.max_haven_min * 60;
   return rendezvous(crewTimeField(sc.grid!, crew, plan, L), vehicleTimeField(sc.grid!, vehicle, params), vehiclePassable(sc.grid!, params));
 }
@@ -329,7 +329,7 @@ describe("the vehicle's own ParamSet and the bound L (02 §D.8, §D.10)", () => 
   });
 
   it("bounds the crew field at max_haven_min × 60 s", () => {
-    const L = sc.scenario.plan.scenario.max_haven_min * 60;
+    const L = sc.scenario.plan!.scenario.max_haven_min * 60;
     const bounded = ok(oracle(sc, flat.shape.crew, flat.shape.vehicle, slowVehicleParams));
     const unbounded = ok(oracle(sc, flat.shape.crew, flat.shape.vehicle, slowVehicleParams, Infinity));
     expect(unbounded.eta_crew_s, "set-up: without the bound the crew would walk longer than L").toBeGreaterThan(L);
@@ -373,6 +373,139 @@ describe("two crew (02 §D.10 rendezvousPair)", () => {
     expect({ x_m: rv.x_m, y_m: rv.y_m }).toEqual({ x_m: first.x_m, y_m: first.y_m });
     expect(Math.abs(rv.eta_crew_s - first.eta_crew_s)).toBeLessThanOrEqual(0.5);
     expect(Math.abs(rv.eta_vehicle_s - first.eta_vehicle_s)).toBeLessThanOrEqual(0.5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The second meeting (BD-58): after the first crew member is sheltered, the vehicle drives to the second
+// ---------------------------------------------------------------------------
+
+describe("two crew: the vehicle drives the second meeting (BD-58)", () => {
+  const sc = scenarioWith(flat.grid, defaultScenario(), [pr1Params]);
+  const OPTION: ContingencyOption = {
+    option_id: "o2",
+    alert_id: "a-2",
+    kind: "VEHICLE_RENDEZVOUS",
+    crew_ids: ["EV1", "EV2"],
+    eta_shelter_min: 0,
+    expected_dose_ugy: 0,
+    stops_dropped: [],
+    violations: [],
+    rank: 1,
+    path_preview: [],
+    rendezvous: null,
+  };
+
+  /** EV1 far east, EV2 at the hab (EV2 is visited first, see the test above); the summon names an option for both. */
+  function dispatchedPair(scn: LoadedScenario = sc, ev1: XY = CREW_XY, ev2: XY = HAB_XY, vehicle: XY = VEHICLE_XY) {
+    let s = setUp(scn, { EV1: ev1, EV2: ev2 }, vehicle, pr1Params.param_set_id);
+    s = apply(s, "OPTIONS_PROPOSED", { alert_id: OPTION.alert_id, options: [OPTION] });
+    const out = handleSummon(s, scn, summonCmd({ crew: ["EV1", "EV2"], option_id: OPTION.option_id }));
+    expect(out.result.ok, JSON.stringify(out.result)).toBe(true);
+    const rv = (out.events[0]!.data as LogEventData["VEHICLE_DISPATCHED"]).rendezvous!;
+    // The first-visited crew member stands at the meeting point (crew hold there, rule S5); the other holds where it is.
+    const first = withCrew(applyEvents(s, out.events), "EV2", { x_m: rv.x_m, y_m: rv.y_m });
+    return { state: first, rv };
+  }
+  const sheltered = (ticks: Tick[]) => ticks.flatMap((t) => t.events.filter((e) => e.kind === "CREW_SHELTERED"));
+
+  it("shelters EV2 at the first point, then drives to EV1 and shelters it, both with haven_kind vehicle", () => {
+    const { state, rv } = dispatchedPair();
+    const ticks = drive(state, sc, 4000, (t) => t.after.crew.every((c) => c.activity === "SHELTERED"));
+    const last = ticks[ticks.length - 1]!;
+    expect(last.after.crew.map((c) => c.activity)).toEqual(["SHELTERED", "SHELTERED"]);
+    const events = sheltered(ticks);
+    expect(events.map((e) => [(e.data as LogEventData["CREW_SHELTERED"]).crew_id, (e.data as LogEventData["CREW_SHELTERED"]).haven_kind])).toEqual([
+      ["EV2", "vehicle"],
+      ["EV1", "vehicle"],
+    ]);
+    const arrivals = ticks.flatMap((t) => t.events.filter((e) => e.kind === "VEHICLE_ARRIVED"));
+    expect(arrivals).toHaveLength(2);
+    expect(arrivals[0]!.data).toMatchObject({ x_m: rv.x_m, y_m: rv.y_m });
+    expect(arrivals[1]!.data).toMatchObject({ x_m: CREW_XY.x_m, y_m: CREW_XY.y_m });
+  });
+
+  it("the second drive starts only after the first CREW_SHELTERED, and takes the oracle's ETA from the first point", () => {
+    const { state, rv } = dispatchedPair();
+    const ticks = drive(state, sc, 4000, (t) => t.after.crew.every((c) => c.activity === "SHELTERED"));
+    const firstShelter = ticks.findIndex((t) => t.events.some((e) => e.kind === "CREW_SHELTERED"));
+    const secondArrival = ticks.findIndex((t, i) => i > firstShelter && t.events.some((e) => e.kind === "VEHICLE_ARRIVED"));
+    expect(firstShelter).toBeGreaterThanOrEqual(0);
+    expect(secondArrival).toBeGreaterThan(firstShelter);
+    // Between the two the vehicle is on the road again.
+    const mid = ticks[firstShelter + 2]!;
+    expect(pr1(mid.after).state).toBe("EN_ROUTE");
+    // The oracle: zero-limit crew field at EV1 (its own cell is the only candidate), vehicle field from the first point.
+    const plan = sc.scenario.plan!.scenario;
+    const second = ok(rendezvous(crewTimeField(sc.grid!, CREW_XY, plan, 0), vehicleTimeField(sc.grid!, { x_m: rv.x_m, y_m: rv.y_m }, pr1Params), vehiclePassable(sc.grid!, pr1Params)));
+    const driveTicks = secondArrival - firstShelter;
+    expect(Math.abs(driveTicks - Math.round(second.eta_vehicle_s))).toBeLessThanOrEqual(2);
+  });
+
+  it("logs no event kind the one-crew summon does not, and the same keys", () => {
+    const { state } = dispatchedPair();
+    const ticks = drive(state, sc, 4000, (t) => t.after.crew.every((c) => c.activity === "SHELTERED"));
+    const all = ticks.flatMap((t) => t.events);
+    expect([...new Set(all.map((e) => e.kind))].sort()).toEqual(["CREW_SHELTERED", "VEHICLE_ARRIVED"]);
+    for (const e of all.filter((x) => x.kind === "VEHICLE_ARRIVED")) expect(Object.keys(e.data).sort()).toEqual(["vehicle_id", "x_m", "y_m"]);
+    for (const e of all.filter((x) => x.kind === "CREW_SHELTERED")) expect(Object.keys(e.data).sort()).toEqual(["crew_id", "dose_event_ugy", "dose_event_unsheltered_ugy", "haven_kind"]);
+  });
+
+  it("is deterministic: two runs give identical event lists", () => {
+    const run = () => drive(dispatchedPair().state, sc, 4000, (t) => t.after.crew.every((c) => c.activity === "SHELTERED")).flatMap((t) => t.events);
+    expect(run()).toEqual(run());
+  });
+
+  it("a one-crew summon never drives a second meeting: the vehicle stays ARRIVED once its crew member is sheltered", () => {
+    let s = setUp(sc, { EV1: CREW_XY, EV2: HAB_XY }, VEHICLE_XY, pr1Params.param_set_id);
+    s = apply(s, "OPTIONS_PROPOSED", { alert_id: "a-1", options: [{ ...OPTION, option_id: "o1", alert_id: "a-1", crew_ids: ["EV2"] }] });
+    const out = handleSummon(s, sc, summonCmd({ crew: ["EV2"], option_id: "o1" }));
+    const rv = (out.events[0]!.data as LogEventData["VEHICLE_DISPATCHED"]).rendezvous!;
+    const start = withCrew(applyEvents(s, out.events), "EV2", { x_m: rv.x_m, y_m: rv.y_m });
+    const ticks = drive(start, sc, 3000, (t) => t.after.crew.find((c) => c.crew_id === "EV2")!.activity === "SHELTERED");
+    const after = drive(ticks[ticks.length - 1]!.after, sc, 50);
+    expect(after.every((t) => t.events.length === 0)).toBe(true);
+    expect(pr1(after[after.length - 1]!.after).state).toBe("ARRIVED");
+  });
+
+  it("does not leave for the second meeting before anyone is sheltered (the first crew member may still be walking in)", () => {
+    const { state } = dispatchedPair();
+    // Move EV2 (the first-visited) away from the meeting point so nobody can be sheltered on arrival.
+    const away = withCrew(state, "EV2", { x_m: state.crew.find((c) => c.crew_id === "EV2")!.x_m + 50 * SHELTER_REACH_M });
+    const ticks = drive(away, sc, 4000, (t) => t.events.some((e) => e.kind === "VEHICLE_ARRIVED"));
+    const arrived = ticks[ticks.length - 1]!.after;
+    const wait = drive(arrived, sc, 40);
+    expect(wait.every((t) => t.events.length === 0)).toBe(true);
+    expect(pr1(wait[wait.length - 1]!.after).state).toBe("ARRIVED");
+  });
+
+  it("an unreachable second crew member is not served: the vehicle shelters the first and stays ARRIVED (their alert stays latched)", () => {
+    const blocked = rendezvousBlockedVehicle(5);
+    const bsc = scenarioWith(blocked.grid, defaultScenario(), [pr1Params]);
+    const inside = blocked.shape.vehicle;
+    const outside = blocked.shape.crew;
+    const vehicle = { x_m: (inside.x_m + outside.x_m) / 2, y_m: outside.y_m };
+    let s = setUp(bsc, { EV1: inside, EV2: outside }, vehicle, pr1Params.param_set_id);
+    s = apply(s, "OPTIONS_PROPOSED", { alert_id: OPTION.alert_id, options: [OPTION] });
+    const out = handleSummon(s, bsc, summonCmd({ crew: ["EV1", "EV2"], option_id: OPTION.option_id }));
+    expect(out.result.ok, JSON.stringify(out.result)).toBe(true);
+    const rv = (out.events[0]!.data as LogEventData["VEHICLE_DISPATCHED"]).rendezvous!;
+    const start = withCrew(applyEvents(s, out.events), "EV2", { x_m: rv.x_m, y_m: rv.y_m });
+    const ticks = drive(start, bsc, 4000, (t) => t.after.crew.find((c) => c.crew_id === "EV2")!.activity === "SHELTERED");
+    const idle = drive(ticks[ticks.length - 1]!.after, bsc, 60);
+    expect(idle.every((t) => t.events.length === 0)).toBe(true);
+    const end = idle[idle.length - 1]!.after;
+    expect(pr1(end).state).toBe("ARRIVED");
+    expect(end.crew.find((c) => c.crew_id === "EV1")!.activity).not.toBe("SHELTERED");
+  });
+
+  it("the deltas of the second drive include the new task target, so clients see where the vehicle is going", () => {
+    const { state } = dispatchedPair();
+    const ticks = drive(state, sc, 4000, (t) => t.after.crew.every((c) => c.activity === "SHELTERED"));
+    const firstShelter = ticks.findIndex((t) => t.events.some((e) => e.kind === "CREW_SHELTERED"));
+    const departure = ticks[firstShelter + 1]!;
+    expect(departure.deltas.map((d) => d.path)).toEqual(expect.arrayContaining([`vehicles/${PR1_ID}/state`, `vehicles/${PR1_ID}/task`]));
+    expect(pr1(departure.after).task!.target).toEqual({ x_m: CREW_XY.x_m, y_m: CREW_XY.y_m });
   });
 });
 
@@ -443,7 +576,7 @@ describe("dispatchVehicle (shared with T23.07)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Sheltering reach (T23.04 TODO(decision): SHELTER_REACH_M = 1 m)
+// Sheltering reach (T23.04, ratified BD-72: SHELTER_REACH_M = 1 m)
 // ---------------------------------------------------------------------------
 
 describe("CREW_SHELTERED reach and provenance", () => {

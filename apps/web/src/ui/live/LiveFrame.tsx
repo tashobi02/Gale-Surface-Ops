@@ -12,13 +12,21 @@
  * The link age is client time since the watchdog fired (`since_ms` from the client), shown as a `simulated` value with
  * the source `client:link-watchdog`, as SCR-18 does. It is a display tick only; nothing here feeds the simulation.
  */
-import { useEffect, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import type { CrewId } from "@marswalk/protocol";
-import { useLinkLost, useTakenOver } from "../../state/habSession";
+import { useLinkLost, useTakenOver, useReconnectCount } from "../../state/habSession";
 import { HabLinkLost } from "../screens/scr18HabLinkLost";
 import { TakenOverNotice } from "./TakenOverNotice";
 import { StatusIcon } from "../components/statusIcon";
 import { PROVENANCE_GLYPHS, UNAVAILABLE, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
+
+const LiveContrast = createContext<{ contrast: boolean; setContrast: (value: boolean) => void } | null>(null);
+/** Palette shared by the tablet and all of its overlays, including transport loss. */
+export function useLiveContrast() {
+  const inherited = useContext(LiveContrast);
+  const [contrast, setContrast] = useState(false);
+  return inherited ?? { contrast, setContrast };
+}
 
 export type LiveVariant = "eva" | "hud" | "ops";
 
@@ -52,7 +60,7 @@ const overlayStyle: CSSProperties = {
 };
 
 /** Ops: a full-screen notice with retry (03 SCR-18). No crew values: ops is not a crew member. */
-function OpsLinkLostNotice({ ageSeconds, onRetry }: { ageSeconds: number | undefined; onRetry: () => void }): ReactElement {
+function OpsLinkLostNotice({ ageSeconds, reconnectCount, onRetry }: { ageSeconds: number | undefined; reconnectCount: number | null; onRetry: () => void }): ReactElement {
   return (
     <div
       role="region"
@@ -95,6 +103,7 @@ function OpsLinkLostNotice({ ageSeconds, onRetry }: { ageSeconds: number | undef
       <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "16px", display: "flex", gap: "8px", alignItems: "baseline" }}>
         <span>LINK LOST FOR</span>
         <span
+          data-cached-age="true"
           {...provAttrs(
             isFiniteNumber(ageSeconds) ? { prov: "simulated", src: "client:link-watchdog" } : unavailableOf("simulated", "link.age_seconds"),
           )}
@@ -104,6 +113,7 @@ function OpsLinkLostNotice({ ageSeconds, onRetry }: { ageSeconds: number | undef
         </span>
         <span>{isFiniteNumber(ageSeconds) ? `s ${PROVENANCE_GLYPHS.simulated}` : ""}</span>
       </div>
+      <p>Reconnect attempts: <span data-reconnect-count="true" {...provAttrs(reconnectCount === null ? unavailableOf("derived", "client.reconnect_count") : { prov: "derived", src: "client:reconnect-count" })}>{reconnectCount ?? UNAVAILABLE}</span></p>
       <p style={{ margin: 0, color: "var(--text-2, #A9B3BE)", fontSize: "14px" }}>
         The console reconnects by itself. Values behind this notice are the last ones received and are not current.
       </p>
@@ -131,14 +141,34 @@ function OpsLinkLostNotice({ ageSeconds, onRetry }: { ageSeconds: number | undef
 }
 
 export function LiveFrame({ variant, crewId, onRetry, children }: LiveFrameProps): ReactElement {
+  const [contrast, setContrast] = useState(false);
+  const reconnectCount = useReconnectCount();
   const link = useLinkLost();
   const takenOver = useTakenOver();
+  const screenRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+  const restoreFocus = useRef(false);
+  const showLinkLost = link.lost && !takenOver;
+  useLayoutEffect(() => {
+    if (!showLinkLost) {
+      if (!takenOver && restoreFocus.current && previousFocus.current?.isConnected) previousFocus.current.focus();
+      restoreFocus.current = false;
+      return;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && screenRef.current?.contains(active)) previousFocus.current = active;
+    const overlay = overlayRef.current;
+    overlay?.focus();
+    return () => { restoreFocus.current = document.activeElement === document.body || Boolean(overlay?.contains(document.activeElement)); };
+  }, [showLinkLost, takenOver]);
   const age = useLinkAgeSeconds(link.lost ? link.since_ms : null);
   const retry = onRetry ?? (() => globalThis.location?.reload());
   return (
-    <>
-      {/* display: contents keeps the layout; while taken over the screen is inert (no focus, no clicks) and hidden from assistive technology */}
-      <div data-slot="live-screen" style={{ display: "contents" }} {...(takenOver ? { inert: true, "aria-hidden": true } : {})}>
+    <LiveContrast.Provider value={{ contrast, setContrast }}>
+    <div className="eva-live-surface" data-contrast={contrast ? "high" : "normal"} style={{ display: "contents" }}>
+      {/* Keep cached content mounted while the full-screen notice owns focus. */}
+      <div ref={screenRef} data-slot="live-screen" style={{ display: "contents" }} onFocusCapture={(event) => { previousFocus.current = event.target as HTMLElement; }} {...(takenOver || showLinkLost ? { inert: true, "aria-hidden": true } : {})}>
         {children}
       </div>
       {takenOver && (
@@ -146,15 +176,36 @@ export function LiveFrame({ variant, crewId, onRetry, children }: LiveFrameProps
           <TakenOverNotice roleLabel={variant === "ops" || !crewId ? "OPS" : variant === "hud" ? `HUD ${crewId}` : crewId} />
         </div>
       )}
-      {link.lost && !takenOver && (
-        <div data-slot="link-lost-overlay" data-surface={variant === "ops" ? "ops" : "eva"} style={overlayStyle}>
+      {showLinkLost && (
+        // The overlay scrolls on a narrow phone, and the EVA notice carries no focusable control of its own, so the
+        // scrollable region must itself be reachable by keyboard (WCAG 2.1.1; axe's `scrollable-region-focusable`).
+        <div
+          ref={overlayRef}
+          data-slot="link-lost-overlay"
+          data-mode={variant === "hud" ? "hud" : "ops"}
+          data-surface={variant === "ops" ? "ops" : "eva"}
+          tabIndex={0}
+          role="region"
+          aria-label="Hab link lost overlay"
+          onKeyDown={(event) => {
+            if (event.key !== "Tab") return;
+            const items = [event.currentTarget, ...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]')];
+            const index = items.indexOf(document.activeElement as HTMLElement);
+            if ((!event.shiftKey && index === items.length - 1) || (event.shiftKey && index <= 0)) {
+              event.preventDefault();
+              (event.shiftKey ? items[items.length - 1] : items[0])?.focus();
+            }
+          }}
+          style={overlayStyle}
+        >
           {variant === "ops" || !crewId ? (
-            <OpsLinkLostNotice ageSeconds={age} onRetry={retry} />
+            <OpsLinkLostNotice ageSeconds={age} reconnectCount={reconnectCount} onRetry={retry} />
           ) : (
             <HabLinkLost crewId={crewId} ageSeconds={age} mode="eva" />
           )}
         </div>
       )}
-    </>
+    </div>
+    </LiveContrast.Provider>
   );
 }

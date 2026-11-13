@@ -3,29 +3,24 @@
  * FR-11, FR-12. TASK-06 (T06.09).
  * Assembles timeline LTST, sun elevation, EVA-sol conditions, and radiation dose from what the caller supplies.
  *
- * The handler does not call this yet. Until the team records the five choices below, `handler.ts` returns the
- * M3 empty `stops_timeline` and omits `conditions` and `radiation` (TASK-06 T06.09 reconciliation note).
- * Open C8 decisions (TASK-06 §T06.01, T06.09):
- * - TODO(decision): Site coordinate. Which point gives the solar latitude and longitude: the Gale boxwork AOI
- *   centre or the habitat mast (05 Site has no single site point). This function takes it as `inputs.site`.
- * - TODO(decision): EnvConstant selection. The provisional rule below accepts exactly one record whose
- *   `const_id` starts with "rad-", whose unit is "mSv/day" and whose `conditions.solar_phase` equals the
- *   scenario's; zero or several matches omit `radiation`. The team confirms it or sets another rule.
- * - TODO(decision): Dose duration for PARTIAL plans. `totals` is null then (02 §E.2), so the caller has no
- *   routed duration; planned `max_eva_duration_h` vs unavailable is not settled. This function takes `durationH`;
- *   a `durationH` of 0 is accepted and gives a dose of 0 (not an omitted block), so a caller must not pass 0 for "unknown".
- * - TODO(decision): DARKNESS inputs. Sunrise/sunset UTC or sun elevation along legs and dwell; arrival elevation
- *   alone does not cover the EVA interval. Nothing here feeds `collectWarnings`.
- * - TODO(decision): Timing boundaries. What `timing_ms.routing` and `timing_ms.estimates` measure. Nothing here
- *   measures time, and the pure handler never reads a clock (NFR-06).
+ * The handler calls this for every COMPUTE_PLAN (handler.ts). The five C8 choices are decided in BD-50 and BD-122:
+ * - Site coordinate: the plan's start waypoint (the hab) through the inverse working projection; the handler passes
+ *   it as `inputs.site` (lat planetocentric, lon_e east-positive), and every solar function here uses it.
+ * - EnvConstant selection: exactly one record whose `const_id` starts with "rad-", whose unit is "mSv/day" and whose
+ *   `conditions.solar_phase` equals the scenario's; zero or several matches omit `radiation`.
+ * - Dose duration: the routed EVA total. A PARTIAL plan has no totals (02 §E.2), so the handler passes `durationH:
+ *   null` and `radiation` is omitted; a `durationH` of 0 is a real zero dose, never "unknown".
+ * - Darkness inputs: this function returns the arrival sun elevation of every timeline entry and the EVA-sol
+ *   `sunrise_utc` / `sunset_utc`; `collectWarnings` (package 14, BD-49) reads them for DARKNESS.
+ * - Timing: nothing here reads a clock (NFR-06). The worker adapter measures `timing_ms` (BD-50).
  *
- * Sunrise/sunset contract (T06.07): sunriseSunset throws SunEventsUnavailableError (a RangeError) when the
+ * Sunrise/sunset contract (BD-56): sunriseSunset throws SunEventsUnavailableError (a RangeError) when the
  * sun does not cross the flat horizon in the sol (polar day or night). 05 PlanResult.conditions has no
- * absent-event form, so `conditions` is omitted for that error; any other error propagates.
- * TODO(decision): team to confirm; not reachable at Gale (lat about -4.7 deg).
+ * absent-event form, so `conditions` is omitted for that error; any other error propagates. Not reachable at
+ * Gale (lat about -4.7 deg).
  */
 import type { EnvConstant, MissionScenario, PlanResult } from "@marswalk/protocol";
-import { localTrueSolarTime, solarLongitude } from "./mars24";
+import { localTrueSolarTime, mslSol, solarLongitude } from "./mars24";
 import { estimateDose } from "./radiation";
 import { SunEventsUnavailableError, solarPosition, sunriseSunset } from "./sun";
 
@@ -38,8 +33,8 @@ export interface ConditionsInputs {
   scenario: MissionScenario;
   /** Available environment constants (the RAD records, 05 §C). */
   envConstants: EnvConstant[];
-  /** EVA duration in hours for dose estimation; a non-finite or negative value omits `radiation`. */
-  durationH: number;
+  /** Routed EVA duration in hours for dose estimation; `null` (PARTIAL plan), non-finite or negative omits `radiation`. */
+  durationH: number | null;
 }
 
 export interface ConditionsResult {
@@ -51,7 +46,7 @@ export interface ConditionsResult {
   radiation?: NonNullable<PlanResult["radiation"]>;
 }
 
-/** Provisional EnvConstant selection (TODO(decision) in the header): one `rad-` rate in mSv/day for the phase. */
+/** EnvConstant selection (BD-50): exactly one `rad-` rate in mSv/day for the phase. */
 function selectRadiationRate(envConstants: EnvConstant[], solarPhase: MissionScenario["solar_phase"]): EnvConstant | undefined {
   const matches = envConstants.filter(
     (c) => c.const_id.startsWith("rad-") && c.unit === "mSv/day" && c.conditions?.solar_phase === solarPhase,
@@ -92,6 +87,7 @@ export function assembleConditions(inputs: ConditionsInputs): ConditionsResult {
       sunset_ltst: sun.sunset_ltst,
       sunrise_utc: sun.sunrise_utc,
       sunset_utc: sun.sunset_utc,
+      sol: mslSol(evaStartDate, site.lon_e),
     };
   } catch (err) {
     if (!(err instanceof SunEventsUnavailableError)) throw err;
@@ -99,7 +95,7 @@ export function assembleConditions(inputs: ConditionsInputs): ConditionsResult {
 
   // 3. Radiation dose estimate for the scenario's solar phase
   const rate = selectRadiationRate(envConstants, scenario.solar_phase);
-  if (rate !== undefined && Number.isFinite(durationH) && durationH >= 0) {
+  if (rate !== undefined && durationH !== null && Number.isFinite(durationH) && durationH >= 0) {
     const dose = estimateDose(rate, durationH);
     if (dose !== undefined) result.radiation = dose;
   }

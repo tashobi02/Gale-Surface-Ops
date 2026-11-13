@@ -19,7 +19,7 @@
  * an event at the end of phase k (cumulative time B_k) lands at tick ceil(B_k), because tick adds
  * whole 1-s steps and carries the overshoot into the next phase.
  *
- * Rules these tests fix for T22.09 (proposed 2026-11-07, TODO(decision); docs/tasks/TASK-22 T22.09):
+ * Rules these tests fix for T22.09 (proposed 2026-11-07, ratified BD-71; docs/tasks/TASK-22 T22.09):
  * - Constant speed within a leg; position is the arc-length fraction along `leg.geometry`.
  * - `stop_index` is 1-based among the plan's `role: "stop"` waypoints.
  * - `start_offset_s` holds the crew member at the start (shielding hab, no O₂ used) until it elapses.
@@ -102,9 +102,18 @@ function applyEvents(state: EngineState, events: PendingEvent[]): EngineState {
   return events.reduce((s, e) => reduce(s, logged(e, s.session.last_seq + 1)), state);
 }
 
+/**
+ * The storm pressed at its recorded UTC (START_EVENT at `series_start_utc`, U-62, BD-97, T32.12): from that sim time the
+ * series plays at its own UTC, so every number below is the one the table-time storm gave; before it the rate is the
+ * background (the fixture's series is at the background there too).
+ */
+const STORM = fake.scenario.event_library[0];
+const SERIES_START_MS = Date.parse(STORM.series_start_utc);
+const pressedAtSeriesStart = (s: EngineState): EngineState => ({ ...s, session: { ...s.session, started_events: [{ event_id: STORM.event_id, t0_sim_time: STORM.series_start_utc }] } });
+
 function onEva(scenario: LoadedScenario = fake): EngineState {
   const s = initialState(scenario, "s-0001");
-  return reduce(s, { seq: 1, sim_time: fake.scenario.start_utc, kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, provenance: {}, command_ref: { client_id: "c-1", command_id: "k-1" } });
+  return pressedAtSeriesStart(reduce(s, { seq: 1, sim_time: fake.scenario.start_utc, kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, provenance: {}, command_ref: { client_id: "c-1", command_id: "k-1" } }));
 }
 
 const withCrew = (s: EngineState, id: CrewId, patch: Partial<EngineState["crew"][number]>): EngineState => ({
@@ -402,7 +411,7 @@ const memo = <T,>(make: () => T): (() => T) => {
 };
 
 // Plan constants, all from the fixture.
-const plan = fake.scenario.plan;
+const plan = fake.scenario.plan!;
 const okLegs = plan.result.legs.map((l): OkLeg => {
   if (l.status !== "OK") throw new Error("the fixture's legs are all OK");
   return l;
@@ -585,8 +594,10 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
     }
     expect(integrateDoseSpy).toHaveBeenCalledTimes(2 * (trace.states.length - 1));
     for (const [series, steps, set] of integrateDoseSpy.mock.calls) {
-      expect(series).toBe(fake.dose);
       expect(steps).toHaveLength(1);
+      // From the press (series_start_utc) the scenario's series; before it the constant background series (02 §D.17).
+      if (Date.parse(steps[0].t_utc) >= SERIES_START_MS) expect(series).toBe(fake.dose);
+      else expect(series.samples.map(([, r]) => r)).toEqual([fake.dose.background_rate]);
       expect(set).toBe(shielding);
     }
     const called = integrateDoseSpy.mock.calls.map(([, steps]) => steps[0]);
@@ -608,11 +619,21 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
     // The first tick moves both crew by a delta carrying the new value, and logs nothing.
     expect(trace.events[1]).toEqual([]);
     for (const id of CREW) expect(trace.deltas[1]).toContainEqual({ path: `crew/${id}/x_m`, value: crewOf(trace.states[1], id).x_m });
-    // A delta is sent only when the value changed: standing in a dwell moves nothing but O₂, time and dose.
+    // A delta is sent only when the value changed: standing in a dwell moves nothing but O₂, time and dose, and the two margins
+    // that follow them (O₂ time left and the ETA to the next stop; the bearing and distance to it stay, T32.31, BD-95).
     const inDwell = tickOf(0) + 10;
-    const dwellPaths = CREW.flatMap((id) => [`crew/${id}/dose_event_ugy`, `crew/${id}/dose_event_unsheltered_ugy`, `crew/${id}/eva_elapsed_s`, `crew/${id}/o2_frac`]);
+    const dwellPaths = CREW.flatMap((id) => [`crew/${id}/dose_event_ugy`, `crew/${id}/dose_event_unsheltered_ugy`, `crew/${id}/eva_elapsed_s`, `crew/${id}/o2_frac`, `crew/${id}/o2_remaining_min`, `crew/${id}/next_stop_eta_s`]);
     expect(trace.deltas[inDwell].map((d) => d.path).sort()).toEqual(dwellPaths.sort());
-    expect(trace.deltas.flat().every((d) => /^crew\/(EV1|EV2)\/(x_m|y_m|o2_frac|eva_elapsed_s|dose_event_ugy|dose_event_unsheltered_ugy)$/.test(d.path))).toBe(true);
+    // The fake scenario has no Site, so the conditions feed (T22.16, BD-127) has no solar fields: the first tick reports the two
+    // dose rates, and later ticks only the event series time once START_EVENT has played (and a rate when it steps).
+    const conditionPaths = trace.deltas.map((ds) => ds.filter((d) => d.path.startsWith("conditions/")).map((d) => d.path));
+    expect(conditionPaths[1].sort()).toEqual(["conditions/dose_rate_background_ugy_h", "conditions/dose_rate_event_ugy_h"]);
+    expect(conditionPaths[2]).toEqual([]);
+    expect(conditionPaths.flat().every((p) => ["conditions/dose_rate_background_ugy_h", "conditions/dose_rate_event_ugy_h", "conditions/event_series_utc"].includes(p))).toBe(true);
+    // The fake scenario's one Earth-link row has a Sun-Earth-Mars angle of 0 degrees, inside `conjunction_deg`, so the first tick
+    // reports `earth/blackout` and `earth/link_state` once (T26.04, BD-129, BD-156); light time (0 s) and next pass (none) are unchanged.
+    expect(trace.deltas.flat().filter((d) => d.path.startsWith("earth/"))).toEqual([{ path: "earth/blackout", value: true }, { path: "earth/link_state", value: "BLACKOUT" }]);
+    expect(trace.deltas.flat().filter((d) => !d.path.startsWith("conditions/") && !d.path.startsWith("earth/")).every((d) => /^crew\/(EV1|EV2)\/(x_m|y_m|o2_frac|eva_elapsed_s|dose_event_ugy|dose_event_unsheltered_ugy|o2_remaining_min|next_stop_bearing_deg|next_stop_distance_m|next_stop_eta_s)$/.test(d.path))).toBe(true);
     // Applying the deltas to the start reproduces the end state (what a client does).
     const folded = new Map<string, unknown>();
     for (const d of trace.deltas.flat()) folded.set(d.path, d.value);
@@ -685,9 +706,12 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
 
   it("a module that is still a T22.01 stub is skipped; any other module error propagates", () => {
     const s = onEva();
-    expect(() => earthTick(s, ctx(s))).toThrow(/^TODO\(TASK-26\): T26\.04 not implemented$/); // the stub the guard must skip
-    expect(() => step(s)).not.toThrow();
     const earth = vi.mocked(earthTick);
+    // The guard skips a module whose body is still the T22.01 stub (earth.ts and links.ts are real since package 18; the mock stands in).
+    earth.mockImplementationOnce(() => {
+      throw new Error("TODO(TASK-26): T26.04 not implemented");
+    });
+    expect(() => step(s)).not.toThrow();
     earth.mockImplementationOnce(() => {
       throw new Error("boom");
     });
@@ -698,9 +722,9 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
     });
     expect(() => step(s)).toThrow(/not implemented yet/);
     earth.mockImplementationOnce(() => {
-      throw new Error("TODO(verify): T26.04 not implemented");
+      throw new Error("FIXME: T26.04 not implemented");
     });
-    expect(() => step(s)).toThrow(/TODO\(verify\)/);
+    expect(() => step(s)).toThrow(/FIXME/);
     // Skipped on every call, nothing cached: the guard still works afterwards.
     expect(() => step(s)).not.toThrow();
   });
@@ -746,7 +770,7 @@ const revise = (s: EngineState, waypoints: typeof plan.waypoints, legs: AnyLeg[]
 
 /** A scenario whose plan is `waypoints` and `legs` with this dwell; crew, ParamSets and dose stay the fixture's. */
 function planOf(waypoints: typeof plan.waypoints, legs: AnyLeg[], dwell_min = plan.scenario.dwell_min_per_stop): LoadedScenario {
-  return { ...fake, scenario: { ...fake.scenario, plan: { ...plan, waypoints, scenario: { ...plan.scenario, dwell_min_per_stop: dwell_min }, result: { ...plan.result, legs } } } };
+  return { ...fake, scenario: { ...fake.scenario, plan: { ...plan, waypoints, scenario: { ...plan!.scenario, dwell_min_per_stop: dwell_min }, result: { ...plan!.result, legs } } } };
 }
 /** An OK leg with this geometry; the test numbers are hand-picked so the speed is 1 m/s. */
 const legOf = (from: string, to: string, geometry: [number, number][], walk_time_min: number): OkLeg => ({ ...okLegs[0], from, to, geometry, walk_time_min });
@@ -1014,7 +1038,7 @@ describe("tick: interpolation and re-anchoring pinned by hand-computed geometry"
     const r = tick(at(s0, Date.parse(s0.session.clock.sim_time) + dt * 1000), quick, dt, s0.session.last_seq + 1);
     expect(r.events.map((e) => [e.kind, (e.data as { crew_id: string }).crew_id])).toEqual([["ARRIVED_STOP", "EV1"], ["LEFT_STOP", "EV1"], ["ARRIVED_STOP", "EV2"], ["LEFT_STOP", "EV2"]]);
     expect(r.state.session.last_seq).toBe(s0.session.last_seq + 4);
-    const walked = dt - (leg0_s - n0) - quick.scenario.plan.scenario.dwell_min_per_stop * 60;
+    const walked = dt - (leg0_s - n0) - quick.scenario.plan!.scenario.dwell_min_per_stop * 60;
     expect(walked).toBeGreaterThan(0);
     for (const id of CREW) {
       expectPosition(pos(r.state, id), along(okLegs[1].geometry, walked / legSeconds(okLegs[1])), `${id} after the long step`);

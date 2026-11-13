@@ -91,6 +91,13 @@ export function handleMockWorkerMessage(
     return response;
   }
 
+  if (request.type === "LOAD_GRID") {
+    return { type: "GRID_LOADED", request_id: request.request_id, site_id: request.site_id, data_version: request.data_version };
+  }
+  if (request.type === "VALIDATE_MANUAL_LEG") {
+    return { type: "ERROR", request_id: request.request_id, code: "INVALID_INPUT", message: "VALIDATE_MANUAL_LEG is not mocked" };
+  }
+
   const exhaustiveCheck: never = request;
   throw new Error(`Unhandled request type: ${(exhaustiveCheck as { type: string }).type}`);
 }
@@ -107,9 +114,17 @@ export function getResultVariantFromUrl(url: string | URL): string {
   }
 }
 
+/**
+ * The variant the app asks for through the worker's name (`mock:<variant>`, set by the `?mock_worker_result=` switch in
+ * ui/workerClient.ts; FD-174), or null for any other name. A bundled worker's own URL cannot carry a query.
+ */
+export function getResultVariantFromName(name: string | undefined): string | null {
+  return typeof name === "string" && name.startsWith("mock:") && name.length > "mock:".length ? name.slice("mock:".length) : null;
+}
+
 // In a real Web Worker environment, wire the message listener
 if (typeof self !== "undefined" && typeof self.postMessage === "function" && "location" in self) {
-  const variant = getResultVariantFromUrl(self.location.href);
+  const variant = getResultVariantFromName(self.name) ?? getResultVariantFromUrl(self.location.href);
 
   self.onmessage = (event: MessageEvent<WorkerRequest>) => {
     const response = handleMockWorkerMessage(event.data, variant);

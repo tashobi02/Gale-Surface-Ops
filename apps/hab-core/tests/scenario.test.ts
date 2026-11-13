@@ -94,7 +94,7 @@ describe("readScenario (T22.11, 05 §E.7)", () => {
 
   it("rejects a plan whose plan_hash does not verify (RFC 8785 canonical JSON)", () => {
     const dir = copyWith((s) => {
-      s.plan.scenario.dwell_min_per_stop = 25;
+      s.plan!.scenario.dwell_min_per_stop = 25;
     });
     expect(rejection(dir).check).toBe("plan_hash");
   });
@@ -164,7 +164,7 @@ describe("readScenario (T22.11, 05 §E.7)", () => {
 
   it("rejects scenario events that are not sorted by t_utc", () => {
     const dir = copyWith((s) => {
-      s.events = [{ ...s.events[0], event_id: "e2", t_utc: "2024-05-20T02:00:00Z" }, s.events[0]];
+      s.events = [{ ...s.events![0], event_id: "e2", t_utc: "2024-05-20T02:00:00Z" }, s.events![0]];
     });
     expect(rejection(dir).check).toBe("events_order");
   });
@@ -222,10 +222,11 @@ function centreOf(m: Site, k: number): { x_m: number; y_m: number } {
 function scenarioForMock(edit: (s: Scenario) => void = () => {}): string {
   return copyWith((s) => {
     s.data_version = MOCK.data_version;
-    s.plan.data_version = MOCK.data_version;
+    s.plan!.data_version = MOCK.data_version;
+    delete s.mission_setup.hab_candidate_id; // the mock site has no hab_candidates, so none may be named (T32.08)
     edit(s);
-    const { data_version, scenario, waypoints } = s.plan;
-    s.plan.plan_hash = createHash("sha256").update(canonicalJson({ data_version, scenario, waypoints }), "utf8").digest("hex").slice(0, 12);
+    const { data_version, scenario, waypoints } = s.plan!;
+    s.plan!.plan_hash = createHash("sha256").update(canonicalJson({ data_version, scenario, waypoints }), "utf8").digest("hex").slice(0, 12);
   });
 }
 const fakeScenarioJson = () => JSON.parse(readFileSync(join(fixtureDir, "scenario.json"), "utf8")) as Scenario;
@@ -234,7 +235,7 @@ describe("loadSite (T22.11 follow-up, 05 §E.7; FR-39, FR-40)", () => {
   it("loads the mock site: every array has width x height cells, read from its manifest", () => {
     const { grid } = loadMock();
     const cells = MOCK.grid.width * MOCK.grid.height;
-    expect(grid.meta).toEqual(MOCK.grid);
+    expect(grid.meta).toEqual({ ...MOCK.grid, proj4: MOCK.crs.proj4 });
     for (const a of [grid.elevation, grid.slopeP90, grid.slopeMax, grid.flags, grid.commHab]) expect(a.length).toBe(cells);
     const ti = readFileSync(join(MOCK_SITE_DIR, assetOf(MOCK, MOCK.grid.ti_asset!).path));
     expect(grid.ti).toBeInstanceOf(Float32Array);
@@ -352,7 +353,7 @@ describe("readScenario with a site directory (T22.11 follow-up, 05 §E.7)", () =
   });
 
   it("rejects the plan's start waypoint (where the crew leave the hab) on a hazard cell", () => {
-    const start = fakeScenarioJson().plan.waypoints.find((w) => w.role === "start")!;
+    const start = fakeScenarioJson().plan!.waypoints.find((w) => w.role === "start")!;
     const cell = cellIndex(loadMock().grid, start.x_m, start.y_m);
     expect(Number.isFinite(cell)).toBe(true);
     const HARD_HAZARD = 1 << 1; // 05 FLAG_BITS
@@ -400,7 +401,7 @@ describe("readScenario with a site directory (T22.11 follow-up, 05 §E.7)", () =
   it("judges a vehicle start by the vehicle's own slope limit, not the crew's", () => {
     const { grid } = loadMock();
     const params = JSON.parse(readFileSync(join(fixtureDir, "param_sets", "pr1-assumed.json"), "utf8"));
-    const crewLimit = fakeScenarioJson().plan.scenario.hard_slope_limit_deg;
+    const crewLimit = fakeScenarioJson().plan!.scenario.hard_slope_limit_deg;
     const rover = vehiclePassable(grid, params);
     const k = rover.findIndex((ok, idx) => ok === 1 && !isCellPassable(grid, idx, crewLimit));
     expect(k).toBeGreaterThanOrEqual(0); // the mock site has a slope band between the two limits
@@ -419,7 +420,7 @@ describe("the engine on a loaded site grid (T22.11 follow-up)", () => {
     const { grid, comm } = loadMock();
     const sc: LoadedScenario = { ...fake, grid, comm }; // built directly: the fake scenario's data_version is not the mock site's
     const [x0, y0, x1, y1] = MOCK.aoi.extent_m;
-    for (const w of sc.scenario.plan.waypoints) expect(w.x_m >= x0 && w.x_m <= x1 && w.y_m >= y0 && w.y_m <= y1).toBe(true);
+    for (const w of sc.scenario.plan!.waypoints) expect(w.x_m >= x0 && w.x_m <= x1 && w.y_m >= y0 && w.y_m <= y1).toBe(true);
 
     // The second consecutive high sample of the replayed series raises RADIATION_ALERT (02 §D.13); its time comes from the fixture.
     const times = sc.dose.samples.map(([t, r]) => [Date.parse(t), r] as const);
@@ -427,7 +428,9 @@ describe("the engine on a loaded site grid (T22.11 follow-up)", () => {
     const high = times.find(([, r]) => r !== times[0]![1])![0];
     const sim_time = new Date(high + step).toISOString().replace(".000Z", "Z");
     const started = reduce(initialState(sc, "s-0001"), { seq: 1, sim_time: sc.scenario.start_utc, kind: "EVA_STARTED", actor: "ops", data: { crew_ids: ["EV1", "EV2"], plan_revision: 1 }, provenance: {}, command_ref: null });
-    const state: EngineState = { ...started, session: { ...started.session, clock: { ...started.session.clock, sim_time } } };
+    // The storm pressed at its recorded UTC (START_EVENT at series_start_utc, U-62, BD-97, T32.12).
+    const storm = sc.scenario.event_library[0]!;
+    const state: EngineState = { ...started, session: { ...started.session, started_events: [{ event_id: storm.event_id, t0_sim_time: storm.series_start_utc }], clock: { ...started.session.clock, sim_time } } };
 
     const r = tick(state, sc, 1, state.session.last_seq + 1);
     const kinds = r.events.map((e) => e.kind);
@@ -472,6 +475,22 @@ describe("loadSite: the TI sidecar is its own coarse grid (05 RoutingGrid ti_ass
     const err = siteRejection(dir);
     expect(err.check).toBe("grid_dims");
     expect(err.message).toContain(MOCK.grid.ti_asset!);
+  });
+});
+
+describe("loadSite: the grid carries the manifest's working projection (BD-45)", () => {
+  it("puts crs.proj4 on the loaded grid's meta, byte for byte", () => {
+    const { grid } = loadSite(siteCopy(() => {}), MOCK.site_id, MOCK.data_version);
+    expect(grid.meta.proj4).toBe(MOCK.crs.proj4);
+  });
+
+  it("rejects a manifest whose crs.proj4 is not the Mars eqc string, as a manifest fault", () => {
+    const dir = siteCopy((m) => {
+      m.crs.proj4 = "+proj=merc +R=6378137 +units=m +no_defs";
+    });
+    const err = siteRejection(dir);
+    expect(err.check).toBe("site_manifest");
+    expect(err.message).toMatch(/proj4/);
   });
 });
 
@@ -527,7 +546,7 @@ describe("checkStarts rules (review)", () => {
 
   it("a plan without a start waypoint is an error, not a skipped check", () => {
     const base = fakeScenarioJson();
-    const noStart = { ...base, plan: { ...base.plan, waypoints: base.plan.waypoints.filter((w) => w.role !== "start") } };
+    const noStart = { ...base, plan: { ...base.plan!, waypoints: base.plan!.waypoints.filter((w) => w.role !== "start") } };
     let err: unknown;
     try {
       checkStarts(noStart, params(), loadMock().grid);

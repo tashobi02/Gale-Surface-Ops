@@ -139,6 +139,7 @@ Mode is set on `<html data-mode="brief|ops|hud|print">`. The mode never changes 
 | `charcoal-text-2` | `#A3A3A3` | Secondary text on charcoal | 5.84 : 1 |
 | `signal` | `#E7553D` | Orange slabs, CTA fills (sampled from the reference image) | ink on it 4.78 : 1 ✓; **white on it 3.64 : 1 — large text only** |
 | `signal-ink` | `#C2401F` | Orange *text* on paper | 4.76 : 1 |
+| `focus` | *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-066)* `ink` ring 2 px on a `paper` gap of 2 px | Keyboard focus in BRIEF (a white ring is invisible on paper) | — |
 
 Rule: text on `signal` is always `ink`. Orange text on paper uses `signal-ink`. `signal` on `charcoal` (4.05 : 1) is for large type and graphics only.
 
@@ -186,7 +187,7 @@ The v1 planner tokens `ok / caution / blocked / unknown` map to `nominal / cauti
 
 #### PRINT
 
-v1 print theme retained: text `#111827` on white (17.7 : 1); caution `#9A5B00` (5.43 : 1); warning `#B42318` (6.57 : 1); nominal `#0E7A4F` (5.36 : 1); patterns kept for black-and-white printers.
+v1 print theme retained: text `#111827` on white (17.7 : 1); caution `#9A5B00` (5.43 : 1); warning `#B42318` (6.57 : 1); nominal `#0E7A4F` (5.36 : 1); patterns kept for black-and-white printers. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-013)* Print advisory `#1D4ED8` and unknown `#6D28D9` (mockup DV-07).
 
 Print neutrals *(added 2026-11-11, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead); these are the values shipped in `tokens.css`)*: fill `#F3F4F6` (panel and table fills; `#111827` text on it 16.12 : 1), rule `#D1D5DB` (hairlines and dividers only, 1.47 : 1 on white, so never text and never the only cue), secondary text `#4B5563` (7.56 : 1 on white, 6.87 : 1 on the fill; computed 2026-11-11).
 
@@ -231,7 +232,7 @@ Rules: never Chakra Petch for digits or for text under 20 px; never bold headlin
 
 **Minimum text size** *(changed 2026-11-11, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead); resolves the conflict between the 11 px microcopy row and "Minimum 12 px anywhere")*: microcopy (catalogue codes P1, module labels P2, and the other 11 px mono labels in §B.3, §C.1 and §E.10) may be 11 px only in BRIEF and planner desktop surfaces, and only at ≥ 4.5 : 1 against its background. The minimum is 12 px everywhere else, including the ops console. The minimum is 16 px on EVA (unchanged) and never below 14 px on the HUD. Where §B.3, §C.1 or §E.10 state 11 px, this rule decides.
 
-**Headings during the font roll-out** *(added 2026-11-11, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead))*: v1 screens (SCR-00 to SCR-09, [03 §B](03_App_Flow_and_Diagrams.md)) keep headings in Inter 600 until Chakra Petch (and Source Serif 4, where a row above lists it) are self-hosted under `apps/web/public/fonts` with their OFL licences credited in the UI and README (NFR-07). From then on the Display and Headings rows above apply (Chakra Petch / 500 uppercase, P6). This is a temporary exception to P6's "never bold headlines". TODO(decision): self-hosting Chakra Petch and Source Serif 4, owner T13.04.
+**Headings during the font roll-out** *(added 2026-11-11, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead))*: v1 screens (SCR-00 to SCR-09, [03 §B](03_App_Flow_and_Diagrams.md)) keep headings in Inter 600 until Chakra Petch (and Source Serif 4, where a row above lists it) are self-hosted under `apps/web/public/fonts` with their OFL licences credited in the UI and README (NFR-07). From then on the Display and Headings rows above apply (Chakra Petch / 500 uppercase, P6). This is a temporary exception to P6's "never bold headlines". TODO(decision): self-hosting Chakra Petch and Source Serif 4, owner T13.04. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-073)* Ended 2026-11-12: Chakra Petch and Source Serif 4 are self-hosted (T13.13); the Display and Headings rows apply to all screens.
 
 ### C.3 Shape, grid and structure
 
@@ -267,7 +268,7 @@ One outline set (Lucide, ISC licence). *(Licence corrected 2026-11-11: 04 said "
 | Caution | Single chime | 1 × 200 ms |
 | Advisory | None | None |
 
-Sound is never the only cue; ops has a mute toggle with a visible "SOUND OFF" indicator.
+Sound is never the only cue; ops has a mute toggle with a visible "SOUND OFF" indicator. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-018)* Ops starts SOUND ON; until the first user gesture arms audio the indicator reads "SOUND ON — click to arm".
 
 ---
 
@@ -280,7 +281,7 @@ Sound is never the only cue; ops has a mute toggle with a visible "SOUND OFF" in
 | Panel (`cut-m`) | `panel` + livery stripe | `edge` outline 1 px | Skeleton bars | — | — | — |
 | Metric readout | Value + unit + provenance glyph | — | Previous value 50 % opacity | "—" + "needs a plan" | Grey value + `0:42` age | `unknown` styling + reason |
 | Stat slab (BRIEF/report) | Huge value top-left, mono label bottom-left (reference image) | — | — | — | — | — |
-| Alert bar | Hidden (dark cockpit) | Warning / caution / advisory (§D.2) | — | — | — | — |
+| Alert bar | Slot always reserved; the EVA tablet shows a status line (NOMINAL, STANDBY, EVA ENDED) while there is no alert, ops and HUD leave it empty *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-022)* | Warning / caution / advisory (§D.2) | — | — | — | — |
 | Option card (contingency) | `raised`, rank number, ETA, dose, drops | `route` outline | ETA shimmer | Greyed with reason | — | — |
 | Action button (primary) | `text-1` fill, `void` text, `cut-s` | Pressed: inverted | Spinner replaces icon | `edge` outline, `text-3` | — | Shake-free red outline + text |
 | Critical action (Summon / Abort) | `warning-fill` or `caution-fill` slab with icon + word | Hold progress bar fills along the chamfer | — | Disabled only with visible reason ("No hab link — queued") | — | — |
@@ -310,7 +311,7 @@ Sound is never the only cue; ops has a mute toggle with a visible "SOUND OFF" in
 
 ### D.3 Hold-to-confirm (critical actions)
 
-Gloved taps are imprecise and modal "Are you sure?" dialogs get dismissed by reflex. Critical actions use **press-and-hold 800 ms**: a progress bar runs along the button's chamfered edge; release early cancels; on completion a 300 ms confirmation state shows what will happen ("PR1 dispatched — ETA 12 min"). Keyboard: hold Enter/Space. Accessibility fallback: tap, then tap the "Confirm" button that replaces it for 5 s.
+Gloved taps are imprecise and modal "Are you sure?" dialogs get dismissed by reflex. Critical actions use **press-and-hold 800 ms**: a progress bar runs along the button's chamfered edge; release early cancels; on completion a 300 ms confirmation state shows what will happen ("PR1 dispatched — ETA 12 min"). Keyboard: hold Enter/Space. Accessibility fallback: tap, then tap the "Confirm" button that replaces it for 5 s. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-176)* On the EVA tablet a TAP CONFIRM setting (in the same toggle row as CONTRAST) enables this 5-s tap fallback.
 
 ### D.4 Writing rules
 
@@ -417,7 +418,33 @@ EGRESS ▸ TRAVERSE ▸ STOP 1 ▸ TRAVERSE ▸ ■ STOP 2 ▸ TRAVERSE ▸ STOP
 └──────────────────────────────┘
 ```
 
+*(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-010)* Orientation: the tablet works in portrait (above) or landscape (below); the default is landscape.
+
+**Landscape** (new; default). Fixed geography kept: alert bar at the top, HAVEN top-left with O₂ immediately to its right, the metadata strip above the actions, the actions at the bottom. The mini-map takes the whole right column.
+
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│ ALERT BAR, or STATUS: NOMINAL when none                  fixed 64 px │
+├────────────────┬────────────────┬────────────────────────────────────┤
+│ HAVEN 14 MIN   │ O₂ 71 %        │                                    │
+│ via PR1  ○     │ 5:41 left ◇    │   MINI-MAP                         │
+├────────────────┴────────────────┤   the whole right column:          │
+│ NEXT  Stop 3 · Boxwork ridge    │   route, me, buddy, shadow, PR1    │
+│ ↗ 040°  0.42 km  9 min          │                                    │
+├─────────────────────────────────┴────────────────────────────────────┤
+│ EVA 2:14 · DOSE 0.1 mGy · LINK ▮▮▮                       strip 24 px │
+├──────────────────────────────────────────────────────────────────────┤
+│ [ SUMMON ROVER ] [ ABORT TO HAB ] [ TASK ROVER (T2) ] [ HUD ]  72 px │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+Height budget at 844 × 390: 64 + 230 + 24 + 72 = 390 px, no scrolling. The body is 230 px: cards row 100 px, 8 px gap, NEXT card 110 px, 12 px padding. The left column is 46 % of the width. HAVEN and O₂ values are at least 56 px (56 px on phones, 64 px on tablets); NEXT values are at least 32 px (48 px on tablets, stacked). On rotation the alert bar stays at the top, HAVEN stays top-left, the strip stays above the actions and the actions stay at the bottom; O₂ stays immediately right of HAVEN on the same row, and NEXT and the mini-map change place.
+
+*(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-024, FD-032, FD-028)* Stop task list placement and rules, from the mockup (DV-12, G-30, G-31, G-33, G-40): a labelled TASKS n/m button in the NEXT card header opens the list for the next stop; on a phone in landscape the list takes the map column, the NEXT card stays, and the button toggles back to the map; on tablets and in portrait the list takes the NEXT position. Skipping: one tap on SKIP records the reason `other`, and the 5-s undo strip holds one REASON control cycling time, terrain, alert, other (U-55 decided). During an alert the list collapses to a non-interactive count while the options sheet is open or a warning is unacknowledged; after acknowledgement it shows as a read-only list (U-59 decided).
+
 **Stop task list (FR-50, added 2026-11-05, Proposed).** While walking, the NEXT card ends with a task count (`TASKS 0/3`). At a stop, the NEXT card becomes the task list: up to four rows of at least 56 px, each a neutral square check box, the task text and a SKIP control. States use neutral chrome only — an empty square for to do, a square with a check mark drawn in it for done (not a filled `■`, which §C.1 gives to the MEASURED provenance chip; mockup handoff G-32), `⊘` for skipped or dropped — with the word beside each; task progress is not a safety status, so no status colour is used. An unsynced change shows "not synced" in the metadata strip. During an alert the list collapses back to its count; the alert slot, HAVEN, O₂ and the action row never move. The landscape variant follows the same rules inside the NEXT position of the mockup handoff's landscape layout (U-30, [design/mockup-handoff.md](../design/mockup-handoff.md)). The prototype shows it (SCR-08, SCR-11, SCR-12, SCR-17); open layout questions are U-51 to U-58 in the [mockup handoff](../design/mockup-handoff.md#unresolved-items).
+
+*(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-016)* **Dose units:** absorbed dose is shown in mGy with one decimal on ops, EVA and HUD; it is stored in µGy (05); the planner's FR-12 estimate stays in mSv; the event dose is never shown in Sv.
 
 **Full-screen map (Tier 1, added 2026-11-05).** Tapping the mini-map or a FULL button opens the map over the body area.
 
@@ -425,7 +452,7 @@ EGRESS ▸ TRAVERSE ▸ STOP 1 ▸ TRAVERSE ▸ ■ STOP 2 ▸ TRAVERSE ▸ STOP
 - **Controls are buttons, not gestures:** +, −, FIT, FOLLOW, LAYERS and CLOSE, each at least 56 px and labelled with a word (§A.3 #9). Drag, wheel and pinch are extras only.
 - **Layers:** slope, thermal inertia, comm shadow and haven bands; at most two scientific overlays at once, and a third turns the oldest off and says so.
 - **Warnings win:** a warning closes the full-screen map and returns the normal layout.
-- **Exception under review:** the landscape stacked cards show HAVEN and O₂ at 40 px on phones (48 px on tablets), below the 56 px rule in §A.3. This applies only inside the landscape full-screen map and stands until U-60 and usability test UT-9 decide.
+- **Decided (U-60):** *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-033)* the landscape stacked cards show HAVEN and O₂ at 40 px on phones and 48 px on tablets, below the 56 px rule in §A.3. This applies only inside the landscape full-screen map; a harness check keeps both values the largest numbers on screen and at least 32 px.
 - **Ops and planner maps** get the same on-screen + / − / FIT buttons, plus drag and wheel; ops adds Slope and Thermal inertia toggles (handoff DV-14).
 
 ### E.6 SCR-13 HUD (black, landscape)
@@ -441,11 +468,13 @@ EGRESS ▸ TRAVERSE ▸ STOP 1 ▸ TRAVERSE ▸ ■ STOP 2 ▸ TRAVERSE ▸ STOP
 └───────────────────────────────────────────────────────────┘
 ```
 
-Maximum five values. No map. Corners kept empty (visor edge distortion). Values 48–72 px.
+Maximum five values. No map. Corners kept empty (visor edge distortion). Values 48–72 px. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-200)* Alert text is sentence case, identical on ops, EVA and HUD (§D.2).
 
 ### E.7 SCR-14 Alert options sheet (EVA)
 
-Bottom sheet covering 70 % of the screen on a warning: alert text, then option cards ranked 1–3 (ETA to shelter, expected dose, stops dropped), the top option pre-selected, one hold-to-confirm button "Go — option 1". "Ops is reviewing" indicator if ops approval is pending.
+Bottom sheet covering 70 % of the screen on a warning (portrait; landscape below): alert text, then option cards ranked 1–3 (ETA to shelter, expected dose, stops dropped), the top option pre-selected, one hold-to-confirm button "Go — option 1". "Ops is reviewing" indicator if ops approval is pending.
+
+*(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-010)* **SCR-14 in landscape:** a right-side panel over the map column (about 53 % of the width) below the alert bar replaces the 70 %-height bottom sheet. HAVEN, O₂ and NEXT stay visible in the left column; the "Go — option N" hold button sits at the bottom of the panel.
 
 ### E.8 SCR-08 Briefing card and SCR-17 Post-EVA report (PRINT)
 
@@ -489,8 +518,25 @@ Codes: `EZ—SCI nn` (science), `EZ—RES nn` (resource), `EZ—ENG nn` (enginee
 | Screen readers | `aria-live="assertive"` for warnings, `polite` for cautions/advisories; crew cards and options are lists with full text; map content duplicated in tables (v1) |
 | Motion | `prefers-reduced-motion`: no flashes (static bar), no marker interpolation |
 | Gloves | EVA targets ≥ 56 px, ≥ 8 px gaps; hold-to-confirm; no swipe-only actions; test with thick gloves on a touchscreen phone (TASK-15) |
-| Glare | EVA has a "high-contrast" toggle that switches to HUD palette |
-| Responsive | BRIEF fluid 360–1920 px. Planner/ops ≥ 1280 three-column; 1024–1279 one drawer at a time and a results panel 180 px high (`--results-height-narrow`; 220 px at ≥ 1280, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead)); ops < 1024 shows a "use a larger screen" notice. EVA 360–1024 portrait; HUD landscape ≥ 640 px |
+| Glare | EVA has a "high-contrast" toggle that switches to HUD palette. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-011, FD-017)* The toggle is a labelled CONTRAST button: the fifth button of the action row in landscape; in portrait the HUD cell splits into HUD and CONTRAST, each ≥ 56 px. High-contrast alert bars are black with a 4 px status-colour outline and status-colour text (white on the warning fill is 6.54 : 1, below 7 : 1) |
+| Responsive | BRIEF fluid 360–1920 px. Planner/ops ≥ 1280 three-column; 1024–1279 one drawer at a time and a results panel 180 px high (`--results-height-narrow`; 220 px at ≥ 1280, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead)); ops < 1024 shows a "use a larger screen" notice. **EVA: phone or tablet, portrait (360–1024 px wide) or landscape (≥ 844 × 390 px); default landscape; the same fixed geography in both.** *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-010)* HUD landscape ≥ 640 px |
+
+*(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-062, FD-119, FD-121, FD-124)* **Planner behaviour rules.**
+
+- Warning order is severity first, then along-route position, then leg.
+- Keyboard move of a selected stop: the arrow keys nudge it one grid cell; "Move to crosshair" places it at the crosshair. Both are validated like a drop.
+- Results empty state copy: "Add at least one stop".
+- Number formats (one `format.ts`):
+
+| Unit | Format |
+| --- | --- |
+| km | 2 decimals |
+| min | integer |
+| ° | 1 decimal |
+| mSv | 2 decimals |
+| mGy | 1 decimal |
+| m | integer |
+| % | integer |
 
 ### F.1 Mission-critical usability checks (TASK-15)
 
@@ -560,6 +606,8 @@ Desktop layout (≥ 1280 px):
 
 **Selection and keyboard focus are two different things** *(changed 2026-11-11, Proposed 2026-11-11, decided by Sadman Shaharier Mahim (product lead); replaces the selected waypoint's "`focus` ring 3 px")*: the selected waypoint is drawn with an outline of `--selection-width`, 2 px, in the `route` colour plus a marker (P10: selection is never by colour alone). Keyboard focus is the white 2 px ring with a 2 px gap of §C.1 and §F (unchanged), drawn from `--focus-ring`, on every interactive element including a waypoint marker; a selected waypoint that also has focus shows both. The two share neither token nor colour.
 
+**No credits box on a map** *(2026-11-13, Proposed 2026-11-13, decided by Sadman Shaharier Mahim (product lead); QoL Q1)*: map views (SCR-02, SCR-11, the SCR-12 mini-map and full-screen map, SCR-13) carry no credits box; credits are in SCR-09, the briefing card and the report (NFR-07 still met).
+
 ### D. Interaction and component behavior
 
 | Component | Default | Selected/active | Loading | Disabled | Empty | Error |
@@ -612,9 +660,9 @@ Superseded by [§E.9](#e9-scr-09-sources--methods-brief).
 | ID | Item | Recommendation |
 | --- | --- | --- |
 | D-13 | Design language (this document) | **Proposed 2026-11-04**: mission brutalism with BRIEF/OPS/HUD/PRINT modes ([ADR-010](../decisions/ADR-010-mission-brutalist-design-language.md)) |
-| U-08 | Light OPS variant for a washed-out venue projector | BRIEF mode already covers judge-facing screens; add an OPS high-contrast variant only if the projector test fails |
-| U-09 | Colour vs. grayscale HiRISE basemap | Toggle; grayscale default in OPS (better hazard-overlay contrast), colour in BRIEF slabs |
-| U-25 | Visual mockups of key screens | Produce before 7 Nov so R3/R5 build from a shared picture |
+| U-08 | Light OPS variant for a washed-out venue projector | BRIEF mode already covers judge-facing screens; add an OPS high-contrast variant only if the projector test fails. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-002, FD-061)* Decided: opt-in light theme from PRINT tokens (`?theme=light`) |
+| U-09 | Colour vs. grayscale HiRISE basemap | Toggle; grayscale default in OPS (better hazard-overlay contrast), colour in BRIEF slabs. **Resolved** ([FD-003](../plan/frontend/decisions.md), FD-196) |
+| U-25 | Visual mockups of key screens | Produce before 7 Nov so R3/R5 build from a shared picture. *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-005)* Resolved: prototype |
 | U-26 | Product name and logo mark (D-08) | Chamfered-hexagon mark in the reference image's style; name decided at kickoff |
 | U-27 | Chakra Petch, Source Serif 4 and Lucide licences | Verify in TASK-13; fallback display face: Space Grotesk (OFL) |
 | U-47 | Add the FR-50 stop task list to the prototype — **Resolved 2026-11-05** (mockup handoff update; follow-ups U-51 to U-58 there) | Closed |

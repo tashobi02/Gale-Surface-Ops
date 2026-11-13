@@ -4,20 +4,24 @@
 | --- | --- |
 | **Owner** | T21.01 (Obidit Islam, R1 Data & GIS) |
 | **Date** | 2026-11-07 |
-| **Status** | Layout and table formats frozen (T21.01). Only `param_sets/` exists; the other files are written by TASK-21 |
+| **Status** | Layout and table formats frozen (T21.01). All files exist (13 Nov 2026, backend package 25): `plan.json`, `scenario.json`, the two tables, the stop tasks and the ParamSets; `make replay` loads them on the real `gale_boxwork` bundle |
 | **Related** | [TASK-21](../../docs/tasks/TASK-21_scenario-builder.md) · [05 Scenario](../../docs/specs/05_Backend_and_Database_Schema.md#scenario) · [05 DoseSeries](../../docs/specs/05_Backend_and_Database_Schema.md#doseseries-dose_seriesjson) · [05 EarthLinkTable](../../docs/specs/05_Backend_and_Database_Schema.md#earthlinktable-earth_linkjson) · [02 §E.7](../../docs/specs/02_Technical_Requirements_Document.md#e7-scenario-file-scenariosidscenariojson) · [Data downloads](../../docs/ops/data-downloads.md) |
 
 The killer-demo scenario (docs/specs/01 §E.1): a two-person EVA at Gale on **20 May 2024 (sol 4190)**, replaying the solar particle event that Curiosity's RAD recorded that day (about 8,100 µGy total, NASA June 2024).
 
-TASK-21 writes `scenario.json`, `dose_series.json` and `earth_link.json` here, chooses the EVA start time (LTST in daylight, T21.09) and fixes the demo numbers in 01 §E.1. Every file in this folder is a build output: change the pipeline step that writes it and rebuild, never edit the JSON by hand.
+TASK-21 writes `scenario.json`, `dose_series.json` and `earth_link.json` here, chooses the EVA start time (LTST in daylight, T21.09) and fixes the demo numbers in 01 §E.1. Every file in this folder is a build output except `stop_tasks.json` (hand-authored, approved text, see [stop_tasks.md](stop_tasks.md)) and `param_sets/`: change the step that writes it and rebuild, never edit the JSON by hand.
 
 ## Layout
 
 ```text
 scenarios/storm-sol4190/
 ├── README.md            this file
-├── scenario.json        Scenario: identity, seed, start_utc, plan, stop_tasks, crew, vehicles, events, tables, source_ids
+├── scenario.json        Scenario: identity, seed, start_utc, plan, stop_tasks, mission_setup, crew, vehicles, event_library, task_library, events, tables, source_ids
 ├── plan.json            demo PlanExport (input to scenario.json; copied into its `plan`)
+├── stop_tasks.json      authored stop task text (input to scenario.json; stop_tasks.md records the decisions)
+├── stop_tasks.md        who wrote the text, the per-crew model (U-58, U-52)
+├── reference_commands.json  the reference run of 01 §E.1 as a CommandList (make replay COMMANDS=…); sim_times copied from the run's log
+├── recording.json       the Pages recording of that run (make record): SNAPSHOT, the whole log as EVENTs, STATE_DELTAs
 ├── dose_series.json     DoseSeries: replayed RAD surface dose rate (uGy/h)
 ├── earth_link.json      EarthLinkTable: SPICE light time, separation, elevations, relay passes
 └── param_sets/          one ParamSet per file, named <param_set_id>.json
@@ -42,9 +46,15 @@ The Hab Core loader is `readScenario` in [apps/hab-core/src/scenario.ts](../../a
 | `earth_link.json` | `pipeline/src/marswalk_pipeline/spice_tables.py` (T21.04); fallback T21.14 (fixed light time) | [earth-link.schema.json](../../schemas/earth-link.schema.json) | `readTable`: as above against `tables.earth_link.sha256`. Not validated against its schema at load |
 | `param_sets/<id>.json` | T21.01 (assumed values, reviewed; no build step) | [param-set.schema.json](../../schemas/param-set.schema.json) | `readParamSets`: every id in `param_sets` has a file that validates against the schema (`validators().paramSet`) and whose `param_set_id` equals the file name; every ParamSet used by `crew`, `vehicles` or `plan.scenario.vehicle_param_set` is listed; at least one `link`, `alert` and `shielding` set. No checksum |
 
-Passable crew and vehicle start cells (05 §E.7) are checked on load (T22.11 follow-up, Proposed 9 Nov): `readScenario` loads the site's routing grid and `comm_hab` from `data/sites/<site_id>` (`loadSite`), then rejects a start that is off the grid or on an impassable cell (`start_blocked`). Until the real `gale_boxwork` bundle exists (T03.19), `make hab` and `make replay` with this scenario stop with a clear `ScenarioCheckError`: `site` (no `site-manifest.json`; raised by the CLI's `siteRefFor` in `replay.ts`, before the scenario loads), `site_manifest` (the manifest is unreadable or fails its schema; raised by `loadSite`) or `grid_missing` (a grid file the manifest lists is absent); these are the intended failures, not a bug.
+Passable crew and vehicle start cells (05 §E.7) are checked on load (T22.11 follow-up, Proposed 9 Nov): `readScenario` loads the site's routing grid and `comm_hab` from `data/sites/<site_id>` (`loadSite`), then rejects a start that is off the grid or on an impassable cell (`start_blocked`). Without the real `gale_boxwork` bundle (its binaries are git-ignored, a release asset), `make hab` and `make replay` with this scenario stop with a clear `ScenarioCheckError`: `site` (no `site-manifest.json`; raised by the CLI's `siteRefFor` in `replay.ts`, before the scenario loads), `site_manifest` (the manifest is unreadable or fails its schema; raised by `loadSite`) or `grid_missing` (a grid file the manifest lists is absent); these are the intended failures, not a bug.
 
 The rule "samples / rows strictly increasing in time" cannot be written in JSON Schema; the pipeline tests (T21.03: `pipeline/tests/test_rad.py`, `pipeline/tests/test_spice_tables.py`) check it.
+
+## The reference run and its recording
+
+`reference_commands.json` is the list behind the numbers of [01 §E.1](../../docs/specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video) (T32.18, BD-147): `make replay COMMANDS=scenarios/storm-sol4190/reference_commands.json` prints log_hash `5fdf8ec1e67958e508b88c97bbe55fb0c8ec1d6800ea6bfc2bfd9988c779afda` on every run. Its `$comment` cites, for each command time, the log line (`seq <n> <KIND>`) it was copied from.
+
+`recording.json` is `make record`: the message stream of that run for the Pages replay, label `replayed recording` (never live). Its EVENTs are the whole log (seq 1 to n, so a viewer can hash them to `log_hash`, N-81); its STATE_DELTAs are coalesced to one per **5 sim seconds** (`--record-period 5`, BD-148) because one per second came to 5.3 MB, over the 5 MB budget; with 5 s the file is 2.2 MB. Make it again and the bytes are identical; `referenceCommands.test.ts` compares them.
 
 ## Hashes written from Python
 
@@ -55,9 +65,19 @@ The rule "samples / rows strictly increasing in time" cannot be written in JSON 
 
 | Id | Question | Decided in |
 | --- | --- | --- |
-| U-15 | Does the public RAD series cover sol 4190? | T21.06 |
+| U-15 | Does the public RAD series cover sol 4190? (**yes**, re-read by script, BD-25) | T21.06 |
 | U-18 | Exact SPICE SPK files for 18–22 May 2024 (MRO, MAVEN, TGO) | T21.02 |
 | U-44 | DONKI date window for the scenario: **13–24 May 2024**, decided by the data lead on 2026-11-07 | Recorded by T21.05 |
 | U-45 | Which RAD dose product matches NASA's published 8,100 µGy event total | T21.06 |
 
 Details and current status: [Data downloads](../../docs/ops/data-downloads.md).
+
+## Rebuilding (13 Nov 2026)
+
+```sh
+npm --workspace @marswalk/hab-core run build-demo-plan   # plan.json: needs the real grid (BD-142, BD-144; T21.12, T21.15)
+$(make -s pipeline-python) -m marswalk_pipeline.scenario_build   # scenario.json (T21.08, T32.32)
+$(make -s pipeline-python) apps/hab-core/tests/fixtures/storm-excerpt/make_storm_excerpt.py   # the engine-test excerpt (T21.11)
+```
+
+`build-demo-plan` prints the hard slope limit it needed (BD-142) and the EVA start from the T21.15 rule; `scenario_build` prints the `series_start_utc` rule and value (BD-98, BD-143). Both are deterministic: two runs give the same bytes.

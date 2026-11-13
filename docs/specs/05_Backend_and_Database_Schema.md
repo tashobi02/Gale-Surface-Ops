@@ -160,6 +160,8 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `nodata` | number \| null | cond. | arrays: `NaN` for f32, `255` for u8 | `null` |
 | `byte_order` | enum | cond. | `little` | `"little"` |
 
+A static image asset lives at `images/<layer_id>.png` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-23)*
+
 ### RoutingGrid
 
 | Field | Type | Req | Rules | Example |
@@ -176,6 +178,8 @@ Conventions: coordinates `x_m`, `y_m` are in the site's **working projection** (
 | `ti_cell_m` | number | cond. | Required with `ti_asset`; TI grid cell size, metres | `100` |
 | `comm_hab_asset` *(v2)* | FK | ✓ | u8, 1 = line of sight to the hab mast, 0 = none, 255 = no data (02 §C.5 L11) | `"grid-comm-hab"` |
 | `hab_mast` *(v2)* | `{x_m, y_m, height_m}` | ✓ | Mast used for `comm_hab`. *(2026-11-10)* When `hab_candidates` is present, `comm_hab_asset` and `hab_mast` here are those of the rank-1 candidate, so a consumer that ignores candidates still works | `{"x_m":-1800,"y_m":-1500,"height_m":10}` |
+
+**TI sidecar dimensions** *(2026-11-12)*: the TI array's width and height are its own shape, as the pipeline grid writer takes them (`pipeline/src/marswalk_pipeline/grid.py`: rows × columns of the TI array, width × height at most the cell limit above), and the file length is width × height × 4 bytes (f32). The loader checks the same formula *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-78)*
 
 #### Flag bits
 
@@ -250,7 +254,7 @@ Second record: `rad-gale-dose-eq-solar-min`, value `0.925` (midpoint, display as
 
 | Field | Type | Req | Default | Range (see [02 §E.3](02_Technical_Requirements_Document.md#e3-input-validation-rules)) |
 | --- | --- | --- | --- | --- |
-| `eva_start_utc` | ISO string | ✓ | site default | 2000–2100 |
+| `eva_start_utc` | ISO string | ✓ | *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-042)* the loaded scenario's `eva_start_utc` (Hab Core `GET /api/session`); with no Hab Core, no default: the field is required | 2000–2100 |
 | `max_eva_duration_h` | number | ✓ | 6.0 | 0.5–10 |
 | `dwell_min_per_stop` | number | ✓ | 20 | 0–180 |
 | `hard_slope_limit_deg` | number | ✓ | 15 | 5–35, > caution |
@@ -293,7 +297,13 @@ All defaults carry provenance `assumed` in the UI.
 
 **Leg:** `from`, `to`, `status` (`OK \| NO_ROUTE`), `reason` (if NO_ROUTE), `distance_m`, `walk_time_min`, `climb_m`, `descent_m`, `max_slope_deg`, `geometry` (array of `[x_m,y_m]`, simplified for display), `cell_path_length`, `nearest_reachable` (if NO_ROUTE), `profile` (arrays `dist_m[]`, `elev_m[]`, `slope_class[]` sampled every 5 m; `slope_class` ∈ `ok \| caution \| over_limit` against the scenario's current limits, 01 FR-08). v2 adds `comm[]` (0/1 LOS per sample) and `haven_min[]` (planning approximation, 02 §D.8).
 
+**Leg metric definitions** *(2026-11-12)*: `distance_m` is the horizontal distance along the cell centres of the unsimplified cell path; `walk_time_min` is summed from the step time of 02 §D.3; `climb_m` and `descent_m` are summed from the cell path; `max_slope_deg` is the maximum decoded slope over the path. A `NO_ROUTE` leg carries only `status, reason, from, to` and `nearest_reachable` when there is one *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-43)* The `profile` is sampled every 5 m **and at the leg end**, so the warnings see the full leg *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-44)*
+
+**`conditions.sol`** *(2026-11-12)*: `PlanResult.conditions` also carries `sol`, the MSL mission sol of the EVA start, `derived` by compute `mslSol`; the SNAPSHOT `conditions.sol` is the same value at sim time *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-112)*
+
 **Warning:** `code` (`OVER_HARD_SLOPE`, `CAUTION_SLOPE`, `LOW_TI`, `TI_UNKNOWN`, `LOW_RES_DEM`, `NO_DATA_ADJACENT`, `NO_ROUTE`, `EVA_DURATION_EXCEEDED`, `WALKBACK_EXCEEDED`, `DARKNESS`; v2: `COMM_SHADOW`, `HAVEN_TIME_EXCEEDED`, `RADIATION_ALERT`, `CONSUMABLES_LOW`), `severity` (`caution \| blocked \| unknown`), `leg` (index or null), `from_m`, `to_m` (along-leg distance; null when the warning has no location, e.g. `EVA_DURATION_EXCEEDED`), `at_utc` (for time warnings), `message`.
+
+**Route warnings** *(2026-11-12)*: `LOW_RES_DEM` and `NO_DATA_ADJACENT` have severity `caution`, one warning per contiguous run of route cells per leg (`from_m`, `to_m` along the unsimplified cell path); `NO_DATA_ADJACENT` marks a route cell with a no-data cell (NO_DATA flag, NaN elevation or slope 255) among its 8 neighbours. `LOW_TI` is never emitted (U-03). `DARKNESS` has severity `caution`, `from_m` and `to_m` null, `at_utc` the first instant the sun is below the flat horizon at a timeline instant (each leg's departure and arrival, each dwell's end), `leg` the leg that ends or starts there; when every instant is lit but the sol's sunset lies between two of them, `at_utc` is that sunset *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-49)*
 
 ### PlanExport
 
@@ -302,7 +312,7 @@ All defaults carry provenance `assumed` in the UI.
 | `export_schema_version` | string | ✓ |
 | `app_version` | string | ✓ |
 | `site_id`, `data_version` | string | ✓ |
-| `plan_hash` | string | ✓ — first 12 hex of SHA-256 over canonical JSON of `{data_version, scenario, waypoints}` (sorted keys, numbers as written). *Canonical JSON is RFC 8785 (JCS), decided 2026-11-07*: keys sorted by UTF-16 code units, no whitespace, numbers as ECMAScript `Number::toString` writes them (`1.0` → `1`, `1e21` → `1e+21`) |
+| `plan_hash` | string | ✓ — first 12 hex of SHA-256 over canonical JSON of `{data_version, scenario, waypoints}` (sorted keys, numbers as written). *Canonical JSON is RFC 8785 (JCS), decided 2026-11-07*: keys sorted by UTF-16 code units, no whitespace, numbers as ECMAScript `Number::toString` writes them (`1.0` → `1`, `1e21` → `1e+21`). *(Proposed 2026-11-12, decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; FD-134)* The `plan_hash` input is canonicalised with RFC 8785 (JCS), as `log_hash`; the web client and the Hab Core use the same rule |
 | `scenario` | MissionScenario | ✓ |
 | `waypoints` | Waypoint[] | ✓ |
 | `result` | PlanResult | ✓ |
@@ -325,7 +335,7 @@ Every number the simulation uses that is not data. Shown in the UI next to whate
 
 | `kind` | Required `values` keys (02 reference) |
 | --- | --- |
-| `suit` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, o2_nominal_h, p_walk_w, p_rest_w, p_ref_w, antenna_m` (§D.3, §D.14) |
+| `suit` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, o2_nominal_h, p_walk_w, p_rest_w, p_ref_w, antenna_m` (§D.3, §D.14); `hab_ingress_min` *(2026-11-12)*: minutes to enter the hab and be sheltered, 02 §D.8 `t_ingress`, `assumed` (source "02 §D.8"), read by the haven module and the contingency options *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-57)* |
 | `pressurized_rover` | `flat_speed_kmh, hard_slope_deg, caution_slope_deg, low_ti_cost, min_speed_frac, capacity, ingress_min, antenna_m` (§D.9) |
 | `utility_rover` | as above + `battery_wh, p_base_w, mass_kg, climb_eff` |
 | `link` | `range_hab_suit_m, range_suit_suit_m, range_rover_m, hab_mast_m, relay_min_elev_deg, conjunction_deg, dte_enabled` (§D.11–D.12) |
@@ -379,12 +389,12 @@ An event the presenter starts at the current sim time with `START_EVENT {event_i
 | `title` | string | ✓ | e.g. `"Solar particle event"` |
 | `kind` | enum | ✓ | `SPACE_WEATHER` |
 | `dose_series` | string | ✓ | key in `tables` (e.g. `"dose_series"`) of the [DoseSeries](#doseseries-dose_seriesjson) to replay |
-| `series_start_utc` | ISO | ✓ | the sample time in that series where playback begins: the start of the pre-onset rise. Played at the press `t0`, so the rate at sim time `t ≥ t0` is the series at `series_start_utc + (t − t0)`. `TODO(verify)`: the value, chosen by TASK-21 from the series |
+| `series_start_utc` | ISO | ✓ | the sample time in that series where playback begins: the start of the pre-onset rise. Played at the press `t0`, so the rate at sim time `t ≥ t0` is the series at `series_start_utc + (t − t0)`. The value is the time of the last sample whose rate is below `rad_clear_k × background_rate` (the clear level of the scenario's alert ParamSet, the level below which the alert counts the series as quiet) before the first sample whose compute `triggerState` (with the same ParamSet) is not nominal; the scenario builder prints the rule and the value *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-98; revised 13 Nov 2026 under the same authority, BD-143: the first form, "at or below `background_rate`", selects a noise sample ten hours before the onset when the real series is measured, because `background_rate` is a median and about half the quiet samples lie above it; the two forms give the same sample on a series whose quiet samples equal the background)* |
 | `label` | string | ✓ | shown on the curve: `"replayed — Curiosity RAD measurements"` |
 | `source_id`, `provenance` | FK, enum | ✓ | `rad-sol4190`; `replayed` |
-| `inputs` | array of `{input_id, t_offset_s, kind, payload, provenance, source_id}` | | scheduled inputs of this event (DONKI record, Earth message, advisory), as [ScenarioEvent](#scenarioevent) but timed at `t0 + t_offset_s`, `t_offset_s` ≥ 0, computed by the pipeline from the recorded time minus `series_start_utc` for replayed inputs. A `simulated` input has no recorded time: `TODO(decision)` how its offset is set (for example derived from the DONKI record it answers; no value is chosen here). The old `payload.sent_earth_utc` of an `EARTH_MESSAGE` is not stored in a library input: the Earth issue time is the input's shifted time `t0 + t_offset_s`, from which §D.12 computes delivery. `TODO(verify)`: whether any recorded input precedes `series_start_utc` (it would fire at the press) |
+| `inputs` | array of `{input_id, t_offset_s, kind, payload, provenance, source_id}` | | scheduled inputs of this event (DONKI record, Earth message, advisory), as [ScenarioEvent](#scenarioevent) but timed at `t0 + t_offset_s`, `t_offset_s` ≥ 0, computed by the pipeline from the recorded time minus `series_start_utc` for replayed inputs. A `simulated` input has no recorded time: it takes the `t_offset_s` of the replayed record it answers, and the pipeline writes the pairing in `payload.answers`; a simulated input that answers no record is not allowed in the library *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-99)*. The old `payload.sent_earth_utc` of an `EARTH_MESSAGE` is not stored in a library input: the Earth issue time is the input's shifted time `t0 + t_offset_s`, from which §D.12 computes delivery. `TODO(verify)`: whether any recorded input precedes `series_start_utc` (it would fire at the press) |
 
-The Earth-link tables are **not** shifted: light time, relay passes, Sun position and LTST are read at the current sim time. `TODO(verify)`: `earth_link.json` covers the whole EVA day of a live session.
+The Earth-link tables are **not** shifted: light time, relay passes, Sun position and LTST are read at the current sim time. Whether `earth_link.json` covers the whole EVA day of a live session is checked by the headless live-session verification; the SPICE window is widened if it does not *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-108)*.
 
 ### TaskLibraryEntry *(2026-11-10, Proposed)*
 
@@ -425,6 +435,8 @@ The drafted tasks in `scenarios/storm-sol4190/stop_tasks.json` (keyed there by `
 | `kernels` | array of `{file, sha256, source_id}` | ✓ | SPICE files used |
 | `provenance` | enum | ✓ | `derived` |
 
+**Sampled-pass convention** *(2026-11-12)*: a pass is a maximal run of consecutive table rows whose elevation is at or above `link.relay_min_elev_deg`; its `start_utc` and `end_utc` are the first and last qualifying rows, including the first and last row of the table, and there is no interpolation between samples, so a boundary is accurate to `step_s` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-24)*
+
 ### Session
 
 | Field | Type | Notes |
@@ -444,13 +456,24 @@ The drafted tasks in `scenarios/storm-sol4190/stop_tasks.json` (keyed there by `
 
 `client_id`, `role` (`planner \| eva:EV1 \| eva:EV2 \| hud:EV1 \| hud:EV2 \| ops \| earth \| presenter`; `presenter` added 2026-11-10; `hud:EV1` and `hud:EV2` added 2026-11-12, Proposed: read-only viewers, 02 §E.4), `display_name`, `connected_since` (wall-clock, diagnostics only — never logged into `session.jsonl`), `last_seq_acked`. Not persisted.
 
+#### Snapshot additions *(2026-11-12, Proposed)*
+
+The `SNAPSHOT` message (02 §E.6) carries these fields besides the entities above. The static ones are sent to every role, so there is one SNAPSHOT shape *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-90)*
+
+| Field | Type | Provenance | Notes |
+| --- | --- | --- | --- |
+| `task_library` | [TaskLibraryEntry](#tasklibraryentry-2026-11-10-proposed)[] | `assumed` (team-authored text) | The scenario's task library, `[]` when it has none; static scenario data *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-90)* |
+| `event_library` | `{event_id, title, kind, label, source_id, provenance}[]` | `replayed` | Summaries of the [EventLibraryEntry](#eventlibraryentry-2026-11-10-proposed) list; started events are in `Session.started_events` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-104)* |
+| `next_stop_target` | `{stop_id, stop_index}` \| null | `derived` | The crew-wide next stop of 02 §D.17, computed by the engine; null with no plan or no stop left *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-104)* |
+| `conditions` | object | per key | The FR-36 conditions feed: `ltst` (`derived`), `sun_elevation_deg` (`derived`), `sol` (MSL mission sol, `derived`), `dose_rate_background_ugy_h`, `dose_rate_event_ugy_h` (`replayed`), `event_series_utc`, `source_ids`, `provenance`; changes travel as `STATE_DELTA` paths `conditions/<key>` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-75)* |
+
 ### Crew
 
 | Field | Type | Provenance | Notes |
 | --- | --- | --- | --- |
 | `crew_id` | `EV1 \| EV2` | — | |
 | `x_m`, `y_m` | number | `simulated` | |
-| `activity` | enum | `simulated` | `IN_HAB \| WALKING \| AT_STOP \| TO_HAVEN \| SHELTERED` |
+| `activity` | enum | `simulated` | `IN_HAB \| WALKING \| AT_STOP \| TO_HAVEN \| SHELTERED \| HOLDING \| RIDING` *(`HOLDING` added 2026-11-13, Proposed: set by the simulation control `SET_CREW_MOTION`; `RIDING`: aboard the pressurized rover on a `RIDE_VEHICLE`, added 2026-11-13, **Proposed**, QoL Q3)* |
 | `stop_index` | int \| null | `simulated` | |
 | `o2_frac` | 0–1 | `simulated` (rate `modelled`) | |
 | `eva_elapsed_s` | int | `simulated` | |
@@ -460,6 +483,15 @@ The drafted tasks in `scenarios/storm-sol4190/stop_tasks.json` (keyed there by `
 | `linked` | bool | `simulated` (from `derived` LOS) | |
 | `link_path` | string[] | `simulated` | e.g. `["EV1","EV2","HAB"]` |
 | `stale` | bool | — | true when unlinked: ops shows last known values with age |
+| `o2_remaining_min` *(2026-11-12)* | number \| null | `simulated` | Minutes of O₂ left at the current activity, from compute `o2RemainingS` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-95)* |
+| `next_stop_bearing_deg` *(2026-11-12)* | number \| null | `derived` | 0–360, clockwise from grid north (+y of the working projection), to this crew member's next stop *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-95)* |
+| `next_stop_distance_m` *(2026-11-12)* | number \| null | `derived` | Straight-line horizontal distance in projected metres to that stop *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-95)* |
+| `next_stop_eta_s` *(2026-11-12)* | number \| null | `modelled` | Seconds until arrival at that stop along the planned route, **including** the remaining dwell at the current stop, from the engine's own motion model *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-95)* |
+| `link_hops` *(2026-11-12)* | int \| null | `simulated` (from `derived` LOS) | Radio hops to HAB along `link_path`; null when unlinked. No signal-strength value exists: 02 §D.11 models line of sight only *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-103)* |
+| `link_via` *(2026-11-12)* | `direct \| relay \| crew` \| null | `simulated` | The kind of the first hop of `link_path`; null when unlinked *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-103)* |
+| `last_linked_sim_time` *(2026-11-12)* | ISO \| null | `simulated` | Sim time of the last tick this crew member was linked *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-112)* |
+
+The next stop is **per crew member**: that member's lowest-index stop without their `ARRIVED_STOP`, for the HUD. `JUMP_NEXT_STOP` keeps the crew-wide target of 02 §D.17. The three `next_stop_*` fields and `o2_remaining_min` are null with no plan or no stop left *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-95)*. Refined: the three `next_stop_*` fields are null with no plan, no stop left, or a crew member not on EVA (WALKING or AT_STOP); `next_stop_eta_s` is also null when the planned route cannot be walked to that stop; `o2_remaining_min` is a number whenever the suit is consuming O₂ (walking, resting) and null in the hab, while waiting out a start offset and when sheltered in a vehicle or the hab; bearing is 0 for two coincident points *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-119)*
 
 ### Vehicle
 
@@ -470,10 +502,15 @@ The drafted tasks in `scenarios/storm-sol4190/stop_tasks.json` (keyed there by `
 | `param_set` | FK → ParamSet | |
 | `x_m`, `y_m` | number | `simulated` |
 | `state` | enum | `PARKED \| DISPATCHED \| EN_ROUTE \| ARRIVED \| RETURNING \| TASKED` |
-| `task` | `{kind: SUMMON\|SCOUT\|CARRY\|RELAY\|RETURN, target, crew_ids?, item?}` \| null | `item`: CARRY only, a free-text label (FR-41 names no item list; decided 2026-11-07). `TASK_ROVER` args are `{vehicle_id, task: SCOUT\|CARRY\|RELAY\|RETURN, target?, item?}` with the same rule (`target` absent for RETURN) |
+| `task` | `{kind: SUMMON\|SCOUT\|CARRY\|RELAY\|RETURN\|RIDE, target, crew_ids?, item?, stop_id?}` \| null | `item`: CARRY only, a free-text label (FR-41 names no item list; decided 2026-11-07). `TASK_ROVER` args are `{vehicle_id, task: SCOUT\|CARRY\|RELAY\|RETURN, target?, item?}` with the same rule (`target` absent for RETURN) |
 | `path` | `[x_m,y_m][]` | display-simplified |
 | `eta_s` | int \| null | `modelled` |
 | `battery_wh` | number \| null | utility rover only, `simulated` |
+| `task_id` *(2026-11-12)* | string \| null | Id of the active task (the head of the queue), utility rover only *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-102)* |
+| `queue` *(2026-11-12)* | `QueuedRoverTask[]` | Tasks after the head, `[]` for the pressurized rover. `QueuedRoverTask` = `{task_id, kind, target {x_m, y_m} \| null, item?, eta_s, battery_wh_after}`; `eta_s` (cumulative, seconds from now) and `battery_wh_after` are `modelled` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-102)* |
+| `relay_coverage_rev` *(2026-11-12)* | int \| null | A utility rover parked as `RELAY`: increments when its coverage grid changes (02 §E.5 `GET /api/relay-coverage/<vehicle_id>`); null otherwise *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-112)* |
+
+**Rover queue** *(2026-11-12)*: `TASK_ROVER` appends to a FIFO queue per utility rover; the head is `Vehicle.task` and the rest is `Vehicle.queue`. An accepted task logs `VEHICLE_DISPATCHED` with `task_id`; `VEHICLE_ARRIVED` pops the head. `RETURN` is a normal queued task. A task whose predicted battery (02 §D.9 energy form, ParamSet values) would go below 0 is rejected with `INVALID` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-102)*
 
 ### Alert
 
@@ -498,11 +535,15 @@ The drafted tasks in `scenarios/storm-sol4190/stop_tasks.json` (keyed there by `
 | --- | --- | --- |
 | `command_id` | string | client-generated, unique per client |
 | `role` | role | must have permission (02 §E.4) |
-| `kind` | enum | `LOAD_SCENARIO \| SET_CLOCK \| JUMP_NEXT_EVENT \| START_EVA \| PUBLISH_PLAN \| SUMMON_VEHICLE \| ABORT \| ACK_ALERT \| APPROVE_OPTION \| TASK_ROVER \| SEND_MESSAGE \| INJECT_EVENT \| UPDATE_STOP_TASK \| ADD_STOP_TASK \| JUMP_NEXT_STOP \| START_EVENT \| RESET_SESSION \| SELECT_HAB_SITE \| SET_MISSION_SETUP` (the last five added 2026-11-10, **Proposed**, 02 §D.17) |
+| `kind` | enum | `LOAD_SCENARIO \| SET_CLOCK \| JUMP_NEXT_EVENT \| START_EVA \| PUBLISH_PLAN \| SUMMON_VEHICLE \| ABORT \| ACK_ALERT \| APPROVE_OPTION \| TASK_ROVER \| SEND_MESSAGE \| INJECT_EVENT \| UPDATE_STOP_TASK \| ADD_STOP_TASK \| JUMP_NEXT_STOP \| START_EVENT \| RESET_SESSION \| SELECT_HAB_SITE \| SET_MISSION_SETUP \| SET_CREW_MOTION \| RIDE_VEHICLE` (the five before the last added 2026-11-10, **Proposed**, 02 §D.17; `SET_CREW_MOTION` added 2026-11-13, **Proposed**: a **simulation control**, not a real EVA function, args `{crew_id, motion: HOLD \| RESUME}`, 02 §E.6; `RIDE_VEHICLE` `{crew_id, vehicle_id, to_stop_id}` added 2026-11-13, **Proposed**, QoL Q3, 02 §E.4) |
 | `args` | object | per kind |
 | `queued_offline` | bool | set by an EVA client that resends after `LINK_STATE linked=true` |
 
 Commands are **not** logged themselves; the LogEvent they produce (or a `COMMAND_REJECTED` event) is.
+
+**Command journal** *(2026-11-12)*: besides `session.jsonl`, each session directory has `commands.jsonl` with one line per command the Hab Core evaluated (accepted or rejected), in evaluation order: `{sim_time, after_seq, role, kind, args, command_id, client_id}`. It is not part of `log_hash` and the engine never reads it. A live session exports it, split per session, as the command list that `--commands <file>` replays (02 §D.17); exact replay needs the rejected commands too, because they write the hashed `COMMAND_REJECTED` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-93)*
+
+**`PUBLISH_PLAN` args** *(2026-11-12)*: `{plan: PlanExport, stop_tasks?: StopTaskSeed[]}`. `StopTaskSeed` is the element of Scenario `stop_tasks` (`{task_id?, stop_id, crew_id, kind, text}`). The Hab Core seeds one `TASK_ADDED` (`origin` `plan`) per task at publish. `plan_hash` is computed over `plan` alone, so the seeds do not change it *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-91)*. While the session is `LOADED` a repeated publish replaces the session's `plan`-origin tasks by the list (02 §E.5) *(Proposed 2026-11-13; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026; BD-155)*
 
 **Repeated `command_id`** *(decided 2026-11-07)*: a command whose `command_id` the same client already sent and the Hab Core accepted is answered with the first `COMMAND_RESULT` (same `event_seq`) and not run again. A rejected `command_id` may be retried and is evaluated afresh. The LogEvent's `command_ref` keeps the rule true after a Hab Core restart: on load, the accepted `command_id`s are rebuilt from the log.
 
@@ -530,7 +571,7 @@ State is reduced from `TASK_ADDED`, `TASK_UPDATED` and `TASK_DROPPED` events; it
 | Arg | Type | Rules |
 | --- | --- | --- |
 | `task_id` | string | an existing StopTask |
-| `state` | `DONE \| SKIPPED \| TODO` | `DONE` and `SKIPPED` from `TODO`; `TODO` only with `undo: true` |
+| `state` | `DONE \| SKIPPED \| TODO` | `DONE` and `SKIPPED` from `TODO`; `TODO` only with `undo: true`; `SKIPPED` from `SKIPPED` only to revise the `reason` (02 §E.6 reason revision) *(Proposed 2026-11-13; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026; BD-153)* |
 | `reason` | enum | for `SKIPPED` only (`time \| terrain \| alert \| other`) |
 | `undo` | bool, optional | `true` = reversal to `TODO` (`DONE \| SKIPPED → TODO`) of the last change to this task, by the sender's role as the `actor` of that `TASK_UPDATED` (a `system` actor cannot be undone), accepted only while that change is the task's last event and not stale (the task's stop is still in the current plan and no `PLAN_REVISED` since). Any `state` other than `TODO` with `undo: true` is `INVALID`. The 5-s window is enforced on the tablet, not by the Hab Core |
 
@@ -540,7 +581,7 @@ State is reduced from `TASK_ADDED`, `TASK_UPDATED` and `TASK_DROPPED` events; it
 | --- | --- | --- |
 | `seq` | int | monotonic, gap-free |
 | `sim_time` | ISO | |
-| `kind` | enum | `SESSION_LOADED, EVA_STARTED, ARRIVED_STOP, LEFT_STOP, ALERT_RAISED, ALERT_ACKED, ALERT_CLEARED, OPTIONS_PROPOSED, PLAN_REVISED, VEHICLE_DISPATCHED, VEHICLE_ARRIVED, CREW_SHELTERED, LINK_LOST, LINK_RESTORED, EARTH_MSG_QUEUED, EARTH_MSG_DELIVERED, COMMAND_REJECTED, CLOCK_CHANGED, EVA_ENDED, TASK_ADDED, TASK_UPDATED, TASK_DROPPED, CLOCK_JUMPED, EVENT_STARTED, SESSION_RESET, SITE_SELECTED, MISSION_SETUP_SET, ROLE_TAKEN_OVER` (the five before the last added 2026-11-10; `ROLE_TAKEN_OVER` added 2026-11-12, Proposed) |
+| `kind` | enum | `SESSION_LOADED, EVA_STARTED, ARRIVED_STOP, LEFT_STOP, ALERT_RAISED, ALERT_ACKED, ALERT_CLEARED, OPTIONS_PROPOSED, PLAN_REVISED, VEHICLE_DISPATCHED, VEHICLE_ARRIVED, CREW_SHELTERED, CREW_BOARDED, CREW_DISMOUNTED, LINK_LOST, LINK_RESTORED, EARTH_MSG_QUEUED, EARTH_MSG_DELIVERED, COMMAND_REJECTED, CLOCK_CHANGED, EVA_ENDED, TASK_ADDED, TASK_UPDATED, TASK_DROPPED, CLOCK_JUMPED, EVENT_STARTED, SESSION_RESET, SITE_SELECTED, MISSION_SETUP_SET, ROLE_TAKEN_OVER, CREW_MOTION_SET` (the five before the last two added 2026-11-10; `ROLE_TAKEN_OVER` added 2026-11-12, Proposed; `CREW_MOTION_SET` added 2026-11-13, Proposed; `CREW_BOARDED` and `CREW_DISMOUNTED` added 2026-11-13, Proposed, QoL Q3) |
 | `actor` | role \| `system` | |
 | `data` | object | values needed to reduce state without recomputation |
 | `provenance` | object | field path → class |
@@ -553,16 +594,18 @@ Source column: where the fields are stated. **Proposed** fields are not stated i
 
 | `kind` | `data` fields | Source |
 | --- | --- | --- |
-| `SESSION_LOADED` | `session_id, scenario_id, data_version, seed, plan_hash` | **Proposed** (Session fields) |
+| `SESSION_LOADED` | `session_id, scenario_id, data_version, seed, plan_hash` (`plan_hash` is null for a plan-less session *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-96)*) | **Proposed** (Session fields) |
 | `EVA_STARTED` | `crew_ids, plan_revision` | **Proposed** |
 | `ARRIVED_STOP`, `LEFT_STOP` | `crew_id, stop_id, stop_index` | **Proposed** (Crew, StopTask) |
-| `ALERT_RAISED` | `alert_id, code, level, subjects, message`, plus the code's values (`RADIATION_ALERT`: `rate_ugy_h, threshold_ugy_h, source`; `CONSUMABLES_LOW`: `o2_remaining_min, haven_min, haven_kind, margin, threshold_margin`; `BUDDY_SEPARATION`: `distance_m, threshold_m`) | §F.6, fixtures `radiation-alert`, `comm-shadow`, 02 §E.6; `CONSUMABLES_LOW` and `BUDDY_SEPARATION` values **Proposed** (02 §D.14 rule decided 2026-11-07) |
+| `ALERT_RAISED` | `alert_id, code, level, subjects, message`, plus the code's values (`RADIATION_ALERT`: `rate_ugy_h, threshold_ugy_h, source`; `CONSUMABLES_LOW`: `o2_remaining_min, haven_min, haven_kind, margin, threshold_margin`; `BUDDY_SEPARATION`: `distance_m, threshold_m`; `COMM_SHADOW`: `distance_m`, along the remaining route to the first uncovered stretch, `derived`) | §F.6, fixtures `radiation-alert`, `comm-shadow`, 02 §E.6; `CONSUMABLES_LOW`, `BUDDY_SEPARATION` and `COMM_SHADOW` values **Proposed** (02 §D.14 rule decided 2026-11-07) |
 | `ALERT_ACKED` | `alert_id, acked_by` | **Proposed** (Alert) |
 | `ALERT_CLEARED` | `alert_id` | **Proposed** (Alert) |
 | `OPTIONS_PROPOSED` | `alert_id, options` (ContingencyOption[]) | §F.6, fixture `options-proposed` |
 | `PLAN_REVISED` | `plan_revision` (02 §D.13); `option_id \| null, stops_dropped`; `waypoints` (Waypoint[]) and `legs` (Leg[]) of the revised plan, which replace the current ones so the map shows the new route; `plan` (PlanExport) only when the planner publishes a new plan | `plan_revision`: 02; `waypoints`, `legs` and `plan` decided 2026-11-07; rest **Proposed** |
-| `VEHICLE_DISPATCHED` | summon: `vehicle_id, option_id, rendezvous`; `TASK_ROVER`: `vehicle_id, task, target`, plus `item` for CARRY | summon: §F.6, fixture `summon-accepted`; rover: decided 2026-11-06 (T20.01) |
+| `VEHICLE_DISPATCHED` | summon: `vehicle_id, option_id, rendezvous`; `TASK_ROVER`: `vehicle_id, task, target`, plus `item` for CARRY and `task_id` (`rt-<seq>` of this event *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-102)*) | summon: §F.6, fixture `summon-accepted`; rover: decided 2026-11-06 (T20.01) |
 | `VEHICLE_ARRIVED` | `vehicle_id, x_m, y_m` | **Proposed** (Vehicle) |
+| `CREW_BOARDED` | `crew_id, vehicle_id, to_stop_id` | QoL Q3 (**Proposed** 2026-11-13): the crew member is `RIDING` and the vehicle's task is `RIDE` (`crew_ids`, `stop_id`); the `VEHICLE_DISPATCHED` of the drive follows, with the stop as its `rendezvous` point and `eta_crew_s` 0 |
+| `CREW_DISMOUNTED` | `crew_id, vehicle_id, stop_id, stop_index, x_m, y_m` | QoL Q3 (**Proposed** 2026-11-13): logged after `VEHICLE_ARRIVED`; the crew member is `AT_STOP` at the stop and the vehicle is `PARKED` again; `ARRIVED_STOP` follows |
 | `CREW_SHELTERED` | `crew_id, haven_kind, dose_event_ugy, dose_event_unsheltered_ugy` | dose received vs. unsheltered: 03 §C; names from Crew; `haven_kind` **Proposed**; `haven_kind "hab"` sets the crew activity to `IN_HAB` only when the crew member was `WALKING` or `AT_STOP` (03 §E.8 "plan complete"); otherwise (`TO_HAVEN`, or any other kind) it sets `SHELTERED` (03 §E.8 "ToHaven → Sheltered") (**Proposed** 2026-11-07, T22.09) |
 | `LINK_LOST`, `LINK_RESTORED` | `node_id` | fixture `link-lost-restored` |
 | `EARTH_MSG_QUEUED` | `message_id, direction, body, sent_utc, deliver_utc, via` | **Proposed** (EarthMessage) |
@@ -573,12 +616,13 @@ Source column: where the fields are stated. **Proposed** fields are not stated i
 | `TASK_ADDED` | `task_id, stop_id, crew_id, kind, text, origin` | **Proposed** (StopTask) |
 | `TASK_UPDATED` | `task_id, stop_id, crew_id, state, reason`; optional `undo` (bool, `true` for a reversal to `TODO`, *added 2026-11-11*) | 02 §E.6, fixture `stop-task-ticked`; `undo` **Proposed** |
 | `TASK_DROPPED` | `task_id, stop_id, plan_revision` | **Proposed** (StopTask: DROPPED is set on plan revision) |
-| `CLOCK_JUMPED` | `reason` (`next_stop`), `from_sim_time, to_sim_time, stop_id, ended_by` (`arrival \| alert`) | **Proposed** (02 §D.17); events raised during the jump are logged at their own sim seconds |
+| `CLOCK_JUMPED` | `reason` (`next_stop`), `from_sim_time, to_sim_time, stop_id, ended_by` (`arrival \| alert`; the five values of 02 §D.17 are `arrival \| alert \| plan_revised \| eva_ended \| sheltered` *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-92)*) | **Proposed** (02 §D.17); events raised during the jump are logged at their own sim seconds, and `CLOCK_JUMPED` itself is logged after the events of the jump, because its `to_sim_time` is known only then *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-92)* |
 | `EVENT_STARTED` | `event_id, t0_sim_time, series_start_utc, source_id` | **Proposed** (EventLibraryEntry) |
 | `SESSION_RESET` | `session_id, next_session_id` | **Proposed** (02 §D.17); last line of the old log |
 | `SITE_SELECTED` | `candidate_id` | **Proposed** (HabCandidate) |
-| `MISSION_SETUP_SET` | the settings set (`crew_count, vehicle_available, solar_phase, max_haven_min`) | **Proposed** (Session `mission_setup`) |
+| `MISSION_SETUP_SET` | the settings set (`crew_count, vehicle_available, solar_phase, max_haven_min`, and `vehicle_param_set` when it is set *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-96)*) | **Proposed** (Session `mission_setup`) |
 | `ROLE_TAKEN_OVER` | `role, crew_id?, old_client_id, new_client_id` | **Proposed** (02 §E.4, decision of Sadman Shaharier Mahim, 2026-11-12); `actor` `system`, `command_ref` `null`; `crew_id` only for an `eva:EVn` or `hud:EVn` role; client ids are the HELLO `client_id`s (random per page load, no personal data); changes no state |
+| `CREW_MOTION_SET` | `crew_id, motion, actor` | **Proposed** (2026-11-13; decided by Sadman Shaharier Mahim); `motion` `HOLD \| RESUME`; `actor` is the issuing role; **spec-change:** logged by the **simulation control** `SET_CREW_MOTION`, which is not a real EVA function (02 §E.6); `HOLD` sets the crew activity to `HOLDING`, `RESUME` to `WALKING` (`AT_STOP` when the hold interrupted a stop dwell) |
 
 Per-tick position updates are **not** logged; they are re-derived on replay from the plan and the logged events (determinism, NFR-06).
 
@@ -593,6 +637,19 @@ Per-tick position updates are **not** logged; they are re-derived on replay from
 ### PostEvaReport
 
 Built from the log on demand (`GET /api/report`): planned vs. actual per stop (arrive/depart), alerts with response time (raised → acked → sheltered), dose received vs. unsheltered vs. planned background, stops completed/dropped, stop tasks done/skipped/dropped per stop (FR-50), plan revisions, provenance summary, `log_hash`, disclaimer.
+
+**Fields** *(2026-11-12; the type is `packages/protocol/src/report.ts`)*: *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-76)*
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `session_id`, `scenario_id`, `data_version`, `seed`, `generated_at`, `log_hash` | string, string, string, int, ISO, string | `generated_at` is the log's last sim time (empty for an empty log), so one log gives one report |
+| `eva_duration_s` | int \| null | null without both `EVA_STARTED` and `EVA_ENDED` |
+| `stops` | `{completed, dropped, not_reached, incomplete, in_progress, pending, details[]}` | `details[]`: `{stop_id, stop_index?, status, crew[]}`; per crew member arrival and dwell, actual (`simulated`) against planned (`derived`) and their differences |
+| `alerts` | `{total, details[]}` | `details[]`: raise, ack and clear times, `ack_s`, and per crew member `shelter_response_s` |
+| `tasks` | `{total, done, skipped, dropped, per_stop}` | `per_stop` keyed by `stop_id` |
+| `dose` | `{per_crew[], headline, planned_background_ugy, planned_background_reason, planned_background_source_id, provenance}` | `headline` is the highest individual `dose_event_ugy`, never a crew total. `planned_background_ugy` = compute `backgroundDoseUgy(the scenario's dose series, planned EVA seconds from the plan totals)`: the series' own `background_rate` (µGy/h) times the planned EVA hours, `modelled`, absorbed dose with no shielding factor; `planned_background_source_id` is the series' `source_id`; null with `planned_background_reason` (and a null source id) when the plan, its totals or the dose series is missing or unusable. It is not `estimateDose` of the RAD `EnvConstant`: that gives dose equivalent in mSv, which 02 §D.13 forbids converting to this field's µGy *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-132, amending BD-76)* |
+| `trace` | `{crew_id, points: {sim_time, x_m, y_m}[]}[]` | 30 s decimated crew positions, `simulated`, sampled from engine state and rebuilt on resume by re-deriving |
+| `plan_revisions`, `provenance_summary`, `disclaimer` | int, map, string | |
 
 ---
 
@@ -693,7 +750,7 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
 - Every `*_asset`/`asset_id` resolves to an Asset whose file exists and whose SHA-256 matches.
 - Every `source_ids` entry resolves to a DataSource.
 - All grids share `width`, `height`, `cell_m`, `origin_m`.
-- All POIs and the default start lie inside `aoi.extent_m` and on passable cells.
+- All POIs and the default start lie inside `aoi.extent_m` and on passable cells. *(Proposed 2026-11-13; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 13 Nov 2026; BD-21, BD-140)* "Passable" is read from the `MissionScenario` schema (`hard_slope_limit_deg`), not typed: the default start and every candidate mast and start must have a slope p90 no steeper than the schema **default**, a POI no steeper than the schema **maximum** (a stop is reachable if some allowed limit reaches it; the planner reports the ones a plan's own limit cannot), and none may be a no-data or `HARD_HAZARD` cell.
 - *(2026-11-10)* When `hab_candidates` is present, every mast and `default_start` lies inside `aoi.extent_m` on a passable cell; `candidate_id`s and ranks are unique; the rank-1 candidate matches `default_start`, `grid.comm_hab_asset` and `grid.hab_mast`.
 - `crs.proj4` string is byte-identical to the pipeline constant.
 
@@ -918,7 +975,7 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
 ```json
 {"seq": 420, "sim_time": "2024-05-20T…Z", "kind": "ALERT_RAISED", "actor": "system",
  "data": {"alert_id": "a-420", "code": "RADIATION_ALERT", "level": "warning", "subjects": ["EV1", "EV2"],
-          "message": "Radiation surge — shelter now", "rate_ugy_h": null, "threshold_ugy_h": null},
+          "message": "Shelter now — radiation surge", "rate_ugy_h": null, "threshold_ugy_h": null},
  "provenance": {"data.rate_ugy_h": "replayed", "data.threshold_ugy_h": "assumed"}, "inputs_hash": "…", "command_ref": null}
 {"seq": 421, "sim_time": "2024-05-20T…Z", "kind": "OPTIONS_PROPOSED", "actor": "system",
  "data": {"alert_id": "a-420", "options": [{"option_id": "o1", "kind": "VEHICLE_RENDEZVOUS", "rank": 1},
@@ -935,8 +992,8 @@ v1: single-user, local; no access control. v2: Hab Core enforces **role** permis
 | ID | Item | Recommendation |
 | --- | --- | --- |
 | U-10 | Can a per-pixel DEM source map (HiRISE vs. fill) be obtained for `LOW_RES_DEM`? | **Resolved 2026-11-07**: no per-pixel source map obtainable; low-resolution areas interpreted and labelled so ([evidence](../ops/feasibility/dem-quality.md#u-10-evidence), [low_res_dem.geojson](../../pipeline/sites/gale_boxwork/low_res_dem.geojson)). Original recommendation: Try stereo-pair footprints from the DEM metadata list; else hand-digitise coverage from hillshade texture and label it interpreted |
-| U-11 | Store profile arrays in export or recompute on import? | Store (small) — simplifies briefing rendering |
+| U-11 | Store profile arrays in export or recompute on import? | Store (small) — simplifies briefing rendering. **Resolved 2026-11-12**: store; exporters always write `profile`, and the schema keeps it optional so older exports still validate (05 §E.4, additive) *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-64)* |
 | U-23 | Snapshot cadence vs. demo restart time | 500 events; measure resume time in TASK-22 |
-| U-24 | Store per-tick crew positions for the post-EVA map trace? | No — re-derive on replay; store only a 30 s-decimated trace in the report |
+| U-24 | Store per-tick crew positions for the post-EVA map trace? | No — re-derive on replay; store only a 30 s-decimated trace in the report. **Resolved 2026-11-12**: no per-tick positions are stored; the report carries a 30 s decimated crew trace (PostEvaReport `trace`) *(Proposed 2026-11-12; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's authority, 12 Nov 2026; BD-76)* |
 | U-48 | Do initial stop tasks live in `scenario.json` (plan) or in `pois.geojson` (site data)? | `scenario.json`: tasks belong to a plan, not to the place; update `schemas/scenario.schema.json` in TASK-31 |
 | U-61 | StopTask `stop_id` is "the plan stop (POI id)", but a plan Waypoint's `poi_id` is optional. Key tasks on the POI id or on the Waypoint `id`? | **Resolved 2026-11-06** by the product & systems lead: the Waypoint `id`, which every stop has. TASK-31 confirms that a plan revision keeps the surviving stops' Waypoint ids unchanged |

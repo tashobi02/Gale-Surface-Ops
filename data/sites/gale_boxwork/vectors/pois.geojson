@@ -1,0 +1,220 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -9.34,
+          184.18
+        ]
+      },
+      "properties": {
+        "poi_id": "poi-boxwork-ridge",
+        "name": "Boxwork ridge",
+        "lat": -4.806892804,
+        "lon_e": 137.379841825,
+        "science_objective": "Compare smooth ridge-top bedrock with the more nodular bedrock at the ridge/hollow edge, to test the idea that the ridges formed by cementation by circulating fluids.",
+        "why_it_matters": "Boxwork ridges and hollows record how groundwater cemented Mount Sharp's rock. NASA says boxwork patterns show water was still present underground while the surface was drying.",
+        "image_asset": "img-boxwork-ridge",
+        "image_credit": "NASA/JPL-Caltech",
+        "image_source_url": "https://science.nasa.gov/blog/curiosity-blog-sols-4649-4654-ridges-hollows-and-nodules-oh-my/",
+        "image_sol": 4650,
+        "image_date": "2025-09-05",
+        "image_camera": "Left Navigation Camera (Navcam)",
+        "position_source": "PDS PLACES localized_interp.csv v42.0, frame ROVER, sol 4650, site 118, drive 2304 (planetocentric_latitude, longitude; last ROVER row for the sol 4650 image). The same row is in localized_pos.csv, so it is a localized solution, not an interpolated one. This is where the rover was, not the surveyed position of the feature itself. Uncertainty 0.5 m is the PLACES SIS 1.3 Rev-A §4.4.1.2 expected accuracy of localized rover positions against the HiRISE base map; it does not include the offset between the rover and the imaged feature.",
+        "position_uncertainty_m": 0.5,
+        "provenance": "assumed",
+        "stop_type": "science",
+        "ez_theme": "Boxwork ridge: groundwater record",
+        "evidence": [
+          {
+            "text": "Blog sols 4649-4654: the team documents the transition from smoother bedrock atop a boxwork ridge to more nodular bedrock; the ridges may be the result of cementation by circulating fluids.",
+            "source_id": "nasa-msl-blog-sols-4649-4654"
+          },
+          {
+            "text": "NASA, 23 Jun 2025: even in the midst of this drying, water was still present underground, as shown by the boxwork patterns.",
+            "source_id": "nasa-msl-boxwork-article-2025-06"
+          },
+          {
+            "text": "Position accuracy: localized positions have an expected accuracy of 0.5m compared to the base map (PLACES SIS 1.3 Rev-A, §4.4.1.2).",
+            "source_id": "pds-msl-places-sis-1-3"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -27.42,
+          267.03
+        ]
+      },
+      "properties": {
+        "poi_id": "poi-boxwork-veins",
+        "name": "Boxwork vein network",
+        "lat": -4.805495075,
+        "lon_e": 137.379535793,
+        "science_objective": "Examine networks of thin, cross-cutting filled fractures (resistant veins) in boxwork bedrock with APXS, MAHLI and ChemCam, and image a side view of the boxwork structures.",
+        "why_it_matters": "Filled fractures are where groundwater left minerals behind. NASA reports calcium sulfate veins in the bedrock between ridges, which were rare higher on the mountain.",
+        "image_asset": "img-boxwork-veins",
+        "image_credit": "NASA/JPL-Caltech",
+        "image_source_url": "https://science.nasa.gov/blog/curiosity-blog-sols-4620-4621-among-the-hollows-and-the-ridges/",
+        "image_sol": 4619,
+        "image_date": "2025-08-04",
+        "image_camera": "Right Navigation Camera (Navcam)",
+        "position_source": "PDS PLACES localized_interp.csv v42.0, frame ROVER, sol 4618, site 118, drive 198 (planetocentric_latitude, longitude; last ROVER row before the sol 4619 image; next row is sol 4621). The same row is in localized_pos.csv, so it is a localized solution, not an interpolated one. This is where the rover was, not the surveyed position of the feature itself. Uncertainty 0.5 m is the PLACES SIS 1.3 Rev-A §4.4.1.2 expected accuracy of localized rover positions against the HiRISE base map; it does not include the offset between the rover and the imaged feature.",
+        "position_uncertainty_m": 0.5,
+        "provenance": "assumed",
+        "stop_type": "science",
+        "ez_theme": "Boxwork veins: fracture fill",
+        "evidence": [
+          {
+            "text": "Blog sols 4620-4621: APXS and MAHLI investigated resistant veins, or filled fractures, at Pular and Socompa; ChemCam analysed veins at El Carrizo and Huasco.",
+            "source_id": "nasa-msl-blog-sols-4620-4621"
+          },
+          {
+            "text": "NASA, 23 Jun 2025: bedrock between the ridges also contains calcium sulfate veins, left behind as groundwater trickled through rock cracks.",
+            "source_id": "nasa-msl-boxwork-article-2025-06"
+          },
+          {
+            "text": "Position accuracy: localized positions have an expected accuracy of 0.5m compared to the base map (PLACES SIS 1.3 Rev-A, §4.4.1.2).",
+            "source_id": "pds-msl-places-sis-1-3"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          61.15,
+          128.08
+        ]
+      },
+      "properties": {
+        "poi_id": "poi-monte-grande-hollow",
+        "name": "Monte Grande hollow",
+        "lat": -4.807839161,
+        "lon_e": 137.381035353,
+        "science_objective": "Drill the Valle de la Luna bedrock in the Monte Grande hollow so CheMin and SAM can measure its mineralogy and volatiles, for comparison with a drill on the adjacent ridge.",
+        "why_it_matters": "NASA says comparing the mineralogy, volatile content and organic chemistry of ridges and hollows should reveal how the boxworks formed. This is the hollow half of that pair.",
+        "image_asset": "img-monte-grande-hollow",
+        "image_credit": "NASA/JPL-Caltech/MSSS",
+        "image_source_url": "https://science.nasa.gov/blog/curiosity-blog-sols-4695-4701-searching-for-answers-at-monte-grande/",
+        "image_sol": 4693,
+        "image_date": "2025-10-19",
+        "image_camera": "Mastcam",
+        "position_source": "PDS PLACES localized_interp.csv v42.0, frame ROVER, sol 4687, site 119, drive 1722 (planetocentric_latitude, longitude; last ROVER row before the sol 4693 image; next row is sol 4709). The same row is in localized_pos.csv, so it is a localized solution, not an interpolated one. This is where the rover was, not the surveyed position of the feature itself. Uncertainty 0.5 m is the PLACES SIS 1.3 Rev-A §4.4.1.2 expected accuracy of localized rover positions against the HiRISE base map; it does not include the offset between the rover and the imaged feature.",
+        "position_uncertainty_m": 0.5,
+        "provenance": "assumed",
+        "stop_type": "science",
+        "ez_theme": "Hollow drill site: mineralogy and volatiles",
+        "evidence": [
+          {
+            "text": "Blog sols 4695-4701: Curiosity drilled its 44th hole at Valle de la Luna in the Monte Grande hollow; SAM evolved-gas analysis releases volatiles including H2O, CO2 and SO2.",
+            "source_id": "nasa-msl-blog-sols-4695-4701"
+          },
+          {
+            "text": "Blog sols 4675-4681: the team chose Monte Grande as the next drill site, where SAM and CheMin will interrogate the boxworks.",
+            "source_id": "nasa-msl-blog-sols-4675-4681"
+          },
+          {
+            "text": "Position accuracy: localized positions have an expected accuracy of 0.5m compared to the base map (PLACES SIS 1.3 Rev-A, §4.4.1.2).",
+            "source_id": "pds-msl-places-sis-1-3"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          59.31,
+          118.1
+        ]
+      },
+      "properties": {
+        "poi_id": "poi-nevado-sajama-ridge",
+        "name": "Nevado Sajama ridge drill site",
+        "lat": -4.808007546,
+        "lon_e": 137.381004126,
+        "science_objective": "Drill the ridge-top Nevado Sajama bedrock, about 10 m from the hollow drill site, and run DAN to estimate the ridge's hydrogen (and by extrapolation water) content.",
+        "why_it_matters": "NASA's team requested one drill target in a hollow and one on an adjacent ridge, only about 2 m apart in elevation, to compare their mineralogy, volatiles and organic chemistry.",
+        "image_asset": "img-nevado-sajama-ridge",
+        "image_credit": "NASA/JPL-Caltech",
+        "image_source_url": "https://science.nasa.gov/blog/curiosity-blog-sols-4716-4722-drilling-success-at-nevado-sajama/",
+        "image_sol": 4718,
+        "image_date": "2025-11-13",
+        "image_camera": "Left Navigation Camera (Navcam)",
+        "position_source": "PDS PLACES localized_interp.csv v42.0, frame ROVER, sol 4711, site 120, drive 82 (planetocentric_latitude, longitude; last ROVER row (sol 4711) before the sol 4718 image; next row is sol 4741). The same row is in localized_pos.csv, so it is a localized solution, not an interpolated one. This is where the rover was, not the surveyed position of the feature itself. Uncertainty 0.5 m is the PLACES SIS 1.3 Rev-A §4.4.1.2 expected accuracy of localized rover positions against the HiRISE base map; it does not include the offset between the rover and the imaged feature.",
+        "position_uncertainty_m": 0.5,
+        "provenance": "assumed",
+        "stop_type": "science",
+        "ez_theme": "Ridge drill site: paired with hollow",
+        "evidence": [
+          {
+            "text": "Blog sols 4716-4722: drilling finished on sol 4718 at Nevado Sajama on the ridge; MAHLI saw fine veins in both targets; DAN gathered hydrogen (by extrapolation, water) data for the ridge.",
+            "source_id": "nasa-msl-blog-sols-4716-4722"
+          },
+          {
+            "text": "Blog sols 4709-4715: the boxwork group requested one drill in a hollow and one on an adjacent ridge; there is a mere 2-meter elevation difference between hollow floor and ridge top.",
+            "source_id": "nasa-msl-blog-sols-4709-4715"
+          },
+          {
+            "text": "Position accuracy: localized positions have an expected accuracy of 0.5m compared to the base map (PLACES SIS 1.3 Rev-A, §4.4.1.2).",
+            "source_id": "pds-msl-places-sis-1-3"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.01,
+          -92.02
+        ]
+      },
+      "properties": {
+        "poi_id": "poi-sulfate-contact",
+        "name": "Boxwork and sulfate unit contact",
+        "lat": -4.811552448,
+        "lon_e": 137.381811688,
+        "science_objective": "Brush, image and analyse bedrock across the southern contact between the boxwork terrain and the layered sulfate unit, and compare it with the sulfate unit north of the boxwork.",
+        "why_it_matters": "NASA says magnesium sulfates are salty minerals that form as water dries up. Team framing, assumed: a candidate hydrated-sulfate (ISRU water) stop; no NASA yield figure is cited. The sol 4848 image shows sulfate terrain past the contact, not the contact itself.",
+        "image_asset": "img-sulfate-contact",
+        "image_credit": "NASA/JPL-Caltech",
+        "image_source_url": "https://science.nasa.gov/blog/curiosity-blog-sols-4845-4851-bye-bye-boxwork-bye-bye/",
+        "image_sol": 4848,
+        "image_date": "2026-03-27",
+        "image_camera": "Left Navigation Camera (Navcam)",
+        "position_source": "PDS PLACES localized_interp.csv v42.0, frame ROVER, sol 4848, site 121, drive 1446 (planetocentric_latitude, longitude; last ROVER row for the sol 4848 image). The same row is in localized_pos.csv, so it is a localized solution, not an interpolated one. This is where the rover was, not the surveyed position of the feature itself. Uncertainty 0.5 m is the PLACES SIS 1.3 Rev-A §4.4.1.2 expected accuracy of localized rover positions against the HiRISE base map; it does not include the offset between the rover and the imaged feature.",
+        "position_uncertainty_m": 0.5,
+        "provenance": "assumed",
+        "stop_type": "resource",
+        "ez_theme": "Sulfate unit contact: ISRU water candidate (assumed)",
+        "evidence": [
+          {
+            "text": "Blog sols 4845-4851: the drive took the rover just over the southernmost contact of the boxwork terrain with the surrounding layered sulfate unit; APXS and MAHLI analysed sulfate bedrock across it.",
+            "source_id": "nasa-msl-blog-sols-4845-4851"
+          },
+          {
+            "text": "NASA, 23 Jun 2025: the rover is in a layer rich in magnesium sulfates, salty minerals that form as water dries up.",
+            "source_id": "nasa-msl-boxwork-article-2025-06"
+          },
+          {
+            "text": "Position accuracy: localized positions have an expected accuracy of 0.5m compared to the base map (PLACES SIS 1.3 Rev-A, §4.4.1.2).",
+            "source_id": "pds-msl-places-sis-1-3"
+          }
+        ]
+      }
+    }
+  ]
+}

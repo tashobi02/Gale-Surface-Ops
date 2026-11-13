@@ -9,6 +9,9 @@
  * Right column (Conditions, Earth Link, Contingency Options with 800ms hold-to-confirm),
  * Bottom bar (Event log).
  *
+ * Package 21: the map column is the shared map with the ops layers (`OpsMap`, T25.02); the utility-rover card shows the
+ * rover queue (`RoverQueue`, T29.05) and opens SCR-15 (`RoverTask`, T29.04), whose target is picked on that map.
+ *
  * Every mission value carries data-provenance (04 §A.3 #8, FR-15).
  * Status colours mean status only — never brand orange in OPS (04 §A.3.1).
  */
@@ -18,20 +21,28 @@ import {
   useEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { Crew, CrewId, Vehicle, Alert, Snapshot, Command, Provenance } from "@marswalk/protocol";
+import type { Crew, CrewId, Vehicle, Alert, Snapshot, Command, ContingencyOption, Provenance } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
-import { useHabClient } from "../../state/habSession";
+import { useCommand, useEvents, useHabClient, useSnapshot } from "../../state/habSession";
+import { useOpsSound } from "../ops/sound";
+import { selectOpsProps } from "../ops/liveProps";
+import { EarthLinkWidget } from "../ops/EarthLinkWidget";
 import { EventLog } from "../ops/EventLog";
 import { AlertStack } from "../ops/AlertStack";
 import { OptionsPanel } from "../ops/OptionsPanel";
+import { logLiveFallback } from "../live/fallbackDebug";
 import { ClockControl } from "../ops/ClockControl";
 import { ConditionsPanel, type ConditionsState, type ProvenanceValue } from "../ops/ConditionsPanel";
 import { TaskProgress } from "../ops/TaskProgress";
 import { AddTaskPopover } from "../ops/AddTaskPopover";
+import { OpsMap } from "../ops/OpsMap";
+import { RoverQueue } from "../ops/RoverQueue";
+import { QrDrawer } from "../ops/QrDrawer";
+import { RoverTask } from "./scr15RoverTask";
+import { StatusIcon } from "../components/statusIcon";
 import {
   PROVENANCE_GLYPHS,
   UNAVAILABLE,
@@ -41,6 +52,9 @@ import {
   provAttrs,
   unavailableOf,
 } from "../components/provenance";
+
+/** FD-018: the sound indicator's longest label, shown until the first gesture arms audio. It also sizes the button. */
+const SOUND_LABEL_ARM = "SOUND ON — click to arm";
 
 /** Task counts for one crew member, reduced from the task list by the caller. null counts render "—". */
 export interface CrewTaskProgress {
@@ -90,6 +104,8 @@ export interface OpsConsoleProps {
   /** Alert sound state, when the caller knows it; unset = unknown. */
   soundOn?: boolean;
   onToggleSound?: () => void;
+  /** When true (static #/replay), disable live /api fetches such as /api/relay-coverage. */
+  staticReplay?: boolean;
   className?: string;
 }
 
@@ -134,17 +150,53 @@ export function OpsConsole({
   conditions,
   client: clientProp,
   snapshot,
-  logLines = [],
+  logLines: logLinesProp,
   onAcknowledgeAlert,
   onApproveOption,
   soundOn,
   onToggleSound,
   onCommand,
+  staticReplay = false,
   className = "",
 }: OpsConsoleProps): ReactElement {
+  const [viewportWidth, setViewportWidth] = useState(() => typeof window === "undefined" ? 1280 : window.innerWidth);
+  const [sideDrawer, setSideDrawer] = useState<"crew" | "mission" | null>(null);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const sideOpener = useRef<HTMLButtonElement | null>(null);
+  const crewPanelRef = useRef<HTMLElement>(null);
+  const [localSoundOn, setLocalSoundOn] = useState(true);
+  const soundEnabled = soundOn ?? localSoundOn;
+  useEffect(() => {
+    const resize = (): void => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+  const narrow = viewportWidth < 1280;
   const [activeAddCrew, setActiveAddCrew] = useState<string | null>(null);
+  const [taskAuthoringUnavailable, setTaskAuthoringUnavailable] = useState<string | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ContingencyOption | null>(null);
+  const previewPath = useCallback((_path: [number, number][], option?: ContingencyOption | null) => setPreview(option ?? null), []);
   const client = useHabClient(clientProp);
+  const [roverTask, setRoverTask] = useState<string | null>(null);
+  const roverOpener = useRef<HTMLButtonElement | null>(null);
+  const roverPanelRef = useRef<HTMLDivElement>(null);
+  const [picking, setPicking] = useState(false);
+  const [pickedTarget, setPickedTarget] = useState<{ x_m: number; y_m: number } | null>(null);
+  const openRoverTask = (vehicleId: string, opener: HTMLButtonElement): void => {
+    roverOpener.current = opener;
+    setPickedTarget(null);
+    setPicking(false);
+    setRoverTask(vehicleId);
+  };
+  const closeRoverTask = (): void => {
+    setRoverTask(null);
+    setPicking(false);
+    roverOpener.current?.focus();
+  };
+  useEffect(() => {
+    if (roverTask) roverPanelRef.current?.focus();
+  }, [roverTask]);
   const [logOpen, setLogOpen] = useState(false);
   const stripRef = useRef<HTMLButtonElement>(null);
   const closeLog = useCallback(() => {
@@ -156,10 +208,49 @@ export function OpsConsole({
     if (logOpen) closeRef.current?.focus();
   }, [logOpen]);
   // The session is read from the snapshot (given, or the client's own), so the clock and status follow the server.
-  const subscribe = useCallback((listener: () => void) => client?.subscribe(listener) ?? (() => {}), [client]);
-  const readState = useCallback(() => client?.state() ?? null, [client]);
-  const liveState = useSyncExternalStore(subscribe, readState, readState);
-  const session = (snapshot ?? liveState)?.session;
+  const liveState = useSnapshot(client);
+  const events = useEvents(client);
+  const send = useCommand(client);
+  const activeSnapshot = snapshot === undefined ? liveState : snapshot;
+  const session = activeSnapshot?.session;
+  const { armed, consumeArmingGesture } = useOpsSound(alerts, soundEnabled, session?.session_id);
+  const logLines = logLinesProp ?? selectOpsProps(activeSnapshot, events).logLines ?? [];
+  const raisedTimes = new Map(events.filter((event) => event.kind === "ALERT_RAISED").map((event) => [event.seq, event.sim_time]));
+  useEffect(() => {
+    if (session?.status === "ENDED") window.location.hash = "#/report";
+  }, [session?.status]);
+  useEffect(() => { setTaskAuthoringUnavailable(null); }, [session?.session_id]);
+  const warningKey = alerts.filter((alert) => alert.level === "warning" && (alert.acked_seq === null || alert.cleared_seq === null)).map((alert) => `${alert.alert_id}/${alert.raised_seq}`).join("|");
+  const atTaskLimit = (crewId: CrewId): boolean => {
+    const stop = taskProgress[crewId]?.stop;
+    if (!stop?.stopId) return false;
+    return activeSnapshot?.tasks ? activeSnapshot.tasks.filter((task) => task.stop_id === stop.stopId && task.state !== "DROPPED" && (task.crew_id === crewId || task.crew_id === null)).length >= 4 : stop.total >= 4;
+  };
+  const optionsRef = useRef<HTMLDivElement>(null);
+  const consoleRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (warningKey) {
+      setActiveAddCrew(null);
+      setLogOpen(false);
+      setJoinOpen(false);
+      if (narrow) setSideDrawer("mission");
+      optionsRef.current?.focus();
+    }
+  }, [warningKey, narrow]);
+  useEffect(() => {
+    if (sideDrawer === "mission") optionsRef.current?.focus();
+    else if (sideDrawer === "crew") crewPanelRef.current?.focus();
+  }, [sideDrawer]);
+  const toggleSideDrawer = (drawer: "crew" | "mission", opener: HTMLButtonElement): void => {
+    sideOpener.current = opener;
+    setLogOpen(false);
+    setJoinOpen(false);
+    setSideDrawer(sideDrawer === drawer ? null : drawer);
+  };
+  const closeSideDrawer = (): void => {
+    setSideDrawer(null);
+    sideOpener.current?.focus();
+  };
 
   /**
    * Sends one command to the Hab Core (02 §E.4). Without a client the command goes to `onCommand` and counts as
@@ -171,7 +262,11 @@ export function OpsConsole({
       return true;
     }
     try {
-      const result = await client.send(command);
+      const result = await send(command);
+      if (command.kind === "ADD_STOP_TASK" && !result.ok && (result.code === "FORBIDDEN_ROLE" || (result.code === "INVALID" && result.message === "unknown command kind ADD_STOP_TASK"))) {
+        setTaskAuthoringUnavailable(result.message);
+        logLiveFallback("tasks-view-only");
+      }
       setCommandError(result.ok ? null : `${command.kind} rejected: ${result.message}`);
       return result.ok;
     } catch (err) {
@@ -185,7 +280,7 @@ export function OpsConsole({
     flexDirection: "column",
     width: "100%",
     minHeight: "100vh",
-    minWidth: "1280px", // 04 §E.4: Ops console is for ≥ 1280 px
+    minWidth: 0,
     backgroundColor: "var(--void, #0B0D10)",
     color: "var(--text-1, #ECEFF2)",
     fontFamily: "var(--font-ui, Inter, sans-serif)",
@@ -196,7 +291,10 @@ export function OpsConsole({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    height: "48px",
+    minHeight: "48px",
+    flexWrap: "wrap",
+    // The join popover hangs from the top bar (QrDrawer), so it stays inside the viewport however the bar wraps.
+    position: "relative",
     padding: "0 16px",
     backgroundColor: "var(--panel, #14181D)",
     borderBottom: "1px solid var(--hairline, #2A313A)",
@@ -217,7 +315,8 @@ export function OpsConsole({
 
   const bodyGridStyle: CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "280px 1fr 320px",
+    gridTemplateColumns: narrow ? "1fr" : "280px minmax(0, 1fr) 320px",
+    position: "relative",
     flex: 1,
     overflow: "hidden",
   };
@@ -275,8 +374,37 @@ export function OpsConsole({
     fontSize: "13px",
   };
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+    if (viewportWidth < 1024 || event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))) return;
+    const key = event.key.toLowerCase();
+    // Space activates a focused control (button, link, row, radio); only digits and letters reach the clock from there.
+    if (key === " " && event.target instanceof Element && event.target.closest('button, a[href], [role="button"], [role="radio"], [role="checkbox"], [role="switch"], [role="tab"]')) return;
+    if (key === "o") {
+      event.preventDefault();
+      if (narrow) { setLogOpen(false); setJoinOpen(false); setSideDrawer("mission"); }
+      optionsRef.current?.focus();
+      return;
+    }
+    if (key === "k") {
+      const button = consoleRef.current?.querySelector<HTMLButtonElement>('.alert-bar button[aria-label^="Acknowledge"]');
+      if (button) { event.preventDefault(); button.click(); }
+      return;
+    }
+    if (!session || session.status === "ENDED") return;
+    if (key === " ") { event.preventDefault(); void issue({ kind: "SET_CLOCK", args: { paused: !session.clock.paused } }); }
+    else if (["1", "2", "3"].includes(key)) { event.preventDefault(); void issue({ kind: "SET_CLOCK", args: { speed: ({ "1": 1, "2": 10, "3": 60 } as Record<string, number>)[key] } }); }
+    else if (key === "n") { event.preventDefault(); void issue({ kind: "JUMP_NEXT_EVENT", args: {} }); }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  });
+
+  if (viewportWidth < 1024) return <main data-surface="ops" data-mode="ops" style={{ ...rootStyle, padding: "32px" }}><h1>Use a larger screen</h1><p>The ops console needs at least 1024 px width. Open it on the projector or a laptop.</p></main>;
+
   return (
     <div
+      ref={consoleRef}
       className={`scr11-ops-console ${className}`}
       data-surface="ops"
       data-mode="ops"
@@ -284,8 +412,25 @@ export function OpsConsole({
     >
       {/* ------------------------------------------------ Top Bar (04 §E.4) */}
       <header className="ops-top-bar" style={topBarStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontWeight: 600, letterSpacing: "0.02em" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+          {/* The scenario name is unknown until the first snapshot, so the title sits in a fixed-width slot: the bar's
+              controls must not move when the name arrives, or a click on them lands on another control. A name longer
+              than the slot is cut with an ellipsis (the same fixed-row rule as the EVA metadata strip, FD-032). */}
+          <span
+            data-provenance="simulated"
+            data-source={scenarioName ? "snapshot:session.scenario_id" : "unavailable:session.scenario_id"}
+            data-unavailable={scenarioName ? undefined : "true"}
+            title={scenarioName ?? undefined}
+            style={{
+              fontWeight: 600,
+              letterSpacing: "0.02em",
+              flex: "0 0 auto",
+              width: "18ch",
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
+            }}
+          >
             ⬢ OPS · {scenarioName ?? UNAVAILABLE}
           </span>
           <span
@@ -306,6 +451,7 @@ export function OpsConsole({
 
         {/* Mission clock controls: ⏸ 1× 10× [60×] ⏭ */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <QrDrawer open={joinOpen} onOpenChange={(open) => { setJoinOpen(open); if (open) { setSideDrawer(null); setLogOpen(false); } }} />
           <ClockControl
             speed={session?.clock.speed ?? clockSpeed ?? null}
             isPaused={session?.clock.paused ?? isPaused ?? null}
@@ -315,13 +461,25 @@ export function OpsConsole({
           />
           <button
             type="button"
-            style={{ ...buttonStyle, marginLeft: "8px", display: "inline-flex", alignItems: "center", gap: "6px" }}
-            aria-label={`Alert sound: ${soundOn === undefined ? "unknown" : soundOn ? "on" : "off"}`}
-            aria-pressed={soundOn}
-            onClick={() => onToggleSound?.()}
+            // The first pointer or key gesture arms audio and shortens this label. A header that fits in one row only with the short
+            // label would reflow under that very gesture and move the control it is about to click (the press lands on one element,
+            // the release on another, so the click is lost). Reserve the longest label's width so arming never changes the layout.
+            style={{ ...buttonStyle, marginLeft: "8px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px", boxSizing: "border-box", minWidth: `calc(${SOUND_LABEL_ARM.length + 1}ch + 26px)` }}
+            aria-label={`Alert sound: ${soundEnabled ? "on" : "off"}`}
+            aria-pressed={soundEnabled}
+            onClick={() => { if (consumeArmingGesture() && soundEnabled) return; setLocalSoundOn(!soundEnabled); onToggleSound?.(); }}
           >
-            <span aria-hidden="true">🔊</span>
-            <span>{soundOn === undefined ? UNAVAILABLE : soundOn ? "ON" : "OFF"}</span>
+            {/* The label sits in a fixed-width slot (FD-380, FD-462): the arming hint disappears on the FIRST pointerdown anywhere
+                on the page (the AudioContext arms on any user gesture, 04 §C.7), so a label that grew and shrank with
+                its text would move the whole control group while a pointer was down — and the click would land on the
+                wrong control. The slot is exactly as wide as the longest label (SOUND_LABEL_ARM); nothing is cut. */}
+            <span
+              data-provenance="assumed"
+              data-source="ui:ops.sound"
+              style={{ width: `${SOUND_LABEL_ARM.length}ch`, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}
+            >
+              {soundEnabled ? armed ? "SOUND ON" : SOUND_LABEL_ARM : "SOUND OFF"}
+            </span>
           </button>
         </div>
       </header>
@@ -338,14 +496,17 @@ export function OpsConsole({
       </nav>
 
       {/* ------------------------------------- Alert Slot / Bar (04 §D.2, §E.4) */}
-      <AlertStack
+      <div style={{ minHeight: "48px" }}><AlertStack
+        key={session?.session_id}
+        simTime={session?.clock.sim_time}
+        raisedTimes={raisedTimes}
         alerts={alerts}
         onAcknowledge={(alertId) => {
           void issue({ kind: "ACK_ALERT", args: { alert_id: alertId } }).then((accepted) => {
             if (accepted) onAcknowledgeAlert?.(alertId);
           });
         }}
-      />
+      /></div>
       {commandError && (
         <div
           role="status"
@@ -364,9 +525,13 @@ export function OpsConsole({
       )}
 
       {/* ---------------------------------------------------- Main Body Grid */}
+      {narrow && <nav data-slot="ops-side-drawer" aria-label="Ops panels" style={{ display: "flex", gap: "8px", padding: "8px 16px" }}>
+        <button style={buttonStyle} aria-expanded={sideDrawer === "crew"} onClick={(event) => toggleSideDrawer("crew", event.currentTarget)}>Crew &amp; vehicles</button>
+        <button style={buttonStyle} aria-expanded={sideDrawer === "mission"} onClick={(event) => toggleSideDrawer("mission", event.currentTarget)}>Conditions &amp; options</button>
+      </nav>}
       <main style={bodyGridStyle}>
         {/* Left Column: CREW & VEHICLES */}
-        <aside style={columnStyle}>
+        <aside ref={crewPanelRef} tabIndex={-1} onKeyDown={(event) => { if (narrow && event.key === "Escape") { event.stopPropagation(); closeSideDrawer(); } }} aria-label="Crew and vehicles" style={{ ...columnStyle, ...(narrow ? { display: sideDrawer === "crew" ? "flex" : "none", position: "absolute", left: 0, top: 0, bottom: 0, width: "280px", zIndex: 5 } : {}) }}>
           {/* Module Label: CREW (04 P2) */}
           <div className="module-label" style={moduleLabelStyle}>
             [ HAB CORE /// CREW ]
@@ -390,7 +555,7 @@ export function OpsConsole({
                       fontWeight: 600,
                     }}
                   >
-                    <span>[{member.crew_id}]</span>
+                    <span data-identifier>[{member.crew_id}]</span>
                     <span style={{ fontSize: "12px", textTransform: "uppercase" }} {...crewAttr("crew.activity")}>
                       {member.activity ?? UNAVAILABLE}
                     </span>
@@ -447,22 +612,32 @@ export function OpsConsole({
                     stopCount={taskProgress[member.crew_id]?.stop ?? null}
                     total={taskProgress[member.crew_id]?.total ?? null}
                     onAdd={(cid) => setActiveAddCrew(cid)}
-                    disabled={!taskProgress[member.crew_id]?.stop?.stopId}
+                    viewOnly={taskAuthoringUnavailable !== null}
+                    disabled={Boolean(warningKey) || !taskProgress[member.crew_id]?.stop?.stopId || atTaskLimit(member.crew_id)}
+                    disabledReason={warningKey ? "Warning latched — acknowledge and clear before adding tasks" : atTaskLimit(member.crew_id) ? "Maximum 4 tasks reached for this crew at this stop" : !taskProgress[member.crew_id]?.stop?.stopId ? "No current or next planned stop" : undefined}
                   />
 
                   {isUnlinked && (
                     <footer
+                      data-status="caution"
                       style={{
+                        display: "flex",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "6px",
                         fontSize: "12px",
                         color: "var(--status-caution, #FFB020)",
                         fontFamily: "var(--font-mono, monospace)",
                       }}
                     >
-                      ⚠ LAST HEARD{" "}
-                      <span {...provAttrs(unavailableOf("simulated", "link.age_seconds"))}>
-                        {UNAVAILABLE}
-                      </span>{" "}
-                      (cached values)
+                      <StatusIcon status="caution" showWord={true} />
+                      <span>
+                        LAST HEARD{" "}
+                        <span {...provAttrs(unavailableOf("simulated", "link.age_seconds"))}>
+                          {UNAVAILABLE}
+                        </span>{" "}
+                        (cached values)
+                      </span>
                     </footer>
                   )}
                 </article>
@@ -471,15 +646,18 @@ export function OpsConsole({
           </div>
 
           {/* Add Task Popover */}
-          {activeAddCrew && taskProgress[activeAddCrew as CrewId]?.stop?.stopId && (
+          {activeAddCrew && !warningKey && taskProgress[activeAddCrew as CrewId]?.stop?.stopId && (
             <div style={{ marginTop: "8px" }}>
               <AddTaskPopover
+                sessionId={session?.session_id}
+                planRevision={session?.plan_revision}
                 crewId={activeAddCrew as CrewId}
                 stopId={taskProgress[activeAddCrew as CrewId]!.stop!.stopId!}
                 stopNo={taskProgress[activeAddCrew as CrewId]!.stop!.stopNo}
+                tasks={activeSnapshot?.tasks}
+                disabledReason={taskAuthoringUnavailable ?? undefined}
                 onAdd={(task) => {
-                  // TODO(decision): ADD_STOP_TASK args not defined in 02 §E.4/05 — using TASK_ADDED fields.
-                  // 05 TASK_ADDED fields; the Hab Core assigns task_id and origin. Closes only once accepted.
+                  // N-08 typed authoring fields; the Hab Core assigns task_id and origin.
                   void issue({ kind: "ADD_STOP_TASK", args: { ...task } }).then((accepted) => {
                     if (accepted) setActiveAddCrew(null);
                   });
@@ -505,7 +683,7 @@ export function OpsConsole({
                   }}
                 >
                   <span>
-                    [{v.vehicle_id}] {v.kind === "pressurized_rover" ? "Pressurised rover" : "Utility rover"}
+                    <span data-identifier>[{v.vehicle_id}]</span> {v.kind === "pressurized_rover" ? "Pressurised rover" : "Utility rover"}
                   </span>
                   {/* Activity is a state word in neutral text; no status colour without an actual safety status */}
                   <span
@@ -533,6 +711,20 @@ export function OpsConsole({
                       : UNAVAILABLE}
                   </span>
                 </div>
+                {v.kind === "utility_rover" && (
+                  <>
+                    <RoverQueue vehicle={v} compact />
+                    <button
+                      type="button"
+                      style={buttonStyle}
+                      aria-label={`Task rover ${v.vehicle_id}`}
+                      aria-expanded={roverTask === v.vehicle_id}
+                      onClick={(event) => openRoverTask(v.vehicle_id, event.currentTarget)}
+                    >
+                      TASK ROVER
+                    </button>
+                  </>
+                )}
               </article>
             ))}
           </div>
@@ -541,6 +733,7 @@ export function OpsConsole({
         {/* Center Column: SHARED MAP SLOT */}
         <section
           className="ops-map-slot"
+          data-picking={picking ? "true" : "false"}
           style={{
             position: "relative",
             backgroundColor: "#080A0D",
@@ -551,37 +744,31 @@ export function OpsConsole({
           }}
           aria-label="Operations Tactical Surface Map"
         >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div className="module-label" style={moduleLabelStyle}>
-              [ TACTICAL MAP /// IAU_2015:49900 ]
-            </div>
-            <div style={{ display: "flex", gap: "4px" }}>
-              <button style={buttonStyle} aria-label="Zoom in">+</button>
-              <button style={buttonStyle} aria-label="Zoom out">−</button>
-              <button style={buttonStyle} aria-label="Fit view">FIT</button>
-            </div>
+          <div className="module-label" style={moduleLabelStyle}>
+            [ TACTICAL MAP /// <span data-identifier>IAU_2015:49900</span> ]
           </div>
 
-          {/* Center tactical canvas placeholder */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flex: 1,
-              color: "var(--text-3, #8592A0)",
-              fontFamily: "var(--font-mono, monospace)",
-              fontSize: "13px",
+          <OpsMap
+            snapshot={activeSnapshot ?? null}
+            picking={picking}
+            disableRelayFetch={staticReplay}
+            onPick={(target) => {
+              setPickedTarget(target);
+              setPicking(false);
             }}
-          >
-            MAP VIEWPORT · PROJECTION IAU_2015:49900
-          </div>
+          />
+
+          {/* Option path preview (modelled, the Hab Core's path_preview) as an inset until the option is approved */}
+          {preview && Array.isArray(preview.path_preview) && preview.path_preview.length > 0 && preview.path_preview.every((point) => point.length === 2 && point.every(Number.isFinite)) ? (() => {
+            const points = preview.path_preview;
+            const xs = points.map(([x]) => x);
+            const ys = points.map(([, y]) => y);
+            const width = Math.max(1, Math.max(...xs) - Math.min(...xs));
+            const height = Math.max(1, Math.max(...ys) - Math.min(...ys));
+            return <svg data-slot="option-path-preview" data-provenance="modelled" data-source={`snapshot:options/${preview.option_id}/path_preview`} role="img" aria-label="Option path preview in Mars projected metres" viewBox={`${Math.min(...xs) - width * 0.05} ${-Math.max(...ys) - height * 0.05} ${width * 1.1} ${height * 1.1}`} style={{ position: "absolute", left: "24px", bottom: "56px", zIndex: 3, width: "240px", height: "160px", backgroundColor: "var(--panel, #14181D)", border: "1px solid var(--edge, #5C6670)" }}>
+              <polyline points={points.map(([x, y]) => `${x},${y}`).join(" ")} transform="scale(1,-1)" fill="none" stroke="var(--route)" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+            </svg>;
+          })() : null}
 
           <footer
             style={{
@@ -607,24 +794,55 @@ export function OpsConsole({
           </footer>
         </section>
 
+        {/* SCR-15 rover tasking over the crew column, so the map stays free for the target pick (T29.04) */}
+        {roverTask && (
+          <div
+            ref={roverPanelRef}
+            tabIndex={-1}
+            data-screen="SCR-15"
+            role="dialog"
+            aria-label={`Rover tasking ${roverTask}`}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.stopPropagation();
+                closeRoverTask();
+              }
+            }}
+            style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "min(480px, 100%)", zIndex: 10, overflowY: "auto", backgroundColor: "var(--panel, #14181D)", borderRight: "1px solid var(--hairline, #2A313A)" }}
+          >
+            <RoverTask
+              vehicleId={roverTask}
+              client={client}
+              selectedTarget={pickedTarget}
+              onStartMapPlacement={() => {
+                if (narrow) setSideDrawer(null);
+                setPicking(true);
+              }}
+              onCancelMapPlacement={() => setPicking(false)}
+              onClose={closeRoverTask}
+            />
+          </div>
+        )}
+
         {/* Right Column: CONDITIONS, EARTH LINK, OPTIONS */}
-        <aside style={rightColumnStyle}>
+        <aside onKeyDown={(event) => { if (narrow && event.key === "Escape") { event.stopPropagation(); closeSideDrawer(); } }} aria-label="Conditions and options" style={{ ...rightColumnStyle, ...(narrow ? { display: sideDrawer === "mission" ? "flex" : "none", position: "absolute", right: 0, top: 0, bottom: 0, width: "320px", zIndex: 5 } : {}) }}>
+          <EarthLinkWidget snapshot={activeSnapshot} />
           {/* Module Label: CONDITIONS */}
           <div className="module-label" style={moduleLabelStyle}>
             [ ENVIRONMENT /// CONDITIONS ]
           </div>
-          <ConditionsPanel variant="ops" conditions={conditions} />
+          <ConditionsPanel variant="ops" conditions={conditions} showEarthLink={false} />
 
           {/* Module Label: OPTIONS (04 §D.3, §E.4) */}
           <div className="module-label" style={{ ...moduleLabelStyle, marginTop: "12px" }}>
             [ SAFETY /// OPTIONS ]
           </div>
-          <div className="options-panel">
+          <div className="options-panel" ref={optionsRef} tabIndex={-1} role="region" aria-label="Options">
             <OptionsPanel
               client={client}
-              snapshot={snapshot ?? liveState}
-              // Ops is not a crew member, so there is no crew to give (the scr14 EV1 fallback is a TODO(decision) in OptionsPanel).
+              snapshot={activeSnapshot}
               crewId={null}
+              onPreviewPath={previewPath}
               onApproveOption={(opt) => onApproveOption?.(opt.option_id)}
             />
           </div>
@@ -656,7 +874,7 @@ export function OpsConsole({
           aria-expanded={logOpen}
           aria-haspopup="dialog"
           aria-controls="ops-event-log-drawer"
-          onClick={() => setLogOpen((open) => !open)}
+          onClick={() => { setSideDrawer(null); setJoinOpen(false); setLogOpen((open) => !open); }}
           style={{
             display: "flex",
             alignItems: "center",
@@ -691,7 +909,21 @@ export function OpsConsole({
             id="ops-event-log-drawer"
             data-slot="event-log-drawer"
             role="dialog"
+            aria-modal="true"
             aria-label="Event log"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                closeLog();
+              } else if (event.key === "Tab") {
+                const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]')];
+                const first = controls[0];
+                const last = controls[controls.length - 1];
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+              }
+            }}
             style={{
               position: "absolute",
               left: 0,

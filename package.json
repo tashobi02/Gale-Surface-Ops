@@ -1,17 +1,20 @@
 {
   "name": "cheesyspace-marswalk",
   "private": true,
-  "description": "Marswalk Surface Ops (NASA Space Apps 2026, team CheesySpace): planner, Hab Core, EVA/HUD/ops clients",
+  "description": "Gale Surface Ops (NASA Space Apps 2026, team CheesySpace): planner, Hab Core, EVA/HUD/ops clients",
   "license": "Apache-2.0",
   "scripts": {
-    "lint:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#graphify-out\" \"#.claude/skills\" \"#.claude/agents\" \"#.claude/ecc/rules\" \"#.claude/commands/orch-*.md\" \"#.claude/commands/speckit.*.md\" \"#.claude/hookify.*.local.md\" \"#.specify/templates\" \"#.venv\" \"#apps/*/dist\" \"#apps/hab-core/var\" \"#.agents/skills\" \"#.gemini/skills\" \"#vendor/impeccable/NOTICE.md\" \"#docs/design/prototype/test/node_modules\"",
+    "lint:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#graphify-out\" \"#.puku-cli/worktrees\" \"#.claude/worktrees\" \"#.claude/skills\" \"#.claude/agents\" \"#.claude/ecc/rules\" \"#.claude/commands/orch-*.md\" \"#.claude/commands/speckit.*.md\" \"#.claude/hookify.*.local.md\" \"#.specify/templates\" \"#.venv\" \"#apps/*/dist\" \"#apps/hab-core/var\" \"#apps/web/e2e/out\" \"#.agents/skills\" \"#.gemini/skills\" \"#vendor/impeccable/NOTICE.md\" \"#docs/design/prototype/test/node_modules\" \"#pipeline/work\" \"#data/sites/*/tiles\" \"#data/sites/*/grid\" \"#data/sites/*/images\"",
     "docs:links": "python3 scripts/check_links.py docs README.md",
     "typecheck": "npm run --workspaces --if-present typecheck",
     "build": "npm --workspace @marswalk/web run build",
     "test:web": "npm run --workspaces --if-present test",
     "dev": "npm --workspace @marswalk/web run dev",
     "hab:start": "npm --workspace @marswalk/hab-core run start --",
-    "hab:replay": "npm --workspace @marswalk/hab-core run replay --"
+    "hab:local": "npm --workspace @marswalk/hab-core run local --",
+    "hab:replay": "npm --workspace @marswalk/hab-core run replay --",
+    "hab:record": "npm --workspace @marswalk/hab-core run replay --",
+    "check:todos": "python3 scripts/check_todos.py"
   },
   "devDependencies": {
     "markdownlint-cli2": "^0.24.0",

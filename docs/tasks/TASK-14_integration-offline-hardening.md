@@ -59,11 +59,11 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Depends on:** none
 - **Parallel with:** T14.02, T07.01, T08.01, T13.01, T16.02, T03.22
 - **Steps:**
-  1. Get each owning lane's choice and record it with its reason in the PR description: profile chart — uPlot, Chart.js or plain SVG (02 §B) `TODO(decision)`; DOM test environment for Vitest, package `TODO(decision)`; axe tooling for the NFR-04 "axe-core scan" `TODO(decision)`; JSON-Schema validator for `validate-manifest`, package `TODO(decision)`; `marstime` for T06.02 and T06.11 (02 §B, §D.5); icon set (04 §C.4 "e.g., Lucide") `TODO(decision)`. Versions are whatever the install pins (`TODO(verify)`); never choose them in this plan.
+  1. Get each owning lane's choice and record it with its reason in the PR description: profile chart — uPlot, Chart.js or plain SVG (02 §B) decided (BD-79); DOM test environment for Vitest, package decided (BD-79); axe tooling for the NFR-04 "axe-core scan" decided (BD-79); JSON-Schema validator for `validate-manifest`, package decided (BD-79); `marstime` for T06.02 and T06.11 (02 §B, §D.5); icon set (04 §C.4 "e.g., Lucide") decided (BD-79). Versions are whatever the install pins (Decided (BD-79)); never choose them in this plan.
   2. Add the chosen web packages in one install in the `web` workspace so `package-lock.json` changes once; nothing loads from a CDN at runtime (NFR-01, NFR-08).
   3. Add the Python packages to the `pipeline/pyproject.toml` extras and mirror them in `pipeline/environment.yml`.
   4. Point `make data` at `python -m marswalk_pipeline` (T03.15's entry point), using the conda environment's interpreter (`make -s pipeline-python`; `.venv` is retired); leave the other targets unchanged.
-  5. List each new package's licence in the PR for the credits (NFR-07); flag any licence that is not permissive before merging (`TODO(verify)`).
+  5. List each new package's licence in the PR for the credits (NFR-07); flag any licence that is not permissive before merging (Decided (BD-79)).
   6. Note each new web package's size against the NFR-09 JS budget; the final measurement is T14.09's.
   7. Run the full check from a fresh clone.
 - **Acceptance:**
@@ -74,7 +74,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
   - `make data` invokes `python -m marswalk_pipeline`.
   - Each new package's licence is listed (NFR-07: "All data credits in UI and README; code Apache-2.0").
 - **Verify:** in a fresh clone: `make setup && make lint typecheck test docs-check && npm run -s build`; `npm --workspace web ls --depth=0`; `make -n data` shows the module call.
-- **Agent brief:** Once the lane owners settle the `TODO(decision)` choices listed in T14.01, add them in one PR to the root and `web` package files, the lockfile, `pipeline/pyproject.toml` and `pipeline/environment.yml`, and wire `make data` to `python -m marswalk_pipeline`. Prove a fresh clone passes `make setup`, `make lint typecheck test docs-check` and `npm run -s build`. Do not pick packages or versions yourself, and touch no other file.
+- **Agent brief:** Once the lane owners settle the choices listed in T14.01 (decided, BD-79), add them in one PR to the root and `web` package files, the lockfile, `pipeline/pyproject.toml` and `pipeline/environment.yml`, and wire `make data` to `python -m marswalk_pipeline`. Prove a fresh clone passes `make setup`, `make lint typecheck test docs-check` and `npm run -s build`. Do not pick packages or versions yourself, and touch no other file.
 - **Conflict notes:** Sole owner of every [§c.6](_coordination.md#c6-shared-and-build-files) build file; nobody else edits them, and later needs go through a `coord:` PR that appends a new integration subtask ([map §h.5](_coordination.md#h5-changing-this-map)). Merge in M2, before the consumers listed in the map's §f table start. On a lockfile conflict, rebase and re-run the install instead of hand-merging `package-lock.json`.
 
 ### T14.02 — Integrate CI and the PR template (subtask id, `check_tasks.py`)
@@ -117,7 +117,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Steps:**
   1. Keep the exported signature of the T07.01 stub; return problems in the C10 boot-problem shape.
   2. Compare the major part of `schema_version` with the app's expected major; a mismatch is a boot problem with a clear message (02 §E.1, 05 §E.4).
-  3. In development builds only, fetch each Asset that has a `sha256`, hash it with the Web Crypto API and compare; tiles roots hash their index file (05 Asset; index file name from the tile-grid contract, `TODO(verify)`). Skip hashing in production builds (02 §E.1).
+  3. In development builds only, fetch each Asset that has a `sha256`, hash it with the Web Crypto API and compare; tiles roots hash their index file (05 Asset; index file name from the tile-grid contract, decided (BD-22)). Skip hashing in production builds (02 §E.1).
   4. A missing or mismatching required asset (grid arrays, the non-optional basemap) is a boot problem that names the file (03 §D "Boot asset failure").
   5. A missing optional layer asset is not fatal: report the layer as unavailable for SCR-03 (05 §E.6; FR-16). Whether production builds probe optional assets is Spec question 4.
   6. Make the boot cases of `apps/web/tests/integration/faults.test.ts` pass.
@@ -145,7 +145,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Parallel with:** T14.03, T14.07, T14.08, T14.09
 - **Steps:**
   1. Match the C10 screen signature and read the boot problems from the context.
-  2. Render the 03 SCR-00 content: plain-language cause, the missing asset name, **Retry**, and a link to the README run instructions (target `TODO(decision)`, Spec question 5).
+  2. Render the 03 SCR-00 content: plain-language cause, the missing asset name, **Retry**, and the README run instructions, shown on the screen as the Quickstart commands because the app runs offline and serves no README (Spec question 5; FD-226, 12 Nov 2026, Proposed).
   3. Wire Retry to re-run boot through the C10 context (03 SCR-00 Exit: "Retry → boot").
   4. Show the failure with icon and text, never colour alone (04 §C.1), using the status-icon component and C12 tokens only.
   5. Move focus to the screen heading on render; Retry is keyboard-reachable and shows the focus ring (04 §E).
@@ -263,7 +263,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
 - **Parallel with:** T14.03, T14.04, T14.05, T14.06, T14.07, T14.09, T14.10
 - **Steps:**
   1. Run the core scenario in the latest Chrome, Edge and Firefox on a desktop at ≥ 1366 × 768.
-  2. On a tablet ≥ 768 px wide (or devtools emulation, `TODO(verify)`), check viewing and adding and deleting stops; drag only if T08.09 was built; layouts per 04 §E.
+  2. On a tablet ≥ 768 px wide (or devtools emulation, decided (BD-03)), check viewing and adding and deleting stops; drag only if T08.09 was built; layouts per 04 §E.
   3. Below 768 px, check the view-only message and a readable briefing card (04 §E).
   4. Export the same plan in each desktop browser; normalise each file with `python3 -m json.tool --sort-keys` and `diff` them.
   5. Append the matrix (browser, version, device, result, notes) to the verification log.
@@ -320,7 +320,7 @@ TASK-14 has no contract subtask. T14.01 and T14.02 are the early integration sub
   1. Work on a scratch copy of `apps/web/dist` and the bundle, never on `data/sites/gale_boxwork/` itself.
   2. Rename `site-manifest.json`: SCR-00 names the missing file; restore it and press Retry: the app boots.
   3. Delete the thermal-inertia tiles folder (NFR-10 "delete layer folder"): the layer row is unavailable and a 3-stop plan still routes.
-  4. Make the worker throw (NFR-10 "throw in worker"; mechanism `TODO(verify)`): the results panel shows "Computation failed — Retry", the map stays usable and Retry recomputes.
+  4. Make the worker throw (NFR-10 "throw in worker"; mechanism decided (BD-83)): the results panel shows "Computation failed — Retry", the map stays usable and Retry recomputes.
   5. Corrupt one grid file: in a development build SCR-00 names it; record what a production build does (Spec question 3).
   6. Using only the keyboard, reach Retry on SCR-00 with a visible focus ring; append all results to the verification log.
 - **Acceptance:**
@@ -389,17 +389,17 @@ All edges are hard; there are no soft edges inside TASK-14. T14.02, T14.07, T14.
 
 ## Spec questions
 
-1. **Unavailable-layer wording.** FR-16 acceptance says "Layer unavailable"; 03 §D and 04 §D say "Unavailable in this build". T14.05 asserts the state, not the string, until this is settled — `TODO(decision)`.
+1. **Unavailable-layer wording.** FR-16 acceptance says "Layer unavailable"; 03 §D and 04 §D say "Unavailable in this build". T14.05 asserts the state, not the string, until this is settled — Decided (BD-83).
 2. **`TI_UNKNOWN` when only the tiles are missing.** FR-16 deletes the thermal-inertia *tiles* yet expects sand warnings to show "unknown". The routing grid carries no `LOW_TI` bits at all — U-03 is decided (2026-11-10: no defensible threshold, so no `ti_threshold.json` and T03.10 sets no `LOW_TI` bits; [ti-threshold.md](../ops/ti-threshold.md#decision)) — but it does carry `grid/ti_100m.f32` (05 §C), 05 §E.6 says to treat `LOW_TI` as `TI_UNKNOWN` when the layer is missing, and COMPUTE_PLAN (02 §E.2) has no field that tells the worker a layer is unavailable. Needs a C6 decision in T05.01 (near map open points 4–5); it decides whether T14.05 case 1 can pass.
-3. **Grid checksum in production.** 02 §E.1 checks SHA-256 only in development builds; 02 §E.2 `GRID_NOT_LOADED` reads "Routing grid failed checksum or did not load"; 03 §D detects "Manifest/grid checksum" at boot. Whether a production build detects a corrupted grid is `TODO(decision)`; T14.05 tests the development path and T14.10 records production behaviour.
-4. **Missing optional asset in production.** 03 §D finds an unavailable layer from "Tile 404 / asset missing at boot", while 02 §E.1 skips asset checks in production. Whether T14.03 probes optional assets in production or leaves it to tile errors (T07.07) is `TODO(decision)`.
-5. **README link on SCR-00.** 03 SCR-00 asks for a link to the README run instructions, but the app runs offline and the public repository URL is fixed only by T16.07 — target `TODO(decision)`.
-6. **CSP delivery.** NFR-08 names a "CSP header in hosting config", but the demo server (`make demo`, `python -m http.server`, 02 §F) cannot set headers, so the plan relies on T07.03's `<meta>` CSP. Whether that meets NFR-08, and whether it blocks the worker or OpenLayers styling in the production build, is `TODO(verify)` in T14.09.
+3. **Grid checksum in production.** 02 §E.1 checks SHA-256 only in development builds; 02 §E.2 `GRID_NOT_LOADED` reads "Routing grid failed checksum or did not load"; 03 §D detects "Manifest/grid checksum" at boot. Whether a production build detects a corrupted grid is decided (BD-83); T14.05 tests the development path and T14.10 records production behaviour.
+4. **Missing optional asset in production.** 03 §D finds an unavailable layer from "Tile 404 / asset missing at boot", while 02 §E.1 skips asset checks in production. Whether T14.03 probes optional assets in production or leaves it to tile errors (T07.07) is decided (BD-83).
+5. **README link on SCR-00.** 03 SCR-00 asks for a link to the README run instructions, but the app runs offline and the public repository URL is fixed only by T16.07 — target decided (BD-83). Decided: FD-226 (12 Nov 2026, Proposed).
+6. **CSP delivery.** NFR-08 names a "CSP header in hosting config", but the demo server (`make demo`, `python -m http.server`, 02 §F) cannot set headers, so the plan relies on T07.03's `<meta>` CSP. Whether that meets NFR-08, and whether it blocks the worker or OpenLayers styling in the production build, is answered in T14.09 (BD-83).
 7. **`make data` interpreter.** Decided: the conda environment in `pipeline/environment.yml` is the only pipeline environment (the old `.venv` had no GDAL); `make -s pipeline-python` prints its interpreter. T14.01 step 4 follows it.
-8. **Dependency choices.** Map open point 16 plus the icon set (04 §C.4 "e.g., Lucide") are `TODO(decision)` in T14.01; versions are `TODO(verify)` at install time.
-9. **Worker test double.** T14.05 case 3 runs in a DOM test environment without real Web Workers, so the C10 worker-client interface (T07.01) must accept an injected Worker-like object — `TODO(decision)` for T07.01.
-10. **Test devices.** NFR-02 and 01 §B measure on "the weakest team laptop" and NFR-03 needs a tablet ≥ 768 px; neither device is recorded anywhere (T00.06 records roster and skills) — `TODO(verify)`.
-11. **Freeze sign-off.** 06 §D.3 and §D.6 set the Day 2 06:00 freeze criteria, but no task owns the go/no-go call; this task's verification log is the evidence — `TODO(decision)`.
+8. **Dependency choices.** Map open point 16 plus the icon set (04 §C.4 "e.g., Lucide") are decided (BD-79) in T14.01; versions are decided (BD-79) at install time.
+9. **Worker test double.** T14.05 case 3 runs in a DOM test environment without real Web Workers, so the C10 worker-client interface (T07.01) must accept an injected Worker-like object — Decided (BD-79) for T07.01.
+10. **Test devices.** NFR-02 and 01 §B measure on "the weakest team laptop" and NFR-03 needs a tablet ≥ 768 px; neither device is recorded anywhere (T00.06 records roster and skills) — Decided (BD-03).
+11. **Freeze sign-off.** 06 §D.3 and §D.6 set the Day 2 06:00 freeze criteria, but no task owns the go/no-go call; this task's verification log is the evidence — Decided (BD-00).
 12. **Reading of the map's §f row "Screens → T14.03–T14.10".** This file reads "Screens" as the TASK-07…TASK-12 subtasks each check exercises: implement subtasks for T14.05, verify subtasks plus T07.13 and T12.03 for T14.06–T14.10. T14.03 and T14.04 need only contracts and fixtures. Please confirm.
 13. **Map change proposed:** add `T05.32 → T14.05` (hard: cases 1 and 4 run the real worker, including the full PLAN_RESULT) to the §f table. The map reaches the worker from TASK-14 only through T11.05, which T14.05 does not depend on.
 14. **Effort.** The atomized estimates for TASK-14 exceed 06's 3–5 h (map open point 18).

@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Obidit Islam, R1 Data & GIS ([T21.06](../tasks/TASK-21_scenario-builder.md#t2106--download-the-rad-series-verify-sol-4190-coverage-u-15-and-the-product-u-45)); Mishkat Ahmed Khan (R2) checks U-45. Downloads and tables by an agent, 2026-11-07; T21.07 extraction and review fixes by Codex (gpt-6.1-terra, max) |
 | **Date** | 2026-11-07; 2026-11-10 (U-45 decision and T21.07 extraction) |
-| **Status** | U-15 answered from the files; U-45 decided by Obidit Islam on 2026-11-10. Mishkat Ahmed Khan's second-person read is pending `TODO(verify)` |
+| **Status** | U-15 answered from the files; U-45 decided by Obidit Islam on 2026-11-10. The second read is the scripted re-read of 13 Nov 2026 (BD-25) |
 | **Related** | [Data downloads](data-downloads.md) D8, D9, D10, U-15, U-45 · [02 L9](../specs/02_Technical_Requirements_Document.md#l9--rad-event-time-series-fr-37) · [02 §D.13](../specs/02_Technical_Requirements_Document.md#d13-space-weather-event-model-fr-37-fr-38) · [05 DoseSeries](../specs/05_Backend_and_Database_Schema.md#doseseries-dose_seriesjson) · [01 §E.1](../specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video) · [T21.07](../tasks/TASK-21_scenario-builder.md#t2107--implement-the-rad-dose-series-extraction) · [T21.13](../tasks/TASK-21_scenario-builder.md#t2113--fallback--start-only-if-t2106-finds-no-sol-4190-series-digitised-dose-curve) |
 
 ## Result
@@ -17,7 +17,7 @@
 | Event total, E detector | **1,978.6–2,190.7 µGy** gross and **1,741.0–1,793.9 µGy** above background, in D8 and SPDF L2 alike, depending on the window (defined under Method) | Integrals below |
 | NASA's published figure | **8,100 µGy** (D10), with no integration window stated | Quote below |
 | Do the archives reproduce 8,100 µGy? | **No.** Every product and window gives about a quarter of it. The peak *rate* of the E detector is 8,274.30–8,434.2 µGy/**day** (D8, L2, PDS), close to 8,100 in number; whether NASA's figure is a peak rate or a total from another method is `TODO(verify)` | Comparison table |
-| U-45: product to replay | **Decided:** D8 original (not filtered) E-detector column, with SPDF L2 Total Dose E as the cross-check. Obidit Islam, 2026-11-10; Mishkat's second-person read remains `TODO(verify)` | Decision section |
+| U-45: product to replay | **Decided:** D8 original (not filtered) E-detector column, with SPDF L2 Total Dose E as the cross-check. Obidit Islam, 2026-11-10; the second read is the scripted re-read of 13 Nov 2026 (BD-25) | Decision section |
 
 ## Sources
 
@@ -251,7 +251,7 @@ The ratio column is gross ÷ 8,100, rounded to two decimals with `python3 -c` (s
 
 ## U-45 decision
 
-**Decided by Obidit Islam, data lead, 2026-11-10:** accept the recommendation to replay the **D8 original E-detector column** (`DoseE [micro Gray per day]`, the 5th field of 6), converted to µGy/h, with `method: archive`, provenance `replayed`, and the SPDF L2 `Total Dose E` cited as the cross-check. Do not use the filtered column. For the SPDF reference, exclude every record with a nonempty `FLAGGED_DATA` and step-hold the previous unflagged rate until the next unflagged observation, as SPDF metadata directs removal of flagged data for science. This exclusion does not change the replayed D8 samples. Mishkat Ahmed Khan's second-person read against the files has not happened and remains `TODO(verify)` (T21.06 Verify).
+**Decided by Obidit Islam, data lead, 2026-11-10:** accept the recommendation to replay the **D8 original E-detector column** (`DoseE [micro Gray per day]`, the 5th field of 6), converted to µGy/h, with `method: archive`, provenance `replayed`, and the SPDF L2 `Total Dose E` cited as the cross-check. Do not use the filtered column. For the SPDF reference, exclude every record with a nonempty `FLAGGED_DATA` and step-hold the previous unflagged rate until the next unflagged observation, as SPDF metadata directs removal of flagged data for science. This exclusion does not change the replayed D8 samples. The second read against the files is the scripted re-read of 13 Nov 2026 (T21.06 Verify; BD-06, BD-25).
 
 Reasons:
 
@@ -412,7 +412,7 @@ D8-matched window: 2024-05-20 05:16:55 -> 2024-05-22 01:33:28
 ## Open items
 
 - `TODO(verify)`: what NASA's 8,100 µGy measures (window, detector, quantity). State the mismatch in Sources & methods now; its explanation remains unverified.
-- `TODO(verify)`: Mishkat Ahmed Khan's second-person read of this note against the files (T21.06 Verify).
+- Second read (13 Nov 2026, BD-06, BD-25): replaced by a scripted re-read, `pipeline/tests/test_rad.py::test_reread_of_the_raw_archive_recomputes_sol_4190_coverage_and_the_product_id`, which recomputes the D8 and SPDF L2 coverage and the PDS `PRODUCT_ID` from the raw files and compares them with this note.
 - `TODO(verify)`: the time scale of D8 `Datetime`; whether L2 `EPOCH` is start or mid-observation.
 - `TODO(verify)`: D8 column 2 is the year (header names 5 columns, rows have 6); ask the authors or read `sol_to_doy`.
 - `TODO(verify)`: licence wording for the SPDF L2 and PDS RDR products; PDS checksum from `CHECKSUMS.TXT`.

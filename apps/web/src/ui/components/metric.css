@@ -1,0 +1,46 @@
+/* Metric: value, unit and provenance chip (04 §D.1 Metric tile, §C.1 chips; T12.01). Tokens only. */
+.metric {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metric-label {
+  color: var(--fg-3);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+}
+
+.metric-line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.metric-value {
+  color: var(--fg-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-value-ops);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.metric[data-unavailable="true"] .metric-value {
+  color: var(--fg-3);
+}
+
+.metric-unit {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+}
+
+/* Provenance chip: outline, mono 11 px uppercase, text-2 (04 §C.1). */
+.metric-chip {
+  padding: 0 4px;
+  border: 1px solid var(--control-edge);
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}

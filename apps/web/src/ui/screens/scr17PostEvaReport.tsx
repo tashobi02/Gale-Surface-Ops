@@ -18,13 +18,14 @@
  * response per alert and crew only while the alert is open; dose per crew (`simulated`) with the highest individual picked
  * as the headline (the pick is `derived`, the values stay `simulated`), no crew total; a crew member who never sheltered reads "not sheltered".
  *
- * TODO(decision): complete real report trace, sources and Export log JSON integration, then verify Chrome A4/Letter
- * pagination with 12 mm margins; article-container counts do not prove two printed pages.
  */
 
 import type { CSSProperties, ReactElement } from "react";
 import type { Provenance } from "@marswalk/protocol";
 import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
+import { PROTOTYPE_DISCLAIMER } from "../content/disclaimer";
+import "./scr17PostEvaReport.css";
+import { StatusIcon } from "../components/statusIcon";
 
 export interface PostEvaReportData {
   sessionId?: string;
@@ -33,6 +34,14 @@ export interface PostEvaReportData {
   seed?: number;
   logHash?: string;
   /** Headline dose: the highest individual's values (`simulated`; the pick is `derived`), never a crew total. Absent when nobody sheltered. */
+  trace?: Array<{ crew_id: string; points: Array<{ sim_time: string; x_m: number; y_m: number }> }>;
+  /** Planned background dose over the planned EVA (`modelled`); null with `plannedBackgroundReason` when unavailable. */
+  plannedBackgroundUgy?: number | null;
+  plannedBackgroundReason?: string | null;
+  /** The dose series' own source id when the planned background is set (FR-15); null otherwise. */
+  plannedBackgroundSourceId?: string | null;
+  /** Count of report values per provenance class (05 PostEvaReport `provenance_summary`). */
+  provenanceSummary?: Partial<Record<Provenance, number>>;
   doseReceivedUgy?: number;
   doseUnshelteredUgy?: number;
   doseHeadlineCrew?: string;
@@ -97,7 +106,9 @@ export interface PostEvaReportData {
 
 export interface PostEvaReportProps {
   report?: PostEvaReportData;
+  logFallback?: { events: NonNullable<PostEvaReportData["logEvents"]>; error?: string; loading?: boolean; logHash?: string };
   onPrint?: () => void;
+  onExportLog?: () => void;
   onBack?: () => void;
   className?: string;
 }
@@ -118,12 +129,33 @@ export const REPORT_DISCLAIMER =
   "For simulation and educational demonstration only; not certified for actual Martian flight or surface operations.";
 
 /**
+ * The prototype boundary statement (01 §F.1, FR-52): it must appear in the app, so the judge-facing report
+ * carries the same text as the launchpad and the export. The wording lives in `ui/content/disclaimer.ts`,
+ * the single source shared by all three (FD-491).
+ */
+export const REPORT_PROTOTYPE_DISCLAIMER = PROTOTYPE_DISCLAIMER;
+
+/**
  * Attributes for a report value. Present: its class and `report:<path>` source. Missing: the field's own class is kept,
  * and the value is flagged `data-unavailable` with an `unavailable:report.<path>` source (never labelled `assumed`).
  */
-function reportAttrs(present: boolean, prov: Provenance, path: string): ReturnType<typeof provAttrs> {
-  return provAttrs(present ? { prov, src: `report:${path}` } : unavailableOf(prov, `report.${path}`));
+function reportAttrs(present: boolean, prov: Provenance, path: string, source?: string): ReturnType<typeof provAttrs> {
+  return provAttrs(present ? { prov, src: source ?? `report:${path}` } : unavailableOf(prov, `report.${path}`));
 }
+
+/** Line style per crew in the trace, in legend order: the first solid, then dashed, then dotted (never colour alone). */
+const TRACE_DASH = [undefined, "6 4", "2 3"] as const;
+const TRACE_WORD = ["solid", "dashed", "dotted"] as const;
+
+
+const h2Style: CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 700,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  color: "#4B5563",
+  margin: "8px 0 2px 0",
+};
 
 /** Glyph beside a report value: its own class when present, none beside "—". */
 const glyphIf = (present: boolean, prov: Provenance): string => (present ? PROVENANCE_GLYPHS[prov] : "");
@@ -131,9 +163,12 @@ const glyphIf = (present: boolean, prov: Provenance): string => (present ? PROVE
 export function PostEvaReport({
   report,
   onPrint,
+  onExportLog,
+  logFallback,
   onBack,
   className = "",
 }: PostEvaReportProps): ReactElement {
+  if (logFallback) return <ReportLogFallback {...logFallback} onPrint={onPrint} onExportLog={onExportLog} onBack={onBack} />;
   const data: PostEvaReportData = report ?? {};
   const hasReceived = isFiniteNumber(data.doseReceivedUgy);
   const hasUnsheltered = isFiniteNumber(data.doseUnshelteredUgy);
@@ -223,6 +258,7 @@ export function PostEvaReport({
 
   return (
     <div
+      data-screen="SCR-17"
       className={`scr17-post-eva-report ${className}`}
       data-surface="report"
       data-mode="print"
@@ -265,9 +301,10 @@ export function PostEvaReport({
             </button>
           )}
           <span style={{ fontSize: "14px", fontWeight: 700, color: "#1F2937", alignSelf: "center" }}>
-            SCR-17 · POST-EVA REPORT
+            <span data-identifier>SCR-17</span> · POST-EVA REPORT
           </span>
         </div>
+        <button type="button" data-slot="export-log" onClick={onExportLog} disabled={!onExportLog}>EXPORT LOG JSON</button>
         <button
           type="button"
           onClick={handlePrint}
@@ -282,7 +319,7 @@ export function PostEvaReport({
             fontSize: "13px",
           }}
         >
-          PRINT REPORT (≤ 2 PAGES)
+          PRINT REPORT <span data-identifier>(≤ 2 PAGES)</span>
         </button>
       </div>
 
@@ -300,7 +337,7 @@ export function PostEvaReport({
                 letterSpacing: "0.06em",
               }}
             >
-              [ SCR-17 /// POST-EVA REPORT ]
+              [ <span data-identifier>SCR-17</span> /// POST-EVA REPORT ]
             </div>
             <h1
               style={{
@@ -310,7 +347,7 @@ export function PostEvaReport({
                 color: "#111827",
               }}
             >
-              Mission Debrief{data.scenarioId ? ` — ${data.scenarioId}` : ""}
+              Mission Debrief{data.scenarioId ? <> — <span {...reportAttrs(true, "simulated", "scenario_id")}>{data.scenarioId}</span></> : ""}
             </h1>
           </div>
           <span
@@ -321,13 +358,13 @@ export function PostEvaReport({
               color: "#4B5563",
             }}
           >
-            {pageLabel(1)}
+            <span data-identifier>{pageLabel(1)}</span>
           </span>
         </header>
 
         {/* 4 Stat Slabs (04 §E.8) */}
         <section aria-label="Key mission statistics" style={slabGridStyle}>
-          <div style={slabStyle}>
+          <div className="report-slab" style={slabStyle}>
             <span style={{ fontSize: "12px", fontWeight: 700, color: "#4B5563" }}>
               DOSE RECEIVED VS UNSHELTERED
             </span>
@@ -342,7 +379,7 @@ export function PostEvaReport({
                 {hasReceived ? `${fmtFixed(data.doseReceivedUgy, 1)} µGy` : nobodySheltered ? "not sheltered" : `${UNAVAILABLE} µGy`}{" "}
                 {glyphIf(hasReceived, "simulated")}
               </span>
-              <span style={{ fontSize: "12px", color: "#6B7280", margin: "0 4px" }}>vs</span>
+              <span style={{ fontSize: "12px", color: "#4B5563", margin: "0 4px" }}>vs</span>
               <span {...reportAttrs(hasUnsheltered, "simulated", "dose_event_unsheltered_ugy")} style={{ color: "#4B5563" }}>
                 {hasUnsheltered ? `${(data.doseUnshelteredUgy as number).toLocaleString("en-US")} µGy` : nobodySheltered ? "not sheltered" : `${UNAVAILABLE} µGy`}{" "}
                 {glyphIf(hasUnsheltered, "simulated")}
@@ -350,6 +387,13 @@ export function PostEvaReport({
             </span>
             <span style={{ fontSize: "12px", color: "#4B5563" }} {...reportAttrs(hasHeadline, "derived", "dose.headline")}>
               {`highest individual: ${hasHeadline ? data.doseHeadlineCrew : UNAVAILABLE}`} {glyphIf(hasHeadline, "derived")}
+            </span>
+            <span style={{ fontSize: "12px" }}>
+              Planned background:{" "}
+              <span {...reportAttrs(isFiniteNumber(data.plannedBackgroundUgy), "modelled", "dose.planned_background_ugy", data.plannedBackgroundSourceId ?? undefined)}>
+                {isFiniteNumber(data.plannedBackgroundUgy) ? `${fmtFixed(data.plannedBackgroundUgy, 1)} µGy` : UNAVAILABLE} {glyphIf(isFiniteNumber(data.plannedBackgroundUgy), "modelled")}
+              </span>
+              {!isFiniteNumber(data.plannedBackgroundUgy) && data.plannedBackgroundReason ? ` (${data.plannedBackgroundReason})` : ""}
             </span>
             {(data.doseRows ?? []).length > 0 && (
               <ul style={{ margin: 0, padding: 0, listStyle: "none", fontSize: "12px", fontFamily: "var(--font-mono, monospace)" }}>
@@ -365,7 +409,7 @@ export function PostEvaReport({
             )}
           </div>
 
-          <div style={slabStyle}>
+          <div className="report-slab" style={slabStyle}>
             <span style={{ fontSize: "12px", fontWeight: 700, color: "#4B5563" }}>
               TIME TO SHELTER
             </span>
@@ -381,7 +425,7 @@ export function PostEvaReport({
             </span>
           </div>
 
-          <div style={slabStyle}>
+          <div className="report-slab" style={slabStyle}>
             <span style={{ fontSize: "12px", fontWeight: 700, color: "#4B5563" }}>
               STOPS COMPLETED
             </span>
@@ -397,7 +441,7 @@ export function PostEvaReport({
             </span>
           </div>
 
-          <div style={slabStyle}>
+          <div className="report-slab" style={slabStyle}>
             <span style={{ fontSize: "12px", fontWeight: 700, color: "#4B5563" }}>
               PLAN REVISIONS
             </span>
@@ -467,16 +511,16 @@ export function PostEvaReport({
               )}
               {data.timeline?.map((row, idx) => (
                 <tr key={idx}>
-                  <td style={tdStyle}>{row.stopId}</td>
-                  <td style={tdStyle}>{row.crewId ?? UNAVAILABLE}</td>
-                  <td style={tdStyle}>
+                  <td style={tdStyle} data-identifier>{row.stopId}</td>
+                  <td style={tdStyle} data-identifier>{row.crewId ?? UNAVAILABLE}</td>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
                     <span {...reportAttrs(row.plannedArrival !== null, "derived", "timeline.arrival_planned")}>{row.plannedArrival ?? UNAVAILABLE}</span>
                     {" / "}
                     <span {...reportAttrs(row.actualArrival !== null, "simulated", "timeline.arrival_actual")}>{row.actualArrival ?? UNAVAILABLE}</span>
                     {" / "}
                     <span {...reportAttrs(row.arrivalDiff !== null, "derived", "timeline.arrival_diff")}>{row.arrivalDiff ?? UNAVAILABLE}</span>
                   </td>
-                  <td style={tdStyle}>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
                     <span {...reportAttrs(row.plannedDwell !== null, "derived", "timeline.dwell_planned")}>{row.plannedDwell ?? UNAVAILABLE}</span>
                     {" / "}
                     <span {...reportAttrs(row.actualDwell !== null, "simulated", "timeline.dwell_actual")}>{row.actualDwell ?? UNAVAILABLE}</span>
@@ -488,7 +532,7 @@ export function PostEvaReport({
               ))}
             </tbody>
           </table>
-          <p style={{ fontSize: "12px", color: "#6B7280", margin: "4px 0" }}>
+          <p className="report-note" style={{ fontSize: "12px", color: "#4B5563", margin: "4px 0" }}>
             Times are offsets from EVA start (sim time). Planned and differences are derived; actual is simulated.
           </p>
         </section>
@@ -542,7 +586,7 @@ export function PostEvaReport({
                   </td>
                   <td style={tdStyle}>
                     <div style={{ fontWeight: 600 }}>{alt.code}</div>
-                    {alt.message ? <div style={{ fontSize: "12px", color: "#6B7280" }}>{alt.message}</div> : null}
+                    {alt.message ? <div style={{ fontSize: "12px", color: "#4B5563" }}>{alt.message}</div> : null}
                   </td>
                   <td style={tdStyle}>
                     <span {...reportAttrs(true, "simulated", "alerts.times")}>
@@ -572,26 +616,65 @@ export function PostEvaReport({
           </table>
         </section>
 
-        {/* Map trace: no fabricated schematic. The real trace needs the session position log (not wired). */}
-        <section aria-label="Map Trace">
-          <h2
-            style={{
-              fontSize: "12px",
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: "#4B5563",
-              margin: "8px 0 2px 0",
-            }}
-          >
-            [ MAP /// MAP TRACE ]
-          </h2>
-          <p
-            style={{ fontSize: "12px", color: "#6B7280", margin: "4px 0" }}
-            {...reportAttrs(false, "simulated", "map_trace")}
-          >
-            {UNAVAILABLE} Trace not available: it needs the session position log.
-          </p>
+        <section aria-label="Map Trace" className="report-block">
+          <h2 style={h2Style}>[ MAP /// CREW TRACE ]</h2>
+          {(() => {
+            const rows = (data.trace ?? []).filter((row) => row.points.length > 0);
+            if (rows.length === 0) {
+              return (
+                <p className="report-note" style={{ fontSize: "12px", margin: "4px 0" }} {...reportAttrs(false, "simulated", "trace")}>
+                  {UNAVAILABLE} Trace not available.
+                </p>
+              );
+            }
+            const points = rows.flatMap((row) => row.points);
+            const minX = Math.min(...points.map((p) => p.x_m));
+            const maxX = Math.max(...points.map((p) => p.x_m));
+            const minY = Math.min(...points.map((p) => p.y_m));
+            const maxY = Math.max(...points.map((p) => p.y_m));
+            const w = Math.max(maxX - minX, 1);
+            const h = Math.max(maxY - minY, 1);
+            return (
+              <>
+                <svg
+                  className="report-trace-svg"
+                  data-slot="report-trace"
+                  {...reportAttrs(true, "simulated", "trace")}
+                  role="img"
+                  aria-label={`Crew position traces: ${rows.map((row, k) => `${row.crew_id} ${TRACE_WORD[k] ?? "dotted"}`).join(", ")}`}
+                  viewBox={`${minX} ${-maxY} ${w} ${h}`}
+                  preserveAspectRatio="xMidYMid meet"
+                  style={{ width: "100%", height: "96px", overflow: "visible", color: "#111827" }}
+                >
+                  {rows.map((row, k) =>
+                    row.points.length === 1 ? (
+                      <circle key={row.crew_id} data-crew={row.crew_id} cx={row.points[0]!.x_m} cy={-row.points[0]!.y_m} r={Math.max(w, h) * 0.02} fill="currentColor" />
+                    ) : (
+                      <polyline
+                        key={row.crew_id}
+                        data-crew={row.crew_id}
+                        points={row.points.map((p) => `${p.x_m},${-p.y_m}`).join(" ")}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                        strokeDasharray={TRACE_DASH[k] ?? TRACE_DASH[2]}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ),
+                  )}
+                </svg>
+                <p className="report-note" style={{ fontSize: "12px", color: "#4B5563", margin: "2px 0" }}>
+                  <span data-identifier>{rows.map((row, k) => `${row.crew_id} ${TRACE_WORD[k] ?? "dotted"}`).join(" / ")}</span> · positions every{" "}
+                  <span {...reportAttrs(true, "assumed", "trace.period_s", "docs/specs/05:U-24")}>30 s</span>, projected metres
+                  (local equirectangular), north up · extent{" "}
+                  <span {...reportAttrs(true, "derived", "trace.extent")}>
+                    {`${Math.round(maxX - minX)} m × ${Math.round(maxY - minY)} m`}
+                  </span>{" "}
+                  {glyphIf(true, "derived")}
+                </p>
+              </>
+            );
+          })()}
         </section>
       </article>
 
@@ -609,7 +692,7 @@ export function PostEvaReport({
                 letterSpacing: "0.06em",
               }}
             >
-              [ SCR-17 /// EVENT LOG AND SOURCES ]
+              [ <span data-identifier>SCR-17</span> /// EVENT LOG AND SOURCES ]
             </div>
             <h1
               style={{
@@ -630,7 +713,7 @@ export function PostEvaReport({
               color: "#4B5563",
             }}
           >
-            {pageLabel(2)}
+            <span data-identifier>{pageLabel(2)}</span>
           </span>
         </header>
 
@@ -647,7 +730,7 @@ export function PostEvaReport({
                 margin: "4px 0",
               }}
             >
-              [ TASKS /// STOP TASKS — DONE / SKIPPED / DROPPED (FR-50) ]
+              [ TASKS /// STOP TASKS — DONE / SKIPPED / DROPPED <span data-identifier>(FR-50)</span> ]
             </h2>
             <span
               data-provenance="simulated"
@@ -680,7 +763,7 @@ export function PostEvaReport({
               )}
               {data.tasks?.map((t, idx) => (
                 <tr key={idx}>
-                  <td style={tdStyle}>{t.stopName}</td>
+                  <td style={tdStyle} data-identifier>{t.stopName}</td>
                   <td style={{ ...tdStyle, fontFamily: "var(--font-mono, monospace)" }} {...reportAttrs(true, "simulated", "tasks.counts")}>
                     {`${t.done} / ${t.skipped} / ${t.dropped}`}
                   </td>
@@ -696,8 +779,8 @@ export function PostEvaReport({
               ? `All stops: ${data.tasksTotals?.done} / ${data.tasksTotals?.skipped} / ${data.tasksTotals?.dropped} of ${data.tasksTotals?.total}`
               : `All stops: ${UNAVAILABLE}`}
           </p>
-          <p style={{ fontSize: "12px", color: "#6B7280", margin: "4px 0 8px 0" }}>
-            Dropped tasks: open tasks closed by the system when a plan revision dropped their stop (FR-50).
+          <p style={{ fontSize: "12px", color: "#4B5563", margin: "4px 0 8px 0" }}>
+            Dropped tasks: open tasks closed by the system when a plan revision dropped their stop (<span data-identifier>FR-50</span>).
           </p>
         </section>
 
@@ -729,7 +812,8 @@ export function PostEvaReport({
               {(data.logEvents ?? []).length === 0 && (
                 <tr>
                   <td style={tdStyle} {...reportAttrs(false, "simulated", "log_events")} colSpan={5}>
-                    {UNAVAILABLE}
+                    {UNAVAILABLE} The report does not carry the event log. EXPORT LOG JSON downloads the full event log (session.jsonl
+                    as JSON); the log hash below covers it.
                   </td>
                 </tr>
               )}
@@ -751,6 +835,29 @@ export function PostEvaReport({
               ))}
             </tbody>
           </table>
+        </section>
+
+        {/* Sources (03 SCR-17, FD-053) */}
+        <section aria-label="Sources" className="report-block">
+          <h2 style={h2Style}>[ SOURCES /// WHERE THE VALUES COME FROM ]</h2>
+          <p className="report-note" style={{ fontSize: "12px", margin: "4px 0" }}>
+            Source ids:{" "}
+            <span {...reportAttrs(false, "derived", "source_ids")}>{UNAVAILABLE}</span> — the report does not list source ids yet;
+            every dataset and method is listed in Sources and methods (<span data-identifier>SCR-09</span>, <a href="#/sources">#/sources</a>).
+          </p>
+          <p className="report-note" style={{ fontSize: "12px", margin: "4px 0", fontFamily: "var(--font-mono, monospace)" }}>
+            Values by provenance:{" "}
+            {data.provenanceSummary && Object.keys(data.provenanceSummary).length > 0 ? (
+              <span {...reportAttrs(true, "derived", "provenance_summary")}>
+                {(Object.entries(data.provenanceSummary) as Array<[Provenance, number]>)
+                  .filter(([, n]) => isFiniteNumber(n) && n > 0)
+                  .map(([prov, n]) => `${PROVENANCE_GLYPHS[prov]} ${prov} ${n}`)
+                  .join(" · ")}
+              </span>
+            ) : (
+              <span {...reportAttrs(false, "derived", "provenance_summary")}>{UNAVAILABLE}</span>
+            )}
+          </p>
         </section>
 
         {/* Verification and Audit Metadata */}
@@ -775,7 +882,10 @@ export function PostEvaReport({
                 color: "#111827",
               }}
             >
-              <span {...reportAttrs(typeof data.logHash === "string" && data.logHash.length > 0, "derived", "log_hash")}>
+              <span
+                data-log-hash=""
+                {...reportAttrs(typeof data.logHash === "string" && data.logHash.length > 0, "derived", "log_hash")}
+              >
                 {data.logHash ? data.logHash : UNAVAILABLE}
               </span>
             </span>
@@ -806,18 +916,53 @@ export function PostEvaReport({
           <p
             style={{
               fontSize: "12px",
-              color: "#6B7280",
+              color: "#4B5563",
               margin: "6px 0 0 0",
               lineHeight: 1.4,
               borderTop: "1px solid #E5E7EB",
               paddingTop: "6px",
             }}
           >
-            {REPORT_DISCLAIMER}
+            <span data-identifier>{REPORT_DISCLAIMER}</span>
             {commentary ? ` ${commentary}` : ""}
+          </p>
+          <p
+            style={{
+              fontSize: "12px",
+              color: "#4B5563",
+              margin: "4px 0 0 0",
+              lineHeight: 1.4,
+            }}
+          >
+            <span data-identifier>{REPORT_PROTOTYPE_DISCLAIMER}</span>
           </p>
         </footer>
       </article>
     </div>
   );
+}
+
+/** The raw log remains printable when the derived report endpoint fails (FR-46, FD-193). */
+function ReportLogFallback({ events, error, loading, logHash, onPrint, onExportLog, onBack }: NonNullable<PostEvaReportProps["logFallback"]> & Pick<PostEvaReportProps, "onPrint" | "onExportLog" | "onBack">): ReactElement {
+  const attrs = (source: string) => ({ "data-provenance": "simulated", "data-source": `api/log:${source}` });
+  return <main className="scr17-post-eva-report report-log-fallback" data-surface="report" data-screen="SCR-17" data-mode="print" data-fallback="report-log">
+    <nav className="no-print" aria-label="Report actions">
+      <button type="button" onClick={onBack}>← BACK</button>
+      <button type="button" data-slot="export-log" onClick={onExportLog}>EXPORT LOG JSON</button>
+      <button type="button" onClick={() => onPrint ? onPrint() : window.print()}>PRINT / SAVE PDF</button>
+    </nav>
+    <h1>Post-EVA event log</h1>
+    <p><StatusIcon status="unknown" showWord /> Report unavailable — raw log only. Derived metrics are unavailable.</p>
+    {loading && <p role="status">Loading event log…</p>}
+    {error && <p role="alert" {...attrs("request")}>Log unavailable — {error}</p>}
+    <p>Log hash: <span data-slot="fallback-log-hash" {...(logHash ? { "data-provenance": "derived", "data-source": "snapshot:session.log_hash" } : { "data-provenance": "derived", "data-source": "unavailable:session.log_hash", "data-unavailable": "true" })}>{logHash || "—"}</span></p>
+    <table><caption>Session events from the Hab Core</caption><thead><tr>{["Sequence", "Sim time", "Actor", "Event"].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
+      <tbody>{events.length ? events.map(event => <tr key={event.seq}>
+        <td {...attrs(`${event.seq}.seq`)}>{event.seq}</td><td {...attrs(`${event.seq}.sim_time`)}>{event.time}</td>
+        <td {...attrs(`${event.seq}.actor`)}>{event.actor}</td><td {...attrs(`${event.seq}.kind`)}>{event.event}</td>
+      </tr>) : <tr><td colSpan={4} data-provenance="simulated" data-source="unavailable:api/log.events" data-unavailable="true">— {loading ? "Waiting for log" : error ? "Log unavailable" : "No recorded events"}</td></tr>}</tbody>
+    </table>
+    <p>{REPORT_DISCLAIMER}</p>
+    <p>{REPORT_PROTOTYPE_DISCLAIMER}</p>
+  </main>;
 }

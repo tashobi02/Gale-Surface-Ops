@@ -7,7 +7,7 @@ CONDA_ENV ?= marswalk-pipeline
 CONDA_BIN ?= $(if $(CONDA_EXE),$(CONDA_EXE),conda)
 
 .PHONY: setup setup-web setup-pipeline lint typecheck test test-web docs-check dev demo data \
-	conda-check check-env pipeline-python validate progress hab replay agent-skills design-check
+	conda-check check-env pipeline-python validate progress hab replay record ssd-link check-todos agent-skills design-check e2e e2e-one
 
 setup: setup-web setup-pipeline agent-skills
 
@@ -38,6 +38,17 @@ docs-check: lint
 	python3 scripts/check_links.py docs README.md CLAUDE.md AGENTS.md
 	python3 scripts/update_progress.py --check
 
+# Browser verification harness (frontend plan 01): Chromium only, headless, localhost only. Builds the app and starts a
+# Hab Core on 127.0.0.1:8091 itself; E2E_SKIP_BUILD=1 reuses apps/web/dist, E2E_SITE=gale_boxwork uses the real bundle.
+# Needs no conda. See apps/web/e2e/README.md.
+e2e:
+	npx playwright test -c apps/web/e2e/playwright.config.ts
+
+# One check by name: make e2e-one CHECK=offline
+e2e-one:
+	@test -n "$(CHECK)" || { echo "usage: make e2e-one CHECK=<name> (a file in apps/web/e2e/checks, without .spec.ts)"; exit 2; }
+	npx playwright test -c apps/web/e2e/playwright.config.ts "checks/$(CHECK)\.spec"
+
 # Regenerate the README progress bar from docs/tasks/status.md.
 progress:
 	python3 scripts/update_progress.py
@@ -51,8 +62,22 @@ hab:
 	npm run -s hab:start -- --site gale_boxwork --scenario storm-sol4190
 
 # Headless scenario replay; prints the event-log hash (NFR-06, NFR-14).
+# COMMANDS=<file> applies a recorded command list (02 §D.17): make replay COMMANDS=scenarios/storm-sol4190/reference_commands.json
 replay:
-	npm run -s hab:replay -- scenarios/storm-sol4190
+	npm run -s hab:replay -- scenarios/storm-sol4190 $(if $(COMMANDS),--commands $(COMMANDS))
+
+# Write the Pages recording (02 §D.17, BD-105) of the reference run with its reference commands (T27.05, T22.14). STATE_DELTAs are coalesced to 5 s so the file stays under 5 MB (BD-148).
+record:
+	npm run -s hab:record -- scenarios/storm-sol4190 --commands scenarios/storm-sol4190/reference_commands.json --record scenarios/storm-sol4190/recording.json --record-period 5
+
+# Link the git-ignored data folders to the data SSD (BD-12, BD-126): make ssd-link SSD="/Volumes/<name>/<folder>". See docs/ops/ssd.md.
+ssd-link:
+	@test -n "$(SSD)" || { echo "usage: make ssd-link SSD=<SSD data folder> (see docs/ops/ssd.md)" >&2; exit 2; }
+	bash scripts/ssd-link.sh "$(SSD)"
+
+# Fail while any open-choice marker is left in the backend scope (docs/plan/backend/decisions-index.md).
+check-todos:
+	python3 scripts/check_todos.py
 
 # Production build served by the Hab Core on the habitat LAN, no internet (02 §F deployment, NFR-01).
 demo:

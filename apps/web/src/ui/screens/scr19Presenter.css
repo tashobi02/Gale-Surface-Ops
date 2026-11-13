@@ -1,0 +1,30 @@
+/* SCR-19: neutral OPS equipment, 04 §A.3, §E.4; FD-219. */
+.presenter { min-height: 100dvh; padding: 24px; background: var(--surface-0); color: var(--fg-1); font-family: var(--font-ui); }
+.presenter-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 16px; }
+.presenter h1 { font: 500 28px/1.2 var(--font-display); }
+.presenter h2 { font: 500 20px/1.4 var(--font-display); margin: 0 0 16px; }
+.presenter a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 4px; color: var(--fg-1); text-underline-offset: .2em; }
+.presenter-session { display: flex; flex-wrap: wrap; gap: 20px 32px; padding: 20px 0; border-block: 1px solid var(--edge); }
+.presenter-session dt { font: 500 12px/1.5 var(--font-mono); color: var(--fg-2); text-transform: uppercase; }
+.presenter-session dd { margin: 4px 0 0; overflow-wrap: anywhere; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.presenter section { padding-block: 24px; border-bottom: 1px solid var(--edge); }
+.presenter-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.presenter button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--edge); border-radius: 0; color: var(--fg-1); background: var(--surface-2); font: 500 14px/1.4 var(--font-ui); cursor: pointer; }
+.presenter button:disabled { color: var(--fg-3); cursor: default; }
+.presenter button:not(:disabled):hover { background: var(--surface-1); border-color: var(--fg-1); }
+.presenter button:focus-visible, .presenter a:focus-visible { outline: 2px solid var(--fg-1); outline-offset: 3px; }
+.presenter-clock { margin: 20px 0; padding: 12px; border: 1px solid var(--edge); }
+.presenter-clock .clock-control { flex-wrap: wrap; }
+/* The shared clock's scenario and event actions have state-specific controls above. */
+.presenter-clock select, .presenter-clock [aria-label="Load scenario"], .presenter-clock [aria-label="Jump to next scheduled event"] { display: none; }
+.presenter .clock-control button { min-height: 44px !important; min-width: 44px !important; }
+.presenter-confirm { margin-top: 16px; padding: 16px; border: 1px solid var(--fg-2); }
+.presenter-confirm button + button { margin-left: 12px; }
+.presenter [role="status"] { min-height: 1.5em; font-family: var(--font-mono); overflow-wrap: anywhere; }
+.presenter ol { padding-left: 24px; overflow-wrap: anywhere; }
+.presenter li { margin-bottom: 8px; }
+.presenter-qr { display: flex; flex-wrap: wrap; gap: 24px; }
+.presenter-qr figure { margin: 0; }
+.presenter-qr img { display: block; background: var(--paper); }
+.presenter-qr figcaption { margin-top: 8px; font-family: var(--font-mono); }
+@media (max-width: 600px) { .presenter { padding: 16px; } .presenter-actions > button { width: 100%; } }

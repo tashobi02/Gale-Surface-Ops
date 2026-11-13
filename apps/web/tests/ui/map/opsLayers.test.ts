@@ -25,6 +25,7 @@ import {
   commShadowPolygons,
   createOpsLayers,
   havenContourSegments,
+  opsLayerRows,
   type CommGridInput,
   type HavenFieldInput,
 } from "../../../src/ui/map/opsLayers";
@@ -78,7 +79,7 @@ function snapshot(over: Partial<Snapshot> & { crew?: Crew[]; vehicles?: Vehicle[
     type: "SNAPSHOT",
     seq: 1,
     sim_time: "2024-05-20T13:00:00Z",
-    session: { session_id: "s-1", scenario_id: "storm-sol4190", data_version: "d", seed: 1, status: "RUNNING", clock: { sim_time: "2024-05-20T13:00:00Z", speed: 1, paused: false }, plan_revision: 1, last_seq: 1, log_hash: "h" },
+    session: { session_id: "s-1", scenario_id: "storm-sol4190", data_version: "d", seed: 1, status: "RUNNING", clock: { sim_time: "2024-05-20T13:00:00Z", speed: 1, paused: false }, plan_revision: 1, last_seq: 1, log_hash: "h", hab_candidate_id: null, mission_setup: { crew_count: 2, vehicle_available: true, vehicle_param_set: "pr1-assumed", solar_phase: "max", max_haven_min: 30 }, started_events: [] },
     plan: null,
     crew: [],
     vehicles: [],
@@ -88,6 +89,10 @@ function snapshot(over: Partial<Snapshot> & { crew?: Crew[]; vehicles?: Vehicle[
     earth: { light_time_s: 0, next_pass_utc: null, blackout: false, queue: [] },
     clients: [],
     provenance: {},
+    conditions: { ltst: null, sun_elevation_deg: null, dose_rate_background_ugy_h: null, dose_rate_event_ugy_h: null, event_series_utc: null, sol: null, source_ids: {}, provenance: {} },
+    task_library: [],
+    event_library: [],
+    next_stop_target: null,
     ...over,
   };
 }
@@ -146,10 +151,10 @@ const lastSet = (calls: { name: string; args: unknown[] }[], prop: string): unkn
 const dashes = (calls: { name: string; args: unknown[] }[]): unknown[] => calls.filter((c) => c.name === "setLineDash").map((c) => c.args[0]);
 
 describe("createOpsLayers: layers and the map handle (T25.02; FR-02 order)", () => {
-  it("adds its four layers to the map through the handle, and removes them on destroy", () => {
+  it("adds its six layers to the map through the handle, and removes them on destroy", () => {
     const { host, ops } = setup();
-    expect(host.layers).toHaveLength(4);
-    for (const layer of [ops.crewLayer, ops.vehicleLayer, ops.commShadowLayer, ops.havenBandsLayer]) {
+    expect(host.layers).toHaveLength(6);
+    for (const layer of [ops.crewLayer, ops.vehicleLayer, ops.commShadowLayer, ops.havenBandsLayer, ops.relayCoverageLayer, ops.havenLinkLayer]) {
       expect(layer).toBeInstanceOf(VectorLayer);
       expect(host.layers).toContain(layer);
     }
@@ -235,6 +240,41 @@ describe("crew markers and trails (04 §C.1 crew markers)", () => {
     other.session = { ...other.session, session_id: "s-2" };
     ops.update(other);
     expect(byType(ops.crewLayer, "crew_trail")).toHaveLength(0);
+  });
+});
+
+describe("'me' and 'buddy' are told apart (plan step 2 of docs/plan/frontend/17-eva-tablet.md)", () => {
+  it("marks the crew member this view belongs to as own, and the others as not", () => {
+    const { ops } = setup();
+    ops.setOwnCrew("EV1");
+    ops.update(snapshot({ crew: [crew("EV1", 0, 0), crew("EV2", 10, 0)] }));
+    const markers = byType(ops.crewLayer, "crew_marker");
+    expect(markers[0]!.get("own")).toBe(true);
+    expect(markers[1]!.get("own")).toBe(false);
+  });
+
+  it("draws a ring around the own marker and none around the buddy, so the two differ by shape and not by colour", () => {
+    const { ops } = setup();
+    ops.setOwnCrew("EV1");
+    ops.update(snapshot({ crew: [crew("EV1", 0, 0), crew("EV2", 10, 0)] }));
+    const markers = byType(ops.crewLayer, "crew_marker");
+    const ownStyles = stylesOf(ops.crewLayer, markers[0]!);
+    const buddyStyles = stylesOf(ops.crewLayer, markers[1]!);
+    // The own marker has a second renderer (the ring); the buddy has only the chevron.
+    expect(ownStyles.filter((st) => st.getRenderer()).length).toBe(2);
+    expect(buddyStyles.filter((st) => st.getRenderer()).length).toBe(1);
+    const { calls } = draw(ownStyles.find((st) => st.getRenderer() && st !== glyphOf(ownStyles))!, [50, 50]);
+    expect(calls.some((c) => c.name === "arc")).toBe(true);
+  });
+
+  it("with no own crew every marker is a buddy, and setting the own crew redraws the markers", () => {
+    const { ops } = setup();
+    ops.update(snapshot({ crew: [crew("EV1", 0, 0), crew("EV2", 10, 0)] }));
+    expect(byType(ops.crewLayer, "crew_marker").every((m) => m.get("own") === false)).toBe(true);
+    ops.setOwnCrew("EV2");
+    const markers = byType(ops.crewLayer, "crew_marker");
+    expect(markers[0]!.get("own")).toBe(false);
+    expect(markers[1]!.get("own")).toBe(true);
   });
 });
 
@@ -326,7 +366,7 @@ describe("no invented science: coverage and haven bands come only from data (04 
     ops.update(snapshot({ crew: [crew("EV1", 0, 0)] }));
     expect(featuresOf(ops.commShadowLayer)).toHaveLength(0);
     expect(featuresOf(ops.havenBandsLayer)).toHaveLength(0);
-    expect(ops.availability()).toEqual({ comm_shadow: false, haven_bands: false });
+    expect(ops.availability()).toEqual({ comm_shadow: false, haven_bands: false, relay_coverage: [] });
   });
 
   it("uses the 10, 20 and 30 minute bands of 04 §C.1 and no other", () => {
@@ -512,5 +552,143 @@ describe("colours are tokens (04 §C.1)", () => {
     document.documentElement.style.setProperty("--text-1", "#0A0B0C");
     const styles = stylesOf(ops.crewLayer, byType(ops.crewLayer, "crew_marker")[0]!);
     expect(lastSet(draw(glyphOf(styles), [5, 5]).calls, "fillStyle")).toBe("#0A0B0C");
+  });
+});
+
+describe("package 21: relay coverage, haven per crew, caution hatch, last-linked time (FR-39, FR-42; FD-071, FD-072)", () => {
+  // 3 x 2 grid of 10 m cells at (0, 20): 1 = line of sight from the relay, 0 = none.
+  const relayGrid = (values: number[] = [1, 1, 0, 0, 1, 255]): CommGridInput => ({
+    cell_m: 10,
+    width: 3,
+    height: 2,
+    origin_m: [0, 20],
+    values: Uint8Array.from(values),
+    source_id: "api:relay-coverage/UR1",
+  });
+
+  it("relay coverage row says not computed without grid", () => {
+    const { ops } = setup();
+    const row = ops.rows().find((r) => r.id === "relay_coverage")!;
+    expect(row.text).toBe("Relay coverage — not computed");
+    expect(row.unavailable).toBe(true);
+    expect(row.prov).toBe("derived");
+    expect(row.src).toBe("unavailable:relay_coverage");
+    // Before any map exists the rows read the same, from the pure function.
+    expect(opsLayerRows(null).find((r) => r.id === "relay_coverage")!.text).toBe("Relay coverage — not computed");
+  });
+
+  it("draws the line-of-sight cells of a relay grid in projected metres, labels them derived with the endpoint source, and clears", () => {
+    const { ops } = setup();
+    ops.setRelayCoverage("UR1", relayGrid());
+    const cells = byType(ops.relayCoverageLayer, "relay_coverage");
+    expect(cells).toHaveLength(1);
+    const rings = (cells[0]!.getGeometry() as MultiPolygon).getCoordinates().map((p) => p[0]!.map((c) => c.join(",")).join(" ")).sort();
+    expect(rings).toEqual(["0,20 20,20 20,10 0,10 0,20", "10,10 20,10 20,0 10,0 10,10"]);
+    expect(ops.relayCoverageLayer.get("provenance")).toBe("derived");
+    expect(ops.relayCoverageLayer.get("source_id")).toBe("api:relay-coverage/UR1");
+    expect(ops.availability().relay_coverage).toEqual(["UR1"]);
+    const row = ops.rows().find((r) => r.id === "relay_coverage")!;
+    expect(row).toMatchObject({ text: "Relay coverage — UR1", unavailable: false, src: "api:relay-coverage/UR1" });
+    ops.setRelayCoverage("UR1", null);
+    expect(featuresOf(ops.relayCoverageLayer)).toHaveLength(0);
+    expect(ops.rows().find((r) => r.id === "relay_coverage")!.unavailable).toBe(true);
+  });
+
+  it("switches relay coverage with the comm shadow toggle (one coverage overlay, 04 §E.5)", () => {
+    const { ops } = setup();
+    ops.toggleLayer("comm_shadow", false);
+    expect(ops.relayCoverageLayer.getVisible()).toBe(false);
+    ops.toggleLayer("comm_shadow", true);
+    expect(ops.relayCoverageLayer.getVisible()).toBe(true);
+  });
+
+  it("draws each crew member's haven from Crew.haven: a line to the haven and its minutes, modelled (N-28)", () => {
+    const { ops } = setup();
+    ops.update(snapshot({ crew: [crew("EV1", 100, 50, { haven: { minutes: 18, kind: "vehicle", target_x_m: 300, target_y_m: 40 } })] }));
+    const link = byType(ops.havenLinkLayer, "haven_link")[0]!;
+    expect((link.getGeometry() as LineString).getCoordinates()).toEqual([[100, 50], [300, 40]]);
+    expect(ops.havenLinkLayer.get("provenance")).toBe("modelled");
+    expect(ops.havenLinkLayer.get("source_id")).toBe("snapshot:crew.haven");
+    const label = byType(ops.havenLinkLayer, "haven_link_label")[0]!;
+    expect(stylesOf(ops.havenLinkLayer, label)[0]!.getText()!.getText()).toBe("EV1 HAVEN 18 MIN · VEHICLE");
+    const stroke = stylesOf(ops.havenLinkLayer, link)[0]!.getStroke()!;
+    expect(stroke.getColor()).toBe(tokens["--text-2"]);
+  });
+
+  it("marks a haven beyond the session's haven rule with the caution colour, shape and word", () => {
+    const { ops } = setup();
+    // mission_setup.max_haven_min is 30 in the fixture snapshot.
+    ops.update(snapshot({ crew: [crew("EV1", 0, 0, { haven: { minutes: 34, kind: "hab", target_x_m: 0, target_y_m: 900 } })] }));
+    const label = byType(ops.havenLinkLayer, "haven_link_label")[0]!;
+    expect(stylesOf(ops.havenLinkLayer, label)[0]!.getText()!.getText()).toBe("EV1 HAVEN 34 MIN · HAB ▲ CAUTION");
+    const link = byType(ops.havenLinkLayer, "haven_link")[0]!;
+    const stroke = stylesOf(ops.havenLinkLayer, link)[0]!.getStroke()!;
+    expect(stroke.getColor()).toBe(tokens["--caution"]);
+    expect(stroke.getLineDash()!.length).toBeGreaterThan(0);
+  });
+
+  it("hatches the area of the time field beyond the haven rule with the shared caution pattern (FD-072)", () => {
+    const { ops } = setup();
+    // 3 x 1 field of 10 m cells: 10, 25 and 40 minutes from the hab.
+    const field: HavenFieldInput = { cell_m: 10, width: 3, height: 1, origin_m: [0, 10], seconds: Float64Array.from([600, 1500, 2400]), source_id: "haven-field-test" };
+    ops.setHavenField(field);
+    expect(byType(ops.havenBandsLayer, "haven_caution")).toHaveLength(0);
+    ops.setHavenRule(20);
+    const hatch = byType(ops.havenBandsLayer, "haven_caution");
+    expect(hatch).toHaveLength(1);
+    expect((hatch[0]!.getGeometry() as MultiPolygon).getCoordinates()[0]![0]!.map((c) => c.join(",")).join(" ")).toBe("10,10 30,10 30,0 10,0 10,10");
+    const style = stylesOf(ops.havenBandsLayer, hatch[0]!)[0]!;
+    const ring = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]];
+    const { calls } = draw(style, [[ring]] as never);
+    // The hatch tile needs a 2D canvas, which the test DOM has not: the fill then falls back to the caution tint.
+    expect(calls.some((c) => c.name === "fill")).toBe(true);
+    expect(String(lastSet(calls, "fillStyle"))).not.toBe("");
+    expect(lastSet(calls, "strokeStyle")).toBe(tokens["--caution"]);
+    ops.setHavenRule(null);
+    expect(byType(ops.havenBandsLayer, "haven_caution")).toHaveLength(0);
+  });
+
+  it("counts the STALE age from the Hab Core's last-linked sim time when it is given, even on first sight (FD-072, N-03)", () => {
+    const { ops } = setup();
+    ops.update(at("2024-05-20T13:00:52Z", { crew: [crew("EV1", 0, 0, { linked: false, stale: true, last_linked_sim_time: "2024-05-20T13:00:10Z" })] }));
+    expect(labelOf(stylesOf(ops.crewLayer, byType(ops.crewLayer, "crew_marker")[0]!))).toBe("EV1\nSTALE 0:42");
+    ops.update(at("2024-05-20T13:00:53Z", { crew: [crew("EV1", 0, 0, { linked: false, stale: true, last_linked_sim_time: null })] }));
+    expect(labelOf(stylesOf(ops.crewLayer, byType(ops.crewLayer, "crew_marker")[0]!))).toBe("EV1\nSTALE —");
+  });
+
+  it("keeps absent snapshot counts unavailable instead of inventing zero crew, vehicles or havens", () => {
+    const { ops } = setup();
+    const counts = () => ops.rows().filter(row => ["crew", "vehicles", "haven_links"].includes(row.id));
+    const expectMissing = () => {
+      for (const row of counts()) {
+        expect(row.text).toBe(`${row.id === "crew" ? "Crew" : row.id === "vehicles" ? "Vehicles" : "Haven per crew"} — —`);
+        expect(row.unavailable).toBe(true);
+        expect(row.src).toMatch(/^unavailable:/);
+      }
+    };
+    try {
+      expectMissing();
+      ops.update(snapshot());
+      for (const row of counts()) {
+        expect(row.text).toMatch(/ — 0$/);
+        expect(row.unavailable).toBe(false);
+        expect(row.src).toMatch(/^snapshot:/);
+      }
+      ops.update(null);
+      expectMissing();
+    } finally { ops.destroy(); }
+  });
+
+  it("lists one row per layer, each with a provenance class and a source id", () => {
+    const { ops } = setup();
+    ops.update(snapshot({ crew: [crew("EV1", 0, 0)], vehicles: [vehicle("UR1", "utility_rover", 1, 1)] }));
+    const rows = ops.rows();
+    expect(rows.map((r) => r.id)).toEqual(["crew", "vehicles", "comm_shadow", "relay_coverage", "haven_bands", "haven_links"]);
+    for (const row of rows) {
+      expect(["measured", "derived", "modelled", "assumed", "replayed", "simulated"]).toContain(row.prov);
+      expect(row.src.length).toBeGreaterThan(0);
+    }
+    expect(rows.find((r) => r.id === "comm_shadow")!.text).toBe("Comm shadow — not computed");
+    expect(rows.find((r) => r.id === "haven_links")!).toMatchObject({ text: "Haven per crew — 1", prov: "modelled", unavailable: false });
   });
 });

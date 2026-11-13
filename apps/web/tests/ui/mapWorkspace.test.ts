@@ -1,0 +1,465 @@
+/**
+ * T07.06, T07.08, T07.13, T13.06 — SCR-02 workspace (docs/specs/03 SCR-02; 04 §E.3, §F, Appendix A §B; FD-063, FD-080, FD-118).
+ * The real MapWorkspace is mounted with the real OpenLayers map on the F4 mock site. jsdom has no layout, so the map has no
+ * size and draws no frame; pixel geometry and tile painting are the harness's (`make e2e-one CHECK=offline|axe|targets|provenance`).
+ */
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, createElement } from "react";
+import type { AppContext, MapHandle, WorkerClient } from "../../src/ui/context";
+import { MapWorkspace } from "../../src/ui/screens/scr02MapWorkspace";
+import { click, installDom, keyDown, mount as mountRaw, must, removeDom, type Mounted } from "./domHarness";
+import { mockLoadedSite, stubReducedMotion, stubResizeObserver } from "./map/mapFixtures";
+import { fakePlanStore, resultOf, type FakePlanStore } from "./planStoreFake";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { realPlan, STOP_POI } from "./realPlanStore";
+
+beforeAll(() => {
+  installDom();
+  stubResizeObserver();
+  // The real tokens.css, so the map layers read real design tokens.
+  const css = readFileSync(resolve(__dirname, "../../src/ui/styles/tokens.css"), "utf8");
+  const style = document.createElement("style");
+  style.textContent = css;
+  document.head.appendChild(style);
+});
+afterAll(() => removeDom());
+
+const SITE = mockLoadedSite();
+const open: Mounted[] = [];
+let restoreMotion: () => void;
+beforeEach(() => {
+  restoreMotion = stubReducedMotion(true);
+  window.location.hash = "";
+});
+afterEach(async () => {
+  for (const m of open.splice(0)) await m.unmount();
+  document.body.innerHTML = "";
+  restoreMotion();
+  vi.unstubAllGlobals();
+});
+
+const workerClient = {
+  samplePoint: () => new Promise<never>(() => {}),
+  computePlan: () => new Promise<never>(() => {}),
+  postMessage() {},
+  onMessage: () => () => {},
+  terminate() {},
+  retry() {},
+  isCrashed: () => false,
+} as unknown as WorkerClient;
+
+async function workspace(width: number, over: { debug?: boolean; plan?: Parameters<typeof fakePlanStore>[0] } = {}): Promise<{ root: HTMLElement; plan: FakePlanStore; ctx: AppContext; handle: () => MapHandle }> {
+  Object.defineProperty(window, "innerWidth", { value: width, configurable: true, writable: true });
+  const plan = fakePlanStore(over.plan ?? {});
+  const ctx: AppContext = { site: SITE, planStore: plan.store, workerClient, debug: over.debug ?? false };
+  let handle: MapHandle | null = null;
+  const m = await mountRaw(createElement(MapWorkspace, { ctx, onMapReady: (h: MapHandle) => (handle = h) }));
+  open.push(m);
+  return { root: must(m.container, '[data-slot="map-workspace"]'), plan, ctx, handle: () => handle! };
+}
+
+describe("MapWorkspace layout (04 §E.3, §F)", () => {
+  it("three columns at 1280: both drawers beside the map, results panel below", async () => {
+    const { root } = await workspace(1280);
+    expect(root.getAttribute("data-layout")).toBe("three-column");
+    expect(must(root, '[data-drawer="left"]').hasAttribute("hidden")).toBe(false);
+    expect(must(root, '[data-drawer="right"]').hasAttribute("hidden")).toBe(false);
+    expect(root.querySelector('[data-slot="drawer-toggle"]')).toBeNull();
+    expect(must(root, '[data-slot="map-host"]')).toBeTruthy();
+    expect(must(root, '[data-slot="results-panel"]')).toBeTruthy();
+  });
+
+  it("one drawer at 1024: none open to begin with, opening one closes the other, the map is never covered by two", async () => {
+    const { root } = await workspace(1024);
+    expect(root.getAttribute("data-layout")).toBe("one-drawer");
+    const left = must(root, '[data-drawer="left"]');
+    const right = must(root, '[data-drawer="right"]');
+    expect(left.hasAttribute("hidden")).toBe(true);
+    expect(right.hasAttribute("hidden")).toBe(true);
+
+    await click(must(root, '[data-slot="drawer-toggle"][data-for="left"]'));
+    expect(left.hasAttribute("hidden")).toBe(false);
+    expect(right.hasAttribute("hidden")).toBe(true);
+
+    await click(must(root, '[data-slot="drawer-toggle"][data-for="right"]'));
+    expect(left.hasAttribute("hidden")).toBe(true);
+    expect(right.hasAttribute("hidden")).toBe(false);
+
+    await click(must(root, '[data-slot="drawer-toggle"][data-for="right"]'));
+    expect(right.hasAttribute("hidden")).toBe(true);
+  });
+
+  it("the top bar has the logo to SCR-01, the data-version chip and the Briefing and Sources buttons (04 Appendix A §B)", async () => {
+    const { root } = await workspace(1280);
+    const bar = must(root, '[data-slot="top-bar"]');
+    expect(must<HTMLAnchorElement>(bar, '[data-slot="logo"]').getAttribute("href")).toBe("#/");
+    const chip = must(bar, '[data-slot="data-version"]');
+    expect(chip.textContent).toContain(SITE.site.data_version);
+    expect(chip.getAttribute("data-provenance")).toBe("derived");
+    expect(chip.getAttribute("data-source")).toBeTruthy();
+    expect(must(bar, '[data-slot="briefing"]').textContent).toMatch(/Briefing/);
+    expect(must<HTMLAnchorElement>(bar, '[data-slot="sources"]').getAttribute("href")).toBe("#/sources");
+  });
+
+  it("the results panel is the SCR-05 panel on the plan store, in the bottom slot", async () => {
+    const { root } = await workspace(1280);
+    expect(must(root, '[data-slot="results-panel"] .scr05-results-panel')).toBeTruthy();
+  });
+
+  it("the left drawer has the Layers and Plan tabs and the right drawer the POI detail and Conditions tabs, with the mounted panels (no throw, no blank)", async () => {
+    const { root } = await workspace(1280);
+    const names = (drawer: string): string[] => [...root.querySelectorAll(`[data-drawer="${drawer}"] [role="tab"]`)].map((t) => t.textContent!.trim());
+    expect(names("left")).toEqual(["Layers", "Plan"]);
+    expect(names("right")).toEqual(["POI detail", "Conditions"]);
+    expect(must(root, '[data-drawer="left"] [role="tabpanel"]').textContent).not.toBe("");
+    await click(must(root, '[data-drawer="left"] [role="tab"]:nth-child(2)'));
+    expect(must(root, '[data-drawer="left"] [role="tab"][aria-selected="true"]').textContent).toContain("Plan");
+  });
+
+  it("the Plan tab is the SCR-04 panel on the plan store: inputs, the defaults badge and the stops list (package 09)", async () => {
+    const { root } = await workspace(1280);
+    await click(must(root, '[data-drawer="left"] [role="tab"]:nth-child(2)'));
+    const plan = must(root, '[data-drawer="left"] [data-slot="plan-panel"]');
+    expect(plan.querySelector('[data-slot="defaults-badge"]')).not.toBeNull();
+    expect(plan.querySelector('[data-field="max_haven_min"] input')).not.toBeNull();
+    expect(plan.querySelector('[data-slot="stops-list"]')).not.toBeNull();
+    expect(root.querySelector('[data-drawer="left"] [data-slot="panel-pending"]')).toBeNull();
+  });
+});
+
+describe("MapWorkspace map mount (T07.06, T07.08)", () => {
+  it("mounts the real map once, with scale bar, north arrow and the pan/zoom controls", async () => {
+    const { root } = await workspace(1280);
+    expect(root.querySelectorAll(".ol-viewport")).toHaveLength(1);
+    expect(must(root, '[data-testid="scale-bar"]')).toBeTruthy();
+    expect(must(root, '[data-testid="north-arrow"]')).toBeTruthy();
+    expect(must(root, '[data-slot="map-controls"][data-variant="planner"]')).toBeTruthy();
+    expect(root.querySelectorAll(".ol-viewport")).toHaveLength(1);
+  });
+
+  it("readout is derived with projection source", async () => {
+    const { root, handle } = await workspace(1280);
+    const readout = must(root, '[data-testid="coord-readout"]');
+    // Nothing measured yet: "—", still `derived`, its source marks it unavailable.
+    expect(readout.textContent).toBe("—");
+    expect(readout.getAttribute("data-provenance")).toBe("derived");
+    handle().getMap<{ dispatchEvent(e: unknown): void }>().dispatchEvent({ type: "pointermove", coordinate: [100, 200] });
+    expect(readout.textContent).toContain("x 100 m");
+    expect(readout.getAttribute("data-provenance")).toBe("derived");
+    expect(readout.getAttribute("data-source")).toBe("proj:IAU_2015:49900");
+  });
+
+  it("FIT fits the AOI of the manifest, in projected metres", async () => {
+    const { root, ctx, handle } = await workspace(1280);
+    handle().setCenter([1, 1]);
+    await click(must(root, '[data-slot="map-controls"] [data-control="fit"]'));
+    const [x0, y0, x1, y1] = ctx.site.site.aoi.extent_m;
+    expect(handle().getCenter()[0]).toBeCloseTo((x0 + x1) / 2, 6);
+    expect(handle().getCenter()[1]).toBeCloseTo((y0 + y1) / 2, 6);
+  });
+
+  it("every map module is built, so no control is hidden for a missing module (FD-118) and Add stop is on the toolbar", async () => {
+    const { root } = await workspace(1280);
+    expect(root.querySelector('[data-slot="modules-not-ready"]')).toBeNull();
+    const add = must(root, '[data-control="add-stop"]');
+    expect(add.getAttribute("aria-pressed")).toBe("false");
+    expect(add.textContent).toContain("Add stop");
+  });
+
+  it("A toggles add-stop mode: the crosshair shows and the toolbar button follows; pressing it again turns it off (package 10)", async () => {
+    const { root } = await workspace(1280);
+    const add = must(root, '[data-control="add-stop"]');
+    await keyDown(document.body, "a");
+    expect(add.getAttribute("aria-pressed")).toBe("true");
+    expect(root.querySelector('[data-slot="crosshair"]')).not.toBeNull();
+    await click(add);
+    expect(add.getAttribute("aria-pressed")).toBe("false");
+    expect(root.querySelector('[data-slot="crosshair"]')).toBeNull();
+  });
+
+  it("the keyboard-move group shows while a stop is selected and names it; nothing for the start (package 10)", async () => {
+    const stopSelected = await workspace(1280, { plan: { selected_waypoint_id: "wp-1" } });
+    expect(must(stopSelected.root, '[data-slot="keyboard-move"]').getAttribute("aria-label")).toBe("Move stop 1");
+    await open.pop()!.unmount();
+    const startSelected = await workspace(1280, { plan: { selected_waypoint_id: "wp-0" } });
+    expect(startSelected.root.querySelector('[data-slot="keyboard-move"]')).toBeNull();
+  });
+
+  it("a placement notice region is in the map box, empty until a placement says something (package 10)", async () => {
+    const { root } = await workspace(1280);
+    const region = must(root, '[data-slot="placement-notice"] [data-slot="notice"]');
+    expect(region.getAttribute("role")).toBe("status");
+    expect(region.getAttribute("data-empty")).toBe("true");
+  });
+
+  it("destroys the map and its listeners on unmount", async () => {
+    const { plan } = await workspace(1280);
+    const before = plan.listenerCount();
+    expect(before).toBeGreaterThan(0);
+    await open.pop()!.unmount();
+    expect(plan.listenerCount()).toBe(0);
+    expect(document.querySelector(".ol-viewport")).toBeNull();
+  });
+});
+
+describe("MapWorkspace keyboard (T13.06, 04 §E, 03 SCR-02)", () => {
+  it("B opens briefing once the plan is computed and has a stop", async () => {
+    const { root } = await workspace(1280, { plan: { status: "OK", result: resultOf({ legs: [] }) } });
+    expect(must<HTMLButtonElement>(root, '[data-slot="briefing"]').disabled).toBe(false);
+    await keyDown(document.body, "b");
+    expect(window.location.hash).toBe("#/briefing");
+  });
+
+  it("B does nothing with no stop or after an error, and the Briefing button is disabled with a reason (04 §D)", async () => {
+    const { root } = await workspace(1280, { plan: { status: "Empty", waypoints: [{ id: "wp-0", role: "start", x_m: 0, y_m: 0 }] } });
+    const button = must<HTMLButtonElement>(root, '[data-slot="briefing"]');
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("title")).toMatch(/Add a stop/);
+    await keyDown(document.body, "B");
+    expect(window.location.hash).toBe("");
+  });
+
+  it("? opens sources", async () => {
+    await workspace(1280);
+    await keyDown(document.body, "?");
+    expect(window.location.hash).toBe("#/sources");
+  });
+
+  it("Delete removes the selected stop through the plan store", async () => {
+    const { plan } = await workspace(1280, { plan: { selected_waypoint_id: "wp-1" } });
+    const del = vi.spyOn(plan.store, "deleteWaypoint");
+    await keyDown(document.body, "Delete");
+    expect(del).toHaveBeenCalledWith("wp-1");
+  });
+
+  it("the start waypoint is never deleted by the keyboard", async () => {
+    const { plan } = await workspace(1280, { plan: { selected_waypoint_id: "wp-0" } });
+    const del = vi.spyOn(plan.store, "deleteWaypoint");
+    await keyDown(document.body, "Delete");
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it("arrow keys pan only while the map has focus", async () => {
+    const { root, handle } = await workspace(1280);
+    const viewport = must(root, ".ol-viewport");
+    const before = handle().getCenter();
+    await keyDown(document.body, "ArrowRight");
+    expect(handle().getCenter()).toEqual(before);
+    viewport.focus();
+    await keyDown(viewport, "ArrowRight");
+    expect(handle().getCenter()[0]).toBeGreaterThan(before[0]);
+  });
+});
+
+describe("MapWorkspace debug overlay (T07.13)", () => {
+  it("debug overlay only with debug=1", async () => {
+    const off = await workspace(1280, { debug: false });
+    expect(off.root.querySelector('[data-testid="debug-overlay"]')).toBeNull();
+    await open.pop()!.unmount();
+    const on = await workspace(1280, { debug: true });
+    expect(on.root.ownerDocument.querySelector('[data-testid="debug-overlay"]')).not.toBeNull();
+  });
+});
+
+describe("MapWorkspace layers and POI selection (package 08: SCR-03, FD-074, FD-111)", () => {
+  type Ol = { getLayers(): { getArray(): { getZIndex(): number | undefined; getVisible(): boolean }[] } };
+  const visibleAt = (h: MapHandle, z: number): number => h.getMap<Ol>().getLayers().getArray().filter((l) => l.getZIndex() === z && l.getVisible()).length;
+
+  it("the Layers tab is the SCR-03 panel: the manifest's layers, the traverse, the POIs and the EZ stop types, as switches", async () => {
+    const { root } = await workspace(1280);
+    const ids = [...root.querySelectorAll('[data-drawer="left"] [data-layer-id]')].map((r) => r.getAttribute("data-layer-id"));
+    expect(ids).toEqual(expect.arrayContaining(["slope", "elevation", "traverse", "pois", "ez"]));
+    expect(root.querySelector('[data-drawer="left"] [data-slot="panel-pending"]')).toBeNull();
+  });
+
+  it("a layer switch shows and hides the map layer, and the legend follows the scenario's limits", async () => {
+    const { root, handle } = await workspace(1280);
+    expect(visibleAt(handle(), 30)).toBe(0);
+    await click(must(root, '[data-layer-id="slope"] [role="switch"]'));
+    expect(visibleAt(handle(), 30)).toBe(1);
+    const legend = must(root, '[data-layer-id="slope"] [data-slot="layer-legend"]');
+    expect(legend.querySelector('[data-source="scenario.caution_slope_deg"]')!.textContent).toContain("10");
+    expect(legend.querySelector('[data-source="scenario.hard_slope_limit_deg"]')!.textContent).toContain("15");
+    await click(must(root, '[data-layer-id="slope"] [role="switch"]'));
+    expect(visibleAt(handle(), 30)).toBe(0);
+  });
+
+  it("the POI switch hides the POI pins and the EZ switch hides the stop-type markers", async () => {
+    const { root, handle } = await workspace(1280);
+    expect(visibleAt(handle(), 60)).toBe(1);
+    await click(must(root, '[data-layer-id="pois"] [role="switch"]'));
+    expect(visibleAt(handle(), 60)).toBe(0);
+    expect(visibleAt(handle(), 58)).toBe(1);
+    await click(must(root, '[data-layer-id="ez"] [role="switch"]'));
+    expect(visibleAt(handle(), 58)).toBe(0);
+  });
+
+  it("selecting a POI sets selected_poi_id and opens the POI detail drawer, in its own state and not the plan store's waypoint selection", async () => {
+    const { root, plan } = await workspace(1280);
+    const select = vi.spyOn(plan.store, "selectWaypoint");
+    await click(must(root, '[data-drawer="right"] [role="tab"]:nth-child(2)'));
+    const poi = must<HTMLButtonElement>(root, "[data-poi-id]");
+    await click(poi);
+    expect(root.getAttribute("data-selected-poi-id")).toBe(poi.dataset.poiId);
+    expect(must(root, '[data-drawer="right"] [role="tab"][aria-selected="true"]').textContent).toContain("POI detail");
+    expect(select).not.toHaveBeenCalled();
+  });
+
+  it("in the one-drawer layout selecting a POI opens the right drawer and closes the left", async () => {
+    const { root } = await workspace(1024);
+    await click(must(root, '[data-slot="drawer-toggle"][data-for="left"]'));
+    await click(must<HTMLButtonElement>(root, "[data-poi-id]"));
+    expect(must(root, '[data-drawer="right"]').hasAttribute("hidden")).toBe(false);
+    expect(must(root, '[data-drawer="left"]').hasAttribute("hidden")).toBe(true);
+  });
+
+  it("the repaint hook for the harness exists only with debug=1", async () => {
+    const w = window as unknown as { __onNextPostrender?: unknown };
+    delete w.__onNextPostrender;
+    await workspace(1280, { debug: false });
+    expect(w.__onNextPostrender).toBeUndefined();
+    await open.pop()!.unmount();
+    await workspace(1280, { debug: true });
+    expect(typeof w.__onNextPostrender).toBe("function");
+    await open.pop()!.unmount();
+    expect(w.__onNextPostrender).toBeUndefined();
+  });
+});
+it("right drawer mounts POI detail and conditions on their real selections", async () => {
+  const { root } = await workspace(1280);
+  await click(must(root, 'button[data-poi-id]'));
+  expect(must(root, '[data-poi-detail]').textContent).toContain("Boxwork ridge");
+  await click(must(root, '#scr02-right-tab-conditions'));
+  expect(must(root, '[data-conditions]').textContent).toContain("Not included in this build");
+});
+
+it("N-07 library populates stops with Plan closed, feeds SCR-06 and the editor, and aborts/unsubscribes on exit", async () => {
+  const plan = realPlan();
+  const library = [{ library_task_id: "lt-boxwork-01", poi_id: STOP_POI.poi_id, crew_id: "EV1", kind: "image", text: "Image the ridge crest", source_id: "poi-boxwork-ridge" }];
+  const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ task_library: library }) });
+  vi.stubGlobal("fetch", fetcher);
+  const ctx: AppContext = { site: SITE, planStore: plan.store, workerClient, debug: false };
+  const m = await mountRaw(createElement(MapWorkspace, { ctx }));
+  open.push(m);
+  const root = m.container;
+  expect(must(root, '#scr02-left-tab-layers').getAttribute('aria-selected')).toBe('true');
+  await act(async () => { plan.store.addWaypoint(STOP_POI); });
+  expect(plan.store.get().stop_tasks).toHaveLength(1);
+  expect(plan.store.get().stop_tasks[0]!.text).toBe(library[0]!.text);
+  await click(must(root, 'button[data-poi-id]'));
+  expect(must(root, '[aria-label="Suggested tasks"]').textContent).toContain(library[0]!.text);
+  await click(must(root, '#scr02-left-tab-plan'));
+  expect(must(root, '[data-task-text]').getAttribute('data-source')).toBe(library[0]!.source_id);
+  await open.pop()!.unmount();
+  const request = fetcher.mock.calls.find(call => call[0] === 'api/session')!;
+  expect(request[1].signal.aborted).toBe(true);
+  plan.store.addWaypoint({ ...STOP_POI, id: 'wp-2' });
+  expect(plan.store.get().stop_tasks).toHaveLength(1);
+});
+
+it("Delete and B on a task button or the Stop tasks summary act on that control, not on the selected stop or the route (package 25 review)", async () => {
+  const plan = realPlan();
+  const library = [
+    { library_task_id: "lt-boxwork-01", poi_id: STOP_POI.poi_id, crew_id: "EV1", kind: "image", text: "Image the ridge crest", source_id: "poi-boxwork-ridge" },
+    { library_task_id: "lt-boxwork-02", poi_id: STOP_POI.poi_id, crew_id: null, kind: "other", text: "Note the boxwork pattern", source_id: "poi-boxwork-ridge" },
+  ];
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ task_library: library }) }));
+  const ctx: AppContext = { site: SITE, planStore: plan.store, workerClient, debug: false };
+  const m = await mountRaw(createElement(MapWorkspace, { ctx }));
+  open.push(m);
+  await act(async () => { plan.store.addWaypoint(STOP_POI); });
+  plan.answer();
+  await act(async () => { await Promise.resolve(); });
+  plan.store.selectWaypoint(STOP_POI.id);
+  await click(must(m.container, "#scr02-left-tab-plan"));
+  const del = vi.spyOn(plan.store, "deleteWaypoint");
+  const remove = must(m.container, "[data-delete-task]");
+  const summary = must(m.container, "[data-stop-task-editor] > summary");
+  for (const control of [remove, summary]) {
+    for (const key of ["Delete", "b", "B", "?", "a"]) await keyDown(control, key);
+  }
+  expect(del).not.toHaveBeenCalled();
+  expect(plan.store.get().waypoints.map((w) => w.id)).toContain(STOP_POI.id);
+  expect(plan.store.get().stop_tasks).toHaveLength(2);
+  expect(window.location.hash).toBe("");
+  await keyDown(document.body, "Delete");
+  expect(del).toHaveBeenCalledWith(STOP_POI.id);
+});
+
+describe("N-07 task library states in the workspace: loading, unavailable, retry (package 25 review)", () => {
+  const library = [{ library_task_id: "lt-boxwork-01", poi_id: STOP_POI.poi_id, crew_id: "EV1", kind: "image", text: "Image the ridge crest", source_id: "poi-boxwork-ridge" }];
+  async function planner(fetcher: ReturnType<typeof vi.fn>) {
+    const plan = realPlan();
+    vi.stubGlobal("fetch", fetcher);
+    const ctx: AppContext = { site: SITE, planStore: plan.store, workerClient, debug: false };
+    const m = await mountRaw(createElement(MapWorkspace, { ctx }));
+    open.push(m);
+    return { plan, root: m.container };
+  }
+  const poiDetail = (root: ParentNode) => must(root, '[aria-label="Suggested tasks"]');
+  // The Plan tab also reads `api/session` for the EVA start; the library request is the one that carries an abort signal.
+  const libraryCalls = (fetcher: ReturnType<typeof vi.fn>) => fetcher.mock.calls.filter((call) => call[1]?.signal);
+
+  it("SCR-06 says the library is loading while the request is in flight, then lists the suggestions", async () => {
+    let answer!: (response: unknown) => void;
+    const fetcher = vi.fn().mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    const { root } = await planner(fetcher);
+    await click(must(root, "button[data-poi-id]"));
+    expect(poiDetail(root).textContent).toContain("Loading suggested tasks");
+    expect(poiDetail(root).textContent).not.toMatch(/unavailable/i);
+    await act(async () => { answer({ ok: true, json: async () => ({ task_library: library }) }); });
+    expect(poiDetail(root).textContent).toContain(library[0]!.text);
+    expect(poiDetail(root).textContent).not.toContain("Loading");
+  });
+
+  it("a failed fetch leaves the POI stop saying 'Task library unavailable', never 'No tasks'; Retry fetches again and backfills the stop", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce({ ok: false }).mockResolvedValue({ ok: true, json: async () => ({ task_library: library }) });
+    const { plan, root } = await planner(fetcher);
+    await act(async () => { plan.store.addWaypoint(STOP_POI); });
+    await click(must(root, "#scr02-left-tab-plan"));
+    const editor = must(root, "[data-stop-task-editor]");
+    expect(must(editor, "[data-task-library]").textContent).toContain("Task library unavailable — suggested tasks not loaded");
+    expect(editor.querySelector('[data-unavailable="true"]')).not.toBeNull();
+    expect(editor.textContent).not.toContain("No tasks");
+    expect(plan.store.get().stop_tasks).toEqual([]);
+    expect(libraryCalls(fetcher)).toHaveLength(1);
+    await click(must(editor, "[data-retry-task-library]"));
+    expect(libraryCalls(fetcher)).toHaveLength(2);
+    expect(plan.store.get().stop_tasks.map((t) => t.text)).toEqual([library[0]!.text]);
+    expect(root.querySelector("[data-task-library]")).toBeNull();
+    expect(document.activeElement).toBe(must(root, "[data-new-task-text]"));
+  });
+
+  it("a second failure keeps the notice and the Retry button, and the retry request is aborted on exit", async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: false });
+    const { plan, root } = await planner(fetcher);
+    await act(async () => { plan.store.addWaypoint(STOP_POI); });
+    await click(must(root, "#scr02-left-tab-plan"));
+    await click(must(root, "[data-retry-task-library]"));
+    expect(libraryCalls(fetcher)).toHaveLength(2);
+    expect(must(root, "[data-task-library]").textContent).toContain("Task library unavailable");
+    expect(root.querySelector("[data-retry-task-library]")).not.toBeNull();
+    await open.pop()!.unmount();
+    expect(libraryCalls(fetcher)[1]![1].signal.aborted).toBe(true);
+  });
+
+  it("an empty loaded library is an honest empty list: no notice, 'No suggested tasks for this POI'", async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ task_library: [] }) });
+    const { plan, root } = await planner(fetcher);
+    await act(async () => { plan.store.addWaypoint(STOP_POI); });
+    await click(must(root, "button[data-poi-id]"));
+    expect(poiDetail(root).textContent).toContain("No suggested tasks for this POI");
+    await click(must(root, "#scr02-left-tab-plan"));
+    expect(root.querySelector("[data-task-library]")).toBeNull();
+    expect(must(root, "[data-stop-task-editor]").textContent).toContain("No tasks");
+  });
+
+  it("B-04: scr02MapWorkspace.css allows the top bar to wrap and clip long text so it never overlaps the drawer tabs on narrow phones", () => {
+    const css = readFileSync(resolve(__dirname, "../../src/ui/screens/scr02MapWorkspace.css"), "utf8");
+    expect(css).toMatch(/\.scr02\s*\{[^}]*grid-template-rows:\s*minmax\(var\(--topbar-height\),\s*auto\)/);
+    expect(css).toMatch(/\.scr02-top-bar\s*\{[^}]*flex-wrap:\s*wrap/);
+    expect(css).toMatch(/\.scr02-site-name,\s*\n\.scr02-chip\s*\{[^}]*overflow:\s*hidden/);
+    expect(css).toMatch(/@media\s*\(max-height:\s*500px\)\s*\{[\s\S]*\.scr02-results\s*\{[^}]*overflow-y:\s*auto/);
+  });
+});

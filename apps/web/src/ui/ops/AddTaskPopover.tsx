@@ -11,7 +11,8 @@
  */
 
 import { useState, type CSSProperties, type ReactElement, type FormEvent } from "react";
-import type { CrewId, StopTaskKind } from "@marswalk/protocol";
+import { StatusIcon } from "../components/statusIcon";
+import type { AddStopTaskArgs, CrewId, StopTask, StopTaskKind } from "@marswalk/protocol";
 
 export interface StopOption {
   stopId: string;
@@ -21,18 +22,17 @@ export interface StopOption {
 }
 
 export interface AddTaskPopoverProps {
+  sessionId?: string;
+  planRevision?: number;
   crewId: CrewId;
   stopId: string;
   /** Plan number of `stopId`, from the data. Absent = the label reads "—" (it is never cut out of the id). */
   stopNo?: number;
   availableStops?: StopOption[];
   maxReached?: boolean;
-  onAdd: (task: {
-    crew_id: CrewId;
-    stop_id: string;
-    kind: StopTaskKind;
-    text: string;
-  }) => void;
+  tasks?: readonly StopTask[];
+  disabledReason?: string;
+  onAdd: (task: AddStopTaskArgs) => void;
   onCancel?: () => void;
   className?: string;
 }
@@ -45,12 +45,18 @@ function stopLabel(stopNo: number | undefined): string {
   return typeof stopNo === "number" && Number.isFinite(stopNo) ? `Stop ${stopNo}` : "—";
 }
 
-export function AddTaskPopover({
+export function AddTaskPopover(props: AddTaskPopoverProps): ReactElement {
+  return <AddTaskForm key={JSON.stringify([props.crewId, props.stopId, props.sessionId, props.planRevision])} {...props} />;
+}
+
+function AddTaskForm({
   crewId,
   stopId,
   stopNo,
   availableStops = [{ stopId, stopNo, label: stopLabel(stopNo) }],
   maxReached = false,
+  tasks,
+  disabledReason,
   onAdd,
   onCancel,
   className = "",
@@ -60,10 +66,11 @@ export function AddTaskPopover({
   const [selectedKind, setSelectedKind] = useState<StopTaskKind>("observe");
   const [taskText, setTaskText] = useState<string>("");
 
+  const limitReached = maxReached || (tasks?.filter((task) => task.stop_id === selectedStop && task.state !== "DROPPED" && (task.crew_id === null || task.crew_id === selectedCrew)).length ?? 0) >= 4;
   const handleSubmit = (e: FormEvent): void => {
     e.preventDefault();
     const trimmed = taskText.trim();
-    if (!trimmed || maxReached || trimmed.length > MAX_CHARS) {
+    if (!trimmed || limitReached || disabledReason || trimmed.length > MAX_CHARS) {
       return;
     }
     onAdd({
@@ -90,6 +97,7 @@ export function AddTaskPopover({
   };
 
   const inputStyle: CSSProperties = {
+    minHeight: "32px",
     backgroundColor: "var(--raised, #1C2128)",
     border: "1px solid var(--edge, #5C6670)",
     color: "var(--text-1, #ECEFF2)",
@@ -124,7 +132,13 @@ export function AddTaskPopover({
     textTransform: "uppercase",
   };
 
-  const submitDisabled = maxReached || taskText.trim().length === 0 || taskText.length > MAX_CHARS;
+  const submitDisabled = Boolean(disabledReason) || limitReached || taskText.trim().length === 0 || taskText.length > MAX_CHARS;
+
+  if (disabledReason) return <section style={popoverStyle} data-testid="add-task-popover" data-fallback="tasks-view-only" role="status">
+    <StatusIcon status="unknown" showWord />
+    <p data-provenance="simulated" data-source="result:command.ADD_STOP_TASK">View only — {disabledReason}. Crew task progress continues to sync.</p>
+    {onCancel && <button type="button" style={buttonStyle} onClick={onCancel}>CLOSE</button>}
+  </section>;
 
   return (
     <form
@@ -132,6 +146,7 @@ export function AddTaskPopover({
       data-testid="add-task-popover"
       style={popoverStyle}
       onSubmit={handleSubmit}
+      onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onCancel?.(); } }}
       role="dialog"
       aria-label="Add stop task"
     >
@@ -151,6 +166,8 @@ export function AddTaskPopover({
             type="button"
             onClick={onCancel}
             style={{
+              minWidth: "32px",
+              minHeight: "32px",
               background: "none",
               border: "none",
               color: "var(--text-2, #A9B3BE)",
@@ -164,16 +181,23 @@ export function AddTaskPopover({
         )}
       </div>
 
-      {maxReached && (
+      {disabledReason && <p role="status">{disabledReason}</p>}
+      {limitReached && (
         <div
-          style={{
+          data-provenance="assumed"
+          data-source="ui:stop-task.limit"
+          data-status="caution"          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
             color: "var(--status-caution, #FFB020)",
             fontSize: "12px",
             padding: "4px",
             border: "1px dashed var(--status-caution, #FFB020)",
           }}
         >
-          Maximum limit of 4 tasks reached for this stop.
+          <StatusIcon status="caution" showWord={true} />
+          <span>Maximum limit of 4 tasks reached for this stop.</span>
         </div>
       )}
 
@@ -184,7 +208,7 @@ export function AddTaskPopover({
           value={selectedCrew}
           onChange={(e) => setSelectedCrew(e.target.value as CrewId)}
           style={inputStyle}
-          disabled={maxReached}
+          disabled={Boolean(disabledReason)}
           aria-label="Select crew member"
         >
           <option value="EV1">EV1</option>
@@ -199,7 +223,7 @@ export function AddTaskPopover({
           value={selectedStop}
           onChange={(e) => setSelectedStop(e.target.value)}
           style={inputStyle}
-          disabled={maxReached}
+          disabled={Boolean(disabledReason)}
           aria-label="Select stop"
         >
           {availableStops.map((st) => (
@@ -217,7 +241,7 @@ export function AddTaskPopover({
           value={selectedKind}
           onChange={(e) => setSelectedKind(e.target.value as StopTaskKind)}
           style={inputStyle}
-          disabled={maxReached}
+          disabled={Boolean(disabledReason)}
           aria-label="Select task kind"
         >
           {TASK_KINDS.map((k) => (
@@ -232,8 +256,19 @@ export function AddTaskPopover({
       <label style={labelStyle}>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <span>Description</span>
-          <span style={{ color: taskText.length > MAX_CHARS ? "var(--status-warning, #FF453A)" : "var(--text-2, #A9B3BE)" }}>
-            {taskText.length}/{MAX_CHARS}
+          <span
+            data-provenance="assumed"
+            data-source="ui:stop-task.text-length"
+            data-status={taskText.length > MAX_CHARS ? "warning" : undefined}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              color: taskText.length > MAX_CHARS ? "var(--status-warning, #FF453A)" : "var(--text-2, #A9B3BE)",
+            }}
+          >
+            {taskText.length > MAX_CHARS && <StatusIcon status="warning" showWord={true} />}
+            <span>{taskText.length}/{MAX_CHARS}</span>
           </span>
         </div>
         <input
@@ -243,7 +278,7 @@ export function AddTaskPopover({
           placeholder="Imperative task text..."
           maxLength={MAX_CHARS}
           style={inputStyle}
-          disabled={maxReached}
+          disabled={Boolean(disabledReason)}
           aria-label="Enter task description"
         />
       </label>

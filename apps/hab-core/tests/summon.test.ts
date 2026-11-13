@@ -17,33 +17,33 @@
  * the mocked compute never looks inside it.
  *
  * Rules these tests fix for T23.05 (proposed 2026-11-07 by this test file where 02, 03 and 05 are
- * silent). Each is marked TODO(decision) until the team confirms it:
- * - TODO(decision) Compute calls: `handleSummon` builds the crew and vehicle time fields with
+ * silent). Each was decided on 12 Nov 2026 (BD-58):
+ * - (BD-58) Compute calls: `handleSummon` builds the crew and vehicle time fields with
  *   `crewTimeField` and `vehicleTimeField` from the crew member's and the vehicle's positions and
  *   calls `rendezvous` (02 §D.10); it does no routing of its own.
- * - TODO(decision) Vehicle choice: the summoned vehicle is the scenario's `pressurized_rover`
+ * - (BD-58) Vehicle choice: the summoned vehicle is the scenario's `pressurized_rover`
  *   (PR1 in the fixture); the command names no vehicle. If it is not PARKED the result is BUSY,
  *   checked before any compute call.
- * - TODO(decision) Event data: bare summon logs `{vehicle_id, rendezvous}` with no `option_id`;
+ * - (BD-58) Event data: bare summon logs `{vehicle_id, rendezvous}` with no `option_id`;
  *   with `args.option_id` the data adds it, and the reducer takes the option's crew for the SUMMON
  *   task. The event has no crew field, so a bare summon leaves `task.crew_ids` unset and only the
  *   option path is covered below. Provenance `{"data.rendezvous": "modelled"}` (05 §F.6).
  *   `eta_crew_s` and `eta_vehicle_s` may be rounded to whole seconds (05 Vehicle `eta_s` is an
  *   int); the tests accept ±0.5 s.
- * - TODO(decision) Single crew only: `args.crew` of two uses the 02 §D.10 visiting order
+ * - (BD-58) Single crew only: `args.crew` of two uses the 02 §D.10 visiting order
  *   (`rendezvousPair`); that case is an it.todo.
- * - TODO(decision) The event has no path, so `vehiclesTick` computes it on the first tick after
+ * - (BD-58) The event has no path, so `vehiclesTick` computes it on the first tick after
  *   the dispatch (03 §E.9 "path computed"): it calls `rendezvous` from the vehicle's position and
  *   the crew's current position, sets `state` EN_ROUTE and `path` (ending at the rendezvous point)
  *   directly in the state it returns, and logs nothing, because no LogEvent kind exists for it.
  *   The tests keep the crew still while the vehicle drives, so the path ends at the logged point.
- * - TODO(decision) Motion: each tick moves the vehicle `speed × dt_s` along its path (ParamSet
+ * - (BD-58) Motion: each tick moves the vehicle `speed × dt_s` along its path (ParamSet
  *   `flat_speed_kmh`; the stand-in has no slope); the first tick may move it or only compute the
  *   path. The tick that would pass the end clamps to the rendezvous point and returns one
  *   VEHICLE_ARRIVED `{vehicle_id, x_m, y_m}` (actor `system`), so arrival is on tick
  *   ceil(eta_vehicle_s / dt_s), or the tick after if the first only computed the path. The module
  *   does not apply the event itself (tick.ts state rule); the reducer sets ARRIVED.
- * - TODO(decision) Sheltering: vehiclesTick returns one CREW_SHELTERED per crew member named in
+ * - (BD-58) Sheltering: vehiclesTick returns one CREW_SHELTERED per crew member named in
  *   the SUMMON task's `crew_ids`, on the first tick where the vehicle is ARRIVED (already reduced,
  *   so on a later tick than VEHICLE_ARRIVED) and that crew member is at the vehicle (distance
  *   ≤ SHELTER_REACH_M, standing for "same point"; tick.ts clamps crew motion to the target).
@@ -155,7 +155,7 @@ const T0 = fake.scenario.start_utc;
 const T0_MS = Date.parse(T0);
 const iso = (ms: number): string => new Date(ms).toISOString().replace(".000Z", "Z");
 
-const waypoints = fake.scenario.plan.waypoints;
+const waypoints = fake.scenario.plan!.waypoints;
 standIn.extent_m = Math.max(...waypoints.map((w) => w.x_m));
 const stop1 = waypoints.find((w) => w.id === "wp-1")!;
 const pr1Params = Object.values(fake.params).find((p) => p.kind === "pressurized_rover")!;
@@ -236,7 +236,7 @@ const expectEta = (actual: number, expected: number): void => {
 /** What the stand-in rendezvous gives for EV1 at `crew_x_m` and PR1 at its start. */
 function expectedRendezvous(crew_x_m: number, vehicle_x_m: number) {
   const r = standIn.solve(
-    standIn.crewTimeField(null, { x_m: crew_x_m }, fake.scenario.plan.scenario, Infinity),
+    standIn.crewTimeField(null, { x_m: crew_x_m }, fake.scenario.plan!.scenario, Infinity),
     standIn.vehicleTimeField(null, { x_m: vehicle_x_m }, pr1Params),
   );
   if (!r) throw new Error("fixture has no stand-in rendezvous");

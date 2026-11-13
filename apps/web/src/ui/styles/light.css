@@ -1,12 +1,34 @@
 /*
- * Light theme — token overrides for projector venues (04 U-08).
- * Stub — implementation: T13.08 (Ridita Alam), ONLY if the U-08 projector check fails.
- * Imported from tokens.css so main.ts needs no edit (C12 Spec question 4).
- *
- * Uses only colour values 04 §C.1 states (the print-theme set). Values 04 lacks
- * (accent, focus, unknown, panel, raised, text-muted) are TODO(decision) and need
- * a spec-change on 04 §C.1 with computed contrast before T13.08 starts.
- *
- * This file is owned by T13.08. Do not edit until T13.08 merges. Cut-4 safe.
+ * Light theme — token overrides for projector venues (04 U-08; FD-002, FD-061).
+ * Opt-in by `?theme=light`, never by `prefers-color-scheme`; dark stays default.
+ * Built only from the 04 §C.1 PRINT primitives and print neutrals.
+ * No brand orange in light OPS: accent maps to print-text (FD-061).
  */
 
+:root[data-theme="light"][data-mode="ops"],
+[data-theme="light"] [data-mode="ops"] {
+  --surface-0: #FFFFFF;
+  --surface-1: #FFFFFF;
+  --surface-2: #F3F4F6;
+  --line: #D1D5DB;
+  --control-edge: var(--print-text);
+  --fg-1: var(--print-text);
+  --fg-2: var(--print-text);
+  --fg-3: #4B5563;
+  --accent: var(--print-text);
+  --status-nominal: var(--print-nominal);
+  --status-caution: var(--print-caution);
+  --status-warning: var(--print-warning);
+  --status-advisory: var(--print-advisory);
+  --status-unknown: var(--print-unknown);
+  --unknown: var(--print-unknown);
+  --focus-ring: 0 0 0 2px #FFFFFF, 0 0 0 4px var(--print-text);
+  color-scheme: light;
+}
+
+/* Preserve each status shape, word and pattern. Dark PRINT fills take white ink;
+   the existing black pattern strokes only increase the ink contrast (04 §C.1). */
+[data-theme="light"][data-mode="ops"] .status-indicator,
+[data-theme="light"] [data-mode="ops"] .status-indicator {
+  color: #FFFFFF;
+}

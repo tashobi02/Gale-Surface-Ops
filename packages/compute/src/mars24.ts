@@ -1,6 +1,20 @@
 /**
  * Mars24 solar functions (docs/specs/02 §D.5; Allison & McEwen 2000; ADR-005). FR-11.
- * Implemented by TASK-06 (T06.06); F6 reference conventions and generator remain to be verified.
+ * Implemented by TASK-06 (T06.06). Step ids (A-4, B-1 ... D-6) are those of the NASA GISS Mars24 "Algorithm and
+ * Worked Examples" page (https://www.giss.nasa.gov/tools/mars24/help/algorithm.html, page updated 2025-01-07,
+ * fetched 12 Nov 2026); the Allison & McEwen (2000) equation numbers are kept beside them. The worked examples on
+ * that page are tests in packages/compute/tests/mars24.test.ts (BD-56).
+ *
+ * Leap seconds (BD-55): checked 12 Nov 2026 against IERS Bulletin C 72 (Paris, 6 July 2026,
+ * https://hpiers.obspm.fr/iers/bul/bulc/bulletinc.dat): "NO leap second will be introduced at the end of December
+ * 2026"; UTC-TAI = -37 s from 2017-01-01 "until further notice". The table below is therefore complete for the
+ * event; no later transition exists to add. Bulletin C is issued every six months, so the statement holds to the
+ * end of 2026 (the next possible insertion is the end of June 2027, after the event).
+ *
+ * Constants: B-1, B-2 and C-2 here are the Allison & McEwen (2000) values; the page revised them in 2015
+ * (Allison 2015: 19.3871 / 0.52402073, 270.3871 / 0.524038496, -0.0009626). The difference is at most 0.001 deg in
+ * L_s and 0.05 s of time, far inside FR-11 (LTST 1 min, elevation 0.1 deg); the page's worked examples agree with
+ * this code within 0.001 deg (L_s) and 0.0005 h (MTC).
  * Pitfall (02 §C.4.1): many Mars24 implementations take west longitude; this app stores
  * east-positive longitude everywhere.
  */
@@ -60,6 +74,9 @@ const CLANCY_MY_J2K_OFFSETS: number[] = [
   35186.7944595, 35873.740573, 36560.7112423, 37247.7247318,
 ];
 
+// MSL touchdown instant (sol 0): NASA, "Five Years Ago and 154 Million Miles Away: Touchdown!", 2 Aug 2017.
+const MSL_TOUCHDOWN_UTC = new Date("2012-08-06T05:17:57Z");
+
 // Orbital perturbation periodic terms (Allison & McEwen 2000 Eq. 18)
 const A_PERTURBS = [0.0071, 0.0057, 0.0039, 0.0037, 0.0021, 0.0020, 0.0018];
 const TAU_PERTURBS = [2.2353, 2.7543, 1.1177, 15.7866, 2.1354, 2.4694, 32.8493];
@@ -70,8 +87,8 @@ const PHI_PERTURBS = [49.409, 168.173, 191.837, 21.736, 15.704, 95.528, 49.095];
  *
  * Valid range: Dates >= 1972-01-01 UTC (the start of the modern leap second system).
  * Dates before 1972 throw RangeError.
- * Assumption: Times after the last tabulated leap second (2017-01-01) keep ΔAT = 37 s.
- * TODO(verify): confirm against IERS Bulletin C before the event that no later leap second applies.
+ * Times after the last tabulated leap second (2017-01-01) keep ΔAT = 37 s: IERS Bulletin C 72 confirms that no
+ * leap second is introduced at the end of December 2026 (see the file header, BD-55).
  */
 export function j2000OffsetTt(utc: Date): number {
   if (!(utc instanceof Date) || isNaN(utc.getTime())) {
@@ -87,7 +104,7 @@ export function j2000OffsetTt(utc: Date): number {
     throw new RangeError("Dates before 1972-01-01 UTC are outside the valid Mars24 leap-second table range");
   }
 
-  // Assumption: times after the last leap second (2017-01-01) retain ΔAT = 37 s.
+  // Times after the last leap second (2017-01-01) retain ΔAT = 37 s (Bulletin C 72).
   let leapSec = 37.0;
   if (rel < LEAP_DATES[LEAP_DATES.length - 1][0]) {
     for (let i = 0; i < LEAP_DATES.length - 1; i++) {
@@ -104,7 +121,7 @@ export function j2000OffsetTt(utc: Date): number {
 }
 
 /**
- * Mars Sol Date (MSD) for a UTC instant (Allison & McEwen 2000 Eq. 27). TASK-06 (T06.06).
+ * Mars Sol Date (MSD) for a UTC instant (GISS C-2 divided by 24 h; Allison & McEwen 2000 Eq. 27 modified). TASK-06 (T06.06).
  */
 export function marsSolDate(utc: Date): number {
   const ott = j2000OffsetTt(utc);
@@ -112,21 +129,36 @@ export function marsSolDate(utc: Date): number {
 }
 
 /**
- * Fictional Mean Sun angle in degrees (Allison & McEwen 2000 Eq. 17). Internal helper.
+ * MSL mission sol number of a UTC instant at a site longitude (BD-122; FR-36, N-06, N-15). Sol 0 is the touchdown sol,
+ * 2012-08-06T05:17:57Z (NASA, "Five Years Ago and 154 Million Miles Away: Touchdown!", Webster, Cantillo and Brown,
+ * 2 Aug 2017). MSL sols change at local mean solar midnight at the rover's longitude, so
+ * sol = floor(local mean solar date) - floor(local mean solar date at touchdown), where the local mean solar date is
+ * the Mars Solar Date minus the west longitude / 360 (GISS C-3 in days). `lonE` is east-positive (02 §C.4.1); the
+ * conversion to west is `eastToWestLongitude`. Derived, never typed. Throws RangeError for an invalid Date, a
+ * non-finite longitude or an instant before 1972-01-01 UTC.
+ */
+export function mslSol(utc: Date, lonE: number): number {
+  const lonW = eastToWestLongitude(lonE);
+  const localDate = (t: Date): number => marsSolDate(t) - lonW / 360;
+  return Math.floor(localDate(utc)) - Math.floor(localDate(MSL_TOUCHDOWN_UTC));
+}
+
+/**
+ * Fictional Mean Sun angle in degrees (GISS B-2; Allison & McEwen 2000 Eq. 17). Internal helper.
  */
 function fictionalMeanSunAngle(ott: number): number {
   return ((270.3863 + 0.5240384 * ott) % 360 + 360) % 360;
 }
 
 /**
- * Mars Mean Anomaly in degrees (Allison & McEwen 2000 Eq. 16). Internal helper.
+ * Mars Mean Anomaly in degrees (GISS B-1; Allison & McEwen 2000 Eq. 16). Internal helper.
  */
 function marsMeanAnomaly(ott: number): number {
   return ((19.387 + 0.52402075 * ott) % 360 + 360) % 360;
 }
 
 /**
- * Periodic orbital perturbation terms (PBS) in degrees (Allison & McEwen 2000 Eq. 18). Internal helper.
+ * Periodic orbital perturbation terms (PBS) in degrees (GISS B-3; Allison & McEwen 2000 Eq. 18). Internal helper.
  */
 function alphaPerturbations(ott: number): number {
   let pbs = 0;
@@ -138,7 +170,7 @@ function alphaPerturbations(ott: number): number {
 }
 
 /**
- * Equation of Center (true anomaly v - mean anomaly M) in degrees (Allison & McEwen 2000 Eq. 19).
+ * Equation of Center (true anomaly v - mean anomaly M) in degrees (GISS B-4; bracketed term of Allison & McEwen 2000 Eqs. 19 and 20).
  * Used by sun.ts for solar declination and subsolar longitude.
  */
 export function equationOfCenter(ott: number): number {
@@ -157,7 +189,7 @@ export function equationOfCenter(ott: number): number {
 }
 
 /**
- * Areocentric solar longitude L_s in degrees (Allison & McEwen 2000 Eq. 20).
+ * Areocentric solar longitude L_s in degrees (GISS B-5; Allison & McEwen 2000 Eq. 19).
  * Used by sun.ts for solar declination and solar position.
  */
 export function areocentricSolarLongitude(ott: number): number {
@@ -203,7 +235,7 @@ export function eastToWestLongitude(lonE: number): number {
 }
 
 /**
- * Equation of Time (EOT) in degrees (Allison & McEwen 2000 Eq. 22). Internal helper.
+ * Equation of Time (EOT) in degrees (GISS C-1; Allison & McEwen 2000 Eq. 20). Internal helper.
  */
 function equationOfTime(ott: number): number {
   const lsDeg = areocentricSolarLongitude(ott);
