@@ -36,6 +36,8 @@ import type {
   WorkerErrorCode,
 } from "@marswalk/protocol";
 import { MAX_STOPS } from "@marswalk/compute";
+import { exportPlan } from "../export/planExport";
+import { restoreLastPlan, saveLastPlan } from "./persist";
 
 /**
  * Plan computation lifecycle state per 03 §E.4.
@@ -200,6 +202,8 @@ export interface PlanStoreDeps {
    * handling without stopping the other subscribers or the store.
    */
   onListenerError?: (error: unknown) => void;
+  /** When false, skips restoring the last persisted plan on creation. Default true. */
+  autoRestore?: boolean;
 }
 
 interface Snapshot {
@@ -352,6 +356,15 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
       result: resultOf(message),
       last_error_code: status === "Error" ? "INTERNAL" : null,
     });
+    if (status === "OK" || status === "OverLimits" || status === "Partial") {
+      try {
+        const site = { site_id: deps.siteId, data_version: deps.dataVersion };
+        const exported = exportPlan(site, state);
+        saveLastPlan(exported);
+      } catch {
+        // Storage or export failures are silently ignored (01 FR-20, 03 §C.5)
+      }
+    }
   }
 
   function onFailure(revision: number, error: unknown): void {
@@ -405,7 +418,7 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
     return text.trim().length > 0 && text.length <= STOP_TASK_TEXT_MAX;
   }
 
-  return {
+  const store: PlanStore = {
     get: () => state,
 
     setScenario(patch) {
@@ -539,4 +552,14 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
       };
     },
   };
+
+  if (deps.autoRestore !== false && (!initial?.waypoints || initial.waypoints.filter((w) => w.role === "stop").length === 0)) {
+    const restored = restoreLastPlan({ site_id: deps.siteId, data_version: deps.dataVersion });
+    if (restored) {
+      store.setScenario(restored.scenario);
+      store.setWaypoints(restored.waypoints);
+    }
+  }
+
+  return store;
 }

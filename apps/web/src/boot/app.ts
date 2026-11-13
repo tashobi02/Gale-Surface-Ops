@@ -47,7 +47,7 @@ export async function startApp(options: StartAppOptions): Promise<AppHandle> {
       globalThis.location.replace(route.hash); // fires hashchange, which renders the canonical route
       return;
     }
-    applyTheme(globalThis.location?.search, route.query);
+    applyTheme(globalThis.location?.search, route.query, route.id === "planner");
     document.documentElement.setAttribute("data-mode", route.mode);
     document.title = route.screen && route.screen !== "—" ? `${TITLE} — ${route.screen}` : TITLE;
     try {

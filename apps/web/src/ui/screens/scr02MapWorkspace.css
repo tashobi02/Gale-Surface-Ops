@@ -302,7 +302,7 @@
   padding: var(--pad-md);
   color: var(--fg-1);
 }
-.coach-mark-title { margin: 0 0 8px; font: 500 16px var(--font-display); text-transform: uppercase; }
+.coach-mark-title { margin: 0 0 8px; font: 500 var(--text-heading) var(--font-display); text-transform: uppercase; }
 .coach-mark-desc { margin: 0; font-size: var(--text-ui); line-height: var(--line-height-ui); color: var(--fg-2); }
 .coach-mark-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: var(--pad-md); }
 .coach-mark-step-counter { margin-right: auto; color: var(--fg-3); }

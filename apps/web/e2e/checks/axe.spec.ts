@@ -79,6 +79,10 @@ test("axe: SCR-02 planner workspace in light theme has no serious or critical vi
   await page.goto("/?site=mock_site&theme=light#/planner");
   await page.waitForLoadState("networkidle");
   await page.locator('[data-slot="map-workspace"]').waitFor();
+  for (let step = 0; step < 3; step += 1) {
+    await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-light-coach-${step}` });
+    await page.locator('.coach-marks-popover [data-action="next"]').click();
+  }
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-scr02-light` });
 });
 

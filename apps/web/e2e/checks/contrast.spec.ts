@@ -70,8 +70,11 @@ test("contrast: text on #/planner in light theme meets the limit of its mode (pa
   await page.goto("/?site=mock_site&theme=light#/planner");
   await page.waitForLoadState("networkidle");
   await page.locator('[data-slot="map-workspace"]').waitFor();
-  const measured = await expectContrast(page, LIMITS);
-  expect(measured, "no text was measured").toBeGreaterThan(0);
+  for (let step = 0; step < 3; step += 1) {
+    expect(await expectContrast(page, LIMITS), "coach text was measured").toBeGreaterThan(0);
+    await page.locator('.coach-marks-popover [data-action="next"]').click();
+  }
+  expect(await expectContrast(page, LIMITS), "planner text was measured").toBeGreaterThan(0);
 });
 
 /** An 8-bit grayscale PNG of `size` x `size` pixels, the left half `left`, the right half `right` (C9 §4 slope data: degrees x 4). */

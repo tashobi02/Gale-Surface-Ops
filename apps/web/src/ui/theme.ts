@@ -3,7 +3,7 @@
  * Activates light theme via ?theme=light; dark theme stays default.
  * Never activates via prefers-color-scheme.
  */
-export function applyTheme(search?: string, hashQuery?: Record<string, string>): void {
+export function applyTheme(search?: string, hashQuery?: Record<string, string>, planner = true): void {
   if (typeof document === "undefined") return;
   const rawSearch = search !== undefined ? search : typeof window !== "undefined" ? window.location.search : "";
   let theme: string | null = null;
@@ -19,7 +19,7 @@ export function applyTheme(search?: string, hashQuery?: Record<string, string>):
     theme = hashQuery.theme;
   }
 
-  if (theme === "light") {
+  if (planner && theme === "light") {
     document.documentElement.setAttribute("data-theme", "light");
   } else {
     document.documentElement.removeAttribute("data-theme");

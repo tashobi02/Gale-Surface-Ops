@@ -36,13 +36,16 @@ export function CoachMarks({ onDismiss }: CoachMarksProps): ReactElement | null 
     if (dismissed) return;
     const position = (): void => {
       const panel = containerRef.current;
-      const anchor = document.querySelector(current.anchorSelector);
+      let anchor = document.querySelector(current.anchorSelector);
+      if (step === 0 && (!anchor || anchor.getBoundingClientRect().width === 0)) {
+        anchor = document.querySelector('[data-slot="drawer-toggle"][data-for="left"]');
+      }
       if (!panel || !anchor) return;
       const target = anchor.getBoundingClientRect();
       const box = panel.getBoundingClientRect();
       const gap = 12;
       // Attach to the actual workspace control; clamp the panel to the visible viewport.
-      panel.style.left = `${Math.max(gap, Math.min(target.left, window.innerWidth - box.width - gap))}px`;
+      panel.style.left = `${Math.max(gap, Math.min(step === 0 ? target.right + gap : target.left, window.innerWidth - box.width - gap))}px`;
       panel.style.top = `${Math.max(gap, Math.min(step === 1 ? target.top + gap : target.bottom + gap, window.innerHeight - box.height - gap))}px`;
     };
     position();
@@ -52,7 +55,7 @@ export function CoachMarks({ onDismiss }: CoachMarksProps): ReactElement | null 
       window.removeEventListener("resize", position);
       window.removeEventListener("scroll", position, true);
     };
-  }, [current, step, dismissed]);
+  });
 
   if (dismissed) return null;
   return createElement("div", {
