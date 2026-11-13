@@ -24,3 +24,10 @@
   .scr17-post-eva-report .report-note { margin: 2px 0 !important; font-size: 10px !important; }
   .scr17-post-eva-report .report-trace-svg { height: 72px !important; }
 }
+
+.report-log-fallback { max-width: 800px; margin: 16px auto; padding: 16px; background: white; color: #111827; }
+.report-log-fallback nav { display: flex; gap: 12px; flex-wrap: wrap; }
+.report-log-fallback button { min-height: 44px; padding: 8px 12px; }
+.report-log-fallback table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); }
+.report-log-fallback th, .report-log-fallback td { border: 1px solid #111827; padding: 6px; text-align: left; overflow-wrap: anywhere; }
+.report-log-fallback p { overflow-wrap: anywhere; }

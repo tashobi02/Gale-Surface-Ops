@@ -24,6 +24,7 @@ import type { CSSProperties, ReactElement } from "react";
 import type { Provenance } from "@marswalk/protocol";
 import { PROVENANCE_GLYPHS, UNAVAILABLE, fmtFixed, isFiniteNumber, provAttrs, unavailableOf } from "../components/provenance";
 import "./scr17PostEvaReport.css";
+import { StatusIcon } from "../components/statusIcon";
 
 export interface PostEvaReportData {
   sessionId?: string;
@@ -104,6 +105,7 @@ export interface PostEvaReportData {
 
 export interface PostEvaReportProps {
   report?: PostEvaReportData;
+  logFallback?: { events: NonNullable<PostEvaReportData["logEvents"]>; error?: string; loading?: boolean; logHash?: string };
   onPrint?: () => void;
   onExportLog?: () => void;
   onBack?: () => void;
@@ -154,9 +156,11 @@ export function PostEvaReport({
   report,
   onPrint,
   onExportLog,
+  logFallback,
   onBack,
   className = "",
 }: PostEvaReportProps): ReactElement {
+  if (logFallback) return <ReportLogFallback {...logFallback} onPrint={onPrint} onExportLog={onExportLog} onBack={onBack} />;
   const data: PostEvaReportData = report ?? {};
   const hasReceived = isFiniteNumber(data.doseReceivedUgy);
   const hasUnsheltered = isFiniteNumber(data.doseUnshelteredUgy);
@@ -914,4 +918,28 @@ export function PostEvaReport({
       </article>
     </div>
   );
+}
+
+/** The raw log remains printable when the derived report endpoint fails (FR-46, FD-193). */
+function ReportLogFallback({ events, error, loading, logHash, onPrint, onExportLog, onBack }: NonNullable<PostEvaReportProps["logFallback"]> & Pick<PostEvaReportProps, "onPrint" | "onExportLog" | "onBack">): ReactElement {
+  const attrs = (source: string) => ({ "data-provenance": "simulated", "data-source": `api/log:${source}` });
+  return <main className="scr17-post-eva-report report-log-fallback" data-surface="report" data-screen="SCR-17" data-mode="print" data-fallback="report-log">
+    <nav className="no-print" aria-label="Report actions">
+      <button type="button" onClick={onBack}>← BACK</button>
+      <button type="button" data-slot="export-log" onClick={onExportLog}>EXPORT LOG JSON</button>
+      <button type="button" onClick={() => onPrint ? onPrint() : window.print()}>PRINT / SAVE PDF</button>
+    </nav>
+    <h1>Post-EVA event log</h1>
+    <p><StatusIcon status="unknown" showWord /> Report unavailable — raw log only. Derived metrics are unavailable.</p>
+    {loading && <p role="status">Loading event log…</p>}
+    {error && <p role="alert" {...attrs("request")}>Log unavailable — {error}</p>}
+    <p>Log hash: <span data-slot="fallback-log-hash" {...(logHash ? { "data-provenance": "derived", "data-source": "snapshot:session.log_hash" } : { "data-provenance": "derived", "data-source": "unavailable:session.log_hash", "data-unavailable": "true" })}>{logHash || "—"}</span></p>
+    <table><caption>Session events from the Hab Core</caption><thead><tr>{["Sequence", "Sim time", "Actor", "Event"].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
+      <tbody>{events.length ? events.map(event => <tr key={event.seq}>
+        <td {...attrs(`${event.seq}.seq`)}>{event.seq}</td><td {...attrs(`${event.seq}.sim_time`)}>{event.time}</td>
+        <td {...attrs(`${event.seq}.actor`)}>{event.actor}</td><td {...attrs(`${event.seq}.kind`)}>{event.event}</td>
+      </tr>) : <tr><td colSpan={4} data-provenance="simulated" data-source="unavailable:api/log.events" data-unavailable="true">— {loading ? "Waiting for log" : error ? "Log unavailable" : "No recorded events"}</td></tr>}</tbody>
+    </table>
+    <p>{REPORT_DISCLAIMER}</p>
+  </main>;
 }

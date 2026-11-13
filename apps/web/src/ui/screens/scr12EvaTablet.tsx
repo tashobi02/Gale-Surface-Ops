@@ -20,6 +20,7 @@ import {
   selectMetadataStrip,
   type EvaViewModel,
 } from "../eva/viewModel";
+import { logLiveFallback } from "../live/fallbackDebug";
 import { MiniMap } from "../eva/MiniMap";
 import "./scr12EvaTablet.css";
 import { EvaActionRow } from "../eva/HoldToConfirm";
@@ -155,6 +156,7 @@ export function EvaTablet({
   const [localContrast, setLocalContrast] = useState(false);
   const contrast = controlledContrast ?? localContrast;
   const setContrast = onContrastChange ?? setLocalContrast;
+  const [mapUnavailable, setMapUnavailable] = useState(false);
   const [tapFallback, setTapFallback] = useState(false);
   const [tasksExpanded, setTasksExpanded] = useState<boolean>(false);
   // The Hab Core's reason for a refused ACK_ALERT, shown under the alert bar until the next alert (04 §D.5).
@@ -507,7 +509,10 @@ export function EvaTablet({
             background: "#080A0D",
           }}
         >
-          <MiniMap snapshot={activeSnapshot ?? null} crewId={crewId} onOpen={onOpenFullScreenMap} />
+          {mapUnavailable ? <div role="status" data-fallback="hud-only">
+            <StatusIcon status="unknown" showWord />
+            <span data-provenance="measured" data-source="unavailable:site.map" data-unavailable="true">Map unavailable — HUD only. Use HAVEN and NEXT above; abort and acknowledge remain available.</span>
+          </div> : <MiniMap snapshot={activeSnapshot ?? null} crewId={crewId} onOpen={onOpenFullScreenMap} onUnavailable={() => { setMapUnavailable(true); logLiveFallback("hud-only"); }} />}
         </div>
       </div>
 

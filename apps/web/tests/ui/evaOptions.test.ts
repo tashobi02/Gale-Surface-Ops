@@ -1,3 +1,4 @@
+import * as siteLoader from "../../src/boot/loadSite";
 /**
  * SCR-14 follow-ups (docs/specs/04 §E.7; 01 FR-40, FR-44, FR-15): option values carry the provenance the Hab Core gave,
  * a new proposal resets the choice, the radio group answers the arrow keys, and SCR-12's clickable areas are real buttons.
@@ -9,12 +10,20 @@ import { connectHab, type HabClient, type SocketLike } from "../../src/net/habCl
 import { Options } from "../../src/ui/screens/scr14Options";
 import { EvaTablet } from "../../src/ui/screens/scr12EvaTablet";
 import { wsFixtures } from "../fixtures/ws";
-import { storeFromBeat } from "./fixtureStore";
-import { click, installDom, keyDown, mount, must, pointerDown, removeDom } from "./domHarness";
+import { storeFromBeat as createStore } from "./fixtureStore";
+import { click, installDom, keyDown, mount as mountDom, must, pointerDown, removeDom } from "./domHarness";
+
+const mountedViews: Awaited<ReturnType<typeof mountDom>>[] = [];
+const stores: HabClient[] = [];
+async function mount(...args: Parameters<typeof mountDom>) { const view = await mountDom(...args); mountedViews.push(view); return view; }
+function storeFromBeat(...args: Parameters<typeof createStore>) { const store = createStore(...args); stores.push(store); return store; }
 
 beforeAll(() => installDom());
 afterAll(() => removeDom());
-afterEach(() => {
+afterEach(async () => {
+  for (const view of mountedViews.splice(0)) await view.unmount();
+  for (const store of stores.splice(0)) store.close();
+  vi.restoreAllMocks();
   vi.useRealTimers();
   document.body.innerHTML = "";
 });
@@ -58,6 +67,7 @@ class FakeSocket implements SocketLike {
 function live(): { client: HabClient; socket: FakeSocket } {
   const socket = new FakeSocket();
   const client = connectHab({ role: "eva:EV1", clientId: "c-test", displayName: "EV1", url: "ws://localhost/ws", socketFactory: () => socket });
+  stores.push(client);
   return { client, socket };
 }
 
@@ -217,7 +227,8 @@ describe("SCR-12 clickable areas are buttons, not clickable divs", () => {
     expect(onOpenOptions).toHaveBeenCalledTimes(1);
   });
 
-  it("the map area is a labelled button that opens the full map; the card around it is not clickable", async () => {
+  it("the loading map area is a labelled button that opens the full map; the card around it is not clickable", async () => {
+    vi.spyOn(siteLoader, "loadSite").mockImplementationOnce(() => new Promise(() => {}));
     const { container, onOpenFullScreenMap } = await tablet();
     await click(must(container, '[data-slot="mini-map"]'));
     expect(onOpenFullScreenMap).not.toHaveBeenCalled();

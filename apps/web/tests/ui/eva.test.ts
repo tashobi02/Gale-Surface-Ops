@@ -1,3 +1,4 @@
+import * as siteLoader from "../../src/boot/loadSite";
 /**
  * T24.10 — EVA DOM tests (docs/specs/01 FR-32, FR-33, FR-40, FR-44; 04 §A.3, §D.3, §E.5, §E.6, §E.7).
  * The real components are rendered and driven: snapshots from the fixture store flow into SCR-12/13/18,
@@ -26,17 +27,25 @@ import {
   CONFIRM_FALLBACK_MS,
 } from "../../src/ui/eva/HoldToConfirm";
 import { BEATS } from "../fixtures/ws";
-import { accepted, recordingClient, rejected, storeFromBeat } from "./fixtureStore";
-import { click, flush, installDom, keyDown, keyUp, mount, must, pointerDown, pointerUp, removeDom } from "./domHarness";
+import { accepted, recordingClient, rejected, storeFromBeat as createStore } from "./fixtureStore";
+import { click, flush, installDom, keyDown, keyUp, mount as mountDom, must, pointerDown, pointerUp, removeDom } from "./domHarness";
 import { contrast } from "./wcag";
 
 const STYLES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../src/ui/styles");
 
 const PROVENANCE = ["measured", "derived", "modelled", "assumed", "replayed", "simulated"];
 
+const mountedViews: Awaited<ReturnType<typeof mountDom>>[] = [];
+const stores: ReturnType<typeof createStore>[] = [];
+async function mount(...args: Parameters<typeof mountDom>) { const view = await mountDom(...args); mountedViews.push(view); return view; }
+function storeFromBeat(...args: Parameters<typeof createStore>) { const store = createStore(...args); stores.push(store); return store; }
+
 beforeAll(() => installDom());
 afterAll(() => removeDom());
-afterEach(() => {
+afterEach(async () => {
+  for (const view of mountedViews.splice(0)) await view.unmount();
+  for (const store of stores.splice(0)) store.close();
+  vi.restoreAllMocks();
   vi.useRealTimers();
   document.body.innerHTML = "";
 });
@@ -859,7 +868,8 @@ describe("package 17 accessibility controls", () => {
 });
 
 describe("package 17 map and layout", () => {
-  it("provides a map host rather than the placeholder", async () => {
+  it("provides a map host while loading rather than the placeholder", async () => {
+    vi.spyOn(siteLoader, "loadSite").mockImplementationOnce(() => new Promise(() => {}));
     const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
     expect(view.container.querySelector('[data-slot="map-canvas"]')).not.toBeNull();
     expect(view.container.textContent).not.toContain("[ Gale Crater");

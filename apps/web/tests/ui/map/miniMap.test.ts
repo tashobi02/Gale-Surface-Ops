@@ -6,11 +6,13 @@
  *   mini-map as well as the planner's map;
  * - the crew member the tablet belongs to is marked "own" and the other is not, so "me" and "buddy" differ;
  * - the route source is not cleared and rebuilt on a snapshot that does not change the route;
- * - a comm grid that cannot be fetched is logged and shown as unavailable, never silently absent.
+ * - a comm grid that cannot be fetched is logged and shown as unavailable, never silently absent;
+ * - the basemap alone decides HUD-only (FD-500, FD-505): a site without an optical layer and a single lost tile keep the map and its
+ *   FULL MAP control, while a stalled first tile or tiles that all failed report `onUnavailable`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
-import type { Snapshot } from "@marswalk/protocol";
+import { LINK_LOST_AFTER_MS, type Snapshot } from "@marswalk/protocol";
 import type VectorSource from "ol/source/Vector.js";
 import { MiniMap } from "../../../src/ui/eva/MiniMap";
 import { OPS_ORTHO_LAYER_CLASS } from "../../../src/ui/map/rasterLayers";
@@ -28,6 +30,9 @@ vi.mock("../../../src/ui/map/createMap", () => ({ createMap: (...args: unknown[]
 let tileLayers: { className: string }[] = [];
 /** Every vector source the mini-map added, so a test can find the route one. */
 let vectorSources: VectorSource[] = [];
+/** The sources of the tile layers, so a test can raise the tile events a browser would. */
+interface TileEvents { dispatchEvent: (type: string) => unknown }
+let tileSources: TileEvents[] = [];
 
 /**
  * The mock site with an optical (ortho) raster layer, which is what the mini-map draws: the mock manifest has only
@@ -55,6 +60,7 @@ beforeEach(() => {
   applyTokens();
   tileLayers = [];
   vectorSources = [];
+  tileSources = [];
   loadSite.mockReset();
   createMap.mockReset();
   loadSite.mockResolvedValue(siteWithOrtho());
@@ -64,8 +70,10 @@ beforeEach(() => {
       addLayer(layer: { getClassName?: () => string; getSource?: () => VectorSource }) {
         host.layers.push(layer);
         const className = layer.getClassName?.();
-        if (className !== undefined && className !== "ol-layer") tileLayers.push({ className });
-        else {
+        if (className !== undefined && className !== "ol-layer") {
+          tileLayers.push({ className });
+          tileSources.push(layer.getSource!() as unknown as TileEvents);
+        } else {
           const source = layer.getSource?.();
           if (source && typeof (source as { getFeatures?: unknown }).getFeatures === "function") vectorSources.push(source);
         }
@@ -171,5 +179,61 @@ describe("the mini-map's comm grid is never silently absent", () => {
     const notice = view.container.querySelector('[data-source="unavailable:comm_hab"]');
     expect(notice).not.toBeNull();
     expect(notice!.getAttribute("data-unavailable")).toBe("true");
+  });
+});
+
+describe("the mini-map falls back to HUD-only only when the basemap itself failed (FD-500, FD-505)", () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("a site that declares no optical layer is a complete map: it never reports unavailable, also past the deadline", async () => {
+    vi.useFakeTimers();
+    loadSite.mockResolvedValue(mockLoadedSite());
+    const onUnavailable = vi.fn();
+    const view = await mount(createElement(MiniMap, { snapshot: snapshotWithPlan(), onUnavailable }));
+    await settle();
+    await act(async () => { await vi.advanceTimersByTimeAsync(LINK_LOST_AFTER_MS * 2); });
+    expect(tileSources).toHaveLength(0);
+    expect(onUnavailable).not.toHaveBeenCalled();
+    expect(view.container.querySelector('[data-slot="mini-map-open"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-source="site:manifest"]')).toBeNull();
+  });
+
+  it("one lost tile among tiles that loaded keeps the map, and the first tile that loads cancels the deadline", async () => {
+    vi.useFakeTimers();
+    const onUnavailable = vi.fn();
+    await mount(createElement(MiniMap, { snapshot: snapshotWithPlan(), onUnavailable }));
+    await settle();
+    const [tiles] = tileSources;
+    for (const type of ["tileloadstart", "tileloadstart", "tileloadstart"]) tiles!.dispatchEvent(type);
+    tiles!.dispatchEvent("tileloaderror");
+    tiles!.dispatchEvent("tileloadend");
+    tiles!.dispatchEvent("tileloaderror");
+    await act(async () => { await vi.advanceTimersByTimeAsync(LINK_LOST_AFTER_MS * 2); });
+    expect(onUnavailable).not.toHaveBeenCalled();
+  });
+
+  it("tiles that all failed report the map unavailable once the last one is back, not at the first failure", async () => {
+    const onUnavailable = vi.fn();
+    const view = await mount(createElement(MiniMap, { snapshot: snapshotWithPlan(), onUnavailable }));
+    await settle();
+    const [tiles] = tileSources;
+    for (const type of ["tileloadstart", "tileloadstart"]) tiles!.dispatchEvent(type);
+    await act(async () => { tiles!.dispatchEvent("tileloaderror"); });
+    expect(onUnavailable).not.toHaveBeenCalled();
+    await act(async () => { tiles!.dispatchEvent("tileloaderror"); });
+    expect(onUnavailable).toHaveBeenCalledTimes(1);
+    expect(view.container.querySelector('[data-source="site:manifest"]')).not.toBeNull();
+  });
+
+  it("a first tile that never answers reports the map unavailable at the link watchdog deadline", async () => {
+    vi.useFakeTimers();
+    const onUnavailable = vi.fn();
+    await mount(createElement(MiniMap, { snapshot: snapshotWithPlan(), onUnavailable }));
+    await settle();
+    tileSources[0]!.dispatchEvent("tileloadstart");
+    await act(async () => { await vi.advanceTimersByTimeAsync(LINK_LOST_AFTER_MS - 1); });
+    expect(onUnavailable).not.toHaveBeenCalled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(onUnavailable).toHaveBeenCalledTimes(1);
   });
 });

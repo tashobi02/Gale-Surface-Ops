@@ -64,7 +64,7 @@ const ONLY_DESKTOP_1440 = [
   "fallbacks-planner", "ops-no-terminal", "task-latency", "replay", "usability", "capture", "queued-resend", "link-lost", "targets",
   // The EVA checks drive their own viewport (the portrait grid and the options sheet are viewport-specific), so they run
   // once on the desktop project instead of on every project's fixed size.
-  "eva-warning", "eva-portrait",
+  "eva-warning", "eva-portrait", "fallbacks-live",
   ...RELEASE_ONLY_DESKTOP_1440,
 ];
 
