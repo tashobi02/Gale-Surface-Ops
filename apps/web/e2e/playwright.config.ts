@@ -99,13 +99,13 @@ export default defineConfig({
   projects: absent
     ? [project("bundle-absent", desktop(1440, 900), ["_harness"])]
     : [
-        project("desktop-1440", desktop(1440, 900), [...EVERY_PROJECT, ...ONLY_DESKTOP_1440]),
+        project("desktop-1440", desktop(1440, 900), [...EVERY_PROJECT, ...ONLY_DESKTOP_1440, "planner-drawer"]),
         project("desktop-1280", desktop(1280, 800), [...EVERY_PROJECT, "release-matrix"]),
         project("desktop-1024", desktop(1024, 768), EVERY_PROJECT),
-        project("phone-landscape-844x390", chromiumDevice("iPhone 14 landscape", { width: 844, height: 390 }), [...EVERY_PROJECT, "fullmap", "targets"]),
-        project("phone-portrait-390x844", chromiumDevice("iPhone 14", { width: 390, height: 844 }), [...EVERY_PROJECT, "release-matrix"]),
-        project("phone-360x740", chromiumDevice("Pixel 7", { width: 360, height: 740 }), [...EVERY_PROJECT, "viewport360"]),
-        project("tablet-landscape-1024x768", chromiumDevice("iPad Mini landscape", { width: 1024, height: 768 }), [...EVERY_PROJECT, "eva-geometry", "rotation", "targets"]),
+        project("phone-landscape-844x390", chromiumDevice("iPhone 14 landscape", { width: 844, height: 390 }), [...EVERY_PROJECT, "fullmap", "targets", "planner-drawer"]),
+        project("phone-portrait-390x844", chromiumDevice("iPhone 14", { width: 390, height: 844 }), [...EVERY_PROJECT, "release-matrix", "planner-drawer"]),
+        project("phone-360x740", chromiumDevice("Pixel 7", { width: 360, height: 740 }), [...EVERY_PROJECT, "viewport360", "planner-drawer"]),
+        project("tablet-landscape-1024x768", chromiumDevice("iPad Mini landscape", { width: 1024, height: 768 }), [...EVERY_PROJECT, "eva-geometry", "rotation", "targets", "planner-drawer"]),
         project("tablet-portrait-768x1024", chromiumDevice("iPad Mini", { width: 768, height: 1024 }), [...EVERY_PROJECT, "release-matrix"]),
         project("hud-844x390", chromiumDevice("iPhone 14 landscape", { width: 844, height: 390 }), [...EVERY_PROJECT, "hud-glance"]),
         // `make demo` rebuilds apps/web/dist without the spike page, so it runs after every project that serves the harness build.

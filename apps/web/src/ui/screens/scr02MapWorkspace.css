@@ -53,6 +53,10 @@
 
 .scr02-site-name,
 .scr02-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: var(--font-mono);
   font-size: var(--text-micro);
   white-space: nowrap;
@@ -286,6 +290,29 @@
   .scr02-map-toolbar [data-slot="map-controls"] button {
     min-height: var(--target-touch) !important;
     min-width: var(--target-touch) !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .scr02-top-bar {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 639px) {
+  .scr02 {
+    grid-template-rows: auto var(--meta-strip-height) minmax(0, 1fr) auto;
+  }
+
+  .scr02-top-bar {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    padding-block: 4px;
+    min-height: var(--topbar-height);
+  }
+
+  .scr02-top-bar .spacer {
+    display: none;
   }
 }
 
