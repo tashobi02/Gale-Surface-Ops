@@ -939,3 +939,29 @@ describe("SCR-12 narrow 360 px portrait fit (T24.11, task-latency on phone-360x7
     expect(src).toMatch(/data-slot="alert"[\s\S]{0,600}minWidth:\s*0/);
   });
 });
+
+/**
+ * A scrollable region must be reachable by keyboard (WCAG 2.1.1, and the axe rule
+ * `scrollable-region-focusable`). The NEXT card is given `overflow: auto` in the
+ * landscape and portrait grids so its task list can scroll inside the fixed EVA
+ * layout. A region that scrolls but cannot be focused is unreachable by keyboard:
+ * the crew member cannot scroll it, so anything below the fold is invisible to them.
+ *
+ * The browser check `axe` found this on 6 of the 8 viewports: the EVA full-map,
+ * options and cached transport-loss overlay route reported
+ * `scrollable-region-focusable` on `.next`.
+ */
+describe("SCR-12 NEXT card is keyboard-reachable when it scrolls", () => {
+  it("the scrolling NEXT card carries a tabindex and an accessible name", async () => {
+    const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
+    const next = must(container, '[data-slot="next"]');
+    // A scrollable region with no tabindex is not reachable by keyboard.
+    expect(next.getAttribute("tabindex")).toBe("0");
+    // It needs a name, so the focus ring says what it landed on.
+    const label =
+      next.getAttribute("aria-label") ??
+      next.getAttribute("aria-labelledby") ??
+      next.querySelector("[id]")?.id;
+    expect(label, "the focusable NEXT card needs an accessible name").toBeTruthy();
+  });
+});
