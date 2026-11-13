@@ -1,6 +1,6 @@
 # Self-Hosted Outline Icons
 
-This directory contains offline outline SVG icons for Marswalk Surface Ops per
+This directory contains offline outline SVG icons for Gale Surface Ops per
 [04 §C.4](../../../../docs/specs/04_Design_Brief.md#c4-iconography),
 [04 §C.1](../../../../docs/specs/04_Design_Brief.md#status-and-alert-colours-ops), and
 [02 §F NFR-01, NFR-07](../../../../docs/specs/02_Technical_Requirements_Document.md#f-nonfunctional-requirements-and-validation).

@@ -11,7 +11,7 @@
 
 ## Project Title
 
-Marswalk Surface Ops *(working title; final product name per ADR-013 / FD-006 / FD-159)* ([docs/ops/team.md](team.md), [docs/plan/frontend/decisions.md](../plan/frontend/decisions.md))
+Gale Surface Ops ([docs/ops/team.md](team.md), [docs/plan/frontend/decisions.md](../plan/frontend/decisions.md))
 
 ## Challenge
 
@@ -25,7 +25,7 @@ Dhaka, Bangladesh — Virtual Participation ([docs/ops/team.md](team.md), [docs/
 
 ## Project Summary (Short Description)
 
-> Marswalk Surface Ops is an offline, habitat-local surface operations and traverse planning system designed for a human exploration zone at Gale crater (Mount Sharp), created for the NASA Space Apps Challenge 2026 challenge 'Interplanetary Survival Guide: Martian Map'. Before an extravehicular activity (EVA), crew members plan a slope-bounded, suit-safe traverse on real USGS 1 m DEM elevation and 25 cm HiRISE imagery, incorporating slope limits, terrain caution flags, line-of-sight habitat communications, and pacing models. During the EVA, a local Hab Core server coordinates the mission clock, telemetry, consumables, and automated safety logic across in-EVA astronaut suit tablets and an operations console. When an unforecast solar energetic particle event strikes—replaying Curiosity's real RAD observations from the sol 4190 (20 May 2024) storm—the habitat autonomously detects the radiation spike, alerts the crew without waiting for Earth, and offers a pressurized-rover rendezvous or a haven abort. Every calculation is deterministic with zero AI computation at runtime; every displayed figure provides explicit provenance and data source traceability. The system operates fully self-contained on the habitat local area network.
+> Gale Surface Ops is an offline, habitat-local surface operations and traverse planning system designed for a human exploration zone at Gale crater (Mount Sharp), created for the NASA Space Apps Challenge 2026 challenge 'Interplanetary Survival Guide: Martian Map'. Before an extravehicular activity (EVA), crew members plan a slope-bounded, suit-safe traverse on USGS Gale DEM elevation and HiRISE imagery when the real site bundle is available, incorporating slope limits, terrain caution flags, line-of-sight habitat communications, and pacing models. During the EVA, a local Hab Core server coordinates the mission clock, telemetry, consumables, and automated safety logic across in-EVA astronaut suit tablets and an operations console. When an unforecast solar energetic particle event strikes—replaying Curiosity's real RAD observations from the sol 4190 (20 May 2024) storm—the habitat autonomously detects the radiation spike, alerts the crew without waiting for Earth, and offers a pressurized-rover rendezvous or a haven abort. Every calculation is deterministic with zero AI computation at runtime; every displayed figure provides explicit provenance and data source traceability. The system operates fully self-contained on the habitat local area network.
 
 *(Word count: 173 words; limit: ≤ 200 words; sources: [README.md](../../README.md), [docs/specs/01_Product_Requirements_Document.md](../specs/01_Product_Requirements_Document.md))*
 
@@ -33,7 +33,7 @@ Dhaka, Bangladesh — Virtual Participation ([docs/ops/team.md](team.md), [docs/
 
 ## What It Does
 
-Marswalk Surface Ops provides end-to-end mission planning and real-time execution for surface operations in a Mars Exploration Zone ([docs/specs/01_Product_Requirements_Document.md](../specs/01_Product_Requirements_Document.md) §A, [docs/specs/02_Technical_Requirements_Document.md](../specs/02_Technical_Requirements_Document.md) §A):
+Gale Surface Ops provides end-to-end mission planning and real-time execution for surface operations in a Mars Exploration Zone ([docs/specs/01_Product_Requirements_Document.md](../specs/01_Product_Requirements_Document.md) §A, [docs/specs/02_Technical_Requirements_Document.md](../specs/02_Technical_Requirements_Document.md) §A):
 
 1. **Pre-EVA Traverse Planning:**
    - Evaluates scientific Points of Interest (POIs) and resource exploration targets across real Gale crater terrain ([docs/specs/01_Product_Requirements_Document.md](../specs/01_Product_Requirements_Document.md) FR-01, FR-02).
@@ -61,7 +61,7 @@ Marswalk Surface Ops provides end-to-end mission planning and real-time executio
 
 ## How It Works Offline on the Habitat LAN
 
-The architectural premise of Marswalk Surface Ops directly mirrors operational reality on Mars: there is no live internet connectivity ([README.md](../../README.md), [docs/specs/02_Technical_Requirements_Document.md](../specs/02_Technical_Requirements_Document.md) §B, §F):
+The architectural premise of Gale Surface Ops directly mirrors operational reality on Mars: there is no live internet connectivity ([README.md](../../README.md), [docs/specs/02_Technical_Requirements_Document.md](../specs/02_Technical_Requirements_Document.md) §B, §F):
 
 - **No Runtime Internet (NFR-01, NFR-08):** All client-to-server communications occur over a local area network (LAN) hosted inside the habitat (e.g., standard Wi-Fi router or Ethernet switch). The web application requires zero external network calls.
 - **Local Hab Core Server:** Implemented in Node.js with Fastify and `ws`, running locally at `0.0.0.0:8080`. It hosts the single-page web client (`apps/web/dist`), pre-packaged map tile pyramids (`data/sites/gale_boxwork/tiles/`), vector GeoJSON features (`vectors/`), and binary elevation/comm grids (`grid/`).

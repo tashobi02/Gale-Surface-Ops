@@ -1,4 +1,4 @@
-# Mockup handoff — Marswalk Surface Ops prototype
+# Mockup handoff — Gale Surface Ops prototype
 
 | | |
 | --- | --- |
@@ -11,7 +11,7 @@ Specs 01–06 are frozen at Draft v2 (2026-11-04). This file is the design hando
 
 ## Summary
 
-- **Prototype:** [Marswalk Surface Ops design handoff prototype](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt) — one self-contained HTML page (`docs/design/prototype/marswalk-prototype.html`), all 19 screens (SCR-00 to SCR-18), a state switcher on every screen, device frames per 04 §F, flows, a demo player and a three-device Stage.
+- **Prototype:** [Gale Surface Ops design handoff prototype](https://claude.ai/artifact/SZ4vU9okektcyWgbDADdbt) — one self-contained HTML page (`docs/design/prototype/marswalk-prototype.html`), all 19 screens (SCR-00 to SCR-18), a state switcher on every screen, device frames per 04 §F, flows, a demo player and a three-device Stage.
 - **Honesty rules held:** every displayed number is `{v, unit, prov, src}` from a spec example or a `PLACEHOLDER` (shown as `##.#` with a dotted underline); nothing is computed; nothing is called live; coordinates are the IAU_2015:49900 sphere, east-positive; no external tiles or images; no logos or photos.
 - **Scale:** 164 fixture numbers, 52 of them `PLACEHOLDER`; 19 screens; 227 screen × state × frame combinations.
 - **Stop task list (FR-50, Proposed 2026-11-05), resolves U-47:** shown on the EVA tablet (SCR-12, new states Undo window and Ops-added task), the ops crew cards with an Add task popover (SCR-11), the briefing card (SCR-08), the report (SCR-17) and the Stage (new beat at 0:05). Task counts are never computed in the prototype: they are looked up from the fixture (G-34).

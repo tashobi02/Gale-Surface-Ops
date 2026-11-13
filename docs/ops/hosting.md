@@ -36,7 +36,7 @@ Per decision **FD-160** ([docs/plan/frontend/decisions.md](../plan/frontend/deci
 2. **Public Transition Rule (FD-160 / FD-170):**
    - If the official 2026 Space Apps Project Submission Guide published on 13 Nov mandates a public repository link for judging, the repository is switched to public only after running a verified `gitleaks`-free secrets scan ([docs/plan/frontend/decisions.md](../plan/frontend/decisions.md) FD-160).
 3. **Public Link on Project Page:**
-   - The project page links directly to the GitHub Pages static recording view (`#/replay`) and to the code repository / archive ([docs/ops/project-page.md](project-page.md)).
+   - The project page should link to the GitHub Pages static recording view (`#/replay`) and to the code repository / archive once the team has published and verified them ([docs/ops/project-page.md](project-page.md)).
 
 ---
 
@@ -47,10 +47,10 @@ Team members and clean-clone environments download and verify the site bundle us
 1. Sign in to GitHub CLI with an account having repository access. Download the site bundle release asset:
 
    ```sh
-   gh release download <tag> --repo tashobi02/CheesySpace-NasaSpaceAppChallenge
+   gh release download data-gale_boxwork-2026.11.09 -p 'gale_boxwork-2026.11.09.zip' --repo tashobi02/CheesySpace-NasaSpaceAppChallenge
    ```
 
-   *(Release tag name: TO BE FILLED BY THE TEAM: release tag name)*
+   Verify the downloaded zip SHA-256 against [the lane plan](../plan/README.md#6-environment-notes) before extracting it.
 
 2. Unpack the downloaded bundle in a temporary directory for verification. Compare each file with `data/sites/<site_id>/site-manifest.json` ([docs/specs/05_Backend_and_Database_Schema.md](../specs/05_Backend_and_Database_Schema.md) §Site). For each asset, verify that the SHA-256 digest matches `sha256`.
 3. If hashes match, extract the bundle contents into `data/sites/<site_id>/`, preserving the `tiles/`, `grid/`, `vectors/` and `images/` directory structure ([docs/specs/02_Technical_Requirements_Document.md](../specs/02_Technical_Requirements_Document.md) §E.1). Stop immediately if an asset is missing or a hash differs.

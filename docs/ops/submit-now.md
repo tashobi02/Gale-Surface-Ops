@@ -73,7 +73,7 @@ Follow these exact steps in order on the official NASA Space Apps Challenge port
 Copy and paste the exact text prepared in [docs/ops/project-page.md](project-page.md):
 
 1. **Project Title:**
-   - Enter: `Marswalk Surface Ops` *(or final approved title per ADR-013 / FD-006 / FD-159)*
+   - Enter: `Gale Surface Ops`
 2. **Short Description / Summary (≤ 200 words):**
    - Copy the summary block from [docs/ops/project-page.md](project-page.md) §Project Summary.
    - Verify word count on portal does not exceed limits.

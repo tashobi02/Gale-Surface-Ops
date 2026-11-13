@@ -1,9 +1,9 @@
-# Marswalk Surface Ops — Claude Code instructions
+# Gale Surface Ops — Claude Code instructions
 
 ## 1. Project
 
 Team CheesySpace's NASA Space Apps 2026 entry for *Interplanetary Survival Guide: Martian Map* (Bangladesh event, 13–14 Nov 2026).
-**Marswalk Surface Ops** *(working title)*: a habitat-local surface operations system for one Mars Exploration Zone at Gale crater (Mount Sharp). A planner builds a suit-safe EVA; during the walk a **Hab Core** server runs the mission clock and simulation, EVA crew use a suit tablet / HUD, an ops console watches everyone, and a real solar particle event (20 May 2024, sol 4190) is replayed so the crew can shelter. Every number is labelled.
+**Gale Surface Ops**: a habitat-local surface operations system for one Mars Exploration Zone at Gale crater (Mount Sharp). A planner builds a suit-safe EVA; during the walk a **Hab Core** server runs the mission clock and simulation, EVA crew use a suit tablet / HUD, an ops console watches everyone, and a real solar particle event (20 May 2024, sol 4190) is replayed so the crew can shelter. Every number is labelled.
 
 Layout (02 §A): `apps/web` (one web app, role views planner / ops / EVA / HUD / Earth) · `apps/hab-core` (Node.js server on the habitat LAN) · `packages/compute` (all deterministic science) · `packages/protocol` (shared types and wire format) · `pipeline/` (offline Python preprocessing) · `data/sites/` · `scenarios/`. No database; the Hab Core keeps an append-only event log.
 

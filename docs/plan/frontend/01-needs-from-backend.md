@@ -83,3 +83,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 ## Package 29 follow-up
 
 1. N-200 — The SCR-11-only mission acceptance (T25.08) needs a supported way for ops to start the library storm. `START_EVENT` is presenter-only in `packages/protocol/src/ws.ts` (02 §D.17), SCR-11 has no Start storm control, and `engine/liveEvents.ts` deliberately keeps dose at background until that command. Event-clock jumps cannot start it. Please resolve the ops permission/surface contract or revise the acceptance explicitly; frontend cannot grant protocol permission in this lane. The complete `ops-no-terminal` storm case remains `test.fixme('needs N-200')`, T25.08 stays wip. The active console-only unstormed mission, approval fixture and presenter-started task/abort check do not claim that missing acceptance.
+
+## Package 31 follow-up
+
+1. N-170 — Complete the product-name migration in backend-owned `apps/hab-core/scripts/build-demo-plan.ts`, `pipeline/cache/donki/README.md` and `scenarios/storm-sol4190/{plan.json,scenario.json,recording.json}`, coordinating the mandatory disclaimer in 01 §F.1 and its consumers. The recorded scenario and replay need their owning lane to preserve reproducibility and hashes. The spec 03, shared contract, Makefile, constitution and demo script are outside this package's permitted files and also retain the working title. The repo-wide rename check remains skipped until these owners reconcile the title; no historical record should be rewritten.

@@ -86,7 +86,7 @@ test("release-csp: ?debug=1 shows its four items and a page without it shows non
 // Observed on 13 Nov 2026: `?debug=1` renders a <style> element (the overlay's print rule, apps/web/src/ui/debug.ts), which the policy
 // blocks (`style-src-elem inline`, two reports per page). The overlay still shows; the print rule is lost. B-05 in
 // docs/plan/backend/01-needs-from-frontend.md.
-test.fixme("release-csp: ?debug=1 causes no CSP violation (enabled by frontend package 07, B-05)", async ({ page }) => {
+test("release-csp: ?debug=1 causes no CSP violation (B-05)", async ({ page }) => {
   const faults = await watchFaults(page);
   await page.goto(`/?site=${e2eSiteId()}&debug=1#/planner`);
   await page.locator('[data-slot="map-workspace"]').waitFor();

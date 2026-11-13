@@ -1,6 +1,6 @@
-# Marswalk Surface Ops — CheesySpace
+# Gale Surface Ops — CheesySpace
 
-*(working title)* Team CheesySpace's entry for the **NASA Space Apps Challenge 2026**, challenge *Interplanetary Survival Guide: Martian Map* (Bangladesh event, 13–14 Nov 2026).
+Team CheesySpace's entry for the **NASA Space Apps Challenge 2026**, challenge *Interplanetary Survival Guide: Martian Map* (Bangladesh event, 13–14 Nov 2026).
 
 A habitat-local surface operations system for one Mars **Exploration Zone** at Gale crater (Mount Sharp). Before the walk, a planner builds a suit-safe EVA through science and resource-prospecting stops on real HiRISE terrain. During the walk, a **Hab Core** server inside the habitat runs the mission clock: two simulated astronauts follow the plan on their suit tablets and HUDs while an ops console watches everyone. Then the real solar particle event of **20 May 2024 (sol 4190)**, recorded by Curiosity's RAD, is replayed — the habitat detects it before Earth's warning can arrive, and the crew summon a pressurized rover to shelter.
 
@@ -8,7 +8,7 @@ Every number is labelled **measured, derived, modelled, assumed, replayed or sim
 
 ## Status
 
-**v2 skeleton (surface ops reframe, 2026-11-04).** Specs v2, monorepo layout, types, stubs and design tokens are in place; no functional code yet. Application code is allowed before the event (Track P, [docs/ops/rules.md](docs/ops/rules.md)). The progress bar below counts the v1 atomized subtasks; v2 tasks (TASK-05b, TASK-20–30) are listed in [06 §C.2](docs/specs/06_High_Level_Implementation_Plan.md#c2-new-in-v2-surface-ops-tier-1-unless-marked) and are not yet atomized.
+The planner, habitat server and role views are implemented; the task progress and remaining verification are tracked below. The full Gale site bundle is distributed separately. See the [submission guide](docs/ops/submit-now.md) for remaining team actions.
 
 ## Progress
 
@@ -63,10 +63,10 @@ make setup        # npm ci (all workspaces) + conda environment marswalk-pipelin
 make check-env    # fails unless the pipeline interpreter, GDAL, rasterio and pyproj are right
 make lint typecheck test docs-check
 make test-web     # Vitest in every workspace; needs no conda
-make hab          # Hab Core on 0.0.0.0:8080 (habitat LAN) — stub until TASK-20
+make hab          # Hab Core on 0.0.0.0:8080 (habitat LAN)
 make dev          # Vite dev server; proxies /sites, /api, /ws to the Hab Core
 make demo         # production build served by the Hab Core (no internet needed)
-make replay       # headless scenario replay, prints the event-log hash — stub until TASK-22
+make replay       # headless scenario replay, prints the event-log hash
 ```
 
 Demo setup (06 §D.3, TASK-28): one laptop runs `make demo`; phones join the same offline travel router and open the role URL (ops shows QR codes).
@@ -86,7 +86,7 @@ The full pipeline environment (GDAL ≥ 3.6, rasterio, numpy, pyproj) is in [pip
 
 ## Data is not in git
 
-Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are never committed. The offline pipeline (`make data`, TASK-03, not implemented yet) downloads into the git-ignored `pipeline/work/` and writes the site bundle to `data/sites/<site_id>/` (layout: [data/sites/gale_boxwork/README.md](data/sites/gale_boxwork/README.md)). Source URLs, versions and checksums go in `pipeline/sources.lock.json`. The large tiles, grid and images are shared as a GitHub release asset (chosen route, not Git LFS); see [docs/ops/feasibility.md](docs/ops/feasibility.md).
+Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are never committed. The offline pipeline (`make data`) downloads into the git-ignored `pipeline/work/` and writes the site bundle to `data/sites/<site_id>/` (layout: [data/sites/gale_boxwork/README.md](data/sites/gale_boxwork/README.md)). Source URLs, versions and checksums go in `pipeline/sources.lock.json`. The large tiles, grid and images are shared as a GitHub release asset (chosen route, not Git LFS); see [docs/ops/feasibility.md](docs/ops/feasibility.md).
 
 ## Documentation
 
@@ -102,7 +102,37 @@ Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are 
 
 ## Credits
 
-TODO: dataset and image credits (NFR-07), filled from each `DataSource.credit` in the site manifest. Planned sources are listed in [02 Sources](docs/specs/02_Technical_Requirements_Document.md#sources-accessed-2026-11-02). Partner-agency data: ESA Mars Express HRSC (in the Gale DEM) and ESA TGO trajectories (relay geometry).
+Credits below reproduce the source and image credits in the site manifests and POI records. The mock-site data are synthetic fixtures.
+
+### Gale site sources
+
+- **Apollo 15 EVA Capability And Constraints Envelopes** (`apollo17-planning`): P. Benjamin, Bellcomm, Inc.; Memorandum for File B70 10028, 13 October 1970. PDF document courtesy NASA Technical Reports Server.
+- **Mars' surface radiation environment measured with the Mars Science Laboratory's Curiosity rover** (`hassler-2014-rad`): Hassler et al., 2014
+- **Mars24 Sunclock — Time on Mars** (`mars24-allison-mcewen-2000`): Mars24: Robert B. Schmunk; algorithms: Michael D. Allison; algorithm reference: Allison, M., and M. McEwen (2000), A post-Pathfinder evaluation of aerocentric solar coordinates with improved timing recipes for Mars seasonal/diurnal climate studies (Planetary and Space Science; © 2000 Elsevier Science Ltd).
+- **Curiosity Blog, Sols 4620-4621: Among the Hollows and the Ridges** (`nasa-msl-blog-sols-4620-4621`): NASA/JPL-Caltech (Curiosity blog)
+- **Curiosity Blog, Sols 4649-4654: Ridges, Hollows and Nodules, Oh My** (`nasa-msl-blog-sols-4649-4654`): NASA/JPL-Caltech (Curiosity blog)
+- **Curiosity Blog, Sols 4675-4681: Deciding Where to Dig Into the Boxworks** (`nasa-msl-blog-sols-4675-4681`): NASA/JPL-Caltech (Curiosity blog)
+- **Curiosity Blog, Sols 4695-4701: Searching for Answers at Monte Grande** (`nasa-msl-blog-sols-4695-4701`): NASA/JPL-Caltech (Curiosity blog)
+- **Curiosity Blog, Sols 4709-4715: Drilling High and Low in the Boxwork Unit** (`nasa-msl-blog-sols-4709-4715`): NASA/JPL-Caltech (Curiosity blog)
+- **Curiosity Blog, Sols 4716-4722: Drilling Success at Nevado Sajama** (`nasa-msl-blog-sols-4716-4722`): NASA/JPL-Caltech (Curiosity blog)
+- **Curiosity Blog, Sols 4845-4851: Bye-Bye Boxwork, Bye-Bye** (`nasa-msl-blog-sols-4845-4851`): NASA/JPL-Caltech (Curiosity blog)
+- **NASA's Curiosity Mars Rover Starts Unpacking Boxwork Formations** (`nasa-msl-boxwork-article-2025-06`): NASA/JPL-Caltech/MSSS (images on the page); text: NASA, Jet Propulsion Laboratory (release 2025-080)
+- **The Space Exploration Vehicle Characteristics (Surface Concept)** (`nasa-sev-factsheet-2011`): NASA, The Space Exploration Vehicle Characteristics (Surface Concept), NASA Facts FS-2011-08-045-JSC
+- **Collection of localization data products for Rover PLACES** (`pds-msl-places-localizations`): Deen, Robert G. (2024), Mars Science Laboratory Rover PLACES Bundle, version 42.0, NASA Planetary Data System, doi:10.17189/8nyv-8p60; collection "Collection of localization data products for Rover PLACES" (Citation_Information of bundle.xml and collection_data_localizations.xml)
+- **Mars Science Laboratory Software Interface Specification: PLACES Data Products for PDS** (`pds-msl-places-sis-1-3`): Robert Deen (2016), PLACES Data Products for PDS SIS, JPL; Copyright 2016 California Institute of Technology, government sponsorship acknowledged
+- **The Martian Radiation Environment and Human Health Risks** (`simonsen-2024-rad`): Simonsen et al., 2024
+- **Improved prediction of hiking speeds using a data driven approach** (`tobler-1993`): Andrew Wood; William Mackaness; T. Ian Simpson; J. Douglas Armstrong; arXiv:2303.16065v6
+- **Mars MSL Gale Merged DEM 1m** (`usgs-gale-dem-1m-v3`): Please credit authors
+- **Mars MSL Gale Merged Orthophoto Mosaic 25cm, colour version HiRISE 78 quad color basemap** (`usgs-gale-ortho-25cm-v3`): NASA/JPL-Caltech/University of Arizona; USGS Astrogeology (Calef & Parker 2016)
+- **THEMIS Thermal Inertia Mosaic Quantitative 30S120E 100mpp** (`usgs-themis-ti-30s120e`): Please cite authors
+
+### Mock-site fixture sources
+
+- **Mars MSL Gale Merged DEM 1m** (`usgs-gale-dem-1m-v3`): Please credit authors
+- **Hassler et al., 2014** (`hassler-2014-rad`): Hassler et al., 2014
+- **Simonsen et al., 2024** (`simonsen-2024-rad`): Simonsen et al., 2024
+
+POI images: NASA/JPL-Caltech; NASA/JPL-Caltech/MSSS. See the [POI records](data/sites/gale_boxwork/vectors/pois.geojson) for the individual image credits.
 
 ## Licence
 

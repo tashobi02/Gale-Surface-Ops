@@ -31,7 +31,7 @@ export interface AppHandle {
   destroy(): void;
 }
 
-const TITLE = "Marswalk Surface Ops";
+const TITLE = "Gale Surface Ops";
 
 export async function startApp(options: StartAppOptions): Promise<AppHandle> {
   // react-dom/client reads `window` when it loads, so it is imported here and not at the top of the module.

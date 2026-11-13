@@ -1,7 +1,7 @@
 {
   "name": "cheesyspace-marswalk",
   "private": true,
-  "description": "Marswalk Surface Ops (NASA Space Apps 2026, team CheesySpace): planner, Hab Core, EVA/HUD/ops clients",
+  "description": "Gale Surface Ops (NASA Space Apps 2026, team CheesySpace): planner, Hab Core, EVA/HUD/ops clients",
   "license": "Apache-2.0",
   "scripts": {
     "lint:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#graphify-out\" \"#.claude/skills\" \"#.claude/agents\" \"#.claude/ecc/rules\" \"#.claude/commands/orch-*.md\" \"#.claude/commands/speckit.*.md\" \"#.claude/hookify.*.local.md\" \"#.specify/templates\" \"#.venv\" \"#apps/*/dist\" \"#apps/hab-core/var\" \"#.agents/skills\" \"#.gemini/skills\" \"#vendor/impeccable/NOTICE.md\" \"#docs/design/prototype/test/node_modules\" \"#pipeline/work\" \"#data/sites/*/tiles\" \"#data/sites/*/grid\" \"#data/sites/*/images\"",
