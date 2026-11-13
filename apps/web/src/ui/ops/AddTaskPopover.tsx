@@ -184,6 +184,8 @@ function AddTaskForm({
       {disabledReason && <p role="status">{disabledReason}</p>}
       {limitReached && (
         <div
+          data-provenance="assumed"
+          data-source="ui:stop-task.limit"
           style={{
             color: "var(--status-caution, #FFB020)",
             fontSize: "12px",
