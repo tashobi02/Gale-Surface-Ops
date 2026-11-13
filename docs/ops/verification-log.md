@@ -994,3 +994,7 @@ The check found a real defect and it is fixed: the SCR-05 metric tiles collapsed
 | `usability-UT-1`..`UT-9` | **Pass** | All 9 Surface Ops & grayscale heuristics pass (`>= 56 px` targets, `>= 8 px` gaps, `7.57:1` HUD alert contrast at `64 px`, distinct grayscale lumas `79/183/32` with shape+word, orientation parity & mid-alert rotation, quiet NOMINAL slot, stop tasks `607 ms`, full-screen map `40 px` stacked readouts + `Escape` focus return). |
 
 **Unautomatable / triage (`T15.03`):** Physical neoprene glove press dexterity, live 3-user think-aloud / 3-s subjective reading speed, and real `gale_boxwork` routing (`N-140`) remain human/hardware steps under `T15.02` (`wip`). Non-blocking UX notes (`StopTaskList` skip-reason accessible label omitting task text, `B-04` 390 px planner drawer overlap) are recorded in [usability-results.md](usability-results.md#findings-and-triage-t1503).
+
+## T17.04 — capture continuation, 2026-11-13
+
+`E2E_PORT=18132 timeout 900s make e2e-one CHECK=capture` stopped in global setup: `listen EPERM` on the `tsx` IPC socket. No browser test or duration check ran. The capture and assembly remain incomplete; no output video is certified.
