@@ -29,8 +29,8 @@ import { deriveDemoTiming, loadInputs, type DemoTiming } from "./demo-numbers";
 
 /**
  * The prototype disclaimer (01 §F.1, FD-135), with the ADR-013 product name. Equal to `PROTOTYPE_DISCLAIMER` in
- * apps/web/src/ui/content/disclaimer.ts (a test compares them). The committed scenario files still carry the old
- * name until they are regenerated (N-170).
+ * apps/web/src/ui/content/disclaimer.ts (a test compares them). The committed scenario files carry it too (regenerated
+ * with this script and `scenario_build`, N-170; the plan_hash and log_hash do not cover the disclaimer, so they did not change).
  */
 export const PROTOTYPE_DISCLAIMER =
   "Gale Surface Ops is an exploratory hackathon prototype. It is not astronaut operations software. " +

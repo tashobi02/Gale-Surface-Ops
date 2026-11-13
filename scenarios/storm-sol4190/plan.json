@@ -6621,5 +6621,5 @@
       ]
     }
   ],
-  "disclaimer": "Marswalk Surface Ops is an exploratory hackathon prototype. It is not astronaut operations software. Crew, suit, rover and vehicle states are simulated. Solar events are real historical records replayed on a simulated clock — not a live feed from Mars. Slope limits, speeds, consumables and shelter values are illustrative assumptions from Earth and Apollo-era references. Radio coverage is line-of-sight only."
+  "disclaimer": "Gale Surface Ops is an exploratory hackathon prototype. It is not astronaut operations software. Crew, suit, rover and vehicle states are simulated. Solar events are real historical records replayed on a simulated clock — not a live feed from Mars. Slope limits, speeds, consumables and shelter values are illustrative assumptions from Earth and Apollo-era references. Radio coverage is line-of-sight only."
 }
