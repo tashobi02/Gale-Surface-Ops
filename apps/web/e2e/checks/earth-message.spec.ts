@@ -25,9 +25,6 @@ import { expect, test } from "@playwright/test";
 import { openFreshOps, sessionLog, sessionSnapshot, startPaused, watchLive } from "../lib/liveMission";
 import { EARTH_PASS_STARTS_MS } from "../lib/fakeScenario";
 
-/** The composer of SCR-16 (03 SCR-16). */
-const COMPOSER = "earth-message";
-
 test("earth-message: a message typed in the SCR-16 composer arrives at Mars at the rule's time (T18.12)", async ({ context }) => {
   test.setTimeout(180_000);
   const { ops, wire } = await openFreshOps(context);
