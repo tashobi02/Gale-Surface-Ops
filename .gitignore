@@ -12,10 +12,7 @@ apps/*/dist/
 # pipeline workspace: downloads and intermediates never enter git (05 §B)
 pipeline/work/*
 !pipeline/work/.gitkeep
-# site binaries stay out of git; they ship as a GitHub release asset (docs/ops/feasibility.md)
-data/sites/*/tiles/
-data/sites/*/grid/
-data/sites/*/images/
+# Site binaries are tracked with Git LFS (.gitattributes, docs/ops/hosting.md §5); the release asset stays as an archive.
 .releases/
 # Hab Core session store (05 §B)
 apps/hab-core/var/*

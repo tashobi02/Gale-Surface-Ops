@@ -68,6 +68,8 @@ npm run hab:local -- --open
 
 Open `http://localhost:8080/#/` for the mission briefing. The local launcher also prints and opens the ops, presenter, EV1 tablet and EV1 HUD URLs. Use `#/planner` to plan a route, `#/sources` to inspect provenance, and `#/replay` to watch the reference recording. The runtime needs no internet after installation and building.
 
+A static copy of `main` (planner, sources and the storm replay; no Hab Core) is at <https://gale-surface-ops.vercel.app> — replay at <https://gale-surface-ops.vercel.app/#/replay>. Vercel rebuilds it on every push to `main` ([hosting](docs/ops/hosting.md#5-public-link-deployment-vercel)).
+
 The offline preprocessing pipeline and full development checks additionally require conda (Miniconda or Miniforge) and GNU Make:
 
 ```sh
@@ -98,7 +100,7 @@ The full pipeline environment (GDAL ≥ 3.6, rasterio, numpy, pyproj) is in [pip
 
 ## Data is not in git
 
-Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are never committed. The offline pipeline (`make data`) downloads into the git-ignored `pipeline/work/` and writes the site bundle to `data/sites/<site_id>/` (layout: [data/sites/gale_boxwork/README.md](data/sites/gale_boxwork/README.md)). Source URLs, versions and checksums go in `pipeline/sources.lock.json`. The large tiles, grid and images are shared as a GitHub release asset (chosen route, not Git LFS); see [docs/ops/feasibility.md](docs/ops/feasibility.md).
+Source datasets (USGS Gale DEM and orthophoto, THEMIS, CRISM, rover images) are never committed. The offline pipeline (`make data`) downloads into the git-ignored `pipeline/work/` and writes the site bundle to `data/sites/<site_id>/` (layout: [data/sites/gale_boxwork/README.md](data/sites/gale_boxwork/README.md)). Source URLs, versions and checksums go in `pipeline/sources.lock.json`. The large tiles, grid and images are tracked with Git LFS (since 2026-11-14; run `git lfs install` before cloning) and also kept as a GitHub release asset; see [hosting](docs/ops/hosting.md#5-public-link-deployment-vercel).
 
 ## Documentation
 

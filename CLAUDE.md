@@ -24,7 +24,7 @@ Start at [docs/README.md](docs/README.md): index, traceability table, decisions,
 - **Media:** no under-18 likeness in videos or images (06 TASK-17).
 - **Licence:** Apache-2.0; credit every dataset and image in the UI and README (NFR-07).
 - **AI use:** log every AI-assisted change in [docs/AI_USE.md](docs/AI_USE.md).
-- **Data:** never commit downloaded datasets or large binaries; `pipeline/work/` and site tiles/grids are git-ignored.
+- **Data:** never commit downloaded datasets or large binaries; `pipeline/work/` is git-ignored. Exception: the `gale_boxwork` site bundle (tiles, grid, images) is tracked with Git LFS (`.gitattributes`, [hosting §5](docs/ops/hosting.md#5-public-link-deployment-vercel)).
 
 ## 3. Phase gate
 
@@ -73,7 +73,7 @@ Work follows the task windows and dependency order in [docs/tasks/_coordination.
 | `apps/web/src/net/` | Hab Core WebSocket client |
 | `apps/web/src/ui/styles/tokens.css` | Design tokens from 04 §C (modes via `<html data-mode>`) |
 | `apps/hab-core/src/` | Server, session, scenario loader, event log, commands, engine (clock, reducer, tick), replay CLI |
-| `data/sites/<site_id>/` | Pipeline output (binaries git-ignored; release asset) |
+| `data/sites/<site_id>/` | Pipeline output (`gale_boxwork` binaries in Git LFS; also a release asset) |
 | `scenarios/<scenario_id>/` | Scenario files for the Hab Core (05 §C.2) |
 | `pipeline/src/marswalk_pipeline/` | Acquire → clip/reproject → derive → tiles/grid/vectors → manifest → validate (+ v2: comm grid, SPICE tables, DONKI/RAD extraction — TASK-21) |
 

@@ -18,7 +18,7 @@ For any coding agent (Codex, Cursor, Gemini CLI, …). This file is the single r
 4. Mars CRS: `IAU_2015:49900` sphere (R = 3,396,190 m), planetocentric latitude, east-positive longitude, local `+proj=eqc` working projection. Never use EPSG:3857/WGS84 code paths or Earth-radius distance helpers (`ol/sphere`). Mars24 needs `west = (360 − east) mod 360`.
 5. No under-18 likeness in media. Code is Apache-2.0; credit every dataset and image.
 6. Log AI-assisted work in [docs/AI_USE.md](docs/AI_USE.md).
-7. Never commit downloaded datasets or large binaries.
+7. Never commit downloaded datasets or large binaries. Exception: the `gale_boxwork` site bundle (`tiles/`, `grid/`, `images/`) is tracked with Git LFS (`.gitattributes`); `pipeline/work/` stays git-ignored.
 
 ## Workflow
 
