@@ -127,6 +127,8 @@ export function HoldToConfirm({
   const [rejection, setRejection] = useState<string>("");
 
   const rafRef = useRef<number | null>(null);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdStartTimeRef = useRef<number | null>(null);
   const outcomeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -137,32 +139,41 @@ export function HoldToConfirm({
   /** What started the current hold: only a pointer hold is cancelled by the pointer leaving. */
   const holdSourceRef = useRef<"pointer" | "key">("pointer");
 
+  const clearHoldSchedule = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    if (holdTimerRef.current !== null) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    holdStartTimeRef.current = null;
+  }, []);
+
   // Clean up timers on unmount
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      clearHoldSchedule();
       if (outcomeTimerRef.current !== null) clearTimeout(outcomeTimerRef.current);
       if (fallbackTimerRef.current !== null) clearTimeout(fallbackTimerRef.current);
       if (cancelResetTimerRef.current !== null) clearTimeout(cancelResetTimerRef.current);
     };
-  }, []);
+  }, [clearHoldSchedule]);
 
   // A control that turns disabled underneath a hold or an armed "Confirm" drops back to idle; it never confirms.
   useEffect(() => {
     if (!disabled) return;
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
+    clearHoldSchedule();
     if (fallbackTimerRef.current !== null) {
       clearTimeout(fallbackTimerRef.current);
       fallbackTimerRef.current = null;
     }
     setPhase((p) => (p === "holding" || p === "confirm" || p === "cancelled" ? "idle" : p));
     if (!inFlightRef.current) setProgress(0);
-  }, [disabled]);
+  }, [disabled, clearHoldSchedule]);
 
   const triggerConfirm = useCallback(async () => {
     // One dispatch per confirmation, however many taps or key repeats arrive while pending.
@@ -209,6 +220,7 @@ export function HoldToConfirm({
 
   const startHolding = useCallback((source: "pointer" | "key") => {
     if (disabled || phase === "done" || phase === "pending") return;
+    clearHoldSchedule();
     holdSourceRef.current = source;
 
     if (cancelResetTimerRef.current !== null) {
@@ -218,9 +230,17 @@ export function HoldToConfirm({
 
     setPhase("holding");
     const startTime = performance.now();
+    holdStartTimeRef.current = startTime;
+
+    const completeHold = () => {
+      if (disabledRef.current || holdStartTimeRef.current !== startTime) return;
+      clearHoldSchedule();
+      setProgress(1);
+      void triggerConfirm();
+    };
 
     const tick = () => {
-      if (disabledRef.current) {
+      if (disabledRef.current || holdStartTimeRef.current !== startTime) {
         rafRef.current = null;
         return;
       }
@@ -229,31 +249,42 @@ export function HoldToConfirm({
       setProgress(p);
 
       if (p >= 1) {
-        rafRef.current = null;
-        void triggerConfirm();
+        completeHold();
       } else {
         rafRef.current = requestAnimationFrame(tick);
       }
     };
 
+    // Backup timer + rAF ensure a hold reaching holdDurationMs confirms even if main-thread work delays a frame.
+    holdTimerRef.current = setTimeout(completeHold, holdDurationMs);
     rafRef.current = requestAnimationFrame(tick);
-  }, [disabled, phase, holdDurationMs, triggerConfirm]);
+  }, [disabled, phase, holdDurationMs, triggerConfirm, clearHoldSchedule]);
 
   const cancelHolding = useCallback(() => {
     if (phase !== "holding") return;
-
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-
+    clearHoldSchedule();
     setProgress(0);
     setPhase("cancelled");
 
     cancelResetTimerRef.current = setTimeout(() => {
       setPhase("idle");
     }, 1200);
-  }, [phase]);
+  }, [phase, clearHoldSchedule]);
+
+  const finishOrCancelHold = useCallback(() => {
+    if (phase !== "holding") return;
+    if (
+      !disabledRef.current &&
+      holdStartTimeRef.current !== null &&
+      performance.now() - holdStartTimeRef.current >= holdDurationMs
+    ) {
+      clearHoldSchedule();
+      setProgress(1);
+      void triggerConfirm();
+      return;
+    }
+    cancelHolding();
+  }, [phase, holdDurationMs, clearHoldSchedule, triggerConfirm, cancelHolding]);
 
   const handlePointerDown = (e: PointerEvent<HTMLButtonElement>) => {
     // In tap-fallback mode the click event alone drives the two taps.
@@ -263,9 +294,7 @@ export function HoldToConfirm({
   };
 
   const handlePointerUp = () => {
-    if (phase === "holding") {
-      cancelHolding();
-    }
+    finishOrCancelHold();
   };
 
   const handlePointerCancel = () => {
@@ -302,9 +331,7 @@ export function HoldToConfirm({
   const handleKeyUp = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      if (phase === "holding") {
-        cancelHolding();
-      }
+      finishOrCancelHold();
     }
   };
 

@@ -13,6 +13,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { Alert, Snapshot, StopTask } from "@marswalk/protocol";
+import { e2eSite } from "../lib/siteBundle";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CONNECT_FIXTURE_PATH = resolve(HERE, "../../tests/fixtures/ws/connect.json");
@@ -23,8 +24,12 @@ type ProvenanceClass = "measured" | "derived" | "modelled" | "assumed" | "replay
 interface ProvenancedValue {
   value: string | number | boolean | null;
   unit?: string;
-  provenance: ProvenanceClass;
+  provenance: ProvenanceClass | null;
   source: string;
+}
+
+function unavailableMetric(path: string, provenance: ProvenanceClass | null = null): ProvenancedValue {
+  return { value: null, provenance, source: `unavailable:${path}` };
 }
 
 interface HeuristicCaseResult {
@@ -66,8 +71,9 @@ function loadBaseSnapshot(): Snapshot {
 
 function writeMetric(record: HeuristicCaseResult): void {
   mkdirSync(dirname(METRICS_PATH), { recursive: true });
-  let existing: { generatedBy: string; cases: Record<string, HeuristicCaseResult> } = {
+  let existing: { generatedBy: string; site?: string; cases: Record<string, HeuristicCaseResult> } = {
     generatedBy: "apps/web/e2e/checks/usability.spec.ts",
+    site: e2eSite(),
     cases: {},
   };
   if (existsSync(METRICS_PATH)) {
@@ -77,8 +83,13 @@ function writeMetric(record: HeuristicCaseResult): void {
       // Overwrite corrupted partial file on fresh run.
     }
   }
+  existing.site = e2eSite();
   existing.cases[record.id] = record;
   writeFileSync(METRICS_PATH, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
+}
+
+function siteUrl(hash: string): string {
+  return `/?site=${e2eSite()}${hash}`;
 }
 
 function makeTasks(): StopTask[] {
@@ -281,6 +292,37 @@ async function hasAccessibleName(loc: Locator): Promise<boolean> {
   });
 }
 
+async function checkVisibleControlsAccessible(page: Page): Promise<{ ok: boolean; count: number; unnamed: string[] }> {
+  return page.evaluate(() => {
+    const selector = "button, a[href], input, select, textarea, [role='button'], [role='tab'], [role='radio'], [role='checkbox'], [role='switch']";
+    const els = Array.from(document.querySelectorAll(selector));
+    const unnamed: string[] = [];
+    let count = 0;
+    for (const el of els) {
+      if (el.closest("[aria-hidden='true']")) continue;
+      const rect = el.getBoundingClientRect();
+      const s = getComputedStyle(el);
+      if (rect.width <= 0 || rect.height <= 0 || s.visibility === "hidden" || s.display === "none") continue;
+      count++;
+      const aria = el.getAttribute("aria-label")?.trim();
+      const labelledBy = el.getAttribute("aria-labelledby")
+        ?.split(/\s+/)
+        .map((id) => document.getElementById(id)?.textContent?.trim() ?? "")
+        .join(" ")
+        .trim();
+      const title = el.getAttribute("title")?.trim();
+      const hasLabel =
+        (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) &&
+        Boolean(el.labels && el.labels.length > 0);
+      const text = el.textContent?.trim() ?? "";
+      if (!aria && !labelledBy && !hasLabel && !text && !title) {
+        unnamed.push(`${el.tagName.toLowerCase()}.${el.className || "(no-class)"}`);
+      }
+    }
+    return { ok: unnamed.length === 0, count, unnamed };
+  });
+}
+
 async function checkVisibleFocusOnControl(page: Page, loc: Locator): Promise<boolean> {
   await loc.focus();
   await page.keyboard.press("Shift+Tab");
@@ -356,8 +398,9 @@ test.describe("Package 30 automated usability heuristics", () => {
     const findings: string[] = [];
     let steps = 0;
 
+    const site = e2eSite();
     await page.setViewportSize({ width: 1440, height: 900 });
-    await openClean(page, "/?site=mock_site#/");
+    await openClean(page, siteUrl("#/"));
 
     const startPlanning = page.getByRole("button", { name: "Start planning" });
     await expect(startPlanning).toBeVisible();
@@ -432,13 +475,15 @@ test.describe("Package 30 automated usability heuristics", () => {
       }
       await page.keyboard.press("Enter");
       steps++;
-      // If a hazardous-cell snap prompt appears, accept the suggested safe point via visible button.
-      const acceptBtn = page.getByRole("button", { name: /Accept/i });
-      if (await acceptBtn.isVisible({ timeout: 300 }).catch(() => false)) {
+      // Wait for either the stop to be added or a hazardous-cell snap prompt, then accept via visible button.
+      const deleteStopBtn = page.getByRole("button", { name: `Delete stop ${s + 1}`, exact: true });
+      const acceptBtn = page.getByRole("button", { name: /Use snapped position/i });
+      await expect(deleteStopBtn.or(acceptBtn)).toBeVisible({ timeout: 5_000 });
+      if (await acceptBtn.isVisible()) {
         await acceptBtn.click();
         steps++;
       }
-      await expect(page.getByRole("button", { name: `Delete stop ${s + 1}`, exact: true })).toBeVisible({ timeout: 5_000 });
+      await expect(deleteStopBtn).toBeVisible({ timeout: 5_000 });
     }
 
     // Wait for real worker to compute route and enable Briefing button.
@@ -447,19 +492,30 @@ test.describe("Package 30 automated usability heuristics", () => {
     await expect(briefingBtn).toBeEnabled({ timeout: 25_000 });
     const workerWaitMs = Math.round(performance.now() - workerStart);
 
+    const plannerNamesCheck = await checkVisibleControlsAccessible(page);
+    if (!plannerNamesCheck.ok) findings.push(`Unnamed controls on SCR-02: ${plannerNamesCheck.unnamed.join(", ")}`);
+    const noBrandOrangeOps = await checkNoBrandOrange(page);
+    if (!noBrandOrangeOps) findings.push("Brand orange detected on OPS planner workspace (04 §A.3)");
+
     const briefingFocusVisible = await checkVisibleFocusOnControl(page, briefingBtn);
     await briefingBtn.click();
     steps++;
 
-    // Assert SCR-08 briefing card renders with provenance.
+    // Assert SCR-08 briefing card renders with provenance and all visible controls carry accessible names.
     await expect(page.getByRole("heading", { name: /Plan for/i })).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole("button", { name: "Export plan JSON" })).toBeVisible();
+    const exportBtn = page.getByRole("button", { name: "Export plan JSON" });
+    await expect(exportBtn).toBeVisible();
+    const exportFocusVisible = await checkVisibleFocusOnControl(page, exportBtn);
     const provCheck = await checkProvenanceOnPage(page);
     if (!provCheck.ok) findings.push(...provCheck.invalid.slice(0, 5));
+    const namesCheck = await checkVisibleControlsAccessible(page);
+    if (!namesCheck.ok) findings.push(`Unnamed controls on SCR-08: ${namesCheck.unnamed.join(", ")}`);
 
     const durationMs = Math.round(performance.now() - startMs);
     if (!startHasName) findings.push("Start planning lacks accessible name");
-    if (!startFocusVisible || !briefingFocusVisible) findings.push("Missing visible focus ring on primary briefing flow buttons");
+    if (!startFocusVisible || !briefingFocusVisible || !exportFocusVisible) {
+      findings.push("Missing visible focus ring on primary briefing flow buttons");
+    }
     if (steps > 15) findings.push(`Step count ${steps} exceeded budget 15`);
 
     const result: HeuristicCaseResult = {
@@ -472,17 +528,17 @@ test.describe("Package 30 automated usability heuristics", () => {
       stepBudget: { value: 15, unit: "actions", provenance: "assumed", source: "spec:01-B.2" },
       durationMs: { value: durationMs, unit: "ms", provenance: "measured", source: "e2e:usability.spec.ts" },
       workerWaitMs: { value: workerWaitMs, unit: "ms", provenance: "measured", source: "worker:route-planner" },
-      minTargetPx: { value: null, provenance: "assumed", source: "spec:04-B" },
-      minGapPx: { value: null, provenance: "assumed", source: "spec:04-B" },
+      minTargetPx: unavailableMetric("usability.briefing-5-min.minTargetPx"),
+      minGapPx: unavailableMetric("usability.briefing-5-min.minGapPx"),
       keyboardReachable: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      focusVisible: { value: startFocusVisible && briefingFocusVisible, provenance: "measured", source: "e2e:usability.spec.ts" },
-      accessibleNamesOk: { value: startHasName, provenance: "measured", source: "e2e:usability.spec.ts" },
+      focusVisible: { value: startFocusVisible && briefingFocusVisible && exportFocusVisible, provenance: "measured", source: "e2e:usability.spec.ts" },
+      accessibleNamesOk: { value: startHasName && plannerNamesCheck.ok && namesCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
       errorGuidanceOk: { value: errorGuidanceOk, provenance: "measured", source: "e2e:usability.spec.ts" },
       provenanceAttrsOk: { value: provCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
-      noBrandOrange: { value: true, provenance: "assumed", source: "spec:04-B" },
-      unautomatable: "3 non-team humans timing think-aloud on real gale_boxwork (blocked by N-140) with zero verbal help",
+      noBrandOrange: { value: noBrandOrangeOps, provenance: "measured", source: "e2e:usability.spec.ts" },
+      unautomatable: "3 non-team humans timing think-aloud on real gale_boxwork with zero verbal help",
       findings,
-      notes: "Driven on ?site=mock_site with real web worker via Start planning -> Dismiss guide -> EVA start -> Add stop x3 -> Briefing.",
+      notes: `Driven on ?site=${site} with real web worker via Start planning -> Dismiss guide -> EVA start -> Add stop x3 -> Briefing.`,
     };
     writeMetric(result);
     expect(findings, findings.join("; ")).toEqual([]);
@@ -493,7 +549,7 @@ test.describe("Package 30 automated usability heuristics", () => {
     const findings: string[] = [];
     await page.setViewportSize({ width: 844, height: 390 });
     await mountWsSnapshot(page, buildSnapshot({ activity: "WALKING", alerts: [WARNING_ALERT] }));
-    await openClean(page, "/?site=mock_site#/hud/EV1");
+    await openClean(page, siteUrl("#/hud/EV1"));
 
     const hudMain = page.getByRole("region", { name: "EVA Heads Up Display" });
     await expect(hudMain).toBeVisible();
@@ -504,12 +560,13 @@ test.describe("Package 30 automated usability heuristics", () => {
     await expect(telemetry).toBeVisible();
     await expect(telemetry).toContainText(/HAVEN/i);
     await expect(telemetry).toContainText(/O₂|O2/i);
+    await expect(telemetry).toContainText(/TARGET|STOP|↗/i);
 
     const metrics = await page.evaluate(() => {
       const interactive = document.querySelectorAll("button, a, input, select, [role='button'], [tabindex]:not([tabindex='-1'])").length;
       const values = Array.from(document.querySelectorAll("[aria-label='Visor navigation and consumables telemetry'] span"))
         .map((el) => ({ text: el.textContent?.trim() ?? "", size: parseFloat(getComputedStyle(el).fontSize), rect: el.getBoundingClientRect(), style: getComputedStyle(el) }))
-        .filter((x) => /^\d+/.test(x.text) && x.size >= 30);
+        .filter((x) => /^(\d+|↗)/.test(x.text) && x.size >= 30);
       const minFont = values.length > 0 ? Math.min(...values.map((v) => v.size)) : 0;
       const outOfFold = values.filter((v) => v.rect.bottom > 390 || v.rect.right > 844).length;
       const overflowY = document.documentElement.scrollHeight > 390;
@@ -519,9 +576,16 @@ test.describe("Package 30 automated usability heuristics", () => {
     const fgBg = await page.evaluate(() => {
       const alertEl = document.querySelector("[role='alert']") as HTMLElement | null;
       const s = alertEl ? getComputedStyle(alertEl) : null;
-      return s ? { fg: s.color, bg: s.backgroundColor } : null;
+      const rootBg = getComputedStyle(document.querySelector("[aria-label='EVA Heads Up Display']") ?? document.body).backgroundColor;
+      const readoutEls = Array.from(document.querySelectorAll("[aria-label='Visor navigation and consumables telemetry'] span"))
+        .filter((el) => /^(\d+|↗)/.test(el.textContent?.trim() ?? "") && parseFloat(getComputedStyle(el).fontSize) >= 30);
+      const readoutColors = readoutEls.map((el) => ({ fg: getComputedStyle(el).color, bg: rootBg === "rgba(0, 0, 0, 0)" ? "rgb(0, 0, 0)" : rootBg }));
+      return { alert: s ? { fg: s.color, bg: s.backgroundColor } : null, readouts: readoutColors };
     });
-    const contrast = fgBg ? wcagContrast(fgBg.fg, fgBg.bg) : 0;
+    const contrast = fgBg.alert ? wcagContrast(fgBg.alert.fg, fgBg.alert.bg) : 0;
+    const minReadoutContrast = fgBg.readouts.length > 0
+      ? Math.min(...fgBg.readouts.map((r) => wcagContrast(r.fg, r.bg)))
+      : 0;
     const provCheck = await checkProvenanceOnPage(page);
     const noOrange = await checkNoBrandOrange(page);
 
@@ -529,6 +593,7 @@ test.describe("Package 30 automated usability heuristics", () => {
     if (metrics.minFont < 56) findings.push(`HUD primary readout font ${metrics.minFont} px (< 56 px)`);
     if (metrics.outOfFold > 0 || metrics.overflowY) findings.push("HUD telemetry overflows 844x390 viewport");
     if (contrast < 7) findings.push(`HUD alert contrast ${contrast.toFixed(2)}:1 (< 7:1)`);
+    if (minReadoutContrast < 7) findings.push(`HUD readout contrast ${minReadoutContrast.toFixed(2)}:1 (< 7:1)`);
     if (!provCheck.ok) findings.push(...provCheck.invalid.slice(0, 4));
     if (!noOrange) findings.push("Brand orange detected on HUD surface");
 
@@ -541,18 +606,18 @@ test.describe("Package 30 automated usability heuristics", () => {
       steps: { value: 0, unit: "actions", provenance: "measured", source: "e2e:usability.spec.ts" },
       stepBudget: { value: 0, unit: "actions", provenance: "assumed", source: "spec:04-F.1" },
       durationMs: { value: Math.round(performance.now() - startMs), unit: "ms", provenance: "measured", source: "e2e:usability.spec.ts" },
-      workerWaitMs: { value: null, provenance: "assumed", source: "fixture:ws-snapshot" },
+      workerWaitMs: unavailableMetric("usability.UT-1.workerWaitMs"),
       minTargetPx: { value: Math.round(metrics.minFont), unit: "px(font)", provenance: "measured", source: "e2e:usability.spec.ts" },
-      minGapPx: { value: null, provenance: "assumed", source: "spec:04-F.1" },
-      keyboardReachable: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      focusVisible: { value: true, provenance: "assumed", source: "spec:04-F.1" },
+      minGapPx: unavailableMetric("usability.UT-1.minGapPx"),
+      keyboardReachable: { value: metrics.interactive === 0, provenance: "measured", source: "e2e:usability.spec.ts" },
+      focusVisible: unavailableMetric("usability.UT-1.focusVisible"),
       accessibleNamesOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      errorGuidanceOk: { value: true, provenance: "assumed", source: "spec:04-F.1" },
+      errorGuidanceOk: unavailableMetric("usability.UT-1.errorGuidanceOk"),
       provenanceAttrsOk: { value: provCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
       noBrandOrange: { value: noOrange, provenance: "measured", source: "e2e:usability.spec.ts" },
       unautomatable: "Real human 3-second verbal recall without prior briefing",
       findings,
-      notes: `Alert contrast ${contrast.toFixed(2)}:1; primary readout min font ${metrics.minFont} px; 0 controls.`,
+      notes: `Alert contrast ${contrast.toFixed(2)}:1; readout min contrast ${minReadoutContrast.toFixed(2)}:1; primary readout min font ${metrics.minFont} px; 0 controls.`,
     });
     expect(findings, findings.join("; ")).toEqual([]);
   });
@@ -562,7 +627,7 @@ test.describe("Package 30 automated usability heuristics", () => {
     const findings: string[] = [];
     await page.setViewportSize({ width: 844, height: 390 });
     const { sent } = await mountWsSnapshot(page, buildSnapshot({ activity: "WALKING" }));
-    await openClean(page, "/?site=mock_site#/eva/EV1");
+    await openClean(page, siteUrl("#/eva/EV1"));
 
     const summonBtn = page.getByRole("button", { name: /^Summon rover/i });
     const abortBtn = page.getByRole("button", { name: /^Abort to hab/i });
@@ -575,8 +640,13 @@ test.describe("Package 30 automated usability heuristics", () => {
     const geom = await measureControls([summonBtn, abortBtn, taskBtn, hudBtn, hcBtn, tapBtn]);
     findings.push(...geom.failures);
 
-    const focusOk = await checkVisibleFocusOnControl(page, summonBtn);
-    if (!focusOk) findings.push("Summon rover lacks visible keyboard focus ring");
+    const namesCheck = await checkVisibleControlsAccessible(page);
+    if (!namesCheck.ok) findings.push(`Unnamed controls on EVA tablet: ${namesCheck.unnamed.join(", ")}`);
+    const focusOk = (await checkVisibleFocusOnControl(page, summonBtn)) && (await checkVisibleFocusOnControl(page, abortBtn));
+    if (!focusOk) findings.push("Summon rover or Abort to hab lacks visible keyboard focus ring");
+    if ((await tapBtn.getAttribute("aria-pressed")) !== "false") {
+      findings.push("Tap confirm toggle missing aria-pressed=\"false\" initial state");
+    }
 
     // Premature hold (< 800 ms) must not dispatch SUMMON_VEHICLE and must show guidance.
     await holdButton(page, summonBtn, 150);
@@ -602,12 +672,12 @@ test.describe("Package 30 automated usability heuristics", () => {
       steps: { value: 1, unit: "hold-action", provenance: "measured", source: "e2e:usability.spec.ts" },
       stepBudget: { value: 2, unit: "actions", provenance: "assumed", source: "spec:04-F.1" },
       durationMs: { value: Math.round(performance.now() - startMs), unit: "ms", provenance: "measured", source: "e2e:usability.spec.ts" },
-      workerWaitMs: { value: null, provenance: "assumed", source: "fixture:ws-snapshot" },
+      workerWaitMs: unavailableMetric("usability.UT-2.workerWaitMs"),
       minTargetPx: { value: geom.minTargetPx, unit: "px", provenance: "measured", source: "e2e:usability.spec.ts" },
       minGapPx: { value: geom.minGapPx, unit: "px", provenance: "measured", source: "e2e:usability.spec.ts" },
       keyboardReachable: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
       focusVisible: { value: focusOk, provenance: "measured", source: "e2e:usability.spec.ts" },
-      accessibleNamesOk: { value: await hasAccessibleName(summonBtn), provenance: "measured", source: "e2e:usability.spec.ts" },
+      accessibleNamesOk: { value: namesCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
       errorGuidanceOk: { value: holdGuidance, provenance: "measured", source: "e2e:usability.spec.ts" },
       provenanceAttrsOk: { value: provCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
       noBrandOrange: { value: noOrange, provenance: "measured", source: "e2e:usability.spec.ts" },
@@ -623,10 +693,13 @@ test.describe("Package 30 automated usability heuristics", () => {
     const findings: string[] = [];
     await page.setViewportSize({ width: 1440, height: 900 });
     const { sent } = await mountWsSnapshot(page, buildSnapshot({ activity: "WALKING", alerts: [WARNING_ALERT], withOptions: true }));
-    await openClean(page, "/?site=mock_site#/ops");
+    await openClean(page, siteUrl("#/ops"));
 
     const alertBar = page.getByRole("alert");
     await expect(alertBar).toContainText(/WARNING/i);
+    if ((await alertBar.first().getAttribute("aria-live")) !== "assertive") {
+      findings.push("Ops WARNING alert lacks aria-live=\"assertive\" (04 §F)");
+    }
     await expect(page.getByText("[EV1]")).toBeVisible();
 
     const optionsRegion = page.getByRole("region", { name: "Options", exact: true });
@@ -641,6 +714,12 @@ test.describe("Package 30 automated usability heuristics", () => {
       await rank1Radio.click();
       steps++;
     }
+    const approveBox = await boxOf(approveBtn);
+    if (approveBox.width < 32 || approveBox.height < 32) {
+      findings.push(`Approve option 1 target ${Math.round(approveBox.width)}x${Math.round(approveBox.height)} px (< 32x32 px ops minimum)`);
+    }
+    const namesCheck = await checkVisibleControlsAccessible(page);
+    if (!namesCheck.ok) findings.push(`Unnamed controls on OPS console: ${namesCheck.unnamed.join(", ")}`);
     const focusOk = await checkVisibleFocusOnControl(page, approveBtn);
     if (!focusOk) findings.push("Approve option 1 lacks visible focus ring");
 
@@ -663,18 +742,18 @@ test.describe("Package 30 automated usability heuristics", () => {
       steps: { value: steps, unit: "actions", provenance: "measured", source: "e2e:usability.spec.ts" },
       stepBudget: { value: 2, unit: "actions", provenance: "assumed", source: "spec:04-E.4" },
       durationMs: { value: Math.round(performance.now() - startMs), unit: "ms", provenance: "measured", source: "e2e:usability.spec.ts" },
-      workerWaitMs: { value: null, provenance: "assumed", source: "fixture:ws-snapshot" },
-      minTargetPx: { value: null, provenance: "assumed", source: "spec:04-E.4" },
-      minGapPx: { value: null, provenance: "assumed", source: "spec:04-E.4" },
+      workerWaitMs: unavailableMetric("usability.UT-3.workerWaitMs"),
+      minTargetPx: unavailableMetric("usability.UT-3.minTargetPx"),
+      minGapPx: unavailableMetric("usability.UT-3.minGapPx"),
       keyboardReachable: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
       focusVisible: { value: focusOk, provenance: "measured", source: "e2e:usability.spec.ts" },
-      accessibleNamesOk: { value: await hasAccessibleName(approveBtn), provenance: "measured", source: "e2e:usability.spec.ts" },
-      errorGuidanceOk: { value: true, provenance: "assumed", source: "spec:04-E.4" },
+      accessibleNamesOk: { value: namesCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
+      errorGuidanceOk: unavailableMetric("usability.UT-3.errorGuidanceOk"),
       provenanceAttrsOk: { value: provCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
       noBrandOrange: { value: noOrange, provenance: "measured", source: "e2e:usability.spec.ts" },
       unautomatable: "Operator stress / first-time comprehension without verbal coaching",
       findings,
-      notes: `Identified [EV1] + WARNING alert; approved opt-1 in ${steps} action(s).`,
+      notes: `Identified [EV1] + WARNING alert (aria-live=assertive); approved opt-1 in ${steps} action(s).`,
     });
     expect(findings, findings.join("; ")).toEqual([]);
   });
@@ -716,18 +795,18 @@ test.describe("Package 30 automated usability heuristics", () => {
     };
 
     await page.setViewportSize({ width: 1440, height: 900 });
-    await readAlertSig("warning", buildSnapshot({ alerts: [WARNING_ALERT] }), /WARNING/i, /⬣/, "/?site=mock_site#/ops");
-    await readAlertSig("caution", buildSnapshot({ alerts: [CAUTION_ALERT] }), /CAUTION/i, /▲/, "/?site=mock_site#/ops");
-    await readAlertSig("advisory", buildSnapshot({ alerts: [ADVISORY_ALERT] }), /ADVISORY/i, /◆/, "/?site=mock_site#/ops");
+    await readAlertSig("warning", buildSnapshot({ alerts: [WARNING_ALERT] }), /WARNING/i, /⬣/, siteUrl("#/ops"));
+    await readAlertSig("caution", buildSnapshot({ alerts: [CAUTION_ALERT] }), /CAUTION/i, /▲/, siteUrl("#/ops"));
+    await readAlertSig("advisory", buildSnapshot({ alerts: [ADVISORY_ALERT] }), /ADVISORY/i, /◆/, siteUrl("#/ops"));
 
     // Nominal (EVA alert slot) + Unknown (unavailable HAVEN on EVA tablet & LOST crew link on OPS).
     await page.setViewportSize({ width: 844, height: 390 });
-    await readAlertSig("nominal", buildSnapshot({ activity: "WALKING", alerts: [] }), /NOMINAL/i, /■|✓|●|NOMINAL/, "/?site=mock_site#/eva/EV1");
+    await readAlertSig("nominal", buildSnapshot({ activity: "WALKING", alerts: [] }), /NOMINAL/i, /■|✓|●|NOMINAL/, siteUrl("#/eva/EV1"));
 
     const unknownSnap = buildSnapshot({ linked: false, alerts: [] });
     (unknownSnap.crew[0]!.haven as unknown as { minutes: number | null }).minutes = null;
     await mountWsSnapshot(page, unknownSnap);
-    await openClean(page, "/?site=mock_site#/eva/EV1");
+    await openClean(page, siteUrl("#/eva/EV1"));
     const unknownBadge = page.getByText(/UNKNOWN/i).first();
     await expect(unknownBadge).toBeVisible();
     const staleVisible = await page.getByText(/STALE/i).first().isVisible();
@@ -736,8 +815,15 @@ test.describe("Package 30 automated usability heuristics", () => {
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await mountWsSnapshot(page, buildSnapshot({ linked: false, alerts: [] }));
-    await openClean(page, "/?site=mock_site#/ops");
+    await openClean(page, siteUrl("#/ops"));
     await expect(page.getByText(/LOST/i).first()).toBeVisible();
+
+    const namesCheck = await checkVisibleControlsAccessible(page);
+    if (!namesCheck.ok) findings.push(`Unnamed controls on OPS console: ${namesCheck.unnamed.join(", ")}`);
+    const provCheck = await checkProvenanceOnPage(page);
+    if (!provCheck.ok) findings.push(...provCheck.invalid.slice(0, 4));
+    const noOrange = await checkNoBrandOrange(page);
+    if (!noOrange) findings.push("Brand orange detected on OPS console");
 
     // Warning (dark red ~73), Caution (amber ~196), Advisory (dark raised ~28) must have distinct grayscale lumas.
     const alertLumas = signatures.slice(0, 3).map((s) => s.luma);
@@ -754,15 +840,15 @@ test.describe("Package 30 automated usability heuristics", () => {
       steps: { value: 0, unit: "actions", provenance: "measured", source: "e2e:usability.spec.ts" },
       stepBudget: { value: 0, unit: "actions", provenance: "assumed", source: "spec:04-A.3" },
       durationMs: { value: Math.round(performance.now() - startMs), unit: "ms", provenance: "measured", source: "e2e:usability.spec.ts" },
-      workerWaitMs: { value: null, provenance: "assumed", source: "fixture:ws-snapshot" },
-      minTargetPx: { value: null, provenance: "assumed", source: "spec:04-A.3" },
-      minGapPx: { value: null, provenance: "assumed", source: "spec:04-A.3" },
+      workerWaitMs: unavailableMetric("usability.UT-4.workerWaitMs"),
+      minTargetPx: unavailableMetric("usability.UT-4.minTargetPx"),
+      minGapPx: unavailableMetric("usability.UT-4.minGapPx"),
       keyboardReachable: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      focusVisible: { value: true, provenance: "assumed", source: "spec:04-A.3" },
-      accessibleNamesOk: { value: findings.length === 0, provenance: "measured", source: "e2e:usability.spec.ts" },
-      errorGuidanceOk: { value: true, provenance: "assumed", source: "spec:04-A.3" },
-      provenanceAttrsOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      noBrandOrange: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
+      focusVisible: unavailableMetric("usability.UT-4.focusVisible"),
+      accessibleNamesOk: { value: findings.length === 0 && namesCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
+      errorGuidanceOk: unavailableMetric("usability.UT-4.errorGuidanceOk"),
+      provenanceAttrsOk: { value: provCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
+      noBrandOrange: { value: noOrange, provenance: "measured", source: "e2e:usability.spec.ts" },
       unautomatable: "Human naming accuracy under physical monochrome printout / sun glare",
       findings,
       notes: `Lumas (warn/caut/adv): ${alertLumas.join("/")}; all levels render distinct shape + word.`,
@@ -775,6 +861,10 @@ test.describe("Package 30 automated usability heuristics", () => {
     const findings: string[] = [];
     let worstTarget = Number.POSITIVE_INFINITY;
     let worstGap = Number.POSITIVE_INFINITY;
+    let focusAllOk = true;
+    let namesAllOk = true;
+    let provAllOk = true;
+    let noOrangeAllOk = true;
     const stepCounts: number[] = [];
 
     for (const vp of [
@@ -783,7 +873,7 @@ test.describe("Package 30 automated usability heuristics", () => {
     ]) {
       await page.setViewportSize({ width: vp.width, height: vp.height });
       const { sent } = await mountWsSnapshot(page, buildSnapshot({ activity: "WALKING", alerts: [WARNING_ALERT] }));
-      await openClean(page, "/?site=mock_site#/eva/EV1");
+      await openClean(page, siteUrl("#/eva/EV1"));
 
       const summonBtn = page.getByRole("button", { name: /^Summon rover/i });
       const abortBtn = page.getByRole("button", { name: /^Abort to hab/i });
@@ -811,6 +901,27 @@ test.describe("Package 30 automated usability heuristics", () => {
         }
       }
 
+      const namesCheck = await checkVisibleControlsAccessible(page);
+      if (!namesCheck.ok) {
+        namesAllOk = false;
+        findings.push(`[${vp.label}] Unnamed controls: ${namesCheck.unnamed.join(", ")}`);
+      }
+      const focusOk = await checkVisibleFocusOnControl(page, summonBtn);
+      if (!focusOk) {
+        focusAllOk = false;
+        findings.push(`[${vp.label}] Summon rover lacks visible keyboard focus ring`);
+      }
+      const provCheck = await checkProvenanceOnPage(page);
+      if (!provCheck.ok) {
+        provAllOk = false;
+        findings.push(...provCheck.invalid.slice(0, 4).map((e) => `[${vp.label}] ${e}`));
+      }
+      const noOrange = await checkNoBrandOrange(page);
+      if (!noOrange) {
+        noOrangeAllOk = false;
+        findings.push(`[${vp.label}] Brand orange detected on EVA tablet`);
+      }
+
       const overflowX = await page.evaluate((w) => document.documentElement.scrollWidth > w, vp.width);
       if (overflowX) findings.push(`[${vp.label}] Horizontal overflow detected`);
 
@@ -832,15 +943,15 @@ test.describe("Package 30 automated usability heuristics", () => {
       steps: { value: 2, unit: "actions/orientation", provenance: "measured", source: "e2e:usability.spec.ts" },
       stepBudget: { value: 2, unit: "actions", provenance: "assumed", source: "spec:04-E.5" },
       durationMs: { value: Math.round(performance.now() - startMs), unit: "ms", provenance: "measured", source: "e2e:usability.spec.ts" },
-      workerWaitMs: { value: null, provenance: "assumed", source: "fixture:ws-snapshot" },
+      workerWaitMs: unavailableMetric("usability.UT-5.workerWaitMs"),
       minTargetPx: { value: Number.isFinite(worstTarget) ? worstTarget : 0, unit: "px", provenance: "measured", source: "e2e:usability.spec.ts" },
       minGapPx: { value: Number.isFinite(worstGap) ? worstGap : 0, unit: "px", provenance: "measured", source: "e2e:usability.spec.ts" },
       keyboardReachable: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      focusVisible: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      accessibleNamesOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      errorGuidanceOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      provenanceAttrsOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      noBrandOrange: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
+      focusVisible: { value: focusAllOk, provenance: "measured", source: "e2e:usability.spec.ts" },
+      accessibleNamesOk: { value: namesAllOk, provenance: "measured", source: "e2e:usability.spec.ts" },
+      errorGuidanceOk: unavailableMetric("usability.UT-5.errorGuidanceOk"),
+      provenanceAttrsOk: { value: provAllOk, provenance: "measured", source: "e2e:usability.spec.ts" },
+      noBrandOrange: { value: noOrangeAllOk, provenance: "measured", source: "e2e:usability.spec.ts" },
       unautomatable: "Physical thick neoprene glove press accuracy across orientations",
       findings,
       notes: `Both orientations dispatched SUMMON_VEHICLE & ABORT in 2 holds; min target ${worstTarget} px, min gap ${worstGap} px.`,
@@ -853,8 +964,9 @@ test.describe("Package 30 automated usability heuristics", () => {
     const findings: string[] = [];
     await page.setViewportSize({ width: 1024, height: 768 });
     await mountWsSnapshot(page, buildSnapshot({ activity: "WALKING", alerts: [WARNING_ALERT] }));
-    await openClean(page, "/?site=mock_site#/eva/EV1");
+    await openClean(page, siteUrl("#/eva/EV1"));
 
+    let focusAllOk = true;
     const assertLayout = async (label: string, vw: number, vh: number) => {
       const havenLoc = page.getByText(/HAVEN/i).first();
       const o2Loc = page.getByText(/O₂|O2/i).first();
@@ -863,14 +975,20 @@ test.describe("Package 30 automated usability heuristics", () => {
       await expect(alertBar).toBeVisible();
       await expect(summonBtn).toBeVisible();
 
+      const aBox = await boxOf(alertBar);
       const hBox = await boxOf(havenLoc);
       const oBox = await boxOf(o2Loc);
       const sBox = await boxOf(summonBtn);
+      if (aBox.y + aBox.height > hBox.y + 2) findings.push(`[${label}] Alert bar overlaps or sits below HAVEN`);
       if (Math.abs(hBox.y - oBox.y) > 12) findings.push(`[${label}] HAVEN y=${Math.round(hBox.y)} and O2 y=${Math.round(oBox.y)} not on same row`);
       if (oBox.x <= hBox.x) findings.push(`[${label}] O2 (${Math.round(oBox.x)}) not to the right of HAVEN (${Math.round(hBox.x)})`);
+      if (sBox.y < hBox.y + hBox.height - 2) findings.push(`[${label}] Summon rover above HAVEN row`);
       if (sBox.y + sBox.height > vh || sBox.x + sBox.width > vw) findings.push(`[${label}] Summon rover clipped outside ${vw}x${vh}`);
       const focusOk = await checkVisibleFocusOnControl(page, summonBtn);
-      if (!focusOk) findings.push(`[${label}] Summon rover focus not visible after rotation`);
+      if (!focusOk) {
+        focusAllOk = false;
+        findings.push(`[${label}] Summon rover focus not visible after rotation`);
+      }
     };
 
     await assertLayout("1024x768-initial", 1024, 768);
@@ -883,6 +1001,13 @@ test.describe("Package 30 automated usability heuristics", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await assertLayout("390x844-phone-port", 390, 844);
 
+    const namesCheck = await checkVisibleControlsAccessible(page);
+    if (!namesCheck.ok) findings.push(`Unnamed controls on EVA tablet: ${namesCheck.unnamed.join(", ")}`);
+    const provCheck = await checkProvenanceOnPage(page);
+    if (!provCheck.ok) findings.push(...provCheck.invalid.slice(0, 4));
+    const noOrange = await checkNoBrandOrange(page);
+    if (!noOrange) findings.push("Brand orange detected on EVA tablet");
+
     writeMetric({
       id: "UT-6",
       title: "Mid-alert rotation keeps HAVEN top-left, O2 beside it, actions reachable",
@@ -892,18 +1017,18 @@ test.describe("Package 30 automated usability heuristics", () => {
       steps: { value: 0, unit: "actions", provenance: "measured", source: "e2e:usability.spec.ts" },
       stepBudget: { value: 0, unit: "actions", provenance: "assumed", source: "spec:04-E.5" },
       durationMs: { value: Math.round(performance.now() - startMs), unit: "ms", provenance: "measured", source: "e2e:usability.spec.ts" },
-      workerWaitMs: { value: null, provenance: "assumed", source: "fixture:ws-snapshot" },
-      minTargetPx: { value: null, provenance: "assumed", source: "spec:04-E.5" },
-      minGapPx: { value: null, provenance: "assumed", source: "spec:04-E.5" },
+      workerWaitMs: unavailableMetric("usability.UT-6.workerWaitMs"),
+      minTargetPx: unavailableMetric("usability.UT-6.minTargetPx"),
+      minGapPx: unavailableMetric("usability.UT-6.minGapPx"),
       keyboardReachable: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      focusVisible: { value: findings.length === 0, provenance: "measured", source: "e2e:usability.spec.ts" },
-      accessibleNamesOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      errorGuidanceOk: { value: true, provenance: "assumed", source: "spec:04-E.5" },
-      provenanceAttrsOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      noBrandOrange: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
+      focusVisible: { value: focusAllOk, provenance: "measured", source: "e2e:usability.spec.ts" },
+      accessibleNamesOk: { value: namesCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
+      errorGuidanceOk: unavailableMetric("usability.UT-6.errorGuidanceOk"),
+      provenanceAttrsOk: { value: provCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
+      noBrandOrange: { value: noOrange, provenance: "measured", source: "e2e:usability.spec.ts" },
       unautomatable: "Physical tablet accelerometer mid-alert disorientation perception",
       findings,
-      notes: "Checked 5 orientation steps; HAVEN top-left and O2 beside it preserved with zero clip.",
+      notes: "Checked 5 orientation steps; alert top, HAVEN top-left, O2 beside it, actions bottom with zero clip.",
     });
     expect(findings, findings.join("; ")).toEqual([]);
   });
@@ -913,7 +1038,7 @@ test.describe("Package 30 automated usability heuristics", () => {
     const findings: string[] = [];
     await page.setViewportSize({ width: 844, height: 390 });
     await mountWsSnapshot(page, buildSnapshot({ activity: "WALKING", alerts: [] }));
-    await openClean(page, "/?site=mock_site#/eva/EV1");
+    await openClean(page, siteUrl("#/eva/EV1"));
 
     const nominalText = page.getByText(/NOMINAL/i).first();
     await expect(nominalText).toBeVisible();
@@ -932,6 +1057,10 @@ test.describe("Package 30 automated usability heuristics", () => {
     }
     const provCheck = await checkProvenanceOnPage(page);
     if (!provCheck.ok) findings.push(...provCheck.invalid.slice(0, 4));
+    const namesCheck = await checkVisibleControlsAccessible(page);
+    if (!namesCheck.ok) findings.push(`Unnamed controls on EVA tablet: ${namesCheck.unnamed.join(", ")}`);
+    const noOrange = await checkNoBrandOrange(page);
+    if (!noOrange) findings.push("Brand orange detected on EVA tablet");
 
     writeMetric({
       id: "UT-7",
@@ -942,15 +1071,15 @@ test.describe("Package 30 automated usability heuristics", () => {
       steps: { value: 0, unit: "actions", provenance: "measured", source: "e2e:usability.spec.ts" },
       stepBudget: { value: 0, unit: "actions", provenance: "assumed", source: "spec:FD-022" },
       durationMs: { value: Math.round(performance.now() - startMs), unit: "ms", provenance: "measured", source: "e2e:usability.spec.ts" },
-      workerWaitMs: { value: null, provenance: "assumed", source: "fixture:ws-snapshot" },
-      minTargetPx: { value: null, provenance: "assumed", source: "spec:04-D.2" },
-      minGapPx: { value: null, provenance: "assumed", source: "spec:04-D.2" },
+      workerWaitMs: unavailableMetric("usability.UT-7.workerWaitMs"),
+      minTargetPx: unavailableMetric("usability.UT-7.minTargetPx"),
+      minGapPx: unavailableMetric("usability.UT-7.minGapPx"),
       keyboardReachable: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      focusVisible: { value: true, provenance: "assumed", source: "spec:04-D.2" },
-      accessibleNamesOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      errorGuidanceOk: { value: true, provenance: "assumed", source: "spec:04-D.2" },
+      focusVisible: unavailableMetric("usability.UT-7.focusVisible"),
+      accessibleNamesOk: { value: namesCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
+      errorGuidanceOk: unavailableMetric("usability.UT-7.errorGuidanceOk"),
       provenanceAttrsOk: { value: provCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
-      noBrandOrange: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
+      noBrandOrange: { value: noOrange, provenance: "measured", source: "e2e:usability.spec.ts" },
       unautomatable: "Human subjective reading-time delta + plain-language explanation of nominal line",
       findings,
       notes: "Verified NOMINAL indicator renders without role=alert and above HAVEN/O2 row without crowding.",
@@ -963,7 +1092,7 @@ test.describe("Package 30 automated usability heuristics", () => {
     const findings: string[] = [];
     await page.setViewportSize({ width: 844, height: 390 });
     const { sent } = await mountWsSnapshot(page, buildSnapshot({ activity: "AT_STOP", tasks: makeTasks() }));
-    await openClean(page, "/?site=mock_site#/eva/EV1");
+    await openClean(page, siteUrl("#/eva/EV1"));
 
     const tasksBtn = page.getByRole("button", { name: /^View tasks:/i });
     await expect(tasksBtn).toBeVisible();
@@ -996,9 +1125,18 @@ test.describe("Package 30 automated usability heuristics", () => {
     findings.push(...undoGeom.failures);
 
     await reasonBtn.click();
+    const reasonAfter = (await reasonBtn.getAttribute("aria-label")) ?? "";
+    if (reasonAfter === reasonLabel) findings.push("Skip reason button did not cycle reason on click");
     await undoBtn.click();
 
     await expect.poll(() => sent.filter((c) => c.kind === "UPDATE_STOP_TASK").length).toBeGreaterThanOrEqual(4);
+    const namesCheck = await checkVisibleControlsAccessible(page);
+    if (!namesCheck.ok) findings.push(`Unnamed controls in stop task list: ${namesCheck.unnamed.join(", ")}`);
+    const provCheck = await checkProvenanceOnPage(page);
+    if (!provCheck.ok) findings.push(...provCheck.invalid.slice(0, 4));
+    const noOrange = await checkNoBrandOrange(page);
+    if (!noOrange) findings.push("Brand orange detected in stop task list");
+
     const durationMs = Math.round(performance.now() - startMs);
     if (durationMs > 15_000) findings.push(`Task flow took ${durationMs} ms (> 15000 ms)`);
 
@@ -1011,15 +1149,15 @@ test.describe("Package 30 automated usability heuristics", () => {
       steps: { value: 5, unit: "taps", provenance: "measured", source: "e2e:usability.spec.ts" },
       stepBudget: { value: 6, unit: "taps", provenance: "assumed", source: "spec:04-E.5" },
       durationMs: { value: durationMs, unit: "ms", provenance: "measured", source: "e2e:usability.spec.ts" },
-      workerWaitMs: { value: null, provenance: "assumed", source: "fixture:ws-snapshot" },
+      workerWaitMs: unavailableMetric("usability.UT-8.workerWaitMs"),
       minTargetPx: { value: Math.min(geom.minTargetPx, undoGeom.minTargetPx), unit: "px", provenance: "measured", source: "e2e:usability.spec.ts" },
       minGapPx: { value: Math.min(geom.minGapPx, undoGeom.minGapPx), unit: "px", provenance: "measured", source: "e2e:usability.spec.ts" },
       keyboardReachable: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
       focusVisible: { value: focusOk, provenance: "measured", source: "e2e:usability.spec.ts" },
-      accessibleNamesOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      errorGuidanceOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      provenanceAttrsOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      noBrandOrange: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
+      accessibleNamesOk: { value: namesCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
+      errorGuidanceOk: unavailableMetric("usability.UT-8.errorGuidanceOk"),
+      provenanceAttrsOk: { value: provCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
+      noBrandOrange: { value: noOrange, provenance: "measured", source: "e2e:usability.spec.ts" },
       unautomatable: "Real gloved finger <= 1 mis-tap rate over physical screen",
       findings,
       notes: `Dispatched ${sent.filter((c) => c.kind === "UPDATE_STOP_TASK").length} UPDATE_STOP_TASK actions in ${durationMs} ms; reason button label "${reasonLabel}" omits task title.`,
@@ -1032,22 +1170,32 @@ test.describe("Package 30 automated usability heuristics", () => {
     const findings: string[] = [];
     await page.setViewportSize({ width: 844, height: 390 });
     await mountWsSnapshot(page, buildSnapshot({ activity: "WALKING" }));
-    await openClean(page, "/?site=mock_site#/eva/EV1");
+    await openClean(page, siteUrl("#/eva/EV1"));
 
     const openMapBtn = page.getByRole("button", { name: "Open full-screen map" });
     await expect(openMapBtn).toBeVisible();
     await openMapBtn.click();
 
-    // The full-screen map's own zoom controls, not the EVA tablet's behind the overlay: both carry the same names.
+    // The full-screen map's own controls (+, -, FIT, FOLLOW, LAYERS, CLOSE), not the EVA tablet's behind the overlay.
     const fullMap = page.getByRole("region", { name: "Full-screen surface operations map" });
     const zoomInBtn = fullMap.getByRole("button", { name: "Zoom in" });
     const zoomOutBtn = fullMap.getByRole("button", { name: "Zoom out" });
-    const closeBtn = page.getByRole("button", { name: "Close full-screen map" });
+    const fitBtn = fullMap.getByRole("button", { name: "Fit route into view" });
+    const followBtn = fullMap.getByRole("button", { name: "Follow crew member position" });
+    const layersBtn = fullMap.getByRole("button", { name: "Toggle scientific layers menu" });
+    const closeBtn = fullMap.getByRole("button", { name: "Close full-screen map" });
     await expect(zoomInBtn).toBeVisible();
     await expect(closeBtn).toBeVisible();
 
-    const geom = await measureControls([zoomInBtn, zoomOutBtn, closeBtn]);
+    const geom = await measureControls([zoomInBtn, zoomOutBtn, fitBtn, followBtn, layersBtn, closeBtn]);
     findings.push(...geom.failures);
+
+    const namesCheck = await checkVisibleControlsAccessible(page);
+    if (!namesCheck.ok) findings.push(`Unnamed controls in full-screen map: ${namesCheck.unnamed.join(", ")}`);
+    const provCheck = await checkProvenanceOnPage(page);
+    if (!provCheck.ok) findings.push(...provCheck.invalid.slice(0, 4));
+    const noOrange = await checkNoBrandOrange(page);
+    if (!noOrange) findings.push("Brand orange detected in full-screen map");
 
     await zoomInBtn.click();
 
@@ -1086,18 +1234,18 @@ test.describe("Package 30 automated usability heuristics", () => {
       steps: { value: 2, unit: "taps", provenance: "measured", source: "e2e:usability.spec.ts" },
       stepBudget: { value: 2, unit: "taps", provenance: "assumed", source: "spec:04-E.5" },
       durationMs: { value: durationMs, unit: "ms", provenance: "measured", source: "e2e:usability.spec.ts" },
-      workerWaitMs: { value: null, provenance: "assumed", source: "fixture:ws-snapshot" },
+      workerWaitMs: unavailableMetric("usability.UT-9.workerWaitMs"),
       minTargetPx: { value: geom.minTargetPx, unit: "px", provenance: "measured", source: "e2e:usability.spec.ts" },
       minGapPx: { value: geom.minGapPx, unit: "px", provenance: "measured", source: "e2e:usability.spec.ts" },
       keyboardReachable: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
       focusVisible: { value: focusRestored, provenance: "measured", source: "e2e:usability.spec.ts" },
-      accessibleNamesOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      errorGuidanceOk: { value: true, provenance: "assumed", source: "spec:04-E.5" },
-      provenanceAttrsOk: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
-      noBrandOrange: { value: true, provenance: "measured", source: "e2e:usability.spec.ts" },
+      accessibleNamesOk: { value: namesCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
+      errorGuidanceOk: unavailableMetric("usability.UT-9.errorGuidanceOk"),
+      provenanceAttrsOk: { value: provCheck.ok, provenance: "measured", source: "e2e:usability.spec.ts" },
+      noBrandOrange: { value: noOrange, provenance: "measured", source: "e2e:usability.spec.ts" },
       unautomatable: "Human <= 3 s legibility reading HAVEN & O2 with gloved finger zoom",
       findings,
-      notes: `Stacked telemetry min font ${minStacked} px; zoom/close controls min target ${geom.minTargetPx} px.`,
+      notes: `Stacked telemetry min font ${minStacked} px; full-map 6 controls min target ${geom.minTargetPx} px.`,
     });
     expect(findings, findings.join("; ")).toEqual([]);
   });
