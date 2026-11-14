@@ -23,9 +23,9 @@ Go: tiled XYZ in the local Mars projection. Measured on the F4 mock site (`E2E_S
 
 - `tiles-all-levels`: the spike page loads every `tile_grid` level (five, 32 to 2 m/px) of both raster layers with HTTP 200 and paints a non-empty canvas (FD-104). OpenLayers is given the AOI extent so it requests no tile outside the grid.
 - `scale-bar` (resolution part): at every level the scale line's metres per pixel equals the view resolution within 1 %, in projected metres, so OpenLayers does not estimate point resolution on an Earth sphere (FD-102).
-- Slope tiles are data tiles (degrees x 4) coloured in the browser (FD-100); tile addressing is C9 v1.1 (y counted south from `origin_m[1]`, FD-103).
+- Slope tiles are data tiles (degrees x 4) coloured in the browser (FD-100); tile addressing is C9 v1.1 (y counted south from `origin_m[1]`, FD-103). The C9 version in force is v1.2 ([tile-grid.md](../contracts/tile-grid.md)), which changes no manifest field or path.
 
-Not yet measured: the 2 % match of the T01.03 reference crater (38.87 m rim to rim) needs the real `gale_boxwork` bundle (T03.19), so T02.04 stays open; the `scale-bar` crater test is `test.fixme` naming it. The ImageStatic fallback is built later as a degradation path (FD-101, package 33).
+Measured on the real `gale_boxwork` bundle (T03.19) with the Playwright harness on `2026-11-14`, `E2E_SITE=gale_boxwork`: the 2 % match of the T01.03 reference crater is met. The `scale-bar` crater test (a `test.skip` guarded on `E2E_SITE=gale_boxwork`, not a `fixme`) measures the crater rim to rim at 38.86265 m against the DEM's 38.86 m — 0.01 % — at the three finest levels where the feature is visible (8, 4 and 2 m/px); at 32 and 16 m/px the crater is below one screen pixel, so there is nothing to measure. Evidence: the T02.04 section of the [verification log](../ops/verification-log.md#t0204--reference-crater-measured-on-the-real-aoi-tiles-within-2-). The ImageStatic fallback is built later as a degradation path (FD-101, package 33).
 
 ## Resolution path
 

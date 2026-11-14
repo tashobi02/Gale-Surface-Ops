@@ -534,6 +534,8 @@ The prototype frames show every element 04 §B and §F name for both screens and
 | `scale-bar`, resolution | Pass | At each level the scale line's metres per pixel equals the view resolution within 1 % |
 | `scale-bar`, reference crater (38.87 m, [dem-quality.md](feasibility/dem-quality.md#reference-feature)) | Not run | `test.fixme`: needs the `gale_boxwork` bundle (T03.19) and the rim endpoints converted to site coordinates |
 
+**Superseded 2026-11-14.** The crater row above is the record of 12 Nov and is kept as written. It was run on the real bundle on 14 Nov and passed; see [T02.04 — Reference crater measured on the real AOI tiles, within 2 %](#t0204--reference-crater-measured-on-the-real-aoi-tiles-within-2-) at the end of this log. Two details of the row above are now wrong and are corrected here only: the crater test was a `test.skip` guarded on `E2E_SITE=gale_boxwork`, not a `test.fixme`, and the reference length the check reads from `dem-quality.md` is 38.86 m (the "Length, working projection" row), while 38.87 m is the great-circle figure on the same row.
+
 ## T03.19 — Real-site bundle v1 built from the locked inputs; served offline
 
 | | |
@@ -1020,3 +1022,37 @@ The N-170 entry above already records the name correction in main's scenario fil
 The previously documented SSD cache was not mounted in this worktree. The CRISM summary product was reacquired from the D17 directory; its image SHA-256 matches D17. REMS acquisition from the D16 PDS4 directory is incomplete; the local `SOURCES.md` files record URLs, product versions and SHA-256 hashes for completed downloads. BD-163 selects the storm-window sols and does not claim multi-year climatology.
 
 A local verification process denied socket creation and connection with a seccomp filter (and confirmed socket creation failed), then read each indexed completed file, checked its SHA-256, parsed XML, read the text labels and header, checked REMS table record lengths and fields against its label, and opened and checksummed the CRISM raster with `gdalinfo`. Result: all 10 indexed REMS files (complete sols 4182–4184 and the sol 4185 label) and all 4 CRISM files passed. The full offline checklist remains open until all selected REMS files are present and checked. Partial downloads are excluded from the cache and the verification claim.
+
+## T02.04 — Reference crater measured on the real AOI tiles, within 2 %
+
+| | |
+| --- | --- |
+| **Owner** | Frontend lane, run by Puku CLI (puku-ai-2.7) |
+| **Date** | 2026-11-14 |
+| **Status** | Done: the reference crater matches its DEM-measured length within 2 % at every tile-grid level where it is visible on the real `gale_boxwork` tiles |
+| **Serves** | T02.04; FR-01; 02 §F.1 (Projection row) |
+| **Inputs** | [scale-bar.spec.ts](../../apps/web/e2e/checks/scale-bar.spec.ts) (the `scale-bar` harness check); [dem-quality.md](feasibility/dem-quality.md#reference-feature) (the T01.03 reference feature); the real bundle `data/sites/gale_boxwork/` (T03.19, git-ignored); the spike page [apps/web/spike/](../../apps/web/spike/), built with `MARSWALK_SPIKE=1` |
+| **Command** | `E2E_SITE=gale_boxwork E2E_PORT=8240 E2E_SKIP_BUILD=1 npx playwright test -c apps/web/e2e/playwright.config.ts --project=desktop-1440 apps/web/e2e/checks/scale-bar.spec.ts` (the harness started and stopped its own Hab Core on `127.0.0.1:8240`; the build before it was `MARSWALK_SPIKE=1 npm --workspace @marswalk/web run build`) |
+| **Result** | 2 passed (both tests in the file) |
+
+**Feature.** The small crater of [dem-quality.md](feasibility/dem-quality.md#reference-feature), measured by the data lead west to east along its floor's row: west rim `E 8145107.0, N −282347.6`, east rim `E 8145146.0, N −282347.6`, **38.86 m** in the working projection (38.87 m as a great circle on the 3,396,190 m sphere). The check reads the two rim points and the length out of that document; nothing is typed in by hand.
+
+**Data used.** The real AOI bundle of T03.19, served by the Hab Core: `data/sites/gale_boxwork/site-manifest.json` (CRS `+proj=eqc +lat_ts=-4.81 +lat_0=-4.81 +lon_0=137.38 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs`, AOI `extent_m` `[-3000, -3000, 3000, 3000]`, seven raster tile layers) and its `tiles/` tree. The two rim endpoints, converted with that manifest's own CRS, land at site metres x 1942.1901 → 1981.0528, y 2763.6951 for both, inside the AOI on every axis. The measurement is in projected metres; no EPSG:3857 or EPSG:4326 path is used.
+
+**Levels checked.** The tile grid has five levels (32, 16, 8, 4, 2 m/px, C9 v1.2 `resolutions_m`). The crater is measurable at the three finest levels; at the two coarsest the feature is smaller than one screen pixel, so there is nothing to measure and those levels are recorded as unresolved rather than passed.
+
+| Level | Resolution | On-screen length | Measured | Reference | Difference | Result |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0 | 32 m/px | 1.21 px | — | 38.86 m | — | **Unresolved**: below one screen pixel of the feature |
+| 1 | 16 m/px | 2.43 px | — | 38.86 m | — | **Unresolved**: below one screen pixel of the feature |
+| 2 | 8 m/px | 4.86 px | 38.86265 m | 38.86 m | 0.01 % | **Pass** (scale line reads "1000 m") |
+| 3 | 4 m/px | 9.72 px | 38.86265 m | 38.86 m | 0.01 % | **Pass** (scale line reads "500 m") |
+| 4 | 2 m/px | 19.43 px | 38.86265 m | 38.86 m | 0.01 % | **Pass** (scale line reads "200 m") |
+
+**Values.** The check measures the rim-to-rim pixel distance on the map and converts it with the view's own resolution in metres per pixel (the number the scale line reads out), which is what T02.04 step 3 asks for. Measured 38.86265 m at every measurable level, against the DEM's 38.86 m: a difference of 0.00265 m, **0.01 %** (the check prints 0.01 % off). The tolerance is 2 % (01 FR-01), which on this length is about 0.8 m, so the margin is large. The scale line's own label was checked against the view resolution at every level (the 1 % resolution part of the same file), and it is `bar: false`: it reads out a distance as text and its box has no scale, so the label's rounding is checked separately and is not multiplied into the crater measurement.
+
+**Verdict: Pass.** The scale bar agrees with the DEM-measured feature within 2 % on the real AOI tiles at every level where the feature is visible (FR-01 acceptance, 02 §F.1 Projection row).
+
+**Scope and limits.** The 38.86 m reference is the data lead's own reading of the rim crests, and `dem-quality.md` records that a second reading of the same crater gives 47.83 m, so the endpoints are good to a couple of metres: the check uses the endpoints as recorded, exactly as that document asks. The 2 % tolerance bounds that uncertainty on this feature. The spike page is throwaway (T02.03) and the check reads its `window.__spike` hook, so the page builds only with `MARSWALK_SPIKE=1` and the demo never ships it. The tiles, grid and images of the real bundle stay git-ignored and were not committed. The measurement was taken by the harness, not by a human eye; the reviewer re-measures one level as the manual checklist asks.
+
+**Hands on to:** T02.05 (the D-03 evidence, [ADR-003](../decisions/ADR-003-openlayers-mars-projection.md)); T16.02 (the 02 status row for D-03).
