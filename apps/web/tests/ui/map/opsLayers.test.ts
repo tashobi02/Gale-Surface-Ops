@@ -22,6 +22,7 @@ import {
   COMM_SHADOW_LEGEND,
   HAVEN_BAND_MINUTES,
   OPS_LAYER_Z_INDEX,
+  POLYGON_PATH_BATCH,
   commShadowPolygons,
   createOpsLayers,
   havenContourSegments,
@@ -646,6 +647,31 @@ describe("package 21: relay coverage, haven per crew, caution hatch, last-linked
     expect(lastSet(calls, "strokeStyle")).toBe(tokens["--caution"]);
     ops.setHavenRule(null);
     expect(byType(ops.havenBandsLayer, "haven_caution")).toHaveLength(0);
+  });
+
+  it("batches large polygon grids into bounded Canvas2D paths so dense site overlays do not stall the main thread (T17.04)", () => {
+    const { ops } = setup();
+    const field: HavenFieldInput = { cell_m: 10, width: 2, height: 1, origin_m: [0, 10], seconds: Float64Array.from([2400, 2400]), source_id: "haven-field-test" };
+    ops.setHavenField(field);
+    ops.setHavenRule(20);
+    const caution = byType(ops.havenBandsLayer, "haven_caution")[0]!;
+    const cautionStyle = stylesOf(ops.havenBandsLayer, caution)[0]!;
+
+    ops.setCommGrid({ cell_m: 10, width: 2, height: 1, origin_m: [0, 10], values: Uint8Array.from([0, 0]), source_id: "grid-comm-hab" });
+    const shadow = featuresOf(ops.commShadowLayer)[0]!;
+    const shadowStyle = stylesOf(ops.commShadowLayer, shadow)[0]!;
+
+    const count = POLYGON_PATH_BATCH * 2 + 5;
+    const expectedBatches = Math.ceil(count / POLYGON_PATH_BATCH);
+    const ring = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]];
+    const manyPolygons = Array.from({ length: count }, () => [ring]);
+
+    for (const style of [cautionStyle, shadowStyle]) {
+      const { calls } = draw(style, manyPolygons as never);
+      expect(calls.filter((c) => c.name === "beginPath")).toHaveLength(expectedBatches);
+      expect(calls.filter((c) => c.name === "fill")).toHaveLength(expectedBatches);
+      expect(calls.filter((c) => c.name === "stroke")).toHaveLength(expectedBatches);
+    }
   });
 
   it("counts the STALE age from the Hab Core's last-linked sim time when it is given, even on first sight (FD-072, N-03)", () => {

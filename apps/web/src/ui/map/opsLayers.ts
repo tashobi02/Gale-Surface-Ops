@@ -446,56 +446,66 @@ function hatchPattern(ctx: CanvasRenderingContext2D, color: string, ratio: numbe
   return ctx.createPattern(tile, "repeat");
 }
 
-/** Comm shadow: 45° hatch in text-3 at the comm-shadow opacity with a dotted outline (04 §C.1). */
-const shadowRenderer: RenderFunction = (coords, state) => {
-  const ctx = state.context;
-  const ratio = state.pixelRatio;
-  const polygons = (Array.isArray((coords as number[][][][])[0]?.[0]?.[0]) ? coords : [coords]) as number[][][][];
-  const tint = withAlpha(tokenColor("text-3"), tokenNumber("comm-shadow-opacity"));
-  ctx.save();
-  ctx.beginPath();
-  for (const rings of polygons) {
-    for (const ring of rings) {
-      ring.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x!, y!) : ctx.lineTo(x!, y!)));
-      ctx.closePath();
-    }
-  }
-  ctx.fillStyle = hatchPattern(ctx, tint, ratio) ?? tint;
-  ctx.fill();
-  ctx.strokeStyle = tokenColor("text-3");
-  ctx.lineWidth = ratio;
-  ctx.setLineDash([2 * ratio, 3 * ratio]);
-  ctx.stroke();
-  ctx.restore();
-};
+/** Max polygons per Canvas2D beginPath/fill/stroke batch so dense site grids do not stall the main thread (T17.04). */
+export const POLYGON_PATH_BATCH = 256;
 
 /** The rings of a polygon or multipolygon in pixels, as a renderer receives them. */
 function polygonsOf(coords: unknown): number[][][][] {
   return (Array.isArray((coords as number[][][][])[0]?.[0]?.[0]) ? coords : [coords]) as number[][][][];
 }
 
-function tracePolygons(ctx: CanvasRenderingContext2D, coords: unknown): void {
-  ctx.beginPath();
-  for (const rings of polygonsOf(coords)) {
-    for (const ring of rings) {
-      ring.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x!, y!) : ctx.lineTo(x!, y!)));
-      ctx.closePath();
-    }
+function tracePolygonRings(ctx: CanvasRenderingContext2D, rings: number[][][]): void {
+  for (const ring of rings) {
+    ring.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x!, y!) : ctx.lineTo(x!, y!)));
+    ctx.closePath();
   }
 }
+
+/** Paint a polygon array in bounded path batches, invoking `paintBatch` after tracing each chunk. */
+function drawPolygonsBatched(ctx: CanvasRenderingContext2D, coords: unknown, paintBatch: () => void): void {
+  const polygons = polygonsOf(coords);
+  for (let start = 0; start < polygons.length; start += POLYGON_PATH_BATCH) {
+    ctx.beginPath();
+    const end = Math.min(start + POLYGON_PATH_BATCH, polygons.length);
+    for (let i = start; i < end; i++) {
+      tracePolygonRings(ctx, polygons[i]!);
+    }
+    paintBatch();
+  }
+}
+
+/** Comm shadow: 45° hatch in text-3 at the comm-shadow opacity with a dotted outline (04 §C.1). */
+const shadowRenderer: RenderFunction = (coords, state) => {
+  const ctx = state.context;
+  const ratio = state.pixelRatio;
+  const tint = withAlpha(tokenColor("text-3"), tokenNumber("comm-shadow-opacity"));
+  const fillStyle = hatchPattern(ctx, tint, ratio) ?? tint;
+  const strokeStyle = tokenColor("text-3");
+  ctx.save();
+  ctx.fillStyle = fillStyle;
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = ratio;
+  ctx.setLineDash([2 * ratio, 3 * ratio]);
+  drawPolygonsBatched(ctx, coords, () => {
+    ctx.fill();
+    ctx.stroke();
+  });
+  ctx.restore();
+};
 
 /** Beyond the haven rule: the shared caution hatch (patterns.ts, FD-072) with a caution outline. */
 const cautionRenderer: RenderFunction = (coords, state) => {
   const ctx = state.context;
   const colour = tokenColor("caution");
   ctx.save();
-  tracePolygons(ctx, coords);
   ctx.fillStyle = canvasPattern(ctx, "hatch", colour) ?? withAlpha(colour, 0.22);
-  ctx.fill();
   ctx.strokeStyle = colour;
   ctx.lineWidth = state.pixelRatio;
   ctx.setLineDash([]);
-  ctx.stroke();
+  drawPolygonsBatched(ctx, coords, () => {
+    ctx.fill();
+    ctx.stroke();
+  });
   ctx.restore();
 };
 
@@ -503,13 +513,14 @@ const cautionRenderer: RenderFunction = (coords, state) => {
 const relayRenderer: RenderFunction = (coords, state) => {
   const ctx = state.context;
   ctx.save();
-  tracePolygons(ctx, coords);
   ctx.fillStyle = withAlpha(tokenColor("text-1"), 0.08);
-  ctx.fill();
   ctx.strokeStyle = tokenColor("text-2");
   ctx.lineWidth = state.pixelRatio;
   ctx.setLineDash([]);
-  ctx.stroke();
+  drawPolygonsBatched(ctx, coords, () => {
+    ctx.fill();
+    ctx.stroke();
+  });
   ctx.restore();
 };
 
