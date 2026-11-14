@@ -25,7 +25,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { SUN_ELEVATION_DECIMALS, inverseEqc, localTrueSolarTime, mslSol, parseEqcProjection, rateAt, roundTo, solarPosition } from "@marswalk/compute";
 import type { Command, HabCandidate, LogEventData, Role } from "@marswalk/protocol";
-import { conditionsTick } from "../src/engine/conditions";
+import { conditionsFrame, conditionsTick, evaPhase } from "../src/engine/conditions";
 import { doseAt } from "../src/engine/liveEvents";
 import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
 import { tick, type TickContext } from "../src/engine/tick";
@@ -86,7 +86,7 @@ describe("conditionsTick fills every FR-36 field from compute at the hab (BD-75,
     expect(out.dose_rate_background_ugy_h).toBe(fake.dose.background_rate);
     expect(out.dose_rate_event_ugy_h).toBe(fake.dose.background_rate);
     expect(out.event_series_utc).toBeNull();
-    expect(Object.keys(out).sort()).toEqual(["dose_rate_background_ugy_h", "dose_rate_event_ugy_h", "event_series_utc", "ltst", "provenance", "sol", "source_ids", "sun_elevation_deg"]);
+    expect(Object.keys(out).sort()).toEqual(["dose_rate_background_ugy_h", "dose_rate_event_ugy_h", "eva_phase", "event_series_utc", "ltst", "provenance", "sol", "source_ids", "sun_elevation_deg"]);
     expect(out.ltst).toMatch(/^\d\d:\d\d$/);
     expect(Number.isInteger(out.sol)).toBe(true);
   });
@@ -196,6 +196,7 @@ describe("provenance, source ids and deltas (BD-75, 02 §E.6)", () => {
       ltst: "derived",
       sun_elevation_deg: "derived",
       sol: "derived",
+      eva_phase: "simulated",
       dose_rate_background_ugy_h: "replayed",
       dose_rate_event_ugy_h: "replayed",
     });
@@ -203,6 +204,7 @@ describe("provenance, source ids and deltas (BD-75, 02 §E.6)", () => {
       ltst: MARS24,
       sun_elevation_deg: MARS24,
       sol: MARS24,
+      eva_phase: "engine:session",
       dose_rate_background_ugy_h: fake.dose.source_id,
       dose_rate_event_ugy_h: fake.dose.source_id,
     });
@@ -215,6 +217,7 @@ describe("provenance, source ids and deltas (BD-75, 02 §E.6)", () => {
     expect(c.ltst).toBeNull();
     expect(c.sun_elevation_deg).toBeNull();
     expect(c.sol).toBeNull();
+    expect(c.eva_phase).toBeNull();
     expect(c.dose_rate_background_ugy_h).toBeNull();
     expect(c.dose_rate_event_ugy_h).toBeNull();
     expect(c.event_series_utc).toBeNull();
@@ -227,6 +230,7 @@ describe("provenance, source ids and deltas (BD-75, 02 §E.6)", () => {
     expect(r.deltas.map((d) => d.path).sort()).toEqual([
       "conditions/dose_rate_background_ugy_h",
       "conditions/dose_rate_event_ugy_h",
+      "conditions/eva_phase",
       "conditions/ltst",
       "conditions/sol",
       "conditions/sun_elevation_deg",
@@ -425,5 +429,38 @@ describe("the sun elevation is carried at a fixed precision (NFR-06, T27.05)", (
     expect(delta).toBeDefined();
     expect(delta!.value).toBe(r.state.conditions.sun_elevation_deg);
     expect(delta!.value).toBe(roundTo(delta!.value as number, SUN_ELEVATION_DECIMALS));
+  });
+});
+
+describe("evaPhase in ConditionsState (N-06 follow-up, BD-163)", () => {
+  const mkState = (status: EngineState["session"]["status"], activities: EngineState["crew"][number]["activity"][]): EngineState => {
+    const base = initialState(sc, "test-session");
+    const nextCrew = base.crew.map((c, i) => ({ ...c, activity: activities[i] ?? c.activity }));
+    return { ...base, session: { ...base.session, status }, crew: nextCrew };
+  };
+
+  it("derives IN_HAB, WALKING, SHELTERED, PAUSED, ENDED solely from session status and crew activity", () => {
+    expect(evaPhase(mkState("LOADED", ["IN_HAB", "IN_HAB"]))).toBe("IN_HAB");
+    expect(evaPhase(mkState("RUNNING", ["IN_HAB", "IN_HAB"]))).toBe("IN_HAB");
+    expect(evaPhase(mkState("RUNNING", ["WALKING", "IN_HAB"]))).toBe("WALKING");
+    expect(evaPhase(mkState("RUNNING", ["AT_STOP", "SHELTERED"]))).toBe("WALKING");
+    expect(evaPhase(mkState("RUNNING", ["TO_HAVEN", "IN_HAB"]))).toBe("WALKING");
+    expect(evaPhase(mkState("RUNNING", ["SHELTERED", "IN_HAB"]))).toBe("SHELTERED");
+    expect(evaPhase(mkState("PAUSED", ["WALKING", "WALKING"]))).toBe("PAUSED");
+    expect(evaPhase(mkState("ENDED", ["IN_HAB", "IN_HAB"]))).toBe("ENDED");
+  });
+
+  it("sets provenance and source_ids on conditionsFrame and emits conditions/eva_phase delta in conditionsTick", () => {
+    const frame = conditionsFrame(sc);
+    expect(frame.eva_phase).toBeNull();
+    expect(frame.provenance.eva_phase).toBe("simulated");
+    expect(frame.source_ids.eva_phase).toBe("engine:session");
+
+    const running = mkState("RUNNING", ["WALKING", "IN_HAB"]);
+    const tickRes = conditionsTick(running, ctxOf());
+    expect(tickRes.state.conditions.eva_phase).toBe("WALKING");
+    expect(tickRes.state.conditions.provenance.eva_phase).toBe("simulated");
+    expect(tickRes.state.conditions.source_ids.eva_phase).toBe("engine:session");
+    expect(tickRes.deltas).toContainEqual({ path: "conditions/eva_phase", value: "WALKING" });
   });
 });

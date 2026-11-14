@@ -137,7 +137,10 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
 
   app.get("/api/session", async (_req, reply) => {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
-    return sourcedSnapshot(session.snapshot(clientList(clients)));
+    // N-30: the loaded scenario's ParamSets and replay sources ride along with the snapshot.
+    const snap = sourcedSnapshot(session.snapshot(clientList(clients)));
+    const meta = session.scenarioMeta?.();
+    return meta === undefined ? snap : { ...snap, scenario_meta: meta };
   });
 
   // N-200, BD-165: frontend discovery uses the same matrix that handleCommand enforces.

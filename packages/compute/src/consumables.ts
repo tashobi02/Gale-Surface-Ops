@@ -60,3 +60,26 @@ export function roverEnergyWh(path: readonly (readonly [number, number])[], dura
   }
   return (pBase * duration_s + (mass * MARS_GRAVITY_M_S2 * climb_m) / eff) / 3600;
 }
+
+/**
+ * Metabolic rate while walking (1,200 BTU/h = 351.7 W, Apollo 17 planning value; Assumed; 02 §D.6).
+ * Illustrative planner constant (T18.05, N-24); never imported by routing, warnings, or handler.
+ */
+export const WALKING_METABOLIC_W = 351.7;
+
+/**
+ * Energy equivalent of O₂ at RER 0.85 (Weir relation; Assumed; 02 §D.6), in kJ/L.
+ * Illustrative planner constant (T18.05, N-24); never imported by routing, warnings, or handler.
+ */
+export const O2_ENERGY_EQUIV_KJ_PER_L = 20.4;
+
+/**
+ * Illustrative O₂ consumption rate in L/min for a given metabolic power (02 §D.6; T18.05, N-24).
+ * Pure planning estimate only: never used to block a route or raise a warning.
+ */
+export function o2LitresPerMinute(metabolicW: number): number {
+  if (!Number.isFinite(metabolicW) || metabolicW < 0) {
+    throw new RangeError(`o2LitresPerMinute: metabolicW must be a finite number >= 0, got ${metabolicW}`);
+  }
+  return (metabolicW * 60) / (O2_ENERGY_EQUIV_KJ_PER_L * 1000);
+}

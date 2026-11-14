@@ -625,11 +625,11 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
     const dwellPaths = CREW.flatMap((id) => [`crew/${id}/dose_event_ugy`, `crew/${id}/dose_event_unsheltered_ugy`, `crew/${id}/eva_elapsed_s`, `crew/${id}/o2_frac`, `crew/${id}/o2_remaining_min`, `crew/${id}/next_stop_eta_s`]);
     expect(trace.deltas[inDwell].map((d) => d.path).sort()).toEqual(dwellPaths.sort());
     // The fake scenario has no Site, so the conditions feed (T22.16, BD-127) has no solar fields: the first tick reports the two
-    // dose rates, and later ticks only the event series time once START_EVENT has played (and a rate when it steps).
+    // dose rates plus the initial authoritative EVA phase (N-06 follow-up, BD-163), and later ticks only event series / phase changes.
     const conditionPaths = trace.deltas.map((ds) => ds.filter((d) => d.path.startsWith("conditions/")).map((d) => d.path));
-    expect(conditionPaths[1].sort()).toEqual(["conditions/dose_rate_background_ugy_h", "conditions/dose_rate_event_ugy_h"]);
+    expect(conditionPaths[1].sort()).toEqual(["conditions/dose_rate_background_ugy_h", "conditions/dose_rate_event_ugy_h", "conditions/eva_phase"]);
     expect(conditionPaths[2]).toEqual([]);
-    expect(conditionPaths.flat().every((p) => ["conditions/dose_rate_background_ugy_h", "conditions/dose_rate_event_ugy_h", "conditions/event_series_utc"].includes(p))).toBe(true);
+    expect(conditionPaths.flat().every((p) => ["conditions/dose_rate_background_ugy_h", "conditions/dose_rate_event_ugy_h", "conditions/eva_phase", "conditions/event_series_utc"].includes(p))).toBe(true);
     // The fake scenario's one Earth-link row has a Sun-Earth-Mars angle of 0 degrees, inside `conjunction_deg`, so the first tick
     // reports `earth/blackout` and `earth/link_state` once (T26.04, BD-129, BD-156); light time (0 s) and next pass (none) are unchanged.
     expect(trace.deltas.flat().filter((d) => d.path.startsWith("earth/"))).toEqual([{ path: "earth/blackout", value: true }, { path: "earth/link_state", value: "BLACKOUT" }]);
