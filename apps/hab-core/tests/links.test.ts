@@ -146,6 +146,7 @@ describe("link graph per tick (FR-42, 02 §D.11)", () => {
   it("a direct link to the hab is one hop, via direct (BD-103)", () => {
     const out = linksTick(evaState({ EV1: [300, 0] }), ctxOf(evaState({ EV1: [300, 0] }))).state;
     expect(crewOf(out, "EV1")).toMatchObject({ link_path: ["EV1", "HAB"], link_hops: 1, link_via: "direct" });
+    expect(crewOf(out, "EV1")).not.toHaveProperty("quality_bars");
   });
 
   it("behind the wall but in view of a buddy who is linked: two hops, via crew", () => {
