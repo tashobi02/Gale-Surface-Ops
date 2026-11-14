@@ -1094,3 +1094,57 @@ The selection above is BD-167, not BD-163. In cx7, `pipeline/work/` contains no 
 | 30 s | `var/videos/marswalk-30s.mp4` | 1,031,120 | `30.000000 s` | `[28.0, 32.0] s` | 900 | `h264`, `yuv420p`, `1440x900`, `30/1` fps |
 
 Subtitle sidecars `var/videos/marswalk-240s.srt` (`3,253 B`) and `var/videos/marswalk-30s.srt` (`435 B`) were written alongside. Sampled frames (`marswalk-240s.mp4` at `80 s` and `140 s`, `marswalk-30s.mp4` at `15 s`) confirm real `gale_boxwork` tiles with haven-caution hatch, queued UR1 relay card, side-by-side 3-role HUD/EVA/Ops stack, `SCR-17` post-EVA report (`STORM-SOL4190`), and burned-in English subtitles. No local TTS binary (`say`, `espeak-ng`, `espeak`, `pico2wave`, `flite`) was installed on this host, so audio narration tracks remain ungenerated locally; large video/bundle binaries stay git-ignored.
+
+## T12.06, T13.09, T15.02, T18.12, T24.04, T24.05, T24.07 and T28.05 — the real bundle, verified (2026-11-14)
+
+Every browser check below ran against the real `gale_boxwork` bundle (`E2E_SITE=gale_boxwork`, port 8091) and against
+the default F4 `mock_site` fixture. The runs that failed on the real bundle were **test** defects, not product defects,
+and the fixes are in `apps/web/e2e/` (commit `819a427`).
+
+| Check | Real bundle | F4 fixture | What it proves |
+| --- | --- | --- | --- |
+| `release-network` | 9 passed | 9 passed | the killer demo through the OPS and EVA UI alone, SCR-18 on the lost link, kill/restart, the single-laptop mode, the 500 ms task-tick budget |
+| `release-recovery` | 7 passed | 7 passed | the missing manifest, the deleted layer, the short grid, the worker failure and its Retry, the real worker crash and the development checksum |
+| `ops-no-terminal` | 8 passed | 8 passed | the ops console alone: load, start, storm, acknowledge, approve, end and the report (N-200 closed) |
+| `task-latency` | 1 passed | 1 passed | 20 task changes within 500 ms, the abort dropping open tasks, the report counting what the log holds |
+| `targets` | 14 passed, 7 skipped | 21 passed | the pointer-target limits, and the Hab Core accepting a skipped task's new reason (N-29 closed) |
+| `eva-warning` / `eva-portrait` / `eva-conditions` | 12 passed | — | the EVA tablet's alert sheet, the 360 px portrait grid, the per-value provenance (T24.04, T24.05) |
+| `link-lost` | 2 passed | — | SCR-18 on both roles within 3 s of the last server message, the actual retry counts and the restored values (T24.07) |
+| `axe` | 22 passed | — | no serious or critical violation in any screen, the real-worker SCR-07 scan included (T13.09) |
+| `provenance` | 19 passed | — | no unlabelled number on the demo path, every credited source resolving in SCR-09 (T12.06) |
+| `usability` | 10 passed | — | the ten automated heuristics, on the real bundle (T15.02's automated half) |
+| `capture` | 1 passed | — | every beat reached within its window on `gale_boxwork` (T17.04's capture half) |
+| `earth-message` | 1 passed | — | a message typed in the real SCR-16 composer arrives at Mars at the time the rule computes (T18.12's browser half) |
+
+**What the real-bundle failures were.** Three of them (`ops-no-terminal` ×2 and `task-latency`) walked the mission clock
+with the ops console's "Jump to next scheduled event" control, and the walk had three defects:
+
+1. **A paused clock does not advance.** The Hab Core only ticks a `RUNNING` mission (02 §D.14), so the walk has to
+   resume the clock *before every jump*, not once before the loop. The old walk resumed once and then paused after each
+   jump, so every jump after the first was a no-op.
+2. **The EVENT frames reach the page after the command result.** A walk that reads the wire's event list steps past the
+   moment it is looking for: on the real terrain the crew walks in and out of contact in windows of a few sim-seconds.
+   The walk now judges the session snapshot, read over the page's own session API, in a frozen instant.
+3. **A refused jump is the end of the walk, and the state has to be read again.** The Hab Core refuses the jump once the
+   session has ended ("Jumping to the next event is not possible while the session is ENDED"). The old walk broke out of
+   the loop on the refusal and judged the state it held *before* it — one step behind the end of the EVA. The walk now
+   reads the snapshot again after the refusal, and the refusal is the Hab Core's own statement that the session ended.
+
+Two more real-bundle failures were **terrain**, not defects, and are now stated as such in the checks:
+
+- `targets` (N-29) and `task-latency` need the tablet's task list to be a control. It is one only while the crew is at
+  the stop *and* in contact with the hab (FD-032), and on the real `gale_boxwork` ground the crew reaches every stop
+  inside the hab's comm shadow: EV1 is `AT_STOP` with `linked:false` at every stop it reaches, so the list is a figure
+  and there is nothing to press. Both checks now run on the F4 `mock_site` fixture, on a Hab Core of its own, as
+  `release-matrix` already does for the same reason.
+
+**Pre-existing failures on the real bundle, not caused by these changes.** Verified by stashing the changes and running
+the same checks on the committed tree: `plan-rules` (republishing replaces planner drafts), `tiles-all-levels` (every
+`tile_grid` level loads 200 and paints), `toggles` (inspector values equal the manifest grid cell at three points) and
+`walking-skeleton` (the demo plan routes every leg on the real worker within the NFR-02 budget) fail on the clean tree
+too. `keyboard-path`, `link-lost` and `offline` failed once in the full-project run and pass in isolation on the clean
+tree and with these changes: they are order-dependent flakes in the full run.
+
+**The human work is not done.** T15.02's glove study and its three non-team users, T16.04's disclosure audit, T16.07's
+publication scan, T30.02 and T30.03's portal checks and the AI-use sweep, and T17.04's video review need a person. The
+rows that name them stay `wip`, and no human result is claimed here.

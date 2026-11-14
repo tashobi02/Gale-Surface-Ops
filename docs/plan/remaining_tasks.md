@@ -13,7 +13,7 @@
 ## 1. Where the 37 % really is
 
 > **This section records the state at the start of the plan (83 %, 47 `wip` rows).** The plan has since run: the
-> progress block now reads **90 % — 309 of 345 done, 14 in progress**, and §11 tracks what is left and who can
+> progress block now reads **92 % — 317 of 345 done, 6 in progress**, and §11 tracks what is left and who can
 > close it. The analysis below is kept as the record of how the 47 rows were grouped.
 
 The README progress block said **83 % — 286 of 345 subtasks done, 37 in progress**. The machine-readable truth in
@@ -367,7 +367,7 @@ A task is done when **all** of these hold:
 
 ## 11. Status of this plan
 
-**Current: 90 % — 309 of 345 subtasks done, 14 in progress.** The plan has run most of its course; what is left is
+**Current: 92 % — 317 of 345 subtasks done, 6 in progress.** The plan has run most of its course; what is left is
 grouped by who can close it.
 
 | Step | State |
@@ -380,18 +380,23 @@ grouped by who can close it.
 | §7 — team handover | **prepared, awaiting the team** — T16.04, T16.07, T30.02, T30.03 need a human; T15.02 needs gloves, a tablet and three non-team users; T17.04 needs a capture |
 | §9 — re-verify and 100 % | **in progress** — the full `apps/hab-core` suite is green (55 files, 1427 passed); the remaining rows are in flight |
 
-### 11.1 The 14 remaining `wip` rows, by who can close them
+### 11.1 The 9 remaining `wip` rows, by who can close them
 
 | Rows | Who can close them | Note |
 | --- | --- | --- |
-| T24.04, T24.05, T24.07 | **frontend agent** (in flight) | the EVA tablet's mini-map, the hold-to-confirm fallback, the SCR-18 focus browser check |
-| T25.08, T31.05 | **frontend agent** (in flight) | the ops-only storm mission, the SCR-11 Start storm control, the server half of the stop-task changes |
-| T28.05 | **frontend agent** (in flight) | the killer demo through the UI in single-laptop mode (B-03) |
 | T09.09 | **backend** (N-214) | the planning form's vehicle branch needs the rover's start and ParamSet on `ComputePlanRequest`; the frontend must not invent it |
-| T18.12 | **backend** (N-213) | the real storm bundle's relay passes fall outside the EVA window, so a queued Earth message is never delivered there |
+| T18.12 | **backend** (N-213) | the real storm bundle's relay passes fall outside the EVA window, so a queued Earth message is never delivered there; the browser half passes on the real bundle |
 | T18.08 | **pipeline** | the remaining REMS set is incomplete; the PDS transfer is slow |
-| T12.06, T13.09 | **frontend agent** (in flight) | the provenance and axe matrices |
-| T15.02, T16.04, T16.07, T17.04, T30.02, T30.03 | **the team** | a human must run them: gloves and three non-team users, the disclosure audit, the publication scan, the portal checks, the capture, the AI-use sweep |
+| T15.02 | **the team** | the automated half passes on the real bundle; the glove study and three non-team users are human |
+| T16.04, T16.07, T30.02, T30.03 | **the team** | a human must run them: the disclosure audit, the publication scan, the portal checks, the AI-use sweep |
+| T17.04 | **the team** | the capture half passes on the real bundle; the video review is human |
 
-Six of the fourteen need a person, not a program. They cannot reach 100 % on this machine and must not be reported as
+Six of the nine need a person, not a program. They cannot reach 100 % on this machine and must not be reported as
 done without the human evidence the row names.
+
+**Closed on 2026-11-14** (browser evidence on the real `gale_boxwork` bundle, port 8091 — see the
+[verification log](../ops/verification-log.md#t1206-t1309-t1502-t1812-t2404-t2405-t2407-and-t2805--the-real-bundle-verified-2026-11-14)):
+T12.06 (`provenance` 19 passed), T13.09 (`axe` 22 passed), T14.10 (`release-recovery` 7/7), T24.04, T24.05
+(`eva-conditions`/`eva-portrait`/`eva-warning` 12 passed and the one-hold tap counts), T24.07 (`link-lost` 2 passed,
+`release-network` 9 passed), T25.08 and T31.05 (`ops-no-terminal` 8 passed), T28.05 (the killer demo through the
+OPS and EVA UI in single-laptop mode), and the automated half of T15.02, T18.12 and T17.04.
