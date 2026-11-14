@@ -534,7 +534,7 @@ export interface LogEventData {
   EVA_ENDED: { crew_ids: CrewId[] };
   TASK_ADDED: Pick<StopTask, "task_id" | "stop_id" | "crew_id" | "kind" | "text" | "origin">;
   /** `undo: true` marks a reversal to TODO (05 LogEvent, 01 FR-50; added 2026-11-11, Proposed, spec change #202). */
-  TASK_UPDATED: Pick<StopTask, "task_id" | "stop_id" | "crew_id" | "state" | "reason"> & { undo?: boolean };
+  TASK_UPDATED: Pick<StopTask, "task_id" | "stop_id" | "crew_id" | "state" | "reason"> & { undo?: boolean; old_reason?: StopTaskReason | null };
   TASK_DROPPED: { task_id: string; stop_id: string; plan_revision: number };
   /** Logged after the events of the jump, because `to_sim_time` is known only then (BD-92). */
   CLOCK_JUMPED: {

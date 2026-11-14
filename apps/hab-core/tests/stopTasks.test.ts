@@ -835,7 +835,8 @@ describe("UPDATE_STOP_TASK revises the reason of a SKIPPED task (N-29, BD-153; F
     expect(out.result.ok).toBe(true);
     expect(out.events).toHaveLength(1);
     expect(out.events[0]).toMatchObject({ kind: "TASK_UPDATED", actor: "eva:EV1" });
-    expect(out.events[0].data).toEqual({ task_id: "t-s1-01", stop_id: "wp-1", crew_id: "EV1", state: "SKIPPED", reason: "terrain" });
+    expect(out.events[0].data).toEqual({ task_id: "t-s1-01", stop_id: "wp-1", crew_id: "EV1", state: "SKIPPED", reason: "terrain", old_reason: "other" });
+    expect(out.events[0].provenance).toMatchObject({ "data.reason": "assumed", "data.old_reason": "assumed" });
     expect(taskOf(next, "t-s1-01")).toMatchObject({ state: "SKIPPED", reason: "terrain", updated_by: "eva:EV1" });
   });
 

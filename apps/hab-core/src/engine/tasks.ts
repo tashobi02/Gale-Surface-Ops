@@ -251,6 +251,7 @@ export function handleUpdateStopTask(
     state: target,
     reason: target === "SKIPPED" ? (a.reason as StopTaskReason) : null,
     ...(undo ? { undo: true } : {}),
+    ...(revising ? { old_reason: task.reason } : {}),
   };
 
   const event: PendingEvent = {
@@ -258,7 +259,7 @@ export function handleUpdateStopTask(
     kind: "TASK_UPDATED",
     actor: command.role,
     data: data as Record<string, unknown>,
-    provenance: { ...STATE_PROVENANCE },
+    provenance: { ...STATE_PROVENANCE, ...(target === "SKIPPED" ? { "data.reason": "assumed" as const } : {}), ...(revising ? { "data.old_reason": "assumed" as const } : {}) },
   };
 
   return accepted(command, [event]);
