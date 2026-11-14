@@ -162,16 +162,18 @@ def test_superseded_path_and_commit_are_not_required_to_resolve(tmp_path: Path) 
     """A row may name a path or commit it corrected; such a reference need not exist."""
     repo = _init_repo(tmp_path)
     (repo / "apps/web/real.ts").write_text("export const r = 1;\n", encoding="utf-8")
-    _git(repo, "add", "apps/web/real.ts")
+    (repo / "apps/web/tests/ui").mkdir(parents=True)
+    # The replacement path exists; only the pre-fix form is absent.
+    (repo / "apps/web/tests/ui/here.test.ts").write_text("export const h = 1;\n", encoding="utf-8")
+    _git(repo, "add", ".")
     _git(repo, "commit", "-q", "-m", "feat(web): add the real screen with its overlay")
-    sha = _git(repo, "rev-parse", "--short=7", "HEAD")
     (repo / "docs/AI_USE.md").write_text(
         "# AI use log\n\n## Log\n\n"
         "| Date | Tool | What AI did | What AI did not do | Human review | Prompts |\n"
         "| --- | --- | --- | --- | --- | --- |\n"
         f"| 2026-11-13 | Codex (GPT-6) | add the real screen with its overlay; fixed one broken link (the pre-fix form "
         f"`apps/web/tests/ui/gone.test.ts` -> `apps/web/tests/ui/here.test.ts`) and "
-        f"restored the report from `deadbee` | No code changed | Obidit Islam to review | This Codex conversation |\n",
+        f"restored the report from `deadbe1` | No code changed | Obidit Islam to review | This Codex conversation |\n",
         encoding="utf-8",
     )
     res = _run_check(repo)
@@ -186,7 +188,6 @@ def test_a_real_missing_path_is_still_flagged(tmp_path: Path) -> None:
     (repo / "apps/web/real.ts").write_text("export const r = 1;\n", encoding="utf-8")
     _git(repo, "add", "apps/web/real.ts")
     _git(repo, "commit", "-q", "-m", "feat(web): add the real screen with its overlay")
-    sha = _git(repo, "rev-parse", "--short=7", "HEAD")
     (repo / "docs/AI_USE.md").write_text(
         "# AI use log\n\n## Log\n\n"
         "| Date | Tool | What AI did | What AI did not do | Human review | Prompts |\n"
@@ -198,3 +199,87 @@ def test_a_real_missing_path_is_still_flagged(tmp_path: Path) -> None:
     res = _run_check(repo)
     assert res.returncode == 1
     assert "Cited repo paths missing from HEAD and git history: 1" in res.stdout
+
+
+def test_a_marker_in_another_clause_does_not_exempt_the_citation(tmp_path: Path) -> None:
+    """A supersession phrase must be in the clause that introduces the citation."""
+    repo = _init_repo(tmp_path)
+    (repo / "apps/web/real.ts").write_text("export const r = 1;\n", encoding="utf-8")
+    _git(repo, "add", "apps/web/real.ts")
+    _git(repo, "commit", "-q", "-m", "feat(web): add the real screen with its overlay")
+    (repo / "docs/AI_USE.md").write_text(
+        "# AI use log\n\n## Log\n\n"
+        "| Date | Tool | What AI did | What AI did not do | Human review | Prompts |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        f"| 2026-11-13 | Codex (GPT-6) | add the real screen with its overlay; dropped a cache; wrote "
+        "`apps/web/src/ui/never_existed.ts` | nothing | review | session |\n",
+        encoding="utf-8",
+    )
+    res = _run_check(repo)
+    assert res.returncode == 1
+    assert "Cited repo paths missing from HEAD and git history: 1" in res.stdout
+
+
+def test_a_marker_elsewhere_does_not_exempt_a_cited_commit(tmp_path: Path) -> None:
+    """A dropped commit in one clause must not exempt an unrelated cited commit."""
+    repo = _init_repo(tmp_path)
+    (repo / "apps/web/real.ts").write_text("export const r = 1;\n", encoding="utf-8")
+    _git(repo, "add", "apps/web/real.ts")
+    _git(repo, "commit", "-q", "-m", "feat(web): add the real screen with its overlay")
+    (repo / "docs/AI_USE.md").write_text(
+        "# AI use log\n\n## Log\n\n"
+        "| Date | Tool | What AI did | What AI did not do | Human review | Prompts |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        f"| 2026-11-13 | Codex (GPT-6) | add the real screen with its overlay; dropped an unused variable; "
+        f"implemented commit `deadbe1` | nothing | review | session |\n",
+        encoding="utf-8",
+    )
+    res = _run_check(repo)
+    assert res.returncode == 1
+    assert "Commit SHAs cited in Log not in HEAD history: 1" in res.stdout
+    assert "deadbe1" in res.stdout
+
+
+def test_the_replacement_of_a_superseded_path_must_still_exist(tmp_path: Path) -> None:
+    """Exempting the pre-fix form must not exempt the path that replaced it."""
+    repo = _init_repo(tmp_path)
+    (repo / "apps/web/real.ts").write_text("export const r = 1;\n", encoding="utf-8")
+    _git(repo, "add", "apps/web/real.ts")
+    _git(repo, "commit", "-q", "-m", "feat(web): add the real screen with its overlay")
+    (repo / "docs/AI_USE.md").write_text(
+        "# AI use log\n\n## Log\n\n"
+        "| Date | Tool | What AI did | What AI did not do | Human review | Prompts |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        f"| 2026-11-13 | Codex (GPT-6) | add the real screen with its overlay; fixed one broken link (the pre-fix form "
+        f"`apps/web/tests/ui/gone.test.ts` -> `apps/web/tests/ui/here.test.ts`) | nothing | review | session |\n",
+        encoding="utf-8",
+    )
+    res = _run_check(repo)
+    assert res.returncode == 1
+    assert "Cited repo paths missing from HEAD and git history: 1" in res.stdout
+    assert "here.test.ts" in res.stdout
+
+
+def test_a_correction_row_exempts_an_earlier_rows_superseded_citation(tmp_path: Path) -> None:
+    """An earlier row stays verbatim; a later correction row records the fix."""
+    repo = _init_repo(tmp_path)
+    (repo / "apps/web/real.ts").write_text("export const r = 1;\n", encoding="utf-8")
+    (repo / "apps/web/tests/ui").mkdir(parents=True)
+    (repo / "apps/web/tests/ui/here.test.ts").write_text("export const h = 1;\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "feat(web): add the real screen with its overlay")
+    (repo / "docs/AI_USE.md").write_text(
+        "# AI use log\n\n## Log\n\n"
+        "| Date | Tool | What AI did | What AI did not do | Human review | Prompts |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        f"| 2026-11-13 | Codex (GPT-6) | add the real screen with its overlay; fixed one broken link "
+        f"(`apps/web/tests/ui/gone.test.ts` -> `apps/web/tests/ui/here.test.ts`) | No code changed | "
+        "Obidit Islam to review | This Codex conversation |\n"
+        f"| 2026-11-13 | Codex (gpt-6.1-sol, xhigh) review | Correction to the row above: the broken link was "
+        f"the pre-fix form `apps/web/tests/ui/gone.test.ts`, replaced by `apps/web/tests/ui/here.test.ts` | "
+        "Did not change the earlier row's text | Obidit Islam to review | This Codex conversation |\n",
+        encoding="utf-8",
+    )
+    res = _run_check(repo)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "Cited repo paths missing from HEAD and git history: 0" in res.stdout

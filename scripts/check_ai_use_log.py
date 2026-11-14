@@ -74,12 +74,36 @@ NON_COMMIT_HEX_PREFIX_RE = re.compile(
     re.IGNORECASE,
 )
 BACKTICK_RE = re.compile(r"`([^`]+)`")
-# Markers that label a cited path as a form that did not exist (a pre-fix path,
-# a renamed file). Such a path is a historical reference, not a citation.
+# An explicit supersession phrase must sit immediately before the reference it
+# marks, with only short connectors between them, so that the phrase binds to
+# that one reference and to no other. The phrases name a form that never
+# existed on the main line (a pre-fix path, a renamed file, a commit that was
+# dropped or rebased away); a reference the row merely mentions in passing is
+# not exempt.
 HISTORICAL_MARKER_RE = re.compile(
-    r"(?:pre-?fix|broken link|former(?:ly)?|old (?:path|form|name)|superseded|renamed from|before (?:the )?fix"
-    r"|dropped|rebased|restored|cherry-picked away|not (?:in|on) main)"
-    r"[^|]{0,140}$",
+    r"(?:"
+    # A restoration or a rename names its source explicitly: "restored ... from
+    # <ref>", "renamed from <ref>". The descriptive gap before the source may
+    # be long, because the construction itself is unambiguous.
+    r"restored\b[^.;]{0,120}?\bfrom\b"
+    r"|renamed\s+from"
+    r"|"
+    r"pre-?fix\s+(?:form|version|path|state|name)"
+    r"|broken\s+link"
+    r"|the\s+former\s+\S+"
+    r"|the\s+old\s+(?:path|form|name|file)"
+    r"|superseded\s+(?:path|form|name|version|file)"
+    r"|before\s+the\s+fix"
+    r"|cherry-?picked\s+away"
+    r"|not\s+(?:in|on)\s+main"
+    r"|dropped"
+    r"|rebased\s+(?:off|away)"
+    r")"
+    # The marker binds to the citation that follows it. The gap may name the
+    # kind of thing being superseded ("the duplicate", "the merge", "commit"),
+    # but must not run past another citation.
+    r"(?:[\s,;:()\w.]{0,90}?\b(?:from|commit|form|path|version|name|file|state|of|merge|duplicate)\b)?"
+    r"[\s,;:()]*$",
     re.IGNORECASE,
 )
 REPO_PATH_PREFIXES = (
@@ -288,6 +312,9 @@ def _extract_paths(text: str) -> set[str]:
     paths: set[str] = set()
     for code in BACKTICK_RE.findall(text):
         candidate = code.strip().split("#")[0].rstrip(".,:;)")
+        # A "path:line" citation points at a line of a file, not at a file
+        # called "path:line".
+        candidate = re.sub(r":\d+$", "", candidate)
         if candidate.startswith("../../"):
             candidate = candidate[6:]
         elif candidate.startswith("./"):
@@ -306,19 +333,87 @@ def _extract_paths(text: str) -> set[str]:
     return paths
 
 
+# A sentence boundary splits the text into clauses; the supersession marker
+# must be in the clause that introduces the citation. A ";" always ends a
+# clause. A "." does so only when it is not part of an id such as "T05.32" and
+# not the decimal point of a number.
+_CLAUSE_SPLIT_RE = re.compile(r";|(?<!\d)\.(?!\d)")
+
+
+def _last_clause(text: str) -> str:
+    """Return the last clause of `text`, splitting on real sentence boundaries."""
+    parts = [p for p in _CLAUSE_SPLIT_RE.split(text) if p]
+    return parts[-1] if parts else text
+
+
+def _superseded_paths(rows: list["LogRow"]) -> set[str]:
+    """Paths that some row names as a superseded form of a path.
+
+    A correction row states which path it replaced ("the pre-fix form
+    `a.ts` -> `b.ts`"). The pre-fix path is then known not to exist, so the
+    earlier row that cited it does not have to be rewritten — the log is
+    append-only — and the reverse check does not report it as a phantom.
+    """
+    superseded: set[str] = set()
+    for row in rows:
+        for code in _extract_paths(row.what):
+            if _is_historical_reference(row.what, code):
+                superseded.add(code)
+    return superseded
+
+
+def _superseded_shas(rows: list["LogRow"]) -> set[str]:
+    """Commits that some row names as dropped, rebased or restored from."""
+    superseded: set[str] = set()
+    for row in rows:
+        for code in _extract_shas(row.what):
+            if _is_historical_reference(row.what, code):
+                superseded.add(code)
+    return superseded
+
+
 def _is_historical_reference(text: str, code: str) -> bool:
-    """True when a cited path or commit is explicitly labelled as a superseded form.
+    """True when this particular cited path or commit is labelled as superseded.
 
     A log row may name a path it *corrected* — a broken link, a renamed file, a
     superseded spelling — or a commit it *dropped*, *rebased* or *restored from* a
     side branch. Such a reference never joined the main line, so requiring it to
-    resolve would be a false failure. The row says so with a marker immediately
-    before it ("the pre-fix form `...`", "dropped ... commit 5d80664").
+    resolve would be a false failure.
+
+    The exemption is per-reference: the supersession phrase must sit in the
+    clause that introduces *this* citation, with no sentence boundary between
+    the phrase and the citation. So "the pre-fix form `a.ts` -> `b.ts`" exempts
+    `a.ts` but not `b.ts`; "dropped a cache; wrote `c.ts`" exempts nothing,
+    because the marker and the citation are in different clauses.
     """
-    # The reference may be backticked (`5d80664`) or bare (5d80664).
+    # A backticked citation: the clause that introduces it is the text between
+    # the previous closing backtick and this span's opening backtick.
+    spans = list(BACKTICK_RE.finditer(text))
+    for idx, match in enumerate(spans):
+        if code not in match.group(1):
+            continue
+        # The opening backtick of this span is at match.start(); the clause that
+        # introduces it ends at the backtick that closes the previous span.
+        if idx == 0:
+            clause = text[: match.start()]
+        else:
+            clause = text[spans[idx - 1].end() : match.start()]
+        # The marker and the citation must share a clause: a sentence boundary
+        # between them means the marker describes something else.
+        clause = _last_clause(clause)
+        if HISTORICAL_MARKER_RE.search(clause):
+            return True
+        return False
+
+    # A bare citation (a commit id written without backticks). The clause that
+    # introduces it ends at the citation itself.
+    backticked = [(m.start(), m.end()) for m in BACKTICK_RE.finditer(text)]
     for match in re.finditer(re.escape(code), text):
-        before = text[max(0, match.start() - 160) : match.start()]
-        if HISTORICAL_MARKER_RE.search(before):
+        if any(start <= match.start() < end for start, end in backticked):
+            continue  # the backticked branch already ruled on this occurrence
+        before = text[max(0, match.start() - 120) : match.start()]
+        clause = _last_clause(before)
+        if HISTORICAL_MARKER_RE.search(clause):
             return True
     return False
 
@@ -600,6 +695,12 @@ def audit(repo: Path, ai_use_path: Path, rev: str = "HEAD") -> dict:
     row_norm_map = {_normalize_row_text(r.raw_line): r for r in rows}
     commits = load_commits(repo, rev, ai_use_rel)
 
+    # A later row may correct an earlier row's citation by naming the earlier
+    # citation as a superseded form. The earlier row stays verbatim — the log
+    # is append-only — and the correction exempts it from the reverse check.
+    corrected_paths = _superseded_paths(rows)
+    corrected_shas = _superseded_shas(rows)
+
     row_hits: dict[int, list[str]] = {r.index: [] for r in rows}
     covered: list[dict] = []
     uncovered_ai: list[dict] = []
@@ -643,6 +744,8 @@ def audit(repo: Path, ai_use_path: Path, rev: str = "HEAD") -> dict:
                 {"row": r.index, "line": r.line_no, "date": r.date_str, "tool": r.tool, "what": r.what[:140]}
             )
         for sha in sorted(r.cited_shas):
+            if sha in corrected_shas:
+                continue
             exists_obj, in_rev = _git_sha_in_rev(repo, sha, rev)
             if not in_rev:
                 missing_sha_refs.append(
@@ -657,6 +760,8 @@ def audit(repo: Path, ai_use_path: Path, rev: str = "HEAD") -> dict:
         for p in sorted(r.cited_paths):
             # Skip explicitly documented pipeline/work scratch artifacts (git-ignored)
             if p.startswith("pipeline/work/"):
+                continue
+            if p in corrected_paths:
                 continue
             if not _git_path_known(repo, p, rev, head_files, hist_files):
                 phantom_path_refs.append({"row": r.index, "line": r.line_no, "path": p})
