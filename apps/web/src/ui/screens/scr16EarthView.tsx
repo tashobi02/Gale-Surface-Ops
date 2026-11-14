@@ -1,6 +1,6 @@
 /** SCR-16: Earth support, FR-43 and FR-48. */
 import { useEffect, useState, type FormEvent, type ReactElement } from "react";
-import type { Provenance, Snapshot } from "@marswalk/protocol";
+import type { EarthMessage, Provenance, Snapshot } from "@marswalk/protocol";
 import { useCommand, useSnapshot } from "../../state/habSession";
 import { EarthLinkWidget } from "../ops/EarthLinkWidget";
 import { fmtFixed, provAttrs, unavailableOf } from "../components/provenance";
@@ -15,6 +15,18 @@ export function asOfStamp(asOf: string | null, now: string | null): string | nul
   const then = Date.parse(asOf), current = Date.parse(now);
   if (!Number.isFinite(then) || !Number.isFinite(current) || then > current) return null;
   return `as of ${new Date(then).toISOString().slice(11, 16)} (${Math.floor((current - then) / 60000)} min ago)`;
+}
+
+/**
+ * The messages on their way to Mars, in the order the queue holds them: Earth → Mars only, and only those the Hab Core has
+ * not delivered yet. A delivered message has arrived, so it is no longer on its way and leaves the list.
+ *
+ * The delivery time is the one the engine computed (`packages/compute/src/earthLink.ts`, the Earth → Mars rule); the view
+ * never derives an arrival time of its own.
+ */
+export function outgoingToMars(queue: EarthMessage[] | undefined): EarthMessage[] {
+  if (!queue) return [];
+  return queue.filter((message) => message.direction === "to_mars" && message.state !== "DELIVERED");
 }
 
 interface DelayedView {
@@ -47,7 +59,7 @@ export function EarthView(): ReactElement {
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState("");
   const state = earthLinkState(snapshot?.earth ?? null);
-  const queue = snapshot?.earth?.queue?.filter((item) => item.direction === "to_mars" && item.state !== "DELIVERED");
+  const queue = outgoingToMars(snapshot?.earth?.queue);
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (pending || !body.trim()) return;
