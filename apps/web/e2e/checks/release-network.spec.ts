@@ -133,7 +133,7 @@ test("release-network: the Hab Core killed and started again: EVA and ops take a
 });
 
 test("release-network: single-laptop mode (npm run hab:local) serves its four windows, each with a SNAPSHOT", async ({ browser }) => {
-  test.skip(!existsSync(join(REPO_ROOT, "data", "sites", REAL_SITE, "site-manifest.json")) || !existsSync(join(REPO_ROOT, "scenarios", REAL_SCENARIO, "scenario.json")), "the real bundle is absent");
+  test.skip(["site-manifest.json", "grid", "tiles"].some((part) => !existsSync(join(REPO_ROOT, "data", "sites", REAL_SITE, part))) || !existsSync(join(REPO_ROOT, "scenarios", REAL_SCENARIO, "scenario.json")), "the real bundle is absent");
   test.setTimeout(240_000);
   const port = 8111;
   const child = spawn("npm", ["run", "-s", "hab:local", "--", "--port", String(port)], { cwd: REPO_ROOT, detached: true, stdio: ["ignore", "pipe", "pipe"] });
