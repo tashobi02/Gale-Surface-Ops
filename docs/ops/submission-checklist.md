@@ -47,3 +47,46 @@ The repository remains private under the team's archive-submission decision. Pub
 ## Bangladesh score sheet
 
 Submission completion does not independently establish a judging score. The score-sheet evidence audit remains recorded under T30.03.
+
+## Human evidence handover
+
+The [team's submission confirmation](submit-now.md#submission-confirmation) remains the evidence of submission; these checks do not assert publication, access or a judging score.
+
+### T16.07 — Public access
+
+1. The team decides whether and when to publish. Before changing visibility, run `gitleaks detect --source .` and resolve findings; review GitHub's visibility-change consequences. Check current visibility with `gh repo view tashobi02/CheesySpace-NasaSpaceAppChallenge --json visibility,url`.
+2. If the team elects to publish, an authorized owner makes the repository public in its GitHub Settings → General → Danger Zone. Configure Pages using the repository's deployment workflow and record its actual published URL; do not guess one.
+3. In a signed-out private window open [the repository](https://github.com/tashobi02/CheesySpace-NasaSpaceAppChallenge), the actual Pages `#/replay` URL, and the actual release asset link. Verify replay loads and the bundle downloads. Follow [hosting](hosting.md#3-team-release-asset-fetch-route) to verify the bundle hash and contents.
+4. Append dated URLs, results, screenshots and verifier to [verification log](verification-log.md). A human closes T16.07 only after its acceptance criteria are met.
+
+### T16.04 — Disclosure
+
+1. Open the current 2026 Project Submission and Judging guides from the [Space Apps portal](https://www.spaceappschallenge.org/); record the actual guide URLs, revision, date and applicable AI disclosure wording. The exact guide URLs have not been established here.
+2. Ask each contributor to confirm tool, model/version, purpose and user against [AI use](../AI_USE.md); confirm the operator-local prompt location (FD-544).
+3. For each historical unknown or incomplete cell, append a dated row naming the original row and the contributor's confirmed answer; leave the original unchanged. Compare the disclosure with ADR-006 and SCR-09. Record guide audit and human approval in a new log row.
+4. Run `make lint docs-check` and inspect `git diff -- docs/AI_USE.md` for additions only. A human closes T16.04 after the task acceptance is met.
+
+### T30.02 — AI-use sweep
+
+1. Run `git log --all --no-merges --format='%h %ad %an %s' --date=short` and compare each AI-assisted commit with [AI use](../AI_USE.md); ask authors to identify assistance where commit messages are inconclusive.
+2. Ask each author to append missing entries, historical answers and human review details; do not change existing rows. Complete the guide audit in T16.04 and record the comparison and reviewer in [verification log](verification-log.md).
+3. A human closes T30.02 once every AI-assisted commit is accounted for.
+
+### T30.03 — Scoring evidence
+
+1. Open the team project in the [Space Apps portal](https://www.spaceappschallenge.org/) and record its actual URL, challenge name and completeness; do not infer a portal ID or timestamp from the team confirmation.
+2. In a signed-out private window independently open that project, the [supplied video](https://www.youtube.com/watch?v=ovzdp5B8Hh8&feature=youtu.be), the repository, the actual Pages replay URL and bundle link. Record each actual URL, access result, date and screenshot; follow T16.07 for publication if needed.
+3. Check DONKI/CCMC, NAIF and ESA SPICE credits against [credits](credits.md) and the project materials. Append the links or screenshots and verifier to [verification log](verification-log.md). A human closes T30.03 only when the task's three points have evidence; no score is claimed.
+
+### Remaining UI integration evidence
+
+The following placeholders are not evidence that the backend lacks every underlying capability:
+
+- SCR-09 ParamSets and dose-series source (N-30): `scenario_meta` is supplied by `/api/session`, but SCR-09 is not wired to it (T12.03, T16.05).
+- SCR-16 delayed crew, alerts and as-of time (N-130): `/api/earth-view` supplies them, but SCR-16 still shows unavailable (T18.12).
+- SCR-07 seasonal weather (N-24): the offline REMS builder exists, but its output is not delivered to the screen (T18.03).
+- SCR-05 and SCR-08 illustrative oxygen rate (N-24): compute exports the estimate and constants, but these panels still show unavailable (T18.06).
+- EVA and ops haven bands (N-100/N-120): `/api/hab-time-field` exists; client integration and browser verification remain to be established.
+- SCR-02 manual plan totals (N-160): a one-leg worker result is displayed; authoritative full-plan aggregation is still missing. The real site's optional static PNG fallback was not built (BD-160).
+
+Other conditional dashes represent absent session, route, telemetry, map assets or unavailable report fields and must retain their source and unavailable state until supplied. This list records confirmed integration gaps; it is not an exhaustive verification of every placeholder.

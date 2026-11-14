@@ -5,8 +5,8 @@ import { EarthLinkWidget } from "../ops/EarthLinkWidget";
 import { provAttrs, unavailableOf } from "../components/provenance";
 import "./scr16EarthView.css";
 
-export function earthLinkState(earth: { blackout: boolean } | null): string | null {
-  return earth?.blackout ? "CONJUNCTION BLACKOUT" : null;
+export function earthLinkState(earth: { blackout: boolean; link_state?: "AVAILABLE" | "WAITING" | "BLACKOUT" | null } | null): string | null {
+  return earth?.link_state === "BLACKOUT" ? "CONJUNCTION BLACKOUT" : earth?.link_state ?? (earth?.blackout ? "CONJUNCTION BLACKOUT" : null);
 }
 
 export function asOfStamp(asOf: string | null, now: string | null): string | null {
@@ -40,7 +40,7 @@ export function EarthView(): ReactElement {
         <p>Delayed summary</p><p {...provAttrs(unavailableOf(null, "earth.delayed_summary"))}>—</p>
         <p>As of <span {...provAttrs(unavailableOf(null, "earth.delayed_summary.as_of"))}>—</span></p>
       </section>
-      <div><EarthLinkWidget snapshot={snapshot} /><p>Link status: {state ? <strong className="earth-caution" {...provAttrs({ prov: "derived", src: "snapshot:earth.blackout" })}>▲ {state}</strong> : <span {...provAttrs(unavailableOf(null, "earth.link_state"))}>—</span>}</p></div>
+      <div><EarthLinkWidget snapshot={snapshot} /><p>Link status: {state ? <strong className={state === "CONJUNCTION BLACKOUT" ? "earth-caution" : undefined} {...provAttrs({ prov: snapshot?.provenance?.["earth.link_state"] ?? "derived", src: snapshot?.earth?.link_state ? snapshot.earth.link_source_id ?? "snapshot:earth.link_state" : "snapshot:earth.blackout" })}>{state === "CONJUNCTION BLACKOUT" ? "▲ " : ""}{state}</strong> : <span {...provAttrs(unavailableOf(null, "earth.link_state"))}>—</span>}</p></div>
       <section className="earth-panel"><h2>Message to Mars</h2>
         <form onSubmit={(event) => { void submit(event); }}><label htmlFor="earth-message">Message</label><textarea id="earth-message" maxLength={280} value={body} onChange={(event) => setBody(event.target.value)} /><button type="submit" disabled={pending || !body.trim()}>Send message</button><p role="status">{feedback}</p></form>
       </section>
