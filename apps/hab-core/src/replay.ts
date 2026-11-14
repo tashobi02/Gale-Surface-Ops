@@ -133,7 +133,7 @@ export async function replayHeadless(scenarioDir: string, seed?: number, options
     for (;;) {
       const now = snap();
       const left = Math.round((until_ms - Date.parse(now.sim_time)) / 1000);
-      if (left <= 0 || now.session.status !== "RUNNING") return;
+      if (left <= 0 || (now.session.status !== "RUNNING" && now.session.status !== "ENDED")) return;
       if (rec === undefined) {
         session.advance(Math.min(CHUNK, left));
       } else {
@@ -171,7 +171,14 @@ export async function replayHeadless(scenarioDir: string, seed?: number, options
   } else {
     const end = snap();
     if (list.until_sim_time !== undefined) runTo(Date.parse(list.until_sim_time));
-    else if (end.plan !== null) runTo(Date.parse(loaded.scenario.start_utc) + end.plan.scenario.max_eva_duration_h * 3600 * 1000);
+    else {
+      if (end.plan !== null) runTo(Date.parse(loaded.scenario.start_utc) + end.plan.scenario.max_eva_duration_h * 3600 * 1000);
+      const final = snap();
+      if (final.session.status === "ENDED") {
+        const queued = final.earth.queue.filter((m) => m.state === "QUEUED");
+        if (queued.length > 0) runTo(Math.max(...queued.map((m) => Date.parse(m.deliver_utc))));
+      }
+    }
     hash = snap().session.log_hash;
   }
   rec?.end(hash);

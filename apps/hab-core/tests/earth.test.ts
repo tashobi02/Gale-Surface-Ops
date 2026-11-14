@@ -22,7 +22,7 @@
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { loadSession } from "../src/session";
+import { loadSession, resumeSession } from "../src/session";
 import { startServer } from "../src/server";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -448,6 +448,41 @@ describe("Snapshot.earth from compute (FR-43)", () => {
 // ---- the whole step, determinism, hygiene -----------------------------------------------------------------------------
 
 describe("through tick() and across a restart", () => {
+  it("delivers a queued Earth message after the EVA ends without advancing crew physics", () => {
+    const dir = mkdtempSync(join(tmpdir(), "earth-ended-"));
+    try {
+      const scenario = { ...sc, earthLink: { ...sc.earthLink, passes: sc.earthLink.passes.slice(1) } };
+      const session = loadSession(scenario, dir);
+      expect(session.apply({ command_id: "start", role: "ops", kind: "START_EVA", args: {} }).result.ok).toBe(true);
+      expect(session.apply({ command_id: "send", role: "earth", kind: "SEND_MESSAGE", args: { body: "After EVA" } }).result.ok).toBe(true);
+      const queued = session.eventsAfter(0).find((e) => e.kind === "EARTH_MSG_QUEUED")!;
+      const delivery = Date.parse((queued.data as LogEventData["EARTH_MSG_QUEUED"]).deliver_utc);
+      for (let i = 0; i < 180 && session.snapshot([]).session.status === "RUNNING"; i++) session.advance(60);
+      const ended = session.snapshot([]);
+      expect(ended.session.status).toBe("ENDED");
+      expect(Date.parse(ended.sim_time)).toBeLessThan(delivery);
+      expect(session.apply({ command_id: "pause-ended", role: "ops", kind: "SET_CLOCK", args: { paused: true } }).result.ok).toBe(true);
+      session.advance(10);
+      expect(session.snapshot([]).sim_time).toBe(ended.sim_time);
+      expect(session.apply({ command_id: "resume-ended", role: "ops", kind: "SET_CLOCK", args: { paused: false } }).result.ok).toBe(true);
+      session.advance((delivery - Date.parse(ended.sim_time)) / 1000 - 1);
+      expect(session.eventsAfter(0).filter((e) => e.kind === "EARTH_MSG_DELIVERED")).toHaveLength(0);
+      session.advance(1);
+      const delivered = session.eventsAfter(0).filter((e) => e.kind === "EARTH_MSG_DELIVERED");
+      expect(delivered).toHaveLength(1);
+      expect(Date.parse(delivered[0].sim_time)).toBe(delivery);
+      expect(delivered[0].data).toEqual({ message_id: (queued.data as LogEventData["EARTH_MSG_QUEUED"]).message_id });
+      expect(delivered[0].provenance).toEqual({ state: "simulated", deliver_utc: "derived" });
+      expect(session.snapshot([]).crew).toEqual(ended.crew);
+      const resumed = resumeSession(join(dir, "sessions", "s-0001"), scenario);
+      expect(resumed.snapshot([]).session.log_hash).toBe(session.snapshot([]).session.log_hash);
+      expect(resumed.snapshot([]).earth.queue).toEqual(session.snapshot([]).earth.queue);
+      session.advance(100);
+      expect(Date.parse(session.snapshot([]).sim_time)).toBe(delivery);
+      expect(session.eventsAfter(0).filter((e) => e.kind === "EARTH_MSG_DELIVERED")).toHaveLength(1);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it("a queued message is delivered by the full tick, with seqs the log would give", () => {
     const sent = T0 + 10 * MIN;
     const { state, event } = sendAt("ops", sent);
