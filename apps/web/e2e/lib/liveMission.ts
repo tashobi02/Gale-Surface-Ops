@@ -1,7 +1,59 @@
 /** Package 29: UI-only commands, read-only wire/log evidence, and isolated sessions. */
 import { expect, type BrowserContext, type Locator, type Page } from "@playwright/test";
+import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Command, CommandResult, LogEvent, ServerMessage, Snapshot } from "@marswalk/protocol";
 import { e2eSite } from "./siteBundle";
+import { prepareFakeScenario, removeFakeScenario } from "./fakeScenario";
+
+const REPO_ROOT = join(import.meta.dirname, "..", "..", "..", "..");
+
+/**
+ * Runs `fn` against a Hab Core of its own, on the F4 `mock_site` with the harness's fake scenario, on `port`.
+ *
+ * Some checks measure a property of the *wire* (a latency budget, a round trip) and not of the terrain: they need a
+ * fixture whose crew stays in contact at its first stop. On the real `gale_boxwork` terrain the crew walks into the hab's
+ * comm shadow, so the tablet's own task list is a figure rather than a control (FD-032) and the check has nothing to press.
+ * The `release-matrix` check pins the same fixture for the same reason.
+ *
+ * The Hab Core is a separate process on its own port, with its own session folder; the harness's own Hab Core is untouched.
+ * Nothing here reaches beyond localhost.
+ */
+export async function withMockHab<T>(port: number, fn: (origin: string) => Promise<T>): Promise<T> {
+  const scenario = prepareFakeScenario(REPO_ROOT, "mock_site");
+  const varDir = mkdtempSync(join(tmpdir(), "mock-hab-e2e-"));
+  const child = spawn(
+    "npm",
+    ["run", "-s", "hab:start", "--", "--site", "mock_site", "--scenario", scenario, "--port", String(port), "--var-dir", varDir],
+    { cwd: REPO_ROOT, detached: true, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  let output = "";
+  child.stdout?.on("data", (d: Buffer) => (output += d.toString()));
+  child.stderr?.on("data", (d: Buffer) => (output += d.toString()));
+  const stop = (): void => {
+    try {
+      if (child.pid !== undefined) process.kill(-child.pid, "SIGTERM");
+    } catch {
+      /* already gone */
+    }
+  };
+  try {
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      if (child.exitCode !== null) throw new Error(`the mock Hab Core exited with ${child.exitCode}:\n${output}`);
+      const up = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2_000) }).then((r) => r.ok, () => false);
+      if (up) break;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    return await fn(`http://127.0.0.1:${port}`);
+  } finally {
+    stop();
+    rmSync(varDir, { recursive: true, force: true });
+    removeFakeScenario(REPO_ROOT);
+  }
+}
 
 export function watchLive(page: Page) {
   const commands: Command[] = [];
