@@ -20,6 +20,7 @@ import {
   CSP_META,
   HEARTBEAT_MS,
   MAX_REPLAY_GAP,
+  type ApiCapabilities,
   type ClientMessage,
   type Command,
   type Alert,
@@ -238,6 +239,21 @@ afterEach(async () => {
 // ---- Tests -------------------------------------------------------------------------------------
 
 describe("Hab Core server (T20.03 → T20.04)", () => {
+  it("N-31: WebSocket snapshots supply the Earth source without mutating session or recording state", async () => {
+    const { server, session } = await setup();
+    const raw = session.snapshot([]);
+    raw.earth.link_state = "WAITING";
+    raw.provenance["earth.link_state"] = "derived";
+    vi.spyOn(session, "snapshot").mockReturnValue(raw);
+    const c = await client(server.url);
+    c.send(hello(0));
+    const [message] = await c.waitFor(m => m.type === "SNAPSHOT");
+    const snapshot = message as Snapshot;
+    expect(snapshot.earth).toMatchObject({ link_state: "WAITING", link_source_id: "snapshot:earth.link_state" });
+    expect(snapshot.provenance["earth.link_state"]).toBe("derived");
+    expect(raw.earth).not.toHaveProperty("link_source_id");
+  });
+
   it("HELLO with last_seq 0 returns exactly one SNAPSHOT whose seq equals the session's last_seq (02 §E.6)", async () => {
     const { server, session } = await setup();
     const c = await client(server.url);
@@ -988,9 +1004,30 @@ describe("GET /api/join-qr?role= (T28.02; BD-82; NFR-01)", () => {
     expect(svgModules(eva, expected.size).flat()).toEqual(Array.from({ length: expected.size * expected.size }, (_, i) => expected.get(Math.floor(i / expected.size), i % expected.size) === 1));
   });
 
+  it.each(["planner", "ops", "presenter", "eva:EV1", "eva:EV2", "hud:EV1", "hud:EV2", "earth"])("N-90: %s gets a valid SVG encoding the session origin", async role => {
+    const { server } = await qrSetup();
+    const res = await fetch(`${server.url}/api/join-qr?role=${role}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/^image\/svg\+xml/);
+    const svg = await res.text();
+    const expected = QRCode.create(`${server.url}/#/join?role=${role}`, {}).modules;
+    expect(svgModules(svg, expected.size).flat()).toEqual(Array.from({ length: expected.size * expected.size }, (_, i) => expected.get(Math.floor(i / expected.size), i % expected.size) === 1));
+    expect(svg).not.toMatch(/href|<script|<image/);
+  });
+
+  it("N-200: advertises the enforced storm permission to the frontend", async () => {
+    const { server } = await qrSetup();
+    const res = await fetch(`${server.url}/api/capabilities`);
+    expect(res.status).toBe(200);
+    const capability = await res.json() as ApiCapabilities;
+    expect(capability.commands.ops).toContain("START_EVENT");
+    expect(capability.commands.presenter).toContain("START_EVENT");
+    for (const role of ["planner", "eva:EV1", "hud:EV1", "earth"] as const) expect(capability.commands[role]).not.toContain("START_EVENT");
+  });
+
   it("answers 400 for a missing or unknown role, never a QR", async () => {
     const { server } = await qrSetup("192.0.2.7");
-    for (const q of ["", "?role=", "?role=admin", "?role=__proto__", "?role=toString", "?role=ops&role=earth", "?role=OPS", "?role=eva:EV3", "?role=presenter", "?role=%3Cscript%3E"]) {
+    for (const q of ["", "?role=", "?role=admin", "?role=__proto__", "?role=toString", "?role=ops&role=earth", "?role=OPS", "?role=eva:EV3", "?role=%3Cscript%3E"]) {
       const res = await fetch(`${server.url}/api/join-qr${q}`);
       expect(res.status, q).toBe(400);
       expect(res.headers.get("content-type") ?? "").not.toMatch(/svg/);

@@ -81,6 +81,8 @@ export interface Snapshot {
     link_via?: "mro" | "maven" | "tgo" | "dte" | null;
     /** End of the relay pass that carries an AVAILABLE link; null for DTE, WAITING and BLACKOUT. */
     link_until_utc?: string | null;
+    /** Source reference for this snapshot field, supplied by the Hab Core transport (N-31, BD-166). */
+    link_source_id?: string;
   };
   clients: Pick<ClientConnection, "client_id" | "role" | "display_name">[];
   provenance: ProvenanceMap;
@@ -184,6 +186,7 @@ export const PERMISSIONS: Record<Role, readonly Command["kind"][]> = {
     "LOAD_SCENARIO",
     "SET_CLOCK",
     "JUMP_NEXT_EVENT",
+    "START_EVENT", // N-200, BD-165: OPS may start the same library storm as the presenter.
     "PUBLISH_PLAN",
     "START_EVA",
     "APPROVE_OPTION",

@@ -1,12 +1,13 @@
 /**
  * `globalSetup` of both vitest projects: fails the run when a Hab Core CLI process that the run started is still alive at the
  * end (a server orphaned by a SIGKILL, for example). It lists the CLI processes before the run and after it; processes that
- * existed before (a developer's own `make hab`) are left alone. A stray one is killed by its pid, then named in the error.
+ * existed before (a developer's own `make hab`) and CLIs from sibling worktrees are left alone. A stray one is killed by its pid, then named in the error.
  */
 import { execFileSync } from "node:child_process";
+import { CLI_SCRIPT } from "./cliProcess";
 import { parseCliProcesses, strayCliProcesses } from "./noOpenHandles";
 
-const list = () => parseCliProcesses(execFileSync("ps", ["-ax", "-o", "pid=,ppid=,command="], { encoding: "utf8", maxBuffer: 1 << 24 }));
+const list = () => parseCliProcesses(execFileSync("ps", ["-ax", "-o", "pid=,ppid=,command="], { encoding: "utf8", maxBuffer: 1 << 24 }), CLI_SCRIPT);
 
 export default function setup(): () => void {
   const before = new Set(list().map((p) => p.pid));

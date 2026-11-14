@@ -57,10 +57,19 @@ function accepted(command: Command, events: PendingEvent[]): CommandOutcome {
 /** A task's text is team-authored content (05 StopTask); the key names the `text` field of TASK_ADDED's data. */
 const TEXT_PROVENANCE = { "data.text": "assumed" } as const;
 
-/** The most tasks one stop may have (01 FR-50 "1–4 per stop"; BD-109 counts per stop, not per crew member). */
+/** The most tasks per selected crew at a stop (FR-50; FD-031, BD-163 supersedes BD-109). */
 export const MAX_TASKS_PER_STOP = 4;
 /** The longest task text (05 StopTask). */
 export const MAX_TASK_TEXT = 60;
+
+/** A shared task occupies a slot for each crew member (N-32, FD-031). Dropped tasks are filtered by the caller. */
+function taskLimit(tasks: readonly Pick<StopTask, "stop_id" | "crew_id">[], stop_id: string, crew_id: CrewId | null): string | null {
+  for (const crew of crew_id === null ? CREW_IDS : [crew_id]) {
+    const count = tasks.filter(t => t.stop_id === stop_id && (t.crew_id === null || t.crew_id === crew)).length;
+    if (count >= MAX_TASKS_PER_STOP) return `${crew} at stop ${stop_id} already has ${MAX_TASKS_PER_STOP} tasks (FR-50, FD-031)`;
+  }
+  return null;
+}
 
 /** The TASK_ADDED a seed becomes, authored by the plan: actor `system`, origin `plan`, text labelled `assumed`. */
 function seedEvent(t: StopTaskSeed, sim_time: string): PendingEvent {
@@ -84,7 +93,7 @@ export function seedTasks(scenario: LoadedScenario): PendingEvent[] {
  * The tasks of `PUBLISH_PLAN {plan, stop_tasks?}` (01 FR-54, FR-50; BD-91, BD-120, BD-155): `raw` is checked against the plan
  * being published, with the rules the loader applies to scenario `stop_tasks` plus those of ADD_STOP_TASK. Returns what the
  * command logs after PLAN_REVISED, or the reason it is `INVALID`. A stop with no entry has no task, so the FR-50 "1–4" is
- * "at most 4" here, counting the tasks ops added by hand (BD-109).
+ * "at most 4 per selected crew" here, counting shared tasks for both and tasks ops added by hand (BD-163).
  *
  * A published list is the planner's whole set of drafts (N-70, BD-155): the session's tasks of origin `plan` are replaced by it.
  * `seeds` are the entries to add: new ones, and ones whose stop, crew, kind or text differ from the task of that id (the reducer
@@ -99,9 +108,9 @@ export function checkPublishedTasks(state: EngineState, plan: PlanExport, raw: u
   const stops = new Set(plan.waypoints.filter((w) => w.role === "stop").map((w) => w.id));
   const byId = new Map(state.tasks.map((t) => [t.task_id, t]));
   const ids = new Set<string>();
-  const perStop = new Map<string, number>();
-  // Open tasks of other origin stay at their stop and count towards its four; a draft of origin plan is replaced by the list.
-  for (const t of state.tasks) if (t.state !== "DROPPED" && t.origin !== "plan") perStop.set(t.stop_id, (perStop.get(t.stop_id) ?? 0) + 1);
+  const draftsPerStop = new Map<string, number>();
+  // Ops tasks remain and count per crew; the planner's drafts are replaced by the whole list (N-70).
+  const retained = state.tasks.filter(t => t.state !== "DROPPED" && t.origin !== "plan");
   const entries: StopTaskSeed[] = [];
   for (const [i, entry] of raw.entries()) {
     const at = `PUBLISH_PLAN stop_tasks[${i}]`;
@@ -119,9 +128,12 @@ export function checkPublishedTasks(state: EngineState, plan: PlanExport, raw: u
     if (!KINDS.includes(t.kind as StopTaskKind)) return { error: `${at} kind must be one of ${KINDS.join(", ")}` };
     const crew_id = t.crew_id ?? null;
     if (crew_id !== null && !CREW_IDS.includes(crew_id as CrewId)) return { error: `${at} crew_id must be EV1, EV2 or null` };
-    const count = (perStop.get(t.stop_id) ?? 0) + 1;
-    if (count > MAX_TASKS_PER_STOP) return { error: `stop ${t.stop_id} has more than ${MAX_TASKS_PER_STOP} tasks; FR-50 allows 1-${MAX_TASKS_PER_STOP}` };
-    perStop.set(t.stop_id, count);
+    // FR-54 keeps the authored list to four drafts per stop; the runtime total is per crew (FD-031).
+    const drafts = (draftsPerStop.get(t.stop_id) ?? 0) + 1;
+    if (drafts > MAX_TASKS_PER_STOP) return { error: `stop ${t.stop_id} has more than ${MAX_TASKS_PER_STOP} planner drafts (FR-54)` };
+    draftsPerStop.set(t.stop_id, drafts);
+    const limit = taskLimit([...retained, ...entries], t.stop_id, crew_id as CrewId | null);
+    if (limit !== null) return { error: limit };
     entries.push({ task_id: t.task_id, stop_id: t.stop_id, crew_id: crew_id as CrewId | null, kind: t.kind as StopTaskKind, text: t.text });
   }
   const same = (e: StopTaskSeed): boolean => {
@@ -336,10 +348,9 @@ export function handleAddStopTask(
     return reject(command, "INVALID", `stop ${stopId} is not the current or next stop`);
   }
 
-  // 1-4 tasks per stop, whoever they are for (BD-109, U-52); a dropped task no longer occupies the stop.
-  if (state.tasks.filter((t) => t.stop_id === stopId && t.state !== "DROPPED").length >= MAX_TASKS_PER_STOP) {
-    return reject(command, "INVALID", `stop ${stopId} already has ${MAX_TASKS_PER_STOP} tasks (FR-50)`);
-  }
+  // N-32 / FD-031: per selected crew; a shared task counts for both, a dropped task occupies no slot.
+  const limit = taskLimit(state.tasks.filter(t => t.state !== "DROPPED"), stopId, crewId);
+  if (limit !== null) return reject(command, "INVALID", limit);
 
   const base = `t-ops-${state.session.last_seq + 1}`;
   let taskId = base;

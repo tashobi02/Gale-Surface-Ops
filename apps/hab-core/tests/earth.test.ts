@@ -20,11 +20,15 @@
  *   messages sent at `payload.sent_earth_utc`, else at the firing time. Other kinds have no engine effect.
  * - `earth` in the state: light time, next relay pass and blackout from the table at sim time; unchanged before its first row.
  */
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { loadSession } from "../src/session";
+import { startServer } from "../src/server";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { deliveryTime, earthLinkState, inConjunction, linkAt, nextPassStart } from "@marswalk/compute";
-import type { Command, EarthLinkTable, EventLibraryEntry, EventLibraryInput, LogEventData, ParamSet, Role, ScenarioEvent } from "@marswalk/protocol";
+import type { Command, EarthLinkTable, EventLibraryEntry, EventLibraryInput, LogEventData, ParamSet, Role, ScenarioEvent, Snapshot } from "@marswalk/protocol";
 import { AcceptedCommands, handleCommand } from "../src/commands";
 import { earthTick, handleSendMessage } from "../src/engine/earth";
 import { initialState, logged, reduce, type EngineState, type PendingEvent } from "../src/engine/reducer";
@@ -383,6 +387,29 @@ describe("Snapshot.earth from compute (FR-43)", () => {
     }
     expect(tickAt(running(sc, T0 + 35 * MIN), T0 + 35 * MIN).state.earth.next_pass_utc).toBe(iso(T0 + PASS_STARTS[1])); // the pass in progress is not "next"
     expect(tickAt(running(scConj, T0 + 3 * HOUR), T0 + 3 * HOUR, scConj).state.earth.blackout).toBe(true);
+  });
+
+  it.each([
+    [sc, T0 + PASS_STARTS[0] + 5 * MIN, "AVAILABLE"],
+    [sc, T0 + 2 * HOUR, "WAITING"],
+    [scConj, T0 + 3 * HOUR + 5 * MIN, "BLACKOUT"],
+  ] as const)("N-31: a session snapshot transports link state, provenance and the snapshot source (%s, %s, %s)", async (scenario, t, expected) => {
+    const dir = mkdtempSync(join(tmpdir(), "b3-earth-"));
+    let server: Awaited<ReturnType<typeof startServer>> | undefined;
+    try {
+      const shifted = { ...scenario, scenario: { ...scenario.scenario, start_utc: iso(t) } };
+      const session = loadSession(shifted, dir);
+      expect(session.apply({ command_id: "start", role: "ops", kind: "START_EVA", args: {} }).result.ok).toBe(true);
+      session.advance(1);
+      session.apply({ command_id: "pause", role: "ops", kind: "SET_CLOCK", args: { paused: true } });
+      server = await startServer({ site: "mock_site", host: "127.0.0.1", port: 0, session });
+      const snapshot = await (await fetch(`${server.url}/api/session`)).json() as Snapshot;
+      expect(snapshot.earth).toMatchObject({ link_state: expected, blackout: expected === "BLACKOUT", link_source_id: "snapshot:earth.link_state" });
+      expect(snapshot.provenance["earth.link_state"]).toBe("derived");
+    } finally {
+      await server?.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("reports a STATE_DELTA per changed field and none when nothing changed", () => {

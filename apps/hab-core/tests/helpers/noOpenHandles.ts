@@ -30,11 +30,11 @@ export interface CliProcess {
 }
 
 /** The lines of `ps` whose command runs `apps/hab-core/src/cli.ts` (exactly that script, not a file that starts with its name). */
-export function parseCliProcesses(psOutput: string): CliProcess[] {
+export function parseCliProcesses(psOutput: string, script?: string): CliProcess[] {
   const found: CliProcess[] = [];
   for (const line of psOutput.split("\n")) {
     const m = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line);
-    if (m && /apps\/hab-core\/src\/cli\.ts(\s|$)/.test(m[3])) found.push({ pid: Number(m[1]), ppid: Number(m[2]) });
+    if (m && /apps\/hab-core\/src\/cli\.ts(\s|$)/.test(m[3]) && (script === undefined || ` ${m[3]} `.includes(` ${script} `))) found.push({ pid: Number(m[1]), ppid: Number(m[2]) });
   }
   return found;
 }
