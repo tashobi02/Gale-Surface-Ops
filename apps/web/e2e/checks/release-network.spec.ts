@@ -178,7 +178,7 @@ test("release-network: single-laptop mode (npm run hab:local) serves its four wi
 //
 // The beats are the ones of 01 §E.1: the storm starts, the radiation alert is raised, the options are proposed, the crew
 // acknowledges the alert, the rover is summoned, the option is approved and the vehicle is dispatched.
-test("release-network: the killer demo runs through the OPS and EVA UI alone (N-200)", async ({ context, page }) => {
+test("release-network: the killer demo runs through the OPS and EVA UI alone (N-200 closed)", async ({ context, page }) => {
   test.setTimeout(180_000);
   const eva = page;
   const { ops, wire } = await openFreshOps(context);

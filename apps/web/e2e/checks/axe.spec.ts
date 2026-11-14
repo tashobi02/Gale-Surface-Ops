@@ -276,7 +276,10 @@ test("axe: ops rover card and SCR-15 rover tasking have no serious or critical v
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-rover-placing` });
 });
 
-test("needs N-06: ops receives an authoritative EVA phase", async ({ page }) => {
+test("ops receives an authoritative EVA phase (N-06 closed)", async ({ page }) => {
+  // FD-210: below 1024 px the ops route shows only the "Use a larger screen" notice, so there is no phase timeline to
+  // read. The phase itself is asserted on the wide projects, where the ops console is the specified surface.
+  test.skip((page.viewportSize()?.width ?? 0) < 1024, "the ops console needs >= 1024 px");
   await page.goto("/?site=mock_site#/ops");
   await expect(page.locator('.phase-timeline [data-provenance]')).not.toHaveText(/—/);
 });

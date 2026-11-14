@@ -181,7 +181,7 @@ test("the REASON control cycles a skipped task's reason and sends the revision (
   expect(revisions.length, "the revision command the REASON control sent").toBeGreaterThanOrEqual(1);
 });
 
-test("needs N-29: the Hab Core accepts a skipped task's new reason (SKIPPED → SKIPPED)", async ({ context, page }) => {
+test("the Hab Core accepts a skipped task's new reason (SKIPPED → SKIPPED) (N-29 closed)", async ({ context, page }) => {
   test.setTimeout(180_000);
   const { ops, wire } = await openFreshOps(context);
   const evaWire = watchLive(page);
@@ -226,7 +226,7 @@ test("targets: Earth composer controls are at least 32 px (package 36)", async (
   expectTargetSize(list, OPS_MIN);
 });
 
-test("needs N-130 and N-31: Earth delayed summary and available/waiting link states", async ({ context, page }) => {
+test("Earth delayed summary and available/waiting link states (N-130 and N-31 closed)", async ({ context, page }) => {
   const { ops, wire } = await openFreshOps(context);
   try {
     await startPaused(ops, wire);

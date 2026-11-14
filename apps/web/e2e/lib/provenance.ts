@@ -53,7 +53,9 @@ export async function unlabelledNumbers(page: Page, allowlist: readonly string[]
         const style = getComputedStyle(el);
         if (rect.width === 0 || rect.height === 0 || style.visibility === "hidden" || style.display === "none") continue;
         if (el.closest(skip)) continue;
-        if (el.closest("[data-provenance][data-source]")) continue;
+        const label = el.closest("[data-provenance][data-source]");
+        if (label && /^(measured|derived|modelled|assumed|replayed|simulated)$/.test(label.getAttribute("data-provenance") ?? "") &&
+            (label.getAttribute("data-source") ?? "").trim() !== "") continue;
         const parts: string[] = [];
         for (let n: Element | null = el; n && n !== document.body && parts.length < 4; n = n.parentElement) {
           parts.unshift(n.tagName.toLowerCase() + (n.id ? `#${n.id}` : "") + (n.classList.length ? `.${n.classList[0]}` : ""));

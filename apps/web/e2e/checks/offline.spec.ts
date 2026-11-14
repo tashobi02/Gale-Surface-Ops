@@ -54,7 +54,7 @@ test("offline: every route loads with no external request and local fonts and ic
   expect(countResponses(guard, "font"), "no font was loaded from the origin").toBeGreaterThan(0);
 });
 
-test("needs N-90: every join QR image on the presenter panel answers 2xx", async ({ page }) => {
+test("every join QR image on the presenter panel answers 2xx (N-90 closed)", async ({ page }) => {
   const guard = await guardNetwork(page);
   await page.goto("/?site=mock_site#/presenter");
   await page.waitForLoadState("networkidle");
