@@ -47,21 +47,15 @@ function taskProgressOf(snapshot: Snapshot, crewId: CrewId): CrewTaskProgress | 
   };
 }
 
-/**
- * One strip line for the newest event. Its class is the event's own: the class of the first field path in sorted order
- * (deterministic whatever order the map was built in), else null when the event gives none.
- */
+/** Keep the event intact; mixed classes are rendered on their individual fields, never ranked. */
 function logLineOf(event: LogEvent): OpsLogLine {
-  const prov =
-    Object.entries(event.provenance ?? {})
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-      .map(([, value]) => value)
-      .find(isProvenance) ?? null;
+  const classes = [...new Set(Object.values(event.provenance ?? {}).filter(isProvenance))];
   return {
     key: String(event.seq),
     text: `#${event.seq} ${formatSimTime(event.sim_time)} ${summarizeEvent(event)}`,
-    prov,
+    prov: classes.length === 1 ? classes[0] : null,
     src: `log:${event.seq}`,
+    event,
   };
 }
 

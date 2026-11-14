@@ -106,11 +106,11 @@ describe("selectOpsProps", () => {
     expect(lines[0].text).toContain("#5");
     expect(lines[0].text).toContain("13:05:07");
 
-    // Several classes: the class of the first field path in sorted order, whatever order the map was built in.
+    // Several classes: keep every field annotation, in either insertion order; there is no event-wide class.
     const forward = event(7, "ALERT_RAISED", {}, { "data.b": "assumed", "data.a": "replayed" });
     const reversed = event(7, "ALERT_RAISED", {}, { "data.a": "replayed", "data.b": "assumed" });
-    expect(selectOpsProps(connect, [forward]).logLines?.[0].prov).toBe("replayed");
-    expect(selectOpsProps(connect, [reversed]).logLines?.[0].prov).toBe("replayed");
+    expect(selectOpsProps(connect, [forward]).logLines?.[0]).toMatchObject({ prov: null, event: forward });
+    expect(selectOpsProps(connect, [reversed]).logLines?.[0]).toMatchObject({ prov: null, event: reversed });
 
     const plain = selectOpsProps(connect, [event(6, "CLOCK_CHANGED", { speed: 10 })]).logLines ?? [];
     expect(plain[0].prov).toBeNull();
@@ -236,4 +236,27 @@ describe("package 19 conditions contract", () => {
     expect(selectOpsProps({ ...connect, conditions: { ...conditions, source_ids: {} } }, []).ltst).toBeUndefined();
     expect(props.phase).toBeUndefined();
   });
+});
+
+it("N-200 offers the loaded library storm to ops and sends its actual id once", async () => {
+  const base = storeFromBeat("connect").state()!;
+  const snapshot = { ...base, event_library: [{ event_id: "library-storm", title: "Solar particle event", kind: "SPACE_WEATHER" as const, label: "replayed", source_id: "rad-sol4190", provenance: "replayed" as const }] };
+  const sent: unknown[] = [];
+  const view = await mount(createElement(OpsConsole, { snapshot, client: null, onCommand: (command) => { sent.push(command); } }));
+  const button = must<HTMLButtonElement>(view.container, '[data-action="start-storm"]');
+  expect(button.textContent).toContain("Start storm");
+  await click(button);
+  expect(sent).toEqual([{ kind: "START_EVENT", args: { event_id: "library-storm" } }]);
+  await view.rerender(createElement(OpsConsole, { snapshot: { ...snapshot, session: { ...snapshot.session, started_events: [{ event_id: "library-storm", t0_sim_time: snapshot.sim_time }] } }, client: null }));
+  expect(must<HTMLButtonElement>(view.container, '[data-action="start-storm"]').disabled).toBe(true);
+  await view.unmount();
+});
+
+it("FR-15 keeps each value's class in the OPS footer for a mixed-class event", async () => {
+  const mixed = event(8, "TASK_UPDATED", { task_id: "task", state: "SKIPPED", reason: "terrain" }, { "data.state": "simulated", "data.reason": "assumed" });
+  const lines = selectOpsProps(connect, [mixed]).logLines;
+  const view = await mount(createElement(OpsConsole, { snapshot: connect, client: null, logLines: lines }));
+  expect(must(view.container, '[data-source="event:TASK_UPDATED/8/data.reason"]').getAttribute("data-provenance")).toBe("assumed");
+  expect(must(view.container, '[data-source="event:TASK_UPDATED/8/data.state"]').getAttribute("data-provenance")).toBe("simulated");
+  await view.unmount();
 });

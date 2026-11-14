@@ -686,12 +686,15 @@ Ranges are inclusive at both ends. *(Proposed 2026-11-12; decided by the orchest
 
 ### E.4 Authentication and roles
 
+*Proposed amendment, 2026-11-14; recorded by OpenAI Codex under the user’s authority (N-200, BD-165): ops may start an event from the loaded library using the same START_EVENT command and guards as presenter, so SCR-11 can run the storm acceptance.*
+
 No accounts. A client joins with a **role** and a display name; the Hab Core trusts the LAN (the router has no WAN and a WPA2 password). Role permissions (`presenter` added 2026-11-10, **Proposed**):
 
 | Command | planner | eva:EVn | ops | earth | presenter |
 | --- | --- | --- | --- | --- | --- |
 | `LOAD_SCENARIO`, `SET_CLOCK`, `JUMP_NEXT_EVENT` | — | — | ✓ | — | ✓ |
-| `JUMP_NEXT_STOP`, `START_EVENT`, `RESET_SESSION` (FR-51, FR-52) | — | — | — | — | ✓ |
+| `JUMP_NEXT_STOP`, `RESET_SESSION` (FR-51, FR-52) | — | — | — | — | ✓ |
+| `START_EVENT` (FR-52; N-200, BD-165) | — | — | ✓ | — | ✓ |
 | `SELECT_HAB_SITE`, `SET_MISSION_SETUP` (FR-53) | — | — | ✓ | — | — |
 | `PUBLISH_PLAN` | ✓ | — | ✓ | — | — |
 | `START_EVA`, `APPROVE_OPTION` | — | — | ✓ | — | — |

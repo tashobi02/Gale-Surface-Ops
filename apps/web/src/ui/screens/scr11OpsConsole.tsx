@@ -24,13 +24,13 @@ import {
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { Crew, CrewId, Vehicle, Alert, Snapshot, Command, ContingencyOption, Provenance } from "@marswalk/protocol";
+import type { Crew, CrewId, Vehicle, Alert, Snapshot, Command, ContingencyOption, Provenance, LogEvent } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 import { useCommand, useEvents, useHabClient, useSnapshot } from "../../state/habSession";
 import { useOpsSound } from "../ops/sound";
 import { selectOpsProps } from "../ops/liveProps";
 import { EarthLinkWidget } from "../ops/EarthLinkWidget";
-import { EventLog } from "../ops/EventLog";
+import { EventLog, EventSummaryContent, formatSimTime } from "../ops/EventLog";
 import { AlertStack } from "../ops/AlertStack";
 import { OptionsPanel } from "../ops/OptionsPanel";
 import { logLiveFallback } from "../live/fallbackDebug";
@@ -66,6 +66,7 @@ export interface CrewTaskProgress {
 export interface OpsLogLine {
   key: string;
   text: string;
+  event?: LogEvent;
   /** The line's own provenance class; null when the event gives none (the strip then shows an unavailable marker). */
   prov: Provenance | null;
   src: string;
@@ -256,6 +257,7 @@ export function OpsConsole({
    * Sends one command to the Hab Core (02 §E.4). Without a client the command goes to `onCommand` and counts as
    * issued. Returns true when it was accepted; a rejection is shown, not swallowed.
    */
+  const [stormPending, setStormPending] = useState(false);
   const issue = async (command: Pick<Command, "kind" | "args">): Promise<boolean> => {
     if (!client) {
       onCommand?.(command);
@@ -826,6 +828,16 @@ export function OpsConsole({
 
         {/* Right Column: CONDITIONS, EARTH LINK, OPTIONS */}
         <aside onKeyDown={(event) => { if (narrow && event.key === "Escape") { event.stopPropagation(); closeSideDrawer(); } }} aria-label="Conditions and options" style={{ ...rightColumnStyle, ...(narrow ? { display: sideDrawer === "mission" ? "flex" : "none", position: "absolute", right: 0, top: 0, bottom: 0, width: "320px", zIndex: 5 } : {}) }}>
+          {(activeSnapshot?.event_library ?? []).filter(event => event.kind === "SPACE_WEATHER").map(event => <button
+            key={event.event_id} type="button" data-action="start-storm" style={buttonStyle}
+            disabled={staticReplay || stormPending || session?.status === "ENDED" || Boolean(session?.started_events?.some(started => started.event_id === event.event_id))}
+            onClick={() => {
+              if (stormPending) return;
+              setStormPending(true);
+              void issue({ kind: "START_EVENT", args: { event_id: event.event_id } }).finally(() => setStormPending(false));
+            }}
+            {...provAttrs({ prov: event.provenance, src: event.source_id })}
+          >Start storm</button>)}
           <EarthLinkWidget snapshot={activeSnapshot} />
           {/* Module Label: CONDITIONS */}
           <div className="module-label" style={moduleLabelStyle}>
@@ -898,7 +910,11 @@ export function OpsConsole({
             <span {...provAttrs(unavailableOf(null, "event_log"))}>{UNAVAILABLE}</span>
           ) : (
             logLines.map((line) => (
-              <span key={line.key} {...provAttrs(line.prov ? { prov: line.prov, src: line.src } : unavailableOf(null, line.src))}>
+              line.event ? <span key={line.key}>
+                <span {...provAttrs({ prov: "simulated", src: `${line.src}:seq` })}>#{line.event.seq}</span>{" "}
+                <span {...provAttrs({ prov: "simulated", src: `${line.src}:sim_time` })}>{formatSimTime(line.event.sim_time)}</span>{" "}
+                <EventSummaryContent event={line.event} />
+              </span> : <span key={line.key} {...provAttrs(line.prov ? { prov: line.prov, src: line.src } : unavailableOf(null, line.src))}>
                 {line.text} {line.prov ? PROVENANCE_GLYPHS[line.prov] : ""}
               </span>
             ))

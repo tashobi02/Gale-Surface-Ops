@@ -7,6 +7,7 @@ import VectorLayer from "ol/layer/Vector.js";
 import VectorSource from "ol/source/Vector.js";
 import Stroke from "ol/style/Stroke.js";
 import Style from "ol/style/Style.js";
+import { useHabTimeField } from "./useHabTimeField";
 import { tokenColor } from "./tokenColors";
 import type OlMap from "ol/Map.js";
 import { loadSite } from "../../boot/loadSite";
@@ -36,6 +37,12 @@ export function useFullMap(snapshot: Snapshot | null | undefined, crewId: CrewId
   const [basemapAvailable, setBasemapAvailable] = useState(false);
   const [layerSources, setLayerSources] = useState<Partial<Record<FullScreenMapLayer, { prov: Provenance; src: string }>>>({});
   const [layerStates, setLayerStates] = useState<FullMapLayerStates>(absent);
+  const field = useHabTimeField(snapshot, status === "ready");
+  useEffect(() => {
+    ops.current?.setHavenField(field);
+    setLayerStates(previous => ({ ...previous, haven_bands: field ? "ready" : "unavailable" }));
+    setLayerSources(previous => ({ ...previous, haven_bands: field ? { prov: "modelled", src: field.source_id } : undefined }));
+  }, [field]);
   const siteId = snapshot?.plan?.site_id;
   const hasSnapshot = Boolean(snapshot);
 
@@ -122,7 +129,7 @@ export function useFullMap(snapshot: Snapshot | null | undefined, crewId: CrewId
       };
       stopView = current.onViewChange(readView);
       apply(); readView(); refresh(); setStatus("ready");
-      // No time field is in the site/snapshot contract (N-100/N-120). Haven bands remain explicitly unavailable.
+      // The hab-time field is loaded separately and refreshed on plan revision (N-120).
       const grid = site.site.grid;
       const asset = site.assets.get(grid.comm_hab_asset);
       if (asset) {

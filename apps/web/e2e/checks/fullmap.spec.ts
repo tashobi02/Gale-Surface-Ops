@@ -74,7 +74,11 @@ for (const viewport of [{ width: 844, height: 390 }, { width: 1024, height: 768 
 
 
 test("needs N-120: haven bands use the supplied hab time field", async ({ page }) => {
-  const fixture = await openSurfaceFixture(page, "eva");
+  // Use the same session and data version as the binary endpoint, not an unrelated WS fixture.
+  const response = await page.request.get("/api/session");
+  expect(response.ok()).toBe(true);
+  const snapshot = await response.json();
+  const fixture = await openSurfaceFixture(page, "eva", snapshot);
   try {
     await page.getByRole("button", { name: "Open full-screen map" }).click();
     await page.locator('[data-fullmap][data-map-status="ready"]').waitFor();

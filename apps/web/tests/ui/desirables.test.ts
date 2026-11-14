@@ -378,7 +378,7 @@ describe("T18.03/T18.06 unavailable backend displays", () => {
     await c.unmount();
   });
 
-  it("SCR-05/SCR-08 O₂ placeholders stay illustrative and carry unavailable provenance", async () => {
+  it("SCR-05/SCR-08 supply the compute O₂ rate with illustrative provenance", async () => {
     const { createElement } = await import("react");
     const { renderToStaticMarkup } = await import("react-dom/server");
     const { RouteResults } = await import("../../src/ui/screens/scr05RouteResults");
@@ -394,9 +394,10 @@ describe("T18.03/T18.06 unavailable backend displays", () => {
     briefing.innerHTML = renderToStaticMarkup(createElement(BriefingCard, { ctx }));
     for (const surface of [results.container, briefing]) {
       expect(surface.textContent).toContain("O₂ rate (illustrative)");
-      const missing = surface.querySelector('[data-source="unavailable:compute.o2LitresPerMinute"][data-unavailable="true"]');
-      expect(missing?.textContent).toBe("—");
-      expect(missing?.getAttribute("data-provenance")).toBe("modelled");
+      const rate = surface.querySelector('[data-source="compute.o2LitresPerMinute"]');
+      expect(rate?.textContent).toContain("1.03");
+      expect(rate?.getAttribute("data-provenance")).toBe("modelled");
+      expect(surface.querySelector('[data-source="unavailable:compute.o2LitresPerMinute"]')).toBeNull();
     }
     await results.unmount();
   });
