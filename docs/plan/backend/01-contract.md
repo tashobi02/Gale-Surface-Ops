@@ -270,7 +270,7 @@ Source: `origin/core-frontend:docs/plan/frontend/01-needs-from-backend.md` (02da
 | N-140 real grid assets | served at `/sites/gale_boxwork/grid/…` wherever the bundle is installed (BD-160) | 23 | Accepted |
 | N-160 (a) manual-leg answer | the worker answers `VALIDATE_MANUAL_LEG` with `MANUAL_LEG_RESULT` (BD-150) | 29 | Accepted (on `main`) |
 | N-160 (b) static images for the real site | opt-in `--static-images` exists (BD-151); the release is built without it (BD-160) | 29 | Declined for the release asset |
-| N-160 (c) validated legs in the plan | frontend work: the worker returns one leg's result; totals come from a `COMPUTE_PLAN` | — | Not a backend change |
+| N-160 (c) validated legs in the plan | `ComputePlanRequest.manual_legs` carries the drawn polyline; the worker measures it on the grid and the plan's totals, timeline, conditions and radiation come from it (BD-170) | 33 | Accepted (on `main`) |
 
 ## 8. Scenario schema v2 (`schemas/scenario.schema.json`) — 01b
 

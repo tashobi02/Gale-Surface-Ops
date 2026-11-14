@@ -50,6 +50,20 @@ export interface SampleResult {
   snap: { x_m: number; y_m: number; distance_m: number } | null;
 }
 
+/**
+ * One validated manual leg the planner hands back to the worker (N-160(c), FD-441). The leg was measured on the grid by
+ * `VALIDATE_MANUAL_LEG`; the plan re-routes the other legs and **replaces** the named pair with this one, so the totals,
+ * the timeline, the conditions and the radiation are computed from the plan's own legs and never in the page.
+ */
+export interface ManualLegInput {
+  /** The waypoint id the leg starts at. */
+  from: string;
+  /** The waypoint id the leg ends at. */
+  to: string;
+  /** Working-projection metres, the polyline the user drew. */
+  vertices: [number, number][];
+}
+
 export interface ComputePlanRequest {
   type: "COMPUTE_PLAN";
   request_id: string;
@@ -58,6 +72,12 @@ export interface ComputePlanRequest {
   data_version: string;
   scenario: MissionScenario;
   waypoints: Waypoint[];
+  /**
+   * The hand-drawn legs to integrate (N-160(c)). Absent or empty: every leg is routed. A pair named here replaces that
+   * pair's routed leg with the measured one, so a plan with a manual leg carries the same totals, timeline, conditions and
+   * radiation as a fully routed plan.
+   */
+  manual_legs?: ManualLegInput[];
 }
 
 /** Rule (02 §E.2): any NO_ROUTE leg ⇒ status "PARTIAL" and totals null. */

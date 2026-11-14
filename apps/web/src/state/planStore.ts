@@ -31,6 +31,7 @@ import type {
 } from "@marswalk/protocol";
 import type {
   ComputePlanRequest,
+  ManualLegInput,
   PlanResultMessage,
   WorkerError,
   WorkerErrorCode,
@@ -105,6 +106,12 @@ export interface PlanState {
   selected_waypoint_id: string | null;
   /** Ephemeral hover position shared across map, list and profile chart. */
   hover: PlanHoverPosition | null;
+  /**
+   * The hand-drawn legs to integrate into the next plan (N-160(c), FD-441). Each names the waypoint pair it replaces
+   * and carries the polyline the user drew; the worker measures it on the grid and computes the totals from it.
+   * Empty: every leg is routed.
+   */
+  manual_legs: ManualLegInput[];
 }
 
 /**
@@ -143,6 +150,14 @@ export interface PlanStore {
   setHover(hover: PlanHoverPosition | null): void;
   /** Retry plan computation after an Error state (03 §E.4). */
   retry(): void;
+  /**
+   * Take a validated manual leg into the plan (N-160(c)). The polyline goes to the worker with the next COMPUTE_PLAN,
+   * which measures it on the grid and computes the totals, the timeline, the conditions and the radiation from it. The
+   * page computes no science: it only hands over what the user drew.
+   */
+  setManualLeg(leg: ManualLegInput): void;
+  /** Drop every manual leg: the next plan routes all of its legs. */
+  clearManualLegs(): void;
   /** Subscribe to state changes. Returns an unsubscribe callback. */
   subscribe(listener: (state: PlanState) => void): () => void;
 }
@@ -270,6 +285,18 @@ function isValidWaypointList(waypoints: readonly Waypoint[]): boolean {
 }
 
 /**
+ * The manual legs a waypoint list still has a pair for (N-160(c)). A leg for a pair the list no longer has is dropped:
+ * the plan has no such leg, so the polyline cannot enter it.
+ */
+function manualLegsFor(legs: readonly ManualLegInput[], waypoints: readonly Waypoint[], loop: boolean): ManualLegInput[] {
+  if (legs.length === 0) return [];
+  const pairs = new Set<string>();
+  for (let i = 0; i < waypoints.length - 1; i++) pairs.add(`${waypoints[i]!.id}\u0000${waypoints[i + 1]!.id}`);
+  if (loop && waypoints.length >= 2) pairs.add(`${waypoints[waypoints.length - 1]!.id}\u0000${waypoints[0]!.id}`);
+  return legs.filter((l) => pairs.has(`${l.from}\u0000${l.to}`));
+}
+
+/**
  * Create the plan store. `initial` gives the starting scenario, waypoints and tasks; `resetDefaults` returns to its
  * scenario. A store made with stops does not compute until the first edit or `loadPlan`.
  */
@@ -287,6 +314,7 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
     can_undo: false,
     selected_waypoint_id: null,
     hover: null,
+    manual_legs: [],
     ...initial,
   };
   const listeners = new Set<(state: PlanState) => void>();
@@ -325,6 +353,7 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
     return hasStart && hasStop && typeof s.scenario.eva_start_utc === "string" && s.scenario.eva_start_utc.length > 0;
   }
 
+
   function send(revision: number): void {
     const request: Omit<ComputePlanRequest, "type"> = {
       request_id: `r-${String(++requestSeq).padStart(4, "0")}`,
@@ -333,6 +362,8 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
       data_version: deps.dataVersion,
       scenario: state.scenario,
       waypoints: state.waypoints,
+      // The hand-drawn legs travel with the plan (N-160(c)); the worker measures them and computes the totals from them.
+      ...(state.manual_legs.length > 0 ? { manual_legs: state.manual_legs } : {}),
     };
     let pending: Promise<PlanResultMessage>;
     try {
@@ -402,6 +433,8 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
     undoSnapshot = { waypoints: state.waypoints, stop_tasks: state.stop_tasks };
     const stopIds = new Set(waypoints.filter((w) => w.role === "stop").map((w) => w.id));
     const ids = new Set(waypoints.map((w) => w.id));
+    // A manual leg whose pair the new waypoint list no longer has is dropped (N-160(c)): the plan has no such leg any more.
+    const manual_legs = manualLegsFor(state.manual_legs, waypoints, state.scenario.loop);
     routeEdit(
       {
         waypoints,
@@ -409,6 +442,7 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
         can_undo: true,
         selected_waypoint_id: state.selected_waypoint_id && ids.has(state.selected_waypoint_id) ? state.selected_waypoint_id : null,
         hover: state.hover?.waypoint_id && !ids.has(state.hover.waypoint_id) ? null : state.hover,
+        ...(manual_legs.length !== state.manual_legs.length ? { manual_legs } : {}),
       },
       "now",
     );
@@ -500,6 +534,7 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
           stop_tasks: snapshot.stop_tasks,
           can_undo: false,
           selected_waypoint_id: state.selected_waypoint_id && ids.has(state.selected_waypoint_id) ? state.selected_waypoint_id : null,
+          manual_legs: manualLegsFor(state.manual_legs, snapshot.waypoints, state.scenario.loop),
         },
         "now",
       );
@@ -521,6 +556,7 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
           can_undo: false,
           selected_waypoint_id: null,
           hover: null,
+          manual_legs: [],
         },
         "now",
       );
@@ -543,6 +579,17 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
       if (state.status !== "Error") return;
       if (workerClient.isCrashed()) workerClient.retry();
       routeEdit({}, "now");
+    },
+
+    setManualLeg(leg) {
+      // One leg per pair: a second drawing of the same pair replaces the first.
+      const kept = state.manual_legs.filter((l) => !(l.from === leg.from && l.to === leg.to));
+      routeEdit({ manual_legs: [...kept, leg] }, "now");
+    },
+
+    clearManualLegs() {
+      if (state.manual_legs.length === 0) return;
+      routeEdit({ manual_legs: [] }, "now");
     },
 
     subscribe(listener) {

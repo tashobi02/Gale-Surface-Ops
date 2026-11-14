@@ -162,6 +162,9 @@ const SCENARIO_EDGE_SOURCES = { caution: "scenario.caution_slope_deg", hard: "sc
 export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactElement {
   const layout = useSyncExternalStore(subscribeResize, layoutNow, () => "three-column" as WorkspaceLayout);
   const plan = usePlanState(ctx.planStore);
+  // The plan's own totals (N-160(c)): once a manual leg is in the plan, the worker's PLAN_RESULT carries them. The page
+  // never computes them; it only reads what the worker answered.
+  const planTotals = plan.result?.totals ?? null;
   const [leftTab, setLeftTab] = useState<LeftTab>("layers");
   const [rightTab, setRightTab] = useState<RightTab>("poi");
   const [open, setOpen] = useState<DrawerSide | null>(null);
@@ -672,7 +675,7 @@ export function MapWorkspace({ ctx, onMapReady }: MapWorkspaceProps): ReactEleme
           <StatusIcon status={drawState?.error ? "unknown" : drawState?.response?.leg.status === "OK" ? "nominal" : "advisory"} word={drawState?.pending ? "Validating" : drawState?.error ? "Unavailable" : drawState?.response ? "Leg validation" : drawState?.active ? "Drawing" : "Ready"} />
           {drawState?.error && <p>{drawState.error}</p>}
         </div>
-        <p>Manual leg walk time <Metric value={drawState?.response?.leg.status === "OK" ? drawState.response.leg.walk_time_min : null} unit="min" prov="modelled" src="worker:MANUAL_LEG_RESULT.leg.walk_time_min" />. Plan totals <Metric value={null} prov="derived" src="manual-plan-totals" /></p>
+        <p>Manual leg walk time <Metric value={drawState?.response?.leg.status === "OK" ? drawState.response.leg.walk_time_min : null} unit="min" prov="modelled" src="worker:MANUAL_LEG_RESULT.leg.walk_time_min" />. Plan EVA total <Metric value={planTotals?.eva_total_min ?? null} unit="min" prov="modelled" src="result.totals.eva_total_min" /></p>
         {drawState?.response && manualLegPreview(plan.result, drawState.response) && <><ProfileChart result={manualLegPreview(plan.result, drawState.response)!} /><WarningsList warnings={drawState.response.warnings} site={ctx.site} mapHandle={handle ?? undefined} getLegExtent={(_index, from, to) => legStretchExtent([drawState.response!.leg], 0, from, to)} /></>}
       </section>}
         <RouteResults planStore={ctx.planStore} mapHandle={handle ?? undefined} site={ctx.site} />

@@ -672,3 +672,60 @@ it("unchanged hover preserves the snapshot and does not notify subscribers", () 
 
 const _typeCheck: (s: PlanStore) => PlanState = (s) => s.get();
 void _typeCheck;
+
+/**
+ * The manual leg in the plan (N-160(c), FD-441): a validated leg travels with the COMPUTE_PLAN as a polyline, so the
+ * worker measures it and the plan's totals come from it. The page sends a polyline, never a number.
+ */
+describe("a manual leg joins the plan (N-160(c))", () => {
+  const leg = { from: "wp-0", to: "wp-1", vertices: [[0, 0] as [number, number], [100, 100] as [number, number]] };
+
+  it("the COMPUTE_PLAN carries the polyline of the manual leg", () => {
+    const { store, calls } = setup();
+    store.addWaypoint(STOP_1);
+    store.setManualLeg(leg);
+    const last = calls[calls.length - 1]!;
+    expect(last.req.manual_legs).toEqual([leg]);
+    expect(last.req.plan_revision).toBe(store.get().plan_revision);
+  });
+
+  it("a plan without a manual leg carries none: the field is absent, not empty", () => {
+    const { store, calls } = setup();
+    store.addWaypoint(STOP_1);
+    expect(calls[calls.length - 1]!.req.manual_legs).toBeUndefined();
+  });
+
+  it("a second drawing of the same pair replaces the first", () => {
+    const { store } = setup();
+    store.addWaypoint(STOP_1);
+    store.setManualLeg(leg);
+    store.setManualLeg({ ...leg, vertices: [[0, 0] as [number, number], [120, 90] as [number, number]] });
+    expect(store.get().manual_legs).toHaveLength(1);
+    expect(store.get().manual_legs[0]!.vertices).toEqual([[0, 0], [120, 90]]);
+  });
+
+  it("clearManualLegs drops them and the next plan carries none", () => {
+    const { store, calls } = setup();
+    store.addWaypoint(STOP_1);
+    store.setManualLeg(leg);
+    store.clearManualLegs();
+    expect(store.get().manual_legs).toEqual([]);
+    expect(calls[calls.length - 1]!.req.manual_legs).toBeUndefined();
+  });
+
+  it("a waypoint edit that removes the pair drops the manual leg with it", () => {
+    const { store } = setup();
+    store.addWaypoint(STOP_1);
+    store.setManualLeg(leg);
+    store.deleteWaypoint("wp-1");
+    expect(store.get().manual_legs).toEqual([]);
+  });
+
+  it("loadPlan drops the manual legs: the loaded plan has none of its own", () => {
+    const { store } = setup();
+    store.addWaypoint(STOP_1);
+    store.setManualLeg(leg);
+    store.loadPlan(SCENARIO, [START, STOP_1]);
+    expect(store.get().manual_legs).toEqual([]);
+  });
+});

@@ -72,7 +72,8 @@ it("SCR-07 keeps 'Not included in this build' when no REMS context is supplied",
 });
 
 it("SCR-07 shows the REMS ranges for the plan's L_s bin, each with its own provenance and source", async () => {
-  const result = { ...okFixture, conditions: { ...okFixture.conditions, ls_deg: 257 } } as unknown as PlanResult;
+  // The fixture carries no `conditions` of its own, so the plan's L_s is set here: the REMS panel reads it from there.
+  const result = { ...okFixture, conditions: { ls_deg: 257 } } as unknown as PlanResult;
   const view = await mount(createElement(Conditions, { ctx: ctxFor(result), remsContext: CONTEXT }));
   const section = must(view.container, '[data-condition="seasonal-weather"]');
   expect(section.textContent).not.toMatch(/not included in this build/i);
@@ -93,7 +94,7 @@ it("SCR-07 shows the REMS ranges for the plan's L_s bin, each with its own prove
 });
 
 it("SCR-07 keeps 'Not included in this build' when the context has no bin for the plan's L_s", async () => {
-  const result = { ...okFixture, conditions: { ...okFixture.conditions, ls_deg: 12 } } as unknown as PlanResult;
+  const result = { ...okFixture, conditions: { ls_deg: 12 } } as unknown as PlanResult;
   const view = await mount(createElement(Conditions, { ctx: ctxFor(result), remsContext: CONTEXT }));
   const section = must(view.container, '[data-condition="seasonal-weather"]');
   expect(section.textContent).toMatch(/not included in this build/i);

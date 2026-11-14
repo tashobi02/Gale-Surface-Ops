@@ -6,6 +6,7 @@
 import type {
   ComputePlanRequest,
   EnvConstant,
+  ManualLegInput,
   ManualLegResult,
   PlanResult,
   PlanResultMessage,
@@ -19,6 +20,7 @@ import { assembleConditions } from "./conditions";
 import type { LoadedGrid } from "./grid";
 import { toLeg } from "./leg";
 import { validateManualLeg } from "./manualLeg";
+import { cellsAlongPath } from "./paths";
 import { CANCEL_CHECK_EVERY_EXPANSIONS, MAX_NODE_EXPANSIONS, searchLeg, searchLegSteps, type LegSearch } from "./route";
 import { inverseEqc, parseEqcProjection, samplePoint } from "./sampling";
 import { evaTimeline } from "./timeModel";
@@ -164,8 +166,15 @@ export async function handleWorkerMessageAsync(
     const maxExpansions = options.maxExpansions ?? MAX_NODE_EXPANSIONS;
     const interval = options.cancellationInterval ?? CANCEL_CHECK_EVERY_EXPANSIONS;
     const pairs = legPairsOf(request);
+    const manual = manualLegsOf(request);
     const searches: LegSearch[] = [];
     for (const [fromWp, toWp] of pairs) {
+      // A manual leg replaces its pair's routed leg (N-160(c)): the pair is not searched at all, so the measured polyline
+      // is what the plan carries. The other pairs are routed as usual.
+      if (manual.has(pairKey(fromWp.id, toWp.id))) {
+        searches.push({ status: "MANUAL" } as LegSearch);
+        continue;
+      }
       const steps = searchLegSteps(loaded, fromWp, toWp, request.scenario, maxExpansions, interval);
       let search: LegSearch | undefined;
       while (search === undefined) {
@@ -181,7 +190,7 @@ export async function handleWorkerMessageAsync(
       if (ended) return ended;
       searches.push(search);
     }
-    return finishPlan(loaded, request, pairs, searches, options);
+    return finishPlan(loaded, request, pairs, searches, options, manual);
   } catch (err) {
     return errorOf(request, "INTERNAL", err instanceof Error ? err.message : String(err));
   }
@@ -227,6 +236,41 @@ function searchEnd(search: LegSearch, request: ComputePlanRequest, fromWp: Waypo
   return null;
 }
 
+/** The key a leg pair is addressed by in the request's `manual_legs`: its two waypoint ids, in order. */
+function pairKey(from: string, to: string): string {
+  return `${from}\u0000${to}`;
+}
+
+/**
+ * The manual legs of a COMPUTE_PLAN, by pair key (N-160(c)). Only the pairs the plan actually has are kept: a leg for an
+ * unknown pair is ignored, so a stale polyline cannot appear in a plan that no longer has that pair.
+ */
+function manualLegsOf(request: ComputePlanRequest): Map<string, ManualLegInput> {
+  const map = new Map<string, ManualLegInput>();
+  const legs = request.manual_legs;
+  if (!Array.isArray(legs)) return map;
+  const pairs = legPairsOf(request);
+  const known = new Set(pairs.map(([from, to]) => pairKey(from.id, to.id)));
+  for (const leg of legs) {
+    if (!leg || typeof leg !== "object") continue;
+    const from = leg.from;
+    const to = leg.to;
+    if (typeof from !== "string" || typeof to !== "string") continue;
+    const key = pairKey(from, to);
+    if (!known.has(key) || map.has(key)) continue;
+    const vertices = leg.vertices;
+    if (!Array.isArray(vertices) || vertices.length < 2) continue;
+    if (!vertices.every((v) => Array.isArray(v) && v.length === 2 && Number.isFinite(v[0]) && Number.isFinite(v[1]))) continue;
+    map.set(key, { from, to, vertices: vertices.map((v) => [v[0], v[1]] as [number, number]) });
+  }
+  return map;
+}
+
+/** The cells a manual polyline crosses, for the walkback and the leg warnings (N-160(c)). */
+function cellsOf(grid: LoadedGrid, vertices: readonly (readonly [number, number])[]): readonly number[] {
+  return cellsAlongPath(grid, vertices);
+}
+
 function handleComputePlan(
   grid: LoadedGrid,
   request: ComputePlanRequest,
@@ -235,8 +279,15 @@ function handleComputePlan(
 ): PurePlanResultMessage | WorkerError {
   const time = options.timer ?? runDirect;
   const pairs = legPairsOf(request);
+  const manual = manualLegsOf(request);
   const searches: LegSearch[] = [];
   for (const [fromWp, toWp] of pairs) {
+    // A manual leg replaces its pair's routed leg (N-160(c)): the pair is not searched at all, so the measured polyline
+    // is what the plan carries. The other pairs are routed as usual.
+    if (manual.has(pairKey(fromWp.id, toWp.id))) {
+      searches.push({ status: "MANUAL" } as LegSearch);
+      continue;
+    }
     const search = time("routing", () =>
       searchLeg(grid, fromWp, toWp, request.scenario, maxExpansions, options.shouldCancel, options.cancellationInterval),
     );
@@ -244,7 +295,7 @@ function handleComputePlan(
     if (ended) return ended;
     searches.push(search);
   }
-  return finishPlan(grid, request, pairs, searches, options);
+  return finishPlan(grid, request, pairs, searches, options, manual);
 }
 
 /** Legs, totals, timeline, conditions, radiation and warnings from finished searches (shared by both handlers). */
@@ -254,6 +305,7 @@ function finishPlan(
   pairs: [Waypoints[number], Waypoints[number]][],
   searches: LegSearch[],
   options: HandlerOptions,
+  manual: Map<string, ManualLegInput> = new Map(),
 ): PurePlanResultMessage {
   const time = options.timer ?? runDirect;
   const waypoints = request.waypoints;
@@ -262,6 +314,15 @@ function finishPlan(
   const cellPaths: (readonly number[] | undefined)[] = [];
   pairs.forEach(([fromWp, toWp], i) => {
     const search = searches[i];
+    const manualLeg = manual.get(pairKey(fromWp.id, toWp.id));
+    if (manualLeg) {
+      // The manual leg is measured on the grid here too (N-160(c)): the page sends the polyline, the worker measures it.
+      // The page never sends a leg, so nothing can enter the plan unmeasured.
+      const measured = validateManualLeg(grid, request.scenario, fromWp.id, toWp.id, manualLeg.vertices);
+      legs.push(measured.leg);
+      cellPaths.push(measured.leg.status === "OK" ? cellsOf(grid, manualLeg.vertices) : undefined);
+      return;
+    }
     legs.push(toLeg(grid, fromWp.id, toWp.id, search, request.scenario));
     cellPaths.push(search.status === "OK" ? search.cells : undefined);
   });

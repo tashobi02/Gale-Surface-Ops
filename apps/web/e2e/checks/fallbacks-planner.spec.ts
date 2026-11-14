@@ -102,8 +102,10 @@ test("fallbacks: a manual leg is drawn from the keyboard and from the pointer, s
   await stubManualLegWorker(page);
   await planWithLegPanel(page);
 
-  // Before any answer, no number: the leg's walk time and the plan totals read "—" (never computed in the page).
-  await expect(page.locator(`${PANEL} .metric-value[data-unavailable="true"]`)).toHaveCount(2);
+  // Before any answer, the leg's walk time reads "—": no number is invented in the page. The plan's totals are the
+  // worker's own (the plan on this site routes), so they are there before the leg is drawn.
+  await expect(page.locator(`${PANEL} .metric-value[data-source="unavailable:worker:MANUAL_LEG_RESULT.leg.walk_time_min"]`)).toHaveText("—");
+  await expect(page.locator(`${PANEL} .metric-value[data-source="result.totals.eva_total_min"]`)).not.toHaveText("—");
 
   // Keyboard: pan the crosshair, place a vertex with Enter, finish.
   await legButtons(page).first().click();
@@ -116,8 +118,9 @@ test("fallbacks: a manual leg is drawn from the keyboard and from the pointer, s
   const walk = page.locator(`${PANEL} .metric-value[data-source="worker:MANUAL_LEG_RESULT.leg.walk_time_min"]`);
   await expect(walk).toHaveText("22"); // the stub said 21.5; the metric shows whole minutes
   await expect(walk).toHaveAttribute("data-provenance", "modelled");
-  // The plan's totals stay "—": no totals are manufactured from one validated leg.
-  await expect(page.locator(`${PANEL} .metric-value[data-source="unavailable:manual-plan-totals"]`)).toHaveText("—");
+  // The plan's totals are the worker's, not the page's: the stub only answers VALIDATE_MANUAL_LEG, so the plan that
+  // carries the leg is computed by the real worker, which measures the polyline and totals it (N-160(c)).
+  await expect(page.locator(`${PANEL} .metric-value[data-source="unavailable:result.totals.eva_total_min"]`)).toHaveCount(0);
   await expect(page.locator(`${PANEL} svg`).first()).toBeVisible(); // the profile of the validated leg
 
   // Pointer: the same leg again, drawn with clicks and a double-click to finish.
@@ -185,22 +188,29 @@ test("fallbacks: with the real worker the manual-leg panel is honest about what 
     // The worker has no handler for the request (N-25): it said ERROR, the page says so and shows no number.
     await expect(status(page)).toContainText(/Manual-leg validation unavailable/);
     await expect(walk).toHaveCount(0); // no worker-sourced number exists
-    await expect(page.locator(`${PANEL} .metric-value[data-unavailable="true"]`)).toHaveText(["—", "—"]);
+    // The leg's own number is the only one missing: the plan's totals are the worker's, and this plan routes.
+    await expect(page.locator(`${PANEL} .metric-value[data-unavailable="true"]`)).toHaveCount(1);
   } else {
     // A backend that answers: the number is the worker's, labelled modelled with its source.
     await expect(status(page)).toContainText("Leg validation");
     await expect(walk).toHaveAttribute("data-provenance", "modelled");
     await expect(walk).not.toHaveText("—");
   }
-  await expect(page.locator(`${PANEL} .metric-value[data-source="unavailable:manual-plan-totals"]`)).toHaveText("—");
 });
 
-test("needs N-160: the real worker validates a manual leg and the plan integrates it (T09.08)", async ({ page }) => {
-  // Passes the moment the worker answers VALIDATE_MANUAL_LEG with a leg (N-25 handler) and the plan totals include it.
+test("fallbacks: the real worker validates a manual leg and the plan integrates it (N-160(c), T09.08)", async ({ page }) => {
+  // The leg the worker measured joins the plan (N-160(c)): the next COMPUTE_PLAN carries the polyline, the worker measures
+  // it again on the grid and totals the plan from it. The totals the panel shows are the worker's, with its own source.
   await planWithLegPanel(page);
   await legButtons(page).first().click();
   await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "Finish leg" }).click();
   await expect(status(page)).toContainText("Leg validation");
-  await expect(page.locator(`${PANEL} .metric-value[data-source^="unavailable:manual-plan-totals"]`)).toHaveCount(0);
+  const totals = page.locator(`${PANEL} .metric-value[data-source="result.totals.eva_total_min"]`);
+  await expect(totals, "the plan carries the totals the worker computed from the manual leg").toHaveCount(1);
+  await expect(totals).not.toHaveText("—");
+  await expect(totals).toHaveAttribute("data-provenance", "modelled");
+  // The plan's own results panel shows the same totals: one plan, one set of numbers.
+  const results = page.locator('[data-slot="results-panel"] .metric-value[data-source="result.totals.eva_total_min"]');
+  await expect(results.first()).not.toHaveText("—");
 });

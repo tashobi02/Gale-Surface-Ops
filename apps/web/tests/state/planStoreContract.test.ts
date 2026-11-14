@@ -21,6 +21,7 @@ function recordingStore() {
     can_undo: false,
     selected_waypoint_id: null,
     hover: null,
+    manual_legs: [],
   } satisfies PlanState;
   const store: PlanStore = {
     get: () => state,
@@ -39,6 +40,8 @@ function recordingStore() {
     selectWaypoint: () => {},
     setHover: () => {},
     retry: () => {},
+    setManualLeg: () => {},
+    clearManualLegs: () => {},
     subscribe: () => () => {},
   };
   return { store, calls };

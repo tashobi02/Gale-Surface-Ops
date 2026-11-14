@@ -22,7 +22,12 @@ export type LegSearch =
   | { status: "OK"; cells: number[] }
   | { status: "NO_ROUTE"; reason: NoRouteReason; nearest_reachable: { x_m: number; y_m: number } }
   | { status: "TIMEOUT" }
-  | { status: "CANCELLED" };
+  | { status: "CANCELLED" }
+  /**
+   * The pair is not routed: a hand-drawn leg replaces it (N-160(c)). The search is skipped and the leg is measured on
+   * the grid from the drawn polyline, so the plan carries the measured leg and its totals.
+   */
+  | { status: "MANUAL" };
 
 interface HeapNode {
   cell: number;

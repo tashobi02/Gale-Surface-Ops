@@ -40,6 +40,7 @@ export function stateOf(overrides: Partial<PlanState> = {}): PlanState {
     can_undo: false,
     selected_waypoint_id: null,
     hover: null,
+    manual_legs: [],
     ...overrides,
   };
 }
@@ -73,6 +74,8 @@ export function fakePlanStore(initial: Partial<PlanState> = {}): FakePlanStore {
     selectWaypoint: noop,
     setHover: noop,
     retry,
+    setManualLeg: noop,
+    clearManualLegs: noop,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {

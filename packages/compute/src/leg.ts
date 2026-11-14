@@ -91,6 +91,12 @@ export function toLeg(
     throw new Error(`Cannot assemble leg: search ended with ${search.status}`);
   }
 
+  // A MANUAL pair is never searched: its leg is measured from the drawn polyline, not assembled from a cell path
+  // (N-160(c)). Reaching here means the two paths were mixed up.
+  if (search.status === "MANUAL") {
+    throw new Error("Cannot assemble leg: a manual leg is measured from the drawn polyline, not from a search");
+  }
+
   const { width, cell_m, origin_m } = grid.meta;
   const [origin_x, origin_y] = origin_m;
   const cells = search.cells;

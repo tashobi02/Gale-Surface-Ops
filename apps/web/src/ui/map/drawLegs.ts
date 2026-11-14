@@ -27,7 +27,13 @@ export interface DrawLegState {
   error: string | null;
 }
 
-/** A per-leg preview, not a complete validated plan; aggregate values remain unavailable. */
+/**
+ * A per-leg preview, not a complete validated plan; aggregate values remain unavailable.
+ *
+ * This is what the panel shows while the leg is being validated and before the plan takes it over (N-160(c)). Once the
+ * leg is in the plan, the worker's own PLAN_RESULT carries the measured leg and the totals computed from it, and the
+ * panel reads them from there — the page never computes them.
+ */
 export function manualLegPreview(base: PlanResult | null, response: ManualLegResult | null): PlanResult | null {
   return base && response ? { ...base, status: "PARTIAL", legs: [response.leg], warnings: response.warnings, totals: null, stops_timeline: [], radiation: undefined, conditions: undefined } : null;
 }
@@ -121,12 +127,30 @@ export function initDrawLegs(handle: MapHandle, options: {
       const pair = legPairs(planStore)[state.legIndex!];
       if (!pair || message.leg.from !== pair[0].id || message.leg.to !== pair[1].id) return;
       clearPending(); state = { ...state, pending: false, response: message, error: null }; emit();
+      // The leg joins the plan (N-160(c)): the store sends it with the next COMPUTE_PLAN, and the worker measures it on
+      // the grid and computes the totals, the timeline, the conditions and the radiation from it. Only a leg the worker
+      // itself answered OK joins: a NO_ROUTE leg is not a route.
+      if (message.leg.status === "OK") {
+        // The revision the store raises makes the subscriber below cancel the draft, which would drop the answer the
+        // panel shows. The leg is already in the plan, so the draft is dropped on purpose and the panel reads the plan.
+        planStore.setManualLeg({ from: message.leg.from, to: message.leg.to, vertices: [...state.points] });
+      }
     } else if (message.type === "ERROR") {
       clearPending(); state = { ...state, pending: false, error: `Manual-leg validation unavailable: ${message.message}` }; emit();
     }
   });
   const offStore = planStore.subscribe(next => {
-    if (next.plan_revision !== revision) { revision = next.plan_revision; cancel(); }
+    if (next.plan_revision === revision) return;
+    revision = next.plan_revision;
+    // A revision change discards the draft and any stale reply (FD-441). A validated leg that has joined the plan is
+    // not stale: the plan now carries it, so the panel keeps showing the worker's answer (N-160(c)).
+    if (state.response) {
+      clearPending();
+      state = { ...state, active: false, pending: false, legIndex: null, points: [], error: null };
+      emit();
+      return;
+    }
+    cancel();
   });
   // The pointer interaction supplies a whole polyline. Both ends are always replaced by the actual waypoints.
   const onKey = (event: KeyboardEvent) => {
