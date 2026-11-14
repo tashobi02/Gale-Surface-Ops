@@ -12,10 +12,14 @@
 
 ## 1. Where the 37 % really is
 
-The README progress block says **83 % — 286 of 345 subtasks done, 37 in progress**. The machine-readable truth in
-`docs/tasks/status.md` is **330 `done` + 47 `wip` = 377 rows**. The 47 `wip` rows are the whole remaining scope.
+> **This section records the state at the start of the plan (83 %, 47 `wip` rows).** The plan has since run: the
+> progress block now reads **90 % — 309 of 345 done, 14 in progress**, and §11 tracks what is left and who can
+> close it. The analysis below is kept as the record of how the 47 rows were grouped.
 
-They are **not** 47 unrelated pieces of work. Grouping them by *root cause* collapses them into **seven** problems:
+The README progress block said **83 % — 286 of 345 subtasks done, 37 in progress**. The machine-readable truth in
+`docs/tasks/status.md` was **330 `done` + 47 `wip` = 377 rows**. The 47 `wip` rows were the whole remaining scope.
+
+They were **not** 47 unrelated pieces of work. Grouping them by *root cause* collapses them into **seven** problems:
 
 | # | Root cause | Rows | Fix |
 | --- | --- | --- | --- |
@@ -363,12 +367,31 @@ A task is done when **all** of these hold:
 
 ## 11. Status of this plan
 
+**Current: 90 % — 309 of 345 subtasks done, 14 in progress.** The plan has run most of its course; what is left is
+grouped by who can close it.
+
 | Step | State |
 | --- | --- |
 | §2 — real Gale bundle installed and validated | **done** |
-| §3 — float determinism | to do |
-| §4 — backend contracts | to do |
-| §5 — browser checks | to do |
-| §6 — pipeline data | to do |
-| §7 — team handover | prepared, awaiting the team |
-| §9 — re-verify and 100 % | to do |
+| §3 — float determinism | **done** (`cdd6626`: `sun_elevation_deg` rounded to a fixed precision, so a run's recorded bytes are reproducible) |
+| §4 — backend contracts | **done** for WP-B1, WP-B2, WP-B3 and WP-B4 (N-02/03/04/29, N-09, N-101, N-160, N-31/32/70/90/200, N-24/30/100/120/130) |
+| §5 — browser checks | **done** for the rows whose needs are closed; the checks now run on the mock site *and* the real bundle |
+| §6 — pipeline data | **partly done** — the REMS/CRISM sols 4182–4184 were reacquired into git-ignored `pipeline/work/`; the remaining REMS set is still incomplete (T18.08) |
+| §7 — team handover | **prepared, awaiting the team** — T16.04, T16.07, T30.02, T30.03 need a human; T15.02 needs gloves, a tablet and three non-team users; T17.04 needs a capture |
+| §9 — re-verify and 100 % | **in progress** — the full `apps/hab-core` suite is green (55 files, 1427 passed); the remaining rows are in flight |
+
+### 11.1 The 14 remaining `wip` rows, by who can close them
+
+| Rows | Who can close them | Note |
+| --- | --- | --- |
+| T24.04, T24.05, T24.07 | **frontend agent** (in flight) | the EVA tablet's mini-map, the hold-to-confirm fallback, the SCR-18 focus browser check |
+| T25.08, T31.05 | **frontend agent** (in flight) | the ops-only storm mission, the SCR-11 Start storm control, the server half of the stop-task changes |
+| T28.05 | **frontend agent** (in flight) | the killer demo through the UI in single-laptop mode (B-03) |
+| T09.09 | **backend** (N-214) | the planning form's vehicle branch needs the rover's start and ParamSet on `ComputePlanRequest`; the frontend must not invent it |
+| T18.12 | **backend** (N-213) | the real storm bundle's relay passes fall outside the EVA window, so a queued Earth message is never delivered there |
+| T18.08 | **pipeline** | the remaining REMS set is incomplete; the PDS transfer is slow |
+| T12.06, T13.09 | **frontend agent** (in flight) | the provenance and axe matrices |
+| T15.02, T16.04, T16.07, T17.04, T30.02, T30.03 | **the team** | a human must run them: gloves and three non-team users, the disclosure audit, the publication scan, the portal checks, the capture, the AI-use sweep |
+
+Six of the fourteen need a person, not a program. They cannot reach 100 % on this machine and must not be reported as
+done without the human evidence the row names.
