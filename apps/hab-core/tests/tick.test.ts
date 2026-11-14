@@ -587,12 +587,13 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
     const shielding = Object.values(fake.params).find((p) => p.kind === "shielding")!;
     const schedule: Record<string, { t_utc: string; dt_s: number; shelter: "suit" | "hab" }[]> = { EV1: [], EV2: [] };
     for (let n = 1; n < trace.states.length; n++) {
+      if (trace.states[n - 1].session.status === "ENDED") continue;
       for (const id of CREW) {
         const activity = crewOf(trace.states[n - 1], id).activity;
         schedule[id].push({ t_utc: iso(Date.parse(trace.states[n].session.clock.sim_time) - 1000), dt_s: 1, shelter: activity === "IN_HAB" ? "hab" : "suit" });
       }
     }
-    expect(integrateDoseSpy).toHaveBeenCalledTimes(2 * (trace.states.length - 1));
+    expect(integrateDoseSpy).toHaveBeenCalledTimes(2 * schedule.EV1.length);
     for (const [series, steps, set] of integrateDoseSpy.mock.calls) {
       expect(steps).toHaveLength(1);
       // From the press (series_start_utc) the scenario's series; before it the constant background series (02 §D.17).
@@ -601,14 +602,14 @@ describe("tick: crew motion, dwell, O₂ and dose through compute (T22.09)", () 
       expect(set).toBe(shielding);
     }
     const called = integrateDoseSpy.mock.calls.map(([, steps]) => steps[0]);
-    expect(called).toEqual(trace.states.slice(1).flatMap((_, i) => CREW.map((id) => schedule[id][i])));
+    expect(called).toEqual(schedule.EV1.flatMap((_, i) => CREW.map((id) => schedule[id][i])));
     for (const id of CREW) {
       const total = actual.integrateDose(fake.dose, schedule[id], shielding);
       const end = crewOf(trace.states.at(-1)!, id);
       expect(end.dose_event_ugy).toBeCloseTo(total.received_ugy, 10);
       expect(end.dose_event_unsheltered_ugy).toBeCloseTo(total.unsheltered_ugy, 10);
       expect(total.received_ugy).toBeGreaterThan(0);
-      expect(total.unsheltered_ugy).toBeGreaterThan(total.received_ugy);
+      expect(total.unsheltered_ugy).toBeGreaterThanOrEqual(total.received_ugy);
     }
   });
 

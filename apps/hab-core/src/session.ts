@@ -8,7 +8,7 @@
  * and engine never read wall-clock time (NFR-06).
  *
  * Rules (proposed 2026-11-07, T22.12; tests: tests/session.test.ts):
- * - Ticks run only while the session is RUNNING; LOADED, PAUSED and ENDED hold sim time.
+ * - Ticks run while RUNNING, and after ENDED only until queued Earth messages are delivered (BD-172).
  * - tick() returns a state that already contains its events (tick.ts "State rule"); the session
  *   appends them and checks that the log gives the seqs tick used. Command events are reduced here.
  * - A snapshot is written after any append batch that crosses a multiple of SNAPSHOT_EVERY, so a
@@ -420,7 +420,7 @@ class Session implements SessionHandle {
 
   advance(steps: number): { events: LogEvent[]; deltas: StateChange[] } {
     if (!Number.isInteger(steps) || steps < 0) throw new Error(`advance: steps must be a non-negative integer: ${steps}`);
-    if (this.state.session.status !== "RUNNING") return { events: [], deltas: [] };
+    if (!canAdvance(this.state)) return { events: [], deltas: [] };
     return this.runTicks(steps, false);
   }
 
@@ -439,7 +439,7 @@ class Session implements SessionHandle {
   private runTicks(steps: number, untilEvent: boolean): { events: LogEvent[]; deltas: StateChange[] } {
     const events: LogEvent[] = [];
     const deltas: StateChange[] = [];
-    for (let i = 0; i < steps && this.state.session.status === "RUNNING"; i++) {
+    for (let i = 0; i < steps && canAdvance(this.state); i++) {
       const next_seq = this.log.lastSeq() + 1;
       const r = stepOnce(this.state, this.scenario, next_seq, this.havenCache);
       // tick's state already contains its events. Store it first: appendAll fills in `log_hash` and
@@ -492,7 +492,11 @@ function sampleTrace(state: EngineState): EngineState {
 function stepOnce(state: EngineState, scenario: LoadedScenario, next_seq: number, havenCache: HavenCache): ReturnType<typeof tick> {
   const stepped: EngineState = { ...state, session: { ...state.session, clock: { ...state.session.clock, sim_time: addSeconds(state.session.clock.sim_time, SIM_STEP_S) } } };
   const r = tick(stepped, scenario, SIM_STEP_S, next_seq, havenCache);
-  return { ...r, state: sampleTrace(r.state) };
+  return { ...r, state: state.session.status === "ENDED" ? r.state : sampleTrace(r.state) };
+}
+
+function canAdvance(state: EngineState): boolean {
+  return state.session.status === "RUNNING" || (state.session.status === "ENDED" && !state.session.clock.paused && state.earthQueue.some((m) => m.state === "QUEUED"));
 }
 
 /** Next free `s-<n>` under `varDir/sessions` (05 Session). */
@@ -562,7 +566,7 @@ export function resumeSession(sessionDir: string, scenario: LoadedScenario, opti
   while (i < tail.length) {
     const e = tail[i];
     // A paused clock also re-runs ticks here: only a JUMP_NEXT_STOP moves sim time while paused (its tick events, then CLOCK_JUMPED).
-    if (Date.parse(e.sim_time) > Date.parse(state.session.clock.sim_time) && (state.session.status === "RUNNING" || state.session.status === "PAUSED")) {
+    if (Date.parse(e.sim_time) > Date.parse(state.session.clock.sim_time) && (state.session.status === "RUNNING" || state.session.status === "PAUSED" || canAdvance(state))) {
       const r = stepOnce(state, scenario, state.session.last_seq + 1, havenCache);
       for (const produced of r.events) {
         const line = tail[i];

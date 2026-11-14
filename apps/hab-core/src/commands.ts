@@ -222,7 +222,7 @@ function dispatch(state: EngineState, command: Command, ctx: CommandContext): Ha
       if (!hasSpeed && !hasPaused) reject("INVALID", "SET_CLOCK needs args.speed or args.paused");
       if (hasSpeed && !SPEEDS.includes(a.speed as (typeof SPEEDS)[number])) reject("INVALID", "SET_CLOCK speed must be 1, 10 or 60 (05 Session)");
       if (hasPaused && typeof a.paused !== "boolean") reject("INVALID", "SET_CLOCK paused must be true or false");
-      requireState(state, ["LOADED", "RUNNING", "PAUSED"], "Changing the clock");
+      requireState(state, ["LOADED", "RUNNING", "PAUSED", "ENDED"], "Changing the clock");
       const clock = state.session.clock;
       return ok(state, command, "CLOCK_CHANGED", { speed: (hasSpeed ? a.speed : clock.speed) as (typeof SPEEDS)[number], paused: hasPaused ? (a.paused as boolean) : clock.paused });
     }

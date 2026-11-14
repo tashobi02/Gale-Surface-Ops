@@ -13,30 +13,33 @@
  * `deliver_utc`, and the Hab Core delivers it in the tick that reaches that time (`apps/hab-core/src/engine/earth.ts`,
  * `earthTick`: a QUEUED message whose `deliver_utc` is at or before sim time is delivered).
  *
- * The harness's fake scenario copy carries a declared synthetic Earth-link table (lib/fakeScenario.ts, the shape the
- * backend's own Earth test declares): a constant 10-minute light time and three 20-minute relay passes at +30 min, +3 h and
- * +6 h from the scenario start. That is a fixture, not a measurement: the check asserts the delivery time the engine
- * computes, never a time the test typed in.
+ * The default harness uses a declared synthetic table; the real-site run reads the committed storm table and link parameters.
+ * In both cases compute's deliveryTime is the oracle; the test does not prescribe a science value.
  *
  * Determinism: the mission clock is driven, never waited on. The clock is paused while the message is sent, then resumed
  * and stepped with the ops console's own controls until the delivery time.
  */
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { deliveryTime } from "@marswalk/compute";
+import type { EarthLinkTable, ParamSet } from "@marswalk/protocol";
 import { openFreshOps, sessionLog, sessionSnapshot, startPaused, watchLive } from "../lib/liveMission";
-import { EARTH_PASS_STARTS_MS } from "../lib/fakeScenario";
+import { syntheticEarthLink } from "../lib/fakeScenario";
+import { e2eSite, REAL_SITE } from "../lib/siteBundle";
 
 test("earth-message: a message typed in the SCR-16 composer arrives at Mars at the rule's time (T18.12)", async ({ context }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(480_000);
   const { ops, wire } = await openFreshOps(context);
   const earth = await context.newPage();
   try {
     await startPaused(ops, wire);
-    // The scenario's own start time is the origin of the declared synthetic table (lib/fakeScenario.ts).
-    const start = Date.parse((await sessionSnapshot(ops)).session.clock.sim_time);
-    // The message goes out from Earth while no relay is overhead: the first pass starts 30 min after the scenario start, and
-    // the light time is 10 min, so the rule puts the arrival at that pass's start.
-    const firstPassStart = start + EARTH_PASS_STARTS_MS[0]!;
-    expect(firstPassStart, "the declared first relay pass").toBeGreaterThan(start);
+    const start = (await sessionSnapshot(ops)).session.clock.sim_time;
+    const root = join(import.meta.dirname, "../../../..");
+    const real = e2eSite() === REAL_SITE;
+    const table = real ? JSON.parse(readFileSync(join(root, "scenarios/storm-sol4190/earth_link.json"), "utf8")) as EarthLinkTable : syntheticEarthLink(start);
+    const paramsPath = real ? "scenarios/storm-sol4190/param_sets/link-assumed.json" : "apps/hab-core/tests/fixtures/fake-scenario/param_sets/link-assumed.json";
+    const params = JSON.parse(readFileSync(join(root, paramsPath), "utf8")) as ParamSet;
 
     const earthWire = watchLive(earth);
     await earth.goto("/#/earth");
@@ -52,7 +55,7 @@ test("earth-message: a message typed in the SCR-16 composer arrives at Mars at t
     await expect(queued).toHaveCount(1);
     await expect(queued).toHaveAttribute("data-provenance", "derived");
     const deliverUtc = await queued.textContent();
-    expect(Date.parse(deliverUtc!), "the delivery time the engine computed").toBe(firstPassStart);
+    const firstPassStart = Date.parse(deliverUtc!);
     // The queue entry is still waiting: the rule's time has not come.
     await expect(earth.locator('[data-source="snapshot:earth.queue.state"]')).toHaveText("QUEUED");
 
@@ -61,10 +64,14 @@ test("earth-message: a message typed in the SCR-16 composer arrives at Mars at t
     expect(queuedEvent, "the Hab Core logged the queueing").toBeTruthy();
     expect((queuedEvent!.data as { direction: string; deliver_utc: string }).direction).toBe("to_mars");
     expect((queuedEvent!.data as { deliver_utc: string }).deliver_utc).toBe(deliverUtc);
+    const sent = (queuedEvent!.data as { sent_utc: string }).sent_utc;
+    expect(firstPassStart).toBe(Date.parse(deliveryTime(table, "to_mars", sent, params)!.deliver_utc));
+    expect(firstPassStart).toBeGreaterThan(Date.parse(sent));
 
     // Before the rule's time nothing is delivered: step the clock to a point clearly before it and look again. The margin is
     // five minutes so the clock's own overshoot (the clock runs at 60x while the check polls) cannot reach the delivery time.
     await stepClockTo(ops, wire, firstPassStart - 5 * 60_000);
+    if (real) expect((await sessionSnapshot(ops)).session.status).toBe("ENDED");
     expect((await sessionLog(ops)).some((event) => event.kind === "EARTH_MSG_DELIVERED"), "not delivered before the rule's time").toBe(false);
     await expect(earth.locator('[data-source="snapshot:earth.queue.state"]')).toHaveText("QUEUED");
 
@@ -90,7 +97,7 @@ async function stepClockTo(ops: import("@playwright/test").Page, wire: ReturnTyp
   const resume = ops.getByRole("button", { name: "Resume mission clock", exact: true });
   if (await resume.count()) await wire.command("SET_CLOCK", () => resume.click());
   await expect
-    .poll(async () => Date.parse((await sessionSnapshot(ops)).session.clock.sim_time), { message: "the sim clock reaches the target", timeout: 60_000 })
+    .poll(async () => Date.parse((await sessionSnapshot(ops)).session.clock.sim_time), { message: "the sim clock reaches the target", timeout: 360_000 })
     .toBeGreaterThanOrEqual(targetMs);
   const pause = ops.getByRole("button", { name: "Pause mission clock", exact: true });
   if (await pause.count()) await wire.command("SET_CLOCK", () => pause.click());

@@ -7,8 +7,8 @@
  * Rules (Proposed 2026-11-12, backend package 18; decided by the orchestrator (Claude) under Sadman Shaharier Mahim's
  * authority, 12 Nov 2026; BD-60, BD-99, BD-129; tests: tests/earth.test.ts):
  * - SEND_MESSAGE: `eva:*` and `ops` write to Earth (`to_earth`), `earth` writes to Mars (`to_mars`). `args.body` is a string
- *   of 1 to 280 characters after trimming (`INVALID`; args before state), refused with `BUSY` after the EVA has ended (ticks
- *   no longer run, so nothing would be delivered). It logs EARTH_MSG_QUEUED, `message_id` `m-<seq>`, sent at sim time now.
+ *   of 1 to 280 characters after trimming (`INVALID`; args before state), refused with `BUSY` after the EVA has ended.
+ *   It logs EARTH_MSG_QUEUED, `message_id` `m-<seq>`, sent at sim time now.
  * - Blackout (BD-60): where compute returns null (conjunction at the send, or a later pass that starts in conjunction) the
  *   message is held; its delivery is that of a message sent at the first table row after the send at which compute can
  *   deliver it. If no row can, SEND_MESSAGE answers `BUSY` and a scheduled input is not queued. A compute RangeError (a table
@@ -130,14 +130,16 @@ export function earthTick(state: EngineState, ctx: TickContext): TickResult {
     events.push(queued(now, "system", seq, "to_mars", body, sent, p.delivery));
     fresh.push({ message_id: `m-${seq}`, deliver_ms: Date.parse(p.delivery.deliver_utc) });
   };
-  for (const e of scenario.scenario.events ?? []) {
-    const t = Date.parse(e.t_utc);
-    if (e.kind === "EARTH_MESSAGE" && t >= from_ms && t < now_ms) fire(e.t_utc, e.payload);
+  if (state.session.status !== "ENDED") {
+    for (const e of scenario.scenario.events ?? []) {
+      const t = Date.parse(e.t_utc);
+      if (e.kind === "EARTH_MESSAGE" && t >= from_ms && t < now_ms) fire(e.t_utc, e.payload);
+    }
+    for (const due of dueInputs(state, scenario, new Date(from_ms).toISOString(), now)) if (due.input.kind === "EARTH_MESSAGE") fire(due.sim_time, due.input.payload);
   }
-  for (const due of dueInputs(state, scenario, new Date(from_ms).toISOString(), now)) if (due.input.kind === "EARTH_MESSAGE") fire(due.sim_time, due.input.payload);
 
   // ---- deliveries: queued messages first (queue order), then the ones just queued ------------------------------------
-  const delivered = (message_id: string): PendingEvent => ({ sim_time: now, kind: "EARTH_MSG_DELIVERED", actor: "system", data: { message_id } satisfies LogEventData["EARTH_MSG_DELIVERED"], provenance: {} });
+  const delivered = (message_id: string): PendingEvent => ({ sim_time: now, kind: "EARTH_MSG_DELIVERED", actor: "system", data: { message_id } satisfies LogEventData["EARTH_MSG_DELIVERED"], provenance: { ...PROVENANCE } });
   for (const m of state.earthQueue) if (m.state === "QUEUED" && Date.parse(m.deliver_utc) <= now_ms) events.push(delivered(m.message_id));
   for (const m of fresh) if (m.deliver_ms <= now_ms) events.push(delivered(m.message_id));
 

@@ -109,6 +109,18 @@ describe.skipIf(!hasRealBundle)("the reference run of 01 §E.1 (real scenario, r
   });
 
   describe("determinism and the recording (T22.14, T27.05)", () => {
+    it("delivers the storm forecast after EVA end at the relay time computed from the real table (N-213)", () => {
+      const queued = run.events.find((e) => e.kind === "EARTH_MSG_QUEUED" && e.actor === "system")!;
+      const end = firstOf(run.events, "EVA_ENDED")!;
+      const delivered = run.events.filter((e) => e.kind === "EARTH_MSG_DELIVERED" && data(e).message_id === data(queued).message_id);
+      const table = json<EarthLinkTable>("scenarios/storm-sol4190/earth_link.json");
+      const params = json<ParamSet>("scenarios/storm-sol4190/param_sets/link-assumed.json");
+      const expected = deliveryTime(table, "to_mars", data(queued).sent_utc as string, params)!;
+      expect(delivered).toHaveLength(1);
+      expect(Date.parse(delivered[0].sim_time)).toBe(Date.parse(expected.deliver_utc));
+      expect(Date.parse(delivered[0].sim_time)).toBeGreaterThan(Date.parse(end.sim_time));
+    });
+
     it("the committed recording is this run's: same log hash, same bytes", () => {
       expect(run.recording.log_hash).toBe(run.hash);
       const committed = readFileSync(RECORDING_FILE, "utf8");

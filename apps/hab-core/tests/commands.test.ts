@@ -116,8 +116,8 @@ describe("handleCommand: state check (BUSY)", () => {
     expect(rejected(handleCommand(running, cmd("ops", "START_EVA"), ctx(running)).result)).toBe("BUSY");
   });
 
-  it("rejects SET_CLOCK after the EVA ended, and LOAD_SCENARIO during it, with BUSY", () => {
-    expect(rejected(handleCommand(ended, cmd("ops", "SET_CLOCK", { paused: true }), ctx(ended)).result)).toBe("BUSY");
+  it("allows clock control after the EVA and rejects LOAD_SCENARIO during it", () => {
+    expect(handleCommand(ended, cmd("ops", "SET_CLOCK", { paused: true }), ctx(ended)).result.ok).toBe(true);
     expect(rejected(handleCommand(running, cmd("ops", "LOAD_SCENARIO", { scenario_id: "fake-straight-line" }), ctx(running)).result)).toBe("BUSY");
   });
 

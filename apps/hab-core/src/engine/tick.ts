@@ -93,6 +93,11 @@ const STUB_ERROR = /^TODO\(TASK-\d+\): T\d+\.\d+ not implemented$/;
  * The clock has already advanced by `dt_s`: this step covers `[sim_time − dt_s, sim_time)`.
  */
 export function tick(state: EngineState, scenario: LoadedScenario, dt_s: number, next_seq: number, haven_cache?: HavenCache): TickResult {
+  if (state.session.status === "ENDED") {
+    const r = earthTick(state, { scenario, dt_s, next_seq });
+    const current = r.events.reduce((s, event, i) => reduce(s, logged(event, next_seq + i)), r.state);
+    return { ...r, state: current };
+  }
   const shielding = Object.values(scenario.params).find((p) => p.kind === "shielding");
   if (!shielding) throw new Error("tick: the scenario has no shielding ParamSet (05 Scenario)");
   const t_utc = isoSeconds(Date.parse(state.session.clock.sim_time) - dt_s * 1000);
