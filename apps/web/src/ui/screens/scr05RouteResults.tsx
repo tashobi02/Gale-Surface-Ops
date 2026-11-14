@@ -328,7 +328,7 @@ function ProfileBands({ result }: { result: PlanResult }): ReactElement {
   const layout = useProfileLayout(result.legs);
   return <div className="profile-bands" ref={layout.ref}>{(["haven", "comm"] as const).map(kind => {
     const prov = "modelled";
-    const label = kind === "haven" ? "Haven · modelled (approximation)" : "Comm · line of sight only";
+    const label = kind === "haven" ? "Haven · Hab only · modelled (approximation)" : "Comm · line of sight only";
     const src = kind === "haven" ? SRC_HAVEN : SRC_DEM;
     const segments = layout.entries.flatMap(({ leg, index: legIndex, start, gap }) => {
       if (leg.status !== "OK") return [];
@@ -360,6 +360,7 @@ function ProfileBands({ result }: { result: PlanResult }): ReactElement {
           </g>)}
         </svg> : <span {...provAttrs(unavailableOf(prov, `result.legs.profile.${kind}`))}>— {kind === "haven" ? "Haven samples" : "Comm samples"} not supplied by worker</span>}
       </div>
+      {kind === "haven" ? <p className="profile-caption" data-haven-vehicle {...provAttrs(unavailableOf("modelled", "result.legs.profile.haven_vehicle"))}>Vehicle haven: — rover start and rover ParamSet not supplied to the planning worker.</p> : null}
       {segments.length ? <ul className="profile-band-summary" data-band-summary tabIndex={0} aria-label={`${label} segment values`}>{segments.map(segment => <li key={segment.key} {...provAttrs(segment.sourced)}>Leg {segment.legIndex + 1} · {formatNumber(segment.distance, "m")}–{formatNumber(segment.end, "m")} m · {segment.word}</li>)}</ul> : null}
     </div>;
   })}<div className="profile-caption">○ SIGNAL / ▲ NO SIGNAL · Haven status from worker warnings; unflagged samples are neutral</div></div>;

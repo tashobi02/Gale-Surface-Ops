@@ -274,6 +274,9 @@ test("REMS seasonal context displays the supplied derived values (T18.03; N-24 c
   const conditions = page.getByRole("region", { name: "Conditions", exact: true });
   await expect(conditions).toHaveAttribute("aria-busy", "false");
   await expect(conditions.locator('[data-condition="seasonal-weather"]')).toContainText("REMS seasonal context");
+  await expect(conditions.locator('[data-condition="seasonal-weather"]')).toContainText(/sampled sols.*not.*complete climatology/i);
+  await expect(conditions.locator('[data-rems-files]')).toContainText(/RNV.*\.TAB/);
+  await expect(conditions.locator('[data-rems-bin]')).toHaveAttribute("data-source", "pds-atmos-msl-rems");
   await expect(conditions.locator('[data-condition="seasonal-weather"] [data-unavailable="true"]')).toHaveCount(0);
   await expect(conditions.locator('[data-condition="seasonal-weather"] [data-provenance][data-source]')).not.toHaveCount(0);
   // Every REMS value carries the PDS source it was read from (FR-15, NFR-05).

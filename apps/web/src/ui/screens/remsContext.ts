@@ -30,8 +30,8 @@ export interface RemsSeries {
 export interface RemsBin {
   ls_bin_start_deg: number;
   ls_bin_end_deg: number;
-  provenance: Provenance;
-  source_id: string;
+  provenance?: Provenance;
+  source_id?: string;
   sols: number[];
   source_files: string[];
   air_temp_k: RemsSeries;
@@ -73,10 +73,12 @@ function isSeries(value: unknown): value is RemsSeries {
 export function isRemsContext(value: unknown): value is RemsContext {
   if (typeof value !== "object" || value === null) return false;
   const context = value as Partial<RemsContext>;
-  if (typeof context.source_id !== "string" || !Array.isArray(context.bins)) return false;
+  if (typeof context.source_id !== "string" || !["measured", "derived", "modelled", "assumed", "replayed", "simulated"].includes(context.provenance ?? "") || !Array.isArray(context.bins)) return false;
   return context.bins.every(bin =>
     typeof bin?.ls_bin_start_deg === "number" && Number.isFinite(bin.ls_bin_start_deg)
     && typeof bin?.ls_bin_end_deg === "number" && Number.isFinite(bin.ls_bin_end_deg)
+    && Array.isArray(bin.sols) && bin.sols.every(Number.isFinite)
+    && Array.isArray(bin.source_files) && bin.source_files.length > 0 && bin.source_files.every((file: unknown) => typeof file === "string" && file.length > 0)
     && isSeries(bin.air_temp_k) && isSeries(bin.ground_temp_k) && isSeries(bin.pressure_pa));
 }
 
