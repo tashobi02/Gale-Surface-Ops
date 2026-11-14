@@ -11,7 +11,7 @@ import { REPO_ROOT } from "../lib/release";
 import { habHealth, killHab, restartHab, waitForSnapshot } from "../lib/hab";
 import { REAL_SCENARIO, REAL_SITE } from "../lib/siteBundle";
 import { openOpsPanel } from "../lib/opsFixture";
-import { jumpUntil, openFreshOps, resetThroughPresenter, sessionSnapshot, startPaused, watchLive } from "../lib/liveMission";
+import { jumpUntil, hold, openFreshOps, resetThroughPresenter, sessionLog, sessionSnapshot, startPaused, watchLive } from "../lib/liveMission";
 import { e2eSite } from "../lib/siteBundle";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -171,9 +171,68 @@ test("release-network: single-laptop mode (npm run hab:local) serves its four wi
   }
 });
 
-test.fixme("needs N-200: release-network runs the killer demo end to end through the OPS and EVA UI alone (START_EVENT is presenter-only)", async () => {
-  // Server level: apps/hab-core/tests/killerDemo.test.ts and localMode.test.ts. Browser level: START EVA, 60x, the alert, the options
-  // and the summon from the ops console and the EVA tablet alone (T25.08).
+// N-200: the killer demo end to end through the OPS and EVA UI alone. The presenter is not used: SCR-11 starts the library storm
+// itself (BD-165), so every command of the demo comes from a control the crew would really press — the ops console's Load
+// scenario, Start EVA mission, Set speed to 60x, Start storm and Approve option, and the EVA tablet's Acknowledge alert and
+// Summon rover. The evidence is the event log the Hab Core wrote, read back over the ops page's own session API.
+//
+// The beats are the ones of 01 §E.1: the storm starts, the radiation alert is raised, the options are proposed, the crew
+// acknowledges the alert, the rover is summoned, the option is approved and the vehicle is dispatched.
+test("release-network: the killer demo runs through the OPS and EVA UI alone (N-200)", async ({ context, page }) => {
+  test.setTimeout(180_000);
+  const eva = page;
+  const { ops, wire } = await openFreshOps(context);
+  const evaWire = watchLive(eva);
+  try {
+    await startPaused(ops, wire);
+    await eva.goto(`/?site=${e2eSite()}#/eva/EV1`);
+    await expect.poll(() => evaWire.messages.some((m) => m.type === "SNAPSHOT"), { message: "the EVA tablet got a SNAPSHOT" }).toBe(true);
+
+    // SCR-11 starts the storm; the presenter is not in the loop (N-200, BD-165).
+    await wire.command("START_EVENT", () => ops.getByRole("button", { name: "Start storm", exact: true }).click());
+
+    // The alert reaches the EVA tablet and the crew acknowledges it there.
+    await jumpUntil(ops, wire, () => wire.events().some((e) => e.kind === "ALERT_RAISED" && e.data.code === "RADIATION_ALERT"), "the storm raises its radiation alert");
+    const ack = eva.getByRole("button", { name: "Acknowledge alert" });
+    await expect(ack, "the alert is on the EVA tablet").toBeVisible({ timeout: 15_000 });
+    await evaWire.command("ACK_ALERT", () => ack.click());
+
+    // The options are proposed for that alert and the crew summons the rover from the tablet.
+    await expect
+      .poll(() => wire.events().some((e) => e.kind === "OPTIONS_PROPOSED"), { message: "the options arrive" })
+      .toBe(true);
+    const summon = eva.getByRole("button", { name: /Summon rover/ });
+    await expect(summon, "the EVA tablet offers Summon rover").toBeVisible({ timeout: 15_000 });
+    await evaWire.command("SUMMON_VEHICLE", () => hold(eva, summon));
+
+    // SCR-11 approves the option; the rover is dispatched.
+    await openOpsPanel(ops, "mission");
+    const option = ops.locator('[role="radio"][data-option-kind="ABORT_TO_HAB"]');
+    await expect(option, "the ops console lists the options").toHaveCount(1, { timeout: 15_000 });
+    await option.click();
+    await wire.command("APPROVE_OPTION", () => hold(ops, ops.getByRole("button", { name: /Approve option/ })));
+
+    // The beats are in the log the Hab Core wrote, in this order.
+    await jumpUntil(ops, wire, () => wire.events().some((e) => e.kind === "VEHICLE_DISPATCHED"), "the rover is dispatched");
+    const log = await sessionLog(ops);
+    const seqOf = (kind: string, where: (d: Record<string, unknown>) => boolean = () => true): number =>
+      log.find((e) => e.kind === kind && where(e.data as Record<string, unknown>))?.seq ?? -1;
+    const order = [
+      seqOf("ALERT_RAISED", (d) => d.code === "RADIATION_ALERT"),
+      seqOf("OPTIONS_PROPOSED"),
+      seqOf("ALERT_ACKED"),
+      seqOf("VEHICLE_DISPATCHED", (d) => d.vehicle_id === "PR1"),
+    ];
+    expect(order.every((s) => s > 0), `seqs ${order.join(", ")} of ${JSON.stringify(log.map((e) => e.kind))}`).toBe(true);
+    expect(order, "the beats come in this order").toEqual([...order].sort((a, b) => a - b));
+
+    // Every command of the demo came from a UI control: the ops console or the EVA tablet, never from the API.
+    expect(wire.commands.map((c) => c.kind)).toContain("START_EVA");
+    expect(wire.commands.map((c) => c.kind)).toContain("START_EVENT");
+    expect(wire.commands.map((c) => c.kind)).toContain("APPROVE_OPTION");
+    expect(evaWire.commands.map((c) => c.kind)).toContain("ACK_ALERT");
+    expect(evaWire.commands.map((c) => c.kind)).toContain("SUMMON_VEHICLE");
+  } finally { await eva.close().catch(() => undefined); await ops.close(); await resetThroughPresenter(context); }
 });
 
 // NFR-12 budget 500 ms, p95 of 20 samples. The full measurement — 20 tablet task changes, the abort dropping open tasks and the

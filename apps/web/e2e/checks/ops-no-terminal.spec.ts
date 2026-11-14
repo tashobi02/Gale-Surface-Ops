@@ -2,19 +2,20 @@
  * Check `ops-no-terminal` (replaces T25.08). Enabled by package 29.
  * The ops UI alone: load the scenario, start the EVA, speed 60x, raise an alert, approve an option, end, then the report. The test
  * never calls the API directly; `sendAsOps` only clicks ops-console controls.
- * The F4 fake scenario supplies the synthetic storm and real options, but START_EVENT is presenter-only (N-200); utility-rover dispatch additionally needs the real bundle.
+ * The F4 fake scenario supplies the synthetic storm and real options. SCR-11 starts the library storm itself (N-200, BD-165); utility-rover
+ * dispatch additionally needs the real bundle.
  */
 import { expect, test } from "@playwright/test";
 import { UTILITY_ROVER, openOpsFixture, openOpsPanel } from "../lib/opsFixture";
 import { hold, jumpUntil, openFreshOps, resetThroughPresenter, sessionLog, sessionSnapshot, startPaused } from "../lib/liveMission";
 import { e2eSite, REAL_SITE } from "../lib/siteBundle";
 
-test("needs N-200: ops-no-terminal load, start, storm, acknowledge, approve and end at SCR-17 using only SCR-11", async ({ context }) => {
+test("ops-no-terminal: load, start, storm, acknowledge, approve and end at SCR-17 using only SCR-11 (N-200)", async ({ context }) => {
   test.setTimeout(180_000);
   const { ops, wire } = await openFreshOps(context);
   try {
     await startPaused(ops, wire);
-    // N-200: the current protocol grants START_EVENT only to presenter, so SCR-11 has no such control.
+    // N-200 (BD-165): SCR-11 starts the library storm itself; the presenter is not needed.
     await wire.command("START_EVENT", () => ops.getByRole("button", { name: "Start storm", exact: true }).click());
     await jumpUntil(ops, wire, () => wire.events().some((e) => e.kind === "ALERT_RAISED" && e.data.code === "RADIATION_ALERT"), "the scenario's storm raises its radiation alert");
     await openOpsPanel(ops, "mission");
