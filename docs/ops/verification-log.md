@@ -1066,6 +1066,7 @@ The selection above is BD-167, not BD-163. In cx7, `pipeline/work/` contains no 
 `E2E_PORT=8363 make e2e-one CHECK=release-recovery` passed 7/7 on the mock site. With the real Gale bundle linked locally, `E2E_SITE=gale_boxwork E2E_PORT=8363 MARSWALK_SPIKE=1 E2E_SKIP_BUILD=1 make e2e-one CHECK=release-recovery` also passed 7/7: missing manifest and keyboard Retry; deleted optional tiles and three-stop routing using the recorded scenario slope limit; short grid; production same-length corruption accepted without hashing; worker error and Retry; injected real worker crash, usable map and Retry after grid reload; development checksum failure naming the file and Retry after repair. The general `validateSite` stub remains T14.03's broader asset and schema validation work.
 
 `npm --workspace @marswalk/hab-core exec vitest run tests/resume.test.ts` passed on the real bundle: SIGKILL and `--resume latest` preserved state and log hash; restart reached listening in 80.8 s and a reconnect received its SNAPSHOT in 49 ms. The mock browser network run passed the dropped-socket, SCR-18 and kill/restart cases (6 tests); the single-laptop check was interrupted twice after START_EVA when the ops page stopped responding to a clock-control locator, so that acceptance remains open. The worker-retry test was mutation-checked: removing the grid reload produced GRID_NOT_LOADED and failed the check; the implementation was restored.
+
 ## T17.04 — Real-site capture and video assembly on `gale_boxwork` (2026-11-14)
 
 | | |
