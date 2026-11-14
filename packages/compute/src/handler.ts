@@ -18,7 +18,8 @@ import type {
 } from "@marswalk/protocol";
 import { assembleConditions } from "./conditions";
 import type { LoadedGrid } from "./grid";
-import { toLeg } from "./leg";
+import { habTimeField } from "./haven";
+import { toLeg, type LegHaven } from "./leg";
 import { validateManualLeg } from "./manualLeg";
 import { cellsAlongPath } from "./paths";
 import { CANCEL_CHECK_EVERY_EXPANSIONS, MAX_NODE_EXPANSIONS, searchLeg, searchLegSteps, type LegSearch } from "./route";
@@ -296,6 +297,30 @@ function handleComputePlan(
   return finishPlan(grid, request, pairs, searches, options, manual);
 }
 
+/**
+ * The planning haven form's inputs for the plan (T09.09, 02 §D.8), or null when the plan cannot carry a
+ * haven time: the hab is the plan's `role: "start"` waypoint, the ingress is the plan's
+ * `MissionScenario.hab_ingress_min` × 60 (the suit ParamSet's `hab_ingress_min`), and the hab field is
+ * built once for the whole plan.
+ *
+ * The vehicle branch is not part of it: a plan carries no vehicle start and no rover ParamSet (05
+ * `Scenario.vehicles[].start_x_m` lives on the Hab Core side), so the planning form has the hab branch
+ * only. A plan without `hab_ingress_min` carries no haven time at all: the profile's `haven_min` is null
+ * and the panel shows "—".
+ */
+function planHaven(grid: LoadedGrid, request: ComputePlanRequest): LegHaven | null {
+  const ingress_min = request.scenario.hab_ingress_min;
+  if (typeof ingress_min !== "number" || !Number.isFinite(ingress_min) || ingress_min < 0) return null;
+  const hab = request.waypoints.find((w) => w.role === "start");
+  if (hab === undefined) return null;
+  try {
+    return { hab: habTimeField(grid, { x_m: hab.x_m, y_m: hab.y_m }, request.scenario), ingress_s: ingress_min * 60 };
+  } catch {
+    // A hab outside the grid: the plan cannot carry a haven time, and no field is guessed for it.
+    return null;
+  }
+}
+
 /** Legs, totals, timeline, conditions, radiation and warnings from finished searches (shared by both handlers). */
 function finishPlan(
   grid: LoadedGrid,
@@ -310,18 +335,19 @@ function finishPlan(
   const loop = request.scenario.loop;
   const legs: PlanResult["legs"] = [];
   const cellPaths: (readonly number[] | undefined)[] = [];
+  const haven = planHaven(grid, request);
   pairs.forEach(([fromWp, toWp], i) => {
     const search = searches[i];
     const manualLeg = manual.get(pairKey(fromWp.id, toWp.id));
     if (manualLeg) {
       // The manual leg is measured on the grid here too (N-160(c)): the page sends the polyline, the worker measures it.
       // The page never sends a leg, so nothing can enter the plan unmeasured.
-      const measured = validateManualLeg(grid, request.scenario, fromWp.id, toWp.id, manualLeg.vertices);
+      const measured = validateManualLeg(grid, request.scenario, fromWp.id, toWp.id, manualLeg.vertices, haven ?? undefined);
       legs.push(measured.leg);
       cellPaths.push(measured.leg.status === "OK" ? cellsOf(grid, manualLeg.vertices) : undefined);
       return;
     }
-    legs.push(toLeg(grid, fromWp.id, toWp.id, search, request.scenario));
+    legs.push(toLeg(grid, fromWp.id, toWp.id, search, request.scenario, haven ?? undefined));
     cellPaths.push(search.status === "OK" ? search.cells : undefined);
   });
 

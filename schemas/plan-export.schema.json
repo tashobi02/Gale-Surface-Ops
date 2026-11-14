@@ -360,9 +360,12 @@
             "haven_min": {
               "type": "array",
               "items": {
-                "type": "number"
+                "type": [
+                  "number",
+                  "null"
+                ]
               },
-              "$comment": "v2, planning approximation (02 §D.8)"
+              "$comment": "v2, planning approximation (02 §D.8); a sample the model cannot reach is null, not a number"
             }
           },
           "$comment": "sampled every 5 m. U-11 decided (BD-64, 12 Nov 2026): exporters always write profile; it stays optional here so exports made before the decision still validate (05 §E.4, additive).",

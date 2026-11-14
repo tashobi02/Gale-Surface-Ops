@@ -13,7 +13,8 @@
     "max_haven_min": 30,
     "crew_count": 2,
     "vehicle_available": true,
-    "vehicle_param_set": "pr1-assumed"
+    "vehicle_param_set": "pr1-assumed",
+    "hab_ingress_min": 5
   },
   "notes": {
     "status": "Confirmed 12 Nov 2026 by Sadman Shaharier Mahim (FD-041): the three stops are as drafted. T07.14, TASK-07 open point 15.",
@@ -27,7 +28,8 @@
     "defaults_source": "docs/specs/05_Backend_and_Database_Schema.md MissionScenario; every value is a 05 default and shows as assumed in the UI. Ranges: 02 section E.3. vehicle_param_set pr1-assumed matches scenarios/storm-sol4190/param_sets/pr1-assumed.json.",
     "decisions": [
       "eva_start_utc is omitted on purpose (FD-042): no site default is invented, because 05 Site has no such field. The planner's start field takes the loaded scenario's eva_start_utc from the Hab Core (GET /api/session, N-05); with no Hab Core the field stays empty and SCR-04 shows 'Invalid input - set a start time'. The storm scenario (01 E.1) is 2024-05-20 / sol 4190; the time of day comes from the scenario file when it exists (scenarios/storm-sol4190, T21.08).",
-      "The dose shown is the one the worker computes from the planned EVA total (FD-043): the demo uses the 6 h default of max_eva_duration_h, and SCR-05/SCR-07 show the computed dose. 01 E.2 step 8's narrated dose becomes 'the dose shown (computed from the planned EVA total)'."
+      "The dose shown is the one the worker computes from the planned EVA total (FD-043): the demo uses the 6 h default of max_eva_duration_h, and SCR-05/SCR-07 show the computed dose. 01 E.2 step 8's narrated dose becomes 'the dose shown (computed from the planned EVA total)'.",
+      "hab_ingress_min is 5, the suit ParamSet's hab_ingress_min of scenarios/storm-sol4190/param_sets/suit-assumed.json, which is 02 section D.8's t_ingress (assumed, source '02 section D.8'). It is quoted in the plan so the worker can compute the planning haven time (02 section D.8, T09.09) without the ParamSet; the plan's MissionScenario wins over the suit ParamSet for the crew's parameters (BD-57). It is not an editable input."
     ]
   }
 }

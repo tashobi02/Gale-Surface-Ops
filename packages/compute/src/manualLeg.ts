@@ -15,7 +15,7 @@
  */
 import { FLAG_BITS, type Leg, type MissionScenario, type NoRouteLeg, type NoRouteReason, type Warning } from "@marswalk/protocol";
 import { cellIndex, centreOfCell, decodeSlopeDeg, type LoadedGrid } from "./grid";
-import { toLeg } from "./leg";
+import { toLeg, type LegHaven } from "./leg";
 import { cellsAlongPath } from "./paths";
 import { isCellPassable } from "./route";
 import { collectWarnings } from "./warnings";
@@ -38,6 +38,9 @@ function barrierOf(grid: LoadedGrid, cell: number): NoRouteReason {
  * Validate a hand-drawn leg from waypoint `fromId` to `toId` along `vertices` (working-projection metres).
  * Throws RangeError for fewer than two vertices or a non-finite coordinate (the worker handler answers INVALID_INPUT
  * before it gets here).
+ *
+ * `haven` (T09.09) is the planning haven form's inputs, as for a routed leg: the measured leg carries the same
+ * planning haven time in its profile, so a hand-drawn leg is measured exactly as a routed one.
  */
 export function validateManualLeg(
   grid: LoadedGrid,
@@ -45,6 +48,7 @@ export function validateManualLeg(
   fromId: string,
   toId: string,
   vertices: readonly (readonly [number, number])[],
+  haven?: LegHaven,
 ): ManualLegResultData {
   if (vertices.length < 2) throw new RangeError("validateManualLeg: a leg needs at least two vertices");
   for (const [x, y] of vertices) {
@@ -78,7 +82,7 @@ export function validateManualLeg(
     return { leg, warnings: collectWarnings([leg], scenario, undefined, 0, grid, undefined, [undefined]) };
   }
 
-  const leg = toLeg(grid, fromId, toId, { status: "OK", cells }, scenario);
+  const leg = toLeg(grid, fromId, toId, { status: "OK", cells }, scenario, haven);
   const warnings = collectWarnings([leg], scenario, undefined, 0, grid, undefined, [cells]).filter(
     (w) => w.code !== "EVA_DURATION_EXCEEDED" && w.code !== "WALKBACK_EXCEEDED",
   );

@@ -29,6 +29,9 @@ const DEFAULTS: Omit<MissionScenario, "eva_start_utc"> = {
   crew_count: 2,
   vehicle_available: true,
   vehicle_param_set: "pr1-assumed",
+  // T09.09: the plan quotes the suit ParamSet's hab_ingress_min (02 §D.8 t_ingress, assumed) so the
+  // worker can compute the planning haven time without the ParamSet (BD-57).
+  hab_ingress_min: 5,
 };
 
 function poiRecord(id: string): { poi_id: string; stop_type: string } {

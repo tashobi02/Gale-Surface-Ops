@@ -182,6 +182,12 @@ export const STOP_TASK_TEXT_MAX = 60;
  * Scenario inputs a new plan starts from: the defaults of 01 FR-05 and 02 §E.3 (`assumed`, editable), the loop of FR-06
  * and the v2 defaults of 05 MissionScenario. The start time has no default (FD-042): empty until the planner or the
  * Hab Core's scenario supplies it.
+ *
+ * `hab_ingress_min` is 5 min: the suit ParamSet's `hab_ingress_min` of
+ * `scenarios/storm-sol4190/param_sets/suit-assumed.json`, which is 02 §D.8's `t_ingress` (`assumed`, source "02 §D.8").
+ * It is quoted in the plan so the worker can compute the planning haven time (02 §D.8, T09.09) without the ParamSet:
+ * the plan's MissionScenario wins over the suit ParamSet for the crew's parameters (BD-57). It is not an editable
+ * input; the panel does not offer it.
  */
 export const DEFAULT_SCENARIO: MissionScenario = {
   eva_start_utc: "",
@@ -197,6 +203,7 @@ export const DEFAULT_SCENARIO: MissionScenario = {
   crew_count: 2,
   vehicle_available: true,
   vehicle_param_set: "pr1-assumed",
+  hab_ingress_min: 5,
 };
 
 /** What the store needs from the worker client (a subset of the C10 `WorkerClient`). */

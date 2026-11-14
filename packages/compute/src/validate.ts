@@ -197,6 +197,19 @@ export function validatePlanInput(
     }
   }
 
+  // 12b. hab_ingress_min (v2, T09.09): minutes to enter the hab and be sheltered (02 §D.8 `t_ingress`).
+  // Optional: absent, the plan carries no planning haven time.
+  if (scenario.hab_ingress_min !== undefined) {
+    const val = scenario.hab_ingress_min;
+    if (typeof val !== "number" || isNaN(val) || val < 0 || val > 120) {
+      errors.push({
+        field: "hab_ingress_min",
+        message: "hab_ingress_min must be between 0–120 min",
+        value: val,
+      });
+    }
+  }
+
   // 13. Waypoints validation
   if (waypoints !== undefined) {
     if (waypoints.length < 2 || waypoints.length > 11) {

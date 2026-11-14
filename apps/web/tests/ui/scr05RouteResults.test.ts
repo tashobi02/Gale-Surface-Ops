@@ -476,6 +476,37 @@ it("haven band status comes only from located worker warnings, never a client th
   await view.unmount();
 });
 
+it("the haven band shows the worker's number with its provenance class and its real source ids (T09.09)", async () => {
+  const leg = { ...ok.legs[0], profile: { dist_m: [0, 5, 10], elev_m: [], slope_class: [], haven_min: [1, 2, 2] } } as OkLeg;
+  const view = await mount(ui({ planStore: fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } }).store }));
+  const band = must(view.container, '[data-band="haven"]');
+  // The number is the worker's own, rendered in minutes.
+  expect(band.textContent).toContain("1 min");
+  expect(band.textContent).toContain("2 min");
+  const segment = must(band, '[data-band-status="neutral"]');
+  // The provenance class is `modelled` (02 §D.8 labels the planning form an approximation), never `measured`.
+  expect(segment.getAttribute("data-provenance")).toBe("modelled");
+  expect(segment.getAttribute("data-unavailable")).toBeNull();
+  // The source names the shelter/walk-back inputs and the path the value came from.
+  const source = segment.getAttribute("data-source") ?? "";
+  expect(source).toContain("tobler-1993");
+  expect(source).toContain("apollo17-planning");
+  expect(source).toContain("usgs-gale-dem-1m-v3");
+  expect(source).toContain("result.legs[0].profile.haven_min");
+  await view.unmount();
+});
+
+it("the haven band shows an unavailable dash with an unavailable: source when the worker sends no value", async () => {
+  const leg = { ...ok.legs[0], profile: { dist_m: [0, 5, 10], elev_m: [], slope_class: [], haven_min: [null, null, null] } } as OkLeg;
+  const view = await mount(ui({ planStore: fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } }).store }));
+  const band = must(view.container, '[data-band="haven"]');
+  const segment = must(band, '[data-band-status="unknown"]');
+  expect(segment.getAttribute("data-unavailable")).toBe("true");
+  expect(segment.getAttribute("data-source")).toBe("unavailable:result.legs[0].profile.haven");
+  expect(band.textContent).toContain("—");
+  await view.unmount();
+});
+
 it("bands keep text at the micro token size and reserve stretching for geometry", async () => {
   const style = document.createElement("style");
   style.textContent = readFileSync(new URL("../../src/ui/screens/scr05RouteResults.css", import.meta.url), "utf8");

@@ -4,8 +4,9 @@
  */
 import { FLAG_BITS, type Leg, type MissionScenario, type NoRouteLeg } from "@marswalk/protocol";
 import { decodeSlopeDeg, type LoadedGrid } from "./grid";
+import { havenAlongRoute, type TimeField } from "./haven";
 import { CAUTION_SLOPE_MULTIPLIER, LOW_TI_MULTIPLIER, type LegSearch } from "./route";
-import { sampleProfile } from "./sampling";
+import { profileSamples, sampleProfile } from "./sampling";
 import { stepTimeH } from "./timeModel";
 
 /**
@@ -55,10 +56,27 @@ export function douglasPeucker(
 }
 
 /**
+ * The planning haven form's inputs for one leg (T09.09, 02 §D.8). The hab field is the suited walking-time
+ * field of the hab (the plan's `role: "start"` waypoint); `ingress_s` is the suit ParamSet's
+ * `hab_ingress_min` × 60 (the plan's `MissionScenario.hab_ingress_min` × 60). `vehicle` is the pressurized
+ * rover's time field and its ingress, when the plan knows where the rover is parked; without it the
+ * planning form has the hab branch only.
+ */
+export interface LegHaven {
+  /** The hab's suited walking-time field (compute `habTimeField`). */
+  hab: TimeField;
+  /** Seconds to enter the hab and be sheltered (02 §D.8 `t_ingress`). */
+  ingress_s: number;
+  /** The pressurized rover's time field and its ingress, when the plan knows the rover. */
+  vehicle?: { field: TimeField; ingress_s: number };
+}
+
+/**
  * Build a 05 Leg entity from a search result:
  * - Unsimplified cell path used for accurate slope, climb, descent, and distance metrics.
  * - Douglas–Peucker simplification (2 m tolerance) applied to geometry for display only.
  * - Computes walking duration using the walking-time model (timeModel.ts).
+ * - With `haven`, the planning haven time at every profile sample (02 §D.8, T09.09).
  *
  * Leg metric definitions (BD-43, written into 05 Leg):
  * - distance_m is horizontal 2D ground track distance sum(hypot(dx, dy)) along cell centres.
@@ -66,6 +84,11 @@ export function douglasPeucker(
  * - climb_m / descent_m are the positive/negative elevation deltas along the cell path.
  * - max_slope_deg is the maximum decodeSlopeDeg across all cells in the path.
  * - NO_ROUTE legs carry status, reason, from, to, and optional nearest_reachable.
+ *
+ * The profile's `haven_min` (T09.09) is the planning approximation of 02 §D.8 in minutes, one per
+ * profile sample, read at the sample's own position: `havenAlongRoute` over the profile's sample points.
+ * It is `modelled (approximation)` (the module's `HAVEN_PLANNING_LABEL`), never `measured`. A sample the
+ * model cannot reach is null, not a number. Without `haven` the profile carries no haven time at all.
  */
 export function toLeg(
   grid: LoadedGrid,
@@ -73,6 +96,7 @@ export function toLeg(
   toId: string,
   search: LegSearch,
   scenario: MissionScenario,
+  haven?: LegHaven,
 ): Leg {
   if (search.status === "NO_ROUTE") {
     const leg: NoRouteLeg = {
@@ -165,6 +189,21 @@ export function toLeg(
     scenario.caution_slope_deg,
     scenario.hard_slope_limit_deg,
   );
+
+  // The planning haven time (02 §D.8, T09.09): the planning approximation at every profile sample,
+  // read at the sample's own position. Infinity (no haven reachable) becomes null, never a number.
+  if (haven !== undefined) {
+    const samples = profileSamples(unsimplifiedPath);
+    const seconds = havenAlongRoute(
+      grid,
+      samples.map((s) => ({ x_m: s.x_m, y_m: s.y_m })),
+      haven.hab,
+      haven.vehicle?.field ?? null,
+      scenario,
+      { hab_s: haven.ingress_s, vehicle_s: haven.vehicle?.ingress_s ?? 0 },
+    );
+    profile.haven_min = seconds.map((s) => (Number.isFinite(s) ? s / 60 : null));
+  }
 
   return {
     from: fromId,

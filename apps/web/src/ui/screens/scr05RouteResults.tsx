@@ -55,6 +55,13 @@ export interface RouteResultsProps {
 const SRC_DEM = "usgs-gale-dem-1m-v3";
 const SRC_WALK_TIME = "tobler-1993 apollo17-planning";
 const SRC_DOSE = "hassler-2014-rad";
+/**
+ * The planning haven time's sources (T09.09; 02 §D.8). The planning form is a walk-back over the DEM with
+ * the suited step cost, plus the 02 §D.8 ingress assumption: `tobler-1993` and `apollo17-planning` carry the
+ * suited walking model, `usgs-gale-dem-1m-v3` the terrain it walks over, and "02 §D.8" the ingress assumption
+ * the plan quotes. `modelled (approximation)`, never `measured` (02 §D.8 labels the planning form).
+ */
+const SRC_HAVEN = "tobler-1993 apollo17-planning usgs-gale-dem-1m-v3 02 §D.8";
 
 /** "WALKBACK_EXCEEDED" -> "Walkback exceeded". */
 function words(code: string): string {
@@ -322,6 +329,7 @@ function ProfileBands({ result }: { result: PlanResult }): ReactElement {
   return <div className="profile-bands" ref={layout.ref}>{(["haven", "comm"] as const).map(kind => {
     const prov = "modelled";
     const label = kind === "haven" ? "Haven · modelled (approximation)" : "Comm · line of sight only";
+    const src = kind === "haven" ? SRC_HAVEN : SRC_DEM;
     const segments = layout.entries.flatMap(({ leg, index: legIndex, start, gap }) => {
       if (leg.status !== "OK") return [];
       const values = kind === "haven" ? leg.profile.haven_min : leg.profile.comm;
@@ -333,7 +341,10 @@ function ProfileBands({ result }: { result: PlanResult }): ReactElement {
         const flag = result?.warnings.find(w => w.code === "HAVEN_TIME_EXCEEDED" && w.leg === legIndex && isFiniteNumber(w.from_m) && isFiniteNumber(w.to_m) && w.from_m < end && w.to_m > distance);
         const status: "neutral" | "nominal" | keyof typeof STATUS_PATTERN = !valid ? "unknown" : kind === "comm" ? value === 0 ? "caution" : "nominal" : flag ? flag.severity === "blocked" ? "warning" : flag.severity : "neutral";
         const word = !valid ? "? — Not supplied" : kind === "comm" ? value === 0 ? "▲ NO SIGNAL" : "○ SIGNAL" : `${status === "caution" ? "▲" : status === "warning" ? "⬣" : "○"} ${formatNumber(value, "min")} min · ${flag ? "over haven rule (worker warning)" : "not classified"}`;
-        const sourced = valid ? { prov, src: `result.legs[${legIndex}].profile.${kind === "haven" ? "haven_min" : "comm"}` } as const : unavailableOf(prov, `result.legs[${legIndex}].profile.${kind}`);
+        const path = `result.legs[${legIndex}].profile.${kind === "haven" ? "haven_min" : "comm"}`;
+        // A supplied value carries its provenance class, its real source ids and the path it came from; a
+        // missing one is "—" with an `unavailable:<path>` source (04 §D.1).
+        const sourced = valid ? { prov, src: `${src} ${path}` } as const : unavailableOf(prov, `result.legs[${legIndex}].profile.${kind}`);
         return [{ key: `${legIndex}:${i}`, legIndex, distance, end, status, word, sourced, x: layout.x(start + distance, gap), width: Math.max(0, layout.x(start + end, gap) - layout.x(start + distance, gap)) }];
       });
     });

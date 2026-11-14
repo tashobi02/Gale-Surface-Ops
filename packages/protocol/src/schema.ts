@@ -332,6 +332,14 @@ export interface MissionScenario {
   vehicle_available: boolean;
   /** v2: FK → ParamSet; required when vehicle_available; default "pr1-assumed". */
   vehicle_param_set?: string;
+  /**
+   * v2 (T09.09): minutes to enter the hab and be sheltered — the suit ParamSet's `hab_ingress_min`
+   * (02 §D.8 `t_ingress`, `assumed`, source "02 §D.8"), quoted in the plan so the planning haven
+   * form can be computed without the ParamSet (the plan's MissionScenario wins over the suit
+   * ParamSet for the crew's parameters, BD-57). Absent: the plan carries no planning haven time and
+   * the profile's `haven_min` is null.
+   */
+  hab_ingress_min?: number;
 }
 
 /** Start or stop placed by the user (05 §C Waypoint; FR-06). */
@@ -376,8 +384,12 @@ export interface LegProfile {
   slope_class: ("ok" | "caution" | "over_limit")[];
   /** v2: 0/1 line of sight to the hab per sample. */
   comm?: (0 | 1)[];
-  /** v2: planning approximation of minutes to haven per sample (02 §D.8). */
-  haven_min?: number[];
+  /**
+   * v2: planning approximation of minutes to haven per sample (02 §D.8), one per `dist_m` entry and read
+   * at that sample's own position. A sample the model cannot reach is null, not a number (the same rule
+   * as `Crew.haven.minutes`). Absent: the plan carries no planning haven time.
+   */
+  haven_min?: (number | null)[];
 }
 
 /** A leg with a route (05 §C Leg; FR-07, FR-08). */

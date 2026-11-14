@@ -224,18 +224,23 @@ function classifySlope(
 }
 
 /**
- * Elevation/slope profile along a cell path, sampled every 5 m (05 §C Leg.profile, FR-08).
- * Input: path as [x_m, y_m] pairs. Output: dist_m[], elev_m[], slope_class[], comm[].
+ * The points a profile is sampled at: every PROFILE_SPACING_M along the path and at the leg end
+ * (BD-44). One list, so the profile's arrays and the planning haven time (T09.09) are read at the
+ * same positions. The distance of each point is its distance along the path.
  */
-export function sampleProfile(
-  grid: LoadedGrid,
-  path: [number, number][],
-  cautionSlopeDeg: number,
-  hardSlopeLimitDeg: number,
-): LegProfile {
-  if (path.length === 0) {
-    return { dist_m: [], elev_m: [], slope_class: [] };
-  }
+export interface ProfileSample {
+  /** Distance along the path, metres. */
+  s: number;
+  x_m: number;
+  y_m: number;
+}
+
+/**
+ * The points of a profile: every 5 m along the path and at the leg end (BD-44). Empty for an empty
+ * path. The same points, in the same order, as the profile's `dist_m`, `elev_m` and `slope_class`.
+ */
+export function profileSamples(path: [number, number][]): ProfileSample[] {
+  if (path.length === 0) return [];
 
   // Pre-calculate cumulative distances of path vertices
   const segLengths: number[] = [];
@@ -249,6 +254,55 @@ export function sampleProfile(
     segLengths.push(segLen);
     totalDist += segLen;
     cumDists.push(totalDist);
+  }
+
+  const samples: ProfileSample[] = [];
+  const sampleCount = totalDist === 0 ? 1 : Math.floor(totalDist / PROFILE_SPACING_M) + 1;
+
+  for (let sIdx = 0; sIdx < sampleCount; sIdx++) {
+    const s = sIdx * PROFILE_SPACING_M;
+
+    let x = path[0][0];
+    let y = path[0][1];
+
+    if (path.length > 1 && totalDist > 0) {
+      // Find segment containing distance s
+      let segIdx = 0;
+      while (segIdx < segLengths.length - 1 && cumDists[segIdx + 1] < s) {
+        segIdx++;
+      }
+      const segLen = segLengths[segIdx];
+      const dInSeg = s - cumDists[segIdx];
+      const t = segLen > 0 ? Math.min(1, Math.max(0, dInSeg / segLen)) : 0;
+      x = path[segIdx][0] + t * (path[segIdx + 1][0] - path[segIdx][0]);
+      y = path[segIdx][1] + t * (path[segIdx + 1][1] - path[segIdx][1]);
+    }
+
+    samples.push({ s, x_m: x, y_m: y });
+  }
+
+  // BD-44: 05 §C Leg.profile is sampled every 5 m and at the leg end, so warnings.ts closes the last slope run at the
+  // leg length, not at the last 5 m multiple.
+  if (totalDist > 0 && samples[samples.length - 1]!.s < totalDist - 1e-6) {
+    const endPt = path[path.length - 1];
+    samples.push({ s: totalDist, x_m: endPt[0], y_m: endPt[1] });
+  }
+
+  return samples;
+}
+
+/**
+ * Elevation/slope profile along a cell path, sampled every 5 m (05 §C Leg.profile, FR-08).
+ * Input: path as [x_m, y_m] pairs. Output: dist_m[], elev_m[], slope_class[], comm[].
+ */
+export function sampleProfile(
+  grid: LoadedGrid,
+  path: [number, number][],
+  cautionSlopeDeg: number,
+  hardSlopeLimitDeg: number,
+): LegProfile {
+  if (path.length === 0) {
+    return { dist_m: [], elev_m: [], slope_class: [] };
   }
 
   const dist_m: number[] = [];
@@ -273,35 +327,8 @@ export function sampleProfile(
     if (hasComm) comm.push(grid.commHab[cIdx] === 1 ? 1 : 0);
   };
 
-  const sampleCount = totalDist === 0 ? 1 : Math.floor(totalDist / PROFILE_SPACING_M) + 1;
-
-  for (let sIdx = 0; sIdx < sampleCount; sIdx++) {
-    const s = sIdx * PROFILE_SPACING_M;
-
-    let x = path[0][0];
-    let y = path[0][1];
-
-    if (path.length > 1 && totalDist > 0) {
-      // Find segment containing distance s
-      let segIdx = 0;
-      while (segIdx < segLengths.length - 1 && cumDists[segIdx + 1] < s) {
-        segIdx++;
-      }
-      const segLen = segLengths[segIdx];
-      const dInSeg = s - cumDists[segIdx];
-      const t = segLen > 0 ? Math.min(1, Math.max(0, dInSeg / segLen)) : 0;
-      x = path[segIdx][0] + t * (path[segIdx + 1][0] - path[segIdx][0]);
-      y = path[segIdx][1] + t * (path[segIdx + 1][1] - path[segIdx][1]);
-    }
-
-    pushSample(s, x, y);
-  }
-
-  // BD-44: 05 §C Leg.profile is sampled every 5 m and at the leg end, so warnings.ts closes the last slope run at the
-  // leg length, not at the last 5 m multiple.
-  if (totalDist > 0 && dist_m[dist_m.length - 1] < totalDist - 1e-6) {
-    const endPt = path[path.length - 1];
-    pushSample(totalDist, endPt[0], endPt[1]);
+  for (const sample of profileSamples(path)) {
+    pushSample(sample.s, sample.x_m, sample.y_m);
   }
 
   const result: LegProfile = {
