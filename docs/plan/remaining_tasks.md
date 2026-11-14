@@ -13,7 +13,7 @@
 ## 1. Where the 37 % really is
 
 > **This section records the state at the start of the plan (83 %, 47 `wip` rows).** The plan has since run: the
-> progress block now reads **92 % — 317 of 345 done, 6 in progress**, and §11 tracks what is left and who can
+> progress block now reads **92 % — 318 of 345 done, 5 in progress**, and §11 tracks what is left and who can
 > close it. The analysis below is kept as the record of how the 47 rows were grouped.
 
 The README progress block said **83 % — 286 of 345 subtasks done, 37 in progress**. The machine-readable truth in
@@ -367,31 +367,31 @@ A task is done when **all** of these hold:
 
 ## 11. Status of this plan
 
-**Current: 92 % — 317 of 345 subtasks done, 6 in progress.** The plan has run most of its course; what is left is
+**Current: 92 % — 318 of 345 subtasks done, 5 in progress.** The plan has run most of its course; what is left is
 grouped by who can close it.
 
 | Step | State |
 | --- | --- |
 | §2 — real Gale bundle installed and validated | **done** |
 | §3 — float determinism | **done** (`cdd6626`: `sun_elevation_deg` rounded to a fixed precision, so a run's recorded bytes are reproducible) |
-| §4 — backend contracts | **done** for WP-B1, WP-B2, WP-B3 and WP-B4 (N-02/03/04/29, N-09, N-101, N-160, N-31/32/70/90/200, N-24/30/100/120/130) |
+| §4 — backend contracts | **done** for WP-B1, WP-B2, WP-B3 and WP-B4 (N-02/03/04/29, N-09, N-101, N-160, N-31/32/70/90/200, N-24/30/100/120/130); N-214 is **closed by a decline** (BD-173): the planning form's vehicle branch is declined, so the SCR-05 panel shows it as an unavailable value per 03 §SCR-05, and the live exact branch is unaffected in the Hab Core |
 | §5 — browser checks | **done** for the rows whose needs are closed; the checks now run on the mock site *and* the real bundle |
 | §6 — pipeline data | **partly done** — the REMS/CRISM sols 4182–4184 were reacquired into git-ignored `pipeline/work/`; the remaining REMS set is still incomplete (T18.08) |
 | §7 — team handover | **prepared, awaiting the team** — T16.04, T16.07, T30.02, T30.03 need a human; T15.02 needs gloves, a tablet and three non-team users; T17.04 needs a capture |
 | §9 — re-verify and 100 % | **in progress** — the full `apps/hab-core` suite is green (55 files, 1427 passed); the remaining rows are in flight |
 
-### 11.1 The 8 remaining `wip` rows, by who can close them
+### 11.1 The 7 remaining `wip` rows, by who can close them
 
 | Rows | Who can close them | Note |
 | --- | --- | --- |
-| T09.09 | **backend** (N-214) | the planning form's vehicle branch needs the rover's start and ParamSet on `ComputePlanRequest`; the frontend must not invent it |
 | T18.08 | **pipeline** | the remaining REMS set is incomplete; the PDS transfer is slow |
 | T15.02 | **the team** | the automated half passes on the real bundle; the glove study and three non-team users are human |
 | T16.04, T16.07, T30.02, T30.03 | **the team** | a human must run them: the disclosure audit, the publication scan, the portal checks, the AI-use sweep |
 | T17.04 | **the team** | the capture half passes on the real bundle; the video review is human |
 
-Six of the eight need a person, not a program. They cannot reach 100 % on this machine and must not be reported as
-done without the human evidence the row names.
+Six of the seven need a person, not a program. They cannot reach 100 % on this machine and must not be reported as
+done without the human evidence the row names. The seventh, T18.08, is the pipeline's: the remaining REMS set is
+incomplete and the PDS transfer is slow.
 
 **Closed on 2026-11-14** (browser evidence on the real `gale_boxwork` bundle, port 8091 — see the
 [verification log](../ops/verification-log.md#t1206-t1309-t1502-t1812-t2404-t2405-t2407-and-t2805--the-real-bundle-verified-2026-11-14)):
@@ -400,4 +400,6 @@ BD-172: the clock advances while the Earth queue drains, so a message queued dur
 08:50 maven pass after the EVA ends; `earth-message` 1 passed against the committed SPICE table), T24.04, T24.05
 (`eva-conditions`/`eva-portrait`/`eva-warning` 12 passed and the one-hold tap counts), T24.07 (`link-lost` 2 passed,
 `release-network` 9 passed), T25.08 and T31.05 (`ops-no-terminal` 8 passed), T28.05 (the killer demo through the
-OPS and EVA UI in single-laptop mode), and the automated half of T15.02 and T17.04.
+OPS and EVA UI in single-laptop mode), T09.09 (N-214 closed by the decline BD-173: the planning form's vehicle branch
+is declined, so the SCR-05 panel shows it as an unavailable value with its own source per 03 §SCR-05, and the live
+exact branch is unaffected in the Hab Core), and the automated half of T15.02 and T17.04.

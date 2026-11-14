@@ -1182,3 +1182,56 @@ delivery, so the post-EVA path is what is exercised.
 **What was not done.** The scenario was not changed: `eva_start_utc`, `max_eva_duration_h`, the storm window, the dose
 series, `plan.json` and `recording.json` are all as committed, and the 08:50 maven pass is the real one. No delivery
 time was invented, and the delivery rule was not relaxed.
+
+## T09.09 — N-214 closed by a decline: the planning form's vehicle branch is shown as unavailable (2026-11-14)
+
+**What the spec requires.** 03 §SCR-05 (`docs/specs/03_App_Flow_and_Diagrams.md:144`) reads: "For SCR-05, identify
+hab-only haven samples and show the vehicle branch as unavailable when the worker does not supply its inputs (T09.09,
+N-214; FR-13, FR-15, FR-39)." The sentence *authorises* the unavailable state; it does not merely acknowledge a
+temporary gap, so the honest close is a decline rather than a fabricated input. 02 §D.8 defines the planning form as
+`min(haven_hab(p), haven_veh(p))`; the live (exact) form needs both branches, the planning (approximate) form needs
+only the hab branch to be honest.
+
+**What the panel shows.** The SCR-05 haven band's label reads **"Haven · Hab only · modelled (approximation)"**, so
+the branch it shows is named. The vehicle branch is drawn as a value of its own, not folded into the hab branch:
+
+- the caption element `p.profile-caption[data-haven-vehicle]` reads "Vehicle haven: — rover start and rover ParamSet
+  not supplied to the planning worker.";
+- it carries `data-unavailable="true"`;
+- its source id is `unavailable:result.legs.profile.haven_vehicle`.
+
+The hab branch keeps its own provenance: `modelled` (02 §D.8 labels the planning form an approximation), **never**
+`measured`, with the real inputs it was built from (`tobler-1993`, `apollo17-planning`, `usgs-gale-dem-1m-v3`,
+`02 §D.8`) beside the value's own path. The two branches are annotated individually and are never collapsed into one
+class or one precedence order. This is FD-565 in [the frontend decisions](../plan/frontend/decisions.md), with the
+backend half BD-173 in [the backend decisions](../plan/backend/decisions.md).
+
+**The evidence.**
+
+| Check | File and lines | What it asserts |
+| --- | --- | --- |
+| Unit test | `apps/web/tests/ui/scr05RouteResults.test.ts` (the case "the haven band shows the worker's number with its provenance class and its real source ids", T09.09) | the band's text contains "Hab only"; the `[data-haven-vehicle]` caption matches `/—.*rover start.*ParamSet/i`; its `data-unavailable` is `"true"` and its `data-source` is `unavailable:result.legs.profile.haven_vehicle`; a segment's `data-provenance` is `modelled` and its `data-unavailable` is null; the source names `tobler-1993`, `apollo17-planning`, `usgs-gale-dem-1m-v3` and `result.legs[0].profile.haven_min` |
+| Browser check | `apps/web/e2e/checks/results-states.spec.ts` (the haven band block) | the rendered panel's `[data-band="haven"]` contains "Hab only"; its `[data-haven-vehicle]` caption matches `/—.*rover start.*ParamSet/i`; its `data-unavailable` is `"true"` and its `data-source` is `unavailable:result.legs.profile.haven_vehicle` |
+
+**Why nothing was supplied to the planning worker.** The planner is offline and site-agnostic: `apps/web` reads only
+`data/sites/<site>/site-manifest.json`, whose keys are `aoi`, `assets`, `body`, `crs`, `data_version`,
+`default_start`, `env_constants`, `grid`, `hab_candidates`, `known_offsets_m`, `layers`, `name`, `pois_asset`,
+`schema_version`, `site_id`, `sources`, `traverse_asset` — there is no vehicle list — while the ParamSet files and the
+vehicles' start positions live under `scenarios/` (`scenarios/storm-sol4190/param_sets/`,
+`scenarios/storm-sol4190/scenario.json`), which the planner does not load. There is therefore no honest offline source
+for the rover's start or its ParamSet. Supplying one would mean hard-coding a position (an invented value, forbidden
+by CLAUDE.md §2) or changing the 05 site-manifest schema, whose `data_version` (`gale_boxwork-2026.11.09`) the plan
+hash names — the same reason BD-160 declined the static-PNG rebuild of the released bundle.
+
+**The live exact branch is unaffected.** The compute capability already exists — `packages/compute/src/haven.ts`
+`havenAlongRoute` implements the 02 §D.8 vehicle branch (the rover's time field is its fourth argument) and
+`packages/compute/src/leg.ts` already carries `LegHaven.vehicle` and passes it through — and the **live** form runs it
+in the Hab Core, where 02 §D.8 requires it: `apps/hab-core/src/engine/contingencyOps.ts` builds the vehicle's time
+field from the parked pressurised rover's own position and its ParamSet (`vehicleInputs`, `vehicleTimeField`), and
+`apps/hab-core/src/rover.ts` `roverLeg` drives the utility rover over the same field. The science is in the product;
+only the offline planning form shows the branch as unavailable.
+
+**What was not done.** No product behaviour changed — no file under `apps/web/src`, `apps/hab-core/src`, `packages/`
+or `docs/specs/` was touched; the code already did what 03 §SCR-05 requires. No vehicle haven time was invented and
+no position was hard-coded. The live exact branch was not weakened or removed. The team-only rows (T15.02, T16.04,
+T16.07, T17.04, T30.02, T30.03) keep their `wip`, and no human result is claimed here. Nothing was pushed.

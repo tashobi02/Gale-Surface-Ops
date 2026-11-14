@@ -15,7 +15,7 @@ The planner, habitat server and role views are implemented. The progress block b
 ## Progress
 
 <!-- progress:start -->
-`██████████████████░░` **92 %** — 317 of 345 subtasks done, 6 in progress.
+`██████████████████░░` **92 %** — 318 of 345 subtasks done, 5 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -28,7 +28,7 @@ The planner, habitat server and role views are implemented. The progress block b
 | [TASK-06 Mars24 solar functions + radiation estimate](docs/tasks/TASK-06_mars24-and-radiation.md) | `██████████` 100 % | 10 | 0 | 10 |
 | [TASK-07 App shell + map workspace + layers panel + inspector](docs/tasks/TASK-07_app-shell-and-map-workspace.md) | `██████████` 100 % | 17 | 0 | 17 |
 | [TASK-08 Plan panel + waypoint editing](docs/tasks/TASK-08_plan-panel-and-waypoints.md) | `██████████` 100 % | 11 | 0 | 11 |
-| [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `█████████░` 88 % | 7 | 1 | 8 |
+| [TASK-09 Results panel + profile](docs/tasks/TASK-09_results-panel-and-profile.md) | `██████████` 100 % | 8 | 0 | 8 |
 | [TASK-10 POI detail + Conditions panel](docs/tasks/TASK-10_poi-detail-and-conditions.md) | `██████████` 100 % | 4 | 0 | 4 |
 | [TASK-11 Briefing card + JSON export](docs/tasks/TASK-11_briefing-card-and-export.md) | `██████████` 100 % | 7 | 0 | 7 |
 | [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `██████████` 100 % | 7 | 0 | 7 |
