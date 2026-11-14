@@ -19,8 +19,13 @@
  *
  * The provenance classes and source ids belong to the field, not to the value, so they are set when the session starts
  * (`conditionsFrame`, used by `initialState`) and a client never sees a value without them.
+ *
+ * The sun elevation is carried at `SUN_ELEVATION_DECIMALS` decimal places (02 §D.5; NFR-06): `acos` near 61° amplifies a
+ * one-unit-in-the-last-place difference in the platform's libm into a visible one, so the value that enters the state is
+ * rounded here (never inside compute's `solarPosition`, whose other readers need the full precision). The recorded bytes of a
+ * run are then the same on every machine (T27.05).
  */
-import { inverseEqc, localTrueSolarTime, mslSol, parseEqcProjection, rateAt, solarPosition } from "@marswalk/compute";
+import { SUN_ELEVATION_DECIMALS, inverseEqc, localTrueSolarTime, mslSol, parseEqcProjection, rateAt, roundTo, solarPosition } from "@marswalk/compute";
 import type { ConditionsState } from "@marswalk/protocol";
 import type { LoadedScenario } from "../scenario";
 import { doseAt } from "./liveEvents";
@@ -73,7 +78,15 @@ function habPlace(state: EngineState, scenario: LoadedScenario): { lat: number; 
   return null;
 }
 
-/** LTST, sun elevation and sol at the hab, or nulls when the hab cannot be placed or compute rejects its coordinates. */
+/**
+ * LTST, sun elevation and sol at the hab, or nulls when the hab cannot be placed or compute rejects its coordinates.
+ *
+ * The sun elevation is carried at `SUN_ELEVATION_DECIMALS` decimal places (02 §D.5; NFR-06). `solarPosition` keeps its full
+ * precision — `sunriseSunset`, `warnings.ts` and `compute/conditions.ts` read it, and a rounded elevation would move a
+ * sunrise instant — but the value that enters the state is rounded here, because `acos` near 61° turns a one-unit-in-the-last-place
+ * difference in the platform's libm into a visible one, and the recorded bytes of a run then differ from machine to machine
+ * (T27.05).
+ */
 function solar(state: EngineState, scenario: LoadedScenario, now: Date): Pick<ConditionsState, "ltst" | "sun_elevation_deg" | "sol"> {
   const none = { ltst: null, sun_elevation_deg: null, sol: null };
   const hab = habPlace(state, scenario);
@@ -81,7 +94,7 @@ function solar(state: EngineState, scenario: LoadedScenario, now: Date): Pick<Co
   try {
     return {
       ltst: localTrueSolarTime(now, hab.lon_e),
-      sun_elevation_deg: solarPosition(now, hab.lat, hab.lon_e).elevation_deg,
+      sun_elevation_deg: roundTo(solarPosition(now, hab.lat, hab.lon_e).elevation_deg, SUN_ELEVATION_DECIMALS),
       sol: mslSol(now, hab.lon_e),
     };
   } catch (error) {

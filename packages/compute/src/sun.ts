@@ -58,6 +58,34 @@ const SOL_MS = 1.027491252 * 86_400_000;
 /** One local true solar hour in Earth milliseconds. */
 const SOLAR_HOUR_MS = SOL_MS / 24;
 
+/**
+ * Decimal places at which a sun elevation is carried in the engine's state (02 §D.5; NFR-06).
+ *
+ * A sun elevation is `90 − acos(cos Z)`, and `acos` near 61° has a derivative of about −2.2, so a one-unit-in-the-last-place
+ * difference in `cos Z` — which a platform's `Math.sin`/`Math.cos`/`Math.acos` can produce, since they are not bit-identical
+ * across V8 builds — becomes a difference of about two ULP in the elevation. Six decimal places (about 1e-6 deg, well under a
+ * millimetre of arc) is about 1e8 ULP above that noise and far below the 0.1 deg the UI shows, so the value is the same on
+ * every machine and the recorded bytes of a run are reproducible (T27.05, BD-148).
+ */
+export const SUN_ELEVATION_DECIMALS = 6;
+
+/**
+ * Round `value` to `decimals` decimal places, for a value that is carried in the state.
+ *
+ * The rounding is decimal, not binary, and it never returns −0 (a JSON round trip would turn −0 into 0): a value of −1e-9 at six
+ * decimals is 0, not −0. A non-finite value is returned unchanged, so the caller's own check still sees it.
+ *
+ * The rounding is applied where a value enters the state, never inside the science: `solarPosition` keeps its full precision,
+ * because `sunriseSunset`, `warnings.ts` and `compute/conditions.ts` read it and a rounded elevation would move a sunrise
+ * instant.
+ */
+export function roundTo(value: number, decimals: number): number {
+  if (!Number.isFinite(value)) return value;
+  const factor = 10 ** decimals;
+  const rounded = Math.round(value * factor) / factor;
+  return rounded === 0 ? 0 : rounded;
+}
+
 /** Declination and Mars24 hour angle H = 15 deg * (12 - LTST) (not wrapped; only sin/cos or a wrap is applied). */
 function solarGeometry(utc: Date, lonE: number): { decDeg: number; haDeg: number } {
   const ott = j2000OffsetTt(utc);
