@@ -526,6 +526,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 
 | 2026-11-14 | OpenAI Codex (GPT-6) | WP-B1 N-02, N-03, N-04, N-29: audited existing telemetry and link contracts, added previous-reason audit and assumed provenance for skip revisions, and updated task evidence | Kept frontend, recording and datasets unchanged; sim-time staleness follows BD-153 | User authorized implementation and review; tests and checks reported in the session | This Codex conversation |
 
+| 2026-11-14 | OpenAI Codex (GPT-6) | T09.08, T05.30, N-160: added a regression and corrected manual-leg validation when a path leaves the grid and returns to its last visited cell; recorded current worker and remaining plan-aggregation status | No frontend, schema, requirement, dataset or binary changes; remaining work package is incomplete | Regression failed before the fix; verification recorded in the commit report | This Codex conversation |
+
 ## Prompts location
 
 Prompts and session transcripts reside in each operator's local CLI and agent session logs outside this Git repository (`docs/ai-prompts/` is not used) so session histories and credentials remain local; per-change summaries, tool versions, boundaries and human-review status remain append-only in the table above (FD-541).

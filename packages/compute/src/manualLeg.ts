@@ -64,7 +64,7 @@ export function validateManualLeg(
   } else if (blockedAt > 0) {
     reason = blockedAt === cells.length - 1 && cells[cells.length - 1] === cellIndex(grid, last[0], last[1]) ? "END_BLOCKED" : barrierOf(grid, cells[blockedAt]!);
     before = blockedAt - 1;
-  } else if (cells[cells.length - 1] !== cellIndex(grid, last[0], last[1])) {
+  } else if (vertices.some(([x, y]) => cellIndex(grid, x, y) === null) || cells[cells.length - 1] !== cellIndex(grid, last[0], last[1])) {
     reason = "END_BLOCKED"; // the polyline leaves the grid before its last vertex
     before = cells.length - 1;
   }
