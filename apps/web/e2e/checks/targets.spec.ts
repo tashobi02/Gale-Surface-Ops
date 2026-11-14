@@ -168,7 +168,8 @@ test("targets: manual-leg panel targets are at least 44 px under a coarse pointe
 
 test("the REASON control cycles a skipped task's reason and sends the revision (FD-028, FD-262)", async ({ page }) => {
   // The client's own side of FD-028: the control exists in the undo strip, it cycles the reason and it sends the revision
-  // as a second UPDATE_STOP_TASK on the same task. The Hab Core's acceptance of that revision is the N-29 need below.
+  // as a second UPDATE_STOP_TASK on the same task. The Hab Core's acceptance of that revision is checked by the next
+  // case, which runs against a real session (N-29 closed).
   const sent: SentCommand[] = [];
   await openEvaFixture(page, "at-stop", sent);
   await page.getByTestId("tasks-button").click();
@@ -181,7 +182,7 @@ test("the REASON control cycles a skipped task's reason and sends the revision (
   expect(revisions.length, "the revision command the REASON control sent").toBeGreaterThanOrEqual(1);
 });
 
-test("needs N-29: the Hab Core accepts a skipped task's new reason (SKIPPED → SKIPPED)", async ({ context, page }) => {
+test("the Hab Core accepts a skipped task's new reason (SKIPPED → SKIPPED) (N-29 closed)", async ({ context, page }) => {
   test.setTimeout(180_000);
   const { ops, wire } = await openFreshOps(context);
   const evaWire = watchLive(page);
