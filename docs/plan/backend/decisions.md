@@ -195,6 +195,11 @@ Attribution used in the last column, written out in full on every row as require
 ## Count
 
 148 decision rows (BD-00 … BD-166, ids not contiguous so later rows can be inserted). [decisions-index.md](decisions-index.md) maps all 515 markers found in scope on 12 Nov to these ids.
+| BD-167 | T18.08: REMS sols for the scenario's L_s context | Cache the environmental RDR series for sols 4182–4195, covering the already selected storm-window series around sol 4190 (D16 and U-44). This is an event-window cache, not a claim that these sols alone form a representative multi-year climatology; bin width and statistics remain T18.02's scope. | 02 §C.2 L7; T18.08; D16; U-44. | T18.08 | decided by OpenAI Codex under the user's authority, 14 Nov 2026 |
+
+## Count
+
+149 decision rows (BD-00 … BD-167, ids not contiguous so later rows can be inserted). [decisions-index.md](decisions-index.md) maps all 515 markers found in scope on 12 Nov to these ids.
 
 ## BD-121 amendment (2026-11-13)
 
