@@ -1,3 +1,4 @@
+import { o2LitresPerMinute, WALKING_METABOLIC_W } from "@marswalk/compute";
 /**
  * SCR-05 — Route Results panel (docs/specs/03 §B; layout in docs/specs/04 §F; mode OPS, 04 §B.2).
  * Purpose: show whether the plan works and why: status banner, seven headline metrics, the elevation profile and the
@@ -308,7 +309,7 @@ function LegTable({ result }: { result: PlanResult }): ReactElement {
       </table>
       <div className="scr05-consumables-note micro">
         <span>O₂ rate (illustrative): </span>
-        <Metric value={null} prov="modelled" src="compute.o2LitresPerMinute" unit="L/min" />
+        <Metric value={o2LitresPerMinute(WALKING_METABOLIC_W)} prov="modelled" src="compute.o2LitresPerMinute" unit="L/min" />
       </div>
     </div>
   );

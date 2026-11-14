@@ -16,6 +16,7 @@ import type OlMap from "ol/Map.js";
 import type MapBrowserEvent from "ol/MapBrowserEvent.js";
 import TileLayer from "ol/layer/Tile.js";
 import XYZ from "ol/source/XYZ.js";
+import { useHabTimeField } from "../map/useHabTimeField";
 import { loadSite } from "../../boot/loadSite";
 import type { LoadedSite, MapHandle } from "../context";
 import { createMap } from "../map/createMap";
@@ -82,6 +83,11 @@ export function OpsMap({ snapshot, picking = false, onPick, disableRelayFetch = 
   const [ready, setReady] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [rows, setRows] = useState<OpsLayerRow[]>(() => opsLayerRows(null));
+  const field = useHabTimeField(snapshot, ready && !disableRelayFetch);
+  useEffect(() => {
+    layersRef.current?.setHavenField(field);
+    if (layersRef.current) setRows(layersRef.current.rows());
+  }, [field]);
   const siteId = snapshot?.plan?.site_id;
 
   const refreshRows = (): void => {

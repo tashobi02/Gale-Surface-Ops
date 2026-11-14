@@ -286,6 +286,11 @@ export function summarizeEvent(event: LogEvent): string {
   return eventSummary(event).parts.map((part) => typeof part === "string" ? part : part.text).join("");
 }
 
+/** Shared field-level rendering for the compact OPS footer and the full log. */
+export function EventSummaryContent({ event }: { event: LogEvent }): ReactElement {
+  return <>{eventSummary(event).parts.map((part, index) => typeof part === "string" ? part : <span key={index} {...part.attrs}>{part.text}</span>)}</>;
+}
+
 /** Glyph for a provenance class (04 §C.1); "—" for a class that is not known (never another class's glyph). */
 export function provenanceGlyph(prov?: Provenance | string): string {
   return prov !== undefined && Object.hasOwn(PROVENANCE_GLYPHS, prov) ? PROVENANCE_GLYPHS[prov as Provenance] : UNAVAILABLE;

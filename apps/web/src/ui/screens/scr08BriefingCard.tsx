@@ -1,3 +1,4 @@
+import { o2LitresPerMinute, WALKING_METABOLIC_W } from "@marswalk/compute";
 /** SCR-08 printable PlanExport view (FR-14, FR-15, FR-50; T11.03/04/08). */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from "react";
 import type { Provenance } from "@marswalk/protocol";
@@ -136,7 +137,7 @@ export function BriefingCard({ ctx }: ScreenProps): ReactElement {
         <p>Vehicle {value(scenario.vehicle_available === undefined ? null : scenario.vehicle_available ? "available" : "none", "scenario.vehicle_available", "assumed")} · ParamSet {value(scenario.vehicle_param_set, "scenario.vehicle_param_set", "assumed")}</p>
         <p>Dwell per stop {value(scenario.dwell_min_per_stop, "scenario.dwell_min_per_stop", "assumed", "min")} · Loop {value(scenario.loop ? "yes" : "no", "scenario.loop", "assumed")}</p>
         <p>Speed {value(scenario.suited_flat_speed_kmh, "scenario.suited_flat_speed_kmh", "assumed", "km/h")} · Solar phase {value(scenario.solar_phase, "scenario.solar_phase", "assumed")}</p>
-        <p>O₂ rate (illustrative) <Metric value={null} prov="modelled" src="compute.o2LitresPerMinute" unit="L/min" /></p>
+        <p>O₂ rate (illustrative) <Metric value={o2LitresPerMinute(WALKING_METABOLIC_W)} prov="modelled" src="compute.o2LitresPerMinute" unit="L/min" /></p>
       </section>
     </div>
     <footer className="scr08-footer">

@@ -19,7 +19,11 @@ export function EarthLinkWidget({ snapshot: override }: { snapshot?: Snapshot | 
   const nextPass = earth?.next_pass_utc && Number.isFinite(Date.parse(earth.next_pass_utc))
     ? supplied(`${formatSimTime(earth.next_pass_utc)} UTC`, "next_pass_utc", "derived") : missing("next_pass_utc");
   // N-31: absence of conjunction does not establish that a relay is currently overhead.
-  const state = earth?.blackout === true ? supplied("▲ CONJUNCTION", "blackout", "derived") : missing("state");
+  const link = earth?.link_state;
+  const state = earth?.blackout === true || link === "BLACKOUT" ? supplied("▲ CONJUNCTION", "blackout", "derived")
+    : link === "AVAILABLE" || link === "WAITING" ? {
+      text: link, attrs: provAttrs({ prov: active?.provenance?.["earth.link_state"] ?? "derived", src: earth?.link_source_id ?? "snapshot:earth.link_state" }),
+    } : missing("state");
   const queue = (direction: "to_earth" | "to_mars"): Cell => Array.isArray(earth?.queue)
     ? supplied(String(earth.queue.filter((message) => message.direction === direction && message.state !== "DELIVERED").length), `queue.${direction}`, "simulated") : missing(`queue.${direction}`);
   const rows: [string, string, Cell][] = [

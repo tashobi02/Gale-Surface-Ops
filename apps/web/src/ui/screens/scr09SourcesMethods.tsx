@@ -17,7 +17,7 @@
  * Every displayed value carries `data-provenance` and `data-source` (FR-15, NFR-05); a value the bundle does not have
  * renders "—". The equations of the models are the spec's own text (they are not numbers, FD-110).
  */
-import { useEffect, useRef, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { Layer, ParamSet } from "@marswalk/protocol";
 import type { LoadedSite } from "../context";
 import { Metric } from "../components/metric";
@@ -70,8 +70,21 @@ function anchorId(prefix: string, id: string): string {
 }
 
 /** SCR-09 sources and methods (React, ADR-012). */
-export function SourcesMethods({ site, anchor, paramSets = [], replaySource }: SourcesMethodsProps): ReactElement {
+export function SourcesMethods({ site, anchor, paramSets: suppliedParams, replaySource: suppliedReplay }: SourcesMethodsProps): ReactElement {
   const root = useRef<HTMLDivElement | null>(null);
+  const [metadata, setMetadata] = useState<{ param_sets: ParamSet[]; dose_series?: { source_id: string; title: string | null } } | null>(null);
+  useEffect(() => {
+    if (suppliedParams !== undefined && suppliedReplay !== undefined) return;
+    const abort = new AbortController();
+    void fetch("/api/scenario-meta", { signal: abort.signal, cache: "no-store" })
+      .then(response => response.ok ? response.json() : null)
+      .then(value => { if (!abort.signal.aborted) setMetadata(value && Array.isArray(value.param_sets) ? value : null); })
+      .catch(() => { if (!abort.signal.aborted) setMetadata(null); });
+    return () => abort.abort();
+  }, [suppliedParams, suppliedReplay]);
+  const paramSets = suppliedParams ?? metadata?.param_sets ?? [];
+  const dose = metadata?.dose_series;
+  const replaySource = suppliedReplay ?? (dose?.source_id && dose.title ? { source_id: dose.source_id, title: dose.title } : undefined);
 
   // The deep link scrolls its entry into view. The scroll is instant under `prefers-reduced-motion` (04 §C.6): the CSS
   // handles the smooth case, and the browser honours the preference on `scrollIntoView` with "auto".
@@ -83,7 +96,7 @@ export function SourcesMethods({ site, anchor, paramSets = [], replaySource }: S
     // `scrollIntoView` is missing in the test DOM; the entry is still marked, so the deep link works there.
     if (typeof target.scrollIntoView === "function") target.scrollIntoView({ block: "start", behavior: "auto" });
     target.setAttribute("data-scrolled", "true");
-  }, [anchor]);
+  }, [anchor, paramSets, replaySource]);
 
   const layers: readonly Layer[] = site.site.layers;
 

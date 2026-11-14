@@ -226,7 +226,28 @@ test("targets: Earth composer controls are at least 32 px (package 36)", async (
   expectTargetSize(list, OPS_MIN);
 });
 
-test.fixme("needs N-130 and N-31: Earth delayed summary and available/waiting link states", async () => {});
+test("needs N-130 and N-31: Earth delayed summary and available/waiting link states", async ({ context, page }) => {
+  const { ops, wire } = await openFreshOps(context);
+  try {
+    await startPaused(ops, wire);
+    await wire.command("SET_CLOCK", () => ops.getByRole("button", { name: "Resume mission clock", exact: true }).click());
+    await wire.command("JUMP_NEXT_EVENT", () => ops.getByRole("button", { name: "Jump to next scheduled event", exact: true }).click());
+    await wire.command("SET_CLOCK", () => ops.getByRole("button", { name: "Pause mission clock", exact: true }).click());
+    const response = await page.request.get("/api/earth-view");
+    expect(response.ok()).toBe(true);
+    const delayed = await response.json();
+    expect(delayed.as_of_utc).not.toBeNull();
+    await page.goto("/#/earth");
+    const summary = page.locator('[aria-labelledby="earth-summary"]');
+    await expect(summary.locator('[data-source="earth_link"]')).toHaveText(delayed.as_of_utc);
+    await expect(summary.locator('[data-source="earth_link"]')).toHaveAttribute("data-provenance", "derived");
+    for (const crew of delayed.crew) await expect(summary).toContainText(`${crew.crew_id}: [${crew.x_m.toFixed(0)}, ${crew.y_m.toFixed(0)}]`);
+    for (const alert of delayed.alerts) await expect(summary).toContainText(alert.message);
+    const snapshot = await sessionSnapshot(ops);
+    await expect(page.locator('[data-value="link-state"]')).toContainText(snapshot.earth.link_state === "BLACKOUT" ? "CONJUNCTION" : snapshot.earth.link_state!);
+    await page.screenshot({ path: "apps/web/e2e/out/p7-earth.png", fullPage: true });
+  } finally { await page.goto("about:blank"); await ops.close(); await resetThroughPresenter(context); }
+});
 
 // Package 18: options and full-map controls, including their layer menu, use the EVA target size.
 test("targets: EVA options and full-map controls are at least 56 px", async ({ page }) => {
