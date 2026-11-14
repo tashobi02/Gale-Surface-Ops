@@ -87,6 +87,6 @@ The following placeholders are not evidence that the backend lacks every underly
 - SCR-07 seasonal weather (N-24): the offline REMS builder writes `rems_context.json` into the site bundle and SCR-07 reads the bin for the plan's L_s (T18.02, T18.03).
 - SCR-05 and SCR-08 illustrative oxygen rate (N-24): compute exports the estimate and constants and both panels show them (T18.06).
 - EVA and ops haven bands (N-100/N-120): `/api/hab-time-field` is read by the client; the client never computes a cell value itself.
-- SCR-02 manual plan totals (N-160): a one-leg worker result is displayed; authoritative full-plan aggregation is still missing. The real site's optional static PNG fallback was not built (BD-160).
+- SCR-02 manual plan totals (N-160): closed 14 Nov 2026 (BD-170). The page sends the drawn polyline with the next `COMPUTE_PLAN`; the worker measures it on the grid and the plan's totals, timeline, conditions and radiation come from it, so the authoritative full-plan aggregation is in place. The real site's optional static PNG fallback was not built (BD-160), so that one fallback stays declined.
 
 Other conditional dashes represent absent session, route, telemetry, map assets or unavailable report fields and must retain their source and unavailable state until supplied. This list records confirmed integration gaps; it is not an exhaustive verification of every placeholder.

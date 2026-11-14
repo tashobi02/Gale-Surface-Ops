@@ -242,22 +242,20 @@ function pairKey(from: string, to: string): string {
 }
 
 /**
- * The manual legs of a COMPUTE_PLAN, by pair key (N-160(c)). Only the pairs the plan actually has are kept: a leg for an
- * unknown pair is ignored, so a stale polyline cannot appear in a plan that no longer has that pair.
+ * The manual legs of a COMPUTE_PLAN, by pair key (N-160(c)). A leg for a pair the plan does not have is ignored: the plan
+ * reads the legs by the pairs it has, so a stale polyline cannot enter it. One leg per pair: the first one wins.
  */
 function manualLegsOf(request: ComputePlanRequest): Map<string, ManualLegInput> {
   const map = new Map<string, ManualLegInput>();
   const legs = request.manual_legs;
   if (!Array.isArray(legs)) return map;
-  const pairs = legPairsOf(request);
-  const known = new Set(pairs.map(([from, to]) => pairKey(from.id, to.id)));
   for (const leg of legs) {
     if (!leg || typeof leg !== "object") continue;
     const from = leg.from;
     const to = leg.to;
     if (typeof from !== "string" || typeof to !== "string") continue;
     const key = pairKey(from, to);
-    if (!known.has(key) || map.has(key)) continue;
+    if (map.has(key)) continue;
     const vertices = leg.vertices;
     if (!Array.isArray(vertices) || vertices.length < 2) continue;
     if (!vertices.every((v) => Array.isArray(v) && v.length === 2 && Number.isFinite(v[0]) && Number.isFinite(v[1]))) continue;

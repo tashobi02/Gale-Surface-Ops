@@ -721,6 +721,26 @@ describe("a manual leg joins the plan (N-160(c))", () => {
     expect(store.get().manual_legs).toEqual([]);
   });
 
+  it("moving a waypoint drops the manual leg: the drawn polyline no longer joins the two", () => {
+    // The polyline was drawn from the start to where the stop used to be. The stop moved, so the plan's leg would end
+    // at the old position while the marker is somewhere else: the leg no longer describes the plan and must go.
+    const { store, calls } = setup();
+    store.addWaypoint(STOP_1);
+    store.setManualLeg(leg);
+    store.moveWaypoint("wp-1", 500, 500);
+    expect(store.get().manual_legs).toEqual([]);
+    expect(calls[calls.length - 1]!.req.manual_legs, "the next plan is routed, not measured").toBeUndefined();
+  });
+
+  it("moving a waypoint the manual leg does not touch keeps the leg", () => {
+    const { store } = setup();
+    store.addWaypoint(STOP_1);
+    store.addWaypoint({ id: "wp-2", role: "stop", x_m: 200, y_m: 200 });
+    store.setManualLeg(leg);
+    store.moveWaypoint("wp-2", 250, 250);
+    expect(store.get().manual_legs).toEqual([leg]);
+  });
+
   it("loadPlan drops the manual legs: the loaded plan has none of its own", () => {
     const { store } = setup();
     store.addWaypoint(STOP_1);

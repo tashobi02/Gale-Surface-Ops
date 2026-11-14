@@ -54,6 +54,14 @@ export function legPairs(store: PlanStore): [Waypoint, Waypoint][] {
   return pairs;
 }
 
+/**
+ * Whether the plan still carries the drawn leg for a pair (N-160(c)). The store holds the polylines it sends with the
+ * next COMPUTE_PLAN, so a pair it holds is a pair the plan describes and a pair it does not is one the plan routes.
+ */
+export function planCarriesLeg(store: PlanStore, from: string, to: string): boolean {
+  return store.get().manual_legs.some((l) => l.from === from && l.to === to);
+}
+
 let requestSequence = 0;
 
 export function initDrawLegs(handle: MapHandle, options: {
@@ -143,8 +151,11 @@ export function initDrawLegs(handle: MapHandle, options: {
     if (next.plan_revision === revision) return;
     revision = next.plan_revision;
     // A revision change discards the draft and any stale reply (FD-441). A validated leg that has joined the plan is
-    // not stale: the plan now carries it, so the panel keeps showing the worker's answer (N-160(c)).
-    if (state.response) {
+    // not stale: the plan now carries it, so the panel keeps showing the worker's answer (N-160(c)). The answer is
+    // kept only while the plan still carries that very leg: if the edit dropped it (the pair is gone, or a waypoint
+    // moved), the answer no longer describes the plan and is dropped with the draft.
+    const kept = state.response && planCarriesLeg(planStore, state.response.leg.from, state.response.leg.to);
+    if (kept) {
       clearPending();
       state = { ...state, active: false, pending: false, legIndex: null, points: [], error: null };
       emit();

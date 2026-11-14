@@ -297,6 +297,32 @@ function manualLegsFor(legs: readonly ManualLegInput[], waypoints: readonly Wayp
 }
 
 /**
+ * The endpoints a drawn leg was measured against (N-160(c)). The polyline is a path between two waypoints, so it only
+ * describes the plan while those waypoints still sit where the drawing put them: a moved waypoint makes the drawn leg
+ * point at the old position, and the plan would then route to where the waypoint used to be.
+ */
+export function manualLegEndpoints(leg: ManualLegInput): { from: [number, number]; to: [number, number] } {
+  const first = leg.vertices[0];
+  const last = leg.vertices[leg.vertices.length - 1];
+  return { from: [first![0], first![1]], to: [last![0], last![1]] };
+}
+
+/**
+ * Whether a drawn leg still describes the current waypoint list (N-160(c)): the pair must still exist and both of its
+ * waypoints must still sit where the drawing put them.
+ */
+export function manualLegStillMatches(leg: ManualLegInput, waypoints: readonly Waypoint[], loop: boolean): boolean {
+  const pairs = new Map<string, [Waypoint, Waypoint]>();
+  for (let i = 0; i < waypoints.length - 1; i++) pairs.set(`${waypoints[i]!.id}\u0000${waypoints[i + 1]!.id}`, [waypoints[i]!, waypoints[i + 1]!]);
+  if (loop && waypoints.length >= 2) pairs.set(`${waypoints[waypoints.length - 1]!.id}\u0000${waypoints[0]!.id}`, [waypoints[waypoints.length - 1]!, waypoints[0]!]);
+  const pair = pairs.get(`${leg.from}\u0000${leg.to}`);
+  if (!pair) return false;
+  const ends = manualLegEndpoints(leg);
+  const [fromWp, toWp] = pair;
+  return ends.from[0] === fromWp.x_m && ends.from[1] === fromWp.y_m && ends.to[0] === toWp.x_m && ends.to[1] === toWp.y_m;
+}
+
+/**
  * Create the plan store. `initial` gives the starting scenario, waypoints and tasks; `resetDefaults` returns to its
  * scenario. A store made with stops does not compute until the first edit or `loadPlan`.
  */
@@ -433,8 +459,10 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
     undoSnapshot = { waypoints: state.waypoints, stop_tasks: state.stop_tasks };
     const stopIds = new Set(waypoints.filter((w) => w.role === "stop").map((w) => w.id));
     const ids = new Set(waypoints.map((w) => w.id));
-    // A manual leg whose pair the new waypoint list no longer has is dropped (N-160(c)): the plan has no such leg any more.
-    const manual_legs = manualLegsFor(state.manual_legs, waypoints, state.scenario.loop);
+    // A manual leg the new waypoint list no longer describes is dropped (N-160(c)): its pair may be gone, or one of its
+    // waypoints may have moved, and the drawn polyline no longer joins the two.
+    const manual_legs = manualLegsFor(state.manual_legs, waypoints, state.scenario.loop)
+      .filter((l) => manualLegStillMatches(l, waypoints, state.scenario.loop));
     routeEdit(
       {
         waypoints,
@@ -534,7 +562,8 @@ export function createPlanStore(initial: Partial<PlanState> | undefined, deps: P
           stop_tasks: snapshot.stop_tasks,
           can_undo: false,
           selected_waypoint_id: state.selected_waypoint_id && ids.has(state.selected_waypoint_id) ? state.selected_waypoint_id : null,
-          manual_legs: manualLegsFor(state.manual_legs, snapshot.waypoints, state.scenario.loop),
+          manual_legs: manualLegsFor(state.manual_legs, snapshot.waypoints, state.scenario.loop)
+            .filter((l) => manualLegStillMatches(l, snapshot.waypoints, state.scenario.loop)),
         },
         "now",
       );

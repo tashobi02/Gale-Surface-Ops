@@ -102,10 +102,10 @@ test("fallbacks: a manual leg is drawn from the keyboard and from the pointer, s
   await stubManualLegWorker(page);
   await planWithLegPanel(page);
 
-  // Before any answer, the leg's walk time reads "—": no number is invented in the page. The plan's totals are the
-  // worker's own (the plan on this site routes), so they are there before the leg is drawn.
+  // Before any answer, the leg's walk time reads "—": no number is invented in the page. The plan total reads "—" too:
+  // no leg has been drawn, so no plan describes one and the router's total would be the wrong number here.
   await expect(page.locator(`${PANEL} .metric-value[data-source="unavailable:worker:MANUAL_LEG_RESULT.leg.walk_time_min"]`)).toHaveText("—");
-  await expect(page.locator(`${PANEL} .metric-value[data-source="result.totals.eva_total_min"]`)).not.toHaveText("—");
+  await expect(page.locator(`${PANEL} .metric-value[data-source="unavailable:result.totals.eva_total_min"]`)).toHaveText("—");
 
   // Keyboard: pan the crosshair, place a vertex with Enter, finish.
   await legButtons(page).first().click();
@@ -188,8 +188,8 @@ test("fallbacks: with the real worker the manual-leg panel is honest about what 
     // The worker has no handler for the request (N-25): it said ERROR, the page says so and shows no number.
     await expect(status(page)).toContainText(/Manual-leg validation unavailable/);
     await expect(walk).toHaveCount(0); // no worker-sourced number exists
-    // The leg's own number is the only one missing: the plan's totals are the worker's, and this plan routes.
-    await expect(page.locator(`${PANEL} .metric-value[data-unavailable="true"]`)).toHaveCount(1);
+    // The leg's own number and the plan total are both missing: no leg was accepted, so no plan describes one.
+    await expect(page.locator(`${PANEL} .metric-value[data-unavailable="true"]`)).toHaveCount(2);
   } else {
     // A backend that answers: the number is the worker's, labelled modelled with its source.
     await expect(status(page)).toContainText("Leg validation");
@@ -202,15 +202,27 @@ test("fallbacks: the real worker validates a manual leg and the plan integrates 
   // The leg the worker measured joins the plan (N-160(c)): the next COMPUTE_PLAN carries the polyline, the worker measures
   // it again on the grid and totals the plan from it. The totals the panel shows are the worker's, with its own source.
   await planWithLegPanel(page);
+  const totals = page.locator(`${PANEL} .metric-value[data-source="result.totals.eva_total_min"]`);
+  // The routed plan's own total, before any leg is drawn. It is the baseline the drawn leg must change: a check that
+  // only reads "the plan has a total" would pass on the routed plan and prove nothing about the manual leg. The
+  // results panel's tile carries the walk-time source id; the panel's own tile carries the result path.
+  const results = page.locator('[data-slot="results-panel"] .scr05-metric').filter({ hasText: "EVA total" });
+  await expect(results.first(), "the routed plan has its own total").toHaveCount(1);
+  const routedTotal = (await results.first().locator(".metric-value").first().innerText()).trim();
+  expect(routedTotal, "the routed plan's total is a number, not an em dash").not.toBe("—");
+  // The panel's own total reads "—" before a leg is drawn: no plan describes a leg that does not exist yet.
+  await expect(page.locator(`${PANEL} .metric-value[data-source="unavailable:result.totals.eva_total_min"]`)).toHaveText("—");
+
   await legButtons(page).first().click();
   await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "Finish leg" }).click();
   await expect(status(page)).toContainText("Leg validation");
-  const totals = page.locator(`${PANEL} .metric-value[data-source="result.totals.eva_total_min"]`);
   await expect(totals, "the plan carries the totals the worker computed from the manual leg").toHaveCount(1);
   await expect(totals).not.toHaveText("—");
   await expect(totals).toHaveAttribute("data-provenance", "modelled");
+  // The totals are the manual leg's: the drawn leg is a detour from the route the router would have taken, so the
+  // plan's total must differ from the routed baseline. Without this the check would pass on the routed plan.
+  await expect.poll(async () => (await totals.innerText()).trim(), "the plan's total is recomputed from the drawn leg").not.toBe(routedTotal);
   // The plan's own results panel shows the same totals: one plan, one set of numbers.
-  const results = page.locator('[data-slot="results-panel"] .metric-value[data-source="result.totals.eva_total_min"]');
   await expect(results.first()).not.toHaveText("—");
 });

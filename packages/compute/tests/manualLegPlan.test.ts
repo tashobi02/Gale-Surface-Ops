@@ -112,7 +112,20 @@ describe("a manual leg in the plan (N-160(c))", () => {
 
   it("a manual leg for a pair the plan does not have is ignored: the plan is the routed plan", () => {
     const g = plane();
-    const response = handleWorkerMessage(g, baseRequest(g, { manual_legs: [{ from: "wp-0", to: "wp-9", vertices: [centre(g, 2, 1), centre(g, 2, 10)] }] })) as PlanResultMessage;
+    // The unknown pair does not suppress the plan's own search: the plan reads its legs by the pairs it has, so a leg
+    // for a pair it does not have is never looked at and never changes what the plan carries.
+    let routingCalls = 0;
+    const timer = <T,>(phase: "routing" | "estimates", fn: () => T): T => {
+      if (phase === "routing") routingCalls++;
+      return fn();
+    };
+    const response = handleWorkerMessage(
+      g,
+      baseRequest(g, { manual_legs: [{ from: "wp-0", to: "wp-9", vertices: [centre(g, 2, 1), centre(g, 2, 10)] }] }),
+      undefined,
+      { timer },
+    ) as PlanResultMessage;
+    expect(routingCalls, "the plan's own pair is still searched").toBe(1);
     expect(response.legs).toHaveLength(1);
     expect(response.legs[0]!.from).toBe("wp-0");
     expect(response.legs[0]!.to).toBe("wp-1");
@@ -148,5 +161,82 @@ describe("a manual leg in the plan (N-160(c))", () => {
     const measured = validateManualLeg(g, scenario, "wp-0", "wp-1", vertices);
     expect(response.legs[0]).toEqual(measured.leg);
     expect(response.totals!.distance_m).toBe(measured.leg.status === "OK" ? measured.leg.distance_m : 0);
+  });
+
+  it("a manual leg for the loop's return pair is measured: the loop's last leg joins the plan too", () => {
+    // A loop plan has an extra pair, from the last waypoint back to the first. A leg for that pair is a real pair of the
+    // plan, so it is measured like any other.
+    const g = plane();
+    const loopScenario: MissionScenario = { ...scenario, loop: true };
+    const vertices = [centre(g, 2, 10), centre(g, 2, 1)];
+    const request = baseRequest(g, {
+      scenario: loopScenario,
+      manual_legs: [{ from: "wp-1", to: "wp-0", vertices }],
+    });
+    const response = handleWorkerMessage(g, request) as PlanResultMessage;
+    expect(response.legs).toHaveLength(2);
+    const measured = validateManualLeg(g, loopScenario, "wp-1", "wp-0", vertices);
+    expect(response.legs[1]).toEqual(measured.leg);
+    expect(response.totals).not.toBeNull();
+  });
+
+  it("the search for a replaced pair is skipped, not run and discarded", () => {
+    // The replaced pair is not searched at all: the routing phase runs once for the plan's one pair with a manual leg
+    // and not at all for one without. A search that was run and then discarded would leave the same plan but cost the
+    // work, so the phase counter is what tells the two apart.
+    const g = plane();
+    const vertices = [centre(g, 2, 1), centre(g, 2, 10)];
+    const routingCalls = (over: Partial<ComputePlanRequest>): number => {
+      let calls = 0;
+      const timer = <T,>(phase: "routing" | "estimates", fn: () => T): T => {
+        if (phase === "routing") calls++;
+        return fn();
+      };
+      handleWorkerMessage(g, baseRequest(g, over), undefined, { timer });
+      return calls;
+    };
+    // A routed plan searches its pair once.
+    expect(routingCalls({}), "the routed plan searches its pair").toBe(1);
+    // A plan whose pair is manual does not search it: the leg is measured from the polyline instead.
+    expect(
+      routingCalls({ manual_legs: [{ from: "wp-0", to: "wp-1", vertices }] }),
+      "the replaced pair is not searched",
+    ).toBe(0);
+  });
+
+  it("the plan carries the drawn leg, not the router's: the two are measurably different", () => {
+    // A wall with a single gap at row 15. The two waypoints are on row 2, so the straight line between them crosses the
+    // wall; the router finds its way round through the gap and its leg is a detour. The drawn polyline runs along row 15
+    // through the gap, so the plan must carry it.
+    const g = makeWallWithGapGrid({ width: W, height: 20, cell_m: 5, origin_m: [0, 0], wall_col: 8, gap_row: 15, wall_slope_deg: 20 });
+    const throughGap = [centre(g, 15, 2), centre(g, 15, 8), centre(g, 15, 14)];
+    const routed = handleWorkerMessage(g, baseRequest(g)) as PlanResultMessage;
+    const withManual = handleWorkerMessage(g, baseRequest(g, { manual_legs: [{ from: "wp-0", to: "wp-1", vertices: throughGap }] })) as PlanResultMessage;
+    expect(routed.legs[0]!.status).toBe("OK");
+    const routedLeg = routed.legs[0] as Extract<typeof routed.legs[number], { status: "OK" }>;
+    const manualLeg = withManual.legs[0] as Extract<typeof withManual.legs[number], { status: "OK" }>;
+    // The plan carries the drawn leg, not the router's.
+    expect(manualLeg.geometry).not.toEqual(routedLeg.geometry);
+    const measured = validateManualLeg(g, scenario, "wp-0", "wp-1", throughGap);
+    expect(withManual.legs[0]).toEqual(measured.leg);
+    expect(withManual.totals!.distance_m).toBe(manualLeg.distance_m);
+    expect(withManual.totals!.distance_m).not.toBe(routed.totals!.distance_m);
+  });
+
+  it("a manual leg for a reversed pair is ignored: the plan has no such pair", () => {
+    const g = plane();
+    const vertices = [centre(g, 2, 10), centre(g, 2, 1)];
+    const response = handleWorkerMessage(g, baseRequest(g, { manual_legs: [{ from: "wp-1", to: "wp-0", vertices }] })) as PlanResultMessage;
+    expect(response.legs).toHaveLength(1);
+    expect(response.legs[0]!.from).toBe("wp-0");
+    expect(response.legs[0]!.to).toBe("wp-1");
+  });
+
+  it("a manual leg with duplicate vertices is measured: the worker measures the polyline it was given", () => {
+    const g = plane();
+    const vertices = [centre(g, 2, 1), centre(g, 2, 1), centre(g, 2, 10)];
+    const response = handleWorkerMessage(g, baseRequest(g, { manual_legs: [{ from: "wp-0", to: "wp-1", vertices }] })) as PlanResultMessage;
+    const measured = validateManualLeg(g, scenario, "wp-0", "wp-1", vertices);
+    expect(response.legs[0]).toEqual(measured.leg);
   });
 });
