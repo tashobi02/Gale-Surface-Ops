@@ -1038,8 +1038,10 @@ test.describe("Package 30 automated usability heuristics", () => {
     await expect(openMapBtn).toBeVisible();
     await openMapBtn.click();
 
-    const zoomInBtn = page.getByRole("button", { name: "Zoom in" });
-    const zoomOutBtn = page.getByRole("button", { name: "Zoom out" });
+    // The full-screen map's own zoom controls, not the EVA tablet's behind the overlay: both carry the same names.
+    const fullMap = page.getByRole("region", { name: "Full-screen surface operations map" });
+    const zoomInBtn = fullMap.getByRole("button", { name: "Zoom in" });
+    const zoomOutBtn = fullMap.getByRole("button", { name: "Zoom out" });
     const closeBtn = page.getByRole("button", { name: "Close full-screen map" });
     await expect(zoomInBtn).toBeVisible();
     await expect(closeBtn).toBeVisible();
@@ -1050,7 +1052,6 @@ test.describe("Package 30 automated usability heuristics", () => {
     await zoomInBtn.click();
 
     // Verify stacked HAVEN & O2 readouts stay visible inside the full-screen map overlay at >= 40 px.
-    const fullMap = page.getByRole("region", { name: "Full-screen surface operations map" });
     await expect(fullMap).toBeVisible();
     const mapStats = await fullMap.evaluate((root) => {
       const texts = Array.from(root.querySelectorAll("span, div"))

@@ -42,7 +42,8 @@
    5.33 : 1 on the EVA surface — under the 7 : 1 the high-contrast EVA mode asks for (FD-011, NFR-04). The EVA action row
    and the SCR-14 sheet's own controls name the text token instead, so they follow every palette. */
 .eva-live-surface .action-row > button,
-.eva-live-surface .eva-options-body .btn {
+.eva-live-surface .eva-options-body .btn,
+.eva-live-surface [data-slot="next"] .btn {
   background: var(--raised);
   color: var(--text-1);
   border: 2px solid var(--edge);
