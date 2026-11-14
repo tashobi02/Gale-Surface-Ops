@@ -8,6 +8,7 @@ import type { LoadGridRequest, WorkerRequest, WorkerResponse } from "@marswalk/p
 import type { WorkerClient } from "../../src/ui/context";
 import { BootError } from "../../src/boot/loadSite";
 import { buildGridRequest, deliverGrid } from "../../src/boot/loadGrid";
+import { sha256HexBytes } from "../../src/export/sha256";
 import { mockLoadedSite, loadedSiteFrom, mockManifest } from "../ui/map/mapFixtures";
 
 const SITE = mockLoadedSite();
@@ -65,6 +66,22 @@ describe("buildGridRequest (BD-40 LOAD_GRID shape)", () => {
 
     const missing = fetchGrid({ [GRID.ti_asset!]: () => new Response("", { status: 404 }) });
     expect((await buildGridRequest(SITE, "r", missing.fetch)).arrays.ti).toBeNull();
+  });
+
+  it("development detects an optional grid checksum mismatch but still allows a missing optional file", async () => {
+    const site = loadedSiteFrom(mockManifest());
+    const normal = fetchGrid().fetch;
+    for (const asset of site.assets.values()) {
+      if ([GRID.elevation_asset, GRID.slope_p90_asset, GRID.slope_max_asset, GRID.flags_asset, GRID.comm_hab_asset, GRID.ti_asset].includes(asset.asset_id)) {
+        asset.sha256 = sha256HexBytes(new Uint8Array(await (await normal(asset.url)).arrayBuffer()));
+      }
+    }
+    await expect(buildGridRequest(site, "r", normal, true)).resolves.toBeDefined();
+    const badTi = fetchGrid({ [GRID.ti_asset!]: () => new Response(new Uint8Array(40).fill(1).buffer) });
+    await expect(buildGridRequest(site, "r", badTi.fetch, true)).rejects.toMatchObject({ problem: { code: "GRID_CHECKSUM_MISMATCH", missingFile: site.assets.get(GRID.ti_asset!)!.url } });
+    const missing = fetchGrid({ [GRID.ti_asset!]: () => new Response("", { status: 404 }) });
+    expect((await buildGridRequest(site, "r", missing.fetch, true)).arrays.ti).toBeNull();
+    expect((await buildGridRequest(site, "r", badTi.fetch, false)).arrays.ti).not.toBeNull();
   });
 
   it("a required grid file that is missing is a BootError naming the file, never a guessed path", async () => {

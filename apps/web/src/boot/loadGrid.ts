@@ -16,13 +16,14 @@
 import type { LoadGridRequest, WorkerRequest, WorkerResponse } from "@marswalk/protocol";
 import type { LoadedSite, WorkerClient } from "../ui/context";
 import { BootError } from "./loadSite";
+import { sha256HexBytes } from "../export/sha256";
 
 /** How long the boot waits for GRID_LOADED before it reports GRID_TIMEOUT (FD-229). */
 export const GRID_DELIVERY_TIMEOUT_MS = 30_000;
 
 type Fetch = (url: string) => Promise<Response>;
 
-async function fetchBuffer(site: LoadedSite, assetId: string, fetchImpl: Fetch): Promise<ArrayBuffer> {
+async function fetchBuffer(site: LoadedSite, assetId: string, fetchImpl: Fetch, verifyChecksum: boolean): Promise<ArrayBuffer> {
   const asset = site.assets.get(assetId);
   if (!asset) {
     throw new BootError({
@@ -44,26 +45,31 @@ async function fetchBuffer(site: LoadedSite, assetId: string, fetchImpl: Fetch):
       missingFile: asset.url,
     });
   }
-  return response.arrayBuffer();
+  const buffer = await response.arrayBuffer();
+  if (verifyChecksum && sha256HexBytes(new Uint8Array(buffer)) !== asset.sha256.toLowerCase()) {
+    throw new BootError({ code: "GRID_CHECKSUM_MISMATCH", message: `Grid file checksum does not match the manifest: ${asset.url}`, missingFile: asset.url });
+  }
+  return buffer;
 }
 
 /** Fetch the grid files and build the LOAD_GRID request. Throws BootError. */
-export async function buildGridRequest(site: LoadedSite, requestId: string, fetchImpl: Fetch = (url) => fetch(url)): Promise<LoadGridRequest> {
+export async function buildGridRequest(site: LoadedSite, requestId: string, fetchImpl: Fetch = (url) => fetch(url), verifyChecksum = false): Promise<LoadGridRequest> {
   const grid = site.site.grid;
   const optionalTi = async (): Promise<ArrayBuffer | null> => {
     if (!grid.ti_asset) return null;
     try {
-      return await fetchBuffer(site, grid.ti_asset, fetchImpl);
-    } catch {
+      return await fetchBuffer(site, grid.ti_asset, fetchImpl, verifyChecksum);
+    } catch (error) {
+      if (error instanceof BootError && error.problem.code === "GRID_CHECKSUM_MISMATCH") throw error;
       return null;
     }
   };
   const [elevation, slopeP90, slopeMax, flags, commHab, ti] = await Promise.all([
-    fetchBuffer(site, grid.elevation_asset, fetchImpl),
-    fetchBuffer(site, grid.slope_p90_asset, fetchImpl),
-    fetchBuffer(site, grid.slope_max_asset, fetchImpl),
-    fetchBuffer(site, grid.flags_asset, fetchImpl),
-    fetchBuffer(site, grid.comm_hab_asset, fetchImpl),
+    fetchBuffer(site, grid.elevation_asset, fetchImpl, verifyChecksum),
+    fetchBuffer(site, grid.slope_p90_asset, fetchImpl, verifyChecksum),
+    fetchBuffer(site, grid.slope_max_asset, fetchImpl, verifyChecksum),
+    fetchBuffer(site, grid.flags_asset, fetchImpl, verifyChecksum),
+    fetchBuffer(site, grid.comm_hab_asset, fetchImpl, verifyChecksum),
     optionalTi(),
   ]);
   return {
@@ -111,5 +117,5 @@ export function deliverGrid(client: WorkerClient, request: LoadGridRequest, opti
 /** The boot step: build the request (fresh id) and deliver it. */
 export async function loadGridIntoWorker(site: LoadedSite, client: WorkerClient): Promise<void> {
   const id = (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)).slice(0, 8);
-  await deliverGrid(client, await buildGridRequest(site, `grid-${id}`));
+  await deliverGrid(client, await buildGridRequest(site, `grid-${id}`, (url) => fetch(url), import.meta.env.DEV));
 }
