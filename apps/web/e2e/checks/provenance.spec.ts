@@ -255,14 +255,14 @@ test("provenance: light planner coach counters have provenance at every step (pa
   }
 });
 
-test.fixme("needs N-24: REMS seasonal context displays the supplied derived values (T18.03)", async ({ page }) => {
+test("needs N-24: REMS seasonal context displays the supplied derived values (T18.03)", async ({ page }) => {
   await page.goto("/?site=mock_site#/planner");
   await page.getByRole("tab", { name: "Conditions" }).click();
   await expect(page.locator('[data-condition="seasonal-weather"] [data-unavailable="true"]')).toHaveCount(0);
   await expect(page.locator('[data-condition="seasonal-weather"] [data-provenance][data-source]')).not.toHaveCount(0);
 });
 
-test.fixme("needs N-24: illustrative O₂ rate is supplied on SCR-08 (T18.06)", async ({ page }) => {
+test("needs N-24: illustrative O₂ rate is supplied on SCR-08 (T18.06)", async ({ page }) => {
   await openBriefing(page);
   await expect(page.locator('[data-source="unavailable:compute.o2LitresPerMinute"]')).toHaveCount(0);
   await expect(page.getByText("O₂ rate (illustrative)")).toBeVisible();

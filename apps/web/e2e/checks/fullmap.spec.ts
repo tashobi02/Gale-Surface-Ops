@@ -73,7 +73,7 @@ for (const viewport of [{ width: 844, height: 390 }, { width: 1024, height: 768 
 }
 
 
-test.fixme("needs N-120: haven bands use the supplied hab time field", async ({ page }) => {
+test("needs N-120: haven bands use the supplied hab time field", async ({ page }) => {
   const fixture = await openSurfaceFixture(page, "eva");
   try {
     await page.getByRole("button", { name: "Open full-screen map" }).click();

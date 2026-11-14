@@ -76,7 +76,7 @@ const LOG_EVENT_DATA_KEYS: { [K in LogEventKind]: KeySpec<LogEventData[K]> } = {
   CLOCK_CHANGED: { speed: "req", paused: "req" },
   EVA_ENDED: { crew_ids: "req" },
   TASK_ADDED: { task_id: "req", stop_id: "req", crew_id: "req", kind: "req", text: "req", origin: "req" },
-  TASK_UPDATED: { task_id: "req", stop_id: "req", crew_id: "req", state: "req", reason: "req", undo: "opt" },
+  TASK_UPDATED: { task_id: "req", stop_id: "req", crew_id: "req", state: "req", reason: "req", undo: "opt", old_reason: "opt" },
   TASK_DROPPED: { task_id: "req", stop_id: "req", plan_revision: "req" },
   ROLE_TAKEN_OVER: { role: "req", crew_id: "opt", old_client_id: "req", new_client_id: "req" },
   CLOCK_JUMPED: { reason: "req", from_sim_time: "req", to_sim_time: "req", stop_id: "req", ended_by: "req" },
@@ -93,7 +93,7 @@ const SESSION_KEYS: Spec<Session> = { session_id: "req", scenario_id: "req", dat
   hab_candidate_id: "opt", mission_setup: "opt", started_events: "opt" };
 const VEHICLE_KEYS: Spec<Vehicle> = { vehicle_id: "req", kind: "req", param_set: "req", x_m: "req", y_m: "req", state: "req", task: "req", path: "req", eta_s: "req", battery_wh: "req",
   task_id: "opt", queue: "opt", relay_coverage_rev: "opt" };
-const EARTH_KEYS: Spec<Snapshot["earth"]> = { light_time_s: "req", next_pass_utc: "req", blackout: "req", queue: "req", link_state: "opt", link_via: "opt", link_until_utc: "opt" };
+const EARTH_KEYS: Spec<Snapshot["earth"]> = { light_time_s: "req", next_pass_utc: "req", blackout: "req", queue: "req", link_state: "opt", link_via: "opt", link_until_utc: "opt", link_source_id: "opt" };
 const OPTION_KEYS: Keys<ContingencyOption> = { option_id: true, alert_id: true, kind: true, crew_ids: true, eta_shelter_min: true, expected_dose_ugy: true, stops_dropped: true, violations: true, rank: true, path_preview: true, rendezvous: true };
 const ACTIVITY: Record<CrewActivity, true> = { IN_HAB: true, WALKING: true, AT_STOP: true, TO_HAVEN: true, SHELTERED: true, HOLDING: true, RIDING: true };
 const SESSION_STATUS: Record<Session["status"], true> = { LOADED: true, RUNNING: true, PAUSED: true, ENDED: true };

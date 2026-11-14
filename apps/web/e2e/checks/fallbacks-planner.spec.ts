@@ -195,7 +195,7 @@ test("fallbacks: with the real worker the manual-leg panel is honest about what 
   await expect(page.locator(`${PANEL} .metric-value[data-source="unavailable:manual-plan-totals"]`)).toHaveText("—");
 });
 
-test.fixme("needs N-160: the real worker validates a manual leg and the plan integrates it (T09.08)", async ({ page }) => {
+test("needs N-160: the real worker validates a manual leg and the plan integrates it (T09.08)", async ({ page }) => {
   // Passes the moment the worker answers VALIDATE_MANUAL_LEG with a leg (N-25 handler) and the plan totals include it.
   await planWithLegPanel(page);
   await legButtons(page).first().click();

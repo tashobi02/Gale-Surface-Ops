@@ -181,7 +181,7 @@ test("the REASON control cycles a skipped task's reason and sends the revision (
   expect(revisions.length, "the revision command the REASON control sent").toBeGreaterThanOrEqual(1);
 });
 
-test.fixme("needs N-29: the Hab Core accepts a skipped task's new reason (SKIPPED → SKIPPED)", async ({ context, page }) => {
+test("needs N-29: the Hab Core accepts a skipped task's new reason (SKIPPED → SKIPPED)", async ({ context, page }) => {
   test.setTimeout(180_000);
   const { ops, wire } = await openFreshOps(context);
   const evaWire = watchLive(page);
