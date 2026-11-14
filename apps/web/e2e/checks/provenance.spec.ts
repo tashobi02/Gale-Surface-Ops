@@ -258,7 +258,7 @@ test("provenance: light planner coach counters have provenance at every step (pa
 // T18.03 (N-24): the panel shows the REMS context of the plan's L_s bin, with each range carrying its own provenance
 // and source. The plan needs a real L_s, so the check sets an EVA start inside the 255-260 degree bin the F4 bundle's
 // `rems_context.json` carries and puts one stop on the plan; the worker computes the conditions (the client never does).
-test("needs N-24: REMS seasonal context displays the supplied derived values (T18.03)", async ({ page }) => {
+test("REMS seasonal context displays the supplied derived values (T18.03; N-24 closed)", async ({ page }) => {
   await page.goto("/?site=mock_site#/planner");
   await page.waitForLoadState("networkidle");
   await page.getByRole("tab", { name: "Plan", exact: true }).click();
@@ -283,7 +283,7 @@ test("needs N-24: REMS seasonal context displays the supplied derived values (T1
   }
 });
 
-test("needs N-24: illustrative O₂ rate is supplied on SCR-08 (T18.06)", async ({ page }) => {
+test("illustrative O₂ rate is supplied on SCR-08 (T18.06; N-24 closed)", async ({ page }) => {
   await openBriefing(page);
   await expect(page.locator('[data-source="unavailable:compute.o2LitresPerMinute"]')).toHaveCount(0);
   await expect(page.getByText("O₂ rate (illustrative)")).toBeVisible();
