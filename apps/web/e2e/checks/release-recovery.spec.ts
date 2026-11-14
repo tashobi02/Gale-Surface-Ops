@@ -2,8 +2,9 @@
  * Check `release-recovery` (backend package 28, T14.10; NFR-10, BD-83). Backend-owned.
  * On scratch copies of the F4 site (`data/sites/e2e_*`, removed afterwards): a missing manifest is named by SCR-00 and Retry boots once
  * the file is back, with the keyboard alone; a deleted optional layer is unavailable while routing still works; a corrupted grid file
- * is named by SCR-00 in the production build (BD-83). A worker failure and a dev-build corruption need hooks the app does not have:
- * they are `fixme` and name the frontend package.
+ * is named by SCR-00 in the production build (BD-83); a worker failure shows "Computation failed" and a Retry that recovers (N-211,
+ * the mock worker's own `transient-error` variant, so no hook in the app is needed). The dev-build corruption is `skipped`: the
+ * production build does not hash the grid (02 §E.1), so there is nothing to reproduce there.
  */
 import { expect, test } from "@playwright/test";
 import { readFileSync, rmSync, truncateSync, writeFileSync } from "node:fs";
@@ -64,16 +65,39 @@ test("release-recovery: a grid file of the wrong length is named by SCR-00 in th
   });
 });
 
-// The app now has the failure state and the Retry (frontend package 09, T09.07): the results panel's banner reads "Computation failed"
-// and offers a Retry. The `results-states` check proves it on the route-results screen. This case stays a placeholder because the
-// trigger differs: it wants a `__failWorker` hook on the page, and the app exposes no such hook (the failure is driven by the plan
-// store's own error state). Adding a debug-only failure hook to the app would be a test hook in production code, so the acceptance
-// stays with `results-states` until the backend/worker provides a way to fail a live computation on demand (N-211).
-test.fixme("needs N-211: a worker failure shows Computation failed with Retry without a frontend debug hook (T09.07 UI verified in results-states)", async ({ page }) => {
-  await page.goto("/?site=mock_site#/planner");
-  await page.evaluate(() => (window as unknown as { __failWorker?: () => void }).__failWorker?.());
-  await expect(page.getByRole("alert").filter({ hasText: /Computation failed/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Retry$/ })).toBeVisible();
+// N-211: the failure is driven by the worker, not by a hook in the app. The F3 mock worker is that worker-owned mechanism
+// (FD-174): its `transient-error` variant answers the first COMPUTE_PLAN with an `INTERNAL` error and the next one with a
+// real plan. That is exactly the "the worker failed a live computation" case, and it makes the recovery observable. The app
+// has no `__failWorker` hook and needs none: the plan store sees the worker's own error code and enters its Error state
+// (03 §E.4), and SCR-05 shows "Computation failed" with a Retry (T09.07). The check drives the real planner UI — a stop, a
+// computation, the failure, the retry — with no debug hook in production code.
+test("release-recovery: a worker failure shows Computation failed with a working Retry (N-211, T09.07)", async ({ page }) => {
+  await page.goto("/?site=mock_site&mock_worker=1&mock_worker_result=transient-error#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  await page.getByRole("tab", { name: "Plan", exact: true }).click();
+  const start = page.getByLabel(/EVA start/i);
+  await start.fill("");
+  await start.fill("2026-11-14T08:00:00Z");
+  await addStopByKeyboard(page, 1);
+
+  // The worker's error answer reaches the panel: the banner names the failure and the reason carries the worker's own code.
+  const panel = page.getByRole("region", { name: "Route results", exact: true });
+  const banner = panel.locator("[data-results-banner]");
+  await expect(banner, "the failure is named").toContainText("Computation failed");
+  await expect(banner, "the worker's own error code is shown").toContainText("TIMEOUT");
+  await expect(banner.locator(".status-glyph"), "the failure draws a shape").toBeVisible();
+  // The panel does not pretend there is a result (03 §E.4).
+  await expect(panel.locator("[data-totals-hidden]")).toHaveAttribute("data-totals-hidden", "true");
+
+  // Retry is offered, and it re-runs the computation: the worker answers the next COMPUTE_PLAN with a plan, so the banner
+  // changes from the failure to the plan's own result. A Retry that did nothing would leave the failure on screen.
+  const retry = banner.getByRole("button", { name: "Retry" });
+  await expect(retry, "the failure offers a Retry").toBeVisible();
+  await retry.click();
+  await expect(banner, "the retry re-ran the computation and the worker answered with a plan").not.toContainText("Computation failed");
+  await expect(banner, "the recovered plan says OK").toContainText("OK");
+  await expect(retry, "the Retry is gone once the plan is there").toHaveCount(0);
 });
 
 test.skip("not applicable to production e2e: corrupted-grid checksum is dev-build only (BD-83, 02 §E.1)", async () => {

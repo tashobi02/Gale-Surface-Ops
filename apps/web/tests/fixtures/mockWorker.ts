@@ -5,6 +5,9 @@
  *
  * Selection:
  * - Query parameter ?result=ok (default), ?result=partial, or ?result=over-limits.
+ * - ?result=transient-error fails the first COMPUTE_PLAN with an `INTERNAL` error and answers the next one with the `ok`
+ *   fixture. It is the worker-owned way to fail a live computation on demand (N-211): the app has no failure hook, the
+ *   worker owns the failure, and the recovery is observable because the second answer is a real plan.
  * - Unknown result names return an ERROR response with code "INTERNAL".
  */
 
@@ -49,14 +52,29 @@ export const MOCK_SAMPLE_RESULT_BASE: Omit<SampleResult, "request_id"> = {
 };
 
 /**
+ * The per-worker state the `transient-error` variant needs: how many COMPUTE_PLAN requests it has already answered (N-211).
+ * The handle function stays pure; the caller owns the counter.
+ */
+export interface MockWorkerState {
+  /** How many COMPUTE_PLAN requests this worker has been asked to answer. */
+  planRequests: number;
+}
+
+export function createMockWorkerState(): MockWorkerState {
+  return { planRequests: 0 };
+}
+
+/**
  * Handle a WorkerRequest against the mock responses.
  *
  * @param request WorkerRequest received from client.
- * @param resultVariant Chosen fixture key: "ok" | "partial" | "over-limits" (default: "ok").
+ * @param resultVariant Chosen fixture key: "ok" | "partial" | "over-limits" | "transient-error" (default: "ok").
+ * @param state The worker's own state; it counts the plan requests the `transient-error` variant needs. A fresh one when omitted.
  */
 export function handleMockWorkerMessage(
   request: WorkerRequest,
   resultVariant = "ok",
+  state: MockWorkerState = createMockWorkerState(),
 ): WorkerResponse {
   if (request.type === "SAMPLE_POINT") {
     const sampleReq = request as SamplePointRequest;
@@ -69,7 +87,23 @@ export function handleMockWorkerMessage(
 
   if (request.type === "COMPUTE_PLAN") {
     const planReq = request as ComputePlanRequest;
-    const fixture = CANNED_PLAN_RESULTS[resultVariant];
+    state.planRequests += 1;
+
+    // N-211: the first plan fails, the next one succeeds. The failure is the worker's own, so the app needs no debug hook,
+    // and the recovery is visible: the plan after the retry is a real one. The code is TIMEOUT, the worker's own "the
+    // computation did not finish" answer (02 §D.2's expansion cap); an INTERNAL answer would mark the client crashed and the
+    // Retry would restart the worker, which would reset this counter and fail again for ever.
+    if (resultVariant === "transient-error" && state.planRequests === 1) {
+      const errorResponse: WorkerError = {
+        type: "ERROR",
+        request_id: planReq.request_id,
+        code: "TIMEOUT",
+        message: "The mock worker's transient failure: the first COMPUTE_PLAN of this worker times out.",
+      };
+      return errorResponse;
+    }
+
+    const fixture = CANNED_PLAN_RESULTS[resultVariant === "transient-error" ? "ok" : resultVariant];
 
     if (!fixture) {
       const errorResponse: WorkerError = {
@@ -125,9 +159,11 @@ export function getResultVariantFromName(name: string | undefined): string | nul
 // In a real Web Worker environment, wire the message listener
 if (typeof self !== "undefined" && typeof self.postMessage === "function" && "location" in self) {
   const variant = getResultVariantFromName(self.name) ?? getResultVariantFromUrl(self.location.href);
+  // The worker's own state: it counts the plan requests the `transient-error` variant needs (N-211).
+  const state = createMockWorkerState();
 
   self.onmessage = (event: MessageEvent<WorkerRequest>) => {
-    const response = handleMockWorkerMessage(event.data, variant);
+    const response = handleMockWorkerMessage(event.data, variant, state);
     self.postMessage(response);
   };
 }

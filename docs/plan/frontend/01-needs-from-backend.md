@@ -97,7 +97,7 @@ Rule for every frontend package: a field the backend has not shipped renders "�
 ## Package 99 follow-up
 
 1. N-210 — Annotate lines 28, 57 and 62 of backend-owned `apps/web/tests/fixtures/README.md` individually with `N-13` so literal `TODO(decision)`/`TODO(verify)` greps match the `99-verification.md` §B.2 N-13 exception per line.
-2. N-211 — Provide a worker/backend-owned mechanism to fail a live routing computation on demand so `release-recovery.spec.ts` can verify the T09.07 "Computation failed" + Retry path without adding a production debug hook (`FD-543`).
+2. N-211 — Provide a worker/backend-owned mechanism to fail a live routing computation on demand so `release-recovery.spec.ts` can verify the T09.07 "Computation failed" + Retry path without adding a production debug hook (`FD-543`). **Closed 14 Nov 2026:** the F3 mock worker gained a `transient-error` variant (`apps/web/tests/fixtures/mockWorker.ts`) that answers the first `COMPUTE_PLAN` with the worker's own `TIMEOUT` error and the next one with the `ok` fixture. The failure is the worker's, so the app needs no hook, and the recovery is observable. `release-recovery.spec.ts` drives the real planner UI with it and asserts the banner, the error code, the Retry and the recovery to OK. The code is `TIMEOUT` and not `INTERNAL` on purpose: an `INTERNAL` answer marks the client crashed, so the Retry would restart the worker, reset the counter and fail for ever.
 
 ## QoL pass follow-up
 

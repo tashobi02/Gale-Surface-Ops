@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ComputePlanRequest, SamplePointRequest } from "@marswalk/protocol";
 import {
+  createMockWorkerState,
   getResultVariantFromName,
   getResultVariantFromUrl,
   handleMockWorkerMessage,
@@ -115,6 +116,64 @@ describe("F3 — Mock worker (T05.04)", () => {
     expect(getResultVariantFromUrl("http://localhost/mockWorker.js?result=over-limits")).toBe("over-limits");
     expect(getResultVariantFromUrl("http://localhost/mockWorker.js")).toBe("ok");
     expect(getResultVariantFromUrl("invalid-url-string")).toBe("ok");
+  });
+});
+
+describe("F3 — Mock worker's transient failure (N-211)", () => {
+  const planRequest: ComputePlanRequest = {
+    type: "COMPUTE_PLAN",
+    request_id: "req-0001",
+    plan_revision: 1,
+    site_id: "mock_site",
+    data_version: "mock_site-1",
+    scenario: {
+      eva_start_utc: "2026-11-14T08:00:00Z",
+      max_eva_duration_h: 6.0,
+      dwell_min_per_stop: 20,
+      hard_slope_limit_deg: 15,
+      caution_slope_deg: 10,
+      walkback_limit_km: 5.0,
+      suited_flat_speed_kmh: 3.3,
+      solar_phase: "max",
+      loop: false,
+      max_haven_min: 30,
+      crew_count: 2,
+      vehicle_available: false,
+    },
+    waypoints: [
+      { id: "wp-0", role: "start", x_m: 0, y_m: 0 },
+      { id: "wp-1", role: "stop", x_m: 500, y_m: 0 },
+    ],
+  };
+
+  it("fails the first COMPUTE_PLAN with TIMEOUT and answers the next one with the ok fixture", () => {
+    const state = createMockWorkerState();
+    const first = handleMockWorkerMessage(planRequest, "transient-error", state);
+    expect(first.type).toBe("ERROR");
+    if (first.type === "ERROR") {
+      // TIMEOUT, not INTERNAL: an INTERNAL answer marks the client crashed, and the Retry would restart the worker, which
+      // would reset the counter and fail for ever.
+      expect(first.code).toBe("TIMEOUT");
+      expect(first.request_id).toBe("req-0001");
+    }
+
+    const second = handleMockWorkerMessage({ ...planRequest, request_id: "req-0002", plan_revision: 2 }, "transient-error", state);
+    expect(second.type).toBe("PLAN_RESULT");
+    if (second.type === "PLAN_RESULT") {
+      expect(second.request_id).toBe("req-0002");
+      expect(second.plan_revision).toBe(2);
+      expect(second.status).toBe("OK");
+    }
+  });
+
+  it("counts the plan requests it has answered, and a fresh state counts none", () => {
+    const state = createMockWorkerState();
+    expect(state.planRequests).toBe(0);
+    handleMockWorkerMessage(planRequest, "transient-error", state);
+    expect(state.planRequests).toBe(1);
+    // A SAMPLE_POINT is not a plan request and must not be counted.
+    handleMockWorkerMessage({ type: "SAMPLE_POINT", request_id: "s-1", x_m: 0, y_m: 0, snap_radius_m: 10 }, "transient-error", state);
+    expect(state.planRequests).toBe(1);
   });
 });
 

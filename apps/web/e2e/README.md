@@ -109,7 +109,7 @@ They run in the same `make e2e`; `release-demo` is its own last project because 
 | `release-matrix` | T14.08 | active on desktop 1280, tablet 768 and phone 390, on F4 (one plan compared across them); the phone drawer tap is `fixme` (B-04) | frontend 07 |
 | `release-csp` | T14.09 (browser) | active: no CSP violation on any route, the header, `?debug=1` items; the debug overlay's own violation is `fixme` (B-05) | frontend 07 |
 | `release-demo` | T14.09 (files), `make demo` | active: `GET /`, `GET /api/health`, no external URL, gzip and bundle size | |
-| `release-recovery` | T14.10 | missing manifest, deleted layer, short grid active; worker failure and dev-build corruption `fixme` | frontend 09, 06 |
+| `release-recovery` | T14.10 | missing manifest, deleted layer, short grid, worker failure active (the mock worker's `transient-error` variant, N-211); the dev-build corruption is `skipped` (BD-83: production does not hash the grid) | frontend 09, 06 |
 | `release-roles` | T28.03 | active: every live role on every project receives a SNAPSHOT | |
 | `release-network` | T28.05, T31.08 | socket drop, kill and restart, `hab:local` active; SCR-18 within 3 s (B-03), the killer demo through the UI and the tap latency `fixme` | frontend 17, 18, 29 |
 
