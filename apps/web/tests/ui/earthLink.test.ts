@@ -38,6 +38,20 @@ describe("Earth link widget", () => {
     client.close();
   });
 
+  it("renders supplied link states with their provenance and source", async () => {
+    const client = storeFromBeat("connect", "ops");
+    const base = client.state()!;
+    const view = await mount(createElement(EarthLinkWidget, { snapshot: { ...base, provenance: { ...base.provenance, "earth.link_state": "derived" }, earth: { ...base.earth, link_state: "AVAILABLE", link_source_id: "engine:link" } } }));
+    const state = must(view.container, '[data-value="link-state"]');
+    expect(state.textContent).toContain("AVAILABLE");
+    expect(state.getAttribute("data-provenance")).toBe("derived");
+    expect(state.getAttribute("data-source")).toBe("engine:link");
+    await view.rerender(createElement(EarthLinkWidget, { snapshot: { ...base, earth: { ...base.earth, link_state: "WAITING" } } }));
+    expect(state.textContent).toContain("WAITING");
+    await view.unmount();
+    client.close();
+  });
+
   it("conjunction state", async () => {
     const client = storeFromBeat("connect", "ops");
     const snapshot = client.state()!;

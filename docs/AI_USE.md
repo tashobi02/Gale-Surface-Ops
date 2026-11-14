@@ -532,6 +532,8 @@ Final disclosure wording: TODO(verify) against the 2026 Project Submission / Jud
 
 | 2026-11-14 | OpenAI Codex (GPT-6) | T25.01, T31.05, T32.19, T32.20, T32.26: enabled contract checks, passed through the authoritative EVA phase and updated fixture contract keys; prepared team checklists | No backend, scenario, recording or dataset changes; remaining browser and frontend integration gaps are recorded in task status | User-directed implementation; phase regression and N-29 meta-test each failed once before the fix; targeted browser results and full-check limitations are recorded in task status | This Codex conversation |
 
+| 2026-11-14 | OpenAI Codex (GPT-6) | T16.04, T16.07, T30.02, T30.03, T18.12: prepared human evidence checklists and wired supplied Earth link state | No publication, submission, score, guide audit or historical disclosure claimed; remaining UI integrations stay open | User-directed work; two N-31 regression tests failed before implementation | This Codex conversation |
+
 ## Prompts location
 
 Prompts and session transcripts reside in each operator's local CLI and agent session logs outside this Git repository (`docs/ai-prompts/` is not used) so session histories and credentials remain local; per-change summaries, tool versions, boundaries and human-review status remain append-only in the table above (FD-541).
