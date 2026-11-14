@@ -3,7 +3,7 @@
  * The ops UI alone: load the scenario, start the EVA, speed 60x, raise an alert, approve an option, end, then the report. The test
  * never calls the API directly; `sendAsOps` only clicks ops-console controls.
  * The F4 fake scenario supplies the synthetic storm and real options. SCR-11 starts the library storm itself (N-200, BD-165); utility-rover
- * dispatch additionally needs the real bundle.
+ * dispatch uses the real bundle or the opt-in assumed rover fixture against the real Hab Core.
  */
 import { expect, test } from "@playwright/test";
 import { UTILITY_ROVER, openOpsFixture, openOpsPanel } from "../lib/opsFixture";
@@ -176,7 +176,7 @@ test("ops-no-terminal: dispatch a rover target using keyboard traversal and map 
 });
 
 test("ops-no-terminal: utility rover dispatch is acknowledged by the real Hab Core", async ({ context }) => {
-  test.skip(e2eSite() !== REAL_SITE, "bundle absent (gale_boxwork utility rover scenario; F4 fake scenario has only PR1)");
+  test.skip(e2eSite() !== REAL_SITE && process.env.E2E_ROVER_FIXTURE !== "1", "requires the real bundle or E2E_ROVER_FIXTURE=1");
   const { ops, wire } = await openFreshOps(context);
   try {
     await startPaused(ops, wire);

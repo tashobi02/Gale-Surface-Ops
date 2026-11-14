@@ -2,15 +2,17 @@
  * Check `release-recovery` (backend package 28, T14.10; NFR-10, BD-83). Backend-owned.
  * On scratch copies of the F4 site (`data/sites/e2e_*`, removed afterwards): a missing manifest is named by SCR-00 and Retry boots once
  * the file is back, with the keyboard alone; a deleted optional layer is unavailable while routing still works; a corrupted grid file
- * is named by SCR-00 in the production build (BD-83); a worker failure shows "Computation failed" and a Retry that recovers (N-211,
- * the mock worker's own `transient-error` variant, so no hook in the app is needed). The dev-build corruption is `skipped`: the
- * production build does not hash the grid (02 §E.1), so there is nothing to reproduce there.
+ * is named by SCR-00 in the production build (BD-83); a worker failure shows "Computation failed" and a Retry that recovers (N-211).
+ * A separate Vite development server verifies same-length grid corruption and Retry; production skips checksums (02 §E.1).
  */
 import { expect, test } from "@playwright/test";
+import { spawn } from "node:child_process";
 import { readFileSync, rmSync, truncateSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { createRequire } from "node:module";
 import { addStopByKeyboard } from "../lib/planner";
 import { REPO_ROOT, withScratchSite } from "../lib/release";
+import { HAB_ORIGIN, HAB_PORT } from "../lib/hab";
 
 const MOCK = join(REPO_ROOT, "data", "sites", "mock_site");
 
@@ -66,7 +68,7 @@ test("release-recovery: a grid file of the wrong length is named by SCR-00 in th
 });
 
 // N-211: the failure is driven by the worker, not by a hook in the app. The F3 mock worker is that worker-owned mechanism
-// (FD-174): its `transient-error` variant answers the first COMPUTE_PLAN with an `INTERNAL` error and the next one with a
+// (FD-174): its `transient-error` variant answers the first COMPUTE_PLAN with a `TIMEOUT` error and the next one with a
 // real plan. That is exactly the "the worker failed a live computation" case, and it makes the recovery observable. The app
 // has no `__failWorker` hook and needs none: the plan store sees the worker's own error code and enters its Error state
 // (03 §E.4), and SCR-05 shows "Computation failed" with a Retry (T09.07). The check drives the real planner UI — a stop, a
@@ -100,6 +102,34 @@ test("release-recovery: a worker failure shows Computation failed with a working
   await expect(retry, "the Retry is gone once the plan is there").toHaveCount(0);
 });
 
-test.skip("not applicable to production e2e: corrupted-grid checksum is dev-build only (BD-83, 02 §E.1)", async () => {
-  // Production does not hash the grid (02 §E.1); the dev build would. `make e2e` serves only the production build.
+test("release-recovery: development checksum identifies a same-length corrupted grid and Retry recovers", async ({ page }) => {
+  const port = HAB_PORT === 8399 ? 8398 : HAB_PORT + 1;
+  const origin = `http://127.0.0.1:${port}`;
+  const vite = spawn(process.execPath, [join(dirname(createRequire(import.meta.url).resolve("vite/package.json")), "bin/vite.js"), "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
+    cwd: join(REPO_ROOT, "apps/web"), env: { ...process.env, HAB_URL: HAB_ORIGIN }, stdio: "ignore",
+  });
+  try {
+    await expect.poll(async () => {
+      if (vite.exitCode !== null) throw new Error(`Vite exited: ${vite.exitCode}`);
+      return fetch(origin).then((r) => r.status).catch(() => 0);
+    }, { timeout: 20_000 }).toBe(200);
+    await withScratchSite("e2e_grid_corrupt", (dir) => {
+      const path = join(dir, "grid", "elevation.f32");
+      const bytes = readFileSync(path);
+      bytes[0] = bytes[0]! ^ 1;
+      writeFileSync(path, bytes);
+    }, async (site, dir) => {
+      await page.goto(`${origin}/?site=${site}#/planner`);
+      const screen = page.locator('[data-screen="SCR-00"]');
+      await expect(screen).toBeVisible({ timeout: 20_000 });
+      await expect(screen.locator('[data-slot="missing-file"]')).toHaveText(`sites/${site}/grid/elevation.f32`);
+      await expect(screen).toContainText(/checksum/i);
+      writeFileSync(join(dir, "grid", "elevation.f32"), readFileSync(join(MOCK, "grid", "elevation.f32")));
+      await screen.locator('[data-slot="boot-retry"]').click();
+      await expect(page.locator('[data-screen="SCR-02"]').first()).toBeVisible();
+    });
+  } finally {
+    vite.kill("SIGTERM");
+    await new Promise<void>((resolve) => vite.exitCode !== null ? resolve() : vite.once("exit", () => resolve()));
+  }
 });

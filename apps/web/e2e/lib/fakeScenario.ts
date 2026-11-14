@@ -119,7 +119,15 @@ export function prepareFakeScenario(repoRoot: string, siteId: string): string {
     plan: PlanLike;
     tables: { earth_link: { path: string; sha256: string } };
     mission_setup?: { hab_candidate_id?: string };
+    vehicles: { vehicle_id: string; kind: string; param_set: string; start_x_m: number; start_y_m: number }[];
+    param_sets: string[];
   };
+  if (process.env.E2E_ROVER_FIXTURE === "1") {
+    // Match the existing Hab Core rover test fixture; the values remain explicitly assumed.
+    cpSync(join(repoRoot, "scenarios/storm-sol4190/param_sets/ur1-assumed.json"), join(target, "param_sets/ur1-assumed.json"));
+    scenario.param_sets.push("ur1-assumed");
+    scenario.vehicles.push({ vehicle_id: "UR1", kind: "utility_rover", param_set: "ur1-assumed", start_x_m: 600, start_y_m: 200 });
+  }
   scenario.data_version = manifest.data_version;
   // The Hab Core refuses a `hab_candidate_id` when the site has no `hab_candidates` (scenario check `hab_candidate`, 05 Scenario);
   // the F4 mock site has none, so the copy omits the id (FD-236).
