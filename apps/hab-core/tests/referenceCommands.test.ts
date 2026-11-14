@@ -141,7 +141,8 @@ describe.skipIf(!hasRealBundle)("the reference run of 01 §E.1 (real scenario, r
       const again = await runReference();
       expect(recordingJson(again.recording)).toBe(recordingJson(run.recording));
       expect(again.hash).toBe(run.hash);
-    });
+      // A second full reference run: ~30 s on a CI runner (run 43574187987), so it gets the beforeAll run's budget.
+    }, 240_000);
   });
 
   describe("T21.09: 01 §E.1 holds only sourced numbers", () => {
