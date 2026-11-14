@@ -279,7 +279,7 @@ test("plan-rules: the Hab Core's start default fills the EVA start field once th
   await expect(panel).toHaveAttribute("data-plan-state", "empty");
 });
 
-test.fixme("plan-rules: republishing replaces planner drafts at retained stops without duplicates (needs N-70)", async ({ page }) => {
+test("plan-rules: republishing replaces planner drafts at retained stops without duplicates (needs N-70)", async ({ page }) => {
   const { editor } = await openPoiTasks(page);
   const snapshot = async (): Promise<Snapshot> => (await page.request.get("api/session")).json();
   const publish = async () => {

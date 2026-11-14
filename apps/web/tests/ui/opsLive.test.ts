@@ -215,6 +215,11 @@ describe("event log strip and drawer (03 SCR-11)", () => {
 
 
 describe("package 19 conditions contract", () => {
+  it("passes the authoritative phase and its own provenance, leaving incomplete metadata unavailable", () => {
+    const conditions = { ...connect.conditions, eva_phase: "WALKING", provenance: { ...connect.conditions.provenance, eva_phase: "simulated" }, source_ids: { ...connect.conditions.source_ids, eva_phase: "engine:session" } } as Snapshot["conditions"];
+    expect(selectOpsProps({ ...connect, conditions }, []).phase).toEqual({ v: "WALKING", prov: "simulated", src: "engine:session" });
+    expect(selectOpsProps({ ...connect, conditions: { ...conditions, source_ids: {} } }, []).phase).toBeUndefined();
+  });
   it("uses N-06 values with their supplied provenance and source", () => {
     const conditions = {
       sol: 4190, ltst: "13:05", sun_elevation_deg: 0,

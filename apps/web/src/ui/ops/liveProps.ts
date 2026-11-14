@@ -3,7 +3,7 @@
  *
  * Passes the Hab Core's values through and labels them. It computes nothing: counts are tallies of the tasks the server
  * sent, never estimates. N-06 conditions keep their supplied provenance and sources (FD-085).
- * What the snapshot does not carry stays undefined, including the EVA phase.
+ * What the snapshot does not carry stays undefined.
  */
 import type { CrewId, LogEvent, Snapshot } from "@marswalk/protocol";
 import type { CrewTaskProgress, OpsConsoleProps, OpsLogLine } from "../screens/scr11OpsConsole";
@@ -97,6 +97,7 @@ export function selectOpsProps(snapshot: Snapshot | null, events: LogEvent[]): L
   };
   return {
     sol: value<number>("sol"),
+    phase: value<string>("eva_phase"),
     ltst,
     conditions: Object.values(fields).some(Boolean) ? fields : undefined,
     scenarioName: snapshot.session.scenario_id,

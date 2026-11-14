@@ -48,14 +48,13 @@ test("offline: every route loads with no external request and local fonts and ic
   }
 
   expectNoExternal(guard);
-  // The presenter's join QR images (N-16) do not exist in the Hab Core yet (N-90): they answer 404 and SCR-19 shows "—". The 2xx
-  // requirement for them is the `needs N-90` test below; everything else must still answer.
+  // QR image responses are checked separately below; all other local assets must still answer.
   expectLocalAssetsOk({ ...guard, responses: guard.responses.filter((r) => !r.url.includes("/api/join-qr?")) }, ["font", "image"]);
   // A font check that saw no font would pass for the wrong reason (FD-152).
   expect(countResponses(guard, "font"), "no font was loaded from the origin").toBeGreaterThan(0);
 });
 
-test.fixme("needs N-90: every join QR image on the presenter panel answers 2xx", async ({ page }) => {
+test("needs N-90: every join QR image on the presenter panel answers 2xx", async ({ page }) => {
   const guard = await guardNetwork(page);
   await page.goto("/?site=mock_site#/presenter");
   await page.waitForLoadState("networkidle");

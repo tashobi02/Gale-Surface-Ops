@@ -276,7 +276,7 @@ test("axe: ops rover card and SCR-15 rover tasking have no serious or critical v
   await axeScan(page, { mode: "ops", route: `${testInfo.project.name}-ops-rover-placing` });
 });
 
-test.fixme("needs N-06: ops receives an authoritative EVA phase", async ({ page }) => {
+test("needs N-06: ops receives an authoritative EVA phase", async ({ page }) => {
   await page.goto("/?site=mock_site#/ops");
   await expect(page.locator('.phase-timeline [data-provenance]')).not.toHaveText(/—/);
 });
