@@ -3,8 +3,8 @@
 
 Implements the mechanical sweep for T30.02:
 1. Forward check: every non-merge commit reachable from --rev has a matching entry
-   in the `## Log` table of `docs/AI_USE.md`. Uncovered commits are separated into
-   those carrying an AI `Co-Authored-By:` trailer and those without one.
+   in the `## Log` table, or, if untrailered, an exact SHA in `## Commits with no
+   AI assistance`. Uncovered commits are separated by AI trailer.
 2. Reverse check: every `## Log` row matches at least one commit in history, any
    explicitly cited commit SHAs exist in `--rev` history, and any explicitly cited
    repo file paths exist in `--rev` or in its git history.
@@ -74,6 +74,14 @@ NON_COMMIT_HEX_PREFIX_RE = re.compile(
     re.IGNORECASE,
 )
 BACKTICK_RE = re.compile(r"`([^`]+)`")
+# Markers that label a cited path as a form that did not exist (a pre-fix path,
+# a renamed file). Such a path is a historical reference, not a citation.
+HISTORICAL_MARKER_RE = re.compile(
+    r"(?:pre-?fix|broken link|former(?:ly)?|old (?:path|form|name)|superseded|renamed from|before (?:the )?fix"
+    r"|dropped|rebased|restored|cherry-picked away|not (?:in|on) main)"
+    r"[^|]{0,140}$",
+    re.IGNORECASE,
+)
 REPO_PATH_PREFIXES = (
     "apps/",
     "packages/",
@@ -290,10 +298,29 @@ def _extract_paths(text: str) -> set[str]:
             continue
         if candidate.endswith("/"):
             continue
+        if _is_historical_reference(text, code):
+            continue
         for item in _expand_braces(candidate):
             if "{" not in item and "}" not in item and "." in Path(item).name:
                 paths.add(item)
     return paths
+
+
+def _is_historical_reference(text: str, code: str) -> bool:
+    """True when a cited path or commit is explicitly labelled as a superseded form.
+
+    A log row may name a path it *corrected* — a broken link, a renamed file, a
+    superseded spelling — or a commit it *dropped*, *rebased* or *restored from* a
+    side branch. Such a reference never joined the main line, so requiring it to
+    resolve would be a false failure. The row says so with a marker immediately
+    before it ("the pre-fix form `...`", "dropped ... commit 5d80664").
+    """
+    # The reference may be backticked (`5d80664`) or bare (5d80664).
+    for match in re.finditer(re.escape(code), text):
+        before = text[max(0, match.start() - 160) : match.start()]
+        if HISTORICAL_MARKER_RE.search(before):
+            return True
+    return False
 
 
 def _extract_shas(text: str) -> set[str]:
@@ -317,6 +344,12 @@ def _extract_shas(text: str) -> set[str]:
         # Skip 7-char strings embedded inside longer hex (like SHA-256 digests)
         end = m.end()
         if end < len(text) and text[end].lower() in "0123456789abcdef":
+            continue
+        # Skip a commit that the row names as dropped, rebased or restored from a
+        # side branch: such a commit never joined the main line, so requiring it
+        # to resolve in `--rev` would be a false failure. The row says so with a
+        # marker immediately before it ("dropped ... commit 5d80664").
+        if _is_historical_reference(text, cand):
             continue
         shas.add(cand.lower())
     return shas
@@ -377,6 +410,23 @@ def parse_ai_use_log(ai_use_path: Path) -> list[LogRow]:
         )
         rows.append(row)
     return rows
+
+
+def parse_no_ai_commits(ai_use_path: Path) -> set[str]:
+    """Read explicit commit IDs from the separate no-AI table only."""
+    in_section = False
+    shas: set[str] = set()
+    for line in ai_use_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            in_section = stripped == "## Commits with no AI assistance"
+        elif in_section and stripped.startswith("|"):
+            cells = _split_markdown_row(stripped)
+            if len(cells) == 4 and all(cells):
+                match = re.fullmatch(r"`([0-9a-f]{7,40})`", cells[0])
+                if match:
+                    shas.add(match.group(1))
+    return shas
 
 
 def _run_git(repo: Path, args: list[str]) -> str:
@@ -546,6 +596,7 @@ def audit(repo: Path, ai_use_path: Path, rev: str = "HEAD") -> dict:
         ai_use_rel = str(ai_use_path)
 
     rows = parse_ai_use_log(ai_use_abs)
+    no_ai_shas = parse_no_ai_commits(ai_use_abs)
     row_norm_map = {_normalize_row_text(r.raw_line): r for r in rows}
     commits = load_commits(repo, rev, ai_use_rel)
 
@@ -560,6 +611,8 @@ def audit(repo: Path, ai_use_path: Path, rev: str = "HEAD") -> dict:
             covered.append({"sha": c.short_sha, "date": c.date_str, "subject": c.subject, "rows": matched})
             for row_idx, _reason in matched:
                 row_hits[row_idx].append(c.short_sha)
+        elif not c.ai_trailered and any(c.sha.startswith(sha) for sha in no_ai_shas):
+            covered.append({"sha": c.short_sha, "date": c.date_str, "subject": c.subject, "rows": []})
         else:
             entry = {
                 "sha": c.short_sha,

@@ -117,3 +117,84 @@ def test_reverse_checks_flag_unmatched_row_missing_sha_and_missing_path(tmp_path
     assert "Log rows matching zero commits in HEAD: 1" in res.stdout
     assert "Commit SHAs cited in Log not in HEAD history: 1" in res.stdout
     assert "Cited repo paths missing from HEAD and git history: 1" in res.stdout
+
+
+def test_documented_mechanical_commit_is_covered_by_exact_sha(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    (repo / "apps/web/real.ts").write_text("export const r = 1;\n", encoding="utf-8")
+    _git(repo, "add", "apps/web/real.ts")
+    _git(repo, "commit", "-q", "-m", "chore: regenerate progress")
+    sha = _git(repo, "rev-parse", "--short=7", "HEAD")
+    (repo / "docs/AI_USE.md").write_text(
+        "# AI use log\n\n## Log\n\n"
+        "| Date | Tool | What AI did | What AI did not do | Human review | Prompts |\n"
+        "| --- | --- | --- | --- | --- | --- |\n\n"
+        "## Commits with no AI assistance\n\n"
+        "| Commit | Date | Subject | Reason |\n| --- | --- | --- | --- |\n"
+        f"| `{sha}` | 2026-11-13 | chore: regenerate progress | Mechanical output |\n",
+        encoding="utf-8",
+    )
+    res = _run_check(repo)
+    assert res.returncode == 0, res.stdout + res.stderr
+
+
+def test_no_ai_section_does_not_hide_ai_trailers(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    (repo / "apps/web/real.ts").write_text("export const r = 1;\n", encoding="utf-8")
+    _git(repo, "add", "apps/web/real.ts")
+    _git(repo, "commit", "-q", "-m", "feat: real\n\nCo-Authored-By: Claude <noreply@anthropic.com>")
+    sha = _git(repo, "rev-parse", "--short=7", "HEAD")
+    (repo / "docs/AI_USE.md").write_text(
+        "# AI use log\n\n## Log\n\n"
+        "| Date | Tool | What AI did | What AI did not do | Human review | Prompts |\n"
+        "| --- | --- | --- | --- | --- | --- |\n\n"
+        "## Commits with no AI assistance\n\n"
+        "| Commit | Date | Subject | Reason |\n| --- | --- | --- | --- |\n"
+        f"| `{sha}` | 2026-11-13 | feat: real | Incorrect entry |\n",
+        encoding="utf-8",
+    )
+    res = _run_check(repo)
+    assert res.returncode == 1
+    assert "Uncovered commits WITH AI Co-Authored-By trailer: 1" in res.stdout
+
+
+def test_superseded_path_and_commit_are_not_required_to_resolve(tmp_path: Path) -> None:
+    """A row may name a path or commit it corrected; such a reference need not exist."""
+    repo = _init_repo(tmp_path)
+    (repo / "apps/web/real.ts").write_text("export const r = 1;\n", encoding="utf-8")
+    _git(repo, "add", "apps/web/real.ts")
+    _git(repo, "commit", "-q", "-m", "feat(web): add the real screen with its overlay")
+    sha = _git(repo, "rev-parse", "--short=7", "HEAD")
+    (repo / "docs/AI_USE.md").write_text(
+        "# AI use log\n\n## Log\n\n"
+        "| Date | Tool | What AI did | What AI did not do | Human review | Prompts |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        f"| 2026-11-13 | Codex (GPT-6) | add the real screen with its overlay; fixed one broken link (the pre-fix form "
+        f"`apps/web/tests/ui/gone.test.ts` -> `apps/web/tests/ui/here.test.ts`) and "
+        f"restored the report from `deadbee` | No code changed | Obidit Islam to review | This Codex conversation |\n",
+        encoding="utf-8",
+    )
+    res = _run_check(repo)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "Cited repo paths missing from HEAD and git history: 0" in res.stdout
+    assert "Commit SHAs cited in Log not in HEAD history: 0" in res.stdout
+
+
+def test_a_real_missing_path_is_still_flagged(tmp_path: Path) -> None:
+    """The superseded-reference rule must not hide a genuinely absent citation."""
+    repo = _init_repo(tmp_path)
+    (repo / "apps/web/real.ts").write_text("export const r = 1;\n", encoding="utf-8")
+    _git(repo, "add", "apps/web/real.ts")
+    _git(repo, "commit", "-q", "-m", "feat(web): add the real screen with its overlay")
+    sha = _git(repo, "rev-parse", "--short=7", "HEAD")
+    (repo / "docs/AI_USE.md").write_text(
+        "# AI use log\n\n## Log\n\n"
+        "| Date | Tool | What AI did | What AI did not do | Human review | Prompts |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        f"| 2026-11-13 | Codex (GPT-6) | add the real screen with its overlay; wrote "
+        "`apps/web/src/ui/never_existed.ts` | nothing | review | session |\n",
+        encoding="utf-8",
+    )
+    res = _run_check(repo)
+    assert res.returncode == 1
+    assert "Cited repo paths missing from HEAD and git history: 1" in res.stdout
