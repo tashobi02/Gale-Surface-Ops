@@ -1014,3 +1014,9 @@ A clean isolated package passed `npm ci`, `npm run build` and `npm run typecheck
 The N-170 entry above already records the name correction in main's scenario files; T16.01 now reflects that evidence and ADR-013. Historical AI-log audits, public Pages/repository access and engineering verification retain their existing acceptance records rather than being inferred from portal submission.
 
 **Completion-record validation:** `make lint typecheck test docs-check` passed. JavaScript suites: compute 768 passed, Hab Core 1,352 passed, web 2,009 passed; existing skips and todo cases remain. Python pipeline: 435 passed, 11 skipped. Documentation checks found 0 broken links across 4,758 relative links, and the generated README progress matched the task register.
+
+## T18.08 — cache recovery in worktree b5 (2026-11-14)
+
+The previously documented SSD cache was not mounted in this worktree. The CRISM summary product was reacquired from the D17 directory; its image SHA-256 matches D17. REMS acquisition from the D16 PDS4 directory is incomplete; the local `SOURCES.md` files record URLs, product versions and SHA-256 hashes for completed downloads. BD-163 selects the storm-window sols and does not claim multi-year climatology.
+
+A local verification process denied socket creation and connection with a seccomp filter (and confirmed socket creation failed), then read each indexed completed file, checked its SHA-256, parsed XML, read the text labels and header, checked REMS table record lengths and fields against its label, and opened and checksummed the CRISM raster with `gdalinfo`. Result: all 10 indexed REMS files (complete sols 4182–4184 and the sol 4185 label) and all 4 CRISM files passed. The full offline checklist remains open until all selected REMS files are present and checked. Partial downloads are excluded from the cache and the verification claim.
