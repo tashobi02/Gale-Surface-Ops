@@ -274,6 +274,8 @@ export function EvaTablet({
         className="alert-bar-slot"
       >
         {vm.alertSlot ? (
+          // 04 §E.5: the alert bar is a fixed 64 px row and it never moves. Its 56 px controls (OPTIONS, ACK) fit in
+          // the 64 px bar with 4 px above and below, so the bar cannot grow past its row and push HAVEN and O₂.
           <div
             role="alert"
             data-slot="alert"
@@ -281,12 +283,14 @@ export function EvaTablet({
             className={`alert-bar cut-s status-${vm.alertSlot.level}`}
             style={{
               width: "100%",
+              height: "64px",
               minHeight: "64px",
+              boxSizing: "border-box",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               gap: "8px",
-              padding: "8px 16px",
+              padding: "4px 16px",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: "1 1 auto" }}>

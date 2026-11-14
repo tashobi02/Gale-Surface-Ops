@@ -275,6 +275,37 @@ describe("SCR-12 EvaTablet on fixture snapshots (04 §A.3, §E.5)", () => {
     expect(new Set(orders).size).toBe(1);
   });
 
+  it("the alert bar is a fixed 64 px row and never moves (04 §E.5)", async () => {
+    // 04 §E.5: "ALERT BAR (when present) fixed, 64 px", and the alert slot, HAVEN, O₂ and the action row never move.
+    // The bar's own controls (OPTIONS, ACK) are 56 px targets, so the bar holds them with 4 px above and below and
+    // cannot grow past its row. The browser check `eva-geometry` measures the boxes; this one pins the box the
+    // measurement comes from, with and without an alert.
+    const connect = snapshotOf("connect");
+    const alerting: Snapshot = {
+      ...connect,
+      alerts: [{
+        alert_id: "alert-fixture", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"],
+        raised_seq: 1, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {},
+      }],
+    };
+    for (const [name, snapshot] of [["no alert", connect], ["alerting", alerting]] as const) {
+      const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot }));
+      const slot = must(container, '[data-slot="alert-slot"]');
+      expect(slot.style.minHeight, name).toBe("64px");
+      const bar = slot.querySelector('[data-slot="alert"]') as HTMLElement | null;
+      if (name === "alerting") {
+        // The bar is there with the 56 px controls that used to make it grow.
+        expect(bar, name).not.toBeNull();
+        expect(bar!.style.height, name).toBe("64px");
+        expect(bar!.style.minHeight, name).toBe("64px");
+        expect(bar!.style.boxSizing, name).toBe("border-box");
+        // 56 px of controls inside a 64 px bar: 4 px above and below, no more.
+        expect(bar!.style.padding, name).toBe("4px 16px");
+      }
+      document.body.innerHTML = "";
+    }
+  });
+
   it("every status indicator has colour class, shape glyph and word (04 §A.3 #2)", async () => {
     const { container } = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
     const indicators = container.querySelectorAll(".status-indicator");

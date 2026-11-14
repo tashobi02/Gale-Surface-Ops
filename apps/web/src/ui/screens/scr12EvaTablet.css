@@ -76,8 +76,12 @@
   }
 }
 @media (orientation: landscape) {
-  .scr12-eva-tablet { display: grid !important; grid-template-columns: 1fr 1fr; grid-template-rows: 64px minmax(0, 1fr) minmax(0, 1fr) 24px 24px 72px; height: 100dvh; min-height: 0 !important; padding: 0 !important; gap: 0 8px !important; overflow: hidden; }
-  .scr12-eva-tablet > [data-slot="alert-slot"] { grid-column: 1 / -1; }
+  .scr12-eva-tablet { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: 64px minmax(0, 1fr) minmax(0, 1fr) 24px 24px 72px; height: 100dvh; min-height: 0 !important; padding: 0 !important; gap: 0 8px !important; overflow: hidden; }
+  /* The top bar holds the alert slot and the crew-motion control, so the bar — not the slot — is the grid item that
+     spans the two columns. `minmax(0, 1fr)` keeps the columns exactly half each: a plain `1fr` track takes its
+     automatic minimum from its content, so an alert bar wider than its column pushed the left column sideways and
+     moved HAVEN and O₂ (04 §E.5: the alert slot, HAVEN, O₂ and the action row never move). */
+  .scr12-eva-tablet > [data-slot="top-bar"] { grid-column: 1 / -1; grid-row: 1; min-width: 0; }
   .scr12-eva-tablet > [data-slot="telemetry-row"] { grid-column: 1; grid-row: 2; min-height: 0; }
   .scr12-eva-tablet > [aria-label="Navigation and tasks"] { display: contents !important; }
   .scr12-eva-tablet [data-slot="next"] { grid-column: 1; grid-row: 3; min-height: 0 !important; overflow: auto; }
@@ -113,6 +117,7 @@
 }
 @media (orientation: portrait) {
   .scr12-eva-tablet { display: grid !important; grid-template-columns: minmax(0, 1fr); grid-template-rows: 64px 150px minmax(0, 1fr) 24px 24px 200px; height: 100dvh; min-height: 0 !important; padding: 0 !important; gap: 0 !important; }
+  .scr12-eva-tablet > [data-slot="top-bar"] { grid-column: 1; grid-row: 1; min-width: 0; }
   .scr12-eva-tablet > [data-slot="conditions"] { grid-column: 1; grid-row: 4; min-height: 0 !important; }
   .scr12-eva-tablet > [data-slot="meta-strip"] { grid-column: 1; grid-row: 5; }
   .scr12-eva-tablet > [data-slot="action-row"] { grid-column: 1; grid-row: 6; }

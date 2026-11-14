@@ -56,8 +56,19 @@ for (const viewport of [{ width: 844, height: 390 }, { width: 1024, height: 768 
         await expect.poll(async () => Number(await actualView.getAttribute("data-map-zoom"))).toBeGreaterThan(before);
       } finally { await client.detach(); }
       await page.locator('#map-ctrl-layers').click();
-      await expect(page.locator('[data-layer="haven_bands"]')).toBeDisabled();
-      await expect(page.locator('[data-layer="haven_bands"]')).toContainText("— unavailable");
+      // This case runs on the WS fixture snapshot, whose data version is not the one the Hab Core serves the hab
+      // time field under. The client must refuse the field rather than draw another site's isochrones: the band
+      // stays unavailable and says so with its own class and path (no invented bands, no number).
+      const served = await page.request.get("/api/hab-time-field");
+      expect(served.ok()).toBe(true);
+      expect(served.headers()["x-data-version"]).not.toBe(fixture.snapshot.session.data_version);
+      const havenBands = page.locator('[data-layer="haven_bands"]');
+      await expect(havenBands).toBeDisabled();
+      const havenBandsStatus = havenBands.locator("[data-source]");
+      await expect(havenBandsStatus).toHaveText("— unavailable");
+      await expect(havenBandsStatus).toHaveAttribute("data-provenance", "modelled");
+      await expect(havenBandsStatus).toHaveAttribute("data-unavailable", "true");
+      await expect(havenBandsStatus).toHaveAttribute("data-source", "unavailable:site.layer.haven_bands");
       for (const layer of ["slope", "comm_shadow"] as const) await expect(page.locator(`[data-layer="${layer}"]`)).toBeEnabled();
       await expect(page.locator('[data-layer="thermal_inertia"]')).toBeDisabled();
       await expect(page.locator('[data-layer="thermal_inertia"]')).toContainText("— unavailable");
@@ -73,7 +84,7 @@ for (const viewport of [{ width: 844, height: 390 }, { width: 1024, height: 768 
 }
 
 
-test("needs N-120: haven bands use the supplied hab time field", async ({ page }) => {
+test("haven bands use the supplied hab time field (N-120 closed)", async ({ page }) => {
   // Use the same session and data version as the binary endpoint, not an unrelated WS fixture.
   const response = await page.request.get("/api/session");
   expect(response.ok()).toBe(true);
@@ -83,8 +94,15 @@ test("needs N-120: haven bands use the supplied hab time field", async ({ page }
     await page.getByRole("button", { name: "Open full-screen map" }).click();
     await page.locator('[data-fullmap][data-map-status="ready"]').waitFor();
     await page.locator('#map-ctrl-layers').click();
-    await expect(page.locator('[data-layer="haven_bands"]')).toBeEnabled();
-    await page.locator('[data-layer="haven_bands"]').click();
+    const havenBands = page.locator('[data-layer="haven_bands"]');
+    await expect(havenBands).toBeEnabled();
+    // The field arrives from the Hab Core with its own class and source; the client draws the bands it was given
+    // and never computes a time itself.
+    const status = havenBands.locator("[data-source]");
+    await expect(status).toHaveAttribute("data-provenance", "modelled");
+    await expect(status).toHaveAttribute("data-source", "api:hab-time-field");
+    await expect(status).not.toHaveAttribute("data-unavailable", "true");
+    await havenBands.click();
     await expect(page.locator('[data-fullmap]')).toContainText("LAYER: Haven bands");
   } finally { fixture.dispose(); }
 });
