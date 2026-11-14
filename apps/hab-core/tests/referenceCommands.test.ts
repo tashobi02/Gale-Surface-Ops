@@ -17,7 +17,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { deliveryTime, linkAt, triggerState } from "@marswalk/compute";
+import { deliveryTime, linkAt, roundTo, SUN_ELEVATION_DECIMALS, triggerState } from "@marswalk/compute";
 import { logHashOf, type EarthLinkTable, type DoseSeries, type LogEvent, type ParamSet, type Recording } from "@marswalk/protocol";
 import { checkCommandList } from "../src/replay";
 import { RECORD_PERIOD_S, RECORDING_FILE, ROOT, SCENARIO_DIR, SKIP_REASON, firstOf, hasRealBundle, readReferenceList, recordingJson, runReference, type ReferenceRun } from "./helpers/referenceRun";
@@ -121,6 +121,26 @@ describe.skipIf(!hasRealBundle)("the reference run of 01 §E.1 (real scenario, r
       expect(logHashOf(run.events, sha256)).toBe(run.hash);
       expect(Buffer.byteLength(readFileSync(RECORDING_FILE, "utf8"))).toBeLessThan(5 * 1024 * 1024);
       expect(RECORD_PERIOD_S).toBe(5);
+    });
+
+    it("the sun elevation it carries is at the documented precision, so the bytes are the same on every platform (NFR-06)", () => {
+      // A one-ULP difference in the platform's libm used to move these values by one unit in the last place, so the
+      // committed bytes could not be reproduced on another machine (NFR-06, T27.05).
+      const elevations: number[] = [];
+      for (const message of run.recording.messages) {
+        if (message.type !== "STATE_DELTA") continue;
+        for (const change of message.changes) {
+          if (change.path === "conditions/sun_elevation_deg") elevations.push(change.value as number);
+        }
+      }
+      expect(elevations.length).toBeGreaterThan(100);
+      for (const value of elevations) expect(value).toBe(roundTo(value, SUN_ELEVATION_DECIMALS));
+    });
+
+    it("two runs of the reference list give byte-identical recordings", async () => {
+      const again = await runReference();
+      expect(recordingJson(again.recording)).toBe(recordingJson(run.recording));
+      expect(again.hash).toBe(run.hash);
     });
   });
 

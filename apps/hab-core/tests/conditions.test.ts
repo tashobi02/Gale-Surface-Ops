@@ -23,7 +23,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { inverseEqc, localTrueSolarTime, mslSol, parseEqcProjection, rateAt, solarPosition } from "@marswalk/compute";
+import { SUN_ELEVATION_DECIMALS, inverseEqc, localTrueSolarTime, mslSol, parseEqcProjection, rateAt, roundTo, solarPosition } from "@marswalk/compute";
 import type { Command, HabCandidate, LogEventData, Role } from "@marswalk/protocol";
 import { conditionsTick } from "../src/engine/conditions";
 import { doseAt } from "../src/engine/liveEvents";
@@ -81,7 +81,7 @@ describe("conditionsTick fills every FR-36 field from compute at the hab (BD-75,
     const now = new Date(T0);
     const out = conditionsTick(stateAt(T0), ctxOf()).state.conditions;
     expect(out.ltst).toBe(localTrueSolarTime(now, SITE.lon_e));
-    expect(out.sun_elevation_deg).toBe(solarPosition(now, SITE.lat, SITE.lon_e).elevation_deg);
+    expect(out.sun_elevation_deg).toBe(roundTo(solarPosition(now, SITE.lat, SITE.lon_e).elevation_deg, SUN_ELEVATION_DECIMALS));
     expect(out.sol).toBe(mslSol(now, SITE.lon_e));
     expect(out.dose_rate_background_ugy_h).toBe(fake.dose.background_rate);
     expect(out.dose_rate_event_ugy_h).toBe(fake.dose.background_rate);
@@ -124,7 +124,7 @@ describe("conditionsTick fills every FR-36 field from compute at the hab (BD-75,
     expect(conditionsTick(stateAt(T0), ctxOf()).state.conditions).toEqual(a);
     const later = iso(Date.parse(T0) + 3 * 3600_000);
     const b = conditionsTick(stateAt(later), ctxOf()).state.conditions;
-    expect(b.sun_elevation_deg).toBe(solarPosition(new Date(later), SITE.lat, SITE.lon_e).elevation_deg);
+    expect(b.sun_elevation_deg).toBe(roundTo(solarPosition(new Date(later), SITE.lat, SITE.lon_e).elevation_deg, SUN_ELEVATION_DECIMALS));
     expect(b.sun_elevation_deg).not.toBe(a.sun_elevation_deg);
   });
 
@@ -262,8 +262,8 @@ describe("where the hab is (BD-127)", () => {
     const two = withSite([candidate("hab-a", 1, SITE.lat, SITE.lon_e), candidate("hab-b", 2, SITE.lat + 0.5, SITE.lon_e + 0.5)]);
     const a = conditionsTick(stateAt(T0, two, "hab-a"), ctxOf(two)).state.conditions;
     const b = conditionsTick(stateAt(T0, two, "hab-b"), ctxOf(two)).state.conditions;
-    expect(a.sun_elevation_deg).toBe(solarPosition(new Date(T0), SITE.lat, SITE.lon_e).elevation_deg);
-    expect(b.sun_elevation_deg).toBe(solarPosition(new Date(T0), SITE.lat + 0.5, SITE.lon_e + 0.5).elevation_deg);
+    expect(a.sun_elevation_deg).toBe(roundTo(solarPosition(new Date(T0), SITE.lat, SITE.lon_e).elevation_deg, SUN_ELEVATION_DECIMALS));
+    expect(b.sun_elevation_deg).toBe(roundTo(solarPosition(new Date(T0), SITE.lat + 0.5, SITE.lon_e + 0.5).elevation_deg, SUN_ELEVATION_DECIMALS));
     expect(b.sol).toBe(mslSol(new Date(T0), SITE.lon_e + 0.5));
   });
 
@@ -277,7 +277,7 @@ describe("where the hab is (BD-127)", () => {
     const where = inverseEqc(moved.x_m, moved.y_m, parseEqcProjection(fx.grid.meta.proj4));
     const c = conditionsTick(state, ctxOf(gridded)).state.conditions;
     expect(c.ltst).toBe(localTrueSolarTime(new Date(T0), where.lon_e));
-    expect(c.sun_elevation_deg).toBe(solarPosition(new Date(T0), where.lat, where.lon_e).elevation_deg);
+    expect(c.sun_elevation_deg).toBe(roundTo(solarPosition(new Date(T0), where.lat, where.lon_e).elevation_deg, SUN_ELEVATION_DECIMALS));
     expect(c.sol).toBe(mslSol(new Date(T0), where.lon_e));
   });
 
@@ -351,5 +351,79 @@ describe("in the engine and the session (T22.16, NFR-06)", () => {
     const src = readFileSync(join(here, "../src/engine/conditions.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
     expect(src).not.toMatch(/^(let|var)\s/m);
     expect(src).not.toMatch(/^const\s+\w+\s*=\s*new\s+(Map|Set|WeakMap|WeakSet)\b/m);
+  });
+});
+
+/**
+ * NFR-06 (deterministic science, reproducible runs) and the byte-reproducibility of the storm recording (T27.05, BD-105,
+ * BD-148; N-81).
+ *
+ * The sun elevation the engine carries is a `Math.acos` of a product of sines and cosines, so a platform whose libm gives
+ * the last bit differently (V8's `Math.sin`/`Math.cos`/`Math.acos` are not bit-identical across builds) produces an
+ * elevation one unit in the last place away from another platform's. The value is therefore carried at a fixed precision
+ * (SUN_ELEVATION_DECIMALS decimal places), which is far above the 1-ULP noise and far below the 0.1 deg the UI shows, so
+ * the recorded bytes are the same on every machine.
+ *
+ * The rounding is applied where the value enters the state (this module), never inside compute's `solarPosition`: that
+ * function also feeds `sunriseSunset`, `warnings.ts` and `compute/conditions.ts`, where a rounded elevation would move a
+ * sunrise instant.
+ */
+describe("the sun elevation is carried at a fixed precision (NFR-06, T27.05)", () => {
+  it("compute exports the documented precision and a rounding helper that keeps the sign of zero away", () => {
+    expect(SUN_ELEVATION_DECIMALS).toBe(6);
+    expect(roundTo(61.16477678548756, 6)).toBe(61.164777);
+    expect(roundTo(-0.0000001, 6)).toBe(0); // no -0: a JSON round trip would turn it into 0
+    expect(Object.is(roundTo(-0.0000001, 6), -0)).toBe(false);
+    expect(roundTo(-1.23456789, 3)).toBe(-1.235);
+    expect(roundTo(1.006, 2)).toBe(1.01);
+    expect(roundTo(Infinity, 6)).toBe(Infinity); // a non-finite value is the caller's to reject
+    expect(Number.isNaN(roundTo(NaN, 6))).toBe(true);
+  });
+
+  it("the state value is the rounded elevation, never the raw one", () => {
+    const now = new Date(T0);
+    const raw = solarPosition(now, SITE.lat, SITE.lon_e).elevation_deg;
+    const c = conditionsTick(stateAt(T0), ctxOf()).state.conditions;
+    expect(c.sun_elevation_deg).toBe(roundTo(raw, SUN_ELEVATION_DECIMALS));
+    // The raw value is not the carried one whenever the raw value is not already at the precision.
+    if (raw !== roundTo(raw, SUN_ELEVATION_DECIMALS)) expect(c.sun_elevation_deg).not.toBe(raw);
+  });
+
+  it("the carried value has at most SUN_ELEVATION_DECIMALS decimals, whatever the platform's libm gives", () => {
+    const decimals = (n: number): number => {
+      const s = String(n);
+      const dot = s.indexOf(".");
+      return dot < 0 ? 0 : s.length - dot - 1;
+    };
+    for (const offset_s of [0, 1, 37, 3600, 3600 * 5 + 61]) {
+      const at = iso(Date.parse(T0) + offset_s * 1000);
+      const c = conditionsTick(stateAt(at), ctxOf()).state.conditions;
+      expect(decimals(c.sun_elevation_deg!), at).toBeLessThanOrEqual(SUN_ELEVATION_DECIMALS);
+    }
+  });
+
+  it("a one-unit-in-the-last-place difference in the raw elevation does not change the carried value", () => {
+    // The 8 pairs of the storm recording (T27.05): the committed bytes came from a machine whose libm differed by one ULP.
+    const pairs: [number, number][] = [
+      [61.16477678548756, 61.16477678548755],
+      [61.37339777387905, 61.373397773879056],
+      [61.45644098709232, 61.45644098709231],
+      [61.8135568828628, 61.81355688286281],
+      [67.60652305968843, 67.60652305968841],
+      [67.65802064556179, 67.65802064556178],
+      [68.80810354096272, 68.80810354096275],
+      [69.49447635584262, 69.49447635584261],
+    ];
+    for (const [a, b] of pairs) {
+      expect(roundTo(a, SUN_ELEVATION_DECIMALS), `${a} vs ${b}`).toBe(roundTo(b, SUN_ELEVATION_DECIMALS));
+    }
+  });
+
+  it("the delta path carries the rounded value, so the recorded bytes of two platforms agree", () => {
+    const r = conditionsTick(stateAt(T0), ctxOf());
+    const delta = r.deltas.find((d) => d.path === "conditions/sun_elevation_deg");
+    expect(delta).toBeDefined();
+    expect(delta!.value).toBe(r.state.conditions.sun_elevation_deg);
+    expect(delta!.value).toBe(roundTo(delta!.value as number, SUN_ELEVATION_DECIMALS));
   });
 });
