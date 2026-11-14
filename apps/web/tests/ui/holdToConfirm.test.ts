@@ -162,4 +162,31 @@ describe("data-hold-duration reflects the hold in use", () => {
     await flush();
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
+
+  it("releasing after >= holdDurationMs confirms even if animation frames stalled during map load", async () => {
+    let now = 1000;
+    const nowSpy = vi.spyOn(performance, "now").mockImplementation(() => now);
+    const rafSpy = vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation(() => 1 as unknown as number);
+    const cancelRafSpy = vi.spyOn(globalThis, "cancelAnimationFrame").mockImplementation(() => {});
+    const onConfirm = vi.fn(async () => accepted());
+    try {
+      const { container } = await mount(press(onConfirm));
+      const button = must<HTMLButtonElement>(container, "button");
+
+      await pointerDown(button);
+      expect(button.getAttribute("data-phase")).toBe("holding");
+
+      // Simulate heavy main-thread work where rAF/setTimeout did not fire before pointerup at +850 ms.
+      now += HOLD_DURATION_MS + 50;
+      await fire(button, new window.MouseEvent("pointerup", { bubbles: true }));
+      await flush();
+
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+      expect(button.getAttribute("data-phase")).not.toBe("cancelled");
+    } finally {
+      nowSpy.mockRestore();
+      rafSpy.mockRestore();
+      cancelRafSpy.mockRestore();
+    }
+  });
 });
