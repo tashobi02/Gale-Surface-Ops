@@ -168,3 +168,12 @@ describe("handler VALIDATE_MANUAL_LEG (01-contract §7)", () => {
     expect(handleWorkerMessage(g, request(g, over(g)))).toMatchObject({ type: "ERROR", code: "INVALID_INPUT", request_id: "req-manual" });
   });
 });
+
+describe("manual-leg grid boundaries (N-160)", () => {
+  it("rejects a path that leaves the grid and returns to its last visited cell", () => {
+    const g = plane();
+    const edge = centre(g, 2, 19);
+    const result = validateManualLeg(g, scenario, "a", "b", [centre(g, 2, 18), edge, [g.meta.origin_m[0] + g.meta.width * g.meta.cell_m + 5, edge[1]], edge]);
+    expect(result.leg).toMatchObject({ status: "NO_ROUTE", reason: "END_BLOCKED" });
+  });
+});
