@@ -136,7 +136,9 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
 
   app.get("/api/session", async (_req, reply) => {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
-    return session.snapshot(clientList(clients));
+    const snap = session.snapshot(clientList(clients));
+    const meta = session.scenarioMeta?.();
+    return meta === undefined ? snap : { ...snap, scenario_meta: meta };
   });
 
   // N-05 (01-contract §7a): the lobby's small summary; GET /api/session stays the full SNAPSHOT (02 §E.5).

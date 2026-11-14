@@ -26,7 +26,7 @@
  * run are then the same on every machine (T27.05).
  */
 import { SUN_ELEVATION_DECIMALS, inverseEqc, localTrueSolarTime, mslSol, parseEqcProjection, rateAt, roundTo, solarPosition } from "@marswalk/compute";
-import type { ConditionsState } from "@marswalk/protocol";
+import type { ConditionsState, EvaPhase } from "@marswalk/protocol";
 import type { LoadedScenario } from "../scenario";
 import { doseAt } from "./liveEvents";
 import type { EngineState, StateChange } from "./reducer";
@@ -37,9 +37,35 @@ export type { ConditionsState };
 
 /** The registered source of the Mars24 algorithms (pipeline/sites/gale_boxwork/sources). */
 const MARS24_SOURCE_ID = "mars24-allison-mcewen-2000";
+export const EVA_PHASE_SOURCE_ID = "engine:session";
 
-type VALUE_KEY = "ltst" | "sun_elevation_deg" | "sol" | "dose_rate_background_ugy_h" | "dose_rate_event_ugy_h" | "event_series_utc";
-const VALUE_KEYS: readonly VALUE_KEY[] = ["ltst", "sun_elevation_deg", "sol", "dose_rate_background_ugy_h", "dose_rate_event_ugy_h", "event_series_utc"];
+type VALUE_KEY = "ltst" | "sun_elevation_deg" | "sol" | "eva_phase" | "dose_rate_background_ugy_h" | "dose_rate_event_ugy_h" | "event_series_utc";
+const VALUE_KEYS: readonly VALUE_KEY[] = ["ltst", "sun_elevation_deg", "sol", "eva_phase", "dose_rate_background_ugy_h", "dose_rate_event_ugy_h", "event_series_utc"];
+
+/** Derive the authoritative EVA phase solely from engine session status and crew activity (N-06 follow-up, BD-163). */
+export function evaPhase(state: EngineState): EvaPhase {
+  switch (state.session.status) {
+    case "ENDED":
+      return "ENDED";
+    case "PAUSED":
+      return "PAUSED";
+    case "LOADED":
+      return "IN_HAB";
+    case "RUNNING": {
+      const onEva = state.crew.some(
+        (c) =>
+          c.activity === "WALKING" ||
+          c.activity === "AT_STOP" ||
+          c.activity === "TO_HAVEN" ||
+          c.activity === "HOLDING" ||
+          c.activity === "RIDING",
+      );
+      if (onEva) return "WALKING";
+      if (state.crew.every((c) => c.activity === "IN_HAB")) return "IN_HAB";
+      return "SHELTERED";
+    }
+  }
+}
 
 /** The part of `conditions` that does not depend on the clock: provenance classes and source ids, with every value null. */
 export function conditionsFrame(scenario: LoadedScenario): ConditionsState {
@@ -51,10 +77,12 @@ export function conditionsFrame(scenario: LoadedScenario): ConditionsState {
     dose_rate_event_ugy_h: null,
     event_series_utc: null,
     sol: null,
+    eva_phase: null,
     source_ids: {
       ltst: MARS24_SOURCE_ID,
       sun_elevation_deg: MARS24_SOURCE_ID,
       sol: MARS24_SOURCE_ID,
+      eva_phase: EVA_PHASE_SOURCE_ID,
       dose_rate_background_ugy_h: dose,
       dose_rate_event_ugy_h: dose,
     },
@@ -62,6 +90,7 @@ export function conditionsFrame(scenario: LoadedScenario): ConditionsState {
       ltst: "derived",
       sun_elevation_deg: "derived",
       sol: "derived",
+      eva_phase: "simulated",
       dose_rate_background_ugy_h: "replayed",
       dose_rate_event_ugy_h: "replayed",
     },
@@ -112,6 +141,7 @@ export function conditionsTick(state: EngineState, ctx: TickContext): TickResult
   const next: ConditionsState = {
     ...frame,
     ...solar(state, scenario, new Date(sim_time)),
+    eva_phase: evaPhase(state),
     dose_rate_background_ugy_h: scenario.dose.background_rate,
     dose_rate_event_ugy_h: rateAt(source.series, source.t_utc),
     event_series_utc: source.event_id === null ? null : source.t_utc,

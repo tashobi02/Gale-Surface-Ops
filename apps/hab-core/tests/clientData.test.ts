@@ -145,3 +145,36 @@ describe("GET /api/hab-time-field (N-100, N-120)", () => {
     expect(loadSession(fake, dir).habTimeField?.()).toBeNull();
   });
 });
+
+describe("GET /api/session scenario_meta and conditions.eva_phase (N-30, N-06 follow-up, BD-163)", () => {
+  it("carries scenario_meta alongside the snapshot for SCR-09 and authoritative eva_phase in conditions", async () => {
+    const { server, session } = await serve(fake);
+    const loadedRes = await fetch(`${server.url}/api/session`);
+    expect(loadedRes.status).toBe(200);
+    const loadedBody = (await loadedRes.json()) as {
+      scenario_meta?: ReturnType<typeof scenarioMeta>;
+      conditions: { eva_phase?: string | null; provenance: Record<string, string>; source_ids: Record<string, string> };
+    };
+    expect(loadedBody.scenario_meta).toEqual(JSON.parse(JSON.stringify(scenarioMeta(fake))));
+    expect(loadedBody.conditions.eva_phase).toBe("IN_HAB");
+    expect(loadedBody.conditions.provenance.eva_phase).toBe("simulated");
+    expect(loadedBody.conditions.source_ids.eva_phase).toBe("engine:session");
+
+    expect(session!.apply({ command_id: "start-1", role: "ops", kind: "START_EVA", args: {} }).result.ok).toBe(true);
+    session!.advance(2);
+    const walkingBody = (await (await fetch(`${server.url}/api/session`)).json()) as typeof loadedBody;
+    expect(walkingBody.conditions.eva_phase).toBe("WALKING");
+
+    expect(session!.apply({ command_id: "pause-1", role: "ops", kind: "SET_CLOCK", args: { paused: true } }).result.ok).toBe(true);
+    const pausedBody = (await (await fetch(`${server.url}/api/session`)).json()) as typeof loadedBody;
+    expect(pausedBody.conditions.eva_phase).toBe("PAUSED");
+
+    expect(session!.apply({ command_id: "resume-1", role: "ops", kind: "SET_CLOCK", args: { paused: false } }).result.ok).toBe(true);
+    for (let i = 0; i < 60 && session!.snapshot([]).session.status !== "ENDED"; i++) {
+      session!.advance(120);
+    }
+    expect(session!.snapshot([]).session.status).toBe("ENDED");
+    const endedBody = (await (await fetch(`${server.url}/api/session`)).json()) as typeof loadedBody;
+    expect(endedBody.conditions.eva_phase).toBe("ENDED");
+  });
+});

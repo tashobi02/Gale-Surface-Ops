@@ -27,12 +27,14 @@ export interface EarthView {
   crew: { crew_id: CrewId; x_m: number; y_m: number; sample_utc: string }[];
   /** The alerts raised at or before `as_of_utc` and not cleared at or before it. */
   alerts: { alert_id: string; code: Alert["code"]; level: Alert["level"]; subjects: string[]; message: string; raised_utc: string }[];
+  source_ids: Record<string, string>;
   provenance: ProvenanceMap;
 }
 
 export function earthView(input: EarthViewInput): EarthView {
   const provenance: ProvenanceMap = { crew: "simulated", alerts: "simulated", as_of_utc: "derived" };
-  if (input.light_time_s === null) return { as_of_utc: null, light_time_s: null, delay_model: "light_time", crew: [], alerts: [], provenance };
+  const source_ids: Record<string, string> = { crew: "engine:trace", alerts: "engine:log", as_of_utc: "earth_link" };
+  if (input.light_time_s === null) return { as_of_utc: null, light_time_s: null, delay_model: "light_time", crew: [], alerts: [], source_ids, provenance };
   const asOfMs = Date.parse(input.now_utc) - Math.round(input.light_time_s * 1000);
   const crew: EarthView["crew"] = [];
   for (const t of input.trace) {
@@ -50,5 +52,5 @@ export function earthView(input: EarthViewInput): EarthView {
       open.delete((e.data as unknown as LogEventData["ALERT_CLEARED"]).alert_id);
     }
   }
-  return { as_of_utc: new Date(asOfMs).toISOString().replace(".000Z", "Z"), light_time_s: input.light_time_s, delay_model: "light_time", crew, alerts: [...open.values()], provenance };
+  return { as_of_utc: new Date(asOfMs).toISOString().replace(".000Z", "Z"), light_time_s: input.light_time_s, delay_model: "light_time", crew, alerts: [...open.values()], source_ids, provenance };
 }

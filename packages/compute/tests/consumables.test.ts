@@ -8,7 +8,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { ParamSet } from "@marswalk/protocol";
-import { MARS_GRAVITY_M_S2, o2RemainingS, roverEnergyWh, stepO2 } from "../src/consumables";
+import {
+  MARS_GRAVITY_M_S2,
+  O2_ENERGY_EQUIV_KJ_PER_L,
+  WALKING_METABOLIC_W,
+  o2LitresPerMinute,
+  o2RemainingS,
+  roverEnergyWh,
+  stepO2,
+} from "../src/consumables";
 import { flatGrid, rendezvousRidge } from "./fixtures/v2grids";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -97,5 +105,23 @@ describe("roverEnergyWh (02 §D.9 robotic utility rover)", () => {
     expect(() => roverEnergyWh([[0, 0]], 1, { ...ur1, values: rest } as ParamSet, grid)).toThrow(/climb_eff/);
     expect(() => roverEnergyWh([[0, 0]], -1, ur1, grid)).toThrow(RangeError);
     expect(() => roverEnergyWh([[0, 0], [1e6, 0]], 1, ur1, grid)).toThrow(RangeError);
+  });
+});
+
+describe("o2LitresPerMinute (T18.04, T18.05, N-24; 02 §D.6)", () => {
+  it("exports the two 02 §D.6 planning constants verbatim", () => {
+    expect(WALKING_METABOLIC_W).toBe(351.7);
+    expect(O2_ENERGY_EQUIV_KJ_PER_L).toBe(20.4);
+  });
+
+  it("at 351.7 W walking metabolic rate, O2 consumption rounds to 1.03 L/min", () => {
+    expect(o2LitresPerMinute(351.7)).toBeCloseTo(1.03, 2);
+    expect(o2LitresPerMinute(0)).toBe(0);
+  });
+
+  it("rejects negative or non-finite metabolic power with RangeError", () => {
+    expect(() => o2LitresPerMinute(-1)).toThrow(RangeError);
+    expect(() => o2LitresPerMinute(Number.NaN)).toThrow(RangeError);
+    expect(() => o2LitresPerMinute(Number.POSITIVE_INFINITY)).toThrow(RangeError);
   });
 });

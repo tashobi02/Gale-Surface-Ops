@@ -65,6 +65,7 @@ describe("earthView (N-130)", () => {
   it("labels what it is: simulated state, a derived delay, and the light-time-only model", () => {
     const v = earthView({ now_utc: T(100), light_time_s: 40, trace, events: [] });
     expect(v.provenance).toEqual({ crew: "simulated", alerts: "simulated", as_of_utc: "derived" });
+    expect(v.source_ids).toEqual({ crew: "engine:trace", alerts: "engine:log", as_of_utc: "earth_link" });
     expect(v.light_time_s).toBe(40);
     expect(v.delay_model).toBe("light_time");
   });

@@ -198,6 +198,9 @@ export interface ClientConnection {
 /** `HOLDING`: stopped by SET_CREW_MOTION, a simulation control (02 §E.6, 05 Command; Q2, Proposed 2026-11-13). */
 export type CrewActivity = "IN_HAB" | "WALKING" | "AT_STOP" | "TO_HAVEN" | "SHELTERED" | "HOLDING" | "RIDING";
 
+/** Authoritative session-level EVA phase surfaced in ConditionsState (N-06 follow-up, BD-163). */
+export type EvaPhase = "IN_HAB" | "WALKING" | "SHELTERED" | "PAUSED" | "ENDED";
+
 export interface Crew {
   crew_id: CrewId;
   x_m: number;
@@ -595,6 +598,8 @@ export interface ConditionsState {
   event_series_utc: string | null;
   /** MSL mission sol at sim time, compute `mslSol()`; `derived` (N-06). */
   sol: number | null;
+  /** Authoritative EVA phase derived from session status and crew activity; `simulated` (N-06 follow-up). */
+  eva_phase?: EvaPhase | null;
   /** Field -> source id, e.g. dose rates -> "rad-sol4190", ltst -> "mars24-allison-mcewen-2000". */
   source_ids: Record<string, string>;
   provenance: ProvenanceMap;

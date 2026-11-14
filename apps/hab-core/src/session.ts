@@ -27,6 +27,7 @@ import { PROTOCOL_VERSION, type Command, type DoseSeries, type CommandRef, type 
 import { AcceptedCommands, handleCommand } from "./commands";
 import { SIM_STEP_S } from "./engine/clock";
 import { createHash } from "node:crypto";
+import { EVA_PHASE_SOURCE_ID, evaPhase } from "./engine/conditions";
 import { currentHabField, HavenCache } from "./engine/haven";
 import { earthView, type EarthView } from "./earthView";
 import { scenarioMeta, type ScenarioMeta } from "./scenarioMeta";
@@ -139,6 +140,7 @@ const SNAPSHOT_PROVENANCE: ProvenanceMap = {
   "conditions.ltst": "derived",
   "conditions.sun_elevation_deg": "derived",
   "conditions.sol": "derived",
+  "conditions.eva_phase": "simulated",
   "conditions.dose_rate_background_ugy_h": "replayed",
   "conditions.dose_rate_event_ugy_h": "replayed",
 };
@@ -249,7 +251,12 @@ class Session implements SessionHandle {
       earth: { ...s.earth, queue: s.earthQueue },
       clients,
       provenance: SNAPSHOT_PROVENANCE,
-      conditions: s.conditions,
+      conditions: {
+        ...s.conditions,
+        eva_phase: evaPhase(s),
+        source_ids: { ...s.conditions.source_ids, eva_phase: s.conditions.source_ids.eva_phase ?? EVA_PHASE_SOURCE_ID },
+        provenance: { ...s.conditions.provenance, eva_phase: s.conditions.provenance.eva_phase ?? "simulated" },
+      },
       task_library: this.scenario.scenario.task_library ?? [],
       // Scenario files written before the live-session shape (backend 01b, 25) have no event_library: [] until then.
       event_library: (this.scenario.scenario.event_library ?? []).map(({ event_id, title, kind, label, source_id, provenance }) => ({ event_id, title, kind, label, source_id, provenance })),
