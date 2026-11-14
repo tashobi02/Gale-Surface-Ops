@@ -1056,3 +1056,31 @@ A local verification process denied socket creation and connection with a seccom
 **Scope and limits.** The 38.86 m reference is the data lead's own reading of the rim crests, and `dem-quality.md` records that a second reading of the same crater gives 47.83 m, so the endpoints are good to a couple of metres: the check uses the endpoints as recorded, exactly as that document asks. The 2 % tolerance bounds that uncertainty on this feature. The spike page is throwaway (T02.03) and the check reads its `window.__spike` hook, so the page builds only with `MARSWALK_SPIKE=1` and the demo never ships it. The tiles, grid and images of the real bundle stay git-ignored and were not committed. The measurement was taken by the harness, not by a human eye; the reviewer re-measures one level as the manual checklist asks.
 
 **Hands on to:** T02.05 (the D-03 evidence, [ADR-003](../decisions/ADR-003-openlayers-mars-projection.md)); T16.02 (the 02 status row for D-03).
+
+## T17.04 — Real-site capture and video assembly on `gale_boxwork` (2026-11-14)
+
+| | |
+| --- | --- |
+| **Owner** | `wt/g2` implementation run |
+| **Date** | 2026-11-14 |
+| **Status** | Real-site `capture` check and assembler verification pass on `gale_boxwork`; MP4 artefacts remain git-ignored local outputs |
+| **Serves** | T17.04; [TASK-17_videos.md](../tasks/TASK-17_videos.md); [01 §B.2 / §E](../specs/01_Product_Requirements_Document.md) |
+| **Inputs** | [capture.spec.ts](../../apps/web/e2e/checks/capture.spec.ts); [captureSite.ts](../../apps/web/e2e/lib/captureSite.ts); [opsLayers.ts](../../apps/web/src/ui/map/opsLayers.ts); [make_video.sh](../../scripts/make_video.sh); local `gale_boxwork` bundle (`data/sites/gale_boxwork/`) |
+| **Commands** | `E2E_SITE=gale_boxwork E2E_PORT=8372 timeout 600s make e2e-one CHECK=capture` → `bash scripts/make_video.sh` → `ffprobe` on both MP4 cuts |
+| **Result** | Playwright `capture`: **1 passed (23.6 s)** (`26.0 s` total); both assembled MP4s verified inside target windows |
+
+**Root causes fixed during real-bundle capture.**
+
+1. **Site parameterization ([captureSite.ts](../../apps/web/e2e/lib/captureSite.ts), [capture.spec.ts](../../apps/web/e2e/checks/capture.spec.ts)):** Replaced hardcoded `?site=mock_site` URLs, EVA start UTC, stop coordinates and manifest `site` string with `captureSiteConfig()` / `captureSiteUrl()`, mapping `gale_boxwork` to valid terrain stops (`[1100, -1600]`, `[1100, -1500]`, `[1200, -1500]`, slope-refused `[-2500, 250]`, recovery `[1200, -1600]`) and daytime Sol 4190 UTC `2024-05-20T04:11:00Z`. Guarded by 3 unit tests in [captureSite.test.ts](../../apps/web/tests/e2e/captureSite.test.ts).
+2. **Dense overlay Canvas2D batching ([opsLayers.ts](../../apps/web/src/ui/map/opsLayers.ts)):** On the `1200×1200` `gale_boxwork` time field, `havenCautionPolygons` produces ~47k polygon features; tracing all of them into one Canvas2D path stalled Chromium for ~19 s at beat `240-06` (`SCR-15`). Extracted `drawPolygonsBatched` with `POLYGON_PATH_BATCH = 256` across `shadowRenderer`, `cautionRenderer`, and `relayRenderer`. Guarded by a red-first unit test in [opsLayers.test.ts](../../apps/web/tests/ui/map/opsLayers.test.ts) asserting `Math.ceil(count / POLYGON_PATH_BATCH)` path/fill/stroke batches.
+
+**Manifest & clips.** `var/videos/capture-manifest.json` (`5,245` bytes, `generated_utc` `2026-11-14T14:44:11.982Z`, `site: "gale_boxwork"`) records all beats (`240-01`..`240-10`, `30-01`..`30-04`) within their `windowMs` budgets (`reachedInMs` `4`–`2238 ms`) across five real-worker clips in `var/videos/raw/`: `planner.webm` (`2,875,573 B`), `ops.webm` (`4,225,348 B`), `hud.webm` (`452,546 B`), `eva.webm` (`612,134 B`), `report.webm` (`277,490 B`).
+
+**Independent `ffprobe` & frame verification.**
+
+| Cut | File | Size (B) | Duration (`ffprobe`) | Target window | Frames | Codec / geometry / rate |
+| --- | --- | --- | --- | --- | --- | --- |
+| 240 s | `var/videos/marswalk-240s.mp4` | 7,036,124 | `240.000000 s` | `[235.0, 245.0] s` | 7,200 | `h264`, `yuv420p`, `1440x900`, `30/1` fps |
+| 30 s | `var/videos/marswalk-30s.mp4` | 1,031,120 | `30.000000 s` | `[28.0, 32.0] s` | 900 | `h264`, `yuv420p`, `1440x900`, `30/1` fps |
+
+Subtitle sidecars `var/videos/marswalk-240s.srt` (`3,253 B`) and `var/videos/marswalk-30s.srt` (`435 B`) were written alongside. Sampled frames (`marswalk-240s.mp4` at `80 s` and `140 s`, `marswalk-30s.mp4` at `15 s`) confirm real `gale_boxwork` tiles with haven-caution hatch, queued UR1 relay card, side-by-side 3-role HUD/EVA/Ops stack, `SCR-17` post-EVA report (`STORM-SOL4190`), and burned-in English subtitles. No local TTS binary (`say`, `espeak-ng`, `espeak`, `pico2wave`, `flite`) was installed on this host, so audio narration tracks remain ungenerated locally; large video/bundle binaries stay git-ignored.

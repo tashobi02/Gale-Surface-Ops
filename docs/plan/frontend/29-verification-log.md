@@ -89,3 +89,16 @@ All against the rebuilt `apps/web/dist`, one check at a time, each on its own po
 | `capture` | 8165 | **1 passed** — the artefacts are recorded in the section above |
 
 The `axe` run was also started on port 8166; it needs a budget longer than 600 s (it takes about 15 minutes) and its result is recorded with the others when it finishes.
+
+## Package 32 real-bundle capture (`gale_boxwork`, T17.04) — 14 Nov 2026
+
+On `wt/g2` with `data/sites/gale_boxwork/` present (`site=gale_boxwork`, `E2E_PORT=8372`), `E2E_SITE=gale_boxwork E2E_PORT=8372 timeout 600s make e2e-one CHECK=capture` passed (**1 passed, 23.6 s**, total run `26.0 s`) after parameterizing site coordinates/start time in [captureSite.ts](../../../apps/web/e2e/lib/captureSite.ts) and batching dense Canvas2D overlay polygons (`POLYGON_PATH_BATCH = 256` via `drawPolygonsBatched` in [opsLayers.ts](../../../apps/web/src/ui/map/opsLayers.ts)).
+
+`bash scripts/make_video.sh` assembled both cuts from the `gale_boxwork` manifest (`var/videos/capture-manifest.json`, `5,245 B`, `generated_utc` `2026-11-14T14:44:11.982Z`, beats `240-01`..`240-10` and `30-01`..`30-04`), verified independently with `ffprobe`:
+
+| Cut | File | Size | Duration (`ffprobe`) | Frames | Video |
+| --- | --- | --- | --- | --- | --- |
+| 240 s | `var/videos/marswalk-240s.mp4` | 7,036,124 B | `240.000000 s` (window `[235.0, 245.0]`) | 7,200 | `h264`, `yuv420p`, `1440×900`, `30/1` fps |
+| 30 s | `var/videos/marswalk-30s.mp4` | 1,031,120 B | `30.000000 s` (window `[28.0, 32.0]`) | 900 | `h264`, `yuv420p`, `1440×900`, `30/1` fps |
+
+Detailed beat timing, raw clip sizes, sampled frame checks, and subtitle sidecars are recorded in [verification-log.md](../../ops/verification-log.md#t1704--real-site-capture-and-video-assembly-on-gale_boxwork-2026-11-14).

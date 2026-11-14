@@ -9,6 +9,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSyn
 import { join } from "node:path";
 import type { ClientMessage, Command, CommandResult, Snapshot } from "@marswalk/protocol";
 import { applyStateDelta } from "../../src/net/habClient";
+import { captureSiteConfig, captureSiteUrl } from "../lib/captureSite";
 import { openOpsPanel } from "../lib/opsFixture";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..", "..", "..");
@@ -332,6 +333,7 @@ async function saveRecording(context: BrowserContext, page: Page, destName: stri
 
 test("capture: each beat reached within its window", async ({ browser }) => {
   test.setTimeout(120_000);
+  const siteCfg = captureSiteConfig();
   const storyboardBeats = loadStoryboardBeats();
   const beatById = new Map(storyboardBeats.map((b) => [b.id, b]));
 
@@ -383,7 +385,7 @@ test("capture: each beat reached within its window", async ({ browser }) => {
     const p = plannerSession.page;
 
     await recordBeat("240-01", "planner.webm", plannerSession.startedAt, 1500, async () => {
-      await p.goto("/?site=mock_site&debug=1#/");
+      await p.goto(captureSiteUrl("/", siteCfg.site, true));
       await p.waitForLoadState("networkidle");
       await expect(p.locator('[data-screen="SCR-01"]')).toContainText("It is not astronaut operations software.");
       await p.getByText(/Start planning/).first().click();
@@ -402,13 +404,9 @@ test("capture: each beat reached within its window", async ({ browser }) => {
       await p.locator('[data-slot="plan-panel"]').waitFor();
       const evaStart = p.getByLabel(/EVA start/i);
       await expect(evaStart).not.toHaveValue("", { timeout: 5_000 }).catch(() => undefined);
-      await evaStart.fill("2026-11-14T10:00:00Z");
+      await evaStart.fill(siteCfg.evaStartUtc);
       await p.waitForFunction(() => typeof (window as unknown as { __tryPlace?: unknown }).__tryPlace === "function");
-      for (const [x, y] of [
-        [-1500, -1400],
-        [-1300, -1300],
-        [-1100, -1200],
-      ] as const) {
+      for (const [x, y] of siteCfg.initialStops) {
         const out = await p.evaluate(
           ([px, py]) => (window as unknown as { __tryPlace: (a: number, b: number) => Promise<{ outcome: string }> }).__tryPlace(px!, py!),
           [x, y],
@@ -420,14 +418,16 @@ test("capture: each beat reached within its window", async ({ browser }) => {
     });
 
     await recordBeat("240-03", "planner.webm", plannerSession.startedAt, 1500, async () => {
-      // Attempt impassable steep cell (20° wall on mock_site at [50, 1000]), observe refusal notice, then add valid nearby stop -> OK.
-      const refused = await p.evaluate(() =>
-        (window as unknown as { __tryPlace: (a: number, b: number) => Promise<{ outcome: string }> }).__tryPlace(50, 1000),
+      // Attempt impassable steep cell, observe refusal notice, then add valid nearby stop -> OK.
+      const refused = await p.evaluate(
+        ([px, py]) => (window as unknown as { __tryPlace: (a: number, b: number) => Promise<{ outcome: string }> }).__tryPlace(px!, py!),
+        siteCfg.refusedStop,
       );
       expect(refused.outcome).toBe("refused");
       await expect(p.locator('[data-slot="placement-notice"] [data-slot="notice"]')).toContainText(/Not walkable here/);
-      const recovered = await p.evaluate(() =>
-        (window as unknown as { __tryPlace: (a: number, b: number) => Promise<{ outcome: string }> }).__tryPlace(-950, -1200),
+      const recovered = await p.evaluate(
+        ([px, py]) => (window as unknown as { __tryPlace: (a: number, b: number) => Promise<{ outcome: string }> }).__tryPlace(px!, py!),
+        siteCfg.recoveryStop,
       );
       expect(recovered.outcome).toBe("placed");
       await expect(p.locator('[data-waypoint-id="wp-4"]')).toBeVisible();
@@ -475,9 +475,9 @@ test("capture: each beat reached within its window", async ({ browser }) => {
     const savedAlerts = bridge.getAlerts();
     bridge.setAlerts([]);
     bridge.setCrewLinked("EV1", true);
-    await opsPage.goto("/?site=mock_site#/ops");
-    await evaPage.goto("/?site=mock_site#/eva/EV1");
-    await hudPage.goto("/?site=mock_site#/hud/EV1");
+    await opsPage.goto(captureSiteUrl("/ops", siteCfg.site));
+    await evaPage.goto(captureSiteUrl("/eva/EV1", siteCfg.site));
+    await hudPage.goto(captureSiteUrl("/hud/EV1", siteCfg.site));
     await expect(opsPage.locator(".scr11-ops-console").first()).toBeVisible();
     await expect(evaPage.locator('[data-screen="SCR-12"]').first()).toBeVisible();
     await expect(hudPage.locator('[data-screen="SCR-13"]').first()).toBeVisible();
@@ -556,7 +556,7 @@ test("capture: each beat reached within its window", async ({ browser }) => {
     const rPage = reportSession.page;
 
     await recordBeat("240-08", "report.webm", reportSession.startedAt, 1500, async () => {
-      await rPage.goto("/?site=mock_site#/report");
+      await rPage.goto(captureSiteUrl("/report", siteCfg.site));
       await expect(rPage.locator(".scr17-post-eva-report").first()).toBeVisible();
       await expect(rPage.locator(".scr17-post-eva-report").first()).toContainText("It is not astronaut operations software.");
     });
@@ -611,7 +611,7 @@ test("capture: each beat reached within its window", async ({ browser }) => {
       `${JSON.stringify(
         {
           generated_utc: new Date().toISOString(),
-          site: "mock_site",
+          site: siteCfg.site,
           raw_dir: RAW_DIR,
           beats: recordedBeats,
         },
