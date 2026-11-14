@@ -380,23 +380,24 @@ grouped by who can close it.
 | §7 — team handover | **prepared, awaiting the team** — T16.04, T16.07, T30.02, T30.03 need a human; T15.02 needs gloves, a tablet and three non-team users; T17.04 needs a capture |
 | §9 — re-verify and 100 % | **in progress** — the full `apps/hab-core` suite is green (55 files, 1427 passed); the remaining rows are in flight |
 
-### 11.1 The 9 remaining `wip` rows, by who can close them
+### 11.1 The 8 remaining `wip` rows, by who can close them
 
 | Rows | Who can close them | Note |
 | --- | --- | --- |
 | T09.09 | **backend** (N-214) | the planning form's vehicle branch needs the rover's start and ParamSet on `ComputePlanRequest`; the frontend must not invent it |
-| T18.12 | **backend** (N-213) | the real storm bundle's relay passes fall outside the EVA window, so a queued Earth message is never delivered there; the browser half passes on the real bundle |
 | T18.08 | **pipeline** | the remaining REMS set is incomplete; the PDS transfer is slow |
 | T15.02 | **the team** | the automated half passes on the real bundle; the glove study and three non-team users are human |
 | T16.04, T16.07, T30.02, T30.03 | **the team** | a human must run them: the disclosure audit, the publication scan, the portal checks, the AI-use sweep |
 | T17.04 | **the team** | the capture half passes on the real bundle; the video review is human |
 
-Six of the nine need a person, not a program. They cannot reach 100 % on this machine and must not be reported as
+Six of the eight need a person, not a program. They cannot reach 100 % on this machine and must not be reported as
 done without the human evidence the row names.
 
 **Closed on 2026-11-14** (browser evidence on the real `gale_boxwork` bundle, port 8091 — see the
 [verification log](../ops/verification-log.md#t1206-t1309-t1502-t1812-t2404-t2405-t2407-and-t2805--the-real-bundle-verified-2026-11-14)):
-T12.06 (`provenance` 19 passed), T13.09 (`axe` 22 passed), T14.10 (`release-recovery` 7/7), T24.04, T24.05
+T12.06 (`provenance` 19 passed), T13.09 (`axe` 22 passed), T14.10 (`release-recovery` 7/7), T18.12 (N-213 closed by
+BD-172: the clock advances while the Earth queue drains, so a message queued during the EVA is delivered at the real
+08:50 maven pass after the EVA ends; `earth-message` 1 passed against the committed SPICE table), T24.04, T24.05
 (`eva-conditions`/`eva-portrait`/`eva-warning` 12 passed and the one-hold tap counts), T24.07 (`link-lost` 2 passed,
 `release-network` 9 passed), T25.08 and T31.05 (`ops-no-terminal` 8 passed), T28.05 (the killer demo through the
-OPS and EVA UI in single-laptop mode), and the automated half of T15.02, T18.12 and T17.04.
+OPS and EVA UI in single-laptop mode), and the automated half of T15.02 and T17.04.

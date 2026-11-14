@@ -1148,3 +1148,37 @@ tree and with these changes: they are order-dependent flakes in the full run.
 **The human work is not done.** T15.02's glove study and its three non-team users, T16.04's disclosure audit, T16.07's
 publication scan, T30.02 and T30.03's portal checks and the AI-use sweep, and T17.04's video review need a person. The
 rows that name them stay `wip`, and no human result is claimed here.
+
+## T18.12 — N-213 closed: the Earth message is delivered on the real bundle (2026-11-14)
+
+**What was verified.** The browser check `apps/web/e2e/checks/earth-message.spec.ts` against the **real**
+`gale_boxwork` bundle, reading the committed `scenarios/storm-sol4190/earth_link.json` and
+`scenarios/storm-sol4190/param_sets/link-assumed.json` — not the harness's synthetic table.
+
+| Run | Site | Result |
+| --- | --- | --- |
+| `earth-message` (desktop-1440, port 8091) | `gale_boxwork` | **1 passed** (4.7 min) |
+| `earth-message` (desktop-1440) | `mock_site` (F4 fixture) | **1 passed** (32.2 s) |
+| `apps/hab-core/tests/earth.test.ts`, `referenceCommands.test.ts` | unit | **73 passed** |
+
+**Why it needed closing.** The real SPICE table has no relay pass inside the EVA window: the passes are
+08:50–08:56 (maven) and 10:05–10:12 (mro) on 20 May 2024, the EVA runs 04:11:00 → 06:35:31, and the per-minute rows
+show no orbiter above the horizon between 04:11 and 07:46 (the best is +2.4° at 05:10). The Earth's → Mars rule
+(`packages/compute/src/earthLink.ts`: `t_deliver = next_pass_start(t_send + light_time)`) is correct and the table is
+honest, so neither was touched. The fix was in the engine's tick loop, and it is the backend's BD-172: after
+`EVA_ENDED` the unpaused session clock advances only while previously queued Earth messages remain, ticking the
+Earth link state and the deliveries while the EVA physics, the scheduled inputs and the crew report stay frozen
+(`apps/hab-core/src/session.ts` `canAdvance`; `apps/hab-core/src/engine/earth.ts` `earthTick`; `990039f`, merged as
+`0b005f9`).
+
+**What the check asserts.** The message is typed into the real SCR-16 composer and sent with the view's own button;
+the queued entry shows the engine's `deliver_utc` with `derived` provenance and the source
+`snapshot:earth.queue.deliver_utc`; before the rule's time nothing is delivered and the queue entry still reads
+`QUEUED`; at the rule's time the Hab Core delivers it exactly once, with the same `message_id`, at exactly that
+sim time. The expected time is compute's own `deliveryTime(table, "to_mars", sent, params)`, read from the committed
+table — the check types in no time. On the real site the check also asserts the session is `ENDED` before the
+delivery, so the post-EVA path is what is exercised.
+
+**What was not done.** The scenario was not changed: `eva_start_utc`, `max_eva_duration_h`, the storm window, the dose
+series, `plan.json` and `recording.json` are all as committed, and the 08:50 maven pass is the real one. No delivery
+time was invented, and the delivery rule was not relaxed.

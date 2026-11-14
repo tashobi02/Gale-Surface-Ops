@@ -196,7 +196,7 @@ Attribution used in the last column, written out in full on every row as require
 
 | ID | Item | Decision | Rationale | Spec | Pkg | Label |
 | --- | --- | --- | --- | --- | --- | --- |
-| BD-172 | N-213: deliver queued messages after EVA end | Keep advancing the unpaused session clock only until the existing Earth queue drains; after EVA end tick only Earth link state and deliveries, freezing EVA physics, report trace and scheduled inputs. Refuse new messages and preserve pause and replay semantics. | A sent message must survive EVA end without extending the storm or fabricating a relay pass. | FR-43, FR-48, NFR-06; 02 §D.12; 05 Session, LogEvent; SCR-16; T18.12; N-213 | Hab Core | Proposed; recorded by OpenAI Codex at the user's request, 14 Nov 2026 |
+| BD-172 | N-213: deliver queued messages after EVA end | Keep advancing the unpaused session clock only until the existing Earth queue drains; after EVA end tick only Earth link state and deliveries, freezing EVA physics, report trace and scheduled inputs. Refuse new messages and preserve pause and replay semantics. | A sent message must survive EVA end without extending the storm or fabricating a relay pass. | FR-43, FR-48, NFR-06; 02 §D.12; 05 Session, LogEvent; SCR-16; T18.12; N-213 | Hab Core | decided by OpenAI Codex under Sadman Shaharier Mahim's authority, 14 Nov 2026; implemented in `990039f` (merged as `0b005f9`) and verified by `apps/hab-core/tests/earth.test.ts` and `apps/hab-core/tests/referenceCommands.test.ts` |
 
 ## Count
 
