@@ -141,6 +141,23 @@ describe("EvaRoute (SCR-12 with its HUD button and SCR-14 sheet)", () => {
     await click(must(sheet, 'button[aria-label="Close options sheet"]'));
     expect(container.querySelector('[data-screen="SCR-14"]')).toBeNull();
   });
+
+  it("the tablet tap-confirm setting also enables two-tap confirmation in its options sheet", async () => {
+    const receive = openSession("eva:EV1");
+    const { container } = await mount(createElement(EvaRoute, { crewId: "EV1" }));
+    await receive(...wsFixtures.connect);
+    await click(must(container, '[aria-label="Tap confirm"]'));
+    const base = wsFixtures.connect[0] as Snapshot;
+    await receive({
+      ...base,
+      alerts: [{ alert_id: "a-1", code: "RADIATION_ALERT", level: "warning", subjects: ["EV1"], raised_seq: 5, acked_seq: null, cleared_seq: null, acked_by: null, message: "Shelter now", data: {} }],
+      options: [option("a-1", "o1")],
+    });
+    const go = must<HTMLButtonElement>(container, "#action-confirm-option");
+    expect(go.disabled).toBe(false);
+    await click(go);
+    expect(go.textContent).toMatch(/confirm/i);
+  });
 });
 
 describe("JoinRoute (SCR-10)", () => {
