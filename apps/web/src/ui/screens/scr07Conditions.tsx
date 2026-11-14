@@ -77,7 +77,7 @@ export function Conditions({ ctx, remsContext }: ScreenProps & { remsContext?: R
       <p className="scr07-note">Excluded: solar energetic particle events, suit/habitat shielding, terrain sky-blocking, altitude differences within AOI.</p>
     </section>
     <section data-condition="seasonal-weather" aria-label="Seasonal weather"><h3>Seasonal weather</h3>
-      {bin ? <SeasonalWeather bin={bin} /> : <p><Value value={null} prov="derived" src="N-24" path="N-24" /> Not included in this build</p>}
+      {bin && context ? <SeasonalWeather bin={bin} context={context} /> : <p><Value value={null} prov="derived" src="rems_context.bins" path="rems_context.bins" /> Not included in this build or no data for the plan's season</p>}
     </section>
   </section>;
 }
@@ -86,17 +86,18 @@ export function Conditions({ ctx, remsContext }: ScreenProps & { remsContext?: R
  * The REMS context for one L_s bin (T18.03). Every range is the pipeline's own p10/median/p90, each with the
  * series' provenance class and source id; the panel adds no value of its own (FR-13, FR-15, NFR-05).
  */
-function SeasonalWeather({ bin }: { bin: RemsBin }): ReactElement {
+function SeasonalWeather({ bin, context }: { bin: RemsBin; context: RemsContext }): ReactElement {
   const range = (series: RemsSeries, label: string, unit: string) => <p>
     {label}: <Metric value={series.p10} unit={unit} prov={series.provenance} src={series.source_id} /> –
     <Metric value={series.median} unit={unit} prov={series.provenance} src={series.source_id} /> –
     <Metric value={series.p90} unit={unit} prov={series.provenance} src={series.source_id} />
   </p>;
   return <>
-    <p>REMS seasonal context for L_s {bin.ls_bin_start_deg}–{bin.ls_bin_end_deg}° (sols {bin.sols.join(", ")})</p>
+    <p>REMS seasonal context for L_s <span data-rems-bin {...provAttrs({ prov: context.provenance, src: context.source_id })}>{bin.ls_bin_start_deg}–{bin.ls_bin_end_deg}°</span> (sols <span data-rems-sols {...provAttrs({ prov: context.provenance, src: context.source_id })}>{bin.sols.join(", ")}</span>)</p>
     {range(bin.air_temp_k, "Air temperature", "K")}
     {range(bin.ground_temp_k, "Ground temperature", "K")}
     {range(bin.pressure_pa, "Pressure", "Pa")}
-    <p className="scr07-note">Ranges are the 10th, 50th and 90th percentiles of the named REMS files; solar, seasonal and diurnal climate are not modelled.</p>
+    <p className="scr07-note">Source files: <span data-rems-files {...provAttrs({ prov: context.provenance, src: context.source_id })}>{bin.source_files.join(", ")}</span></p>
+    <p className="scr07-note">Ranges are the tenth, median and ninetieth percentiles of the sampled sols; they do not establish a complete climatology. The source set may be incomplete. Solar, seasonal and diurnal climate are not modelled.</p>
   </>;
 }

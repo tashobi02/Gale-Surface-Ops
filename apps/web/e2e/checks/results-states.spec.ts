@@ -91,6 +91,12 @@ for (const variant of VARIANTS) {
 
     // The bands: the haven and comm bands of the profile (04 §D).
     for (const band of ["haven", "comm"]) await expect(panel.locator(`[data-band="${band}"]`)).toBeVisible();
+    const haven = panel.locator('[data-band="haven"]');
+    await expect(haven).toContainText("Hab only");
+    const vehicle = haven.locator('[data-haven-vehicle]');
+    await expect(vehicle).toContainText(/—.*rover start.*ParamSet/i);
+    await expect(vehicle).toHaveAttribute("data-unavailable", "true");
+    await expect(vehicle).toHaveAttribute("data-source", "unavailable:result.legs.profile.haven_vehicle");
 
     // FR-10: every warning shows a shape, its word, its message and where it applies.
     const warnings = panel.getByRole("region", { name: "Route warnings" });

@@ -34,6 +34,8 @@ interface OptionsCommonProps {
   onPreviewOption?: (option: ContingencyOption | null) => void;
   /** Callback fired to close sheet. */
   onClose?: () => void;
+  /** The EVA tablet's accessible two-tap confirmation setting. */
+  tapFallback?: boolean;
   className?: string;
 }
 
@@ -126,6 +128,7 @@ export function Options({
   onSelectOption,
   onPreviewOption,
   onClose,
+  tapFallback = false,
   className = "",
 }: OptionsProps): ReactElement {
   const hab = useHabClient(client);
@@ -413,6 +416,7 @@ export function Options({
           labelSource={selectedOption ? { prov: "simulated", src: "snapshot:options.rank" } : undefined}
           queued={!socketConnected || (isEva && linked === false)}
           kind="warning"
+          tapFallback={isEva && tapFallback}
           holdDurationMs={800}
           disabled={missing !== undefined}
           disabledReason={missing}

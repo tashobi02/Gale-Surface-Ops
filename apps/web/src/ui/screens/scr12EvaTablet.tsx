@@ -61,6 +61,8 @@ export interface EvaTabletProps {
   optionsOpen?: boolean;
   contrast?: boolean;
   onContrastChange?: (value: boolean) => void;
+  tapFallback?: boolean;
+  onTapFallbackChange?: (value: boolean) => void;
   /** Handler to open SCR-15 Rover tasking sheet. */
   onOpenRoverTasking?: () => void;
   /** Handler to open full-screen map mode. */
@@ -134,6 +136,8 @@ export function EvaTablet({
   optionsOpen = false,
   contrast: controlledContrast,
   onContrastChange,
+  tapFallback: controlledTapFallback,
+  onTapFallbackChange,
   onOpenRoverTasking,
   onOpenFullScreenMap,
   orientation,
@@ -180,7 +184,9 @@ export function EvaTablet({
   // counter remounts it, and the retry control below lets the crew ask for another attempt: a transient failure (a
   // tile that was lost on a busy LAN) must not cost the map for the rest of the session.
   const [mapAttempt, setMapAttempt] = useState(0);
-  const [tapFallback, setTapFallback] = useState(false);
+  const [localTapFallback, setLocalTapFallback] = useState(false);
+  const tapFallback = controlledTapFallback ?? localTapFallback;
+  const setTapFallback = onTapFallbackChange ?? setLocalTapFallback;
   const [tasksExpanded, setTasksExpanded] = useState<boolean>(false);
   // The Hab Core's reason for a refused ACK_ALERT, shown under the alert bar until the next alert (04 §D.5).
   const [ackRejection, setAckRejection] = useState<string | null>(null);
@@ -698,7 +704,7 @@ export function EvaTablet({
           contrast={contrast}
           tapFallback={tapFallback}
           onContrast={() => setContrast(!contrast)}
-          onTapFallback={() => setTapFallback((value) => !value)}
+          onTapFallback={() => setTapFallback(!tapFallback)}
           linked={linked}
           onOpenHud={onOpenHud}
           onOpenRoverTasking={onOpenRoverTasking}

@@ -31,6 +31,7 @@ export function EvaRoute({ crewId }: { crewId: CrewId }): ReactElement {
     return () => query.removeEventListener("change", update);
   }, []);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [tapFallback, setTapFallback] = useState(false);
   const [roverOpen, setRoverOpen] = useState(false);
   const snapshot = useSnapshot();
   // The warning that concerns this crew member and has not been acknowledged or cleared.
@@ -65,6 +66,8 @@ export function EvaRoute({ crewId }: { crewId: CrewId }): ReactElement {
         crewId={crewId}
         contrast={contrast}
         onContrastChange={setContrast}
+        tapFallback={tapFallback}
+        onTapFallbackChange={setTapFallback}
         onOpenFullScreenMap={() => { if (!warningId) setFullMapOpen(true); }}
         optionsOpen={optionsOpen}
         onOpenRoverTasking={() => setRoverOpen(true)}
@@ -85,7 +88,7 @@ export function EvaRoute({ crewId }: { crewId: CrewId }): ReactElement {
           className="scr12-eva-options-sheet eva-options-body"
           style={{ position: "fixed", zIndex: 50, overflow: "auto" }}
         >
-          <Options variant="eva" alertId={warningHasOptions ? warningId : vm.alertSlot?.alertId} crewId={crewId} onClose={() => setOptionsOpen(false)} />
+          <Options variant="eva" alertId={warningHasOptions ? warningId : vm.alertSlot?.alertId} crewId={crewId} tapFallback={tapFallback} onClose={() => setOptionsOpen(false)} />
         </div>
       )}
     </>

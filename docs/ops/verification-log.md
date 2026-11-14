@@ -1023,6 +1023,10 @@ The previously documented SSD cache was not mounted in this worktree. The CRISM 
 
 A local verification process denied socket creation and connection with a seccomp filter (and confirmed socket creation failed), then read each indexed completed file, checked its SHA-256, parsed XML, read the text labels and header, checked REMS table record lengths and fields against its label, and opened and checksummed the CRISM raster with `gdalinfo`. Result: all 10 indexed REMS files (complete sols 4182–4184 and the sol 4185 label) and all 4 CRISM files passed. The full offline checklist remains open until all selected REMS files are present and checked. Partial downloads are excluded from the cache and the verification claim.
 
+### Frontend follow-up in worktree cx7 (2026-11-14)
+
+The selection above is BD-167, not BD-163. In cx7, `pipeline/work/` contains no REMS or CRISM cache, so the earlier b5 file checks cannot be reproduced here. The tracked `rems_context.json` in both the mock and Gale site bundles lists seven input tables for sols 4182 and 4187–4192; this is a previously built context, not evidence that those raw files are present or that BD-167's sols 4182–4195 are cached. SCR-07 displays the supplied per-series values and provenance, identifies the bin's source files and sampled sols, and states that the sample does not establish a complete climatology and its source set may be incomplete. A missing context or bin remains unavailable. `E2E_PORT=8364 make e2e-one CHECK=provenance` passed all 19 mock-site checks, including the REMS panel. The real site's grid and tiles are absent in cx7: `E2E_SITE=gale_boxwork MARSWALK_SPIKE=1 E2E_SKIP_BUILD=1 E2E_PORT=8364 make e2e-one CHECK=provenance` reported the missing bundle and found no tests, so a real-bundle browser run cannot be claimed. T18.08 remains open for backend acquisition and offline verification of the full selected source set.
+
 ## T02.04 — Reference crater measured on the real AOI tiles, within 2 %
 
 | | |

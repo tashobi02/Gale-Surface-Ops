@@ -2,6 +2,7 @@
 import { expect, test } from "@playwright/test";
 import { HEARTBEAT_MS, LINK_LOST_AFTER_MS, type Snapshot } from "@marswalk/protocol";
 import { killHab, restartHab } from "../lib/hab";
+import { e2eSite } from "../lib/siteBundle";
 
 /**
  * The deadline runs from the LAST SERVER MESSAGE, not from the moment the Hab Core dies (FD-372, 02 §D.14: the server
@@ -14,8 +15,8 @@ test("link-lost: both roles show SCR-18 within 3 s of the last server message, a
   const eva = await context.newPage();
   const ops = await context.newPage();
   await ops.setViewportSize({ width: 1440, height: 900 });
-  await eva.goto("/?site=mock_site#/eva/EV1");
-  await ops.goto("/?site=mock_site#/ops");
+  await eva.goto(`/?site=${e2eSite()}#/eva/EV1`);
+  await ops.goto(`/?site=${e2eSite()}#/ops`);
   let killed = false;
   try {
     const before = await (await eva.request.get('/api/session')).json() as Snapshot;
@@ -24,8 +25,15 @@ test("link-lost: both roles show SCR-18 within 3 s of the last server message, a
     await expect(eva.locator('[data-slot="o2"] .value')).toHaveText(o2);
     await expect(ops.getByTestId('clock-control')).toBeVisible();
     const clockButton = ops.getByTestId('clock-control').locator('button:not([disabled])').first();
-    await clockButton.focus();
-    await expect(clockButton).toBeFocused();
+    const evaButton = eva.getByRole('button', { name: 'Tap confirm' });
+    // Wait for each role to finish connecting before choosing its covered control.
+    for (const page of [eva, ops]) await expect(page.locator('[data-slot="live-screen"]')).not.toHaveAttribute('inert', '');
+    await expect(async () => { await evaButton.focus(); await expect(evaButton).toBeFocused(); }).toPass();
+    await expect(async () => { await clockButton.focus(); await expect(clockButton).toBeFocused(); }).toPass();
+    // Remember the actual DOM nodes: SCR-18 must cover cached screens, not replace them.
+    await Promise.all([eva, ops].map((page) => page.locator('[data-slot="live-screen"]').evaluate((screen) => {
+      (window as unknown as { cachedScreen: Element }).cachedScreen = screen;
+    })));
     killHab(); killed = true;
     const killedAt = Date.now();
     await Promise.all([eva, ops].map(async (page) => {
@@ -41,7 +49,18 @@ test("link-lost: both roles show SCR-18 within 3 s of the last server message, a
       await expect.poll(async () => Number(await count.textContent()), { timeout: 2500 }).toBeGreaterThan(first);
     }));
     await expect(eva.locator('[data-slot="cached-telemetry"] .value').nth(1)).toHaveText(o2);
-    await expect(ops.locator('[data-slot="live-screen"]')).toHaveAttribute('inert', '');
+    for (const page of [eva, ops]) {
+      const screen = page.locator('[data-slot="live-screen"]');
+      await expect(screen).toHaveAttribute('inert', '');
+      await expect(screen).toHaveAttribute('aria-hidden', 'true');
+      expect(await screen.evaluate((element) => element === (window as unknown as { cachedScreen: Element }).cachedScreen)).toBe(true);
+      await expect(page.locator('[data-slot="link-lost-overlay"]')).toBeFocused();
+    }
+    // EVA has only the notice as a tab stop. Ops also has RETRY NOW; both directions must wrap.
+    await eva.keyboard.press('Tab');
+    await expect(eva.locator('[data-slot="link-lost-overlay"]')).toBeFocused();
+    await eva.keyboard.press('Shift+Tab');
+    await expect(eva.locator('[data-slot="link-lost-overlay"]')).toBeFocused();
     await expect(ops.locator('[data-slot="link-lost-overlay"]')).toBeFocused();
     await ops.keyboard.press('Shift+Tab');
     await expect(ops.locator('[data-slot="link-lost-retry"]')).toBeFocused();
@@ -53,6 +72,13 @@ test("link-lost: both roles show SCR-18 within 3 s of the last server message, a
     await Promise.all([eva, ops].map((page) => expect(page.locator('[data-screen="SCR-18"]')).toBeHidden({ timeout: 15_000 })));
     await expect(eva.locator('[data-slot="o2"] .value')).toHaveText(String(Math.round(expected.o2_frac * 100)));
     await expect(eva.locator('[data-slot="haven"] .value')).toHaveText(String(Math.round(expected.haven.minutes)));
+    for (const page of [eva, ops]) {
+      const screen = page.locator('[data-slot="live-screen"]');
+      await expect(screen).not.toHaveAttribute('inert', '');
+      await expect(screen).not.toHaveAttribute('aria-hidden', 'true');
+      expect(await screen.evaluate((element) => element === (window as unknown as { cachedScreen: Element }).cachedScreen)).toBe(true);
+    }
+    await expect(evaButton).toBeFocused();
     await expect(ops.locator('[data-testid="clock-control"]')).toBeVisible();
     await expect(clockButton).toBeFocused();
     await expect(ops.locator('[data-source="snapshot:crew.o2_frac"]').first()).toContainText(String(Math.round(expected.o2_frac * 100)));
@@ -82,7 +108,7 @@ test("link-lost: SCR-18 does not appear before LINK_LOST_AFTER_MS, engages after
     });
   });
 
-  await page.goto("/?site=mock_site#/eva/EV1");
+  await page.goto(`/?site=${e2eSite()}#/eva/EV1`);
   await expect(page.locator('[data-slot="o2"] .value')).not.toHaveText("—");
   expect(initialSnapshot).not.toBeNull();
   const initialO2 = String(Math.round(initialSnapshot!.crew.find((c) => c.crew_id === "EV1")!.o2_frac * 100));

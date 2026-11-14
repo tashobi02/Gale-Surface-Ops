@@ -8,7 +8,7 @@
  *   HAVEN and O₂ values still returns that element (or a descendant): the sheet never covers them.
  */
 import { expect, test, type Page } from "@playwright/test";
-import { openEvaFixture } from "../lib/evaFixture";
+import { openEvaFixture, type SentCommand } from "../lib/evaFixture";
 
 /** The elements that must stay reachable while the options sheet is open (04 §E.5). */
 const REACHABLE = [
@@ -57,4 +57,17 @@ test("eva-warning: the sheet never covers HAVEN, O₂ or the action row (FD-081,
       expect(await isOnTop(page, selector), `${viewport.width}x${viewport.height}: ${label} is covered by the options sheet`).toBe(true);
     }
   }
+});
+
+test("eva-warning: TAP CONFIRM applies to the options action", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  const sent: SentCommand[] = [];
+  await openEvaFixture(page, "alerting-with-options", sent);
+  await page.getByRole("button", { name: "Tap confirm" }).click();
+  const go = page.locator("#action-confirm-option");
+  await go.click();
+  await expect(go).toContainText("Confirm");
+  expect(sent).toEqual([]);
+  await go.click();
+  await expect.poll(() => sent).toEqual([{ kind: "ABORT", args: { crew: ["EV1"] } }]);
 });

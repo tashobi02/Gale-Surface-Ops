@@ -718,6 +718,20 @@ describe("SCR-14 Options (04 §E.7)", () => {
     expect(commandForOption("eva", option({ crew_ids: ["EV2"] }), "EV1")).toMatchObject({ supported: false });
   });
 
+  it("EVA tap confirmation arms before dispatching the selected option", async () => {
+    const { client, sent } = recordingClient(storeFromBeat("connect"));
+    const { container } = await mount(createElement(Options, {
+      client, variant: "eva", crewId: "EV1", tapFallback: true,
+      snapshot: withOptions([option({ kind: "ABORT_TO_HAB" })]),
+    }));
+    const button = must(container, "#action-confirm-option");
+    await click(button);
+    expect(sent).toHaveLength(0);
+    expect(button.textContent).toMatch(/confirm/i);
+    await click(button);
+    expect(sent).toEqual([{ kind: "ABORT", args: { crew: ["EV1", "EV2"] } }]);
+  });
+
   it("EVA confirms a rendezvous with SUMMON_VEHICLE, an abort with ABORT, never APPROVE_OPTION", async () => {
     vi.useFakeTimers();
     for (const [kind, expected] of [
