@@ -43,7 +43,7 @@ export async function resetThroughPresenter(context: BrowserContext): Promise<vo
   } finally { await presenter.close(); }
 }
 
-/** Only the presenter may start the library storm (02 §D.17). Never use this in SCR-11-only acceptance. */
+/** Start the storm through the presenter; never use this in SCR-11-only acceptance (N-200, BD-165). */
 export async function startStormThroughPresenter(context: BrowserContext): Promise<void> {
   const presenter = await context.newPage();
   try {

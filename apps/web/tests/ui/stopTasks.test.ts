@@ -619,6 +619,18 @@ describe("EVA tablet task list: one UPDATE_STOP_TASK per action (FR-50)", () => 
     expect(must(container, '[data-testid="task-row-t-s2-01"]').getAttribute("data-state")).toBe("DONE");
   });
 
+  it("offers undo for five seconds after a task tick", async () => {
+    vi.useFakeTimers();
+    const { container } = await tabletWithList();
+    await click(must(container, '[aria-label^="Mark task done: Photograph"]'));
+    const undo = '[aria-label^="Undo task change:"]';
+    expect(container.querySelector(undo)).not.toBeNull();
+    await act(async () => { vi.advanceTimersByTime(4_999); });
+    expect(container.querySelector(undo)).not.toBeNull();
+    await act(async () => { vi.advanceTimersByTime(1); });
+    expect(container.querySelector(undo)).toBeNull();
+  });
+
   it("skipping sends SKIPPED with other immediately", async () => {
     const { container, sent } = await tabletWithList();
     await click(must(container, '[aria-label^="Skip task: Photograph"]'));
