@@ -11,19 +11,22 @@ import { readFileSync, rmSync, truncateSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createRequire } from "node:module";
 import { addStopByKeyboard } from "../lib/planner";
-import { REPO_ROOT, withScratchSite } from "../lib/release";
+import { REPO_ROOT, placeStop, scenarioStops, withScratchSite } from "../lib/release";
 import { HAB_ORIGIN, HAB_PORT } from "../lib/hab";
+import { e2eSite, REAL_SITE } from "../lib/siteBundle";
 
-const MOCK = join(REPO_ROOT, "data", "sites", "mock_site");
+const SOURCE = join(REPO_ROOT, "data", "sites", e2eSite());
+const scratch: typeof withScratchSite = (site, mutate, fn) => withScratchSite(site, mutate, fn, e2eSite());
+const scenarioSlope = (): string => String((JSON.parse(readFileSync(join(REPO_ROOT, "scenarios", "storm-sol4190", "plan.json"), "utf8")) as { scenario: { hard_slope_limit_deg: number } }).scenario.hard_slope_limit_deg);
 
 test("release-recovery: SCR-00 names a missing manifest and Retry, reached by the keyboard alone, boots once it is back", async ({ page }) => {
-  await withScratchSite("e2e_manifest_gone", (dir) => rmSync(join(dir, "site-manifest.json")), async (site, dir) => {
+  await scratch("e2e_manifest_gone", (dir) => rmSync(join(dir, "site-manifest.json")), async (site, dir) => {
     await page.goto(`/?site=${site}#/planner`);
     const screen = page.locator('[data-screen="SCR-00"]');
     await expect(screen).toBeVisible();
     await expect(screen.locator('[data-slot="missing-file"]')).toHaveText(`sites/${site}/site-manifest.json`);
     // Put the manifest back, naming the scratch site as withScratchSite does.
-    const manifest = JSON.parse(readFileSync(join(MOCK, "site-manifest.json"), "utf8")) as object;
+    const manifest = JSON.parse(readFileSync(join(SOURCE, "site-manifest.json"), "utf8")) as object;
     writeFileSync(join(dir, "site-manifest.json"), `${JSON.stringify({ ...manifest, site_id: site })}\n`);
     const retry = page.locator('[data-slot="boot-retry"]');
     for (let presses = 0; presses < 20 && !(await retry.evaluate((el) => el === document.activeElement)); presses += 1) await page.keyboard.press("Tab");
@@ -35,35 +38,50 @@ test("release-recovery: SCR-00 names a missing manifest and Retry, reached by th
 });
 
 test("release-recovery: a deleted optional layer is unavailable and routing still works", async ({ page }) => {
-  await withScratchSite("e2e_layer_gone", (dir) => rmSync(join(dir, "tiles", "elevation"), { recursive: true }), async (site) => {
-    await page.goto(`/?site=${site}#/planner`);
+  const layer = e2eSite() === REAL_SITE ? "thermal_inertia" : "elevation";
+  await scratch("e2e_layer_gone", (dir) => rmSync(join(dir, "tiles", layer), { recursive: true }), async (site) => {
+    await page.goto(`/?site=${site}&debug=1#/planner`);
     await page.waitForLoadState("networkidle");
     await page.locator('[data-slot="map-workspace"]').waitFor();
     await expect(page.locator('[data-slot="boot-failure"]')).toHaveCount(0);
     const toggle = page.locator('[data-slot="drawer-toggle"][data-for="left"]');
     if (await toggle.isVisible()) await toggle.click();
     // Turning the layer on makes the map ask for its tiles; the layer row then reports it as unavailable and the slope layer is untouched.
-    const row = page.locator('[data-drawer="left"] [data-layer-id="elevation"]');
+    const row = page.locator(`[data-drawer="left"] [data-layer-id="${layer}"]`);
     await row.locator('[role="switch"]').click();
     await expect(row).toHaveAttribute("data-state", /unavailable|error|missing/i, { timeout: 10_000 });
     await expect(page.locator('[data-drawer="left"] [data-layer-id="slope"]')).not.toHaveAttribute("data-state", /unavailable|error|missing/i);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.getByRole("tab", { name: "Plan" }).click();
     await page.getByLabel(/EVA start/i).fill("2026-11-14T08:00:00Z");
-    await addStopByKeyboard(page, 1);
-    await addStopByKeyboard(page, 2);
-    await expect(page.locator("[data-results-banner]")).toBeVisible();
+    if (e2eSite() === REAL_SITE) await page.getByLabel(/hard slope limit/i).fill(scenarioSlope());
+    for (const [x, y] of scenarioStops(e2eSite())) await placeStop(page, x, y);
+    await expect(page.locator('[data-waypoint-id^="wp-"]')).toHaveCount(4);
+    await expect(page.locator("[data-results-banner]")).toContainText(/OK|Over limits/, { timeout: 30_000 });
   });
 });
 
 test("release-recovery: a grid file of the wrong length is named by SCR-00 in the production build (BD-83)", async ({ page }) => {
-  await withScratchSite("e2e_grid_short", (dir) => truncateSync(join(dir, "grid", "elevation.f32"), 100), async (site) => {
+  await scratch("e2e_grid_short", (dir) => truncateSync(join(dir, "grid", "elevation.f32"), 100), async (site) => {
     await page.goto(`/?site=${site}#/planner`);
     const screen = page.locator('[data-screen="SCR-00"]');
     await expect(screen).toBeVisible({ timeout: 15_000 });
     await expect(screen).toContainText(/elevation/i);
     await expect(page.locator('[data-slot="boot-retry"]')).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("data-mode", "ops");
+  });
+});
+
+test("release-recovery: production accepts a same-length grid corruption without hashing (02 §E.1)", async ({ page }) => {
+  await scratch("e2e_grid_prod_corrupt", (dir) => {
+    const path = join(dir, "grid", "elevation.f32");
+    const bytes = readFileSync(path);
+    bytes[0] = bytes[0]! ^ 1;
+    writeFileSync(path, bytes);
+  }, async (site) => {
+    await page.goto(`/?site=${site}#/planner`);
+    await expect(page.locator('[data-screen="SCR-02"]').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('[data-screen="SCR-00"]')).toHaveCount(0);
   });
 });
 
@@ -102,6 +120,33 @@ test("release-recovery: a worker failure shows Computation failed with a working
   await expect(retry, "the Retry is gone once the plan is there").toHaveCount(0);
 });
 
+test("release-recovery: a real worker crash leaves the map usable and Retry reloads the grid", async ({ page }) => {
+  let injected = false;
+  await page.route(/\/assets\/planWorker-[^/]+\.js$/, async (route) => {
+    const response = await route.fetch();
+    if (injected) return route.fulfill({ response });
+    injected = true;
+    const body = `${await response.text()}\nconst originalHandler = self.onmessage; self.onmessage = event => { if (event.data.type === "COMPUTE_PLAN") throw new Error("injected worker crash"); originalHandler(event); };`;
+    await route.fulfill({ response, body });
+  });
+  await page.goto(`/?site=${e2eSite()}&debug=1#/planner`);
+  await page.locator('[data-slot="map-workspace"]').waitFor();
+  await page.getByRole("tab", { name: "Plan", exact: true }).click();
+  await page.getByLabel(/EVA start/i).fill("2026-11-14T08:00:00Z");
+  if (e2eSite() === REAL_SITE) await page.getByLabel(/hard slope limit/i).fill(scenarioSlope());
+  const [x, y] = scenarioStops(e2eSite())[0];
+  await placeStop(page, x, y);
+  const banner = page.locator("[data-results-banner]");
+  await expect(banner).toContainText("Computation failed", { timeout: 30_000 });
+  expect(injected).toBe(true);
+  const viewport = page.locator(".ol-viewport");
+  await expect(viewport).toBeVisible();
+  await viewport.focus();
+  await page.keyboard.press("ArrowLeft");
+  await banner.getByRole("button", { name: "Retry" }).click();
+  await expect(banner).toContainText(/OK|Over limits/, { timeout: 30_000 });
+});
+
 test("release-recovery: development checksum identifies a same-length corrupted grid and Retry recovers", async ({ page }) => {
   const port = HAB_PORT === 8399 ? 8398 : HAB_PORT + 1;
   const origin = `http://127.0.0.1:${port}`;
@@ -113,7 +158,7 @@ test("release-recovery: development checksum identifies a same-length corrupted 
       if (vite.exitCode !== null) throw new Error(`Vite exited: ${vite.exitCode}`);
       return fetch(origin).then((r) => r.status).catch(() => 0);
     }, { timeout: 20_000 }).toBe(200);
-    await withScratchSite("e2e_grid_corrupt", (dir) => {
+    await scratch("e2e_grid_corrupt", (dir) => {
       const path = join(dir, "grid", "elevation.f32");
       const bytes = readFileSync(path);
       bytes[0] = bytes[0]! ^ 1;
@@ -124,7 +169,7 @@ test("release-recovery: development checksum identifies a same-length corrupted 
       await expect(screen).toBeVisible({ timeout: 20_000 });
       await expect(screen.locator('[data-slot="missing-file"]')).toHaveText(`sites/${site}/grid/elevation.f32`);
       await expect(screen).toContainText(/checksum/i);
-      writeFileSync(join(dir, "grid", "elevation.f32"), readFileSync(join(MOCK, "grid", "elevation.f32")));
+      writeFileSync(join(dir, "grid", "elevation.f32"), readFileSync(join(SOURCE, "grid", "elevation.f32")));
       await screen.locator('[data-slot="boot-retry"]').click();
       await expect(page.locator('[data-screen="SCR-02"]').first()).toBeVisible();
     });
