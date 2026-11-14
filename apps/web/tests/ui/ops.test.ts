@@ -554,6 +554,72 @@ describe("Mission clock controls (04 §E.4, FR-30, FR-31)", () => {
   });
 });
 
+describe("The metadata strip carries the mission clock's own time (T25.05 step 2, FR-34, FR-15)", () => {
+  /** The strip element that holds one labelled value. */
+  const stripValue = (container: HTMLElement, source: string): HTMLElement => must(container, `.meta-strip [data-source="${source}"]`);
+
+  it("the sim time sits in the metadata strip with its own provenance and source, from the session clock", async () => {
+    const snap = connectSnapshot();
+    const { container } = await mount(createElement(OpsConsole, { snapshot: snap }));
+
+    const value = stripValue(container, "snapshot:session.clock.sim_time");
+    expect(value.textContent).toContain("SIM 13:05:00");
+    expect(value.getAttribute("data-provenance")).toBe("simulated");
+    expect(value.getAttribute("data-unavailable")).toBeNull();
+    // Its own source, not a copy of LTST's and not a path into the conditions feed.
+    expect(value.getAttribute("data-source")).toBe("snapshot:session.clock.sim_time");
+    // It is the Hab Core's clock, so it is never labelled live and never carries a measured class.
+    expect(value.textContent).not.toMatch(/live/i);
+    expect(container.innerHTML).not.toMatch(/data-provenance="measured"/);
+    // The sim time and the LTST are separate values with separate annotations; neither inherits the other's class.
+    const ltst = stripValue(container, "unavailable:session.ltst");
+    expect(ltst.getAttribute("data-provenance")).toBeNull();
+    expect(ltst.getAttribute("data-source")).not.toBe("snapshot:session.clock.sim_time");
+  });
+
+  it("the strip shows the sim time beside SOL, LTST and REV", async () => {
+    const { container } = await mount(createElement(OpsConsole, { snapshot: connectSnapshot() }));
+    const strip = must(container, ".meta-strip");
+
+    expect(strip.textContent).toMatch(/SOL\s+—/);
+    expect(strip.textContent).toMatch(/LTST\s+—/);
+    expect(strip.textContent).toMatch(/SIM\s+13:05:00/);
+    expect(strip.textContent).toMatch(/REV\s+—/);
+  });
+
+  it("with no session the sim time reads —, flagged unavailable, with an unavailable: source and no class", async () => {
+    const { container } = await mount(createElement(OpsConsole));
+
+    const value = stripValue(container, "unavailable:session.clock.sim_time");
+    expect(value.textContent).toContain("SIM —");
+    expect(value.getAttribute("data-unavailable")).toBe("true");
+    expect(value.getAttribute("data-provenance")).toBeNull();
+    expect(value.textContent).not.toMatch(/[■◆○△▶◇]/);
+    // No time is invented: the strip names no clock time at all.
+    expect(must(container, ".meta-strip").textContent).not.toMatch(/\d\d:\d\d:\d\d/);
+  });
+
+  it("a session whose clock carries no usable time leaves the sim time unavailable", async () => {
+    const snap = connectSnapshot();
+    const broken = { ...snap, session: { ...snap.session, clock: { ...snap.session.clock, sim_time: "not-a-time" } } };
+    const { container } = await mount(createElement(OpsConsole, { snapshot: broken }));
+
+    const value = stripValue(container, "unavailable:session.clock.sim_time");
+    expect(value.textContent).toContain("SIM —");
+    expect(value.getAttribute("data-unavailable")).toBe("true");
+  });
+
+  it("the sim time follows the clock the server broadcasts", async () => {
+    const snap = connectSnapshot();
+    const moved = { ...snap, session: { ...snap.session, clock: { ...snap.session.clock, sim_time: "2024-05-20T14:07:09Z" } } };
+    const m = await mount(createElement(OpsConsole, { snapshot: snap }));
+    expect(stripValue(m.container, "snapshot:session.clock.sim_time").textContent).toContain("SIM 13:05:00");
+
+    await m.rerender(createElement(OpsConsole, { snapshot: moved }));
+    expect(stripValue(m.container, "snapshot:session.clock.sim_time").textContent).toContain("SIM 14:07:09");
+  });
+});
+
 describe("Options panel: ops approves with a full hold (04 §D.3, FR-44)", () => {
   const option: ContingencyOption = {
     option_id: "o-ops",

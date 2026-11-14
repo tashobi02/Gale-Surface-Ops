@@ -49,6 +49,25 @@ describe("selectOpsProps", () => {
     expect(props.conditions).toBeUndefined();
   });
 
+  it("passes the session clock's own time through as the sim time, with its own class and source (T25.05)", () => {
+    // The mission clock is the simulation engine's, so it is `simulated`; its source is the clock's own path, not the
+    // conditions feed's (LTST's) source.
+    expect(selectOpsProps(connect, []).simTime).toEqual({
+      v: connect.session.clock.sim_time,
+      prov: "simulated",
+      src: "snapshot:session.clock.sim_time",
+    });
+    // Without a snapshot there is no clock, so there is no sim time (the console shows "—").
+    expect(selectOpsProps(null, []).simTime).toBeUndefined();
+  });
+
+  it("leaves the sim time undefined when the clock carries no usable time", () => {
+    const broken = { ...connect, session: { ...connect.session, clock: { ...connect.session.clock, sim_time: "" } } };
+    expect(selectOpsProps(broken, []).simTime).toBeUndefined();
+    const notATime = { ...connect, session: { ...connect.session, clock: { ...connect.session.clock, sim_time: "yesterday" } } };
+    expect(selectOpsProps(notATime, []).simTime).toBeUndefined();
+  });
+
   it("counts a crew member's tasks at the stop they are heading for, and in total", () => {
     const tasks = [
       { ...connect.tasks[0], task_id: "a", stop_id: "wp-2", crew_id: "EV1" as const, state: "DONE" as const },

@@ -79,6 +79,44 @@ test("ops-no-terminal: approve step holds and sends one option (package 20)", as
   expect(commands[0]?.args.option_id).toBeTruthy();
 });
 
+test("ops-no-terminal: the metadata strip carries the mission clock's own time with its provenance (T25.05)", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 1280) < 1024, "the ops console needs >= 1024 px");
+  const { snapshot } = await openOpsFixture(page, "running");
+  const strip = page.locator(".meta-strip");
+  await expect(strip).toBeVisible();
+
+  // The sim time is the Hab Core's own session clock, with its own class and its own source path.
+  const simTime = strip.locator('[data-source="snapshot:session.clock.sim_time"]');
+  await expect(simTime).toHaveCount(1);
+  await expect(simTime).toHaveAttribute("data-provenance", "simulated");
+  await expect(simTime).not.toHaveAttribute("data-unavailable", "true");
+  const shown = await simTime.textContent();
+  expect(shown).toMatch(/SIM \d\d:\d\d:\d\d/);
+  // The value is the clock's own time: the fixture's clock, not a time the page computed.
+  const expected = new Date(snapshot.session.clock.sim_time);
+  const hh = String(expected.getUTCHours()).padStart(2, "0");
+  const mm = String(expected.getUTCMinutes()).padStart(2, "0");
+  const ss = String(expected.getUTCSeconds()).padStart(2, "0");
+  expect(shown).toContain(`SIM ${hh}:${mm}:${ss}`);
+  // It is not LTST's value and never claims to be live.
+  expect(shown).not.toMatch(/live/i);
+
+  // The LTST keeps its own annotation: the two values are never collapsed into one class.
+  const ltst = strip.locator('[data-source="unavailable:session.ltst"]');
+  await expect(ltst).toHaveCount(1);
+  await expect(ltst).toHaveAttribute("data-unavailable", "true");
+});
+
+test("ops-no-terminal: with no session the strip's sim time reads — with an unavailable source", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 1280) < 1024, "the ops console needs >= 1024 px");
+  await openOpsFixture(page, "no-session");
+  const simTime = page.locator('.meta-strip [data-source="unavailable:session.clock.sim_time"]');
+  await expect(simTime).toHaveCount(1);
+  await expect(simTime).toContainText("SIM —");
+  await expect(simTime).toHaveAttribute("data-unavailable", "true");
+  await expect(simTime).not.toHaveAttribute("data-provenance", "simulated");
+});
+
 test("ops-no-terminal: rover step from the vehicle card, target picked on the map, one TASK_ROVER (package 21)", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 1280) < 1024, "the ops console needs >= 1024 px");
   const { commands } = await openOpsFixture(page, "running", { vehicles: [UTILITY_ROVER] });

@@ -24,7 +24,7 @@ import {
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { Crew, CrewId, Vehicle, Alert, Snapshot, Command, ContingencyOption, Provenance, LogEvent } from "@marswalk/protocol";
+import type { Crew, CrewId, Vehicle, Alert, Snapshot, Session, Command, ContingencyOption, Provenance, LogEvent } from "@marswalk/protocol";
 import type { HabClient } from "../../net/habClient";
 import { useCommand, useEvents, useHabClient, useSnapshot } from "../../state/habSession";
 import { useOpsSound } from "../ops/sound";
@@ -76,6 +76,11 @@ export interface OpsConsoleProps {
   scenarioName?: string;
   sol?: ProvenanceValue<number>;
   ltst?: ProvenanceValue<string>;
+  /**
+   * The mission clock's own time (05 Session `clock.sim_time`), from the Hab Core session. T25.05: the sim time and the
+   * LTST stay in the metadata strip, each with its own provenance and source. Unset = unknown ("—", `unavailable:`).
+   */
+  simTime?: ProvenanceValue<string>;
   planRevision?: ProvenanceValue<number>;
   /** Current EVA phase, when the Hab Core reports one. */
   phase?: ProvenanceValue<string>;
@@ -126,6 +131,22 @@ function metaAttrs(pv: ProvenanceValue<unknown> | undefined, path: string): Retu
   return provAttrs(pv ? { prov: pv.prov, src: pv.src } : unavailableOf(null, `session.${path}`));
 }
 
+/**
+ * The mission clock's own time for the metadata strip (T25.05). The Hab Core's session clock is authoritative, so the
+ * value is read from the snapshot the console holds; the `simTime` prop carries the same value (and its provenance and
+ * source) when the caller supplied one. Nothing is computed here: the strip shows the clock's own time, never a time
+ * the page derived from LTST or the wall clock.
+ */
+function simTimeValue(
+  prop: ProvenanceValue<string> | undefined,
+  session: Session | undefined,
+): ProvenanceValue<string> | undefined {
+  if (prop) return prop;
+  const iso = session?.clock?.sim_time;
+  if (typeof iso !== "string" || iso.trim() === "" || formatSimTime(iso) === UNAVAILABLE) return undefined;
+  return { v: iso, prov: "simulated", src: "snapshot:session.clock.sim_time" };
+}
+
 /** Placement of an item on the schematic's footer line: working-projection metres, or "—". */
 function metres(v: unknown): string {
   return isFiniteNumber(v) ? `${v >= 0 ? "+" : ""}${Math.round(v)}m` : UNAVAILABLE;
@@ -140,6 +161,7 @@ export function OpsConsole({
   scenarioName,
   sol,
   ltst,
+  simTime,
   planRevision,
   phase,
   clockSpeed,
@@ -214,6 +236,9 @@ export function OpsConsole({
   const send = useCommand(client);
   const activeSnapshot = snapshot === undefined ? liveState : snapshot;
   const session = activeSnapshot?.session;
+  // The mission clock's own time for the metadata strip (T25.05): the prop when the caller supplied it, else the
+  // Hab Core's session clock. Never derived from LTST or from the wall clock.
+  const stripSimTime = simTimeValue(simTime, session);
   const { armed, consumeArmingGesture } = useOpsSound(alerts, soundEnabled, session?.session_id);
   const logLines = logLinesProp ?? selectOpsProps(activeSnapshot, events).logLines ?? [];
   const raisedTimes = new Map(events.filter((event) => event.kind === "ALERT_RAISED").map((event) => [event.seq, event.sim_time]));
@@ -445,6 +470,12 @@ export function OpsConsole({
           >
             <span {...metaAttrs(sol, "sol")}>SOL {sol ? fmtInt(sol.v) : UNAVAILABLE}</span> ·{" "}
             <span {...metaAttrs(ltst, "ltst")}>LTST {ltst && ltst.v ? ltst.v : UNAVAILABLE}</span> ·{" "}
+            {/* The mission clock's own time (T25.05). It is the Hab Core's session clock, so it carries the clock's own
+                source path and class; it is never the LTST value and never a time this page computed. */}
+            <span {...metaAttrs(stripSimTime, "clock.sim_time")}>
+              SIM {stripSimTime ? formatSimTime(stripSimTime.v) : UNAVAILABLE}
+            </span>{" "}
+            ·{" "}
             <span {...metaAttrs(planRevision, "planRevision")}>
               REV {planRevision && isFiniteNumber(planRevision.v) ? String(planRevision.v).padStart(2, "0") : UNAVAILABLE}
             </span>
