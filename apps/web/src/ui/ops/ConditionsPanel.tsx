@@ -12,7 +12,7 @@
  *   Supplied provenance and source ids are carried through untouched, one set per element.
  * - Supports two variants:
  *   - "ops" (default): full panel layout for SCR-11 right column.
- *   - "eva": compact strip format for SCR-12 metadata strip.
+ *   - "eva": compact strip format for SCR-12's conditions row (LTST, sun elevation, the dose rates, the EVA phase).
  */
 
 import type { CSSProperties, ReactElement } from "react";
@@ -38,6 +38,8 @@ export interface ConditionsState {
   sunElevationDeg: ProvenanceValue<number>;
   doseRateBackgroundUgyH: ProvenanceValue<number>;
   doseRateEventUgyH?: ProvenanceValue<number>;
+  /** The authoritative EVA phase (`simulated`, source `engine:session`); N-06 follow-up. Shown in the EVA variant. */
+  evaPhase?: ProvenanceValue<string>;
   earthLink?: EarthLinkConditions;
   remsClimatology?: {
     available: boolean;
@@ -94,6 +96,10 @@ export function ConditionsPanel({
   const sun = cell(conditions.sunElevationDeg, "sunElevationDeg", numTight);
   const background = cell(conditions.doseRateBackgroundUgyH, "doseRateBackgroundUgyH", (v, u) => num(2)(v, u));
   const event = conditions.doseRateEventUgyH ? cell(conditions.doseRateEventUgyH, "doseRateEventUgyH", (v, u) => num(1)(v, u)) : null;
+  // The EVA phase is a separate field with its own class (`simulated`) and its own source (`engine:session`); it never
+  // inherits the LTST's, and the two are never collapsed into one annotation. It is part of the base set the EVA strip
+  // draws, so a feed that carries none reads "—" with an `unavailable:` source.
+  const phase = cell(conditions.evaPhase, "evaPhase", plain);
   const light = cell(conditions.earthLink?.lightTimeSeconds, "earthLink.lightTimeSeconds", (v) => formatLightTime(v));
   const nextPass = cell(conditions.earthLink?.nextPass, "earthLink.nextPass", plain);
   const queueUp = conditions.earthLink?.queueUp;
@@ -160,7 +166,14 @@ export function ConditionsPanel({
             EVENT {event.text}
           </span>
         )}
-        <span {...light.attrs} style={valStyle}>EARTH {light.text}</span>
+        {phase && (
+          <span {...phase.attrs} style={valStyle}>PHASE {phase.text}</span>
+        )}
+        {/* The Earth link light time is drawn only where the caller supplied the Earth link block: a field the feed
+            never carried is not drawn as a permanent "—" (the same rule as the event dose rate above). */}
+        {conditions.earthLink && (
+          <span {...light.attrs} style={valStyle}>EARTH {light.text}</span>
+        )}
       </div>
     );
   }

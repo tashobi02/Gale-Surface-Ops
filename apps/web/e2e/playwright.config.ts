@@ -66,7 +66,7 @@ const ONLY_DESKTOP_1440 = [
   "earth-message",
   // The EVA checks drive their own viewport (the portrait grid and the options sheet are viewport-specific), so they run
   // once on the desktop project instead of on every project's fixed size.
-  "eva-warning", "eva-portrait", "fallbacks-live",
+  "eva-warning", "eva-portrait", "eva-conditions", "fallbacks-live",
   ...RELEASE_ONLY_DESKTOP_1440,
 ];
 

@@ -982,3 +982,120 @@ describe("SCR-12 NEXT card is keyboard-reachable when it scrolls", () => {
     expect(label, "the focusable NEXT card needs an accessible name").toBeTruthy();
   });
 });
+
+/**
+ * T25.10 — the EVA conditions row of SCR-12 (01 FR-36, NFR-05; 04 §E.5).
+ *
+ * The tablet shows the conditions the EVA needs: LTST, sun elevation, the background and event dose rates and the
+ * EVA phase. Each value carries the Hab Core's own provenance class and source id, and a field the Hab Core has
+ * not supplied reads "—" with an `unavailable:` source (04 §D.1). Nothing is computed on the tablet (FD-085).
+ */
+describe("SCR-12 shows the FR-36 conditions with their own provenance (T25.10)", () => {
+  /** The Hab Core's conditions block, as the engine supplies it (05 ConditionsState). */
+  const conditions = {
+    ltst: "09:15",
+    sun_elevation_deg: 31.24,
+    dose_rate_background_ugy_h: 0.21,
+    dose_rate_event_ugy_h: 5.5,
+    sol: 4190,
+    eva_phase: "WALKING",
+    source_ids: {
+      ltst: "mars24-allison-mcewen-2000",
+      sun_elevation_deg: "mars24-allison-mcewen-2000",
+      dose_rate_background_ugy_h: "rad-sol4190",
+      dose_rate_event_ugy_h: "rad-sol4190",
+      eva_phase: "engine:session",
+    },
+    provenance: {
+      ltst: "derived",
+      sun_elevation_deg: "derived",
+      dose_rate_background_ugy_h: "replayed",
+      dose_rate_event_ugy_h: "replayed",
+      eva_phase: "simulated",
+    },
+  } as unknown as Snapshot["conditions"];
+
+  const withConditions = (block: Snapshot["conditions"]): Snapshot => ({
+    ...snapshotOf("connect"),
+    conditions: block,
+  });
+
+  it("shows LTST, sun elevation, the dose rates and the phase, each with its own class and source", async () => {
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: withConditions(conditions) }));
+    const row = must(view.container, '[data-slot="conditions"]');
+    const strip = must(row, '[data-testid="conditions-strip-eva"]');
+    // LTST and the sun elevation share the Mars24 source id, so each value is found by the label that names it.
+    const item = (label: string) => {
+      const el = [...strip.querySelectorAll("span")].find((span) => (span.textContent ?? "").startsWith(`${label} `));
+      if (!el) throw new Error(`no ${label} item in the EVA conditions strip`);
+      return el;
+    };
+
+    // Every value the EVA needs is there, with the label that names it.
+    for (const word of ["LTST", "SUN", "BG", "EVENT", "PHASE"]) expect(strip.textContent).toContain(word);
+
+    // The values are the Hab Core's own, not the tablet's.
+    expect(item("LTST").textContent).toContain("09:15");
+    expect(item("LTST").getAttribute("data-source")).toBe("mars24-allison-mcewen-2000");
+    expect(item("LTST").getAttribute("data-provenance")).toBe("derived");
+    expect(item("SUN").textContent).toContain("31.24");
+    expect(item("SUN").getAttribute("data-source")).toBe("mars24-allison-mcewen-2000");
+    expect(item("SUN").getAttribute("data-provenance")).toBe("derived");
+    expect(item("BG").textContent).toContain("0.21");
+    expect(item("BG").getAttribute("data-source")).toBe("rad-sol4190");
+    expect(item("BG").getAttribute("data-provenance")).toBe("replayed");
+    expect(item("EVENT").textContent).toContain("5.5");
+    expect(item("EVENT").getAttribute("data-source")).toBe("rad-sol4190");
+    expect(item("EVENT").getAttribute("data-provenance")).toBe("replayed");
+    expect(item("PHASE").textContent).toContain("WALKING");
+    expect(item("PHASE").getAttribute("data-source")).toBe("engine:session");
+    expect(item("PHASE").getAttribute("data-provenance")).toBe("simulated");
+
+    // The sun elevation is a value of its own element, not folded into the LTST's.
+    expect(item("LTST")).not.toBe(item("SUN"));
+
+    // Nothing is labelled live.
+    expect(strip.textContent).not.toMatch(/\blive\b/i);
+    // Every value in the strip carries a source.
+    for (const el of strip.querySelectorAll("span[data-provenance]")) {
+      expect(el.getAttribute("data-source")).toBeTruthy();
+    }
+  });
+
+  it("a field the Hab Core has not supplied reads — with an unavailable source and no class", async () => {
+    const partial = {
+      ...conditions,
+      ltst: null,
+      sun_elevation_deg: null,
+      dose_rate_background_ugy_h: null,
+      dose_rate_event_ugy_h: null,
+      eva_phase: null,
+    } as unknown as Snapshot["conditions"];
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: withConditions(partial) }));
+    const strip = must(view.container, '[data-testid="conditions-strip-eva"]');
+
+    for (const path of ["ltst", "sunElevationDeg", "doseRateBackgroundUgyH", "evaPhase"]) {
+      const el = must(strip, `[data-source="unavailable:conditions.${path}"]`);
+      expect(el.textContent).toContain("—");
+      expect(el.getAttribute("data-unavailable")).toBe("true");
+      expect(el.getAttribute("data-provenance")).toBeNull();
+    }
+    // The event dose rate is not drawn at all when the feed carries none: it is not a permanent "—".
+    expect(strip.querySelector('[data-source="unavailable:conditions.doseRateEventUgyH"]')).toBeNull();
+    // The source ids of a field that is not there do not survive on the strip.
+    expect(strip.innerHTML).not.toMatch(/data-source="mars24-allison-mcewen-2000"/);
+    expect(strip.innerHTML).not.toMatch(/data-source="rad-sol4190"/);
+    expect(strip.innerHTML).not.toMatch(/data-source="engine:session"/);
+    expect(strip.textContent).not.toMatch(/NaN|null|undefined/);
+  });
+
+  it("the tablet computes nothing: a value the feed does not carry never appears", async () => {
+    const view = await mount(createElement(EvaTablet, { crewId: "EV1", snapshot: snapshotOf("connect") }));
+    const strip = must(view.container, '[data-testid="conditions-strip-eva"]');
+    // The fixture's conditions are all null: the strip reads "—" everywhere and shows no number of its own.
+    expect(strip.textContent).not.toMatch(/\d/);
+    for (const el of strip.querySelectorAll('[data-unavailable="true"]')) {
+      expect(el.getAttribute("data-source")).toMatch(/^unavailable:conditions\./);
+    }
+  });
+});

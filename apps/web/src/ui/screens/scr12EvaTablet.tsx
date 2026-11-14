@@ -23,6 +23,8 @@ import {
 import { logLiveFallback } from "../live/fallbackDebug";
 import { MiniMap } from "../eva/MiniMap";
 import "./scr12EvaTablet.css";
+import { ConditionsPanel } from "../ops/ConditionsPanel";
+import { selectConditions } from "../ops/liveProps";
 import { EvaActionRow } from "../eva/HoldToConfirm";
 import { StatusIcon } from "../components/statusIcon";
 import {
@@ -157,6 +159,9 @@ export function EvaTablet({
   const [rideRejection, setRideRejection] = useState<string | null>(null);
   const viewSnapshot = activeSnapshot ? { ...activeSnapshot, tasks: changes.overlay(serverTasks) } : activeSnapshot;
   const vm: EvaViewModel = selectEvaViewModel(viewSnapshot, crewId);
+  // FR-36 conditions for the EVA: the same selector the ops console reads, so the two surfaces never disagree about a
+  // value or its provenance class (T25.10; FD-085). Nothing is computed here.
+  const evaConditions = selectConditions(activeSnapshot).conditions;
   // FR-50: at a stop the task list belongs to the stop underfoot. NEXT navigation still points ahead (FD-266).
   const member = viewSnapshot?.crew.find((c) => c.crew_id === crewId);
   const index = member?.stop_index;
@@ -603,6 +608,25 @@ export function EvaTablet({
             </button>
           </div> : <MiniMap key={mapAttempt} snapshot={activeSnapshot ?? null} crewId={crewId} onOpen={onOpenFullScreenMap} onUnavailable={() => { setMapUnavailable(true); logLiveFallback("hud-only"); }} />}
         </div>
+      </div>
+
+      {/* ------------------------------------- Conditions Row (FR-36, T25.10)
+          The EVA's own conditions: LTST, sun elevation, the background and event dose rates and the EVA phase, each
+          with the Hab Core's own provenance class and source id. A field the Hab Core has not supplied reads "—" with
+          an `unavailable:` source (04 §D.1); nothing here is computed on the tablet (FD-085). */}
+      <div
+        role="region"
+        aria-label="Conditions"
+        data-slot="conditions"
+        style={{
+          minHeight: "24px",
+          display: "flex",
+          alignItems: "center",
+          borderTop: "1px solid var(--hairline, #2A313A)",
+          overflow: "hidden",
+        }}
+      >
+        <ConditionsPanel variant="eva" conditions={evaConditions} />
       </div>
 
       {/* ------------------------------------- Metadata Strip (24 px) */}

@@ -10,7 +10,7 @@ import type { CrewTaskProgress, OpsConsoleProps, OpsLogLine } from "../screens/s
 import { isProvenance, selectNextStop } from "../eva/viewModel";
 import { formatSimTime, summarizeEvent } from "./EventLog";
 import { UNAVAILABLE } from "../components/provenance";
-import type { ProvenanceValue } from "./ConditionsPanel";
+import type { ConditionsState, ProvenanceValue } from "./ConditionsPanel";
 
 const CREW_IDS: readonly CrewId[] = ["EV1", "EV2"];
 
@@ -78,6 +78,48 @@ export type LiveOpsProps = Pick<
   "scenarioName" | "sol" | "ltst" | "simTime" | "planRevision" | "phase" | "crew" | "vehicles" | "alerts" | "taskProgress" | "conditions" | "logLines"
 >;
 
+/**
+ * The FR-36 conditions the Hab Core supplied, each with its own provenance class and source id (N-06; FD-085).
+ *
+ * One selector for every surface that shows the conditions: SCR-11 (the ops panel) and SCR-12 (the EVA conditions
+ * strip) read the same snapshot the same way, so the two never disagree about a value or its class. A field the Hab
+ * Core has not supplied is left undefined, and the panel renders it as "—" with an `unavailable:` source; nothing is
+ * computed here (FD-085: the values come from the snapshot, never from the UI).
+ */
+export interface SelectedConditions {
+  /** The conditions block for `ConditionsPanel`; undefined when the snapshot carries none of them. */
+  readonly conditions: Partial<ConditionsState> | undefined;
+  /** The authoritative EVA phase, with its own class (`simulated`) and source (`engine:session`); N-06 follow-up. */
+  readonly phase: ProvenanceValue<string> | undefined;
+  /** The MSL sol at the hab (`derived`); undefined when the Hab Core has not supplied it. */
+  readonly sol: ProvenanceValue<number> | undefined;
+}
+
+export function selectConditions(snapshot: Snapshot | null): SelectedConditions {
+  const conditions = snapshot?.conditions;
+  function value<T extends number | string>(field: keyof Snapshot["conditions"], unit?: string): ProvenanceValue<T> | undefined {
+    const v = conditions?.[field];
+    const prov = conditions?.provenance?.[field];
+    const src = conditions?.source_ids?.[field];
+    if ((typeof v !== "number" && typeof v !== "string") || (typeof v === "number" && !Number.isFinite(v)) || v === "" || !isProvenance(prov) || !src) return undefined;
+    return { v: v as T, prov, src, ...(unit ? { unit } : {}) };
+  }
+  const ltst = value<string>("ltst");
+  const phase = value<string>("eva_phase");
+  const fields = {
+    ltst,
+    sunElevationDeg: value<number>("sun_elevation_deg", "°"),
+    doseRateBackgroundUgyH: value<number>("dose_rate_background_ugy_h", "µGy/h"),
+    doseRateEventUgyH: value<number>("dose_rate_event_ugy_h", "µGy/h"),
+    evaPhase: phase,
+  };
+  return {
+    conditions: Object.values(fields).some(Boolean) ? fields : undefined,
+    phase,
+    sol: value<number>("sol"),
+  };
+}
+
 export function selectOpsProps(snapshot: Snapshot | null, events: LogEvent[]): LiveOpsProps {
   const newest = events.length > 0 ? events.reduce((a, b) => (b.seq > a.seq ? b : a)) : null;
   const logLines = newest ? [logLineOf(newest)] : [];
@@ -88,27 +130,13 @@ export function selectOpsProps(snapshot: Snapshot | null, events: LogEvent[]): L
     const p = taskProgressOf(snapshot, id);
     if (p) taskProgress[id] = p;
   }
-  const conditions = snapshot.conditions;
-  function value<T extends number | string>(field: keyof Snapshot["conditions"], unit?: string): ProvenanceValue<T> | undefined {
-    const v = conditions?.[field];
-    const prov = conditions?.provenance?.[field];
-    const src = conditions?.source_ids?.[field];
-    if ((typeof v !== "number" && typeof v !== "string") || (typeof v === "number" && !Number.isFinite(v)) || v === "" || !isProvenance(prov) || !src) return undefined;
-    return { v: v as T, prov, src, ...(unit ? { unit } : {}) };
-  }
-  const ltst = value<string>("ltst");
-  const fields = {
-    ltst,
-    sunElevationDeg: value<number>("sun_elevation_deg", "°"),
-    doseRateBackgroundUgyH: value<number>("dose_rate_background_ugy_h", "µGy/h"),
-    doseRateEventUgyH: value<number>("dose_rate_event_ugy_h", "µGy/h"),
-  };
+  const selected = selectConditions(snapshot);
   return {
-    sol: value<number>("sol"),
-    phase: value<string>("eva_phase"),
-    ltst,
+    sol: selected.sol,
+    phase: selected.phase,
+    ltst: selected.conditions?.ltst,
     simTime: simTimeOf(snapshot),
-    conditions: Object.values(fields).some(Boolean) ? fields : undefined,
+    conditions: selected.conditions,
     scenarioName: snapshot.session.scenario_id,
     planRevision: { v: snapshot.session.plan_revision, prov: "simulated", src: "snapshot:session.plan_revision" },
     crew: snapshot.crew,
