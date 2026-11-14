@@ -91,7 +91,7 @@ test("release-recovery: production accepts a same-length grid corruption without
 // has no `__failWorker` hook and needs none: the plan store sees the worker's own error code and enters its Error state
 // (03 §E.4), and SCR-05 shows "Computation failed" with a Retry (T09.07). The check drives the real planner UI — a stop, a
 // computation, the failure, the retry — with no debug hook in production code.
-test("release-recovery: a worker failure shows Computation failed with a working Retry (N-211, T09.07)", async ({ page }) => {
+test("release-recovery: a worker failure shows Computation failed with a working Retry (N-211 closed, T09.07)", async ({ page }) => {
   await page.goto("/?site=mock_site&mock_worker=1&mock_worker_result=transient-error#/planner");
   await page.waitForLoadState("networkidle");
   await page.locator('[data-slot="map-workspace"]').waitFor();

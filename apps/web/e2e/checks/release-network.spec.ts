@@ -196,7 +196,7 @@ test("release-network: single-laptop mode serves four windows and runs the kille
 //
 // The beats are the ones of 01 §E.1: the storm starts, the radiation alert is raised, the options are proposed, the crew
 // acknowledges the alert, the rover is summoned, the option is approved and the vehicle is dispatched.
-test("release-network: the killer demo runs through the OPS and EVA UI alone (N-200)", async ({ context, page }) => {
+test("release-network: the killer demo runs through the OPS and EVA UI alone (N-200 closed)", async ({ context, page }) => {
   test.setTimeout(600_000);
   await runKillerDemo(context, page);
 });

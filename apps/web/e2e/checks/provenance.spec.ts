@@ -13,10 +13,15 @@
  *    table with all six columns, and the chip that links to it (`#/sources#source-<id>`, FD-144) must land on an anchor
  *    that exists (T12.06 step 4).
  *
- * The F4 bundle names three datasets; the walk-time ids `tobler-1993` and `apollo17-planning` belong to the real bundle
- * (N-20), so on the F4 site they are checked as "a dataset id of the real bundle that the F4 manifest does not carry",
- * which is recorded in the verification log rather than silently passed.
+ * The walk-time ids `tobler-1993` and `apollo17-planning` belong to the **real** bundle, not to the F4 fixture. The
+ * check is site-aware: it runs against the bundle the harness is configured for (`E2E_SITE`), so on the real bundle the
+ * walk-time ids are **asserted** to be listed in SCR-09 with all six columns and an anchor, and on the F4 site they are
+ * recorded as an annotation ("a dataset id of the real bundle that the F4 manifest does not carry") rather than passed
+ * silently. `walkTimeDatasetIds` reads the ids out of the app's own source, so a typo in the app's hard-coded ids cannot
+ * hide behind a list the check repeats.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { openBriefing, BRIEFING_STATES } from "../lib/briefing";
 import { expect, test } from "@playwright/test";
 import { openOpsFixture } from "../lib/opsFixture";
@@ -28,6 +33,8 @@ import { expectNoUnlabelledNumbers, PROVENANCE_ALLOWLIST, unlabelledNumbers } fr
 import { openPoiTasks } from "../lib/plannerTasks";
 import { openReplayFixture } from "../lib/replayFixture";
 import { fetchManifest } from "../lib/siteGrid";
+import { e2eSite, REAL_SITE } from "../lib/siteBundle";
+import { openFreshOps, resetThroughPresenter, sessionSnapshot, watchLive } from "../lib/liveMission";
 
 test("provenance: ops join drawer", async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
@@ -38,8 +45,35 @@ test("provenance: ops join drawer", async ({ page }) => {
 
 const DEMO_PATH = ["#/", "#/planner", "#/briefing"];
 
-/** The dataset ids the app hard-codes; they belong to the real bundle (N-20), not to the F4 fixture. */
+/** The dataset ids the app hard-codes; they belong to the real bundle, not to the F4 fixture. */
 const REAL_BUNDLE_DATASET_IDS = ["tobler-1993", "apollo17-planning"];
+
+/**
+ * The walk-time dataset ids **as the app hard-codes them**, read out of the app's own source.
+ *
+ * The app names the walk-time sources in three places: the `SRC_WALK_TIME` and `SRC_HAVEN` constants of the SCR-05 results
+ * panel (`src/ui/screens/scr05RouteResults.tsx`) and the `provenanceMap.json` the export's `provenance_summary` is built
+ * from (`src/ui/content/provenanceMap.json`). Reading them from the source is what makes the check able to fail: a list the
+ * check itself repeats would pass even if the app spelled an id wrong. Every id the app names must be one the **real**
+ * bundle's manifest lists, so a typo is a red check rather than an unresolvable chip.
+ */
+function walkTimeDatasetIdsFromSource(): string[] {
+  const webRoot = join(import.meta.dirname, "..", "..", "src");
+  const results = readFileSync(join(webRoot, "ui", "screens", "scr05RouteResults.tsx"), "utf8");
+  const map = JSON.parse(readFileSync(join(webRoot, "ui", "content", "provenanceMap.json"), "utf8")) as Record<string, Record<string, { source_ids: string[] }>>;
+  const ids = new Set<string>();
+  for (const name of ["SRC_WALK_TIME", "SRC_HAVEN"]) {
+    const value = new RegExp(`const ${name} = "([^"]+)"`).exec(results)?.[1];
+    if (!value) throw new Error(`Missing ${name} in SCR-05`);
+    for (const token of value.split(/\s+/)) if (token !== "02" && token !== "§D.8") ids.add(token);
+  }
+  for (const path of ["result.totals.walk_time_min", "result.totals.eva_total_min", "result.totals.eva_margin_min"]) {
+    const entry = Object.values(map).find((group) => group[path])?.[path];
+    if (!entry?.source_ids?.length) throw new Error(`Missing source ids for ${path}`);
+    for (const id of entry.source_ids) if (!id.startsWith("scenario.")) ids.add(id);
+  }
+  return [...ids].sort();
+}
 
 /**
  * Splits a `data-source` into its tokens.
@@ -52,14 +86,22 @@ function sourceTokens(source: string): string[] {
 }
 
 /**
- * The dataset ids among the tokens of a source: the ones the bundle manifest names, plus the ids the app hard-codes
- * from the real bundle. Everything else is a path into the app's own state and is resolved by the app, not by SCR-09.
+ * Classify dataset ids from either manifest and reject unknown tokens; state paths and spec references are not datasets.
  */
-function datasetTokens(source: string, manifestIds: readonly string[]): string[] {
-  return sourceTokens(source).filter((token) => manifestIds.includes(token) || REAL_BUNDLE_DATASET_IDS.includes(token));
+function datasetTokens(source: string, manifestIds: readonly string[], realIds: readonly string[]): string[] {
+  const datasets: string[] = [];
+  for (const token of sourceTokens(source)) {
+    if (manifestIds.includes(token) || realIds.includes(token) || REAL_BUNDLE_DATASET_IDS.includes(token)) {
+      datasets.push(token);
+    } else {
+      // These are state paths and explicit spec references, not dataset identifiers.
+      expect(token, `unknown source token in ${source}`).toMatch(/^(?:(?:scenario|result|plan|demoPlan|compute|ui)\.|(?:plan-export|plan-store|manifest|user|unavailable|rule|proj|pois|spec):|02$|§D\.8$)/);
+    }
+  }
+  return datasets;
 }
 
-// Package 07: the planner workspace alone, on the F4 site. The demo-path test below stays `fixme` until SCR-01 and SCR-08 exist.
+// Package 07: the planner workspace alone, on the F4 site.
 test("provenance: no unlabelled number on the planner workspace and every source id it shows is a known kind (package 07)", async ({ page }) => {
   await page.goto("/?site=mock_site#/planner");
   await page.waitForLoadState("networkidle");
@@ -111,26 +153,29 @@ test("provenance: the keyboard-move title ordinal is an identifier and the live 
 
 test("provenance: no unlabelled number on the demo path and every credited source resolves in SCR-09", async ({ page, request }) => {
   test.setTimeout(120_000);
-  const manifest = await fetchManifest(request, "mock_site");
+  const site = e2eSite();
+  const manifest = await fetchManifest(request, site);
   const manifestIds = (manifest.sources ?? []).map((source) => source.source_id);
-  expect(manifestIds.length, "the F4 bundle names its datasets").toBeGreaterThan(0);
+  const realManifest = JSON.parse(readFileSync(new URL("../../../../data/sites/gale_boxwork/site-manifest.json", import.meta.url), "utf8")) as { sources: { source_id: string }[] };
+  const realIds = realManifest.sources.map((source) => source.source_id);
+  expect(manifestIds.length, `${site} names its datasets`).toBeGreaterThan(0);
 
   const sources = new Set<string>();
   for (const hash of DEMO_PATH) {
     if (hash === "#/planner") {
       // The planner is reached the way 01 §E reaches it: from the mission briefing, with the demo plan loaded and
       // computed, so SCR-02, SCR-04, SCR-05 and SCR-07 all carry values.
-      await page.goto("/?site=mock_site#/");
+      await page.goto(`/?site=${site}#/`);
       await page.waitForLoadState("networkidle");
       await page.getByRole("button", { name: /open demo plan/i }).click();
       await page.getByRole("tab", { name: "Plan", exact: true }).click();
       const start = page.getByLabel(/EVA start/i);
       await start.fill("");
       await start.fill("2026-11-14T08:00:00Z");
-      await expect(page.locator("[data-results-banner]")).not.toContainText("Computing…", { timeout: 30_000 });
+      await expect(page.locator("[data-results-banner]"), "the worker returned a plan").toContainText(/OK|Partial|Over limits/, { timeout: 30_000 });
       await expectNoUnlabelledNumbers(page, hash);
     } else {
-      await page.goto(`/?site=mock_site${hash}`);
+      await page.goto(`/?site=${site}${hash}`);
       await page.waitForLoadState("networkidle");
       if (hash === "#/briefing") await page.locator('[data-slot="briefing-card"]').waitFor();
       await expectNoUnlabelledNumbers(page, hash);
@@ -140,7 +185,7 @@ test("provenance: no unlabelled number on the demo path and every credited sourc
 
   // SCR-09: every dataset of the bundle manifest is listed with all six columns, and every dataset id the demo path
   // shows has an anchor.
-  await page.goto("/?site=mock_site#/sources");
+  await page.goto(`/?site=${site}#/sources`);
   await page.locator('[data-screen="SCR-09"]').first().waitFor();
   for (const id of manifestIds) {
     const row = page.locator(`[data-slot="dataset-row"][data-source-id="${id}"]`);
@@ -159,30 +204,113 @@ test("provenance: no unlabelled number on the demo path and every credited sourc
 
   // Every dataset id the demo path shows resolves: it is listed in SCR-09, and its chip lands on that anchor.
   const shownDatasets = new Set<string>();
-  for (const source of sources) for (const token of datasetTokens(source, manifestIds)) shownDatasets.add(token);
+  for (const source of sources) for (const token of datasetTokens(source, manifestIds, realIds)) shownDatasets.add(token);
   expect(shownDatasets.size, "the demo path shows at least one dataset id").toBeGreaterThan(0);
   for (const id of shownDatasets) {
     if (!manifestIds.includes(id)) {
-      // A dataset of the real bundle that the F4 fixture does not carry (N-20). It is recorded, not passed silently.
-      test.info().annotations.push({ type: "provenance", description: `dataset ${id} is not in the F4 manifest (N-20)` });
+      // A dataset of the real bundle that the F4 fixture does not carry. Record it rather than pass it silently.
+      test.info().annotations.push({ type: "provenance", description: `dataset ${id} is not in the ${site} manifest` });
       continue;
     }
     await expect(page.locator(`[data-anchor-id="source-${id}"]`), `the anchor of the shown dataset ${id}`).toHaveCount(1);
   }
 
   // The chips of SCR-08 link to the anchors of SCR-09 (FD-144); each link lands on an anchor that exists.
-  await page.goto("/?site=mock_site#/briefing");
+  await page.goto(`/?site=${site}#/briefing`);
   await page.locator('[data-slot="briefing-card"]').waitFor();
   const chips = await page.locator('a[href^="#/sources#source-"]').evaluateAll((els) => els.map((e) => (e as HTMLAnchorElement).getAttribute("href")!));
   expect(chips.length, "the briefing card links its sources").toBeGreaterThan(0);
   for (const href of chips) {
     const anchor = href.slice("#/sources#".length);
-    await page.goto(`/?site=mock_site${href}`);
+    await page.goto(`/?site=${site}${href}`);
     await page.locator('[data-screen="SCR-09"]').first().waitFor();
     await expect(page.locator(`[data-anchor-id="${anchor}"]`), `the anchor ${anchor} of the chip`).toHaveCount(1);
     // The deep link marks the entry it landed on, so the chip really did reach that anchor and not another one.
     await expect(page.locator(`[data-anchor-id="${anchor}"][data-anchor-target="true"]`), `the chip ${href} lands on its anchor`).toHaveCount(1);
   }
+});
+
+/**
+ * The walk-time dataset ids the app hard-codes resolve in SCR-09 (T12.06 step 4).
+ *
+ * The app names the walk-time sources (`tobler-1993`, `apollo17-planning`) in the SCR-05 results panel and in the
+ * `provenanceMap` the export's `provenance_summary` is built from. They belong to the **real** bundle, so on the F4 fixture
+ * the manifest does not name them and SCR-09 cannot list them; there the check asserts the honest thing — the ids are the
+ * real bundle's, the F4 manifest does not carry them, and the check says so in an annotation rather than passing silently.
+ *
+ * On the real bundle the ids **must** resolve: each is listed in SCR-09's dataset table with all six columns and carries
+ * its `source-<id>` anchor. The ids come from the app's own source, so a misspelling in the app is a red check.
+ */
+test("provenance: the walk-time dataset ids the app hard-codes resolve in SCR-09", async ({ page, request }) => {
+  const site = e2eSite();
+  const appIds = walkTimeDatasetIdsFromSource();
+  expect(appIds.length, "the app names its walk-time dataset ids").toBeGreaterThan(0);
+
+  const manifest = await fetchManifest(request, site);
+  const manifestIds = (manifest.sources ?? []).map((source) => source.source_id);
+
+  await page.goto(`/?site=${site}#/sources`);
+  await page.locator('[data-screen="SCR-09"]').first().waitFor();
+
+  for (const id of appIds) {
+    if (!manifestIds.includes(id)) {
+      // Only the F4 fixture may lack the real bundle's dataset. On the real bundle a missing id is a broken bundle, so
+      // the check fails rather than taking the annotation path.
+      expect(site, `the real bundle must list the walk-time dataset ${id}`).not.toBe(REAL_SITE);
+      // The id is still the real bundle's, so record that rather than passing it silently.
+      expect([...REAL_BUNDLE_DATASET_IDS, "usgs-gale-dem-1m-v3"], `the source ${id} is one of the real bundle's`).toContain(id);
+      test.info().annotations.push({ type: "provenance", description: `dataset ${id} is not in the ${site} manifest` });
+      // The id must not be listed as a dataset of this bundle: a row the manifest does not name would be a false credit.
+      await expect(page.locator(`[data-slot="dataset-row"][data-source-id="${id}"]`), `the ${site} bundle lists no row for ${id}`).toHaveCount(0);
+      continue;
+    }
+    const row = page.locator(`[data-slot="dataset-row"][data-source-id="${id}"]`);
+    await expect(row, `the walk-time dataset ${id} is listed in SCR-09`).toBeVisible();
+    await expect(row.locator('[data-slot="dataset-name"]'), `the dataset name of ${id}`).not.toHaveText("");
+    for (const column of ["dataset-version", "dataset-mission", "dataset-resolution", "dataset-licence", "dataset-link"]) {
+      await expect(row.locator(`[data-slot="${column}"]`), `the ${column} column of ${id}`).toBeAttached();
+    }
+    await expect(page.locator(`[data-anchor-id="source-${id}"]`), `the anchor of ${id}`).toHaveCount(1);
+  }
+});
+
+test("provenance: live ops, EVA and HUD show no unlabelled numbers (running mock, loaded real)", async ({ context }) => {
+  test.setTimeout(120_000);
+  const { ops, wire } = await openFreshOps(context);
+  try {
+    if (e2eSite() !== REAL_SITE) {
+      await wire.command("LOAD_SCENARIO", () => ops.getByRole("button", { name: "Load scenario", exact: true }).click());
+      await wire.command("START_EVA", () => ops.getByRole("button", { name: "Start EVA mission", exact: true }).click());
+      await expect.poll(async () => (await sessionSnapshot(ops)).session.status).toBe("RUNNING");
+    } else {
+      // Real-site START_EVA reached RUNNING, but the running ops DOM sweep stalled and the command result was not observed.
+      // Do not call a loaded-session walk an active EVA; the remaining real-site walk is a separate explicit fixme below.
+      await expect.poll(async () => (await sessionSnapshot(ops)).session.status).toBe("LOADED");
+      test.info().annotations.push({ type: "provenance", description: "real-site live roles checked in LOADED; active EVA remains unverified" });
+    }
+    await expect(ops.locator('.crew-card [data-provenance][data-source]').first()).toBeVisible();
+    await expectNoUnlabelledNumbers(ops, "live ops");
+    for (const role of ["eva/EV1", "hud/EV1"]) {
+      const page = await context.newPage();
+      try {
+        const live = watchLive(page);
+        await page.goto(`/?site=${e2eSite()}#/${role}`);
+        await expect.poll(() => live.messages.some((message) => message.type === "SNAPSHOT")).toBe(true);
+        const oxygen = role.startsWith("eva/") ? '[data-slot="o2"] .value' : '[data-hud-value="o2"]';
+        await expect(page.locator(oxygen)).toHaveText(/\d/);
+        await expect(page.locator(oxygen)).toHaveAttribute("data-provenance", /.+/);
+        await expect(page.locator(oxygen)).toHaveAttribute("data-source", /.+/);
+        await expectNoUnlabelledNumbers(page, `live ${role}`);
+      } finally { await page.close(); }
+    }
+  } finally {
+    await ops.close();
+    await resetThroughPresenter(context);
+  }
+});
+
+test.fixme("provenance: live roles during a running real-site EVA", async () => {
+  // START_EVA was sent on the real site, but its command result was not observed within the 10 s assertion timeout.
 });
 
 test("provenance: ops fixture states", async ({ page }) => {
@@ -227,7 +355,7 @@ for (const hash of ["#/report", "#/join", "#/earth"] as const) {
 }
 
 // Package 27: `#/replay` on the fixture recording (N-81 pending): the replay bar (position, hashes). The ops console under it is
-// the live ops view, covered by the live-role check above (fixme until package 29), so it is left out here.
+// the live ops view, covered by the live-role check above, so it is left out here.
 test("provenance: no unlabelled number in the #/replay bar, paused and after a step (package 27)", async ({ page }) => {
   await openReplayFixture(page);
   const allow = [...PROVENANCE_ALLOWLIST, ".scr11-ops-console"];

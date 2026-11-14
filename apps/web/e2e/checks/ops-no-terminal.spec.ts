@@ -10,7 +10,7 @@ import { UTILITY_ROVER, openOpsFixture, openOpsPanel } from "../lib/opsFixture";
 import { hold, jumpUntil, openFreshOps, resetThroughPresenter, sessionLog, sessionSnapshot, startPaused } from "../lib/liveMission";
 import { e2eSite, REAL_SITE } from "../lib/siteBundle";
 
-test("ops-no-terminal: load, start, storm, acknowledge, approve and end at SCR-17 using only SCR-11 (N-200)", async ({ context }) => {
+test("ops-no-terminal: load, start, storm, acknowledge, approve and end at SCR-17 using only SCR-11 (N-200 closed)", async ({ context }) => {
   test.setTimeout(180_000);
   const { ops, wire } = await openFreshOps(context);
   try {

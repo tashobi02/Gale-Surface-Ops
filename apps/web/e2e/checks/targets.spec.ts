@@ -227,7 +227,7 @@ test("targets: Earth composer controls are at least 32 px (package 36)", async (
   expectTargetSize(list, OPS_MIN);
 });
 
-test("needs N-130 and N-31: Earth delayed summary and available/waiting link states", async ({ context, page }) => {
+test("Earth delayed summary and available/waiting link states (N-130 and N-31 closed)", async ({ context, page }) => {
   const { ops, wire } = await openFreshOps(context);
   try {
     await startPaused(ops, wire);
