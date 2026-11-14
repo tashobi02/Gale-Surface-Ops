@@ -41,12 +41,31 @@ export interface PlannerBootDeps {
  */
 export function createBootPlanStore(site: LoadedSite, workerClient: WorkerClient): PlanStore {
   const start = site.site.default_start;
+  // Grid buffers are transferred to the original worker. A replacement worker must receive fresh buffers before
+  // the retried computation, otherwise it can only answer GRID_NOT_LOADED.
+  let gridReady: Promise<void> | null = null;
+  let gridReloadFailed = false;
+  const planWorker = {
+    isCrashed: () => gridReloadFailed || workerClient.isCrashed(),
+    retry: () => {
+      workerClient.retry();
+      gridReloadFailed = false;
+      const reload = loadGridIntoWorker(site, workerClient);
+      gridReady = reload;
+      void reload.then(
+        () => { if (gridReady === reload) gridReady = null; },
+        () => { if (gridReady === reload) gridReloadFailed = true; },
+      );
+    },
+    computePlan: (request: Parameters<WorkerClient["computePlan"]>[0]) =>
+      gridReady ? gridReady.then(() => workerClient.computePlan(request)) : workerClient.computePlan(request),
+  };
   return createPlanStore(
     {
       scenario: { ...DEFAULT_SCENARIO },
       waypoints: [{ id: "wp-0", role: "start", x_m: start.x_m, y_m: start.y_m, label: start.label.slice(0, 40) }],
     },
-    { workerClient, siteId: site.site.site_id, dataVersion: site.site.data_version },
+    { workerClient: planWorker, siteId: site.site.site_id, dataVersion: site.site.data_version },
   );
 }
 

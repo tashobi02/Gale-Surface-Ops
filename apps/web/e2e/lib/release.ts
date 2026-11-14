@@ -175,13 +175,14 @@ export function machineLine(): string {
 }
 
 /**
- * Runs `fn` while `data/sites/<siteId>/` is a copy of the F4 `mock_site` that `mutate` has changed (T14.10). The Hab Core serves the
+ * Runs `fn` while `data/sites/<siteId>/` is a copy of `sourceSite` that `mutate` has changed (T14.10). The Hab Core serves the
  * folder at `/sites/<siteId>/`; it is removed afterwards, also when `fn` throws. `siteId` matches the app's `^[a-z0-9_]+$` allowlist.
  */
-export async function withScratchSite<T>(siteId: string, mutate: (dir: string) => void, fn: (siteId: string, dir: string) => Promise<T>): Promise<T> {
+export async function withScratchSite<T>(siteId: string, mutate: (dir: string) => void, fn: (siteId: string, dir: string) => Promise<T>, sourceSite = "mock_site"): Promise<T> {
   const dir = join(REPO_ROOT, "data", "sites", siteId);
   rmSync(dir, { recursive: true, force: true });
-  cpSync(join(REPO_ROOT, "data", "sites", "mock_site"), dir, { recursive: true });
+  // Dereference linked data into the scratch copy: fault injection must never mutate the source bundle.
+  cpSync(join(REPO_ROOT, "data", "sites", sourceSite), dir, { recursive: true, dereference: true });
   // The app refuses a manifest whose site_id is not the one asked for (SITE_ID_MISMATCH), so the copy names itself.
   const manifestPath = join(dir, "site-manifest.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { site_id: string };

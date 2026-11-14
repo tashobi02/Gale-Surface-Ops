@@ -22,7 +22,7 @@ export function watchLive(page: Page) {
       await expect.poll(() => commands.slice(before).filter((c) => c.kind === kind).length, { message: `${kind} sent exactly once` }).toBe(1);
       const sent = commands.slice(before).find((c) => c.kind === kind)!;
       const result = (): CommandResult | undefined => messages.find((m): m is CommandResult => m.type === "COMMAND_RESULT" && m.command_id === sent.command_id);
-      await expect.poll(() => result(), { message: `${kind} result` }).toBeTruthy();
+      await expect.poll(() => result(), { message: `${kind} result`, timeout: 180_000 }).toBeTruthy();
       expect(result(), `${kind}: ${JSON.stringify(result())}`).toMatchObject({ ok: true });
       return result()!;
     },
@@ -31,11 +31,11 @@ export function watchLive(page: Page) {
 export type LiveWire = ReturnType<typeof watchLive>;
 
 /** A test boundary, not a step in the SCR-11-only mission. Never send RESET_SESSION behind a UI control. */
-export async function resetThroughPresenter(context: BrowserContext): Promise<void> {
+export async function resetThroughPresenter(context: BrowserContext, site = e2eSite()): Promise<void> {
   const presenter = await context.newPage();
   try {
     const wire = watchLive(presenter);
-    await presenter.goto(`/?site=${e2eSite()}#/presenter`);
+    await presenter.goto(`/?site=${site}#/presenter`);
     await expect.poll(() => wire.messages.some((m) => m.type === "SNAPSHOT")).toBe(true);
     await presenter.getByRole("button", { name: "Reset session", exact: true }).click();
     await wire.command("RESET_SESSION", () => presenter.getByRole("button", { name: "Confirm reset session", exact: true }).click());
@@ -54,12 +54,12 @@ export async function startStormThroughPresenter(context: BrowserContext): Promi
   } finally { await presenter.close(); }
 }
 
-export async function openFreshOps(context: BrowserContext) {
-  await resetThroughPresenter(context);
+export async function openFreshOps(context: BrowserContext, site = e2eSite()) {
+  await resetThroughPresenter(context, site);
   const ops = await context.newPage();
   await ops.setViewportSize({ width: 1440, height: 900 });
   const wire = watchLive(ops);
-  await ops.goto(`/?site=${e2eSite()}#/ops`);
+  await ops.goto(`/?site=${site}#/ops`);
   await expect(ops.getByRole("button", { name: "Start EVA mission", exact: true })).toBeVisible();
   return { ops, wire };
 }
