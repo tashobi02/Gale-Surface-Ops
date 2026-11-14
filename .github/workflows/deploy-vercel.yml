@@ -1,0 +1,101 @@
+# Public link (T16.07): every push to main rebuilds the static web app and redeploys https://gale-surface-ops.vercel.app.
+# The site tiles, grid and images are git-ignored, so the job takes them from the newest data-gale_boxwork-* release
+# asset and checks every hashed asset against the committed site-manifest.json before deploying (docs/ops/hosting.md §2).
+# Static only: the Hab Core (WebSocket, /api) is not hosted, so the public link serves the planner and #/replay.
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-production
+  cancel-in-progress: true
+
+env:
+  VERCEL_ORG_ID: team_pur6bAF48qvA64Tz7mTDapgm
+  VERCEL_PROJECT_ID: prj_sTnQlsQ7iKPby2hLbrk4P8LQZad6
+  SITE_ID: gale_boxwork
+  OUT: ${{ github.workspace }}/vercel-out
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run -s build
+
+      - name: Fetch the site bundle release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 50 --json tagName,createdAt \
+            -q "[.[] | select(.tagName | startswith(\"data-${SITE_ID}-\"))] | sort_by(.createdAt) | last | .tagName")
+          test -n "$tag" || { echo "no data-${SITE_ID}-* release found"; exit 1; }
+          echo "bundle release: $tag"
+          mkdir -p "$RUNNER_TEMP/bundle"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" -p "${SITE_ID}-*.zip" -D "$RUNNER_TEMP/bundle"
+          unzip -q "$RUNNER_TEMP"/bundle/*.zip -d "$RUNNER_TEMP/bundle/x"
+
+      - name: Assemble the static folder and verify the bundle against the manifest
+        run: |
+          mkdir -p "$OUT/sites"
+          cp -r apps/web/dist/. "$OUT/"
+          # Binaries from the release first, then the committed files (manifests, vectors, mock_site) on top.
+          cp -r "$RUNNER_TEMP/bundle/x/${SITE_ID}" "$OUT/sites/"
+          cp -r data/sites/. "$OUT/sites/"
+          python3 -I - "$OUT/sites/${SITE_ID}" <<'EOF'
+          import hashlib, json, os, sys
+          root = sys.argv[1]
+          assets = []
+          def walk(node):
+              if isinstance(node, dict):
+                  if "sha256" in node and "path" in node:
+                      assets.append(node)
+                  for value in node.values():
+                      walk(value)
+              elif isinstance(node, list):
+                  for value in node:
+                      walk(value)
+          walk(json.load(open(os.path.join(root, "site-manifest.json"))))
+          bad = []
+          for asset in assets:
+              path = os.path.join(root, asset["path"])
+              if os.path.isdir(path):
+                  continue
+              if not os.path.isfile(path):
+                  bad.append(f"missing {asset['path']}")
+              elif hashlib.sha256(open(path, "rb").read()).hexdigest() != asset["sha256"]:
+                  bad.append(f"sha256 mismatch {asset['path']}")
+          if bad:
+              sys.exit("site bundle does not match site-manifest.json:\n" + "\n".join(bad))
+          print(f"{len(assets)} manifest assets checked")
+          EOF
+          test -f "$OUT/replay/recording.json" || { echo "replay/recording.json missing from the build"; exit 1; }
+          cat > "$OUT/vercel.json" <<'EOF'
+          {
+            "cleanUrls": false,
+            "headers": [
+              { "source": "/sites/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }] }
+            ]
+          }
+          EOF
+          du -sh "$OUT"
+
+      - name: Deploy to production
+        working-directory: ${{ env.OUT }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "VERCEL_TOKEN secret is not set"; exit 1; }
+          npx --yes vercel@63.1.2 deploy --prod --yes --token "$VERCEL_TOKEN" | tee "$RUNNER_TEMP/url.txt"
+          echo "Deployed: $(tail -1 "$RUNNER_TEMP/url.txt") → https://gale-surface-ops.vercel.app" >> "$GITHUB_STEP_SUMMARY"

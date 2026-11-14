@@ -68,6 +68,8 @@ npm run hab:local -- --open
 
 Open `http://localhost:8080/#/` for the mission briefing. The local launcher also prints and opens the ops, presenter, EV1 tablet and EV1 HUD URLs. Use `#/planner` to plan a route, `#/sources` to inspect provenance, and `#/replay` to watch the reference recording. The runtime needs no internet after installation and building.
 
+A static copy of `main` (planner, sources and the storm replay; no Hab Core) is at <https://gale-surface-ops.vercel.app> — replay at <https://gale-surface-ops.vercel.app/#/replay>. It is redeployed on every push to `main` ([hosting](docs/ops/hosting.md#5-public-link-deployment-vercel)).
+
 The offline preprocessing pipeline and full development checks additionally require conda (Miniconda or Miniforge) and GNU Make:
 
 ```sh
