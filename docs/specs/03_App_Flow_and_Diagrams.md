@@ -141,6 +141,8 @@ SCR-00–SCR-09 are v1 (planner); SCR-10–SCR-18 are new; SCR-19 and SCR-20 wer
 | States | Computed · Daylight warning · Not available (feature not built) |
 | Requirements | FR-11, FR-12, FR-13 |
 
+For SCR-07, identify the REMS files behind the supplied bin and explain that its sampled sols do not establish a complete climatology. If a bin is unavailable, show the missing value and its reason. For SCR-05, identify hab-only haven samples and show the vehicle branch as unavailable when the worker does not supply its inputs (T09.09, N-214; FR-13, FR-15, FR-39).
+
 ### SCR-08 — Briefing Card
 
 | Field | Spec |

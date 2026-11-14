@@ -363,7 +363,7 @@ describe("T18.03/T18.06 unavailable backend displays", () => {
   beforeEach(installDom);
   afterEach(removeDom);
 
-  it("SCR-07 seasonal context stays unavailable while N-24 is missing", async () => {
+  it("SCR-07 seasonal context stays unavailable when the context is missing", async () => {
     const { createElement } = await import("react");
     const { Conditions } = await import("../../src/ui/screens/scr07Conditions");
     const { fakePlanStore } = await import("./planStoreFake");
@@ -372,7 +372,7 @@ describe("T18.03/T18.06 unavailable backend displays", () => {
     const c = await mount(createElement(Conditions, { ctx }));
     const missing = c.container.querySelector('[data-condition="seasonal-weather"] [data-unavailable="true"]');
     expect(missing?.textContent).toBe("—");
-    expect(missing?.getAttribute("data-source")).toBe("unavailable:N-24");
+    expect(missing?.getAttribute("data-source")).toBe("unavailable:rems_context.bins");
     expect(missing?.getAttribute("data-provenance")).toBe("derived");
     expect(c.container.textContent).toContain("Not included in this build");
     await c.unmount();

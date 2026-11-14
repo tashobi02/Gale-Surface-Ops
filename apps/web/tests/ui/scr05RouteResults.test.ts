@@ -480,6 +480,11 @@ it("the haven band shows the worker's number with its provenance class and its r
   const leg = { ...ok.legs[0], profile: { dist_m: [0, 5, 10], elev_m: [], slope_class: [], haven_min: [1, 2, 2] } } as OkLeg;
   const view = await mount(ui({ planStore: fakePlanStore({ status: "OK", result: { ...ok, legs: [leg] } }).store }));
   const band = must(view.container, '[data-band="haven"]');
+  expect(band.textContent).toContain("Hab only");
+  const vehicle = must(band, '[data-haven-vehicle]');
+  expect(vehicle.textContent).toMatch(/—.*rover start.*ParamSet/i);
+  expect(vehicle.getAttribute("data-unavailable")).toBe("true");
+  expect(vehicle.getAttribute("data-source")).toBe("unavailable:result.legs.profile.haven_vehicle");
   // The number is the worker's own, rendered in minutes.
   expect(band.textContent).toContain("1 min");
   expect(band.textContent).toContain("2 min");
