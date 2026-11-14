@@ -7,7 +7,7 @@
  * - Before the press the dose rate is `DoseSeries.background_rate` and no radiation alert fires; at sim time `t ≥ t0` the
  *   rate is the series at `series_start_utc + (t − t0)`; the alert comes from the series at the mapped time.
  * - `START_EVENT {event_id}`: `INVALID` for a missing or unknown id; `BUSY` when that event already started, when another
- *   SPACE_WEATHER event is in progress (the scenario has one dose series), or when the EVA has ended; only `presenter`.
+ *   SPACE_WEATHER event is in progress (the scenario has one dose series), or when the EVA has ended; only `presenter` and `ops` (N-200).
  * - `inputTime(state, entry, input)` is `t0 + t_offset_s` (null before the press); `dueInputs` lists the inputs due in a
  *   half-open sim-time window `[from, to)`. Firing them belongs to T26.04 (package 18).
  * - `RESET_SESSION` making the event available again is checked in T32.13.
@@ -201,11 +201,11 @@ describe("START_EVENT: rejections (02 §D.17; role, args, state order)", () => {
     expect(rejectedCode(ended.apply(cmd("presenter", "START_EVENT", { event_id: "storm" }), "c-presenter"))).toBe("BUSY");
   });
 
-  it("is FORBIDDEN_ROLE, and logged, for every role but presenter", () => {
+  it("is FORBIDDEN_ROLE, and logged, for every role but presenter and ops", () => {
     for (const role of Object.keys(PERMISSIONS) as Role[]) {
       const s = started();
       const r = s.apply(cmd(role, "START_EVENT", { event_id: "storm" }), `c-${role}`);
-      if (role === "presenter") {
+      if (role === "presenter" || role === "ops") {
         expect(r.result.ok).toBe(true);
         continue;
       }

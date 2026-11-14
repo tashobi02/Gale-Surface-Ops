@@ -599,3 +599,8 @@ export interface ConditionsState {
   source_ids: Record<string, string>;
   provenance: ProvenanceMap;
 }
+
+/** GET /api/capabilities: the same role matrix enforced for WebSocket commands (N-200, BD-165). */
+export interface ApiCapabilities {
+  commands: Readonly<Record<Role, readonly Command["kind"][]>>;
+}

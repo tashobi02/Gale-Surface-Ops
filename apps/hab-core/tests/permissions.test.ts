@@ -20,7 +20,8 @@ type Column = "planner" | "eva" | "ops" | "earth" | "presenter";
 /** The 02 §E.4 table: command row → the columns with a tick (self / own-task limits are checked elsewhere). */
 const ROWS: { kinds: Kind[]; columns: Column[] }[] = [
   { kinds: ["LOAD_SCENARIO", "SET_CLOCK", "JUMP_NEXT_EVENT"], columns: ["ops", "presenter"] },
-  { kinds: ["JUMP_NEXT_STOP", "START_EVENT", "RESET_SESSION"], columns: ["presenter"] },
+  { kinds: ["JUMP_NEXT_STOP", "RESET_SESSION"], columns: ["presenter"] },
+  { kinds: ["START_EVENT"], columns: ["presenter", "ops"] }, // N-200, BD-165
   { kinds: ["SELECT_HAB_SITE", "SET_MISSION_SETUP"], columns: ["ops"] },
   { kinds: ["PUBLISH_PLAN"], columns: ["planner", "ops"] },
   { kinds: ["START_EVA", "APPROVE_OPTION"], columns: ["ops"] },

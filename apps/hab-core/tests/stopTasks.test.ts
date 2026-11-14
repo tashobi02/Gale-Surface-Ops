@@ -318,21 +318,30 @@ describe("ADD_STOP_TASK", () => {
     expect((out.result as Extract<CommandResult, { ok: false }>).code).toBe("INVALID");
   });
 
-  // U-52 / BD-109: the 1–4 limit is per stop (FR-50 and the schema count per stop), whoever the tasks belong to.
-  it("a fifth task on a stop is INVALID (1–4 per stop), whichever crew member it is for", () => {
-    const atStop1 = applyEvent(runningWithTasks, "ARRIVED_STOP", { crew_id: "EV1", stop_id: "wp-1", stop_index: 1 });
-    const countAt = (s: EngineState): number => s.tasks.filter((t) => t.stop_id === "wp-1").length;
-    let s = atStop1;
-    while (countAt(s) < 4) {
-      const out = handleCommand(s, cmd("ops", "ADD_STOP_TASK", { stop_id: "wp-1", text: `Extra ${countAt(s)}`, crew_id: countAt(s) % 2 ? "EV2" : "EV1" }), ctx(s));
-      expect(out.result.ok).toBe(true);
-      s = out.events.reduce((acc, e) => reduce(acc, logged(e, acc.session.last_seq + 1)), s);
-    }
-    for (const crew_id of [null, "EV1", "EV2"]) {
-      const out = handleCommand(s, cmd("ops", "ADD_STOP_TASK", { stop_id: "wp-1", text: "One too many", crew_id }), ctx(s));
-      expect(out.result.ok, String(crew_id)).toBe(false);
-      expect((out.result as Extract<CommandResult, { ok: false }>).code).toBe("INVALID");
-      expect(out.events.map((e) => e.kind)).toEqual(["COMMAND_REJECTED"]);
+  // N-32 / FD-031 / BD-163: the cap is per selected crew; shared tasks count for both.
+  it.each(["EV1", "EV2"] as const)("accepts a fourth task for %s despite the other crew's tasks, then rejects a fifth", (crew_id) => {
+    const other = crew_id === "EV1" ? "EV2" : "EV1";
+    const atStop = applyEvent(runningWithTasks, "ARRIVED_STOP", { crew_id, stop_id: "wp-1", stop_index: 1 });
+    const tasks: StopTask[] = [
+      ...[1, 2].map(i => ({ ...sampleTaskEV1, task_id: `own-${i}`, crew_id })),
+      { ...sampleTaskEV1, task_id: "shared", crew_id: null },
+      ...[1, 2, 3].map(i => ({ ...sampleTaskEV1, task_id: `other-${i}`, crew_id: other as typeof crew_id })),
+    ];
+    const state = { ...atStop, tasks };
+    const fourth = handleCommand(state, cmd("ops", "ADD_STOP_TASK", { stop_id: "wp-1", text: "Fourth", crew_id }), ctx(state));
+    expect(fourth.result.ok).toBe(true);
+    const full = fourth.events.reduce((s, e) => reduce(s, logged(e, s.session.last_seq + 1)), state);
+    const fifth = handleCommand(full, cmd("ops", "ADD_STOP_TASK", { stop_id: "wp-1", text: "Fifth", crew_id }), ctx(full));
+    expect(fifth.result).toMatchObject({ ok: false, code: "INVALID", message: expect.stringMatching(new RegExp(`${crew_id}.*wp-1.*4`)) });
+    expect(fifth.events.map(e => e.kind)).toEqual(["COMMAND_REJECTED"]);
+  });
+
+  it("rejects a shared addition if either crew is full, even when the other has room", () => {
+    const atStop = applyEvent(runningWithTasks, "ARRIVED_STOP", { crew_id: "EV1", stop_id: "wp-1", stop_index: 1 });
+    for (const crew_id of ["EV1", "EV2"] as const) {
+      const tasks: StopTask[] = [1, 2, 3, 4].map(i => ({ ...sampleTaskEV1, task_id: `full-${i}`, crew_id }));
+      const s = { ...atStop, tasks };
+      expect(handleCommand(s, cmd("ops", "ADD_STOP_TASK", { stop_id: "wp-1", text: "Shared", crew_id: null }), ctx(s)).result).toMatchObject({ ok: false, code: "INVALID", message: expect.stringContaining(crew_id) });
     }
   });
 

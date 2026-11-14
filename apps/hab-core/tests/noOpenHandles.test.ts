@@ -53,6 +53,12 @@ describe("the run-level guard for orphaned Hab Core processes", () => {
     ]);
   });
 
+  it("scopes the process list to this checkout so sibling worktree CLIs are never killed", () => {
+    const output = PS + "\n  105 1 /usr/bin/node --import tsx /repo/var/worktrees/b4/apps/hab-core/src/cli.ts start";
+    expect(parseCliProcesses(output, "/repo/apps/hab-core/src/cli.ts")).toEqual([{ pid: 101, ppid: 1 }, { pid: 102, ppid: 101 }]);
+    expect(parseCliProcesses(output, "/repo/var/worktrees/b4/apps/hab-core/src/cli.ts")).toEqual([{ pid: 105, ppid: 1 }]);
+  });
+
   it("names only the ones that did not exist before the run", () => {
     expect(strayCliProcesses(parseCliProcesses(PS), new Set([101]))).toEqual([{ pid: 102, ppid: 101 }]);
     expect(strayCliProcesses(parseCliProcesses(PS), new Set([101, 102]))).toEqual([]);

@@ -479,7 +479,7 @@ describe("role matrix: 21 command kinds x 8 roles (02 §E.4; 01 FR-31)", () => {
   it("matches the rows of 02 §E.4 for the live-session commands", () => {
     const who = (kind: Command["kind"]): string[] => ROLES.filter((r) => PERMISSIONS[r].includes(kind)).sort();
     expect(who("JUMP_NEXT_STOP")).toEqual(["presenter"]);
-    expect(who("START_EVENT")).toEqual(["presenter"]);
+    expect(who("START_EVENT")).toEqual(["ops", "presenter"]); // N-200, BD-165
     expect(who("RESET_SESSION")).toEqual(["presenter"]);
     expect(who("SELECT_HAB_SITE")).toEqual(["ops"]);
     expect(who("SET_MISSION_SETUP")).toEqual(["ops"]);

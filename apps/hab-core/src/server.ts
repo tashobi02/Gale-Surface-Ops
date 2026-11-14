@@ -29,6 +29,7 @@ import {
   PROTOCOL_VERSION,
   TAKEN_OVER_CLOSE_CODE,
   TAKEN_OVER_CLOSE_REASON,
+  type ApiCapabilities,
   type Command,
   type CommandResult,
   type CrewId,
@@ -72,12 +73,12 @@ export interface ServerOptions {
   webDir?: string;
   /** Site bundles; default `data/sites`. */
   sitesDir?: string;
-  /** The host the join QR codes name (`--public-host`, BD-82); default: the first non-internal IPv4 address, else `localhost`. */
+  /** Optional advertised LAN-host override (`--public-host`, BD-82); default: the request origin (N-90, BD-164). */
   publicHost?: string;
 }
 
-/** Roles a device can join as by QR (the web app's `#/join?role=` list, 03 SCR-10): every role but `presenter`, which has no join page. */
-const JOIN_QR_ROLES: readonly Role[] = ["planner", "ops", "eva:EV1", "eva:EV2", "hud:EV1", "hud:EV2", "earth"];
+/** Every protocol role has a local join QR, including presenter and HUD (N-90, BD-164). */
+const JOIN_QR_ROLES = Object.keys(PERMISSIONS) as Role[];
 
 /** BD-82: the host in the join URL: the flag, else the first non-internal IPv4 address, else `localhost`. Reads only the interface list. */
 export function defaultPublicHost(flag: string | undefined, nics: NodeJS.Dict<NetworkInterfaceInfo[]> = networkInterfaces()): string {
@@ -136,8 +137,11 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
 
   app.get("/api/session", async (_req, reply) => {
     if (!session) return reply.code(404).send({ error: "no session loaded" });
-    return session.snapshot(clientList(clients));
+    return sourcedSnapshot(session.snapshot(clientList(clients)));
   });
+
+  // N-200, BD-165: frontend discovery uses the same matrix that handleCommand enforces.
+  app.get("/api/capabilities", async () => ({ commands: PERMISSIONS } satisfies ApiCapabilities));
 
   // N-05 (01-contract §7a): the lobby's small summary; GET /api/session stays the full SNAPSHOT (02 §E.5).
   app.get("/api/session/summary", async (_req, reply) => {
@@ -218,7 +222,10 @@ export async function startServer(options: ServerOptions): Promise<HabServer> {
     if (typeof role !== "string" || !JOIN_QR_ROLES.includes(role as Role)) {
       return reply.code(400).send({ error: `role must be one of ${JOIN_QR_ROLES.join(", ")}` });
     }
-    const svg = await QRCode.toString(joinUrl(defaultPublicHost(options.publicHost), boundPort, role), { type: "svg" });
+    const url = options.publicHost
+      ? joinUrl(options.publicHost, boundPort, role)
+      : `${req.protocol}://${req.host}/#/join?role=${role}`;
+    const svg = await QRCode.toString(url, { type: "svg" });
     reply.type("image/svg+xml").header("Cache-Control", "no-store");
     return svg;
   });
@@ -524,10 +531,16 @@ function reject(command_id: string, code: Extract<CommandResult, { ok: false }>[
   return { v: PROTOCOL_VERSION, type: "COMMAND_RESULT", command_id, ok: false, code, message };
 }
 
+/** Match the UI's existing snapshot source namespace without changing deterministic recording bytes (N-31, BD-166). */
+function sourcedSnapshot(snapshot: Snapshot): Snapshot {
+  if (snapshot.earth.link_state == null) return snapshot;
+  return { ...snapshot, earth: { ...snapshot.earth, link_source_id: "snapshot:earth.link_state" } };
+}
+
 function send(client: Client, msg: ServerMessage): void {
   if (client.ws.readyState !== client.ws.OPEN) return;
   if (client.ws.bufferedAmount > MAX_BUFFERED_BYTES) return; // slow or half-open device: drop, it resyncs on reconnect
-  client.ws.send(JSON.stringify(msg));
+  client.ws.send(JSON.stringify(msg.type === "SNAPSHOT" ? sourcedSnapshot(msg) : msg));
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {

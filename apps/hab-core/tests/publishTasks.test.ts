@@ -4,8 +4,8 @@
  *
  * Rules fixed here (decided by the orchestrator, 12 Nov 2026, BD-90, BD-91, BD-109, BD-120):
  * - `stop_tasks` (`StopTaskSeed[]`, the 05 Scenario field) is checked with the FR-50 rules against the plan being published:
- *   every `stop_id` is a stop Waypoint of that plan (U-61), a stop has at most 4 tasks, text is 1-60 characters, `task_id`
- *   is unique, has no "/" and names no task of the session, `kind` and `crew_id` are the 05 values. Any fault is `INVALID`
+ *   every `stop_id` is a stop Waypoint of that plan (U-61), a stop has at most 4 tasks per crew (shared count for both), text is 1-60 characters, `task_id`
+ *   is unique, has no "/" and names no ops task of the session, `kind` and `crew_id` are the 05 values. Any fault is `INVALID`
  *   and nothing but COMMAND_REJECTED is logged. Arguments are checked before state (`INVALID` over `BUSY`).
  * - An accepted publish logs PLAN_REVISED first (so `event_seq` and the plan are as without tasks), then one TASK_ADDED
  *   per task, actor `system`, origin `plan`, no `command_ref`, exactly as scenario `stop_tasks` are seeded at load.
@@ -218,13 +218,45 @@ describe("a repeated PUBLISH_PLAN replaces the planner's drafts while the sessio
     expect(openTasks(fold(state, publish(state, { plan }).events)).map(([id]) => id)).toEqual(["pt-1", "pt-2", "pt-3"]);
   });
 
-  it("a task ops added by hand is not a draft: it stays, and it counts towards the four of its stop (BD-109)", () => {
+  it("a task ops added by hand is not a draft: it stays, and it counts towards the four of either crew at its stop (BD-163)", () => {
     const state = withOpsTask(firstPublish(), "t-ops-1", STOP1.id);
     const after = fold(state, publish(state, { plan, stop_tasks: [seed("pt-9", STOP1.id)] }).events);
     expect(openTasks(after).map(([id]) => id).sort()).toEqual(["pt-9", "t-ops-1"]);
     const four = [1, 2, 3, 4].map((i) => seed(`pt-f${i}`, STOP1.id));
     expect(codeOf(publish(state, { plan, stop_tasks: four }).result)).toBe("INVALID");
     expect(codeOf(publish(state, { plan, stop_tasks: four.slice(0, 3) }).result)).toBe("ok");
+  });
+
+  it("N-70: stable-id edits and retained-stop deletion preserve ops tasks and remain idempotent", () => {
+    const state = withOpsTask(firstPublish(), "t-ops-1", STOP1.id);
+    const ops = state.tasks.find(t => t.origin === "ops")!;
+    const replacement = [{ ...AUTHORED[0]!, kind: "measure", crew_id: "EV2", text: "Edited draft" }];
+    const result = publish(state, { plan, stop_tasks: replacement });
+    expect(result.result.ok).toBe(true);
+    const after = fold(state, result.events);
+    expect(after.tasks.filter(t => t.state !== "DROPPED").map(t => t.task_id).sort()).toEqual(["pt-1", ops.task_id].sort());
+    expect(after.tasks.find(t => t.task_id === "pt-1")).toMatchObject({ text: "Edited draft", kind: "measure", crew_id: "EV2", origin: "plan" });
+    expect(after.tasks.find(t => t.task_id === ops.task_id)).toEqual(ops);
+    expect(after.tasks.filter(t => t.state === "DROPPED").map(t => t.task_id).sort()).toEqual(["pt-2", "pt-3"]);
+    expect(publish(after, { plan, stop_tasks: replacement }).events.map(e => e.kind)).toEqual(["PLAN_REVISED"]);
+  });
+
+  it("N-32: published drafts share the crew cap with ops tasks, including shared tasks", () => {
+    const tasks = [1, 2, 3].map(i => seed(`EV1-${i}`, STOP1.id, "Crew task", { crew_id: "EV1" }));
+    tasks.push(seed("EV2-1", STOP1.id, "Crew task", { crew_id: "EV2" }));
+    const state = withOpsTask(fresh(), "ops-shared", STOP1.id);
+    const first = publish(state, { plan, stop_tasks: tasks });
+    expect(first.result.ok).toBe(true);
+    const published = fold(state, first.events);
+    expect(publish(published, { plan, stop_tasks: tasks }).result.ok).toBe(true);
+    // Changing the EV2 draft to shared would consume a fifth slot for EV1.
+    const shared = [...tasks.slice(0, 3), seed("shared", STOP1.id)];
+    expect(publish(published, { plan, stop_tasks: shared }).result).toMatchObject({ ok: false, code: "INVALID" });
+  });
+
+  it("FR-54 still limits the planner to four authored drafts per stop even when split across crews", () => {
+    const tasks = [1, 2, 3, 4, 5].map(i => seed(`draft-${i}`, STOP1.id, "Draft", { crew_id: i % 2 ? "EV1" : "EV2" }));
+    expect(publish(fresh(), { plan, stop_tasks: tasks }).result).toMatchObject({ ok: false, code: "INVALID" });
   });
 
   it("the rule is applied to the log alone: a restart that replays the events holds the same drafts", () => {

@@ -14,7 +14,7 @@
  * Rules (decided by the orchestrator, 12 Nov 2026, BD-97, BD-114; tests: tests/liveEvents.test.ts):
  * - START_EVENT: `INVALID` for a missing or unknown `event_id`; `BUSY` when the event already started, when another
  *   SPACE_WEATHER event is in progress (the scenario has one dose series), or when the EVA has ended. Allowed before the
- *   EVA starts and while the clock is paused. Only the presenter role may send it (commands.ts checks PERMISSIONS).
+ *   EVA starts and while the clock is paused. The presenter and ops roles may send it (N-200, BD-165) (commands.ts checks PERMISSIONS).
  * - `inputTime(state, entry, input)` takes the state (the press time is `t0`); the plan's two-argument form had no `t0`.
  * - `dueInputs` windows are half-open `[from, to)`, like the tick step they serve.
  */
