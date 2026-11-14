@@ -333,6 +333,25 @@
       "title": "Simonsen et al., 2024",
       "url": "https://ntrs.nasa.gov/api/citations/20240009831/downloads/NAS%20BPS%20Simonsen%20v4%20strives.pdf",
       "version": ""
+    },
+    {
+      "source_id": "pds-atmos-msl-rems",
+      "title": "Mars Science Laboratory (MSL) REMS Bundle",
+      "publisher": "NASA Planetary Data System, Atmospheres Node (atmos.nmsu.edu)",
+      "authors": "Jose A. Rodriguez-Manfredi; Manuel de la Torre Juarez (Centro de Astrobiologia)",
+      "missions": [
+        "Mars Science Laboratory"
+      ],
+      "instruments": [
+        "Rover Environmental Monitoring Station (REMS)"
+      ],
+      "version": "Bundle version 1.0, modified 2026-08-03; the environmental RDR data set MSL-M-REMS-4-ENVRDR-V1.0, release 0037. The seven files read here are the RNV products for sols 4182 and 4187-4192.",
+      "url": "https://atmos.nmsu.edu/PDS/data/PDS4/msl_rems_bundle/data_calibrated/SOL_04134_04257/",
+      "doi": "10.17189/vwva-ms24",
+      "credit": "Rodriguez-Manfredi, J. A., and de la Torre Juarez, M. (2026), Mars Science Laboratory (MSL) REMS Bundle, version 1.0, NASA Planetary Data System, Atmospheres Node, doi:10.17189/vwva-ms24. The app reads the air temperature, ground temperature and pressure columns of the named RNV files and reports the 10th, 50th and 90th percentiles of each 5 degree L_s bin; no figure or text is reproduced from the files.",
+      "licence": "fixture \u2014 not a real source",
+      "accessed": "2026-11-11",
+      "accuracy_note": "Fixture copy of the MSL REMS bundle citation: the real source is the PDS Atmospheres Node archive, but the mock site carries no downloaded REMS file. The context in this bundle was built from the seven named RNV files of sols 4182 and 4187-4192 (see pipeline/work/rems/SOURCES.md); the mock site reuses that context so the harness exercises the same panel."
     }
   ],
   "traverse_asset": "vec-traverse"

@@ -255,11 +255,32 @@ test("provenance: light planner coach counters have provenance at every step (pa
   }
 });
 
+// T18.03 (N-24): the panel shows the REMS context of the plan's L_s bin, with each range carrying its own provenance
+// and source. The plan needs a real L_s, so the check sets an EVA start inside the 255-260 degree bin the F4 bundle's
+// `rems_context.json` carries and puts one stop on the plan; the worker computes the conditions (the client never does).
 test("needs N-24: REMS seasonal context displays the supplied derived values (T18.03)", async ({ page }) => {
   await page.goto("/?site=mock_site#/planner");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("tab", { name: "Plan", exact: true }).click();
+  const start = page.getByLabel(/EVA start/i);
+  if (!(await start.isVisible())) await page.getByRole("button", { name: "Constraints", exact: true }).click();
+  await start.fill("");
+  await start.fill("2024-05-20T00:00:00Z");
+  const poi = page.locator("button[data-poi-id]").first();
+  await poi.focus();
+  await poi.press("Enter");
+  await page.getByRole("region", { name: "POI detail", exact: true }).getByRole("button", { name: "Add as stop" }).click();
   await page.getByRole("tab", { name: "Conditions" }).click();
-  await expect(page.locator('[data-condition="seasonal-weather"] [data-unavailable="true"]')).toHaveCount(0);
-  await expect(page.locator('[data-condition="seasonal-weather"] [data-provenance][data-source]')).not.toHaveCount(0);
+  const conditions = page.getByRole("region", { name: "Conditions", exact: true });
+  await expect(conditions).toHaveAttribute("aria-busy", "false");
+  await expect(conditions.locator('[data-condition="seasonal-weather"]')).toContainText("REMS seasonal context");
+  await expect(conditions.locator('[data-condition="seasonal-weather"] [data-unavailable="true"]')).toHaveCount(0);
+  await expect(conditions.locator('[data-condition="seasonal-weather"] [data-provenance][data-source]')).not.toHaveCount(0);
+  // Every REMS value carries the PDS source it was read from (FR-15, NFR-05).
+  for (const value of await conditions.locator('[data-condition="seasonal-weather"] .metric-value').all()) {
+    await expect(value).toHaveAttribute("data-provenance", "measured");
+    await expect(value).toHaveAttribute("data-source", "pds-atmos-msl-rems");
+  }
 });
 
 test("needs N-24: illustrative O₂ rate is supplied on SCR-08 (T18.06)", async ({ page }) => {

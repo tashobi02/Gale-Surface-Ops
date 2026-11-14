@@ -1075,6 +1075,25 @@
       "title": "THEMIS Thermal Inertia Mosaic Quantitative 30S120E 100mpp",
       "url": "https://astrogeology.usgs.gov/search/map/themis_thermal_inertia_mosaic_quantitative_30s120e_100mpp",
       "version": "Edition 1; Fergason (2014-05-30)"
+    },
+    {
+      "source_id": "pds-atmos-msl-rems",
+      "title": "Mars Science Laboratory (MSL) REMS Bundle",
+      "publisher": "NASA Planetary Data System, Atmospheres Node (atmos.nmsu.edu)",
+      "authors": "Jose A. Rodriguez-Manfredi; Manuel de la Torre Juarez (Centro de Astrobiologia)",
+      "missions": [
+        "Mars Science Laboratory"
+      ],
+      "instruments": [
+        "Rover Environmental Monitoring Station (REMS)"
+      ],
+      "version": "Bundle version 1.0, modified 2026-08-03; the environmental RDR data set MSL-M-REMS-4-ENVRDR-V1.0, release 0037. The seven files read here are the RNV products for sols 4182 and 4187-4192.",
+      "url": "https://atmos.nmsu.edu/PDS/data/PDS4/msl_rems_bundle/data_calibrated/SOL_04134_04257/",
+      "doi": "10.17189/vwva-ms24",
+      "credit": "Rodriguez-Manfredi, J. A., and de la Torre Juarez, M. (2026), Mars Science Laboratory (MSL) REMS Bundle, version 1.0, NASA Planetary Data System, Atmospheres Node, doi:10.17189/vwva-ms24. The app reads the air temperature, ground temperature and pressure columns of the named RNV files and reports the 10th, 50th and 90th percentiles of each 5 degree L_s bin; no figure or text is reproduced from the files.",
+      "licence": "The bundle's collection metadata and the labels of the files read here state no licence. The Planetary Data System's data-use policy (https://www.pds.nasa.gov/pds/pds.use) applies to the archive's contents.",
+      "accessed": "2026-11-11",
+      "accuracy_note": "The seven files read here cover sols 4182 and 4187-4192 only (the storm window around sol 4190), not a full climatology; the bins are 5 degrees of areocentric solar longitude. Each file's SHA-256 is recorded in pipeline/work/rems/SOURCES.md. The L_s of each sample is derived from the label's start and stop times with the Allison and McEwen (2000) equations, the same source the app's Mars24 Sunclock uses."
     }
   ],
   "traverse_asset": "vec-traverse"

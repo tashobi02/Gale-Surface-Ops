@@ -11,7 +11,7 @@ from pathlib import Path
 
 from . import config
 
-STEPS = ("acquire", "clip_reproject", "derive", "flags", "grid", "comm_grid", "tiles", "vectors", "manifest", "validate")
+STEPS = ("acquire", "clip_reproject", "derive", "flags", "grid", "comm_grid", "tiles", "vectors", "rems_context", "manifest", "validate")
 
 
 def _paths(site_id: str) -> tuple[Path, Path, Path, Path]:
@@ -217,6 +217,17 @@ def _run_step(name: str, root: Path, site_dir: Path, work_dir: Path, bundle_dir:
         package_traverse(traverse, projection, bundle_dir / "vectors" / "traverse.geojson", aoi_extent_m=extent)
         package_pois(site_dir / "pois", projection, bundle_dir / "vectors" / "pois.geojson")
         package_poi_images(site_dir / "pois", work_dir / "images", bundle_dir / "images")
+    elif name == "rems_context":
+        # T18.02/T18.03: the REMS L_s-bin context travels into the site bundle, so SCR-07 can read the
+        # seasonal weather for the plan's L_s. A build without cached REMS RDR files carries no context and
+        # the panel keeps "Not included in this build" (01 FR-13).
+        from .rems import write_rems_context
+        rems_dir = work_dir / "rems"
+        context_path = bundle_dir / "rems_context.json"
+        if rems_dir.is_dir() and any(rems_dir.glob("*.TAB")):
+            write_rems_context(rems_dir, context_path)
+        elif context_path.exists():
+            context_path.unlink()
     elif name == "manifest":
         from .manifest import write_manifest
         write_manifest(bundle_dir, site["data_version"], projection, site_dir, exclude_layers=_skipped_layers(site_dir) if skip_unstyled_optional else set(), cell_m=cell_m, max_zoom=max_zoom)

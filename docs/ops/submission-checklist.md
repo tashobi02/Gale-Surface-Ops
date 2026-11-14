@@ -82,11 +82,11 @@ The [team's submission confirmation](submit-now.md#submission-confirmation) rema
 
 The following placeholders are not evidence that the backend lacks every underlying capability:
 
-- SCR-09 ParamSets and dose-series source (N-30): `scenario_meta` is supplied by `/api/session`, but SCR-09 is not wired to it (T12.03, T16.05).
-- SCR-16 delayed crew, alerts and as-of time (N-130): `/api/earth-view` supplies them, but SCR-16 still shows unavailable (T18.12).
-- SCR-07 seasonal weather (N-24): the offline REMS builder exists, but its output is not delivered to the screen (T18.03).
-- SCR-05 and SCR-08 illustrative oxygen rate (N-24): compute exports the estimate and constants, but these panels still show unavailable (T18.06).
-- EVA and ops haven bands (N-100/N-120): `/api/hab-time-field` exists; client integration and browser verification remain to be established.
+- SCR-09 ParamSets and dose-series source (N-30): `scenario_meta` is supplied by `/api/session` and SCR-09 reads it (T12.03, T16.05).
+- SCR-16 delayed crew, alerts and as-of time (N-130): `/api/earth-view` supplies them and SCR-16 reads them, each field with its own provenance (T18.12).
+- SCR-07 seasonal weather (N-24): the offline REMS builder writes `rems_context.json` into the site bundle and SCR-07 reads the bin for the plan's L_s (T18.02, T18.03).
+- SCR-05 and SCR-08 illustrative oxygen rate (N-24): compute exports the estimate and constants and both panels show them (T18.06).
+- EVA and ops haven bands (N-100/N-120): `/api/hab-time-field` is read by the client; the client never computes a cell value itself.
 - SCR-02 manual plan totals (N-160): a one-leg worker result is displayed; authoritative full-plan aggregation is still missing. The real site's optional static PNG fallback was not built (BD-160).
 
 Other conditional dashes represent absent session, route, telemetry, map assets or unavailable report fields and must retain their source and unavailable state until supplied. This list records confirmed integration gaps; it is not an exhaustive verification of every placeholder.

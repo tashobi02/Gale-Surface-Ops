@@ -7,6 +7,7 @@ import { Metric } from "../components/metric";
 import { isUsableValue, provAttrs } from "../components/provenance";
 import { WarningsList, formatUtc } from "../results/warningsList";
 import { LTST_SOURCE } from "../plan/stopsList";
+import { selectRemsBin, useRemsContext, type RemsBin, type RemsContext, type RemsSeries } from "./remsContext";
 import "./scr07Conditions.css";
 
 const MARS24 = LTST_SOURCE;
@@ -18,7 +19,12 @@ function Field({ id, label, children }: { id: string; label: string; children: R
   return <div className="scr07-field" data-condition={id}><dt>{label}</dt><dd>{children}</dd></div>;
 }
 
-export function Conditions({ ctx }: ScreenProps): ReactElement {
+/**
+ * T18.03: the seasonal-weather section shows the REMS context for the plan's L_s bin when the build carries one.
+ * `remsContext` is the already-loaded context (the tests and a caller that has it pass it in); otherwise the panel
+ * fetches it from the site bundle. With neither, the panel keeps "Not included in this build" (01 FR-13).
+ */
+export function Conditions({ ctx, remsContext }: ScreenProps & { remsContext?: RemsContext | null }): ReactElement {
   const subscribe = useCallback((notify: () => void) => ctx.planStore.subscribe(notify), [ctx.planStore]);
   const state = useSyncExternalStore(subscribe, ctx.planStore.get, ctx.planStore.get);
   const result = state.status === "Error" ? null : state.result;
@@ -28,6 +34,9 @@ export function Conditions({ ctx }: ScreenProps): ReactElement {
   const constant = ctx.site.site.env_constants.find(entry => entry.const_id === radiation?.const_id);
   const doseSource = constant?.source_id;
   const darkness = result?.warnings.filter(w => w.code === "DARKNESS") ?? [];
+  const loaded = useRemsContext(ctx.site.site.site_id);
+  const context = remsContext === undefined ? loaded : remsContext;
+  const bin = selectRemsBin(context, c?.ls_deg ?? null);
   const text = (value: string | number | undefined, path: string) => <Value value={value} src={MARS24} path={path} />;
   const sunTime = (kind: "sunrise" | "sunset") => {
     const ltst = c?.[`${kind}_ltst`];
@@ -67,6 +76,27 @@ export function Conditions({ ctx }: ScreenProps): ReactElement {
       <p>Background rate: <Metric value={constant?.value ?? null} unit={constant?.unit ?? "mSv/day"} prov={constant?.provenance ?? "measured"} src={constant?.source_id ?? "result.radiation.const_id"} /></p>
       <p className="scr07-note">Excluded: solar energetic particle events, suit/habitat shielding, terrain sky-blocking, altitude differences within AOI.</p>
     </section>
-    <section data-condition="seasonal-weather"><h3>Seasonal weather</h3><p><Value value={null} prov="derived" src="N-24" path="N-24" /> Not included in this build</p></section>
+    <section data-condition="seasonal-weather" aria-label="Seasonal weather"><h3>Seasonal weather</h3>
+      {bin ? <SeasonalWeather bin={bin} /> : <p><Value value={null} prov="derived" src="N-24" path="N-24" /> Not included in this build</p>}
+    </section>
   </section>;
+}
+
+/**
+ * The REMS context for one L_s bin (T18.03). Every range is the pipeline's own p10/median/p90, each with the
+ * series' provenance class and source id; the panel adds no value of its own (FR-13, FR-15, NFR-05).
+ */
+function SeasonalWeather({ bin }: { bin: RemsBin }): ReactElement {
+  const range = (series: RemsSeries, label: string, unit: string) => <p>
+    {label}: <Metric value={series.p10} unit={unit} prov={series.provenance} src={series.source_id} /> –
+    <Metric value={series.median} unit={unit} prov={series.provenance} src={series.source_id} /> –
+    <Metric value={series.p90} unit={unit} prov={series.provenance} src={series.source_id} />
+  </p>;
+  return <>
+    <p>REMS seasonal context for L_s {bin.ls_bin_start_deg}–{bin.ls_bin_end_deg}° (sols {bin.sols.join(", ")})</p>
+    {range(bin.air_temp_k, "Air temperature", "K")}
+    {range(bin.ground_temp_k, "Ground temperature", "K")}
+    {range(bin.pressure_pa, "Pressure", "Pa")}
+    <p className="scr07-note">Ranges are the 10th, 50th and 90th percentiles of the named REMS files; solar, seasonal and diurnal climate are not modelled.</p>
+  </>;
 }
