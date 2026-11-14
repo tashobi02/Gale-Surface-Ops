@@ -54,6 +54,10 @@
   .scr08-card { max-width: none; width: auto; padding: 0; margin: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .scr08-actions, .scr08-publish, .scr08-capture { display: none; }
   .scr08-summary { grid-template-columns: 60% 1fr; }
+  /* Letter has less vertical space than A4; keep the type size and shrink the map first (FD-204). */
+  .scr08-map { height: 198px; }
+  .scr08-map-canvas { width: auto; max-width: 100%; height: 180px; }
+  .scr08-fallback { height: 125px; }
   .scr08-details { grid-template-columns: 1fr 1fr; }
   .scr08-stops { overflow: visible; }
   .scr08-stops table { min-width: 0; }
