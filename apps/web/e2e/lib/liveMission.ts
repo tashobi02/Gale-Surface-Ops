@@ -96,11 +96,11 @@ export async function resetThroughPresenter(context: BrowserContext, site = e2eS
 }
 
 /** Start the storm through the presenter; never use this in SCR-11-only acceptance (N-200, BD-165). */
-export async function startStormThroughPresenter(context: BrowserContext): Promise<void> {
+export async function startStormThroughPresenter(context: BrowserContext, site = e2eSite()): Promise<void> {
   const presenter = await context.newPage();
   try {
     const wire = watchLive(presenter);
-    await presenter.goto(`/?site=${e2eSite()}#/presenter`);
+    await presenter.goto(`/?site=${site}#/presenter`);
     await expect(presenter.getByRole("button", { name: "Start storm", exact: true })).toBeEnabled();
     await wire.command("START_EVENT", () => presenter.getByRole("button", { name: "Start storm", exact: true }).click());
   } finally { await presenter.close(); }
@@ -126,20 +126,6 @@ export async function startPaused(ops: Page, wire: LiveWire): Promise<void> {
   await expect(ops.getByRole("button", { name: "Set speed to 60x", exact: true })).toHaveAttribute("aria-pressed", "true");
 }
 
-export async function jumpUntil(ops: Page, wire: LiveWire, reached: () => boolean, label: string): Promise<void> {
-  const resume = ops.getByRole("button", { name: "Resume mission clock", exact: true });
-  if (await resume.count()) await wire.command("SET_CLOCK", () => resume.click());
-  // Bound an erroneous run; no time or physics is inferred in the test. The Hab Core owns each jump.
-  for (let jumps = 0; !reached() && jumps < 256; jumps++) {
-    await wire.command("JUMP_NEXT_EVENT", () => ops.getByRole("button", { name: "Jump to next scheduled event", exact: true }).click());
-  }
-  expect(reached(), label).toBe(true);
-  if (!wire.events().some((e) => e.kind === "EVA_ENDED")) {
-    await wire.command("SET_CLOCK", () => ops.getByRole("button", { name: "Pause mission clock", exact: true }).click());
-    await expect(ops.getByRole("button", { name: "Resume mission clock", exact: true })).toBeVisible();
-  }
-}
-
 export async function hold(page: Page, button: Locator): Promise<void> {
   await button.focus();
   await page.keyboard.down("Space");
@@ -156,4 +142,44 @@ export async function sessionLog(page: Page): Promise<LogEvent[]> {
   const response = await page.request.get("/api/log");
   expect(response.ok()).toBe(true);
   return (await response.text()).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as LogEvent);
+}
+
+/**
+ * Steps the mission clock with the ops console's own "Jump to next scheduled event" control until `reached` holds,
+ * judged on the session snapshot rather than on the wire's event list.
+ *
+ * The EVENT frames reach the page after the command result, so a check that reads the events can miss the moment it is
+ * looking for and step past it: on the real terrain the crew walks in and out of contact in windows of a few sim-seconds.
+ * The snapshot is the authority on the state, and it is read over the page's own session API, so a step is judged in a
+ * frozen instant (the clock is paused after every jump).
+ *
+ * A refused jump ends the walk, and the state is read again after the refusal: the refusal is the Hab Core's own
+ * statement that the session has ended, and the snapshot it leaves behind is the one the caller judges (the state the
+ * walk held before the refusal is a step behind: the end of the EVA is the last thing that happens in it).
+ */
+export async function jumpUntilSnapshot(
+  ops: Page,
+  wire: LiveWire,
+  reached: (snapshot: Snapshot) => boolean,
+  label: string,
+): Promise<Snapshot> {
+  const resume = ops.getByRole("button", { name: "Resume mission clock", exact: true });
+  const pause = ops.getByRole("button", { name: "Pause mission clock", exact: true });
+  let snapshot = await sessionSnapshot(ops);
+  for (let jumps = 0; jumps < 4096; jumps++) {
+    if (reached(snapshot)) break;
+    if (await resume.count()) await wire.command("SET_CLOCK", () => resume.click()).catch(() => undefined);
+    const result = await wire
+      .command("JUMP_NEXT_EVENT", () => ops.getByRole("button", { name: "Jump to next scheduled event", exact: true }).click())
+      .catch(() => undefined);
+    // The session ended: the next jump is refused, and the events that say so have not reached the wire yet.
+    if (!result || result.ok === false) {
+      snapshot = await sessionSnapshot(ops);
+      break;
+    }
+    if (await pause.count()) await wire.command("SET_CLOCK", () => pause.click()).catch(() => undefined);
+    snapshot = await sessionSnapshot(ops);
+  }
+  expect(reached(snapshot), `${label} (sim ${snapshot.session.clock.sim_time}, status ${snapshot.session.status})`).toBe(true);
+  return snapshot;
 }

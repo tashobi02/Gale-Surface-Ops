@@ -7,7 +7,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { UTILITY_ROVER, openOpsFixture, openOpsPanel } from "../lib/opsFixture";
-import { hold, jumpUntil, openFreshOps, resetThroughPresenter, sessionLog, sessionSnapshot, startPaused } from "../lib/liveMission";
+import { hold, jumpUntilSnapshot, openFreshOps, resetThroughPresenter, sessionLog, sessionSnapshot, startPaused } from "../lib/liveMission";
 import { e2eSite, REAL_SITE } from "../lib/siteBundle";
 
 test("ops-no-terminal: load, start, storm, acknowledge, approve and end at SCR-17 using only SCR-11 (N-200 closed)", async ({ context }) => {
@@ -17,16 +17,23 @@ test("ops-no-terminal: load, start, storm, acknowledge, approve and end at SCR-1
     await startPaused(ops, wire);
     // N-200 (BD-165): SCR-11 starts the library storm itself; the presenter is not needed.
     await wire.command("START_EVENT", () => ops.getByRole("button", { name: "Start storm", exact: true }).click());
-    await jumpUntil(ops, wire, () => wire.events().some((e) => e.kind === "ALERT_RAISED" && e.data.code === "RADIATION_ALERT"), "the scenario's storm raises its radiation alert");
+    // The state is read from the snapshot, not from the wire's event list: the EVENT frames arrive after the command
+    // result, so a check that reads the events can step past the moment it is looking for.
+    const raised = await jumpUntilSnapshot(
+      ops,
+      wire,
+      (snapshot) => snapshot.alerts.some((a) => a.code === "RADIATION_ALERT" && a.cleared_seq === null),
+      "the scenario's storm raises its radiation alert",
+    );
     await openOpsPanel(ops, "mission");
     await expect(ops.getByRole("radio").first()).toBeVisible();
-    const raised = wire.events().find((e) => e.kind === "ALERT_RAISED" && e.data.code === "RADIATION_ALERT")!;
-    await wire.command("ACK_ALERT", () => ops.getByRole("button", { name: `Acknowledge alert: ${raised.data.message}`, exact: true }).click());
+    const alert = raised.alerts.find((a) => a.code === "RADIATION_ALERT" && a.cleared_seq === null)!;
+    await wire.command("ACK_ALERT", () => ops.getByRole("button", { name: `Acknowledge alert: ${alert.message}`, exact: true }).click());
     const option = ops.locator('[role="radio"][data-option-kind="ABORT_TO_HAB"]');
     await expect(option).toHaveCount(1);
     await option.click();
     await wire.command("APPROVE_OPTION", () => hold(ops, ops.getByRole("button", { name: /Approve option/ })));
-    await jumpUntil(ops, wire, () => wire.events().some((e) => e.kind === "EVA_ENDED"), "EVA_ENDED reaches the ops console");
+    await jumpUntilSnapshot(ops, wire, (snapshot) => snapshot.session.status === "ENDED", "EVA_ENDED reaches the ops console");
     await expect(ops).toHaveURL(/#\/report/);
     await expect(ops.locator('[data-screen="SCR-17"]')).toBeVisible();
     await expect(ops.locator('[data-slot="report-status"]')).toHaveCount(0);
@@ -46,7 +53,7 @@ test("ops-no-terminal: the available console-only load, start, speed and event s
   const { ops, wire } = await openFreshOps(context);
   try {
     await startPaused(ops, wire);
-    await jumpUntil(ops, wire, () => wire.events().some((e) => e.kind === "EVA_ENDED"), "the unstormed EVA reaches its natural end");
+    await jumpUntilSnapshot(ops, wire, (snapshot) => snapshot.session.status === "ENDED", "the unstormed EVA reaches its natural end");
     await expect(ops).toHaveURL(/#\/report/);
     await expect(ops.locator('[data-screen="SCR-17"]')).toBeVisible();
     await expect(ops.locator('[data-slot="report-status"]')).toHaveCount(0);

@@ -7,12 +7,12 @@ import { expect, test, type Page } from "@playwright/test";
 import { expectGaps, expectTargetSize, targets } from "../lib/geometry";
 import { UTILITY_ROVER, openOpsFixture, openOpsPanel } from "../lib/opsFixture";
 import { openEvaFixture, type SentCommand } from "../lib/evaFixture";
-import { waitForSnapshot } from "../lib/hab";
+import { HAB_PORT, waitForSnapshot } from "../lib/hab";
 import { addStopByKeyboard, openPlanTab } from "../lib/planner";
 import { openPoiTasks } from "../lib/plannerTasks";
 import { openSetupFixture } from "../lib/setupFixture";
 import { openPresenterFixture, type PresenterFixtureState } from "../lib/presenterFixture";
-import { jumpUntil, openFreshOps, resetThroughPresenter, sessionLog, sessionSnapshot, startPaused, watchLive } from "../lib/liveMission";
+import { jumpUntilSnapshot, openFreshOps, resetThroughPresenter, sessionLog, sessionSnapshot, startPaused, watchLive, withMockHab } from "../lib/liveMission";
 
 const EVA_MIN = 56;
 const EVA_GAP = 8;
@@ -182,32 +182,48 @@ test("the REASON control cycles a skipped task's reason and sends the revision (
   expect(revisions.length, "the revision command the REASON control sent").toBeGreaterThanOrEqual(1);
 });
 
-test("the Hab Core accepts a skipped task's new reason (SKIPPED → SKIPPED) (N-29 closed)", async ({ context, page }) => {
+// The check is about the Hab Core's acceptance of a skipped task's new reason, and the tablet's task list is a control
+// only while the crew is AT the stop and in contact with the hab (FD-032). On the real `gale_boxwork` ground the crew
+// reaches every stop inside the hab's comm shadow, so the list is a figure there and there is nothing to press. The check
+// therefore runs on the F4 `mock_site` with the harness's fake scenario, on a Hab Core of its own: the `release-matrix`
+// check pins the same fixture for the same reason.
+test("the Hab Core accepts a skipped task's new reason (SKIPPED → SKIPPED) (N-29 closed)", async ({ browser }) => {
   test.setTimeout(180_000);
-  const { ops, wire } = await openFreshOps(context);
-  const evaWire = watchLive(page);
-  try {
-    await startPaused(ops, wire);
-    await page.goto("/?site=mock_site#/eva/EV1");
-    await expect.poll(() => evaWire.messages.some((message) => message.type === "SNAPSHOT")).toBe(true);
-    await jumpUntil(ops, wire, () => wire.events().some((event) => event.kind === "ARRIVED_STOP" && event.data.crew_id === "EV1"), "EV1 arrives at the first stop");
-    const snapshot = await sessionSnapshot(ops);
-    const crew = snapshot.crew.find((member) => member.crew_id === "EV1")!;
-    const stop = snapshot.plan!.waypoints.filter((point) => point.role === "stop")[crew.stop_index! - 1]!;
-    const task = snapshot.tasks.find((item) => item.stop_id === stop.id && item.state === "TODO" && (item.crew_id === null || item.crew_id === "EV1"))!;
-    expect(task).toBeTruthy();
-    await page.getByTestId("tasks-button").click();
-    const row = page.locator(`[data-task-id="${task.task_id}"]`);
-    await evaWire.command("UPDATE_STOP_TASK", () => row.getByRole("button", { name: /^Skip task:/ }).click());
-    await evaWire.command("UPDATE_STOP_TASK", () => row.getByRole("button", { name: /Change skip reason/ }).click());
-    await expect.poll(async () => (await sessionSnapshot(ops)).tasks.find((item) => item.task_id === task.task_id)?.reason).toBe("time");
-    const log = await sessionLog(ops);
-    expect(log.some((event) => event.kind === "TASK_UPDATED" && event.data.task_id === task.task_id && event.data.state === "SKIPPED" && event.data.reason === "time")).toBe(true);
-    // Reload discards the optimistic overlay, so the displayed reason must come from the authoritative snapshot.
-    await page.reload();
-    await page.getByTestId("tasks-button").click();
-    await expect(page.locator(`[data-task-id="${task.task_id}"]`).getByText("Reason: time", { exact: true })).toBeVisible();
-  } finally { await page.goto("about:blank"); await ops.close(); await resetThroughPresenter(context); }
+  await withMockHab(HAB_PORT + 4, async (origin) => {
+    const context = await browser.newContext({ baseURL: origin, viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    const { ops, wire } = await openFreshOps(context, "mock_site");
+    const evaWire = watchLive(page);
+    try {
+      await startPaused(ops, wire);
+      await page.goto("/?site=mock_site#/eva/EV1");
+      await expect.poll(() => evaWire.messages.some((message) => message.type === "SNAPSHOT")).toBe(true);
+      // The state is read from the session snapshot, not from the wire's event list: the EVENT frames arrive after the
+      // command result, so a walk that reads the events can step past the moment it is looking for.
+      await jumpUntilSnapshot(
+        ops,
+        wire,
+        (snapshot) => snapshot.crew.find((member) => member.crew_id === "EV1")?.activity === "AT_STOP",
+        "EV1 arrives at the first stop",
+      );
+      const snapshot = await sessionSnapshot(ops);
+      const crew = snapshot.crew.find((member) => member.crew_id === "EV1")!;
+      const stop = snapshot.plan!.waypoints.filter((point) => point.role === "stop")[crew.stop_index! - 1]!;
+      const task = snapshot.tasks.find((item) => item.stop_id === stop.id && item.state === "TODO" && (item.crew_id === null || item.crew_id === "EV1"))!;
+      expect(task).toBeTruthy();
+      await page.getByTestId("tasks-button").click();
+      const row = page.locator(`[data-task-id="${task.task_id}"]`);
+      await evaWire.command("UPDATE_STOP_TASK", () => row.getByRole("button", { name: /^Skip task:/ }).click());
+      await evaWire.command("UPDATE_STOP_TASK", () => row.getByRole("button", { name: /Change skip reason/ }).click());
+      await expect.poll(async () => (await sessionSnapshot(ops)).tasks.find((item) => item.task_id === task.task_id)?.reason).toBe("time");
+      const log = await sessionLog(ops);
+      expect(log.some((event) => event.kind === "TASK_UPDATED" && event.data.task_id === task.task_id && event.data.state === "SKIPPED" && event.data.reason === "time")).toBe(true);
+      // Reload discards the optimistic overlay, so the displayed reason must come from the authoritative snapshot.
+      await page.reload();
+      await page.getByTestId("tasks-button").click();
+      await expect(page.locator(`[data-task-id="${task.task_id}"]`).getByText("Reason: time", { exact: true })).toBeVisible();
+    } finally { await page.goto("about:blank"); await ops.close(); await context.close(); }
+  });
 });
 
 test("targets: stop task editor targets are at least 44 px under a coarse pointer (package 25)", async ({ page, hasTouch }) => {
