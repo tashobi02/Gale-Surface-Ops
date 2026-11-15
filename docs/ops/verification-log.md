@@ -1405,3 +1405,24 @@ only for `submission-urls-live`: the repository returns 404 without credentials 
 the supplied long-video page returns 200, and the official portal cannot be re-fetched because certificate
 validation fails. These are retained as access/evidence limits, not converted into a successful public-submission
 claim. No publication, deployment, push or credential/security change was performed.
+
+## Main integration — 15 November 2026
+
+Obidit Islam explicitly requested merge and push to main. The local completion head `18f946c` and incoming
+`origin/main` head `40904e7` diverged: the remote adds Git LFS/Vercel distribution and CI test-harness fixes.
+The merge preserves those changes alongside the completed validation, audit/progress fixes and current
+deterministic scenario/recording. Both branches use the same 240-second replay budget; only their comment
+conflicted. Incoming disclosure additions remain in the Log table, and the existing corrected historical row
+and all local disclosure follow-ups are retained.
+
+Before checkout, all 3,586 incoming LFS pointers were compared with the local payloads: every SHA-256 and byte
+count matched (74,362,137 bytes total). A local backup was retained in /tmp before merging. The merge introduces
+no different site data. Source acquisitions under pipeline/work remain ignored. The existing Git LFS exception
+and automatic Vercel-on-main deployment configuration are retained; a push to main triggers that configured
+production build. Repository visibility is not changed.
+
+Merged-tree verification completed with exit 0:
+`VITEST_MAX_WORKERS=2 make lint typecheck test docs-check` — 802 compute, 1,429 Hab Core, 2,092 frontend and
+460 pipeline tests passed (four pipeline skips, existing TODOs and fixture warnings retained); lint/typecheck,
+4,967 relative links and generated progress all pass. The production build and the incoming Vercel site-copy /
+manifest-check step also pass. This verifies the merged local tree before committing and pushing.

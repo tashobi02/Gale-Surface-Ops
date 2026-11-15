@@ -1,7 +1,6 @@
 * text=auto eol=lf
 
 # Binary data formats used by the site bundle (02 §E.1) and pipeline rasters.
-# Site binaries ship as a GitHub release asset, not Git LFS (decision in docs/ops/feasibility.md).
 *.f32 binary
 *.u8 binary
 *.tif binary
@@ -12,3 +11,9 @@
 *.webp binary
 *.pdf binary
 *.cmd text eol=crlf
+
+# gale_boxwork site binaries are stored with Git LFS (2026-11-14, docs/ops/hosting.md §5; supersedes the release-asset-only
+# decision in docs/ops/feasibility.md). mock_site stays a plain-Git fixture.
+data/sites/gale_boxwork/tiles/** filter=lfs diff=lfs merge=lfs -text
+data/sites/gale_boxwork/grid/** filter=lfs diff=lfs merge=lfs -text
+data/sites/gale_boxwork/images/** filter=lfs diff=lfs merge=lfs -text

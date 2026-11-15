@@ -92,7 +92,9 @@ describe("every generator", () => {
       expect(same(a[key], b[key])).toBe(true);
     }
     expect(a.meta).toEqual(b.meta);
-  });
+    // Each case builds a full generator grid twice: ~1.5 s on a CI runner, over 5 s when the real-grid suites share its two
+    // cores (CI run 43563596486). Same 30 s budget as apps/hab-core/vitest.config.ts.
+  }, 30_000);
 
   it("the origin cell centre is exactly (0, 0) and the index helpers agree", () => {
     const g = flatGrid({ cell_m: 10, cellsWest: 3, cellsEast: 4, cellsNorth: 2, cellsSouth: 5 });

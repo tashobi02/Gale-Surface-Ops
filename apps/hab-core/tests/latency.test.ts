@@ -34,6 +34,12 @@ const lan = ((): string | null => {
   return null;
 })();
 
+// T20.08's LAN case is a hardware check (2 phones + 1 laptop on the habitat router, ≤ 500 ms, NFR-12). On a hosted CI
+// runner the "first non-internal IPv4" is the cloud VM's NIC, not that LAN, so the measurement says nothing about NFR-12
+// (run 43575544862: 509.6 ms on a shared 2-core VM). The limit is unchanged; the case runs on team machines, not in CI.
+const onCiRunner = process.env.CI === "true";
+if (hasRealBundle && lan !== null && onCiRunner) console.warn("latency.test.ts: T20.08 LAN case skipped on the CI runner (not the habitat LAN)");
+
 const percentile = (xs: number[], p: number): number => [...xs].sort((a, b) => a - b)[Math.min(xs.length - 1, Math.ceil(p * xs.length) - 1)]!;
 const eventOf = (m: ServerMessage): LogEvent | null => (m.type === "EVENT" ? m.event : null);
 
@@ -131,7 +137,7 @@ describe.skipIf(!hasRealBundle)("latency and the task flow over real websockets 
     expect(worst).toBeLessThanOrEqual(500);
   }, 300_000);
 
-  it.skipIf(lan === null)("T20.08 on the machine's LAN address: the same, through the first non-internal IPv4 (GO)", async () => {
+  it.skipIf(lan === null || onCiRunner)("T20.08 on the machine's LAN address: the same, through the first non-internal IPv4 (GO)", async () => {
     const c = await trio(lan!);
     const latencies = await toggleRound(c, 300);
     const worst = Math.max(...latencies);

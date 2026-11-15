@@ -13,6 +13,15 @@ jobs:
         shell: bash -el {0}
     steps:
       - uses: actions/checkout@v4
+      # The gale_boxwork tiles, grid and images are Git LFS objects (docs/ops/hosting.md §5). Without them the checkout
+      # holds 132-byte pointer files, and the real-grid tests fail their manifest SHA-256 checks. The LFS store is
+      # cached by object list, so a push that does not change the bundle downloads nothing from LFS.
+      - run: git lfs ls-files --long | cut -d ' ' -f1 | sort > .lfs-assets-id
+      - uses: actions/cache@v4
+        with:
+          path: .git/lfs
+          key: lfs-${{ hashFiles('.lfs-assets-id') }}
+      - run: git lfs pull && rm .lfs-assets-id
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
