@@ -1389,3 +1389,19 @@ no repository-publication or full-history secret-scan claim is made.
 Progress is 342/345 core tasks (99%); the remaining three core rows and the excluded conditional video fallback
 are listed in plan §11. The final AI-use sweep is run after committing so the new T14 integration files and
 commit can be checked against repository history.
+
+## T30.02 — committed history audit (2026-11-15)
+
+At completion commit `4b414a3`, `python3 scripts/check_ai_use_log.py --json` exits 0:
+748 reachable non-merge commits, 748 covered, 582 Log rows; zero uncovered AI-trailered commits, uncovered
+untrailered commits, unmatched Log rows, missing cited commit ids or phantom repository paths. The original
+576 rows remain unchanged; the six completion rows describe the implementation, review and confirmations.
+This documentation follow-up adds a seventh row for recording the committed result.
+
+`python3 scripts/submission_preflight.py --skip-build --skip-e2e --json` passes docs links, local static build and
+recording equality, local asset/route references, credits, URL form, tracked-file secret-pattern scan and AI-use
+sweep. Browser checks were run separately (12 recovery/replay checks plus the N-29 check). The preflight exits 1
+only for `submission-urls-live`: the repository returns 404 without credentials because it remains private;
+the supplied long-video page returns 200, and the official portal cannot be re-fetched because certificate
+validation fails. These are retained as access/evidence limits, not converted into a successful public-submission
+claim. No publication, deployment, push or credential/security change was performed.
