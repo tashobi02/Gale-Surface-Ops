@@ -4,7 +4,7 @@
 | --- | --- |
 | **Owner** | Orchestrator (Puku CLI) for the CheesySpace team |
 | **Date** | 2026-11-14 |
-| **Status** | Executing |
+| **Status** | Engineering checks complete; remaining human/publication acceptance recorded below |
 | **Goal** | Every row in [docs/tasks/status.md](../tasks/status.md) reads `done`; the README progress block reads 100 % |
 | **Related** | [Task index](../tasks/README.md) · [Coordination map](../tasks/_coordination.md) · [Lane plan](README.md) · [Backend needs](../plan/backend/01-needs-from-frontend.md) · [Frontend needs](../plan/frontend/01-needs-from-backend.md) · [QoL decisions](../plan/qol/decisions.md) |
 
@@ -367,31 +367,34 @@ A task is done when **all** of these hold:
 
 ## 11. Status of this plan
 
-**Current: 92 % — 318 of 345 subtasks done, 5 in progress.** The plan has run most of its course; what is left is
-grouped by who can close it.
+**Current: 99 % — 342 of 345 core subtasks done, 3 in progress.** The remaining core rows require physical
+usability evidence or a public-repository/portal verification. One conditional fallback row also remains open.
+The twenty completed TASK-05b rows were previously ignored by the counter; they now count correctly. T14.03 and
+T14.05 were genuinely absent and are now implemented, tested and independently reviewed.
 
 | Step | State |
 | --- | --- |
 | §2 — real Gale bundle installed and validated | **done** |
-| §3 — float determinism | **done** (`cdd6626`: `sun_elevation_deg` rounded to a fixed precision, so a run's recorded bytes are reproducible) |
-| §4 — backend contracts | **done** for WP-B1, WP-B2, WP-B3 and WP-B4 (N-02/03/04/29, N-09, N-101, N-160, N-31/32/70/90/200, N-24/30/100/120/130); N-214 is **closed by a decline** (BD-173): the planning form's vehicle branch is declined, so the SCR-05 panel shows it as an unavailable value per 03 §SCR-05, and the live exact branch is unaffected in the Hab Core |
-| §5 — browser checks | **done** for the rows whose needs are closed; the checks now run on the mock site *and* the real bundle |
-| §6 — pipeline data | **partly done** — the REMS/CRISM sols 4182–4184 were reacquired into git-ignored `pipeline/work/`; the remaining REMS set is still incomplete (T18.08) |
-| §7 — team handover | **prepared, awaiting the team** — T16.04, T16.07, T30.02, T30.03 need a human; T15.02 needs gloves, a tablet and three non-team users; T17.04 needs a capture |
-| §9 — re-verify and 100 % | **in progress** — the full `apps/hab-core` suite is green (55 files, 1427 passed); the remaining rows are in flight |
+| §3 — float determinism | **done**; stale downstream scenario/recording dependencies rebuilt reproducibly on 15 November |
+| §4 — backend contracts | **done** for the planned work packages; the planning-only vehicle haven branch remains explicitly declined by BD-173 |
+| §5 — browser checks | **done** for engineering scope; real Gale recovery/replay and the authoritative N-29 flow pass |
+| §6 — pipeline data | **done** for T18.08: all 42 selected REMS files and four CRISM files verified offline, with complete inventories; no bundle re-release |
+| §7 — team handover | Disclosure confirmed and final video approved by Obidit Islam on 15 November; remaining evidence below |
+| §9 — re-verify | **done** for local engineering scope: lint, typecheck, all four test suites, docs checks, build, independent review and browser recovery/replay pass |
 
-### 11.1 The 7 remaining `wip` rows, by who can close them
+### 11.1 Remaining acceptance
 
-| Rows | Who can close them | Note |
+| Rows | Who can close them | Evidence still needed |
 | --- | --- | --- |
-| T18.08 | **pipeline** | the remaining REMS set is incomplete; the PDS transfer is slow |
-| T15.02 | **the team** | the automated half passes on the real bundle; the glove study and three non-team users are human |
-| T16.04, T16.07, T30.02, T30.03 | **the team** | a human must run them: the disclosure audit, the publication scan, the portal checks, the AI-use sweep |
-| T17.04 | **the team** | the capture half passes on the real bundle; the video review is human |
+| T15.02 | **the team** | Three timed outside-team sessions and physical glove/device results; the team lead explicitly reports none yet |
+| T16.07 | **the team** | An explicit publication decision and unauthenticated repository access; repository is private and Pages is not configured; the public Vercel app is separately recorded |
+| T30.03 | **the team** | The public-repository scoring point and actual NASA portal project link/screenshots; the supplied app URL does not establish those |
+| T17.04 (excluded fallback) | **the team** | Final-content approval is supplied; whether the approved long video replaced a failed live take, plus original upload-deadline evidence, remain unverified |
 
-Six of the seven need a person, not a program. They cannot reach 100 % on this machine and must not be reported as
-done without the human evidence the row names. The seventh, T18.08, is the pipeline's: the remaining REMS set is
-incomplete and the PDS transfer is slow.
+T16.04 and T30.02 are now **done** with the team lead's disclosure confirmation and the repaired mechanical
+sweep. T18.08 is **done** with independently repeated offline verification. Conditional and human outcomes
+are not invented to make the percentage read 100 %. The deployed app and both video links are recorded in the
+[confirmation evidence](../ops/verification-log.md#t1604-t1704-and-t3002--team-confirmations-and-public-links-2026-11-15).
 
 **Closed on 2026-11-14** (browser evidence on the real `gale_boxwork` bundle, port 8091 — see the
 [verification log](../ops/verification-log.md#t1206-t1309-t1502-t1812-t2404-t2405-t2407-and-t2805--the-real-bundle-verified-2026-11-14)):
@@ -403,3 +406,22 @@ BD-172: the clock advances while the Earth queue drains, so a message queued dur
 OPS and EVA UI in single-laptop mode), T09.09 (N-214 closed by the decline BD-173: the planning form's vehicle branch
 is declined, so the SCR-05 panel shows it as an unavailable value with its own source per 03 §SCR-05, and the live
 exact branch is unaffected in the Hab Core), and the automated half of T15.02 and T17.04.
+
+## 12. Resumption audit — 15 November 2026
+
+Obidit Islam asked Codex to resume the interrupted Puku session and finish the remaining work. The implementation
+and review sequence is: finish the AI-use checker regressions; verify the complete REMS/CRISM cache offline;
+repair the progress generator; implement boot validation and the missing fault-injection suite; run the required
+checks; append evidence, regenerate progress and record the remaining human acceptance work.
+
+The seven `wip` rows in §11 were not the whole unfinished scope. The generator ignored all twenty completed
+`T05b` rows because its status parser accepted only numeric task ids, and grouped TASK-05b with TASK-05.
+T14.03 and T14.05 had no status row and were real work: the boot validator was a throwing stub and the
+integration fault suite did not exist. The repair preserves the registered ids and acceptance criteria.
+
+The interrupted checker repair has tests for all six reviewer findings, including per-occurrence references,
+explicit scoped correction rows, negated historical markers and literal colon-number filenames. The raw cache
+verification covers BD-167's complete source selection and companion labels; it does not re-release the shipped
+site bundle or change its data_version. [FD-566](frontend/decisions.md) records the asynchronous boot contract
+before implementation. Physical usability, contributor confirmations, final video review and publication evidence
+remain subject to their original acceptance criteria.

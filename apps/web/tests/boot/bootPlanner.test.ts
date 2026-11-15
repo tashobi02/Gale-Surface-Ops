@@ -1,7 +1,7 @@
 /**
  * T07.03 — planner boot sequence (docs/specs/03 SCR-00, §D; 01 FR-01, FR-16): Worker check -> loadSite -> validateSite ->
- * worker client -> plan store. Any problem is a BootError that names the file or field; the T14.03 stub is skipped (and
- * said so), never silently treated as success. T07.04: `?mock_worker=1` starts the F3 mock worker (FD-174).
+ * worker client -> plan store. Any problem is a BootError that names the file or field; validation is awaited and never
+ * skipped. T07.04: `?mock_worker=1` starts the F3 mock worker (FD-174).
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LoadedSite, WorkerClient } from "../../src/ui/context";
@@ -72,14 +72,13 @@ describe("createPlannerBoot", () => {
     expect(calls).not.toContain("createWorkerClient");
   });
 
-  it("a validateSite that is still the T14.03 stub is skipped and recorded", async () => {
+  it("a validator exception is never bypassed, even when it resembles the historical stub", async () => {
     const { deps: d } = deps({
       validateSite: () => {
         throw new Error("TODO(T14.03): validateSite not implemented");
       },
     });
-    const boot = await createPlannerBoot(d).get();
-    expect(boot.skipped).toEqual(["validateSite: TODO(T14.03): validateSite not implemented"]);
+    await expect(createPlannerBoot(d).get()).rejects.toThrow("TODO(T14.03): validateSite not implemented");
   });
 
   it("a plan store that cannot start is PLAN_STORE_FAILED, and the worker it was given is stopped", async () => {

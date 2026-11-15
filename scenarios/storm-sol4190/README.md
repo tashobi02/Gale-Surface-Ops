@@ -52,9 +52,9 @@ The rule "samples / rows strictly increasing in time" cannot be written in JSON 
 
 ## The reference run and its recording
 
-`reference_commands.json` is the list behind the numbers of [01 §E.1](../../docs/specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video) (T32.18, BD-147): `make replay COMMANDS=scenarios/storm-sol4190/reference_commands.json` prints log_hash `5fdf8ec1e67958e508b88c97bbe55fb0c8ec1d6800ea6bfc2bfd9988c779afda` on every run. Its `$comment` cites, for each command time, the log line (`seq <n> <KIND>`) it was copied from.
+`reference_commands.json` is the list behind the numbers of [01 §E.1](../../docs/specs/01_Product_Requirements_Document.md#e1-killer-demo--storm-at-sol-4190-target-90-s-of-the-240-s-video) (T32.18, BD-147): `make replay COMMANDS=scenarios/storm-sol4190/reference_commands.json` prints log_hash `1e5ec849367b458f6240cd5da13bf2817f3b1a3cd4607c74e6766005106c7345` on every run. Its `$comment` cites, for each command time, the log line (`seq <n> <KIND>`) it was copied from.
 
-`recording.json` is `make record`: the message stream of that run for the Pages replay, label `replayed recording` (never live). Its EVENTs are the whole log (seq 1 to n, so a viewer can hash them to `log_hash`, N-81); its STATE_DELTAs are coalesced to one per **5 sim seconds** (`--record-period 5`, BD-148) because one per second came to 5.3 MB, over the 5 MB budget; with 5 s the file is 2.2 MB. Make it again and the bytes are identical; `referenceCommands.test.ts` compares them.
+`recording.json` is `make record`: the message stream of that run for the Pages replay, label `replayed recording` (never live). Its EVENTs are the whole log (seq 1 to n, so a viewer can hash them to `log_hash`, N-81); its STATE_DELTAs are coalesced to one per **5 sim seconds** (`--record-period 5`, BD-148) because one per second came to 5.3 MB, over the 5 MB budget; with 5 s the current file is 2,576,100 bytes. Make it again and the bytes are identical; `referenceCommands.test.ts` compares them.
 
 ## Hashes written from Python
 
@@ -81,3 +81,15 @@ $(make -s pipeline-python) apps/hab-core/tests/fixtures/storm-excerpt/make_storm
 ```
 
 `build-demo-plan` prints the hard slope limit it needed (BD-142) and the EVA start from the T21.15 rule; `scenario_build` prints the `series_start_utc` rule and value (BD-98, BD-143). Both are deterministic: two runs give the same bytes.
+
+## Rebuilt dependencies — 15 November 2026
+
+The earlier plan update added the existing hab ingress assumption and the computed haven profile, but left the
+embedded scenario plan stale. Re-running the documented scenario builder now embeds the committed plan exactly:
+plan_hash `d9919915db7e` becomes `45cb163eec7f`. The reference recording was regenerated through the CLI, twice
+with identical bytes (SHA-256 `bf9979121ddbfda6ddf65c17483881cea74f00b6aab4ddef7bc1e04122c1c4fd`).
+The reference log_hash changes from `95c2dd750020765c98540df0100cf5dd704c2b957f6e7bff919df261d63a24ef`
+to the current hash above. Among the 81 events, only the loaded plan hash and the two revised plans' haven-profile
+arrays differ; event times, kinds, counts and scalar route/time/dose results stay the same. The data_version does
+not change. Historical verification entries retain their original hashes; current evidence is appended to the
+[verification log](../../docs/ops/verification-log.md).

@@ -1235,3 +1235,157 @@ only the offline planning form shows the branch as unavailable.
 or `docs/specs/` was touched; the code already did what 03 §SCR-05 requires. No vehicle haven time was invented and
 no position was hard-coded. The live exact branch was not weakened or removed. The team-only rows (T15.02, T16.04,
 T16.07, T17.04, T30.02, T30.03) keep their `wip`, and no human result is claimed here. Nothing was pushed.
+
+## T18.08 — complete REMS and CRISM cache verified offline (2026-11-15)
+
+Codex resumed the interrupted Puku session at Obidit Islam's request. The raw cache now covers BD-167's entire
+selection: sols 4182–4195, with one TAB, PDS3 LBL and PDS4 XML for each sol. Complete URL, product version,
+byte-count and SHA-256 inventories are beside the git-ignored data in `pipeline/work/rems/SOURCES.json` and
+`SOURCES.md`, and likewise in `pipeline/work/crism/`. No downloaded dataset is added to Git.
+
+```sh
+/home/obidit/miniconda3/envs/marswalk-pipeline/bin/python pipeline/scripts/verify_rems_cache.py \
+  --work pipeline/work/rems --crism pipeline/work/crism --report /tmp/gale-finish-cache/verification.json
+```
+
+Result: exit 0, 42 REMS files (265,492,791 bytes), every selected sol present, label record lengths and counts
+consistent, every recorded checksum matched. The real offline REMS builder consumed all 14 tables and produced
+three L_s bins. Four selected CRISM files (132,880,856 bytes) also matched their recorded checksums; rasterio/GDAL
+opened the 775 × 714 raster and read all 60 bands. Python socket creation, connections and DNS were blocked
+throughout; this is a process-level network block, not a claim that an OS firewall was changed.
+
+The REMS inventory SHA-256 is `73c12448851deb44027c1fbfdbf75b7c2fa90afc78683deefb856e6a9caa6211`;
+the CRISM inventory SHA-256 is `70b14de7a0638b2006cc7b1415b0597f49dc973ac5c58e137382522b40f056d5`.
+The initial report SHA-256 is `36f9179adacd02dd00601c5bb40c13951b54a7f899966557fef1261eea7d569e`.
+A second Codex agent independently repeated the real offline command with
+`--report /tmp/gale-finish-cache/independent-review.json` and obtained the same file/sol/bin/band counts and zero
+failures. Fifteen verifier regressions and the three existing REMS tests pass; nine integrity regressions failed
+against the interrupted verifier before repair. T18.08's cache acceptance is met. The fuller context is not shipped
+into a new site bundle here: a T18.02 re-release would need a deliberate data_version and replay update.
+
+## T16.04, T17.04 and T30.02 — team confirmations and public links (2026-11-15)
+
+In the continuation session, Obidit Islam answered the evidence request: no outside-team usability or physical
+glove/device results exist yet; the final video is approved; contributor confirmation of the AI-use disclosure
+is given. He supplied the approved [long video](https://youtu.be/ovzdp5B8Hh8), the
+[30-second video](https://youtu.be/8C1W4JKWt4c) and the [deployed app](https://gale-surface-ops.vercel.app/).
+This records the team lead's confirmation without inventing individual historical reviewer names or transcripts.
+The original AI-use log rows remain unchanged; dated follow-ups record what was and was not recoverable.
+
+Unauthenticated HTTP GETs returned 200 for both YouTube pages. Their structured player responses report
+`playabilityStatus: OK`, `isPrivate: false`, and durations of 238 and 30 seconds respectively. Both titles identify
+Gale Surface Ops by CheesySpace. These are metadata/access checks, not a new full playback or frame review;
+the final-content approval is the team lead's. Upload timestamps and whether the long video replaced a failed
+live take are not established by these checks. T17.04's outstanding review is supplied, while the conditional
+fallback's trigger and deadline evidence remain unverified.
+
+The deployed app root returned 200 with title Gale Surface Ops. Its `/replay/recording.json` returned 200:
+2,182,825 bytes, 708 messages, recording SHA-256
+`ae05195021255e9a3bdcd20ab3ed1bdcf6ca193df509ac30e9eae5aa16c6fa6e`, declared log_hash
+`5fdf8ec1e67958e508b88c97bbe55fb0c8ec1d6800ea6bfc2bfd9988c779afda`.
+This confirms the actual deployment URL and its served recording; it does not assert that the deployment
+contains this continuation's changes. The browser access host was unavailable, so interactive deployed replay
+verification is not claimed. This URL is the app, not an independently verified NASA portal project page.
+
+The GitHub connector reports the repository private. The Pages API returned 404, and an unauthenticated request
+to the repository returned 404. The previous private/archive decision remains in effect; no visibility or
+hosting setting was changed. Therefore T16.07 and the public-repository point of T30.03 remain open. The submitted
+portal project URL was not supplied. A fresh attempt to fetch the official guide pages failed TLS certificate
+validation (the web fetcher also returned 502), so this run retains the earlier 14 November guide audit and does
+not claim a fresh guide-content read.
+
+The repaired AI-use checker was independently reviewed with adversarial probes and all 60 regression tests pass.
+Before this continuation's commits, its audit covers 747/747 non-merge commits, with zero uncovered commits,
+orphan rows, unresolved cited commit ids or missing cited repository paths. Coverage is a mechanical comparison;
+it does not invent missing historical human reviews. The team lead's disclosure confirmation supplies the human
+acceptance for T16.04 and T30.02 once the final continuation audit is recorded below.
+
+## T21.08, T22.14 and T27.05 — rebuild the dependent scenario and recording (2026-11-15)
+
+Required checks exposed a stale dependency: the existing plan update added `hab_ingress_min` and the computed
+haven profile, but its embedded copy in scenario.json had not been rebuilt. The canonical pipeline builder
+now embeds the committed plan byte-for-byte. The plan_hash changes from `d9919915db7e` to `45cb163eec7f`;
+no data_version, waypoint, top-level runtime setup, time/distance/dose total or table changes.
+The two pipeline scenario-build regressions that failed before regeneration now pass (25 tests in that module).
+
+The generated reference recording has 81 contiguous EVENTs. Its log_hash is
+`1e5ec849367b458f6240cd5da13bf2817f3b1a3cd4607c74e6766005106c7345`.
+The scenario's own-course CLI replay gives
+`4a5ae82eab77c8baec24cc5f8a3a8aacd3d5a461c4376a63c136823bc8f8dba7`.
+The reference recording was generated in two independent CLI processes, with identical 2,576,100-byte output
+and SHA-256 `bf9979121ddbfda6ddf65c17483881cea74f00b6aab4ddef7bc1e04122c1c4fd`.
+Its complete EVENT stream independently recomputes to the advertised log_hash.
+
+Compared with the previous local recording (log_hash
+`95c2dd750020765c98540df0100cf5dd704c2b957f6e7bff919df261d63a24ef`), exactly three event fields change:
+the loaded plan_hash and the haven profile arrays on the two PLAN_REVISED events. Event kinds, timestamps,
+counts and scalar scientific outcomes remain unchanged. The older published deployment still advertises
+`5fdf8ec1e67958e508b88c97bbe55fb0c8ec1d6800ea6bfc2bfd9988c779afda`; this continuation does not redeploy it.
+The independent reviewer found no unexplained science or timing differences in the regenerated artifacts.
+Historical verification sections retain their original hashes.
+
+## T14.03, T14.05 — boot validation and integrated fault recovery (2026-11-15)
+
+The progress audit found two genuinely absent rows: the validator still threw its T14.03 stub and T14.05's
+fault suite did not exist. The completed implementation follows FD-566 and the
+[asynchronous C10 clarification](../contracts/site-validation.md): boot awaits validation before worker creation;
+no TODO exception bypass remains. Synchronous injected validators remain compatible.
+
+Development verifies every available asset through Web Crypto SHA-256 (tiles roots hash C9 index.json).
+Required missing/corrupt assets and incompatible schema majors end on SCR-00 with the file/field named.
+Optional loss is reported unavailable without stopping routing. Production skips hashing and follows BD-83's
+rule against optional-asset probes. Source/asset references resolve locally. Loader and validator share a guard
+that rejects encoded traversal, C0/DEL controls and whitespace-normalization escapes before asset requests;
+redirects are rejected, so validation cannot follow an asset onto the internet.
+
+The new integration suite uses F4 bytes and the real planner worker for TI_UNKNOWN warnings, routing without TI,
+impassable-stop snapping/refusal and outside-AOI refusal. The real layer controller feeds SCR-03's disabled
+unavailable row when optional tiles are missing. Worker crashes show Computation failed — Retry; Retry starts a
+fresh worker, reloads the grid and recomputes. Development corruption and schema mismatch render SCR-00.
+Nine initial regressions failed before implementation; additional security/source-reference probes also failed
+before their fixes. Final targeted boot/loader/context/UI verification: seven suites, 135 passed, TypeScript green.
+Independent code/security review accepted the final implementation and repeated six suites (98 passed, one
+pre-existing todo). Two stale frontend verification tests were repaired: N-29 now locates its renamed live
+acceptance test with explicit nonempty bounds, and the product-name scan searches only its owned frontend roots
+instead of reading downloaded data and operator histories before filtering.
+
+```sh
+E2E_SITE=gale_boxwork E2E_PORT=8391 npx playwright test -c apps/web/e2e/playwright.config.ts \
+  'checks/(release-recovery|replay)\.spec'
+```
+
+Result: 12 passed in 45.7 seconds. All seven recovery checks passed, including development same-length corruption
+and Retry, plus five replay checks. The regenerated complete recording plays to ENDED without API/socket access
+and its independently computed event hash matches. The harness uses local Chromium, the real Gale bundle and
+localhost; its server is stopped at teardown. No physical usability or deployed-browser test is implied.
+
+The same real-Gale harness then ran the authoritative N-29 SKIPPED-to-SKIPPED reason revision:
+`E2E_SITE=gale_boxwork E2E_SKIP_BUILD=1 E2E_PORT=8391 npx playwright test -c apps/web/e2e/playwright.config.ts 'checks/targets\.spec' --project=desktop-1440 --grep 'N-29 closed'`.
+Result: one passed in 4.3 seconds, verifying the actual session and TASK_UPDATED log rather than an EVA fixture.
+The 120 script tests also pass, including all 60 AI-use-checker and five progress regressions.
+
+The final capped-worker run passed compute (802 tests) and frontend (2,092 tests); the server suite passed
+1,428 tests and timed out only on the second complete real replay's inherited 30-second default. That comparison
+now uses the same 240-second budget as the first complete replay in the file's beforeAll. Byte equality and
+log-hash equality assertions are unchanged; the independent CPU-share and 60x timing acceptance limits are
+unchanged. The full required checks are repeated after this test-harness adjustment.
+
+## Continuation completion checks — 15 November 2026
+
+`VITEST_MAX_WORKERS=2 make lint typecheck test docs-check` completed with exit 0 after the replay-budget
+adjustment. Results: compute 37 files / 802 passed / five existing todo; Hab Core 55 files / 1,429 passed /
+ten existing todo; frontend 121 files / 2,092 passed / one existing todo; pipeline 460 passed / four skipped.
+The pipeline emits 18 rasterio fixture warnings. Markdown lint reports zero issues, TypeScript passes, all
+4,961 relative documentation links resolve and the generated progress block is current. The 120 script tests
+and the real-Gale browser recovery/replay (12) and authoritative N-29 (one) checks separately pass.
+`npm run -s build` also succeeds with the regenerated reference recording included.
+
+The cache verifier and both reference/course reproducibility runs were independently repeated, and the final
+code/security review approved the implementation. All 576 historical AI-use Log rows remain byte-for-byte
+unchanged, with six dated continuation rows appended. No downloaded dataset, local transcript or large binary
+is staged. The full scan performed here is the preflight's tracked-file secret-pattern check, not gitleaks;
+no repository-publication or full-history secret-scan claim is made.
+
+Progress is 342/345 core tasks (99%); the remaining three core rows and the excluded conditional video fallback
+are listed in plan §11. The final AI-use sweep is run after committing so the new T14 integration files and
+commit can be checked against repository history.

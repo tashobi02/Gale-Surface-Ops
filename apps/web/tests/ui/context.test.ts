@@ -13,6 +13,7 @@ import {
   URL_PARAMS,
   type MapHandle,
   type MapView,
+  type SiteValidator,
   type WorkerClient,
 } from "../../src/ui/context";
 import { provAttrs, glyphOf, PROVENANCE_GLYPHS } from "../../src/ui/components/provenance";
@@ -140,10 +141,14 @@ describe("C10 WorkerClient carries retry (decision 11 Nov)", () => {
   });
 });
 
-describe("C10 stubs throw TODO(<owner id>) and are React components where they render", () => {
-  it("throws the owner id from the c.4 register", async () => {
-    expect(() => validateSite({} as never)).toThrow("TODO(T14.03)");
-
+describe("C10 implemented services report domain failures and use the shared signatures", () => {
+  it("supports asynchronous validation and synchronous injected validators (T14.03)", async () => {
+    const validator: SiteValidator = validateSite;
+    await expect(validator({ site_id: "../outside" } as never)).resolves.toEqual([
+      expect.objectContaining({ code: "INVALID_SITE_ID" }),
+    ]);
+    const injected: SiteValidator = () => [];
+    expect(injected({} as never)).toEqual([]);
   });
 
   it("the implemented snapshot reports an invalid handle (T11.04)", async () => {

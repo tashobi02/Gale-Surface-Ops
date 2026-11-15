@@ -82,8 +82,18 @@ const isNumberTuple = (value: unknown, length: number): boolean =>
   Array.isArray(value) && value.length === length && value.every(isFiniteNumber);
 
 /** True when a manifest path stays inside the site folder: relative, no `..` segment, no scheme. */
-function isSafeRelativePath(path: string): boolean {
-  return path.length > 0 && !path.startsWith("/") && !/^[a-z][a-z0-9+.-]*:/i.test(path) && !path.split(/[\\/]/).includes("..");
+export function isSafeRelativePath(path: string): boolean {
+  try {
+    const decoded = decodeURIComponent(path);
+    return decoded.length > 0 && decoded.trim() === decoded &&
+      !decoded.startsWith("/") && !decoded.includes("\\") &&
+      // URL parsers remove tabs/newlines before resolving ".."; trailing whitespace is stripped too.
+      !/[\u0000-\u001f\u007f]/.test(decoded) &&
+      !/^[a-z][a-z0-9+.-]*:/i.test(decoded) && !/[?#]/.test(decoded) &&
+      !decoded.split("/").some(part => part === ".." || part === "." || part === "");
+  } catch {
+    return false;
+  }
 }
 
 /** Every problem found in a manifest, as `path: what is wrong`. Empty means the fields boot relies on are present. */

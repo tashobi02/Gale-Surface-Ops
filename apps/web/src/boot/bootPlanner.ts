@@ -3,13 +3,13 @@
  * Web Worker check -> loadSite -> validateSite -> worker client -> LOAD_GRID -> plan store.
  *
  * Every failure is a `BootError` whose `problem` names the file or the field (03 §D "Boot asset failure"); SCR-00 shows it.
- * `validateSite` is still a stub on main (T14.03): its "TODO(...)" error is skipped and recorded in `skipped`, never
- * reported as success. Any other error is a real failure. `?mock_worker=1` starts the F3 mock worker (FD-174). After the
+ * Site validation completes before any worker starts; no validation failure is bypassed.
+ * `?mock_worker=1` starts the F3 mock worker (FD-174). After the
  * worker starts, the grid goes to it by `LOAD_GRID` (boot/loadGrid.ts, BD-40) before the plan store is built.
  *
  * Live roles (ops, EVA, HUD, report, join) do not boot this: a suit tablet must come up even when site tiles fail to load.
  */
-import type { BootProblem, LoadedSite, WorkerClient } from "../ui/context";
+import type { LoadedSite, SiteValidator, WorkerClient } from "../ui/context";
 import type { PlanStore } from "../state/planStore";
 import { DEFAULT_SCENARIO, createPlanStore } from "../state/planStore";
 import { createWorkerClient, mockWorkerFromSearch } from "../ui/workerClient";
@@ -21,14 +21,14 @@ export interface PlannerBoot {
   site: LoadedSite;
   workerClient: WorkerClient;
   planStore: PlanStore;
-  /** Steps that were skipped because their module is still a stub, each "<step>: <stub message>". */
+  /** Retained for callers of the original boot result; validation is never skipped. */
   skipped: string[];
 }
 
 export interface PlannerBootDeps {
   hasWorker?: () => boolean;
   loadSite?: () => Promise<LoadedSite>;
-  validateSite?: (site: LoadedSite["site"]) => BootProblem[];
+  validateSite?: SiteValidator;
   createWorkerClient?: () => WorkerClient;
   /** Send LOAD_GRID to the worker and wait for GRID_LOADED (BD-40). */
   loadGrid?: (site: LoadedSite, workerClient: WorkerClient) => Promise<void>;
@@ -86,14 +86,10 @@ async function runBoot(deps: PlannerBootDeps): Promise<PlannerBoot> {
 
   const site = await (deps.loadSite ?? (() => loadSite()))();
 
-  const skipped: string[] = [];
-  try {
-    const problems = (deps.validateSite ?? validateSite)(site.site);
-    if (problems.length > 0) throw new BootError(problems[0]);
-  } catch (err) {
-    if (!isNotBuilt(err)) throw err;
-    skipped.push(`validateSite: ${message(err)}`);
-  }
+  const problems = await (deps.validateSite ?? ((manifest) => validateSite(manifest, {
+    onUnavailableAsset: id => site.assets.delete(id),
+  })))(site.site);
+  if (problems.length > 0) throw new BootError(problems[0]);
 
   let workerClient: WorkerClient;
   try {
@@ -119,7 +115,7 @@ async function runBoot(deps: PlannerBootDeps): Promise<PlannerBoot> {
     throw new BootError({ code: "PLAN_STORE_FAILED", message: `The plan store could not start: ${message(err)}` });
   }
 
-  return { site, workerClient, planStore, skipped };
+  return { site, workerClient, planStore, skipped: [] };
 }
 
 export interface PlannerBootHandle {

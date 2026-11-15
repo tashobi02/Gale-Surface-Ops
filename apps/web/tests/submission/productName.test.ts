@@ -34,10 +34,13 @@ describe("T16.01 product name", () => {
     // The frontend lane's own files must not name the retired product. The negative assertion in the video-plan
     // test needs the literal, so that one file is exempt with a reason.
     const exempt = new Set(["apps/web/tests/video/video_plan_test.py"]);
-    const frontend = /^(apps\/web\/|docs\/design\/|docs\/ops\/demo-script\.md$)/;
-    const found = matchingFiles(root, ["Marswalk", "Surface", "Ops"].join(" "))
-      .filter((name) => frontend.test(name) && !exempt.has(name));
-    expect(found).toEqual([]);
+    const retired = ["Marswalk", "Surface", "Ops"].join(" ");
+    // Search the owned surfaces directly: walking the whole checkout first also scans
+    // downloaded datasets and operator-local histories unrelated to this assertion.
+    const found = ["apps/web", "docs/design"].flatMap((dir) => matchingFiles(join(root, dir), retired));
+    if (readFileSync(join(root, "docs/ops/demo-script.md"), "utf8").includes(retired)) found.push("docs/ops/demo-script.md");
+    const unexpected = found.filter((name) => !exempt.has(name));
+    expect(unexpected).toEqual([]);
   });
   it("shows no retired working title on visible UI surfaces in apps/web/src or index.html", () => {
     const technicalTokens = /@marswalk\/|marswalk-ortho|marswalk-recording|marswalk-crosshair|marswalk_grid/g;

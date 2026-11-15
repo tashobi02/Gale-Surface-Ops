@@ -38,7 +38,7 @@ def read_status(reg, problems):
     state = {}
     for line in (TASKS / "status.md").read_text().splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) >= 2 and re.fullmatch(r"T\d\d\.\d\d", cells[0]):
+        if len(cells) >= 2 and re.fullmatch(r"T\d\d[a-z]?\.\d\d", cells[0]):
             sid, st = cells[0], cells[1]
             if sid not in reg:
                 problems.append(f"status.md: unknown subtask {sid}")
@@ -54,7 +54,7 @@ def read_status(reg, problems):
 def render(reg, state):
     titles = {}
     for line in (TASKS / "README.md").read_text().splitlines():
-        m = re.match(r"\| (TASK-\d\d) \| \[(.+?)\]", line)
+        m = re.match(r"\| (TASK-\d\d[a-z]?) \| \[(.+?)\]", line)
         if m:
             titles[m.group(1)[5:]] = m.group(2)
     counted = {s: r for s, r in reg.items() if r["type"] != "fallback" and "desirable" not in r["tag"]}
@@ -69,8 +69,8 @@ def render(reg, state):
         "| Task | Progress | Done | In progress | Total |",
         "| --- | --- | --- | --- | --- |",
     ]
-    for tn in sorted({s[1:3] for s in counted}):
-        ids = [s for s in counted if s[1:3] == tn]
+    for tn in sorted({check_tasks.code_of_id(s) for s in counted}):
+        ids = [s for s in counted if check_tasks.code_of_id(s) == tn]
         d = sum(1 for s in ids if state.get(s) == "done")
         w = sum(1 for s in ids if state.get(s) == "wip")
         label = f"TASK-{tn} {titles.get(tn, '')}".strip()

@@ -61,10 +61,11 @@ The [team's submission confirmation](submit-now.md#submission-confirmation) rema
 
 ### T16.04 — Disclosure
 
-1. Open the current 2026 Project Submission and Judging guides from the [Space Apps portal](https://www.spaceappschallenge.org/); record the actual guide URLs, revision, date and applicable AI disclosure wording. The exact guide URLs have not been established here.
-2. Ask each contributor to confirm tool, model/version, purpose and user against [AI use](../AI_USE.md); confirm the operator-local prompt location (FD-544).
-3. For each historical unknown or incomplete cell, append a dated row naming the original row and the contributor's confirmed answer; leave the original unchanged. Compare the disclosure with ADR-006 and SCR-09. Record guide audit and human approval in a new log row.
-4. Run `make lint docs-check` and inspect `git diff -- docs/AI_USE.md` for additions only. A human closes T16.04 after the task acceptance is met.
+The guide audit was recorded on 14 November in [AI use](../AI_USE.md). On 15 November, Obidit Islam confirmed
+contributor acceptance of that disclosure in the continuation session; historical unknowns remain disclosed,
+not guessed. Original log rows stay unchanged and dated follow-ups answer earlier TODO cells. The prompt-location
+decision remains FD-544. [Confirmation and access evidence](verification-log.md#t1604-t1704-and-t3002--team-confirmations-and-public-links-2026-11-15)
+also records the unsuccessful attempt to re-fetch the guides, rather than claiming a fresh read.
 
 ### T30.02 — AI-use sweep
 
@@ -90,3 +91,13 @@ The following placeholders are not evidence that the backend lacks every underly
 - SCR-02 manual plan totals (N-160): closed 14 Nov 2026 (BD-170). The page sends the drawn polyline with the next `COMPUTE_PLAN`; the worker measures it on the grid and the plan's totals, timeline, conditions and radiation come from it, so the authoritative full-plan aggregation is in place. The real site's optional static PNG fallback was not built (BD-160), so that one fallback stays declined.
 
 Other conditional dashes represent absent session, route, telemetry, map assets or unavailable report fields and must retain their source and unavailable state until supplied. This list records confirmed integration gaps; it is not an exhaustive verification of every placeholder.
+
+## Confirmed links and remaining acceptance (15 November 2026)
+
+Obidit Islam approved the final [238-second video](https://youtu.be/ovzdp5B8Hh8), confirmed the AI-use disclosure,
+and supplied the [30-second video](https://youtu.be/8C1W4JKWt4c) and
+[deployed app](https://gale-surface-ops.vercel.app/). Unauthenticated HTTP/player-metadata checks succeeded;
+see [verification evidence](verification-log.md#t1604-t1704-and-t3002--team-confirmations-and-public-links-2026-11-15).
+The app URL is distinct from a NASA portal project URL, which remains unrecorded. Repository visibility remains
+private, Pages is not configured, and physical usability sessions have not happened. Approval does not certify
+the conditional video fallback's trigger or upload deadline.

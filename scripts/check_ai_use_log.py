@@ -22,6 +22,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
+from typing import Callable
 
 DEFAULT_AI_USE = Path("docs/AI_USE.md")
 AI_TRAILER_RE = re.compile(
@@ -66,11 +67,12 @@ RANGE_PREFIX_RE = re.compile(r"\b(FD|BD|ADR|SCR|N|B|TASK)-(\d+)\s*[–-]\s*(?:\1
 PACKAGE_RANGE_RE = re.compile(r"\bPackages?\s+(\d+)\s*[–-]\s*(\d+)\b", re.IGNORECASE)
 
 SHA_CONTEXT_RE = re.compile(
-    r"(?:`([0-9a-f]{7,12})`|commit\s+([0-9a-f]{7,12})|\b([0-9a-f]{7,12})\s*\)|\(([0-9a-f]{7,12})\)|(?:merged|from|at|on|rebased|cherry-picked)\s+([0-9a-f]{7,12}))",
+    r"(?:`([0-9a-f]{7,40})`|commit\s+([0-9a-f]{7,40})|\b([0-9a-f]{7,40})\s*\)|\(([0-9a-f]{7,40})\)|(?:merged|from|at|on|rebased|cherry-picked)\s+([0-9a-f]{7,40}))",
     re.IGNORECASE,
 )
 NON_COMMIT_HEX_PREFIX_RE = re.compile(
-    r"(?:conversation|session|plan_hash|log_hash|sha-?256|digest)\s*(?:[:(]|against)?\s*`?$",
+    r"\b(?:conversation|session|plan_hash|log_hash|sha-?256|digest)`?\s*"
+    r"(?:[:(=]|against|of|is|was)?\s*(?:`[0-9a-f]{7,40}`\s+against\s+)?`?$",
     re.IGNORECASE,
 )
 BACKTICK_RE = re.compile(r"`([^`]+)`")
@@ -80,29 +82,59 @@ BACKTICK_RE = re.compile(r"`([^`]+)`")
 # existed on the main line (a pre-fix path, a renamed file, a commit that was
 # dropped or rebased away); a reference the row merely mentions in passing is
 # not exempt.
-HISTORICAL_MARKER_RE = re.compile(
-    r"(?:"
+# A marker phrase that says the citation it introduces names something that
+# never existed on the main line: a pre-fix path, a renamed file, a commit
+# that was dropped or rebased away.
+#
+# The marker binds to the citation that follows it. The gap between the marker
+# and the citation may name the kind of thing being superseded ("the pre-fix
+# form of the file"), but it must not introduce a *new action* — "dropped a
+# cache and wrote `x`" describes two things, and the marker belongs to the
+# first. So the gap allows only short noun phrases and punctuation, and the
+# words it may contain are listed rather than arbitrary.
+_HISTORICAL_MARKERS = (
     # A restoration or a rename names its source explicitly: "restored ... from
     # <ref>", "renamed from <ref>". The descriptive gap before the source may
-    # be long, because the construction itself is unambiguous.
-    r"restored\b[^.;]{0,120}?\bfrom\b"
-    r"|renamed\s+from"
-    r"|"
-    r"pre-?fix\s+(?:form|version|path|state|name)"
-    r"|broken\s+link"
-    r"|the\s+former\s+\S+"
-    r"|the\s+old\s+(?:path|form|name|file)"
-    r"|superseded\s+(?:path|form|name|version|file)"
-    r"|before\s+the\s+fix"
-    r"|cherry-?picked\s+away"
-    r"|not\s+(?:in|on)\s+main"
-    r"|dropped"
-    r"|rebased\s+(?:off|away)"
-    r")"
-    # The marker binds to the citation that follows it. The gap may name the
-    # kind of thing being superseded ("the duplicate", "the merge", "commit"),
-    # but must not run past another citation.
-    r"(?:[\s,;:()\w.]{0,90}?\b(?:from|commit|form|path|version|name|file|state|of|merge|duplicate)\b)?"
+    # be long, because the construction itself is unambiguous. The gap may
+    # contain periods (in an id, a version or a file name) but stops at a
+    # sentence boundary.
+    r"\brestored\b(?:(?![.;]\s|\b(?:and|then|but)\s+(?:wrote|implemented|created|added|copied|used|read|reviewed)\b|`).){0,120}?\bfrom\b",
+    r"renamed\s+from",
+    r"pre-?fix\s+(?:form|version|path|state|name)",
+    r"broken\s+link",
+    r"the\s+former\s+\S+",
+    r"the\s+old\s+(?:path|form|name|file)",
+    r"superseded\s+(?:path|form|name|version|file)",
+    r"before\s+the\s+fix",
+    r"cherry-?picked\s+away",
+    r"not\s+(?:in|on)\s+main",
+    r"dropped",
+    r"rebased\s+(?:off|away)",
+)
+# A marker that a negation cancels: "not dropped", "never rebased". The
+# negation is what the sentence says, so the reference is live after all.
+_NEGATED_MARKER_RE = re.compile(
+    r"\b(?:not|never|no|neither|nor|without)\s+(?:\w+\s+){0,2}$",
+    re.IGNORECASE,
+)
+# Words the gap between a marker and its citation may contain. A gap that
+# contains a verb of its own ("wrote", "implemented", "added", "created")
+# introduces a second action, and the marker then belongs to that action's
+# subject rather than to the citation.
+_MARKER_GAP_WORDS = (
+    r"the|a|an|this|that|these|those|its|their|his|her|our|your|old|former|pre-?fix|previous|"
+    r"superseded|duplicate|duplicated|original|initial|first|second|third|stale|dead|unused|"
+    r"unmerged|dropped|rebased|cherry-?picked|restored|renamed|superseding|wrong|incorrect|"
+    r"commit|commits|file|files|path|paths|form|forms|version|versions|name|names|state|"
+    r"merge|merged|branch|change|changes|edit|edits|copy|copies|link|links|reference|references|"
+    r"sha|hash|revision|build|artifact|report|row|rows|line|lines|step|steps|"
+    r"and|handler|T\d{2}\.\d{2}|[0-9a-f]{7,40}"
+)
+HISTORICAL_MARKER_RE = re.compile(
+    r"\b(?:" + "|".join(_HISTORICAL_MARKERS) + r")"
+    # The gap may name the kind of thing being superseded, but only with
+    # nouns and punctuation — no new action.
+    r"(?:[\s,;:()]+(?:" + _MARKER_GAP_WORDS + r")\b)*"
     r"[\s,;:()]*$",
     re.IGNORECASE,
 )
@@ -201,6 +233,7 @@ class LogRow:
     coarse_ids: set[str] = field(default_factory=set)
     cited_paths: set[str] = field(default_factory=set)
     cited_shas: set[str] = field(default_factory=set)
+    literal_paths: set[str] = field(default_factory=set)
     raw_line: str = ""
 
 
@@ -308,24 +341,45 @@ def _expand_braces(path_expr: str) -> list[str]:
     return out
 
 
-def _extract_paths(text: str) -> set[str]:
+def _normalize_path_candidate(code: str, *, literal: bool = False) -> str:
+    """Reduce a backticked citation to the repo-relative path it names.
+
+    A leading "./" or "../../" is a way of writing the same repo-relative
+    path. A ":line" suffix is *not* stripped here: a colon and a number are
+    legal in a POSIX file name, so "docs/unique.md:123" may name a literal
+    file. `_path_variants` returns both readings and the caller accepts the
+    citation if either resolves.
+    """
+    candidate = code.strip() if literal else code.strip().split("#")[0].rstrip(".,;)")
+    if candidate.startswith("../../"):
+        candidate = candidate[6:]
+    elif candidate.startswith("./"):
+        candidate = candidate[2:]
+    return candidate
+
+
+def _path_variants(candidate: str) -> list[str]:
+    """The readings of a path citation: as written, and without a ":line" suffix."""
+    variants = [candidate]
+    without_line = re.sub(r":\d+$", "", candidate)
+    if without_line != candidate:
+        variants.append(without_line)
+    return variants
+
+
+def _extract_paths(text: str, include_historical: bool = False) -> set[str]:
     paths: set[str] = set()
-    for code in BACKTICK_RE.findall(text):
-        candidate = code.strip().split("#")[0].rstrip(".,:;)")
-        # A "path:line" citation points at a line of a file, not at a file
-        # called "path:line".
-        candidate = re.sub(r":\d+$", "", candidate)
-        if candidate.startswith("../../"):
-            candidate = candidate[6:]
-        elif candidate.startswith("./"):
-            candidate = candidate[2:]
+    spans = list(BACKTICK_RE.finditer(text))
+    for idx, match in enumerate(spans):
+        literal = bool(re.search(r"\bliteral\s+(?:filename|file|path)\s+$", _span_clause(text, spans, idx), re.IGNORECASE))
+        candidate = _normalize_path_candidate(match.group(1), literal=literal)
         if not any(candidate.startswith(p) for p in REPO_PATH_PREFIXES):
             continue
         if any(ch in candidate for ch in ("*", "?", "<", ">", " ", "…")):
             continue
         if candidate.endswith("/"):
             continue
-        if _is_historical_reference(text, code):
+        if not include_historical and _span_is_historical(text, spans, idx):
             continue
         for item in _expand_braces(candidate):
             if "{" not in item and "}" not in item and "." in Path(item).name:
@@ -334,10 +388,14 @@ def _extract_paths(text: str) -> set[str]:
 
 
 # A sentence boundary splits the text into clauses; the supersession marker
-# must be in the clause that introduces the citation. A ";" always ends a
-# clause. A "." does so only when it is not part of an id such as "T05.32" and
-# not the decimal point of a number.
-_CLAUSE_SPLIT_RE = re.compile(r";|(?<!\d)\.(?!\d)")
+# must be in the clause that introduces the citation.
+#
+# A "." or ";" is a boundary when followed by whitespace (or end of text). That keeps the periods inside an id
+# ("T05.32"), a decimal ("2.5"), a version ("v2.0.1") and a file name
+# ("report.md") from splitting a clause, while "dropped version 2. Implemented
+# file `x`" does split. The ";" in "report;v2.md" is followed by a lowercase
+# letter without whitespace, so it does not split either.
+_CLAUSE_SPLIT_RE = re.compile(r"[.;](?=\s|$)")
 
 
 def _last_clause(text: str) -> str:
@@ -346,108 +404,160 @@ def _last_clause(text: str) -> str:
     return parts[-1] if parts else text
 
 
-def _superseded_paths(rows: list["LogRow"]) -> set[str]:
-    """Paths that some row names as a superseded form of a path.
+def _corrections_by_row(rows: list["LogRow"]) -> tuple[dict[int, set[str]], dict[int, set[str]]]:
+    """Bind explicit append-only corrections to one earlier row, never globally.
 
-    A correction row states which path it replaced ("the pre-fix form
-    `a.ts` -> `b.ts`"). The pre-fix path is then known not to exist, so the
-    earlier row that cited it does not have to be rewritten — the log is
-    append-only — and the reverse check does not report it as a phantom.
+    Supported targets are "Correction to the row above" and "Correction to
+    row #N" (one-based Log row index). The correction must explicitly identify
+    the target's citation, not merely discuss another dropped reference.
+    Only historical occurrences in that correction may amend the target.
     """
-    superseded: set[str] = set()
+    paths: dict[int, set[str]] = {}
+    shas: dict[int, set[str]] = {}
     for row in rows:
-        for code in _extract_paths(row.what):
-            if _is_historical_reference(row.what, code):
-                superseded.add(code)
-    return superseded
-
-
-def _superseded_shas(rows: list["LogRow"]) -> set[str]:
-    """Commits that some row names as dropped, rebased or restored from."""
-    superseded: set[str] = set()
-    for row in rows:
-        for code in _extract_shas(row.what):
-            if _is_historical_reference(row.what, code):
-                superseded.add(code)
-    return superseded
-
-
-def _is_historical_reference(text: str, code: str) -> bool:
-    """True when this particular cited path or commit is labelled as superseded.
-
-    A log row may name a path it *corrected* — a broken link, a renamed file, a
-    superseded spelling — or a commit it *dropped*, *rebased* or *restored from* a
-    side branch. Such a reference never joined the main line, so requiring it to
-    resolve would be a false failure.
-
-    The exemption is per-reference: the supersession phrase must sit in the
-    clause that introduces *this* citation, with no sentence boundary between
-    the phrase and the citation. So "the pre-fix form `a.ts` -> `b.ts`" exempts
-    `a.ts` but not `b.ts`; "dropped a cache; wrote `c.ts`" exempts nothing,
-    because the marker and the citation are in different clauses.
-    """
-    # A backticked citation: the clause that introduces it is the text between
-    # the previous closing backtick and this span's opening backtick.
-    spans = list(BACKTICK_RE.finditer(text))
-    for idx, match in enumerate(spans):
-        if code not in match.group(1):
+        target = re.search(r"\bCorrection to (?:the )?(?:row above|row #?(\d+))\s*:", row.what, re.IGNORECASE)
+        if not target:
             continue
-        # The opening backtick of this span is at match.start(); the clause that
-        # introduces it ends at the backtick that closes the previous span.
-        if idx == 0:
-            clause = text[: match.start()]
-        else:
-            clause = text[spans[idx - 1].end() : match.start()]
-        # The marker and the citation must share a clause: a sentence boundary
-        # between them means the marker describes something else.
-        clause = _last_clause(clause)
-        if HISTORICAL_MARKER_RE.search(clause):
-            return True
-        return False
+        target_index = int(target.group(1)) if target.group(1) else row.index - 1
+        if not 1 <= target_index < row.index:
+            continue
+        # A "different one" describes a separate reference, not a correction
+        # of the earlier citation. Require explicit citation/form language.
+        correction = row.what[target.end():]
+        if not re.search(r"\b(?:its|earlier|original|previous)\s+citation\b|\bpre-?fix form\b", correction, re.IGNORECASE):
+            continue
+        original = rows[target_index - 1]
+        historical_paths = _extract_paths(correction, True) - _extract_paths(correction)
+        historical_shas = _extract_shas(correction, True) - _extract_shas(correction)
+        paths.setdefault(target_index, set()).update(historical_paths & original.cited_paths)
+        shas.setdefault(target_index, set()).update(historical_shas & original.cited_shas)
+    return paths, shas
 
-    # A bare citation (a commit id written without backticks). The clause that
-    # introduces it ends at the citation itself.
-    backticked = [(m.start(), m.end()) for m in BACKTICK_RE.finditer(text)]
-    for match in re.finditer(re.escape(code), text):
-        if any(start <= match.start() < end for start, end in backticked):
-            continue  # the backticked branch already ruled on this occurrence
-        before = text[max(0, match.start() - 120) : match.start()]
-        clause = _last_clause(before)
-        if HISTORICAL_MARKER_RE.search(clause):
-            return True
+
+def _span_clause(text: str, spans: list[re.Match[str]], idx: int) -> str:
+    """The clause that introduces the backticked span at `idx`."""
+    match = spans[idx]
+    if idx == 0:
+        clause = text[: match.start()]
+    else:
+        clause = text[spans[idx - 1].end() : match.start()]
+    return _last_clause(clause)
+
+
+def _span_is_historical(text: str, spans: list[re.Match[str]], idx: int) -> bool:
+    """True when the marker for this particular citation sits in its own clause.
+
+    A marker a negation cancels ("not dropped commit `x`") does not count, and
+    a marker that reaches across one intervening citation does count when the
+    connector is "from" — "restored `report.md` from `deadbe1`" names the
+    commit as the source the report came from.
+    """
+    clause = _span_clause(text, spans, idx)
+    if _marker_in_clause(clause):
+        return True
+    return _marker_reaches_from(text, spans, idx)
+
+
+def _marker_in_clause(clause: str) -> bool:
+    """True when the clause carries a supersession marker that is not negated."""
+    for match in HISTORICAL_MARKER_RE.finditer(clause):
+        before = clause[: match.start()]
+        if _NEGATED_MARKER_RE.search(before):
+            continue
+        return True
     return False
 
 
-def _extract_shas(text: str) -> set[str]:
+def _marker_reaches_from(text: str, spans: list[re.Match[str]], idx: int) -> bool:
+    """A restored backticked destination's following source is historical.
+
+    The destination itself is still required. Only an actual restoration
+    reaches across "from"; an unrelated historical marker cannot do so.
+    """
+    if idx == 0:
+        return False
+    previous = spans[idx - 1]
+    between = text[previous.end():spans[idx].start()]
+    clause = _span_clause(text, spans, idx - 1)
+    restoration = re.search(r"\brestored\s+(?:(?:the|a|an|old|original|report|file)\s+)*$", clause, re.IGNORECASE)
+    return bool(
+        re.fullmatch(r"\s+from\s+(?:commit\s+)?", between, re.IGNORECASE)
+        and restoration
+        and not _NEGATED_MARKER_RE.search(clause[:restoration.start()])
+    )
+
+
+def _extract_shas(text: str, include_historical: bool = False) -> set[str]:
     shas: set[str] = set()
+    spans = list(BACKTICK_RE.finditer(text))
+    backticked = [(m.start(), m.end()) for m in spans]
     for m in SHA_CONTEXT_RE.finditer(text):
         cand, group_idx = next(((g, idx) for idx, g in enumerate(m.groups(), start=1) if g), ("", 0))
         if not cand:
             continue
-        # Reject purely decimal digits (dates, counters) or purely alpha words
-        if cand.isdigit() or cand.isalpha():
-            continue
-        if not (re.search(r"[0-9]", cand) and re.search(r"[a-f]", cand.lower())):
-            continue
-        # Skip non-commit hex identifiers such as conversation IDs or plan_hash/log_hash digests
         cand_start = m.start(group_idx)
-        preceding = text[max(0, cand_start - 40) : cand_start]
-        if NON_COMMIT_HEX_PREFIX_RE.search(preceding):
+        preceding = text[max(0, cand_start - 128) : cand_start]
+        # Pure numbers/hex words are ambiguous in ordinary prose, but an
+        # explicit "commit" label names a Git ID even without mixed characters.
+        explicit_commit = bool(re.search(r"\bcommit\s+`?$", preceding, re.IGNORECASE))
+        if not explicit_commit and (cand.isdigit() or cand.isalpha()):
             continue
-        if re.search(r"(?:plan_hash|log_hash|sha-?256|digest)[^.\n]{0,40}$", preceding, re.IGNORECASE):
+        # Skip only a digest/session label immediately introducing this occurrence.
+        if NON_COMMIT_HEX_PREFIX_RE.search(preceding):
             continue
         # Skip 7-char strings embedded inside longer hex (like SHA-256 digests)
         end = m.end()
         if end < len(text) and text[end].lower() in "0123456789abcdef":
             continue
-        # Skip a commit that the row names as dropped, rebased or restored from a
-        # side branch: such a commit never joined the main line, so requiring it
-        # to resolve in `--rev` would be a false failure. The row says so with a
-        # marker immediately before it ("dropped ... commit 5d80664").
-        if _is_historical_reference(text, cand):
-            continue
-        shas.add(cand.lower())
+        if not include_historical:
+            # Skip a commit that the row names as dropped, rebased or restored
+            # from a side branch: such a commit never joined the main line, so
+            # requiring it to resolve in `--rev` would be a false failure. The
+            # row says so with a marker immediately before it ("dropped ...
+            # commit 5d80664").
+            if not _citation_is_historical(text, spans, backticked, cand_start, cand):
+                shas.add(cand.lower())
+        else:
+            shas.add(cand.lower())
     return shas
+
+
+def _citation_is_historical(
+    text: str,
+    spans: list[re.Match[str]],
+    backticked: list[tuple[int, int]],
+    start: int,
+    code: str,
+) -> bool:
+    """True when the citation at `start` is labelled as superseded in its own clause."""
+    for idx, match in enumerate(spans):
+        if not (match.start() <= start < match.end()):
+            continue
+        # The span must *be* the citation, not merely contain it: in
+        # "renamed from `a.ts.bak` to `a.ts`" the second span is the
+        # replacement, and a substring test would find "a.ts" inside the first
+        # span and exempt the wrong reference.
+        if match.group(1).strip().strip("`").lower() != code.lower():
+            continue
+        return _span_is_historical(text, spans, idx)
+    # Inspect this bare occurrence only. Re-scanning for the same spelling
+    # would let an earlier historical occurrence hide a later live one.
+    preceding_end = max((end for _begin, end in backticked if end <= start), default=0)
+    clause = _last_clause(text[preceding_end:start])
+    if _marker_in_clause(clause):
+        return True
+    # A bare source can follow a backticked restoration destination too.
+    if spans and preceding_end:
+        previous_idx = next(i for i, span in enumerate(spans) if span.end() == preceding_end)
+        previous_clause = _span_clause(text, spans, previous_idx)
+        restoration = re.search(r"\brestored\s+(?:(?:the|a|an|old|original|report|file)\s+)*$", previous_clause, re.IGNORECASE)
+        if (
+            re.fullmatch(r"\s+from\s+(?:commit\s+)?", text[preceding_end:start], re.IGNORECASE)
+            and restoration
+            and not _NEGATED_MARKER_RE.search(previous_clause[:restoration.start()])
+        ):
+            return True
+    return False
 
 
 def parse_ai_use_log(ai_use_path: Path) -> list[LogRow]:
@@ -501,6 +611,7 @@ def parse_ai_use_log(ai_use_path: Path) -> list[LogRow]:
             coarse_ids=coarse_ids,
             cited_paths=_extract_paths(what),
             cited_shas=_extract_shas(match_text),
+            literal_paths=_literal_paths(what),
             raw_line=stripped,
         )
         rows.append(row)
@@ -676,11 +787,19 @@ def _git_sha_in_rev(repo: Path, sha: str, rev: str) -> tuple[bool, bool]:
     return True, anc.returncode == 0
 
 
-def _git_path_known(repo: Path, rel_path: str, rev: str, head_files: set[str], hist_files: set[str]) -> bool:
-    if rel_path in head_files or rel_path in hist_files:
-        return True
-    # Check relative to git-ignored or generated files on disk too? Only tracked/historical files represent repo history.
-    return False
+def _literal_paths(text: str) -> set[str]:
+    """Explicit literal filenames cannot be reinterpreted as path:line citations."""
+    return {
+        _normalize_path_candidate(match.group(1), literal=True)
+        for match in re.finditer(r"\bliteral\s+(?:filename|file|path)\s+`([^`]+)`", text, re.IGNORECASE)
+    }
+
+
+def _git_path_known(
+    rel_path: str, head_files: set[str], hist_files: set[str], *, literal: bool = False,
+) -> bool:
+    variants = [rel_path] if literal else _path_variants(rel_path)
+    return any(path in head_files or path in hist_files for path in variants)
 
 
 def audit(repo: Path, ai_use_path: Path, rev: str = "HEAD") -> dict:
@@ -698,8 +817,7 @@ def audit(repo: Path, ai_use_path: Path, rev: str = "HEAD") -> dict:
     # A later row may correct an earlier row's citation by naming the earlier
     # citation as a superseded form. The earlier row stays verbatim — the log
     # is append-only — and the correction exempts it from the reverse check.
-    corrected_paths = _superseded_paths(rows)
-    corrected_shas = _superseded_shas(rows)
+    corrected_paths, corrected_shas = _corrections_by_row(rows)
 
     row_hits: dict[int, list[str]] = {r.index: [] for r in rows}
     covered: list[dict] = []
@@ -744,7 +862,7 @@ def audit(repo: Path, ai_use_path: Path, rev: str = "HEAD") -> dict:
                 {"row": r.index, "line": r.line_no, "date": r.date_str, "tool": r.tool, "what": r.what[:140]}
             )
         for sha in sorted(r.cited_shas):
-            if sha in corrected_shas:
+            if sha in corrected_shas.get(r.index, set()):
                 continue
             exists_obj, in_rev = _git_sha_in_rev(repo, sha, rev)
             if not in_rev:
@@ -761,9 +879,9 @@ def audit(repo: Path, ai_use_path: Path, rev: str = "HEAD") -> dict:
             # Skip explicitly documented pipeline/work scratch artifacts (git-ignored)
             if p.startswith("pipeline/work/"):
                 continue
-            if p in corrected_paths:
+            if p in corrected_paths.get(r.index, set()):
                 continue
-            if not _git_path_known(repo, p, rev, head_files, hist_files):
+            if not _git_path_known(p, head_files, hist_files, literal=p in r.literal_paths):
                 phantom_path_refs.append({"row": r.index, "line": r.line_no, "path": p})
 
     return {

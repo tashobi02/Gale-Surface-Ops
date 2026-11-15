@@ -153,7 +153,10 @@ describe.skipIf(!hasRealBundle)("the reference run of 01 §E.1 (real scenario, r
       const again = await runReference();
       expect(recordingJson(again.recording)).toBe(recordingJson(run.recording));
       expect(again.hash).toBe(run.hash);
-    });
+      // This is a second complete real replay, just like beforeAll above; it is
+      // a reproducibility check, so it uses the same budget. CPU/60x limits are
+      // independently enforced by killerDemo.test.ts.
+    }, 240_000);
   });
 
   describe("T21.09: 01 §E.1 holds only sourced numbers", () => {

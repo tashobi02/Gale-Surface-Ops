@@ -67,7 +67,7 @@ export interface BootProblem {
 /**
  * Validator function signature for verifying site manifest structure at boot.
  */
-export type SiteValidator = (site: Site) => BootProblem[];
+export type SiteValidator = (site: Site) => BootProblem[] | Promise<BootProblem[]>;
 
 /**
  * Map view in working-projection metres (IAU_2015:49900). Same fields as `FullScreenMap`'s `view` prop.

@@ -140,11 +140,13 @@ describe("T07.02 loadSite: failures are BootProblems that name the file", () => 
     expect(problem.missingFile).toBe("sites/mock_site/vectors/pois.geojson");
   });
 
-  it("an asset path that leaves the site folder is rejected", async () => {
+  it.each(["../other_site/secret.bin", "tiles/..\t/..\t/api/session", "tiles/%2e%2e/secret.bin", "tiles/%09secret", ".. "])(
+    "an asset path that can leave the site folder is rejected before POI loading: %j", async (path) => {
     const manifest = manifestJson() as { assets: { path: string }[] };
-    manifest.assets[0].path = "../other_site/secret.bin";
-    stubFetch(mockSiteRoutes(manifest));
+    manifest.assets[0].path = path;
+    const requested = stubFetch(mockSiteRoutes(manifest));
     expect((await bootProblem(loadSite("mock_site"))).code).toBe("MANIFEST_INVALID");
+    expect(requested).toEqual(["sites/mock_site/site-manifest.json"]);
   });
 
   it("a manifest whose site_id differs from the requested site is rejected", async () => {

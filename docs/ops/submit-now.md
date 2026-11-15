@@ -140,3 +140,13 @@ Copy and paste the exact text prepared in [docs/ops/project-page.md](project-pag
 4. Capture a full screenshot of the submission confirmation screen with the system clock visible.
 5. Record the exact submission timestamp and update the team status:
    `TO BE FILLED BY THE TEAM: exact submission timestamp and confirmation ID`
+
+## Confirmed links — 15 November 2026 follow-up
+
+Obidit Islam approved the final [long video](https://youtu.be/ovzdp5B8Hh8), supplied the
+[30-second video](https://youtu.be/8C1W4JKWt4c), and identified the
+[deployed app](https://gale-surface-ops.vercel.app/). HTTP/player metadata reports both videos accessible,
+with durations 238 and 30 seconds. The app and its static recording also answer unauthenticated requests.
+[Verification evidence](verification-log.md#t1604-t1704-and-t3002--team-confirmations-and-public-links-2026-11-15)
+records the scope limits. The deployed app URL is not evidence of a NASA portal URL or confirmation ID;
+repository publication and the original upload deadlines are not inferred from these checks.
