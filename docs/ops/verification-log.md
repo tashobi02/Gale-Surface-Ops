@@ -1426,3 +1426,11 @@ Merged-tree verification completed with exit 0:
 460 pipeline tests passed (four pipeline skips, existing TODOs and fixture warnings retained); lint/typecheck,
 4,967 relative links and generated progress all pass. The production build and the incoming Vercel site-copy /
 manifest-check step also pass. This verifies the merged local tree before committing and pushing.
+
+## T15.02, T16.07 and T30.03 — owner confirmations and score sheet (2026-11-16)
+
+Recorded from Obidit Islam's statements in session on 2026-11-16. Nothing here was independently checked.
+
+- **T15.02:** the owner states the usability test was done manually and passed, confirmed verbally. No participant rows, times or issue list were supplied, so none are recorded; the acceptance wording "measured time" is met only by the owner's statement.
+- **T16.07:** the owner states they are making the repository public and asked that it be treated as done. The private-window check of the repository link is not run here; repeat it once the visibility change is made.
+- **T30.03:** the owner supplied the submission score sheet screenshot, "Your points for criteria 6–11": Teamwork 5/5 (6 people), User experience 5/5, NASA data usage 5/5, Challenge category identified 1/1, Repository access 1/1 ("Opens publicly"), Project page complete 1/1 ("Team page opens on spaceappschallenge.org"); subtotal 18/18, female participation bonus +5 % (3 female members). This is the evidence for the three single points; it is a portal-computed sheet, not a private-window check by an agent.

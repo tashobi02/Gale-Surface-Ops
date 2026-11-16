@@ -15,7 +15,7 @@ The planner, habitat server and role views are implemented. The progress block b
 ## Progress
 
 <!-- progress:start -->
-`████████████████████` **99 %** — 342 of 345 subtasks done, 3 in progress.
+`████████████████████` **100 %** — 345 of 345 subtasks done, 0 in progress.
 
 | Task | Progress | Done | In progress | Total |
 | --- | --- | --- | --- | --- |
@@ -35,8 +35,8 @@ The planner, habitat server and role views are implemented. The progress block b
 | [TASK-12 Sources & Methods + provenance attributes](docs/tasks/TASK-12_sources-methods-provenance.md) | `██████████` 100 % | 7 | 0 | 7 |
 | [TASK-13 Visual system + accessibility](docs/tasks/TASK-13_visual-system-accessibility.md) | `██████████` 100 % | 13 | 0 | 13 |
 | [TASK-14 Integration + offline hardening + fault tests](docs/tasks/TASK-14_integration-offline-hardening.md) | `██████████` 100 % | 11 | 0 | 11 |
-| [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `████████░░` 75 % | 3 | 1 | 4 |
-| [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `█████████░` 86 % | 6 | 1 | 7 |
+| [TASK-15 Usability test](docs/tasks/TASK-15_usability-test.md) | `██████████` 100 % | 4 | 0 | 4 |
+| [TASK-16 Submission package](docs/tasks/TASK-16_submission-package.md) | `██████████` 100 % | 7 | 0 | 7 |
 | [TASK-17 Videos](docs/tasks/TASK-17_videos.md) | `██████████` 100 % | 3 | 0 | 3 |
 | [TASK-20 Hab Core skeleton: server, protocol v0, LAN spike](docs/tasks/TASK-20_hab-core-skeleton.md) | `██████████` 100 % | 12 | 0 | 12 |
 | [TASK-21 Scenario builder: SPICE, DONKI and RAD tables, `scenario.json`, demo numbers](docs/tasks/TASK-21_scenario-builder.md) | `██████████` 100 % | 13 | 0 | 13 |
@@ -48,7 +48,7 @@ The planner, habitat server and role views are implemented. The progress block b
 | [TASK-27 Event log view, post-EVA report, replay mode for GitHub Pages](docs/tasks/TASK-27_report-and-replay.md) | `██████████` 100 % | 6 | 0 | 6 |
 | [TASK-28 Network kit and rehearsal: router, static IP, QR join, device matrix, venue checklist](docs/tasks/TASK-28_network-kit.md) | `██████████` 100 % | 5 | 0 | 5 |
 | [TASK-29 Robotic rover tasking: SCOUT, CARRY, RELAY, RETURN](docs/tasks/TASK-29_rover-tasking.md) | `██████████` 100 % | 6 | 0 | 6 |
-| [TASK-30 Score-sheet single points: challenge named, repo public, page drafted, AI use current](docs/tasks/TASK-30_score-sheet-points.md) | `███████░░░` 67 % | 2 | 1 | 3 |
+| [TASK-30 Score-sheet single points: challenge named, repo public, page drafted, AI use current](docs/tasks/TASK-30_score-sheet-points.md) | `██████████` 100 % | 3 | 0 | 3 |
 | [TASK-31 Stop task list (FR-50): protocol, engine, EVA list, ops progress, task text](docs/tasks/TASK-31_stop-task-list.md) | `██████████` 100 % | 8 | 0 | 8 |
 | [TASK-32 Live operations session: presenter panel, event on demand, mission setup, stop task library](docs/tasks/TASK-32_live-session.md) | `██████████` 100 % | 32 | 0 | 32 |
 
